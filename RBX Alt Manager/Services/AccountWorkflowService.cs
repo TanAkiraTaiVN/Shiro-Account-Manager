@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -108,7 +109,7 @@ namespace RBX_Alt_Manager.Services
             if (accountVm?.Model == null) return;
             var acc = accountVm;
 
-            string cookie = await AppDispatcher.InvokeAsync(() =>
+            string? cookie = await AppDispatcher.InvokeAsync(() =>
                 AppServices.Dialogs.ShowInputPrompt(
                     $"Nhập Cookie mới (.ROBLOSECURITY) cho {acc.Username}:",
                     $"Cập nhật Cookie cho {acc.Username}",
@@ -166,7 +167,7 @@ namespace RBX_Alt_Manager.Services
 
             if (input != null && input != "/UC")
             {
-                acc.Model.Alias = string.IsNullOrWhiteSpace(input) ? null : input.Trim();
+                acc.Model.Alias = string.IsNullOrWhiteSpace(input) ? string.Empty : input.Trim();
                 acc.Alias = acc.Model.Alias;
                 AccountManager.SaveAccounts();
                 statusCallback?.Invoke($"Đã đổi Alias cho {acc.Username} thành: {acc.Model.Alias}");

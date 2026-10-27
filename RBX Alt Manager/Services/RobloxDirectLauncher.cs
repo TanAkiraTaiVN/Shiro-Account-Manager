@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -15,10 +16,10 @@ namespace RBX_Alt_Manager.Services
         public sealed class LaunchResult
         {
             public bool Success { get; init; }
-            public Process Process { get; init; }
+            public Process? Process { get; init; }
             public int ProcessId { get; init; }
-            public string ExecutablePath { get; init; }
-            public string ErrorMessage { get; init; }
+            public string? ExecutablePath { get; init; }
+            public string? ErrorMessage { get; init; }
         }
 
         /// <summary>
@@ -26,7 +27,7 @@ namespace RBX_Alt_Manager.Services
         /// encrypted with Windows DPAPI (CurrentUser). This allows RobloxPlayerBeta.exe to start up directly logged in
         /// without contacting auth.roblox.com/v1/authentication-ticket/redeem, bypassing Error 403 on VPNs completely.
         /// </summary>
-        public static bool InjectAccountCookieToLocalStorage(string securityToken, string browserTrackerId = null)
+        public static bool InjectAccountCookieToLocalStorage(string securityToken, string? browserTrackerId = null)
         {
             if (string.IsNullOrWhiteSpace(securityToken)) return false;
             try
@@ -66,7 +67,7 @@ namespace RBX_Alt_Manager.Services
         /// <summary>
         /// Attempts to launch RobloxPlayerBeta.exe directly with credentials and server join instructions.
         /// </summary>
-        public static LaunchResult LaunchDirect(string ticket, string joinUrl, string username, string browserTrackerId = null, string securityToken = null)
+        public static LaunchResult LaunchDirect(string ticket, string joinUrl, string username, string? browserTrackerId = null, string? securityToken = null)
         {
             if (string.IsNullOrWhiteSpace(ticket) || string.IsNullOrWhiteSpace(joinUrl))
             {
@@ -106,7 +107,7 @@ namespace RBX_Alt_Manager.Services
                     WorkingDirectory = Path.GetDirectoryName(playerPath) ?? Environment.CurrentDirectory
                 };
 
-                Process process = Process.Start(startInfo);
+                Process? process = Process.Start(startInfo);
                 if (process == null)
                 {
                     return new LaunchResult
@@ -144,7 +145,7 @@ namespace RBX_Alt_Manager.Services
         /// <summary>
         /// Attempts to launch RobloxPlayerBeta.exe directly to the Home screen for an account.
         /// </summary>
-        public static LaunchResult LaunchHomeDirect(string username, string ticket = null, string browserTrackerId = null, string securityToken = null)
+        public static LaunchResult LaunchHomeDirect(string username, string? ticket = null, string? browserTrackerId = null, string? securityToken = null)
         {
             string playerPath = Account.FindRobloxPlayerExecutablePublic();
             if (string.IsNullOrWhiteSpace(playerPath) || !File.Exists(playerPath))
@@ -180,7 +181,7 @@ namespace RBX_Alt_Manager.Services
                     WorkingDirectory = Path.GetDirectoryName(playerPath) ?? Environment.CurrentDirectory
                 };
 
-                Process process = Process.Start(startInfo);
+                Process? process = Process.Start(startInfo);
                 if (process == null)
                 {
                     return new LaunchResult

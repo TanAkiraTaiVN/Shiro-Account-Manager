@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -40,10 +41,10 @@ namespace RBX_Alt_Manager.Services
     {
         public int Index { get; set; }
         public int Total { get; set; }
-        public Account Account { get; set; }
+        public Account? Account { get; set; }
         public LaunchOutcome Status { get; set; }
-        public string Result { get; set; }
-        public string Message { get; set; }
+        public string? Result { get; set; }
+        public string? Message { get; set; }
         public bool Completed { get; set; }
     }
 
@@ -78,7 +79,7 @@ namespace RBX_Alt_Manager.Services
             IReadOnlyList<LaunchRequest> requests,
             int delaySeconds,
             bool asyncJoin,
-            Action<LaunchProgress> progress,
+            Action<LaunchProgress>? progress,
             CancellationToken cancellationToken = default(CancellationToken));
 
         void SignalNext();
@@ -98,15 +99,15 @@ namespace RBX_Alt_Manager.Services
         private readonly SemaphoreSlim queueGate = new SemaphoreSlim(1, 1);
         private readonly Func<LaunchRequest, CancellationToken, Task<string>> executeLaunch;
         private readonly System.Threading.Lock stateLock = new();
-        private CancellationTokenSource activeCancellation;
-        private TaskCompletionSource<bool> nextSignal;
-        private TaskCompletionSource<bool> idleCompletion;
+        private CancellationTokenSource? activeCancellation;
+        private TaskCompletionSource<bool>? nextSignal;
+        private TaskCompletionSource<bool>? idleCompletion;
         private bool disposed;
 
         public const int MaxRateLimitRetries = 2;
         public const int DefaultSmartLaunchMinDelaySeconds = 3;
 
-        public static event Action<LaunchProgress> LaunchProgressChanged;
+        public static event Action<LaunchProgress>? LaunchProgressChanged;
 
         internal static int GetSmartLaunchMinDelayMs(int? configuredSecondsOverride = null, bool includeJitter = true)
         {
@@ -161,7 +162,7 @@ namespace RBX_Alt_Manager.Services
             IReadOnlyList<LaunchRequest> requests,
             int delaySeconds,
             bool asyncJoin,
-            Action<LaunchProgress> progress,
+            Action<LaunchProgress>? progress,
             CancellationToken cancellationToken = default(CancellationToken))
         {
             lock (stateLock)
@@ -493,7 +494,7 @@ namespace RBX_Alt_Manager.Services
 
         public void Cancel()
         {
-            CancellationTokenSource cancellation;
+            CancellationTokenSource? cancellation;
             lock (stateLock)
                 cancellation = activeCancellation;
 
@@ -504,7 +505,7 @@ namespace RBX_Alt_Manager.Services
             TimeSpan timeout,
             CancellationToken cancellationToken = default(CancellationToken))
         {
-            Task idleTask;
+            Task? idleTask;
             lock (stateLock)
             {
                 if (activeCancellation == null && idleCompletion == null)
@@ -535,7 +536,7 @@ namespace RBX_Alt_Manager.Services
 
         public void Dispose()
         {
-            CancellationTokenSource cancellation;
+            CancellationTokenSource? cancellation;
             lock (stateLock)
             {
                 if (disposed)
@@ -551,7 +552,7 @@ namespace RBX_Alt_Manager.Services
             // finally block can release it without an ObjectDisposedException.
         }
 
-        private static void Report(Action<LaunchProgress> progress, LaunchProgress state)
+        private static void Report(Action<LaunchProgress>? progress, LaunchProgress state)
         {
             try { progress?.Invoke(state); }
             catch (Exception ex) { Program.Logger?.Warn($"Launch progress callback threw: {ex.Message}"); }

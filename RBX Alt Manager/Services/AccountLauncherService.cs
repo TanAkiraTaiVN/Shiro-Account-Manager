@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -45,7 +46,7 @@ namespace RBX_Alt_Manager.Services
         /// <summary>
         /// Joins a specific game server (Place ID and optional Job ID / VIP server) for one or more accounts.
         /// </summary>
-        public static async Task JoinServerAsync(IEnumerable<Account> accounts, long placeId, string jobId)
+        public static async Task JoinServerAsync(IEnumerable<Account>? accounts, long placeId, string? jobId)
         {
             var targetList = accounts?.Where(a => a != null).ToList();
             if (targetList == null || targetList.Count == 0)
@@ -63,7 +64,7 @@ namespace RBX_Alt_Manager.Services
             {
                 if (AccountManager.Instance != null)
                 {
-                    await AccountManager.Instance.ModernJoinServerDirect(targetList, placeId, jobId).ConfigureAwait(false);
+                    await AccountManager.Instance.ModernJoinServerDirect(targetList, placeId, jobId ?? string.Empty).ConfigureAwait(false);
                 }
                 else
                 {

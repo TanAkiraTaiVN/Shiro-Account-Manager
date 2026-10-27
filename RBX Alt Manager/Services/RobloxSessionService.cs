@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Net.Http;
 using System.Threading;
@@ -56,7 +57,7 @@ namespace RBX_Alt_Manager.Services
 
         public Task<(bool Success, string Message)> UnblockEveryoneAsync(
             Account account,
-            Action<string> progressCallback = null,
+            Action<string>? progressCallback = null,
             CancellationToken cancellationToken = default)
         {
             if (account == null) return Task.FromResult((false, "Account is null"));

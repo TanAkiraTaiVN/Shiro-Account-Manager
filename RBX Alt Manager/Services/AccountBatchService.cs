@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -38,7 +39,7 @@ namespace RBX_Alt_Manager.Services
         public static int BatchSetProxy(IEnumerable<Account> accounts, string proxy)
         {
             if (accounts == null) return 0;
-            string p = string.IsNullOrWhiteSpace(proxy) ? null : proxy.Trim();
+            string? p = string.IsNullOrWhiteSpace(proxy) ? null : proxy.Trim();
             int modified = 0;
 
             foreach (var acc in accounts)
@@ -96,7 +97,7 @@ namespace RBX_Alt_Manager.Services
 
         public static async Task<Dictionary<string, bool>> BatchValidateSessionsAsync(
             IEnumerable<Account> accounts,
-            IProgress<double> progress = null,
+            IProgress<double>? progress = null,
             CancellationToken cancellationToken = default)
         {
             var results = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);

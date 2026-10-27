@@ -1,3 +1,4 @@
+#nullable enable
 using System.Threading.Tasks;
 using System.Threading;
 using RBX_Alt_Manager.Classes;
@@ -14,8 +15,8 @@ namespace RBX_Alt_Manager.Services
         public static BrowserService Default { get; } = new BrowserService();
 
         private static readonly SemaphoreSlim fallbackBrowserGate = new SemaphoreSlim(1, 1);
-        private static string fallbackBrowserPath;
-        private static string cachedInstalledBrowserPath;
+        private static string? fallbackBrowserPath;
+        private static string? cachedInstalledBrowserPath;
 
         private static ReadOnlySpan<byte> SuppressedPasswordPrefsUtf8 =>
             """
@@ -41,14 +42,14 @@ namespace RBX_Alt_Manager.Services
         /// Keeping this choice here makes sign-in and sign-up use the same
         /// browser policy as the rest of the application.
         /// </summary>
-        public static string FindInstalledBrowserExecutable()
+        public static string? FindInstalledBrowserExecutable()
         {
-            string cached = Volatile.Read(ref cachedInstalledBrowserPath);
+            string? cached = Volatile.Read(ref cachedInstalledBrowserPath);
             if (!string.IsNullOrEmpty(cached) && File.Exists(cached))
                 return cached;
 
             string[] candidates = AccountBrowser.FindSystemBrowserExecutables();
-            string edgeFallback = null;
+            string? edgeFallback = null;
             foreach (string path in candidates)
             {
                 string fileName = Path.GetFileName(path);
@@ -79,7 +80,7 @@ namespace RBX_Alt_Manager.Services
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            string installed = FindInstalledBrowserExecutable();
+            string? installed = FindInstalledBrowserExecutable();
             if (!string.IsNullOrWhiteSpace(installed))
                 return installed;
 
@@ -89,13 +90,13 @@ namespace RBX_Alt_Manager.Services
                 if (!string.IsNullOrWhiteSpace(fallbackBrowserPath) && File.Exists(fallbackBrowserPath))
                     return fallbackBrowserPath;
 
-                Program.Logger.Warn("Chrome and Edge were not found; downloading the isolated Chromium fallback.");
+                Program.Logger?.Warn("Chrome and Edge were not found; downloading the isolated Chromium fallback.");
                 InstalledBrowser revision = await AccountBrowser.Fetcher
                     .DownloadAsync(Chrome.DefaultBuildId)
                     .ConfigureAwait(false);
                 cancellationToken.ThrowIfCancellationRequested();
 
-                string executable = revision?.GetExecutablePath();
+                string? executable = revision?.GetExecutablePath();
                 if (string.IsNullOrWhiteSpace(executable) || !File.Exists(executable))
                     throw new FileNotFoundException("The Chromium fallback executable was not available.", executable);
 
@@ -140,9 +141,9 @@ namespace RBX_Alt_Manager.Services
 
         private static readonly SemaphoreSlim SignInGate = new SemaphoreSlim(2, 2);
 
-        public async Task<Account> SignInAsync(
-            string username = null,
-            string password = null,
+        public async Task<Account?> SignInAsync(
+            string? username = null,
+            string? password = null,
             int windowSlot = 0,
             bool submitCredentials = true,
             CancellationToken cancellationToken = default(CancellationToken))
@@ -163,12 +164,12 @@ namespace RBX_Alt_Manager.Services
             }
         }
 
-        public Task<Account> SignUpAsync(
-            string username = null,
-            string password = null,
+        public async Task<Account?> SignUpAsync(
+            string? username = null,
+            string? password = null,
             CancellationToken cancellationToken = default(CancellationToken))
         {
-            return RobloxBrowserSignup.OpenAsync(username, password, cancellationToken);
+            return await RobloxBrowserSignup.OpenAsync(username!, password!, cancellationToken).ConfigureAwait(false);
         }
 
         public Task<string> OpenHomeAsync(

@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -14,11 +15,11 @@ namespace RBX_Alt_Manager.Services
         public const int MaxHistoricalBackups = 10;
         private static readonly TimeSpan HistoricalBackupInterval = TimeSpan.FromMinutes(5);
 
-        private readonly string _accountFile;
-        private readonly string _backupsDirectory;
+        private readonly string? _accountFile;
+        private readonly string? _backupsDirectory;
         private DateTime _lastHistoricalBackupUtc = DateTime.MinValue;
 
-        public AccountStore(string accountFile = null, string backupsDirectory = null)
+        public AccountStore(string? accountFile = null, string? backupsDirectory = null)
         {
             _accountFile = accountFile;
             _backupsDirectory = backupsDirectory;
@@ -88,7 +89,7 @@ namespace RBX_Alt_Manager.Services
             }
             catch (Exception ex)
             {
-                try { Program.Logger.Warn($"[AccountStore] Failed to create historical backup: {ex.Message}"); }
+                try { Program.Logger?.Warn($"[AccountStore] Failed to create historical backup: {ex.Message}"); }
                 catch (Exception) { }
             }
         }
