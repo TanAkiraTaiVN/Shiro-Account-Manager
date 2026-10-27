@@ -219,7 +219,8 @@ namespace RBX_Alt_Manager.Classes
                     }
                 };
 
-                proxyAuthSession = await AttachProxyAuthenticationAsync(signInPage, proxy);
+                if (proxy != null)
+                    proxyAuthSession = await AttachProxyAuthenticationAsync(signInPage, proxy);
 
                 await EnsureLoginPageAsync(signInPage);
 
@@ -229,7 +230,7 @@ namespace RBX_Alt_Manager.Classes
                     ? "Chrome is ready for interactive Roblox sign-in. Waiting for the user to finish sign-in and verification."
                     : "Chrome is ready for manual sign-in. Credentials were prefilled; click Log In and finish verification.");
 
-                string lastAttemptedCookie = null;
+                string? lastAttemptedCookie = null;
                 DateTime lastCookieAttemptUtc = DateTime.MinValue;
                 while (true)
                 {
@@ -255,7 +256,7 @@ namespace RBX_Alt_Manager.Classes
                                 }
                                 catch (Exception pageEx)
                                 {
-                                    Program.Logger.Warn($"Could not create new tab in sign-in browser: {pageEx.Message}");
+                                    Program.Logger?.Warn($"Could not create new tab in sign-in browser: {pageEx.Message}");
                                     signInPage = null;
                                     await Task.Delay(500, cancellationToken).ConfigureAwait(false);
                                     continue;
@@ -275,10 +276,10 @@ namespace RBX_Alt_Manager.Classes
                             }
 
                             proxyAuthSession = await AttachProxyAuthenticationAsync(signInPage, proxy);
-                            Program.Logger.Info("Reattached to the active Roblox sign-in browser tab.");
+                            Program.Logger?.Info("Reattached to the active Roblox sign-in browser tab.");
                         }
 
-                        CookieParam sessionCookie = await ExtractRoblosecurityCookieAsync(signInPage).ConfigureAwait(false);
+                        CookieParam? sessionCookie = await ExtractRoblosecurityCookieAsync(signInPage).ConfigureAwait(false);
 
                         if (sessionCookie != null &&
                             (!string.Equals(sessionCookie.Value, lastAttemptedCookie, StringComparison.Ordinal) ||
@@ -287,7 +288,7 @@ namespace RBX_Alt_Manager.Classes
                             lastAttemptedCookie = sessionCookie.Value;
                             lastCookieAttemptUtc = DateTime.UtcNow;
 
-                            Program.Logger.Info("[SignInAsync] Initial .ROBLOSECURITY cookie detected. Waiting for post-login navigation to /home and cookie rotation to settle...");
+                            Program.Logger?.Info("[SignInAsync] Initial .ROBLOSECURITY cookie detected. Waiting for post-login navigation to /home and cookie rotation to settle...");
 
                             // 1. Allow browser to settle: wait for redirect away from /login to /home or /discover
                             try
@@ -312,7 +313,7 @@ namespace RBX_Alt_Manager.Classes
                             }
 
                             // 2. Read account details through the authenticated browser page
-                            string accountJson = await ReadAccountJsonAsync(signInPage).ConfigureAwait(false);
+                            string? accountJson = signInPage != null ? await ReadAccountJsonAsync(signInPage).ConfigureAwait(false) : null;
 
                             // 3. Immediately re-read cookies from the page to capture the SETTLED / ROTATED token!
                             string settledCookieValue = sessionCookie.Value;
@@ -333,25 +334,25 @@ namespace RBX_Alt_Manager.Classes
                             }
 
                             // 4. Add or update account with the settled cookie
-                            Account account = await AccountManager.AddAccountAsync(settledCookieValue, password, accountJson, cancellationToken: cancellationToken).ConfigureAwait(false);
+                            Account? account = await AccountManager.AddAccountAsync(settledCookieValue, password ?? string.Empty, accountJson, cancellationToken: cancellationToken).ConfigureAwait(false);
                             if (account != null)
                             {
                                 createdAccount = account;
-                                Program.Logger.Info($"[SignInAsync] Account {account.Username} registered from browser. Verifying session live before closing...");
+                                Program.Logger?.Info($"[SignInAsync] Account {account.Username} registered from browser. Verifying session live before closing...");
 
                                 // 5. Verify live against Roblox API. ValidateSessionAsync also automatically captures and updates
                                 // any rotated token from the response headers!
                                 bool sessionValid = await account.ValidateSessionAsync(cancellationToken).ConfigureAwait(false);
                                 if (!sessionValid)
                                 {
-                                    Program.Logger.Warn($"[SignInAsync] Validation check for {account.Username} was not immediately OK. Waiting 1s to re-read page cookies...");
+                                    Program.Logger?.Warn($"[SignInAsync] Validation check for {account.Username} was not immediately OK. Waiting 1s to re-read page cookies...");
                                     await Task.Delay(1000, cancellationToken).ConfigureAwait(false);
                                     if (signInPage != null && !signInPage.IsClosed)
                                     {
                                         var fresh = await ExtractRoblosecurityCookieAsync(signInPage).ConfigureAwait(false);
                                         if (fresh != null && !string.Equals(account.SecurityToken, fresh.Value, StringComparison.Ordinal))
                                         {
-                                            Program.Logger.Info($"[SignInAsync] Captured post-settle rotated cookie for {account.Username}.");
+                                            Program.Logger?.Info($"[SignInAsync] Captured post-settle rotated cookie for {account.Username}.");
                                             account.SecurityToken = fresh.Value;
                                             sessionValid = await account.ValidateSessionAsync(cancellationToken).ConfigureAwait(false);
                                         }
@@ -364,41 +365,41 @@ namespace RBX_Alt_Manager.Classes
 
                                 if (sessionValid)
                                 {
-                                    Program.Logger.Info($"[SignInAsync] Live session verified successfully for {account.Username} (UserId: {account.UserID})! Ready to close browser.");
+                                    Program.Logger?.Info($"[SignInAsync] Live session verified successfully for {account.Username} (UserId: {account.UserID})! Ready to close browser.");
                                     await Task.Delay(1000, cancellationToken).ConfigureAwait(false);
                                     break;
                                 }
                                 else
                                 {
                                     lastAttemptedCookie = null;
-                                    Program.Logger.Warn($"[SignInAsync] Session for {account.Username} could not be validated yet; keeping browser open for completion.");
+                                    Program.Logger?.Warn($"[SignInAsync] Session for {account.Username} could not be validated yet; keeping browser open for completion.");
                                 }
                             }
                             else
                             {
-                                Program.Logger.Warn("Roblox did not accept the session from the temporary browser; the cookie value was not logged.");
+                                Program.Logger?.Warn("Roblox did not accept the session from the temporary browser; the cookie value was not logged.");
                             }
                         }
                     }
                     catch (TargetClosedException ex)
                     {
                         signInPage = null;
-                        Program.Logger.Warn("The Roblox sign-in tab changed while reading cookies; waiting for the active tab. " + ex.Message);
+                        Program.Logger?.Warn("The Roblox sign-in tab changed while reading cookies; waiting for the active tab. " + ex.Message);
                     }
                     catch (PuppeteerException ex) when (IsDetachedPageException(ex))
                     {
                         signInPage = null;
-                        Program.Logger.Warn("The Roblox sign-in tab was replaced while reading cookies; waiting for the active tab. " + ex.Message);
+                        Program.Logger?.Warn("The Roblox sign-in tab was replaced while reading cookies; waiting for the active tab. " + ex.Message);
                     }
                     catch (MessageException ex)
                     {
                         signInPage = null;
-                        Program.Logger.Warn("DevTools protocol message error in sign-in browser; retrying tab: " + ex.Message);
+                        Program.Logger?.Warn("DevTools protocol message error in sign-in browser; retrying tab: " + ex.Message);
                     }
                     catch (PuppeteerException ex)
                     {
                         signInPage = null;
-                        Program.Logger.Warn("Puppeteer exception in sign-in browser: " + ex.Message);
+                        Program.Logger?.Warn("Puppeteer exception in sign-in browser: " + ex.Message);
                     }
 
                     await Task.Delay(1000, cancellationToken).ConfigureAwait(false);
@@ -433,7 +434,7 @@ namespace RBX_Alt_Manager.Classes
             return createdAccount;
         }
 
-        private static async Task PrepareLoginAsync(IPage page, string username, string password, bool submitCredentials)
+        private static async Task PrepareLoginAsync(IPage page, string? username, string? password, bool submitCredentials)
         {
             if (page == null || (string.IsNullOrWhiteSpace(username) && string.IsNullOrWhiteSpace(password)))
                 return;
@@ -559,7 +560,7 @@ namespace RBX_Alt_Manager.Classes
                 await Task.Delay(180);
             }
 
-            Program.Logger.Warn($"Roblox did not confirm the prefilled login field {selector}; complete it manually in Chrome.");
+            Program.Logger?.Warn($"Roblox did not confirm the prefilled login field {selector}; complete it manually in Chrome.");
         }
 
         private static async Task EnsureLoginPageAsync(IPage page)
@@ -656,13 +657,13 @@ namespace RBX_Alt_Manager.Classes
             await ChromeLaunchHelper.DismissCookieBannerAsync(page).ConfigureAwait(false);
         }
 
-        private static Task<string> ReadAccountJsonAsync(IPage page)
+        private static Task<string?> ReadAccountJsonAsync(IPage page)
             => ChromeLaunchHelper.ReadAuthenticatedRobloxAccountJsonAsync(page, maxAttempts: 2);
 
-        private static Task<IPage> FindActiveSignInPageAsync(IBrowser connectedBrowser)
+        private static Task<IPage?> FindActiveSignInPageAsync(IBrowser connectedBrowser)
             => ChromeLaunchHelper.FindActiveRobloxPageAsync(connectedBrowser);
 
-        private static async Task<ICDPSession> AttachProxyAuthenticationAsync(IPage page, ProxyConfiguration proxy)
+        private static async Task<ICDPSession?> AttachProxyAuthenticationAsync(IPage page, ProxyConfiguration? proxy)
         {
             if (proxy == null || string.IsNullOrEmpty(proxy.Username))
                 return null;
@@ -673,7 +674,8 @@ namespace RBX_Alt_Manager.Classes
             ICDPSession session = await page.CreateCDPSessionAsync();
             session.MessageReceived += (sender, e) =>
             {
-                AccountBrowser.Observe(ChromeLaunchHelper.HandleCdpProxyAuthChallengeAsync((ICDPSession)sender, e, user, pass));
+                if (sender is ICDPSession cdpSession)
+                    AccountBrowser.Observe(ChromeLaunchHelper.HandleCdpProxyAuthChallengeAsync(cdpSession, e, user, pass));
             };
             await session.SendAsync("Fetch.enable", new { handleAuthRequests = true });
             return session;
@@ -700,7 +702,7 @@ namespace RBX_Alt_Manager.Classes
         private static int GetFreeLoopbackPort()
             => ChromeLaunchHelper.GetFreeLoopbackPort();
 
-        private static void OpenManualSignIn(string browserPath)
+        private static void OpenManualSignIn(string? browserPath)
         {
             if (string.IsNullOrEmpty(browserPath))
             {
@@ -717,7 +719,7 @@ namespace RBX_Alt_Manager.Classes
             {
                 Directory.CreateDirectory(profilePath);
                 BrowserService.SuppressPasswordManager(profilePath);
-                Process browser = Process.Start(new ProcessStartInfo
+                Process? browser = Process.Start(new ProcessStartInfo
                 {
                     FileName = browserPath,
                     Arguments = string.Join(" ", new[]
@@ -785,7 +787,7 @@ namespace RBX_Alt_Manager.Classes
             }
         }
 
-        private static async Task<ProxyConfiguration> SelectProxyAsync(CancellationToken cancellationToken = default)
+        private static async Task<ProxyConfiguration?> SelectProxyAsync(CancellationToken cancellationToken = default)
         {
             var verified = await ChromeLaunchHelper.SelectVerifiedBrowserProxyAsync(VerificationProbeUrls, cancellationToken).ConfigureAwait(false);
             if (verified == null)
@@ -793,13 +795,13 @@ namespace RBX_Alt_Manager.Classes
 
             return new ProxyConfiguration
             {
-                Server = verified.BrowserServerArgument,
-                Username = verified.Username,
-                Password = verified.Password
+                Server = verified.BrowserServerArgument ?? string.Empty,
+                Username = verified.Username ?? string.Empty,
+                Password = verified.Password ?? string.Empty
             };
         }
 
-        private static Task<CookieParam> ExtractRoblosecurityCookieAsync(IPage page)
+        private static Task<CookieParam?> ExtractRoblosecurityCookieAsync(IPage page)
             => ChromeLaunchHelper.ExtractRoblosecurityCookieAsync(page);
 
         private static void CloseBrowser(Process browser)
@@ -816,9 +818,9 @@ namespace RBX_Alt_Manager.Classes
 
         private sealed class ProxyConfiguration
         {
-            public string Server { get; set; }
-            public string Username { get; set; }
-            public string Password { get; set; }
+            public string Server { get; set; } = string.Empty;
+            public string Username { get; set; } = string.Empty;
+            public string Password { get; set; } = string.Empty;
         }
 
         private static Task TryDeleteTemporaryDirectoryAsync(string path)

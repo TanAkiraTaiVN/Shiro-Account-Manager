@@ -28,7 +28,7 @@ namespace RBX_Alt_Manager
             _cachedRobloxExecutableTick = -60000;
         }
 
-        public static string FindRobloxPlayerExecutablePublic() => FindRobloxPlayerExecutable();
+        public static string? FindRobloxPlayerExecutablePublic() => FindRobloxPlayerExecutable();
         public static bool HasRobloxPlayerProtocolHandlerPublic() => HasRobloxPlayerProtocolHandler();
 
         /// <summary>
@@ -39,16 +39,16 @@ namespace RBX_Alt_Manager
         /// executable directly keeps the same ticket and join URL while
         /// avoiding that Windows association.
         /// </summary>
-        private static string FindRobloxPlayerExecutable()
+        private static string? FindRobloxPlayerExecutable()
         {
             long now = Environment.TickCount64;
-            string cached = _cachedRobloxExecutablePath;
+            string? cached = _cachedRobloxExecutablePath;
             if (!string.IsNullOrEmpty(cached) && (now - _cachedRobloxExecutableTick) < ExecutableCacheTtlMs && File.Exists(cached))
             {
                 return cached;
             }
 
-            string resolved = FindRobloxPlayerExecutableCore();
+            string? resolved = FindRobloxPlayerExecutableCore();
             if (!string.IsNullOrEmpty(resolved))
             {
                 _cachedRobloxExecutablePath = resolved;
@@ -57,10 +57,10 @@ namespace RBX_Alt_Manager
             return resolved;
         }
 
-        private static string FindRobloxPlayerExecutableCore()
+        private static string? FindRobloxPlayerExecutableCore()
         {
             string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            string programFilesX86 = Environment.GetEnvironmentVariable("ProgramFiles(x86)");
+            string? programFilesX86 = Environment.GetEnvironmentVariable("ProgramFiles(x86)");
             string programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
             string[] roots =
             {
@@ -73,8 +73,8 @@ namespace RBX_Alt_Manager
             // that is the authoritative active version registered with Windows, preventing mismatch loops.
             try
             {
-                using RegistryKey commandKey = Registry.ClassesRoot.OpenSubKey(@"roblox-player\shell\open\command");
-                string command = commandKey?.GetValue("") as string;
+                using RegistryKey? commandKey = Registry.ClassesRoot.OpenSubKey(@"roblox-player\shell\open\command");
+                string? command = commandKey?.GetValue("") as string;
                 if (!string.IsNullOrWhiteSpace(command))
                 {
                     var match = RobloxExeRegex().Match(command);
@@ -103,8 +103,8 @@ namespace RBX_Alt_Manager
 
             try
             {
-                using RegistryKey iconKey = Registry.ClassesRoot.OpenSubKey(@"roblox\DefaultIcon");
-                string registered = iconKey?.GetValue("") as string;
+                using RegistryKey? iconKey = Registry.ClassesRoot.OpenSubKey(@"roblox\DefaultIcon");
+                string? registered = iconKey?.GetValue("") as string;
                 if (!string.IsNullOrWhiteSpace(registered))
                 {
                     string path = registered.Trim().Trim('"');
@@ -139,7 +139,7 @@ namespace RBX_Alt_Manager
             }
 
             // Select the highest FileVersion (newest version first), breaking ties by LastWriteTimeUtc
-            string bestPath = null;
+            string? bestPath = null;
             Version bestVersion = new Version(0, 0, 0, 0);
             DateTime bestWriteUtc = DateTime.MinValue;
             var seenPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -181,9 +181,9 @@ namespace RBX_Alt_Manager
         {
             try
             {
-                using RegistryKey commandKey = Registry.ClassesRoot.OpenSubKey(
+                using RegistryKey? commandKey = Registry.ClassesRoot.OpenSubKey(
                     @"roblox-player\shell\open\command");
-                string command = commandKey?.GetValue("") as string;
+                string? command = commandKey?.GetValue("") as string;
 
                 if (string.IsNullOrWhiteSpace(command))
                     return false;
@@ -262,7 +262,7 @@ namespace RBX_Alt_Manager
             if (wasUpdating)
             {
                 InvalidateExecutableCache();
-                Program.Logger.Info("Roblox update finished. Refreshing client version...");
+                Program.Logger?.Info("Roblox update finished. Refreshing client version...");
                 try { await AccountManager.LoadClientVersionAsync(cancellationToken).ConfigureAwait(false); }
                 catch (Exception ex) { Program.Logger?.Warn($"Failed to refresh client version after update: {ex.Message}"); }
             }
@@ -395,7 +395,7 @@ namespace RBX_Alt_Manager
                                     await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false); // skip partial line
                                 }
 
-                                string l;
+                                string? l;
                                 while ((l = await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false)) != null)
                                 {
                                     logLines.Add(l);
@@ -531,7 +531,7 @@ namespace RBX_Alt_Manager
 
                     try
                     {
-                        string CommandLine = ProcessExtensions.GetCommandLineByPid(pid);
+                        string? CommandLine = ProcessExtensions.GetCommandLineByPid(pid);
                         if (string.IsNullOrEmpty(CommandLine)) continue;
 
                         var TrackerMatch = TrackerRegex().Match(CommandLine);

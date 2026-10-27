@@ -26,25 +26,25 @@ namespace RBX_Alt_Manager
 {
     public partial class AccountManager : IDisposable
     {
-        public static AccountManager Instance;
-        public static List<Account> AccountsList;
-        public static List<Account> SelectedAccounts;
-        public static List<Game> RecentGames;
-        public static Account SelectedAccount;
-        public static Account LastValidAccount; // this is used for the Batch class since getting place details requires authorization, auto updates whenever an account is used
-        public static RestClient MainClient;
-        public static RestClient AvatarClient;
-        public static RestClient FriendsClient;
-        public static RestClient UsersClient;
-        public static RestClient AuthClient;
-        public static RestClient EconClient;
-        public static RestClient AccountClient;
-        public static RestClient GameJoinClient;
-        public static RestClient ThumbnailsClient;
-        public static RestClient GamesClient;
-        public static RestClient DevelopClient;
-        public static RestClient PresenceClient;
-        public static RestClient ApiClient;
+        public static AccountManager? Instance;
+        public static List<Account> AccountsList = new();
+        public static List<Account> SelectedAccounts = new();
+        public static List<Game> RecentGames = new();
+        public static Account? SelectedAccount;
+        public static Account? LastValidAccount; // this is used for the Batch class since getting place details requires authorization, auto updates whenever an account is used
+        public static RestClient MainClient = null!;
+        public static RestClient AvatarClient = null!;
+        public static RestClient FriendsClient = null!;
+        public static RestClient UsersClient = null!;
+        public static RestClient AuthClient = null!;
+        public static RestClient EconClient = null!;
+        public static RestClient AccountClient = null!;
+        public static RestClient GameJoinClient = null!;
+        public static RestClient ThumbnailsClient = null!;
+        public static RestClient GamesClient = null!;
+        public static RestClient DevelopClient = null!;
+        public static RestClient PresenceClient = null!;
+        public static RestClient ApiClient = null!;
         private static string _currentPlaceId = string.Empty;
         private static string _currentJobId = string.Empty;
 
@@ -53,7 +53,7 @@ namespace RBX_Alt_Manager
             get
             {
                 if (!string.IsNullOrEmpty(_currentPlaceId)) return _currentPlaceId;
-                return General?.Exists("SavedPlaceId") == true ? General.Get("SavedPlaceId") : "5315046213";
+                return General?.Exists("SavedPlaceId") == true ? (General.Get("SavedPlaceId") ?? "5315046213") : "5315046213";
             }
             set
             {
@@ -72,7 +72,7 @@ namespace RBX_Alt_Manager
         private readonly static DateTime startTime = DateTime.Now;
         public static bool ShuffleJobID = false;
         private static bool PuppeteerSupported;
-        public static string CurrentVersion;
+        public static string CurrentVersion = string.Empty;
         public bool IsDisposed => shutdownFinalized;
         public bool IsHandleCreated => true;
 
@@ -90,33 +90,33 @@ namespace RBX_Alt_Manager
             if (action == null) return;
             AppDispatcher.Post(action);
         }
-        private KestrelWebServer AltManagerWS;
-        private string WSPassword { get; set; }
-        public RBX_Alt_Manager.Services.ModernPeriodicTask AutoCookieRefresh { get; private set; }
-        public RBX_Alt_Manager.Services.ModernPeriodicTask PresenceTimer { get; private set; }
+        private KestrelWebServer? AltManagerWS;
+        private string WSPassword { get; set; } = string.Empty;
+        public RBX_Alt_Manager.Services.ModernPeriodicTask? AutoCookieRefresh { get; private set; }
+        public RBX_Alt_Manager.Services.ModernPeriodicTask? PresenceTimer { get; private set; }
         private readonly System.Threading.Lock presenceTaskLock = new();
-        private Task presenceRefreshTask;
+        private Task? presenceRefreshTask;
         private readonly CancellationTokenSource lifetimeCancellation = new CancellationTokenSource();
         private readonly SemaphoreSlim cookieRefreshGate = new SemaphoreSlim(1, 1);
-        private Task vcredistInstallTask;
-        private Task clientVersionTask;
-        private Task recentGamesTask;
+        private Task? vcredistInstallTask;
+        private Task? clientVersionTask;
+        private Task? recentGamesTask;
         private bool shutdownRequested;
         private bool shutdownFinalized;
 
-        public static IniFile IniSettings;
-        public static IniSection General;
-        public static IniSection Developer;
-        public static IniSection WebServer;
-        public static IniSection AccountControl;
-        public static IniSection Watcher;
-        public static IniSection Prompts;
+        public static IniFile IniSettings = null!;
+        public static IniSection General = null!;
+        public static IniSection Developer = null!;
+        public static IniSection WebServer = null!;
+        public static IniSection AccountControl = null!;
+        public static IniSection Watcher = null!;
+        public static IniSection Prompts = null!;
         private readonly SettingsService settingsService;
-        private static AccountStore accountStore;
+        private static AccountStore accountStore = null!;
         internal static readonly System.Threading.Lock AccountListLock = new();
         private readonly PresenceService presenceService;
         private readonly BrowserService browserService;
-        private RobloxApiClient apiClient;
+        private RobloxApiClient? apiClient;
         private bool accountDataNeedsMigration;
 
         // Keep the value used by the launch countdown and the native launch
@@ -133,7 +133,7 @@ namespace RBX_Alt_Manager
 
             try
             {
-                string configured = General?.Get("AccountJoinDelay");
+                string? configured = General?.Get("AccountJoinDelay");
                 if (!int.TryParse(configured, NumberStyles.Integer, CultureInfo.InvariantCulture, out delay))
                     delay = DefaultAccountJoinDelaySeconds;
             }
@@ -239,7 +239,7 @@ namespace RBX_Alt_Manager
         private static readonly System.Threading.Lock saveLock = new();
         private static DateTime lastSaveTime = DateTime.MinValue;
         private static readonly System.Threading.Lock rgSaveLock = new();
-        public event EventHandler<GameArgs> RecentGameAdded;
+        public event EventHandler<GameArgs>? RecentGameAdded;
 
         public bool IsDownloadingChromium { get; private set; }
         private readonly ILaunchCoordinator launchCoordinator;
@@ -304,7 +304,7 @@ namespace RBX_Alt_Manager
 
             if (General.Exists("SavedPlaceId") && !string.IsNullOrWhiteSpace(General.Get("SavedPlaceId")))
             {
-                _currentPlaceId = General.Get("SavedPlaceId").Trim();
+                _currentPlaceId = General.Get("SavedPlaceId")?.Trim() ?? string.Empty;
             }
 
             if (!General.Exists("AccentTheme")) General.Set("AccentTheme", "Monochrome");
@@ -367,7 +367,7 @@ namespace RBX_Alt_Manager
             if (!WebServer.Exists("AllowGetAccounts")) WebServer.Set("AllowGetAccounts", "false");
             if (!WebServer.Exists("AllowLaunchAccount")) WebServer.Set("AllowLaunchAccount", "false");
             if (!WebServer.Exists("AllowAccountEditing")) WebServer.Set("AllowAccountEditing", "false");
-            if (!WebServer.Exists("Password")) WebServer.Set("Password", ""); else WSPassword = WebServer.Get("Password");
+            if (!WebServer.Exists("Password")) WebServer.Set("Password", ""); else WSPassword = WebServer.Get("Password") ?? string.Empty;
             if (!WebServer.Exists("EveryRequestRequiresPassword")) WebServer.Set("EveryRequestRequiresPassword", "false");
             if (!WebServer.Exists("AllowExternalConnections")) WebServer.Set("AllowExternalConnections", "false");
 
@@ -385,7 +385,7 @@ namespace RBX_Alt_Manager
                 vcredistInstallTask = PrerequisiteService.InstallVCRedistAsync(lifetimeCancellation.Token);
         }
 
-        public void RefreshView(object obj = null)
+        public void RefreshView(object? obj = null)
         {
             RefreshModernDashboard();
         }
@@ -424,7 +424,7 @@ namespace RBX_Alt_Manager
             return RBX_Alt_Manager.AvaloniaUI.Views.InputDialog.Prompt(text, caption, defaultText, big);
         }
 
-        private async Task ObserveBackgroundTaskAsync(Task task, string operation)
+        private async Task ObserveBackgroundTaskAsync(Task? task, string operation)
         {
             if (task == null)
                 return;
@@ -454,7 +454,7 @@ namespace RBX_Alt_Manager
 
                 using var vDoc = System.Text.Json.JsonDocument.Parse(versionJson);
                 if (vDoc.RootElement.TryGetProperty("clientVersionUpload", out var token))
-                    CurrentVersion = token.GetString();
+                    CurrentVersion = token.GetString() ?? string.Empty;
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -512,13 +512,13 @@ namespace RBX_Alt_Manager
 
             // Legacy child forms are lazily instantiated on demand instead of allocating GDI handles at startup
 
-            CurrentPlaceId = General.Exists("SavedPlaceId") ? General.Get("SavedPlaceId") : "5315046213";
+            CurrentPlaceId = General.Exists("SavedPlaceId") ? (General.Get("SavedPlaceId") ?? "5315046213") : "5315046213";
 
             try
             {
                 if (Developer.Get<bool>("EnableWebServer"))
                 {
-                    string PortStr = WebServer.Exists("WebServerPort") ? WebServer.Get("WebServerPort") : "7963";
+                    string PortStr = WebServer.Exists("WebServerPort") ? (WebServer.Get("WebServerPort") ?? "7963") : "7963";
                     int Port = int.TryParse(PortStr, out int p) ? p : 7963;
                     bool AllowExternal = WebServer.Get<bool>("AllowExternalConnections");
 

@@ -10,7 +10,7 @@ namespace RBX_Alt_Manager.Services
         private static readonly Lazy<RobloxLauncherService> _defaultInstance = new(() => new RobloxLauncherService());
         public static RobloxLauncherService Default => _defaultInstance.Value;
 
-        public string FindRobloxPlayerExecutable() => Account.FindRobloxPlayerExecutablePublic();
+        public string? FindRobloxPlayerExecutable() => Account.FindRobloxPlayerExecutablePublic();
 
         public bool HasRobloxPlayerProtocolHandler() => Account.HasRobloxPlayerProtocolHandlerPublic();
 

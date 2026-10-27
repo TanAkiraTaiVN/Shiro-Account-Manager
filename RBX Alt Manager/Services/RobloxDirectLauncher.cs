@@ -78,7 +78,7 @@ namespace RBX_Alt_Manager.Services
                 };
             }
 
-            string playerPath = Account.FindRobloxPlayerExecutablePublic();
+            string? playerPath = Account.FindRobloxPlayerExecutablePublic();
             if (string.IsNullOrWhiteSpace(playerPath) || !File.Exists(playerPath))
             {
                 return new LaunchResult
@@ -147,7 +147,7 @@ namespace RBX_Alt_Manager.Services
         /// </summary>
         public static LaunchResult LaunchHomeDirect(string username, string? ticket = null, string? browserTrackerId = null, string? securityToken = null)
         {
-            string playerPath = Account.FindRobloxPlayerExecutablePublic();
+            string? playerPath = Account.FindRobloxPlayerExecutablePublic();
             if (string.IsNullOrWhiteSpace(playerPath) || !File.Exists(playerPath))
             {
                 return new LaunchResult

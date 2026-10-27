@@ -63,8 +63,8 @@ namespace RBX_Alt_Manager
             string ticket,
             string joinUrl,
             string username,
-            string browserTrackerId = null,
-            string securityToken = null,
+            string? browserTrackerId = null,
+            string? securityToken = null,
             CancellationToken cancellationToken = default)
         {
             await NativeLaunchGate.WaitAsync(cancellationToken).ConfigureAwait(false);
@@ -92,7 +92,7 @@ namespace RBX_Alt_Manager
                     try
                     {
                         var existingClientPids = new HashSet<int>(RobloxProcessService.GetRunningRobloxPids());
-                        using Process launcher = Process.Start(new ProcessStartInfo
+                        using Process? launcher = Process.Start(new ProcessStartInfo
                         {
                             FileName = nativeLaunchUri,
                             UseShellExecute = true
@@ -130,7 +130,7 @@ namespace RBX_Alt_Manager
                 }
 
                 cancellationToken.ThrowIfCancellationRequested();
-                string playerPath = FindRobloxPlayerExecutable();
+                string? playerPath = FindRobloxPlayerExecutable();
                 if (string.IsNullOrWhiteSpace(playerPath))
                     throw new FileNotFoundException("RobloxPlayerBeta.exe was not found.");
 
@@ -141,7 +141,7 @@ namespace RBX_Alt_Manager
                 };
                 AddDirectGameArguments(directLaunch, ticket, joinUrl);
                 cancellationToken.ThrowIfCancellationRequested();
-                using Process fallbackProc = Process.Start(directLaunch);
+                using Process? fallbackProc = Process.Start(directLaunch);
                 if (fallbackProc == null)
                     throw new InvalidOperationException("Windows did not start RobloxPlayerBeta.exe.");
                 int fallbackPid = fallbackProc.Id;
@@ -163,8 +163,8 @@ namespace RBX_Alt_Manager
             string nativeHomeUri,
             string ticket,
             string username,
-            string browserTrackerId = null,
-            string securityToken = null,
+            string? browserTrackerId = null,
+            string? securityToken = null,
             CancellationToken cancellationToken = default)
         {
             await NativeLaunchGate.WaitAsync(cancellationToken).ConfigureAwait(false);
@@ -192,7 +192,7 @@ namespace RBX_Alt_Manager
                     try
                     {
                         var existingClientPids = new HashSet<int>(RobloxProcessService.GetRunningRobloxPids());
-                        using Process launcher = Process.Start(new ProcessStartInfo
+                        using Process? launcher = Process.Start(new ProcessStartInfo
                         {
                             FileName = nativeHomeUri,
                             UseShellExecute = true
@@ -235,7 +235,7 @@ namespace RBX_Alt_Manager
                 }
 
                 cancellationToken.ThrowIfCancellationRequested();
-                string playerPath = FindRobloxPlayerExecutable();
+                string? playerPath = FindRobloxPlayerExecutable();
                 if (string.IsNullOrWhiteSpace(playerPath))
                     throw new FileNotFoundException("RobloxPlayerBeta.exe was not found.");
 
@@ -247,7 +247,7 @@ namespace RBX_Alt_Manager
                 directLaunch.ArgumentList.Add("--app");
                 directLaunch.ArgumentList.Add(nativeHomeUri);
                 cancellationToken.ThrowIfCancellationRequested();
-                using Process fallbackProc = Process.Start(directLaunch);
+                using Process? fallbackProc = Process.Start(directLaunch);
                 if (fallbackProc == null)
                     throw new InvalidOperationException("Windows did not start RobloxPlayerBeta.exe.");
                 int fallbackPid = fallbackProc.Id;
@@ -304,7 +304,7 @@ namespace RBX_Alt_Manager
                 string Ticket = ticketResult.Ticket;
                 string Token = CSRFToken ?? string.Empty;
 
-                string LinkCode = string.IsNullOrEmpty(JobID) ? string.Empty : LinkCodeRegex().Match(JobID)?.Groups[1]?.Value;
+                string LinkCode = string.IsNullOrEmpty(JobID) ? string.Empty : (LinkCodeRegex().Match(JobID)?.Groups[1]?.Value ?? string.Empty);
                 string AccessCode = JobID;
 
                 if (!string.IsNullOrEmpty(LinkCode))
@@ -316,9 +316,9 @@ namespace RBX_Alt_Manager
                         .AddHeader("X-CSRF-TOKEN", Token)
                         .AddHeader("Referer", $"https://www.roblox.com/games/{PlaceID}/");
 
-                    RestResponse response = await ExecuteAccountRestAsync(AccountManager.MainClient, "https://www.roblox.com/", request, cancellationToken).ConfigureAwait(false);
+                    RestResponse? response = await ExecuteAccountRestAsync(AccountManager.MainClient, "https://www.roblox.com/", request, cancellationToken).ConfigureAwait(false);
 
-                    if (response.StatusCode == HttpStatusCode.OK && ParseAccessCode(response, out string Code))
+                    if (response != null && response.StatusCode == HttpStatusCode.OK && ParseAccessCode(response, out string Code))
                     {
                         AccessCode = Code;
                     }
@@ -330,10 +330,10 @@ namespace RBX_Alt_Manager
                         .AddHeader("X-CSRF-TOKEN", Token)
                         .AddHeader("Referer", "https://www.roblox.com/my/account");
 
-                    RestResponse result = await ExecuteAccountRestAsync(AccountManager.ApiClient, "https://apis.roblox.com/", request, cancellationToken).ConfigureAwait(false);
+                    RestResponse? result = await ExecuteAccountRestAsync(AccountManager.ApiClient, "https://apis.roblox.com/", request, cancellationToken).ConfigureAwait(false);
 
                     bool needsPrivacyUpdate = false;
-                    if (result.IsSuccessful && !string.IsNullOrEmpty(result.Content))
+                    if (result != null && result.IsSuccessful && !string.IsNullOrEmpty(result.Content))
                     {
                         try
                         {
@@ -389,7 +389,7 @@ namespace RBX_Alt_Manager
                 string NativeLaunchUri =
                     $"roblox-player:1+launchmode:play+gameinfo:{Ticket}+launchtime:{LaunchTime}+placelauncherurl:{Uri.EscapeDataString(JoinUrl)}+browsertrackerid:{BrowserTrackerID}+robloxLocale:en_us+gameLocale:en_us+channel:+LaunchExp:InApp";
 
-                Exception launchException = null;
+                Exception? launchException = null;
                 int nativePid = 0;
                 try
                 {
@@ -413,7 +413,7 @@ namespace RBX_Alt_Manager
                 catch (Exception x)
                 {
                     launchException = x;
-                    Program.Logger.Error($"Failed to launch Roblox for {Username}: {x}");
+                    Program.Logger?.Error($"Failed to launch Roblox for {Username}: {x}");
                     AccountManager.Instance?.NextAccount();
                 }
 
@@ -481,7 +481,7 @@ namespace RBX_Alt_Manager
                 string NativeHomeUri =
                     $"roblox-player:1+launchmode:app+gameinfo:{Ticket}+launchtime:{LaunchTime}+browsertrackerid:{BrowserTrackerID}+robloxLocale:en_us+gameLocale:en_us+channel:+LaunchExp:InApp";
 
-                Exception launchException = null;
+                Exception? launchException = null;
                 try
                 {
                     DateTime launchStartedUtc = DateTime.UtcNow;
@@ -502,7 +502,7 @@ namespace RBX_Alt_Manager
                 catch (Exception x)
                 {
                     launchException = x;
-                    Program.Logger.Error($"Failed to launch Roblox Home for {Username}: {x}");
+                    Program.Logger?.Error($"Failed to launch Roblox Home for {Username}: {x}");
                 }
 
                 if (launchException != null)

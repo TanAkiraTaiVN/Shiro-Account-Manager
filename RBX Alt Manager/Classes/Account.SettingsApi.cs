@@ -38,7 +38,7 @@ namespace RBX_Alt_Manager
 
             RestRequest request = MakeRequest("v1/account/pin/", Method.Get).AddHeader("Referer", "https://www.roblox.com/");
 
-            RestResponse response = await ExecuteAccountRestAsync(AccountManager.AuthClient, "https://auth.roblox.com/", request, cancellationToken).ConfigureAwait(false);
+            RestResponse? response = await ExecuteAccountRestAsync(AccountManager.AuthClient, "https://auth.roblox.com/", request, cancellationToken).ConfigureAwait(false);
 
             if (response != null && response.StatusCode == HttpStatusCode.Unauthorized)
             {
@@ -50,6 +50,7 @@ namespace RBX_Alt_Manager
             // Roblox deprecated the legacy 4-digit Account PIN endpoint.
             // Only treat the PIN as locked when the endpoint explicitly confirms isEnabled == true and unlockedUntil <= 0.
             if (response != null && response.IsSuccessful && response.StatusCode == HttpStatusCode.OK &&
+                response.Content != null &&
                 Utilities.FastJson.TryDeserialize<RobloxPinInfo>(response.Content, out var pinInfo) && pinInfo != null)
             {
                 bool isEnabled = pinInfo.isEnabled;
@@ -91,9 +92,11 @@ namespace RBX_Alt_Manager
                 .AddHeader("Content-Type", "application/x-www-form-urlencoded")
                 .AddParameter("pin", Pin);
 
-            RestResponse response = await ExecuteAccountRestAsync(AccountManager.AuthClient, "https://auth.roblox.com/", request, cancellationToken).ConfigureAwait(false);
+            RestResponse? response = await ExecuteAccountRestAsync(AccountManager.AuthClient, "https://auth.roblox.com/", request, cancellationToken).ConfigureAwait(false);
 
-            if (response.IsSuccessful && response.StatusCode == HttpStatusCode.OK && Utilities.FastJson.TryDeserialize<RobloxPinInfo>(response.Content, out var pinInfo) && pinInfo != null)
+            if (response != null && response.IsSuccessful && response.StatusCode == HttpStatusCode.OK &&
+                response.Content != null &&
+                Utilities.FastJson.TryDeserialize<RobloxPinInfo>(response.Content, out var pinInfo) && pinInfo != null)
             {
                 bool isEnabled = pinInfo.isEnabled;
                 int unlockedUntil = pinInfo.unlockedUntil ?? 0;
@@ -103,7 +106,7 @@ namespace RBX_Alt_Manager
 
                 if (PinUnlocked > DateTime.Now)
                 {
-                    Program.Logger.Info($"[UnlockPinAsync] {Username}: Pin unlocked for 5 minutes.");
+                    Program.Logger?.Info($"[UnlockPinAsync] {Username}: Pin unlocked for 5 minutes.");
                     return true;
                 }
             }
@@ -132,7 +135,7 @@ namespace RBX_Alt_Manager
                 .AddHeader("X-CSRF-TOKEN", csrf.Token)
                 .AddJsonBody(new { whoCanJoinMeInExperiences = modernSetting });
 
-            RestResponse modernResponse = await ExecuteAccountRestAsync(AccountManager.ApiClient, "https://apis.roblox.com/", modernRequest, cancellationToken).ConfigureAwait(false);
+            RestResponse? modernResponse = await ExecuteAccountRestAsync(AccountManager.ApiClient, "https://apis.roblox.com/", modernRequest, cancellationToken).ConfigureAwait(false);
             if (modernResponse != null && modernResponse.IsSuccessful)
                 return true;
 
@@ -161,9 +164,9 @@ namespace RBX_Alt_Manager
                     break;
             }
 
-            RestResponse response = await ExecuteAccountRestAsync(AccountManager.MainClient, "https://www.roblox.com/", request, cancellationToken).ConfigureAwait(false);
+            RestResponse? response = await ExecuteAccountRestAsync(AccountManager.MainClient, "https://www.roblox.com/", request, cancellationToken).ConfigureAwait(false);
 
-            return response.IsSuccessful && response.StatusCode == HttpStatusCode.OK;
+            return response?.IsSuccessful == true && response.StatusCode == HttpStatusCode.OK;
         }
 
         public async Task<bool> ChangePasswordAsync(string Current, string New, CancellationToken cancellationToken = default)
@@ -179,9 +182,9 @@ namespace RBX_Alt_Manager
                 .AddParameter("currentPassword", Current)
                 .AddParameter("newPassword", New);
 
-            RestResponse response = await ExecuteAccountRestAsync(AccountManager.AuthClient, "https://auth.roblox.com/", request, cancellationToken).ConfigureAwait(false);
+            RestResponse? response = await ExecuteAccountRestAsync(AccountManager.AuthClient, "https://auth.roblox.com/", request, cancellationToken).ConfigureAwait(false);
 
-            if (response.IsSuccessful && response.StatusCode == HttpStatusCode.OK)
+            if (response != null && response.IsSuccessful && response.StatusCode == HttpStatusCode.OK)
             {
                 Password = New;
 
@@ -192,14 +195,14 @@ namespace RBX_Alt_Manager
                 }
                 else
                 {
-                    Program.Logger.Warn($"[ChangePasswordAsync] {Username}: Password changed, but no new .ROBLOSECURITY was captured.");
+                    Program.Logger?.Warn($"[ChangePasswordAsync] {Username}: Password changed, but no new .ROBLOSECURITY was captured.");
                 }
 
-                Program.Logger.Info($"[ChangePasswordAsync] {Username}: Password changed successfully.");
+                Program.Logger?.Info($"[ChangePasswordAsync] {Username}: Password changed successfully.");
                 return true;
             }
 
-            Program.Logger.Warn($"[ChangePasswordAsync] {Username}: Failed to change password ({response.StatusCode}).");
+            Program.Logger?.Warn($"[ChangePasswordAsync] {Username}: Failed to change password ({response?.StatusCode}).");
             return false;
         }
 
@@ -216,15 +219,15 @@ namespace RBX_Alt_Manager
                 .AddParameter("password", Password)
                 .AddParameter("emailAddress", NewEmail);
 
-            RestResponse response = await ExecuteAccountRestAsync(AccountManager.AccountClient, "https://accountsettings.roblox.com/", request, cancellationToken).ConfigureAwait(false);
+            RestResponse? response = await ExecuteAccountRestAsync(AccountManager.AccountClient, "https://accountsettings.roblox.com/", request, cancellationToken).ConfigureAwait(false);
 
-            if (response.IsSuccessful && response.StatusCode == HttpStatusCode.OK)
+            if (response != null && response.IsSuccessful && response.StatusCode == HttpStatusCode.OK)
             {
-                Program.Logger.Info($"[ChangeEmailAsync] {Username}: Email changed successfully.");
+                Program.Logger?.Info($"[ChangeEmailAsync] {Username}: Email changed successfully.");
                 return true;
             }
 
-            Program.Logger.Warn($"[ChangeEmailAsync] {Username}: Failed to change email ({response.StatusCode}).");
+            Program.Logger?.Warn($"[ChangeEmailAsync] {Username}: Failed to change email ({response?.StatusCode}).");
             return false;
         }
 
@@ -239,9 +242,9 @@ namespace RBX_Alt_Manager
                 .AddHeader("X-CSRF-TOKEN", csrf.Token)
                 .AddJsonBody(new { });
 
-            RestResponse response = await ExecuteAccountRestAsync(AccountManager.AuthClient, "https://auth.roblox.com/", request, cancellationToken).ConfigureAwait(false);
+            RestResponse? response = await ExecuteAccountRestAsync(AccountManager.AuthClient, "https://auth.roblox.com/", request, cancellationToken).ConfigureAwait(false);
 
-            if (!response.IsSuccessful)
+            if (response == null || !response.IsSuccessful)
             {
                 RestRequest fallbackReq = MakeRequest("authentication/signoutfromallsessionsandreauthenticate", Method.Post)
                     .AddHeader("Referer", "https://www.roblox.com/")
@@ -251,23 +254,23 @@ namespace RBX_Alt_Manager
                 response = await ExecuteAccountRestAsync(AccountManager.MainClient, "https://www.roblox.com/", fallbackReq, cancellationToken).ConfigureAwait(false);
             }
 
-            if (response.IsSuccessful && response.StatusCode == HttpStatusCode.OK)
+            if (response != null && response.IsSuccessful && response.StatusCode == HttpStatusCode.OK)
             {
                 bool rotated = TryUpdateRotatedCookie(response);
                 if (rotated)
                 {
                     await AccountManager.SaveAccountsAsync(true).ConfigureAwait(false);
-                    Program.Logger.Info($"[LogOutOfOtherSessionsAsync] {Username}: Signed out of all other sessions.");
+                    Program.Logger?.Info($"[LogOutOfOtherSessionsAsync] {Username}: Signed out of all other sessions.");
                     return true;
                 }
                 else
                 {
-                    Program.Logger.Warn($"[LogOutOfOtherSessionsAsync] Roblox did not issue a replacement .ROBLOSECURITY cookie for {Username} during session signout.");
+                    Program.Logger?.Warn($"[LogOutOfOtherSessionsAsync] Roblox did not issue a replacement .ROBLOSECURITY cookie for {Username} during session signout.");
                     return false;
                 }
             }
 
-            Program.Logger.Warn($"[LogOutOfOtherSessionsAsync] {Username}: Failed to log out of other sessions ({response.StatusCode}).");
+            Program.Logger?.Warn($"[LogOutOfOtherSessionsAsync] {Username}: Failed to log out of other sessions ({response?.StatusCode}).");
             return false;
         }
 
@@ -277,9 +280,9 @@ namespace RBX_Alt_Manager
             var userRes = await AccountManager.GetUserIDAsync(Username, cancellationToken).ConfigureAwait(false);
             if (!userRes.Success) throw new Exception($"Failed to obtain UserId of {Username}!");
 
-            RestResponse BlockedResponse = await GetBlockedListAsync(cancellationToken).ConfigureAwait(false);
+            RestResponse? BlockedResponse = await GetBlockedListAsync(cancellationToken).ConfigureAwait(false);
 
-            if (!BlockedResponse.IsSuccessful) throw new Exception("Failed to obtain blocked users list!");
+            if (BlockedResponse == null || !BlockedResponse.IsSuccessful) throw new Exception("Failed to obtain blocked users list!");
 
             string BlockedUsers = BlockedResponse.Content ?? string.Empty;
             long BlockeeID = userRes.UserId;
@@ -288,11 +291,11 @@ namespace RBX_Alt_Manager
             if (!isBlocked)
             {
                 var blockRes = await BlockUserIdAsync($"{BlockeeID}", false, false, cancellationToken).ConfigureAwait(false);
-                return (blockRes.IsSuccessful, false);
+                return (blockRes?.IsSuccessful == true, false);
             }
 
             var unblockRes = await BlockUserIdAsync($"{BlockeeID}", false, true, cancellationToken).ConfigureAwait(false);
-            return (unblockRes.IsSuccessful, true);
+            return (unblockRes?.IsSuccessful == true, true);
         }
 
         internal static bool IsUserIdInBlockedListJson(string json, long targetUserId)
@@ -409,7 +412,7 @@ namespace RBX_Alt_Manager
             return result;
         }
 
-        public async Task<RestResponse> BlockUserIdAsync(string UserID, bool SkipPinCheck = false, bool Unblock = false, CancellationToken cancellationToken = default)
+        public async Task<RestResponse?> BlockUserIdAsync(string UserID, bool SkipPinCheck = false, bool Unblock = false, CancellationToken cancellationToken = default)
         {
             if (!SkipPinCheck && !await CheckPinAsync(true, cancellationToken).ConfigureAwait(false)) throw new Exception("Pin Locked");
             var csrf = await GetCSRFTokenAsync(cancellationToken).ConfigureAwait(false);
@@ -421,23 +424,23 @@ namespace RBX_Alt_Manager
                 .AddHeader("X-CSRF-TOKEN", Token)
                 .AddJsonBody(new { });
 
-            RestResponse blockRes = await ExecuteAccountRestAsync(AccountManager.ApiClient, "https://apis.roblox.com/", blockReq, cancellationToken).ConfigureAwait(false);
+            RestResponse? blockRes = await ExecuteAccountRestAsync(AccountManager.ApiClient, "https://apis.roblox.com/", blockReq, cancellationToken).ConfigureAwait(false);
 
-            Program.Logger.Info($"Block Response for {UserID} | Unblocking: {Unblock}: [{blockRes.StatusCode}] {blockRes.Content}");
+            Program.Logger?.Info($"Block Response for {UserID} | Unblocking: {Unblock}: [{blockRes?.StatusCode}] {blockRes?.Content}");
 
             return blockRes;
         }
 
-        public Task<RestResponse> UnblockUserIdAsync(string UserID, bool SkipPinCheck = false, CancellationToken cancellationToken = default)
+        public Task<RestResponse?> UnblockUserIdAsync(string UserID, bool SkipPinCheck = false, CancellationToken cancellationToken = default)
             => BlockUserIdAsync(UserID, SkipPinCheck, Unblock: true, cancellationToken);
 
-        public async Task<RestResponse> GetBlockedListAsync(CancellationToken cancellationToken = default)
+        public async Task<RestResponse?> GetBlockedListAsync(CancellationToken cancellationToken = default)
         {
             if (!await CheckPinAsync(true, cancellationToken).ConfigureAwait(false)) throw new Exception("Pin is Locked");
 
             RestRequest request = MakeRequest("user-blocking-api/v1/users/get-blocked-users", Method.Get);
 
-            RestResponse response = await ExecuteAccountRestAsync(AccountManager.ApiClient, "https://apis.roblox.com/", request, cancellationToken).ConfigureAwait(false);
+            RestResponse? response = await ExecuteAccountRestAsync(AccountManager.ApiClient, "https://apis.roblox.com/", request, cancellationToken).ConfigureAwait(false);
 
             return response;
         }
@@ -473,15 +476,15 @@ namespace RBX_Alt_Manager
 
             RestRequest request = MakeRequest("v1/join-game-instance", Method.Post).AddHeader("Content-Type", "application/json").AddJsonBody(new { gameId = JobID, placeId = PlaceID });
 
-            RestResponse response = await ExecuteAccountRestAsync(AccountManager.GameJoinClient, "https://gamejoin.roblox.com/", request, cancellationToken).ConfigureAwait(false);
+            RestResponse? response = await ExecuteAccountRestAsync(AccountManager.GameJoinClient, "https://gamejoin.roblox.com/", request, cancellationToken).ConfigureAwait(false);
 
-            if (response.StatusCode == HttpStatusCode.OK)
+            if (response != null && response.StatusCode == HttpStatusCode.OK)
             {
-                string msg = JoinScriptNullRegex().IsMatch(response.Content) ? response.Content : "Success";
+                string msg = !string.IsNullOrEmpty(response.Content) && JoinScriptNullRegex().IsMatch(response.Content) ? response.Content : "Success";
                 return (true, msg);
             }
             else
-                return (false, $"Failed {response.StatusCode}: {response.Content} {response.ErrorMessage}");
+                return (false, $"Failed {response?.StatusCode}: {response?.Content} {response?.ErrorMessage}");
         }
 
         public async Task<bool> SendFriendRequestAsync(string Username, CancellationToken cancellationToken = default)
@@ -493,9 +496,9 @@ namespace RBX_Alt_Manager
 
             RestRequest friendRequest = MakeRequest($"/v1/users/{userRes.UserId}/request-friendship", Method.Post).AddHeader("X-CSRF-TOKEN", csrf.Token);
 
-            RestResponse friendResponse = await ExecuteAccountRestAsync(AccountManager.FriendsClient, "https://friends.roblox.com/", friendRequest, cancellationToken).ConfigureAwait(false);
+            RestResponse? response = await ExecuteAccountRestAsync(AccountManager.FriendsClient, "https://friends.roblox.com/", friendRequest, cancellationToken).ConfigureAwait(false);
 
-            return friendResponse.IsSuccessful && friendResponse.StatusCode == HttpStatusCode.OK;
+            return response != null && response.IsSuccessful && response.StatusCode == HttpStatusCode.OK;
         }
 
         public async Task SetDisplayNameAsync(string DisplayName, CancellationToken cancellationToken = default)
@@ -505,14 +508,14 @@ namespace RBX_Alt_Manager
 
             RestRequest dpRequest = MakeRequest($"/v1/users/{UserID}/display-names", Method.Patch).AddHeader("X-CSRF-TOKEN", csrf.Token).AddJsonBody(new { newDisplayName = DisplayName });
 
-            RestResponse dpResponse = await ExecuteAccountRestAsync(AccountManager.UsersClient, "https://users.roblox.com/", dpRequest, cancellationToken).ConfigureAwait(false);
+            RestResponse? dpResponse = await ExecuteAccountRestAsync(AccountManager.UsersClient, "https://users.roblox.com/", dpRequest, cancellationToken).ConfigureAwait(false);
 
-            if (dpResponse.StatusCode != HttpStatusCode.OK)
+            if (dpResponse == null || dpResponse.StatusCode != HttpStatusCode.OK)
             {
-                string errMsg = null;
+                string? errMsg = null;
                 try
                 {
-                    using var errDoc = JsonDocument.Parse(dpResponse.Content ?? "{}");
+                    using var errDoc = JsonDocument.Parse(dpResponse?.Content ?? "{}");
                     if (errDoc.RootElement.TryGetProperty("errors", out var errArr) && errArr.GetArrayLength() > 0)
                         errMsg = errArr[0].TryGetProperty("message", out var msgProp) ? msgProp.GetString() : null;
                 }
@@ -520,7 +523,7 @@ namespace RBX_Alt_Manager
                 {
                     Program.Logger?.Debug($"Parse error message JSON failed: {ex.Message}");
                 }
-                throw new Exception(errMsg ?? $"Something went wrong\n{dpResponse.StatusCode}: {dpResponse.Content}");
+                throw new Exception(errMsg ?? $"Something went wrong\n{dpResponse?.StatusCode}: {dpResponse?.Content}");
             }
         }
 
@@ -550,11 +553,11 @@ namespace RBX_Alt_Manager
                     return;
                 }
 
-                var attributeTasks = new System.Collections.Generic.List<Task<RestResponse>>(3);
+                var attributeTasks = new System.Collections.Generic.List<Task<RestResponse?>>(3);
 
                 if (root.TryGetProperty("playerAvatarType", out var patElem) && patElem.ValueKind != JsonValueKind.Null && patElem.ValueKind != JsonValueKind.Undefined)
                 {
-                    string patVal = patElem.ValueKind == JsonValueKind.String ? patElem.GetString() : patElem.ToString();
+                    string patVal = (patElem.ValueKind == JsonValueKind.String ? patElem.GetString() : patElem.ToString()) ?? string.Empty;
                     var patRequest = MakeRequest("v1/avatar/set-player-avatar-type", Method.Post)
                         .AddHeader("X-CSRF-TOKEN", csrf.Token)
                         .AddJsonBody(new { playerAvatarType = patVal });
@@ -592,9 +595,9 @@ namespace RBX_Alt_Manager
                         .AddHeader("X-CSRF-TOKEN", csrf.Token)
                         .AddJsonBody($"{{\"assets\":{assetsElem.GetRawText()}}}");
 
-                    RestResponse Response = await ExecuteAccountRestAsync(AccountManager.AvatarClient, "https://avatar.roblox.com/", assetsRequest, cancellationToken).ConfigureAwait(false);
+                    RestResponse? Response = await ExecuteAccountRestAsync(AccountManager.AvatarClient, "https://avatar.roblox.com/", assetsRequest, cancellationToken).ConfigureAwait(false);
 
-                    if (Response.IsSuccessful && !string.IsNullOrWhiteSpace(Response.Content))
+                    if (Response != null && Response.IsSuccessful && !string.IsNullOrWhiteSpace(Response.Content))
                     {
                         try
                         {

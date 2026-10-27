@@ -19,16 +19,16 @@ namespace RBX_Alt_Manager
 
         internal sealed class ApiRequestContext
         {
-            public string AbsolutePath { get; set; }
+            public string AbsolutePath { get; set; } = string.Empty;
             public bool IsV2 { get; set; }
             public bool IsLocal { get; set; }
-            public string Host { get; set; }
-            public string Origin { get; set; }
-            public string Body { get; set; }
-            public Func<string, string> GetQuery { get; set; }
-            public Func<string, string> GetHeader { get; set; }
-            public Action<int> SetStatusCode { get; set; }
-            public Action<string> SetContentType { get; set; }
+            public string Host { get; set; } = string.Empty;
+            public string Origin { get; set; } = string.Empty;
+            public string Body { get; set; } = string.Empty;
+            public Func<string, string?> GetQuery { get; set; } = _ => null;
+            public Func<string, string?> GetHeader { get; set; } = _ => null;
+            public Action<int> SetStatusCode { get; set; } = _ => { };
+            public Action<string> SetContentType { get; set; } = _ => { };
         }
 
         public async Task<string> SendKestrelResponse(HttpContext Context)
@@ -85,7 +85,7 @@ namespace RBX_Alt_Manager
         internal static bool IsTrustedLocalOrigin(string origin)
         {
             if (string.IsNullOrEmpty(origin)) return true;
-            if (!Uri.TryCreate(origin, UriKind.Absolute, out Uri uri)) return false;
+            if (!Uri.TryCreate(origin, UriKind.Absolute, out Uri? uri) || uri == null) return false;
             if (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps) return false;
             return IsLoopbackHostName(uri.Host);
         }
@@ -160,7 +160,7 @@ namespace RBX_Alt_Manager
             bool V2 = req.IsV2;
             string AbsolutePath = req.AbsolutePath;
 
-            string Reply(string Response, bool Success = false, int Code = -1, string Raw = null)
+            string Reply(string Response, bool Success = false, int Code = -1, string? Raw = null)
             {
                 req.SetStatusCode(Code > 0 ? Code : (Success ? 200 : 400));
 
@@ -197,13 +197,13 @@ namespace RBX_Alt_Manager
 
             string Body = req.Body;
             string Method = AbsolutePath.Length > 1 ? AbsolutePath.Substring(1) : string.Empty;
-            string Account = req.GetQuery("Account");
+            string? Account = req.GetQuery("Account");
 
             // Extract Password from headers (Bearer token or X-RAM-Auth) or fallback to QueryString
-            string Password = req.GetHeader("X-RAM-Auth");
+            string? Password = req.GetHeader("X-RAM-Auth");
             if (string.IsNullOrEmpty(Password))
             {
-                string authHeader = req.GetHeader("Authorization");
+                string? authHeader = req.GetHeader("Authorization");
                 if (!string.IsNullOrEmpty(authHeader) && authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
                     Password = authHeader.Substring(7).Trim();
             }
@@ -221,7 +221,7 @@ namespace RBX_Alt_Manager
 
             if (WebServer.Get<bool>("EveryRequestRequiresPassword") || isSensitiveMethod)
             {
-                if (WSPassword != null && WSPassword.Length >= 6 && (string.IsNullOrEmpty(Password) || !FixedTimeEqualsPassword(Password, WSPassword)))
+                if (WSPassword != null && WSPassword.Length >= 6 && (string.IsNullOrEmpty(Password) || !FixedTimeEqualsPassword(Password ?? string.Empty, WSPassword)))
                     return Reply("Invalid Password, make sure your password contains 6 or more characters", false, 401, "Invalid Password");
             }
 
@@ -239,7 +239,7 @@ namespace RBX_Alt_Manager
             {
                 if (!WebServer.Get<bool>("AllowGetAccounts")) return Reply("Method `GetAccounts` not allowed", false, 401, "Method not allowed");
 
-                string GroupFilter = req.GetQuery("Group");
+                string? GroupFilter = req.GetQuery("Group");
                 var filteredAccounts = GetAccountsSnapshot();
                 if (!string.IsNullOrEmpty(GroupFilter))
                     filteredAccounts = filteredAccounts.Where(acc => acc.Group == GroupFilter).ToArray();
@@ -252,8 +252,8 @@ namespace RBX_Alt_Manager
             {
                 if (!WebServer.Get<bool>("AllowGetAccounts")) return Reply("Method `GetAccountsJson` not allowed", false, 401, "Method not allowed");
 
-                string GroupFilter = req.GetQuery("Group");
-                bool ShowCookies = !string.IsNullOrEmpty(WSPassword) && WSPassword.Length >= 6 && FixedTimeEqualsPassword(Password, WSPassword) && req.GetQuery("IncludeCookies") == "true" && WebServer.Get<bool>("AllowGetCookie");
+                string? GroupFilter = req.GetQuery("Group");
+                bool ShowCookies = !string.IsNullOrEmpty(WSPassword) && WSPassword.Length >= 6 && FixedTimeEqualsPassword(Password ?? string.Empty, WSPassword) && req.GetQuery("IncludeCookies") == "true" && WebServer.Get<bool>("AllowGetCookie");
 
                 List<object> Objects = new List<object>();
 
@@ -282,7 +282,10 @@ namespace RBX_Alt_Manager
 
             if (Method == "ImportCookie")
             {
-                Account New = await AddAccountAsync(req.GetQuery("Cookie"), cancellationToken: lifetimeCancellation.Token).ConfigureAwait(false);
+                string? cookieVal = req.GetQuery("Cookie");
+                if (string.IsNullOrWhiteSpace(cookieVal))
+                    return Reply("Cookie parameter required", false, 400, "Missing Cookie");
+                Account? New = await AddAccountAsync(cookieVal, cancellationToken: lifetimeCancellation.Token).ConfigureAwait(false);
 
                 bool Success = New != null;
 
@@ -386,7 +389,7 @@ namespace RBX_Alt_Manager
                 if (!Enum.TryParse<AccountExportFormat>(formatStr, true, out var exportFormat))
                     exportFormat = AccountExportFormat.Json;
 
-                string groupFilter = req.GetQuery("Group");
+                string? groupFilter = req.GetQuery("Group");
                 var accountsToExport = GetAccountsSnapshot();
                 if (!string.IsNullOrEmpty(groupFilter))
                     accountsToExport = accountsToExport.Where(a => string.Equals(a.Group, groupFilter, StringComparison.OrdinalIgnoreCase)).ToList();
@@ -398,7 +401,7 @@ namespace RBX_Alt_Manager
             if (string.IsNullOrEmpty(Account)) return Reply("Empty Account", false);
 
             bool isNumericAccountId = long.TryParse(Account, out long targetAccountId);
-            Account account = null;
+            Account? account = null;
             foreach (Account candidate in GetAccountsSnapshot())
             {
                 if (candidate == null) continue;
@@ -434,25 +437,28 @@ namespace RBX_Alt_Manager
 
             if (Method == "GetAlias") return Reply(account.Alias, true);
             if (Method == "GetDescription") return Reply(account.Description, true);
-            if (Method == "GetField" && !string.IsNullOrEmpty(req.GetQuery("Field"))) return Reply(account.GetField(req.GetQuery("Field")), true);
 
-            if (Method == "SetField" && !string.IsNullOrEmpty(req.GetQuery("Field")) && !string.IsNullOrEmpty(req.GetQuery("Value")))
+            string? fieldName = req.GetQuery("Field");
+            if (Method == "GetField" && !string.IsNullOrEmpty(fieldName)) return Reply(account.GetField(fieldName), true);
+
+            string? fieldValue = req.GetQuery("Value");
+            if (Method == "SetField" && !string.IsNullOrEmpty(fieldName) && !string.IsNullOrEmpty(fieldValue))
             {
                 if (!WebServer.Get<bool>("AllowAccountEditing")) return Reply("Method `SetField` not allowed", false, 401, "Method not allowed");
 
-                account.SetField(req.GetQuery("Field"), req.GetQuery("Value"));
+                account.SetField(fieldName, fieldValue);
                 QueueDeferredSave();
 
-                return Reply($"Set Field {req.GetQuery("Field")} to {req.GetQuery("Value")} for {account.Username}", true);
+                return Reply($"Set Field {fieldName} to {fieldValue} for {account.Username}", true);
             }
-            if (Method == "RemoveField" && !string.IsNullOrEmpty(req.GetQuery("Field")))
+            if (Method == "RemoveField" && !string.IsNullOrEmpty(fieldName))
             {
                 if (!WebServer.Get<bool>("AllowAccountEditing")) return Reply("Method `RemoveField` not allowed", false, 401, "Method not allowed");
 
-                account.RemoveField(req.GetQuery("Field"));
+                account.RemoveField(fieldName);
                 QueueDeferredSave();
 
-                return Reply($"Removed Field {req.GetQuery("Field")} from {account.Username}", true);
+                return Reply($"Removed Field {fieldName} from {account.Username}", true);
             }
 
             if (Method == "SetAlias" && !string.IsNullOrEmpty(Body))
@@ -492,9 +498,9 @@ namespace RBX_Alt_Manager
 
                 bool ValidPlaceId = long.TryParse(req.GetQuery("PlaceId"), out long PlaceId); if (!ValidPlaceId) return Reply("Invalid PlaceId provided", false, Raw: "Invalid PlaceId");
 
-                string JobID = !string.IsNullOrEmpty(req.GetQuery("JobId")) ? req.GetQuery("JobId") : "";
-                string FollowUser = req.GetQuery("FollowUser");
-                string JoinVIP = req.GetQuery("JoinVIP");
+                string JobID = req.GetQuery("JobId") ?? string.Empty;
+                string? FollowUser = req.GetQuery("FollowUser");
+                string? JoinVIP = req.GetQuery("JoinVIP");
 
                 await account.JoinServer(PlaceId, JobID, FollowUser == "true", JoinVIP == "true").ConfigureAwait(false);
 
@@ -505,7 +511,7 @@ namespace RBX_Alt_Manager
             {
                 if (!WebServer.Get<bool>("AllowLaunchAccount")) return Reply("Method `FollowUser` not allowed", false, 401, "Method not allowed");
 
-                string User = req.GetQuery("Username"); if (string.IsNullOrEmpty(User)) return Reply("Invalid Username Parameter", false);
+                string? User = req.GetQuery("Username"); if (string.IsNullOrEmpty(User)) return Reply("Invalid Username Parameter", false);
 
                 var userLookup = await GetUserIDAsync(User).ConfigureAwait(false);
                 if (!userLookup.Success)
@@ -530,24 +536,24 @@ namespace RBX_Alt_Manager
             if (Method == "BlockUser" && !string.IsNullOrEmpty(req.GetQuery("UserId")))
                 try
                 {
-                    var Res = await account.BlockUserIdAsync(req.GetQuery("UserId"), cancellationToken: lifetimeCancellation.Token).ConfigureAwait(false);
+                    var Res = await account.BlockUserIdAsync(req.GetQuery("UserId") ?? string.Empty, cancellationToken: lifetimeCancellation.Token).ConfigureAwait(false);
 
-                    return Reply(Res.Content, Res.IsSuccessful, (int)Res.StatusCode);
+                    return Reply(Res?.Content ?? string.Empty, Res?.IsSuccessful == true, Res != null ? (int)Res.StatusCode : 500);
                 }
                 catch (Exception x) { return Reply(x.Message, false, 500); }
             if (Method == "UnblockUser" && !string.IsNullOrEmpty(req.GetQuery("UserId")))
                 try
                 {
-                    var Res = await account.UnblockUserIdAsync(req.GetQuery("UserId"), cancellationToken: lifetimeCancellation.Token).ConfigureAwait(false);
+                    var Res = await account.UnblockUserIdAsync(req.GetQuery("UserId") ?? string.Empty, cancellationToken: lifetimeCancellation.Token).ConfigureAwait(false);
 
-                    return Reply(Res.Content, Res.IsSuccessful, (int)Res.StatusCode);
+                    return Reply(Res?.Content ?? string.Empty, Res?.IsSuccessful == true, Res != null ? (int)Res.StatusCode : 500);
                 }
                 catch (Exception x) { return Reply(x.Message, false, 500); }
             if (Method == "GetBlockedList") try
                 {
                     var Res = await account.GetBlockedListAsync(lifetimeCancellation.Token).ConfigureAwait(false);
 
-                    return Reply(Res.Content, Res.IsSuccessful, (int)Res.StatusCode);
+                    return Reply(Res?.Content ?? string.Empty, Res?.IsSuccessful == true, Res != null ? (int)Res.StatusCode : 500);
                 }
                 catch (Exception x) { return Reply(x.Message, false, 500); }
             if (Method == "UnblockEveryone")
@@ -562,7 +568,9 @@ namespace RBX_Alt_Manager
                 if (!long.TryParse(req.GetQuery("PlaceId"), out long setServerPlaceId))
                     return Reply("Invalid PlaceId provided", false, 400);
 
-                var (Success, Message) = await account.SetServerAsync(setServerPlaceId, req.GetQuery("JobId")).ConfigureAwait(false);
+                string? setJobId = req.GetQuery("JobId");
+                if (string.IsNullOrEmpty(setJobId)) return Reply("JobId parameter required", false, 400);
+                var (Success, Message) = await account.SetServerAsync(setServerPlaceId, setJobId).ConfigureAwait(false);
 
                 return Reply(Message, Success);
             }

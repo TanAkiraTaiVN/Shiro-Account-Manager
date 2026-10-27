@@ -38,7 +38,7 @@ namespace RBX_Alt_Manager
             }
             catch
             {
-                byte[] recovered = VaultKeyRecoveryService.TryRecoverInProcess(data);
+                byte[]? recovered = VaultKeyRecoveryService.TryRecoverInProcess(data);
                 return recovered == null;
             }
         }
@@ -47,7 +47,7 @@ namespace RBX_Alt_Manager
         {
             if (manualReset)
             {
-                string newPass = await RBX_Alt_Manager.AvaloniaUI.Views.InputDialog.PromptAsync(
+                string? newPass = await RBX_Alt_Manager.AvaloniaUI.Views.InputDialog.PromptAsync(
                     "Nhập mật khẩu mới (để trống để dùng khóa Vault mặc định AES-256-GCM, được bảo vệ bằng Windows DPAPI):",
                     "Đổi mật khẩu cơ sở dữ liệu");
 
@@ -79,7 +79,7 @@ namespace RBX_Alt_Manager
             _ = ResetEncryptionAsync(manualReset);
         }
 
-        public static bool LoadAccountsFromStore(byte[] Hash = null)
+        public static bool LoadAccountsFromStore(byte[]? Hash = null)
         {
             if (Instance == null)
                 return false;
@@ -134,7 +134,7 @@ namespace RBX_Alt_Manager
                     if (raw.Length == 0)
                         continue;
 
-                    byte[] decoded = null;
+                    byte[]? decoded = null;
                     if (Cryptography.IsEncrypted(raw))
                     {
                         decoded = Cryptography.Decrypt(raw, StoragePaths.GetOrCreateVaultKey());
@@ -180,12 +180,12 @@ namespace RBX_Alt_Manager
             return false;
         }
 
-        public void LoadAccounts(byte[] Hash = null)
+        public void LoadAccounts(byte[]? Hash = null)
         {
             LoadAccounts(Hash, out _);
         }
 
-        public void LoadAccounts(byte[] Hash, out bool unlocked)
+        public void LoadAccounts(byte[]? Hash, out bool unlocked)
         {
             unlocked = false;
             legacyPlaintextLoaded = false;
@@ -211,7 +211,7 @@ namespace RBX_Alt_Manager
                             }
                             catch
                             {
-                                byte[] recoveredKey = VaultKeyRecoveryService.TryRecoverInProcess(Data);
+                                byte[]? recoveredKey = VaultKeyRecoveryService.TryRecoverInProcess(Data);
                                 if (recoveredKey == null)
                                     throw;
                                 decrypted = Cryptography.Decrypt(Data, recoveredKey);
@@ -380,16 +380,16 @@ namespace RBX_Alt_Manager
                 {
                     SaveAccounts(true, true);
                     accountDataNeedsMigration = false;
-                    Program.Logger.Info($"Migrated account data to schema {AccountDataSerializer.CurrentSchemaVersion}.");
+                    Program.Logger?.Info($"Migrated account data to schema {AccountDataSerializer.CurrentSchemaVersion}.");
                 }
                 catch (Exception exception)
                 {
-                    Program.Logger.Warn($"Account data migration will be retried after the next successful save: {exception.Message}");
+                    Program.Logger?.Warn($"Account data migration will be retried after the next successful save: {exception.Message}");
                 }
             }
         }
 
-        private static byte[] _lastSavedPlaintextBytes;
+        private static byte[]? _lastSavedPlaintextBytes;
 
         public static Task SaveAccountsAsync(bool BypassRateLimit = false, bool BypassCountCheck = false)
             => Task.Run(() => SaveAccounts(BypassRateLimit, BypassCountCheck));
@@ -505,7 +505,7 @@ namespace RBX_Alt_Manager
 
         internal static void SaveSettings()
         {
-            AccountManager instance = Instance;
+            AccountManager? instance = Instance;
             if (instance?.settingsService != null)
             {
                 instance.settingsService.Save();
@@ -544,7 +544,7 @@ namespace RBX_Alt_Manager
                     string json = await File.ReadAllTextAsync(RecentGamesFilePath).ConfigureAwait(false);
                     if (!string.IsNullOrWhiteSpace(json))
                     {
-                        List<Game> Games = Utilities.FastJson.TryDeserialize<List<Game>>(json, out var gList) ? gList : null;
+                        List<Game>? Games = Utilities.FastJson.TryDeserialize<List<Game>>(json, out var gList) ? gList : null;
                         if (Games != null && Games.Count > 0)
                         {
                             await Task.WhenAll(Games.Where(g => g != null).Select(g => g.WaitForDetails())).ConfigureAwait(false);
@@ -569,7 +569,7 @@ namespace RBX_Alt_Manager
             await RG.WaitForDetails().ConfigureAwait(false);
 
             int maxRecentGames = General?.Get<int>("MaxRecentGames") ?? 10;
-            string serialized = null;
+            string? serialized = null;
 
             lock (rgSaveLock)
             {

@@ -67,9 +67,9 @@ namespace RBX_Alt_Manager.Classes
             };
         }
 
-        public static async Task<Account> OpenAsync(
-            string username = null,
-            string password = null,
+        public static async Task<Account?> OpenAsync(
+            string? username = null,
+            string? password = null,
             CancellationToken cancellationToken = default(CancellationToken))
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -81,8 +81,8 @@ namespace RBX_Alt_Manager.Classes
             string sessionRoot = Path.Combine(SignupSessionRoot, Guid.NewGuid().ToString("N"));
             string profilePath = Path.Combine(sessionRoot, "profile");
             int devToolsPort = GetFreeLoopbackPort();
-            Process browser = null;
-            IBrowser connectedBrowser = null;
+            Process? browser = null;
+            IBrowser? connectedBrowser = null;
 
             try
             {
@@ -129,7 +129,7 @@ namespace RBX_Alt_Manager.Classes
                     DefaultViewport = null
                 });
 
-                IPage page = (await connectedBrowser.PagesAsync()).FirstOrDefault();
+                IPage? page = (await connectedBrowser.PagesAsync()).FirstOrDefault();
                 if (page == null)
                     page = await connectedBrowser.NewPageAsync();
 
@@ -142,10 +142,10 @@ namespace RBX_Alt_Manager.Classes
                 AccountManager.Instance?.SetDashboardStatus(
                     "📝 Đã mở trang đăng ký Roblox trong Chrome. Hoàn tất đăng ký trong trình duyệt; tài khoản sẽ tự động được thêm vào Shiro.");
 
-                string lastAttemptedCookie = null;
+                string? lastAttemptedCookie = null;
                 DateTime lastCookieAttemptUtc = DateTime.MinValue;
-                string capturedPassword = password;
-                Account createdAccount = null;
+                string? capturedPassword = password;
+                Account? createdAccount = null;
 
                 while (true)
                 {
@@ -171,7 +171,7 @@ namespace RBX_Alt_Manager.Classes
                         {
                             try
                             {
-                                (bool hasVal, string domPass) = await TryEvaluateFunctionAsync<string>(page,
+                                (bool hasVal, string? domPass) = await TryEvaluateFunctionAsync<string>(page,
                                     "() => document.querySelector('#signup-password')?.value || ''");
                                 if (hasVal && !string.IsNullOrWhiteSpace(domPass))
                                     capturedPassword = domPass;
@@ -183,10 +183,11 @@ namespace RBX_Alt_Manager.Classes
                         }
 
                         // Read cookies for roblox.com
-                        CookieParam sessionCookie = null;
+                        CookieParam? sessionCookie = null;
                         try
                         {
-                            sessionCookie = await ExtractRoblosecurityCookieAsync(page).ConfigureAwait(false);
+                            if (page != null)
+                                sessionCookie = await ExtractRoblosecurityCookieAsync(page).ConfigureAwait(false);
                         }
                         catch (Exception ex)
                         {
@@ -194,7 +195,7 @@ namespace RBX_Alt_Manager.Classes
                         }
 
                         // Fallback: search across all pages in the browser
-                        if (sessionCookie == null)
+                        if (sessionCookie == null && connectedBrowser != null)
                         {
                             try
                             {
@@ -202,7 +203,7 @@ namespace RBX_Alt_Manager.Classes
                                 foreach (IPage candidatePage in allPages)
                                 {
                                     if (candidatePage.IsClosed) continue;
-                                    CookieParam found = await ExtractRoblosecurityCookieAsync(candidatePage).ConfigureAwait(false);
+                                    CookieParam? found = await ExtractRoblosecurityCookieAsync(candidatePage).ConfigureAwait(false);
                                     if (found != null)
                                     {
                                         sessionCookie = found;
@@ -224,7 +225,7 @@ namespace RBX_Alt_Manager.Classes
                             lastAttemptedCookie = sessionCookie.Value;
                             lastCookieAttemptUtc = DateTime.UtcNow;
 
-                            string accountJson = await ReadAccountJsonAsync(page);
+                            string? accountJson = page != null ? await ReadAccountJsonAsync(page) : null;
                             string finalPassword = !string.IsNullOrWhiteSpace(capturedPassword)
                                 ? capturedPassword
                                 : (password ?? string.Empty);
@@ -232,14 +233,14 @@ namespace RBX_Alt_Manager.Classes
                             createdAccount = await AccountManager.AddAccountAsync(sessionCookie.Value, finalPassword, accountJson, cancellationToken: cancellationToken).ConfigureAwait(false);
                             if (createdAccount != null)
                             {
-                                Program.Logger.Info($"Roblox account '{createdAccount.Username}' registered and added to manager successfully.");
+                                Program.Logger?.Info($"Roblox account '{createdAccount.Username}' registered and added to manager successfully.");
                                 AccountManager.Instance?.SetDashboardStatus(
                                     $"✅ Đã đăng ký và thêm tài khoản '{createdAccount.Username}' thành công!");
                                 await Task.Delay(1500, cancellationToken).ConfigureAwait(false);
                                 break;
                             }
 
-                            Program.Logger.Warn("Roblox session cookie was detected but AddAccount did not complete; retrying...");
+                            Program.Logger?.Warn("Roblox session cookie was detected but AddAccount did not complete; retrying...");
                         }
                     }
                     catch (TargetClosedException)
@@ -263,7 +264,8 @@ namespace RBX_Alt_Manager.Classes
                     try { await connectedBrowser.CloseAsync(); }
                     catch (Exception ex) { Program.Logger?.Debug($"connectedBrowser.CloseAsync threw: {ex.Message}"); }
                 }
-                CloseBrowser(browser);
+                if (browser != null)
+                    CloseBrowser(browser);
                 await TryDeleteTemporaryDirectoryAsync(sessionRoot).ConfigureAwait(false);
             }
         }
@@ -291,11 +293,12 @@ namespace RBX_Alt_Manager.Classes
 
         private static async Task FillSignupFormAsync(
             IPage page,
-            string username,
-            string password,
-            SignupProfile profile,
+            string? username,
+            string? password,
+            SignupProfile? profile,
             bool submitCredentials)
         {
+            profile ??= CreateRandomProfile();
             // Roblox currently renders native select controls, but its React
             // state updates asynchronously. Setting .value from JavaScript
             // can leave the day control showing "Day" after the month/year
@@ -336,12 +339,12 @@ namespace RBX_Alt_Manager.Classes
                         continue;
                     }
 
-                    (bool Success, string[] Value) birthdayRead = await TryEvaluateFunctionAsync<string[]>(page, @"() => [
+                    (bool Success, string[]? Value) birthdayRead = await TryEvaluateFunctionAsync<string[]>(page, @"() => [
                         document.querySelector('#MonthDropdown')?.value || '',
                         document.querySelector('#DayDropdown')?.value || '',
                         document.querySelector('#YearDropdown')?.value || ''
                     ]");
-                    string[] selectedBirthday = birthdayRead.Success ? birthdayRead.Value : null;
+                    string[]? selectedBirthday = birthdayRead.Success ? birthdayRead.Value : null;
                     birthdaySet = selectedBirthday != null && selectedBirthday.Length >= 3 &&
                         string.Equals(selectedBirthday[0], monthValue, StringComparison.OrdinalIgnoreCase) &&
                         string.Equals(selectedBirthday[1], dayValue, StringComparison.OrdinalIgnoreCase) &&
@@ -548,7 +551,7 @@ namespace RBX_Alt_Manager.Classes
         {
             long startTick = Stopwatch.GetTimestamp();
             TimeSpan timeout = TimeSpan.FromMilliseconds(SelectorTimeoutMilliseconds);
-            Exception lastNavigationException = null;
+            Exception? lastNavigationException = null;
 
             while (Stopwatch.GetElapsedTime(startTick) < timeout)
             {
@@ -558,7 +561,7 @@ namespace RBX_Alt_Manager.Classes
                 try
                 {
                     int remaining = Math.Max(250, (int)(timeout - Stopwatch.GetElapsedTime(startTick)).TotalMilliseconds);
-                    IElementHandle handle = await page.WaitForSelectorAsync(selector, new WaitForSelectorOptions
+                    IElementHandle? handle = await page.WaitForSelectorAsync(selector, new WaitForSelectorOptions
                     {
                         Timeout = Math.Min(remaining, 1500)
                     });
@@ -578,9 +581,9 @@ namespace RBX_Alt_Manager.Classes
             throw new TimeoutException($"Waiting for selector `{selector}` failed.");
         }
 
-        private static async Task<(bool Success, T Value)> TryEvaluateFunctionAsync<T>(IPage page, string expression, params object[] args)
+        private static async Task<(bool Success, T? Value)> TryEvaluateFunctionAsync<T>(IPage? page, string expression, params object[] args)
         {
-            Exception lastNavigationException = null;
+            Exception? lastNavigationException = null;
             for (int attempt = 0; attempt < NavigationRetryCount; attempt++)
             {
                 if (page == null || page.IsClosed)
@@ -606,7 +609,7 @@ namespace RBX_Alt_Manager.Classes
             return (false, default);
         }
 
-        private static async Task WaitForNavigationToSettleAsync(IPage page)
+        private static async Task WaitForNavigationToSettleAsync(IPage? page)
         {
             if (page == null || page.IsClosed)
                 return;
@@ -617,7 +620,7 @@ namespace RBX_Alt_Manager.Classes
             await Task.Delay(NavigationRetryDelayMilliseconds);
         }
 
-        private static bool IsLikelySignupPage(IPage page)
+        private static bool IsLikelySignupPage(IPage? page)
         {
             try
             {
@@ -645,10 +648,10 @@ namespace RBX_Alt_Manager.Classes
         private static bool IsDetachedPageException(PuppeteerException exception)
             => ChromeLaunchHelper.IsDetachedOrTransientBrowserException(exception);
 
-        private static Task<IPage> FindActiveRobloxPageAsync(IBrowser connectedBrowser)
+        private static Task<IPage?> FindActiveRobloxPageAsync(IBrowser connectedBrowser)
             => ChromeLaunchHelper.FindActiveRobloxPageAsync(connectedBrowser);
 
-        private static Task<string> ReadAccountJsonAsync(IPage page)
+        private static Task<string?> ReadAccountJsonAsync(IPage page)
             => ChromeLaunchHelper.ReadAuthenticatedRobloxAccountJsonAsync(page, maxAttempts: 1);
 
         private static int GetFreeLoopbackPort()
@@ -663,7 +666,7 @@ namespace RBX_Alt_Manager.Classes
         private static Task TryDeleteTemporaryDirectoryAsync(string path)
             => ChromeLaunchHelper.TryDeleteSessionDirectoryAsync(path);
 
-        private static Task<CookieParam> ExtractRoblosecurityCookieAsync(IPage page)
+        private static Task<CookieParam?> ExtractRoblosecurityCookieAsync(IPage page)
             => ChromeLaunchHelper.ExtractRoblosecurityCookieAsync(page);
     }
 }

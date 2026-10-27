@@ -37,7 +37,7 @@ namespace RBX_Alt_Manager
         private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, long> ResolvedUserIdsCache =
             new(StringComparer.OrdinalIgnoreCase);
 
-        public static async Task<(bool Success, long UserId, RestResponse Response)> GetUserIDAsync(string Username, CancellationToken cancellationToken = default)
+        public static async Task<(bool Success, long UserId, RestResponse? Response)> GetUserIDAsync(string Username, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(Username))
                 return (false, -1, null);
@@ -51,7 +51,7 @@ namespace RBX_Alt_Manager
             {
                 if (AccountsList != null)
                 {
-                    Account knownAccount = AccountsList.FirstOrDefault(a =>
+                    Account? knownAccount = AccountsList.FirstOrDefault(a =>
                         a != null && a.UserID > 0 &&
                         string.Equals(a.Username, trimmedName, StringComparison.OrdinalIgnoreCase));
                     if (knownAccount != null)
@@ -104,16 +104,16 @@ namespace RBX_Alt_Manager
         public void UpdateAccountView(Account account) =>
             RBX_Alt_Manager.AvaloniaUI.Views.MainWindow.Instance?.RefreshLiveProcessStatus();
 
-        public static Account AddAccount(string SecurityToken, string Password = "", string AccountJSON = null, bool saveImmediate = true)
+        public static Account? AddAccount(string SecurityToken, string Password = "", string? AccountJSON = null, bool saveImmediate = true)
         {
             Account account = new Account(SecurityToken, AccountJSON);
             return RegisterValidatedAccount(account, account.SecurityToken, Password, saveImmediate);
         }
 
-        public static async Task<Account> AddAccountAsync(
+        public static async Task<Account?> AddAccountAsync(
             string SecurityToken,
             string Password = "",
-            string AccountJSON = null,
+            string? AccountJSON = null,
             bool saveImmediate = true,
             CancellationToken cancellationToken = default)
         {
@@ -121,14 +121,14 @@ namespace RBX_Alt_Manager
             return RegisterValidatedAccount(account, account.SecurityToken, Password, saveImmediate);
         }
 
-        internal static Account RegisterValidatedAccount(Account account, string SecurityToken, string Password = "", bool saveImmediate = true)
+        internal static Account? RegisterValidatedAccount(Account account, string SecurityToken, string Password = "", bool saveImmediate = true)
         {
             Program.Logger.Info($"[RegisterAccount] user='{account?.Username}' id={account?.UserID} valid={account?.Valid} payloadLen={Account.GetSessionTokenPayloadLength(SecurityToken)} shortLived={Account.IsShortLivedCookie(SecurityToken)}.");
             if (account != null && account.Valid)
             {
                 account.Password = Password;
 
-                Account exists;
+                Account? exists;
                 lock (AccountListLock)
                     exists = AccountsList.FirstOrDefault(acc => (account.UserID > 0 && acc.UserID == account.UserID) ||
                                                                 (!string.IsNullOrEmpty(acc.Username) && !string.IsNullOrEmpty(account.Username) && acc.Username.Equals(account.Username, StringComparison.OrdinalIgnoreCase)));
@@ -291,7 +291,7 @@ namespace RBX_Alt_Manager
             }
         }
 
-        internal async Task ImportBulkUserPassAsync(string combos, Action<string> statusCallback = null, CancellationToken cancellationToken = default)
+        internal async Task ImportBulkUserPassAsync(string combos, Action<string>? statusCallback = null, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(combos) || combos == "/UC")
                 return;
@@ -301,7 +301,7 @@ namespace RBX_Alt_Manager
                 .Replace('\r', '\n')
                 .Split('\n', StringSplitOptions.RemoveEmptyEntries);
 
-            var activeSlotTasks = new Task<(bool Success, string Username, string Error, int WindowSlot)>[2];
+            var activeSlotTasks = new Task<(bool Success, string Username, string Error, int WindowSlot)>?[2];
             var failedAccounts = new List<(string Username, string Error)>();
             int validCount = 0;
 
@@ -315,7 +315,7 @@ namespace RBX_Alt_Manager
                     break;
                 }
 
-                string combo = comboList[i]?.Trim();
+                string combo = comboList[i].Trim();
                 if (string.IsNullOrWhiteSpace(combo)) continue;
 
                 int separator = combo.IndexOf(':');
@@ -339,7 +339,7 @@ namespace RBX_Alt_Manager
 
                 if (activeSlotTasks[0] != null && activeSlotTasks[1] != null)
                 {
-                    var completedTask = await Task.WhenAny(activeSlotTasks[0], activeSlotTasks[1]);
+                    var completedTask = await Task.WhenAny(activeSlotTasks[0]!, activeSlotTasks[1]!);
                     var res = await completedTask;
                     activeSlotTasks[res.WindowSlot] = null;
                     if (!res.Success)
@@ -347,7 +347,7 @@ namespace RBX_Alt_Manager
                 }
             }
 
-            var remaining = activeSlotTasks.Where(t => t != null).ToArray();
+            var remaining = activeSlotTasks.Where(t => t != null).Select(t => t!).ToArray();
             if (remaining.Length > 0)
             {
                 var results = await Task.WhenAll(remaining);

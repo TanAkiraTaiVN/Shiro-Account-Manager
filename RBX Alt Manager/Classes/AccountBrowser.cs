@@ -100,7 +100,7 @@ namespace RBX_Alt_Manager.Classes
             // normal 64-bit Chrome installation from that build.
             string ProgramFiles = Environment.GetEnvironmentVariable("ProgramFiles") ??
                 Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
-            string ProgramFiles64 = Environment.GetEnvironmentVariable("ProgramW6432");
+            string? ProgramFiles64 = Environment.GetEnvironmentVariable("ProgramW6432");
             string ProgramFilesX86 = Environment.GetEnvironmentVariable("ProgramFiles(x86)") ??
                 Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
 
@@ -129,7 +129,7 @@ namespace RBX_Alt_Manager.Classes
             return found;
         }
 
-        public AccountBrowser(Account account, string Url = null, string Script = null, Func<Page, Task> PostNavigation = null, bool UseStealth = true)
+        public AccountBrowser(Account account, string? Url = null, string? Script = null, Func<Page, Task>? PostNavigation = null, bool UseStealth = true)
         {
             Observe(OpenAsync(account, Url, Script, PostNavigation, UseStealth));
         }
@@ -144,9 +144,9 @@ namespace RBX_Alt_Manager.Classes
         /// </summary>
         public static async Task<AccountBrowser> OpenAsync(
             Account account,
-            string Url = null,
-            string Script = null,
-            Func<Page, Task> PostNavigation = null,
+            string? Url = null,
+            string? Script = null,
+            Func<Page, Task>? PostNavigation = null,
             bool UseStealth = true,
             CancellationToken cancellationToken = default(CancellationToken))
         {
@@ -162,7 +162,7 @@ namespace RBX_Alt_Manager.Classes
                     Script: Script,
                     PostNavigation: PostNavigation,
                     UseStealth: UseStealth,
-                    PostPageCreation: () => session.page.SetCookieAsync(new CookieParam
+                    PostPageCreation: () => session.page?.SetCookieAsync(new CookieParam
                     {
                         Name = ".ROBLOSECURITY",
                         Domain = ".roblox.com",
@@ -171,7 +171,7 @@ namespace RBX_Alt_Manager.Classes
                         Secure = true,
                         Url = "https://roblox.com",
                         Value = account.SecurityToken
-                    }),
+                    }) ?? Task.CompletedTask,
                     cancellationToken: cancellationToken).ConfigureAwait(false);
 
                 cancellationToken.ThrowIfCancellationRequested();
@@ -227,7 +227,7 @@ namespace RBX_Alt_Manager.Classes
                 // callback on some target framework combinations, which
                 // prevents the project from compiling even though the
                 // dictionary itself is strongly typed.
-                AccountBrowser removedSession;
+                AccountBrowser? removedSession;
                 ActiveSessions.TryRemove(key, out removedSession);
                 DisposeProxy();
             };
@@ -238,7 +238,7 @@ namespace RBX_Alt_Manager.Classes
             if (Interlocked.Exchange(ref proxyDisposed, 1) != 0)
                 return;
 
-            IWebProxy selectedProxy = Proxy;
+            IWebProxy? selectedProxy = Proxy;
             Proxy = null;
             try { (selectedProxy as IDisposable)?.Dispose(); }
             catch (Exception ex) { Program.Logger?.Debug($"Disposing web proxy threw: {ex.Message}"); }
@@ -246,10 +246,10 @@ namespace RBX_Alt_Manager.Classes
 
         public async Task LaunchBrowser(
             string Url = "https://roblox.com/",
-            Func<Task> PostPageCreation = null,
-            Func<Page, Task> PostNavigation = null,
-            string Script = null,
-            string[] Arguments = null,
+            Func<Task>? PostPageCreation = null,
+            Func<Page, Task>? PostNavigation = null,
+            string? Script = null,
+            string[]? Arguments = null,
             bool UseStealth = true,
             CancellationToken cancellationToken = default(CancellationToken))
         {
@@ -269,7 +269,7 @@ namespace RBX_Alt_Manager.Classes
 
             string ExtensionPath = StoragePaths.ResolveAsset("extension");
             string ConfigPath = StoragePaths.GetUserFile("BrowserConfig.json");
-            BrowserConfig Config = null;
+            BrowserConfig? Config = null;
 
             if (Directory.Exists(ExtensionPath))
                 Args.AddRange(new string[] { $@"--disable-extensions-except=""{ExtensionPath}""", $@"--load-extension=""{ExtensionPath}""" });
@@ -404,17 +404,20 @@ namespace RBX_Alt_Manager.Classes
             return (Browser)await Puppeteer.LaunchAsync(options);
         }
 
-        private void ProxyAuthSession_MessageReceived(object sender, PuppeteerSharp.MessageEventArgs e)
+        private void ProxyAuthSession_MessageReceived(object? sender, PuppeteerSharp.MessageEventArgs e)
         {
-            Observe(ChromeLaunchHelper.HandleCdpProxyAuthChallengeAsync(
-                ProxyAuthSession,
-                e,
-                ProxyUsername,
-                ProxyPassword,
-                AuthenticateProxyInBrowser));
+            if (ProxyAuthSession != null)
+            {
+                Observe(ChromeLaunchHelper.HandleCdpProxyAuthChallengeAsync(
+                    ProxyAuthSession,
+                    e,
+                    ProxyUsername ?? string.Empty,
+                    ProxyPassword ?? string.Empty,
+                    AuthenticateProxyInBrowser));
+            }
         }
 
-        public async Task Login(string Username = "", string Password = "", string[] Arguments = null)
+        public async Task Login(string Username = "", string Password = "", string[]? Arguments = null)
         {
             // Use a normal browser for the interactive Roblox sign-in so CAPTCHA,
             // passkeys and 2-step verification remain under the user's control.
@@ -451,16 +454,16 @@ namespace RBX_Alt_Manager.Classes
             catch (Exception ex) { Program.Logger.Error($"An exception was caught while trying to automatically log in: {ex}"); }
         }
 
-        private void Page_RequestFinished(object sender, RequestEventArgs e)
+        private void Page_RequestFinished(object? sender, RequestEventArgs e)
         {
             Observe(HandlePageRequestFinishedAsync(sender, e));
         }
 
-        private async Task HandlePageRequestFinishedAsync(object sender, RequestEventArgs e)
+        private async Task HandlePageRequestFinishedAsync(object? sender, RequestEventArgs e)
         {
             try
             {
-                if (e?.Request == null || !Uri.TryCreate(e.Request.Url, UriKind.Absolute, out Uri Url)) return;
+                if (e?.Request == null || !Uri.TryCreate(e.Request.Url, UriKind.Absolute, out Uri? Url) || Url == null) return;
                 var Response = e.Request.Response;
                 if (Response == null) return;
 
@@ -475,8 +478,8 @@ namespace RBX_Alt_Manager.Classes
                         {
                             using var loginDoc = JsonDocument.Parse((string)e.Request.PostData);
                             var root = loginDoc.RootElement;
-                            string password = root.TryGetProperty("password", out var pw) ? pw.GetString() : null;
-                            string loginType = root.TryGetProperty("ctype", out var ct) ? ct.GetString() : null;
+                            string? password = root.TryGetProperty("password", out var pw) ? pw.GetString() : null;
+                            string? loginType = root.TryGetProperty("ctype", out var ct) ? ct.GetString() : null;
                             if (!string.IsNullOrEmpty(password) && string.Equals(loginType, "username", StringComparison.OrdinalIgnoreCase))
                                 Password = password;
                         }
@@ -513,9 +516,9 @@ namespace RBX_Alt_Manager.Classes
         private static bool IsTransientBrowserException(Exception ex)
             => ChromeLaunchHelper.IsDetachedOrTransientBrowserException(ex);
 
-        private void Page_RequestFailed(object sender, RequestEventArgs e)
+        private void Page_RequestFailed(object? sender, RequestEventArgs e)
         {
-            if (Uri.TryCreate(e.Request.Url, UriKind.Absolute, out Uri Url) && IsCaptchaProviderHost(Url.Host))
+            if (e?.Request != null && Uri.TryCreate(e.Request.Url, UriKind.Absolute, out Uri? Url) && Url != null && IsCaptchaProviderHost(Url.Host))
                 Program.Logger.Warn($"Roblox verification request to {Url.Host} failed: {e.Request.FailureText ?? "unknown network error"}.");
         }
 
@@ -528,17 +531,21 @@ namespace RBX_Alt_Manager.Classes
         private async Task AddAccount(CookieParam SecurityToken)
         {
             if (Proxy == null)
-                await AccountManager.AddAccountAsync(SecurityToken.Value, Password).ConfigureAwait(false);
+                await AccountManager.AddAccountAsync(SecurityToken.Value, Password ?? string.Empty).ConfigureAwait(false);
             else
             {
-                await page.WaitForNavigationAsync().ConfigureAwait(false);
-                string accountJson = await page.EvaluateFunctionAsync<string>("() => { return fetch('/my/account/json').then(x=>x.text()); }").ConfigureAwait(false);
-                await AccountManager.AddAccountAsync(SecurityToken.Value, Password, accountJson).ConfigureAwait(false);
+                if (page != null)
+                {
+                    await page.WaitForNavigationAsync().ConfigureAwait(false);
+                    string accountJson = await page.EvaluateFunctionAsync<string>("() => { return fetch('/my/account/json').then(x=>x.text()); }").ConfigureAwait(false);
+                    await AccountManager.AddAccountAsync(SecurityToken.Value, Password ?? string.Empty, accountJson).ConfigureAwait(false);
+                }
             }
 
             Password = null;
 
-            await browser.DisposeAsync();
+            if (browser != null)
+                await browser.DisposeAsync();
         }
 
         public static void CreateGrid(Vector2 Size)
@@ -579,11 +586,11 @@ namespace RBX_Alt_Manager.Classes
     }
     internal class BrowserConfig
     {
-        public Dictionary<string, string> PreNavigateActions = null;
+        public Dictionary<string, string>? PreNavigateActions = null;
 
-        public List<string> PreNavigateScripts = null;
-        public List<string> PostNavigateScripts = null;
+        public List<string>? PreNavigateScripts = null;
+        public List<string>? PostNavigateScripts = null;
 
-        public List<string> CustomArguments = null;
+        public List<string>? CustomArguments = null;
     }
 }

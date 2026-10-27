@@ -84,7 +84,7 @@ namespace RBX_Alt_Manager
                 return;
             }
 
-            List<Account> targetAccounts = accounts?.Where(a => a != null).ToList();
+            List<Account>? targetAccounts = accounts?.Where(a => a != null).ToList();
             if (targetAccounts == null || targetAccounts.Count == 0)
             {
                 var multiSel = GetCurrentSelectedAccounts();
@@ -107,7 +107,7 @@ namespace RBX_Alt_Manager
             // Resolve Place ID if not passed
             if (placeId <= 0)
             {
-                string pidSource = null;
+                string? pidSource = null;
                 if (RBX_Alt_Manager.AvaloniaUI.Views.MainWindow.Instance?.DashboardView?.ViewModel != null &&
                     !string.IsNullOrWhiteSpace(RBX_Alt_Manager.AvaloniaUI.Views.MainWindow.Instance.DashboardView.ViewModel.PlaceId))
                 {

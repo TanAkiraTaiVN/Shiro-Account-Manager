@@ -74,7 +74,7 @@ namespace RBX_Alt_Manager.Services
                     .AddHeader("Content-Type", "application/json")
                     .AddJsonBody(new { gameId = serverId, placeId = placeId });
 
-                RestResponse response = await account.ExecuteAccountRestAsync(client, "https://gamejoin.roblox.com/", request, cancellationToken).ConfigureAwait(false);
+                RestResponse? response = await account.ExecuteAccountRestAsync(client, "https://gamejoin.roblox.com/", request, cancellationToken).ConfigureAwait(false);
                 if (response != null && response.IsSuccessful && !string.IsNullOrEmpty(response.Content))
                 {
                     using var jsDoc = JsonDocument.Parse(response.Content);

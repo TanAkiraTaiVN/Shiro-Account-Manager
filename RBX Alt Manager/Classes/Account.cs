@@ -148,7 +148,7 @@ namespace RBX_Alt_Manager
         private const int NativeHandoffTimeoutMilliseconds = 15000;
         private static readonly SemaphoreSlim NativeLaunchGate = new SemaphoreSlim(1, 1);
         public const string BrowserHomeResult = "BROWSER_HOME_STARTED";
-        public string BrowserTrackerID;
+        public string BrowserTrackerID = string.Empty;
 
         public string Alias
         {
@@ -300,11 +300,11 @@ namespace RBX_Alt_Manager
 
         public Account() { }
 
-        public static async Task<Account> CreateAsync(string cookie, string accountJson = null, CancellationToken cancellationToken = default)
+        public static async Task<Account> CreateAsync(string cookie, string? accountJson = null, CancellationToken cancellationToken = default)
         {
             var account = new Account { SecurityToken = cookie, Valid = false, LastUse = DateTime.Now };
 
-            if (!string.IsNullOrEmpty(accountJson) && Utilities.TryParseJson(accountJson, out AccountJson data) && data.UserId > 0)
+            if (!string.IsNullOrEmpty(accountJson) && Utilities.TryParseJson(accountJson, out AccountJson? data) && data != null && data.UserId > 0)
             {
                 account.Username = data.Name;
                 account.UserID = data.UserId;
@@ -322,12 +322,12 @@ namespace RBX_Alt_Manager
             return account;
         }
 
-        public Account(string Cookie, string AccountJSON = null)
+        public Account(string Cookie, string? AccountJSON = null)
         {
             SecurityToken = Cookie;
 
             // 1. Try provided AccountJSON if valid
-            if (!string.IsNullOrEmpty(AccountJSON) && Utilities.TryParseJson(AccountJSON, out AccountJson data) && data.UserId > 0)
+            if (!string.IsNullOrEmpty(AccountJSON) && Utilities.TryParseJson(AccountJSON, out AccountJson? data) && data != null && data.UserId > 0)
             {
                 Username = data.Name;
                 UserID = data.UserId;
@@ -340,7 +340,7 @@ namespace RBX_Alt_Manager
             // 2. Query official users.roblox.com/v1/users/authenticated (fast, reliable, isolated headers)
             try
             {
-                string token = SecurityToken?.Trim().Trim('"').Trim();
+                string? token = SecurityToken?.Trim().Trim('"').Trim();
                 if (!string.IsNullOrEmpty(token))
                 {
                     HttpClient httpClient = ProxyBindingService.GetClient(this);
@@ -394,14 +394,14 @@ namespace RBX_Alt_Manager
         /// Executes a RestRequest using this account's dedicated proxy HttpClient (when configured and enabled)
         /// while preserving the endpoint BaseUrl of the target <see cref="RestClient"/>.
         /// </summary>
-        internal async Task<RestResponse> ExecuteAccountRestAsync(
-            RestClient client,
+        internal async Task<RestResponse?> ExecuteAccountRestAsync(
+            RestClient? client,
             string fallbackBaseUrl,
             RestRequest request,
             CancellationToken cancellationToken = default)
         {
             HttpClient accountHttpClient = ProxyBindingService.GetClient(this);
-            RestResponse response;
+            RestResponse? response;
             if (client != null)
                 response = await client.ExecuteAsync(request, accountHttpClient, cancellationToken).ConfigureAwait(false);
             else
@@ -455,7 +455,7 @@ namespace RBX_Alt_Manager
             if (response == null) return false;
             try
             {
-                IEnumerable<string> setCookieHeaders = null;
+                IEnumerable<string>? setCookieHeaders = null;
                 if (!response.Headers.TryGetValues("Set-Cookie", out setCookieHeaders))
                 {
                     try
@@ -486,8 +486,8 @@ namespace RBX_Alt_Manager
                 {
                     foreach (string header in setCookieHeaders)
                     {
-                        string newCookie = ExtractRoblosecurityFromSetCookie(header);
-                        if (ApplyRotatedSecurityToken(newCookie, "HttpResponseMessage Set-Cookie"))
+                        string? newCookie = ExtractRoblosecurityFromSetCookie(header);
+                        if (!string.IsNullOrWhiteSpace(newCookie) && ApplyRotatedSecurityToken(newCookie, "HttpResponseMessage Set-Cookie"))
                             return true;
                     }
                 }
@@ -520,9 +520,9 @@ namespace RBX_Alt_Manager
                     var setCookieHeaders = response.Headers.Where(h => string.Equals(h.Name, "Set-Cookie", StringComparison.OrdinalIgnoreCase));
                     foreach (var h in setCookieHeaders)
                     {
-                        string str = Convert.ToString(h.Value);
-                        string newCookie = ExtractRoblosecurityFromSetCookie(str);
-                        if (ApplyRotatedSecurityToken(newCookie, "RestResponse headers"))
+                        string? str = Convert.ToString(h.Value);
+                        string? newCookie = ExtractRoblosecurityFromSetCookie(str);
+                        if (!string.IsNullOrEmpty(newCookie) && ApplyRotatedSecurityToken(newCookie, "RestResponse headers"))
                             return true;
                     }
                 }
@@ -534,7 +534,7 @@ namespace RBX_Alt_Manager
             return false;
         }
 
-        public static string ExtractRoblosecurityFromSetCookie(string header)
+        public static string? ExtractRoblosecurityFromSetCookie(string? header)
         {
             if (string.IsNullOrWhiteSpace(header)) return null;
             ReadOnlySpan<char> span = header.AsSpan();
@@ -552,11 +552,9 @@ namespace RBX_Alt_Manager
             return span.ToString();
         }
 
-
-
-        private static int GetRateLimitRecoverySeconds(RestResponse response)
+        private static int GetRateLimitRecoverySeconds(RestResponse? response)
         {
-            string retryAfter = response?.Headers?
+            string? retryAfter = response?.Headers?
                 .FirstOrDefault(x => string.Equals(x.Name, "Retry-After", StringComparison.OrdinalIgnoreCase))?
                 .Value?.ToString()?.Trim();
 
@@ -581,7 +579,7 @@ namespace RBX_Alt_Manager
             // A few Roblox gateways expose a Unix timestamp instead of
             // Retry-After. Accept it as a final, bounded fallback without
             // changing the no-blind-retry behavior of auth-ticket calls.
-            string reset = response?.Headers?
+            string? reset = response?.Headers?
                 .FirstOrDefault(x => string.Equals(x.Name, "X-RateLimit-Reset", StringComparison.OrdinalIgnoreCase))?
                 .Value?.ToString()?.Trim();
             if (long.TryParse(reset, NumberStyles.Integer, CultureInfo.InvariantCulture, out long resetUnix))
@@ -637,7 +635,7 @@ namespace RBX_Alt_Manager
         // Account settings, PIN, blocklist, friend/avatar APIs extracted to Account.SettingsApi.cs
         // Process launching, window positioning, and native/browser home methods extracted to Account.Launcher.cs & Account.Launcher.Diagnostics.cs
 
-        public string GetField(string Name) => Fields.TryGetValue(Name, out string value) ? value : string.Empty;
+        public string GetField(string Name) => Fields.TryGetValue(Name, out string? value) ? value : string.Empty;
         public void SetField(string Name, string Value) { Fields[Name] = Value; IsDirty = true; AccountManager.QueueDeferredSave(); }
         public void SetWindowBounds(int x, int y, int width, int height)
         {
@@ -654,9 +652,9 @@ namespace RBX_Alt_Manager
     public class AccountJson
     {
         public long UserId { get; set; }
-        public string Name { get; set; }
-        public string DisplayName { get; set; }
-        public string UserEmail { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string DisplayName { get; set; } = string.Empty;
+        public string UserEmail { get; set; } = string.Empty;
         public bool IsEmailVerified { get; set; }
         public int AgeBracket { get; set; }
         public bool UserAbove13 { get; set; }

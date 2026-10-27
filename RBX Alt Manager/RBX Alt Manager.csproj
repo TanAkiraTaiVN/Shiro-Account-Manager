@@ -22,7 +22,7 @@
     <Copyright>Copyright © 2026 Shiro RAM</Copyright>
     <Description>Modernized Roblox Account Manager for .NET 10 (win-x64)</Description>
     <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>annotations</Nullable>
+    <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <DebugType>embedded</DebugType>

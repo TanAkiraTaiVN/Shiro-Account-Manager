@@ -110,7 +110,7 @@ namespace RBX_Alt_Manager
                 var failed = batch.Results.FirstOrDefault(r => r.Status != LaunchOutcome.Success);
                 if (failed != null)
                 {
-                    SetDashboardStatus(failed.Message ?? failed.Result);
+                    SetDashboardStatus(failed.Message ?? failed.Result ?? string.Empty);
                 }
                 else if (batch.Cancelled)
                 {

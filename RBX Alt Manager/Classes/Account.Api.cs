@@ -99,7 +99,7 @@ namespace RBX_Alt_Manager
                             return false;
                         }
 
-                        RobloxAuthenticatedUser authUser = null;
+                        RobloxAuthenticatedUser? authUser = null;
                         if (Utilities.FastJson.TryDeserialize<RobloxAuthenticatedUser>(body, out var parsedUser) && parsedUser?.Id > 0)
                         {
                             authUser = parsedUser;
@@ -114,7 +114,7 @@ namespace RBX_Alt_Manager
                                     authUser = new RobloxAuthenticatedUser
                                     {
                                         Id = idProp.GetInt64(),
-                                        Name = uDoc.RootElement.TryGetProperty("name", out var nProp) ? nProp.GetString() : null
+                                        Name = (uDoc.RootElement.TryGetProperty("name", out var nProp) ? nProp.GetString() : null) ?? string.Empty
                                     };
                                 }
                             }
@@ -130,7 +130,7 @@ namespace RBX_Alt_Manager
                             // Strict UserID verification: ensure this response matches THIS account!
                             if (UserID > 0 && authId != UserID)
                             {
-                                Program.Logger.Warn($"[ValidateSessionAsync] {Username}: UserID mismatch (Expected: {UserID}, Got: {authId}). Cookie expired or belongs to different user.");
+                                Program.Logger?.Warn($"[ValidateSessionAsync] {Username}: UserID mismatch (Expected: {UserID}, Got: {authId}). Cookie expired or belongs to different user.");
                                 Valid = false;
                                 return false;
                             }
@@ -219,7 +219,7 @@ namespace RBX_Alt_Manager
         }
 
         // Test seam: lets unit tests supply a fake HttpMessageHandler-backed client.
-        internal static Func<Account, HttpClient> TestHttpClientFactory;
+        internal static Func<Account, HttpClient>? TestHttpClientFactory;
 
         private HttpClient GetSessionHttpClient() =>
             TestHttpClientFactory?.Invoke(this) ?? ProxyBindingService.GetClient(this);
@@ -380,7 +380,7 @@ namespace RBX_Alt_Manager
             foreach (string endpoint in endpoints)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                string cookie = SecurityToken?.Trim().Trim('"').Trim();
+                string? cookie = SecurityToken?.Trim().Trim('"').Trim();
                 using var request = new HttpRequestMessage(HttpMethod.Post, endpoint);
                 if (!string.IsNullOrEmpty(cookie))
                     request.Headers.TryAddWithoutValidation("Cookie", $".ROBLOSECURITY={cookie}");
@@ -405,7 +405,7 @@ namespace RBX_Alt_Manager
 
                     if (response.Headers.TryGetValues("x-csrf-token", out var vals))
                     {
-                        string token = vals.FirstOrDefault();
+                        string? token = vals.FirstOrDefault();
                         if (!string.IsNullOrWhiteSpace(token))
                         {
                             CSRFToken = token;
@@ -449,7 +449,7 @@ namespace RBX_Alt_Manager
                 cancellationToken.ThrowIfCancellationRequested();
                 await RobloxRateLimitCoordinator.Instance.WaitForBackoffAsync(cancellationToken).ConfigureAwait(false);
 
-                string cookie = SecurityToken?.Trim().Trim('"').Trim();
+                string? cookie = SecurityToken?.Trim().Trim('"').Trim();
                 using var request = new HttpRequestMessage(HttpMethod.Post, "https://auth.roblox.com/v1/authentication-ticket/");
                 if (!string.IsNullOrEmpty(cookie))
                     request.Headers.TryAddWithoutValidation("Cookie", $".ROBLOSECURITY={cookie}");
@@ -469,7 +469,7 @@ namespace RBX_Alt_Manager
 
                     if (response.Headers.TryGetValues("x-csrf-token", out var csrfVals))
                     {
-                        string freshCsrf = csrfVals.FirstOrDefault();
+                        string? freshCsrf = csrfVals.FirstOrDefault();
                         if (!string.IsNullOrWhiteSpace(freshCsrf))
                         {
                             currentCsrf = freshCsrf;
@@ -547,22 +547,22 @@ namespace RBX_Alt_Manager
             return (false, string.Empty);
         }
 
-        public async Task<string> GetEmailJSON(CancellationToken cancellationToken = default)
+        public async Task<string?> GetEmailJSON(CancellationToken cancellationToken = default)
         {
             RestRequest DataRequest = MakeRequest("v1/email", Method.Get);
 
-            RestResponse response = await ExecuteAccountRestAsync(AccountManager.AccountClient, "https://accountsettings.roblox.com/", DataRequest, cancellationToken).ConfigureAwait(false);
+            RestResponse? response = await ExecuteAccountRestAsync(AccountManager.AccountClient, "https://accountsettings.roblox.com/", DataRequest, cancellationToken).ConfigureAwait(false);
 
-            return response.Content;
+            return response?.Content;
         }
 
-        public async Task<JsonNode> GetUserInfo(CancellationToken cancellationToken = default)
+        public async Task<JsonNode?> GetUserInfo(CancellationToken cancellationToken = default)
         {
             RestRequest DataRequest = MakeRequest($"v1/users/{UserID}", Method.Get);
 
-            RestResponse response = await ExecuteAccountRestAsync(AccountManager.UsersClient, "https://users.roblox.com/", DataRequest, cancellationToken).ConfigureAwait(false);
+            RestResponse? response = await ExecuteAccountRestAsync(AccountManager.UsersClient, "https://users.roblox.com/", DataRequest, cancellationToken).ConfigureAwait(false);
 
-            if (response.StatusCode == HttpStatusCode.OK && !string.IsNullOrWhiteSpace(response.Content))
+            if (response != null && response.StatusCode == HttpStatusCode.OK && !string.IsNullOrWhiteSpace(response.Content))
             {
                 try { return JsonNode.Parse(response.Content); }
                 catch (Exception ex)
@@ -586,11 +586,11 @@ namespace RBX_Alt_Manager
             if (!await CheckPinAsync(true, cancellationToken).ConfigureAwait(false))
                 return (false, "Pin is Locked");
 
-            RestResponse response = await GetBlockedListAsync(cancellationToken).ConfigureAwait(false);
-            if (!response.IsSuccessful || response.StatusCode != HttpStatusCode.OK)
+            RestResponse? response = await GetBlockedListAsync(cancellationToken).ConfigureAwait(false);
+            if (response == null || !response.IsSuccessful || response.StatusCode != HttpStatusCode.OK)
                 return (false, "Failed to unblock everyone");
 
-            var blockedIds = ExtractBlockedUserIdsFromJson(response.Content);
+            var blockedIds = ExtractBlockedUserIdsFromJson(response.Content ?? string.Empty);
             if (blockedIds.Count == 0)
                 return (true, "No blocked users");
 
@@ -599,8 +599,8 @@ namespace RBX_Alt_Manager
                 cancellationToken.ThrowIfCancellationRequested();
                 string userId = blockedId.ToString(CultureInfo.InvariantCulture);
 
-                RestResponse unblockResponse = await UnblockUserIdAsync(userId, true, cancellationToken).ConfigureAwait(false);
-                if (unblockResponse.IsSuccessful)
+                RestResponse? unblockResponse = await UnblockUserIdAsync(userId, true, cancellationToken).ConfigureAwait(false);
+                if (unblockResponse?.IsSuccessful == true)
                     continue;
 
                 // Roblox can briefly reject a burst of block mutations. Keep
@@ -611,7 +611,7 @@ namespace RBX_Alt_Manager
                 cancellationToken.ThrowIfCancellationRequested();
 
                 var retryResponse = await UnblockUserIdAsync(userId, true, cancellationToken).ConfigureAwait(false);
-                if (!retryResponse.IsSuccessful && !await CheckPinAsync(true, cancellationToken).ConfigureAwait(false))
+                if ((retryResponse == null || !retryResponse.IsSuccessful) && !await CheckPinAsync(true, cancellationToken).ConfigureAwait(false))
                     break;
             }
 
@@ -633,7 +633,7 @@ namespace RBX_Alt_Manager
 
             var Response = await ExecuteAccountRestAsync(AccountManager.ApiClient, "https://apis.roblox.com/", enterRequest, cancellationToken).ConfigureAwait(false);
 
-            if (Response.IsSuccessful && !string.IsNullOrWhiteSpace(Response.Content))
+            if (Response != null && Response.IsSuccessful && !string.IsNullOrWhiteSpace(Response.Content))
             {
                 string deviceInfo = "Unknown";
                 string location = "Unknown";
@@ -655,7 +655,7 @@ namespace RBX_Alt_Manager
                         .AddJsonBody(new { code = Code });
 
                     var validateResponse = await ExecuteAccountRestAsync(AccountManager.ApiClient, "https://apis.roblox.com/", validateRequest, cancellationToken).ConfigureAwait(false);
-                    return validateResponse.IsSuccessful;
+                    return validateResponse?.IsSuccessful == true;
                 }
             }
 
