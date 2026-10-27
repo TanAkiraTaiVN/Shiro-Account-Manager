@@ -3,6 +3,7 @@ using System.Buffers.Binary;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
@@ -26,6 +27,7 @@ namespace RBX_Alt_Manager.Services
         private const uint OPEN_EXISTING = 3;
         private const uint FSCTL_GET_NTFS_VOLUME_DATA = 0x00090064;
 
+        [ExcludeFromCodeCoverage]
         [LibraryImport("kernel32.dll", EntryPoint = "CreateFileW", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
         private static partial SafeFileHandle CreateFile(
             string lpFileName,
@@ -36,6 +38,7 @@ namespace RBX_Alt_Manager.Services
             uint dwFlagsAndAttributes,
             IntPtr hTemplateFile);
 
+        [ExcludeFromCodeCoverage]
         [LibraryImport("kernel32.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
         private static partial bool DeviceIoControl(
@@ -48,6 +51,7 @@ namespace RBX_Alt_Manager.Services
             out uint lpBytesReturned,
             IntPtr lpOverlapped);
 
+        [ExcludeFromCodeCoverage]
         [LibraryImport("kernel32.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
         private static partial bool SetFilePointerEx(
@@ -56,6 +60,7 @@ namespace RBX_Alt_Manager.Services
             out long lpNewFilePointer,
             uint dwMoveMethod);
 
+        [ExcludeFromCodeCoverage]
         [LibraryImport("kernel32.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
         private static partial bool ReadFile(
@@ -112,6 +117,7 @@ namespace RBX_Alt_Manager.Services
             return null;
         }
 
+        [ExcludeFromCodeCoverage]
         public static bool RunElevatedRecovery()
         {
             if (!OperatingSystem.IsWindows())
@@ -486,6 +492,7 @@ namespace RBX_Alt_Manager.Services
             StoragePaths.SaveRecoveredVaultKey(key);
         }
 
+        [ExcludeFromCodeCoverage]
         private static int ReadAligned(SafeFileHandle handle, long byteOffset, byte[] buffer, int count)
         {
             if (!SetFilePointerEx(handle, byteOffset, out _, 0))
@@ -497,6 +504,7 @@ namespace RBX_Alt_Manager.Services
             return (int)bytesRead;
         }
 
+        [ExcludeFromCodeCoverage]
         private static byte[] TryScanNtfsForVaultKey(byte[] encryptedAccountData)
         {
             try
@@ -787,7 +795,7 @@ namespace RBX_Alt_Manager.Services
             }
         }
 
-        private static byte[] TestCandidatesParallel(byte[] encryptedAccountData, IEnumerable<byte[]> candidates)
+        internal static byte[] TestCandidatesParallel(byte[] encryptedAccountData, IEnumerable<byte[]> candidates)
         {
             byte[] found = null;
             Parallel.ForEach(candidates, (cand, state) =>
@@ -801,92 +809,10 @@ namespace RBX_Alt_Manager.Services
             return found;
         }
 
-        private static bool ApplyUsaFixup(Span<byte> record, int sectorSize)
-        {
-            if (record.Length < 48)
-                return false;
+        internal static bool ApplyUsaFixup(Span<byte> record, int sectorSize) =>
+            Recovery.NtfsMftRecordParser.ApplyUsaFixup(record, sectorSize);
 
-            ushort usaOffset = BinaryPrimitives.ReadUInt16LittleEndian(record.Slice(4, 2));
-            ushort usaCount = BinaryPrimitives.ReadUInt16LittleEndian(record.Slice(6, 2));
-
-            if (usaOffset < 40 || usaCount < 2 || usaOffset + usaCount * 2 > record.Length)
-                return false;
-
-            for (int s = 1; s < usaCount && s * sectorSize <= record.Length; s++)
-            {
-                int sectorEnd = s * sectorSize - 2;
-                record[sectorEnd] = record[usaOffset + s * 2];
-                record[sectorEnd + 1] = record[usaOffset + s * 2 + 1];
-            }
-
-            return true;
-        }
-
-        private static List<(long ByteOffset, long ByteLength)> ParseDataRunExtents(ReadOnlySpan<byte> record, uint bytesPerCluster)
-        {
-            var extents = new List<(long, long)>();
-            ushort attrOffset = BinaryPrimitives.ReadUInt16LittleEndian(record.Slice(20, 2));
-
-            while (attrOffset + 24 <= record.Length)
-            {
-                uint attrType = BinaryPrimitives.ReadUInt32LittleEndian(record.Slice(attrOffset, 4));
-                if (attrType == 0xFFFFFFFF || attrType == 0)
-                    break;
-
-                uint attrLen = BinaryPrimitives.ReadUInt32LittleEndian(record.Slice(attrOffset + 4, 4));
-                if (attrLen < 24 || attrOffset + attrLen > recLength(record))
-                    break;
-
-                byte nonResident = record[attrOffset + 8];
-                if (attrType == 0x80 && nonResident == 1 && attrOffset + 34 <= record.Length)
-                {
-                    ushort runOffset = BinaryPrimitives.ReadUInt16LittleEndian(record.Slice(attrOffset + 32, 2));
-                    int pos = attrOffset + runOffset;
-                    long currentLcn = 0;
-
-                    while (pos < attrOffset + attrLen && pos < record.Length && record[pos] != 0)
-                    {
-                        byte header = record[pos++];
-                        int lenBytes = header & 0x0F;
-                        int offBytes = (header >> 4) & 0x0F;
-
-                        if (lenBytes == 0 || lenBytes > 8 || offBytes > 8 || pos + lenBytes + offBytes > record.Length)
-                            break;
-
-                        long clusterCount = 0;
-                        for (int i = 0; i < lenBytes; i++)
-                            clusterCount |= ((long)record[pos + i]) << (i * 8);
-                        pos += lenBytes;
-
-                        long lcnDelta = 0;
-                        if (offBytes > 0)
-                        {
-                            for (int i = 0; i < offBytes; i++)
-                                lcnDelta |= ((long)record[pos + i]) << (i * 8);
-
-                            if ((record[pos + offBytes - 1] & 0x80) != 0)
-                            {
-                                for (int i = offBytes; i < 8; i++)
-                                    lcnDelta |= 0xFFL << (i * 8);
-                            }
-                            pos += offBytes;
-
-                            currentLcn += lcnDelta;
-                            if (currentLcn > 0 && clusterCount > 0)
-                            {
-                                extents.Add((currentLcn * bytesPerCluster, clusterCount * bytesPerCluster));
-                            }
-                        }
-                    }
-                    break;
-                }
-
-                attrOffset += (ushort)attrLen;
-            }
-
-            return extents;
-
-            static int recLength(ReadOnlySpan<byte> r) => r.Length;
-        }
+        internal static List<(long ByteOffset, long ByteLength)> ParseDataRunExtents(ReadOnlySpan<byte> record, uint bytesPerCluster) =>
+            Recovery.NtfsMftRecordParser.ParseDataRunExtents(record, bytesPerCluster);
     }
 }
