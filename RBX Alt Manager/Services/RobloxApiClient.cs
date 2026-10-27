@@ -1,3 +1,4 @@
+#nullable enable
 using RBX_Alt_Manager.Http;
 using System;
 using System.Net;
@@ -41,7 +42,7 @@ namespace RBX_Alt_Manager.Services
             Api = Create("https://apis.roblox.com/");
         }
 
-        private static RestClient Create(string baseUrl, string userAgent = null)
+        private static RestClient Create(string baseUrl, string? userAgent = null)
         {
             return new RestClient(baseUrl, userAgent);
         }

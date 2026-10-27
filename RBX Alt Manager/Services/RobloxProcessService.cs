@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -133,7 +134,7 @@ namespace RBX_Alt_Manager.Services
             return false;
         }
 
-        private static bool TryGetProcessCountsNative(out int totalCount, out int clientCount, List<int> clientPids = null)
+        private static bool TryGetProcessCountsNative(out int totalCount, out int clientCount, List<int>? clientPids = null)
         {
             long now = Environment.TickCount64;
             lock (_snapshotCacheLock)
@@ -344,7 +345,7 @@ namespace RBX_Alt_Manager.Services
                         {
                             if (!p.HasExited)
                             {
-                                string cmd = p.GetCommandLine();
+                                string? cmd = p.GetCommandLine();
                                 if (!string.IsNullOrEmpty(cmd) && cmd.Contains("--launch-to-tray", StringComparison.OrdinalIgnoreCase))
                                     continue;
                                 result.Add(p.Id);
@@ -469,7 +470,7 @@ namespace RBX_Alt_Manager.Services
                         bool isMatchingProcess = true;
                         if (!string.IsNullOrWhiteSpace(account.BrowserTrackerID))
                         {
-                            string cmdLine = proc.GetCommandLine();
+                            string? cmdLine = proc.GetCommandLine();
                             if (!string.IsNullOrEmpty(cmdLine))
                             {
                                 var match = TrackerRegex().Match(cmdLine);
@@ -514,7 +515,7 @@ namespace RBX_Alt_Manager.Services
                     {
                         try
                         {
-                            string cmdLine = ProcessExtensions.GetCommandLineByPid(pid);
+                            string? cmdLine = ProcessExtensions.GetCommandLineByPid(pid);
                             if (string.IsNullOrEmpty(cmdLine)) continue;
 
                             var match = TrackerRegex().Match(cmdLine);
@@ -564,7 +565,7 @@ namespace RBX_Alt_Manager.Services
             if (accountList.Count == 0) return 0;
             if (accountList.Count == 1) return CloseAccountRobloxProcess(accountList[0]) ? 1 : 0;
 
-            Dictionary<string, int> trackerToPid = null;
+            Dictionary<string, int>? trackerToPid = null;
             var processesToTerminate = new List<(Account Account, Process Process)>(accountList.Count);
             var targetedPids = new HashSet<int>();
 
@@ -582,7 +583,7 @@ namespace RBX_Alt_Manager.Services
                             bool matches = true;
                             if (!string.IsNullOrWhiteSpace(account.BrowserTrackerID))
                             {
-                                string cmdLine = proc.GetCommandLine();
+                                string? cmdLine = proc.GetCommandLine();
                                 if (!string.IsNullOrEmpty(cmdLine))
                                 {
                                     var match = TrackerRegex().Match(cmdLine);
@@ -626,7 +627,7 @@ namespace RBX_Alt_Manager.Services
                         {
                             try
                             {
-                                string cmdLine = ProcessExtensions.GetCommandLineByPid(pid);
+                                string? cmdLine = ProcessExtensions.GetCommandLineByPid(pid);
                                 if (string.IsNullOrEmpty(cmdLine)) continue;
                                 var match = TrackerRegex().Match(cmdLine);
                                 if (match.Success && !string.IsNullOrEmpty(match.Groups[1].Value))
@@ -714,7 +715,7 @@ namespace RBX_Alt_Manager.Services
                 {
                     try
                     {
-                        string cmd = ProcessExtensions.GetCommandLineByPid(pid);
+                        string? cmd = ProcessExtensions.GetCommandLineByPid(pid);
                         if (!string.IsNullOrEmpty(cmd) && cmd.Contains("--launch-to-tray", StringComparison.OrdinalIgnoreCase))
                         {
                             using var p = Process.GetProcessById(pid);

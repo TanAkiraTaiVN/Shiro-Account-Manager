@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -30,9 +31,9 @@ namespace RBX_Alt_Manager.Services
         private long _latencyMs = -1;
         private bool _isTesting;
 
-        public event PropertyChangedEventHandler PropertyChanged;
+        public event PropertyChangedEventHandler? PropertyChanged;
 
-        private void OnPropertyChanged([CallerMemberName] string name = null)
+        private void OnPropertyChanged([CallerMemberName] string? name = null)
             => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 
         public string RawEntry
@@ -151,8 +152,8 @@ namespace RBX_Alt_Manager.Services
     public static class ProxyManagerService
     {
         private static readonly System.Threading.Lock CacheLock = new();
-        private static IReadOnlyList<string> _cachedRawProxies;
-        private static string _cachedFilePath;
+        private static IReadOnlyList<string>? _cachedRawProxies;
+        private static string? _cachedFilePath;
         private static long _lastCacheTicks;
         private const long CacheTtlMs = 15_000;
 
@@ -187,7 +188,7 @@ namespace RBX_Alt_Manager.Services
             return loaded.Select(p => p.RawEntry).ToList();
         }
 
-        public static ProxyItem ParseProxy(string raw)
+        public static ProxyItem? ParseProxy(string? raw)
         {
             if (string.IsNullOrWhiteSpace(raw)) return null;
             string trimmed = raw.Trim();
@@ -410,7 +411,7 @@ namespace RBX_Alt_Manager.Services
             }
         }
 
-        public static async Task TestAllProxiesAsync(IEnumerable<ProxyItem> proxies, int maxConcurrency = 6, int timeoutMs = 3000, IProgress<ProxyItem> progress = null, CancellationToken ct = default)
+        public static async Task TestAllProxiesAsync(IEnumerable<ProxyItem> proxies, int maxConcurrency = 6, int timeoutMs = 3000, IProgress<ProxyItem>? progress = null, CancellationToken ct = default)
         {
             if (proxies == null) return;
             var snapshot = proxies.Where(p => p != null).ToList();

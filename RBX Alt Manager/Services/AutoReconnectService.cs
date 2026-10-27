@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -29,9 +30,9 @@ namespace RBX_Alt_Manager.Services
 
         public sealed class ReconnectSession
         {
-            public Account Account { get; init; }
+            public required Account Account { get; init; }
             public long PlaceId { get; set; }
-            public string JobId { get; set; }
+            public string JobId { get; set; } = string.Empty;
             public bool FollowUser { get; set; }
             public bool JoinVip { get; set; }
             public int ProcessId { get; set; }
@@ -82,8 +83,8 @@ namespace RBX_Alt_Manager.Services
         }
         public int TotalReconnections => _totalReconnections;
 
-        public event Action<ReconnectSession, int> ReconnectAttempted;
-        public event Action<ReconnectSession> MaxRetriesExceeded;
+        public event Action<ReconnectSession, int>? ReconnectAttempted;
+        public event Action<ReconnectSession>? MaxRetriesExceeded;
 
         public AutoReconnectService()
         {
@@ -314,19 +315,21 @@ namespace RBX_Alt_Manager.Services
         /// <summary>
         /// Retrieves the session for a given account username, if registered.
         /// </summary>
-        public bool TryGetSession(string username, out ReconnectSession session)
+        public bool TryGetSession(string? username, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out ReconnectSession? session)
         {
             session = null;
-            return !string.IsNullOrWhiteSpace(username) && _sessions.TryGetValue(username, out session);
+            if (string.IsNullOrWhiteSpace(username))
+                return false;
+            return _sessions.TryGetValue(username, out session);
         }
 
-        private void CheckSessionsCallback(object state)
+        private void CheckSessionsCallback(object? state)
         {
             if (!IsEnabled || _disposed || _sessions.IsEmpty)
                 return;
 
             DateTime now = DateTime.UtcNow;
-            HashSet<int> runningPids = null;
+            HashSet<int>? runningPids = null;
 
             foreach (var kvp in _sessions)
             {

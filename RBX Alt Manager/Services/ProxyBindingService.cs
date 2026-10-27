@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -26,7 +27,7 @@ namespace RBX_Alt_Manager.Services
         /// Supports standard URI formats (http://, socks5://, user:pass@host:port)
         /// and provider colon formats (host:port, host:port:user:pass).
         /// </summary>
-        public static IWebProxy ParseWebProxy(string proxyString)
+        public static IWebProxy? ParseWebProxy(string? proxyString)
         {
             if (string.IsNullOrWhiteSpace(proxyString))
                 return null;
@@ -35,7 +36,7 @@ namespace RBX_Alt_Manager.Services
 
             try
             {
-                ProxyItem parsed = ProxyManagerService.ParseProxy(raw);
+                ProxyItem? parsed = ProxyManagerService.ParseProxy(raw);
                 if (parsed == null)
                     return null;
 
@@ -55,7 +56,7 @@ namespace RBX_Alt_Manager.Services
             }
             catch (Exception ex)
             {
-                Program.Logger.Warn($"[ProxyBindingService] Failed to parse proxy '{proxyString}': {ex.Message}");
+                Program.Logger?.Warn($"[ProxyBindingService] Failed to parse proxy '{proxyString}': {ex.Message}");
                 return null;
             }
         }
@@ -122,10 +123,10 @@ namespace RBX_Alt_Manager.Services
             string normalized = proxyString.Trim();
             return _proxyClients.GetOrAdd(normalized, key => new Lazy<HttpClient>(() =>
             {
-                IWebProxy webProxy = ParseWebProxy(key);
+                IWebProxy? webProxy = ParseWebProxy(key);
                 if (webProxy == null)
                 {
-                    Program.Logger.Warn($"[ProxyBindingService] Proxy '{key}' is invalid. Routing via default gateway.");
+                    Program.Logger?.Warn($"[ProxyBindingService] Proxy '{key}' is invalid. Routing via default gateway.");
                     return SharedHttpClient.Get();
                 }
 
@@ -230,12 +231,12 @@ namespace RBX_Alt_Manager.Services
         /// <summary>
         /// Tests connectivity and latency of a proxy against Roblox services.
         /// </summary>
-        public static async Task<(bool Success, TimeSpan Latency, string Error)> TestProxyAsync(string proxyString, CancellationToken cancellationToken = default)
+        public static async Task<(bool Success, TimeSpan Latency, string? Error)> TestProxyAsync(string proxyString, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(proxyString))
                 return (false, TimeSpan.Zero, "Proxy string is empty.");
 
-            IWebProxy webProxy = ParseWebProxy(proxyString);
+            IWebProxy? webProxy = ParseWebProxy(proxyString);
             if (webProxy == null)
                 return (false, TimeSpan.Zero, "Invalid proxy format.");
 

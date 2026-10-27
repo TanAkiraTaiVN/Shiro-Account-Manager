@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -18,7 +19,7 @@ namespace RBX_Alt_Manager.Services
     public static partial class AntiAfkService
     {
         private static readonly TimeSpan TickPeriod = TimeSpan.FromSeconds(15);
-        private static Timer _timer;
+        private static Timer? _timer;
         private static readonly System.Threading.Lock _gate = new();
         private static int _running;
 
@@ -36,7 +37,7 @@ namespace RBX_Alt_Manager.Services
         private static int _tapsSent = 0;
         private static volatile string _status = "Anti-AFK Inactive";
 
-        public static event Action StatusChanged;
+        public static event Action? StatusChanged;
 
         public static bool IsEnabled => _enabled;
         public static int TapsSent => _tapsSent;
@@ -265,13 +266,13 @@ namespace RBX_Alt_Manager.Services
 
                 if (sent > 0)
                 {
-                    Program.Logger.Info($"[AntiAfk] Kept alive {sent} Roblox client(s) via silent background pulse. Total keepalives: {_tapsSent}.");
+                    Program.Logger?.Info($"[AntiAfk] Kept alive {sent} Roblox client(s) via silent background pulse. Total keepalives: {_tapsSent}.");
                     SetStatus($"Anti-AFK Active ({pids.Count} clients • {_tapsSent} keepalives sent)");
                 }
             }
             catch (Exception ex)
             {
-                Program.Logger.Error($"[AntiAfk] Pass error: {ex.Message}");
+                Program.Logger?.Error($"[AntiAfk] Pass error: {ex.Message}");
             }
             finally
             {

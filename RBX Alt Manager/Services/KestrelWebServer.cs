@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Concurrent;
 using System.IO;
@@ -27,11 +28,11 @@ namespace RBX_Alt_Manager.Services
             WriteIndented = false
         };
 
-        private WebApplication _app;
+        private WebApplication? _app;
         private readonly int _port;
         private readonly bool _allowExternal;
         private readonly Func<HttpContext, Task<string>> _handler;
-        private readonly Func<HttpContext, bool> _authValidator;
+        private readonly Func<HttpContext, bool>? _authValidator;
         private readonly CancellationTokenSource _cts = new();
 
         public bool IsRunning { get; private set; }
@@ -45,7 +46,7 @@ namespace RBX_Alt_Manager.Services
             int port,
             bool allowExternal,
             Func<HttpContext, Task<string>> handler,
-            Func<HttpContext, bool> authValidator = null)
+            Func<HttpContext, bool>? authValidator = null)
         {
             _port = port > 0 ? port : 7963;
             _allowExternal = allowExternal;
@@ -165,8 +166,8 @@ namespace RBX_Alt_Manager.Services
                 return;
             }
 
-            WebSocket socket = null;
-            SemaphoreSlim gate = null;
+            WebSocket? socket = null;
+            SemaphoreSlim? gate = null;
             try
             {
                 socket = await context.WebSockets.AcceptWebSocketAsync();
@@ -408,8 +409,11 @@ namespace RBX_Alt_Manager.Services
             try
             {
                 _cts.Cancel();
-                await _app.StopAsync();
-                await _app.DisposeAsync();
+                if (_app != null)
+                {
+                    await _app.StopAsync();
+                    await _app.DisposeAsync();
+                }
             }
             catch (Exception ex)
             {

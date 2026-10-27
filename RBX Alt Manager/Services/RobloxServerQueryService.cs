@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -38,12 +39,12 @@ namespace RBX_Alt_Manager.Services
                 string.Equals(statusProp.GetString(), "fail", StringComparison.OrdinalIgnoreCase))
                 return false;
 
-            string city = geoJs.TryGetProperty("city", out var cVal) && cVal.ValueKind == JsonValueKind.String ? cVal.GetString() : "";
+            string city = geoJs.TryGetProperty("city", out var cVal) && cVal.ValueKind == JsonValueKind.String ? (cVal.GetString() ?? "") : "";
             string country = geoJs.TryGetProperty("countryCode", out var ccVal) && ccVal.ValueKind == JsonValueKind.String
-                ? ccVal.GetString()
+                ? (ccVal.GetString() ?? "")
                 : (geoJs.TryGetProperty("country_code", out var cc2Val) && cc2Val.ValueKind == JsonValueKind.String
-                    ? cc2Val.GetString()
-                    : (geoJs.TryGetProperty("country", out var ctryVal) && ctryVal.ValueKind == JsonValueKind.String ? ctryVal.GetString() : ""));
+                    ? (cc2Val.GetString() ?? "")
+                    : (geoJs.TryGetProperty("country", out var ctryVal) && ctryVal.ValueKind == JsonValueKind.String ? (ctryVal.GetString() ?? "") : ""));
 
             region = !string.IsNullOrEmpty(city) && !string.IsNullOrEmpty(country)
                 ? $"{city}, {country}"
@@ -56,7 +57,7 @@ namespace RBX_Alt_Manager.Services
             Account account,
             long placeId,
             string serverId,
-            string ipApiTemplate = null,
+            string? ipApiTemplate = null,
             CancellationToken cancellationToken = default)
         {
             var result = new ServerRegionPingResult();
@@ -78,7 +79,7 @@ namespace RBX_Alt_Manager.Services
                 {
                     using var jsDoc = JsonDocument.Parse(response.Content);
                     var js = jsDoc.RootElement;
-                    string ip = js.TryGetProperty("joinScript", out var jScript) && jScript.TryGetProperty("MachineAddress", out var ma)
+                    string? ip = js.TryGetProperty("joinScript", out var jScript) && jScript.TryGetProperty("MachineAddress", out var ma)
                         ? ma.GetString()
                         : null;
 
@@ -99,7 +100,7 @@ namespace RBX_Alt_Manager.Services
                     }
                     else
                     {
-                        result.Region = js.TryGetProperty("status", out var stVal) ? stVal.GetString() : "Không rõ";
+                        result.Region = js.TryGetProperty("status", out var stVal) ? (stVal.GetString() ?? "Không rõ") : "Không rõ";
                     }
                 }
             }
@@ -127,11 +128,11 @@ namespace RBX_Alt_Manager.Services
             return null;
         }
 
-        private static async Task<string> ResolveGeoIpRegionAsync(string ip, string ipApiTemplate, CancellationToken cancellationToken)
+        private static async Task<string> ResolveGeoIpRegionAsync(string ip, string? ipApiTemplate, CancellationToken cancellationToken)
         {
             string subnetKey = GetIpv4SubnetPrefix(ip);
-            if (_geoIpCache.TryGetValue(ip, out string cachedRegion) ||
-                (!string.IsNullOrEmpty(subnetKey) && _geoIpCache.TryGetValue(subnetKey, out cachedRegion)))
+            if (_geoIpCache.TryGetValue(ip, out string? cachedRegion) ||
+                (!string.IsNullOrEmpty(subnetKey) && _geoIpCache.TryGetValue(subnetKey, out cachedRegion) && cachedRegion != null))
             {
                 return cachedRegion;
             }
@@ -203,7 +204,7 @@ namespace RBX_Alt_Manager.Services
                     {
                         foreach (var item in dataArr.EnumerateArray())
                         {
-                            string id = item.TryGetProperty("id", out var idElem) && idElem.ValueKind == JsonValueKind.String ? idElem.GetString() : "";
+                            string id = item.TryGetProperty("id", out var idElem) && idElem.ValueKind == JsonValueKind.String ? (idElem.GetString() ?? "") : "";
                             int maxPlayers = item.TryGetProperty("maxPlayers", out var mpElem) && mpElem.TryGetInt32(out int mpVal) ? mpVal : 0;
                             int playing = item.TryGetProperty("playing", out var plElem) && plElem.TryGetInt32(out int plVal) ? plVal : 0;
                             int ping = item.TryGetProperty("ping", out var pingElem) && pingElem.TryGetInt32(out int pingVal) ? pingVal : 0;

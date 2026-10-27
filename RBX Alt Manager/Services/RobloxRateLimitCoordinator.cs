@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Concurrent;
 using System.Net;
@@ -83,7 +84,7 @@ namespace RBX_Alt_Manager.Services
             }
         }
 
-        public void RecordRateLimitHit(RateLimitCategory category, HttpResponseMessage response = null, int defaultBackoffSeconds = 4)
+        public void RecordRateLimitHit(RateLimitCategory category, HttpResponseMessage? response = null, int defaultBackoffSeconds = 4)
         {
             lock (_backoffLock)
             {
@@ -212,10 +213,10 @@ namespace RBX_Alt_Manager.Services
         public long Id { get; set; }
 
         [System.Text.Json.Serialization.JsonPropertyName("name")]
-        public string Name { get; set; }
+        public string Name { get; set; } = string.Empty;
 
         [System.Text.Json.Serialization.JsonPropertyName("displayName")]
-        public string DisplayName { get; set; }
+        public string DisplayName { get; set; } = string.Empty;
     }
 
     public sealed class RobloxFriendsCountResponse
