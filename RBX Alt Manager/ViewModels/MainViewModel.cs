@@ -174,7 +174,10 @@ namespace RBX_Alt_Manager.ViewModels
                         }
                     }
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    Program.Logger?.Debug($"Clearing launching state on queue empty threw: {ex.Message}");
+                }
             });
         }
 
@@ -187,7 +190,10 @@ namespace RBX_Alt_Manager.ViewModels
                     acc.NotifyThemeChanged();
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"NotifyThemeChanged loop threw: {ex.Message}");
+            }
         }
 
         public bool IsShuffleJobId
@@ -216,8 +222,12 @@ namespace RBX_Alt_Manager.ViewModels
                     var previousCts = System.Threading.Interlocked.Exchange(ref _searchCts, null);
                     if (previousCts != null)
                     {
-                        try { previousCts.Cancel(); } catch { }
-                        try { previousCts.Dispose(); } catch { }
+                        try { previousCts.Cancel(); }
+                        catch (ObjectDisposedException) { }
+                        catch (Exception) { }
+
+                        try { previousCts.Dispose(); }
+                        catch (Exception) { }
                     }
 
                     if (string.IsNullOrEmpty(value))

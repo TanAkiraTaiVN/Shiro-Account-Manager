@@ -77,7 +77,8 @@ namespace RBX_Alt_Manager.Services
                     using var p = Process.GetProcessById(pid);
                     return !p.HasExited;
                 }
-                catch { return false; }
+                catch (ArgumentException) { return false; }
+                catch (Exception) { return false; }
             }
 
             IntPtr hProcess = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE, false, (uint)pid);
@@ -207,8 +208,9 @@ namespace RBX_Alt_Manager.Services
 
                 return true;
             }
-            catch
+            catch (Exception ex)
             {
+                Program.Logger?.Debug($"TryGetProcessCountsNative failed: {ex.Message}");
                 return false;
             }
             finally
@@ -254,13 +256,14 @@ namespace RBX_Alt_Manager.Services
                 {
                     foreach (var p in procs)
                     {
-                        try { p.Dispose(); } catch { }
+                        try { p.Dispose(); } catch (Exception) { }
                     }
                 }
                 return any;
             }
-            catch
+            catch (Exception ex)
             {
+                Program.Logger?.Debug($"IsAnyRobloxRunning fallback failed: {ex.Message}");
                 return false;
             }
         }
@@ -281,13 +284,14 @@ namespace RBX_Alt_Manager.Services
                 {
                     foreach (var p in procs)
                     {
-                        try { p.Dispose(); } catch { }
+                        try { p.Dispose(); } catch (Exception) { }
                     }
                 }
                 return count;
             }
-            catch
+            catch (Exception ex)
             {
+                Program.Logger?.Debug($"GetRunningRobloxCount fallback failed: {ex.Message}");
                 return 0;
             }
         }
@@ -309,10 +313,13 @@ namespace RBX_Alt_Manager.Services
                     if (procs != null)
                     {
                         count += procs.Length;
-                        foreach (var p in procs) { try { p.Dispose(); } catch { } }
+                        foreach (var p in procs) { try { p.Dispose(); } catch (Exception) { } }
                     }
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    Program.Logger?.Debug($"GetTotalRunningRobloxCount fallback '{name}' failed: {ex.Message}");
+                }
             }
             return count;
         }
@@ -349,7 +356,8 @@ namespace RBX_Alt_Manager.Services
                         }
                         finally
                         {
-                            try { p.Dispose(); } catch { }
+                            try { p.Dispose(); }
+                            catch (Exception ex) { Program.Logger?.Debug($"[RobloxProcessService] Dispose error: {ex.Message}"); }
                         }
                     }
                 }
@@ -390,7 +398,8 @@ namespace RBX_Alt_Manager.Services
                         catch (Exception ex)
                         {
                             Program.Logger?.Debug($"[RobloxProcessService] Could not kill process {proc.Id} ({procName}): {ex.Message}");
-                            try { proc.Dispose(); } catch { }
+                            try { proc.Dispose(); }
+                            catch (Exception disposeEx) { Program.Logger?.Debug($"[RobloxProcessService] Dispose error: {disposeEx.Message}"); }
                         }
                     }
                 }
@@ -412,10 +421,13 @@ namespace RBX_Alt_Manager.Services
                         proc.WaitForExit(remainingMs);
                     }
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    Program.Logger?.Debug($"WaitForExit proc failed: {ex.Message}");
+                }
                 finally
                 {
-                    try { proc.Dispose(); } catch { }
+                    try { proc.Dispose(); } catch (Exception) { }
                 }
             }
 
@@ -486,8 +498,9 @@ namespace RBX_Alt_Manager.Services
                         account.LastLaunchedProcessId = 0;
                     }
                 }
-                catch
+                catch (Exception ex)
                 {
+                    Program.Logger?.Debug($"Closing LastLaunchedProcessId failed: {ex.Message}");
                     account.LastLaunchedProcessId = 0;
                 }
             }
@@ -519,10 +532,16 @@ namespace RBX_Alt_Manager.Services
                                 break;
                             }
                         }
-                        catch { }
+                        catch (Exception ex)
+                        {
+                            Program.Logger?.Debug($"Checking PID {pid} for tracker failed: {ex.Message}");
+                        }
                     }
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    Program.Logger?.Debug($"Scanning GetRunningRobloxPids for tracker failed: {ex.Message}");
+                }
             }
 
             if (closed)
@@ -591,8 +610,9 @@ namespace RBX_Alt_Manager.Services
                             account.LastLaunchedProcessId = 0;
                         }
                     }
-                    catch
+                    catch (Exception ex)
                     {
+                        Program.Logger?.Debug($"Process lookup for LastLaunchedProcessId failed: {ex.Message}");
                         account.LastLaunchedProcessId = 0;
                     }
                 }
@@ -612,7 +632,10 @@ namespace RBX_Alt_Manager.Services
                                 if (match.Success && !string.IsNullOrEmpty(match.Groups[1].Value))
                                     trackerToPid[match.Groups[1].Value] = pid;
                             }
-                            catch { }
+                            catch (Exception ex)
+                            {
+                                Program.Logger?.Debug($"CommandLine lookup for pid {pid} failed: {ex.Message}");
+                            }
                         }
                     }
 
@@ -623,7 +646,10 @@ namespace RBX_Alt_Manager.Services
                             var proc = Process.GetProcessById(matchedPid);
                             processesToTerminate.Add((account, proc));
                         }
-                        catch { }
+                        catch (Exception ex)
+                        {
+                            Program.Logger?.Debug($"GetProcessById {matchedPid} failed: {ex.Message}");
+                        }
                     }
                 }
             }
@@ -633,7 +659,8 @@ namespace RBX_Alt_Manager.Services
 
             foreach (var item in processesToTerminate)
             {
-                try { item.Process.CloseMainWindow(); } catch { }
+                try { item.Process.CloseMainWindow(); }
+                catch (Exception ex) { Program.Logger?.Debug($"CloseMainWindow failed: {ex.Message}"); }
             }
 
             var waitSw = Stopwatch.StartNew();
@@ -652,10 +679,13 @@ namespace RBX_Alt_Manager.Services
                         AutoReconnectService.Instance.SuppressReconnect(account.Username);
                     closed++;
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    Program.Logger?.Debug($"Terminating process failed: {ex.Message}");
+                }
                 finally
                 {
-                    try { proc.Dispose(); } catch { }
+                    try { proc.Dispose(); } catch (Exception) { }
                 }
             }
 
@@ -694,7 +724,10 @@ namespace RBX_Alt_Manager.Services
                             Program.Logger?.Info($"[RobloxProcessService] Purged ghost tray daemon PID {pid} (--launch-to-tray).");
                         }
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        Program.Logger?.Debug($"Purging ghost tray daemon PID {pid} threw: {ex.Message}");
+                    }
                 }
 
                 if (cleaned > 0)
@@ -719,8 +752,11 @@ namespace RBX_Alt_Manager.Services
                         p.WaitForExit(300);
                         cleaned++;
                     }
-                    catch { }
-                    finally { try { p.Dispose(); } catch { } }
+                    catch (Exception ex)
+                    {
+                        Program.Logger?.Debug($"Killing zombie RobloxCrashHandler threw: {ex.Message}");
+                    }
+                    finally { try { p.Dispose(); } catch (Exception) { } }
                 }
 
                 if (cleaned > 0)
@@ -747,7 +783,8 @@ namespace RBX_Alt_Manager.Services
             {
                 if (killProcesses)
                 {
-                    try { KillAllRobloxProcesses(); } catch { }
+                    try { KillAllRobloxProcesses(); }
+                    catch (Exception ex) { Program.Logger?.Warn($"KillAllRobloxProcesses in ClearRobloxClientSession failed: {ex.Message}"); }
                 }
 
                 string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
@@ -757,20 +794,23 @@ namespace RBX_Alt_Manager.Services
                     string cookiesDat = System.IO.Path.Combine(localStorageDir, "RobloxCookies.dat");
                     if (System.IO.File.Exists(cookiesDat))
                     {
-                        try { System.IO.File.Delete(cookiesDat); } catch { }
+                        try { System.IO.File.Delete(cookiesDat); }
+                        catch (Exception ex) { Program.Logger?.Debug($"Delete cookiesDat failed: {ex.Message}"); }
                     }
 
                     string appStorage = System.IO.Path.Combine(localStorageDir, "appStorage.json");
                     if (System.IO.File.Exists(appStorage))
                     {
-                        try { System.IO.File.Delete(appStorage); } catch { }
+                        try { System.IO.File.Delete(appStorage); }
+                        catch (Exception ex) { Program.Logger?.Debug($"Delete appStorage failed: {ex.Message}"); }
                     }
                 }
 
                 string rbxStorageDb = System.IO.Path.Combine(localAppData, "Roblox", "rbx-storage.db");
                 if (System.IO.File.Exists(rbxStorageDb))
                 {
-                    try { System.IO.File.Delete(rbxStorageDb); } catch { }
+                    try { System.IO.File.Delete(rbxStorageDb); }
+                    catch (Exception ex) { Program.Logger?.Debug($"Delete rbxStorageDb failed: {ex.Message}"); }
                 }
 
                 Program.Logger?.Info("[RobloxProcessService] Successfully cleared Roblox Client local session storage.");

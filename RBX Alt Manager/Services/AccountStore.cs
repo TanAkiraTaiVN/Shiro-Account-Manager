@@ -43,12 +43,16 @@ namespace RBX_Alt_Manager.Services
                 // replacement can briefly hold the primary file. Preserve
                 // startup by reading the last known-good backup when the
                 // primary cannot be opened at all.
-                try { Program.Logger.Warn($"Could not read account data; trying backup: {exception.Message}"); } catch { }
+                Program.Logger?.Warn($"Could not read account data; trying backup: {exception.Message}");
                 try
                 {
                     return File.Exists(BackupFile) ? File.ReadAllBytes(BackupFile) : Array.Empty<byte>();
                 }
-                catch { return Array.Empty<byte>(); }
+                catch (Exception backupEx)
+                {
+                    Program.Logger?.Error($"Could not read backup account data: {backupEx.Message}");
+                    return Array.Empty<byte>();
+                }
             }
         }
 
@@ -84,7 +88,8 @@ namespace RBX_Alt_Manager.Services
             }
             catch (Exception ex)
             {
-                try { Program.Logger.Warn($"[AccountStore] Failed to create historical backup: {ex.Message}"); } catch { }
+                try { Program.Logger.Warn($"[AccountStore] Failed to create historical backup: {ex.Message}"); }
+                catch (Exception) { }
             }
         }
 
@@ -99,7 +104,8 @@ namespace RBX_Alt_Manager.Services
             {
                 foreach (var oldFile in backupFiles.Skip(MaxHistoricalBackups))
                 {
-                    try { oldFile.Delete(); } catch { }
+                    try { oldFile.Delete(); }
+                    catch (Exception) { }
                 }
             }
         }
@@ -137,7 +143,7 @@ namespace RBX_Alt_Manager.Services
                 }
                 catch (Exception ex)
                 {
-                    try { Program.Logger.Warn($"[AccountStore] Pre-write OS backup copy warning: {ex.Message}"); } catch { }
+                    Program.Logger?.Warn($"[AccountStore] Pre-write OS backup copy warning: {ex.Message}");
                 }
             }
 

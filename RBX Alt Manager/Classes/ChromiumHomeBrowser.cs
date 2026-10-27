@@ -110,7 +110,7 @@ namespace RBX_Alt_Manager.Classes
                     await CloseBrowserAsync(port, process).ConfigureAwait(false);
                     if (process != null)
                     {
-                        try { process.Dispose(); } catch { }
+                        try { process.Dispose(); } catch (Exception) { }
                     }
                     await WipeProfileWithRetryAsync(profileDir).ConfigureAwait(false);
                 }
@@ -127,8 +127,9 @@ namespace RBX_Alt_Manager.Classes
             {
                 return AccountBrowser.FindSystemBrowserExecutables().FirstOrDefault(File.Exists);
             }
-            catch
+            catch (Exception ex)
             {
+                Program.Logger?.Debug($"FindSystemBrowserExecutables failed: {ex.Message}");
                 return null;
             }
         }
@@ -241,7 +242,10 @@ namespace RBX_Alt_Manager.Classes
                         }
                     }
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    Program.Logger?.Debug($"Parse webSocketDebuggerUrl JSON failed: {ex.Message}");
+                }
 
                 try
                 {
@@ -299,7 +303,10 @@ namespace RBX_Alt_Manager.Classes
                 {
                     await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "ready", CancellationToken.None).ConfigureAwait(false);
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    Program.Logger?.Debug($"Closing home browser websocket threw: {ex.Message}");
+                }
             }
         }
 
@@ -397,7 +404,7 @@ namespace RBX_Alt_Manager.Classes
                 await CloseBrowserAsync(port, process).ConfigureAwait(false);
                 if (process != null)
                 {
-                    try { process.Dispose(); } catch { }
+                    try { process.Dispose(); } catch (Exception) { }
                 }
                 await WipeProfileWithRetryAsync(profileDir).ConfigureAwait(false);
             }
@@ -419,7 +426,11 @@ namespace RBX_Alt_Manager.Classes
                     return count;
                 }
             }
-            catch { return 0; }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"CountOpenPagesAsync error: {ex.Message}");
+                return 0;
+            }
         }
 
         private static async Task CloseBrowserAsync(int port, Process process)
@@ -439,14 +450,20 @@ namespace RBX_Alt_Manager.Classes
                     }
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"Browser.close websocket call failed: {ex.Message}");
+            }
 
             try
             {
                 if (process != null && !process.HasExited)
                     process.Kill(true);
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"Kill process failed: {ex.Message}");
+            }
         }
 
         private static async Task WipeProfileWithRetryAsync(string directory)
@@ -463,8 +480,9 @@ namespace RBX_Alt_Manager.Classes
                     Directory.Delete(directory, true);
                     return;
                 }
-                catch
+                catch (Exception ex)
                 {
+                    Program.Logger?.Debug($"Directory.Delete attempt {attempt} failed: {ex.Message}");
                     await Task.Delay(500).ConfigureAwait(false);
                 }
             }
@@ -478,11 +496,15 @@ namespace RBX_Alt_Manager.Classes
                 {
                     if (sensitiveFiles.Any(name => Path.GetFileName(file).StartsWith(name, StringComparison.OrdinalIgnoreCase)))
                     {
-                        try { File.Delete(file); } catch { }
+                        try { File.Delete(file); }
+                        catch (Exception ex) { Program.Logger?.Debug($"File.Delete sensitive file failed: {ex.Message}"); }
                     }
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"WipeProfile sensitive files scan failed: {ex.Message}");
+            }
         }
     }
 }

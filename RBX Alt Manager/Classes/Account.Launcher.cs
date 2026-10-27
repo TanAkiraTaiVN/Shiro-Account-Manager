@@ -42,7 +42,7 @@ namespace RBX_Alt_Manager
 
             if (AccountManager.General?.Get<bool>("EnableMultiRbx", true) ?? true)
             {
-                try { RobloxSingletonService.Sweep(force: true); } catch { }
+                try { RobloxSingletonService.Sweep(force: true); } catch (Exception ex) { Program.Logger?.Debug($"Pre-launch singleton sweep failed: {ex.Message}"); }
             }
         }
 
@@ -54,7 +54,7 @@ namespace RBX_Alt_Manager
             ObserveBackgroundTask(Task.Run(async () =>
             {
                 await Task.Delay(delayMs).ConfigureAwait(false);
-                try { RobloxSingletonService.Sweep(force: true); } catch { }
+                try { RobloxSingletonService.Sweep(force: true); } catch (Exception ex) { Program.Logger?.Debug($"Post-launch singleton sweep failed: {ex.Message}"); }
             }), "post-launch singleton sweep");
         }
 
@@ -299,16 +299,10 @@ namespace RBX_Alt_Manager
                     // Always close any previous/stale Roblox client of the SAME account to prevent duplicate overlapping windows
                     RobloxProcessService.CloseAccountRobloxProcess(this);
                 }
-                catch { }
+                catch (Exception x) { Program.Logger?.Error($"An error occurred attempting to close {Username}'s previous process: {x.Message}"); }
 
                 string Ticket = ticketResult.Ticket;
                 string Token = CSRFToken ?? string.Empty;
-                try
-                {
-                    // Always close any previous/stale Roblox client of the SAME account to prevent duplicate overlapping windows
-                    RobloxProcessService.CloseAccountRobloxProcess(this);
-                }
-                catch (Exception x) { Program.Logger.Error($"An error occurred attempting to close {Username}'s previous process: {x}"); }
 
                 string LinkCode = string.IsNullOrEmpty(JobID) ? string.Empty : LinkCodeRegex().Match(JobID)?.Groups[1]?.Value;
                 string AccessCode = JobID;
@@ -351,7 +345,10 @@ namespace RBX_Alt_Manager
                                 needsPrivacyUpdate = true;
                             }
                         }
-                        catch { }
+                        catch (Exception ex)
+                        {
+                            Program.Logger?.Debug($"Parse private server privacy settings failed: {ex.Message}");
+                        }
                     }
 
                     if (needsPrivacyUpdate)
@@ -474,7 +471,10 @@ namespace RBX_Alt_Manager
                     // Always close any previous/stale Roblox client of the SAME account to prevent duplicate overlapping windows
                     RobloxProcessService.CloseAccountRobloxProcess(this);
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    Program.Logger?.Debug($"Closing previous process for {Username} threw: {ex.Message}");
+                }
 
                 string Ticket = ticketResult.Ticket;
                 long LaunchTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();

@@ -230,7 +230,8 @@ namespace RBX_Alt_Manager.Services
                 using var proc = Process.GetProcessById(session.ProcessId);
                 await proc.WaitForExitAsync().ConfigureAwait(false);
                 session.ObservedProcessExited = true;
-                try { session.ObservedExitCode = proc.ExitCode; } catch { }
+                try { session.ObservedExitCode = proc.ExitCode; }
+                catch (Exception ex) { Program.Logger?.Debug($"Get ExitCode for pid {session.ProcessId} failed: {ex.Message}"); }
 
                 if (!IsEnabled || _disposed || !session.IsActive || session.IsSuppressed)
                     return;
@@ -355,7 +356,8 @@ namespace RBX_Alt_Manager.Services
                             if (proc.HasExited)
                             {
                                 processExited = true;
-                                try { exitCode = proc.ExitCode; } catch { }
+                                try { exitCode = proc.ExitCode; }
+                                catch (Exception ex) { Program.Logger?.Debug($"Get ExitCode failed: {ex.Message}"); }
                             }
                         }
                         catch (ArgumentException)
@@ -399,7 +401,10 @@ namespace RBX_Alt_Manager.Services
                                 staleProc.WaitForExit(1000);
                             }
                         }
-                        catch { }
+                        catch (Exception ex)
+                        {
+                            Program.Logger?.Debug($"Kill stale disconnected client PID {session.ProcessId} failed: {ex.Message}");
+                        }
                         HandleProcessExit(session);
                         break;
 

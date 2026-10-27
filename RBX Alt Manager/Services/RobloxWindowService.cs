@@ -257,7 +257,10 @@ namespace RBX_Alt_Manager.Services
                     }
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"GetTargetWorkArea calculation threw: {ex.Message}");
+            }
 
             return new DesktopRect(0, 0, 1920, 1080);
         }
@@ -293,7 +296,10 @@ namespace RBX_Alt_Manager.Services
                     MemoryOptimizer.TrimRobloxClients(lowerPriority: false);
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"Process priority adjustment on hide threw: {ex.Message}");
+            }
 
             return (hidden, pids.Count);
         }
@@ -330,7 +336,10 @@ namespace RBX_Alt_Manager.Services
                     RobloxProcessOptimizer.RestorePriorityForPids(pids.Select(p => (int)p));
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"Process priority adjustment on show threw: {ex.Message}");
+            }
 
             return (shown, pids.Count);
         }

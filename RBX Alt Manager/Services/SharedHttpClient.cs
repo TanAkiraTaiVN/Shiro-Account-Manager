@@ -99,7 +99,7 @@ namespace RBX_Alt_Manager.Services
                     continue;
 
                 try { entry.Value.Value.Dispose(); }
-                catch { }
+                catch (Exception ex) { Program.Logger?.Debug($"Disposing SharedHttpClient threw: {ex.Message}"); }
             }
 
             Clients.Clear();

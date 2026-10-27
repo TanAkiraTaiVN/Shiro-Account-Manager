@@ -24,7 +24,8 @@ namespace RBX_Alt_Manager.Services
             cancellationToken.ThrowIfCancellationRequested();
             if (!chooseLowestServer && AccountManager.General != null && AccountManager.General.Exists("ShuffleChoosesLowestServer"))
             {
-                try { chooseLowestServer = AccountManager.General.Get<bool>("ShuffleChoosesLowestServer"); } catch { }
+                try { chooseLowestServer = AccountManager.General.Get<bool>("ShuffleChoosesLowestServer"); }
+                catch (Exception ex) { Program.Logger?.Debug($"Failed reading ShuffleChoosesLowestServer setting: {ex.Message}"); }
             }
 
             var validServers = new List<string>();

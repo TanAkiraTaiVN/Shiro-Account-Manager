@@ -100,7 +100,10 @@ namespace RBX_Alt_Manager.Services
                     return diskPath;
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"EnsureAvatarHeadshotAsync {userId} failed: {ex.Message}");
+            }
             finally
             {
                 InFlightDownloads.TryRemove(userId, out _);
@@ -117,7 +120,8 @@ namespace RBX_Alt_Manager.Services
             var list = userIds.Where(id => id > 0 && !HasDiskCache(id)).Distinct().ToList();
             if (list.Count == 0) return downloaded;
 
-            try { EnsureAvatarDirectory(); } catch { }
+            try { EnsureAvatarDirectory(); }
+            catch (Exception ex) { Program.Logger?.Debug($"EnsureAvatarDirectory failed: {ex.Message}"); }
 
             for (int i = 0; i < list.Count; i += 100)
             {
@@ -170,7 +174,10 @@ namespace RBX_Alt_Manager.Services
                                         }
                                     }
                                 }
-                                catch { }
+                                catch (Exception ex)
+                                {
+                                    Program.Logger?.Debug($"Download avatar entry failed: {ex.Message}");
+                                }
                                 finally
                                 {
                                     downloadGate.Release();
@@ -181,7 +188,10 @@ namespace RBX_Alt_Manager.Services
                         }
                     }
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    Program.Logger?.Debug($"Batch avatar chunk fetch failed: {ex.Message}");
+                }
             }
 
             return downloaded;

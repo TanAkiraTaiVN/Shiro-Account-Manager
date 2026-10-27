@@ -155,7 +155,10 @@ namespace RBX_Alt_Manager.Services
                 await page.EvaluateFunctionOnNewDocumentAsync(script).ConfigureAwait(false);
                 await page.EvaluateFunctionAsync(script).ConfigureAwait(false);
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"ApplyAntiDetectionAsync threw: {ex.Message}");
+            }
         }
 
         public static async Task DismissCookieBannerAsync(IPage page)
@@ -180,7 +183,10 @@ namespace RBX_Alt_Manager.Services
                     } catch (_) {}
                 }").ConfigureAwait(false);
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"DismissCookieBannerAsync threw: {ex.Message}");
+            }
         }
 
         public static async Task<IPage> FindActiveRobloxPageAsync(IBrowser connectedBrowser)
@@ -190,7 +196,11 @@ namespace RBX_Alt_Manager.Services
 
             IPage[] pages;
             try { pages = await connectedBrowser.PagesAsync().ConfigureAwait(false); }
-            catch { return null; }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"FindActiveRobloxPageAsync PagesAsync threw: {ex.Message}");
+                return null;
+            }
 
             IPage fallback = null;
             foreach (IPage page in pages)
@@ -206,9 +216,9 @@ namespace RBX_Alt_Manager.Services
 
                     fallback ??= page;
                 }
-                catch
+                catch (Exception ex)
                 {
-                    // A target can disappear while the browser reports its page list.
+                    Program.Logger?.Debug($"Page inspection during FindActiveRobloxPage threw: {ex.Message}");
                 }
             }
 
@@ -233,7 +243,11 @@ namespace RBX_Alt_Manager.Services
                                                       c.Value.Length >= 100 &&
                                                       c.Value.Contains("_|WARNING:-DO-NOT-SHARE-THIS"));
             }
-            catch { return null; }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"ExtractRoblosecurityCookieAsync threw: {ex.Message}");
+                return null;
+            }
         }
 
         public static async Task<string> ReadAuthenticatedRobloxAccountJsonAsync(IPage page, int maxAttempts = 2)
@@ -271,7 +285,8 @@ namespace RBX_Alt_Manager.Services
                 {
                     if (attempt == 0 && !page.IsClosed && maxAttempts > 1)
                     {
-                        try { await Task.Delay(600).ConfigureAwait(false); } catch { }
+                        try { await Task.Delay(600, CancellationToken.None).ConfigureAwait(false); }
+                        catch (Exception) { }
                         continue;
                     }
                 }
@@ -377,11 +392,15 @@ namespace RBX_Alt_Manager.Services
                         browser.Kill(true);
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"CloseBrowser threw: {ex.Message}");
+            }
 
             if (dispose)
             {
-                try { browser.Dispose(); } catch { }
+                try { browser.Dispose(); }
+                catch (Exception) { }
             }
         }
 
@@ -405,13 +424,17 @@ namespace RBX_Alt_Manager.Services
                         Directory.Delete(target, true);
                         return;
                     }
-                    catch
+                    catch (Exception ex)
                     {
+                        Program.Logger?.Debug($"TryDeleteSessionDirectory attempt {attempt} threw: {ex.Message}");
                         await Task.Delay(250).ConfigureAwait(false);
                     }
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"TryDeleteSessionDirectory failed: {ex.Message}");
+            }
         }
 
         public static async Task TryDeleteDirectoryAsync(string directoryPath, int maxAttempts = 5)
@@ -434,8 +457,9 @@ namespace RBX_Alt_Manager.Services
                 {
                     await Task.Delay(attempt * 250).ConfigureAwait(false);
                 }
-                catch
+                catch (Exception ex)
                 {
+                    Program.Logger?.Debug($"TryDeleteDirectoryAsync threw: {ex.Message}");
                     break;
                 }
             }
@@ -602,9 +626,9 @@ namespace RBX_Alt_Manager.Services
                         Password = canAuthenticate ? password : null
                     };
                 }
-                catch
+                catch (Exception ex)
                 {
-                    // Try the next configured proxy.
+                    Program.Logger?.Debug($"Proxy candidate test threw: {ex.Message}");
                 }
             }
 

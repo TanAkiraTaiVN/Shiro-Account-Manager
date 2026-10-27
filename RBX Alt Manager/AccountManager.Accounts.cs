@@ -86,7 +86,10 @@ namespace RBX_Alt_Manager
                             }
                         }
                     }
-                    catch { }
+                    catch (System.Text.Json.JsonException ex)
+                    {
+                        Program.Logger?.Debug($"Parse GetUserIDAsync JSON failed: {ex.Message}");
+                    }
                 }
 
                 return (false, -1, response);
@@ -195,7 +198,8 @@ namespace RBX_Alt_Manager
             foreach (var a in toRemove)
             {
                 AutoReconnectService.Instance.UnregisterSession(a.Username);
-                try { RobloxProcessService.CloseAccountRobloxProcess(a); } catch { }
+                try { RobloxProcessService.CloseAccountRobloxProcess(a); }
+                catch (Exception ex) { Program.Logger?.Debug($"Closing removed account client threw: {ex.Message}"); }
             }
 
             if (count > 0)
@@ -208,7 +212,10 @@ namespace RBX_Alt_Manager
                         string backupFile = StoragePaths.AccountDataFile + ".backup";
                         if (File.Exists(backupFile)) File.Delete(backupFile);
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        Program.Logger?.Warn($"Failed to delete empty backup file: {ex.Message}");
+                    }
                     RobloxProcessService.ClearRobloxClientSession();
                 }
             }

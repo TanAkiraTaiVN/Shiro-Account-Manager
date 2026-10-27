@@ -85,7 +85,10 @@ namespace RBX_Alt_Manager.Classes
                         }
                     }
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    Program.Logger?.Debug($"Scan Roblox version directory '{versionsRoot}' failed: {ex.Message}");
+                }
             }
 
             // 2. Scan Registry as fallback
@@ -104,7 +107,10 @@ namespace RBX_Alt_Manager.Classes
                     }
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"Scan Roblox registry key failed: {ex.Message}");
+            }
 
             return folders;
         }

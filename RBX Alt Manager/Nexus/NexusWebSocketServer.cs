@@ -148,7 +148,10 @@ namespace RBX_Alt_Manager.Nexus
                                 {
                                     await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", CancellationToken.None).ConfigureAwait(false);
                                 }
-                                catch { }
+                                catch (Exception ex)
+                                {
+                                    Program.Logger?.Debug($"WebSocket normal closure error: {ex.Message}");
+                                }
                                 break;
                             }
 
@@ -205,7 +208,10 @@ namespace RBX_Alt_Manager.Nexus
                         if (ws.State == WebSocketState.Open)
                             await ws.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, "Server stopping", CancellationToken.None).ConfigureAwait(false);
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        Program.Logger?.Debug($"WebSocket server stopping close error: {ex.Message}");
+                    }
                 }
                 _activeSockets.Clear();
 
@@ -228,8 +234,10 @@ namespace RBX_Alt_Manager.Nexus
             if (_isDisposed) return;
             _isDisposed = true;
 
-            try { Stop(); } catch { }
-            try { _cts.Dispose(); } catch { }
+            try { Stop(); }
+            catch (Exception ex) { Program.Logger?.Debug($"Error stopping Nexus on dispose: {ex.Message}"); }
+
+            _cts.Dispose();
         }
 
         public async ValueTask DisposeAsync()

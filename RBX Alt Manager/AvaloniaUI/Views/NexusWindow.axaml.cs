@@ -67,7 +67,10 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
                 TxtNexusPort.Text = AccountManager.AccountControl?.Get("NexusPort") ?? "5242";
                 ChkAllowExternal.IsChecked = AccountManager.AccountControl?.Get<bool>("AllowExternalConnections") ?? false;
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"LoadSettings threw: {ex.Message}");
+            }
         }
 
         public void SaveAccounts()
@@ -176,7 +179,10 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
                     AccountManager.AccountControl?.Set("AllowExternalConnections", allowExternal ? "true" : "false");
                     AccountManager.SaveSettings();
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    Program.Logger?.Warn($"Save Nexus settings threw: {ex.Message}");
+                }
 
                 TxtServerStatusBadge.Text = $"Server: Đang chạy (Port {port})";
                 TxtServerStatusBadge.Foreground = RunningBadgeBrush;
@@ -237,7 +243,10 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
                     }
                     UpdateClientCount();
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    Program.Logger?.Debug($"RefreshAccount UI update threw: {ex.Message}");
+                }
             });
         }
 

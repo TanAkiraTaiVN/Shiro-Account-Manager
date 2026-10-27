@@ -118,7 +118,10 @@ namespace RBX_Alt_Manager
                                     };
                                 }
                             }
-                            catch { }
+                            catch (Exception ex)
+                            {
+                                Program.Logger?.Debug($"Parse authenticated user JSON failed: {ex.Message}");
+                            }
                         }
 
                         if (authUser != null && authUser.Id > 0)
@@ -282,11 +285,17 @@ namespace RBX_Alt_Manager
                             if (cDoc.RootElement.TryGetProperty("count", out _))
                                 return true;
                         }
-                        catch { }
+                        catch (Exception ex)
+                        {
+                            Program.Logger?.Debug($"Parse friend count JSON failed: {ex.Message}");
+                        }
                     }
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Program.Logger?.Warn($"CheckFriendsCountAsync failed: {ex.Message}");
+            }
 
             return false;
         }
@@ -555,7 +564,11 @@ namespace RBX_Alt_Manager
 
             if (response.StatusCode == HttpStatusCode.OK && !string.IsNullOrWhiteSpace(response.Content))
             {
-                try { return JsonNode.Parse(response.Content); } catch { }
+                try { return JsonNode.Parse(response.Content); }
+                catch (Exception ex)
+                {
+                    Program.Logger?.Debug($"Parse GetUserInfo JSON failed: {ex.Message}");
+                }
             }
 
             return null;
@@ -630,7 +643,10 @@ namespace RBX_Alt_Manager
                     if (infoDoc.RootElement.TryGetProperty("deviceInfo", out var di)) deviceInfo = di.GetString() ?? "Unknown";
                     if (infoDoc.RootElement.TryGetProperty("location", out var loc)) location = loc.GetString() ?? "Unknown";
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    Program.Logger?.Debug($"Parse QuickLogIn deviceInfo failed: {ex.Message}");
+                }
 
                 if (Utilities.YesNoPrompt("Quick Log In", "Please confirm you are logging in with this device", $"Device: {deviceInfo}\nLocation: {location}"))
                 {

@@ -235,7 +235,10 @@ namespace RBX_Alt_Manager
                 catch (OperationCanceledException)
                 {
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    Program.Logger?.Debug($"Presence refresh error: {ex.Message}");
+                }
             }
             finally
             {

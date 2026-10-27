@@ -176,7 +176,10 @@ namespace RBX_Alt_Manager.Classes
                                 if (hasVal && !string.IsNullOrWhiteSpace(domPass))
                                     capturedPassword = domPass;
                             }
-                            catch { }
+                            catch (Exception ex)
+                            {
+                                Program.Logger?.Debug($"Extract domPass threw: {ex.Message}");
+                            }
                         }
 
                         // Read cookies for roblox.com
@@ -185,7 +188,10 @@ namespace RBX_Alt_Manager.Classes
                         {
                             sessionCookie = await ExtractRoblosecurityCookieAsync(page).ConfigureAwait(false);
                         }
-                        catch { }
+                        catch (Exception ex)
+                        {
+                            Program.Logger?.Debug($"ExtractRoblosecurityCookieAsync threw: {ex.Message}");
+                        }
 
                         // Fallback: search across all pages in the browser
                         if (sessionCookie == null)
@@ -205,7 +211,10 @@ namespace RBX_Alt_Manager.Classes
                                     }
                                 }
                             }
-                            catch { }
+                            catch (Exception ex)
+                            {
+                                Program.Logger?.Debug($"Scan allPages for cookies threw: {ex.Message}");
+                            }
                         }
 
                         if (sessionCookie != null &&
@@ -251,7 +260,8 @@ namespace RBX_Alt_Manager.Classes
             {
                 if (connectedBrowser != null)
                 {
-                    try { await connectedBrowser.CloseAsync(); } catch { }
+                    try { await connectedBrowser.CloseAsync(); }
+                    catch (Exception ex) { Program.Logger?.Debug($"connectedBrowser.CloseAsync threw: {ex.Message}"); }
                 }
                 CloseBrowser(browser);
                 await TryDeleteTemporaryDirectoryAsync(sessionRoot).ConfigureAwait(false);
@@ -264,7 +274,8 @@ namespace RBX_Alt_Manager.Classes
                 throw new InvalidOperationException("The sign-up page was not created.");
 
             string currentUrl = string.Empty;
-            try { currentUrl = page.Url ?? string.Empty; } catch { }
+            try { currentUrl = page.Url ?? string.Empty; }
+            catch (Exception ex) { Program.Logger?.Debug($"Get page.Url threw: {ex.Message}"); }
 
             if (!currentUrl.Contains("roblox.com/signup", StringComparison.OrdinalIgnoreCase))
             {
@@ -526,7 +537,10 @@ namespace RBX_Alt_Manager.Classes
                     Timeout = 4000
                 });
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"WaitForSelectorAsync iframe timed out: {ex.Message}");
+            }
             await Task.Delay(1800);
         }
 
@@ -612,8 +626,9 @@ namespace RBX_Alt_Manager.Classes
                     url.Contains("roblox.com/signup", StringComparison.OrdinalIgnoreCase) ||
                     url.Contains("roblox.com/create", StringComparison.OrdinalIgnoreCase);
             }
-            catch
+            catch (Exception ex)
             {
+                Program.Logger?.Debug($"IsLikelySignupPage threw: {ex.Message}");
                 return true;
             }
         }

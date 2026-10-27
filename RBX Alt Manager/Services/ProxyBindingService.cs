@@ -99,7 +99,10 @@ namespace RBX_Alt_Manager.Services
                         DistributeProxiesSticky(targets, configuredProxies);
                     }
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    Program.Logger?.Warn($"Failed to distribute sticky proxies for account {account.Username}: {ex.Message}");
+                }
             }
 
             if (string.IsNullOrWhiteSpace(account.Proxy))
@@ -293,7 +296,10 @@ namespace RBX_Alt_Manager.Services
                             if (client != null && !ReferenceEquals(client, sharedClient))
                                 client.Dispose();
                         }
-                        catch { }
+                        catch (Exception ex)
+                        {
+                            Program.Logger?.Debug($"Error disposing proxy client: {ex.Message}");
+                        }
                     }
                 }
             }
@@ -315,7 +321,10 @@ namespace RBX_Alt_Manager.Services
                         if (client != null && !ReferenceEquals(client, sharedClient))
                             client.Dispose();
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        Program.Logger?.Debug($"Error disposing proxy client: {ex.Message}");
+                    }
                 }
             }
             _proxyClients.Clear();

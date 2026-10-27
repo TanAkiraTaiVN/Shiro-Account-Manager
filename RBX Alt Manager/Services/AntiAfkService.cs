@@ -157,7 +157,10 @@ namespace RBX_Alt_Manager.Services
                 {
                     KestrelWebServer.Broadcast("anti_afk_pulse", new { timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds() });
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    Program.Logger?.Debug($"Kestrel anti-afk pulse broadcast failed: {ex.Message}");
+                }
 
                 var rand = Random.Shared;
                 var pidSet = new HashSet<uint>(pids.Count);

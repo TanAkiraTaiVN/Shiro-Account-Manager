@@ -184,10 +184,10 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
             try
             {
                 string raw = null;
-                try { raw = e.TryGetWebMessageAsString(); } catch { }
+                try { raw = e.TryGetWebMessageAsString(); } catch (Exception) { }
                 if (string.IsNullOrEmpty(raw))
                 {
-                    try { raw = e.WebMessageAsJson; } catch { }
+                    try { raw = e.WebMessageAsJson; } catch (Exception) { }
                 }
 
                 if (!string.IsNullOrEmpty(raw))
@@ -210,7 +210,10 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
                     }
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"OnWebMessageReceived threw: {ex.Message}");
+            }
         }
 
         private async void OnWebViewInitialized(object sender, WebView2InitializedEventArgs e)
@@ -419,7 +422,7 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
             if (core == null) return;
             try
             {
-                try { core.Stop(); } catch { }
+                try { core.Stop(); } catch (Exception) { }
 
                 // Unload any active roblox.com page BEFORE deleting cookies so the open page
                 // cannot detect cookie removal or send a background sign-out / session-revoke beacon.
@@ -433,7 +436,10 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
                         await Task.Delay(80);
                     }
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    Program.Logger?.Debug($"Navigate to about:blank failed: {ex.Message}");
+                }
 
                 var cookieManager = core.CookieManager;
                 string[] urls =
@@ -460,31 +466,40 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
                             cookieManager.DeleteCookie(c);
                         }
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        Program.Logger?.Debug($"Clear cookies for {url} threw: {ex.Message}");
+                    }
                 }
 
-                try { cookieManager.DeleteCookiesWithDomainAndPath(".ROBLOSECURITY", ".roblox.com", "/"); } catch { }
-                try { cookieManager.DeleteCookiesWithDomainAndPath(".RBXIDCHECK", ".roblox.com", "/"); } catch { }
-                try { cookieManager.DeleteCookiesWithDomainAndPath(".RBXSESSIONTRACKER", ".roblox.com", "/"); } catch { }
-                try { cookieManager.DeleteCookiesWithDomainAndPath("RBXEventTrackerV2", ".roblox.com", "/"); } catch { }
+                try { cookieManager.DeleteCookiesWithDomainAndPath(".ROBLOSECURITY", ".roblox.com", "/"); } catch (Exception) { }
+                try { cookieManager.DeleteCookiesWithDomainAndPath(".RBXIDCHECK", ".roblox.com", "/"); } catch (Exception) { }
+                try { cookieManager.DeleteCookiesWithDomainAndPath(".RBXSESSIONTRACKER", ".roblox.com", "/"); } catch (Exception) { }
+                try { cookieManager.DeleteCookiesWithDomainAndPath("RBXEventTrackerV2", ".roblox.com", "/"); } catch (Exception) { }
 
                 // Purge all cookies, localStorage, sessionStorage, and HBA IndexedDB keys via DevTools Protocol & Profile API
-                try { await core.Profile.ClearBrowsingDataAsync(); } catch { }
-                try { await core.CallDevToolsProtocolMethodAsync("Network.clearBrowserCookies", "{}"); } catch { }
+                try { await core.Profile.ClearBrowsingDataAsync(); } catch (Exception) { }
+                try { await core.CallDevToolsProtocolMethodAsync("Network.clearBrowserCookies", "{}"); } catch (Exception) { }
                 try
                 {
                     await core.CallDevToolsProtocolMethodAsync(
                         "Storage.clearDataForOrigin",
                         "{\"origin\":\"https://www.roblox.com\",\"storageTypes\":\"cookies,local_storage,session_storage,indexeddb\"}");
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    Program.Logger?.Debug($"DevTools clearDataForOrigin roblox.com threw: {ex.Message}");
+                }
                 try
                 {
                     await core.CallDevToolsProtocolMethodAsync(
                         "Storage.clearDataForOrigin",
                         "{\"origin\":\"https://auth.roblox.com\",\"storageTypes\":\"cookies,local_storage,session_storage,indexeddb\"}");
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    Program.Logger?.Debug($"DevTools clearDataForOrigin auth.roblox.com threw: {ex.Message}");
+                }
 
                 // Re-apply GDPR Consent cookies so annoying banner never covers login
                 try
@@ -495,9 +510,15 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
                     var consentCookie2 = cookieManager.CreateCookie("OptanonConsent", "isGpcEnabled=0&datestamp=" + Uri.EscapeDataString(DateTime.UtcNow.ToString()) + "&version=202401.1.0&browserGpcFlag=0&isIABGlobal=false&hosts=&consentId=shiro-fast-login&interactionCount=1&isAnonUser=1&landingPath=NotLandingPage&groups=C0001%3A1%2CC0002%3A1%2CC0003%3A1%2CC0004%3A1", ".roblox.com", "/");
                     cookieManager.AddOrUpdateCookie(consentCookie2);
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    Program.Logger?.Debug($"GDPR cookie create threw: {ex.Message}");
+                }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"ClearSessionAsync threw: {ex.Message}");
+            }
         }
 
         private async Task AdvanceToNextAccountOrCloseAsync()
@@ -578,7 +599,7 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
                 {
                     if (_ignoredCookieValues.Contains(Fingerprint(secCookie.Value)))
                     {
-                        try { core.CookieManager.DeleteCookie(secCookie); } catch { }
+                        try { core.CookieManager.DeleteCookie(secCookie); } catch (Exception) { }
                         return;
                     }
 
@@ -632,7 +653,10 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
                         ");
                         await Task.Delay(300);
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        Program.Logger?.Debug($"Trigger in-page auth request threw: {ex.Message}");
+                    }
 
                     // 4. Read the final settled/rotated .ROBLOSECURITY cookie across Roblox origins
                     string cookieValue = secCookie.Value;
@@ -655,7 +679,10 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
                             }
                         }
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        Program.Logger?.Debug($"Reading settled cookies threw: {ex.Message}");
+                    }
 
                     // 5. If password was manually entered or autofilled, capture it before stopping WebView2
                     if (string.IsNullOrEmpty(_password))
@@ -673,7 +700,7 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
                             if (!string.IsNullOrWhiteSpace(passJson) && passJson != "null" && passJson != "\"\"")
                             {
                                 string unescaped = null;
-                                try { unescaped = JsonSerializer.Deserialize<string>(passJson); } catch { }
+                                try { unescaped = JsonSerializer.Deserialize<string>(passJson); } catch (Exception) { }
                                 if (string.IsNullOrEmpty(unescaped)) unescaped = passJson.Trim('"');
                                 if (!string.IsNullOrEmpty(unescaped))
                                 {
@@ -686,7 +713,10 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
                                 }
                             }
                         }
-                        catch { }
+                        catch (Exception ex)
+                        {
+                            Program.Logger?.Debug($"Capturing password from DOM threw: {ex.Message}");
+                        }
                     }
 
                     // 6. Stop WebView2 before registering in C#
@@ -694,7 +724,10 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
                     {
                         core.Stop();
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        Program.Logger?.Debug($"core.Stop() threw: {ex.Message}");
+                    }
 
                     Account acc = await AccountManager.AddAccountAsync(cookieValue, _password ?? "");
                     Program.Logger.Info($"[FastLogin] Captured session for '{_username}': payloadLen={Account.GetSessionTokenPayloadLength(cookieValue)}, registeredValid={acc?.Valid}, resolvedUser={acc?.Username}.");
@@ -730,7 +763,8 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
                         if (!string.IsNullOrEmpty(alias)) acc.Alias = alias;
                         if (!string.IsNullOrEmpty(group)) acc.Group = group;
 
-                        try { await AccountManager.SaveAccountsAsync(true); } catch { }
+                        try { await AccountManager.SaveAccountsAsync(true); }
+                        catch (Exception ex) { Program.Logger?.Warn($"SaveAccountsAsync after fast login failed: {ex.Message}"); }
 
                         CreatedAccount = acc;
                         if (_accountQueue.Count > 0)
@@ -892,7 +926,10 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
                 ";
                 await core.ExecuteScriptAsync(js);
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"Script execution in TryFillCredentialsAsync threw: {ex.Message}");
+            }
         }
 
         private async void OnRefillClicked(object sender, RoutedEventArgs e)
@@ -911,7 +948,10 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
             {
                 WvBrowser?.CoreWebView2?.Reload();
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"Reload WebView2 threw: {ex.Message}");
+            }
         }
 
         private async void OnVerifyClicked(object sender, RoutedEventArgs e)
@@ -1005,7 +1045,8 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
 
                     if (metadataUpdated)
                     {
-                        try { await AccountManager.SaveAccountsAsync(true); } catch { }
+                        try { await AccountManager.SaveAccountsAsync(true); }
+                        catch (Exception ex) { Program.Logger?.Warn($"SaveAccountsAsync after fast login failed: {ex.Message}"); }
                     }
 
                     CreatedAccount = newAcc;
@@ -1032,7 +1073,7 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
 
         private void OnCancelClicked(object sender, RoutedEventArgs e)
         {
-            try { _pollTimer?.Stop(); } catch { }
+            try { _pollTimer?.Stop(); } catch (Exception) { }
             Close(false);
         }
 
@@ -1054,7 +1095,10 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
                     core.SourceChanged -= OnSourceChanged;
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"OnClosing cleanup threw: {ex.Message}");
+            }
             base.OnClosing(e);
         }
     }

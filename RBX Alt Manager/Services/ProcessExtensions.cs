@@ -135,7 +135,10 @@ namespace RBX_Alt_Manager.Services
                     }
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"GetCommandLineNative threw: {ex.Message}");
+            }
 
             return null;
         }

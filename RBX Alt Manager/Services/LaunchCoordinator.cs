@@ -245,7 +245,7 @@ namespace RBX_Alt_Manager.Services
                     catch (Exception exception)
                     {
                         result = $"ERROR: Failed to launch Roblox for {request.Account.Username}\n{exception.Message}";
-                        try { Program.Logger.Error($"Unexpected launch error for {request.Account.Username}: {exception}"); } catch { }
+                        Program.Logger?.Error($"Unexpected launch error for {request.Account.Username}: {exception}");
                     }
 
                     state.Result = result ?? "ERROR: Roblox returned no launch status.";
@@ -271,7 +271,9 @@ namespace RBX_Alt_Manager.Services
                         await RobloxRateLimitCoordinator.Instance.WaitForBackoffAsync(linkedCancellation.Token).ConfigureAwait(false);
                         try
                         {
-                            try { RobloxProcessService.CloseAccountRobloxProcess(request.Account); } catch { }
+                            try { RobloxProcessService.CloseAccountRobloxProcess(request.Account); }
+                            catch (Exception ex) { Program.Logger?.Debug($"Process cleanup ignored: {ex.Message}"); }
+
                             result = await executeLaunch(request, linkedCancellation.Token).ConfigureAwait(false);
                             state.Result = result ?? "ERROR: Roblox returned no launch status.";
                             state.Status = ClassifyResult(state.Result);
@@ -551,8 +553,11 @@ namespace RBX_Alt_Manager.Services
 
         private static void Report(Action<LaunchProgress> progress, LaunchProgress state)
         {
-            try { progress?.Invoke(state); } catch { }
-            try { LaunchProgressChanged?.Invoke(state); } catch { }
+            try { progress?.Invoke(state); }
+            catch (Exception ex) { Program.Logger?.Warn($"Launch progress callback threw: {ex.Message}"); }
+
+            try { LaunchProgressChanged?.Invoke(state); }
+            catch (Exception ex) { Program.Logger?.Warn($"LaunchProgressChanged subscriber threw: {ex.Message}"); }
         }
 
         private static bool IsSuccessfulResult(string result)

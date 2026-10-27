@@ -67,7 +67,11 @@ namespace RBX_Alt_Manager.Services
                     using (var id = WindowsIdentity.GetCurrent())
                         return new WindowsPrincipal(id).IsInRole(WindowsBuiltInRole.Administrator);
                 }
-                catch { return false; }
+                catch (Exception ex)
+                {
+                    Program.Logger?.Debug($"IsAdministrator check threw: {ex.Message}");
+                    return false;
+                }
             }
         }
 
@@ -83,7 +87,7 @@ namespace RBX_Alt_Manager.Services
 
             EnsureMutex(true);
             StartWatcher(_watchSeconds);
-            Task.Run(() => { try { Sweep(force: true); } catch { } });
+            Task.Run(() => { try { Sweep(force: true); } catch (Exception ex) { Program.Logger?.Debug($"Initial sweep threw: {ex.Message}"); } });
         }
 
         public static void Stop()
@@ -130,7 +134,7 @@ namespace RBX_Alt_Manager.Services
 
             if (enabled && readyToWait != null)
             {
-                try { readyToWait.Wait(500); } catch { }
+                try { readyToWait.Wait(500); } catch (Exception) { }
             }
         }
 
@@ -186,7 +190,10 @@ namespace RBX_Alt_Manager.Services
                                 Program.Logger?.Info("[MultiRoblox] Claimed active singleton mutex ownership.");
                             }
                         }
-                        catch { }
+                        catch (Exception ex)
+                        {
+                            Program.Logger?.Debug($"WaitForSingleObject on hMutex threw: {ex.Message}");
+                        }
                     }
                 }
 
@@ -255,13 +262,13 @@ namespace RBX_Alt_Manager.Services
                 {
                     if (mutexOwned)
                     {
-                        try { ReleaseMutex(hMutex); } catch { }
+                        try { ReleaseMutex(hMutex); } catch (Exception) { }
                     }
-                    try { CloseHandle(hMutex); } catch { }
+                    try { CloseHandle(hMutex); } catch (Exception) { }
                 }
                 if (hEvent != IntPtr.Zero)
                 {
-                    try { CloseHandle(hEvent); } catch { }
+                    try { CloseHandle(hEvent); } catch (Exception) { }
                 }
                 if (pSd != IntPtr.Zero)
                 {
@@ -279,7 +286,7 @@ namespace RBX_Alt_Manager.Services
                 var period = TimeSpan.FromSeconds(Math.Max(2, seconds));
                 _watchSeconds = seconds;
                 if (_watcher == null)
-                    _watcher = new Timer(_ => { try { Sweep(); } catch { } }, null, TimeSpan.Zero, period);
+                    _watcher = new Timer(_ => { try { Sweep(); } catch (Exception ex) { Program.Logger?.Debug($"Periodic sweep threw: {ex.Message}"); } }, null, TimeSpan.Zero, period);
                 else
                     _watcher.Change(TimeSpan.Zero, period);
                 return true;

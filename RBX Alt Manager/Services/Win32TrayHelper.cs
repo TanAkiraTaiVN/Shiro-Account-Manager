@@ -174,7 +174,10 @@ namespace RBX_Alt_Manager.Services
                         handle.Free();
                     }
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    Program.Logger?.Debug($"EnumWindows tray sweep threw: {ex.Message}");
+                }
 
                 // 3. Post WM_MOUSEMOVE across every target toolbar / overflow window (100% silent in background)
                 foreach (var target in targets)
@@ -203,7 +206,10 @@ namespace RBX_Alt_Manager.Services
                     handle.Free();
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"CollectToolbars threw: {ex.Message}");
+            }
         }
 
         private static void SweepWindowForDeadIcons(IntPtr hWnd)
@@ -230,7 +236,10 @@ namespace RBX_Alt_Manager.Services
                     }
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"SweepWindowForDeadIcons threw: {ex.Message}");
+            }
         }
 
         public static void ThoroughCleanNotificationArea(bool forceOpenFlyout = false)

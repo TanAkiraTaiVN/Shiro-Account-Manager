@@ -81,7 +81,7 @@ namespace RBX_Alt_Manager.Services
             {
                 if (_disposed)
                 {
-                    try { value?.Dispose(); } catch { }
+                    try { value?.Dispose(); } catch (Exception) { }
                     return;
                 }
 
@@ -116,7 +116,7 @@ namespace RBX_Alt_Manager.Services
 
             if (shouldDispose && evicted != null)
             {
-                try { evicted.Dispose(); } catch { }
+                try { evicted.Dispose(); } catch (Exception) { }
             }
         }
 
@@ -149,7 +149,7 @@ namespace RBX_Alt_Manager.Services
 
             foreach (var val in toDispose)
             {
-                try { val?.Dispose(); } catch { }
+                try { val?.Dispose(); } catch (Exception) { }
             }
         }
 

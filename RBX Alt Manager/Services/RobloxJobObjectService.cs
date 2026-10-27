@@ -122,7 +122,8 @@ namespace RBX_Alt_Manager.Services
             {
                 if (_hJob != IntPtr.Zero && _hJob != (IntPtr)(-1))
                 {
-                    try { CloseHandle(_hJob); } catch { }
+                    try { CloseHandle(_hJob); }
+                    catch (Exception ex) { Program.Logger?.Debug($"Failed closing job object handle: {ex.Message}"); }
                     _hJob = IntPtr.Zero;
                 }
             }

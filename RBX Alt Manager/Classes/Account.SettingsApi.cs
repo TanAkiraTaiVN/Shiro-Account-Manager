@@ -343,8 +343,9 @@ namespace RBX_Alt_Manager
                     }
                 }
             }
-            catch
+            catch (JsonException ex)
             {
+                Program.Logger?.Debug($"Parse blocked users json failed: {ex.Message}");
             }
 
             return false;
@@ -400,8 +401,9 @@ namespace RBX_Alt_Manager
                     }
                 }
             }
-            catch
+            catch (JsonException ex)
             {
+                Program.Logger?.Debug($"Extract blocked user ids json failed: {ex.Message}");
             }
 
             return result;
@@ -514,7 +516,10 @@ namespace RBX_Alt_Manager
                     if (errDoc.RootElement.TryGetProperty("errors", out var errArr) && errArr.GetArrayLength() > 0)
                         errMsg = errArr[0].TryGetProperty("message", out var msgProp) ? msgProp.GetString() : null;
                 }
-                catch { }
+                catch (JsonException ex)
+                {
+                    Program.Logger?.Debug($"Parse error message JSON failed: {ex.Message}");
+                }
                 throw new Exception(errMsg ?? $"Something went wrong\n{dpResponse.StatusCode}: {dpResponse.Content}");
             }
         }
@@ -527,8 +532,9 @@ namespace RBX_Alt_Manager
             {
                 avatarDoc = JsonDocument.Parse(AvatarJSONData);
             }
-            catch
+            catch (JsonException ex)
             {
+                Program.Logger?.Warn($"SetAvatarAsync: invalid JSON payload: {ex.Message}");
                 return;
             }
 
@@ -599,7 +605,10 @@ namespace RBX_Alt_Manager
                                 AppServices.Dialogs.OpenMissingAssetsDialog(this, assetIds);
                             }
                         }
-                        catch { }
+                        catch (JsonException ex)
+                        {
+                            Program.Logger?.Debug($"Parse invalidAssetIds JSON failed: {ex.Message}");
+                        }
                     }
                 }
             }

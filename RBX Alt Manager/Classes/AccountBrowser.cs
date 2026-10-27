@@ -190,14 +190,18 @@ namespace RBX_Alt_Manager.Classes
 
                 return session;
             }
-            catch
+            catch (Exception ex)
             {
+                Program.Logger?.Error($"Failed to launch or initialize isolated browser session: {ex.Message}");
                 try
                 {
                     if (session.browser != null && session.browser.IsConnected)
                         await session.browser.CloseAsync().ConfigureAwait(false);
                 }
-                catch { }
+                catch (Exception closeEx)
+                {
+                    Program.Logger?.Debug($"Closing failed browser session threw: {closeEx.Message}");
+                }
 
                 // A browser can fail before the Disconnected handler is
                 // attached. Dispose the selected proxy from the failure path
@@ -236,7 +240,8 @@ namespace RBX_Alt_Manager.Classes
 
             IWebProxy selectedProxy = Proxy;
             Proxy = null;
-            try { (selectedProxy as IDisposable)?.Dispose(); } catch { }
+            try { (selectedProxy as IDisposable)?.Dispose(); }
+            catch (Exception ex) { Program.Logger?.Debug($"Disposing web proxy threw: {ex.Message}"); }
         }
 
         public async Task LaunchBrowser(
@@ -337,7 +342,10 @@ namespace RBX_Alt_Manager.Classes
                         "if (!window.chrome) { window.chrome = { runtime: {} }; }"
                     );
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    Program.Logger?.Debug($"EvaluateExpressionOnNewDocumentAsync stealth failed: {ex.Message}");
+                }
             }
 
             if (AuthenticateProxyInBrowser)
@@ -362,16 +370,21 @@ namespace RBX_Alt_Manager.Classes
                 foreach (var script in Config.PreNavigateScripts)
                     await page.EvaluateExpressionAsync(script);
 
-            if (PostPageCreation != null) try { await PostPageCreation(); } catch { }
+            if (PostPageCreation != null)
+                try { await PostPageCreation(); }
+                catch (Exception ex) { Program.Logger?.Error($"PostPageCreation hook failed: {ex.Message}"); }
 
-            try { await page.GoToAsync(Url, new NavigationOptions { Timeout = 300000 }); } catch { }
+            try { await page.GoToAsync(Url, new NavigationOptions { Timeout = 300000 }); }
+            catch (Exception ex) { Program.Logger?.Warn($"Navigation to '{Url}' failed or timed out: {ex.Message}"); }
 
             if (!string.IsNullOrEmpty(Script)) await page.EvaluateExpressionAsync(Script);
 
             // CAPTCHA and human verification stay in the user's hands. No
             // solver hook is attached to Roblox pages.
 
-            if (PostNavigation != null) try { await PostNavigation(page); } catch { }
+            if (PostNavigation != null)
+                try { await PostNavigation(page); }
+                catch (Exception ex) { Program.Logger?.Error($"PostNavigation hook failed: {ex.Message}"); }
 
             if (Config?.PostNavigateScripts != null)
                 foreach (var script in Config.PostNavigateScripts)
@@ -467,7 +480,10 @@ namespace RBX_Alt_Manager.Classes
                             if (!string.IsNullOrEmpty(password) && string.Equals(loginType, "username", StringComparison.OrdinalIgnoreCase))
                                 Password = password;
                         }
-                        catch { }
+                        catch (Exception ex)
+                        {
+                            Program.Logger?.Debug($"Parse login PostData failed: {ex.Message}");
+                        }
 
                         if (page != null && !page.IsClosed)
                         {

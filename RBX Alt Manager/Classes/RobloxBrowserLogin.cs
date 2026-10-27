@@ -213,7 +213,10 @@ namespace RBX_Alt_Manager.Classes
                                 await ApplyAntiDetectionAsync(p);
                         }
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        Program.Logger?.Debug($"ApplyAntiDetectionAsync on targetcreated threw: {ex.Message}");
+                    }
                 };
 
                 proxyAuthSession = await AttachProxyAuthenticationAsync(signInPage, proxy);
@@ -303,7 +306,10 @@ namespace RBX_Alt_Manager.Classes
                                 await Task.Delay(1500, cancellationToken).ConfigureAwait(false);
                             }
                             catch (OperationCanceledException) { throw; }
-                            catch { }
+                            catch (Exception ex)
+                            {
+                                Program.Logger?.Debug($"Navigation wait loop failed: {ex.Message}");
+                            }
 
                             // 2. Read account details through the authenticated browser page
                             string accountJson = await ReadAccountJsonAsync(signInPage).ConfigureAwait(false);
@@ -321,7 +327,10 @@ namespace RBX_Alt_Manager.Classes
                                     }
                                 }
                             }
-                            catch { }
+                            catch (Exception ex)
+                            {
+                                Program.Logger?.Debug($"Re-read settled cookie failed: {ex.Message}");
+                            }
 
                             // 4. Add or update account with the settled cookie
                             Account account = await AccountManager.AddAccountAsync(settledCookieValue, password, accountJson, cancellationToken: cancellationToken).ConfigureAwait(false);
@@ -350,7 +359,8 @@ namespace RBX_Alt_Manager.Classes
                                 }
 
                                 account.Valid = sessionValid;
-                                try { AccountManager.SaveAccounts(true); } catch { }
+                                try { AccountManager.SaveAccounts(true); }
+                                catch (Exception ex) { Program.Logger?.Warn($"SaveAccounts failed after browser login: {ex.Message}"); }
 
                                 if (sessionValid)
                                 {
@@ -406,13 +416,13 @@ namespace RBX_Alt_Manager.Classes
                     if (connectedBrowser != null)
                     {
                         try { await connectedBrowser.CloseAsync(); }
-                        catch { }
+                        catch (Exception ex) { Program.Logger?.Debug($"connectedBrowser.CloseAsync threw: {ex.Message}"); }
                     }
 
                     if (browser != null)
                     {
                         try { if (!browser.HasExited) CloseBrowser(browser); }
-                        catch { }
+                        catch (Exception ex) { Program.Logger?.Debug($"CloseBrowser threw: {ex.Message}"); }
                         browser.Dispose();
                     }
 
@@ -464,7 +474,10 @@ namespace RBX_Alt_Manager.Classes
                         }
                     }", new { username = username ?? "", password = password ?? "" });
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    Program.Logger?.Debug($"Register login watchdog threw: {ex.Message}");
+                }
 
                 // Keep the one-click behavior, but let the normally
                 // launched Chrome instance own the verification step.
@@ -482,7 +495,10 @@ namespace RBX_Alt_Manager.Classes
                             if (page != null && !page.IsClosed && page.Keyboard != null)
                                 await page.Keyboard.PressAsync("Enter");
                         }
-                        catch { }
+                        catch (Exception ex)
+                        {
+                            Program.Logger?.Debug($"Keyboard.PressAsync Enter threw: {ex.Message}");
+                        }
                     }
                 }
             }
@@ -512,14 +528,20 @@ namespace RBX_Alt_Manager.Classes
                         await page.Keyboard.UpAsync("Control");
                         await page.Keyboard.PressAsync("Backspace");
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        Program.Logger?.Debug($"Clearing text for {selector} threw: {ex.Message}");
+                    }
 
                     // Real typing with Puppeteer
                     try
                     {
                         await page.TypeAsync(selector, value);
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        Program.Logger?.Debug($"TypeAsync {selector} threw: {ex.Message}");
+                    }
 
                     // Verify DOM and apply React-aware controlled input fallback
                     bool entered = await ChromeLaunchHelper.SetReactControlledInputValueAsync(page, selector, value);
@@ -557,7 +579,7 @@ namespace RBX_Alt_Manager.Classes
 
                 string currentUrl = string.Empty;
                 try { currentUrl = page.Url ?? string.Empty; }
-                catch { }
+                catch (Exception ex) { Program.Logger?.Debug($"Get page.Url threw: {ex.Message}"); }
 
                 if (string.IsNullOrEmpty(currentUrl) ||
                     currentUrl.StartsWith("about:blank", StringComparison.OrdinalIgnoreCase) ||
@@ -579,7 +601,10 @@ namespace RBX_Alt_Manager.Classes
                     await page.WaitForSelectorAsync("#login-username, input[type='text'], input[type='password']",
                         new WaitForSelectorOptions { Timeout = 6000 });
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    Program.Logger?.Debug($"WaitForSelectorAsync login inputs timed out or threw: {ex.Message}");
+                }
             }
             catch (Exception ex)
             {
@@ -660,7 +685,7 @@ namespace RBX_Alt_Manager.Classes
                 return;
 
             try { await session.DetachAsync(); }
-            catch { }
+            catch (Exception ex) { Program.Logger?.Debug($"DetachAsync threw: {ex.Message}"); }
         }
 
         private static bool IsDetachedPageException(PuppeteerException exception)
@@ -722,8 +747,9 @@ namespace RBX_Alt_Manager.Classes
 
                 HandOffManualSignIn(browser, sessionRoot);
             }
-            catch
+            catch (Exception ex)
             {
+                Program.Logger?.Error($"OpenManualSignIn failed: {ex.Message}");
                 AccountBrowser.Observe(TryDeleteTemporaryDirectoryAsync(sessionRoot));
                 throw;
             }
@@ -748,11 +774,14 @@ namespace RBX_Alt_Manager.Classes
                     await browser.WaitForExitAsync().ConfigureAwait(false);
                 await Task.Delay(750).ConfigureAwait(false);
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"WaitForExitAsync manual browser threw: {ex.Message}");
+            }
             finally
             {
                 await TryDeleteTemporaryDirectoryAsync(sessionRoot).ConfigureAwait(false);
-                try { browser?.Dispose(); } catch { }
+                try { browser?.Dispose(); } catch (Exception) { }
             }
         }
 

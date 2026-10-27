@@ -275,7 +275,10 @@ namespace RBX_Alt_Manager
                             }
                         }
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        Program.Logger?.Debug($"Migrating legacy settings fields threw: {ex.Message}");
+                    }
                 }
             }
             else if (File.Exists(StoragePaths.LegacySettingsFile))
@@ -436,7 +439,7 @@ namespace RBX_Alt_Manager
             }
             catch (Exception exception)
             {
-                try { Program.Logger.Warn($"Background operation '{operation}' failed: {exception.Message}"); } catch { }
+                Program.Logger?.Warn($"Background operation '{operation}' failed: {exception.Message}");
             }
         }
 
@@ -459,7 +462,7 @@ namespace RBX_Alt_Manager
             }
             catch (Exception exception)
             {
-                try { Program.Logger.Debug($"Roblox client version probe failed: {exception.Message}"); } catch { }
+                Program.Logger?.Debug($"Roblox client version probe failed: {exception.Message}");
             }
         }
 
@@ -483,7 +486,10 @@ namespace RBX_Alt_Manager
                 if (UpdateDir.Exists)
                     UpdateDir.RecursiveDelete();
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"Old updater cleanup threw: {ex.Message}");
+            }
 
             // Build the shared API boundary before child forms are created.
             // Previously ServerList constructed its own RestClients in its
@@ -576,7 +582,8 @@ namespace RBX_Alt_Manager
             if (General.Exists(AppSettingsKeys.General.AutoMuteBackgroundClients) && General.Get<bool>(AppSettingsKeys.General.AutoMuteBackgroundClients))
                 RobloxAudioService.ConfigureSmartMute(true);
 
-            try { ClientSettingsPatcher.PatchSettings(); } catch { }
+            try { ClientSettingsPatcher.PatchSettings(); }
+            catch (Exception ex) { Program.Logger?.Warn($"PatchSettings failed: {ex.Message}"); }
 
             // Use installed Chrome/Chromium through CDP by default. The
             // compatibility flag is retained for existing settings files and
@@ -673,20 +680,20 @@ namespace RBX_Alt_Manager
 
             shutdownRequested = true;
 
-            try { CancelLaunching(); } catch { }
-            try { launchCoordinator?.Dispose(); } catch { }
-            try { lifetimeCancellation?.Cancel(); } catch { }
-            try { AutoCookieRefresh?.Stop(); } catch { }
-            try { PresenceTimer?.Stop(); } catch { }
-            try { AutoCookieRefresh?.Dispose(); } catch { }
-            try { PresenceTimer?.Dispose(); } catch { }
-            try { RobloxSingletonService.Stop(); } catch { }
-            try { AntiAfkService.Stop(); } catch { }
-            try { RobloxAudioService.ConfigureSmartMute(false); } catch { }
-            try { RobloxWatcher.Stop(); } catch { }
-            try { MemoryOptimizer.ConfigureAutoTrim(false); } catch { }
-            try { RobloxWindowService.ShowAllWindows(); } catch { }
-            try { AltManagerWS?.StopAsync().GetAwaiter().GetResult(); } catch { }
+            try { CancelLaunching(); } catch (Exception) { }
+            try { launchCoordinator?.Dispose(); } catch (Exception) { }
+            try { lifetimeCancellation?.Cancel(); } catch (Exception) { }
+            try { AutoCookieRefresh?.Stop(); } catch (Exception) { }
+            try { PresenceTimer?.Stop(); } catch (Exception) { }
+            try { AutoCookieRefresh?.Dispose(); } catch (Exception) { }
+            try { PresenceTimer?.Dispose(); } catch (Exception) { }
+            try { RobloxSingletonService.Stop(); } catch (Exception) { }
+            try { AntiAfkService.Stop(); } catch (Exception) { }
+            try { RobloxAudioService.ConfigureSmartMute(false); } catch (Exception) { }
+            try { RobloxWatcher.Stop(); } catch (Exception) { }
+            try { MemoryOptimizer.ConfigureAutoTrim(false); } catch (Exception) { }
+            try { RobloxWindowService.ShowAllWindows(); } catch (Exception) { }
+            try { AltManagerWS?.StopAsync().GetAwaiter().GetResult(); } catch (Exception) { }
 
             try
             {
@@ -705,7 +712,10 @@ namespace RBX_Alt_Manager
                 }
                 settingsService?.Save();
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Program.Logger?.Warn($"Settings save on shutdown threw: {ex.Message}");
+            }
 
             shutdownFinalized = true;
 
@@ -716,7 +726,10 @@ namespace RBX_Alt_Manager
                     Environment.Exit(0);
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"Environment.Exit threw: {ex.Message}");
+            }
         }
 
         public void Close() => ShutdownBackend();

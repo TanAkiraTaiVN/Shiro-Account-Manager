@@ -61,7 +61,8 @@ namespace RBX_Alt_Manager.Services
             }
             finally
             {
-                try { if (File.Exists(installerPath)) File.Delete(installerPath); } catch { }
+                try { if (File.Exists(installerPath)) File.Delete(installerPath); }
+                catch (Exception ex) { Program.Logger?.Debug($"Deleting vcredist installer failed: {ex.Message}"); }
             }
         }
     }

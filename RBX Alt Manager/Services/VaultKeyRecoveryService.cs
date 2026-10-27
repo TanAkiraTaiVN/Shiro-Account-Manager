@@ -77,7 +77,8 @@ namespace RBX_Alt_Manager.Services
                 string logFile = Path.Combine(StoragePaths.DataDirectory, "recovery_trace.log");
                 File.AppendAllText(logFile, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} {message}{Environment.NewLine}");
             }
-            catch { }
+            catch (IOException) { }
+            catch (Exception) { }
         }
 
         public static byte[] TryRecoverInProcess(byte[] encryptedAccountData)
@@ -101,7 +102,10 @@ namespace RBX_Alt_Manager.Services
                         return unwrapped;
                     }
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    TraceLog($"Candidate key file '{candidateFile}' check failed: {ex.Message}");
+                }
             }
 
             if (Program.Elevated && OperatingSystem.IsWindows())
@@ -197,7 +201,10 @@ namespace RBX_Alt_Manager.Services
                         best = bytes;
                     }
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    TraceLog($"Failed reading payload candidate: {ex.Message}");
+                }
             }
             return best;
         }
@@ -302,7 +309,10 @@ namespace RBX_Alt_Manager.Services
                             MergeList(AccountDataSerializer.Deserialize(dec, out _));
                         }
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        TraceLog($"Failed reading current AccountData.json candidate: {ex.Message}");
+                    }
                 }
 
                 // 2. Load DPAPI backups
@@ -323,7 +333,10 @@ namespace RBX_Alt_Manager.Services
                         byte[] dec = ProtectedData.Unprotect(raw, LegacyDpapiEntropy, DataProtectionScope.CurrentUser);
                         MergeList(AccountDataSerializer.Deserialize(dec, out _));
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        TraceLog($"Failed reading DPAPI candidate '{df}': {ex.Message}");
+                    }
                 }
 
                 // 3. Load passwords from Recycle Bin text file if present
@@ -461,7 +474,10 @@ namespace RBX_Alt_Manager.Services
                     if (key != null && key.Length == 32)
                         return key;
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    TraceLog($"DPAPI unprotect candidate key failed: {ex.Message}");
+                }
             }
             else if (raw.Length == 32)
             {
@@ -656,7 +672,14 @@ namespace RBX_Alt_Manager.Services
                                             break;
                                         }
                                     }
-                                    catch { }
+                                    catch (CryptographicException)
+                                    {
+                                        // Expected during sector scan
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        TraceLog($"Sector DPAPI scan error: {ex.Message}");
+                                    }
                                 }
                             }
 
@@ -709,7 +732,14 @@ namespace RBX_Alt_Manager.Services
                                                 if (unwrapped != null && unwrapped.Length == 32)
                                                     AddCandidate(unwrapped, priority: 0);
                                             }
-                                            catch { }
+                                            catch (CryptographicException)
+                                    {
+                                        // Expected during sector scan
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        TraceLog($"Sector DPAPI scan error: {ex.Message}");
+                                    }
                                         }
                                     }
                                 }
@@ -771,7 +801,14 @@ namespace RBX_Alt_Manager.Services
                                             if (unwrapped != null && unwrapped.Length == 32)
                                                 AddCandidate(unwrapped, priority: 0);
                                         }
-                                        catch { }
+                                        catch (CryptographicException)
+                                    {
+                                        // Expected during sector scan
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        TraceLog($"Sector DPAPI scan error: {ex.Message}");
+                                    }
                                     }
                                     idx = matchPos + DpapiKeyHeader.Length;
                                 }

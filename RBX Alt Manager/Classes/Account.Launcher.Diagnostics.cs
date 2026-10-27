@@ -155,14 +155,15 @@ namespace RBX_Alt_Manager
                     var vi = FileVersionInfo.GetVersionInfo(path);
                     ver = new Version(vi.FileMajorPart, vi.FileMinorPart, vi.FileBuildPart, vi.FilePrivatePart);
                 }
-                catch
+                catch (Exception ex)
                 {
+                    Program.Logger?.Debug($"FileVersionInfo failed for '{path}': {ex.Message}");
                     ver = new Version(0, 0, 0, 0);
                 }
 
                 DateTime writeUtc;
                 try { writeUtc = File.GetLastWriteTimeUtc(path); }
-                catch { writeUtc = DateTime.MinValue; }
+                catch (Exception) { writeUtc = DateTime.MinValue; }
 
                 int cmp = ver.CompareTo(bestVersion);
                 if (bestPath == null || cmp > 0 || (cmp == 0 && writeUtc > bestWriteUtc))
@@ -199,8 +200,9 @@ namespace RBX_Alt_Manager
 
                 return normalized.Contains("roblox");
             }
-            catch
+            catch (Exception ex)
             {
+                Program.Logger?.Debug($"ResolveRobloxProtocolExecutable failed: {ex.Message}");
                 return false;
             }
         }
@@ -226,8 +228,9 @@ namespace RBX_Alt_Manager
                         .Concat(Process.GetProcessesByName("RobloxPlayerLauncher"))
                         .ToArray();
                 }
-                catch
+                catch (Exception ex)
                 {
+                    Program.Logger?.Debug($"GetProcessesByName installers failed: {ex.Message}");
                     break;
                 }
 
@@ -242,15 +245,16 @@ namespace RBX_Alt_Manager
                     await WaitForExitAsync(installers[0], 2500, cancellationToken).ConfigureAwait(false);
                 }
                 catch (OperationCanceledException) { throw; }
-                catch
+                catch (Exception ex)
                 {
+                    Program.Logger?.Debug($"WaitForExitAsync installer failed: {ex.Message}");
                     await Task.Delay(1000, cancellationToken).ConfigureAwait(false);
                 }
                 finally
                 {
                     foreach (Process proc in installers)
                     {
-                        try { proc.Dispose(); } catch { }
+                        try { proc.Dispose(); } catch (Exception) { }
                     }
                 }
             }
@@ -259,7 +263,8 @@ namespace RBX_Alt_Manager
             {
                 InvalidateExecutableCache();
                 Program.Logger.Info("Roblox update finished. Refreshing client version...");
-                try { await AccountManager.LoadClientVersionAsync(cancellationToken).ConfigureAwait(false); } catch { }
+                try { await AccountManager.LoadClientVersionAsync(cancellationToken).ConfigureAwait(false); }
+                catch (Exception ex) { Program.Logger?.Warn($"Failed to refresh client version after update: {ex.Message}"); }
             }
         }
 
@@ -341,7 +346,8 @@ namespace RBX_Alt_Manager
             }
             catch (Exception exception)
             {
-                try { Program.Logger.Warn($"Background {operation} failed: {exception.Message}"); } catch { }
+                try { Program.Logger.Warn($"Background {operation} failed: {exception.Message}"); }
+                catch (Exception) { }
             }
         }
 
@@ -369,7 +375,7 @@ namespace RBX_Alt_Manager
                         {
                             DateTime modifiedUtc;
                             try { modifiedUtc = File.GetLastWriteTimeUtc(logPath); }
-                            catch { continue; }
+                            catch (Exception) { continue; }
 
                             if (modifiedUtc < launchStartedUtc.AddSeconds(-2))
                                 continue;
@@ -395,7 +401,7 @@ namespace RBX_Alt_Manager
                                     logLines.Add(l);
                                 }
                             }
-                            catch { continue; }
+                            catch (Exception) { continue; }
 
                             DateTime recentTimestampUtc = DateTime.MinValue;
                             DateTime minimumTimestampUtc = launchStartedUtc.AddSeconds(-2);
@@ -541,7 +547,10 @@ namespace RBX_Alt_Manager
                         MoveWindow(hWnd, PosX, PosY, Width, Height, true);
                         break;
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        Program.Logger?.Debug($"MoveWindow inspection failed for pid {pid}: {ex.Message}");
+                    }
                 }
 
                 if (Found || Stopwatch.GetElapsedTime(fallbackStartTick) > fallbackTimeout) break;

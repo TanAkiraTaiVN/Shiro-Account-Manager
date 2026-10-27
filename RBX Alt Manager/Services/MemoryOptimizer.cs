@@ -95,7 +95,10 @@ namespace RBX_Alt_Manager.Services
                             if (hForeground != IntPtr.Zero)
                                 GetWindowThreadProcessId(hForeground, out fgPid);
                         }
-                        catch { }
+                        catch (Exception ex)
+                        {
+                            Program.Logger?.Debug($"GetForegroundWindow thread pid lookup threw: {ex.Message}");
+                        }
 
                         foreach (int pid in pids)
                         {
@@ -169,7 +172,10 @@ namespace RBX_Alt_Manager.Services
                     GetWindowThreadProcessId(hForeground, out fgPid);
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"GetForegroundWindow thread pid lookup threw: {ex.Message}");
+            }
 
             foreach (int pid in pids)
             {

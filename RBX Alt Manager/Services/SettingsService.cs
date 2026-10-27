@@ -21,7 +21,11 @@ namespace RBX_Alt_Manager.Services
                     return fallback;
 
                 try { return target.Get<T>(key); }
-                catch { return fallback; }
+                catch (Exception ex)
+                {
+                    Program.Logger?.Debug($"SettingsService parse '{key}' in '{section}' failed: {ex.Message}");
+                    return fallback;
+                }
             }
         }
 

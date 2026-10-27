@@ -31,13 +31,13 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
 
         private void OnCloseClicked(object sender, RoutedEventArgs e)
         {
-            try { _cts?.Cancel(); } catch { }
+            try { _cts?.Cancel(); } catch (Exception) { }
             Close(ImportedCount > 0);
         }
 
         protected override void OnClosing(WindowClosingEventArgs e)
         {
-            try { _cts?.Cancel(); } catch { }
+            try { _cts?.Cancel(); } catch (Exception) { }
             base.OnClosing(e);
         }
 
@@ -140,7 +140,9 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
                         catch (OperationCanceledException) { }
                         finally
                         {
-                            try { cookieGate.Release(); } catch { }
+                            try { cookieGate.Release(); }
+                            catch (ObjectDisposedException) { }
+                            catch (Exception) { }
                         }
                     }).ToList();
 
@@ -181,7 +183,10 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
                                 if (okId && uid > 0)
                                     resolvedUserId = uid;
                             }
-                            catch { }
+                            catch (Exception ex)
+                            {
+                                Program.Logger?.Debug($"Resolve userId for {up.username} failed: {ex.Message}");
+                            }
 
                             targetAcc = new Account
                             {
@@ -216,7 +221,8 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
 
                 if (success > 0)
                 {
-                    try { AccountManager.SaveAccounts(true); } catch { }
+                    try { AccountManager.SaveAccounts(true); }
+                    catch (Exception ex) { Program.Logger?.Warn($"SaveAccounts after bulk import failed: {ex.Message}"); }
                     MainWindow.Instance?.DashboardView?.LoadDashboardData();
                     AccountManager.Instance?.SetDashboardStatus($"✅ Nhập hàng loạt hoàn tất: Đã thêm/cập nhật {success} tài khoản.");
                 }

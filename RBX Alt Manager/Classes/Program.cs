@@ -34,8 +34,9 @@ namespace RBX_Alt_Manager
                 Environment.CurrentDirectory = StoragePaths.BaseDirectory;
                 return new AppLogger(StoragePaths.LogDirectory, "Account Manager");
             }
-            catch
+            catch (Exception ex)
             {
+                Trace.WriteLine($"Fallback logger init due to: {ex.Message}");
                 return new AppLogger(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Shiro", "Logs"), "Account Manager");
             }
         }
@@ -81,7 +82,10 @@ namespace RBX_Alt_Manager
                     SetCurrentProcessExplicitAppUserModelID("Shiro.RobloxAccountManager");
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Logger?.Debug($"SetCurrentProcessExplicitAppUserModelID failed: {ex.Message}");
+            }
 
             int Stupid = 1337;
 
@@ -97,10 +101,16 @@ namespace RBX_Alt_Manager
                         if (staleArtifacts > 0)
                             Logger.Info($"Removed {staleArtifacts} stale runtime artifact(s) from the previous session.");
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        Logger?.Warn($"CleanupStaleRuntimeArtifacts error: {ex.Message}");
+                    }
                 });
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Logger?.Error($"Startup storage initialization error: {ex.Message}");
+            }
 
             try
             {
@@ -114,7 +124,10 @@ namespace RBX_Alt_Manager
                     Environment.Exit(Stupid);
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Logger?.Debug($"Temp path extraction check failed: {ex.Message}");
+            }
 
             try
             {
@@ -123,7 +136,10 @@ namespace RBX_Alt_Manager
 
                 // MessageBox.Show("Some features may not work properly if you ran the account manager as admin!", "Roblox Account Manager", MessageBoxButtons.OK, MessageBoxIcon.Error); // I don't think this is an issue anymore
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Logger?.Debug($"Administrator role check failed: {ex.Message}");
+            }
 
 #if DEBUG
             bool IsAutoUpdater = true;
@@ -169,7 +185,11 @@ namespace RBX_Alt_Manager
                         Process.Start(new ProcessStartInfo(Environment.ProcessPath ?? string.Empty) { Arguments = "-update", Verb = "runas" });
                         Environment.Exit(0);
                     }
-                    catch{ StartUpdater(); }
+                    catch (Exception ex)
+                    {
+                        Logger?.Debug($"Runas updater failed, starting direct: {ex.Message}");
+                        StartUpdater();
+                    }
                 }
                 else
                     StartUpdater();
@@ -218,7 +238,8 @@ namespace RBX_Alt_Manager
 #else
                 finally
                 {
-                    try { mutex.ReleaseMutex(); } catch { }
+                    try { mutex.ReleaseMutex(); }
+                    catch (Exception ex) { Logger?.Debug($"ReleaseMutex failed: {ex.Message}"); }
                 }
             }
             else
@@ -278,7 +299,10 @@ namespace RBX_Alt_Manager
                 Logger.Error($"Unhandled {source} exception: {exception.GetType().Name}: {message}");
                 Logger.Error($"Unhandled {source} stack trace: {exception}");
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Trace.WriteLine($"Logging unhandled exception failed: {ex.Message}");
+            }
         }
 
         private static bool IsBenignTransientException(Exception exception, string message)

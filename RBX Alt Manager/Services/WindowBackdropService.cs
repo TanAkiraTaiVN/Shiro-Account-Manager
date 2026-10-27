@@ -107,7 +107,10 @@ namespace RBX_Alt_Manager.Services
                     SendMessage(hwnd, 0x0080 /* WM_SETICON */, (IntPtr)0 /* ICON_SMALL */, hIconSmall);
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"Win32 window icon apply threw: {ex.Message}");
+            }
 
             try
             {
@@ -135,7 +138,10 @@ namespace RBX_Alt_Manager.Services
                     DwmSetWindowAttribute(hwnd, DWMWA_MICA_EFFECT, ref micaTrue, sizeof(int));
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"DwmSetWindowAttribute backdrop threw: {ex.Message}");
+            }
         }
     }
 }

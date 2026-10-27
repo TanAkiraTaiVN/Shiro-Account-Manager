@@ -62,7 +62,10 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
                             if (CardsScrollViewer != null) CardsScrollViewer.Offset = new Vector(0, 0);
                             if (TableItemsControl != null && TableItemsControl.ItemCount > 0) TableItemsControl.ScrollIntoView(0);
                         }
-                        catch { }
+                        catch (Exception ex)
+                        {
+                            Program.Logger?.Debug($"Scroll reset on tab change threw: {ex.Message}");
+                        }
                     });
                 }
             };

@@ -59,7 +59,10 @@ namespace RBX_Alt_Manager.Services
                         return true;
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"StoragePaths assembly probe encountered error: {ex.Message}");
+            }
             return false;
         }
 
@@ -163,7 +166,10 @@ namespace RBX_Alt_Manager.Services
                     AtomicWriteBytes(keyFile, payload, durable: true);
                     AtomicWriteBytes(keyFile + ".bak", payload, durable: true);
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    Program.Logger?.Warn($"Failed to save recovered vault key: {ex.Message}");
+                }
 
                 _cachedVaultKey = copy;
             }
@@ -212,13 +218,19 @@ namespace RBX_Alt_Manager.Services
                                         File.Copy(keyFile, keyFile + ".bak", overwrite: false);
                                     AtomicWriteBytes(keyFile, WrapVaultKey(raw), durable: true);
                                 }
-                                catch { }
+                                catch (Exception ex)
+                                {
+                                    Program.Logger?.Warn($"Failed to upgrade raw key to DPAPI format: {ex.Message}");
+                                }
                             }
                             _cachedVaultKey = raw;
                             return raw;
                         }
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        Program.Logger?.Warn($"Failed to read existing vault key from {keyFile}: {ex.Message}");
+                    }
 
                     // Never silently destroy an existing non-empty key file without preserving a backup copy.
                     try
@@ -226,7 +238,10 @@ namespace RBX_Alt_Manager.Services
                         if (!File.Exists(keyFile + ".bak"))
                             File.Copy(keyFile, keyFile + ".bak", overwrite: false);
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        Program.Logger?.Warn($"Failed to preserve backup of damaged vault key file: {ex.Message}");
+                    }
                 }
 
                 byte[] newKey = System.Security.Cryptography.RandomNumberGenerator.GetBytes(32);
@@ -234,7 +249,10 @@ namespace RBX_Alt_Manager.Services
                 {
                     AtomicWriteBytes(keyFile, IsPortable ? newKey : WrapVaultKey(newKey), durable: true);
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    Program.Logger?.Error($"Failed to persist newly generated vault key to {keyFile}: {ex.Message}");
+                }
 
                 _cachedVaultKey = newKey;
                 return newKey;
@@ -293,7 +311,11 @@ namespace RBX_Alt_Manager.Services
 
                     DateTime lastWriteUtc;
                     try { lastWriteUtc = Directory.GetLastWriteTimeUtc(directory); }
-                    catch { continue; }
+                    catch (Exception ex)
+                    {
+                        Program.Logger?.Debug($"Failed to get last write time for {directory}: {ex.Message}");
+                        continue;
+                    }
 
                     if (lastWriteUtc >= cutoffUtc)
                         continue;
@@ -305,13 +327,13 @@ namespace RBX_Alt_Manager.Services
                     }
                     catch (Exception exception)
                     {
-                        try { Program.Logger.Debug($"Could not remove stale browser session: {exception.Message}"); } catch { }
+                        Program.Logger?.Debug($"Could not remove stale browser session: {exception.Message}");
                     }
                 }
             }
             catch (Exception exception)
             {
-                try { Program.Logger.Debug($"Could not enumerate browser sessions: {exception.Message}"); } catch { }
+                Program.Logger?.Debug($"Could not enumerate browser sessions: {exception.Message}");
             }
 
             // AtomicWriteBytes creates uniquely named siblings and removes
@@ -323,7 +345,11 @@ namespace RBX_Alt_Manager.Services
                 {
                     DateTime lastWriteUtc;
                     try { lastWriteUtc = File.GetLastWriteTimeUtc(temporary); }
-                    catch { continue; }
+                    catch (Exception ex)
+                    {
+                        Program.Logger?.Debug($"Failed to get last write time for {temporary}: {ex.Message}");
+                        continue;
+                    }
 
                     if (lastWriteUtc >= cutoffUtc)
                         continue;
@@ -335,13 +361,13 @@ namespace RBX_Alt_Manager.Services
                     }
                     catch (Exception exception)
                     {
-                        try { Program.Logger.Debug($"Could not remove stale temporary data file: {exception.Message}"); } catch { }
+                        Program.Logger?.Debug($"Could not remove stale temporary data file: {exception.Message}");
                     }
                 }
             }
             catch (Exception exception)
             {
-                try { Program.Logger.Debug($"Could not enumerate temporary data files: {exception.Message}"); } catch { }
+                Program.Logger?.Debug($"Could not enumerate temporary data files: {exception.Message}");
             }
 
             return removed;
@@ -410,7 +436,14 @@ namespace RBX_Alt_Manager.Services
             }
             finally
             {
-                try { if (File.Exists(temporary)) File.Delete(temporary); } catch { }
+                try
+                {
+                    if (File.Exists(temporary)) File.Delete(temporary);
+                }
+                catch (Exception ex)
+                {
+                    Program.Logger?.Debug($"Failed to clean up temporary write file {temporary}: {ex.Message}");
+                }
             }
         }
 
@@ -448,10 +481,11 @@ namespace RBX_Alt_Manager.Services
                     File.Replace(temporary, destination, null, true);
                     return;
                 }
-                catch
+                catch (Exception ex)
                 {
                     // File.Replace is not available on every filesystem (for
                     // example, some removable drives). Fall back to a move.
+                    Program.Logger?.Debug($"File.Replace failed, falling back to File.Move: {ex.Message}");
                 }
             }
 
@@ -512,7 +546,7 @@ namespace RBX_Alt_Manager.Services
             }
             catch (Exception exception)
             {
-                try { Program.Logger.Warn($"Could not migrate user data directory {Path.GetFileName(sourceDirectory)}: {exception.Message}"); } catch { }
+                Program.Logger?.Warn($"Could not migrate user data directory {Path.GetFileName(sourceDirectory)}: {exception.Message}");
             }
         }
 
@@ -528,7 +562,7 @@ namespace RBX_Alt_Manager.Services
             }
             catch (Exception exception)
             {
-                try { Program.Logger.Warn($"Could not migrate user data file {Path.GetFileName(source)}: {exception.Message}"); } catch { }
+                Program.Logger?.Warn($"Could not migrate user data file {Path.GetFileName(source)}: {exception.Message}");
             }
         }
 
@@ -549,7 +583,11 @@ namespace RBX_Alt_Manager.Services
                     Path.GetFullPath(right).TrimEnd(Path.DirectorySeparatorChar),
                     StringComparison.OrdinalIgnoreCase);
             }
-            catch { return false; }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"PathEquals failed for '{left}' vs '{right}': {ex.Message}");
+                return false;
+            }
         }
     }
 }

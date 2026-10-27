@@ -202,7 +202,12 @@ namespace RBX_Alt_Manager.Services
             {
                 _writerTask.Wait(TimeSpan.FromSeconds(2));
             }
-            catch { }
+            catch (OperationCanceledException) { }
+            catch (AggregateException) { }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.WriteLine($"AppLogger writer wait on dispose threw: {ex.Message}");
+            }
 
             _cts.Dispose();
         }

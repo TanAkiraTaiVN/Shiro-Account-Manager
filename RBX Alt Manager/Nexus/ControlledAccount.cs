@@ -190,7 +190,10 @@ namespace RBX_Alt_Manager.Nexus
                 if (WebSocket != null && WebSocket.State == WebSocketState.Open)
                     _ = WebSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closed", CancellationToken.None);
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"WebSocket close ignored: {ex.Message}");
+            }
 
             WebSocket = null;
 

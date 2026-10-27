@@ -27,7 +27,10 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
                 int count = AccountManager.AccountCount;
                 TxtAccountCount.Text = $"{count} tài khoản";
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"LoadMetrics threw: {ex.Message}");
+            }
         }
 
         private void BtnClose_Click(object sender, RoutedEventArgs e)

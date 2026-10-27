@@ -99,7 +99,10 @@ namespace RBX_Alt_Manager.Services
                 {
                     ClientSettingsPatcher.PatchSettings();
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    Program.Logger?.Warn($"PatchSettings on PresetApplied failed: {ex.Message}");
+                }
             }
 
             PresetApplied?.Invoke(preset);

@@ -304,7 +304,10 @@ namespace RBX_Alt_Manager.Http
                         if (httpResponse.Headers.NonValidated.TryGetValues("Set-Cookie", out var nonVal))
                             cookieHeaders = nonVal;
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        Program.Logger?.Debug($"Failed non-validated Set-Cookie header extraction: {ex.Message}");
+                    }
                 }
 
                 if (cookieHeaders != null)

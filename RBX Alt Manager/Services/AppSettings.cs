@@ -21,7 +21,8 @@ namespace RBX_Alt_Manager.Services
             var sec = GetSection(section);
             if (sec != null && sec.Exists(key))
             {
-                try { return sec.Get<bool>(key); } catch { }
+                try { return sec.Get<bool>(key); }
+                catch (Exception ex) { Program.Logger?.Debug($"AppSettings parse bool '{key}' failed: {ex.Message}"); }
             }
             return fallback;
         }
@@ -37,7 +38,8 @@ namespace RBX_Alt_Manager.Services
             var sec = GetSection(section);
             if (sec != null && sec.Exists(key))
             {
-                try { return sec.Get<int>(key); } catch { }
+                try { return sec.Get<int>(key); }
+                catch (Exception ex) { Program.Logger?.Debug($"AppSettings parse int '{key}' failed: {ex.Message}"); }
             }
             return fallback;
         }

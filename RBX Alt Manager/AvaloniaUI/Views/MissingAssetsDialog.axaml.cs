@@ -260,7 +260,10 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
                     string url = $"https://www.roblox.com/catalog/{item.AssetId}/-";
                     Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    Program.Logger?.Debug($"Open catalog URL in browser failed: {ex.Message}");
+                }
             }
         }
 
@@ -350,7 +353,10 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
                 _loadCts?.Dispose();
                 _loadCts = null;
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"Cancel load cts threw: {ex.Message}");
+            }
             base.OnClosing(e);
         }
     }

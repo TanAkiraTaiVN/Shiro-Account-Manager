@@ -155,7 +155,10 @@ namespace RBX_Alt_Manager
                                 if (File.Exists(SaveFilePath))
                                     File.Copy(SaveFilePath, $"{SaveFilePath}.locked-{DateTime.Now:yyyyMMdd_HHmmss}.bak", overwrite: true);
                             }
-                            catch { }
+                            catch (Exception ex)
+                            {
+                                Program.Logger?.Warn($"Could not create copy of locked primary account data: {ex.Message}");
+                            }
 
                             ReplaceAccountsList(restored);
                             accountDataNeedsMigration |= needsMigration;
@@ -168,7 +171,10 @@ namespace RBX_Alt_Manager
                         }
                     }
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    Program.Logger?.Debug($"Candidate backup '{path}' could not be loaded: {ex.Message}");
+                }
             }
 
             return false;
@@ -297,7 +303,10 @@ namespace RBX_Alt_Manager
                             SaveAccounts(true);
                         goto BackupHandled;
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        Program.Logger?.Debug($"Direct vault key load from backup was not successful: {ex.Message}");
+                    }
                 }
 
                 if (Cryptography.IsEncrypted(BackupData) && AppServices.Dialogs.ShowConfirmation("The existing backup file is password-locked, would you like to attempt to load it?"))
@@ -335,7 +344,11 @@ namespace RBX_Alt_Manager
                             legacyPlaintextLoaded = true;
                             accountDataNeedsMigration = true;
                         }
-                        catch { AppServices.Dialogs.ShowError("Failed to load backup file!"); }
+                        catch (Exception ex)
+                        {
+                            Program.Logger?.Error($"Failed to load backup file: {ex.Message}");
+                            AppServices.Dialogs.ShowError("Failed to load backup file!");
+                        }
 
                         if (AccountsList.Count > 0)
                         {
@@ -464,7 +477,11 @@ namespace RBX_Alt_Manager
             {
                 _deferredSaveTimer.Change(1500, Timeout.Infinite);
             }
-            catch { }
+            catch (ObjectDisposedException) { }
+            catch (Exception ex)
+            {
+                Program.Logger?.Warn($"Failed to schedule deferred account save: {ex.Message}");
+            }
         }
 
         private static readonly Timer _deferredSettingsSaveTimer = new Timer(_ =>
@@ -479,7 +496,11 @@ namespace RBX_Alt_Manager
             {
                 _deferredSettingsSaveTimer.Change(Math.Max(50, delayMs), Timeout.Infinite);
             }
-            catch { }
+            catch (ObjectDisposedException) { }
+            catch (Exception ex)
+            {
+                Program.Logger?.Warn($"Failed to schedule deferred settings save: {ex.Message}");
+            }
         }
 
         internal static void SaveSettings()

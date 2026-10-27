@@ -61,7 +61,10 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
                         );
                     }
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    Program.Logger?.Debug($"Center window position calculation threw: {ex.Message}");
+                }
 
             };
 
@@ -95,7 +98,10 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
                                                         System.IO.File.GetLastWriteTimeUtc(StoragePaths.AccountDataFile).AddSeconds(2);
                             }
                         }
-                        catch { }
+                        catch (Exception ex)
+                        {
+                            Program.Logger?.Debug($"VaultKey vs AccountData file time check threw: {ex.Message}");
+                        }
 
                         if (vaultKeyNewerThanData)
                         {

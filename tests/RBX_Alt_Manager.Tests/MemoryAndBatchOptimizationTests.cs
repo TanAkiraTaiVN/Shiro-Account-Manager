@@ -57,7 +57,8 @@ namespace RBX_Alt_Manager.Tests
             }
             finally
             {
-                try { Directory.Delete(tempDir, true); } catch { }
+                try { Directory.Delete(tempDir, true); }
+                catch (IOException) { }
             }
         }
 

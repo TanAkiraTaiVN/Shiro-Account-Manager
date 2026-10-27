@@ -59,7 +59,8 @@ namespace RBX_Alt_Manager.Tests
             {
                 if (File.Exists(testFile))
                 {
-                    try { File.Delete(testFile); } catch { }
+                    try { File.Delete(testFile); }
+                    catch (IOException) { }
                 }
             }
         }
@@ -138,7 +139,8 @@ namespace RBX_Alt_Manager.Tests
             {
                 if (Directory.Exists(baseDir))
                 {
-                    try { Directory.Delete(baseDir, true); } catch { }
+                    try { Directory.Delete(baseDir, true); }
+                    catch (IOException) { }
                 }
             }
         }
@@ -167,7 +169,8 @@ namespace RBX_Alt_Manager.Tests
             {
                 if (Directory.Exists(isolated))
                 {
-                    try { Directory.Delete(isolated, true); } catch { }
+                    try { Directory.Delete(isolated, true); }
+                    catch (IOException) { }
                 }
             }
         }
@@ -201,7 +204,8 @@ namespace RBX_Alt_Manager.Tests
             {
                 if (Directory.Exists(isolated))
                 {
-                    try { Directory.Delete(isolated, true); } catch { }
+                    try { Directory.Delete(isolated, true); }
+                    catch (IOException) { }
                 }
             }
         }
@@ -231,7 +235,8 @@ namespace RBX_Alt_Manager.Tests
             {
                 if (Directory.Exists(isolated))
                 {
-                    try { Directory.Delete(isolated, true); } catch { }
+                    try { Directory.Delete(isolated, true); }
+                    catch (IOException) { }
                 }
             }
         }

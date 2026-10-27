@@ -104,7 +104,8 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
 
                 if (File.Exists(mainExe))
                 {
-                    try { Process.Start(new ProcessStartInfo(mainExe) { UseShellExecute = true, WorkingDirectory = StoragePaths.BaseDirectory }); } catch { }
+                    try { Process.Start(new ProcessStartInfo(mainExe) { UseShellExecute = true, WorkingDirectory = StoragePaths.BaseDirectory }); }
+                    catch (Exception ex) { Program.Logger?.Error($"Failed to restart application after update: {ex.Message}"); }
                 }
                 Close();
                 return;
@@ -163,8 +164,11 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
                 File.Copy(stagedFile, finalDest, overwrite: true);
             }
 
-            try { File.Delete(archivePath); } catch { }
-            try { new DirectoryInfo(stagingDir).RecursiveDelete(); } catch { }
+            try { File.Delete(archivePath); }
+            catch (Exception ex) { Program.Logger?.Debug($"Deleting update archive failed: {ex.Message}"); }
+
+            try { new DirectoryInfo(stagingDir).RecursiveDelete(); }
+            catch (Exception ex) { Program.Logger?.Debug($"Deleting staging directory failed: {ex.Message}"); }
         }
 
         private async void BtnRetry_Click(object sender, RoutedEventArgs e)

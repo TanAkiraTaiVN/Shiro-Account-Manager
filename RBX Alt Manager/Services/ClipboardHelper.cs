@@ -27,7 +27,10 @@ namespace RBX_Alt_Manager.Services
                     return true;
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"Clipboard.SetTextAsync threw: {ex.Message}");
+            }
 
             return SetClipboardTextSafe(text);
         }
@@ -49,7 +52,10 @@ namespace RBX_Alt_Manager.Services
                     desktop.MainWindow.Clipboard.SetTextAsync(text).GetAwaiter().GetResult();
                     return true;
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    Program.Logger?.Debug($"Clipboard sync SetTextAsync threw: {ex.Message}");
+                }
             }
 
             return false;

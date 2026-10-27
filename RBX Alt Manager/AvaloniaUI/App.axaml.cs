@@ -43,8 +43,12 @@ namespace RBX_Alt_Manager.AvaloniaUI
                                 AccountManager.SaveSettings();
                             }
                         }
-                        catch { }
-                        try { RobloxWindowService.ShowAllWindows(); } catch { }
+                        catch (Exception ex)
+                        {
+                            Program.Logger?.Debug($"Saving PlaceId on exit threw: {ex.Message}");
+                        }
+                        try { RobloxWindowService.ShowAllWindows(); }
+                        catch (Exception ex) { Program.Logger?.Debug($"ShowAllWindows on exit threw: {ex.Message}"); }
                     };
 
                     _ = System.Threading.Tasks.Task.Run(async () =>

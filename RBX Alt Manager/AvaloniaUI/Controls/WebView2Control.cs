@@ -87,11 +87,14 @@ namespace RBX_Alt_Manager.AvaloniaUI.Controls
                     _controller?.Close();
                     _controller = null;
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    Program.Logger?.Debug($"WebView2 controller close threw: {ex.Message}");
+                }
 
                 if (_childHwnd != IntPtr.Zero)
                 {
-                    try { DestroyWindow(_childHwnd); } catch { }
+                    try { DestroyWindow(_childHwnd); } catch (Exception) { }
                     _childHwnd = IntPtr.Zero;
                 }
             }
@@ -159,7 +162,8 @@ namespace RBX_Alt_Manager.AvaloniaUI.Controls
             controllerOptions.IsInPrivateModeEnabled = false;
 
             var controller = await _environment.CreateCoreWebView2ControllerAsync(_childHwnd, controllerOptions);
-            try { controller.DefaultBackgroundColor = System.Drawing.Color.FromArgb(255, 13, 13, 17); } catch { }
+            try { controller.DefaultBackgroundColor = System.Drawing.Color.FromArgb(255, 13, 13, 17); }
+            catch (Exception ex) { Program.Logger?.Debug($"Set DefaultBackgroundColor threw: {ex.Message}"); }
             return controller;
         }
 
@@ -178,12 +182,15 @@ namespace RBX_Alt_Manager.AvaloniaUI.Controls
                     var oldCore = oldController.CoreWebView2;
                     if (oldCore != null)
                     {
-                        try { oldCore.Stop(); } catch { }
+                        try { oldCore.Stop(); } catch (Exception) { }
                     }
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    Program.Logger?.Debug($"Stopping old CoreWebView2 threw: {ex.Message}");
+                }
 
-                try { oldController.Close(); } catch { }
+                try { oldController.Close(); } catch (Exception) { }
             }
 
             _controller = await CreateIsolatedControllerCoreAsync();
@@ -243,7 +250,10 @@ namespace RBX_Alt_Manager.AvaloniaUI.Controls
                     _controller.Bounds = new System.Drawing.Rectangle(0, 0, w, h);
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"UpdateBounds threw: {ex.Message}");
+            }
         }
     }
 

@@ -44,7 +44,8 @@ namespace RBX_Alt_Manager.Tests
             {
                 if (Directory.Exists(tempDir))
                 {
-                    try { Directory.Delete(tempDir, true); } catch { }
+                    try { Directory.Delete(tempDir, true); }
+                    catch (IOException) { }
                 }
             }
         }
@@ -91,7 +92,8 @@ namespace RBX_Alt_Manager.Tests
             {
                 if (Directory.Exists(tempDir))
                 {
-                    try { Directory.Delete(tempDir, true); } catch { }
+                    try { Directory.Delete(tempDir, true); }
+                    catch (IOException) { }
                 }
             }
         }

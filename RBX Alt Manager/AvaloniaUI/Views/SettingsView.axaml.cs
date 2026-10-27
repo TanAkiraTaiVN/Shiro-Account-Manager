@@ -152,7 +152,8 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
                     // Accent Theme & Language Persistence
                     AccentThemeService.ApplyTheme(_selectedTheme, save: false);
                     AccountManager.General?.Set(AppSettingsKeys.General.AccentTheme, _selectedTheme.ToString());
-                    try { AppSettings.Current.AccentTheme = _selectedTheme.ToString(); } catch { }
+                    try { AppSettings.Current.AccentTheme = _selectedTheme.ToString(); }
+                    catch (Exception ex) { Program.Logger?.Debug($"AppSettings.Current.AccentTheme threw: {ex.Message}"); }
 
                     if (CmbLanguage != null && CmbLanguage.SelectedIndex >= 0)
                     {
@@ -313,7 +314,10 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
                             File.Delete(f);
                             deletedCount++;
                         }
-                        catch { }
+                        catch (Exception ex)
+                        {
+                            Program.Logger?.Debug($"Delete avatar cache file failed: {ex.Message}");
+                        }
                     }
                 }
 

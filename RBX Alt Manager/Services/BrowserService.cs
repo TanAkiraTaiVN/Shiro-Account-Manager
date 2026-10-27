@@ -132,7 +132,10 @@ namespace RBX_Alt_Manager.Services
                 using var fs = new FileStream(prefsPath, FileMode.Create, FileAccess.Write, FileShare.Read);
                 fs.Write(SuppressedPasswordPrefsUtf8);
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"SuppressPasswordManager failed: {ex.Message}");
+            }
         }
 
         private static readonly SemaphoreSlim SignInGate = new SemaphoreSlim(2, 2);

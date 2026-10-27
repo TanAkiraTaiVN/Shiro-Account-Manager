@@ -443,7 +443,10 @@ namespace RBX_Alt_Manager
                     AccountManager.Instance?.RefreshView(this);
                 }));
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"UI notification update error: {ex.Message}");
+            }
             return true;
         }
 
@@ -460,7 +463,10 @@ namespace RBX_Alt_Manager
                         if (response.Headers.NonValidated.TryGetValues("Set-Cookie", out var nonValidated))
                             setCookieHeaders = nonValidated;
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        Program.Logger?.Debug($"NonValidated Set-Cookie header extraction error: {ex.Message}");
+                    }
                 }
 
                 if (setCookieHeaders == null && response.Content != null)
@@ -470,7 +476,10 @@ namespace RBX_Alt_Manager
                         if (response.Content.Headers.TryGetValues("Set-Cookie", out var contentCookies))
                             setCookieHeaders = contentCookies;
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        Program.Logger?.Debug($"Content Set-Cookie header extraction error: {ex.Message}");
+                    }
                 }
 
                 if (setCookieHeaders != null)

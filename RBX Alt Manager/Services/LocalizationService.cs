@@ -89,14 +89,18 @@ namespace RBX_Alt_Manager.Services
                         procName = System.IO.Path.GetFileNameWithoutExtension(processPath);
                     }
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    Program.Logger?.Debug($"ProcessPath lookup threw: {ex.Message}");
+                }
 
                 string[] args = Environment.GetCommandLineArgs();
                 string savedLang = AccountManager.General?.Get<string>(AppSettingsKeys.General.Language) ?? string.Empty;
                 CurrentLanguage = ResolveInitialLanguage(procName, args, savedLang);
             }
-            catch
+            catch (Exception ex)
             {
+                Program.Logger?.Debug($"ResolveInitialLanguage threw: {ex.Message}");
                 CurrentLanguage = AppLanguage.Vietnamese;
             }
 
@@ -115,7 +119,10 @@ namespace RBX_Alt_Manager.Services
                     AccountManager.General?.Set(AppSettingsKeys.General.Language, language == AppLanguage.English ? "en" : "vi");
                     AccountManager.QueueDeferredSaveSettings();
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    Program.Logger?.Warn($"Failed to save Language setting: {ex.Message}");
+                }
             }
 
             ApplyResources(Application.Current);

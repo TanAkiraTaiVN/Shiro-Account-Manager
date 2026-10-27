@@ -131,7 +131,10 @@ namespace RBX_Alt_Manager.Services
                     SetProcessPriority(pid, BELOW_NORMAL_PRIORITY_CLASS);
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"Failed optimizing launched process {pid}: {ex.Message}");
+            }
         }
     }
 }

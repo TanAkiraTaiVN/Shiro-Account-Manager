@@ -91,7 +91,7 @@ namespace RBX_Alt_Manager.Classes
 
                     bool hasExited = false;
                     try { hasExited = RbxProcess.HasExited; }
-                    catch { hasExited = true; }
+                    catch (Exception) { hasExited = true; }
 
                     if (!hasExited && !Program.Closed)
                         continue;
@@ -115,11 +115,11 @@ namespace RBX_Alt_Manager.Classes
 
             try
             {
-                try { exitMonitoringCancellation.Cancel(); } catch { }
-                try { logLookupCancellation.Cancel(); } catch { }
+                try { exitMonitoringCancellation.Cancel(); } catch (Exception) { }
+                try { logLookupCancellation.Cancel(); } catch (Exception) { }
 
                 int processId = 0;
-                try { processId = RbxProcess?.Id ?? 0; } catch { }
+                try { processId = RbxProcess?.Id ?? 0; } catch (Exception) { }
                 if (processId > 0)
                     Program.Logger.Info($"{processId} has exited");
 
@@ -133,13 +133,16 @@ namespace RBX_Alt_Manager.Classes
                     RobloxWatcher.RemoveProcessMetadata(processId);
 
                 LogStream?.Dispose();
-                try { RbxProcess?.Dispose(); } catch { }
-                try { logLookupCancellation.Dispose(); } catch { }
-                try { exitMonitoringCancellation.Dispose(); } catch { }
+                try { RbxProcess?.Dispose(); } catch (Exception) { }
+                try { logLookupCancellation.Dispose(); } catch (Exception) { }
+                try { exitMonitoringCancellation.Dispose(); } catch (Exception) { }
 
                 Utilities.QueueRefreshNotificationArea();
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"CleanupProcessExit error: {ex.Message}");
+            }
         }
 
         internal static string[] ReadAppendedLines(Stream stream, ref long lastPosition)
@@ -204,7 +207,8 @@ namespace RBX_Alt_Manager.Classes
                         if (JoiningGameRegex().IsMatch(Line))
                         {
                             IsConnected = true;
-                            try { if (RbxProcess != null) Connected?.Invoke(RbxProcess.Id); } catch { }
+                            try { if (RbxProcess != null) Connected?.Invoke(RbxProcess.Id); }
+                            catch (Exception ex) { Program.Logger?.Error($"Connected event handler failed: {ex.Message}"); }
 
                             continue;
                         }
@@ -217,7 +221,8 @@ namespace RBX_Alt_Manager.Classes
                             int reason = disconnectMatch.Groups.Count >= 2 && int.TryParse(disconnectMatch.Groups[1].Value, out int parsedReason)
                                 ? parsedReason
                                 : 0;
-                            try { if (RbxProcess != null) Disconnected?.Invoke(RbxProcess.Id, reason); } catch { }
+                            try { if (RbxProcess != null) Disconnected?.Invoke(RbxProcess.Id, reason); }
+                            catch (Exception ex) { Program.Logger?.Error($"Disconnected event handler failed: {ex.Message}"); }
 
                             continue;
                         }
@@ -310,7 +315,10 @@ namespace RBX_Alt_Manager.Classes
                 if (!RbxProcess.HasExited)
                     RbxProcess.Kill(entireProcessTree: true);
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"Kill process failed: {ex.Message}");
+            }
 
             return true;
         }
@@ -331,7 +339,7 @@ namespace RBX_Alt_Manager.Classes
                     {
                         var dirInfo = new DirectoryInfo(defaultLogsDir);
                         DateTime processStartTimeUtc = DateTime.MinValue;
-                        try { processStartTimeUtc = RbxProcess.StartTime.ToUniversalTime(); } catch { }
+                        try { processStartTimeUtc = RbxProcess.StartTime.ToUniversalTime(); } catch (Exception ex) { Program.Logger?.Debug($"Get process start time failed: {ex.Message}"); }
                         DateTime minWriteUtc = processStartTimeUtc != DateTime.MinValue ? processStartTimeUtc.AddMinutes(-1) : DateTime.MinValue;
 
                         var claimedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);

@@ -235,9 +235,9 @@ namespace RBX_Alt_Manager.Services
                 {
                     if (_activeSockets.TryRemove(socket, out var removedGate))
                     {
-                        try { removedGate.Dispose(); } catch { }
+                        try { removedGate.Dispose(); } catch (Exception) { }
                     }
-                    try { socket.Dispose(); } catch { }
+                    try { socket.Dispose(); } catch (Exception) { }
                 }
             }
         }
@@ -278,7 +278,9 @@ namespace RBX_Alt_Manager.Services
             {
                 if (acquired)
                 {
-                    try { gate.Release(); } catch { }
+                    try { gate.Release(); }
+                    catch (ObjectDisposedException) { }
+                    catch (Exception) { }
                 }
             }
         }
@@ -312,11 +314,12 @@ namespace RBX_Alt_Manager.Services
                         {
                             await SendSafeAsync(socket, gate, segment).ConfigureAwait(false);
                         }
-                        catch
+                        catch (Exception ex)
                         {
+                            Program.Logger?.Debug($"WebSocket broadcast to client failed: {ex.Message}");
                             if (_activeSockets.TryRemove(socket, out var removedGate))
                             {
-                                try { removedGate.Dispose(); } catch { }
+                                try { removedGate.Dispose(); } catch (Exception) { }
                             }
                         }
                     }
@@ -324,12 +327,15 @@ namespace RBX_Alt_Manager.Services
                     {
                         if (_activeSockets.TryRemove(socket, out var removedGate))
                         {
-                            try { removedGate.Dispose(); } catch { }
+                            try { removedGate.Dispose(); } catch (Exception) { }
                         }
                     }
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"BroadcastAsync failed: {ex.Message}");
+            }
         }
 
         /// <summary>
@@ -391,8 +397,11 @@ namespace RBX_Alt_Manager.Services
                     if (kvp.Key.State == WebSocketState.Open)
                         await kvp.Key.CloseAsync(WebSocketCloseStatus.NormalClosure, "Server stopping", CancellationToken.None);
                 }
-                catch { }
-                try { kvp.Value.Dispose(); } catch { }
+                catch (Exception ex)
+                {
+                    Program.Logger?.Debug($"Closing active socket failed: {ex.Message}");
+                }
+                try { kvp.Value.Dispose(); } catch (Exception) { }
             }
             _activeSockets.Clear();
 
@@ -402,7 +411,10 @@ namespace RBX_Alt_Manager.Services
                 await _app.StopAsync();
                 await _app.DisposeAsync();
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Program.Logger?.Warn($"Kestrel stop/dispose threw: {ex.Message}");
+            }
             finally
             {
                 IsRunning = false;

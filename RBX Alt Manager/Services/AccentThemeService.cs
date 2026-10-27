@@ -162,10 +162,14 @@ namespace RBX_Alt_Manager.Services
                     string themeStr = theme.ToString();
                     AccountManager.General?.Set("AccentTheme", themeStr);
                     AccountManager.IniSettings?.Section("General")?.Set("AccentTheme", themeStr);
-                    try { AppSettings.Current.AccentTheme = themeStr; } catch { }
+                    try { AppSettings.Current.AccentTheme = themeStr; }
+                    catch (Exception ex) { Program.Logger?.Debug($"AppSettings.AccentTheme setter failed: {ex.Message}"); }
                     AccountManager.QueueDeferredSaveSettings();
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    Program.Logger?.Warn($"Failed to persist accent theme: {ex.Message}");
+                }
             }
 
             if (changed || !save)

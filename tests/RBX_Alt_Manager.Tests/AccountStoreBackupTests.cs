@@ -29,7 +29,7 @@ namespace RBX_Alt_Manager.Tests
                 if (Directory.Exists(_testDir))
                     Directory.Delete(_testDir, recursive: true);
             }
-            catch { }
+            catch (IOException) { }
         }
 
         [Fact]

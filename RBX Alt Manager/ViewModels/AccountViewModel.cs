@@ -449,7 +449,10 @@ namespace RBX_Alt_Manager.ViewModels
                 UpdateThemeBrush(AccentThemeService.CurrentTheme);
                 AccentThemeService.ThemeChanged += UpdateThemeBrush;
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"AccountViewModel static ctor theme brush init failed: {ex.Message}");
+            }
         }
 
         private static void UpdateThemeBrush(AccentTheme theme)
@@ -459,7 +462,10 @@ namespace RBX_Alt_Manager.ViewModels
                 var (primary, _, _, _, _, _) = AccentThemeService.GetThemeColors(theme);
                 _brushCardSelected = new SolidColorBrush(primary);
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"UpdateThemeBrush failed: {ex.Message}");
+            }
         }
 
         private static SolidColorBrush CreateFrozenBrush(string hex)

@@ -59,7 +59,8 @@ namespace RBX_Alt_Manager.Services
 
             if (shouldUnmuteAll)
             {
-                try { MuteAllRoblox(false, updateStatus: false); } catch { }
+                try { MuteAllRoblox(false, updateStatus: false); }
+                catch (Exception ex) { Program.Logger?.Debug($"Failed to unmute all Roblox sessions: {ex.Message}"); }
             }
         }
 
@@ -180,7 +181,10 @@ namespace RBX_Alt_Manager.Services
                             }
                         }
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        Program.Logger?.Debug($"Failed inspecting audio session: {ex.Message}");
+                    }
                     finally
                     {
                         if (session != null) Marshal.ReleaseComObject(session);
@@ -307,7 +311,10 @@ namespace RBX_Alt_Manager.Services
                     return true;
                 });
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"Failed checking Roblox mute status: {ex.Message}");
+            }
 
             return anyUnmuted;
         }
@@ -316,7 +323,8 @@ namespace RBX_Alt_Manager.Services
         {
             if (_status == text) return;
             _status = text;
-            try { StatusChanged?.Invoke(); } catch { }
+            try { StatusChanged?.Invoke(); }
+            catch (Exception ex) { Program.Logger?.Warn($"StatusChanged handler error: {ex.Message}"); }
         }
 
         // Win32 Interop

@@ -136,7 +136,11 @@ namespace RBX_Alt_Manager.Classes
 
             Process[] processes;
             try { processes = Process.GetProcessesByName("RobloxPlayerBeta"); }
-            catch { return; }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"GetProcessesByName RobloxPlayerBeta failed: {ex.Message}");
+                return;
+            }
 
             if (processes.Length == 0)
             {
@@ -172,7 +176,7 @@ namespace RBX_Alt_Manager.Classes
                     activePids.Add(pid);
                     bool isFocusedWindow = Focused != IntPtr.Zero && process.MainWindowHandle == Focused;
 
-                    void Kill(string Reason) { Program.Logger.Info($"Attempting to kill process {pid}, reason: {Reason}"); try { process.Kill(); } catch { } }
+                    void Kill(string Reason) { Program.Logger.Info($"Attempting to kill process {pid}, reason: {Reason}"); try { process.Kill(); } catch (Exception ex) { Program.Logger?.Debug($"Kill process {pid} failed: {ex.Message}"); } }
 
                     string trackerId = string.Empty;
                     bool isGameClient = false;
@@ -215,7 +219,7 @@ namespace RBX_Alt_Manager.Classes
                     if (!isFocusedWindow || (RememberWindowPositions && !string.IsNullOrEmpty(trackerId)))
                     {
                         try { isOlderThan30s = (DateTime.Now - process.StartTime).TotalSeconds > 30; }
-                        catch { }
+                        catch (Exception ex) { Program.Logger?.Debug($"Get process start time failed for {pid}: {ex.Message}"); }
                     }
 
                     if (!isFocusedWindow && isOlderThan30s)
@@ -255,7 +259,7 @@ namespace RBX_Alt_Manager.Classes
                                     }
                                 }
                             }
-                            catch { }
+                            catch (Exception ex) { Program.Logger?.Debug($"RememberWindowPositions check failed for {pid}: {ex.Message}"); }
                         }
                     }
 
@@ -282,7 +286,7 @@ namespace RBX_Alt_Manager.Classes
                 {
                     if (!retained)
                     {
-                        try { process.Dispose(); } catch { }
+                        try { process.Dispose(); } catch (Exception) { }
                     }
                 }
             }

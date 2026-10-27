@@ -120,7 +120,7 @@ namespace RBX_Alt_Manager.Services
                 _loopCts?.Cancel();
                 _loopCts?.Dispose();
             }
-            catch { }
+            catch (Exception) { }
             _loopCts = null;
         }
 
@@ -138,7 +138,7 @@ namespace RBX_Alt_Manager.Services
                     _lifecycleCts.Cancel();
                     _lifecycleCts.Dispose();
                 }
-                catch { }
+                catch (Exception) { }
             }
         }
     }

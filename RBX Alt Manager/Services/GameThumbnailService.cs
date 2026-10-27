@@ -194,7 +194,10 @@ namespace RBX_Alt_Manager.Services
                         await Task.WhenAll(tasks).ConfigureAwait(false);
                     }
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    Program.Logger?.Debug($"Batch game thumbnail chunk failed: {ex.Message}");
+                }
             }
         }
 
@@ -215,10 +218,15 @@ namespace RBX_Alt_Manager.Services
                     }
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"Download game thumbnail item {targetId} failed: {ex.Message}");
+            }
             finally
             {
-                try { downloadGate.Release(); } catch { }
+                try { downloadGate.Release(); }
+                catch (ObjectDisposedException) { }
+                catch (Exception) { }
             }
         }
     }

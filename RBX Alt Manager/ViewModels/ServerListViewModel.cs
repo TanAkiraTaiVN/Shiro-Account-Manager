@@ -167,8 +167,12 @@ namespace RBX_Alt_Manager.ViewModels
             var prevCts = Interlocked.Exchange(ref _operationCts, nextCts);
             if (prevCts != null)
             {
-                try { prevCts.Cancel(); } catch { }
-                try { prevCts.Dispose(); } catch { }
+                try { prevCts.Cancel(); }
+                catch (ObjectDisposedException) { }
+                catch (Exception) { }
+
+                try { prevCts.Dispose(); }
+                catch (Exception) { }
             }
             return nextCts;
         }
