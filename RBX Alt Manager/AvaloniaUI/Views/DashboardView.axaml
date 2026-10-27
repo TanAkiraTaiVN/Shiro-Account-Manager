@@ -1,0 +1,755 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:RBX_Alt_Manager.ViewModels"
+             xmlns:sys="clr-namespace:System;assembly=System.Runtime"
+             xmlns:lucide="clr-namespace:LucideAvalonia;assembly=LucideAvalonia"
+             mc:Ignorable="d"
+             x:Class="RBX_Alt_Manager.AvaloniaUI.Views.DashboardView"
+             x:DataType="vm:MainViewModel"
+             x:CompileBindings="True"
+             x:Name="RootDashboard">
+
+    <UserControl.Resources>
+        <!-- Single Shared High-Performance Context Menu for all Accounts -->
+        <ContextMenu x:Key="AccountSharedContextMenu">
+            <MenuItem Header="Mở Roblox Home" Click="OnMenuLaunchHome">
+                <MenuItem.Icon>
+                    <lucide:Lucide Icon="House" Width="14" Height="14" StrokeBrush="#A1A1AA" />
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Header="Vào Server này" Click="OnMenuJoinServer">
+                <MenuItem.Icon>
+                    <lucide:Lucide Icon="Rocket" Width="14" Height="14" StrokeBrush="#22C55E" />
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Header="Đóng Roblox tài khoản này" Click="OnMenuCloseAccountRoblox">
+                <MenuItem.Icon>
+                    <lucide:Lucide Icon="X" Width="14" Height="14" StrokeBrush="#EF4444" />
+                </MenuItem.Icon>
+            </MenuItem>
+            <Separator />
+            <MenuItem Header="Đăng nhập lại In-App" Click="OnMenuReLoginFast">
+                <MenuItem.Icon>
+                    <lucide:Lucide Icon="LogIn" Width="14" Height="14" StrokeBrush="#F59E0B" />
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Header="Đăng nhập lại bằng Cookie" Click="OnMenuReLoginCookie">
+                <MenuItem.Icon>
+                    <lucide:Lucide Icon="Cookie" Width="14" Height="14" StrokeBrush="#F59E0B" />
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Header="Kiểm tra phiên tài khoản" Click="OnMenuValidateSession">
+                <MenuItem.Icon>
+                    <lucide:Lucide Icon="ShieldCheck" Width="14" Height="14" StrokeBrush="#38BDF8" />
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Header="Cập nhật số dư Robux" Click="OnMenuCheckRobux">
+                <MenuItem.Icon>
+                    <lucide:Lucide Icon="Coins" Width="14" Height="14" StrokeBrush="#F59E0B" />
+                </MenuItem.Icon>
+            </MenuItem>
+            <Separator />
+            <MenuItem Header="Xem trang cá nhân Roblox" Click="OnMenuOpenProfile">
+                <MenuItem.Icon>
+                    <lucide:Lucide Icon="User" Width="14" Height="14" StrokeBrush="#38BDF8" />
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Header="Ghim / Bỏ ghim tài khoản" Click="OnMenuTogglePin">
+                <MenuItem.Icon>
+                    <lucide:Lucide Icon="Pin" Width="14" Height="14" StrokeBrush="#FBBF24" />
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Header="Phân nhóm tài khoản" Click="OnMenuChangeGroup">
+                <MenuItem.Icon>
+                    <lucide:Lucide Icon="Tag" Width="14" Height="14" StrokeBrush="#A855F7" />
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Header="Đổi Alias (Tên gợi nhớ)" Click="OnMenuChangeAlias">
+                <MenuItem.Icon>
+                    <lucide:Lucide Icon="Pencil" Width="14" Height="14" StrokeBrush="#A1A1AA" />
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Header="Ghi chú tài khoản" Click="OnMenuChangeDescription">
+                <MenuItem.Icon>
+                    <lucide:Lucide Icon="FileText" Width="14" Height="14" StrokeBrush="#A1A1AA" />
+                </MenuItem.Icon>
+            </MenuItem>
+            <Separator />
+            <MenuItem Header="Sao chép Cookie (.ROBLOSECURITY)" Click="OnMenuCopyCookie">
+                <MenuItem.Icon>
+                    <lucide:Lucide Icon="Copy" Width="14" Height="14" StrokeBrush="#A1A1AA" />
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Header="Sao chép User:Pass" Click="OnMenuCopyUserPass">
+                <MenuItem.Icon>
+                    <lucide:Lucide Icon="ClipboardCopy" Width="14" Height="14" StrokeBrush="#A1A1AA" />
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Header="Sao chép User ID" Click="OnMenuCopyUserId">
+                <MenuItem.Icon>
+                    <lucide:Lucide Icon="Hash" Width="14" Height="14" StrokeBrush="#A1A1AA" />
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Header="Sao chép Username" Click="OnMenuCopyUsername">
+                <MenuItem.Icon>
+                    <lucide:Lucide Icon="User" Width="14" Height="14" StrokeBrush="#A1A1AA" />
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Header="Sao chép Profile URL" Click="OnMenuCopyProfileUrl">
+                <MenuItem.Icon>
+                    <lucide:Lucide Icon="Link" Width="14" Height="14" StrokeBrush="#A1A1AA" />
+                </MenuItem.Icon>
+            </MenuItem>
+            <Separator />
+            <MenuItem Header="Thuộc tính tài khoản" Click="OnMenuAccountFields">
+                <MenuItem.Icon>
+                    <lucide:Lucide Icon="Settings" Width="14" Height="14" StrokeBrush="#A1A1AA" />
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Header="Tiện ích tài khoản" Click="OnMenuAccountUtils">
+                <MenuItem.Icon>
+                    <lucide:Lucide Icon="Wrench" Width="14" Height="14" StrokeBrush="#A1A1AA" />
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Header="Tìm Asset còn thiếu" Click="OnMenuMissingAssets">
+                <MenuItem.Icon>
+                    <lucide:Lucide Icon="Search" Width="14" Height="14" StrokeBrush="#38BDF8" />
+                </MenuItem.Icon>
+            </MenuItem>
+            <Separator />
+            <MenuItem Header="Xóa tài khoản này khỏi Shiro" Foreground="#EF4444" Click="OnMenuDeleteAccount">
+                <MenuItem.Icon>
+                    <lucide:Lucide Icon="Trash2" Width="14" Height="14" StrokeBrush="#EF4444" />
+                </MenuItem.Icon>
+            </MenuItem>
+        </ContextMenu>
+    </UserControl.Resources>
+
+    <UserControl.Styles>
+        <!-- Tab Pill Style for Filter Bar -->
+        <Style Selector="RadioButton.FilterTabPill">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="#9CA3AF" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="12,6" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Background="{TemplateBinding Background}"
+                            CornerRadius="{TemplateBinding CornerRadius}"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          ContentTemplate="{TemplateBinding ContentTemplate}"
+                                          VerticalAlignment="Center" HorizontalAlignment="Center" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="RadioButton.FilterTabPill:checked">
+            <Setter Property="Background" Value="{DynamicResource AccentSubtleBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="FontWeight" Value="Bold" />
+        </Style>
+        <Style Selector="RadioButton.FilterTabPill:pointerover">
+            <Setter Property="Background" Value="#161622" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
+        </Style>
+
+        <!-- More Button on Card -->
+        <Style Selector="Button.MoreBtn">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="CornerRadius" Value="4" />
+        </Style>
+        <Style Selector="Button.MoreBtn:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#22222E" />
+        </Style>
+        <Style Selector="Button.MoreBtn:pressed /template/ ContentPresenter">
+            <Setter Property="Background" Value="#2A2A38" />
+        </Style>
+
+        <!-- ComboBox High-Contrast Dark Theme Styles -->
+        <Style Selector="ComboBoxItem">
+            <Setter Property="Foreground" Value="#FFFFFF" />
+            <Setter Property="Background" Value="#181824" />
+            <Setter Property="Padding" Value="10,6" />
+            <Setter Property="FontSize" Value="12" />
+        </Style>
+        <Style Selector="ComboBoxItem:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#2A2A3C" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
+        </Style>
+        <Style Selector="ComboBoxItem:selected /template/ ContentPresenter">
+            <Setter Property="Background" Value="#3B3B52" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
+        </Style>
+    </UserControl.Styles>
+
+    <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,*" Margin="16,12,16,12">
+
+        <!-- ================= 1. PAGE TITLE & SEARCH / REFRESH ================= -->
+        <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,14">
+            <!-- Left: Title & Subtitle Counts -->
+            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Spacing="10">
+                <TextBlock Text="{DynamicResource Dash_Title}" FontSize="22" FontWeight="Bold" Foreground="#FFFFFF" VerticalAlignment="Center" />
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="6" Margin="4,2,0,0">
+                    <TextBlock Text="{Binding SubtitleTotalText}" FontSize="12" Foreground="#71717A" />
+                    <TextBlock Text="{Binding SubtitleReadyText}" FontSize="12" Foreground="#71717A" />
+                    <TextBlock Text="•" FontSize="12" Foreground="#383846" />
+                    <TextBlock Text="{Binding SubtitleSelectedText}" FontSize="12" Foreground="#9CA3AF" FontWeight="SemiBold" />
+                </StackPanel>
+            </StackPanel>
+
+            <!-- Right: Search Box & Refresh Button -->
+            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                <TextBox x:Name="TxtSearch" Text="{Binding SearchText, Mode=TwoWay}" Width="240"
+                         Watermark="{DynamicResource Dash_SearchPlaceholder}"
+                         Background="#14141C" Foreground="#FFFFFF" BorderBrush="#242432"
+                         CornerRadius="16" Padding="10,6" VerticalContentAlignment="Center" FontSize="12">
+                    <TextBox.InnerLeftContent>
+                        <lucide:Lucide Icon="Search" Width="13" Height="13" StrokeBrush="#71717A" Margin="10,0,0,0" VerticalAlignment="Center" />
+                    </TextBox.InnerLeftContent>
+                    <TextBox.InnerRightContent>
+                        <Button Command="{Binding ClearSearchCommand}"
+                                IsVisible="{Binding SearchText, Converter={StaticResource StringNotNullOrEmpty}}"
+                                Margin="0,0,6,0" Padding="4" Background="Transparent" BorderThickness="0"
+                                Cursor="Hand" ToolTip.Tip="Xóa tìm kiếm">
+                            <lucide:Lucide Icon="X" Width="12" Height="12" StrokeBrush="#71717A" />
+                        </Button>
+                    </TextBox.InnerRightContent>
+                </TextBox>
+
+                <Button Command="{Binding RefreshPresenceCommand}"
+                        Width="34" Height="34" CornerRadius="8"
+                        Background="#161620" Foreground="#A1A1AA" BorderBrush="#262634" BorderThickness="1"
+                        Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                        Cursor="Hand" ToolTip.Tip="Cập nhật trạng thái đang chơi và hoạt động">
+                    <lucide:Lucide Icon="RefreshCw" Width="14" Height="14" StrokeBrush="#A1A1AA" />
+                </Button>
+            </StackPanel>
+        </Grid>
+
+        <!-- ================= 2. 4 METRIC SUMMARY CARDS ================= -->
+        <Grid Grid.Row="1" ColumnDefinitions="*,*,*,*" Margin="0,0,0,14">
+
+            <!-- Card 1: ĐANG CHƠI -->
+            <Border Grid.Column="0" Background="#111A14" BorderBrush="#1C3824" BorderThickness="1" CornerRadius="8" Padding="14,10" Margin="0,0,6,0">
+                <Grid ColumnDefinitions="*,Auto">
+                    <StackPanel Grid.Column="0" Spacing="2" VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <Ellipse Width="6" Height="6" Fill="#22C55E" VerticalAlignment="Center" />
+                            <TextBlock Text="{DynamicResource Dash_Playing}" FontSize="10" FontWeight="Bold" Foreground="#22C55E" LetterSpacing="0.5" />
+                        </StackPanel>
+                        <TextBlock Text="{Binding InGameCount, StringFormat='{}{0} acc'}" FontSize="18" FontWeight="Bold" Foreground="#FFFFFF" />
+                    </StackPanel>
+                    <Border Grid.Column="1" Background="#183624" Width="36" Height="36" CornerRadius="8" HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <lucide:Lucide Icon="Gamepad2" Width="18" Height="18" StrokeBrush="#22C55E" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                </Grid>
+            </Border>
+
+            <!-- Card 2: SẴN SÀNG -->
+            <Border Grid.Column="1" Background="#0F1824" BorderBrush="#18344E" BorderThickness="1" CornerRadius="8" Padding="14,10" Margin="4,0">
+                <Grid ColumnDefinitions="*,Auto">
+                    <StackPanel Grid.Column="0" Spacing="2" VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <Ellipse Width="6" Height="6" Fill="#38BDF8" VerticalAlignment="Center" />
+                            <TextBlock Text="{DynamicResource Dash_Ready}" FontSize="10" FontWeight="Bold" Foreground="#38BDF8" LetterSpacing="0.5" />
+                        </StackPanel>
+                        <TextBlock Text="{Binding ReadyCount, StringFormat='{}{0} acc'}" FontSize="18" FontWeight="Bold" Foreground="#FFFFFF" />
+                    </StackPanel>
+                    <Border Grid.Column="1" Background="#16344E" Width="36" Height="36" CornerRadius="8" HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <lucide:Lucide Icon="Check" Width="20" Height="20" StrokeBrush="#38BDF8" StrokeThickness="2.5" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                </Grid>
+            </Border>
+
+            <!-- Card 3: HẾT HẠN -->
+            <Border Grid.Column="2" Background="#1C1113" BorderBrush="#3D1A1F" BorderThickness="1" CornerRadius="8" Padding="14,10" Margin="4,0">
+                <Grid ColumnDefinitions="*,Auto">
+                    <StackPanel Grid.Column="0" Spacing="2" VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <Ellipse Width="6" Height="6" Fill="#EF4444" VerticalAlignment="Center" />
+                            <TextBlock Text="{DynamicResource Dash_Expired}" FontSize="10" FontWeight="Bold" Foreground="#EF4444" LetterSpacing="0.5" />
+                        </StackPanel>
+                        <TextBlock Text="{Binding ExpiredCount, StringFormat='{}{0} acc'}" FontSize="18" FontWeight="Bold" Foreground="#FFFFFF" />
+                    </StackPanel>
+                    <Border Grid.Column="1" Background="#36171C" Width="36" Height="36" CornerRadius="8" HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <lucide:Lucide Icon="ShieldAlert" Width="18" Height="18" StrokeBrush="#EF4444" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                </Grid>
+            </Border>
+
+            <!-- Card 4: R$ TỔNG ROBUX -->
+            <Border Grid.Column="3" Background="#1A160F" BorderBrush="#3D3216" BorderThickness="1" CornerRadius="8" Padding="14,10" Margin="6,0,0,0">
+                <Grid ColumnDefinitions="*,Auto">
+                    <StackPanel Grid.Column="0" Spacing="2" VerticalAlignment="Center">
+                        <TextBlock Text="{DynamicResource Dash_TotalRobux}" FontSize="10" FontWeight="Bold" Foreground="#F59E0B" LetterSpacing="0.5" />
+                        <TextBlock Text="{Binding TotalRobuxText}" FontSize="18" FontWeight="Bold" Foreground="#FFFFFF" />
+                    </StackPanel>
+                    <Border Grid.Column="1" Background="#362B14" Width="36" Height="36" CornerRadius="8" HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <lucide:Lucide Icon="Coins" Width="18" Height="18" StrokeBrush="#F59E0B" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                </Grid>
+            </Border>
+
+        </Grid>
+
+        <!-- ================= 3. GROUPS & BATCH ACTIONS ROW ================= -->
+        <Grid Grid.Row="2" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,12">
+            <!-- Left: Groups, Select All, Batch Actions -->
+            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                <ComboBox x:Name="CmbGroups" ItemsSource="{Binding AvailableGroups}" SelectedItem="{Binding SelectedGroup, Mode=TwoWay}"
+                          Width="150" Background="#161622" Foreground="#FFFFFF" BorderBrush="#2E2E3E" BorderThickness="1"
+                          CornerRadius="6" Padding="10,6" FontSize="12" FontWeight="SemiBold">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="sys:String">
+                            <TextBlock Text="{Binding}" Foreground="#FFFFFF" FontWeight="SemiBold" FontSize="12" VerticalAlignment="Center" />
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+
+                <Button Command="{Binding SelectAllCommand}"
+                        Background="#161620" Foreground="#FFFFFF" BorderBrush="#262634" BorderThickness="1"
+                        CornerRadius="6" Padding="12,7" FontSize="12" FontWeight="SemiBold" Cursor="Hand"
+                        ToolTip.Tip="Chọn tất cả các tài khoản">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <lucide:Lucide Icon="CheckCheck" Width="14" Height="14" StrokeBrush="#FFFFFF" VerticalAlignment="Center" />
+                        <TextBlock Text="{DynamicResource Dash_SelectAll}" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+
+                <!-- BỎ CHỌN (Deselect All) - Visible when accounts are selected -->
+                <Button Command="{Binding ClearSelectionCommand}"
+                        IsVisible="{Binding HasSelection}"
+                        Background="#26171B" Foreground="#F87171" BorderBrush="#4A2026" BorderThickness="1"
+                        CornerRadius="6" Padding="12,7" FontSize="12" FontWeight="SemiBold" Cursor="Hand"
+                        ToolTip.Tip="Bỏ chọn tất cả các tài khoản đang chọn">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <lucide:Lucide Icon="X" Width="14" Height="14" StrokeBrush="#F87171" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding DeselectCountText}" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+
+                <!-- Batch Actions Dropdown -->
+                <Button Background="#161620" Foreground="#FBBF24" BorderBrush="#262634" BorderThickness="1"
+                        CornerRadius="6" Padding="12,7" FontSize="12" FontWeight="SemiBold" Cursor="Hand">
+                    <Button.Flyout>
+                        <MenuFlyout Placement="BottomEdgeAlignedLeft">
+                            <MenuItem Header="Bỏ chọn tất cả" Command="{Binding ClearSelectionCommand}" IsVisible="{Binding HasSelection}" />
+                            <Separator IsVisible="{Binding HasSelection}" />
+                            <MenuItem Header="Quét phiên toàn bộ tài khoản" Click="OnBatchCheckSessionsClicked" />
+                            <MenuItem Header="Tự động Re-login tài khoản hết hạn" Click="OnBatchReLoginExpiredClicked" />
+                            <Separator />
+                            <MenuItem Header="Kiểm tra phiên các tài khoản đã chọn" Click="OnBatchValidateSelectedClicked" />
+                            <MenuItem Header="Re-login các tài khoản đã chọn" Click="OnBatchReLoginSelectedClicked" />
+                            <MenuItem Header="Phân nhóm các tài khoản đã chọn" Click="OnBatchSetGroupSelectedClicked" />
+                            <MenuItem Header="Lưu Place ID cho các tài khoản đã chọn" Click="OnBatchSavePlaceIdSelectedClicked" />
+                            <MenuItem Header="Sao chép User:Pass các tài khoản đã chọn" Click="OnBatchCopyUserPassSelectedClicked" />
+                            <Separator />
+                            <MenuItem Header="Đăng xuất hoàn toàn Roblox Client" Click="OnClearRobloxClientSessionClicked" />
+                            <MenuItem Header="Xóa các tài khoản đã chọn khỏi DB" Foreground="#EF4444" Click="OnBatchRemoveSelectedClicked" />
+                        </MenuFlyout>
+                    </Button.Flyout>
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <lucide:Lucide Icon="Zap" Width="13" Height="13" StrokeBrush="#FBBF24" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding SelectedCount, StringFormat='Thao tác ({0})'}" VerticalAlignment="Center" />
+                        <lucide:Lucide Icon="ChevronDown" Width="12" Height="12" StrokeBrush="#FBBF24" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+
+            <!-- Right: + Add Account Split/Flyout -->
+            <Button Grid.Column="2"
+                    Background="{DynamicResource AccentBrush}" Foreground="{DynamicResource AccentForegroundBrush}" FontWeight="Bold" FontSize="12"
+                    CornerRadius="6" Padding="14,8" Cursor="Hand">
+                <Button.Flyout>
+                    <MenuFlyout Placement="BottomEdgeAlignedRight">
+                        <MenuItem Header="Đăng nhập In-App (Trực tiếp trong Shiro) [Khuyên dùng]" Click="OnAddFastLoginClicked">
+                            <MenuItem.Icon>
+                                <lucide:Lucide Icon="Globe" Width="14" Height="14" StrokeBrush="#38BDF8" />
+                            </MenuItem.Icon>
+                        </MenuItem>
+                        <MenuItem Header="Đăng nhập bằng Google Chrome (Browser Sync)" Click="OnAddChromeClicked">
+                            <MenuItem.Icon>
+                                <lucide:Lucide Icon="ExternalLink" Width="14" Height="14" StrokeBrush="#A1A1AA" />
+                            </MenuItem.Icon>
+                        </MenuItem>
+                        <MenuItem Header="Thêm nhanh bằng mã Cookie (.ROBLOSECURITY)" Click="OnAddCookieClicked">
+                            <MenuItem.Icon>
+                                <lucide:Lucide Icon="Cookie" Width="14" Height="14" StrokeBrush="#F59E0B" />
+                            </MenuItem.Icon>
+                        </MenuItem>
+                        <Separator />
+                        <MenuItem Header="Nhập danh sách tài khoản từ file txt (Bulk Import)" Click="OnBulkImportClicked">
+                            <MenuItem.Icon>
+                                <lucide:Lucide Icon="FileText" Width="14" Height="14" StrokeBrush="#A855F7" />
+                            </MenuItem.Icon>
+                        </MenuItem>
+                    </MenuFlyout>
+                </Button.Flyout>
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <lucide:Lucide Icon="Plus" Width="13" Height="13" StrokeBrush="{DynamicResource AccentForegroundBrush}" StrokeThickness="2.5" VerticalAlignment="Center" />
+                    <TextBlock Text="{DynamicResource Dash_AddAccount}" VerticalAlignment="Center" />
+                    <lucide:Lucide Icon="ChevronDown" Width="12" Height="12" StrokeBrush="{DynamicResource AccentForegroundBrush}" VerticalAlignment="Center" />
+                </StackPanel>
+            </Button>
+        </Grid>
+
+        <!-- ================= 4. PLACE ID & GAME LAUNCH ROW ================= -->
+        <Grid Grid.Row="3" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,12">
+            <!-- Left: Place ID, Job ID, Recent Games -->
+            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                <TextBlock Text="Place ID:" FontSize="12" Foreground="#9CA3AF" VerticalAlignment="Center" />
+                <TextBox x:Name="TxtPlaceId" Text="{Binding PlaceId, Mode=TwoWay}" Width="150"
+                         Watermark="Place ID..."
+                         Background="#14141C" Foreground="#FFFFFF" BorderBrush="#242432"
+                         CornerRadius="6" Padding="10,6" VerticalContentAlignment="Center" FontSize="12" />
+
+                <TextBlock Text="Job ID / VIP:" FontSize="12" Foreground="#9CA3AF" VerticalAlignment="Center" Margin="6,0,0,0" />
+                <TextBox x:Name="TxtJobId" Text="{Binding JobId, Mode=TwoWay}" Width="160"
+                         Watermark="Job ID..."
+                         Background="#14141C" Foreground="#FFFFFF" BorderBrush="#242432"
+                         CornerRadius="6" Padding="10,6" VerticalContentAlignment="Center" FontSize="12" />
+
+                <!-- Recent Games Button (Always available quick-picker) -->
+                <Button Background="#161620" Foreground="#38BDF8" BorderBrush="#262634" BorderThickness="1"
+                        CornerRadius="6" Padding="10,6" FontSize="12" Cursor="Hand" ToolTip.Tip="Chọn nhanh game gần đây">
+                    <Button.Flyout>
+                        <Flyout Placement="BottomEdgeAlignedLeft">
+                            <Border Width="270" MaxHeight="320" Background="#111115" Padding="4">
+                                <Panel>
+                                    <TextBlock Text="Chưa có game gần đây" FontSize="11" Foreground="#71717A" Margin="12,10"
+                                               IsVisible="{Binding HasRecentGames, Converter={StaticResource InverseBoolConverter}}" />
+                                    <ScrollViewer IsVisible="{Binding HasRecentGames}">
+                                        <ItemsControl ItemsSource="{Binding RecentGamesList}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="vm:RecentGameItemViewModel">
+                                                    <Button Command="{Binding #RootDashboard.ViewModel.SelectRecentGameCommand}"
+                                                            CommandParameter="{Binding}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                                            Background="Transparent" Foreground="#FFFFFF" Padding="6,5" CornerRadius="6" Cursor="Hand">
+                                                        <Grid ColumnDefinitions="Auto,*">
+                                                            <Border Grid.Column="0" Width="32" Height="32" CornerRadius="6" ClipToBounds="True" Background="#161620" Margin="0,0,8,0" VerticalAlignment="Center">
+                                                                <Panel>
+                                                                    <lucide:Lucide Icon="Gamepad2" Width="16" Height="16" StrokeBrush="#71717A" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                                                   IsVisible="{Binding ThumbnailBitmap, Converter={x:Static ObjectConverters.IsNull}}" />
+                                                                    <Image Source="{Binding ThumbnailBitmap}" Width="32" Height="32" Stretch="UniformToFill"
+                                                                           IsVisible="{Binding ThumbnailBitmap, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                                                                </Panel>
+                                                            </Border>
+                                                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="1">
+                                                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="12" Foreground="#FFFFFF" TextTrimming="CharacterEllipsis" />
+                                                                <TextBlock Text="{Binding Subtitle}" FontSize="10" Foreground="#71717A" />
+                                                            </StackPanel>
+                                                        </Grid>
+                                                    </Button>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </ScrollViewer>
+                                </Panel>
+                            </Border>
+                        </Flyout>
+                    </Button.Flyout>
+                    <StackPanel Orientation="Horizontal" Spacing="5">
+                        <lucide:Lucide Icon="Gamepad2" Width="13" Height="13" StrokeBrush="#38BDF8" VerticalAlignment="Center" />
+                        <TextBlock Text="{DynamicResource Dash_RecentGamesBtn}" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+
+            <!-- Right: Launch Home & Join Server Buttons -->
+            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                <Button Click="OnLaunchHomeClicked"
+                        Background="#161620" Foreground="#FFFFFF" BorderBrush="#262634" BorderThickness="1"
+                        FontWeight="SemiBold" FontSize="12" CornerRadius="6" Padding="14,8" Cursor="Hand">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <lucide:Lucide Icon="House" Width="14" Height="14" StrokeBrush="#FFFFFF" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding LaunchHomeButtonText}" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+
+                <Button Click="OnJoinServerClicked"
+                        Background="{DynamicResource AccentBrush}" Foreground="{DynamicResource AccentForegroundBrush}"
+                        FontWeight="Bold" FontSize="12" CornerRadius="6" Padding="16,8" Cursor="Hand">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <lucide:Lucide Icon="Play" Width="12" Height="12" StrokeBrush="{DynamicResource AccentForegroundBrush}" StrokeThickness="2.5" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding JoinServerButtonText}" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </Grid>
+
+        <!-- ================= 5. SEGMENTED TABS & VIEW SWITCHER ROW ================= -->
+        <Grid Grid.Row="4" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,14">
+            <!-- Left: Segmented Filter Tabs & View Mode Switcher -->
+            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                <!-- Segmented Tabs Container -->
+                <Border Background="#121218" BorderBrush="#20202C" BorderThickness="1" CornerRadius="8" Padding="3">
+                    <StackPanel Orientation="Horizontal" Spacing="2">
+                        <!-- All -->
+                        <RadioButton Classes="FilterTabPill" GroupName="FilterTabGroup" IsChecked="{Binding IsFilterAll, Mode=TwoWay}">
+                            <TextBlock Text="{Binding TabAllText}" />
+                        </RadioButton>
+
+                        <!-- In-Game -->
+                        <RadioButton Classes="FilterTabPill" GroupName="FilterTabGroup" IsChecked="{Binding IsFilterInGame, Mode=TwoWay}">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <Ellipse Width="6" Height="6" Fill="#22C55E" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding TabInGameText}" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </RadioButton>
+
+                        <!-- Ready -->
+                        <RadioButton Classes="FilterTabPill" GroupName="FilterTabGroup" IsChecked="{Binding IsFilterReady, Mode=TwoWay}">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <Ellipse Width="6" Height="6" Fill="#38BDF8" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding TabReadyText}" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </RadioButton>
+
+                        <!-- Expired -->
+                        <RadioButton Classes="FilterTabPill" GroupName="FilterTabGroup" IsChecked="{Binding IsFilterExpired, Mode=TwoWay}">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <Ellipse Width="6" Height="6" Fill="#EF4444" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding TabExpiredText}" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </RadioButton>
+
+                        <!-- Pinned -->
+                        <RadioButton Classes="FilterTabPill" GroupName="FilterTabGroup" IsChecked="{Binding IsFilterPinned, Mode=TwoWay}">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <lucide:Lucide Icon="Star" Width="13" Height="13" StrokeBrush="#FBBF24" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding TabPinnedText}" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </RadioButton>
+                    </StackPanel>
+                </Border>
+
+                <!-- View Mode Switcher Container -->
+                <Border Background="#121218" BorderBrush="#20202C" BorderThickness="1" CornerRadius="8" Padding="3">
+                    <StackPanel Orientation="Horizontal" Spacing="2">
+                        <RadioButton Classes="FilterTabPill" GroupName="ViewModeGroup" IsChecked="{Binding IsCardView, Mode=TwoWay}">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <lucide:Lucide Icon="LayoutGrid" Width="13" Height="13" StrokeBrush="#9CA3AF" VerticalAlignment="Center" />
+                                <TextBlock Text="{DynamicResource Dash_ViewCards}" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </RadioButton>
+
+                        <RadioButton Classes="FilterTabPill" GroupName="ViewModeGroup" IsChecked="{Binding IsCompactView, Mode=TwoWay}">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <lucide:Lucide Icon="Table2" Width="13" Height="13" StrokeBrush="#9CA3AF" VerticalAlignment="Center" />
+                                <TextBlock Text="{DynamicResource Dash_ViewCompact}" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </RadioButton>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
+            <!-- Right: Scan Expired Sessions Button -->
+            <Button Grid.Column="2" Command="{Binding CheckSessionsCommand}"
+                    Background="#14141C" Foreground="#9CA3AF" BorderBrush="#242432" BorderThickness="1"
+                    CornerRadius="6" Padding="12,6" FontSize="12" Cursor="Hand"
+                    ToolTip.Tip="Kiểm tra tính hợp lệ của Cookie toàn bộ tài khoản">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <lucide:Lucide Icon="Search" Width="13" Height="13" StrokeBrush="#9CA3AF" VerticalAlignment="Center" />
+                    <TextBlock Text="{DynamicResource Dash_ScanExpired}" VerticalAlignment="Center" />
+                </StackPanel>
+            </Button>
+        </Grid>
+
+        <!-- ================= 6. MAIN ACCOUNTS DISPLAY ================= -->
+        <Border Grid.Row="5" Background="Transparent">
+            <Panel>
+
+                <!-- 1. CARDS VIEW (EXACT MATCH WITH ORIGINAL SHIRO CARD) -->
+                <ScrollViewer x:Name="CardsScrollViewer" IsVisible="{Binding IsCardView}"
+                              HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto"
+                              BringIntoViewOnFocusChange="False" Padding="0,0,16,0">
+                    <ItemsControl x:Name="CardsItemsControl" ItemsSource="{Binding FilteredAccounts}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <UniformGrid Columns="3" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:AccountViewModel">
+                                <!-- Account Card Component -->
+                                <Border Height="136" Background="#121218" BorderBrush="{Binding CardBorderBrush}"
+                                        BorderThickness="1" CornerRadius="10" Margin="5,0,5,12" Padding="12,12"
+                                        ClipToBounds="True"
+                                        PointerPressed="OnCardPointerPressed" DoubleTapped="OnCardDoubleTapped" Cursor="Hand">
+
+                                    <Grid RowDefinitions="Auto,*">
+
+                                        <!-- Card Top Row: Group, Actions, Status & Launch Button -->
+                                        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,10">
+                                            <!-- Top Left: Group & Quick Delete/Browser Icons (constrained, ellipsis if narrow) -->
+                                            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding GroupDisplay}" FontSize="11" Foreground="#71717A" VerticalAlignment="Center"
+                                                           TextTrimming="CharacterEllipsis" MaxWidth="95" ToolTip.Tip="{Binding GroupDisplay}" />
+                                                <Button Width="20" Height="20" Click="OnMenuDeleteAccount"
+                                                        Background="Transparent" Padding="0" Cursor="Hand" ToolTip.Tip="Xóa tài khoản">
+                                                    <lucide:Lucide Icon="Trash2" Width="12" Height="12" StrokeBrush="#52525B" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                </Button>
+                                                <Button Width="20" Height="20" Click="OnMenuOpenProfile"
+                                                        Background="Transparent" Padding="0" Cursor="Hand" ToolTip.Tip="Xem trang cá nhân Roblox">
+                                                    <lucide:Lucide Icon="ExternalLink" Width="12" Height="12" StrokeBrush="#52525B" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                </Button>
+                                            </StackPanel>
+
+                                            <!-- Top Right: Status Badge & Primary White Launch Button (anchored right) -->
+                                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" HorizontalAlignment="Right">
+                                                <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                                    <Ellipse Width="6" Height="6" Fill="{Binding StatusBadgeForeground}" VerticalAlignment="Center" />
+                                                    <TextBlock Text="{Binding StatusText}" FontSize="11" Foreground="{Binding StatusBadgeForeground}"
+                                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="85" />
+                                                </StackPanel>
+
+                                                <Button Click="OnCardLaunchClicked"
+                                                        Background="#FFFFFF" Foreground="#09090B" FontWeight="Bold" FontSize="11"
+                                                        CornerRadius="6" Padding="8,4" Cursor="Hand" ToolTip.Tip="Khởi động Roblox Home">
+                                                    <StackPanel Orientation="Horizontal" Spacing="4">
+                                                        <lucide:Lucide Icon="Play" Width="10" Height="10" StrokeBrush="#09090B" StrokeThickness="2.5" VerticalAlignment="Center" />
+                                                        <TextBlock Text="{Binding LaunchButtonText}" VerticalAlignment="Center" />
+                                                    </StackPanel>
+                                                </Button>
+                                            </StackPanel>
+                                        </Grid>
+
+                                        <!-- Card Bottom Row: Avatar, Username, User ID, Robux, Checkbox, Pin, More -->
+                                        <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto" VerticalAlignment="Center">
+                                            <!-- Left: Round Avatar Circle -->
+                                            <Border Grid.Column="0" Width="42" Height="42" CornerRadius="21" Background="#22222E" ClipToBounds="True" Margin="0,0,10,0" VerticalAlignment="Center">
+                                                <Panel>
+                                                    <TextBlock Text="{Binding Initials}" FontSize="15" FontWeight="Bold" Foreground="#71717A" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                    <Image Source="{Binding AvatarImage}" Stretch="UniformToFill" />
+                                                </Panel>
+                                            </Border>
+
+                                            <!-- Center: Username, User ID, Robux -->
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                                                <TextBlock Text="{Binding PrimaryTitle}" FontWeight="Bold" FontSize="13" Foreground="#FFFFFF" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Text="{Binding SecondaryTitle}" FontSize="11" Foreground="#71717A" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Text="{Binding RobuxFormatted}" IsVisible="{Binding HasRobux}" FontSize="11" FontWeight="SemiBold" Foreground="#F59E0B" />
+                                            </StackPanel>
+
+                                            <!-- Right: Checkbox, Pin Icon, More Button -->
+                                            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                                <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}" VerticalAlignment="Center" Margin="0,0,2,0" />
+
+                                                <Button Width="26" Height="26" Click="OnMenuTogglePin"
+                                                        Background="Transparent"
+                                                        Opacity="{Binding PinOpacity}"
+                                                        Padding="0" Cursor="Hand" ToolTip.Tip="Ghim tài khoản">
+                                                    <lucide:Lucide Icon="Pin" Width="14" Height="14" StrokeBrush="#FBBF24" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                </Button>
+
+                                                <Button Classes="MoreBtn" Width="26" Height="26" Padding="0" Cursor="Hand" ToolTip.Tip="Tùy chọn khác"
+                                                        Click="OnMoreButtonClicked">
+                                                    <lucide:Lucide Icon="Ellipsis" Width="15" Height="15" StrokeBrush="#71717A" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                </Button>
+                                            </StackPanel>
+                                        </Grid>
+
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+
+                <!-- 2. TABLE VIEW (High-density compact list) -->
+                <Grid IsVisible="{Binding IsCompactView}" RowDefinitions="Auto,*">
+                    <Border Grid.Row="0" Background="#14141C" BorderBrush="#20202C" BorderThickness="0,0,0,1" CornerRadius="6,6,0,0" Padding="14,8">
+                        <Grid ColumnDefinitions="40,36,2.2*,1.2*,1.2*,1.6*,1.2*,90">
+                            <CheckBox Grid.Column="0" IsChecked="{Binding IsAllSelected, Mode=TwoWay}" VerticalAlignment="Center" HorizontalAlignment="Center" ToolTip.Tip="Chọn / Bỏ chọn tất cả" />
+                            <TextBlock Grid.Column="1" Text="" />
+                            <TextBlock Grid.Column="2" Text="{DynamicResource Dash_ColAccount}" FontSize="11" FontWeight="Bold" Foreground="#71717A" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="3" Text="{DynamicResource Dash_ColUserId}" FontSize="11" FontWeight="Bold" Foreground="#71717A" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="4" Text="{DynamicResource Dash_ColGroup}" FontSize="11" FontWeight="Bold" Foreground="#71717A" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="5" Text="{DynamicResource Dash_ColStatus}" FontSize="11" FontWeight="Bold" Foreground="#71717A" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="6" Text="{DynamicResource Dash_ColRobux}" FontSize="11" FontWeight="Bold" Foreground="#71717A" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="7" Text="{DynamicResource Dash_ColActions}" FontSize="11" FontWeight="Bold" Foreground="#71717A" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Grid>
+                    </Border>
+
+                    <ItemsControl x:Name="TableItemsControl" Grid.Row="1" ItemsSource="{Binding FilteredAccounts}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <VirtualizingStackPanel />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.Template>
+                            <ControlTemplate>
+                                <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" BringIntoViewOnFocusChange="False" Padding="0,0,10,0">
+                                    <ItemsPresenter ItemsPanel="{TemplateBinding ItemsPanel}" />
+                                </ScrollViewer>
+                            </ControlTemplate>
+                        </ItemsControl.Template>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:AccountViewModel">
+                                <Border Height="38" Background="#111116" BorderBrush="#1C1C24" BorderThickness="0,0,0,1" Padding="14,0"
+                                            PointerPressed="OnCardPointerPressed"
+                                            DoubleTapped="OnCardDoubleTapped" Cursor="Hand">
+
+                                        <Grid ColumnDefinitions="40,36,2.2*,1.2*,1.2*,1.6*,1.2*,90">
+                                            <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected, Mode=TwoWay}" VerticalAlignment="Center" HorizontalAlignment="Center" />
+
+                                            <Border Grid.Column="1" Width="26" Height="26" CornerRadius="13" Background="#252530" ClipToBounds="True" VerticalAlignment="Center">
+                                                <Panel>
+                                                    <TextBlock Text="{Binding Initials}" FontSize="11" FontWeight="Bold" Foreground="#71717A" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                    <Image Source="{Binding AvatarImage}" Stretch="UniformToFill" />
+                                                </Panel>
+                                            </Border>
+
+                                            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                                <lucide:Lucide Icon="Pin" Width="11" Height="11" StrokeBrush="#FBBF24" IsVisible="{Binding Pinned}" VerticalAlignment="Center" />
+                                                <TextBlock Text="{Binding ShownUsername}" FontWeight="SemiBold" FontSize="12" Foreground="#FFFFFF" VerticalAlignment="Center" />
+                                                <TextBlock Text="{Binding Alias, StringFormat='({0})'}" IsVisible="{Binding Alias, Converter={StaticResource StringNotNullOrEmpty}}"
+                                                           FontSize="11" Foreground="#A1A1AA" VerticalAlignment="Center" />
+                                            </StackPanel>
+
+                                            <TextBlock Grid.Column="3" Text="{Binding UserId}" FontSize="11" Foreground="#71717A" VerticalAlignment="Center" />
+
+                                            <Border Grid.Column="4" Background="#1C1C26" CornerRadius="4" Padding="6,2" HorizontalAlignment="Left" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Group}" FontSize="10" Foreground="#A1A1AA" />
+                                            </Border>
+
+                                            <StackPanel Grid.Column="5" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                                <Ellipse Width="6" Height="6" Fill="{Binding StatusBadgeForeground}" VerticalAlignment="Center" />
+                                                <TextBlock Text="{Binding StatusText}" FontSize="11" Foreground="{Binding StatusBadgeForeground}" VerticalAlignment="Center" />
+                                            </StackPanel>
+
+                                            <TextBlock Grid.Column="6" Text="{Binding RobuxFormatted}" IsVisible="{Binding HasRobux}" FontSize="11" FontWeight="SemiBold" Foreground="#F59E0B" VerticalAlignment="Center" />
+
+                                            <StackPanel Grid.Column="7" Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                <Button Width="26" Height="26" Click="OnCardLaunchClicked"
+                                                        Background="#22222E" Foreground="#FFFFFF" CornerRadius="13"
+                                                        Padding="0" Cursor="Hand" ToolTip.Tip="Mở Roblox Home">
+                                                    <lucide:Lucide Icon="Play" Width="10" Height="10" StrokeBrush="#FFFFFF" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                                                </Button>
+                                                <Button Width="26" Height="26" Click="OnTableRowJoinClicked"
+                                                        Background="#181822" Foreground="#22C55E" CornerRadius="13"
+                                                        Padding="0" Cursor="Hand" ToolTip.Tip="Tham gia Server hiện tại">
+                                                    <lucide:Lucide Icon="Play" Width="10" Height="10" StrokeBrush="#22C55E" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                                                </Button>
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </Grid>
+
+            </Panel>
+        </Border>
+
+    </Grid>
+</UserControl>

@@ -1,0 +1,654 @@
+using PuppeteerSharp;
+using System;
+using System.Diagnostics;
+using System.IO;
+using System.Linq;
+using System.Net.Http;
+using System.Net.Sockets;
+using System.Security.Cryptography;
+using System.Threading;
+using System.Threading.Tasks;
+using RBX_Alt_Manager.Services;
+
+namespace RBX_Alt_Manager.Classes
+{
+    /// <summary>
+    /// Opens the Roblox sign-up page in a temporary, isolated browser profile.
+    /// Roblox's account-creation risk checks are sensitive to scripted form
+    /// input and synthetic clicks, so the final form entry and submission stay
+    /// in a normal browser window under the user's control. The temporary
+    /// profile keeps the user's personal Chrome session and bookmarks out of
+    /// the account-creation flow.
+    /// </summary>
+    internal static class RobloxBrowserSignup
+    {
+        private const int DevToolsStartupTimeoutSeconds = 12;
+        private const int DevToolsPollMilliseconds = 100;
+        private const int NavigationTimeoutMilliseconds = 15000;
+        private const int SelectorTimeoutMilliseconds = 10000;
+        private const int SignupButtonReadyTimeoutMilliseconds = 8000;
+        // Roblox rebuilds parts of the sign-up form while its React bundles,
+        // risk checks and verification widget load.  A CDP evaluation that
+        // overlaps that rebuild loses its execution context.  Keep retries
+        // short so the browser still feels immediate, while allowing a new
+        // document context to settle before trying the same read again.
+        private const int NavigationRetryCount = 6;
+        private const int NavigationRetryDelayMilliseconds = 220;
+        // Use CDP only to prefill the ordinary form controls. The final
+        // Sign Up click and every CAPTCHA/human-verification step remain
+        // manual, so Roblox receives a normal user-driven submission while
+        // the requested username, password and generated profile are ready.
+        // Keep the Add Account browser compact and centered, matching the
+        // portrait-sized Chrome window used by the Shiro UI.
+        private const int InteractiveBrowserWidth = 630;
+        private const int InteractiveBrowserHeight = 840;
+        private const string SignupUrl = "https://www.roblox.com/signup";
+
+        private static string SignupSessionRoot => StoragePaths.BrowserSessionsDirectory;
+
+        internal sealed class SignupProfile
+        {
+            public DateTime BirthDate { get; set; }
+            public string Gender { get; set; }
+        }
+
+        public static SignupProfile CreateRandomProfile()
+        {
+            // Use an adult range so the generated form does not introduce
+            // parental-control requirements or an accidentally underage account.
+            DateTime oldest = DateTime.Today.AddYears(-35);
+            DateTime youngest = DateTime.Today.AddYears(-18);
+            int days = Math.Max(1, (youngest - oldest).Days);
+
+            return new SignupProfile
+            {
+                BirthDate = oldest.AddDays(RandomNumberGenerator.GetInt32(days + 1)),
+                Gender = RandomNumberGenerator.GetInt32(2) == 0 ? "Male" : "Female"
+            };
+        }
+
+        public static async Task<Account> OpenAsync(
+            string username = null,
+            string password = null,
+            CancellationToken cancellationToken = default(CancellationToken))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            string browserPath = await BrowserService.ResolveBrowserExecutableAsync(cancellationToken)
+                .ConfigureAwait(false);
+
+            SignupProfile profile = CreateRandomProfile();
+            string sessionRoot = Path.Combine(SignupSessionRoot, Guid.NewGuid().ToString("N"));
+            string profilePath = Path.Combine(sessionRoot, "profile");
+            int devToolsPort = GetFreeLoopbackPort();
+            Process browser = null;
+            IBrowser connectedBrowser = null;
+
+            try
+            {
+                Directory.CreateDirectory(profilePath);
+                BrowserService.SuppressPasswordManager(profilePath);
+
+                string[] browserArguments =
+                {
+                    "--no-first-run",
+                    "--no-default-browser-check",
+                    "--disable-extensions",
+                    "--disable-save-password-bubble",
+                    "--disable-single-click-autofill",
+                    "--disable-autofill-keyboard-accessory-view",
+                    "--disable-search-engine-choice-screen",
+                    "--disable-sync",
+                    "--password-store=basic",
+                    "--disable-features=AutofillServerCommunication,PasswordManager,SavePasswordBubble,PasswordLeakDetection,msImplicitSignin,msEdgeSidebarV2",
+                    $"--window-size={InteractiveBrowserWidth},{InteractiveBrowserHeight}",
+                    $"--window-position={GetCenteredBrowserPosition()}",
+                    "--user-data-dir=" + QuoteArgument(profilePath),
+                    "--remote-debugging-address=127.0.0.1",
+                    "--remote-debugging-port=" + devToolsPort,
+                    QuoteArgument(SignupUrl)
+                };
+
+                ProcessStartInfo startInfo = new ProcessStartInfo
+                {
+                    FileName = browserPath,
+                    Arguments = string.Join(" ", browserArguments),
+                    UseShellExecute = false,
+                    WorkingDirectory = sessionRoot
+                };
+
+                browser = Process.Start(startInfo);
+                if (browser == null)
+                    throw new InvalidOperationException("The browser did not start.");
+
+                await WaitForDevToolsPortAsync(devToolsPort, cancellationToken).ConfigureAwait(false);
+                cancellationToken.ThrowIfCancellationRequested();
+                connectedBrowser = await Puppeteer.ConnectAsync(new ConnectOptions
+                {
+                    BrowserURL = "http://127.0.0.1:" + devToolsPort,
+                    DefaultViewport = null
+                });
+
+                IPage page = (await connectedBrowser.PagesAsync()).FirstOrDefault();
+                if (page == null)
+                    page = await connectedBrowser.NewPageAsync();
+
+                await ChromeLaunchHelper.ApplyAntiDetectionAsync(page).ConfigureAwait(false);
+                await EnsureSignupPageAsync(page);
+                await ChromeLaunchHelper.DismissCookieBannerAsync(page).ConfigureAwait(false);
+                await FillSignupFormAsync(page, username, password, profile, submitCredentials: false);
+
+                Program.Logger.Info("Roblox sign-up page opened in Chrome. Waiting for user to complete registration...");
+                AccountManager.Instance?.SetDashboardStatus(
+                    "📝 Đã mở trang đăng ký Roblox trong Chrome. Hoàn tất đăng ký trong trình duyệt; tài khoản sẽ tự động được thêm vào Shiro.");
+
+                string lastAttemptedCookie = null;
+                DateTime lastCookieAttemptUtc = DateTime.MinValue;
+                string capturedPassword = password;
+                Account createdAccount = null;
+
+                while (true)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    if (connectedBrowser == null || connectedBrowser.IsClosed || !connectedBrowser.IsConnected)
+                        throw new OperationCanceledException("The sign-up browser was closed before registration was completed.");
+
+                    try
+                    {
+                        if (page == null || page.IsClosed)
+                        {
+                            page = await FindActiveRobloxPageAsync(connectedBrowser);
+                            if (page == null)
+                            {
+                                page = await connectedBrowser.NewPageAsync();
+                                await EnsureSignupPageAsync(page);
+                            }
+                        }
+
+                        // Try to capture password typed into #signup-password if not provided upfront
+                        if (string.IsNullOrWhiteSpace(capturedPassword) && page != null && !page.IsClosed)
+                        {
+                            try
+                            {
+                                (bool hasVal, string domPass) = await TryEvaluateFunctionAsync<string>(page,
+                                    "() => document.querySelector('#signup-password')?.value || ''");
+                                if (hasVal && !string.IsNullOrWhiteSpace(domPass))
+                                    capturedPassword = domPass;
+                            }
+                            catch { }
+                        }
+
+                        // Read cookies for roblox.com
+                        CookieParam sessionCookie = null;
+                        try
+                        {
+                            sessionCookie = await ExtractRoblosecurityCookieAsync(page).ConfigureAwait(false);
+                        }
+                        catch { }
+
+                        // Fallback: search across all pages in the browser
+                        if (sessionCookie == null)
+                        {
+                            try
+                            {
+                                IPage[] allPages = await connectedBrowser.PagesAsync();
+                                foreach (IPage candidatePage in allPages)
+                                {
+                                    if (candidatePage.IsClosed) continue;
+                                    CookieParam found = await ExtractRoblosecurityCookieAsync(candidatePage).ConfigureAwait(false);
+                                    if (found != null)
+                                    {
+                                        sessionCookie = found;
+                                        page = candidatePage;
+                                        break;
+                                    }
+                                }
+                            }
+                            catch { }
+                        }
+
+                        if (sessionCookie != null &&
+                            (!string.Equals(sessionCookie.Value, lastAttemptedCookie, StringComparison.Ordinal) ||
+                             (DateTime.UtcNow - lastCookieAttemptUtc).TotalSeconds >= 15))
+                        {
+                            lastAttemptedCookie = sessionCookie.Value;
+                            lastCookieAttemptUtc = DateTime.UtcNow;
+
+                            string accountJson = await ReadAccountJsonAsync(page);
+                            string finalPassword = !string.IsNullOrWhiteSpace(capturedPassword)
+                                ? capturedPassword
+                                : (password ?? string.Empty);
+
+                            createdAccount = await AccountManager.AddAccountAsync(sessionCookie.Value, finalPassword, accountJson, cancellationToken: cancellationToken).ConfigureAwait(false);
+                            if (createdAccount != null)
+                            {
+                                Program.Logger.Info($"Roblox account '{createdAccount.Username}' registered and added to manager successfully.");
+                                AccountManager.Instance?.SetDashboardStatus(
+                                    $"✅ Đã đăng ký và thêm tài khoản '{createdAccount.Username}' thành công!");
+                                await Task.Delay(1500, cancellationToken).ConfigureAwait(false);
+                                break;
+                            }
+
+                            Program.Logger.Warn("Roblox session cookie was detected but AddAccount did not complete; retrying...");
+                        }
+                    }
+                    catch (TargetClosedException)
+                    {
+                        page = null;
+                    }
+                    catch (PuppeteerException ex) when (IsDetachedPageException(ex) || IsTransientNavigationException(ex))
+                    {
+                        page = null;
+                    }
+
+                    await Task.Delay(1000, cancellationToken).ConfigureAwait(false);
+                }
+
+                return createdAccount;
+            }
+            finally
+            {
+                if (connectedBrowser != null)
+                {
+                    try { await connectedBrowser.CloseAsync(); } catch { }
+                }
+                CloseBrowser(browser);
+                await TryDeleteTemporaryDirectoryAsync(sessionRoot).ConfigureAwait(false);
+            }
+        }
+
+        private static async Task EnsureSignupPageAsync(IPage page)
+        {
+            if (page == null || page.IsClosed)
+                throw new InvalidOperationException("The sign-up page was not created.");
+
+            string currentUrl = string.Empty;
+            try { currentUrl = page.Url ?? string.Empty; } catch { }
+
+            if (!currentUrl.Contains("roblox.com/signup", StringComparison.OrdinalIgnoreCase))
+            {
+                await page.GoToAsync(SignupUrl, new NavigationOptions
+                {
+                    Timeout = NavigationTimeoutMilliseconds,
+                    WaitUntil = new[] { WaitUntilNavigation.DOMContentLoaded }
+                });
+            }
+
+            await WaitForSelectorWithNavigationRetryAsync(page, "input, select, button");
+        }
+
+        private static async Task FillSignupFormAsync(
+            IPage page,
+            string username,
+            string password,
+            SignupProfile profile,
+            bool submitCredentials)
+        {
+            // Roblox currently renders native select controls, but its React
+            // state updates asynchronously. Setting .value from JavaScript
+            // can leave the day control showing "Day" after the month/year
+            // change. Use Puppeteer's real select interaction and wait for
+            // each controlled update before moving to the next field.
+            try
+            {
+                await WaitForSelectorWithNavigationRetryAsync(page, "#MonthDropdown");
+                await WaitForSelectorWithNavigationRetryAsync(page, "#DayDropdown");
+                await WaitForSelectorWithNavigationRetryAsync(page, "#YearDropdown");
+
+                string[] monthValues = { "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
+                string monthValue = monthValues[profile.BirthDate.Month - 1];
+                string dayValue = profile.BirthDate.Day.ToString("00");
+                string yearValue = profile.BirthDate.Year.ToString();
+
+                bool birthdaySet = false;
+                for (int attempt = 0; attempt < 5 && !birthdaySet; attempt++)
+                {
+                    try
+                    {
+                        await page.SelectAsync("#MonthDropdown", monthValue);
+                        await Task.Delay(120);
+
+                        await page.SelectAsync("#YearDropdown", yearValue);
+                        await Task.Delay(180);
+
+                        // Select the day last. Roblox may rebuild this select after a
+                        // month/year change, so selecting it before the final update
+                        // can be silently discarded.
+                        await page.SelectAsync("#DayDropdown", dayValue);
+                        await Task.Delay(180);
+                    }
+                    catch (Exception exception) when (IsTransientNavigationException(exception))
+                    {
+                        await WaitForNavigationToSettleAsync(page);
+                        continue;
+                    }
+
+                    (bool Success, string[] Value) birthdayRead = await TryEvaluateFunctionAsync<string[]>(page, @"() => [
+                        document.querySelector('#MonthDropdown')?.value || '',
+                        document.querySelector('#DayDropdown')?.value || '',
+                        document.querySelector('#YearDropdown')?.value || ''
+                    ]");
+                    string[] selectedBirthday = birthdayRead.Success ? birthdayRead.Value : null;
+                    birthdaySet = selectedBirthday != null && selectedBirthday.Length >= 3 &&
+                        string.Equals(selectedBirthday[0], monthValue, StringComparison.OrdinalIgnoreCase) &&
+                        string.Equals(selectedBirthday[1], dayValue, StringComparison.OrdinalIgnoreCase) &&
+                        string.Equals(selectedBirthday[2], yearValue, StringComparison.OrdinalIgnoreCase);
+                }
+
+                if (!birthdaySet)
+                    Program.Logger.Warn("Roblox did not confirm the generated birthday values; complete the birthday fields manually if needed.");
+            }
+            catch (Exception ex)
+            {
+                Program.Logger.Warn("Could not prefill birthday fields; complete them manually if needed. " + ex.Message);
+            }
+
+            string genderSelector = string.Equals(profile.Gender, "Male", StringComparison.OrdinalIgnoreCase)
+                ? "#MaleButton"
+                : "#FemaleButton";
+            try
+            {
+                await WaitForSelectorWithNavigationRetryAsync(page, genderSelector);
+                await page.ClickAsync(genderSelector);
+            }
+            catch (Exception exception)
+            {
+                Program.Logger.Warn("Could not preselect the generated Roblox gender; choose it manually if needed. " + exception.Message);
+            }
+
+            if (!string.IsNullOrWhiteSpace(username))
+            {
+                if (!await FillTextInputAsync(page, "#signup-username", username.Trim()))
+                {
+                    Program.Logger.Warn("Roblox rebuilt the sign-up page while filling the username; leaving Chrome open for manual completion.");
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(password))
+            {
+                if (!await FillTextInputAsync(page, "#signup-password", password))
+                {
+                    Program.Logger.Warn("Roblox rebuilt the sign-up page while filling the password; leaving Chrome open for manual completion.");
+                }
+            }
+
+            if (!submitCredentials)
+            {
+                Program.Logger.Info("Roblox sign-up fields prepared in an isolated browser; complete registration and verification in Chrome.");
+                return;
+            }
+
+            await ClickSignupButtonAsync(page);
+        }
+
+        private static async Task<bool> FillTextInputAsync(IPage page, string selector, string value)
+        {
+            value ??= string.Empty;
+            for (int attempt = 0; attempt < NavigationRetryCount; attempt++)
+            {
+                try
+                {
+                    await WaitForSelectorWithNavigationRetryAsync(page, selector);
+                    await page.ClickAsync(selector);
+                    await page.Keyboard.DownAsync("Control");
+                    await page.Keyboard.PressAsync("A");
+                    await page.Keyboard.UpAsync("Control");
+                    await page.TypeAsync(selector, value);
+                }
+                catch (Exception exception) when (IsTransientNavigationException(exception))
+                {
+                    await WaitForNavigationToSettleAsync(page);
+                    continue;
+                }
+                catch (Exception) when (!IsLikelySignupPage(page))
+                {
+                    return false;
+                }
+
+                // Roblox validates the username after the first key and can
+                // replace the controlled input while Puppeteer is still typing.
+                // In that case only the first character remains in the visible
+                // field. Verify the DOM value and use the native setter plus real
+                // input/change events as a controlled-component fallback.
+                (bool Success, bool Value) typedValueRead = await TryEvaluateFunctionAsync<bool>(page, @"data => {
+                const element = document.querySelector(data.selector);
+                return !!element && element.value === data.value;
+            }", new { selector, value });
+
+                if (typedValueRead.Success && typedValueRead.Value)
+                    return true;
+
+                bool fallbackOk = false;
+                try
+                {
+                    fallbackOk = await ChromeLaunchHelper.SetReactControlledInputValueAsync(page, selector, value).ConfigureAwait(false);
+                }
+                catch (Exception exception) when (IsTransientNavigationException(exception))
+                {
+                    await WaitForNavigationToSettleAsync(page);
+                    continue;
+                }
+
+                if (fallbackOk)
+                {
+                    await Task.Delay(120);
+                    return true;
+                }
+
+                await WaitForNavigationToSettleAsync(page);
+            }
+
+            return false;
+        }
+
+        private static async Task ClickSignupButtonAsync(IPage page)
+        {
+            try
+            {
+                await WaitForSelectorWithNavigationRetryAsync(page, "#signup-button");
+            }
+            catch (Exception exception) when (IsTransientNavigationException(exception))
+            {
+                Program.Logger.Warn("Roblox changed the sign-up document while loading the Sign Up button; leaving Chrome open for manual completion.");
+                return;
+            }
+
+            long readyStartTick = Stopwatch.GetTimestamp();
+            TimeSpan readyTimeout = TimeSpan.FromMilliseconds(SignupButtonReadyTimeoutMilliseconds);
+            bool ready = false;
+            while (Stopwatch.GetElapsedTime(readyStartTick) < readyTimeout)
+            {
+                (bool Success, bool Value) readyRead = await TryEvaluateFunctionAsync<bool>(page, @"() => {
+                    const button = document.querySelector('#signup-button');
+                    if (!button) return false;
+                    const style = window.getComputedStyle(button);
+                    const rect = button.getBoundingClientRect();
+                    return !button.disabled &&
+                        button.getAttribute('aria-disabled') !== 'true' &&
+                        rect.width > 0 && rect.height > 0 &&
+                        style.display !== 'none' && style.visibility !== 'hidden';
+                }");
+                if (!readyRead.Success)
+                {
+                    if (!IsLikelySignupPage(page))
+                    {
+                        Program.Logger.Info("Roblox navigated while preparing the Sign Up button; leaving Chrome open for the next step.");
+                        return;
+                    }
+
+                    await Task.Delay(150);
+                    continue;
+                }
+
+                ready = readyRead.Value;
+
+                if (ready)
+                    break;
+
+                await Task.Delay(150);
+            }
+
+            if (!ready)
+            {
+                Program.Logger.Warn("Roblox kept the Sign Up button disabled; leaving the form open for manual completion.");
+                return;
+            }
+
+            // Give the last input/change events and Roblox's challenge bundle
+            // time to settle so Arkose receives the same valid form state as a
+            // manual click. A fresh Chrome profile can load this bundle a bit
+            // later than the visible sign-up controls.
+            await Task.Delay(1200);
+            try
+            {
+                await page.ClickAsync("#signup-button");
+            }
+            catch (Exception exception) when (IsTransientNavigationException(exception))
+            {
+                // A normal form submission can destroy the old execution
+                // context at the exact moment the click is dispatched.  The
+                // click has already reached Roblox in that case, so keep the
+                // browser open for CAPTCHA/manual verification.
+                Program.Logger.Info("Roblox navigated after the Sign Up click; leaving Chrome open for human verification.");
+                await WaitForNavigationToSettleAsync(page);
+                return;
+            }
+
+            // Keep the CDP session alive while the challenge iframe starts.
+            // Disconnecting immediately after the click can interrupt a slow
+            // challenge bootstrap on VPN-routed connections.
+            try
+            {
+                await page.WaitForSelectorAsync("iframe", new WaitForSelectorOptions
+                {
+                    Timeout = 4000
+                });
+            }
+            catch { }
+            await Task.Delay(1800);
+        }
+
+        private static async Task WaitForSelectorWithNavigationRetryAsync(IPage page, string selector)
+        {
+            long startTick = Stopwatch.GetTimestamp();
+            TimeSpan timeout = TimeSpan.FromMilliseconds(SelectorTimeoutMilliseconds);
+            Exception lastNavigationException = null;
+
+            while (Stopwatch.GetElapsedTime(startTick) < timeout)
+            {
+                if (page == null || page.IsClosed)
+                    throw new InvalidOperationException("The sign-up browser page was closed.");
+
+                try
+                {
+                    int remaining = Math.Max(250, (int)(timeout - Stopwatch.GetElapsedTime(startTick)).TotalMilliseconds);
+                    IElementHandle handle = await page.WaitForSelectorAsync(selector, new WaitForSelectorOptions
+                    {
+                        Timeout = Math.Min(remaining, 1500)
+                    });
+                    if (handle != null)
+                        return;
+                }
+                catch (Exception exception) when (IsTransientNavigationException(exception))
+                {
+                    lastNavigationException = exception;
+                    await WaitForNavigationToSettleAsync(page);
+                }
+            }
+
+            if (lastNavigationException != null)
+                throw lastNavigationException;
+
+            throw new TimeoutException($"Waiting for selector `{selector}` failed.");
+        }
+
+        private static async Task<(bool Success, T Value)> TryEvaluateFunctionAsync<T>(IPage page, string expression, params object[] args)
+        {
+            Exception lastNavigationException = null;
+            for (int attempt = 0; attempt < NavigationRetryCount; attempt++)
+            {
+                if (page == null || page.IsClosed)
+                    return (false, default);
+
+                try
+                {
+                    return (true, await page.EvaluateFunctionAsync<T>(expression, args));
+                }
+                catch (Exception exception) when (IsTransientNavigationException(exception))
+                {
+                    lastNavigationException = exception;
+                    await WaitForNavigationToSettleAsync(page);
+                }
+            }
+
+            if (lastNavigationException != null)
+            {
+                Program.Logger.Warn("Roblox changed the sign-up page while it was being prepared; continuing with the browser open. " +
+                    lastNavigationException.Message);
+            }
+
+            return (false, default);
+        }
+
+        private static async Task WaitForNavigationToSettleAsync(IPage page)
+        {
+            if (page == null || page.IsClosed)
+                return;
+
+            // Do not evaluate document.readyState here: that is the operation
+            // that is invalid during a navigation.  A short CDP-free pause
+            // lets Chrome create the new execution context before the retry.
+            await Task.Delay(NavigationRetryDelayMilliseconds);
+        }
+
+        private static bool IsLikelySignupPage(IPage page)
+        {
+            try
+            {
+                string url = page?.Url ?? string.Empty;
+                return string.IsNullOrWhiteSpace(url) ||
+                    url.Contains("roblox.com/signup", StringComparison.OrdinalIgnoreCase) ||
+                    url.Contains("roblox.com/create", StringComparison.OrdinalIgnoreCase);
+            }
+            catch
+            {
+                return true;
+            }
+        }
+
+        private static bool IsTransientNavigationException(Exception exception)
+            => ChromeLaunchHelper.IsDetachedOrTransientBrowserException(exception);
+
+        private static Task WaitForDevToolsPortAsync(int port, CancellationToken cancellationToken = default)
+            => ChromeLaunchHelper.WaitForDevToolsPortAsync(port, DevToolsStartupTimeoutSeconds, DevToolsPollMilliseconds, cancellationToken);
+
+        private static string GetCenteredBrowserPosition()
+            => ChromeLaunchHelper.GetInteractiveBrowserPosition(InteractiveBrowserWidth, InteractiveBrowserHeight);
+
+        private static bool IsDetachedPageException(PuppeteerException exception)
+            => ChromeLaunchHelper.IsDetachedOrTransientBrowserException(exception);
+
+        private static Task<IPage> FindActiveRobloxPageAsync(IBrowser connectedBrowser)
+            => ChromeLaunchHelper.FindActiveRobloxPageAsync(connectedBrowser);
+
+        private static Task<string> ReadAccountJsonAsync(IPage page)
+            => ChromeLaunchHelper.ReadAuthenticatedRobloxAccountJsonAsync(page, maxAttempts: 1);
+
+        private static int GetFreeLoopbackPort()
+            => ChromeLaunchHelper.GetFreeLoopbackPort();
+
+        private static void CloseBrowser(Process browser)
+            => ChromeLaunchHelper.CloseBrowserProcess(browser, dispose: true);
+
+        private static string QuoteArgument(string value)
+            => ChromeLaunchHelper.QuoteArgument(value);
+
+        private static Task TryDeleteTemporaryDirectoryAsync(string path)
+            => ChromeLaunchHelper.TryDeleteSessionDirectoryAsync(path);
+
+        private static Task<CookieParam> ExtractRoblosecurityCookieAsync(IPage page)
+            => ChromeLaunchHelper.ExtractRoblosecurityCookieAsync(page);
+    }
+}

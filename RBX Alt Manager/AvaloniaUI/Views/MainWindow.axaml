@@ -1,0 +1,362 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:views="clr-namespace:RBX_Alt_Manager.AvaloniaUI.Views"
+        xmlns:vm="clr-namespace:RBX_Alt_Manager.ViewModels"
+        xmlns:lucide="clr-namespace:LucideAvalonia;assembly=LucideAvalonia"
+        mc:Ignorable="d"
+        x:Class="RBX_Alt_Manager.AvaloniaUI.Views.MainWindow"
+        x:CompileBindings="True"
+        Icon="/Resources/shiro.ico"
+        Title="Shiro • Roblox Account Manager (Pure Avalonia UI 11)"
+        Width="1260" Height="680"
+        MinWidth="960" MinHeight="520"
+        WindowStartupLocation="CenterScreen"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        ExtendClientAreaTitleBarHeightHint="-1"
+        Background="#0B0B0F"
+        Foreground="#F4F4F5">
+
+    <Window.Styles>
+        <!-- Sidebar Navigation Pill Buttons -->
+        <Style Selector="Button.NavPill">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="#9CA3AF" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Padding" Value="14,10" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Margin" Value="10,2" />
+        </Style>
+        <Style Selector="Button.NavPill:pointerover">
+            <Setter Property="Background" Value="#181822" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
+        </Style>
+        <Style Selector="Button.NavPill.active">
+            <Setter Property="Background" Value="{DynamicResource AccentSubtleBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="FontWeight" Value="Bold" />
+        </Style>
+
+        <!-- Custom TitleBar Caption Control Buttons -->
+        <Style Selector="Button.CaptionBtn">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Width" Value="38" />
+            <Setter Property="Height" Value="30" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <Style Selector="Button.CaptionBtn:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#222230" />
+        </Style>
+        <Style Selector="Button.CaptionBtn.CloseBtn:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#E81123" />
+        </Style>
+    </Window.Styles>
+
+    <Grid>
+        <!-- Main Application Shell -->
+        <Grid RowDefinitions="Auto,*,Auto">
+
+            <!-- 1. TOP TITLEBAR (Modern Integrated Titlebar) -->
+            <Border Grid.Row="0" Background="#0E0E14" BorderBrush="#1C1C24" BorderThickness="0,0,0,1" Height="44" Padding="16,0,8,0" PointerPressed="OnTitleBarPointerPressed">
+                <Grid ColumnDefinitions="Auto,*,Auto">
+                    <!-- Title & Version -->
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Spacing="8">
+                        <Image Source="/Resources/shiro_logo.png" Width="16" Height="16" VerticalAlignment="Center" />
+                        <TextBlock Text="Shiro • Roblox Account Manager" FontSize="12" FontWeight="SemiBold" Foreground="#A1A1AA" VerticalAlignment="Center" />
+                        <Border Background="#1CFFFFFF" CornerRadius="4" Padding="5,1">
+                            <TextBlock Text=".NET 10 • Avalonia 11" FontSize="10" Foreground="#71717A" />
+                        </Border>
+                    </StackPanel>
+
+                    <!-- Center Command Palette Search Bar (Ctrl+K) -->
+                    <Border Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center"
+                            Background="#161620" BorderBrush="#262634" BorderThickness="1" CornerRadius="16"
+                            Padding="14,5" Cursor="Hand" PointerPressed="OnCommandPaletteBarPressed" ToolTip.Tip="Bấm để mở thanh tìm kiếm nhanh (Ctrl + K)">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <lucide:Lucide Icon="Search" Width="13" Height="13" StrokeBrush="#71717A" VerticalAlignment="Center" />
+                            <TextBlock Text="{DynamicResource Nav_CommandPalettePlaceholder}" FontSize="12" Foreground="#A1A1AA" VerticalAlignment="Center" />
+                            <Border Background="#222230" CornerRadius="4" Padding="5,1" Margin="8,0,0,0">
+                                <TextBlock Text="Ctrl + K" FontSize="10" FontWeight="Bold" Foreground="#71717A" VerticalAlignment="Center" />
+                            </Border>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Right Quick Status Badge & Window Caption Buttons -->
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <Border Background="#122018" BorderBrush="#1C3824" BorderThickness="1" CornerRadius="6" Padding="8,4" Margin="0,0,4,0">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <Ellipse Width="6" Height="6" Fill="#22C55E" VerticalAlignment="Center" />
+                                <TextBlock Text="{DynamicResource Nav_SystemOnline}" FontSize="11" Foreground="#22C55E" FontWeight="SemiBold" />
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Dedicated Window Controls (Minimize, Maximize / Restore, Close) -->
+                        <Button Classes="CaptionBtn" Click="OnMinimizeClicked" ToolTip.Tip="Thu nhỏ">
+                            <lucide:Lucide Icon="Minus" Width="12" Height="12" StrokeBrush="#A1A1AA" />
+                        </Button>
+                        <Button Classes="CaptionBtn" Click="OnMaximizeClicked" ToolTip.Tip="Phóng to / Khôi phục">
+                            <lucide:Lucide x:Name="IconMaximize" Icon="Square" Width="11" Height="11" StrokeBrush="#A1A1AA" />
+                        </Button>
+                        <Button Classes="CaptionBtn CloseBtn" Click="OnCloseClicked" ToolTip.Tip="Đóng">
+                            <lucide:Lucide Icon="X" Width="13" Height="13" StrokeBrush="#A1A1AA" />
+                        </Button>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- 2. MAIN BODY (LEFT SIDEBAR + CONTENT HOST) -->
+            <Grid Grid.Row="1" ColumnDefinitions="215,*">
+
+                <!-- LEFT SIDEBAR -->
+                <Border Grid.Column="0" Background="#0E0E14" BorderBrush="#1C1C24" BorderThickness="0,0,1,0">
+                    <Grid RowDefinitions="Auto,Auto,*,Auto">
+
+                        <!-- Brand Header (Draggable) -->
+                        <Border Grid.Row="0" Padding="16,14" BorderBrush="#1C1C24" BorderThickness="0,0,0,1"
+                                Background="Transparent" PointerPressed="OnTitleBarPointerPressed">
+                            <Grid ColumnDefinitions="Auto,*">
+                                <Border Grid.Column="0" Width="34" Height="34" CornerRadius="8" ClipToBounds="True" Margin="0,0,12,0" VerticalAlignment="Center">
+                                    <Image Source="/Resources/shiro_logo.png" Width="34" Height="34" Stretch="UniformToFill" />
+                                </Border>
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="1">
+                                    <TextBlock Text="Shiro" FontWeight="Bold" FontSize="16" Foreground="#FFFFFF" LetterSpacing="0.5" />
+                                    <TextBlock Text="ACCOUNT MANAGER" FontWeight="Bold" FontSize="9" Foreground="#71717A" LetterSpacing="1" />
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <!-- Section Header -->
+                        <TextBlock Grid.Row="1" Text="{DynamicResource Nav_Workspace}" FontSize="10" FontWeight="Bold" Foreground="#52525B" Margin="14,14,14,6" LetterSpacing="0.5" />
+
+                        <!-- Navigation Items -->
+                        <StackPanel Grid.Row="2" Spacing="2">
+                            <!-- 1. Accounts -->
+                            <Button x:Name="BtnNavDashboard" Classes="NavPill active" Click="OnNavDashboardClicked">
+                                <StackPanel Orientation="Horizontal" Spacing="10">
+                                    <lucide:Lucide Icon="User" Width="16" Height="16" StrokeBrush="#A1A1AA" VerticalAlignment="Center" />
+                                    <TextBlock Text="{DynamicResource Nav_Accounts}" FontSize="13" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+
+                            <!-- 2. Server List -->
+                            <Button x:Name="BtnNavServerList" Classes="NavPill" Click="OnNavServerListClicked">
+                                <StackPanel Orientation="Horizontal" Spacing="10">
+                                    <lucide:Lucide Icon="Globe" Width="16" Height="16" StrokeBrush="#A1A1AA" VerticalAlignment="Center" />
+                                    <TextBlock Text="{DynamicResource Nav_ServerList}" FontSize="13" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+
+                            <!-- 3. Recent Games -->
+                            <Button x:Name="BtnNavRecentGames" Classes="NavPill" Click="OnNavRecentGamesClicked">
+                                <StackPanel Orientation="Horizontal" Spacing="10">
+                                    <lucide:Lucide Icon="Gamepad2" Width="16" Height="16" StrokeBrush="#A1A1AA" VerticalAlignment="Center" />
+                                    <TextBlock Text="{DynamicResource Nav_RecentGames}" FontSize="13" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+
+                            <!-- 4. Tools Flyout -->
+                            <Button x:Name="BtnNavTools" Classes="NavPill">
+                                <Button.Flyout>
+                                    <MenuFlyout Placement="RightEdgeAlignedTop">
+                                        <MenuItem Header="{DynamicResource Tool_AntiAfk}" Click="OnToolAntiAfkClicked">
+                                            <MenuItem.Icon>
+                                                <lucide:Lucide Icon="Shield" Width="14" Height="14" StrokeBrush="#38BDF8" />
+                                            </MenuItem.Icon>
+                                        </MenuItem>
+                                        <MenuItem Header="{DynamicResource Tool_Potato}" Click="OnToolPotatoClicked">
+                                            <MenuItem.Icon>
+                                                <lucide:Lucide Icon="Zap" Width="14" Height="14" StrokeBrush="#F59E0B" />
+                                            </MenuItem.Icon>
+                                        </MenuItem>
+                                        <MenuItem Header="{DynamicResource Tool_ZeroGpu}" Click="OnToolZeroGpuClicked">
+                                            <MenuItem.Icon>
+                                                <lucide:Lucide Icon="EyeOff" Width="14" Height="14" StrokeBrush="#A1A1AA" />
+                                            </MenuItem.Icon>
+                                        </MenuItem>
+                                        <Separator />
+                                        <MenuItem Header="{DynamicResource Tool_OptimizeRam}" Click="OnToolOptimizeRamClicked">
+                                            <MenuItem.Icon>
+                                                <lucide:Lucide Icon="Cpu" Width="14" Height="14" StrokeBrush="#22C55E" />
+                                            </MenuItem.Icon>
+                                        </MenuItem>
+                                        <MenuItem Header="{DynamicResource Tool_MuteAll}" Click="OnToolMuteAllClicked">
+                                            <MenuItem.Icon>
+                                                <lucide:Lucide Icon="VolumeX" Width="14" Height="14" StrokeBrush="#F43F5E" />
+                                            </MenuItem.Icon>
+                                        </MenuItem>
+                                        <MenuItem Header="{DynamicResource Tool_SmartMute}" Click="OnToolSmartMuteClicked">
+                                            <MenuItem.Icon>
+                                                <lucide:Lucide Icon="Volume2" Width="14" Height="14" StrokeBrush="#38BDF8" />
+                                            </MenuItem.Icon>
+                                        </MenuItem>
+                                        <MenuItem Header="{DynamicResource Tool_Nexus}" Click="OnToolNexusClicked">
+                                            <MenuItem.Icon>
+                                                <lucide:Lucide Icon="SlidersHorizontal" Width="14" Height="14" StrokeBrush="#A855F7" />
+                                            </MenuItem.Icon>
+                                        </MenuItem>
+                                        <MenuItem Header="{DynamicResource Tool_Proxy}" Click="OnToolProxyClicked">
+                                            <MenuItem.Icon>
+                                                <lucide:Lucide Icon="Globe" Width="14" Height="14" StrokeBrush="#38BDF8" />
+                                            </MenuItem.Icon>
+                                        </MenuItem>
+                                        <MenuItem Header="{DynamicResource Tool_CleanTray}" Click="OnToolCleanTrayClicked">
+                                            <MenuItem.Icon>
+                                                <lucide:Lucide Icon="Trash2" Width="14" Height="14" StrokeBrush="#A1A1AA" />
+                                            </MenuItem.Icon>
+                                        </MenuItem>
+                                    </MenuFlyout>
+                                </Button.Flyout>
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
+                                        <lucide:Lucide Icon="Zap" Width="16" Height="16" StrokeBrush="#A1A1AA" VerticalAlignment="Center" />
+                                        <TextBlock Text="{DynamicResource Nav_Tools}" FontSize="13" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                    <lucide:Lucide Grid.Column="1" Icon="ChevronDown" Width="12" Height="12" StrokeBrush="#71717A" VerticalAlignment="Center" />
+                                </Grid>
+                            </Button>
+
+                            <!-- 5. Settings -->
+                            <Button x:Name="BtnNavSettings" Classes="NavPill" Click="OnNavSettingsClicked">
+                                <StackPanel Orientation="Horizontal" Spacing="10">
+                                    <lucide:Lucide Icon="Settings" Width="16" Height="16" StrokeBrush="#A1A1AA" VerticalAlignment="Center" />
+                                    <TextBlock Text="{DynamicResource Nav_Settings}" FontSize="13" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+
+                            <!-- 6. About -->
+                            <Button x:Name="BtnNavAbout" Classes="NavPill" Click="OnNavAboutClicked">
+                                <StackPanel Orientation="Horizontal" Spacing="10">
+                                    <lucide:Lucide Icon="Info" Width="16" Height="16" StrokeBrush="#A1A1AA" VerticalAlignment="Center" />
+                                    <TextBlock Text="{DynamicResource Nav_About}" FontSize="13" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+
+                        <!-- Bottom: Close Roblox Button -->
+                        <Border Grid.Row="3" Padding="12,14" BorderBrush="#1C1C24" BorderThickness="0,1,0,0">
+                            <Button Click="OnSidebarCloseRobloxClicked"
+                                    Background="#261215" Foreground="#EF4444" BorderBrush="#4A1C24" BorderThickness="1"
+                                    FontWeight="Bold" FontSize="12" CornerRadius="6" Padding="12,9"
+                                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Cursor="Hand"
+                                    ToolTip.Tip="Đóng ngay lập tức toàn bộ tiến trình Roblox đang chạy">
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="7">
+                                    <lucide:Lucide Icon="Power" Width="14" Height="14" StrokeBrush="#EF4444" VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding ViewModel.CloseRobloxButtonText, ElementName=ViewDashboard}" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                        </Border>
+                    </Grid>
+                </Border>
+
+                <!-- MAIN CONTENT HOST -->
+                <Panel Grid.Column="1" x:Name="MainContentHost" Background="#0B0B0F">
+                    <views:DashboardView x:Name="ViewDashboard" />
+                    <views:ServerListView x:Name="ViewServerList" IsVisible="False" />
+                    <views:SettingsView x:Name="ViewSettings" IsVisible="False" />
+                    <views:AboutView x:Name="ViewAbout" IsVisible="False" />
+                </Panel>
+            </Grid>
+
+            <!-- 3. BOTTOM FOOTER STATUS BAR -->
+            <Border Grid.Row="2" Background="#0C0C10" BorderBrush="#1C1C24" BorderThickness="0,1,0,0" Height="30" Padding="14,0">
+                <Grid ColumnDefinitions="Auto,*,Auto">
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding ViewModel.FooterReadyStatusText, ElementName=ViewDashboard}" FontSize="11" Foreground="#71717A" VerticalAlignment="Center" />
+                        <TextBlock Text="•" FontSize="11" Foreground="#2A2A38" VerticalAlignment="Center" />
+                        <lucide:Lucide Icon="Info" Width="12" Height="12" StrokeBrush="#38BDF8" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding ViewModel.StatusMessage, ElementName=ViewDashboard}" FontSize="11" Foreground="#A1A1AA" VerticalAlignment="Center" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding ViewModel.FooterSelectedText, ElementName=ViewDashboard}" FontSize="11" Foreground="#71717A" VerticalAlignment="Center" />
+                        <TextBlock Text="•" FontSize="11" Foreground="#2A2A38" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding ViewModel.FooterTotalText, ElementName=ViewDashboard}" FontSize="11" Foreground="#71717A" FontWeight="SemiBold" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+        </Grid>
+
+        <!-- ================= COMMAND PALETTE OVERLAY (Ctrl+K) ================= -->
+        <Border IsVisible="{Binding ViewModel.IsCommandPaletteOpen, ElementName=ViewDashboard}"
+                Background="#B0000000" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                PointerPressed="OnCommandPaletteBackdropPressed">
+            <Border Width="560" MaxHeight="450" Background="#14141C" BorderBrush="#2E2E3C" BorderThickness="1"
+                    CornerRadius="10" Padding="16" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <Grid RowDefinitions="Auto,Auto,*">
+                    <!-- Search Header -->
+                    <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,12">
+                        <lucide:Lucide Grid.Column="0" Icon="Search" Width="16" Height="16" StrokeBrush="#71717A" VerticalAlignment="Center" Margin="0,0,8,0" />
+                        <TextBox Grid.Column="1" x:Name="TxtCommandPalette"
+                                 Text="{Binding ViewModel.CommandPaletteSearchText, ElementName=ViewDashboard, Mode=TwoWay}"
+                                 Watermark="Tìm tài khoản, alias hoặc User ID để khởi động..."
+                                 Background="#1A1A26" Foreground="#FFFFFF" BorderBrush="#353545"
+                                 CornerRadius="6" Padding="10,8" VerticalContentAlignment="Center" FontSize="13" />
+                        <Button Grid.Column="2" Click="OnCloseCommandPaletteClicked"
+                                Background="Transparent" Foreground="#71717A" Margin="6,0,0,0" Padding="4" Cursor="Hand">
+                            <lucide:Lucide Icon="X" Width="14" Height="14" StrokeBrush="#71717A" />
+                        </Button>
+                    </Grid>
+
+                    <Separator Grid.Row="1" Background="#24242C" Height="1" Margin="0,0,0,10" />
+
+                    <!-- Search Results -->
+                    <ScrollViewer Grid.Row="2" MaxHeight="320">
+                        <ItemsControl ItemsSource="{Binding ViewModel.CommandPaletteResults, ElementName=ViewDashboard}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:AccountViewModel">
+                                    <Border Height="44" Background="#181822" BorderBrush="#20202C" BorderThickness="0,0,0,1"
+                                            CornerRadius="6" Margin="0,2" Padding="10,6" Cursor="Hand">
+                                        <Grid ColumnDefinitions="Auto,*,Auto">
+                                            <!-- Mini Avatar -->
+                                            <Border Grid.Column="0" Width="28" Height="28" CornerRadius="14" Background="#252530" ClipToBounds="True" Margin="0,0,10,0" VerticalAlignment="Center">
+                                                <Panel>
+                                                    <TextBlock Text="{Binding Initials}" FontSize="12" FontWeight="Bold" Foreground="#71717A" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                    <Image Source="{Binding AvatarImage}" Stretch="UniformToFill" />
+                                                </Panel>
+                                            </Border>
+
+                                            <!-- Info -->
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                                    <TextBlock Text="{Binding ShownUsername}" FontWeight="SemiBold" FontSize="12" Foreground="#FFFFFF" />
+                                                    <TextBlock Text="{Binding Alias, StringFormat='({0})'}" IsVisible="{Binding Alias, Converter={StaticResource StringNotNullOrEmpty}}"
+                                                               FontSize="11" Foreground="#A1A1AA" />
+                                                </StackPanel>
+                                                <TextBlock Text="{Binding StatusText}" FontSize="10" Foreground="{Binding StatusBadgeForeground}" />
+                                            </StackPanel>
+
+                                            <!-- Launch Action -->
+                                            <Button Grid.Column="2" Command="{Binding #ViewDashboard.ViewModel.OpenHomeCommand}" CommandParameter="{Binding}"
+                                                    Background="#22222E" Foreground="#FFFFFF" CornerRadius="4" Padding="10,5" Cursor="Hand">
+                                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                                    <lucide:Lucide Icon="Play" Width="10" Height="10" StrokeBrush="#FFFFFF" VerticalAlignment="Center" />
+                                                    <TextBlock Text="Mở Home" FontSize="11" VerticalAlignment="Center" />
+                                                </StackPanel>
+                                            </Button>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Grid>
+            </Border>
+        </Border>
+
+    </Grid>
+</Window>

@@ -1,0 +1,44 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="RBX_Alt_Manager.AvaloniaUI.Views.InputDialog"
+        Icon="/Resources/shiro.ico"
+        Title="Shiro Prompt"
+        Width="440" SizeToContent="Height"
+        MinWidth="380" MaxWidth="600"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        Background="#0E0E12"
+        Foreground="#F4F4F5"
+        TransparencyLevelHint="Mica, AcrylicBlur">
+
+    <Border BorderBrush="#272730" BorderThickness="1" CornerRadius="8" Padding="20">
+        <Grid RowDefinitions="Auto,*,Auto,Auto">
+            <!-- Title -->
+            <TextBlock x:Name="TxtTitle" Grid.Row="0" Text="Nhập dữ liệu"
+                       FontSize="16" FontWeight="SemiBold" Foreground="#FFFFFF" Margin="0,0,0,14"/>
+
+            <!-- Prompt Message -->
+            <SelectableTextBlock x:Name="TxtPrompt" Grid.Row="1" Text="Nhập giá trị bên dưới:"
+                                 FontSize="13" Foreground="#A1A1AA" TextWrapping="Wrap" Margin="0,0,0,14"/>
+
+            <!-- Input Box -->
+            <TextBox x:Name="TxtInput" Grid.Row="2"
+                     Background="#18181F" Foreground="#FFFFFF"
+                     BorderBrush="#2E2E38" BorderThickness="1"
+                     CornerRadius="6" Padding="10,8" FontSize="13"
+                     KeyDown="TxtInput_KeyDown" Margin="0,0,0,14"/>
+
+            <!-- Action Buttons -->
+            <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                <Button x:Name="BtnCancel" Content="Hủy" Width="80" Height="32"
+                        Background="#272730" Foreground="#D4D4D8" FontWeight="SemiBold"
+                        CornerRadius="5" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                        Click="BtnCancel_Click"/>
+                <Button x:Name="BtnOK" Content="Đồng ý" Width="80" Height="32"
+                        Background="#2563EB" Foreground="#FFFFFF" FontWeight="SemiBold"
+                        CornerRadius="5" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                        Click="BtnOK_Click"/>
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

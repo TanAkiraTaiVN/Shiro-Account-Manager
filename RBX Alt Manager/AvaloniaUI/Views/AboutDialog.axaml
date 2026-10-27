@@ -1,0 +1,57 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="RBX_Alt_Manager.AvaloniaUI.Views.AboutDialog"
+        Icon="/Resources/shiro.ico"
+        Title="Giới thiệu • Shiro Account Manager"
+        Width="460" SizeToContent="Height"
+        MinWidth="380" MaxWidth="540"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        Background="#0E0E12"
+        Foreground="#F4F4F5"
+        TransparencyLevelHint="Mica, AcrylicBlur">
+
+    <Border BorderBrush="#272730" BorderThickness="1" CornerRadius="8" Padding="20">
+        <Grid RowDefinitions="Auto,*,Auto">
+            <!-- Header -->
+            <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center" Margin="0,0,0,16">
+                <Border Width="36" Height="36" CornerRadius="8" ClipToBounds="True">
+                    <Image Source="/Resources/shiro_logo.png" Width="36" Height="36" Stretch="UniformToFill" />
+                </Border>
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="SHIRO ACCOUNT MANAGER" FontSize="15" FontWeight="Bold" Foreground="#FFFFFF"/>
+                    <TextBlock Text="Pure Avalonia UI 11 • .NET 10 Edition" FontSize="11" Foreground="#38BDF8"/>
+                </StackPanel>
+            </StackPanel>
+
+            <!-- Metrics -->
+            <StackPanel Grid.Row="1" Spacing="10">
+                <Border Background="#16161D" BorderBrush="#262630" BorderThickness="1" CornerRadius="6" Padding="12">
+                    <Grid RowDefinitions="Auto,Auto,Auto">
+                        <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,6">
+                            <TextBlock Text="Môi trường runtime:" FontSize="12" Foreground="#A1A1AA"/>
+                            <TextBlock Grid.Column="1" x:Name="TxtRuntime" Text=".NET 10" FontSize="12" FontWeight="SemiBold" Foreground="#FFFFFF"/>
+                        </Grid>
+                        <Grid Grid.Row="1" ColumnDefinitions="*,Auto" Margin="0,0,0,6">
+                            <TextBlock Text="Bộ nhớ sử dụng:" FontSize="12" Foreground="#A1A1AA"/>
+                            <TextBlock Grid.Column="1" x:Name="TxtMemory" Text="-- MB" FontSize="12" FontWeight="SemiBold" Foreground="#22C55E"/>
+                        </Grid>
+                        <Grid Grid.Row="2" ColumnDefinitions="*,Auto">
+                            <TextBlock Text="Tổng tài khoản:" FontSize="12" Foreground="#A1A1AA"/>
+                            <TextBlock Grid.Column="1" x:Name="TxtAccountCount" Text="0" FontSize="12" FontWeight="SemiBold" Foreground="#38BDF8"/>
+                        </Grid>
+                    </Grid>
+                </Border>
+                <TextBlock Text="Phần mềm quản lý tài khoản Roblox đa chức năng, bảo mật và hiệu năng cao."
+                           FontSize="12" Foreground="#71717A" TextWrapping="Wrap"/>
+            </StackPanel>
+
+            <!-- Close Button -->
+            <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Đóng" Width="80" Height="32" Click="BtnClose_Click"
+                        Background="#272730" Foreground="#D4D4D8" FontWeight="SemiBold"
+                        CornerRadius="5" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

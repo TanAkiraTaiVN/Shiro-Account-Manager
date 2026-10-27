@@ -1,0 +1,85 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <PlatformTarget>x64</PlatformTarget>
+    <Platform>x64</Platform>
+    <!-- The application is intentionally published for Windows x64. Keeping
+         the RID in the project prevents an ordinary restore or package audit
+         from rewriting packages.lock.json without the runtime graph. -->
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <Prefer32Bit>false</Prefer32Bit>
+    <RootNamespace>RBX_Alt_Manager</RootNamespace>
+    <AssemblyName>Roblox Account Manager</AssemblyName>
+    <ApplicationIcon>Resources\shiro.ico</ApplicationIcon>
+    <ApplicationManifest>app1.manifest</ApplicationManifest>
+    <Version>4.1.0</Version>
+    <AssemblyVersion>4.1.0.0</AssemblyVersion>
+    <FileVersion>4.1.0.0</FileVersion>
+    <Product>Shiro Account Manager</Product>
+    <Company>Shiro RAM Project</Company>
+    <Copyright>Copyright © 2026 Shiro RAM</Copyright>
+    <Description>Modernized Roblox Account Manager for .NET 10 (win-x64)</Description>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>annotations</Nullable>
+    <LangVersion>latest</LangVersion>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <DebugType>embedded</DebugType>
+    <Optimize>true</Optimize>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+
+    <!-- .NET 10 High Performance Runtime & Compiler Options -->
+    <TieredPGO>true</TieredPGO>
+    <PublishReadyToRun>true</PublishReadyToRun>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+    <GarbageCollectionAdaptation>1</GarbageCollectionAdaptation>
+    <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
+
+    <!-- Regular builds go to a disposable artifacts folder. The distributable
+         is written to build\Release by the publish command in UPGRADE_NOTES. -->
+    <OutputPath>..\build\artifacts\$(Configuration)\</OutputPath>
+    <PublishDocumentationFiles>false</PublishDocumentationFiles>
+    <NoWarn>$(NoWarn);MSB3277</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2903.40" />
+    <PackageReference Include="LucideAvalonia" Version="1.6.2" />
+    <PackageReference Include="PuppeteerSharp" Version="25.14.0" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="9.0.0" />
+    <PackageReference Include="Avalonia" Version="11.2.0" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.2.0" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.2.0" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="11.2.0" />
+    <!-- Pin safe patched version to resolve transitive vulnerability GHSA-xrw6-gwf8-vvr9 from Avalonia.FreeDesktop -->
+    <PackageReference Include="Tmds.DBus.Protocol" Version="0.95.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AvaloniaResource Include="Resources\shiro_logo.png" />
+    <AvaloniaResource Include="Resources\shiro.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="Resources\**\*" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="Never" />
+    <None Update="Nexus\Nexus.lua" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="Never" />
+    <None Update="app1.manifest" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="Never" />
+    <None Include="Resources\shiro.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>Never</CopyToPublishDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="bin\**\*;obj\**\*;build\**\*" />
+    <None Remove="bin\**\*;obj\**\*;build\**\*" />
+    <EmbeddedResource Remove="bin\**\*;obj\**\*;build\**\*" />
+  </ItemGroup>
+</Project>

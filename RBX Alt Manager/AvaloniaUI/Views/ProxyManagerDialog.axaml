@@ -1,0 +1,110 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:lucide="clr-namespace:LucideAvalonia;assembly=LucideAvalonia"
+        xmlns:services="clr-namespace:RBX_Alt_Manager.Services"
+        x:Class="RBX_Alt_Manager.AvaloniaUI.Views.ProxyManagerDialog"
+        x:CompileBindings="True"
+        Icon="/Resources/shiro.ico"
+        Title="Proxy Manager &amp; Ping Checker - Shiro"
+        Width="740" Height="580"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        Background="#0D0D11">
+
+    <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="20">
+        <!-- Header -->
+        <StackPanel Grid.Row="0" Spacing="4" Margin="0,10,0,14">
+            <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                <Border Background="#252536" CornerRadius="8" Width="36" Height="36">
+                    <lucide:Lucide Icon="Globe" Width="18" Height="18" StrokeBrush="#818CF8" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="Proxy Manager &amp; Latency Checker" FontSize="17" FontWeight="Bold" Foreground="#FFFFFF" />
+                    <TextBlock Text="Manage HTTP/SOCKS5 proxies and test live connection latency" FontSize="12" Foreground="#71717A" />
+                </StackPanel>
+            </StackPanel>
+        </StackPanel>
+
+        <!-- Quick Add Proxy Bar -->
+        <Border Grid.Row="1" Background="#14141C" BorderBrush="#272733" BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,0,0,12">
+            <Grid ColumnDefinitions="*,Auto">
+                <TextBox x:Name="TxtNewProxy" Watermark="Enter proxy: IP:Port or user:pass@ip:port..."
+                         Background="#1A1A24" Foreground="#FFFFFF" BorderBrush="#2E2E3E"
+                         CornerRadius="6" Padding="10,8" Margin="0,0,10,0" />
+
+                <Button Grid.Column="1" x:Name="BtnAddProxy" Content="+ Add Proxy" Click="OnAddProxyClicked"
+                        Background="#FFFFFF" Foreground="#09090B" FontWeight="Bold"
+                        CornerRadius="6" Padding="16,8" Cursor="Hand" />
+            </Grid>
+        </Border>
+
+        <!-- Proxy List -->
+        <Border Grid.Row="2" Background="#14141C" BorderBrush="#272733" BorderThickness="1" CornerRadius="8" Padding="10">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <ListBox x:Name="LstProxies" Background="Transparent" BorderThickness="0">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="services:ProxyItem">
+                            <Border Background="#1A1A24" BorderBrush="#272733" BorderThickness="1" CornerRadius="6" Padding="10,8" Margin="0,2">
+                                <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+                                    <!-- Protocol badge -->
+                                    <Border Grid.Column="0" Background="#26263B" CornerRadius="4" Padding="6,2" Margin="0,0,10,0">
+                                        <TextBlock Text="{Binding ProtocolUpper}" FontSize="10" FontWeight="Bold" Foreground="#818CF8" />
+                                    </Border>
+
+                                    <!-- Proxy Address -->
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding AddressDisplay}" FontSize="13" FontWeight="SemiBold" Foreground="#FFFFFF" />
+                                        <TextBlock Text="{Binding AuthDisplay}" FontSize="10.5" Foreground="#71717A" />
+                                    </StackPanel>
+
+                                    <!-- Latency -->
+                                    <TextBlock Grid.Column="2" Text="{Binding StatusText}" VerticalAlignment="Center"
+                                               FontSize="12" FontWeight="Bold" Foreground="{Binding StatusBrush}" Margin="0,0,14,0" />
+
+                                    <!-- Delete Button -->
+                                    <Button Grid.Column="3" Click="OnDeleteProxyClicked" Tag="{Binding}"
+                                            Background="Transparent" Padding="8,4" CornerRadius="4" Cursor="Hand" ToolTip.Tip="Xóa proxy này">
+                                        <lucide:Lucide Icon="Trash2" Width="13" Height="13" StrokeBrush="#EF4444" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    </Button>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </ScrollViewer>
+        </Border>
+
+        <!-- Bottom Controls -->
+        <Border Grid.Row="3" Margin="0,14,0,0">
+            <Grid ColumnDefinitions="Auto,*,Auto">
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
+                    <Button x:Name="BtnTestAll" Click="OnTestAllClicked"
+                            Background="#1E1E2A" Foreground="#FFFFFF" FontWeight="SemiBold"
+                            CornerRadius="6" Padding="14,8" Cursor="Hand">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <lucide:Lucide Icon="Zap" Width="13" Height="13" StrokeBrush="#F59E0B" VerticalAlignment="Center" />
+                            <TextBlock Text="Test All Latencies" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="BtnRemoveDead" Click="OnRemoveDeadClicked"
+                            Background="#1E1E2A" Foreground="#EF4444"
+                            CornerRadius="6" Padding="14,8" Cursor="Hand">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <lucide:Lucide Icon="Trash2" Width="13" Height="13" StrokeBrush="#EF4444" VerticalAlignment="Center" />
+                            <TextBlock Text="Remove Dead" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+
+                <TextBlock Grid.Column="1" x:Name="TxtStatus" Text="" VerticalAlignment="Center"
+                           HorizontalAlignment="Center" FontSize="12" Foreground="#A1A1AA" Margin="12,0" />
+
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
+                    <Button x:Name="BtnSaveClose" Content="Save &amp; Close" Click="OnSaveCloseClicked"
+                            Background="#FFFFFF" Foreground="#09090B" FontWeight="Bold"
+                            CornerRadius="6" Padding="18,8" Cursor="Hand" />
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

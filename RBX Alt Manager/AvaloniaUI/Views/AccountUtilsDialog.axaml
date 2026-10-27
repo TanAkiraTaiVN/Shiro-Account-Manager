@@ -1,0 +1,83 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="RBX_Alt_Manager.AvaloniaUI.Views.AccountUtilsDialog"
+        Icon="/Resources/shiro.ico"
+        Title="Tiện ích tài khoản • Account Utilities"
+        Width="480" SizeToContent="Height"
+        MinWidth="400" MaxWidth="560"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        Background="#0E0E12"
+        Foreground="#F4F4F5"
+        TransparencyLevelHint="Mica, AcrylicBlur">
+
+    <Border BorderBrush="#272730" BorderThickness="1" CornerRadius="8" Padding="20">
+        <Grid RowDefinitions="Auto,*,Auto,Auto">
+            <!-- Header -->
+            <StackPanel Grid.Row="0" Spacing="4" Margin="0,0,0,16">
+                <TextBlock x:Name="TxtTitle" Text="Tiện ích tài khoản" FontSize="16" FontWeight="SemiBold" Foreground="#FFFFFF"/>
+                <TextBlock x:Name="TxtDisplayName" Text="Username" FontSize="13" Foreground="#A1A1AA"/>
+            </StackPanel>
+
+            <!-- Actions -->
+            <StackPanel Grid.Row="1" Spacing="12" Margin="0,0,0,16">
+                <!-- Log out other sessions -->
+                <Border Background="#16161D" BorderBrush="#262630" BorderThickness="1" CornerRadius="6" Padding="12">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="Đăng xuất phiên khác" FontWeight="SemiBold" Foreground="#FFFFFF" FontSize="13"/>
+                            <TextBlock Text="Đăng xuất tất cả các phiên trình duyệt/app khác ngoại trừ cookie hiện tại" FontSize="11" Foreground="#71717A" TextWrapping="Wrap"/>
+                        </StackPanel>
+                        <Button Grid.Column="1" Content="Thực hiện" Click="BtnLogOutOtherSessions_Click"
+                                Background="#3F3F46" Foreground="#FFFFFF" CornerRadius="4" Padding="12,6" FontSize="12"
+                                VerticalAlignment="Center"/>
+                    </Grid>
+                </Border>
+
+                <!-- Password Management -->
+                <Border Background="#16161D" BorderBrush="#262630" BorderThickness="1" CornerRadius="6" Padding="12">
+                    <Grid RowDefinitions="Auto,Auto">
+                        <StackPanel Margin="0,0,0,8">
+                            <TextBlock Text="Mật khẩu tài khoản (Dùng cho Re-login)" FontWeight="SemiBold" Foreground="#FFFFFF" FontSize="13"/>
+                            <TextBlock Text="Lưu mật khẩu mã hóa an toàn để tự động điền khi Re-login" FontSize="11" Foreground="#71717A"/>
+                        </StackPanel>
+                        <Grid Grid.Row="1" ColumnDefinitions="*,Auto">
+                            <TextBox x:Name="TxtPassword" Watermark="Mật khẩu tài khoản..." PasswordChar="•"
+                                     Background="#1F1F28" Foreground="#FFFFFF" BorderBrush="#2E2E38" BorderThickness="1"
+                                     CornerRadius="4" Padding="8,6" FontSize="13" Margin="0,0,8,0"/>
+                            <Button Grid.Column="1" Content="Lưu mật khẩu" Click="BtnSavePassword_Click"
+                                     Background="#10B981" Foreground="#FFFFFF" CornerRadius="4" Padding="14,6" FontSize="12"/>
+                        </Grid>
+                    </Grid>
+                </Border>
+
+                <!-- Unlock PIN -->
+                <Border Background="#16161D" BorderBrush="#262630" BorderThickness="1" CornerRadius="6" Padding="12">
+                    <Grid RowDefinitions="Auto,Auto">
+                        <StackPanel Margin="0,0,0,8">
+                            <TextBlock Text="Mở khóa mã PIN Roblox" FontWeight="SemiBold" Foreground="#FFFFFF" FontSize="13"/>
+                            <TextBlock Text="Nhập mã PIN gồm 4 số để mở khóa phiên Roblox" FontSize="11" Foreground="#71717A"/>
+                        </StackPanel>
+                        <Grid Grid.Row="1" ColumnDefinitions="*,Auto">
+                            <TextBox x:Name="PbPin" Watermark="Mã PIN 4 số" PasswordChar="•" MaxLength="4"
+                                     Background="#1F1F28" Foreground="#FFFFFF" BorderBrush="#2E2E38" BorderThickness="1"
+                                     CornerRadius="4" Padding="8,6" FontSize="13" Margin="0,0,8,0"/>
+                            <Button Grid.Column="1" Content="Mở khóa" Click="BtnUnlockPin_Click"
+                                     Background="#2563EB" Foreground="#FFFFFF" CornerRadius="4" Padding="14,6" FontSize="12"/>
+                        </Grid>
+                    </Grid>
+                </Border>
+            </StackPanel>
+
+            <!-- Status text -->
+            <TextBlock x:Name="TxtStatus" Grid.Row="2" Text="" FontSize="12" Foreground="#38BDF8" TextWrapping="Wrap" Margin="0,0,0,16"/>
+
+            <!-- Close Button -->
+            <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Đóng" Width="80" Height="32" Click="BtnClose_Click"
+                        Background="#272730" Foreground="#D4D4D8" FontWeight="SemiBold"
+                        CornerRadius="5" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

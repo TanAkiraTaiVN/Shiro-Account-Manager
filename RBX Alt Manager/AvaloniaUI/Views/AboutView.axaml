@@ -1,0 +1,52 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:lucide="clr-namespace:LucideAvalonia;assembly=LucideAvalonia"
+             mc:Ignorable="d"
+             x:Class="RBX_Alt_Manager.AvaloniaUI.Views.AboutView">
+
+    <Grid VerticalAlignment="Center" HorizontalAlignment="Center" Margin="24">
+        <Border Width="480" Background="#111115" BorderBrush="#24242C" BorderThickness="1" CornerRadius="12" Padding="32">
+            <StackPanel HorizontalAlignment="Center" Spacing="16">
+                <!-- Logo Badge -->
+                <Border Width="64" Height="64" CornerRadius="16" ClipToBounds="True" HorizontalAlignment="Center">
+                    <Image Source="/Resources/shiro_logo.png" Width="64" Height="64" Stretch="UniformToFill" />
+                </Border>
+
+                <!-- Titles -->
+                <StackPanel Spacing="4" HorizontalAlignment="Center">
+                    <TextBlock Text="Shiro Account Manager" FontSize="18" FontWeight="Bold" Foreground="#FFFFFF" HorizontalAlignment="Center" />
+                    <TextBlock Text="Next-Gen Roblox Account Manager" FontSize="12" Foreground="#A1A1AA" HorizontalAlignment="Center" />
+                    <Border Background="#1CFFFFFF" CornerRadius="4" Padding="8,3" HorizontalAlignment="Center" Margin="0,6,0,0">
+                        <TextBlock Text="v4.1.0 • Avalonia UI 11.2 • .NET 10 (win-x64)" FontSize="10" FontWeight="SemiBold" Foreground="#FFFFFF" />
+                    </Border>
+                </StackPanel>
+
+                <Separator Background="#24242C" Height="1" />
+
+                <!-- Technology Specs -->
+                <StackPanel Spacing="8" HorizontalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
+                        <lucide:Lucide Icon="Zap" Width="13" Height="13" StrokeBrush="#A1A1AA" VerticalAlignment="Center" />
+                        <TextBlock Text="Powered by .NET 10 C# 13 &amp; Avalonia UI 11" FontSize="11" Foreground="#A1A1AA" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
+                        <lucide:Lucide Icon="Lock" Width="13" Height="13" StrokeBrush="#A1A1AA" VerticalAlignment="Center" />
+                        <TextBlock Text="Authenticated AES-256-GCM / PBKDF2 (SHA-256)" FontSize="11" Foreground="#A1A1AA" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
+                        <lucide:Lucide Icon="Globe" Width="13" Height="13" StrokeBrush="#A1A1AA" VerticalAlignment="Center" />
+                        <TextBlock Text="Cloud-Native ASP.NET Core Kestrel Integration" FontSize="11" Foreground="#A1A1AA" VerticalAlignment="Center" />
+                    </StackPanel>
+                </StackPanel>
+
+                <Separator Background="#24242C" Height="1" />
+
+                <!-- Copyright -->
+                <TextBlock Text="Copyright © 2026 Shiro RAM Project. Released under GPL-3.0."
+                           FontSize="10" Foreground="#63636E" HorizontalAlignment="Center" />
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

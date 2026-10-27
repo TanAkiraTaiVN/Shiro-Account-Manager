@@ -1,0 +1,66 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="clr-namespace:RBX_Alt_Manager.AvaloniaUI.Converters"
+             x:Class="RBX_Alt_Manager.AvaloniaUI.App"
+             RequestedThemeVariant="Dark">
+    <Application.Resources>
+        <conv:InverseBooleanConverter x:Key="InverseBoolConverter" />
+        <conv:StringNotNullOrEmptyConverter x:Key="StringNotNullOrEmpty" />
+        <conv:CountToVisibilityConverter x:Key="CountToVisibility" />
+        <conv:EqualityToBooleanConverter x:Key="EqualityToBoolean" />
+
+        <!-- Status Brushes -->
+        <SolidColorBrush x:Key="GreenBrush">#22C55E</SolidColorBrush>
+        <SolidColorBrush x:Key="RedBrush">#EF4444</SolidColorBrush>
+        <SolidColorBrush x:Key="AmberBrush">#F59E0B</SolidColorBrush>
+        <SolidColorBrush x:Key="BlueBrush">#38BDF8</SolidColorBrush>
+        <SolidColorBrush x:Key="PurpleBrush">#A855F7</SolidColorBrush>
+        <SolidColorBrush x:Key="MutedTextBrush">#A1A1AA</SolidColorBrush>
+        <SolidColorBrush x:Key="SubtleBorderBrush">#24242C</SolidColorBrush>
+        <SolidColorBrush x:Key="CardBackgroundBrush">#14141A</SolidColorBrush>
+        <SolidColorBrush x:Key="SurfaceBackgroundBrush">#111115</SolidColorBrush>
+    </Application.Resources>
+
+    <Application.Styles>
+        <FluentTheme />
+
+        <!-- Allow horizontal ProgressBar to shrink and respect custom width without default Fluent 200px MinWidth -->
+        <Style Selector="ProgressBar:horizontal">
+            <Setter Property="MinWidth" Value="0" />
+            <Setter Property="MinHeight" Value="0" />
+        </Style>
+
+        <!-- Sleek Modern ScrollBar Styling across entire Application -->
+        <Style Selector="ScrollBar:vertical">
+            <Setter Property="Width" Value="8" />
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="ScrollBar:vertical /template/ Thumb">
+            <Setter Property="Background" Value="#38384A" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="MinWidth" Value="6" />
+        </Style>
+        <Style Selector="ScrollBar:vertical:pointerover /template/ Thumb">
+            <Setter Property="Background" Value="#5C5C7A" />
+        </Style>
+        <Style Selector="ScrollBar:vertical /template/ RepeatButton">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+
+        <Style Selector="ScrollBar:horizontal">
+            <Setter Property="Height" Value="8" />
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="ScrollBar:horizontal /template/ Thumb">
+            <Setter Property="Background" Value="#38384A" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="MinHeight" Value="6" />
+        </Style>
+        <Style Selector="ScrollBar:horizontal:pointerover /template/ Thumb">
+            <Setter Property="Background" Value="#5C5C7A" />
+        </Style>
+        <Style Selector="ScrollBar:horizontal /template/ RepeatButton">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+    </Application.Styles>
+</Application>

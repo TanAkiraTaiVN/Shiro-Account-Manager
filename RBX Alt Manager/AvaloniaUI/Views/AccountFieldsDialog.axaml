@@ -1,0 +1,59 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:views="clr-namespace:RBX_Alt_Manager.AvaloniaUI.Views"
+        x:Class="RBX_Alt_Manager.AvaloniaUI.Views.AccountFieldsDialog"
+        x:CompileBindings="True"
+        Icon="/Resources/shiro.ico"
+        Title="Trường dữ liệu tùy chỉnh • Custom Fields"
+        Width="500" Height="480"
+        MinWidth="420" MinHeight="360"
+        WindowStartupLocation="CenterOwner"
+        Background="#0E0E12"
+        Foreground="#F4F4F5"
+        TransparencyLevelHint="Mica, AcrylicBlur">
+
+    <Border BorderBrush="#272730" BorderThickness="1" CornerRadius="8" Padding="18">
+        <Grid RowDefinitions="Auto,*,Auto,Auto">
+            <!-- Header -->
+            <TextBlock x:Name="TxtHeaderTitle" Text="Trường dữ liệu • Username"
+                       FontSize="16" FontWeight="SemiBold" Foreground="#FFFFFF" Margin="0,0,0,12"/>
+
+            <!-- List of existing fields -->
+            <Border Grid.Row="1" Background="#141419" BorderBrush="#24242C" BorderThickness="1" CornerRadius="6" Padding="6" Margin="0,0,0,12">
+                <ListBox x:Name="FieldsListBox" Background="Transparent">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="views:AccountFieldItem">
+                            <Grid ColumnDefinitions="*,*,Auto" Margin="4,2">
+                                <TextBlock Grid.Column="0" Text="{Binding Key}" FontWeight="SemiBold" Foreground="#FFFFFF" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="1" Text="{Binding Value}" Foreground="#A1A1AA" VerticalAlignment="Center"/>
+                                <Button Grid.Column="2" Content="Xóa" Click="BtnDeleteField_Click"
+                                        Background="#DC2626" Foreground="#FFFFFF" FontSize="11"
+                                        CornerRadius="4" Padding="8,3"/>
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Border>
+
+            <!-- Add new field inputs -->
+            <Grid Grid.Row="2" ColumnDefinitions="*,*,Auto" Margin="0,0,0,12">
+                <TextBox x:Name="TxtNewKey" Watermark="Tên trường (Key)" Margin="0,0,8,0"
+                         Background="#18181F" Foreground="#FFFFFF" BorderBrush="#2E2E38" BorderThickness="1"
+                         CornerRadius="4" Padding="8,6" FontSize="12"/>
+                <TextBox Grid.Column="1" x:Name="TxtNewValue" Watermark="Giá trị (Value)" Margin="0,0,8,0"
+                         Background="#18181F" Foreground="#FFFFFF" BorderBrush="#2E2E38" BorderThickness="1"
+                         CornerRadius="4" Padding="8,6" FontSize="12"/>
+                <Button Grid.Column="2" Content="Thêm" Click="BtnAddField_Click"
+                        Background="#2563EB" Foreground="#FFFFFF" FontWeight="SemiBold"
+                        CornerRadius="4" Padding="14,6" FontSize="12"/>
+            </Grid>
+
+            <!-- Close button -->
+            <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                <Button Content="Đóng" Width="80" Height="32" Click="BtnClose_Click"
+                        Background="#272730" Foreground="#D4D4D8" FontWeight="SemiBold"
+                        CornerRadius="5" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

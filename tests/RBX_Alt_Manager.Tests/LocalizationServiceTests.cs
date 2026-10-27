@@ -1,0 +1,157 @@
+using System;
+using RBX_Alt_Manager.Services;
+using Xunit;
+
+namespace RBX_Alt_Manager.Tests
+{
+    public class LocalizationServiceTests
+    {
+        [Fact]
+        public void AppSettingsKeys_ContainsLanguageKey()
+        {
+            Assert.Equal("Language", AppSettingsKeys.General.Language);
+        }
+
+        [Fact]
+        public void SetLanguage_English_UpdatesStateAndStrings()
+        {
+            LocalizationService.SetLanguage(AppLanguage.English, saveSetting: false);
+
+            Assert.Equal(AppLanguage.English, LocalizationService.CurrentLanguage);
+            Assert.True(LocalizationService.IsEnglish);
+            Assert.False(LocalizationService.IsVietnamese);
+            Assert.Equal("en", LocalizationService.CurrentLanguageCode);
+
+            Assert.Equal("OK", Loc.Get("Btn_OK"));
+            Assert.Equal("Cancel", Loc.Get("Btn_Cancel"));
+            Assert.Equal("Accounts", Loc.Get("Dash_AccountsTitle"));
+            Assert.Equal("In Game", Loc.Get("Status_InGame"));
+        }
+
+        [Fact]
+        public void SetLanguage_Vietnamese_UpdatesStateAndStrings()
+        {
+            LocalizationService.SetLanguage(AppLanguage.Vietnamese, saveSetting: false);
+
+            Assert.Equal(AppLanguage.Vietnamese, LocalizationService.CurrentLanguage);
+            Assert.True(LocalizationService.IsVietnamese);
+            Assert.False(LocalizationService.IsEnglish);
+            Assert.Equal("vi", LocalizationService.CurrentLanguageCode);
+
+            Assert.Equal("Đồng ý", Loc.Get("Btn_OK"));
+            Assert.Equal("Hủy bỏ", Loc.Get("Btn_Cancel"));
+            Assert.Equal("Tài khoản", Loc.Get("Dash_AccountsTitle"));
+            Assert.Equal("Đang trong Game", Loc.Get("Status_InGame"));
+        }
+
+        [Fact]
+        public void ToggleLanguage_AlternatesLanguage()
+        {
+            LocalizationService.SetLanguage(AppLanguage.Vietnamese, saveSetting: false);
+            LocalizationService.ToggleLanguage();
+            Assert.Equal(AppLanguage.English, LocalizationService.CurrentLanguage);
+
+            LocalizationService.ToggleLanguage();
+            Assert.Equal(AppLanguage.Vietnamese, LocalizationService.CurrentLanguage);
+        }
+
+        [Fact]
+        public void Loc_Format_WithFormatArgs_FormatsCorrectly()
+        {
+            LocalizationService.SetLanguage(AppLanguage.English, saveSetting: false);
+            string formattedEn = Loc.Format("Status_InGameNamed", "Blox Fruits");
+            Assert.Equal("Playing: Blox Fruits", formattedEn);
+
+            LocalizationService.SetLanguage(AppLanguage.Vietnamese, saveSetting: false);
+            string formattedVi = Loc.Format("Status_InGameNamed", "Blox Fruits");
+            Assert.Equal("Đang chơi: Blox Fruits", formattedVi);
+        }
+
+        [Fact]
+        public void Loc_Get_NonExistentKey_ReturnsFallbackOrKey()
+        {
+            string fallback = Loc.Get("NonExistentKey_XYZ", "DefaultFallback");
+            Assert.Equal("DefaultFallback", fallback);
+
+            string keyItself = Loc.Get("NonExistentKey_XYZ");
+            Assert.Equal("NonExistentKey_XYZ", keyItself);
+        }
+
+        [Fact]
+        public void LanguageChanged_Event_TriggersOnLanguageChange()
+        {
+            AppLanguage received = AppLanguage.Vietnamese;
+            bool eventFired = false;
+
+            void Handler(AppLanguage lang)
+            {
+                received = lang;
+                eventFired = true;
+            }
+
+            LocalizationService.LanguageChanged += Handler;
+            try
+            {
+                LocalizationService.SetLanguage(AppLanguage.English, saveSetting: false);
+                Assert.True(eventFired);
+                Assert.Equal(AppLanguage.English, received);
+            }
+            finally
+            {
+                LocalizationService.LanguageChanged -= Handler;
+                LocalizationService.SetLanguage(AppLanguage.Vietnamese, saveSetting: false);
+            }
+        }
+
+        [Theory]
+        [InlineData("Roblox Account Manager (EN)", null, null, null, AppLanguage.English)]
+        [InlineData("Roblox Account Manager (VN)", null, null, null, AppLanguage.Vietnamese)]
+        [InlineData("Roblox Account Manager_EN", null, null, null, AppLanguage.English)]
+        [InlineData("Roblox Account Manager_VN", null, null, null, AppLanguage.Vietnamese)]
+        [InlineData("Roblox Account Manager", new[] { "--en" }, null, null, AppLanguage.English)]
+        [InlineData("Roblox Account Manager", new[] { "--vn" }, null, null, AppLanguage.Vietnamese)]
+        [InlineData("Roblox Account Manager", new[] { "--lang=en" }, null, null, AppLanguage.English)]
+        [InlineData("Roblox Account Manager", new[] { "--lang=vi" }, null, null, AppLanguage.Vietnamese)]
+        [InlineData("Roblox Account Manager", null, "en", null, AppLanguage.English)]
+        [InlineData("Roblox Account Manager", null, "vi", null, AppLanguage.Vietnamese)]
+        [InlineData("Roblox Account Manager", null, null, "vi", AppLanguage.Vietnamese)]
+        [InlineData("Roblox Account Manager", null, null, "en", AppLanguage.English)]
+        public void ResolveInitialLanguage_ResolvesCorrectLanguage(
+            string processName,
+            string[]? args,
+            string? savedSetting,
+            string? cultureCode,
+            AppLanguage expected)
+        {
+            var result = LocalizationService.ResolveInitialLanguage(processName, args, savedSetting, cultureCode);
+            Assert.Equal(expected, result);
+        }
+
+        [Fact]
+        public void EnsureCoreKeys_EnglishAndVietnamese_ContainAllEssentialKeys()
+        {
+            LocalizationService.SetLanguage(AppLanguage.English, saveSetting: false);
+            Assert.Equal("Accounts", Loc.Get("Nav_Accounts"));
+            Assert.Equal("Close Roblox", Loc.Get("Nav_CloseRoblox"));
+            Assert.Equal("Accounts", Loc.Get("Dash_Title"));
+            Assert.Equal("PLAYING", Loc.Get("Dash_Playing"));
+            Assert.Equal("System Settings", Loc.Get("Set_Title"));
+
+            LocalizationService.SetLanguage(AppLanguage.Vietnamese, saveSetting: false);
+            Assert.Equal("Tài khoản", Loc.Get("Nav_Accounts"));
+            Assert.Equal("Đóng Roblox", Loc.Get("Nav_CloseRoblox"));
+            Assert.Equal("Tài khoản", Loc.Get("Dash_Title"));
+            Assert.Equal("ĐANG CHƠI", Loc.Get("Dash_Playing"));
+            Assert.Equal("Cài đặt hệ thống", Loc.Get("Set_Title"));
+        }
+
+        [Fact]
+        public void GameThumbnailService_DiskCachePath_IsValid()
+        {
+            string path = GameThumbnailService.GetDiskCachePath(123456);
+            Assert.NotNull(path);
+            Assert.Contains("GameThumbnails", path);
+            Assert.EndsWith("123456.png", path);
+        }
+    }
+}
