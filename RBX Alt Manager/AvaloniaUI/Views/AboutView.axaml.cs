@@ -1,3 +1,4 @@
+#nullable enable
 using Avalonia.Controls;
 
 namespace RBX_Alt_Manager.AvaloniaUI.Views

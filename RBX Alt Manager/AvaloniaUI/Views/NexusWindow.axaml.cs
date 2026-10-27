@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -26,8 +27,8 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
         private static readonly IBrush StopButtonBrush = new SolidColorBrush(Color.Parse("#DC2626"));
         private static readonly IBrush StartButtonBrush = new SolidColorBrush(Color.Parse("#0284C7"));
 
-        public static NexusWindow Instance { get; private set; }
-        public static NexusWebSocketServer Server { get; private set; }
+        public static NexusWindow? Instance { get; private set; }
+        public static NexusWebSocketServer? Server { get; private set; }
 
         public ObservableCollection<ControlledAccount> Accounts { get; } = new();
         public ConcurrentDictionary<WebSocket, ControlledAccount> ContextList { get; } = new();
@@ -47,7 +48,7 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
             };
         }
 
-        private async void NexusWindow_Loaded(object sender, RoutedEventArgs e)
+        private async void NexusWindow_Loaded(object? sender, RoutedEventArgs e)
         {
             LoadSettings();
             LoadAccounts();
@@ -276,9 +277,9 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
             }
         }
 
-        private void BtnExecuteSelected_Click(object sender, RoutedEventArgs e)
+        private void BtnExecuteSelected_Click(object? sender, RoutedEventArgs e)
         {
-            string script = TxtScriptInput.Text;
+            string? script = TxtScriptInput.Text;
             if (string.IsNullOrWhiteSpace(script))
             {
                 SetStatus("⚠️ Vui lòng nhập mã script cần thực thi.");
@@ -288,9 +289,9 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
             SetStatus("▶️ Đã gửi mã script tới các tài khoản đã chọn.");
         }
 
-        private void BtnExecuteAll_Click(object sender, RoutedEventArgs e)
+        private void BtnExecuteAll_Click(object? sender, RoutedEventArgs e)
         {
-            string script = TxtScriptInput.Text;
+            string? script = TxtScriptInput.Text;
             if (string.IsNullOrWhiteSpace(script))
             {
                 SetStatus("⚠️ Vui lòng nhập mã script cần thực thi.");

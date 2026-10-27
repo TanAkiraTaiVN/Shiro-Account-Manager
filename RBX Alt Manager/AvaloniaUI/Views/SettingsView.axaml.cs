@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.IO;
 using System.Threading;
@@ -99,7 +100,7 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
         }
 
         private AccentTheme _selectedTheme = AccentTheme.Monochrome;
-        private CancellationTokenSource _feedbackCts;
+        private CancellationTokenSource? _feedbackCts;
 
         private void OnLanguageChanged(object sender, SelectionChangedEventArgs e)
         {

@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.IO;
 using System.Runtime.InteropServices;
@@ -14,19 +15,19 @@ namespace RBX_Alt_Manager.AvaloniaUI.Controls
     public partial class WebView2Control : NativeControlHost
     {
         private static readonly System.Threading.Lock EnvironmentLock = new();
-        private static Task<CoreWebView2Environment> SharedEnvironmentTask;
+        private static Task<CoreWebView2Environment>? SharedEnvironmentTask;
 
         private IntPtr _childHwnd;
-        private CoreWebView2Controller _controller;
-        private CoreWebView2Environment _environment;
+        private CoreWebView2Controller? _controller;
+        private CoreWebView2Environment? _environment;
         private bool _isInitialized;
         private int _lastWidth = -1;
         private int _lastHeight = -1;
 
-        public CoreWebView2 CoreWebView2 => _controller?.CoreWebView2;
-        public CoreWebView2Controller Controller => _controller;
+        public CoreWebView2? CoreWebView2 => _controller?.CoreWebView2;
+        public CoreWebView2Controller? Controller => _controller;
 
-        public event EventHandler<WebView2InitializedEventArgs> CoreWebView2InitializationCompleted;
+        public event EventHandler<WebView2InitializedEventArgs>? CoreWebView2InitializationCompleted;
 
         [LibraryImport("user32.dll", EntryPoint = "CreateWindowExW", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
         private static partial IntPtr CreateWindowEx(
@@ -167,7 +168,7 @@ namespace RBX_Alt_Manager.AvaloniaUI.Controls
             return controller;
         }
 
-        public async Task<CoreWebView2> ResetToFreshProfileAsync()
+        public async Task<CoreWebView2?> ResetToFreshProfileAsync()
         {
             if (!OperatingSystem.IsWindows() || _childHwnd == IntPtr.Zero)
                 return CoreWebView2;
@@ -259,10 +260,10 @@ namespace RBX_Alt_Manager.AvaloniaUI.Controls
 
     public class WebView2InitializedEventArgs : EventArgs
     {
-        public Exception Error { get; }
+        public Exception? Error { get; }
         public bool IsSuccess => Error == null;
 
-        public WebView2InitializedEventArgs(Exception error)
+        public WebView2InitializedEventArgs(Exception? error)
         {
             Error = error;
         }

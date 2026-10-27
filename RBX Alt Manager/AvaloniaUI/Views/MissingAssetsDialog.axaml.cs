@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -18,7 +19,7 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
     {
         private string _name = "Đang tải...";
         private string _priceText = "Giá: Đang kiểm tra...";
-        private string _imageUrl;
+        private string _imageUrl = string.Empty;
         private bool _canBuy;
         private string _buyButtonText = "Mua";
 
@@ -63,10 +64,10 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
 
     public partial class MissingAssetsDialog : Window
     {
-        private readonly Account _account;
-        private readonly long[] _assetIds;
+        private readonly Account? _account;
+        private readonly long[] _assetIds = Array.Empty<long>();
         private readonly ObservableCollection<MissingAssetDisplayItem> _items = new();
-        private CancellationTokenSource _loadCts;
+        private CancellationTokenSource? _loadCts;
 
         public MissingAssetsDialog()
         {
@@ -86,7 +87,7 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
             Loaded += MissingAssetsDialog_Loaded;
         }
 
-        private async void MissingAssetsDialog_Loaded(object sender, RoutedEventArgs e)
+        private async void MissingAssetsDialog_Loaded(object? sender, RoutedEventArgs e)
         {
             if (_account == null)
             {
@@ -167,9 +168,9 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
                     var root = doc.RootElement;
                     if (root.ValueKind == JsonValueKind.Object)
                     {
-                        string name = root.TryGetProperty("Name", out var nameElem) && nameElem.ValueKind == JsonValueKind.String
+                        string name = (root.TryGetProperty("Name", out var nameElem) && nameElem.ValueKind == JsonValueKind.String
                             ? nameElem.GetString()
-                            : $"Vật phẩm #{item.AssetId}";
+                            : $"Vật phẩm #{item.AssetId}") ?? $"Vật phẩm #{item.AssetId}";
 
                         bool isForSale = root.TryGetProperty("IsForSale", out var saleElem) &&
                                          (saleElem.ValueKind == JsonValueKind.True || (saleElem.ValueKind == JsonValueKind.False && false));

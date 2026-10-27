@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -88,7 +89,7 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
             return new List<Account>();
         }
 
-        public void LoadDashboardData(IReadOnlyList<Account> accountsSnapshot = null)
+        public void LoadDashboardData(IReadOnlyList<Account>? accountsSnapshot = null)
         {
             try
             {
@@ -114,7 +115,7 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
         // ================= TOP ACTION TOOLBAR EVENT HANDLERS =================
         private void OnJoinServerClicked(object sender, RoutedEventArgs e)
         {
-            string placeIdStr = TxtPlaceId?.Text?.Trim();
+            string placeIdStr = TxtPlaceId?.Text?.Trim() ?? string.Empty;
             long placeId = AccountLauncherService.ParsePlaceId(placeIdStr);
             if (placeId <= 0)
             {
@@ -158,12 +159,12 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
             AccountLauncherService.MultiLaunchHome();
         }
 
-        private void OnAddFastLoginClicked(object sender, RoutedEventArgs e)
+        private void OnAddFastLoginClicked(object? sender = null, RoutedEventArgs? e = null)
         {
             AppServices.Dialogs.OpenFastLoginDialog(null);
         }
 
-        private void OnAddChromeClicked(object sender, RoutedEventArgs e)
+        private void OnAddChromeClicked(object? sender = null, RoutedEventArgs? e = null)
         {
             Task.Run(async () =>
             {
@@ -179,7 +180,7 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
             });
         }
 
-        private void OnAddCookieClicked(object sender, RoutedEventArgs e)
+        private void OnAddCookieClicked(object? sender = null, RoutedEventArgs? e = null)
         {
             string cookie = AppServices.Dialogs.ShowInputPrompt("Dán chuỗi Cookie .ROBLOSECURITY vào ô bên dưới:", "Nhập Cookie");
             if (!string.IsNullOrWhiteSpace(cookie) && cookie != "/UC")
@@ -206,17 +207,17 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
             }
         }
 
-        private void OnBulkImportClicked(object sender, RoutedEventArgs e)
+        private void OnBulkImportClicked(object? sender = null, RoutedEventArgs? e = null)
         {
             AppServices.Dialogs.OpenBulkImportDialog();
         }
 
-        private void OnProxiesClicked(object sender, RoutedEventArgs e)
+        private void OnProxiesClicked(object? sender = null, RoutedEventArgs? e = null)
         {
             AppServices.Dialogs.OpenProxyManagerDialog();
         }
 
-        private void OnNexusClicked(object sender, RoutedEventArgs e)
+        private void OnNexusClicked(object? sender = null, RoutedEventArgs? e = null)
         {
             AppServices.Dialogs.OpenNexusWindow();
         }
@@ -296,7 +297,7 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
                 || visual.FindAncestorOfType<ComboBox>() != null;
         }
 
-        private void LaunchAppHomeForSender(object sender)
+        private void LaunchAppHomeForSender(object? sender)
         {
             var avm = GetItemFromMenu(sender);
             if (avm?.Model != null)
@@ -305,21 +306,24 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
             }
         }
 
-        private void JoinSingleAccountServer(AccountViewModel avm)
+        private void JoinSingleAccountServer(AccountViewModel? avm)
         {
             if (avm?.Model == null) return;
-            long placeId = AccountLauncherService.ParsePlaceId(ViewModel.PlaceId?.Trim());
+            long placeId = AccountLauncherService.ParsePlaceId(ViewModel?.PlaceId?.Trim() ?? string.Empty);
             if (placeId > 0)
             {
-                Task.Run(async () => await AccountLauncherService.JoinServerAsync(new[] { avm.Model }, placeId, ViewModel.JobId?.Trim() ?? string.Empty));
+                Task.Run(async () => await AccountLauncherService.JoinServerAsync(new[] { avm.Model }, placeId, ViewModel?.JobId?.Trim() ?? string.Empty));
             }
             else
             {
-                ViewModel.StatusMessage = "⚠️ Vui lòng nhập Place ID hoặc link game hợp lệ trước khi vào Server!";
+                if (ViewModel != null)
+                {
+                    ViewModel.StatusMessage = "⚠️ Vui lòng nhập Place ID hoặc link game hợp lệ trước khi vào Server!";
+                }
             }
         }
 
-        private void CloseRobloxForAccount(AccountViewModel avm)
+        private void CloseRobloxForAccount(AccountViewModel? avm)
         {
             if (avm?.Model == null) return;
             var model = avm.Model;
@@ -403,7 +407,7 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
         }
 
         // ================= CONTEXT MENU ACTIONS =================
-        private AccountViewModel GetItemFromMenu(object sender)
+        private AccountViewModel? GetItemFromMenu(object? sender)
         {
             if (sender is MenuItem mi)
             {
@@ -432,7 +436,7 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
             return ViewModel?.FilteredAccounts?.FirstOrDefault(a => a.IsSelected) ?? ViewModel?.FilteredAccounts?.FirstOrDefault();
         }
 
-        private void ExecuteMenuCommand(object sender, ICommand command)
+        private void ExecuteMenuCommand(object? sender, ICommand? command)
         {
             var avm = GetItemFromMenu(sender);
             if (avm != null && command != null)

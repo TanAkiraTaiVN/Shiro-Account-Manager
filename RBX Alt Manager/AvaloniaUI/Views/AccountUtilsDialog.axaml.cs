@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
@@ -11,7 +12,7 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
         private static readonly IBrush BrushError = new SolidColorBrush(Color.Parse("#EF4444"));
         private static readonly IBrush BrushSuccess = new SolidColorBrush(Color.Parse("#22C55E"));
 
-        private readonly Account _account;
+        private readonly Account? _account;
         private bool _isBusy;
 
         public AccountUtilsDialog()
@@ -82,7 +83,7 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
                 return;
             }
 
-            string pin = PbPin.Text?.Trim();
+            string? pin = PbPin.Text?.Trim();
             if (string.IsNullOrWhiteSpace(pin) || pin.Length != 4)
             {
                 SetStatus("⚠️ Vui lòng nhập mã PIN gồm 4 chữ số!", true);

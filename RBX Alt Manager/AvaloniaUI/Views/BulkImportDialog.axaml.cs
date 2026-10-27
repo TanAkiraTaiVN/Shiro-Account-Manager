@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -14,7 +15,7 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
 {
     public partial class BulkImportDialog : Window
     {
-        private CancellationTokenSource _cts;
+        private CancellationTokenSource? _cts;
         public int ImportedCount { get; private set; }
 
         public BulkImportDialog()
@@ -43,7 +44,7 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
 
         private async void OnStartImportClicked(object sender, RoutedEventArgs e)
         {
-            string raw = TxtImportData.Text;
+            string? raw = TxtImportData.Text;
             if (string.IsNullOrWhiteSpace(raw))
             {
                 TxtStatus.Text = "Vui lòng dán danh sách tài khoản cần nhập.";
@@ -72,7 +73,7 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
             int success = 0;
             int failed = 0;
 
-            var cookieLines = new List<(string cookie, string password)>();
+            var cookieLines = new List<(string cookie, string? password)>();
             var userPassLines = new List<(string username, string password)>();
 
             foreach (var line in lines)
@@ -125,7 +126,7 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
                         try
                         {
                             if (token.IsCancellationRequested) return;
-                            var acc = await AccountManager.AddAccountAsync(item.cookie, item.password, saveImmediate: false, cancellationToken: token).ConfigureAwait(true);
+                            var acc = await AccountManager.AddAccountAsync(item.cookie, item.password ?? string.Empty, saveImmediate: false, cancellationToken: token).ConfigureAwait(true);
                             int newSuccess = acc != null && acc.Valid
                                 ? Interlocked.Increment(ref success)
                                 : Volatile.Read(ref success);
@@ -174,7 +175,7 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
 
                         TxtStatus.Text = $"Đang lưu thông tin tài khoản {up.username} ({upIndex}/{userPassLines.Count})...";
 
-                        if (!existingByUsername.TryGetValue(up.username, out Account targetAcc))
+                        if (!existingByUsername.TryGetValue(up.username, out Account? targetAcc))
                         {
                             long resolvedUserId = 0;
                             try
@@ -268,7 +269,7 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
             }
         }
 
-        public static (string cookie, string password) ParseAccountLine(string line)
+        public static (string? cookie, string? password) ParseAccountLine(string? line)
         {
             if (string.IsNullOrWhiteSpace(line))
                 return (null, null);
@@ -287,7 +288,7 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
                 else if (line[i] == ':') colonCount++;
             }
 
-            string[] parts = null;
+            string[]? parts = null;
             if (pipeCount >= 2)
             {
                 parts = line.Split(new[] { '|' }, 3);
@@ -304,17 +305,17 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
                 if (candidateCookie.Contains("_|WARNING") || candidateCookie.Length > 80)
                 {
                     string pass = parts[1].Trim();
-                    string cleaned = CleanCookie(candidateCookie);
+                    string? cleaned = CleanCookie(candidateCookie);
                     if (!string.IsNullOrEmpty(cleaned))
                         return (cleaned, pass);
                 }
             }
 
-            string singleCookie = CleanCookie(line);
+            string? singleCookie = CleanCookie(line);
             return (!string.IsNullOrEmpty(singleCookie) ? singleCookie : null, null);
         }
 
-        public static string CleanCookie(string line)
+        public static string? CleanCookie(string? line)
         {
             if (string.IsNullOrWhiteSpace(line))
                 return null;

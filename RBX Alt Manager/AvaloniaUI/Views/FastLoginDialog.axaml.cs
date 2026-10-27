@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -16,18 +17,18 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
 {
     public partial class FastLoginDialog : Window
     {
-        private DispatcherTimer _pollTimer;
+        private DispatcherTimer? _pollTimer;
         private readonly List<Account> _accountQueue = new List<Account>();
         private readonly HashSet<string> _ignoredCookieValues = new HashSet<string>(StringComparer.Ordinal);
         private int _currentQueueIndex;
-        private string _username;
-        private string _password;
+        private string _username = string.Empty;
+        private string _password = string.Empty;
         private bool _captured;
         private bool _isCheckingSession;
-        private string _lastVerifiedCookie;
-        private Account _lastVerifiedAccount;
+        private string _lastVerifiedCookie = string.Empty;
+        private Account? _lastVerifiedAccount;
 
-        public Account CreatedAccount { get; private set; }
+        public Account? CreatedAccount { get; private set; }
 
         // Only SHA-256 fingerprints of seen cookies are kept in memory, never the raw .ROBLOSECURITY values.
         private static string Fingerprint(string value) =>
@@ -38,7 +39,7 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
             InitializeComponent();
         }
 
-        public FastLoginDialog(Account account = null) : this()
+        public FastLoginDialog(Account? account = null) : this()
         {
             if (account != null)
             {
@@ -179,11 +180,11 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
             core.SourceChanged += OnSourceChanged;
         }
 
-        private void OnWebMessageReceived(object sender, CoreWebView2WebMessageReceivedEventArgs e)
+        private void OnWebMessageReceived(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
         {
             try
             {
-                string raw = null;
+                string? raw = null;
                 try { raw = e.TryGetWebMessageAsString(); } catch (Exception) { }
                 if (string.IsNullOrEmpty(raw))
                 {
@@ -197,7 +198,7 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
                         typeEl.GetString() == "shiro_password_captured" &&
                         doc.RootElement.TryGetProperty("password", out var passEl))
                     {
-                        string pass = passEl.GetString();
+                        string? pass = passEl.GetString();
                         if (!string.IsNullOrEmpty(pass))
                         {
                             _password = pass;
@@ -268,7 +269,7 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
                    url.Contains("/security-notification", StringComparison.OrdinalIgnoreCase);
         }
 
-        private Account GetCurrentQueueAccount()
+        private Account? GetCurrentQueueAccount()
         {
             return (_currentQueueIndex >= 0 && _currentQueueIndex < _accountQueue.Count)
                 ? _accountQueue[_currentQueueIndex]
@@ -300,7 +301,7 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
             await AdvanceToNextAccountOrCloseAsync();
         }
 
-        private async Task<(string IssueBadge, string Reason)> DetectDomAccountIssueAsync(CoreWebView2 core)
+        private async Task<(string? IssueBadge, string? Reason)> DetectDomAccountIssueAsync(CoreWebView2? core)
         {
             if (core == null || _accountQueue.Count == 0)
                 return (null, null);
@@ -358,7 +359,7 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
             }
         }
 
-        private async void OnSourceChanged(object sender, CoreWebView2SourceChangedEventArgs e)
+        private async void OnSourceChanged(object? sender, CoreWebView2SourceChangedEventArgs e)
         {
             string currentUrl = WvBrowser?.CoreWebView2?.Source ?? string.Empty;
             if (!_captured && _accountQueue.Count > 0 && IsModerationOrLockedUrl(currentUrl))
@@ -370,7 +371,7 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
             await CheckAndCaptureSessionAsync();
         }
 
-        private async void OnNavigationCompleted(object sender, CoreWebView2NavigationCompletedEventArgs e)
+        private async void OnNavigationCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs e)
         {
             string currentUrl = WvBrowser?.CoreWebView2?.Source ?? string.Empty;
             if (!_captured && _accountQueue.Count > 0 && IsModerationOrLockedUrl(currentUrl))
@@ -411,7 +412,7 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
             await CheckAndCaptureSessionAsync();
         }
 
-        private async void OnPollTimerTick(object sender, EventArgs e)
+        private async void OnPollTimerTick(object? sender, EventArgs e)
         {
             await CheckAndCaptureSessionAsync();
         }
@@ -543,7 +544,7 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
 
                 // Create a 100% isolated virgin WebView2 profile for the next account so no IndexedDB HBA keys,
                 // LocalStorage CachedUserId, or RBXEventTrackerV2 cookies are ever shared across accounts!
-                CoreWebView2 freshCore = null;
+                CoreWebView2? freshCore = null;
                 if (WvBrowser != null)
                 {
                     freshCore = await WvBrowser.ResetToFreshProfileAsync();
@@ -585,7 +586,7 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
                 }
 
                 var cookies = await core.CookieManager.GetCookiesAsync("https://www.roblox.com");
-                CoreWebView2Cookie secCookie = null;
+                CoreWebView2Cookie? secCookie = null;
                 foreach (var c in cookies)
                 {
                     if (c.Name.Equals(".ROBLOSECURITY", StringComparison.OrdinalIgnoreCase))
@@ -699,7 +700,7 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
                             ");
                             if (!string.IsNullOrWhiteSpace(passJson) && passJson != "null" && passJson != "\"\"")
                             {
-                                string unescaped = null;
+                                string? unescaped = null;
                                 try { unescaped = JsonSerializer.Deserialize<string>(passJson); } catch (Exception) { }
                                 if (string.IsNullOrEmpty(unescaped)) unescaped = passJson.Trim('"');
                                 if (!string.IsNullOrEmpty(unescaped))
@@ -729,8 +730,8 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
                         Program.Logger?.Debug($"core.Stop() threw: {ex.Message}");
                     }
 
-                    Account acc = await AccountManager.AddAccountAsync(cookieValue, _password ?? "");
-                    Program.Logger.Info($"[FastLogin] Captured session for '{_username}': payloadLen={Account.GetSessionTokenPayloadLength(cookieValue)}, registeredValid={acc?.Valid}, resolvedUser={acc?.Username}.");
+                    Account? acc = await AccountManager.AddAccountAsync(cookieValue, _password ?? "");
+                    Program.Logger?.Info($"[FastLogin] Captured session for '{_username}': payloadLen={Account.GetSessionTokenPayloadLength(cookieValue)}, registeredValid={acc?.Valid}, resolvedUser={acc?.Username}.");
 
                     if (acc != null && acc.Valid)
                     {
@@ -744,7 +745,7 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
                             // Stale session from previous account; reset to a fresh isolated WebView2 profile and re-login target account
                             core.NavigationCompleted -= OnNavigationCompleted;
                             core.SourceChanged -= OnSourceChanged;
-                            var freshCore = await WvBrowser.ResetToFreshProfileAsync();
+                            var freshCore = WvBrowser != null ? await WvBrowser.ResetToFreshProfileAsync() : null;
                             if (freshCore != null)
                             {
                                 await ConfigureCoreWebViewAsync(freshCore);
@@ -758,8 +759,8 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
                         }
 
                         acc.AccountStatusIssue = string.Empty;
-                        string alias = TxtCookieAlias?.Text?.Trim();
-                        string group = TxtCookieGroup?.Text?.Trim();
+                        string? alias = TxtCookieAlias?.Text?.Trim();
+                        string? group = TxtCookieGroup?.Text?.Trim();
                         if (!string.IsNullOrEmpty(alias)) acc.Alias = alias;
                         if (!string.IsNullOrEmpty(group)) acc.Group = group;
 
@@ -795,7 +796,7 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
                     var (issueBadge, reason) = await DetectDomAccountIssueAsync(core);
                     if (!string.IsNullOrEmpty(issueBadge))
                     {
-                        await MarkCurrentAccountIssueAndSkipAsync(issueBadge, reason);
+                        await MarkCurrentAccountIssueAndSkipAsync(issueBadge, reason ?? issueBadge);
                     }
                 }
             }
@@ -956,7 +957,7 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
 
         private async void OnVerifyClicked(object sender, RoutedEventArgs e)
         {
-            string cookie = Account.SanitizeCookie(TxtCookie.Text);
+            string cookie = Account.SanitizeCookie(TxtCookie?.Text ?? string.Empty);
             if (string.IsNullOrEmpty(cookie))
             {
                 TxtPreviewStatus.Text = "Vui lòng dán Cookie trước khi kiểm tra.";
@@ -981,7 +982,7 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
                 }
                 else
                 {
-                    _lastVerifiedCookie = null;
+                    _lastVerifiedCookie = string.Empty;
                     _lastVerifiedAccount = null;
                     TxtPreviewUsername.Text = "Tài khoản không hợp lệ";
                     TxtPreviewStatus.Text = "❌ Cookie đã hết hạn hoặc không đúng.";
@@ -990,7 +991,7 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
             }
             catch (Exception ex)
             {
-                _lastVerifiedCookie = null;
+                _lastVerifiedCookie = string.Empty;
                 _lastVerifiedAccount = null;
                 TxtPreviewStatus.Text = $"Lỗi: {ex.Message}";
                 TxtPreviewStatus.Foreground = Brushes.OrangeRed;
@@ -1003,7 +1004,7 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
 
         private async void OnAddClicked(object sender, RoutedEventArgs e)
         {
-            string cookie = Account.SanitizeCookie(TxtCookie.Text);
+            string cookie = Account.SanitizeCookie(TxtCookie?.Text ?? string.Empty);
             if (string.IsNullOrEmpty(cookie))
             {
                 TxtPreviewStatus.Text = "Vui lòng nhập Cookie hợp lệ.";
@@ -1014,7 +1015,7 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
             BtnAddCookie.IsEnabled = false;
             try
             {
-                Account newAcc;
+                Account? newAcc;
                 if (_lastVerifiedAccount != null &&
                     _lastVerifiedAccount.Valid &&
                     string.Equals(_lastVerifiedCookie, cookie, StringComparison.Ordinal))
@@ -1028,8 +1029,8 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
 
                 if (newAcc != null && newAcc.Valid)
                 {
-                    string alias = TxtCookieAlias.Text?.Trim();
-                    string group = TxtCookieGroup.Text?.Trim();
+                    string? alias = TxtCookieAlias?.Text?.Trim();
+                    string? group = TxtCookieGroup?.Text?.Trim();
                     bool metadataUpdated = false;
 
                     if (!string.IsNullOrEmpty(alias))

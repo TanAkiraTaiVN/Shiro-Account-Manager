@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -12,7 +13,7 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
     public partial class ProxyManagerDialog : Window
     {
         private readonly ObservableCollection<ProxyItem> _proxies = new();
-        private CancellationTokenSource _testCts;
+        private CancellationTokenSource? _testCts;
 
         public ProxyManagerDialog()
         {
@@ -34,7 +35,7 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
 
         private void OnAddProxyClicked(object sender, RoutedEventArgs e)
         {
-            string rawInput = TxtNewProxy.Text?.Trim();
+            string? rawInput = TxtNewProxy.Text?.Trim();
             if (string.IsNullOrEmpty(rawInput)) return;
 
             var entries = rawInput.Split(ProxySplitSeparators, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);

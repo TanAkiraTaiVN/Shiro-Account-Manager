@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -37,7 +38,7 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
             }
         }
 
-        private void SetStatus(string text, string percentText = null, int? progressVal = null)
+        private void SetStatus(string text, string? percentText = null, int? progressVal = null)
         {
             AppDispatcher.Post(() =>
             {
@@ -96,7 +97,7 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
                 SetStatus("Cập nhật hoàn tất! Đang khởi động lại...", "100%", 100);
                 await Task.Delay(400);
 
-                string mainExe = Environment.ProcessPath;
+                string? mainExe = Environment.ProcessPath;
                 if (string.IsNullOrEmpty(mainExe) || !File.Exists(mainExe))
                     mainExe = Path.Combine(StoragePaths.BaseDirectory, "Roblox Account Manager.exe");
                 if (!File.Exists(mainExe))
@@ -138,7 +139,7 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
                     if (!IsSafeArchiveEntryPath(stagingDir, entry.FullName, out string stagedFile))
                         throw new InvalidDataException($"Invalid archive entry path: {entry.FullName}");
 
-                    string stagedParent = Path.GetDirectoryName(stagedFile);
+                    string? stagedParent = Path.GetDirectoryName(stagedFile);
                     if (!string.IsNullOrEmpty(stagedParent))
                         Directory.CreateDirectory(stagedParent);
 
@@ -157,7 +158,7 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
                 if (!IsSafeArchiveEntryPath(targetBaseDir, relativePath, out string finalDest))
                     continue;
 
-                string destParent = Path.GetDirectoryName(finalDest);
+                string? destParent = Path.GetDirectoryName(finalDest);
                 if (!string.IsNullOrEmpty(destParent))
                     Directory.CreateDirectory(destParent);
 

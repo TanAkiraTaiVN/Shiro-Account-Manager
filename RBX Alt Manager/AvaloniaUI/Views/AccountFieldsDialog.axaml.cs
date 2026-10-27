@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -34,7 +35,7 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
 
     public partial class AccountFieldsDialog : Window
     {
-        private readonly Account _account;
+        private readonly Account? _account;
         private readonly ObservableCollection<AccountFieldItem> _fieldItems = new();
 
         public AccountFieldsDialog()
@@ -60,12 +61,13 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
 
         private void BtnAddField_Click(object sender, RoutedEventArgs e)
         {
-            string key = TxtNewKey.Text?.Trim();
+            if (_account == null) return;
+            string? key = TxtNewKey.Text?.Trim();
             string val = TxtNewValue.Text?.Trim() ?? string.Empty;
 
             if (string.IsNullOrEmpty(key)) return;
 
-            AccountFieldItem existing = null;
+            AccountFieldItem? existing = null;
             for (int i = 0; i < _fieldItems.Count; i++)
             {
                 if (string.Equals(_fieldItems[i].Key, key, StringComparison.OrdinalIgnoreCase))
@@ -92,6 +94,7 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
 
         private void BtnDeleteField_Click(object sender, RoutedEventArgs e)
         {
+            if (_account == null) return;
             if (sender is Button btn && btn.DataContext is AccountFieldItem item)
             {
                 _fieldItems.Remove(item);

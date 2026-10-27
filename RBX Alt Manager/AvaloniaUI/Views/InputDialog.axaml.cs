@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Threading.Tasks;
 using Avalonia.Controls;
@@ -17,7 +18,7 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
             InitializeComponent();
         }
 
-        public static Window GetActiveWindow()
+        public static Window? GetActiveWindow()
         {
             if (Avalonia.Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
             {
@@ -53,7 +54,7 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
             return dialog;
         }
 
-        public static async Task<string> PromptAsync(string text, string caption = "Shiro", string defaultText = "", bool big = false, Window owner = null)
+        public static async Task<string> PromptAsync(string text, string caption = "Shiro", string defaultText = "", bool big = false, Window? owner = null)
         {
             owner ??= GetActiveWindow();
             var dialog = CreateDialogInstance(text, caption, defaultText, big);
@@ -73,7 +74,7 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
             return dialog._value;
         }
 
-        public static string Prompt(string text, string caption = "Shiro", string defaultText = "", bool big = false, Window owner = null)
+        public static string Prompt(string text, string caption = "Shiro", string defaultText = "", bool big = false, Window? owner = null)
         {
             if (Dispatcher.UIThread.CheckAccess())
             {

@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Threading.Tasks;
 using Avalonia.Controls;
@@ -43,7 +44,7 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
             InitializeComponent();
         }
 
-        public static Window GetActiveWindow()
+        public static Window? GetActiveWindow()
         {
             if (Avalonia.Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
             {
@@ -179,7 +180,7 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
             string title = "Shiro",
             MessageBoxButtons buttons = MessageBoxButtons.OK,
             MessageBoxIcon icon = MessageBoxIcon.Information,
-            Window owner = null)
+            Window? owner = null)
         {
             if (!IsAvaloniaUiReady())
             {
@@ -209,7 +210,7 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
             string title = "Shiro",
             MessageBoxButtons buttons = MessageBoxButtons.OK,
             MessageBoxIcon icon = MessageBoxIcon.Information,
-            Window owner = null)
+            Window? owner = null)
         {
             if (!IsAvaloniaUiReady())
             {

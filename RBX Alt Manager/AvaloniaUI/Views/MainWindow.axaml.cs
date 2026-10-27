@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
 using Avalonia.Controls;
@@ -11,10 +12,10 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
 {
     public partial class MainWindow : Window
     {
-        public static MainWindow Instance { get; private set; }
+        public static MainWindow? Instance { get; private set; }
 
-        public MainViewModel ViewModel => ViewDashboard?.ViewModel;
-        public DashboardView DashboardView => ViewDashboard;
+        public MainViewModel? ViewModel => ViewDashboard?.ViewModel;
+        public DashboardView? DashboardView => ViewDashboard;
 
         public MainWindow()
         {
@@ -215,7 +216,7 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
             });
         }
 
-        public void OpenFastLoginDialog(Account account = null)
+        public void OpenFastLoginDialog(Account? account = null)
         {
             AppServices.Dialogs.OpenFastLoginDialog(account);
         }
@@ -230,7 +231,7 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
             AppServices.Dialogs.OpenProxyManagerDialog();
         }
 
-        private void SetActiveView(Control activeView, Button activeButton)
+        private void SetActiveView(Control? activeView, Button? activeButton)
         {
             if (ViewDashboard != null) ViewDashboard.IsVisible = (activeView == ViewDashboard);
             if (ViewServerList != null) ViewServerList.IsVisible = (activeView == ViewServerList);

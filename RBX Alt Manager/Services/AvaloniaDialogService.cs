@@ -12,7 +12,7 @@ namespace RBX_Alt_Manager.Services
         private static readonly Lazy<AvaloniaDialogService> _defaultInstance = new(() => new AvaloniaDialogService());
         public static AvaloniaDialogService Default => _defaultInstance.Value;
 
-        private static Window GetActiveOwner() => MessageBoxDialog.GetActiveWindow();
+        private static Window? GetActiveOwner() => MessageBoxDialog.GetActiveWindow();
 
         public void ShowInfo(string message, string title = "Shiro")
         {
