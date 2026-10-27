@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Threading;
 using System.Threading.Tasks;
@@ -13,7 +14,7 @@ namespace RBX_Alt_Manager.Services
     {
         private readonly Func<CancellationToken, Task> _action;
         private readonly CancellationTokenSource _lifecycleCts = new CancellationTokenSource();
-        private CancellationTokenSource _loopCts;
+        private CancellationTokenSource? _loopCts;
         private TimeSpan _interval;
         private bool _enabled;
         private readonly System.Threading.Lock _gate = new();
@@ -105,7 +106,7 @@ namespace RBX_Alt_Manager.Services
                         }
                         catch (Exception ex)
                         {
-                            Program.Logger.Error($"PeriodicTask error: {ex.Message}");
+                            Program.Logger?.Error($"PeriodicTask error: {ex.Message}");
                         }
                     }
                 }

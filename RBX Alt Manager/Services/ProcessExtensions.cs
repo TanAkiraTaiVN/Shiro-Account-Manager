@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Concurrent;
 using System.Diagnostics;
@@ -47,7 +48,7 @@ namespace RBX_Alt_Manager.Services
             public IntPtr Buffer;
         }
 
-        public static string GetCommandLine(this Process process)
+        public static string? GetCommandLine(this Process? process)
         {
             if (process == null) return null;
             int pid;
@@ -63,7 +64,7 @@ namespace RBX_Alt_Manager.Services
             return GetCommandLineByPid(pid);
         }
 
-        public static unsafe string GetCommandLineByPid(int pid)
+        public static unsafe string? GetCommandLineByPid(int pid)
         {
             if (pid <= 0)
                 return null;
@@ -86,7 +87,7 @@ namespace RBX_Alt_Manager.Services
                 return cached.CommandLine;
             }
 
-            string commandLine = QueryCommandLineCore(handle);
+            string? commandLine = QueryCommandLineCore(handle);
             if (!string.IsNullOrEmpty(commandLine) && hasCreationTime)
             {
                 if (_commandLineCache.Count > MaxCacheEntries)
@@ -98,7 +99,7 @@ namespace RBX_Alt_Manager.Services
             return commandLine;
         }
 
-        private static unsafe string QueryCommandLineCore(IntPtr handle)
+        private static unsafe string? QueryCommandLineCore(IntPtr handle)
         {
             const int StackBufferSize = 4096;
             byte* stackBuffer = stackalloc byte[StackBufferSize];

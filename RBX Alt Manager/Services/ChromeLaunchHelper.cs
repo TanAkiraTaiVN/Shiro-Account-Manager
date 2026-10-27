@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -17,13 +18,13 @@ namespace RBX_Alt_Manager.Services
 {
     public sealed class VerifiedBrowserProxy
     {
-        public WebProxy WebProxy { get; init; }
-        public string BrowserServerArgument { get; init; }
-        public string RawAuthority { get; init; }
+        public WebProxy? WebProxy { get; init; }
+        public string BrowserServerArgument { get; init; } = string.Empty;
+        public string RawAuthority { get; init; } = string.Empty;
         public bool IsSocks { get; init; }
         public bool AuthenticateInBrowser { get; init; }
-        public string Username { get; init; }
-        public string Password { get; init; }
+        public string? Username { get; init; }
+        public string? Password { get; init; }
     }
     /// <summary>
     /// Shared helper providing standard launch arguments, DevTools port probing,
@@ -47,7 +48,7 @@ namespace RBX_Alt_Manager.Services
             "--disable-blink-features=AutomationControlled"
         };
 
-        public static List<string> BuildLaunchArgs(string userDataDir, string proxy = null, bool headless = false)
+        public static List<string> BuildLaunchArgs(string userDataDir, string? proxy = null, bool headless = false)
         {
             var args = new List<string>(StandardArgs);
 
@@ -189,7 +190,7 @@ namespace RBX_Alt_Manager.Services
             }
         }
 
-        public static async Task<IPage> FindActiveRobloxPageAsync(IBrowser connectedBrowser)
+        public static async Task<IPage?> FindActiveRobloxPageAsync(IBrowser? connectedBrowser)
         {
             if (connectedBrowser == null || connectedBrowser.IsClosed)
                 return null;
@@ -202,7 +203,7 @@ namespace RBX_Alt_Manager.Services
                 return null;
             }
 
-            IPage fallback = null;
+            IPage? fallback = null;
             foreach (IPage page in pages)
             {
                 try
@@ -225,7 +226,7 @@ namespace RBX_Alt_Manager.Services
             return fallback;
         }
 
-        public static async Task<CookieParam> ExtractRoblosecurityCookieAsync(IPage page)
+        public static async Task<CookieParam?> ExtractRoblosecurityCookieAsync(IPage? page)
         {
             if (page == null || page.IsClosed) return null;
             try
@@ -250,7 +251,7 @@ namespace RBX_Alt_Manager.Services
             }
         }
 
-        public static async Task<string> ReadAuthenticatedRobloxAccountJsonAsync(IPage page, int maxAttempts = 2)
+        public static async Task<string?> ReadAuthenticatedRobloxAccountJsonAsync(IPage? page, int maxAttempts = 2)
         {
             if (page == null || page.IsClosed)
                 return null;
@@ -302,7 +303,7 @@ namespace RBX_Alt_Manager.Services
 
         public static bool IsDetachedOrTransientBrowserException(Exception exception)
         {
-            for (Exception cur = exception; cur != null; cur = cur.InnerException)
+            for (Exception? cur = exception; cur != null; cur = cur.InnerException)
             {
                 string message = cur.Message ?? string.Empty;
                 if (message.IndexOf("Session closed", StringComparison.OrdinalIgnoreCase) >= 0 ||
@@ -343,8 +344,8 @@ namespace RBX_Alt_Manager.Services
                 if (!message.TryGetProperty("params", out var parameters))
                     return;
 
-                string requestId = parameters.TryGetProperty("requestId", out var reqProp) ? reqProp.GetString() : null;
-                string challengeSource = parameters.TryGetProperty("authChallenge", out var authChal) && authChal.TryGetProperty("source", out var srcProp)
+                string? requestId = parameters.TryGetProperty("requestId", out var reqProp) ? reqProp.GetString() : null;
+                string? challengeSource = parameters.TryGetProperty("authChallenge", out var authChal) && authChal.TryGetProperty("source", out var srcProp)
                     ? srcProp.GetString()
                     : null;
 
@@ -501,8 +502,8 @@ namespace RBX_Alt_Manager.Services
             }", new { selector, value }).ConfigureAwait(false);
         }
 
-        public static async Task<VerifiedBrowserProxy> SelectVerifiedBrowserProxyAsync(
-            string[] additionalProbeUrls = null,
+        public static async Task<VerifiedBrowserProxy?> SelectVerifiedBrowserProxyAsync(
+            string[]? additionalProbeUrls = null,
             CancellationToken cancellationToken = default)
         {
             if (AccountManager.General == null || !AccountManager.General.Get<bool>("UseProxies"))
@@ -553,7 +554,7 @@ namespace RBX_Alt_Manager.Services
                     }
                 }
 
-                if (!Uri.TryCreate("http://" + candidate, UriKind.Absolute, out Uri proxyUri) ||
+                if (!Uri.TryCreate("http://" + candidate, UriKind.Absolute, out Uri? proxyUri) ||
                     string.IsNullOrWhiteSpace(proxyUri.Host) || proxyUri.Port < 1)
                 {
                     Program.Logger?.Warn("Skipping a proxy entry with an invalid address.");

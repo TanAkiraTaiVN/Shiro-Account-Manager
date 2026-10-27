@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
@@ -14,13 +15,13 @@ namespace RBX_Alt_Manager.Services
     public static partial class RobloxAudioService
     {
         private static readonly System.Threading.Lock _gate = new();
-        private static Timer _smartMuteTimer;
+        private static Timer? _smartMuteTimer;
         private static bool _smartMuteEnabled = false;
         private static int _lastActiveRobloxPid = -1;
         private static int _lastRunningRobloxCount = -1;
         private static volatile string _status = "Audio Manager Ready";
 
-        public static event Action StatusChanged;
+        public static event Action? StatusChanged;
 
         public static bool IsSmartMuteEnabled => _smartMuteEnabled;
         public static string StatusText => _status;
@@ -84,7 +85,7 @@ namespace RBX_Alt_Manager.Services
             return true;
         }
 
-        private static void OnSmartMuteCheck(object state)
+        private static void OnSmartMuteCheck(object? state)
         {
             if (!_smartMuteEnabled) return;
 
@@ -131,17 +132,17 @@ namespace RBX_Alt_Manager.Services
         /// Enumerates all active Windows Core Audio sessions belonging to running Roblox processes.
         /// Returning false from <paramref name="onSession"/> stops enumeration early.
         /// </summary>
-        private static void ForEachRobloxAudioSession(Func<uint, ISimpleAudioVolume, bool> onSession, IReadOnlyList<int> preloadedPids = null)
+        private static void ForEachRobloxAudioSession(Func<uint, ISimpleAudioVolume, bool> onSession, IReadOnlyList<int>? preloadedPids = null)
         {
             if (!OperatingSystem.IsWindows() || onSession == null) return;
 
             var robloxPids = preloadedPids ?? RobloxProcessService.GetRunningRobloxPids();
             if (robloxPids.Count == 0) return;
 
-            IMMDeviceEnumerator enumerator = null;
-            IMMDevice device = null;
-            IAudioSessionManager2 sessionManager = null;
-            IAudioSessionEnumerator sessionEnumerator = null;
+            IMMDeviceEnumerator? enumerator = null;
+            IMMDevice? device = null;
+            IAudioSessionManager2? sessionManager = null;
+            IAudioSessionEnumerator? sessionEnumerator = null;
 
             try
             {
@@ -162,7 +163,7 @@ namespace RBX_Alt_Manager.Services
 
                 for (int i = 0; i < count; i++)
                 {
-                    IAudioSessionControl session = null;
+                    IAudioSessionControl? session = null;
                     try
                     {
                         if (sessionEnumerator.GetSession(i, out session) != 0 || session == null)
@@ -213,7 +214,7 @@ namespace RBX_Alt_Manager.Services
         /// <summary>
         /// Mutes all background Roblox processes, keeping only activePid unmuted (or muting all if activePid is 0).
         /// </summary>
-        public static (int muted, int unmuted) ApplyFocusAudioState(int activePid, IReadOnlyList<int> preloadedPids = null)
+        public static (int muted, int unmuted) ApplyFocusAudioState(int activePid, IReadOnlyList<int>? preloadedPids = null)
         {
             int muted = 0;
             int unmuted = 0;

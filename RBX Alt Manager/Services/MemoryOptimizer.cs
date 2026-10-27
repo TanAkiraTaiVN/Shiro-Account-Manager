@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -15,7 +16,7 @@ namespace RBX_Alt_Manager.Services
     /// </summary>
     public static partial class MemoryOptimizer
     {
-        private static Timer _autoTrimTimer;
+        private static Timer? _autoTrimTimer;
         private static readonly System.Threading.Lock _gate = new();
         private static bool _autoTrimEnabled = false;
         private static int _trimIntervalMinutes = 3;
@@ -70,7 +71,7 @@ namespace RBX_Alt_Manager.Services
             }
         }
 
-        private static void OnPeriodicCheck(object state)
+        private static void OnPeriodicCheck(object? state)
         {
             try
             {

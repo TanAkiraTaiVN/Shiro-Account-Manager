@@ -1,12 +1,13 @@
+#nullable enable
 using System;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace RBX_Alt_Manager.Services
 {
-    public sealed class FlexibleStringConverter : JsonConverter<string>
+    public sealed class FlexibleStringConverter : JsonConverter<string?>
     {
-        public override string Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        public override string? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
         {
             switch (reader.TokenType)
             {
@@ -32,7 +33,7 @@ namespace RBX_Alt_Manager.Services
             }
         }
 
-        public override void Write(Utf8JsonWriter writer, string value, JsonSerializerOptions options)
+        public override void Write(Utf8JsonWriter writer, string? value, JsonSerializerOptions options)
         {
             if (value == null)
                 writer.WriteNullValue();
@@ -60,7 +61,7 @@ namespace RBX_Alt_Manager.Services
         public static readonly JsonSerializerOptions DefaultOptions = CreateOptions(false);
         public static readonly JsonSerializerOptions IndentedOptions = CreateOptions(true);
 
-        public static bool TryDeserialize<T>(string json, out T result)
+        public static bool TryDeserialize<T>(string? json, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out T? result)
         {
             result = default;
             if (string.IsNullOrWhiteSpace(json)) return false;
@@ -76,7 +77,7 @@ namespace RBX_Alt_Manager.Services
             }
         }
 
-        public static T Deserialize<T>(string json)
+        public static T? Deserialize<T>(string? json)
         {
             if (string.IsNullOrWhiteSpace(json)) return default;
             try
@@ -97,7 +98,7 @@ namespace RBX_Alt_Manager.Services
 
     public static class JsonExtensions
     {
-        public static bool TryParseJson<T>(this string json, out T result)
+        public static bool TryParseJson<T>(this string? json, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out T? result)
         {
             if (string.IsNullOrWhiteSpace(json))
             {
@@ -108,6 +109,6 @@ namespace RBX_Alt_Manager.Services
             return FastJson.TryDeserialize(json, out result);
         }
 
-        public static bool TryParseFast<T>(this string json, out T result) => FastJson.TryDeserialize(json, out result);
+        public static bool TryParseFast<T>(this string? json, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out T? result) => FastJson.TryDeserialize(json, out result);
     }
 }

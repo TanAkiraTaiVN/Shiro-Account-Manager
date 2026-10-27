@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.IO;
 
@@ -12,10 +13,10 @@ namespace RBX_Alt_Manager.Services
     {
         private static readonly System.Threading.Lock Sync = new();
         private static bool initialized;
-        private static string dataDirectory;
+        private static string dataDirectory = string.Empty;
         private static string? _testDataDirectoryOverride;
 
-        public static string BaseDirectory { get; private set; }
+        public static string BaseDirectory { get; private set; } = AppContext.BaseDirectory;
         public static string DataDirectory
         {
             get
@@ -120,7 +121,7 @@ namespace RBX_Alt_Manager.Services
             return Path.Combine(DataDirectory, fileName ?? string.Empty);
         }
 
-        private static byte[] _cachedVaultKey;
+        private static byte[]? _cachedVaultKey;
         private static readonly System.Threading.Lock _vaultKeyLock = new();
         private static readonly byte[] DpapiKeyHeader = System.Text.Encoding.ASCII.GetBytes("SHIRO_DPAPI_KEY_V1");
         private static readonly byte[] DpapiKeyEntropy = System.Text.Encoding.ASCII.GetBytes("Shiro.VaultKey.v1");
@@ -409,7 +410,7 @@ namespace RBX_Alt_Manager.Services
         {
             if (path == null) throw new ArgumentNullException(nameof(path));
 
-            string directory = Path.GetDirectoryName(path);
+            string? directory = Path.GetDirectoryName(path);
             if (!string.IsNullOrEmpty(directory))
                 Directory.CreateDirectory(directory);
 
@@ -556,7 +557,9 @@ namespace RBX_Alt_Manager.Services
             {
                 if (File.Exists(source) && !File.Exists(destination))
                 {
-                    Directory.CreateDirectory(Path.GetDirectoryName(destination));
+                    string? destDir = Path.GetDirectoryName(destination);
+                    if (!string.IsNullOrEmpty(destDir))
+                        Directory.CreateDirectory(destDir);
                     File.Copy(source, destination, false);
                 }
             }

@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using RBX_Alt_Manager.Classes;
 

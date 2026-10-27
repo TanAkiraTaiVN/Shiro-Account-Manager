@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Threading.Tasks;
 using Avalonia.Threading;
@@ -10,7 +11,7 @@ namespace RBX_Alt_Manager.Services
     /// </summary>
     public static class AppDispatcher
     {
-        public static Action<Action> CustomDispatcher { get; set; }
+        public static Action<Action>? CustomDispatcher { get; set; }
 
         /// <summary>
         /// Executes an action safely on the Avalonia UI Thread.
@@ -55,7 +56,7 @@ namespace RBX_Alt_Manager.Services
         /// <summary>
         /// Asynchronously executes a function returning a value on the Avalonia UI Thread and awaits its result.
         /// </summary>
-        public static async Task<T> InvokeAsync<T>(Func<T> func)
+        public static async Task<T?> InvokeAsync<T>(Func<T> func)
         {
             if (func == null) return default;
 

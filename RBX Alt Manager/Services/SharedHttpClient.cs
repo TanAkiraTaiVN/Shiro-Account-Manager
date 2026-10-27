@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -125,14 +126,14 @@ namespace RBX_Alt_Manager.Services
             // content once and clone the request for each safe retry so a
             // transient 429/5xx does not turn the second attempt into a local
             // InvalidOperationException.
-            byte[] requestContent = request.Content == null
+            byte[]? requestContent = request.Content == null
                 ? null
                 : await request.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
 
             int attempts = 3;
             for (int attempt = 1; attempt <= attempts; attempt++)
             {
-                HttpResponseMessage response = null;
+                HttpResponseMessage? response = null;
                 try
                 {
                     using HttpRequestMessage attemptRequest = CloneRequest(request, requestContent);
@@ -175,7 +176,7 @@ namespace RBX_Alt_Manager.Services
             return await response.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
         }
 
-        private static HttpRequestMessage CloneRequest(HttpRequestMessage source, byte[] content)
+        private static HttpRequestMessage CloneRequest(HttpRequestMessage source, byte[]? content)
         {
             HttpRequestMessage clone = new HttpRequestMessage(source.Method, source.RequestUri)
             {
@@ -264,9 +265,9 @@ namespace RBX_Alt_Manager.Services
                 (int)statusCode >= 500;
         }
 
-        private static bool IsSafeToRetry(HttpMethod method)
+        private static bool IsSafeToRetry(HttpMethod? method)
         {
-            string name = method?.Method;
+            string? name = method?.Method;
             return string.Equals(name, HttpMethod.Get.Method, StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(name, HttpMethod.Head.Method, StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(name, HttpMethod.Options.Method, StringComparison.OrdinalIgnoreCase);
@@ -287,9 +288,9 @@ namespace RBX_Alt_Manager.Services
             // Some Roblox gateways expose only the Unix reset timestamp. Use
             // it for safe GET retries while keeping the same short upper
             // bound so a stale header cannot hold the UI for minutes.
-            if (response.Headers.TryGetValues("X-RateLimit-Reset", out IEnumerable<string> resetValues))
+            if (response.Headers.TryGetValues("X-RateLimit-Reset", out IEnumerable<string>? resetValues))
             {
-                string reset = resetValues.FirstOrDefault();
+                string? reset = resetValues.FirstOrDefault();
                 if (long.TryParse(reset, NumberStyles.Integer, CultureInfo.InvariantCulture, out long resetUnix))
                 {
                     try

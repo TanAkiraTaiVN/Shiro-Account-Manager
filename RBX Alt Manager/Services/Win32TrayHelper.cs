@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
@@ -14,10 +15,10 @@ namespace RBX_Alt_Manager.Services
         public static partial bool PostMessage(IntPtr hWnd, uint Msg, int wParam, int lParam);
 
         [LibraryImport("user32.dll", EntryPoint = "FindWindowW", StringMarshalling = StringMarshalling.Utf16, SetLastError = true)]
-        private static partial IntPtr FindWindow(string lpClassName, string lpWindowName);
+        private static partial IntPtr FindWindow(string? lpClassName, string? lpWindowName);
 
         [LibraryImport("user32.dll", EntryPoint = "FindWindowExW", StringMarshalling = StringMarshalling.Utf16, SetLastError = true)]
-        private static partial IntPtr FindWindowEx(IntPtr parentHandle, IntPtr childAfter, string className, string windowTitle);
+        private static partial IntPtr FindWindowEx(IntPtr parentHandle, IntPtr childAfter, string? className, string? windowTitle);
 
         [StructLayout(LayoutKind.Sequential)]
         private struct RECT
@@ -65,9 +66,11 @@ namespace RBX_Alt_Manager.Services
                 cName.Contains("Overflow".AsSpan(), StringComparison.OrdinalIgnoreCase) ||
                 cName.Contains("XamlIsland".AsSpan(), StringComparison.OrdinalIgnoreCase))
             {
-                var targets = (HashSet<IntPtr>)GCHandle.FromIntPtr(lParam).Target;
-                targets.Add(hWnd);
-                CollectToolbars(hWnd, targets);
+                if (GCHandle.FromIntPtr(lParam).Target is HashSet<IntPtr> targets)
+                {
+                    targets.Add(hWnd);
+                    CollectToolbars(hWnd, targets);
+                }
             }
             return 1;
         }
@@ -88,14 +91,16 @@ namespace RBX_Alt_Manager.Services
                 cName.Contains("SysPager".AsSpan(), StringComparison.OrdinalIgnoreCase) ||
                 cName.Contains("TrayNotifyWnd".AsSpan(), StringComparison.OrdinalIgnoreCase))
             {
-                var collection = (HashSet<IntPtr>)GCHandle.FromIntPtr(lParam).Target;
-                collection.Add(child);
+                if (GCHandle.FromIntPtr(lParam).Target is HashSet<IntPtr> collection)
+                {
+                    collection.Add(child);
+                }
             }
             return 1;
         }
 
         private static readonly System.Threading.Lock _refreshTrayLock = new();
-        private static CancellationTokenSource _refreshTrayCts;
+        private static CancellationTokenSource? _refreshTrayCts;
 
         /// <summary>
         /// Schedules a debounced refresh of the system notification area.

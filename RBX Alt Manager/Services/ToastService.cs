@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.ObjectModel;
 using System.Threading.Tasks;
@@ -27,8 +28,8 @@ namespace RBX_Alt_Manager.Services
         private static readonly IBrush InfoBgBrush = new SolidColorBrush(Color.FromArgb(230, 16, 20, 30));
 
         public string Id { get; } = Guid.NewGuid().ToString("N");
-        public string Title { get; set; }
-        public string Message { get; set; }
+        public string Title { get; set; } = string.Empty;
+        public string Message { get; set; } = string.Empty;
         public ToastType Type { get; set; }
         public DateTime CreatedAt { get; } = DateTime.UtcNow;
 

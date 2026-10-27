@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -10,7 +11,7 @@ namespace RBX_Alt_Manager.Services
     /// </summary>
     /// <typeparam name="TKey">The cache key type.</typeparam>
     /// <typeparam name="TValue">The disposable value type.</typeparam>
-    public sealed class LruCache<TKey, TValue> : IDisposable where TValue : IDisposable
+    public sealed class LruCache<TKey, TValue> : IDisposable where TKey : notnull where TValue : IDisposable
     {
         private readonly int _capacity;
         private readonly Dictionary<TKey, LinkedListNode<CacheEntry>> _index;
@@ -20,8 +21,8 @@ namespace RBX_Alt_Manager.Services
 
         private sealed class CacheEntry
         {
-            public TKey Key { get; init; }
-            public TValue Value { get; set; }
+            public required TKey Key { get; init; }
+            public required TValue Value { get; set; }
         }
 
         public LruCache(int capacity)
@@ -49,7 +50,7 @@ namespace RBX_Alt_Manager.Services
             set => Set(key, value);
         }
 
-        public bool TryGetValue(TKey key, out TValue value)
+        public bool TryGetValue(TKey key, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out TValue? value)
         {
             lock (_lock)
             {
@@ -63,7 +64,7 @@ namespace RBX_Alt_Manager.Services
                 {
                     _lruList.Remove(node);
                     _lruList.AddFirst(node);
-                    value = node.Value.Value;
+                    value = node.Value.Value!;
                     return true;
                 }
 
@@ -74,7 +75,7 @@ namespace RBX_Alt_Manager.Services
 
         public void Set(TKey key, TValue value)
         {
-            TValue evicted = default;
+            TValue? evicted = default;
             bool shouldDispose = false;
 
             lock (_lock)
@@ -120,7 +121,7 @@ namespace RBX_Alt_Manager.Services
             }
         }
 
-        public bool TryRemove(TKey key, out TValue removed)
+        public bool TryRemove(TKey key, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out TValue? removed)
         {
             lock (_lock)
             {
@@ -128,7 +129,7 @@ namespace RBX_Alt_Manager.Services
                 {
                     _lruList.Remove(node);
                     _index.Remove(key);
-                    removed = node.Value.Value;
+                    removed = node.Value.Value!;
                     return true;
                 }
 

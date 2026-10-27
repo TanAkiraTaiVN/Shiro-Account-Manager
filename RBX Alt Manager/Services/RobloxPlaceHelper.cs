@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -41,7 +42,7 @@ namespace RBX_Alt_Manager.Services
                 string cursorParam = string.IsNullOrEmpty(cursor) ? string.Empty : $"&cursor={Uri.EscapeDataString(cursor)}";
                 var request = new RestRequest($"v1/games/{placeId}/servers/public?sortOrder=Asc&limit=100{cursorParam}", Method.Get);
 
-                RestResponse response = null;
+                RestResponse? response = null;
                 if (AccountManager.GamesClient != null)
                     response = await AccountManager.GamesClient.ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
@@ -66,7 +67,7 @@ namespace RBX_Alt_Manager.Services
                         if (playing > 0 && maxPlayers > 1 && playing < maxPlayers &&
                             a.TryGetProperty("id", out var idElem) && idElem.ValueKind == System.Text.Json.JsonValueKind.String)
                         {
-                            string sId = idElem.GetString();
+                            string? sId = idElem.GetString();
                             if (!string.IsNullOrEmpty(sId))
                             {
                                 if (chooseLowestServer)

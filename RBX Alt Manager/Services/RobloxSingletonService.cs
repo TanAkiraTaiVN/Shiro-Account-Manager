@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -33,15 +34,15 @@ namespace RBX_Alt_Manager.Services
         private const int ERROR_ACCESS_DENIED = 5;
 
         private static readonly System.Threading.Lock _gate = new();
-        private static Timer _watcher;
+        private static Timer? _watcher;
         private static int _watchSeconds = 3;
         private static int _sweeping;
         private static HashSet<int> _lastObservedPids = new();
 
         // Singleton holder thread
-        private static Thread _holderThread;
-        private static ManualResetEventSlim _holderStop;
-        private static ManualResetEventSlim _holderReady;
+        private static Thread? _holderThread;
+        private static ManualResetEventSlim? _holderStop;
+        private static ManualResetEventSlim? _holderReady;
         private static volatile bool _handlesHeld;
 
         // Observable state
@@ -50,7 +51,7 @@ namespace RBX_Alt_Manager.Services
         private static volatile bool _accessDenied;
         private static bool _isEnabled = true;
 
-        public static event Action StatusChanged;
+        public static event Action? StatusChanged;
 
         public static bool IsEnabled => _isEnabled;
         public static string StatusText => _status;
@@ -98,7 +99,7 @@ namespace RBX_Alt_Manager.Services
 
         public static void EnsureMutex(bool enabled)
         {
-            ManualResetEventSlim readyToWait = null;
+            ManualResetEventSlim? readyToWait = null;
             lock (_gate)
             {
                 if (enabled)

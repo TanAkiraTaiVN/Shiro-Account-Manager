@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Buffers.Binary;
 using System.Collections.Concurrent;
@@ -81,7 +82,7 @@ namespace RBX_Alt_Manager.Services
             catch (Exception) { }
         }
 
-        public static byte[] TryRecoverInProcess(byte[] encryptedAccountData)
+        public static byte[]? TryRecoverInProcess(byte[] encryptedAccountData)
         {
             if (encryptedAccountData == null || !Cryptography.IsEncrypted(encryptedAccountData))
                 return null;
@@ -94,7 +95,7 @@ namespace RBX_Alt_Manager.Services
                         continue;
 
                     byte[] raw = File.ReadAllBytes(candidateFile);
-                    byte[] unwrapped = TryExtractKeyFromFileBytes(raw);
+                    byte[]? unwrapped = TryExtractKeyFromFileBytes(raw);
                     if (unwrapped != null && CanDecrypt(encryptedAccountData, unwrapped))
                     {
                         PersistRecoveredVaultKey(unwrapped);
@@ -110,7 +111,7 @@ namespace RBX_Alt_Manager.Services
 
             if (Program.Elevated && OperatingSystem.IsWindows())
             {
-                byte[] mftRecovered = TryScanNtfsForVaultKey(encryptedAccountData);
+                byte[]? mftRecovered = TryScanNtfsForVaultKey(encryptedAccountData);
                 if (mftRecovered != null)
                 {
                     PersistRecoveredVaultKey(mftRecovered);
@@ -129,17 +130,17 @@ namespace RBX_Alt_Manager.Services
 
             try
             {
-                byte[] encrypted = GetTargetEncryptedPayload();
+                byte[]? encrypted = GetTargetEncryptedPayload();
                 if (encrypted == null || !Cryptography.IsEncrypted(encrypted))
                     return false;
 
                 if (Program.Elevated)
                 {
-                    byte[] recovered = TryRecoverInProcess(encrypted);
+                    byte[]? recovered = TryRecoverInProcess(encrypted);
                     return recovered != null;
                 }
 
-                string exePath = Environment.ProcessPath;
+                string? exePath = Environment.ProcessPath;
                 if (string.IsNullOrWhiteSpace(exePath) || !File.Exists(exePath))
                     return false;
 
@@ -151,7 +152,7 @@ namespace RBX_Alt_Manager.Services
                     WindowStyle = ProcessWindowStyle.Hidden
                 };
 
-                using Process proc = Process.Start(psi);
+                using Process? proc = Process.Start(psi);
                 if (proc == null)
                     return false;
 
@@ -170,7 +171,7 @@ namespace RBX_Alt_Manager.Services
             return false;
         }
 
-        private static byte[] GetTargetEncryptedPayload()
+        private static byte[]? GetTargetEncryptedPayload()
         {
             // Prefer the largest encrypted backup (e.g. the 105-account locked backup) if present
             string dataDir = StoragePaths.DataDirectory;
@@ -188,7 +189,7 @@ namespace RBX_Alt_Manager.Services
             candidates.Add(StoragePaths.AccountDataFile + ".backup");
             candidates.Add(StoragePaths.AccountDataFile + ".bak");
 
-            byte[] best = null;
+            byte[]? best = null;
             foreach (string file in candidates)
             {
                 try
@@ -216,7 +217,7 @@ namespace RBX_Alt_Manager.Services
                 StoragePaths.EnsureInitialized();
                 TraceLog($"ExecuteRecoveryCli started (Elevated={Program.Elevated}).");
 
-                byte[] encrypted = GetTargetEncryptedPayload();
+                byte[]? encrypted = GetTargetEncryptedPayload();
                 if (encrypted == null || !Cryptography.IsEncrypted(encrypted))
                 {
                     TraceLog("No encrypted AccountData payload found.");
@@ -225,7 +226,7 @@ namespace RBX_Alt_Manager.Services
 
                 TraceLog($"Target encrypted payload size: {encrypted.Length} bytes.");
 
-                byte[] recovered = TryRecoverInProcess(encrypted);
+                byte[]? recovered = TryRecoverInProcess(encrypted);
                 if (recovered == null && OperatingSystem.IsWindows())
                 {
                     recovered = TryScanNtfsForVaultKey(encrypted);
@@ -393,10 +394,10 @@ namespace RBX_Alt_Manager.Services
                                     foreach (var item in dataArr.EnumerateArray())
                                     {
                                         long id = item.TryGetProperty("id", out var idProp) ? idProp.GetInt64() : 0;
-                                        string uname = item.TryGetProperty("name", out var nProp) ? nProp.GetString() : null;
+                                        string? uname = item.TryGetProperty("name", out var nProp) ? nProp.GetString() : null;
                                         if (id > 0 && !string.IsNullOrWhiteSpace(uname))
                                         {
-                                            passwordMap.TryGetValue(uname, out string pw);
+                                            passwordMap.TryGetValue(uname, out string? pw);
                                             if (string.IsNullOrEmpty(pw) && uname.StartsWith("AD_Jackpot", StringComparison.OrdinalIgnoreCase))
                                                 pw = "0346172240a";
 
@@ -459,7 +460,7 @@ namespace RBX_Alt_Manager.Services
             yield return Path.Combine(StoragePaths.BaseDirectory, "vault.key.bak");
         }
 
-        internal static byte[] TryExtractKeyFromFileBytes(byte[] raw)
+        internal static byte[]? TryExtractKeyFromFileBytes(byte[] raw)
         {
             if (raw == null || raw.Length == 0)
                 return null;
@@ -521,11 +522,11 @@ namespace RBX_Alt_Manager.Services
         }
 
         [ExcludeFromCodeCoverage]
-        private static byte[] TryScanNtfsForVaultKey(byte[] encryptedAccountData)
+        private static byte[]? TryScanNtfsForVaultKey(byte[] encryptedAccountData)
         {
             try
             {
-                string root = Path.GetPathRoot(StoragePaths.DataDirectory);
+                string? root = Path.GetPathRoot(StoragePaths.DataDirectory);
                 if (string.IsNullOrWhiteSpace(root))
                     return null;
 
@@ -819,9 +820,9 @@ namespace RBX_Alt_Manager.Services
 
                 TraceLog($"Scanned NTFS metadata: Priority0={highPriorityCandidates.Count}, Priority1(Oct19-20)={exactDateCandidates.Count}, Priority2={secondaryCandidates.Count}");
 
-                byte[] matchedKey = TestCandidatesParallel(encryptedAccountData, highPriorityCandidates)
-                                 ?? TestCandidatesParallel(encryptedAccountData, exactDateCandidates)
-                                 ?? TestCandidatesParallel(encryptedAccountData, secondaryCandidates);
+                byte[]? matchedKey = TestCandidatesParallel(encryptedAccountData, highPriorityCandidates)
+                                  ?? TestCandidatesParallel(encryptedAccountData, exactDateCandidates)
+                                  ?? TestCandidatesParallel(encryptedAccountData, secondaryCandidates);
 
                 return matchedKey;
             }
@@ -832,9 +833,9 @@ namespace RBX_Alt_Manager.Services
             }
         }
 
-        internal static byte[] TestCandidatesParallel(byte[] encryptedAccountData, IEnumerable<byte[]> candidates)
+        internal static byte[]? TestCandidatesParallel(byte[] encryptedAccountData, IEnumerable<byte[]> candidates)
         {
-            byte[] found = null;
+            byte[]? found = null;
             Parallel.ForEach(candidates, (cand, state) =>
             {
                 if (CanDecrypt(encryptedAccountData, cand))
