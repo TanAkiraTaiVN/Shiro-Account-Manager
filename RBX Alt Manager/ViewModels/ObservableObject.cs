@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -15,9 +16,9 @@ namespace RBX_Alt_Manager.ViewModels
         private static readonly PropertyChangedEventArgs AllPropertiesChangedArgs = new(string.Empty);
         private static readonly ConcurrentDictionary<string, PropertyChangedEventArgs> EventArgsCache = new(StringComparer.Ordinal);
 
-        public event PropertyChangedEventHandler PropertyChanged;
+        public event PropertyChangedEventHandler? PropertyChanged;
 
-        protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
+        protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
         {
             var handler = PropertyChanged;
             if (handler == null) return;
@@ -29,7 +30,7 @@ namespace RBX_Alt_Manager.ViewModels
             handler.Invoke(this, args);
         }
 
-        protected virtual bool SetProperty<T>(ref T storage, T value, [CallerMemberName] string propertyName = null)
+        protected virtual bool SetProperty<T>(ref T storage, T value, [CallerMemberName] string? propertyName = null)
         {
             if (EqualityComparer<T>.Default.Equals(storage, value))
                 return false;
@@ -39,7 +40,7 @@ namespace RBX_Alt_Manager.ViewModels
             return true;
         }
 
-        protected virtual bool SetProperty<T>(ref T storage, T value, Action onChanged, [CallerMemberName] string propertyName = null)
+        protected virtual bool SetProperty<T>(ref T storage, T value, Action? onChanged, [CallerMemberName] string? propertyName = null)
         {
             if (EqualityComparer<T>.Default.Equals(storage, value))
                 return false;

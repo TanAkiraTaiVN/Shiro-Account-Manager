@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -75,7 +76,7 @@ namespace RBX_Alt_Manager.ViewModels
                                         else if (item.TryGetProperty("placeId", out var pElem) && pElem.TryGetInt64(out var pVal))
                                             pid = pVal;
 
-                                        string name = item.TryGetProperty("name", out var nProp) ? nProp.GetString() : "Game";
+                                        string name = (item.TryGetProperty("name", out var nProp) ? nProp.GetString() : "Game") ?? "Game";
                                         int playerCount = item.TryGetProperty("playerCount", out var pcProp) && pcProp.TryGetInt32(out var pc) ? pc : 0;
                                         if (pid > 0 && seenPlaceIds.Add(pid))
                                         {
@@ -130,7 +131,7 @@ namespace RBX_Alt_Manager.ViewModels
             }
         }
 
-        private void SelectGame(object param)
+        private void SelectGame(object? param)
         {
             if (param is GameSearchItemViewModel game)
             {
@@ -147,7 +148,7 @@ namespace RBX_Alt_Manager.ViewModels
             }
         }
 
-        private Task LaunchGameAsync(object param)
+        private Task LaunchGameAsync(object? param)
         {
             if (param is GameSearchItemViewModel game)
             {
@@ -165,7 +166,7 @@ namespace RBX_Alt_Manager.ViewModels
             return Task.CompletedTask;
         }
 
-        private void AddFavorite(object param)
+        private void AddFavorite(object? param)
         {
             long pid = 0;
             string name = "Favorite Game";
@@ -211,7 +212,7 @@ namespace RBX_Alt_Manager.ViewModels
                 : $"⭐ Đã thêm '{name}' vào Yêu Thích!";
         }
 
-        private void RemoveFavorite(object param)
+        private void RemoveFavorite(object? param)
         {
             if (param is FavoriteGameItemViewModel fav)
             {
@@ -223,7 +224,7 @@ namespace RBX_Alt_Manager.ViewModels
             }
         }
 
-        private void SelectFavorite(object param)
+        private void SelectFavorite(object? param)
         {
             if (param is FavoriteGameItemViewModel fav)
             {
@@ -242,7 +243,7 @@ namespace RBX_Alt_Manager.ViewModels
             }
         }
 
-        private Task LaunchFavoriteAsync(object param)
+        private Task LaunchFavoriteAsync(object? param)
         {
             if (param is FavoriteGameItemViewModel fav)
             {
@@ -320,7 +321,7 @@ namespace RBX_Alt_Manager.ViewModels
             foreach (long pid in placeIds)
             {
                 if (pid <= 0 || !seen.Add(pid)) continue;
-                if (Batch.GameIcons.TryGetValue(pid, out string cachedUrl) && !string.IsNullOrEmpty(cachedUrl))
+                if (Batch.GameIcons.TryGetValue(pid, out string? cachedUrl) && !string.IsNullOrEmpty(cachedUrl))
                 {
                     result[pid] = cachedUrl;
                 }
@@ -347,7 +348,7 @@ namespace RBX_Alt_Manager.ViewModels
                             if (tItem.TryGetProperty("targetId", out var tidElem) && tidElem.TryGetInt64(out var tid) &&
                                 tItem.TryGetProperty("imageUrl", out var imgElem) && imgElem.ValueKind == JsonValueKind.String)
                             {
-                                string imgUrl = imgElem.GetString();
+                                string? imgUrl = imgElem.GetString();
                                 if (!string.IsNullOrEmpty(imgUrl))
                                 {
                                     result[tid] = imgUrl;

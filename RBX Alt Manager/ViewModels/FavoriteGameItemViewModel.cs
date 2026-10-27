@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Threading.Tasks;
 using Avalonia.Media.Imaging;
@@ -9,10 +10,10 @@ namespace RBX_Alt_Manager.ViewModels
     public class FavoriteGameItemViewModel : ObservableObject
     {
         private long _placeId;
-        private string _name;
-        private string _privateServer;
-        private string _thumbnailUrl;
-        private Bitmap _thumbnailBitmap;
+        private string _name = string.Empty;
+        private string _privateServer = string.Empty;
+        private string _thumbnailUrl = string.Empty;
+        private Bitmap? _thumbnailBitmap;
         private bool _isLoadingThumbnail;
 
         public long PlaceId
@@ -30,13 +31,13 @@ namespace RBX_Alt_Manager.ViewModels
         public string Name
         {
             get => _name;
-            set => SetProperty(ref _name, value);
+            set => SetProperty(ref _name, value ?? string.Empty);
         }
 
         public string PrivateServer
         {
             get => _privateServer;
-            set => SetProperty(ref _privateServer, value);
+            set => SetProperty(ref _privateServer, value ?? string.Empty);
         }
 
         public string ThumbnailUrl
@@ -44,14 +45,14 @@ namespace RBX_Alt_Manager.ViewModels
             get => _thumbnailUrl;
             set
             {
-                if (SetProperty(ref _thumbnailUrl, value))
+                if (SetProperty(ref _thumbnailUrl, value ?? string.Empty))
                 {
                     _ = LoadThumbnailAsync();
                 }
             }
         }
 
-        public Bitmap ThumbnailBitmap
+        public Bitmap? ThumbnailBitmap
         {
             get
             {

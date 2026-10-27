@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Threading.Tasks;
 using Avalonia.Media.Imaging;
@@ -11,8 +12,8 @@ namespace RBX_Alt_Manager.ViewModels
         private long _placeId;
         private string _name = "Game";
         private int _playerCount;
-        private string _thumbnailUrl;
-        private Bitmap _thumbnailBitmap;
+        private string _thumbnailUrl = string.Empty;
+        private Bitmap? _thumbnailBitmap;
         private bool _isLoadingThumbnail;
 
         public long PlaceId
@@ -30,7 +31,7 @@ namespace RBX_Alt_Manager.ViewModels
         public string Name
         {
             get => _name;
-            set => SetProperty(ref _name, value);
+            set => SetProperty(ref _name, value ?? string.Empty);
         }
 
         public int PlayerCount
@@ -50,14 +51,14 @@ namespace RBX_Alt_Manager.ViewModels
             get => _thumbnailUrl;
             set
             {
-                if (SetProperty(ref _thumbnailUrl, value))
+                if (SetProperty(ref _thumbnailUrl, value ?? string.Empty))
                 {
                     _ = LoadThumbnailAsync();
                 }
             }
         }
 
-        public Bitmap ThumbnailBitmap
+        public Bitmap? ThumbnailBitmap
         {
             get
             {

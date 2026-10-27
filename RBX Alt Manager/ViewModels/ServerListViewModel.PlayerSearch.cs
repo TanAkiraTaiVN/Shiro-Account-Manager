@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -49,7 +50,7 @@ namespace RBX_Alt_Manager.ViewModels
                 return;
             }
 
-            var cts = ResetOperationCts(createNew: true);
+            var cts = ResetOperationCts(createNew: true)!;
             var ct = cts.Token;
 
             IsSearchingPlayer = true;
@@ -81,7 +82,7 @@ namespace RBX_Alt_Manager.ViewModels
                 }
 
                 var avatarData = Utilities.FastJson.TryDeserialize<AvatarRoot>(avResp.Content, out var ad) ? ad : null;
-                string targetAvatarUrl = avatarData?.data?.FirstOrDefault()?.imageUrl;
+                string? targetAvatarUrl = avatarData?.data?.FirstOrDefault()?.imageUrl;
 
                 if (string.IsNullOrEmpty(targetAvatarUrl))
                 {
@@ -93,7 +94,7 @@ namespace RBX_Alt_Manager.ViewModels
                 bool populateInitialServers = _servers.Count == 0;
                 var gamesClient = AccountManager.GamesClient ?? new RestClient("https://games.roblox.com");
                 string cursor = "_";
-                ServerData matchedServer = null;
+                ServerData? matchedServer = null;
                 int scannedServers = 0;
 
                 while (!string.IsNullOrEmpty(cursor) && matchedServer == null)
@@ -119,7 +120,7 @@ namespace RBX_Alt_Manager.ViewModels
                             Playing = s.playing,
                             Ping = s.ping ?? -1,
                             Region = string.IsNullOrEmpty(s.region) ? string.Empty : s.region,
-                            Ip = s.ip,
+                            Ip = s.ip ?? string.Empty,
                             RawData = s
                         }).ToList();
 
@@ -134,10 +135,10 @@ namespace RBX_Alt_Manager.ViewModels
                     }
 
                     // Pack playerTokens across multiple servers into chunks of up to 100 tokens (Roblox v1/batch limit)
-                    var batches = new List<(List<TokenRequest> Requests, Dictionary<string, ServerData> RequestMap, ServerData FallbackServer)>();
+                    var batches = new List<(List<TokenRequest> Requests, Dictionary<string, ServerData> RequestMap, ServerData? FallbackServer)>();
                     var currentRequests = new List<TokenRequest>(100);
                     var currentMap = new Dictionary<string, ServerData>(StringComparer.Ordinal);
-                    ServerData lastServerInBatch = null;
+                    ServerData? lastServerInBatch = null;
 
                     foreach (var s in sInfo.data)
                     {
@@ -188,7 +189,7 @@ namespace RBX_Alt_Manager.ViewModels
                                 return;
 
                             var avatars = Utilities.FastJson.TryDeserialize<TokenAvatarRoot>(batchResp.Content, out var ta) ? ta : null;
-                            TokenAvatar hit = null;
+                            TokenAvatar? hit = null;
                             if (avatars?.data != null)
                             {
                                 foreach (var a in avatars.data)
@@ -202,7 +203,7 @@ namespace RBX_Alt_Manager.ViewModels
                             }
                             if (hit != null)
                             {
-                                ServerData serverHit = null;
+                                ServerData? serverHit = null;
                                 if (hit.requestId == null || !batch.RequestMap.TryGetValue(hit.requestId, out serverHit))
                                 {
                                     serverHit = batch.FallbackServer;
@@ -220,7 +221,7 @@ namespace RBX_Alt_Manager.ViewModels
                     }).ToArray();
 
                     await Task.WhenAll(batchTasks);
-                    cursor = sInfo.nextPageCursor;
+                    cursor = sInfo.nextPageCursor ?? string.Empty;
                 }
 
                 if (matchedServer != null)

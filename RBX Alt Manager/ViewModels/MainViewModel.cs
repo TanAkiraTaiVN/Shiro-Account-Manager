@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -65,7 +66,7 @@ namespace RBX_Alt_Manager.ViewModels
         private int _selectedCount;
         private long _totalRobuxCount;
         private string _totalRobuxText = "R$ 0";
-        private CancellationTokenSource _searchCts;
+        private CancellationTokenSource? _searchCts;
 
         public NavigationPage CurrentPage
         {
@@ -89,7 +90,7 @@ namespace RBX_Alt_Manager.ViewModels
         public bool IsSettingsActive => CurrentPage == NavigationPage.Settings;
 
         // Callback when navigation page changes
-        public Action<NavigationPage> OnPageNavigated { get; set; }
+        public Action<NavigationPage>? OnPageNavigated { get; set; }
 
         public ObservableCollection<AccountViewModel> Accounts => _accounts;
         public ObservableCollection<AccountViewModel> FilteredAccounts => _filteredAccounts;
@@ -100,7 +101,7 @@ namespace RBX_Alt_Manager.ViewModels
 
         public MainViewModel()
         {
-            string savedPid = AccountManager.General?.Get("SavedPlaceId");
+            string? savedPid = AccountManager.General?.Get("SavedPlaceId");
             if (!string.IsNullOrWhiteSpace(savedPid))
             {
                 _placeId = savedPid.Trim();
@@ -507,7 +508,7 @@ namespace RBX_Alt_Manager.ViewModels
             {
                 if (acc == null) continue;
 
-                AccountViewModel vm = null;
+                AccountViewModel? vm = null;
                 if (existingByRef.TryGetValue(acc, out var byRef) && claimed.Add(byRef))
                 {
                     vm = byRef;

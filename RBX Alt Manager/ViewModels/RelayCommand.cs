@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Threading.Tasks;
 using System.Windows.Input;
@@ -6,24 +7,24 @@ namespace RBX_Alt_Manager.ViewModels
 {
     public class RelayCommand : ICommand
     {
-        private readonly Action<object> _execute;
-        private readonly Predicate<object> _canExecute;
+        private readonly Action<object?> _execute;
+        private readonly Predicate<object?>? _canExecute;
 
-        public event EventHandler CanExecuteChanged;
+        public event EventHandler? CanExecuteChanged;
 
         public RelayCommand(Action execute) : this(_ => execute(), null) { }
-        public RelayCommand(Action<object> execute) : this(execute, null) { }
+        public RelayCommand(Action<object?> execute) : this(execute, null) { }
 
-        public RelayCommand(Action<object> execute, Predicate<object> canExecute)
+        public RelayCommand(Action<object?> execute, Predicate<object?>? canExecute)
         {
             ArgumentNullException.ThrowIfNull(execute);
             _execute = execute;
             _canExecute = canExecute;
         }
 
-        public bool CanExecute(object parameter) => _canExecute == null || _canExecute(parameter);
+        public bool CanExecute(object? parameter) => _canExecute == null || _canExecute(parameter);
 
-        public void Execute(object parameter)
+        public void Execute(object? parameter)
         {
             try
             {
@@ -40,24 +41,24 @@ namespace RBX_Alt_Manager.ViewModels
 
     public class AsyncRelayCommand : ICommand
     {
-        private readonly Func<object, Task> _executeAsync;
-        private readonly Predicate<object> _canExecute;
+        private readonly Func<object?, Task> _executeAsync;
+        private readonly Predicate<object?>? _canExecute;
         private bool _isExecuting;
 
-        public event EventHandler CanExecuteChanged;
+        public event EventHandler? CanExecuteChanged;
 
         public AsyncRelayCommand(Func<Task> executeAsync) : this(_ => executeAsync(), null) { }
 
-        public AsyncRelayCommand(Func<object, Task> executeAsync, Predicate<object> canExecute = null)
+        public AsyncRelayCommand(Func<object?, Task> executeAsync, Predicate<object?>? canExecute = null)
         {
             ArgumentNullException.ThrowIfNull(executeAsync);
             _executeAsync = executeAsync;
             _canExecute = canExecute;
         }
 
-        public bool CanExecute(object parameter) => !_isExecuting && (_canExecute == null || _canExecute(parameter));
+        public bool CanExecute(object? parameter) => !_isExecuting && (_canExecute == null || _canExecute(parameter));
 
-        public async void Execute(object parameter)
+        public async void Execute(object? parameter)
         {
             if (!CanExecute(parameter)) return;
 
@@ -92,33 +93,33 @@ namespace RBX_Alt_Manager.ViewModels
     public class RelayCommand<T> : ICommand
     {
         private readonly Action<T> _execute;
-        private readonly Predicate<T> _canExecute;
+        private readonly Predicate<T>? _canExecute;
 
-        public event EventHandler CanExecuteChanged;
+        public event EventHandler? CanExecuteChanged;
 
-        public RelayCommand(Action<T> execute, Predicate<T> canExecute = null)
+        public RelayCommand(Action<T> execute, Predicate<T>? canExecute = null)
         {
             ArgumentNullException.ThrowIfNull(execute);
             _execute = execute;
             _canExecute = canExecute;
         }
 
-        public bool CanExecute(object parameter)
+        public bool CanExecute(object? parameter)
         {
             if (_canExecute == null) return true;
             if (parameter is T typed) return _canExecute(typed);
-            if (parameter == null && default(T) == null) return _canExecute(default);
+            if (parameter == null && default(T) == null) return _canExecute(default!);
             return false;
         }
 
-        public void Execute(object parameter)
+        public void Execute(object? parameter)
         {
             try
             {
                 if (parameter is T typed)
                     _execute(typed);
                 else if (parameter == null && default(T) == null)
-                    _execute(default);
+                    _execute(default!);
             }
             catch (Exception ex)
             {
@@ -135,28 +136,28 @@ namespace RBX_Alt_Manager.ViewModels
     public class AsyncRelayCommand<T> : ICommand
     {
         private readonly Func<T, Task> _executeAsync;
-        private readonly Predicate<T> _canExecute;
+        private readonly Predicate<T>? _canExecute;
         private bool _isExecuting;
 
-        public event EventHandler CanExecuteChanged;
+        public event EventHandler? CanExecuteChanged;
 
-        public AsyncRelayCommand(Func<T, Task> executeAsync, Predicate<T> canExecute = null)
+        public AsyncRelayCommand(Func<T, Task> executeAsync, Predicate<T>? canExecute = null)
         {
             ArgumentNullException.ThrowIfNull(executeAsync);
             _executeAsync = executeAsync;
             _canExecute = canExecute;
         }
 
-        public bool CanExecute(object parameter)
+        public bool CanExecute(object? parameter)
         {
             if (_isExecuting) return false;
             if (_canExecute == null) return true;
             if (parameter is T typed) return _canExecute(typed);
-            if (parameter == null && default(T) == null) return _canExecute(default);
+            if (parameter == null && default(T) == null) return _canExecute(default!);
             return false;
         }
 
-        public async void Execute(object parameter)
+        public async void Execute(object? parameter)
         {
             if (!CanExecute(parameter)) return;
 
@@ -167,7 +168,7 @@ namespace RBX_Alt_Manager.ViewModels
                 if (parameter is T typed)
                     await _executeAsync(typed);
                 else if (parameter == null && default(T) == null)
-                    await _executeAsync(default);
+                    await _executeAsync(default!);
             }
             catch (OperationCanceledException)
             {

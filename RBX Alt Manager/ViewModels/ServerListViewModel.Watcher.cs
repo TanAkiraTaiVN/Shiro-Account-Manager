@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using RBX_Alt_Manager.Classes;
 
@@ -100,7 +101,7 @@ namespace RBX_Alt_Manager.ViewModels
                     _closeRbxMemory = watcher.Get<bool>("CloseRbxMemory");
                     _memoryThresholdMb = watcher.Exists("MemoryLowValue") ? watcher.Get<decimal>("MemoryLowValue") : 200;
                     _connectionTimeoutSec = watcher.Exists("NoConnectionTimeout") ? watcher.Get<decimal>("NoConnectionTimeout") : 60;
-                    _expectedWindowTitle = watcher.Exists("ExpectedWindowTitle") ? watcher.Get<string>("ExpectedWindowTitle") : "Roblox";
+                    _expectedWindowTitle = (watcher.Exists("ExpectedWindowTitle") ? watcher.Get<string>("ExpectedWindowTitle") : "Roblox") ?? "Roblox";
 
                     RobloxWatcher.VerifyDataModel = _verifyDataModel;
                     RobloxWatcher.IgnoreExistingProcesses = _ignoreExistingProcesses;

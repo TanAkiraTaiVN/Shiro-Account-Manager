@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -244,7 +245,7 @@ namespace RBX_Alt_Manager.ViewModels
                                     {
                                         PlaceId = g.Details.placeId,
                                         Name = string.IsNullOrWhiteSpace(g.Details.name) ? $"Place {g.Details.placeId}" : g.Details.name,
-                                        ImageUrl = g.ImageUrl
+                                        ImageUrl = g.ImageUrl ?? string.Empty
                                     });
                                 }
                             }
@@ -288,9 +289,9 @@ namespace RBX_Alt_Manager.ViewModels
     public class RecentGameItemViewModel : ObservableObject
     {
         private long _placeId;
-        private string _name;
-        private string _imageUrl;
-        private Avalonia.Media.Imaging.Bitmap _thumbnailBitmap;
+        private string _name = string.Empty;
+        private string _imageUrl = string.Empty;
+        private Avalonia.Media.Imaging.Bitmap? _thumbnailBitmap;
         private bool _isLoadingThumbnail;
 
         public long PlaceId
@@ -309,7 +310,7 @@ namespace RBX_Alt_Manager.ViewModels
         public string Name
         {
             get => _name;
-            set => SetProperty(ref _name, value);
+            set => SetProperty(ref _name, value ?? string.Empty);
         }
 
         public string ImageUrl
@@ -317,14 +318,14 @@ namespace RBX_Alt_Manager.ViewModels
             get => _imageUrl;
             set
             {
-                if (SetProperty(ref _imageUrl, value))
+                if (SetProperty(ref _imageUrl, value ?? string.Empty))
                 {
                     _ = LoadThumbnailAsync();
                 }
             }
         }
 
-        public Avalonia.Media.Imaging.Bitmap ThumbnailBitmap
+        public Avalonia.Media.Imaging.Bitmap? ThumbnailBitmap
         {
             get
             {

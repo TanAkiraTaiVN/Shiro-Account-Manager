@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using RBX_Alt_Manager.Classes;
 using RBX_Alt_Manager.Services;
@@ -6,25 +7,25 @@ namespace RBX_Alt_Manager.ViewModels
 {
     public class ServerItemViewModel : ObservableObject
     {
-        private string _jobId;
+        private string _jobId = string.Empty;
         private string _type = "Public";
         private int _maxPlayers = 20;
         private int _playing;
         private int _ping = -1;
         private string _region = string.Empty;
-        private string _ip;
+        private string _ip = string.Empty;
         private bool _isBusyPinging;
 
         public string JobId
         {
             get => _jobId;
-            set => SetProperty(ref _jobId, value);
+            set => SetProperty(ref _jobId, value ?? string.Empty);
         }
 
         public string Type
         {
             get => _type;
-            set => SetProperty(ref _type, value);
+            set => SetProperty(ref _type, value ?? string.Empty);
         }
 
         public int MaxPlayers
@@ -101,7 +102,7 @@ namespace RBX_Alt_Manager.ViewModels
             get => _region;
             set
             {
-                if (SetProperty(ref _region, value))
+                if (SetProperty(ref _region, value ?? string.Empty))
                 {
                     OnPropertyChanged(nameof(RegionDisplay));
                 }
@@ -128,7 +129,7 @@ namespace RBX_Alt_Manager.ViewModels
         public string Ip
         {
             get => _ip;
-            set => SetProperty(ref _ip, value);
+            set => SetProperty(ref _ip, value ?? string.Empty);
         }
 
         public bool IsBusyPinging
@@ -137,6 +138,6 @@ namespace RBX_Alt_Manager.ViewModels
             set => SetProperty(ref _isBusyPinging, value);
         }
 
-        public ServerData RawData { get; set; }
+        public ServerData? RawData { get; set; }
     }
 }

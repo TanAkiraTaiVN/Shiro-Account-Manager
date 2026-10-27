@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -86,9 +87,10 @@ namespace RBX_Alt_Manager.ViewModels
             get => _model.Alias;
             set
             {
-                if (_model.Alias != value)
+                string val = value ?? string.Empty;
+                if (_model.Alias != val)
                 {
-                    _model.Alias = value;
+                    _model.Alias = val;
                     OnPropertyChanged();
                     OnPropertyChanged(nameof(PrimaryTitle));
                     OnPropertyChanged(nameof(SecondaryTitle));
@@ -116,9 +118,10 @@ namespace RBX_Alt_Manager.ViewModels
             get => _model.Group ?? "Default";
             set
             {
-                if (_model.Group != value)
+                string val = value ?? "Default";
+                if (_model.Group != val)
                 {
-                    _model.Group = value;
+                    _model.Group = val;
                     OnPropertyChanged();
                     OnPropertyChanged(nameof(GroupDisplay));
                 }
@@ -136,9 +139,10 @@ namespace RBX_Alt_Manager.ViewModels
             get => _model.Description;
             set
             {
-                if (_model.Description != value)
+                string val = value ?? string.Empty;
+                if (_model.Description != val)
                 {
-                    _model.Description = value;
+                    _model.Description = val;
                     OnPropertyChanged();
                 }
             }
@@ -208,7 +212,7 @@ namespace RBX_Alt_Manager.ViewModels
         private const int MaxAvatarBitmapCacheEntries = 512;
         private static readonly ConcurrentDictionary<long, byte> _requestedAvatarDownloads = new ConcurrentDictionary<long, byte>();
         private static readonly Services.LruCache<long, Bitmap> _avatarBitmapCache = new Services.LruCache<long, Bitmap>(MaxAvatarBitmapCacheEntries);
-        private string _avatarUrl;
+        private string? _avatarUrl;
 
         public static void ClearAvatarMemoryCache()
         {
@@ -216,7 +220,7 @@ namespace RBX_Alt_Manager.ViewModels
             _requestedAvatarDownloads.Clear();
         }
 
-        public Bitmap AvatarImage
+        public Bitmap? AvatarImage
         {
             get
             {
@@ -277,7 +281,7 @@ namespace RBX_Alt_Manager.ViewModels
         {
             try
             {
-                string path = await Services.AvatarService.EnsureAvatarAsync(UserId).ConfigureAwait(false);
+                string? path = await Services.AvatarService.EnsureAvatarAsync(UserId).ConfigureAwait(false);
                 if (!string.IsNullOrEmpty(path))
                 {
                     _avatarUrl = path;

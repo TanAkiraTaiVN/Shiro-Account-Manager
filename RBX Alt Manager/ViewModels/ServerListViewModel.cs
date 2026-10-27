@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -18,16 +19,16 @@ namespace RBX_Alt_Manager.ViewModels
 {
     public partial class ServerListViewModel : ObservableObject
     {
-        private readonly MainViewModel _mainViewModel;
+        private readonly MainViewModel? _mainViewModel;
         private readonly BulkObservableCollection<ServerItemViewModel> _servers = new BulkObservableCollection<ServerItemViewModel>();
 
         private string _placeIdInput = string.Empty;
         private bool _isLoadingServers;
         private string _loadingStatus = LocalizationService.IsEnglish ? "Ready" : "Sẵn sàng";
-        private ServerItemViewModel _selectedServer;
+        private ServerItemViewModel? _selectedServer;
         private int _selectedSubTabIndex = 0; // 0: Servers, 1: Games, 2: Favorites, 3: Watcher
 
-        private CancellationTokenSource _operationCts;
+        private CancellationTokenSource? _operationCts;
 
         public BulkObservableCollection<ServerItemViewModel> Servers => _servers;
         public int TotalServersCount => _servers.Count;
@@ -77,7 +78,7 @@ namespace RBX_Alt_Manager.ViewModels
             set => SetProperty(ref _loadingStatus, value);
         }
 
-        public ServerItemViewModel SelectedServer
+        public ServerItemViewModel? SelectedServer
         {
             get => _selectedServer;
             set => SetProperty(ref _selectedServer, value);
@@ -115,7 +116,7 @@ namespace RBX_Alt_Manager.ViewModels
         public ICommand SelectFavoriteCommand { get; }
         public ICommand LaunchFavoriteCommand { get; }
 
-        public ServerListViewModel(MainViewModel mainViewModel)
+        public ServerListViewModel(MainViewModel? mainViewModel)
         {
             _mainViewModel = mainViewModel;
             _placeIdInput = mainViewModel?.PlaceId ?? string.Empty;
@@ -161,7 +162,7 @@ namespace RBX_Alt_Manager.ViewModels
             }
         }
 
-        private CancellationTokenSource ResetOperationCts(bool createNew)
+        private CancellationTokenSource? ResetOperationCts(bool createNew)
         {
             var nextCts = createNew ? new CancellationTokenSource() : null;
             var prevCts = Interlocked.Exchange(ref _operationCts, nextCts);
@@ -188,7 +189,7 @@ namespace RBX_Alt_Manager.ViewModels
 
         public async Task RefreshServersAsync()
         {
-            string rawPid = !string.IsNullOrWhiteSpace(PlaceIdInput) ? PlaceIdInput : _mainViewModel?.PlaceId;
+            string rawPid = !string.IsNullOrWhiteSpace(PlaceIdInput) ? PlaceIdInput : (_mainViewModel?.PlaceId ?? string.Empty);
             long placeId = AccountLauncherService.ParsePlaceId(rawPid);
             if (placeId <= 0)
             {
@@ -198,7 +199,7 @@ namespace RBX_Alt_Manager.ViewModels
                 return;
             }
 
-            var cts = ResetOperationCts(createNew: true);
+            var cts = ResetOperationCts(createNew: true)!;
             IsSearchingPlayer = false;
             CancellationToken ct = cts.Token;
 
@@ -215,9 +216,9 @@ namespace RBX_Alt_Manager.ViewModels
                 {
                     var gamesClient = AccountManager.GamesClient ?? new RestClient("https://games.roblox.com");
                     var vipAuthAccount = ResolveAuthAccount();
-                    Task<List<ServerItemViewModel>> vipTask = vipAuthAccount != null
+                    Task<List<ServerItemViewModel>?> vipTask = vipAuthAccount != null
                         ? FetchVipServersAsync(gamesClient, vipAuthAccount, placeId, ct)
-                        : Task.FromResult<List<ServerItemViewModel>>(null);
+                        : Task.FromResult<List<ServerItemViewModel>?>(null);
 
                     string cursor = "_";
                     int totalLoaded = 0;
@@ -230,7 +231,7 @@ namespace RBX_Alt_Manager.ViewModels
 
                         if (ct.IsCancellationRequested) break;
 
-                        if (!response.IsSuccessful || response.StatusCode != HttpStatusCode.OK)
+                        if (!response.IsSuccessful || response.StatusCode != HttpStatusCode.OK || string.IsNullOrEmpty(response.Content))
                         {
                             if (totalLoaded == 0)
                             {
@@ -262,13 +263,13 @@ namespace RBX_Alt_Manager.ViewModels
                                 Playing = s.playing,
                                 Ping = s.ping ?? -1,
                                 Region = string.IsNullOrEmpty(s.region) ? string.Empty : s.region,
-                                Ip = s.ip,
+                                Ip = s.ip ?? string.Empty,
                                 RawData = s
                             });
                             totalLoaded++;
                         }
 
-                        cursor = serverInfo.nextPageCursor;
+                        cursor = serverInfo.nextPageCursor ?? string.Empty;
                         int currentCount = totalLoaded;
 
                         AppDispatcher.Post(() =>
@@ -334,7 +335,7 @@ namespace RBX_Alt_Manager.ViewModels
             }, ct);
         }
 
-        private static async Task<List<ServerItemViewModel>> FetchVipServersAsync(
+        private static async Task<List<ServerItemViewModel>?> FetchVipServersAsync(
             RestClient gamesClient,
             Account vipAuthAccount,
             long placeId,
@@ -366,7 +367,7 @@ namespace RBX_Alt_Manager.ViewModels
                                 Playing = v.playing,
                                 Ping = v.ping ?? -1,
                                 Region = !string.IsNullOrEmpty(v.region) ? v.region : "VIP Private",
-                                Ip = v.ip,
+                                Ip = v.ip ?? string.Empty,
                                 RawData = v
                             });
                         }
@@ -382,7 +383,7 @@ namespace RBX_Alt_Manager.ViewModels
             return null;
         }
 
-        private void SelectServerJobId(object param)
+        private void SelectServerJobId(object? param)
         {
             if (param is ServerItemViewModel server)
             {
@@ -403,7 +404,7 @@ namespace RBX_Alt_Manager.ViewModels
             }
         }
 
-        private void CopyJobId(object param)
+        private void CopyJobId(object? param)
         {
             if (param is ServerItemViewModel server)
             {
@@ -415,7 +416,7 @@ namespace RBX_Alt_Manager.ViewModels
             }
         }
 
-        private async Task JoinServerAsync(object param)
+        private async Task JoinServerAsync(object? param)
         {
             if (param is not ServerItemViewModel server) return;
 
@@ -423,7 +424,7 @@ namespace RBX_Alt_Manager.ViewModels
                 ? $"VIP:{server.RawData.accessCode}"
                 : server.JobId;
 
-            string pidText = !string.IsNullOrWhiteSpace(PlaceIdInput) ? PlaceIdInput : _mainViewModel?.PlaceId;
+            string pidText = !string.IsNullOrWhiteSpace(PlaceIdInput) ? PlaceIdInput : (_mainViewModel?.PlaceId ?? string.Empty);
             long placeId = AccountLauncherService.ParsePlaceId(pidText);
             if (placeId <= 0)
             {
@@ -471,7 +472,7 @@ namespace RBX_Alt_Manager.ViewModels
             }
         }
 
-        private Account ResolveAuthAccount()
+        private Account? ResolveAuthAccount()
         {
             var selectedFromVm = _mainViewModel?.Accounts?.FirstOrDefault(a => a.IsSelected && a.Valid && a.Model != null)?.Model;
             if (selectedFromVm != null)
@@ -488,9 +489,9 @@ namespace RBX_Alt_Manager.ViewModels
                    ?? AccountManager.LastValidAccount;
         }
 
-        private Task LoadRegionAsync(object param) => LoadRegionCoreAsync(param as ServerItemViewModel, CancellationToken.None);
+        private Task LoadRegionAsync(object? param) => LoadRegionCoreAsync(param as ServerItemViewModel, CancellationToken.None);
 
-        private async Task LoadRegionCoreAsync(ServerItemViewModel server, CancellationToken ct)
+        private async Task LoadRegionCoreAsync(ServerItemViewModel? server, CancellationToken ct)
         {
             if (server == null || server.RawData == null) return;
             server.IsBusyPinging = true;
@@ -504,16 +505,16 @@ namespace RBX_Alt_Manager.ViewModels
                     return;
                 }
 
-                string rawPid = !string.IsNullOrWhiteSpace(PlaceIdInput) ? PlaceIdInput : _mainViewModel?.PlaceId;
+                string rawPid = !string.IsNullOrWhiteSpace(PlaceIdInput) ? PlaceIdInput : (_mainViewModel?.PlaceId ?? string.Empty);
                 long placeId = AccountLauncherService.ParsePlaceId(rawPid);
                 if (placeId <= 0) return;
 
                 var result = await RobloxServerQueryService.Default.QueryServerRegionAndPingAsync(acc, placeId, server.RawData.id, cancellationToken: ct).ConfigureAwait(true);
                 if (result.Success)
                 {
-                    server.Ip = result.Ip;
+                    server.Ip = result.Ip ?? string.Empty;
                     if (result.PingMs.HasValue) server.Ping = result.PingMs.Value;
-                    server.Region = result.Region;
+                    server.Region = result.Region ?? string.Empty;
                 }
                 else
                 {
@@ -539,7 +540,7 @@ namespace RBX_Alt_Manager.ViewModels
             if (_servers.Count == 0) return;
 
             var cts = ResetOperationCts(createNew: true);
-            var ct = cts.Token;
+            var ct = cts!.Token;
 
             var pendingServers = _servers
                 .Take(25)

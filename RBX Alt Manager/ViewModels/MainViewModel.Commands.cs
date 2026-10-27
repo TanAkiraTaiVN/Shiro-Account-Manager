@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -11,129 +12,129 @@ namespace RBX_Alt_Manager.ViewModels
     public partial class MainViewModel
     {
         // Reference to optional host callbacks for modal popups and launches (used by tests or custom overrides)
-        public Action<AccountViewModel> OnLaunchRequested { get; set; }
-        public Action<AccountViewModel> OnOpenHomeRequested { get; set; }
-        public Action<IList<AccountViewModel>> OnMultiLaunchRequested { get; set; }
-        public Action<IList<AccountViewModel>> OnJoinServerSelectedRequested { get; set; }
-        public Action<AccountViewModel> OnJoinServerSingleRequested { get; set; }
-        public Action OnAddAccountRequested { get; set; }
-        public Action OnAddAccountChromeRequested { get; set; }
-        public Action OnAddAccountFastLoginRequested { get; set; }
-        public Action OnAddAccountCookieRequested { get; set; }
-        public Action OnBulkImportRequested { get; set; }
-        public Action OnSettingsRequested { get; set; }
-        public Action OnServerListRequested { get; set; }
-        public Action OnRecentGamesRequested { get; set; }
-        public Action OnCheckSessionsRequested { get; set; }
-        public Action OnReLoginAllExpiredRequested { get; set; }
-        public Action OnKillAllRequested { get; set; }
-        public Action OnProxyManagerRequested { get; set; }
-        public Action OnNexusRequested { get; set; }
+        public Action<AccountViewModel>? OnLaunchRequested { get; set; }
+        public Action<AccountViewModel>? OnOpenHomeRequested { get; set; }
+        public Action<IList<AccountViewModel>>? OnMultiLaunchRequested { get; set; }
+        public Action<IList<AccountViewModel>>? OnJoinServerSelectedRequested { get; set; }
+        public Action<AccountViewModel>? OnJoinServerSingleRequested { get; set; }
+        public Action? OnAddAccountRequested { get; set; }
+        public Action? OnAddAccountChromeRequested { get; set; }
+        public Action? OnAddAccountFastLoginRequested { get; set; }
+        public Action? OnAddAccountCookieRequested { get; set; }
+        public Action? OnBulkImportRequested { get; set; }
+        public Action? OnSettingsRequested { get; set; }
+        public Action? OnServerListRequested { get; set; }
+        public Action? OnRecentGamesRequested { get; set; }
+        public Action? OnCheckSessionsRequested { get; set; }
+        public Action? OnReLoginAllExpiredRequested { get; set; }
+        public Action? OnKillAllRequested { get; set; }
+        public Action? OnProxyManagerRequested { get; set; }
+        public Action? OnNexusRequested { get; set; }
 
         // Card Level Callbacks
-        public Action<AccountViewModel> OnFastReLoginRequested { get; set; }
-        public Action<AccountViewModel> OnReLoginRequested { get; set; }
-        public Action<AccountViewModel> OnReLoginWithCookieRequested { get; set; }
-        public Action<AccountViewModel> OnValidateSessionRequested { get; set; }
-        public Action<AccountViewModel> OnOpenProfileRequested { get; set; }
-        public Action<AccountViewModel> OnSetAliasRequested { get; set; }
-        public Action<AccountViewModel> OnSetGroupRequested { get; set; }
-        public Action<AccountViewModel> OnSetDescriptionRequested { get; set; }
-        public Action<AccountViewModel> OnTogglePinRequested { get; set; }
-        public Action<AccountViewModel> OnCopyUsernameRequested { get; set; }
-        public Action<AccountViewModel> OnCopyUserPassRequested { get; set; }
-        public Action<AccountViewModel> OnCopyUserIdRequested { get; set; }
-        public Action<AccountViewModel> OnCopyProfileUrlRequested { get; set; }
-        public Action<AccountViewModel> OnCopySecurityTokenRequested { get; set; }
-        public Action<AccountViewModel> OnSavePlaceIdToAccountRequested { get; set; }
-        public Action<AccountViewModel> OnViewFieldsRequested { get; set; }
-        public Action<AccountViewModel> OnOpenUtilsRequested { get; set; }
-        public Action OnOpenAboutRequested { get; set; }
-        public Action<AccountViewModel> OnRemoveAccountRequested { get; set; }
+        public Action<AccountViewModel>? OnFastReLoginRequested { get; set; }
+        public Action<AccountViewModel>? OnReLoginRequested { get; set; }
+        public Action<AccountViewModel>? OnReLoginWithCookieRequested { get; set; }
+        public Action<AccountViewModel>? OnValidateSessionRequested { get; set; }
+        public Action<AccountViewModel>? OnOpenProfileRequested { get; set; }
+        public Action<AccountViewModel>? OnSetAliasRequested { get; set; }
+        public Action<AccountViewModel>? OnSetGroupRequested { get; set; }
+        public Action<AccountViewModel>? OnSetDescriptionRequested { get; set; }
+        public Action<AccountViewModel>? OnTogglePinRequested { get; set; }
+        public Action<AccountViewModel>? OnCopyUsernameRequested { get; set; }
+        public Action<AccountViewModel>? OnCopyUserPassRequested { get; set; }
+        public Action<AccountViewModel>? OnCopyUserIdRequested { get; set; }
+        public Action<AccountViewModel>? OnCopyProfileUrlRequested { get; set; }
+        public Action<AccountViewModel>? OnCopySecurityTokenRequested { get; set; }
+        public Action<AccountViewModel>? OnSavePlaceIdToAccountRequested { get; set; }
+        public Action<AccountViewModel>? OnViewFieldsRequested { get; set; }
+        public Action<AccountViewModel>? OnOpenUtilsRequested { get; set; }
+        public Action? OnOpenAboutRequested { get; set; }
+        public Action<AccountViewModel>? OnRemoveAccountRequested { get; set; }
 
         // Batch Level Callbacks
-        public Action<IList<AccountViewModel>> OnReLoginSelectedRequested { get; set; }
-        public Action<IList<AccountViewModel>> OnValidateSessionSelectedRequested { get; set; }
-        public Action OnSetGroupSelectedRequested { get; set; }
-        public Action OnSavePlaceIdSelectedRequested { get; set; }
-        public Action OnCopyUserPassSelectedRequested { get; set; }
-        public Action OnRemoveSelectedRequested { get; set; }
+        public Action<IList<AccountViewModel>>? OnReLoginSelectedRequested { get; set; }
+        public Action<IList<AccountViewModel>>? OnValidateSessionSelectedRequested { get; set; }
+        public Action? OnSetGroupSelectedRequested { get; set; }
+        public Action? OnSavePlaceIdSelectedRequested { get; set; }
+        public Action? OnCopyUserPassSelectedRequested { get; set; }
+        public Action? OnRemoveSelectedRequested { get; set; }
 
         #region Commands
-        public ICommand ToggleViewModeCommand { get; private set; }
-        public ICommand ToggleCommandPaletteCommand { get; private set; }
-        public ICommand OpenCommandPaletteCommand { get; private set; }
-        public ICommand CloseCommandPaletteCommand { get; private set; }
-        public ICommand ChangeAccentThemeCommand { get; private set; }
-        public ICommand LaunchAccountCommand { get; private set; }
-        public ICommand OpenHomeCommand { get; private set; }
-        public ICommand JoinServerAccountCommand { get; private set; }
-        public ICommand LaunchSelectedCommand { get; private set; }
-        public ICommand JoinServerSelectedCommand { get; private set; }
-        public ICommand AntiLagBoosterCommand { get; private set; }
-        public ICommand ToggleWindowsCommand { get; private set; }
-        public ICommand ToggleAntiAfkCommand { get; private set; }
-        public ICommand TogglePotatoModeCommand { get; private set; }
-        public ICommand SelectAllCommand { get; private set; }
-        public ICommand ClearSelectionCommand { get; private set; }
-        public ICommand ClearSearchCommand { get; private set; }
-        public ICommand RefreshPresenceCommand { get; private set; }
-        public ICommand CheckSessionsCommand { get; private set; }
-        public ICommand ReLoginAllExpiredCommand { get; private set; }
-        public ICommand AddAccountCommand { get; private set; }
-        public ICommand AddAccountChromeCommand { get; private set; }
-        public ICommand AddAccountFastLoginCommand { get; private set; }
-        public ICommand AddAccountCookieCommand { get; private set; }
-        public ICommand BulkImportCommand { get; private set; }
-        public ICommand OpenSettingsCommand { get; private set; }
-        public ICommand OpenServerListCommand { get; private set; }
-        public ICommand OpenRecentGamesCommand { get; private set; }
-        public ICommand NavigateToAccountsCommand { get; private set; }
-        public ICommand NavigateToServerListCommand { get; private set; }
-        public ICommand NavigateToRecentGamesCommand { get; private set; }
-        public ICommand NavigateToSettingsCommand { get; private set; }
-        public ICommand ToggleShuffleCommand { get; private set; }
-        public ICommand KillAllClientsCommand { get; private set; }
-        public ICommand SetFilterTabCommand { get; private set; }
-        public ICommand SetSortModeCommand { get; private set; }
-        public ICommand SelectRecentGameCommand { get; private set; }
-        public ICommand LaunchRecentGameCommand { get; private set; }
-        public ICommand RefreshRecentGamesCommand { get; private set; }
-        public ICommand TileWindowsCommand { get; private set; }
-        public ICommand RefreshAllRobuxCommand { get; private set; }
-        public ICommand CheckRobuxAccountCommand { get; private set; }
-        public ICommand OpenProxyManagerCommand { get; private set; }
-        public ICommand OpenNexusCommand { get; private set; }
-        public ICommand CleanSystemTrayCommand { get; private set; }
+        public ICommand ToggleViewModeCommand { get; private set; } = null!;
+        public ICommand ToggleCommandPaletteCommand { get; private set; } = null!;
+        public ICommand OpenCommandPaletteCommand { get; private set; } = null!;
+        public ICommand CloseCommandPaletteCommand { get; private set; } = null!;
+        public ICommand ChangeAccentThemeCommand { get; private set; } = null!;
+        public ICommand LaunchAccountCommand { get; private set; } = null!;
+        public ICommand OpenHomeCommand { get; private set; } = null!;
+        public ICommand JoinServerAccountCommand { get; private set; } = null!;
+        public ICommand LaunchSelectedCommand { get; private set; } = null!;
+        public ICommand JoinServerSelectedCommand { get; private set; } = null!;
+        public ICommand AntiLagBoosterCommand { get; private set; } = null!;
+        public ICommand ToggleWindowsCommand { get; private set; } = null!;
+        public ICommand ToggleAntiAfkCommand { get; private set; } = null!;
+        public ICommand TogglePotatoModeCommand { get; private set; } = null!;
+        public ICommand SelectAllCommand { get; private set; } = null!;
+        public ICommand ClearSelectionCommand { get; private set; } = null!;
+        public ICommand ClearSearchCommand { get; private set; } = null!;
+        public ICommand RefreshPresenceCommand { get; private set; } = null!;
+        public ICommand CheckSessionsCommand { get; private set; } = null!;
+        public ICommand ReLoginAllExpiredCommand { get; private set; } = null!;
+        public ICommand AddAccountCommand { get; private set; } = null!;
+        public ICommand AddAccountChromeCommand { get; private set; } = null!;
+        public ICommand AddAccountFastLoginCommand { get; private set; } = null!;
+        public ICommand AddAccountCookieCommand { get; private set; } = null!;
+        public ICommand BulkImportCommand { get; private set; } = null!;
+        public ICommand OpenSettingsCommand { get; private set; } = null!;
+        public ICommand OpenServerListCommand { get; private set; } = null!;
+        public ICommand OpenRecentGamesCommand { get; private set; } = null!;
+        public ICommand NavigateToAccountsCommand { get; private set; } = null!;
+        public ICommand NavigateToServerListCommand { get; private set; } = null!;
+        public ICommand NavigateToRecentGamesCommand { get; private set; } = null!;
+        public ICommand NavigateToSettingsCommand { get; private set; } = null!;
+        public ICommand ToggleShuffleCommand { get; private set; } = null!;
+        public ICommand KillAllClientsCommand { get; private set; } = null!;
+        public ICommand SetFilterTabCommand { get; private set; } = null!;
+        public ICommand SetSortModeCommand { get; private set; } = null!;
+        public ICommand SelectRecentGameCommand { get; private set; } = null!;
+        public ICommand LaunchRecentGameCommand { get; private set; } = null!;
+        public ICommand RefreshRecentGamesCommand { get; private set; } = null!;
+        public ICommand TileWindowsCommand { get; private set; } = null!;
+        public ICommand RefreshAllRobuxCommand { get; private set; } = null!;
+        public ICommand CheckRobuxAccountCommand { get; private set; } = null!;
+        public ICommand OpenProxyManagerCommand { get; private set; } = null!;
+        public ICommand OpenNexusCommand { get; private set; } = null!;
+        public ICommand CleanSystemTrayCommand { get; private set; } = null!;
 
         // Card Level Commands
-        public ICommand FastReLoginAccountCommand { get; private set; }
-        public ICommand ReLoginAccountCommand { get; private set; }
-        public ICommand ReLoginWithCookieCommand { get; private set; }
-        public ICommand ValidateSessionCommand { get; private set; }
-        public ICommand OpenProfileCommand { get; private set; }
-        public ICommand SetAliasCommand { get; private set; }
-        public ICommand SetGroupCommand { get; private set; }
-        public ICommand SetDescriptionCommand { get; private set; }
-        public ICommand TogglePinCommand { get; private set; }
-        public ICommand CopyUsernameCommand { get; private set; }
-        public ICommand CopyUserPassCommand { get; private set; }
-        public ICommand CopyUserIdCommand { get; private set; }
-        public ICommand CopyProfileUrlCommand { get; private set; }
-        public ICommand CopySecurityTokenCommand { get; private set; }
-        public ICommand SavePlaceIdToAccountCommand { get; private set; }
-        public ICommand ViewFieldsCommand { get; private set; }
-        public ICommand OpenUtilsCommand { get; private set; }
-        public ICommand OpenAboutDialogCommand { get; private set; }
-        public ICommand RemoveAccountCommand { get; private set; }
+        public ICommand FastReLoginAccountCommand { get; private set; } = null!;
+        public ICommand ReLoginAccountCommand { get; private set; } = null!;
+        public ICommand ReLoginWithCookieCommand { get; private set; } = null!;
+        public ICommand ValidateSessionCommand { get; private set; } = null!;
+        public ICommand OpenProfileCommand { get; private set; } = null!;
+        public ICommand SetAliasCommand { get; private set; } = null!;
+        public ICommand SetGroupCommand { get; private set; } = null!;
+        public ICommand SetDescriptionCommand { get; private set; } = null!;
+        public ICommand TogglePinCommand { get; private set; } = null!;
+        public ICommand CopyUsernameCommand { get; private set; } = null!;
+        public ICommand CopyUserPassCommand { get; private set; } = null!;
+        public ICommand CopyUserIdCommand { get; private set; } = null!;
+        public ICommand CopyProfileUrlCommand { get; private set; } = null!;
+        public ICommand CopySecurityTokenCommand { get; private set; } = null!;
+        public ICommand SavePlaceIdToAccountCommand { get; private set; } = null!;
+        public ICommand ViewFieldsCommand { get; private set; } = null!;
+        public ICommand OpenUtilsCommand { get; private set; } = null!;
+        public ICommand OpenAboutDialogCommand { get; private set; } = null!;
+        public ICommand RemoveAccountCommand { get; private set; } = null!;
 
         // Batch Level Commands
-        public ICommand SetGroupSelectedCommand { get; private set; }
-        public ICommand SavePlaceIdSelectedCommand { get; private set; }
-        public ICommand CopyUserPassSelectedCommand { get; private set; }
-        public ICommand RemoveSelectedCommand { get; private set; }
-        public ICommand ReLoginSelectedCommand { get; private set; }
-        public ICommand ValidateSessionSelectedCommand { get; private set; }
+        public ICommand SetGroupSelectedCommand { get; private set; } = null!;
+        public ICommand SavePlaceIdSelectedCommand { get; private set; } = null!;
+        public ICommand CopyUserPassSelectedCommand { get; private set; } = null!;
+        public ICommand RemoveSelectedCommand { get; private set; } = null!;
+        public ICommand ReLoginSelectedCommand { get; private set; } = null!;
+        public ICommand ValidateSessionSelectedCommand { get; private set; } = null!;
 
         private void PostStatusMessage(string message)
         {
@@ -153,7 +154,7 @@ namespace RBX_Alt_Manager.ViewModels
             if (list == null || list.Count == 0)
                 return;
 
-            string placeIdStr = PlaceId?.Trim();
+            string placeIdStr = PlaceId?.Trim() ?? string.Empty;
             long placeId = AccountLauncherService.ParsePlaceId(placeIdStr);
             if (placeId > 0)
             {
