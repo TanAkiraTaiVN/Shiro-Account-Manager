@@ -14,7 +14,6 @@ namespace RBX_Alt_Manager
     public partial class AccountManager
     {
         private static string SaveFilePath => StoragePaths.AccountDataFile;
-        private static string RecentGamesFilePath => StoragePaths.RecentGamesFile;
 
         private static ReadOnlyMemory<byte> PasswordHash; // Store the hash after the data is successfully decrypted so we can encrypt again.
         // A legacy install could explicitly opt into plaintext account data
@@ -86,98 +85,6 @@ namespace RBX_Alt_Manager
 
             Instance.LoadAccounts(Hash, out bool unlocked);
             return unlocked;
-        }
-
-        public static bool TryRecoverOrRestoreAccounts(out string statusMessage)
-        {
-            statusMessage = string.Empty;
-            if (Instance == null)
-                return false;
-
-            if (VaultKeyRecoveryService.RunElevatedRecovery())
-            {
-                Instance.LoadAccounts(null, out bool unlocked);
-                if (unlocked)
-                {
-                    statusMessage = $"Đã khôi phục thành công khóa vault.key và tải lại {AccountCount} tài khoản!";
-                    return true;
-                }
-            }
-
-            if (Instance.TryRestoreReadableBackup())
-            {
-                statusMessage = $"Đã khôi phục {AccountCount} tài khoản từ bản sao lưu hợp lệ gần nhất.";
-                return true;
-            }
-
-            return false;
-        }
-
-        public bool TryRestoreReadableBackup()
-        {
-            string[] candidates =
-            {
-                $"{SaveFilePath}.backup",
-                $"{SaveFilePath}.previous",
-                $"{SaveFilePath}.backup.previous",
-                $"{SaveFilePath}.bak"
-            };
-
-            foreach (string path in candidates)
-            {
-                if (!File.Exists(path))
-                    continue;
-
-                try
-                {
-                    byte[] raw = File.ReadAllBytes(path);
-                    if (raw.Length == 0)
-                        continue;
-
-                    byte[]? decoded = null;
-                    if (Cryptography.IsEncrypted(raw))
-                    {
-                        decoded = Cryptography.Decrypt(raw, StoragePaths.GetOrCreateVaultKey());
-                    }
-                    else
-                    {
-                        decoded = TryUnprotectAccountData(raw, out _);
-                    }
-
-                    if (decoded != null && decoded.Length > 2)
-                    {
-                        var restored = AccountDataSerializer.Deserialize(decoded, out bool needsMigration);
-                        if (restored != null && restored.Count > 0)
-                        {
-                            // Preserve the locked primary file before replacing it
-                            try
-                            {
-                                if (File.Exists(SaveFilePath))
-                                    File.Copy(SaveFilePath, $"{SaveFilePath}.locked-{DateTime.Now:yyyyMMdd_HHmmss}.bak", overwrite: true);
-                            }
-                            catch (Exception ex)
-                            {
-                                Program.Logger?.Warn($"Could not create copy of locked primary account data: {ex.Message}");
-                            }
-
-                            ReplaceAccountsList(restored);
-                            accountDataNeedsMigration |= needsMigration;
-                            PasswordHash = Array.Empty<byte>();
-                            SaveAccounts(true, true);
-                            RefreshView();
-                            EnableModernDashboard();
-                            Program.Logger?.Info($"[LoadAccounts] Restored {restored.Count} accounts from '{path}'.");
-                            return true;
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Program.Logger?.Debug($"Candidate backup '{path}' could not be loaded: {ex.Message}");
-                }
-            }
-
-            return false;
         }
 
         public void LoadAccounts(byte[]? Hash = null)
@@ -484,37 +391,6 @@ namespace RBX_Alt_Manager
             }
         }
 
-        private static readonly Timer _deferredSettingsSaveTimer = new Timer(_ =>
-        {
-            try { SaveSettings(); }
-            catch (Exception ex) { Program.Logger?.Error($"[DeferredSettingsSave] Error saving settings: {ex.Message}"); }
-        }, null, Timeout.Infinite, Timeout.Infinite);
-
-        internal static void QueueDeferredSaveSettings(int delayMs = 500)
-        {
-            try
-            {
-                _deferredSettingsSaveTimer.Change(Math.Max(50, delayMs), Timeout.Infinite);
-            }
-            catch (ObjectDisposedException) { }
-            catch (Exception ex)
-            {
-                Program.Logger?.Warn($"Failed to schedule deferred settings save: {ex.Message}");
-            }
-        }
-
-        internal static void SaveSettings()
-        {
-            AccountManager? instance = Instance;
-            if (instance?.settingsService != null)
-            {
-                instance.settingsService.Save();
-                return;
-            }
-
-            IniSettings?.Save(StoragePaths.SettingsFile);
-        }
-
         private static byte[] TryUnprotectAccountData(byte[] data, out bool usedLegacyScope)
         {
             usedLegacyScope = false;
@@ -527,72 +403,6 @@ namespace RBX_Alt_Manager
                 byte[] legacy = ProtectedData.Unprotect(data, Entropy, DataProtectionScope.LocalMachine);
                 usedLegacyScope = true;
                 return legacy;
-            }
-        }
-
-        private async Task LoadRecentGames()
-        {
-            lock (rgSaveLock)
-            {
-                RecentGames = new List<Game>();
-            }
-
-            if (File.Exists(RecentGamesFilePath))
-            {
-                try
-                {
-                    string json = await File.ReadAllTextAsync(RecentGamesFilePath).ConfigureAwait(false);
-                    if (!string.IsNullOrWhiteSpace(json))
-                    {
-                        List<Game>? Games = Utilities.FastJson.TryDeserialize<List<Game>>(json, out var gList) ? gList : null;
-                        if (Games != null && Games.Count > 0)
-                        {
-                            await Task.WhenAll(Games.Where(g => g != null).Select(g => g.WaitForDetails())).ConfigureAwait(false);
-                            foreach (Game RG in Games)
-                            {
-                                if (RG != null)
-                                    await AddRecentGame(RG, true).ConfigureAwait(false);
-                            }
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Program.Logger?.Warn($"Failed to load recent games: {ex.Message}");
-                }
-            }
-        }
-
-        private async Task AddRecentGame(Game RG, bool Loading = false)
-        {
-            if (RG == null) return;
-            await RG.WaitForDetails().ConfigureAwait(false);
-
-            int maxRecentGames = General?.Get<int>("MaxRecentGames") ?? 10;
-            string? serialized = null;
-
-            lock (rgSaveLock)
-            {
-                RecentGames ??= new List<Game>();
-                RecentGames.RemoveAll(g => g?.Details?.placeId == RG.Details?.placeId);
-
-                while (RecentGames.Count > maxRecentGames && RecentGames.Count > 0)
-                {
-                    RecentGames.RemoveAt(0);
-                }
-
-                RecentGames.Add(RG);
-
-                if (!Loading)
-                {
-                    serialized = Utilities.FastJson.Serialize(RecentGames, indented: true);
-                    StoragePaths.AtomicWriteText(RecentGamesFilePath, serialized);
-                }
-            }
-
-            if (!Loading)
-            {
-                this.InvokeIfRequired(() => RecentGameAdded?.Invoke(this, new GameArgs(RG)));
             }
         }
     }
