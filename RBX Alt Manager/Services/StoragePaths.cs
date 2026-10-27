@@ -13,12 +13,16 @@ namespace RBX_Alt_Manager.Services
         private static readonly System.Threading.Lock Sync = new();
         private static bool initialized;
         private static string dataDirectory;
+        private static string? _testDataDirectoryOverride;
 
         public static string BaseDirectory { get; private set; }
         public static string DataDirectory
         {
             get
             {
+                if (_testDataDirectoryOverride != null)
+                    return _testDataDirectoryOverride;
+
                 EnsureInitialized();
                 return dataDirectory;
             }
@@ -50,6 +54,7 @@ namespace RBX_Alt_Manager.Services
                 {
                     string name = asm.GetName().Name ?? string.Empty;
                     if (name.Equals("RBX_Alt_Manager.Tests", StringComparison.OrdinalIgnoreCase) ||
+                        name.Equals("Shiro.Tests", StringComparison.OrdinalIgnoreCase) ||
                         name.StartsWith("xunit.", StringComparison.OrdinalIgnoreCase))
                         return true;
                 }
@@ -109,8 +114,7 @@ namespace RBX_Alt_Manager.Services
 
         public static string GetUserFile(string fileName)
         {
-            EnsureInitialized();
-            return Path.Combine(dataDirectory, fileName ?? string.Empty);
+            return Path.Combine(DataDirectory, fileName ?? string.Empty);
         }
 
         private static byte[] _cachedVaultKey;
@@ -239,10 +243,30 @@ namespace RBX_Alt_Manager.Services
 
         public static string GetUserDirectory(string directoryName)
         {
-            EnsureInitialized();
-            string path = Path.Combine(dataDirectory, directoryName ?? string.Empty);
+            string path = Path.Combine(DataDirectory, directoryName ?? string.Empty);
             Directory.CreateDirectory(path);
             return path;
+        }
+
+        internal static IDisposable OverrideDataDirectoryForTesting(string tempDir)
+        {
+            Directory.CreateDirectory(tempDir);
+            string? previous = _testDataDirectoryOverride;
+            _testDataDirectoryOverride = tempDir;
+            return new DisposableAction(() =>
+            {
+                _testDataDirectoryOverride = previous;
+                ReloadVaultKeyCache();
+            });
+        }
+
+        private sealed class DisposableAction(Action onDispose) : IDisposable
+        {
+            private Action? _onDispose = onDispose;
+            public void Dispose()
+            {
+                System.Threading.Interlocked.Exchange(ref _onDispose, null)?.Invoke();
+            }
         }
 
         /// <summary>
