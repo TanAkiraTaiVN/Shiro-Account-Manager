@@ -1,5 +1,10 @@
 <Project>
-  <PropertyGroup Condition="'$(MSBuildProjectName)' != 'RBX_Alt_Manager.Tests'">
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(MSBuildProjectName)' != 'RBX_Alt_Manager.Tests' And '$(MSBuildProjectName)' != 'Shiro.Tests'">
     <!-- Keep generated intermediate files with the other build artifacts so
          the source tree contains only source, resources and project files. -->
     <BaseIntermediateOutputPath>$(MSBuildThisFileDirectory)build\artifacts\obj\</BaseIntermediateOutputPath>
