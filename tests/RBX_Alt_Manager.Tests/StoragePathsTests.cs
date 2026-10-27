@@ -5,6 +5,7 @@ using Xunit;
 
 namespace RBX_Alt_Manager.Tests
 {
+    [Collection("StoragePathsCollection")]
     public class StoragePathsTests
     {
         [Fact]
@@ -213,11 +214,11 @@ namespace RBX_Alt_Manager.Tests
             {
                 using (StoragePaths.OverrideDataDirectoryForTesting(isolated))
                 {
-                    string oldTmp = StoragePaths.GetUserFile("old_test.tmp");
+                    string oldTmp = StoragePaths.GetUserFile("old_test.tmp-12345");
                     File.WriteAllText(oldTmp, "stale temp content");
                     File.SetLastWriteTimeUtc(oldTmp, DateTime.UtcNow.AddDays(-10));
 
-                    string freshTmp = StoragePaths.GetUserFile("fresh_test.tmp");
+                    string freshTmp = StoragePaths.GetUserFile("fresh_test.tmp-67890");
                     File.WriteAllText(freshTmp, "fresh temp content");
 
                     int removed = StoragePaths.CleanupStaleRuntimeArtifacts(TimeSpan.FromDays(5));

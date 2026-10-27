@@ -8,7 +8,7 @@ using Xunit;
 
 namespace RBX_Alt_Manager.Tests
 {
-    public class BugFixesAndEdgeCasesTests
+    public class EdgeCaseRegressionTests
     {
         private const string SampleCookie = "_|WARNING:-DO-NOT-SHARE-THIS.--1234567890abcdefghijklmnopqrstuvwxyz0123456789";
 

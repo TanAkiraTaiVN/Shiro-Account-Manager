@@ -11,6 +11,7 @@ using Xunit;
 
 namespace RBX_Alt_Manager.Tests
 {
+    [Collection("StoragePathsCollection")]
     public class VaultKeyRecoveryServiceTests
     {
         [Fact]

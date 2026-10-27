@@ -8,7 +8,7 @@ using Xunit;
 
 namespace RBX_Alt_Manager.Tests
 {
-    public class Phase2ModernizationTests
+    public class AutoReconnectAndProxyTests
     {
         private sealed class TestDisposable : IDisposable
         {

@@ -12,7 +12,7 @@ if (-not $xmlFiles) {
     exit 1
 }
 
-$xmlFile = $xmlFiles | Select-Object -First 1
+$xmlFile = $xmlFiles | Sort-Object LastWriteTime -Descending | Select-Object -First 1
 Write-Host "Evaluating coverage from $($xmlFile.FullName)..." -ForegroundColor Cyan
 
 [xml]$doc = Get-Content $xmlFile.FullName

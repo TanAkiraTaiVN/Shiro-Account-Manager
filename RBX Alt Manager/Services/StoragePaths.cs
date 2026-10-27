@@ -319,7 +319,7 @@ namespace RBX_Alt_Manager.Services
             // cutoff can be abandoned remnants; current writes are untouched.
             try
             {
-                foreach (string temporary in Directory.EnumerateFiles(dataDirectory, "*.tmp-*", SearchOption.TopDirectoryOnly))
+                foreach (string temporary in Directory.EnumerateFiles(DataDirectory, "*.tmp-*", SearchOption.TopDirectoryOnly))
                 {
                     DateTime lastWriteUtc;
                     try { lastWriteUtc = File.GetLastWriteTimeUtc(temporary); }

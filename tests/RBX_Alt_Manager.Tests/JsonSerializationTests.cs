@@ -6,7 +6,7 @@ using Xunit;
 
 namespace RBX_Alt_Manager.Tests
 {
-    public class ModernSerializationTests
+    public class JsonSerializationTests
     {
         [Fact]
         public void ControlledAccount_Roundtrip_FastJson()

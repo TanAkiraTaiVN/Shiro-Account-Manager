@@ -9,7 +9,7 @@ using Xunit;
 
 namespace RBX_Alt_Manager.Tests
 {
-    public class Round16OptimizationTests
+    public class MemoryAndBatchOptimizationTests
     {
         [Fact]
         public void GetCommandLineByPid_CurrentProcess_ReturnsAndCachesCommandLine()

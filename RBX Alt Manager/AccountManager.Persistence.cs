@@ -26,8 +26,7 @@ namespace RBX_Alt_Manager
 
         public static bool IsDatabasePasswordEncrypted()
         {
-            accountStore ??= new AccountStore();
-            byte[] data = accountStore.Read();
+            byte[] data = new AccountStore().Read();
             if (data == null || data.Length == 0 || !Cryptography.IsEncrypted(data))
                 return false;
 

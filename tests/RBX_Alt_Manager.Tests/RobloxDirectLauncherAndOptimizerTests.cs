@@ -8,7 +8,7 @@ using Xunit;
 
 namespace RBX_Alt_Manager.Tests
 {
-    public class ModernizationFeaturesTests
+    public class RobloxDirectLauncherAndOptimizerTests
     {
         [Fact]
         public void RobloxDirectLauncher_EmptyTicketOrJoinUrl_ReturnsFailureWithoutCrashing()

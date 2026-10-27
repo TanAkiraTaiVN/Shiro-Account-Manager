@@ -8,7 +8,7 @@ using Xunit;
 
 namespace RBX_Alt_Manager.Tests
 {
-    public class GrandModernizationTests
+    public class MvvmFoundationTests
     {
         private class TestObservable : ObservableObject
         {
