@@ -114,5 +114,125 @@ namespace RBX_Alt_Manager.Tests
             Assert.False(RBX_Alt_Manager.Account.IsUserIdInBlockedListJson(json, 123));
             Assert.False(RBX_Alt_Manager.Account.IsUserIdInBlockedListJson(json, 456));
         }
+
+        [Fact]
+        public void IsWithinDirectory_DetectsValidChildrenAndRejectsTraversal()
+        {
+            string baseDir = Path.Combine(Path.GetTempPath(), "Shiro-BoundaryTest");
+            Directory.CreateDirectory(baseDir);
+
+            try
+            {
+                string safeChild = Path.Combine(baseDir, "SubFolder", "file.txt");
+                string traversal = Path.Combine(baseDir, "..", "evil.txt");
+                string outsideRoot = @"C:\Windows\System32\cmd.exe";
+
+                Assert.True(StoragePaths.IsWithinDirectory(safeChild, baseDir));
+                Assert.False(StoragePaths.IsWithinDirectory(traversal, baseDir));
+                Assert.False(StoragePaths.IsWithinDirectory(outsideRoot, baseDir));
+                Assert.False(StoragePaths.IsWithinDirectory(null!, baseDir));
+                Assert.False(StoragePaths.IsWithinDirectory(safeChild, null!));
+            }
+            finally
+            {
+                if (Directory.Exists(baseDir))
+                {
+                    try { Directory.Delete(baseDir, true); } catch { }
+                }
+            }
+        }
+
+        [Fact]
+        public void OverrideDataDirectoryForTesting_IsolatesStorageEnvironment()
+        {
+            string isolated = Path.Combine(Path.GetTempPath(), "Shiro-Isolated-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                using (StoragePaths.OverrideDataDirectoryForTesting(isolated))
+                {
+                    Assert.Equal(isolated, StoragePaths.DataDirectory);
+                    string userFile = StoragePaths.GetUserFile("CustomData.json");
+                    Assert.StartsWith(isolated, userFile, StringComparison.OrdinalIgnoreCase);
+
+                    string customDir = StoragePaths.GetUserDirectory("CustomDir");
+                    Assert.True(Directory.Exists(customDir));
+                    Assert.StartsWith(isolated, customDir, StringComparison.OrdinalIgnoreCase);
+                }
+
+                // After dispose, it should revert back
+                Assert.NotEqual(isolated, StoragePaths.DataDirectory);
+            }
+            finally
+            {
+                if (Directory.Exists(isolated))
+                {
+                    try { Directory.Delete(isolated, true); } catch { }
+                }
+            }
+        }
+
+        [Fact]
+        public void SaveRecoveredVaultKey_PersistsAndCaches32ByteKey()
+        {
+            string isolated = Path.Combine(Path.GetTempPath(), "Shiro-RecoverKey-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                using (StoragePaths.OverrideDataDirectoryForTesting(isolated))
+                {
+                    byte[] rawKey = new byte[32];
+                    Random.Shared.NextBytes(rawKey);
+
+                    // Argument validation
+                    Assert.Throws<ArgumentException>(() => StoragePaths.SaveRecoveredVaultKey(null!));
+                    Assert.Throws<ArgumentException>(() => StoragePaths.SaveRecoveredVaultKey(new byte[16]));
+
+                    StoragePaths.SaveRecoveredVaultKey(rawKey);
+                    byte[] loaded = StoragePaths.GetOrCreateVaultKey();
+                    Assert.Equal(rawKey, loaded);
+
+                    // Reload cache test
+                    StoragePaths.ReloadVaultKeyCache();
+                    byte[] reloaded = StoragePaths.GetOrCreateVaultKey();
+                    Assert.Equal(rawKey, reloaded);
+                }
+            }
+            finally
+            {
+                if (Directory.Exists(isolated))
+                {
+                    try { Directory.Delete(isolated, true); } catch { }
+                }
+            }
+        }
+
+        [Fact]
+        public void CleanupStaleRuntimeArtifacts_RemovesExpiredTempFilesOnly()
+        {
+            string isolated = Path.Combine(Path.GetTempPath(), "Shiro-Cleanup-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                using (StoragePaths.OverrideDataDirectoryForTesting(isolated))
+                {
+                    string oldTmp = StoragePaths.GetUserFile("old_test.tmp");
+                    File.WriteAllText(oldTmp, "stale temp content");
+                    File.SetLastWriteTimeUtc(oldTmp, DateTime.UtcNow.AddDays(-10));
+
+                    string freshTmp = StoragePaths.GetUserFile("fresh_test.tmp");
+                    File.WriteAllText(freshTmp, "fresh temp content");
+
+                    int removed = StoragePaths.CleanupStaleRuntimeArtifacts(TimeSpan.FromDays(5));
+                    Assert.True(removed >= 1);
+                    Assert.False(File.Exists(oldTmp));
+                    Assert.True(File.Exists(freshTmp));
+                }
+            }
+            finally
+            {
+                if (Directory.Exists(isolated))
+                {
+                    try { Directory.Delete(isolated, true); } catch { }
+                }
+            }
+        }
     }
 }

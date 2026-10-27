@@ -118,15 +118,37 @@ namespace RBX_Alt_Manager.Tests
         }
 
         [Fact]
-        public void Deserialize_FutureSchemaVersion_ThrowsInvalidDataException()
+        public void Deserialize_InvalidJsonTypes_ThrowsInvalidDataException()
         {
-            string futureJson = @"{
-                ""schemaVersion"": 999,
-                ""accounts"": []
-            }";
+            // Primitive number or string
+            byte[] numberJson = Encoding.UTF8.GetBytes("42");
+            Assert.Throws<InvalidDataException>(() => AccountDataSerializer.Deserialize(numberJson, out _));
 
-            byte[] bytes = Encoding.UTF8.GetBytes(futureJson);
-            Assert.Throws<InvalidDataException>(() => AccountDataSerializer.Deserialize(bytes, out _));
+            // Null JSON literal
+            byte[] nullLiteralJson = Encoding.UTF8.GetBytes("null");
+            var result = AccountDataSerializer.Deserialize(nullLiteralJson, out bool req);
+            Assert.False(req);
+            Assert.Empty(result);
+
+            // Object without 'accounts' property
+            byte[] missingAccounts = Encoding.UTF8.GetBytes(@"{""schemaVersion"":1}");
+            Assert.Throws<InvalidDataException>(() => AccountDataSerializer.Deserialize(missingAccounts, out _));
+
+            // Accounts property is null
+            byte[] nullAccounts = Encoding.UTF8.GetBytes(@"{""schemaVersion"":1,""accounts"":null}");
+            Assert.Throws<InvalidDataException>(() => AccountDataSerializer.Deserialize(nullAccounts, out _));
+        }
+
+        [Fact]
+        public void Serialize_NullAccountsCollection_HandlesGracefully()
+        {
+            byte[] withPasswords = AccountDataSerializer.Serialize(null!, includePasswords: true);
+            var res1 = AccountDataSerializer.Deserialize(withPasswords, out _);
+            Assert.Empty(res1);
+
+            byte[] withoutPasswords = AccountDataSerializer.Serialize(null!, includePasswords: false);
+            var res2 = AccountDataSerializer.Deserialize(withoutPasswords, out _);
+            Assert.Empty(res2);
         }
     }
 }

@@ -123,5 +123,135 @@ namespace RBX_Alt_Manager.Tests
             byte[] decrypted = Cryptography.Decrypt(encrypted, password);
             Assert.Equal(rawBytes, decrypted);
         }
+
+        [Fact]
+        public void EncryptAndDecrypt_EdgeCasesAndValidation_ThrowsExpectedExceptions()
+        {
+            byte[] validKey = Encoding.UTF8.GetBytes("ValidPassword123!");
+            byte[] validData = Encoding.UTF8.GetBytes("ValidPayloadData");
+
+            Assert.Throws<ArgumentNullException>(() => Cryptography.Encrypt(ReadOnlySpan<byte>.Empty, validKey));
+            Assert.Throws<ArgumentNullException>(() => Cryptography.Encrypt((string)null!, validKey));
+            Assert.Throws<ArgumentNullException>(() => Cryptography.Encrypt(string.Empty, validKey));
+            Assert.Throws<ArgumentNullException>(() => Cryptography.Encrypt(validData.AsSpan(), null!));
+            Assert.Throws<ArgumentNullException>(() => Cryptography.Encrypt(validData.AsSpan(), Array.Empty<byte>()));
+
+            Assert.Throws<ArgumentNullException>(() => Cryptography.Decrypt(null!, validKey));
+            Assert.Throws<ArgumentNullException>(() => Cryptography.Decrypt(Array.Empty<byte>(), validKey));
+            Assert.Throws<ArgumentNullException>(() => Cryptography.Decrypt(validData, null!));
+            Assert.Throws<ArgumentNullException>(() => Cryptography.Decrypt(validData, Array.Empty<byte>()));
+
+            // Invalid header
+            byte[] badHeader = Encoding.UTF8.GetBytes("INVALID_VAULT_HEADER_DATA_12345678901234567890");
+            Assert.Throws<ArgumentException>(() => Cryptography.Decrypt(badHeader, validKey));
+
+            // Truncated payload with valid header but shorter than Salt + Nonce + Tag
+            byte[] truncated = new byte[Cryptography.ShiroVaultHeader.Length + 10];
+            Buffer.BlockCopy(Cryptography.ShiroVaultHeader, 0, truncated, 0, Cryptography.ShiroVaultHeader.Length);
+            Assert.Throws<InvalidDataException>(() => Cryptography.Decrypt(truncated, validKey));
+        }
+
+        [Fact]
+        public void Encrypt_ProducesUniqueSaltAndNonce_ForIdenticalPlaintext()
+        {
+            byte[] payload = Encoding.UTF8.GetBytes("IdenticalPayloadToTestNonceUniqueness");
+            byte[] password = Encoding.UTF8.GetBytes("SharedPassword123!");
+
+            byte[] encrypted1 = Cryptography.Encrypt(payload.AsSpan(), password);
+            byte[] encrypted2 = Cryptography.Encrypt(payload.AsSpan(), password);
+
+            Assert.NotEqual(encrypted1, encrypted2);
+
+            byte[] decrypted1 = Cryptography.Decrypt(encrypted1, password);
+            byte[] decrypted2 = Cryptography.Decrypt(encrypted2, password);
+            Assert.Equal(payload, decrypted1);
+            Assert.Equal(payload, decrypted2);
+        }
+
+        [Theory]
+        [InlineData(1)]
+        [InlineData(16)]
+        [InlineData(64)]
+        [InlineData(1024)]
+        public void EncryptDecrypt_VariousPayloadSizes_RoundtripsSuccessfully(int size)
+        {
+            byte[] data = new byte[size];
+            RandomNumberGenerator.Fill(data);
+            byte[] password = Encoding.UTF8.GetBytes("VariedSizeKey2026!");
+
+            byte[] encrypted = Cryptography.Encrypt(data.AsSpan(), password);
+            byte[] decrypted = Cryptography.Decrypt(encrypted, password);
+
+            Assert.Equal(data, decrypted);
+        }
+
+        [Fact]
+        public void Decrypt_TamperedCiphertextOrTag_ThrowsCryptographicException()
+        {
+            byte[] data = Encoding.UTF8.GetBytes("TamperTestingPayload");
+            byte[] password = Encoding.UTF8.GetBytes("TamperPassword!");
+
+            byte[] encrypted = Cryptography.Encrypt(data.AsSpan(), password);
+
+            // Tamper with the last byte (part of ciphertext)
+            byte[] tamperedCiphertext = (byte[])encrypted.Clone();
+            tamperedCiphertext[^1] ^= 0xFF;
+            Assert.ThrowsAny<CryptographicException>(() => Cryptography.Decrypt(tamperedCiphertext, password));
+
+            // Tamper with authentication tag
+            byte[] tamperedTag = (byte[])encrypted.Clone();
+            int tagOffset = Cryptography.ShiroVaultHeader.Length + 16 + 12; // Header + Salt + Nonce
+            tamperedTag[tagOffset] ^= 0x01;
+            Assert.ThrowsAny<CryptographicException>(() => Cryptography.Decrypt(tamperedTag, password));
+        }
+
+        [Fact]
+        public void CryptoHelper_SHA256_ComputesCorrectlyForSmallAndLargeStrings()
+        {
+            // Empty
+            Assert.Equal(string.Empty, Services.CryptoHelper.SHA256(string.Empty));
+            Assert.Equal(string.Empty, Services.CryptoHelper.SHA256(null!));
+
+            // Small string (stackalloc path <= 512 bytes)
+            string small = "ShiroAccountManagerSmall";
+            string hashSmall = Services.CryptoHelper.SHA256(small);
+            Assert.NotEmpty(hashSmall);
+            Assert.Equal(64, hashSmall.Length);
+
+            // Large string (> 512 UTF8 bytes, ArrayPool path)
+            string large = new string('A', 1000);
+            string hashLarge = Services.CryptoHelper.SHA256(large);
+            Assert.NotEmpty(hashLarge);
+            Assert.Equal(64, hashLarge.Length);
+
+            // Verify with standard framework hash
+            byte[] expectedBytes = SHA256.HashData(Encoding.UTF8.GetBytes(large));
+            string expectedHex = Convert.ToHexString(expectedBytes);
+            Assert.Equal(expectedHex, hashLarge);
+        }
+
+        [Fact]
+        public void CryptoHelper_FileSHA256_ComputesCorrectHashOrReturnsMarker()
+        {
+            // Non-existent file
+            string nonExistent = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".tmp");
+            string missingHash = Services.CryptoHelper.FileSHA256(nonExistent);
+            Assert.Equal("E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855", missingHash);
+
+            // Real file
+            string tempFile = Path.Combine(Path.GetTempPath(), "crypto_test_" + Guid.NewGuid().ToString("N") + ".tmp");
+            try
+            {
+                File.WriteAllText(tempFile, "Testing File SHA256 with Shiro", Encoding.UTF8);
+                string fileHash = Services.CryptoHelper.FileSHA256(tempFile);
+                byte[] expectedBytes = SHA256.HashData(File.ReadAllBytes(tempFile));
+                string expectedHex = Convert.ToHexString(expectedBytes);
+                Assert.Equal(expectedHex, fileHash);
+            }
+            finally
+            {
+                if (File.Exists(tempFile)) File.Delete(tempFile);
+            }
+        }
     }
 }
