@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -97,7 +98,7 @@ namespace RBX_Alt_Manager.Services
                 throw new ArgumentException("File path cannot be empty.", nameof(filePath));
 
             string content = ExportAccounts(accounts, format);
-            string dir = Path.GetDirectoryName(filePath);
+            string? dir = Path.GetDirectoryName(filePath);
             if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
                 Directory.CreateDirectory(dir);
 
@@ -107,7 +108,7 @@ namespace RBX_Alt_Manager.Services
         private static readonly System.Buffers.SearchValues<char> CsvSpecialChars =
             System.Buffers.SearchValues.Create(",\"\r\n");
 
-        private static string EscapeCsv(string val)
+        private static string EscapeCsv(string? val)
         {
             if (string.IsNullOrEmpty(val)) return "";
             if (val.AsSpan().ContainsAny(CsvSpecialChars))

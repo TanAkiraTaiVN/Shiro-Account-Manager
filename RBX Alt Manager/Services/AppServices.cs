@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -9,7 +10,7 @@ namespace RBX_Alt_Manager.Services
     /// </summary>
     public static class AppServices
     {
-        private static IServiceProvider _serviceProvider;
+        private static IServiceProvider? _serviceProvider;
         private static readonly System.Threading.Lock _initLock = new();
 
         public static IServiceProvider ServiceProvider
@@ -18,11 +19,11 @@ namespace RBX_Alt_Manager.Services
             {
                 if (_serviceProvider == null)
                     EnsureInitialized();
-                return _serviceProvider;
+                return _serviceProvider!;
             }
         }
 
-        public static void EnsureInitialized(Action<IServiceCollection> configureExtra = null)
+        public static void EnsureInitialized(Action<IServiceCollection>? configureExtra = null)
         {
             lock (_initLock)
             {
@@ -46,7 +47,7 @@ namespace RBX_Alt_Manager.Services
             }
         }
 
-        public static T GetService<T>() where T : class => ServiceProvider.GetService<T>();
+        public static T? GetService<T>() where T : class => ServiceProvider.GetService<T>();
 
         public static T GetRequiredService<T>() where T : class => ServiceProvider.GetRequiredService<T>();
 

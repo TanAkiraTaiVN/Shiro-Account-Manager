@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Globalization;
 
@@ -13,7 +14,7 @@ namespace RBX_Alt_Manager.Services
         private static readonly Lazy<AppSettings> _currentInstance = new(() => new AppSettings());
         public static AppSettings Current => _currentInstance.Value;
 
-        private IniSection GetSection(string sectionName) =>
+        private IniSection? GetSection(string sectionName) =>
             AccountManager.IniSettings?.Section(sectionName);
 
         private bool GetBool(string section, string key, bool fallback = false)

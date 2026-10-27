@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -15,9 +16,9 @@ namespace RBX_Alt_Manager.Services
     public static class GameThumbnailService
     {
         private static readonly LruCache<long, Bitmap> _bitmapCache = new LruCache<long, Bitmap>(256);
-        private static readonly ConcurrentDictionary<long, Task<Bitmap>> _inFlightDownloads = new ConcurrentDictionary<long, Task<Bitmap>>();
+        private static readonly ConcurrentDictionary<long, Task<Bitmap?>> _inFlightDownloads = new ConcurrentDictionary<long, Task<Bitmap?>>();
 
-        private static string EnsureThumbnailDirectory()
+        private static string? EnsureThumbnailDirectory()
         {
             try
             {
@@ -37,7 +38,7 @@ namespace RBX_Alt_Manager.Services
             _bitmapCache.Clear();
         }
 
-        public static string GetDiskCachePath(long placeId)
+        public static string? GetDiskCachePath(long placeId)
         {
             try
             {
@@ -53,16 +54,16 @@ namespace RBX_Alt_Manager.Services
         public static bool HasDiskCache(long placeId)
         {
             if (placeId <= 0) return false;
-            string path = GetDiskCachePath(placeId);
+            string? path = GetDiskCachePath(placeId);
             return !string.IsNullOrEmpty(path) && File.Exists(path);
         }
 
-        public static bool TryGetCachedBitmap(long placeId, out Bitmap bitmap)
+        public static bool TryGetCachedBitmap(long placeId, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out Bitmap? bitmap)
         {
             if (_bitmapCache.TryGetValue(placeId, out bitmap))
                 return true;
 
-            string diskPath = GetDiskCachePath(placeId);
+            string? diskPath = GetDiskCachePath(placeId);
             if (!string.IsNullOrEmpty(diskPath) && File.Exists(diskPath))
             {
                 try
@@ -82,7 +83,7 @@ namespace RBX_Alt_Manager.Services
             return false;
         }
 
-        public static async Task<Bitmap> GetThumbnailBitmapAsync(long placeId, string cdnUrl = null, CancellationToken cancellationToken = default)
+        public static async Task<Bitmap?> GetThumbnailBitmapAsync(long placeId, string? cdnUrl = null, CancellationToken cancellationToken = default)
         {
             if (placeId <= 0) return null;
 
@@ -97,16 +98,16 @@ namespace RBX_Alt_Manager.Services
             finally
             {
                 if (downloadTask.IsCompleted)
-                    _inFlightDownloads.TryRemove(new KeyValuePair<long, Task<Bitmap>>(placeId, downloadTask));
+                    _inFlightDownloads.TryRemove(new KeyValuePair<long, Task<Bitmap?>>(placeId, downloadTask));
             }
         }
 
-        private static async Task<Bitmap> DownloadAndCacheThumbnailCoreAsync(long placeId, string cdnUrl)
+        private static async Task<Bitmap?> DownloadAndCacheThumbnailCoreAsync(long placeId, string? cdnUrl)
         {
             try
             {
-                string diskPath = GetDiskCachePath(placeId);
-                string imageUrl = cdnUrl;
+                string? diskPath = GetDiskCachePath(placeId);
+                string? imageUrl = cdnUrl;
 
                 if (string.IsNullOrWhiteSpace(imageUrl))
                 {
@@ -184,7 +185,7 @@ namespace RBX_Alt_Manager.Services
                         foreach (var item in dataElem.EnumerateArray())
                         {
                             long targetId = item.TryGetProperty("targetId", out var idProp) && idProp.TryGetInt64(out long tid) ? tid : 0;
-                            string imageUrl = item.TryGetProperty("imageUrl", out var imgProp) ? imgProp.GetString() : null;
+                            string? imageUrl = item.TryGetProperty("imageUrl", out var imgProp) ? imgProp.GetString() : null;
 
                             if (targetId > 0 && !string.IsNullOrWhiteSpace(imageUrl))
                             {
@@ -211,7 +212,7 @@ namespace RBX_Alt_Manager.Services
                 if (imgResp.IsSuccessStatusCode)
                 {
                     byte[] bytes = await imgResp.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
-                    string diskPath = GetDiskCachePath(targetId);
+                    string? diskPath = GetDiskCachePath(targetId);
                     if (bytes != null && bytes.Length > 0 && !string.IsNullOrEmpty(diskPath))
                     {
                         StoragePaths.AtomicWriteBytes(diskPath, bytes);

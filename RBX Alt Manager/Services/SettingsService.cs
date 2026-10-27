@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 
 namespace RBX_Alt_Manager.Services
@@ -12,12 +13,12 @@ namespace RBX_Alt_Manager.Services
             File = file ?? throw new ArgumentNullException(nameof(file));
         }
 
-        public T Get<T>(string section, string key, T fallback = default(T))
+        public T? Get<T>(string section, string key, T? fallback = default(T))
         {
             lock (sync)
             {
-                IniSection target = File.Section(section);
-                if (!target.Exists(key))
+                IniSection? target = File.Section(section);
+                if (target == null || !target.Exists(key))
                     return fallback;
 
                 try { return target.Get<T>(key); }
@@ -29,10 +30,10 @@ namespace RBX_Alt_Manager.Services
             }
         }
 
-        public void Set(string section, string key, string value, string comment = null)
+        public void Set(string section, string key, string value, string? comment = null)
         {
             lock (sync)
-                File.Section(section).Set(key, value, comment);
+                File.Section(section)?.Set(key, value, comment);
         }
 
         public void Save(string fileName = "RAMSettings.json")

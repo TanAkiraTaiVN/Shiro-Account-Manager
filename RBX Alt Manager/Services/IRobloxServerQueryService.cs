@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Net.NetworkInformation;
@@ -30,7 +31,7 @@ namespace RBX_Alt_Manager.Services
             Account account,
             long placeId,
             string serverId,
-            string ipApiTemplate = null,
+            string? ipApiTemplate = null,
             CancellationToken cancellationToken = default);
 
         Task<RobloxServerListResult> QueryPublicServersAsync(

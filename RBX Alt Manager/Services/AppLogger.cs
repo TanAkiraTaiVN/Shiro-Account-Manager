@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.IO;
 using System.Text;
@@ -68,19 +69,19 @@ namespace RBX_Alt_Manager.Services
             AppDomain.CurrentDomain.ProcessExit += OnProcessExit;
         }
 
-        public void Debug(object message) => Enqueue("DEBUG", message, null);
-        public void Debug(object message, Exception exception) => Enqueue("DEBUG", message, exception);
+        public void Debug(object? message) => Enqueue("DEBUG", message, null);
+        public void Debug(object? message, Exception? exception) => Enqueue("DEBUG", message, exception);
 
-        public void Info(object message) => Enqueue("INFO", message, null);
-        public void Info(object message, Exception exception) => Enqueue("INFO", message, exception);
+        public void Info(object? message) => Enqueue("INFO", message, null);
+        public void Info(object? message, Exception? exception) => Enqueue("INFO", message, exception);
 
-        public void Warn(object message) => Enqueue("WARN", message, null);
-        public void Warn(object message, Exception exception) => Enqueue("WARN", message, exception);
+        public void Warn(object? message) => Enqueue("WARN", message, null);
+        public void Warn(object? message, Exception? exception) => Enqueue("WARN", message, exception);
 
-        public void Error(object message) => Enqueue("ERROR", message, null);
-        public void Error(object message, Exception exception) => Enqueue("ERROR", message, exception);
+        public void Error(object? message) => Enqueue("ERROR", message, null);
+        public void Error(object? message, Exception? exception) => Enqueue("ERROR", message, exception);
 
-        private void Enqueue(string level, object message, Exception exception)
+        private void Enqueue(string level, object? message, Exception? exception)
         {
             if (Volatile.Read(ref _disposed) != 0)
                 return;
@@ -98,7 +99,7 @@ namespace RBX_Alt_Manager.Services
 
         private async Task ProcessLogQueueAsync(CancellationToken cancellationToken)
         {
-            StreamWriter writer = null;
+            StreamWriter? writer = null;
             long currentLength = 0;
 
             try
@@ -108,7 +109,7 @@ namespace RBX_Alt_Manager.Services
                 ChannelReader<string> reader = _channel.Reader;
                 while (await reader.WaitToReadAsync(cancellationToken).ConfigureAwait(false))
                 {
-                    while (reader.TryRead(out string line))
+                    while (reader.TryRead(out string? line) && line != null)
                     {
                         if (writer == null)
                             OpenLogFile(ref writer, ref currentLength);
@@ -142,7 +143,7 @@ namespace RBX_Alt_Manager.Services
             }
         }
 
-        private void OpenLogFile(ref StreamWriter writer, ref long currentLength)
+        private void OpenLogFile(ref StreamWriter? writer, ref long currentLength)
         {
             try
             {
@@ -159,7 +160,7 @@ namespace RBX_Alt_Manager.Services
             }
         }
 
-        private void RotateFile(ref StreamWriter writer, ref long currentLength)
+        private void RotateFile(ref StreamWriter? writer, ref long currentLength)
         {
             try
             {
@@ -184,7 +185,7 @@ namespace RBX_Alt_Manager.Services
             OpenLogFile(ref writer, ref currentLength);
         }
 
-        private void OnProcessExit(object sender, EventArgs e)
+        private void OnProcessExit(object? sender, EventArgs e)
         {
             Dispose();
         }

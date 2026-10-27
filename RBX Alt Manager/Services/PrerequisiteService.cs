@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -16,7 +17,7 @@ namespace RBX_Alt_Manager.Services
         {
             try
             {
-                using RegistryKey vcKey = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\WOW6432Node\Microsoft\VisualStudio\14.0\VC\Runtimes\X86");
+                using RegistryKey? vcKey = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\WOW6432Node\Microsoft\VisualStudio\14.0\VC\Runtimes\X86");
                 return vcKey == null || !(vcKey.GetValue("Bld") is int vcVersion) || vcVersion < 32532;
             }
             catch

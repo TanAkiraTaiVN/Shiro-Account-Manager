@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -9,7 +10,7 @@ namespace RBX_Alt_Manager.Services
     /// </summary>
     public static class ApiDocumentationService
     {
-        private static string _cachedOpenApiJson;
+        private static string? _cachedOpenApiJson;
 
         public static string GetOpenApiJson()
         {

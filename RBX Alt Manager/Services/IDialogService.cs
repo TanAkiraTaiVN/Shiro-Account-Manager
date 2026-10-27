@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using RBX_Alt_Manager.Classes;
 
@@ -10,7 +11,7 @@ namespace RBX_Alt_Manager.Services
         void ShowError(string message, string title = "Shiro");
         bool ShowConfirmation(string message, string title = "Shiro");
         string ShowInputPrompt(string message, string title, string defaultValue = "");
-        void OpenFastLoginDialog(Account account = null);
+        void OpenFastLoginDialog(Account? account = null);
         void OpenFastLoginDialogBatch(System.Collections.Generic.IReadOnlyList<Account> accounts);
         void OpenBulkImportDialog();
         void OpenProxyManagerDialog();

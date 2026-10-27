@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -12,9 +13,9 @@ namespace RBX_Alt_Manager.Services
 {
     internal sealed class AvatarService
     {
-        private static readonly ConcurrentDictionary<long, Task<string>> InFlightDownloads = new();
+        private static readonly ConcurrentDictionary<long, Task<string?>> InFlightDownloads = new();
 
-        public async Task<byte[]> DownloadAsync(string imageUrl, CancellationToken cancellationToken = default(CancellationToken))
+        public async Task<byte[]?> DownloadAsync(string? imageUrl, CancellationToken cancellationToken = default(CancellationToken))
         {
             if (string.IsNullOrWhiteSpace(imageUrl))
                 return null;
@@ -35,7 +36,7 @@ namespace RBX_Alt_Manager.Services
             return dir;
         }
 
-        public static string GetDiskCachePath(long userId)
+        public static string? GetDiskCachePath(long userId)
         {
             try
             {
@@ -51,22 +52,22 @@ namespace RBX_Alt_Manager.Services
         public static bool HasDiskCache(long userId)
         {
             if (userId <= 0) return false;
-            string path = GetDiskCachePath(userId);
+            string? path = GetDiskCachePath(userId);
             return !string.IsNullOrEmpty(path) && File.Exists(path);
         }
 
-        public static Task<string> EnsureAvatarAsync(long userId, CancellationToken cancellationToken = default)
+        public static Task<string?> EnsureAvatarAsync(long userId, CancellationToken cancellationToken = default)
         {
-            if (userId <= 0) return Task.FromResult<string>(null);
+            if (userId <= 0) return Task.FromResult<string?>(null);
 
-            string diskPath = GetDiskCachePath(userId);
+            string? diskPath = GetDiskCachePath(userId);
             if (!string.IsNullOrEmpty(diskPath) && File.Exists(diskPath))
-                return Task.FromResult(diskPath);
+                return Task.FromResult<string?>(diskPath);
 
             return InFlightDownloads.GetOrAdd(userId, id => DownloadAvatarCoreAsync(id, diskPath, cancellationToken));
         }
 
-        private static async Task<string> DownloadAvatarCoreAsync(long userId, string diskPath, CancellationToken cancellationToken)
+        private static async Task<string?> DownloadAvatarCoreAsync(long userId, string? diskPath, CancellationToken cancellationToken)
         {
             try
             {
@@ -79,7 +80,7 @@ namespace RBX_Alt_Manager.Services
                 if (!resp.IsSuccessStatusCode) return null;
 
                 using var doc = await JsonDocument.ParseAsync(await resp.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false), cancellationToken: cancellationToken).ConfigureAwait(false);
-                string imageUrl = null;
+                string? imageUrl = null;
                 if (doc.RootElement.TryGetProperty("data", out var dataElem) && dataElem.ValueKind == JsonValueKind.Array && dataElem.GetArrayLength() > 0)
                 {
                     if (dataElem[0].TryGetProperty("imageUrl", out var imgProp))
@@ -142,7 +143,7 @@ namespace RBX_Alt_Manager.Services
                         foreach (var item in dataElem.EnumerateArray())
                         {
                             long targetId = item.TryGetProperty("targetId", out var idProp) && idProp.TryGetInt64(out long tid) ? tid : 0;
-                            string imageUrl = item.TryGetProperty("imageUrl", out var imgProp) ? imgProp.GetString() : null;
+                            string? imageUrl = item.TryGetProperty("imageUrl", out var imgProp) ? imgProp.GetString() : null;
 
                             if (targetId > 0 && !string.IsNullOrWhiteSpace(imageUrl))
                             {
@@ -163,7 +164,7 @@ namespace RBX_Alt_Manager.Services
                                     if (imgResp.IsSuccessStatusCode)
                                     {
                                         byte[] bytes = await imgResp.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
-                                        string diskPath = GetDiskCachePath(entry.TargetId);
+                                        string? diskPath = GetDiskCachePath(entry.TargetId);
                                         if (bytes != null && bytes.Length > 0 && !string.IsNullOrEmpty(diskPath))
                                         {
                                             StoragePaths.AtomicWriteBytes(diskPath, bytes);

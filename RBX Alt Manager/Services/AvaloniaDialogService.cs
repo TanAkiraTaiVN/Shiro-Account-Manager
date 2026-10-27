@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using Avalonia.Controls;
 using Avalonia.Threading;
@@ -53,12 +54,12 @@ namespace RBX_Alt_Manager.Services
             return InputDialog.Prompt(message, title, defaultValue, false, owner);
         }
 
-        public void OpenFastLoginDialog(Account account = null)
+        public void OpenFastLoginDialog(Account? account = null)
         {
             AppDispatcher.Post(async () =>
             {
                 var owner = GetActiveOwner();
-                var dialog = new FastLoginDialog(account);
+                var dialog = new FastLoginDialog(account!);
                 if (owner != null)
                     await dialog.ShowDialog(owner);
                 else

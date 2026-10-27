@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Net.Http;
 using System.Text.Json.Nodes;
@@ -15,7 +16,7 @@ namespace RBX_Alt_Manager.Services
         Task<bool> UnlockPinAsync(Account account, string pin, CancellationToken cancellationToken = default);
         Task<bool> SendFriendRequestAsync(Account account, string username, CancellationToken cancellationToken = default);
         Task<bool> QuickLogInAsync(Account account, string code, CancellationToken cancellationToken = default);
-        Task<(bool Success, string Message)> UnblockEveryoneAsync(Account account, Action<string> progressCallback = null, CancellationToken cancellationToken = default);
+        Task<(bool Success, string Message)> UnblockEveryoneAsync(Account account, Action<string>? progressCallback = null, CancellationToken cancellationToken = default);
         void TryUpdateRotatedCookie(Account account, HttpResponseMessage response);
     }
 }

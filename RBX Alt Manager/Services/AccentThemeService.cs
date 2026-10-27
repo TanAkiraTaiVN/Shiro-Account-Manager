@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -23,7 +24,7 @@ namespace RBX_Alt_Manager.Services
         private static readonly ResourceDictionary[] _themeResourceDicts = BuildThemeResourceDictionaries();
         private static ResourceDictionary? _activeThemeDict;
 
-        public static event Action<AccentTheme> ThemeChanged;
+        public static event Action<AccentTheme>? ThemeChanged;
 
         private static ResourceDictionary[] BuildThemeResourceDictionaries()
         {
@@ -100,14 +101,14 @@ namespace RBX_Alt_Manager.Services
         {
             try
             {
-                string saved = null;
+                string? saved = null;
                 if (AccountManager.General != null && AccountManager.General.Exists("AccentTheme"))
                 {
                     saved = AccountManager.General.Get("AccentTheme");
                 }
-                else if (AccountManager.IniSettings != null && AccountManager.IniSettings.Section("General").Exists("AccentTheme"))
+                else if (AccountManager.IniSettings != null && AccountManager.IniSettings.Section("General")?.Exists("AccentTheme") == true)
                 {
-                    saved = AccountManager.IniSettings.Section("General").Get("AccentTheme");
+                    saved = AccountManager.IniSettings.Section("General")?.Get("AccentTheme");
                 }
 
                 AccentTheme theme = ParseTheme(saved);
