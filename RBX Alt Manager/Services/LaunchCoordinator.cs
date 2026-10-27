@@ -7,7 +7,7 @@ using RBX_Alt_Manager.Classes;
 
 namespace RBX_Alt_Manager.Services
 {
-    internal sealed class LaunchRequest
+    public sealed class LaunchRequest
     {
         public Account Account { get; }
         public long PlaceId { get; }
@@ -36,7 +36,7 @@ namespace RBX_Alt_Manager.Services
         }
     }
 
-    internal sealed class LaunchProgress
+    public sealed class LaunchProgress
     {
         public int Index { get; set; }
         public int Total { get; set; }
@@ -47,7 +47,7 @@ namespace RBX_Alt_Manager.Services
         public bool Completed { get; set; }
     }
 
-    internal enum LaunchOutcome
+    public enum LaunchOutcome
     {
         Pending,
         Success,
