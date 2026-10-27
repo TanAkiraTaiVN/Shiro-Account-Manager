@@ -1,11 +1,12 @@
-﻿using System.Collections.Generic;
+#nullable enable
+using System.Collections.Generic;
 
 namespace RBX_Alt_Manager.Nexus
 {
     public class Command
     {
-        public string Name;
-        public Dictionary<string, string> Payload;
+        public string Name = string.Empty;
+        public Dictionary<string, string>? Payload;
     }
 
     public enum CommandCreateElement

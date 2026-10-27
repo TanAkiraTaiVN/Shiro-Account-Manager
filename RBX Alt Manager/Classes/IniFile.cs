@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -41,7 +42,7 @@ namespace RBX_Alt_Manager
             }
         }
 
-        public string Comment { get; set; }
+        public string? Comment { get; set; }
 
         internal bool? CachedBool => _cachedBool;
         internal int? CachedInt => _cachedInt;
@@ -58,7 +59,7 @@ namespace RBX_Alt_Manager
         private readonly System.Threading.Lock _sync = new();
 
         public string Name { get; set; }
-        public string Comment { get; set; }
+        public string? Comment { get; set; }
 
         public IniProperty[] Properties
         {
@@ -92,13 +93,13 @@ namespace RBX_Alt_Manager
             _properties = new Dictionary<string, IniProperty>(StringComparer.OrdinalIgnoreCase);
         }
 
-        public string Get(string name)
+        public string? Get(string name)
         {
             if (string.IsNullOrEmpty(name)) return null;
 
             lock (_sync)
             {
-                return _properties.TryGetValue(name, out IniProperty property) ? property.Value : null;
+                return _properties.TryGetValue(name, out IniProperty? property) ? property.Value : null;
             }
         }
 
@@ -115,7 +116,7 @@ namespace RBX_Alt_Manager
             if (string.IsNullOrEmpty(name)) return defaultValue;
             lock (_sync)
             {
-                if (_properties.TryGetValue(name, out IniProperty property) && property.CachedBool.HasValue)
+                if (_properties.TryGetValue(name, out IniProperty? property) && property.CachedBool.HasValue)
                     return property.CachedBool.Value;
             }
             return defaultValue;
@@ -126,7 +127,7 @@ namespace RBX_Alt_Manager
             if (string.IsNullOrEmpty(name)) return defaultValue;
             lock (_sync)
             {
-                if (_properties.TryGetValue(name, out IniProperty property) && property.CachedInt.HasValue)
+                if (_properties.TryGetValue(name, out IniProperty? property) && property.CachedInt.HasValue)
                     return property.CachedInt.Value;
             }
             return defaultValue;
@@ -137,49 +138,49 @@ namespace RBX_Alt_Manager
             if (string.IsNullOrEmpty(name)) return defaultValue;
             lock (_sync)
             {
-                if (_properties.TryGetValue(name, out IniProperty property) && property.CachedDecimal.HasValue)
+                if (_properties.TryGetValue(name, out IniProperty? property) && property.CachedDecimal.HasValue)
                     return property.CachedDecimal.Value;
             }
             return defaultValue;
         }
 
-        public T Get<T>(string name) => Get(name, default(T));
+        public T? Get<T>(string name) => Get(name, default(T));
 
-        public T Get<T>(string name, T defaultValue)
+        public T? Get<T>(string name, T? defaultValue)
         {
             if (string.IsNullOrEmpty(name)) return defaultValue;
 
             if (typeof(T) == typeof(bool))
             {
-                bool def = Unsafe.As<T, bool>(ref defaultValue);
+                bool def = defaultValue is bool b && b;
                 bool res = GetBool(name, def);
-                return Unsafe.As<bool, T>(ref res);
+                return (T)(object)res;
             }
             if (typeof(T) == typeof(int))
             {
-                int def = Unsafe.As<T, int>(ref defaultValue);
+                int def = defaultValue is int i ? i : 0;
                 int res = GetInt(name, def);
-                return Unsafe.As<int, T>(ref res);
+                return (T)(object)res;
             }
             if (typeof(T) == typeof(decimal))
             {
-                decimal def = Unsafe.As<T, decimal>(ref defaultValue);
+                decimal def = defaultValue is decimal d ? d : 0m;
                 decimal res = GetDecimal(name, def);
-                return Unsafe.As<decimal, T>(ref res);
+                return (T)(object)res;
             }
             if (typeof(T) == typeof(string))
             {
-                string s = Get(name);
+                string? s = Get(name);
                 return s != null ? (T)(object)s : defaultValue;
             }
 
             lock (_sync)
             {
-                if (_properties.TryGetValue(name, out IniProperty property))
+                if (_properties.TryGetValue(name, out IniProperty? property))
                 {
                     try
                     {
-                        return (T)Convert.ChangeType(property.Value, typeof(T), CultureInfo.InvariantCulture);
+                        return (T?)Convert.ChangeType(property.Value, typeof(T), CultureInfo.InvariantCulture);
                     }
                     catch
                     {
@@ -191,7 +192,7 @@ namespace RBX_Alt_Manager
             return defaultValue;
         }
 
-        public void Set(string name, string value, string comment = null)
+        public void Set(string name, string? value, string? comment = null)
         {
             if (string.IsNullOrEmpty(name)) return;
 
@@ -203,7 +204,7 @@ namespace RBX_Alt_Manager
                     return;
                 }
 
-                if (!_properties.TryGetValue(name, out IniProperty property))
+                if (!_properties.TryGetValue(name, out IniProperty? property))
                 {
                     _properties.Add(name, new IniProperty { Name = name, Value = value, Comment = comment });
                 }
@@ -256,7 +257,7 @@ namespace RBX_Alt_Manager
             Load(path);
         }
 
-        public IniFile(TextReader reader) : this()
+        public IniFile(TextReader? reader) : this()
         {
             if (reader != null)
                 LoadFromString(reader.ReadToEnd());
@@ -272,7 +273,7 @@ namespace RBX_Alt_Manager
             LoadFromString(content);
         }
 
-        public void LoadFromString(string content)
+        public void LoadFromString(string? content)
         {
             if (string.IsNullOrWhiteSpace(content))
                 return;
@@ -306,8 +307,8 @@ namespace RBX_Alt_Manager
 
             // 2. Legacy fallback for old INI files during migration
             using var reader = new StringReader(content);
-            IniSection currentSection = null;
-            string rawLine;
+            IniSection? currentSection = null;
+            string? rawLine;
             while ((rawLine = reader.ReadLine()) != null)
             {
                 ReadOnlySpan<char> line = rawLine.AsSpan().Trim();
@@ -335,14 +336,14 @@ namespace RBX_Alt_Manager
             }
         }
 
-        public IniSection Section(string sectionName)
+        public IniSection Section(string? sectionName)
         {
             if (string.IsNullOrEmpty(sectionName))
                 sectionName = "General";
 
             lock (_saveLock)
             {
-                if (!_sections.TryGetValue(sectionName, out IniSection section))
+                if (!_sections.TryGetValue(sectionName, out IniSection? section) || section == null)
                 {
                     section = new IniSection(sectionName);
                     _sections[sectionName] = section;
@@ -375,7 +376,7 @@ namespace RBX_Alt_Manager
         public void Save(string path)
         {
             string resolvedPath = StoragePaths.ResolveUserFile(path);
-            string directory = Path.GetDirectoryName(resolvedPath);
+            string? directory = Path.GetDirectoryName(resolvedPath);
             if (string.IsNullOrEmpty(directory))
             {
                 Program.Logger?.Error($"Cannot save settings, target directory does not exist: {path}");

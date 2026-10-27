@@ -31,7 +31,7 @@ namespace RBX_Alt_Manager.Classes
             Path = Path.Combine(StoragePaths.CacheDirectory, "Chromium")
         });
 
-        private static Dictionary<int, Vector2> ScreenGrid;
+        private static Dictionary<int, Vector2>? ScreenGrid;
         // Home's proxy fallback returns an interactive browser while the
         // caller only needs a success string. Keep the managed wrapper alive
         // until Chromium disconnects; otherwise a GC cycle could collect the
@@ -39,16 +39,16 @@ namespace RBX_Alt_Manager.Classes
         private static readonly ConcurrentDictionary<string, AccountBrowser> ActiveSessions =
             new ConcurrentDictionary<string, AccountBrowser>(StringComparer.Ordinal);
 
-        private IWebProxy Proxy = null;
+        private IWebProxy? Proxy = null;
         private int proxyDisposed;
-        private ICDPSession ProxyAuthSession;
-        private string ProxyUsername;
-        private string ProxyPassword;
+        private ICDPSession? ProxyAuthSession;
+        private string? ProxyUsername;
+        private string? ProxyPassword;
         private bool AuthenticateProxyInBrowser;
-        private string Password;
+        private string? Password;
 
-        public Browser browser;
-        public Page page;
+        public Browser? browser;
+        public Page? page;
         public Vector2 Size = new Vector2(880, 740), Position;
         public int Index = -1;
 
@@ -60,7 +60,7 @@ namespace RBX_Alt_Manager.Classes
         /// not accept Task-returning delegates, so this is the single safe
         /// bridge used by constructors and event callbacks.
         /// </summary>
-        public static void Observe(Task task)
+        public static void Observe(Task? task)
         {
             if (task == null)
                 return;
@@ -80,9 +80,9 @@ namespace RBX_Alt_Manager.Classes
             }
         }
 
-        private static string[] _cachedSystemBrowserExecutables;
+        private static string[]? _cachedSystemBrowserExecutables;
 
-        public static string FindSystemBrowserExecutable()
+        public static string? FindSystemBrowserExecutable()
         {
             var executables = FindSystemBrowserExecutables();
             return executables.Length > 0 ? executables[0] : null;

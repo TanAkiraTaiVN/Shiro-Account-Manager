@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -25,9 +26,9 @@ namespace RBX_Alt_Manager.Http
     public sealed class HeaderParameter
     {
         public string Name { get; set; }
-        public object Value { get; set; }
+        public object? Value { get; set; }
 
-        public HeaderParameter(string name, object value)
+        public HeaderParameter(string name, object? value)
         {
             Name = name;
             Value = value;
@@ -58,7 +59,7 @@ namespace RBX_Alt_Manager.Http
 
         public RestResponseCookie this[int index] => _cookies[index];
 
-        public RestResponseCookie this[string name]
+        public RestResponseCookie? this[string name]
         {
             get
             {
@@ -82,9 +83,9 @@ namespace RBX_Alt_Manager.Http
         public Method Method { get; set; }
         public Dictionary<string, string> Headers { get; } = new(StringComparer.OrdinalIgnoreCase);
         public List<KeyValuePair<string, string>> Parameters { get; } = new();
-        public object JsonBody { get; private set; }
-        public string StringBody { get; private set; }
-        public string ContentType { get; set; }
+        public object? JsonBody { get; private set; }
+        public string? StringBody { get; private set; }
+        public string? ContentType { get; set; }
 
         public RestRequest(string resource = "", Method method = Method.Get)
         {
@@ -103,7 +104,7 @@ namespace RBX_Alt_Manager.Http
         {
             if (string.IsNullOrWhiteSpace(name)) return this;
             string cookieStr = $"{name}={value}";
-            if (Headers.TryGetValue("Cookie", out string existing))
+            if (Headers.TryGetValue("Cookie", out string? existing))
                 Headers["Cookie"] = $"{existing}; {cookieStr}";
             else
                 Headers["Cookie"] = cookieStr;
@@ -141,11 +142,11 @@ namespace RBX_Alt_Manager.Http
     public sealed class RestResponse
     {
         public HttpStatusCode StatusCode { get; set; }
-        public string StatusDescription { get; set; }
-        public string Content { get; set; }
+        public string? StatusDescription { get; set; }
+        public string? Content { get; set; }
         public bool IsSuccessful => (int)StatusCode >= 200 && (int)StatusCode <= 299;
-        public string ErrorMessage { get; set; }
-        public Exception ErrorException { get; set; }
+        public string? ErrorMessage { get; set; }
+        public Exception? ErrorException { get; set; }
         public List<HeaderParameter> Headers { get; } = new();
         public RestResponseCookies Cookies { get; } = new();
     }
@@ -158,9 +159,9 @@ namespace RBX_Alt_Manager.Http
     {
         private readonly HttpClient _httpClient;
         private readonly bool _ownsClient;
-        public string BaseUrl { get; }
+        public string? BaseUrl { get; }
 
-        public RestClient(string baseUrl = null, string userAgent = null)
+        public RestClient(string? baseUrl = null, string? userAgent = null)
         {
             if (!string.IsNullOrWhiteSpace(baseUrl))
                 BaseUrl = baseUrl.TrimEnd('/') + "/";
@@ -170,7 +171,7 @@ namespace RBX_Alt_Manager.Http
             _ownsClient = false;
         }
 
-        public RestClient(HttpClient client, string baseUrl = null)
+        public RestClient(HttpClient client, string? baseUrl = null)
         {
             _httpClient = client ?? Services.SharedHttpClient.Get();
             if (!string.IsNullOrWhiteSpace(baseUrl))
@@ -181,7 +182,7 @@ namespace RBX_Alt_Manager.Http
         public Task<RestResponse> ExecuteAsync(RestRequest request, CancellationToken cancellationToken = default) =>
             ExecuteAsync(request, null, cancellationToken);
 
-        public async Task<RestResponse> ExecuteAsync(RestRequest request, HttpClient clientOverride, CancellationToken cancellationToken = default)
+        public async Task<RestResponse> ExecuteAsync(RestRequest request, HttpClient? clientOverride, CancellationToken cancellationToken = default)
         {
             if (request == null)
                 throw new ArgumentNullException(nameof(request));
@@ -191,7 +192,7 @@ namespace RBX_Alt_Manager.Http
             string requestUri = request.Resource ?? string.Empty;
             Uri finalUri;
 
-            if (Uri.TryCreate(requestUri, UriKind.Absolute, out Uri absolute))
+            if (Uri.TryCreate(requestUri, UriKind.Absolute, out Uri? absolute) && absolute != null)
             {
                 finalUri = absolute;
             }
@@ -238,7 +239,7 @@ namespace RBX_Alt_Manager.Http
             using var message = new HttpRequestMessage(httpMethod, finalUri);
 
             // Add headers
-            string specifiedContentType = null;
+            string? specifiedContentType = null;
             foreach (var kvp in request.Headers)
             {
                 if (kvp.Key.Equals("Content-Type", StringComparison.OrdinalIgnoreCase))
@@ -296,7 +297,7 @@ namespace RBX_Alt_Manager.Http
                 }
 
                 // Extract Set-Cookie headers into Cookies collection
-                IEnumerable<string> cookieHeaders = null;
+                IEnumerable<string>? cookieHeaders = null;
                 if (!httpResponse.Headers.TryGetValues("Set-Cookie", out cookieHeaders))
                 {
                     try
@@ -328,7 +329,9 @@ namespace RBX_Alt_Manager.Http
                     }
                 }
 
-                restResponse.Content = await httpResponse.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+                restResponse.Content = httpResponse.Content != null
+                    ? await httpResponse.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false)
+                    : string.Empty;
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -348,7 +351,7 @@ namespace RBX_Alt_Manager.Http
         /// Executes the request and automatically deserializes the response JSON into <typeparamref name="T"/>,
         /// avoiding redundant intermediate string copies and manual deserialization boilerplate.
         /// </summary>
-        public async Task<(bool Success, T Data, RestResponse Raw)> ExecuteAsync<T>(RestRequest request, CancellationToken cancellationToken = default)
+        public async Task<(bool Success, T? Data, RestResponse Raw)> ExecuteAsync<T>(RestRequest request, CancellationToken cancellationToken = default)
         {
             var raw = await ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
             if (!raw.IsSuccessful || string.IsNullOrWhiteSpace(raw.Content))

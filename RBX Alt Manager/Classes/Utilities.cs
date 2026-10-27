@@ -1,5 +1,7 @@
+#nullable enable
 using System;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -36,10 +38,10 @@ namespace RBX_Alt_Manager
             return val;
         }
 
-        public static bool TryParseJson<T>(this string @this, out T result) =>
+        public static bool TryParseJson<T>(this string @this, [NotNullWhen(true)] out T? result) =>
             JsonExtensions.TryParseJson(@this, out result);
 
-        public static bool TryParseFast<T>(this string @this, out T result) =>
+        public static bool TryParseFast<T>(this string @this, [NotNullWhen(true)] out T? result) =>
             JsonExtensions.TryParseFast(@this, out result);
 
         public static class FastJson
@@ -47,23 +49,23 @@ namespace RBX_Alt_Manager
             public static readonly System.Text.Json.JsonSerializerOptions DefaultOptions = Services.FastJson.DefaultOptions;
             public static readonly System.Text.Json.JsonSerializerOptions IndentedOptions = Services.FastJson.IndentedOptions;
 
-            public static bool TryDeserialize<T>(string json, out T result) =>
+            public static bool TryDeserialize<T>(string json, [NotNullWhen(true)] out T? result) =>
                 Services.FastJson.TryDeserialize(json, out result);
 
-            public static T Deserialize<T>(string json) =>
+            public static T? Deserialize<T>(string json) =>
                 Services.FastJson.Deserialize<T>(json);
 
             public static string Serialize<T>(T value, bool indented = false) =>
                 Services.FastJson.Serialize(value, indented);
         }
 
-        public static void InvokeIfRequired(this Avalonia.Threading.Dispatcher dispatcher, Action action)
+        public static void InvokeIfRequired(this Avalonia.Threading.Dispatcher dispatcher, Action? action)
         {
             if (action == null) return;
             AppDispatcher.Post(action);
         }
 
-        public static void OpenUrl(string url)
+        public static void OpenUrl(string? url)
         {
             if (string.IsNullOrWhiteSpace(url)) return;
             try
@@ -72,11 +74,11 @@ namespace RBX_Alt_Manager
             }
             catch (Exception ex)
             {
-                Program.Logger.Warn($"Failed to open URL '{url}': {ex.Message}");
+                Program.Logger?.Warn($"Failed to open URL '{url}': {ex.Message}");
             }
         }
 
-        public static void OpenFile(string filePath)
+        public static void OpenFile(string? filePath)
         {
             if (string.IsNullOrWhiteSpace(filePath)) return;
             try
@@ -85,17 +87,17 @@ namespace RBX_Alt_Manager
             }
             catch (Exception ex)
             {
-                Program.Logger.Warn($"Failed to open file '{filePath}': {ex.Message}");
+                Program.Logger?.Warn($"Failed to open file '{filePath}': {ex.Message}");
             }
         }
 
         public static string SHA256(string input) => CryptoHelper.SHA256(input);
 
-        public static string FileSHA256(this string fileName) => CryptoHelper.FileSHA256(fileName);
+        public static string? FileSHA256(this string fileName) => CryptoHelper.FileSHA256(fileName);
 
         public static double ToRobloxTick(this DateTime date) => RobloxPlaceHelper.ToRobloxTick(date);
 
-        public static string GetCommandLine(this Process process) => ProcessExtensions.GetCommandLine(process);
+        public static string? GetCommandLine(this Process process) => ProcessExtensions.GetCommandLine(process);
 
         public static Task<string> GetRandomJobId(
             long placeId,
@@ -103,7 +105,7 @@ namespace RBX_Alt_Manager
             CancellationToken cancellationToken = default) =>
             RobloxPlaceHelper.GetRandomJobId(placeId, chooseLowestServer, cancellationToken);
 
-        public static void RecursiveDelete(this DirectoryInfo baseDir)
+        public static void RecursiveDelete(this DirectoryInfo? baseDir)
         {
             if (baseDir == null || !baseDir.Exists) return;
 
@@ -119,7 +121,7 @@ namespace RBX_Alt_Manager
             baseDir.Delete(true);
         }
 
-        public static bool YesNoPrompt(string Caption, string Instruction, string Text, bool CanSave = true, bool SaveIfNo = true)
+        public static bool YesNoPrompt(string? Caption, string? Instruction, string? Text, bool CanSave = true, bool SaveIfNo = true)
         {
             string promptKey = $"{Caption}.{Instruction}.{Text}";
             string sha256Hash = CryptoHelper.SHA256(promptKey);
@@ -130,10 +132,10 @@ namespace RBX_Alt_Manager
                     return AccountManager.Prompts.Get<bool>(sha256Hash);
             }
 
-            string promptMessage = string.IsNullOrWhiteSpace(Instruction) ? Text : $"{Instruction}\n\n{Text}";
+            string promptMessage = string.IsNullOrWhiteSpace(Instruction) ? (Text ?? string.Empty) : $"{Instruction}\n\n{Text}";
             MessageBoxResult result = MessageBoxDialog.Show(
                 promptMessage,
-                Caption,
+                Caption ?? string.Empty,
                 MessageBoxButtons.YesNo,
                 MessageBoxIcon.Warning);
 
@@ -153,8 +155,8 @@ namespace RBX_Alt_Manager
         public static double MapValue(double input, double il, double ih, double ol, double oh) =>
             RobloxPlaceHelper.MapValue(input, il, ih, ol, oh);
 
-        public static bool SetClipboardTextSafe(string text) =>
-            ClipboardHelper.SetClipboardTextSafe(text);
+        public static bool SetClipboardTextSafe(string? text) =>
+            ClipboardHelper.SetClipboardTextSafe(text ?? string.Empty);
 
         public static bool IsConnectedToInternet()
         {

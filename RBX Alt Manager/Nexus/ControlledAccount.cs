@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Buffers;
 using System.ComponentModel;
@@ -21,14 +22,14 @@ namespace RBX_Alt_Manager.Nexus
         private static readonly IBrush OnlineBrush = new SolidColorBrush(Color.FromRgb(34, 197, 94));
         private static readonly IBrush OfflineBrush = new SolidColorBrush(Color.FromRgb(100, 116, 139));
 
-        public event PropertyChangedEventHandler PropertyChanged;
+        public event PropertyChangedEventHandler? PropertyChanged;
 
-        protected void OnPropertyChanged([CallerMemberName] string propertyName = null)
+        protected void OnPropertyChanged([CallerMemberName] string? propertyName = null)
         {
             AppDispatcher.Post(() => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName)));
         }
 
-        [JsonIgnore] public Account LinkedAccount { get; set; }
+        [JsonIgnore] public Account? LinkedAccount { get; set; }
 
         private AccountStatus _status;
         [JsonIgnore]
@@ -55,25 +56,25 @@ namespace RBX_Alt_Manager.Nexus
 
         [JsonIgnore] public DateTime LastPing { get; set; }
 
-        private string _username;
+        private string _username = string.Empty;
         public string Username
         {
             get => _username;
-            set { if (_username != value) { _username = value; OnPropertyChanged(); } }
+            set { if (_username != value) { _username = value ?? string.Empty; OnPropertyChanged(); } }
         }
 
         public string AutoExecute { get; set; } = "";
 
         public long PlaceId { get; set; }
 
-        private string _jobId;
-        public string JobId
+        private string? _jobId;
+        public string? JobId
         {
             get => _jobId;
             set { if (_jobId != value) { _jobId = value; OnPropertyChanged(); } }
         }
 
-        [JsonIgnore] public string InGameJobId { get; set; }
+        [JsonIgnore] public string? InGameJobId { get; set; }
         public double RelaunchDelay { get; set; } = 30;
 
         public bool AutoRelaunch { get; set; }
@@ -114,7 +115,7 @@ namespace RBX_Alt_Manager.Nexus
         private const int MaxCustomControlsPerSession = 50;
         private int _customControlsCount = 0;
 
-        [JsonIgnore] public WebSocket WebSocket;
+        [JsonIgnore] public WebSocket? WebSocket;
 
         public ControlledAccount()
         {
@@ -122,13 +123,13 @@ namespace RBX_Alt_Manager.Nexus
             LastPing = DateTime.UtcNow.AddSeconds(-20);
         }
 
-        public ControlledAccount(Account account) : this()
+        public ControlledAccount(Account? account) : this()
         {
             LinkedAccount = account;
-            Username = LinkedAccount?.Username;
+            Username = LinkedAccount?.Username ?? string.Empty;
         }
 
-        public void Connect(WebSocket webSocket)
+        public void Connect(WebSocket? webSocket)
         {
             if (Status == AccountStatus.Online)
             {
@@ -204,7 +205,7 @@ namespace RBX_Alt_Manager.Nexus
         {
             if (string.IsNullOrEmpty(Message)) return;
 
-            if (Message.TryParseJson(out Command command))
+            if (Message.TryParseJson(out Command? command) && command != null)
             {
 #if DEBUG
                 if (command.Name != "ping")
@@ -218,34 +219,34 @@ namespace RBX_Alt_Manager.Nexus
 
                     if (command.Payload != null)
                     {
-                        if (command.Payload.TryGetValue("fps", out string fpsVal) || command.Payload.TryGetValue("Fps", out fpsVal))
-                            Fps = fpsVal;
-                        if (command.Payload.TryGetValue("ping", out string pingVal) || command.Payload.TryGetValue("Ping", out pingVal))
-                            Ping = pingVal;
-                        if (command.Payload.TryGetValue("pos", out string posVal) || command.Payload.TryGetValue("Position", out posVal))
-                            Position = posVal;
+                        if (command.Payload.TryGetValue("fps", out string? fpsVal) || command.Payload.TryGetValue("Fps", out fpsVal))
+                            Fps = fpsVal ?? "-";
+                        if (command.Payload.TryGetValue("ping", out string? pingVal) || command.Payload.TryGetValue("Ping", out pingVal))
+                            Ping = pingVal ?? "-";
+                        if (command.Payload.TryGetValue("pos", out string? posVal) || command.Payload.TryGetValue("Position", out posVal))
+                            Position = posVal ?? "-";
                     }
                 }
-                else if (command.Name == "Log" && command.Payload != null && command.Payload.TryGetValue("Content", out string logContent))
+                else if (command.Name == "Log" && command.Payload != null && command.Payload.TryGetValue("Content", out string? logContent) && logContent != null)
                 {
                     RBX_Alt_Manager.AvaloniaUI.Views.NexusWindow.Instance?.LogMessage(logContent);
                 }
-                else if (command.Name == "GetText" && command.Payload != null && command.Payload.TryGetValue("Name", out string _))
+                else if (command.Name == "GetText" && command.Payload != null && command.Payload.TryGetValue("Name", out string? _))
                 {
                     SendMessage($"ElementText:");
                 }
-                else if (command.Name == "SetRelaunch" && command.Payload != null && command.Payload.TryGetValue("Seconds", out string secStr) && double.TryParse(secStr, out double Delay))
+                else if (command.Name == "SetRelaunch" && command.Payload != null && command.Payload.TryGetValue("Seconds", out string? secStr) && secStr != null && double.TryParse(secStr, out double Delay))
                 {
                     Logger.Info($"Relaunch Delay for {Username} has been set to {Delay} through Nexus");
                     RelaunchDelay = Delay;
                 }
-                else if (command.Name == "SetAutoRelaunch" && command.Payload != null && command.Payload.TryGetValue("Content", out string bRelaunchStr) && bool.TryParse(bRelaunchStr, out bool bRelaunch))
+                else if (command.Name == "SetAutoRelaunch" && command.Payload != null && command.Payload.TryGetValue("Content", out string? bRelaunchStr) && bRelaunchStr != null && bool.TryParse(bRelaunchStr, out bool bRelaunch))
                     AutoRelaunch = bRelaunch;
-                else if (command.Name == "SetPlaceId" && command.Payload != null && command.Payload.TryGetValue("Content", out string lPlaceIdStr) && long.TryParse(lPlaceIdStr, out long lPlaceId))
+                else if (command.Name == "SetPlaceId" && command.Payload != null && command.Payload.TryGetValue("Content", out string? lPlaceIdStr) && lPlaceIdStr != null && long.TryParse(lPlaceIdStr, out long lPlaceId))
                     PlaceId = lPlaceId;
-                else if (command.Name == "SetJobId" && command.Payload != null && command.Payload.TryGetValue("Content", out string jobIdContent) && !string.IsNullOrEmpty(jobIdContent))
+                else if (command.Name == "SetJobId" && command.Payload != null && command.Payload.TryGetValue("Content", out string? jobIdContent) && !string.IsNullOrEmpty(jobIdContent))
                     JobId = jobIdContent;
-                else if (command.Name == "Echo" && command.Payload != null && command.Payload.TryGetValue("Content", out string echoContent) && !string.IsNullOrEmpty(echoContent))
+                else if (command.Name == "Echo" && command.Payload != null && command.Payload.TryGetValue("Content", out string? echoContent) && !string.IsNullOrEmpty(echoContent))
                 {
                     RBX_Alt_Manager.AvaloniaUI.Views.NexusWindow.Instance?.EmitMessage(echoContent, true);
                 }
@@ -254,8 +255,9 @@ namespace RBX_Alt_Manager.Nexus
                     string elementName = "";
                     if (elementType != CommandCreateElement.NewLine)
                     {
-                        if (command.Payload == null || !command.Payload.TryGetValue("Name", out elementName) || !command.Payload.ContainsKey("Content"))
+                        if (command.Payload == null || !command.Payload.TryGetValue("Name", out string? parsedName) || parsedName == null || !command.Payload.ContainsKey("Content"))
                             return;
+                        elementName = parsedName;
                     }
 
                     if (_customControlsCount >= MaxCustomControlsPerSession)

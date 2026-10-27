@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Buffers;
 using System.Collections.Generic;
@@ -44,21 +45,21 @@ namespace RBX_Alt_Manager.Classes
 
         private Process RbxProcess;
         private int LogFileRetries = 0;
-        public FileInfo LogFile;
-        private FileStream LogStream;
+        public FileInfo? LogFile;
+        private FileStream? LogStream;
         private long LastPosition = 0;
         private long CurrentDataModel;
         private bool IsDMPaused;
         private bool StreamDisposed;
         private bool IsConnected;
         private DateTime DisconnectedTime;
-        private string LastLine;
+        private string? LastLine;
         private int _cleanedUp;
         private readonly CancellationTokenSource exitMonitoringCancellation = new CancellationTokenSource();
         private readonly CancellationTokenSource logLookupCancellation = new CancellationTokenSource();
 
-        public static event Action<int, int> Disconnected;
-        public static event Action<int> Connected;
+        public static event Action<int, int>? Disconnected;
+        public static event Action<int>? Connected;
 
         public RobloxProcess(Process process)
         {
@@ -187,10 +188,10 @@ namespace RBX_Alt_Manager.Classes
             }
         }
 
-        private void ReadLogFile(object s, EventArgs e)
+        private void ReadLogFile(object? s, EventArgs e)
         {
             if (StreamDisposed) return;
-            FileStream stream = LogStream;
+            FileStream? stream = LogStream;
             if (stream == null) return;
             try { if (!stream.CanRead) return; }
             catch (ObjectDisposedException) { return; }
@@ -236,7 +237,7 @@ namespace RBX_Alt_Manager.Classes
                         {
                             IsDMPaused = false;
 
-                            Program.Logger.Info($"CurrentDataModel set to {CurrentDataModel} ({DMI})");
+                            Program.Logger?.Info($"CurrentDataModel set to {CurrentDataModel} ({DMI})");
 
                             // Automatically trim bloated launch working set 15 seconds after map assets finish loading
                             if (AccountManager.General?.Get<bool>(AppSettingsKeys.General.AggressiveRamTrimming, true) ?? false)
@@ -263,10 +264,10 @@ namespace RBX_Alt_Manager.Classes
 
                         if (RTA1.Success || RTA2.Success)
                         {
-                            Program.Logger.Info($"RTA1: {RTA1}");
-                            Program.Logger.Info($"RTA2: {RTA2}");
-                            Program.Logger.Info($"Was Paused: {IsDMPaused}");
-                            Program.Logger.Info($"Current Line: {i}");
+                            Program.Logger?.Info($"RTA1: {RTA1}");
+                            Program.Logger?.Info($"RTA2: {RTA2}");
+                            Program.Logger?.Info($"Was Paused: {IsDMPaused}");
+                            Program.Logger?.Info($"Current Line: {i}");
 
                             if (RobloxWatcher.VerifyDataModel && !string.IsNullOrEmpty(LastLine))
                             {
@@ -275,7 +276,7 @@ namespace RBX_Alt_Manager.Classes
                                 if (IsDMPaused || (DMS.Success && DMS.Groups.Count == 2 && long.TryParse(DMS.Groups[1].Value, System.Globalization.NumberStyles.HexNumber, null, out MatchedDataModel) && MatchedDataModel == CurrentDataModel))
                                 {
                                     CurrentDataModel = -1;
-                                    Program.Logger.Info($"CurrentDataModel set to {CurrentDataModel} ({DMS}) | Position: {LastPosition}");
+                                    Program.Logger?.Info($"CurrentDataModel set to {CurrentDataModel} ({DMS}) | Position: {LastPosition}");
 
                                     if (AccountManager.Watcher.Get<bool>("ExitOnBeta") && KillProcess("Beta home menu detected"))
                                         return;
@@ -328,7 +329,7 @@ namespace RBX_Alt_Manager.Classes
             while (LogFileRetries <= 30 && !RbxProcess.HasExited)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                Program.Logger.Info($"Attempting to find LogFile for {RbxProcess.Id}, retries: {LogFileRetries}");
+                Program.Logger?.Info($"Attempting to find LogFile for {RbxProcess.Id}, retries: {LogFileRetries}");
                 LogFileRetries += 1;
 
                 // Scan standard Roblox logs folder directly (pure C#, high performance, zero external executable)
@@ -389,7 +390,7 @@ namespace RBX_Alt_Manager.Classes
                                 FileStream stream = File.Open(file.FullName, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
                                 LogFile = file;
                                 LogStream = stream;
-                                Program.Logger.Info($"Found LogFile Path via direct logs folder: {LogFile.FullName}");
+                                Program.Logger?.Info($"Found LogFile Path via direct logs folder: {LogFile.FullName}");
                                 return;
                             }
                             catch
@@ -400,7 +401,7 @@ namespace RBX_Alt_Manager.Classes
                     }
                     catch (Exception ex)
                     {
-                        Program.Logger.Debug($"Direct logs scan error: {ex.Message}");
+                        Program.Logger?.Debug($"Direct logs scan error: {ex.Message}");
                     }
                 }
 

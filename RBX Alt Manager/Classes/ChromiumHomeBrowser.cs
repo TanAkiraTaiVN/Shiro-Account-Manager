@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Buffers;
 using System.Collections.Generic;
@@ -42,27 +43,27 @@ namespace RBX_Alt_Manager.Classes
 
         private sealed class BrowserTarget
         {
-            public string WebSocketUrl;
-            public string BrowserName;
+            public string WebSocketUrl = string.Empty;
+            public string BrowserName = string.Empty;
         }
 
         /// <summary>Starts one isolated Chromium Home window and returns when navigation was accepted.</summary>
-        public static async Task<bool> OpenAsync(Account account, CancellationToken cancellationToken = default(CancellationToken))
+        public static async Task<bool> OpenAsync(Account? account, CancellationToken cancellationToken = default(CancellationToken))
         {
             if (account == null || string.IsNullOrWhiteSpace(account.SecurityToken))
                 return false;
 
-            string executable = FindExecutable();
+            string? executable = FindExecutable();
             if (string.IsNullOrWhiteSpace(executable))
             {
-                Program.Logger.Warn("No Chrome or Edge executable was found for the Roblox Home browser.");
+                Program.Logger?.Warn("No Chrome or Edge executable was found for the Roblox Home browser.");
                 return false;
             }
 
             string profileDir = Path.Combine(SessionRoot,
                 (account.UserID > 0 ? account.UserID.ToString() : "account") + "-" + Guid.NewGuid().ToString("N"));
             int port = GetFreePort();
-            Process process = null;
+            Process? process = null;
             bool cleanupStarted = false;
 
             try
@@ -75,7 +76,7 @@ namespace RBX_Alt_Manager.Classes
                 if (process == null)
                     throw new InvalidOperationException("Chrome did not return a process handle.");
 
-                BrowserTarget target = await WaitForPageTargetAsync(port,
+                BrowserTarget? target = await WaitForPageTargetAsync(port,
                     TimeSpan.FromSeconds(StartupTimeoutSeconds), cancellationToken).ConfigureAwait(false);
                 if (target == null)
                     throw new TimeoutException("The browser DevTools endpoint did not become ready.");
@@ -88,28 +89,28 @@ namespace RBX_Alt_Manager.Classes
                 await InjectCookieAndNavigateAsync(target.WebSocketUrl, account.SecurityToken,
                     cancellationToken).ConfigureAwait(false);
 
-                Program.Logger.Info($"Opened Roblox Home for {account.Username} in {Path.GetFileName(executable)} using an isolated Chromium profile.");
+                Program.Logger?.Info($"Opened Roblox Home for {account.Username} in {Path.GetFileName(executable)} using an isolated Chromium profile.");
                 return true;
             }
             catch (OperationCanceledException)
             {
-                Program.Logger.Warn($"Opening Roblox Home for {account.Username} was cancelled.");
-                if (cleanupStarted) await CloseBrowserAsync(port, process).ConfigureAwait(false);
+                Program.Logger?.Warn($"Opening Roblox Home for {account.Username} was cancelled.");
+                if (cleanupStarted && process != null) await CloseBrowserAsync(port, process).ConfigureAwait(false);
                 return false;
             }
             catch (Exception exception)
             {
-                Program.Logger.Error($"Failed to open Roblox Home in Chromium for {account.Username}.", exception);
-                if (cleanupStarted) await CloseBrowserAsync(port, process).ConfigureAwait(false);
+                Program.Logger?.Error($"Failed to open Roblox Home in Chromium for {account.Username}.", exception);
+                if (cleanupStarted && process != null) await CloseBrowserAsync(port, process).ConfigureAwait(false);
                 return false;
             }
             finally
             {
                 if (!cleanupStarted)
                 {
-                    await CloseBrowserAsync(port, process).ConfigureAwait(false);
                     if (process != null)
                     {
+                        await CloseBrowserAsync(port, process).ConfigureAwait(false);
                         try { process.Dispose(); } catch (Exception) { }
                     }
                     await WipeProfileWithRetryAsync(profileDir).ConfigureAwait(false);
@@ -117,9 +118,9 @@ namespace RBX_Alt_Manager.Classes
             }
         }
 
-        private static string FindExecutable()
+        private static string? FindExecutable()
         {
-            string installed = BrowserService.FindInstalledBrowserExecutable();
+            string? installed = BrowserService.FindInstalledBrowserExecutable();
             if (!string.IsNullOrWhiteSpace(installed) && File.Exists(installed))
                 return installed;
 
@@ -163,7 +164,7 @@ namespace RBX_Alt_Manager.Classes
             };
         }
 
-        private static Process StartBrowser(string executable, List<string> arguments)
+        private static Process? StartBrowser(string executable, List<string> arguments)
         {
             ProcessStartInfo startInfo = new ProcessStartInfo
             {
@@ -180,7 +181,7 @@ namespace RBX_Alt_Manager.Classes
 
         private static int GetFreePort() => ChromeLaunchHelper.GetFreeLoopbackPort();
 
-        private static async Task<BrowserTarget> WaitForPageTargetAsync(int port, TimeSpan timeout, CancellationToken cancellationToken)
+        private static async Task<BrowserTarget?> WaitForPageTargetAsync(int port, TimeSpan timeout, CancellationToken cancellationToken)
         {
             HttpClient http = DevToolsHttp;
             // Reuse one short-timeout localhost client for all CDP probes;
@@ -197,18 +198,18 @@ namespace RBX_Alt_Manager.Classes
                     {
                         foreach (JsonElement target in document.RootElement.EnumerateArray())
                         {
-                            string type = target.TryGetProperty("type", out JsonElement typeElement)
+                            string? type = target.TryGetProperty("type", out JsonElement typeElement)
                                 ? typeElement.GetString() : null;
-                            string socket = target.TryGetProperty("webSocketDebuggerUrl", out JsonElement socketElement)
+                            string? socket = target.TryGetProperty("webSocketDebuggerUrl", out JsonElement socketElement)
                                 ? socketElement.GetString() : null;
 
-                            if (type == "page" && IsOwnDebuggerUrl(socket, port, "page"))
+                            if (type == "page" && !string.IsNullOrEmpty(socket) && IsOwnDebuggerUrl(socket, port, "page"))
                             {
                                 return new BrowserTarget
                                 {
                                     WebSocketUrl = socket,
                                     BrowserName = target.TryGetProperty("title", out JsonElement title)
-                                        ? title.GetString() : string.Empty
+                                        ? (title.GetString() ?? string.Empty) : string.Empty
                                 };
                             }
                         }
@@ -224,7 +225,7 @@ namespace RBX_Alt_Manager.Classes
             return null;
         }
 
-        private static async Task<string> WaitForBrowserSocketAsync(int port, TimeSpan timeout, CancellationToken cancellationToken = default)
+        private static async Task<string?> WaitForBrowserSocketAsync(int port, TimeSpan timeout, CancellationToken cancellationToken = default)
         {
             HttpClient http = DevToolsHttp;
             long startTimestamp = Stopwatch.GetTimestamp();
@@ -237,8 +238,8 @@ namespace RBX_Alt_Manager.Classes
                     {
                         if (document.RootElement.TryGetProperty("webSocketDebuggerUrl", out JsonElement socket))
                         {
-                            string value = socket.GetString();
-                            if (IsOwnDebuggerUrl(value, port, "browser")) return value;
+                            string? value = socket.GetString();
+                            if (!string.IsNullOrEmpty(value) && IsOwnDebuggerUrl(value, port, "browser")) return value;
                         }
                     }
                 }
@@ -259,9 +260,9 @@ namespace RBX_Alt_Manager.Classes
             return null;
         }
 
-        private static bool IsOwnDebuggerUrl(string url, int port, string kind)
+        private static bool IsOwnDebuggerUrl(string? url, int port, string kind)
         {
-            if (!Uri.TryCreate(url, UriKind.Absolute, out Uri uri)) return false;
+            if (string.IsNullOrEmpty(url) || !Uri.TryCreate(url, UriKind.Absolute, out Uri? uri) || uri == null) return false;
             return uri.Scheme == "ws" && uri.Host == "127.0.0.1" && uri.Port == port &&
                 string.IsNullOrEmpty(uri.UserInfo) && uri.AbsolutePath.StartsWith("/devtools/" + kind + "/", StringComparison.Ordinal);
         }
@@ -397,7 +398,7 @@ namespace RBX_Alt_Manager.Classes
             }
             catch (Exception exception)
             {
-                Program.Logger.Warn("Watching the Chromium Home window failed; cleaning up its temporary profile.", exception);
+                Program.Logger?.Warn("Watching the Chromium Home window failed; cleaning up its temporary profile.", exception);
             }
             finally
             {
@@ -437,7 +438,7 @@ namespace RBX_Alt_Manager.Classes
         {
             try
             {
-                string socketUrl = await WaitForBrowserSocketAsync(port, TimeSpan.FromSeconds(2)).ConfigureAwait(false);
+                string? socketUrl = await WaitForBrowserSocketAsync(port, TimeSpan.FromSeconds(2)).ConfigureAwait(false);
                 if (!string.IsNullOrWhiteSpace(socketUrl))
                 {
                     using (ClientWebSocket socket = new ClientWebSocket())

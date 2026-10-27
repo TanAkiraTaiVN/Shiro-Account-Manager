@@ -49,7 +49,7 @@ namespace RBX_Alt_Manager.Classes
         internal sealed class SignupProfile
         {
             public DateTime BirthDate { get; set; }
-            public string Gender { get; set; }
+            public string Gender { get; set; } = "male";
         }
 
         public static SignupProfile CreateRandomProfile()

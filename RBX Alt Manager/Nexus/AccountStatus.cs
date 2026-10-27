@@ -1,4 +1,5 @@
-﻿namespace RBX_Alt_Manager.Classes
+#nullable enable
+namespace RBX_Alt_Manager.Classes
 {
     public enum AccountStatus
     {

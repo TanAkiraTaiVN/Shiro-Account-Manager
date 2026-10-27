@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Buffers;
 using System.Collections.Concurrent;
@@ -22,7 +23,7 @@ namespace RBX_Alt_Manager.Nexus
     /// </summary>
     public sealed class NexusWebSocketServer : IDisposable, IAsyncDisposable
     {
-        private WebApplication _app;
+        private WebApplication? _app;
         private readonly CancellationTokenSource _cts = new();
         private readonly ConcurrentDictionary<WebSocket, byte> _activeSockets = new();
         private readonly int _port;
@@ -31,7 +32,7 @@ namespace RBX_Alt_Manager.Nexus
 
         public bool IsListening { get; private set; }
 
-        public NexusWebSocketServer(IPAddress address, int port)
+        public NexusWebSocketServer(IPAddress? address, int port)
         {
             if (port < 1 || port > 65535)
                 throw new ArgumentOutOfRangeException(nameof(port), "Port must be between 1 and 65535.");
@@ -84,8 +85,8 @@ namespace RBX_Alt_Manager.Nexus
                     }
 
                     var query = context.Request.Query;
-                    string name = query["name"];
-                    string id = query["id"];
+                    string? name = query["name"];
+                    string? id = query["id"];
                     string jobId = string.IsNullOrEmpty(query["jobId"]) ? "UNKNOWN" : query["jobId"].ToString();
 
                     var modernNexus = RBX_Alt_Manager.AvaloniaUI.Views.NexusWindow.Instance;
@@ -95,11 +96,11 @@ namespace RBX_Alt_Manager.Nexus
                         return;
                     }
 
-                    ControlledAccount account = modernNexus.Accounts?.FirstOrDefault(x => string.Equals(x.Username, name, StringComparison.OrdinalIgnoreCase));
+                    ControlledAccount? account = modernNexus.Accounts?.FirstOrDefault(x => string.Equals(x.Username, name, StringComparison.OrdinalIgnoreCase));
                     if (account == null)
                     {
                         var snapshot = AccountManager.GetAccountsSnapshot();
-                        var matched = snapshot?.FirstOrDefault(x => string.Equals(x.Username, name, StringComparison.OrdinalIgnoreCase));
+                        var matched = snapshot.FirstOrDefault(x => string.Equals(x.Username, name, StringComparison.OrdinalIgnoreCase));
                         if (matched != null)
                         {
                             account = new ControlledAccount(matched);

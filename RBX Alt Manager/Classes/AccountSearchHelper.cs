@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Text.RegularExpressions;
 using RBX_Alt_Manager.ViewModels;
@@ -28,7 +29,7 @@ namespace RBX_Alt_Manager.Classes
         [GeneratedRegex(@"^(?:([a-zA-Z0-9_\s]+?)\s+)?#?(\d+)$")]
         private static partial Regex SingleNumRegex();
 
-        public static AccountSearchQuery Create(string query)
+        public static AccountSearchQuery Create(string? query)
         {
             if (string.IsNullOrWhiteSpace(query))
                 return Empty;
@@ -78,7 +79,7 @@ namespace RBX_Alt_Manager.Classes
             };
         }
 
-        public bool IsMatch(AccountViewModel acc)
+        public bool IsMatch(AccountViewModel? acc)
         {
             if (acc == null) return false;
             if (IsEmpty) return true;
@@ -183,13 +184,13 @@ namespace RBX_Alt_Manager.Classes
 
     public static class AccountSearchHelper
     {
-        public static bool IsMatch(AccountViewModel acc, string query)
+        public static bool IsMatch(AccountViewModel? acc, string? query)
         {
             var q = AccountSearchQuery.Create(query);
             return q.IsMatch(acc);
         }
 
-        public static long GetSuffixNumber(string text) => GetSuffixNumberSpan(text);
+        public static long GetSuffixNumber(string? text) => GetSuffixNumberSpan(text.AsSpan());
 
         public static long GetSuffixNumberSpan(ReadOnlySpan<char> span)
         {

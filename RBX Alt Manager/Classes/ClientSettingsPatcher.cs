@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -96,7 +97,7 @@ namespace RBX_Alt_Manager.Classes
             {
                 using (var subKey = Registry.ClassesRoot.OpenSubKey(@"roblox\DefaultIcon"))
                 {
-                    object regValue = subKey?.GetValue("");
+                    object? regValue = subKey?.GetValue("");
                     if (regValue is string robloxPath && !string.IsNullOrWhiteSpace(robloxPath))
                     {
                         var regDir = Directory.GetParent(robloxPath);

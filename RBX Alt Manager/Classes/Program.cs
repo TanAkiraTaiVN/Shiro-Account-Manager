@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Diagnostics;
 using System.Globalization;
@@ -48,10 +49,10 @@ namespace RBX_Alt_Manager
             {
                 float _Scale = (AccountManager.General != null && AccountManager.General.Exists("WindowScale")) ? AccountManager.General.Get<float>("WindowScale") : 0f;
 
-                if (_Scale > 3f) AccountManager.General.RemoveProperty("WindowScale");
+                if (_Scale > 3f) AccountManager.General?.RemoveProperty("WindowScale");
 
                 if (_Scale > 0 && _Scale <= 3)
-                    return AccountManager.General.Get<float>("WindowScale");
+                    return AccountManager.General?.Get<float>("WindowScale") ?? 1f;
 
                 return 1f;
             }
@@ -99,7 +100,7 @@ namespace RBX_Alt_Manager
                     {
                         int staleArtifacts = StoragePaths.CleanupStaleRuntimeArtifacts(TimeSpan.FromDays(7));
                         if (staleArtifacts > 0)
-                            Logger.Info($"Removed {staleArtifacts} stale runtime artifact(s) from the previous session.");
+                            Logger?.Info($"Removed {staleArtifacts} stale runtime artifact(s) from the previous session.");
                     }
                     catch (Exception ex)
                     {
@@ -222,14 +223,14 @@ namespace RBX_Alt_Manager
                 {
                     AccountManager.EnsureBackendInitialized();
 
-                    Logger.Info("Launching Shiro Account Manager with Pure Avalonia UI 11 engine...");
+                    Logger?.Info("Launching Shiro Account Manager with Pure Avalonia UI 11 engine...");
                     try
                     {
                         BuildAvaloniaApp().StartWithClassicDesktopLifetime(Arguments);
                     }
                     catch (Exception ex)
                     {
-                        Logger.Error($"StartWithClassicDesktopLifetime crashed: {ex}");
+                        Logger?.Error($"StartWithClassicDesktopLifetime crashed: {ex}");
                         throw;
                     }
                 }

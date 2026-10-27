@@ -71,7 +71,7 @@ namespace RBX_Alt_Manager
                 }
             }
         }
-        public string Username;
+        public string Username = string.Empty;
         public DateTime LastUse;
         private string _Alias = "";
         private string _Description = "";
@@ -91,9 +91,9 @@ namespace RBX_Alt_Manager
                 }
             }
         }
-        private string _Proxy;
+        private string? _Proxy;
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public string Proxy
+        public string? Proxy
         {
             get => _Proxy;
             set
@@ -112,8 +112,8 @@ namespace RBX_Alt_Manager
         [JsonIgnore] public DateTime PinUnlocked;
         [JsonIgnore] public DateTime TokenSet;
         [JsonIgnore] public DateTime LastAppLaunch;
-        [JsonIgnore] public string CSRFToken;
-        [JsonIgnore] public UserPresence Presence;
+        [JsonIgnore] public string? CSRFToken;
+        [JsonIgnore] public UserPresence? Presence;
         [JsonIgnore] public bool LastAuthTicketRateLimited;
         [JsonIgnore] public bool LastNativeLaunchRateLimited;
         [JsonIgnore] public int LastLaunchedProcessId;
@@ -125,7 +125,7 @@ namespace RBX_Alt_Manager
         [return: MarshalAs(UnmanagedType.Bool)]
         private static partial bool MoveWindow(IntPtr hWnd, int X, int Y, int nWidth, int nHeight, [MarshalAs(UnmanagedType.Bool)] bool bRepaint);
 
-        public int CompareTo(Account compareTo)
+        public int CompareTo(Account? compareTo)
         {
             if (compareTo == null)
                 return 1;

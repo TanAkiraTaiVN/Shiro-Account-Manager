@@ -1,3 +1,4 @@
+#nullable enable
 using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
@@ -41,12 +42,12 @@ namespace RBX_Alt_Manager.Classes
         public static bool CloseIfWindowTitle = false;
         public static bool RememberWindowPositions = false;
         public static int MemoryLowValue = 200;
-        public static string ExpectedWindowTitle = "Roblox";
+        public static string? ExpectedWindowTitle = "Roblox";
 
-        private static ModernPeriodicTask _watcherLoop;
-        private static ModernPeriodicTask _logReadLoop;
+        private static ModernPeriodicTask? _watcherLoop;
+        private static ModernPeriodicTask? _logReadLoop;
 
-        public static event EventHandler<EventArgs> LogFileRead;
+        public static event EventHandler<EventArgs>? LogFileRead;
 
         public static void Start()
         {
@@ -110,7 +111,7 @@ namespace RBX_Alt_Manager.Classes
                     {
                         if (_pidMetadataCache.Count > runningPids.Count)
                         {
-                            List<int> exitedPids = null;
+                            List<int>? exitedPids = null;
                             foreach (int cachedPid in _pidMetadataCache.Keys)
                             {
                                 if (!runningPids.Contains(cachedPid))
@@ -154,7 +155,7 @@ namespace RBX_Alt_Manager.Classes
             }
 
             IntPtr Focused = GetForegroundWindow();
-            Dictionary<string, Account> accountByTracker = null;
+            Dictionary<string, Account>? accountByTracker = null;
             if (RememberWindowPositions)
             {
                 accountByTracker = new Dictionary<string, Account>(StringComparer.Ordinal);
@@ -196,7 +197,7 @@ namespace RBX_Alt_Manager.Classes
 
                     if (!hasCachedMeta)
                     {
-                        string commandLine = process.GetCommandLine();
+                        string? commandLine = process.GetCommandLine();
                         if (!string.IsNullOrEmpty(commandLine) &&
                             !commandLine.StartsWith("\\??\\") &&
                             (commandLine.Contains("-t ") || commandLine.Contains("-j ")))
@@ -232,12 +233,12 @@ namespace RBX_Alt_Manager.Classes
                             if (CloseIfWindowTitle && process.MainWindowTitle != ExpectedWindowTitle)
                                 Kill($"Window Title isn't {ExpectedWindowTitle}, got {process.MainWindowTitle}");
                         }
-                        catch (Exception x) { Program.Logger.Error($"Error with checking for Memory & Window Title: {x.Message}\n{x.StackTrace}"); }
+                        catch (Exception x) { Program.Logger?.Error($"Error with checking for Memory & Window Title: {x.Message}\n{x.StackTrace}"); }
                     }
 
                     if (RememberWindowPositions && !string.IsNullOrEmpty(trackerId) && isOlderThan30s)
                     {
-                        if (accountByTracker != null && accountByTracker.TryGetValue(trackerId, out Account account))
+                        if (accountByTracker != null && accountByTracker.TryGetValue(trackerId, out Account? account) && account != null)
                         {
                             try
                             {
@@ -280,7 +281,7 @@ namespace RBX_Alt_Manager.Classes
                             retained = true;
                         }
                     }
-                    catch (Exception x) { Program.Logger.Error($"Access to Process {pid} denied! This may be due to roblox being ran as admin or roblox's second process(This message can be ignored): {x.Message}"); }
+                    catch (Exception x) { Program.Logger?.Error($"Access to Process {pid} denied! This may be due to roblox being ran as admin or roblox's second process(This message can be ignored): {x.Message}"); }
                 }
                 finally
                 {
@@ -295,7 +296,7 @@ namespace RBX_Alt_Manager.Classes
             {
                 if (_pidMetadataCache.Count > activePids.Count)
                 {
-                    List<int> exitedPids = null;
+                    List<int>? exitedPids = null;
                     foreach (int cachedPid in _pidMetadataCache.Keys)
                     {
                         if (!activePids.Contains(cachedPid))

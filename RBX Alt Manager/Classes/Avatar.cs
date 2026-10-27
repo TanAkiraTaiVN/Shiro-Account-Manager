@@ -1,17 +1,18 @@
-﻿using System.Collections.Generic;
+#nullable enable
+using System.Collections.Generic;
 
 namespace RBX_Alt_Manager
 {
     public class Avatar
     {
         public long targetId { get; set; }
-        public string state { get; set; }
-        public string imageUrl { get; set; }
+        public string? state { get; set; }
+        public string? imageUrl { get; set; }
     }
 
     public class AvatarRoot
     {
-        public List<Avatar> data { get; set; }
+        public List<Avatar> data { get; set; } = [];
     }
 
     public class TokenRequest
@@ -36,16 +37,16 @@ namespace RBX_Alt_Manager
 
     public class TokenAvatar
     {
-        public string requestId { get; set; }
+        public string? requestId { get; set; }
         public int errorCode { get; set; }
-        public string errorMessage { get; set; }
+        public string? errorMessage { get; set; }
         public long targetId { get; set; }
-        public string state { get; set; }
-        public string imageUrl { get; set; }
+        public string? state { get; set; }
+        public string? imageUrl { get; set; }
     }
 
     public class TokenAvatarRoot
     {
-        public List<TokenAvatar> data { get; set; }
+        public List<TokenAvatar> data { get; set; } = [];
     }
 }

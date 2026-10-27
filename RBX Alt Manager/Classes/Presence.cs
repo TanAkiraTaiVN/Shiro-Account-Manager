@@ -1,4 +1,5 @@
 
+#nullable enable
 using RBX_Alt_Manager.Http;
 using System;
 using System.Collections.Generic;
@@ -69,7 +70,7 @@ namespace RBX_Alt_Manager.Classes
 
                     int batchEnd = Math.Min(offset + 50, UniqueUserIds.Length);
                     long[] batch = UniqueUserIds[offset..batchEnd];
-                    RestResponse Response;
+                    RestResponse? Response;
                     try
                     {
                         Response = await PresenceClient.ExecuteAsync(
@@ -82,17 +83,17 @@ namespace RBX_Alt_Manager.Classes
                     }
                     catch (Exception exception)
                     {
-                        Program.Logger.Warn($"Presence request failed: {exception.Message}");
+                        Program.Logger?.Warn($"Presence request failed: {exception.Message}");
                         continue;
                     }
 
                     if (Response == null || !Response.IsSuccessful)
                     {
-                        Program.Logger.Warn($"Presence request returned HTTP {(Response == null ? 0 : (int)Response.StatusCode)} {Response?.StatusCode}: {Response?.Content}");
+                        Program.Logger?.Warn($"Presence request returned HTTP {(Response == null ? 0 : (int)Response.StatusCode)} {Response?.StatusCode}: {Response?.Content}");
                         if (Response != null && (int)Response.StatusCode == 429)
                         {
                             RobloxRateLimitCoordinator.Instance.RecordRateLimitHit(RateLimitCategory.Presence, defaultBackoffSeconds: 6);
-                            Program.Logger.Warn("Roblox presence API rate limit (429) hit, aborting remaining presence batches to protect IP.");
+                            Program.Logger?.Warn("Roblox presence API rate limit (429) hit, aborting remaining presence batches to protect IP.");
                             break;
                         }
                         continue;
@@ -101,22 +102,22 @@ namespace RBX_Alt_Manager.Classes
                     RobloxRateLimitCoordinator.Instance.RecordSuccess(RateLimitCategory.Presence);
 
                     // High-performance System.Text.Json zero-intermediate parsing
-                    List<UserPresence> Presences = null;
-                    if (Utilities.FastJson.TryDeserialize<RobloxPresenceEnvelope>(Response.Content, out var envelope) && envelope?.userPresences != null)
+                    List<UserPresence>? Presences = null;
+                    if (Response.Content != null && Utilities.FastJson.TryDeserialize<RobloxPresenceEnvelope>(Response.Content, out var envelope) && envelope?.userPresences != null)
                     {
                         Presences = envelope.userPresences;
                     }
 
                     if (Presences == null)
                     {
-                        Program.Logger.Warn("Presence response did not contain userPresences.");
+                        Program.Logger?.Warn("Presence response did not contain userPresences.");
                         continue;
                     }
 
                     await PopulateGameNames(Presences, cancellationToken).ConfigureAwait(false);
 
                     foreach (UserPresence presence in Presences)
-                        if (AccountsById.TryGetValue(presence.userId, out Account account))
+                        if (AccountsById.TryGetValue(presence.userId, out Account? account) && account != null)
                         {
                             account.Presence = presence;
                             Updated.Add(account);
@@ -151,7 +152,7 @@ namespace RBX_Alt_Manager.Classes
             lock (GameNameCacheLock)
             {
                 MissingUniverseIds = InGame
-                    .Select(presence => presence.universeId.Value)
+                    .Select(presence => presence.universeId!.Value)
                     .Distinct()
                     .Where(universeId => !GameNameCache.ContainsKey(universeId))
                     .ToArray();
@@ -173,7 +174,7 @@ namespace RBX_Alt_Manager.Classes
                         if (Response != null && (int)Response.StatusCode == 429)
                         {
                             RobloxRateLimitCoordinator.Instance.RecordRateLimitHit(RateLimitCategory.General, defaultBackoffSeconds: 5);
-                            Program.Logger.Warn("Roblox games API rate limit (429) hit, aborting remaining game-name batches.");
+                            Program.Logger?.Warn("Roblox games API rate limit (429) hit, aborting remaining game-name batches.");
                             break;
                         }
                         continue;
@@ -220,13 +221,13 @@ namespace RBX_Alt_Manager.Classes
             {
                 foreach (UserPresence presence in InGame)
                 {
-                    if (GameNameCache.TryGetValue(presence.universeId.Value, out string gameName))
+                    if (presence.universeId.HasValue && GameNameCache.TryGetValue(presence.universeId.Value, out string? gameName))
                         presence.gameName = gameName;
                 }
             }
         }
 
-        public static string GetStatusText(Account account, bool isLaunching = false)
+        public static string GetStatusText(Account? account, bool isLaunching = false)
         {
             if (account != null && !account.Valid) return "● Hết hạn phiên (Re-login)";
             if (isLaunching) return "● Launching…";
@@ -248,7 +249,7 @@ namespace RBX_Alt_Manager.Classes
             }
         }
 
-        public static Color GetStatusColor(Account account, bool isLaunching = false)
+        public static Color GetStatusColor(Account? account, bool isLaunching = false)
         {
             if (account != null && !account.Valid) return Color.FromArgb(255, 255, 92, 92);
             if (isLaunching) return Color.FromArgb(255, 170, 170, 170);
@@ -260,12 +261,12 @@ namespace RBX_Alt_Manager.Classes
                 : Color.FromArgb(255, 160, 160, 160);
         }
 
-        public static Task<Dictionary<long, UserPresence>> GetPresence(params long[] UserIds)
+        public static Task<Dictionary<long, UserPresence>?> GetPresence(params long[] UserIds)
         {
             return GetPresence(CancellationToken.None, UserIds);
         }
 
-        public static async Task<Dictionary<long, UserPresence>> GetPresence(CancellationToken cancellationToken, params long[] UserIds)
+        public static async Task<Dictionary<long, UserPresence>?> GetPresence(CancellationToken cancellationToken, params long[] UserIds)
         {
             if (cancellationToken.IsCancellationRequested || UserIds == null || UserIds.Length == 0)
                 return new Dictionary<long, UserPresence>();
@@ -285,7 +286,7 @@ namespace RBX_Alt_Manager.Classes
 
                 int batchEnd = Math.Min(offset + 50, uniqueIds.Length);
                 long[] batch = uniqueIds[offset..batchEnd];
-                RestResponse response;
+                RestResponse? response;
                 try
                 {
                     response = await PresenceClient.ExecuteAsync(
@@ -298,17 +299,17 @@ namespace RBX_Alt_Manager.Classes
                 }
                 catch (Exception exception)
                 {
-                    Program.Logger.Warn($"Presence request failed: {exception.Message}");
+                    Program.Logger?.Warn($"Presence request failed: {exception.Message}");
                     continue;
                 }
 
                 if (response == null || !response.IsSuccessful)
                 {
-                    Program.Logger.Warn($"Presence request returned HTTP {(response == null ? 0 : (int)response.StatusCode)} {response?.StatusCode}: {response?.Content}");
+                    Program.Logger?.Warn($"Presence request returned HTTP {(response == null ? 0 : (int)response.StatusCode)} {response?.StatusCode}: {response?.Content}");
                     if (response != null && (int)response.StatusCode == 429)
                     {
                         RobloxRateLimitCoordinator.Instance.RecordRateLimitHit(RateLimitCategory.Presence, defaultBackoffSeconds: 6);
-                        Program.Logger.Warn("Roblox presence API rate limit (429) hit, aborting remaining presence batches to protect IP.");
+                        Program.Logger?.Warn("Roblox presence API rate limit (429) hit, aborting remaining presence batches to protect IP.");
                         break;
                     }
                     continue;
@@ -316,15 +317,15 @@ namespace RBX_Alt_Manager.Classes
 
                 RobloxRateLimitCoordinator.Instance.RecordSuccess(RateLimitCategory.Presence);
 
-                List<UserPresence> presences = null;
-                if (Utilities.FastJson.TryDeserialize<RobloxPresenceEnvelope>(response.Content, out var env) && env?.userPresences != null)
+                List<UserPresence>? presences = null;
+                if (response.Content != null && Utilities.FastJson.TryDeserialize<RobloxPresenceEnvelope>(response.Content, out var env) && env?.userPresences != null)
                 {
                     presences = env.userPresences;
                 }
 
                 if (presences == null)
                 {
-                    Program.Logger.Warn("Presence response did not contain userPresences.");
+                    Program.Logger?.Warn("Presence response did not contain userPresences.");
                     continue;
                 }
 
@@ -342,7 +343,7 @@ namespace RBX_Alt_Manager.Classes
             return receivedSuccessfulResponse ? result : null;
         }
 
-        public static async Task<UserPresence> GetPresenceSingular(long UserId) => ((await GetPresence(UserId)) is Dictionary<long, UserPresence> Dict && Dict.ContainsKey(UserId)) ? Dict[UserId] : null;
+        public static async Task<UserPresence?> GetPresenceSingular(long UserId) => ((await GetPresence(UserId)) is Dictionary<long, UserPresence> Dict && Dict.ContainsKey(UserId)) ? Dict[UserId] : null;
     }
 
     public sealed class RobloxPresenceEnvelope
@@ -363,7 +364,7 @@ namespace RBX_Alt_Manager.Classes
         public long id { get; set; }
 
         [JsonPropertyName("name")]
-        public string name { get; set; }
+        public string name { get; set; } = string.Empty;
     }
 
     public class UserPresence
@@ -372,7 +373,7 @@ namespace RBX_Alt_Manager.Classes
         public UserPresenceType userPresenceType { get; set; }
 
         [JsonPropertyName("lastLocation")]
-        public string lastLocation { get; set; }
+        public string? lastLocation { get; set; }
 
         [JsonPropertyName("placeId")]
         public long? placeId { get; set; }
@@ -393,7 +394,7 @@ namespace RBX_Alt_Manager.Classes
         public DateTime lastOnline { get; set; }
 
         [System.Text.Json.Serialization.JsonIgnore]
-        public string gameName { get; set; }
+        public string? gameName { get; set; }
     }
 
     public enum UserPresenceType

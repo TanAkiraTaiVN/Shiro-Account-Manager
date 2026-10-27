@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
 
@@ -11,7 +12,7 @@ namespace RBX_Alt_Manager.Classes
     {
         public static readonly NaturalStringComparer Instance = new();
 
-        public int Compare(string x, string y)
+        public int Compare(string? x, string? y)
         {
             if (ReferenceEquals(x, y)) return 0;
             if (x == null) return -1;

@@ -1,3 +1,4 @@
+#nullable enable
 using RBX_Alt_Manager.Classes;
 using System;
 using System.Text.Json.Serialization;
@@ -8,9 +9,9 @@ namespace RBX_Alt_Manager
 {
     public class Game
     {
-        public GameDetails Details;
-        public string ImageUrl;
-        [JsonIgnore] public Action Callback;
+        public GameDetails? Details;
+        public string? ImageUrl;
+        [JsonIgnore] public Action? Callback;
 
         public Game() { } // Default Constructor so that Details isn't overriden with Unknown when deserializing
 
@@ -18,7 +19,7 @@ namespace RBX_Alt_Manager
 
         public Game(long PlaceId, string Name)
         {
-            if (Batch.PlaceDetails.TryGetValue(PlaceId, out GameDetails ExistingDetails) && !string.IsNullOrEmpty(ImageUrl))
+            if (Batch.PlaceDetails.TryGetValue(PlaceId, out GameDetails? ExistingDetails) && !string.IsNullOrEmpty(ImageUrl))
                 Details = ExistingDetails;
             else
                 _ = LoadDetailsAsync(PlaceId, Name);
@@ -29,13 +30,13 @@ namespace RBX_Alt_Manager
             try
             {
                 ImageUrl = await Batch.GetGameIcon(placeId).ConfigureAwait(false);
-                Details = Batch.PlaceDetails.TryGetValue(placeId, out GameDetails resolvedDetails)
+                Details = Batch.PlaceDetails.TryGetValue(placeId, out GameDetails? resolvedDetails)
                     ? resolvedDetails
                     : (Details ?? GameDetails.Unknown(placeId, name));
             }
             catch (Exception exception)
             {
-                Program.Logger.Debug($"Could not load game details for {placeId}: {exception.Message}");
+                Program.Logger?.Debug($"Could not load game details for {placeId}: {exception.Message}");
                 Details ??= GameDetails.Unknown(placeId, name);
             }
         }
@@ -65,13 +66,13 @@ namespace RBX_Alt_Manager
 
         private string _Name = "";
 
-        public string filteredName;
+        public string? filteredName;
         public string name
         {
             get => _Name;
             set
             {
-                _Name = value;
+                _Name = value ?? string.Empty;
 
                 if (value != null)
                 {
@@ -84,19 +85,19 @@ namespace RBX_Alt_Manager
         }
 
         public long placeId;
-        public string description;
-        public string sourceName;
-        public string sourceDescription;
-        public string url;
-        public string builder;
+        public string? description;
+        public string? sourceName;
+        public string? sourceDescription;
+        public string? url;
+        public string? builder;
         public long builderId;
         public bool hasVerifiedBadge;
         public bool isPlayable;
-        public string reasonProhibited;
+        public string? reasonProhibited;
         public long universeId;
         public long universeRootPlaceId;
         public long price;
-        public string imageToken;
+        public string? imageToken;
 
         public static GameDetails Unknown(long PlaceID = 0, string Name = "Unknown") => new GameDetails() { placeId = PlaceID, name = Name };
     }
@@ -104,8 +105,8 @@ namespace RBX_Alt_Manager
     public class PageGame : Game
     {
         public long CreatorID { get; set; }
-        public string CreatorName { get; set; }
-        public string CreatorUrl { get; set; }
+        public string? CreatorName { get; set; }
+        public string? CreatorUrl { get; set; }
         public long Plays { get; set; }
         public long Price { get; set; }
         public long ProductID { get; set; }
@@ -116,9 +117,9 @@ namespace RBX_Alt_Manager
         public long TotalBought { get; set; }
         public long UniverseID { get; set; }
         public bool HasErrorOcurred { get; set; }
-        public string GameDetailReferralUrl { get; set; }
-        public string Url { get; set; }
-        public object RetryUrl { get; set; }
+        public string? GameDetailReferralUrl { get; set; }
+        public string? Url { get; set; }
+        public object? RetryUrl { get; set; }
         public bool Final { get; set; }
         public string Name { get; set; }
         public long PlaceID { get; set; }
@@ -142,7 +143,7 @@ namespace RBX_Alt_Manager
         }
 
         [JsonConstructor]
-        public FavoriteGame(long PlaceID, Action Callback = null) : base(PlaceID)
+        public FavoriteGame(long PlaceID, Action? Callback = null) : base(PlaceID)
         {
             Name = "???";
             PrivateServer = "";
@@ -151,9 +152,9 @@ namespace RBX_Alt_Manager
         }
 
         public FavoriteGame(string Name, long PlaceID) : this(PlaceID) => this.Name = Name;
-        public FavoriteGame(string Name, long PlaceID, Action Callback) : this(PlaceID, Callback) => this.Name = Name;
+        public FavoriteGame(string Name, long PlaceID, Action? Callback) : this(PlaceID, Callback) => this.Name = Name;
         public FavoriteGame(string Name, long PlaceID, string PrivateServer) : this(Name, PlaceID) => this.PrivateServer = PrivateServer;
-        public FavoriteGame(string Name, long PlaceID, string PrivateServer, Action Callback) : this(Name, PlaceID, Callback) => this.PrivateServer = PrivateServer;
+        public FavoriteGame(string Name, long PlaceID, string PrivateServer, Action? Callback) : this(Name, PlaceID, Callback) => this.PrivateServer = PrivateServer;
     }
 
     public class GameArgs : EventArgs

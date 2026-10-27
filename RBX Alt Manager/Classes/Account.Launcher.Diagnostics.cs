@@ -18,7 +18,7 @@ namespace RBX_Alt_Manager
         [GeneratedRegex("\"([^\"]+RobloxPlayerBeta\\.exe)\"", RegexOptions.IgnoreCase)]
         private static partial Regex RobloxExeRegex();
 
-        private static string _cachedRobloxExecutablePath;
+        private static string? _cachedRobloxExecutablePath;
         private static long _cachedRobloxExecutableTick = -60000;
         private const long ExecutableCacheTtlMs = 30000;
 

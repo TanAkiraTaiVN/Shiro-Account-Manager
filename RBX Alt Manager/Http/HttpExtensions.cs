@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.IO;
 using System.Net.Http;
@@ -13,7 +14,7 @@ namespace RBX_Alt_Manager.Http
             this HttpClient client,
             string requestUri,
             Stream destination,
-            IProgress<float> progress = null,
+            IProgress<float>? progress = null,
             CancellationToken cancellationToken = default)
         {
             using var response = await client.GetAsync(requestUri, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
@@ -36,7 +37,7 @@ namespace RBX_Alt_Manager.Http
             Stream source,
             Stream destination,
             int bufferSize,
-            IProgress<long> progress = null,
+            IProgress<long>? progress = null,
             CancellationToken cancellationToken = default)
         {
             if (source == null)

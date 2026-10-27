@@ -42,15 +42,15 @@ namespace RBX_Alt_Manager.Classes
             "https://roblox-api.arkoselabs.com/",
             "https://cdn.arkoselabs.com/"
         };
-        public static async Task<Account> LoginAsync(
-            string username = null,
-            string password = null,
+        public static async Task<Account?> LoginAsync(
+            string? username = null,
+            string? password = null,
             int windowSlot = 0,
             bool submitCredentials = true,
             CancellationToken cancellationToken = default(CancellationToken))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            Account createdAccount = null;
+            Account? createdAccount = null;
             string browserPath;
             try
             {
@@ -74,7 +74,7 @@ namespace RBX_Alt_Manager.Classes
             string temporaryRoot = Path.Combine(StoragePaths.BrowserSessionsDirectory, "login-" + sessionId);
             string profilePath = Path.Combine(temporaryRoot, "profile");
 
-            ProxyConfiguration proxy = await SelectProxyAsync(cancellationToken).ConfigureAwait(false);
+            ProxyConfiguration? proxy = await SelectProxyAsync(cancellationToken).ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
             if (proxy != null)
             {
@@ -98,10 +98,10 @@ namespace RBX_Alt_Manager.Classes
             else
                 Program.Logger.Info("No sign-in proxy was selected; interactive Roblox sign-in will use a direct connection.");
 
-            Process browser = null;
-            IBrowser connectedBrowser = null;
-            IPage signInPage = null;
-            ICDPSession proxyAuthSession = null;
+            Process? browser = null;
+            IBrowser? connectedBrowser = null;
+            IPage? signInPage = null;
+            ICDPSession? proxyAuthSession = null;
             bool handedOff = false;
 
             try

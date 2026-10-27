@@ -1,3 +1,4 @@
+#nullable enable
 using RBX_Alt_Manager.Http;
 using System;
 using System.Collections.Concurrent;
@@ -18,13 +19,13 @@ namespace RBX_Alt_Manager.Classes
         public int ErrorCode { get; set; }
 
         [JsonPropertyName("imageUrl")]
-        public string ImageUrl { get; set; }
+        public string? ImageUrl { get; set; }
     }
 
     public class ThumbnailBatchResponse
     {
         [JsonPropertyName("data")]
-        public List<ThumbnailBatchItem> Data { get; set; }
+        public List<ThumbnailBatchItem>? Data { get; set; }
     }
 
     internal class Batch
@@ -61,23 +62,23 @@ namespace RBX_Alt_Manager.Classes
         private sealed class BatchRequestPayload
         {
             [JsonPropertyName("requestId")]
-            public string RequestId { get; init; }
+            public string RequestId { get; init; } = string.Empty;
 
             [JsonPropertyName("type")]
-            public string Type { get; init; }
+            public string Type { get; init; } = string.Empty;
 
             [JsonPropertyName("targetId")]
             public long TargetId { get; init; }
 
             [JsonPropertyName("size")]
-            public string Size { get; init; }
+            public string Size { get; init; } = string.Empty;
 
             [JsonPropertyName("format")]
-            public string Format { get; init; }
+            public string? Format { get; init; }
         }
 
-        private static BatchWork CurrentBatchWork;
-        private static PlaceWork CurrentPlaceWork;
+        private static BatchWork? CurrentBatchWork;
+        private static PlaceWork? CurrentPlaceWork;
 
         private static readonly List<BatchRequestPayload> PendingBatch = new List<BatchRequestPayload>();
         private static readonly HashSet<string> PendingBatchIds = new HashSet<string>(StringComparer.Ordinal);
@@ -91,7 +92,7 @@ namespace RBX_Alt_Manager.Classes
         public static readonly ConcurrentDictionary<long, string> GameIcons =
             new ConcurrentDictionary<long, string>();
 
-        public static async Task<string> GetImage(long assetId, string type, string size = "150x150", string format = null)
+        public static async Task<string> GetImage(long assetId, string type, string size = "150x150", string? format = null)
         {
             if (AccountManager.General?.Get<bool>("DisableImages") == true)
                 return string.Empty;
@@ -204,7 +205,7 @@ namespace RBX_Alt_Manager.Classes
                     if (response == null || !response.IsSuccessful)
                         throw new HttpRequestException($"{response?.StatusCode} Batch request failed\nError: {response?.ErrorMessage}");
 
-                    ThumbnailBatchResponse data = Utilities.FastJson.TryDeserialize<ThumbnailBatchResponse>(response.Content ?? "{}", out var b) ? b : null;
+                    ThumbnailBatchResponse? data = Utilities.FastJson.TryDeserialize<ThumbnailBatchResponse>(response.Content ?? "{}", out var b) ? b : null;
                     if (data?.Data != null)
                         returnList.AddRange(data.Data);
                 }
@@ -281,13 +282,13 @@ namespace RBX_Alt_Manager.Classes
                         continue;
 
                     RestRequest request = new RestRequest($"v1/games/multiget-place-details?placeIds={string.Join("&placeIds=", pending)}");
-                    request.AddCookie(".ROBLOSECURITY", AccountManager.LastValidAccount?.SecurityToken, "/", ".roblox.com");
+                    request.AddCookie(".ROBLOSECURITY", AccountManager.LastValidAccount?.SecurityToken ?? string.Empty, "/", ".roblox.com");
 
                     RestResponse response = await GamesAPI.ExecuteAsync(request).ConfigureAwait(false);
                     if (response == null || !response.IsSuccessful)
                         continue;
 
-                    GameDetails[] games = Utilities.FastJson.TryDeserialize<GameDetails[]>(response.Content ?? "[]", out var parsedGames) ? parsedGames : null;
+                    GameDetails[]? games = Utilities.FastJson.TryDeserialize<GameDetails[]>(response.Content ?? "[]", out var parsedGames) ? parsedGames : null;
                     foreach (GameDetails game in games ?? Array.Empty<GameDetails>())
                     {
                         if (game == null)
@@ -314,7 +315,7 @@ namespace RBX_Alt_Manager.Classes
                 return string.Empty;
 
             RestRequest request = new RestRequest($"v1/assets?assetIds={assetId}&returnPolicy=PlaceHolder&size=150x150&format=Png&isCircular=false");
-            request.AddCookie(".ROBLOSECURITY", AccountManager.LastValidAccount?.SecurityToken, "/", ".roblox.com");
+            request.AddCookie(".ROBLOSECURITY", AccountManager.LastValidAccount?.SecurityToken ?? string.Empty, "/", ".roblox.com");
 
             RestResponse response = await ThumbnailAPI.ExecuteAsync(request).ConfigureAwait(false);
             if (response == null || !response.IsSuccessful)
@@ -323,7 +324,7 @@ namespace RBX_Alt_Manager.Classes
                 return "UNK";
             }
 
-            ThumbnailBatchResponse data = Utilities.FastJson.TryDeserialize<ThumbnailBatchResponse>(response.Content ?? "{}", out var parsed) ? parsed : null;
+            ThumbnailBatchResponse? data = Utilities.FastJson.TryDeserialize<ThumbnailBatchResponse>(response.Content ?? "{}", out var parsed) ? parsed : null;
             return data?.Data?.FirstOrDefault()?.ImageUrl ?? "UNK";
         }
     }
