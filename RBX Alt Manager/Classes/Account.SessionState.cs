@@ -136,6 +136,27 @@ namespace RBX_Alt_Manager
                             if (!string.IsNullOrEmpty(authUser.Name) && string.IsNullOrEmpty(Username))
                                 Username = authUser.Name;
 
+                            // Verify live session store on account settings (catches IP-locks and expired session stores)
+                            bool liveSessionOk = await VerifyLiveSessionStoreAsync(token, cancellationToken).ConfigureAwait(false);
+                            if (!liveSessionOk)
+                            {
+                                Program.Logger?.Warn($"[ValidateSessionAsync] {Username}: Live session store returned 401 Unauthorized. Session expired or IP-locked.");
+                                Valid = false;
+                                return false;
+                            }
+
+                            // Verify moderation / ban status (e.g. 1-day, 3-day, 7-day bans, warnings)
+                            var (isBanned, issueBadge, reason) = await CheckModerationStatusAsync(token, cancellationToken).ConfigureAwait(false);
+                            if (isBanned)
+                            {
+                                string badge = issueBadge ?? "⛔ Bị khóa / Ban";
+                                Program.Logger?.Warn($"[ValidateSessionAsync] {Username}: Active moderation detected: {badge} ({reason}). Marking invalid.");
+                                AccountStatusIssue = badge;
+                                Valid = false;
+                                return false;
+                            }
+
+                            AccountStatusIssue = string.Empty;
                             Valid = true;
                             RobloxRateLimitCoordinator.Instance.RecordSuccess(RateLimitCategory.SessionCheck);
                             return true;

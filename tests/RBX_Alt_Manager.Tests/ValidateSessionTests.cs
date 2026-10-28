@@ -57,7 +57,7 @@ namespace RBX_Alt_Manager.Tests
         }
 
         [Fact]
-        public async Task Validate_UsersOk_SessionIsValid()
+        public async Task Validate_UsersOk_LiveStoreUnauthorized_IsExpired()
         {
             var handler = new FakeHandler(req => req.RequestUri.Host == "users.roblox.com"
                 ? Json(HttpStatusCode.OK, "{\"id\":42,\"name\":\"Tester\"}")
@@ -65,8 +65,8 @@ namespace RBX_Alt_Manager.Tests
             Account.TestHttpClientFactory = _ => new HttpClient(handler);
 
             var acc = NewAccount();
-            Assert.True(await acc.ValidateSessionAsync());
-            Assert.True(acc.Valid);
+            Assert.False(await acc.ValidateSessionAsync());
+            Assert.False(acc.Valid);
         }
 
         [Fact]

@@ -47,7 +47,10 @@ namespace RBX_Alt_Manager.ViewModels
         {
             OnPropertyChanged(nameof(Valid));
             OnPropertyChanged(nameof(IsExpired));
+            OnPropertyChanged(nameof(CanLaunch));
+            OnPropertyChanged(nameof(IsExpiredAndNotBanned));
             OnPropertyChanged(nameof(IsBannedOrLocked));
+            OnPropertyChanged(nameof(BanNoticeText));
             OnPropertyChanged(nameof(IsShortLivedSession));
             OnPropertyChanged(nameof(SessionHealth));
             OnPropertyChanged(nameof(StatusTooltip));
@@ -174,6 +177,10 @@ namespace RBX_Alt_Manager.ViewModels
                     _model.Valid = value;
                     OnPropertyChanged();
                     OnPropertyChanged(nameof(IsExpired));
+                    OnPropertyChanged(nameof(CanLaunch));
+                    OnPropertyChanged(nameof(IsExpiredAndNotBanned));
+                    OnPropertyChanged(nameof(IsBannedOrLocked));
+                    OnPropertyChanged(nameof(BanNoticeText));
                     OnPropertyChanged(nameof(StatusColorBrushName));
                     OnPropertyChanged(nameof(StatusText));
                     OnPropertyChanged(nameof(StatusBadgeBackground));
@@ -186,6 +193,11 @@ namespace RBX_Alt_Manager.ViewModels
 
         public bool IsExpired => !Valid;
         public bool IsBannedOrLocked => _model.IsBannedOrLocked;
+        public bool CanLaunch => Valid && !IsBannedOrLocked;
+        public bool IsExpiredAndNotBanned => IsExpired && !IsBannedOrLocked;
+        public string BanNoticeText => !string.IsNullOrEmpty(_model.AccountStatusIssue)
+            ? _model.AccountStatusIssue
+            : (LocalizationService.IsEnglish ? "⛔ Account Moderated / Locked" : "⛔ Tài khoản bị khóa / Ban");
         public bool IsShortLivedSession => _model.IsShortLivedSession;
         public SessionHealth SessionHealth => _model.SessionHealthStatus;
 
@@ -268,7 +280,10 @@ namespace RBX_Alt_Manager.ViewModels
         {
             OnPropertyChanged(nameof(Valid));
             OnPropertyChanged(nameof(IsExpired));
+            OnPropertyChanged(nameof(CanLaunch));
+            OnPropertyChanged(nameof(IsExpiredAndNotBanned));
             OnPropertyChanged(nameof(IsBannedOrLocked));
+            OnPropertyChanged(nameof(BanNoticeText));
             OnPropertyChanged(nameof(IsShortLivedSession));
             OnPropertyChanged(nameof(SessionHealth));
             OnPropertyChanged(nameof(StatusTooltip));

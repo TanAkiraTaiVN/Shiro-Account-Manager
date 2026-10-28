@@ -604,20 +604,46 @@
                                                 </Button>
                                             </StackPanel>
 
-                                            <!-- Top Right: Status Badge & Primary White Launch Button (anchored right) -->
+                                            <!-- Top Right: Status Badge & Primary White Launch / Re-login Button (anchored right) -->
                                             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" HorizontalAlignment="Right">
                                                 <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
                                                     <Ellipse Width="6" Height="6" Fill="{Binding StatusBadgeForeground}" VerticalAlignment="Center" />
                                                     <TextBlock Text="{Binding StatusText}" FontSize="11" Foreground="{Binding StatusBadgeForeground}"
-                                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="85" />
+                                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="115" />
                                                 </StackPanel>
 
-                                                <Button Click="OnCardLaunchClicked"
+                                                <!-- 1. Normal Launch Button -->
+                                                <Button IsVisible="{Binding CanLaunch}"
+                                                        Click="OnCardLaunchClicked"
                                                         Background="#FFFFFF" Foreground="#09090B" FontWeight="Bold" FontSize="11"
                                                         CornerRadius="6" Padding="8,4" Cursor="Hand" ToolTip.Tip="Khởi động Roblox Home">
                                                     <StackPanel Orientation="Horizontal" Spacing="4">
                                                         <lucide:Lucide Icon="Play" Width="10" Height="10" StrokeBrush="#09090B" StrokeThickness="2.5" VerticalAlignment="Center" />
                                                         <TextBlock Text="{Binding LaunchButtonText}" VerticalAlignment="Center" />
+                                                    </StackPanel>
+                                                </Button>
+
+                                                <!-- 2. Re-login Button (When Expired) -->
+                                                <Button IsVisible="{Binding IsExpiredAndNotBanned}"
+                                                        Click="OnCardLaunchClicked"
+                                                        Background="#25170B" Foreground="#FBBF24" BorderBrush="#D97706" BorderThickness="1"
+                                                        FontWeight="Bold" FontSize="11"
+                                                        CornerRadius="6" Padding="8,4" Cursor="Hand" ToolTip.Tip="Phiên đăng nhập đã hết hạn. Nhấn để đăng nhập lại (Fast Login)">
+                                                    <StackPanel Orientation="Horizontal" Spacing="4">
+                                                        <lucide:Lucide Icon="Key" Width="10" Height="10" StrokeBrush="#FBBF24" StrokeThickness="2" VerticalAlignment="Center" />
+                                                        <TextBlock Text="Re-login" VerticalAlignment="Center" />
+                                                    </StackPanel>
+                                                </Button>
+
+                                                <!-- 3. Ban Details Button (When Banned/Moderated) -->
+                                                <Button IsVisible="{Binding IsBannedOrLocked}"
+                                                        Click="OnCardLaunchClicked"
+                                                        Background="#2E0E17" Foreground="#FDA4AF" BorderBrush="#9F1239" BorderThickness="1"
+                                                        FontWeight="Bold" FontSize="11"
+                                                        CornerRadius="6" Padding="8,4" Cursor="Hand" ToolTip.Tip="Tài khoản bị kiểm duyệt hoặc khóa. Nhấn để xem lý do và gỡ ban">
+                                                    <StackPanel Orientation="Horizontal" Spacing="4">
+                                                        <lucide:Lucide Icon="ShieldAlert" Width="10" Height="10" StrokeBrush="#FDA4AF" StrokeThickness="2" VerticalAlignment="Center" />
+                                                        <TextBlock Text="Xem Ban" VerticalAlignment="Center" />
                                                     </StackPanel>
                                                 </Button>
                                             </StackPanel>
@@ -633,10 +659,22 @@
                                                 </Panel>
                                             </Border>
 
-                                            <!-- Center: Username, User ID, Robux -->
+                                            <!-- Center: Username, User ID, Robux, Ban Badge -->
                                             <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
                                                 <TextBlock Text="{Binding PrimaryTitle}" FontWeight="Bold" FontSize="13" Foreground="#FFFFFF" TextTrimming="CharacterEllipsis" />
                                                 <TextBlock Text="{Binding SecondaryTitle}" FontSize="11" Foreground="#71717A" TextTrimming="CharacterEllipsis" />
+
+                                                <!-- Ban Notice Badge directly under title -->
+                                                <Border IsVisible="{Binding IsBannedOrLocked}"
+                                                        Background="#330E18" BorderBrush="#9F1239" BorderThickness="1"
+                                                        CornerRadius="4" Padding="6,2" Margin="0,2,0,0" HorizontalAlignment="Left"
+                                                        ToolTip.Tip="Tài khoản đang bị phạt hoặc khóa. Bấm nút 'Xem Ban' để xem chi tiết">
+                                                    <StackPanel Orientation="Horizontal" Spacing="4">
+                                                        <lucide:Lucide Icon="ShieldAlert" Width="10" Height="10" StrokeBrush="#FDA4AF" VerticalAlignment="Center" />
+                                                        <TextBlock Text="{Binding BanNoticeText}" FontSize="10" FontWeight="Bold" Foreground="#FDA4AF" />
+                                                    </StackPanel>
+                                                </Border>
+
                                                 <TextBlock Text="{Binding RobuxFormatted}" IsVisible="{Binding HasRobux}" FontSize="11" FontWeight="SemiBold" Foreground="#F59E0B" />
                                             </StackPanel>
 
@@ -730,14 +768,32 @@
                                             <TextBlock Grid.Column="6" Text="{Binding RobuxFormatted}" IsVisible="{Binding HasRobux}" FontSize="11" FontWeight="SemiBold" Foreground="#F59E0B" VerticalAlignment="Center" />
 
                                             <StackPanel Grid.Column="7" Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                                <Button Width="26" Height="26" Click="OnCardLaunchClicked"
+                                                <!-- Play Button -->
+                                                <Button IsVisible="{Binding CanLaunch}"
+                                                        Width="26" Height="26" Click="OnCardLaunchClicked"
                                                         Background="#22222E" Foreground="#FFFFFF" CornerRadius="13"
                                                         Padding="0" Cursor="Hand" ToolTip.Tip="Mở Roblox Home">
                                                     <lucide:Lucide Icon="Play" Width="10" Height="10" StrokeBrush="#FFFFFF" VerticalAlignment="Center" HorizontalAlignment="Center" />
                                                 </Button>
+                                                <!-- Re-login Button -->
+                                                <Button IsVisible="{Binding IsExpiredAndNotBanned}"
+                                                        Width="26" Height="26" Click="OnCardLaunchClicked"
+                                                        Background="#25170B" Foreground="#FBBF24" BorderBrush="#D97706" BorderThickness="1" CornerRadius="13"
+                                                        Padding="0" Cursor="Hand" ToolTip.Tip="Phiên hết hạn - Bấm để Re-login">
+                                                    <lucide:Lucide Icon="Key" Width="10" Height="10" StrokeBrush="#FBBF24" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                                                </Button>
+                                                <!-- Ban Button -->
+                                                <Button IsVisible="{Binding IsBannedOrLocked}"
+                                                        Width="26" Height="26" Click="OnCardLaunchClicked"
+                                                        Background="#2E0E17" Foreground="#FDA4AF" BorderBrush="#9F1239" BorderThickness="1" CornerRadius="13"
+                                                        Padding="0" Cursor="Hand" ToolTip.Tip="Tài khoản bị Ban - Bấm để xem chi tiết">
+                                                    <lucide:Lucide Icon="ShieldAlert" Width="10" Height="10" StrokeBrush="#FDA4AF" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                                                </Button>
+
                                                 <Button Width="26" Height="26" Click="OnTableRowJoinClicked"
                                                         Background="#181822" Foreground="#22C55E" CornerRadius="13"
-                                                        Padding="0" Cursor="Hand" ToolTip.Tip="Tham gia Server hiện tại">
+                                                        Padding="0" Cursor="Hand" ToolTip.Tip="Tham gia Server hiện tại"
+                                                        IsEnabled="{Binding CanLaunch}">
                                                     <lucide:Lucide Icon="Play" Width="10" Height="10" StrokeBrush="#22C55E" VerticalAlignment="Center" HorizontalAlignment="Center" />
                                                 </Button>
                                             </StackPanel>

@@ -94,7 +94,7 @@ namespace RBX_Alt_Manager.ViewModels
                 }
                 if (Accounts != null)
                 {
-                    foreach (var acc in Accounts)
+                    foreach (var acc in Accounts.ToArray())
                         acc.NotifyLanguageChanged();
                 }
             };

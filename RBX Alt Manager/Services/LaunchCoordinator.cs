@@ -181,18 +181,23 @@ namespace RBX_Alt_Manager.Services
                     bool isTicketAuthError = !request.Account.Valid ||
                         (!string.IsNullOrEmpty(state.Result) && state.Result.Contains("Roblox has probably signed you out", StringComparison.OrdinalIgnoreCase));
 
-                    if (isTicketAuthError && request.Account.Valid)
+                    if (isTicketAuthError)
                     {
-                        request.Account.Valid = false;
-                        AccountManager.Instance?.BeginInvoke(new Action(() =>
+                        if (request.Account.Valid)
                         {
-                            AccountManager.Instance?.UpdateAccountValidity(request.Account, false);
-                            AccountManager.Instance?.RefreshView(request.Account);
-                        }));
-                    }
-                    else if (!request.Account.Valid)
-                    {
-                        isTicketAuthError = true;
+                            request.Account.Valid = false;
+                            AccountManager.Instance?.BeginInvoke(new Action(() =>
+                            {
+                                AccountManager.Instance?.UpdateAccountValidity(request.Account, false);
+                                AccountManager.Instance?.RefreshView(request.Account);
+                            }));
+                        }
+
+                        Program.Logger?.Warn($"[LaunchCoordinator] ⚠️ TÀI KHOẢN [{request.Account.Username}] BỊ HẾT HẠN PHIÊN (Auth ticket error / Signed out)! Đã đánh dấu hết hạn và bỏ qua.");
+                        AppDispatcher.Post(() =>
+                        {
+                            ToastService.ShowWarning("Hết hạn phiên", $"⚠️ {request.Account.Username}: Phiên đăng nhập đã hết hạn! Hãy bấm 'Re-login' trên thẻ.");
+                        });
                     }
 
                     state.Message = IsSuccessfulResult(state.Result)

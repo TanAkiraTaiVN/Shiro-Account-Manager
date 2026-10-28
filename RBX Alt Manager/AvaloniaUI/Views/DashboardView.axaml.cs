@@ -346,7 +346,18 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
             => LaunchAppHomeForSender(sender);
 
         private void OnCardLaunchClicked(object sender, RoutedEventArgs e)
-            => LaunchAppHomeForSender(sender);
+        {
+            var avm = GetItemFromMenu(sender);
+            if (avm?.Model != null)
+            {
+                if (avm.IsExpired || avm.IsBannedOrLocked)
+                {
+                    AppServices.Dialogs.OpenFastLoginDialog(avm.Model);
+                    return;
+                }
+                LaunchAppHomeForSender(sender);
+            }
+        }
 
         private void OnTableRowJoinClicked(object sender, RoutedEventArgs e)
             => JoinSingleAccountServer(GetItemFromMenu(sender));

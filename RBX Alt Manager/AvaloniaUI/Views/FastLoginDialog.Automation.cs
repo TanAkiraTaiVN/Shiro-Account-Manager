@@ -45,10 +45,28 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
                                 }
                             }
                             if (!combined) return '';
+                            if (combined.includes('7 day') || combined.includes('7-day') || combined.includes('7 ngày')) {
+                                return 'BAN_7_DAYS';
+                            }
+                            if (combined.includes('3 day') || combined.includes('3-day') || combined.includes('3 ngày')) {
+                                return 'BAN_3_DAYS';
+                            }
+                            if (combined.includes('1 day') || combined.includes('1-day') || combined.includes('1 ngày')) {
+                                return 'BAN_1_DAY';
+                            }
+                            if (combined.includes('14 day') || combined.includes('14-day') || combined.includes('14 ngày')) {
+                                return 'BAN_14_DAYS';
+                            }
+                            if (combined.includes('deleted') || combined.includes('terminated') || combined.includes('đã bị xóa') || combined.includes('vĩnh viễn')) {
+                                return 'TERMINATED';
+                            }
+                            if (combined.includes('warning') || combined.includes('cảnh báo')) {
+                                return 'WARNING';
+                            }
                             if (combined.includes('locked') || combined.includes('bị khóa') || combined.includes('reset your password') || combined.includes('security notification')) {
                                 return 'ACCOUNT_LOCKED';
                             }
-                            if (combined.includes('not approved') || combined.includes('banned') || combined.includes('terminated') || combined.includes('moderated') || combined.includes('deleted') || combined.includes('suspended')) {
+                            if (combined.includes('not approved') || combined.includes('banned') || combined.includes('moderated') || combined.includes('suspended')) {
                                 return 'ACCOUNT_BANNED';
                             }
                             if (combined.includes('incorrect username or password') || combined.includes('invalid username or password') || combined.includes('sai mật khẩu') || combined.includes('tên người dùng hoặc mật khẩu không đúng')) {
@@ -67,9 +85,15 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
                 string code = rawJson.Trim().Trim('"');
                 return code switch
                 {
-                    "LOCKED_OR_BANNED" => ("⛔ Bị khóa / Ban", "Tài khoản bị khóa hoặc kiểm duyệt"),
-                    "ACCOUNT_LOCKED" => ("⛔ Bị khóa / Ban", "Tài khoản bị khóa bảo mật"),
+                    "BAN_7_DAYS" => ("⛔ Ban 7 ngày", "Tài khoản bị cấm 7 ngày"),
+                    "BAN_3_DAYS" => ("⛔ Ban 3 ngày", "Tài khoản bị cấm 3 ngày"),
+                    "BAN_1_DAY" => ("⛔ Ban 1 ngày", "Tài khoản bị cấm 1 ngày"),
+                    "BAN_14_DAYS" => ("⛔ Ban 14 ngày", "Tài khoản bị cấm 14 ngày"),
+                    "TERMINATED" => ("⛔ Ban vĩnh viễn", "Tài khoản đã bị xóa vĩnh viễn"),
+                    "WARNING" => ("⚠️ Cảnh báo", "Tài khoản nhận cảnh báo kiểm duyệt"),
+                    "ACCOUNT_LOCKED" => ("⛔ Khóa bảo mật", "Tài khoản bị khóa bảo mật"),
                     "ACCOUNT_BANNED" => ("⛔ Bị khóa / Ban", "Tài khoản bị Ban / Đình chỉ"),
+                    "LOCKED_OR_BANNED" => ("⛔ Bị khóa / Ban", "Tài khoản bị khóa hoặc kiểm duyệt"),
                     "WRONG_PASSWORD" => ("⛔ Sai mật khẩu", "Sai tài khoản hoặc mật khẩu"),
                     _ => (null, null)
                 };

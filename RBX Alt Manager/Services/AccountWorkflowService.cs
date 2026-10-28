@@ -67,23 +67,36 @@ namespace RBX_Alt_Manager.Services
             await Task.WhenAll(tasks).ConfigureAwait(false);
             AccountManager.SaveAccounts(true);
 
+            var bannedAccounts = list.Where(a => a.IsBannedOrLocked).ToList();
+            var expiredAccounts = list.Where(a => !a.Valid && !a.IsBannedOrLocked).ToList();
+            var validAccounts = list.Where(a => a.Valid && !a.IsBannedOrLocked).ToList();
+
+            int valid = validAccounts.Count;
+            int expired = expiredAccounts.Count;
+            int banned = bannedAccounts.Count;
+
             AppDispatcher.Post(() =>
             {
                 viewModel?.NotifyCounts();
                 viewModel?.ApplyFilter();
             });
 
-            int valid = total - expiredCount;
-            statusCallback?.Invoke(expiredCount > 0
-                ? $"⚠️ Quét hoàn tất: {valid} sẵn sàng, {expiredCount} hết hạn! Xem tab '🔴 Hết hạn' để Re-login."
+            statusCallback?.Invoke((expired > 0 || banned > 0)
+                ? $"⚠️ Quét hoàn tất: {valid} sẵn sàng, {expired} hết hạn, {banned} bị ban! Xem tab '🔴 Hết hạn' để Re-login / kiểm tra."
                 : $"✅ Quét hoàn tất: Toàn bộ {total} tài khoản đều đang hoạt động tốt!");
 
-            string msg = expiredCount > 0
+            string msg = (expired > 0 || banned > 0)
                 ? $"🔍 KẾT QUẢ KIỂM TRA PHIÊN (SESSION CHECK):\n\n" +
                   $"• Tổng số tài khoản: {total}\n" +
                   $"• Sẵn sàng hoạt động: {valid}\n" +
-                  $"• Hết hạn phiên: {expiredCount}\n\n" +
-                  (expiredCount == total
+                  $"• Hết hạn phiên: {expired}\n" +
+                  $"• Bị khóa / Ban / Kiểm duyệt: {banned}\n\n" +
+                  (banned > 0
+                      ? $"⛔ CÁC TÀI KHOẢN BỊ BAN / KHÓA:\n" +
+                        string.Join("\n", bannedAccounts.Take(5).Select(a => $"• {a.Username}: {a.AccountStatusIssue}")) +
+                        (bannedAccounts.Count > 5 ? $"\n• ...và {bannedAccounts.Count - 5} tài khoản khác" : "") + "\n\n"
+                      : "") +
+                  (expired == total
                       ? "⚠️ LƯU Ý ĐẶC BIỆT: Tất cả tài khoản đều báo hết hạn phiên!\n" +
                         "Khả năng cao là địa chỉ IP của bạn vừa thay đổi (do đổi mạng, bật/tắt VPN, hoặc router reset).\n\n"
                       : "") +
@@ -92,10 +105,11 @@ namespace RBX_Alt_Manager.Services
                 : $"🔍 KẾT QUẢ KIỂM TRA PHIÊN (SESSION CHECK):\n\n" +
                   $"• Tổng số tài khoản: {total}\n" +
                   $"• Sẵn sàng hoạt động: {valid}\n" +
-                  $"• Hết hạn phiên: 0\n\n" +
+                  $"• Hết hạn phiên: 0\n" +
+                  $"• Bị khóa / Ban: 0\n\n" +
                   $"Tất cả tài khoản đều có phiên đăng nhập hợp lệ và đã được tự động cập nhật Cookie xoay!";
 
-            if (expiredCount > 0)
+            if (expired > 0 || banned > 0)
                 AppServices.Dialogs.ShowWarning(msg, "Kiểm Tra Phiên Tài Khoản");
             else
                 AppServices.Dialogs.ShowInfo(msg, "Kiểm Tra Phiên Tài Khoản");

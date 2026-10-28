@@ -53,10 +53,54 @@ namespace RBX_Alt_Manager
                     },
                     lifetimeCancellation.Token).ConfigureAwait(true);
 
+                var expiredAccounts = batch.Results
+                    .Where(r => r.Status == LaunchOutcome.TicketError || (r.Account != null && !r.Account.Valid))
+                    .Select(r => r.Account?.Username ?? "Unknown")
+                    .Distinct()
+                    .ToList();
+
+                var otherFailedAccounts = batch.Results
+                    .Where(r => (r.Status == LaunchOutcome.Failed || r.Status == LaunchOutcome.Timeout) &&
+                                !expiredAccounts.Contains(r.Account?.Username ?? ""))
+                    .Select(r => r.Account?.Username ?? "Unknown")
+                    .Distinct()
+                    .ToList();
+
+                int successCount = batch.Results.Count(r => r.Status == LaunchOutcome.Success);
+
                 if (batch.Cancelled)
+                {
                     SetDashboardStatus("ℹ️ Đã hủy hàng đợi khởi chạy.");
+                }
+                else if (expiredAccounts.Count > 0 || otherFailedAccounts.Count > 0)
+                {
+                    string errDetail = "";
+                    if (expiredAccounts.Count > 0)
+                        errDetail += $"⚠️ {expiredAccounts.Count} acc hết phiên: [{string.Join(", ", expiredAccounts)}]. ";
+                    if (otherFailedAccounts.Count > 0)
+                        errDetail += $"❌ {otherFailedAccounts.Count} acc lỗi: [{string.Join(", ", otherFailedAccounts)}].";
+
+                    Program.Logger.Warn($"[LaunchQueue] Hoàn tất hàng đợi: {successCount}/{requestedCount} thành công. {errDetail}");
+                    SetDashboardStatus($"⚠️ Khởi chạy hoàn tất: {successCount}/{requestedCount} thành công. {errDetail}Kiểm tra tab '🔴 Hết hạn'!");
+
+                    AppDispatcher.Post(() =>
+                    {
+                        string toastMsg = $"{successCount}/{requestedCount} tài khoản vào server thành công.\n" +
+                                          (expiredAccounts.Count > 0 ? $"• Hết hạn phiên: {string.Join(", ", expiredAccounts)}\n" : "") +
+                                          (otherFailedAccounts.Count > 0 ? $"• Lỗi khởi chạy: {string.Join(", ", otherFailedAccounts)}\n" : "") +
+                                          "Vui lòng kiểm tra tab '🔴 Hết hạn' để Re-login!";
+                        ToastService.ShowWarning("Phát hiện tài khoản lỗi phiên", toastMsg, 7.0);
+                    });
+                }
                 else
-                    SetDashboardStatus($"🚀 Đã hoàn tất hàng đợi khởi chạy cho {requestedCount} tài khoản.");
+                {
+                    Program.Logger.Info($"[LaunchQueue] Hoàn tất: Toàn bộ {successCount}/{requestedCount} tài khoản khởi chạy thành công.");
+                    SetDashboardStatus($"🚀 Đã hoàn tất khởi chạy thành công toàn bộ {successCount}/{requestedCount} tài khoản.");
+                    AppDispatcher.Post(() =>
+                    {
+                        ToastService.ShowSuccess("Khởi chạy thành công", $"Đã mở toàn bộ {successCount}/{requestedCount} tài khoản vào game!");
+                    });
+                }
             }
             catch (InvalidOperationException exception)
             {
@@ -107,18 +151,52 @@ namespace RBX_Alt_Manager
                     },
                     lifetimeCancellation.Token).ConfigureAwait(true);
 
-                var failed = batch.Results.FirstOrDefault(r => r.Status != LaunchOutcome.Success);
-                if (failed != null)
-                {
-                    SetDashboardStatus(failed.Message ?? failed.Result ?? string.Empty);
-                }
-                else if (batch.Cancelled)
+                var expiredAccounts = batch.Results
+                    .Where(r => r.Status == LaunchOutcome.TicketError || (r.Account != null && !r.Account.Valid))
+                    .Select(r => r.Account?.Username ?? "Unknown")
+                    .Distinct()
+                    .ToList();
+
+                var otherFailedAccounts = batch.Results
+                    .Where(r => (r.Status == LaunchOutcome.Failed || r.Status == LaunchOutcome.Timeout) &&
+                                !expiredAccounts.Contains(r.Account?.Username ?? ""))
+                    .Select(r => r.Account?.Username ?? "Unknown")
+                    .Distinct()
+                    .ToList();
+
+                int successCount = batch.Results.Count(r => r.Status == LaunchOutcome.Success);
+
+                if (batch.Cancelled)
                 {
                     SetDashboardStatus("ℹ️ Đã hủy hàng đợi khởi chạy.");
                 }
+                else if (expiredAccounts.Count > 0 || otherFailedAccounts.Count > 0)
+                {
+                    string errDetail = "";
+                    if (expiredAccounts.Count > 0)
+                        errDetail += $"⚠️ {expiredAccounts.Count} acc hết phiên: [{string.Join(", ", expiredAccounts)}]. ";
+                    if (otherFailedAccounts.Count > 0)
+                        errDetail += $"❌ {otherFailedAccounts.Count} acc lỗi: [{string.Join(", ", otherFailedAccounts)}].";
+
+                    Program.Logger.Warn($"[LaunchHomeQueue] Hoàn tất hàng đợi Home: {successCount}/{launchList.Count} thành công. {errDetail}");
+                    SetDashboardStatus($"⚠️ Hoàn tất: {successCount}/{launchList.Count} thành công. {errDetail}Kiểm tra tab '🔴 Hết hạn'!");
+
+                    AppDispatcher.Post(() =>
+                    {
+                        string toastMsg = $"{successCount}/{launchList.Count} tài khoản mở Home thành công.\n" +
+                                          (expiredAccounts.Count > 0 ? $"• Hết hạn phiên: {string.Join(", ", expiredAccounts)}\n" : "") +
+                                          "Vui lòng kiểm tra tab '🔴 Hết hạn' để Re-login!";
+                        ToastService.ShowWarning("Phát hiện tài khoản lỗi phiên", toastMsg, 7.0);
+                    });
+                }
                 else
                 {
-                    SetDashboardStatus($"🏠 Đã mở Roblox Home cho {launchList.Count} tài khoản.");
+                    Program.Logger.Info($"[LaunchHomeQueue] Hoàn tất: Toàn bộ {successCount}/{launchList.Count} tài khoản mở Home thành công.");
+                    SetDashboardStatus($"🏠 Đã mở Roblox Home cho toàn bộ {launchList.Count} tài khoản.");
+                    AppDispatcher.Post(() =>
+                    {
+                        ToastService.ShowSuccess("Mở Roblox Home thành công", $"Đã mở Roblox Home cho toàn bộ {successCount}/{launchList.Count} tài khoản!");
+                    });
                 }
             }
             catch (InvalidOperationException exception)

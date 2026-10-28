@@ -62,10 +62,10 @@ namespace RBX_Alt_Manager.Services
     {
         public static ObservableCollection<ToastItem> ActiveToasts { get; } = [];
 
-        public static void ShowSuccess(string title, string message = "") => Show(title, message, ToastType.Success);
-        public static void ShowInfo(string title, string message = "") => Show(title, message, ToastType.Info);
-        public static void ShowWarning(string title, string message = "") => Show(title, message, ToastType.Warning);
-        public static void ShowError(string title, string message = "") => Show(title, message, ToastType.Error);
+        public static void ShowSuccess(string title, string message = "", double durationSeconds = 3.5) => Show(title, message, ToastType.Success, durationSeconds);
+        public static void ShowInfo(string title, string message = "", double durationSeconds = 3.5) => Show(title, message, ToastType.Info, durationSeconds);
+        public static void ShowWarning(string title, string message = "", double durationSeconds = 3.5) => Show(title, message, ToastType.Warning, durationSeconds);
+        public static void ShowError(string title, string message = "", double durationSeconds = 3.5) => Show(title, message, ToastType.Error, durationSeconds);
 
         public static void Show(string title, string message, ToastType type, double durationSeconds = 3.5)
         {
