@@ -24,15 +24,11 @@ jobs:
 
       - name: Restore
         shell: pwsh
-        run: |
-          dotnet restore "RBX Alt Manager/RBX Alt Manager.csproj" --runtime win-x64
-          dotnet restore "tests/RBX_Alt_Manager.Tests/RBX_Alt_Manager.Tests.csproj" --runtime win-x64
+        run: dotnet restore "Shiro.sln" --runtime win-x64
 
       - name: Build
         shell: pwsh
-        run: |
-          dotnet build "RBX Alt Manager/RBX Alt Manager.csproj" --configuration Release --no-restore
-          dotnet build "tests/RBX_Alt_Manager.Tests/RBX_Alt_Manager.Tests.csproj" --configuration Release --no-restore
+        run: dotnet build "Shiro.sln" --configuration Release --no-restore
 
       - name: Run Unit Tests
         shell: pwsh
