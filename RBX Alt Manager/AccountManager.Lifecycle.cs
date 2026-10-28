@@ -263,6 +263,8 @@ namespace RBX_Alt_Manager
                 Program.Logger?.Warn($"Settings save on shutdown threw: {ex.Message}");
             }
 
+            try { StoragePaths.ClearCachedVaultKey(); } catch (Exception) { }
+
             shutdownFinalized = true;
 
             try

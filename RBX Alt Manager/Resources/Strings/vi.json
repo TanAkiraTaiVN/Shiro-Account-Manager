@@ -1,4 +1,4 @@
-﻿{
+{
   "About_AccountsLabel": "\uD83D\uDC65 Tài khoản đang quản lý:",
   "About_CleanNote": "Tự động dọn sạch Ghost Tray Icons khi thoát game và tối ưu bộ nhớ RAM mỗi khi vào server.",
   "About_CopySpecs": "Sao chép thông số",
@@ -516,5 +516,7 @@
   "Tool_RefreshRobux": "\uD83D\uDCB0 Kiểm tra toàn bộ số dư Robux",
   "Tool_Shuffle": "\uD83C\uDFB2 Xáo trộn Server Job ID (Shuffle)",
   "Tool_SmartMute": "Tự động tắt tiếng các acc chạy ngầm",
-  "Tool_ZeroGpu": "Ẩn toàn bộ Roblox (Zero GPU Mode)"
+  "Tool_ZeroGpu": "Ẩn toàn bộ Roblox (Zero GPU Mode)",
+  "tos_disclaimer_message": "Shiro là tiện ích quản lý tài khoản và hỗ trợ đa phiên chạy cục bộ trên máy tính của bạn.\n\nLưu ý quan trọng:\n1. Mọi kết nối được thực hiện trực tiếp giữa thiết bị của bạn và Roblox, không qua máy chủ trung gian.\n2. Bạn hoàn toàn chịu trách nhiệm về bảo mật thông tin tài khoản và tuân thủ Điều khoản dịch vụ (ToS) của Roblox.\n3. Các tính năng tự động (như Anti-AFK, Multi-Instance) được cung cấp theo nguyên tắc tự nguyện và mặc định tắt.\n\nNhấn Đồng ý để tiếp tục sử dụng.",
+  "tos_disclaimer_title": "Shiro - Điều khoản & Trách nhiệm sử dụng"
 }

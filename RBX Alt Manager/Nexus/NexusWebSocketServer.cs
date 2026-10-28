@@ -78,6 +78,28 @@ namespace RBX_Alt_Manager.Nexus
 
                 _app.Map("/Nexus", async (HttpContext context) =>
                 {
+                    if (!_allowExternal)
+                    {
+                        var remoteIp = context.Connection.RemoteIpAddress;
+                        if (remoteIp != null && !IPAddress.IsLoopback(remoteIp))
+                        {
+                            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                            return;
+                        }
+
+                        if (!AccountManager.IsLoopbackHostName(context.Request.Host.Host))
+                        {
+                            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                            return;
+                        }
+
+                        if (!AccountManager.IsTrustedLocalOrigin(context.Request.Headers["Origin"].ToString()))
+                        {
+                            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                            return;
+                        }
+                    }
+
                     if (!context.WebSockets.IsWebSocketRequest)
                     {
                         context.Response.StatusCode = StatusCodes.Status400BadRequest;

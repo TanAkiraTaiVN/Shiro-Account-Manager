@@ -1,5 +1,6 @@
 using System;
 using RBX_Alt_Manager;
+using RBX_Alt_Manager.Services;
 using Xunit;
 
 namespace RBX_Alt_Manager.Tests
@@ -42,6 +43,74 @@ namespace RBX_Alt_Manager.Tests
             Assert.False(AccountManager.FixedTimeEqualsPassword("short", "longer-password"));
             Assert.False(AccountManager.FixedTimeEqualsPassword(null, "x"));
             Assert.False(AccountManager.FixedTimeEqualsPassword("x", null));
+        }
+
+        [Fact]
+        public void LogRedactor_RedactsRoblosecurityToken()
+        {
+            string raw = "User logged in with _WARNING:-DO-NOT-SHARE-THIS.--testtoken12345--done";
+            string redacted = LogRedactor.Redact(raw);
+
+            Assert.DoesNotContain("testtoken12345", redacted);
+            Assert.Contains("[REDACTED_ROBLOSECURITY]", redacted);
+        }
+
+        [Fact]
+        public void LogRedactor_RedactsCookieHeader()
+        {
+            string raw = "Header: .ROBLOSECURITY=abc123xyz_secret; path=/";
+            string redacted = LogRedactor.Redact(raw);
+
+            Assert.DoesNotContain("abc123xyz_secret", redacted);
+            Assert.Contains(".ROBLOSECURITY=[REDACTED_COOKIE]", redacted);
+        }
+
+        [Fact]
+        public void LogRedactor_RedactsJsonSecrets()
+        {
+            string raw = "{\"username\": \"john\", \"password\": \"SuperSecretPwd!\", \"token\": \"tok999\"}";
+            string redacted = LogRedactor.Redact(raw);
+
+            Assert.DoesNotContain("SuperSecretPwd!", redacted);
+            Assert.DoesNotContain("tok999", redacted);
+            Assert.Contains("\"password\":\"[REDACTED]\"", redacted);
+            Assert.Contains("\"token\":\"[REDACTED]\"", redacted);
+        }
+
+        [Fact]
+        public void LogRedactor_RedactsBearerAndQuerySecrets()
+        {
+            string raw = "Request GET /api?password=plain123 Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.test";
+            string redacted = LogRedactor.Redact(raw);
+
+            Assert.DoesNotContain("plain123", redacted);
+            Assert.DoesNotContain("eyJhbGciOiJIUzI1NiJ9", redacted);
+            Assert.Contains("?password=[REDACTED]", redacted);
+            Assert.Contains("Bearer [REDACTED_TOKEN]", redacted);
+        }
+
+        [Fact]
+        public void StoragePaths_ClearCachedVaultKey_WipesMemoryZero()
+        {
+            // Seed a test vault key
+            byte[] key = StoragePaths.GetOrCreateVaultKey();
+            Assert.NotNull(key);
+            Assert.Equal(32, key.Length);
+
+            // Call ClearCachedVaultKey()
+            StoragePaths.ClearCachedVaultKey();
+
+            // All bytes in the original reference must be zeroed out
+            for (int i = 0; i < key.Length; i++)
+            {
+                Assert.Equal(0, key[i]);
+            }
+        }
+
+        [Fact]
+        public void AppSettingsKeys_ContainsHasAcceptedRiskDisclaimer()
+        {
+            Assert.Equal("HasAcceptedRiskDisclaimer", AppSettingsKeys.General.HasAcceptedRiskDisclaimer);
         }
     }
 }

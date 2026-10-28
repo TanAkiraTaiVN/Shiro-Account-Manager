@@ -1,4 +1,4 @@
-﻿{
+{
   "About_AccountsLabel": "\uD83D\uDC65 Managed Accounts:",
   "About_CleanNote": "Automatically clears ghost tray icons on game exit and optimizes RAM usage when joining servers.",
   "About_CopySpecs": "Copy Specs",
@@ -516,5 +516,7 @@
   "Tool_RefreshRobux": "\uD83D\uDCB0 Refresh All Robux Balances",
   "Tool_Shuffle": "\uD83C\uDFB2 Shuffle Server Job ID",
   "Tool_SmartMute": "Smart Auto-Mute Background Clients",
-  "Tool_ZeroGpu": "Hide All Roblox (Zero GPU Mode)"
+  "Tool_ZeroGpu": "Hide All Roblox (Zero GPU Mode)",
+  "tos_disclaimer_message": "Shiro is an open-source account management utility running locally on your computer.\n\nPlease note:\n1. All communications occur directly between your device and Roblox endpoints without intermediary servers.\n2. You are responsible for account security and compliance with Roblox Terms of Use.\n3. Automation features (such as Anti-AFK) are opt-in and disabled by default.\n\nClick OK to confirm and proceed.",
+  "tos_disclaimer_title": "Shiro - Terms & Responsibility Disclaimer"
 }

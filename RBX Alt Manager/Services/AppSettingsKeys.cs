@@ -57,6 +57,7 @@ namespace RBX_Alt_Manager.Services
             public const string DynamicHardwareThrottling = "DynamicHardwareThrottling";
             public const string Language = "Language";
             public const string SettingsPreset = "SettingsPreset";
+            public const string HasAcceptedRiskDisclaimer = "HasAcceptedRiskDisclaimer";
 
             // Potato Mode Fast Flags
             public const string FastFlag_DisableShadows = "FastFlag_DisableShadows";

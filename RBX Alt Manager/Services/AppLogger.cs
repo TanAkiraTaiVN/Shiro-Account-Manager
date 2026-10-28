@@ -90,6 +90,8 @@ namespace RBX_Alt_Manager.Services
             if (exception != null)
                 text = $"{text}{Environment.NewLine}{exception}";
 
+            text = LogRedactor.Redact(text);
+
             int threadId = Environment.CurrentManagedThreadId;
             string timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss,fff");
             string line = $"{timestamp} [{threadId}] {level,-5} {_loggerName} - {text}";

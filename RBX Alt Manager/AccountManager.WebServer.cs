@@ -13,6 +13,7 @@ namespace RBX_Alt_Manager
 {
     public partial class AccountManager
     {
+        private const int MaxRequestBodySizeBytes = 256 * 1024; // 256 KB max payload
         private readonly HashSet<string> AttemptedJoins = new HashSet<string>(StringComparer.Ordinal);
 
         private string WebServerResponse(object Message, bool Success) => Utilities.FastJson.Serialize(new { Success, Message });
@@ -34,6 +35,13 @@ namespace RBX_Alt_Manager
         public async Task<string> SendKestrelResponse(HttpContext Context)
         {
             var req = Context.Request;
+
+            if (req.ContentLength > MaxRequestBodySizeBytes)
+            {
+                Context.Response.StatusCode = StatusCodes.Status413PayloadTooLarge;
+                return WebServerResponse("Payload too large (max 256 KB)", false);
+            }
+
             string path = req.Path.Value ?? "/";
             bool isV2 = path.StartsWith("/v2/", StringComparison.OrdinalIgnoreCase);
             string absolutePath = isV2 ? path.Substring(3) : path;
@@ -44,8 +52,28 @@ namespace RBX_Alt_Manager
             string body = string.Empty;
             if (req.ContentLength > 0 || req.Body.CanRead)
             {
-                using var reader = new StreamReader(req.Body, Encoding.UTF8);
-                body = await reader.ReadToEndAsync().ConfigureAwait(false);
+                using var ms = new MemoryStream();
+                byte[] buffer = System.Buffers.ArrayPool<byte>.Shared.Rent(4096);
+                try
+                {
+                    int totalRead = 0;
+                    int read;
+                    while ((read = await req.Body.ReadAsync(buffer, 0, buffer.Length).ConfigureAwait(false)) > 0)
+                    {
+                        totalRead += read;
+                        if (totalRead > MaxRequestBodySizeBytes)
+                        {
+                            Context.Response.StatusCode = StatusCodes.Status413PayloadTooLarge;
+                            return WebServerResponse("Payload too large (max 256 KB)", false);
+                        }
+                        ms.Write(buffer, 0, read);
+                    }
+                    body = Encoding.UTF8.GetString(ms.ToArray());
+                }
+                finally
+                {
+                    System.Buffers.ArrayPool<byte>.Shared.Return(buffer);
+                }
             }
 
             var apiCtx = new ApiRequestContext

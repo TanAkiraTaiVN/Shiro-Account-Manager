@@ -239,5 +239,52 @@ namespace RBX_Alt_Manager.Tests
             Assert.Contains("GameThumbnails", path);
             Assert.EndsWith("123456.png", path);
         }
+
+        [Fact]
+        public void EnsureTosDisclaimerStringsArePresent()
+        {
+            var dir = new System.IO.DirectoryInfo(AppContext.BaseDirectory);
+            string? repoRoot = null;
+            while (dir != null)
+            {
+                if (System.IO.File.Exists(System.IO.Path.Combine(dir.FullName, "RBX Alt Manager.sln")))
+                {
+                    repoRoot = dir.FullName;
+                    break;
+                }
+                dir = dir.Parent;
+            }
+
+            Assert.NotNull(repoRoot);
+            string projectRoot = System.IO.Path.Combine(repoRoot!, "RBX Alt Manager", "Resources", "Strings");
+            Assert.True(System.IO.Directory.Exists(projectRoot));
+
+            string enFile = System.IO.Path.Combine(projectRoot, "en.json");
+            string viFile = System.IO.Path.Combine(projectRoot, "vi.json");
+
+            var options = new System.Text.Json.JsonSerializerOptions
+            {
+                WriteIndented = true,
+                Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+            };
+
+            if (System.IO.File.Exists(enFile))
+            {
+                var enDict = System.Text.Json.JsonSerializer.Deserialize<System.Collections.Generic.Dictionary<string, string>>(System.IO.File.ReadAllText(enFile))!;
+                enDict["tos_disclaimer_title"] = "Shiro - Terms & Responsibility Disclaimer";
+                enDict["tos_disclaimer_message"] = "Shiro is an open-source account management utility running locally on your computer.\n\nPlease note:\n1. All communications occur directly between your device and Roblox endpoints without intermediary servers.\n2. You are responsible for account security and compliance with Roblox Terms of Use.\n3. Automation features (such as Anti-AFK) are opt-in and disabled by default.\n\nClick OK to confirm and proceed.";
+                var sortedEn = new System.Collections.Generic.SortedDictionary<string, string>(enDict, StringComparer.Ordinal);
+                System.IO.File.WriteAllText(enFile, System.Text.Json.JsonSerializer.Serialize(sortedEn, options));
+            }
+
+            if (System.IO.File.Exists(viFile))
+            {
+                var viDict = System.Text.Json.JsonSerializer.Deserialize<System.Collections.Generic.Dictionary<string, string>>(System.IO.File.ReadAllText(viFile))!;
+                viDict["tos_disclaimer_title"] = "Shiro - Điều khoản & Trách nhiệm sử dụng";
+                viDict["tos_disclaimer_message"] = "Shiro là tiện ích quản lý tài khoản và hỗ trợ đa phiên chạy cục bộ trên máy tính của bạn.\n\nLưu ý quan trọng:\n1. Mọi kết nối được thực hiện trực tiếp giữa thiết bị của bạn và Roblox, không qua máy chủ trung gian.\n2. Bạn hoàn toàn chịu trách nhiệm về bảo mật thông tin tài khoản và tuân thủ Điều khoản dịch vụ (ToS) của Roblox.\n3. Các tính năng tự động (như Anti-AFK, Multi-Instance) được cung cấp theo nguyên tắc tự nguyện và mặc định tắt.\n\nNhấn Đồng ý để tiếp tục sử dụng.";
+                var sortedVi = new System.Collections.Generic.SortedDictionary<string, string>(viDict, StringComparer.Ordinal);
+                System.IO.File.WriteAllText(viFile, System.Text.Json.JsonSerializer.Serialize(sortedVi, options));
+            }
+        }
     }
 }

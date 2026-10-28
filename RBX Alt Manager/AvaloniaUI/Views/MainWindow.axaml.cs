@@ -84,6 +84,30 @@ namespace RBX_Alt_Manager.AvaloniaUI.Views
 
             RefreshAccounts(AccountManager.GetAccountsSnapshot());
 
+            Opened += async (s, e) =>
+            {
+                try
+                {
+                    if (AccountManager.General != null && !AccountManager.General.Get<bool>(AppSettingsKeys.General.HasAcceptedRiskDisclaimer))
+                    {
+                        string title = Loc.Get("tos_disclaimer_title");
+                        string msg = Loc.Get("tos_disclaimer_message");
+                        if (string.IsNullOrWhiteSpace(title) || title == "tos_disclaimer_title")
+                            title = "Shiro - Điều khoản & Trách nhiệm sử dụng";
+                        if (string.IsNullOrWhiteSpace(msg) || msg == "tos_disclaimer_message")
+                            msg = "Shiro là tiện ích quản lý tài khoản và hỗ trợ đa phiên chạy cục bộ trên máy tính của bạn.\n\nLưu ý quan trọng:\n1. Mọi kết nối được thực hiện trực tiếp giữa thiết bị của bạn và Roblox, không qua máy chủ trung gian.\n2. Bạn hoàn toàn chịu trách nhiệm về bảo mật thông tin tài khoản và tuân thủ Điều khoản dịch vụ (ToS) của Roblox.\n3. Các tính năng tự động (như Anti-AFK, Multi-Instance) được cung cấp theo nguyên tắc tự nguyện và mặc định tắt.\n\nNhấn Đồng ý để tiếp tục sử dụng.";
+
+                        await MessageBoxDialog.ShowAsync(msg, title, MessageBoxButtons.OK, MessageBoxIcon.Information, this);
+                        AccountManager.General.Set(AppSettingsKeys.General.HasAcceptedRiskDisclaimer, "true");
+                        AccountManager.SaveSettings();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Program.Logger?.Debug($"Disclaimer dialog error: {ex.Message}");
+                }
+            };
+
             if (AccountManager.IsDatabasePasswordEncrypted())
             {
                 Opened += async (s, e) =>

@@ -33,8 +33,17 @@ namespace RBX_Alt_Manager.Services
         {
             lock (_vaultKeyLock)
             {
-                _cachedVaultKey = null;
+                if (_cachedVaultKey != null)
+                {
+                    CryptographicOperations.ZeroMemory(_cachedVaultKey);
+                    _cachedVaultKey = null;
+                }
             }
+        }
+
+        public static void ClearCachedVaultKey()
+        {
+            ReloadVaultKeyCache();
         }
 
         public static void SaveRecoveredVaultKey(byte[] key)
