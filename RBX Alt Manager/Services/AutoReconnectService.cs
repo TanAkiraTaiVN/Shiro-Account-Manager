@@ -15,38 +15,9 @@ namespace RBX_Alt_Manager.Services
     /// when the Roblox client crashes, disconnects (Errors 277/268), or terminates unexpectedly.
     /// Provides exponential backoff, maximum retry limits, and suppression on user-initiated closures.
     /// </summary>
-    public sealed class AutoReconnectService : IDisposable
+    public sealed partial class AutoReconnectService : IDisposable
     {
         public static AutoReconnectService Instance { get; } = new AutoReconnectService();
-
-        public enum ReconnectDecision
-        {
-            None,
-            CloseCleanly,
-            Reconnect,
-            KillAndReconnect,
-            GiveUp
-        }
-
-        public sealed class ReconnectSession
-        {
-            public required Account Account { get; init; }
-            public long PlaceId { get; set; }
-            public string JobId { get; set; } = string.Empty;
-            public bool FollowUser { get; set; }
-            public bool JoinVip { get; set; }
-            public int ProcessId { get; set; }
-            public int RetryCount { get; set; }
-            public DateTime LaunchTimeUtc { get; set; }
-            public DateTime LastCheckUtc { get; set; }
-            public DateTime? LastReconnectUtc { get; set; }
-            public DateTime? LastDisconnectUtc { get; set; }
-            public int LastDisconnectReason { get; set; }
-            public int? ObservedExitCode { get; set; }
-            public bool ObservedProcessExited { get; set; }
-            public bool IsActive { get; set; } = true;
-            public bool IsSuppressed { get; set; }
-        }
 
         private readonly ConcurrentDictionary<string, ReconnectSession> _sessions =
             new ConcurrentDictionary<string, ReconnectSession>(StringComparer.OrdinalIgnoreCase);
