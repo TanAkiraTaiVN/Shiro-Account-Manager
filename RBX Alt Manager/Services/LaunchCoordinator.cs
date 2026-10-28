@@ -8,93 +8,12 @@ using RBX_Alt_Manager.Classes;
 
 namespace RBX_Alt_Manager.Services
 {
-    public sealed class LaunchRequest
-    {
-        public Account Account { get; }
-        public long PlaceId { get; }
-        public string JobId { get; }
-        public bool FollowUser { get; }
-        public bool VipServer { get; }
-        public bool OpenHome { get; }
-        public bool PreferChromeHome { get; }
-
-        public LaunchRequest(
-            Account account,
-            long placeId,
-            string jobId,
-            bool followUser,
-            bool vipServer,
-            bool openHome = false,
-            bool preferChromeHome = false)
-        {
-            Account = account;
-            PlaceId = placeId;
-            JobId = jobId ?? string.Empty;
-            FollowUser = followUser;
-            VipServer = vipServer;
-            OpenHome = openHome;
-            PreferChromeHome = preferChromeHome;
-        }
-    }
-
-    public sealed class LaunchProgress
-    {
-        public int Index { get; set; }
-        public int Total { get; set; }
-        public Account? Account { get; set; }
-        public LaunchOutcome Status { get; set; }
-        public string? Result { get; set; }
-        public string? Message { get; set; }
-        public bool Completed { get; set; }
-    }
-
-    public enum LaunchOutcome
-    {
-        Pending,
-        Success,
-        RateLimited,
-        TicketError,
-        Timeout,
-        Failed,
-        Cancelled
-    }
-
-    internal sealed class LaunchBatchResult
-    {
-        public IReadOnlyList<LaunchProgress> Results { get; }
-        public bool Cancelled { get; }
-
-        public LaunchBatchResult(IReadOnlyList<LaunchProgress> results, bool cancelled)
-        {
-            Results = results ?? Array.Empty<LaunchProgress>();
-            Cancelled = cancelled;
-        }
-    }
-
-    internal interface ILaunchCoordinator : IDisposable
-    {
-        bool IsRunning { get; }
-
-        Task<LaunchBatchResult> EnqueueAsync(
-            IReadOnlyList<LaunchRequest> requests,
-            int delaySeconds,
-            bool asyncJoin,
-            Action<LaunchProgress>? progress,
-            CancellationToken cancellationToken = default(CancellationToken));
-
-        void SignalNext();
-        void Cancel();
-        Task<bool> WaitForIdleAsync(
-            TimeSpan timeout,
-            CancellationToken cancellationToken = default(CancellationToken));
-    }
-
     /// <summary>
     /// Owns the only active multi-account launch queue.  The Roblox protocol
     /// still signals the next account through AccountManager.NextAccount(),
     /// but all waiting, cancellation and duplicate-launch protection lives here.
     /// </summary>
-    internal sealed class LaunchCoordinator : ILaunchCoordinator
+    internal sealed partial class LaunchCoordinator : ILaunchCoordinator
     {
         private readonly SemaphoreSlim queueGate = new SemaphoreSlim(1, 1);
         private readonly Func<LaunchRequest, CancellationToken, Task<string>> executeLaunch;
@@ -106,43 +25,6 @@ namespace RBX_Alt_Manager.Services
 
         public const int MaxRateLimitRetries = 2;
         public const int DefaultSmartLaunchMinDelaySeconds = 3;
-
-        public static event Action<LaunchProgress>? LaunchProgressChanged;
-
-        internal static int GetSmartLaunchMinDelayMs(int? configuredSecondsOverride = null, bool includeJitter = true)
-        {
-            int seconds = DefaultSmartLaunchMinDelaySeconds;
-            if (configuredSecondsOverride.HasValue)
-            {
-                seconds = configuredSecondsOverride.Value;
-            }
-            else if (AccountManager.General != null && AccountManager.General.Exists(AppSettingsKeys.General.AccountJoinDelay))
-            {
-                try
-                {
-                    seconds = AccountManager.General.Get<int>(AppSettingsKeys.General.AccountJoinDelay, DefaultSmartLaunchMinDelaySeconds);
-                }
-                catch
-                {
-                    seconds = DefaultSmartLaunchMinDelaySeconds;
-                }
-            }
-            else if (AccountManager.General != null && AccountManager.General.Exists(AppSettingsKeys.General.SmartLaunchMinDelaySeconds))
-            {
-                try
-                {
-                    seconds = AccountManager.General.Get<int>(AppSettingsKeys.General.SmartLaunchMinDelaySeconds, DefaultSmartLaunchMinDelaySeconds);
-                }
-                catch
-                {
-                    seconds = DefaultSmartLaunchMinDelaySeconds;
-                }
-            }
-
-            seconds = Math.Clamp(seconds, 1, 60);
-            int jitterMs = includeJitter ? Random.Shared.Next(0, 1500) : 0;
-            return (seconds * 1000) + jitterMs;
-        }
 
         public bool IsRunning
         {
@@ -550,47 +432,6 @@ namespace RBX_Alt_Manager.Services
             // The active queue may still be unwinding from an awaited Roblox
             // request. Leave the gate alive until process shutdown so its
             // finally block can release it without an ObjectDisposedException.
-        }
-
-        private static void Report(Action<LaunchProgress>? progress, LaunchProgress state)
-        {
-            try { progress?.Invoke(state); }
-            catch (Exception ex) { Program.Logger?.Warn($"Launch progress callback threw: {ex.Message}"); }
-
-            try { LaunchProgressChanged?.Invoke(state); }
-            catch (Exception ex) { Program.Logger?.Warn($"LaunchProgressChanged subscriber threw: {ex.Message}"); }
-        }
-
-        private static bool IsSuccessfulResult(string result)
-        {
-            return !string.IsNullOrWhiteSpace(result) &&
-                (result.Contains("Success", StringComparison.OrdinalIgnoreCase) ||
-                 string.Equals(result, Account.BrowserHomeResult, StringComparison.Ordinal));
-        }
-
-        private static LaunchOutcome ClassifyResult(string result)
-        {
-            if (IsSuccessfulResult(result))
-                return LaunchOutcome.Success;
-
-            if (string.IsNullOrWhiteSpace(result))
-                return LaunchOutcome.Failed;
-
-            if (result.Contains("429", StringComparison.OrdinalIgnoreCase) ||
-                result.Contains("rate limit", StringComparison.OrdinalIgnoreCase) ||
-                result.Contains("giới hạn", StringComparison.OrdinalIgnoreCase))
-                return LaunchOutcome.RateLimited;
-
-            if (result.Contains("Invalid Authentication Ticket", StringComparison.OrdinalIgnoreCase) ||
-                result.Contains("signed you out", StringComparison.OrdinalIgnoreCase) ||
-                result.Contains("Unauthorized", StringComparison.OrdinalIgnoreCase))
-                return LaunchOutcome.TicketError;
-
-            if (result.Contains("timeout", StringComparison.OrdinalIgnoreCase) ||
-                result.Contains("timed out", StringComparison.OrdinalIgnoreCase))
-                return LaunchOutcome.Timeout;
-
-            return LaunchOutcome.Failed;
         }
     }
 }
