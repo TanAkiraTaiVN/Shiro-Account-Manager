@@ -70,35 +70,35 @@ namespace Shiro
 
                 if (batch.Cancelled)
                 {
-                    SetDashboardStatus("ℹ️ Đã hủy hàng đợi khởi chạy.");
+                    SetDashboardStatus(Loc.Get("Launch_QueueCancelled"));
                 }
                 else if (expiredAccounts.Count > 0 || otherFailedAccounts.Count > 0)
                 {
                     string errDetail = "";
                     if (expiredAccounts.Count > 0)
-                        errDetail += $"⚠️ {expiredAccounts.Count} acc hết phiên: [{string.Join(", ", expiredAccounts)}]. ";
+                        errDetail += Loc.Format("Launch_Summary_ExpiredDetail", expiredAccounts.Count, string.Join(", ", expiredAccounts));
                     if (otherFailedAccounts.Count > 0)
-                        errDetail += $"❌ {otherFailedAccounts.Count} acc lỗi: [{string.Join(", ", otherFailedAccounts)}].";
+                        errDetail += Loc.Format("Launch_Summary_OtherDetail", otherFailedAccounts.Count, string.Join(", ", otherFailedAccounts));
 
-                    Program.Logger.Warn($"[LaunchQueue] Hoàn tất hàng đợi: {successCount}/{requestedCount} thành công. {errDetail}");
-                    SetDashboardStatus($"⚠️ Khởi chạy hoàn tất: {successCount}/{requestedCount} thành công. {errDetail}Kiểm tra tab '🔴 Hết hạn'!");
+                    Program.Logger.Warn($"[LaunchQueue] Launch queue completed: {successCount}/{requestedCount} succeeded. {errDetail}");
+                    SetDashboardStatus(Loc.Format("Launch_Summary_CompletedWithErrors", successCount, requestedCount, errDetail));
 
                     AppDispatcher.Post(() =>
                     {
-                        string toastMsg = $"{successCount}/{requestedCount} tài khoản vào server thành công.\n" +
-                                          (expiredAccounts.Count > 0 ? $"• Hết hạn phiên: {string.Join(", ", expiredAccounts)}\n" : "") +
-                                          (otherFailedAccounts.Count > 0 ? $"• Lỗi khởi chạy: {string.Join(", ", otherFailedAccounts)}\n" : "") +
-                                          "Vui lòng kiểm tra tab '🔴 Hết hạn' để Re-login!";
-                        ToastService.ShowWarning("Phát hiện tài khoản lỗi phiên", toastMsg, 7.0);
+                        string toastMsg = Loc.Format("Launch_Toast_SuccessCount", successCount, requestedCount) + "\n" +
+                                          (expiredAccounts.Count > 0 ? Loc.Format("Launch_Toast_ExpiredList", string.Join(", ", expiredAccounts)) + "\n" : "") +
+                                          (otherFailedAccounts.Count > 0 ? Loc.Format("Launch_Toast_ErrorList", string.Join(", ", otherFailedAccounts)) + "\n" : "") +
+                                          Loc.Get("Launch_Toast_CheckExpiredFooter");
+                        ToastService.ShowWarning(Loc.Get("Launch_Toast_SessionError_Title"), toastMsg, 7.0);
                     });
                 }
                 else
                 {
-                    Program.Logger.Info($"[LaunchQueue] Hoàn tất: Toàn bộ {successCount}/{requestedCount} tài khoản khởi chạy thành công.");
-                    SetDashboardStatus($"🚀 Đã hoàn tất khởi chạy thành công toàn bộ {successCount}/{requestedCount} tài khoản.");
+                    Program.Logger.Info($"[LaunchQueue] Completed: All {successCount}/{requestedCount} accounts launched successfully.");
+                    SetDashboardStatus(Loc.Format("Launch_Summary_Success", successCount, requestedCount));
                     AppDispatcher.Post(() =>
                     {
-                        ToastService.ShowSuccess("Khởi chạy thành công", $"Đã mở toàn bộ {successCount}/{requestedCount} tài khoản vào game!");
+                        ToastService.ShowSuccess(Loc.Get("Launch_Toast_Success_Title"), Loc.Format("Launch_Toast_Success_Message", successCount, requestedCount));
                     });
                 }
             }
@@ -168,34 +168,35 @@ namespace Shiro
 
                 if (batch.Cancelled)
                 {
-                    SetDashboardStatus("ℹ️ Đã hủy hàng đợi khởi chạy.");
+                    SetDashboardStatus(Loc.Get("Launch_QueueCancelled"));
                 }
                 else if (expiredAccounts.Count > 0 || otherFailedAccounts.Count > 0)
                 {
                     string errDetail = "";
                     if (expiredAccounts.Count > 0)
-                        errDetail += $"⚠️ {expiredAccounts.Count} acc hết phiên: [{string.Join(", ", expiredAccounts)}]. ";
+                        errDetail += Loc.Format("Launch_Summary_ExpiredDetail", expiredAccounts.Count, string.Join(", ", expiredAccounts));
                     if (otherFailedAccounts.Count > 0)
-                        errDetail += $"❌ {otherFailedAccounts.Count} acc lỗi: [{string.Join(", ", otherFailedAccounts)}].";
+                        errDetail += Loc.Format("Launch_Summary_OtherDetail", otherFailedAccounts.Count, string.Join(", ", otherFailedAccounts));
 
-                    Program.Logger.Warn($"[LaunchHomeQueue] Hoàn tất hàng đợi Home: {successCount}/{launchList.Count} thành công. {errDetail}");
-                    SetDashboardStatus($"⚠️ Hoàn tất: {successCount}/{launchList.Count} thành công. {errDetail}Kiểm tra tab '🔴 Hết hạn'!");
+                    Program.Logger.Warn($"[LaunchHomeQueue] Completed Home queue: {successCount}/{launchList.Count} succeeded. {errDetail}");
+                    SetDashboardStatus(Loc.Format("Launch_Summary_CompletedWithErrors", successCount, launchList.Count, errDetail));
 
                     AppDispatcher.Post(() =>
                     {
-                        string toastMsg = $"{successCount}/{launchList.Count} tài khoản mở Home thành công.\n" +
-                                          (expiredAccounts.Count > 0 ? $"• Hết hạn phiên: {string.Join(", ", expiredAccounts)}\n" : "") +
-                                          "Vui lòng kiểm tra tab '🔴 Hết hạn' để Re-login!";
-                        ToastService.ShowWarning("Phát hiện tài khoản lỗi phiên", toastMsg, 7.0);
+                        string toastMsg = Loc.Format("Launch_Home_Toast_SuccessCount", successCount, launchList.Count) + "\n" +
+                                          (expiredAccounts.Count > 0 ? Loc.Format("Launch_Toast_ExpiredList", string.Join(", ", expiredAccounts)) + "\n" : "") +
+                                          (otherFailedAccounts.Count > 0 ? Loc.Format("Launch_Toast_ErrorList", string.Join(", ", otherFailedAccounts)) + "\n" : "") +
+                                          Loc.Get("Launch_Toast_CheckExpiredFooter");
+                        ToastService.ShowWarning(Loc.Get("Launch_Toast_SessionError_Title"), toastMsg, 7.0);
                     });
                 }
                 else
                 {
-                    Program.Logger.Info($"[LaunchHomeQueue] Hoàn tất: Toàn bộ {successCount}/{launchList.Count} tài khoản mở Home thành công.");
-                    SetDashboardStatus($"🏠 Đã mở Roblox Home cho toàn bộ {launchList.Count} tài khoản.");
+                    Program.Logger.Info($"[LaunchHomeQueue] Completed: All {successCount}/{launchList.Count} accounts launched Home successfully.");
+                    SetDashboardStatus(Loc.Format("Launch_Home_Summary_Success", launchList.Count));
                     AppDispatcher.Post(() =>
                     {
-                        ToastService.ShowSuccess("Mở Roblox Home thành công", $"Đã mở Roblox Home cho toàn bộ {successCount}/{launchList.Count} tài khoản!");
+                        ToastService.ShowSuccess(Loc.Get("Launch_Home_Toast_Success_Title"), Loc.Format("Launch_Home_Toast_Success_Message", successCount, launchList.Count));
                     });
                 }
             }
