@@ -146,6 +146,92 @@ namespace RBX_Alt_Manager.Tests
         }
 
         [Fact]
+        public void EmbeddedLocalizationResources_AreLoadedCorrectly()
+        {
+            LocalizationService.EnsureCoreKeys();
+            var flags = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static;
+            var enField = typeof(LocalizationService).GetField("_frozenEnStrings", flags);
+            var viField = typeof(LocalizationService).GetField("_frozenViStrings", flags);
+            Assert.NotNull(enField);
+            Assert.NotNull(viField);
+
+            var enDict = (System.Collections.Frozen.FrozenDictionary<string, string>)enField.GetValue(null)!;
+            var viDict = (System.Collections.Frozen.FrozenDictionary<string, string>)viField.GetValue(null)!;
+
+            Assert.True(enDict.Count > 200, $"Expected > 200 English strings, got {enDict.Count}");
+            Assert.True(viDict.Count > 200, $"Expected > 200 Vietnamese strings, got {viDict.Count}");
+        }
+
+        [Fact]
+        public void Localization_Keys_AreSymmetrical()
+        {
+            LocalizationService.EnsureCoreKeys();
+            var flags = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static;
+            var enField = typeof(LocalizationService).GetField("_frozenEnStrings", flags);
+            var viField = typeof(LocalizationService).GetField("_frozenViStrings", flags);
+
+            var enDict = (System.Collections.Frozen.FrozenDictionary<string, string>)enField!.GetValue(null)!;
+            var viDict = (System.Collections.Frozen.FrozenDictionary<string, string>)viField!.GetValue(null)!;
+
+            var missingInVi = new System.Collections.Generic.HashSet<string>(enDict.Keys, StringComparer.OrdinalIgnoreCase);
+            missingInVi.ExceptWith(viDict.Keys);
+
+            var missingInEn = new System.Collections.Generic.HashSet<string>(viDict.Keys, StringComparer.OrdinalIgnoreCase);
+            missingInEn.ExceptWith(enDict.Keys);
+
+            Assert.Empty(missingInVi);
+            Assert.Empty(missingInEn);
+        }
+
+        [Fact]
+        public void Localization_Strings_AreNotEmpty_And_HaveNoCorruptedCharacters()
+        {
+            LocalizationService.EnsureCoreKeys();
+            var flags = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static;
+            var enField = typeof(LocalizationService).GetField("_frozenEnStrings", flags);
+            var viField = typeof(LocalizationService).GetField("_frozenViStrings", flags);
+
+            var enDict = (System.Collections.Frozen.FrozenDictionary<string, string>)enField!.GetValue(null)!;
+            var viDict = (System.Collections.Frozen.FrozenDictionary<string, string>)viField!.GetValue(null)!;
+
+            foreach (var kvp in enDict)
+            {
+                Assert.False(string.IsNullOrWhiteSpace(kvp.Value), $"English key '{kvp.Key}' has empty value.");
+                Assert.DoesNotContain("\uFFFD", kvp.Value);
+            }
+
+            foreach (var kvp in viDict)
+            {
+                Assert.False(string.IsNullOrWhiteSpace(kvp.Value), $"Vietnamese key '{kvp.Key}' has empty value.");
+                Assert.DoesNotContain("\uFFFD", kvp.Value);
+            }
+        }
+
+        [Fact]
+        public void Localization_FormatPlaceholders_MatchAcrossLanguages()
+        {
+            LocalizationService.EnsureCoreKeys();
+            var flags = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static;
+            var enField = typeof(LocalizationService).GetField("_frozenEnStrings", flags);
+            var viField = typeof(LocalizationService).GetField("_frozenViStrings", flags);
+
+            var enDict = (System.Collections.Frozen.FrozenDictionary<string, string>)enField!.GetValue(null)!;
+            var viDict = (System.Collections.Frozen.FrozenDictionary<string, string>)viField!.GetValue(null)!;
+
+            var regex = new System.Text.RegularExpressions.Regex(@"\{(\d+)\}");
+
+            foreach (var kvp in enDict)
+            {
+                if (viDict.TryGetValue(kvp.Key, out var viVal))
+                {
+                    var enPlaceholders = regex.Matches(kvp.Value).Select(m => m.Value).OrderBy(x => x).ToList();
+                    var viPlaceholders = regex.Matches(viVal).Select(m => m.Value).OrderBy(x => x).ToList();
+                    Assert.Equal(enPlaceholders, viPlaceholders);
+                }
+            }
+        }
+
+        [Fact]
         public void GameThumbnailService_DiskCachePath_IsValid()
         {
             string path = GameThumbnailService.GetDiskCachePath(123456);

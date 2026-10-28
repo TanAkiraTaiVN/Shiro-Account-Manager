@@ -65,6 +65,7 @@
   <ItemGroup>
     <AvaloniaResource Include="Resources\shiro_logo.png" />
     <AvaloniaResource Include="Resources\shiro.ico" />
+    <EmbeddedResource Include="Resources\Strings\*.json" />
   </ItemGroup>
 
   <ItemGroup>
