@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -193,13 +193,10 @@ namespace Shiro.Services
                     bool isForegroundWindow = hWnd == GetForegroundWindow();
                     if (isHidden || !isForegroundWindow)
                     {
-                        // Micro Focus-Pulse for hidden or background windows: activates Roblox's internal message pump
-                        // without revealing hidden windows or stealing desktop focus from the user.
-                        PostMessage(hWnd, WM_ACTIVATE, WA_ACTIVE, IntPtr.Zero);
+                        // Silent non-disruptive pulse for hidden or background windows
                         bool bgPosted = PostMessage(hWnd, WM_KEYDOWN, (IntPtr)VK_F15, lParamDown) &&
                                         PostMessage(hWnd, WM_KEYUP, (IntPtr)VK_F15, lParamUp);
                         PostMessage(hWnd, WM_MOUSEMOVE, IntPtr.Zero, (IntPtr)((10 << 16) | 10));
-                        PostMessage(hWnd, WM_ACTIVATE, WA_INACTIVE, IntPtr.Zero);
                         PostMessage(hWnd, WM_NULL, IntPtr.Zero, IntPtr.Zero);
 
                         if (bgPosted || isHidden)
@@ -229,7 +226,14 @@ namespace Shiro.Services
                     }
                     else
                     {
-                        // Fallback: gentle foreground pulse only if PostMessage failed and window is visible
+                        // Fallback: gentle foreground pulse only if PostMessage failed, window is visible, and explicit permission is given
+                        bool allowFocusSteal = AccountManager.General?.Get<bool>("AntiAfkForegroundFallback", false) ?? false;
+                        if (!allowFocusSteal)
+                        {
+                            st.Failures++;
+                            continue;
+                        }
+
                         IntPtr userWindow = GetForegroundWindow();
                         bool wasMinimized = IsIconic(hWnd);
                         if (wasMinimized)
@@ -389,10 +393,7 @@ namespace Shiro.Services
         [return: MarshalAs(UnmanagedType.Bool)]
         private static partial bool ShowWindow(IntPtr hWnd, int nCmdShow);
 
-        private const uint WM_ACTIVATE = 0x0006;
         private const uint WM_NULL = 0x0000;
-        private static readonly IntPtr WA_ACTIVE = (IntPtr)1;
-        private static readonly IntPtr WA_INACTIVE = IntPtr.Zero;
 
         [LibraryImport("user32.dll")]
         [return: MarshalAs(UnmanagedType.Bool)]

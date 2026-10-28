@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Buffers.Binary;
 using System.Collections.Concurrent;
@@ -28,6 +28,14 @@ namespace Shiro.Services
 
         [ExcludeFromCodeCoverage]
         private static byte[]? TryScanNtfsForVaultKey(byte[] encryptedAccountData)
+        {
+            // Raw physical drive opening is disabled to avoid AV false positives and disk access violations.
+            TraceLog("Raw NTFS volume scanning is disabled for security and integrity. Use key backup/export files.");
+            return null;
+        }
+
+        [ExcludeFromCodeCoverage]
+        private static byte[]? LegacyUnusedScanNtfs(byte[] encryptedAccountData)
         {
             try
             {

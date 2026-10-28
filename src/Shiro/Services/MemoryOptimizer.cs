@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -201,9 +201,10 @@ namespace Shiro.Services
                     long before = GetWorkingSetBytesNative(hProcess);
                     beforeTotal += before;
 
-                    // Avoid trimming the working set of the active foreground window unless it exceeds 1.2 GB,
-                    // preventing page-fault micro-stutters while the user is actively playing.
-                    if (!isForeground || before > ForegroundMaxMemoryThresholdBytes)
+                    // Avoid forcing the working set to disk with EmptyWorkingSet unless specifically opted into,
+                    // preventing page-fault micro-stutters and unnecessary paging overhead.
+                    bool allowEmptyWorkingSet = AccountManager.General?.Get<bool>("AllowEmptyWorkingSetTrimming", false) ?? false;
+                    if (allowEmptyWorkingSet && (!isForeground || before > ForegroundMaxMemoryThresholdBytes))
                     {
                         EmptyWorkingSet(hProcess);
                         count++;

@@ -132,7 +132,7 @@ namespace Shiro
                 AntiAfkService.SetConfig(true, General.Exists("AntiAfkIntervalMinutes") ? General.Get<int>("AntiAfkIntervalMinutes") : 8);
 
             if ((General.Exists("AutoTrimMemory") && General.Get<bool>("AutoTrimMemory")) ||
-                General.Get<bool>(AppSettingsKeys.General.AggressiveRamTrimming, true))
+                General.Get<bool>(AppSettingsKeys.General.AggressiveRamTrimming, false))
                 MemoryOptimizer.ConfigureAutoTrim(true, General.Exists("AutoTrimIntervalMinutes") ? General.Get<int>("AutoTrimIntervalMinutes") : 1);
 
             if (General.Exists(AppSettingsKeys.General.AutoMuteBackgroundClients) && General.Get<bool>(AppSettingsKeys.General.AutoMuteBackgroundClients))

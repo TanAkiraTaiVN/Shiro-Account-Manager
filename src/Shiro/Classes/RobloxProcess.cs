@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Buffers;
 using System.Collections.Generic;
@@ -239,8 +239,8 @@ namespace Shiro.Classes
 
                             Program.Logger?.Info($"CurrentDataModel set to {CurrentDataModel} ({DMI})");
 
-                            // Automatically trim bloated launch working set 15 seconds after map assets finish loading
-                            if (AccountManager.General?.Get<bool>(AppSettingsKeys.General.AggressiveRamTrimming, true) ?? false)
+                            // Automatically trim launch working set 15 seconds after map assets finish loading if enabled
+                            if (AccountManager.General?.Get<bool>(AppSettingsKeys.General.AggressiveRamTrimming, false) ?? false)
                             {
                                 _ = SchedulePostLaunchRamTrimAsync();
                             }
