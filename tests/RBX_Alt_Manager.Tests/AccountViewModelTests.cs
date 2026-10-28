@@ -1,9 +1,9 @@
-using System.Collections.Generic;
-using RBX_Alt_Manager.Classes;
-using RBX_Alt_Manager.ViewModels;
+﻿using System.Collections.Generic;
+using Shiro.Classes;
+using Shiro.ViewModels;
 using Xunit;
 
-namespace RBX_Alt_Manager.Tests
+namespace Shiro.Tests
 {
     public class AccountViewModelTests
     {

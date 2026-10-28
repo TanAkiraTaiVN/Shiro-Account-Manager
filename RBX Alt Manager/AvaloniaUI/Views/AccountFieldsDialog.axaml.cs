@@ -1,13 +1,13 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.Collections.ObjectModel;
 using System.Linq;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
-using RBX_Alt_Manager.Classes;
-using RBX_Alt_Manager.ViewModels;
+using Shiro.Classes;
+using Shiro.ViewModels;
 
-namespace RBX_Alt_Manager.AvaloniaUI.Views
+namespace Shiro.AvaloniaUI.Views
 {
     public class AccountFieldItem : ObservableObject
     {

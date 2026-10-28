@@ -2,7 +2,7 @@
 using System;
 using System.Runtime.InteropServices;
 
-namespace RBX_Alt_Manager.Services
+namespace Shiro.Services
 {
     /// <summary>
     /// Windows Job Object Service for Roblox processes.
@@ -87,6 +87,7 @@ namespace RBX_Alt_Manager.Services
         {
             lock (_gate)
             {
+                EnsureJobHandle();
                 _cpuRatePercent = Math.Clamp(maxPercentage, 0, 100);
                 return ApplyCpuRateLimitInternal(_cpuRatePercent);
             }

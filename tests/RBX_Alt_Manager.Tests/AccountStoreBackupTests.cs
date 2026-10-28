@@ -1,11 +1,11 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Linq;
 using System.Text;
 using Xunit;
-using RBX_Alt_Manager.Services;
+using Shiro.Services;
 
-namespace RBX_Alt_Manager.Tests
+namespace Shiro.Tests
 {
     public class AccountStoreBackupTests : IDisposable
     {

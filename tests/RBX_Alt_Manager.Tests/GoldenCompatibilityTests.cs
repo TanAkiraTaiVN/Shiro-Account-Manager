@@ -1,13 +1,13 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
-using RBX_Alt_Manager.Classes;
-using RBX_Alt_Manager.Services;
+using Shiro.Classes;
+using Shiro.Services;
 using Xunit;
 
-namespace RBX_Alt_Manager.Tests
+namespace Shiro.Tests
 {
     public class GoldenCompatibilityTests
     {

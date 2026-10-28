@@ -1,15 +1,15 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
-using RBX_Alt_Manager.Classes;
-using RBX_Alt_Manager.Http;
-using RBX_Alt_Manager.Services;
+using Shiro.Classes;
+using Shiro.Http;
+using Shiro.Services;
 
-namespace RBX_Alt_Manager
+namespace Shiro
 {
     public partial class AccountManager
     {
@@ -17,7 +17,7 @@ namespace RBX_Alt_Manager
         {
             if (account == null) return;
             account.Valid = isValid;
-            RBX_Alt_Manager.AvaloniaUI.Views.MainWindow.Instance?.UpdateAccountValidity(account, isValid);
+            Shiro.AvaloniaUI.Views.MainWindow.Instance?.UpdateAccountValidity(account, isValid);
         }
 
         public static void NotifyAccountValidity(Account account, bool isValid)
@@ -30,7 +30,7 @@ namespace RBX_Alt_Manager
             }
             else
             {
-                RBX_Alt_Manager.AvaloniaUI.Views.MainWindow.Instance?.UpdateAccountValidity(account, isValid);
+                Shiro.AvaloniaUI.Views.MainWindow.Instance?.UpdateAccountValidity(account, isValid);
             }
         }
 
@@ -102,7 +102,7 @@ namespace RBX_Alt_Manager
         }
 
         public void UpdateAccountView(Account account) =>
-            RBX_Alt_Manager.AvaloniaUI.Views.MainWindow.Instance?.RefreshLiveProcessStatus();
+            Shiro.AvaloniaUI.Views.MainWindow.Instance?.RefreshLiveProcessStatus();
 
         public static Account? AddAccount(string SecurityToken, string Password = "", string? AccountJSON = null, bool saveImmediate = true)
         {

@@ -1,9 +1,9 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace RBX_Alt_Manager.Services
+namespace Shiro.Services
 {
     public sealed class FlexibleStringConverter : JsonConverter<string?>
     {

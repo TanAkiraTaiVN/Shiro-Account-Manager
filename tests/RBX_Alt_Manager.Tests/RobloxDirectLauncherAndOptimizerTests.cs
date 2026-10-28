@@ -1,12 +1,12 @@
-using System;
+﻿using System;
 using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using RBX_Alt_Manager.Classes;
-using RBX_Alt_Manager.Services;
+using Shiro.Classes;
+using Shiro.Services;
 using Xunit;
 
-namespace RBX_Alt_Manager.Tests
+namespace Shiro.Tests
 {
     public class RobloxDirectLauncherAndOptimizerTests
     {

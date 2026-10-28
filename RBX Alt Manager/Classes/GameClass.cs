@@ -1,11 +1,11 @@
-#nullable enable
-using RBX_Alt_Manager.Classes;
+﻿#nullable enable
+using Shiro.Classes;
 using System;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
-namespace RBX_Alt_Manager
+namespace Shiro
 {
     public class Game
     {

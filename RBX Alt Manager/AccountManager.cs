@@ -1,8 +1,8 @@
-using Microsoft.Win32;
+﻿using Microsoft.Win32;
 using PuppeteerSharp;
 using PuppeteerSharp.BrowserData;
-using RBX_Alt_Manager.Classes;
-using RBX_Alt_Manager.Http;
+using Shiro.Classes;
+using Shiro.Http;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -17,12 +17,12 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-using RBX_Alt_Manager.Services;
-using RBX_Alt_Manager.AvaloniaUI.Views;
+using Shiro.Services;
+using Shiro.AvaloniaUI.Views;
 
 
 
-namespace RBX_Alt_Manager
+namespace Shiro
 {
     public partial class AccountManager : IDisposable
     {
@@ -92,8 +92,8 @@ namespace RBX_Alt_Manager
         }
         private KestrelWebServer? AltManagerWS;
         private string WSPassword { get; set; } = string.Empty;
-        public RBX_Alt_Manager.Services.ModernPeriodicTask? AutoCookieRefresh { get; private set; }
-        public RBX_Alt_Manager.Services.ModernPeriodicTask? PresenceTimer { get; private set; }
+        public Shiro.Services.ModernPeriodicTask? AutoCookieRefresh { get; private set; }
+        public Shiro.Services.ModernPeriodicTask? PresenceTimer { get; private set; }
         private readonly System.Threading.Lock presenceTaskLock = new();
         private Task? presenceRefreshTask;
         private readonly CancellationTokenSource lifetimeCancellation = new CancellationTokenSource();
@@ -414,14 +414,14 @@ namespace RBX_Alt_Manager
         private void RefreshModernDashboard()
         {
             var snapshot = GetAccountsSnapshot();
-            RBX_Alt_Manager.AvaloniaUI.Views.MainWindow.Instance?.RefreshAccounts(snapshot);
+            Shiro.AvaloniaUI.Views.MainWindow.Instance?.RefreshAccounts(snapshot);
         }
 
         // Modern dashboard and Avalonia action entry points extracted to AccountManager.ModernActions.cs
 
         public static string ShowDialog(string text, string caption, string defaultText = "", bool big = false)
         {
-            return RBX_Alt_Manager.AvaloniaUI.Views.InputDialog.Prompt(text, caption, defaultText, big);
+            return Shiro.AvaloniaUI.Views.InputDialog.Prompt(text, caption, defaultText, big);
         }
 
         private async Task ObserveBackgroundTaskAsync(Task? task, string operation)

@@ -1,9 +1,9 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.Threading.Tasks;
 using Avalonia.Threading;
 
-namespace RBX_Alt_Manager.Services
+namespace Shiro.Services
 {
     /// <summary>
     /// Pure Avalonia UI 11 high-performance UI Dispatcher abstraction.

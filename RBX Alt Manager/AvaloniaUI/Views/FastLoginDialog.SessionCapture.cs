@@ -1,13 +1,13 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Avalonia.Media;
 using Microsoft.Web.WebView2.Core;
-using RBX_Alt_Manager.Classes;
-using RBX_Alt_Manager.Services;
+using Shiro.Classes;
+using Shiro.Services;
 
-namespace RBX_Alt_Manager.AvaloniaUI.Views
+namespace Shiro.AvaloniaUI.Views
 {
     public partial class FastLoginDialog
     {

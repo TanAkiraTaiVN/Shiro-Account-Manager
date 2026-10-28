@@ -1,4 +1,4 @@
-using PuppeteerSharp;
+﻿using PuppeteerSharp;
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -8,9 +8,9 @@ using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
-using RBX_Alt_Manager.Services;
+using Shiro.Services;
 
-namespace RBX_Alt_Manager.Classes
+namespace Shiro.Classes
 {
     /// <summary>
     /// Opens the Roblox sign-up page in a temporary, isolated browser profile.

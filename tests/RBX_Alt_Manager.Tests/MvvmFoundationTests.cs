@@ -1,12 +1,12 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Text.Json;
 using System.Threading.Tasks;
-using RBX_Alt_Manager.Services;
-using RBX_Alt_Manager.ViewModels;
+using Shiro.Services;
+using Shiro.ViewModels;
 using Xunit;
 
-namespace RBX_Alt_Manager.Tests
+namespace Shiro.Tests
 {
     public class MvvmFoundationTests
     {
@@ -110,7 +110,7 @@ namespace RBX_Alt_Manager.Tests
         [Fact]
         public void NaturalStringComparer_SortsAlphanumericNaturallyWithoutWin32()
         {
-            var comparer = RBX_Alt_Manager.Classes.NaturalStringComparer.Instance;
+            var comparer = Shiro.Classes.NaturalStringComparer.Instance;
 
             // Basic alphanumeric ordering (2 comes before 10)
             Assert.True(comparer.Compare("AD_Jackpot1", "AD_Jackpot2") < 0);
@@ -161,15 +161,15 @@ namespace RBX_Alt_Manager.Tests
         [Fact]
         public void AvaloniaUI_DialogTypes_AreRegisteredAndDiscoverable()
         {
-            Assert.True(typeof(Avalonia.Controls.Window).IsAssignableFrom(typeof(RBX_Alt_Manager.AvaloniaUI.Views.FastLoginDialog)));
-            Assert.True(typeof(Avalonia.Controls.Window).IsAssignableFrom(typeof(RBX_Alt_Manager.AvaloniaUI.Views.BulkImportDialog)));
-            Assert.True(typeof(Avalonia.Controls.Window).IsAssignableFrom(typeof(RBX_Alt_Manager.AvaloniaUI.Views.ProxyManagerDialog)));
+            Assert.True(typeof(Avalonia.Controls.Window).IsAssignableFrom(typeof(Shiro.AvaloniaUI.Views.FastLoginDialog)));
+            Assert.True(typeof(Avalonia.Controls.Window).IsAssignableFrom(typeof(Shiro.AvaloniaUI.Views.BulkImportDialog)));
+            Assert.True(typeof(Avalonia.Controls.Window).IsAssignableFrom(typeof(Shiro.AvaloniaUI.Views.ProxyManagerDialog)));
         }
 
         [Fact]
         public void NexusWebSocketServer_StartsAndStopsGracefully()
         {
-            var server = new RBX_Alt_Manager.Nexus.NexusWebSocketServer(System.Net.IPAddress.Loopback, 7996);
+            var server = new Shiro.Nexus.NexusWebSocketServer(System.Net.IPAddress.Loopback, 7996);
             try
             {
                 server.Start();

@@ -1,11 +1,11 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
-namespace RBX_Alt_Manager.Services
+namespace Shiro.Services
 {
     public static partial class RobloxWindowService
     {

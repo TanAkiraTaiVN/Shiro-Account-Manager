@@ -1,1 +1,2 @@
-global using RBX_Alt_Manager.Http;
+global using Shiro.Http;
+global using RBX_Alt_Manager = Shiro;

@@ -1,7 +1,7 @@
-using System;
+﻿using System;
 using Xunit;
 
-namespace RBX_Alt_Manager.Tests
+namespace Shiro.Tests
 {
     public class AccountDecouplingTests
     {

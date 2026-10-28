@@ -1,11 +1,11 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Threading;
 
-namespace RBX_Alt_Manager.Services
+namespace Shiro.Services
 {
     /// <summary>
     /// Memory Optimizer for Multi-Roblox Farming.

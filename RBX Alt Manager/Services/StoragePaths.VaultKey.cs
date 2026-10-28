@@ -1,10 +1,10 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace RBX_Alt_Manager.Services
+namespace Shiro.Services
 {
     internal static partial class StoragePaths
     {

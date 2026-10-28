@@ -1,11 +1,11 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Media;
-using RBX_Alt_Manager.Classes;
+using Shiro.Classes;
 
-namespace RBX_Alt_Manager.Services
+namespace Shiro.Services
 {
     public enum AccentTheme
     {

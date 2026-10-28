@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -9,9 +9,9 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading;
 using System.Threading.Tasks;
-using RBX_Alt_Manager.Classes;
+using Shiro.Classes;
 
-namespace RBX_Alt_Manager.Services
+namespace Shiro.Services
 {
     /// <summary>
     /// Manages per-account dedicated proxy assignment, parsing, sticky/round-robin distribution,

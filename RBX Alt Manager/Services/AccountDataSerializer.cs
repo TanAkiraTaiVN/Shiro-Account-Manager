@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -6,9 +6,9 @@ using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
-using RBX_Alt_Manager.Classes;
+using Shiro.Classes;
 
-namespace RBX_Alt_Manager.Services
+namespace Shiro.Services
 {
     /// <summary>
     /// Reads and writes both legacy unversioned account arrays and modern versioned

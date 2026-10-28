@@ -1,6 +1,6 @@
-<Window xmlns="https://github.com/avaloniaui"
+﻿<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        x:Class="RBX_Alt_Manager.AvaloniaUI.Views.AccountUtilsDialog"
+        x:Class="Shiro.AvaloniaUI.Views.AccountUtilsDialog"
         Icon="/Resources/shiro.ico"
         Title="Tiện ích tài khoản • Account Utilities"
         Width="480" SizeToContent="Height"

@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -8,9 +8,9 @@ using System.Net.Http;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using RBX_Alt_Manager.Classes;
+using Shiro.Classes;
 
-namespace RBX_Alt_Manager.Http
+namespace Shiro.Http
 {
     public enum Method
     {

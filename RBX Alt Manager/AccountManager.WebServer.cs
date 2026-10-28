@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -6,10 +6,10 @@ using System.Net;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
-using RBX_Alt_Manager.Classes;
-using RBX_Alt_Manager.Services;
+using Shiro.Classes;
+using Shiro.Services;
 
-namespace RBX_Alt_Manager
+namespace Shiro
 {
     public partial class AccountManager
     {

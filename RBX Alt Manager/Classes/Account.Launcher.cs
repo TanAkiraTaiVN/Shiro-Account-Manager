@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -6,11 +6,11 @@ using System.Net;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-using RBX_Alt_Manager.Classes;
-using RBX_Alt_Manager.Http;
-using RBX_Alt_Manager.Services;
+using Shiro.Classes;
+using Shiro.Http;
+using Shiro.Services;
 
-namespace RBX_Alt_Manager
+namespace Shiro
 {
     public partial class Account : IComparable<Account>
     {

@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -8,9 +8,9 @@ using System.Net.WebSockets;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using RBX_Alt_Manager.Services;
+using Shiro.Services;
 
-namespace RBX_Alt_Manager.Classes
+namespace Shiro.Classes
 {
     internal static partial class ChromiumHomeBrowser
     {

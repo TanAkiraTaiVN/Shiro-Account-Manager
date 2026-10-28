@@ -1,12 +1,12 @@
-using System;
+﻿using System;
 using System.Net;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
-using RBX_Alt_Manager.Http;
+using Shiro.Http;
 using Xunit;
 
-namespace RBX_Alt_Manager.Tests
+namespace Shiro.Tests
 {
     public class HttpClientModernizationTests
     {

@@ -1,9 +1,9 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.Buffers.Binary;
 using System.Collections.Generic;
 
-namespace RBX_Alt_Manager.Services.Recovery
+namespace Shiro.Services.Recovery
 {
     /// <summary>
     /// Pure, deterministic parser for NTFS Master File Table (MFT) records and data runs.

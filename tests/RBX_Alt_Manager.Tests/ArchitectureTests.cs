@@ -1,13 +1,13 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using NetArchTest.Rules;
-using RBX_Alt_Manager.ViewModels;
+using Shiro.ViewModels;
 using Xunit;
 
-namespace RBX_Alt_Manager.Tests
+namespace Shiro.Tests
 {
     public class ArchitectureTests
     {
@@ -18,9 +18,9 @@ namespace RBX_Alt_Manager.Tests
         {
             var result = Types.InAssembly(CoreAssembly)
                 .That()
-                .ResideInNamespace("RBX_Alt_Manager.ViewModels")
+                .ResideInNamespace("Shiro.ViewModels")
                 .ShouldNot()
-                .HaveDependencyOnAny("RBX_Alt_Manager.AvaloniaUI.Views")
+                .HaveDependencyOnAny("Shiro.AvaloniaUI.Views")
                 .GetResult();
 
             var failingNames = result.FailingTypes?.Select(t => t.FullName) ?? Enumerable.Empty<string>();
@@ -69,7 +69,7 @@ namespace RBX_Alt_Manager.Tests
         {
             var result = Types.InAssembly(CoreAssembly)
                 .That()
-                .ResideInNamespace("RBX_Alt_Manager.Services")
+                .ResideInNamespace("Shiro.Services")
                 .And()
                 .AreClasses()
                 .And()

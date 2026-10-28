@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.Buffers;
 using System.ComponentModel;
@@ -11,11 +11,11 @@ using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Media;
-using RBX_Alt_Manager.Classes;
-using RBX_Alt_Manager.Services;
-using static RBX_Alt_Manager.Program;
+using Shiro.Classes;
+using Shiro.Services;
+using static Shiro.Program;
 
-namespace RBX_Alt_Manager.Nexus
+namespace Shiro.Nexus
 {
     public class ControlledAccount : INotifyPropertyChanged
     {
@@ -142,10 +142,10 @@ namespace RBX_Alt_Manager.Nexus
 
             this.WebSocket = webSocket;
 
-            if (RBX_Alt_Manager.AvaloniaUI.Views.NexusWindow.Instance != null && webSocket != null)
+            if (Shiro.AvaloniaUI.Views.NexusWindow.Instance != null && webSocket != null)
             {
-                RBX_Alt_Manager.AvaloniaUI.Views.NexusWindow.Instance.ContextList[webSocket] = this;
-                RBX_Alt_Manager.AvaloniaUI.Views.NexusWindow.Instance.RefreshAccount(this);
+                Shiro.AvaloniaUI.Views.NexusWindow.Instance.ContextList[webSocket] = this;
+                Shiro.AvaloniaUI.Views.NexusWindow.Instance.RefreshAccount(this);
             }
 
             Logger.Info($"{Username} has connected");
@@ -183,7 +183,7 @@ namespace RBX_Alt_Manager.Nexus
 
             if (WebSocket != null)
             {
-                RBX_Alt_Manager.AvaloniaUI.Views.NexusWindow.Instance?.ContextList?.TryRemove(WebSocket, out _);
+                Shiro.AvaloniaUI.Views.NexusWindow.Instance?.ContextList?.TryRemove(WebSocket, out _);
             }
 
             try
@@ -198,7 +198,7 @@ namespace RBX_Alt_Manager.Nexus
 
             WebSocket = null;
 
-            RBX_Alt_Manager.AvaloniaUI.Views.NexusWindow.Instance?.RefreshAccount(this);
+            Shiro.AvaloniaUI.Views.NexusWindow.Instance?.RefreshAccount(this);
         }
 
         public void HandleMessage(string Message)
@@ -229,7 +229,7 @@ namespace RBX_Alt_Manager.Nexus
                 }
                 else if (command.Name == "Log" && command.Payload != null && command.Payload.TryGetValue("Content", out string? logContent) && logContent != null)
                 {
-                    RBX_Alt_Manager.AvaloniaUI.Views.NexusWindow.Instance?.LogMessage(logContent);
+                    Shiro.AvaloniaUI.Views.NexusWindow.Instance?.LogMessage(logContent);
                 }
                 else if (command.Name == "GetText" && command.Payload != null && command.Payload.TryGetValue("Name", out string? _))
                 {
@@ -248,7 +248,7 @@ namespace RBX_Alt_Manager.Nexus
                     JobId = jobIdContent;
                 else if (command.Name == "Echo" && command.Payload != null && command.Payload.TryGetValue("Content", out string? echoContent) && !string.IsNullOrEmpty(echoContent))
                 {
-                    RBX_Alt_Manager.AvaloniaUI.Views.NexusWindow.Instance?.EmitMessage(echoContent, true);
+                    Shiro.AvaloniaUI.Views.NexusWindow.Instance?.EmitMessage(echoContent, true);
                 }
                 else if (Enum.TryParse(command.Name, out CommandCreateElement elementType))
                 {

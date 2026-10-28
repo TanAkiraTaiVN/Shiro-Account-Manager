@@ -1,11 +1,11 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using RBX_Alt_Manager.Classes;
-using RBX_Alt_Manager.Services;
+using Shiro.Classes;
+using Shiro.Services;
 
-namespace RBX_Alt_Manager
+namespace Shiro
 {
     public partial class AccountManager
     {
@@ -15,7 +15,7 @@ namespace RBX_Alt_Manager
 
         internal void SetDashboardStatus(string message)
         {
-            RBX_Alt_Manager.AvaloniaUI.Views.MainWindow.Instance?.SetStatus(message);
+            Shiro.AvaloniaUI.Views.MainWindow.Instance?.SetStatus(message);
         }
 
         internal async Task ModernLaunchAccountAppHome(Account account)
@@ -32,9 +32,9 @@ namespace RBX_Alt_Manager
 
         internal List<Account> GetCurrentSelectedAccounts()
         {
-            if (RBX_Alt_Manager.AvaloniaUI.Views.MainWindow.Instance?.DashboardView?.ViewModel != null)
+            if (Shiro.AvaloniaUI.Views.MainWindow.Instance?.DashboardView?.ViewModel != null)
             {
-                var list = RBX_Alt_Manager.AvaloniaUI.Views.MainWindow.Instance.DashboardView.ViewModel.GetSelectedAccounts();
+                var list = Shiro.AvaloniaUI.Views.MainWindow.Instance.DashboardView.ViewModel.GetSelectedAccounts();
                 if (list != null && list.Count > 0)
                     return list;
             }
@@ -108,10 +108,10 @@ namespace RBX_Alt_Manager
             if (placeId <= 0)
             {
                 string? pidSource = null;
-                if (RBX_Alt_Manager.AvaloniaUI.Views.MainWindow.Instance?.DashboardView?.ViewModel != null &&
-                    !string.IsNullOrWhiteSpace(RBX_Alt_Manager.AvaloniaUI.Views.MainWindow.Instance.DashboardView.ViewModel.PlaceId))
+                if (Shiro.AvaloniaUI.Views.MainWindow.Instance?.DashboardView?.ViewModel != null &&
+                    !string.IsNullOrWhiteSpace(Shiro.AvaloniaUI.Views.MainWindow.Instance.DashboardView.ViewModel.PlaceId))
                 {
-                    pidSource = RBX_Alt_Manager.AvaloniaUI.Views.MainWindow.Instance.DashboardView.ViewModel.PlaceId;
+                    pidSource = Shiro.AvaloniaUI.Views.MainWindow.Instance.DashboardView.ViewModel.PlaceId;
                 }
                 else if (!string.IsNullOrWhiteSpace(CurrentPlaceId))
                 {
@@ -138,10 +138,10 @@ namespace RBX_Alt_Manager
             string cleanJobId = jobId;
             if (string.IsNullOrWhiteSpace(cleanJobId))
             {
-                if (RBX_Alt_Manager.AvaloniaUI.Views.MainWindow.Instance?.DashboardView?.ViewModel != null &&
-                    !string.IsNullOrWhiteSpace(RBX_Alt_Manager.AvaloniaUI.Views.MainWindow.Instance.DashboardView.ViewModel.JobId))
+                if (Shiro.AvaloniaUI.Views.MainWindow.Instance?.DashboardView?.ViewModel != null &&
+                    !string.IsNullOrWhiteSpace(Shiro.AvaloniaUI.Views.MainWindow.Instance.DashboardView.ViewModel.JobId))
                 {
-                    cleanJobId = RBX_Alt_Manager.AvaloniaUI.Views.MainWindow.Instance.DashboardView.ViewModel.JobId;
+                    cleanJobId = Shiro.AvaloniaUI.Views.MainWindow.Instance.DashboardView.ViewModel.JobId;
                 }
                 else if (!string.IsNullOrWhiteSpace(CurrentJobId))
                 {
@@ -209,7 +209,7 @@ namespace RBX_Alt_Manager
                 }
             }
 
-            if (RBX_Alt_Manager.AvaloniaUI.Views.MainWindow.Instance?.DashboardView?.ViewModel is var mainVm && mainVm != null)
+            if (Shiro.AvaloniaUI.Views.MainWindow.Instance?.DashboardView?.ViewModel is var mainVm && mainVm != null)
             {
                 if (notify)
                 {

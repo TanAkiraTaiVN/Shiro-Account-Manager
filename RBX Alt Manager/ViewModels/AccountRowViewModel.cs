@@ -1,7 +1,7 @@
-#nullable enable
+﻿#nullable enable
 using System;
 
-namespace RBX_Alt_Manager.ViewModels
+namespace Shiro.ViewModels
 {
     public class AccountRowViewModel : IEquatable<AccountRowViewModel>
     {

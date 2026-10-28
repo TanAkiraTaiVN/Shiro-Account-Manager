@@ -1,7 +1,7 @@
-#nullable enable
+﻿#nullable enable
 using System.Collections.Generic;
 
-namespace RBX_Alt_Manager.Nexus
+namespace Shiro.Nexus
 {
     public class Command
     {

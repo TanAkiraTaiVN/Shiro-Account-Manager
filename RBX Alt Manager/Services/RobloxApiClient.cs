@@ -1,9 +1,9 @@
-#nullable enable
-using RBX_Alt_Manager.Http;
+﻿#nullable enable
+using Shiro.Http;
 using System;
 using System.Net;
 
-namespace RBX_Alt_Manager.Services
+namespace Shiro.Services
 {
     /// <summary>
     /// Owns the named Roblox HTTP clients. Keeping construction here

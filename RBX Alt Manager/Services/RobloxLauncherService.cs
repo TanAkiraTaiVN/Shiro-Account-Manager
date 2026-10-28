@@ -1,9 +1,9 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace RBX_Alt_Manager.Services
+namespace Shiro.Services
 {
     public class RobloxLauncherService : IRobloxLauncherService
     {

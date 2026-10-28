@@ -1,11 +1,11 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Microsoft.Win32.SafeHandles;
 
-namespace RBX_Alt_Manager.Services
+namespace Shiro.Services
 {
     public static partial class ProcessExtensions
     {

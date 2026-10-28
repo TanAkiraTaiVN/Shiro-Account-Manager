@@ -1,9 +1,9 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.Runtime.InteropServices;
 using Avalonia.Controls;
 
-namespace RBX_Alt_Manager.Services
+namespace Shiro.Services
 {
     /// <summary>
     /// Service to apply native Windows 11 Mica / Mica Alt / Acrylic backdrops

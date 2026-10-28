@@ -1,10 +1,10 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
-namespace RBX_Alt_Manager.Services
+namespace Shiro.Services
 {
     /// <summary>
     /// Persistence boundary providing atomic writes, fast backup recovery,

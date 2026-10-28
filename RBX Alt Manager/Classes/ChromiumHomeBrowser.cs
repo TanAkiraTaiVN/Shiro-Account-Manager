@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.Buffers;
 using System.Collections.Generic;
@@ -13,9 +13,9 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using RBX_Alt_Manager.Services;
+using Shiro.Services;
 
-namespace RBX_Alt_Manager.Classes
+namespace Shiro.Classes
 {
     /// <summary>
     /// Opens an authenticated Roblox Home page through the browser's Chrome DevTools

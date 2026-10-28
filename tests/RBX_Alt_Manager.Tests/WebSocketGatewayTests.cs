@@ -1,11 +1,11 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
-using RBX_Alt_Manager.Services;
+using Shiro.Services;
 using Xunit;
 
-namespace RBX_Alt_Manager.Tests
+namespace Shiro.Tests
 {
     public class WebSocketGatewayTests
     {

@@ -1,14 +1,14 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-using RBX_Alt_Manager.Services;
-using RBX_Alt_Manager.AvaloniaUI.Views;
+using Shiro.Services;
+using Shiro.AvaloniaUI.Views;
 
-namespace RBX_Alt_Manager
+namespace Shiro
 {
     public static class Utilities
     {

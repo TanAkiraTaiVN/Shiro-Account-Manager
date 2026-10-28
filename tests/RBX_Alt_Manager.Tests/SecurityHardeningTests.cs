@@ -1,9 +1,9 @@
-using System;
-using RBX_Alt_Manager;
-using RBX_Alt_Manager.Services;
+﻿using System;
+using Shiro;
+using Shiro.Services;
 using Xunit;
 
-namespace RBX_Alt_Manager.Tests
+namespace Shiro.Tests
 {
     public class SecurityHardeningTests
     {

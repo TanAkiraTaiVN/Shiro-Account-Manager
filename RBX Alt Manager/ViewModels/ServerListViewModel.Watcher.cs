@@ -1,8 +1,8 @@
-#nullable enable
+﻿#nullable enable
 using System;
-using RBX_Alt_Manager.Classes;
+using Shiro.Classes;
 
-namespace RBX_Alt_Manager.ViewModels
+namespace Shiro.ViewModels
 {
     public partial class ServerListViewModel
     {

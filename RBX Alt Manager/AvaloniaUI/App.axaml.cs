@@ -1,12 +1,12 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.Linq;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
-using RBX_Alt_Manager.Services;
+using Shiro.Services;
 
-namespace RBX_Alt_Manager.AvaloniaUI
+namespace Shiro.AvaloniaUI
 {
     public partial class App : Application
     {

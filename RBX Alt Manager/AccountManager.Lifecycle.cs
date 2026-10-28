@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.IO;
 using System.Linq;
@@ -6,10 +6,10 @@ using System.Threading;
 using System.Threading.Tasks;
 using PuppeteerSharp;
 using PuppeteerSharp.BrowserData;
-using RBX_Alt_Manager.Classes;
-using RBX_Alt_Manager.Services;
+using Shiro.Classes;
+using Shiro.Services;
 
-namespace RBX_Alt_Manager
+namespace Shiro
 {
     public partial class AccountManager
     {
@@ -88,13 +88,13 @@ namespace RBX_Alt_Manager
 
             if (General.Get<bool>("AutoCookieRefresh"))
             {
-                AutoCookieRefresh = new RBX_Alt_Manager.Services.ModernPeriodicTask(
+                AutoCookieRefresh = new Shiro.Services.ModernPeriodicTask(
                     TimeSpan.FromMinutes(5),
                     async token => await RefreshStaleCookiesAsync(token).ConfigureAwait(false),
                     enabled: true);
             }
 
-            PresenceTimer = new RBX_Alt_Manager.Services.ModernPeriodicTask(
+            PresenceTimer = new Shiro.Services.ModernPeriodicTask(
                 TimeSpan.FromMinutes(GetPresenceRefreshMinutes()),
                 async token =>
                 {

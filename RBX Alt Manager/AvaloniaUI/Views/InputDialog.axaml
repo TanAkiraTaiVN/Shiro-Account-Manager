@@ -1,6 +1,6 @@
-<Window xmlns="https://github.com/avaloniaui"
+﻿<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        x:Class="RBX_Alt_Manager.AvaloniaUI.Views.InputDialog"
+        x:Class="Shiro.AvaloniaUI.Views.InputDialog"
         Icon="/Resources/shiro.ico"
         Title="Shiro Prompt"
         Width="440" SizeToContent="Height"

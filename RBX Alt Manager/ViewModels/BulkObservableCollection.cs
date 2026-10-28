@@ -1,11 +1,11 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 
-namespace RBX_Alt_Manager.ViewModels
+namespace Shiro.ViewModels
 {
     public class BulkObservableCollection<T> : ObservableCollection<T>
     {

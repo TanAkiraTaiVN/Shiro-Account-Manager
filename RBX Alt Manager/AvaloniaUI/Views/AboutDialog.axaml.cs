@@ -1,10 +1,10 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.Diagnostics;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 
-namespace RBX_Alt_Manager.AvaloniaUI.Views
+namespace Shiro.AvaloniaUI.Views
 {
     public partial class AboutDialog : Window
     {

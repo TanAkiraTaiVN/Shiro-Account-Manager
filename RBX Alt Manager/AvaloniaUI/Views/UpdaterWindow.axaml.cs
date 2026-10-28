@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -6,9 +6,9 @@ using System.IO.Compression;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
-using RBX_Alt_Manager.Services;
+using Shiro.Services;
 
-namespace RBX_Alt_Manager.AvaloniaUI.Views
+namespace Shiro.AvaloniaUI.Views
 {
     public partial class UpdaterWindow : Window
     {

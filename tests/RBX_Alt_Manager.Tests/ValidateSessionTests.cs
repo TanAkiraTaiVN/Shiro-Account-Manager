@@ -1,14 +1,14 @@
-using System;
+﻿using System;
 using System.Net;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
-using RBX_Alt_Manager;
-using RBX_Alt_Manager.Http;
-using RBX_Alt_Manager.Services;
+using Shiro;
+using Shiro.Http;
+using Shiro.Services;
 using Xunit;
 
-namespace RBX_Alt_Manager.Tests
+namespace Shiro.Tests
 {
     [Collection("RateLimitCoordinator")]
     public class ValidateSessionTests : IDisposable

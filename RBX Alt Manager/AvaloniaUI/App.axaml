@@ -1,7 +1,7 @@
-<Application xmlns="https://github.com/avaloniaui"
+﻿<Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:conv="clr-namespace:RBX_Alt_Manager.AvaloniaUI.Converters"
-             x:Class="RBX_Alt_Manager.AvaloniaUI.App"
+             xmlns:conv="clr-namespace:Shiro.AvaloniaUI.Converters"
+             x:Class="Shiro.AvaloniaUI.App"
              RequestedThemeVariant="Dark">
     <Application.Resources>
         <conv:InverseBooleanConverter x:Key="InverseBoolConverter" />

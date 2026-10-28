@@ -1,11 +1,11 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace RBX_Alt_Manager.Classes
+namespace Shiro.Classes
 {
     /// <summary>
     /// Pure .NET 10 Cryptography engine for Shiro Account Manager.

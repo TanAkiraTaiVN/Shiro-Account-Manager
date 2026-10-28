@@ -1,8 +1,8 @@
-#nullable enable
+﻿#nullable enable
 using Avalonia.Controls;
-using RBX_Alt_Manager.ViewModels;
+using Shiro.ViewModels;
 
-namespace RBX_Alt_Manager.AvaloniaUI.Views
+namespace Shiro.AvaloniaUI.Views
 {
     public partial class ServerListView : UserControl
     {

@@ -1,11 +1,11 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
-using RBX_Alt_Manager.Http;
+using Shiro.Http;
 
-namespace RBX_Alt_Manager
+namespace Shiro
 {
     public partial class Account
     {

@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.Diagnostics;
 using System.Globalization;
@@ -10,9 +10,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Runtime.InteropServices;
 using Avalonia;
-using RBX_Alt_Manager.Services;
+using Shiro.Services;
 
-namespace RBX_Alt_Manager
+namespace Shiro
 {
     internal static partial class Program
     {
@@ -252,7 +252,7 @@ namespace RBX_Alt_Manager
         }
 
         public static Avalonia.AppBuilder BuildAvaloniaApp()
-            => Avalonia.AppBuilder.Configure<RBX_Alt_Manager.AvaloniaUI.App>()
+            => Avalonia.AppBuilder.Configure<Shiro.AvaloniaUI.App>()
                 .UsePlatformDetect()
                 .WithInterFont()
                 .LogToTrace();

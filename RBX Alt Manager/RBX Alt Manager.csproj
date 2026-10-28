@@ -10,8 +10,8 @@
          from rewriting packages.lock.json without the runtime graph. -->
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <Prefer32Bit>false</Prefer32Bit>
-    <RootNamespace>RBX_Alt_Manager</RootNamespace>
-    <AssemblyName>Roblox Account Manager</AssemblyName>
+    <RootNamespace>Shiro</RootNamespace>
+    <AssemblyName>Shiro</AssemblyName>
     <ApplicationIcon>Resources\shiro.ico</ApplicationIcon>
     <ApplicationManifest>app1.manifest</ApplicationManifest>
     <Version>4.1.0</Version>

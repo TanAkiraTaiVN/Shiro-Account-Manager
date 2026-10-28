@@ -1,6 +1,6 @@
-
+﻿
 #nullable enable
-using RBX_Alt_Manager.Http;
+using Shiro.Http;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -8,9 +8,9 @@ using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Media;
-using RBX_Alt_Manager.Services;
+using Shiro.Services;
 
-namespace RBX_Alt_Manager.Classes
+namespace Shiro.Classes
 {
     public static class Presence
     {
@@ -131,7 +131,7 @@ namespace RBX_Alt_Manager.Classes
 
                 if (Updated.Count > 0)
                 {
-                    RBX_Alt_Manager.AvaloniaUI.Views.MainWindow.Instance?.RefreshLiveProcessStatus();
+                    Shiro.AvaloniaUI.Views.MainWindow.Instance?.RefreshLiveProcessStatus();
                 }
             }
             finally

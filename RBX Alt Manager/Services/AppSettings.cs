@@ -1,8 +1,8 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.Globalization;
 
-namespace RBX_Alt_Manager.Services
+namespace Shiro.Services
 {
     /// <summary>
     /// Strongly-typed application settings accessor.

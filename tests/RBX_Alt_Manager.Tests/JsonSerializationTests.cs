@@ -1,10 +1,10 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
-using RBX_Alt_Manager.Classes;
-using RBX_Alt_Manager.Nexus;
+using Shiro.Classes;
+using Shiro.Nexus;
 using Xunit;
 
-namespace RBX_Alt_Manager.Tests
+namespace Shiro.Tests
 {
     public class JsonSerializationTests
     {

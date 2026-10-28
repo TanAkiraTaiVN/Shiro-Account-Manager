@@ -1,15 +1,15 @@
-using System;
+﻿using System;
 using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
-using RBX_Alt_Manager.Classes;
-using RBX_Alt_Manager.Services;
-using RBX_Alt_Manager.Services.Recovery;
+using Shiro.Classes;
+using Shiro.Services;
+using Shiro.Services.Recovery;
 using Xunit;
 
-namespace RBX_Alt_Manager.Tests
+namespace Shiro.Tests
 {
     [Collection("StoragePathsCollection")]
     public class VaultKeyRecoveryServiceTests

@@ -1,11 +1,11 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
-using RBX_Alt_Manager.Classes;
+using Shiro.Classes;
 using Xunit;
 
-namespace RBX_Alt_Manager.Tests
+namespace Shiro.Tests
 {
     public class CryptographyTests
     {

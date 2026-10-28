@@ -1,11 +1,11 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 
-namespace RBX_Alt_Manager.ViewModels
+namespace Shiro.ViewModels
 {
     /// <summary>
     /// Modern base class for observable ViewModel entities conforming to INotifyPropertyChanged.

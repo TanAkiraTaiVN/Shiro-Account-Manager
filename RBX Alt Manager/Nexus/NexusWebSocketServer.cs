@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.Buffers;
 using System.Collections.Concurrent;
@@ -13,9 +13,9 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
-using RBX_Alt_Manager.Services;
+using Shiro.Services;
 
-namespace RBX_Alt_Manager.Nexus
+namespace Shiro.Nexus
 {
     /// <summary>
     /// Cloud-Native ASP.NET Core Kestrel WebSocket Server for Shiro Nexus Controller.
@@ -111,7 +111,7 @@ namespace RBX_Alt_Manager.Nexus
                     string? id = query["id"];
                     string jobId = string.IsNullOrEmpty(query["jobId"]) ? "UNKNOWN" : query["jobId"].ToString();
 
-                    var modernNexus = RBX_Alt_Manager.AvaloniaUI.Views.NexusWindow.Instance;
+                    var modernNexus = Shiro.AvaloniaUI.Views.NexusWindow.Instance;
                     if (string.IsNullOrEmpty(name) || string.IsNullOrEmpty(id) || modernNexus == null)
                     {
                         context.Response.StatusCode = StatusCodes.Status400BadRequest;

@@ -1,9 +1,9 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.Text.RegularExpressions;
-using RBX_Alt_Manager.ViewModels;
+using Shiro.ViewModels;
 
-namespace RBX_Alt_Manager.Classes
+namespace Shiro.Classes
 {
     /// <summary>
     /// High-performance compiled search query for accounts.

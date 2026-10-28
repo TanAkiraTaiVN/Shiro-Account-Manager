@@ -1,9 +1,9 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Text.Json.Nodes;
 
-namespace RBX_Alt_Manager.Services
+namespace Shiro.Services
 {
     public enum FastFlagProfile
     {

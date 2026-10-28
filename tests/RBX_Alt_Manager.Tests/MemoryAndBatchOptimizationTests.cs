@@ -1,13 +1,13 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Runtime.CompilerServices;
-using RBX_Alt_Manager;
-using RBX_Alt_Manager.Services;
-using RBX_Alt_Manager.ViewModels;
+using Shiro;
+using Shiro.Services;
+using Shiro.ViewModels;
 using Xunit;
 
-namespace RBX_Alt_Manager.Tests
+namespace Shiro.Tests
 {
     public class MemoryAndBatchOptimizationTests
     {

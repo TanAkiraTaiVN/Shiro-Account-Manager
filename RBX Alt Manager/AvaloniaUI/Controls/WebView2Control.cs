@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.IO;
 using System.Runtime.InteropServices;
@@ -7,10 +7,10 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Platform;
 using Microsoft.Web.WebView2.Core;
-using RBX_Alt_Manager.Classes;
-using RBX_Alt_Manager.Services;
+using Shiro.Classes;
+using Shiro.Services;
 
-namespace RBX_Alt_Manager.AvaloniaUI.Controls
+namespace Shiro.AvaloniaUI.Controls
 {
     public partial class WebView2Control : NativeControlHost
     {

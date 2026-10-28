@@ -1,12 +1,12 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using PuppeteerSharp;
-using RBX_Alt_Manager.Services;
+using Shiro.Services;
 
-namespace RBX_Alt_Manager.Classes
+namespace Shiro.Classes
 {
     internal static partial class RobloxBrowserSignup
     {

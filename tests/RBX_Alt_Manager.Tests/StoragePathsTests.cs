@@ -1,9 +1,9 @@
-using System;
+﻿using System;
 using System.IO;
-using RBX_Alt_Manager.Services;
+using Shiro.Services;
 using Xunit;
 
-namespace RBX_Alt_Manager.Tests
+namespace Shiro.Tests
 {
     [Collection("StoragePathsCollection")]
     public class StoragePathsTests
@@ -95,7 +95,7 @@ namespace RBX_Alt_Manager.Tests
         [Fact]
         public void MainViewModel_SearchText_ClearAndRetype_DoesNotThrowObjectDisposedException()
         {
-            var vm = new RBX_Alt_Manager.ViewModels.MainViewModel();
+            var vm = new Shiro.ViewModels.MainViewModel();
             vm.SearchText = "abc";
             vm.SearchText = string.Empty;
             vm.SearchText = "t";
@@ -111,10 +111,10 @@ namespace RBX_Alt_Manager.Tests
         {
             string json = @"{""blockedUsers"":[{""userId"":1234567,""name"":""PlayerA""},{""id"":987654,""name"":""PlayerB""}]}";
 
-            Assert.True(RBX_Alt_Manager.Account.IsUserIdInBlockedListJson(json, 1234567));
-            Assert.True(RBX_Alt_Manager.Account.IsUserIdInBlockedListJson(json, 987654));
-            Assert.False(RBX_Alt_Manager.Account.IsUserIdInBlockedListJson(json, 123));
-            Assert.False(RBX_Alt_Manager.Account.IsUserIdInBlockedListJson(json, 456));
+            Assert.True(Shiro.Account.IsUserIdInBlockedListJson(json, 1234567));
+            Assert.True(Shiro.Account.IsUserIdInBlockedListJson(json, 987654));
+            Assert.False(Shiro.Account.IsUserIdInBlockedListJson(json, 123));
+            Assert.False(Shiro.Account.IsUserIdInBlockedListJson(json, 456));
         }
 
         [Fact]

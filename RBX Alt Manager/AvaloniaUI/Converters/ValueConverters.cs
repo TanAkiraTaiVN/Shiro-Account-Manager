@@ -1,10 +1,10 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.Globalization;
 using Avalonia.Data;
 using Avalonia.Data.Converters;
 
-namespace RBX_Alt_Manager.AvaloniaUI.Converters
+namespace Shiro.AvaloniaUI.Converters
 {
     public class InverseBooleanConverter : IValueConverter
     {

@@ -1,9 +1,9 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.Threading.Tasks;
 using System.Windows.Input;
 
-namespace RBX_Alt_Manager.ViewModels
+namespace Shiro.ViewModels
 {
     public class RelayCommand : ICommand
     {

@@ -1,11 +1,11 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using RBX_Alt_Manager.Http;
+using Shiro.Http;
 
-namespace RBX_Alt_Manager.Services
+namespace Shiro.Services
 {
     public static class RobloxPlaceHelper
     {

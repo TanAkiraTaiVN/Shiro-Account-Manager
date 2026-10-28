@@ -1,9 +1,9 @@
-#nullable enable
+﻿#nullable enable
 using System;
-using RBX_Alt_Manager.Classes;
-using RBX_Alt_Manager.Services;
+using Shiro.Classes;
+using Shiro.Services;
 
-namespace RBX_Alt_Manager.ViewModels
+namespace Shiro.ViewModels
 {
     public class ServerItemViewModel : ObservableObject
     {

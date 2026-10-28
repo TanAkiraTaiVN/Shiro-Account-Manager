@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -8,12 +8,12 @@ using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
-using RBX_Alt_Manager.Classes;
-using RBX_Alt_Manager.Http;
-using RBX_Alt_Manager.Services;
-using RBX_Alt_Manager.ViewModels;
+using Shiro.Classes;
+using Shiro.Http;
+using Shiro.Services;
+using Shiro.ViewModels;
 
-namespace RBX_Alt_Manager.AvaloniaUI.Views
+namespace Shiro.AvaloniaUI.Views
 {
     public class MissingAssetDisplayItem : ObservableObject
     {

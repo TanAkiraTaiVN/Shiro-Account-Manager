@@ -1,8 +1,8 @@
-#nullable enable
+﻿#nullable enable
 using System;
-using RBX_Alt_Manager.Classes;
+using Shiro.Classes;
 
-namespace RBX_Alt_Manager.Services
+namespace Shiro.Services
 {
     public enum SettingsPreset
     {

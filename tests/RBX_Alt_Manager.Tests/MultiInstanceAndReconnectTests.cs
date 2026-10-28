@@ -1,12 +1,12 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
-using RBX_Alt_Manager.Classes;
-using RBX_Alt_Manager.Services;
+using Shiro.Classes;
+using Shiro.Services;
 using Xunit;
 
-namespace RBX_Alt_Manager.Tests
+namespace Shiro.Tests
 {
     public class MultiInstanceAndReconnectTests
     {
@@ -268,11 +268,11 @@ namespace RBX_Alt_Manager.Tests
         public void UpdaterWindow_IsSafeArchiveEntryPath_BlocksZipSlipTraversal()
         {
             string root = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "ShiroUpdateTest");
-            Assert.True(RBX_Alt_Manager.AvaloniaUI.Views.UpdaterWindow.IsSafeArchiveEntryPath(
+            Assert.True(Shiro.AvaloniaUI.Views.UpdaterWindow.IsSafeArchiveEntryPath(
                 root, "RBX Alt Manager.dll", out string validDest));
             Assert.StartsWith(System.IO.Path.GetFullPath(root), validDest, StringComparison.OrdinalIgnoreCase);
 
-            Assert.False(RBX_Alt_Manager.AvaloniaUI.Views.UpdaterWindow.IsSafeArchiveEntryPath(
+            Assert.False(Shiro.AvaloniaUI.Views.UpdaterWindow.IsSafeArchiveEntryPath(
                 root, @"..\..\Windows\System32\evil.dll", out _));
         }
 
@@ -304,13 +304,13 @@ namespace RBX_Alt_Manager.Tests
         [Fact]
         public void ControlledAccount_StatusColorBrush_UsesCachedBrushes()
         {
-            var acc = new RBX_Alt_Manager.Nexus.ControlledAccount();
-            acc.Status = RBX_Alt_Manager.Classes.AccountStatus.Offline;
+            var acc = new Shiro.Nexus.ControlledAccount();
+            acc.Status = Shiro.Classes.AccountStatus.Offline;
             var offlineBrush1 = acc.StatusColorBrush;
             var offlineBrush2 = acc.StatusColorBrush;
             Assert.Same(offlineBrush1, offlineBrush2);
 
-            acc.Status = RBX_Alt_Manager.Classes.AccountStatus.Online;
+            acc.Status = Shiro.Classes.AccountStatus.Online;
             var onlineBrush1 = acc.StatusColorBrush;
             var onlineBrush2 = acc.StatusColorBrush;
             Assert.Same(onlineBrush1, onlineBrush2);

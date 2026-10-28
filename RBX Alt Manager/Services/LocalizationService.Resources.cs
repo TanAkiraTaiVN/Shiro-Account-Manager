@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
@@ -8,7 +8,7 @@ using System.Reflection;
 using System.Text.Json;
 using Avalonia.Controls;
 
-namespace RBX_Alt_Manager.Services
+namespace Shiro.Services
 {
     public static partial class LocalizationService
     {

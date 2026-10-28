@@ -1,11 +1,11 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using Avalonia.Controls;
 using Avalonia.Threading;
-using RBX_Alt_Manager.AvaloniaUI.Views;
-using RBX_Alt_Manager.Classes;
+using Shiro.AvaloniaUI.Views;
+using Shiro.Classes;
 
-namespace RBX_Alt_Manager.Services
+namespace Shiro.Services
 {
     public class AvaloniaDialogService : IDialogService
     {

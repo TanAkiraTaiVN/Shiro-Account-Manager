@@ -1,5 +1,5 @@
-#nullable enable
-namespace RBX_Alt_Manager.Classes
+﻿#nullable enable
+namespace Shiro.Classes
 {
     public enum AccountStatus
     {

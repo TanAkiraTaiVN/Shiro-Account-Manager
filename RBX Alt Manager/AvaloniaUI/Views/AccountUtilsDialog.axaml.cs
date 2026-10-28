@@ -1,11 +1,11 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Media;
-using RBX_Alt_Manager.Classes;
+using Shiro.Classes;
 
-namespace RBX_Alt_Manager.AvaloniaUI.Views
+namespace Shiro.AvaloniaUI.Views
 {
     public partial class AccountUtilsDialog : Window
     {

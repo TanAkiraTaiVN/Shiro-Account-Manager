@@ -1,14 +1,14 @@
-#nullable enable
+﻿#nullable enable
 using System.Threading.Tasks;
 using System.Threading;
-using RBX_Alt_Manager.Classes;
+using Shiro.Classes;
 using PuppeteerSharp;
 using PuppeteerSharp.BrowserData;
 using System;
 using System.IO;
 using System.Linq;
 
-namespace RBX_Alt_Manager.Services
+namespace Shiro.Services
 {
     public sealed class BrowserService
     {

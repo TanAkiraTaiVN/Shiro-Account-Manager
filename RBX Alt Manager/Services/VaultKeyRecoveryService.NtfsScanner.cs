@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.Buffers.Binary;
 using System.Collections.Concurrent;
@@ -10,7 +10,7 @@ using System.Security.Cryptography;
 using System.Threading.Tasks;
 using Microsoft.Win32.SafeHandles;
 
-namespace RBX_Alt_Manager.Services
+namespace Shiro.Services
 {
     internal static partial class VaultKeyRecoveryService
     {

@@ -1,10 +1,10 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+﻿<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:lucide="clr-namespace:LucideAvalonia;assembly=LucideAvalonia"
              mc:Ignorable="d"
-             x:Class="RBX_Alt_Manager.AvaloniaUI.Views.AboutView">
+             x:Class="Shiro.AvaloniaUI.Views.AboutView">
 
     <Grid VerticalAlignment="Center" HorizontalAlignment="Center" Margin="24">
         <Border Width="480" Background="#111115" BorderBrush="#24242C" BorderThickness="1" CornerRadius="12" Padding="32">

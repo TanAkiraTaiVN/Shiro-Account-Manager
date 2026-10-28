@@ -1,14 +1,14 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.Linq;
 using System.Windows.Input;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
-using RBX_Alt_Manager.Services;
-using RBX_Alt_Manager.ViewModels;
+using Shiro.Services;
+using Shiro.ViewModels;
 
-namespace RBX_Alt_Manager.AvaloniaUI.Views
+namespace Shiro.AvaloniaUI.Views
 {
     public partial class DashboardView
     {

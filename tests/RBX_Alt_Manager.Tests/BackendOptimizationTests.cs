@@ -1,15 +1,15 @@
-using System;
+﻿using System;
 using System.Net;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
-using RBX_Alt_Manager.Classes;
-using RBX_Alt_Manager.Http;
-using RBX_Alt_Manager.Nexus;
-using RBX_Alt_Manager.Services;
+using Shiro.Classes;
+using Shiro.Http;
+using Shiro.Nexus;
+using Shiro.Services;
 using Xunit;
 
-namespace RBX_Alt_Manager.Tests
+namespace Shiro.Tests
 {
     [Collection("RateLimitCoordinator")]
     public class BackendOptimizationTests

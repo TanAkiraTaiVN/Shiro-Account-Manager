@@ -1,11 +1,11 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.IO;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace RBX_Alt_Manager.Http
+namespace Shiro.Http
 {
     public static class HttpExtensions
     {

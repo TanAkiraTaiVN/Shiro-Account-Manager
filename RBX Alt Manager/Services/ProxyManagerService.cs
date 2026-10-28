@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -11,7 +11,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Media;
 
-namespace RBX_Alt_Manager.Services
+namespace Shiro.Services
 {
     public class ProxyItem : INotifyPropertyChanged
     {

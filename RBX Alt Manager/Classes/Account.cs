@@ -1,5 +1,5 @@
-using RBX_Alt_Manager.Classes;
-using RBX_Alt_Manager.Http;
+﻿using Shiro.Classes;
+using Shiro.Http;
 using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
@@ -14,9 +14,9 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Text.Json.Serialization;
-using RBX_Alt_Manager.Services;
+using Shiro.Services;
 
-namespace RBX_Alt_Manager
+namespace Shiro
 {
     public enum SessionHealth
     {

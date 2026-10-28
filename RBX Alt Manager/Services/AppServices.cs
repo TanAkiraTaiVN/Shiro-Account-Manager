@@ -1,8 +1,8 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace RBX_Alt_Manager.Services
+namespace Shiro.Services
 {
     /// <summary>
     /// Centralized Dependency Injection Container and Service Provider for Shiro Account Manager.

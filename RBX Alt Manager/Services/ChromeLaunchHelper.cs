@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -11,10 +11,10 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using PuppeteerSharp;
-using RBX_Alt_Manager.Classes;
-using RBX_Alt_Manager.Http;
+using Shiro.Classes;
+using Shiro.Http;
 
-namespace RBX_Alt_Manager.Services
+namespace Shiro.Services
 {
     /// <summary>
     /// Shared helper providing standard launch arguments, DevTools port probing,

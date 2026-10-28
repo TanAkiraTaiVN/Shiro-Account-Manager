@@ -1,5 +1,5 @@
-#nullable enable
-using RBX_Alt_Manager.Http;
+﻿#nullable enable
+using Shiro.Http;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -8,7 +8,7 @@ using System.Net.Http;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
-namespace RBX_Alt_Manager.Classes
+namespace Shiro.Classes
 {
     public class ThumbnailBatchItem
     {

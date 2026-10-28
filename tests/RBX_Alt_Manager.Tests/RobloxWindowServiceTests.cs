@@ -1,8 +1,8 @@
-using System;
+﻿using System;
 using Xunit;
-using RBX_Alt_Manager.Services;
+using Shiro.Services;
 
-namespace RBX_Alt_Manager.Tests
+namespace Shiro.Tests
 {
     public class RobloxWindowServiceTests
     {

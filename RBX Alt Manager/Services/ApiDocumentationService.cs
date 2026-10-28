@@ -1,9 +1,9 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
-namespace RBX_Alt_Manager.Services
+namespace Shiro.Services
 {
     /// <summary>
     /// Generates OpenAPI 3.0 specification and interactive documentation for Shiro Account Manager's local WebServer API.

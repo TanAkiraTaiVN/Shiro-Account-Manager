@@ -1,8 +1,8 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.Runtime.InteropServices;
 
-namespace RBX_Alt_Manager.Services
+namespace Shiro.Services
 {
     public static partial class RobloxAudioService
     {

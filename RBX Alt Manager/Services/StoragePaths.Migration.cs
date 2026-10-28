@@ -1,8 +1,8 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.IO;
 
-namespace RBX_Alt_Manager.Services
+namespace Shiro.Services
 {
     internal static partial class StoragePaths
     {

@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using PuppeteerSharp;
 using System;
 using System.Diagnostics;
@@ -10,10 +10,10 @@ using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
-using RBX_Alt_Manager.AvaloniaUI.Views;
-using RBX_Alt_Manager.Services;
+using Shiro.AvaloniaUI.Views;
+using Shiro.Services;
 
-namespace RBX_Alt_Manager.Classes
+namespace Shiro.Classes
 {
     /// <summary>
     /// Runs Roblox sign-in in a normal, isolated Chrome/Edge profile so Roblox's

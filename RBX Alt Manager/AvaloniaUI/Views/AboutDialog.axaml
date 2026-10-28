@@ -1,6 +1,6 @@
-<Window xmlns="https://github.com/avaloniaui"
+﻿<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        x:Class="RBX_Alt_Manager.AvaloniaUI.Views.AboutDialog"
+        x:Class="Shiro.AvaloniaUI.Views.AboutDialog"
         Icon="/Resources/shiro.ico"
         Title="Giới thiệu • Shiro Account Manager"
         Width="460" SizeToContent="Height"

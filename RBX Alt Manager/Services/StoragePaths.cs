@@ -1,8 +1,8 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.IO;
 
-namespace RBX_Alt_Manager.Services
+namespace Shiro.Services
 {
     /// <summary>
     /// Centralizes mutable application data paths.  Read-only files continue to
@@ -54,7 +54,7 @@ namespace RBX_Alt_Manager.Services
                 foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
                 {
                     string name = asm.GetName().Name ?? string.Empty;
-                    if (name.Equals("RBX_Alt_Manager.Tests", StringComparison.OrdinalIgnoreCase) ||
+                    if (name.Equals("Shiro.Tests", StringComparison.OrdinalIgnoreCase) ||
                         name.Equals("Shiro.Tests", StringComparison.OrdinalIgnoreCase) ||
                         name.StartsWith("xunit.", StringComparison.OrdinalIgnoreCase))
                         return true;

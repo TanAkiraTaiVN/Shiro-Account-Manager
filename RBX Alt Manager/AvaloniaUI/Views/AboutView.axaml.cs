@@ -1,7 +1,7 @@
-#nullable enable
+﻿#nullable enable
 using Avalonia.Controls;
 
-namespace RBX_Alt_Manager.AvaloniaUI.Views
+namespace Shiro.AvaloniaUI.Views
 {
     public partial class AboutView : UserControl
     {

@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -12,11 +12,11 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Threading;
-using RBX_Alt_Manager.Classes;
-using RBX_Alt_Manager.Nexus;
-using RBX_Alt_Manager.Services;
+using Shiro.Classes;
+using Shiro.Nexus;
+using Shiro.Services;
 
-namespace RBX_Alt_Manager.AvaloniaUI.Views
+namespace Shiro.AvaloniaUI.Views
 {
     public partial class NexusWindow : Window
     {

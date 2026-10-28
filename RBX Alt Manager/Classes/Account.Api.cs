@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
@@ -12,11 +12,11 @@ using System.Threading.Tasks;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
-using RBX_Alt_Manager.Classes;
-using RBX_Alt_Manager.Services;
-using RBX_Alt_Manager.Http;
+using Shiro.Classes;
+using Shiro.Services;
+using Shiro.Http;
 
-namespace RBX_Alt_Manager
+namespace Shiro
 {
     public partial class Account : IComparable<Account>
     {

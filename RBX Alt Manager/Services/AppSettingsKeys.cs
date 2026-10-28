@@ -1,7 +1,7 @@
-#nullable enable
+﻿#nullable enable
 using System;
 
-namespace RBX_Alt_Manager.Services
+namespace Shiro.Services
 {
     /// <summary>
     /// Strongly-typed configuration constants and section keys for INI configuration.

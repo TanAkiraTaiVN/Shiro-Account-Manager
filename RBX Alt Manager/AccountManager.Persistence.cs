@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -6,10 +6,10 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using RBX_Alt_Manager.Classes;
-using RBX_Alt_Manager.Services;
+using Shiro.Classes;
+using Shiro.Services;
 
-namespace RBX_Alt_Manager
+namespace Shiro
 {
     public partial class AccountManager
     {
@@ -46,7 +46,7 @@ namespace RBX_Alt_Manager
         {
             if (manualReset)
             {
-                string? newPass = await RBX_Alt_Manager.AvaloniaUI.Views.InputDialog.PromptAsync(
+                string? newPass = await Shiro.AvaloniaUI.Views.InputDialog.PromptAsync(
                     "Nhập mật khẩu mới (để trống để dùng khóa Vault mặc định AES-256-GCM, được bảo vệ bằng Windows DPAPI):",
                     "Đổi mật khẩu cơ sở dữ liệu");
 

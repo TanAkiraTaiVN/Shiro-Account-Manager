@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,11 +9,11 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
-using RBX_Alt_Manager.Classes;
-using RBX_Alt_Manager.Services;
-using RBX_Alt_Manager.ViewModels;
+using Shiro.Classes;
+using Shiro.Services;
+using Shiro.ViewModels;
 
-namespace RBX_Alt_Manager.AvaloniaUI.Views
+namespace Shiro.AvaloniaUI.Views
 {
     public partial class DashboardView : UserControl
     {

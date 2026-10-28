@@ -1,14 +1,14 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using RBX_Alt_Manager.Classes;
-using RBX_Alt_Manager.Http;
-using RBX_Alt_Manager.Services;
+using Shiro.Classes;
+using Shiro.Http;
+using Shiro.Services;
 
-namespace RBX_Alt_Manager.ViewModels
+namespace Shiro.ViewModels
 {
     public partial class ServerListViewModel
     {

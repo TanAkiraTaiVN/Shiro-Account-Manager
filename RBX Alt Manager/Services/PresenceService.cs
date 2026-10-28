@@ -1,12 +1,12 @@
-#nullable enable
+﻿#nullable enable
 using System.Threading;
 using System.Threading.Tasks;
-using RBX_Alt_Manager.Classes;
+using Shiro.Classes;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace RBX_Alt_Manager.Services
+namespace Shiro.Services
 {
     internal sealed class PresenceService : IDisposable
     {

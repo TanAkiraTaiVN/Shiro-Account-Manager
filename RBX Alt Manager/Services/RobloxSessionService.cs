@@ -1,12 +1,12 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
-using RBX_Alt_Manager.Classes;
-using RBX_Alt_Manager.Http;
+using Shiro.Classes;
+using Shiro.Http;
 
-namespace RBX_Alt_Manager.Services
+namespace Shiro.Services
 {
     public class RobloxSessionService : IRobloxSessionService
     {
