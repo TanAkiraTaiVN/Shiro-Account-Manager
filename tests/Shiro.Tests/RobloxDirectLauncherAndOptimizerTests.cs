@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -149,6 +149,85 @@ namespace Shiro.Tests
             int removed = AccountManager.RemoveAccountsFromDatabase(new[] { acc });
             Assert.Equal(1, removed);
             Assert.DoesNotContain(acc, AccountManager.AccountsList);
+        }
+
+        [Fact]
+        public void RobloxDirectLauncher_GenerateRandomTrackerId_ReturnsValidRandomDigits()
+        {
+            string id1 = RobloxDirectLauncher.GenerateRandomTrackerId();
+            string id2 = RobloxDirectLauncher.GenerateRandomTrackerId();
+
+            Assert.False(string.IsNullOrWhiteSpace(id1));
+            Assert.False(string.IsNullOrWhiteSpace(id2));
+            Assert.True(id1.Length >= 11 && id1.Length <= 13);
+            Assert.All(id1, c => Assert.True(char.IsDigit(c)));
+            Assert.NotEqual("121002137941", id1);
+        }
+
+        [Fact]
+        public void RobloxDirectLauncher_InjectAndRestoreCookies_PreservesOriginalBackupAndRestoresAtomically()
+        {
+            string tempDir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "ShiroDirectLauncherTest_" + Guid.NewGuid().ToString("N"));
+            System.IO.Directory.CreateDirectory(tempDir);
+            try
+            {
+                string cookiesDatPath = System.IO.Path.Combine(tempDir, "RobloxCookies.dat");
+                string origPayload = "{\"CookiesVersion\":\"1\",\"CookiesData\":\"ORIGINAL_ENCRYPTED_USER_SESSION\"}";
+                System.IO.File.WriteAllText(cookiesDatPath, origPayload);
+
+                // Inject new account cookie
+                string dummyToken = "_|WARNING:-DO-NOT-SHARE-THIS.--testtoken";
+                bool injected = RobloxDirectLauncher.InjectAccountCookieToLocalStorage(
+                    dummyToken,
+                    browserTrackerId: "123456789012",
+                    expiryUtc: DateTimeOffset.UtcNow.AddMonths(1),
+                    localStorageDirectoryOverride: tempDir);
+
+                Assert.True(injected);
+                Assert.True(System.IO.File.Exists(cookiesDatPath));
+                string backupPath = System.IO.Path.Combine(tempDir, "RobloxCookies.dat.shiro-orig");
+                Assert.True(System.IO.File.Exists(backupPath), "Backup file should be created before overwriting");
+                Assert.Equal(origPayload, System.IO.File.ReadAllText(backupPath));
+
+                // Verify injected content is different and contains CookiesVersion 1
+                string injectedJson = System.IO.File.ReadAllText(cookiesDatPath);
+                Assert.Contains("\"CookiesVersion\":\"1\"", injectedJson);
+                Assert.NotEqual(origPayload, injectedJson);
+
+                // Restore original cookies
+                bool restored = RobloxDirectLauncher.RestoreOriginalCookies(tempDir);
+                Assert.True(restored);
+                Assert.False(System.IO.File.Exists(backupPath), "Backup file should be cleaned up after restoration");
+                Assert.Equal(origPayload, System.IO.File.ReadAllText(cookiesDatPath));
+            }
+            finally
+            {
+                try { System.IO.Directory.Delete(tempDir, true); } catch { }
+            }
+        }
+
+        [Fact]
+        public void RobloxDirectLauncher_InjectCookies_RejectsUnsupportedCookiesVersion()
+        {
+            string tempDir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "ShiroDirectLauncherVersionTest_" + Guid.NewGuid().ToString("N"));
+            System.IO.Directory.CreateDirectory(tempDir);
+            try
+            {
+                string cookiesDatPath = System.IO.Path.Combine(tempDir, "RobloxCookies.dat");
+                string futurePayload = "{\"CookiesVersion\":\"99\",\"CookiesData\":\"FUTURE_INCOMPATIBLE_DATA\"}";
+                System.IO.File.WriteAllText(cookiesDatPath, futurePayload);
+
+                bool injected = RobloxDirectLauncher.InjectAccountCookieToLocalStorage(
+                    "dummy_token",
+                    localStorageDirectoryOverride: tempDir);
+
+                Assert.False(injected, "Should gracefully refuse injection when CookiesVersion is unknown");
+                Assert.Equal(futurePayload, System.IO.File.ReadAllText(cookiesDatPath));
+            }
+            finally
+            {
+                try { System.IO.Directory.Delete(tempDir, true); } catch { }
+            }
         }
     }
 }

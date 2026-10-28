@@ -40,7 +40,7 @@
 
     <!-- Regular builds go to a disposable artifacts folder. The distributable
          is written to build\Release by the publish command in UPGRADE_NOTES. -->
-    <OutputPath>..\build\artifacts\$(Configuration)\</OutputPath>
+    <OutputPath>..\..\build\artifacts\$(Configuration)\</OutputPath>
     <PublishDocumentationFiles>false</PublishDocumentationFiles>
     <NoWarn>$(NoWarn);MSB3277</NoWarn>
   </PropertyGroup>

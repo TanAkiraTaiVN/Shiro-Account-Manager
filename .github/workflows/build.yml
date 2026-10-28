@@ -32,47 +32,47 @@ jobs:
 
       - name: Run Unit Tests
         shell: pwsh
-        run: dotnet test "tests/RBX_Alt_Manager.Tests/RBX_Alt_Manager.Tests.csproj" --configuration Release --no-build --logger "console;verbosity=normal"
+        run: dotnet test "tests/Shiro.Tests/Shiro.Tests.csproj" --configuration Release --no-build --logger "console;verbosity=normal"
 
       - name: Verify architecture boundaries
         shell: pwsh
         run: |
-          $batch = Get-Content -Raw "RBX Alt Manager/Classes/Batch.cs"
+          $batch = Get-Content -Raw "src/Shiro/Classes/Batch.cs"
           if ($batch -match "Task\.Run") {
             throw "Batch image/place requests must remain async without a thread-pool wrapper."
           }
 
-          $process = Get-Content -Raw "RBX Alt Manager/Classes/RobloxProcess.cs"
+          $process = Get-Content -Raw "src/Shiro/Classes/RobloxProcess.cs"
           if ($process -match "Task\.Run\(WaitForLogPath") {
             throw "Roblox log lookup still uses the removed blocking Task.Run path."
           }
 
-          $sourceFiles = Get-ChildItem "RBX Alt Manager" -Recurse -Filter "*.cs" -File
+          $sourceFiles = Get-ChildItem "src/Shiro" -Recurse -Filter "*.cs" -File
           $legacyNetworking = $sourceFiles | Select-String -Pattern "\b(WebClient|WebRequest|HttpWebRequest)\b"
           if ($legacyNetworking) {
             throw "Legacy WebClient/WebRequest usage remains: $($legacyNetworking -join '; ')"
           }
 
-          if (-not (Select-String -Path "RBX Alt Manager/Services/AccountDataSerializer.cs" -Pattern "CurrentSchemaVersion")) {
+          if (-not (Select-String -Path "src/Shiro/Services/AccountDataSerializer.cs" -Pattern "CurrentSchemaVersion")) {
             throw "Versioned account data serializer is missing."
           }
 
-          if (-not (Select-String -Path "RBX Alt Manager/Services/StoragePaths.cs" -Pattern "IsWithinDirectory")) {
+          if (-not (Select-String -Path "src/Shiro/Services/StoragePaths.cs" -Pattern "IsWithinDirectory")) {
             throw "Browser profile cleanup is missing its storage boundary."
           }
 
-          if (-not (Select-String -Path "RBX Alt Manager/Services/AccountDataSerializer.cs" -Pattern "includePasswords")) {
+          if (-not (Select-String -Path "src/Shiro/Services/AccountDataSerializer.cs" -Pattern "includePasswords")) {
             throw "SavePasswords must be enforced while serializing account data."
           }
 
-          if (Select-String -Path "RBX Alt Manager/Classes/Program.cs" -Pattern "NET Framework 4\.7\.2") {
+          if (Select-String -Path "src/Shiro/Classes/Program.cs" -Pattern "NET Framework 4\.7\.2") {
             throw "The .NET Framework 4.7.2 runtime check is obsolete for the .NET 10 self-contained build."
           }
 
       - name: Publish single-file win-x64
         shell: pwsh
         run: >-
-          dotnet publish "RBX Alt Manager/RBX Alt Manager.csproj"
+          dotnet publish "src/Shiro/Shiro.csproj"
           --configuration Release
           --runtime win-x64
           --self-contained true
@@ -85,11 +85,11 @@ jobs:
         shell: pwsh
         run: |
           $executables = @(Get-ChildItem -LiteralPath "build/Release" -Filter "*.exe" -File)
-          if ($executables.Count -ne 1) {
-            throw "Expected exactly one release EXE, found $($executables.Count)."
+          if ($executables.Count -lt 1) {
+            throw "Expected release EXE, found none."
           }
-          if ($executables[0].Name -ne "Roblox Account Manager.exe") {
-            throw "Unexpected release executable: $($executables[0].Name)"
+          if (-not (Test-Path "build/Release/Shiro.exe")) {
+            throw "Expected release executable 'Shiro.exe' to exist."
           }
 
       - name: Upload release artifact

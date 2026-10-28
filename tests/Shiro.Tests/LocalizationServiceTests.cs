@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Shiro.Services;
 using Xunit;
 
@@ -256,7 +256,9 @@ namespace Shiro.Tests
             }
 
             Assert.NotNull(repoRoot);
-            string projectRoot = System.IO.Path.Combine(repoRoot!, "RBX Alt Manager", "Resources", "Strings");
+            string projectRoot = System.IO.Path.Combine(repoRoot!, "src", "Shiro", "Resources", "Strings");
+            if (!System.IO.Directory.Exists(projectRoot))
+                projectRoot = System.IO.Path.Combine(repoRoot!, "RBX Alt Manager", "Resources", "Strings");
             Assert.True(System.IO.Directory.Exists(projectRoot));
 
             string enFile = System.IO.Path.Combine(projectRoot, "en.json");

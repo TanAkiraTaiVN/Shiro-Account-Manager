@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.IO;
 using System.Linq;
@@ -44,9 +44,9 @@ namespace Shiro.Tests
             }
 
             Assert.NotNull(repoRoot);
-            var appDir = Path.Combine(repoRoot!, "RBX Alt Manager");
+            var appDir = Path.Combine(repoRoot!, "src", "Shiro");
             if (!Directory.Exists(appDir))
-                appDir = Path.Combine(repoRoot!, "src", "Shiro.App");
+                appDir = Path.Combine(repoRoot!, "RBX Alt Manager");
 
             Assert.True(Directory.Exists(appDir));
 

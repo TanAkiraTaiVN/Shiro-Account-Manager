@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.IO;
 using System.Linq;
@@ -36,6 +36,16 @@ namespace Shiro
             catch (Exception ex)
             {
                 Program.Logger?.Debug($"Old updater cleanup threw: {ex.Message}");
+            }
+
+            try
+            {
+                // Ensure any previous un-restored cookies backup is restored on startup
+                RobloxDirectLauncher.RestoreOriginalCookies();
+            }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"Cookie restore on startup threw: {ex.Message}");
             }
 
             // Build the shared API boundary before child forms are created.
@@ -240,6 +250,7 @@ namespace Shiro
             try { MemoryOptimizer.ConfigureAutoTrim(false); } catch (Exception) { }
             try { RobloxWindowService.ShowAllWindows(); } catch (Exception) { }
             try { AltManagerWS?.StopAsync().GetAwaiter().GetResult(); } catch (Exception) { }
+            try { RobloxDirectLauncher.RestoreOriginalCookies(); } catch (Exception) { }
 
             try
             {

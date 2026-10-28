@@ -28,6 +28,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\RBX Alt Manager\RBX Alt Manager.csproj" />
+    <ProjectReference Include="..\..\src\Shiro\Shiro.csproj" />
   </ItemGroup>
 </Project>
