@@ -67,6 +67,8 @@ namespace Shiro.Services
     [JsonSerializable(typeof(GatewayWelcomeMessage))]
     [JsonSerializable(typeof(GatewayPongMessage))]
     [JsonSerializable(typeof(StatusBroadcastPayload))]
+    [JsonSerializable(typeof(LaunchProgressBroadcastPayload))]
+    [JsonSerializable(typeof(PulseBroadcastPayload))]
     [JsonSerializable(typeof(LaunchProgress))]
     [JsonSerializable(typeof(Dictionary<string, JsonElement>))]
     [JsonSerializable(typeof(JsonElement))]
@@ -86,4 +88,14 @@ namespace Shiro.Services
         [property: JsonPropertyName("event")] string EventName,
         long timestamp);
     internal readonly record struct StatusBroadcastPayload(bool enabled, string status);
+    internal readonly record struct PulseBroadcastPayload(long timestamp);
+    internal readonly record struct LaunchProgressBroadcastPayload(
+        int index,
+        int total,
+        string? username,
+        long? userId,
+        string status,
+        string? result,
+        string? message,
+        bool completed);
 }

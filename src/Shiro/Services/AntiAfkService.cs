@@ -156,7 +156,7 @@ namespace Shiro.Services
                 // 1. Dual-channel WebSocket Keepalive pulse to all connected Lua executors (RAMAccount.lua)
                 try
                 {
-                    KestrelWebServer.Broadcast("anti_afk_pulse", new { timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds() });
+                    KestrelWebServer.Broadcast("anti_afk_pulse", new PulseBroadcastPayload(DateTimeOffset.UtcNow.ToUnixTimeSeconds()));
                 }
                 catch (Exception ex)
                 {
@@ -374,7 +374,7 @@ namespace Shiro.Services
             SendInput(1, &input, sizeof(INPUT));
         }
 
-        [LibraryImport("user32.dll", SetLastError = true)]
+        [LibraryImport("user32.dll", EntryPoint = "PostMessageW", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
         private static partial bool PostMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
 
@@ -399,7 +399,7 @@ namespace Shiro.Services
         [return: MarshalAs(UnmanagedType.Bool)]
         private static partial bool IsWindowVisible(IntPtr hWnd);
 
-        [LibraryImport("user32.dll")]
+        [LibraryImport("user32.dll", EntryPoint = "MapVirtualKeyW")]
         private static partial uint MapVirtualKey(uint uCode, uint uMapType);
     }
 }

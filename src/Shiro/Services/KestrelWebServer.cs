@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.Concurrent;
 using System.IO;
@@ -22,11 +22,6 @@ namespace Shiro.Services
     public sealed class KestrelWebServer : IAsyncDisposable
     {
         private static readonly ConcurrentDictionary<WebSocket, SemaphoreSlim> _activeSockets = new();
-        private static readonly JsonSerializerOptions JsonOptions = new()
-        {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            WriteIndented = false
-        };
 
         private WebApplication? _app;
         private readonly int _port;
@@ -58,25 +53,7 @@ namespace Shiro.Services
         {
             if (IsRunning) return;
 
-            var builder = WebApplication.CreateEmptyBuilder(new WebApplicationOptions
-            {
-                ApplicationName = "Shiro.WebServer",
-                EnvironmentName = "Production"
-            });
-
-            builder.WebHost.UseKestrel(options =>
-            {
-                if (_allowExternal)
-                    options.ListenAnyIP(_port);
-                else
-                    options.ListenLocalhost(_port);
-
-                options.AddServerHeader = false;
-            });
-
-            builder.Services.AddRouting();
-
-            _app = builder.Build();
+            _app = LocalKestrelWebServer.Build("Shiro.WebServer", _port, _allowExternal);
 
             _app.Use(async (context, next) =>
             {
@@ -107,10 +84,7 @@ namespace Shiro.Services
                 await next();
             });
 
-            _app.UseWebSockets(new WebSocketOptions
-            {
-                KeepAliveInterval = TimeSpan.FromSeconds(30)
-            });
+            _app.UseShiroWebSockets();
 
             // WebSocket Real-time Event Endpoints
             _app.Map("/ws", HandleWebSocketEndpointAsync);
@@ -136,7 +110,7 @@ namespace Shiro.Services
                 catch (Exception ex)
                 {
                     context.Response.StatusCode = StatusCodes.Status500InternalServerError;
-                    await context.Response.WriteAsync(JsonSerializer.Serialize(new { success = false, error = ex.Message }, JsonOptions));
+                    await context.Response.WriteAsync(JsonSerializer.Serialize(new ApiErrorResponse(false, ex.Message), ShiroAppJson.Default.ApiErrorResponse));
                 }
             });
 
@@ -175,19 +149,15 @@ namespace Shiro.Services
                 _activeSockets.TryAdd(socket, gate);
 
                 // Initial welcome handshake frame
-                var welcome = new
-                {
-                    @event = "connected",
-                    timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-                    data = new
-                    {
-                        server = "Shiro Account Manager Gateway",
-                        version = "4.1.0",
-                        activeClients = _activeSockets.Count
-                    }
-                };
+                var welcome = new GatewayWelcomeMessage(
+                    "connected",
+                    DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                    new GatewayWelcomeData(
+                        "Shiro Account Manager Gateway",
+                        typeof(KestrelWebServer).Assembly.GetName().Version?.ToString(3) ?? "4.2.0",
+                        _activeSockets.Count));
 
-                byte[] welcomeBytes = JsonSerializer.SerializeToUtf8Bytes(welcome, JsonOptions);
+                byte[] welcomeBytes = JsonSerializer.SerializeToUtf8Bytes(welcome, ShiroAppJson.Default.GatewayWelcomeMessage);
                 await SendSafeAsync(socket, gate, new ArraySegment<byte>(welcomeBytes), CancellationToken.None).ConfigureAwait(false);
 
                 // Inbound message listening loop (pings, heartbeats, RPC)
@@ -208,12 +178,10 @@ namespace Shiro.Services
                             ReadOnlySpan<byte> msgSpan = buffer.AsSpan(0, result.Count);
                             if (IsPingPayload(msgSpan))
                             {
-                                var pong = new
-                                {
-                                    @event = "pong",
-                                    timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
-                                };
-                                byte[] pongBytes = JsonSerializer.SerializeToUtf8Bytes(pong, JsonOptions);
+                                var pong = new GatewayPongMessage(
+                                    "pong",
+                                    DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+                                byte[] pongBytes = JsonSerializer.SerializeToUtf8Bytes(pong, ShiroAppJson.Default.GatewayPongMessage);
                                 await SendSafeAsync(socket, gate, new ArraySegment<byte>(pongBytes), CancellationToken.None).ConfigureAwait(false);
                             }
                         }
@@ -289,20 +257,47 @@ namespace Shiro.Services
         /// <summary>
         /// Asynchronously broadcasts an event envelope to all connected WebSocket clients.
         /// </summary>
+        private static byte[] SerializeBroadcastEnvelope(string eventName, object payload)
+        {
+            using var stream = new MemoryStream();
+            using (var writer = new Utf8JsonWriter(stream))
+            {
+                writer.WriteStartObject();
+                writer.WriteString("event"u8, eventName);
+                writer.WriteNumber("timestamp"u8, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+                writer.WritePropertyName("data"u8);
+                if (payload is StatusBroadcastPayload status)
+                {
+                    JsonSerializer.Serialize(writer, status, ShiroAppJson.Default.StatusBroadcastPayload);
+                }
+                else if (payload is LaunchProgressBroadcastPayload progress)
+                {
+                    JsonSerializer.Serialize(writer, progress, ShiroAppJson.Default.LaunchProgressBroadcastPayload);
+                }
+                else if (payload is PulseBroadcastPayload pulse)
+                {
+                    JsonSerializer.Serialize(writer, pulse, ShiroAppJson.Default.PulseBroadcastPayload);
+                }
+                else if (payload is string str)
+                {
+                    writer.WriteStringValue(str);
+                }
+                else
+                {
+                    writer.WriteNullValue();
+                }
+                writer.WriteEndObject();
+            }
+            return stream.ToArray();
+        }
+
         public static async Task BroadcastAsync(string eventName, object payload)
         {
             if (_activeSockets.IsEmpty) return;
 
             try
             {
-                var envelope = new
-                {
-                    @event = eventName,
-                    timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-                    data = payload
-                };
-
-                byte[] bytes = JsonSerializer.SerializeToUtf8Bytes(envelope, JsonOptions);
+                byte[] bytes = SerializeBroadcastEnvelope(eventName, payload);
                 var segment = new ArraySegment<byte>(bytes);
 
                 foreach (var kvp in _activeSockets)
@@ -350,36 +345,26 @@ namespace Shiro.Services
 
         private static void OnAntiAfkStatusChanged()
         {
-            Broadcast("anti_afk", new
-            {
-                enabled = AntiAfkService.IsEnabled,
-                status = AntiAfkService.StatusText
-            });
+            Broadcast("anti_afk", new StatusBroadcastPayload(AntiAfkService.IsEnabled, AntiAfkService.StatusText));
         }
 
         private static void OnMultiRobloxStatusChanged()
         {
-            Broadcast("multi_roblox", new
-            {
-                enabled = RobloxSingletonService.IsEnabled,
-                status = RobloxSingletonService.StatusText
-            });
+            Broadcast("multi_roblox", new StatusBroadcastPayload(RobloxSingletonService.IsEnabled, RobloxSingletonService.StatusText));
         }
 
         private static void OnLaunchProgressChanged(LaunchProgress progress)
         {
             if (progress == null) return;
-            Broadcast("launch_progress", new
-            {
-                index = progress.Index,
-                total = progress.Total,
-                username = progress.Account?.Username,
-                userId = progress.Account?.UserID,
-                status = progress.Status.ToString(),
-                result = progress.Result,
-                message = progress.Message,
-                completed = progress.Completed
-            });
+            Broadcast("launch_progress", new LaunchProgressBroadcastPayload(
+                progress.Index,
+                progress.Total,
+                progress.Account?.Username,
+                progress.Account?.UserID,
+                progress.Status.ToString(),
+                progress.Result,
+                progress.Message,
+                progress.Completed));
         }
 
         public async Task StopAsync()
@@ -411,8 +396,8 @@ namespace Shiro.Services
                 _cts.Cancel();
                 if (_app != null)
                 {
-                    await _app.StopAsync();
-                    await _app.DisposeAsync();
+                    await _app.StopAsync().ConfigureAwait(false);
+                    await _app.DisposeAsync().ConfigureAwait(false);
                 }
             }
             catch (Exception ex)
@@ -428,7 +413,7 @@ namespace Shiro.Services
 
         public async ValueTask DisposeAsync()
         {
-            await StopAsync();
+            await StopAsync().ConfigureAwait(false);
             _cts.Dispose();
         }
     }

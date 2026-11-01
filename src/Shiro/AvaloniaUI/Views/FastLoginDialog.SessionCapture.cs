@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -20,9 +20,6 @@ namespace Shiro.AvaloniaUI.Views
 
         private async Task MarkCurrentAccountIssueAndSkipAsync(string issueBadge, string statusReason)
         {
-            _captured = true;
-            _pollTimer?.Stop();
-
             var currentAcc = GetCurrentQueueAccount();
             string accName = currentAcc?.Username ?? _username ?? "Tài khoản";
 
@@ -30,17 +27,24 @@ namespace Shiro.AvaloniaUI.Views
             {
                 currentAcc.Valid = false;
                 currentAcc.AccountStatusIssue = issueBadge;
-                _ = AccountManager.SaveAccountsAsync(true);
+                AccountManager.SaveAccountsAsync(true).Forget();
                 MainWindow.Instance?.ViewModel?.UpdateAccountValidity(currentAcc, false);
             }
 
             string progressTag = _accountQueue.Count > 1 ? $" ({_currentQueueIndex + 1}/{_accountQueue.Count})" : "";
-            TxtInAppStatus.Text = $"⛔ {accName}{progressTag}: {statusReason} — Đang bỏ qua...";
+            TxtInAppStatus.Text = $"{accName}{progressTag}: {statusReason}";
             TxtInAppStatus.Foreground = Brushes.OrangeRed;
-            AccountManager.Instance?.SetDashboardStatus($"⛔ Đã đánh dấu {accName}{progressTag}: {issueBadge} ({statusReason})");
+            AccountManager.Instance?.SetDashboardStatus($"{accName}{progressTag}: {issueBadge} ({statusReason})");
 
-            await Task.Delay(350);
-            await AdvanceToNextAccountOrCloseAsync();
+            // For automated batch login queues, advance to the next account
+            if (_accountQueue.Count > 1)
+            {
+                _captured = true;
+                _pollTimer?.Stop();
+                await Task.Delay(500);
+                await AdvanceToNextAccountOrCloseAsync();
+            }
+            // For a single account: KEEP THE WINDOW OPEN so user can see Roblox's message, solve 2FA/Captcha, or review notice!
         }
 
         private async Task AdvanceToNextAccountOrCloseAsync()
@@ -60,7 +64,7 @@ namespace Shiro.AvaloniaUI.Views
                 LoadAccountAtIndex(_currentQueueIndex + 1);
                 _captured = true;
 
-                TxtInAppStatus.Text = $"➡️ Chuyển sang {_username} ({_currentQueueIndex + 1}/{_accountQueue.Count})...";
+                TxtInAppStatus.Text = $"Chuyển sang {_username} ({_currentQueueIndex + 1}/{_accountQueue.Count})...";
                 TxtInAppStatus.Foreground = Brushes.DeepSkyBlue;
 
                 // Create a 100% isolated virgin WebView2 profile for the next account so no IndexedDB HBA keys,
@@ -68,6 +72,7 @@ namespace Shiro.AvaloniaUI.Views
                 CoreWebView2? freshCore = null;
                 if (WvBrowser != null)
                 {
+                    ResetHbaSnapshot();
                     freshCore = await WvBrowser.ResetToFreshProfileAsync();
                     if (freshCore != null)
                     {
@@ -100,9 +105,9 @@ namespace Shiro.AvaloniaUI.Views
             try
             {
                 string currentUrl = core.Source ?? string.Empty;
-                if (_accountQueue.Count > 0 && IsModerationOrLockedUrl(currentUrl))
+                if (_accountQueue.Count > 1 && IsModerationOrLockedUrl(currentUrl))
                 {
-                    await MarkCurrentAccountIssueAndSkipAsync("⛔ Bị khóa / Ban", "Tài khoản bị khóa hoặc kiểm duyệt");
+                    await MarkCurrentAccountIssueAndSkipAsync("Bị khóa / Ban", "Tài khoản bị khóa hoặc kiểm duyệt");
                     return;
                 }
 
@@ -130,7 +135,7 @@ namespace Shiro.AvaloniaUI.Views
                     _ignoredCookieValues.Add(Fingerprint(secCookie.Value));
                     Program.Logger.Info($"[FastLogin] .ROBLOSECURITY detected for '{_username}' (len={secCookie.Value.Length}, url={core.Source}). Waiting for settle...");
 
-                    TxtInAppStatus.Text = $"🎉 Đã bắt phiên {_username ?? "tài khoản"}! Đang chờ xoay Cookie & lưu...";
+                    TxtInAppStatus.Text = $"Đã bắt phiên {_username ?? "tài khoản"}! Đang chờ xoay Cookie & lưu...";
                     TxtInAppStatus.Foreground = Brushes.LightGreen;
 
                     // 1. Wait for WebView2 to redirect away from /login (e.g. to /home or /discover)
@@ -139,7 +144,7 @@ namespace Shiro.AvaloniaUI.Views
                         string navUrl = core.Source ?? string.Empty;
                         if (_accountQueue.Count > 0 && IsModerationOrLockedUrl(navUrl))
                         {
-                            await MarkCurrentAccountIssueAndSkipAsync("⛔ Bị khóa / Ban", "Tài khoản bị khóa hoặc kiểm duyệt");
+                            await MarkCurrentAccountIssueAndSkipAsync("Bị khóa / Ban", "Tài khoản bị khóa hoặc kiểm duyệt");
                             return;
                         }
                         if (!string.IsNullOrEmpty(navUrl) && !navUrl.Contains("/login", StringComparison.OrdinalIgnoreCase))
@@ -155,7 +160,7 @@ namespace Shiro.AvaloniaUI.Views
                     string postRedirectUrl = core.Source ?? string.Empty;
                     if (_accountQueue.Count > 0 && IsModerationOrLockedUrl(postRedirectUrl))
                     {
-                        await MarkCurrentAccountIssueAndSkipAsync("⛔ Bị khóa / Ban", "Tài khoản bị khóa hoặc kiểm duyệt");
+                        await MarkCurrentAccountIssueAndSkipAsync("Bị khóa / Ban", "Tài khoản bị khóa hoặc kiểm duyệt");
                         return;
                     }
 
@@ -222,7 +227,7 @@ namespace Shiro.AvaloniaUI.Views
                             if (!string.IsNullOrWhiteSpace(passJson) && passJson != "null" && passJson != "\"\"")
                             {
                                 string? unescaped = null;
-                                try { unescaped = JsonSerializer.Deserialize<string>(passJson); } catch (Exception) { }
+                                try { unescaped = JsonSerializer.Deserialize(passJson, ShiroAppJson.Default.String); } catch (Exception) { }
                                 if (string.IsNullOrEmpty(unescaped)) unescaped = passJson.Trim('"');
                                 if (!string.IsNullOrEmpty(unescaped))
                                 {
@@ -241,7 +246,9 @@ namespace Shiro.AvaloniaUI.Views
                         }
                     }
 
-                    // 6. Stop WebView2 before registering in C#
+                    // 6. Capture HBA cryptographic device-binding keys & tracker fingerprint before stopping WebView2
+                    var hbaSnapshot = await CollectFinalHbaAndFingerprintAsync(core);
+
                     try
                     {
                         core.Stop();
@@ -251,8 +258,8 @@ namespace Shiro.AvaloniaUI.Views
                         Program.Logger?.Debug($"core.Stop() threw: {ex.Message}");
                     }
 
-                    Account? acc = await AccountManager.AddAccountAsync(cookieValue, _password ?? "");
-                    Program.Logger?.Info($"[FastLogin] Captured session for '{_username}': payloadLen={Account.GetSessionTokenPayloadLength(cookieValue)}, registeredValid={acc?.Valid}, resolvedUser={acc?.Username}.");
+                    Account? acc = await AccountManager.AddAccountAsync(cookieValue, _password ?? "", hbaCapture: hbaSnapshot);
+                    Program.Logger?.Info($"[FastLogin] Captured session for '{_username}': payloadLen={Account.GetSessionTokenPayloadLength(cookieValue)}, hba={hbaSnapshot.HasPrivateKey}, registeredValid={acc?.Valid}, resolvedUser={acc?.Username}.");
 
                     if (acc != null && acc.Valid)
                     {
@@ -266,6 +273,7 @@ namespace Shiro.AvaloniaUI.Views
                             // Stale session from previous account; reset to a fresh isolated WebView2 profile and re-login target account
                             core.NavigationCompleted -= OnNavigationCompleted;
                             core.SourceChanged -= OnSourceChanged;
+                            ResetHbaSnapshot();
                             var freshCore = WvBrowser != null ? await WvBrowser.ResetToFreshProfileAsync() : null;
                             if (freshCore != null)
                             {
@@ -296,7 +304,7 @@ namespace Shiro.AvaloniaUI.Views
 
                         string progressTag = _accountQueue.Count > 1 ? $" ({_currentQueueIndex + 1}/{_accountQueue.Count})" : "";
                         if (!Account.IsShortLivedCookie(acc.SecurityToken))
-                            AccountManager.Instance?.SetDashboardStatus($"✅ Đăng nhập In-App thành công{progressTag}: {acc.Username}!");
+                            AccountManager.Instance?.SetDashboardStatus($"Đăng nhập In-App thành công{progressTag}: {acc.Username}!");
 
                         await AdvanceToNextAccountOrCloseAsync();
                     }
@@ -304,7 +312,7 @@ namespace Shiro.AvaloniaUI.Views
                     {
                         if (_accountQueue.Count > 0)
                         {
-                            await MarkCurrentAccountIssueAndSkipAsync("⛔ Bị khóa / Ban", "Phiên bị khóa hoặc kiểm duyệt");
+                            await MarkCurrentAccountIssueAndSkipAsync("Bị khóa / Ban", "Phiên bị khóa hoặc kiểm duyệt");
                             return;
                         }
 

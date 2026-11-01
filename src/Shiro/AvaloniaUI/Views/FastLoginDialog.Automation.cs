@@ -1,9 +1,10 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.Web.WebView2.Core;
 using Shiro.Classes;
+using Shiro.Services;
 
 namespace Shiro.AvaloniaUI.Views
 {
@@ -85,16 +86,16 @@ namespace Shiro.AvaloniaUI.Views
                 string code = rawJson.Trim().Trim('"');
                 return code switch
                 {
-                    "BAN_7_DAYS" => ("⛔ Ban 7 ngày", "Tài khoản bị cấm 7 ngày"),
-                    "BAN_3_DAYS" => ("⛔ Ban 3 ngày", "Tài khoản bị cấm 3 ngày"),
-                    "BAN_1_DAY" => ("⛔ Ban 1 ngày", "Tài khoản bị cấm 1 ngày"),
-                    "BAN_14_DAYS" => ("⛔ Ban 14 ngày", "Tài khoản bị cấm 14 ngày"),
-                    "TERMINATED" => ("⛔ Ban vĩnh viễn", "Tài khoản đã bị xóa vĩnh viễn"),
-                    "WARNING" => ("⚠️ Cảnh báo", "Tài khoản nhận cảnh báo kiểm duyệt"),
-                    "ACCOUNT_LOCKED" => ("⛔ Khóa bảo mật", "Tài khoản bị khóa bảo mật"),
-                    "ACCOUNT_BANNED" => ("⛔ Bị khóa / Ban", "Tài khoản bị Ban / Đình chỉ"),
-                    "LOCKED_OR_BANNED" => ("⛔ Bị khóa / Ban", "Tài khoản bị khóa hoặc kiểm duyệt"),
-                    "WRONG_PASSWORD" => ("⛔ Sai mật khẩu", "Sai tài khoản hoặc mật khẩu"),
+                    "BAN_7_DAYS" => ("Ban 7 ngày", "Tài khoản bị cấm 7 ngày"),
+                    "BAN_3_DAYS" => ("Ban 3 ngày", "Tài khoản bị cấm 3 ngày"),
+                    "BAN_1_DAY" => ("Ban 1 ngày", "Tài khoản bị cấm 1 ngày"),
+                    "BAN_14_DAYS" => ("Ban 14 ngày", "Tài khoản bị cấm 14 ngày"),
+                    "TERMINATED" => ("Ban vĩnh viễn", "Tài khoản đã bị xóa vĩnh viễn"),
+                    "WARNING" => ("Cảnh báo", "Tài khoản nhận cảnh báo kiểm duyệt"),
+                    "ACCOUNT_LOCKED" => ("Khóa bảo mật", "Tài khoản bị khóa bảo mật"),
+                    "ACCOUNT_BANNED" => ("Bị khóa / Ban", "Tài khoản bị Ban / Đình chỉ"),
+                    "LOCKED_OR_BANNED" => ("Bị khóa / Ban", "Tài khoản bị khóa hoặc kiểm duyệt"),
+                    "WRONG_PASSWORD" => ("Sai mật khẩu", "Sai tài khoản hoặc mật khẩu"),
                     _ => (null, null)
                 };
             }
@@ -109,6 +110,7 @@ namespace Shiro.AvaloniaUI.Views
             if (core == null) return;
 
             await ClearAuthCookiesAsync();
+            await InstallHbaCaptureHookAsync(core);
 
             // Inject dark background & GDPR banner suppression only.
             // IMPORTANT: Do NOT strip secureAuthenticationIntent or block IndexedDB('roblox-security')!
@@ -174,6 +176,9 @@ namespace Shiro.AvaloniaUI.Views
                 if (!string.IsNullOrEmpty(raw))
                 {
                     using var doc = JsonDocument.Parse(raw);
+                    if (TryHandleHbaWebMessage(doc.RootElement))
+                        return;
+
                     if (doc.RootElement.TryGetProperty("type", out var typeEl) &&
                         typeEl.GetString() == "shiro_password_captured" &&
                         doc.RootElement.TryGetProperty("password", out var passEl))
@@ -309,8 +314,8 @@ namespace Shiro.AvaloniaUI.Views
 
             try
             {
-                string userJson = JsonSerializer.Serialize(_username);
-                string passJson = JsonSerializer.Serialize(_password ?? "");
+                string userJson = JsonSerializer.Serialize(_username, ShiroAppJson.Default.String);
+                string passJson = JsonSerializer.Serialize(_password ?? "", ShiroAppJson.Default.String);
                 string hasPassJs = !string.IsNullOrEmpty(_password) ? "true" : "false";
                 string forceClickJs = forceClick ? "true" : "false";
 
