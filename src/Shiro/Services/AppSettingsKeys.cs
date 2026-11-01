@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 
 namespace Shiro.Services
@@ -38,6 +38,8 @@ namespace Shiro.Services
             public const string UnlockFPS = "UnlockFPS";
             public const string MaxFPSValue = "MaxFPSValue";
             public const string EnablePotatoMode = "EnablePotatoMode";
+            public const string EnableBackgroundThrottling = "EnableBackgroundThrottling";
+            public const string BackgroundTargetFps = "BackgroundTargetFps";
             public const string SavedPlaceId = "SavedPlaceId";
             public const string SavedFollowUser = "SavedFollowUser";
             public const string AccentTheme = "AccentTheme";
@@ -49,12 +51,25 @@ namespace Shiro.Services
             public const string ScaleFonts = "ScaleFonts";
             public const string AutoCleanZombiesOnLaunch = "AutoCleanZombiesOnLaunch";
             public const string PreferDirectLaunch = "PreferDirectLaunch";
+            public const string EnableTokenDeElevation = "EnableTokenDeElevation";
+            public const string StreamerModeEnabled = "StreamerModeEnabled";
+            public const string StreamerModeAutoDetect = "StreamerModeAutoDetect";
+            public const string StreamerModeHideRobux = "StreamerModeHideRobux";
+            public const string StreamerModeHideUsernames = "StreamerModeHideUsernames";
+            public const string BloxGenApiKey = "BloxGenApiKey";
+            public const string BloxGenContinent = "BloxGenContinent";
+            public const string BloxGenGenType = "BloxGenGenType";
+            public const string DiscordRpcEnabled = "DiscordRpcEnabled";
+            public const string DiscordRpcClientId = "DiscordRpcClientId";
+            public const string DiscordRpcShowGame = "DiscordRpcShowGame";
+            public const string DiscordRpcJoinCurrentServer = "DiscordRpcJoinCurrentServer";
             public const string FastFlagProfile = "FastFlagProfile";
             public const string AutoMuteBackgroundClients = "AutoMuteBackgroundClients";
             public const string SmartFastLaunch = "SmartFastLaunch";
             public const string SmartLaunchMinDelaySeconds = "SmartLaunchMinDelaySeconds";
             public const string AggressiveRamTrimming = "AggressiveRamTrimming";
             public const string DynamicHardwareThrottling = "DynamicHardwareThrottling";
+            public const string MaxTotalRobloxCpuPercent = "MaxTotalRobloxCpuPercent";
             public const string Language = "Language";
             public const string SettingsPreset = "SettingsPreset";
             public const string HasAcceptedRiskDisclaimer = "HasAcceptedRiskDisclaimer";
