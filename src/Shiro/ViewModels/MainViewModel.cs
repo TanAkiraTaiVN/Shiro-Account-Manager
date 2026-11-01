@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -26,6 +26,9 @@ namespace Shiro.ViewModels
         private readonly BulkObservableCollection<AccountViewModel> _filteredAccounts = new BulkObservableCollection<AccountViewModel>();
         private readonly BulkObservableCollection<AccountRowViewModel> _filteredAccountRows = new BulkObservableCollection<AccountRowViewModel>();
         private readonly ObservableCollection<string> _availableGroups = new ObservableCollection<string>();
+        private readonly Dictionary<Account, AccountViewModel> _vmByModel = new(ReferenceEqualityComparer.Instance);
+        private readonly Dictionary<long, AccountViewModel> _vmByUserId = new();
+        private readonly Dictionary<string, AccountViewModel> _vmByUsername = new(StringComparer.OrdinalIgnoreCase);
 
         private NavigationPage _currentPage = NavigationPage.Accounts;
         private string _statusMessage = string.Empty;
@@ -87,6 +90,7 @@ namespace Shiro.ViewModels
             LocalizationService.LanguageChanged += lang =>
             {
                 OnPropertyChanged(nameof(CloseRobloxButtonText));
+                OnPropertyChanged(nameof(CurrentSortLabel));
                 NotifyLocalizedLabelsChanged();
                 if (string.IsNullOrWhiteSpace(_statusMessage) || _statusMessage.Contains("Double-click"))
                 {
@@ -102,8 +106,15 @@ namespace Shiro.ViewModels
             ServerListViewModel = new ServerListViewModel(this);
             InitializeCommands();
             RefreshStateFromSettings();
+            ScheduleCurrentGameLookup(_placeId);
+            RobloxAudioService.StatusChanged += OnAudioStatusChanged;
             AccentThemeService.ThemeChanged += OnAccentThemeChanged;
             LaunchCoordinator.LaunchProgressChanged += OnLaunchProgressChanged;
+        }
+
+        private void OnAudioStatusChanged()
+        {
+            AppDispatcher.Post(NotifyToolStatesChanged);
         }
 
         private void OnLaunchProgressChanged(LaunchProgress progress)
@@ -113,6 +124,7 @@ namespace Shiro.ViewModels
             {
                 try
                 {
+                    UpdateBatchLaunchBanner(progress);
                     if (!string.IsNullOrWhiteSpace(progress.Message))
                     {
                         StatusMessage = progress.Message;
@@ -120,11 +132,7 @@ namespace Shiro.ViewModels
 
                     if (progress.Account != null)
                     {
-                        var vm = _accounts.FirstOrDefault(a =>
-                            ReferenceEquals(a.Model, progress.Account) ||
-                            (a.UserId > 0 && a.UserId == progress.Account.UserID) ||
-                            (!string.IsNullOrEmpty(a.Username) && a.Username.Equals(progress.Account.Username, StringComparison.OrdinalIgnoreCase)));
-
+                        var vm = TryGetAccountViewModel(progress.Account);
                         if (vm != null)
                         {
                             bool isActivelyLaunching = !progress.Completed &&
@@ -175,8 +183,8 @@ namespace Shiro.ViewModels
                     AccountManager.ShuffleJobID = value;
                     OnPropertyChanged();
                     StatusMessage = value
-                        ? "🎲 Shuffle Job ID đã BẬT: Tham gia server ngẫu nhiên khi vào game."
-                        : "🎲 Shuffle Job ID đã TẮT.";
+                        ? "Shuffle Job ID đã BẬT: Tham gia server ngẫu nhiên khi vào game."
+                        : "Shuffle Job ID đã TẮT.";
                 }
             }
         }
@@ -201,6 +209,7 @@ namespace Shiro.ViewModels
                         AccountManager.QueueDeferredSaveSettings();
                     }
                     ServerListViewModel?.SyncPlaceId(value);
+                    ScheduleCurrentGameLookup(value);
                 }
             }
         }
@@ -248,9 +257,39 @@ namespace Shiro.ViewModels
 
         public bool IsCardView => !IsCompactView;
 
+        public AccountViewModel? TryGetAccountViewModel(Account? account)
+        {
+            if (account == null) return null;
+            if (_vmByModel.TryGetValue(account, out var byModel))
+                return byModel;
+            if (account.UserID > 0 && _vmByUserId.TryGetValue(account.UserID, out var byId))
+                return byId;
+            if (!string.IsNullOrEmpty(account.Username) && _vmByUsername.TryGetValue(account.Username, out var byName))
+                return byName;
+            return null;
+        }
+
+        private void RebuildLookupIndex()
+        {
+            _vmByModel.Clear();
+            _vmByUserId.Clear();
+            _vmByUsername.Clear();
+
+            for (int i = 0; i < _accounts.Count; i++)
+            {
+                var vm = _accounts[i];
+                if (vm.Model != null)
+                    _vmByModel.TryAdd(vm.Model, vm);
+                if (vm.UserId > 0)
+                    _vmByUserId.TryAdd(vm.UserId, vm);
+                if (!string.IsNullOrEmpty(vm.Username))
+                    _vmByUsername.TryAdd(vm.Username, vm);
+            }
+        }
+
         public void LoadAccounts(IEnumerable<Account> sourceAccounts)
         {
-            if (Dispatcher.UIThread != null && !Dispatcher.UIThread.CheckAccess())
+            if (Avalonia.Application.Current != null && Dispatcher.UIThread != null && !Dispatcher.UIThread.CheckAccess())
             {
                 AppDispatcher.Post(() => LoadAccounts(sourceAccounts));
                 return;
@@ -259,6 +298,7 @@ namespace Shiro.ViewModels
             if (sourceAccounts == null)
             {
                 _accounts.Clear();
+                RebuildLookupIndex();
                 RebuildGroupList();
                 ApplyFilter();
                 RefreshLiveProcessStatus();
@@ -318,36 +358,40 @@ namespace Shiro.ViewModels
             }
 
             _accounts.ReplaceAll(list);
+            RebuildLookupIndex();
 
-            // Warm up avatar cache for any accounts that don't have local disk cache
-            var missingIds = list.Where(a => a.UserId > 0 && !Services.AvatarService.HasDiskCache(a.UserId)).Select(a => a.UserId).ToList();
-            if (missingIds.Count > 0)
+            // Warm up avatar cache for any accounts that don't have local disk cache (only when UI app is active)
+            if (Avalonia.Application.Current != null)
             {
-                _ = Task.Run(async () =>
+                var missingIds = list.Where(a => a.UserId > 0 && !Services.AvatarService.HasDiskCache(a.UserId)).Select(a => a.UserId).ToList();
+                if (missingIds.Count > 0)
                 {
-                    try
+                    _ = Task.Run(async () =>
                     {
-                        var updatedIds = await Services.AvatarService.BatchEnsureAvatarsAsync(missingIds).ConfigureAwait(false);
-                        if (updatedIds != null && updatedIds.Count > 0)
+                        try
                         {
-                            var updatedSet = new HashSet<long>(updatedIds);
-                            AppDispatcher.Post(() =>
+                            var updatedIds = await Services.AvatarService.BatchEnsureAvatarsAsync(missingIds).ConfigureAwait(false);
+                            if (updatedIds != null && updatedIds.Count > 0)
                             {
-                                foreach (var acc in _accounts)
+                                var updatedSet = new HashSet<long>(updatedIds);
+                                AppDispatcher.Post(() =>
                                 {
-                                    if (updatedSet.Contains(acc.UserId))
+                                    foreach (var acc in _accounts)
                                     {
-                                        acc.InvalidateAvatar();
+                                        if (updatedSet.Contains(acc.UserId))
+                                        {
+                                            acc.InvalidateAvatar();
+                                        }
                                     }
-                                }
-                            });
+                                });
+                            }
                         }
-                    }
-                    catch (Exception ex)
-                    {
-                        Program.Logger?.Debug($"[LoadAccounts] Avatar warmup error: {ex.Message}");
-                    }
-                });
+                        catch (Exception ex)
+                        {
+                            Program.Logger?.Debug($"[LoadAccounts] Avatar warmup error: {ex.Message}");
+                        }
+                    });
+                }
             }
 
             RebuildGroupList(applyFilterOnReset: false);

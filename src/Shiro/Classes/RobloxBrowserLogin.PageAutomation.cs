@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -233,6 +233,7 @@ namespace Shiro.Classes
         private static async Task ApplyAntiDetectionAsync(IPage page)
         {
             await ChromeLaunchHelper.ApplyAntiDetectionAsync(page).ConfigureAwait(false);
+            await InstallHbaCaptureOnPageAsync(page).ConfigureAwait(false);
             await ChromeLaunchHelper.DismissCookieBannerAsync(page).ConfigureAwait(false);
         }
 

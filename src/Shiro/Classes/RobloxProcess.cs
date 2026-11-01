@@ -3,9 +3,9 @@ using System;
 using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Net.Http;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -16,33 +16,6 @@ namespace Shiro.Classes
 {
     internal partial class RobloxProcess
     {
-        [GeneratedRegex(@"^[\d+\-]+T[\d+:]+\.\w+Z,[\d.+]+,\w+,\d+[\s+]?\[FLog::Output\] ! Joining game '[\w+\-]{36}' place \d+ at [\d+\.]+")]
-        private static partial Regex JoiningGameRegex();
-
-        [GeneratedRegex(@"^[\d+\-]+T[\d+:]+\.\w+Z,[\d.+]+,\w+,\d+[\s+]?\[FLog::Network\] Sending disconnect with reason: (\d+)")]
-        private static partial Regex DisconnectRegex();
-
-        [GeneratedRegex(@"\[FLog::UGCGameController\] UGCGameController, initialized DataModel\((\w+)\)")]
-        private static partial Regex DataModelInitRegex();
-
-        [GeneratedRegex(@"\[FLog::SurfaceController\] SurfaceController\[_:1\]::start dataModel\((\w+)\)")]
-        private static partial Regex DataModelInit2Regex();
-
-        [GeneratedRegex(@"\[FLog::UGCGameController\] UGCGameController::leave \(blocking:\d+\) dataModel\((\w+)\)")]
-        private static partial Regex DataModelStopRegex();
-
-        [GeneratedRegex(@"\[FLog::SurfaceController\] SurfaceController\[_:1\]::pause dataModel\((\w+)\), view\(\w+\), destroyView:\d+\.")]
-        private static partial Regex DataModelPauseRegex();
-
-        [GeneratedRegex(@"\[FLog::SurfaceController\] SurfaceController\[_:1\]::stop")]
-        private static partial Regex DataModelStop2Regex();
-
-        [GeneratedRegex(@"\[FLog::SingleSurfaceApp\] returnToLuaApp: \.\.\. App not yet initialized, returning from game\.")]
-        private static partial Regex ReturnToApp1Regex();
-
-        [GeneratedRegex(@"\[FLog::SingleSurfaceApp\] returnToLuaApp: \.\.\. App has been initialized, returning from game\.")]
-        private static partial Regex ReturnToApp2Regex();
-
         private Process RbxProcess;
         private int LogFileRetries = 0;
         public FileInfo? LogFile;
@@ -50,8 +23,10 @@ namespace Shiro.Classes
         private long LastPosition = 0;
         private long CurrentDataModel;
         private bool IsDMPaused;
+        private bool HasGameJoinChallenge;
+        private bool HasSecurityCookieChanged;
         private bool StreamDisposed;
-        private bool IsConnected;
+        private volatile bool IsConnected;
         private DateTime DisconnectedTime;
         private string? LastLine;
         private int _cleanedUp;
@@ -77,35 +52,82 @@ namespace Shiro.Classes
 
             DisconnectedTime = DateTime.UtcNow.AddSeconds(90);
 
-            _ = MonitorProcessExitLoopAsync(exitMonitoringCancellation.Token);
+            _ = MonitorProcessExitAsync(exitMonitoringCancellation.Token);
+            ScheduleNoConnectionWatchdogIfEnabled(initialGraceSeconds: 90);
         }
 
-        private async Task MonitorProcessExitLoopAsync(CancellationToken token)
+        private async Task MonitorProcessExitAsync(CancellationToken token)
         {
-            using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(500));
             try
             {
-                while (await timer.WaitForNextTickAsync(token).ConfigureAwait(false))
+                if (!RbxProcess.HasExited && !Program.Closed)
                 {
-                    if (AccountManager.Watcher.Get<bool>("ExitIfNoConnection") && AccountManager.Watcher.Get<double>("NoConnectionTimeout") is double Timeout && Timeout > 0 && !IsConnected && (DateTime.UtcNow - DisconnectedTime).TotalSeconds is double Seconds && Seconds > Timeout)
-                        KillProcess($"Lost connection for more than {Seconds} second(s)");
-
-                    bool hasExited = false;
-                    try { hasExited = RbxProcess.HasExited; }
-                    catch (Exception) { hasExited = true; }
-
-                    if (!hasExited && !Program.Closed)
-                        continue;
-
-                    CleanupProcessExit();
-                    break;
+                    await RbxProcess.WaitForExitAsync(token).ConfigureAwait(false);
                 }
             }
             catch (OperationCanceledException) { }
+            catch (InvalidOperationException) { }
             catch (Exception x)
             {
                 Program.Logger.Error($"WaitForExit Error: {x}");
-                CleanupProcessExit();
+            }
+            finally
+            {
+                if (Program.Closed || SafeHasExited())
+                {
+                    CleanupProcessExit();
+                }
+            }
+        }
+
+        private bool SafeHasExited()
+        {
+            try { return RbxProcess == null || RbxProcess.HasExited; }
+            catch { return true; }
+        }
+
+        private void ScheduleNoConnectionWatchdogIfEnabled(double initialGraceSeconds = 0)
+        {
+            try
+            {
+                if (AccountManager.Watcher == null || !AccountManager.Watcher.Get<bool>("ExitIfNoConnection"))
+                    return;
+
+                double timeout = AccountManager.Watcher.Get<double>("NoConnectionTimeout");
+                if (timeout <= 0)
+                    return;
+
+                var token = exitMonitoringCancellation.Token;
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        double waitSeconds = Math.Max(1.0, initialGraceSeconds + timeout + 0.5);
+                        await Task.Delay(TimeSpan.FromSeconds(waitSeconds), token).ConfigureAwait(false);
+
+                        if (token.IsCancellationRequested || IsConnected || Program.Closed || SafeHasExited())
+                            return;
+
+                        if (!AccountManager.Watcher.Get<bool>("ExitIfNoConnection"))
+                            return;
+
+                        double configuredTimeout = AccountManager.Watcher.Get<double>("NoConnectionTimeout");
+                        double elapsed = (DateTime.UtcNow - DisconnectedTime).TotalSeconds;
+                        if (configuredTimeout > 0 && !IsConnected && elapsed > configuredTimeout)
+                        {
+                            KillProcess($"Lost connection for more than {elapsed:0.0} second(s)");
+                        }
+                    }
+                    catch (OperationCanceledException) { }
+                    catch (Exception ex)
+                    {
+                        Program.Logger?.Debug($"NoConnection watchdog error: {ex.Message}");
+                    }
+                }, token);
+            }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"ScheduleNoConnectionWatchdogIfEnabled failed: {ex.Message}");
             }
         }
 
@@ -205,39 +227,43 @@ namespace Shiro.Classes
                     {
                         string Line = Lines[i];
 
-                        if (JoiningGameRegex().IsMatch(Line))
+                        if (IsJoiningGameLogLine(Line))
                         {
                             IsConnected = true;
+                            HasGameJoinChallenge = false;
                             try { if (RbxProcess != null) Connected?.Invoke(RbxProcess.Id); }
                             catch (Exception ex) { Program.Logger?.Error($"Connected event handler failed: {ex.Message}"); }
 
                             continue;
                         }
 
-                        Match disconnectMatch = DisconnectRegex().Match(Line);
-                        if (disconnectMatch.Success)
+                        if (IsGameJoinChallengedLogLine(Line))
+                        {
+                            HasGameJoinChallenge = true;
+                        }
+
+                        if (IsSecurityCookieChangedLogLine(Line))
+                        {
+                            HasSecurityCookieChanged = true;
+                        }
+
+                        if (TryParseDisconnectReason(Line, out int reason))
                         {
                             IsConnected = false;
                             DisconnectedTime = DateTime.UtcNow;
-                            int reason = disconnectMatch.Groups.Count >= 2 && int.TryParse(disconnectMatch.Groups[1].Value, out int parsedReason)
-                                ? parsedReason
-                                : 0;
+                            ScheduleNoConnectionWatchdogIfEnabled(initialGraceSeconds: 0);
                             try { if (RbxProcess != null) Disconnected?.Invoke(RbxProcess.Id, reason); }
                             catch (Exception ex) { Program.Logger?.Error($"Disconnected event handler failed: {ex.Message}"); }
 
                             continue;
                         }
 
-                        Match DMI = DataModelInitRegex().Match(Line);
-
-                        if (!DMI.Success || DMI.Groups.Count != 2)
-                            DMI = DataModelInit2Regex().Match(Line);
-
-                        if (CurrentDataModel <= 0 && DMI.Success && DMI.Groups.Count == 2 && long.TryParse(DMI.Groups[1].Value, System.Globalization.NumberStyles.HexNumber, null, out CurrentDataModel))
+                        if (CurrentDataModel <= 0 && TryParseDataModelInit(Line, out long parsedDataModel))
                         {
+                            CurrentDataModel = parsedDataModel;
                             IsDMPaused = false;
 
-                            Program.Logger?.Info($"CurrentDataModel set to {CurrentDataModel} ({DMI})");
+                            Program.Logger?.Info($"CurrentDataModel set to {CurrentDataModel:X}");
 
                             // Automatically trim launch working set 15 seconds after map assets finish loading if enabled
                             if (AccountManager.General?.Get<bool>(AppSettingsKeys.General.AggressiveRamTrimming, false) ?? false)
@@ -248,35 +274,47 @@ namespace Shiro.Classes
                             continue;
                         }
 
-                        long MatchedDataModel = -2;
-
-                        Match PDM = DataModelPauseRegex().Match(Line);
-
-                        if (PDM.Success && PDM.Groups.Count == 2 && long.TryParse(PDM.Groups[1].Value, System.Globalization.NumberStyles.HexNumber, null, out MatchedDataModel) && MatchedDataModel == CurrentDataModel)
+                        Match legacyPause = LegacyDataModelPauseRegex().Match(Line);
+                        if ((legacyPause.Success &&
+                             legacyPause.Groups.Count == 2 &&
+                             long.TryParse(legacyPause.Groups[1].Value, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out long pausedDm) &&
+                             pausedDm == CurrentDataModel) ||
+                            (CurrentDataModel > 0 && ModernDataModelPauseRegex().IsMatch(Line)))
                         {
                             IsDMPaused = true;
-
                             continue;
                         }
 
-                        Match RTA1 = ReturnToApp1Regex().Match(Line);
-                        Match RTA2 = ReturnToApp2Regex().Match(Line);
-
-                        if (RTA1.Success || RTA2.Success)
+                        if (IsReturnToLuaAppLine(Line, hasActiveGameDataModel: CurrentDataModel > 0))
                         {
-                            Program.Logger?.Info($"RTA1: {RTA1}");
-                            Program.Logger?.Info($"RTA2: {RTA2}");
-                            Program.Logger?.Info($"Was Paused: {IsDMPaused}");
-                            Program.Logger?.Info($"Current Line: {i}");
+                            // Prevent duplicate LuaApp Home windows logged into the wrong account when a verification
+                            // challenge (challengedByGcs) had its WebView2 session cookie overwritten mid-challenge.
+                            if ((HasGameJoinChallenge || CurrentDataModel > 0) && HasSecurityCookieChanged)
+                            {
+                                CurrentDataModel = -1;
+                                int pid = 0;
+                                try { pid = RbxProcess?.Id ?? 0; } catch { }
+                                if (pid > 0)
+                                    AutoReconnectService.Instance.SuppressReconnectByPid(pid);
+
+                                if (KillProcess("Session cookie hijacked during verification challenge fallback to LuaApp"))
+                                    return;
+                            }
 
                             if (RobloxWatcher.VerifyDataModel && !string.IsNullOrEmpty(LastLine))
                             {
-                                Match DMS = DataModelStopRegex().Match(LastLine);
+                                Match legacyStop = LegacyDataModelStopRegex().Match(LastLine);
+                                bool legacyStoppedCurrent = legacyStop.Success &&
+                                    legacyStop.Groups.Count == 2 &&
+                                    long.TryParse(legacyStop.Groups[1].Value, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out long stoppedDm) &&
+                                    stoppedDm == CurrentDataModel;
+                                bool modernStoppedCurrent = CurrentDataModel > 0 &&
+                                    (ModernDataModelStopRegex().IsMatch(LastLine) || StageLuaAppRegex().IsMatch(Line) || ReturnToLuaAppStageRegex().IsMatch(Line));
 
-                                if (IsDMPaused || (DMS.Success && DMS.Groups.Count == 2 && long.TryParse(DMS.Groups[1].Value, System.Globalization.NumberStyles.HexNumber, null, out MatchedDataModel) && MatchedDataModel == CurrentDataModel))
+                                if (IsDMPaused || legacyStoppedCurrent || modernStoppedCurrent)
                                 {
                                     CurrentDataModel = -1;
-                                    Program.Logger?.Info($"CurrentDataModel set to {CurrentDataModel} ({DMS}) | Position: {LastPosition}");
+                                    Program.Logger?.Info($"CurrentDataModel reset to {CurrentDataModel} | Position: {LastPosition}");
 
                                     if (AccountManager.Watcher.Get<bool>("ExitOnBeta") && KillProcess("Beta home menu detected"))
                                         return;
@@ -284,6 +322,7 @@ namespace Shiro.Classes
                             }
                             else
                             {
+                                CurrentDataModel = -1;
                                 if (AccountManager.Watcher.Get<bool>("ExitOnBeta") && KillProcess("Beta home menu detected"))
                                     return;
                             }
@@ -307,8 +346,8 @@ namespace Shiro.Classes
             Program.Logger.Info($"Attempting to kill process {RbxProcess.Id}, reason: {Reason}");
             StreamDisposed = true;
 
-            exitMonitoringCancellation.Cancel();
-            logLookupCancellation.Cancel();
+            try { exitMonitoringCancellation.Cancel(); } catch { }
+            try { logLookupCancellation.Cancel(); } catch { }
 
             LogStream?.Dispose();
             try
@@ -321,12 +360,13 @@ namespace Shiro.Classes
                 Program.Logger?.Debug($"Kill process failed: {ex.Message}");
             }
 
+            CleanupProcessExit();
             return true;
         }
 
         private async Task WaitForLogPathAsync(CancellationToken cancellationToken)
         {
-            while (LogFileRetries <= 30 && !RbxProcess.HasExited)
+            while (LogFileRetries <= 30 && !SafeHasExited())
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 Program.Logger?.Info($"Attempting to find LogFile for {RbxProcess.Id}, retries: {LogFileRetries}");
@@ -356,6 +396,10 @@ namespace Shiro.Classes
                         var candidateLogs = new List<(FileInfo File, double StartDeltaSeconds, DateTime LastWriteUtc)>(8);
                         foreach (var file in dirInfo.EnumerateFiles("*_Player_*_last.log"))
                         {
+                            // Skip empty CrashHandler companion logs created at the exact same timestamp in 0.745+
+                            if (file.Name.Contains("_CrashHandler_", StringComparison.OrdinalIgnoreCase))
+                                continue;
+
                             if (claimedPaths.Contains(file.FullName))
                                 continue;
 

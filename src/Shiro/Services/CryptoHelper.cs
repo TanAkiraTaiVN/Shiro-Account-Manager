@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.IO;
 using System.Security.Cryptography;
@@ -55,6 +55,46 @@ namespace Shiro.Services
             using FileStream fileStream = File.OpenRead(fileName);
             byte[] hash = System.Security.Cryptography.SHA256.HashData(fileStream);
             return Convert.ToHexString(hash);
+        }
+
+        /// <summary>
+        /// Encrypts a sensitive string bound to the current Windows user profile using DPAPI.
+        /// Prepends a "dpapi:" prefix to differentiate protected secrets from legacy plaintext.
+        /// </summary>
+        public static string ProtectSecretString(string plainText)
+        {
+            if (string.IsNullOrEmpty(plainText)) return string.Empty;
+            if (plainText.StartsWith("dpapi:", StringComparison.Ordinal)) return plainText;
+            try
+            {
+                byte[] plainBytes = Encoding.UTF8.GetBytes(plainText);
+                byte[] enc = ProtectedData.Protect(plainBytes, null, DataProtectionScope.CurrentUser);
+                return "dpapi:" + Convert.ToBase64String(enc);
+            }
+            catch
+            {
+                return plainText;
+            }
+        }
+
+        /// <summary>
+        /// Decrypts a DPAPI-protected secret string. Falls back to plaintext for backward compatibility.
+        /// </summary>
+        public static string UnprotectSecretString(string cipherText)
+        {
+            if (string.IsNullOrEmpty(cipherText)) return string.Empty;
+            if (!cipherText.StartsWith("dpapi:", StringComparison.Ordinal)) return cipherText;
+            try
+            {
+                string b64 = cipherText.Substring("dpapi:".Length);
+                byte[] enc = Convert.FromBase64String(b64);
+                byte[] plain = ProtectedData.Unprotect(enc, null, DataProtectionScope.CurrentUser);
+                return Encoding.UTF8.GetString(plain);
+            }
+            catch
+            {
+                return cipherText;
+            }
         }
     }
 }

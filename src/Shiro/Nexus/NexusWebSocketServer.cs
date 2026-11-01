@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Buffers;
 using System.Collections.Concurrent;
@@ -51,30 +51,8 @@ namespace Shiro.Nexus
             // Build and start entirely on ThreadPool to avoid capturing UI SynchronizationContext
             await Task.Run(async () =>
             {
-                var builder = WebApplication.CreateEmptyBuilder(new WebApplicationOptions
-                {
-                    ApplicationName = "Shiro.NexusServer",
-                    EnvironmentName = "Production"
-                });
-
-                builder.WebHost.UseKestrel(options =>
-                {
-                    if (_allowExternal)
-                        options.ListenAnyIP(_port);
-                    else
-                        options.ListenLocalhost(_port);
-
-                    options.AddServerHeader = false;
-                });
-
-                builder.Services.AddRouting();
-
-                _app = builder.Build();
-
-                _app.UseWebSockets(new WebSocketOptions
-                {
-                    KeepAliveInterval = TimeSpan.FromSeconds(30)
-                });
+                _app = LocalKestrelWebServer.Build("Shiro.NexusServer", _port, _allowExternal);
+                _app.UseShiroWebSockets();
 
                 _app.Map("/Nexus", async (HttpContext context) =>
                 {
@@ -96,6 +74,28 @@ namespace Shiro.Nexus
                         if (!AccountManager.IsTrustedLocalOrigin(context.Request.Headers["Origin"].ToString()))
                         {
                             context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                            return;
+                        }
+                    }
+
+                    string wsPass = AccountManager.WSPassword;
+                    bool requiresPassword = (AccountManager.WebServer != null && AccountManager.WebServer.Get<bool>("EveryRequestRequiresPassword")) ||
+                                            (!string.IsNullOrEmpty(wsPass) && wsPass.Length >= 6);
+                    if (requiresPassword)
+                    {
+                        if (string.IsNullOrEmpty(wsPass) || wsPass.Length < 6)
+                        {
+                            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                            return;
+                        }
+
+                        string providedAuth = AccountManager.ExtractRequestPassword(
+                            k => context.Request.Headers.TryGetValue(k, out var hVal) ? hVal.ToString() : null,
+                            k => context.Request.Query.TryGetValue(k, out var qVal) ? qVal.ToString() : null);
+
+                        if (string.IsNullOrEmpty(providedAuth) || !AccountManager.FixedTimeEqualsPassword(providedAuth, wsPass))
+                        {
+                            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
                             return;
                         }
                     }
@@ -142,11 +142,21 @@ namespace Shiro.Nexus
                         return;
                     }
 
+                    if (account.LinkedAccount != null && account.LinkedAccount.UserID > 0 &&
+                        long.TryParse(id, out long parsedUserId) && parsedUserId > 0 &&
+                        account.LinkedAccount.UserID != parsedUserId)
+                    {
+                        Program.Logger?.Warn($"[Nexus] Account ID mismatch for '{name}': account UserID is {account.LinkedAccount.UserID}, client supplied {parsedUserId}.");
+                        context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                        return;
+                    }
+
                     using WebSocket webSocket = await context.WebSockets.AcceptWebSocketAsync();
                     _activeSockets.TryAdd(webSocket, 0);
                     account.InGameJobId = jobId;
                     account.Connect(webSocket);
 
+                    const int MaxPayloadBytes = 2 * 1024 * 1024;
                     byte[] buffer = ArrayPool<byte>.Shared.Rent(8192);
                     try
                     {
@@ -155,15 +165,33 @@ namespace Shiro.Nexus
                         {
                             ms.SetLength(0);
                             ValueWebSocketReceiveResult result;
+                            bool payloadExceeded = false;
                             do
                             {
                                 result = await webSocket.ReceiveAsync(new Memory<byte>(buffer), _cts.Token);
                                 if (result.MessageType == WebSocketMessageType.Close)
                                     break;
 
+                                if (ms.Length + result.Count > MaxPayloadBytes)
+                                {
+                                    payloadExceeded = true;
+                                    break;
+                                }
+
                                 ms.Write(buffer, 0, result.Count);
                             }
                             while (!result.EndOfMessage);
+
+                            if (payloadExceeded)
+                            {
+                                Program.Logger?.Warn($"[Nexus] Oversized WebSocket payload exceeded {MaxPayloadBytes} bytes from {account.Username}. Terminating socket.");
+                                try
+                                {
+                                    await webSocket.CloseAsync(WebSocketCloseStatus.MessageTooBig, "Payload exceeded limit", CancellationToken.None).ConfigureAwait(false);
+                                }
+                                catch (Exception) { }
+                                break;
+                            }
 
                             if (result.MessageType == WebSocketMessageType.Close)
                             {
@@ -180,12 +208,6 @@ namespace Shiro.Nexus
 
                             if (result.MessageType == WebSocketMessageType.Text && ms.Length > 0)
                             {
-                                if (ms.Length > 2 * 1024 * 1024)
-                                {
-                                    Program.Logger?.Warn($"[Nexus] Oversized WebSocket payload ({ms.Length} bytes) dropped from {account.Username}.");
-                                    continue;
-                                }
-
                                 string message = Encoding.UTF8.GetString(ms.GetBuffer(), 0, (int)ms.Length);
                                 account.HandleMessage(message);
                             }

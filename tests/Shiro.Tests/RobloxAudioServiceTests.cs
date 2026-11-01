@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Shiro.Services;
@@ -61,6 +61,15 @@ namespace Shiro.Tests
             Assert.True(bytesSaved >= 0);
             Assert.True(clientCount >= 0);
             Assert.True(prioCount >= 0);
+        }
+
+        [Fact]
+        public void ForegroundWindowService_CoalescedEvaluation_ExecutesCleanly()
+        {
+            var pids = new System.Collections.Generic.List<int> { 12345 };
+            RobloxAudioService.EvaluateWithPids(12345, pids);
+            MemoryOptimizer.EvaluateWithPids(12345, pids);
+            Assert.True(OperatingSystem.IsWindows());
         }
     }
 }

@@ -1,4 +1,4 @@
-﻿<Window xmlns="https://github.com/avaloniaui"
+<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:lucide="clr-namespace:LucideAvalonia;assembly=LucideAvalonia"
         xmlns:controls="clr-namespace:Shiro.AvaloniaUI.Controls"
@@ -97,12 +97,22 @@
 
                         <!-- Controls -->
                         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
-                            <Button x:Name="BtnRefill" Content="Điền &amp; Login" Click="OnRefillClicked"
+                            <Button x:Name="BtnRefill" Click="OnRefillClicked"
                                     Background="#1E1E2A" Foreground="#38BDF8" FontSize="11" FontWeight="SemiBold"
-                                    CornerRadius="5" Padding="8,3" Cursor="Hand" IsVisible="False" />
-                            <Button x:Name="BtnSkipNext" Content="Bỏ qua →" Click="OnSkipNextClicked"
+                                    CornerRadius="5" Padding="8,3" Cursor="Hand" IsVisible="False">
+                                <StackPanel Orientation="Horizontal" Spacing="5">
+                                    <lucide:Lucide Icon="Key" Width="11" Height="11" StrokeBrush="#38BDF8" VerticalAlignment="Center" />
+                                    <TextBlock Text="Điền &amp; Login" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                            <Button x:Name="BtnSkipNext" Click="OnSkipNextClicked"
                                     Background="#1E1E2A" Foreground="#F59E0B" FontSize="11" FontWeight="SemiBold"
-                                    CornerRadius="5" Padding="8,3" Cursor="Hand" IsVisible="False" />
+                                    CornerRadius="5" Padding="8,3" Cursor="Hand" IsVisible="False">
+                                <StackPanel Orientation="Horizontal" Spacing="5">
+                                    <TextBlock Text="Bỏ qua" VerticalAlignment="Center" />
+                                    <lucide:Lucide Icon="ArrowRight" Width="11" Height="11" StrokeBrush="#F59E0B" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
                             <Button x:Name="BtnReload" Click="OnReloadClicked"
                                     Background="#1E1E2A" Foreground="#FFFFFF"
                                     CornerRadius="5" Padding="6,3" Cursor="Hand" ToolTip.Tip="Tải lại trang">
@@ -168,23 +178,42 @@
         <!-- Footer Row -->
         <Grid Grid.Row="2" ColumnDefinitions="*,Auto" Margin="0,10,0,0">
             <!-- Left Info -->
-            <TextBlock x:Name="TxtTip" Text="💡 Cửa sổ sẽ tự đóng khi đăng nhập xong."
-                       FontSize="11" Foreground="#71717A" VerticalAlignment="Center"
-                       TextTrimming="CharacterEllipsis" Margin="0,0,8,0" IsVisible="True" />
+            <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" Margin="0,0,8,0">
+                <lucide:Lucide Icon="Info" Width="13" Height="13" StrokeBrush="#38BDF8" VerticalAlignment="Center"
+                               IsVisible="{Binding #TxtTip.IsVisible}" />
+                <TextBlock x:Name="TxtTip" Text="Cửa sổ sẽ tự đóng khi đăng nhập xong."
+                           FontSize="11" Foreground="#71717A" VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis" IsVisible="True" />
+            </StackPanel>
 
             <!-- Actions -->
             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
-                <Button x:Name="BtnVerify" Content="Verify" Click="OnVerifyClicked"
+                <Button x:Name="BtnVerify" Click="OnVerifyClicked"
                         Background="#1E1E2A" Foreground="#FFFFFF" FontWeight="SemiBold"
-                        CornerRadius="6" Padding="12,6" FontSize="11" Cursor="Hand" IsVisible="False" />
+                        CornerRadius="6" Padding="12,6" FontSize="11" Cursor="Hand" IsVisible="False">
+                    <StackPanel Orientation="Horizontal" Spacing="5">
+                        <lucide:Lucide Icon="ShieldCheck" Width="12" Height="12" StrokeBrush="#38BDF8" VerticalAlignment="Center" />
+                        <TextBlock Text="Verify" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
 
-                <Button x:Name="BtnAddCookie" Content="Thêm Tài Khoản" Click="OnAddClicked"
+                <Button x:Name="BtnAddCookie" Click="OnAddClicked"
                         Background="#FFFFFF" Foreground="#09090B" FontWeight="Bold"
-                        CornerRadius="6" Padding="14,6" FontSize="11" Cursor="Hand" IsVisible="False" />
+                        CornerRadius="6" Padding="14,6" FontSize="11" Cursor="Hand" IsVisible="False">
+                    <StackPanel Orientation="Horizontal" Spacing="5">
+                        <lucide:Lucide Icon="Plus" Width="12" Height="12" StrokeBrush="#09090B" StrokeThickness="2.5" VerticalAlignment="Center" />
+                        <TextBlock Text="Thêm Tài Khoản" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
 
-                <Button x:Name="BtnCancel" Content="Đóng" Click="OnCancelClicked"
+                <Button x:Name="BtnCancel" Click="OnCancelClicked"
                         Background="#1E1E2A" Foreground="#A1A1AA"
-                        CornerRadius="6" Padding="14,6" FontSize="11" Cursor="Hand" />
+                        CornerRadius="6" Padding="14,6" FontSize="11" Cursor="Hand">
+                    <StackPanel Orientation="Horizontal" Spacing="5">
+                        <lucide:Lucide Icon="X" Width="12" Height="12" StrokeBrush="#A1A1AA" VerticalAlignment="Center" />
+                        <TextBlock Text="Đóng" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
             </StackPanel>
         </Grid>
     </Grid>

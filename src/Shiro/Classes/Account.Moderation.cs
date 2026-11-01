@@ -3,6 +3,7 @@ using System;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
+using Shiro.Services;
 
 namespace Shiro
 {
@@ -81,14 +82,14 @@ namespace Shiro
                             {
                                 TryUpdateRotatedCookie(modRes);
                                 string modHtml = await modRes.Content.ReadAsStringAsync(linkedCts.Token).ConfigureAwait(false);
-                                return ParseModerationText(modHtml, redirectLocation);
+                                return DispatchModerationAlertIfBanned(ParseModerationText(modHtml, redirectLocation));
                             }
                         }
                         catch
                         {
                             // Fail-soft fallback
                         }
-                        return ParseModerationText(string.Empty, redirectLocation);
+                        return DispatchModerationAlertIfBanned(ParseModerationText(string.Empty, redirectLocation));
                     }
                 }
 
@@ -109,7 +110,7 @@ namespace Shiro
                 if (response.StatusCode == System.Net.HttpStatusCode.OK)
                 {
                     string html = await response.Content.ReadAsStringAsync(linkedCts.Token).ConfigureAwait(false);
-                    return ParseModerationText(html, finalUrl);
+                    return DispatchModerationAlertIfBanned(ParseModerationText(html, finalUrl));
                 }
 
                 return (false, null, null);
@@ -125,6 +126,22 @@ namespace Shiro
                 Program.Logger?.Debug($"[CheckModerationStatusAsync] {Username}: {ex.Message}");
                 return (false, null, null);
             }
+        }
+
+        private (bool IsBanned, string? IssueBadge, string? Reason) DispatchModerationAlertIfBanned((bool IsBanned, string? IssueBadge, string? Reason) result)
+        {
+            if (result.IsBanned)
+            {
+                string message = result.Reason ?? result.IssueBadge ?? "Tài khoản bị khóa hoặc kiểm duyệt";
+                WebhookNotificationService.EnqueueAlert(new WebhookAlert
+                {
+                    EventType = WebhookEventType.ModerationWarning,
+                    AccountUsername = Username,
+                    Description = $"Account {Username} received moderation notice: {message}",
+                    Timestamp = DateTimeOffset.UtcNow
+                });
+            }
+            return result;
         }
 
         public static (bool IsBanned, string? IssueBadge, string? Reason) ParseModerationText(string content, string? url = null)

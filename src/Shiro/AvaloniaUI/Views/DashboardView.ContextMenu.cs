@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Linq;
 using System.Windows.Input;
@@ -50,10 +50,13 @@ namespace Shiro.AvaloniaUI.Views
         }
 
         private void OnMenuLaunchHome(object sender, RoutedEventArgs e)
-            => LaunchAppHomeForSender(sender);
+            => ExecuteMenuCommand(sender, ViewModel.LaunchAccountCommand);
 
         private void OnMenuJoinServer(object sender, RoutedEventArgs e)
-            => JoinSingleAccountServer(GetItemFromMenu(sender));
+            => ExecuteMenuCommand(sender, ViewModel.JoinServerAccountCommand);
+
+        private void OnMenuFocusAccountWindow(object sender, RoutedEventArgs e)
+            => ExecuteMenuCommand(sender, ViewModel.FocusAccountWindowCommand);
 
         private void OnMenuReLoginFast(object sender, RoutedEventArgs e)
         {
@@ -67,6 +70,16 @@ namespace Shiro.AvaloniaUI.Views
 
         private void OnMenuValidateSession(object sender, RoutedEventArgs e)
             => ExecuteMenuCommand(sender, ViewModel.ValidateSessionCommand);
+
+        private void OnMenuOpenModerationPage(object sender, RoutedEventArgs e)
+            => OnCardViewBanClicked(sender, e);
+
+        private void OnMenuOpenModerationBrowser(object sender, RoutedEventArgs e)
+        {
+            var avm = GetItemFromMenu(sender);
+            if (avm?.Model != null)
+                Utilities.OpenUrl("https://www.roblox.com/home");
+        }
 
         private void OnMenuCheckRobux(object sender, RoutedEventArgs e)
             => ExecuteMenuCommand(sender, ViewModel.CheckRobuxAccountCommand);
@@ -115,7 +128,7 @@ namespace Shiro.AvaloniaUI.Views
         }
 
         private void OnMenuCloseAccountRoblox(object sender, RoutedEventArgs e)
-            => CloseRobloxForAccount(GetItemFromMenu(sender));
+            => ExecuteMenuCommand(sender, ViewModel.CloseAccountRobloxCommand);
 
         private void OnMenuDeleteAccount(object sender, RoutedEventArgs e)
             => ExecuteMenuCommand(sender, ViewModel.RemoveAccountCommand);

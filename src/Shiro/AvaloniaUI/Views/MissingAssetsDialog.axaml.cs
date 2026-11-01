@@ -91,7 +91,7 @@ namespace Shiro.AvaloniaUI.Views
         {
             if (_account == null)
             {
-                TxtStatus.Text = "⚠️ Không tìm thấy tài khoản.";
+                TxtStatus.Text = "Không tìm thấy tài khoản.";
                 return;
             }
 
@@ -107,7 +107,7 @@ namespace Shiro.AvaloniaUI.Views
                     _items.Add(new MissingAssetDisplayItem { AssetId = id });
                 }
 
-                TxtStatus.Text = $"⏳ Đang tải thông tin cho {_items.Count} vật phẩm...";
+                TxtStatus.Text = $"Đang tải thông tin cho {_items.Count} vật phẩm...";
 
                 int loaded = 0;
                 long totalCost = 0;
@@ -132,7 +132,7 @@ namespace Shiro.AvaloniaUI.Views
                             AppDispatcher.Post(() =>
                             {
                                 if (!token.IsCancellationRequested)
-                                    TxtStatus.Text = $"⏳ Đang tải ({currentLoaded}/{_items.Count})...";
+                                    TxtStatus.Text = $"Đang tải ({currentLoaded}/{_items.Count})...";
                             });
                         }
                         finally
@@ -145,7 +145,7 @@ namespace Shiro.AvaloniaUI.Views
                 await Task.WhenAll(tasks).ConfigureAwait(true);
                 if (token.IsCancellationRequested) return;
 
-                TxtStatus.Text = $"✅ Hoàn tất tải {_items.Count} vật phẩm.";
+                TxtStatus.Text = $"Hoàn tất tải {_items.Count} vật phẩm.";
                 TxtTotalPrice.Text = $"Tổng Robux: {Interlocked.Read(ref totalCost):N0} R$";
             }
             catch (OperationCanceledException) { }
@@ -297,7 +297,7 @@ namespace Shiro.AvaloniaUI.Views
                 if (confirm != MessageBoxResult.Yes) return;
 
                 item.CanBuy = false;
-                item.BuyButtonText = "⏳ Đang mua...";
+                item.BuyButtonText = "Đang mua...";
 
                 try
                 {
@@ -322,7 +322,7 @@ namespace Shiro.AvaloniaUI.Views
                     var response = await _account.ExecuteAccountRestAsync(AccountManager.EconClient, "https://economy.roblox.com", buyRequest).ConfigureAwait(true);
                     if (response != null && response.IsSuccessful)
                     {
-                        item.BuyButtonText = "✅ Đã mua";
+                        item.BuyButtonText = "Đã mua";
                         await MessageBoxDialog.ShowAsync($"Đã mua thành công '{item.Name}'!", "Thành công", MessageBoxButtons.OK, MessageBoxIcon.Information, this);
                     }
                     else

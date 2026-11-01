@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -13,20 +13,12 @@ using Shiro.Classes;
 namespace Shiro.Services
 {
     /// <summary>
-    /// High-stability Multi-Instance Engine for Roblox.
-    /// Defeats both of Roblox's single-instance barriers without destructive handle manipulation:
-    ///  1. ROBLOX_singletonMutex - Persistent Win32 Mutex held with a permissive NULL DACL.
-    ///     Because Shiro maintains continuous ownership on a dedicated background thread,
-    ///     the mutex is never abandoned when an individual Roblox window closes.
-    ///  2. ROBLOX_singletonEvent - Persistent Win32 Event held with a permissive NULL DACL.
-    ///     All Roblox clients can safely access and wait on this event without getting Access Denied,
-    ///     and their internal handle tables are never corrupted by intrusive DuplicateHandle calls.
+    /// High-stability Multi-Instance Engine for Roblox holding ROBLOX_singletonMutex and ROBLOX_singletonEvent.
     /// </summary>
     public static partial class RobloxSingletonService
     {
         private const string MutexName = "ROBLOX_singletonMutex";
         private const string EventName = "ROBLOX_singletonEvent";
-
         private const uint SECURITY_DESCRIPTOR_REVISION = 1;
         private const uint WAIT_OBJECT_0 = 0x00000000;
         private const uint WAIT_ABANDONED = 0x00000080;
@@ -38,21 +30,16 @@ namespace Shiro.Services
         private static int _watchSeconds = 3;
         private static int _sweeping;
         private static HashSet<int> _lastObservedPids = new();
-
-        // Singleton holder thread
         private static Thread? _holderThread;
         private static ManualResetEventSlim? _holderStop;
         private static ManualResetEventSlim? _holderReady;
         private static volatile bool _handlesHeld;
-
-        // Observable state
         private static volatile string _status = "Multi-Instance Ready";
         private static int _totalClosed;
         private static volatile bool _accessDenied;
         private static bool _isEnabled = true;
 
         public static event Action? StatusChanged;
-
         public static bool IsEnabled => _isEnabled;
         public static string StatusText => _status;
         public static bool MutexHeld => _handlesHeld;
@@ -65,14 +52,10 @@ namespace Shiro.Services
             {
                 try
                 {
-                    using (var id = WindowsIdentity.GetCurrent())
-                        return new WindowsPrincipal(id).IsInRole(WindowsBuiltInRole.Administrator);
+                    using var id = WindowsIdentity.GetCurrent();
+                    return new WindowsPrincipal(id).IsInRole(WindowsBuiltInRole.Administrator);
                 }
-                catch (Exception ex)
-                {
-                    Program.Logger?.Debug($"IsAdministrator check threw: {ex.Message}");
-                    return false;
-                }
+                catch (Exception ex) { Program.Logger?.Debug($"IsAdministrator check threw: {ex.Message}"); return false; }
             }
         }
 
@@ -142,20 +125,35 @@ namespace Shiro.Services
         private static void HoldHandles(ManualResetEventSlim stop, ManualResetEventSlim ready)
         {
             IntPtr pSd = IntPtr.Zero;
+            bool allocatedWithLocalAlloc = false;
             IntPtr hMutex = IntPtr.Zero;
             IntPtr hEvent = IntPtr.Zero;
             bool mutexOwned = false;
 
             try
             {
-                // Create a Security Descriptor with a NULL DACL (permits Everyone / All Integrity Levels unrestricted access).
-                // This ensures Roblox processes never encounter ERROR_ACCESS_DENIED even if Shiro is run as Administrator.
-                pSd = Marshal.AllocHGlobal(64);
-                if (!InitializeSecurityDescriptor(pSd, SECURITY_DESCRIPTOR_REVISION) ||
-                    !SetSecurityDescriptorDacl(pSd, true, IntPtr.Zero, false))
+                // Create a Security Descriptor with an explicit DACL restricting access to SYSTEM (SY),
+                // Built-in Administrators (BA), and Interactive Users (IU). This prevents untrusted or
+                // anonymous contexts from tampering with the singleton handles while still allowing
+                // non-elevated interactive Roblox client processes full access even when Shiro is elevated.
+                const string RestrictedInteractiveSddl = "D:P(A;;GA;;;SY)(A;;GA;;;BA)(A;;GA;;;IU)";
+                if (ConvertStringSecurityDescriptorToSecurityDescriptorW(
+                        RestrictedInteractiveSddl,
+                        SECURITY_DESCRIPTOR_REVISION,
+                        out pSd,
+                        IntPtr.Zero))
                 {
-                    Marshal.FreeHGlobal(pSd);
-                    pSd = IntPtr.Zero;
+                    allocatedWithLocalAlloc = true;
+                }
+                else
+                {
+                    pSd = Marshal.AllocHGlobal(64);
+                    if (!InitializeSecurityDescriptor(pSd, SECURITY_DESCRIPTOR_REVISION) ||
+                        !SetSecurityDescriptorDacl(pSd, true, IntPtr.Zero, false))
+                    {
+                        Marshal.FreeHGlobal(pSd);
+                        pSd = IntPtr.Zero;
+                    }
                 }
 
                 var sa = new SECURITY_ATTRIBUTES
@@ -273,7 +271,10 @@ namespace Shiro.Services
                 }
                 if (pSd != IntPtr.Zero)
                 {
-                    Marshal.FreeHGlobal(pSd);
+                    if (allocatedWithLocalAlloc)
+                        LocalFree(pSd);
+                    else
+                        Marshal.FreeHGlobal(pSd);
                 }
             }
         }
@@ -449,35 +450,26 @@ namespace Shiro.Services
             public int bInheritHandle;
         }
 
+        [LibraryImport("advapi32.dll", EntryPoint = "ConvertStringSecurityDescriptorToSecurityDescriptorW", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static partial bool ConvertStringSecurityDescriptorToSecurityDescriptorW(string StringSecurityDescriptor, uint StringSDRevision, out IntPtr SecurityDescriptor, IntPtr SecurityDescriptorSize);
+        [LibraryImport("kernel32.dll", SetLastError = true)]
+        private static partial IntPtr LocalFree(IntPtr hMem);
         [LibraryImport("advapi32.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
         private static partial bool InitializeSecurityDescriptor(IntPtr pSecurityDescriptor, uint dwRevision);
-
         [LibraryImport("advapi32.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
-        private static partial bool SetSecurityDescriptorDacl(IntPtr pSecurityDescriptor,
-                                                              [MarshalAs(UnmanagedType.Bool)] bool bDaclPresent,
-                                                              IntPtr pDacl,
-                                                              [MarshalAs(UnmanagedType.Bool)] bool bDaclDefaulted);
-
+        private static partial bool SetSecurityDescriptorDacl(IntPtr pSecurityDescriptor, [MarshalAs(UnmanagedType.Bool)] bool bDaclPresent, IntPtr pDacl, [MarshalAs(UnmanagedType.Bool)] bool bDaclDefaulted);
         [LibraryImport("kernel32.dll", EntryPoint = "CreateMutexW", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
-        private static partial IntPtr CreateMutexW(IntPtr lpMutexAttributes,
-                                                   [MarshalAs(UnmanagedType.Bool)] bool bInitialOwner,
-                                                   string lpName);
-
+        private static partial IntPtr CreateMutexW(IntPtr lpMutexAttributes, [MarshalAs(UnmanagedType.Bool)] bool bInitialOwner, string lpName);
         [LibraryImport("kernel32.dll", EntryPoint = "CreateEventW", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
-        private static partial IntPtr CreateEventW(IntPtr lpEventAttributes,
-                                                   [MarshalAs(UnmanagedType.Bool)] bool bManualReset,
-                                                   [MarshalAs(UnmanagedType.Bool)] bool bInitialState,
-                                                   string lpName);
-
+        private static partial IntPtr CreateEventW(IntPtr lpEventAttributes, [MarshalAs(UnmanagedType.Bool)] bool bManualReset, [MarshalAs(UnmanagedType.Bool)] bool bInitialState, string lpName);
         [LibraryImport("kernel32.dll", SetLastError = true)]
         private static partial uint WaitForSingleObject(IntPtr hHandle, uint dwMilliseconds);
-
         [LibraryImport("kernel32.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
         private static partial bool ReleaseMutex(IntPtr hMutex);
-
         [LibraryImport("kernel32.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
         private static partial bool CloseHandle(IntPtr handle);

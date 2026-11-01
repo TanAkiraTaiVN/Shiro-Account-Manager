@@ -132,6 +132,39 @@ namespace Shiro.Tests
         }
 
         [Fact]
+        public async Task AuditAccountAsync_WhenRedirectedToModeration_EnqueuesModerationAlertAndReturnsModerated()
+        {
+            WebhookAlert? capturedAlert = null;
+            Action<WebhookAlert> handler = a => capturedAlert = a;
+            WebhookNotificationService.AlertDispatched += handler;
+
+            try
+            {
+                var auditHandler = new FakeAuditHandler(req =>
+                {
+                    var resp = new HttpResponseMessage(HttpStatusCode.Redirect);
+                    resp.Headers.Location = new Uri("https://www.roblox.com/not-approved");
+                    return resp;
+                });
+                SessionAuditorService.TestHttpClientFactory = _ => new HttpClient(auditHandler);
+
+                var acc = new Account { Username = "ModUser", SecurityToken = TestToken, Valid = true };
+                var result = await SessionAuditorService.AuditAccountAsync(acc);
+
+                Assert.Equal(AccountSessionStatus.Moderated, result.Status);
+                Assert.False(acc.Valid);
+                Assert.NotNull(capturedAlert);
+                Assert.Equal(WebhookEventType.ModerationWarning, capturedAlert.EventType);
+                Assert.Equal("ModUser", capturedAlert.AccountUsername);
+                Assert.Contains("moderation notice", capturedAlert.Description);
+            }
+            finally
+            {
+                WebhookNotificationService.AlertDispatched -= handler;
+            }
+        }
+
+        [Fact]
         public async Task AuditAllAccountsAsync_ReportsProgress_AndAuditsAllAccounts()
         {
             var handler = new FakeAuditHandler(req =>

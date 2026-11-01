@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -53,6 +53,7 @@ namespace Shiro.ViewModels
         public ICommand AddAccountFastLoginCommand { get; private set; } = null!;
         public ICommand AddAccountCookieCommand { get; private set; } = null!;
         public ICommand BulkImportCommand { get; private set; } = null!;
+        public ICommand AltGenCommand { get; private set; } = null!;
 
         // Card Level Commands
         public ICommand FastReLoginAccountCommand { get; private set; } = null!;
@@ -82,6 +83,7 @@ namespace Shiro.ViewModels
         public ICommand RemoveSelectedCommand { get; private set; } = null!;
         public ICommand ReLoginSelectedCommand { get; private set; } = null!;
         public ICommand ValidateSessionSelectedCommand { get; private set; } = null!;
+        public ICommand ClearRobloxClientSessionCommand { get; private set; } = null!;
 
         private void InitializeAccountCommands()
         {
@@ -91,12 +93,71 @@ namespace Shiro.ViewModels
                 else AppServices.Dialogs.OpenFastLoginDialog(null);
             });
             AddAccountFastLoginCommand = AddAccountCommand;
-            AddAccountChromeCommand = new RelayCommand(() => OnAddAccountChromeRequested?.Invoke());
-            AddAccountCookieCommand = new RelayCommand(() => OnAddAccountCookieRequested?.Invoke());
+            AddAccountChromeCommand = new RelayCommand(() =>
+            {
+                if (OnAddAccountChromeRequested != null)
+                {
+                    OnAddAccountChromeRequested.Invoke();
+                    return;
+                }
+
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await BrowserService.Default.SignInAsync().ConfigureAwait(false);
+                        AppDispatcher.Post(() => LoadAccounts(AccountManager.GetAccountsSnapshot()));
+                    }
+                    catch (Exception ex)
+                    {
+                        Program.Logger?.Error($"[AddAccountChromeCommand] {ex}");
+                    }
+                });
+            });
+            AddAccountCookieCommand = new RelayCommand(() =>
+            {
+                if (OnAddAccountCookieRequested != null)
+                {
+                    OnAddAccountCookieRequested.Invoke();
+                    return;
+                }
+
+                string cookie = AppServices.Dialogs.ShowInputPrompt("Dán chuỗi Cookie .ROBLOSECURITY vào ô bên dưới:", "Nhập Cookie");
+                if (!string.IsNullOrWhiteSpace(cookie) && cookie != "/UC")
+                {
+                    _ = Task.Run(async () =>
+                    {
+                        var acc = await AccountManager.AddAccountAsync(cookie.Trim()).ConfigureAwait(false);
+                        AppDispatcher.Post(() =>
+                        {
+                            if (acc != null)
+                            {
+                                LoadAccounts(AccountManager.GetAccountsSnapshot());
+                                StatusMessage = $"Đã thêm tài khoản {acc.Username} qua Cookie thành công!";
+                            }
+                            else
+                            {
+                                StatusMessage = "Cookie không hợp lệ hoặc đã hết hạn.";
+                            }
+                        });
+                    });
+                }
+            });
+            ClearRobloxClientSessionCommand = new RelayCommand(() =>
+            {
+                bool ok = RobloxProcessService.ClearRobloxClientSession();
+                StatusMessage = ok
+                    ? "Đã xóa sạch session đăng nhập của Roblox Client."
+                    : "Không thể xóa session Roblox Client (có thể Roblox đang chạy).";
+            });
             BulkImportCommand = new RelayCommand(() =>
             {
                 if (OnBulkImportRequested != null) OnBulkImportRequested.Invoke();
                 else AppServices.Dialogs.OpenBulkImportDialog();
+            });
+            AltGenCommand = new RelayCommand(() =>
+            {
+                AppServices.Dialogs.OpenAltGenDialog();
             });
 
             // Card Commands
@@ -140,7 +201,7 @@ namespace Shiro.ViewModels
                         bool ok = await a.Model.ValidateSessionAsync().ConfigureAwait(false);
                         AccountManager.SaveAccounts(true);
                         UpdateAccountValidity(a.Model, ok);
-                        PostStatusMessage(ok ? $"✅ {a.Username}: Phiên đăng nhập hợp lệ!" : $"⚠️ {a.Username}: Phiên đã hết hạn!");
+                        PostStatusMessage(ok ? $"{a.Username}: Phiên đăng nhập hợp lệ!" : $"{a.Username}: Phiên đã hết hạn!");
                     });
                 }
             });
@@ -281,7 +342,7 @@ namespace Shiro.ViewModels
                 var selected = _accounts.Where(a => a.IsSelected).ToList();
                 if (selected.Count == 0)
                 {
-                    StatusMessage = "⚠️ Vui lòng tick chọn ít nhất một tài khoản trước khi Re-login!";
+                    StatusMessage = "Vui lòng tick chọn ít nhất một tài khoản trước khi Re-login!";
                     return;
                 }
                 if (OnReLoginSelectedRequested != null)
@@ -300,7 +361,7 @@ namespace Shiro.ViewModels
                 var selected = _accounts.Where(a => a.IsSelected).ToList();
                 if (selected.Count == 0)
                 {
-                    StatusMessage = "⚠️ Vui lòng tick chọn ít nhất một tài khoản trước khi kiểm tra phiên!";
+                    StatusMessage = "Vui lòng tick chọn ít nhất một tài khoản trước khi kiểm tra phiên!";
                     return;
                 }
                 if (OnValidateSessionSelectedRequested != null) OnValidateSessionSelectedRequested.Invoke(selected);

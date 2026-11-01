@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.Generic;
 using Avalonia.Controls;
@@ -22,6 +22,24 @@ namespace Shiro.AvaloniaUI.Views
             Instance = this;
             InitializeComponent();
             WindowBackdropService.ApplyDarkAndBackdrop(this);
+
+            if (ViewDashboard?.ViewModel != null)
+            {
+                DataContext = ViewDashboard.ViewModel;
+                ViewDashboard.ViewModel.PropertyChanged += (_, e) =>
+                {
+                    if (e.PropertyName == nameof(MainViewModel.IsCommandPaletteOpen) &&
+                        ViewDashboard.ViewModel.IsCommandPaletteOpen)
+                    {
+                        FocusCommandPaletteInput();
+                    }
+                };
+            }
+
+            if (TxtCommandPalette != null)
+            {
+                TxtCommandPalette.AddHandler(KeyDownEvent, OnCommandPaletteKeyDown, RoutingStrategies.Tunnel);
+            }
 
             Loaded += (s, e) =>
             {
@@ -49,7 +67,6 @@ namespace Shiro.AvaloniaUI.Views
                         Width = currentWidth;
                         Height = currentHeight;
 
-                        // Calculate physical pixel position to center accurately within the monitor's usable work area
                         int pixelWidth = (int)Math.Round(currentWidth * scaling);
                         int pixelHeight = (int)Math.Round(currentHeight * scaling);
 
@@ -66,7 +83,6 @@ namespace Shiro.AvaloniaUI.Views
                 {
                     Program.Logger?.Debug($"Center window position calculation threw: {ex.Message}");
                 }
-
             };
 
             PropertyChanged += (s, e) =>
@@ -189,31 +205,16 @@ namespace Shiro.AvaloniaUI.Views
             }
         }
 
-        protected override void OnKeyDown(KeyEventArgs e)
-        {
-            base.OnKeyDown(e);
-            if (e.KeyModifiers.HasFlag(KeyModifiers.Control) && e.Key == Key.K)
-            {
-                if (ViewModel != null)
-                {
-                    ViewModel.IsCommandPaletteOpen = !ViewModel.IsCommandPaletteOpen;
-                    e.Handled = true;
-                }
-            }
-            else if (e.Key == Key.Escape)
-            {
-                if (ViewModel != null && ViewModel.IsCommandPaletteOpen)
-                {
-                    ViewModel.IsCommandPaletteOpen = false;
-                    e.Handled = true;
-                }
-            }
-        }
-
         public void SetStatus(string message)
         {
             if (string.IsNullOrWhiteSpace(message)) return;
-            ToastService.ShowInfo("Thông báo", message);
+            AppDispatcher.Post(() =>
+            {
+                if (ViewDashboard?.ViewModel != null)
+                {
+                    ViewDashboard.ViewModel.StatusMessage = message;
+                }
+            });
         }
 
         public void RefreshAccounts(IReadOnlyList<Account> accounts)
@@ -241,171 +242,16 @@ namespace Shiro.AvaloniaUI.Views
         }
 
         public void OpenFastLoginDialog(Account? account = null)
-        {
-            AppServices.Dialogs.OpenFastLoginDialog(account);
-        }
+            => AppServices.Dialogs.OpenFastLoginDialog(account);
 
         public void OpenBulkImportDialog()
-        {
-            AppServices.Dialogs.OpenBulkImportDialog();
-        }
+            => AppServices.Dialogs.OpenBulkImportDialog();
 
         public void OpenProxyManagerDialog()
-        {
-            AppServices.Dialogs.OpenProxyManagerDialog();
-        }
-
-        private void SetActiveView(Control? activeView, Button? activeButton)
-        {
-            if (ViewDashboard != null) ViewDashboard.IsVisible = (activeView == ViewDashboard);
-            if (ViewServerList != null) ViewServerList.IsVisible = (activeView == ViewServerList);
-            if (ViewSettings != null) ViewSettings.IsVisible = (activeView == ViewSettings);
-            if (ViewAbout != null) ViewAbout.IsVisible = (activeView == ViewAbout);
-
-            ResetNavButtons();
-            activeButton?.Classes.Add("active");
-        }
-
-        private void ResetNavButtons()
-        {
-            BtnNavDashboard?.Classes.Remove("active");
-            BtnNavServerList?.Classes.Remove("active");
-            BtnNavRecentGames?.Classes.Remove("active");
-            BtnNavTools?.Classes.Remove("active");
-            BtnNavSettings?.Classes.Remove("active");
-            BtnNavAbout?.Classes.Remove("active");
-        }
-
-        private void OnNavDashboardClicked(object sender, RoutedEventArgs e)
-            => SetActiveView(ViewDashboard, BtnNavDashboard);
-
-        private void OnNavServerListClicked(object sender, RoutedEventArgs e)
-        {
-            if (ViewServerList != null && ViewDashboard?.ViewModel?.ServerListViewModel != null)
-            {
-                ViewServerList.DataContext = ViewDashboard.ViewModel.ServerListViewModel;
-                if (ViewServerList.ViewModel != null)
-                    ViewServerList.ViewModel.SelectedSubTabIndex = 0;
-            }
-            SetActiveView(ViewServerList, BtnNavServerList);
-        }
-
-        private void OnNavRecentGamesClicked(object sender, RoutedEventArgs e)
-        {
-            if (ViewServerList != null && ViewDashboard?.ViewModel?.ServerListViewModel != null)
-            {
-                ViewServerList.DataContext = ViewDashboard.ViewModel.ServerListViewModel;
-                if (ViewServerList.ViewModel != null)
-                    ViewServerList.ViewModel.SelectedSubTabIndex = 2; // Favorites / Recent
-            }
-            SetActiveView(ViewServerList, BtnNavRecentGames);
-        }
-
-        private void OnNavSettingsClicked(object sender, RoutedEventArgs e)
-            => SetActiveView(ViewSettings, BtnNavSettings);
-
-        private void OnNavAboutClicked(object sender, RoutedEventArgs e)
-            => SetActiveView(ViewAbout, BtnNavAbout);
-
-        private void OnSidebarCloseRobloxClicked(object sender, RoutedEventArgs e)
-        {
-            var selected = ViewDashboard?.GetSelectedAccounts();
-            if (selected != null && selected.Count > 0)
-            {
-                if (selected.Count > 1)
-                {
-                    bool confirm = AppServices.Dialogs.ShowConfirmation(
-                        $"Bạn có chắc chắn muốn đóng tiến trình Roblox của {selected.Count} tài khoản đang chọn không?",
-                        "Xác nhận đóng Roblox hàng loạt");
-                    if (!confirm) return;
-                }
-
-                _ = System.Threading.Tasks.Task.Run(() =>
-                {
-                    int closed = RobloxProcessService.CloseAccountRobloxProcesses(selected);
-                    AppDispatcher.Post(() =>
-                    {
-                        if (closed > 0)
-                        {
-                            ToastService.ShowSuccess($"Đã đóng Roblox cho {closed} tài khoản đã chọn.");
-                        }
-                        else
-                        {
-                            ToastService.ShowInfo("Không tìm thấy tiến trình Roblox đang chạy của các tài khoản đã chọn.");
-                        }
-                        ViewModel?.RefreshLiveProcessStatus();
-                    });
-                });
-            }
-            else
-            {
-                bool confirm = AppServices.Dialogs.ShowConfirmation(
-                    "Bạn có chắc chắn muốn đóng toàn bộ tất cả tiến trình Roblox đang chạy trên máy không?",
-                    "Xác nhận đóng tất cả Roblox");
-                if (confirm)
-                {
-                    ViewModel?.KillAllClientsCommand.Execute(null);
-                }
-            }
-        }
-
-        private void OnToolAntiAfkClicked(object sender, RoutedEventArgs e)
-        {
-            ViewModel?.ToggleAntiAfkCommand.Execute(null);
-        }
-
-        private void OnToolPotatoClicked(object sender, RoutedEventArgs e)
-        {
-            ViewModel?.TogglePotatoModeCommand.Execute(null);
-        }
-
-        private void OnToolZeroGpuClicked(object sender, RoutedEventArgs e)
-        {
-            ViewModel?.ToggleWindowsCommand.Execute(null);
-        }
-
-        private void OnToolOptimizeRamClicked(object sender, RoutedEventArgs e)
-        {
-            ViewModel?.AntiLagBoosterCommand.Execute(null);
-        }
-
-        private void OnToolMuteAllClicked(object sender, RoutedEventArgs e)
-        {
-            bool wasUnmuted = RobloxAudioService.ToggleMuteAll();
-            string msg = wasUnmuted ? "🔇 Đã tắt tiếng toàn bộ các client Roblox đang chạy." : "🔊 Đã bật lại tiếng cho toàn bộ client Roblox.";
-            ToastService.ShowSuccess(msg);
-        }
-
-        private void OnToolSmartMuteClicked(object sender, RoutedEventArgs e)
-        {
-            bool nextState = !RobloxAudioService.IsSmartMuteEnabled;
-            RobloxAudioService.ConfigureSmartMute(nextState);
-            AccountManager.General?.Set(AppSettingsKeys.General.AutoMuteBackgroundClients, nextState ? "true" : "false");
-            string msg = nextState 
-                ? "🔇 Đã kích hoạt Auto-Mute: Tự động tắt tiếng client chạy ngầm (chỉ bật tiếng cửa sổ đang chọn)."
-                : "🔊 Đã tắt Auto-Mute nền.";
-            ToastService.ShowSuccess(msg);
-        }
-
-        private void OnToolNexusClicked(object sender, RoutedEventArgs e)
-        {
-            AppServices.Dialogs.OpenNexusWindow();
-        }
-
-        private void OnToolProxyClicked(object sender, RoutedEventArgs e)
-        {
-            AppServices.Dialogs.OpenProxyManagerDialog();
-        }
-
-        private void OnToolCleanTrayClicked(object sender, RoutedEventArgs e)
-        {
-            ViewModel?.CleanSystemTrayCommand.Execute(null);
-        }
+            => AppServices.Dialogs.OpenProxyManagerDialog();
 
         private void OnMinimizeClicked(object sender, RoutedEventArgs e)
-        {
-            WindowState = WindowState.Minimized;
-        }
+            => WindowState = WindowState.Minimized;
 
         private void OnMaximizeClicked(object sender, RoutedEventArgs e)
         {
@@ -414,15 +260,15 @@ namespace Shiro.AvaloniaUI.Views
         }
 
         private void OnCloseClicked(object sender, RoutedEventArgs e)
-        {
-            Close();
-        }
+            => Close();
 
         private void UpdateMaximizeIcon()
         {
             if (IconMaximize != null)
             {
-                IconMaximize.Icon = WindowState == WindowState.Maximized ? LucideAvalonia.Enum.LucideIconNames.Copy : LucideAvalonia.Enum.LucideIconNames.Square;
+                IconMaximize.Icon = WindowState == WindowState.Maximized
+                    ? LucideAvalonia.Enum.LucideIconNames.Copy
+                    : LucideAvalonia.Enum.LucideIconNames.Square;
             }
         }
 
@@ -439,28 +285,6 @@ namespace Shiro.AvaloniaUI.Views
                 {
                     BeginMoveDrag(e);
                 }
-            }
-        }
-
-        private void OnCommandPaletteBarPressed(object sender, PointerPressedEventArgs e)
-        {
-            e.Handled = true;
-            if (ViewModel != null)
-                ViewModel.IsCommandPaletteOpen = true;
-        }
-
-        private void OnCloseCommandPaletteClicked(object sender, RoutedEventArgs e)
-        {
-            if (ViewModel != null)
-                ViewModel.IsCommandPaletteOpen = false;
-        }
-
-        private void OnCommandPaletteBackdropPressed(object sender, PointerPressedEventArgs e)
-        {
-            if (e.Source is Border border && border.Background != null)
-            {
-                if (ViewModel != null)
-                    ViewModel.IsCommandPaletteOpen = false;
             }
         }
     }

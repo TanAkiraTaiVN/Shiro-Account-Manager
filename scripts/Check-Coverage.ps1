@@ -1,7 +1,7 @@
 param(
     [string]$CoverageDir = "coverage",
-    [double]$MinOverall = 25.0,
-    [double]$MinCore = 0.0
+    [double]$MinOverall = 30.0,
+    [double]$MinCore = 60.0
 )
 
 $ErrorActionPreference = "Stop"
@@ -22,10 +22,10 @@ $branchRate = [double]$doc.coverage.'branch-rate' * 100.0
 Write-Host "Overall Line Coverage:   $("{0:N2}" -f $overallRate)%" -ForegroundColor Yellow
 Write-Host "Overall Branch Coverage: $("{0:N2}" -f $branchRate)%" -ForegroundColor Yellow
 
-# Calculate Core package/classes coverage (Crypto, Vault, Persistence, Serializer, Store)
+# Calculate Core package/classes coverage (Cryptography, VaultKey, AccountDataSerializer, AccountStore, StoragePaths)
 $classes = $doc.coverage.packages.package.classes.class
 $coreClasses = $classes | Where-Object {
-    $_.filename -match 'Crypt|Vault|Persistence|Serializer|AccountStore|StoragePaths'
+    $_.filename -match 'Cryptography\.cs|VaultKey\.cs|AccountDataSerializer\.cs|AccountStore\.cs|StoragePaths\.cs'
 }
 
 $coreTotalLines = 0

@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.Generic;
 
@@ -13,6 +13,7 @@ namespace Shiro.Services
         bool Remove(Account account);
         int RemoveRange(IEnumerable<Account> accounts);
         void Save(bool force = false);
+        System.Threading.Tasks.Task SaveAsync(bool force = false);
         void Load(byte[]? masterPasswordHash = null);
         bool IsPasswordEncrypted();
     }

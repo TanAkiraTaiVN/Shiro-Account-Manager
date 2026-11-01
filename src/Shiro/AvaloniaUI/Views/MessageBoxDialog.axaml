@@ -1,4 +1,4 @@
-﻿<Window xmlns="https://github.com/avaloniaui"
+<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:lucide="clr-namespace:LucideAvalonia;assembly=LucideAvalonia"
         x:Class="Shiro.AvaloniaUI.Views.MessageBoxDialog"
@@ -33,22 +33,46 @@
 
             <!-- Action Buttons -->
             <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
-                <Button x:Name="BtnYes" Content="Có" Width="80" Height="32"
+                <Button x:Name="BtnYes" Height="32"
                         Background="#2563EB" Foreground="#FFFFFF" FontWeight="SemiBold"
-                        CornerRadius="5" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
-                        Click="BtnYes_Click" IsVisible="False"/>
-                <Button x:Name="BtnNo" Content="Không" Width="80" Height="32"
+                        CornerRadius="5" Padding="14,0" Cursor="Hand"
+                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                        Click="BtnYes_Click" IsVisible="False">
+                    <StackPanel Orientation="Horizontal" Spacing="5">
+                        <lucide:Lucide Icon="Check" Width="13" Height="13" StrokeBrush="#FFFFFF" StrokeThickness="2.2" VerticalAlignment="Center" />
+                        <TextBlock Text="Có" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+                <Button x:Name="BtnNo" Height="32"
                         Background="#272730" Foreground="#D4D4D8" FontWeight="SemiBold"
-                        CornerRadius="5" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
-                        Click="BtnNo_Click" IsVisible="False"/>
-                <Button x:Name="BtnOK" Content="OK" Width="80" Height="32"
+                        CornerRadius="5" Padding="14,0" Cursor="Hand"
+                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                        Click="BtnNo_Click" IsVisible="False">
+                    <StackPanel Orientation="Horizontal" Spacing="5">
+                        <lucide:Lucide Icon="X" Width="13" Height="13" StrokeBrush="#D4D4D8" VerticalAlignment="Center" />
+                        <TextBlock Text="Không" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+                <Button x:Name="BtnOK" Height="32"
                         Background="#2563EB" Foreground="#FFFFFF" FontWeight="SemiBold"
-                        CornerRadius="5" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
-                        Click="BtnOK_Click" IsVisible="True"/>
-                <Button x:Name="BtnCancel" Content="Hủy" Width="80" Height="32"
+                        CornerRadius="5" Padding="14,0" Cursor="Hand"
+                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                        Click="BtnOK_Click" IsVisible="True">
+                    <StackPanel Orientation="Horizontal" Spacing="5">
+                        <lucide:Lucide Icon="Check" Width="13" Height="13" StrokeBrush="#FFFFFF" StrokeThickness="2.2" VerticalAlignment="Center" />
+                        <TextBlock Text="OK" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+                <Button x:Name="BtnCancel" Height="32"
                         Background="#272730" Foreground="#D4D4D8" FontWeight="SemiBold"
-                        CornerRadius="5" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
-                        Click="BtnCancel_Click" IsVisible="False"/>
+                        CornerRadius="5" Padding="14,0" Cursor="Hand"
+                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                        Click="BtnCancel_Click" IsVisible="False">
+                    <StackPanel Orientation="Horizontal" Spacing="5">
+                        <lucide:Lucide Icon="X" Width="13" Height="13" StrokeBrush="#D4D4D8" VerticalAlignment="Center" />
+                        <TextBlock Text="Hủy" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
             </StackPanel>
         </Grid>
     </Border>

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -141,6 +141,23 @@ namespace Shiro
             return System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(a, b);
         }
 
+        internal static string ExtractRequestPassword(Func<string, string?> getHeader, Func<string, string?> getQuery)
+        {
+            string? password = getHeader("X-Shiro-Auth");
+            if (string.IsNullOrEmpty(password))
+                password = getHeader("X-RAM-Auth");
+            if (string.IsNullOrEmpty(password))
+            {
+                string? authHeader = getHeader("Authorization");
+                if (!string.IsNullOrEmpty(authHeader) && authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+                    password = authHeader.Substring(7).Trim();
+            }
+            if (string.IsNullOrEmpty(password))
+                password = getQuery("Password") ?? getQuery("password") ?? getQuery("token");
+
+            return password ?? string.Empty;
+        }
+
         internal bool ValidateWebSocketAuth(HttpContext context)
         {
             if (context == null) return false;
@@ -160,24 +177,16 @@ namespace Shiro
                     return false;
             }
 
-            if (WebServer.Get<bool>("EveryRequestRequiresPassword"))
+            if (WebServer.Get<bool>("EveryRequestRequiresPassword") || (!string.IsNullOrEmpty(WSPassword) && WSPassword.Length >= 6))
             {
-                if (!string.IsNullOrEmpty(WSPassword) && WSPassword.Length >= 6)
-                {
-                    string password = context.Request.Headers["X-RAM-Auth"].ToString();
-                    if (string.IsNullOrEmpty(password))
-                    {
-                        string authHeader = context.Request.Headers["Authorization"].ToString();
-                        if (!string.IsNullOrEmpty(authHeader) && authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
-                            password = authHeader.Substring(7).Trim();
-                    }
-                    if (string.IsNullOrEmpty(password) && context.Request.Query.TryGetValue("token", out var tokenVal))
-                        password = tokenVal.ToString();
-                    if (string.IsNullOrEmpty(password) && context.Request.Query.TryGetValue("password", out var passVal))
-                        password = passVal.ToString();
+                if (string.IsNullOrEmpty(WSPassword) || WSPassword.Length < 6)
+                    return false;
 
-                    return FixedTimeEqualsPassword(password, WSPassword);
-                }
+                string password = ExtractRequestPassword(
+                    k => context.Request.Headers.TryGetValue(k, out var hVal) ? hVal.ToString() : null,
+                    k => context.Request.Query.TryGetValue(k, out var qVal) ? qVal.ToString() : null);
+
+                return FixedTimeEqualsPassword(password, WSPassword);
             }
 
             return true;
@@ -227,29 +236,21 @@ namespace Shiro
             string Method = AbsolutePath.Length > 1 ? AbsolutePath.Substring(1) : string.Empty;
             string? Account = req.GetQuery("Account");
 
-            // Extract Password from headers (Bearer token or X-RAM-Auth) or fallback to QueryString
-            string? Password = req.GetHeader("X-RAM-Auth");
-            if (string.IsNullOrEmpty(Password))
-            {
-                string? authHeader = req.GetHeader("Authorization");
-                if (!string.IsNullOrEmpty(authHeader) && authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
-                    Password = authHeader.Substring(7).Trim();
-            }
-            if (string.IsNullOrEmpty(Password))
-                Password = req.GetQuery("Password");
+            // Extract Password from headers (X-Shiro-Auth, X-RAM-Auth, Bearer token) or fallback to QueryString
+            string Password = ExtractRequestPassword(req.GetHeader, req.GetQuery);
 
-            bool isSensitiveMethod = Method == "GetCookie" ||
-                                     Method == "GetAccounts" ||
-                                     Method == "GetAccountsJson" ||
-                                     Method == "LaunchAccount" ||
-                                     Method == "FollowUser" ||
-                                     Method == "ImportCookie" ||
-                                     Method.Equals("KillRoblox", StringComparison.OrdinalIgnoreCase) ||
-                                     Method.Equals("KillAllRoblox", StringComparison.OrdinalIgnoreCase);
+            bool isPublicTelemetryMethod =
+                Method.Equals("GetWebSocketStats", StringComparison.OrdinalIgnoreCase) ||
+                Method.Equals("WebSocketStats", StringComparison.OrdinalIgnoreCase);
+
+            bool isSensitiveMethod = !isPublicTelemetryMethod;
 
             if (WebServer.Get<bool>("EveryRequestRequiresPassword") || isSensitiveMethod)
             {
-                if (WSPassword != null && WSPassword.Length >= 6 && (string.IsNullOrEmpty(Password) || !FixedTimeEqualsPassword(Password ?? string.Empty, WSPassword)))
+                if (string.IsNullOrEmpty(WSPassword) || WSPassword.Length < 6)
+                    return Reply("WebServer password must be configured with 6 or more characters before accessing protected endpoints", false, 401, "Password Not Configured");
+
+                if (string.IsNullOrEmpty(Password) || !FixedTimeEqualsPassword(Password, WSPassword))
                     return Reply("Invalid Password, make sure your password contains 6 or more characters", false, 401, "Invalid Password");
             }
 

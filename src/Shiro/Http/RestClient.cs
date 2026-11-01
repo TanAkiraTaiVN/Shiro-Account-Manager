@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -6,6 +6,8 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
 using System.Threading;
 using System.Threading.Tasks;
 using Shiro.Classes;
@@ -160,35 +162,30 @@ namespace Shiro.Http
         private readonly HttpClient _httpClient;
         private readonly bool _ownsClient;
         public string? BaseUrl { get; }
+        public string? UserAgent { get; }
 
         public RestClient(string? baseUrl = null, string? userAgent = null)
         {
             if (!string.IsNullOrWhiteSpace(baseUrl))
                 BaseUrl = baseUrl.TrimEnd('/') + "/";
 
+            UserAgent = userAgent;
             string clientPoolName = string.IsNullOrEmpty(userAgent) ? "default" : $"ua_{userAgent}";
             _httpClient = Services.SharedHttpClient.Get(clientPoolName);
             _ownsClient = false;
         }
 
-        public RestClient(HttpClient client, string? baseUrl = null)
+        public RestClient(HttpClient client, string? baseUrl = null, string? userAgent = null)
         {
             _httpClient = client ?? Services.SharedHttpClient.Get();
             if (!string.IsNullOrWhiteSpace(baseUrl))
                 BaseUrl = baseUrl.TrimEnd('/') + "/";
+            UserAgent = userAgent;
             _ownsClient = false;
         }
 
-        public Task<RestResponse> ExecuteAsync(RestRequest request, CancellationToken cancellationToken = default) =>
-            ExecuteAsync(request, null, cancellationToken);
-
-        public async Task<RestResponse> ExecuteAsync(RestRequest request, HttpClient? clientOverride, CancellationToken cancellationToken = default)
+        private HttpRequestMessage CreateHttpRequestMessage(RestRequest request)
         {
-            if (request == null)
-                throw new ArgumentNullException(nameof(request));
-
-            HttpClient activeClient = clientOverride ?? _httpClient;
-
             string requestUri = request.Resource ?? string.Empty;
             Uri finalUri;
 
@@ -203,7 +200,6 @@ namespace Shiro.Http
                 finalUri = new Uri(new Uri(baseStr), requestUri);
             }
 
-            // Append query parameters for GET, DELETE, HEAD
             bool isBodyMethod = request.Method is Method.Post or Method.Put or Method.Patch;
             if (!isBodyMethod && request.Parameters.Count > 0)
             {
@@ -236,9 +232,14 @@ namespace Shiro.Http
                 _ => HttpMethod.Get
             };
 
-            using var message = new HttpRequestMessage(httpMethod, finalUri);
+            var message = new HttpRequestMessage(httpMethod, finalUri);
 
-            // Add headers
+            if (!string.IsNullOrEmpty(UserAgent))
+            {
+                message.Headers.Remove("User-Agent");
+                message.Headers.TryAddWithoutValidation("User-Agent", UserAgent);
+            }
+
             string? specifiedContentType = null;
             foreach (var kvp in request.Headers)
             {
@@ -247,15 +248,24 @@ namespace Shiro.Http
                     specifiedContentType = kvp.Value;
                     continue;
                 }
+                if (kvp.Key.Equals("User-Agent", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(UserAgent))
+                {
+                    continue;
+                }
                 message.Headers.TryAddWithoutValidation(kvp.Key, kvp.Value);
             }
 
-            // Set body content if applicable
             if (isBodyMethod)
             {
                 if (request.JsonBody != null)
                 {
-                    string json = Utilities.FastJson.Serialize(request.JsonBody);
+                    string json;
+                    if (request.JsonBody is string rawJson)
+                        json = rawJson;
+                    else if (request.JsonBody is JsonElement je)
+                        json = je.GetRawText();
+                    else
+                        json = Utilities.FastJson.Serialize(request.JsonBody);
                     message.Content = new StringContent(json, Encoding.UTF8, "application/json");
                 }
                 else if (specifiedContentType != null && specifiedContentType.Contains("x-www-form-urlencoded", StringComparison.OrdinalIgnoreCase))
@@ -272,6 +282,19 @@ namespace Shiro.Http
                 }
             }
 
+            return message;
+        }
+
+        public Task<RestResponse> ExecuteAsync(RestRequest request, CancellationToken cancellationToken = default) =>
+            ExecuteAsync(request, null, cancellationToken);
+
+        public async Task<RestResponse> ExecuteAsync(RestRequest request, HttpClient? clientOverride, CancellationToken cancellationToken = default)
+        {
+            if (request == null)
+                throw new ArgumentNullException(nameof(request));
+
+            HttpClient activeClient = clientOverride ?? _httpClient;
+            using var message = CreateHttpRequestMessage(request);
             var restResponse = new RestResponse();
 
             try
@@ -280,7 +303,6 @@ namespace Shiro.Http
                 restResponse.StatusCode = httpResponse.StatusCode;
                 restResponse.StatusDescription = httpResponse.ReasonPhrase ?? httpResponse.StatusCode.ToString();
 
-                // Extract headers
                 foreach (var header in httpResponse.Headers)
                 {
                     foreach (var val in header.Value)
@@ -296,7 +318,6 @@ namespace Shiro.Http
                     }
                 }
 
-                // Extract Set-Cookie headers into Cookies collection
                 IEnumerable<string>? cookieHeaders = null;
                 if (!httpResponse.Headers.TryGetValues("Set-Cookie", out cookieHeaders))
                 {
@@ -348,8 +369,47 @@ namespace Shiro.Http
         }
 
         /// <summary>
-        /// Executes the request and automatically deserializes the response JSON into <typeparamref name="T"/>,
-        /// avoiding redundant intermediate string copies and manual deserialization boilerplate.
+        /// Streams the HTTP response body directly into <see cref="JsonSerializer.DeserializeAsync{TValue}(System.IO.Stream,JsonTypeInfo{TValue},CancellationToken)"/>
+        /// using source-generated metadata, eliminating intermediate UTF-16 string allocations on hot polling paths.
+        /// </summary>
+        public async Task<(bool Success, T? Data, HttpStatusCode StatusCode, string? ErrorMessage)> ExecuteJsonAsync<T>(
+            RestRequest request,
+            JsonTypeInfo<T> jsonTypeInfo,
+            CancellationToken cancellationToken = default)
+        {
+            if (request == null) throw new ArgumentNullException(nameof(request));
+            if (jsonTypeInfo == null) throw new ArgumentNullException(nameof(jsonTypeInfo));
+
+            using var message = CreateHttpRequestMessage(request);
+            try
+            {
+                using var httpResponse = await _httpClient.SendAsync(message, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+                if (!httpResponse.IsSuccessStatusCode)
+                {
+                    return (false, default, httpResponse.StatusCode, httpResponse.ReasonPhrase);
+                }
+
+                if (httpResponse.Content == null)
+                {
+                    return (false, default, httpResponse.StatusCode, "Empty response content.");
+                }
+
+                await using var stream = await httpResponse.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+                T? data = await JsonSerializer.DeserializeAsync(stream, jsonTypeInfo, cancellationToken).ConfigureAwait(false);
+                return (data != null, data, httpResponse.StatusCode, null);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return (false, default, 0, ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// Executes the request and automatically deserializes the response JSON into <typeparamref name="T"/>.
         /// </summary>
         public async Task<(bool Success, T? Data, RestResponse Raw)> ExecuteAsync<T>(RestRequest request, CancellationToken cancellationToken = default)
         {

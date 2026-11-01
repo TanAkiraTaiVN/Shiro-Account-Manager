@@ -42,7 +42,6 @@ namespace Shiro.Services
         {
             var request = new HttpRequestMessage(HttpMethod.Post, "https://auth.roblox.com/v1/authentication-ticket/");
             account.ApplySessionFingerprintAndHba(request, body);
-            RobloxHbaService.TryAttachHbaHeader(request, account, body);
             if (!string.IsNullOrEmpty(csrfToken))
                 request.Headers.TryAddWithoutValidation("X-CSRF-TOKEN", csrfToken);
             request.Headers.TryAddWithoutValidation("Origin", "https://www.roblox.com");

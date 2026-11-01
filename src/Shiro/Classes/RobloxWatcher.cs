@@ -1,10 +1,7 @@
-﻿#nullable enable
-using Microsoft.Win32;
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
-using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -16,12 +13,60 @@ namespace Shiro.Classes
     {
         [GeneratedRegex(@"\-b (\d+)")]
         private static partial Regex TrackerRegex();
+
+        private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+
+        private const uint PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
+        private const uint PROCESS_TERMINATE = 0x0001;
+        private const int GW_OWNER = 4;
+
         [LibraryImport("user32.dll")]
         private static partial IntPtr GetForegroundWindow();
+
+        [LibraryImport("user32.dll")]
+        private static partial uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+
+        [LibraryImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static partial bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
+
+        [LibraryImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static partial bool IsWindowVisible(IntPtr hWnd);
+
+        [LibraryImport("user32.dll")]
+        private static partial IntPtr GetWindow(IntPtr hWnd, uint uCmd);
 
         [LibraryImport("user32.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
         private static partial bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+
+        [LibraryImport("user32.dll", EntryPoint = "GetWindowTextW")]
+        private static unsafe partial int GetWindowTextW(IntPtr hWnd, char* lpString, int nMaxCount);
+
+        [LibraryImport("kernel32.dll", SetLastError = true)]
+        private static partial IntPtr OpenProcess(uint dwDesiredAccess, [MarshalAs(UnmanagedType.Bool)] bool bInheritHandle, int dwProcessId);
+
+        [LibraryImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static partial bool TerminateProcess(IntPtr hProcess, uint uExitCode);
+
+        [LibraryImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static partial bool GetProcessTimes(
+            IntPtr hProcess,
+            out long lpCreationTime,
+            out long lpExitTime,
+            out long lpKernelTime,
+            out long lpUserTime);
+
+        [LibraryImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static partial bool K32GetProcessMemoryInfo(IntPtr process, out PROCESS_MEMORY_COUNTERS ppsmemCounters, uint cb);
+
+        [LibraryImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static partial bool CloseHandle(IntPtr hObject);
 
         [StructLayout(LayoutKind.Sequential)]
         public struct RECT
@@ -30,6 +75,21 @@ namespace Shiro.Classes
             public int Top;
             public int Right;
             public int Bottom;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct PROCESS_MEMORY_COUNTERS
+        {
+            public uint cb;
+            public uint PageFaultCount;
+            public nuint PeakWorkingSetSize;
+            public nuint WorkingSetSize;
+            public nuint QuotaPeakPagedPoolUsage;
+            public nuint QuotaPagedPoolUsage;
+            public nuint QuotaPeakNonPagedPoolUsage;
+            public nuint QuotaNonPagedPoolUsage;
+            public nuint PagefileUsage;
+            public nuint PeakPagefileUsage;
         }
 
         public static HashSet<int> Seen = [];
@@ -81,7 +141,8 @@ namespace Shiro.Classes
 
         public static void CheckProcesses()
         {
-            if (!RobloxProcessService.IsAnyRobloxRunning())
+            var runningPids = RobloxProcessService.GetRunningRobloxPids();
+            if (runningPids.Count == 0)
             {
                 lock (InstanceRegistryLock)
                 {
@@ -94,7 +155,6 @@ namespace Shiro.Classes
 
             if (!CloseIfMemoryLow && !CloseIfWindowTitle && !RememberWindowPositions)
             {
-                var runningPids = RobloxProcessService.GetRunningRobloxPids();
                 bool allKnown = true;
                 lock (InstanceRegistryLock)
                 {
@@ -109,52 +169,19 @@ namespace Shiro.Classes
 
                     if (allKnown)
                     {
-                        if (_pidMetadataCache.Count > runningPids.Count)
-                        {
-                            List<int>? exitedPids = null;
-                            foreach (int cachedPid in _pidMetadataCache.Keys)
-                            {
-                                if (!runningPids.Contains(cachedPid))
-                                {
-                                    exitedPids ??= new List<int>(4);
-                                    exitedPids.Add(cachedPid);
-                                }
-                            }
-
-                            if (exitedPids != null)
-                            {
-                                foreach (int exitedPid in exitedPids)
-                                {
-                                    _pidMetadataCache.Remove(exitedPid);
-                                    Seen.Remove(exitedPid);
-                                }
-                            }
-                        }
+                        PruneExitedMetadataUnderLock(runningPids);
                         return;
                     }
                 }
             }
 
-            Process[] processes;
-            try { processes = Process.GetProcessesByName("RobloxPlayerBeta"); }
-            catch (Exception ex)
+            IntPtr focusedHwnd = GetForegroundWindow();
+            uint focusedPid = 0;
+            if (focusedHwnd != IntPtr.Zero)
             {
-                Program.Logger?.Debug($"GetProcessesByName RobloxPlayerBeta failed: {ex.Message}");
-                return;
+                GetWindowThreadProcessId(focusedHwnd, out focusedPid);
             }
 
-            if (processes.Length == 0)
-            {
-                lock (InstanceRegistryLock)
-                {
-                    if (Seen.Count > 0) Seen.Clear();
-                    if (Instances.Count > 0) Instances.Clear();
-                    if (_pidMetadataCache.Count > 0) _pidMetadataCache.Clear();
-                }
-                return;
-            }
-
-            IntPtr Focused = GetForegroundWindow();
             Dictionary<string, Account>? accountByTracker = null;
             if (RememberWindowPositions)
             {
@@ -166,157 +193,270 @@ namespace Shiro.Classes
                 }
             }
 
-            var activePids = new HashSet<int>(processes.Length);
+            var activePids = new HashSet<int>(runningPids.Count);
+            for (int i = 0; i < runningPids.Count; i++)
+                activePids.Add(runningPids[i]);
 
-            foreach (var process in processes)
+            Dictionary<int, IntPtr>? mainWindowByPid = (CloseIfWindowTitle || RememberWindowPositions)
+                ? BuildMainWindowMap(activePids)
+                : null;
+
+            long nowFileTimeUtc = DateTime.UtcNow.ToFileTimeUtc();
+
+            for (int idx = 0; idx < runningPids.Count; idx++)
             {
+                int pid = runningPids[idx];
+                bool isFocusedProcess = focusedPid > 0 && pid == (int)focusedPid;
+
+                string trackerId = string.Empty;
+                bool isGameClient = false;
+                RECT lastRect = default;
+                bool hasCachedMeta;
+
+                lock (InstanceRegistryLock)
+                {
+                    hasCachedMeta = _pidMetadataCache.TryGetValue(pid, out var cachedMeta);
+                    if (hasCachedMeta)
+                    {
+                        trackerId = cachedMeta.TrackerId;
+                        isGameClient = cachedMeta.IsGameClient;
+                        lastRect = cachedMeta.LastSavedRect;
+                    }
+                }
+
+                if (!hasCachedMeta)
+                {
+                    string? commandLine = ProcessExtensions.GetCommandLineByPid(pid);
+                    if (!string.IsNullOrEmpty(commandLine) &&
+                        !commandLine.StartsWith("\\??\\", StringComparison.Ordinal) &&
+                        (commandLine.Contains("-t ", StringComparison.Ordinal) || commandLine.Contains("-j ", StringComparison.Ordinal) || commandLine.Contains("--app", StringComparison.Ordinal)))
+                    {
+                        isGameClient = true;
+                        var trackerMatch = TrackerRegex().Match(commandLine);
+                        trackerId = trackerMatch.Success ? trackerMatch.Groups[1].Value : string.Empty;
+                    }
+
+                    lock (InstanceRegistryLock)
+                    {
+                        _pidMetadataCache[pid] = (trackerId, isGameClient, default);
+                    }
+                }
+
+                if (!isGameClient)
+                    continue;
+
+                bool needNativeStats = (!isFocusedProcess && (CloseIfMemoryLow || CloseIfWindowTitle)) ||
+                                       (RememberWindowPositions && !string.IsNullOrEmpty(trackerId));
+                if (needNativeStats && TryGetProcessAgeAndMemory(pid, nowFileTimeUtc, out double ageSeconds, out long workingSetBytes) && ageSeconds > 30)
+                {
+                    if (!isFocusedProcess)
+                    {
+                        long workingSetMb = workingSetBytes / (1024 * 1024);
+                        if (CloseIfMemoryLow && workingSetMb > 0 && workingSetMb < MemoryLowValue)
+                        {
+                            KillNative(pid, $"Low Memory ({workingSetMb} < {MemoryLowValue})");
+                            continue;
+                        }
+
+                        if (CloseIfWindowTitle && mainWindowByPid != null && mainWindowByPid.TryGetValue(pid, out IntPtr titleHwnd) && titleHwnd != IntPtr.Zero)
+                        {
+                            string title = GetWindowTitleNative(titleHwnd);
+                            if (!string.Equals(title, ExpectedWindowTitle, StringComparison.Ordinal))
+                            {
+                                KillNative(pid, $"Window Title isn't {ExpectedWindowTitle}, got {title}");
+                                continue;
+                            }
+                        }
+                    }
+
+                    if (RememberWindowPositions &&
+                        !string.IsNullOrEmpty(trackerId) &&
+                        accountByTracker != null &&
+                        accountByTracker.TryGetValue(trackerId, out Account? account) &&
+                        account != null &&
+                        mainWindowByPid != null &&
+                        mainWindowByPid.TryGetValue(pid, out IntPtr hWnd) &&
+                        hWnd != IntPtr.Zero &&
+                        GetWindowRect(hWnd, out RECT rect))
+                    {
+                        int width = rect.Right - rect.Left;
+                        int height = rect.Bottom - rect.Top;
+                        if (width >= 200 && height >= 200 && rect.Left > -10000 && rect.Top > -10000 &&
+                            (rect.Left != lastRect.Left || rect.Top != lastRect.Top || rect.Right != lastRect.Right || rect.Bottom != lastRect.Bottom))
+                        {
+                            account.SetWindowBounds(rect.Left, rect.Top, width, height);
+
+                            lock (InstanceRegistryLock)
+                            {
+                                _pidMetadataCache[pid] = (trackerId, isGameClient, rect);
+                            }
+                        }
+                    }
+                }
+
+                lock (InstanceRegistryLock)
+                {
+                    if (Seen.Contains(pid))
+                        continue;
+                }
+
+                Process? process = null;
                 bool retained = false;
                 try
                 {
-                    int pid = process.Id;
-                    activePids.Add(pid);
-                    bool isFocusedWindow = Focused != IntPtr.Zero && process.MainWindowHandle == Focused;
-
-                    void Kill(string Reason) { Program.Logger.Info($"Attempting to kill process {pid}, reason: {Reason}"); try { process.Kill(); } catch (Exception ex) { Program.Logger?.Debug($"Kill process {pid} failed: {ex.Message}"); } }
-
-                    string trackerId = string.Empty;
-                    bool isGameClient = false;
-                    RECT lastRect = default;
-                    bool hasCachedMeta;
+                    process = Process.GetProcessById(pid);
+                    if (process.HasExited) continue;
 
                     lock (InstanceRegistryLock)
                     {
-                        hasCachedMeta = _pidMetadataCache.TryGetValue(pid, out var cachedMeta);
-                        if (hasCachedMeta)
-                        {
-                            trackerId = cachedMeta.TrackerId;
-                            isGameClient = cachedMeta.IsGameClient;
-                            lastRect = cachedMeta.LastSavedRect;
-                        }
+                        if (Seen.Contains(pid))
+                            continue;
+
+                        Instances.Add(new RobloxProcess(process));
+                        Seen.Add(pid);
+                        retained = true;
                     }
-
-                    if (!hasCachedMeta)
-                    {
-                        string? commandLine = process.GetCommandLine();
-                        if (!string.IsNullOrEmpty(commandLine) &&
-                            !commandLine.StartsWith("\\??\\") &&
-                            (commandLine.Contains("-t ") || commandLine.Contains("-j ")))
-                        {
-                            isGameClient = true;
-                            var trackerMatch = TrackerRegex().Match(commandLine);
-                            trackerId = trackerMatch.Success ? trackerMatch.Groups[1].Value : string.Empty;
-                        }
-
-                        lock (InstanceRegistryLock)
-                        {
-                            _pidMetadataCache[pid] = (trackerId, isGameClient, default);
-                        }
-                    }
-
-                    if (!isGameClient)
-                        continue;
-
-                    bool isOlderThan30s = false;
-                    if (!isFocusedWindow || (RememberWindowPositions && !string.IsNullOrEmpty(trackerId)))
-                    {
-                        try { isOlderThan30s = (DateTime.Now - process.StartTime).TotalSeconds > 30; }
-                        catch (Exception ex) { Program.Logger?.Debug($"Get process start time failed for {pid}: {ex.Message}"); }
-                    }
-
-                    if (!isFocusedWindow && isOlderThan30s)
-                    {
-                        try
-                        {
-                            if (CloseIfMemoryLow && process.WorkingSet64 / 1024 / 1024 < MemoryLowValue)
-                                Kill($"Low Memory ({process.WorkingSet64 / 1024 / 1024} < {MemoryLowValue})");
-
-                            if (CloseIfWindowTitle && process.MainWindowTitle != ExpectedWindowTitle)
-                                Kill($"Window Title isn't {ExpectedWindowTitle}, got {process.MainWindowTitle}");
-                        }
-                        catch (Exception x) { Program.Logger?.Error($"Error with checking for Memory & Window Title: {x.Message}\n{x.StackTrace}"); }
-                    }
-
-                    if (RememberWindowPositions && !string.IsNullOrEmpty(trackerId) && isOlderThan30s)
-                    {
-                        if (accountByTracker != null && accountByTracker.TryGetValue(trackerId, out Account? account) && account != null)
-                        {
-                            try
-                            {
-                                IntPtr hWnd = process.MainWindowHandle;
-                                if (hWnd != IntPtr.Zero && GetWindowRect(hWnd, out RECT rect))
-                                {
-                                    int width = rect.Right - rect.Left;
-                                    int height = rect.Bottom - rect.Top;
-                                    // Ignore minimized (-32000) or collapsed windows
-                                    if (width >= 200 && height >= 200 && rect.Left > -10000 && rect.Top > -10000 &&
-                                        (rect.Left != lastRect.Left || rect.Top != lastRect.Top || rect.Right != lastRect.Right || rect.Bottom != lastRect.Bottom))
-                                    {
-                                        account.SetWindowBounds(rect.Left, rect.Top, width, height);
-
-                                        lock (InstanceRegistryLock)
-                                        {
-                                            _pidMetadataCache[pid] = (trackerId, isGameClient, rect);
-                                        }
-                                    }
-                                }
-                            }
-                            catch (Exception ex) { Program.Logger?.Debug($"RememberWindowPositions check failed for {pid}: {ex.Message}"); }
-                        }
-                    }
-
-                    lock (InstanceRegistryLock)
-                        if (Seen.Contains(pid)) continue;
-
-                    try
-                    {
-                        if (process.HasExited) continue;
-
-                        lock (InstanceRegistryLock)
-                        {
-                            if (Seen.Contains(pid))
-                                continue;
-
-                            Instances.Add(new RobloxProcess(process));
-                            Seen.Add(pid);
-                            retained = true;
-                        }
-                    }
-                    catch (Exception x) { Program.Logger?.Error($"Access to Process {pid} denied! This may be due to roblox being ran as admin or roblox's second process(This message can be ignored): {x.Message}"); }
+                }
+                catch (ArgumentException)
+                {
+                    // Process exited between snapshot and GetProcessById
+                }
+                catch (Exception x)
+                {
+                    Program.Logger?.Debug($"Access to Process {pid} denied: {x.Message}");
                 }
                 finally
                 {
-                    if (!retained)
+                    if (!retained && process != null)
                     {
-                        try { process.Dispose(); } catch (Exception) { }
+                        try { process.Dispose(); } catch { }
                     }
                 }
             }
 
             lock (InstanceRegistryLock)
             {
-                if (_pidMetadataCache.Count > activePids.Count)
-                {
-                    List<int>? exitedPids = null;
-                    foreach (int cachedPid in _pidMetadataCache.Keys)
-                    {
-                        if (!activePids.Contains(cachedPid))
-                        {
-                            exitedPids ??= new List<int>(4);
-                            exitedPids.Add(cachedPid);
-                        }
-                    }
+                PruneExitedMetadataUnderLock(runningPids);
+            }
+        }
 
-                    if (exitedPids != null)
+        private static void PruneExitedMetadataUnderLock(IReadOnlyList<int> activePids)
+        {
+            if (_pidMetadataCache.Count <= activePids.Count && Seen.Count <= activePids.Count)
+                return;
+
+            List<int>? exitedPids = null;
+            foreach (int cachedPid in _pidMetadataCache.Keys)
+            {
+                bool stillRunning = false;
+                for (int i = 0; i < activePids.Count; i++)
+                {
+                    if (activePids[i] == cachedPid)
                     {
-                        foreach (int exitedPid in exitedPids)
-                        {
-                            _pidMetadataCache.Remove(exitedPid);
-                            Seen.Remove(exitedPid);
-                        }
+                        stillRunning = true;
+                        break;
                     }
+                }
+
+                if (!stillRunning)
+                {
+                    exitedPids ??= new List<int>(4);
+                    exitedPids.Add(cachedPid);
+                }
+            }
+
+            if (exitedPids != null)
+            {
+                foreach (int exitedPid in exitedPids)
+                {
+                    _pidMetadataCache.Remove(exitedPid);
+                    Seen.Remove(exitedPid);
                 }
             }
         }
+
+        private static Dictionary<int, IntPtr> BuildMainWindowMap(HashSet<int> targetPids)
+        {
+            var map = new Dictionary<int, IntPtr>(targetPids.Count);
+            if (!OperatingSystem.IsWindows() || targetPids.Count == 0)
+                return map;
+
+            EnumWindows((hWnd, _) =>
+            {
+                if (!IsWindowVisible(hWnd) || GetWindow(hWnd, GW_OWNER) != IntPtr.Zero)
+                    return true;
+
+                GetWindowThreadProcessId(hWnd, out uint wndPid);
+                int pid = (int)wndPid;
+                if (pid > 0 && targetPids.Contains(pid) && !map.ContainsKey(pid))
+                {
+                    map[pid] = hWnd;
+                }
+                return true;
+            }, IntPtr.Zero);
+
+            return map;
+        }
+
+        private static unsafe bool TryGetProcessAgeAndMemory(int pid, long nowFileTimeUtc, out double ageSeconds, out long workingSetBytes)
+        {
+            ageSeconds = 0;
+            workingSetBytes = 0;
+            IntPtr hProcess = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
+            if (hProcess == IntPtr.Zero)
+                return false;
+
+            try
+            {
+                if (GetProcessTimes(hProcess, out long creationFileTime, out _, out _, out _) && creationFileTime > 0)
+                {
+                    ageSeconds = Math.Max(0, (nowFileTimeUtc - creationFileTime) / 10_000_000.0);
+                }
+
+                if (CloseIfMemoryLow)
+                {
+                    PROCESS_MEMORY_COUNTERS counters = default;
+                    counters.cb = (uint)sizeof(PROCESS_MEMORY_COUNTERS);
+                    if (K32GetProcessMemoryInfo(hProcess, out counters, counters.cb))
+                    {
+                        workingSetBytes = (long)counters.WorkingSetSize;
+                    }
+                }
+
+                return true;
+            }
+            finally
+            {
+                CloseHandle(hProcess);
+            }
+        }
+
+        private static unsafe string GetWindowTitleNative(IntPtr hWnd)
+        {
+            char* buf = stackalloc char[256];
+            int len = GetWindowTextW(hWnd, buf, 256);
+            return len > 0 ? new string(buf, 0, len) : string.Empty;
+        }
+
+        private static void KillNative(int pid, string reason)
+        {
+            Program.Logger?.Info($"Attempting to kill process {pid}, reason: {reason}");
+            IntPtr hProcess = OpenProcess(PROCESS_TERMINATE, false, pid);
+            if (hProcess == IntPtr.Zero) return;
+            try
+            {
+                TerminateProcess(hProcess, 1);
+            }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"Kill process {pid} failed: {ex.Message}");
+            }
+            finally
+            {
+                CloseHandle(hProcess);
+            }
+        }
+
         internal static void RemoveProcessMetadata(int pid)
         {
             lock (InstanceRegistryLock)

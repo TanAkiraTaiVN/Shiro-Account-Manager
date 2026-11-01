@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -44,6 +44,11 @@ namespace Shiro.Services
         public void Save(bool force = false)
         {
             AccountManager.SaveAccounts(BypassRateLimit: force, BypassCountCheck: force);
+        }
+
+        public System.Threading.Tasks.Task SaveAsync(bool force = false)
+        {
+            return AccountManager.SaveAccountsAsync(BypassRateLimit: force, BypassCountCheck: force);
         }
 
         public void Load(byte[]? masterPasswordHash = null)

@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Globalization;
 
@@ -13,6 +13,24 @@ namespace Shiro.Services
     {
         private static readonly Lazy<AppSettings> _currentInstance = new(() => new AppSettings());
         public static AppSettings Current => _currentInstance.Value;
+
+        private static ISettingsService? _generalOverride;
+
+        /// <summary>
+        /// General application settings service. Can be overridden in unit tests to prevent cross-test contamination.
+        /// </summary>
+        public static ISettingsService General
+        {
+            get => _generalOverride ?? (ISettingsService?)AccountManager.General ?? FallbackGeneral;
+            set => _generalOverride = value;
+        }
+
+        private static readonly IniSection FallbackGeneral = new("General");
+
+        public static void ResetOverrides()
+        {
+            _generalOverride = null;
+        }
 
         private IniSection? GetSection(string sectionName) =>
             AccountManager.IniSettings?.Section(sectionName);

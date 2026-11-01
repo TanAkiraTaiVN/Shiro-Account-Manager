@@ -1,8 +1,9 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Globalization;
 using Avalonia.Data;
 using Avalonia.Data.Converters;
+using Shiro.Services;
 
 namespace Shiro.AvaloniaUI.Converters
 {
@@ -72,5 +73,32 @@ namespace Shiro.AvaloniaUI.Converters
                 return parameter;
             return BindingOperations.DoNothing;
         }
+    }
+
+    public class GroupNameDisplayConverter : IValueConverter
+    {
+        public static readonly GroupNameDisplayConverter Instance = new();
+
+        public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+        {
+            if (value is not string s || string.IsNullOrWhiteSpace(s))
+                return Loc.Get("Dash_AllGroups", LocalizationService.IsEnglish ? "All Groups" : "Tất cả nhóm");
+
+            if (string.Equals(s, "All Groups", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(s, "Tất cả nhóm", StringComparison.OrdinalIgnoreCase))
+            {
+                return Loc.Get("Dash_AllGroups", LocalizationService.IsEnglish ? "All Groups" : "Tất cả nhóm");
+            }
+
+            if (string.Equals(s, "Default", StringComparison.OrdinalIgnoreCase))
+            {
+                return LocalizationService.IsEnglish ? "Default" : "Mặc định";
+            }
+
+            return s;
+        }
+
+        public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+            => BindingOperations.DoNothing;
     }
 }

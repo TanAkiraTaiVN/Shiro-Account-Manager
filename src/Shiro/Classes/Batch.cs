@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using Shiro.Http;
 using System;
 using System.Collections.Concurrent;
@@ -282,7 +282,9 @@ namespace Shiro.Classes
                         continue;
 
                     RestRequest request = new RestRequest($"v1/games/multiget-place-details?placeIds={string.Join("&placeIds=", pending)}");
-                    request.AddCookie(".ROBLOSECURITY", AccountManager.LastValidAccount?.SecurityToken ?? string.Empty, "/", ".roblox.com");
+                    string? placeCookie = AccountManager.LastValidAccount?.SecurityToken;
+                    if (!string.IsNullOrWhiteSpace(placeCookie))
+                        request.AddCookie(".ROBLOSECURITY", placeCookie, "/", ".roblox.com");
 
                     RestResponse response = await GamesAPI.ExecuteAsync(request).ConfigureAwait(false);
                     if (response == null || !response.IsSuccessful)
@@ -315,7 +317,9 @@ namespace Shiro.Classes
                 return string.Empty;
 
             RestRequest request = new RestRequest($"v1/assets?assetIds={assetId}&returnPolicy=PlaceHolder&size=150x150&format=Png&isCircular=false");
-            request.AddCookie(".ROBLOSECURITY", AccountManager.LastValidAccount?.SecurityToken ?? string.Empty, "/", ".roblox.com");
+            string? assetCookie = AccountManager.LastValidAccount?.SecurityToken;
+            if (!string.IsNullOrWhiteSpace(assetCookie))
+                request.AddCookie(".ROBLOSECURITY", assetCookie, "/", ".roblox.com");
 
             RestResponse response = await ThumbnailAPI.ExecuteAsync(request).ConfigureAwait(false);
             if (response == null || !response.IsSuccessful)

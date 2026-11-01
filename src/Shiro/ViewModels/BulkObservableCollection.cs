@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -93,6 +93,43 @@ namespace Shiro.ViewModels
                 return;
             }
 
+            if (Count == 0)
+            {
+                ReplaceAll(newItems);
+                return;
+            }
+
+            // Adaptive notification strategy:
+            // If the differences between collections are large (e.g. re-sorting, filtering, or bulk replacements),
+            // a single atomic Reset event via ReplaceAll is 100x faster and prevents Avalonia layout thrashing.
+            // Fine-grained Replace/Remove/Add events are preserved only for small incremental deltas.
+            int threshold = Math.Max(5, (int)(Count * 0.15));
+            int sizeDiff = Math.Abs(Count - newItems.Count);
+            int sharedCount = Math.Min(Count, newItems.Count);
+            int diffCount = sizeDiff;
+
+            if (diffCount > threshold)
+            {
+                ReplaceAll(newItems);
+                return;
+            }
+
+            for (int i = 0; i < sharedCount; i++)
+            {
+                if (!EqualityComparer<T>.Default.Equals(this[i], newItems[i]))
+                {
+                    diffCount++;
+                    if (diffCount > threshold)
+                        break;
+                }
+            }
+
+            if (diffCount > threshold)
+            {
+                ReplaceAll(newItems);
+                return;
+            }
+
             // Remove extra items from the tail
             while (Count > newItems.Count)
             {
@@ -100,7 +137,6 @@ namespace Shiro.ViewModels
             }
 
             // In-place update existing items where different
-            int sharedCount = Math.Min(Count, newItems.Count);
             for (int i = 0; i < sharedCount; i++)
             {
                 if (!EqualityComparer<T>.Default.Equals(this[i], newItems[i]))

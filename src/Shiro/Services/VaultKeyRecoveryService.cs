@@ -10,7 +10,6 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
-using Microsoft.Win32.SafeHandles;
 using Shiro.Classes;
 
 namespace Shiro.Services
@@ -20,56 +19,6 @@ namespace Shiro.Services
         private static readonly byte[] DpapiKeyHeader = Encoding.ASCII.GetBytes("SHIRO_DPAPI_KEY_V1");
         private static readonly byte[] DpapiKeyEntropy = Encoding.ASCII.GetBytes("Shiro.VaultKey.v1");
         private static readonly byte[] VaultKeyUtf16 = Encoding.Unicode.GetBytes("vault.key");
-
-        private const uint GENERIC_READ = 0x80000000;
-        private const uint FILE_SHARE_READ = 0x00000001;
-        private const uint FILE_SHARE_WRITE = 0x00000002;
-        private const uint FILE_SHARE_DELETE = 0x00000004;
-        private const uint OPEN_EXISTING = 3;
-        private const uint FSCTL_GET_NTFS_VOLUME_DATA = 0x00090064;
-
-        [ExcludeFromCodeCoverage]
-        [LibraryImport("kernel32.dll", EntryPoint = "CreateFileW", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
-        private static partial SafeFileHandle CreateFile(
-            string lpFileName,
-            uint dwDesiredAccess,
-            uint dwShareMode,
-            IntPtr lpSecurityAttributes,
-            uint dwCreationDisposition,
-            uint dwFlagsAndAttributes,
-            IntPtr hTemplateFile);
-
-        [ExcludeFromCodeCoverage]
-        [LibraryImport("kernel32.dll", SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static partial bool DeviceIoControl(
-            SafeFileHandle hDevice,
-            uint dwIoControlCode,
-            IntPtr lpInBuffer,
-            uint nInBufferSize,
-            Span<byte> lpOutBuffer,
-            uint nOutBufferSize,
-            out uint lpBytesReturned,
-            IntPtr lpOverlapped);
-
-        [ExcludeFromCodeCoverage]
-        [LibraryImport("kernel32.dll", SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static partial bool SetFilePointerEx(
-            SafeFileHandle hFile,
-            long liDistanceToMove,
-            out long lpNewFilePointer,
-            uint dwMoveMethod);
-
-        [ExcludeFromCodeCoverage]
-        [LibraryImport("kernel32.dll", SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static partial bool ReadFile(
-            SafeFileHandle hFile,
-            Span<byte> lpBuffer,
-            uint nNumberOfBytesToRead,
-            out uint lpNumberOfBytesRead,
-            IntPtr lpOverlapped);
 
         private static void TraceLog(string message)
         {

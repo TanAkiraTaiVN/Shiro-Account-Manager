@@ -1,4 +1,4 @@
-﻿<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -73,13 +73,6 @@
                     <StackPanel Orientation="Horizontal" Spacing="6">
                         <lucide:Lucide Icon="Lock" Width="14" Height="14" StrokeBrush="#A1A1AA" VerticalAlignment="Center" />
                         <TextBlock Text="{DynamicResource Set_TabSecurity}" VerticalAlignment="Center" />
-                    </StackPanel>
-                </RadioButton>
-
-                <RadioButton x:Name="TabRadioPresets" Classes="SettingsTabPill" GroupName="SettingsCat" Click="OnCategoryTabClicked">
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                        <lucide:Lucide Icon="Sparkles" Width="14" Height="14" StrokeBrush="#A1A1AA" VerticalAlignment="Center" />
-                        <TextBlock Text="{DynamicResource Set_TabPresets}" FontSize="12" VerticalAlignment="Center" />
                     </StackPanel>
                 </RadioButton>
             </StackPanel>
@@ -225,6 +218,18 @@
                             </StackPanel>
                             <ToggleSwitch Grid.Column="1" x:Name="SwAggressiveRamTrim" IsChecked="True" HorizontalAlignment="Right" OnContent="{x:Null}" OffContent="{x:Null}" />
                         </Grid>
+
+                        <Separator Background="#24242C" Height="1" />
+
+                        <!-- Windows Job Object CPU Hard-Cap -->
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel Grid.Column="0" Spacing="2">
+                                <TextBlock Text="{DynamicResource Set_JobCpuCap}" Foreground="#FFFFFF" FontSize="13" />
+                                <TextBlock Text="{DynamicResource Set_JobCpuCapTip}" FontSize="11" Foreground="#A1A1AA" />
+                            </StackPanel>
+                            <NumericUpDown Grid.Column="1" x:Name="NumJobCpuCap" Minimum="0" Maximum="100" Increment="5" Value="0" Width="120"
+                                           HorizontalAlignment="Right" Background="#18181F" Foreground="#FFFFFF" BorderBrush="#2E2E38" />
+                        </Grid>
                     </StackPanel>
                 </Border>
 
@@ -369,59 +374,6 @@
                                 </Button>
                             </StackPanel>
                         </Grid>
-                    </StackPanel>
-                </Border>
-
-                <!-- 5. CATEGORY: 1-CLICK PRESETS -->
-                <Border x:Name="PanelPresets" IsVisible="False" Background="#111115" BorderBrush="#24242C" BorderThickness="1" CornerRadius="8" Padding="20">
-                    <StackPanel Spacing="16">
-                        <TextBlock Text="{DynamicResource Set_SectionPresets}" FontWeight="Bold" FontSize="15" Foreground="#FFFFFF" />
-                        <TextBlock Text="{DynamicResource Set_PresetsSubtitle}" FontSize="12" Foreground="#A1A1AA" />
-
-                        <!-- Preset 1: Safe Mode -->
-                        <Border Background="#16161D" BorderBrush="#24242C" BorderThickness="1" CornerRadius="8" Padding="14">
-                            <Grid ColumnDefinitions="*,Auto">
-                                <StackPanel Grid.Column="0" Spacing="2">
-                                    <StackPanel Orientation="Horizontal" Spacing="6">
-                                        <lucide:Lucide Icon="ShieldCheck" Width="15" Height="15" StrokeBrush="#38BDF8" VerticalAlignment="Center" />
-                                        <TextBlock Text="{DynamicResource Set_PresetSafeTitle}" FontWeight="Bold" FontSize="14" Foreground="#38BDF8" VerticalAlignment="Center" />
-                                    </StackPanel>
-                                    <TextBlock Text="{DynamicResource Set_PresetSafeDesc}" FontSize="11" Foreground="#A1A1AA" />
-                                </StackPanel>
-                                <Button Grid.Column="1" Content="{DynamicResource Set_ApplyPresetBtn}" Click="OnApplyPresetSafeClicked"
-                                        Background="#0284C7" Foreground="#FFFFFF" FontWeight="Bold" CornerRadius="6" Padding="16,8" Cursor="Hand" />
-                            </Grid>
-                        </Border>
-
-                        <!-- Preset 2: AFK Farm -->
-                        <Border Background="#16161D" BorderBrush="#24242C" BorderThickness="1" CornerRadius="8" Padding="14">
-                            <Grid ColumnDefinitions="*,Auto">
-                                <StackPanel Grid.Column="0" Spacing="2">
-                                    <StackPanel Orientation="Horizontal" Spacing="6">
-                                        <lucide:Lucide Icon="Cpu" Width="15" Height="15" StrokeBrush="#22C55E" VerticalAlignment="Center" />
-                                        <TextBlock Text="{DynamicResource Set_PresetAfkTitle}" FontWeight="Bold" FontSize="14" Foreground="#22C55E" VerticalAlignment="Center" />
-                                    </StackPanel>
-                                    <TextBlock Text="{DynamicResource Set_PresetAfkDesc}" FontSize="11" Foreground="#A1A1AA" />
-                                </StackPanel>
-                                <Button Grid.Column="1" Content="{DynamicResource Set_ApplyPresetBtn}" Click="OnApplyPresetAfkClicked"
-                                        Background="#16A34A" Foreground="#FFFFFF" FontWeight="Bold" CornerRadius="6" Padding="16,8" Cursor="Hand" />
-                            </Grid>
-                        </Border>
-
-                        <!-- Preset 3: Ultra Potato -->
-                        <Border Background="#16161D" BorderBrush="#24242C" BorderThickness="1" CornerRadius="8" Padding="14">
-                            <Grid ColumnDefinitions="*,Auto">
-                                <StackPanel Grid.Column="0" Spacing="2">
-                                    <StackPanel Orientation="Horizontal" Spacing="6">
-                                        <lucide:Lucide Icon="Zap" Width="15" Height="15" StrokeBrush="#F59E0B" VerticalAlignment="Center" />
-                                        <TextBlock Text="{DynamicResource Set_PresetPotatoTitle}" FontWeight="Bold" FontSize="14" Foreground="#F59E0B" VerticalAlignment="Center" />
-                                    </StackPanel>
-                                    <TextBlock Text="{DynamicResource Set_PresetPotatoDesc}" FontSize="11" Foreground="#A1A1AA" />
-                                </StackPanel>
-                                <Button Grid.Column="1" Content="{DynamicResource Set_ApplyPresetBtn}" Click="OnApplyPresetPotatoClicked"
-                                        Background="#D97706" Foreground="#FFFFFF" FontWeight="Bold" CornerRadius="6" Padding="16,8" Cursor="Hand" />
-                            </Grid>
-                        </Border>
                     </StackPanel>
                 </Border>
 

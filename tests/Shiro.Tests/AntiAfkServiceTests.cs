@@ -1,8 +1,9 @@
-﻿using Shiro.Services;
+using Shiro.Services;
 using Xunit;
 
 namespace Shiro.Tests
 {
+    [Collection("StoragePathsCollection")]
     public class AntiAfkServiceTests
     {
         [Fact]

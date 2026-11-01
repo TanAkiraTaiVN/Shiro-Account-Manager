@@ -1,4 +1,4 @@
-﻿
+
 #nullable enable
 using Shiro.Http;
 using System;
@@ -70,11 +70,12 @@ namespace Shiro.Classes
 
                     int batchEnd = Math.Min(offset + 50, UniqueUserIds.Length);
                     long[] batch = UniqueUserIds[offset..batchEnd];
-                    RestResponse? Response;
+                    (bool Success, RobloxPresenceEnvelope? Data, System.Net.HttpStatusCode StatusCode, string? ErrorMessage) result;
                     try
                     {
-                        Response = await PresenceClient.ExecuteAsync(
-                            new RestRequest("v1/presence/users", Method.Post).AddJsonBody(new { userIds = batch }),
+                        result = await PresenceClient.ExecuteJsonAsync(
+                            new RestRequest("v1/presence/users", Method.Post).AddJsonBody(new RobloxPresenceUsersRequest(batch)),
+                            ShiroAppJson.Default.RobloxPresenceEnvelope,
                             cancellationToken).ConfigureAwait(false);
                     }
                     catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -87,10 +88,10 @@ namespace Shiro.Classes
                         continue;
                     }
 
-                    if (Response == null || !Response.IsSuccessful)
+                    if (!result.Success)
                     {
-                        Program.Logger?.Warn($"Presence request returned HTTP {(Response == null ? 0 : (int)Response.StatusCode)} {Response?.StatusCode}: {Response?.Content}");
-                        if (Response != null && (int)Response.StatusCode == 429)
+                        Program.Logger?.Warn($"Presence request returned HTTP {(int)result.StatusCode} {result.StatusCode}: {result.ErrorMessage}");
+                        if ((int)result.StatusCode == 429)
                         {
                             RobloxRateLimitCoordinator.Instance.RecordRateLimitHit(RateLimitCategory.Presence, defaultBackoffSeconds: 6);
                             Program.Logger?.Warn("Roblox presence API rate limit (429) hit, aborting remaining presence batches to protect IP.");
@@ -101,13 +102,7 @@ namespace Shiro.Classes
 
                     RobloxRateLimitCoordinator.Instance.RecordSuccess(RateLimitCategory.Presence);
 
-                    // High-performance System.Text.Json zero-intermediate parsing
-                    List<UserPresence>? Presences = null;
-                    if (Response.Content != null && Utilities.FastJson.TryDeserialize<RobloxPresenceEnvelope>(Response.Content, out var envelope) && envelope?.userPresences != null)
-                    {
-                        Presences = envelope.userPresences;
-                    }
-
+                    List<UserPresence>? Presences = result.Data?.userPresences;
                     if (Presences == null)
                     {
                         Program.Logger?.Warn("Presence response did not contain userPresences.");
@@ -166,12 +161,13 @@ namespace Shiro.Classes
                 long[] batch = MissingUniverseIds[offset..batchEnd];
                 try
                 {
-                    RestResponse Response = await GamesClient.ExecuteAsync(
+                    var gamesResult = await GamesClient.ExecuteJsonAsync(
                         new RestRequest($"v1/games?universeIds={string.Join(",", batch)}", Method.Get),
+                        ShiroAppJson.Default.RobloxGamesEnvelope,
                         cancellationToken).ConfigureAwait(false);
-                    if (Response == null || !Response.IsSuccessful)
+                    if (!gamesResult.Success)
                     {
-                        if (Response != null && (int)Response.StatusCode == 429)
+                        if ((int)gamesResult.StatusCode == 429)
                         {
                             RobloxRateLimitCoordinator.Instance.RecordRateLimitHit(RateLimitCategory.General, defaultBackoffSeconds: 5);
                             Program.Logger?.Warn("Roblox games API rate limit (429) hit, aborting remaining game-name batches.");
@@ -180,9 +176,7 @@ namespace Shiro.Classes
                         continue;
                     }
 
-                    if (string.IsNullOrWhiteSpace(Response.Content)) continue;
-
-                    if (Utilities.FastJson.TryDeserialize<RobloxGamesEnvelope>(Response.Content, out var gamesEnv) && gamesEnv?.data != null)
+                    if (gamesResult.Data?.data != null)
                     {
                         lock (GameNameCacheLock)
                         {
@@ -194,7 +188,7 @@ namespace Shiro.Classes
                                 }
                             }
 
-                            foreach (var game in gamesEnv.data)
+                            foreach (var game in gamesResult.Data.data)
                             {
                                 if (game.id <= 0 || string.IsNullOrWhiteSpace(game.name)) continue;
                                 GameNameCache[game.id] = game.name.Trim();
@@ -345,6 +339,8 @@ namespace Shiro.Classes
 
         public static async Task<UserPresence?> GetPresenceSingular(long UserId) => ((await GetPresence(UserId)) is Dictionary<long, UserPresence> Dict && Dict.ContainsKey(UserId)) ? Dict[UserId] : null;
     }
+
+    public sealed record RobloxPresenceUsersRequest(long[] userIds);
 
     public sealed class RobloxPresenceEnvelope
     {

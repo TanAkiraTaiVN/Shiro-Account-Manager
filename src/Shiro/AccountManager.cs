@@ -1,4 +1,4 @@
-﻿using Microsoft.Win32;
+using Microsoft.Win32;
 using PuppeteerSharp;
 using PuppeteerSharp.BrowserData;
 using Shiro.Classes;
@@ -27,7 +27,7 @@ namespace Shiro
     public partial class AccountManager : IDisposable
     {
         public static AccountManager? Instance;
-        public static List<Account> AccountsList = new();
+        internal static List<Account> AccountsList = new();
         public static List<Account> SelectedAccounts = new();
         public static List<Game> RecentGames = new();
         public static Account? SelectedAccount;
@@ -91,7 +91,7 @@ namespace Shiro
             AppDispatcher.Post(action);
         }
         private KestrelWebServer? AltManagerWS;
-        private string WSPassword { get; set; } = string.Empty;
+        internal static string WSPassword { get; set; } = string.Empty;
         public Shiro.Services.ModernPeriodicTask? AutoCookieRefresh { get; private set; }
         public Shiro.Services.ModernPeriodicTask? PresenceTimer { get; private set; }
         private readonly System.Threading.Lock presenceTaskLock = new();
@@ -209,31 +209,55 @@ namespace Shiro
             }
         }
 
+        public static void AddAccountThreadSafe(Account account)
+        {
+            if (account == null) return;
+            lock (AccountListLock)
+            {
+                AccountsList ??= new List<Account>();
+                AccountsList.Add(account);
+                _cachedAccountsSnapshot = Array.Empty<Account>();
+            }
+        }
+
         private static void ReplaceAccountsList(List<Account> accounts)
         {
             if (accounts != null)
             {
                 foreach (var acc in accounts)
                 {
-                    if (acc != null && !string.IsNullOrWhiteSpace(acc.SecurityToken))
+                    if (acc != null)
                     {
-                        // Stored sessions remain valid by default (matching original RAM behavior).
-                        // Accounts are never falsely invalidated on startup or without user action.
-                        acc.Valid = true;
-                        acc.AccountStatusIssue = string.Empty;
-                    }
-                    else if (acc != null && acc.Valid && acc.HasExpiredShortLivedCookie())
-                    {
-                        acc.Valid = false;
-                        acc.IsDirty = true;
+                        // Clean up any stale false-positive generic ban badges from previous legacy scans
+                        if (!string.IsNullOrEmpty(acc.AccountStatusIssue) &&
+                            (acc.AccountStatusIssue.Contains("Bị khóa") || acc.AccountStatusIssue.Contains("Ban")))
+                        {
+                            acc.AccountStatusIssue = string.Empty;
+                        }
+
+                        if (string.IsNullOrWhiteSpace(acc.SecurityToken))
+                        {
+                            acc.Valid = false;
+                            acc.AccountStatusIssue = string.Empty;
+                        }
+                        else if (acc.Valid && acc.HasExpiredShortLivedCookie())
+                        {
+                            acc.Valid = false;
+                            acc.IsDirty = true;
+                        }
                     }
                 }
             }
 
+            IReadOnlyList<Account> snapshot;
             lock (AccountListLock)
+            {
                 AccountsList = accounts ?? new List<Account>();
+                _cachedAccountsSnapshot = Array.Empty<Account>();
+                snapshot = GetAccountsSnapshot();
+            }
 
-            MainWindow.Instance?.RefreshAccounts(AccountsList);
+            MainWindow.Instance?.RefreshAccounts(snapshot);
         }
 
         private static readonly System.Threading.Lock saveLock = new();
@@ -241,7 +265,6 @@ namespace Shiro
         private static readonly System.Threading.Lock rgSaveLock = new();
         public event EventHandler<GameArgs>? RecentGameAdded;
 
-        public bool IsDownloadingChromium { get; private set; }
         private readonly ILaunchCoordinator launchCoordinator;
         // Roblox accepts the app protocol asynchronously. A safe stagger keeps
         // multi-account Home launches reliable and prevents Roblox from invalidating sessions due to rapid requests.
@@ -326,7 +349,7 @@ namespace Shiro
                 General.Set("WindowScale", screenHeight <= screenWidth ? Math.Max(Math.Min((float)(screenHeight / 1080.0), 2f), 1f).ToString(".0#", CultureInfo.InvariantCulture) : "1.0");
 
                 if (Program.Scale > 1)
-                    if (!Utilities.YesNoPrompt("Shiro", "RAM has detected you have a monitor larger than average", $"Would you like to keep the WindowScale setting of {Program.Scale:F2}?", false))
+                    if (!Utilities.YesNoPrompt("Shiro", "Shiro has detected you have a monitor larger than average", $"Would you like to keep the WindowScale setting of {Program.Scale:F2}?", false))
                         General.Set("WindowScale", "1.0");
                     else
                         AppServices.Dialogs.ShowInfo("In case the font scaling is incorrect, open RAMSettings.ini and change \"ScaleFonts=true\" to \"ScaleFonts=false\" without the quotes.");
@@ -367,7 +390,7 @@ namespace Shiro
             if (!WebServer.Exists("AllowGetAccounts")) WebServer.Set("AllowGetAccounts", "false");
             if (!WebServer.Exists("AllowLaunchAccount")) WebServer.Set("AllowLaunchAccount", "false");
             if (!WebServer.Exists("AllowAccountEditing")) WebServer.Set("AllowAccountEditing", "false");
-            if (!WebServer.Exists("Password")) WebServer.Set("Password", ""); else WSPassword = WebServer.Get("Password") ?? string.Empty;
+            if (!WebServer.Exists("Password")) WebServer.Set("Password", ""); else WSPassword = CryptoHelper.UnprotectSecretString(WebServer.Get("Password") ?? string.Empty);
             if (!WebServer.Exists("EveryRequestRequiresPassword")) WebServer.Set("EveryRequestRequiresPassword", "false");
             if (!WebServer.Exists("AllowExternalConnections")) WebServer.Set("AllowExternalConnections", "false");
 

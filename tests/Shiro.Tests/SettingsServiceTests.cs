@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Shiro.Services;
 using Xunit;
 
@@ -110,6 +110,85 @@ namespace Shiro.Tests
             Assert.True(ini.Section("General").Get<bool>("UnlockFPS", false));
             Assert.Equal(165, ini.Section("General").Get<int>("MaxFPSValue", 0));
             Assert.Equal(8080, ini.Section("WebServer").Get<int>("Port", 0));
+        }
+
+        private sealed class FakeSettingsService : ISettingsService
+        {
+            private readonly System.Collections.Generic.Dictionary<string, string> _store =
+                new(StringComparer.OrdinalIgnoreCase);
+
+            public string? Get(string name) => _store.TryGetValue(name, out var val) ? val : null;
+
+            public T? Get<T>(string name, T? defaultValue = default)
+            {
+                if (!_store.TryGetValue(name, out var val)) return defaultValue;
+                try
+                {
+                    if (typeof(T) == typeof(bool)) return (T)(object)bool.Parse(val);
+                    if (typeof(T) == typeof(int)) return (T)(object)int.Parse(val);
+                    if (typeof(T) == typeof(string)) return (T)(object)val;
+                    return (T?)Convert.ChangeType(val, typeof(T));
+                }
+                catch
+                {
+                    return defaultValue;
+                }
+            }
+
+            public bool GetBool(string name, bool defaultValue = false) =>
+                _store.TryGetValue(name, out var val) && bool.TryParse(val, out var b) ? b : defaultValue;
+
+            public int GetInt(string name, int defaultValue = 0) =>
+                _store.TryGetValue(name, out var val) && int.TryParse(val, out var i) ? i : defaultValue;
+
+            public decimal GetDecimal(string name, decimal defaultValue = 0m) =>
+                _store.TryGetValue(name, out var val) && decimal.TryParse(val, out var d) ? d : defaultValue;
+
+            public bool Exists(string name) => _store.ContainsKey(name);
+
+            public void Set(string name, string? value, string? comment = null)
+            {
+                if (value == null) _store.Remove(name);
+                else _store[name] = value;
+            }
+        }
+
+        [Fact]
+        public void AppSettings_GeneralOverride_IsolatesTestConfiguration()
+        {
+            var fake = new FakeSettingsService();
+            fake.Set("TestKey", "CustomValue");
+            fake.Set("TestFlag", "true");
+
+            try
+            {
+                AppSettings.General = fake;
+                Assert.Equal("CustomValue", AppSettings.General.Get("TestKey"));
+                Assert.True(AppSettings.General.GetBool("TestFlag"));
+                Assert.False(AppSettings.General.GetBool("NonExistent", false));
+            }
+            finally
+            {
+                AppSettings.ResetOverrides();
+            }
+        }
+
+        [Fact]
+        public void IniSettingsService_DelegatesToIniSectionAccurately()
+        {
+            var section = new IniSection("TestSection");
+            section.Set("MaxDelay", "15");
+            section.Set("SmartLaunch", "true");
+
+            ISettingsService service = new IniSettingsService(section);
+
+            Assert.True(service.Exists("MaxDelay"));
+            Assert.Equal("15", service.Get("MaxDelay"));
+            Assert.Equal(15, service.GetInt("MaxDelay"));
+            Assert.True(service.GetBool("SmartLaunch"));
+
+            service.Set("NewKey", "NewVal");
+            Assert.Equal("NewVal", section.Get("NewKey"));
         }
     }
 }

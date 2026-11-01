@@ -1,4 +1,4 @@
-﻿<Window xmlns="https://github.com/avaloniaui"
+<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:lucide="clr-namespace:LucideAvalonia;assembly=LucideAvalonia"
         x:Class="Shiro.AvaloniaUI.Views.UpdaterWindow"
@@ -37,10 +37,20 @@
 
             <!-- Error buttons -->
             <StackPanel Grid.Row="2" x:Name="PnlErrorActions" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" IsVisible="False">
-                <Button Content="Thử lại" Click="BtnRetry_Click"
-                        Background="#2563EB" Foreground="#FFFFFF" CornerRadius="5" Padding="14,6" FontSize="12"/>
-                <Button Content="Đóng" Click="BtnClose_Click"
-                        Background="#272730" Foreground="#D4D4D8" CornerRadius="5" Padding="14,6" FontSize="12"/>
+                <Button Click="BtnRetry_Click"
+                        Background="#2563EB" Foreground="#FFFFFF" CornerRadius="5" Padding="14,6" FontSize="12" Cursor="Hand">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <lucide:Lucide Icon="RefreshCw" Width="12" Height="12" StrokeBrush="#FFFFFF" VerticalAlignment="Center" />
+                        <TextBlock Text="Thử lại" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+                <Button Click="BtnClose_Click"
+                        Background="#272730" Foreground="#D4D4D8" CornerRadius="5" Padding="14,6" FontSize="12" Cursor="Hand">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <lucide:Lucide Icon="X" Width="12" Height="12" StrokeBrush="#D4D4D8" VerticalAlignment="Center" />
+                        <TextBlock Text="Đóng" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
             </StackPanel>
         </Grid>
     </Border>

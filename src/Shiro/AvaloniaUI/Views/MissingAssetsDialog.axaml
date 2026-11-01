@@ -1,6 +1,7 @@
-﻿<Window xmlns="https://github.com/avaloniaui"
+<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:views="clr-namespace:Shiro.AvaloniaUI.Views"
+        xmlns:lucide="clr-namespace:LucideAvalonia;assembly=LucideAvalonia"
         x:Class="Shiro.AvaloniaUI.Views.MissingAssetsDialog"
         x:CompileBindings="True"
         Icon="/Resources/shiro.ico"
@@ -15,11 +16,16 @@
     <Border BorderBrush="#272730" BorderThickness="1" CornerRadius="8" Padding="18">
         <Grid RowDefinitions="Auto,*,Auto,Auto">
             <!-- Header -->
-            <StackPanel Grid.Row="0" Spacing="4" Margin="0,0,0,14">
-                <TextBlock x:Name="TxtTitle" Text="Vật phẩm còn thiếu trong trang phục"
-                           FontSize="16" FontWeight="SemiBold" Foreground="#FFFFFF"/>
-                <TextBlock x:Name="TxtSubtitle" Text="Tài khoản • 0 vật phẩm cần mua hoặc sở hữu"
-                           FontSize="12" Foreground="#A1A1AA"/>
+            <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center" Margin="0,0,0,14">
+                <Border Background="#252536" CornerRadius="8" Width="34" Height="34">
+                    <lucide:Lucide Icon="ShoppingBag" Width="17" Height="17" StrokeBrush="#38BDF8" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+                <StackPanel Spacing="2" VerticalAlignment="Center">
+                    <TextBlock x:Name="TxtTitle" Text="Vật phẩm còn thiếu trong trang phục"
+                               FontSize="16" FontWeight="SemiBold" Foreground="#FFFFFF"/>
+                    <TextBlock x:Name="TxtSubtitle" Text="Tài khoản • 0 vật phẩm cần mua hoặc sở hữu"
+                               FontSize="12" Foreground="#A1A1AA"/>
+                </StackPanel>
             </StackPanel>
 
             <!-- Items List -->
@@ -34,13 +40,19 @@
                                 </StackPanel>
                                 <TextBlock Grid.Column="1" Text="{Binding PriceText}"
                                            VerticalAlignment="Center" FontSize="12" Foreground="#38BDF8" Margin="0,0,10,0"/>
-                                <Button Grid.Column="2" Content="Xem" Click="BtnViewOnRoblox_Click"
+                                <Button Grid.Column="2" Click="BtnViewOnRoblox_Click"
                                         Background="#272730" Foreground="#D4D4D8" FontSize="11"
-                                        CornerRadius="4" Padding="10,4" Margin="0,0,10,0"/>
+                                        CornerRadius="5" Padding="10,4" Margin="0,0,10,0" Cursor="Hand">
+                                    <StackPanel Orientation="Horizontal" Spacing="4">
+                                        <Path Data="{StaticResource GeoExternalLink}" Width="10" Height="10" Stretch="Uniform"
+                                              Stroke="#D4D4D8" StrokeThickness="1.8" StrokeLineCap="Round" StrokeJoin="Round" VerticalAlignment="Center" />
+                                        <TextBlock Text="Xem" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
                                 <Button Grid.Column="3" Content="{Binding BuyButtonText}" Click="BtnBuy_Click"
                                         IsEnabled="{Binding CanBuy}"
                                         Background="#2563EB" Foreground="#FFFFFF" FontSize="11" FontWeight="SemiBold"
-                                        CornerRadius="4" Padding="12,4"/>
+                                        CornerRadius="5" Padding="12,4" Cursor="Hand"/>
                             </Grid>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
@@ -55,9 +67,15 @@
 
             <!-- Close Button -->
             <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right">
-                <Button Content="Đóng" Width="80" Height="32" Click="BtnClose_Click"
+                <Button Height="32" Click="BtnClose_Click"
                         Background="#272730" Foreground="#D4D4D8" FontWeight="SemiBold"
-                        CornerRadius="5" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
+                        CornerRadius="5" Padding="14,0" Cursor="Hand"
+                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <lucide:Lucide Icon="X" Width="13" Height="13" StrokeBrush="#D4D4D8" VerticalAlignment="Center" />
+                        <TextBlock Text="Đóng" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
             </StackPanel>
         </Grid>
     </Border>

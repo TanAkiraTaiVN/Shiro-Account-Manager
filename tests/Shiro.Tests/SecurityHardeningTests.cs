@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Shiro;
 using Shiro.Services;
 using Xunit;
@@ -53,6 +53,29 @@ namespace Shiro.Tests
 
             Assert.DoesNotContain("testtoken12345", redacted);
             Assert.Contains("[REDACTED_ROBLOSECURITY]", redacted);
+        }
+
+        [Fact]
+        public void LogRedactor_RedactsRealRoblosecurityWithPipeAndEncoded()
+        {
+            string raw = "Error: _|WARNING:-DO-NOT-SHARE-THIS.--realtokenwithpipe--end and %5F%7CWARNING:-DO-NOT-SHARE-THIS.--encodedtoken--";
+            string redacted = LogRedactor.Redact(raw);
+
+            Assert.DoesNotContain("realtokenwithpipe", redacted);
+            Assert.DoesNotContain("encodedtoken", redacted);
+            Assert.Contains("[REDACTED_ROBLOSECURITY]", redacted);
+        }
+
+        [Fact]
+        public void LogRedactor_RedactsProxyCredentialsAndBloxApiKey()
+        {
+            string raw = "Proxy error on http://admin:superSecret123@192.168.1.50:8080 and api key BLOX-abcdef1234567890-xyz";
+            string redacted = LogRedactor.Redact(raw);
+
+            Assert.DoesNotContain("superSecret123", redacted);
+            Assert.DoesNotContain("abcdef1234567890", redacted);
+            Assert.Contains("[REDACTED_PROXY_AUTH]", redacted);
+            Assert.Contains("BLOX-[REDACTED_KEY]", redacted);
         }
 
         [Fact]
@@ -111,6 +134,93 @@ namespace Shiro.Tests
         public void AppSettingsKeys_ContainsHasAcceptedRiskDisclaimer()
         {
             Assert.Equal("HasAcceptedRiskDisclaimer", AppSettingsKeys.General.HasAcceptedRiskDisclaimer);
+        }
+
+        [Fact]
+        public async System.Threading.Tasks.Task WebServer_ExportAccounts_RejectsUnauthenticatedOrDisallowedRequests()
+        {
+            var mgr = AccountManager.Instance ?? new AccountManager();
+            int statusCode = 200;
+            var ctx = new AccountManager.ApiRequestContext
+            {
+                AbsolutePath = "/Accounts/Export",
+                IsV2 = true,
+                IsLocal = true,
+                Host = "localhost",
+                Origin = "",
+                GetQuery = k => k == "Format" ? "CookieOnly" : null,
+                GetHeader = _ => null,
+                SetStatusCode = c => statusCode = c
+            };
+
+            string resp = await mgr.ProcessApiRequestAsync(ctx);
+            Assert.Equal(401, statusCode);
+            Assert.Contains("false", resp, StringComparison.OrdinalIgnoreCase);
+        }
+
+        [Theory]
+        [InlineData("/GetCookie")]
+        [InlineData("/GetCSRFToken")]
+        [InlineData("/GetField")]
+        [InlineData("/SetField")]
+        [InlineData("/SetAlias")]
+        [InlineData("/AntiAfk/Toggle")]
+        [InlineData("/MultiRoblox/Toggle")]
+        [InlineData("/LaunchAccount")]
+        [InlineData("/SetProxy")]
+        [InlineData("/KillAllRoblox")]
+        [InlineData("/BlockUser")]
+        public async System.Threading.Tasks.Task WebServer_SensitiveEndpoints_RejectWhenPasswordNotConfigured(string path)
+        {
+            var mgr = AccountManager.Instance ?? new AccountManager();
+            int statusCode = 200;
+            var ctx = new AccountManager.ApiRequestContext
+            {
+                AbsolutePath = path,
+                IsV2 = true,
+                IsLocal = true,
+                Host = "localhost",
+                Origin = "",
+                GetQuery = _ => null,
+                GetHeader = _ => null,
+                SetStatusCode = c => statusCode = c
+            };
+
+            string resp = await mgr.ProcessApiRequestAsync(ctx);
+            Assert.Equal(401, statusCode);
+            Assert.Contains("WebServer password must be configured", resp, StringComparison.OrdinalIgnoreCase);
+        }
+
+        [Fact]
+        public void ExtractRequestPassword_PrefersXShiroAuthAndSupportsFallbackHeaders()
+        {
+            string fromShiro = AccountManager.ExtractRequestPassword(
+                k => k == "X-Shiro-Auth" ? "shiro-secret" : (k == "X-RAM-Auth" ? "legacy-secret" : null),
+                _ => null);
+            Assert.Equal("shiro-secret", fromShiro);
+
+            string fromLegacy = AccountManager.ExtractRequestPassword(
+                k => k == "X-RAM-Auth" ? "legacy-secret" : null,
+                _ => null);
+            Assert.Equal("legacy-secret", fromLegacy);
+
+            string fromBearer = AccountManager.ExtractRequestPassword(
+                k => k == "Authorization" ? "Bearer bearer-token-123" : null,
+                _ => null);
+            Assert.Equal("bearer-token-123", fromBearer);
+        }
+
+        [Fact]
+        public void GetOrCreateVaultKeyCopy_ReturnsIndependentBufferSafeToZero()
+        {
+            byte[] cached = StoragePaths.GetOrCreateVaultKey();
+            byte[] copy = StoragePaths.GetOrCreateVaultKeyCopy();
+
+            Assert.NotSame(cached, copy);
+            Assert.Equal(cached, copy);
+
+            System.Security.Cryptography.CryptographicOperations.ZeroMemory(copy);
+            Assert.Contains(cached, b => b != 0);
         }
     }
 }

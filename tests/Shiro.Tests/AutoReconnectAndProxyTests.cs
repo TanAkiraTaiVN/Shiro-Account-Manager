@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
@@ -158,6 +158,32 @@ namespace Shiro.Tests
             Assert.NotNull(clientEmpty);
             Assert.Same(SharedHttpClient.Get(), clientNull);
             Assert.Same(SharedHttpClient.Get(), clientEmpty);
+        }
+
+        [Fact]
+        public void ProxyBindingService_PruneClients_PreservesActiveNoRedirectClient()
+        {
+            var acc = new Account { Username = "PruneTester", Proxy = "127.0.0.1:8899" };
+            var clientBefore = ProxyBindingService.GetNoRedirectClient(acc);
+            Assert.NotNull(clientBefore);
+
+            // Pruning with "127.0.0.1:8899" in the active list must NOT dispose or remove "no-redirect_127.0.0.1:8899"
+            ProxyBindingService.PruneClients(new[] { "127.0.0.1:8899" });
+
+            var clientAfter = ProxyBindingService.GetNoRedirectClient(acc);
+            Assert.Same(clientBefore, clientAfter);
+        }
+
+        [Fact]
+        public void AutoReconnectService_RegisterSession_SupportsUserIdFallbackWhenUsernameEmpty()
+        {
+            using var service = new AutoReconnectService();
+            var account = new Account { Username = "", UserID = 777888 };
+
+            service.RegisterSession(account, 123456, "job-xyz", false, false, 4444);
+            Assert.Equal(1, service.ActiveSessionsCount);
+            Assert.True(service.TryGetSession("uid:777888", out var session));
+            Assert.Equal(777888, session!.Account.UserID);
         }
 
         #endregion

@@ -1,10 +1,11 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using Shiro.Classes;
 using Shiro.ViewModels;
 using Xunit;
 
 namespace Shiro.Tests
 {
+    [Collection("SerialGlobalState")]
     public class AccountViewModelTests
     {
         [Fact]

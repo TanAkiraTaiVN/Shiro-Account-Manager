@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -181,6 +181,12 @@ namespace Shiro
 
             if (Method.Equals("Accounts/Export", StringComparison.OrdinalIgnoreCase) || Method.Equals("ExportAccounts", StringComparison.OrdinalIgnoreCase))
             {
+                if (!WebServer.Get<bool>("AllowGetAccounts") || !WebServer.Get<bool>("AllowGetCookie"))
+                    return Reply("Method `Accounts/Export` not allowed", false, 401, "Method not allowed");
+
+                if (string.IsNullOrEmpty(WSPassword) || WSPassword.Length < 6 || !FixedTimeEqualsPassword(Password ?? string.Empty, WSPassword))
+                    return Reply("Invalid Password, make sure your password contains 6 or more characters", false, 401, "Invalid Password");
+
                 string formatStr = req.GetQuery("Format") ?? "Json";
                 if (!Enum.TryParse<AccountExportFormat>(formatStr, true, out var exportFormat))
                     exportFormat = AccountExportFormat.Json;

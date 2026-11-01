@@ -123,7 +123,7 @@ namespace Shiro
             if (UpdateMultiRoblox())
             {
                 if (notify)
-                    SetDashboardStatus("✅ Multi Roblox đang hoạt động.");
+                    SetDashboardStatus("Multi Roblox đang hoạt động.");
                 return true;
             }
 
@@ -134,7 +134,7 @@ namespace Shiro
                 if (UpdateMultiRoblox())
                 {
                     if (notify)
-                        SetDashboardStatus("✅ Đã tự động tắt Roblox và kích hoạt Multi Roblox.");
+                        SetDashboardStatus("Đã tự động tắt Roblox và kích hoạt Multi Roblox.");
                     return true;
                 }
             }
@@ -142,7 +142,7 @@ namespace Shiro
             if (General.Get<bool>("HideRbxAlert"))
             {
                 if (notify)
-                    SetDashboardStatus("ℹ️ Roblox đang chạy. Multi Roblox chưa kích hoạt.");
+                    SetDashboardStatus("Roblox đang chạy. Multi Roblox chưa kích hoạt.");
                 return false;
             }
 
@@ -165,20 +165,20 @@ namespace Shiro
                         if (UpdateMultiRoblox())
                         {
                             if (notify)
-                                SetDashboardStatus("✅ Đã tắt Roblox và kích hoạt Multi Roblox.");
+                                SetDashboardStatus("Đã tắt Roblox và kích hoạt Multi Roblox.");
                             return true;
                         }
                     }
                     else
                     {
                         if (notify)
-                            SetDashboardStatus("⚠️ Không thể kích hoạt Multi Roblox do Roblox vẫn đang mở.");
+                            SetDashboardStatus("Không thể kích hoạt Multi Roblox do Roblox vẫn đang mở.");
                     }
                 }
                 else
                 {
                     if (notify)
-                        SetDashboardStatus("⚠️ Roblox đang chạy. Multi Roblox chưa kích hoạt.");
+                        SetDashboardStatus("Roblox đang chạy. Multi Roblox chưa kích hoạt.");
                     return false;
                 }
             }

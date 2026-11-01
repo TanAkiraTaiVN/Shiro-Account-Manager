@@ -359,7 +359,9 @@ namespace Shiro.Tests
 
             Assert.True(attached);
             Assert.True(request.Headers.Contains(RobloxHbaService.BoundAuthHeaderName));
-            string headerValue = request.Headers.GetValues(RobloxHbaService.BoundAuthHeaderName).First();
+            var headerValues = request.Headers.GetValues(RobloxHbaService.BoundAuthHeaderName);
+            Assert.Single(headerValues);
+            string headerValue = headerValues.First();
             Assert.StartsWith("v1|", headerValue);
         }
 
@@ -380,7 +382,9 @@ namespace Shiro.Tests
 
             Assert.True(attached);
             Assert.True(request.Headers.Contains(RobloxHbaService.BoundAuthHeaderName));
-            string headerValue = request.Headers.GetValues(RobloxHbaService.BoundAuthHeaderName).First();
+            var headerValues = request.Headers.GetValues(RobloxHbaService.BoundAuthHeaderName);
+            Assert.Single(headerValues);
+            string headerValue = headerValues.First();
             Assert.StartsWith("v1|", headerValue);
         }
 
@@ -398,7 +402,9 @@ namespace Shiro.Tests
             Assert.True(request.Headers.Contains(RobloxHbaService.BoundAuthHeaderName));
             Assert.True(request.Headers.Contains("X-CSRF-TOKEN"));
             Assert.Equal("test-csrf-token", request.Headers.GetValues("X-CSRF-TOKEN").First());
-            string headerValue = request.Headers.GetValues(RobloxHbaService.BoundAuthHeaderName).First();
+            var headerValues = request.Headers.GetValues(RobloxHbaService.BoundAuthHeaderName);
+            Assert.Single(headerValues);
+            string headerValue = headerValues.First();
             Assert.StartsWith("v1|", headerValue);
         }
     }

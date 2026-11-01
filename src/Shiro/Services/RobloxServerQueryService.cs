@@ -1,8 +1,10 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Net.NetworkInformation;
+using System.Net.Sockets;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -88,15 +90,50 @@ namespace Shiro.Services
                         result.Ip = ip;
                         result.Success = true;
 
+                        int? dcId = null;
+                        if (jScript.TryGetProperty("DataCenterId", out var dcVal) && dcVal.TryGetInt32(out int id1))
+                            dcId = id1;
+                        else if (js.TryGetProperty("dataCenterId", out var dcVal2) && dcVal2.TryGetInt32(out int id2))
+                            dcId = id2;
+
                         Task<int?> pingTask = MeasurePingMsAsync(ip);
-                        Task<string> geoTask = ResolveGeoIpRegionAsync(ip, ipApiTemplate, cancellationToken);
 
-                        await Task.WhenAll(pingTask, geoTask).ConfigureAwait(false);
+                        // Check offline datacenter resolution first to avoid rate-limiting
+                        if (RobloxDatacenterService.Default.TryResolve(ip, dcId, out var dcResolution) && dcResolution != null)
+                        {
+                            result.Region = dcResolution.FormattedRegion;
+                            result.CountryCode = dcResolution.CountryCode;
+                            result.FlagEmoji = dcResolution.FlagEmoji;
 
-                        result.PingMs = await pingTask.ConfigureAwait(false);
-                        string resolvedRegion = await geoTask.ConfigureAwait(false);
-                        if (!string.IsNullOrWhiteSpace(resolvedRegion))
-                            result.Region = resolvedRegion;
+                            result.PingMs = await pingTask.ConfigureAwait(false);
+                            // If direct ping failed, try fallback sample ping IP from datacenter
+                            if (!result.PingMs.HasValue && !string.IsNullOrWhiteSpace(dcResolution.SamplePingIp) && !string.Equals(dcResolution.SamplePingIp, ip, StringComparison.OrdinalIgnoreCase))
+                            {
+                                result.PingMs = await MeasurePingMsAsync(dcResolution.SamplePingIp).ConfigureAwait(false);
+                            }
+                        }
+                        else
+                        {
+                            Task<string> geoTask = ResolveGeoIpRegionAsync(ip, ipApiTemplate, cancellationToken);
+                            await Task.WhenAll(pingTask, geoTask).ConfigureAwait(false);
+
+                            result.PingMs = await pingTask.ConfigureAwait(false);
+                            string resolvedRegion = await geoTask.ConfigureAwait(false);
+                            if (!string.IsNullOrWhiteSpace(resolvedRegion))
+                            {
+                                result.Region = resolvedRegion;
+                                int commaIdx = resolvedRegion.LastIndexOf(',');
+                                if (commaIdx > 0 && commaIdx < resolvedRegion.Length - 1)
+                                {
+                                    string countryPart = resolvedRegion[(commaIdx + 1)..].Trim();
+                                    if (countryPart.Length == 2)
+                                    {
+                                        result.CountryCode = countryPart.ToUpperInvariant();
+                                        result.FlagEmoji = RobloxDatacenterService.GetCountryFlagEmoji(result.CountryCode);
+                                    }
+                                }
+                            }
+                        }
                     }
                     else
                     {
@@ -114,17 +151,36 @@ namespace Shiro.Services
 
         private static async Task<int?> MeasurePingMsAsync(string ip)
         {
+            if (string.IsNullOrWhiteSpace(ip)) return null;
+
+            // 1. Try ICMP ping with short timeout
             try
             {
                 using var pinger = new Ping();
-                var reply = await pinger.SendPingAsync(ip, 600).ConfigureAwait(false);
+                var reply = await pinger.SendPingAsync(ip, 250).ConfigureAwait(false);
                 if (reply.Status == IPStatus.Success)
                     return (int)reply.RoundtripTime;
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[PingServer] {ip}: {ex.Message}");
+                Program.Logger?.Debug($"[PingServer ICMP] {ip}: {ex.Message}");
             }
+
+            // 2. TCP handshake RTT probe fallback (Roblox/AWS firewalls often drop ICMP echo requests)
+            try
+            {
+                var sw = Stopwatch.StartNew();
+                using var tcp = new TcpClient();
+                using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(400));
+                await tcp.ConnectAsync(ip, 443, cts.Token).ConfigureAwait(false);
+                sw.Stop();
+                return (int)sw.ElapsedMilliseconds;
+            }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"[PingServer TCP] {ip}: {ex.Message}");
+            }
+
             return null;
         }
 

@@ -2,9 +2,6 @@
 using System;
 using System.Diagnostics;
 using System.IO;
-using System.Text.Json;
-using System.Threading;
-using System.Threading.Tasks;
 using Shiro.Classes;
 
 namespace Shiro.Services
@@ -14,11 +11,8 @@ namespace Shiro.Services
     /// Spawns the game client directly with auth ticket parameters, eliminating protocol handoff delays,
     /// capturing the exact Process ID immediately, and enabling instant singleton mutex closing.
     /// </summary>
-    public static class RobloxDirectLauncher
+    public static partial class RobloxDirectLauncher
     {
-        private static readonly object _cookieLock = new();
-        private static CancellationTokenSource? _restoreCts;
-
         public sealed class LaunchResult
         {
             public bool Success { get; init; }
@@ -26,6 +20,93 @@ namespace Shiro.Services
             public int ProcessId { get; init; }
             public string? ExecutablePath { get; init; }
             public string? ErrorMessage { get; init; }
+        }
+
+        internal static bool CanSyncRotatedCookieForTarget(
+            Account? target,
+            long trackerUserId,
+            string? trackerBrowserId,
+            string? expectedBrowserId)
+        {
+            if (target == null)
+                return false;
+
+            // If RobloxCookies.dat contains a concrete rbxuid from RobloxPlayerBeta.exe, it MUST match target.UserID
+            if (trackerUserId > 0 && target.UserID > 0 && trackerUserId != target.UserID)
+                return false;
+
+            // If browserid is present in RobloxCookies.dat, verify it matches either the account's BrowserTrackerID or the injected tracker ID
+            if (!string.IsNullOrWhiteSpace(trackerBrowserId))
+            {
+                bool matchesAccountTracker = !string.IsNullOrWhiteSpace(target.BrowserTrackerID) &&
+                    string.Equals(trackerBrowserId, target.BrowserTrackerID, StringComparison.Ordinal);
+                bool matchesInjectedTracker = !string.IsNullOrWhiteSpace(expectedBrowserId) &&
+                    string.Equals(trackerBrowserId, expectedBrowserId, StringComparison.Ordinal);
+
+                if (!matchesAccountTracker && !matchesInjectedTracker && (trackerUserId <= 0 || target.UserID <= 0))
+                    return false;
+            }
+
+            return true;
+        }
+
+        public static bool TryExtractTrackerMetadataFromCookiesDatFile(string filePath, out long userId, out string? browserTrackerId)
+        {
+            userId = 0;
+            browserTrackerId = null;
+            if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
+                return false;
+
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(File.ReadAllBytes(filePath));
+                if (!doc.RootElement.TryGetProperty("CookiesData", out var dataProp))
+                    return false;
+
+                string? base64 = dataProp.GetString();
+                if (string.IsNullOrWhiteSpace(base64))
+                    return false;
+
+                byte[] encrypted = Convert.FromBase64String(base64);
+                byte[] plain = System.Security.Cryptography.ProtectedData.Unprotect(
+                    encrypted, null, System.Security.Cryptography.DataProtectionScope.CurrentUser);
+                string netscape = System.Text.Encoding.UTF8.GetString(plain);
+
+                foreach (string rawLine in netscape.Split('\n'))
+                {
+                    string line = rawLine.Trim();
+                    if (string.IsNullOrEmpty(line) || line.StartsWith('#'))
+                        continue;
+
+                    string[] cols = line.Split('\t');
+                    if (cols.Length >= 7 && string.Equals(cols[5], "RBXEventTrackerV2", StringComparison.OrdinalIgnoreCase))
+                    {
+                        string val = cols[6].Trim().TrimEnd(';');
+                        foreach (string kv in val.Split('&', StringSplitOptions.RemoveEmptyEntries))
+                        {
+                            int eq = kv.IndexOf('=');
+                            if (eq <= 0) continue;
+                            string key = kv.Substring(0, eq).Trim();
+                            string v = kv.Substring(eq + 1).Trim();
+                            if (string.Equals(key, "rbxuid", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(v))
+                            {
+                                long.TryParse(v, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out userId);
+                            }
+                            else if (string.Equals(key, "browserid", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(v))
+                            {
+                                browserTrackerId = v;
+                            }
+                        }
+                        return userId > 0 || !string.IsNullOrEmpty(browserTrackerId);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"[RobloxDirectLauncher] Could not extract tracker metadata from {Path.GetFileName(filePath)}: {ex.Message}");
+            }
+
+            return false;
         }
 
         /// <summary>
@@ -39,163 +120,17 @@ namespace Shiro.Services
         }
 
         /// <summary>
-        /// Injects the account's .ROBLOSECURITY session directly into %LOCALAPPDATA%\Roblox\LocalStorage\RobloxCookies.dat
-        /// encrypted with Windows DPAPI (CurrentUser). This allows RobloxPlayerBeta.exe to start up directly logged in
-        /// without contacting auth.roblox.com/v1/authentication-ticket/redeem, bypassing Error 403 on VPNs completely.
-        /// Automatically protects the original user's session with a safe backup and schedules restoration.
+        /// Builds the command-line arguments for launching a Roblox game server directly.
+        /// Both -t (ticket) and -j (joinUrl) must always be included so RobloxPlayerBeta.exe enters game-join mode instead of Home mode.
         /// </summary>
-        public static bool InjectAccountCookieToLocalStorage(
-            string securityToken,
-            string? browserTrackerId = null,
-            DateTimeOffset? expiryUtc = null,
-            string? localStorageDirectoryOverride = null)
+        public static string BuildGameLaunchArguments(string ticket, string joinUrl, string? browserTrackerId = null)
         {
-            if (string.IsNullOrWhiteSpace(securityToken)) return false;
-            try
+            string args = $"--app -t \"{ticket}\" -j \"{joinUrl}\"";
+            if (!string.IsNullOrWhiteSpace(browserTrackerId))
             {
-                string token = securityToken.Trim().Trim('"').Trim();
-                string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-                string localStorageDir = localStorageDirectoryOverride ?? Path.Combine(localAppData, "Roblox", "LocalStorage");
-                Directory.CreateDirectory(localStorageDir);
-                string cookiesDatPath = Path.Combine(localStorageDir, "RobloxCookies.dat");
-                string backupPath = Path.Combine(localStorageDir, "RobloxCookies.dat.shiro-orig");
-
-                // Validate existing CookiesVersion if file exists to prevent format corruption
-                if (File.Exists(cookiesDatPath))
-                {
-                    try
-                    {
-                        using var doc = JsonDocument.Parse(File.ReadAllBytes(cookiesDatPath));
-                        if (doc.RootElement.TryGetProperty("CookiesVersion", out var verElement))
-                        {
-                            string? ver = verElement.GetString();
-                            if (!string.IsNullOrEmpty(ver) && ver != "1")
-                            {
-                                Program.Logger?.Warn($"[RobloxDirectLauncher] RobloxCookies.dat has unsupported CookiesVersion '{ver}'. Direct injection skipped.");
-                                return false;
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Program.Logger?.Debug($"[RobloxDirectLauncher] Could not inspect existing RobloxCookies.dat JSON: {ex.Message}");
-                    }
-
-                    // Preserve original user session backup if not already backed up
-                    if (!File.Exists(backupPath))
-                    {
-                        try
-                        {
-                            File.Copy(cookiesDatPath, backupPath, overwrite: false);
-                            Program.Logger?.Info("[RobloxDirectLauncher] Backed up original RobloxCookies.dat before injection.");
-                        }
-                        catch (Exception ex)
-                        {
-                            Program.Logger?.Debug($"[RobloxDirectLauncher] Could not create original cookie backup: {ex.Message}");
-                        }
-                    }
-                }
-
-                long expiry = (expiryUtc ?? DateTimeOffset.UtcNow.AddMonths(3)).ToUnixTimeSeconds();
-                string btid = !string.IsNullOrWhiteSpace(browserTrackerId) ? browserTrackerId : GenerateRandomTrackerId();
-
-                string netscapeCookies =
-                    $".roblox.com\tTRUE\t/\tTRUE\t{expiry}\t.ROBLOSECURITY\t{token}\r\n" +
-                    $".roblox.com\tTRUE\t/\tFALSE\t{expiry}\tRBXEventTrackerV2\tCreateDate={DateTime.UtcNow:MM/dd/yyyy HH:mm:ss}&rbxid=&rbxuid=&browserid={btid};\r\n";
-
-                byte[] plainBytes = System.Text.Encoding.UTF8.GetBytes(netscapeCookies);
-                byte[] encryptedBytes = System.Security.Cryptography.ProtectedData.Protect(
-                    plainBytes, null, System.Security.Cryptography.DataProtectionScope.CurrentUser);
-                string base64Data = Convert.ToBase64String(encryptedBytes);
-
-                var jsonObject = new { CookiesVersion = "1", CookiesData = base64Data };
-                string json = JsonSerializer.Serialize(jsonObject);
-
-                StoragePaths.AtomicWriteText(cookiesDatPath, json, durable: true);
-                Program.Logger?.Info("[RobloxDirectLauncher] Successfully injected .ROBLOSECURITY into RobloxCookies.dat (DPAPI, atomic).");
-
-                if (localStorageDirectoryOverride == null)
-                {
-                    ScheduleOriginalCookieRestore(8000);
-                }
-
-                return true;
+                args += $" -b {browserTrackerId}";
             }
-            catch (Exception ex)
-            {
-                Program.Logger?.Warn($"[RobloxDirectLauncher] Failed to inject RobloxCookies.dat: {ex.Message}");
-                return false;
-            }
-        }
-
-        /// <summary>
-        /// Schedules restoration of the original user's RobloxCookies.dat after a delay once launched processes have initialized.
-        /// </summary>
-        public static void ScheduleOriginalCookieRestore(int delayMs = 8000)
-        {
-            lock (_cookieLock)
-            {
-                _restoreCts?.Cancel();
-                _restoreCts?.Dispose();
-                _restoreCts = new CancellationTokenSource();
-                var token = _restoreCts.Token;
-
-                _ = Task.Run(async () =>
-                {
-                    try
-                    {
-                        await Task.Delay(delayMs, token).ConfigureAwait(false);
-                        RestoreOriginalCookies();
-                    }
-                    catch (OperationCanceledException) { }
-                    catch (Exception ex)
-                    {
-                        Program.Logger?.Debug($"[RobloxDirectLauncher] Scheduled cookie restoration failed: {ex.Message}");
-                    }
-                }, token);
-            }
-        }
-
-        /// <summary>
-        /// Restores the original RobloxCookies.dat backup if one exists and cleans up the backup file.
-        /// </summary>
-        public static bool RestoreOriginalCookies(string? localStorageDirectoryOverride = null)
-        {
-            lock (_cookieLock)
-            {
-                _restoreCts?.Cancel();
-                _restoreCts?.Dispose();
-                _restoreCts = null;
-            }
-
-            try
-            {
-                string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-                string localStorageDir = localStorageDirectoryOverride ?? Path.Combine(localAppData, "Roblox", "LocalStorage");
-                string cookiesDatPath = Path.Combine(localStorageDir, "RobloxCookies.dat");
-                string backupPath = Path.Combine(localStorageDir, "RobloxCookies.dat.shiro-orig");
-
-                if (!File.Exists(backupPath)) return false;
-
-                string backupJson = File.ReadAllText(backupPath, System.Text.Encoding.UTF8);
-                StoragePaths.AtomicWriteText(cookiesDatPath, backupJson, durable: true);
-                try
-                {
-                    File.Delete(backupPath);
-                }
-                catch (Exception ex)
-                {
-                    Program.Logger?.Debug($"[RobloxDirectLauncher] Failed to delete cookie backup file: {ex.Message}");
-                }
-
-                Program.Logger?.Info("[RobloxDirectLauncher] Successfully restored original RobloxCookies.dat from backup.");
-                return true;
-            }
-            catch (Exception ex)
-            {
-                Program.Logger?.Warn($"[RobloxDirectLauncher] Failed to restore original RobloxCookies.dat: {ex.Message}");
-                return false;
-            }
+            return args;
         }
 
         /// <summary>
@@ -224,37 +159,30 @@ namespace Shiro.Services
 
             try
             {
-                if (!string.IsNullOrWhiteSpace(securityToken))
-                {
-                    InjectAccountCookieToLocalStorage(securityToken, browserTrackerId);
-                }
+                bool injectedCookie = !string.IsNullOrWhiteSpace(securityToken) &&
+                    InjectAccountCookieToLocalStorage(securityToken, browserTrackerId, username: username);
 
-                string args = $"--app -t \"{ticket}\" -j \"{joinUrl}\"";
-                if (!string.IsNullOrWhiteSpace(browserTrackerId))
-                {
-                    args += $" -b {browserTrackerId}";
-                }
+                string args = BuildGameLaunchArguments(ticket, joinUrl, browserTrackerId);
 
-                var startInfo = new ProcessStartInfo(playerPath, args)
-                {
-                    UseShellExecute = true,
-                    WorkingDirectory = Path.GetDirectoryName(playerPath) ?? Environment.CurrentDirectory
-                };
-
-                Process? process = Process.Start(startInfo);
+                Process? process = SpawnRobloxProcess(playerPath, args, username);
                 if (process == null)
                 {
                     return new LaunchResult
                     {
                         Success = false,
-                        ErrorMessage = "Process.Start returned null for RobloxPlayerBeta.exe."
+                        ErrorMessage = "Process creation returned null for RobloxPlayerBeta.exe."
                     };
                 }
 
                 int pid = process.Id;
                 Program.Logger?.Info($"[RobloxDirectLauncher] Successfully spawned RobloxPlayerBeta.exe directly for {username} (PID: {pid}).");
 
-                // Apply initial process optimizations
+                if (injectedCookie)
+                {
+                    SchedulePostSpawnCookieRestore(pid);
+                }
+
+                // Apply initial process optimizations (BelowNormal priority & Job Object CPU cap if enabled)
                 RobloxProcessOptimizer.OptimizeLaunchedProcess(pid);
 
                 return new LaunchResult
@@ -293,10 +221,8 @@ namespace Shiro.Services
 
             try
             {
-                if (!string.IsNullOrWhiteSpace(securityToken))
-                {
-                    InjectAccountCookieToLocalStorage(securityToken, browserTrackerId);
-                }
+                bool injectedCookie = !string.IsNullOrWhiteSpace(securityToken) &&
+                    InjectAccountCookieToLocalStorage(securityToken, browserTrackerId, username: username);
 
                 string args = "--app";
                 // Only pass ticket if securityToken was not directly injected, to prevent 403 ticket redeem failures on VPN
@@ -309,24 +235,23 @@ namespace Shiro.Services
                     args += $" -b {browserTrackerId}";
                 }
 
-                var startInfo = new ProcessStartInfo(playerPath, args)
-                {
-                    UseShellExecute = true,
-                    WorkingDirectory = Path.GetDirectoryName(playerPath) ?? Environment.CurrentDirectory
-                };
-
-                Process? process = Process.Start(startInfo);
+                Process? process = SpawnRobloxProcess(playerPath, args, username);
                 if (process == null)
                 {
                     return new LaunchResult
                     {
                         Success = false,
-                        ErrorMessage = "Process.Start returned null for RobloxPlayerBeta.exe."
+                        ErrorMessage = "Process creation returned null for RobloxPlayerBeta.exe."
                     };
                 }
 
                 int pid = process.Id;
                 Program.Logger?.Info($"[RobloxDirectLauncher] Successfully spawned RobloxPlayerBeta.exe Home directly for {username} (PID: {pid}).");
+
+                if (injectedCookie)
+                {
+                    SchedulePostSpawnCookieRestore(pid);
+                }
 
                 RobloxProcessOptimizer.OptimizeLaunchedProcess(pid);
 

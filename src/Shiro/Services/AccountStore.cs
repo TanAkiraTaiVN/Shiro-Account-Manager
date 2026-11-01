@@ -207,8 +207,36 @@ namespace Shiro.Services
         /// </summary>
         public void ExportVault(IReadOnlyList<Account> accounts, string passphrase, string destinationPath)
         {
-            using var fileStream = File.Create(destinationPath);
-            VaultExportService.ExportVault(accounts, passphrase, fileStream);
+            string? dir = Path.GetDirectoryName(destinationPath);
+            if (!string.IsNullOrEmpty(dir))
+            {
+                Directory.CreateDirectory(dir);
+            }
+
+            string tempFile = destinationPath + ".tmp." + Guid.NewGuid().ToString("N");
+            try
+            {
+                using (var fileStream = File.Create(tempFile))
+                {
+                    VaultExportService.ExportVault(accounts, passphrase, fileStream);
+                }
+                File.Move(tempFile, destinationPath, overwrite: true);
+            }
+            catch
+            {
+                try
+                {
+                    if (File.Exists(tempFile))
+                    {
+                        File.Delete(tempFile);
+                    }
+                }
+                catch
+                {
+                    // Best-effort cleanup
+                }
+                throw;
+            }
         }
 
         /// <summary>

@@ -1,4 +1,4 @@
-﻿using System.Linq;
+using System.Linq;
 using Shiro.Services;
 using Xunit;
 
@@ -106,6 +106,22 @@ namespace Shiro.Tests
         {
             Assert.Equal(0, RobloxProcessService.CloseAccountRobloxProcesses(null));
             Assert.Equal(0, RobloxProcessService.CloseAccountRobloxProcesses(System.Array.Empty<Account>()));
+        }
+
+        [Fact]
+        public async System.Threading.Tasks.Task RefreshLiveProcessStatus_DoesNotBlockCallingThread()
+        {
+            var vm = new Shiro.ViewModels.MainViewModel();
+            var acc = new Account { UserID = 1001, Username = "TestLiveAccount", Valid = true };
+            vm.LoadAccounts(new System.Collections.Generic.List<Account> { acc });
+
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            vm.RefreshLiveProcessStatus();
+            sw.Stop();
+
+            Assert.True(sw.ElapsedMilliseconds < 50, $"RefreshLiveProcessStatus took {sw.ElapsedMilliseconds}ms, expected < 50ms");
+            await System.Threading.Tasks.Task.Delay(150);
+            Assert.True(vm.RunningRobloxProcessCount >= 0);
         }
     }
 }

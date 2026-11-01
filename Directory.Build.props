@@ -3,8 +3,11 @@
     <LangVersion>latest</LangVersion>
     <Deterministic>true</Deterministic>
     <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
+    <NuGetAudit>true</NuGetAudit>
+    <NuGetAuditMode>all</NuGetAuditMode>
+    <NuGetAuditLevel>low</NuGetAuditLevel>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(MSBuildProjectName)' != 'RBX_Alt_Manager.Tests' And '$(MSBuildProjectName)' != 'Shiro.Tests'">
+  <PropertyGroup Condition="'$(MSBuildProjectName)' != 'Shiro.Tests'">
     <!-- Keep generated intermediate files with the other build artifacts so
          the source tree contains only source, resources and project files. -->
     <BaseIntermediateOutputPath>$(MSBuildThisFileDirectory)build\artifacts\obj\</BaseIntermediateOutputPath>

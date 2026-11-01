@@ -1,0 +1,164 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:Shiro.ViewModels"
+             x:Class="Shiro.AvaloniaUI.Views.AccountCardView"
+             x:DataType="vm:AccountViewModel"
+             x:CompileBindings="True">
+
+    <Border x:Name="CardRoot"
+            Height="136"
+            Background="#121218"
+            BorderBrush="{Binding CardBorderBrush}"
+            BorderThickness="1"
+            CornerRadius="10"
+            Margin="5,0,5,12"
+            Padding="11,12"
+            ClipToBounds="True"
+            Cursor="Hand"
+            PointerPressed="OnRootPointerPressed"
+            DoubleTapped="OnRootDoubleTapped">
+
+        <Grid RowDefinitions="Auto,*">
+
+            <!-- Card Top Row: Non-Overlapping Grid (Left Cluster * | 6px Gap | Right Status + Action Auto) -->
+            <Grid Grid.Row="0" ColumnDefinitions="*,6,Auto" Margin="0,0,0,10">
+
+                <!-- Left Cluster: Grid (NOT StackPanel) so GroupDisplay trims first while Delete & Profile stay 100% visible -->
+                <Grid Grid.Column="0" ColumnDefinitions="*,Auto,Auto" HorizontalAlignment="Left" VerticalAlignment="Center" ClipToBounds="True">
+                    <Border Grid.Column="0" Background="#181822" BorderBrush="#252534" BorderThickness="1"
+                            CornerRadius="4" Padding="6,2" VerticalAlignment="Center"
+                            ToolTip.Tip="{Binding GroupTooltip}">
+                        <TextBlock Text="{Binding GroupDisplay}" FontSize="10.5" Foreground="#A1A1AA"
+                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                    </Border>
+                    <Button x:Name="BtnDelete" Grid.Column="1" Classes="FastIconBtn" Width="20" Height="20" Margin="3,0,0,0"
+                            Click="OnDeleteClicked" ToolTip.Tip="{DynamicResource Card_TipDelete}">
+                        <Path Data="{StaticResource GeoTrash}" Width="11" Height="11" Stretch="Uniform"
+                              Stroke="#52525B" StrokeThickness="1.8" StrokeLineCap="Round" StrokeJoin="Round" />
+                    </Button>
+                    <Button x:Name="BtnOpenProfile" Grid.Column="2" Classes="FastIconBtn" Width="20" Height="20" Margin="1,0,0,0"
+                            Click="OnOpenProfileClicked" ToolTip.Tip="{DynamicResource Card_TipProfile}">
+                        <Path Data="{StaticResource GeoExternalLink}" Width="11" Height="11" Stretch="Uniform"
+                              Stroke="#52525B" StrokeThickness="1.8" StrokeLineCap="Round" StrokeJoin="Round" />
+                    </Button>
+                </Grid>
+
+                <!-- Right Cluster: Status Indicator + Primary Action / Live Client Controls -->
+                <StackPanel x:Name="StatusCluster" Grid.Column="2" Orientation="Horizontal" Spacing="6"
+                            HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                        <Ellipse Width="6" Height="6" Fill="{Binding StatusBadgeForeground}" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding StatusText}" FontSize="11" Foreground="{Binding StatusBadgeForeground}"
+                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="86"
+                                   ToolTip.Tip="{Binding StatusText}" />
+                    </StackPanel>
+
+                    <!-- Normal Play Button (when client is NOT running locally) -->
+                    <Button Classes="FastPillBtn"
+                            IsVisible="{Binding ShowPlayButton}"
+                            Click="OnLaunchOrReloginClicked"
+                            Background="#FFFFFF" Foreground="#09090B" FontWeight="Bold" FontSize="11"
+                            CornerRadius="6" Padding="8,4" ToolTip.Tip="{DynamicResource Card_TipLaunch}">
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                            <Path Data="{StaticResource GeoPlay}" Width="9" Height="9" Stretch="Uniform"
+                                  Fill="#09090B" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding LaunchButtonText}" Foreground="#09090B" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+
+                    <!-- Running Local Roblox Client Controls: [🗔 Hiện] + [✕] (Item 7) -->
+                    <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding ShowRunningClientControls}">
+                        <Button Classes="FastPillBtn"
+                                Click="OnFocusWindowClicked"
+                                Background="#132F20" Foreground="#4ADE80" BorderBrush="#227844" BorderThickness="1"
+                                FontWeight="Bold" FontSize="11"
+                                CornerRadius="6" Padding="7,4" ToolTip.Tip="{DynamicResource Card_TipFocusWindow}">
+                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                <Path Data="{StaticResource GeoWindow}" Width="10" Height="10" Stretch="Uniform"
+                                      Stroke="#4ADE80" StrokeThickness="1.8" StrokeLineCap="Round" StrokeJoin="Round" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding FocusWindowButtonText}" Foreground="#4ADE80" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+
+                        <Button Classes="FastPillBtn"
+                                Click="OnCloseClientClicked"
+                                Background="#2A1216" Foreground="#F87171" BorderBrush="#7F1D1D" BorderThickness="1"
+                                CornerRadius="6" Padding="6,4" ToolTip.Tip="{DynamicResource Card_TipCloseClient}">
+                            <Path Data="{StaticResource GeoClose}" Width="9" Height="9" Stretch="Uniform"
+                                  Stroke="#F87171" StrokeThickness="2.2" StrokeLineCap="Round" StrokeJoin="Round" VerticalAlignment="Center" />
+                        </Button>
+                    </StackPanel>
+
+                    <Button Classes="FastPillBtn"
+                            IsVisible="{Binding IsExpiredAndNotBanned}"
+                            Click="OnLaunchOrReloginClicked"
+                            Background="#24180E" Foreground="#FBBF24" BorderBrush="#6B4214" BorderThickness="1"
+                            FontWeight="Bold" FontSize="11"
+                            CornerRadius="6" Padding="7,4" ToolTip.Tip="{DynamicResource Card_TipReLogin}">
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                            <Path Data="{StaticResource GeoKey}" Width="10" Height="10" Stretch="Uniform"
+                                  Stroke="#FBBF24" StrokeThickness="2" StrokeLineCap="Round" StrokeJoin="Round" VerticalAlignment="Center" />
+                            <TextBlock Text="{DynamicResource Btn_ReLogin}" Foreground="#FBBF24" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+
+                    <Button Classes="FastPillBtn"
+                            IsVisible="{Binding IsBannedOrLocked}"
+                            Click="OnViewBanClicked"
+                            Background="#281118" Foreground="#FDA4AF" BorderBrush="#66182D" BorderThickness="1"
+                            FontWeight="Bold" FontSize="11"
+                            CornerRadius="6" Padding="7,4">
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                            <Path Data="{StaticResource GeoShieldAlert}" Width="10" Height="10" Stretch="Uniform"
+                                  Stroke="#FDA4AF" StrokeThickness="2" StrokeLineCap="Round" StrokeJoin="Round" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding ViewBanButtonText}" Foreground="#FDA4AF" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Grid>
+
+            <!-- Card Bottom Row: Avatar, Username, User ID, Robux, Checkbox, Pin, More -->
+            <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto" VerticalAlignment="Center">
+                <Border Grid.Column="0" Width="42" Height="42" CornerRadius="21" Background="#1C1C26" BorderBrush="#2A2A38" BorderThickness="1" ClipToBounds="True" Margin="0,0,10,0" VerticalAlignment="Center">
+                    <Panel>
+                        <TextBlock Text="{Binding Initials}" FontSize="15" FontWeight="Bold" Foreground="#71717A" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        <Image Source="{Binding AvatarImage}" Stretch="UniformToFill" RenderOptions.BitmapInterpolationMode="MediumQuality" />
+                    </Panel>
+                </Border>
+
+                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2" Margin="0,0,8,0" ClipToBounds="True">
+                    <TextBlock Text="{Binding PrimaryTitle}" FontWeight="SemiBold" FontSize="13" Foreground="#F4F4F5" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="{Binding SecondaryTitle}" FontSize="11" Foreground="#71717A" TextTrimming="CharacterEllipsis" />
+
+                    <Border IsVisible="{Binding IsBannedOrLocked}"
+                            Background="#281118" BorderBrush="#66182D" BorderThickness="1"
+                            CornerRadius="4" Padding="6,2" Margin="0,2,0,0" HorizontalAlignment="Left" MaxWidth="190">
+                        <Grid ColumnDefinitions="Auto,*">
+                            <Path Grid.Column="0" Data="{StaticResource GeoShieldAlert}" Width="10" Height="10" Stretch="Uniform"
+                                  Stroke="#FDA4AF" StrokeThickness="2" StrokeLineCap="Round" StrokeJoin="Round" VerticalAlignment="Center" Margin="0,0,4,0" />
+                            <TextBlock Grid.Column="1" Text="{Binding BanNoticeText}" FontSize="10" FontWeight="Bold" Foreground="#FDA4AF" TextTrimming="CharacterEllipsis" />
+                        </Grid>
+                    </Border>
+
+                    <TextBlock Text="{Binding RobuxFormatted}" IsVisible="{Binding HasRobux}" FontSize="11" FontWeight="SemiBold" Foreground="#F59E0B" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+                    <CheckBox x:Name="ChkSelect" IsChecked="{Binding IsSelected, Mode=TwoWay}" VerticalAlignment="Center" Margin="0,0,2,0" Transitions="{x:Null}" />
+
+                    <Button Classes="FastIconBtn" Width="26" Height="26" Click="OnTogglePinClicked"
+                            Opacity="{Binding PinOpacity}" ToolTip.Tip="{DynamicResource Card_TipPin}">
+                        <Path Data="{StaticResource GeoPin}" Width="12" Height="12" Stretch="Uniform"
+                              Stroke="{Binding PinIconStroke}" StrokeThickness="1.7" StrokeLineCap="Round" StrokeJoin="Round" />
+                    </Button>
+
+                    <Button Classes="FastIconBtn" Width="26" Height="26" Click="OnMoreClicked" ToolTip.Tip="{DynamicResource Card_TipOptions}">
+                        <Path Data="{StaticResource GeoEllipsis}" Width="14" Height="14" Stretch="Uniform"
+                              Fill="#71717A" />
+                    </Button>
+                </StackPanel>
+            </Grid>
+
+        </Grid>
+    </Border>
+</UserControl>

@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -31,7 +31,7 @@ namespace Shiro.Services
             }
 
             if (modified > 0)
-                AccountManager.SaveAccounts();
+                AccountManager.SaveAccountsAsync().Forget();
 
             return modified;
         }
@@ -52,7 +52,7 @@ namespace Shiro.Services
             }
 
             if (modified > 0)
-                AccountManager.SaveAccounts();
+                AccountManager.SaveAccountsAsync().Forget();
 
             return modified;
         }
@@ -83,7 +83,7 @@ namespace Shiro.Services
             }
 
             if (modified > 0)
-                AccountManager.SaveAccounts();
+                AccountManager.SaveAccountsAsync().Forget();
 
             return modified;
         }
@@ -107,7 +107,7 @@ namespace Shiro.Services
             if (list.Count == 0) return results;
 
             int processed = 0;
-            using var semaphore = new SemaphoreSlim(3, 3); // Max 3 concurrent session validations to avoid burst rate limits
+            using var semaphore = new SemaphoreSlim(8, 8); // Max 8 concurrent session validations to balance throughput and rate limits
 
             var tasks = list.Select(async acc =>
             {

@@ -28,7 +28,7 @@ namespace Shiro.AvaloniaUI.Views
             PanelPerformance.IsVisible = (TabRadioPerformance?.IsChecked == true);
             PanelLaunching.IsVisible = (TabRadioLaunching?.IsChecked == true);
             PanelSecurity.IsVisible = (TabRadioSecurity?.IsChecked == true);
-            PanelPresets.IsVisible = (TabRadioPresets?.IsChecked == true);
+
         }
 
         private bool _isLoadingSettings;
@@ -307,45 +307,6 @@ namespace Shiro.AvaloniaUI.Views
             {
                 // Superseded by a newer save click
             }
-        }
-
-        private void OnApplyPresetSafeClicked(object sender, RoutedEventArgs e)
-        {
-            if (NumJoinDelay != null) NumJoinDelay.Value = 8;
-            if (SwUnlockFps != null) SwUnlockFps.IsChecked = false;
-            if (NumTargetFps != null) NumTargetFps.Value = 60;
-            if (SwPotatoMode != null) SwPotatoMode.IsChecked = false;
-            if (SwMultiRbx != null) SwMultiRbx.IsChecked = true;
-            if (SwAutoCookie != null) SwAutoCookie.IsChecked = true;
-            if (SwAntiAfk != null) SwAntiAfk.IsChecked = false;
-            OnSaveSettingsClicked(sender, e);
-            AppServices.Dialogs.ShowInfo("Đã áp dụng cấu hình An toàn (Safe Launch): Join delay 8s, 60 FPS, Auto-Cookie Refresh bật.", "Cấu hình 1 chạm");
-        }
-
-        private void OnApplyPresetAfkClicked(object sender, RoutedEventArgs e)
-        {
-            if (NumJoinDelay != null) NumJoinDelay.Value = 5;
-            if (SwUnlockFps != null) SwUnlockFps.IsChecked = false;
-            if (NumTargetFps != null) NumTargetFps.Value = 60;
-            if (SwPotatoMode != null) SwPotatoMode.IsChecked = false;
-            if (SwMultiRbx != null) SwMultiRbx.IsChecked = true;
-            if (SwAutoCookie != null) SwAutoCookie.IsChecked = true;
-            if (SwAntiAfk != null) SwAntiAfk.IsChecked = true;
-            OnSaveSettingsClicked(sender, e);
-            AppServices.Dialogs.ShowInfo("Đã áp dụng cấu hình AFK Treo Game: Join delay 5s, Anti-AFK bật, Auto-Cookie Refresh bật.", "Cấu hình 1 chạm");
-        }
-
-        private void OnApplyPresetPotatoClicked(object sender, RoutedEventArgs e)
-        {
-            if (NumJoinDelay != null) NumJoinDelay.Value = 3;
-            if (SwUnlockFps != null) SwUnlockFps.IsChecked = true;
-            if (NumTargetFps != null) NumTargetFps.Value = 30;
-            if (SwPotatoMode != null) SwPotatoMode.IsChecked = true;
-            if (SwMultiRbx != null) SwMultiRbx.IsChecked = true;
-            if (SwAutoCookie != null) SwAutoCookie.IsChecked = true;
-            if (SwAntiAfk != null) SwAntiAfk.IsChecked = true;
-            OnSaveSettingsClicked(sender, e);
-            AppServices.Dialogs.ShowInfo("Đã áp dụng cấu hình Siêu nhẹ (Ultra Potato): FastFlags Potato Mode bật, 30 FPS, tối ưu hóa CPU/GPU tối đa.", "Cấu hình 1 chạm");
         }
 
         private void OnCleanTrayClicked(object sender, RoutedEventArgs e)

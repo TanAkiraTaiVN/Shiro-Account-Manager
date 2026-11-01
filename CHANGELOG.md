@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [4.2.0] - 2026-10-30 (Project Real Architecture Transfer & Hardening)
+
+### Added
+- **Offline Roblox Datacenter Engine & Flag Support**:
+  - Integrated complete global Roblox datacenter database (`datacenters.json`) covering 22 regions worldwide with internal `dataCenterIds` and subnet mapping.
+  - Added `RobloxDatacenterService` for high-performance offline resolution of game server locations, eliminating external HTTP GeoIP latency and rate-limiting.
+  - Embedded 257 SVG country flags and automatic Unicode flag emoji generation (`🇸🇬`, `🇺🇸`, `🇻🇳`, `🇯🇵`, `🇩🇪`) on `ServerItemViewModel`.
+- **Token De-Elevation (Administrator Mitigation)**:
+  - Implemented `RobloxDirectLauncher.DeElevation.cs` using Windows Token Duplication (`OpenProcessToken`, `DuplicateTokenEx`, `CreateProcessWithTokenW`).
+  - When Shiro executes with Administrator privileges, spawned Roblox clients are automatically de-elevated to Medium Integrity (Standard User) via `explorer.exe` shell token, eliminating UIPI restrictions and Hyperion elevation flags.
+- **Privacy & Streamer Mode (`SetWindowDisplayAffinity`)**:
+  - Added `StreamerModeService` utilizing Win32 `WDA_EXCLUDEFROMCAPTURE` (0x11) to make Shiro windows completely invisible on OBS, Discord, and Twitch screen captures.
+  - Automatic background detection of streaming software (`obs64`, `Discord`, `Streamlabs OBS`).
+  - Dynamic identity masking for usernames (`R**********r`) and Robux balances (`*** R$`) in `AccountViewModel`.
+- **AltGen (Automated BloxGen API Integration)**:
+  - Added `BloxGenService` supporting automated account generation by region (`AS`, `NA`, `EU`, `OC`, `SA`, `RANDOM`) and type (`unverified`, `verified`).
+  - Added `AltGenDialog` for 1-click alt generation, automatic Vault import into group `AltGen`, and historical audit logging to `altgen_history.csv`.
+- **Native Discord Rich Presence with "Join Game" Button**:
+  - Implemented zero-dependency `DiscordRpcService` via asynchronous named pipe IPC (`\\.\pipe\discord-ipc-0..9`).
+  - Features real-time multi-account status and a clickable "Tham gia Server" button for Discord friends.
+- **Audio Feedback & Launcher Branding**:
+  - Added native Win32 `mciSendString` MP3 audio notifications on `ToastService` using `Notify_sound.mp3`.
+  - Added third-party launcher branding assets (Bloxstrap, Fishstrap, Froststrap, Voidstrap).
+
+---
+
 ## [4.1.0] - 2026-10-28 (Milestone 10/10 Architecture & Hardening)
 
 ### Added

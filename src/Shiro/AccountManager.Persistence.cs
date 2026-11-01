@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -31,9 +31,16 @@ namespace Shiro
 
             try
             {
-                byte[] vaultKey = StoragePaths.GetOrCreateVaultKey();
-                _ = Cryptography.Decrypt(data, vaultKey);
-                return false;
+                byte[] vaultKey = StoragePaths.GetOrCreateVaultKeyCopy();
+                try
+                {
+                    _ = Cryptography.Decrypt(data, vaultKey);
+                    return false;
+                }
+                finally
+                {
+                    CryptographicOperations.ZeroMemory(vaultKey);
+                }
             }
             catch
             {
@@ -60,13 +67,20 @@ namespace Shiro
                 }
                 else
                 {
-                    if (newPass.Length < 4)
+                    if (newPass.Length < 8)
                     {
-                        AppServices.Dialogs.ShowWarning("Mật khẩu phải có ít nhất 4 ký tự!");
+                        AppServices.Dialogs.ShowWarning("Mật khẩu chính (Master Password) phải có ít nhất 8 ký tự để đảm bảo an toàn!");
                         return;
                     }
                     byte[] hash = SHA512.HashData(Encoding.UTF8.GetBytes(newPass));
-                    PasswordHash = new ReadOnlyMemory<byte>(ProtectedData.Protect(hash, Array.Empty<byte>(), DataProtectionScope.CurrentUser));
+                    try
+                    {
+                        PasswordHash = new ReadOnlyMemory<byte>(ProtectedData.Protect(hash, Array.Empty<byte>(), DataProtectionScope.CurrentUser));
+                    }
+                    finally
+                    {
+                        CryptographicOperations.ZeroMemory(hash);
+                    }
                     SaveAccounts(true, true);
                     AppServices.Dialogs.ShowInfo("Đã đặt mật khẩu mới thành công!");
                 }
@@ -110,7 +124,7 @@ namespace Shiro
                     {
                         try
                         {
-                            byte[] vaultKey = StoragePaths.GetOrCreateVaultKey();
+                            byte[] vaultKey = StoragePaths.GetOrCreateVaultKeyCopy();
                             byte[] decrypted;
                             try
                             {
@@ -123,12 +137,16 @@ namespace Shiro
                                     throw;
                                 decrypted = Cryptography.Decrypt(Data, recoveredKey);
                             }
+                            finally
+                            {
+                                CryptographicOperations.ZeroMemory(vaultKey);
+                            }
 
                             ReplaceAccountsList(AccountDataSerializer.Deserialize(decrypted, out bool vaultNeedsMigration));
                             accountDataNeedsMigration |= vaultNeedsMigration;
                             EnteredPassword = true;
                             unlocked = true;
-                            Program.Logger?.Info($"[LoadAccounts] Loaded {AccountsList?.Count ?? 0} accounts via vault key.");
+                            Program.Logger?.Info($"[LoadAccounts] Loaded {AccountCount} accounts via vault key.");
                         }
                         catch (Exception ex)
                         {
@@ -149,7 +167,7 @@ namespace Shiro
 
                             EnteredPassword = true;
                             unlocked = true;
-                            Program.Logger?.Info($"[LoadAccounts] Loaded {AccountsList?.Count ?? 0} accounts via Master Password.");
+                            Program.Logger?.Info($"[LoadAccounts] Loaded {AccountCount} accounts via Master Password.");
                         }
                         catch (Exception ex)
                         {
@@ -194,7 +212,7 @@ namespace Shiro
             lock (AccountListLock)
                 AccountsList ??= new List<Account>();
 
-            if (!EnteredPassword && AccountsList.Count == 0 && File.Exists($"{SaveFilePath}.backup") && File.ReadAllBytes($"{SaveFilePath}.backup") is byte[] BackupData && BackupData.Length > 0)
+            if (!EnteredPassword && AccountCount == 0 && File.Exists($"{SaveFilePath}.backup") && File.ReadAllBytes($"{SaveFilePath}.backup") is byte[] BackupData && BackupData.Length > 0)
             {
                 // Try the default vault key first: the backup is only "password-locked"
                 // when it cannot be opened with the local vault key.
@@ -202,11 +220,20 @@ namespace Shiro
                 {
                     try
                     {
-                        byte[] vaultDecrypted = Cryptography.Decrypt(BackupData, StoragePaths.GetOrCreateVaultKey());
+                        byte[] vaultKey = StoragePaths.GetOrCreateVaultKeyCopy();
+                        byte[] vaultDecrypted;
+                        try
+                        {
+                            vaultDecrypted = Cryptography.Decrypt(BackupData, vaultKey);
+                        }
+                        finally
+                        {
+                            CryptographicOperations.ZeroMemory(vaultKey);
+                        }
                         ReplaceAccountsList(AccountDataSerializer.Deserialize(vaultDecrypted, out bool vaultBackupNeedsMigration));
                         accountDataNeedsMigration |= vaultBackupNeedsMigration;
-                        Program.Logger?.Info($"[LoadAccounts] Restored {AccountsList.Count} accounts from backup via vault key.");
-                        if (AccountsList.Count > 0)
+                        Program.Logger?.Info($"[LoadAccounts] Restored {AccountCount} accounts from backup via vault key.");
+                        if (AccountCount > 0)
                             SaveAccounts(true);
                         goto BackupHandled;
                     }
@@ -257,9 +284,9 @@ namespace Shiro
                             AppServices.Dialogs.ShowError("Failed to load backup file!");
                         }
 
-                        if (AccountsList.Count > 0)
+                        if (AccountCount > 0)
                         {
-                            Program.Logger?.Info($"[AccountManager] Restored {AccountsList.Count} accounts from backup. Re-persisting primary vault...");
+                            Program.Logger?.Info($"[AccountManager] Restored {AccountCount} accounts from backup. Re-persisting primary vault...");
                             SaveAccounts(true);
                         }
                     }
@@ -267,6 +294,15 @@ namespace Shiro
             }
 
         BackupHandled:
+            try
+            {
+                AccountRuntimeStateStore.HydrateAccounts(GetAccountsSnapshot());
+            }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"[LoadAccounts] Runtime state hydration skipped: {ex.Message}");
+            }
+
             RefreshView();
 
             IReadOnlyList<Account> loadedAccounts = GetAccountsSnapshot();
@@ -296,7 +332,7 @@ namespace Shiro
             }
         }
 
-        private static byte[]? _lastSavedPlaintextBytes;
+        private static byte[]? _lastSavedPlaintextHash;
 
         public static Task SaveAccountsAsync(bool BypassRateLimit = false, bool BypassCountCheck = false)
             => Task.Run(() => SaveAccounts(BypassRateLimit, BypassCountCheck));
@@ -327,47 +363,71 @@ namespace Shiro
                     return;
                 }
 
-                if (!BypassRateLimit &&
-                    _lastSavedPlaintextBytes != null &&
-                    SaveData.AsSpan().SequenceEqual(_lastSavedPlaintextBytes) &&
-                    File.Exists(accountStore.AccountFile))
+                try
                 {
+                    byte[] currentHash = System.Security.Cryptography.SHA256.HashData(SaveData);
+
+                    if (!BypassRateLimit &&
+                        _lastSavedPlaintextHash != null &&
+                        currentHash.AsSpan().SequenceEqual(_lastSavedPlaintextHash) &&
+                        File.Exists(accountStore.AccountFile))
+                    {
+                        foreach (var acc in accountsSnapshot)
+                        {
+                            acc.IsDirty = false;
+                        }
+                        return;
+                    }
+
+                    bool forceHistorical = Instance?.shutdownRequested == true;
+
+                    if (!PasswordHash.IsEmpty)
+                    {
+                        byte[] unprotectedHash = ProtectedData.Unprotect(PasswordHash.ToArray(), Array.Empty<byte>(), DataProtectionScope.CurrentUser);
+                        try
+                        {
+                            byte[] encrypted = Cryptography.Encrypt(SaveData, unprotectedHash);
+                            accountStore.WriteWithBackup(encrypted, forceHistorical);
+                        }
+                        finally
+                        {
+                            System.Security.Cryptography.CryptographicOperations.ZeroMemory(unprotectedHash);
+                        }
+                    }
+                    else
+                    {
+                        byte[] vaultKey = StoragePaths.GetOrCreateVaultKeyCopy();
+                        try
+                        {
+                            byte[] encrypted = Cryptography.Encrypt(SaveData, vaultKey);
+                            accountStore.WriteWithBackup(encrypted, forceHistorical);
+                        }
+                        finally
+                        {
+                            CryptographicOperations.ZeroMemory(vaultKey);
+                        }
+
+                        if (legacyPlaintextLoaded || File.Exists(PlaintextOptInFile))
+                        {
+                            try { File.Delete(PlaintextOptInFile); }
+                            catch (Exception exception)
+                            {
+                                Program.Logger.Warn($"Account data was protected with AES vault, but the legacy plaintext marker could not be removed: {exception.Message}");
+                            }
+                            legacyPlaintextLoaded = false;
+                        }
+                    }
+
+                    _lastSavedPlaintextHash = currentHash;
+
                     foreach (var acc in accountsSnapshot)
                     {
                         acc.IsDirty = false;
                     }
-                    return;
                 }
-
-                bool forceHistorical = Instance?.shutdownRequested == true;
-
-                if (!PasswordHash.IsEmpty)
+                finally
                 {
-                    byte[] encrypted = Cryptography.Encrypt(SaveData, ProtectedData.Unprotect(PasswordHash.ToArray(), Array.Empty<byte>(), DataProtectionScope.CurrentUser));
-                    accountStore.WriteWithBackup(encrypted, forceHistorical);
-                }
-                else
-                {
-                    byte[] vaultKey = StoragePaths.GetOrCreateVaultKey();
-                    byte[] encrypted = Cryptography.Encrypt(SaveData, vaultKey);
-                    accountStore.WriteWithBackup(encrypted, forceHistorical);
-
-                    if (legacyPlaintextLoaded || File.Exists(PlaintextOptInFile))
-                    {
-                        try { File.Delete(PlaintextOptInFile); }
-                        catch (Exception exception)
-                        {
-                            Program.Logger.Warn($"Account data was protected with AES vault, but the legacy plaintext marker could not be removed: {exception.Message}");
-                        }
-                        legacyPlaintextLoaded = false;
-                    }
-                }
-
-                _lastSavedPlaintextBytes = SaveData;
-
-                foreach (var acc in accountsSnapshot)
-                {
-                    acc.IsDirty = false;
+                    System.Security.Cryptography.CryptographicOperations.ZeroMemory(SaveData);
                 }
             }
         }

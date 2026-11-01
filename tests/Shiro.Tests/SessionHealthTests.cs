@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Shiro;
 using Xunit;
 
@@ -85,6 +85,58 @@ namespace Shiro.Tests
             bool updated = acc.TryUpdateRotatedCookie(msg);
             Assert.True(updated);
             Assert.Equal(rotatedToken, acc.SecurityToken);
+        }
+
+        [Fact]
+        public void TryUpdateRotatedCookie_DoesNotForceValidTrue_WhenAccountInvalid()
+        {
+            var initialToken = MakeToken(939);
+            var rotatedToken = MakeToken(790);
+            var acc = new Account { SecurityToken = initialToken, Valid = false };
+
+            using var msg = new System.Net.Http.HttpResponseMessage(System.Net.HttpStatusCode.Unauthorized);
+            msg.Headers.TryAddWithoutValidation("Set-Cookie", $".ROBLOSECURITY={rotatedToken}; Path=/; Domain=.roblox.com; HttpOnly");
+
+            bool updated = acc.TryUpdateRotatedCookie(msg);
+            Assert.True(updated);
+            Assert.Equal(rotatedToken, acc.SecurityToken);
+            Assert.False(acc.Valid);
+        }
+
+        [Fact]
+        public void ExtractRoblosecurityFromSetCookie_HandlesEdgeCases()
+        {
+            var validToken = MakeToken(939);
+
+            Assert.Equal(validToken, Account.ExtractRoblosecurityFromSetCookie($".ROBLOSECURITY=\"{validToken}\"; Path=/; HttpOnly"));
+            Assert.Equal(validToken, Account.ExtractRoblosecurityFromSetCookie($".ROBLOSECURITY={validToken}"));
+            Assert.Null(Account.ExtractRoblosecurityFromSetCookie(".ROBLOSECURITY=; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT"));
+            Assert.Null(Account.ExtractRoblosecurityFromSetCookie("OTHERCOOKIE=12345; Path=/"));
+        }
+
+        [Fact]
+        public async System.Threading.Tasks.Task ConcurrentCookieRotations_AreThreadSafe()
+        {
+            var acc = new Account { SecurityToken = MakeToken(939), Valid = true };
+            int versionStart = acc.CookieRotationVersion;
+
+            var tasks = new System.Threading.Tasks.Task[16];
+            for (int i = 0; i < tasks.Length; i++)
+            {
+                string nextToken = MakeToken(700 + i);
+                tasks[i] = System.Threading.Tasks.Task.Run(() =>
+                {
+                    using var msg = new System.Net.Http.HttpResponseMessage(System.Net.HttpStatusCode.OK);
+                    msg.Headers.TryAddWithoutValidation("Set-Cookie", $".ROBLOSECURITY={nextToken}; Path=/");
+                    acc.TryUpdateRotatedCookie(msg);
+                });
+            }
+
+            await System.Threading.Tasks.Task.WhenAll(tasks);
+
+            Assert.True(acc.CookieRotationVersion > versionStart);
+            Assert.False(string.IsNullOrWhiteSpace(acc.SecurityToken));
+            Assert.Contains("_|WARNING:-DO-NOT-SHARE-THIS", acc.SecurityToken);
         }
     }
 }

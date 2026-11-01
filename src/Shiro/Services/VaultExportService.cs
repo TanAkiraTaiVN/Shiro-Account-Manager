@@ -15,7 +15,7 @@ namespace Shiro.Services
     /// </summary>
     public static class VaultExportService
     {
-        private static readonly byte[] HeaderMagic = "SHIRO_VAULT_V1"u8.ToArray();
+        private static ReadOnlySpan<byte> HeaderMagic => "SHIRO_VAULT_V1"u8;
         private const int SaltSizeBytes = 16;
         private const int NonceSizeBytes = 12;
         private const int TagSizeBytes = 16;
@@ -37,34 +37,40 @@ namespace Shiro.Services
                 throw new ArgumentException("Destination stream must be writable.", nameof(destination));
 
             byte[] plaintext = AccountDataSerializer.Serialize(accounts, includePasswords: true);
-
-            Span<byte> salt = stackalloc byte[SaltSizeBytes];
-            RandomNumberGenerator.Fill(salt);
-
-            Span<byte> nonce = stackalloc byte[NonceSizeBytes];
-            RandomNumberGenerator.Fill(nonce);
-
-            Span<byte> tag = stackalloc byte[TagSizeBytes];
-            byte[] ciphertext = new byte[plaintext.Length];
-
-            Span<byte> key = stackalloc byte[KeySizeBytes];
             try
             {
-                Rfc2898DeriveBytes.Pbkdf2(passphrase, salt, key, Pbkdf2Iterations, HashAlgorithmName.SHA256);
-                using var aesGcm = new AesGcm(key, TagSizeBytes);
-                aesGcm.Encrypt(nonce, plaintext, ciphertext, tag);
+                Span<byte> salt = stackalloc byte[SaltSizeBytes];
+                RandomNumberGenerator.Fill(salt);
+
+                Span<byte> nonce = stackalloc byte[NonceSizeBytes];
+                RandomNumberGenerator.Fill(nonce);
+
+                Span<byte> tag = stackalloc byte[TagSizeBytes];
+                byte[] ciphertext = new byte[plaintext.Length];
+
+                Span<byte> key = stackalloc byte[KeySizeBytes];
+                try
+                {
+                    Rfc2898DeriveBytes.Pbkdf2(passphrase, salt, key, Pbkdf2Iterations, HashAlgorithmName.SHA256);
+                    using var aesGcm = new AesGcm(key, TagSizeBytes);
+                    aesGcm.Encrypt(nonce, plaintext, ciphertext, tag);
+                }
+                finally
+                {
+                    CryptographicOperations.ZeroMemory(key);
+                }
+
+                destination.Write(HeaderMagic);
+                destination.Write(salt);
+                destination.Write(nonce);
+                destination.Write(tag);
+                destination.Write(ciphertext);
+                destination.Flush();
             }
             finally
             {
-                CryptographicOperations.ZeroMemory(key);
+                CryptographicOperations.ZeroMemory(plaintext);
             }
-
-            destination.Write(HeaderMagic);
-            destination.Write(salt);
-            destination.Write(nonce);
-            destination.Write(tag);
-            destination.Write(ciphertext);
-            destination.Flush();
         }
 
         /// <summary>
@@ -118,26 +124,33 @@ namespace Shiro.Services
             }
 
             byte[] plaintext = new byte[ciphertext.Length];
-            Span<byte> key = stackalloc byte[KeySizeBytes];
             try
             {
-                Rfc2898DeriveBytes.Pbkdf2(passphrase, salt, key, Pbkdf2Iterations, HashAlgorithmName.SHA256);
-                using var aesGcm = new AesGcm(key, TagSizeBytes);
+                Span<byte> key = stackalloc byte[KeySizeBytes];
                 try
                 {
-                    aesGcm.Decrypt(nonce, ciphertext, tag, plaintext);
+                    Rfc2898DeriveBytes.Pbkdf2(passphrase, salt, key, Pbkdf2Iterations, HashAlgorithmName.SHA256);
+                    using var aesGcm = new AesGcm(key, TagSizeBytes);
+                    try
+                    {
+                        aesGcm.Decrypt(nonce, ciphertext, tag, plaintext);
+                    }
+                    catch (AuthenticationTagMismatchException ex)
+                    {
+                        throw new CryptographicException("The computed authentication tag did not match the input authentication tag.", ex);
+                    }
                 }
-                catch (AuthenticationTagMismatchException ex)
+                finally
                 {
-                    throw new CryptographicException("The computed authentication tag did not match the input authentication tag.", ex);
+                    CryptographicOperations.ZeroMemory(key);
                 }
+
+                return AccountDataSerializer.Deserialize(plaintext, out _);
             }
             finally
             {
-                CryptographicOperations.ZeroMemory(key);
+                CryptographicOperations.ZeroMemory(plaintext);
             }
-
-            return AccountDataSerializer.Deserialize(plaintext, out _);
         }
     }
 }

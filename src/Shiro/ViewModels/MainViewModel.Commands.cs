@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -31,6 +31,7 @@ namespace Shiro.ViewModels
         public ICommand ToggleWindowsCommand { get; private set; } = null!;
         public ICommand ToggleAntiAfkCommand { get; private set; } = null!;
         public ICommand TogglePotatoModeCommand { get; private set; } = null!;
+        public ICommand ToggleStreamerModeCommand { get; private set; } = null!;
         public ICommand SelectAllCommand { get; private set; } = null!;
         public ICommand ClearSelectionCommand { get; private set; } = null!;
         public ICommand ClearSearchCommand { get; private set; } = null!;
@@ -67,24 +68,56 @@ namespace Shiro.ViewModels
         {
             InitializeLaunchCommands();
             InitializeAccountCommands();
+            InitializeUiUpgradeCommands();
 
             AntiLagBoosterCommand = new RelayCommand(() =>
             {
                 var (bytesSaved, count, prioCount) = MemoryOptimizer.OptimizeRobloxClients(true);
                 double mb = bytesSaved / (1024.0 * 1024.0);
                 if (count > 0 || prioCount > 0)
-                    StatusMessage = $"⚡ Siêu tối ưu chống Lag thành công: Tiết kiệm {mb:F1} MB RAM, hạ ưu tiên CPU {prioCount} client(s)!";
+                    StatusMessage = $"Siêu tối ưu chống Lag thành công: Tiết kiệm {mb:F1} MB RAM, hạ ưu tiên CPU {prioCount} client(s)!";
                 else
-                    StatusMessage = "⚡ Đã tối ưu hóa bộ nhớ và độ ưu tiên hệ thống.";
+                    StatusMessage = "Đã tối ưu hóa bộ nhớ và độ ưu tiên hệ thống.";
             });
 
             ToggleWindowsCommand = new RelayCommand(() =>
             {
-                var (nowHidden, affected) = RobloxWindowService.ToggleVisibility();
-                AreWindowsHidden = nowHidden;
-                StatusMessage = nowHidden
-                    ? $"👻 Đã ẩn {affected} cửa sổ Roblox (Zero GPU Mode)! Tiết kiệm tối đa điện năng và GPU."
-                    : $"👁️ Đã hiển thị lại {affected} cửa sổ Roblox.";
+                bool wasHidden = RobloxWindowService.AreWindowsHidden || _areWindowsHidden;
+                if (wasHidden)
+                {
+                    var (shown, _) = RobloxWindowService.ShowAllWindows();
+                    _areWindowsHidden = false;
+                    OnPropertyChanged(nameof(AreWindowsHidden));
+                    NotifyToolStatesChanged();
+                    StatusMessage = LocalizationService.IsEnglish
+                        ? $"Restored {shown} Roblox window(s)."
+                        : $"Đã hiển thị lại {shown} cửa sổ Roblox.";
+                }
+                else
+                {
+                    var (hidden, _) = RobloxWindowService.HideAllWindows();
+                    bool active = hidden > 0 && RobloxWindowService.AreWindowsHidden;
+                    _areWindowsHidden = active;
+                    OnPropertyChanged(nameof(AreWindowsHidden));
+                    NotifyToolStatesChanged();
+
+                    if (active)
+                    {
+                        string msg = LocalizationService.IsEnglish
+                            ? $"Hidden {hidden} Roblox window(s) (Zero-GPU Mode)!"
+                            : $"Đã ẩn {hidden} cửa sổ Roblox (Zero-GPU Mode)! Tiết kiệm tối đa điện năng và GPU.";
+                        StatusMessage = msg;
+                        ToastService.ShowSuccess("Zero-GPU Mode", msg);
+                    }
+                    else
+                    {
+                        string warn = LocalizationService.IsEnglish
+                            ? "No running Roblox windows found to hide."
+                            : "Chưa có cửa sổ Roblox nào đang mở để bật Zero-GPU.";
+                        StatusMessage = "" + warn;
+                        ToastService.ShowInfo("Zero-GPU Mode", warn);
+                    }
+                }
             });
 
             ToggleAntiAfkCommand = new RelayCommand(() =>
@@ -92,8 +125,8 @@ namespace Shiro.ViewModels
                 AntiAfkService.Toggle();
                 IsAntiAfk = AntiAfkService.IsEnabled;
                 StatusMessage = IsAntiAfk
-                    ? "🛡️ Anti-AFK đã BẬT: Tự động bảo vệ chống kick 20 phút cho tất cả tài khoản!"
-                    : "🛡️ Anti-AFK đã TẮT.";
+                    ? "Anti-AFK đã BẬT: Tự động bảo vệ chống kick 20 phút cho tất cả tài khoản!"
+                    : "Anti-AFK đã TẮT.";
             });
 
             TogglePotatoModeCommand = new RelayCommand(() =>
@@ -103,9 +136,23 @@ namespace Shiro.ViewModels
                 AccountManager.General?.Set("EnablePotatoMode", next ? "true" : "false");
                 ClientSettingsPatcher.PatchSettings();
                 StatusMessage = next
-                    ? "🥔 Đã BẬT FastFlags Potato Mode! Game khởi động tiếp theo sẽ siêu nhẹ."
-                    : "🥔 Đã TẮT Potato Mode.";
+                    ? "Đã BẬT FastFlags Potato Mode! Game khởi động tiếp theo sẽ siêu nhẹ."
+                    : "Đã TẮT Potato Mode.";
             });
+
+            ToggleStreamerModeCommand = new RelayCommand(() =>
+            {
+                IsStreamerModeEnabled = !IsStreamerModeEnabled;
+            });
+
+            StreamerModeService.StateChanged += active =>
+            {
+                AppDispatcher.Post(() =>
+                {
+                    NotifyToolStatesChanged();
+                    RefreshAllAccountDisplays();
+                });
+            };
 
             TileWindowsCommand = new RelayCommand(param =>
             {
@@ -121,8 +168,8 @@ namespace Shiro.ViewModels
                 }
                 var (tiled, desc) = RobloxWindowService.TileWindows(cols, rows);
                 StatusMessage = tiled > 0
-                    ? $"📐 Đã sắp xếp {tiled} cửa sổ Roblox theo lưới {desc} thành công!"
-                    : $"⚠️ {desc}";
+                    ? $"Đã sắp xếp {tiled} cửa sổ Roblox theo lưới {desc} thành công!"
+                    : $"{desc}";
             });
 
             OpenProxyManagerCommand = new RelayCommand(() =>
@@ -142,11 +189,11 @@ namespace Shiro.ViewModels
                 var validAccounts = _accounts.Where(a => a.Valid && a.UserId > 0 && a.Model != null).ToList();
                 if (validAccounts.Count == 0)
                 {
-                    StatusMessage = "⚠️ Không có tài khoản hợp lệ nào để cập nhật số dư Robux.";
+                    StatusMessage = "Không có tài khoản hợp lệ nào để cập nhật số dư Robux.";
                     return;
                 }
                 int total = validAccounts.Count;
-                StatusMessage = $"💰 Đang cập nhật số dư Robux cho {total} tài khoản...";
+                StatusMessage = $"Đang cập nhật số dư Robux cho {total} tài khoản...";
                 int updated = 0;
 
                 using var concurrencyGate = new SemaphoreSlim(4, 4);
@@ -164,7 +211,7 @@ namespace Shiro.ViewModels
                         AppDispatcher.Post(() =>
                         {
                             acc.NotifyRobuxChanged();
-                            StatusMessage = $"💰 Đang cập nhật số dư Robux ({current}/{total}): {acc.Username}...";
+                            StatusMessage = $"Đang cập nhật số dư Robux ({current}/{total}): {acc.Username}...";
                         });
                     }
                     finally
@@ -180,14 +227,14 @@ namespace Shiro.ViewModels
                 {
                     ApplyFilter();
                 }
-                StatusMessage = $"✅ Đã cập nhật xong số dư Robux cho {updated} tài khoản!";
+                StatusMessage = $"Đã cập nhật xong số dư Robux cho {updated} tài khoản!";
             });
 
             CheckRobuxAccountCommand = new AsyncRelayCommand(async p =>
             {
                 if (p is AccountViewModel a && a.Model != null)
                 {
-                    StatusMessage = $"💰 Đang kiểm tra số dư Robux cho {a.Username}...";
+                    StatusMessage = $"Đang kiểm tra số dư Robux cho {a.Username}...";
                     long bal = await a.Model.FetchRobuxBalanceAsync();
                     a.NotifyRobuxChanged();
                     await AccountManager.SaveAccountsAsync(true);
@@ -197,8 +244,8 @@ namespace Shiro.ViewModels
                         ApplyFilter();
                     }
                     StatusMessage = bal >= 0
-                        ? $"💰 {a.Username}: Số dư hiện tại là {bal:N0} Robux."
-                        : $"⚠️ Chưa lấy được số dư cho {a.Username}.";
+                        ? $"{a.Username}: Số dư hiện tại là {bal:N0} Robux."
+                        : $"Chưa lấy được số dư cho {a.Username}.";
                 }
             });
 
@@ -239,7 +286,7 @@ namespace Shiro.ViewModels
             RefreshPresenceCommand = new RelayCommand(() =>
             {
                 RefreshLiveProcessStatus();
-                StatusMessage = "🔄 Đã cập nhật trạng thái hoạt động của các tài khoản.";
+                StatusMessage = "Đã cập nhật trạng thái hoạt động của các tài khoản.";
             });
 
             CheckSessionsCommand = new RelayCommand(() =>
@@ -258,7 +305,7 @@ namespace Shiro.ViewModels
                 }
                 catch (Exception ex)
                 {
-                    StatusMessage = "❌ Lỗi khi kiểm tra phiên: " + ex.Message;
+                    StatusMessage = "Lỗi khi kiểm tra phiên: " + ex.Message;
                 }
             });
 
@@ -288,13 +335,13 @@ namespace Shiro.ViewModels
                     if (expired.Count == 0)
                     {
                         StatusMessage = skippedLocked > 0
-                            ? $"✅ Không có tài khoản hết hạn bình thường nào cần Re-login (đã bỏ qua {skippedLocked} tài khoản bị khóa/lỗi)."
-                            : "✅ Không có tài khoản nào bị hết hạn!";
+                            ? $"Không có tài khoản hết hạn bình thường nào cần Re-login (đã bỏ qua {skippedLocked} tài khoản bị khóa/lỗi)."
+                            : "Không có tài khoản nào bị hết hạn!";
                         return;
                     }
                     if (skippedLocked > 0)
                     {
-                        StatusMessage = $"⚡ Đang Re-login {expired.Count} tài khoản hết hạn (bỏ qua {skippedLocked} tài khoản bị khóa/lỗi)...";
+                        StatusMessage = $"Đang Re-login {expired.Count} tài khoản hết hạn (bỏ qua {skippedLocked} tài khoản bị khóa/lỗi)...";
                     }
                     if (expired.Count == 1)
                         AppServices.Dialogs.OpenFastLoginDialog(expired[0]);
@@ -303,11 +350,9 @@ namespace Shiro.ViewModels
                 }
                 catch (Exception ex)
                 {
-                    StatusMessage = "❌ Lỗi khi Re-login hàng loạt: " + ex.Message;
+                    StatusMessage = "Lỗi khi Re-login hàng loạt: " + ex.Message;
                 }
             });
-
-            InitializeAccountCommands();
 
             NavigateToAccountsCommand = new RelayCommand(() => CurrentPage = NavigationPage.Accounts);
             NavigateToServerListCommand = new RelayCommand(() => CurrentPage = NavigationPage.ServerList);
@@ -329,7 +374,7 @@ namespace Shiro.ViewModels
                     int killed = RobloxProcessService.KillAllRobloxProcesses();
                     AppDispatcher.Post(() =>
                     {
-                        StatusMessage = $"🔴 Đã đóng {killed} tiến trình Roblox!";
+                        StatusMessage = $"Đã đóng {killed} tiến trình Roblox!";
                         RefreshLiveProcessStatus();
                     });
                 });
@@ -337,25 +382,27 @@ namespace Shiro.ViewModels
             CleanSystemTrayCommand = new RelayCommand(() =>
             {
                 Task.Run(() => Utilities.ThoroughCleanNotificationArea());
-                StatusMessage = "🧹 Đã làm sạch toàn bộ khay hệ thống Windows!";
+                StatusMessage = "Đã làm sạch toàn bộ khay hệ thống Windows!";
                 ToastService.ShowSuccess("Khay hệ thống", "Đã làm sạch khay hệ thống, loại bỏ icon Roblox ma!");
             });
             SelectRecentGameCommand = new RelayCommand(p =>
             {
                 if (p is RecentGameItemViewModel item)
                 {
+                    SetKnownGameTitle(item.PlaceId, item.Name);
                     PlaceId = item.PlaceId.ToString();
                     AccountManager.CurrentPlaceId = PlaceId;
                     AccountManager.General?.Set("SavedPlaceId", PlaceId);
                     AccountManager.QueueDeferredSaveSettings();
                     CurrentPage = NavigationPage.Accounts;
-                    StatusMessage = $"🎮 Đã chọn: {item.Name} (Place ID: {item.PlaceId})";
+                    StatusMessage = $"Đã chọn: {item.Name} (Place ID: {item.PlaceId})";
                 }
             });
             LaunchRecentGameCommand = new RelayCommand(p =>
             {
                 if (p is RecentGameItemViewModel item)
                 {
+                    SetKnownGameTitle(item.PlaceId, item.Name);
                     PlaceId = item.PlaceId.ToString();
                     CurrentPage = NavigationPage.Accounts;
                     var selected = Accounts.Where(a => a.IsSelected && a.Model != null).ToList();
@@ -374,7 +421,11 @@ namespace Shiro.ViewModels
                     }
                     else
                     {
-                        StatusMessage = $"🎮 Đã chọn {item.Name} (Place ID: {item.PlaceId}). Hãy tick chọn tài khoản rồi nhấn 'Tham gia Server'!";
+                        string warnMsg = LocalizationService.IsEnglish
+                            ? $"Selected {item.Name} (Place ID: {item.PlaceId}). Please select at least one account first!"
+                            : $"Đã chọn {item.Name} (Place ID: {item.PlaceId}). Hãy tick chọn tài khoản rồi nhấn 'Vào Server'!";
+                        StatusMessage = warnMsg;
+                        ToastService.ShowInfo(item.Name, warnMsg);
                     }
                 }
             });

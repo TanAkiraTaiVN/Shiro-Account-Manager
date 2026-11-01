@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Threading.Tasks;
 using Avalonia.Controls;
@@ -74,6 +74,9 @@ namespace Shiro.AvaloniaUI.Views
             return dialog._value;
         }
 
+        /// <summary>
+        /// Synchronous prompt dialog. Prefer <see cref="PromptAsync"/> to prevent nested message pump reentrancy.
+        /// </summary>
         public static string Prompt(string text, string caption = "Shiro", string defaultText = "", bool big = false, Window? owner = null)
         {
             if (Dispatcher.UIThread.CheckAccess())

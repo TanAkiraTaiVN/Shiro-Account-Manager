@@ -1,9 +1,10 @@
-﻿using Shiro.Classes;
+using Shiro.Classes;
 using Shiro.Services;
 using Xunit;
 
 namespace Shiro.Tests
 {
+    [Collection("CookieGuardSerial")]
     public class LaunchCoordinatorTests
     {
         [Fact]
@@ -78,6 +79,31 @@ namespace Shiro.Tests
 
             int withJitter = LaunchCoordinator.GetSmartLaunchMinDelayMs(5, includeJitter: true);
             Assert.InRange(withJitter, 5000, 6500);
+        }
+
+        [Fact]
+        public void GetSmartLaunchMinDelayMs_RespectsSmartSettingAndIgnoresAccountJoinDelay()
+        {
+            var prevGeneral = AccountManager.General;
+            AccountManager.General = new IniSection("General");
+            try
+            {
+                // AccountJoinDelay = 15s should NOT leak into SmartLaunch delay
+                AccountManager.General.Set(AppSettingsKeys.General.AccountJoinDelay, "15");
+
+                // Without explicit SmartLaunchMinDelaySeconds, defaults to DefaultSmartLaunchMinDelaySeconds (2s = 2000ms)
+                int defaultDelay = LaunchCoordinator.GetSmartLaunchMinDelayMs(null, includeJitter: false);
+                Assert.Equal(2000, defaultDelay);
+
+                // With explicit SmartLaunchMinDelaySeconds = 4s
+                AccountManager.General.Set(AppSettingsKeys.General.SmartLaunchMinDelaySeconds, "4");
+                int configuredDelay = LaunchCoordinator.GetSmartLaunchMinDelayMs(null, includeJitter: false);
+                Assert.Equal(4000, configuredDelay);
+            }
+            finally
+            {
+                AccountManager.General = prevGeneral;
+            }
         }
 
         [Theory]

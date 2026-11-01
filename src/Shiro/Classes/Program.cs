@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Diagnostics;
 using System.Globalization;
@@ -252,10 +252,26 @@ namespace Shiro
         }
 
         public static Avalonia.AppBuilder BuildAvaloniaApp()
-            => Avalonia.AppBuilder.Configure<Shiro.AvaloniaUI.App>()
+        {
+            var builder = Avalonia.AppBuilder.Configure<Shiro.AvaloniaUI.App>()
                 .UsePlatformDetect()
-                .WithInterFont()
-                .LogToTrace();
+                .With(new Win32PlatformOptions
+                {
+                    RenderingMode = new[] { Win32RenderingMode.AngleEgl, Win32RenderingMode.Software },
+                    CompositionMode = new[]
+                    {
+                        Win32CompositionMode.WinUIComposition,
+                        Win32CompositionMode.DirectComposition,
+                        Win32CompositionMode.LowLatencyDxgiSwapChain,
+                        Win32CompositionMode.RedirectionSurface
+                    }
+                })
+                .WithInterFont();
+#if DEBUG
+            builder = builder.LogToTrace();
+#endif
+            return builder;
+        }
 
         private static void ConfigureUnhandledExceptionRouting()
         {

@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using Avalonia.Media;
 using Shiro.Classes;
@@ -32,7 +32,7 @@ namespace Shiro.ViewModels
             {
                 if (IsExpired) return "RedBrush";
                 if (IsLaunching) return "AmberBrush";
-                if (IsInGame) return "GreenBrush";
+                if (IsInGame || IsLocalClientRunning) return "GreenBrush";
                 if (IsInStudio) return "AccentBrush";
                 if (IsOnline) return "BlueBrush";
                 return "MutedTextBrush";
@@ -52,9 +52,11 @@ namespace Shiro.ViewModels
                         return Loc.Get("Status_InGameNamed", GameName);
                     return string.IsNullOrEmpty(LiveMemoryText) ? Loc.Get("Status_InGame") : $"{Loc.Get("Status_InGame")} ({LiveMemoryText})";
                 }
+                if (IsLocalClientRunning)
+                    return LocalizationService.IsEnglish ? "Client Open" : "Đang mở Roblox";
                 if (IsInStudio) return "Roblox Studio";
                 if (IsOnline) return Loc.Get("Status_Online");
-                if (IsShortLivedSession) return LocalizationService.IsEnglish ? "⚠️ Short Session (~30m)" : "⚠️ Phiên ngắn (~30p)";
+                if (IsShortLivedSession) return LocalizationService.IsEnglish ? "Short Session (~30m)" : "Phiên ngắn (~30p)";
                 return Loc.Get("Status_Ready");
             }
         }
@@ -87,10 +89,15 @@ namespace Shiro.ViewModels
         private static SolidColorBrush _brushCardSelected = CreateFrozenBrush("#8B5CF6");
         public static SolidColorBrush BrushCardSelected => _brushCardSelected;
 
-        private static readonly SolidColorBrush BrushCardBanned = CreateFrozenBrush("#9F1239");
-        private static readonly SolidColorBrush BrushCardExpired = CreateFrozenBrush("#4D2125");
-        private static readonly SolidColorBrush BrushCardInGame = CreateFrozenBrush("#1E3B2A");
-        private static readonly SolidColorBrush BrushCardDefault = CreateFrozenBrush("#24242C");
+        private static readonly SolidColorBrush BrushCardBanned = CreateFrozenBrush("#5C1829");
+        private static readonly SolidColorBrush BrushCardExpired = CreateFrozenBrush("#3A1D21");
+        private static readonly SolidColorBrush BrushCardInGame = CreateFrozenBrush("#1E4730");
+        private static readonly SolidColorBrush BrushCardDefault = CreateFrozenBrush("#22222C");
+
+        private static readonly SolidColorBrush BrushPaletteSelectedBg = CreateFrozenBrush("#252538");
+        private static readonly SolidColorBrush BrushPaletteDefaultBg = CreateFrozenBrush("#181822");
+        private static readonly SolidColorBrush BrushPaletteSelectedBorder = CreateFrozenBrush("#6366F1");
+        private static readonly SolidColorBrush BrushPaletteDefaultBorder = CreateFrozenBrush("#20202C");
 
         static AccountViewModel()
         {
@@ -131,7 +138,7 @@ namespace Shiro.ViewModels
                 if (IsBannedOrLocked) return BrushBannedBg;
                 if (IsExpired) return BrushExpiredBg;
                 if (IsLaunching) return BrushLaunchingBg;
-                if (IsInGame) return BrushInGameBg;
+                if (IsInGame || IsLocalClientRunning) return BrushInGameBg;
                 if (IsInStudio) return BrushInStudioBg;
                 if (IsOnline) return BrushOnlineBg;
                 return BrushDefaultBg;
@@ -145,7 +152,7 @@ namespace Shiro.ViewModels
                 if (IsBannedOrLocked) return BrushBannedBorder;
                 if (IsExpired) return BrushExpiredBorder;
                 if (IsLaunching) return BrushLaunchingBorder;
-                if (IsInGame) return BrushInGameBorder;
+                if (IsInGame || IsLocalClientRunning) return BrushInGameBorder;
                 if (IsInStudio) return BrushInStudioBorder;
                 if (IsOnline) return BrushOnlineBorder;
                 return BrushDefaultBorder;
@@ -159,7 +166,7 @@ namespace Shiro.ViewModels
                 if (IsBannedOrLocked) return BrushBannedFg;
                 if (IsExpired) return BrushExpiredFg;
                 if (IsLaunching) return BrushLaunchingFg;
-                if (IsInGame) return BrushInGameFg;
+                if (IsInGame || IsLocalClientRunning) return BrushInGameFg;
                 if (IsInStudio) return BrushInStudioFg;
                 if (IsOnline) return BrushOnlineFg;
                 return BrushDefaultFg;
@@ -173,9 +180,12 @@ namespace Shiro.ViewModels
                 if (IsSelected) return BrushCardSelected;
                 if (IsBannedOrLocked) return BrushCardBanned;
                 if (IsExpired) return BrushCardExpired;
-                if (IsInGame) return BrushCardInGame;
+                if (IsInGame || IsLocalClientRunning) return BrushCardInGame;
                 return BrushCardDefault;
             }
         }
+
+        public IBrush CommandPaletteRowBackground => IsCommandPaletteSelected ? BrushPaletteSelectedBg : BrushPaletteDefaultBg;
+        public IBrush CommandPaletteRowBorder => IsCommandPaletteSelected ? BrushPaletteSelectedBorder : BrushPaletteDefaultBorder;
     }
 }

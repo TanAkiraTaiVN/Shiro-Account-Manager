@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -130,6 +130,16 @@ namespace Shiro.Services
                 if (AccountManager.General?.Get<bool>(AppSettingsKeys.General.AutoLowerProcessPriority, false) ?? false)
                 {
                     SetProcessPriority(pid, BELOW_NORMAL_PRIORITY_CLASS);
+                }
+
+                int cpuCapPercent = AccountManager.General?.Get<int>(AppSettingsKeys.General.MaxTotalRobloxCpuPercent, 0) ?? 0;
+                if (cpuCapPercent > 0 || RobloxJobObjectService.CurrentCpuRatePercent > 0)
+                {
+                    if (RobloxJobObjectService.CurrentCpuRatePercent != cpuCapPercent && cpuCapPercent > 0)
+                    {
+                        RobloxJobObjectService.SetCpuRateLimit(cpuCapPercent);
+                    }
+                    RobloxJobObjectService.AssignProcessByPid(pid);
                 }
             }
             catch (Exception ex)

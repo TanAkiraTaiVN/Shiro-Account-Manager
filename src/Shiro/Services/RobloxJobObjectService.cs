@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 
 namespace Shiro.Services
@@ -7,7 +8,7 @@ namespace Shiro.Services
     /// <summary>
     /// Windows Job Object Service for Roblox processes.
     /// Manages client processes as an aggregated OS-level kernel job,
-    /// enabling hardware CPU hard-caps and clean multi-instance lifecycle control.
+    /// enabling hardware CPU hard-caps across all running farm clients without killing them on Shiro exit.
     /// </summary>
     public static partial class RobloxJobObjectService
     {
@@ -19,6 +20,18 @@ namespace Shiro.Services
 
         private const uint JOB_OBJECT_CPU_RATE_CONTROL_ENABLE = 0x1;
         private const uint JOB_OBJECT_CPU_RATE_CONTROL_HARD_CAP = 0x4;
+
+        private const uint PROCESS_TERMINATE = 0x0001;
+        private const uint PROCESS_SET_QUOTA = 0x0100;
+
+        public static int CurrentCpuRatePercent
+        {
+            get
+            {
+                lock (_gate)
+                    return _cpuRatePercent;
+            }
+        }
 
         [StructLayout(LayoutKind.Sequential)]
         public struct JOBOBJECT_CPU_RATE_CONTROL_INFORMATION
@@ -39,17 +52,23 @@ namespace Shiro.Services
         private static partial bool SetInformationJobObject(IntPtr hJob, int JobObjectInformationClass, IntPtr lpJobObjectInformation, uint cbJobObjectInformationLength);
 
         [LibraryImport("kernel32.dll", SetLastError = true)]
+        private static partial IntPtr OpenProcess(uint dwDesiredAccess, [MarshalAs(UnmanagedType.Bool)] bool bInheritHandle, int dwProcessId);
+
+        [LibraryImport("kernel32.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
         private static partial bool CloseHandle(IntPtr hObject);
 
         public static IntPtr EnsureJobHandle()
         {
+            if (!OperatingSystem.IsWindows()) return IntPtr.Zero;
+
             lock (_gate)
             {
                 if (_hJob == IntPtr.Zero || _hJob == (IntPtr)(-1))
                 {
                     try
                     {
+                        // Note: JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE is intentionally NOT set so closing Shiro leaves active games running.
                         _hJob = CreateJobObject(IntPtr.Zero, "Shiro_Roblox_Farming_Job_" + Environment.ProcessId);
                         if (_hJob != IntPtr.Zero && _cpuRatePercent > 0)
                         {
@@ -67,7 +86,7 @@ namespace Shiro.Services
 
         public static bool AssignProcess(IntPtr hProcess)
         {
-            if (hProcess == IntPtr.Zero) return false;
+            if (!OperatingSystem.IsWindows() || hProcess == IntPtr.Zero) return false;
             try
             {
                 IntPtr hJob = EnsureJobHandle();
@@ -83,14 +102,82 @@ namespace Shiro.Services
             return false;
         }
 
+        public static bool AssignProcessByPid(int pid)
+        {
+            if (!OperatingSystem.IsWindows() || pid <= 0) return false;
+
+            IntPtr hProcess = OpenProcess(PROCESS_SET_QUOTA | PROCESS_TERMINATE, false, pid);
+            if (hProcess == IntPtr.Zero) return false;
+
+            try
+            {
+                return AssignProcess(hProcess);
+            }
+            finally
+            {
+                CloseHandle(hProcess);
+            }
+        }
+
+        public static int AssignAllRunningRobloxProcesses(IReadOnlyList<int>? preloadedPids = null)
+        {
+            if (!OperatingSystem.IsWindows()) return 0;
+
+            var pids = preloadedPids ?? RobloxProcessService.GetRunningRobloxPids();
+            int assigned = 0;
+            for (int i = 0; i < pids.Count; i++)
+            {
+                if (AssignProcessByPid(pids[i]))
+                    assigned++;
+            }
+            return assigned;
+        }
+
+        internal static JOBOBJECT_CPU_RATE_CONTROL_INFORMATION BuildCpuRateControlInfo(int maxPercentage)
+        {
+            int clamped = Math.Clamp(maxPercentage, 0, 100);
+            if (clamped <= 0)
+            {
+                return new JOBOBJECT_CPU_RATE_CONTROL_INFORMATION
+                {
+                    ControlFlags = 0,
+                    CpuRate = 0
+                };
+            }
+
+            return new JOBOBJECT_CPU_RATE_CONTROL_INFORMATION
+            {
+                ControlFlags = JOB_OBJECT_CPU_RATE_CONTROL_ENABLE | JOB_OBJECT_CPU_RATE_CONTROL_HARD_CAP,
+                CpuRate = (uint)(clamped * 100) // 10,000 = 100%
+            };
+        }
+
+        /// <summary>
+        /// Sets or disables (when 0) the aggregated CPU hard-cap across all Roblox processes in the job.
+        /// When enabled (> 0), automatically assigns any currently running Roblox processes into the job.
+        /// </summary>
         public static bool SetCpuRateLimit(int maxPercentage)
         {
+            if (!OperatingSystem.IsWindows()) return false;
+
+            int normalized = maxPercentage <= 0 ? 0 : Math.Clamp(maxPercentage, 5, 100);
+            bool applied;
             lock (_gate)
             {
+                _cpuRatePercent = normalized;
+                if (normalized == 0 && (_hJob == IntPtr.Zero || _hJob == (IntPtr)(-1)))
+                    return true;
+
                 EnsureJobHandle();
-                _cpuRatePercent = Math.Clamp(maxPercentage, 0, 100);
-                return ApplyCpuRateLimitInternal(_cpuRatePercent);
+                applied = ApplyCpuRateLimitInternal(normalized);
             }
+
+            if (applied && normalized > 0)
+            {
+                AssignAllRunningRobloxProcesses();
+            }
+
+            return applied;
         }
 
         private static unsafe bool ApplyCpuRateLimitInternal(int percentage)
@@ -100,16 +187,12 @@ namespace Shiro.Services
 
             try
             {
-                if (percentage > 0)
-                {
-                    var info = new JOBOBJECT_CPU_RATE_CONTROL_INFORMATION
-                    {
-                        ControlFlags = JOB_OBJECT_CPU_RATE_CONTROL_ENABLE | JOB_OBJECT_CPU_RATE_CONTROL_HARD_CAP,
-                        CpuRate = (uint)(percentage * 100) // 10,000 = 100%
-                    };
-                    return SetInformationJobObject(_hJob, JobObjectCpuRateControlInformation, (IntPtr)(&info), (uint)sizeof(JOBOBJECT_CPU_RATE_CONTROL_INFORMATION));
-                }
-                return true;
+                JOBOBJECT_CPU_RATE_CONTROL_INFORMATION info = BuildCpuRateControlInfo(percentage);
+                return SetInformationJobObject(
+                    _hJob,
+                    JobObjectCpuRateControlInformation,
+                    (IntPtr)(&info),
+                    (uint)sizeof(JOBOBJECT_CPU_RATE_CONTROL_INFORMATION));
             }
             catch (Exception ex)
             {
@@ -122,6 +205,7 @@ namespace Shiro.Services
         {
             lock (_gate)
             {
+                _cpuRatePercent = 0;
                 if (_hJob != IntPtr.Zero && _hJob != (IntPtr)(-1))
                 {
                     try { CloseHandle(_hJob); }

@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -53,7 +53,7 @@ namespace Shiro
     /// Represents a strongly-typed section within the application configuration store.
     /// Thread-safe property accessor backed by pre-parsed primitive value caching.
     /// </summary>
-    public class IniSection
+    public class IniSection : ISettingsService
     {
         private readonly IDictionary<string, IniProperty> _properties;
         private readonly System.Threading.Lock _sync = new();

@@ -1,22 +1,17 @@
-﻿using System;
+using System;
 using Shiro.Classes;
 using Shiro.Services;
 using Xunit;
 
 namespace Shiro.Tests
 {
+    [Collection("StoragePathsCollection")]
     public class SettingsPresetServiceTests
     {
         public SettingsPresetServiceTests()
         {
-            if (AccountManager.IniSettings == null)
-            {
-                AccountManager.IniSettings = new IniFile();
-            }
-            if (AccountManager.General == null)
-            {
-                AccountManager.General = AccountManager.IniSettings.Section("General");
-            }
+            AccountManager.IniSettings = new IniFile();
+            AccountManager.General = AccountManager.IniSettings.Section("General");
         }
 
         [Fact]

@@ -105,7 +105,7 @@ sequenceDiagram
 
 ## 5. Architectural Quality Enforcement
 
-Architecture rules are permanently verified on every build via `NetArchTest.eNhancedEdition` in `tests/RBX_Alt_Manager.Tests/ArchitectureTests.cs`:
-- **MVVM Separation**: `Types.InAssembly(CoreAssembly).That().ResideInNamespace("RBX_Alt_Manager.ViewModels").ShouldNot().HaveDependencyOnAny("RBX_Alt_Manager.AvaloniaUI.Views")`.
+Architecture rules are permanently verified on every build via `NetArchTest.eNhancedEdition` in `tests/Shiro.Tests/ArchitectureTests.cs`:
+- **MVVM Separation**: `Types.InAssembly(CoreAssembly).That().ResideInNamespace("Shiro.ViewModels").ShouldNot().HaveDependencyOnAny("Shiro.AvaloniaUI.Views")`.
 - **Micro-File Limit**: An automated test inspects the codebase to ensure zero C# files exceed 500 lines.
 - **Naming Conventions**: Strict adherence to domain suffixes across the entire Services namespace.

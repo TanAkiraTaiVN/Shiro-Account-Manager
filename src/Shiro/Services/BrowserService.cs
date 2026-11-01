@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System.Threading.Tasks;
 using System.Threading;
 using Shiro.Classes;
@@ -14,8 +14,6 @@ namespace Shiro.Services
     {
         public static BrowserService Default { get; } = new BrowserService();
 
-        private static readonly SemaphoreSlim fallbackBrowserGate = new SemaphoreSlim(1, 1);
-        private static string? fallbackBrowserPath;
         private static string? cachedInstalledBrowserPath;
 
         private static ReadOnlySpan<byte> SuppressedPasswordPrefsUtf8 =>
@@ -72,41 +70,27 @@ namespace Shiro.Services
 
         /// <summary>
         /// Resolves an isolated browser executable without ever opening the
-        /// user's default browser profile. If Chrome and Edge are missing,
-        /// use the existing PuppeteerSharp fallback under Shiro's cache.
+        /// user's default browser profile. Chrome/Edge are preferred; a
+        /// Chromium copy cached by an older Shiro version is the last resort.
+        /// Nothing is downloaded: Edge ships with Windows 10/11.
         /// </summary>
-        public static async Task<string> ResolveBrowserExecutableAsync(
+        public static Task<string> ResolveBrowserExecutableAsync(
             CancellationToken cancellationToken = default(CancellationToken))
         {
             cancellationToken.ThrowIfCancellationRequested();
 
             string? installed = FindInstalledBrowserExecutable();
             if (!string.IsNullOrWhiteSpace(installed))
-                return installed;
+                return Task.FromResult(installed);
 
-            await fallbackBrowserGate.WaitAsync(cancellationToken).ConfigureAwait(false);
-            try
+            string? cached = AccountBrowser.FindCachedChromiumExecutable();
+            if (!string.IsNullOrWhiteSpace(cached))
             {
-                if (!string.IsNullOrWhiteSpace(fallbackBrowserPath) && File.Exists(fallbackBrowserPath))
-                    return fallbackBrowserPath;
-
-                Program.Logger?.Warn("Chrome and Edge were not found; downloading the isolated Chromium fallback.");
-                InstalledBrowser revision = await AccountBrowser.Fetcher
-                    .DownloadAsync(Chrome.DefaultBuildId)
-                    .ConfigureAwait(false);
-                cancellationToken.ThrowIfCancellationRequested();
-
-                string? executable = revision?.GetExecutablePath();
-                if (string.IsNullOrWhiteSpace(executable) || !File.Exists(executable))
-                    throw new FileNotFoundException("The Chromium fallback executable was not available.", executable);
-
-                fallbackBrowserPath = executable;
-                return executable;
+                Program.Logger?.Warn($"Chrome and Edge were not found; using previously cached Chromium at {cached}.");
+                return Task.FromResult(cached);
             }
-            finally
-            {
-                fallbackBrowserGate.Release();
-            }
+
+            return Task.FromException<string>(new FileNotFoundException(AccountBrowser.BrowserNotFoundMessage));
         }
 
         public static readonly string[] NoPasswordManagerSwitches = new[]

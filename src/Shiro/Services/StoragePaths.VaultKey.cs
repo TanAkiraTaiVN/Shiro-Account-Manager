@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.IO;
 using System.Security.Cryptography;
@@ -73,6 +73,14 @@ namespace Shiro.Services
         }
 
         /// <summary>
+        /// Returns an isolated copy of the 256-bit vault key so callers can safely wipe their local buffer with ZeroMemory.
+        /// </summary>
+        public static byte[] GetOrCreateVaultKeyCopy()
+        {
+            return GetOrCreateVaultKey().AsSpan().ToArray();
+        }
+
+        /// <summary>
         /// Retrieves or creates a secure 256-bit vault key for local/portable account data encryption.
         /// In installed mode the key file is wrapped with Windows DPAPI (CurrentUser); in portable
         /// mode the raw 32-byte key is kept so the folder can be moved between machines.
@@ -108,12 +116,12 @@ namespace Shiro.Services
                         {
                             if (!IsPortable)
                             {
-                                // Preserve a backup of the raw key before upgrading to DPAPI-wrapped format.
+                                // Upgrade both primary and backup key files to DPAPI-wrapped format so no raw 32-byte key remains on disk.
                                 try
                                 {
-                                    if (!File.Exists(keyFile + ".bak"))
-                                        File.Copy(keyFile, keyFile + ".bak", overwrite: false);
-                                    AtomicWriteBytes(keyFile, WrapVaultKey(raw), durable: true);
+                                    byte[] wrapped = WrapVaultKey(raw);
+                                    AtomicWriteBytes(keyFile, wrapped, durable: true);
+                                    AtomicWriteBytes(keyFile + ".bak", wrapped, durable: true);
                                 }
                                 catch (Exception ex)
                                 {
@@ -144,7 +152,9 @@ namespace Shiro.Services
                 byte[] newKey = RandomNumberGenerator.GetBytes(32);
                 try
                 {
-                    AtomicWriteBytes(keyFile, IsPortable ? newKey : WrapVaultKey(newKey), durable: true);
+                    byte[] payload = IsPortable ? newKey : WrapVaultKey(newKey);
+                    AtomicWriteBytes(keyFile, payload, durable: true);
+                    AtomicWriteBytes(keyFile + ".bak", payload, durable: true);
                 }
                 catch (Exception ex)
                 {

@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -155,16 +155,10 @@ namespace Shiro.AvaloniaUI.Views
                 if (userPassLines.Count > 0 && !token.IsCancellationRequested)
                 {
                     var existingByUsername = new Dictionary<string, Account>(StringComparer.OrdinalIgnoreCase);
-                    lock (AccountManager.AccountListLock)
+                    foreach (var acc in AccountManager.GetAccountsSnapshot())
                     {
-                        if (AccountManager.AccountsList != null)
-                        {
-                            foreach (var acc in AccountManager.AccountsList)
-                            {
-                                if (acc != null && !string.IsNullOrEmpty(acc.Username))
-                                    existingByUsername.TryAdd(acc.Username, acc);
-                            }
-                        }
+                        if (acc != null && !string.IsNullOrEmpty(acc.Username))
+                            existingByUsername.TryAdd(acc.Username, acc);
                     }
 
                     int upIndex = 0;
@@ -199,10 +193,7 @@ namespace Shiro.AvaloniaUI.Views
                                 LastUse = DateTime.Now
                             };
 
-                            lock (AccountManager.AccountListLock)
-                            {
-                                AccountManager.AccountsList?.Add(targetAcc);
-                            }
+                            AccountManager.AddAccountThreadSafe(targetAcc);
                             existingByUsername[up.username] = targetAcc;
                         }
                         else
@@ -225,7 +216,7 @@ namespace Shiro.AvaloniaUI.Views
                     try { AccountManager.SaveAccounts(true); }
                     catch (Exception ex) { Program.Logger?.Warn($"SaveAccounts after bulk import failed: {ex.Message}"); }
                     MainWindow.Instance?.DashboardView?.LoadDashboardData();
-                    AccountManager.Instance?.SetDashboardStatus($"✅ Nhập hàng loạt hoàn tất: Đã thêm/cập nhật {success} tài khoản.");
+                    AccountManager.Instance?.SetDashboardStatus($"Nhập hàng loạt hoàn tất: Đã thêm/cập nhật {success} tài khoản.");
                 }
 
                 ImportedCount = success;

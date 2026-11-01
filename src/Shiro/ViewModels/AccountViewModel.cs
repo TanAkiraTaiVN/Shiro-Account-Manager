@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -16,7 +16,11 @@ namespace Shiro.ViewModels
         private bool _isSelected;
         private bool _isLaunching;
         private bool _isInGame;
+        private bool _isLocalClientRunning;
+        private bool _isCommandPaletteSelected;
         private string _liveMemoryText = string.Empty;
+
+        internal string SortTitle = string.Empty;
 
         public Account Model => _model;
 
@@ -40,7 +44,10 @@ namespace Shiro.ViewModels
             OnPropertyChanged(nameof(IsBannedOrLocked));
             OnPropertyChanged(nameof(StatusText));
             OnPropertyChanged(nameof(GroupDisplay));
+            OnPropertyChanged(nameof(GroupTooltip));
             OnPropertyChanged(nameof(LaunchButtonText));
+            OnPropertyChanged(nameof(FocusWindowButtonText));
+            OnPropertyChanged(nameof(ViewBanButtonText));
         }
 
         public void NotifyStatusIssueChanged()
@@ -48,6 +55,8 @@ namespace Shiro.ViewModels
             OnPropertyChanged(nameof(Valid));
             OnPropertyChanged(nameof(IsExpired));
             OnPropertyChanged(nameof(CanLaunch));
+            OnPropertyChanged(nameof(ShowPlayButton));
+            OnPropertyChanged(nameof(ShowRunningClientControls));
             OnPropertyChanged(nameof(IsExpiredAndNotBanned));
             OnPropertyChanged(nameof(IsBannedOrLocked));
             OnPropertyChanged(nameof(BanNoticeText));
@@ -76,6 +85,11 @@ namespace Shiro.ViewModels
         {
             get
             {
+                if (StreamerModeService.IsActive && (AccountManager.General?.Get<bool>(AppSettingsKeys.General.StreamerModeHideUsernames, true) ?? true))
+                {
+                    return StreamerModeService.MaskUsername(Username);
+                }
+
                 bool hideUsernames = AccountManager.General != null &&
                                      AccountManager.General.Exists("HideUsernames") &&
                                      AccountManager.General.Get<bool>("HideUsernames");
@@ -127,15 +141,22 @@ namespace Shiro.ViewModels
                     _model.Group = val;
                     OnPropertyChanged();
                     OnPropertyChanged(nameof(GroupDisplay));
+                    OnPropertyChanged(nameof(GroupTooltip));
                 }
             }
         }
 
-        public string GroupDisplay => LocalizationService.IsEnglish
-            ? $"Group: {(string.IsNullOrEmpty(_model.Group) ? "Default" : _model.Group)}"
-            : $"Nhóm: {(string.IsNullOrEmpty(_model.Group) || _model.Group == "Default" ? "Mặc định" : _model.Group)}";
+        public string GroupDisplay => string.IsNullOrEmpty(_model.Group) || string.Equals(_model.Group, "Default", StringComparison.OrdinalIgnoreCase)
+            ? (LocalizationService.IsEnglish ? "Default" : "Mặc định")
+            : _model.Group;
+
+        public string GroupTooltip => LocalizationService.IsEnglish
+            ? $"Group: {GroupDisplay}"
+            : $"Nhóm: {GroupDisplay}";
 
         public string LaunchButtonText => LocalizationService.IsEnglish ? "Launch" : "Chơi";
+        public string FocusWindowButtonText => LocalizationService.IsEnglish ? "Show" : "Hiện";
+        public string ViewBanButtonText => LocalizationService.IsEnglish ? "View Ban" : "Xem Ban";
 
         public string Description
         {
@@ -161,11 +182,13 @@ namespace Shiro.ViewModels
                     _model.Pinned = value;
                     OnPropertyChanged();
                     OnPropertyChanged(nameof(PinOpacity));
+                    OnPropertyChanged(nameof(PinIconStroke));
                 }
             }
         }
 
-        public double PinOpacity => _model.Pinned ? 1.0 : 0.3;
+        public double PinOpacity => _model.Pinned ? 1.0 : 0.45;
+        public IBrush PinIconStroke => _model.Pinned ? BrushLaunchingFg : BrushDefaultFg;
 
         public bool Valid
         {
@@ -178,6 +201,8 @@ namespace Shiro.ViewModels
                     OnPropertyChanged();
                     OnPropertyChanged(nameof(IsExpired));
                     OnPropertyChanged(nameof(CanLaunch));
+                    OnPropertyChanged(nameof(ShowPlayButton));
+                    OnPropertyChanged(nameof(ShowRunningClientControls));
                     OnPropertyChanged(nameof(IsExpiredAndNotBanned));
                     OnPropertyChanged(nameof(IsBannedOrLocked));
                     OnPropertyChanged(nameof(BanNoticeText));
@@ -194,10 +219,12 @@ namespace Shiro.ViewModels
         public bool IsExpired => !Valid;
         public bool IsBannedOrLocked => _model.IsBannedOrLocked;
         public bool CanLaunch => Valid && !IsBannedOrLocked;
+        public bool ShowPlayButton => CanLaunch && !IsLocalClientRunning;
+        public bool ShowRunningClientControls => IsLocalClientRunning;
         public bool IsExpiredAndNotBanned => IsExpired && !IsBannedOrLocked;
         public string BanNoticeText => !string.IsNullOrEmpty(_model.AccountStatusIssue)
             ? _model.AccountStatusIssue
-            : (LocalizationService.IsEnglish ? "⛔ Account Moderated / Locked" : "⛔ Tài khoản bị khóa / Ban");
+            : (LocalizationService.IsEnglish ? "Account Moderated / Locked" : "Tài khoản bị khóa / Ban");
         public bool IsShortLivedSession => _model.IsShortLivedSession;
         public SessionHealth SessionHealth => _model.SessionHealthStatus;
 
@@ -248,6 +275,38 @@ namespace Shiro.ViewModels
             }
         }
 
+        public bool IsLocalClientRunning
+        {
+            get => _isLocalClientRunning;
+            set
+            {
+                if (SetProperty(ref _isLocalClientRunning, value))
+                {
+                    OnPropertyChanged(nameof(ShowPlayButton));
+                    OnPropertyChanged(nameof(ShowRunningClientControls));
+                    OnPropertyChanged(nameof(StatusColorBrushName));
+                    OnPropertyChanged(nameof(StatusText));
+                    OnPropertyChanged(nameof(StatusBadgeBackground));
+                    OnPropertyChanged(nameof(StatusBadgeBorder));
+                    OnPropertyChanged(nameof(StatusBadgeForeground));
+                    OnPropertyChanged(nameof(CardBorderBrush));
+                }
+            }
+        }
+
+        public bool IsCommandPaletteSelected
+        {
+            get => _isCommandPaletteSelected;
+            set
+            {
+                if (SetProperty(ref _isCommandPaletteSelected, value))
+                {
+                    OnPropertyChanged(nameof(CommandPaletteRowBackground));
+                    OnPropertyChanged(nameof(CommandPaletteRowBorder));
+                }
+            }
+        }
+
         public bool IsOnline => _model.Presence != null && _model.Presence.userPresenceType == UserPresenceType.Online;
         public bool IsInStudio => _model.Presence != null && _model.Presence.userPresenceType == UserPresenceType.InStudio;
 
@@ -267,8 +326,25 @@ namespace Shiro.ViewModels
 
         public long RobuxBalance => _model?.RobuxBalance ?? -1;
         public bool HasRobux => RobuxBalance >= 0;
-        public string RobuxText => RobuxBalance >= 0 ? $"{RobuxBalance:N0}" : string.Empty;
-        public string RobuxFormatted => RobuxBalance >= 0 ? $"R$ {RobuxBalance:N0}" : string.Empty;
+        public string RobuxText
+        {
+            get
+            {
+                if (StreamerModeService.IsActive && (AccountManager.General?.Get<bool>(AppSettingsKeys.General.StreamerModeHideRobux, true) ?? true))
+                    return "***";
+                return RobuxBalance >= 0 ? $"{RobuxBalance:N0}" : string.Empty;
+            }
+        }
+
+        public string RobuxFormatted
+        {
+            get
+            {
+                if (StreamerModeService.IsActive && (AccountManager.General?.Get<bool>(AppSettingsKeys.General.StreamerModeHideRobux, true) ?? true))
+                    return "R$ ***";
+                return RobuxBalance >= 0 ? $"R$ {RobuxBalance:N0}" : string.Empty;
+            }
+        }
         public string RobuxTooltip => RobuxBalance >= 0 ? $"Số dư: {RobuxBalance:N0} Robux" : "Chưa cập nhật số dư Robux";
 
         public void NotifyThemeChanged()
@@ -281,6 +357,8 @@ namespace Shiro.ViewModels
             OnPropertyChanged(nameof(Valid));
             OnPropertyChanged(nameof(IsExpired));
             OnPropertyChanged(nameof(CanLaunch));
+            OnPropertyChanged(nameof(ShowPlayButton));
+            OnPropertyChanged(nameof(ShowRunningClientControls));
             OnPropertyChanged(nameof(IsExpiredAndNotBanned));
             OnPropertyChanged(nameof(IsBannedOrLocked));
             OnPropertyChanged(nameof(BanNoticeText));

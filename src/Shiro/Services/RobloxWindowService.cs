@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -347,6 +347,7 @@ namespace Shiro.Services
 
         /// <summary>
         /// Toggles between hiding and restoring all Roblox windows.
+        /// Never reports nowHidden=true when 0 Roblox client windows exist.
         /// </summary>
         public static (bool nowHidden, int affectedCount) ToggleVisibility()
         {
@@ -358,7 +359,7 @@ namespace Shiro.Services
             else
             {
                 var (hidden, _) = HideAllWindows();
-                return (true, hidden);
+                return (hidden > 0 && AreWindowsHidden, hidden);
             }
         }
     }

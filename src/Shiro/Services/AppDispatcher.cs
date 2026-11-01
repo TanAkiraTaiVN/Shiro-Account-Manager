@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Threading.Tasks;
 using Avalonia.Threading;
@@ -16,7 +16,14 @@ namespace Shiro.Services
         /// <summary>
         /// Executes an action safely on the Avalonia UI Thread.
         /// </summary>
-        public static void Post(Action action)
+        public static void Post(Action action) => PostWithPriority(action, DispatcherPriority.Normal);
+
+        /// <summary>
+        /// Queues a non-urgent UI update at Background priority so input and scroll rendering always take precedence.
+        /// </summary>
+        public static void PostBackground(Action action) => PostWithPriority(action, DispatcherPriority.Background);
+
+        private static void PostWithPriority(Action action, DispatcherPriority priority)
         {
             if (action == null) return;
 
@@ -36,10 +43,10 @@ namespace Shiro.Services
                     var avaloniaDispatcher = Dispatcher.UIThread;
                     if (avaloniaDispatcher != null)
                     {
-                        if (avaloniaDispatcher.CheckAccess())
+                        if (priority == DispatcherPriority.Normal && avaloniaDispatcher.CheckAccess())
                             action();
                         else
-                            avaloniaDispatcher.Post(action);
+                            avaloniaDispatcher.Post(action, priority);
                         return;
                     }
                 }

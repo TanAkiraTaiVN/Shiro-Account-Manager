@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -21,6 +21,8 @@ namespace Shiro.Services
     {
         private static readonly ConcurrentDictionary<string, Lazy<HttpClient>> _proxyClients =
             new ConcurrentDictionary<string, Lazy<HttpClient>>(StringComparer.OrdinalIgnoreCase);
+        private static readonly System.Threading.Lock _distributionLock = new();
+        private const string NoRedirectKeyPrefix = "no-redirect_";
 
         /// <summary>
         /// Parses a proxy string into an <see cref="IWebProxy"/> instance.
@@ -90,14 +92,20 @@ namespace Shiro.Services
             {
                 try
                 {
-                    var configuredProxies = ProxyManagerService.GetCachedProxyStrings();
-                    if (configuredProxies.Count > 0)
+                    lock (_distributionLock)
                     {
-                        var snapshot = AccountManager.GetAccountsSnapshot();
-                        var targets = snapshot.Count > 0 && snapshot.Contains(account)
-                            ? snapshot
-                            : new[] { account };
-                        DistributeProxiesSticky(targets, configuredProxies);
+                        if (string.IsNullOrWhiteSpace(account.Proxy))
+                        {
+                            var configuredProxies = ProxyManagerService.GetCachedProxyStrings();
+                            if (configuredProxies.Count > 0)
+                            {
+                                var snapshot = AccountManager.GetAccountsSnapshot();
+                                var targets = snapshot.Count > 0 && snapshot.Contains(account)
+                                    ? snapshot
+                                    : new[] { account };
+                                DistributeProxiesSticky(targets, configuredProxies);
+                            }
+                        }
                     }
                 }
                 catch (Exception ex)
@@ -110,6 +118,50 @@ namespace Shiro.Services
                 return SharedHttpClient.Get();
 
             return GetClient(account.Proxy);
+        }
+
+        /// <summary>
+        /// Retrieves an HttpClient configured with AllowAutoRedirect = false for fast header/redirect probes.
+        /// </summary>
+        public static HttpClient GetNoRedirectClient(Account? account)
+        {
+            if (account == null || !IsProxyRoutingAllowed() || string.IsNullOrWhiteSpace(account.Proxy))
+                return SharedHttpClient.GetNoRedirect();
+
+            string normalized = account.Proxy.Trim();
+            string key = $"{NoRedirectKeyPrefix}{normalized}";
+            return _proxyClients.GetOrAdd(key, k => new Lazy<HttpClient>(() =>
+            {
+                IWebProxy? webProxy = ParseWebProxy(normalized);
+                if (webProxy == null)
+                {
+                    Program.Logger?.Error($"[ProxyBindingService] Proxy '{normalized}' is invalid. Fail-Closed enforced to prevent IP leak.");
+                    throw new InvalidOperationException($"Proxy '{normalized}' failed to parse. Fallback to direct IP blocked to prevent IP leak.");
+                }
+
+                var handler = new SocketsHttpHandler
+                {
+                    Proxy = webProxy,
+                    UseProxy = true,
+                    UseCookies = false,
+                    AllowAutoRedirect = false,
+                    AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate | DecompressionMethods.Brotli,
+                    ConnectTimeout = TimeSpan.FromSeconds(5),
+                    PooledConnectionLifetime = TimeSpan.FromMinutes(10),
+                    PooledConnectionIdleTimeout = TimeSpan.FromMinutes(2),
+                    EnableMultipleHttp2Connections = true
+                };
+
+                var client = new HttpClient(handler, disposeHandler: true)
+                {
+                    Timeout = TimeSpan.FromSeconds(5),
+                    DefaultRequestVersion = HttpVersion.Version20,
+                    DefaultVersionPolicy = HttpVersionPolicy.RequestVersionOrLower
+                };
+
+                client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36");
+                return client;
+            }, LazyThreadSafetyMode.ExecutionAndPublication)).Value;
         }
 
         /// <summary>
@@ -126,8 +178,8 @@ namespace Shiro.Services
                 IWebProxy? webProxy = ParseWebProxy(key);
                 if (webProxy == null)
                 {
-                    Program.Logger?.Warn($"[ProxyBindingService] Proxy '{key}' is invalid. Routing via default gateway.");
-                    return SharedHttpClient.Get();
+                    Program.Logger?.Error($"[ProxyBindingService] Proxy '{key}' is invalid. Fail-Closed enforced to prevent IP leak.");
+                    throw new InvalidOperationException($"Proxy '{key}' failed to parse. Fallback to direct IP blocked to prevent IP leak.");
                 }
 
                 var handler = new SocketsHttpHandler
@@ -285,16 +337,21 @@ namespace Shiro.Services
                 : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             var sharedClient = SharedHttpClient.Get();
+            var sharedNoRedirect = SharedHttpClient.GetNoRedirect();
             foreach (var entry in _proxyClients)
             {
-                if (!activeSet.Contains(entry.Key) && _proxyClients.TryRemove(entry.Key, out var removed))
+                string rawProxyKey = entry.Key.StartsWith(NoRedirectKeyPrefix, StringComparison.OrdinalIgnoreCase)
+                    ? entry.Key.Substring(NoRedirectKeyPrefix.Length)
+                    : entry.Key;
+
+                if (!activeSet.Contains(rawProxyKey) && _proxyClients.TryRemove(entry.Key, out var removed))
                 {
                     if (removed.IsValueCreated)
                     {
                         try
                         {
                             var client = removed.Value;
-                            if (client != null && !ReferenceEquals(client, sharedClient))
+                            if (client != null && !ReferenceEquals(client, sharedClient) && !ReferenceEquals(client, sharedNoRedirect))
                                 client.Dispose();
                         }
                         catch (Exception ex)
@@ -312,6 +369,7 @@ namespace Shiro.Services
         public static void ClearClients()
         {
             var sharedClient = SharedHttpClient.Get();
+            var sharedNoRedirect = SharedHttpClient.GetNoRedirect();
             foreach (var entry in _proxyClients)
             {
                 if (_proxyClients.TryRemove(entry.Key, out var removed) && removed.IsValueCreated)
@@ -319,7 +377,7 @@ namespace Shiro.Services
                     try
                     {
                         var client = removed.Value;
-                        if (client != null && !ReferenceEquals(client, sharedClient))
+                        if (client != null && !ReferenceEquals(client, sharedClient) && !ReferenceEquals(client, sharedNoRedirect))
                             client.Dispose();
                     }
                     catch (Exception ex)

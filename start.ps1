@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Shiro Account Manager • Modern PowerShell Startup Script
 .DESCRIPTION
@@ -7,8 +7,6 @@
 #>
 [CmdletBinding()]
 param(
-    [switch]$Avalonia,
-    [switch]$Wpf,
     [Parameter(ValueFromRemainingArguments = $true)]
     [string[]]$Arguments
 )
@@ -19,8 +17,8 @@ $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
 $releaseDir = Join-Path $root 'build\Release'
 $updateDir = Join-Path $root 'build\Release-Update'
-$targetExe = Join-Path $releaseDir 'Roblox Account Manager.exe'
-$updateExe = Join-Path $updateDir 'Roblox Account Manager.exe'
+$targetExe = Join-Path $releaseDir 'Shiro.exe'
+$updateExe = Join-Path $updateDir 'Shiro.exe'
 
 # 1. Apply pending auto-update if present
 if (Test-Path -LiteralPath $updateExe) {
@@ -41,7 +39,7 @@ if (Test-Path -LiteralPath $updateExe) {
 # 2. Check executable existence
 if (-not (Test-Path -LiteralPath $targetExe)) {
     Write-Host "[Error] Executable not found at '$targetExe'." -ForegroundColor Red
-    Write-Host "[Info] Please build or publish the project first using: powershell -File .\build\Publish.ps1" -ForegroundColor Yellow
+    Write-Host "[Info] Please build or publish the project first using: powershell -File .\scripts\Publish.ps1" -ForegroundColor Yellow
     exit 1
 }
 
@@ -54,8 +52,6 @@ $psi.WorkingDirectory = $releaseDir
 $psi.UseShellExecute = $true
 
 $launchArgs = [System.Collections.Generic.List[string]]::new()
-if ($Avalonia) { $launchArgs.Add("-avalonia") }
-if ($Wpf) { $launchArgs.Add("-wpf") }
 if ($Arguments -and $Arguments.Count -gt 0) { $launchArgs.AddRange($Arguments) }
 
 if ($launchArgs.Count -gt 0) {

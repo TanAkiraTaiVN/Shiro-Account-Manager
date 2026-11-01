@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -151,6 +151,7 @@ namespace Shiro.ViewModels
                     OnPropertyChanged(nameof(IsSortOriginal));
                     OnPropertyChanged(nameof(IsSortStatus));
                     OnPropertyChanged(nameof(IsSortRobuxDesc));
+                    OnPropertyChanged(nameof(CurrentSortLabel));
                 }
             }
         }
@@ -236,16 +237,23 @@ namespace Shiro.ViewModels
             }
         }
 
+        private static bool IsAllGroupsSentinel(string? group)
+        {
+            return string.IsNullOrEmpty(group) ||
+                   string.Equals(group, "All Groups", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(group, "Tất cả nhóm", StringComparison.OrdinalIgnoreCase);
+        }
+
         public void ApplyFilter()
         {
-            if (Dispatcher.UIThread != null && !Dispatcher.UIThread.CheckAccess())
+            if (Avalonia.Application.Current != null && Dispatcher.UIThread != null && !Dispatcher.UIThread.CheckAccess())
             {
                 AppDispatcher.Post(ApplyFilter);
                 return;
             }
 
             var searchQuery = AccountSearchQuery.Create(SearchText);
-            bool filterByGroup = !string.IsNullOrEmpty(SelectedGroup) && SelectedGroup != "All Groups";
+            bool filterByGroup = !IsAllGroupsSentinel(SelectedGroup);
             bool hasSearch = !searchQuery.IsEmpty;
             var activeTab = ActiveTab;
             string selectedGroup = SelectedGroup;
@@ -279,6 +287,14 @@ namespace Shiro.ViewModels
                 resultList.Add(a);
             }
 
+            // Pre-resolve sort titles in a single linear O(N) pass to eliminate all IniFile lock acquisitions
+            // and duplicate string mask allocations during O(N log N) sort comparisons
+            for (int i = 0; i < resultList.Count; i++)
+            {
+                var item = resultList[i];
+                item.SortTitle = item.PrimaryTitle ?? item.Username ?? string.Empty;
+            }
+
             // Sorting logic: Pinned accounts always display first, then sort according to SortMode
             var sortMode = SortMode;
             resultList.Sort((x, y) =>
@@ -292,9 +308,7 @@ namespace Shiro.ViewModels
                     {
                         int validCmp = y.Valid.CompareTo(x.Valid);
                         if (validCmp != 0) return validCmp;
-                        return NaturalStringComparer.Instance.Compare(
-                            y.PrimaryTitle ?? y.Username ?? string.Empty,
-                            x.PrimaryTitle ?? x.Username ?? string.Empty);
+                        return NaturalStringComparer.Instance.Compare(y.SortTitle, x.SortTitle);
                     }
                     case AccountSortMode.Original:
                         return y.Valid.CompareTo(x.Valid);
@@ -304,46 +318,52 @@ namespace Shiro.ViewModels
                         if (gameCmp != 0) return gameCmp;
                         int validCmp = y.Valid.CompareTo(x.Valid);
                         if (validCmp != 0) return validCmp;
-                        return NaturalStringComparer.Instance.Compare(
-                            x.PrimaryTitle ?? x.Username ?? string.Empty,
-                            y.PrimaryTitle ?? y.Username ?? string.Empty);
+                        return NaturalStringComparer.Instance.Compare(x.SortTitle, y.SortTitle);
                     }
                     case AccountSortMode.RobuxDescending:
                     {
                         int robuxCmp = y.RobuxBalance.CompareTo(x.RobuxBalance);
                         if (robuxCmp != 0) return robuxCmp;
-                        return NaturalStringComparer.Instance.Compare(
-                            x.PrimaryTitle ?? x.Username ?? string.Empty,
-                            y.PrimaryTitle ?? y.Username ?? string.Empty);
+                        return NaturalStringComparer.Instance.Compare(x.SortTitle, y.SortTitle);
                     }
                     case AccountSortMode.NaturalAscending:
                     default:
                     {
                         int validCmp = y.Valid.CompareTo(x.Valid);
                         if (validCmp != 0) return validCmp;
-                        return NaturalStringComparer.Instance.Compare(
-                            x.PrimaryTitle ?? x.Username ?? string.Empty,
-                            y.PrimaryTitle ?? y.Username ?? string.Empty);
+                        return NaturalStringComparer.Instance.Compare(x.SortTitle, y.SortTitle);
                     }
                 }
             });
 
             if (IsSameSequence(_filteredAccounts, resultList))
+            {
+                int cols = Math.Clamp(_cardColumns, 2, 4);
+                int expectedRows = (resultList.Count + cols - 1) / cols;
+                if (_filteredAccountRows.Count != expectedRows ||
+                    (_filteredAccountRows.Count > 0 && _filteredAccountRows[0].ColumnCount != cols))
+                {
+                    RebuildAccountRows();
+                }
                 return;
+            }
 
             _filteredAccounts.Sync(resultList);
+            RebuildAccountRows();
             OnPropertyChanged(nameof(IsAllSelected));
         }
 
         private void RebuildAccountRows()
         {
-            var rows = new List<AccountRowViewModel>((_filteredAccounts.Count + 2) / 3);
-            for (int i = 0; i < _filteredAccounts.Count; i += 3)
+            int cols = Math.Clamp(_cardColumns, 2, 4);
+            var rows = new List<AccountRowViewModel>((_filteredAccounts.Count + cols - 1) / cols);
+            for (int i = 0; i < _filteredAccounts.Count; i += cols)
             {
                 var item1 = _filteredAccounts[i];
-                var item2 = (i + 1 < _filteredAccounts.Count) ? _filteredAccounts[i + 1] : null;
-                var item3 = (i + 2 < _filteredAccounts.Count) ? _filteredAccounts[i + 2] : null;
-                rows.Add(new AccountRowViewModel(item1, item2, item3));
+                var item2 = (cols >= 2 && i + 1 < _filteredAccounts.Count) ? _filteredAccounts[i + 1] : null;
+                var item3 = (cols >= 3 && i + 2 < _filteredAccounts.Count) ? _filteredAccounts[i + 2] : null;
+                var item4 = (cols >= 4 && i + 3 < _filteredAccounts.Count) ? _filteredAccounts[i + 3] : null;
+                rows.Add(new AccountRowViewModel(cols, item1, item2, item3, item4));
             }
             _filteredAccountRows.Sync(rows);
         }

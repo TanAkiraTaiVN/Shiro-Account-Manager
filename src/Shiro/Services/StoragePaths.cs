@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.IO;
 
@@ -31,6 +31,7 @@ namespace Shiro.Services
 
         public static bool IsPortable { get; private set; }
         public static string AccountDataFile => GetUserFile("AccountData.json");
+        public static string AccountRuntimeStateFile => GetUserFile("AccountRuntimeState.json");
         public static string RecentGamesFile => GetUserFile("RecentGames.json");
         public static string SettingsFile => GetUserFile("RAMSettings.json");
         internal static string LegacySettingsFile => GetUserFile("RAMSettings.ini");

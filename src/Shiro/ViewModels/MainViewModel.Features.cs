@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -20,6 +20,7 @@ namespace Shiro.ViewModels
                 if (SetProperty(ref _recentGamesList, value))
                 {
                     OnPropertyChanged(nameof(HasRecentGames));
+                    ServerListViewModel?.NotifyRecentGamesChanged();
                 }
             }
         }
@@ -36,8 +37,9 @@ namespace Shiro.ViewModels
                     AccountManager.General?.Set("EnablePotatoMode", value ? "true" : "false");
                     ClientSettingsPatcher.PatchSettings();
                     StatusMessage = value
-                        ? "🥔 Đã BẬT FastFlags Potato Mode! Game khởi động tiếp theo sẽ siêu nhẹ."
-                        : "🥔 Đã TẮT Potato Mode.";
+                        ? "Đã BẬT FastFlags Potato Mode! Game khởi động tiếp theo sẽ siêu nhẹ."
+                        : "Đã TẮT Potato Mode.";
+                    NotifyToolStatesChanged();
                 }
             }
         }
@@ -51,9 +53,39 @@ namespace Shiro.ViewModels
                 {
                     AntiAfkService.SetConfig(value);
                     StatusMessage = value
-                        ? "🛡️ Anti-AFK đã BẬT: Tự động bảo vệ chống kick 20 phút cho tất cả tài khoản!"
-                        : "🛡️ Anti-AFK đã TẮT.";
+                        ? "Anti-AFK đã BẬT: Tự động bảo vệ chống kick 20 phút cho tất cả tài khoản!"
+                        : "Anti-AFK đã TẮT.";
+                    NotifyToolStatesChanged();
                 }
+            }
+        }
+
+        public bool IsStreamerModeActive => StreamerModeService.IsActive;
+
+        public bool IsStreamerModeEnabled
+        {
+            get => StreamerModeService.IsEnabled;
+            set
+            {
+                if (StreamerModeService.IsEnabled != value)
+                {
+                    StreamerModeService.IsEnabled = value;
+                    NotifyToolStatesChanged();
+                    StatusMessage = value
+                        ? "Đã BẬT Streamer Mode! Cửa sổ Shiro đã được bảo vệ khỏi phần mềm quay/stream màn hình."
+                        : "Đã TẮT Streamer Mode.";
+                    RefreshAllAccountDisplays();
+                }
+            }
+        }
+
+        public void RefreshAllAccountDisplays()
+        {
+            if (Accounts == null) return;
+            foreach (var acc in Accounts)
+            {
+                acc.NotifyDisplayNameChanged();
+                acc.NotifyRobuxChanged();
             }
         }
 
@@ -67,62 +99,15 @@ namespace Shiro.ViewModels
                     if (value)
                     {
                         var (hidden, _) = RobloxWindowService.HideAllWindows();
-                        StatusMessage = $"👻 Đã ẩn {hidden} cửa sổ Roblox (Zero GPU Mode)! Tiết kiệm tối đa điện năng và GPU.";
+                        StatusMessage = $"Đã ẩn {hidden} cửa sổ Roblox (Zero GPU Mode)! Tiết kiệm tối đa điện năng và GPU.";
                     }
                     else
                     {
                         var (restored, _) = RobloxWindowService.ShowAllWindows();
-                        StatusMessage = $"👁️ Đã hiển thị lại {restored} cửa sổ Roblox.";
+                        StatusMessage = $"Đã hiển thị lại {restored} cửa sổ Roblox.";
                     }
+                    NotifyToolStatesChanged();
                 }
-            }
-        }
-
-        private bool _isCommandPaletteOpen;
-        public bool IsCommandPaletteOpen
-        {
-            get => _isCommandPaletteOpen;
-            set
-            {
-                if (SetProperty(ref _isCommandPaletteOpen, value))
-                {
-                    if (value)
-                    {
-                        CommandPaletteSearchText = string.Empty;
-                        UpdateCommandPaletteResults();
-                    }
-                }
-            }
-        }
-
-        private string _commandPaletteSearchText = string.Empty;
-        public string CommandPaletteSearchText
-        {
-            get => _commandPaletteSearchText;
-            set
-            {
-                if (SetProperty(ref _commandPaletteSearchText, value))
-                {
-                    UpdateCommandPaletteResults();
-                }
-            }
-        }
-
-        private readonly ObservableCollection<AccountViewModel> _commandPaletteResults = new ObservableCollection<AccountViewModel>();
-        public ObservableCollection<AccountViewModel> CommandPaletteResults => _commandPaletteResults;
-
-        public void UpdateCommandPaletteResults()
-        {
-            var searchQuery = AccountSearchQuery.Create(_commandPaletteSearchText);
-            _commandPaletteResults.Clear();
-
-            var matches = searchQuery.IsEmpty
-                ? _accounts.Take(8)
-                : _accounts.Where(searchQuery.IsMatch).Take(8);
-
-            foreach (var item in matches)
-            {
-                _commandPaletteResults.Add(item);
             }
         }
 
@@ -133,6 +118,7 @@ namespace Shiro.ViewModels
             IsPotatoMode = AccountManager.General != null &&
                            AccountManager.General.Exists("EnablePotatoMode") &&
                            AccountManager.General.Get<bool>("EnablePotatoMode");
+            NotifyToolStatesChanged();
         }
 
         private void NotifyLocalizedLabelsChanged()
@@ -241,10 +227,11 @@ namespace Shiro.ViewModels
                             {
                                 if (g?.Details?.placeId != null)
                                 {
+                                    string bestName = g.Details.BestDisplayName;
                                     list.Add(new RecentGameItemViewModel
                                     {
                                         PlaceId = g.Details.placeId,
-                                        Name = string.IsNullOrWhiteSpace(g.Details.name) ? $"Place {g.Details.placeId}" : g.Details.name,
+                                        Name = string.IsNullOrWhiteSpace(bestName) ? $"Place {g.Details.placeId}" : bestName,
                                         ImageUrl = g.ImageUrl ?? string.Empty
                                     });
                                 }
@@ -273,9 +260,38 @@ namespace Shiro.ViewModels
                         RecentGamesList.Clear();
                         foreach (var item in list)
                         {
+                            if (!GameInfoService.IsGenericPlaceholderName(item.PlaceId, item.Name))
+                            {
+                                GameInfoService.CachePlaceName(item.PlaceId, item.Name);
+                            }
+                            else if (GameInfoService.TryGetCachedName(item.PlaceId, out string cachedName))
+                            {
+                                item.Name = cachedName;
+                            }
+                            else if (Avalonia.Application.Current != null)
+                            {
+                                var targetItem = item;
+                                _ = Task.Run(async () =>
+                                {
+                                    var resolved = await GameInfoService.ResolvePlaceNameAsync(targetItem.PlaceId).ConfigureAwait(false);
+                                    if (!string.IsNullOrWhiteSpace(resolved))
+                                    {
+                                        AppDispatcher.Post(() =>
+                                        {
+                                            targetItem.Name = resolved!;
+                                            SetKnownGameTitle(targetItem.PlaceId, resolved);
+                                        });
+                                    }
+                                });
+                            }
                             RecentGamesList.Add(item);
                         }
                         OnPropertyChanged(nameof(HasRecentGames));
+                        ServerListViewModel?.NotifyRecentGamesChanged();
+                        if (string.IsNullOrWhiteSpace(CurrentGameName) && !string.IsNullOrWhiteSpace(_placeId))
+                        {
+                            ScheduleCurrentGameLookup(_placeId);
+                        }
                     });
                 }
                 catch (Exception ex)

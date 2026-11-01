@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -53,7 +53,12 @@ namespace Shiro.ViewModels
                 string sessionId = Guid.NewGuid().ToString("D");
 
                 string url = $"https://apis.roblox.com/search-api/omni-search?searchQuery={Uri.EscapeDataString(query)}&sessionId={sessionId}&pageType=all";
-                string content = await SharedHttpClient.GetStringAsync(url, retryTransient: true).ConfigureAwait(false);
+                using var searchReq = new System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Get, url);
+                searchReq.Headers.AcceptLanguage.ParseAdd("en-US,en;q=0.9");
+                using var searchResp = await SharedHttpClient.SendAsync(searchReq, retryTransient: true).ConfigureAwait(false);
+                string content = searchResp.IsSuccessStatusCode
+                    ? await searchResp.Content.ReadAsStringAsync().ConfigureAwait(false)
+                    : string.Empty;
 
                 if (!string.IsNullOrWhiteSpace(content))
                 {
@@ -80,6 +85,7 @@ namespace Shiro.ViewModels
                                         int playerCount = item.TryGetProperty("playerCount", out var pcProp) && pcProp.TryGetInt32(out var pc) ? pc : 0;
                                         if (pid > 0 && seenPlaceIds.Add(pid))
                                         {
+                                            GameInfoService.CachePlaceName(pid, name);
                                             gamesList.Add(new GameSearchItemViewModel
                                             {
                                                 PlaceId = pid,
@@ -135,13 +141,14 @@ namespace Shiro.ViewModels
         {
             if (param is GameSearchItemViewModel game)
             {
+                _mainViewModel?.SetKnownGameTitle(game.PlaceId, game.Name);
                 PlaceIdInput = game.PlaceId.ToString();
                 if (_mainViewModel != null)
                 {
                     _mainViewModel.PlaceId = game.PlaceId.ToString();
                     _mainViewModel.StatusMessage = LocalizationService.IsEnglish
-                        ? $"🎮 Selected game: {game.Name} ({game.PlaceId})"
-                        : $"🎮 Đã chọn game: {game.Name} ({game.PlaceId})";
+                        ? $"Selected game: {game.Name} ({game.PlaceId})"
+                        : $"Đã chọn game: {game.Name} ({game.PlaceId})";
                 }
                 SelectedSubTabIndex = 0;
                 _ = RefreshServersAsync();
@@ -152,14 +159,24 @@ namespace Shiro.ViewModels
         {
             if (param is GameSearchItemViewModel game)
             {
+                _mainViewModel?.SetKnownGameTitle(game.PlaceId, game.Name);
                 PlaceIdInput = game.PlaceId.ToString();
                 if (_mainViewModel != null)
                 {
                     _mainViewModel.PlaceId = game.PlaceId.ToString();
                     _mainViewModel.JobId = string.Empty;
-                    _mainViewModel.StatusMessage = LocalizationService.IsEnglish
-                        ? $"🎮 Launching game: {game.Name} ({game.PlaceId})"
-                        : $"🎮 Đang khởi chạy game: {game.Name} ({game.PlaceId})";
+                    if (_mainViewModel.SelectedCount > 0)
+                    {
+                        _mainViewModel.StatusMessage = LocalizationService.IsEnglish
+                            ? $"Launching game: {game.Name} ({game.PlaceId})"
+                            : $"Đang khởi chạy game: {game.Name} ({game.PlaceId})";
+                    }
+                    else
+                    {
+                        LoadingStatus = LocalizationService.IsEnglish
+                            ? "Please select at least one account in the Accounts tab first!"
+                            : "Vui lòng tick chọn tài khoản ở tab 'Tài khoản' trước khi bấm Chơi!";
+                    }
                 }
                 _mainViewModel?.JoinServerSelectedCommand?.Execute(null);
             }
@@ -179,10 +196,19 @@ namespace Shiro.ViewModels
                 if (!string.IsNullOrEmpty(game.ThumbnailUrl) && game.ThumbnailUrl.Contains("rbxcdn.com"))
                     thumb = game.ThumbnailUrl;
             }
-            else if (long.TryParse(PlaceIdInput, out long p))
+            else
             {
-                pid = p;
-                name = $"Game {p}";
+                long p = AccountLauncherService.ParsePlaceId(PlaceIdInput);
+                if (p > 0)
+                {
+                    pid = p;
+                    if (!string.IsNullOrWhiteSpace(CurrentGameName) && !GameInfoService.IsGenericPlaceholderName(p, CurrentGameName))
+                        name = CurrentGameName;
+                    else if (GameInfoService.TryGetCachedName(p, out string cachedName))
+                        name = cachedName;
+                    else
+                        name = $"Game {p}";
+                }
             }
 
             if (pid <= 0) return;
@@ -190,8 +216,8 @@ namespace Shiro.ViewModels
             if (_favorites.Any(f => f.PlaceId == pid))
             {
                 LoadingStatus = LocalizationService.IsEnglish
-                    ? "⚠️ This game is already in Favorites!"
-                    : "⚠️ Game này đã có trong danh sách Yêu Thích!";
+                    ? "This game is already in Favorites!"
+                    : "Game này đã có trong danh sách Yêu Thích!";
                 return;
             }
 
@@ -203,6 +229,22 @@ namespace Shiro.ViewModels
             };
             _favorites.Add(item);
             SaveFavorites();
+            if (GameInfoService.IsGenericPlaceholderName(pid, name) && Avalonia.Application.Current != null)
+            {
+                _ = Task.Run(async () =>
+                {
+                    var resolved = await GameInfoService.ResolvePlaceNameAsync(pid).ConfigureAwait(false);
+                    if (!string.IsNullOrWhiteSpace(resolved))
+                    {
+                        AppDispatcher.Post(() =>
+                        {
+                            item.Name = resolved!;
+                            _mainViewModel?.SetKnownGameTitle(pid, resolved);
+                            SaveFavorites();
+                        });
+                    }
+                });
+            }
             if (string.IsNullOrEmpty(thumb))
             {
                 _ = ResolveFavoriteThumbnailsAsync();
@@ -219,8 +261,8 @@ namespace Shiro.ViewModels
                 _favorites.Remove(fav);
                 SaveFavorites();
                 LoadingStatus = LocalizationService.IsEnglish
-                    ? $"🗑️ Removed '{fav.Name}' from Favorites."
-                    : $"🗑️ Đã xóa '{fav.Name}' khỏi Yêu Thích.";
+                    ? $"Removed '{fav.Name}' from Favorites."
+                    : $"Đã xóa '{fav.Name}' khỏi Yêu Thích.";
             }
         }
 
@@ -228,6 +270,7 @@ namespace Shiro.ViewModels
         {
             if (param is FavoriteGameItemViewModel fav)
             {
+                _mainViewModel?.SetKnownGameTitle(fav.PlaceId, fav.Name);
                 PlaceIdInput = fav.PlaceId.ToString();
                 if (_mainViewModel != null)
                 {
@@ -252,9 +295,18 @@ namespace Shiro.ViewModels
                 {
                     _mainViewModel.PlaceId = fav.PlaceId.ToString();
                     _mainViewModel.JobId = fav.PrivateServer ?? string.Empty;
-                    _mainViewModel.StatusMessage = LocalizationService.IsEnglish
-                        ? $"⭐ Launching Favorite game: {fav.Name}"
-                        : $"⭐ Đang khởi chạy game Yêu Thích: {fav.Name}";
+                    if (_mainViewModel.SelectedCount > 0)
+                    {
+                        _mainViewModel.StatusMessage = LocalizationService.IsEnglish
+                            ? $"⭐ Launching Favorite game: {fav.Name}"
+                            : $"⭐ Đang khởi chạy game Yêu Thích: {fav.Name}";
+                    }
+                    else
+                    {
+                        LoadingStatus = LocalizationService.IsEnglish
+                            ? "Please select at least one account in the Accounts tab first!"
+                            : "Vui lòng tick chọn tài khoản ở tab 'Tài khoản' trước khi bấm Chơi!";
+                    }
                 }
                 _mainViewModel?.JoinServerSelectedCommand?.Execute(null);
             }

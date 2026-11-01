@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Runtime.InteropServices;
 using Avalonia.Controls;
@@ -54,9 +54,11 @@ namespace Shiro.Services
         [LibraryImport("user32.dll", EntryPoint = "LoadImageW", SetLastError = true)]
         private static partial IntPtr LoadImage(IntPtr hInst, IntPtr name, uint type, int cx, int cy, uint fuLoad);
 
-        public static void ApplyDarkAndBackdrop(Window window, BackdropType backdrop = BackdropType.TabbedWindow)
+        public static void ApplyDarkAndBackdrop(Window window, BackdropType backdrop = BackdropType.None)
         {
             if (window is null || !OperatingSystem.IsWindows()) return;
+
+            StreamerModeService.RegisterWindow(window);
 
             IntPtr hwnd = window.TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
             if (hwnd == IntPtr.Zero)

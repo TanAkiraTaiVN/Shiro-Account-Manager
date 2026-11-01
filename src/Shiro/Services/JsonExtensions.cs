@@ -1,7 +1,8 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 
 namespace Shiro.Services
 {
@@ -40,6 +41,15 @@ namespace Shiro.Services
             else
                 writer.WriteStringValue(value);
         }
+        public override string? ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            return reader.GetString();
+        }
+
+        public override void WriteAsPropertyName(Utf8JsonWriter writer, string? value, JsonSerializerOptions options)
+        {
+            writer.WritePropertyName(value ?? string.Empty);
+        }
     }
 
     public static class FastJson
@@ -52,7 +62,8 @@ namespace Shiro.Services
                 ReadCommentHandling = JsonCommentHandling.Skip,
                 AllowTrailingCommas = true,
                 IncludeFields = true,
-                WriteIndented = indented
+                WriteIndented = indented,
+                TypeInfoResolver = JsonTypeInfoResolver.Combine(ShiroAppJson.Default, new DefaultJsonTypeInfoResolver())
             };
             options.Converters.Add(new FlexibleStringConverter());
             return options;
@@ -67,6 +78,11 @@ namespace Shiro.Services
             if (string.IsNullOrWhiteSpace(json)) return false;
             try
             {
+                if (ShiroAppJson.Default.GetTypeInfo(typeof(T)) is System.Text.Json.Serialization.Metadata.JsonTypeInfo<T> typeInfo)
+                {
+                    result = JsonSerializer.Deserialize(json, typeInfo);
+                    return result != null;
+                }
                 result = JsonSerializer.Deserialize<T>(json, DefaultOptions);
                 return result != null;
             }
@@ -82,6 +98,10 @@ namespace Shiro.Services
             if (string.IsNullOrWhiteSpace(json)) return default;
             try
             {
+                if (ShiroAppJson.Default.GetTypeInfo(typeof(T)) is System.Text.Json.Serialization.Metadata.JsonTypeInfo<T> typeInfo)
+                {
+                    return JsonSerializer.Deserialize(json, typeInfo);
+                }
                 return JsonSerializer.Deserialize<T>(json, DefaultOptions);
             }
             catch
@@ -92,6 +112,10 @@ namespace Shiro.Services
 
         public static string Serialize<T>(T value, bool indented = false)
         {
+            if (typeof(T) != typeof(object) && value != null && typeof(T) == value.GetType() && !indented && ShiroAppJson.Default.GetTypeInfo(typeof(T)) is System.Text.Json.Serialization.Metadata.JsonTypeInfo<T> typeInfo)
+            {
+                return JsonSerializer.Serialize(value, typeInfo);
+            }
             return JsonSerializer.Serialize(value, indented ? IndentedOptions : DefaultOptions);
         }
     }

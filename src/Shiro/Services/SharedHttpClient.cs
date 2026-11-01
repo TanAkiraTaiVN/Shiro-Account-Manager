@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -21,6 +21,8 @@ namespace Shiro.Services
         {
             return Clients.GetOrAdd(name ?? "default", key => new Lazy<HttpClient>(() => CreateClient(key), LazyThreadSafetyMode.ExecutionAndPublication)).Value;
         }
+
+        public static HttpClient GetNoRedirect() => Get("no-redirect");
 
         /// <summary>
         /// Creates a short-lived client for an explicitly selected proxy.
@@ -52,6 +54,7 @@ namespace Shiro.Services
                 Timeout = timeout
             };
             ConfigureHeaders(client);
+
             return client;
         }
 
@@ -89,6 +92,7 @@ namespace Shiro.Services
                 DefaultVersionPolicy = HttpVersionPolicy.RequestVersionOrLower
             };
             ConfigureHeaders(client);
+
             return client;
         }
 
@@ -210,22 +214,23 @@ namespace Shiro.Services
             // as the public API clients, but give them a short timeout and a
             // direct loopback route.
             bool isCdpProbe = name.StartsWith("cdp", StringComparison.OrdinalIgnoreCase);
+            bool isNoRedirect = string.Equals(name, "no-redirect", StringComparison.OrdinalIgnoreCase);
             TimeSpan timeout = isCdpProbe
                 ? (name.IndexOf("monitor", StringComparison.OrdinalIgnoreCase) >= 0
                     ? TimeSpan.FromSeconds(2)
                     : TimeSpan.FromMilliseconds(750))
-                : TimeSpan.FromSeconds(30);
+                : (isNoRedirect ? TimeSpan.FromSeconds(5) : TimeSpan.FromSeconds(30));
 
             SocketsHttpHandler handler = new SocketsHttpHandler
             {
                 AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate | DecompressionMethods.Brotli,
-                AllowAutoRedirect = true,
+                AllowAutoRedirect = !isNoRedirect,
                 PooledConnectionLifetime = TimeSpan.FromMinutes(10),
                 PooledConnectionIdleTimeout = TimeSpan.FromMinutes(2),
                 KeepAlivePingDelay = TimeSpan.FromSeconds(30),
                 KeepAlivePingTimeout = TimeSpan.FromSeconds(10),
                 EnableMultipleHttp2Connections = true,
-                ConnectTimeout = TimeSpan.FromSeconds(10),
+                ConnectTimeout = isNoRedirect ? TimeSpan.FromSeconds(5) : TimeSpan.FromSeconds(10),
                 UseCookies = false,
                 UseProxy = !isCdpProbe
             };
@@ -244,6 +249,17 @@ namespace Shiro.Services
                 client.DefaultVersionPolicy = HttpVersionPolicy.RequestVersionOrLower;
             }
             ConfigureHeaders(client);
+
+            if (name.StartsWith("ua_", StringComparison.OrdinalIgnoreCase))
+            {
+                string customUa = name.Substring(3);
+                if (!string.IsNullOrWhiteSpace(customUa))
+                {
+                    client.DefaultRequestHeaders.Remove("User-Agent");
+                    client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", customUa);
+                }
+            }
+
             return client;
         }
 

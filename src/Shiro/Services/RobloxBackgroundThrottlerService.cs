@@ -188,8 +188,12 @@ namespace Shiro.Services
                 }
                 else
                 {
+                    bool shouldTrim = !_throttledPids.ContainsKey(pid);
                     ApplyThrottleState(pid, isForeground: false, backgroundFps: targetFps);
-                    TrimWorkingSet(pid);
+                    if (shouldTrim)
+                    {
+                        TrimWorkingSet(pid);
+                    }
                 }
             }
         }

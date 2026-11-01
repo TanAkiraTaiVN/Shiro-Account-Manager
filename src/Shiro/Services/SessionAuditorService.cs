@@ -72,6 +72,15 @@ namespace Shiro.Services
             };
         }
 
+        private static bool IsModerationUrl(string url)
+        {
+            return url.Contains("/not-approved", StringComparison.OrdinalIgnoreCase) ||
+                   url.Contains("/moderation", StringComparison.OrdinalIgnoreCase) ||
+                   url.Contains("/banned", StringComparison.OrdinalIgnoreCase) ||
+                   url.Contains("/account-status", StringComparison.OrdinalIgnoreCase) ||
+                   url.Contains("/account-locked", StringComparison.OrdinalIgnoreCase);
+        }
+
         /// <summary>
         /// Audits a single account's session health and current Robux balance.
         /// </summary>
@@ -113,11 +122,33 @@ namespace Shiro.Services
                 account.TryUpdateRotatedCookie(response);
                 var status = MapStatusCodeToSessionStatus(response.StatusCode);
 
+                string redirectLocation = response.Headers.Location?.ToString() ?? string.Empty;
+                string requestUri = response.RequestMessage?.RequestUri?.AbsoluteUri ?? string.Empty;
+                if ((!string.IsNullOrEmpty(redirectLocation) && IsModerationUrl(redirectLocation)) ||
+                    (!string.IsNullOrEmpty(requestUri) && IsModerationUrl(requestUri)))
+                {
+                    status = AccountSessionStatus.Moderated;
+                }
+
                 if (status != AccountSessionStatus.Valid)
                 {
+                    string auditMessage = $"Audit returned HTTP {(int)response.StatusCode} ({response.ReasonPhrase})";
                     if (status == AccountSessionStatus.ExpiredCookie)
                     {
                         account.Valid = false;
+                    }
+                    else if (status == AccountSessionStatus.Moderated)
+                    {
+                        account.Valid = false;
+                        string modDetails = "Account moderation / lock detected";
+                        auditMessage = $"Account {account.Username} received moderation notice: {modDetails}";
+                        WebhookNotificationService.EnqueueAlert(new WebhookAlert
+                        {
+                            EventType = WebhookEventType.ModerationWarning,
+                            AccountUsername = account.Username,
+                            Description = $"Account {account.Username} received moderation notice: {modDetails}",
+                            Timestamp = DateTimeOffset.UtcNow
+                        });
                     }
 
                     return new AccountSessionAuditResult
@@ -126,7 +157,7 @@ namespace Shiro.Services
                         RobuxBalance = account.RobuxBalance > 0 ? account.RobuxBalance : 0,
                         PendingRobux = account.PendingRobux,
                         AuditedAt = DateTimeOffset.UtcNow,
-                        Message = $"Audit returned HTTP {(int)response.StatusCode} ({response.ReasonPhrase})"
+                        Message = auditMessage
                     };
                 }
 

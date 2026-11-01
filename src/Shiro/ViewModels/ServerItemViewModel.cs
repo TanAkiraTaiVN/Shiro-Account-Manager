@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using Shiro.Classes;
 using Shiro.Services;
@@ -13,6 +13,8 @@ namespace Shiro.ViewModels
         private int _playing;
         private int _ping = -1;
         private string _region = string.Empty;
+        private string _countryCode = string.Empty;
+        private string _flagEmoji = string.Empty;
         private string _ip = string.Empty;
         private bool _isBusyPinging;
 
@@ -97,6 +99,24 @@ namespace Shiro.ViewModels
             set { }
         }
 
+        public string CountryCode
+        {
+            get => _countryCode;
+            set => SetProperty(ref _countryCode, value ?? string.Empty);
+        }
+
+        public string FlagEmoji
+        {
+            get => _flagEmoji;
+            set
+            {
+                if (SetProperty(ref _flagEmoji, value ?? string.Empty))
+                {
+                    OnPropertyChanged(nameof(RegionDisplay));
+                }
+            }
+        }
+
         public string Region
         {
             get => _region;
@@ -116,6 +136,10 @@ namespace Shiro.ViewModels
                 if (string.IsNullOrEmpty(_region) || _region == "Chưa nạp" || _region == "Not loaded")
                 {
                     return LocalizationService.IsEnglish ? "Not loaded" : "Chưa nạp";
+                }
+                if (!string.IsNullOrEmpty(_flagEmoji))
+                {
+                    return $"{_flagEmoji} {_region}";
                 }
                 return _region;
             }

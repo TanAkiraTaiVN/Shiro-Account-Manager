@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -50,6 +50,12 @@ namespace Shiro.Services
             {
                 try
                 {
+                    if (Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
+                    {
+                        desktop.MainWindow.Clipboard.SetTextAsync(text).Forget();
+                        return true;
+                    }
+
                     desktop.MainWindow.Clipboard.SetTextAsync(text).GetAwaiter().GetResult();
                     return true;
                 }

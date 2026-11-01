@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using PuppeteerSharp;
 using System;
 using System.Diagnostics;
@@ -50,6 +50,7 @@ namespace Shiro.Classes
             CancellationToken cancellationToken = default(CancellationToken))
         {
             cancellationToken.ThrowIfCancellationRequested();
+            using var interactiveLoginScope = RobloxHbaService.BeginInteractiveLoginScope();
             Account? createdAccount = null;
             string browserPath;
             try
@@ -334,7 +335,8 @@ namespace Shiro.Classes
                             }
 
                             // 4. Add or update account with the settled cookie
-                            Account? account = await AccountManager.AddAccountAsync(settledCookieValue, password ?? string.Empty, accountJson, cancellationToken: cancellationToken).ConfigureAwait(false);
+                            var hbaSnapshot = await ExtractHbaCaptureFromPageAsync(signInPage).ConfigureAwait(false);
+                            Account? account = await AccountManager.AddAccountAsync(settledCookieValue, password ?? string.Empty, accountJson, cancellationToken: cancellationToken, hbaCapture: hbaSnapshot).ConfigureAwait(false);
                             if (account != null)
                             {
                                 createdAccount = account;

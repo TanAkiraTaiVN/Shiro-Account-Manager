@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -38,14 +38,14 @@ namespace Shiro.ViewModels
         {
             if (string.IsNullOrWhiteSpace(SearchPlayerUsername))
             {
-                PlayerSearchStatus = LocalizationService.IsEnglish ? "⚠️ Please enter player username!" : "⚠️ Vui lòng nhập tên người chơi (Username)!";
+                PlayerSearchStatus = LocalizationService.IsEnglish ? "Please enter player username!" : "Vui lòng nhập tên người chơi (Username)!";
                 LoadingStatus = PlayerSearchStatus;
                 return;
             }
 
             if (!long.TryParse(PlaceIdInput, out long placeId) || placeId <= 0)
             {
-                PlayerSearchStatus = LocalizationService.IsEnglish ? "⚠️ Please enter Place ID above first!" : "⚠️ Vui lòng nhập Place ID ở trên trước!";
+                PlayerSearchStatus = LocalizationService.IsEnglish ? "Please enter Place ID above first!" : "Vui lòng nhập Place ID ở trên trước!";
                 LoadingStatus = PlayerSearchStatus;
                 return;
             }
@@ -54,7 +54,7 @@ namespace Shiro.ViewModels
             var ct = cts.Token;
 
             IsSearchingPlayer = true;
-            PlayerSearchStatus = LocalizationService.IsEnglish ? $"🔍 Searching for player '{SearchPlayerUsername}'..." : $"🔍 Đang tìm người chơi '{SearchPlayerUsername}'...";
+            PlayerSearchStatus = LocalizationService.IsEnglish ? $"Searching for player '{SearchPlayerUsername}'..." : $"Đang tìm người chơi '{SearchPlayerUsername}'...";
             LoadingStatus = PlayerSearchStatus;
 
             try
@@ -64,7 +64,7 @@ namespace Shiro.ViewModels
 
                 if (!userFound)
                 {
-                    PlayerSearchStatus = LocalizationService.IsEnglish ? $"❌ User ID not found for {SearchPlayerUsername}!" : $"❌ Không tìm thấy User ID của {SearchPlayerUsername}!";
+                    PlayerSearchStatus = LocalizationService.IsEnglish ? $"User ID not found for {SearchPlayerUsername}!" : $"Không tìm thấy User ID của {SearchPlayerUsername}!";
                     LoadingStatus = PlayerSearchStatus;
                     return;
                 }
@@ -76,7 +76,7 @@ namespace Shiro.ViewModels
 
                 if (!avResp.IsSuccessful || string.IsNullOrEmpty(avResp.Content))
                 {
-                    PlayerSearchStatus = LocalizationService.IsEnglish ? "❌ Could not fetch player avatar!" : "❌ Không thể lấy avatar người chơi!";
+                    PlayerSearchStatus = LocalizationService.IsEnglish ? "Could not fetch player avatar!" : "Không thể lấy avatar người chơi!";
                     LoadingStatus = PlayerSearchStatus;
                     return;
                 }
@@ -86,7 +86,7 @@ namespace Shiro.ViewModels
 
                 if (string.IsNullOrEmpty(targetAvatarUrl))
                 {
-                    PlayerSearchStatus = LocalizationService.IsEnglish ? "❌ Player avatar does not exist!" : "❌ Avatar người chơi không tồn tại!";
+                    PlayerSearchStatus = LocalizationService.IsEnglish ? "Player avatar does not exist!" : "Avatar người chơi không tồn tại!";
                     LoadingStatus = PlayerSearchStatus;
                     return;
                 }
@@ -126,10 +126,9 @@ namespace Shiro.ViewModels
 
                         AppDispatcher.Post(() =>
                         {
-                            if (!ct.IsCancellationRequested && _servers.Count == 0)
+                            if (!ct.IsCancellationRequested && _allServers.Count == 0)
                             {
-                                _servers.AddRange(initialBatch);
-                                NotifyServerCounts();
+                                AppendRawServers(initialBatch);
                             }
                         });
                     }
@@ -168,8 +167,8 @@ namespace Shiro.ViewModels
                     }
 
                     PlayerSearchStatus = LocalizationService.IsEnglish
-                        ? $"🔍 Scanning {scannedServers} servers for '{SearchPlayerUsername}'..."
-                        : $"🔍 Đang quét {scannedServers} máy chủ tìm '{SearchPlayerUsername}'...";
+                        ? $"Scanning {scannedServers} servers for '{SearchPlayerUsername}'..."
+                        : $"Đang quét {scannedServers} máy chủ tìm '{SearchPlayerUsername}'...";
                     LoadingStatus = PlayerSearchStatus;
 
                     // Process packed batches with bounded concurrency (up to 3 requests in flight)
@@ -226,7 +225,7 @@ namespace Shiro.ViewModels
 
                 if (matchedServer != null)
                 {
-                    var matchVm = _servers.FirstOrDefault(x => x.JobId == matchedServer.id) ?? new ServerItemViewModel
+                    var matchVm = _allServers.FirstOrDefault(x => x.JobId == matchedServer.id) ?? new ServerItemViewModel
                     {
                         JobId = matchedServer.id,
                         Type = "Public",
@@ -235,30 +234,32 @@ namespace Shiro.ViewModels
                         RawData = matchedServer
                     };
 
-                    if (!_servers.Contains(matchVm))
+                    if (!_allServers.Contains(matchVm))
+                        PrependRawServers(new[] { matchVm });
+                    else if (!_servers.Contains(matchVm))
                         _servers.Insert(0, matchVm);
 
                     SelectedServer = matchVm;
                     SelectServerJobId(matchVm);
                     PlayerSearchStatus = LocalizationService.IsEnglish
-                        ? $"🎯 FOUND! {SearchPlayerUsername} is in server: {matchedServer.id}"
-                        : $"🎯 TÌM THẤY! {SearchPlayerUsername} đang ở server: {matchedServer.id}";
+                        ? $"FOUND! {SearchPlayerUsername} is in server: {matchedServer.id}"
+                        : $"TÌM THẤY! {SearchPlayerUsername} đang ở server: {matchedServer.id}";
                     LoadingStatus = PlayerSearchStatus;
                 }
                 else
                 {
-                    PlayerSearchStatus = LocalizationService.IsEnglish ? $"⚠️ Player '{SearchPlayerUsername}' was not found in current public servers." : $"⚠️ Không tìm thấy '{SearchPlayerUsername}' trong server nào.";
+                    PlayerSearchStatus = LocalizationService.IsEnglish ? $"Player '{SearchPlayerUsername}' was not found in current public servers." : $"Không tìm thấy '{SearchPlayerUsername}' trong server nào.";
                     LoadingStatus = PlayerSearchStatus;
                 }
             }
             catch (OperationCanceledException)
             {
-                PlayerSearchStatus = LocalizationService.IsEnglish ? "⏹️ Player search cancelled." : "⏹️ Đã hủy tìm kiếm người chơi.";
+                PlayerSearchStatus = LocalizationService.IsEnglish ? "Player search cancelled." : "Đã hủy tìm kiếm người chơi.";
                 LoadingStatus = PlayerSearchStatus;
             }
             catch (Exception ex)
             {
-                PlayerSearchStatus = LocalizationService.IsEnglish ? $"⚠️ Search error: {ex.Message}" : $"⚠️ Lỗi tìm kiếm: {ex.Message}";
+                PlayerSearchStatus = LocalizationService.IsEnglish ? $"Search error: {ex.Message}" : $"Lỗi tìm kiếm: {ex.Message}";
                 LoadingStatus = PlayerSearchStatus;
             }
             finally

@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using Shiro.Classes;
 using System;
 using System.Text.Json.Serialization;
@@ -88,6 +88,11 @@ namespace Shiro
         public string? description;
         public string? sourceName;
         public string? sourceDescription;
+
+        [JsonIgnore]
+        public string BestDisplayName => !string.IsNullOrWhiteSpace(sourceName)
+            ? sourceName.Trim()
+            : (name ?? string.Empty).Trim();
         public string? url;
         public string? builder;
         public long builderId;

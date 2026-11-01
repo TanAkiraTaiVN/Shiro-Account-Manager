@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Shiro.Classes;
@@ -86,6 +86,28 @@ namespace Shiro.Tests
 
             vm.SelectedGroup = "All Groups";
             Assert.Equal(3, vm.FilteredAccounts.Count);
+        }
+
+        [Fact]
+        public void ApplyFilter_SortingLargeAccountList_IsFastAndThreadSafe()
+        {
+            var vm = new MainViewModel();
+            var list = new List<Account>();
+            for (int i = 0; i < 200; i++)
+            {
+                list.Add(new Account { Username = $"Player_{i:D3}", UserID = 1000 + i, Valid = true });
+            }
+            vm.LoadAccounts(list);
+
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            vm.SortMode = AccountSortMode.NaturalDescending;
+            vm.ApplyFilter();
+            sw.Stop();
+
+            Assert.True(sw.ElapsedMilliseconds < 100, $"ApplyFilter took {sw.ElapsedMilliseconds}ms, expected < 100ms");
+            Assert.Equal(200, vm.FilteredAccounts.Count);
+            Assert.Equal("Player_199", vm.FilteredAccounts[0].Username);
+            Assert.Equal("Player_000", vm.FilteredAccounts[199].Username);
         }
     }
 }

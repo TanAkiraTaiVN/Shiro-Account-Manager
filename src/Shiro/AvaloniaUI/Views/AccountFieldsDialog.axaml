@@ -1,6 +1,7 @@
-﻿<Window xmlns="https://github.com/avaloniaui"
+<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:views="clr-namespace:Shiro.AvaloniaUI.Views"
+        xmlns:lucide="clr-namespace:LucideAvalonia;assembly=LucideAvalonia"
         x:Class="Shiro.AvaloniaUI.Views.AccountFieldsDialog"
         x:CompileBindings="True"
         Icon="/Resources/shiro.ico"
@@ -15,8 +16,13 @@
     <Border BorderBrush="#272730" BorderThickness="1" CornerRadius="8" Padding="18">
         <Grid RowDefinitions="Auto,*,Auto,Auto">
             <!-- Header -->
-            <TextBlock x:Name="TxtHeaderTitle" Text="Trường dữ liệu • Username"
-                       FontSize="16" FontWeight="SemiBold" Foreground="#FFFFFF" Margin="0,0,0,12"/>
+            <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center" Margin="0,0,0,12">
+                <Border Background="#252536" CornerRadius="8" Width="32" Height="32">
+                    <lucide:Lucide Icon="Database" Width="16" Height="16" StrokeBrush="#38BDF8" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+                <TextBlock x:Name="TxtHeaderTitle" Text="Trường dữ liệu • Username"
+                           FontSize="16" FontWeight="SemiBold" Foreground="#FFFFFF" VerticalAlignment="Center"/>
+            </StackPanel>
 
             <!-- List of existing fields -->
             <Border Grid.Row="1" Background="#141419" BorderBrush="#24242C" BorderThickness="1" CornerRadius="6" Padding="6" Margin="0,0,0,12">
@@ -26,9 +32,15 @@
                             <Grid ColumnDefinitions="*,*,Auto" Margin="4,2">
                                 <TextBlock Grid.Column="0" Text="{Binding Key}" FontWeight="SemiBold" Foreground="#FFFFFF" VerticalAlignment="Center"/>
                                 <TextBlock Grid.Column="1" Text="{Binding Value}" Foreground="#A1A1AA" VerticalAlignment="Center"/>
-                                <Button Grid.Column="2" Content="Xóa" Click="BtnDeleteField_Click"
-                                        Background="#DC2626" Foreground="#FFFFFF" FontSize="11"
-                                        CornerRadius="4" Padding="8,3"/>
+                                <Button Grid.Column="2" Click="BtnDeleteField_Click"
+                                        Background="#2B1518" Foreground="#F87171" BorderBrush="#4A1E24" BorderThickness="1" FontSize="11"
+                                        CornerRadius="5" Padding="8,4" Cursor="Hand">
+                                    <StackPanel Orientation="Horizontal" Spacing="4">
+                                        <Path Data="{StaticResource GeoTrash}" Width="11" Height="11" Stretch="Uniform"
+                                              Stroke="#F87171" StrokeThickness="1.8" StrokeLineCap="Round" StrokeJoin="Round" VerticalAlignment="Center" />
+                                        <TextBlock Text="Xóa" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
                             </Grid>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
@@ -39,20 +51,31 @@
             <Grid Grid.Row="2" ColumnDefinitions="*,*,Auto" Margin="0,0,0,12">
                 <TextBox x:Name="TxtNewKey" Watermark="Tên trường (Key)" Margin="0,0,8,0"
                          Background="#18181F" Foreground="#FFFFFF" BorderBrush="#2E2E38" BorderThickness="1"
-                         CornerRadius="4" Padding="8,6" FontSize="12"/>
+                         CornerRadius="5" Padding="8,6" FontSize="12"/>
                 <TextBox Grid.Column="1" x:Name="TxtNewValue" Watermark="Giá trị (Value)" Margin="0,0,8,0"
                          Background="#18181F" Foreground="#FFFFFF" BorderBrush="#2E2E38" BorderThickness="1"
-                         CornerRadius="4" Padding="8,6" FontSize="12"/>
-                <Button Grid.Column="2" Content="Thêm" Click="BtnAddField_Click"
+                         CornerRadius="5" Padding="8,6" FontSize="12"/>
+                <Button Grid.Column="2" Click="BtnAddField_Click"
                         Background="#2563EB" Foreground="#FFFFFF" FontWeight="SemiBold"
-                        CornerRadius="4" Padding="14,6" FontSize="12"/>
+                        CornerRadius="5" Padding="12,6" FontSize="12" Cursor="Hand">
+                    <StackPanel Orientation="Horizontal" Spacing="5">
+                        <lucide:Lucide Icon="Plus" Width="13" Height="13" StrokeBrush="#FFFFFF" StrokeThickness="2.2" VerticalAlignment="Center" />
+                        <TextBlock Text="Thêm" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
             </Grid>
 
             <!-- Close button -->
             <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
-                <Button Content="Đóng" Width="80" Height="32" Click="BtnClose_Click"
+                <Button Height="32" Click="BtnClose_Click"
                         Background="#272730" Foreground="#D4D4D8" FontWeight="SemiBold"
-                        CornerRadius="5" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
+                        CornerRadius="5" Padding="14,0" Cursor="Hand"
+                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <lucide:Lucide Icon="X" Width="13" Height="13" StrokeBrush="#D4D4D8" VerticalAlignment="Center" />
+                        <TextBlock Text="Đóng" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
             </StackPanel>
         </Grid>
     </Border>

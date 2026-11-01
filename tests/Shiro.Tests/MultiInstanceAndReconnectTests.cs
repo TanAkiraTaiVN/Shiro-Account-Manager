@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
@@ -269,7 +269,7 @@ namespace Shiro.Tests
         {
             string root = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "ShiroUpdateTest");
             Assert.True(Shiro.AvaloniaUI.Views.UpdaterWindow.IsSafeArchiveEntryPath(
-                root, "RBX Alt Manager.dll", out string validDest));
+                root, "Shiro.dll", out string validDest));
             Assert.StartsWith(System.IO.Path.GetFullPath(root), validDest, StringComparison.OrdinalIgnoreCase);
 
             Assert.False(Shiro.AvaloniaUI.Views.UpdaterWindow.IsSafeArchiveEntryPath(
@@ -387,6 +387,103 @@ namespace Shiro.Tests
 
             string[] empty = RobloxProcess.ReadAppendedLines(ms, ref pos);
             Assert.Empty(empty);
+        }
+
+        [Fact]
+        public void RobloxProcess_LogPatterns_DetectsForcedVerificationChallengeAndHijackLines()
+        {
+            string challenge403 = "2026-11-01T07:25:01.448Z,2.043934,3e8c,6,Warning [FLog::Output] status:403, body:{ \"errors\": [ { \"code\": 0, \"message\": \"challengedByGcs\" } ] }, url:{ \"https://gamejoin.roblox.com/v1/join-game\" }";
+            string challengeDisplayed = "2026-11-01T07:25:06.101Z,6.696682,3fc0,6,Info [FLog::WebView2 Wrapper] HandleEvent: message={\"feature\":\"challengeDisplayed\",\"params\":{\"challengeType\":\"captchav2\"}}";
+            string challengeCompleted = "2026-11-01T07:26:07.887Z,68.483238,3fc0,6,Info [FLog::WebView2 Wrapper] HandleEvent: message={\"feature\":\"challengeCompleted\",\"params\":{\"challengeType\":\"captchav2\"}}";
+            string challengeInvalidated = "2026-11-01T07:25:24.506Z,25.102180,3fc0,6,Info [FLog::WebView2 Wrapper] HandleEvent: message={\"feature\":\"challengeInvalidated\",\"params\":{\"challengeId\":\"abc\"}}";
+            string cookieChanged = "2026-11-01T07:25:24.819Z,25.415022,3fc0,6,Info [FLog::NewWebView2Browser] Security cookie value changed, updating HTTP layer cookie";
+            string returnToLuaApp0745 = "2026-11-01T07:25:25.134Z,25.729431,3fc0,6,Info [FLog::SingleSurfaceApp] returnToLuaApp: (stage:UGCGame).";
+            string pauseFalse0745 = "2026-11-01T07:25:25.134Z,25.729502,3fc0,6,Info [FLog::SurfaceController] SurfaceController[_:1]::pause destroyView:false.";
+            string stopBegin0745 = "2026-11-01T07:25:25.134Z,25.729843,3fc0,6,Info [FLog::UgcExperienceController] UgcExperienceController: stop: begin (blocking=false dataModel=0x2be321039d0)";
+            string trackerLine = "2026-11-01T07:25:02.423Z,3.018574,56c0,6,Info [FLog::LogWin32BTId] LogWin32BTId, App, cookie Engine => Native set RBXEventTrackerV2 as CreateDate=11/01/2026 02:25:02&rbxid=11800535274&browserid=1793415916069001";
+
+            Assert.True(RobloxProcess.IsGameJoinChallengedLogLine(challenge403));
+            Assert.True(RobloxProcess.IsGameJoinChallengedLogLine(challengeDisplayed));
+            Assert.True(RobloxProcess.IsChallengeCompletedLogLine(challengeCompleted));
+            Assert.True(RobloxProcess.IsChallengeInvalidatedOrAbandonedLogLine(challengeInvalidated));
+            Assert.True(RobloxProcess.IsChallengeInvalidatedOrAbandonedLogLine(returnToLuaApp0745));
+            Assert.True(RobloxProcess.IsSecurityCookieChangedLogLine(cookieChanged));
+            Assert.True(RobloxProcess.IsReturnToLuaAppLine(returnToLuaApp0745, hasActiveGameDataModel: false));
+            Assert.Matches(RobloxProcess.ModernDataModelPauseRegex(), pauseFalse0745);
+            Assert.Matches(RobloxProcess.ModernDataModelStopRegex(), stopBegin0745);
+
+            Assert.True(RobloxProcess.TryParseCookieTrackerLine(trackerLine, out long uid, out string btid));
+            Assert.Equal(11800535274L, uid);
+            Assert.Equal("1793415916069001", btid);
+
+            string trackerLineWithRbxUid = "2026-11-01T07:25:02.423Z,3.018574,56c0,6,Info [FLog::LogWin32BTId] LogWin32BTId, App, cookie Engine => Native set RBXEventTrackerV2 as CreateDate=11/01/2026 02:25:02&rbxid=123&rbxuid=11800535274&browserid=1793415916069001";
+            Assert.True(RobloxProcess.TryParseCookieTrackerLine(trackerLineWithRbxUid, out long uid2, out string btid2));
+            Assert.Equal(11800535274L, uid2);
+            Assert.Equal("1793415916069001", btid2);
+        }
+
+        [Fact]
+        public void LaunchCoordinator_AnalyzeClientLogLines_ClassifiesChallengeLifecycleAccurately()
+        {
+            var challengedLines = new[]
+            {
+                "2026-11-01T07:25:00.289Z,0.884,3fc0,6,Info [FLog::UgcExperienceController] UgcExperienceController: join: initialized dm 0x2be321039d0",
+                "2026-11-01T07:25:01.448Z,2.043,3e8c,6,Warning [FLog::Output] status:403, body:{ \"message\": \"challengedByGcs\" }, url:{ \"https://gamejoin.roblox.com/v1/join-game\" }",
+                "2026-11-01T07:25:06.101Z,6.696,3fc0,6,Info [FLog::WebView2 Wrapper] HandleEvent: message={\"feature\":\"challengeDisplayed\",\"params\":{\"challengeType\":\"captchav2\"}}"
+            };
+            Assert.Equal(ClientGameJoinState.Challenged, LaunchCoordinator.AnalyzeClientLogLines(challengedLines));
+
+            var failedToLuaAppLines = new[]
+            {
+                challengedLines[0],
+                challengedLines[1],
+                challengedLines[2],
+                "2026-11-01T07:25:24.506Z,25.102,3fc0,6,Info [FLog::WebView2 Wrapper] HandleEvent: message={\"feature\":\"challengeInvalidated\"}",
+                "2026-11-01T07:25:25.134Z,25.729,3fc0,6,Info [FLog::SingleSurfaceApp] returnToLuaApp: (stage:UGCGame)."
+            };
+            Assert.Equal(ClientGameJoinState.ChallengeFailedToLuaApp, LaunchCoordinator.AnalyzeClientLogLines(failedToLuaAppLines));
+
+            var solvedAndJoinedLines = new[]
+            {
+                challengedLines[0],
+                challengedLines[1],
+                challengedLines[2],
+                "2026-11-01T07:31:17.399Z,43.470,40dc,6,Info [FLog::WebView2 Wrapper] HandleEvent: message={\"feature\":\"challengeCompleted\"}",
+                "2026-11-01T07:31:17.861Z,43.932,3dd0,6,Info [FLog::Output] ! Joining game '9ccfd18c-0a9f-4e64-b5c5-f6b64deefca1' place 109983668079237 at 128.116.51.34"
+            };
+            Assert.Equal(ClientGameJoinState.JoinedGame, LaunchCoordinator.AnalyzeClientLogLines(solvedAndJoinedLines));
+        }
+
+        [Fact]
+        public void RobloxDirectLauncher_CanSyncRotatedCookieForTarget_BlocksMismatchedUserIdOrTrackerId()
+        {
+            var accountA = new Account
+            {
+                Username = "AD_Jackpot94",
+                UserID = 11800535274L,
+                BrowserTrackerID = "175658845055"
+            };
+
+            // Exact match -> allowed
+            Assert.True(RobloxDirectLauncher.CanSyncRotatedCookieForTarget(
+                accountA,
+                trackerUserId: 11800535274L,
+                trackerBrowserId: "175658845055",
+                expectedBrowserId: "175658845055"));
+
+            // Different UserID (e.g. AD_Jackpot95 = 11800534427) -> MUST block cross-contamination!
+            Assert.False(RobloxDirectLauncher.CanSyncRotatedCookieForTarget(
+                accountA,
+                trackerUserId: 11800534427L,
+                trackerBrowserId: "175658845055",
+                expectedBrowserId: "175658845055"));
+
+            // Unknown UserID (0) but mismatched BrowserTrackerID -> MUST block!
+            Assert.False(RobloxDirectLauncher.CanSyncRotatedCookieForTarget(
+                accountA,
+                trackerUserId: 0L,
+                trackerBrowserId: "999999999999",
+                expectedBrowserId: "175658845055"));
         }
     }
 }

@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.IO;
 using System.Linq;
@@ -108,51 +108,33 @@ namespace Shiro.Services
             foreach (string entry in proxies)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                string scheme = "http";
-                string candidate = entry;
-                int schemeIndex = candidate.IndexOf("://", StringComparison.Ordinal);
-                if (schemeIndex >= 0)
+                ProxyItem? parsed = ProxyManagerService.ParseProxy(entry);
+                if (parsed == null)
                 {
-                    scheme = candidate.Substring(0, schemeIndex);
-                    candidate = candidate.Substring(schemeIndex + 3);
-                }
-
-                string username = string.Empty;
-                string password = string.Empty;
-                int credentialsIndex = candidate.IndexOf('@');
-                if (credentialsIndex >= 0)
-                {
-                    string credentials = candidate.Substring(0, credentialsIndex);
-                    candidate = candidate.Substring(credentialsIndex + 1);
-                    int passwordIndex = credentials.IndexOf(':');
-                    if (passwordIndex >= 0)
-                    {
-                        username = credentials.Substring(0, passwordIndex);
-                        password = credentials.Substring(passwordIndex + 1);
-                    }
-                    else
-                    {
-                        username = credentials;
-                    }
-                }
-
-                if (!Uri.TryCreate("http://" + candidate, UriKind.Absolute, out Uri? proxyUri) ||
-                    string.IsNullOrWhiteSpace(proxyUri.Host) || proxyUri.Port < 1)
-                {
-                    Program.Logger?.Warn("Skipping a proxy entry with an invalid address.");
+                    Program.Logger?.Warn($"Skipping invalid proxy entry: {LogRedactor.Redact(entry)}");
                     continue;
                 }
 
                 string browserScheme;
-                if (scheme.Equals("socks5", StringComparison.OrdinalIgnoreCase))
+                if (parsed.Protocol.Equals("socks5", StringComparison.OrdinalIgnoreCase))
                     browserScheme = "socks5";
-                else if (scheme.Equals("socks4", StringComparison.OrdinalIgnoreCase))
+                else if (parsed.Protocol.Equals("socks4", StringComparison.OrdinalIgnoreCase))
                     browserScheme = "socks4";
-                else if (scheme.Equals("http", StringComparison.OrdinalIgnoreCase) || scheme.Equals("https", StringComparison.OrdinalIgnoreCase))
+                else if (parsed.Protocol.Equals("http", StringComparison.OrdinalIgnoreCase) || parsed.Protocol.Equals("https", StringComparison.OrdinalIgnoreCase))
                     browserScheme = "http";
                 else
                 {
-                    Program.Logger?.Warn("Skipping a proxy entry with an unsupported protocol.");
+                    Program.Logger?.Warn($"Skipping proxy entry with unsupported protocol: {parsed.Protocol}");
+                    continue;
+                }
+
+                string username = parsed.Username ?? string.Empty;
+                string password = parsed.Password ?? string.Empty;
+
+                if (!Uri.TryCreate($"{parsed.Protocol}://{parsed.Host}:{parsed.Port}", UriKind.Absolute, out Uri? proxyUri) ||
+                    string.IsNullOrWhiteSpace(proxyUri.Host) || proxyUri.Port < 1)
+                {
+                    Program.Logger?.Warn("Skipping a proxy entry with an invalid address.");
                     continue;
                 }
 
@@ -216,7 +198,10 @@ namespace Shiro.Services
             }
 
             if (proxies.Length > 0)
-                Program.Logger?.Warn("No configured proxy passed the Roblox connectivity check; the browser will use the direct connection.");
+            {
+                Program.Logger?.Error("No configured proxy passed the Roblox connectivity check. Fail-Closed enforced to prevent IP leak.");
+                throw new InvalidOperationException("None of the configured proxies passed the connectivity check. Browser launch blocked to prevent IP leak.");
+            }
 
             return null;
         }

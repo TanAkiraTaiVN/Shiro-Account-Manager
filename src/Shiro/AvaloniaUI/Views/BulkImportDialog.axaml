@@ -1,4 +1,4 @@
-﻿<Window xmlns="https://github.com/avaloniaui"
+<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:lucide="clr-namespace:LucideAvalonia;assembly=LucideAvalonia"
         x:Class="Shiro.AvaloniaUI.Views.BulkImportDialog"
@@ -47,17 +47,32 @@
         <!-- Bottom Action Buttons -->
         <Border Grid.Row="3" Margin="0,14,0,0">
             <Grid ColumnDefinitions="Auto,*,Auto">
-                <Button Grid.Column="0" x:Name="BtnClear" Content="Xóa nội dung" Click="OnClearClicked"
+                <Button Grid.Column="0" x:Name="BtnClear" Click="OnClearClicked"
                         Background="#1E1E2A" Foreground="#A1A1AA"
-                        CornerRadius="6" Padding="14,8" Cursor="Hand" />
+                        CornerRadius="6" Padding="14,8" Cursor="Hand">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <lucide:Lucide Icon="Trash2" Width="13" Height="13" StrokeBrush="#A1A1AA" VerticalAlignment="Center" />
+                        <TextBlock Text="Xóa nội dung" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
 
                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
-                    <Button x:Name="BtnClose" Content="Đóng" Click="OnCloseClicked"
+                    <Button x:Name="BtnClose" Click="OnCloseClicked"
                             Background="Transparent" Foreground="#A1A1AA"
-                            CornerRadius="6" Padding="16,8" Cursor="Hand" />
-                    <Button x:Name="BtnStartImport" Content="Bắt đầu nhập" Click="OnStartImportClicked"
+                            CornerRadius="6" Padding="16,8" Cursor="Hand">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <lucide:Lucide Icon="X" Width="13" Height="13" StrokeBrush="#A1A1AA" VerticalAlignment="Center" />
+                            <TextBlock Text="Đóng" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="BtnStartImport" Click="OnStartImportClicked"
                             Background="#FFFFFF" Foreground="#09090B" FontWeight="Bold"
-                            CornerRadius="6" Padding="20,8" Cursor="Hand" />
+                            CornerRadius="6" Padding="20,8" Cursor="Hand">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <lucide:Lucide Icon="Check" Width="13" Height="13" StrokeBrush="#09090B" StrokeThickness="2.5" VerticalAlignment="Center" />
+                            <TextBlock Text="Bắt đầu nhập" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
                 </StackPanel>
             </Grid>
         </Border>

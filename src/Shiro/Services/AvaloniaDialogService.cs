@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using Avalonia.Controls;
 using Avalonia.Threading;
@@ -86,6 +86,19 @@ namespace Shiro.Services
             {
                 var owner = GetActiveOwner();
                 var dialog = new BulkImportDialog();
+                if (owner != null)
+                    await dialog.ShowDialog(owner);
+                else
+                    dialog.Show();
+            });
+        }
+
+        public void OpenAltGenDialog()
+        {
+            AppDispatcher.Post(async () =>
+            {
+                var owner = GetActiveOwner();
+                var dialog = new AltGenDialog();
                 if (owner != null)
                     await dialog.ShowDialog(owner);
                 else

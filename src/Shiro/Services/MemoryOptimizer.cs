@@ -25,9 +25,101 @@ namespace Shiro.Services
         public const long ForegroundMaxMemoryThresholdBytes = 1200L * 1024 * 1024; // 1.2 GB threshold for active foreground client
         private static DateTime _lastFullTrim = DateTime.MinValue;
         private static long _totalBytesSaved = 0;
+        private static int _lastForegroundRobloxPid = 0;
 
         public static bool AutoTrimEnabled => _autoTrimEnabled;
         public static long TotalBytesSaved => _totalBytesSaved;
+
+        /// <summary>
+        /// Immediately restores Normal CPU priority and disables EcoQoS on the newly focused Roblox client,
+        /// while demoting the previously focused Roblox client to BelowNormal + EcoQoS in real time on Alt+Tab.
+        /// </summary>
+        public static bool IsAutoLowerPriorityActive()
+        {
+            if (!OperatingSystem.IsWindows()) return false;
+            return AccountManager.General == null ||
+                   !AccountManager.General.Exists("AutoLowerProcessPriority") ||
+                   AccountManager.General.Get<bool>("AutoLowerProcessPriority");
+        }
+
+        public static void EvaluateWithPids(uint foregroundPid, List<int> runningPids)
+        {
+            if (!OperatingSystem.IsWindows() || !IsAutoLowerPriorityActive()) return;
+
+            try
+            {
+                if (runningPids == null || runningPids.Count == 0)
+                {
+                    Interlocked.Exchange(ref _lastForegroundRobloxPid, 0);
+                    return;
+                }
+
+                int newRobloxPid = 0;
+                if (foregroundPid > 0)
+                {
+                    for (int i = 0; i < runningPids.Count; i++)
+                    {
+                        if (runningPids[i] == (int)foregroundPid)
+                        {
+                            newRobloxPid = (int)foregroundPid;
+                            break;
+                        }
+                    }
+                }
+
+                int prevRobloxPid = Interlocked.Exchange(ref _lastForegroundRobloxPid, newRobloxPid);
+                if (prevRobloxPid == newRobloxPid)
+                    return;
+
+                if (newRobloxPid > 0)
+                {
+                    ApplyProcessFocusProfile(newRobloxPid, isForeground: true);
+                }
+
+                if (prevRobloxPid > 0 && prevRobloxPid != newRobloxPid)
+                {
+                    ApplyProcessFocusProfile(prevRobloxPid, isForeground: false);
+                }
+            }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"[MemoryOptimizer.EvaluateWithPids] {ex.Message}");
+            }
+        }
+
+        [Obsolete("Use ForegroundWindowService coalesced focus evaluation or EvaluateWithPids.")]
+        public static void NotifyForegroundChanged(IntPtr hwnd, uint foregroundPid)
+        {
+            if (!OperatingSystem.IsWindows() || !IsAutoLowerPriorityActive()) return;
+
+            ThreadPool.QueueUserWorkItem(_ =>
+            {
+                var runningPids = RobloxProcessService.GetRunningRobloxPids();
+                EvaluateWithPids(foregroundPid, runningPids);
+            });
+        }
+
+        private static void ApplyProcessFocusProfile(int pid, bool isForeground)
+        {
+            IntPtr hProcess = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_SET_INFORMATION, false, pid);
+            if (hProcess == IntPtr.Zero) return;
+            try
+            {
+                uint targetPrio = isForeground
+                    ? RobloxProcessOptimizer.NORMAL_PRIORITY_CLASS
+                    : RobloxProcessOptimizer.BELOW_NORMAL_PRIORITY_CLASS;
+                SetPriorityClass(hProcess, targetPrio);
+
+                if (isForeground)
+                    DisableEcoQoS(hProcess);
+                else
+                    EnableEcoQoS(hProcess);
+            }
+            finally
+            {
+                CloseHandle(hProcess);
+            }
+        }
 
         internal static bool ShouldTriggerPeriodicTrim(
             long workingSetBytes,

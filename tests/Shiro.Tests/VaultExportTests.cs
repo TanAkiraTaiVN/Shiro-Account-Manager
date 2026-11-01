@@ -123,5 +123,37 @@ namespace Shiro.Tests
                 }
             }
         }
+
+        [Fact]
+        public void AccountStore_ExportVault_WhenPassphraseEmpty_DoesNotCorruptExistingDestination()
+        {
+            string tempDir = Path.Combine(Path.GetTempPath(), "ShiroVaultAtomicTests_" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(tempDir);
+            try
+            {
+                string vaultPath = Path.Combine(tempDir, "existing.vault");
+                File.WriteAllText(vaultPath, "OriginalUncorruptedContent");
+
+                var store = new AccountStore(Path.Combine(tempDir, "AccountData.json"), tempDir);
+                var accounts = new List<Account>
+                {
+                    new Account("User1", "Pass1", "Alt1")
+                };
+
+                Assert.Throws<ArgumentException>(() => store.ExportVault(accounts, "", vaultPath));
+
+                Assert.Equal("OriginalUncorruptedContent", File.ReadAllText(vaultPath));
+
+                var tempFiles = Directory.GetFiles(tempDir, "*.tmp.*");
+                Assert.Empty(tempFiles);
+            }
+            finally
+            {
+                if (Directory.Exists(tempDir))
+                {
+                    try { Directory.Delete(tempDir, recursive: true); } catch { }
+                }
+            }
+        }
     }
 }

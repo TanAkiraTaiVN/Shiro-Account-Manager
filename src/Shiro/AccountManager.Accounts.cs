@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -115,9 +115,10 @@ namespace Shiro
             string Password = "",
             string? AccountJSON = null,
             bool saveImmediate = true,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default,
+            RobloxHbaService.CaptureSnapshot? hbaCapture = null)
         {
-            Account account = await Account.CreateAsync(SecurityToken, AccountJSON, cancellationToken).ConfigureAwait(false);
+            Account account = await Account.CreateAsync(SecurityToken, AccountJSON, cancellationToken, hbaCapture).ConfigureAwait(false);
             return RegisterValidatedAccount(account, account.SecurityToken, Password, saveImmediate);
         }
 
@@ -136,6 +137,7 @@ namespace Shiro
                 if (exists != null)
                 {
                     exists.SecurityToken = SecurityToken;
+                    account.CopyHbaAndFingerprintTo(exists);
                     if (!string.IsNullOrWhiteSpace(Password))
                         exists.Password = Password;
                     if (exists.UserID <= 0 && account.UserID > 0)
@@ -158,8 +160,7 @@ namespace Shiro
                 }
                 else
                 {
-                    lock (AccountListLock)
-                        AccountsList.Add(account);
+                    AddAccountThreadSafe(account);
 
                     if (saveImmediate)
                     {
@@ -187,11 +188,19 @@ namespace Shiro
             if (toRemove.Count == 0) return 0;
 
             int count = 0;
+            bool isNowEmpty = false;
             lock (AccountListLock)
             {
                 if (AccountsList != null)
                 {
                     count = AccountsList.RemoveAll(a => toRemove.Contains(a));
+                    if (count > 0)
+                        _cachedAccountsSnapshot = Array.Empty<Account>();
+                    isNowEmpty = AccountsList.Count == 0;
+                }
+                else
+                {
+                    isNowEmpty = true;
                 }
             }
 
@@ -205,7 +214,7 @@ namespace Shiro
             if (count > 0)
             {
                 SaveAccounts(BypassRateLimit: true, BypassCountCheck: true);
-                if (AccountsList == null || AccountsList.Count == 0)
+                if (isNowEmpty)
                 {
                     try
                     {
@@ -224,6 +233,9 @@ namespace Shiro
 
         private async Task RefreshStaleCookiesAsync(CancellationToken cancellationToken)
         {
+            if (RobloxHbaService.IsInteractiveLoginActive)
+                return;
+
             try
             {
                 if (!await cookieRefreshGate.WaitAsync(0, cancellationToken).ConfigureAwait(false))
@@ -309,7 +321,7 @@ namespace Shiro
             {
                 if (cancellationToken.IsCancellationRequested || lifetimeCancellation.IsCancellationRequested)
                 {
-                    string cancelMsg = "⏹️ Đã dừng tiến trình đăng nhập hàng loạt.";
+                    string cancelMsg = "Đã dừng tiến trình đăng nhập hàng loạt.";
                     SetDashboardStatus(cancelMsg);
                     statusCallback?.Invoke(cancelMsg);
                     break;
@@ -360,7 +372,7 @@ namespace Shiro
 
             if (validCount == 0)
             {
-                string msg = "⚠️ Không tìm thấy dòng tài khoản:mật khẩu hợp lệ nào.";
+                string msg = "Không tìm thấy dòng tài khoản:mật khẩu hợp lệ nào.";
                 SetDashboardStatus(msg);
                 statusCallback?.Invoke(msg);
                 return;
@@ -379,7 +391,7 @@ namespace Shiro
             }
             else
             {
-                string msg = $"✅ Đăng nhập hàng loạt hoàn tất thành công cho {validCount} tài khoản.";
+                string msg = $"Đăng nhập hàng loạt hoàn tất thành công cho {validCount} tài khoản.";
                 SetDashboardStatus(msg);
                 statusCallback?.Invoke(msg);
             }

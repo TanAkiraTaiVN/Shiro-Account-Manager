@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -128,7 +128,7 @@ namespace Shiro.AvaloniaUI.Views
         {
             if (!e.IsSuccess)
             {
-                TxtInAppStatus.Text = $"❌ Không thể khởi tạo WebView2: {e.Error?.Message}";
+                TxtInAppStatus.Text = $"Không thể khởi tạo WebView2: {e.Error?.Message}";
                 TxtInAppStatus.Foreground = Brushes.OrangeRed;
                 return;
             }
@@ -158,77 +158,108 @@ namespace Shiro.AvaloniaUI.Views
             }
             catch (Exception ex)
             {
-                TxtInAppStatus.Text = $"❌ Lỗi: {ex.Message}";
+                TxtInAppStatus.Text = $"Lỗi: {ex.Message}";
                 TxtInAppStatus.Foreground = Brushes.OrangeRed;
             }
         }
 
+        private int _isPollTickBusy;
+
         private async void OnSourceChanged(object? sender, CoreWebView2SourceChangedEventArgs e)
         {
-            string currentUrl = WvBrowser?.CoreWebView2?.Source ?? string.Empty;
-            if (!_captured && _accountQueue.Count > 0 && IsModerationOrLockedUrl(currentUrl))
+            try
             {
-                await MarkCurrentAccountIssueAndSkipAsync("⛔ Bị khóa / Ban", "Tài khoản bị khóa hoặc Ban");
-                return;
+                await CheckAndCaptureSessionAsync();
             }
-
-            await CheckAndCaptureSessionAsync();
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"[FastLoginDialog.OnSourceChanged] {ex.Message}");
+            }
         }
 
         private async void OnNavigationCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs e)
         {
-            string currentUrl = WvBrowser?.CoreWebView2?.Source ?? string.Empty;
-            if (!_captured && _accountQueue.Count > 0 && IsModerationOrLockedUrl(currentUrl))
+            try
             {
-                await MarkCurrentAccountIssueAndSkipAsync("⛔ Bị khóa / Ban", "Tài khoản bị khóa hoặc Ban");
-                return;
-            }
-
-            if (!e.IsSuccess)
-            {
-                if (e.WebErrorStatus == CoreWebView2WebErrorStatus.ConnectionAborted ||
-                    e.WebErrorStatus == CoreWebView2WebErrorStatus.OperationCanceled)
+                if (!e.IsSuccess)
                 {
+                    if (e.WebErrorStatus == CoreWebView2WebErrorStatus.ConnectionAborted ||
+                        e.WebErrorStatus == CoreWebView2WebErrorStatus.OperationCanceled)
+                    {
+                        return;
+                    }
+
+                    TxtInAppStatus.Text = "Không thể tải trang đăng nhập. Hãy kiểm tra kết nối Proton VPN và bấm 'Tải lại'.";
+                    TxtInAppStatus.Foreground = Brushes.OrangeRed;
                     return;
                 }
 
-                TxtInAppStatus.Text = "⚠️ Không thể tải trang đăng nhập. Hãy kiểm tra kết nối Proton VPN và bấm 'Tải lại'.";
-                TxtInAppStatus.Foreground = Brushes.OrangeRed;
-                return;
+                string currentUrl = WvBrowser?.CoreWebView2?.Source ?? string.Empty;
+                bool isLoginPage = currentUrl.Contains("/login", StringComparison.OrdinalIgnoreCase);
+
+                if (!string.IsNullOrEmpty(_username) && isLoginPage)
+                {
+                    TxtInAppStatus.Text = !string.IsNullOrEmpty(_password)
+                        ? $"Đang tự động điền và đăng nhập {_username}..."
+                        : $"Đang tự động điền {_username}...";
+                    TxtInAppStatus.Foreground = Brushes.LightGreen;
+                    await TryFillCredentialsAsync(forceClick: false);
+                }
+                else if (isLoginPage)
+                {
+                    TxtInAppStatus.Text = "Trang đăng nhập đã sẵn sàng. Hãy đăng nhập tài khoản của bạn.";
+                    TxtInAppStatus.Foreground = Brushes.LightGreen;
+                }
+
+                await CheckAndCaptureSessionAsync();
             }
-
-            bool isLoginPage = currentUrl.Contains("/login", StringComparison.OrdinalIgnoreCase);
-
-            if (!string.IsNullOrEmpty(_username) && isLoginPage)
+            catch (Exception ex)
             {
-                TxtInAppStatus.Text = !string.IsNullOrEmpty(_password)
-                    ? $"⚡ Đang tự động điền và đăng nhập {_username}..."
-                    : $"⚡ Đang tự động điền {_username}...";
-                TxtInAppStatus.Foreground = Brushes.LightGreen;
-                await TryFillCredentialsAsync(forceClick: false);
+                Program.Logger?.Debug($"[FastLoginDialog.OnNavigationCompleted] {ex.Message}");
             }
-            else if (isLoginPage)
-            {
-                TxtInAppStatus.Text = "✅ Trang đăng nhập đã sẵn sàng. Hãy đăng nhập tài khoản của bạn.";
-                TxtInAppStatus.Foreground = Brushes.LightGreen;
-            }
-
-            await CheckAndCaptureSessionAsync();
         }
 
         private async void OnPollTimerTick(object? sender, EventArgs e)
         {
-            await CheckAndCaptureSessionAsync();
+            if (System.Threading.Interlocked.CompareExchange(ref _isPollTickBusy, 1, 0) != 0)
+                return;
+
+            try
+            {
+                await CheckAndCaptureSessionAsync();
+            }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"[FastLoginDialog.OnPollTimerTick] {ex.Message}");
+            }
+            finally
+            {
+                System.Threading.Interlocked.Exchange(ref _isPollTickBusy, 0);
+            }
         }
 
         private async void OnRefillClicked(object sender, RoutedEventArgs e)
         {
-            await TryFillCredentialsAsync(forceClick: true);
+            try
+            {
+                await TryFillCredentialsAsync(forceClick: true);
+            }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"[FastLoginDialog.OnRefillClicked] {ex.Message}");
+            }
         }
 
         private async void OnSkipNextClicked(object sender, RoutedEventArgs e)
         {
-            await AdvanceToNextAccountOrCloseAsync();
+            try
+            {
+                await AdvanceToNextAccountOrCloseAsync();
+            }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"[FastLoginDialog.OnSkipNextClicked] {ex.Message}");
+            }
         }
 
         private void OnReloadClicked(object sender, RoutedEventArgs e)
@@ -265,7 +296,7 @@ namespace Shiro.AvaloniaUI.Views
                     _lastVerifiedCookie = cookie;
                     _lastVerifiedAccount = account;
                     TxtPreviewUsername.Text = $"{account.Username} (ID: {account.UserID})";
-                    TxtPreviewStatus.Text = "✅ Cookie hợp lệ và đã được xác thực!";
+                    TxtPreviewStatus.Text = "Cookie hợp lệ và đã được xác thực!";
                     TxtPreviewStatus.Foreground = Brushes.LightGreen;
                 }
                 else
@@ -273,7 +304,7 @@ namespace Shiro.AvaloniaUI.Views
                     _lastVerifiedCookie = string.Empty;
                     _lastVerifiedAccount = null;
                     TxtPreviewUsername.Text = "Tài khoản không hợp lệ";
-                    TxtPreviewStatus.Text = "❌ Cookie đã hết hạn hoặc không đúng.";
+                    TxtPreviewStatus.Text = "Cookie đã hết hạn hoặc không đúng.";
                     TxtPreviewStatus.Foreground = Brushes.OrangeRed;
                 }
             }
@@ -340,12 +371,12 @@ namespace Shiro.AvaloniaUI.Views
 
                     CreatedAccount = newAcc;
                     MainWindow.Instance?.DashboardView?.LoadDashboardData();
-                    AccountManager.Instance?.SetDashboardStatus($"✅ Đã thêm tài khoản {newAcc.Username} thành công!");
+                    AccountManager.Instance?.SetDashboardStatus($"Đã thêm tài khoản {newAcc.Username} thành công!");
                     Close(true);
                 }
                 else
                 {
-                    TxtPreviewStatus.Text = "❌ Thất bại: Cookie không hợp lệ hoặc đã hết hạn.";
+                    TxtPreviewStatus.Text = "Thất bại: Cookie không hợp lệ hoặc đã hết hạn.";
                     TxtPreviewStatus.Foreground = Brushes.OrangeRed;
                 }
             }
@@ -368,6 +399,7 @@ namespace Shiro.AvaloniaUI.Views
 
         protected override void OnClosing(WindowClosingEventArgs e)
         {
+            DisposeInteractiveLoginScope();
             try
             {
                 if (_pollTimer != null)

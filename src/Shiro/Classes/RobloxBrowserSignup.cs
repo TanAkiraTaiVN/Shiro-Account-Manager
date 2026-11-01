@@ -140,7 +140,7 @@ namespace Shiro.Classes
 
                 Program.Logger.Info("Roblox sign-up page opened in Chrome. Waiting for user to complete registration...");
                 AccountManager.Instance?.SetDashboardStatus(
-                    "📝 Đã mở trang đăng ký Roblox trong Chrome. Hoàn tất đăng ký trong trình duyệt; tài khoản sẽ tự động được thêm vào Shiro.");
+                    "Đã mở trang đăng ký Roblox trong Chrome. Hoàn tất đăng ký trong trình duyệt; tài khoản sẽ tự động được thêm vào Shiro.");
 
                 string? lastAttemptedCookie = null;
                 DateTime lastCookieAttemptUtc = DateTime.MinValue;
@@ -235,7 +235,7 @@ namespace Shiro.Classes
                             {
                                 Program.Logger?.Info($"Roblox account '{createdAccount.Username}' registered and added to manager successfully.");
                                 AccountManager.Instance?.SetDashboardStatus(
-                                    $"✅ Đã đăng ký và thêm tài khoản '{createdAccount.Username}' thành công!");
+                                    $"Đã đăng ký và thêm tài khoản '{createdAccount.Username}' thành công!");
                                 await Task.Delay(1500, cancellationToken).ConfigureAwait(false);
                                 break;
                             }

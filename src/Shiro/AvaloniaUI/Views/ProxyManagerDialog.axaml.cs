@@ -79,14 +79,14 @@ namespace Shiro.AvaloniaUI.Views
                     string extra = (skippedDuplicate > 0 || invalid > 0)
                         ? $" (Trùng: {skippedDuplicate}, Lỗi: {invalid})"
                         : string.Empty;
-                    TxtStatus.Text = $"✅ Đã thêm {added} proxy{extra}";
+                    TxtStatus.Text = $"Đã thêm {added} proxy{extra}";
                 }
             }
             else if (TxtStatus != null)
             {
                 TxtStatus.Text = skippedDuplicate > 0
-                    ? "⚠️ Proxy đã tồn tại trong danh sách."
-                    : "⚠️ Định dạng proxy không hợp lệ (VD: IP:Port hoặc IP:Port:User:Pass).";
+                    ? "Proxy đã tồn tại trong danh sách."
+                    : "Định dạng proxy không hợp lệ (VD: IP:Port hoặc IP:Port:User:Pass).";
             }
         }
 
@@ -105,7 +105,7 @@ namespace Shiro.AvaloniaUI.Views
             if (_proxies.Count == 0)
             {
                 if (TxtStatus != null)
-                    TxtStatus.Text = "⚠️ Chưa có proxy nào để kiểm tra.";
+                    TxtStatus.Text = "Chưa có proxy nào để kiểm tra.";
                 return;
             }
 
@@ -115,7 +115,7 @@ namespace Shiro.AvaloniaUI.Views
 
             BtnTestAll.IsEnabled = false;
             if (TxtStatus != null)
-                TxtStatus.Text = $"⏳ Đang kiểm tra {_proxies.Count} proxy...";
+                TxtStatus.Text = $"Đang kiểm tra {_proxies.Count} proxy...";
 
             try
             {
@@ -124,7 +124,7 @@ namespace Shiro.AvaloniaUI.Views
                 {
                     int online = _proxies.Count(p => p.IsOnline);
                     int dead = _proxies.Count(p => p.LatencyMs == -2);
-                    TxtStatus.Text = $"⚡ Hoạt động: {online}/{_proxies.Count} • Lỗi: {dead}";
+                    TxtStatus.Text = $"Hoạt động: {online}/{_proxies.Count} • Lỗi: {dead}";
                 }
             }
             catch (OperationCanceledException) { }
@@ -161,7 +161,7 @@ namespace Shiro.AvaloniaUI.Views
             if (TxtStatus != null)
             {
                 TxtStatus.Text = removedCount > 0
-                    ? $"🗑️ Đã xóa {removedCount} proxy lỗi."
+                    ? $"Đã xóa {removedCount} proxy lỗi."
                     : "Không có proxy lỗi nào cần xóa.";
             }
         }

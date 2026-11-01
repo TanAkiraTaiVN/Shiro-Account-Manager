@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using Shiro.Classes;
 
@@ -14,6 +14,7 @@ namespace Shiro.Services
         void OpenFastLoginDialog(Account? account = null);
         void OpenFastLoginDialogBatch(System.Collections.Generic.IReadOnlyList<Account> accounts);
         void OpenBulkImportDialog();
+        void OpenAltGenDialog();
         void OpenProxyManagerDialog();
         void OpenNexusWindow();
         void OpenAboutDialog();

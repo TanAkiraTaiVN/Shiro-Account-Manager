@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Net.NetworkInformation;
@@ -15,6 +15,8 @@ namespace Shiro.Services
         public string Ip { get; set; } = string.Empty;
         public int? PingMs { get; set; }
         public string Region { get; set; } = string.Empty;
+        public string CountryCode { get; set; } = string.Empty;
+        public string FlagEmoji { get; set; } = string.Empty;
         public bool Success { get; set; }
     }
 

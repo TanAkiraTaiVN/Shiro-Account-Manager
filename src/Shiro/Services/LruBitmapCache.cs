@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -117,7 +117,11 @@ namespace Shiro.Services
 
             if (shouldDispose && evicted != null)
             {
-                try { evicted.Dispose(); } catch (Exception) { }
+                var captured = evicted;
+                AppDispatcher.Post(() =>
+                {
+                    try { captured.Dispose(); } catch (Exception) { }
+                });
             }
         }
 
@@ -143,14 +147,18 @@ namespace Shiro.Services
             List<TValue> toDispose;
             lock (_lock)
             {
-                toDispose = _lruList.Select(n => n.Value).ToList();
+                toDispose = _lruList.Select(entry => entry.Value).ToList();
                 _lruList.Clear();
                 _index.Clear();
             }
 
             foreach (var val in toDispose)
             {
-                try { val?.Dispose(); } catch (Exception) { }
+                var captured = val;
+                AppDispatcher.Post(() =>
+                {
+                    try { captured?.Dispose(); } catch (Exception) { }
+                });
             }
         }
 

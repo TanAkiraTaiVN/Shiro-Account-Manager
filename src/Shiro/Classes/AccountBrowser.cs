@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using PuppeteerSharp;
 using PuppeteerSharp.BrowserData;
 using System;
@@ -20,9 +20,9 @@ namespace Shiro.Classes
     internal partial class AccountBrowser
     {
         // PuppeteerSharp defaults to a `.local-chromium` directory beside the
-        // executable. Keep the downloaded fallback browser in the same
-        // user-data boundary as the other mutable caches so publishing or
-        // upgrading never writes extra files into build\\Release.
+        // executable. Shiro no longer downloads Chromium, but older versions
+        // did so into this cache folder; the fetcher is kept only to locate
+        // such an existing copy (see FindCachedChromiumExecutable).
         public static BrowserFetcher Fetcher = new BrowserFetcher(new BrowserFetcherOptions
         {
             Browser = SupportedBrowser.Chrome,
@@ -53,7 +53,7 @@ namespace Shiro.Classes
         public AccountBrowser() { }
 
         /// <summary>
-        /// Starts an asynchronous browser operation from a WinForms/event
+        /// Starts an asynchronous browser operation from a UI/event
         /// boundary while ensuring failures are observed. Puppeteer events do
         /// not accept Task-returning delegates, so this is the single safe
         /// bridge used by constructors and event callbacks.
@@ -213,7 +213,7 @@ namespace Shiro.Classes
                 Position = new Vector2((float)(workW / 2 - (Size.X / 2)), (float)(workH / 2 - (Size.Y / 2)));
             }
 
-            List<string> Args = new List<string>(Arguments ?? (UseStealth ? new[] { "--disable-web-security" } : Array.Empty<string>()));
+            List<string> Args = new List<string>(Arguments ?? Array.Empty<string>());
             Args.AddRange(Services.BrowserService.NoPasswordManagerSwitches);
 
             string ExtensionPath = StoragePaths.ResolveAsset("extension");
@@ -230,7 +230,17 @@ namespace Shiro.Classes
             if (Arguments == null)
                 Args.AddRange(new string[] { $"--window-size=\"{(int)Size.X},{(int)Size.Y}\"", $"--window-position=\"{(int)Position.X},{(int)Position.Y}\"" });
 
-            var verifiedProxy = await ChromeLaunchHelper.SelectVerifiedBrowserProxyAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
+            VerifiedBrowserProxy? verifiedProxy = null;
+            try
+            {
+                verifiedProxy = await ChromeLaunchHelper.SelectVerifiedBrowserProxyAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
+            }
+            catch (InvalidOperationException ex)
+            {
+                Program.Logger?.Error($"[AccountBrowser] {ex.Message}");
+                ToastService.ShowError("Lỗi Proxy", ex.Message);
+                return;
+            }
             if (verifiedProxy != null)
             {
                 Proxy = verifiedProxy.WebProxy;
@@ -272,10 +282,12 @@ namespace Shiro.Classes
             if (browser == null)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                Program.Logger.Warn($"No installed browser launched successfully. Falling back to PuppeteerSharp Chrome build {Chrome.DefaultBuildId}.");
-                InstalledBrowser revision = await Fetcher.DownloadAsync(Chrome.DefaultBuildId);
-                cancellationToken.ThrowIfCancellationRequested();
-                Options.ExecutablePath = revision.GetExecutablePath();
+                string? cachedChromium = FindCachedChromiumExecutable();
+                if (string.IsNullOrEmpty(cachedChromium))
+                    throw new FileNotFoundException(BrowserNotFoundMessage);
+
+                Program.Logger.Warn($"No installed browser launched successfully. Using previously cached Chromium at {cachedChromium}.");
+                Options.ExecutablePath = cachedChromium;
                 browser = await LaunchBrowserInstance(Options, UseStealth);
                 cancellationToken.ThrowIfCancellationRequested();
             }

@@ -24,15 +24,26 @@ jobs:
 
       - name: Restore
         shell: pwsh
-        run: dotnet restore "Shiro.sln" --runtime win-x64
+        run: dotnet restore "Shiro.sln" --runtime win-x64 --locked-mode
 
       - name: Build
         shell: pwsh
         run: dotnet build "Shiro.sln" --configuration Release --no-restore
 
-      - name: Run Unit Tests
+      - name: Run Unit Tests & Collect Coverage
         shell: pwsh
-        run: dotnet test "tests/Shiro.Tests/Shiro.Tests.csproj" --configuration Release --no-build --logger "console;verbosity=normal"
+        run: >-
+          dotnet test "tests/Shiro.Tests/Shiro.Tests.csproj"
+          --configuration Release
+          --no-restore
+          --collect:"XPlat Code Coverage"
+          --settings "tests/coverage.runsettings"
+          --results-directory "coverage"
+          --logger "console;verbosity=normal"
+
+      - name: Enforce Coverage Gate
+        shell: pwsh
+        run: ./scripts/Check-Coverage.ps1 -CoverageDir "coverage" -MinOverall 30.0 -MinCore 60.0
 
       - name: Verify architecture boundaries
         shell: pwsh

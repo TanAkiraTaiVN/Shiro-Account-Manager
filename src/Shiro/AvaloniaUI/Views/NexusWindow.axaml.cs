@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -50,12 +50,19 @@ namespace Shiro.AvaloniaUI.Views
 
         private async void NexusWindow_Loaded(object? sender, RoutedEventArgs e)
         {
-            LoadSettings();
-            LoadAccounts();
-
-            if (AccountManager.AccountControl?.Get<bool>("StartOnLaunch") == true)
+            try
             {
-                await StartServerAsync();
+                LoadSettings();
+                LoadAccounts();
+
+                if (AccountManager.AccountControl?.Get<bool>("StartOnLaunch") == true)
+                {
+                    await StartServerAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                Program.Logger?.Error($"[NexusWindow.Loaded] {ex.Message}");
             }
         }
 
@@ -151,6 +158,10 @@ namespace Shiro.AvaloniaUI.Views
                 else
                     await StartServerAsync();
             }
+            catch (Exception ex)
+            {
+                Program.Logger?.Error($"[NexusWindow.ToggleServer] {ex.Message}");
+            }
             finally
             {
                 BtnToggleServer.IsEnabled = true;
@@ -163,11 +174,11 @@ namespace Shiro.AvaloniaUI.Views
 
             if (!int.TryParse(TxtNexusPort.Text?.Trim(), out int port) || port < 1 || port > 65535)
             {
-                SetStatus("⚠️ Cổng kết nối không hợp lệ (1-65535).");
+                SetStatus("Cổng kết nối không hợp lệ (1-65535).");
                 return;
             }
 
-            SetStatus("⏳ Đang khởi động WebSocket Server...");
+            SetStatus("Đang khởi động WebSocket Server...");
             try
             {
                 bool allowExternal = ChkAllowExternal.IsChecked == true;
@@ -187,24 +198,24 @@ namespace Shiro.AvaloniaUI.Views
 
                 TxtServerStatusBadge.Text = $"Server: Đang chạy (Port {port})";
                 TxtServerStatusBadge.Foreground = RunningBadgeBrush;
-                BtnToggleServer.Content = "Dừng Server";
+                if (TxtToggleServerLabel != null) TxtToggleServerLabel.Text = "Dừng Server";
                 BtnToggleServer.Background = StopButtonBrush;
-                SetStatus($"✅ WebSocket Server đã khởi động trên cổng {port}.");
+                SetStatus($"WebSocket Server đã khởi động trên cổng {port}.");
             }
             catch (Exception ex)
             {
                 Server = null;
                 TxtServerStatusBadge.Text = "Server: Đang dừng";
                 TxtServerStatusBadge.Foreground = StoppedBadgeBrush;
-                BtnToggleServer.Content = "Bật Server";
+                if (TxtToggleServerLabel != null) TxtToggleServerLabel.Text = "Bật Server";
                 BtnToggleServer.Background = StartButtonBrush;
-                SetStatus($"❌ Lỗi khởi động WebSocket Server: {ex.Message}");
+                SetStatus($"Lỗi khởi động WebSocket Server: {ex.Message}");
             }
         }
 
         public async Task StopServerAsync()
         {
-            SetStatus("⏳ Đang dừng WebSocket Server...");
+            SetStatus("Đang dừng WebSocket Server...");
             try
             {
                 if (Server != null)
@@ -214,13 +225,13 @@ namespace Shiro.AvaloniaUI.Views
                 }
                 TxtServerStatusBadge.Text = "Server: Đang dừng";
                 TxtServerStatusBadge.Foreground = StoppedBadgeBrush;
-                BtnToggleServer.Content = "Bật Server";
+                if (TxtToggleServerLabel != null) TxtToggleServerLabel.Text = "Bật Server";
                 BtnToggleServer.Background = StartButtonBrush;
-                SetStatus("⏹️ WebSocket Server đã dừng.");
+                SetStatus("WebSocket Server đã dừng.");
             }
             catch (Exception ex)
             {
-                SetStatus($"⚠️ Lỗi khi dừng WebSocket Server: {ex.Message}");
+                SetStatus($"Lỗi khi dừng WebSocket Server: {ex.Message}");
             }
         }
 
@@ -282,11 +293,11 @@ namespace Shiro.AvaloniaUI.Views
             string? script = TxtScriptInput.Text;
             if (string.IsNullOrWhiteSpace(script))
             {
-                SetStatus("⚠️ Vui lòng nhập mã script cần thực thi.");
+                SetStatus("Vui lòng nhập mã script cần thực thi.");
                 return;
             }
             EmitMessage($"Execute:{script}", toAll: false);
-            SetStatus("▶️ Đã gửi mã script tới các tài khoản đã chọn.");
+            SetStatus("Đã gửi mã script tới các tài khoản đã chọn.");
         }
 
         private void BtnExecuteAll_Click(object? sender, RoutedEventArgs e)
@@ -294,11 +305,11 @@ namespace Shiro.AvaloniaUI.Views
             string? script = TxtScriptInput.Text;
             if (string.IsNullOrWhiteSpace(script))
             {
-                SetStatus("⚠️ Vui lòng nhập mã script cần thực thi.");
+                SetStatus("Vui lòng nhập mã script cần thực thi.");
                 return;
             }
             EmitMessage($"Execute:{script}", toAll: true);
-            SetStatus("▶️ Đã gửi mã script tới TẤT CẢ tài khoản.");
+            SetStatus("Đã gửi mã script tới TẤT CẢ tài khoản.");
         }
 
         public void LogMessage(string message)

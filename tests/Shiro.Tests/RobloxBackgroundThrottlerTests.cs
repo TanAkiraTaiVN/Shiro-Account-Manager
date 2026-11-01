@@ -22,6 +22,23 @@ namespace Shiro.Tests
         }
 
         [Fact]
+        public void Throttler_WhenRepeatedWindowChangesOccur_ProcessRemainsThrottled()
+        {
+            var service = new RobloxBackgroundThrottlerService();
+            service.IsEnabled = true;
+            service.TargetBackgroundFps = 10;
+
+            int dummyPid = Process.GetCurrentProcess().Id;
+            // 1st transition to background
+            service.OnForegroundWindowChanged(activeProcessId: 100, runningRobloxPids: new[] { dummyPid });
+            Assert.True(service.IsProcessThrottled(dummyPid));
+
+            // 2nd focus switch to another non-Roblox window
+            service.OnForegroundWindowChanged(activeProcessId: 200, runningRobloxPids: new[] { dummyPid });
+            Assert.True(service.IsProcessThrottled(dummyPid));
+        }
+
+        [Fact]
         public void Throttler_WhenProcessGainsFocus_RestoresActiveState()
         {
             var service = new RobloxBackgroundThrottlerService();

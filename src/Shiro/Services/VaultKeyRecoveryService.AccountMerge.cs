@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -66,13 +66,11 @@ namespace Shiro.Services
                     }
                 }
 
-                // 2. Load DPAPI backups
+                // 2. Load DPAPI backups from application data directory
                 string[] dpapiFiles =
                 {
                     StoragePaths.AccountDataFile + ".previous",
-                    StoragePaths.AccountDataFile + ".backup.previous",
-                    @"D:\$RECYCLE.BIN\S-1-5-21-3175979420-2019744931-1257509645-1001\$RHJYIIZ.2\AccountData.json",
-                    @"D:\$RECYCLE.BIN\S-1-5-21-3175979420-2019744931-1257509645-1001\$RHJYIIZ.2\AccountData.json.backup"
+                    StoragePaths.AccountDataFile + ".backup.previous"
                 };
 
                 foreach (string df in dpapiFiles)
@@ -90,32 +88,7 @@ namespace Shiro.Services
                     }
                 }
 
-                // 3. Load passwords from Recycle Bin text file if present
-                var passwordMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-                string txtFile = @"D:\$RECYCLE.BIN\S-1-5-21-3175979420-2019744931-1257509645-1001\$RAZH0RO.txt";
-                if (File.Exists(txtFile))
-                {
-                    foreach (string line in File.ReadLines(txtFile))
-                    {
-                        if (string.IsNullOrWhiteSpace(line))
-                            continue;
-                        ReadOnlySpan<char> trimmed = line.AsSpan().Trim();
-                        if (trimmed.IsEmpty || !trimmed.Contains(':'))
-                            continue;
-                        // Skip lines that have space annotations like "roblox khoá acc"
-                        int spaceIdx = trimmed.IndexOf(' ');
-                        ReadOnlySpan<char> token = spaceIdx >= 0 ? trimmed.Slice(0, spaceIdx) : trimmed;
-                        int colon = token.IndexOf(':');
-                        if (colon > 0 && colon < token.Length - 1)
-                        {
-                            string u = token.Slice(0, colon).Trim().ToString();
-                            string p = token.Slice(colon + 1).Trim().ToString();
-                            passwordMap[u] = p;
-                        }
-                    }
-                }
-
-                // 4. Resolve all cached avatar UserIDs via Roblox Users API
+                // 3. Resolve any cached avatar UserIDs via Roblox Users API
                 string avatarDir = Path.Combine(StoragePaths.CacheDirectory, "Avatars");
                 if (Directory.Exists(avatarDir))
                 {
@@ -129,15 +102,19 @@ namespace Shiro.Services
 
                     if (userIds.Count > 0)
                     {
-                        using var http = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(15) };
+                        var http = SharedHttpClient.Get();
                         foreach (long[] batch in System.Linq.Enumerable.Chunk(userIds, 50))
                         {
                             string reqJson = "{\"userIds\":[" + string.Join(",", batch) + "],\"excludeBannedUsers\":false}";
-                            using var content = new System.Net.Http.StringContent(reqJson, Encoding.UTF8, "application/json");
-                            using var resp = http.PostAsync("https://users.roblox.com/v1/users", content).GetAwaiter().GetResult();
+                            using var request = new System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Post, "https://users.roblox.com/v1/users")
+                            {
+                                Content = new System.Net.Http.StringContent(reqJson, Encoding.UTF8, "application/json")
+                            };
+                            using var resp = http.Send(request);
                             if (resp.IsSuccessStatusCode)
                             {
-                                string body = resp.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+                                using var reader = new StreamReader(resp.Content.ReadAsStream(), Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
+                                string body = reader.ReadToEnd();
                                 using var doc = System.Text.Json.JsonDocument.Parse(body);
                                 if (doc.RootElement.TryGetProperty("data", out var dataArr) && dataArr.ValueKind == System.Text.Json.JsonValueKind.Array)
                                 {
@@ -147,17 +124,13 @@ namespace Shiro.Services
                                         string? uname = item.TryGetProperty("name", out var nProp) ? nProp.GetString() : null;
                                         if (id > 0 && !string.IsNullOrWhiteSpace(uname))
                                         {
-                                            passwordMap.TryGetValue(uname, out string? pw);
-                                            if (string.IsNullOrEmpty(pw) && uname.StartsWith("AD_Jackpot", StringComparison.OrdinalIgnoreCase))
-                                                pw = "0346172240a";
-
                                             MergeList(new[]
                                             {
                                                 new Account
                                                 {
                                                     Username = uname,
                                                     UserID = id,
-                                                    Password = pw ?? string.Empty,
+                                                    Password = string.Empty,
                                                     Group = "Default",
                                                     Valid = false
                                                 }
@@ -167,21 +140,6 @@ namespace Shiro.Services
                                 }
                             }
                         }
-                    }
-                }
-
-                // Also add any remaining AD_Jackpot accounts from passwordMap
-                foreach (var kvp in passwordMap)
-                {
-                    if (!byUsername.ContainsKey(kvp.Key))
-                    {
-                        byUsername[kvp.Key] = new Account
-                        {
-                            Username = kvp.Key,
-                            Password = kvp.Value,
-                            Group = "Default",
-                            Valid = false
-                        };
                     }
                 }
 

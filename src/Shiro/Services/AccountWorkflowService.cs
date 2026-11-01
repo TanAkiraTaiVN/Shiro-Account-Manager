@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -28,29 +28,35 @@ namespace Shiro.Services
             var list = AccountManager.GetAccountsSnapshot();
             if (list == null || list.Count == 0) return;
 
-            statusCallback?.Invoke("🔍 Đang kiểm tra phiên đăng nhập của tất cả tài khoản...");
+            statusCallback?.Invoke("Đang kiểm tra phiên đăng nhập của tất cả tài khoản...");
 
             int total = list.Count;
             int checkedCount = 0;
             int expiredCount = 0;
 
-            using var concurrencyGate = new SemaphoreSlim(6, 6);
-            var tasks = list.Select(async acc =>
+            var parallelOptions = new ParallelOptions
             {
-                await concurrencyGate.WaitAsync().ConfigureAwait(false);
+                MaxDegreeOfParallelism = 12,
+                CancellationToken = CancellationToken.None
+            };
+
+            await Parallel.ForEachAsync(list, parallelOptions, async (acc, ct) =>
+            {
                 try
                 {
                     bool isValid = await RobloxRateLimitCoordinator.Instance.ExecuteWithPacingAsync(
                         RateLimitCategory.SessionCheck,
-                        () => acc.ValidateSessionAsync(),
-                        minIntervalMs: 200).ConfigureAwait(false);
+                        () => acc.ValidateSessionAsync(ct),
+                        minIntervalMs: 0,
+                        cancellationToken: ct).ConfigureAwait(false);
 
                     int c = Interlocked.Increment(ref checkedCount);
                     if (!isValid) Interlocked.Increment(ref expiredCount);
 
-                    string state = isValid ? "✅ Hợp lệ" : "⚠️ Hết hạn";
-                    statusCallback?.Invoke($"🔍 Đang kiểm tra ({c}/{total}): {acc.Username} -> {state} (Hết hạn: {expiredCount})");
+                    string state = isValid ? "Hợp lệ" : "Hết hạn";
+                    statusCallback?.Invoke($"Đang kiểm tra ({c}/{total}): {acc.Username} -> {state} (Hết hạn: {expiredCount})");
                     viewModel?.UpdateAccountValidity(acc, isValid, refreshFilterAndCounts: false);
+                    AppDispatcher.Post(() => viewModel?.NotifyCounts());
                 }
                 catch (Exception ex)
                 {
@@ -58,14 +64,8 @@ namespace Shiro.Services
                     int c = Interlocked.Increment(ref checkedCount);
                     if (!acc.Valid) Interlocked.Increment(ref expiredCount);
                 }
-                finally
-                {
-                    concurrencyGate.Release();
-                }
-            }).ToArray();
-
-            await Task.WhenAll(tasks).ConfigureAwait(false);
-            AccountManager.SaveAccounts(true);
+            }).ConfigureAwait(false);
+            await AccountManager.SaveAccountsAsync(true).ConfigureAwait(false);
 
             var bannedAccounts = list.Where(a => a.IsBannedOrLocked).ToList();
             var expiredAccounts = list.Where(a => !a.Valid && !a.IsBannedOrLocked).ToList();
@@ -82,27 +82,27 @@ namespace Shiro.Services
             });
 
             statusCallback?.Invoke((expired > 0 || banned > 0)
-                ? $"⚠️ Quét hoàn tất: {valid} sẵn sàng, {expired} hết hạn, {banned} bị ban! Xem tab '🔴 Hết hạn' để Re-login / kiểm tra."
-                : $"✅ Quét hoàn tất: Toàn bộ {total} tài khoản đều đang hoạt động tốt!");
+                ? $"Quét hoàn tất: {valid} sẵn sàng, {expired} hết hạn, {banned} bị ban! Xem tab 'Hết hạn' để Re-login / kiểm tra."
+                : $"Quét hoàn tất: Toàn bộ {total} tài khoản đều đang hoạt động tốt!");
 
             string msg = (expired > 0 || banned > 0)
-                ? $"🔍 KẾT QUẢ KIỂM TRA PHIÊN (SESSION CHECK):\n\n" +
+                ? $"KẾT QUẢ KIỂM TRA PHIÊN (SESSION CHECK):\n\n" +
                   $"• Tổng số tài khoản: {total}\n" +
                   $"• Sẵn sàng hoạt động: {valid}\n" +
                   $"• Hết hạn phiên: {expired}\n" +
                   $"• Bị khóa / Ban / Kiểm duyệt: {banned}\n\n" +
                   (banned > 0
-                      ? $"⛔ CÁC TÀI KHOẢN BỊ BAN / KHÓA:\n" +
+                      ? $"CÁC TÀI KHOẢN BỊ BAN / KHÓA:\n" +
                         string.Join("\n", bannedAccounts.Take(5).Select(a => $"• {a.Username}: {a.AccountStatusIssue}")) +
                         (bannedAccounts.Count > 5 ? $"\n• ...và {bannedAccounts.Count - 5} tài khoản khác" : "") + "\n\n"
                       : "") +
                   (expired == total
-                      ? "⚠️ LƯU Ý ĐẶC BIỆT: Tất cả tài khoản đều báo hết hạn phiên!\n" +
+                      ? "LƯU Ý ĐẶC BIỆT: Tất cả tài khoản đều báo hết hạn phiên!\n" +
                         "Khả năng cao là địa chỉ IP của bạn vừa thay đổi (do đổi mạng, bật/tắt VPN, hoặc router reset).\n\n"
                       : "") +
                   $"Hệ thống đã tự động gia hạn Cookie xoay (Cookie Rotation) cho các tài khoản hợp lệ.\n" +
-                  $"Các tài khoản hết hạn đã được chuyển vào tab '🔴 Hết hạn'."
-                : $"🔍 KẾT QUẢ KIỂM TRA PHIÊN (SESSION CHECK):\n\n" +
+                  $"Các tài khoản hết hạn đã được chuyển vào tab 'Hết hạn'."
+                : $"KẾT QUẢ KIỂM TRA PHIÊN (SESSION CHECK):\n\n" +
                   $"• Tổng số tài khoản: {total}\n" +
                   $"• Sẵn sàng hoạt động: {valid}\n" +
                   $"• Hết hạn phiên: 0\n" +
@@ -138,7 +138,7 @@ namespace Shiro.Services
                 bool wasValid = acc.Model.Valid;
 
                 acc.Model.SecurityToken = token;
-                statusCallback?.Invoke($"🔍 Đang xác thực phiên mới cho {acc.Username}...");
+                statusCallback?.Invoke($"Đang xác thực phiên mới cho {acc.Username}...");
                 bool ok = await acc.Model.ValidateSessionAsync().ConfigureAwait(false);
 
                 if (ok)
@@ -147,9 +147,9 @@ namespace Shiro.Services
                     acc.Model.CSRFToken = null;
                     acc.Model.TokenSet = DateTime.MinValue;
                     acc.Model.LastAuthTicketRateLimited = false;
-                    AccountManager.SaveAccounts(true);
+                    await AccountManager.SaveAccountsAsync(true).ConfigureAwait(false);
                     viewModel?.UpdateAccountValidity(acc.Model, true);
-                    statusCallback?.Invoke($"✅ Cập nhật Cookie thành công cho {acc.Username}! Phiên đã sẵn sàng.");
+                    statusCallback?.Invoke($"Cập nhật Cookie thành công cho {acc.Username}! Phiên đã sẵn sàng.");
                 }
                 else
                 {
@@ -158,13 +158,13 @@ namespace Shiro.Services
                         acc.Model.SecurityToken = previousToken;
                         acc.Model.Valid = true;
                         viewModel?.UpdateAccountValidity(acc.Model, true);
-                        statusCallback?.Invoke($"⚠️ Cookie vừa nhập không hợp lệ cho {acc.Username}. Đã giữ nguyên phiên hợp lệ trước đó.");
+                        statusCallback?.Invoke($"Cookie vừa nhập không hợp lệ cho {acc.Username}. Đã giữ nguyên phiên hợp lệ trước đó.");
                     }
                     else
                     {
-                        AccountManager.SaveAccounts(true);
+                        await AccountManager.SaveAccountsAsync(true).ConfigureAwait(false);
                         viewModel?.UpdateAccountValidity(acc.Model, false);
-                        statusCallback?.Invoke($"❌ Cookie vừa nhập không hợp lệ hoặc đã hết hạn cho {acc.Username}.");
+                        statusCallback?.Invoke($"Cookie vừa nhập không hợp lệ hoặc đã hết hạn cho {acc.Username}.");
                     }
                 }
             }
@@ -183,7 +183,7 @@ namespace Shiro.Services
             {
                 acc.Model.Alias = string.IsNullOrWhiteSpace(input) ? string.Empty : input.Trim();
                 acc.Alias = acc.Model.Alias;
-                AccountManager.SaveAccounts();
+                AccountManager.QueueDeferredSave();
                 statusCallback?.Invoke($"Đã đổi Alias cho {acc.Username} thành: {acc.Model.Alias}");
             }
         }
@@ -202,7 +202,7 @@ namespace Shiro.Services
                 groupName = string.IsNullOrWhiteSpace(groupName) ? "Default" : groupName.Trim();
                 acc.Model.Group = groupName;
                 acc.Group = groupName;
-                AccountManager.SaveAccounts(true);
+                AccountManager.QueueDeferredSave();
                 viewModel?.RebuildGroupList();
                 viewModel?.ApplyFilter();
                 statusCallback?.Invoke($"Đã chuyển {acc.Username} sang nhóm {groupName}.");
@@ -222,7 +222,7 @@ namespace Shiro.Services
             {
                 acc.Model.Description = newDesc;
                 acc.Description = newDesc;
-                AccountManager.SaveAccounts();
+                AccountManager.QueueDeferredSave();
                 statusCallback?.Invoke($"Đã cập nhật ghi chú cho {acc.Username}.");
             }
         }
@@ -232,16 +232,16 @@ namespace Shiro.Services
             if (acc?.Model == null) return;
             acc.Model.Pinned = !acc.Model.Pinned;
             acc.Pinned = acc.Model.Pinned;
-            AccountManager.SaveAccounts(true);
+            AccountManager.QueueDeferredSave();
             viewModel?.ApplyFilter();
-            statusCallback?.Invoke(acc.Pinned ? $"📌 Đã ghim {acc.Username} lên đầu danh sách." : $"Đã bỏ ghim {acc.Username}.");
+            statusCallback?.Invoke(acc.Pinned ? $"Đã ghim {acc.Username} lên đầu danh sách." : $"Đã bỏ ghim {acc.Username}.");
         }
 
         public void CopyUsername(AccountViewModel acc, Action<string> statusCallback)
         {
             if (acc?.Model == null || string.IsNullOrEmpty(acc.Model.Username)) return;
             ClipboardHelper.SetClipboardTextSafe(acc.Model.Username);
-            statusCallback?.Invoke($"📋 Đã sao chép Username: {acc.Model.Username}");
+            statusCallback?.Invoke($"Đã sao chép Username: {acc.Model.Username}");
         }
 
         public void CopyUserPass(AccountViewModel acc, Action<string> statusCallback)
@@ -249,7 +249,7 @@ namespace Shiro.Services
             if (acc?.Model != null)
             {
                 ClipboardHelper.SetClipboardTextSafe($"{acc.Model.Username}:{(acc.Model.Password ?? string.Empty)}");
-                statusCallback?.Invoke($"📋 Đã sao chép User:Pass của {acc.Model.Username} vào Clipboard.");
+                statusCallback?.Invoke($"Đã sao chép User:Pass của {acc.Model.Username} vào Clipboard.");
             }
         }
 
@@ -257,28 +257,28 @@ namespace Shiro.Services
         {
             if (acc?.Model == null || acc.Model.UserID <= 0) return;
             ClipboardHelper.SetClipboardTextSafe(acc.Model.UserID.ToString());
-            statusCallback?.Invoke($"📋 Đã sao chép User ID: {acc.Model.UserID}");
+            statusCallback?.Invoke($"Đã sao chép User ID: {acc.Model.UserID}");
         }
 
         public void CopyProfileUrl(AccountViewModel acc, Action<string> statusCallback)
         {
             if (acc?.Model == null || acc.Model.UserID <= 0) return;
             ClipboardHelper.SetClipboardTextSafe($"https://www.roblox.com/users/{acc.Model.UserID}/profile");
-            statusCallback?.Invoke($"📋 Đã sao chép liên kết hồ sơ của {acc.Username}");
+            statusCallback?.Invoke($"Đã sao chép liên kết hồ sơ của {acc.Username}");
         }
 
         public void CopySecurityToken(AccountViewModel acc, Action<string> statusCallback)
         {
             if (acc?.Model == null || string.IsNullOrEmpty(acc.Model.SecurityToken)) return;
             ClipboardHelper.SetClipboardTextSafe(acc.Model.SecurityToken);
-            statusCallback?.Invoke($"📋 Đã sao chép Security Token (.ROBLOSECURITY) của {acc.Username}");
+            statusCallback?.Invoke($"Đã sao chép Security Token (.ROBLOSECURITY) của {acc.Username}");
         }
 
         public void RemoveAccount(AccountViewModel acc, MainViewModel viewModel, Action<string> statusCallback)
         {
             if (acc?.Model == null) return;
             bool confirmed = AppServices.Dialogs.ShowConfirmation(
-                $"Bạn có chắc chắn muốn xóa tài khoản '{acc.Username}' khỏi Shiro RAM không?",
+                $"Bạn có chắc chắn muốn xóa tài khoản '{acc.Username}' khỏi Shiro không?",
                 "Xác nhận xóa tài khoản");
 
             if (confirmed)
@@ -288,7 +288,7 @@ namespace Shiro.Services
                 viewModel?.NotifyCounts();
                 viewModel?.RebuildGroupList();
                 viewModel?.ApplyFilter();
-                statusCallback?.Invoke($"🗑️ Đã xóa tài khoản {acc.Username}.");
+                statusCallback?.Invoke($"Đã xóa tài khoản {acc.Username}.");
             }
         }
 
@@ -298,7 +298,7 @@ namespace Shiro.Services
             var selectedVms = viewModel.GetSelectedAccountViewModels();
             if (selectedVms.Count == 0)
             {
-                statusCallback?.Invoke("⚠️ Vui lòng tick chọn ít nhất một tài khoản trước khi đổi nhóm.");
+                statusCallback?.Invoke("Vui lòng tick chọn ít nhất một tài khoản trước khi đổi nhóm.");
                 return;
             }
 
@@ -313,7 +313,7 @@ namespace Shiro.Services
                 {
                     vm.Group = groupName;
                 }
-                AccountManager.SaveAccounts(true);
+                AccountManager.QueueDeferredSave();
                 viewModel.RebuildGroupList();
                 viewModel.ApplyFilter();
                 statusCallback?.Invoke($"Đã chuyển {selectedVms.Count} tài khoản sang nhóm {groupName}.");
@@ -326,14 +326,14 @@ namespace Shiro.Services
             var targets = viewModel.GetSelectedAccounts();
             if (targets.Count == 0)
             {
-                statusCallback?.Invoke("⚠️ Vui lòng tick chọn ít nhất một tài khoản để lưu Place ID.");
+                statusCallback?.Invoke("Vui lòng tick chọn ít nhất một tài khoản để lưu Place ID.");
                 return;
             }
 
             long parsedPid = AccountLauncherService.ParsePlaceId(viewModel.PlaceId);
             if (parsedPid <= 0)
             {
-                statusCallback?.Invoke("⚠️ Hãy nhập Place ID hợp lệ vào ô trên trước khi lưu.");
+                statusCallback?.Invoke("Hãy nhập Place ID hợp lệ vào ô trên trước khi lưu.");
                 return;
             }
 
@@ -342,8 +342,8 @@ namespace Shiro.Services
             {
                 a.SetField("SavedPlaceId", pid);
             }
-            AccountManager.SaveAccounts();
-            statusCallback?.Invoke($"💾 Đã lưu Place ID {pid} cho {targets.Count} tài khoản.");
+            AccountManager.QueueDeferredSave();
+            statusCallback?.Invoke($"Đã lưu Place ID {pid} cho {targets.Count} tài khoản.");
         }
 
         public void CopyUserPassSelected(MainViewModel viewModel, Action<string> statusCallback)
@@ -352,13 +352,13 @@ namespace Shiro.Services
             var targets = viewModel.GetSelectedAccounts();
             if (targets.Count == 0)
             {
-                statusCallback?.Invoke("⚠️ Vui lòng tick chọn ít nhất một tài khoản để sao chép User:Pass.");
+                statusCallback?.Invoke("Vui lòng tick chọn ít nhất một tài khoản để sao chép User:Pass.");
                 return;
             }
 
             var lines = targets.Select(a => $"{a.Username}:{(a.Password ?? string.Empty)}").ToList();
             ClipboardHelper.SetClipboardTextSafe(string.Join(Environment.NewLine, lines));
-            statusCallback?.Invoke($"📋 Đã sao chép User:Pass của {lines.Count} tài khoản vào Clipboard.");
+            statusCallback?.Invoke($"Đã sao chép User:Pass của {lines.Count} tài khoản vào Clipboard.");
         }
 
         public void RemoveSelectedAccounts(MainViewModel viewModel, Action<string> statusCallback)
@@ -367,12 +367,12 @@ namespace Shiro.Services
             var selectedVms = viewModel.GetSelectedAccountViewModels();
             if (selectedVms.Count == 0)
             {
-                statusCallback?.Invoke("⚠️ Vui lòng tick chọn ít nhất một tài khoản để xóa!");
+                statusCallback?.Invoke("Vui lòng tick chọn ít nhất một tài khoản để xóa!");
                 return;
             }
 
             bool confirmed = AppServices.Dialogs.ShowConfirmation(
-                $"Bạn có chắc chắn muốn xóa {selectedVms.Count} tài khoản đã chọn khỏi Shiro RAM không?\n\nHành động này không thể hoàn tác!",
+                $"Bạn có chắc chắn muốn xóa {selectedVms.Count} tài khoản đã chọn khỏi Shiro không?\n\nHành động này không thể hoàn tác!",
                 "Xác nhận xóa hàng loạt");
 
             if (confirmed)
@@ -386,7 +386,7 @@ namespace Shiro.Services
                 viewModel.NotifyCounts();
                 viewModel.RebuildGroupList();
                 viewModel.ApplyFilter();
-                statusCallback?.Invoke($"🗑️ Đã xóa {count} tài khoản khỏi hệ thống.");
+                statusCallback?.Invoke($"Đã xóa {count} tài khoản khỏi hệ thống.");
             }
         }
 
@@ -405,40 +405,45 @@ namespace Shiro.Services
                 int total = snapshot.Count;
                 try
                 {
-                    using var concurrencyGate = new SemaphoreSlim(6, 6);
-                    var tasks = snapshot.Select(async item =>
+                    var parallelOptions = new ParallelOptions
                     {
-                        await concurrencyGate.WaitAsync().ConfigureAwait(false);
+                        MaxDegreeOfParallelism = 12,
+                        CancellationToken = CancellationToken.None
+                    };
+
+                    await Parallel.ForEachAsync(snapshot, parallelOptions, async (item, ct) =>
+                    {
                         try
                         {
                             bool ok = await RobloxRateLimitCoordinator.Instance.ExecuteWithPacingAsync(
                                 RateLimitCategory.SessionCheck,
-                                () => item.Model.ValidateSessionAsync(),
-                                minIntervalMs: 200).ConfigureAwait(false);
+                                () => item.Model.ValidateSessionAsync(ct),
+                                minIntervalMs: 0,
+                                cancellationToken: ct).ConfigureAwait(false);
 
                             int c = Interlocked.Increment(ref checkedCount);
                             viewModel?.UpdateAccountValidity(item.Model, ok, refreshFilterAndCounts: false);
-                            statusCallback?.Invoke($"🔍 Đang kiểm tra ({c}/{total}): {item.Username} -> {(ok ? "✅ Hợp lệ" : "⚠️ Hết hạn")}");
+                            AppDispatcher.Post(() => viewModel?.NotifyCounts());
+                            statusCallback?.Invoke($"Đang kiểm tra ({c}/{total}): {item.Username} -> {(ok ? "Hợp lệ" : "Hết hạn")}");
                         }
-                        finally
+                        catch (Exception ex)
                         {
-                            concurrencyGate.Release();
+                            Program.Logger?.Warn($"[OnValidateSessionSelectedRequested] {item.Username}: {ex.Message}");
+                            int c = Interlocked.Increment(ref checkedCount);
                         }
-                    }).ToArray();
-
-                    await Task.WhenAll(tasks).ConfigureAwait(false);
-                    AccountManager.SaveAccounts(true);
+                    }).ConfigureAwait(false);
+                    await AccountManager.SaveAccountsAsync(true).ConfigureAwait(false);
                     AppDispatcher.Post(() =>
                     {
                         viewModel?.NotifyCounts();
                         viewModel?.ApplyFilter();
                     });
-                    statusCallback?.Invoke($"✅ Đã hoàn tất kiểm tra phiên cho {checkedCount} tài khoản đã chọn.");
+                    statusCallback?.Invoke($"Đã hoàn tất kiểm tra phiên cho {checkedCount} tài khoản đã chọn.");
                 }
                 catch (Exception ex)
                 {
                     Program.Logger?.Error($"[OnValidateSessionSelectedRequested] {ex.Message}");
-                    statusCallback?.Invoke($"⚠️ Lỗi khi kiểm tra phiên: {ex.Message}");
+                    statusCallback?.Invoke($"Lỗi khi kiểm tra phiên: {ex.Message}");
                 }
             });
         }

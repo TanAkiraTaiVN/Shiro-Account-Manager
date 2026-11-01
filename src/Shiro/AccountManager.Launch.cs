@@ -206,7 +206,7 @@ namespace Shiro
             }
             catch (OperationCanceledException)
             {
-                SetDashboardStatus("ℹ️ Đã hủy hàng đợi khởi chạy.");
+                SetDashboardStatus("Đã hủy hàng đợi khởi chạy.");
             }
         }
 

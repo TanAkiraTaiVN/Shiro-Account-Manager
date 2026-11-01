@@ -6,7 +6,6 @@ using System.Security.Cryptography;
 using System.Text;
 using Shiro.Classes;
 using Shiro.Services;
-using Shiro.Services.Recovery;
 using Xunit;
 
 namespace Shiro.Tests
@@ -93,92 +92,6 @@ namespace Shiro.Tests
             // No valid candidate
             var noMatches = new List<byte[]> { dummy1, dummy2 };
             Assert.Null(VaultKeyRecoveryService.TestCandidatesParallel(encrypted, noMatches));
-        }
-
-        [Fact]
-        public void NtfsMftRecordParser_ApplyUsaFixup_ValidatesStructure()
-        {
-            // Record too small
-            Assert.False(NtfsMftRecordParser.ApplyUsaFixup(new byte[30], 512));
-
-            // Sector size invalid
-            Assert.False(NtfsMftRecordParser.ApplyUsaFixup(new byte[1024], 0));
-
-            // Construct valid synthetic 1024-byte MFT record with 2 sectors of 512 bytes
-            byte[] record = new byte[1024];
-            BinaryPrimitives.WriteUInt32LittleEndian(record.AsSpan(0, 4), 0x454C4946); // 'FILE'
-            ushort usaOffset = 48;
-            ushort usaCount = 3; // 1 signature + 2 sectors
-            BinaryPrimitives.WriteUInt16LittleEndian(record.AsSpan(4, 2), usaOffset);
-            BinaryPrimitives.WriteUInt16LittleEndian(record.AsSpan(6, 2), usaCount);
-
-            // Setup USA signature
-            record[usaOffset] = 0xAA;
-            record[usaOffset + 1] = 0xBB;
-
-            // Setup sector 1 original end bytes (in USA array)
-            record[usaOffset + 2] = 0x11;
-            record[usaOffset + 3] = 0x22;
-
-            // Setup sector 2 original end bytes
-            record[usaOffset + 4] = 0x33;
-            record[usaOffset + 5] = 0x44;
-
-            // Currently end of sector 1 (offset 510) has the signature
-            record[510] = 0xAA;
-            record[511] = 0xBB;
-            // End of sector 2 (offset 1022)
-            record[1022] = 0xAA;
-            record[1023] = 0xBB;
-
-            bool success = NtfsMftRecordParser.ApplyUsaFixup(record, 512);
-            Assert.True(success);
-
-            // Assert that sector ends are restored to original bytes
-            Assert.Equal(0x11, record[510]);
-            Assert.Equal(0x22, record[511]);
-            Assert.Equal(0x33, record[1022]);
-            Assert.Equal(0x44, record[1023]);
-        }
-
-        [Fact]
-        public void NtfsMftRecordParser_ParseDataRunExtents_ParsesSyntheticDataRuns()
-        {
-            // Empty / small record
-            var empty = NtfsMftRecordParser.ParseDataRunExtents(new byte[10], 4096);
-            Assert.Empty(empty);
-
-            // Construct synthetic MFT record with non-resident $DATA (0x80) attribute
-            byte[] record = new byte[512];
-            ushort firstAttrOffset = 32;
-            BinaryPrimitives.WriteUInt16LittleEndian(record.AsSpan(20, 2), firstAttrOffset);
-
-            int attrPos = firstAttrOffset;
-            // Attribute Type: 0x80 ($DATA)
-            BinaryPrimitives.WriteUInt32LittleEndian(record.AsSpan(attrPos, 4), 0x80);
-            // Attribute Length: 64 bytes
-            BinaryPrimitives.WriteUInt32LittleEndian(record.AsSpan(attrPos + 4, 4), 64);
-            // Non-resident flag = 1
-            record[attrPos + 8] = 1;
-            // Run offset from start of attribute = 40
-            BinaryPrimitives.WriteUInt16LittleEndian(record.AsSpan(attrPos + 32, 2), 40);
-
-            // Build data run: 1 cluster count byte, 2 LCN offset bytes
-            // Header byte: 0x21 (2 bytes offset, 1 byte length)
-            int runPos = attrPos + 40;
-            record[runPos++] = 0x21;
-            // Cluster count = 10
-            record[runPos++] = 10;
-            // LCN Delta = 1000 (0x03E8)
-            record[runPos++] = 0xE8;
-            record[runPos++] = 0x03;
-            // End of runs marker
-            record[runPos] = 0x00;
-
-            var extents = NtfsMftRecordParser.ParseDataRunExtents(record, 4096);
-            Assert.Single(extents);
-            Assert.Equal(1000L * 4096, extents[0].ByteOffset);
-            Assert.Equal(10L * 4096, extents[0].ByteLength);
         }
 
         [Fact]

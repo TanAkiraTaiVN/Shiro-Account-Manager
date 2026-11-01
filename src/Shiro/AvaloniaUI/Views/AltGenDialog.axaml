@@ -1,0 +1,129 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:lucide="clr-namespace:LucideAvalonia;assembly=LucideAvalonia"
+        x:Class="Shiro.AvaloniaUI.Views.AltGenDialog"
+        Icon="/Resources/shiro.ico"
+        Title="Tạo tài khoản Alt tự động - BloxGen"
+        Width="540" SizeToContent="Height"
+        MinWidth="480" MaxWidth="600"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        Background="#0D0D11"
+        Foreground="#F4F4F5">
+
+    <Border BorderBrush="#272730" BorderThickness="1" CornerRadius="8" Padding="20">
+        <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto">
+            <!-- Header -->
+            <StackPanel Grid.Row="0" Spacing="4" Margin="0,0,0,16">
+                <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                    <Border Background="#252536" CornerRadius="8" Width="36" Height="36">
+                        <lucide:Lucide Icon="UserPlus" Width="18" Height="18" StrokeBrush="#818CF8" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="Tạo tài khoản Alt tự động (BloxGen API)" FontSize="16" FontWeight="Bold" Foreground="#FFFFFF"/>
+                        <TextBlock Text="Tự động tạo tài khoản Roblox mới và thêm trực tiếp vào Shiro Vault" FontSize="11" Foreground="#71717A"/>
+                    </StackPanel>
+                </StackPanel>
+            </StackPanel>
+
+            <!-- Configuration Card -->
+            <Border Grid.Row="1" Background="#14141C" BorderBrush="#272733" BorderThickness="1" CornerRadius="8" Padding="14" Margin="0,0,0,12">
+                <StackPanel Spacing="12">
+                    <!-- API Key Input -->
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="BloxGen API Key (BLOX-...)" FontSize="12" FontWeight="SemiBold" Foreground="#D4D4D8"/>
+                        <TextBox x:Name="TxtApiKey" PasswordChar="•" Watermark="Dán API Key BloxGen vào đây..."
+                                 Background="#1F1F28" Foreground="#FFFFFF" BorderBrush="#2E2E38" BorderThickness="1"
+                                 CornerRadius="4" Padding="10,7" FontSize="12" />
+                    </StackPanel>
+
+                    <!-- Options Grid: GenType & Continent -->
+                    <Grid ColumnDefinitions="*,*">
+                        <!-- Gen Type -->
+                        <StackPanel Grid.Column="0" Spacing="4" Margin="0,0,8,0">
+                            <TextBlock Text="Loại tài khoản (Gen Type)" FontSize="12" FontWeight="SemiBold" Foreground="#D4D4D8"/>
+                            <ComboBox x:Name="CmbGenType" HorizontalAlignment="Stretch" SelectedIndex="0"
+                                      Background="#1F1F28" Foreground="#FFFFFF" BorderBrush="#2E2E38" CornerRadius="4">
+                                <ComboBoxItem Content="Unverified (Chuẩn cày bot)" Tag="unverified"/>
+                                <ComboBoxItem Content="Verified (Email Verified)" Tag="verified"/>
+                            </ComboBox>
+                        </StackPanel>
+
+                        <!-- Continent -->
+                        <StackPanel Grid.Column="1" Spacing="4" Margin="8,0,0,0">
+                            <TextBlock Text="Khu vực (Continent)" FontSize="12" FontWeight="SemiBold" Foreground="#D4D4D8"/>
+                            <ComboBox x:Name="CmbContinent" HorizontalAlignment="Stretch" SelectedIndex="0"
+                                      Background="#1F1F28" Foreground="#FFFFFF" BorderBrush="#2E2E38" CornerRadius="4">
+                                <ComboBoxItem Content="RANDOM (Ngẫu nhiên)" Tag="RANDOM"/>
+                                <ComboBoxItem Content="AS (Châu Á)" Tag="AS"/>
+                                <ComboBoxItem Content="NA (Bắc Mỹ)" Tag="NA"/>
+                                <ComboBoxItem Content="EU (Châu Âu)" Tag="EU"/>
+                                <ComboBoxItem Content="OC (Châu Đại Dương)" Tag="OC"/>
+                                <ComboBoxItem Content="SA (Nam Mỹ)" Tag="SA"/>
+                            </ComboBox>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Target Group -->
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Nhóm đích trong Shiro (Target Group)" FontSize="12" FontWeight="SemiBold" Foreground="#D4D4D8"/>
+                        <TextBox x:Name="TxtGroup" Text="AltGen"
+                                 Background="#1F1F28" Foreground="#FFFFFF" BorderBrush="#2E2E38" BorderThickness="1"
+                                 CornerRadius="4" Padding="10,7" FontSize="12" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- Result Box (Hidden until generated) -->
+            <Border Grid.Row="2" x:Name="BrdResult" IsVisible="False" Background="#161B26" BorderBrush="#2E3A59" BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,0,0,12">
+                <StackPanel Spacing="6">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <lucide:Lucide Icon="CircleCheck" Width="14" Height="14" StrokeBrush="#34D399" VerticalAlignment="Center" />
+                        <TextBlock Text="Tài khoản mới đã được tạo và lưu vào Vault!" FontSize="12" FontWeight="Bold" Foreground="#34D399" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto">
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Username: " Foreground="#9CA3AF" FontSize="11"/>
+                        <TextBlock Grid.Row="0" Grid.Column="1" x:Name="TxtResultUser" FontWeight="SemiBold" Foreground="#FFFFFF" FontSize="11"/>
+
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="User ID: " Foreground="#9CA3AF" FontSize="11"/>
+                        <TextBlock Grid.Row="1" Grid.Column="1" x:Name="TxtResultId" Foreground="#FFFFFF" FontSize="11"/>
+
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Password: " Foreground="#9CA3AF" FontSize="11"/>
+                        <TextBlock Grid.Row="2" Grid.Column="1" x:Name="TxtResultPass" Foreground="#FBBF24" FontSize="11"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- Status text -->
+            <TextBlock Grid.Row="3" x:Name="TxtStatus" Text="Sẵn sàng tạo tài khoản" FontSize="11" Foreground="#71717A" Margin="0,0,0,12"/>
+
+            <!-- Action buttons -->
+            <Grid Grid.Row="4" ColumnDefinitions="Auto,*,Auto">
+                <Button Grid.Column="0" x:Name="BtnOpenHistory" Click="OnOpenHistoryClicked"
+                        Background="#1E1E2A" Foreground="#A1A1AA" CornerRadius="6" Padding="14,8" FontSize="12" Cursor="Hand">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <lucide:Lucide Icon="FileText" Width="13" Height="13" StrokeBrush="#A1A1AA" VerticalAlignment="Center" />
+                        <TextBlock Text="Mở lịch sử CSV" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
+                    <Button x:Name="BtnClose" Click="OnCloseClicked"
+                            Background="Transparent" Foreground="#A1A1AA" CornerRadius="6" Padding="14,8" FontSize="12" Cursor="Hand">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <lucide:Lucide Icon="X" Width="13" Height="13" StrokeBrush="#A1A1AA" VerticalAlignment="Center" />
+                            <TextBlock Text="Đóng" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="BtnGenerate" Click="OnGenerateClicked"
+                            Background="#4F46E5" Foreground="#FFFFFF" FontWeight="Bold" CornerRadius="6" Padding="18,8" FontSize="12" Cursor="Hand">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <lucide:Lucide Icon="Sparkles" Width="13" Height="13" StrokeBrush="#FFFFFF" VerticalAlignment="Center" />
+                            <TextBlock Text="Tạo tài khoản ngay" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>

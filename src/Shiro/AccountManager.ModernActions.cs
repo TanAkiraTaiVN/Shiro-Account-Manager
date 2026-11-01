@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -34,9 +34,7 @@ namespace Shiro
         {
             if (Shiro.AvaloniaUI.Views.MainWindow.Instance?.DashboardView?.ViewModel != null)
             {
-                var list = Shiro.AvaloniaUI.Views.MainWindow.Instance.DashboardView.ViewModel.GetSelectedAccounts();
-                if (list != null && list.Count > 0)
-                    return list;
+                return Shiro.AvaloniaUI.Views.MainWindow.Instance.DashboardView.ViewModel.GetSelectedAccounts() ?? new List<Account>();
             }
             return SelectedAccounts?.ToList() ?? new List<Account>();
         }
@@ -59,7 +57,7 @@ namespace Shiro
 
             if (multiSel == null || multiSel.Count == 0)
             {
-                SetDashboardStatus("⚠️ Vui lòng tick chọn ít nhất một tài khoản (hoặc bấm 'Chọn hết') trước khi mở Home!");
+                SetDashboardStatus("Vui lòng tick chọn ít nhất một tài khoản (hoặc bấm 'Chọn hết') trước khi mở Home!");
                 return;
             }
 
@@ -71,7 +69,7 @@ namespace Shiro
 
             // Multi-Launch is explicitly configured to only open Roblox Home page
             _ = LaunchHomeAccountsAsync(multiSel, preferChromeHome: false);
-            SetDashboardStatus($"🏠 Đang mở trang chủ Roblox Home cho {multiSel.Count} tài khoản đã chọn…");
+            SetDashboardStatus($"Đang mở trang chủ Roblox Home cho {multiSel.Count} tài khoản đã chọn…");
         }
 
         internal async Task ModernJoinServerDirect(List<Account> accounts, long placeId, string jobId)
@@ -80,7 +78,7 @@ namespace Shiro
             var snapshot = GetAccountsSnapshot();
             if (snapshot.Count == 0)
             {
-                SetDashboardStatus("⚠️ Vui lòng thêm tài khoản trước khi vào server.");
+                SetDashboardStatus("Vui lòng thêm tài khoản trước khi vào server.");
                 return;
             }
 
@@ -90,17 +88,11 @@ namespace Shiro
                 var multiSel = GetCurrentSelectedAccounts();
                 if (multiSel != null && multiSel.Count > 0)
                     targetAccounts = multiSel.ToList();
-                else if (SelectedAccount != null)
-                    targetAccounts = new List<Account> { SelectedAccount };
-                else if (LastValidAccount != null)
-                    targetAccounts = new List<Account> { LastValidAccount };
-                else
-                    targetAccounts = snapshot.Take(1).ToList();
             }
 
             if (targetAccounts == null || targetAccounts.Count == 0)
             {
-                SetDashboardStatus("⚠️ Vui lòng chọn ít nhất một tài khoản trước khi vào server!");
+                SetDashboardStatus("Vui lòng tick chọn ít nhất một tài khoản trước khi vào server!");
                 return;
             }
 
@@ -130,7 +122,7 @@ namespace Shiro
 
             if (placeId <= 0)
             {
-                SetDashboardStatus("⚠️ Vui lòng nhập Place ID ở thanh trên trước khi vào server!");
+                SetDashboardStatus("Vui lòng nhập Place ID ở thanh trên trước khi vào server!");
                 return;
             }
 
@@ -167,7 +159,7 @@ namespace Shiro
             {
                 if (!TryEnableMultiRoblox(promptIfRobloxRunning: false))
                 {
-                    SetDashboardStatus("⚠️ Không thể kích hoạt Multi Roblox. Vui lòng đóng Roblox và thử lại.");
+                    SetDashboardStatus("Không thể kích hoạt Multi Roblox. Vui lòng đóng Roblox và thử lại.");
                     return;
                 }
             }
@@ -180,7 +172,7 @@ namespace Shiro
             CancelLaunching();
             if (!await WaitForLaunchQueueToDrainAsync(TimeSpan.FromSeconds(8)).ConfigureAwait(true))
             {
-                SetDashboardStatus("⚠️ Hàng đợi khởi chạy trước đó đang dừng. Vui lòng thử lại sau giây lát.");
+                SetDashboardStatus("Hàng đợi khởi chạy trước đó đang dừng. Vui lòng thử lại sau giây lát.");
                 return;
             }
 
@@ -188,7 +180,7 @@ namespace Shiro
             SelectedAccount = SelectedAccounts.Count == 1 ? SelectedAccounts[0] : null;
 
             string serverDesc = string.IsNullOrEmpty(cleanJobId) ? "Public Server" : (isVip ? "VIP Server" : $"Server {cleanJobId}");
-            SetDashboardStatus($"🎯 Đang vào {serverDesc} (Place ID {placeId}) cho {SelectedAccounts.Count} tài khoản…");
+            SetDashboardStatus($"Đang vào {serverDesc} (Place ID {placeId}) cho {SelectedAccounts.Count} tài khoản…");
 
             await LaunchAccounts(SelectedAccounts, placeId, cleanJobId, false, isVip).ConfigureAwait(true);
         }
@@ -201,11 +193,11 @@ namespace Shiro
             {
                 if (totalKilled > 0)
                 {
-                    SetDashboardStatus($"🧹 Đã tắt {totalKilled} tiến trình Roblox và làm sạch khay hệ thống.");
+                    SetDashboardStatus($"Đã tắt {totalKilled} tiến trình Roblox và làm sạch khay hệ thống.");
                 }
                 else
                 {
-                    SetDashboardStatus("ℹ️ Không tìm thấy tiến trình Roblox nào đang chạy.");
+                    SetDashboardStatus("Không tìm thấy tiến trình Roblox nào đang chạy.");
                 }
             }
 
@@ -214,8 +206,8 @@ namespace Shiro
                 if (notify)
                 {
                     mainVm.StatusMessage = totalKilled > 0
-                        ? $"🧹 Đã tắt {totalKilled} tiến trình Roblox và làm sạch khay hệ thống!"
-                        : "ℹ️ Không tìm thấy tiến trình Roblox nào đang chạy.";
+                        ? $"Đã tắt {totalKilled} tiến trình Roblox và làm sạch khay hệ thống!"
+                        : "Không tìm thấy tiến trình Roblox nào đang chạy.";
                 }
                 foreach (var acc in mainVm.Accounts)
                 {
@@ -226,7 +218,7 @@ namespace Shiro
             if (General.Get<bool>("EnableMultiRbx") && !RobloxSingletonService.MutexHeld)
             {
                 if (UpdateMultiRoblox() && notify)
-                    SetDashboardStatus("✅ Đã tắt Roblox và kích hoạt Multi Roblox.");
+                    SetDashboardStatus("Đã tắt Roblox và kích hoạt Multi Roblox.");
             }
 
             ModernRefreshPresence();

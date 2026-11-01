@@ -1,5 +1,6 @@
-﻿<Window xmlns="https://github.com/avaloniaui"
+<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:lucide="clr-namespace:LucideAvalonia;assembly=LucideAvalonia"
         x:Class="Shiro.AvaloniaUI.Views.AboutDialog"
         Icon="/Resources/shiro.ico"
         Title="Giới thiệu • Shiro Account Manager"
@@ -44,13 +45,21 @@
                 </Border>
                 <TextBlock Text="Phần mềm quản lý tài khoản Roblox đa chức năng, bảo mật và hiệu năng cao."
                            FontSize="12" Foreground="#71717A" TextWrapping="Wrap"/>
+                <TextBlock Text="Phát hành theo giấy phép GPL-3.0 • Kế thừa và hiện đại hóa từ RBX Alt Manager (ic3w0lf22)."
+                           FontSize="10.5" Foreground="#52525B" TextWrapping="Wrap"/>
             </StackPanel>
 
             <!-- Close Button -->
             <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
-                <Button Content="Đóng" Width="80" Height="32" Click="BtnClose_Click"
+                <Button Height="32" Click="BtnClose_Click"
                         Background="#272730" Foreground="#D4D4D8" FontWeight="SemiBold"
-                        CornerRadius="5" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
+                        CornerRadius="5" Padding="14,0" Cursor="Hand"
+                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <lucide:Lucide Icon="X" Width="13" Height="13" StrokeBrush="#D4D4D8" VerticalAlignment="Center" />
+                        <TextBlock Text="Đóng" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
             </StackPanel>
         </Grid>
     </Border>

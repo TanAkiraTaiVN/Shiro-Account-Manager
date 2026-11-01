@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -24,7 +24,7 @@ namespace Shiro.Services
         private bool disposed;
 
         public const int MaxRateLimitRetries = 2;
-        public const int DefaultSmartLaunchMinDelaySeconds = 3;
+        public const int DefaultSmartLaunchMinDelaySeconds = 2;
 
         public bool IsRunning
         {
@@ -38,6 +38,7 @@ namespace Shiro.Services
         public LaunchCoordinator(Func<LaunchRequest, CancellationToken, Task<string>> executeLaunch)
         {
             this.executeLaunch = executeLaunch ?? throw new ArgumentNullException(nameof(executeLaunch));
+            GlobalCancelRequested += Cancel;
         }
 
         public async Task<LaunchBatchResult> EnqueueAsync(
@@ -80,7 +81,9 @@ namespace Shiro.Services
             int safeDelay = Math.Max(
                 AccountManager.MinimumAccountJoinDelaySeconds,
                 Math.Min(AccountManager.MaximumAccountJoinDelaySeconds, delaySeconds));
+            int lastSpawnedPid = 0;
 
+            using var cookieGuard = RobloxDirectLauncher.BeginCookieGuardScope(restoreDelayOnDisposeMs: 12_000);
             try
             {
                 for (int index = 0; index < launchList.Count; index++)
@@ -97,7 +100,7 @@ namespace Shiro.Services
                             Total = launchList.Count,
                             Account = request.Account,
                             Status = LaunchOutcome.RateLimited,
-                            Message = $"⏳ [{index + 1}/{launchList.Count}] Roblox đang giới hạn IP (429). Chờ {backoffSecs:0.0}s trước khi mở {request.Account.Username}..."
+                            Message = $"[{index + 1}/{launchList.Count}] Roblox đang giới hạn IP (429). Chờ {backoffSecs:0.0}s trước khi mở {request.Account.Username}..."
                         });
                         await RobloxRateLimitCoordinator.Instance.WaitForBackoffAsync(linkedCancellation.Token).ConfigureAwait(false);
                     }
@@ -148,7 +151,7 @@ namespace Shiro.Services
                             Total = launchList.Count,
                             Account = request.Account,
                             Status = LaunchOutcome.RateLimited,
-                            Message = $"⏳ [{index + 1}/{launchList.Count}] {request.Account.Username} bị giới hạn (429). Chờ {waitSecs:0.0}s rồi thử lại ({retry}/{MaxRateLimitRetries})..."
+                            Message = $"[{index + 1}/{launchList.Count}] {request.Account.Username} bị giới hạn (429). Chờ {waitSecs:0.0}s rồi thử lại ({retry}/{MaxRateLimitRetries})..."
                         });
 
                         await RobloxRateLimitCoordinator.Instance.WaitForBackoffAsync(linkedCancellation.Token).ConfigureAwait(false);
@@ -174,6 +177,10 @@ namespace Shiro.Services
                     if (state.Status == LaunchOutcome.Success)
                     {
                         RobloxRateLimitCoordinator.Instance.RecordSuccess(RateLimitCategory.Authentication);
+                        if (request.Account.LastLaunchedProcessId > 0)
+                        {
+                            lastSpawnedPid = request.Account.LastLaunchedProcessId;
+                        }
                     }
 
                     state.Completed = true;
@@ -183,27 +190,28 @@ namespace Shiro.Services
 
                     if (isTicketAuthError)
                     {
-                        if (request.Account.Valid)
+                        request.Account.AccountStatusIssue = string.Empty;
+                        request.Account.Valid = false;
+                        AccountManager.Instance?.BeginInvoke(new Action(() =>
                         {
-                            request.Account.Valid = false;
-                            AccountManager.Instance?.BeginInvoke(new Action(() =>
-                            {
-                                AccountManager.Instance?.UpdateAccountValidity(request.Account, false);
-                                AccountManager.Instance?.RefreshView(request.Account);
-                            }));
-                        }
+                            AccountManager.Instance?.UpdateAccountValidity(request.Account, false);
+                            AccountManager.Instance?.RefreshView(request.Account);
+                        }));
 
-                        Program.Logger?.Warn($"[LaunchCoordinator] ⚠️ TÀI KHOẢN [{request.Account.Username}] BỊ HẾT HẠN PHIÊN (Auth ticket error / Signed out)! Đã đánh dấu hết hạn và bỏ qua.");
-                        AppDispatcher.Post(() =>
+                        Program.Logger?.Warn($"[LaunchCoordinator] TÀI KHOẢN [{request.Account.Username}] BỊ HẾT HẠN PHIÊN (Auth ticket error / Signed out)! Đã đánh dấu hết hạn và bỏ qua.");
+                        if (launchList.Count == 1)
                         {
-                            ToastService.ShowWarning("Hết hạn phiên", $"⚠️ {request.Account.Username}: Phiên đăng nhập đã hết hạn! Hãy bấm 'Re-login' trên thẻ.");
-                        });
+                            AppDispatcher.Post(() =>
+                            {
+                                ToastService.ShowWarning("Hết hạn phiên", $"{request.Account.Username}: Phiên đăng nhập đã hết hạn. Hãy bấm 'Re-login' trên thẻ.");
+                            });
+                        }
                     }
 
                     state.Message = IsSuccessfulResult(state.Result)
                         ? $"[{index + 1}/{launchList.Count}] {request.Account.Username} launched."
                         : (isTicketAuthError
-                            ? $"⚠️ {request.Account.Username}: Phiên đăng nhập đã hết hạn! Bấm '🔑 Re-login' trên thẻ để đăng nhập lại."
+                            ? $"{request.Account.Username}: Phiên đăng nhập đã hết hạn! Bấm 'Re-login' trên thẻ để đăng nhập lại."
                             : $"Warning ({request.Account.Username}): {state.Result}");
                     results.Add(state);
                     Report(progress, state);
@@ -217,7 +225,7 @@ namespace Shiro.Services
                     if (!IsSuccessfulResult(state.Result))
                         signal.TrySetResult(false);
 
-                    bool smartLaunch = AccountManager.General == null || !AccountManager.General.Exists(AppSettingsKeys.General.SmartFastLaunch) || AccountManager.General.Get<bool>(AppSettingsKeys.General.SmartFastLaunch);
+                    bool smartLaunch = !AppSettings.General.Exists(AppSettingsKeys.General.SmartFastLaunch) || AppSettings.General.Get<bool>(AppSettingsKeys.General.SmartFastLaunch);
 
                     if (smartLaunch && IsSuccessfulResult(state.Result))
                     {
@@ -236,8 +244,10 @@ namespace Shiro.Services
                             TimeSpan.FromSeconds(15),
                             linkedCancellation.Token).ConfigureAwait(false);
 
-                        int minDelayMs = GetSmartLaunchMinDelayMs(safeDelay, includeJitter: false);
-                        string statusPrefix = unlocked ? "⚡" : "⏱️";
+                        int minDelayMs = unlocked
+                            ? Math.Min(GetSmartLaunchMinDelayMs(null, includeJitter: false), safeDelay * 1000)
+                            : (safeDelay * 1000);
+                        string statusPrefix = unlocked ? "" : "[Fallback] ";
                         Report(progress, new LaunchProgress
                         {
                             Index = index + 1,
@@ -245,10 +255,18 @@ namespace Shiro.Services
                             Account = request.Account,
                             Status = LaunchOutcome.Success,
                             Completed = true,
-                            Message = $"{statusPrefix} [{index + 1}/{launchList.Count}] {request.Account.Username} sẵn sàng. Chờ {minDelayMs / 1000.0:0.0}s trước {launchList[index + 1].Account.Username}..."
+                            Message = $"{statusPrefix}[{index + 1}/{launchList.Count}] {request.Account.Username} sẵn sàng. Chờ {minDelayMs / 1000.0:0.0}s trước {launchList[index + 1].Account.Username}..."
                         });
 
                         await Task.Delay(minDelayMs, linkedCancellation.Token).ConfigureAwait(false);
+                        await WaitIfClientChallengedBeforeNextLaunchAsync(
+                            request,
+                            index,
+                            launchList,
+                            targetPid,
+                            state,
+                            progress,
+                            linkedCancellation.Token).ConfigureAwait(false);
                     }
                     else if (asyncJoin)
                     {
@@ -346,6 +364,12 @@ namespace Shiro.Services
             }
             finally
             {
+                cookieGuard.Dispose();
+                if (lastSpawnedPid > 0)
+                {
+                    RobloxDirectLauncher.SchedulePostSpawnCookieRestore(lastSpawnedPid);
+                }
+
                 Report(null, new LaunchProgress { Completed = true });
                 TaskCompletionSource<bool> idleToComplete;
                 lock (stateLock)
@@ -433,6 +457,7 @@ namespace Shiro.Services
                 cancellation = activeCancellation;
             }
 
+            GlobalCancelRequested -= Cancel;
             try { cancellation?.Cancel(); } catch (ObjectDisposedException) { }
             // The active queue may still be unwinding from an awaited Roblox
             // request. Leave the gate alive until process shutdown so its

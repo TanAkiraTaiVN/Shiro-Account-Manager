@@ -1,7 +1,6 @@
-﻿#nullable enable
+#nullable enable
 using System;
-using System.Diagnostics;
-using System.Runtime.InteropServices;
+using System.Collections.Generic;
 using System.Threading;
 
 namespace Shiro.Services
@@ -14,11 +13,14 @@ namespace Shiro.Services
     /// </summary>
     public static partial class RobloxAudioService
     {
+        private const long ComFailureBackoffMs = 10_000;
+
         private static readonly System.Threading.Lock _gate = new();
         private static Timer? _smartMuteTimer;
         private static bool _smartMuteEnabled = false;
         private static int _lastActiveRobloxPid = -1;
         private static int _lastRunningRobloxCount = -1;
+        private static long _lastComFailureTick = 0;
         private static volatile string _status = "Audio Manager Ready";
 
         public static event Action? StatusChanged;
@@ -37,13 +39,18 @@ namespace Shiro.Services
                 {
                     _lastActiveRobloxPid = -1;
                     _lastRunningRobloxCount = -1;
+                    _lastComFailureTick = 0;
+                    TimeSpan pollInterval = ForegroundWindowService.IsHookActive
+                        ? TimeSpan.FromMilliseconds(4000)
+                        : TimeSpan.FromMilliseconds(1500);
+
                     if (_smartMuteTimer == null)
                     {
-                        _smartMuteTimer = new Timer(OnSmartMuteCheck, null, TimeSpan.Zero, TimeSpan.FromMilliseconds(1500));
+                        _smartMuteTimer = new Timer(OnSmartMuteCheck, null, TimeSpan.Zero, pollInterval);
                     }
                     else
                     {
-                        _smartMuteTimer.Change(TimeSpan.Zero, TimeSpan.FromMilliseconds(1500));
+                        _smartMuteTimer.Change(TimeSpan.Zero, pollInterval);
                     }
                     SetStatus("Smart Mute Active (Background clients muted)");
                 }
@@ -53,6 +60,7 @@ namespace Shiro.Services
                     _smartMuteTimer = null;
                     _lastActiveRobloxPid = -1;
                     _lastRunningRobloxCount = -1;
+                    _lastComFailureTick = 0;
                     shouldUnmuteAll = wasEnabled;
                     SetStatus("Audio Manager Ready");
                 }
@@ -66,6 +74,18 @@ namespace Shiro.Services
         }
 
         /// <summary>
+        /// Legacy foreground notification hook. Preferred entry point is coalesced evaluation via <see cref="EvaluateWithPids"/>.
+        /// </summary>
+        [Obsolete("Use ForegroundWindowService coalesced focus evaluation or EvaluateWithPids.")]
+        public static void NotifyForegroundChanged(IntPtr hwnd, uint foregroundPid)
+        {
+            if (!_smartMuteEnabled) return;
+
+            // Dispatch onto ThreadPool so the WinEvent callback returns instantaneously to the OS message pump
+            ThreadPool.QueueUserWorkItem(_ => EvaluateSmartMuteForForegroundPid(foregroundPid));
+        }
+
+        /// <summary>
         /// Pure decision helper determining whether Smart Mute needs to enumerate WASAPI audio sessions on this tick.
         /// Skips COM enumeration when no Roblox processes are running or when neither the focused Roblox PID nor
         /// the running Roblox process count has changed since the last tick.
@@ -74,9 +94,14 @@ namespace Shiro.Services
             int activePid,
             int lastActivePid,
             int runningRobloxCount,
-            int lastRunningRobloxCount)
+            int lastRunningRobloxCount,
+            long nowTick = 0,
+            long lastFailureTick = 0)
         {
             if (runningRobloxCount <= 0)
+                return false;
+
+            if (lastFailureTick > 0 && nowTick > 0 && (nowTick - lastFailureTick) < ComFailureBackoffMs)
                 return false;
 
             if (activePid == lastActivePid && runningRobloxCount == lastRunningRobloxCount)
@@ -89,9 +114,35 @@ namespace Shiro.Services
         {
             if (!_smartMuteEnabled) return;
 
+            IntPtr hForeground = GetForegroundWindow();
+            uint fgPid = 0;
+            if (hForeground != IntPtr.Zero)
+            {
+                GetWindowThreadProcessId(hForeground, out fgPid);
+            }
+
+            EvaluateSmartMuteForForegroundPid(fgPid);
+        }
+
+        public static void EvaluateWithPids(uint fgPid, List<int> runningPids)
+        {
+            if (!_smartMuteEnabled || runningPids == null) return;
+            EvaluateSmartMuteForForegroundPidCore(fgPid, runningPids);
+        }
+
+        private static void EvaluateSmartMuteForForegroundPid(uint fgPid)
+        {
+            if (!_smartMuteEnabled) return;
+            var runningPids = RobloxProcessService.GetRunningRobloxPids();
+            EvaluateSmartMuteForForegroundPidCore(fgPid, runningPids);
+        }
+
+        private static void EvaluateSmartMuteForForegroundPidCore(uint fgPid, List<int> runningPids)
+        {
+            if (!_smartMuteEnabled) return;
+
             try
             {
-                var runningPids = RobloxProcessService.GetRunningRobloxPids();
                 int runningRobloxCount = runningPids.Count;
                 if (runningRobloxCount <= 0)
                 {
@@ -100,87 +151,126 @@ namespace Shiro.Services
                     return;
                 }
 
-                IntPtr hForeground = GetForegroundWindow();
-                uint fgPid = 0;
-                if (hForeground != IntPtr.Zero)
-                {
-                    GetWindowThreadProcessId(hForeground, out fgPid);
-                }
-
-                bool isRobloxActive = fgPid > 0 && runningPids.Contains((int)fgPid);
-
+                bool isRobloxActive = fgPid > 0 && ContainsPid(runningPids, (int)fgPid);
                 int activePid = isRobloxActive ? (int)fgPid : 0;
+                long nowTick = Environment.TickCount64;
 
-                // If active foreground state and running Roblox process count haven't changed, skip COM enumeration to save CPU
-                if (!ShouldApplySmartMuteState(activePid, _lastActiveRobloxPid, runningRobloxCount, _lastRunningRobloxCount))
+                if (!ShouldApplySmartMuteState(
+                        activePid,
+                        _lastActiveRobloxPid,
+                        runningRobloxCount,
+                        _lastRunningRobloxCount,
+                        nowTick,
+                        Interlocked.Read(ref _lastComFailureTick)))
                 {
                     return;
                 }
 
                 _lastActiveRobloxPid = activePid;
-                _lastRunningRobloxCount = runningRobloxCount;
 
-                ApplyFocusAudioState(activePid, runningPids);
+                bool succeeded = TryApplyFocusAudioState(activePid, runningPids, out _, out _, out int totalSessions);
+                if (!succeeded)
+                {
+                    Interlocked.Exchange(ref _lastComFailureTick, Environment.TickCount64);
+                    return;
+                }
+
+                Interlocked.Exchange(ref _lastComFailureTick, 0);
+
+                // If not all running processes have registered audio sessions yet (e.g. game still launching),
+                // do not lock _lastRunningRobloxCount so next tick will re-check and mute the new client.
+                if (totalSessions < runningRobloxCount)
+                {
+                    _lastRunningRobloxCount = -1;
+                }
+                else
+                {
+                    _lastRunningRobloxCount = runningRobloxCount;
+                }
             }
             catch (Exception ex)
             {
+                Interlocked.Exchange(ref _lastComFailureTick, Environment.TickCount64);
                 Program.Logger?.Debug($"[RobloxAudioService.SmartMute] {ex.Message}");
             }
         }
 
         /// <summary>
-        /// Enumerates all active Windows Core Audio sessions belonging to running Roblox processes.
+        /// Enumerates all active Windows Core Audio sessions belonging to running Roblox processes using
+        /// raw unmanaged COM pointers (zero CLR RCW apartment marshaling).
         /// Returning false from <paramref name="onSession"/> stops enumeration early.
         /// </summary>
-        private static void ForEachRobloxAudioSession(Func<uint, ISimpleAudioVolume, bool> onSession, IReadOnlyList<int>? preloadedPids = null)
+        private static unsafe bool ForEachRobloxAudioSession(
+            Func<uint, NativeSimpleAudioVolume, bool> onSession,
+            IReadOnlyList<int>? preloadedPids = null)
         {
-            if (!OperatingSystem.IsWindows() || onSession == null) return;
+            if (!OperatingSystem.IsWindows() || onSession == null) return false;
 
             var robloxPids = preloadedPids ?? RobloxProcessService.GetRunningRobloxPids();
-            if (robloxPids.Count == 0) return;
+            if (robloxPids.Count == 0) return true;
 
-            IMMDeviceEnumerator? enumerator = null;
-            IMMDevice? device = null;
-            IAudioSessionManager2? sessionManager = null;
-            IAudioSessionEnumerator? sessionEnumerator = null;
+            int hrCoInit = CoInitializeEx(IntPtr.Zero, COINIT_MULTITHREADED);
+            bool shouldUninit = hrCoInit >= 0; // S_OK (0) or S_FALSE (1)
+            if (hrCoInit < 0 && hrCoInit != RPC_E_CHANGED_MODE)
+            {
+                return false;
+            }
+
+            IntPtr pEnumerator = IntPtr.Zero;
+            IntPtr pDevice = IntPtr.Zero;
+            IntPtr pSessionManager2 = IntPtr.Zero;
+            IntPtr pSessionEnum = IntPtr.Zero;
 
             try
             {
-                enumerator = (IMMDeviceEnumerator)new MMDeviceEnumeratorComObject();
-                if (enumerator.GetDefaultAudioEndpoint(0 /* eRender */, 1 /* eMultimedia */, out device) != 0 || device == null)
-                    return;
+                Guid clsid = CLSID_MMDeviceEnumerator;
+                Guid iidEnum = IID_IMMDeviceEnumerator;
+                IntPtr createdEnumerator = IntPtr.Zero;
+                int hr = CoCreateInstance(&clsid, IntPtr.Zero, CLSCTX_ALL, &iidEnum, &createdEnumerator);
+                if (hr < 0 || createdEnumerator == IntPtr.Zero)
+                    return false;
 
-                var iid = typeof(IAudioSessionManager2).GUID;
-                if (device.Activate(ref iid, 1 /* CLSCTX_INPROC_SERVER */, IntPtr.Zero, out object sessionMgrObj) != 0 || sessionMgrObj == null)
-                    return;
+                pEnumerator = createdEnumerator;
 
-                sessionManager = (IAudioSessionManager2)sessionMgrObj;
-                if (sessionManager.GetSessionEnumerator(out sessionEnumerator) != 0 || sessionEnumerator == null)
-                    return;
+                // eRender = 0, eMultimedia = 1
+                if (DeviceEnumeratorGetDefaultEndpoint(pEnumerator, 0, 1, out pDevice) < 0 || pDevice == IntPtr.Zero)
+                {
+                    // No default audio render device attached (e.g. headless/unplugged speakers) -> treat as non-fatal
+                    return false;
+                }
 
-                if (sessionEnumerator.GetCount(out int count) != 0 || count <= 0)
-                    return;
+                if (DeviceActivateSessionManager2(pDevice, out pSessionManager2) < 0 || pSessionManager2 == IntPtr.Zero)
+                    return false;
+
+                if (SessionManager2GetEnumerator(pSessionManager2, out pSessionEnum) < 0 || pSessionEnum == IntPtr.Zero)
+                    return false;
+
+                if (SessionEnumeratorGetCount(pSessionEnum, out int count) < 0 || count <= 0)
+                    return true;
 
                 for (int i = 0; i < count; i++)
                 {
-                    IAudioSessionControl? session = null;
+                    IntPtr pSession = IntPtr.Zero;
+                    IntPtr pSession2 = IntPtr.Zero;
+                    IntPtr pVolume = IntPtr.Zero;
+
                     try
                     {
-                        if (sessionEnumerator.GetSession(i, out session) != 0 || session == null)
+                        if (SessionEnumeratorGetSession(pSessionEnum, i, out pSession) < 0 || pSession == IntPtr.Zero)
                             continue;
 
-                        if (session is IAudioSessionControl2 session2)
-                        {
-                            session2.GetProcessId(out uint pid);
-                            if (pid == 0 || !ContainsPid(robloxPids, (int)pid))
-                                continue;
+                        if (ComQueryInterface(pSession, in IID_IAudioSessionControl2, out pSession2) < 0 || pSession2 == IntPtr.Zero)
+                            continue;
 
-                            if (session is ISimpleAudioVolume volume)
-                            {
-                                if (!onSession(pid, volume))
-                                    break;
-                            }
-                        }
+                        if (SessionControl2GetProcessId(pSession2, out uint pid) < 0 || pid == 0 || !ContainsPid(robloxPids, (int)pid))
+                            continue;
+
+                        if (ComQueryInterface(pSession, in IID_ISimpleAudioVolume, out pVolume) < 0 || pVolume == IntPtr.Zero)
+                            continue;
+
+                        var nativeVolume = new NativeSimpleAudioVolume(pVolume);
+                        if (!onSession(pid, nativeVolume))
+                            break;
                     }
                     catch (Exception ex)
                     {
@@ -188,16 +278,24 @@ namespace Shiro.Services
                     }
                     finally
                     {
-                        if (session != null) Marshal.ReleaseComObject(session);
+                        ComRelease(ref pVolume);
+                        ComRelease(ref pSession2);
+                        ComRelease(ref pSession);
                     }
                 }
+
+                return true;
             }
             finally
             {
-                if (sessionEnumerator != null) Marshal.ReleaseComObject(sessionEnumerator);
-                if (sessionManager != null) Marshal.ReleaseComObject(sessionManager);
-                if (device != null) Marshal.ReleaseComObject(device);
-                if (enumerator != null) Marshal.ReleaseComObject(enumerator);
+                ComRelease(ref pSessionEnum);
+                ComRelease(ref pSessionManager2);
+                ComRelease(ref pDevice);
+                ComRelease(ref pEnumerator);
+                if (shouldUninit)
+                {
+                    CoUninitialize();
+                }
             }
         }
 
@@ -214,36 +312,61 @@ namespace Shiro.Services
         /// <summary>
         /// Mutes all background Roblox processes, keeping only activePid unmuted (or muting all if activePid is 0).
         /// </summary>
-        public static (int muted, int unmuted) ApplyFocusAudioState(int activePid, IReadOnlyList<int>? preloadedPids = null)
+        public static (int muted, int unmuted, int totalSessions) ApplyFocusAudioState(int activePid, IReadOnlyList<int>? preloadedPids = null)
         {
-            int muted = 0;
-            int unmuted = 0;
+            TryApplyFocusAudioState(activePid, preloadedPids, out int muted, out int unmuted, out int totalSessions);
+            return (muted, unmuted, totalSessions);
+        }
 
-            if (!OperatingSystem.IsWindows()) return (0, 0);
+        internal static bool TryApplyFocusAudioState(
+            int activePid,
+            IReadOnlyList<int>? preloadedPids,
+            out int muted,
+            out int unmuted,
+            out int totalSessions)
+        {
+            int localMuted = 0;
+            int localUnmuted = 0;
+            int localTotal = 0;
+
+            if (!OperatingSystem.IsWindows())
+            {
+                muted = 0;
+                unmuted = 0;
+                totalSessions = 0;
+                return false;
+            }
 
             try
             {
-                var emptyGuid = Guid.Empty;
-                ForEachRobloxAudioSession((pid, volume) =>
+                bool ok = ForEachRobloxAudioSession((pid, volume) =>
                 {
+                    localTotal++;
                     bool targetMute = activePid <= 0 || pid != (uint)activePid;
-                    volume.GetMute(out bool currentMute);
-
-                    if (currentMute != targetMute)
+                    if (volume.TryGetMute(out bool currentMute) && currentMute != targetMute)
                     {
-                        volume.SetMute(targetMute, ref emptyGuid);
-                        if (targetMute) muted++;
-                        else unmuted++;
+                        if (volume.TrySetMute(targetMute))
+                        {
+                            if (targetMute) localMuted++;
+                            else localUnmuted++;
+                        }
                     }
                     return true;
                 }, preloadedPids);
+
+                muted = localMuted;
+                unmuted = localUnmuted;
+                totalSessions = localTotal;
+                return ok;
             }
             catch (Exception ex)
             {
                 Program.Logger?.Debug($"[RobloxAudioService.ApplyFocusAudioState] {ex.Message}");
+                muted = localMuted;
+                unmuted = localUnmuted;
+                totalSessions = localTotal;
+                return false;
             }
-
-            return (muted, unmuted);
         }
 
         /// <summary>
@@ -256,14 +379,12 @@ namespace Shiro.Services
             int changed = 0;
             try
             {
-                var emptyGuid = Guid.Empty;
                 ForEachRobloxAudioSession((_, volume) =>
                 {
-                    volume.GetMute(out bool currentMute);
-                    if (currentMute != mute)
+                    if (volume.TryGetMute(out bool currentMute) && currentMute != mute)
                     {
-                        volume.SetMute(mute, ref emptyGuid);
-                        changed++;
+                        if (volume.TrySetMute(mute))
+                            changed++;
                     }
                     return true;
                 });
@@ -303,8 +424,7 @@ namespace Shiro.Services
             {
                 ForEachRobloxAudioSession((_, volume) =>
                 {
-                    volume.GetMute(out bool isMuted);
-                    if (!isMuted)
+                    if (volume.TryGetMute(out bool isMuted) && !isMuted)
                     {
                         anyUnmuted = true;
                         return false; // Stop enumeration immediately

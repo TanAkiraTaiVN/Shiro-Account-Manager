@@ -1,4 +1,4 @@
-﻿<Window xmlns="https://github.com/avaloniaui"
+<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:lucide="clr-namespace:LucideAvalonia;assembly=LucideAvalonia"
         xmlns:services="clr-namespace:Shiro.Services"
@@ -32,9 +32,14 @@
                          Background="#1A1A24" Foreground="#FFFFFF" BorderBrush="#2E2E3E"
                          CornerRadius="6" Padding="10,8" Margin="0,0,10,0" />
 
-                <Button Grid.Column="1" x:Name="BtnAddProxy" Content="+ Add Proxy" Click="OnAddProxyClicked"
+                <Button Grid.Column="1" x:Name="BtnAddProxy" Click="OnAddProxyClicked"
                         Background="#FFFFFF" Foreground="#09090B" FontWeight="Bold"
-                        CornerRadius="6" Padding="16,8" Cursor="Hand" />
+                        CornerRadius="6" Padding="16,8" Cursor="Hand">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <lucide:Lucide Icon="Plus" Width="13" Height="13" StrokeBrush="#09090B" StrokeThickness="2.5" VerticalAlignment="Center" />
+                        <TextBlock Text="Add Proxy" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
             </Grid>
         </Border>
 
@@ -100,9 +105,14 @@
                            HorizontalAlignment="Center" FontSize="12" Foreground="#A1A1AA" Margin="12,0" />
 
                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
-                    <Button x:Name="BtnSaveClose" Content="Save &amp; Close" Click="OnSaveCloseClicked"
+                    <Button x:Name="BtnSaveClose" Click="OnSaveCloseClicked"
                             Background="#FFFFFF" Foreground="#09090B" FontWeight="Bold"
-                            CornerRadius="6" Padding="18,8" Cursor="Hand" />
+                            CornerRadius="6" Padding="18,8" Cursor="Hand">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <lucide:Lucide Icon="Check" Width="13" Height="13" StrokeBrush="#09090B" StrokeThickness="2.5" VerticalAlignment="Center" />
+                            <TextBlock Text="Save &amp; Close" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
                 </StackPanel>
             </Grid>
         </Border>

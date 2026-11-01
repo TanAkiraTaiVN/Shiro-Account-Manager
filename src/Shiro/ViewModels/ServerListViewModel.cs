@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -23,10 +23,11 @@ namespace Shiro.ViewModels
         private readonly BulkObservableCollection<ServerItemViewModel> _servers = new BulkObservableCollection<ServerItemViewModel>();
 
         private string _placeIdInput = string.Empty;
+        private long _lastLoadedPlaceId;
         private bool _isLoadingServers;
         private string _loadingStatus = LocalizationService.IsEnglish ? "Ready" : "Sẵn sàng";
         private ServerItemViewModel? _selectedServer;
-        private int _selectedSubTabIndex = 0; // 0: Servers, 1: Games, 2: Favorites, 3: Watcher
+        private int _selectedSubTabIndex = 0; // 0: Servers, 1: Games, 2: Recent & Favorites, 3: Watcher
 
         private CancellationTokenSource? _operationCts;
 
@@ -91,15 +92,40 @@ namespace Shiro.ViewModels
             {
                 if (SetProperty(ref _selectedSubTabIndex, value))
                 {
-                    if (value == 1 && _searchGames.Count == 0 && !IsSearchingGames)
+                    if (value == 0)
+                    {
+                        EnsureServersLoadedForCurrentPlaceId();
+                    }
+                    else if (value == 1 && _searchGames.Count == 0 && !IsSearchingGames)
                     {
                         _ = SearchGamesAsync();
+                    }
+                    else if (value == 2)
+                    {
+                        _mainViewModel?.ReloadRecentGames();
+                        NotifyRecentGamesChanged();
                     }
                 }
             }
         }
 
-        // Commands
+        public void EnsureServersLoadedForCurrentPlaceId()
+        {
+            if (IsLoadingServers)
+                return;
+
+            string rawPid = !string.IsNullOrWhiteSpace(PlaceIdInput)
+                ? PlaceIdInput
+                : (!string.IsNullOrWhiteSpace(_mainViewModel?.PlaceId) ? _mainViewModel!.PlaceId : (AccountManager.CurrentPlaceId ?? string.Empty));
+
+            if (string.IsNullOrWhiteSpace(PlaceIdInput) && !string.IsNullOrWhiteSpace(rawPid))
+                SyncPlaceId(rawPid);
+
+            long placeId = AccountLauncherService.ParsePlaceId(rawPid);
+            if (placeId > 0 && (_allServers.Count == 0 || _lastLoadedPlaceId != placeId))
+                _ = RefreshServersAsync();
+        }
+
         public ICommand RefreshServersCommand { get; }
         public ICommand CancelOperationCommand { get; }
         public ICommand JoinServerCommand { get; }
@@ -137,6 +163,7 @@ namespace Shiro.ViewModels
             SelectFavoriteCommand = new RelayCommand(SelectFavorite);
             LaunchFavoriteCommand = new AsyncRelayCommand(LaunchFavoriteAsync);
 
+            InitializeSortingAndLibraryCommands();
             LoadWatcherSettings();
             LoadFavorites();
 
@@ -146,7 +173,7 @@ namespace Shiro.ViewModels
                 {
                     LoadingStatus = LocalizationService.IsEnglish ? "Ready" : "Sẵn sàng";
                 }
-                foreach (var s in _servers)
+                foreach (var s in _allServers)
                 {
                     s.NotifyLanguageChanged();
                 }
@@ -183,6 +210,7 @@ namespace Shiro.ViewModels
             ResetOperationCts(createNew: false);
             IsLoadingServers = false;
             IsSearchingPlayer = false;
+            if (_allServers.Count == 0) _lastLoadedPlaceId = 0;
             LoadingStatus = LocalizationService.IsEnglish ? "Operation cancelled." : "Đã hủy thao tác.";
             NotifyServerCounts();
         }
@@ -194,8 +222,8 @@ namespace Shiro.ViewModels
             if (placeId <= 0)
             {
                 LoadingStatus = LocalizationService.IsEnglish
-                    ? "⚠️ Please enter a valid Place ID before loading!"
-                    : "⚠️ Vui lòng nhập Place ID hợp lệ trước khi tải danh sách!";
+                    ? "Please enter a valid Place ID before loading!"
+                    : "Vui lòng nhập Place ID hợp lệ trước khi tải danh sách!";
                 return;
             }
 
@@ -203,12 +231,12 @@ namespace Shiro.ViewModels
             IsSearchingPlayer = false;
             CancellationToken ct = cts.Token;
 
+            _lastLoadedPlaceId = placeId;
             IsLoadingServers = true;
             LoadingStatus = LocalizationService.IsEnglish
-                ? $"🔍 Searching servers for Place ID {placeId}..."
-                : $"🔍 Đang tìm máy chủ cho Place ID {placeId}...";
-            _servers.Clear();
-            NotifyServerCounts();
+                ? $"Searching servers for Place ID {placeId}..."
+                : $"Đang tìm máy chủ cho Place ID {placeId}...";
+            ClearRawServers();
 
             await Task.Run(async () =>
             {
@@ -237,10 +265,11 @@ namespace Shiro.ViewModels
                             {
                                 AppDispatcher.Post(() =>
                                 {
+                                    if (!ct.IsCancellationRequested) _lastLoadedPlaceId = 0;
                                     if (!ct.IsCancellationRequested)
                                         LoadingStatus = LocalizationService.IsEnglish
-                                            ? $"⚠️ Failed to load server list: {response.StatusCode}"
-                                            : $"⚠️ Không thể tải danh sách server: {response.StatusCode}";
+                                            ? $"Failed to load server list: {response.StatusCode}"
+                                            : $"Không thể tải danh sách server: {response.StatusCode}";
                                 });
                             }
                             break;
@@ -275,8 +304,7 @@ namespace Shiro.ViewModels
                         AppDispatcher.Post(() =>
                         {
                             if (ct.IsCancellationRequested) return;
-                            _servers.AddRange(batch);
-                            NotifyServerCounts();
+                            AppendRawServers(batch);
                             LoadingStatus = LocalizationService.IsEnglish
                                 ? $"Loaded {currentCount} servers..."
                                 : $"Đã tải {currentCount} máy chủ...";
@@ -293,8 +321,7 @@ namespace Shiro.ViewModels
                         AppDispatcher.Post(() =>
                         {
                             if (ct.IsCancellationRequested) return;
-                            _servers.InsertRange(0, vipList);
-                            NotifyServerCounts();
+                            PrependRawServers(vipList);
                         });
                     }
 
@@ -302,8 +329,8 @@ namespace Shiro.ViewModels
                     {
                         if (ct.IsCancellationRequested) return;
                         LoadingStatus = totalLoaded > 0
-                            ? (LocalizationService.IsEnglish ? $"✅ Successfully loaded {totalLoaded} servers!" : $"✅ Đã tải thành công {totalLoaded} máy chủ!")
-                            : (LocalizationService.IsEnglish ? "⚠️ No servers found for this Place ID." : "⚠️ Không tìm thấy máy chủ nào cho Place ID này.");
+                            ? (LocalizationService.IsEnglish ? $"Successfully loaded {totalLoaded} servers!" : $"Đã tải thành công {totalLoaded} máy chủ!")
+                            : (LocalizationService.IsEnglish ? "No servers found for this Place ID." : "Không tìm thấy máy chủ nào cho Place ID này.");
                         NotifyServerCounts();
                     });
                 }
@@ -312,6 +339,7 @@ namespace Shiro.ViewModels
                     AppDispatcher.Post(() =>
                     {
                         LoadingStatus = LocalizationService.IsEnglish ? "Server loading cancelled." : "Đã hủy tải máy chủ.";
+                        _lastLoadedPlaceId = 0;
                         NotifyServerCounts();
                     });
                 }
@@ -320,7 +348,7 @@ namespace Shiro.ViewModels
                     Program.Logger?.Error($"[RefreshServersAsync] {ex}");
                     AppDispatcher.Post(() =>
                     {
-                        LoadingStatus = LocalizationService.IsEnglish ? $"⚠️ Error: {ex.Message}" : $"⚠️ Lỗi: {ex.Message}";
+                        LoadingStatus = LocalizationService.IsEnglish ? $"Error: {ex.Message}" : $"Lỗi: {ex.Message}";
                         NotifyServerCounts();
                     });
                 }

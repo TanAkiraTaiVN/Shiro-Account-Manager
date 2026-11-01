@@ -229,5 +229,18 @@ namespace Shiro.Tests
                 try { System.IO.Directory.Delete(tempDir, true); } catch { }
             }
         }
+
+        [Fact]
+        public void RobloxDirectLauncher_BuildGameLaunchArguments_AlwaysIncludesTicketAndJoinUrl()
+        {
+            string args = RobloxDirectLauncher.BuildGameLaunchArguments(
+                "TEST_TICKET_123",
+                "https://assetgame.roblox.com/game/PlaceLauncher.ashx?request=RequestGame&placeId=123",
+                "123456789012");
+
+            Assert.Contains("-t \"TEST_TICKET_123\"", args);
+            Assert.Contains("-j \"https://assetgame.roblox.com/game/PlaceLauncher.ashx?request=RequestGame&placeId=123\"", args);
+            Assert.Contains("-b 123456789012", args);
+        }
     }
 }

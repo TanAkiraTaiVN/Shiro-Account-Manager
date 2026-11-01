@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -54,11 +54,71 @@ namespace Shiro.Classes
                 Path.Combine(LocalAppData, "Vivaldi", "Application", "vivaldi.exe")
             ];
 
-            string[] found = Candidates.Where(File.Exists).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+            string[] found = Candidates
+                .Concat(FindRegisteredBrowserExecutables())
+                .Where(File.Exists)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
             if (found.Length > 0)
                 _cachedSystemBrowserExecutables = found;
             return found;
         }
+
+        /// <summary>
+        /// Resolves Chrome/Edge through the Windows "App Paths" registration so
+        /// non-default install locations (per-machine policies, custom drives)
+        /// are still found. Chrome stays ahead of Edge to keep the existing
+        /// browser preference.
+        /// </summary>
+        private static IEnumerable<string> FindRegisteredBrowserExecutables()
+        {
+            if (!OperatingSystem.IsWindows())
+                yield break;
+
+            foreach (string exeName in new[] { "chrome.exe", "msedge.exe" })
+            {
+                foreach (var hive in new[] { Microsoft.Win32.Registry.CurrentUser, Microsoft.Win32.Registry.LocalMachine })
+                {
+                    string? path = null;
+                    try
+                    {
+                        using var key = hive.OpenSubKey($@"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\{exeName}");
+                        path = (key?.GetValue(null) as string)?.Trim('"');
+                    }
+                    catch (Exception ex)
+                    {
+                        Program.Logger?.Debug($"App Paths lookup for {exeName} failed: {ex.Message}");
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(path))
+                        yield return path;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Returns a Chromium build that an older Shiro version already
+        /// downloaded into the cache. Shiro no longer downloads Chromium
+        /// itself (Edge ships with Windows 10/11), but an existing cached copy
+        /// is still honoured so machines without Chrome/Edge keep working.
+        /// </summary>
+        public static string? FindCachedChromiumExecutable()
+        {
+            try
+            {
+                return Fetcher.GetInstalledBrowsers()
+                    .Select(b => b.GetExecutablePath())
+                    .FirstOrDefault(path => !string.IsNullOrWhiteSpace(path) && File.Exists(path));
+            }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"Cached Chromium lookup failed: {ex.Message}");
+                return null;
+            }
+        }
+
+        public const string BrowserNotFoundMessage =
+            "Không tìm thấy Google Chrome hoặc Microsoft Edge. Vui lòng cài đặt Chrome hoặc Edge rồi thử lại.";
 
         public static void CreateGrid(Vector2 Size)
         {

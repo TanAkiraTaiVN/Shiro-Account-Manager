@@ -1,7 +1,8 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.Concurrent;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Media.Imaging;
 using Shiro.Classes;
@@ -11,40 +12,60 @@ namespace Shiro.ViewModels
 {
     public partial class AccountViewModel
     {
-        private const int MaxAvatarBitmapCacheEntries = 512;
-        private static readonly ConcurrentDictionary<long, byte> _requestedAvatarDownloads = new ConcurrentDictionary<long, byte>();
-        private static readonly LruCache<long, Bitmap> _avatarBitmapCache = new LruCache<long, Bitmap>(MaxAvatarBitmapCacheEntries);
+        private const int MaxAvatarBitmapCacheEntries = 2048;
+        private static readonly ConcurrentDictionary<long, byte> _requestedAvatarDownloads = new();
+        private static readonly LruCache<long, Bitmap> _avatarBitmapCache = new(MaxAvatarBitmapCacheEntries);
+        private static readonly SemaphoreSlim _diskDecodeGate = new(6, 6);
+        private static int _avatarCacheGeneration = 1;
+
         private string? _avatarUrl;
+        private Bitmap? _cachedAvatarBitmap;
+        private long _cachedAvatarUserId;
+        private int _cachedAvatarGeneration;
+        private int _avatarLoadState; // 0 = Unchecked, 1 = Loading, 2 = Resolved
 
         public static void ClearAvatarMemoryCache()
         {
+            Interlocked.Increment(ref _avatarCacheGeneration);
             _avatarBitmapCache.Clear();
             _requestedAvatarDownloads.Clear();
         }
 
+        /// <summary>
+        /// Pure O(1) non-blocking memory read for smooth 120+ FPS scrolling.
+        /// Never touches disk I/O or decodes PNG streams on the UI thread.
+        /// </summary>
         public Bitmap? AvatarImage
         {
             get
             {
-                if (UserId <= 0) return null;
-                if (_avatarBitmapCache.TryGetValue(UserId, out var cached))
-                    return cached;
+                long userId = UserId;
+                if (userId <= 0)
+                    return null;
 
-                string diskPath = AvatarUrl;
-                if (!string.IsNullOrEmpty(diskPath) && File.Exists(diskPath))
+                int gen = Volatile.Read(ref _avatarCacheGeneration);
+                if (_cachedAvatarUserId == userId && _cachedAvatarGeneration == gen)
                 {
-                    try
-                    {
-                        using var stream = File.OpenRead(diskPath);
-                        var bmp = Bitmap.DecodeToWidth(stream, 72);
-                        _avatarBitmapCache[UserId] = bmp;
-                        return bmp;
-                    }
-                    catch (Exception ex)
-                    {
-                        Program.Logger?.Debug($"[AvatarImage] Error decoding avatar for {UserId}: {ex.Message}");
-                    }
+                    if (_cachedAvatarBitmap != null)
+                        return _cachedAvatarBitmap;
+                    if (_avatarLoadState != 0)
+                        return null;
                 }
+
+                if (_avatarBitmapCache.TryGetValue(userId, out var cached) && cached != null)
+                {
+                    _cachedAvatarUserId = userId;
+                    _cachedAvatarGeneration = gen;
+                    _cachedAvatarBitmap = cached;
+                    _avatarLoadState = 2;
+                    return cached;
+                }
+
+                _cachedAvatarUserId = userId;
+                _cachedAvatarGeneration = gen;
+                _cachedAvatarBitmap = null;
+                _avatarLoadState = 1;
+                _ = LoadOrFetchAvatarInBackgroundAsync(userId, gen);
                 return null;
             }
         }
@@ -53,8 +74,11 @@ namespace Shiro.ViewModels
         {
             get
             {
-                if (_avatarUrl != null) return _avatarUrl;
-                if (UserId <= 0) return string.Empty;
+                if (_avatarUrl != null)
+                    return _avatarUrl;
+                if (UserId <= 0)
+                    return string.Empty;
+
                 try
                 {
                     string diskPath = Path.Combine(StoragePaths.CacheDirectory, "Avatars", $"{UserId}.png");
@@ -69,7 +93,6 @@ namespace Shiro.ViewModels
                     Program.Logger?.Debug($"[AvatarUrl] Could not read cached avatar for {UserId}: {ex.Message}");
                 }
 
-                // Automatically trigger download in background if missing from disk
                 if (_requestedAvatarDownloads.TryAdd(UserId, 0))
                 {
                     _ = FetchAndCacheAvatarAsync();
@@ -79,41 +102,138 @@ namespace Shiro.ViewModels
             }
         }
 
-        public async Task<string> FetchAndCacheAvatarAsync()
+        private async Task LoadOrFetchAvatarInBackgroundAsync(long userId, int expectedGeneration)
         {
+            await Task.Yield();
+            Bitmap? decoded = null;
+            string? resolvedPath = _avatarUrl;
+
             try
             {
-                string? path = await AvatarService.EnsureAvatarAsync(UserId).ConfigureAwait(false);
-                if (!string.IsNullOrEmpty(path))
+                await _diskDecodeGate.WaitAsync().ConfigureAwait(false);
+                try
+                {
+                    if (_avatarBitmapCache.TryGetValue(userId, out var alreadyCached) && alreadyCached != null)
+                    {
+                        decoded = alreadyCached;
+                    }
+                    else
+                    {
+                        if (string.IsNullOrEmpty(resolvedPath))
+                        {
+                            string candidate = Path.Combine(StoragePaths.CacheDirectory, "Avatars", $"{userId}.png");
+                            if (File.Exists(candidate))
+                            {
+                                resolvedPath = candidate;
+                                _avatarUrl = candidate;
+                            }
+                        }
+
+                        if (!string.IsNullOrEmpty(resolvedPath) && File.Exists(resolvedPath))
+                        {
+                            using var stream = File.OpenRead(resolvedPath);
+                            decoded = Bitmap.DecodeToWidth(stream, 72);
+                            _avatarBitmapCache[userId] = decoded;
+                        }
+                    }
+                }
+                finally
+                {
+                    _diskDecodeGate.Release();
+                }
+
+                if (decoded != null)
+                {
+                    ApplyResolvedAvatar(userId, expectedGeneration, decoded);
+                    return;
+                }
+
+                if (_requestedAvatarDownloads.TryAdd(userId, 0))
+                {
+                    await FetchAndCacheAvatarAsync().ConfigureAwait(false);
+                }
+                else
+                {
+                    _avatarLoadState = 2;
+                }
+            }
+            catch (Exception ex)
+            {
+                _avatarLoadState = 2;
+                Program.Logger?.Debug($"[LoadOrFetchAvatar] Error loading avatar for {userId}: {ex.Message}");
+            }
+        }
+
+        public async Task<string> FetchAndCacheAvatarAsync()
+        {
+            long userId = UserId;
+            if (userId <= 0)
+                return string.Empty;
+
+            int gen = Volatile.Read(ref _avatarCacheGeneration);
+            try
+            {
+                string? path = await AvatarService.EnsureAvatarAsync(userId).ConfigureAwait(false);
+                if (!string.IsNullOrEmpty(path) && File.Exists(path))
                 {
                     _avatarUrl = path;
-                    _avatarBitmapCache.TryRemove(UserId, out _);
-                    AppDispatcher.Post(() =>
+                    Bitmap? decoded = null;
+                    await _diskDecodeGate.WaitAsync().ConfigureAwait(false);
+                    try
                     {
-                        OnPropertyChanged(nameof(AvatarUrl));
-                        OnPropertyChanged(nameof(AvatarImage));
-                    });
+                        using var stream = File.OpenRead(path);
+                        decoded = Bitmap.DecodeToWidth(stream, 72);
+                        _avatarBitmapCache[userId] = decoded;
+                    }
+                    finally
+                    {
+                        _diskDecodeGate.Release();
+                    }
+
+                    ApplyResolvedAvatar(userId, gen, decoded);
                     return path;
                 }
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[FetchAndCacheAvatarAsync] Could not fetch avatar for {UserId}: {ex.Message}");
+                Program.Logger?.Debug($"[FetchAndCacheAvatarAsync] Could not fetch avatar for {userId}: {ex.Message}");
             }
             finally
             {
-                // Remove from tracking if avatar was not retrieved so retry is possible
                 if (string.IsNullOrEmpty(_avatarUrl))
                 {
-                    _requestedAvatarDownloads.TryRemove(UserId, out _);
+                    _avatarLoadState = 2;
+                    _requestedAvatarDownloads.TryRemove(userId, out _);
                 }
             }
             return string.Empty;
         }
 
+        private void ApplyResolvedAvatar(long userId, int expectedGeneration, Bitmap? bitmap)
+        {
+            if (Volatile.Read(ref _avatarCacheGeneration) != expectedGeneration || UserId != userId)
+                return;
+
+            _cachedAvatarUserId = userId;
+            _cachedAvatarGeneration = expectedGeneration;
+            _cachedAvatarBitmap = bitmap;
+            _avatarLoadState = 2;
+
+            if (bitmap != null)
+            {
+                AppDispatcher.PostBackground(() =>
+                {
+                    OnPropertyChanged(nameof(AvatarUrl));
+                    OnPropertyChanged(nameof(AvatarImage));
+                });
+            }
+        }
+
         public void InvalidateAvatar()
         {
             _avatarUrl = null;
+            _cachedAvatarBitmap = null;
+            _avatarLoadState = 0;
             _avatarBitmapCache.TryRemove(UserId, out _);
             _requestedAvatarDownloads.TryRemove(UserId, out _);
             OnPropertyChanged(nameof(AvatarUrl));

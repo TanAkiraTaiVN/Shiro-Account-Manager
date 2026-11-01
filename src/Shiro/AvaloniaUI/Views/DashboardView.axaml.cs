@@ -1,9 +1,6 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using System.Windows.Input;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -15,6 +12,11 @@ using Shiro.ViewModels;
 
 namespace Shiro.AvaloniaUI.Views
 {
+    /// <summary>
+    /// Thin MVVM view layer for the Accounts Dashboard.
+    /// All account, batch, and launch workflows live in <see cref="MainViewModel"/>;
+    /// code-behind handles only Avalonia visual-tree gestures, responsive column sizing, scroll resets, and context menu placement.
+    /// </summary>
     public partial class DashboardView : UserControl
     {
         public MainViewModel ViewModel { get; } = new MainViewModel();
@@ -25,27 +27,31 @@ namespace Shiro.AvaloniaUI.Views
             InitializeComponent();
             DataContext = ViewModel;
             WireViewModelCallbacks();
+
+            if (TableItemsControl != null)
+            {
+                TableItemsControl.AddHandler(PointerPressedEvent, OnTablePointerPressedTunnel, RoutingStrategies.Tunnel);
+            }
+
+            SizeChanged += (_, e) =>
+            {
+                if (e.NewSize.Width > 0)
+                {
+                    ViewModel.CardColumns = MainViewModel.CalculateResponsiveCardColumns(e.NewSize.Width);
+                }
+            };
+
             Loaded += (s, e) =>
             {
+                if (Bounds.Width > 0)
+                {
+                    ViewModel.CardColumns = MainViewModel.CalculateResponsiveCardColumns(Bounds.Width);
+                }
                 LoadDashboardData();
                 if (!_placeIdHooked && TxtPlaceId != null)
                 {
                     _placeIdHooked = true;
-                    TxtPlaceId.LostFocus += (sender, args) =>
-                    {
-                        if (!string.IsNullOrWhiteSpace(TxtPlaceId.Text))
-                        {
-                            long parsed = AccountLauncherService.ParsePlaceId(TxtPlaceId.Text);
-                            if (parsed > 0)
-                            {
-                                string pid = parsed.ToString();
-                                ViewModel.PlaceId = pid;
-                                AccountManager.CurrentPlaceId = pid;
-                                AccountManager.General?.Set("SavedPlaceId", pid);
-                                AccountManager.QueueDeferredSaveSettings();
-                            }
-                        }
-                    };
+                    TxtPlaceId.LostFocus += (_, _) => ViewModel.NormalizePlaceIdInput(TxtPlaceId.Text);
                 }
             };
         }
@@ -60,7 +66,7 @@ namespace Shiro.AvaloniaUI.Views
                     {
                         try
                         {
-                            if (CardsScrollViewer != null) CardsScrollViewer.Offset = new Vector(0, 0);
+                            if (CardsItemsControl != null && CardsItemsControl.ItemCount > 0) CardsItemsControl.ScrollIntoView(0);
                             if (TableItemsControl != null && TableItemsControl.ItemCount > 0) TableItemsControl.ScrollIntoView(0);
                         }
                         catch (Exception ex)
@@ -70,23 +76,27 @@ namespace Shiro.AvaloniaUI.Views
                     });
                 }
             };
+        }
 
-            // Top action callbacks that refresh Dashboard UI state
-            ViewModel.OnAddAccountFastLoginRequested = () => OnAddFastLoginClicked(null, null);
-            ViewModel.OnAddAccountChromeRequested = () => OnAddChromeClicked(null, null);
-            ViewModel.OnAddAccountCookieRequested = () => OnAddCookieClicked(null, null);
-            ViewModel.OnBulkImportRequested = () => OnBulkImportClicked(null, null);
-            ViewModel.OnProxyManagerRequested = () => OnProxiesClicked(null, null);
-            ViewModel.OnNexusRequested = () => OnNexusClicked(null, null);
+        private void OnTablePointerPressedTunnel(object? sender, PointerPressedEventArgs e)
+        {
+            if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+                return;
+
+            if (e.Source is Visual v)
+            {
+                var checkBox = v as CheckBox ?? v.FindAncestorOfType<CheckBox>();
+                if (checkBox?.DataContext is AccountViewModel avm)
+                {
+                    ViewModel.HandleAccountClickSelection(avm, e.KeyModifiers.HasFlag(KeyModifiers.Shift));
+                    e.Handled = true;
+                }
+            }
         }
 
         public List<Account> GetSelectedAccounts()
         {
-            var vmSelected = ViewModel?.GetSelectedAccounts();
-            if (vmSelected != null && vmSelected.Count > 0)
-                return vmSelected;
-
-            return new List<Account>();
+            return ViewModel?.GetSelectedAccounts() ?? new List<Account>();
         }
 
         public void LoadDashboardData(IReadOnlyList<Account>? accountsSnapshot = null)
@@ -112,165 +122,22 @@ namespace Shiro.AvaloniaUI.Views
             }
         }
 
-        // ================= TOP ACTION TOOLBAR EVENT HANDLERS =================
-        private void OnJoinServerClicked(object sender, RoutedEventArgs e)
-        {
-            string placeIdStr = TxtPlaceId?.Text?.Trim() ?? string.Empty;
-            long placeId = AccountLauncherService.ParsePlaceId(placeIdStr);
-            if (placeId <= 0)
-            {
-                ViewModel.StatusMessage = "⚠️ Vui lòng nhập Place ID hoặc link game hợp lệ trước khi vào Server!";
-                return;
-            }
-
-            string normalizedPlaceId = placeId.ToString();
-            ViewModel.PlaceId = normalizedPlaceId;
-            AccountManager.CurrentPlaceId = normalizedPlaceId;
-            AccountManager.General?.Set("SavedPlaceId", normalizedPlaceId);
-            AccountManager.QueueDeferredSaveSettings();
-
-            var selected = GetSelectedAccounts();
-            if (selected == null || selected.Count == 0)
-            {
-                var snapshot = AccountManager.GetAccountsSnapshot();
-                if (snapshot.Count > 0)
-                    selected = new List<Account>(1) { snapshot[0] };
-            }
-            if (selected == null || selected.Count == 0)
-            {
-                ViewModel.StatusMessage = "⚠️ Vui lòng chọn ít nhất một tài khoản!";
-                return;
-            }
-
-            string jobId = TxtJobId?.Text?.Trim() ?? string.Empty;
-            Task.Run(async () =>
-            {
-                await AccountLauncherService.JoinServerAsync(selected, placeId, jobId);
-            });
-        }
-
-        private void OnLaunchHomeClicked(object sender, RoutedEventArgs e)
-        {
-            var selected = GetSelectedAccounts();
-            if (selected != null && selected.Count > 0)
-            {
-                AccountManager.SelectedAccounts = selected;
-            }
-            AccountLauncherService.MultiLaunchHome();
-        }
-
-        private void OnAddFastLoginClicked(object? sender = null, RoutedEventArgs? e = null)
-        {
-            AppServices.Dialogs.OpenFastLoginDialog(null);
-        }
-
-        private void OnAddChromeClicked(object? sender = null, RoutedEventArgs? e = null)
-        {
-            Task.Run(async () =>
-            {
-                try
-                {
-                    await BrowserService.Default.SignInAsync();
-                    AppDispatcher.Post(() => LoadDashboardData());
-                }
-                catch (Exception ex)
-                {
-                    Program.Logger?.Error($"[OnAddChromeClicked] {ex}");
-                }
-            });
-        }
-
-        private void OnAddCookieClicked(object? sender = null, RoutedEventArgs? e = null)
-        {
-            string cookie = AppServices.Dialogs.ShowInputPrompt("Dán chuỗi Cookie .ROBLOSECURITY vào ô bên dưới:", "Nhập Cookie");
-            if (!string.IsNullOrWhiteSpace(cookie) && cookie != "/UC")
-            {
-                _ = Task.Run(async () =>
-                {
-                    var acc = await AccountManager.AddAccountAsync(cookie.Trim()).ConfigureAwait(false);
-                    if (acc != null)
-                    {
-                        AppDispatcher.Post(() =>
-                        {
-                            LoadDashboardData();
-                            ViewModel.StatusMessage = $"✅ Đã thêm tài khoản {acc.Username} qua Cookie thành công!";
-                        });
-                    }
-                    else
-                    {
-                        AppDispatcher.Post(() =>
-                        {
-                            ViewModel.StatusMessage = "❌ Cookie không hợp lệ hoặc đã hết hạn.";
-                        });
-                    }
-                });
-            }
-        }
-
-        private void OnBulkImportClicked(object? sender = null, RoutedEventArgs? e = null)
-        {
-            AppServices.Dialogs.OpenBulkImportDialog();
-        }
-
-        private void OnProxiesClicked(object? sender = null, RoutedEventArgs? e = null)
-        {
-            AppServices.Dialogs.OpenProxyManagerDialog();
-        }
-
-        private void OnNexusClicked(object? sender = null, RoutedEventArgs? e = null)
-        {
-            AppServices.Dialogs.OpenNexusWindow();
-        }
-
-        // ================= BATCH ACTIONS =================
-        private void OnBatchCheckSessionsClicked(object sender, RoutedEventArgs e)
-            => ViewModel.CheckSessionsCommand.Execute(null);
-
-        private void OnBatchReLoginExpiredClicked(object sender, RoutedEventArgs e)
-            => ViewModel.ReLoginAllExpiredCommand.Execute(null);
-
-        private void OnBatchValidateSelectedClicked(object sender, RoutedEventArgs e)
-            => ViewModel.ValidateSessionSelectedCommand.Execute(null);
-
-        private void OnBatchReLoginSelectedClicked(object sender, RoutedEventArgs e)
-            => ViewModel.ReLoginSelectedCommand.Execute(null);
-
-        private void OnBatchSetGroupSelectedClicked(object sender, RoutedEventArgs e)
-            => ViewModel.SetGroupSelectedCommand.Execute(null);
-
-        private void OnBatchSavePlaceIdSelectedClicked(object sender, RoutedEventArgs e)
-            => ViewModel.SavePlaceIdSelectedCommand.Execute(null);
-
-        private void OnBatchCopyUserPassSelectedClicked(object sender, RoutedEventArgs e)
-            => ViewModel.CopyUserPassSelectedCommand.Execute(null);
-
-        private void OnBatchRemoveSelectedClicked(object sender, RoutedEventArgs e)
-            => ViewModel.RemoveSelectedCommand.Execute(null);
-
-        private void OnClearRobloxClientSessionClicked(object sender, RoutedEventArgs e)
-        {
-            bool ok = RobloxProcessService.ClearRobloxClientSession();
-            if (ok)
-            {
-                AccountManager.Instance?.SetDashboardStatus("✅ Đã xóa sạch session đăng nhập của Roblox Client.");
-            }
-            else
-            {
-                AccountManager.Instance?.SetDashboardStatus("⚠️ Không thể xóa session Roblox Client (có thể Roblox đang chạy).");
-            }
-        }
-
-        // ================= CARD & ROW INTERACTIONS =================
         private void OnCardPointerPressed(object sender, PointerPressedEventArgs e)
         {
+            if (sender is Control ctrl)
+                HandleCardPointerPressed(ctrl, ctrl.DataContext as AccountViewModel, e);
+        }
+
+        internal void HandleCardPointerPressed(Control anchor, AccountViewModel? avm, PointerPressedEventArgs e)
+        {
+            if (avm == null)
+                return;
+
             var props = e.GetCurrentPoint(this).Properties;
             if (props.IsRightButtonPressed)
             {
-                if (sender is Control ctrl && ctrl.DataContext is AccountViewModel avm)
-                {
-                    ShowAccountContextMenu(ctrl, avm);
-                    e.Handled = true;
-                }
+                ShowAccountContextMenu(anchor, avm);
+                e.Handled = true;
                 return;
             }
 
@@ -280,10 +147,7 @@ namespace Shiro.AvaloniaUI.Views
             if (e.Source is Visual visual && IsInsideInteractiveControl(visual))
                 return;
 
-            if (sender is Control ctrl2 && ctrl2.DataContext is AccountViewModel avm2)
-            {
-                avm2.IsSelected = !avm2.IsSelected;
-            }
+            ViewModel.HandleAccountClickSelection(avm, e.KeyModifiers.HasFlag(KeyModifiers.Shift));
         }
 
         private static bool IsInsideInteractiveControl(Visual visual)
@@ -297,100 +161,25 @@ namespace Shiro.AvaloniaUI.Views
                 || visual.FindAncestorOfType<ComboBox>() != null;
         }
 
-        private void LaunchAppHomeForSender(object? sender)
-        {
-            var avm = GetItemFromMenu(sender);
-            if (avm?.Model != null)
-            {
-                Task.Run(async () => await AccountLauncherService.LaunchAppHomeAsync(avm.Model));
-            }
-        }
-
-        private void JoinSingleAccountServer(AccountViewModel? avm)
-        {
-            if (avm?.Model == null) return;
-            long placeId = AccountLauncherService.ParsePlaceId(ViewModel?.PlaceId?.Trim() ?? string.Empty);
-            if (placeId > 0)
-            {
-                Task.Run(async () => await AccountLauncherService.JoinServerAsync(new[] { avm.Model }, placeId, ViewModel?.JobId?.Trim() ?? string.Empty));
-            }
-            else
-            {
-                if (ViewModel != null)
-                {
-                    ViewModel.StatusMessage = "⚠️ Vui lòng nhập Place ID hoặc link game hợp lệ trước khi vào Server!";
-                }
-            }
-        }
-
-        private void CloseRobloxForAccount(AccountViewModel? avm)
-        {
-            if (avm?.Model == null) return;
-            var model = avm.Model;
-            string username = avm.Username;
-            _ = Task.Run(() =>
-            {
-                bool closed = RobloxProcessService.CloseAccountRobloxProcess(model);
-                AppDispatcher.Post(() =>
-                {
-                    if (closed)
-                        ToastService.ShowSuccess($"Đã đóng Roblox cho {username}.");
-                    else
-                        ToastService.ShowInfo($"Tài khoản {username} không có tiến trình Roblox nào đang chạy.");
-                    ViewModel?.RefreshLiveProcessStatus();
-                });
-            });
-        }
-
         private void OnCardDoubleTapped(object sender, TappedEventArgs e)
-            => LaunchAppHomeForSender(sender);
+            => ExecuteMenuCommand(sender, ViewModel.LaunchAccountCommand);
 
         private void OnCardLaunchClicked(object sender, RoutedEventArgs e)
-        {
-            var avm = GetItemFromMenu(sender);
-            if (avm?.Model != null)
-            {
-                if (avm.IsExpired || avm.IsBannedOrLocked)
-                {
-                    AppServices.Dialogs.OpenFastLoginDialog(avm.Model);
-                    return;
-                }
-                LaunchAppHomeForSender(sender);
-            }
-        }
+            => ExecuteMenuCommand(sender, ViewModel.PrimaryCardActionCommand);
+
+        private void OnCardFocusWindowClicked(object sender, RoutedEventArgs e)
+            => ExecuteMenuCommand(sender, ViewModel.FocusAccountWindowCommand);
+
+        private void OnCardCloseClientClicked(object sender, RoutedEventArgs e)
+            => ExecuteMenuCommand(sender, ViewModel.CloseAccountRobloxCommand);
+
+        private void OnCardViewBanClicked(object sender, RoutedEventArgs e)
+            => ExecuteMenuCommand(sender, ViewModel.ViewBanAccountCommand);
 
         private void OnTableRowJoinClicked(object sender, RoutedEventArgs e)
-            => JoinSingleAccountServer(GetItemFromMenu(sender));
+            => ExecuteMenuCommand(sender, ViewModel.JoinServerAccountCommand);
 
-        private void OnCardCloseRobloxClicked(object sender, RoutedEventArgs e)
-            => CloseRobloxForAccount(GetItemFromMenu(sender));
-
-        private void OnCardMoreOptionsClicked(object sender, RoutedEventArgs e)
-        {
-            try
-            {
-                if (sender is Button btn)
-                {
-                    if (btn.Flyout != null)
-                    {
-                        btn.Flyout.ShowAt(btn);
-                        return;
-                    }
-
-                    var border = btn.FindAncestorOfType<Border>();
-                    if (border?.ContextMenu != null)
-                    {
-                        border.ContextMenu.Open(border);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Program.Logger?.Error($"[OnCardMoreOptionsClicked] {ex}");
-            }
-        }
-
-        private void ShowAccountContextMenu(Control anchor, AccountViewModel avm)
+        internal void ShowAccountContextMenu(Control anchor, AccountViewModel avm)
         {
             if (anchor == null || avm == null) return;
             try

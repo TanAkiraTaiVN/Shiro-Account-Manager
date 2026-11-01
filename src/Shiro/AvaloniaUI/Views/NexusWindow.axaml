@@ -1,4 +1,4 @@
-﻿<Window xmlns="https://github.com/avaloniaui"
+<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:lucide="clr-namespace:LucideAvalonia;assembly=LucideAvalonia"
         xmlns:nexus="clr-namespace:Shiro.Nexus"
@@ -35,9 +35,14 @@
                              CornerRadius="4" Padding="6,4" FontSize="12"/>
                     <CheckBox x:Name="ChkAllowExternal" Content="External" FontSize="12" Foreground="#A1A1AA"
                               VerticalAlignment="Center"/>
-                    <Button x:Name="BtnToggleServer" Content="Bật Server" Click="BtnToggleServer_Click"
+                    <Button x:Name="BtnToggleServer" Click="BtnToggleServer_Click"
                             Background="#0284C7" Foreground="#FFFFFF" FontWeight="SemiBold"
-                            CornerRadius="5" Padding="12,5" BorderThickness="0"/>
+                            CornerRadius="5" Padding="12,5" BorderThickness="0" Cursor="Hand">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <lucide:Lucide Icon="Power" Width="12" Height="12" StrokeBrush="#FFFFFF" VerticalAlignment="Center" />
+                            <TextBlock x:Name="TxtToggleServerLabel" Text="Bật Server" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
                 </StackPanel>
             </Grid>
         </Border>
@@ -82,12 +87,22 @@
                          Background="#1A1A22" Foreground="#FFFFFF" BorderBrush="#2A2A36" BorderThickness="1"
                          CornerRadius="6" Padding="10,6" FontSize="12" Margin="0,0,10,0"/>
                 <StackPanel Grid.Column="1" Spacing="6" VerticalAlignment="Center">
-                    <Button x:Name="BtnExecuteSelected" Content="Chạy (Đã chọn)" Click="BtnExecuteSelected_Click"
+                    <Button x:Name="BtnExecuteSelected" Click="BtnExecuteSelected_Click"
                             Background="#2563EB" Foreground="#FFFFFF" FontWeight="SemiBold"
-                            CornerRadius="5" Padding="14,6" Width="140" HorizontalContentAlignment="Center"/>
-                    <Button x:Name="BtnExecuteAll" Content="Chạy tất cả" Click="BtnExecuteAll_Click"
+                            CornerRadius="5" Padding="14,6" Width="148" HorizontalContentAlignment="Center" Cursor="Hand">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <lucide:Lucide Icon="Play" Width="12" Height="12" StrokeBrush="#FFFFFF" VerticalAlignment="Center" />
+                            <TextBlock Text="Chạy (Đã chọn)" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="BtnExecuteAll" Click="BtnExecuteAll_Click"
                             Background="#374151" Foreground="#FFFFFF" FontWeight="SemiBold"
-                            CornerRadius="5" Padding="14,6" Width="140" HorizontalContentAlignment="Center"/>
+                            CornerRadius="5" Padding="14,6" Width="148" HorizontalContentAlignment="Center" Cursor="Hand">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <lucide:Lucide Icon="Zap" Width="12" Height="12" StrokeBrush="#FBBF24" VerticalAlignment="Center" />
+                            <TextBlock Text="Chạy tất cả" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
                 </StackPanel>
             </Grid>
         </Border>

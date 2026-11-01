@@ -1,5 +1,6 @@
-﻿<Window xmlns="https://github.com/avaloniaui"
+<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:lucide="clr-namespace:LucideAvalonia;assembly=LucideAvalonia"
         x:Class="Shiro.AvaloniaUI.Views.AccountUtilsDialog"
         Icon="/Resources/shiro.ico"
         Title="Tiện ích tài khoản • Account Utilities"
@@ -14,9 +15,14 @@
     <Border BorderBrush="#272730" BorderThickness="1" CornerRadius="8" Padding="20">
         <Grid RowDefinitions="Auto,*,Auto,Auto">
             <!-- Header -->
-            <StackPanel Grid.Row="0" Spacing="4" Margin="0,0,0,16">
-                <TextBlock x:Name="TxtTitle" Text="Tiện ích tài khoản" FontSize="16" FontWeight="SemiBold" Foreground="#FFFFFF"/>
-                <TextBlock x:Name="TxtDisplayName" Text="Username" FontSize="13" Foreground="#A1A1AA"/>
+            <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center" Margin="0,0,0,16">
+                <Border Background="#252536" CornerRadius="8" Width="34" Height="34">
+                    <lucide:Lucide Icon="Wrench" Width="17" Height="17" StrokeBrush="#38BDF8" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+                <StackPanel Spacing="2" VerticalAlignment="Center">
+                    <TextBlock x:Name="TxtTitle" Text="Tiện ích tài khoản" FontSize="16" FontWeight="SemiBold" Foreground="#FFFFFF"/>
+                    <TextBlock x:Name="TxtDisplayName" Text="Username" FontSize="12" Foreground="#A1A1AA"/>
+                </StackPanel>
             </StackPanel>
 
             <!-- Actions -->
@@ -28,9 +34,14 @@
                             <TextBlock Text="Đăng xuất phiên khác" FontWeight="SemiBold" Foreground="#FFFFFF" FontSize="13"/>
                             <TextBlock Text="Đăng xuất tất cả các phiên trình duyệt/app khác ngoại trừ cookie hiện tại" FontSize="11" Foreground="#71717A" TextWrapping="Wrap"/>
                         </StackPanel>
-                        <Button Grid.Column="1" Content="Thực hiện" Click="BtnLogOutOtherSessions_Click"
-                                Background="#3F3F46" Foreground="#FFFFFF" CornerRadius="4" Padding="12,6" FontSize="12"
-                                VerticalAlignment="Center"/>
+                        <Button Grid.Column="1" Click="BtnLogOutOtherSessions_Click"
+                                Background="#3F3F46" Foreground="#FFFFFF" CornerRadius="5" Padding="12,6" FontSize="12"
+                                VerticalAlignment="Center" Cursor="Hand">
+                            <StackPanel Orientation="Horizontal" Spacing="5">
+                                <lucide:Lucide Icon="LogOut" Width="13" Height="13" StrokeBrush="#FFFFFF" VerticalAlignment="Center" />
+                                <TextBlock Text="Thực hiện" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
                     </Grid>
                 </Border>
 
@@ -44,9 +55,14 @@
                         <Grid Grid.Row="1" ColumnDefinitions="*,Auto">
                             <TextBox x:Name="TxtPassword" Watermark="Mật khẩu tài khoản..." PasswordChar="•"
                                      Background="#1F1F28" Foreground="#FFFFFF" BorderBrush="#2E2E38" BorderThickness="1"
-                                     CornerRadius="4" Padding="8,6" FontSize="13" Margin="0,0,8,0"/>
-                            <Button Grid.Column="1" Content="Lưu mật khẩu" Click="BtnSavePassword_Click"
-                                     Background="#10B981" Foreground="#FFFFFF" CornerRadius="4" Padding="14,6" FontSize="12"/>
+                                     CornerRadius="5" Padding="8,6" FontSize="13" Margin="0,0,8,0"/>
+                            <Button Grid.Column="1" Click="BtnSavePassword_Click"
+                                    Background="#10B981" Foreground="#FFFFFF" FontWeight="SemiBold" CornerRadius="5" Padding="14,6" FontSize="12" Cursor="Hand">
+                                <StackPanel Orientation="Horizontal" Spacing="5">
+                                    <lucide:Lucide Icon="Save" Width="13" Height="13" StrokeBrush="#FFFFFF" VerticalAlignment="Center" />
+                                    <TextBlock Text="Lưu mật khẩu" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
                         </Grid>
                     </Grid>
                 </Border>
@@ -61,9 +77,14 @@
                         <Grid Grid.Row="1" ColumnDefinitions="*,Auto">
                             <TextBox x:Name="PbPin" Watermark="Mã PIN 4 số" PasswordChar="•" MaxLength="4"
                                      Background="#1F1F28" Foreground="#FFFFFF" BorderBrush="#2E2E38" BorderThickness="1"
-                                     CornerRadius="4" Padding="8,6" FontSize="13" Margin="0,0,8,0"/>
-                            <Button Grid.Column="1" Content="Mở khóa" Click="BtnUnlockPin_Click"
-                                     Background="#2563EB" Foreground="#FFFFFF" CornerRadius="4" Padding="14,6" FontSize="12"/>
+                                     CornerRadius="5" Padding="8,6" FontSize="13" Margin="0,0,8,0"/>
+                            <Button Grid.Column="1" Click="BtnUnlockPin_Click"
+                                    Background="#2563EB" Foreground="#FFFFFF" FontWeight="SemiBold" CornerRadius="5" Padding="14,6" FontSize="12" Cursor="Hand">
+                                <StackPanel Orientation="Horizontal" Spacing="5">
+                                    <lucide:Lucide Icon="LockOpen" Width="13" Height="13" StrokeBrush="#FFFFFF" VerticalAlignment="Center" />
+                                    <TextBlock Text="Mở khóa" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
                         </Grid>
                     </Grid>
                 </Border>
@@ -74,9 +95,15 @@
 
             <!-- Close Button -->
             <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right">
-                <Button Content="Đóng" Width="80" Height="32" Click="BtnClose_Click"
+                <Button Height="32" Click="BtnClose_Click"
                         Background="#272730" Foreground="#D4D4D8" FontWeight="SemiBold"
-                        CornerRadius="5" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
+                        CornerRadius="5" Padding="14,0" Cursor="Hand"
+                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <lucide:Lucide Icon="X" Width="13" Height="13" StrokeBrush="#D4D4D8" VerticalAlignment="Center" />
+                        <TextBlock Text="Đóng" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
             </StackPanel>
         </Grid>
     </Border>

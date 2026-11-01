@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
@@ -10,7 +10,7 @@ namespace Shiro.Services
 {
     public static partial class Win32TrayHelper
     {
-        [LibraryImport("user32.dll")]
+        [LibraryImport("user32.dll", EntryPoint = "PostMessageW", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
         public static partial bool PostMessage(IntPtr hWnd, uint Msg, int wParam, int lParam);
 
