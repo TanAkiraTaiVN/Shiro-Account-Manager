@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 using Shiro.Classes;
 
 namespace Shiro.Services
@@ -19,13 +20,6 @@ namespace Shiro.Services
     internal static class AccountDataSerializer
     {
         public const int CurrentSchemaVersion = 1;
-
-        private static readonly JsonSerializerOptions JsonOptions = new JsonSerializerOptions
-        {
-            IncludeFields = true,
-            PropertyNameCaseInsensitive = true,
-            DefaultIgnoreCondition = JsonIgnoreCondition.Never
-        };
 
         public static List<Account> Deserialize(byte[] data, out bool requiresMigration)
         {
@@ -43,7 +37,7 @@ namespace Shiro.Services
                 // Version zero is the format used by every release before
                 // the schema envelope was introduced.
                 requiresMigration = true;
-                return root.Deserialize<List<Account>>(JsonOptions) ?? [];
+                return root.Deserialize(ShiroAppJson.Default.ListAccount) ?? [];
             }
 
             if (root.ValueKind != JsonValueKind.Object)
@@ -62,10 +56,10 @@ namespace Shiro.Services
                 throw new InvalidDataException($"Account data schema {schemaVersion} is newer than this application supports.");
 
             requiresMigration = schemaVersion < CurrentSchemaVersion;
-            return accountsElement.Deserialize<List<Account>>(JsonOptions) ?? [];
+            return accountsElement.Deserialize(ShiroAppJson.Default.ListAccount) ?? [];
         }
 
-        private readonly struct AccountEnvelope
+        internal readonly struct AccountEnvelope
         {
             public int schemaVersion { get; init; }
             public IReadOnlyCollection<Account> accounts { get; init; }
@@ -81,10 +75,10 @@ namespace Shiro.Services
                         schemaVersion = CurrentSchemaVersion,
                         accounts = accounts ?? Array.Empty<Account>()
                     },
-                    JsonOptions);
+                    ShiroAppJson.Default.AccountEnvelope);
             }
 
-            JsonArray accountArray = JsonSerializer.SerializeToNode(accounts ?? [], JsonOptions) as JsonArray ?? [];
+            JsonArray accountArray = JsonSerializer.SerializeToNode(accounts ?? [], ShiroAppJson.Default.IReadOnlyCollectionAccount) as JsonArray ?? [];
             // Do not mutate the live Account instances just to persist a
             // privacy preference. Removing the property from this JSON
             // snapshot also makes the option effective for existing
@@ -100,7 +94,12 @@ namespace Shiro.Services
                 ["accounts"] = accountArray
             };
 
-            return JsonSerializer.SerializeToUtf8Bytes(envelope);
+            using var stream = new MemoryStream();
+            using (var writer = new Utf8JsonWriter(stream))
+            {
+                envelope.WriteTo(writer);
+            }
+            return stream.ToArray();
         }
     }
 }
