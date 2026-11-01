@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Linq;
 using Avalonia;
@@ -31,9 +31,13 @@ namespace Shiro.AvaloniaUI
                 else
                 {
                     desktop.MainWindow = new Views.MainWindow();
+                    ForegroundWindowService.Start();
+                    UpdateCheckService.StartBackgroundCheck();
                     desktop.Exit += (s, e) =>
                     {
                         Program.Closed = true;
+                        ForegroundWindowService.Stop();
+                        try { AccountRuntimeStateStore.Flush(); } catch { }
                         try
                         {
                             if (desktop.MainWindow is Views.MainWindow mw && mw.ViewModel != null && !string.IsNullOrWhiteSpace(mw.ViewModel.PlaceId))
