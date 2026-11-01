@@ -1,0 +1,254 @@
+#nullable enable
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
+using Shiro.Classes;
+
+namespace Shiro.Services
+{
+    public sealed partial class AccountLaunchService
+    {
+        public static async Task<int> StartNativeHomeAsync(
+            string nativeHomeUri,
+            string ticket,
+            string username,
+            string? browserTrackerId = null,
+            string? securityToken = null,
+            CancellationToken cancellationToken = default)
+        {
+            await NativeLaunchGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                await PrepareNativeLaunchEnvironmentAsync(cancellationToken).ConfigureAwait(false);
+
+                bool preferDirect = AppSettings.General.Get<bool>(AppSettingsKeys.General.PreferDirectLaunch, false);
+                if (preferDirect)
+                {
+                    var directResult = RobloxDirectLauncher.LaunchHomeDirect(username, ticket, browserTrackerId, securityToken);
+                    if (directResult.Success)
+                    {
+                        await Task.Delay(250, cancellationToken).ConfigureAwait(false);
+                        await WaitForInstallerAsync(cancellationToken).ConfigureAwait(false);
+                        SchedulePostLaunchSingletonSweep(500);
+                        return directResult.ProcessId;
+                    }
+
+                    Program.Logger.Info($"[StartNativeHomeAsync] Direct binary launch unavailable ({directResult.ErrorMessage}); falling back to URI protocol.");
+                }
+
+                if (HasRobloxPlayerProtocolHandler() || !preferDirect)
+                {
+                    try
+                    {
+                        var existingClientPids = new HashSet<int>(RobloxProcessService.GetRunningRobloxPids());
+                        using Process? launcher = Process.Start(new ProcessStartInfo
+                        {
+                            FileName = nativeHomeUri,
+                            UseShellExecute = true
+                        });
+
+                        if (launcher == null)
+                            throw new InvalidOperationException("Windows did not start the Roblox protocol handler.");
+
+                        int launcherPid = launcher.Id;
+
+                        if (!await WaitForExitAsync(launcher, 1500, cancellationToken).ConfigureAwait(false))
+                        {
+                            Program.Logger.Info($"Roblox client for {username} is running; released handoff gate.");
+                        }
+                        else
+                        {
+                            Program.Logger.Info($"Launching Roblox Home through the registered protocol for {username}.");
+                        }
+
+                        await Task.Delay(250, cancellationToken).ConfigureAwait(false);
+                        await WaitForInstallerAsync(cancellationToken).ConfigureAwait(false);
+
+                        int resolvedHomePid = await ResolveNewClientPidAsync(
+                            existingClientPids,
+                            launcherPid,
+                            TimeSpan.FromSeconds(10),
+                            cancellationToken).ConfigureAwait(false);
+
+                        SchedulePostLaunchSingletonSweep(500);
+                        return resolvedHomePid;
+                    }
+                    catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                    {
+                        throw;
+                    }
+                    catch (Exception protocolError)
+                    {
+                        Program.Logger.Warn($"Roblox Home protocol launch failed for {username}; using the executable fallback.", protocolError);
+                    }
+                }
+
+                cancellationToken.ThrowIfCancellationRequested();
+                string? playerPath = FindRobloxPlayerExecutable();
+                if (string.IsNullOrWhiteSpace(playerPath))
+                    throw new FileNotFoundException("RobloxPlayerBeta.exe was not found.");
+
+                ProcessStartInfo directLaunch = new ProcessStartInfo(playerPath)
+                {
+                    UseShellExecute = false,
+                    WorkingDirectory = Path.GetDirectoryName(playerPath) ?? Environment.CurrentDirectory
+                };
+                directLaunch.ArgumentList.Add("--app");
+                directLaunch.ArgumentList.Add(nativeHomeUri);
+                cancellationToken.ThrowIfCancellationRequested();
+                using Process? fallbackProc = Process.Start(directLaunch);
+                if (fallbackProc == null)
+                    throw new InvalidOperationException("Windows did not start RobloxPlayerBeta.exe.");
+                int fallbackPid = fallbackProc.Id;
+
+                await Task.Delay(1000, cancellationToken).ConfigureAwait(false);
+                await WaitForInstallerAsync(cancellationToken).ConfigureAwait(false);
+
+                Program.Logger.Info($"Launching Roblox Home through RobloxPlayerBeta.exe directly for {username} because the Roblox protocol is unavailable.");
+                SchedulePostLaunchSingletonSweep(1500);
+                return fallbackPid;
+            }
+            finally
+            {
+                NativeLaunchGate.Release();
+            }
+        }
+
+        public async Task<string> LaunchAppHomeAsync(
+            Account account,
+            bool preferChrome = false,
+            CancellationToken cancellationToken = default)
+        {
+            if (account == null) return "ERROR: Tài khoản không hợp lệ.";
+            cancellationToken.ThrowIfCancellationRequested();
+            if (preferChrome || AppSettings.General.Get<bool>("UseChromeHome", false))
+                return await LaunchHomeInChromeAsync(account, cancellationToken).ConfigureAwait(false);
+
+            account.EnsureBrowserTrackerId();
+
+            try { ClientSettingsPatcher.PatchSettings(); }
+            catch (Exception ex) { Program.Logger.Error($"Failed to patch ClientAppSettings: {ex}"); }
+
+            bool preferDirect = AppSettings.General.Get<bool>(AppSettingsKeys.General.PreferDirectLaunch, false);
+            if (preferDirect && !string.IsNullOrWhiteSpace(account.SecurityToken))
+            {
+                var directResult = RobloxDirectLauncher.LaunchHomeDirect(account.Username, ticket: null, account.BrowserTrackerID, account.SecurityToken);
+                if (directResult.Success)
+                {
+                    account.LastLaunchedProcessId = directResult.ProcessId;
+                    AccountManager.Instance?.SchedulePresenceRefresh(account);
+                    AccountManager.Instance?.NextAccount();
+                    ObserveBackgroundTask(AdjustWindowPositionAsync(account, directResult.ProcessId, cancellationToken), "Roblox window positioning");
+                    return "Success";
+                }
+            }
+
+            await account.TryRebindSessionToCurrentNetworkAsync(force: false, cancellationToken).ConfigureAwait(false);
+
+            (bool Success, string Ticket) ticketResult =
+                await account.GetAuthTicketAsync(cancellationToken).ConfigureAwait(false);
+            if (ticketResult.Success)
+            {
+                try
+                {
+                    RobloxProcessService.CloseAccountRobloxProcess(account);
+                }
+                catch (Exception ex)
+                {
+                    Program.Logger?.Debug($"Closing previous process for {account.Username} threw: {ex.Message}");
+                }
+
+                string ticket = ticketResult.Ticket;
+                long launchTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                string nativeHomeUri =
+                    $"roblox-player:1+launchmode:app+gameinfo:{ticket}+launchtime:{launchTime}+browsertrackerid:{account.BrowserTrackerID}+robloxLocale:en_us+gameLocale:en_us+channel:+LaunchExp:InApp";
+
+                Exception? launchException = null;
+                try
+                {
+                    DateTime launchStartedUtc = DateTime.UtcNow;
+                    int homePid = await StartNativeHomeAsync(nativeHomeUri, ticket, account.Username, account.BrowserTrackerID, account.SecurityToken, cancellationToken).ConfigureAwait(false);
+                    account.LastLaunchedProcessId = homePid;
+                    ObserveBackgroundTask(
+                        MonitorNativeAuthRateLimitAsync(launchStartedUtc, account, cancellationToken),
+                        "native auth rate-limit monitor");
+                    AccountManager.Instance?.SchedulePresenceRefresh(account);
+
+                    AccountManager.Instance?.NextAccount();
+                    ObserveBackgroundTask(AdjustWindowPositionAsync(account, homePid, cancellationToken), "Roblox window positioning");
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception x)
+                {
+                    launchException = x;
+                    Program.Logger?.Error($"Failed to launch Roblox Home for {account.Username}: {x}");
+                }
+
+                if (launchException != null)
+                    return $"ERROR: Failed to launch Roblox Home for {account.Username}\n{launchException.Message}";
+
+                return "Success";
+            }
+            else
+            {
+                if (account.LastAuthTicketRateLimited)
+                    return "ERROR: Roblox đang giới hạn xác thực (HTTP 429). Hãy chờ một lúc hoặc đổi máy chủ VPN rồi thử lại.";
+
+                return "ERROR: Không thể lấy Authentication Ticket từ Roblox. Phiên tài khoản vẫn được giữ nguyên, vui lòng kiểm tra Proton VPN hoặc thử lại sau.";
+            }
+        }
+
+        public async Task<string> LaunchHomeInChromeAsync(Account account, CancellationToken cancellationToken = default)
+        {
+            if (account == null) return "ERROR: Tài khoản không hợp lệ.";
+            try
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                bool useConfiguredProxy = AppSettings.General.Get<bool>("UseProxies", false) &&
+                    ProxyManagerService.GetCachedProxyStrings().Count > 0;
+
+                if (useConfiguredProxy)
+                {
+                    await AccountBrowser.OpenAsync(
+                        account,
+                        "https://www.roblox.com/home",
+                        UseStealth: false,
+                        cancellationToken: cancellationToken).ConfigureAwait(false);
+                    AccountManager.Instance?.SchedulePresenceRefresh(account);
+                    return Account.BrowserHomeResult;
+                }
+
+                bool opened = await ChromiumHomeBrowser.OpenAsync(account, cancellationToken).ConfigureAwait(false);
+                if (opened)
+                {
+                    AccountManager.Instance?.SchedulePresenceRefresh(account);
+                    return Account.BrowserHomeResult;
+                }
+
+                Program.Logger.Warn($"The CDP Home path failed for {account.Username}; falling back to the legacy Chromium browser path.");
+                await AccountBrowser.OpenAsync(
+                    account,
+                    "https://www.roblox.com/home",
+                    UseStealth: false,
+                    cancellationToken: cancellationToken).ConfigureAwait(false);
+                AccountManager.Instance?.SchedulePresenceRefresh(account);
+                return Account.BrowserHomeResult;
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception exception)
+            {
+                Program.Logger.Error($"Failed to open Roblox Home in Chrome for {account.Username}: {exception}");
+                return $"ERROR: Failed to open Roblox Home in Chrome\n{exception.Message}";
+            }
+        }
+    }
+}

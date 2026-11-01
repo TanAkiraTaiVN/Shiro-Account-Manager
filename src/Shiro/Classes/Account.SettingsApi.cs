@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using System.Net;
 using System.Text.Json;
@@ -182,13 +182,14 @@ namespace Shiro
                 .AddParameter("currentPassword", Current)
                 .AddParameter("newPassword", New);
 
+            int rotationBefore = CookieRotationVersion;
             RestResponse? response = await ExecuteAccountRestAsync(AccountManager.AuthClient, "https://auth.roblox.com/", request, cancellationToken).ConfigureAwait(false);
 
             if (response != null && response.IsSuccessful && response.StatusCode == HttpStatusCode.OK)
             {
                 Password = New;
 
-                bool rotated = TryUpdateRotatedCookie(response);
+                bool rotated = CookieRotationVersion != rotationBefore || TryUpdateRotatedCookie(response);
                 if (rotated)
                 {
                     await AccountManager.SaveAccountsAsync(true).ConfigureAwait(false);
@@ -237,6 +238,7 @@ namespace Shiro
             var csrf = await GetCSRFTokenAsync(cancellationToken).ConfigureAwait(false);
             if (!csrf.Success) return false;
 
+            int rotationBefore = CookieRotationVersion;
             RestRequest request = MakeRequest("v1/logoutfromallsessionsandreauthenticate", Method.Post)
                 .AddHeader("Referer", "https://www.roblox.com/")
                 .AddHeader("X-CSRF-TOKEN", csrf.Token)
@@ -256,7 +258,7 @@ namespace Shiro
 
             if (response != null && response.IsSuccessful && response.StatusCode == HttpStatusCode.OK)
             {
-                bool rotated = TryUpdateRotatedCookie(response);
+                bool rotated = CookieRotationVersion != rotationBefore || TryUpdateRotatedCookie(response);
                 if (rotated)
                 {
                     await AccountManager.SaveAccountsAsync(true).ConfigureAwait(false);
@@ -389,7 +391,7 @@ namespace Shiro
                 {
                     var scaleRequest = MakeRequest("v1/avatar/set-scales", Method.Post)
                         .AddHeader("X-CSRF-TOKEN", csrf.Token)
-                        .AddJsonBody(scaleElem.GetRawText());
+                        .AddStringBody(scaleElem.GetRawText(), "application/json");
 
                     attributeTasks.Add(ExecuteAccountRestAsync(AccountManager.AvatarClient, "https://avatar.roblox.com/", scaleRequest, cancellationToken));
                 }
@@ -398,7 +400,7 @@ namespace Shiro
                 {
                     var bcRequest = MakeRequest("v1/avatar/set-body-colors", Method.Post)
                         .AddHeader("X-CSRF-TOKEN", csrf.Token)
-                        .AddJsonBody(bcElem.GetRawText());
+                        .AddStringBody(bcElem.GetRawText(), "application/json");
 
                     attributeTasks.Add(ExecuteAccountRestAsync(AccountManager.AvatarClient, "https://avatar.roblox.com/", bcRequest, cancellationToken));
                 }
@@ -412,7 +414,7 @@ namespace Shiro
                 {
                     var assetsRequest = MakeRequest("v2/avatar/set-wearing-assets", Method.Post)
                         .AddHeader("X-CSRF-TOKEN", csrf.Token)
-                        .AddJsonBody($"{{\"assets\":{assetsElem.GetRawText()}}}");
+                        .AddStringBody($"{{\"assets\":{assetsElem.GetRawText()}}}", "application/json");
 
                     RestResponse? Response = await ExecuteAccountRestAsync(AccountManager.AvatarClient, "https://avatar.roblox.com/", assetsRequest, cancellationToken).ConfigureAwait(false);
 

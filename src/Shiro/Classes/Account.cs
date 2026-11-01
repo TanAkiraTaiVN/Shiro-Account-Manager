@@ -1,4 +1,4 @@
-﻿using Shiro.Classes;
+using Shiro.Classes;
 using Shiro.Http;
 using Microsoft.Win32;
 using System;
@@ -34,22 +34,32 @@ namespace Shiro
         // frequently used accounts at the top across restarts.
         public bool Pinned;
         [JsonIgnore] public bool IsDirty { get; set; } = true;
+        private readonly System.Threading.Lock _fieldsLock = new();
 
         [JsonIgnore]
         public string AccountStatusIssue
         {
-            get => Fields != null && Fields.TryGetValue("AccountStatusIssue", out var v) ? v : string.Empty;
+            get
+            {
+                lock (_fieldsLock)
+                {
+                    return Fields != null && Fields.TryGetValue("AccountStatusIssue", out var v) ? v : string.Empty;
+                }
+            }
             set
             {
-                Fields ??= new Dictionary<string, string>();
                 string current = AccountStatusIssue;
                 string normalized = value?.Trim() ?? string.Empty;
                 if (!string.Equals(current, normalized, StringComparison.Ordinal))
                 {
-                    if (string.IsNullOrEmpty(normalized))
-                        Fields.Remove("AccountStatusIssue");
-                    else
-                        Fields["AccountStatusIssue"] = normalized;
+                    lock (_fieldsLock)
+                    {
+                        Fields ??= new Dictionary<string, string>();
+                        if (string.IsNullOrEmpty(normalized))
+                            Fields.Remove("AccountStatusIssue");
+                        else
+                            Fields["AccountStatusIssue"] = normalized;
+                    }
                     IsDirty = true;
                 }
             }
@@ -60,14 +70,18 @@ namespace Shiro
         private string _SecurityToken = "";
         public string SecurityToken
         {
-            get => _SecurityToken;
+            get => GetCurrentSecurityToken();
             set
             {
                 string sanitized = SanitizeCookie(value);
-                if (!string.Equals(_SecurityToken, sanitized, StringComparison.Ordinal))
+                lock (CookieSyncRoot)
                 {
-                    _SecurityToken = sanitized;
-                    IsDirty = true;
+                    if (!string.Equals(_SecurityToken, sanitized, StringComparison.Ordinal))
+                    {
+                        _SecurityToken = sanitized;
+                        IsDirty = true;
+                        Interlocked.Increment(ref _cookieRotationVersion);
+                    }
                 }
             }
         }
@@ -121,10 +135,6 @@ namespace Shiro
         public long PendingRobux = 0;
         [JsonIgnore] public DateTime LastEconomyCheck;
 
-        [LibraryImport("user32.dll", SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static partial bool MoveWindow(IntPtr hWnd, int X, int Y, int nWidth, int nHeight, [MarshalAs(UnmanagedType.Bool)] bool bRepaint);
-
         public int CompareTo(Account? compareTo)
         {
             if (compareTo == null)
@@ -139,16 +149,23 @@ namespace Shiro
         // The native client redeems the ticket after RAM has started it. That
         // second request can be rate-limited even when ticket creation worked,
         // so keep a separate adaptive recovery window for confirmed 429s.
-        private const int NativeAuthRecoverySeconds = 90;
+        internal const int NativeAuthRecoverySeconds = 90;
         // Roblox accepts the roblox-player URI asynchronously.  On a busy
         // machine the protocol handler can take longer than five seconds to
         // hand the ticket to RobloxPlayerBeta.exe.  Moving the next account
         // before that handoff is complete is what caused intermittent
         // account-2/account-3 failures in multi-launch.
         private const int NativeHandoffTimeoutMilliseconds = 15000;
-        private static readonly SemaphoreSlim NativeLaunchGate = new SemaphoreSlim(1, 1);
         public const string BrowserHomeResult = "BROWSER_HOME_STARTED";
         public string BrowserTrackerID = string.Empty;
+
+        internal void EnsureBrowserTrackerId()
+        {
+            if (string.IsNullOrEmpty(BrowserTrackerID))
+            {
+                BrowserTrackerID = $"{Random.Shared.Next(100000, 175000)}{Random.Shared.Next(100000, 900000)}";
+            }
+        }
 
         public string Alias
         {
@@ -300,9 +317,14 @@ namespace Shiro
 
         public Account() { }
 
-        public static async Task<Account> CreateAsync(string cookie, string? accountJson = null, CancellationToken cancellationToken = default)
+        public static async Task<Account> CreateAsync(
+            string cookie,
+            string? accountJson = null,
+            CancellationToken cancellationToken = default,
+            RobloxHbaService.CaptureSnapshot? hbaCapture = null)
         {
             var account = new Account { SecurityToken = cookie, Valid = false, LastUse = DateTime.Now };
+            account.ApplyHbaCapture(hbaCapture);
 
             if (!string.IsNullOrEmpty(accountJson) && Utilities.TryParseJson(accountJson, out AccountJson? data) && data != null && data.UserId > 0)
             {
@@ -322,6 +344,9 @@ namespace Shiro
             return account;
         }
 
+        /// <summary>
+        /// Synchronous account constructor. Prefer <see cref="CreateAsync(string, string?, string?)"/> to avoid blocking threads.
+        /// </summary>
         public Account(string Cookie, string? AccountJSON = null)
         {
             SecurityToken = Cookie;
@@ -340,14 +365,11 @@ namespace Shiro
             // 2. Query official users.roblox.com/v1/users/authenticated (fast, reliable, isolated headers)
             try
             {
-                string? token = SecurityToken?.Trim().Trim('"').Trim();
+                string token = GetCurrentSecurityToken();
                 if (!string.IsNullOrEmpty(token))
                 {
-                    HttpClient httpClient = ProxyBindingService.GetClient(this);
-                    using var req = new HttpRequestMessage(HttpMethod.Get, "https://users.roblox.com/v1/users/authenticated");
-                    req.Headers.TryAddWithoutValidation("Cookie", $".ROBLOSECURITY={token}");
-                    req.Headers.TryAddWithoutValidation("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36");
-                    req.Headers.TryAddWithoutValidation("Accept", "application/json, text/plain, */*");
+                    HttpClient httpClient = GetSessionHttpClient();
+                    using var req = CreateAuthenticatedGetRequest("https://users.roblox.com/v1/users/authenticated", tokenOverride: token);
 
                     using var resp = httpClient.Send(req);
                     if (resp != null && resp.StatusCode == HttpStatusCode.OK)
@@ -383,18 +405,62 @@ namespace Shiro
         // Account settings, PIN, blocklist, friend/avatar APIs extracted to Account.SettingsApi.cs
         // Process launching, window positioning, and native/browser home methods extracted to Account.Launcher.cs & Account.Launcher.Diagnostics.cs
 
-        public string GetField(string Name) => Fields.TryGetValue(Name, out string? value) ? value : string.Empty;
-        public void SetField(string Name, string Value) { Fields[Name] = Value; IsDirty = true; AccountManager.QueueDeferredSave(); }
-        public void SetWindowBounds(int x, int y, int width, int height)
+        public string GetField(string Name)
         {
-            Fields["Window_Position_X"] = x.ToString(CultureInfo.InvariantCulture);
-            Fields["Window_Position_Y"] = y.ToString(CultureInfo.InvariantCulture);
-            Fields["Window_Width"] = width.ToString(CultureInfo.InvariantCulture);
-            Fields["Window_Height"] = height.ToString(CultureInfo.InvariantCulture);
+            lock (_fieldsLock)
+            {
+                return Fields != null && Fields.TryGetValue(Name, out string? value) ? value : string.Empty;
+            }
+        }
+
+        public void SetField(string Name, string Value)
+        {
+            lock (_fieldsLock)
+            {
+                Fields ??= new Dictionary<string, string>();
+                Fields[Name] = Value;
+            }
             IsDirty = true;
             AccountManager.QueueDeferredSave();
         }
-        public void RemoveField(string Name) { if (Fields.Remove(Name)) { IsDirty = true; AccountManager.QueueDeferredSave(); } }
+
+        public void SetWindowBounds(int x, int y, int width, int height)
+        {
+            ApplyWindowBoundsInMemory(x, y, width, height);
+            AccountRuntimeStateStore.RecordWindowBounds(this, x, y, width, height);
+        }
+
+        internal void ApplyWindowBoundsInMemory(int x, int y, int width, int height)
+        {
+            lock (_fieldsLock)
+            {
+                Fields ??= new Dictionary<string, string>();
+                Fields["Window_Position_X"] = x.ToString(CultureInfo.InvariantCulture);
+                Fields["Window_Position_Y"] = y.ToString(CultureInfo.InvariantCulture);
+                Fields["Window_Width"] = width.ToString(CultureInfo.InvariantCulture);
+                Fields["Window_Height"] = height.ToString(CultureInfo.InvariantCulture);
+            }
+        }
+
+        internal void RecordVolatileLastUse(DateTime timestamp)
+        {
+            LastUse = timestamp;
+            AccountRuntimeStateStore.RecordLastUse(this, timestamp);
+        }
+
+        public void RemoveField(string Name)
+        {
+            bool removed;
+            lock (_fieldsLock)
+            {
+                removed = Fields != null && Fields.Remove(Name);
+            }
+            if (removed)
+            {
+                IsDirty = true;
+                AccountManager.QueueDeferredSave();
+            }
+        }
     }
 
     public class AccountJson

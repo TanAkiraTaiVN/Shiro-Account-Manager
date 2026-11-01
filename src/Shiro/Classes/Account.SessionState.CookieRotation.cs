@@ -1,9 +1,10 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using Shiro.Http;
+using Shiro.Services;
 
 namespace Shiro
 {
@@ -25,19 +26,6 @@ namespace Shiro
                     catch (Exception ex)
                     {
                         Program.Logger?.Debug($"NonValidated Set-Cookie header extraction error: {ex.Message}");
-                    }
-                }
-
-                if (setCookieHeaders == null && response.Content != null)
-                {
-                    try
-                    {
-                        if (response.Content.Headers.TryGetValues("Set-Cookie", out var contentCookies))
-                            setCookieHeaders = contentCookies;
-                    }
-                    catch (Exception ex)
-                    {
-                        Program.Logger?.Debug($"Content Set-Cookie header extraction error: {ex.Message}");
                     }
                 }
 
@@ -66,10 +54,10 @@ namespace Shiro
                 if (response.Cookies != null)
                 {
                     var cookie = response.Cookies.FirstOrDefault(c => string.Equals(c.Name, ".ROBLOSECURITY", StringComparison.OrdinalIgnoreCase));
-                    if (cookie != null && !string.IsNullOrWhiteSpace(cookie.Value) &&
-                        cookie.Value.Length >= 100 && cookie.Value.Contains("_|WARNING:-DO-NOT-SHARE-THIS"))
+                    if (cookie != null && !string.IsNullOrWhiteSpace(cookie.Value))
                     {
-                        if (ApplyRotatedSecurityToken(cookie.Value, "RestResponse cookies"))
+                        string? sanitized = ExtractRoblosecurityFromSetCookie($".ROBLOSECURITY={cookie.Value}");
+                        if (!string.IsNullOrEmpty(sanitized) && ApplyRotatedSecurityToken(sanitized, "RestResponse cookies"))
                             return true;
                     }
                 }
@@ -93,6 +81,12 @@ namespace Shiro
             return false;
         }
 
+        /// <summary>
+        /// Signs and attaches the HBA token header to a cookie rotation or session re-binding request.
+        /// </summary>
+        public bool TryAttachCookieRotationHbaHeader(HttpRequestMessage request, string? bodyContent = null) =>
+            RobloxHbaService.TryAttachHbaHeader(request, this, bodyContent);
+
         public static string? ExtractRoblosecurityFromSetCookie(string? header)
         {
             if (string.IsNullOrWhiteSpace(header)) return null;
@@ -109,6 +103,47 @@ namespace Shiro
                 return null;
 
             return span.ToString();
+        }
+
+        internal bool ApplyRotatedSecurityToken(string newCookie, string source)
+        {
+            string sanitized = SanitizeCookie(newCookie);
+            if (string.IsNullOrWhiteSpace(sanitized) || !sanitized.Contains("_|WARNING:-DO-NOT-SHARE-THIS", StringComparison.Ordinal))
+                return false;
+
+            lock (CookieSyncRoot)
+            {
+                if (string.Equals(_SecurityToken, sanitized, StringComparison.Ordinal))
+                    return false;
+
+                _SecurityToken = sanitized;
+                IsDirty = true;
+                TokenSet = DateTime.MinValue;
+                CSRFToken = null;
+                LastUse = DateTime.Now;
+                System.Threading.Interlocked.Increment(ref _cookieRotationVersion);
+            }
+
+            Program.Logger?.Info($"[CookieRotation] Captured rotated .ROBLOSECURITY from {source} for {Username ?? "account"}. Updating stored session.");
+            string netSig = RobloxHbaService.GetLocalNetworkSignature();
+            if (netSig is not ("offline" or "unknown"))
+                LastBoundIpSignature = netSig;
+            try
+            {
+                AccountManager.QueueDeferredSave();
+                if (!string.IsNullOrEmpty(Username) || UserID > 0)
+                {
+                    AccountManager.Instance?.BeginInvoke(new Action(() =>
+                    {
+                        AccountManager.Instance?.RefreshView(this);
+                    }));
+                }
+            }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"UI notification update error: {ex.Message}");
+            }
+            return true;
         }
     }
 }

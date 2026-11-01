@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -19,27 +19,40 @@ namespace Shiro
         // Test seam: lets unit tests supply a fake HttpMessageHandler-backed client.
         internal static Func<Account, HttpClient>? TestHttpClientFactory;
 
-        internal HttpClient GetSessionHttpClient() =>
-            TestHttpClientFactory?.Invoke(this) ?? ProxyBindingService.GetClient(this);
+        internal const string DefaultBrowserUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+
+        private object? _cookieLock;
+        private object CookieSyncRoot => _cookieLock ?? Interlocked.CompareExchange(ref _cookieLock, new object(), null) ?? _cookieLock!;
+        private int _cookieRotationVersion;
+
+        [System.Text.Json.Serialization.JsonIgnore]
+        internal int CookieRotationVersion => Volatile.Read(ref _cookieRotationVersion);
+
+        internal string GetCurrentSecurityToken()
+        {
+            lock (CookieSyncRoot)
+            {
+                return _SecurityToken ?? string.Empty;
+            }
+        }
+
+        internal HttpRequestMessage CreateAuthenticatedGetRequest(string url, string accept = "application/json, text/plain, */*", string? tokenOverride = null)
+        {
+            var request = new HttpRequestMessage(HttpMethod.Get, url);
+            ApplySessionFingerprintAndHba(request, bodyContent: null, tokenOverride: tokenOverride);
+            request.Headers.TryAddWithoutValidation("Accept", accept);
+            return request;
+        }
+
+        internal HttpClient GetSessionHttpClient(bool allowAutoRedirect = true) =>
+            TestHttpClientFactory?.Invoke(this) ?? (allowAutoRedirect ? ProxyBindingService.GetClient(this) : ProxyBindingService.GetNoRedirectClient(this));
 
         public async Task<bool> ValidateSessionAsync(CancellationToken cancellationToken = default)
         {
-            if (string.IsNullOrWhiteSpace(SecurityToken))
+            string initialToken = GetCurrentSecurityToken();
+            if (string.IsNullOrWhiteSpace(initialToken))
             {
-                Valid = false;
-                return false;
-            }
-
-            string token = SecurityToken.Trim().Trim('"').Trim();
-            if (string.IsNullOrWhiteSpace(token))
-            {
-                Valid = false;
-                return false;
-            }
-
-            if (HasExpiredShortLivedCookie())
-            {
-                Program.Logger?.Warn($"[ValidateSessionAsync] {Username}: Short-lived 592-byte fallback cookie exceeded 30m TTL. Marking expired.");
+                AccountStatusIssue = string.Empty;
                 Valid = false;
                 return false;
             }
@@ -52,14 +65,11 @@ namespace Shiro
                 try
                 {
                     HttpClient httpClient = GetSessionHttpClient();
-                    using var request = new HttpRequestMessage(HttpMethod.Get, "https://users.roblox.com/v1/users/authenticated");
-                    request.Headers.TryAddWithoutValidation("Cookie", $".ROBLOSECURITY={token}");
-                    request.Headers.TryAddWithoutValidation("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36");
-                    request.Headers.TryAddWithoutValidation("Accept", "application/json, text/plain, */*");
+                    using var request = CreateAuthenticatedGetRequest("https://users.roblox.com/v1/users/authenticated");
 
                     await RobloxRateLimitCoordinator.Instance.WaitForBackoffAsync(cancellationToken).ConfigureAwait(false);
 
-                    using HttpResponseMessage response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseContentRead, cancellationToken).ConfigureAwait(false);
+                    using HttpResponseMessage response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
                     if (response == null)
                         return Valid;
 
@@ -68,11 +78,20 @@ namespace Shiro
                     if (response.RequestMessage?.RequestUri != null)
                     {
                         string absUri = response.RequestMessage.RequestUri.AbsoluteUri;
+                        string host = response.RequestMessage.RequestUri.Host;
+                        bool isRobloxHost = host.Equals("roblox.com", StringComparison.OrdinalIgnoreCase) ||
+                                            host.EndsWith(".roblox.com", StringComparison.OrdinalIgnoreCase);
+                        if (!isRobloxHost)
+                        {
+                            Program.Logger?.Warn($"[ValidateSessionAsync] {Username}: ISP redirected API to external host ({absUri}). Preserving session validity: {Valid}");
+                            return Valid;
+                        }
+
                         if (absUri.IndexOf("/login", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                            absUri.IndexOf("NewLogin", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                            !string.Equals(response.RequestMessage.RequestUri.Host, "users.roblox.com", StringComparison.OrdinalIgnoreCase))
+                            absUri.IndexOf("NewLogin", StringComparison.OrdinalIgnoreCase) >= 0)
                         {
                             Program.Logger?.Warn($"[ValidateSessionAsync] {Username}: Redirected to login ({absUri}). Cookie expired.");
+                            AccountStatusIssue = string.Empty;
                             Valid = false;
                             return false;
                         }
@@ -80,7 +99,17 @@ namespace Shiro
 
                     if (response.StatusCode == HttpStatusCode.Unauthorized)
                     {
+                        // Transient 401s from users.roblox.com have been observed on cookies that
+                        // validate fine minutes later. Cross-check before discarding the session.
+                        if (await ValidateViaSecondaryEndpointAsync(cancellationToken).ConfigureAwait(false))
+                        {
+                            Program.Logger?.Debug($"[ValidateSessionAsync] {Username}: users/authenticated returned 401 but secondary endpoint confirmed the session. Keeping it valid.");
+                            AccountStatusIssue = string.Empty;
+                            Valid = true;
+                            return true;
+                        }
                         Program.Logger?.Warn($"[ValidateSessionAsync] {Username}: Received 401 Unauthorized. Cookie expired.");
+                        AccountStatusIssue = string.Empty;
                         Valid = false;
                         return false;
                     }
@@ -88,23 +117,29 @@ namespace Shiro
                     if (response.StatusCode == HttpStatusCode.OK)
                     {
                         string body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-                        if (string.IsNullOrWhiteSpace(body) || body.StartsWith("<"))
+                        string trimmedBody = body?.TrimStart() ?? string.Empty;
+                        if (trimmedBody.StartsWith("<", StringComparison.Ordinal))
                         {
-                            Program.Logger?.Warn($"[ValidateSessionAsync] {Username}: Received HTML instead of JSON for 200 OK, session invalid.");
+                            Program.Logger?.Warn($"[ValidateSessionAsync] {Username}: Received HTML block/captive page instead of JSON for 200 OK. Preserving validity: {Valid}");
+                            return Valid;
+                        }
+                        if (string.IsNullOrWhiteSpace(trimmedBody))
+                        {
+                            AccountStatusIssue = string.Empty;
                             Valid = false;
                             return false;
                         }
 
                         RobloxAuthenticatedUser? authUser = null;
-                        if (Utilities.FastJson.TryDeserialize<RobloxAuthenticatedUser>(body, out var parsedUser) && parsedUser?.Id > 0)
+                        if (Utilities.FastJson.TryDeserialize<RobloxAuthenticatedUser>(trimmedBody, out var parsedUser) && parsedUser?.Id > 0)
                         {
                             authUser = parsedUser;
                         }
-                        else if (!string.IsNullOrWhiteSpace(body))
+                        else if (!string.IsNullOrWhiteSpace(trimmedBody))
                         {
                             try
                             {
-                                using var uDoc = JsonDocument.Parse(body);
+                                using var uDoc = JsonDocument.Parse(trimmedBody);
                                 if (uDoc.RootElement.TryGetProperty("id", out var idProp))
                                 {
                                     authUser = new RobloxAuthenticatedUser
@@ -126,6 +161,7 @@ namespace Shiro
                             if (UserID > 0 && authId != UserID)
                             {
                                 Program.Logger?.Warn($"[ValidateSessionAsync] {Username}: UserID mismatch (Expected: {UserID}, Got: {authId}). Cookie expired or belongs to different user.");
+                                AccountStatusIssue = string.Empty;
                                 Valid = false;
                                 return false;
                             }
@@ -136,20 +172,34 @@ namespace Shiro
                             if (!string.IsNullOrEmpty(authUser.Name) && string.IsNullOrEmpty(Username))
                                 Username = authUser.Name;
 
-                            // Verify live session store on account settings (catches IP-locks and expired session stores)
-                            bool liveSessionOk = await VerifyLiveSessionStoreAsync(token, cancellationToken).ConfigureAwait(false);
+                            // Verify live session store and moderation status concurrently (cuts latency in half)
+                            var liveSessionTask = VerifyLiveSessionStoreAsync(cancellationToken);
+                            var moderationTask = CheckModerationStatusAsync(GetCurrentSecurityToken(), cancellationToken);
+                            await Task.WhenAll(liveSessionTask, moderationTask).ConfigureAwait(false);
+
+                            bool liveSessionOk = await liveSessionTask.ConfigureAwait(false);
                             if (!liveSessionOk)
                             {
-                                Program.Logger?.Warn($"[ValidateSessionAsync] {Username}: Live session store returned 401 Unauthorized. Session expired or IP-locked.");
+                                // accountsettings.roblox.com can return 401 for sessions that are
+                                // still fully usable (users/authenticated already returned 200 with
+                                // the right UserID and launches succeed). Never expire on that single
+                                // signal: confirm with an independent authenticated endpoint first.
+                                liveSessionOk = await ValidateViaSecondaryEndpointAsync(cancellationToken).ConfigureAwait(false);
+                                if (liveSessionOk)
+                                    Program.Logger?.Debug($"[ValidateSessionAsync] {Username}: accountsettings returned 401 but secondary endpoint confirmed the session. Keeping it valid.");
+                            }
+                            if (!liveSessionOk)
+                            {
+                                Program.Logger?.Warn($"[ValidateSessionAsync] {Username}: Live session store and secondary endpoint both returned 401. Session expired or IP-locked.");
+                                AccountStatusIssue = string.Empty;
                                 Valid = false;
                                 return false;
                             }
 
-                            // Verify moderation / ban status (e.g. 1-day, 3-day, 7-day bans, warnings)
-                            var (isBanned, issueBadge, reason) = await CheckModerationStatusAsync(token, cancellationToken).ConfigureAwait(false);
+                            var (isBanned, issueBadge, reason) = await moderationTask.ConfigureAwait(false);
                             if (isBanned)
                             {
-                                string badge = issueBadge ?? "⛔ Bị khóa / Ban";
+                                string badge = issueBadge ?? "Bị khóa / Ban";
                                 Program.Logger?.Warn($"[ValidateSessionAsync] {Username}: Active moderation detected: {badge} ({reason}). Marking invalid.");
                                 AccountStatusIssue = badge;
                                 Valid = false;
@@ -162,6 +212,7 @@ namespace Shiro
                             return true;
                         }
 
+                        AccountStatusIssue = string.Empty;
                         Valid = false;
                         return false;
                     }
@@ -174,7 +225,7 @@ namespace Shiro
                             await RobloxRateLimitCoordinator.Instance.WaitForBackoffAsync(cancellationToken).ConfigureAwait(false);
                             continue;
                         }
-                        bool secondaryRateOk = await ValidateViaSecondaryEndpointAsync(token, cancellationToken).ConfigureAwait(false);
+                        bool secondaryRateOk = await ValidateViaSecondaryEndpointAsync(cancellationToken).ConfigureAwait(false);
                         if (secondaryRateOk)
                         {
                             Valid = true;
@@ -186,7 +237,7 @@ namespace Shiro
 
                     if (response.StatusCode == HttpStatusCode.Forbidden)
                     {
-                        bool secondaryOk = await ValidateViaSecondaryEndpointAsync(token, cancellationToken).ConfigureAwait(false);
+                        bool secondaryOk = await ValidateViaSecondaryEndpointAsync(cancellationToken).ConfigureAwait(false);
                         if (secondaryOk)
                         {
                             Valid = true;
@@ -202,6 +253,7 @@ namespace Shiro
                         return Valid;
                     }
 
+                    AccountStatusIssue = string.Empty;
                     Valid = false;
                     return false;
                 }
@@ -225,76 +277,95 @@ namespace Shiro
             return Valid;
         }
 
-        private async Task<bool> VerifyLiveSessionStoreAsync(string token, CancellationToken cancellationToken)
+        private async Task<bool> VerifyLiveSessionStoreAsync(CancellationToken cancellationToken)
         {
-            try
+            for (int attempt = 0; attempt < 2; attempt++)
             {
-                HttpClient httpClient = GetSessionHttpClient();
-                using var request = new HttpRequestMessage(HttpMethod.Get, "https://accountsettings.roblox.com/v1/email");
-                request.Headers.TryAddWithoutValidation("Cookie", $".ROBLOSECURITY={token}");
-                request.Headers.TryAddWithoutValidation("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36");
-                request.Headers.TryAddWithoutValidation("Accept", "application/json, text/plain, */*");
+                try
+                {
+                    using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                    linkedCts.CancelAfter(TimeSpan.FromSeconds(5));
 
-                using HttpResponseMessage response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseContentRead, cancellationToken).ConfigureAwait(false);
-                if (response == null)
+                    int versionBefore = CookieRotationVersion;
+                    HttpClient httpClient = GetSessionHttpClient();
+                    using var request = CreateAuthenticatedGetRequest("https://accountsettings.roblox.com/v1/email");
+
+                    using HttpResponseMessage response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, linkedCts.Token).ConfigureAwait(false);
+                    if (response == null)
+                        return true;
+
+                    TryUpdateRotatedCookie(response);
+
+                    if (response.StatusCode == HttpStatusCode.Unauthorized)
+                    {
+                        if (attempt == 0 && CookieRotationVersion != versionBefore)
+                            continue;
+                        return false;
+                    }
+
                     return true;
-
-                TryUpdateRotatedCookie(response);
-
-                if (response.StatusCode == HttpStatusCode.Unauthorized)
-                    return false;
-
-                return true;
+                }
+                catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+                {
+                    // Timeout on secondary store: treat as valid to prevent false positive expiration
+                    return true;
+                }
+                catch
+                {
+                    return true;
+                }
             }
-            catch
-            {
-                return true;
-            }
+            return false;
         }
 
-        private async Task<bool> ValidateViaSecondaryEndpointAsync(string token, CancellationToken cancellationToken)
+        private async Task<bool> ValidateViaSecondaryEndpointAsync(CancellationToken cancellationToken)
         {
-            try
+            for (int attempt = 0; attempt < 2; attempt++)
             {
-                HttpClient httpClient = GetSessionHttpClient();
-                using var request = new HttpRequestMessage(HttpMethod.Get, "https://friends.roblox.com/v1/my/friends/count");
-                request.Headers.TryAddWithoutValidation("Cookie", $".ROBLOSECURITY={token}");
-                request.Headers.TryAddWithoutValidation("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36");
-                request.Headers.TryAddWithoutValidation("Accept", "application/json, text/plain, */*");
-
-                using HttpResponseMessage response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseContentRead, cancellationToken).ConfigureAwait(false);
-                TryUpdateRotatedCookie(response);
-                if (response.StatusCode == HttpStatusCode.Unauthorized)
+                try
                 {
-                    Program.Logger?.Warn($"[ValidateViaSecondaryEndpointAsync] {Username}: Received 401 on friends.roblox.com. Cookie expired.");
-                    return false;
-                }
+                    int versionBefore = CookieRotationVersion;
+                    HttpClient httpClient = GetSessionHttpClient();
+                    using var request = CreateAuthenticatedGetRequest("https://friends.roblox.com/v1/my/friends/count");
 
-                if (response.StatusCode == HttpStatusCode.OK)
-                {
-                    string body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-                    if (!string.IsNullOrWhiteSpace(body))
+                    using HttpResponseMessage response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+                    TryUpdateRotatedCookie(response);
+                    if (response.StatusCode == HttpStatusCode.Unauthorized)
                     {
-                        if (Utilities.FastJson.TryDeserialize<RobloxFriendsCountResponse>(body, out var friendsRsp) && friendsRsp != null)
+                        if (attempt == 0 && CookieRotationVersion != versionBefore)
+                            continue;
+                        Program.Logger?.Warn($"[ValidateViaSecondaryEndpointAsync] {Username}: Received 401 on friends.roblox.com. Cookie expired.");
+                        return false;
+                    }
+
+                    if (response.StatusCode == HttpStatusCode.OK)
+                    {
+                        string body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+                        if (!string.IsNullOrWhiteSpace(body))
                         {
-                            return true;
-                        }
-                        try
-                        {
-                            using var cDoc = JsonDocument.Parse(body);
-                            if (cDoc.RootElement.TryGetProperty("count", out _))
+                            if (Utilities.FastJson.TryDeserialize<RobloxFriendsCountResponse>(body, out var friendsRsp) && friendsRsp != null)
+                            {
                                 return true;
-                        }
-                        catch (Exception ex)
-                        {
-                            Program.Logger?.Debug($"Parse friend count JSON failed: {ex.Message}");
+                            }
+                            try
+                            {
+                                using var cDoc = JsonDocument.Parse(body);
+                                if (cDoc.RootElement.TryGetProperty("count", out _))
+                                    return true;
+                            }
+                            catch (Exception ex)
+                            {
+                                Program.Logger?.Debug($"Parse friend count JSON failed: {ex.Message}");
+                            }
                         }
                     }
+                    break;
                 }
-            }
-            catch (Exception ex)
-            {
-                Program.Logger?.Warn($"CheckFriendsCountAsync failed: {ex.Message}");
+                catch (Exception ex)
+                {
+                    Program.Logger?.Warn($"CheckFriendsCountAsync failed: {ex.Message}");
+                    break;
+                }
             }
 
             return false;
@@ -303,11 +374,10 @@ namespace Shiro
         public RestRequest MakeRequest(string url, Method method = Method.Get)
         {
             var req = new RestRequest(url, method);
-            if (!string.IsNullOrWhiteSpace(SecurityToken))
+            string token = GetCurrentSecurityToken();
+            if (!string.IsNullOrWhiteSpace(token))
             {
-                string token = SecurityToken.Trim().Trim('"').Trim();
                 req.AddCookie(".ROBLOSECURITY", token, "/", ".roblox.com");
-                req.AddHeader("Cookie", $".ROBLOSECURITY={token}");
             }
             return req;
         }
@@ -322,7 +392,8 @@ namespace Shiro
             RestRequest request,
             CancellationToken cancellationToken = default)
         {
-            HttpClient accountHttpClient = ProxyBindingService.GetClient(this);
+            ApplySessionFingerprintAndHbaToRestRequest(request, client?.BaseUrl ?? fallbackBaseUrl);
+            HttpClient accountHttpClient = TestHttpClientFactory?.Invoke(this) ?? ProxyBindingService.GetClient(this);
             RestResponse? response;
             if (client != null)
                 response = await client.ExecuteAsync(request, accountHttpClient, cancellationToken).ConfigureAwait(false);
@@ -338,36 +409,6 @@ namespace Shiro
             }
 
             return response;
-        }
-
-        private bool ApplyRotatedSecurityToken(string newCookie, string source)
-        {
-            if (string.IsNullOrWhiteSpace(newCookie) || string.Equals(SecurityToken, newCookie, StringComparison.Ordinal))
-                return false;
-
-            if (!newCookie.Contains("_|WARNING:-DO-NOT-SHARE-THIS", StringComparison.Ordinal))
-                return false;
-
-            Program.Logger?.Info($"[CookieRotation] Captured rotated .ROBLOSECURITY from {source} for {Username ?? "account"}. Updating stored session.");
-            SecurityToken = newCookie;
-            TokenSet = DateTime.MinValue;
-            CSRFToken = null;
-            LastUse = DateTime.Now;
-            Valid = true;
-            try
-            {
-                AccountManager.SaveAccounts(true);
-                AccountManager.Instance?.BeginInvoke(new Action(() =>
-                {
-                    AccountManager.NotifyAccountValidity(this, true);
-                    AccountManager.Instance?.RefreshView(this);
-                }));
-            }
-            catch (Exception ex)
-            {
-                Program.Logger?.Debug($"UI notification update error: {ex.Message}");
-            }
-            return true;
         }
 
         private static int GetRateLimitRecoverySeconds(RestResponse? response)
@@ -414,7 +455,7 @@ namespace Shiro
             return NativeAuthRecoverySeconds;
         }
 
-        private static void MarkNativeAuthRateLimited(int seconds, string username, string source)
+        internal static void MarkNativeAuthRateLimited(int seconds, string username, string source)
         {
             seconds = Math.Max(1, Math.Min(180, seconds));
 

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
@@ -32,16 +32,12 @@ namespace Shiro
 
             try
             {
-                string token = SecurityToken.Trim().Trim('"').Trim();
                 long balance = await RobloxRateLimitCoordinator.Instance.ExecuteWithPacingAsync(
                     RateLimitCategory.General,
                     async () =>
                     {
                         HttpClient httpClient = GetSessionHttpClient();
-                        using var request = new HttpRequestMessage(HttpMethod.Get, $"https://economy.roblox.com/v1/users/{UserID}/currency");
-                        request.Headers.TryAddWithoutValidation("Cookie", $".ROBLOSECURITY={token}");
-                        request.Headers.TryAddWithoutValidation("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/131.0.0.0 Safari/537.36");
-                        request.Headers.TryAddWithoutValidation("Accept", "application/json");
+                        using var request = CreateAuthenticatedGetRequest($"https://economy.roblox.com/v1/users/{UserID}/currency", "application/json");
 
                         using var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseContentRead, cancellationToken).ConfigureAwait(false);
                         TryUpdateRotatedCookie(response);
@@ -89,8 +85,11 @@ namespace Shiro
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            if (!string.IsNullOrEmpty(CSRFToken) && (DateTime.Now - TokenSet).TotalMinutes < 4)
-                return (true, CSRFToken, string.Empty);
+            lock (CookieSyncRoot)
+            {
+                if (!string.IsNullOrEmpty(CSRFToken) && (DateTime.Now - TokenSet).TotalMinutes < 4)
+                    return (true, CSRFToken, string.Empty);
+            }
 
             string[] endpoints =
             {
@@ -102,10 +101,8 @@ namespace Shiro
             foreach (string endpoint in endpoints)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                string? cookie = SecurityToken?.Trim().Trim('"').Trim();
                 using var request = new HttpRequestMessage(HttpMethod.Post, endpoint);
-                if (!string.IsNullOrEmpty(cookie))
-                    request.Headers.TryAddWithoutValidation("Cookie", $".ROBLOSECURITY={cookie}");
+                ApplySessionFingerprintAndHba(request, "{}");
                 request.Headers.TryAddWithoutValidation("Origin", "https://www.roblox.com");
                 request.Headers.TryAddWithoutValidation("Referer", "https://www.roblox.com");
                 request.Content = new StringContent("{}", System.Text.Encoding.UTF8, "application/json");
@@ -130,11 +127,15 @@ namespace Shiro
                         string? token = vals.FirstOrDefault();
                         if (!string.IsNullOrWhiteSpace(token))
                         {
-                            CSRFToken = token;
-                            TokenSet = DateTime.Now;
-                            LastUse = DateTime.Now;
+                            DateTime now = DateTime.Now;
+                            lock (CookieSyncRoot)
+                            {
+                                CSRFToken = token;
+                                TokenSet = now;
+                                LastUse = now;
+                            }
                             AccountManager.LastValidAccount = this;
-                            AccountManager.QueueDeferredSave();
+                            RecordVolatileLastUse(now);
                             return (true, token, string.Empty);
                         }
                     }
@@ -162,25 +163,20 @@ namespace Shiro
             LastAuthTicketRateLimited = false;
             HttpClient httpClient = GetSessionHttpClient();
 
-            string currentCsrf = (!string.IsNullOrEmpty(CSRFToken) && (DateTime.Now - TokenSet).TotalMinutes < 4)
-                ? CSRFToken
-                : string.Empty;
+            string currentCsrf;
+            lock (CookieSyncRoot)
+            {
+                currentCsrf = (!string.IsNullOrEmpty(CSRFToken) && (DateTime.Now - TokenSet).TotalMinutes < 4)
+                    ? CSRFToken
+                    : string.Empty;
+            }
 
             for (int attempt = 0; attempt < AuthTicketMaxAttempts; attempt++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 await RobloxRateLimitCoordinator.Instance.WaitForBackoffAsync(cancellationToken).ConfigureAwait(false);
 
-                string? cookie = SecurityToken?.Trim().Trim('"').Trim();
-                using var request = new HttpRequestMessage(HttpMethod.Post, "https://auth.roblox.com/v1/authentication-ticket/");
-                if (!string.IsNullOrEmpty(cookie))
-                    request.Headers.TryAddWithoutValidation("Cookie", $".ROBLOSECURITY={cookie}");
-                if (!string.IsNullOrEmpty(currentCsrf))
-                    request.Headers.TryAddWithoutValidation("X-CSRF-TOKEN", currentCsrf);
-                request.Headers.TryAddWithoutValidation("Origin", "https://www.roblox.com");
-                request.Headers.TryAddWithoutValidation("Referer", "https://www.roblox.com/");
-                request.Headers.TryAddWithoutValidation("rbxauthenticationnegotiation", "1");
-                request.Content = new StringContent("{}", System.Text.Encoding.UTF8, "application/json");
+                using var request = AccountLaunchService.CreateTicketRequest(this, currentCsrf);
 
                 try
                 {
@@ -195,10 +191,15 @@ namespace Shiro
                         if (!string.IsNullOrWhiteSpace(freshCsrf))
                         {
                             currentCsrf = freshCsrf;
-                            CSRFToken = freshCsrf;
-                            TokenSet = DateTime.Now;
-                            LastUse = DateTime.Now;
+                            DateTime now = DateTime.Now;
+                            lock (CookieSyncRoot)
+                            {
+                                CSRFToken = freshCsrf;
+                                TokenSet = now;
+                                LastUse = now;
+                            }
                             AccountManager.LastValidAccount = this;
+                            RecordVolatileLastUse(now);
                         }
                     }
 
@@ -234,7 +235,10 @@ namespace Shiro
                     {
                         Program.Logger.Warn($"Roblox authentication-ticket request returned HTTP 401 Unauthorized for {Username}. Preserving stored session.");
                         currentCsrf = string.Empty;
-                        CSRFToken = null;
+                        lock (CookieSyncRoot)
+                        {
+                            CSRFToken = null;
+                        }
                         if (attempt + 1 < AuthTicketMaxAttempts)
                         {
                             continue;

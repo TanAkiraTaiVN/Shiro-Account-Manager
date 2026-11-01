@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Net.Http;
 using System.Threading;
@@ -12,21 +12,91 @@ namespace Shiro
         {
             try
             {
-                HttpClient httpClient = GetSessionHttpClient();
-                using var request = new HttpRequestMessage(HttpMethod.Get, "https://www.roblox.com/not-approved");
-                request.Headers.TryAddWithoutValidation("Cookie", $".ROBLOSECURITY={token}");
-                request.Headers.TryAddWithoutValidation("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36");
-                request.Headers.TryAddWithoutValidation("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
+                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                linkedCts.CancelAfter(TimeSpan.FromMilliseconds(2500));
 
-                using HttpResponseMessage response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseContentRead, cancellationToken).ConfigureAwait(false);
+                // Inspect /home with non-redirecting client to see if Roblox forwards the user to moderation
+                HttpClient httpClient = GetSessionHttpClient(allowAutoRedirect: false);
+                using var request = CreateAuthenticatedGetRequest(
+                    "https://www.roblox.com/home",
+                    "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                    token);
+
+                using HttpResponseMessage response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, linkedCts.Token).ConfigureAwait(false);
                 if (response == null) return (false, null, null);
 
                 TryUpdateRotatedCookie(response);
 
+                // Healthy account: 200 OK directly on /home
+                if (response.StatusCode == System.Net.HttpStatusCode.OK)
+                {
+                    return (false, null, null);
+                }
+
+                // Fast Path: When AutoRedirect is false, inspect Location header directly
+                string redirectLocation = response.Headers.Location?.ToString() ?? string.Empty;
+                if (!string.IsNullOrEmpty(redirectLocation))
+                {
+                    if (redirectLocation.StartsWith("http", StringComparison.OrdinalIgnoreCase) &&
+                        Uri.TryCreate(redirectLocation, UriKind.Absolute, out Uri? redirUri) &&
+                        redirUri != null &&
+                        !redirUri.Host.Equals("roblox.com", StringComparison.OrdinalIgnoreCase) &&
+                        !redirUri.Host.EndsWith(".roblox.com", StringComparison.OrdinalIgnoreCase))
+                    {
+                        // External ISP / VNG redirect on www.roblox.com — fail-soft immediately
+                        return (false, null, null);
+                    }
+                    // Normal unbanned accounts get 302 Found redirecting to /home or /discover
+                    if (redirectLocation.Contains("/home", StringComparison.OrdinalIgnoreCase) ||
+                        redirectLocation.Contains("/discover", StringComparison.OrdinalIgnoreCase) ||
+                        redirectLocation.Contains("/games", StringComparison.OrdinalIgnoreCase) ||
+                        redirectLocation.Equals("/", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return (false, null, null);
+                    }
+
+                    // Expired or unauthenticated cookies get redirected to login (NOT banned)
+                    if (redirectLocation.Contains("/login", StringComparison.OrdinalIgnoreCase) ||
+                        redirectLocation.Contains("NewLogin", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return (false, null, null);
+                    }
+
+                    // Moderation-specific redirect destination: Roblox intercepted /home and redirected to moderation
+                    if (redirectLocation.Contains("/not-approved", StringComparison.OrdinalIgnoreCase) ||
+                        redirectLocation.Contains("/moderation", StringComparison.OrdinalIgnoreCase) ||
+                        redirectLocation.Contains("/banned", StringComparison.OrdinalIgnoreCase) ||
+                        redirectLocation.Contains("/account-status", StringComparison.OrdinalIgnoreCase) ||
+                        redirectLocation.Contains("/account-locked", StringComparison.OrdinalIgnoreCase))
+                    {
+                        try
+                        {
+                            string targetUrl = redirectLocation.StartsWith("http", StringComparison.OrdinalIgnoreCase)
+                                ? redirectLocation
+                                : $"https://www.roblox.com{redirectLocation}";
+
+                            using var modReq = CreateAuthenticatedGetRequest(targetUrl, "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
+                            using var modRes = await httpClient.SendAsync(modReq, HttpCompletionOption.ResponseContentRead, linkedCts.Token).ConfigureAwait(false);
+                            if (modRes != null && modRes.IsSuccessStatusCode)
+                            {
+                                TryUpdateRotatedCookie(modRes);
+                                string modHtml = await modRes.Content.ReadAsStringAsync(linkedCts.Token).ConfigureAwait(false);
+                                return ParseModerationText(modHtml, redirectLocation);
+                            }
+                        }
+                        catch
+                        {
+                            // Fail-soft fallback
+                        }
+                        return ParseModerationText(string.Empty, redirectLocation);
+                    }
+                }
+
                 string finalUrl = response.RequestMessage?.RequestUri?.AbsoluteUri ?? string.Empty;
 
-                // When account is not under moderation, Roblox redirects to /home or /discover
-                if (!finalUrl.Contains("/not-approved", StringComparison.OrdinalIgnoreCase) &&
+                // When account is not under moderation and redirect was followed (e.g. in unit tests)
+                if (!string.IsNullOrEmpty(finalUrl) &&
+                    !finalUrl.Contains("/not-approved", StringComparison.OrdinalIgnoreCase) &&
                     !finalUrl.Contains("/moderation", StringComparison.OrdinalIgnoreCase) &&
                     !finalUrl.Contains("/banned", StringComparison.OrdinalIgnoreCase) &&
                     !finalUrl.Contains("/account-status", StringComparison.OrdinalIgnoreCase) &&
@@ -35,8 +105,20 @@ namespace Shiro
                     return (false, null, null);
                 }
 
-                string html = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-                return ParseModerationText(html, finalUrl);
+                // If Roblox returned 200 OK on a moderation URL directly
+                if (response.StatusCode == System.Net.HttpStatusCode.OK)
+                {
+                    string html = await response.Content.ReadAsStringAsync(linkedCts.Token).ConfigureAwait(false);
+                    return ParseModerationText(html, finalUrl);
+                }
+
+                return (false, null, null);
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                // Timeout fail-soft so we don't stall the batch
+                Program.Logger?.Debug($"[CheckModerationStatusAsync] {Username}: Moderation probe timed out (presumed normal).");
+                return (false, null, null);
             }
             catch (Exception ex)
             {
@@ -47,24 +129,54 @@ namespace Shiro
 
         public static (bool IsBanned, string? IssueBadge, string? Reason) ParseModerationText(string content, string? url = null)
         {
-            string combined = (content + " " + (url ?? "")).ToLowerInvariant();
+            // If checking a redirect URL only (no HTML body content provided)
+            if (string.IsNullOrWhiteSpace(content))
+            {
+                if (!string.IsNullOrEmpty(url))
+                {
+                    string lowUrl = url.ToLowerInvariant();
+                    if (lowUrl.Contains("/banned") || lowUrl.Contains("/account-status") || lowUrl.Contains("/account-locked") || lowUrl.Contains("/moderation"))
+                        return (true, "Bị khóa / Ban", "Tài khoản bị khóa hoặc kiểm duyệt");
+                }
+                return (false, null, null);
+            }
 
-            if (combined.Contains("7 day") || combined.Contains("7-day") || combined.Contains("7 ngày"))
-                return (true, "⛔ Ban 7 ngày", "Tài khoản bị cấm 7 ngày do vi phạm Tiêu chuẩn cộng đồng");
-            if (combined.Contains("3 day") || combined.Contains("3-day") || combined.Contains("3 ngày"))
-                return (true, "⛔ Ban 3 ngày", "Tài khoản bị cấm 3 ngày do vi phạm Tiêu chuẩn cộng đồng");
-            if (combined.Contains("1 day") || combined.Contains("1-day") || combined.Contains("1 ngày"))
-                return (true, "⛔ Ban 1 ngày", "Tài khoản bị cấm 1 ngày do vi phạm Tiêu chuẩn cộng đồng");
-            if (combined.Contains("14 day") || combined.Contains("14-day") || combined.Contains("14 ngày"))
-                return (true, "⛔ Ban 14 ngày", "Tài khoản bị cấm 14 ngày do vi phạm Tiêu chuẩn cộng đồng");
-            if (combined.Contains("deleted") || combined.Contains("terminated") || combined.Contains("đã bị xóa") || combined.Contains("vĩnh viễn"))
-                return (true, "⛔ Ban vĩnh viễn", "Tài khoản đã bị xóa vĩnh viễn (Terminated)");
-            if (combined.Contains("warning") || combined.Contains("cảnh báo"))
-                return (true, "⚠️ Cảnh báo", "Tài khoản nhận cảnh báo kiểm duyệt, cần xác nhận để mở khóa");
-            if (combined.Contains("locked") || combined.Contains("khóa bảo mật") || combined.Contains("security notification") || combined.Contains("reset your password"))
-                return (true, "⛔ Khóa bảo mật", "Tài khoản bị khóa bảo mật (Account Locked)");
-            if (combined.Contains("not-approved") || combined.Contains("moderation") || combined.Contains("banned") || combined.Contains("suspended"))
-                return (true, "⛔ Bị khóa / Ban", "Tài khoản bị khóa hoặc kiểm duyệt");
+            string text = content.ToLowerInvariant();
+
+            // A genuine Roblox moderation page explicitly renders moderation UI markers:
+            bool hasModerationMarker =
+                text.Contains("reviewed:") ||
+                text.Contains("moderator note") ||
+                text.Contains("terms of use violation") ||
+                text.Contains("your account has been") ||
+                text.Contains("punishment:") ||
+                text.Contains("reactivate my account") ||
+                text.Contains("tiêu chuẩn cộng đồng") ||
+                text.Contains("lý do:") ||
+                text.Contains("i agree");
+
+            if (!hasModerationMarker && !text.Contains("banned") && !text.Contains("warning"))
+            {
+                return (false, null, null);
+            }
+
+            if (text.Contains("7 day") || text.Contains("7-day") || text.Contains("7 ngày"))
+                return (true, "Ban 7 ngày", "Tài khoản bị cấm 7 ngày do vi phạm Tiêu chuẩn cộng đồng");
+            if (text.Contains("3 day") || text.Contains("3-day") || text.Contains("3 ngày"))
+                return (true, "Ban 3 ngày", "Tài khoản bị cấm 3 ngày do vi phạm Tiêu chuẩn cộng đồng");
+            if (text.Contains("1 day") || text.Contains("1-day") || text.Contains("1 ngày"))
+                return (true, "Ban 1 ngày", "Tài khoản bị cấm 1 ngày do vi phạm Tiêu chuẩn cộng đồng");
+            if (text.Contains("14 day") || text.Contains("14-day") || text.Contains("14 ngày"))
+                return (true, "Ban 14 ngày", "Tài khoản bị cấm 14 ngày do vi phạm Tiêu chuẩn cộng đồng");
+            if (text.Contains("deleted") || text.Contains("terminated") || text.Contains("đã bị xóa") || text.Contains("vĩnh viễn"))
+                return (true, "Ban vĩnh viễn", "Tài khoản đã bị xóa vĩnh viễn (Terminated)");
+            if (text.Contains("warning") || text.Contains("cảnh báo"))
+                return (true, "Cảnh báo", "Tài khoản nhận cảnh báo kiểm duyệt, cần xác nhận để mở khóa");
+            if (text.Contains("locked") || text.Contains("khóa bảo mật") || text.Contains("security notification") || text.Contains("reset your password"))
+                return (true, "Khóa bảo mật", "Tài khoản bị khóa bảo mật (Account Locked)");
+
+            if (hasModerationMarker)
+                return (true, "Bị khóa / Ban", "Tài khoản bị khóa hoặc kiểm duyệt");
 
             return (false, null, null);
         }

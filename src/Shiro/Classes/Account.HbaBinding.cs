@@ -23,6 +23,13 @@ namespace Shiro
         private const string FieldSessionUserAgent = "SessionUserAgent";
         private const string FieldLastBoundIpSig = "LastBoundIpSig";
 
+        public Account(string username, string password, string alias)
+        {
+            Username = username;
+            Password = password;
+            Alias = alias;
+        }
+
         [JsonIgnore]
         public string HbaPrivateKey
         {
@@ -31,10 +38,24 @@ namespace Shiro
         }
 
         [JsonIgnore]
+        public string HbaPrivateKeyPkcs8
+        {
+            get => HbaPrivateKey;
+            set => HbaPrivateKey = value;
+        }
+
+        [JsonIgnore]
         public string HbaPublicKey
         {
             get => GetProtectedField(FieldHbaPublicKey);
             set => SetProtectedField(FieldHbaPublicKey, value);
+        }
+
+        [JsonIgnore]
+        public string HbaPublicKeySpki
+        {
+            get => HbaPublicKey;
+            set => HbaPublicKey = value;
         }
 
         [JsonIgnore]
@@ -177,22 +198,7 @@ namespace Shiro
             request.Headers.Remove("User-Agent");
             request.Headers.TryAddWithoutValidation("User-Agent", GetEffectiveUserAgent());
 
-            string privKey = HbaPrivateKey;
-            if (!string.IsNullOrWhiteSpace(privKey) && request.RequestUri != null)
-            {
-                if (RobloxHbaService.TryBuildBoundAuthToken(
-                    privKey,
-                    request.RequestUri.AbsoluteUri,
-                    request.Method.Method,
-                    bodyContent,
-                    HbaTemplate,
-                    unixTimestampOverride: null,
-                    out string batToken))
-                {
-                    request.Headers.Remove(RobloxHbaService.BoundAuthHeaderName);
-                    request.Headers.TryAddWithoutValidation(RobloxHbaService.BoundAuthHeaderName, batToken);
-                }
-            }
+            RobloxHbaService.TryAttachHbaHeader(request, this, bodyContent);
         }
 
         internal void ApplySessionFingerprintAndHbaToRestRequest(RestRequest request, string baseUrl)
