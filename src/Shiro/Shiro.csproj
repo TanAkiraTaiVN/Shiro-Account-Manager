@@ -14,9 +14,9 @@
     <AssemblyName>Shiro</AssemblyName>
     <ApplicationIcon>Resources\shiro.ico</ApplicationIcon>
     <ApplicationManifest>app1.manifest</ApplicationManifest>
-    <Version>4.1.0</Version>
-    <AssemblyVersion>4.1.0.0</AssemblyVersion>
-    <FileVersion>4.1.0.0</FileVersion>
+    <Version>4.2.0</Version>
+    <AssemblyVersion>4.2.0.0</AssemblyVersion>
+    <FileVersion>4.2.0.0</FileVersion>
     <Product>Shiro Account Manager</Product>
     <Company>Shiro RAM Project</Company>
     <Copyright>Copyright © 2026 Shiro RAM</Copyright>
@@ -43,6 +43,8 @@
     <OutputPath>..\..\build\artifacts\$(Configuration)\</OutputPath>
     <PublishDocumentationFiles>false</PublishDocumentationFiles>
     <NoWarn>$(NoWarn);MSB3277</NoWarn>
+    <EnableRequestDelegateGenerator Condition="'$(PublishAot)' == 'true'">false</EnableRequestDelegateGenerator>
+    <NoWarn Condition="'$(PublishAot)' == 'true'">$(NoWarn);IL2026;IL3050;CS9144;IL2072;IL2087</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -65,7 +67,10 @@
   <ItemGroup>
     <AvaloniaResource Include="Resources\shiro_logo.png" />
     <AvaloniaResource Include="Resources\shiro.ico" />
+    <AvaloniaResource Include="Resources\Launchers\*.png" />
     <EmbeddedResource Include="Resources\Strings\*.json" />
+    <EmbeddedResource Include="Resources\Data\*.json" />
+    <AvaloniaResource Include="Resources\Flags\*.svg" />
   </ItemGroup>
 
   <ItemGroup>
