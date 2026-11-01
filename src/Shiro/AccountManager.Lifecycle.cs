@@ -67,8 +67,6 @@ namespace Shiro
             PresenceClient = apiClient.Presence;
             ApiClient = apiClient.Api;
 
-            // Legacy child forms are lazily instantiated on demand instead of allocating GDI handles at startup
-
             CurrentPlaceId = General.Exists("SavedPlaceId") ? (General.Get("SavedPlaceId") ?? "5315046213") : "5315046213";
 
             try
@@ -108,7 +106,7 @@ namespace Shiro
                 TimeSpan.FromMinutes(GetPresenceRefreshMinutes()),
                 async token =>
                 {
-                    if (shutdownRequested || token.IsCancellationRequested) return;
+                    if (shutdownRequested || token.IsCancellationRequested || Shiro.Services.RobloxHbaService.IsInteractiveLoginActive) return;
                     await UpdatePresence().ConfigureAwait(false);
                 },
                 enabled: General.Get<bool>("ShowPresence"));
@@ -138,6 +136,17 @@ namespace Shiro
             if (General.Exists(AppSettingsKeys.General.AutoMuteBackgroundClients) && General.Get<bool>(AppSettingsKeys.General.AutoMuteBackgroundClients))
                 RobloxAudioService.ConfigureSmartMute(true);
 
+            if (General.Exists(AppSettingsKeys.General.MaxTotalRobloxCpuPercent))
+            {
+                int cpuCap = General.Get<int>(AppSettingsKeys.General.MaxTotalRobloxCpuPercent, 0);
+                if (cpuCap > 0)
+                    RobloxJobObjectService.SetCpuRateLimit(cpuCap);
+            }
+
+            StreamerModeService.Initialize();
+            DiscordRpcService.Default.Start();
+            DiscordRpcService.Default.UpdateCurrentPresence();
+
             try { ClientSettingsPatcher.PatchSettings(); }
             catch (Exception ex) { Program.Logger?.Warn($"PatchSettings failed: {ex.Message}"); }
 
@@ -146,9 +155,10 @@ namespace Shiro
             // now selects the maintained WebView2 runtime.
             PuppeteerSupported = !General.Get<bool>("UseEmbeddedBrowser");
 
-            if (PuppeteerSupported && AccountBrowser.FindSystemBrowserExecutable() == null && !AccountBrowser.Fetcher.GetInstalledBrowsers().Any())
+            if (PuppeteerSupported && AccountBrowser.FindSystemBrowserExecutable() == null && AccountBrowser.FindCachedChromiumExecutable() == null)
             {
-                _ = ObserveBackgroundTaskAsync(DownloadChromiumAsync(), "Chromium download");
+                Program.Logger?.Warn("No Chrome/Edge installation was found; browser-based sign-in will be unavailable until one is installed.");
+                SetDashboardStatus("" + AccountBrowser.BrowserNotFoundMessage);
             }
 
             if (AccountControl.Get<bool>("StartOnLaunch"))
@@ -208,27 +218,6 @@ namespace Shiro
             });
         }
 
-        private async Task DownloadChromiumAsync()
-        {
-            IsDownloadingChromium = true;
-            try
-            {
-                await AccountBrowser.Fetcher.DownloadAsync(Chrome.DefaultBuildId).ConfigureAwait(false);
-                Program.Logger.Info("Bundled Chromium download completed.");
-            }
-            catch (Exception exception)
-            {
-                Program.Logger.Warn($"Could not download the bundled Chromium browser: {exception.Message}");
-                if (!IsDisposed)
-                    SetDashboardStatus("⚠️ Tải Chromium thất bại. Vui lòng cài Google Chrome hoặc thử lại từ Thêm tài khoản.");
-            }
-            finally
-            {
-                IsDownloadingChromium = false;
-                RefreshModernDashboard();
-            }
-        }
-
         public void ShutdownBackend()
         {
             if (shutdownFinalized)
@@ -248,9 +237,12 @@ namespace Shiro
             try { RobloxAudioService.ConfigureSmartMute(false); } catch (Exception) { }
             try { RobloxWatcher.Stop(); } catch (Exception) { }
             try { MemoryOptimizer.ConfigureAutoTrim(false); } catch (Exception) { }
+            try { RobloxJobObjectService.Close(); } catch (Exception) { }
             try { RobloxWindowService.ShowAllWindows(); } catch (Exception) { }
-            try { AltManagerWS?.StopAsync().GetAwaiter().GetResult(); } catch (Exception) { }
+            try { Task.Run(() => AltManagerWS?.StopAsync()).Wait(TimeSpan.FromSeconds(3)); } catch (Exception) { }
             try { RobloxDirectLauncher.RestoreOriginalCookies(); } catch (Exception) { }
+            try { AccountRuntimeStateStore.Flush(); } catch (Exception) { }
+            try { DiscordRpcService.Default.Dispose(); } catch (Exception) { }
 
             try
             {
@@ -288,6 +280,64 @@ namespace Shiro
             catch (Exception ex)
             {
                 Program.Logger?.Debug($"Environment.Exit threw: {ex.Message}");
+            }
+        }
+
+        public void SetAutoCookieRefreshEnabled(bool enabled)
+        {
+            if (enabled)
+            {
+                if (AutoCookieRefresh == null)
+                {
+                    AutoCookieRefresh = new Shiro.Services.ModernPeriodicTask(
+                        TimeSpan.FromMinutes(5),
+                        async token => await RefreshStaleCookiesAsync(token).ConfigureAwait(false),
+                        enabled: true);
+                }
+            }
+            else
+            {
+                if (AutoCookieRefresh != null)
+                {
+                    try { AutoCookieRefresh.Dispose(); } catch { }
+                    AutoCookieRefresh = null;
+                }
+            }
+        }
+
+        public async Task RestartWebServerAsync(int port, bool allowExternal)
+        {
+            await StopWebServerAsync().ConfigureAwait(false);
+            try
+            {
+                AltManagerWS = new KestrelWebServer(port, allowExternal, SendKestrelResponse, ValidateWebSocketAuth);
+                await AltManagerWS.StartAsync().ConfigureAwait(false);
+                Program.Logger?.Info($"[AccountManager] Kestrel WebServer started dynamically on port {port}.");
+            }
+            catch (Exception ex)
+            {
+                Program.Logger?.Error($"[AccountManager] Dynamic WebServer startup failed: {ex.Message}");
+                AltManagerWS = null;
+            }
+        }
+
+        public async Task StopWebServerAsync()
+        {
+            if (AltManagerWS != null)
+            {
+                try
+                {
+                    await AltManagerWS.StopAsync().ConfigureAwait(false);
+                    await AltManagerWS.DisposeAsync().ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    Program.Logger?.Debug($"[AccountManager] StopWebServerAsync error: {ex.Message}");
+                }
+                finally
+                {
+                    AltManagerWS = null;
+                }
             }
         }
 

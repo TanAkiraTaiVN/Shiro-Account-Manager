@@ -235,12 +235,43 @@ namespace Shiro.AvaloniaUI.Views
                     }
                     if (NumJoinDelay?.Value != null) settings.AccountJoinDelay = (int)NumJoinDelay.Value;
                     if (SwUseProxies?.IsChecked != null) settings.UseProxies = SwUseProxies.IsChecked.Value;
-                    if (SwEnableWebServer?.IsChecked != null) settings.EnableWebServer = SwEnableWebServer.IsChecked.Value;
+                    if (SwEnableWebServer?.IsChecked != null)
+                    {
+                        bool prevServer = settings.EnableWebServer;
+                        int prevPort = settings.WebServerPort;
+                        int targetPort = NumWebServerPort?.Value != null ? (int)NumWebServerPort.Value : prevPort;
+                        bool newServer = SwEnableWebServer.IsChecked.Value;
+
+                        settings.EnableWebServer = newServer;
+                        if (NumWebServerPort?.Value != null) settings.WebServerPort = targetPort;
+
+                        if (prevServer != newServer || (newServer && prevPort != targetPort))
+                        {
+                            if (newServer && AccountManager.Instance != null)
+                            {
+                                bool allowExternal = AccountManager.WebServer != null && AccountManager.WebServer.Get<bool>("AllowExternalConnections");
+                                _ = AccountManager.Instance.RestartWebServerAsync(targetPort, allowExternal);
+                            }
+                            else if (!newServer && AccountManager.Instance != null)
+                            {
+                                _ = AccountManager.Instance.StopWebServerAsync();
+                            }
+                        }
+                    }
                     if (NumWebServerPort?.Value != null) settings.WebServerPort = (int)NumWebServerPort.Value;
                     if (NumNexusPort?.Value != null) settings.NexusPort = (int)NumNexusPort.Value;
 
                     // Security
-                    if (SwAutoCookie?.IsChecked != null) settings.AutoCookieRefresh = SwAutoCookie.IsChecked.Value;
+                    if (SwAutoCookie?.IsChecked != null)
+                    {
+                        bool prevAutoCookie = settings.AutoCookieRefresh;
+                        bool newAutoCookie = SwAutoCookie.IsChecked.Value;
+                        settings.AutoCookieRefresh = newAutoCookie;
+                        if (prevAutoCookie != newAutoCookie && AccountManager.Instance != null)
+                        {
+                            AccountManager.Instance.SetAutoCookieRefreshEnabled(newAutoCookie);
+                        }
+                    }
                     if (SwSavePasswords?.IsChecked != null) settings.SavePasswords = SwSavePasswords.IsChecked.Value;
 
                     AccountManager.QueueDeferredSaveSettings();
