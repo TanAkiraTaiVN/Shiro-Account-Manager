@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -22,32 +22,203 @@ namespace Shiro.Classes
         {
             lock (PatchLock)
             {
+                bool potatoMode = AccountManager.General?.Get<bool>("EnablePotatoMode", false) ?? false;
+                if (potatoMode)
+                {
+                    ConfigureGlobalBasicSettings(graphicsQualityLevel: 1);
+                }
+
+                bool unlockFps = AccountManager.General?.Get<bool>("UnlockFPS", false) ?? false;
+                int targetFps = AccountManager.General?.Get<int>("MaxFPSValue", 144) ?? 144;
+                ApplyFpsLimit(unlockFps, targetFps);
+
                 PurgeSettings();
             }
         }
 
         /// <summary>
         /// Actively purges any ClientSettings directory from all detected Roblox versions to prevent bans.
+        /// Respects user configuration and preserves Bloxstrap/Fishstrap custom bootstrapper folders.
         /// </summary>
+        public const string FpsFlagKey = "DFIntTaskSchedulerTargetFps";
+
+        public static void ApplyFpsLimit(bool unlockFps, int targetFps)
+        {
+            var folders = FindRobloxVersionFolders();
+            foreach (var folder in folders)
+            {
+                ApplyFpsLimitToDirectory(folder.FullName, unlockFps, targetFps);
+            }
+        }
+
+        public static void ApplyFpsLimitToDirectory(string versionFolder, bool unlockFps, int targetFps)
+        {
+            try
+            {
+                string settingsDir = Path.Combine(versionFolder, "ClientSettings");
+                string jsonPath = Path.Combine(settingsDir, "ClientAppSettings.json");
+
+                int clampedFps = Math.Clamp(targetFps, 30, 360);
+
+                if (unlockFps)
+                {
+                    if (!Directory.Exists(settingsDir))
+                        Directory.CreateDirectory(settingsDir);
+
+                    var dict = new Dictionary<string, object>();
+                    if (File.Exists(jsonPath))
+                    {
+                        try
+                        {
+                            string existing = File.ReadAllText(jsonPath);
+                            var parsed = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, System.Text.Json.JsonElement>>(existing);
+                            if (parsed != null)
+                            {
+                                foreach (var kvp in parsed)
+                                    dict[kvp.Key] = kvp.Value;
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Program.Logger?.Debug($"Parse existing ClientAppSettings failed: {ex.Message}");
+                        }
+                    }
+
+                    dict[FpsFlagKey] = clampedFps;
+                    string updatedJson = System.Text.Json.JsonSerializer.Serialize(dict, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+                    StoragePaths.AtomicWriteText(jsonPath, updatedJson, durable: true);
+                    Program.Logger?.Info($"[ClientSettingsPatcher] Applied safe FPS limit ({clampedFps}) to {Path.GetFileName(versionFolder)}");
+                }
+                else
+                {
+                    if (File.Exists(jsonPath))
+                    {
+                        try
+                        {
+                            string existing = File.ReadAllText(jsonPath);
+                            var parsed = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, System.Text.Json.JsonElement>>(existing);
+                            if (parsed != null && parsed.ContainsKey(FpsFlagKey))
+                            {
+                                var dict = new Dictionary<string, object>();
+                                foreach (var kvp in parsed)
+                                {
+                                    if (kvp.Key != FpsFlagKey)
+                                        dict[kvp.Key] = kvp.Value;
+                                }
+
+                                if (dict.Count == 0)
+                                {
+                                    File.Delete(jsonPath);
+                                    if (Directory.Exists(settingsDir) && Directory.GetFileSystemEntries(settingsDir).Length == 0)
+                                        Directory.Delete(settingsDir);
+                                }
+                                else
+                                {
+                                    string updatedJson = System.Text.Json.JsonSerializer.Serialize(dict, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+                                    StoragePaths.AtomicWriteText(jsonPath, updatedJson, durable: true);
+                                }
+                                Program.Logger?.Info($"[ClientSettingsPatcher] Removed FPS limit from {Path.GetFileName(versionFolder)}");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Program.Logger?.Debug($"Clean FPS limit failed: {ex.Message}");
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Program.Logger?.Warn($"[ClientSettingsPatcher] ApplyFpsLimitToDirectory failed for {versionFolder}: {ex.Message}");
+            }
+        }
+
         public static void PurgeSettings()
         {
+            bool shouldPurge = AccountManager.General?.Get<bool>("PurgeClientSettings", false) ?? false;
+            if (!shouldPurge)
+            {
+                return;
+            }
+
             var targetFolders = FindRobloxVersionFolders();
             foreach (var folder in targetFolders)
             {
                 try
                 {
+                    bool isCustomBootstrapper = folder.FullName.Contains("Bloxstrap", StringComparison.OrdinalIgnoreCase) ||
+                                               folder.FullName.Contains("Fishstrap", StringComparison.OrdinalIgnoreCase) ||
+                                               folder.FullName.Contains("Froststrap", StringComparison.OrdinalIgnoreCase) ||
+                                               folder.FullName.Contains("Voidstrap", StringComparison.OrdinalIgnoreCase);
+                    if (isCustomBootstrapper)
+                    {
+                        Program.Logger?.Debug($"[ClientSettingsPatcher] Preserving custom bootstrapper ClientSettings in {folder.FullName}");
+                        continue;
+                    }
+
                     string settingsDir = Path.Combine(folder.FullName, "ClientSettings");
                     if (Directory.Exists(settingsDir))
                     {
                         Directory.Delete(settingsDir, recursive: true);
-                        Program.Logger.Info($"[ClientSettingsPatcher] Safely purged ClientSettings in {folder.Name} to protect against Byfron bans.");
+                        Program.Logger?.Info($"[ClientSettingsPatcher] Safely purged ClientSettings in {folder.Name} to protect against Byfron bans.");
                     }
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger.Warn($"[ClientSettingsPatcher] Could not purge ClientSettings in {folder.FullName}: {ex.Message}");
+                    Program.Logger?.Warn($"[ClientSettingsPatcher] Could not purge ClientSettings in {folder.FullName}: {ex.Message}");
                 }
             }
+        }
+
+        /// <summary>
+        /// Updates Roblox's native GlobalBasicSettings_13.xml safely without touching FastFlags or triggering anti-cheat detections.
+        /// </summary>
+        public static bool ConfigureGlobalBasicSettings(int? graphicsQualityLevel = null, bool? fullscreen = null)
+        {
+            try
+            {
+                string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+                string settingsPath = Path.Combine(localAppData, "Roblox", "GlobalBasicSettings_13.xml");
+                if (!File.Exists(settingsPath))
+                    return false;
+
+                string xml = File.ReadAllText(settingsPath);
+                bool modified = false;
+
+                if (graphicsQualityLevel.HasValue)
+                {
+                    int lvl = Math.Clamp(graphicsQualityLevel.Value, 1, 10);
+                    var pattern = @"<int name=""GraphicsQualityLevel"">\d+</int>";
+                    if (System.Text.RegularExpressions.Regex.IsMatch(xml, pattern))
+                    {
+                        xml = System.Text.RegularExpressions.Regex.Replace(xml, pattern, $"<int name=\"GraphicsQualityLevel\">{lvl}</int>");
+                        modified = true;
+                    }
+                }
+
+                if (fullscreen.HasValue)
+                {
+                    string fsVal = fullscreen.Value ? "true" : "false";
+                    var pattern = @"<bool name=""Fullscreen"">(true|false)</bool>";
+                    if (System.Text.RegularExpressions.Regex.IsMatch(xml, pattern))
+                    {
+                        xml = System.Text.RegularExpressions.Regex.Replace(xml, pattern, $"<bool name=\"Fullscreen\">{fsVal}</bool>");
+                        modified = true;
+                    }
+                }
+
+                if (modified)
+                {
+                    StoragePaths.AtomicWriteText(settingsPath, xml, durable: true);
+                    Program.Logger?.Info("[ClientSettingsPatcher] Successfully updated native GlobalBasicSettings_13.xml");
+                    return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"[ClientSettingsPatcher] ConfigureGlobalBasicSettings failed: {ex.Message}");
+            }
+            return false;
         }
 
         public static List<DirectoryInfo> FindRobloxVersionFolders()

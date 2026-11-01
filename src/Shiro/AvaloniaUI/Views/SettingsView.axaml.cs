@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.IO;
 using System.Threading;
@@ -70,6 +70,10 @@ namespace Shiro.AvaloniaUI.Views
                         SwAggressiveRamTrim.IsChecked = AccountManager.General != null && AccountManager.General.Exists(AppSettingsKeys.General.AggressiveRamTrimming)
                             ? AccountManager.General.Get<bool>(AppSettingsKeys.General.AggressiveRamTrimming)
                             : true;
+                    if (NumJobCpuCap != null)
+                        NumJobCpuCap.Value = AccountManager.General != null && AccountManager.General.Exists(AppSettingsKeys.General.MaxTotalRobloxCpuPercent)
+                            ? Math.Clamp(AccountManager.General.Get<int>(AppSettingsKeys.General.MaxTotalRobloxCpuPercent), 0, 100)
+                            : 0;
 
                     // Launching
                     if (SwSmartFastLaunch != null)
@@ -182,12 +186,25 @@ namespace Shiro.AvaloniaUI.Views
                         settings.CheckForUpdates = SwCheckUpdates.IsChecked.Value;
 
                     // Performance
-                    if (SwUnlockFps?.IsChecked != null) settings.UnlockFPS = SwUnlockFps.IsChecked.Value;
-                    if (NumTargetFps?.Value != null) settings.MaxFPSValue = (int)NumTargetFps.Value;
+                    bool patchSettingsNeeded = false;
+                    if (SwUnlockFps?.IsChecked != null)
+                    {
+                        if (settings.UnlockFPS != SwUnlockFps.IsChecked.Value) patchSettingsNeeded = true;
+                        settings.UnlockFPS = SwUnlockFps.IsChecked.Value;
+                    }
+                    if (NumTargetFps?.Value != null)
+                    {
+                        if (settings.MaxFPSValue != (int)NumTargetFps.Value) patchSettingsNeeded = true;
+                        settings.MaxFPSValue = (int)NumTargetFps.Value;
+                    }
                     if (SwPotatoMode?.IsChecked != null)
                     {
                         settings.EnablePotatoMode = SwPotatoMode.IsChecked.Value;
                         AccountManager.General?.Set("EnablePotatoMode", SwPotatoMode.IsChecked.Value ? "true" : "false");
+                        patchSettingsNeeded = true;
+                    }
+                    if (patchSettingsNeeded)
+                    {
                         _ = Task.Run(ClientSettingsPatcher.PatchSettings);
                     }
                     if (SwMultiRbx?.IsChecked != null) settings.EnableMultiRbx = SwMultiRbx.IsChecked.Value;
@@ -203,6 +220,12 @@ namespace Shiro.AvaloniaUI.Views
                         bool aggressiveTrim = SwAggressiveRamTrim.IsChecked.Value;
                         AccountManager.General?.Set(AppSettingsKeys.General.AggressiveRamTrimming, aggressiveTrim ? "true" : "false");
                         MemoryOptimizer.ConfigureAutoTrim(aggressiveTrim, 1);
+                    }
+                    if (NumJobCpuCap?.Value != null)
+                    {
+                        int cpuCap = Math.Clamp((int)NumJobCpuCap.Value.Value, 0, 100);
+                        AccountManager.General?.Set(AppSettingsKeys.General.MaxTotalRobloxCpuPercent, cpuCap.ToString());
+                        RobloxJobObjectService.SetCpuRateLimit(cpuCap);
                     }
 
                     // Launching
@@ -223,13 +246,13 @@ namespace Shiro.AvaloniaUI.Views
                     AccountManager.QueueDeferredSaveSettings();
                 }
 
-                _ = ShowSaveFeedbackAsync("✅ Đã lưu toàn bộ cài đặt thành công!");
+                _ = ShowSaveFeedbackAsync("Đã lưu toàn bộ cài đặt thành công!");
             }
             catch (Exception ex)
             {
                 Program.Logger?.Error($"[SettingsView.OnSaveSettingsClicked] {ex}");
                 if (TxtSaveFeedback != null)
-                    TxtSaveFeedback.Text = $"❌ Lỗi khi lưu cài đặt: {ex.Message}";
+                    TxtSaveFeedback.Text = $"Lỗi khi lưu cài đặt: {ex.Message}";
             }
         }
 
