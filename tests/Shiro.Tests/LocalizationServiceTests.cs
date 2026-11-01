@@ -247,7 +247,8 @@ namespace Shiro.Tests
             string? repoRoot = null;
             while (dir != null)
             {
-                if (System.IO.File.Exists(System.IO.Path.Combine(dir.FullName, "RBX Alt Manager.sln")))
+                if (System.IO.File.Exists(System.IO.Path.Combine(dir.FullName, "Shiro.sln")) ||
+                    System.IO.File.Exists(System.IO.Path.Combine(dir.FullName, "RBX Alt Manager.sln")))
                 {
                     repoRoot = dir.FullName;
                     break;
@@ -257,8 +258,6 @@ namespace Shiro.Tests
 
             Assert.NotNull(repoRoot);
             string projectRoot = System.IO.Path.Combine(repoRoot!, "src", "Shiro", "Resources", "Strings");
-            if (!System.IO.Directory.Exists(projectRoot))
-                projectRoot = System.IO.Path.Combine(repoRoot!, "RBX Alt Manager", "Resources", "Strings");
             Assert.True(System.IO.Directory.Exists(projectRoot));
 
             string enFile = System.IO.Path.Combine(projectRoot, "en.json");
@@ -287,6 +286,22 @@ namespace Shiro.Tests
                 var sortedVi = new System.Collections.Generic.SortedDictionary<string, string>(viDict, StringComparer.Ordinal);
                 System.IO.File.WriteAllText(viFile, System.Text.Json.JsonSerializer.Serialize(sortedVi, options));
             }
+        }
+        [Theory]
+        [InlineData("Set_JobCpuCapTip")]
+        [InlineData("Set_PotatoModeTip")]
+        [InlineData("Set_UnlockFpsTip")]
+        public void SettingsStrings_ContainCpuCapAndGraphicsTips(string key)
+        {
+            LocalizationService.SetLanguage(AppLanguage.Vietnamese, saveSetting: false);
+            string viStr = Loc.Get(key);
+            Assert.False(string.IsNullOrWhiteSpace(viStr));
+            Assert.NotEqual(key, viStr);
+
+            LocalizationService.SetLanguage(AppLanguage.English, saveSetting: false);
+            string enStr = Loc.Get(key);
+            Assert.False(string.IsNullOrWhiteSpace(enStr));
+            Assert.NotEqual(key, enStr);
         }
     }
 }
