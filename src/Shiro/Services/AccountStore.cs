@@ -1,8 +1,9 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Shiro.Classes;
 
 namespace Shiro.Services
 {
@@ -199,6 +200,24 @@ namespace Shiro.Services
         public void Write(byte[] data)
         {
             StoragePaths.AtomicWriteBytes(AccountFile, data ?? Array.Empty<byte>(), durable: true);
+        }
+
+        /// <summary>
+        /// Exports account records to an encrypted vault file protected with the given passphrase.
+        /// </summary>
+        public void ExportVault(IReadOnlyList<Account> accounts, string passphrase, string destinationPath)
+        {
+            using var fileStream = File.Create(destinationPath);
+            VaultExportService.ExportVault(accounts, passphrase, fileStream);
+        }
+
+        /// <summary>
+        /// Imports account records from an encrypted vault file protected with the given passphrase.
+        /// </summary>
+        public IReadOnlyList<Account> ImportVault(string sourcePath, string passphrase)
+        {
+            using var fileStream = File.OpenRead(sourcePath);
+            return VaultExportService.ImportVault(fileStream, passphrase);
         }
     }
 }
