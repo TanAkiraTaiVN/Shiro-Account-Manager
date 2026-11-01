@@ -147,5 +147,44 @@ namespace Shiro.Tests
                 WebhookNotificationService.AlertDispatched -= OnAlert;
             }
         }
+
+        [Fact]
+        public void RobloxRateLimitCoordinator_RecordRateLimitHit_DispatchesRateLimitedAlert()
+        {
+            var dispatchedAlerts = new List<WebhookAlert>();
+            void OnAlert(WebhookAlert a) => dispatchedAlerts.Add(a);
+
+            WebhookNotificationService.AlertDispatched += OnAlert;
+            try
+            {
+                RobloxRateLimitCoordinator.Instance.ResetBackoff();
+                RobloxRateLimitCoordinator.Instance.RecordRateLimitHit(RateLimitCategory.SessionCheck, defaultBackoffSeconds: 5);
+
+                Assert.Contains(dispatchedAlerts, a =>
+                    a.EventType == WebhookEventType.RateLimited &&
+                    a.Description != null &&
+                    a.Description.Contains("HTTP 429 Rate-Limit"));
+            }
+            finally
+            {
+                WebhookNotificationService.AlertDispatched -= OnAlert;
+                RobloxRateLimitCoordinator.Instance.ResetBackoff();
+            }
+        }
+
+        [Fact]
+        public void EnqueueAlert_BoundedChannel_EnqueuesSuccessfully()
+        {
+            var alert = new WebhookAlert
+            {
+                AccountUsername = "ChannelQueueUser",
+                EventType = WebhookEventType.Info,
+                Description = "Channel queuing test",
+                Timestamp = DateTimeOffset.UtcNow
+            };
+
+            var ex = Record.Exception(() => WebhookNotificationService.EnqueueAlert(alert));
+            Assert.Null(ex);
+        }
     }
 }

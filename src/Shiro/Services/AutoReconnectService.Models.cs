@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using Shiro.Classes;
 
@@ -33,6 +33,66 @@ namespace Shiro.Services
             public bool ObservedProcessExited { get; set; }
             public bool IsActive { get; set; } = true;
             public bool IsSuppressed { get; set; }
+        }
+
+        /// <summary>
+        /// Evaluates what action AutoReconnect should take for a monitored session.
+        /// Pure and deterministic for unit testing.
+        /// </summary>
+        public static ReconnectDecision Evaluate(
+            ReconnectSession session,
+            bool processExited,
+            int? exitCode,
+            DateTime nowUtc,
+            int maxRetries = 5,
+            TimeSpan? gracePeriod = null,
+            TimeSpan? disconnectTimeout = null)
+        {
+            if (session == null || !session.IsActive || session.IsSuppressed)
+                return ReconnectDecision.None;
+
+            TimeSpan grace = gracePeriod ?? TimeSpan.FromSeconds(15);
+            if ((nowUtc - session.LaunchTimeUtc) < grace)
+                return ReconnectDecision.None;
+
+            if (processExited)
+            {
+                // Clean exit (code 0) is only treated as user-initiated when no disconnect preceded it
+                if (exitCode == 0 && !session.LastDisconnectUtc.HasValue)
+                    return ReconnectDecision.CloseCleanly;
+
+                return session.RetryCount >= maxRetries
+                    ? ReconnectDecision.GiveUp
+                    : ReconnectDecision.Reconnect;
+            }
+
+            TimeSpan dcTimeout = disconnectTimeout ?? TimeSpan.FromSeconds(20);
+            if (session.LastDisconnectUtc.HasValue && (nowUtc - session.LastDisconnectUtc.Value) >= dcTimeout)
+            {
+                return session.RetryCount >= maxRetries
+                    ? ReconnectDecision.GiveUp
+                    : ReconnectDecision.KillAndReconnect;
+            }
+
+            return ReconnectDecision.None;
+        }
+
+        /// <summary>
+        /// Suppresses reconnecting for any session bound to the specified process ID.
+        /// </summary>
+        public void SuppressReconnectByPid(int processId)
+        {
+            if (processId <= 0) return;
+            foreach (var kvp in _sessions)
+            {
+                var session = kvp.Value;
+                if (session != null && session.ProcessId == processId)
+                {
+                    session.IsSuppressed = true;
+                    session.IsActive = false;
+                    Program.Logger?.Debug($"[AutoReconnect] Reconnection suppressed for PID {processId} ('{session.Account?.Username}').");
+                }
+            }
         }
     }
 }

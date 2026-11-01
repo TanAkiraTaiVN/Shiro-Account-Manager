@@ -72,6 +72,10 @@ namespace Shiro.Services
     [JsonSerializable(typeof(LaunchProgress))]
     [JsonSerializable(typeof(Dictionary<string, JsonElement>))]
     [JsonSerializable(typeof(JsonElement))]
+    [JsonSerializable(typeof(DiscordWebhookPayload))]
+    [JsonSerializable(typeof(DiscordWebhookEmbed))]
+    [JsonSerializable(typeof(DiscordWebhookField))]
+    [JsonSerializable(typeof(TelegramSendMessagePayload))]
     internal partial class ShiroAppJson : JsonSerializerContext
     {
     }
@@ -98,4 +102,24 @@ namespace Shiro.Services
         string? result,
         string? message,
         bool completed);
+
+    public readonly record struct DiscordWebhookPayload(
+        [property: JsonPropertyName("embeds")] List<DiscordWebhookEmbed> embeds);
+
+    public readonly record struct DiscordWebhookEmbed(
+        [property: JsonPropertyName("title")] string? title,
+        [property: JsonPropertyName("description")] string? description,
+        [property: JsonPropertyName("color")] int color,
+        [property: JsonPropertyName("fields")] List<DiscordWebhookField> fields,
+        [property: JsonPropertyName("timestamp")] string? timestamp);
+
+    public readonly record struct DiscordWebhookField(
+        [property: JsonPropertyName("name")] string? name,
+        [property: JsonPropertyName("value")] string? value,
+        [property: JsonPropertyName("inline")] bool inline);
+
+    public readonly record struct TelegramSendMessagePayload(
+        [property: JsonPropertyName("chat_id")] string chat_id,
+        [property: JsonPropertyName("text")] string text,
+        [property: JsonPropertyName("parse_mode")] string parse_mode);
 }

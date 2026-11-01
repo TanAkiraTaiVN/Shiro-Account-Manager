@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.Concurrent;
 using System.Net;
@@ -52,10 +52,10 @@ namespace Shiro.Services
         {
             _categorySemaphores = new ConcurrentDictionary<RateLimitCategory, SemaphoreSlim>
             {
-                [RateLimitCategory.SessionCheck] = new SemaphoreSlim(2, 2),
-                [RateLimitCategory.Authentication] = new SemaphoreSlim(1, 1),
-                [RateLimitCategory.Presence] = new SemaphoreSlim(1, 1),
-                [RateLimitCategory.General] = new SemaphoreSlim(4, 4)
+                [RateLimitCategory.SessionCheck] = new SemaphoreSlim(12, 12),
+                [RateLimitCategory.Authentication] = new SemaphoreSlim(2, 2),
+                [RateLimitCategory.Presence] = new SemaphoreSlim(2, 2),
+                [RateLimitCategory.General] = new SemaphoreSlim(6, 6)
             };
 
             _lastRequestTimes = new ConcurrentDictionary<RateLimitCategory, DateTime>();
@@ -122,6 +122,13 @@ namespace Shiro.Services
                 {
                     _backoffUntilUtc = proposedExpiry;
                     Program.Logger?.Warn($"[RateLimitCoordinator] HTTP 429 Rate-Limit hit #{_consecutive429Count} for {category}. Backing off for {backoffSeconds:0.#}s (+{jitterMs}ms jitter) across application.");
+
+                    WebhookNotificationService.EnqueueAlert(new WebhookAlert
+                    {
+                        EventType = WebhookEventType.RateLimited,
+                        Description = $"HTTP 429 Rate-Limit hit #{_consecutive429Count} for {category}. Backing off for {backoffSeconds:0.#}s.",
+                        Timestamp = DateTimeOffset.UtcNow
+                    });
                 }
             }
         }

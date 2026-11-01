@@ -79,7 +79,7 @@ namespace Shiro.Services
         {
             if (session?.Account?.Username is { } username)
             {
-                _ = WebhookNotificationService.SendAlertAsync(new WebhookAlert
+                WebhookNotificationService.EnqueueAlert(new WebhookAlert
                 {
                     AccountUsername = username,
                     EventType = WebhookEventType.MaxRetriesExceeded,
@@ -108,7 +108,7 @@ namespace Shiro.Services
 
                     if (isFirstDisconnect && session.Account?.Username is { } username)
                     {
-                        _ = WebhookNotificationService.SendAlertAsync(new WebhookAlert
+                        WebhookNotificationService.EnqueueAlert(new WebhookAlert
                         {
                             AccountUsername = username,
                             EventType = WebhookEventType.Disconnected,

@@ -34,8 +34,7 @@ namespace Shiro.Tests
             string? repoRoot = null;
             while (dir != null)
             {
-                if (File.Exists(Path.Combine(dir.FullName, "RBX Alt Manager.sln")) ||
-                    File.Exists(Path.Combine(dir.FullName, "Shiro.sln")))
+                if (File.Exists(Path.Combine(dir.FullName, "Shiro.sln")))
                 {
                     repoRoot = dir.FullName;
                     break;
@@ -45,9 +44,6 @@ namespace Shiro.Tests
 
             Assert.NotNull(repoRoot);
             var appDir = Path.Combine(repoRoot!, "src", "Shiro");
-            if (!Directory.Exists(appDir))
-                appDir = Path.Combine(repoRoot!, "RBX Alt Manager");
-
             Assert.True(Directory.Exists(appDir));
 
             var files = Directory.GetFiles(appDir, "*.cs", SearchOption.AllDirectories)
@@ -93,8 +89,6 @@ namespace Shiro.Tests
                 .Or()
                 .HaveNameEndingWith("Redactor")
                 .Or()
-                .HaveNameEndingWith("Parser")
-                .Or()
                 .HaveNameEndingWith("Store")
                 .Or()
                 .HaveNameEndingWith("Optimizer")
@@ -135,11 +129,226 @@ namespace Shiro.Tests
                 .Or()
                 .HaveNameEndingWith("User")
                 .Or()
+                .HaveNameEndingWith("Alert")
+                .Or()
                 .HaveName("AppServices")
                 .GetResult();
 
             var failingNames = result.FailingTypes?.Select(t => t.FullName) ?? Enumerable.Empty<string>();
             Assert.True(result.IsSuccessful, $"Services naming convention check failed. Violations: {string.Join(", ", failingNames)}");
+        }
+
+        [Fact]
+        public void AccountManager_AccountsList_ShouldNotBePubliclyExposed()
+        {
+            var publicField = typeof(AccountManager).GetField("AccountsList", BindingFlags.Public | BindingFlags.Static);
+            Assert.Null(publicField);
+        }
+
+        [Fact]
+        public void SourceCode_ShouldEnforceModernNetworkingAndZeroPersonalDataLeaks()
+        {
+            var dir = new DirectoryInfo(AppContext.BaseDirectory);
+            string? repoRoot = null;
+            while (dir != null)
+            {
+                if (File.Exists(Path.Combine(dir.FullName, "Shiro.sln")))
+                {
+                    repoRoot = dir.FullName;
+                    break;
+                }
+                dir = dir.Parent;
+            }
+
+            Assert.NotNull(repoRoot);
+            var appDir = Path.Combine(repoRoot!, "src", "Shiro");
+            var files = Directory.GetFiles(appDir, "*.cs", SearchOption.AllDirectories)
+                .Where(f => !f.Contains(@"\bin\") && !f.Contains(@"\obj\") && !f.EndsWith(".g.cs"))
+                .ToList();
+
+            foreach (var file in files)
+            {
+                string content = File.ReadAllText(file);
+                Assert.DoesNotContain("$RECYCLE.BIN", content, StringComparison.OrdinalIgnoreCase);
+                Assert.DoesNotContain("System.Net.WebClient", content, StringComparison.Ordinal);
+                Assert.DoesNotContain("HttpWebRequest", content, StringComparison.Ordinal);
+            }
+        }
+
+        [Fact]
+        public void AllAxamlDynamicResourceKeys_ShouldBeDefinedInLocalizationDictionaries()
+        {
+            var dir = new DirectoryInfo(AppContext.BaseDirectory);
+            string? repoRoot = null;
+            while (dir != null)
+            {
+                if (File.Exists(Path.Combine(dir.FullName, "Shiro.sln")))
+                {
+                    repoRoot = dir.FullName;
+                    break;
+                }
+                dir = dir.Parent;
+            }
+
+            Assert.NotNull(repoRoot);
+            var appDir = Path.Combine(repoRoot!, "src", "Shiro");
+            var axamlFiles = Directory.GetFiles(appDir, "*.axaml", SearchOption.AllDirectories)
+                .Where(f => !f.Contains(@"\bin\") && !f.Contains(@"\obj\"))
+                .ToList();
+
+            Shiro.Services.LocalizationService.EnsureCoreKeys();
+            var regex = new System.Text.RegularExpressions.Regex(@"\{DynamicResource\s+([A-Za-z0-9_]+)\}");
+
+            foreach (var file in axamlFiles)
+            {
+                string content = File.ReadAllText(file);
+                foreach (System.Text.RegularExpressions.Match match in regex.Matches(content))
+                {
+                    string key = match.Groups[1].Value;
+                    if (key.EndsWith("Brush", StringComparison.Ordinal) ||
+                        key.EndsWith("Color", StringComparison.Ordinal) ||
+                        key.Contains("Theme", StringComparison.Ordinal) ||
+                        key.Contains("Font", StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
+                    string lookupKey = key.StartsWith("Loc_", StringComparison.Ordinal) ? key.Substring(4) : key;
+                    string resolved = Shiro.Services.LocalizationService.Get(lookupKey, "__MISSING__");
+                    Assert.NotEqual("__MISSING__", resolved);
+                }
+            }
+        }
+
+        [Fact]
+        public void AllCommandPaletteBuiltinCommands_ShouldMapToValidLucideIcons()
+        {
+            var method = typeof(MainViewModel).GetMethod("GetBuiltinCommands", BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.NotNull(method);
+
+            var commands = (System.Collections.IEnumerable)method!.Invoke(null, null)!;
+            int count = 0;
+
+            foreach (var cmd in commands)
+            {
+                count++;
+                var iconNameProp = cmd.GetType().GetProperty("IconName");
+                Assert.NotNull(iconNameProp);
+                string iconName = (string)iconNameProp!.GetValue(cmd)!;
+
+                Assert.True(Enum.TryParse<LucideAvalonia.Enum.LucideIconNames>(iconName, ignoreCase: true, out var parsed),
+                    $"BuiltinCommand has invalid LucideIconNames '{iconName}'");
+
+                var toVmMethod = cmd.GetType().GetMethod("ToViewModel");
+                var itemVm = (CommandPaletteItemViewModel)toVmMethod!.Invoke(cmd, new object[] { false })!;
+                Assert.Equal(parsed, itemVm.IconKind);
+                Assert.NotNull(itemVm.IconBrush);
+            }
+
+            Assert.Equal(30, count);
+        }
+
+        [Fact]
+        public void NoClass_ShouldExceedLineBudget_AcrossPartials()
+        {
+            var dir = new DirectoryInfo(AppContext.BaseDirectory);
+            string? repoRoot = null;
+            while (dir != null)
+            {
+                if (File.Exists(Path.Combine(dir.FullName, "Shiro.sln")))
+                {
+                    repoRoot = dir.FullName;
+                    break;
+                }
+                dir = dir.Parent;
+            }
+
+            Assert.NotNull(repoRoot);
+            var appDir = Path.Combine(repoRoot!, "src", "Shiro");
+            var files = Directory.GetFiles(appDir, "*.cs", SearchOption.AllDirectories)
+                .Where(f => !f.Contains(@"\bin\") && !f.Contains(@"\obj\") && !f.EndsWith(".g.cs"))
+                .ToList();
+
+            const int DefaultBudget = 1200;
+            var baselines = new System.Collections.Generic.Dictionary<string, int>(StringComparer.Ordinal)
+            {
+                ["Account"] = 2900,
+                ["MainViewModel"] = 3500,
+                ["AccountManager"] = 3400,
+                ["ServerListViewModel"] = 1800,
+                ["FastLoginDialog"] = 1400
+            };
+
+            var classLines = new System.Collections.Generic.Dictionary<string, int>(StringComparer.Ordinal);
+            var classRegex = new System.Text.RegularExpressions.Regex(
+                @"(?m)^\s*(?:public|internal|private|protected)?\s*(?:static|sealed|abstract)?\s*partial\s+class\s+(\w+)",
+                System.Text.RegularExpressions.RegexOptions.Compiled);
+
+            foreach (var file in files)
+            {
+                string text = File.ReadAllText(file);
+                int lines = File.ReadAllLines(file).Length;
+                var matches = classRegex.Matches(text);
+                var seenInFile = new System.Collections.Generic.HashSet<string>(StringComparer.Ordinal);
+                foreach (System.Text.RegularExpressions.Match match in matches)
+                {
+                    string className = match.Groups[1].Value;
+                    if (seenInFile.Add(className))
+                    {
+                        classLines[className] = classLines.GetValueOrDefault(className, 0) + lines;
+                    }
+                }
+            }
+
+            var violations = new System.Collections.Generic.List<string>();
+            foreach (var kvp in classLines)
+            {
+                int maxAllowed = baselines.TryGetValue(kvp.Key, out int b) ? b : DefaultBudget;
+                if (kvp.Value > maxAllowed)
+                {
+                    violations.Add($"{kvp.Key}: {kvp.Value} lines (budget: {maxAllowed})");
+                }
+            }
+
+            Assert.True(violations.Count == 0,
+                $"Classes exceeded partial line budget:\n{string.Join("\n", violations)}");
+        }
+
+        [Fact]
+        public void EmptyCatchBlocks_ShouldNotExceedBaseline()
+        {
+            var dir = new DirectoryInfo(AppContext.BaseDirectory);
+            string? repoRoot = null;
+            while (dir != null)
+            {
+                if (File.Exists(Path.Combine(dir.FullName, "Shiro.sln")))
+                {
+                    repoRoot = dir.FullName;
+                    break;
+                }
+                dir = dir.Parent;
+            }
+
+            Assert.NotNull(repoRoot);
+            var appDir = Path.Combine(repoRoot!, "src", "Shiro");
+            var files = Directory.GetFiles(appDir, "*.cs", SearchOption.AllDirectories)
+                .Where(f => !f.Contains(@"\bin\") && !f.Contains(@"\obj\") && !f.EndsWith(".g.cs"))
+                .ToList();
+
+            const int Baseline = 158;
+            int totalEmptyCatches = 0;
+            var emptyCatchRegex = new System.Text.RegularExpressions.Regex(
+                @"catch\s*(\([^\)]*\))?\s*\{\s*\}",
+                System.Text.RegularExpressions.RegexOptions.Compiled);
+
+            foreach (var file in files)
+            {
+                string text = File.ReadAllText(file);
+                totalEmptyCatches += emptyCatchRegex.Matches(text).Count;
+            }
+
+            Assert.True(totalEmptyCatches <= Baseline,
+                $"Empty catch count ({totalEmptyCatches}) exceeded baseline ({Baseline}). New code must log or handle exceptions.");
         }
     }
 }

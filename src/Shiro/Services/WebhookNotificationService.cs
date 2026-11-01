@@ -5,6 +5,7 @@ using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
+using System.Threading.Channels;
 using System.Threading.Tasks;
 
 namespace Shiro.Services
@@ -30,6 +31,19 @@ namespace Shiro.Services
     {
         private static readonly SemaphoreSlim Gate = new(1, 1);
         private static DateTimeOffset _lastDispatchUtc = DateTimeOffset.MinValue;
+
+        private static readonly Channel<WebhookAlert> AlertChannel = Channel.CreateBounded<WebhookAlert>(
+            new BoundedChannelOptions(100)
+            {
+                FullMode = BoundedChannelFullMode.DropOldest,
+                SingleReader = true,
+                SingleWriter = false
+            });
+
+        static WebhookNotificationService()
+        {
+            _ = Task.Run(ProcessAlertsLoopAsync);
+        }
 
         public static event Action<WebhookAlert>? AlertDispatched;
 
@@ -150,32 +164,29 @@ namespace Shiro.Services
                 _ => "ℹ️ Shiro Account Alert"
             };
 
-            var fields = new List<DiscordFieldDto>();
+            var fields = new List<DiscordWebhookField>();
             if (!string.IsNullOrWhiteSpace(alert.AccountUsername))
             {
-                fields.Add(new DiscordFieldDto { name = "Account", value = alert.AccountUsername, inline = true });
+                fields.Add(new DiscordWebhookField("Account", alert.AccountUsername, true));
             }
 
-            fields.Add(new DiscordFieldDto { name = "Event", value = alert.EventType.ToString(), inline = true });
+            fields.Add(new DiscordWebhookField("Event", alert.EventType.ToString(), true));
 
             if (!string.IsNullOrWhiteSpace(alert.Description))
             {
-                fields.Add(new DiscordFieldDto { name = "Details", value = alert.Description, inline = false });
+                fields.Add(new DiscordWebhookField("Details", alert.Description, false));
             }
 
-            var embed = new DiscordEmbedDto
-            {
-                title = title,
-                description = alert.Description,
-                color = color,
-                fields = fields,
-                timestamp = alert.Timestamp.ToString("o")
-            };
+            var embed = new DiscordWebhookEmbed(
+                title,
+                alert.Description,
+                color,
+                fields,
+                alert.Timestamp.ToString("o"));
 
-            var payload = new DiscordPayloadDto();
-            payload.embeds.Add(embed);
+            var payload = new DiscordWebhookPayload(new List<DiscordWebhookEmbed> { embed });
 
-            return JsonSerializer.Serialize(payload);
+            return JsonSerializer.Serialize(payload, ShiroAppJson.Default.DiscordWebhookPayload);
         }
 
         public static string FormatTelegramMessage(WebhookAlert alert)
@@ -210,15 +221,17 @@ namespace Shiro.Services
             return sb.ToString();
         }
 
-        public static async Task SendAlertAsync(WebhookAlert alert, CancellationToken ct = default)
+        private static bool ShouldSend(WebhookAlert alert)
         {
-            if (alert == null) return;
-
             if (alert.EventType == WebhookEventType.Disconnected && !NotifyOnDisconnect)
-                return;
+                return false;
             if (alert.EventType == WebhookEventType.ModerationWarning && !NotifyOnModeration)
-                return;
+                return false;
+            return true;
+        }
 
+        private static void NotifyDispatched(WebhookAlert alert)
+        {
             try
             {
                 AlertDispatched?.Invoke(alert);
@@ -227,7 +240,50 @@ namespace Shiro.Services
             {
                 Program.Logger?.Debug($"[Webhook] AlertDispatched subscriber error: {ex.Message}");
             }
+        }
 
+        public static void EnqueueAlert(WebhookAlert alert)
+        {
+            if (alert == null) return;
+            if (!ShouldSend(alert)) return;
+
+            NotifyDispatched(alert);
+            AlertChannel.Writer.TryWrite(alert);
+        }
+
+        public static async Task SendAlertAsync(WebhookAlert alert, CancellationToken ct = default)
+        {
+            if (alert == null) return;
+            if (!ShouldSend(alert)) return;
+
+            NotifyDispatched(alert);
+            await DispatchSingleAlertAsync(alert, ct).ConfigureAwait(false);
+        }
+
+        private static async Task ProcessAlertsLoopAsync()
+        {
+            var reader = AlertChannel.Reader;
+            try
+            {
+                while (await reader.WaitToReadAsync().ConfigureAwait(false))
+                {
+                    while (reader.TryRead(out var alert))
+                    {
+                        if (alert != null)
+                        {
+                            await DispatchSingleAlertAsync(alert).ConfigureAwait(false);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"[Webhook] Alert processing loop ended: {ex.Message}");
+            }
+        }
+
+        private static async Task DispatchSingleAlertAsync(WebhookAlert alert, CancellationToken ct = default)
+        {
             string? discordUrl = DiscordWebhookUrl;
             string? tgToken = TelegramBotToken;
             string? tgChatId = TelegramChatId;
@@ -303,13 +359,8 @@ namespace Shiro.Services
             {
                 string text = FormatTelegramMessage(alert);
                 string endpoint = $"https://api.telegram.org/bot{token}/sendMessage";
-                var bodyObj = new
-                {
-                    chat_id = chatId,
-                    text = text,
-                    parse_mode = "MarkdownV2"
-                };
-                string json = JsonSerializer.Serialize(bodyObj);
+                var payload = new TelegramSendMessagePayload(chatId, text, "MarkdownV2");
+                string json = JsonSerializer.Serialize(payload, ShiroAppJson.Default.TelegramSendMessagePayload);
                 using var content = new StringContent(json, Encoding.UTF8, "application/json");
                 using var response = await client.PostAsync(endpoint, content, ct).ConfigureAwait(false);
                 if (!response.IsSuccessStatusCode)
@@ -321,27 +372,6 @@ namespace Shiro.Services
             {
                 Program.Logger?.Warn($"[Webhook] Telegram send failed: {ex.Message}");
             }
-        }
-
-        private sealed class DiscordPayloadDto
-        {
-            public List<DiscordEmbedDto> embeds { get; set; } = new();
-        }
-
-        private sealed class DiscordEmbedDto
-        {
-            public string? title { get; set; }
-            public string? description { get; set; }
-            public int color { get; set; }
-            public List<DiscordFieldDto> fields { get; set; } = new();
-            public string? timestamp { get; set; }
-        }
-
-        private sealed class DiscordFieldDto
-        {
-            public string? name { get; set; }
-            public string? value { get; set; }
-            public bool inline { get; set; }
         }
     }
 }
