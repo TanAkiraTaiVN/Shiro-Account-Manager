@@ -11,6 +11,7 @@ using Xunit;
 
 namespace Shiro.Tests
 {
+    [Collection("RateLimitCoordinator")]
     public class SessionAuditorTests : IDisposable
     {
         private const string TestToken =
@@ -19,13 +20,11 @@ namespace Shiro.Tests
         public SessionAuditorTests()
         {
             SessionAuditorService.TestHttpClientFactory = null;
-            Account.TestHttpClientFactory = null;
         }
 
         public void Dispose()
         {
             SessionAuditorService.TestHttpClientFactory = null;
-            Account.TestHttpClientFactory = null;
         }
 
         [Fact]
@@ -181,6 +180,23 @@ namespace Shiro.Tests
                 Assert.True(results.ContainsKey(acc));
                 Assert.Equal(AccountSessionStatus.Valid, results[acc].Status);
             }
+        }
+
+        [Fact]
+        public async Task AuditAllAccountsAsync_DeduplicatesInputAccounts()
+        {
+            var handler = new FakeAuditHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("{\"id\":100,\"name\":\"DedupUser\"}")
+            });
+            SessionAuditorService.TestHttpClientFactory = _ => new HttpClient(handler);
+
+            var acc = new Account { Username = "DedupUser", SecurityToken = TestToken, UserID = 100 };
+            var duplicates = new List<Account> { acc, acc, acc };
+
+            var results = await SessionAuditorService.AuditAllAccountsAsync(duplicates);
+            Assert.Single(results);
+            Assert.True(results.ContainsKey(acc));
         }
 
         private sealed class FakeAuditHandler : HttpMessageHandler

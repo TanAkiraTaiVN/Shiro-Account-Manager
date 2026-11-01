@@ -250,7 +250,7 @@ namespace Shiro.Services
             var results = new ConcurrentDictionary<Account, AccountSessionAuditResult>();
             if (accounts == null) return results;
 
-            var list = accounts.Where(a => a != null).ToList();
+            var list = accounts.Where(a => a != null).Distinct().ToList();
             if (list.Count == 0) return results;
 
             using var semaphore = new SemaphoreSlim(3, 3);
