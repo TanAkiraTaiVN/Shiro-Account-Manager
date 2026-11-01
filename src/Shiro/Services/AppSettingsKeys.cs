@@ -74,6 +74,13 @@ namespace Shiro.Services
             public const string SettingsPreset = "SettingsPreset";
             public const string HasAcceptedRiskDisclaimer = "HasAcceptedRiskDisclaimer";
 
+            // Remote Alerts / Webhooks
+            public const string DiscordWebhookUrl = "DiscordWebhookUrl";
+            public const string TelegramBotToken = "TelegramBotToken";
+            public const string TelegramChatId = "TelegramChatId";
+            public const string NotifyOnDisconnect = "NotifyOnDisconnect";
+            public const string NotifyOnModeration = "NotifyOnModeration";
+
             // Potato Mode Fast Flags
             public const string FastFlag_DisableShadows = "FastFlag_DisableShadows";
             public const string FastFlag_DisableParticles = "FastFlag_DisableParticles";
