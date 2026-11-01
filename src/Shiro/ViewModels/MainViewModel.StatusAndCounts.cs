@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -34,28 +34,15 @@ namespace Shiro.ViewModels
             get
             {
                 if (_filteredAccounts.Count == 0) return false;
-                int count = 0;
-                foreach (var a in _filteredAccounts)
-                {
-                    if (a.IsSelected) count++;
-                }
-                if (count == 0) return false;
-                if (count == _filteredAccounts.Count) return true;
-                return null;
+                int count = _filteredAccounts.Count(a => a.IsSelected);
+                return count == 0 ? false : (count == _filteredAccounts.Count ? true : null);
             }
             set
             {
                 bool select = value == true;
                 _suppressCountNotifications = true;
-                try
-                {
-                    foreach (var acc in _filteredAccounts)
-                        acc.IsSelected = select;
-                }
-                finally
-                {
-                    _suppressCountNotifications = false;
-                }
+                try { foreach (var acc in _filteredAccounts) acc.IsSelected = select; }
+                finally { _suppressCountNotifications = false; }
                 NotifyCounts();
                 OnPropertyChanged(nameof(IsAllSelected));
             }
@@ -63,26 +50,22 @@ namespace Shiro.ViewModels
         public long TotalRobuxCount => _totalRobuxCount;
         public string TotalRobuxText => _totalRobuxText;
 
-        public List<Account> GetSelectedAccounts()
-        {
-            return _accounts.Where(a => a.IsSelected && a.Model != null).Select(a => a.Model).ToList();
-        }
+        public List<Account> GetSelectedAccounts() => _accounts.Where(a => a.IsSelected && a.Model != null).Select(a => a.Model!).ToList();
+        public List<AccountViewModel> GetSelectedAccountViewModels() => _accounts.Where(a => a.IsSelected).ToList();
 
-        public List<AccountViewModel> GetSelectedAccountViewModels()
-        {
-            return _accounts.Where(a => a.IsSelected).ToList();
-        }
+        public Task<IReadOnlyDictionary<Account, AccountSessionAuditResult>> AuditAccountSessionsAsync(CancellationToken ct = default)
+            => SessionAuditorService.AuditAllAccountsAsync(_accounts.Where(a => a.Model != null).Select(a => a.Model!), null, ct);
 
         public void UpdateAccountValidity(Account account, bool isValid, bool refreshFilterAndCounts = true)
         {
             if (account == null) return;
-            if (Dispatcher.UIThread != null && !Dispatcher.UIThread.CheckAccess())
+            if (Avalonia.Application.Current != null && Dispatcher.UIThread != null && !Dispatcher.UIThread.CheckAccess())
             {
                 AppDispatcher.Post(() => UpdateAccountValidity(account, isValid, refreshFilterAndCounts));
                 return;
             }
 
-            var vm = _accounts.FirstOrDefault(a => a.Model == account || (a.UserId > 0 && a.UserId == account.UserID) || (!string.IsNullOrEmpty(a.Username) && a.Username.Equals(account.Username, StringComparison.OrdinalIgnoreCase)));
+            var vm = TryGetAccountViewModel(account);
             if (vm != null)
             {
                 vm.Valid = isValid;
@@ -98,22 +81,97 @@ namespace Shiro.ViewModels
             }
         }
 
+        private int _isRefreshingLiveProcessStatus;
+        private volatile bool _hasPendingRefreshRequest;
+
         public void RefreshLiveProcessStatus()
         {
-            if (Dispatcher.UIThread != null && !Dispatcher.UIThread.CheckAccess())
+            if (Avalonia.Application.Current != null && Dispatcher.UIThread != null && !Dispatcher.UIThread.CheckAccess())
             {
                 AppDispatcher.Post(RefreshLiveProcessStatus);
                 return;
             }
 
+            // In headless/test runner without active Avalonia app, execute inline to avoid background race conditions
+            if (Avalonia.Application.Current == null)
+            {
+                int total = RobloxProcessService.GetTotalRunningRobloxCount();
+                Dictionary<Account, int>? map = null;
+                if (total > 0 && _accounts.Count > 0)
+                {
+                    map = RobloxWindowArrangerService.ResolveRunningAccountPids(
+                        _accounts.Where(a => a.Model != null).Select(a => a.Model));
+                }
+                ApplyLiveProcessStatusResults(total, map);
+                return;
+            }
+
+            if (System.Threading.Interlocked.CompareExchange(ref _isRefreshingLiveProcessStatus, 1, 0) != 0)
+            {
+                _hasPendingRefreshRequest = true;
+                return;
+            }
+
+            List<Account>? models = null;
+            if (_accounts.Count > 0)
+            {
+                models = new List<Account>(_accounts.Count);
+                for (int i = 0; i < _accounts.Count; i++)
+                {
+                    var m = _accounts[i].Model;
+                    if (m != null) models.Add(m);
+                }
+            }
+
+            System.Threading.ThreadPool.QueueUserWorkItem(_ =>
+            {
+                try
+                {
+                    do
+                    {
+                        _hasPendingRefreshRequest = false;
+
+                        // Heavy Win32 Toolhelp snapshot & PEB command-line queries run purely off-thread
+                        int totalRobloxProcs = RobloxProcessService.GetTotalRunningRobloxCount();
+                        Dictionary<Account, int>? runningMap = null;
+                        if (totalRobloxProcs > 0 && models != null && models.Count > 0)
+                        {
+                            runningMap = RobloxWindowArrangerService.ResolveRunningAccountPids(models);
+                        }
+
+                        AppDispatcher.Post(() => ApplyLiveProcessStatusResults(totalRobloxProcs, runningMap));
+                    }
+                    while (_hasPendingRefreshRequest);
+                }
+                catch (Exception ex)
+                {
+                    Program.Logger?.Debug($"[RefreshLiveProcessStatus] Process check error: {ex.Message}");
+                }
+                finally
+                {
+                    System.Threading.Interlocked.Exchange(ref _isRefreshingLiveProcessStatus, 0);
+                    if (_hasPendingRefreshRequest)
+                    {
+                        AppDispatcher.Post(RefreshLiveProcessStatus);
+                    }
+                }
+            });
+        }
+
+        private void ApplyLiveProcessStatusResults(int totalRobloxProcs, Dictionary<Account, int>? runningMap)
+        {
             try
             {
-                int totalRobloxProcs = RobloxProcessService.GetTotalRunningRobloxCount();
                 RunningRobloxProcessCount = totalRobloxProcs;
+                if (totalRobloxProcs == 0 && _areWindowsHidden)
+                {
+                    _areWindowsHidden = false;
+                    OnPropertyChanged(nameof(AreWindowsHidden));
+                    NotifyToolStatesChanged();
+                }
 
                 if (_lastRobloxProcessCount > 0 && totalRobloxProcs < _lastRobloxProcessCount)
                 {
-                    // A Roblox process has exited naturally; clean up ghost icons in system tray
                     Utilities.QueueRefreshNotificationArea();
                 }
                 _lastRobloxProcessCount = totalRobloxProcs;
@@ -121,12 +179,14 @@ namespace Shiro.ViewModels
                 bool stateChanged = false;
                 foreach (var acc in _accounts)
                 {
-                    // Check presence status: ONLY truly in game if userPresenceType == InGame!
-                    // Do NOT use lastLocation check, as Roblox presence API often returns "Website" or cached location
-                    // which mistakenly marks offline/browsing accounts as InGame.
-                    bool hasActivePresence = acc.Model?.Presence != null &&
-                                             acc.Model.Presence.userPresenceType == UserPresenceType.InGame;
-                    
+                    bool isRunningLocally = runningMap != null && acc.Model != null && runningMap.ContainsKey(acc.Model);
+                    acc.IsLocalClientRunning = isRunningLocally;
+
+                    // If Presence from Roblox API exists, it is authoritative; otherwise preserve current state
+                    bool hasActivePresence = acc.Model?.Presence != null
+                        ? acc.Model.Presence.userPresenceType == UserPresenceType.InGame
+                        : (acc.IsInGame || isRunningLocally);
+
                     if (acc.IsInGame != hasActivePresence)
                     {
                         acc.IsInGame = hasActivePresence;
@@ -141,7 +201,7 @@ namespace Shiro.ViewModels
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[RefreshLiveProcessStatus] Process check error: {ex.Message}");
+                Program.Logger?.Debug($"[ApplyLiveProcessStatusResults] UI update error: {ex.Message}");
             }
 
             NotifyCounts();
@@ -153,11 +213,7 @@ namespace Shiro.ViewModels
                 return;
 
             int total = _accounts.Count;
-            int inGame = 0;
-            int ready = 0;
-            int expired = 0;
-            int pinned = 0;
-            int selected = 0;
+            int inGame = 0, ready = 0, expired = 0, pinned = 0, selected = 0;
             long robux = 0;
 
             for (int i = 0; i < total; i++)
@@ -171,34 +227,17 @@ namespace Shiro.ViewModels
                 if (a.RobuxBalance > 0) robux += a.RobuxBalance;
             }
 
-            if (_totalCount != total)
-            {
-                _totalCount = total;
-                OnPropertyChanged(nameof(TotalCount));
-            }
-            if (_inGameCount != inGame)
-            {
-                _inGameCount = inGame;
-                OnPropertyChanged(nameof(InGameCount));
-            }
-            if (_readyCount != ready)
-            {
-                _readyCount = ready;
-                OnPropertyChanged(nameof(ReadyCount));
-            }
+            if (_totalCount != total) { _totalCount = total; OnPropertyChanged(nameof(TotalCount)); }
+            if (_inGameCount != inGame) { _inGameCount = inGame; OnPropertyChanged(nameof(InGameCount)); }
+            if (_readyCount != ready) { _readyCount = ready; OnPropertyChanged(nameof(ReadyCount)); }
             if (_expiredCount != expired)
             {
                 bool hadExpired = _expiredCount > 0;
                 _expiredCount = expired;
                 OnPropertyChanged(nameof(ExpiredCount));
-                if (hadExpired != (expired > 0))
-                    OnPropertyChanged(nameof(HasExpiredAccounts));
+                if (hadExpired != (expired > 0)) OnPropertyChanged(nameof(HasExpiredAccounts));
             }
-            if (_pinnedCount != pinned)
-            {
-                _pinnedCount = pinned;
-                OnPropertyChanged(nameof(PinnedCount));
-            }
+            if (_pinnedCount != pinned) { _pinnedCount = pinned; OnPropertyChanged(nameof(PinnedCount)); }
             if (_selectedCount != selected)
             {
                 bool hadSelection = _selectedCount > 0;
@@ -206,8 +245,7 @@ namespace Shiro.ViewModels
                 OnPropertyChanged(nameof(SelectedCount));
                 OnPropertyChanged(nameof(IsAllSelected));
                 OnPropertyChanged(nameof(CloseRobloxButtonText));
-                if (hadSelection != (selected > 0))
-                    OnPropertyChanged(nameof(HasSelection));
+                if (hadSelection != (selected > 0)) OnPropertyChanged(nameof(HasSelection));
             }
             if (_totalRobuxCount != robux)
             {
