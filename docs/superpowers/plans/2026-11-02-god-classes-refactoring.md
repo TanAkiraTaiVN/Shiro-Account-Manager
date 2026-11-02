@@ -79,8 +79,8 @@
 - Test: `tests/Shiro.Tests/UiUxUpgradeTests.cs`
 - Test: `tests/Shiro.Tests/ArchitectureTests.cs`
 
-- [ ] **Step 1: Create `CommandPaletteCoordinator` in `Shiro.Services`**
+- [x] **Step 1: Create `CommandPaletteCoordinator` in `Shiro.Services`**
   Encapsulate built-in command registry, fuzzy query filtering, and keyboard shortcut dispatching.
-- [ ] **Step 2: Wire `MainViewModel.CommandPalette.cs` to use `CommandPaletteCoordinator`**
-- [ ] **Step 3: Run full verification suite**
+- [x] **Step 2: Wire `MainViewModel.CommandPalette.cs` to use `CommandPaletteCoordinator`**
+- [x] **Step 3: Run full verification suite**
   Run `dotnet test` to confirm all 647+ tests pass.

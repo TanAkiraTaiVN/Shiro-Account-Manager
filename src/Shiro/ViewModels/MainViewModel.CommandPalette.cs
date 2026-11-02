@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -191,19 +191,7 @@ namespace Shiro.ViewModels
             return false;
         }
 
-        public static string NormalizeSearchText(string? input)
-        {
-            if (string.IsNullOrWhiteSpace(input)) return string.Empty;
-            string normalized = input.Normalize(NormalizationForm.FormD);
-            var sb = new StringBuilder(normalized.Length);
-            foreach (char c in normalized)
-            {
-                var uc = CharUnicodeInfo.GetUnicodeCategory(c);
-                if (uc != UnicodeCategory.NonSpacingMark)
-                    sb.Append(char.ToLowerInvariant(c));
-            }
-            return sb.ToString().Normalize(NormalizationForm.FormC).Replace("đ", "d");
-        }
+        public static string NormalizeSearchText(string? input) => CommandPaletteCoordinator.NormalizeSearchText(input);
 
         private sealed record BuiltinCommandDef(
             string Id,
