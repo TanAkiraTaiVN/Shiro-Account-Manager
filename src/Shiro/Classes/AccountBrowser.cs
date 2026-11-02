@@ -43,7 +43,7 @@ namespace Shiro.Classes
         private string? ProxyUsername;
         private string? ProxyPassword;
         private bool AuthenticateProxyInBrowser;
-        private string? Password;
+
 
         public Browser? browser;
         public Page? page;

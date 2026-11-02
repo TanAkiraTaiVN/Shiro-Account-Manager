@@ -19,5 +19,23 @@ namespace Shiro
 
         public bool TryAttachHbaHeader(HttpRequestMessage request, string? bodyContent = null) =>
             RobloxHbaService.TryAttachHbaHeader(request, this, bodyContent);
+
+        public Task<string> LaunchAppHome(bool preferChrome = false, CancellationToken cancellationToken = default) =>
+            AccountLaunchService.Instance.LaunchAppHomeAsync(this, preferChrome, cancellationToken);
+
+        public Task<LaunchResult> LaunchAppHomeResult(bool preferChrome = false, CancellationToken cancellationToken = default) =>
+            AccountLaunchService.Instance.LaunchAppHomeResultAsync(this, preferChrome, cancellationToken);
+
+        public Task AdjustWindowPosition(int targetPid = 0, CancellationToken cancellationToken = default) =>
+            AccountLaunchService.AdjustWindowPositionAsync(this, targetPid, cancellationToken);
+
+        public static void InvalidateExecutableCache() =>
+            AccountLaunchService.InvalidateExecutableCache();
+
+        public static string? FindRobloxPlayerExecutablePublic() =>
+            AccountLaunchService.FindRobloxPlayerExecutable();
+
+        public static bool HasRobloxPlayerProtocolHandlerPublic() =>
+            AccountLaunchService.HasRobloxPlayerProtocolHandler();
     }
 }

@@ -191,5 +191,85 @@ namespace Shiro.Tests
                 }
             }
         }
+
+        [Fact]
+        public void PromoteBackup_TimestampCollision_AppendsCounter()
+        {
+            string tempDir = Path.Combine(Path.GetTempPath(), "Shiro-CollisionTest-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                using (StoragePaths.OverrideDataDirectoryForTesting(tempDir))
+                {
+                    string path = StoragePaths.AccountDataFile;
+                    string backupPath = path + ".backup";
+                    var now = new DateTime(2026, 11, 1, 22, 0, 0);
+                    string collisionPath = path + ".old.20261101220000";
+
+                    File.WriteAllText(path, "CURRENT_DATA");
+                    File.WriteAllText(backupPath, "BACKUP_DATA");
+                    File.WriteAllText(collisionPath, "EXISTING_COLLISION");
+
+                    string preservedPath = AccountManager.PromoteBackupToPrimary(path, now);
+
+                    Assert.Equal(path + ".old.20261101220000.1", preservedPath);
+                    Assert.Equal("BACKUP_DATA", File.ReadAllText(path));
+                    Assert.Equal("EXISTING_COLLISION", File.ReadAllText(collisionPath));
+                    Assert.Equal("CURRENT_DATA", File.ReadAllText(path + ".old.20261101220000.1"));
+                }
+            }
+            finally
+            {
+                if (Directory.Exists(tempDir))
+                {
+                    try { Directory.Delete(tempDir, true); }
+                    catch (IOException) { }
+                }
+            }
+        }
+
+        [Fact]
+        public void PromoteBackup_BackupMoveFails_RollsBackPrimaryFile()
+        {
+            string tempDir = Path.Combine(Path.GetTempPath(), "Shiro-RollbackTest-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                using (StoragePaths.OverrideDataDirectoryForTesting(tempDir))
+                {
+                    string path = StoragePaths.AccountDataFile;
+                    string backupPath = path + ".backup";
+                    var now = new DateTime(2026, 11, 1, 22, 0, 0);
+
+                    File.WriteAllText(path, "PRIMARY_DATA");
+                    File.WriteAllText(backupPath, "BACKUP_DATA");
+
+                    // Lock the backup file exclusively so File.Move fails
+                    using (var fs = new FileStream(backupPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+                    {
+                        Assert.Throws<IOException>(() => AccountManager.PromoteBackupToPrimary(path, now));
+                    }
+
+                    // Verify primary file was rolled back and is not missing
+                    Assert.True(File.Exists(path));
+                    Assert.Equal("PRIMARY_DATA", File.ReadAllText(path));
+                    Assert.False(File.Exists(path + ".old.20261101220000"));
+                }
+            }
+            finally
+            {
+                if (Directory.Exists(tempDir))
+                {
+                    try { Directory.Delete(tempDir, true); }
+                    catch (IOException) { }
+                }
+            }
+        }
+
+        [Fact]
+        public void TryLoadFromBackup_EmptyOrNullData_ReturnsNotAttempted()
+        {
+            var mgr = new AccountManager();
+            Assert.Equal(BackupLoadResult.NotAttempted, mgr.TryLoadFromBackup(Array.Empty<byte>()));
+            Assert.Equal(BackupLoadResult.NotAttempted, mgr.TryLoadFromBackup(null!));
+        }
     }
 }

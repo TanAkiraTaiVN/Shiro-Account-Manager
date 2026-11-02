@@ -77,15 +77,30 @@ namespace Shiro
                                 ? redirectLocation
                                 : $"https://www.roblox.com{redirectLocation}";
 
-                            using var modReq = CreateAuthenticatedGetRequest(targetUrl, "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
+                            using var modReq = CreateAuthenticatedGetRequest(targetUrl, "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8", tokenOverride: token);
                             using var modRes = await httpClient.SendAsync(modReq, HttpCompletionOption.ResponseContentRead, linkedCts.Token).ConfigureAwait(false);
-                            if (modRes != null && modRes.IsSuccessStatusCode)
+                            if (modRes != null)
                             {
                                 TryUpdateRotatedCookie(modRes);
+                                if (modRes.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                                {
+                                    AccountStatusIssue = string.Empty;
+                                    return (false, null, null);
+                                }
+
                                 string modHtml = await modRes.Content.ReadAsStringAsync(linkedCts.Token).ConfigureAwait(false);
-                                var parsed = ParseModerationText(modHtml, redirectLocation);
-                                if (parsed.IsBanned)
-                                    return DispatchModerationAlertIfBanned(parsed);
+                                if (IsUnauthenticatedModerationResponse(modHtml))
+                                {
+                                    AccountStatusIssue = string.Empty;
+                                    return (false, null, null);
+                                }
+
+                                if (modRes.IsSuccessStatusCode)
+                                {
+                                    var parsed = ParseModerationText(modHtml, redirectLocation);
+                                    if (parsed.IsBanned)
+                                        return DispatchModerationAlertIfBanned(parsed);
+                                }
                             }
                         }
                         catch (Exception ex)
@@ -114,6 +129,11 @@ namespace Shiro
                 if (response.StatusCode == System.Net.HttpStatusCode.OK)
                 {
                     string html = await response.Content.ReadAsStringAsync(linkedCts.Token).ConfigureAwait(false);
+                    if (IsUnauthenticatedModerationResponse(html))
+                    {
+                        AccountStatusIssue = string.Empty;
+                        return (false, null, null);
+                    }
                     return DispatchModerationAlertIfBanned(ParseModerationText(html, finalUrl));
                 }
 
@@ -148,6 +168,17 @@ namespace Shiro
             return result;
         }
 
+        public static bool IsUnauthenticatedModerationResponse(string? content)
+        {
+            if (string.IsNullOrWhiteSpace(content))
+                return false;
+
+            string text = content.ToLowerInvariant();
+            return text.Contains("user is not authenticated", StringComparison.Ordinal) ||
+                   text.Contains("\"code\":9002", StringComparison.Ordinal) ||
+                   text.Contains("\"code\": 9002", StringComparison.Ordinal);
+        }
+
         public static (bool IsBanned, string? IssueBadge, string? Reason) ParseModerationText(string content, string? url = null)
         {
             // If checking a redirect URL only (no HTML body content provided)
@@ -163,6 +194,9 @@ namespace Shiro
                 }
                 return (false, null, null);
             }
+
+            if (IsUnauthenticatedModerationResponse(content))
+                return (false, null, null);
 
             string text = content.ToLowerInvariant();
 

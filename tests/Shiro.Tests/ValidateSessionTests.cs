@@ -317,5 +317,72 @@ namespace Shiro.Tests
             Assert.True(acc.IsBannedOrLocked);
             Assert.Equal("Ban 7 ngày", acc.AccountStatusIssue);
         }
+
+        [Fact]
+        public void ParseModerationText_UnauthenticatedJsonError9002_IsNotBanned()
+        {
+            string unauthJson = "{\"errors\":[{\"code\":9002,\"subcode\":1,\"message\":\"User is not authenticated\"}]}";
+            var (isBanned, badge, reason) = Account.ParseModerationText(unauthJson, "https://www.roblox.com/not-approved");
+            Assert.False(isBanned);
+            Assert.Null(badge);
+            Assert.Null(reason);
+        }
+
+        [Fact]
+        public void IsUnauthenticatedModerationResponse_DetectsErrorCode9002()
+        {
+            string unauthJson = "{\"errors\":[{\"code\":9002,\"subcode\":1,\"message\":\"User is not authenticated\"}]}";
+            Assert.True(Account.IsUnauthenticatedModerationResponse(unauthJson));
+            Assert.False(Account.IsUnauthenticatedModerationResponse("<div><h2>Banned for 1 Day</h2></div>"));
+        }
+
+        [Fact]
+        public async Task Validate_WhenHomeRedirectsToNotApprovedWith9002Json_ClearsStaleBanAndMarksExpired()
+        {
+            var handler = new FakeHandler(req =>
+            {
+                if (req.RequestUri!.Host == "www.roblox.com" && req.RequestUri.AbsolutePath.Equals("/home", StringComparison.OrdinalIgnoreCase))
+                {
+                    var redirect = new HttpResponseMessage(HttpStatusCode.Found);
+                    redirect.Headers.Location = new Uri("https://www.roblox.com/not-approved");
+                    return redirect;
+                }
+
+                if (req.RequestUri.Host == "www.roblox.com" && req.RequestUri.AbsolutePath.Contains("not-approved", StringComparison.OrdinalIgnoreCase))
+                {
+                    return new HttpResponseMessage(HttpStatusCode.OK)
+                    {
+                        Content = new StringContent("{\"errors\":[{\"code\":9002,\"subcode\":1,\"message\":\"User is not authenticated\"}]}")
+                    };
+                }
+
+                return Json(HttpStatusCode.Unauthorized);
+            });
+            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+
+            var acc = NewAccount();
+            acc.Valid = false;
+            acc.AccountStatusIssue = "Bị khóa / Ban";
+
+            bool valid = await acc.ValidateSessionAsync();
+
+            Assert.False(valid);
+            Assert.False(acc.Valid);
+            Assert.False(acc.IsBannedOrLocked);
+            Assert.Equal(string.Empty, acc.AccountStatusIssue);
+        }
+
+        [Fact]
+        public async Task CreateAsync_WhenNetworkFailsToVerify_DoesNotMarkAccountAsBanned()
+        {
+            var handler = new FakeHandler(_ => throw new HttpRequestException("An error occurred while sending the request."));
+            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+
+            var acc = await Account.CreateAsync(FullToken);
+
+            Assert.False(acc.Valid);
+            Assert.False(acc.IsBannedOrLocked);
+            Assert.Equal(string.Empty, acc.AccountStatusIssue);
+        }
     }
 }

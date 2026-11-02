@@ -212,7 +212,7 @@ namespace Shiro
                 Method.Equals("WebSocketStats", StringComparison.OrdinalIgnoreCase);
 
             bool isSpecialDocOrHealth =
-                AbsolutePath == "/Running" ||
+                AbsolutePath.Equals("/Running", StringComparison.OrdinalIgnoreCase) ||
                 AbsolutePath.Equals("/swagger.json", StringComparison.OrdinalIgnoreCase) ||
                 AbsolutePath.Equals("/openapi.json", StringComparison.OrdinalIgnoreCase) ||
                 AbsolutePath.Equals("/api/docs", StringComparison.OrdinalIgnoreCase) ||
@@ -251,7 +251,7 @@ namespace Shiro
                 };
             }
 
-            if (AbsolutePath == "/Running") return Reply("Shiro is running", true, Raw: "true");
+            if (AbsolutePath.Equals("/Running", StringComparison.OrdinalIgnoreCase)) return Reply("Shiro is running", true, Raw: "true");
 
             if (AbsolutePath.Equals("/swagger.json", StringComparison.OrdinalIgnoreCase) || AbsolutePath.Equals("/openapi.json", StringComparison.OrdinalIgnoreCase))
             {

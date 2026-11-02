@@ -40,48 +40,6 @@ namespace Shiro.Tests
             Assert.Equal(0, RobloxProcessOptimizer.RestorePriorityForPids(new[] { -1, 0 }));
         }
 
-        [Theory]
-        [InlineData(FastFlagProfile.Potato, 30)]
-        [InlineData(FastFlagProfile.UltraFarm, 15)]
-        [InlineData(FastFlagProfile.MaxPerformance, 240)]
-        [InlineData(FastFlagProfile.HighQuality, 240)]
-        public void FastFlagPresetService_GenerateProfileSettings_ContainsExpectedFlags(FastFlagProfile profile, int expectedDefaultFps)
-        {
-            var settings = FastFlagPresetService.GenerateProfileSettings(profile);
-            Assert.NotNull(settings);
-
-            Assert.True(settings.ContainsKey("DFIntTaskSchedulerTargetFps"));
-            Assert.Equal(expectedDefaultFps, settings["DFIntTaskSchedulerTargetFps"].GetValue<int>());
-
-            if (profile == FastFlagProfile.UltraFarm)
-            {
-                Assert.Equal(8, settings["DFIntTextureCompositorLowResFactor"].GetValue<int>());
-                Assert.False(settings.ContainsKey("FFlagDebugDisableCrashpad"));
-                Assert.True(settings["DFFlagDebugDisableTelemetry"].GetValue<bool>());
-            }
-            else if (profile == FastFlagProfile.Potato)
-            {
-                Assert.Equal(4, settings["DFIntTextureCompositorLowResFactor"].GetValue<int>());
-                Assert.Equal(0, settings["FIntRenderShadowIntensity"].GetValue<int>());
-            }
-        }
-
-        [Theory]
-        [InlineData("ultrafarm", FastFlagProfile.UltraFarm)]
-        [InlineData("farm", FastFlagProfile.UltraFarm)]
-        [InlineData("potato", FastFlagProfile.Potato)]
-        [InlineData("maxperformance", FastFlagProfile.MaxPerformance)]
-        [InlineData("perf", FastFlagProfile.MaxPerformance)]
-        [InlineData("highquality", FastFlagProfile.HighQuality)]
-        [InlineData("hq", FastFlagProfile.HighQuality)]
-        [InlineData("default", FastFlagProfile.Default)]
-        [InlineData("unknown", FastFlagProfile.Default)]
-        public void FastFlagPresetService_ParseProfile_ResolvesProperly(string input, FastFlagProfile expected)
-        {
-            var parsed = FastFlagPresetService.ParseProfile(input);
-            Assert.Equal(expected, parsed);
-        }
-
         [Fact]
         public void ApiDocumentationService_GetOpenApiJson_ReturnsValidOpenApiSpec()
         {

@@ -358,63 +358,6 @@ namespace Shiro.Tests
             Assert.Equal(1001, root[0].GetProperty("UserID").GetInt64());
         }
 
-        [Fact]
-        public void AccountBatchService_BatchSetGroup_UpdatesAndMarksDirty()
-        {
-            var accounts = new[]
-            {
-                new Account { Username = "U1", Group = "OldGroup" },
-                new Account { Username = "U2", Group = "TargetGroup" },
-                new Account { Username = "U3", Group = "OldGroup" }
-            };
-
-            foreach (var a in accounts) a.IsDirty = false;
-
-            int modified = AccountBatchService.BatchSetGroup(accounts, "TargetGroup");
-
-            Assert.Equal(2, modified);
-            Assert.Equal("TargetGroup", accounts[0].Group);
-            Assert.True(accounts[0].IsDirty);
-            Assert.False(accounts[1].IsDirty); // Already target group
-            Assert.Equal("TargetGroup", accounts[2].Group);
-            Assert.True(accounts[2].IsDirty);
-        }
-
-        [Fact]
-        public void AccountBatchService_BatchSetProxy_UpdatesAndMarksDirty()
-        {
-            var accounts = new[]
-            {
-                new Account { Username = "U1", Proxy = null },
-                new Account { Username = "U2", Proxy = "10.0.0.1:8080" }
-            };
-
-            foreach (var a in accounts) a.IsDirty = false;
-
-            int modified = AccountBatchService.BatchSetProxy(accounts, "10.0.0.1:8080");
-
-            Assert.Equal(1, modified);
-            Assert.Equal("10.0.0.1:8080", accounts[0].Proxy);
-            Assert.True(accounts[0].IsDirty);
-        }
-
-        [Fact]
-        public void AccountBatchService_BatchSetField_AddsAndRemovesFields()
-        {
-            var a1 = new Account { Username = "U1" };
-            var a2 = new Account { Username = "U2" };
-
-            // Add custom field
-            int added = AccountBatchService.BatchSetField(new[] { a1, a2 }, "DiscordId", "12345");
-            Assert.Equal(2, added);
-            Assert.Equal("12345", a1.Fields["DiscordId"]);
-
-            // Remove custom field by passing empty value
-            int removed = AccountBatchService.BatchSetField(new[] { a1, a2 }, "DiscordId", "");
-            Assert.Equal(2, removed);
-            Assert.False(a1.Fields.ContainsKey("DiscordId"));
-        }
-
         #endregion
 
         #region Legacy Modernization Tests
@@ -474,15 +417,6 @@ namespace Shiro.Tests
 
             // Must be distinct
             Assert.Equal(browsers.Length, browsers.Distinct(StringComparer.OrdinalIgnoreCase).Count());
-        }
-
-        [Fact]
-        public void ClientSettingsPatcher_SetsAntiCascadeFastFlags()
-        {
-            var profileSettings = FastFlagPresetService.GenerateProfileSettings(FastFlagProfile.Potato, 30);
-            Assert.NotNull(profileSettings);
-            // Verify anti-cascade settings exist in custom profiles or defaults
-            Assert.True(profileSettings.ContainsKey("DFIntTaskSchedulerTargetFps"));
         }
 
         [Fact]

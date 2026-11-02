@@ -286,5 +286,41 @@ namespace Shiro.Tests
             Assert.True(bannedAcc.IsBannedOrLocked);
             Assert.Equal("Ban 3 ngày", bannedAcc.AccountStatusIssue);
         }
+
+        [Fact]
+        public async System.Threading.Tasks.Task EnqueueAsync_RetryThrowsException_SetsOutcomeFailed()
+        {
+            RobloxRateLimitCoordinator.Instance.ResetBackoff();
+            try
+            {
+                var request = new LaunchRequest(new Account { Username = "RetryFailUser" }, 123, "", false, false);
+                int attempts = 0;
+                var coordinator = new LaunchCoordinator((req, ct) =>
+                {
+                    attempts++;
+                    if (attempts == 1)
+                    {
+                        return System.Threading.Tasks.Task.FromResult(LaunchResult.Fail(LaunchOutcome.RateLimited, "Rate limited initial"));
+                    }
+                    throw new System.InvalidOperationException("Simulated retry fatal error");
+                });
+
+                var batchResult = await coordinator.EnqueueAsync(
+                    new[] { request },
+                    delaySeconds: 0,
+                    asyncJoin: false,
+                    progress: null,
+                    cancellationToken: System.Threading.CancellationToken.None);
+
+                Assert.Single(batchResult.Results);
+                var state = batchResult.Results[0];
+                Assert.Equal(LaunchOutcome.Failed, state.Status);
+                Assert.Contains("Simulated retry fatal error", state.Result);
+            }
+            finally
+            {
+                RobloxRateLimitCoordinator.Instance.ResetBackoff();
+            }
+        }
     }
 }

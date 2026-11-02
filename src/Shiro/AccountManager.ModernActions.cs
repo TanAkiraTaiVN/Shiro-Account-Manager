@@ -9,44 +9,28 @@ namespace Shiro
 {
     public partial class AccountManager
     {
-        private static void HideModernNavigationWindows()
-        {
-        }
-
-        internal void SetDashboardStatus(string message)
-        {
-            Shiro.AvaloniaUI.Views.MainWindow.Instance?.SetStatus(message);
-        }
+        internal void SetDashboardStatus(string message) => Shiro.AvaloniaUI.Views.MainWindow.Instance?.SetStatus(message);
 
         internal async Task ModernLaunchAccountAppHome(Account account)
         {
-            if (account == null) return;
-            await LaunchHomeAccountsAsync(new[] { account }, preferChromeHome: false).ConfigureAwait(true);
+            if (account != null)
+                await LaunchHomeAccountsAsync(new[] { account }, preferChromeHome: false).ConfigureAwait(true);
         }
 
         internal async Task ModernOpenAccountHomeChrome(Account account)
         {
-            if (account == null) return;
-            await LaunchHomeAccountsAsync(new[] { account }, preferChromeHome: true).ConfigureAwait(true);
+            if (account != null)
+                await LaunchHomeAccountsAsync(new[] { account }, preferChromeHome: true).ConfigureAwait(true);
         }
 
-        internal List<Account> GetCurrentSelectedAccounts()
-        {
-            if (Shiro.AvaloniaUI.Views.MainWindow.Instance?.DashboardView?.ViewModel != null)
-            {
-                return Shiro.AvaloniaUI.Views.MainWindow.Instance.DashboardView.ViewModel.GetSelectedAccounts() ?? new List<Account>();
-            }
-            return SelectedAccounts?.ToList() ?? new List<Account>();
-        }
+        internal List<Account> GetCurrentSelectedAccounts() =>
+            Shiro.AvaloniaUI.Views.MainWindow.Instance?.DashboardView?.ViewModel?.GetSelectedAccounts()
+            ?? SelectedAccounts?.ToList() ?? new List<Account>();
 
-        internal void ModernOpenAccountControl()
-        {
-            AppServices.Dialogs.OpenNexusWindow();
-        }
+        internal void ModernOpenAccountControl() => AppServices.Dialogs.OpenNexusWindow();
 
         internal void ModernMultiLaunch()
         {
-            HideModernNavigationWindows();
             if (GetAccountsSnapshot().Count == 0)
             {
                 SetDashboardStatus("Vui lòng thêm tài khoản trước khi khởi chạy.");
@@ -54,27 +38,21 @@ namespace Shiro
             }
 
             List<Account> multiSel = GetCurrentSelectedAccounts();
-
             if (multiSel == null || multiSel.Count == 0)
             {
                 SetDashboardStatus("Vui lòng tick chọn ít nhất một tài khoản (hoặc bấm 'Chọn hết') trước khi mở Home!");
                 return;
             }
 
-            if (multiSel.Count > 1 && General.Get<bool>("EnableMultiRbx") && !RobloxSingletonService.MutexHeld)
-            {
-                if (!TryEnableMultiRoblox(promptIfRobloxRunning: true))
-                    return;
-            }
+            if (multiSel.Count > 1 && General.Get<bool>("EnableMultiRbx") && !RobloxSingletonService.MutexHeld && !TryEnableMultiRoblox(promptIfRobloxRunning: true))
+                return;
 
-            // Multi-Launch is explicitly configured to only open Roblox Home page
             _ = LaunchHomeAccountsAsync(multiSel, preferChromeHome: false);
             SetDashboardStatus($"Đang mở trang chủ Roblox Home cho {multiSel.Count} tài khoản đã chọn…");
         }
 
         internal async Task ModernJoinServerDirect(List<Account> accounts, long placeId, string jobId)
         {
-            HideModernNavigationWindows();
             var snapshot = GetAccountsSnapshot();
             if (snapshot.Count == 0)
             {
@@ -96,28 +74,16 @@ namespace Shiro
                 return;
             }
 
-            // Resolve Place ID if not passed
             if (placeId <= 0)
             {
-                string? pidSource = null;
-                if (Shiro.AvaloniaUI.Views.MainWindow.Instance?.DashboardView?.ViewModel != null &&
-                    !string.IsNullOrWhiteSpace(Shiro.AvaloniaUI.Views.MainWindow.Instance.DashboardView.ViewModel.PlaceId))
-                {
-                    pidSource = Shiro.AvaloniaUI.Views.MainWindow.Instance.DashboardView.ViewModel.PlaceId;
-                }
-                else if (!string.IsNullOrWhiteSpace(CurrentPlaceId))
-                {
-                    pidSource = CurrentPlaceId;
-                }
-                else
-                {
-                    pidSource = targetAccounts.FirstOrDefault(a => !string.IsNullOrEmpty(a.GetField("SavedPlaceId")))?.GetField("SavedPlaceId");
-                }
+                string? pidSource = Shiro.AvaloniaUI.Views.MainWindow.Instance?.DashboardView?.ViewModel?.PlaceId is string vmPid && !string.IsNullOrWhiteSpace(vmPid)
+                    ? vmPid
+                    : !string.IsNullOrWhiteSpace(CurrentPlaceId)
+                        ? CurrentPlaceId
+                        : targetAccounts.FirstOrDefault(a => !string.IsNullOrEmpty(a.GetField("SavedPlaceId")))?.GetField("SavedPlaceId");
 
                 if (!string.IsNullOrWhiteSpace(pidSource))
-                {
                     placeId = AccountLauncherService.ParsePlaceId(pidSource);
-                }
             }
 
             if (placeId <= 0)
@@ -126,48 +92,29 @@ namespace Shiro
                 return;
             }
 
-            // Resolve Job ID
-            string cleanJobId = jobId;
-            if (string.IsNullOrWhiteSpace(cleanJobId))
-            {
-                if (Shiro.AvaloniaUI.Views.MainWindow.Instance?.DashboardView?.ViewModel != null &&
-                    !string.IsNullOrWhiteSpace(Shiro.AvaloniaUI.Views.MainWindow.Instance.DashboardView.ViewModel.JobId))
-                {
-                    cleanJobId = Shiro.AvaloniaUI.Views.MainWindow.Instance.DashboardView.ViewModel.JobId;
-                }
-                else if (!string.IsNullOrWhiteSpace(CurrentJobId))
-                {
-                    cleanJobId = CurrentJobId;
-                }
-                else
-                {
-                    cleanJobId = targetAccounts.FirstOrDefault(a => !string.IsNullOrEmpty(a.GetField("SavedJobId")))?.GetField("SavedJobId") ?? string.Empty;
-                }
-            }
+            string cleanJobId = !string.IsNullOrWhiteSpace(jobId)
+                ? jobId
+                : Shiro.AvaloniaUI.Views.MainWindow.Instance?.DashboardView?.ViewModel?.JobId is string vmJid && !string.IsNullOrWhiteSpace(vmJid)
+                    ? vmJid
+                    : !string.IsNullOrWhiteSpace(CurrentJobId)
+                        ? CurrentJobId
+                        : targetAccounts.FirstOrDefault(a => !string.IsNullOrEmpty(a.GetField("SavedJobId")))?.GetField("SavedJobId") ?? string.Empty;
 
             cleanJobId = cleanJobId?.Trim() ?? string.Empty;
             bool isVip = cleanJobId.StartsWith("VIP:", StringComparison.OrdinalIgnoreCase);
-            if (isVip)
-            {
-                cleanJobId = cleanJobId.Substring(4).Trim();
-            }
+            if (isVip) cleanJobId = cleanJobId.Substring(4).Trim();
 
             CurrentPlaceId = placeId.ToString();
             CurrentJobId = isVip ? ("VIP:" + cleanJobId) : cleanJobId;
 
-            if (targetAccounts.Count > 1 && General.Get<bool>("EnableMultiRbx") && !RobloxSingletonService.MutexHeld)
+            if (targetAccounts.Count > 1 && General.Get<bool>("EnableMultiRbx") && !RobloxSingletonService.MutexHeld && !TryEnableMultiRoblox(promptIfRobloxRunning: false))
             {
-                if (!TryEnableMultiRoblox(promptIfRobloxRunning: false))
-                {
-                    SetDashboardStatus("Không thể kích hoạt Multi Roblox. Vui lòng đóng Roblox và thử lại.");
-                    return;
-                }
+                SetDashboardStatus("Không thể kích hoạt Multi Roblox. Vui lòng đóng Roblox và thử lại.");
+                return;
             }
 
             if (placeId > 0)
-            {
                 _ = ObserveBackgroundTaskAsync(AddRecentGame(new Game(placeId)), "recent game update");
-            }
 
             CancelLaunching();
             if (!await WaitForLaunchQueueToDrainAsync(TimeSpan.FromSeconds(8)).ConfigureAwait(true))
@@ -188,17 +135,11 @@ namespace Shiro
         internal void ModernCloseRoblox(bool notify = true)
         {
             int totalKilled = RobloxProcessService.KillAllRobloxProcesses();
-
             if (notify)
             {
-                if (totalKilled > 0)
-                {
-                    SetDashboardStatus($"Đã tắt {totalKilled} tiến trình Roblox và làm sạch khay hệ thống.");
-                }
-                else
-                {
-                    SetDashboardStatus("Không tìm thấy tiến trình Roblox nào đang chạy.");
-                }
+                SetDashboardStatus(totalKilled > 0
+                    ? $"Đã tắt {totalKilled} tiến trình Roblox và làm sạch khay hệ thống."
+                    : "Không tìm thấy tiến trình Roblox nào đang chạy.");
             }
 
             if (Shiro.AvaloniaUI.Views.MainWindow.Instance?.DashboardView?.ViewModel is var mainVm && mainVm != null)
@@ -209,17 +150,11 @@ namespace Shiro
                         ? $"Đã tắt {totalKilled} tiến trình Roblox và làm sạch khay hệ thống!"
                         : "Không tìm thấy tiến trình Roblox nào đang chạy.";
                 }
-                foreach (var acc in mainVm.Accounts)
-                {
-                    acc.IsInGame = false;
-                }
+                foreach (var acc in mainVm.Accounts) acc.IsInGame = false;
                 mainVm.NotifyCounts();
             }
-            if (General.Get<bool>("EnableMultiRbx") && !RobloxSingletonService.MutexHeld)
-            {
-                if (UpdateMultiRoblox() && notify)
-                    SetDashboardStatus("Đã tắt Roblox và kích hoạt Multi Roblox.");
-            }
+            if (General.Get<bool>("EnableMultiRbx") && !RobloxSingletonService.MutexHeld && UpdateMultiRoblox() && notify)
+                SetDashboardStatus("Đã tắt Roblox và kích hoạt Multi Roblox.");
 
             ModernRefreshPresence();
         }

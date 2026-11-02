@@ -181,6 +181,8 @@ namespace Shiro.Services
                         catch (Exception retryEx)
                         {
                             Program.Logger?.Error($"[LaunchCoordinator] Retry #{retry} failed for {request.Account.Username}: {retryEx}");
+                            state.Status = LaunchOutcome.Failed;
+                            state.Result = $"ERROR: Failed to launch Roblox for {request.Account.Username}\n{retryEx.Message}";
                         }
                     }
 

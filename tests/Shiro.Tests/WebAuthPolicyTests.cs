@@ -262,5 +262,30 @@ namespace Shiro.Tests
                 AccountManager.WSPassword = oldPass;
             }
         }
+
+        [Theory]
+        [InlineData("/running")]
+        [InlineData("/RUNNING")]
+        [InlineData("/Running")]
+        public async Task ProcessApiRequestAsync_RunningEndpoint_IsCaseInsensitive(string path)
+        {
+            var mgr = new AccountManager();
+            int statusCode = 200;
+            var ctx = new AccountManager.ApiRequestContext
+            {
+                AbsolutePath = path,
+                IsV2 = true,
+                IsLocal = true,
+                Host = "localhost",
+                Origin = "",
+                GetQuery = _ => null,
+                GetHeader = _ => null,
+                SetStatusCode = c => statusCode = c
+            };
+
+            string resp = await mgr.ProcessApiRequestAsync(ctx);
+            Assert.Equal(200, statusCode);
+            Assert.Contains("Shiro is running", resp, StringComparison.OrdinalIgnoreCase);
+        }
     }
 }

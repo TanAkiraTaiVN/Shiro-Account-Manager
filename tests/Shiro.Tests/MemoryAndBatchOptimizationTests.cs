@@ -145,19 +145,5 @@ namespace Shiro.Tests
             Assert.Equal(0, vm.SelectedCount);
             Assert.Equal(2, selectedCountNotifications);
         }
-
-        [Fact]
-        public void BatchSetGroup_TriggersNonBlockingPersistence()
-        {
-            var acc = (Account)RuntimeHelpers.GetUninitializedObject(typeof(Account));
-            acc.Username = "TestBatchUser";
-            acc.Group = "OldGroup";
-            acc.Fields = new Dictionary<string, string>();
-
-            int modified = AccountBatchService.BatchSetGroup(new[] { acc }, "NewGroup");
-            Assert.Equal(1, modified);
-            Assert.Equal("NewGroup", acc.Group);
-            Assert.True(acc.IsDirty);
-        }
     }
 }

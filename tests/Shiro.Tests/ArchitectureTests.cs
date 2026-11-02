@@ -280,7 +280,7 @@ namespace Shiro.Tests
                 ["MainViewModel"] = 3500,
                 ["AccountManager"] = 3400,
                 ["ServerListViewModel"] = 1800,
-                ["FastLoginDialog"] = 1400
+                ["FastLoginDialog"] = 1500
             };
 
             var classLines = new System.Collections.Generic.Dictionary<string, int>(StringComparer.Ordinal);

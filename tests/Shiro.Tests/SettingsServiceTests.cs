@@ -7,15 +7,14 @@ namespace Shiro.Tests
     public class SettingsServiceTests
     {
         [Fact]
-        public void SettingKeys_HaveExpectedKeyNames()
+        public void AppSettingsKeys_HaveExpectedKeyNames()
         {
-            Assert.Equal("General", SettingKeys.GeneralSection);
-            Assert.Equal("UnlockFPS", SettingKeys.UnlockFPS);
-            Assert.Equal("MaxFPSValue", SettingKeys.MaxFPSValue);
-            Assert.Equal("EnablePotatoMode", SettingKeys.EnablePotatoMode);
-            Assert.Equal("HideUsernames", SettingKeys.HideUsernames);
-            Assert.Equal("AccountJoinDelay", SettingKeys.AccountJoinDelay);
-            Assert.Equal("AutoCleanZombiesOnLaunch", SettingKeys.AutoCleanZombiesOnLaunch);
+            Assert.Equal("General", AppSettingsKeys.Sections.General);
+            Assert.Equal("UnlockFPS", AppSettingsKeys.General.UnlockFPS);
+            Assert.Equal("MaxFPSValue", AppSettingsKeys.General.MaxFPSValue);
+            Assert.Equal("EnablePotatoMode", AppSettingsKeys.General.EnablePotatoMode);
+            Assert.Equal("HideUsernames", AppSettingsKeys.General.HideUsernames);
+            Assert.Equal("AccountJoinDelay", AppSettingsKeys.General.AccountJoinDelay);
             Assert.Equal("AutoCleanZombiesOnLaunch", AppSettingsKeys.General.AutoCleanZombiesOnLaunch);
         }
 
@@ -171,24 +170,6 @@ namespace Shiro.Tests
             {
                 AppSettings.ResetOverrides();
             }
-        }
-
-        [Fact]
-        public void IniSettingsService_DelegatesToIniSectionAccurately()
-        {
-            var section = new IniSection("TestSection");
-            section.Set("MaxDelay", "15");
-            section.Set("SmartLaunch", "true");
-
-            ISettingsService service = new IniSettingsService(section);
-
-            Assert.True(service.Exists("MaxDelay"));
-            Assert.Equal("15", service.Get("MaxDelay"));
-            Assert.Equal(15, service.GetInt("MaxDelay"));
-            Assert.True(service.GetBool("SmartLaunch"));
-
-            service.Set("NewKey", "NewVal");
-            Assert.Equal("NewVal", section.Get("NewKey"));
         }
     }
 }

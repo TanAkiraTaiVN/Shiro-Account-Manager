@@ -11,18 +11,57 @@ namespace Shiro.AvaloniaUI.Views
 {
     public partial class FastLoginDialog
     {
-        private Account? GetCurrentQueueAccount()
+        private Account? GetCurrentQueueAccount() =>
+            (_currentQueueIndex >= 0 && _currentQueueIndex < _accountQueue.Count) ? _accountQueue[_currentQueueIndex] : null;
+
+        private bool _redirectedFromUnauthenticatedModeration;
+        private string? _restoredHbaScriptId;
+
+        private async Task RedirectUnauthenticatedModerationToLoginAsync(CoreWebView2 core)
         {
-            return (_currentQueueIndex >= 0 && _currentQueueIndex < _accountQueue.Count)
-                ? _accountQueue[_currentQueueIndex]
-                : null;
+            if (_redirectedFromUnauthenticatedModeration) return;
+            _redirectedFromUnauthenticatedModeration = true;
+
+            var currentAcc = GetCurrentQueueAccount();
+            string accName = currentAcc?.Username ?? _username ?? "Tài khoản";
+            if (currentAcc != null)
+            {
+                currentAcc.Valid = false;
+                currentAcc.AccountStatusIssue = string.Empty;
+                AccountManager.SaveAccountsAsync(true).Forget();
+                MainWindow.Instance?.ViewModel?.UpdateAccountValidity(currentAcc, false);
+            }
+
+            TxtInAppStatus.Text = $"{accName}: Phiên cũ đã hết hạn (9002). Đang mở trang đăng nhập...";
+            TxtInAppStatus.Foreground = Brushes.DeepSkyBlue;
+            AccountManager.Instance?.SetDashboardStatus($"{accName}: Phiên cookie đã hết hạn, đang chuyển sang đăng nhập...");
+
+            try
+            {
+                if (!string.IsNullOrEmpty(_restoredHbaScriptId))
+                {
+                    try { core.RemoveScriptToExecuteOnDocumentCreated(_restoredHbaScriptId); }
+                    catch (Exception ex) { Program.Logger?.Debug($"RemoveScriptToExecuteOnDocumentCreated threw: {ex.Message}"); }
+                    _restoredHbaScriptId = null;
+                }
+
+                ResetHbaSnapshot();
+                await ClearAuthCookiesAsync();
+
+                _captured = false;
+                _pollTimer?.Start();
+
+                core.Navigate("https://www.roblox.com/login");
+                await Task.Delay(350);
+                await TryFillCredentialsAsync(forceClick: false);
+            }
+            catch (Exception ex) { Program.Logger?.Debug($"RedirectUnauthenticatedModerationToLoginAsync threw: {ex.Message}"); }
         }
 
         private async Task MarkCurrentAccountIssueAndSkipAsync(string issueBadge, string statusReason)
         {
             var currentAcc = GetCurrentQueueAccount();
             string accName = currentAcc?.Username ?? _username ?? "Tài khoản";
-
             if (currentAcc != null)
             {
                 currentAcc.Valid = false;
@@ -36,7 +75,6 @@ namespace Shiro.AvaloniaUI.Views
             TxtInAppStatus.Foreground = Brushes.OrangeRed;
             AccountManager.Instance?.SetDashboardStatus($"{accName}{progressTag}: {issueBadge} ({statusReason})");
 
-            // For automated batch login queues, advance to the next account
             if (_accountQueue.Count > 1)
             {
                 _captured = true;
@@ -62,15 +100,13 @@ namespace Shiro.AvaloniaUI.Views
 
                 LoadAccountAtIndex(_currentQueueIndex + 1);
                 _captured = true;
-
                 TxtInAppStatus.Text = $"Chuyển sang {_username} ({_currentQueueIndex + 1}/{_accountQueue.Count})...";
                 TxtInAppStatus.Foreground = Brushes.DeepSkyBlue;
 
-                CoreWebView2? freshCore = null;
                 if (WvBrowser != null)
                 {
                     ResetHbaSnapshot();
-                    freshCore = await WvBrowser.ResetToFreshProfileAsync();
+                    var freshCore = await WvBrowser.ResetToFreshProfileAsync();
                     if (freshCore != null)
                     {
                         await ConfigureCoreWebViewAsync(freshCore);
@@ -104,7 +140,9 @@ namespace Shiro.AvaloniaUI.Views
                 string currentUrl = core.Source ?? string.Empty;
                 if (_accountQueue.Count > 1 && IsModerationOrLockedUrl(currentUrl))
                 {
-                    await MarkCurrentAccountIssueAndSkipAsync("Bị khóa / Ban", "Tài khoản bị khóa hoặc kiểm duyệt");
+                    var (b, r) = await DetectDomAccountIssueAsync(core);
+                    if (b == "UNAUTHENTICATED_MODERATION") { await RedirectUnauthenticatedModerationToLoginAsync(core); return; }
+                    await MarkCurrentAccountIssueAndSkipAsync(b ?? "Bị khóa / Ban", r ?? "Tài khoản bị khóa hoặc kiểm duyệt");
                     return;
                 }
 
@@ -112,11 +150,7 @@ namespace Shiro.AvaloniaUI.Views
                 CoreWebView2Cookie? secCookie = null;
                 foreach (var c in cookies)
                 {
-                    if (c.Name.Equals(".ROBLOSECURITY", StringComparison.OrdinalIgnoreCase))
-                    {
-                        secCookie = c;
-                        break;
-                    }
+                    if (c.Name.Equals(".ROBLOSECURITY", StringComparison.OrdinalIgnoreCase)) { secCookie = c; break; }
                 }
 
                 if (secCookie != null && !string.IsNullOrWhiteSpace(secCookie.Value) && secCookie.Value.StartsWith("_|"))
@@ -127,12 +161,11 @@ namespace Shiro.AvaloniaUI.Views
                         if (IsModerationOrLockedUrl(currentUrl))
                         {
                             var (domBadge, domReason) = await DetectDomAccountIssueAsync(core);
-                            if (!string.IsNullOrEmpty(domBadge))
-                                await MarkCurrentAccountIssueAndSkipAsync(domBadge, domReason ?? domBadge);
+                            if (domBadge == "UNAUTHENTICATED_MODERATION") { await RedirectUnauthenticatedModerationToLoginAsync(core); return; }
+                            if (!string.IsNullOrEmpty(domBadge)) await MarkCurrentAccountIssueAndSkipAsync(domBadge, domReason ?? domBadge);
                             return;
                         }
-                        if (_accountQueue.Count == 1 && _accountQueue[0].IsBannedOrLocked &&
-                            currentUrl.Contains("/home", StringComparison.OrdinalIgnoreCase))
+                        if (_accountQueue.Count == 1 && _accountQueue[0].IsBannedOrLocked && currentUrl.Contains("/home", StringComparison.OrdinalIgnoreCase))
                         {
                             _ignoredCookieValues.Remove(fp);
                         }
@@ -160,13 +193,11 @@ namespace Shiro.AvaloniaUI.Views
                             if (qAcc != null) qAcc.SecurityToken = secCookie.Value;
                             await Task.Delay(700);
                             var (b, r) = await DetectDomAccountIssueAsync(core);
+                            if (b == "UNAUTHENTICATED_MODERATION") { await RedirectUnauthenticatedModerationToLoginAsync(core); return; }
                             await MarkCurrentAccountIssueAndSkipAsync(b ?? "Bị khóa / Ban", r ?? "Tài khoản bị khóa hoặc kiểm duyệt");
                             return;
                         }
-                        if (!string.IsNullOrEmpty(navUrl) && !navUrl.Contains("/login", StringComparison.OrdinalIgnoreCase))
-                        {
-                            break;
-                        }
+                        if (!string.IsNullOrEmpty(navUrl) && !navUrl.Contains("/login", StringComparison.OrdinalIgnoreCase)) break;
                         await Task.Delay(250);
                     }
 
@@ -178,29 +209,31 @@ namespace Shiro.AvaloniaUI.Views
                         var qAcc = GetCurrentQueueAccount();
                         if (qAcc != null) qAcc.SecurityToken = secCookie.Value;
                         var (b, r) = await DetectDomAccountIssueAsync(core);
+                        if (b == "UNAUTHENTICATED_MODERATION") { await RedirectUnauthenticatedModerationToLoginAsync(core); return; }
                         await MarkCurrentAccountIssueAndSkipAsync(b ?? "Bị khóa / Ban", r ?? "Tài khoản bị khóa hoặc kiểm duyệt");
                         return;
                     }
 
+                    string? inPageAccountJson = null;
                     try
                     {
-                        await core.ExecuteScriptAsync(@"
+                        string rawAuthJson = await core.ExecuteScriptAsync(@"
                             (async () => {
                                 try {
-                                    await fetch('https://users.roblox.com/v1/users/authenticated', {
-                                        method: 'GET',
-                                        credentials: 'include',
-                                        headers: { 'Accept': 'application/json' }
-                                    });
+                                    const res = await fetch('https://users.roblox.com/v1/users/authenticated', { method: 'GET', credentials: 'include', headers: { 'Accept': 'application/json' } });
+                                    if (res.ok) { const d = await res.json(); if (d && d.id) return JSON.stringify({ UserId: d.id, Name: d.name, DisplayName: d.displayName }); }
                                 } catch (_) {}
-                            })()
-                        ");
+                                return '';
+                            })()");
+                        if (!string.IsNullOrWhiteSpace(rawAuthJson) && rawAuthJson != "null" && rawAuthJson != "\"\"")
+                        {
+                            try { inPageAccountJson = JsonSerializer.Deserialize(rawAuthJson, ShiroAppJson.Default.String); }
+                            catch (Exception) { inPageAccountJson = rawAuthJson.Trim('"'); }
+                            if (string.IsNullOrWhiteSpace(inPageAccountJson) || !inPageAccountJson.StartsWith('{')) inPageAccountJson = null;
+                        }
                         await Task.Delay(300);
                     }
-                    catch (Exception ex)
-                    {
-                        Program.Logger?.Debug($"Trigger in-page auth request threw: {ex.Message}");
-                    }
+                    catch (Exception ex) { Program.Logger?.Debug($"Trigger in-page auth request threw: {ex.Message}"); }
 
                     string cookieValue = secCookie.Value;
                     try
@@ -211,9 +244,7 @@ namespace Shiro.AvaloniaUI.Views
                             var settledCookies = await core.CookieManager.GetCookiesAsync(checkUrl);
                             foreach (var c in settledCookies)
                             {
-                                if (c.Name.Equals(".ROBLOSECURITY", StringComparison.OrdinalIgnoreCase) &&
-                                    !string.IsNullOrWhiteSpace(c.Value) &&
-                                    c.Value.StartsWith("_|"))
+                                if (c.Name.Equals(".ROBLOSECURITY", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(c.Value) && c.Value.StartsWith("_|"))
                                 {
                                     cookieValue = c.Value;
                                     _ignoredCookieValues.Add(Fingerprint(cookieValue));
@@ -222,10 +253,7 @@ namespace Shiro.AvaloniaUI.Views
                             }
                         }
                     }
-                    catch (Exception ex)
-                    {
-                        Program.Logger?.Debug($"Reading settled cookies threw: {ex.Message}");
-                    }
+                    catch (Exception ex) { Program.Logger?.Debug($"Reading settled cookies threw: {ex.Message}"); }
 
                     if (string.IsNullOrEmpty(_password))
                     {
@@ -248,41 +276,24 @@ namespace Shiro.AvaloniaUI.Views
                                 {
                                     _password = unescaped;
                                     var currAcc = GetCurrentQueueAccount();
-                                    if (currAcc != null)
-                                    {
-                                        currAcc.Password = unescaped;
-                                    }
+                                    if (currAcc != null) currAcc.Password = unescaped;
                                 }
                             }
                         }
-                        catch (Exception ex)
-                        {
-                            Program.Logger?.Debug($"Capturing password from DOM threw: {ex.Message}");
-                        }
+                        catch (Exception ex) { Program.Logger?.Debug($"Capturing password from DOM threw: {ex.Message}"); }
                     }
 
                     var hbaSnapshot = await CollectFinalHbaAndFingerprintAsync(core);
+                    try { core.Stop(); }
+                    catch (Exception ex) { Program.Logger?.Debug($"core.Stop() threw: {ex.Message}"); }
 
-                    try
-                    {
-                        core.Stop();
-                    }
-                    catch (Exception ex)
-                    {
-                        Program.Logger?.Debug($"core.Stop() threw: {ex.Message}");
-                    }
-
-                    Account? acc = await AccountManager.AddAccountAsync(cookieValue, _password ?? "", hbaCapture: hbaSnapshot);
+                    Account? acc = await AccountManager.AddAccountAsync(cookieValue, _password ?? "", AccountJSON: inPageAccountJson, hbaCapture: hbaSnapshot);
                     Program.Logger?.Info($"[FastLogin] Captured session for '{_username}': payloadLen={Account.GetSessionTokenPayloadLength(cookieValue)}, hba={hbaSnapshot.HasPrivateKey}, registeredValid={acc?.Valid}, resolvedUser={acc?.Username}.");
 
                     if (acc != null && acc.Valid)
                     {
-                        if (!string.IsNullOrEmpty(_password))
-                        {
-                            acc.Password = _password;
-                        }
-                        if (!string.IsNullOrEmpty(_username) &&
-                            !string.Equals(acc.Username, _username, StringComparison.OrdinalIgnoreCase))
+                        if (!string.IsNullOrEmpty(_password)) acc.Password = _password;
+                        if (!string.IsNullOrEmpty(_username) && !string.Equals(acc.Username, _username, StringComparison.OrdinalIgnoreCase))
                         {
                             core.NavigationCompleted -= OnNavigationCompleted;
                             core.SourceChanged -= OnSourceChanged;
@@ -325,14 +336,30 @@ namespace Shiro.AvaloniaUI.Views
                     {
                         if (_accountQueue.Count > 0)
                         {
-                            var qAcc = GetCurrentQueueAccount();
-                            string badge = acc?.IsBannedOrLocked == true ? acc.AccountStatusIssue : "Bị khóa / Ban";
-                            if (qAcc != null && string.IsNullOrEmpty(qAcc.SecurityToken))
-                                qAcc.SecurityToken = cookieValue;
-                            await MarkCurrentAccountIssueAndSkipAsync(badge, "Phiên bị khóa hoặc kiểm duyệt");
-                            return;
-                        }
+                            if (acc?.IsBannedOrLocked == true)
+                            {
+                                var qAcc = GetCurrentQueueAccount();
+                                if (qAcc != null && string.IsNullOrEmpty(qAcc.SecurityToken))
+                                    qAcc.SecurityToken = cookieValue;
+                                await MarkCurrentAccountIssueAndSkipAsync(acc.AccountStatusIssue, "Phiên bị khóa hoặc kiểm duyệt");
+                                return;
+                            }
 
+                            var (domBadge, domReason) = await DetectDomAccountIssueAsync(core);
+                            if (domBadge == "UNAUTHENTICATED_MODERATION")
+                            {
+                                await RedirectUnauthenticatedModerationToLoginAsync(core);
+                                return;
+                            }
+                            if (!string.IsNullOrEmpty(domBadge))
+                            {
+                                var qAcc = GetCurrentQueueAccount();
+                                if (qAcc != null && string.IsNullOrEmpty(qAcc.SecurityToken))
+                                    qAcc.SecurityToken = cookieValue;
+                                await MarkCurrentAccountIssueAndSkipAsync(domBadge, domReason ?? "Phiên bị khóa hoặc kiểm duyệt");
+                                return;
+                            }
+                        }
                         _captured = false;
                         _pollTimer?.Start();
                     }
@@ -340,10 +367,10 @@ namespace Shiro.AvaloniaUI.Views
                 else if (_accountQueue.Count > 0)
                 {
                     var (issueBadge, reason) = await DetectDomAccountIssueAsync(core);
-                    if (!string.IsNullOrEmpty(issueBadge))
-                    {
+                    if (issueBadge == "UNAUTHENTICATED_MODERATION")
+                        await RedirectUnauthenticatedModerationToLoginAsync(core);
+                    else if (!string.IsNullOrEmpty(issueBadge))
                         await MarkCurrentAccountIssueAndSkipAsync(issueBadge, reason ?? issueBadge);
-                    }
                 }
             }
             catch (Exception captureEx)

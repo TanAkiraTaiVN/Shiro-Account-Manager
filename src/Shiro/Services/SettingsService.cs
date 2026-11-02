@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 
 namespace Shiro.Services
@@ -41,42 +41,5 @@ namespace Shiro.Services
             lock (sync)
                 File.Save(fileName);
         }
-    }
-
-    /// <summary>
-    /// Centralized strongly-typed setting keys to eliminate magic strings and typos.
-    /// </summary>
-    internal static class SettingKeys
-    {
-        public const string GeneralSection = "General";
-        public const string FastFlagsSection = "FastFlags";
-
-        // General keys
-        public const string UnlockFPS = "UnlockFPS";
-        public const string MaxFPSValue = "MaxFPSValue";
-        public const string EnablePotatoMode = "EnablePotatoMode";
-        public const string PotatoTargetFPS = "PotatoTargetFPS";
-        public const string HideUsernames = "HideUsernames";
-        public const string AccountJoinDelay = "AccountJoinDelay";
-        public const string ScaleFonts = "ScaleFonts";
-        public const string WindowScale = "WindowScale";
-        public const string ShuffleJobID = "ShuffleJobID";
-        public const string AllowMultipleInstances = "AllowMultipleInstances";
-        public const string AutoCloseRobloxOnLaunch = "AutoCloseRobloxOnLaunch";
-        public const string AutoCleanZombiesOnLaunch = "AutoCleanZombiesOnLaunch";
-        public const string ShowPresence = "ShowPresence";
-        public const string PresenceUpdateRate = "PresenceUpdateRate";
-        public const string CustomClientSettings = "CustomClientSettings";
-        public const string SavedPlaceId = "SavedPlaceId";
-        public const string SavedFollowUser = "SavedFollowUser";
-        public const string AutoCheckUpdates = "AutoCheckUpdates";
-
-        // FastFlag keys
-        public const string FastFlag_DisableShadows = "FastFlag_DisableShadows";
-        public const string FastFlag_DisableParticles = "FastFlag_DisableParticles";
-        public const string FastFlag_DisablePostFx = "FastFlag_DisablePostFx";
-        public const string FastFlag_DisableGrass = "FastFlag_DisableGrass";
-        public const string FastFlag_LowResTextures = "FastFlag_LowResTextures";
-        public const string FastFlag_DisableLightGrid = "FastFlag_DisableLightGrid";
     }
 }

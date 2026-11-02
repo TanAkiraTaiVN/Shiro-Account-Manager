@@ -35,7 +35,7 @@ namespace Shiro.AvaloniaUI.Views
                         try {
                             const url = (window.location.href || '').toLowerCase();
                             const isModUrl = url.includes('/not-approved') || url.includes('/account-status') || url.includes('/moderation') || url.includes('/security-notification') || url.includes('/account-locked');
-                            const errSelectors = '#login-form-error, .form-error, .alert-warning, .text-error, [role=""alert""], .modal-body, .not-approved-container';
+                            const errSelectors = '#login-form-error, .form-error, .text-error, .not-approved-container';
                             const nodes = document.querySelectorAll(errSelectors);
                             let combined = '';
                             for (const n of nodes) {
@@ -47,46 +47,30 @@ namespace Shiro.AvaloniaUI.Views
                                 combined += ' ' + document.body.innerText.toLowerCase();
                             }
                             if (!combined) return isModUrl ? 'LOCKED_OR_BANNED' : '';
-                            if (combined.includes('7 day') || combined.includes('7-day') || combined.includes('7 ngày')) {
-                                return 'BAN_7_DAYS';
+                            if (combined.includes('user is not authenticated') || combined.includes('""code"":9002') || combined.includes('""code"": 9002')) return 'UNAUTHENTICATED_MODERATION';
+                            if (combined.includes('incorrect username or password') || combined.includes('invalid username or password') || combined.includes('sai mật khẩu') || combined.includes('tên người dùng hoặc mật khẩu không đúng')) return 'WRONG_PASSWORD';
+                            if (isModUrl) {
+                                if (combined.includes('14 day') || combined.includes('14-day') || combined.includes('14 ngày')) return 'BAN_14_DAYS';
+                                if (combined.includes('7 day') || combined.includes('7-day') || combined.includes('7 ngày')) return 'BAN_7_DAYS';
+                                if (combined.includes('3 day') || combined.includes('3-day') || combined.includes('3 ngày')) return 'BAN_3_DAYS';
+                                if (combined.includes('1 day') || combined.includes('1-day') || combined.includes('1 ngày')) return 'BAN_1_DAY';
+                                if (combined.includes('deleted') || combined.includes('terminated') || combined.includes('đã bị xóa') || combined.includes('vĩnh viễn')) return 'TERMINATED';
+                                if (combined.includes('warning') || combined.includes('cảnh báo')) return 'WARNING';
+                                if (combined.includes('locked') || combined.includes('bị khóa') || combined.includes('reset your password') || combined.includes('security notification')) return 'ACCOUNT_LOCKED';
+                                if (combined.includes('not approved') || combined.includes('banned') || combined.includes('moderated') || combined.includes('suspended')) return 'ACCOUNT_BANNED';
+                                return 'LOCKED_OR_BANNED';
                             }
-                            if (combined.includes('3 day') || combined.includes('3-day') || combined.includes('3 ngày')) {
-                                return 'BAN_3_DAYS';
-                            }
-                            if (combined.includes('1 day') || combined.includes('1-day') || combined.includes('1 ngày')) {
-                                return 'BAN_1_DAY';
-                            }
-                            if (combined.includes('14 day') || combined.includes('14-day') || combined.includes('14 ngày')) {
-                                return 'BAN_14_DAYS';
-                            }
-                            if (combined.includes('deleted') || combined.includes('terminated') || combined.includes('đã bị xóa') || combined.includes('vĩnh viễn')) {
-                                return 'TERMINATED';
-                            }
-                            if (combined.includes('warning') || combined.includes('cảnh báo')) {
-                                return 'WARNING';
-                            }
-                            if (combined.includes('locked') || combined.includes('bị khóa') || combined.includes('reset your password') || combined.includes('security notification')) {
-                                return 'ACCOUNT_LOCKED';
-                            }
-                            if (combined.includes('not approved') || combined.includes('banned') || combined.includes('moderated') || combined.includes('suspended')) {
-                                return 'ACCOUNT_BANNED';
-                            }
-                            if (combined.includes('incorrect username or password') || combined.includes('invalid username or password') || combined.includes('sai mật khẩu') || combined.includes('tên người dùng hoặc mật khẩu không đúng')) {
-                                return 'WRONG_PASSWORD';
-                            }
-                            return isModUrl ? 'LOCKED_OR_BANNED' : '';
-                        } catch (_) {
+                            if (combined.includes('locked') || combined.includes('bị khóa') || combined.includes('reset your password') || combined.includes('security notification')) return 'ACCOUNT_LOCKED';
                             return '';
-                        }
+                        } catch (_) { return ''; }
                     })()
                 ");
 
-                if (string.IsNullOrWhiteSpace(rawJson))
-                    return (null, null);
-
+                if (string.IsNullOrWhiteSpace(rawJson)) return (null, null);
                 string code = rawJson.Trim().Trim('"');
                 return code switch
                 {
+                    "UNAUTHENTICATED_MODERATION" => ("UNAUTHENTICATED_MODERATION", "Phiên cookie đã hết hạn, đang mở trang đăng nhập để xem án phạt..."),
                     "BAN_7_DAYS" => ("Ban 7 ngày", "Tài khoản bị cấm 7 ngày"),
                     "BAN_3_DAYS" => ("Ban 3 ngày", "Tài khoản bị cấm 3 ngày"),
                     "BAN_1_DAY" => ("Ban 1 ngày", "Tài khoản bị cấm 1 ngày"),
@@ -100,10 +84,7 @@ namespace Shiro.AvaloniaUI.Views
                     _ => (null, null)
                 };
             }
-            catch
-            {
-                return (null, null);
-            }
+            catch { return (null, null); }
         }
 
         private async Task ConfigureCoreWebViewAsync(CoreWebView2 core)

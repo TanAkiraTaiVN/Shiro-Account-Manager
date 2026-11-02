@@ -75,6 +75,8 @@ namespace Shiro.AvaloniaUI.Views
             _username = account.Username;
             _password = account.Password;
             _captured = false;
+            _redirectedFromUnauthenticatedModeration = false;
+            _restoredHbaScriptId = null;
 
             if (_accountQueue.Count > 1)
                 ReloginQueueStore.Save(_accountQueue.Skip(index).Select(a => a.UserID));
@@ -146,13 +148,10 @@ namespace Shiro.AvaloniaUI.Views
                 var singleAcc = _accountQueue.Count == 1 ? _accountQueue[0] : null;
                 if (singleAcc != null && singleAcc.IsBannedOrLocked && !string.IsNullOrWhiteSpace(singleAcc.SecurityToken))
                 {
-                    var banCookie = core.CookieManager.CreateCookie(".ROBLOSECURITY", singleAcc.SecurityToken, ".roblox.com", "/");
-                    banCookie.IsHttpOnly = true;
-                    banCookie.IsSecure = true;
-                    core.CookieManager.AddOrUpdateCookie(banCookie);
+                    _restoredHbaScriptId = await RobloxHbaService.RestoreWebViewModerationSessionAsync(core, singleAcc, _currentHbaSnapshot);
                     _ignoredCookieValues.Add(Fingerprint(singleAcc.SecurityToken));
                     TxtInAppStatus.Text = $"Đang mở trang kiểm duyệt Roblox cho {singleAcc.Username} ({singleAcc.AccountStatusIssue})...";
-                    core.Navigate("https://www.roblox.com/not-approved");
+                    core.Navigate("https://www.roblox.com/home");
                 }
                 else
                 {

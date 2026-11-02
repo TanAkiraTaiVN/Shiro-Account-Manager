@@ -11,6 +11,14 @@ using Shiro.Services;
 
 namespace Shiro
 {
+    internal enum BackupLoadResult
+    {
+        NotAttempted,
+        Restored,
+        PromotedNeedsPassword,
+        Failed
+    }
+
     public partial class AccountManager
     {
         private static string SaveFilePath => StoragePaths.AccountDataFile;
@@ -21,7 +29,6 @@ namespace Shiro
         // save must migrate it to the normal DPAPI CurrentUser protection
         // instead of preserving plaintext indefinitely.
         private static bool legacyPlaintextLoaded;
-        private static bool backupPromotedPasswordLocked;
         private static string PlaintextOptInFile => StoragePaths.GetUserFile("NoEncryption.IUnderstandTheRisks.iautamor");
 
         public static bool IsDatabasePasswordEncrypted()
@@ -74,14 +81,8 @@ namespace Shiro
                         return;
                     }
                     byte[] hash = SHA512.HashData(Encoding.UTF8.GetBytes(newPass));
-                    try
-                    {
-                        PasswordHash = new ReadOnlyMemory<byte>(ProtectedData.Protect(hash, Array.Empty<byte>(), DataProtectionScope.CurrentUser));
-                    }
-                    finally
-                    {
-                        CryptographicOperations.ZeroMemory(hash);
-                    }
+                    try { PasswordHash = new ReadOnlyMemory<byte>(ProtectedData.Protect(hash, Array.Empty<byte>(), DataProtectionScope.CurrentUser)); }
+                    finally { CryptographicOperations.ZeroMemory(hash); }
                     SaveAccounts(true, true);
                     AppServices.Dialogs.ShowInfo("Đã đặt mật khẩu mới thành công!");
                 }
@@ -95,24 +96,18 @@ namespace Shiro
 
         public static bool LoadAccountsFromStore(byte[]? Hash = null)
         {
-            if (Instance == null)
-                return false;
-
+            if (Instance == null) return false;
             Instance.LoadAccounts(Hash, out bool unlocked);
             return unlocked;
         }
 
-        public void LoadAccounts(byte[]? Hash = null)
-        {
-            LoadAccounts(Hash, out _);
-        }
+        public void LoadAccounts(byte[]? Hash = null) => LoadAccounts(Hash, out _);
 
         public void LoadAccounts(byte[]? Hash, out bool unlocked)
         {
             unlocked = false;
             legacyPlaintextLoaded = false;
             bool EnteredPassword = false;
-            backupPromotedPasswordLocked = false;
             byte[] Data = accountStore.Read();
 
             lock (AccountListLock)
@@ -169,9 +164,12 @@ namespace Shiro
 
             if (!EnteredPassword && AccountCount == 0 && File.Exists($"{SaveFilePath}.backup") && File.ReadAllBytes($"{SaveFilePath}.backup") is byte[] BackupData && BackupData.Length > 0)
             {
-                TryLoadFromBackup(BackupData);
-                if (backupPromotedPasswordLocked)
+                var backupResult = TryLoadFromBackup(BackupData);
+                if (backupResult == BackupLoadResult.PromotedNeedsPassword)
+                {
+                    EnableModernDashboard();
                     return;
+                }
             }
 
             try
@@ -225,8 +223,11 @@ namespace Shiro
                 PlaintextOptIn: File.Exists(PlaintextOptInFile));
         }
 
-        private bool TryLoadFromBackup(byte[] backupData)
+        internal BackupLoadResult TryLoadFromBackup(byte[] backupData)
         {
+            if (backupData == null || backupData.Length == 0)
+                return BackupLoadResult.NotAttempted;
+
             if (Cryptography.IsEncrypted(backupData))
             {
                 var vaultResult = AccountFileDecoder.Decode(backupData, null, CreateDecodeKeys(allowRecovery: false));
@@ -237,21 +238,23 @@ namespace Shiro
                     Program.Logger?.Info($"[LoadAccounts] Restored {AccountCount} accounts from backup via vault key.");
                     if (AccountCount > 0)
                         SaveAccounts(true);
-                    return true;
+                    return BackupLoadResult.Restored;
                 }
 
                 Program.Logger?.Debug($"Direct vault key load from backup was not successful: {vaultResult.Error?.Message}");
 
-                if (vaultResult.Status == AccountDecodeStatus.NeedsMasterPassword &&
-                    AppServices.Dialogs.ShowConfirmation("The existing backup file is password-locked, would you like to attempt to load it?"))
+                if (vaultResult.Status == AccountDecodeStatus.NeedsMasterPassword)
                 {
-                    PromoteBackupToPrimary(SaveFilePath, DateTime.Now);
-                    EnableModernDashboard();
-                    backupPromotedPasswordLocked = true;
-                    return false;
+                    if (AppServices.Dialogs.ShowConfirmation("The existing backup file is password-locked, would you like to attempt to load it?"))
+                    {
+                        PromoteBackupToPrimary(SaveFilePath, DateTime.Now);
+                        return BackupLoadResult.PromotedNeedsPassword;
+                    }
+
+                    return BackupLoadResult.NotAttempted;
                 }
 
-                return false;
+                return BackupLoadResult.Failed;
             }
 
             if (AppServices.Dialogs.ShowConfirmation("No accounts were loaded but there is a backup file, would you like to load the backup file?"))
@@ -268,14 +271,15 @@ namespace Shiro
                         Program.Logger?.Info($"[AccountManager] Restored {AccountCount} accounts from backup. Re-persisting primary vault...");
                         SaveAccounts(true);
                     }
-                    return true;
+                    return BackupLoadResult.Restored;
                 }
 
                 Program.Logger?.Error($"Failed to load backup file: {unencResult.Error?.Message}");
                 AppServices.Dialogs.ShowError("Failed to load backup file!");
+                return BackupLoadResult.Failed;
             }
 
-            return false;
+            return BackupLoadResult.NotAttempted;
         }
 
         internal static string PromoteBackupToPrimary(string saveFilePath, DateTime now)
@@ -283,14 +287,31 @@ namespace Shiro
             string preservedPrimaryPath = string.Empty;
             if (File.Exists(saveFilePath))
             {
-                preservedPrimaryPath = $"{saveFilePath}.old.{now:yyyyMMddHHmmss}";
+                string baseCandidate = $"{saveFilePath}.old.{now:yyyyMMddHHmmss}";
+                preservedPrimaryPath = baseCandidate;
+                if (File.Exists(preservedPrimaryPath))
+                {
+                    int counter = 1;
+                    while (File.Exists($"{baseCandidate}.{counter}")) counter++;
+                    preservedPrimaryPath = $"{baseCandidate}.{counter}";
+                }
                 File.Move(saveFilePath, preservedPrimaryPath);
             }
 
             string backupPath = $"{saveFilePath}.backup";
             if (File.Exists(backupPath))
             {
-                File.Move(backupPath, saveFilePath);
+                try { File.Move(backupPath, saveFilePath); }
+                catch (Exception moveEx)
+                {
+                    Program.Logger?.Error($"[PromoteBackupToPrimary] Failed to move backup to primary: {moveEx.Message}. Rolling back preserved primary...");
+                    if (!string.IsNullOrEmpty(preservedPrimaryPath) && File.Exists(preservedPrimaryPath))
+                    {
+                        try { File.Move(preservedPrimaryPath, saveFilePath); }
+                        catch (Exception rollbackEx) { Program.Logger?.Error($"[PromoteBackupToPrimary] Rollback failed: {rollbackEx.Message}"); }
+                    }
+                    throw;
+                }
             }
 
             return preservedPrimaryPath;
@@ -327,9 +348,7 @@ namespace Shiro
         {
             if (accounts == null) return;
             foreach (var acc in accounts)
-            {
                 if (acc != null) acc.IsDirty = true;
-            }
         }
 
         private static byte[]? _lastSavedPlaintextHash;
@@ -445,10 +464,7 @@ namespace Shiro
         private static byte[] TryUnprotectAccountData(byte[] data, out bool usedLegacyScope)
         {
             usedLegacyScope = false;
-            try
-            {
-                return ProtectedData.Unprotect(data, Entropy, DataProtectionScope.CurrentUser);
-            }
+            try { return ProtectedData.Unprotect(data, Entropy, DataProtectionScope.CurrentUser); }
             catch (CryptographicException)
             {
                 byte[] legacy = ProtectedData.Unprotect(data, Entropy, DataProtectionScope.LocalMachine);

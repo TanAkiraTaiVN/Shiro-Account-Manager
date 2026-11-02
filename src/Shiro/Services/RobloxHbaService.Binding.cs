@@ -105,5 +105,136 @@ namespace Shiro.Services
 
             return TryAttachHbaHeader(request, account, bodyContent);
         }
+
+        public static async Task<string?> RestoreWebViewModerationSessionAsync(
+            Microsoft.Web.WebView2.Core.CoreWebView2 core,
+            Account account,
+            CaptureSnapshot targetSnapshot)
+        {
+            if (core == null || account == null || string.IsNullOrWhiteSpace(account.SecurityToken))
+                return null;
+
+            if (!string.IsNullOrWhiteSpace(account.SessionUserAgent))
+            {
+                try { core.Settings.UserAgent = account.SessionUserAgent; }
+                catch (Exception ex) { Program.Logger?.Debug($"RestoreWebViewModerationSessionAsync set UserAgent threw: {ex.Message}"); }
+            }
+
+            string[] cookieDomains = { ".roblox.com", "www.roblox.com" };
+            foreach (string domain in cookieDomains)
+            {
+                var banCookie = core.CookieManager.CreateCookie(".ROBLOSECURITY", account.SecurityToken, domain, "/");
+                banCookie.IsHttpOnly = true;
+                banCookie.IsSecure = true;
+                core.CookieManager.AddOrUpdateCookie(banCookie);
+            }
+
+            if (!string.IsNullOrWhiteSpace(account.BrowserTrackerID))
+            {
+                string uidPart = account.UserID > 0 ? account.UserID.ToString(CultureInfo.InvariantCulture) : string.Empty;
+                var trackerCookie = core.CookieManager.CreateCookie(
+                    "RBXEventTrackerV2",
+                    $"CreateDate={DateTime.UtcNow.ToString("MM/dd/yyyy HH:mm:ss", CultureInfo.InvariantCulture)}&rbxid={uidPart}&browserid={account.BrowserTrackerID}",
+                    ".roblox.com",
+                    "/");
+                core.CookieManager.AddOrUpdateCookie(trackerCookie);
+            }
+
+            if (!string.IsNullOrWhiteSpace(account.HbaPrivateKey))
+            {
+                if (targetSnapshot != null)
+                {
+                    targetSnapshot.PrivateKeyPkcs8Base64 = account.HbaPrivateKey;
+                    if (!string.IsNullOrWhiteSpace(account.HbaPublicKey))
+                        targetSnapshot.PublicKeySpkiBase64 = account.HbaPublicKey;
+                    if (!string.IsNullOrWhiteSpace(account.HbaTemplate))
+                        targetSnapshot.TokenTemplate = account.HbaTemplate;
+                }
+
+                string hbaScript = GetPersistedKeyInjectionScript(
+                    account.HbaPrivateKey,
+                    account.HbaPublicKey,
+                    account.HbaTemplate);
+                if (!string.IsNullOrEmpty(hbaScript))
+                {
+                    return await core.AddScriptToExecuteOnDocumentCreatedAsync(hbaScript);
+                }
+            }
+
+            return null;
+        }
+
+        public static string GetPersistedKeyInjectionScript(
+            string? privateKeyPkcs8Base64,
+            string? publicKeySpkiBase64,
+            string? tokenTemplate)
+        {
+            if (string.IsNullOrWhiteSpace(privateKeyPkcs8Base64))
+                return string.Empty;
+
+            static string EscapeJsSingleQuoted(string value) =>
+                value.Replace("\\", "\\\\")
+                     .Replace("'", "\\'")
+                     .Replace("\r", "\\r")
+                     .Replace("\n", "\\n")
+                     .Replace("\u2028", "\\u2028")
+                     .Replace("\u2029", "\\u2029");
+
+            string privEscaped = EscapeJsSingleQuoted(privateKeyPkcs8Base64.Trim());
+            string pubEscaped = EscapeJsSingleQuoted((publicKeySpkiBase64 ?? string.Empty).Trim());
+            string tplEscaped = EscapeJsSingleQuoted(string.IsNullOrWhiteSpace(tokenTemplate) ? DefaultTemplate : tokenTemplate.Trim());
+
+            return $@"
+(() => {{
+    try {{
+        const privB64 = '{privEscaped}';
+        const pubB64 = '{pubEscaped}';
+        const tpl = '{tplEscaped}';
+        if (!privB64 || !window.SubtleCrypto || !SubtleCrypto.prototype) return;
+
+        window.__shiroHbaState = window.__shiroHbaState || {{}};
+        window.__shiroHbaState.privateKeyPkcs8 = privB64;
+        if (pubB64) window.__shiroHbaState.publicKeySpki = pubB64;
+        if (tpl) window.__shiroHbaState.tokenTemplate = tpl;
+
+        const fromB64 = (b64) => {{
+            const bin = atob(b64);
+            const buf = new Uint8Array(bin.length);
+            for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+            return buf.buffer;
+        }};
+
+        let cachedPairPromise = null;
+        const getImportedPair = (subtle) => {{
+            if (!cachedPairPromise) {{
+                cachedPairPromise = (async () => {{
+                    const alg = {{ name: 'ECDSA', namedCurve: 'P-256' }};
+                    const privKey = await subtle.importKey('pkcs8', fromB64(privB64), alg, true, ['sign']);
+                    let pubKey = null;
+                    if (pubB64) {{
+                        try {{ pubKey = await subtle.importKey('spki', fromB64(pubB64), alg, true, ['verify']); }} catch (_) {{ /* ignore */ }}
+                    }}
+                    return {{ privateKey: privKey, publicKey: pubKey }};
+                }})();
+            }}
+            return cachedPairPromise;
+        }};
+
+        const origGen = SubtleCrypto.prototype.generateKey;
+        SubtleCrypto.prototype.generateKey = async function(algorithm, extractable, keyUsages) {{
+            try {{
+                const algName = typeof algorithm === 'string' ? algorithm : (algorithm && algorithm.name ? algorithm.name : '');
+                if (String(algName).toUpperCase() === 'ECDSA') {{
+                    const imported = await getImportedPair(this);
+                    if (imported && imported.privateKey && imported.publicKey) {{
+                        return imported;
+                    }}
+                }}
+            }} catch (_) {{ /* ignore */ }}
+            return origGen.call(this, algorithm, extractable, keyUsages);
+        }};
+    }} catch (_) {{ /* ignore */ }}
+}})();";
+        }
     }
 }
