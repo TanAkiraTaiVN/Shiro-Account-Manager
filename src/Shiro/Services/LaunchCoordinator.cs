@@ -16,7 +16,7 @@ namespace Shiro.Services
     internal sealed partial class LaunchCoordinator : ILaunchCoordinator
     {
         private readonly SemaphoreSlim queueGate = new SemaphoreSlim(1, 1);
-        private readonly Func<LaunchRequest, CancellationToken, Task<string>> executeLaunch;
+        private readonly Func<LaunchRequest, CancellationToken, Task<LaunchResult>> executeLaunch;
         private readonly System.Threading.Lock stateLock = new();
         private CancellationTokenSource? activeCancellation;
         private TaskCompletionSource<bool>? nextSignal;
@@ -35,10 +35,20 @@ namespace Shiro.Services
             }
         }
 
-        public LaunchCoordinator(Func<LaunchRequest, CancellationToken, Task<string>> executeLaunch)
+        public LaunchCoordinator(Func<LaunchRequest, CancellationToken, Task<LaunchResult>> executeLaunch)
         {
             this.executeLaunch = executeLaunch ?? throw new ArgumentNullException(nameof(executeLaunch));
             GlobalCancelRequested += Cancel;
+        }
+
+        public LaunchCoordinator(Func<LaunchRequest, CancellationToken, Task<string>> executeLaunch)
+            : this(async (req, ct) =>
+            {
+                if (executeLaunch == null) throw new ArgumentNullException(nameof(executeLaunch));
+                string legacy = await executeLaunch(req, ct).ConfigureAwait(false);
+                return LaunchResult.FromLegacy(legacy);
+            })
+        {
         }
 
         public async Task<LaunchBatchResult> EnqueueAsync(
@@ -119,10 +129,10 @@ namespace Shiro.Services
                     lock (stateLock)
                         nextSignal = signal;
 
-                    string result;
+                    LaunchResult launchResult;
                     try
                     {
-                        result = await executeLaunch(request, linkedCancellation.Token).ConfigureAwait(false);
+                        launchResult = await executeLaunch(request, linkedCancellation.Token).ConfigureAwait(false);
                     }
                     catch (OperationCanceledException) when (linkedCancellation.IsCancellationRequested)
                     {
@@ -130,12 +140,12 @@ namespace Shiro.Services
                     }
                     catch (Exception exception)
                     {
-                        result = $"ERROR: Failed to launch Roblox for {request.Account.Username}\n{exception.Message}";
+                        launchResult = LaunchResult.Fail(LaunchOutcome.Failed, $"ERROR: Failed to launch Roblox for {request.Account.Username}\n{exception.Message}");
                         Program.Logger?.Error($"Unexpected launch error for {request.Account.Username}: {exception}");
                     }
 
-                    state.Result = result ?? "ERROR: Roblox returned no launch status.";
-                    state.Status = ClassifyResult(state.Result);
+                    state.Result = launchResult.Message;
+                    state.Status = launchResult.Outcome;
 
                     for (int retry = 1;
                          retry <= MaxRateLimitRetries && state.Status == LaunchOutcome.RateLimited && !linkedCancellation.IsCancellationRequested;
@@ -160,9 +170,9 @@ namespace Shiro.Services
                             try { RobloxProcessService.CloseAccountRobloxProcess(request.Account); }
                             catch (Exception ex) { Program.Logger?.Debug($"Process cleanup ignored: {ex.Message}"); }
 
-                            result = await executeLaunch(request, linkedCancellation.Token).ConfigureAwait(false);
-                            state.Result = result ?? "ERROR: Roblox returned no launch status.";
-                            state.Status = ClassifyResult(state.Result);
+                            launchResult = await executeLaunch(request, linkedCancellation.Token).ConfigureAwait(false);
+                            state.Result = launchResult.Message;
+                            state.Status = launchResult.Outcome;
                         }
                         catch (OperationCanceledException) when (linkedCancellation.IsCancellationRequested)
                         {
@@ -186,8 +196,7 @@ namespace Shiro.Services
                     state.Completed = true;
 
                     bool wasAlreadyBanned = request.Account.IsBannedOrLocked;
-                    bool isTicketAuthError = !request.Account.Valid ||
-                        (!string.IsNullOrEmpty(state.Result) && state.Result.Contains("Roblox has probably signed you out", StringComparison.OrdinalIgnoreCase));
+                    bool isTicketAuthError = !request.Account.Valid || state.Status == LaunchOutcome.TicketError;
 
                     if (isTicketAuthError)
                     {
@@ -224,7 +233,7 @@ namespace Shiro.Services
                         }
                     }
 
-                    state.Message = IsSuccessfulResult(state.Result)
+                    state.Message = (state.Status == LaunchOutcome.Success)
                         ? $"[{index + 1}/{launchList.Count}] {request.Account.Username} launched."
                         : (isTicketAuthError
                             ? (request.Account.IsBannedOrLocked
@@ -237,12 +246,12 @@ namespace Shiro.Services
                     if (index >= launchList.Count - 1 || linkedCancellation.IsCancellationRequested)
                         continue;
 
-                    if (!IsSuccessfulResult(state.Result))
+                    if (state.Status != LaunchOutcome.Success)
                         signal.TrySetResult(false);
 
                     bool smartLaunch = !AppSettings.General.Exists(AppSettingsKeys.General.SmartFastLaunch) || AppSettings.General.Get<bool>(AppSettingsKeys.General.SmartFastLaunch);
 
-                    if (smartLaunch && IsSuccessfulResult(state.Result))
+                    if (smartLaunch && state.Status == LaunchOutcome.Success)
                     {
                         Report(progress, new LaunchProgress
                         {

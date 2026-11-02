@@ -190,7 +190,27 @@ namespace Shiro.Services
             bool internalCall = false,
             CancellationToken cancellationToken = default)
         {
-            if (account == null) return "ERROR: Tài khoản không hợp lệ.";
+            var result = await JoinServerResultAsync(
+                account,
+                placeId,
+                jobId,
+                followUser,
+                joinVip,
+                internalCall,
+                cancellationToken).ConfigureAwait(false);
+            return result.ToLegacyString();
+        }
+
+        public async Task<LaunchResult> JoinServerResultAsync(
+            Account account,
+            long placeId,
+            string jobId = "",
+            bool followUser = false,
+            bool joinVip = false,
+            bool internalCall = false,
+            CancellationToken cancellationToken = default)
+        {
+            if (account == null) return LaunchResult.Fail(LaunchOutcome.Failed, "ERROR: Tài khoản không hợp lệ.");
             cancellationToken.ThrowIfCancellationRequested();
             account.LastNativeLaunchRateLimited = false;
             account.EnsureBrowserTrackerId();
@@ -272,7 +292,7 @@ namespace Shiro.Services
                         if (changePrivacy)
                         {
                             if (!await account.CheckPinAsync(true, cancellationToken).ConfigureAwait(false))
-                                return "ERROR: Xác thực mã PIN thất bại.";
+                                return LaunchResult.Fail(LaunchOutcome.Failed, "ERROR: Xác thực mã PIN thất bại.");
 
                             var setRequest = account.MakeRequest("user-settings-api/v1/user-settings", Method.Post)
                                 .AddHeader("X-CSRF-TOKEN", token)
@@ -330,17 +350,17 @@ namespace Shiro.Services
                 }
 
                 if (launchException != null)
-                    return $"ERROR: Failed to launch Roblox for {account.Username}\n{launchException.Message}";
+                    return LaunchResult.Fail(LaunchOutcome.Failed, $"ERROR: Failed to launch Roblox for {account.Username}\n{launchException.Message}");
 
                 AutoReconnectService.Instance.RegisterSession(account, placeId, jobId, followUser, joinVip, nativePid);
-                return "Success";
+                return LaunchResult.Success();
             }
             else
             {
                 if (account.LastAuthTicketRateLimited)
-                    return "ERROR: Roblox đang giới hạn xác thực (HTTP 429). Hãy chờ một lúc hoặc đổi máy chủ VPN rồi thử lại.";
+                    return LaunchResult.Fail(LaunchOutcome.RateLimited, "ERROR: Roblox đang giới hạn xác thực (HTTP 429). Hãy chờ một lúc hoặc đổi máy chủ VPN rồi thử lại.");
 
-                return "ERROR: Không thể lấy Authentication Ticket từ Roblox. Phiên tài khoản vẫn được giữ nguyên, vui lòng kiểm tra Proton VPN hoặc thử lại sau.";
+                return LaunchResult.Fail(LaunchOutcome.TicketError, "ERROR: Không thể lấy Authentication Ticket từ Roblox. Phiên tài khoản vẫn được giữ nguyên, vui lòng kiểm tra Proton VPN hoặc thử lại sau.");
             }
         }
     }

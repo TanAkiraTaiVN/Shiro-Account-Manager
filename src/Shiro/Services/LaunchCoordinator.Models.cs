@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -56,6 +56,27 @@ namespace Shiro.Services
         Timeout,
         Failed,
         Cancelled
+    }
+
+    public readonly record struct LaunchResult(LaunchOutcome Outcome, string Message)
+    {
+        public static LaunchResult Success() => new(LaunchOutcome.Success, "Success");
+        public static LaunchResult BrowserHome() => new(LaunchOutcome.Success, Account.BrowserHomeResult);
+        public static LaunchResult Fail(LaunchOutcome outcome, string message) => new(outcome, message);
+        public string ToLegacyString() => Message;
+        public static LaunchResult FromLegacy(string? legacy)
+        {
+            if (string.IsNullOrWhiteSpace(legacy))
+                return new(LaunchOutcome.Failed, legacy ?? string.Empty);
+
+            if (string.Equals(legacy, "Success", StringComparison.Ordinal) ||
+                string.Equals(legacy, Account.BrowserHomeResult, StringComparison.Ordinal))
+            {
+                return new(LaunchOutcome.Success, legacy);
+            }
+
+            return new(LaunchOutcome.Failed, legacy);
+        }
     }
 
     internal sealed class LaunchBatchResult

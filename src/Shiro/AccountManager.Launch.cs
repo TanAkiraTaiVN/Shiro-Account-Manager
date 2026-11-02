@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -210,16 +210,16 @@ namespace Shiro
             }
         }
 
-        private async Task<string> ExecuteLaunchRequestAsync(LaunchRequest request, CancellationToken cancellationToken)
+        private async Task<LaunchResult> ExecuteLaunchRequestAsync(LaunchRequest request, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (request.OpenHome)
-                return await browserService.OpenHomeAsync(
+                return await browserService.OpenHomeResultAsync(
                     request.Account,
                     request.PreferChromeHome,
                     cancellationToken).ConfigureAwait(false);
 
-            return await request.Account.JoinServer(
+            return await request.Account.JoinServerResult(
                 request.PlaceId,
                 request.JobId,
                 request.FollowUser,

@@ -107,16 +107,17 @@ namespace Shiro.Tests
         }
 
         [Theory]
-        [InlineData("Success! Process started.", LaunchOutcome.Success)]
+        [InlineData("Success", LaunchOutcome.Success)]
         [InlineData(Account.BrowserHomeResult, LaunchOutcome.Success)]
-        [InlineData("HTTP 429 Too Many Requests (Rate limit)", LaunchOutcome.RateLimited)]
-        [InlineData("Invalid Authentication Ticket: 401 Unauthorized", LaunchOutcome.TicketError)]
-        [InlineData("Roblox has probably signed you out", LaunchOutcome.TicketError)]
-        [InlineData("Operation timed out waiting for mutex", LaunchOutcome.Timeout)]
+        [InlineData("Success! Process started.", LaunchOutcome.Failed)]
+        [InlineData("HTTP 429 Too Many Requests (Rate limit)", LaunchOutcome.Failed)]
+        [InlineData("Invalid Authentication Ticket: 401 Unauthorized", LaunchOutcome.Failed)]
+        [InlineData("Roblox has probably signed you out", LaunchOutcome.Failed)]
+        [InlineData("Operation timed out waiting for mutex", LaunchOutcome.Failed)]
         [InlineData("Unknown process crash error", LaunchOutcome.Failed)]
         [InlineData("", LaunchOutcome.Failed)]
         [InlineData(null, LaunchOutcome.Failed)]
-        public async System.Threading.Tasks.Task ClassifyResult_CategorizesOutcomesCorrectly(string? result, LaunchOutcome expected)
+        public async System.Threading.Tasks.Task LegacyLaunchCoordinator_ClassifiesOnlyExactSuccess(string? result, LaunchOutcome expected)
         {
             var request = new LaunchRequest(new Account { Username = "Player" }, 123, "", false, false);
             var coordinator = new LaunchCoordinator((req, ct) => System.Threading.Tasks.Task.FromResult(result));
@@ -130,6 +131,25 @@ namespace Shiro.Tests
 
             Assert.Single(batchResult.Results);
             Assert.Equal(expected, batchResult.Results[0].Status);
+        }
+
+        [Fact]
+        public async System.Threading.Tasks.Task Coordinator_UsesOutcomeFromResult()
+        {
+            var request = new LaunchRequest(new Account { Username = "Player" }, 123, "", false, false);
+            var coordinator = new LaunchCoordinator((req, ct) =>
+                System.Threading.Tasks.Task.FromResult(LaunchResult.Fail(LaunchOutcome.RateLimited, "ERROR: anything")));
+
+            var batchResult = await coordinator.EnqueueAsync(
+                new[] { request },
+                delaySeconds: 1,
+                asyncJoin: false,
+                progress: null,
+                cancellationToken: System.Threading.CancellationToken.None);
+
+            Assert.Single(batchResult.Results);
+            Assert.Equal(LaunchOutcome.RateLimited, batchResult.Results[0].Status);
+            Assert.Equal("ERROR: anything", batchResult.Results[0].Result);
         }
 
         [Fact]
@@ -147,7 +167,7 @@ namespace Shiro.Tests
                 var coordinator = new LaunchCoordinator((req, ct) =>
                 {
                     executedAccounts.Add(req.Account.Username);
-                    return System.Threading.Tasks.Task.FromResult("Success");
+                    return System.Threading.Tasks.Task.FromResult(LaunchResult.Success());
                 });
 
                 var requests = new[]
@@ -196,7 +216,7 @@ namespace Shiro.Tests
                     cts.Cancel();
                 }
                 await System.Threading.Tasks.Task.Delay(10, ct);
-                return "Success";
+                return LaunchResult.Success();
             });
 
             var requests = new[]
@@ -218,7 +238,7 @@ namespace Shiro.Tests
         [Fact]
         public async System.Threading.Tasks.Task EnqueueAsync_ConcurrentQueue_ThrowsInvalidOperationException()
         {
-            var tcs = new System.Threading.Tasks.TaskCompletionSource<string>();
+            var tcs = new System.Threading.Tasks.TaskCompletionSource<LaunchResult>();
             var coordinator = new LaunchCoordinator((req, ct) => tcs.Task);
 
             var req1 = new[] { new LaunchRequest(new Account { Username = "UserA" }, 1, "", false, false) };
@@ -230,14 +250,14 @@ namespace Shiro.Tests
             await Assert.ThrowsAsync<System.InvalidOperationException>(() =>
                 coordinator.EnqueueAsync(req2, 1, false, null));
 
-            tcs.SetResult("Success");
+            tcs.SetResult(LaunchResult.Success());
             await task1;
         }
 
         [Fact]
         public async System.Threading.Tasks.Task EnqueueAsync_AfterDisposal_ThrowsObjectDisposedException()
         {
-            var coordinator = new LaunchCoordinator((req, ct) => System.Threading.Tasks.Task.FromResult("Success"));
+            var coordinator = new LaunchCoordinator((req, ct) => System.Threading.Tasks.Task.FromResult(LaunchResult.Success()));
             coordinator.Dispose();
 
             var req = new[] { new LaunchRequest(new Account { Username = "User" }, 1, "", false, false) };
@@ -257,7 +277,7 @@ namespace Shiro.Tests
             };
 
             var coordinator = new LaunchCoordinator((req, ct) =>
-                System.Threading.Tasks.Task.FromResult("ERROR: Không thể lấy Authentication Ticket từ Roblox."));
+                System.Threading.Tasks.Task.FromResult(LaunchResult.Fail(LaunchOutcome.TicketError, "ERROR: Không thể lấy Authentication Ticket từ Roblox.")));
 
             var req = new[] { new LaunchRequest(bannedAcc, 0, "", false, false, openHome: true) };
             await coordinator.EnqueueAsync(req, 1, false, null);

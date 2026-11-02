@@ -169,5 +169,16 @@ namespace Shiro.Services
             // Chromium fallbacks that existing users rely on.
             return account.LaunchAppHome(preferChrome, cancellationToken);
         }
+
+        public Task<LaunchResult> OpenHomeResultAsync(
+            Account account,
+            bool preferChrome,
+            CancellationToken cancellationToken = default(CancellationToken))
+        {
+            if (account == null)
+                return Task.FromResult(LaunchResult.Fail(LaunchOutcome.Failed, "ERROR: Account was not found."));
+
+            return account.LaunchAppHomeResult(preferChrome, cancellationToken);
+        }
     }
 }

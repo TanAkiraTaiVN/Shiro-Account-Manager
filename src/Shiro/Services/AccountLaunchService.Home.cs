@@ -122,10 +122,19 @@ namespace Shiro.Services
             bool preferChrome = false,
             CancellationToken cancellationToken = default)
         {
-            if (account == null) return "ERROR: Tài khoản không hợp lệ.";
+            var result = await LaunchAppHomeResultAsync(account, preferChrome, cancellationToken).ConfigureAwait(false);
+            return result.ToLegacyString();
+        }
+
+        public async Task<LaunchResult> LaunchAppHomeResultAsync(
+            Account account,
+            bool preferChrome = false,
+            CancellationToken cancellationToken = default)
+        {
+            if (account == null) return LaunchResult.Fail(LaunchOutcome.Failed, "ERROR: Tài khoản không hợp lệ.");
             cancellationToken.ThrowIfCancellationRequested();
             if (preferChrome || AppSettings.General.Get<bool>("UseChromeHome", false))
-                return await LaunchHomeInChromeAsync(account, cancellationToken).ConfigureAwait(false);
+                return await LaunchHomeInChromeResultAsync(account, cancellationToken).ConfigureAwait(false);
 
             account.EnsureBrowserTrackerId();
 
@@ -142,7 +151,7 @@ namespace Shiro.Services
                     AccountManager.Instance?.SchedulePresenceRefresh(account);
                     AccountManager.Instance?.NextAccount();
                     ObserveBackgroundTask(AdjustWindowPositionAsync(account, directResult.ProcessId, cancellationToken), "Roblox window positioning");
-                    return "Success";
+                    return LaunchResult.Success();
                 }
             }
 
@@ -191,22 +200,28 @@ namespace Shiro.Services
                 }
 
                 if (launchException != null)
-                    return $"ERROR: Failed to launch Roblox Home for {account.Username}\n{launchException.Message}";
+                    return LaunchResult.Fail(LaunchOutcome.Failed, $"ERROR: Failed to launch Roblox Home for {account.Username}\n{launchException.Message}");
 
-                return "Success";
+                return LaunchResult.Success();
             }
             else
             {
                 if (account.LastAuthTicketRateLimited)
-                    return "ERROR: Roblox đang giới hạn xác thực (HTTP 429). Hãy chờ một lúc hoặc đổi máy chủ VPN rồi thử lại.";
+                    return LaunchResult.Fail(LaunchOutcome.RateLimited, "ERROR: Roblox đang giới hạn xác thực (HTTP 429). Hãy chờ một lúc hoặc đổi máy chủ VPN rồi thử lại.");
 
-                return "ERROR: Không thể lấy Authentication Ticket từ Roblox. Phiên tài khoản vẫn được giữ nguyên, vui lòng kiểm tra Proton VPN hoặc thử lại sau.";
+                return LaunchResult.Fail(LaunchOutcome.TicketError, "ERROR: Không thể lấy Authentication Ticket từ Roblox. Phiên tài khoản vẫn được giữ nguyên, vui lòng kiểm tra Proton VPN hoặc thử lại sau.");
             }
         }
 
         public async Task<string> LaunchHomeInChromeAsync(Account account, CancellationToken cancellationToken = default)
         {
-            if (account == null) return "ERROR: Tài khoản không hợp lệ.";
+            var result = await LaunchHomeInChromeResultAsync(account, cancellationToken).ConfigureAwait(false);
+            return result.ToLegacyString();
+        }
+
+        public async Task<LaunchResult> LaunchHomeInChromeResultAsync(Account account, CancellationToken cancellationToken = default)
+        {
+            if (account == null) return LaunchResult.Fail(LaunchOutcome.Failed, "ERROR: Tài khoản không hợp lệ.");
             try
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -221,14 +236,14 @@ namespace Shiro.Services
                         UseStealth: false,
                         cancellationToken: cancellationToken).ConfigureAwait(false);
                     AccountManager.Instance?.SchedulePresenceRefresh(account);
-                    return Account.BrowserHomeResult;
+                    return LaunchResult.BrowserHome();
                 }
 
                 bool opened = await ChromiumHomeBrowser.OpenAsync(account, cancellationToken).ConfigureAwait(false);
                 if (opened)
                 {
                     AccountManager.Instance?.SchedulePresenceRefresh(account);
-                    return Account.BrowserHomeResult;
+                    return LaunchResult.BrowserHome();
                 }
 
                 Program.Logger.Warn($"The CDP Home path failed for {account.Username}; falling back to the legacy Chromium browser path.");
@@ -238,7 +253,7 @@ namespace Shiro.Services
                     UseStealth: false,
                     cancellationToken: cancellationToken).ConfigureAwait(false);
                 AccountManager.Instance?.SchedulePresenceRefresh(account);
-                return Account.BrowserHomeResult;
+                return LaunchResult.BrowserHome();
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -247,7 +262,7 @@ namespace Shiro.Services
             catch (Exception exception)
             {
                 Program.Logger.Error($"Failed to open Roblox Home in Chrome for {account.Username}: {exception}");
-                return $"ERROR: Failed to open Roblox Home in Chrome\n{exception.Message}";
+                return LaunchResult.Fail(LaunchOutcome.Failed, $"ERROR: Failed to open Roblox Home in Chrome\n{exception.Message}");
             }
         }
     }
