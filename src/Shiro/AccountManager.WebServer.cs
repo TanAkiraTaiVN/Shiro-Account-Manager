@@ -141,7 +141,7 @@ namespace Shiro
             return System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(a, b);
         }
 
-        internal static string ExtractRequestPassword(Func<string, string?> getHeader, Func<string, string?> getQuery)
+        internal static string? ExtractHeaderPassword(Func<string, string?> getHeader)
         {
             string? password = getHeader("X-Shiro-Auth");
             if (string.IsNullOrEmpty(password))
@@ -152,10 +152,19 @@ namespace Shiro
                 if (!string.IsNullOrEmpty(authHeader) && authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
                     password = authHeader.Substring(7).Trim();
             }
-            if (string.IsNullOrEmpty(password))
-                password = getQuery("Password") ?? getQuery("password") ?? getQuery("token");
 
-            return password ?? string.Empty;
+            return string.IsNullOrEmpty(password) ? null : password;
+        }
+
+        internal static string? ExtractQueryPassword(Func<string, string?> getQuery)
+        {
+            string? password = getQuery("Password") ?? getQuery("password") ?? getQuery("token");
+            return string.IsNullOrEmpty(password) ? null : password;
+        }
+
+        internal static string ExtractRequestPassword(Func<string, string?> getHeader, Func<string, string?> getQuery)
+        {
+            return ExtractHeaderPassword(getHeader) ?? ExtractQueryPassword(getQuery) ?? string.Empty;
         }
 
         internal bool ValidateWebSocketAuth(HttpContext context)
@@ -165,31 +174,19 @@ namespace Shiro
             bool isLocal = context.Connection.RemoteIpAddress != null &&
                            IPAddress.IsLoopback(context.Connection.RemoteIpAddress);
 
-            if (!isLocal && !WebServer.Get<bool>("AllowExternalConnections"))
-                return false;
+            bool allowExternal = WebServer != null && WebServer.Get<bool>("AllowExternalConnections");
+            bool everyReq = WebServer != null && WebServer.Get<bool>("EveryRequestRequiresPassword");
 
-            if (!WebServer.Get<bool>("AllowExternalConnections"))
-            {
-                if (!IsLoopbackHostName(context.Request.Host.Host))
-                    return false;
+            var settings = new AuthSettings(allowExternal, everyReq, WSPassword);
+            var request = new AuthRequest(
+                AuthScope.Api,
+                isLocal,
+                context.Request.Host.Host,
+                context.Request.Headers["Origin"].ToString(),
+                ExtractHeaderPassword(k => context.Request.Headers.TryGetValue(k, out var hVal) ? hVal.ToString() : null),
+                ExtractQueryPassword(k => context.Request.Query.TryGetValue(k, out var qVal) ? qVal.ToString() : null));
 
-                if (!IsTrustedLocalOrigin(context.Request.Headers["Origin"].ToString()))
-                    return false;
-            }
-
-            if (WebServer.Get<bool>("EveryRequestRequiresPassword") || (!string.IsNullOrEmpty(WSPassword) && WSPassword.Length >= 6))
-            {
-                if (string.IsNullOrEmpty(WSPassword) || WSPassword.Length < 6)
-                    return false;
-
-                string password = ExtractRequestPassword(
-                    k => context.Request.Headers.TryGetValue(k, out var hVal) ? hVal.ToString() : null,
-                    k => context.Request.Query.TryGetValue(k, out var qVal) ? qVal.ToString() : null);
-
-                return FixedTimeEqualsPassword(password, WSPassword);
-            }
-
-            return true;
+            return WebAuthPolicy.Evaluate(request, settings) == AuthDecision.Allow;
         }
 
         internal async Task<string> ProcessApiRequestAsync(ApiRequestContext req)
@@ -204,19 +201,55 @@ namespace Shiro
                 return V2 ? WebServerResponse(Response, Success) : (Raw ?? Response);
             }
 
-            if (!req.IsLocal && !WebServer.Get<bool>("AllowExternalConnections")) return Reply("External connections are not allowed", false, 401, string.Empty);
-
-            if (!WebServer.Get<bool>("AllowExternalConnections"))
-            {
-                string host = req.Host;
-                if (!string.IsNullOrEmpty(host) && !IsLoopbackHostName(host))
-                    return Reply("Invalid host header", false, 403, "Forbidden");
-
-                if (!IsTrustedLocalOrigin(req.Origin))
-                    return Reply("Cross-origin requests from external web pages are forbidden", false, 403, "Forbidden");
-            }
-
             if (AbsolutePath == "/favicon.ico") return ""; // always return nothing
+
+            string Body = req.Body;
+            string Method = AbsolutePath.Length > 1 ? AbsolutePath.Substring(1) : string.Empty;
+            string? Account = req.GetQuery("Account");
+
+            bool isPublicTelemetryMethod =
+                Method.Equals("GetWebSocketStats", StringComparison.OrdinalIgnoreCase) ||
+                Method.Equals("WebSocketStats", StringComparison.OrdinalIgnoreCase);
+
+            bool isSpecialDocOrHealth =
+                AbsolutePath == "/Running" ||
+                AbsolutePath.Equals("/swagger.json", StringComparison.OrdinalIgnoreCase) ||
+                AbsolutePath.Equals("/openapi.json", StringComparison.OrdinalIgnoreCase) ||
+                AbsolutePath.Equals("/api/docs", StringComparison.OrdinalIgnoreCase) ||
+                AbsolutePath.Equals("/docs", StringComparison.OrdinalIgnoreCase);
+
+            var scope = (isPublicTelemetryMethod || isSpecialDocOrHealth)
+                ? AuthScope.PublicTelemetry
+                : AuthScope.Api;
+
+            bool allowExternal = WebServer != null && WebServer.Get<bool>("AllowExternalConnections");
+            bool everyReq = WebServer != null && WebServer.Get<bool>("EveryRequestRequiresPassword");
+
+            string? headerPass = ExtractHeaderPassword(req.GetHeader);
+            string? queryPass = ExtractQueryPassword(req.GetQuery);
+
+            var authSettings = new AuthSettings(allowExternal, everyReq, WSPassword);
+            var authReq = new AuthRequest(
+                scope,
+                req.IsLocal,
+                req.Host,
+                req.Origin,
+                headerPass,
+                queryPass);
+
+            var decision = WebAuthPolicy.Evaluate(authReq, authSettings);
+            if (decision != AuthDecision.Allow)
+            {
+                int statusCode = WebAuthPolicy.ToStatusCode(decision);
+                return decision switch
+                {
+                    AuthDecision.ForbiddenExternal => Reply("External connections are not allowed", false, statusCode, string.Empty),
+                    AuthDecision.ForbiddenHost => Reply("Invalid host header", false, statusCode, "Forbidden"),
+                    AuthDecision.ForbiddenOrigin => Reply("Cross-origin requests from external web pages are forbidden", false, statusCode, "Forbidden"),
+                    AuthDecision.PasswordNotConfigured => Reply("WebServer password must be configured with 6 or more characters before accessing protected endpoints", false, statusCode, "Password Not Configured"),
+                    _ => Reply("Invalid Password, make sure your password contains 6 or more characters", false, statusCode, "Invalid Password")
+                };
+            }
 
             if (AbsolutePath == "/Running") return Reply("Shiro is running", true, Raw: "true");
 
@@ -232,27 +265,7 @@ namespace Shiro
                 return ApiDocumentationService.GetDocsHtml();
             }
 
-            string Body = req.Body;
-            string Method = AbsolutePath.Length > 1 ? AbsolutePath.Substring(1) : string.Empty;
-            string? Account = req.GetQuery("Account");
-
-            // Extract Password from headers (X-Shiro-Auth, X-RAM-Auth, Bearer token) or fallback to QueryString
-            string Password = ExtractRequestPassword(req.GetHeader, req.GetQuery);
-
-            bool isPublicTelemetryMethod =
-                Method.Equals("GetWebSocketStats", StringComparison.OrdinalIgnoreCase) ||
-                Method.Equals("WebSocketStats", StringComparison.OrdinalIgnoreCase);
-
-            bool isSensitiveMethod = !isPublicTelemetryMethod;
-
-            if (WebServer.Get<bool>("EveryRequestRequiresPassword") || isSensitiveMethod)
-            {
-                if (string.IsNullOrEmpty(WSPassword) || WSPassword.Length < 6)
-                    return Reply("WebServer password must be configured with 6 or more characters before accessing protected endpoints", false, 401, "Password Not Configured");
-
-                if (string.IsNullOrEmpty(Password) || !FixedTimeEqualsPassword(Password, WSPassword))
-                    return Reply("Invalid Password, make sure your password contains 6 or more characters", false, 401, "Invalid Password");
-            }
+            string Password = headerPass ?? (req.IsLocal ? queryPass : null) ?? string.Empty;
 
             return await HandleApiEndpointAsync(req, Method, Account, Password, Body, Reply).ConfigureAwait(false);
         }

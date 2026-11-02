@@ -229,7 +229,7 @@ do -- Nexus
         return Message:sub(#Header + 1)
     end
 
-    function Nexus:Connect(Host, Bypass)
+    function Nexus:Connect(Host, Bypass, Password)
         if not Bypass and self.IsConnected then return 'Ignoring connection request, Nexus is already connected' end
 
         while true do
@@ -251,7 +251,12 @@ do -- Nexus
                 Host = 'localhost:5242'
             end
 
-            local Success, Socket = pcall(WSConnect, ('ws://%s/Nexus?name=%s&id=%s&jobId=%s'):format(Host, LocalPlayer.Name, LocalPlayer.UserId, game.JobId))
+            local Url = ('ws://%s/Nexus?name=%s&id=%s&jobId=%s'):format(Host, LocalPlayer.Name, LocalPlayer.UserId, game.JobId)
+            if Password and Password ~= '' then
+                Url = Url .. '&password=' .. HttpService:UrlEncode(Password)
+            end
+
+            local Success, Socket = pcall(WSConnect, Url)
 
             if not Success then task.wait(12) continue end
 

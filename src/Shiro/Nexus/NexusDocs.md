@@ -18,9 +18,13 @@ end)
 Nexus.MessageReceived:Connect(print)
 ```
 
-## \<void\> Nexus:Connect(\<string\> [optional] Host = 'localhost:5242')
-### Attempts to connect to the websocket server, this is done automatically when the script is executed
+## \<void\> Nexus:Connect(\<string\> [optional] Host = 'localhost:5242', \<bool\> [optional] Bypass = false, \<string\> [optional] Password = nil)
+### Attempts to connect to the websocket server, this is done automatically when the script is executed. When connecting over external LAN or if the server requires authentication, provide `Password`.
 ### Example
+```lua
+Nexus:Connect('localhost:5242')
+Nexus:Connect('192.168.1.100:5242', false, 'mySecretPassword')
+```
 
 ## \<void\> Nexus:Stop()
 ### Disconnects from the websocket server

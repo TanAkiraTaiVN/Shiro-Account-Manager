@@ -25,12 +25,13 @@ namespace Shiro.Services
 
         private WebApplication? _app;
         private readonly int _port;
-        private readonly bool _allowExternal;
+        private bool _allowExternal;
         private readonly Func<HttpContext, Task<string>> _handler;
         private readonly Func<HttpContext, bool>? _authValidator;
         private readonly CancellationTokenSource _cts = new();
 
         public bool IsRunning { get; private set; }
+        internal bool IsListeningExternally => _allowExternal;
 
         /// <summary>
         /// Total number of active real-time WebSocket clients currently connected.
@@ -53,15 +54,17 @@ namespace Shiro.Services
         {
             if (IsRunning) return;
 
+            if (_allowExternal && !WebAuthPolicy.IsPasswordConfigured(AccountManager.WSPassword))
+            {
+                _allowExternal = false;
+                Program.Logger?.Warn("[KestrelWebServer] External connections require a WebServer password (>= 6 chars); listening on localhost only.");
+            }
+
             _app = LocalKestrelWebServer.Build("Shiro.WebServer", _port, _allowExternal);
 
             _app.Use(async (context, next) =>
             {
-                if (_allowExternal)
-                {
-                    context.Response.Headers.Append("Access-Control-Allow-Origin", "*");
-                }
-                else
+                if (!_allowExternal)
                 {
                     // Only reflect loopback origins; other browser origins get no CORS grant.
                     string origin = context.Request.Headers["Origin"].ToString();

@@ -27,10 +27,11 @@ namespace Shiro.Nexus
         private readonly CancellationTokenSource _cts = new();
         private readonly ConcurrentDictionary<WebSocket, byte> _activeSockets = new();
         private readonly int _port;
-        private readonly bool _allowExternal;
+        private bool _allowExternal;
         private bool _isDisposed;
 
         public bool IsListening { get; private set; }
+        internal bool IsListeningExternally => _allowExternal;
 
         public NexusWebSocketServer(IPAddress? address, int port)
         {
@@ -48,6 +49,12 @@ namespace Shiro.Nexus
             if (_isDisposed) throw new ObjectDisposedException(nameof(NexusWebSocketServer));
             if (IsListening) return;
 
+            if (_allowExternal && !WebAuthPolicy.IsPasswordConfigured(AccountManager.WSPassword))
+            {
+                _allowExternal = false;
+                Program.Logger?.Warn("[NexusWebSocketServer] External connections require a WebServer password (>= 6 chars); listening on localhost only.");
+            }
+
             // Build and start entirely on ThreadPool to avoid capturing UI SynchronizationContext
             await Task.Run(async () =>
             {
@@ -56,48 +63,29 @@ namespace Shiro.Nexus
 
                 _app.Map("/Nexus", async (HttpContext context) =>
                 {
-                    if (!_allowExternal)
+                    bool allowExt = _allowExternal && (AccountManager.AccountControl?.Get<bool>("AllowExternalConnections") ?? _allowExternal);
+                    bool everyReq = AccountManager.WebServer != null && AccountManager.WebServer.Get<bool>("EveryRequestRequiresPassword");
+
+                    var remoteIp = context.Connection.RemoteIpAddress;
+                    bool isLoopback = remoteIp != null && IPAddress.IsLoopback(remoteIp);
+
+                    string? headerPass = AccountManager.ExtractHeaderPassword(k => context.Request.Headers.TryGetValue(k, out var hVal) ? hVal.ToString() : null);
+                    string? queryPass = AccountManager.ExtractQueryPassword(k => context.Request.Query.TryGetValue(k, out var qVal) ? qVal.ToString() : null);
+
+                    var authSettings = new AuthSettings(allowExt, everyReq, AccountManager.WSPassword);
+                    var authRequest = new AuthRequest(
+                        AuthScope.NexusControl,
+                        isLoopback,
+                        context.Request.Host.Host,
+                        context.Request.Headers["Origin"].ToString(),
+                        headerPass,
+                        queryPass);
+
+                    var decision = WebAuthPolicy.Evaluate(authRequest, authSettings);
+                    if (decision != AuthDecision.Allow)
                     {
-                        var remoteIp = context.Connection.RemoteIpAddress;
-                        if (remoteIp != null && !IPAddress.IsLoopback(remoteIp))
-                        {
-                            context.Response.StatusCode = StatusCodes.Status403Forbidden;
-                            return;
-                        }
-
-                        if (!AccountManager.IsLoopbackHostName(context.Request.Host.Host))
-                        {
-                            context.Response.StatusCode = StatusCodes.Status403Forbidden;
-                            return;
-                        }
-
-                        if (!AccountManager.IsTrustedLocalOrigin(context.Request.Headers["Origin"].ToString()))
-                        {
-                            context.Response.StatusCode = StatusCodes.Status403Forbidden;
-                            return;
-                        }
-                    }
-
-                    string wsPass = AccountManager.WSPassword;
-                    bool requiresPassword = (AccountManager.WebServer != null && AccountManager.WebServer.Get<bool>("EveryRequestRequiresPassword")) ||
-                                            (!string.IsNullOrEmpty(wsPass) && wsPass.Length >= 6);
-                    if (requiresPassword)
-                    {
-                        if (string.IsNullOrEmpty(wsPass) || wsPass.Length < 6)
-                        {
-                            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-                            return;
-                        }
-
-                        string providedAuth = AccountManager.ExtractRequestPassword(
-                            k => context.Request.Headers.TryGetValue(k, out var hVal) ? hVal.ToString() : null,
-                            k => context.Request.Query.TryGetValue(k, out var qVal) ? qVal.ToString() : null);
-
-                        if (string.IsNullOrEmpty(providedAuth) || !AccountManager.FixedTimeEqualsPassword(providedAuth, wsPass))
-                        {
-                            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-                            return;
-                        }
+                        context.Response.StatusCode = WebAuthPolicy.ToStatusCode(decision);
+                        return;
                     }
 
                     if (!context.WebSockets.IsWebSocketRequest)
