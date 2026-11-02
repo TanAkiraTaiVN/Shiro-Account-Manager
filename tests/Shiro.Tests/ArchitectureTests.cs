@@ -135,6 +135,8 @@ namespace Shiro.Tests
                 .Or()
                 .HaveNameEndingWith("Request")
                 .Or()
+                .HaveNameEndingWith("Context")
+                .Or()
                 .HaveNameEndingWith("Progress")
                 .Or()
                 .HaveNameStartingWith("LruCache")

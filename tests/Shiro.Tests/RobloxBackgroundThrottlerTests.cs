@@ -16,7 +16,7 @@ namespace Shiro.Tests
             service.TargetBackgroundFps = 10;
 
             int dummyPid = Process.GetCurrentProcess().Id;
-            service.OnForegroundWindowChanged(activeProcessId: 999999, runningRobloxPids: new[] { dummyPid });
+            service.OnForegroundWindowChanged(activeProcessId: dummyPid + 100, runningRobloxPids: new[] { dummyPid });
 
             Assert.True(service.IsProcessThrottled(dummyPid));
         }
@@ -30,11 +30,11 @@ namespace Shiro.Tests
 
             int dummyPid = Process.GetCurrentProcess().Id;
             // 1st transition to background
-            service.OnForegroundWindowChanged(activeProcessId: 100, runningRobloxPids: new[] { dummyPid });
+            service.OnForegroundWindowChanged(activeProcessId: dummyPid + 100, runningRobloxPids: new[] { dummyPid });
             Assert.True(service.IsProcessThrottled(dummyPid));
 
             // 2nd focus switch to another non-Roblox window
-            service.OnForegroundWindowChanged(activeProcessId: 200, runningRobloxPids: new[] { dummyPid });
+            service.OnForegroundWindowChanged(activeProcessId: dummyPid + 200, runningRobloxPids: new[] { dummyPid });
             Assert.True(service.IsProcessThrottled(dummyPid));
         }
 

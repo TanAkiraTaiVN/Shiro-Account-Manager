@@ -1,0 +1,434 @@
+#nullable enable
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using Shiro.Classes;
+
+namespace Shiro.Services
+{
+    public sealed partial class AccountApiDispatcher
+    {
+        private async Task<string> HandleApiEndpointAsync(
+            ApiRequestContext req,
+            string method,
+            string? accountParam,
+            string? password,
+            string body,
+            Func<string, bool, int, string?, string> reply)
+        {
+            bool v2 = req.IsV2;
+            var webServer = AccountManager.WebServer;
+            var general = AppSettings.General;
+            string wsPassword = AccountManager.WSPassword;
+
+            if (method == "GetWebSocketStats" || method == "WebSocketStats")
+            {
+                return reply(Utilities.FastJson.Serialize(new
+                {
+                    ActiveClients = KestrelWebServer.ActiveWebSocketCount,
+                    Server = "Shiro Kestrel Gateway",
+                    Endpoints = new[] { "/ws", "/events", "/v2/events" }
+                }), true, -1, null);
+            }
+
+            if (method == "GetAccounts")
+            {
+                if (webServer == null || !webServer.Get<bool>("AllowGetAccounts"))
+                    return reply("Method `GetAccounts` not allowed", false, 401, "Method not allowed");
+
+                string? groupFilter = req.GetQuery("Group");
+                var filteredAccounts = AppServices.AccountRepository.GetAll();
+                if (!string.IsNullOrEmpty(groupFilter))
+                    filteredAccounts = filteredAccounts.Where(acc => acc.Group == groupFilter).ToArray();
+
+                string result = string.Join(",", filteredAccounts.Select(acc => acc.Username));
+                return reply(result, true, -1, result);
+            }
+
+            if (method == "GetAccountsJson")
+            {
+                if (webServer == null || !webServer.Get<bool>("AllowGetAccounts"))
+                    return reply("Method `GetAccountsJson` not allowed", false, 401, "Method not allowed");
+
+                string? groupFilter = req.GetQuery("Group");
+                bool showCookies = !string.IsNullOrEmpty(wsPassword) && wsPassword.Length >= 6 &&
+                                   FixedTimeEqualsPassword(password ?? string.Empty, wsPassword) &&
+                                   req.GetQuery("IncludeCookies") == "true" && webServer.Get<bool>("AllowGetCookie");
+
+                List<ApiAccountJsonItem> objects = new();
+                foreach (Account acc in AppServices.AccountRepository.GetAll())
+                {
+                    if (!string.IsNullOrEmpty(groupFilter) && acc.Group != groupFilter) continue;
+
+                    var accountObject = new ApiAccountJsonItem(
+                        acc.Username,
+                        acc.UserID,
+                        acc.Alias,
+                        acc.Description,
+                        acc.Group,
+                        acc.CSRFToken,
+                        acc.LastUse.ToRobloxTick(),
+                        showCookies ? acc.SecurityToken : null,
+                        acc.Fields);
+
+                    objects.Add(accountObject);
+                }
+
+                return reply(Utilities.FastJson.Serialize(objects), true, -1, null);
+            }
+
+            if (method == "ImportCookie")
+            {
+                string? cookieVal = req.GetQuery("Cookie");
+                if (string.IsNullOrWhiteSpace(cookieVal))
+                    return reply("Cookie parameter required", false, 400, "Missing Cookie");
+                Account? newAcc = await AccountManager.AddAccountAsync(cookieVal).ConfigureAwait(false);
+
+                bool success = newAcc != null;
+                return reply(success ? "Cookie successfully imported" : "[ImportCookie] An error was encountered importing the cookie", success, -1, success ? "true" : "false");
+            }
+
+            // Global commands (do not require an Account parameter)
+            if (method.Equals("AntiAfk/Status", StringComparison.OrdinalIgnoreCase) || method.Equals("AntiAfkStatus", StringComparison.OrdinalIgnoreCase))
+                return reply(Utilities.FastJson.Serialize(new { Enabled = AntiAfkService.IsEnabled, TapsSent = AntiAfkService.TapsSent, Status = AntiAfkService.StatusText }), true, -1, null);
+
+            if (method.Equals("AntiAfk/Toggle", StringComparison.OrdinalIgnoreCase) || method.Equals("ToggleAntiAfk", StringComparison.OrdinalIgnoreCase))
+            {
+                AntiAfkService.Toggle();
+                return reply(Utilities.FastJson.Serialize(new { Enabled = AntiAfkService.IsEnabled, Status = AntiAfkService.StatusText }), true, -1, null);
+            }
+
+            if (method.Equals("AntiAfk/Enable", StringComparison.OrdinalIgnoreCase))
+            {
+                AntiAfkService.Start();
+                return reply(Utilities.FastJson.Serialize(new { Enabled = AntiAfkService.IsEnabled, Status = AntiAfkService.StatusText }), true, -1, null);
+            }
+
+            if (method.Equals("AntiAfk/Disable", StringComparison.OrdinalIgnoreCase))
+            {
+                AntiAfkService.Stop();
+                return reply(Utilities.FastJson.Serialize(new { Enabled = AntiAfkService.IsEnabled, Status = AntiAfkService.StatusText }), true, -1, null);
+            }
+
+            if (method.Equals("Memory/Trim", StringComparison.OrdinalIgnoreCase) || method.Equals("TrimMemory", StringComparison.OrdinalIgnoreCase) || method.Equals("CleanRAM", StringComparison.OrdinalIgnoreCase))
+            {
+                var (bytesSaved, count) = MemoryOptimizer.TrimRobloxClients();
+                return reply(Utilities.FastJson.Serialize(new { BytesSaved = bytesSaved, ClientsCount = count }), true, -1, null);
+            }
+
+            if (method.Equals("MultiRoblox/Status", StringComparison.OrdinalIgnoreCase))
+                return reply(Utilities.FastJson.Serialize(new { Enabled = general.Get<bool>("EnableMultiRbx"), Status = RobloxSingletonService.StatusText, TotalClosed = RobloxSingletonService.TotalClosed, MutexHeld = RobloxSingletonService.MutexHeld }), true, -1, null);
+
+            if (method.Equals("MultiRoblox/Toggle", StringComparison.OrdinalIgnoreCase))
+            {
+                bool next = !general.Get<bool>("EnableMultiRbx");
+                general.Set("EnableMultiRbx", next ? "true" : "false");
+                AccountManager.Instance?.UpdateMultiRoblox();
+                return reply(Utilities.FastJson.Serialize(new { Enabled = next, Status = RobloxSingletonService.StatusText }), true, -1, null);
+            }
+
+            if (method.Equals("Roblox/HideWindows", StringComparison.OrdinalIgnoreCase) || method.Equals("HideWindows", StringComparison.OrdinalIgnoreCase))
+            {
+                var (hidden, total) = RobloxWindowService.HideAllWindows();
+                return reply(Utilities.FastJson.Serialize(new { HiddenCount = hidden, TotalClients = total, AreHidden = true }), true, -1, null);
+            }
+
+            if (method.Equals("Roblox/ShowWindows", StringComparison.OrdinalIgnoreCase) || method.Equals("ShowWindows", StringComparison.OrdinalIgnoreCase))
+            {
+                var (shown, total) = RobloxWindowService.ShowAllWindows();
+                return reply(Utilities.FastJson.Serialize(new { ShownCount = shown, TotalClients = total, AreHidden = false }), true, -1, null);
+            }
+
+            if (method.Equals("Roblox/ToggleWindows", StringComparison.OrdinalIgnoreCase) || method.Equals("ToggleWindows", StringComparison.OrdinalIgnoreCase))
+            {
+                var (nowHidden, affected) = RobloxWindowService.ToggleVisibility();
+                return reply(Utilities.FastJson.Serialize(new { AreHidden = nowHidden, AffectedCount = affected }), true, -1, null);
+            }
+
+            if (method.Equals("PotatoMode/Toggle", StringComparison.OrdinalIgnoreCase))
+            {
+                bool next = !general.Get<bool>("EnablePotatoMode");
+                general.Set("EnablePotatoMode", next ? "true" : "false");
+                ClientSettingsPatcher.PatchSettings();
+                return reply(Utilities.FastJson.Serialize(new { PotatoMode = next }), true, -1, null);
+            }
+
+            if (method.Equals("KillRoblox", StringComparison.OrdinalIgnoreCase) || method.Equals("KillAllRoblox", StringComparison.OrdinalIgnoreCase))
+            {
+                AccountManager.Instance?.InvokeIfRequired(() => AccountManager.Instance?.ModernCloseRoblox());
+                return reply("Closed all Roblox processes", true, -1, null);
+            }
+
+            if (method.Equals("AutoReconnect/Status", StringComparison.OrdinalIgnoreCase))
+            {
+                return reply(Utilities.FastJson.Serialize(new
+                {
+                    Enabled = AutoReconnectService.Instance.IsEnabled,
+                    ActiveSessions = AutoReconnectService.Instance.ActiveSessionsCount,
+                    TotalReconnections = AutoReconnectService.Instance.TotalReconnections
+                }), true, -1, null);
+            }
+
+            if (method.Equals("AutoReconnect/Toggle", StringComparison.OrdinalIgnoreCase))
+            {
+                AutoReconnectService.Instance.IsEnabled = !AutoReconnectService.Instance.IsEnabled;
+                return reply(Utilities.FastJson.Serialize(new
+                {
+                    Enabled = AutoReconnectService.Instance.IsEnabled,
+                    ActiveSessions = AutoReconnectService.Instance.ActiveSessionsCount
+                }), true, -1, null);
+            }
+
+            if (method.Equals("Accounts/Export", StringComparison.OrdinalIgnoreCase) || method.Equals("ExportAccounts", StringComparison.OrdinalIgnoreCase))
+            {
+                if (webServer == null || !webServer.Get<bool>("AllowGetAccounts") || !webServer.Get<bool>("AllowGetCookie"))
+                    return reply("Method `Accounts/Export` not allowed", false, 401, "Method not allowed");
+
+                if (string.IsNullOrEmpty(wsPassword) || wsPassword.Length < 6 || !FixedTimeEqualsPassword(password ?? string.Empty, wsPassword))
+                    return reply("Invalid Password, make sure your password contains 6 or more characters", false, 401, "Invalid Password");
+
+                string formatStr = req.GetQuery("Format") ?? "Json";
+                if (!Enum.TryParse<AccountExportFormat>(formatStr, true, out var exportFormat))
+                    exportFormat = AccountExportFormat.Json;
+
+                string? groupFilter = req.GetQuery("Group");
+                var accountsToExport = AppServices.AccountRepository.GetAll();
+                if (!string.IsNullOrEmpty(groupFilter))
+                    accountsToExport = accountsToExport.Where(a => string.Equals(a.Group, groupFilter, StringComparison.OrdinalIgnoreCase)).ToArray();
+
+                string exported = AccountExportService.ExportAccounts(accountsToExport, exportFormat);
+                return reply(exported, true, -1, null);
+            }
+
+            if (string.IsNullOrEmpty(accountParam)) return reply("Empty Account", false, -1, null);
+
+            bool isNumericAccountId = long.TryParse(accountParam, out long targetAccountId);
+            Account? account = null;
+            foreach (Account candidate in AppServices.AccountRepository.GetAll())
+            {
+                if (candidate == null) continue;
+                if (string.Equals(candidate.Username, accountParam, StringComparison.OrdinalIgnoreCase) ||
+                    (isNumericAccountId && candidate.UserID == targetAccountId))
+                {
+                    account = candidate;
+                    break;
+                }
+            }
+
+            if (account == null)
+                return reply("Invalid Account, the account's cookie may have expired and resulted in the account being logged out", false, -1, "Invalid Account");
+
+            if (method == "SetProxy")
+            {
+                string proxy = req.GetQuery("Proxy") ?? req.Body;
+                ProxyBindingService.AssignProxy(account, proxy);
+                AccountManager.QueueDeferredSave();
+                return reply($"Proxy updated for {account.Username}", true, -1, null);
+            }
+
+            if (method == "GetProxy") return reply(account.Proxy ?? string.Empty, true, -1, null);
+
+            if (method == "GetCookie")
+            {
+                if (webServer == null || !webServer.Get<bool>("AllowGetCookie"))
+                    return reply("Method `GetCookie` not allowed", false, 401, "Method not allowed");
+
+                return reply(account.SecurityToken, true, -1, null);
+            }
+
+            if (method == "GetAlias") return reply(account.Alias, true, -1, null);
+            if (method == "GetDescription") return reply(account.Description, true, -1, null);
+
+            string? fieldName = req.GetQuery("Field");
+            if (method == "GetField" && !string.IsNullOrEmpty(fieldName)) return reply(account.GetField(fieldName), true, -1, null);
+
+            string? fieldValue = req.GetQuery("Value");
+            if (method == "SetField" && !string.IsNullOrEmpty(fieldName) && !string.IsNullOrEmpty(fieldValue))
+            {
+                if (webServer == null || !webServer.Get<bool>("AllowAccountEditing"))
+                    return reply("Method `SetField` not allowed", false, 401, "Method not allowed");
+
+                account.SetField(fieldName, fieldValue);
+                AccountManager.QueueDeferredSave();
+                return reply($"Set Field {fieldName} to {fieldValue} for {account.Username}", true, -1, null);
+            }
+
+            if (method == "RemoveField" && !string.IsNullOrEmpty(fieldName))
+            {
+                if (webServer == null || !webServer.Get<bool>("AllowAccountEditing"))
+                    return reply("Method `RemoveField` not allowed", false, 401, "Method not allowed");
+
+                account.RemoveField(fieldName);
+                AccountManager.QueueDeferredSave();
+                return reply($"Removed Field {fieldName} from {account.Username}", true, -1, null);
+            }
+
+            if (method == "SetAlias" && !string.IsNullOrEmpty(body))
+            {
+                if (webServer == null || !webServer.Get<bool>("AllowAccountEditing"))
+                    return reply("Method `SetAlias` not allowed", false, -1, "Method not allowed");
+
+                account.Alias = body;
+                AccountManager.Instance?.UpdateAccountView(account);
+                AccountManager.QueueDeferredSave();
+                return reply($"Set Alias of {account.Username} to {body}", true, -1, null);
+            }
+
+            if (method == "SetDescription" && !string.IsNullOrEmpty(body))
+            {
+                if (webServer == null || !webServer.Get<bool>("AllowAccountEditing"))
+                    return reply("Method `SetDescription` not allowed", false, -1, "Method not allowed");
+
+                account.Description = body;
+                AccountManager.Instance?.UpdateAccountView(account);
+                AccountManager.QueueDeferredSave();
+                return reply($"Set Description of {account.Username} to {body}", true, -1, null);
+            }
+
+            if (method == "AppendDescription" && !string.IsNullOrEmpty(body))
+            {
+                if (webServer == null || !webServer.Get<bool>("AllowAccountEditing"))
+                    return v2 ? WebServerResponse("Method `AppendDescription` not allowed", false) : "Method not allowed";
+
+                account.Description += body;
+                AccountManager.Instance?.UpdateAccountView(account);
+                AccountManager.QueueDeferredSave();
+                return reply($"Appended Description of {account.Username} with {body}", true, -1, null);
+            }
+
+            if (method == "LaunchAccount")
+            {
+                if (webServer == null || !webServer.Get<bool>("AllowLaunchAccount"))
+                    return reply("Method `LaunchAccount` not allowed", false, 401, "Method not allowed");
+
+                bool validPlaceId = long.TryParse(req.GetQuery("PlaceId"), out long placeId);
+                if (!validPlaceId) return reply("Invalid PlaceId provided", false, -1, "Invalid PlaceId");
+
+                string jobId = req.GetQuery("JobId") ?? string.Empty;
+                string? followUser = req.GetQuery("FollowUser");
+                string? joinVip = req.GetQuery("JoinVIP");
+
+                await account.JoinServer(placeId, jobId, followUser == "true", joinVip == "true").ConfigureAwait(false);
+                return reply($"Launched {accountParam} to {placeId}", true, -1, null);
+            }
+
+            if (method == "FollowUser")
+            {
+                if (webServer == null || !webServer.Get<bool>("AllowLaunchAccount"))
+                    return reply("Method `FollowUser` not allowed", false, 401, "Method not allowed");
+
+                string? user = req.GetQuery("Username");
+                if (string.IsNullOrEmpty(user)) return reply("Invalid Username Parameter", false, -1, null);
+
+                var userLookup = await AccountManager.GetUserIDAsync(user).ConfigureAwait(false);
+                if (!userLookup.Success)
+                {
+                    var response = userLookup.Response;
+                    return reply($"[{response?.StatusCode} {response?.StatusDescription}] Failed to get UserId: {response?.Content}", false, -1, null);
+                }
+
+                await account.JoinServer(userLookup.UserId, "", true).ConfigureAwait(false);
+                return reply($"Joining {user}'s game on {accountParam}", true, -1, null);
+            }
+
+            // Endpoints below interact with authenticated Roblox APIs
+            var csrfResult = await account.GetCSRFTokenAsync().ConfigureAwait(false);
+            if (!csrfResult.Success)
+                return reply("Invalid Account, the account's cookie may have expired and resulted in the account being logged out", false, -1, "Invalid Account");
+
+            string token = csrfResult.Token;
+            if (method == "GetCSRFToken") return reply(token, true, -1, null);
+
+            if (method == "BlockUser" && !string.IsNullOrEmpty(req.GetQuery("UserId")))
+            {
+                try
+                {
+                    var res = await account.BlockUserIdAsync(req.GetQuery("UserId") ?? string.Empty).ConfigureAwait(false);
+                    return reply(res?.Content ?? string.Empty, res?.IsSuccessful == true, res != null ? (int)res.StatusCode : 500, null);
+                }
+                catch (Exception x) { return reply(x.Message, false, 500, null); }
+            }
+
+            if (method == "UnblockUser" && !string.IsNullOrEmpty(req.GetQuery("UserId")))
+            {
+                try
+                {
+                    var res = await account.UnblockUserIdAsync(req.GetQuery("UserId") ?? string.Empty).ConfigureAwait(false);
+                    return reply(res?.Content ?? string.Empty, res?.IsSuccessful == true, res != null ? (int)res.StatusCode : 500, null);
+                }
+                catch (Exception x) { return reply(x.Message, false, 500, null); }
+            }
+
+            if (method == "GetBlockedList")
+            {
+                try
+                {
+                    var res = await account.GetBlockedListAsync().ConfigureAwait(false);
+                    return reply(res?.Content ?? string.Empty, res?.IsSuccessful == true, res != null ? (int)res.StatusCode : 500, null);
+                }
+                catch (Exception x) { return reply(x.Message, false, 500, null); }
+            }
+
+            if (method == "UnblockEveryone")
+            {
+                (bool success, string message) unblockResult = await account.UnblockEveryoneAsync().ConfigureAwait(false);
+                return reply(unblockResult.message, unblockResult.success, -1, null);
+            }
+
+            if (method == "SetServer" && !string.IsNullOrEmpty(req.GetQuery("PlaceId")) && !string.IsNullOrEmpty(req.GetQuery("JobId")))
+            {
+                if (!long.TryParse(req.GetQuery("PlaceId"), out long setServerPlaceId))
+                    return reply("Invalid PlaceId provided", false, 400, null);
+
+                string? setJobId = req.GetQuery("JobId");
+                if (string.IsNullOrEmpty(setJobId)) return reply("JobId parameter required", false, 400, null);
+                var (success, message) = await account.SetServerAsync(setServerPlaceId, setJobId).ConfigureAwait(false);
+                return reply(message, success, -1, null);
+            }
+
+            if (method == "SetRecommendedServer")
+            {
+                int attempts = 0;
+                ServerData[] serversSnapshot;
+                lock (AccountManager.CachedServers)
+                {
+                    serversSnapshot = AccountManager.CachedServers.ToArray();
+                }
+
+                for (int i = serversSnapshot.Length - 1; i >= 0; i--)
+                {
+                    if (attempts > 10) return reply("Too many failed attempts", false, -1, null);
+
+                    ServerData server = serversSnapshot[i];
+                    if (server == null || string.IsNullOrEmpty(server.id)) continue;
+
+                    lock (AttemptedJoins)
+                    {
+                        if (AttemptedJoins.Contains(server.id)) continue;
+                        if (AttemptedJoins.Count > 100) AttemptedJoins.Clear();
+                        AttemptedJoins.Add(server.id);
+                    }
+
+                    attempts++;
+                    long targetPlaceId = (!string.IsNullOrEmpty(req.GetQuery("PlaceId")) && long.TryParse(req.GetQuery("PlaceId"), out var reqPid))
+                        ? reqPid
+                        : (long.TryParse(AccountManager.CurrentPlaceId, out var pid) ? pid : 0);
+
+                    var (iSuccess, iMessage) = await account.SetServerAsync(targetPlaceId, server.id).ConfigureAwait(false);
+                    if (iSuccess) return reply(iMessage, true, -1, null);
+                }
+
+                return reply("Failed to find a recommended server", false, -1, null);
+            }
+
+            if (method == "SetAvatar" && !string.IsNullOrWhiteSpace(body))
+            {
+                await account.SetAvatarAsync(body).ConfigureAwait(false);
+                return reply($"Attempting to set avatar of {account.Username} to {body}", true, -1, null);
+            }
+
+            return reply("404 not found", false, 404, null);
+        }
+    }
+}
