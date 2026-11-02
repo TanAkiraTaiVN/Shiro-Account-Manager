@@ -131,6 +131,10 @@ namespace Shiro.Tests
                 .Or()
                 .HaveNameEndingWith("Alert")
                 .Or()
+                .HaveNameEndingWith("Policy")
+                .Or()
+                .HaveNameEndingWith("Decoder")
+                .Or()
                 .HaveName("AppServices")
                 .GetResult();
 

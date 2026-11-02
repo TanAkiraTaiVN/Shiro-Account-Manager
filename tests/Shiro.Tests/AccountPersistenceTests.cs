@@ -156,5 +156,40 @@ namespace Shiro.Tests
                 }
             }
         }
+
+        [Fact]
+        public void PromoteBackup_PreservesExistingOld()
+        {
+            string tempDir = Path.Combine(Path.GetTempPath(), "Shiro-PromoteBackupTest-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                using (StoragePaths.OverrideDataDirectoryForTesting(tempDir))
+                {
+                    string path = StoragePaths.AccountDataFile;
+                    string oldPath = path + ".old";
+                    string backupPath = path + ".backup";
+
+                    File.WriteAllText(path, "A");
+                    File.WriteAllText(oldPath, "OLD");
+                    File.WriteAllText(backupPath, "B");
+
+                    var now = new DateTime(2026, 11, 1, 22, 0, 0);
+                    string preservedPath = AccountManager.PromoteBackupToPrimary(path, now);
+
+                    Assert.Equal("B", File.ReadAllText(path));
+                    Assert.Equal("OLD", File.ReadAllText(oldPath));
+                    Assert.Equal("A", File.ReadAllText(path + ".old.20261101220000"));
+                    Assert.Equal(path + ".old.20261101220000", preservedPath);
+                }
+            }
+            finally
+            {
+                if (Directory.Exists(tempDir))
+                {
+                    try { Directory.Delete(tempDir, true); }
+                    catch (IOException) { }
+                }
+            }
+        }
     }
 }

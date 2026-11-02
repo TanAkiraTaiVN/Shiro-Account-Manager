@@ -21,6 +21,7 @@ namespace Shiro
         // save must migrate it to the normal DPAPI CurrentUser protection
         // instead of preserving plaintext indefinitely.
         private static bool legacyPlaintextLoaded;
+        private static bool backupPromotedPasswordLocked;
         private static string PlaintextOptInFile => StoragePaths.GetUserFile("NoEncryption.IUnderstandTheRisks.iautamor");
 
         public static bool IsDatabasePasswordEncrypted()
@@ -111,6 +112,7 @@ namespace Shiro
             unlocked = false;
             legacyPlaintextLoaded = false;
             bool EnteredPassword = false;
+            backupPromotedPasswordLocked = false;
             byte[] Data = accountStore.Read();
 
             lock (AccountListLock)
@@ -118,95 +120,48 @@ namespace Shiro
 
             if (Data.Length > 0)
             {
-                if (Cryptography.IsEncrypted(Data))
+                var decodeResult = AccountFileDecoder.Decode(Data, Hash, CreateDecodeKeys(allowRecovery: true));
+                switch (decodeResult.Status)
                 {
-                    if (Hash == null)
-                    {
-                        try
-                        {
-                            byte[] vaultKey = StoragePaths.GetOrCreateVaultKeyCopy();
-                            byte[] decrypted;
-                            try
-                            {
-                                decrypted = Cryptography.Decrypt(Data, vaultKey);
-                            }
-                            catch
-                            {
-                                byte[]? recoveredKey = VaultKeyRecoveryService.TryRecoverInProcess(Data);
-                                if (recoveredKey == null)
-                                    throw;
-                                decrypted = Cryptography.Decrypt(Data, recoveredKey);
-                            }
-                            finally
-                            {
-                                CryptographicOperations.ZeroMemory(vaultKey);
-                            }
+                    case AccountDecodeStatus.Loaded:
+                        ReplaceAccountsList(decodeResult.Accounts);
+                        accountDataNeedsMigration |= decodeResult.NeedsMigration;
+                        legacyPlaintextLoaded = decodeResult.LegacyPlaintext;
 
-                            ReplaceAccountsList(AccountDataSerializer.Deserialize(decrypted, out bool vaultNeedsMigration));
-                            accountDataNeedsMigration |= vaultNeedsMigration;
+                        if (Cryptography.IsEncrypted(Data))
+                        {
                             EnteredPassword = true;
                             unlocked = true;
-                            Program.Logger?.Info($"[LoadAccounts] Loaded {AccountCount} accounts via vault key.");
-                        }
-                        catch (Exception ex)
-                        {
-                            Program.Logger?.Warn($"[LoadAccounts] Vault-key decryption failed: {ex.Message}");
-                            EnableModernDashboard();
-                            // Encrypted with Master Password or desynchronized vault.key
-                            return;
-                        }
-                    }
-                    else
-                    {
-                        try
-                        {
-                            Data = Cryptography.Decrypt(Data, Hash);
-                            ReplaceAccountsList(AccountDataSerializer.Deserialize(Data, out bool passwordDataNeedsMigration));
-                            accountDataNeedsMigration |= passwordDataNeedsMigration;
-                            PasswordHash = new ReadOnlyMemory<byte>(ProtectedData.Protect(Hash, Array.Empty<byte>(), DataProtectionScope.CurrentUser));
 
-                            EnteredPassword = true;
-                            unlocked = true;
-                            Program.Logger?.Info($"[LoadAccounts] Loaded {AccountCount} accounts via Master Password.");
+                            if (Hash != null)
+                            {
+                                PasswordHash = new ReadOnlyMemory<byte>(ProtectedData.Protect(Hash, Array.Empty<byte>(), DataProtectionScope.CurrentUser));
+                                Program.Logger?.Info($"[LoadAccounts] Loaded {AccountCount} accounts via Master Password.");
+                            }
+                            else
+                            {
+                                Program.Logger?.Info($"[LoadAccounts] Loaded {AccountCount} accounts via vault key.");
+                            }
                         }
-                        catch (Exception ex)
-                        {
-                            Program.Logger?.Warn($"[LoadAccounts] Master Password decryption failed: {ex.Message}");
-                            EnableModernDashboard();
-                            return;
-                        }
-                    }
+                        break;
+
+                    case AccountDecodeStatus.NeedsMasterPassword:
+                        if (Hash != null)
+                            Program.Logger?.Warn($"[LoadAccounts] Master Password decryption failed: {decodeResult.Error?.Message}");
+                        else
+                            Program.Logger?.Warn($"[LoadAccounts] Vault-key decryption failed: {decodeResult.Error?.Message}");
+
+                        EnableModernDashboard();
+                        return;
+
+                    case AccountDecodeStatus.Corrupt:
+                        StoragePaths.AtomicWriteBytes(SaveFilePath + ".bak", Data, durable: true);
+                        AppServices.Dialogs.ShowError($"Failed to load accounts!\nA backup file was created in case the data can be recovered.\n\n{decodeResult.Error?.Message}");
+                        break;
+
+                    case AccountDecodeStatus.Empty:
+                        break;
                 }
-                else
-                    try
-                    {
-                        byte[] decrypted = TryUnprotectAccountData(Data, out bool usedLegacyScope);
-                        ReplaceAccountsList(AccountDataSerializer.Deserialize(decrypted, out bool dpapiDataNeedsMigration));
-                        accountDataNeedsMigration |= dpapiDataNeedsMigration;
-                        if (usedLegacyScope)
-                        {
-                            accountDataNeedsMigration = true;
-                            Program.Logger.Info("Loaded account data protected with the legacy LocalMachine DPAPI scope; it will be migrated on the next save.");
-                        }
-                    }
-                    catch (Exception e)
-                    {
-                        try
-                        {
-                            if (!File.Exists(PlaintextOptInFile))
-                                throw new InvalidDataException("The account file could not be decrypted. Plaintext recovery is disabled unless the legacy opt-in marker is present.");
-
-                            ReplaceAccountsList(AccountDataSerializer.Deserialize(Data, out bool plaintextNeedsMigration));
-                            legacyPlaintextLoaded = true;
-                            accountDataNeedsMigration = true;
-                        }
-                        catch
-                        {
-                            StoragePaths.AtomicWriteBytes(SaveFilePath + ".bak", Data, durable: true);
-
-                            AppServices.Dialogs.ShowError($"Failed to load accounts!\nA backup file was created in case the data can be recovered.\n\n{e.Message}");
-                        }
-                    }
             }
 
             lock (AccountListLock)
@@ -214,86 +169,11 @@ namespace Shiro
 
             if (!EnteredPassword && AccountCount == 0 && File.Exists($"{SaveFilePath}.backup") && File.ReadAllBytes($"{SaveFilePath}.backup") is byte[] BackupData && BackupData.Length > 0)
             {
-                // Try the default vault key first: the backup is only "password-locked"
-                // when it cannot be opened with the local vault key.
-                if (Cryptography.IsEncrypted(BackupData))
-                {
-                    try
-                    {
-                        byte[] vaultKey = StoragePaths.GetOrCreateVaultKeyCopy();
-                        byte[] vaultDecrypted;
-                        try
-                        {
-                            vaultDecrypted = Cryptography.Decrypt(BackupData, vaultKey);
-                        }
-                        finally
-                        {
-                            CryptographicOperations.ZeroMemory(vaultKey);
-                        }
-                        ReplaceAccountsList(AccountDataSerializer.Deserialize(vaultDecrypted, out bool vaultBackupNeedsMigration));
-                        accountDataNeedsMigration |= vaultBackupNeedsMigration;
-                        Program.Logger?.Info($"[LoadAccounts] Restored {AccountCount} accounts from backup via vault key.");
-                        if (AccountCount > 0)
-                            SaveAccounts(true);
-                        goto BackupHandled;
-                    }
-                    catch (Exception ex)
-                    {
-                        Program.Logger?.Debug($"Direct vault key load from backup was not successful: {ex.Message}");
-                    }
-                }
-
-                if (Cryptography.IsEncrypted(BackupData) && AppServices.Dialogs.ShowConfirmation("The existing backup file is password-locked, would you like to attempt to load it?"))
-                {
-                    if (File.Exists(SaveFilePath))
-                    {
-                        if (File.Exists($"{SaveFilePath}.old")) File.Delete($"{SaveFilePath}.old");
-
-                        File.Move(SaveFilePath, $"{SaveFilePath}.old");
-                    }
-
-                    File.Move($"{SaveFilePath}.backup", SaveFilePath);
-
-                    LoadAccounts();
-
+                TryLoadFromBackup(BackupData);
+                if (backupPromotedPasswordLocked)
                     return;
-                }
-
-                if (AppServices.Dialogs.ShowConfirmation("No accounts were loaded but there is a backup file, would you like to load the backup file?"))
-                {
-                    try
-                    {
-                        byte[] decoded = TryUnprotectAccountData(BackupData, out _);
-                        ReplaceAccountsList(AccountDataSerializer.Deserialize(decoded, out bool backupNeedsMigration));
-                        accountDataNeedsMigration |= backupNeedsMigration;
-                    }
-                    catch
-                    {
-                        try
-                        {
-                            if (!File.Exists(PlaintextOptInFile))
-                                throw new InvalidDataException("Plaintext backup recovery is disabled unless the legacy opt-in marker is present.");
-
-                            ReplaceAccountsList(AccountDataSerializer.Deserialize(BackupData, out bool plaintextBackupNeedsMigration));
-                            legacyPlaintextLoaded = true;
-                            accountDataNeedsMigration = true;
-                        }
-                        catch (Exception ex)
-                        {
-                            Program.Logger?.Error($"Failed to load backup file: {ex.Message}");
-                            AppServices.Dialogs.ShowError("Failed to load backup file!");
-                        }
-
-                        if (AccountCount > 0)
-                        {
-                            Program.Logger?.Info($"[AccountManager] Restored {AccountCount} accounts from backup. Re-persisting primary vault...");
-                            SaveAccounts(true);
-                        }
-                    }
-                }
             }
 
-        BackupHandled:
             try
             {
                 AccountRuntimeStateStore.HydrateAccounts(GetAccountsSnapshot());
@@ -330,6 +210,89 @@ namespace Shiro
                     Program.Logger?.Warn($"Account data migration will be retried after the next successful save: {exception.Message}");
                 }
             }
+        }
+
+        private AccountDecodeKeys CreateDecodeKeys(bool allowRecovery)
+        {
+            return new AccountDecodeKeys(
+                GetVaultKeyCopy: StoragePaths.GetOrCreateVaultKeyCopy,
+                TryRecoverVaultKey: allowRecovery ? VaultKeyRecoveryService.TryRecoverInProcess : null,
+                UnprotectDpapi: data =>
+                {
+                    byte[] plain = TryUnprotectAccountData(data, out bool legacyScope);
+                    return (plain, legacyScope);
+                },
+                PlaintextOptIn: File.Exists(PlaintextOptInFile));
+        }
+
+        private bool TryLoadFromBackup(byte[] backupData)
+        {
+            if (Cryptography.IsEncrypted(backupData))
+            {
+                var vaultResult = AccountFileDecoder.Decode(backupData, null, CreateDecodeKeys(allowRecovery: false));
+                if (vaultResult.Status == AccountDecodeStatus.Loaded)
+                {
+                    ReplaceAccountsList(vaultResult.Accounts);
+                    accountDataNeedsMigration |= vaultResult.NeedsMigration;
+                    Program.Logger?.Info($"[LoadAccounts] Restored {AccountCount} accounts from backup via vault key.");
+                    if (AccountCount > 0)
+                        SaveAccounts(true);
+                    return true;
+                }
+
+                Program.Logger?.Debug($"Direct vault key load from backup was not successful: {vaultResult.Error?.Message}");
+
+                if (AppServices.Dialogs.ShowConfirmation("The existing backup file is password-locked, would you like to attempt to load it?"))
+                {
+                    PromoteBackupToPrimary(SaveFilePath, DateTime.Now);
+                    EnableModernDashboard();
+                    backupPromotedPasswordLocked = true;
+                    return false;
+                }
+
+                return false;
+            }
+
+            if (AppServices.Dialogs.ShowConfirmation("No accounts were loaded but there is a backup file, would you like to load the backup file?"))
+            {
+                var unencResult = AccountFileDecoder.Decode(backupData, null, CreateDecodeKeys(allowRecovery: false));
+                if (unencResult.Status == AccountDecodeStatus.Loaded)
+                {
+                    ReplaceAccountsList(unencResult.Accounts);
+                    accountDataNeedsMigration |= unencResult.NeedsMigration;
+                    legacyPlaintextLoaded = unencResult.LegacyPlaintext;
+
+                    if (AccountCount > 0)
+                    {
+                        Program.Logger?.Info($"[AccountManager] Restored {AccountCount} accounts from backup. Re-persisting primary vault...");
+                        SaveAccounts(true);
+                    }
+                    return true;
+                }
+
+                Program.Logger?.Error($"Failed to load backup file: {unencResult.Error?.Message}");
+                AppServices.Dialogs.ShowError("Failed to load backup file!");
+            }
+
+            return false;
+        }
+
+        internal static string PromoteBackupToPrimary(string saveFilePath, DateTime now)
+        {
+            string preservedPrimaryPath = string.Empty;
+            if (File.Exists(saveFilePath))
+            {
+                preservedPrimaryPath = $"{saveFilePath}.old.{now:yyyyMMddHHmmss}";
+                File.Move(saveFilePath, preservedPrimaryPath);
+            }
+
+            string backupPath = $"{saveFilePath}.backup";
+            if (File.Exists(backupPath))
+            {
+                File.Move(backupPath, saveFilePath);
+            }
+
+            return preservedPrimaryPath;
         }
 
         public enum SaveGate { Proceed, Defer, Skip }
