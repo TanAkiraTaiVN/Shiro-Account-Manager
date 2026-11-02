@@ -37,11 +37,11 @@
 - Test: `tests/Shiro.Tests/WebServerEndpointsAndWorkflowTests.cs`
 - Test: `tests/Shiro.Tests/ArchitectureTests.cs`
 
-- [ ] **Step 1: Create `AccountApiDispatcher` and `AccountApiDispatcher.Endpoints.cs`**
+- [x] **Step 1: Create `AccountApiDispatcher` and `AccountApiDispatcher.Endpoints.cs`**
   Move `ApiRequestContext`, HTTP request parsing, authentication checks, CORS, rate limits, and endpoint implementations (`GetAccounts`, `LaunchAccount`, `SetField`, `GetWebSocketStats`, etc.) into `AccountApiDispatcher`.
-- [ ] **Step 2: Update `AccountManager.WebServer.cs` to delegate to `AccountApiDispatcher`**
+- [x] **Step 2: Update `AccountManager.WebServer.cs` to delegate to `AccountApiDispatcher`**
   Replace monolithic logic in `AccountManager.WebServer.cs` with calls to `AccountApiDispatcher.Instance.DispatchAsync(...)`.
-- [ ] **Step 3: Run tests to verify all WebServer endpoints pass**
+- [x] **Step 3: Run tests to verify all WebServer endpoints pass**
   Run `dotnet test --filter WebServerEndpointsAndWorkflowTests` and `dotnet test --filter ArchitectureTests`.
 
 ---
@@ -60,13 +60,13 @@
 - Test: `tests/Shiro.Tests/ServerListAndAccountSettingsTests.cs`
 - Test: `tests/Shiro.Tests/ArchitectureTests.cs`
 
-- [ ] **Step 1: Create `RobloxEconomyService` & `RobloxModerationService`**
+- [x] **Step 1: Create `RobloxEconomyService` & `RobloxModerationService`**
   Implement `FetchRobuxBalanceAsync` and `CheckAccountStatusAsync` with rate-limiting and session cookies in the new services.
-- [ ] **Step 2: Create `RobloxSocialApiService` & `RobloxSettingsApiService`**
+- [x] **Step 2: Create `RobloxSocialApiService` & `RobloxSettingsApiService`**
   Extract friend listing, friend removing, display name updates, and privacy settings requests.
-- [ ] **Step 3: Refactor `Account.*Api.cs` to delegate to these services**
+- [x] **Step 3: Refactor `Account.*Api.cs` to delegate to these services**
   Forward calls from `Account` to the new services so existing callers remain untouched.
-- [ ] **Step 4: Run test suite**
+- [x] **Step 4: Run test suite**
   Verify with `dotnet test`.
 
 ---

@@ -25,50 +25,8 @@ namespace Shiro
         /// <summary>
         /// Fetches the live Robux balance for this account via official Roblox Economy API.
         /// </summary>
-        public async Task<long> FetchRobuxBalanceAsync(CancellationToken cancellationToken = default)
-        {
-            if (UserID <= 0 || string.IsNullOrWhiteSpace(SecurityToken) || !Valid)
-                return RobuxBalance;
-
-            try
-            {
-                long balance = await RobloxRateLimitCoordinator.Instance.ExecuteWithPacingAsync(
-                    RateLimitCategory.General,
-                    async () =>
-                    {
-                        HttpClient httpClient = GetSessionHttpClient();
-                        using var request = CreateAuthenticatedGetRequest($"https://economy.roblox.com/v1/users/{UserID}/currency", "application/json");
-
-                        using var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseContentRead, cancellationToken).ConfigureAwait(false);
-                        TryUpdateRotatedCookie(response);
-                        if (response.IsSuccessStatusCode)
-                        {
-                            string json = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-                            if (Utilities.FastJson.TryDeserialize<RobloxCurrencyResponse>(json, out var res) && res != null)
-                            {
-                                RobuxBalance = res.Robux;
-                                LastEconomyCheck = DateTime.UtcNow;
-                                RobloxRateLimitCoordinator.Instance.RecordSuccess(RateLimitCategory.General);
-                                return RobuxBalance;
-                            }
-                        }
-                        else if ((int)response.StatusCode == 429)
-                        {
-                            RobloxRateLimitCoordinator.Instance.RecordRateLimitHit(RateLimitCategory.General, response);
-                        }
-                        return RobuxBalance;
-                    },
-                    minIntervalMs: 250,
-                    cancellationToken: cancellationToken).ConfigureAwait(false);
-
-                return balance;
-            }
-            catch (Exception ex)
-            {
-                Program.Logger.Debug($"[FetchRobuxBalanceAsync] {Username}: {ex.Message}");
-                return RobuxBalance;
-            }
-        }
+        public Task<long> FetchRobuxBalanceAsync(CancellationToken cancellationToken = default) =>
+            RobloxEconomyService.Instance.FetchRobuxBalanceAsync(this, cancellationToken);
 
         /// <summary>
         /// Cancellation-aware CSRF acquisition used by the launch queue. The
