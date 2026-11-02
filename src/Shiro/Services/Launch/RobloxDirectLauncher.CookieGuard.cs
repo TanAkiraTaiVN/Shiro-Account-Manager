@@ -380,7 +380,7 @@ namespace Shiro.Services
                 return;
             }
 
-            var target = AccountManager.GetAccountsSnapshot().FirstOrDefault(a =>
+            var target = AppServices.AccountRepository.GetAll().FirstOrDefault(a =>
                 a != null &&
                 string.Equals(a.Username, expectedUser, StringComparison.OrdinalIgnoreCase) &&
                 string.Equals(a.SecurityToken, injectedToken, StringComparison.Ordinal));
@@ -396,7 +396,7 @@ namespace Shiro.Services
             }
 
             // Also ensure the rotated cookie does not already belong to a different account in AccountManager
-            bool belongsToAnotherAccount = AccountManager.GetAccountsSnapshot().Any(a =>
+            bool belongsToAnotherAccount = AppServices.AccountRepository.GetAll().Any(a =>
                 a != null &&
                 !string.Equals(a.Username, target.Username, StringComparison.OrdinalIgnoreCase) &&
                 string.Equals(a.SecurityToken, currentClientCookie, StringComparison.Ordinal));

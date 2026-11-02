@@ -6,7 +6,6 @@ using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using PuppeteerSharp;
-using Shiro.AvaloniaUI.Views;
 using Shiro.Services;
 
 namespace Shiro.Classes
@@ -286,10 +285,10 @@ namespace Shiro.Classes
         {
             if (string.IsNullOrEmpty(browserPath))
             {
-                MessageBoxDialog.Show(
+                AppServices.Dialogs.ShowInfo(
                     "Shiro could not prepare an isolated Chrome/Edge/Chromium window. Install or repair Google Chrome or Microsoft Edge, then try again. " +
                     "You can also use Add Account > By Cookie. Keep the .ROBLOSECURITY value private; it grants access to your account.",
-                    "Roblox sign-in", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    "Roblox sign-in");
                 return;
             }
 
@@ -341,11 +340,11 @@ namespace Shiro.Classes
         {
             Program.Logger.Info("Roblox sign-in is open in an isolated browser profile; cookie capture remains manual.");
             AccountBrowser.Observe(MonitorManualBrowserAndCleanupAsync(browser, sessionRoot));
-            MessageBoxDialog.Show(
+            AppServices.Dialogs.ShowInfo(
                 "Roblox sign-in opened in an isolated Chrome/Edge profile. Complete verification there, then import the session using Add Account > By Cookie. " +
                 "In browser developer tools, open Application/Storage > Cookies > https://www.roblox.com and copy the .ROBLOSECURITY value. " +
                 "Keep that value private; it grants access to your account.",
-                "Roblox sign-in", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                "Roblox sign-in");
         }
 
         private static async Task MonitorManualBrowserAndCleanupAsync(Process browser, string sessionRoot)

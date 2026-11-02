@@ -25,7 +25,7 @@ namespace Shiro.Services
             MainViewModel viewModel,
             Action<string> statusCallback)
         {
-            var list = AccountManager.GetAccountsSnapshot();
+            var list = AppServices.AccountRepository.GetAll();
             if (list == null || list.Count == 0) return;
 
             statusCallback?.Invoke("Đang kiểm tra phiên đăng nhập của tất cả tài khoản...");

@@ -76,6 +76,8 @@ namespace Shiro.Services
     [JsonSerializable(typeof(DiscordWebhookEmbed))]
     [JsonSerializable(typeof(DiscordWebhookField))]
     [JsonSerializable(typeof(TelegramSendMessagePayload))]
+    [JsonSerializable(typeof(ApiAccountJsonItem))]
+    [JsonSerializable(typeof(List<ApiAccountJsonItem>))]
     internal partial class ShiroAppJson : JsonSerializerContext
     {
     }
@@ -122,4 +124,15 @@ namespace Shiro.Services
         [property: JsonPropertyName("chat_id")] string chat_id,
         [property: JsonPropertyName("text")] string text,
         [property: JsonPropertyName("parse_mode")] string parse_mode);
+
+    public sealed record ApiAccountJsonItem(
+        string Username,
+        long UserID,
+        string Alias,
+        string Description,
+        string Group,
+        string? CSRFToken,
+        double LastUsed,
+        string? Cookie,
+        Dictionary<string, string> Fields);
 }

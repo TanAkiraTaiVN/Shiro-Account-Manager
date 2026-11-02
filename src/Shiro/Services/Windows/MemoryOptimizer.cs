@@ -37,9 +37,8 @@ namespace Shiro.Services
         public static bool IsAutoLowerPriorityActive()
         {
             if (!OperatingSystem.IsWindows()) return false;
-            return AccountManager.General == null ||
-                   !AccountManager.General.Exists("AutoLowerProcessPriority") ||
-                   AccountManager.General.Get<bool>("AutoLowerProcessPriority");
+            return !AppSettings.General.Exists("AutoLowerProcessPriority") ||
+                   AppSettings.General.Get<bool>("AutoLowerProcessPriority");
         }
 
         public static void EvaluateWithPids(uint foregroundPid, List<int> runningPids)
@@ -170,7 +169,7 @@ namespace Shiro.Services
                 if (!RobloxProcessService.IsAnyRobloxRunning())
                     return;
 
-                bool lowerPriority = AccountManager.General == null || !AccountManager.General.Exists("AutoLowerProcessPriority") || AccountManager.General.Get<bool>("AutoLowerProcessPriority");
+                bool lowerPriority = !AppSettings.General.Exists("AutoLowerProcessPriority") || AppSettings.General.Get<bool>("AutoLowerProcessPriority");
                 
                 // If enough time has passed for full interval trim, or if any client exceeds 350MB, optimize!
                 bool fullIntervalDue = (DateTime.UtcNow - _lastFullTrim).TotalMinutes >= _trimIntervalMinutes;
@@ -295,7 +294,7 @@ namespace Shiro.Services
 
                     // Avoid forcing the working set to disk with EmptyWorkingSet unless specifically opted into,
                     // preventing page-fault micro-stutters and unnecessary paging overhead.
-                    bool allowEmptyWorkingSet = AccountManager.General?.Get<bool>("AllowEmptyWorkingSetTrimming", false) ?? false;
+                    bool allowEmptyWorkingSet = AppSettings.General.Get<bool>("AllowEmptyWorkingSetTrimming", false);
                     if (allowEmptyWorkingSet && (!isForeground || before > ForegroundMaxMemoryThresholdBytes))
                     {
                         EmptyWorkingSet(hProcess);

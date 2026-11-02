@@ -52,7 +52,7 @@ namespace Shiro.Services
                 {
                     if (_isEnabled == value) return;
                     _isEnabled = value;
-                    AccountManager.General?.Set(AppSettingsKeys.General.StreamerModeEnabled, value ? "true" : "false");
+                    AppSettings.General.Set(AppSettingsKeys.General.StreamerModeEnabled, value ? "true" : "false");
                 }
                 UpdateAffinityState();
             }
@@ -67,7 +67,7 @@ namespace Shiro.Services
                 {
                     if (_autoDetectEnabled == value) return;
                     _autoDetectEnabled = value;
-                    AccountManager.General?.Set(AppSettingsKeys.General.StreamerModeAutoDetect, value ? "true" : "false");
+                    AppSettings.General.Set(AppSettingsKeys.General.StreamerModeAutoDetect, value ? "true" : "false");
 
                     if (value)
                     {
@@ -106,8 +106,8 @@ namespace Shiro.Services
                 if (_initialized) return;
                 _initialized = true;
 
-                _isEnabled = AccountManager.General?.Get<bool>(AppSettingsKeys.General.StreamerModeEnabled, false) ?? false;
-                _autoDetectEnabled = AccountManager.General?.Get<bool>(AppSettingsKeys.General.StreamerModeAutoDetect, false) ?? false;
+                _isEnabled = AppSettings.General.Get<bool>(AppSettingsKeys.General.StreamerModeEnabled, false);
+                _autoDetectEnabled = AppSettings.General.Get<bool>(AppSettingsKeys.General.StreamerModeAutoDetect, false);
 
                 if (_autoDetectEnabled)
                 {

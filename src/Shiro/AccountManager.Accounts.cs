@@ -101,7 +101,7 @@ namespace Shiro
             }
         }
 
-        public void UpdateAccountView(Account account) =>
+        public void UpdateAccountView(Account? account = null) =>
             Shiro.AvaloniaUI.Views.MainWindow.Instance?.RefreshLiveProcessStatus();
 
         public static Account? AddAccount(string SecurityToken, string Password = "", string? AccountJSON = null, bool saveImmediate = true)

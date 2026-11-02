@@ -51,24 +51,22 @@ namespace Shiro
                 string? GroupFilter = req.GetQuery("Group");
                 bool ShowCookies = !string.IsNullOrEmpty(WSPassword) && WSPassword.Length >= 6 && FixedTimeEqualsPassword(Password ?? string.Empty, WSPassword) && req.GetQuery("IncludeCookies") == "true" && WebServer.Get<bool>("AllowGetCookie");
 
-                List<object> Objects = new List<object>();
+                List<ApiAccountJsonItem> Objects = new List<ApiAccountJsonItem>();
 
                 foreach (Account acc in GetAccountsSnapshot())
                 {
                     if (!string.IsNullOrEmpty(GroupFilter) && acc.Group != GroupFilter) continue;
 
-                    object AccountObject = new
-                    {
+                    var AccountObject = new ApiAccountJsonItem(
                         acc.Username,
                         acc.UserID,
                         acc.Alias,
                         acc.Description,
                         acc.Group,
                         acc.CSRFToken,
-                        LastUsed = acc.LastUse.ToRobloxTick(),
-                        Cookie = ShowCookies ? acc.SecurityToken : null,
-                        acc.Fields,
-                    };
+                        acc.LastUse.ToRobloxTick(),
+                        ShowCookies ? acc.SecurityToken : null,
+                        acc.Fields);
 
                     Objects.Add(AccountObject);
                 }

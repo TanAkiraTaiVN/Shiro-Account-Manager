@@ -195,7 +195,7 @@ namespace Shiro.Services
 
             string ipLink = !string.IsNullOrWhiteSpace(ipApiTemplate)
                 ? ipApiTemplate
-                : (AccountManager.General?.Get<string>("IPApiLink") ?? "https://ipwho.is/<ip>");
+                : (AppSettings.General.Get<string>("IPApiLink") ?? "https://ipwho.is/<ip>");
 
             try
             {

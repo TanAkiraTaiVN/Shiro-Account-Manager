@@ -49,59 +49,50 @@ namespace Shiro.Services
 
         public static string? DiscordWebhookUrl
         {
-            get => AccountManager.General?.Get(AppSettingsKeys.General.DiscordWebhookUrl);
+            get => AppSettings.General.Get(AppSettingsKeys.General.DiscordWebhookUrl);
             set
             {
-                if (AccountManager.General != null)
-                {
-                    if (string.IsNullOrWhiteSpace(value))
-                        AccountManager.General.RemoveProperty(AppSettingsKeys.General.DiscordWebhookUrl);
-                    else
-                        AccountManager.General.Set(AppSettingsKeys.General.DiscordWebhookUrl, value);
-                }
+                if (string.IsNullOrWhiteSpace(value))
+                    AppSettings.General.RemoveProperty(AppSettingsKeys.General.DiscordWebhookUrl);
+                else
+                    AppSettings.General.Set(AppSettingsKeys.General.DiscordWebhookUrl, value);
             }
         }
 
         public static string? TelegramBotToken
         {
-            get => AccountManager.General?.Get(AppSettingsKeys.General.TelegramBotToken);
+            get => AppSettings.General.Get(AppSettingsKeys.General.TelegramBotToken);
             set
             {
-                if (AccountManager.General != null)
-                {
-                    if (string.IsNullOrWhiteSpace(value))
-                        AccountManager.General.RemoveProperty(AppSettingsKeys.General.TelegramBotToken);
-                    else
-                        AccountManager.General.Set(AppSettingsKeys.General.TelegramBotToken, value);
-                }
+                if (string.IsNullOrWhiteSpace(value))
+                    AppSettings.General.RemoveProperty(AppSettingsKeys.General.TelegramBotToken);
+                else
+                    AppSettings.General.Set(AppSettingsKeys.General.TelegramBotToken, value);
             }
         }
 
         public static string? TelegramChatId
         {
-            get => AccountManager.General?.Get(AppSettingsKeys.General.TelegramChatId);
+            get => AppSettings.General.Get(AppSettingsKeys.General.TelegramChatId);
             set
             {
-                if (AccountManager.General != null)
-                {
-                    if (string.IsNullOrWhiteSpace(value))
-                        AccountManager.General.RemoveProperty(AppSettingsKeys.General.TelegramChatId);
-                    else
-                        AccountManager.General.Set(AppSettingsKeys.General.TelegramChatId, value);
-                }
+                if (string.IsNullOrWhiteSpace(value))
+                    AppSettings.General.RemoveProperty(AppSettingsKeys.General.TelegramChatId);
+                else
+                    AppSettings.General.Set(AppSettingsKeys.General.TelegramChatId, value);
             }
         }
 
         public static bool NotifyOnDisconnect
         {
-            get => AccountManager.General?.GetBool(AppSettingsKeys.General.NotifyOnDisconnect, true) ?? true;
-            set => AccountManager.General?.Set(AppSettingsKeys.General.NotifyOnDisconnect, value ? "true" : "false");
+            get => AppSettings.General.GetBool(AppSettingsKeys.General.NotifyOnDisconnect, true);
+            set => AppSettings.General.Set(AppSettingsKeys.General.NotifyOnDisconnect, value ? "true" : "false");
         }
 
         public static bool NotifyOnModeration
         {
-            get => AccountManager.General?.GetBool(AppSettingsKeys.General.NotifyOnModeration, true) ?? true;
-            set => AccountManager.General?.Set(AppSettingsKeys.General.NotifyOnModeration, value ? "true" : "false");
+            get => AppSettings.General.GetBool(AppSettingsKeys.General.NotifyOnModeration, true);
+            set => AppSettings.General.Set(AppSettingsKeys.General.NotifyOnModeration, value ? "true" : "false");
         }
 
         public static string EscapeTelegramMarkdown(string? text)

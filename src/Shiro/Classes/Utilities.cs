@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
@@ -6,7 +6,6 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Shiro.Services;
-using Shiro.AvaloniaUI.Views;
 
 namespace Shiro
 {
@@ -133,13 +132,7 @@ namespace Shiro
             }
 
             string promptMessage = string.IsNullOrWhiteSpace(Instruction) ? (Text ?? string.Empty) : $"{Instruction}\n\n{Text}";
-            MessageBoxResult result = MessageBoxDialog.Show(
-                promptMessage,
-                Caption ?? string.Empty,
-                MessageBoxButtons.YesNo,
-                MessageBoxIcon.Warning);
-
-            bool isYes = result == MessageBoxResult.Yes;
+            bool isYes = AppServices.Dialogs.ShowConfirmation(promptMessage, Caption ?? "Shiro");
             if (CanSave && AccountManager.Prompts != null)
             {
                 if (SaveIfNo || isYes)

@@ -227,7 +227,7 @@ namespace Shiro.Services
                     else
                     {
                         // Fallback: gentle foreground pulse only if PostMessage failed, window is visible, and explicit permission is given
-                        bool allowFocusSteal = AccountManager.General?.Get<bool>("AntiAfkForegroundFallback", false) ?? false;
+                        bool allowFocusSteal = AppSettings.General.Get<bool>("AntiAfkForegroundFallback", false);
                         if (!allowFocusSteal)
                         {
                             st.Failures++;

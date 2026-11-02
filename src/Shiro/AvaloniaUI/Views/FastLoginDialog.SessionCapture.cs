@@ -290,11 +290,34 @@ namespace Shiro.AvaloniaUI.Views
                     Account? acc = await AccountManager.AddAccountAsync(cookieValue, _password ?? "", AccountJSON: inPageAccountJson, hbaCapture: hbaSnapshot);
                     Program.Logger?.Info($"[FastLogin] Captured session for '{_username}': payloadLen={Account.GetSessionTokenPayloadLength(cookieValue)}, hba={hbaSnapshot.HasPrivateKey}, registeredValid={acc?.Valid}, resolvedUser={acc?.Username}.");
 
-                    if (acc != null && acc.Valid)
+                    var captureOutcome = await FastLoginCoordinator.ProcessCapturedSessionAsync(
+                        acc,
+                        cookieValue,
+                        _username,
+                        _password,
+                        TxtCookieAlias?.Text?.Trim(),
+                        TxtCookieGroup?.Text?.Trim(),
+                        _accountQueue.Count,
+                        GetCurrentQueueAccount(),
+                        () => DetectDomAccountIssueAsync(core));
+
+                    switch (captureOutcome.Status)
                     {
-                        if (!string.IsNullOrEmpty(_password)) acc.Password = _password;
-                        if (!string.IsNullOrEmpty(_username) && !string.Equals(acc.Username, _username, StringComparison.OrdinalIgnoreCase))
-                        {
+                        case FastLoginCaptureStatus.Success:
+                            CreatedAccount = captureOutcome.Account;
+                            if (_accountQueue.Count > 0 && captureOutcome.Account != null)
+                                MainWindow.Instance?.ViewModel?.UpdateAccountValidity(captureOutcome.Account, true);
+                            else
+                                MainWindow.Instance?.DashboardView?.LoadDashboardData();
+
+                            string progressTag = _accountQueue.Count > 1 ? $" ({_currentQueueIndex + 1}/{_accountQueue.Count})" : "";
+                            if (captureOutcome.Account != null && !Account.IsShortLivedCookie(captureOutcome.Account.SecurityToken))
+                                AccountManager.Instance?.SetDashboardStatus($"Đăng nhập In-App thành công{progressTag}: {captureOutcome.Account.Username}!");
+
+                            await AdvanceToNextAccountOrCloseAsync();
+                            return;
+
+                        case FastLoginCaptureStatus.UsernameMismatch:
                             core.NavigationCompleted -= OnNavigationCompleted;
                             core.SourceChanged -= OnSourceChanged;
                             ResetHbaSnapshot();
@@ -309,59 +332,21 @@ namespace Shiro.AvaloniaUI.Views
                             _pollTimer?.Start();
                             await TryFillCredentialsAsync(forceClick: true);
                             return;
-                        }
 
-                        acc.AccountStatusIssue = string.Empty;
-                        string? alias = TxtCookieAlias?.Text?.Trim();
-                        string? group = TxtCookieGroup?.Text?.Trim();
-                        if (!string.IsNullOrEmpty(alias)) acc.Alias = alias;
-                        if (!string.IsNullOrEmpty(group)) acc.Group = group;
+                        case FastLoginCaptureStatus.UnauthenticatedModeration:
+                            await RedirectUnauthenticatedModerationToLoginAsync(core);
+                            return;
 
-                        try { await AccountManager.SaveAccountsAsync(true); }
-                        catch (Exception ex) { Program.Logger?.Warn($"SaveAccountsAsync after fast login failed: {ex.Message}"); }
+                        case FastLoginCaptureStatus.AccountIssue:
+                            await MarkCurrentAccountIssueAndSkipAsync(
+                                captureOutcome.IssueBadge ?? "Bị khóa / Ban",
+                                captureOutcome.Reason ?? "Phiên bị khóa hoặc kiểm duyệt");
+                            return;
 
-                        CreatedAccount = acc;
-                        if (_accountQueue.Count > 0)
-                            MainWindow.Instance?.ViewModel?.UpdateAccountValidity(acc, true);
-                        else
-                            MainWindow.Instance?.DashboardView?.LoadDashboardData();
-
-                        string progressTag = _accountQueue.Count > 1 ? $" ({_currentQueueIndex + 1}/{_accountQueue.Count})" : "";
-                        if (!Account.IsShortLivedCookie(acc.SecurityToken))
-                            AccountManager.Instance?.SetDashboardStatus($"Đăng nhập In-App thành công{progressTag}: {acc.Username}!");
-
-                        await AdvanceToNextAccountOrCloseAsync();
-                    }
-                    else
-                    {
-                        if (_accountQueue.Count > 0)
-                        {
-                            if (acc?.IsBannedOrLocked == true)
-                            {
-                                var qAcc = GetCurrentQueueAccount();
-                                if (qAcc != null && string.IsNullOrEmpty(qAcc.SecurityToken))
-                                    qAcc.SecurityToken = cookieValue;
-                                await MarkCurrentAccountIssueAndSkipAsync(acc.AccountStatusIssue, "Phiên bị khóa hoặc kiểm duyệt");
-                                return;
-                            }
-
-                            var (domBadge, domReason) = await DetectDomAccountIssueAsync(core);
-                            if (domBadge == "UNAUTHENTICATED_MODERATION")
-                            {
-                                await RedirectUnauthenticatedModerationToLoginAsync(core);
-                                return;
-                            }
-                            if (!string.IsNullOrEmpty(domBadge))
-                            {
-                                var qAcc = GetCurrentQueueAccount();
-                                if (qAcc != null && string.IsNullOrEmpty(qAcc.SecurityToken))
-                                    qAcc.SecurityToken = cookieValue;
-                                await MarkCurrentAccountIssueAndSkipAsync(domBadge, domReason ?? "Phiên bị khóa hoặc kiểm duyệt");
-                                return;
-                            }
-                        }
-                        _captured = false;
-                        _pollTimer?.Start();
+                        default:
+                            _captured = false;
+                            _pollTimer?.Start();
+                            return;
                     }
                 }
                 else if (_accountQueue.Count > 0)

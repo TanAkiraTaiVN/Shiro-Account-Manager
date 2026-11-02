@@ -115,7 +115,7 @@ namespace Shiro.Services
         /// </summary>
         public static Process? SpawnRobloxProcess(string playerPath, string args, string username)
         {
-            bool deElevateEnabled = AccountManager.General?.Get<bool>(AppSettingsKeys.General.EnableTokenDeElevation, true) ?? true;
+            bool deElevateEnabled = AppSettings.General.Get<bool>(AppSettingsKeys.General.EnableTokenDeElevation, true);
             if (deElevateEnabled && IsCurrentProcessElevated())
             {
                 Program.Logger?.Info($"[RobloxDirectLauncher] Shiro is running elevated; de-elevating Roblox launch for {username}...");

@@ -84,12 +84,20 @@ namespace Shiro.Tests
                     changedProps.Add(e.PropertyName);
             };
 
-            vm.IsPotatoMode = !vm.IsPotatoMode;
-            int expectedAfterToggle = vm.IsPotatoMode ? baseCount + 1 : baseCount - 1;
-            Assert.Equal(expectedAfterToggle, vm.ActiveToolsCount);
-            Assert.Equal(vm.ActiveToolsCount > 0, vm.HasActiveTools);
-            Assert.Contains(nameof(MainViewModel.ActiveToolsCount), changedProps);
-            Assert.Contains(nameof(MainViewModel.HasActiveTools), changedProps);
+            var prevPotato = vm.IsPotatoMode;
+            try
+            {
+                vm.IsPotatoMode = !vm.IsPotatoMode;
+                int expectedAfterToggle = vm.IsPotatoMode ? baseCount + 1 : baseCount - 1;
+                Assert.Equal(expectedAfterToggle, vm.ActiveToolsCount);
+                Assert.Equal(vm.ActiveToolsCount > 0, vm.HasActiveTools);
+                Assert.Contains(nameof(MainViewModel.ActiveToolsCount), changedProps);
+                Assert.Contains(nameof(MainViewModel.HasActiveTools), changedProps);
+            }
+            finally
+            {
+                vm.IsPotatoMode = prevPotato;
+            }
 
             changedProps.Clear();
             vm.NotifyToolStatesChanged();
@@ -493,6 +501,8 @@ namespace Shiro.Tests
             if (RobloxProcessService.GetTotalRunningRobloxCount() == 0)
             {
                 var vm = new MainViewModel();
+                vm.IsPotatoMode = false;
+                vm.IsAntiAfk = false;
                 // Ensure initial state
                 RobloxWindowService.ShowAllWindows();
                 Assert.False(vm.AreWindowsHidden);

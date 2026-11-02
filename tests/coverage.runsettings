@@ -5,9 +5,9 @@
       <DataCollector friendlyName="XPlat Code Coverage">
         <Configuration>
           <Format>cobertura</Format>
-          <Exclude>[*]*.Generated*,[*]*.g,*.xaml,*.axaml</Exclude>
+          <Exclude>[*]*.Generated*,[*]*.g,[Shiro.Tests]*,[RBX_Alt_Manager.Tests]*,*.xaml,*.axaml</Exclude>
           <ExcludeByAttribute>GeneratedCodeAttribute,CompilerGeneratedAttribute,ExcludeFromCodeCoverageAttribute</ExcludeByAttribute>
-          <ExcludeByFile>**/*.g.cs,**/*.Designer.cs,**/App.axaml.cs</ExcludeByFile>
+          <ExcludeByFile>**/*.g.cs,**/*.Designer.cs,**/App.axaml.cs,**/AvaloniaUI/**,**/tests/**,**/RobloxBrowserLogin*.cs,**/RobloxBrowserSignup*.cs,**/AccountBrowser.cs,**/ChromiumHomeBrowser.cs,**/RobloxProcess.cs,**/RobloxWatcher.cs</ExcludeByFile>
         </Configuration>
       </DataCollector>
     </DataCollectors>

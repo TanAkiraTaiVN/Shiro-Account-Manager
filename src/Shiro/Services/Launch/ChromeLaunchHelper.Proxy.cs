@@ -88,7 +88,7 @@ namespace Shiro.Services
             string[]? additionalProbeUrls = null,
             CancellationToken cancellationToken = default)
         {
-            if (AccountManager.General == null || !AccountManager.General.Get<bool>("UseProxies"))
+            if (!AppSettings.General.Get<bool>("UseProxies"))
                 return null;
 
             string proxiesPath = StoragePaths.GetUserFile("proxies.txt");
@@ -96,8 +96,8 @@ namespace Shiro.Services
                 return null;
 
             Random rng = new Random(unchecked(Environment.TickCount ^ Guid.NewGuid().GetHashCode()));
-            int timeout = AccountManager.General.Exists("ProxyTimeout") ? AccountManager.General.Get<int>("ProxyTimeout") : 3000;
-            int limit = AccountManager.General.Exists("ProxyTestLimit") ? AccountManager.General.Get<int>("ProxyTestLimit") : 10;
+            int timeout = AppSettings.General.Exists("ProxyTimeout") ? AppSettings.General.Get<int>("ProxyTimeout") : 3000;
+            int limit = AppSettings.General.Exists("ProxyTestLimit") ? AppSettings.General.Get<int>("ProxyTestLimit") : 10;
             string[] proxies = File.ReadAllLines(proxiesPath)
                 .Select(line => line.Trim())
                 .Where(line => !string.IsNullOrWhiteSpace(line) && !line.StartsWith("#"))

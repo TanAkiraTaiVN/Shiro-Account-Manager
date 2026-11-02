@@ -231,8 +231,9 @@ namespace Shiro.Services
             {
                 if (OperatingSystem.IsWindows())
                 {
-                    var mainWin = AvaloniaUI.Views.MainWindow.Instance;
-                    IntPtr hwnd = mainWin?.TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
+                    IntPtr hwnd = Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
+                        ? desktop.MainWindow?.TryGetPlatformHandle()?.Handle ?? IntPtr.Zero
+                        : IntPtr.Zero;
                     if (hwnd != IntPtr.Zero)
                     {
                         IntPtr hMonitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
@@ -291,7 +292,7 @@ namespace Shiro.Services
             // Automatically optimize background processes (lower scheduler priority and trim working set)
             try
             {
-                if (AccountManager.General?.Get<bool>(AppSettingsKeys.General.AutoLowerProcessPriority, true) ?? true)
+                if (AppSettings.General.Get<bool>(AppSettingsKeys.General.AutoLowerProcessPriority, true))
                 {
                     RobloxProcessOptimizer.LowerPriorityForPids(pids.Select(p => (int)p));
                     MemoryOptimizer.TrimRobloxClients(lowerPriority: false);
@@ -332,7 +333,7 @@ namespace Shiro.Services
             // Restore normal priority for unhidden clients
             try
             {
-                if (AccountManager.General?.Get<bool>(AppSettingsKeys.General.AutoLowerProcessPriority, true) ?? true)
+                if (AppSettings.General.Get<bool>(AppSettingsKeys.General.AutoLowerProcessPriority, true))
                 {
                     RobloxProcessOptimizer.RestorePriorityForPids(pids.Select(p => (int)p));
                 }

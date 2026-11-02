@@ -126,7 +126,7 @@ namespace Shiro.Classes
 
                 if (Updated.Count > 0)
                 {
-                    Shiro.AvaloniaUI.Views.MainWindow.Instance?.RefreshLiveProcessStatus();
+                    AccountManager.Instance?.UpdateAccountView();
                 }
             }
             finally

@@ -48,6 +48,18 @@ namespace Shiro.Services
             return res == MessageBoxResult.Yes;
         }
 
+        public bool? ShowYesNoCancel(string message, string title = "Shiro")
+        {
+            var owner = GetActiveOwner();
+            var res = MessageBoxDialog.Show(message, title, MessageBoxButtons.YesNoCancel, MessageBoxIcon.Information, owner);
+            return res switch
+            {
+                MessageBoxResult.Yes => true,
+                MessageBoxResult.No => false,
+                _ => null
+            };
+        }
+
         public string ShowInputPrompt(string message, string title, string defaultValue = "")
         {
             var owner = GetActiveOwner();

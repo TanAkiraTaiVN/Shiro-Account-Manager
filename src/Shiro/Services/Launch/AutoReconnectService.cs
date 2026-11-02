@@ -37,8 +37,8 @@ namespace Shiro.Services
 
         public bool IsEnabled
         {
-            get => _isEnabled && (AccountManager.General?.Get<bool>("EnableAutoReconnect", false) ?? false);
-            set { _isEnabled = value; AccountManager.General?.Set("EnableAutoReconnect", value ? "true" : "false"); }
+            get => _isEnabled && AppSettings.General.Get<bool>("EnableAutoReconnect", false);
+            set { _isEnabled = value; AppSettings.General.Set("EnableAutoReconnect", value ? "true" : "false"); }
         }
         private bool _isEnabled = true;
         public int MaxRetries { get; set; } = 5;

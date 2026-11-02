@@ -43,7 +43,7 @@ namespace Shiro.Services
         public const string DefaultClientId = "1301012345678901234";
 
         public static string ClientId =>
-            AccountManager.General?.Get<string>(AppSettingsKeys.General.DiscordRpcClientId, DefaultClientId) ?? DefaultClientId;
+            AppSettings.General.Get<string>(AppSettingsKeys.General.DiscordRpcClientId, DefaultClientId) ?? DefaultClientId;
 
         private readonly System.Threading.Lock _pipeLock = new();
         private readonly SemaphoreSlim _pipeGate = new(1, 1);
@@ -58,10 +58,10 @@ namespace Shiro.Services
 
         public bool IsEnabled
         {
-            get => AccountManager.General?.Get<bool>(AppSettingsKeys.General.DiscordRpcEnabled, true) ?? true;
+            get => AppSettings.General.Get<bool>(AppSettingsKeys.General.DiscordRpcEnabled, true);
             set
             {
-                AccountManager.General?.Set(AppSettingsKeys.General.DiscordRpcEnabled, value ? "true" : "false");
+                AppSettings.General.Set(AppSettingsKeys.General.DiscordRpcEnabled, value ? "true" : "false");
                 if (value)
                 {
                     Start();
@@ -191,8 +191,8 @@ namespace Shiro.Services
             if (!IsEnabled) return;
 
             bool isStreamerMode = StreamerModeService.IsActive;
-            bool allowJoin = AccountManager.General?.Get<bool>(AppSettingsKeys.General.DiscordRpcJoinCurrentServer, true) ?? true;
-            bool showGame = AccountManager.General?.Get<bool>(AppSettingsKeys.General.DiscordRpcShowGame, true) ?? true;
+            bool allowJoin = AppSettings.General.Get<bool>(AppSettingsKeys.General.DiscordRpcJoinCurrentServer, true);
+            bool showGame = AppSettings.General.Get<bool>(AppSettingsKeys.General.DiscordRpcShowGame, true);
 
             string details;
             if (!string.IsNullOrWhiteSpace(gameName) && showGame)

@@ -28,6 +28,26 @@ namespace Shiro.Tests
         }
 
         [Fact]
+        public void Services_And_Classes_ShouldNotDependOn_Views()
+        {
+            var result = Types.InAssembly(CoreAssembly)
+                .That()
+                .ResideInNamespace("Shiro.Services")
+                .Or()
+                .ResideInNamespace("Shiro.Classes")
+                .And()
+                .DoNotHaveName("AvaloniaDialogService")
+                .ShouldNot()
+                .HaveDependencyOnAny("Shiro.AvaloniaUI.Views")
+                .GetResult();
+
+            var failingNames = (result.FailingTypes?.Select(t => t.FullName ?? t.Name) ?? Enumerable.Empty<string>())
+                .Where(name => !name.StartsWith("Shiro.Services.AvaloniaDialogService", StringComparison.Ordinal))
+                .ToList();
+            Assert.True(failingNames.Count == 0, $"Services and Classes (except AvaloniaDialogService) should not depend on Views. Violations: {string.Join(", ", failingNames)}");
+        }
+
+        [Fact]
         public void NoSourceCodeFiles_ShouldExceed500Lines()
         {
             var dir = new DirectoryInfo(AppContext.BaseDirectory);
@@ -279,8 +299,7 @@ namespace Shiro.Tests
                 ["Account"] = 2900,
                 ["MainViewModel"] = 3500,
                 ["AccountManager"] = 3400,
-                ["ServerListViewModel"] = 1800,
-                ["FastLoginDialog"] = 1500
+                ["ServerListViewModel"] = 1800
             };
 
             var classLines = new System.Collections.Generic.Dictionary<string, int>(StringComparer.Ordinal);
@@ -353,6 +372,69 @@ namespace Shiro.Tests
 
             Assert.True(totalEmptyCatches <= Baseline,
                 $"Empty catch count ({totalEmptyCatches}) exceeded baseline ({Baseline}). New code must log or handle exceptions.");
+        }
+
+        [Fact]
+        public void Services_ShouldUse_AppSettings_And_AccountRepository_InsteadOf_AccountManagerStatic()
+        {
+            var dir = new DirectoryInfo(AppContext.BaseDirectory);
+            string? repoRoot = null;
+            while (dir != null)
+            {
+                if (File.Exists(Path.Combine(dir.FullName, "Shiro.sln")))
+                {
+                    repoRoot = dir.FullName;
+                    break;
+                }
+                dir = dir.Parent;
+            }
+
+            Assert.NotNull(repoRoot);
+            var servicesDir = Path.Combine(repoRoot!, "src", "Shiro", "Services");
+            var files = Directory.GetFiles(servicesDir, "*.cs", SearchOption.AllDirectories)
+                .Where(f => !f.EndsWith("AppSettings.cs", StringComparison.OrdinalIgnoreCase) &&
+                            !f.EndsWith("AccountRepository.cs", StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            var violations = new System.Collections.Generic.List<string>();
+            foreach (var file in files)
+            {
+                string text = File.ReadAllText(file);
+                if (text.Contains("AccountManager.General", StringComparison.Ordinal))
+                    violations.Add($"{Path.GetFileName(file)} references AccountManager.General directly (use AppSettings.General)");
+                if (text.Contains("AccountManager.GetAccountsSnapshot", StringComparison.Ordinal))
+                    violations.Add($"{Path.GetFileName(file)} references AccountManager.GetAccountsSnapshot directly (use AppServices.AccountRepository.GetAll())");
+            }
+
+            Assert.True(violations.Count == 0,
+                $"Service decoupling violations found:\n{string.Join("\n", violations)}");
+        }
+
+        [Fact]
+        public void Services_Directory_ShouldRemainModularized()
+        {
+            var dir = new DirectoryInfo(AppContext.BaseDirectory);
+            string? repoRoot = null;
+            while (dir != null)
+            {
+                if (File.Exists(Path.Combine(dir.FullName, "Shiro.sln")))
+                {
+                    repoRoot = dir.FullName;
+                    break;
+                }
+                dir = dir.Parent;
+            }
+
+            Assert.NotNull(repoRoot);
+            var servicesDir = Path.Combine(repoRoot!, "src", "Shiro", "Services");
+            var rootFiles = Directory.GetFiles(servicesDir, "*.cs", SearchOption.TopDirectoryOnly)
+                .Select(Path.GetFileName)
+                .Where(name => !string.Equals(name, "AppServices.cs", StringComparison.OrdinalIgnoreCase) &&
+                               !string.Equals(name, "ShiroAppJson.cs", StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            Assert.True(rootFiles.Count == 0,
+                $"New service files must be placed inside a domain subfolder (Auth, Launch, Storage, Windows, Network, Ui). Found at root: {string.Join(", ", rootFiles)}");
         }
     }
 }

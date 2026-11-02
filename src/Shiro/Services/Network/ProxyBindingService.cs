@@ -65,13 +65,13 @@ namespace Shiro.Services
 
         /// <summary>
         /// Determines whether proxy routing is currently allowed by global settings.
-        /// When <c>AccountManager.General</c> has an explicit <c>UseProxies</c> key set to <c>false</c>,
+        /// When <c>AppSettings.General</c> has an explicit <c>UseProxies</c> key set to <c>false</c>,
         /// proxy routing is bypassed so disabling proxies in Settings takes effect immediately.
         /// </summary>
         internal static bool IsProxyRoutingAllowed()
         {
-            if (AccountManager.General != null && AccountManager.General.Exists(AppSettingsKeys.General.UseProxies))
-                return AccountManager.General.Get<bool>(AppSettingsKeys.General.UseProxies, false);
+            if (AppSettings.General.Exists(AppSettingsKeys.General.UseProxies))
+                return AppSettings.General.Get<bool>(AppSettingsKeys.General.UseProxies, false);
 
             return true;
         }
@@ -86,9 +86,8 @@ namespace Shiro.Services
                 return SharedHttpClient.Get();
 
             if (string.IsNullOrWhiteSpace(account.Proxy) &&
-                AccountManager.General != null &&
-                AccountManager.General.Exists(AppSettingsKeys.General.UseProxies) &&
-                AccountManager.General.Get<bool>(AppSettingsKeys.General.UseProxies, false))
+                AppSettings.General.Exists(AppSettingsKeys.General.UseProxies) &&
+                AppSettings.General.Get<bool>(AppSettingsKeys.General.UseProxies, false))
             {
                 try
                 {
@@ -99,7 +98,7 @@ namespace Shiro.Services
                             var configuredProxies = ProxyManagerService.GetCachedProxyStrings();
                             if (configuredProxies.Count > 0)
                             {
-                                var snapshot = AccountManager.GetAccountsSnapshot();
+                                var snapshot = AppServices.AccountRepository.GetAll();
                                 var targets = snapshot.Count > 0 && snapshot.Contains(account)
                                     ? snapshot
                                     : new[] { account };

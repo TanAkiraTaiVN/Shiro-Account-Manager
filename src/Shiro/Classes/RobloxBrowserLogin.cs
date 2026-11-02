@@ -10,7 +10,7 @@ using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
-using Shiro.AvaloniaUI.Views;
+
 using Shiro.Services;
 
 namespace Shiro.Classes
@@ -79,16 +79,16 @@ namespace Shiro.Classes
             cancellationToken.ThrowIfCancellationRequested();
             if (proxy != null)
             {
-                MessageBoxResult routeChoice = MessageBoxDialog.Show(
+                bool? routeChoice = AppServices.Dialogs.ShowYesNoCancel(
                     "A proxy is configured for sign-in. Roblox may reject human verification when it detects a proxy connection.\n\n" +
                     "Yes: try a direct connection (recommended for verification)\n" +
                     "No: keep using the configured proxy\n" +
                     "Cancel: stop this sign-in attempt",
-                    "Roblox sign-in connection", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Information);
+                    "Roblox sign-in connection");
 
-                if (routeChoice == MessageBoxResult.Cancel)
+                if (routeChoice == null)
                     return null;
-                if (routeChoice == MessageBoxResult.Yes)
+                if (routeChoice == true)
                 {
                     proxy = null;
                     Program.Logger.Info("Interactive Roblox sign-in will use a direct connection.");

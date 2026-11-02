@@ -150,6 +150,8 @@ namespace Shiro.Tests
                 if (value == null) _store.Remove(name);
                 else _store[name] = value;
             }
+
+            public void RemoveProperty(string name) => _store.Remove(name);
         }
 
         [Fact]

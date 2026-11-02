@@ -32,7 +32,7 @@ namespace Shiro.AvaloniaUI.Views
 
         // Only SHA-256 fingerprints of seen cookies are kept in memory, never the raw .ROBLOSECURITY values.
         private static string Fingerprint(string value) =>
-            Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(value ?? string.Empty)));
+            FastLoginCoordinator.FingerprintCookie(value);
 
         public FastLoginDialog()
         {

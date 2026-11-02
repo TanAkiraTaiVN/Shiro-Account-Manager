@@ -57,31 +57,31 @@ namespace Shiro.Services
         {
             get
             {
-                string raw = AccountManager.General?.Get<string>(AppSettingsKeys.General.BloxGenApiKey) ?? string.Empty;
+                string raw = AppSettings.General.Get<string>(AppSettingsKeys.General.BloxGenApiKey) ?? string.Empty;
                 return CryptoHelper.UnprotectSecretString(raw);
             }
             set
             {
                 string protectedVal = CryptoHelper.ProtectSecretString(value ?? string.Empty);
-                AccountManager.General?.Set(AppSettingsKeys.General.BloxGenApiKey, protectedVal);
+                AppSettings.General.Set(AppSettingsKeys.General.BloxGenApiKey, protectedVal);
             }
         }
 
         public string DefaultContinent
         {
-            get => AccountManager.General?.Get<string>(AppSettingsKeys.General.BloxGenContinent) ?? "RANDOM";
+            get => AppSettings.General.Get<string>(AppSettingsKeys.General.BloxGenContinent) ?? "RANDOM";
             set
             {
-                AccountManager.General?.Set(AppSettingsKeys.General.BloxGenContinent, value ?? "RANDOM");
+                AppSettings.General.Set(AppSettingsKeys.General.BloxGenContinent, value ?? "RANDOM");
             }
         }
 
         public string DefaultGenType
         {
-            get => AccountManager.General?.Get<string>(AppSettingsKeys.General.BloxGenGenType) ?? "unverified";
+            get => AppSettings.General.Get<string>(AppSettingsKeys.General.BloxGenGenType) ?? "unverified";
             set
             {
-                AccountManager.General?.Set(AppSettingsKeys.General.BloxGenGenType, value ?? "unverified");
+                AppSettings.General.Set(AppSettingsKeys.General.BloxGenGenType, value ?? "unverified");
             }
         }
 
@@ -231,7 +231,7 @@ namespace Shiro.Services
 
                 AccountManager.AddAccountThreadSafe(account);
                 AccountManager.SaveAccounts(true, true);
-                Shiro.AvaloniaUI.Views.MainWindow.Instance?.RefreshAccounts(AccountManager.GetAccountsSnapshot());
+                AccountManager.Instance?.RefreshView();
 
                 AppendToHistoryCsv(alt);
                 Program.Logger?.Info($"[BloxGenService] Successfully imported alt account {uname} (ID: {alt.UserId}) to group '{groupName}'.");

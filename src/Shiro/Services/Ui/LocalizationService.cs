@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -96,7 +96,7 @@ namespace Shiro.Services
                 }
 
                 string[] args = Environment.GetCommandLineArgs();
-                string savedLang = AccountManager.General?.Get<string>(AppSettingsKeys.General.Language) ?? string.Empty;
+                string savedLang = AppSettings.General.Get<string>(AppSettingsKeys.General.Language) ?? string.Empty;
                 CurrentLanguage = ResolveInitialLanguage(procName, args, savedLang);
             }
             catch (Exception ex)
@@ -117,7 +117,7 @@ namespace Shiro.Services
             {
                 try
                 {
-                    AccountManager.General?.Set(AppSettingsKeys.General.Language, language == AppLanguage.English ? "en" : "vi");
+                    AppSettings.General.Set(AppSettingsKeys.General.Language, language == AppLanguage.English ? "en" : "vi");
                     AccountManager.QueueDeferredSaveSettings();
                 }
                 catch (Exception ex)

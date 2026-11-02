@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -102,9 +102,9 @@ namespace Shiro.Services
             try
             {
                 string? saved = null;
-                if (AccountManager.General != null && AccountManager.General.Exists("AccentTheme"))
+                if (AppSettings.General.Exists("AccentTheme"))
                 {
-                    saved = AccountManager.General.Get("AccentTheme");
+                    saved = AppSettings.General.Get("AccentTheme");
                 }
                 else if (AccountManager.IniSettings != null && AccountManager.IniSettings.Section("General")?.Exists("AccentTheme") == true)
                 {
@@ -161,7 +161,7 @@ namespace Shiro.Services
                 try
                 {
                     string themeStr = theme.ToString();
-                    AccountManager.General?.Set("AccentTheme", themeStr);
+                    AppSettings.General.Set("AccentTheme", themeStr);
                     AccountManager.IniSettings?.Section("General")?.Set("AccentTheme", themeStr);
                     try { AppSettings.Current.AccentTheme = themeStr; }
                     catch (Exception ex) { Program.Logger?.Debug($"AppSettings.AccentTheme setter failed: {ex.Message}"); }

@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -340,7 +340,7 @@ namespace Shiro.Services
                     _lastCacheTicks = Environment.TickCount64;
                 }
 
-                var accounts = AccountManager.GetAccountsSnapshot();
+                var accounts = AppServices.AccountRepository.GetAll();
                 if (accounts.Count > 0)
                 {
                     if (lines.Count > 0)
