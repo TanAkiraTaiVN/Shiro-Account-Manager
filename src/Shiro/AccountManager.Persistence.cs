@@ -332,6 +332,42 @@ namespace Shiro
             }
         }
 
+        public enum SaveGate { Proceed, Defer, Skip }
+
+        public static SaveGate EvaluateSaveGate(DateTime now, DateTime startTime, DateTime lastSaveTime,
+            bool bypassRateLimit, bool bypassCountCheck, int accountCount, bool anyDirty)
+        {
+            if (!bypassCountCheck && accountCount == 0) return SaveGate.Skip;
+            if (!bypassRateLimit && !bypassCountCheck && !anyDirty) return SaveGate.Skip;
+            if (!bypassRateLimit && ((now - startTime).TotalSeconds < 2 || (now - lastSaveTime).TotalSeconds < 1.5)) return SaveGate.Defer;
+            return SaveGate.Proceed;
+        }
+
+        public static List<Account> TakeDirtyAccounts(IReadOnlyList<Account> accounts)
+        {
+            var taken = new List<Account>();
+            if (accounts == null) return taken;
+            for (int i = 0; i < accounts.Count; i++)
+            {
+                var acc = accounts[i];
+                if (acc != null && acc.IsDirty)
+                {
+                    acc.IsDirty = false;
+                    taken.Add(acc);
+                }
+            }
+            return taken;
+        }
+
+        public static void RestoreDirty(IEnumerable<Account> accounts)
+        {
+            if (accounts == null) return;
+            foreach (var acc in accounts)
+            {
+                if (acc != null) acc.IsDirty = true;
+            }
+        }
+
         private static byte[]? _lastSavedPlaintextHash;
 
         public static Task SaveAccountsAsync(bool BypassRateLimit = false, bool BypassCountCheck = false)
@@ -339,95 +375,92 @@ namespace Shiro
 
         public static void SaveAccounts(bool BypassRateLimit = false, bool BypassCountCheck = false)
         {
-            IReadOnlyList<Account> accountsSnapshot = GetAccountsSnapshot();
-            if ((!BypassRateLimit && (DateTime.Now - startTime).TotalSeconds < 2) ||
-                (!BypassRateLimit && (DateTime.Now - lastSaveTime).TotalSeconds < 1.5) ||
-                (!BypassCountCheck && accountsSnapshot.Count == 0)) return;
-
-            if (!BypassRateLimit && !BypassCountCheck && accountsSnapshot.All(a => !a.IsDirty))
-                return;
-
-            accountStore ??= new AccountStore();
-
             lock (saveLock)
             {
-                lastSaveTime = DateTime.Now;
-                bool savePasswords = General == null ||
-                    !General.Exists("SavePasswords") ||
-                    General.Get<bool>("SavePasswords");
-                byte[] SaveData = AccountDataSerializer.Serialize(accountsSnapshot, savePasswords);
+                IReadOnlyList<Account> accountsSnapshot = GetAccountsSnapshot();
+                bool anyDirty = accountsSnapshot.Any(a => a.IsDirty);
+                SaveGate gate = EvaluateSaveGate(DateTime.Now, startTime, lastSaveTime, BypassRateLimit, BypassCountCheck, accountsSnapshot.Count, anyDirty);
 
-                if (SaveData == null || SaveData.Length < 2)
-                {
-                    Program.Logger?.Error("[AccountManager.SaveAccounts] Serialization produced empty or corrupted payload. Save aborted to protect data integrity.");
-                    return;
-                }
+                if (gate == SaveGate.Defer) { QueueDeferredSave(); return; }
+                if (gate == SaveGate.Skip) return;
+
+                lastSaveTime = DateTime.Now;
+                var taken = TakeDirtyAccounts(accountsSnapshot);
 
                 try
                 {
-                    byte[] currentHash = System.Security.Cryptography.SHA256.HashData(SaveData);
+                    accountStore ??= new AccountStore();
+                    bool savePasswords = General == null || !General.Exists("SavePasswords") || General.Get<bool>("SavePasswords");
+                    byte[] SaveData = AccountDataSerializer.Serialize(accountsSnapshot, savePasswords);
 
-                    if (!BypassRateLimit &&
-                        _lastSavedPlaintextHash != null &&
-                        currentHash.AsSpan().SequenceEqual(_lastSavedPlaintextHash) &&
-                        File.Exists(accountStore.AccountFile))
+                    if (SaveData == null || SaveData.Length < 2)
                     {
-                        foreach (var acc in accountsSnapshot)
-                        {
-                            acc.IsDirty = false;
-                        }
+                        Program.Logger?.Error("[AccountManager.SaveAccounts] Serialization produced empty or corrupted payload. Save aborted to protect data integrity.");
+                        RestoreDirty(taken);
                         return;
                     }
 
-                    bool forceHistorical = Instance?.shutdownRequested == true;
+                    try
+                    {
+                        byte[] currentHash = System.Security.Cryptography.SHA256.HashData(SaveData);
 
-                    if (!PasswordHash.IsEmpty)
-                    {
-                        byte[] unprotectedHash = ProtectedData.Unprotect(PasswordHash.ToArray(), Array.Empty<byte>(), DataProtectionScope.CurrentUser);
-                        try
+                        if (!BypassRateLimit && _lastSavedPlaintextHash != null &&
+                            currentHash.AsSpan().SequenceEqual(_lastSavedPlaintextHash) &&
+                            File.Exists(accountStore.AccountFile))
                         {
-                            byte[] encrypted = Cryptography.Encrypt(SaveData, unprotectedHash);
-                            accountStore.WriteWithBackup(encrypted, forceHistorical);
-                        }
-                        finally
-                        {
-                            System.Security.Cryptography.CryptographicOperations.ZeroMemory(unprotectedHash);
-                        }
-                    }
-                    else
-                    {
-                        byte[] vaultKey = StoragePaths.GetOrCreateVaultKeyCopy();
-                        try
-                        {
-                            byte[] encrypted = Cryptography.Encrypt(SaveData, vaultKey);
-                            accountStore.WriteWithBackup(encrypted, forceHistorical);
-                        }
-                        finally
-                        {
-                            CryptographicOperations.ZeroMemory(vaultKey);
+                            return;
                         }
 
-                        if (legacyPlaintextLoaded || File.Exists(PlaintextOptInFile))
+                        bool forceHistorical = Instance?.shutdownRequested == true;
+
+                        if (!PasswordHash.IsEmpty)
                         {
-                            try { File.Delete(PlaintextOptInFile); }
-                            catch (Exception exception)
+                            byte[] unprotectedHash = ProtectedData.Unprotect(PasswordHash.ToArray(), Array.Empty<byte>(), DataProtectionScope.CurrentUser);
+                            try
                             {
-                                Program.Logger.Warn($"Account data was protected with AES vault, but the legacy plaintext marker could not be removed: {exception.Message}");
+                                byte[] encrypted = Cryptography.Encrypt(SaveData, unprotectedHash);
+                                accountStore.WriteWithBackup(encrypted, forceHistorical);
                             }
-                            legacyPlaintextLoaded = false;
+                            finally
+                            {
+                                System.Security.Cryptography.CryptographicOperations.ZeroMemory(unprotectedHash);
+                            }
                         }
+                        else
+                        {
+                            byte[] vaultKey = StoragePaths.GetOrCreateVaultKeyCopy();
+                            try
+                            {
+                                byte[] encrypted = Cryptography.Encrypt(SaveData, vaultKey);
+                                accountStore.WriteWithBackup(encrypted, forceHistorical);
+                            }
+                            finally
+                            {
+                                CryptographicOperations.ZeroMemory(vaultKey);
+                            }
+
+                            if (legacyPlaintextLoaded || File.Exists(PlaintextOptInFile))
+                            {
+                                try { File.Delete(PlaintextOptInFile); }
+                                catch (Exception exception)
+                                {
+                                    Program.Logger.Warn($"Account data was protected with AES vault, but the legacy plaintext marker could not be removed: {exception.Message}");
+                                }
+                                legacyPlaintextLoaded = false;
+                            }
+                        }
+
+                        _lastSavedPlaintextHash = currentHash;
                     }
-
-                    _lastSavedPlaintextHash = currentHash;
-
-                    foreach (var acc in accountsSnapshot)
+                    finally
                     {
-                        acc.IsDirty = false;
+                        System.Security.Cryptography.CryptographicOperations.ZeroMemory(SaveData);
                     }
                 }
-                finally
+                catch (Exception)
                 {
-                    System.Security.Cryptography.CryptographicOperations.ZeroMemory(SaveData);
+                    RestoreDirty(taken);
+                    throw;
                 }
             }
         }
@@ -440,15 +473,9 @@ namespace Shiro
 
         public static void QueueDeferredSave()
         {
-            try
-            {
-                _deferredSaveTimer.Change(1500, Timeout.Infinite);
-            }
+            try { _deferredSaveTimer.Change(1500, Timeout.Infinite); }
             catch (ObjectDisposedException) { }
-            catch (Exception ex)
-            {
-                Program.Logger?.Warn($"Failed to schedule deferred account save: {ex.Message}");
-            }
+            catch (Exception ex) { Program.Logger?.Warn($"Failed to schedule deferred account save: {ex.Message}"); }
         }
 
         private static byte[] TryUnprotectAccountData(byte[] data, out bool usedLegacyScope)
