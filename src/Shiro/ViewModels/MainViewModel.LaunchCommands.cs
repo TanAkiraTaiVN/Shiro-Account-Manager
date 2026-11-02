@@ -54,25 +54,19 @@ namespace Shiro.ViewModels
         private void ExecuteViewBanForAccount(AccountViewModel? avm)
         {
             if (avm?.Model == null) return;
-            var model = avm.Model;
             string notice = !string.IsNullOrWhiteSpace(avm.BanNoticeText) ? avm.BanNoticeText : "Tài khoản bị kiểm duyệt hoặc khóa";
+            StatusMessage = $"{avm.Username}: Đang mở trình duyệt In-App để xem thông báo ({notice})...";
             ToastService.ShowWarning(
-                $"Mở Roblox: {avm.Username}",
-                $"{notice}\nĐang mở trực tiếp ứng dụng Roblox để bạn xem thông báo án phạt và kích hoạt lại tài khoản...",
+                $"Xem lệnh Ban: {avm.Username}",
+                $"{notice}\nĐang mở trình duyệt In-App đã gắn phiên để xem chi tiết án phạt và mở khóa tài khoản...",
                 4.0);
 
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                    await AccountLauncherService.LaunchAppHomeAsync(model).ConfigureAwait(false);
-                }
-                catch (Exception ex)
-                {
-                    Program.Logger?.Error($"[ViewBanAccountCommand] Failed to launch Roblox Home: {ex.Message}");
-                    Utilities.OpenUrl("https://www.roblox.com/home");
-                }
-            });
+            if (OnFastReLoginRequested != null)
+                OnFastReLoginRequested.Invoke(avm);
+            else if (OnReLoginRequested != null)
+                OnReLoginRequested.Invoke(avm);
+            else
+                AppServices.Dialogs.OpenFastLoginDialog(avm.Model);
         }
 
         private void ExecuteCloseRobloxForAccount(AccountViewModel? avm)

@@ -34,9 +34,7 @@ namespace Shiro.AvaloniaUI.Views
                     (() => {
                         try {
                             const url = (window.location.href || '').toLowerCase();
-                            if (url.includes('/not-approved') || url.includes('/account-status') || url.includes('/moderation') || url.includes('/security-notification') || url.includes('/account-locked')) {
-                                return 'LOCKED_OR_BANNED';
-                            }
+                            const isModUrl = url.includes('/not-approved') || url.includes('/account-status') || url.includes('/moderation') || url.includes('/security-notification') || url.includes('/account-locked');
                             const errSelectors = '#login-form-error, .form-error, .alert-warning, .text-error, [role=""alert""], .modal-body, .not-approved-container';
                             const nodes = document.querySelectorAll(errSelectors);
                             let combined = '';
@@ -45,7 +43,10 @@ namespace Shiro.AvaloniaUI.Views
                                     combined += ' ' + n.innerText.toLowerCase();
                                 }
                             }
-                            if (!combined) return '';
+                            if (isModUrl && document.body && document.body.innerText) {
+                                combined += ' ' + document.body.innerText.toLowerCase();
+                            }
+                            if (!combined) return isModUrl ? 'LOCKED_OR_BANNED' : '';
                             if (combined.includes('7 day') || combined.includes('7-day') || combined.includes('7 ngày')) {
                                 return 'BAN_7_DAYS';
                             }
@@ -73,7 +74,7 @@ namespace Shiro.AvaloniaUI.Views
                             if (combined.includes('incorrect username or password') || combined.includes('invalid username or password') || combined.includes('sai mật khẩu') || combined.includes('tên người dùng hoặc mật khẩu không đúng')) {
                                 return 'WRONG_PASSWORD';
                             }
-                            return '';
+                            return isModUrl ? 'LOCKED_OR_BANNED' : '';
                         } catch (_) {
                             return '';
                         }
@@ -112,11 +113,6 @@ namespace Shiro.AvaloniaUI.Views
             await ClearAuthCookiesAsync();
             await InstallHbaCaptureHookAsync(core);
 
-            // Inject dark background & GDPR banner suppression only.
-            // IMPORTANT: Do NOT strip secureAuthenticationIntent or block IndexedDB('roblox-security')!
-            // Stripping SAI causes POST /v2/login to issue a downgraded 592-byte (790-char) fallback cookie
-            // that expires after ~30 minutes on auth.roblox.com, instead of a full 704-byte (939-char) 7+ day session.
-            // Cross-account isolation is guaranteed by giving every account its own virgin WebView2 ProfileName.
             await core.AddScriptToExecuteOnDocumentCreatedAsync(@"
                 try {
                     const style = document.createElement('style');
@@ -210,8 +206,6 @@ namespace Shiro.AvaloniaUI.Views
             {
                 try { core.Stop(); } catch (Exception) { }
 
-                // Unload any active roblox.com page BEFORE deleting cookies so the open page
-                // cannot detect cookie removal or send a background sign-out / session-revoke beacon.
                 try
                 {
                     string currentSrc = core.Source ?? string.Empty;
@@ -263,7 +257,6 @@ namespace Shiro.AvaloniaUI.Views
                 try { cookieManager.DeleteCookiesWithDomainAndPath(".RBXSESSIONTRACKER", ".roblox.com", "/"); } catch (Exception) { }
                 try { cookieManager.DeleteCookiesWithDomainAndPath("RBXEventTrackerV2", ".roblox.com", "/"); } catch (Exception) { }
 
-                // Purge all cookies, localStorage, sessionStorage, and HBA IndexedDB keys via DevTools Protocol & Profile API
                 try { await core.Profile.ClearBrowsingDataAsync(); } catch (Exception) { }
                 try { await core.CallDevToolsProtocolMethodAsync("Network.clearBrowserCookies", "{}"); } catch (Exception) { }
                 try
@@ -287,7 +280,6 @@ namespace Shiro.AvaloniaUI.Views
                     Program.Logger?.Debug($"DevTools clearDataForOrigin auth.roblox.com threw: {ex.Message}");
                 }
 
-                // Re-apply GDPR Consent cookies so annoying banner never covers login
                 try
                 {
                     var consentCookie1 = cookieManager.CreateCookie("OptanonAlertBoxClosed", DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"), ".roblox.com", "/");

@@ -244,5 +244,27 @@ namespace Shiro.Tests
             await Assert.ThrowsAsync<System.ObjectDisposedException>(() =>
                 coordinator.EnqueueAsync(req, 1, false, null));
         }
+
+        [Fact]
+        public async System.Threading.Tasks.Task EnqueueAsync_WhenAccountIsBanned_PreservesBanStatusInsteadOfClearingToExpired()
+        {
+            var bannedAcc = new Account
+            {
+                Username = "BannedUser",
+                UserID = 777,
+                Valid = false,
+                AccountStatusIssue = "Ban 3 ngày"
+            };
+
+            var coordinator = new LaunchCoordinator((req, ct) =>
+                System.Threading.Tasks.Task.FromResult("ERROR: Không thể lấy Authentication Ticket từ Roblox."));
+
+            var req = new[] { new LaunchRequest(bannedAcc, 0, "", false, false, openHome: true) };
+            await coordinator.EnqueueAsync(req, 1, false, null);
+
+            Assert.False(bannedAcc.Valid);
+            Assert.True(bannedAcc.IsBannedOrLocked);
+            Assert.Equal("Ban 3 ngày", bannedAcc.AccountStatusIssue);
+        }
     }
 }

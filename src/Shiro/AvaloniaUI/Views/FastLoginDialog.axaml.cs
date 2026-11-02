@@ -143,8 +143,21 @@ namespace Shiro.AvaloniaUI.Views
             {
                 await ConfigureCoreWebViewAsync(core);
 
-                // Navigate to login
-                core.Navigate("https://www.roblox.com/login");
+                var singleAcc = _accountQueue.Count == 1 ? _accountQueue[0] : null;
+                if (singleAcc != null && singleAcc.IsBannedOrLocked && !string.IsNullOrWhiteSpace(singleAcc.SecurityToken))
+                {
+                    var banCookie = core.CookieManager.CreateCookie(".ROBLOSECURITY", singleAcc.SecurityToken, ".roblox.com", "/");
+                    banCookie.IsHttpOnly = true;
+                    banCookie.IsSecure = true;
+                    core.CookieManager.AddOrUpdateCookie(banCookie);
+                    _ignoredCookieValues.Add(Fingerprint(singleAcc.SecurityToken));
+                    TxtInAppStatus.Text = $"Đang mở trang kiểm duyệt Roblox cho {singleAcc.Username} ({singleAcc.AccountStatusIssue})...";
+                    core.Navigate("https://www.roblox.com/not-approved");
+                }
+                else
+                {
+                    core.Navigate("https://www.roblox.com/login");
+                }
 
                 // Start fast poll timer to capture .ROBLOSECURITY session
                 if (_pollTimer != null)

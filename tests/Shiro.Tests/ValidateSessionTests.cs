@@ -227,5 +227,95 @@ namespace Shiro.Tests
             Assert.True(acc.Valid);
             Assert.Equal(rotatedToken, acc.SecurityToken);
         }
+
+        [Fact]
+        public async Task Validate_WhenHomeRedirectsToNotApprovedWithReactShell_MarksAccountBannedNotExpired()
+        {
+            var handler = new FakeHandler(req =>
+            {
+                if (req.RequestUri!.Host == "users.roblox.com")
+                    return Json(HttpStatusCode.OK, "{\"id\":42,\"name\":\"Tester\"}");
+
+                if (req.RequestUri.Host == "accountsettings.roblox.com" || req.RequestUri.Host == "friends.roblox.com")
+                    return Json(HttpStatusCode.Unauthorized);
+
+                if (req.RequestUri.Host == "www.roblox.com" && req.RequestUri.AbsolutePath.Equals("/home", StringComparison.OrdinalIgnoreCase))
+                {
+                    var redirect = new HttpResponseMessage(HttpStatusCode.Found);
+                    redirect.Headers.Location = new Uri("https://www.roblox.com/not-approved");
+                    return redirect;
+                }
+
+                if (req.RequestUri.Host == "www.roblox.com" && req.RequestUri.AbsolutePath.Contains("not-approved", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Modern Roblox React SPA shell without server-rendered moderation text
+                    return new HttpResponseMessage(HttpStatusCode.OK)
+                    {
+                        Content = new StringContent("<!DOCTYPE html><html><head><title>Roblox</title></head><body><div id=\"app\"></div></body></html>")
+                    };
+                }
+
+                return Json(HttpStatusCode.OK);
+            });
+            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+
+            var acc = NewAccount();
+            bool valid = await acc.ValidateSessionAsync();
+
+            Assert.False(valid);
+            Assert.False(acc.Valid);
+            Assert.True(acc.IsBannedOrLocked);
+            Assert.False(string.IsNullOrEmpty(acc.AccountStatusIssue));
+        }
+
+        [Fact]
+        public async Task Validate_WhenUsersReturns401_ButHomeRedirectsToBan_MarksAccountBannedNotExpired()
+        {
+            var handler = new FakeHandler(req =>
+            {
+                if (req.RequestUri!.Host == "www.roblox.com" && req.RequestUri.AbsolutePath.Equals("/home", StringComparison.OrdinalIgnoreCase))
+                {
+                    var redirect = new HttpResponseMessage(HttpStatusCode.Found);
+                    redirect.Headers.Location = new Uri("https://www.roblox.com/not-approved");
+                    return redirect;
+                }
+
+                if (req.RequestUri.Host == "www.roblox.com" && req.RequestUri.AbsolutePath.Contains("not-approved", StringComparison.OrdinalIgnoreCase))
+                {
+                    return new HttpResponseMessage(HttpStatusCode.OK)
+                    {
+                        Content = new StringContent("<div><h2>Banned for 3 Days</h2><p>Moderator Note: Spamming</p></div>")
+                    };
+                }
+
+                return Json(HttpStatusCode.Unauthorized);
+            });
+            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+
+            var acc = NewAccount();
+            bool valid = await acc.ValidateSessionAsync();
+
+            Assert.False(valid);
+            Assert.False(acc.Valid);
+            Assert.True(acc.IsBannedOrLocked);
+            Assert.Contains("3 ngày", acc.AccountStatusIssue);
+        }
+
+        [Fact]
+        public async Task Validate_WhenAlreadyBannedAndCookieUnauthorized_PreservesBanBadge()
+        {
+            Account.TestHttpClientFactory = _ => new HttpClient(new FakeHandler(_ => Json(HttpStatusCode.Unauthorized)));
+
+            var acc = NewAccount();
+            acc.Valid = false;
+            acc.AccountStatusIssue = "Ban 7 ngày";
+
+            bool valid = await acc.ValidateSessionAsync();
+
+            Assert.False(valid);
+            Assert.False(acc.Valid);
+            Assert.True(acc.IsBannedOrLocked);
+            Assert.Equal("Ban 7 ngày", acc.AccountStatusIssue);
+        }
     }
 }

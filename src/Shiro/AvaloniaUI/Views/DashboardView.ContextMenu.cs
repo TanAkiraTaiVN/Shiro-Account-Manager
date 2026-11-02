@@ -75,11 +75,7 @@ namespace Shiro.AvaloniaUI.Views
             => OnCardViewBanClicked(sender, e);
 
         private void OnMenuOpenModerationBrowser(object sender, RoutedEventArgs e)
-        {
-            var avm = GetItemFromMenu(sender);
-            if (avm?.Model != null)
-                Utilities.OpenUrl("https://www.roblox.com/home");
-        }
+            => OnCardViewBanClicked(sender, e);
 
         private void OnMenuCheckRobux(object sender, RoutedEventArgs e)
             => ExecuteMenuCommand(sender, ViewModel.CheckRobuxAccountCommand);

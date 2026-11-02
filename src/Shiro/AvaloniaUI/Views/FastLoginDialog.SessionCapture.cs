@@ -44,7 +44,6 @@ namespace Shiro.AvaloniaUI.Views
                 await Task.Delay(500);
                 await AdvanceToNextAccountOrCloseAsync();
             }
-            // For a single account: KEEP THE WINDOW OPEN so user can see Roblox's message, solve 2FA/Captcha, or review notice!
         }
 
         private async Task AdvanceToNextAccountOrCloseAsync()
@@ -67,8 +66,6 @@ namespace Shiro.AvaloniaUI.Views
                 TxtInAppStatus.Text = $"Chuyển sang {_username} ({_currentQueueIndex + 1}/{_accountQueue.Count})...";
                 TxtInAppStatus.Foreground = Brushes.DeepSkyBlue;
 
-                // Create a 100% isolated virgin WebView2 profile for the next account so no IndexedDB HBA keys,
-                // LocalStorage CachedUserId, or RBXEventTrackerV2 cookies are ever shared across accounts!
                 CoreWebView2? freshCore = null;
                 if (WvBrowser != null)
                 {
@@ -124,27 +121,46 @@ namespace Shiro.AvaloniaUI.Views
 
                 if (secCookie != null && !string.IsNullOrWhiteSpace(secCookie.Value) && secCookie.Value.StartsWith("_|"))
                 {
-                    if (_ignoredCookieValues.Contains(Fingerprint(secCookie.Value)))
+                    string fp = Fingerprint(secCookie.Value);
+                    if (_ignoredCookieValues.Contains(fp))
                     {
-                        try { core.CookieManager.DeleteCookie(secCookie); } catch (Exception) { }
-                        return;
+                        if (IsModerationOrLockedUrl(currentUrl))
+                        {
+                            var (domBadge, domReason) = await DetectDomAccountIssueAsync(core);
+                            if (!string.IsNullOrEmpty(domBadge))
+                                await MarkCurrentAccountIssueAndSkipAsync(domBadge, domReason ?? domBadge);
+                            return;
+                        }
+                        if (_accountQueue.Count == 1 && _accountQueue[0].IsBannedOrLocked &&
+                            currentUrl.Contains("/home", StringComparison.OrdinalIgnoreCase))
+                        {
+                            _ignoredCookieValues.Remove(fp);
+                        }
+                        else
+                        {
+                            try { core.CookieManager.DeleteCookie(secCookie); } catch (Exception) { }
+                            return;
+                        }
                     }
 
                     _captured = true;
                     _pollTimer?.Stop();
-                    _ignoredCookieValues.Add(Fingerprint(secCookie.Value));
+                    _ignoredCookieValues.Add(fp);
                     Program.Logger.Info($"[FastLogin] .ROBLOSECURITY detected for '{_username}' (len={secCookie.Value.Length}, url={core.Source}). Waiting for settle...");
 
                     TxtInAppStatus.Text = $"Đã bắt phiên {_username ?? "tài khoản"}! Đang chờ xoay Cookie & lưu...";
                     TxtInAppStatus.Foreground = Brushes.LightGreen;
 
-                    // 1. Wait for WebView2 to redirect away from /login (e.g. to /home or /discover)
                     for (int w = 0; w < 24; w++)
                     {
                         string navUrl = core.Source ?? string.Empty;
                         if (_accountQueue.Count > 0 && IsModerationOrLockedUrl(navUrl))
                         {
-                            await MarkCurrentAccountIssueAndSkipAsync("Bị khóa / Ban", "Tài khoản bị khóa hoặc kiểm duyệt");
+                            var qAcc = GetCurrentQueueAccount();
+                            if (qAcc != null) qAcc.SecurityToken = secCookie.Value;
+                            await Task.Delay(700);
+                            var (b, r) = await DetectDomAccountIssueAsync(core);
+                            await MarkCurrentAccountIssueAndSkipAsync(b ?? "Bị khóa / Ban", r ?? "Tài khoản bị khóa hoặc kiểm duyệt");
                             return;
                         }
                         if (!string.IsNullOrEmpty(navUrl) && !navUrl.Contains("/login", StringComparison.OrdinalIgnoreCase))
@@ -154,17 +170,18 @@ namespace Shiro.AvaloniaUI.Views
                         await Task.Delay(250);
                     }
 
-                    // 2. Allow post-redirect /home requests and server-side cookie rotation to settle
                     await Task.Delay(1500);
 
                     string postRedirectUrl = core.Source ?? string.Empty;
                     if (_accountQueue.Count > 0 && IsModerationOrLockedUrl(postRedirectUrl))
                     {
-                        await MarkCurrentAccountIssueAndSkipAsync("Bị khóa / Ban", "Tài khoản bị khóa hoặc kiểm duyệt");
+                        var qAcc = GetCurrentQueueAccount();
+                        if (qAcc != null) qAcc.SecurityToken = secCookie.Value;
+                        var (b, r) = await DetectDomAccountIssueAsync(core);
+                        await MarkCurrentAccountIssueAndSkipAsync(b ?? "Bị khóa / Ban", r ?? "Tài khoản bị khóa hoặc kiểm duyệt");
                         return;
                     }
 
-                    // 3. Trigger an in-page authenticated request so any edge Set-Cookie rotation completes inside WebView2
                     try
                     {
                         await core.ExecuteScriptAsync(@"
@@ -185,7 +202,6 @@ namespace Shiro.AvaloniaUI.Views
                         Program.Logger?.Debug($"Trigger in-page auth request threw: {ex.Message}");
                     }
 
-                    // 4. Read the final settled/rotated .ROBLOSECURITY cookie across Roblox origins
                     string cookieValue = secCookie.Value;
                     try
                     {
@@ -211,7 +227,6 @@ namespace Shiro.AvaloniaUI.Views
                         Program.Logger?.Debug($"Reading settled cookies threw: {ex.Message}");
                     }
 
-                    // 5. If password was manually entered or autofilled, capture it before stopping WebView2
                     if (string.IsNullOrEmpty(_password))
                     {
                         try
@@ -246,7 +261,6 @@ namespace Shiro.AvaloniaUI.Views
                         }
                     }
 
-                    // 6. Capture HBA cryptographic device-binding keys & tracker fingerprint before stopping WebView2
                     var hbaSnapshot = await CollectFinalHbaAndFingerprintAsync(core);
 
                     try
@@ -270,7 +284,6 @@ namespace Shiro.AvaloniaUI.Views
                         if (!string.IsNullOrEmpty(_username) &&
                             !string.Equals(acc.Username, _username, StringComparison.OrdinalIgnoreCase))
                         {
-                            // Stale session from previous account; reset to a fresh isolated WebView2 profile and re-login target account
                             core.NavigationCompleted -= OnNavigationCompleted;
                             core.SourceChanged -= OnSourceChanged;
                             ResetHbaSnapshot();
@@ -312,7 +325,11 @@ namespace Shiro.AvaloniaUI.Views
                     {
                         if (_accountQueue.Count > 0)
                         {
-                            await MarkCurrentAccountIssueAndSkipAsync("Bị khóa / Ban", "Phiên bị khóa hoặc kiểm duyệt");
+                            var qAcc = GetCurrentQueueAccount();
+                            string badge = acc?.IsBannedOrLocked == true ? acc.AccountStatusIssue : "Bị khóa / Ban";
+                            if (qAcc != null && string.IsNullOrEmpty(qAcc.SecurityToken))
+                                qAcc.SecurityToken = cookieValue;
+                            await MarkCurrentAccountIssueAndSkipAsync(badge, "Phiên bị khóa hoặc kiểm duyệt");
                             return;
                         }
 

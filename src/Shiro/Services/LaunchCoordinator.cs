@@ -185,12 +185,14 @@ namespace Shiro.Services
 
                     state.Completed = true;
 
+                    bool wasAlreadyBanned = request.Account.IsBannedOrLocked;
                     bool isTicketAuthError = !request.Account.Valid ||
                         (!string.IsNullOrEmpty(state.Result) && state.Result.Contains("Roblox has probably signed you out", StringComparison.OrdinalIgnoreCase));
 
                     if (isTicketAuthError)
                     {
-                        request.Account.AccountStatusIssue = string.Empty;
+                        if (!wasAlreadyBanned)
+                            request.Account.AccountStatusIssue = string.Empty;
                         request.Account.Valid = false;
                         AccountManager.Instance?.BeginInvoke(new Action(() =>
                         {
@@ -198,20 +200,36 @@ namespace Shiro.Services
                             AccountManager.Instance?.RefreshView(request.Account);
                         }));
 
-                        Program.Logger?.Warn($"[LaunchCoordinator] TÀI KHOẢN [{request.Account.Username}] BỊ HẾT HẠN PHIÊN (Auth ticket error / Signed out)! Đã đánh dấu hết hạn và bỏ qua.");
-                        if (launchList.Count == 1)
+                        if (wasAlreadyBanned || request.Account.IsBannedOrLocked)
                         {
-                            AppDispatcher.Post(() =>
+                            Program.Logger?.Warn($"[LaunchCoordinator] TÀI KHOẢN [{request.Account.Username}] ĐANG BỊ KHÓA / BAN ({request.Account.AccountStatusIssue})! Giữ nguyên trạng thái cấm.");
+                            if (launchList.Count == 1)
                             {
-                                ToastService.ShowWarning("Hết hạn phiên", $"{request.Account.Username}: Phiên đăng nhập đã hết hạn. Hãy bấm 'Re-login' trên thẻ.");
-                            });
+                                AppDispatcher.Post(() =>
+                                {
+                                    ToastService.ShowWarning("Tài khoản bị khóa / Ban", $"{request.Account.Username}: {request.Account.AccountStatusIssue}. Bấm 'Xem Ban' trên thẻ để kiểm tra.");
+                                });
+                            }
+                        }
+                        else
+                        {
+                            Program.Logger?.Warn($"[LaunchCoordinator] TÀI KHOẢN [{request.Account.Username}] BỊ HẾT HẠN PHIÊN (Auth ticket error / Signed out)! Đã đánh dấu hết hạn và bỏ qua.");
+                            if (launchList.Count == 1)
+                            {
+                                AppDispatcher.Post(() =>
+                                {
+                                    ToastService.ShowWarning("Hết hạn phiên", $"{request.Account.Username}: Phiên đăng nhập đã hết hạn. Hãy bấm 'Re-login' trên thẻ.");
+                                });
+                            }
                         }
                     }
 
                     state.Message = IsSuccessfulResult(state.Result)
                         ? $"[{index + 1}/{launchList.Count}] {request.Account.Username} launched."
                         : (isTicketAuthError
-                            ? $"{request.Account.Username}: Phiên đăng nhập đã hết hạn! Bấm 'Re-login' trên thẻ để đăng nhập lại."
+                            ? (request.Account.IsBannedOrLocked
+                                ? $"{request.Account.Username}: {request.Account.AccountStatusIssue}! Bấm 'Xem Ban' trên thẻ để kiểm tra."
+                                : $"{request.Account.Username}: Phiên đăng nhập đã hết hạn! Bấm 'Re-login' trên thẻ để đăng nhập lại.")
                             : $"Warning ({request.Account.Username}): {state.Result}");
                     results.Add(state);
                     Report(progress, state);
@@ -219,9 +237,6 @@ namespace Shiro.Services
                     if (index >= launchList.Count - 1 || linkedCancellation.IsCancellationRequested)
                         continue;
 
-                    // An auth/startup failure has no protocol handoff, so do
-                    // not leave an async queue waiting for an event that can
-                    // never arrive.
                     if (!IsSuccessfulResult(state.Result))
                         signal.TrySetResult(false);
 
@@ -237,7 +252,6 @@ namespace Shiro.Services
                             Message = $"[{index + 1}/{launchList.Count}] {request.Account.Username} launched. Smart Pipeline waiting for instance unlock..."
                         });
 
-                        // Dynamically wait for the client to initialize its main game window
                         int targetPid = request.Account.LastLaunchedProcessId;
                         bool unlocked = await RobloxSingletonService.WaitForClientUnlockedAsync(
                             targetPid,
@@ -270,16 +284,6 @@ namespace Shiro.Services
                     }
                     else if (asyncJoin)
                     {
-                        // One cancellable timeout is enough here. The old
-                        // 250ms polling loop allocated up to 80 timer tasks
-                        // per account and added needless scheduler work while
-                        // waiting for Roblox's protocol handoff.
-                        // Keep a per-account cancellation source for the
-                        // timeout itself.  Without it, a successful protocol
-                        // handoff leaves a 20-second delay task registered
-                        // until the whole batch ends; opening many accounts
-                        // could therefore leave dozens of dormant timers in
-                        // the scheduler after the queue had already moved on.
                         using (CancellationTokenSource timeoutCancellation =
                             CancellationTokenSource.CreateLinkedTokenSource(linkedCancellation.Token))
                         {
@@ -371,7 +375,7 @@ namespace Shiro.Services
                 }
 
                 Report(null, new LaunchProgress { Completed = true });
-                TaskCompletionSource<bool> idleToComplete;
+                TaskCompletionSource<bool>? idleToComplete;
                 lock (stateLock)
                 {
                     nextSignal = null;
@@ -382,9 +386,6 @@ namespace Shiro.Services
                 linkedCancellation.Dispose();
                 queueGate.Release();
 
-                // Release the gate before waking waiters. A caller that
-                // cancels and immediately starts another batch must observe
-                // both the old queue's completion and the free semaphore.
                 if (idleToComplete != null)
                 {
                     idleToComplete.TrySetResult(true);
@@ -459,9 +460,6 @@ namespace Shiro.Services
 
             GlobalCancelRequested -= Cancel;
             try { cancellation?.Cancel(); } catch (ObjectDisposedException) { }
-            // The active queue may still be unwinding from an awaited Roblox
-            // request. Leave the gate alive until process shutdown so its
-            // finally block can release it without an ObjectDisposedException.
         }
     }
 }

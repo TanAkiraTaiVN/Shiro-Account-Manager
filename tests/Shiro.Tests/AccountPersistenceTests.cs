@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Security.Cryptography;
@@ -86,6 +86,65 @@ namespace Shiro.Tests
                     var loaded = AccountDataSerializer.Deserialize(decrypted, out _);
                     Assert.Single(loaded);
                     Assert.Equal("BackupRestoredUser", loaded[0].Username);
+                }
+            }
+            finally
+            {
+                if (Directory.Exists(tempDir))
+                {
+                    try { Directory.Delete(tempDir, true); }
+                    catch (IOException) { }
+                }
+            }
+        }
+
+        [Fact]
+        public void LoadAccountsFromStore_PreservesBanStatusIssueAndDoesNotConvertBannedToExpired()
+        {
+            string tempDir = Path.Combine(Path.GetTempPath(), "Shiro-BanPersistTest-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                using (StoragePaths.OverrideDataDirectoryForTesting(tempDir))
+                {
+                    byte[] vaultKey = StoragePaths.GetOrCreateVaultKey();
+                    var savedAccounts = new List<Account>
+                    {
+                        new Account
+                        {
+                            Username = "BannedAcc1",
+                            UserID = 1001,
+                            SecurityToken = "_|WARNING:-DO-NOT-SHARE-THIS.|_TOK1",
+                            Valid = false,
+                            AccountStatusIssue = "Ban 7 ngày"
+                        },
+                        new Account
+                        {
+                            Username = "BannedAcc2",
+                            UserID = 1002,
+                            SecurityToken = "",
+                            Valid = false,
+                            AccountStatusIssue = "Bị khóa / Ban"
+                        }
+                    };
+
+                    byte[] serialized = AccountDataSerializer.Serialize(savedAccounts, includePasswords: true);
+                    byte[] encrypted = Cryptography.Encrypt(serialized.AsSpan(), vaultKey);
+                    File.WriteAllBytes(StoragePaths.AccountDataFile, encrypted);
+
+                    AccountManager.EnsureBackendInitialized();
+                    bool unlocked = AccountManager.LoadAccountsFromStore();
+                    Assert.True(unlocked);
+
+                    var loaded = AccountManager.Accounts;
+                    Assert.Equal(2, loaded.Count);
+
+                    Assert.False(loaded[0].Valid);
+                    Assert.True(loaded[0].IsBannedOrLocked);
+                    Assert.Equal("Ban 7 ngày", loaded[0].AccountStatusIssue);
+
+                    Assert.False(loaded[1].Valid);
+                    Assert.True(loaded[1].IsBannedOrLocked);
+                    Assert.Equal("Bị khóa / Ban", loaded[1].AccountStatusIssue);
                 }
             }
             finally

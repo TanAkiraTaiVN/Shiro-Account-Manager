@@ -68,7 +68,8 @@ namespace Shiro
                         redirectLocation.Contains("/moderation", StringComparison.OrdinalIgnoreCase) ||
                         redirectLocation.Contains("/banned", StringComparison.OrdinalIgnoreCase) ||
                         redirectLocation.Contains("/account-status", StringComparison.OrdinalIgnoreCase) ||
-                        redirectLocation.Contains("/account-locked", StringComparison.OrdinalIgnoreCase))
+                        redirectLocation.Contains("/account-locked", StringComparison.OrdinalIgnoreCase) ||
+                        redirectLocation.Contains("/security-notification", StringComparison.OrdinalIgnoreCase))
                     {
                         try
                         {
@@ -82,12 +83,14 @@ namespace Shiro
                             {
                                 TryUpdateRotatedCookie(modRes);
                                 string modHtml = await modRes.Content.ReadAsStringAsync(linkedCts.Token).ConfigureAwait(false);
-                                return DispatchModerationAlertIfBanned(ParseModerationText(modHtml, redirectLocation));
+                                var parsed = ParseModerationText(modHtml, redirectLocation);
+                                if (parsed.IsBanned)
+                                    return DispatchModerationAlertIfBanned(parsed);
                             }
                         }
-                        catch
+                        catch (Exception ex)
                         {
-                            // Fail-soft fallback
+                            Program.Logger?.Debug($"[CheckModerationStatusAsync] Moderation target fetch failed: {ex.Message}");
                         }
                         return DispatchModerationAlertIfBanned(ParseModerationText(string.Empty, redirectLocation));
                     }
@@ -101,7 +104,8 @@ namespace Shiro
                     !finalUrl.Contains("/moderation", StringComparison.OrdinalIgnoreCase) &&
                     !finalUrl.Contains("/banned", StringComparison.OrdinalIgnoreCase) &&
                     !finalUrl.Contains("/account-status", StringComparison.OrdinalIgnoreCase) &&
-                    !finalUrl.Contains("/account-locked", StringComparison.OrdinalIgnoreCase))
+                    !finalUrl.Contains("/account-locked", StringComparison.OrdinalIgnoreCase) &&
+                    !finalUrl.Contains("/security-notification", StringComparison.OrdinalIgnoreCase))
                 {
                     return (false, null, null);
                 }
@@ -152,7 +156,9 @@ namespace Shiro
                 if (!string.IsNullOrEmpty(url))
                 {
                     string lowUrl = url.ToLowerInvariant();
-                    if (lowUrl.Contains("/banned") || lowUrl.Contains("/account-status") || lowUrl.Contains("/account-locked") || lowUrl.Contains("/moderation"))
+                    if (lowUrl.Contains("/security-notification") || lowUrl.Contains("/account-locked"))
+                        return (true, "Khóa bảo mật", "Tài khoản bị khóa bảo mật (Account Locked)");
+                    if (lowUrl.Contains("/not-approved") || lowUrl.Contains("/banned") || lowUrl.Contains("/account-status") || lowUrl.Contains("/moderation"))
                         return (true, "Bị khóa / Ban", "Tài khoản bị khóa hoặc kiểm duyệt");
                 }
                 return (false, null, null);

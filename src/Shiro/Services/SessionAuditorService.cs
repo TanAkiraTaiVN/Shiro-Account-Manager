@@ -140,6 +140,8 @@ namespace Shiro.Services
                     else if (status == AccountSessionStatus.Moderated)
                     {
                         account.Valid = false;
+                        if (string.IsNullOrEmpty(account.AccountStatusIssue))
+                            account.AccountStatusIssue = "Bị khóa / Ban";
                         string modDetails = "Account moderation / lock detected";
                         auditMessage = $"Account {account.Username} received moderation notice: {modDetails}";
                         WebhookNotificationService.EnqueueAlert(new WebhookAlert

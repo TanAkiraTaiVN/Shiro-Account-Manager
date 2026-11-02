@@ -53,7 +53,7 @@ namespace Shiro.Services
                     int c = Interlocked.Increment(ref checkedCount);
                     if (!isValid) Interlocked.Increment(ref expiredCount);
 
-                    string state = isValid ? "Hợp lệ" : "Hết hạn";
+                    string state = isValid ? "Hợp lệ" : (acc.IsBannedOrLocked ? acc.AccountStatusIssue : "Hết hạn");
                     statusCallback?.Invoke($"Đang kiểm tra ({c}/{total}): {acc.Username} -> {state} (Hết hạn: {expiredCount})");
                     viewModel?.UpdateAccountValidity(acc, isValid, refreshFilterAndCounts: false);
                     AppDispatcher.Post(() => viewModel?.NotifyCounts());
@@ -424,7 +424,8 @@ namespace Shiro.Services
                             int c = Interlocked.Increment(ref checkedCount);
                             viewModel?.UpdateAccountValidity(item.Model, ok, refreshFilterAndCounts: false);
                             AppDispatcher.Post(() => viewModel?.NotifyCounts());
-                            statusCallback?.Invoke($"Đang kiểm tra ({c}/{total}): {item.Username} -> {(ok ? "Hợp lệ" : "Hết hạn")}");
+                            string itemState = ok ? "Hợp lệ" : (item.Model.IsBannedOrLocked ? item.Model.AccountStatusIssue : "Hết hạn");
+                            statusCallback?.Invoke($"Đang kiểm tra ({c}/{total}): {item.Username} -> {itemState}");
                         }
                         catch (Exception ex)
                         {

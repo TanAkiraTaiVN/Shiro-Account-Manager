@@ -228,17 +228,9 @@ namespace Shiro
                 {
                     if (acc != null)
                     {
-                        // Clean up any stale false-positive generic ban badges from previous legacy scans
-                        if (!string.IsNullOrEmpty(acc.AccountStatusIssue) &&
-                            (acc.AccountStatusIssue.Contains("Bị khóa") || acc.AccountStatusIssue.Contains("Ban")))
-                        {
-                            acc.AccountStatusIssue = string.Empty;
-                        }
-
                         if (string.IsNullOrWhiteSpace(acc.SecurityToken))
                         {
                             acc.Valid = false;
-                            acc.AccountStatusIssue = string.Empty;
                         }
                         else if (acc.Valid && acc.HasExpiredShortLivedCookie())
                         {

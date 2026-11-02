@@ -201,7 +201,7 @@ namespace Shiro.ViewModels
                         bool ok = await a.Model.ValidateSessionAsync().ConfigureAwait(false);
                         AccountManager.SaveAccounts(true);
                         UpdateAccountValidity(a.Model, ok);
-                        PostStatusMessage(ok ? $"{a.Username}: Phiên đăng nhập hợp lệ!" : $"{a.Username}: Phiên đã hết hạn!");
+                        PostStatusMessage(ok ? $"{a.Username}: Phiên đăng nhập hợp lệ!" : (a.Model.IsBannedOrLocked ? $"{a.Username}: {a.Model.AccountStatusIssue}!" : $"{a.Username}: Phiên đã hết hạn!"));
                     });
                 }
             });

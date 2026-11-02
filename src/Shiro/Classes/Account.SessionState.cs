@@ -52,7 +52,8 @@ namespace Shiro
             string initialToken = GetCurrentSecurityToken();
             if (string.IsNullOrWhiteSpace(initialToken))
             {
-                AccountStatusIssue = string.Empty;
+                if (!IsBannedOrLocked)
+                    AccountStatusIssue = string.Empty;
                 Valid = false;
                 return false;
             }
@@ -91,7 +92,8 @@ namespace Shiro
                             absUri.IndexOf("NewLogin", StringComparison.OrdinalIgnoreCase) >= 0)
                         {
                             Program.Logger?.Warn($"[ValidateSessionAsync] {Username}: Redirected to login ({absUri}). Cookie expired.");
-                            AccountStatusIssue = string.Empty;
+                            if (!IsBannedOrLocked)
+                                AccountStatusIssue = string.Empty;
                             Valid = false;
                             return false;
                         }
@@ -108,8 +110,18 @@ namespace Shiro
                             Valid = true;
                             return true;
                         }
+
+                        var (modBanned, modBadge, _) = await CheckModerationStatusAsync(GetCurrentSecurityToken(), cancellationToken).ConfigureAwait(false);
+                        if (modBanned)
+                        {
+                            AccountStatusIssue = modBadge ?? "Bị khóa / Ban";
+                            Valid = false;
+                            return false;
+                        }
+
                         Program.Logger?.Warn($"[ValidateSessionAsync] {Username}: Received 401 Unauthorized. Cookie expired.");
-                        AccountStatusIssue = string.Empty;
+                        if (!IsBannedOrLocked)
+                            AccountStatusIssue = string.Empty;
                         Valid = false;
                         return false;
                     }
@@ -125,7 +137,8 @@ namespace Shiro
                         }
                         if (string.IsNullOrWhiteSpace(trimmedBody))
                         {
-                            AccountStatusIssue = string.Empty;
+                            if (!IsBannedOrLocked)
+                                AccountStatusIssue = string.Empty;
                             Valid = false;
                             return false;
                         }
@@ -177,6 +190,16 @@ namespace Shiro
                             var moderationTask = CheckModerationStatusAsync(GetCurrentSecurityToken(), cancellationToken);
                             await Task.WhenAll(liveSessionTask, moderationTask).ConfigureAwait(false);
 
+                            var (isBanned, issueBadge, reason) = await moderationTask.ConfigureAwait(false);
+                            if (isBanned)
+                            {
+                                string badge = issueBadge ?? "Bị khóa / Ban";
+                                Program.Logger?.Warn($"[ValidateSessionAsync] {Username}: Active moderation detected: {badge} ({reason}). Marking invalid.");
+                                AccountStatusIssue = badge;
+                                Valid = false;
+                                return false;
+                            }
+
                             bool liveSessionOk = await liveSessionTask.ConfigureAwait(false);
                             if (!liveSessionOk)
                             {
@@ -191,17 +214,8 @@ namespace Shiro
                             if (!liveSessionOk)
                             {
                                 Program.Logger?.Warn($"[ValidateSessionAsync] {Username}: Live session store and secondary endpoint both returned 401. Session expired or IP-locked.");
-                                AccountStatusIssue = string.Empty;
-                                Valid = false;
-                                return false;
-                            }
-
-                            var (isBanned, issueBadge, reason) = await moderationTask.ConfigureAwait(false);
-                            if (isBanned)
-                            {
-                                string badge = issueBadge ?? "Bị khóa / Ban";
-                                Program.Logger?.Warn($"[ValidateSessionAsync] {Username}: Active moderation detected: {badge} ({reason}). Marking invalid.");
-                                AccountStatusIssue = badge;
+                                if (!IsBannedOrLocked)
+                                    AccountStatusIssue = string.Empty;
                                 Valid = false;
                                 return false;
                             }
@@ -212,7 +226,8 @@ namespace Shiro
                             return true;
                         }
 
-                        AccountStatusIssue = string.Empty;
+                        if (!IsBannedOrLocked)
+                            AccountStatusIssue = string.Empty;
                         Valid = false;
                         return false;
                     }
@@ -237,6 +252,13 @@ namespace Shiro
 
                     if (response.StatusCode == HttpStatusCode.Forbidden)
                     {
+                        var (modBanned, modBadge, _) = await CheckModerationStatusAsync(GetCurrentSecurityToken(), cancellationToken).ConfigureAwait(false);
+                        if (modBanned)
+                        {
+                            AccountStatusIssue = modBadge ?? "Bị khóa / Ban";
+                            Valid = false;
+                            return false;
+                        }
                         bool secondaryOk = await ValidateViaSecondaryEndpointAsync(cancellationToken).ConfigureAwait(false);
                         if (secondaryOk)
                         {
@@ -253,7 +275,8 @@ namespace Shiro
                         return Valid;
                     }
 
-                    AccountStatusIssue = string.Empty;
+                    if (!IsBannedOrLocked)
+                        AccountStatusIssue = string.Empty;
                     Valid = false;
                     return false;
                 }
@@ -420,10 +443,6 @@ namespace Shiro
             if (int.TryParse(retryAfter, out int serverDelay) && serverDelay > 0)
                 return Math.Min(serverDelay, 180);
 
-            // Retry-After is also allowed to be an HTTP-date. Roblox's edge
-            // sometimes uses that form for auth throttling, and treating it
-            // as an absent header made Shiro display the generic 90-second
-            // estimate even when the server supplied a more useful window.
             if (DateTimeOffset.TryParse(
                 retryAfter,
                 CultureInfo.InvariantCulture,
@@ -435,9 +454,6 @@ namespace Shiro
                     return Math.Min(180, Math.Max(1, (int)Math.Ceiling(dateDelay)));
             }
 
-            // A few Roblox gateways expose a Unix timestamp instead of
-            // Retry-After. Accept it as a final, bounded fallback without
-            // changing the no-blind-retry behavior of auth-ticket calls.
             string? reset = response?.Headers?
                 .FirstOrDefault(x => string.Equals(x.Name, "X-RateLimit-Reset", StringComparison.OrdinalIgnoreCase))?
                 .Value?.ToString()?.Trim();
@@ -469,10 +485,6 @@ namespace Shiro
         {
             return MakeRequest("/v1/authentication-ticket/", Method.Post)
                 .AddHeader("X-CSRF-TOKEN", token)
-                // Roblox now rejects an empty POST body with HTTP 415.  Keep
-                // the request shaped like the web client: JSON content type
-                // and an empty JSON object are required before the service
-                // will issue the rbx-authentication-ticket header.
                 .AddHeader("Content-Type", "application/json")
                 .AddHeader("Origin", "https://www.roblox.com")
                 .AddHeader("Referer", "https://www.roblox.com/games/4924922222/Brookhaven-RP")

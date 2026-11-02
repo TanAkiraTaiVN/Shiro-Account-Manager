@@ -153,5 +153,33 @@ namespace Shiro.Tests
 
             Assert.False(vm.IsSelected);
         }
+
+        [Fact]
+        public void ViewBanAccountCommand_OpensFastLoginDialogAndPreservesBanStatus()
+        {
+            var bannedAccount = new Account
+            {
+                Username = "BannedPlayer",
+                UserID = 88888,
+                SecurityToken = "_|WARNING:-DO-NOT-SHARE-THIS.|_TOKEN",
+                Valid = false,
+                AccountStatusIssue = "Ban 7 ngày"
+            };
+
+            var mainVm = new MainViewModel();
+            mainVm.LoadAccounts(new[] { bannedAccount });
+            var avm = mainVm.Accounts[0];
+
+            Account? openedAccount = null;
+            mainVm.OnFastReLoginRequested = a => openedAccount = a.Model;
+
+            mainVm.ViewBanAccountCommand.Execute(avm);
+
+            Assert.Same(bannedAccount, openedAccount);
+            Assert.True(bannedAccount.IsBannedOrLocked);
+            Assert.Equal("Ban 7 ngày", bannedAccount.AccountStatusIssue);
+            Assert.True(avm.IsBannedOrLocked);
+            Assert.False(avm.IsExpiredAndNotBanned);
+        }
     }
 }
