@@ -76,6 +76,10 @@ namespace Shiro.Services
                             }
                         }
                     }
+                    catch (Exception ex)
+                    {
+                        failureEx ??= ex;
+                    }
                     finally
                     {
                         if (vaultKey != null)

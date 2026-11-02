@@ -170,5 +170,45 @@ namespace Shiro.Tests
             Assert.True(result.LegacyPlaintext);
             Assert.True(result.NeedsMigration);
         }
+
+        [Fact]
+        public void Decode_GetVaultKeyThrows_NeedsMasterPasswordAndDoesNotThrow()
+        {
+            byte[] key = Create32ByteKey(0x33);
+            var accounts = new List<Account> { new Account { Username = "VaultKeyCrashUser", UserID = 101 } };
+            byte[] serialized = AccountDataSerializer.Serialize(accounts, includePasswords: true);
+            byte[] encrypted = Cryptography.Encrypt(serialized, key);
+
+            var keys = CreateDummyKeys(
+                getVaultKey: () => throw new InvalidOperationException("Vault key storage is unreadable!"),
+                tryRecover: null);
+
+            var result = AccountFileDecoder.Decode(encrypted, null, keys);
+
+            Assert.Equal(AccountDecodeStatus.NeedsMasterPassword, result.Status);
+            Assert.Empty(result.Accounts);
+            Assert.NotNull(result.Error);
+            Assert.IsType<InvalidOperationException>(result.Error);
+        }
+
+        [Fact]
+        public void Decode_GetVaultKeyThrows_FallsBackToRecoveryKey()
+        {
+            byte[] realKey = Create32ByteKey(0x77);
+            var accounts = new List<Account> { new Account { Username = "FallbackRecoveryUser", UserID = 202 } };
+            byte[] serialized = AccountDataSerializer.Serialize(accounts, includePasswords: true);
+            byte[] encrypted = Cryptography.Encrypt(serialized, realKey);
+
+            var keys = CreateDummyKeys(
+                getVaultKey: () => throw new InvalidOperationException("Vault key corrupted!"),
+                tryRecover: _ => (byte[])realKey.Clone());
+
+            var result = AccountFileDecoder.Decode(encrypted, null, keys);
+
+            Assert.Equal(AccountDecodeStatus.Loaded, result.Status);
+            Assert.Single(result.Accounts);
+            Assert.Equal("FallbackRecoveryUser", result.Accounts[0].Username);
+            Assert.Null(result.Error);
+        }
     }
 }

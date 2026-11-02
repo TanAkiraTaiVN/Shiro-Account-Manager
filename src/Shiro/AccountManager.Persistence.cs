@@ -242,7 +242,8 @@ namespace Shiro
 
                 Program.Logger?.Debug($"Direct vault key load from backup was not successful: {vaultResult.Error?.Message}");
 
-                if (AppServices.Dialogs.ShowConfirmation("The existing backup file is password-locked, would you like to attempt to load it?"))
+                if (vaultResult.Status == AccountDecodeStatus.NeedsMasterPassword &&
+                    AppServices.Dialogs.ShowConfirmation("The existing backup file is password-locked, would you like to attempt to load it?"))
                 {
                     PromoteBackupToPrimary(SaveFilePath, DateTime.Now);
                     EnableModernDashboard();
