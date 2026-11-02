@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using Avalonia.Controls;
 
 namespace Shiro.AvaloniaUI.Views

@@ -1,10 +1,11 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.ObjectModel;
 using System.Linq;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Shiro.Classes;
+using Shiro.Services;
 using Shiro.ViewModels;
 
 namespace Shiro.AvaloniaUI.Views
@@ -86,7 +87,7 @@ namespace Shiro.AvaloniaUI.Views
             }
 
             _account.Fields[key] = val;
-            AccountManager.QueueDeferredSave();
+            AppServices.AccountRepository.QueueDeferredSave();
 
             TxtNewKey.Text = string.Empty;
             TxtNewValue.Text = string.Empty;
@@ -99,7 +100,7 @@ namespace Shiro.AvaloniaUI.Views
             {
                 _fieldItems.Remove(item);
                 _account.Fields.Remove(item.Key);
-                AccountManager.QueueDeferredSave();
+                AppServices.AccountRepository.QueueDeferredSave();
             }
         }
 

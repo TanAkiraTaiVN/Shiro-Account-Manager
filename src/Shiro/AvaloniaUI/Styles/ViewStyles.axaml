@@ -1,0 +1,230 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- ================= MAIN WINDOW STYLES ================= -->
+    <Style Selector="Button.NavPill">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="#9CA3AF" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="Padding" Value="14,10" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="HorizontalContentAlignment" Value="Left" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Margin" Value="10,2" />
+    </Style>
+    <Style Selector="Button.NavPill:pointerover">
+        <Setter Property="Background" Value="#181822" />
+        <Setter Property="Foreground" Value="#FFFFFF" />
+    </Style>
+    <Style Selector="Button.NavPill.active">
+        <Setter Property="Background" Value="{DynamicResource AccentSubtleBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="FontWeight" Value="Bold" />
+    </Style>
+
+    <Style Selector="Button.CaptionBtn">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Width" Value="38" />
+        <Setter Property="Height" Value="30" />
+        <Setter Property="CornerRadius" Value="4" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Cursor" Value="Hand" />
+    </Style>
+    <Style Selector="Button.CaptionBtn:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="#222230" />
+    </Style>
+    <Style Selector="Button.CaptionBtn.CloseBtn:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="#E81123" />
+    </Style>
+
+    <Style Selector="Button.FooterToolChip">
+        <Setter Property="Background" Value="#122219" />
+        <Setter Property="Foreground" Value="#4ADE80" />
+        <Setter Property="BorderBrush" Value="#1E422C" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="10" />
+        <Setter Property="Padding" Value="7,2" />
+        <Setter Property="FontSize" Value="10" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Cursor" Value="Hand" />
+    </Style>
+    <Style Selector="Button.FooterToolChip:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="#193324" />
+    </Style>
+
+    <Style Selector="Button.TopCommandBarBtn">
+        <Setter Property="Background" Value="#161620" />
+        <Setter Property="BorderBrush" Value="#262634" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="16" />
+        <Setter Property="Padding" Value="14,5" />
+        <Setter Property="Cursor" Value="Hand" />
+    </Style>
+    <Style Selector="Button.TopCommandBarBtn:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="#222230" />
+        <Setter Property="BorderBrush" Value="#38384A" />
+    </Style>
+
+    <!-- ================= DASHBOARD VIEW STYLES ================= -->
+    <Style Selector="RadioButton.FilterTabPill">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="#9CA3AF" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="12,6" />
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Background="{TemplateBinding Background}" CornerRadius="{TemplateBinding CornerRadius}" Padding="{TemplateBinding Padding}">
+                    <ContentPresenter Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                </Border>
+            </ControlTemplate>
+        </Setter>
+    </Style>
+    <Style Selector="RadioButton.FilterTabPill:checked">
+        <Setter Property="Background" Value="{DynamicResource AccentSubtleBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="FontWeight" Value="Bold" />
+    </Style>
+    <Style Selector="RadioButton.FilterTabPill:pointerover">
+        <Setter Property="Background" Value="#161622" />
+        <Setter Property="Foreground" Value="#FFFFFF" />
+    </Style>
+
+    <Style Selector="Button.MetricCardBtn">
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="Background" Value="#121218" />
+        <Setter Property="BorderBrush" Value="#20202C" />
+        <Setter Property="CornerRadius" Value="10" />
+        <Setter Property="Padding" Value="15,12" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Transitions" Value="{x:Null}" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Name="PART_MetricBorder" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="{TemplateBinding CornerRadius}" Padding="{TemplateBinding Padding}">
+                    <ContentPresenter Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}" />
+                </Border>
+            </ControlTemplate>
+        </Setter>
+    </Style>
+    <Style Selector="Button.MetricCardBtn:pointerover /template/ Border#PART_MetricBorder">
+        <Setter Property="Background" Value="#161620" />
+        <Setter Property="BorderBrush" Value="#2E2E3E" />
+    </Style>
+    <Style Selector="Button.MetricCardBtn.active /template/ Border#PART_MetricBorder">
+        <Setter Property="Background" Value="#171724" />
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+        <Setter Property="BorderThickness" Value="1.5" />
+    </Style>
+
+    <Style Selector="ComboBoxItem">
+        <Setter Property="Foreground" Value="#FFFFFF" />
+        <Setter Property="Background" Value="#181824" />
+        <Setter Property="Padding" Value="10,6" />
+        <Setter Property="FontSize" Value="12" />
+    </Style>
+    <Style Selector="ComboBoxItem:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="#2A2A3C" />
+        <Setter Property="Foreground" Value="#FFFFFF" />
+    </Style>
+    <Style Selector="ComboBoxItem:selected /template/ ContentPresenter">
+        <Setter Property="Background" Value="#3B3B52" />
+        <Setter Property="Foreground" Value="#FFFFFF" />
+    </Style>
+
+    <!-- ================= SERVER LIST VIEW STYLES ================= -->
+    <Style Selector="RadioButton.SubTabPill">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="#A1A1AA" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="12,6" />
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Background="{TemplateBinding Background}" CornerRadius="{TemplateBinding CornerRadius}" Padding="{TemplateBinding Padding}">
+                    <ContentPresenter Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                </Border>
+            </ControlTemplate>
+        </Setter>
+    </Style>
+    <Style Selector="RadioButton.SubTabPill:checked">
+        <Setter Property="Background" Value="#22222E" />
+        <Setter Property="Foreground" Value="#FFFFFF" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="RadioButton.SubTabPill:pointerover">
+        <Setter Property="Background" Value="#1A1A24" />
+        <Setter Property="Foreground" Value="#FFFFFF" />
+    </Style>
+
+    <Style Selector="Button.SortHeaderBtn">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="#9CA3AF" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="4,2" />
+        <Setter Property="CornerRadius" Value="4" />
+        <Setter Property="HorizontalAlignment" Value="Left" />
+        <Setter Property="Cursor" Value="Hand" />
+    </Style>
+    <Style Selector="Button.SortHeaderBtn:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="#1E1E2A" />
+        <Setter Property="Foreground" Value="#FFFFFF" />
+    </Style>
+
+    <Style Selector="ToggleButton.ServerFilterPill">
+        <Setter Property="Background" Value="#171720" />
+        <Setter Property="Foreground" Value="#A1A1AA" />
+        <Setter Property="BorderBrush" Value="#282836" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="Padding" Value="9,5" />
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Cursor" Value="Hand" />
+    </Style>
+    <Style Selector="ToggleButton.ServerFilterPill:checked /template/ ContentPresenter">
+        <Setter Property="Background" Value="#162838" />
+        <Setter Property="Foreground" Value="#38BDF8" />
+        <Setter Property="BorderBrush" Value="#285880" />
+    </Style>
+
+    <!-- ================= SETTINGS VIEW STYLES ================= -->
+    <Style Selector="RadioButton.SettingsTabPill">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="#A1A1AA" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="14,8" />
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Background="{TemplateBinding Background}" CornerRadius="{TemplateBinding CornerRadius}" Padding="{TemplateBinding Padding}">
+                    <ContentPresenter Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                </Border>
+            </ControlTemplate>
+        </Setter>
+    </Style>
+    <Style Selector="RadioButton.SettingsTabPill:checked">
+        <Setter Property="Background" Value="#22222E" />
+        <Setter Property="Foreground" Value="#FFFFFF" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="RadioButton.SettingsTabPill:pointerover">
+        <Setter Property="Background" Value="#1A1A24" />
+        <Setter Property="Foreground" Value="#FFFFFF" />
+    </Style>
+</Styles>

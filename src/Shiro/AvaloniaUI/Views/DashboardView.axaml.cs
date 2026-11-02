@@ -103,12 +103,12 @@ namespace Shiro.AvaloniaUI.Views
         {
             try
             {
-                if (ViewModel != null && string.IsNullOrWhiteSpace(ViewModel.PlaceId) && !string.IsNullOrWhiteSpace(AccountManager.CurrentPlaceId))
+                if (ViewModel != null && string.IsNullOrWhiteSpace(ViewModel.PlaceId) && !string.IsNullOrWhiteSpace(AppSettings.CurrentPlaceId))
                 {
-                    ViewModel.PlaceId = AccountManager.CurrentPlaceId;
+                    ViewModel.PlaceId = AppSettings.CurrentPlaceId;
                 }
 
-                var accounts = accountsSnapshot ?? AccountManager.GetAccountsSnapshot();
+                var accounts = accountsSnapshot ?? AppServices.AccountRepository.GetAll();
                 ViewModel?.LoadAccounts(accounts);
 
                 if (CmbGroups != null && ViewModel != null && CmbGroups.SelectedItem == null && ViewModel.AvailableGroups.Count > 0)

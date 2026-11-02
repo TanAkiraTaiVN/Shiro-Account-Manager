@@ -38,10 +38,10 @@ namespace Shiro.AvaloniaUI.Views
             try
             {
                 string? raw = null;
-                try { raw = e.TryGetWebMessageAsString(); } catch (Exception) { }
+                try { raw = e.TryGetWebMessageAsString(); } catch (Exception ex) { Program.Logger?.Debug($"TryGetWebMessageAsString: {ex.Message}"); }
                 if (string.IsNullOrEmpty(raw))
                 {
-                    try { raw = e.WebMessageAsJson; } catch (Exception) { }
+                    try { raw = e.WebMessageAsJson; } catch (Exception ex) { Program.Logger?.Debug($"WebMessageAsJson: {ex.Message}"); }
                 }
 
                 if (!string.IsNullOrEmpty(raw))

@@ -1,395 +1,136 @@
-<Window xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:views="clr-namespace:Shiro.AvaloniaUI.Views"
-        xmlns:vm="clr-namespace:Shiro.ViewModels"
-        xmlns:services="clr-namespace:Shiro.Services"
-        xmlns:lucide="clr-namespace:LucideAvalonia;assembly=LucideAvalonia"
-        mc:Ignorable="d"
-        x:Class="Shiro.AvaloniaUI.Views.MainWindow"
-        x:DataType="vm:MainViewModel"
-        x:CompileBindings="True"
-        Icon="/Resources/shiro.ico"
-        Title="Shiro • Roblox Account Manager (Pure Avalonia UI 11)"
-        Width="1260" Height="680"
-        MinWidth="960" MinHeight="520"
-        WindowStartupLocation="CenterScreen"
-        ExtendClientAreaToDecorationsHint="True"
-        ExtendClientAreaChromeHints="NoChrome"
-        ExtendClientAreaTitleBarHeightHint="-1"
-        Background="#0B0B0F"
-        Foreground="#F4F4F5">
-
-    <Window.Styles>
-        <!-- Sidebar Navigation Pill Buttons -->
-        <Style Selector="Button.NavPill">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="Foreground" Value="#9CA3AF" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="CornerRadius" Value="6" />
-            <Setter Property="Padding" Value="14,10" />
-            <Setter Property="HorizontalAlignment" Value="Stretch" />
-            <Setter Property="HorizontalContentAlignment" Value="Left" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="FontSize" Value="13" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Margin" Value="10,2" />
-        </Style>
-        <Style Selector="Button.NavPill:pointerover">
-            <Setter Property="Background" Value="#181822" />
-            <Setter Property="Foreground" Value="#FFFFFF" />
-        </Style>
-        <Style Selector="Button.NavPill.active">
-            <Setter Property="Background" Value="{DynamicResource AccentSubtleBrush}" />
-            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource AccentBorderBrush}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="FontWeight" Value="Bold" />
-        </Style>
-
-        <!-- Custom TitleBar Caption Control Buttons -->
-        <Style Selector="Button.CaptionBtn">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="Width" Value="38" />
-            <Setter Property="Height" Value="30" />
-            <Setter Property="CornerRadius" Value="4" />
-            <Setter Property="Padding" Value="0" />
-            <Setter Property="HorizontalContentAlignment" Value="Center" />
-            <Setter Property="VerticalContentAlignment" Value="Center" />
-            <Setter Property="Cursor" Value="Hand" />
-        </Style>
-        <Style Selector="Button.CaptionBtn:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="#222230" />
-        </Style>
-        <Style Selector="Button.CaptionBtn.CloseBtn:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="#E81123" />
-        </Style>
-
-        <!-- Compact Footer Tool Chip -->
-        <Style Selector="Button.FooterToolChip">
-            <Setter Property="Background" Value="#122219" />
-            <Setter Property="Foreground" Value="#4ADE80" />
-            <Setter Property="BorderBrush" Value="#1E422C" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="10" />
-            <Setter Property="Padding" Value="7,2" />
-            <Setter Property="FontSize" Value="10" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Cursor" Value="Hand" />
-        </Style>
-        <Style Selector="Button.FooterToolChip:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="#193324" />
-        </Style>
-
-        <!-- Top TitleBar Command Palette Button -->
-        <Style Selector="Button.TopCommandBarBtn">
-            <Setter Property="Background" Value="#161620" />
-            <Setter Property="BorderBrush" Value="#262634" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="16" />
-            <Setter Property="Padding" Value="14,5" />
-            <Setter Property="Cursor" Value="Hand" />
-        </Style>
-        <Style Selector="Button.TopCommandBarBtn:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="#222230" />
-            <Setter Property="BorderBrush" Value="#38384A" />
-        </Style>
-    </Window.Styles>
-
+<Window xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:d="http://schemas.microsoft.com/expression/blend/2008" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:views="clr-namespace:Shiro.AvaloniaUI.Views" xmlns:vm="clr-namespace:Shiro.ViewModels" xmlns:services="clr-namespace:Shiro.Services" xmlns:lucide="clr-namespace:LucideAvalonia;assembly=LucideAvalonia" mc:Ignorable="d" x:Class="Shiro.AvaloniaUI.Views.MainWindow" x:DataType="vm:MainViewModel" x:CompileBindings="True" Icon="/Resources/shiro.ico" Title="Shiro • Roblox Account Manager (Pure Avalonia UI 11)" Width="1260" Height="680" MinWidth="960" MinHeight="520" WindowStartupLocation="CenterScreen" ExtendClientAreaToDecorationsHint="True" ExtendClientAreaChromeHints="NoChrome" ExtendClientAreaTitleBarHeightHint="-1" Background="#0B0B0F" Foreground="#F4F4F5">
     <Grid>
-        <!-- Main Application Shell -->
         <Grid RowDefinitions="Auto,*,Auto">
-
-            <!-- 1. TOP TITLEBAR (Modern Integrated Titlebar) -->
             <Border Grid.Row="0" Background="#0E0E14" BorderBrush="#1C1C24" BorderThickness="0,0,0,1" Height="44" Padding="16,0,8,0" PointerPressed="OnTitleBarPointerPressed">
                 <Grid ColumnDefinitions="Auto,*,Auto">
-                    <!-- Title & Version -->
                     <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Spacing="8">
                         <Image Source="/Resources/shiro_logo.png" Width="16" Height="16" VerticalAlignment="Center" />
                         <TextBlock Text="{DynamicResource App_Title}" FontSize="12" FontWeight="SemiBold" Foreground="#A1A1AA" VerticalAlignment="Center" />
-                        <Border Background="#1CFFFFFF" CornerRadius="4" Padding="5,1">
-                            <TextBlock Text=".NET 10 • Avalonia 11" FontSize="10" Foreground="#71717A" />
-                        </Border>
+                        <Border Background="#1CFFFFFF" CornerRadius="4" Padding="5,1"><TextBlock Text=".NET 10 • Avalonia 11" FontSize="10" Foreground="#71717A" /></Border>
                     </StackPanel>
-
-                    <!-- Center Command Palette Search Bar (Ctrl+K) -->
-                    <Button Grid.Column="1" Classes="TopCommandBarBtn"
-                            HorizontalAlignment="Center" VerticalAlignment="Center"
-                            Click="OnCommandPaletteBarClicked" ToolTip.Tip="{DynamicResource Cmd_ToolTip}">
+                    <Button Grid.Column="1" Classes="TopCommandBarBtn" HorizontalAlignment="Center" VerticalAlignment="Center" Click="OnCommandPaletteBarClicked" ToolTip.Tip="{DynamicResource Cmd_ToolTip}">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <lucide:Lucide Icon="Search" Width="13" Height="13" StrokeBrush="#71717A" VerticalAlignment="Center" />
                             <TextBlock Text="{DynamicResource Nav_CommandPalettePlaceholder}" FontSize="12" Foreground="#A1A1AA" VerticalAlignment="Center" />
-                            <Border Background="#222230" CornerRadius="4" Padding="5,1" Margin="8,0,0,0">
-                                <TextBlock Text="Ctrl + K" FontSize="10" FontWeight="Bold" Foreground="#71717A" VerticalAlignment="Center" />
-                            </Border>
+                            <Border Background="#222230" CornerRadius="4" Padding="5,1" Margin="8,0,0,0"><TextBlock Text="Ctrl + K" FontSize="10" FontWeight="Bold" Foreground="#71717A" VerticalAlignment="Center" /></Border>
                         </StackPanel>
                     </Button>
-
-                    <!-- Window Caption Buttons -->
                     <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                        <!-- Dedicated Window Controls (Minimize, Maximize / Restore, Close) -->
-                        <Button Classes="CaptionBtn" Click="OnMinimizeClicked" ToolTip.Tip="{DynamicResource Cap_Minimize}">
-                            <lucide:Lucide Icon="Minus" Width="12" Height="12" StrokeBrush="#A1A1AA" />
-                        </Button>
-                        <Button Classes="CaptionBtn" Click="OnMaximizeClicked" ToolTip.Tip="{DynamicResource Cap_Maximize}">
-                            <lucide:Lucide x:Name="IconMaximize" Icon="Square" Width="11" Height="11" StrokeBrush="#A1A1AA" />
-                        </Button>
-                        <Button Classes="CaptionBtn CloseBtn" Click="OnCloseClicked" ToolTip.Tip="{DynamicResource Cap_Close}">
-                            <lucide:Lucide Icon="X" Width="13" Height="13" StrokeBrush="#A1A1AA" />
-                        </Button>
+                        <Button Classes="CaptionBtn" Click="OnMinimizeClicked" ToolTip.Tip="{DynamicResource Cap_Minimize}"><lucide:Lucide Icon="Minus" Width="12" Height="12" StrokeBrush="#A1A1AA" /></Button>
+                        <Button Classes="CaptionBtn" Click="OnMaximizeClicked" ToolTip.Tip="{DynamicResource Cap_Maximize}"><lucide:Lucide x:Name="IconMaximize" Icon="Square" Width="11" Height="11" StrokeBrush="#A1A1AA" /></Button>
+                        <Button Classes="CaptionBtn CloseBtn" Click="OnCloseClicked" ToolTip.Tip="{DynamicResource Cap_Close}"><lucide:Lucide Icon="X" Width="13" Height="13" StrokeBrush="#A1A1AA" /></Button>
                     </StackPanel>
                 </Grid>
             </Border>
-
-            <!-- 2. MAIN BODY (LEFT SIDEBAR + CONTENT HOST) -->
             <Grid Grid.Row="1" ColumnDefinitions="215,*">
-
-                <!-- LEFT SIDEBAR -->
                 <Border Grid.Column="0" Background="#0E0E14" BorderBrush="#1C1C24" BorderThickness="0,0,1,0">
                     <Grid RowDefinitions="Auto,Auto,*,Auto">
-
-                        <!-- Brand Header (Draggable) -->
-                        <Border Grid.Row="0" Padding="16,14" BorderBrush="#1C1C24" BorderThickness="0,0,0,1"
-                                Background="Transparent" PointerPressed="OnTitleBarPointerPressed">
+                        <Border Grid.Row="0" Padding="16,14" BorderBrush="#1C1C24" BorderThickness="0,0,0,1" Background="Transparent" PointerPressed="OnTitleBarPointerPressed">
                             <Grid ColumnDefinitions="Auto,*">
                                 <Border Grid.Column="0" Width="34" Height="34" CornerRadius="8" ClipToBounds="True" Margin="0,0,12,0" VerticalAlignment="Center">
                                     <Image Source="/Resources/shiro_logo.png" Width="34" Height="34" Stretch="UniformToFill" />
                                 </Border>
-                                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="1">
-                                    <TextBlock Text="Shiro" FontWeight="Bold" FontSize="16" Foreground="#FFFFFF" LetterSpacing="0.5" />
-                                    <TextBlock Text="ACCOUNT MANAGER" FontWeight="Bold" FontSize="9" Foreground="#71717A" LetterSpacing="1" />
-                                </StackPanel>
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="1"><TextBlock Text="Shiro" FontWeight="Bold" FontSize="16" Foreground="#FFFFFF" LetterSpacing="0.5" /><TextBlock Text="ACCOUNT MANAGER" FontWeight="Bold" FontSize="9" Foreground="#71717A" LetterSpacing="1" /></StackPanel>
                             </Grid>
                         </Border>
-
-                        <!-- Section Header -->
                         <TextBlock Grid.Row="1" Text="{DynamicResource Nav_Workspace}" FontSize="10" FontWeight="Bold" Foreground="#52525B" Margin="14,14,14,6" LetterSpacing="0.5" />
-
-                        <!-- Navigation Items -->
                         <StackPanel Grid.Row="2" Spacing="2">
-                            <!-- 1. Accounts -->
                             <Button x:Name="BtnNavDashboard" Classes="NavPill active" Click="OnNavDashboardClicked" ToolTip.Tip="{DynamicResource Nav_Tip_Accounts}">
-                                <StackPanel Orientation="Horizontal" Spacing="10">
-                                    <lucide:Lucide Icon="User" Width="16" Height="16" StrokeBrush="#A1A1AA" VerticalAlignment="Center" />
-                                    <TextBlock Text="{DynamicResource Nav_Accounts}" FontSize="13" VerticalAlignment="Center" />
-                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Spacing="10"><lucide:Lucide Icon="User" Width="16" Height="16" StrokeBrush="#A1A1AA" VerticalAlignment="Center" /><TextBlock Text="{DynamicResource Nav_Accounts}" FontSize="13" VerticalAlignment="Center" /></StackPanel>
                             </Button>
-
-                            <!-- 2. Server List -->
                             <Button x:Name="BtnNavServerList" Classes="NavPill" Click="OnNavServerListClicked" ToolTip.Tip="{DynamicResource Nav_Tip_ServerList}">
-                                <StackPanel Orientation="Horizontal" Spacing="10">
-                                    <lucide:Lucide Icon="Globe" Width="16" Height="16" StrokeBrush="#A1A1AA" VerticalAlignment="Center" />
-                                    <TextBlock Text="{DynamicResource Nav_ServerList}" FontSize="13" VerticalAlignment="Center" />
-                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Spacing="10"><lucide:Lucide Icon="Globe" Width="16" Height="16" StrokeBrush="#A1A1AA" VerticalAlignment="Center" /><TextBlock Text="{DynamicResource Nav_ServerList}" FontSize="13" VerticalAlignment="Center" /></StackPanel>
                             </Button>
-
-                            <!-- 3. Recent Games -->
                             <Button x:Name="BtnNavRecentGames" Classes="NavPill" Click="OnNavRecentGamesClicked" ToolTip.Tip="{DynamicResource Nav_Tip_RecentGames}">
-                                <StackPanel Orientation="Horizontal" Spacing="10">
-                                    <lucide:Lucide Icon="Gamepad2" Width="16" Height="16" StrokeBrush="#A1A1AA" VerticalAlignment="Center" />
-                                    <TextBlock Text="{DynamicResource Nav_RecentGames}" FontSize="13" VerticalAlignment="Center" />
-                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Spacing="10"><lucide:Lucide Icon="Gamepad2" Width="16" Height="16" StrokeBrush="#A1A1AA" VerticalAlignment="Center" /><TextBlock Text="{DynamicResource Nav_RecentGames}" FontSize="13" VerticalAlignment="Center" /></StackPanel>
                             </Button>
-
-                            <!-- 4. Tools Flyout (with live ON indicators & Window Arranger submenu) -->
                             <Button x:Name="BtnNavTools" Classes="NavPill">
                                 <Button.Flyout>
                                     <MenuFlyout Placement="RightEdgeAlignedTop">
-                                        <!-- Anti-AFK -->
                                         <MenuItem Click="OnToolAntiAfkClicked">
-                                            <MenuItem.Icon>
-                                                <lucide:Lucide Icon="Shield" Width="14" Height="14" StrokeBrush="#38BDF8" />
-                                            </MenuItem.Icon>
+                                            <MenuItem.Icon><lucide:Lucide Icon="Shield" Width="14" Height="14" StrokeBrush="#38BDF8" /></MenuItem.Icon>
                                             <MenuItem.Header>
                                                 <Grid ColumnDefinitions="*,16,Auto">
                                                     <TextBlock Grid.Column="0" Text="{DynamicResource Tool_AntiAfk}" VerticalAlignment="Center" />
-                                                    <Border Grid.Column="2" IsVisible="{Binding IsAntiAfk}" Background="#133120" BorderBrush="#22C55E" BorderThickness="1" CornerRadius="8" Padding="6,1" VerticalAlignment="Center">
-                                                        <TextBlock Text="ON" FontSize="9" FontWeight="Bold" Foreground="#4ADE80" />
-                                                    </Border>
+                                                    <Border Grid.Column="2" IsVisible="{Binding IsAntiAfk}" Background="#133120" BorderBrush="#22C55E" BorderThickness="1" CornerRadius="8" Padding="6,1" VerticalAlignment="Center"><TextBlock Text="ON" FontSize="9" FontWeight="Bold" Foreground="#4ADE80" /></Border>
                                                 </Grid>
                                             </MenuItem.Header>
                                         </MenuItem>
-
-                                        <!-- Potato Mode -->
                                         <MenuItem Click="OnToolPotatoClicked">
-                                            <MenuItem.Icon>
-                                                <lucide:Lucide Icon="Zap" Width="14" Height="14" StrokeBrush="#F59E0B" />
-                                            </MenuItem.Icon>
+                                            <MenuItem.Icon><lucide:Lucide Icon="Zap" Width="14" Height="14" StrokeBrush="#F59E0B" /></MenuItem.Icon>
                                             <MenuItem.Header>
                                                 <Grid ColumnDefinitions="*,16,Auto">
                                                     <TextBlock Grid.Column="0" Text="{DynamicResource Tool_Potato}" VerticalAlignment="Center" />
-                                                    <Border Grid.Column="2" IsVisible="{Binding IsPotatoMode}" Background="#133120" BorderBrush="#22C55E" BorderThickness="1" CornerRadius="8" Padding="6,1" VerticalAlignment="Center">
-                                                        <TextBlock Text="ON" FontSize="9" FontWeight="Bold" Foreground="#4ADE80" />
-                                                    </Border>
+                                                    <Border Grid.Column="2" IsVisible="{Binding IsPotatoMode}" Background="#133120" BorderBrush="#22C55E" BorderThickness="1" CornerRadius="8" Padding="6,1" VerticalAlignment="Center"><TextBlock Text="ON" FontSize="9" FontWeight="Bold" Foreground="#4ADE80" /></Border>
                                                 </Grid>
                                             </MenuItem.Header>
                                         </MenuItem>
-
-                                        <!-- Zero GPU Mode -->
                                         <MenuItem Click="OnToolZeroGpuClicked">
-                                            <MenuItem.Icon>
-                                                <lucide:Lucide Icon="EyeOff" Width="14" Height="14" StrokeBrush="#A1A1AA" />
-                                            </MenuItem.Icon>
+                                            <MenuItem.Icon><lucide:Lucide Icon="EyeOff" Width="14" Height="14" StrokeBrush="#A1A1AA" /></MenuItem.Icon>
                                             <MenuItem.Header>
                                                 <Grid ColumnDefinitions="*,16,Auto">
                                                     <TextBlock Grid.Column="0" Text="{DynamicResource Tool_ZeroGpu}" VerticalAlignment="Center" />
-                                                    <Border Grid.Column="2" IsVisible="{Binding AreWindowsHidden}" Background="#133120" BorderBrush="#22C55E" BorderThickness="1" CornerRadius="8" Padding="6,1" VerticalAlignment="Center">
-                                                        <TextBlock Text="ON" FontSize="9" FontWeight="Bold" Foreground="#4ADE80" />
-                                                    </Border>
+                                                    <Border Grid.Column="2" IsVisible="{Binding AreWindowsHidden}" Background="#133120" BorderBrush="#22C55E" BorderThickness="1" CornerRadius="8" Padding="6,1" VerticalAlignment="Center"><TextBlock Text="ON" FontSize="9" FontWeight="Bold" Foreground="#4ADE80" /></Border>
                                                 </Grid>
                                             </MenuItem.Header>
                                         </MenuItem>
-
-                                        <!-- Smart Auto-Mute -->
                                         <MenuItem Click="OnToolSmartMuteClicked">
-                                            <MenuItem.Icon>
-                                                <lucide:Lucide Icon="Volume2" Width="14" Height="14" StrokeBrush="#38BDF8" />
-                                            </MenuItem.Icon>
+                                            <MenuItem.Icon><lucide:Lucide Icon="Volume2" Width="14" Height="14" StrokeBrush="#38BDF8" /></MenuItem.Icon>
                                             <MenuItem.Header>
                                                 <Grid ColumnDefinitions="*,16,Auto">
                                                     <TextBlock Grid.Column="0" Text="{DynamicResource Tool_SmartMute}" VerticalAlignment="Center" />
-                                                    <Border Grid.Column="2" IsVisible="{Binding IsSmartMuteActive}" Background="#133120" BorderBrush="#22C55E" BorderThickness="1" CornerRadius="8" Padding="6,1" VerticalAlignment="Center">
-                                                        <TextBlock Text="ON" FontSize="9" FontWeight="Bold" Foreground="#4ADE80" />
-                                                    </Border>
+                                                    <Border Grid.Column="2" IsVisible="{Binding IsSmartMuteActive}" Background="#133120" BorderBrush="#22C55E" BorderThickness="1" CornerRadius="8" Padding="6,1" VerticalAlignment="Center"><TextBlock Text="ON" FontSize="9" FontWeight="Bold" Foreground="#4ADE80" /></Border>
                                                 </Grid>
                                             </MenuItem.Header>
                                         </MenuItem>
-
-                                        <!-- Streamer Mode -->
                                         <MenuItem Click="OnToolStreamerModeClicked">
-                                            <MenuItem.Icon>
-                                                <lucide:Lucide Icon="ShieldCheck" Width="14" Height="14" StrokeBrush="#A855F7" />
-                                            </MenuItem.Icon>
+                                            <MenuItem.Icon><lucide:Lucide Icon="ShieldCheck" Width="14" Height="14" StrokeBrush="#A855F7" /></MenuItem.Icon>
                                             <MenuItem.Header>
                                                 <Grid ColumnDefinitions="*,16,Auto">
                                                     <TextBlock Grid.Column="0" Text="{DynamicResource Tool_StreamerMode}" VerticalAlignment="Center" />
-                                                    <Border Grid.Column="2" IsVisible="{Binding IsStreamerModeActive}" Background="#133120" BorderBrush="#22C55E" BorderThickness="1" CornerRadius="8" Padding="6,1" VerticalAlignment="Center">
-                                                        <TextBlock Text="ON" FontSize="9" FontWeight="Bold" Foreground="#4ADE80" />
-                                                    </Border>
+                                                    <Border Grid.Column="2" IsVisible="{Binding IsStreamerModeActive}" Background="#133120" BorderBrush="#22C55E" BorderThickness="1" CornerRadius="8" Padding="6,1" VerticalAlignment="Center"><TextBlock Text="ON" FontSize="9" FontWeight="Bold" Foreground="#4ADE80" /></Border>
                                                 </Grid>
                                             </MenuItem.Header>
                                         </MenuItem>
-
                                         <Separator />
-
-                                        <!-- 1-Click Roblox Window Grid Arranger Submenu (Item 7) -->
                                         <MenuItem Header="{DynamicResource Tool_ArrangeMenu}">
-                                            <MenuItem.Icon>
-                                                <lucide:Lucide Icon="LayoutGrid" Width="14" Height="14" StrokeBrush="#22C55E" />
-                                            </MenuItem.Icon>
-                                            <MenuItem Header="{DynamicResource Tool_AutoGrid}" Click="OnArrangeAutoClicked">
-                                                <MenuItem.Icon>
-                                                    <lucide:Lucide Icon="LayoutGrid" Width="14" Height="14" StrokeBrush="#38BDF8" />
-                                                </MenuItem.Icon>
-                                            </MenuItem>
-                                            <MenuItem Header="{DynamicResource Tool_Grid2x2}" Click="OnArrange2x2Clicked">
-                                                <MenuItem.Icon>
-                                                    <lucide:Lucide Icon="Grid2x2" Width="14" Height="14" StrokeBrush="#A1A1AA" />
-                                                </MenuItem.Icon>
-                                            </MenuItem>
-                                            <MenuItem Header="{DynamicResource Tool_Grid3x2}" Click="OnArrange3x2Clicked">
-                                            <MenuItem.Icon>
-                                                <lucide:Lucide Icon="Grid3x3" Width="14" Height="14" StrokeBrush="#A1A1AA" />
-                                            </MenuItem.Icon>
-                                            </MenuItem>
-                                            <MenuItem Header="{DynamicResource Tool_Grid4x3}" Click="OnArrange4x3Clicked">
-                                                <MenuItem.Icon>
-                                                    <lucide:Lucide Icon="Table2" Width="14" Height="14" StrokeBrush="#A1A1AA" />
-                                                </MenuItem.Icon>
-                                            </MenuItem>
+                                            <MenuItem.Icon><lucide:Lucide Icon="LayoutGrid" Width="14" Height="14" StrokeBrush="#22C55E" /></MenuItem.Icon>
+                                            <MenuItem Header="{DynamicResource Tool_AutoGrid}" Click="OnArrangeAutoClicked"><MenuItem.Icon><lucide:Lucide Icon="LayoutGrid" Width="14" Height="14" StrokeBrush="#38BDF8" /></MenuItem.Icon></MenuItem>
+                                            <MenuItem Header="{DynamicResource Tool_Grid2x2}" Click="OnArrange2x2Clicked"><MenuItem.Icon><lucide:Lucide Icon="Grid2x2" Width="14" Height="14" StrokeBrush="#A1A1AA" /></MenuItem.Icon></MenuItem>
+                                            <MenuItem Header="{DynamicResource Tool_Grid3x2}" Click="OnArrange3x2Clicked"><MenuItem.Icon><lucide:Lucide Icon="Grid3x3" Width="14" Height="14" StrokeBrush="#A1A1AA" /></MenuItem.Icon></MenuItem>
+                                            <MenuItem Header="{DynamicResource Tool_Grid4x3}" Click="OnArrange4x3Clicked"><MenuItem.Icon><lucide:Lucide Icon="Table2" Width="14" Height="14" StrokeBrush="#A1A1AA" /></MenuItem.Icon></MenuItem>
                                             <Separator />
-                                            <MenuItem Header="{DynamicResource Tool_Cascade}" Click="OnArrangeCascadeClicked">
-                                                <MenuItem.Icon>
-                                                    <lucide:Lucide Icon="Layers" Width="14" Height="14" StrokeBrush="#F59E0B" />
-                                                </MenuItem.Icon>
-                                            </MenuItem>
+                                            <MenuItem Header="{DynamicResource Tool_Cascade}" Click="OnArrangeCascadeClicked"><MenuItem.Icon><lucide:Lucide Icon="Layers" Width="14" Height="14" StrokeBrush="#F59E0B" /></MenuItem.Icon></MenuItem>
                                         </MenuItem>
-
-                                        <MenuItem Header="{DynamicResource Tool_OptimizeRam}" Click="OnToolOptimizeRamClicked">
-                                            <MenuItem.Icon>
-                                                <lucide:Lucide Icon="Cpu" Width="14" Height="14" StrokeBrush="#22C55E" />
-                                            </MenuItem.Icon>
-                                        </MenuItem>
-                                        <MenuItem Header="{DynamicResource Tool_MuteAll}" Click="OnToolMuteAllClicked">
-                                            <MenuItem.Icon>
-                                                <lucide:Lucide Icon="VolumeX" Width="14" Height="14" StrokeBrush="#F43F5E" />
-                                            </MenuItem.Icon>
-                                        </MenuItem>
-                                        <MenuItem Header="{DynamicResource Tool_Nexus}" Click="OnToolNexusClicked">
-                                            <MenuItem.Icon>
-                                                <lucide:Lucide Icon="SlidersHorizontal" Width="14" Height="14" StrokeBrush="#A855F7" />
-                                            </MenuItem.Icon>
-                                        </MenuItem>
-                                        <MenuItem Header="{DynamicResource Tool_Proxy}" Click="OnToolProxyClicked">
-                                            <MenuItem.Icon>
-                                                <lucide:Lucide Icon="Globe" Width="14" Height="14" StrokeBrush="#38BDF8" />
-                                            </MenuItem.Icon>
-                                        </MenuItem>
-                                        <MenuItem Header="{DynamicResource Tool_CleanTray}" Click="OnToolCleanTrayClicked">
-                                            <MenuItem.Icon>
-                                                <lucide:Lucide Icon="Trash2" Width="14" Height="14" StrokeBrush="#A1A1AA" />
-                                            </MenuItem.Icon>
-                                        </MenuItem>
-
+                                        <MenuItem Header="{DynamicResource Tool_OptimizeRam}" Click="OnToolOptimizeRamClicked"><MenuItem.Icon><lucide:Lucide Icon="Cpu" Width="14" Height="14" StrokeBrush="#22C55E" /></MenuItem.Icon></MenuItem>
+                                        <MenuItem Header="{DynamicResource Tool_MuteAll}" Click="OnToolMuteAllClicked"><MenuItem.Icon><lucide:Lucide Icon="VolumeX" Width="14" Height="14" StrokeBrush="#F43F5E" /></MenuItem.Icon></MenuItem>
+                                        <MenuItem Header="{DynamicResource Tool_Nexus}" Click="OnToolNexusClicked"><MenuItem.Icon><lucide:Lucide Icon="SlidersHorizontal" Width="14" Height="14" StrokeBrush="#A855F7" /></MenuItem.Icon></MenuItem>
+                                        <MenuItem Header="{DynamicResource Tool_Proxy}" Click="OnToolProxyClicked"><MenuItem.Icon><lucide:Lucide Icon="Globe" Width="14" Height="14" StrokeBrush="#38BDF8" /></MenuItem.Icon></MenuItem>
+                                        <MenuItem Header="{DynamicResource Tool_CleanTray}" Click="OnToolCleanTrayClicked"><MenuItem.Icon><lucide:Lucide Icon="Trash2" Width="14" Height="14" StrokeBrush="#A1A1AA" /></MenuItem.Icon></MenuItem>
                                         <Separator />
-
-                                        <MenuItem Header="{DynamicResource Tool_AltGen}" Click="OnToolAltGenClicked">
-                                            <MenuItem.Icon>
-                                                <lucide:Lucide Icon="UserPlus" Width="14" Height="14" StrokeBrush="#818CF8" />
-                                            </MenuItem.Icon>
-                                        </MenuItem>
+                                        <MenuItem Header="{DynamicResource Tool_AltGen}" Click="OnToolAltGenClicked"><MenuItem.Icon><lucide:Lucide Icon="UserPlus" Width="14" Height="14" StrokeBrush="#818CF8" /></MenuItem.Icon></MenuItem>
                                     </MenuFlyout>
                                 </Button.Flyout>
                                 <Grid ColumnDefinitions="*,Auto,Auto">
-                                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
-                                        <lucide:Lucide Icon="Zap" Width="16" Height="16" StrokeBrush="#A1A1AA" VerticalAlignment="Center" />
-                                        <TextBlock Text="{DynamicResource Nav_Tools}" FontSize="13" VerticalAlignment="Center" />
-                                    </StackPanel>
-                                    <Border Grid.Column="1" IsVisible="{Binding HasActiveTools}"
-                                            Background="#133120" BorderBrush="#22C55E" BorderThickness="1"
-                                            CornerRadius="8" Padding="6,1" Margin="0,0,6,0" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding ActiveToolsCount}" FontSize="10" FontWeight="Bold" Foreground="#4ADE80" />
-                                    </Border>
+                                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10"><lucide:Lucide Icon="Zap" Width="16" Height="16" StrokeBrush="#A1A1AA" VerticalAlignment="Center" /><TextBlock Text="{DynamicResource Nav_Tools}" FontSize="13" VerticalAlignment="Center" /></StackPanel>
+                                    <Border Grid.Column="1" IsVisible="{Binding HasActiveTools}" Background="#133120" BorderBrush="#22C55E" BorderThickness="1" CornerRadius="8" Padding="6,1" Margin="0,0,6,0" VerticalAlignment="Center"><TextBlock Text="{Binding ActiveToolsCount}" FontSize="10" FontWeight="Bold" Foreground="#4ADE80" /></Border>
                                     <lucide:Lucide Grid.Column="2" Icon="ChevronDown" Width="12" Height="12" StrokeBrush="#71717A" VerticalAlignment="Center" />
                                 </Grid>
                             </Button>
-
-                            <!-- 5. Settings -->
                             <Button x:Name="BtnNavSettings" Classes="NavPill" Click="OnNavSettingsClicked">
-                                <StackPanel Orientation="Horizontal" Spacing="10">
-                                    <lucide:Lucide Icon="Settings" Width="16" Height="16" StrokeBrush="#A1A1AA" VerticalAlignment="Center" />
-                                    <TextBlock Text="{DynamicResource Nav_Settings}" FontSize="13" VerticalAlignment="Center" />
-                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Spacing="10"><lucide:Lucide Icon="Settings" Width="16" Height="16" StrokeBrush="#A1A1AA" VerticalAlignment="Center" /><TextBlock Text="{DynamicResource Nav_Settings}" FontSize="13" VerticalAlignment="Center" /></StackPanel>
                             </Button>
-
-                            <!-- 6. About -->
                             <Button x:Name="BtnNavAbout" Classes="NavPill" Click="OnNavAboutClicked">
-                                <StackPanel Orientation="Horizontal" Spacing="10">
-                                    <lucide:Lucide Icon="Info" Width="16" Height="16" StrokeBrush="#A1A1AA" VerticalAlignment="Center" />
-                                    <TextBlock Text="{DynamicResource Nav_About}" FontSize="13" VerticalAlignment="Center" />
-                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Spacing="10"><lucide:Lucide Icon="Info" Width="16" Height="16" StrokeBrush="#A1A1AA" VerticalAlignment="Center" /><TextBlock Text="{DynamicResource Nav_About}" FontSize="13" VerticalAlignment="Center" /></StackPanel>
                             </Button>
                         </StackPanel>
-
-                        <!-- Bottom: Close Roblox Button -->
                         <Border Grid.Row="3" Padding="12,14" BorderBrush="#1C1C24" BorderThickness="0,1,0,0">
-                            <Button Click="OnSidebarCloseRobloxClicked"
-                                    Background="#181215" Foreground="#F87171" BorderBrush="#361A20" BorderThickness="1"
-                                    FontWeight="SemiBold" FontSize="12" CornerRadius="7" Padding="12,9"
-                                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Cursor="Hand"
-                                    ToolTip.Tip="{DynamicResource Nav_Tip_CloseRoblox}">
-                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="7">
-                                    <lucide:Lucide Icon="Power" Width="13" Height="13" StrokeBrush="#F87171" VerticalAlignment="Center" />
-                                    <TextBlock Text="{Binding CloseRobloxButtonText}" VerticalAlignment="Center" />
-                                </StackPanel>
+                            <Button Click="OnSidebarCloseRobloxClicked" Background="#181215" Foreground="#F87171" BorderBrush="#361A20" BorderThickness="1" FontWeight="SemiBold" FontSize="12" CornerRadius="7" Padding="12,9" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Cursor="Hand" ToolTip.Tip="{DynamicResource Nav_Tip_CloseRoblox}">
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="7"><lucide:Lucide Icon="Power" Width="13" Height="13" StrokeBrush="#F87171" VerticalAlignment="Center" /><TextBlock Text="{Binding CloseRobloxButtonText}" VerticalAlignment="Center" /></StackPanel>
                             </Button>
                         </Border>
                     </Grid>
                 </Border>
-
-                <!-- MAIN CONTENT HOST -->
                 <Panel Grid.Column="1" x:Name="MainContentHost" Background="#0B0B0F">
                     <views:DashboardView x:Name="ViewDashboard" />
                     <views:ServerListView x:Name="ViewServerList" IsVisible="False" />
@@ -397,181 +138,80 @@
                     <views:AboutView x:Name="ViewAbout" IsVisible="False" />
                 </Panel>
             </Grid>
-
-            <!-- 3. BOTTOM FOOTER STATUS BAR (With Live Active Tool Chips) -->
             <Border Grid.Row="2" Background="#0C0C10" BorderBrush="#1C1C24" BorderThickness="0,1,0,0" Height="30" Padding="14,0">
                 <Grid ColumnDefinitions="*,Auto,Auto">
                     <Grid Grid.Column="0" ColumnDefinitions="Auto,Auto,Auto,*" VerticalAlignment="Center" Margin="0,0,12,0" ClipToBounds="True">
                         <TextBlock Grid.Column="0" Text="{Binding FooterReadyStatusText}" FontSize="11" Foreground="#71717A" VerticalAlignment="Center" />
                         <TextBlock Grid.Column="1" Text="•" FontSize="11" Foreground="#2A2A38" Margin="8,0" VerticalAlignment="Center" />
                         <lucide:Lucide Grid.Column="2" Icon="Info" Width="12" Height="12" StrokeBrush="#38BDF8" Margin="0,0,6,0" VerticalAlignment="Center" />
-                        <TextBlock Grid.Column="3" Text="{Binding StatusMessage}" FontSize="11" Foreground="#A1A1AA" VerticalAlignment="Center"
-                                   TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding StatusMessage}" />
+                        <TextBlock Grid.Column="3" Text="{Binding StatusMessage}" FontSize="11" Foreground="#A1A1AA" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding StatusMessage}" />
                     </Grid>
-
-                    <!-- Live Active Tool Chips (Item 2) -->
-                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="5" VerticalAlignment="Center" Margin="0,0,12,0"
-                                IsVisible="{Binding HasActiveTools}">
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="5" VerticalAlignment="Center" Margin="0,0,12,0" IsVisible="{Binding HasActiveTools}">
                         <Button Classes="FooterToolChip" IsVisible="{Binding IsAntiAfk}" Command="{Binding ToggleAntiAfkCommand}" ToolTip.Tip="{DynamicResource Tool_AntiAfk}">
-                            <StackPanel Orientation="Horizontal" Spacing="4">
-                                <Ellipse Width="5" Height="5" Fill="#22C55E" VerticalAlignment="Center" />
-                                <TextBlock Text="{DynamicResource Footer_ChipAntiAfk}" VerticalAlignment="Center" />
-                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="4"><Ellipse Width="5" Height="5" Fill="#22C55E" VerticalAlignment="Center" /><TextBlock Text="{DynamicResource Footer_ChipAntiAfk}" VerticalAlignment="Center" /></StackPanel>
                         </Button>
                         <Button Classes="FooterToolChip" IsVisible="{Binding IsPotatoMode}" Command="{Binding TogglePotatoModeCommand}" ToolTip.Tip="{DynamicResource Tool_Potato}">
-                            <StackPanel Orientation="Horizontal" Spacing="4">
-                                <Ellipse Width="5" Height="5" Fill="#F59E0B" VerticalAlignment="Center" />
-                                <TextBlock Text="{DynamicResource Footer_ChipPotato}" VerticalAlignment="Center" />
-                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="4"><Ellipse Width="5" Height="5" Fill="#F59E0B" VerticalAlignment="Center" /><TextBlock Text="{DynamicResource Footer_ChipPotato}" VerticalAlignment="Center" /></StackPanel>
                         </Button>
                         <Button Classes="FooterToolChip" IsVisible="{Binding AreWindowsHidden}" Command="{Binding ToggleWindowsCommand}" ToolTip.Tip="{DynamicResource Tool_ZeroGpu}">
-                            <StackPanel Orientation="Horizontal" Spacing="4">
-                                <Ellipse Width="5" Height="5" Fill="#38BDF8" VerticalAlignment="Center" />
-                                <TextBlock Text="{DynamicResource Footer_ChipZeroGpu}" VerticalAlignment="Center" />
-                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="4"><Ellipse Width="5" Height="5" Fill="#38BDF8" VerticalAlignment="Center" /><TextBlock Text="{DynamicResource Footer_ChipZeroGpu}" VerticalAlignment="Center" /></StackPanel>
                         </Button>
                         <Button Classes="FooterToolChip" IsVisible="{Binding IsSmartMuteActive}" Command="{Binding ToggleSmartMuteCommand}" ToolTip.Tip="{DynamicResource Tool_SmartMute}">
-                            <StackPanel Orientation="Horizontal" Spacing="4">
-                                <Ellipse Width="5" Height="5" Fill="#38BDF8" VerticalAlignment="Center" />
-                                <TextBlock Text="{DynamicResource Footer_ChipSmartMute}" VerticalAlignment="Center" />
-                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="4"><Ellipse Width="5" Height="5" Fill="#38BDF8" VerticalAlignment="Center" /><TextBlock Text="{DynamicResource Footer_ChipSmartMute}" VerticalAlignment="Center" /></StackPanel>
                         </Button>
                         <Button Classes="FooterToolChip" IsVisible="{Binding IsStreamerModeActive}" Command="{Binding ToggleStreamerModeCommand}" ToolTip.Tip="{DynamicResource Tool_StreamerMode}">
-                            <StackPanel Orientation="Horizontal" Spacing="4">
-                                <Ellipse Width="5" Height="5" Fill="#A855F7" VerticalAlignment="Center" />
-                                <TextBlock Text="{DynamicResource Footer_ChipStreamer}" VerticalAlignment="Center" />
-                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="4"><Ellipse Width="5" Height="5" Fill="#A855F7" VerticalAlignment="Center" /><TextBlock Text="{DynamicResource Footer_ChipStreamer}" VerticalAlignment="Center" /></StackPanel>
                         </Button>
                     </StackPanel>
-
-                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                        <TextBlock Text="{Binding FooterSelectedText}" FontSize="11" Foreground="#71717A" VerticalAlignment="Center" />
-                        <TextBlock Text="•" FontSize="11" Foreground="#2A2A38" VerticalAlignment="Center" />
-                        <TextBlock Text="{Binding FooterTotalText}" FontSize="11" Foreground="#71717A" FontWeight="SemiBold" VerticalAlignment="Center" />
-                    </StackPanel>
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center"><TextBlock Text="{Binding FooterSelectedText}" FontSize="11" Foreground="#71717A" VerticalAlignment="Center" /><TextBlock Text="•" FontSize="11" Foreground="#2A2A38" VerticalAlignment="Center" /><TextBlock Text="{Binding FooterTotalText}" FontSize="11" Foreground="#71717A" FontWeight="SemiBold" VerticalAlignment="Center" /></StackPanel>
                 </Grid>
             </Border>
-
         </Grid>
-
-        <!-- ================= FLOATING TOAST NOTIFICATION OVERLAY (Item 1) ================= -->
-        <ItemsControl ItemsSource="{x:Static services:ToastService.ActiveToasts}"
-                      HorizontalAlignment="Right"
-                      VerticalAlignment="Bottom"
-                      Margin="0,0,18,38"
-                      Width="320">
+        <ItemsControl ItemsSource="{x:Static services:ToastService.ActiveToasts}" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,18,38" Width="320">
             <ItemsControl.ItemTemplate>
                 <DataTemplate x:DataType="services:ToastItem">
-                    <Border Background="{Binding BackgroundBrush}"
-                            BorderBrush="{Binding BorderBrush}"
-                            BorderThickness="1"
-                            CornerRadius="10"
-                            Margin="0,6,0,0"
-                            Padding="12,10"
-                            BoxShadow="0 12 32 0 #B3000000"
-                            ClipToBounds="True">
+                    <Border Background="{Binding BackgroundBrush}" BorderBrush="{Binding BorderBrush}" BorderThickness="1" CornerRadius="10" Margin="0,6,0,0" Padding="12,10" BoxShadow="0 12 32 0 #B3000000" ClipToBounds="True">
                         <Grid ColumnDefinitions="Auto,*,Auto">
-                            <Border Grid.Column="0" Width="26" Height="26" CornerRadius="7"
-                                    Background="{Binding BadgeBackground}" VerticalAlignment="Center" Margin="0,0,10,0">
-                                <Path Data="{Binding IconGeometry}" Width="13" Height="13" Stretch="Uniform"
-                                      Stroke="{Binding AccentBrush}" StrokeThickness="2"
-                                      StrokeLineCap="Round" StrokeJoin="Round"
-                                      HorizontalAlignment="Center" VerticalAlignment="Center" />
-                            </Border>
-
-                            <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
-                                <TextBlock Text="{Binding Title}" FontSize="12" FontWeight="SemiBold"
-                                           Foreground="#F4F4F5" TextWrapping="Wrap" MaxLines="2" LineHeight="16" />
-                                <TextBlock Text="{Binding Message}" IsVisible="{Binding HasMessage}"
-                                           FontSize="11" Foreground="#A1A1AA" TextWrapping="Wrap" MaxLines="3" LineHeight="15" />
-                            </StackPanel>
-
-                            <Button Grid.Column="2" Classes="FastIconBtn"
-                                    Command="{Binding DismissCommand}"
-                                    Width="22" Height="22" Margin="8,0,0,0" VerticalAlignment="Center"
-                                    ToolTip.Tip="{DynamicResource Btn_Close}">
-                                <Path Data="{StaticResource GeoClose}" Width="10" Height="10" Stretch="Uniform"
-                                      Stroke="#71717A" StrokeThickness="1.8"
-                                      StrokeLineCap="Round" StrokeJoin="Round" />
-                            </Button>
+                            <Border Grid.Column="0" Width="26" Height="26" CornerRadius="7" Background="{Binding BadgeBackground}" VerticalAlignment="Center" Margin="0,0,10,0"><Path Data="{Binding IconGeometry}" Width="13" Height="13" Stretch="Uniform" Stroke="{Binding AccentBrush}" StrokeThickness="2" StrokeLineCap="Round" StrokeJoin="Round" HorizontalAlignment="Center" VerticalAlignment="Center" /></Border>
+                            <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center"><TextBlock Text="{Binding Title}" FontSize="12" FontWeight="SemiBold" Foreground="#F4F4F5" TextWrapping="Wrap" MaxLines="2" LineHeight="16" /><TextBlock Text="{Binding Message}" IsVisible="{Binding HasMessage}" FontSize="11" Foreground="#A1A1AA" TextWrapping="Wrap" MaxLines="3" LineHeight="15" /></StackPanel>
+                            <Button Grid.Column="2" Classes="FastIconBtn" Command="{Binding DismissCommand}" Width="22" Height="22" Margin="8,0,0,0" VerticalAlignment="Center" ToolTip.Tip="{DynamicResource Btn_Close}"><Path Data="{StaticResource GeoClose}" Width="10" Height="10" Stretch="Uniform" Stroke="#71717A" StrokeThickness="1.8" StrokeLineCap="Round" StrokeJoin="Round" /></Button>
                         </Grid>
                     </Border>
                 </DataTemplate>
             </ItemsControl.ItemTemplate>
         </ItemsControl>
-
-        <!-- ================= COMMAND PALETTE OVERLAY (Ctrl+K, Item 9) ================= -->
-        <Border IsVisible="{Binding IsCommandPaletteOpen}"
-                Background="#B0000000" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
-                PointerPressed="OnCommandPaletteBackdropPressed">
-            <Border Width="600" MaxHeight="520" Background="#14141C" BorderBrush="#2E2E3C" BorderThickness="1"
-                    CornerRadius="10" Padding="16" HorizontalAlignment="Center" VerticalAlignment="Center">
+        <Border IsVisible="{Binding IsCommandPaletteOpen}" Background="#B0000000" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" PointerPressed="OnCommandPaletteBackdropPressed">
+            <Border Width="600" MaxHeight="520" Background="#14141C" BorderBrush="#2E2E3C" BorderThickness="1" CornerRadius="10" Padding="16" HorizontalAlignment="Center" VerticalAlignment="Center">
                 <Grid RowDefinitions="Auto,Auto,*">
-                    <!-- Search Header -->
                     <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,12">
                         <lucide:Lucide Grid.Column="0" Icon="Search" Width="16" Height="16" StrokeBrush="#71717A" VerticalAlignment="Center" Margin="0,0,8,0" />
-                        <TextBox Grid.Column="1" x:Name="TxtCommandPalette"
-                                 Text="{Binding CommandPaletteSearchText, Mode=TwoWay}"
-                                 Watermark="{DynamicResource Cmd_InputPlaceholder}"
-                                 Background="#1A1A26" Foreground="#FFFFFF" BorderBrush="#353545"
-                                 CornerRadius="6" Padding="10,8" VerticalContentAlignment="Center" FontSize="13" />
-                        <Button Grid.Column="2" Click="OnCloseCommandPaletteClicked"
-                                Background="Transparent" Foreground="#71717A" Margin="6,0,0,0" Padding="4" Cursor="Hand">
-                            <lucide:Lucide Icon="X" Width="14" Height="14" StrokeBrush="#71717A" />
-                        </Button>
+                        <TextBox Grid.Column="1" x:Name="TxtCommandPalette" Text="{Binding CommandPaletteSearchText, Mode=TwoWay}" Watermark="{DynamicResource Cmd_InputPlaceholder}" Background="#1A1A26" Foreground="#FFFFFF" BorderBrush="#353545" CornerRadius="6" Padding="10,8" VerticalContentAlignment="Center" FontSize="13" />
+                        <Button Grid.Column="2" Click="OnCloseCommandPaletteClicked" Background="Transparent" Foreground="#71717A" Margin="6,0,0,0" Padding="4" Cursor="Hand"><lucide:Lucide Icon="X" Width="14" Height="14" StrokeBrush="#71717A" /></Button>
                     </Grid>
-
                     <Separator Grid.Row="1" Background="#24242C" Height="1" Margin="0,0,0,10" />
-
-                    <!-- Search Results (Unified System Commands & Accounts) -->
                     <ScrollViewer Grid.Row="2" MaxHeight="380">
                         <ItemsControl ItemsSource="{Binding CommandPaletteItems}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="vm:CommandPaletteItemViewModel">
-                                    <Border Height="48"
-                                            Background="{Binding RowBackground}"
-                                            BorderBrush="{Binding RowBorder}"
-                                            BorderThickness="1"
-                                            CornerRadius="6" Margin="0,2" Padding="10,6" Cursor="Hand"
-                                            PointerPressed="OnCommandPaletteRowPointerPressed">
+                                    <Border Height="48" Background="{Binding RowBackground}" BorderBrush="{Binding RowBorder}" BorderThickness="1" CornerRadius="6" Margin="0,2" Padding="10,6" Cursor="Hand" PointerPressed="OnCommandPaletteRowPointerPressed">
                                         <Grid ColumnDefinitions="Auto,*,Auto">
-                                            <!-- Icon / Mini Avatar -->
                                             <Panel Grid.Column="0" Width="32" Height="32" Margin="0,0,10,0" VerticalAlignment="Center">
-                                                <!-- Command Icon Badge -->
-                                                <Border IsVisible="{Binding IsCommand}" Width="32" Height="32" CornerRadius="8"
-                                                        Background="{Binding CategoryBackground}" ClipToBounds="True">
-                                                    <Path Data="{Binding IconGeometry}" Width="15" Height="15" Stretch="Uniform"
-                                                          Stroke="{Binding IconBrush}" StrokeThickness="1.9"
-                                                          StrokeLineCap="Round" StrokeJoin="Round"
-                                                          HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                                </Border>
-
-                                                <!-- Account Mini Avatar -->
-                                                <Border IsVisible="{Binding IsAccount}" Width="32" Height="32" CornerRadius="16"
-                                                        Background="#252530" ClipToBounds="True">
+                                                <Border IsVisible="{Binding IsCommand}" Width="32" Height="32" CornerRadius="8" Background="{Binding CategoryBackground}" ClipToBounds="True"><Path Data="{Binding IconGeometry}" Width="15" Height="15" Stretch="Uniform" Stroke="{Binding IconBrush}" StrokeThickness="1.9" StrokeLineCap="Round" StrokeJoin="Round" HorizontalAlignment="Center" VerticalAlignment="Center" /></Border>
+                                                <Border IsVisible="{Binding IsAccount}" Width="32" Height="32" CornerRadius="16" Background="#252530" ClipToBounds="True">
                                                     <Panel>
                                                         <TextBlock Text="{Binding Initials}" FontSize="12" FontWeight="Bold" Foreground="#71717A" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                                         <Image Source="{Binding AvatarImage}" Stretch="UniformToFill" />
                                                     </Panel>
                                                 </Border>
                                             </Panel>
-
-                                            <!-- Info -->
                                             <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
                                                 <StackPanel Orientation="Horizontal" Spacing="8">
                                                     <TextBlock Text="{Binding Title}" FontWeight="SemiBold" FontSize="13" Foreground="#FFFFFF" />
-                                                    <Border Background="{Binding CategoryBackground}" CornerRadius="4" Padding="5,1">
-                                                        <TextBlock Text="{Binding Category}" FontSize="9" FontWeight="Bold" Foreground="{Binding CategoryForeground}" />
-                                                    </Border>
+                                                    <Border Background="{Binding CategoryBackground}" CornerRadius="4" Padding="5,1"><TextBlock Text="{Binding Category}" FontSize="9" FontWeight="Bold" Foreground="{Binding CategoryForeground}" /></Border>
                                                 </StackPanel>
                                                 <TextBlock Text="{Binding Description}" FontSize="11" Foreground="#9CA3AF" TextTrimming="CharacterEllipsis" />
                                             </StackPanel>
-
-                                            <!-- Action Pill Badge -->
-                                            <Border Grid.Column="2" Background="#1E1E2C" BorderBrush="#2C2C3E" BorderThickness="1"
-                                                    CornerRadius="4" Padding="8,4" VerticalAlignment="Center">
-                                                <TextBlock Text="{Binding ActionBadge}" FontSize="10" FontWeight="SemiBold" Foreground="#A1A1AA" />
-                                            </Border>
+                                            <Border Grid.Column="2" Background="#1E1E2C" BorderBrush="#2C2C3E" BorderThickness="1" CornerRadius="4" Padding="8,4" VerticalAlignment="Center"><TextBlock Text="{Binding ActionBadge}" FontSize="10" FontWeight="SemiBold" Foreground="#A1A1AA" /></Border>
                                         </Grid>
                                     </Border>
                                 </DataTemplate>
@@ -581,6 +221,5 @@
                 </Grid>
             </Border>
         </Border>
-
     </Grid>
 </Window>

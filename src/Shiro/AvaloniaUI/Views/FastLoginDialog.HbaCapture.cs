@@ -20,7 +20,7 @@ namespace Shiro.AvaloniaUI.Views
         private void DisposeInteractiveLoginScope()
         {
             try { _interactiveLoginScope.Dispose(); }
-            catch (Exception) { }
+            catch (Exception ex) { Program.Logger?.Debug($"[FastLoginDialog.DisposeInteractiveLoginScope] {ex.Message}"); }
         }
 
         private static async Task InstallHbaCaptureHookAsync(CoreWebView2 core)

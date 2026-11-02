@@ -39,6 +39,7 @@
 
     <Application.Styles>
         <FluentTheme />
+        <StyleInclude Source="avares://Shiro/AvaloniaUI/Styles/ViewStyles.axaml" />
 
         <!-- Allow horizontal ProgressBar to shrink and respect custom width without default Fluent 200px MinWidth -->
         <Style Selector="ProgressBar:horizontal">

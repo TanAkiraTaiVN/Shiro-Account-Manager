@@ -1,8 +1,9 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Diagnostics;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Shiro.Services;
 
 namespace Shiro.AvaloniaUI.Views
 {
@@ -25,7 +26,7 @@ namespace Shiro.AvaloniaUI.Views
                 long memMb = proc.WorkingSet64 / (1024 * 1024);
                 TxtMemory.Text = $"{memMb} MB (Working Set)";
 
-                int count = AccountManager.AccountCount;
+                int count = AppServices.AccountRepository.Count;
                 TxtAccountCount.Text = $"{count} tài khoản";
             }
             catch (Exception ex)

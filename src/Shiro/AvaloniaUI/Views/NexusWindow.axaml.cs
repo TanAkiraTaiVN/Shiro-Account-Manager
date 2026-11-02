@@ -55,7 +55,7 @@ namespace Shiro.AvaloniaUI.Views
                 LoadSettings();
                 LoadAccounts();
 
-                if (AccountManager.AccountControl?.Get<bool>("StartOnLaunch") == true)
+                if (AppSettings.AccountControl?.Get<bool>("StartOnLaunch") == true)
                 {
                     await StartServerAsync();
                 }
@@ -72,8 +72,8 @@ namespace Shiro.AvaloniaUI.Views
         {
             try
             {
-                TxtNexusPort.Text = AccountManager.AccountControl?.Get("NexusPort") ?? "5242";
-                ChkAllowExternal.IsChecked = AccountManager.AccountControl?.Get<bool>("AllowExternalConnections") ?? false;
+                TxtNexusPort.Text = AppSettings.AccountControl?.Get("NexusPort") ?? "5242";
+                ChkAllowExternal.IsChecked = AppSettings.AccountControl?.Get<bool>("AllowExternalConnections") ?? false;
             }
             catch (Exception ex)
             {
@@ -119,7 +119,7 @@ namespace Shiro.AvaloniaUI.Views
                     }
                 }
 
-                var snapshot = AccountManager.GetAccountsSnapshot();
+                var snapshot = AppServices.AccountRepository.GetAll();
                 foreach (var acc in snapshot)
                 {
                     if (string.IsNullOrEmpty(acc?.Username)) continue;
@@ -187,9 +187,9 @@ namespace Shiro.AvaloniaUI.Views
 
                 try
                 {
-                    AccountManager.AccountControl?.Set("NexusPort", port.ToString());
-                    AccountManager.AccountControl?.Set("AllowExternalConnections", allowExternal ? "true" : "false");
-                    AccountManager.SaveSettings();
+                    AppSettings.AccountControl?.Set("NexusPort", port.ToString());
+                    AppSettings.AccountControl?.Set("AllowExternalConnections", allowExternal ? "true" : "false");
+                    AppSettings.Save();
                 }
                 catch (Exception ex)
                 {

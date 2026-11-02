@@ -28,13 +28,13 @@ namespace Shiro.AvaloniaUI.Views
             {
                 currentAcc.Valid = false;
                 currentAcc.AccountStatusIssue = string.Empty;
-                AccountManager.SaveAccountsAsync(true).Forget();
+                AppServices.AccountRepository.SaveAsync(true).Forget();
                 MainWindow.Instance?.ViewModel?.UpdateAccountValidity(currentAcc, false);
             }
 
             TxtInAppStatus.Text = $"{accName}: Phiên cũ đã hết hạn (9002). Đang mở trang đăng nhập...";
             TxtInAppStatus.Foreground = Brushes.DeepSkyBlue;
-            AccountManager.Instance?.SetDashboardStatus($"{accName}: Phiên cookie đã hết hạn, đang chuyển sang đăng nhập...");
+            AppSettings.SetDashboardStatus($"{accName}: Phiên cookie đã hết hạn, đang chuyển sang đăng nhập...");
 
             try
             {
@@ -66,14 +66,14 @@ namespace Shiro.AvaloniaUI.Views
             {
                 currentAcc.Valid = false;
                 currentAcc.AccountStatusIssue = issueBadge;
-                AccountManager.SaveAccountsAsync(true).Forget();
+                AppServices.AccountRepository.SaveAsync(true).Forget();
                 MainWindow.Instance?.ViewModel?.UpdateAccountValidity(currentAcc, false);
             }
 
             string progressTag = _accountQueue.Count > 1 ? $" ({_currentQueueIndex + 1}/{_accountQueue.Count})" : "";
             TxtInAppStatus.Text = $"{accName}{progressTag}: {statusReason}";
             TxtInAppStatus.Foreground = Brushes.OrangeRed;
-            AccountManager.Instance?.SetDashboardStatus($"{accName}{progressTag}: {issueBadge} ({statusReason})");
+            AppSettings.SetDashboardStatus($"{accName}{progressTag}: {issueBadge} ({statusReason})");
 
             if (_accountQueue.Count > 1)
             {
@@ -171,7 +171,7 @@ namespace Shiro.AvaloniaUI.Views
                         }
                         else
                         {
-                            try { core.CookieManager.DeleteCookie(secCookie); } catch (Exception) { }
+                            SafeExecuteHelper.Try(() => core.CookieManager.DeleteCookie(secCookie), "FastLoginDialog.DeleteIgnoredCookie");
                             return;
                         }
                     }
@@ -222,7 +222,7 @@ namespace Shiro.AvaloniaUI.Views
                                 try {
                                     const res = await fetch('https://users.roblox.com/v1/users/authenticated', { method: 'GET', credentials: 'include', headers: { 'Accept': 'application/json' } });
                                     if (res.ok) { const d = await res.json(); if (d && d.id) return JSON.stringify({ UserId: d.id, Name: d.name, DisplayName: d.displayName }); }
-                                } catch (_) {}
+                                } catch (_) { /* ignore fetch error */ }
                                 return '';
                             })()");
                         if (!string.IsNullOrWhiteSpace(rawAuthJson) && rawAuthJson != "null" && rawAuthJson != "\"\"")
@@ -270,7 +270,7 @@ namespace Shiro.AvaloniaUI.Views
                             if (!string.IsNullOrWhiteSpace(passJson) && passJson != "null" && passJson != "\"\"")
                             {
                                 string? unescaped = null;
-                                try { unescaped = JsonSerializer.Deserialize(passJson, ShiroAppJson.Default.String); } catch (Exception) { }
+                                try { unescaped = JsonSerializer.Deserialize(passJson, ShiroAppJson.Default.String); } catch (Exception ex) { Program.Logger?.Debug($"Deserialize password JSON: {ex.Message}"); }
                                 if (string.IsNullOrEmpty(unescaped)) unescaped = passJson.Trim('"');
                                 if (!string.IsNullOrEmpty(unescaped))
                                 {
@@ -287,7 +287,7 @@ namespace Shiro.AvaloniaUI.Views
                     try { core.Stop(); }
                     catch (Exception ex) { Program.Logger?.Debug($"core.Stop() threw: {ex.Message}"); }
 
-                    Account? acc = await AccountManager.AddAccountAsync(cookieValue, _password ?? "", AccountJSON: inPageAccountJson, hbaCapture: hbaSnapshot);
+                    Account? acc = await AppServices.AccountRepository.AddOrUpdateWithHbaAsync(cookieValue, _password ?? "", accountJson: inPageAccountJson, hbaCapture: hbaSnapshot);
                     Program.Logger?.Info($"[FastLogin] Captured session for '{_username}': payloadLen={Account.GetSessionTokenPayloadLength(cookieValue)}, hba={hbaSnapshot.HasPrivateKey}, registeredValid={acc?.Valid}, resolvedUser={acc?.Username}.");
 
                     var captureOutcome = await FastLoginCoordinator.ProcessCapturedSessionAsync(
@@ -312,7 +312,7 @@ namespace Shiro.AvaloniaUI.Views
 
                             string progressTag = _accountQueue.Count > 1 ? $" ({_currentQueueIndex + 1}/{_accountQueue.Count})" : "";
                             if (captureOutcome.Account != null && !Account.IsShortLivedCookie(captureOutcome.Account.SecurityToken))
-                                AccountManager.Instance?.SetDashboardStatus($"Đăng nhập In-App thành công{progressTag}: {captureOutcome.Account.Username}!");
+                                AppSettings.SetDashboardStatus($"Đăng nhập In-App thành công{progressTag}: {captureOutcome.Account.Username}!");
 
                             await AdvanceToNextAccountOrCloseAsync();
                             return;

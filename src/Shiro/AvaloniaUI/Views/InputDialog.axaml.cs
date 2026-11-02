@@ -97,7 +97,25 @@ namespace Shiro.AvaloniaUI.Views
             }
             else
             {
-                return Dispatcher.UIThread.InvokeAsync(() => PromptAsync(text, caption, defaultText, big, owner)).GetAwaiter().GetResult();
+                string result = "/UC";
+                using var done = new System.Threading.ManualResetEventSlim(false);
+                Dispatcher.UIThread.Post(async () =>
+                {
+                    try
+                    {
+                        result = await PromptAsync(text, caption, defaultText, big, owner);
+                    }
+                    catch (Exception ex)
+                    {
+                        Program.Logger?.Debug($"[InputDialog.Prompt] {ex.Message}");
+                    }
+                    finally
+                    {
+                        done.Set();
+                    }
+                });
+                done.Wait(TimeSpan.FromMinutes(10));
+                return result;
             }
         }
 

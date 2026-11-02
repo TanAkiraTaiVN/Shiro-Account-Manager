@@ -98,13 +98,13 @@ namespace Shiro.AvaloniaUI.Views
                 ViewServerList.DataContext = ViewDashboard.ViewModel.ServerListViewModel;
             }
 
-            RefreshAccounts(AccountManager.GetAccountsSnapshot());
+            RefreshAccounts(AppServices.AccountRepository.GetAll());
 
             Opened += async (s, e) =>
             {
                 try
                 {
-                    if (AccountManager.General != null && !AccountManager.General.Get<bool>(AppSettingsKeys.General.HasAcceptedRiskDisclaimer))
+                    if (AppSettings.General != null && !AppSettings.General.Get<bool>(AppSettingsKeys.General.HasAcceptedRiskDisclaimer))
                     {
                         string title = Loc.Get("tos_disclaimer_title");
                         string msg = Loc.Get("tos_disclaimer_message");
@@ -114,8 +114,8 @@ namespace Shiro.AvaloniaUI.Views
                             msg = "Shiro là tiện ích quản lý tài khoản và hỗ trợ đa phiên chạy cục bộ trên máy tính của bạn.\n\nLưu ý quan trọng:\n1. Mọi kết nối được thực hiện trực tiếp giữa thiết bị của bạn và Roblox, không qua máy chủ trung gian.\n2. Bạn hoàn toàn chịu trách nhiệm về bảo mật thông tin tài khoản và tuân thủ Điều khoản dịch vụ (ToS) của Roblox.\n3. Các tính năng tự động (như Anti-AFK, Multi-Instance) được cung cấp theo nguyên tắc tự nguyện và mặc định tắt.\n\nNhấn Đồng ý để tiếp tục sử dụng.";
 
                         await MessageBoxDialog.ShowAsync(msg, title, MessageBoxButtons.OK, MessageBoxIcon.Information, this);
-                        AccountManager.General.Set(AppSettingsKeys.General.HasAcceptedRiskDisclaimer, "true");
-                        AccountManager.SaveSettings();
+                        AppSettings.General.Set(AppSettingsKeys.General.HasAcceptedRiskDisclaimer, "true");
+                        AppSettings.Save();
                     }
                 }
                 catch (Exception ex)
@@ -124,7 +124,7 @@ namespace Shiro.AvaloniaUI.Views
                 }
             };
 
-            if (AccountManager.IsDatabasePasswordEncrypted())
+            if (AppServices.AccountRepository.IsPasswordEncrypted())
             {
                 Opened += async (s, e) =>
                 {
@@ -155,9 +155,9 @@ namespace Shiro.AvaloniaUI.Views
 
                             if (recoverRes == MessageBoxResult.Yes)
                             {
-                                if (AccountManager.TryRecoverOrRestoreAccounts(out string statusMsg))
+                                if (AppServices.AccountRepository.TryRecoverOrRestore(out string statusMsg))
                                 {
-                                    RefreshAccounts(AccountManager.GetAccountsSnapshot());
+                                    RefreshAccounts(AppServices.AccountRepository.GetAll());
                                     ToastService.ShowSuccess("Khôi phục thành công", statusMsg);
                                     return;
                                 }
@@ -174,10 +174,10 @@ namespace Shiro.AvaloniaUI.Views
                         if (!string.IsNullOrWhiteSpace(pass) && pass != "/UC")
                         {
                             byte[] hash = System.Security.Cryptography.SHA512.HashData(System.Text.Encoding.UTF8.GetBytes(pass));
-                            if (AccountManager.LoadAccountsFromStore(hash))
+                            if (AppServices.AccountRepository.LoadFromStore(hash))
                             {
-                                RefreshAccounts(AccountManager.GetAccountsSnapshot());
-                                ToastService.ShowSuccess("Đã mở khóa", $"Đã tải {AccountManager.AccountCount} tài khoản.");
+                                RefreshAccounts(AppServices.AccountRepository.GetAll());
+                                ToastService.ShowSuccess("Đã mở khóa", $"Đã tải {AppServices.AccountRepository.Count} tài khoản.");
                                 return;
                             }
 
@@ -191,9 +191,9 @@ namespace Shiro.AvaloniaUI.Views
                             MessageBoxIcon.Question,
                             this);
 
-                        if (fallbackRes == MessageBoxResult.Yes && AccountManager.TryRecoverOrRestoreAccounts(out string fallbackMsg))
+                        if (fallbackRes == MessageBoxResult.Yes && AppServices.AccountRepository.TryRecoverOrRestore(out string fallbackMsg))
                         {
-                            RefreshAccounts(AccountManager.GetAccountsSnapshot());
+                            RefreshAccounts(AppServices.AccountRepository.GetAll());
                             ToastService.ShowSuccess("Khôi phục thành công", fallbackMsg);
                         }
                     }

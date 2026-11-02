@@ -127,7 +127,7 @@ namespace Shiro.AvaloniaUI.Views
 
             string newPass = TxtPassword?.Text ?? "";
             _account.Password = newPass;
-            AccountManager.SaveAccountsAsync(true).Forget();
+            AppServices.AccountRepository.SaveAsync(true).Forget();
             SetStatus(string.IsNullOrEmpty(newPass)
                 ? "Đã xóa mật khẩu tài khoản."
                 : "Đã lưu mật khẩu tài khoản thành công! Lần Re-login tới sẽ tự động điền.");

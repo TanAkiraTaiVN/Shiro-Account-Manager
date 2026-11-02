@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Threading.Tasks;
 using Avalonia.Controls;
@@ -235,7 +235,25 @@ namespace Shiro.AvaloniaUI.Views
             }
             else
             {
-                return Dispatcher.UIThread.InvokeAsync(() => ShowAsync(message, title, buttons, icon, owner)).GetAwaiter().GetResult();
+                MessageBoxResult result = MessageBoxResult.None;
+                using var done = new System.Threading.ManualResetEventSlim(false);
+                Dispatcher.UIThread.Post(async () =>
+                {
+                    try
+                    {
+                        result = await ShowAsync(message, title, buttons, icon, owner);
+                    }
+                    catch (Exception ex)
+                    {
+                        Program.Logger?.Debug($"[MessageBoxDialog.Show] {ex.Message}");
+                    }
+                    finally
+                    {
+                        done.Set();
+                    }
+                });
+                done.Wait(TimeSpan.FromMinutes(10));
+                return result;
             }
         }
 

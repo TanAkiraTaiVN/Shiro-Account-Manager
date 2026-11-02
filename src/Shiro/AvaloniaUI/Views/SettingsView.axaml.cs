@@ -47,9 +47,9 @@ namespace Shiro.AvaloniaUI.Views
 
                     if (SwHideUsernames != null)
                     {
-                        bool hide = AccountManager.General != null &&
-                                    AccountManager.General.Exists("HideUsernames") &&
-                                    AccountManager.General.Get<bool>("HideUsernames");
+                        bool hide = AppSettings.General != null &&
+                                    AppSettings.General.Exists("HideUsernames") &&
+                                    AppSettings.General.Get<bool>("HideUsernames");
                         SwHideUsernames.IsChecked = hide;
                     }
 
@@ -63,22 +63,22 @@ namespace Shiro.AvaloniaUI.Views
                     if (SwMultiRbx != null) SwMultiRbx.IsChecked = settings.EnableMultiRbx;
                     if (SwAntiAfk != null) SwAntiAfk.IsChecked = AntiAfkService.IsEnabled;
                     if (SwAutoMute != null)
-                        SwAutoMute.IsChecked = AccountManager.General != null && AccountManager.General.Exists(AppSettingsKeys.General.AutoMuteBackgroundClients)
-                            ? AccountManager.General.Get<bool>(AppSettingsKeys.General.AutoMuteBackgroundClients)
+                        SwAutoMute.IsChecked = AppSettings.General != null && AppSettings.General.Exists(AppSettingsKeys.General.AutoMuteBackgroundClients)
+                            ? AppSettings.General.Get<bool>(AppSettingsKeys.General.AutoMuteBackgroundClients)
                             : false;
                     if (SwAggressiveRamTrim != null)
-                        SwAggressiveRamTrim.IsChecked = AccountManager.General != null && AccountManager.General.Exists(AppSettingsKeys.General.AggressiveRamTrimming)
-                            ? AccountManager.General.Get<bool>(AppSettingsKeys.General.AggressiveRamTrimming)
+                        SwAggressiveRamTrim.IsChecked = AppSettings.General != null && AppSettings.General.Exists(AppSettingsKeys.General.AggressiveRamTrimming)
+                            ? AppSettings.General.Get<bool>(AppSettingsKeys.General.AggressiveRamTrimming)
                             : true;
                     if (NumJobCpuCap != null)
-                        NumJobCpuCap.Value = AccountManager.General != null && AccountManager.General.Exists(AppSettingsKeys.General.MaxTotalRobloxCpuPercent)
-                            ? Math.Clamp(AccountManager.General.Get<int>(AppSettingsKeys.General.MaxTotalRobloxCpuPercent), 0, 100)
+                        NumJobCpuCap.Value = AppSettings.General != null && AppSettings.General.Exists(AppSettingsKeys.General.MaxTotalRobloxCpuPercent)
+                            ? Math.Clamp(AppSettings.General.Get<int>(AppSettingsKeys.General.MaxTotalRobloxCpuPercent), 0, 100)
                             : 0;
 
                     // Launching
                     if (SwSmartFastLaunch != null)
-                        SwSmartFastLaunch.IsChecked = AccountManager.General != null && AccountManager.General.Exists(AppSettingsKeys.General.SmartFastLaunch)
-                            ? AccountManager.General.Get<bool>(AppSettingsKeys.General.SmartFastLaunch)
+                        SwSmartFastLaunch.IsChecked = AppSettings.General != null && AppSettings.General.Exists(AppSettingsKeys.General.SmartFastLaunch)
+                            ? AppSettings.General.Get<bool>(AppSettingsKeys.General.SmartFastLaunch)
                             : true;
                     if (NumJoinDelay != null) NumJoinDelay.Value = settings.AccountJoinDelay;
                     if (SwUseProxies != null) SwUseProxies.IsChecked = settings.UseProxies;
@@ -156,7 +156,7 @@ namespace Shiro.AvaloniaUI.Views
                 {
                     // Accent Theme & Language Persistence
                     AccentThemeService.ApplyTheme(_selectedTheme, save: false);
-                    AccountManager.General?.Set(AppSettingsKeys.General.AccentTheme, _selectedTheme.ToString());
+                    AppSettings.General?.Set(AppSettingsKeys.General.AccentTheme, _selectedTheme.ToString());
                     try { AppSettings.Current.AccentTheme = _selectedTheme.ToString(); }
                     catch (Exception ex) { Program.Logger?.Debug($"AppSettings.Current.AccentTheme threw: {ex.Message}"); }
 
@@ -167,13 +167,13 @@ namespace Shiro.AvaloniaUI.Views
                         {
                             LocalizationService.SetLanguage(targetLang, saveSetting: false);
                         }
-                        AccountManager.General?.Set(AppSettingsKeys.General.Language, targetLang == AppLanguage.English ? "en" : "vi");
+                        AppSettings.General?.Set(AppSettingsKeys.General.Language, targetLang == AppLanguage.English ? "en" : "vi");
                     }
 
                     // General
                     if (SwHideUsernames?.IsChecked != null)
                     {
-                        AccountManager.General?.Set("HideUsernames", SwHideUsernames.IsChecked.Value ? "true" : "false");
+                        AppSettings.General?.Set("HideUsernames", SwHideUsernames.IsChecked.Value ? "true" : "false");
                         var accountVms = MainWindow.Instance?.ViewModel?.Accounts;
                         if (accountVms != null)
                         {
@@ -200,7 +200,7 @@ namespace Shiro.AvaloniaUI.Views
                     if (SwPotatoMode?.IsChecked != null)
                     {
                         settings.EnablePotatoMode = SwPotatoMode.IsChecked.Value;
-                        AccountManager.General?.Set("EnablePotatoMode", SwPotatoMode.IsChecked.Value ? "true" : "false");
+                        AppSettings.General?.Set("EnablePotatoMode", SwPotatoMode.IsChecked.Value ? "true" : "false");
                         patchSettingsNeeded = true;
                     }
                     if (patchSettingsNeeded)
@@ -212,26 +212,26 @@ namespace Shiro.AvaloniaUI.Views
                     if (SwAutoMute?.IsChecked != null)
                     {
                         bool autoMute = SwAutoMute.IsChecked.Value;
-                        AccountManager.General?.Set(AppSettingsKeys.General.AutoMuteBackgroundClients, autoMute ? "true" : "false");
+                        AppSettings.General?.Set(AppSettingsKeys.General.AutoMuteBackgroundClients, autoMute ? "true" : "false");
                         RobloxAudioService.ConfigureSmartMute(autoMute);
                     }
                     if (SwAggressiveRamTrim?.IsChecked != null)
                     {
                         bool aggressiveTrim = SwAggressiveRamTrim.IsChecked.Value;
-                        AccountManager.General?.Set(AppSettingsKeys.General.AggressiveRamTrimming, aggressiveTrim ? "true" : "false");
+                        AppSettings.General?.Set(AppSettingsKeys.General.AggressiveRamTrimming, aggressiveTrim ? "true" : "false");
                         MemoryOptimizer.ConfigureAutoTrim(aggressiveTrim, 1);
                     }
                     if (NumJobCpuCap?.Value != null)
                     {
                         int cpuCap = Math.Clamp((int)NumJobCpuCap.Value.Value, 0, 100);
-                        AccountManager.General?.Set(AppSettingsKeys.General.MaxTotalRobloxCpuPercent, cpuCap.ToString());
+                        AppSettings.General?.Set(AppSettingsKeys.General.MaxTotalRobloxCpuPercent, cpuCap.ToString());
                         RobloxJobObjectService.SetCpuRateLimit(cpuCap);
                     }
 
                     // Launching
                     if (SwSmartFastLaunch?.IsChecked != null)
                     {
-                        AccountManager.General?.Set(AppSettingsKeys.General.SmartFastLaunch, SwSmartFastLaunch.IsChecked.Value ? "true" : "false");
+                        AppSettings.General?.Set(AppSettingsKeys.General.SmartFastLaunch, SwSmartFastLaunch.IsChecked.Value ? "true" : "false");
                     }
                     if (NumJoinDelay?.Value != null) settings.AccountJoinDelay = (int)NumJoinDelay.Value;
                     if (SwUseProxies?.IsChecked != null) settings.UseProxies = SwUseProxies.IsChecked.Value;
@@ -247,14 +247,14 @@ namespace Shiro.AvaloniaUI.Views
 
                         if (prevServer != newServer || (newServer && prevPort != targetPort))
                         {
-                            if (newServer && AccountManager.Instance != null)
+                            if (newServer)
                             {
-                                bool allowExternal = AccountManager.WebServer != null && AccountManager.WebServer.Get<bool>("AllowExternalConnections");
-                                _ = AccountManager.Instance.RestartWebServerAsync(targetPort, allowExternal);
+                                bool allowExternal = AppSettings.WebServer != null && AppSettings.WebServer.Get<bool>("AllowExternalConnections");
+                                _ = AppSettings.RestartWebServerAsync(targetPort, allowExternal);
                             }
-                            else if (!newServer && AccountManager.Instance != null)
+                            else
                             {
-                                _ = AccountManager.Instance.StopWebServerAsync();
+                                _ = AppSettings.StopWebServerAsync();
                             }
                         }
                     }
@@ -267,14 +267,14 @@ namespace Shiro.AvaloniaUI.Views
                         bool prevAutoCookie = settings.AutoCookieRefresh;
                         bool newAutoCookie = SwAutoCookie.IsChecked.Value;
                         settings.AutoCookieRefresh = newAutoCookie;
-                        if (prevAutoCookie != newAutoCookie && AccountManager.Instance != null)
+                        if (prevAutoCookie != newAutoCookie)
                         {
-                            AccountManager.Instance.SetAutoCookieRefreshEnabled(newAutoCookie);
+                            AppSettings.SetAutoCookieRefreshEnabled(newAutoCookie);
                         }
                     }
                     if (SwSavePasswords?.IsChecked != null) settings.SavePasswords = SwSavePasswords.IsChecked.Value;
 
-                    AccountManager.QueueDeferredSaveSettings();
+                    AppSettings.QueueDeferredSave();
                 }
 
                 _ = ShowSaveFeedbackAsync("Đã lưu toàn bộ cài đặt thành công!");
@@ -366,10 +366,7 @@ namespace Shiro.AvaloniaUI.Views
         {
             try
             {
-                if (AccountManager.Instance != null)
-                {
-                    await AccountManager.Instance.ResetEncryptionAsync(true);
-                }
+                await AppSettings.ResetEncryptionAsync(true);
             }
             catch (Exception ex)
             {

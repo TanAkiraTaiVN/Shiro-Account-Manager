@@ -32,13 +32,13 @@ namespace Shiro.AvaloniaUI.Views
 
         private void OnCloseClicked(object sender, RoutedEventArgs e)
         {
-            try { _cts?.Cancel(); } catch (Exception) { }
+            SafeExecuteHelper.Try(() => _cts?.Cancel());
             Close(ImportedCount > 0);
         }
 
         protected override void OnClosing(WindowClosingEventArgs e)
         {
-            try { _cts?.Cancel(); } catch (Exception) { }
+            SafeExecuteHelper.Try(() => _cts?.Cancel());
             base.OnClosing(e);
         }
 
@@ -126,7 +126,7 @@ namespace Shiro.AvaloniaUI.Views
                         try
                         {
                             if (token.IsCancellationRequested) return;
-                            var acc = await AccountManager.AddAccountAsync(item.cookie, item.password ?? string.Empty, saveImmediate: false, cancellationToken: token).ConfigureAwait(true);
+                            var acc = await AppServices.AccountRepository.AddOrUpdateAsync(item.cookie, item.password ?? string.Empty, saveImmediate: false, cancellationToken: token).ConfigureAwait(true);
                             int newSuccess = acc != null && acc.Valid
                                 ? Interlocked.Increment(ref success)
                                 : Volatile.Read(ref success);
@@ -138,12 +138,12 @@ namespace Shiro.AvaloniaUI.Views
                             PrgProgress.Value = current;
                             TxtStatus.Text = $"Đang nhập Cookie ({current}/{lines.Length})...";
                         }
-                        catch (OperationCanceledException) { }
+                        catch (OperationCanceledException) { /* Cancelled */ }
                         finally
                         {
-                            try { cookieGate.Release(); }
-                            catch (ObjectDisposedException) { }
-                            catch (Exception) { }
+                            SafeExecuteHelper.Try(() => cookieGate.Release());
+                            /* Handled by SafeExecuteHelper */
+                            /* Handled by SafeExecuteHelper */
                         }
                     }).ToList();
 
@@ -155,7 +155,7 @@ namespace Shiro.AvaloniaUI.Views
                 if (userPassLines.Count > 0 && !token.IsCancellationRequested)
                 {
                     var existingByUsername = new Dictionary<string, Account>(StringComparer.OrdinalIgnoreCase);
-                    foreach (var acc in AccountManager.GetAccountsSnapshot())
+                    foreach (var acc in AppServices.AccountRepository.GetAll())
                     {
                         if (acc != null && !string.IsNullOrEmpty(acc.Username))
                             existingByUsername.TryAdd(acc.Username, acc);
@@ -174,7 +174,7 @@ namespace Shiro.AvaloniaUI.Views
                             long resolvedUserId = 0;
                             try
                             {
-                                var (okId, uid, _) = await AccountManager.GetUserIDAsync(up.username, token).ConfigureAwait(true);
+                                var (okId, uid, _) = await AppServices.AccountRepository.LookupUserIdAsync(up.username, token).ConfigureAwait(true);
                                 if (okId && uid > 0)
                                     resolvedUserId = uid;
                             }
@@ -193,7 +193,7 @@ namespace Shiro.AvaloniaUI.Views
                                 LastUse = DateTime.Now
                             };
 
-                            AccountManager.AddAccountThreadSafe(targetAcc);
+                            AppServices.AccountRepository.AddThreadSafe(targetAcc);
                             existingByUsername[up.username] = targetAcc;
                         }
                         else
@@ -213,10 +213,10 @@ namespace Shiro.AvaloniaUI.Views
 
                 if (success > 0)
                 {
-                    try { AccountManager.SaveAccounts(true); }
+                    try { AppServices.AccountRepository.Save(true); }
                     catch (Exception ex) { Program.Logger?.Warn($"SaveAccounts after bulk import failed: {ex.Message}"); }
                     MainWindow.Instance?.DashboardView?.LoadDashboardData();
-                    AccountManager.Instance?.SetDashboardStatus($"Nhập hàng loạt hoàn tất: Đã thêm/cập nhật {success} tài khoản.");
+                    AppSettings.SetDashboardStatus($"Nhập hàng loạt hoàn tất: Đã thêm/cập nhật {success} tài khoản.");
                 }
 
                 ImportedCount = success;

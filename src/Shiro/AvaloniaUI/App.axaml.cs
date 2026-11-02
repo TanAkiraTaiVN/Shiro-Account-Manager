@@ -37,15 +37,15 @@ namespace Shiro.AvaloniaUI
                     {
                         Program.Closed = true;
                         ForegroundWindowService.Stop();
-                        try { AccountRuntimeStateStore.Flush(); } catch { }
+                        SafeExecuteHelper.Try(() => AccountRuntimeStateStore.Flush(), "App.Exit.FlushRuntimeState");
                         try
                         {
                             if (desktop.MainWindow is Views.MainWindow mw && mw.ViewModel != null && !string.IsNullOrWhiteSpace(mw.ViewModel.PlaceId))
                             {
                                 string pid = mw.ViewModel.PlaceId.Trim();
-                                AccountManager.CurrentPlaceId = pid;
-                                AccountManager.General?.Set("SavedPlaceId", pid);
-                                AccountManager.SaveSettings();
+                                AppSettings.CurrentPlaceId = pid;
+                                AppSettings.General?.Set("SavedPlaceId", pid);
+                                AppSettings.Save();
                             }
                         }
                         catch (Exception ex)
@@ -61,7 +61,7 @@ namespace Shiro.AvaloniaUI
                         await System.Threading.Tasks.Task.Delay(350);
                         try
                         {
-                            AccountManager.Instance?.InitializePostStartup();
+                            AppSettings.InitializePostStartup();
                         }
                         catch (Exception ex)
                         {

@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.IO;
 using System.Runtime.InteropServices;
@@ -95,7 +95,7 @@ namespace Shiro.AvaloniaUI.Controls
 
                 if (_childHwnd != IntPtr.Zero)
                 {
-                    try { DestroyWindow(_childHwnd); } catch (Exception) { }
+                    SafeExecuteHelper.Try(() => DestroyWindow(_childHwnd), "WebView2Control.DestroyWindow");
                     _childHwnd = IntPtr.Zero;
                 }
             }
@@ -183,7 +183,7 @@ namespace Shiro.AvaloniaUI.Controls
                     var oldCore = oldController.CoreWebView2;
                     if (oldCore != null)
                     {
-                        try { oldCore.Stop(); } catch (Exception) { }
+                        SafeExecuteHelper.Try(() => oldCore.Stop(), "WebView2Control.StopOldCore");
                     }
                 }
                 catch (Exception ex)
@@ -191,7 +191,7 @@ namespace Shiro.AvaloniaUI.Controls
                     Program.Logger?.Debug($"Stopping old CoreWebView2 threw: {ex.Message}");
                 }
 
-                try { oldController.Close(); } catch (Exception) { }
+                SafeExecuteHelper.Try(() => oldController.Close(), "WebView2Control.CloseOldController");
             }
 
             _controller = await CreateIsolatedControllerCoreAsync();

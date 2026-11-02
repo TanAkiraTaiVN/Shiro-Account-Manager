@@ -351,11 +351,11 @@ namespace Shiro.AvaloniaUI.Views
                     _lastVerifiedAccount.Valid &&
                     string.Equals(_lastVerifiedCookie, cookie, StringComparison.Ordinal))
                 {
-                    newAcc = AccountManager.RegisterValidatedAccount(_lastVerifiedAccount, _lastVerifiedAccount.SecurityToken, _password ?? "", saveImmediate: true);
+                    newAcc = AppServices.AccountRepository.RegisterValidated(_lastVerifiedAccount, _lastVerifiedAccount.SecurityToken, _password ?? "", saveImmediate: true);
                 }
                 else
                 {
-                    newAcc = await AccountManager.AddAccountAsync(cookie, _password ?? "");
+                    newAcc = await AppServices.AccountRepository.AddOrUpdateAsync(cookie, _password ?? "");
                 }
 
                 if (newAcc != null && newAcc.Valid)
@@ -377,13 +377,13 @@ namespace Shiro.AvaloniaUI.Views
 
                     if (metadataUpdated)
                     {
-                        try { await AccountManager.SaveAccountsAsync(true); }
+                        try { await AppServices.AccountRepository.SaveAsync(true); }
                         catch (Exception ex) { Program.Logger?.Warn($"SaveAccountsAsync after fast login failed: {ex.Message}"); }
                     }
 
                     CreatedAccount = newAcc;
                     MainWindow.Instance?.DashboardView?.LoadDashboardData();
-                    AccountManager.Instance?.SetDashboardStatus($"Đã thêm tài khoản {newAcc.Username} thành công!");
+                    AppSettings.SetDashboardStatus($"Đã thêm tài khoản {newAcc.Username} thành công!");
                     Close(true);
                 }
                 else
@@ -405,7 +405,7 @@ namespace Shiro.AvaloniaUI.Views
 
         private void OnCancelClicked(object sender, RoutedEventArgs e)
         {
-            try { _pollTimer?.Stop(); } catch (Exception) { }
+            SafeExecuteHelper.Try(() => _pollTimer?.Stop());
             Close(false);
         }
 

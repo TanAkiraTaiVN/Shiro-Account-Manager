@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -127,7 +127,7 @@ namespace Shiro.AvaloniaUI.Views
                     TxtStatus.Text = $"Hoạt động: {online}/{_proxies.Count} • Lỗi: {dead}";
                 }
             }
-            catch (OperationCanceledException) { }
+            catch (OperationCanceledException) { /* canceled */ }
             catch (Exception ex)
             {
                 Program.Logger?.Warn($"[ProxyManagerDialog] Error during proxy testing: {ex.Message}");

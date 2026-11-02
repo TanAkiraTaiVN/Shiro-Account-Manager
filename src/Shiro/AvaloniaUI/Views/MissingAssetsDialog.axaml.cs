@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -148,7 +148,7 @@ namespace Shiro.AvaloniaUI.Views
                 TxtStatus.Text = $"Hoàn tất tải {_items.Count} vật phẩm.";
                 TxtTotalPrice.Text = $"Tổng Robux: {Interlocked.Read(ref totalCost):N0} R$";
             }
-            catch (OperationCanceledException) { }
+            catch (OperationCanceledException) { /* canceled */ }
             catch (Exception ex)
             {
                 Program.Logger?.Error($"[MissingAssetsDialog] Error in Loaded: {ex.Message}");
@@ -161,7 +161,7 @@ namespace Shiro.AvaloniaUI.Views
             try
             {
                 var request = _account.MakeRequest($"v2/assets/{item.AssetId}/details");
-                var response = await _account.ExecuteAccountRestAsync(AccountManager.EconClient, "https://economy.roblox.com", request, cancellationToken).ConfigureAwait(false);
+                var response = await _account.ExecuteAccountRestAsync(AppServices.RobloxApi.Economy, "https://economy.roblox.com", request, cancellationToken).ConfigureAwait(false);
                 if (response != null && response.IsSuccessful && !string.IsNullOrEmpty(response.Content))
                 {
                     using var doc = JsonDocument.Parse(response.Content);
@@ -319,7 +319,7 @@ namespace Shiro.AvaloniaUI.Views
                         expectedSellerId = sellerId
                     });
 
-                    var response = await _account.ExecuteAccountRestAsync(AccountManager.EconClient, "https://economy.roblox.com", buyRequest).ConfigureAwait(true);
+                    var response = await _account.ExecuteAccountRestAsync(AppServices.RobloxApi.Economy, "https://economy.roblox.com", buyRequest).ConfigureAwait(true);
                     if (response != null && response.IsSuccessful)
                     {
                         item.BuyButtonText = "Đã mua";
