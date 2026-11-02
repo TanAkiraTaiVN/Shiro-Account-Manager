@@ -286,7 +286,10 @@ namespace Shiro.Services
                 if (doc.RootElement.TryGetProperty("error", out var eProp))
                     return eProp.GetString() ?? responseText;
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"[BloxGenService.ExtractErrorMessage] {ex.Message}");
+            }
             return responseText.Length > 100 ? responseText.Substring(0, 100) + "..." : responseText;
         }
     }

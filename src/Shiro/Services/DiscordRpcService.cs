@@ -159,7 +159,8 @@ namespace Shiro.Services
                         if (ReferenceEquals(_pipeStream, pipe))
                             _pipeStream = null;
                     }
-                    try { pipe?.Dispose(); } catch { }
+                    try { pipe?.Dispose(); }
+                    catch (Exception ex) { Program.Logger?.Debug($"[DiscordRpcService.ConnectPipeAsync] Pipe dispose: {ex.Message}"); }
                     // Continue probing next pipe index
                 }
             }
@@ -174,7 +175,10 @@ namespace Shiro.Services
                 {
                     _pipeStream?.Dispose();
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    Program.Logger?.Debug($"[DiscordRpcService.Disconnect] {ex.Message}");
+                }
                 _pipeStream = null;
             }
         }
@@ -256,12 +260,16 @@ namespace Shiro.Services
                 procs = Process.GetProcessesByName("RobloxPlayerBeta");
                 active = procs.Length;
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"[DiscordRpcService.UpdatePresence] {ex.Message}");
+            }
             finally
             {
                 foreach (var p in procs)
                 {
-                    try { p.Dispose(); } catch { }
+                    try { p.Dispose(); }
+                    catch (Exception ex) { Program.Logger?.Debug($"[DiscordRpcService.UpdatePresence] Process dispose: {ex.Message}"); }
                 }
             }
 
@@ -290,7 +298,10 @@ namespace Shiro.Services
                     string json = JsonSerializer.Serialize(payload);
                     await WriteFrameAsync(1, json, CancellationToken.None).ConfigureAwait(false);
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    Program.Logger?.Debug($"[DiscordRpcService.ClearPresence] {ex.Message}");
+                }
             });
         }
 

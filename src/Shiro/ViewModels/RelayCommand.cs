@@ -1,5 +1,6 @@
-﻿#nullable enable
+#nullable enable
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
 
@@ -43,7 +44,7 @@ namespace Shiro.ViewModels
     {
         private readonly Func<object?, Task> _executeAsync;
         private readonly Predicate<object?>? _canExecute;
-        private bool _isExecuting;
+        private int _isExecuting;
 
         public event EventHandler? CanExecuteChanged;
 
@@ -56,15 +57,15 @@ namespace Shiro.ViewModels
             _canExecute = canExecute;
         }
 
-        public bool CanExecute(object? parameter) => !_isExecuting && (_canExecute == null || _canExecute(parameter));
+        public bool CanExecute(object? parameter) => Volatile.Read(ref _isExecuting) == 0 && (_canExecute == null || _canExecute(parameter));
 
         public async void Execute(object? parameter)
         {
             if (!CanExecute(parameter)) return;
+            if (Interlocked.CompareExchange(ref _isExecuting, 1, 0) != 0) return;
 
             try
             {
-                _isExecuting = true;
                 RaiseCanExecuteChanged();
                 await _executeAsync(parameter);
             }
@@ -78,7 +79,7 @@ namespace Shiro.ViewModels
             }
             finally
             {
-                _isExecuting = false;
+                Volatile.Write(ref _isExecuting, 0);
                 RaiseCanExecuteChanged();
             }
         }
@@ -137,7 +138,7 @@ namespace Shiro.ViewModels
     {
         private readonly Func<T, Task> _executeAsync;
         private readonly Predicate<T>? _canExecute;
-        private bool _isExecuting;
+        private int _isExecuting;
 
         public event EventHandler? CanExecuteChanged;
 
@@ -150,7 +151,7 @@ namespace Shiro.ViewModels
 
         public bool CanExecute(object? parameter)
         {
-            if (_isExecuting) return false;
+            if (Volatile.Read(ref _isExecuting) != 0) return false;
             if (_canExecute == null) return true;
             if (parameter is T typed) return _canExecute(typed);
             if (parameter == null && default(T) == null) return _canExecute(default!);
@@ -160,10 +161,10 @@ namespace Shiro.ViewModels
         public async void Execute(object? parameter)
         {
             if (!CanExecute(parameter)) return;
+            if (Interlocked.CompareExchange(ref _isExecuting, 1, 0) != 0) return;
 
             try
             {
-                _isExecuting = true;
                 RaiseCanExecuteChanged();
                 if (parameter is T typed)
                     await _executeAsync(typed);
@@ -180,7 +181,7 @@ namespace Shiro.ViewModels
             }
             finally
             {
-                _isExecuting = false;
+                Volatile.Write(ref _isExecuting, 0);
                 RaiseCanExecuteChanged();
             }
         }

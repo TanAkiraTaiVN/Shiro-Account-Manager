@@ -46,8 +46,9 @@ namespace Shiro.Services
                 {
                     seconds = AppSettings.General.Get<int>(AppSettingsKeys.General.SmartLaunchMinDelaySeconds, DefaultSmartLaunchMinDelaySeconds);
                 }
-                catch
+                catch (Exception ex)
                 {
+                    Program.Logger?.Debug($"[LaunchCoordinator.GetSmartLaunchMinDelayMs] {ex.Message}");
                     seconds = DefaultSmartLaunchMinDelaySeconds;
                 }
             }
@@ -146,7 +147,10 @@ namespace Shiro.Services
                             }
                         }
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        Program.Logger?.Debug($"[LaunchCoordinator.TryFindProcessPlayerLogPath] Watcher lookup: {ex.Message}");
+                    }
                 }
             }
 
@@ -165,11 +169,11 @@ namespace Shiro.Services
                     return null;
                 processStartUtc = proc.StartTime.ToUniversalTime();
             }
-            catch
+            catch (Exception ex)
             {
+                Program.Logger?.Debug($"[LaunchCoordinator.TryFindProcessPlayerLogPath] Process start time: {ex.Message}");
                 return null;
             }
-
             try
             {
                 var dirInfo = new DirectoryInfo(defaultLogsDir);
@@ -204,7 +208,10 @@ namespace Shiro.Services
                             if (head.Contains(browserTrackerId, StringComparison.Ordinal))
                                 return file.FullName;
                         }
-                        catch { }
+                        catch (Exception ex)
+                        {
+                            Program.Logger?.Debug($"[LaunchCoordinator.TryFindProcessPlayerLogPath] Tracker stream read: {ex.Message}");
+                        }
                     }
 
                     if (delta < bestDelta)
@@ -216,8 +223,9 @@ namespace Shiro.Services
 
                 return bestDelta <= 6.0 ? bestMatchPath : null;
             }
-            catch
+            catch (Exception ex)
             {
+                Program.Logger?.Debug($"[LaunchCoordinator.TryFindProcessPlayerLogPath] Enumerate files: {ex.Message}");
                 return null;
             }
         }
@@ -254,8 +262,9 @@ namespace Shiro.Services
 
                 return AnalyzeClientLogLines(lines);
             }
-            catch
+            catch (Exception ex)
             {
+                Program.Logger?.Debug($"[LaunchCoordinator.InspectProcessGameJoinState] {ex.Message}");
                 return ClientGameJoinState.Pending;
             }
         }

@@ -5,6 +5,7 @@ using Xunit;
 
 namespace Shiro.Tests
 {
+    [Collection("SerialGlobalState")]
     public class SecurityHardeningTests
     {
         [Theory]
@@ -172,23 +173,32 @@ namespace Shiro.Tests
         [InlineData("/BlockUser")]
         public async System.Threading.Tasks.Task WebServer_SensitiveEndpoints_RejectWhenPasswordNotConfigured(string path)
         {
-            var mgr = AccountManager.Instance ?? new AccountManager();
-            int statusCode = 200;
-            var ctx = new AccountManager.ApiRequestContext
+            string oldPass = AccountManager.WSPassword;
+            try
             {
-                AbsolutePath = path,
-                IsV2 = true,
-                IsLocal = true,
-                Host = "localhost",
-                Origin = "",
-                GetQuery = _ => null,
-                GetHeader = _ => null,
-                SetStatusCode = c => statusCode = c
-            };
+                AccountManager.WSPassword = "";
+                var mgr = AccountManager.Instance ?? new AccountManager();
+                int statusCode = 200;
+                var ctx = new AccountManager.ApiRequestContext
+                {
+                    AbsolutePath = path,
+                    IsV2 = true,
+                    IsLocal = true,
+                    Host = "localhost",
+                    Origin = "",
+                    GetQuery = _ => null,
+                    GetHeader = _ => null,
+                    SetStatusCode = c => statusCode = c
+                };
 
-            string resp = await mgr.ProcessApiRequestAsync(ctx);
-            Assert.Equal(401, statusCode);
-            Assert.Contains("WebServer password must be configured", resp, StringComparison.OrdinalIgnoreCase);
+                string resp = await mgr.ProcessApiRequestAsync(ctx);
+                Assert.Equal(401, statusCode);
+                Assert.Contains("WebServer password must be configured", resp, StringComparison.OrdinalIgnoreCase);
+            }
+            finally
+            {
+                AccountManager.WSPassword = oldPass;
+            }
         }
 
         [Fact]

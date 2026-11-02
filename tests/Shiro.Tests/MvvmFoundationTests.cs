@@ -1,6 +1,7 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using Shiro.Services;
 using Shiro.ViewModels;
@@ -61,6 +62,52 @@ namespace Shiro.Tests
             // Small delay to allow async completion
             await Task.Delay(50);
             Assert.Equal(42, receivedNumber);
+        }
+
+        [Fact]
+        public async Task AsyncRelayCommand_ConcurrentExecute_RunsOnce()
+        {
+            int count = 0;
+            var gate = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            var command = new AsyncRelayCommand(async () =>
+            {
+                await gate.Task;
+                Interlocked.Increment(ref count);
+            });
+
+            Parallel.For(0, 8, _ =>
+            {
+                command.Execute(null);
+            });
+
+            gate.SetResult(true);
+            await Task.Delay(200);
+
+            Assert.Equal(1, count);
+        }
+
+        [Fact]
+        public async Task AsyncRelayCommand_Generic_ConcurrentExecute_RunsOnce()
+        {
+            int count = 0;
+            var gate = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            var command = new AsyncRelayCommand<string>(async _ =>
+            {
+                await gate.Task;
+                Interlocked.Increment(ref count);
+            });
+
+            Parallel.For(0, 8, _ =>
+            {
+                command.Execute("test");
+            });
+
+            gate.SetResult(true);
+            await Task.Delay(200);
+
+            Assert.Equal(1, count);
         }
 
         
