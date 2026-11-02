@@ -101,7 +101,7 @@ namespace Shiro
                 {
                     _Group = value ?? "Default";
                     IsDirty = true;
-                    AccountManager.QueueDeferredSave();
+                    AppServices.AccountRepository.QueueDeferredSave();
                 }
             }
         }
@@ -116,7 +116,7 @@ namespace Shiro
                 {
                     _Proxy = value;
                     IsDirty = true;
-                    AccountManager.QueueDeferredSave();
+                    AppServices.AccountRepository.QueueDeferredSave();
                 }
             }
         }
@@ -179,7 +179,7 @@ namespace Shiro
                 {
                     _Alias = value;
                     IsDirty = true;
-                    AccountManager.QueueDeferredSave();
+                    AppServices.AccountRepository.QueueDeferredSave();
                 }
             }
         }
@@ -195,7 +195,7 @@ namespace Shiro
                 {
                     _Description = value;
                     IsDirty = true;
-                    AccountManager.QueueDeferredSave();
+                    AppServices.AccountRepository.QueueDeferredSave();
                 }
             }
         }
@@ -211,7 +211,7 @@ namespace Shiro
                 {
                     _Password = value;
                     IsDirty = true;
-                    AccountManager.QueueDeferredSave();
+                    AppServices.AccountRepository.QueueDeferredSave();
                 }
             }
         }
@@ -332,14 +332,14 @@ namespace Shiro
                 account.UserID = data.UserId;
                 account.Valid = true;
                 account.LastUse = DateTime.Now;
-                AccountManager.LastValidAccount = account;
+                AppSettings.LastValidAccount = account;
                 return account;
             }
 
             if (await account.ValidateSessionAsync(cancellationToken).ConfigureAwait(false) && account.UserID > 0)
             {
                 account.LastUse = DateTime.Now;
-                AccountManager.LastValidAccount = account;
+                AppSettings.LastValidAccount = account;
             }
             return account;
         }
@@ -358,7 +358,7 @@ namespace Shiro
                 UserID = data.UserId;
                 Valid = true;
                 LastUse = DateTime.Now;
-                AccountManager.LastValidAccount = this;
+                AppSettings.LastValidAccount = this;
                 return;
             }
 
@@ -385,7 +385,7 @@ namespace Shiro
                                 Username = authUser.Name ?? string.Empty;
                                 Valid = true;
                                 LastUse = DateTime.Now;
-                                AccountManager.LastValidAccount = this;
+                                AppSettings.LastValidAccount = this;
                                 return;
                             }
                         }
@@ -421,7 +421,7 @@ namespace Shiro
                 Fields[Name] = Value;
             }
             IsDirty = true;
-            AccountManager.QueueDeferredSave();
+            AppServices.AccountRepository.QueueDeferredSave();
         }
 
         public void SetWindowBounds(int x, int y, int width, int height)
@@ -458,7 +458,7 @@ namespace Shiro
             if (removed)
             {
                 IsDirty = true;
-                AccountManager.QueueDeferredSave();
+                AppServices.AccountRepository.QueueDeferredSave();
             }
         }
     }

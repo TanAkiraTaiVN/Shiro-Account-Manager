@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Buffers;
 using System.Collections.Generic;
@@ -111,7 +111,7 @@ namespace Shiro.Classes
                     if (process != null)
                     {
                         await CloseBrowserAsync(port, process).ConfigureAwait(false);
-                        try { process.Dispose(); } catch (Exception) { }
+                        SafeExecuteHelper.Try(process.Dispose);
                     }
                     await WipeProfileWithRetryAsync(profileDir).ConfigureAwait(false);
                 }
@@ -215,10 +215,10 @@ namespace Shiro.Classes
                         }
                     }
                 }
-                catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested) { }
-                catch (HttpRequestException) { }
-                catch (IOException) { }
-                catch (JsonException) { }
+                catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested) { /* Probe timeout */ }
+                catch (HttpRequestException) { /* Endpoint not ready */ }
+                catch (IOException) { /* Socket transient error */ }
+                catch (JsonException) { /* Partial JSON payload */ }
 
                 await Task.Delay(250, cancellationToken).ConfigureAwait(false);
             }
@@ -405,7 +405,7 @@ namespace Shiro.Classes
                 await CloseBrowserAsync(port, process).ConfigureAwait(false);
                 if (process != null)
                 {
-                    try { process.Dispose(); } catch (Exception) { }
+                    SafeExecuteHelper.Try(process.Dispose);
                 }
                 await WipeProfileWithRetryAsync(profileDir).ConfigureAwait(false);
             }

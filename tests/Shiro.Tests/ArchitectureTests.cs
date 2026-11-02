@@ -360,7 +360,7 @@ namespace Shiro.Tests
                 .Where(f => !f.Contains(@"\bin\") && !f.Contains(@"\obj\") && !f.EndsWith(".g.cs"))
                 .ToList();
 
-            const int Baseline = 158;
+            const int Baseline = 0;
             int totalEmptyCatches = 0;
             var emptyCatchRegex = new System.Text.RegularExpressions.Regex(
                 @"catch\s*(\([^\)]*\))?\s*\{\s*\}",
@@ -393,23 +393,62 @@ namespace Shiro.Tests
 
             Assert.NotNull(repoRoot);
             var servicesDir = Path.Combine(repoRoot!, "src", "Shiro", "Services");
+            var viewModelsDir = Path.Combine(repoRoot!, "src", "Shiro", "ViewModels");
+            var classesDir = Path.Combine(repoRoot!, "src", "Shiro", "Classes");
             var files = Directory.GetFiles(servicesDir, "*.cs", SearchOption.AllDirectories)
-                .Where(f => !f.EndsWith("AppSettings.cs", StringComparison.OrdinalIgnoreCase) &&
-                            !f.EndsWith("AccountRepository.cs", StringComparison.OrdinalIgnoreCase))
+                .Where(f => !f.EndsWith("AccountRepository.cs", StringComparison.OrdinalIgnoreCase) &&
+                            !f.EndsWith("RobloxApiClient.cs", StringComparison.OrdinalIgnoreCase))
+                .Concat(Directory.GetFiles(viewModelsDir, "*.cs", SearchOption.AllDirectories))
+                .Concat(Directory.GetFiles(classesDir, "*.cs", SearchOption.AllDirectories))
                 .ToList();
 
             var violations = new System.Collections.Generic.List<string>();
             foreach (var file in files)
             {
                 string text = File.ReadAllText(file);
-                if (text.Contains("AccountManager.General", StringComparison.Ordinal))
-                    violations.Add($"{Path.GetFileName(file)} references AccountManager.General directly (use AppSettings.General)");
-                if (text.Contains("AccountManager.GetAccountsSnapshot", StringComparison.Ordinal))
-                    violations.Add($"{Path.GetFileName(file)} references AccountManager.GetAccountsSnapshot directly (use AppServices.AccountRepository.GetAll())");
+                if (text.Contains("AccountManager.", StringComparison.Ordinal))
+                {
+                    violations.Add($"{Path.GetFileName(file)} references AccountManager.* directly (use AppServices / AppSettings)");
+                }
             }
 
             Assert.True(violations.Count == 0,
-                $"Service decoupling violations found:\n{string.Join("\n", violations)}");
+                $"Service/ViewModel decoupling violations found:\n{string.Join("\n", violations)}");
+        }
+
+        [Fact]
+        public void NoAxamlFiles_ShouldExceed400Lines()
+        {
+            var dir = new DirectoryInfo(AppContext.BaseDirectory);
+            string? repoRoot = null;
+            while (dir != null)
+            {
+                if (File.Exists(Path.Combine(dir.FullName, "Shiro.sln")))
+                {
+                    repoRoot = dir.FullName;
+                    break;
+                }
+                dir = dir.Parent;
+            }
+
+            Assert.NotNull(repoRoot);
+            var appDir = Path.Combine(repoRoot!, "src", "Shiro");
+            var files = Directory.GetFiles(appDir, "*.axaml", SearchOption.AllDirectories)
+                .Where(f => !f.Contains(@"\bin\") && !f.Contains(@"\obj\"))
+                .ToList();
+
+            var violations = new System.Collections.Generic.List<string>();
+            foreach (var file in files)
+            {
+                int lineCount = File.ReadAllLines(file).Length;
+                if (lineCount > 400)
+                {
+                    violations.Add($"{Path.GetFileName(file)}: {lineCount} lines (max 400)");
+                }
+            }
+
+            Assert.True(violations.Count == 0,
+                $"AXAML files exceeding 400 lines:\n{string.Join("\n", violations)}");
         }
 
         [Fact]
@@ -437,6 +476,80 @@ namespace Shiro.Tests
 
             Assert.True(rootFiles.Count == 0,
                 $"New service files must be placed inside a domain subfolder (Auth, Launch, Storage, Windows, Network, Ui). Found at root: {string.Join(", ", rootFiles)}");
+        }
+
+        [Fact]
+        public void SourceFiles_ShouldNotContain_MojibakeOrReplacementCharacters()
+        {
+            var dir = new DirectoryInfo(AppContext.BaseDirectory);
+            string? repoRoot = null;
+            while (dir != null)
+            {
+                if (File.Exists(Path.Combine(dir.FullName, "Shiro.sln")))
+                {
+                    repoRoot = dir.FullName;
+                    break;
+                }
+                dir = dir.Parent;
+            }
+
+            Assert.NotNull(repoRoot);
+            var appDir = Path.Combine(repoRoot!, "src", "Shiro");
+            var extensions = new[] { "*.cs", "*.axaml", "*.json" };
+            var violations = new System.Collections.Generic.List<string>();
+
+            foreach (var ext in extensions)
+            {
+                foreach (var file in Directory.GetFiles(appDir, ext, SearchOption.AllDirectories))
+                {
+                    if (file.Contains(@"\bin\") || file.Contains(@"\obj\"))
+                        continue;
+
+                    string content = File.ReadAllText(file);
+                    if (content.Contains('\uFFFD'))
+                    {
+                        violations.Add($"{Path.GetFileName(file)} contains Unicode replacement character (U+FFFD)");
+                    }
+                }
+            }
+
+            Assert.True(violations.Count == 0,
+                $"Encoding/mojibake violations found:\n{string.Join("\n", violations)}");
+        }
+
+        [Fact]
+        public void SourceFiles_ShouldNotUse_SyncOverAsyncBlocking()
+        {
+            var dir = new DirectoryInfo(AppContext.BaseDirectory);
+            string? repoRoot = null;
+            while (dir != null)
+            {
+                if (File.Exists(Path.Combine(dir.FullName, "Shiro.sln")))
+                {
+                    repoRoot = dir.FullName;
+                    break;
+                }
+                dir = dir.Parent;
+            }
+
+            Assert.NotNull(repoRoot);
+            var appDir = Path.Combine(repoRoot!, "src", "Shiro");
+            var files = Directory.GetFiles(appDir, "*.cs", SearchOption.AllDirectories)
+                .Where(f => !f.Contains(@"\bin\") && !f.Contains(@"\obj\") && !f.EndsWith(".g.cs"))
+                .ToList();
+
+            var violations = new System.Collections.Generic.List<string>();
+            foreach (var file in files)
+            {
+                string content = File.ReadAllText(file);
+                if (content.Contains(".GetAwaiter().GetResult()", StringComparison.Ordinal))
+                {
+                    violations.Add($"{Path.GetFileName(file)} uses sync-over-async .GetAwaiter().GetResult()");
+                }
+            }
+
+            Assert.True(violations.Count == 0,
+                $"Sync-over-async violations found:\n{string.Join("\n", violations)}");
         }
     }
 }

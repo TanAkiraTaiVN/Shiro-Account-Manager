@@ -186,7 +186,7 @@ namespace Shiro.Classes
             if (RememberWindowPositions)
             {
                 accountByTracker = new Dictionary<string, Account>(StringComparer.Ordinal);
-                foreach (Account acc in AccountManager.GetAccountsSnapshot())
+                foreach (Account acc in AppServices.AccountRepository.GetAll())
                 {
                     if (acc != null && !string.IsNullOrEmpty(acc.BrowserTrackerID))
                         accountByTracker[acc.BrowserTrackerID] = acc;
@@ -329,7 +329,7 @@ namespace Shiro.Classes
                 {
                     if (!retained && process != null)
                     {
-                        try { process.Dispose(); } catch { }
+                        SafeExecuteHelper.Try(() => process.Dispose(), "RobloxWatcher.DisposeProcess");
                     }
                 }
             }

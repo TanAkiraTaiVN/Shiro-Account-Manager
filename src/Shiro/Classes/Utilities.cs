@@ -127,18 +127,18 @@ namespace Shiro
 
             if (CanSave)
             {
-                if (AccountManager.Prompts != null && AccountManager.Prompts.Exists(sha256Hash))
-                    return AccountManager.Prompts.Get<bool>(sha256Hash);
+                if (AppSettings.Prompts != null && AppSettings.Prompts.Exists(sha256Hash))
+                    return AppSettings.Prompts.Get<bool>(sha256Hash);
             }
 
             string promptMessage = string.IsNullOrWhiteSpace(Instruction) ? (Text ?? string.Empty) : $"{Instruction}\n\n{Text}";
             bool isYes = AppServices.Dialogs.ShowConfirmation(promptMessage, Caption ?? "Shiro");
-            if (CanSave && AccountManager.Prompts != null)
+            if (CanSave && AppSettings.Prompts != null)
             {
                 if (SaveIfNo || isYes)
                 {
-                    AccountManager.Prompts.Set(sha256Hash, isYes ? "true" : "false");
-                    AccountManager.SaveSettings();
+                    AppSettings.Prompts.Set(sha256Hash, isYes ? "true" : "false");
+                    AppSettings.Save();
                 }
             }
 

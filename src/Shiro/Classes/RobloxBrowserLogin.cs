@@ -336,7 +336,7 @@ namespace Shiro.Classes
 
                             // 4. Add or update account with the settled cookie
                             var hbaSnapshot = await ExtractHbaCaptureFromPageAsync(signInPage).ConfigureAwait(false);
-                            Account? account = await AccountManager.AddAccountAsync(settledCookieValue, password ?? string.Empty, accountJson, cancellationToken: cancellationToken, hbaCapture: hbaSnapshot).ConfigureAwait(false);
+                            Account? account = await AppServices.AccountRepository.AddOrUpdateWithHbaAsync(settledCookieValue, password ?? string.Empty, accountJson, cancellationToken: cancellationToken, hbaCapture: hbaSnapshot).ConfigureAwait(false);
                             if (account != null)
                             {
                                 createdAccount = account;
@@ -362,7 +362,7 @@ namespace Shiro.Classes
                                 }
 
                                 account.Valid = sessionValid;
-                                try { AccountManager.SaveAccounts(true); }
+                                try { AppServices.AccountRepository.Save(true); }
                                 catch (Exception ex) { Program.Logger?.Warn($"SaveAccounts failed after browser login: {ex.Message}"); }
 
                                 if (sessionValid)

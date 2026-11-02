@@ -130,13 +130,13 @@ namespace Shiro
                 LastBoundIpSignature = netSig;
             try
             {
-                AccountManager.QueueDeferredSave();
+                AppServices.AccountRepository.QueueDeferredSave();
                 if (!string.IsNullOrEmpty(Username) || UserID > 0)
                 {
-                    AccountManager.Instance?.BeginInvoke(new Action(() =>
+                    AppDispatcher.Post(() =>
                     {
-                        AccountManager.Instance?.RefreshView(this);
-                    }));
+                        AppSettings.RefreshAccountView(this);
+                    });
                 }
             }
             catch (Exception ex)

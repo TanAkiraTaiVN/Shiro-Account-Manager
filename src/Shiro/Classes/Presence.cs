@@ -20,9 +20,9 @@ namespace Shiro.Classes
             { UserPresenceType.InStudio, Color.FromArgb(255, 170, 170, 170) }
         };
 
-        public static RestClient PresenceClient => AccountManager.PresenceClient
+        public static RestClient PresenceClient => AppServices.RobloxApi.Presence
             ?? throw new InvalidOperationException("Roblox API clients have not been initialized.");
-        private static RestClient GamesClient => AccountManager.GamesClient
+        private static RestClient GamesClient => AppServices.RobloxApi.Games
             ?? throw new InvalidOperationException("Roblox API clients have not been initialized.");
         private static readonly Dictionary<long, string> GameNameCache = new Dictionary<long, string>();
         private static readonly System.Threading.Lock GameNameCacheLock = new();
@@ -53,7 +53,7 @@ namespace Shiro.Classes
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 HashSet<Account> Updated = new HashSet<Account>();
-                var accountsSnapshot = AccountManager.GetAccountsSnapshot();
+                var accountsSnapshot = AppServices.AccountRepository.GetAll();
                 var AccountsById = new Dictionary<long, Account>(accountsSnapshot.Count);
                 foreach (Account account in accountsSnapshot)
                 {
@@ -126,7 +126,7 @@ namespace Shiro.Classes
 
                 if (Updated.Count > 0)
                 {
-                    AccountManager.Instance?.UpdateAccountView();
+                    AppSettings.RefreshAccountView();
                 }
             }
             finally
@@ -225,7 +225,7 @@ namespace Shiro.Classes
         {
             if (account != null && !account.Valid) return "● Hết hạn phiên (Re-login)";
             if (isLaunching) return "● Launching…";
-            if (AccountManager.General == null || !AccountManager.General.Get<bool>("ShowPresence")) return "● Ready";
+            if (AppSettings.General == null || !AppSettings.General.Get<bool>("ShowPresence")) return "● Ready";
             if (account?.Presence == null) return "● Checking…";
 
             switch (account.Presence.userPresenceType)
@@ -247,7 +247,7 @@ namespace Shiro.Classes
         {
             if (account != null && !account.Valid) return Color.FromArgb(255, 255, 92, 92);
             if (isLaunching) return Color.FromArgb(255, 170, 170, 170);
-            if (account?.Presence == null || AccountManager.General == null || !AccountManager.General.Get<bool>("ShowPresence"))
+            if (account?.Presence == null || AppSettings.General == null || !AppSettings.General.Get<bool>("ShowPresence"))
                 return Color.FromArgb(255, 160, 160, 160);
 
             return Colors.TryGetValue(account.Presence.userPresenceType, out Color color)

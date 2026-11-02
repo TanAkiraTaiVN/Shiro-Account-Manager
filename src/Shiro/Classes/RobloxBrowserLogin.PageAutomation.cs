@@ -42,9 +42,9 @@ namespace Shiro.Classes
                                         if (el._valueTracker) el._valueTracker.setValue('');
                                         const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
                                         if (setter) setter.call(el, val); else el.value = val;
-                                        try { el.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: val })); } catch(_) {}
+                                        try { el.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: val })); } catch(_) { /* ignore */ }
                                         el.dispatchEvent(new Event('change', { bubbles: true }));
-                                    } catch (_) {}
+                                    } catch (_) { /* ignore */ }
                                 };
                                 if (u && data.username && !u.value) fill(u, data.username);
                                 if (p && data.password && !p.value) fill(p, data.password);
@@ -362,7 +362,7 @@ namespace Shiro.Classes
             finally
             {
                 await TryDeleteTemporaryDirectoryAsync(sessionRoot).ConfigureAwait(false);
-                try { browser?.Dispose(); } catch (Exception) { }
+                SafeExecuteHelper.Try(() => browser?.Dispose(), "RobloxBrowserLogin.PageAutomation.DisposeBrowser");
             }
         }
 

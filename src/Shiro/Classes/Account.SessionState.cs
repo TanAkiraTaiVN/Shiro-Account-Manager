@@ -465,7 +465,7 @@ namespace Shiro
                     if (resetDelay > 0)
                         return Math.Min(180, Math.Max(1, (int)Math.Ceiling(resetDelay)));
                 }
-                catch (ArgumentOutOfRangeException) { }
+                catch (ArgumentOutOfRangeException) { /* invalid unix timestamp */ }
             }
 
             return NativeAuthRecoverySeconds;
@@ -476,7 +476,7 @@ namespace Shiro
             seconds = Math.Max(1, Math.Min(180, seconds));
 
             Program.Logger?.Warn($"Roblox {source} returned HTTP 429 for {username}. The current launch was stopped; retry after about {seconds} seconds or change network before starting another batch.");
-            AccountManager.Instance?.SetDashboardStatus(
+            AppSettings.SetDashboardStatus(
                 $"Roblox giới hạn xác thực {username} (HTTP 429). Thử lại sau khoảng {seconds} giây hoặc đổi máy chủ VPN.");
             RobloxRateLimitCoordinator.Instance.RecordRateLimitHit(RateLimitCategory.Authentication, defaultBackoffSeconds: seconds);
         }

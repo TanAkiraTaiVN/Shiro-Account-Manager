@@ -92,7 +92,7 @@ namespace Shiro
                                 TokenSet = now;
                                 LastUse = now;
                             }
-                            AccountManager.LastValidAccount = this;
+                            AppSettings.LastValidAccount = this;
                             RecordVolatileLastUse(now);
                             return (true, token, string.Empty);
                         }
@@ -156,7 +156,7 @@ namespace Shiro
                                 TokenSet = now;
                                 LastUse = now;
                             }
-                            AccountManager.LastValidAccount = this;
+                            AppSettings.LastValidAccount = this;
                             RecordVolatileLastUse(now);
                         }
                     }
@@ -211,7 +211,7 @@ namespace Shiro
                         {
                             LastAuthTicketRateLimited = false;
                             RobloxRateLimitCoordinator.Instance.RecordSuccess(RateLimitCategory.Authentication);
-                            AccountManager.QueueDeferredSave();
+                            AppServices.AccountRepository.QueueDeferredSave();
                             return (true, ticket);
                         }
                     }
@@ -235,7 +235,7 @@ namespace Shiro
         {
             RestRequest DataRequest = MakeRequest("v1/email", Method.Get);
 
-            RestResponse? response = await ExecuteAccountRestAsync(AccountManager.AccountClient, "https://accountsettings.roblox.com/", DataRequest, cancellationToken).ConfigureAwait(false);
+            RestResponse? response = await ExecuteAccountRestAsync(AppServices.RobloxApi.Account, "https://accountsettings.roblox.com/", DataRequest, cancellationToken).ConfigureAwait(false);
 
             return response?.Content;
         }
@@ -244,7 +244,7 @@ namespace Shiro
         {
             RestRequest DataRequest = MakeRequest($"v1/users/{UserID}", Method.Get);
 
-            RestResponse? response = await ExecuteAccountRestAsync(AccountManager.UsersClient, "https://users.roblox.com/", DataRequest, cancellationToken).ConfigureAwait(false);
+            RestResponse? response = await ExecuteAccountRestAsync(AppServices.RobloxApi.Users, "https://users.roblox.com/", DataRequest, cancellationToken).ConfigureAwait(false);
 
             if (response != null && response.StatusCode == HttpStatusCode.OK && !string.IsNullOrWhiteSpace(response.Content))
             {

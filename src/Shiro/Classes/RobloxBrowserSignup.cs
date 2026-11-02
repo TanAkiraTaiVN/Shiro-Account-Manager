@@ -1,4 +1,4 @@
-﻿using PuppeteerSharp;
+using PuppeteerSharp;
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -139,7 +139,7 @@ namespace Shiro.Classes
                 await FillSignupFormAsync(page, username, password, profile, submitCredentials: false);
 
                 Program.Logger.Info("Roblox sign-up page opened in Chrome. Waiting for user to complete registration...");
-                AccountManager.Instance?.SetDashboardStatus(
+                AppSettings.SetDashboardStatus(
                     "Đã mở trang đăng ký Roblox trong Chrome. Hoàn tất đăng ký trong trình duyệt; tài khoản sẽ tự động được thêm vào Shiro.");
 
                 string? lastAttemptedCookie = null;
@@ -230,11 +230,11 @@ namespace Shiro.Classes
                                 ? capturedPassword
                                 : (password ?? string.Empty);
 
-                            createdAccount = await AccountManager.AddAccountAsync(sessionCookie.Value, finalPassword, accountJson, cancellationToken: cancellationToken).ConfigureAwait(false);
+                            createdAccount = await AppServices.AccountRepository.AddOrUpdateAsync(sessionCookie.Value, finalPassword, accountJson, cancellationToken: cancellationToken).ConfigureAwait(false);
                             if (createdAccount != null)
                             {
                                 Program.Logger?.Info($"Roblox account '{createdAccount.Username}' registered and added to manager successfully.");
-                                AccountManager.Instance?.SetDashboardStatus(
+                                AppSettings.SetDashboardStatus(
                                     $"Đã đăng ký và thêm tài khoản '{createdAccount.Username}' thành công!");
                                 await Task.Delay(1500, cancellationToken).ConfigureAwait(false);
                                 break;

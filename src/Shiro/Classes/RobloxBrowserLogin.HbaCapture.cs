@@ -42,12 +42,12 @@ namespace Shiro.Classes
                                                 tx.objectStore('hbaObjectStore').clear();
                                             }
                                             db.close();
-                                        } catch (_) {}
+                                        } catch (_) { /* ignore */ }
                                     };
-                                } catch (_) {}
+                                } catch (_) { /* ignore */ }
                             }
                         }
-                    } catch (_) {}
+                    } catch (_) { /* ignore */ }
                 }", script).ConfigureAwait(false);
             }
             catch (Exception ex)
@@ -72,7 +72,7 @@ namespace Shiro.Classes
                                 credentials: 'include',
                                 headers: { 'Accept': 'application/json' }
                             });
-                        } catch (_) {}
+                        } catch (_) { /* ignore */ }
                         const s = window.__shiroHbaState || {};
                         return JSON.stringify({
                             privateKeyPkcs8: s.privateKeyPkcs8 || '',

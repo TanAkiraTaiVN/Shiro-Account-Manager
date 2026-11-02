@@ -312,7 +312,7 @@ namespace Shiro
                 if (string.IsNullOrEmpty(previousSig))
                 {
                     LastBoundIpSignature = currentNetSig;
-                    AccountManager.QueueDeferredSave();
+                    AppServices.AccountRepository.QueueDeferredSave();
                     return true;
                 }
 
@@ -371,7 +371,7 @@ namespace Shiro
                     {
                         if (currentNetSig is not ("offline" or "unknown"))
                             LastBoundIpSignature = currentNetSig;
-                        AccountManager.QueueDeferredSave();
+                        AppServices.AccountRepository.QueueDeferredSave();
                         Program.Logger?.Info($"[HbaRebind] Session synchronized to current network for {Username} (rotated={rotated}).");
                         return true;
                     }

@@ -8,8 +8,11 @@ namespace Shiro.Classes
     internal partial class RobloxProcess
     {
         // Supports both legacy 4-column FLog headers and modern 0.745+ 5-column headers (",Info", ",Warning", ",Error")
-        [GeneratedRegex(@"\[FLog::Output\] ! Joining game '[\w+\-]{36}' place \d+ at [\d+\.]+")]
+        [GeneratedRegex(@"\[FLog::Output\] ! Joining game '[\w\-]{36}' place \d+ at [\d\.]+")]
         internal static partial Regex JoiningGameRegex();
+
+        [GeneratedRegex(@"Connected to server at [\d\.]+:\d+")]
+        internal static partial Regex ConnectedToServerRegex();
 
         [GeneratedRegex(@"\[FLog::DataModelStarterModule\] Launching experience at \d+")]
         internal static partial Regex LaunchingExperienceRegex();
@@ -64,7 +67,13 @@ namespace Shiro.Classes
         internal static bool IsJoiningGameLogLine(string line)
         {
             if (string.IsNullOrEmpty(line)) return false;
-            return JoiningGameRegex().IsMatch(line) || LaunchingExperienceRegex().IsMatch(line);
+            return JoiningGameRegex().IsMatch(line) || ConnectedToServerRegex().IsMatch(line);
+        }
+
+        internal static bool IsLaunchingExperienceLogLine(string line)
+        {
+            if (string.IsNullOrEmpty(line)) return false;
+            return LaunchingExperienceRegex().IsMatch(line);
         }
 
         internal static bool IsGameJoinChallengedLogLine(string line)
@@ -73,6 +82,7 @@ namespace Shiro.Classes
             return line.Contains("challengedByGcs", StringComparison.OrdinalIgnoreCase) ||
                    line.Contains("\"feature\":\"challengeDisplayed\"", StringComparison.OrdinalIgnoreCase) ||
                    line.Contains("\"feature\":\"challengeInitialized\"", StringComparison.OrdinalIgnoreCase) ||
+                   line.Contains("\"feature\":\"challengePageLoaded\"", StringComparison.OrdinalIgnoreCase) ||
                    line.Contains("[FLog::NewWebView2Browser] WebView2 browser is successfully launched", StringComparison.OrdinalIgnoreCase);
         }
 

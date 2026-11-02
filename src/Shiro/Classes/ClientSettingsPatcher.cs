@@ -22,14 +22,14 @@ namespace Shiro.Classes
         {
             lock (PatchLock)
             {
-                bool potatoMode = AccountManager.General?.Get<bool>("EnablePotatoMode", false) ?? false;
+                bool potatoMode = AppSettings.General?.Get<bool>("EnablePotatoMode", false) ?? false;
                 if (potatoMode)
                 {
                     ConfigureGlobalBasicSettings(graphicsQualityLevel: 1);
                 }
 
-                bool unlockFps = AccountManager.General?.Get<bool>("UnlockFPS", false) ?? false;
-                int targetFps = AccountManager.General?.Get<int>("MaxFPSValue", 144) ?? 144;
+                bool unlockFps = AppSettings.General?.Get<bool>("UnlockFPS", false) ?? false;
+                int targetFps = AppSettings.General?.Get<int>("MaxFPSValue", 144) ?? 144;
                 ApplyFpsLimit(unlockFps, targetFps);
 
                 PurgeSettings();
@@ -135,7 +135,7 @@ namespace Shiro.Classes
 
         public static void PurgeSettings()
         {
-            bool shouldPurge = AccountManager.General?.Get<bool>("PurgeClientSettings", false) ?? false;
+            bool shouldPurge = AppSettings.General?.Get<bool>("PurgeClientSettings", false) ?? false;
             if (!shouldPurge)
             {
                 return;

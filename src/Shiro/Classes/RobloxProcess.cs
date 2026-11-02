@@ -65,8 +65,8 @@ namespace Shiro.Classes
                     await RbxProcess.WaitForExitAsync(token).ConfigureAwait(false);
                 }
             }
-            catch (OperationCanceledException) { }
-            catch (InvalidOperationException) { }
+            catch (OperationCanceledException) { /* Intentional: cancellation requested */ }
+            catch (InvalidOperationException) { /* Intentional: process exited before wait */ }
             catch (Exception x)
             {
                 Program.Logger.Error($"WaitForExit Error: {x}");
@@ -80,20 +80,17 @@ namespace Shiro.Classes
             }
         }
 
-        private bool SafeHasExited()
-        {
-            try { return RbxProcess == null || RbxProcess.HasExited; }
-            catch { return true; }
-        }
+        private bool SafeHasExited() =>
+            SafeExecuteHelper.Try(() => RbxProcess == null || RbxProcess.HasExited, fallback: true);
 
         private void ScheduleNoConnectionWatchdogIfEnabled(double initialGraceSeconds = 0)
         {
             try
             {
-                if (AccountManager.Watcher == null || !AccountManager.Watcher.Get<bool>("ExitIfNoConnection"))
+                if (AppSettings.Watcher == null || !AppSettings.Watcher.Get<bool>("ExitIfNoConnection"))
                     return;
 
-                double timeout = AccountManager.Watcher.Get<double>("NoConnectionTimeout");
+                double timeout = AppSettings.Watcher.Get<double>("NoConnectionTimeout");
                 if (timeout <= 0)
                     return;
 
@@ -108,17 +105,17 @@ namespace Shiro.Classes
                         if (token.IsCancellationRequested || IsConnected || Program.Closed || SafeHasExited())
                             return;
 
-                        if (!AccountManager.Watcher.Get<bool>("ExitIfNoConnection"))
+                        if (AppSettings.Watcher == null || !AppSettings.Watcher.Get<bool>("ExitIfNoConnection"))
                             return;
 
-                        double configuredTimeout = AccountManager.Watcher.Get<double>("NoConnectionTimeout");
+                        double configuredTimeout = AppSettings.Watcher.Get<double>("NoConnectionTimeout");
                         double elapsed = (DateTime.UtcNow - DisconnectedTime).TotalSeconds;
                         if (configuredTimeout > 0 && !IsConnected && elapsed > configuredTimeout)
                         {
                             KillProcess($"Lost connection for more than {elapsed:0.0} second(s)");
                         }
                     }
-                    catch (OperationCanceledException) { }
+                    catch (OperationCanceledException) { /* Intentional: watchdog cancelled */ }
                     catch (Exception ex)
                     {
                         Program.Logger?.Debug($"NoConnection watchdog error: {ex.Message}");
@@ -138,11 +135,10 @@ namespace Shiro.Classes
 
             try
             {
-                try { exitMonitoringCancellation.Cancel(); } catch (Exception) { }
-                try { logLookupCancellation.Cancel(); } catch (Exception) { }
+                SafeExecuteHelper.Try(exitMonitoringCancellation.Cancel);
+                SafeExecuteHelper.Try(logLookupCancellation.Cancel);
 
-                int processId = 0;
-                try { processId = RbxProcess?.Id ?? 0; } catch (Exception) { }
+                int processId = SafeExecuteHelper.Try(() => RbxProcess?.Id ?? 0, fallback: 0);
                 if (processId > 0)
                     Program.Logger.Info($"{processId} has exited");
 
@@ -156,9 +152,9 @@ namespace Shiro.Classes
                     RobloxWatcher.RemoveProcessMetadata(processId);
 
                 LogStream?.Dispose();
-                try { RbxProcess?.Dispose(); } catch (Exception) { }
-                try { logLookupCancellation.Dispose(); } catch (Exception) { }
-                try { exitMonitoringCancellation.Dispose(); } catch (Exception) { }
+                SafeExecuteHelper.Try(() => RbxProcess?.Dispose());
+                SafeExecuteHelper.Try(logLookupCancellation.Dispose);
+                SafeExecuteHelper.Try(exitMonitoringCancellation.Dispose);
 
                 Utilities.QueueRefreshNotificationArea();
             }
@@ -231,13 +227,19 @@ namespace Shiro.Classes
                         {
                             IsConnected = true;
                             HasGameJoinChallenge = false;
+                            HasSecurityCookieChanged = false;
                             try { if (RbxProcess != null) Connected?.Invoke(RbxProcess.Id); }
                             catch (Exception ex) { Program.Logger?.Error($"Connected event handler failed: {ex.Message}"); }
 
                             continue;
                         }
 
-                        if (IsGameJoinChallengedLogLine(Line))
+                        if (IsChallengeCompletedLogLine(Line))
+                        {
+                            HasGameJoinChallenge = false;
+                        }
+
+                        if (!IsConnected && IsGameJoinChallengedLogLine(Line))
                         {
                             HasGameJoinChallenge = true;
                         }
@@ -266,7 +268,7 @@ namespace Shiro.Classes
                             Program.Logger?.Info($"CurrentDataModel set to {CurrentDataModel:X}");
 
                             // Automatically trim launch working set 15 seconds after map assets finish loading if enabled
-                            if (AccountManager.General?.Get<bool>(AppSettingsKeys.General.AggressiveRamTrimming, false) ?? false)
+                            if (AppSettings.General?.Get<bool>(AppSettingsKeys.General.AggressiveRamTrimming, false) ?? false)
                             {
                                 _ = SchedulePostLaunchRamTrimAsync();
                             }
@@ -287,17 +289,17 @@ namespace Shiro.Classes
 
                         if (IsReturnToLuaAppLine(Line, hasActiveGameDataModel: CurrentDataModel > 0))
                         {
-                            // Prevent duplicate LuaApp Home windows logged into the wrong account when a verification
-                            // challenge (challengedByGcs) had its WebView2 session cookie overwritten mid-challenge.
-                            if ((HasGameJoinChallenge || CurrentDataModel > 0) && HasSecurityCookieChanged)
+                            // Prevent duplicate LuaApp Home windows when a verification challenge (challengedByGcs)
+                            // fails before entering the game, or when the session cookie was hijacked mid-session.
+                            if ((HasGameJoinChallenge && !IsConnected) ||
+                                ((HasGameJoinChallenge || CurrentDataModel > 0) && HasSecurityCookieChanged))
                             {
                                 CurrentDataModel = -1;
-                                int pid = 0;
-                                try { pid = RbxProcess?.Id ?? 0; } catch { }
+                                int pid = SafeExecuteHelper.Try(() => RbxProcess?.Id ?? 0, fallback: 0);
                                 if (pid > 0)
                                     AutoReconnectService.Instance.SuppressReconnectByPid(pid);
 
-                                if (KillProcess("Session cookie hijacked during verification challenge fallback to LuaApp"))
+                                if (KillProcess("Game client challenged or session modified during fallback to LuaApp"))
                                     return;
                             }
 
@@ -316,14 +318,14 @@ namespace Shiro.Classes
                                     CurrentDataModel = -1;
                                     Program.Logger?.Info($"CurrentDataModel reset to {CurrentDataModel} | Position: {LastPosition}");
 
-                                    if (AccountManager.Watcher.Get<bool>("ExitOnBeta") && KillProcess("Beta home menu detected"))
+                                    if (AppSettings.Watcher?.Get<bool>("ExitOnBeta") == true && KillProcess("Beta home menu detected"))
                                         return;
                                 }
                             }
                             else
                             {
                                 CurrentDataModel = -1;
-                                if (AccountManager.Watcher.Get<bool>("ExitOnBeta") && KillProcess("Beta home menu detected"))
+                                if (AppSettings.Watcher?.Get<bool>("ExitOnBeta") == true && KillProcess("Beta home menu detected"))
                                     return;
                             }
                         }
@@ -346,8 +348,8 @@ namespace Shiro.Classes
             Program.Logger.Info($"Attempting to kill process {RbxProcess.Id}, reason: {Reason}");
             StreamDisposed = true;
 
-            try { exitMonitoringCancellation.Cancel(); } catch { }
-            try { logLookupCancellation.Cancel(); } catch { }
+            SafeExecuteHelper.Try(exitMonitoringCancellation.Cancel);
+            SafeExecuteHelper.Try(logLookupCancellation.Cancel);
 
             LogStream?.Dispose();
             try
@@ -460,8 +462,9 @@ namespace Shiro.Classes
                 await Task.Delay(15000, exitMonitoringCancellation.Token).ConfigureAwait(false);
                 MemoryOptimizer.TrimRobloxClients();
             }
-            catch
+            catch (Exception ex)
             {
+                Program.Logger?.Debug($"SchedulePostLaunchRamTrimAsync stopped: {ex.Message}");
             }
         }
 
@@ -471,7 +474,7 @@ namespace Shiro.Classes
             {
                 await WaitForLogPathAsync(logLookupCancellation.Token).ConfigureAwait(false);
             }
-            catch (OperationCanceledException) when (logLookupCancellation.IsCancellationRequested) { }
+            catch (OperationCanceledException) when (logLookupCancellation.IsCancellationRequested) { /* Intentional: cancelled */ }
             catch (Exception exception)
             {
                 Program.Logger.Error($"WaitForLogPath Error for Roblox process {RbxProcess?.Id}: {exception}");

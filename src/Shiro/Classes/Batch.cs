@@ -1,5 +1,6 @@
 #nullable enable
 using Shiro.Http;
+using Shiro.Services;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -39,9 +40,9 @@ namespace Shiro.Classes
         // AccountManager owns the shared API clients. Resolve them lazily so
         // this helper remains safe during early static initialization while
         // avoiding a second handler pool during normal app startup.
-        private static RestClient ThumbnailAPI => AccountManager.ThumbnailsClient
+        private static RestClient ThumbnailAPI => AppServices.RobloxApi.Thumbnails
             ?? throw new InvalidOperationException("Roblox API clients have not been initialized.");
-        private static RestClient GamesAPI => AccountManager.GamesClient
+        private static RestClient GamesAPI => AppServices.RobloxApi.Games
             ?? throw new InvalidOperationException("Roblox API clients have not been initialized.");
 
         private static readonly System.Threading.Lock PlaceTaskLock = new();
@@ -94,7 +95,7 @@ namespace Shiro.Classes
 
         public static async Task<string> GetImage(long assetId, string type, string size = "150x150", string? format = null)
         {
-            if (AccountManager.General?.Get<bool>("DisableImages") == true)
+            if (AppSettings.General?.Get<bool>("DisableImages") == true)
                 return string.Empty;
 
             string requestId = $"{assetId}:undefined:{type}:{size}:{format}:regular";
@@ -132,7 +133,7 @@ namespace Shiro.Classes
 
         public static async Task<string> GetGameIcon(long placeId)
         {
-            if (AccountManager.General?.Get<bool>("DisableImages") == true)
+            if (AppSettings.General?.Get<bool>("DisableImages") == true)
                 return string.Empty;
 
             if (!PlaceUniversePair.TryGetValue(placeId, out long universeId))
@@ -235,10 +236,10 @@ namespace Shiro.Classes
                 // A game card can be rendered before the first account
                 // finishes loading. Bound this wait instead of keeping an
                 // orphaned task alive for the whole application lifetime.
-                for (int attempt = 0; attempt < 100 && AccountManager.LastValidAccount == null; attempt++)
+                for (int attempt = 0; attempt < 100 && AppSettings.LastValidAccount == null; attempt++)
                     await Task.Delay(80).ConfigureAwait(false);
 
-                if (AccountManager.LastValidAccount == null)
+                if (AppSettings.LastValidAccount == null)
                 {
                     lock (PlaceTaskLock)
                     {
@@ -282,7 +283,7 @@ namespace Shiro.Classes
                         continue;
 
                     RestRequest request = new RestRequest($"v1/games/multiget-place-details?placeIds={string.Join("&placeIds=", pending)}");
-                    string? placeCookie = AccountManager.LastValidAccount?.SecurityToken;
+                    string? placeCookie = AppSettings.LastValidAccount?.SecurityToken;
                     if (!string.IsNullOrWhiteSpace(placeCookie))
                         request.AddCookie(".ROBLOSECURITY", placeCookie, "/", ".roblox.com");
 
@@ -313,11 +314,11 @@ namespace Shiro.Classes
 
         private static async Task<string> GetAssetImage(long assetId)
         {
-            if (AccountManager.General?.Get<bool>("DisableImages") == true)
+            if (AppSettings.General?.Get<bool>("DisableImages") == true)
                 return string.Empty;
 
             RestRequest request = new RestRequest($"v1/assets?assetIds={assetId}&returnPolicy=PlaceHolder&size=150x150&format=Png&isCircular=false");
-            string? assetCookie = AccountManager.LastValidAccount?.SecurityToken;
+            string? assetCookie = AppSettings.LastValidAccount?.SecurityToken;
             if (!string.IsNullOrWhiteSpace(assetCookie))
                 request.AddCookie(".ROBLOSECURITY", assetCookie, "/", ".roblox.com");
 

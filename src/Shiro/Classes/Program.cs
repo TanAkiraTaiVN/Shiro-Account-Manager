@@ -47,12 +47,12 @@ namespace Shiro
         {
             get
             {
-                float _Scale = (AccountManager.General != null && AccountManager.General.Exists("WindowScale")) ? AccountManager.General.Get<float>("WindowScale") : 0f;
+                float _Scale = (AppSettings.General != null && AppSettings.General.Exists("WindowScale")) ? AppSettings.General.Get<float>("WindowScale") : 0f;
 
-                if (_Scale > 3f) AccountManager.General?.RemoveProperty("WindowScale");
+                if (_Scale > 3f) AppSettings.General?.RemoveProperty("WindowScale");
 
                 if (_Scale > 0 && _Scale <= 3)
-                    return AccountManager.General?.Get<float>("WindowScale") ?? 1f;
+                    return AppSettings.General?.Get<float>("WindowScale") ?? 1f;
 
                 return 1f;
             }
@@ -62,8 +62,8 @@ namespace Shiro
         {
             get
             {
-                if (AccountManager.General != null && AccountManager.General.Exists("ScaleFonts"))
-                    return AccountManager.General.Get<bool>("ScaleFonts");
+                if (AppSettings.General != null && AppSettings.General.Exists("ScaleFonts"))
+                    return AppSettings.General.Get<bool>("ScaleFonts");
 
                 return true;
             }
@@ -221,7 +221,7 @@ namespace Shiro
 #endif
                 try
                 {
-                    AccountManager.EnsureBackendInitialized();
+                    AppSettings.EnsureBackendInitialized();
 
                     Logger?.Info("Launching Shiro Account Manager with Pure Avalonia UI 11 engine...");
                     try

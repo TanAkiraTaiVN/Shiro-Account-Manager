@@ -13,7 +13,7 @@ namespace Shiro
         public async Task<(bool Success, bool Unblocked)> TogglePlayerBlockedAsync(string username, CancellationToken cancellationToken = default)
         {
             if (!await CheckPinAsync(true, cancellationToken).ConfigureAwait(false)) throw new Exception("Pin is Locked!");
-            var userRes = await AccountManager.GetUserIDAsync(username, cancellationToken).ConfigureAwait(false);
+            var userRes = await AppServices.AccountRepository.LookupUserIdAsync(username, cancellationToken).ConfigureAwait(false);
             if (!userRes.Success) throw new Exception($"Failed to obtain UserId of {username}!");
 
             RestResponse? blockedResponse = await GetBlockedListAsync(cancellationToken).ConfigureAwait(false);
