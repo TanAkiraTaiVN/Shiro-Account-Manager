@@ -1,13 +1,15 @@
 #nullable enable
 using System;
+using System.Collections.Generic;
 using System.Globalization;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Shiro.Services
 {
     /// <summary>
-    /// Strongly-typed application settings accessor.
-    /// Eliminates magic strings and provides compile-time safety and IntelliSense across the entire app.
-    /// Synchronizes directly with the underlying INI storage.
+    /// Strongly-typed application settings and runtime state accessor.
+    /// Synchronizes directly with the underlying INI storage and DI-registered state services.
     /// </summary>
     public class AppSettings
     {
@@ -16,16 +18,132 @@ namespace Shiro.Services
 
         private static ISettingsService? _generalOverride;
 
+        public static IniFile? ActiveIniFile { get; set; }
+
         /// <summary>
         /// General application settings service. Can be overridden in unit tests to prevent cross-test contamination.
         /// </summary>
         public static ISettingsService General
         {
-            get => _generalOverride ?? (ISettingsService?)AccountManager.General ?? FallbackGeneral;
+            get => _generalOverride ?? (ISettingsService?)ActiveIniFile?.Section("General") ?? FallbackGeneral;
             set => _generalOverride = value;
         }
 
         private static readonly IniSection FallbackGeneral = new("General");
+
+        public static IniSection? WebServer => ActiveIniFile?.Section("WebServer");
+        public static IniSection? Developer => ActiveIniFile?.Section("Developer");
+        public static IniSection? AccountControl => ActiveIniFile?.Section("AccountControl");
+        public static IniSection? Watcher => ActiveIniFile?.Section("Watcher");
+        public static IniSection? Prompts => ActiveIniFile?.Section("Prompts");
+
+        public static string? WebSocketPassword
+        {
+            get => AppServices.ServerBrowserState.WebSocketPassword;
+            set => AppServices.ServerBrowserState.WebSocketPassword = value;
+        }
+
+        public static List<ServerData>? CachedServers => AppServices.ServerBrowserState.CachedServers;
+        public static List<Shiro.Game>? RecentGames => AppServices.ServerBrowserState.RecentGames;
+
+        public static string CurrentPlaceId
+        {
+            get => AppServices.ServerBrowserState.CurrentPlaceId;
+            set => AppServices.ServerBrowserState.CurrentPlaceId = value;
+        }
+
+        public static string CurrentJobId
+        {
+            get => AppServices.ServerBrowserState.CurrentJobId;
+            set => AppServices.ServerBrowserState.CurrentJobId = value;
+        }
+
+        public static bool ShuffleJobId
+        {
+            get => AppServices.ServerBrowserState.ShuffleJobId;
+            set => AppServices.ServerBrowserState.ShuffleJobId = value;
+        }
+
+        public static string? CurrentClientVersion
+        {
+            get => AppServices.ServerBrowserState.CurrentClientVersion;
+            set => AppServices.ServerBrowserState.CurrentClientVersion = value;
+        }
+
+        public static Task LoadClientVersionAsync(CancellationToken cancellationToken = default) =>
+            AppServices.ServerBrowserState.LoadClientVersionAsync(cancellationToken);
+
+        public static Account? SelectedAccount
+        {
+            get => AppServices.SelectionState.SelectedAccount;
+            set => AppServices.SelectionState.SelectedAccount = value;
+        }
+
+        public static Account? LastValidAccount
+        {
+            get => AppServices.SelectionState.LastValidAccount;
+            set => AppServices.SelectionState.LastValidAccount = value;
+        }
+
+        public static List<Account> SelectedAccounts
+        {
+            get => AppServices.SelectionState.SelectedAccounts;
+            set => AppServices.SelectionState.SelectedAccounts = value;
+        }
+
+        public static int MinimumAccountJoinDelaySeconds => 1;
+        public static int MaximumAccountJoinDelaySeconds => 3600;
+
+        public static void Save() => AppServices.HostUiBridge.SaveSettings();
+        public static void QueueDeferredSave() => AppServices.HostUiBridge.QueueDeferredSaveSettings();
+
+        // ================= HOST UI / CONTROLLER BRIDGE =================
+
+        public static void RefreshAccountView(Account? account = null) =>
+            AppServices.HostUiBridge.RefreshAccountView(account);
+
+        public static void UpdateAccountValidityOnUi(Account account, bool valid) =>
+            AppServices.HostUiBridge.UpdateAccountValidityOnUi(account, valid);
+
+        public static void SchedulePresenceRefresh(Account? account) =>
+            AppServices.HostUiBridge.SchedulePresenceRefresh(account);
+
+        public static void SignalNextLaunchAccount() => AppServices.HostUiBridge.SignalNextLaunchAccount();
+        public static void CancelLaunching() => AppServices.HostUiBridge.CancelLaunching();
+        public static void UpdateMultiRoblox() => AppServices.HostUiBridge.UpdateMultiRoblox();
+        public static void CloseAllRobloxFromUi() => AppServices.HostUiBridge.CloseAllRobloxFromUi();
+
+        public static Task LaunchAppHomeFromHostAsync(Account account) =>
+            AppServices.HostUiBridge.LaunchAppHomeFromHostAsync(account);
+
+        public static Task JoinServerFromHostAsync(IReadOnlyList<Account> accounts, long placeId, string jobId) =>
+            AppServices.HostUiBridge.JoinServerFromHostAsync(accounts, placeId, jobId);
+
+        public static void MultiLaunchHomeFromHost() => AppServices.HostUiBridge.MultiLaunchHomeFromHost();
+
+        public static List<Account> GetCurrentSelectedAccountsFromHost() =>
+            AppServices.HostUiBridge.GetCurrentSelectedAccountsFromHost();
+
+        public static void SetDashboardStatus(string message) =>
+            AppServices.HostUiBridge.SetDashboardStatus(message);
+
+        public static void EnsureBackendInitialized() =>
+            AppServices.HostUiBridge.EnsureBackendInitialized();
+
+        public static void InitializePostStartup() =>
+            AppServices.HostUiBridge.InitializePostStartup();
+
+        public static Task RestartWebServerAsync(int port, bool allowExternal) =>
+            AppServices.HostUiBridge.RestartWebServerAsync(port, allowExternal);
+
+        public static Task StopWebServerAsync() =>
+            AppServices.HostUiBridge.StopWebServerAsync();
+
+        public static void SetAutoCookieRefreshEnabled(bool enabled) =>
+            AppServices.HostUiBridge.SetAutoCookieRefreshEnabled(enabled);
+
+        public static Task ResetEncryptionAsync(bool prompt) =>
+            AppServices.HostUiBridge.ResetEncryptionAsync(prompt);
 
         public static void ResetOverrides()
         {
@@ -33,7 +151,7 @@ namespace Shiro.Services
         }
 
         private IniSection? GetSection(string sectionName) =>
-            AccountManager.IniSettings?.Section(sectionName);
+            ActiveIniFile?.Section(sectionName);
 
         private bool GetBool(string section, string key, bool fallback = false)
         {
@@ -49,7 +167,7 @@ namespace Shiro.Services
         private void SetBool(string section, string key, bool value)
         {
             GetSection(section)?.Set(key, value ? "true" : "false");
-            AccountManager.SaveSettings();
+            Save();
         }
 
         private int GetInt(string section, string key, int fallback = 0)
@@ -66,7 +184,7 @@ namespace Shiro.Services
         private void SetInt(string section, string key, int value)
         {
             GetSection(section)?.Set(key, value.ToString(CultureInfo.InvariantCulture));
-            AccountManager.SaveSettings();
+            Save();
         }
 
         private string GetString(string section, string key, string fallback = "")
@@ -82,7 +200,7 @@ namespace Shiro.Services
         private void SetString(string section, string key, string value)
         {
             GetSection(section)?.Set(key, value ?? string.Empty);
-            AccountManager.SaveSettings();
+            Save();
         }
 
         // ================= GENERAL SETTINGS =================

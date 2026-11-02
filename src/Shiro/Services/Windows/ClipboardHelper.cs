@@ -56,7 +56,11 @@ namespace Shiro.Services
                         return true;
                     }
 
-                    desktop.MainWindow.Clipboard.SetTextAsync(text).GetAwaiter().GetResult();
+                    Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                    {
+                        try { desktop.MainWindow.Clipboard.SetTextAsync(text).Forget(); }
+                        catch (Exception ex) { Program.Logger?.Debug($"Clipboard dispatched SetTextAsync threw: {ex.Message}"); }
+                    });
                     return true;
                 }
                 catch (Exception ex)

@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -257,7 +257,7 @@ namespace Shiro.Services
                 {
                     foreach (var p in procs)
                     {
-                        try { p.Dispose(); } catch (Exception) { }
+                        SafeExecuteHelper.Try(() => p.Dispose(), "RobloxProcessService.DisposeProc");
                     }
                 }
                 return any;
@@ -285,7 +285,7 @@ namespace Shiro.Services
                 {
                     foreach (var p in procs)
                     {
-                        try { p.Dispose(); } catch (Exception) { }
+                        SafeExecuteHelper.Try(() => p.Dispose(), "RobloxProcessService.DisposeProc");
                     }
                 }
                 return count;
@@ -314,7 +314,7 @@ namespace Shiro.Services
                     if (procs != null)
                     {
                         count += procs.Length;
-                        foreach (var p in procs) { try { p.Dispose(); } catch (Exception) { } }
+                        foreach (var p in procs) { SafeExecuteHelper.Try(() => p.Dispose(), "RobloxProcessService.DisposeProc"); }
                     }
                 }
                 catch (Exception ex)

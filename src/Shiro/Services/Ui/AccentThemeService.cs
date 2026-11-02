@@ -106,9 +106,9 @@ namespace Shiro.Services
                 {
                     saved = AppSettings.General.Get("AccentTheme");
                 }
-                else if (AccountManager.IniSettings != null && AccountManager.IniSettings.Section("General")?.Exists("AccentTheme") == true)
+                else
                 {
-                    saved = AccountManager.IniSettings.Section("General")?.Get("AccentTheme");
+                    saved = AppSettings.Current.AccentTheme;
                 }
 
                 AccentTheme theme = ParseTheme(saved);
@@ -162,10 +162,9 @@ namespace Shiro.Services
                 {
                     string themeStr = theme.ToString();
                     AppSettings.General.Set("AccentTheme", themeStr);
-                    AccountManager.IniSettings?.Section("General")?.Set("AccentTheme", themeStr);
                     try { AppSettings.Current.AccentTheme = themeStr; }
                     catch (Exception ex) { Program.Logger?.Debug($"AppSettings.AccentTheme setter failed: {ex.Message}"); }
-                    AccountManager.QueueDeferredSaveSettings();
+                    AppSettings.QueueDeferredSave();
                 }
                 catch (Exception ex)
                 {

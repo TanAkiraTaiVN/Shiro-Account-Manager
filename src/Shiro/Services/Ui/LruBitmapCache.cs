@@ -82,7 +82,7 @@ namespace Shiro.Services
             {
                 if (_disposed)
                 {
-                    try { value?.Dispose(); } catch (Exception) { }
+                    SafeExecuteHelper.Try(() => value?.Dispose(), "LruBitmapCache.Set.Disposed");
                     return;
                 }
 
@@ -120,7 +120,7 @@ namespace Shiro.Services
                 var captured = evicted;
                 AppDispatcher.Post(() =>
                 {
-                    try { captured.Dispose(); } catch (Exception) { }
+                    SafeExecuteHelper.Try(() => captured.Dispose(), "LruBitmapCache.Set.Evict");
                 });
             }
         }
@@ -157,7 +157,7 @@ namespace Shiro.Services
                 var captured = val;
                 AppDispatcher.Post(() =>
                 {
-                    try { captured?.Dispose(); } catch (Exception) { }
+                    SafeExecuteHelper.Try(() => captured?.Dispose(), "LruBitmapCache.Clear");
                 });
             }
         }

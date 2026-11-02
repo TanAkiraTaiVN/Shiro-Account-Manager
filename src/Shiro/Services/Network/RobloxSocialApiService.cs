@@ -140,7 +140,7 @@ namespace Shiro.Services
                 .AddHeader("X-CSRF-TOKEN", token)
                 .AddJsonBody(new { });
 
-            RestResponse? blockRes = await account.ExecuteAccountRestAsync(AccountManager.ApiClient, "https://apis.roblox.com/", blockReq, cancellationToken).ConfigureAwait(false);
+            RestResponse? blockRes = await account.ExecuteAccountRestAsync(AppServices.RobloxApi.Api, "https://apis.roblox.com/", blockReq, cancellationToken).ConfigureAwait(false);
 
             Program.Logger?.Info($"Block Response for {userId} | Unblocking: {unblock}: [{blockRes?.StatusCode}] {blockRes?.Content}");
 
@@ -155,7 +155,7 @@ namespace Shiro.Services
             if (!await account.CheckPinAsync(true, cancellationToken).ConfigureAwait(false)) throw new Exception("Pin is Locked");
 
             RestRequest request = account.MakeRequest("user-blocking-api/v1/users/get-blocked-users", Method.Get);
-            RestResponse? response = await account.ExecuteAccountRestAsync(AccountManager.ApiClient, "https://apis.roblox.com/", request, cancellationToken).ConfigureAwait(false);
+            RestResponse? response = await account.ExecuteAccountRestAsync(AppServices.RobloxApi.Api, "https://apis.roblox.com/", request, cancellationToken).ConfigureAwait(false);
 
             return response;
         }
@@ -195,13 +195,13 @@ namespace Shiro.Services
 
         public async Task<bool> SendFriendRequestAsync(Account account, string username, CancellationToken cancellationToken = default)
         {
-            var userRes = await AccountManager.GetUserIDAsync(username, cancellationToken).ConfigureAwait(false);
+            var userRes = await AppServices.AccountRepository.LookupUserIdAsync(username, cancellationToken).ConfigureAwait(false);
             if (!userRes.Success) return false;
             var csrf = await account.GetCSRFTokenAsync(cancellationToken).ConfigureAwait(false);
             if (!csrf.Success) return false;
 
             RestRequest friendRequest = account.MakeRequest($"/v1/users/{userRes.UserId}/request-friendship", Method.Post).AddHeader("X-CSRF-TOKEN", csrf.Token);
-            RestResponse? response = await account.ExecuteAccountRestAsync(AccountManager.FriendsClient, "https://friends.roblox.com/", friendRequest, cancellationToken).ConfigureAwait(false);
+            RestResponse? response = await account.ExecuteAccountRestAsync(AppServices.RobloxApi.Friends, "https://friends.roblox.com/", friendRequest, cancellationToken).ConfigureAwait(false);
 
             return response != null && response.IsSuccessful && response.StatusCode == System.Net.HttpStatusCode.OK;
         }
@@ -217,7 +217,7 @@ namespace Shiro.Services
                 .AddHeader("X-CSRF-TOKEN", token)
                 .AddJsonBody(new { code });
 
-            var response = await account.ExecuteAccountRestAsync(AccountManager.ApiClient, "https://apis.roblox.com/", enterRequest, cancellationToken).ConfigureAwait(false);
+            var response = await account.ExecuteAccountRestAsync(AppServices.RobloxApi.Api, "https://apis.roblox.com/", enterRequest, cancellationToken).ConfigureAwait(false);
 
             if (response != null && response.IsSuccessful && !string.IsNullOrWhiteSpace(response.Content))
             {
@@ -240,7 +240,7 @@ namespace Shiro.Services
                         .AddHeader("X-CSRF-TOKEN", token)
                         .AddJsonBody(new { code });
 
-                    var validateResponse = await account.ExecuteAccountRestAsync(AccountManager.ApiClient, "https://apis.roblox.com/", validateRequest, cancellationToken).ConfigureAwait(false);
+                    var validateResponse = await account.ExecuteAccountRestAsync(AppServices.RobloxApi.Api, "https://apis.roblox.com/", validateRequest, cancellationToken).ConfigureAwait(false);
                     return validateResponse?.IsSuccessful == true;
                 }
             }

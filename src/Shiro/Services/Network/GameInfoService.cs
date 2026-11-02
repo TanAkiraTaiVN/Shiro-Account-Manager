@@ -57,13 +57,14 @@ namespace Shiro.Services
                 return true;
             }
 
-            if (AccountManager.RecentGames != null)
+            var recentGames = AppSettings.RecentGames;
+            if (recentGames != null)
             {
-                lock (AccountManager.RecentGames)
+                lock (recentGames)
                 {
-                    for (int i = AccountManager.RecentGames.Count - 1; i >= 0; i--)
+                    for (int i = recentGames.Count - 1; i >= 0; i--)
                     {
-                        var rg = AccountManager.RecentGames[i];
+                        var rg = recentGames[i];
                         if (rg?.Details != null && rg.Details.placeId == placeId)
                         {
                             string candidate = rg.Details.BestDisplayName;

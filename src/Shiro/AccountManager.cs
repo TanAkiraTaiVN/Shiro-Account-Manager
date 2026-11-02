@@ -28,10 +28,26 @@ namespace Shiro
     {
         public static AccountManager? Instance;
         internal static List<Account> AccountsList = new();
-        public static List<Account> SelectedAccounts = new();
-        public static List<Game> RecentGames = new();
-        public static Account? SelectedAccount;
-        public static Account? LastValidAccount; // this is used for the Batch class since getting place details requires authorization, auto updates whenever an account is used
+        public static List<Account> SelectedAccounts
+        {
+            get => SelectionStateService.Default.SelectedAccounts;
+            set => SelectionStateService.Default.SelectedAccounts = value;
+        }
+        public static List<Game> RecentGames
+        {
+            get => ServerBrowserStateService.Default.RecentGames;
+            set => ServerBrowserStateService.Default.RecentGames = value;
+        }
+        public static Account? SelectedAccount
+        {
+            get => SelectionStateService.Default.SelectedAccount;
+            set => SelectionStateService.Default.SelectedAccount = value;
+        }
+        public static Account? LastValidAccount
+        {
+            get => SelectionStateService.Default.LastValidAccount;
+            set => SelectionStateService.Default.LastValidAccount = value;
+        }
         public static RestClient MainClient = null!;
         public static RestClient AvatarClient = null!;
         public static RestClient FriendsClient = null!;
@@ -45,34 +61,33 @@ namespace Shiro
         public static RestClient DevelopClient = null!;
         public static RestClient PresenceClient = null!;
         public static RestClient ApiClient = null!;
-        private static string _currentPlaceId = string.Empty;
-        private static string _currentJobId = string.Empty;
 
         public static string CurrentPlaceId
         {
-            get
-            {
-                if (!string.IsNullOrEmpty(_currentPlaceId)) return _currentPlaceId;
-                return General?.Exists("SavedPlaceId") == true ? (General.Get("SavedPlaceId") ?? "5315046213") : "5315046213";
-            }
-            set
-            {
-                _currentPlaceId = value ?? string.Empty;
-            }
+            get => ServerBrowserStateService.Default.CurrentPlaceId;
+            set => ServerBrowserStateService.Default.CurrentPlaceId = value;
         }
 
         public static string CurrentJobId
         {
-            get => _currentJobId ?? string.Empty;
-            set => _currentJobId = value ?? string.Empty;
+            get => ServerBrowserStateService.Default.CurrentJobId;
+            set => ServerBrowserStateService.Default.CurrentJobId = value;
         }
 
-        public static List<ServerData> CachedServers { get; } = new List<ServerData>();
+        public static List<ServerData> CachedServers => ServerBrowserStateService.Default.CachedServers;
 
         private readonly static DateTime startTime = DateTime.Now;
-        public static bool ShuffleJobID = false;
+        public static bool ShuffleJobID
+        {
+            get => ServerBrowserStateService.Default.ShuffleJobId;
+            set => ServerBrowserStateService.Default.ShuffleJobId = value;
+        }
         private static bool PuppeteerSupported;
-        public static string CurrentVersion = string.Empty;
+        public static string CurrentVersion
+        {
+            get => ServerBrowserStateService.Default.CurrentClientVersion ?? string.Empty;
+            set => ServerBrowserStateService.Default.CurrentClientVersion = value;
+        }
         public bool IsDisposed => shutdownFinalized;
         public bool IsHandleCreated => true;
 
@@ -91,7 +106,11 @@ namespace Shiro
             AppDispatcher.Post(action);
         }
         private KestrelWebServer? AltManagerWS;
-        internal static string WSPassword { get; set; } = string.Empty;
+        internal static string WSPassword
+        {
+            get => ServerBrowserStateService.Default.WebSocketPassword ?? string.Empty;
+            set => ServerBrowserStateService.Default.WebSocketPassword = value;
+        }
         public Shiro.Services.ModernPeriodicTask? AutoCookieRefresh { get; private set; }
         public Shiro.Services.ModernPeriodicTask? PresenceTimer { get; private set; }
         private readonly System.Threading.Lock presenceTaskLock = new();
@@ -316,10 +335,11 @@ namespace Shiro
             AccountControl = IniSettings.Section("AccountControl");
             Watcher = IniSettings.Section("Watcher");
             Prompts = IniSettings.Section("Prompts");
+            WireStateAndHostBridgeServices();
 
             if (General.Exists("SavedPlaceId") && !string.IsNullOrWhiteSpace(General.Get("SavedPlaceId")))
             {
-                _currentPlaceId = General.Get("SavedPlaceId")?.Trim() ?? string.Empty;
+                CurrentPlaceId = General.Get("SavedPlaceId")?.Trim() ?? string.Empty;
             }
 
             if (!General.Exists("AccentTheme")) General.Set("AccentTheme", "Monochrome");
@@ -455,29 +475,6 @@ namespace Shiro
             catch (Exception exception)
             {
                 Program.Logger?.Warn($"Background operation '{operation}' failed: {exception.Message}");
-            }
-        }
-
-        public static async Task LoadClientVersionAsync(CancellationToken cancellationToken = default)
-        {
-            try
-            {
-                string versionJson = await SharedHttpClient.GetStringAsync(
-                    "https://clientsettings.roblox.com/v1/client-version/WindowsPlayer",
-                    retryTransient: true,
-                    cancellationToken: cancellationToken);
-
-                using var vDoc = System.Text.Json.JsonDocument.Parse(versionJson);
-                if (vDoc.RootElement.TryGetProperty("clientVersionUpload", out var token))
-                    CurrentVersion = token.GetString() ?? string.Empty;
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
-                // Shutdown cancelled the optional version probe.
-            }
-            catch (Exception exception)
-            {
-                Program.Logger?.Debug($"Roblox client version probe failed: {exception.Message}");
             }
         }
 

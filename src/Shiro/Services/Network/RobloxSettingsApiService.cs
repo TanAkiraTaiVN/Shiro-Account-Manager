@@ -52,7 +52,7 @@ namespace Shiro.Services
             }
 
             RestRequest request = account.MakeRequest("v1/account/pin/", Method.Get).AddHeader("Referer", "https://www.roblox.com/");
-            RestResponse? response = await account.ExecuteAccountRestAsync(AccountManager.AuthClient, "https://auth.roblox.com/", request, cancellationToken).ConfigureAwait(false);
+            RestResponse? response = await account.ExecuteAccountRestAsync(AppServices.RobloxApi.Auth, "https://auth.roblox.com/", request, cancellationToken).ConfigureAwait(false);
 
             if (response != null && response.StatusCode == HttpStatusCode.Unauthorized)
             {
@@ -104,7 +104,7 @@ namespace Shiro.Services
                 .AddHeader("Content-Type", "application/x-www-form-urlencoded")
                 .AddParameter("pin", pin);
 
-            RestResponse? response = await account.ExecuteAccountRestAsync(AccountManager.AuthClient, "https://auth.roblox.com/", request, cancellationToken).ConfigureAwait(false);
+            RestResponse? response = await account.ExecuteAccountRestAsync(AppServices.RobloxApi.Auth, "https://auth.roblox.com/", request, cancellationToken).ConfigureAwait(false);
 
             if (response != null && response.IsSuccessful && response.StatusCode == HttpStatusCode.OK &&
                 response.Content != null &&
@@ -146,7 +146,7 @@ namespace Shiro.Services
                 .AddHeader("X-CSRF-TOKEN", csrf.Token)
                 .AddJsonBody(new { whoCanJoinMeInExperiences = modernSetting });
 
-            RestResponse? modernResponse = await account.ExecuteAccountRestAsync(AccountManager.ApiClient, "https://apis.roblox.com/", modernRequest, cancellationToken).ConfigureAwait(false);
+            RestResponse? modernResponse = await account.ExecuteAccountRestAsync(AppServices.RobloxApi.Api, "https://apis.roblox.com/", modernRequest, cancellationToken).ConfigureAwait(false);
             if (modernResponse != null && modernResponse.IsSuccessful)
                 return true;
 
@@ -174,7 +174,7 @@ namespace Shiro.Services
                     break;
             }
 
-            RestResponse? response = await account.ExecuteAccountRestAsync(AccountManager.MainClient, "https://www.roblox.com/", request, cancellationToken).ConfigureAwait(false);
+            RestResponse? response = await account.ExecuteAccountRestAsync(AppServices.RobloxApi.Main, "https://www.roblox.com/", request, cancellationToken).ConfigureAwait(false);
             return response?.IsSuccessful == true && response.StatusCode == HttpStatusCode.OK;
         }
 
@@ -192,7 +192,7 @@ namespace Shiro.Services
                 .AddParameter("newPassword", newPassword);
 
             int rotationBefore = account.CookieRotationVersion;
-            RestResponse? response = await account.ExecuteAccountRestAsync(AccountManager.AuthClient, "https://auth.roblox.com/", request, cancellationToken).ConfigureAwait(false);
+            RestResponse? response = await account.ExecuteAccountRestAsync(AppServices.RobloxApi.Auth, "https://auth.roblox.com/", request, cancellationToken).ConfigureAwait(false);
 
             if (response != null && response.IsSuccessful && response.StatusCode == HttpStatusCode.OK)
             {
@@ -201,7 +201,7 @@ namespace Shiro.Services
                 bool rotated = account.CookieRotationVersion != rotationBefore || account.TryUpdateRotatedCookie(response);
                 if (rotated)
                 {
-                    await AccountManager.SaveAccountsAsync(true).ConfigureAwait(false);
+                    await AppServices.AccountRepository.SaveAsync(true).ConfigureAwait(false);
                 }
                 else
                 {
@@ -229,7 +229,7 @@ namespace Shiro.Services
                 .AddParameter("password", password)
                 .AddParameter("emailAddress", newEmail);
 
-            RestResponse? response = await account.ExecuteAccountRestAsync(AccountManager.AccountClient, "https://accountsettings.roblox.com/", request, cancellationToken).ConfigureAwait(false);
+            RestResponse? response = await account.ExecuteAccountRestAsync(AppServices.RobloxApi.Account, "https://accountsettings.roblox.com/", request, cancellationToken).ConfigureAwait(false);
 
             if (response != null && response.IsSuccessful && response.StatusCode == HttpStatusCode.OK)
             {
@@ -253,7 +253,7 @@ namespace Shiro.Services
                 .AddHeader("X-CSRF-TOKEN", csrf.Token)
                 .AddJsonBody(new { });
 
-            RestResponse? response = await account.ExecuteAccountRestAsync(AccountManager.AuthClient, "https://auth.roblox.com/", request, cancellationToken).ConfigureAwait(false);
+            RestResponse? response = await account.ExecuteAccountRestAsync(AppServices.RobloxApi.Auth, "https://auth.roblox.com/", request, cancellationToken).ConfigureAwait(false);
 
             if (response == null || !response.IsSuccessful)
             {
@@ -262,7 +262,7 @@ namespace Shiro.Services
                     .AddHeader("X-CSRF-TOKEN", csrf.Token)
                     .AddHeader("Content-Type", "application/x-www-form-urlencoded");
 
-                response = await account.ExecuteAccountRestAsync(AccountManager.MainClient, "https://www.roblox.com/", fallbackReq, cancellationToken).ConfigureAwait(false);
+                response = await account.ExecuteAccountRestAsync(AppServices.RobloxApi.Main, "https://www.roblox.com/", fallbackReq, cancellationToken).ConfigureAwait(false);
             }
 
             if (response != null && response.IsSuccessful && response.StatusCode == HttpStatusCode.OK)
@@ -270,7 +270,7 @@ namespace Shiro.Services
                 bool rotated = account.CookieRotationVersion != rotationBefore || account.TryUpdateRotatedCookie(response);
                 if (rotated)
                 {
-                    await AccountManager.SaveAccountsAsync(true).ConfigureAwait(false);
+                    await AppServices.AccountRepository.SaveAsync(true).ConfigureAwait(false);
                     Program.Logger?.Info($"[LogOutOfOtherSessionsAsync] {account.Username}: Signed out of all other sessions.");
                     return true;
                 }
@@ -315,7 +315,7 @@ namespace Shiro.Services
                 return (false, $"ERROR: Account Session Expired, re-add the account or try again. (Invalid X-CSRF-Token)\n{csrf.Error}");
 
             RestRequest request = account.MakeRequest("v1/join-game-instance", Method.Post).AddHeader("Content-Type", "application/json").AddJsonBody(new { gameId = jobId, placeId });
-            RestResponse? response = await account.ExecuteAccountRestAsync(AccountManager.GameJoinClient, "https://gamejoin.roblox.com/", request, cancellationToken).ConfigureAwait(false);
+            RestResponse? response = await account.ExecuteAccountRestAsync(AppServices.RobloxApi.GameJoin, "https://gamejoin.roblox.com/", request, cancellationToken).ConfigureAwait(false);
 
             if (response != null && response.StatusCode == HttpStatusCode.OK)
             {
@@ -333,7 +333,7 @@ namespace Shiro.Services
             if (!csrf.Success) throw new InvalidOperationException(csrf.Error ?? "Failed to acquire CSRF token");
 
             RestRequest dpRequest = account.MakeRequest($"/v1/users/{account.UserID}/display-names", Method.Patch).AddHeader("X-CSRF-TOKEN", csrf.Token).AddJsonBody(new { newDisplayName = displayName });
-            RestResponse? dpResponse = await account.ExecuteAccountRestAsync(AccountManager.UsersClient, "https://users.roblox.com/", dpRequest, cancellationToken).ConfigureAwait(false);
+            RestResponse? dpResponse = await account.ExecuteAccountRestAsync(AppServices.RobloxApi.Users, "https://users.roblox.com/", dpRequest, cancellationToken).ConfigureAwait(false);
 
             if (dpResponse == null || dpResponse.StatusCode != HttpStatusCode.OK)
             {
@@ -387,7 +387,7 @@ namespace Shiro.Services
                         .AddHeader("X-CSRF-TOKEN", csrf.Token)
                         .AddJsonBody(new { playerAvatarType = patVal });
 
-                    attributeTasks.Add(account.ExecuteAccountRestAsync(AccountManager.AvatarClient, "https://avatar.roblox.com/", patRequest, cancellationToken));
+                    attributeTasks.Add(account.ExecuteAccountRestAsync(AppServices.RobloxApi.Avatar, "https://avatar.roblox.com/", patRequest, cancellationToken));
                 }
 
                 if ((root.TryGetProperty("scales", out var scaleElem) || root.TryGetProperty("scale", out scaleElem)) &&
@@ -397,7 +397,7 @@ namespace Shiro.Services
                         .AddHeader("X-CSRF-TOKEN", csrf.Token)
                         .AddStringBody(scaleElem.GetRawText(), "application/json");
 
-                    attributeTasks.Add(account.ExecuteAccountRestAsync(AccountManager.AvatarClient, "https://avatar.roblox.com/", scaleRequest, cancellationToken));
+                    attributeTasks.Add(account.ExecuteAccountRestAsync(AppServices.RobloxApi.Avatar, "https://avatar.roblox.com/", scaleRequest, cancellationToken));
                 }
 
                 if (root.TryGetProperty("bodyColors", out var bcElem) && bcElem.ValueKind == JsonValueKind.Object)
@@ -406,7 +406,7 @@ namespace Shiro.Services
                         .AddHeader("X-CSRF-TOKEN", csrf.Token)
                         .AddStringBody(bcElem.GetRawText(), "application/json");
 
-                    attributeTasks.Add(account.ExecuteAccountRestAsync(AccountManager.AvatarClient, "https://avatar.roblox.com/", bcRequest, cancellationToken));
+                    attributeTasks.Add(account.ExecuteAccountRestAsync(AppServices.RobloxApi.Avatar, "https://avatar.roblox.com/", bcRequest, cancellationToken));
                 }
 
                 if (attributeTasks.Count > 0)
@@ -420,7 +420,7 @@ namespace Shiro.Services
                         .AddHeader("X-CSRF-TOKEN", csrf.Token)
                         .AddStringBody($"{{\"assets\":{assetsElem.GetRawText()}}}", "application/json");
 
-                    RestResponse? response = await account.ExecuteAccountRestAsync(AccountManager.AvatarClient, "https://avatar.roblox.com/", assetsRequest, cancellationToken).ConfigureAwait(false);
+                    RestResponse? response = await account.ExecuteAccountRestAsync(AppServices.RobloxApi.Avatar, "https://avatar.roblox.com/", assetsRequest, cancellationToken).ConfigureAwait(false);
 
                     if (response != null && response.IsSuccessful && !string.IsNullOrWhiteSpace(response.Content))
                     {

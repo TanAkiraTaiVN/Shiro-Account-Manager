@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -28,14 +28,7 @@ namespace Shiro.Services
 
             try
             {
-                if (AccountManager.Instance != null)
-                {
-                    await AccountManager.Instance.ModernLaunchAccountAppHome(account).ConfigureAwait(false);
-                }
-                else
-                {
-                    Program.Logger?.Warn($"[AccountLauncherService] Cannot launch App Home for {account.Username}: AccountManager instance not ready.");
-                }
+                await AppSettings.LaunchAppHomeFromHostAsync(account).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -51,7 +44,7 @@ namespace Shiro.Services
             var targetList = accounts?.Where(a => a != null).ToList();
             if (targetList == null || targetList.Count == 0)
             {
-                targetList = AccountManager.Instance?.GetCurrentSelectedAccounts();
+                targetList = AppSettings.GetCurrentSelectedAccountsFromHost().ToList();
             }
 
             if (targetList == null || targetList.Count == 0)
@@ -62,14 +55,7 @@ namespace Shiro.Services
 
             try
             {
-                if (AccountManager.Instance != null)
-                {
-                    await AccountManager.Instance.ModernJoinServerDirect(targetList, placeId, jobId ?? string.Empty).ConfigureAwait(false);
-                }
-                else
-                {
-                    Program.Logger?.Warn("[AccountLauncherService] Cannot join server: AccountManager instance not ready.");
-                }
+                await AppSettings.JoinServerFromHostAsync(targetList, placeId, jobId ?? string.Empty).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -84,14 +70,7 @@ namespace Shiro.Services
         {
             try
             {
-                if (AccountManager.Instance != null)
-                {
-                    AccountManager.Instance.ModernMultiLaunch();
-                }
-                else
-                {
-                    Program.Logger?.Warn("[AccountLauncherService] Cannot multi-launch: AccountManager instance not ready.");
-                }
+                AppSettings.MultiLaunchHomeFromHost();
             }
             catch (Exception ex)
             {

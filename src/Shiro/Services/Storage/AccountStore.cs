@@ -90,8 +90,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                try { Program.Logger?.Warn($"[AccountStore] Failed to create historical backup: {ex.Message}"); }
-                catch (Exception) { }
+                SafeExecuteHelper.Try(() => Program.Logger?.Warn($"[AccountStore] Failed to create historical backup: {ex.Message}"), "AccountStore.LogBackupWarn");
             }
         }
 
@@ -106,8 +105,7 @@ namespace Shiro.Services
             {
                 foreach (var oldFile in backupFiles.Skip(MaxHistoricalBackups))
                 {
-                    try { oldFile.Delete(); }
-                    catch (Exception) { }
+                    SafeExecuteHelper.Try(() => oldFile.Delete(), "AccountStore.PruneHistoricalBackups");
                 }
             }
         }

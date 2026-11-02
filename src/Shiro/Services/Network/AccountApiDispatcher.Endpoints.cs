@@ -18,9 +18,9 @@ namespace Shiro.Services
             Func<string, bool, int, string?, string> reply)
         {
             bool v2 = req.IsV2;
-            var webServer = AccountManager.WebServer;
+            var webServer = AppSettings.WebServer;
             var general = AppSettings.General;
-            string wsPassword = AccountManager.WSPassword;
+            string wsPassword = AppSettings.WebSocketPassword ?? string.Empty;
 
             if (method == "GetWebSocketStats" || method == "WebSocketStats")
             {
@@ -83,7 +83,7 @@ namespace Shiro.Services
                 string? cookieVal = req.GetQuery("Cookie");
                 if (string.IsNullOrWhiteSpace(cookieVal))
                     return reply("Cookie parameter required", false, 400, "Missing Cookie");
-                Account? newAcc = await AccountManager.AddAccountAsync(cookieVal).ConfigureAwait(false);
+                Account? newAcc = await AppServices.AccountRepository.AddOrUpdateAsync(cookieVal).ConfigureAwait(false);
 
                 bool success = newAcc != null;
                 return reply(success ? "Cookie successfully imported" : "[ImportCookie] An error was encountered importing the cookie", success, -1, success ? "true" : "false");
@@ -124,7 +124,7 @@ namespace Shiro.Services
             {
                 bool next = !general.Get<bool>("EnableMultiRbx");
                 general.Set("EnableMultiRbx", next ? "true" : "false");
-                AccountManager.Instance?.UpdateMultiRoblox();
+                AppSettings.UpdateMultiRoblox();
                 return reply(Utilities.FastJson.Serialize(new { Enabled = next, Status = RobloxSingletonService.StatusText }), true, -1, null);
             }
 
@@ -156,7 +156,7 @@ namespace Shiro.Services
 
             if (method.Equals("KillRoblox", StringComparison.OrdinalIgnoreCase) || method.Equals("KillAllRoblox", StringComparison.OrdinalIgnoreCase))
             {
-                AccountManager.Instance?.InvokeIfRequired(() => AccountManager.Instance?.ModernCloseRoblox());
+                AppSettings.CloseAllRobloxFromUi();
                 return reply("Closed all Roblox processes", true, -1, null);
             }
 
@@ -223,7 +223,7 @@ namespace Shiro.Services
             {
                 string proxy = req.GetQuery("Proxy") ?? req.Body;
                 ProxyBindingService.AssignProxy(account, proxy);
-                AccountManager.QueueDeferredSave();
+                AppServices.AccountRepository.QueueDeferredSave();
                 return reply($"Proxy updated for {account.Username}", true, -1, null);
             }
 
@@ -250,7 +250,7 @@ namespace Shiro.Services
                     return reply("Method `SetField` not allowed", false, 401, "Method not allowed");
 
                 account.SetField(fieldName, fieldValue);
-                AccountManager.QueueDeferredSave();
+                AppServices.AccountRepository.QueueDeferredSave();
                 return reply($"Set Field {fieldName} to {fieldValue} for {account.Username}", true, -1, null);
             }
 
@@ -260,7 +260,7 @@ namespace Shiro.Services
                     return reply("Method `RemoveField` not allowed", false, 401, "Method not allowed");
 
                 account.RemoveField(fieldName);
-                AccountManager.QueueDeferredSave();
+                AppServices.AccountRepository.QueueDeferredSave();
                 return reply($"Removed Field {fieldName} from {account.Username}", true, -1, null);
             }
 
@@ -270,8 +270,8 @@ namespace Shiro.Services
                     return reply("Method `SetAlias` not allowed", false, -1, "Method not allowed");
 
                 account.Alias = body;
-                AccountManager.Instance?.UpdateAccountView(account);
-                AccountManager.QueueDeferredSave();
+                AppSettings.RefreshAccountView(account);
+                AppServices.AccountRepository.QueueDeferredSave();
                 return reply($"Set Alias of {account.Username} to {body}", true, -1, null);
             }
 
@@ -281,8 +281,8 @@ namespace Shiro.Services
                     return reply("Method `SetDescription` not allowed", false, -1, "Method not allowed");
 
                 account.Description = body;
-                AccountManager.Instance?.UpdateAccountView(account);
-                AccountManager.QueueDeferredSave();
+                AppSettings.RefreshAccountView(account);
+                AppServices.AccountRepository.QueueDeferredSave();
                 return reply($"Set Description of {account.Username} to {body}", true, -1, null);
             }
 
@@ -292,8 +292,8 @@ namespace Shiro.Services
                     return v2 ? WebServerResponse("Method `AppendDescription` not allowed", false) : "Method not allowed";
 
                 account.Description += body;
-                AccountManager.Instance?.UpdateAccountView(account);
-                AccountManager.QueueDeferredSave();
+                AppSettings.RefreshAccountView(account);
+                AppServices.AccountRepository.QueueDeferredSave();
                 return reply($"Appended Description of {account.Username} with {body}", true, -1, null);
             }
 
@@ -321,7 +321,7 @@ namespace Shiro.Services
                 string? user = req.GetQuery("Username");
                 if (string.IsNullOrEmpty(user)) return reply("Invalid Username Parameter", false, -1, null);
 
-                var userLookup = await AccountManager.GetUserIDAsync(user).ConfigureAwait(false);
+                var userLookup = await AppServices.AccountRepository.LookupUserIdAsync(user).ConfigureAwait(false);
                 if (!userLookup.Success)
                 {
                     var response = userLookup.Response;
@@ -390,10 +390,18 @@ namespace Shiro.Services
             if (method == "SetRecommendedServer")
             {
                 int attempts = 0;
+                var cachedServers = AppSettings.CachedServers;
                 ServerData[] serversSnapshot;
-                lock (AccountManager.CachedServers)
+                if (cachedServers == null)
                 {
-                    serversSnapshot = AccountManager.CachedServers.ToArray();
+                    serversSnapshot = Array.Empty<ServerData>();
+                }
+                else
+                {
+                    lock (cachedServers)
+                    {
+                        serversSnapshot = cachedServers.ToArray();
+                    }
                 }
 
                 for (int i = serversSnapshot.Length - 1; i >= 0; i--)
@@ -413,7 +421,7 @@ namespace Shiro.Services
                     attempts++;
                     long targetPlaceId = (!string.IsNullOrEmpty(req.GetQuery("PlaceId")) && long.TryParse(req.GetQuery("PlaceId"), out var reqPid))
                         ? reqPid
-                        : (long.TryParse(AccountManager.CurrentPlaceId, out var pid) ? pid : 0);
+                        : (long.TryParse(AppSettings.CurrentPlaceId, out var pid) ? pid : 0);
 
                     var (iSuccess, iMessage) = await account.SetServerAsync(targetPlaceId, server.id).ConfigureAwait(false);
                     if (iSuccess) return reply(iMessage, true, -1, null);

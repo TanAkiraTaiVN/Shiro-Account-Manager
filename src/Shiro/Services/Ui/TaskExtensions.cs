@@ -25,11 +25,41 @@ namespace Shiro.Services
                 }
                 catch (OperationCanceledException)
                 {
+                    // Intentional: cancellation is expected during user abort or shutdown
                 }
                 catch (Exception ex)
                 {
                     Program.Logger?.Error($"[UnhandledAsync:{operation}] {ex.Message}");
                 }
+            }
+        }
+    }
+
+    internal static class SafeExecuteHelper
+    {
+        public static void Try(Action? action, [CallerMemberName] string caller = "")
+        {
+            if (action == null) return;
+            try
+            {
+                action();
+            }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"[{caller}] Ignored cleanup exception: {ex.Message}");
+            }
+        }
+
+        public static T Try<T>(Func<T> func, T fallback = default!, [CallerMemberName] string caller = "")
+        {
+            try
+            {
+                return func();
+            }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"[{caller}] Ignored exception: {ex.Message}");
+                return fallback;
             }
         }
     }

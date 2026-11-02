@@ -71,7 +71,7 @@ namespace Shiro.Services
 
             try
             {
-                var client = AccountManager.GameJoinClient ?? new RestClient("https://gamejoin.roblox.com");
+                var client = AppServices.RobloxApi.GameJoin;
                 var request = account.MakeRequest("v1/join-game-instance", Method.Post)
                     .AddHeader("Content-Type", "application/json")
                     .AddJsonBody(new { gameId = serverId, placeId = placeId });
@@ -242,7 +242,7 @@ namespace Shiro.Services
 
             try
             {
-                var client = AccountManager.GamesClient ?? new RestClient("https://games.roblox.com");
+                var client = AppServices.RobloxApi.Games;
                 string cursorParam = string.IsNullOrEmpty(cursor) ? string.Empty : $"&cursor={Uri.EscapeDataString(cursor)}";
                 string url = $"v1/games/{placeId}/servers/public?sortOrder=Asc&limit={limit}{cursorParam}";
                 var request = new RestRequest(url, Method.Get);

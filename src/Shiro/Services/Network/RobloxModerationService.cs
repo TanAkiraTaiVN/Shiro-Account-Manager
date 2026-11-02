@@ -88,8 +88,16 @@ namespace Shiro.Services
                                     return (false, null, null);
                                 }
 
+                                string modRedirect = modRes.Headers.Location?.ToString() ?? string.Empty;
+                                if (modRedirect.Contains("/login", StringComparison.OrdinalIgnoreCase) ||
+                                    modRedirect.Contains("NewLogin", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    account.AccountStatusIssue = string.Empty;
+                                    return (false, null, null);
+                                }
+
                                 string modHtml = await modRes.Content.ReadAsStringAsync(linkedCts.Token).ConfigureAwait(false);
-                                if (IsUnauthenticatedModerationResponse(modHtml))
+                                if (IsUnauthenticatedModerationResponse(modHtml) || IsLoginPageHtml(modHtml))
                                 {
                                     account.AccountStatusIssue = string.Empty;
                                     return (false, null, null);
@@ -127,7 +135,7 @@ namespace Shiro.Services
                 if (response.StatusCode == System.Net.HttpStatusCode.OK)
                 {
                     string html = await response.Content.ReadAsStringAsync(linkedCts.Token).ConfigureAwait(false);
-                    if (IsUnauthenticatedModerationResponse(html))
+                    if (IsUnauthenticatedModerationResponse(html) || IsLoginPageHtml(html))
                     {
                         account.AccountStatusIssue = string.Empty;
                         return (false, null, null);
@@ -172,10 +180,19 @@ namespace Shiro.Services
             if (string.IsNullOrWhiteSpace(content))
                 return false;
 
-            string text = content.ToLowerInvariant();
-            return text.Contains("user is not authenticated", StringComparison.Ordinal) ||
-                   text.Contains("\"code\":9002", StringComparison.Ordinal) ||
-                   text.Contains("\"code\": 9002", StringComparison.Ordinal);
+            return content.Contains("user is not authenticated", StringComparison.OrdinalIgnoreCase) ||
+                   content.Contains("\"code\":9002", StringComparison.OrdinalIgnoreCase) ||
+                   content.Contains("\"code\": 9002", StringComparison.OrdinalIgnoreCase);
+        }
+
+        public static bool IsLoginPageHtml(string? content)
+        {
+            if (string.IsNullOrWhiteSpace(content))
+                return false;
+
+            return content.Contains("id=\"login-username\"", StringComparison.OrdinalIgnoreCase) ||
+                   content.Contains("id=\"login-password\"", StringComparison.OrdinalIgnoreCase) ||
+                   content.Contains("class=\"login-base-container\"", StringComparison.OrdinalIgnoreCase);
         }
 
         public static (bool IsBanned, string? IssueBadge, string? Reason) ParseModerationText(string content, string? url = null)

@@ -218,7 +218,7 @@ namespace Shiro.Services
             try { ClientSettingsPatcher.PatchSettings(); }
             catch (Exception ex) { Program.Logger.Error($"Failed to patch ClientAppSettings: {ex}"); }
 
-            if (AccountManager.ShuffleJobID && string.IsNullOrEmpty(jobId))
+            if (AppSettings.ShuffleJobId && string.IsNullOrEmpty(jobId))
                 jobId = await Utilities.GetRandomJobId(placeId, cancellationToken: cancellationToken).ConfigureAwait(false);
 
             await account.TryRebindSessionToCurrentNetworkAsync(force: false, cancellationToken).ConfigureAwait(false);
@@ -248,7 +248,7 @@ namespace Shiro.Services
                         .AddHeader("X-CSRF-TOKEN", token)
                         .AddHeader("Referer", $"https://www.roblox.com/games/{placeId}/");
 
-                    RestResponse? response = await account.ExecuteAccountRestAsync(AccountManager.MainClient, "https://www.roblox.com/", request, cancellationToken).ConfigureAwait(false);
+                    RestResponse? response = await account.ExecuteAccountRestAsync(AppServices.RobloxApi.Main, "https://www.roblox.com/", request, cancellationToken).ConfigureAwait(false);
 
                     if (response != null && response.StatusCode == HttpStatusCode.OK && account.ParseAccessCode(response, out string code))
                     {
@@ -262,7 +262,7 @@ namespace Shiro.Services
                         .AddHeader("X-CSRF-TOKEN", token)
                         .AddHeader("Referer", "https://www.roblox.com/my/account");
 
-                    RestResponse? result = await account.ExecuteAccountRestAsync(AccountManager.ApiClient, "https://apis.roblox.com/", request, cancellationToken).ConfigureAwait(false);
+                    RestResponse? result = await account.ExecuteAccountRestAsync(AppServices.RobloxApi.Api, "https://apis.roblox.com/", request, cancellationToken).ConfigureAwait(false);
 
                     bool needsPrivacyUpdate = false;
                     if (result != null && result.IsSuccessful && !string.IsNullOrEmpty(result.Content))
@@ -299,7 +299,7 @@ namespace Shiro.Services
                                 .AddHeader("Referer", "https://www.roblox.com/my/account")
                                 .AddJsonBody(new { whoCanInviteMeToPrivateServers = "AllUsers" });
 
-                            await account.ExecuteAccountRestAsync(AccountManager.ApiClient, "https://apis.roblox.com/", setRequest, cancellationToken).ConfigureAwait(false);
+                            await account.ExecuteAccountRestAsync(AppServices.RobloxApi.Api, "https://apis.roblox.com/", setRequest, cancellationToken).ConfigureAwait(false);
                         }
                     }
                 }
@@ -332,9 +332,9 @@ namespace Shiro.Services
                     ObserveBackgroundTask(
                         MonitorNativeAuthRateLimitAsync(launchStartedUtc, account, cancellationToken),
                         "native auth rate-limit monitor");
-                    AccountManager.Instance?.SchedulePresenceRefresh(account);
+                    AppSettings.SchedulePresenceRefresh(account);
 
-                    AccountManager.Instance?.NextAccount();
+                    AppSettings.SignalNextLaunchAccount();
 
                     ObserveBackgroundTask(AdjustWindowPositionAsync(account, nativePid, cancellationToken), "Roblox window positioning");
                 }
@@ -346,7 +346,7 @@ namespace Shiro.Services
                 {
                     launchException = x;
                     Program.Logger?.Error($"Failed to launch Roblox for {account.Username}: {x}");
-                    AccountManager.Instance?.NextAccount();
+                    AppSettings.SignalNextLaunchAccount();
                 }
 
                 if (launchException != null)

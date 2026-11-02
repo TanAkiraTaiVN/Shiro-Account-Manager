@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.IO;
 using System.Text;
@@ -205,8 +205,8 @@ namespace Shiro.Services
             {
                 _writerTask.Wait(TimeSpan.FromSeconds(2));
             }
-            catch (OperationCanceledException) { }
-            catch (AggregateException) { }
+            catch (OperationCanceledException) { /* canceled on dispose */ }
+            catch (AggregateException) { /* writer task canceled */ }
             catch (Exception ex)
             {
                 System.Diagnostics.Trace.WriteLine($"AppLogger writer wait on dispose threw: {ex.Message}");

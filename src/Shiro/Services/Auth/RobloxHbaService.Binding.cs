@@ -55,10 +55,18 @@ namespace Shiro.Services
             if (request == null || account == null || !account.HasHbaBinding || request.RequestUri == null)
                 return false;
 
-            if (bodyContent == null && request.Content is StringContent strContent)
+            if (bodyContent == null && request.Content != null)
             {
-                // In-memory StringContent can be read via non-blocking memory stream / task
-                bodyContent = strContent.ReadAsStringAsync(CancellationToken.None).GetAwaiter().GetResult();
+                try
+                {
+                    using var ms = new System.IO.MemoryStream();
+                    request.Content.CopyTo(ms, context: null, CancellationToken.None);
+                    bodyContent = System.Text.Encoding.UTF8.GetString(ms.GetBuffer(), 0, (int)ms.Length);
+                }
+                catch (Exception ex)
+                {
+                    Program.Logger?.Debug($"[RobloxHbaService] Sync body read failed: {ex.Message}");
+                }
             }
 
             if (TryBuildBoundAuthToken(

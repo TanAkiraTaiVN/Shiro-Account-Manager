@@ -229,9 +229,9 @@ namespace Shiro.Services
                     Password = alt.Password
                 };
 
-                AccountManager.AddAccountThreadSafe(account);
-                AccountManager.SaveAccounts(true, true);
-                AccountManager.Instance?.RefreshView();
+                AppServices.AccountRepository.AddThreadSafe(account);
+                AppServices.AccountRepository.Save(true);
+                AppSettings.RefreshAccountView();
 
                 AppendToHistoryCsv(alt);
                 Program.Logger?.Info($"[BloxGenService] Successfully imported alt account {uname} (ID: {alt.UserId}) to group '{groupName}'.");

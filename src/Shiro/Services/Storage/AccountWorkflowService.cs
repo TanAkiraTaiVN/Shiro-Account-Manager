@@ -65,7 +65,7 @@ namespace Shiro.Services
                     if (!acc.Valid) Interlocked.Increment(ref expiredCount);
                 }
             }).ConfigureAwait(false);
-            await AccountManager.SaveAccountsAsync(true).ConfigureAwait(false);
+            await AppServices.AccountRepository.SaveAsync(true).ConfigureAwait(false);
 
             var bannedAccounts = list.Where(a => a.IsBannedOrLocked).ToList();
             var expiredAccounts = list.Where(a => !a.Valid && !a.IsBannedOrLocked).ToList();
@@ -82,7 +82,7 @@ namespace Shiro.Services
             });
 
             statusCallback?.Invoke((expired > 0 || banned > 0)
-                ? $"Quét hoàn tất: {valid} sẵn sàng, {expired} hết hạn, {banned} bị ban! Xem tab 'Hết hạn' để Re-login / kiểm tra."
+                ? $"Quét hoàn tất: {valid} sẵn sàng, {expired} hết hạn, {banned} bị ban! Xem tab 'Hết hạn' / 'Bị ban' để kiểm tra."
                 : $"Quét hoàn tất: Toàn bộ {total} tài khoản đều đang hoạt động tốt!");
 
             string msg = (expired > 0 || banned > 0)
@@ -101,7 +101,7 @@ namespace Shiro.Services
                         "Khả năng cao là địa chỉ IP của bạn vừa thay đổi (do đổi mạng, bật/tắt VPN, hoặc router reset).\n\n"
                       : "") +
                   $"Hệ thống đã tự động gia hạn Cookie xoay (Cookie Rotation) cho các tài khoản hợp lệ.\n" +
-                  $"Các tài khoản hết hạn đã được chuyển vào tab 'Hết hạn'."
+                  $"Các tài khoản hết hạn và bị ban đã được phân loại vào tab 'Hết hạn' và 'Bị ban'."
                 : $"KẾT QUẢ KIỂM TRA PHIÊN (SESSION CHECK):\n\n" +
                   $"• Tổng số tài khoản: {total}\n" +
                   $"• Sẵn sàng hoạt động: {valid}\n" +
@@ -147,7 +147,7 @@ namespace Shiro.Services
                     acc.Model.CSRFToken = null;
                     acc.Model.TokenSet = DateTime.MinValue;
                     acc.Model.LastAuthTicketRateLimited = false;
-                    await AccountManager.SaveAccountsAsync(true).ConfigureAwait(false);
+                    await AppServices.AccountRepository.SaveAsync(true).ConfigureAwait(false);
                     viewModel?.UpdateAccountValidity(acc.Model, true);
                     statusCallback?.Invoke($"Cập nhật Cookie thành công cho {acc.Username}! Phiên đã sẵn sàng.");
                 }
@@ -162,7 +162,7 @@ namespace Shiro.Services
                     }
                     else
                     {
-                        await AccountManager.SaveAccountsAsync(true).ConfigureAwait(false);
+                        await AppServices.AccountRepository.SaveAsync(true).ConfigureAwait(false);
                         viewModel?.UpdateAccountValidity(acc.Model, false);
                         statusCallback?.Invoke($"Cookie vừa nhập không hợp lệ hoặc đã hết hạn cho {acc.Username}.");
                     }
@@ -183,7 +183,7 @@ namespace Shiro.Services
             {
                 acc.Model.Alias = string.IsNullOrWhiteSpace(input) ? string.Empty : input.Trim();
                 acc.Alias = acc.Model.Alias;
-                AccountManager.QueueDeferredSave();
+                AppServices.AccountRepository.QueueDeferredSave();
                 statusCallback?.Invoke($"Đã đổi Alias cho {acc.Username} thành: {acc.Model.Alias}");
             }
         }
@@ -202,7 +202,7 @@ namespace Shiro.Services
                 groupName = string.IsNullOrWhiteSpace(groupName) ? "Default" : groupName.Trim();
                 acc.Model.Group = groupName;
                 acc.Group = groupName;
-                AccountManager.QueueDeferredSave();
+                AppServices.AccountRepository.QueueDeferredSave();
                 viewModel?.RebuildGroupList();
                 viewModel?.ApplyFilter();
                 statusCallback?.Invoke($"Đã chuyển {acc.Username} sang nhóm {groupName}.");
@@ -222,7 +222,7 @@ namespace Shiro.Services
             {
                 acc.Model.Description = newDesc;
                 acc.Description = newDesc;
-                AccountManager.QueueDeferredSave();
+                AppServices.AccountRepository.QueueDeferredSave();
                 statusCallback?.Invoke($"Đã cập nhật ghi chú cho {acc.Username}.");
             }
         }
@@ -232,7 +232,7 @@ namespace Shiro.Services
             if (acc?.Model == null) return;
             acc.Model.Pinned = !acc.Model.Pinned;
             acc.Pinned = acc.Model.Pinned;
-            AccountManager.QueueDeferredSave();
+            AppServices.AccountRepository.QueueDeferredSave();
             viewModel?.ApplyFilter();
             statusCallback?.Invoke(acc.Pinned ? $"Đã ghim {acc.Username} lên đầu danh sách." : $"Đã bỏ ghim {acc.Username}.");
         }
@@ -283,7 +283,7 @@ namespace Shiro.Services
 
             if (confirmed)
             {
-                AccountManager.RemoveAccountsFromDatabase(new[] { acc.Model });
+                AppServices.AccountRepository.RemoveRange(new[] { acc.Model });
                 viewModel?.Accounts.Remove(acc);
                 viewModel?.NotifyCounts();
                 viewModel?.RebuildGroupList();
@@ -313,7 +313,7 @@ namespace Shiro.Services
                 {
                     vm.Group = groupName;
                 }
-                AccountManager.QueueDeferredSave();
+                AppServices.AccountRepository.QueueDeferredSave();
                 viewModel.RebuildGroupList();
                 viewModel.ApplyFilter();
                 statusCallback?.Invoke($"Đã chuyển {selectedVms.Count} tài khoản sang nhóm {groupName}.");
@@ -342,7 +342,7 @@ namespace Shiro.Services
             {
                 a.SetField("SavedPlaceId", pid);
             }
-            AccountManager.QueueDeferredSave();
+            AppServices.AccountRepository.QueueDeferredSave();
             statusCallback?.Invoke($"Đã lưu Place ID {pid} cho {targets.Count} tài khoản.");
         }
 
@@ -378,7 +378,7 @@ namespace Shiro.Services
             if (confirmed)
             {
                 var models = selectedVms.Where(v => v.Model != null).Select(v => v.Model).ToList();
-                int count = AccountManager.RemoveAccountsFromDatabase(models);
+                int count = AppServices.AccountRepository.RemoveRange(models!);
                 foreach (var vm in selectedVms)
                 {
                     viewModel.Accounts.Remove(vm);
@@ -433,7 +433,7 @@ namespace Shiro.Services
                             int c = Interlocked.Increment(ref checkedCount);
                         }
                     }).ConfigureAwait(false);
-                    await AccountManager.SaveAccountsAsync(true).ConfigureAwait(false);
+                    await AppServices.AccountRepository.SaveAsync(true).ConfigureAwait(false);
                     AppDispatcher.Post(() =>
                     {
                         viewModel?.NotifyCounts();

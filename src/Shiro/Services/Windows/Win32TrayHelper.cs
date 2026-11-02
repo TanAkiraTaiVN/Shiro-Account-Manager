@@ -127,7 +127,7 @@ namespace Shiro.Services
                         await Task.Delay(1500, token).ConfigureAwait(false);
                         RefreshNotificationArea();
                     }
-                    catch (OperationCanceledException) { }
+                    catch (OperationCanceledException) { /* canceled */ }
                     catch (Exception ex)
                     {
                         Program.Logger?.Debug($"[QueueRefreshNotificationArea] {ex.Message}");

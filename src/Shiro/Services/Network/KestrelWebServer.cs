@@ -54,7 +54,7 @@ namespace Shiro.Services
         {
             if (IsRunning) return;
 
-            if (_allowExternal && !WebAuthPolicy.IsPasswordConfigured(AccountManager.WSPassword))
+            if (_allowExternal && !WebAuthPolicy.IsPasswordConfigured(AppSettings.WebSocketPassword))
             {
                 _allowExternal = false;
                 Program.Logger?.Warn("[KestrelWebServer] External connections require a WebServer password (>= 6 chars); listening on localhost only.");
@@ -68,7 +68,7 @@ namespace Shiro.Services
                 {
                     // Only reflect loopback origins; other browser origins get no CORS grant.
                     string origin = context.Request.Headers["Origin"].ToString();
-                    if (!string.IsNullOrEmpty(origin) && AccountManager.IsTrustedLocalOrigin(origin))
+                    if (!string.IsNullOrEmpty(origin) && AccountApiDispatcher.IsTrustedLocalOrigin(origin))
                     {
                         context.Response.Headers.Append("Access-Control-Allow-Origin", origin);
                         context.Response.Headers.Append("Vary", "Origin");
@@ -195,8 +195,8 @@ namespace Shiro.Services
                     System.Buffers.ArrayPool<byte>.Shared.Return(buffer);
                 }
             }
-            catch (OperationCanceledException) { }
-            catch (WebSocketException) { }
+            catch (OperationCanceledException) { /* canceled */ }
+            catch (WebSocketException ex) { Program.Logger?.Debug($"[KestrelWebServer] WebSocket closed: {ex.Message}"); }
             catch (Exception ex)
             {
                 Program.Logger?.Warn($"[KestrelWebServer] WebSocket client error: {ex.Message}");
@@ -207,9 +207,9 @@ namespace Shiro.Services
                 {
                     if (_activeSockets.TryRemove(socket, out var removedGate))
                     {
-                        try { removedGate.Dispose(); } catch (Exception) { }
+                        SafeExecuteHelper.Try(removedGate.Dispose);
                     }
-                    try { socket.Dispose(); } catch (Exception) { }
+                    SafeExecuteHelper.Try(socket.Dispose);
                 }
             }
         }
@@ -250,9 +250,7 @@ namespace Shiro.Services
             {
                 if (acquired)
                 {
-                    try { gate.Release(); }
-                    catch (ObjectDisposedException) { }
-                    catch (Exception) { }
+                    SafeExecuteHelper.Try(() => gate.Release(), "KestrelWebServer.SendSafeAsync.ReleaseGate");
                 }
             }
         }
@@ -318,7 +316,7 @@ namespace Shiro.Services
                             Program.Logger?.Debug($"WebSocket broadcast to client failed: {ex.Message}");
                             if (_activeSockets.TryRemove(socket, out var removedGate))
                             {
-                                try { removedGate.Dispose(); } catch (Exception) { }
+                                SafeExecuteHelper.Try(removedGate.Dispose);
                             }
                         }
                     }
@@ -326,7 +324,7 @@ namespace Shiro.Services
                     {
                         if (_activeSockets.TryRemove(socket, out var removedGate))
                         {
-                            try { removedGate.Dispose(); } catch (Exception) { }
+                            SafeExecuteHelper.Try(removedGate.Dispose);
                         }
                     }
                 }
@@ -390,7 +388,7 @@ namespace Shiro.Services
                 {
                     Program.Logger?.Debug($"Closing active socket failed: {ex.Message}");
                 }
-                try { kvp.Value.Dispose(); } catch (Exception) { }
+                SafeExecuteHelper.Try(kvp.Value.Dispose);
             }
             _activeSockets.Clear();
 

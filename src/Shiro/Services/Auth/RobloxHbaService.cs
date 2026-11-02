@@ -282,7 +282,7 @@ namespace Shiro.Services
                         userAgent: state.userAgent
                     }));
                 }
-            } catch (_) {}
+            } catch (_) { /* ignore */ }
         };
 
         if (window.SubtleCrypto && SubtleCrypto.prototype) {
@@ -301,7 +301,7 @@ namespace Shiro.Services
                         state.publicKeySpki = toBase64(spki);
                     }
                     if (state.privateKeyPkcs8) notifyHost();
-                } catch (_) {}
+                } catch (_) { /* ignore */ }
             };
 
             SubtleCrypto.prototype.generateKey = async function(algorithm, extractable, keyUsages) {
@@ -309,13 +309,13 @@ namespace Shiro.Services
                 try {
                     const algName = typeof algorithm === 'string' ? algorithm : (algorithm && algorithm.name ? algorithm.name : '');
                     if (String(algName).toUpperCase() === 'ECDSA') forceExtract = true;
-                } catch (_) {}
+                } catch (_) { /* ignore */ }
                 const result = await origGen.call(this, algorithm, forceExtract, keyUsages);
                 try {
                     if (result && result.privateKey) {
                         await tryExportPair(this, result.privateKey, result.publicKey);
                     }
-                } catch (_) {}
+                } catch (_) { /* ignore */ }
                 return result;
             };
 
@@ -333,7 +333,7 @@ namespace Shiro.Services
                             if (state.recentSigns.length > 8) state.recentSigns.shift();
                         }
                     }
-                } catch (_) {}
+                } catch (_) { /* ignore */ }
                 return origSign.call(this, algorithm, key, data);
             };
         }
@@ -349,9 +349,9 @@ namespace Shiro.Services
                 const sigCount = parts.length - 3;
                 const enc = (hb.length === 64 && /^[0-9a-f]+$/i.test(hb)) ? 'hex' : 'b64';
                 let fullUrl = reqUrl || '';
-                try { fullUrl = new URL(fullUrl, window.location.origin).href; } catch (_) {}
+                try { fullUrl = new URL(fullUrl, window.location.origin).href; } catch (_) { /* ignore */ }
                 let pathOnly = '';
-                try { const u = new URL(fullUrl); pathOnly = u.pathname + u.search; } catch (_) {}
+                try { const u = new URL(fullUrl); pathOnly = u.pathname + u.search; } catch (_) { /* ignore */ }
                 const methodUp = String(reqMethod || 'GET').toUpperCase();
 
                 const matched = state.recentSigns.filter(s => s.includes(ts)).slice(-sigCount);
@@ -368,7 +368,7 @@ namespace Shiro.Services
                     state.tokenTemplate = [ver, enc, ...specs].join('|');
                     notifyHost();
                 }
-            } catch (_) {}
+            } catch (_) { /* ignore */ }
         };
 
         if (window.fetch) {
@@ -391,7 +391,7 @@ namespace Shiro.Services
                         }
                         if (bat) inspectBoundHeader(bat, url, method);
                     }
-                } catch (_) {}
+                } catch (_) { /* ignore */ }
                 return origFetch.apply(this, arguments);
             };
         }
@@ -411,7 +411,7 @@ namespace Shiro.Services
                 return origSetHeader.apply(this, arguments);
             };
         }
-    } catch (_) {}
+    } catch (_) { /* ignore */ }
 })();";
     }
 }

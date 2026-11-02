@@ -148,8 +148,8 @@ namespace Shiro.Services
                 if (directResult.Success)
                 {
                     account.LastLaunchedProcessId = directResult.ProcessId;
-                    AccountManager.Instance?.SchedulePresenceRefresh(account);
-                    AccountManager.Instance?.NextAccount();
+                    AppSettings.SchedulePresenceRefresh(account);
+                    AppSettings.SignalNextLaunchAccount();
                     ObserveBackgroundTask(AdjustWindowPositionAsync(account, directResult.ProcessId, cancellationToken), "Roblox window positioning");
                     return LaunchResult.Success();
                 }
@@ -184,9 +184,9 @@ namespace Shiro.Services
                     ObserveBackgroundTask(
                         MonitorNativeAuthRateLimitAsync(launchStartedUtc, account, cancellationToken),
                         "native auth rate-limit monitor");
-                    AccountManager.Instance?.SchedulePresenceRefresh(account);
+                    AppSettings.SchedulePresenceRefresh(account);
 
-                    AccountManager.Instance?.NextAccount();
+                    AppSettings.SignalNextLaunchAccount();
                     ObserveBackgroundTask(AdjustWindowPositionAsync(account, homePid, cancellationToken), "Roblox window positioning");
                 }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -235,14 +235,14 @@ namespace Shiro.Services
                         "https://www.roblox.com/home",
                         UseStealth: false,
                         cancellationToken: cancellationToken).ConfigureAwait(false);
-                    AccountManager.Instance?.SchedulePresenceRefresh(account);
+                    AppSettings.SchedulePresenceRefresh(account);
                     return LaunchResult.BrowserHome();
                 }
 
                 bool opened = await ChromiumHomeBrowser.OpenAsync(account, cancellationToken).ConfigureAwait(false);
                 if (opened)
                 {
-                    AccountManager.Instance?.SchedulePresenceRefresh(account);
+                    AppSettings.SchedulePresenceRefresh(account);
                     return LaunchResult.BrowserHome();
                 }
 
@@ -252,7 +252,7 @@ namespace Shiro.Services
                     "https://www.roblox.com/home",
                     UseStealth: false,
                     cancellationToken: cancellationToken).ConfigureAwait(false);
-                AccountManager.Instance?.SchedulePresenceRefresh(account);
+                AppSettings.SchedulePresenceRefresh(account);
                 return LaunchResult.BrowserHome();
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

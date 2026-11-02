@@ -159,9 +159,11 @@ namespace Shiro.Services
 
             try
             {
-                bool injectedCookie = !string.IsNullOrWhiteSpace(securityToken) &&
-                    InjectAccountCookieToLocalStorage(securityToken, browserTrackerId, username: username);
-
+                // Game launches use the one-time authentication ticket (-t) and PlaceLauncher joinUrl (-j)
+                // redeemed directly in-memory by RobloxPlayerBeta.exe via auth.roblox.com/v1/authentication-ticket/redeem.
+                // We intentionally DO NOT inject securityToken into the global %LOCALAPPDATA%\Roblox\LocalStorage\RobloxCookies.dat
+                // here, because writing to that shared file causes all open Roblox windows (and active WebView2 challenge tabs)
+                // to detect "Security cookie value changed" and hijack other running instances into the same account.
                 string args = BuildGameLaunchArguments(ticket, joinUrl, browserTrackerId);
 
                 Process? process = SpawnRobloxProcess(playerPath, args, username);
@@ -176,11 +178,6 @@ namespace Shiro.Services
 
                 int pid = process.Id;
                 Program.Logger?.Info($"[RobloxDirectLauncher] Successfully spawned RobloxPlayerBeta.exe directly for {username} (PID: {pid}).");
-
-                if (injectedCookie)
-                {
-                    SchedulePostSpawnCookieRestore(pid);
-                }
 
                 // Apply initial process optimizations (BelowNormal priority & Job Object CPU cap if enabled)
                 RobloxProcessOptimizer.OptimizeLaunchedProcess(pid);

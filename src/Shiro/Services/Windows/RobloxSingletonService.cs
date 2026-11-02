@@ -118,7 +118,7 @@ namespace Shiro.Services
 
             if (enabled && readyToWait != null)
             {
-                try { readyToWait.Wait(500); } catch (Exception) { }
+                SafeExecuteHelper.Try(() => readyToWait.Wait(500), "RobloxSingletonService.ReadyWait");
             }
         }
 
@@ -261,13 +261,13 @@ namespace Shiro.Services
                 {
                     if (mutexOwned)
                     {
-                        try { ReleaseMutex(hMutex); } catch (Exception) { }
+                        SafeExecuteHelper.Try(() => ReleaseMutex(hMutex));
                     }
-                    try { CloseHandle(hMutex); } catch (Exception) { }
+                    SafeExecuteHelper.Try(() => CloseHandle(hMutex));
                 }
                 if (hEvent != IntPtr.Zero)
                 {
-                    try { CloseHandle(hEvent); } catch (Exception) { }
+                    SafeExecuteHelper.Try(() => CloseHandle(hEvent));
                 }
                 if (pSd != IntPtr.Zero)
                 {

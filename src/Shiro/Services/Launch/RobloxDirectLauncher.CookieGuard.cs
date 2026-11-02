@@ -241,7 +241,7 @@ namespace Shiro.Services
 
                         RestoreOriginalCookies();
                     }
-                    catch (OperationCanceledException) { }
+                    catch (OperationCanceledException) { /* canceled */ }
                     catch (Exception ex)
                     {
                         Program.Logger?.Debug($"[RobloxDirectLauncher] Scheduled cookie restoration failed: {ex.Message}");
@@ -296,7 +296,7 @@ namespace Shiro.Services
                             RestoreOriginalCookies();
                         }
                     }
-                    catch (OperationCanceledException) { }
+                    catch (OperationCanceledException) { /* canceled */ }
                     catch (Exception ex)
                     {
                         Program.Logger?.Debug($"[RobloxDirectLauncher] Post-spawn cookie restore failed: {ex.Message}");

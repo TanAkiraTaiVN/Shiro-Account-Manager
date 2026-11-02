@@ -252,7 +252,7 @@ namespace Shiro.Services
 
         public void UpdateCurrentPresence()
         {
-            int total = AccountManager.AccountCount;
+            int total = AppServices.AccountRepository.Count;
             int active = 0;
             Process[] procs = Array.Empty<Process>();
             try
@@ -273,11 +273,11 @@ namespace Shiro.Services
                 }
             }
 
-            string currentPlace = AccountManager.CurrentPlaceId;
+            string currentPlace = AppSettings.CurrentPlaceId;
             long placeId = 0;
             long.TryParse(currentPlace, out placeId);
 
-            UpdatePresence(null, placeId, AccountManager.CurrentJobId, total, active);
+            UpdatePresence(null, placeId, AppSettings.CurrentJobId, total, active);
         }
 
         public void ClearPresence()

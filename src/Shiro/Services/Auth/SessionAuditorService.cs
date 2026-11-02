@@ -164,6 +164,7 @@ namespace Shiro.Services
                 }
 
                 account.Valid = true;
+                account.AccountStatusIssue = string.Empty;
                 string userJson = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
                 long userId = account.UserID;
 

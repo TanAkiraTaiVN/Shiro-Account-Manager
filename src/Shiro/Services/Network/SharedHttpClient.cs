@@ -315,7 +315,7 @@ namespace Shiro.Services
                         if (resetDelay >= TimeSpan.Zero && resetDelay <= TimeSpan.FromSeconds(30))
                             return resetDelay;
                     }
-                    catch (ArgumentOutOfRangeException) { }
+                    catch (ArgumentOutOfRangeException) { /* invalid unix timestamp */ }
                 }
             }
 

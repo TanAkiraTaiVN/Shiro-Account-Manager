@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -140,7 +140,7 @@ namespace Shiro.Services
                     try {
                         Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
                         if (!window.chrome) window.chrome = { runtime: {} };
-                    } catch (_) {}
+                    } catch (_) { /* ignore */ }
                 }";
 
                 await page.EvaluateFunctionOnNewDocumentAsync(script).ConfigureAwait(false);
@@ -171,7 +171,7 @@ namespace Shiro.Services
                             const el = document.querySelector(s);
                             if (el) el.remove();
                         }
-                    } catch (_) {}
+                    } catch (_) { /* ignore */ }
                 }").ConfigureAwait(false);
             }
             catch (Exception ex)
@@ -259,7 +259,7 @@ namespace Shiro.Services
                                     return JSON.stringify({ UserId: data.id, Name: data.name, DisplayName: data.displayName });
                                 }
                             }
-                        } catch (_) {}
+                        } catch (_) { /* ignore */ }
                         try {
                             const response = await fetch('/my/account/json', { credentials: 'include' });
                             if (response.ok) return await response.text();
@@ -277,7 +277,7 @@ namespace Shiro.Services
                     if (attempt == 0 && !page.IsClosed && maxAttempts > 1)
                     {
                         try { await Task.Delay(600, CancellationToken.None).ConfigureAwait(false); }
-                        catch (Exception) { }
+                        catch (Exception ex) { Program.Logger?.Debug($"ChromeLaunchHelper retry delay: {ex.Message}"); }
                         continue;
                     }
                 }
@@ -332,8 +332,7 @@ namespace Shiro.Services
 
             if (dispose)
             {
-                try { browser.Dispose(); }
-                catch (Exception) { }
+                SafeExecuteHelper.Try(() => browser.Dispose(), "ChromeLaunchHelper.CloseBrowserProcess.Dispose");
             }
         }
 

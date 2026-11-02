@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -72,7 +72,7 @@ namespace Shiro.Services
                 }
                 finally
                 {
-                    try { proc.Dispose(); } catch (Exception) { }
+                    SafeExecuteHelper.Try(() => proc.Dispose(), "RobloxProcessService.Lifecycle.DisposeProc");
                 }
             }
 
@@ -327,7 +327,7 @@ namespace Shiro.Services
                 }
                 finally
                 {
-                    try { proc.Dispose(); } catch (Exception) { }
+                    SafeExecuteHelper.Try(() => proc.Dispose(), "RobloxProcessService.Lifecycle.DisposeProc");
                 }
             }
 
@@ -398,7 +398,7 @@ namespace Shiro.Services
                     {
                         Program.Logger?.Debug($"Killing zombie RobloxCrashHandler threw: {ex.Message}");
                     }
-                    finally { try { p.Dispose(); } catch (Exception) { } }
+                    finally { SafeExecuteHelper.Try(() => p.Dispose(), "RobloxProcessService.CleanZombieProcesses.Dispose"); }
                 }
 
                 if (cleaned > 0)

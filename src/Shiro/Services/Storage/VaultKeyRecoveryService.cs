@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Buffers.Binary;
 using System.Collections.Concurrent;
@@ -27,8 +27,8 @@ namespace Shiro.Services
                 string logFile = Path.Combine(StoragePaths.DataDirectory, "recovery_trace.log");
                 File.AppendAllText(logFile, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} {message}{Environment.NewLine}");
             }
-            catch (IOException) { }
-            catch (Exception) { }
+            catch (IOException ex) { System.Diagnostics.Trace.WriteLine($"[VaultKeyRecoveryService] TraceLog IO: {ex.Message}"); }
+            catch (Exception ex) { System.Diagnostics.Trace.WriteLine($"[VaultKeyRecoveryService] TraceLog: {ex.Message}"); }
         }
 
         public static byte[]? TryRecoverInProcess(byte[] encryptedAccountData)

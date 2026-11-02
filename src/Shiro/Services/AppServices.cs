@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -33,12 +33,16 @@ namespace Shiro.Services
 
                 // Core Domain Services
                 services.AddSingleton<IAccountRepository>(Services.AccountRepository.Default);
+                services.AddSingleton<IRobloxApiClient>(Services.RobloxApiClient.Default);
                 services.AddSingleton<IRobloxSessionService>(Services.RobloxSessionService.Default);
                 services.AddSingleton<IRobloxLauncherService>(Services.RobloxLauncherService.Default);
                 services.AddSingleton<IDialogService>(AvaloniaDialogService.Default);
                 services.AddSingleton<AccountWorkflowService>(Services.AccountWorkflowService.Default);
                 services.AddSingleton<IRobloxServerQueryService>(Services.RobloxServerQueryService.Default);
                 services.AddSingleton<BrowserService>(Services.BrowserService.Default);
+                services.AddSingleton<ISelectionStateService>(SelectionStateService.Default);
+                services.AddSingleton<IServerBrowserStateService>(ServerBrowserStateService.Default);
+                services.AddSingleton<IHostUiBridgeService>(HostUiBridgeService.Default);
                 services.AddSingleton<AppSettings>(AppSettings.Current);
 
                 configureExtra?.Invoke(services);
@@ -55,6 +59,12 @@ namespace Shiro.Services
         public static IAccountRepository AccountRepository
         {
             get => GetRequiredService<IAccountRepository>();
+            set => ReplaceService(value);
+        }
+
+        public static IRobloxApiClient RobloxApi
+        {
+            get => GetRequiredService<IRobloxApiClient>();
             set => ReplaceService(value);
         }
 
@@ -96,6 +106,24 @@ namespace Shiro.Services
             set => ReplaceService(value);
         }
 
+        public static ISelectionStateService SelectionState
+        {
+            get => GetRequiredService<ISelectionStateService>();
+            set => ReplaceService(value);
+        }
+
+        public static IServerBrowserStateService ServerBrowserState
+        {
+            get => GetRequiredService<IServerBrowserStateService>();
+            set => ReplaceService(value);
+        }
+
+        public static IHostUiBridgeService HostUiBridge
+        {
+            get => GetRequiredService<IHostUiBridgeService>();
+            set => ReplaceService(value);
+        }
+
         public static AppSettings Settings => GetRequiredService<AppSettings>();
 
         private static void ReplaceService<T>(T instance) where T : class
@@ -105,12 +133,16 @@ namespace Shiro.Services
                 var services = new ServiceCollection();
 
                 services.AddSingleton<IAccountRepository>((instance as IAccountRepository) ?? AccountRepository);
+                services.AddSingleton<IRobloxApiClient>((instance as IRobloxApiClient) ?? RobloxApi);
                 services.AddSingleton<IRobloxSessionService>((instance as IRobloxSessionService) ?? RobloxSessionService);
                 services.AddSingleton<IRobloxLauncherService>((instance as IRobloxLauncherService) ?? RobloxLauncherService);
                 services.AddSingleton<IDialogService>((instance as IDialogService) ?? DialogService);
                 services.AddSingleton<AccountWorkflowService>((instance as AccountWorkflowService) ?? AccountWorkflowService);
                 services.AddSingleton<IRobloxServerQueryService>((instance as IRobloxServerQueryService) ?? RobloxServerQueryService);
                 services.AddSingleton<BrowserService>((instance as BrowserService) ?? BrowserService);
+                services.AddSingleton<ISelectionStateService>((instance as ISelectionStateService) ?? SelectionState);
+                services.AddSingleton<IServerBrowserStateService>((instance as IServerBrowserStateService) ?? ServerBrowserState);
+                services.AddSingleton<IHostUiBridgeService>((instance as IHostUiBridgeService) ?? HostUiBridge);
                 services.AddSingleton<AppSettings>(AppSettings.Current);
 
                 _serviceProvider = services.BuildServiceProvider();

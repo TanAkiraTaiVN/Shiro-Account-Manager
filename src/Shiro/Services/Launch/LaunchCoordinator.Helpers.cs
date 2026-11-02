@@ -26,7 +26,7 @@ namespace Shiro.Services
 
         public static void RequestGlobalCancel()
         {
-            try { AccountManager.Instance?.CancelLaunching(); }
+            try { AppSettings.CancelLaunching(); }
             catch (Exception ex) { Program.Logger?.Debug($"CancelLaunching threw: {ex.Message}"); }
 
             try { GlobalCancelRequested?.Invoke(); }
@@ -105,12 +105,13 @@ namespace Shiro.Services
                         hasChallenge = true;
                 }
                 else if (RobloxProcess.IsChallengeInvalidatedOrAbandonedLogLine(line) ||
-                         (hasChallenge && RobloxProcess.IsReturnToLuaAppLine(line, hasGameDataModel)))
+                         RobloxProcess.IsReturnToLuaAppLine(line, hasGameDataModel))
                 {
-                    if (!joinedGame)
+                    if (hasChallenge || !joinedGame)
                     {
                         hasChallenge = true;
                         challengeFailed = true;
+                        joinedGame = false;
                     }
                 }
             }
@@ -287,10 +288,11 @@ namespace Shiro.Services
             ClientGameJoinState joinState = InspectProcessGameJoinState(targetPid, trackerId, ref cachedLogPath);
             if (joinState == ClientGameJoinState.Pending)
             {
-                // Give the client up to 1.2s if it hasn't logged join-game or challengedByGcs yet
-                for (int probe = 0; probe < 3 && joinState == ClientGameJoinState.Pending; probe++)
+                // Give the client up to 4s (8 probes x 500ms) while joinState is Pending.
+                // Breaks immediately as soon as the client logs JoinedGame, Challenged, ChallengeFailedToLuaApp, or ProcessExited.
+                for (int probe = 0; probe < 8 && joinState == ClientGameJoinState.Pending; probe++)
                 {
-                    await Task.Delay(400, cancellationToken).ConfigureAwait(false);
+                    await Task.Delay(500, cancellationToken).ConfigureAwait(false);
                     joinState = InspectProcessGameJoinState(targetPid, trackerId, ref cachedLogPath);
                 }
             }
@@ -344,7 +346,7 @@ namespace Shiro.Services
                         Program.Logger?.Info($"[LaunchCoordinator] Challenged client for '{request.Account.Username}' (PID {targetPid}) was closed by user. Resuming batch.");
                         AutoReconnectService.Instance.SuppressReconnect(request.Account.Username);
                         state.Status = LaunchOutcome.Failed;
-                        state.Result = "ERROR: Tài khoản bị yêu cầu xác minh (Captcha) và đã đóng.";
+                        state.Result = Loc.Get("Launch_CaptchaClosedError", "ERROR: Tài khoản bị yêu cầu xác minh (Captcha) và đã đóng.");
                         state.Message = $"Warning ({request.Account.Username}): Yêu cầu xác minh (Captcha) chưa hoàn tất.";
                         Report(progress, state);
                         return;
@@ -367,7 +369,7 @@ namespace Shiro.Services
                 catch (Exception ex) { Program.Logger?.Debug($"Close challenged fallback client failed: {ex.Message}"); }
 
                 state.Status = LaunchOutcome.Failed;
-                state.Result = "ERROR: Tài khoản bị bắt buộc xác minh (Captcha) nên không thể vào game.";
+                state.Result = Loc.Get("Launch_CaptchaRequiredError", "ERROR: Tài khoản bị bắt buộc xác minh (Captcha) nên không thể vào game.");
                 state.Message = $"Warning ({request.Account.Username}): Bị bắt buộc xác minh (Captcha) — đã đóng tab chờ để tránh trùng tài khoản tiếp theo.";
                 Report(progress, state);
             }

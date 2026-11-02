@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Threading;
 using System.Threading.Tasks;
@@ -110,7 +110,7 @@ namespace Shiro.Services
                         }
                     }
                 }
-                catch (OperationCanceledException) { }
+                catch (OperationCanceledException) { /* periodic loop stopped */ }
             }, token);
         }
 
@@ -121,7 +121,7 @@ namespace Shiro.Services
                 _loopCts?.Cancel();
                 _loopCts?.Dispose();
             }
-            catch (Exception) { }
+            catch (Exception ex) { Program.Logger?.Debug($"ModernPeriodicTask.StopLoop: {ex.Message}"); }
             _loopCts = null;
         }
 
@@ -139,7 +139,7 @@ namespace Shiro.Services
                     _lifecycleCts.Cancel();
                     _lifecycleCts.Dispose();
                 }
-                catch (Exception) { }
+                catch (Exception ex) { Program.Logger?.Debug($"ModernPeriodicTask.StopLoop: {ex.Message}"); }
             }
         }
     }

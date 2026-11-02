@@ -182,7 +182,7 @@ namespace Shiro.Services
                 `;
                 document.head ? document.head.appendChild(style) : document.addEventListener('DOMContentLoaded', () => document.head.appendChild(style));
                 window.addEventListener('DOMContentLoaded', () => {
-                    try { if (window.OneTrust && window.OneTrust.AllowAll) window.OneTrust.AllowAll(); } catch(_) {}
+                    try { if (window.OneTrust && window.OneTrust.AllowAll) window.OneTrust.AllowAll(); } catch(_) { /* ignore */ }
                     try {
                         const hookPass = () => {
                             const p = document.querySelector('#login-password') || document.querySelector('input[type=""password""]');
@@ -201,9 +201,9 @@ namespace Shiro.Services
                         };
                         hookPass();
                         setInterval(hookPass, 400);
-                    } catch(_) {}
+                    } catch(_) { /* ignore */ }
                 });
-            } catch(_) {}
+            } catch(_) { /* ignore */ }
         ";
 
         public static string BuildCredentialFillScript(string username, string? password, bool forceClick)
@@ -448,7 +448,7 @@ namespace Shiro.Services
                 if (!string.IsNullOrEmpty(group))
                     capturedAccount.Group = group;
 
-                try { await AccountManager.SaveAccountsAsync(true).ConfigureAwait(false); }
+                try { await AppServices.AccountRepository.SaveAsync(true).ConfigureAwait(false); }
                 catch (Exception ex) { Program.Logger?.Warn($"SaveAccountsAsync after fast login failed: {ex.Message}"); }
 
                 return new FastLoginCaptureResult(FastLoginCaptureStatus.Success, capturedAccount);

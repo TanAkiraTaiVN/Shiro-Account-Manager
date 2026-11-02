@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Text.Json;
 using System.Text.Json.Nodes;

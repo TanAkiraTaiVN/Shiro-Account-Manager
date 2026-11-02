@@ -42,9 +42,7 @@ namespace Shiro.Services
                 string cursorParam = string.IsNullOrEmpty(cursor) ? string.Empty : $"&cursor={Uri.EscapeDataString(cursor)}";
                 var request = new RestRequest($"v1/games/{placeId}/servers/public?sortOrder=Asc&limit=100{cursorParam}", Method.Get);
 
-                RestResponse? response = null;
-                if (AccountManager.GamesClient != null)
-                    response = await AccountManager.GamesClient.ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
+                RestResponse? response = await AppServices.RobloxApi.Games.ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
                 if (response == null || !response.IsSuccessful || string.IsNullOrWhiteSpace(response.Content))
                     break;
@@ -87,9 +85,9 @@ namespace Shiro.Services
                     break;
             }
 
-            if (validServers.Count == 0 && AccountManager.CachedServers != null && AccountManager.CachedServers.Count > 0)
+            if (validServers.Count == 0 && AppSettings.CachedServers != null && AppSettings.CachedServers.Count > 0)
             {
-                foreach (var s in AccountManager.CachedServers)
+                foreach (var s in AppSettings.CachedServers)
                 {
                     if (s != null && !string.IsNullOrEmpty(s.id) && s.playing > 0 && s.maxPlayers > 1 && s.playing < s.maxPlayers)
                     {

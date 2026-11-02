@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -26,7 +26,7 @@ namespace Shiro
             {
                 _deferredSettingsSaveTimer.Change(Math.Max(50, delayMs), Timeout.Infinite);
             }
-            catch (ObjectDisposedException) { }
+            catch (ObjectDisposedException) { /* timer disposed during shutdown */ }
             catch (Exception ex)
             {
                 Program.Logger?.Warn($"Failed to schedule deferred settings save: {ex.Message}");
@@ -108,6 +108,80 @@ namespace Shiro
             if (!Loading)
             {
                 this.InvokeIfRequired(() => RecentGameAdded?.Invoke(this, new GameArgs(RG)));
+            }
+        }
+
+        private void WireStateAndHostBridgeServices()
+        {
+            AppSettings.ActiveIniFile = IniSettings;
+            ServerBrowserStateService.Default.LoadClientVersionDelegate = LoadClientVersionAsync;
+
+            var bridge = HostUiBridgeService.Default;
+            bridge.RefreshAccountViewHandler = account =>
+            {
+                if (account != null)
+                    UpdateAccountView(account);
+                else
+                    RefreshView();
+            };
+            bridge.UpdateAccountValidityOnUiHandler = (account, valid) =>
+            {
+                BeginInvoke(() =>
+                {
+                    UpdateAccountValidity(account, valid);
+                    RefreshView(account);
+                });
+            };
+            bridge.SchedulePresenceRefreshHandler = account =>
+            {
+                if (account != null)
+                    SchedulePresenceRefresh(account);
+            };
+            bridge.SignalNextLaunchAccountHandler = () => NextAccount();
+            bridge.CancelLaunchingHandler = () => CancelLaunching();
+            bridge.UpdateMultiRobloxHandler = () => UpdateMultiRoblox();
+            bridge.CloseAllRobloxFromUiHandler = () => InvokeIfRequired(() => ModernCloseRoblox());
+            bridge.LaunchAppHomeHandler = ModernLaunchAccountAppHome;
+            bridge.JoinServerHandler = (accounts, placeId, jobId) => ModernJoinServerDirect(new List<Account>(accounts), placeId, jobId);
+            bridge.MultiLaunchHomeHandler = () => ModernMultiLaunch();
+            bridge.GetCurrentSelectedAccountsHandler = GetCurrentSelectedAccounts;
+            bridge.SaveSettingsHandler = SaveSettings;
+            bridge.QueueDeferredSaveSettingsHandler = () => QueueDeferredSaveSettings();
+            bridge.SetDashboardStatusHandler = SetDashboardStatus;
+            bridge.EnsureBackendInitializedHandler = EnsureBackendInitialized;
+            bridge.InitializePostStartupHandler = InitializePostStartup;
+            bridge.RestartWebServerHandler = RestartWebServerAsync;
+            bridge.StopWebServerHandler = StopWebServerAsync;
+            bridge.SetAutoCookieRefreshEnabledHandler = SetAutoCookieRefreshEnabled;
+            bridge.ResetEncryptionHandler = ResetEncryptionAsync;
+        }
+
+        static AccountManager()
+        {
+            HostUiBridgeService.Default.EnsureBackendInitializedHandler = EnsureBackendInitialized;
+            ServerBrowserStateService.Default.LoadClientVersionDelegate = LoadClientVersionAsync;
+        }
+
+        public static async Task LoadClientVersionAsync(CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                string versionJson = await SharedHttpClient.GetStringAsync(
+                    "https://clientsettings.roblox.com/v1/client-version/WindowsPlayer",
+                    retryTransient: true,
+                    cancellationToken: cancellationToken);
+
+                using var vDoc = System.Text.Json.JsonDocument.Parse(versionJson);
+                if (vDoc.RootElement.TryGetProperty("clientVersionUpload", out var token))
+                    CurrentVersion = token.GetString() ?? string.Empty;
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                // Shutdown cancelled the optional version probe.
+            }
+            catch (Exception exception)
+            {
+                Program.Logger?.Debug($"Roblox client version probe failed: {exception.Message}");
             }
         }
     }

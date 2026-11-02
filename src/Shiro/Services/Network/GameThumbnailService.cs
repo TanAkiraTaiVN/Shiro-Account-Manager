@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -225,9 +225,7 @@ namespace Shiro.Services
             }
             finally
             {
-                try { downloadGate.Release(); }
-                catch (ObjectDisposedException) { }
-                catch (Exception) { }
+                SafeExecuteHelper.Try(() => downloadGate.Release(), "GameThumbnailService.ReleaseDownloadGate");
             }
         }
     }

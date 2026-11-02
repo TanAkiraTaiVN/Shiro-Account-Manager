@@ -60,16 +60,16 @@ namespace Shiro.Services
                 return AuthDecision.ForbiddenExternal;
             }
 
-            // 2. !AllowExternal: Host không rỗng và không phải loopback (AccountManager.IsLoopbackHostName) -> ForbiddenHost;
-            //    Origin không tin cậy (AccountManager.IsTrustedLocalOrigin) -> ForbiddenOrigin.
+            // 2. !AllowExternal: Host không rỗng và không phải loopback (AccountApiDispatcher.IsLoopbackHostName) -> ForbiddenHost;
+            //    Origin không tin cậy (AccountApiDispatcher.IsTrustedLocalOrigin) -> ForbiddenOrigin.
             if (!settings.AllowExternal)
             {
-                if (!string.IsNullOrEmpty(request.Host) && !AccountManager.IsLoopbackHostName(request.Host))
+                if (!string.IsNullOrEmpty(request.Host) && !AccountApiDispatcher.IsLoopbackHostName(request.Host))
                 {
                     return AuthDecision.ForbiddenHost;
                 }
 
-                if (!AccountManager.IsTrustedLocalOrigin(request.Origin ?? string.Empty))
+                if (!AccountApiDispatcher.IsTrustedLocalOrigin(request.Origin ?? string.Empty))
                 {
                     return AuthDecision.ForbiddenOrigin;
                 }
@@ -92,7 +92,7 @@ namespace Shiro.Services
                 !request.IsLoopbackRemote ||
                 (request.Scope == AuthScope.NexusControl && IsPasswordConfigured(settings.ConfiguredPassword));
 
-            // 5. Nếu bắt buộc: chưa cấu hình -> PasswordNotConfigured; mật khẩu hiệu lực rỗng hoặc sai (AccountManager.FixedTimeEqualsPassword) -> InvalidPassword.
+            // 5. Nếu bắt buộc: chưa cấu hình -> PasswordNotConfigured; mật khẩu hiệu lực rỗng hoặc sai (AccountApiDispatcher.FixedTimeEqualsPassword) -> InvalidPassword.
             if (passwordRequired)
             {
                 if (!IsPasswordConfigured(settings.ConfiguredPassword))
@@ -101,7 +101,7 @@ namespace Shiro.Services
                 }
 
                 if (string.IsNullOrEmpty(effectivePassword) ||
-                    !AccountManager.FixedTimeEqualsPassword(effectivePassword, settings.ConfiguredPassword!))
+                    !AccountApiDispatcher.FixedTimeEqualsPassword(effectivePassword, settings.ConfiguredPassword!))
                 {
                     return AuthDecision.InvalidPassword;
                 }

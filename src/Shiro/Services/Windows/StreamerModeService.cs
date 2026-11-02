@@ -145,7 +145,7 @@ namespace Shiro.Services
                     }
                     foreach (var p in procs)
                     {
-                        try { p.Dispose(); } catch { }
+                        SafeExecuteHelper.Try(() => p.Dispose(), "StreamerModeService.DisposeProc");
                     }
                     if (detected) break;
                 }

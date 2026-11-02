@@ -9,8 +9,8 @@ using Shiro.Classes;
 namespace Shiro.Services
 {
     /// <summary>
-    /// Owns the only active multi-account launch queue.  The Roblox protocol
-    /// still signals the next account through AccountManager.NextAccount(),
+    /// Owns the only active multi-account launch queue. The Roblox protocol
+    /// still signals the next account through AppSettings.SignalNextLaunchAccount(),
     /// but all waiting, cancellation and duplicate-launch protection lives here.
     /// </summary>
     internal sealed partial class LaunchCoordinator : ILaunchCoordinator
@@ -89,8 +89,8 @@ namespace Shiro.Services
 
             List<LaunchProgress> results = new List<LaunchProgress>(launchList.Count);
             int safeDelay = Math.Max(
-                AccountManager.MinimumAccountJoinDelaySeconds,
-                Math.Min(AccountManager.MaximumAccountJoinDelaySeconds, delaySeconds));
+                AppSettings.MinimumAccountJoinDelaySeconds,
+                Math.Min(AppSettings.MaximumAccountJoinDelaySeconds, delaySeconds));
             int lastSpawnedPid = 0;
 
             using var cookieGuard = RobloxDirectLauncher.BeginCookieGuardScope(restoreDelayOnDisposeMs: 12_000);
@@ -205,11 +205,7 @@ namespace Shiro.Services
                         if (!wasAlreadyBanned)
                             request.Account.AccountStatusIssue = string.Empty;
                         request.Account.Valid = false;
-                        AccountManager.Instance?.BeginInvoke(new Action(() =>
-                        {
-                            AccountManager.Instance?.UpdateAccountValidity(request.Account, false);
-                            AccountManager.Instance?.RefreshView(request.Account);
-                        }));
+                        AppSettings.UpdateAccountValidityOnUi(request.Account, false);
 
                         if (wasAlreadyBanned || request.Account.IsBannedOrLocked)
                         {
@@ -421,7 +417,7 @@ namespace Shiro.Services
             lock (stateLock)
                 cancellation = activeCancellation;
 
-            try { cancellation?.Cancel(); } catch (ObjectDisposedException) { }
+            SafeExecuteHelper.Try(() => cancellation?.Cancel(), "LaunchCoordinator.Cancel");
         }
 
         public async Task<bool> WaitForIdleAsync(
@@ -470,7 +466,7 @@ namespace Shiro.Services
             }
 
             GlobalCancelRequested -= Cancel;
-            try { cancellation?.Cancel(); } catch (ObjectDisposedException) { }
+            SafeExecuteHelper.Try(() => cancellation?.Cancel(), "LaunchCoordinator.Dispose");
         }
     }
 }

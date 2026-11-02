@@ -118,7 +118,7 @@ namespace Shiro.Services
                 try
                 {
                     AppSettings.General.Set(AppSettingsKeys.General.Language, language == AppLanguage.English ? "en" : "vi");
-                    AccountManager.QueueDeferredSaveSettings();
+                    AppSettings.QueueDeferredSave();
                 }
                 catch (Exception ex)
                 {

@@ -77,12 +77,12 @@ namespace Shiro.Services
                 Program.Logger?.Debug($"[FindRobloxPlayerExecutable] Registry protocol read failed: {ex.Message}");
             }
 
-            if (!string.IsNullOrWhiteSpace(AccountManager.CurrentVersion))
+            if (!string.IsNullOrWhiteSpace(AppSettings.CurrentClientVersion))
             {
                 foreach (string root in roots)
                 {
                     if (string.IsNullOrWhiteSpace(root)) continue;
-                    string target = Path.Combine(root, AccountManager.CurrentVersion, "RobloxPlayerBeta.exe");
+                    string target = Path.Combine(root, AppSettings.CurrentClientVersion, "RobloxPlayerBeta.exe");
                     if (File.Exists(target))
                         return target;
                 }
@@ -150,7 +150,7 @@ namespace Shiro.Services
 
                 DateTime writeUtc;
                 try { writeUtc = File.GetLastWriteTimeUtc(path); }
-                catch (Exception) { writeUtc = DateTime.MinValue; }
+                catch (Exception ex) { Program.Logger?.Debug($"GetLastWriteTimeUtc failed for '{path}': {ex.Message}"); writeUtc = DateTime.MinValue; }
 
                 int cmp = ver.CompareTo(bestVersion);
                 if (bestPath == null || cmp > 0 || (cmp == 0 && writeUtc > bestWriteUtc))
@@ -236,7 +236,7 @@ namespace Shiro.Services
                 {
                     foreach (Process proc in installers)
                     {
-                        try { proc.Dispose(); } catch (Exception) { }
+                        SafeExecuteHelper.Try(() => proc.Dispose(), "AccountLaunchService.WaitForInstallerAsync.Dispose");
                     }
                 }
             }
@@ -245,7 +245,7 @@ namespace Shiro.Services
             {
                 InvalidateExecutableCache();
                 Program.Logger?.Info("Roblox update finished. Refreshing client version...");
-                try { await AccountManager.LoadClientVersionAsync(cancellationToken).ConfigureAwait(false); }
+                try { await AppSettings.LoadClientVersionAsync(cancellationToken).ConfigureAwait(false); }
                 catch (Exception ex) { Program.Logger?.Warn($"Failed to refresh client version after update: {ex.Message}"); }
             }
         }
