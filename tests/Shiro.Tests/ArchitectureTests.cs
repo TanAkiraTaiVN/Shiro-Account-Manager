@@ -442,15 +442,38 @@ namespace Shiro.Tests
             var violations = new System.Collections.Generic.List<string>();
             foreach (var file in files)
             {
-                int lineCount = File.ReadAllLines(file).Length;
+                string[] lines = File.ReadAllLines(file);
+                int lineCount = lines.Length;
                 if (lineCount > 400)
                 {
                     violations.Add($"{Path.GetFileName(file)}: {lineCount} lines (max 400)");
                 }
+                int maxLineChars = lineCount == 0 ? 0 : lines.Max(l => l.Length);
+                if (maxLineChars > 200)
+                {
+                    violations.Add($"{Path.GetFileName(file)}: longest line is {maxLineChars} chars (max 200 - do not pack multi-line XAML onto single lines)");
+                }
+            }
+
+            string[] requiredPanels =
+            {
+                "DashboardInspectorPanel.axaml",
+                "DashboardFooterBar.axaml",
+                "ServerListResultsPanel.axaml",
+                "MainWindowOverlaysPanel.axaml",
+                "SettingsHeaderBanner.axaml"
+            };
+            var panelsDir = Path.Combine(appDir, "AvaloniaUI", "Views", "Panels");
+            foreach (var panel in requiredPanels)
+            {
+                if (!File.Exists(Path.Combine(panelsDir, panel)))
+                {
+                    violations.Add($"Missing extracted UserControl panel: {panel}");
+                }
             }
 
             Assert.True(violations.Count == 0,
-                $"AXAML files exceeding 400 lines:\n{string.Join("\n", violations)}");
+                $"AXAML modularization or line-length violations:\n{string.Join("\n", violations)}");
         }
 
         [Fact]

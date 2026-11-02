@@ -1,0 +1,137 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:Shiro.ViewModels"
+             xmlns:services="clr-namespace:Shiro.Services"
+             xmlns:lucide="clr-namespace:LucideAvalonia;assembly=LucideAvalonia"
+             mc:Ignorable="d"
+             x:Class="Shiro.AvaloniaUI.Views.Panels.MainWindowOverlaysPanel"
+             x:DataType="vm:MainViewModel"
+             x:CompileBindings="True">
+    <Panel>
+        <Border VerticalAlignment="Bottom" Background="#0C0C10" BorderBrush="#1C1C24"
+                BorderThickness="0,1,0,0" Height="30" Padding="14,0">
+            <Grid ColumnDefinitions="*,Auto,Auto">
+                <Grid Grid.Column="0" ColumnDefinitions="Auto,Auto,Auto,*"
+                      VerticalAlignment="Center" Margin="0,0,12,0" ClipToBounds="True">
+                    <TextBlock Grid.Column="0" Text="{Binding FooterReadyStatusText}"
+                               FontSize="11" Foreground="#71717A" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="1" Text="•" FontSize="11" Foreground="#2A2A38"
+                               Margin="8,0" VerticalAlignment="Center" />
+                    <lucide:Lucide Grid.Column="2" Icon="Info" Width="12" Height="12"
+                                   StrokeBrush="#38BDF8" Margin="0,0,6,0"
+                                   VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="3" Text="{Binding StatusMessage}" FontSize="11"
+                               Foreground="#A1A1AA" VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis"
+                               ToolTip.Tip="{Binding StatusMessage}" />
+                </Grid>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="5"
+                            VerticalAlignment="Center" Margin="0,0,12,0"
+                            IsVisible="{Binding HasActiveTools}">
+                    <Button Classes="FooterToolChip" IsVisible="{Binding IsAntiAfk}"
+                            Command="{Binding ToggleAntiAfkCommand}"
+                            ToolTip.Tip="{DynamicResource Tool_AntiAfk}">
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                            <Ellipse Width="5" Height="5" Fill="#22C55E"
+                                     VerticalAlignment="Center" />
+                            <TextBlock Text="{DynamicResource Footer_ChipAntiAfk}"
+                                       VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                    <Button Classes="FooterToolChip" IsVisible="{Binding IsPotatoMode}"
+                            Command="{Binding TogglePotatoModeCommand}"
+                            ToolTip.Tip="{DynamicResource Tool_Potato}">
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                            <Ellipse Width="5" Height="5" Fill="#F59E0B"
+                                     VerticalAlignment="Center" />
+                            <TextBlock Text="{DynamicResource Footer_ChipPotato}"
+                                       VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                    <Button Classes="FooterToolChip" IsVisible="{Binding AreWindowsHidden}"
+                            Command="{Binding ToggleWindowsCommand}"
+                            ToolTip.Tip="{DynamicResource Tool_ZeroGpu}">
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                            <Ellipse Width="5" Height="5" Fill="#38BDF8"
+                                     VerticalAlignment="Center" />
+                            <TextBlock Text="{DynamicResource Footer_ChipZeroGpu}"
+                                       VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                    <Button Classes="FooterToolChip" IsVisible="{Binding IsSmartMuteActive}"
+                            Command="{Binding ToggleSmartMuteCommand}"
+                            ToolTip.Tip="{DynamicResource Tool_SmartMute}">
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                            <Ellipse Width="5" Height="5" Fill="#38BDF8"
+                                     VerticalAlignment="Center" />
+                            <TextBlock Text="{DynamicResource Footer_ChipSmartMute}"
+                                       VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                    <Button Classes="FooterToolChip" IsVisible="{Binding IsStreamerModeActive}"
+                            Command="{Binding ToggleStreamerModeCommand}"
+                            ToolTip.Tip="{DynamicResource Tool_StreamerMode}">
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                            <Ellipse Width="5" Height="5" Fill="#A855F7"
+                                     VerticalAlignment="Center" />
+                            <TextBlock Text="{DynamicResource Footer_ChipStreamer}"
+                                       VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8"
+                            VerticalAlignment="Center">
+                    <TextBlock Text="{Binding FooterSelectedText}" FontSize="11"
+                               Foreground="#71717A" VerticalAlignment="Center" />
+                    <TextBlock Text="•" FontSize="11" Foreground="#2A2A38"
+                               VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding FooterTotalText}" FontSize="11"
+                               Foreground="#71717A" FontWeight="SemiBold"
+                               VerticalAlignment="Center" />
+                </StackPanel>
+            </Grid>
+        </Border>
+        <ItemsControl ItemsSource="{x:Static services:ToastService.ActiveToasts}"
+                      HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                      Margin="0,0,18,38" Width="320">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="services:ToastItem">
+                    <Border Background="{Binding BackgroundBrush}"
+                            BorderBrush="{Binding BorderBrush}" BorderThickness="1"
+                            CornerRadius="10" Margin="0,6,0,0" Padding="12,10"
+                            BoxShadow="0 12 32 0 #B3000000" ClipToBounds="True">
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Border Grid.Column="0" Width="26" Height="26" CornerRadius="7"
+                                    Background="{Binding BadgeBackground}"
+                                    VerticalAlignment="Center" Margin="0,0,10,0">
+                                <Path Data="{Binding IconGeometry}" Width="13" Height="13"
+                                      Stretch="Uniform" Stroke="{Binding AccentBrush}"
+                                      StrokeThickness="2" StrokeLineCap="Round"
+                                      StrokeJoin="Round" HorizontalAlignment="Center"
+                                      VerticalAlignment="Center" />
+                            </Border>
+                            <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding Title}" FontSize="12"
+                                           FontWeight="SemiBold" Foreground="#F4F4F5"
+                                           TextWrapping="Wrap" MaxLines="2" LineHeight="16" />
+                                <TextBlock Text="{Binding Message}" IsVisible="{Binding HasMessage}"
+                                           FontSize="11" Foreground="#A1A1AA"
+                                           TextWrapping="Wrap" MaxLines="3" LineHeight="15" />
+                            </StackPanel>
+                            <Button Grid.Column="2" Classes="FastIconBtn"
+                                    Command="{Binding DismissCommand}" Width="22" Height="22"
+                                    Margin="8,0,0,0" VerticalAlignment="Center"
+                                    ToolTip.Tip="{DynamicResource Btn_Close}">
+                                <Path Data="{StaticResource GeoClose}" Width="10" Height="10"
+                                      Stretch="Uniform" Stroke="#71717A" StrokeThickness="1.8"
+                                      StrokeLineCap="Round" StrokeJoin="Round" />
+                            </Button>
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+    </Panel>
+</UserControl>

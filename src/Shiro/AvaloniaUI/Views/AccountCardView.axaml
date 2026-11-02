@@ -119,7 +119,8 @@
 
             <!-- Card Bottom Row: Avatar, Username, User ID, Robux, Checkbox, Pin, More -->
             <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto" VerticalAlignment="Center">
-                <Border Grid.Column="0" Width="42" Height="42" CornerRadius="21" Background="#1C1C26" BorderBrush="#2A2A38" BorderThickness="1" ClipToBounds="True" Margin="0,0,10,0" VerticalAlignment="Center">
+                <Border Grid.Column="0" Width="42" Height="42" CornerRadius="21" Background="#1C1C26" BorderBrush="#2A2A38" BorderThickness="1" ClipToBounds="True" Margin="0,0,10,0"
+                    VerticalAlignment="Center">
                     <Panel>
                         <TextBlock Text="{Binding Initials}" FontSize="15" FontWeight="Bold" Foreground="#71717A" HorizontalAlignment="Center" VerticalAlignment="Center" />
                         <Image Source="{Binding AvatarImage}" Stretch="UniformToFill" RenderOptions.BitmapInterpolationMode="MediumQuality" />

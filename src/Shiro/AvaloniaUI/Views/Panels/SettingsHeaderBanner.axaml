@@ -1,0 +1,13 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             x:Class="Shiro.AvaloniaUI.Views.Panels.SettingsHeaderBanner">
+    <StackPanel Spacing="4" Margin="0,0,0,16">
+        <TextBlock Text="{DynamicResource Set_Title}" FontSize="22"
+                   FontWeight="Bold" Foreground="#FFFFFF" />
+        <TextBlock Text="{DynamicResource Set_Subtitle}" FontSize="12"
+                   Foreground="#A1A1AA" />
+    </StackPanel>
+</UserControl>
