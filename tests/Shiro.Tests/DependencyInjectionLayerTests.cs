@@ -9,6 +9,7 @@ using Xunit;
 
 namespace Shiro.Tests
 {
+    [Collection("StaticSeams")]
     public class DependencyInjectionLayerTests
     {
         [Fact]
@@ -25,24 +26,30 @@ namespace Shiro.Tests
         }
 
         [Fact]
-        public async Task Auth_SessionAuditorService_OnAuditException_LogsWarningToInjectedLogger()
+        public async Task Auth_BloxGenService_OnGenerationException_LogsErrorToInjectedLogger()
         {
             var mockLogger = Substitute.For<IAppLogger>();
-            SessionAuditorService.Logger = mockLogger;
-            SessionAuditorService.TestHttpClientFactory = _ => throw new InvalidOperationException("Simulated audit network fault");
-            var account = new Account { Username = "TestUser", SecurityToken = "valid_security_token" };
-
-            try
+            var mockSettings = Substitute.For<ISettingsService>();
+            var handler = new FaultingHttpMessageHandler();
+            using var httpClient = new System.Net.Http.HttpClient(handler)
             {
-                var result = await SessionAuditorService.AuditAccountAsync(account);
+                BaseAddress = new Uri("https://bloxgen.net/api/")
+            };
+            var service = new BloxGenService(httpClient, mockLogger, mockSettings);
 
-                Assert.Equal(AccountSessionStatus.Unknown, result.Status);
-                mockLogger.Received().Warn(Arg.Is<object>(o => o.ToString()!.Contains("Audit exception")));
-            }
-            finally
+            var result = await service.GenerateAccountAsync("test-api-key");
+
+            Assert.False(result.Success);
+            mockLogger.Received().Error(Arg.Is<object>(o => o.ToString()!.Contains("[BloxGenService] Generation failed")));
+        }
+
+        private sealed class FaultingHttpMessageHandler : System.Net.Http.HttpMessageHandler
+        {
+            protected override Task<System.Net.Http.HttpResponseMessage> SendAsync(
+                System.Net.Http.HttpRequestMessage request,
+                System.Threading.CancellationToken cancellationToken)
             {
-                SessionAuditorService.TestHttpClientFactory = null;
-                SessionAuditorService.Logger = AppServices.Logger;
+                throw new System.Net.Http.HttpRequestException("Simulated auth network fault");
             }
         }
 

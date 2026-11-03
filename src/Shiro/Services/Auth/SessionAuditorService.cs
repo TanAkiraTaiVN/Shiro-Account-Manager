@@ -45,7 +45,7 @@ namespace Shiro.Services
     /// </summary>
     public sealed class SessionAuditorService
     {
-        private static readonly Lazy<SessionAuditorService> _defaultInstance = new(() => new SessionAuditorService(AppServices.Logger));
+        private static readonly Lazy<SessionAuditorService> _defaultInstance = new(() => new SessionAuditorService());
         public static SessionAuditorService Default => _defaultInstance.Value;
         public static SessionAuditorService Instance => Default;
 
@@ -56,14 +56,7 @@ namespace Shiro.Services
             set => _staticLogger = value ?? throw new ArgumentNullException(nameof(value));
         }
 
-        private readonly IAppLogger _logger;
-
-        public SessionAuditorService() : this(AppServices.Logger) { }
-
-        public SessionAuditorService(IAppLogger logger)
-        {
-            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        }
+        public SessionAuditorService() { }
 
         internal static Func<Account, HttpClient>? TestHttpClientFactory;
 

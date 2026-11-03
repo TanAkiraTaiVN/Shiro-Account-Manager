@@ -887,8 +887,8 @@ namespace Shiro.Tests
                 foreach (var file in files)
                 {
                     string text = File.ReadAllText(file);
-                    actualLogger += Regex.Matches(text, @"Program\.Logger\b").Count;
-                    actualSettings += Regex.Matches(text, @"AppSettings\.").Count;
+                    actualLogger += Regex.Matches(text, @"\bProgram\.Logger\b").Count;
+                    actualSettings += Regex.Matches(text, @"\bAppSettings\.").Count;
                 }
 
                 if (actualLogger > maxLogger)

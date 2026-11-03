@@ -12,7 +12,7 @@ namespace Shiro.Services
             {
                 "AccountData.json", "RecentGames.json", "FavoriteGames.json",
                 "AccountControlData.json", "Nexus.lua", "RAMSettings.json", "RAMSettings.ini", "RAMTheme.ini",
-                "vault.key", "proxies.txt", "BrowserConfig.json", "CustomClientApp" + "Settings.json",
+                "vault.key", "proxies.txt", "BrowserConfig.json", "CustomClientAppSettings.json",
                 "no773fix.txt", "NoEncryption.IUnderstandTheRisks.iautamor"
             };
 
