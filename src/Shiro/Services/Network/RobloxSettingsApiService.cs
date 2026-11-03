@@ -101,8 +101,7 @@ namespace Shiro.Services
             RestRequest request = account.MakeRequest("v1/account/pin/unlock", Method.Post)
                 .AddHeader("Referer", "https://www.roblox.com/")
                 .AddHeader("X-CSRF-TOKEN", csrf.Token)
-                .AddHeader("Content-Type", "application/x-www-form-urlencoded")
-                .AddParameter("pin", pin);
+                .AddJsonBody(new { pin });
 
             RestResponse? response = await account.ExecuteAccountRestAsync(AppServices.RobloxApi.Auth, "https://auth.roblox.com/", request, cancellationToken).ConfigureAwait(false);
 
@@ -115,6 +114,8 @@ namespace Shiro.Services
 
                 if (isEnabled && unlockedUntil > 0)
                     account.PinUnlocked = DateTime.Now.AddSeconds(unlockedUntil);
+                else if (!isEnabled)
+                    account.PinUnlocked = DateTime.Now.AddMinutes(15);
 
                 if (account.PinUnlocked > DateTime.Now)
                 {

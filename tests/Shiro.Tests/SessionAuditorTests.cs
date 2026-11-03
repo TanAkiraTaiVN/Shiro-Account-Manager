@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Shiro;
 using Shiro.Services;
+using Shiro.Tests.TestInfrastructure;
 using Xunit;
 
 namespace Shiro.Tests
@@ -76,7 +77,7 @@ namespace Shiro.Tests
         [Fact]
         public async Task AuditAccountAsync_WhenValidSession_FetchesRobuxAndUpdatesAccount()
         {
-            var handler = new FakeAuditHandler(req =>
+            var handler = new FakeHttpHandler(req =>
             {
                 if (req.RequestUri != null && req.RequestUri.Host == "users.roblox.com")
                 {
@@ -121,7 +122,7 @@ namespace Shiro.Tests
         [Fact]
         public async Task AuditAccountAsync_WhenUnauthorized_MarksAccountInvalid()
         {
-            var handler = new FakeAuditHandler(_ => new HttpResponseMessage(HttpStatusCode.Unauthorized));
+            var handler = new FakeHttpHandler(_ => new HttpResponseMessage(HttpStatusCode.Unauthorized));
             SessionAuditorService.TestHttpClientFactory = _ => new HttpClient(handler);
 
             var acc = new Account { Username = "ExpiredUser", SecurityToken = TestToken, Valid = true };
@@ -140,7 +141,7 @@ namespace Shiro.Tests
 
             try
             {
-                var auditHandler = new FakeAuditHandler(req =>
+                var auditHandler = new FakeHttpHandler(req =>
                 {
                     var resp = new HttpResponseMessage(HttpStatusCode.Redirect);
                     resp.Headers.Location = new Uri("https://www.roblox.com/not-approved");
@@ -167,7 +168,7 @@ namespace Shiro.Tests
         [Fact]
         public async Task AuditAllAccountsAsync_ReportsProgress_AndAuditsAllAccounts()
         {
-            var handler = new FakeAuditHandler(req =>
+            var handler = new FakeHttpHandler(req =>
             {
                 if (req.RequestUri != null && req.RequestUri.Host == "users.roblox.com")
                 {
@@ -218,7 +219,7 @@ namespace Shiro.Tests
         [Fact]
         public async Task AuditAllAccountsAsync_DeduplicatesInputAccounts()
         {
-            var handler = new FakeAuditHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+            var handler = new FakeHttpHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = new StringContent("{\"id\":100,\"name\":\"DedupUser\"}")
             });
@@ -230,14 +231,6 @@ namespace Shiro.Tests
             var results = await SessionAuditorService.AuditAllAccountsAsync(duplicates);
             Assert.Single(results);
             Assert.True(results.ContainsKey(acc));
-        }
-
-        private sealed class FakeAuditHandler : HttpMessageHandler
-        {
-            private readonly Func<HttpRequestMessage, HttpResponseMessage> _responder;
-            public FakeAuditHandler(Func<HttpRequestMessage, HttpResponseMessage> responder) => _responder = responder;
-            protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-                => Task.FromResult(_responder(request));
         }
     }
 }

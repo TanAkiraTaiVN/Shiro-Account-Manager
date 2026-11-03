@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Shiro;
 using Shiro.Http;
 using Shiro.Services;
+using Shiro.Tests.TestInfrastructure;
 using Xunit;
 
 namespace Shiro.Tests
@@ -16,19 +17,6 @@ namespace Shiro.Tests
         private const string FullToken =
             "_|WARNING:-DO-NOT-SHARE-THIS.--Sharing-this-will-allow-someone-to-log-in-as-you-and-to-steal-your-ROBUX-and-items.|_" +
             "HEADER.PAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOADPAYLOAD.SIG";
-
-        private sealed class FakeHandler : HttpMessageHandler
-        {
-            private readonly Func<HttpRequestMessage, HttpResponseMessage> _responder;
-            public int Calls;
-            public FakeHandler(Func<HttpRequestMessage, HttpResponseMessage> responder) => _responder = responder;
-
-            protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-            {
-                Interlocked.Increment(ref Calls);
-                return Task.FromResult(_responder(request));
-            }
-        }
 
         private static HttpResponseMessage Json(HttpStatusCode code, string body = "{}") =>
             new HttpResponseMessage(code) { Content = new StringContent(body) };
@@ -46,7 +34,7 @@ namespace Shiro.Tests
         [Fact]
         public async Task Validate_UsersOk_AndLiveStoreOk_IsValid()
         {
-            var handler = new FakeHandler(req => req.RequestUri!.Host == "users.roblox.com"
+            var handler = new FakeHttpHandler(req => req.RequestUri!.Host == "users.roblox.com"
                 ? Json(HttpStatusCode.OK, "{\"id\":42,\"name\":\"Tester\"}")
                 : Json(HttpStatusCode.OK));
             Account.TestHttpClientFactory = _ => new HttpClient(handler);
@@ -59,7 +47,7 @@ namespace Shiro.Tests
         [Fact]
         public async Task Validate_UsersOk_LiveStoreUnauthorized_IsExpired()
         {
-            var handler = new FakeHandler(req => req.RequestUri!.Host == "users.roblox.com"
+            var handler = new FakeHttpHandler(req => req.RequestUri!.Host == "users.roblox.com"
                 ? Json(HttpStatusCode.OK, "{\"id\":42,\"name\":\"Tester\"}")
                 : Json(HttpStatusCode.Unauthorized));
             Account.TestHttpClientFactory = _ => new HttpClient(handler);
@@ -72,7 +60,7 @@ namespace Shiro.Tests
         [Fact]
         public async Task Validate_UsersOk_LiveStore401_ButFriendsOk_IsValid()
         {
-            var handler = new FakeHandler(req => req.RequestUri!.Host switch
+            var handler = new FakeHttpHandler(req => req.RequestUri!.Host switch
             {
                 "users.roblox.com" => Json(HttpStatusCode.OK, "{\"id\":42,\"name\":\"Tester\"}"),
                 "friends.roblox.com" => Json(HttpStatusCode.OK, "{\"count\":3}"),
@@ -89,7 +77,7 @@ namespace Shiro.Tests
         [Fact]
         public async Task Validate_Users401_ButFriendsOk_IsValid()
         {
-            var handler = new FakeHandler(req => req.RequestUri!.Host == "friends.roblox.com"
+            var handler = new FakeHttpHandler(req => req.RequestUri!.Host == "friends.roblox.com"
                 ? Json(HttpStatusCode.OK, "{\"count\":3}")
                 : Json(HttpStatusCode.Unauthorized));
             Account.TestHttpClientFactory = _ => new HttpClient(handler);
@@ -102,7 +90,7 @@ namespace Shiro.Tests
         [Fact]
         public async Task Validate_Users401_IsExpired()
         {
-            Account.TestHttpClientFactory = _ => new HttpClient(new FakeHandler(_ => Json(HttpStatusCode.Unauthorized)));
+            Account.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler(_ => Json(HttpStatusCode.Unauthorized)));
 
             var acc = NewAccount();
             Assert.False(await acc.ValidateSessionAsync());
@@ -112,7 +100,7 @@ namespace Shiro.Tests
         [Fact]
         public async Task Validate_UserIdMismatch_IsExpired()
         {
-            Account.TestHttpClientFactory = _ => new HttpClient(new FakeHandler(_ =>
+            Account.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler(_ =>
                 Json(HttpStatusCode.OK, "{\"id\":999,\"name\":\"Other\"}")));
 
             var acc = NewAccount();
@@ -123,7 +111,7 @@ namespace Shiro.Tests
         [Fact]
         public async Task Validate_ServerError_PreservesExistingValidity()
         {
-            Account.TestHttpClientFactory = _ => new HttpClient(new FakeHandler(_ => Json(HttpStatusCode.ServiceUnavailable)));
+            Account.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler(_ => Json(HttpStatusCode.ServiceUnavailable)));
 
             var acc = NewAccount();
             Assert.True(await acc.ValidateSessionAsync());
@@ -133,7 +121,7 @@ namespace Shiro.Tests
         [Fact]
         public async Task Validate_OldShortLivedCookie_StillValidatedAgainstServer()
         {
-            var handler = new FakeHandler(_ => Json(HttpStatusCode.OK));
+            var handler = new FakeHttpHandler(_ => Json(HttpStatusCode.OK));
             Account.TestHttpClientFactory = _ => new HttpClient(handler);
 
             string shortToken = "_|WARNING:-DO-NOT-SHARE-THIS.--Sharing-this-will-allow-someone-to-log-in-as-you-and-to-steal-your-ROBUX-and-items.|_H." + new string('A', 790) + ".S";
@@ -174,7 +162,7 @@ namespace Shiro.Tests
         public async Task LogOutOfOtherSessionsAsync_WhenCookieRotatedInExecuteAccountRestAsync_ReturnsTrue()
         {
             string rotatedToken = "_|WARNING:-DO-NOT-SHARE-THIS.--Sharing-this-will-allow-someone-to-log-in-as-you-and-to-steal-your-ROBUX-and-items.|_H." + new string('R', 939) + ".S";
-            var handler = new FakeHandler(req =>
+            var handler = new FakeHttpHandler(req =>
             {
                 var resp = Json(HttpStatusCode.OK, "{}");
                 resp.Headers.TryAddWithoutValidation("x-csrf-token", "csrf-123");
@@ -200,7 +188,7 @@ namespace Shiro.Tests
         public async Task Validate_WhenUsersEndpointRotatesCookie_SubsequentProbesUseRotatedCookie()
         {
             string rotatedToken = "_|WARNING:-DO-NOT-SHARE-THIS.--Sharing-this-will-allow-someone-to-log-in-as-you-and-to-steal-your-ROBUX-and-items.|_H." + new string('N', 939) + ".S";
-            var handler = new FakeHandler(req =>
+            var handler = new FakeHttpHandler(req =>
             {
                 if (req.RequestUri!.Host == "users.roblox.com")
                 {
@@ -231,7 +219,7 @@ namespace Shiro.Tests
         [Fact]
         public async Task Validate_WhenHomeRedirectsToNotApprovedWithReactShell_MarksAccountBannedNotExpired()
         {
-            var handler = new FakeHandler(req =>
+            var handler = new FakeHttpHandler(req =>
             {
                 if (req.RequestUri!.Host == "users.roblox.com")
                     return Json(HttpStatusCode.OK, "{\"id\":42,\"name\":\"Tester\"}");
@@ -271,7 +259,7 @@ namespace Shiro.Tests
         [Fact]
         public async Task Validate_WhenUsersReturns401_ButHomeRedirectsToBan_MarksAccountBannedNotExpired()
         {
-            var handler = new FakeHandler(req =>
+            var handler = new FakeHttpHandler(req =>
             {
                 if (req.RequestUri!.Host == "www.roblox.com" && req.RequestUri.AbsolutePath.Equals("/home", StringComparison.OrdinalIgnoreCase))
                 {
@@ -304,7 +292,7 @@ namespace Shiro.Tests
         [Fact]
         public async Task Validate_WhenAlreadyBannedAndCookieUnauthorized_PreservesBanBadge()
         {
-            Account.TestHttpClientFactory = _ => new HttpClient(new FakeHandler(_ => Json(HttpStatusCode.Unauthorized)));
+            Account.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler(_ => Json(HttpStatusCode.Unauthorized)));
 
             var acc = NewAccount();
             acc.Valid = false;
@@ -339,7 +327,7 @@ namespace Shiro.Tests
         [Fact]
         public async Task Validate_WhenHomeRedirectsToNotApprovedWith9002Json_ClearsStaleBanAndMarksExpired()
         {
-            var handler = new FakeHandler(req =>
+            var handler = new FakeHttpHandler(req =>
             {
                 if (req.RequestUri!.Host == "www.roblox.com" && req.RequestUri.AbsolutePath.Equals("/home", StringComparison.OrdinalIgnoreCase))
                 {
@@ -375,7 +363,7 @@ namespace Shiro.Tests
         [Fact]
         public async Task Validate_WhenHomeRedirectsToNotApprovedWhichRedirectsToLogin_ClearsStaleBanAndMarksExpired()
         {
-            var handler = new FakeHandler(req =>
+            var handler = new FakeHttpHandler(req =>
             {
                 if (req.RequestUri!.Host == "www.roblox.com" && req.RequestUri.AbsolutePath.Equals("/home", StringComparison.OrdinalIgnoreCase))
                 {
@@ -410,7 +398,7 @@ namespace Shiro.Tests
         [Fact]
         public async Task CreateAsync_WhenNetworkFailsToVerify_DoesNotMarkAccountAsBanned()
         {
-            var handler = new FakeHandler(_ => throw new HttpRequestException("An error occurred while sending the request."));
+            var handler = new FakeHttpHandler(_ => throw new HttpRequestException("An error occurred while sending the request."));
             Account.TestHttpClientFactory = _ => new HttpClient(handler);
 
             var acc = await Account.CreateAsync(FullToken);

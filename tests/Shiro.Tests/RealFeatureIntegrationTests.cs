@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Shiro.Services;
+using Shiro.Tests.TestInfrastructure;
 using Xunit;
 
 namespace Shiro.Tests
@@ -113,21 +114,6 @@ namespace Shiro.Tests
             }
         }
 
-        private class MockHttpMessageHandler : HttpMessageHandler
-        {
-            private readonly Func<HttpRequestMessage, HttpResponseMessage> _responder;
-
-            public MockHttpMessageHandler(Func<HttpRequestMessage, HttpResponseMessage> responder)
-            {
-                _responder = responder;
-            }
-
-            protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-            {
-                return Task.FromResult(_responder(request));
-            }
-        }
-
         [Fact]
         public async Task BloxGenService_GeneratesAccountSuccessfully()
         {
@@ -144,10 +130,7 @@ namespace Shiro.Tests
                 }
             });
 
-            var handler = new MockHttpMessageHandler(req => new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new StringContent(mockResponseJson)
-            });
+            var handler = new FakeHttpHandler().Enqueue(HttpStatusCode.OK, mockResponseJson);
 
             using var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://bloxgen.net/api/") };
             var service = new BloxGenService(httpClient);

@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Shiro;
 using Shiro.Services;
+using Shiro.Tests.TestInfrastructure;
 using Xunit;
 
 namespace Shiro.Tests
@@ -19,15 +20,6 @@ namespace Shiro.Tests
         private const string SampleCookie =
             "_|WARNING:-DO-NOT-SHARE-THIS.--Sharing-this-will-allow-someone-to-log-in-as-you-and-to-steal-your-ROBUX-and-items.|_" +
             "H." + "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" + ".S";
-
-        private sealed class CapturingHandler : HttpMessageHandler
-        {
-            private readonly Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> _responder;
-            public CapturingHandler(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> responder) => _responder = responder;
-
-            protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
-                _responder(request, cancellationToken);
-        }
 
         public RobloxHbaAndIpPersistenceTests() => RobloxRateLimitCoordinator.Instance.ResetBackoff();
 
@@ -134,7 +126,7 @@ namespace Shiro.Tests
             string? capturedUa = null;
             string? capturedCookie = null;
 
-            Account.TestHttpClientFactory = _ => new HttpClient(new CapturingHandler((req, _) =>
+            Account.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler((req, _) =>
             {
                 if (req.RequestUri!.AbsoluteUri.Contains("authentication-ticket"))
                 {
@@ -187,7 +179,7 @@ namespace Shiro.Tests
                 "H." + new string('V', 939) + ".S";
 
             bool redeemCalledWithHba = false;
-            Account.TestHttpClientFactory = _ => new HttpClient(new CapturingHandler(async (req, ct) =>
+            Account.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler(async (req, ct) =>
             {
                 string uri = req.RequestUri!.AbsoluteUri;
                 if (uri.EndsWith("/v1/authentication-ticket/", StringComparison.OrdinalIgnoreCase))
@@ -232,7 +224,7 @@ namespace Shiro.Tests
         public async Task ValidateSessionAsync_WhenIspRedirectsToNonRobloxOrReturnsHtmlBlock_PreservesValidSession()
         {
             // Case 1: ISP returns 200 OK HTML block page on users.roblox.com
-            Account.TestHttpClientFactory = _ => new HttpClient(new CapturingHandler((_, _) =>
+            Account.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler((_, _) =>
                 Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
                 {
                     Content = new StringContent("<html><body>ISP Access Restricted</body></html>")
@@ -244,7 +236,7 @@ namespace Shiro.Tests
             Assert.True(acc.Valid);
 
             // Case 2: ISP redirects users.roblox.com to external VNG/ISP sinkhole domain
-            Account.TestHttpClientFactory = _ => new HttpClient(new CapturingHandler((_, _) =>
+            Account.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler((_, _) =>
             {
                 var redirectedReq = new HttpRequestMessage(HttpMethod.Get, "https://roblox.vnggames.com/redirect");
                 return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
@@ -259,7 +251,7 @@ namespace Shiro.Tests
             Assert.True(acc.Valid);
 
             // Case 3: Genuine Roblox redirect to www.roblox.com/NewLogin MUST still mark expired
-            Account.TestHttpClientFactory = _ => new HttpClient(new CapturingHandler((_, _) =>
+            Account.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler((_, _) =>
             {
                 var loginRedirect = new HttpRequestMessage(HttpMethod.Get, "https://www.roblox.com/NewLogin?ReturnUrl=%2f");
                 return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)

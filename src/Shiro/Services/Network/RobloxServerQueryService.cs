@@ -15,6 +15,8 @@ namespace Shiro.Services
 {
     public class RobloxServerQueryService : IRobloxServerQueryService
     {
+        internal static Func<System.Net.Http.HttpClient>? TestHttpClientFactory { get; set; }
+
         private static readonly Lazy<RobloxServerQueryService> _defaultInstance = new(() => new RobloxServerQueryService());
         public static RobloxServerQueryService Default => _defaultInstance.Value;
 
@@ -247,7 +249,10 @@ namespace Shiro.Services
                 string url = $"v1/games/{placeId}/servers/public?sortOrder=Asc&limit={limit}{cursorParam}";
                 var request = new RestRequest(url, Method.Get);
 
-                var response = await client.ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
+                var overrideClient = TestHttpClientFactory?.Invoke();
+                var response = await (overrideClient != null
+                    ? client.ExecuteAsync(request, overrideClient, cancellationToken)
+                    : client.ExecuteAsync(request, cancellationToken)).ConfigureAwait(false);
                 if (response != null && response.IsSuccessful && !string.IsNullOrWhiteSpace(response.Content))
                 {
                     using var doc = JsonDocument.Parse(response.Content);

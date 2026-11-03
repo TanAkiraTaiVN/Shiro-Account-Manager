@@ -1,9 +1,10 @@
-﻿using System;
+using System;
 using System.Net;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using Shiro.Http;
+using Shiro.Tests.TestInfrastructure;
 using Xunit;
 
 namespace Shiro.Tests
@@ -42,16 +43,12 @@ namespace Shiro.Tests
         [Fact]
         public async Task RestClient_ExecutesRequest_AndParsesResponseCookies()
         {
-            var handler = new MockHttpMessageHandler((request, ct) =>
-            {
-                var response = new HttpResponseMessage(HttpStatusCode.OK)
-                {
-                    Content = new StringContent("{\"status\":\"ok\"}", System.Text.Encoding.UTF8, "application/json")
-                };
-                response.Headers.Add("Set-Cookie", ".ROBLOSECURITY=_|WARNING:-DO-NOT-SHARE-THIS; path=/; domain=.roblox.com; HttpOnly");
-                response.Headers.Add("X-RateLimit-Reset", "1700000000");
-                return Task.FromResult(response);
-            });
+            var handler = new FakeHttpHandler()
+                .Enqueue(
+                    HttpStatusCode.OK,
+                    "{\"status\":\"ok\"}",
+                    ("Set-Cookie", ".ROBLOSECURITY=_|WARNING:-DO-NOT-SHARE-THIS; path=/; domain=.roblox.com; HttpOnly"),
+                    ("X-RateLimit-Reset", "1700000000"));
 
             using var httpClient = new HttpClient(handler);
             using var client = new RestClient(httpClient, "https://api.roblox.com");
@@ -70,21 +67,6 @@ namespace Shiro.Tests
             var header = response.Headers.Find(h => h.Name.Equals("X-RateLimit-Reset", StringComparison.OrdinalIgnoreCase));
             Assert.NotNull(header);
             Assert.Equal("1700000000", header.Value?.ToString());
-        }
-
-        private sealed class MockHttpMessageHandler : HttpMessageHandler
-        {
-            private readonly Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> _handler;
-
-            public MockHttpMessageHandler(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> handler)
-            {
-                _handler = handler;
-            }
-
-            protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-            {
-                return _handler(request, cancellationToken);
-            }
         }
     }
 }

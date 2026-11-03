@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using Shiro.Classes;
 using Shiro.Http;
 using Shiro.Services;
+using Shiro.Tests.TestInfrastructure;
 using Shiro.ViewModels;
 using Xunit;
 
@@ -143,32 +144,11 @@ namespace Shiro.Tests
             Assert.Equal(2, vm.FilteredAccountRows.Count); // 3 + 1
         }
 
-        private sealed class StubJsonHandler : HttpMessageHandler
-        {
-            private readonly HttpStatusCode _statusCode;
-            private readonly string _json;
-
-            public StubJsonHandler(HttpStatusCode statusCode, string json)
-            {
-                _statusCode = statusCode;
-                _json = json;
-            }
-
-            protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-            {
-                var response = new HttpResponseMessage(_statusCode)
-                {
-                    Content = new StringContent(_json, Encoding.UTF8, "application/json")
-                };
-                return Task.FromResult(response);
-            }
-        }
-
         [Fact]
         public async Task RestClient_ExecuteJsonAsync_StreamsSourceGeneratedJsonAndHandlesRateLimits()
         {
             const string payload = "{\"userPresences\":[{\"userPresenceType\":2,\"lastLocation\":\"Blox Fruits\",\"placeId\":2753915549,\"universeId\":994732206,\"userId\":42}]}";
-            using var okHttp = new HttpClient(new StubJsonHandler(HttpStatusCode.OK, payload));
+            using var okHttp = new HttpClient(new FakeHttpHandler().Enqueue(HttpStatusCode.OK, payload));
             using var client = new RestClient(okHttp, "https://presence.roblox.com");
 
             var (success, data, statusCode, _) = await client.ExecuteJsonAsync(
@@ -182,7 +162,7 @@ namespace Shiro.Tests
             Assert.Equal(UserPresenceType.InGame, data.userPresences[0].userPresenceType);
             Assert.Equal(42L, data.userPresences[0].userId);
 
-            using var rateLimitedHttp = new HttpClient(new StubJsonHandler(HttpStatusCode.TooManyRequests, "{}"));
+            using var rateLimitedHttp = new HttpClient(new FakeHttpHandler().Enqueue(HttpStatusCode.TooManyRequests, "{}"));
             using var rlClient = new RestClient(rateLimitedHttp, "https://presence.roblox.com");
             var rlResult = await rlClient.ExecuteJsonAsync(
                 new RestRequest("v1/presence/users", Method.Post),
