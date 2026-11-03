@@ -626,5 +626,36 @@ namespace Shiro.Tests
                 $"Found {violations.Count} hardcoded Vietnamese string literals outside LocalizationService*:\n" +
                 string.Join("\n", violations.Take(40)));
         }
+
+        [Fact]
+        public void TestProject_ShouldEnableStrictNullable_ReferenceNSubstitute_And_Enforce60And90CoverageGates()
+        {
+            var dir = new DirectoryInfo(AppContext.BaseDirectory);
+            string? repoRoot = null;
+            while (dir != null)
+            {
+                if (File.Exists(Path.Combine(dir.FullName, "Shiro.sln")))
+                {
+                    repoRoot = dir.FullName;
+                    break;
+                }
+                dir = dir.Parent;
+            }
+
+            Assert.NotNull(repoRoot);
+            string testCsproj = File.ReadAllText(Path.Combine(repoRoot!, "tests", "Shiro.Tests", "Shiro.Tests.csproj"));
+            Assert.Contains("<Nullable>enable</Nullable>", testCsproj, StringComparison.Ordinal);
+            Assert.Contains("Include=\"NSubstitute\"", testCsproj, StringComparison.Ordinal);
+
+            string checkCov = File.ReadAllText(Path.Combine(repoRoot!, "scripts", "Check-Coverage.ps1"));
+            Assert.Contains("[double]$MinOverall = 60.0", checkCov, StringComparison.Ordinal);
+            Assert.Contains("[double]$MinCore = 90.0", checkCov, StringComparison.Ordinal);
+
+            string buildYml = File.ReadAllText(Path.Combine(repoRoot!, ".github", "workflows", "build.yml"));
+            Assert.Contains("-MinOverall 60.0 -MinCore 90.0", buildYml, StringComparison.Ordinal);
+
+            string releaseYml = File.ReadAllText(Path.Combine(repoRoot!, ".github", "workflows", "release.yml"));
+            Assert.Contains("-MinOverall 60.0 -MinCore 90.0", releaseYml, StringComparison.Ordinal);
+        }
     }
 }

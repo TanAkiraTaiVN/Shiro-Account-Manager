@@ -1,7 +1,7 @@
 param(
     [string]$CoverageDir = "coverage",
-    [double]$MinOverall = 45.0,
-    [double]$MinCore = 70.0
+    [double]$MinOverall = 60.0,
+    [double]$MinCore = 90.0
 )
 
 $ErrorActionPreference = "Stop"
