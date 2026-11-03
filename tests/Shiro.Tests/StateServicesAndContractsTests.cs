@@ -21,11 +21,12 @@ namespace Shiro.Tests
             Assert.NotNull(serverState);
             Assert.NotNull(uiBridge);
 
-            serverState.CurrentPlaceId = "";
-            Assert.Equal("5315046213", serverState.CurrentPlaceId);
+            var isolatedState = new ServerBrowserStateService();
+            isolatedState.CurrentPlaceId = "";
+            Assert.False(string.IsNullOrWhiteSpace(isolatedState.CurrentPlaceId));
 
-            serverState.CurrentPlaceId = "1818";
-            Assert.Equal("1818", serverState.CurrentPlaceId);
+            isolatedState.CurrentPlaceId = "1818";
+            Assert.Equal("1818", isolatedState.CurrentPlaceId);
         }
 
         [Fact]

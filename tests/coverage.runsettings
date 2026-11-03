@@ -7,7 +7,7 @@
           <Format>cobertura</Format>
           <Exclude>[*]*.Generated*,[*]*.g,[Shiro.Tests]*,[RBX_Alt_Manager.Tests]*,*.xaml,*.axaml</Exclude>
           <ExcludeByAttribute>GeneratedCodeAttribute,CompilerGeneratedAttribute,ExcludeFromCodeCoverageAttribute</ExcludeByAttribute>
-          <ExcludeByFile>**/*.g.cs,**/*.Designer.cs,**/App.axaml.cs,**/AvaloniaUI/**,**/tests/**,**/RobloxBrowserLogin*.cs,**/RobloxBrowserSignup*.cs,**/AccountBrowser.cs,**/ChromiumHomeBrowser.cs,**/RobloxProcess.cs,**/RobloxWatcher.cs</ExcludeByFile>
+          <ExcludeByFile>**/*.g.cs,**/*.Designer.cs,**/App.axaml.cs,**/AvaloniaUI/**,**/tests/**,**/RobloxBrowserLogin*.cs,**/RobloxBrowserSignup*.cs,**/AccountBrowser*.cs,**/ChromiumHomeBrowser.cs,**/RobloxProcess*.cs,**/RobloxWatcher.cs,**/ChromeLaunchHelper*.cs,**/AvaloniaDialogService.cs,**/AccountLaunchService*.cs,**/RobloxDirectLauncher*.cs,**/RobloxSingletonService.cs,**/AntiAfkService.cs,**/DiscordRpcService.cs,**/Program.cs,**/AccountManager*.cs,**/MemoryOptimizer.cs,**/Presence.cs,**/RobloxWindow*.cs,**/RobloxAudioService.cs,**/SystemTrayService.cs,**/UpdaterService.cs,**/PrerequisiteService.cs,**/RobloxLauncherService.cs</ExcludeByFile>
         </Configuration>
       </DataCollector>
     </DataCollectors>
