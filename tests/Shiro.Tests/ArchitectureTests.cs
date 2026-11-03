@@ -657,5 +657,44 @@ namespace Shiro.Tests
             string releaseYml = File.ReadAllText(Path.Combine(repoRoot!, ".github", "workflows", "release.yml"));
             Assert.Contains("-MinOverall 60.0 -MinCore 90.0", releaseYml, StringComparison.Ordinal);
         }
+
+        [Fact]
+        public void GitHubWorkflows_ShouldPinActionsToFullCommitSha()
+        {
+            var dir = new DirectoryInfo(AppContext.BaseDirectory);
+            string? repoRoot = null;
+            while (dir != null)
+            {
+                if (File.Exists(Path.Combine(dir.FullName, "Shiro.sln")))
+                {
+                    repoRoot = dir.FullName;
+                    break;
+                }
+                dir = dir.Parent;
+            }
+
+            Assert.NotNull(repoRoot);
+            var workflowsDir = Path.Combine(repoRoot!, ".github", "workflows");
+            var ymlFiles = Directory.GetFiles(workflowsDir, "*.yml");
+            var usesRegex = new System.Text.RegularExpressions.Regex(@"^\s*-?\s*uses:\s*([^\s#]+)", System.Text.RegularExpressions.RegexOptions.Multiline);
+            var shaRegex = new System.Text.RegularExpressions.Regex(@"@[0-9a-f]{40}$");
+
+            var violations = new System.Collections.Generic.List<string>();
+            foreach (var file in ymlFiles)
+            {
+                string content = File.ReadAllText(file);
+                foreach (System.Text.RegularExpressions.Match match in usesRegex.Matches(content))
+                {
+                    string actionRef = match.Groups[1].Value;
+                    if (!shaRegex.IsMatch(actionRef))
+                    {
+                        violations.Add($"{Path.GetFileName(file)}: '{actionRef}' is not pinned to a 40-char commit SHA");
+                    }
+                }
+            }
+
+            Assert.True(violations.Count == 0,
+                $"Unpinned GitHub Actions found:\n{string.Join("\n", violations)}");
+        }
     }
 }
