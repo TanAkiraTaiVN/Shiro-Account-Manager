@@ -77,16 +77,16 @@ namespace Shiro.AvaloniaUI.Views
                 if (TxtStatus != null)
                 {
                     string extra = (skippedDuplicate > 0 || invalid > 0)
-                        ? $" (Trùng: {skippedDuplicate}, Lỗi: {invalid})"
+                        ? Shiro.Services.LocalizationService.Format("Auto_ProxyManagerDial_164", skippedDuplicate, invalid)
                         : string.Empty;
-                    TxtStatus.Text = $"Đã thêm {added} proxy{extra}";
+                    TxtStatus.Text = Shiro.Services.LocalizationService.Format("Auto_ProxyManagerDial_165", added, extra);
                 }
             }
             else if (TxtStatus != null)
             {
                 TxtStatus.Text = skippedDuplicate > 0
-                    ? "Proxy đã tồn tại trong danh sách."
-                    : "Định dạng proxy không hợp lệ (VD: IP:Port hoặc IP:Port:User:Pass).";
+                    ? Shiro.Services.LocalizationService.Get("Auto_ProxyManagerDial_166")
+                    : Shiro.Services.LocalizationService.Get("Auto_ProxyManagerDial_167");
             }
         }
 
@@ -96,7 +96,7 @@ namespace Shiro.AvaloniaUI.Views
             {
                 _proxies.Remove(item);
                 if (TxtStatus != null)
-                    TxtStatus.Text = $"Tổng: {_proxies.Count} proxy";
+                    TxtStatus.Text = Shiro.Services.LocalizationService.Format("Auto_ProxyManagerDial_168", _proxies.Count);
             }
         }
 
@@ -105,7 +105,7 @@ namespace Shiro.AvaloniaUI.Views
             if (_proxies.Count == 0)
             {
                 if (TxtStatus != null)
-                    TxtStatus.Text = "Chưa có proxy nào để kiểm tra.";
+                    TxtStatus.Text = Shiro.Services.LocalizationService.Get("Auto_ProxyManagerDial_169");
                 return;
             }
 
@@ -115,7 +115,7 @@ namespace Shiro.AvaloniaUI.Views
 
             BtnTestAll.IsEnabled = false;
             if (TxtStatus != null)
-                TxtStatus.Text = $"Đang kiểm tra {_proxies.Count} proxy...";
+                TxtStatus.Text = Shiro.Services.LocalizationService.Format("Auto_ProxyManagerDial_170", _proxies.Count);
 
             try
             {
@@ -124,7 +124,7 @@ namespace Shiro.AvaloniaUI.Views
                 {
                     int online = _proxies.Count(p => p.IsOnline);
                     int dead = _proxies.Count(p => p.LatencyMs == -2);
-                    TxtStatus.Text = $"Hoạt động: {online}/{_proxies.Count} • Lỗi: {dead}";
+                    TxtStatus.Text = Shiro.Services.LocalizationService.Format("Auto_ProxyManagerDial_171", online, _proxies.Count, dead);
                 }
             }
             catch (OperationCanceledException) { /* canceled */ }
@@ -161,8 +161,8 @@ namespace Shiro.AvaloniaUI.Views
             if (TxtStatus != null)
             {
                 TxtStatus.Text = removedCount > 0
-                    ? $"Đã xóa {removedCount} proxy lỗi."
-                    : "Không có proxy lỗi nào cần xóa.";
+                    ? Shiro.Services.LocalizationService.Format("Auto_ProxyManagerDial_172", removedCount)
+                    : Shiro.Services.LocalizationService.Get("Auto_ProxyManagerDial_173");
             }
         }
 

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Reflection;
 using Shiro.Services;
@@ -27,7 +27,7 @@ namespace Shiro.Tests
 
             foreach (var field in fields)
             {
-                string value = field.GetValue(null) as string;
+                string? value = field.GetValue(null) as string;
                 Assert.False(string.IsNullOrWhiteSpace(value), $"Field {field.Name} has empty value");
                 Assert.True(set.Add(value), $"Duplicate key detected: {value}");
             }
@@ -52,7 +52,7 @@ namespace Shiro.Tests
 
             foreach (var field in fields)
             {
-                string value = field.GetValue(null) as string;
+                string? value = field.GetValue(null) as string;
                 Assert.False(string.IsNullOrWhiteSpace(value));
                 Assert.True(set.Add(value), $"Duplicate watcher key: {value}");
             }

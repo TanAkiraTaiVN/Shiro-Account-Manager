@@ -22,11 +22,11 @@ namespace Shiro.Services
 
             var pids = GetRobloxPids();
             if (pids.Count == 0)
-                return (0, "Không tìm thấy client Roblox nào đang chạy.");
+                return (0, Shiro.Services.LocalizationService.Get("Auto_RobloxWindowArra_343"));
 
             var windows = FindWindowsForPids(pids).Where(IsWindow).Distinct().ToList();
             if (windows.Count == 0)
-                return (0, "Không tìm thấy cửa sổ Roblox nào.");
+                return (0, Shiro.Services.LocalizationService.Get("Auto_RobloxWindowArra_344"));
 
             var workArea = GetTargetWorkArea();
             int count = windows.Count;
@@ -53,7 +53,7 @@ namespace Shiro.Services
                 }
             }
 
-            string desc = $"{cols}x{rows} ({tiled} cửa sổ)";
+            string desc = Shiro.Services.LocalizationService.Format("Auto_RobloxWindowServ_346", cols, rows, tiled);
             Program.Logger.Info($"[RobloxWindowService] Tiled {tiled} Roblox window(s) into {desc} grid.");
             return (tiled, desc);
         }

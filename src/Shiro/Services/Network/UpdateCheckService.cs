@@ -71,8 +71,8 @@ namespace Shiro.Services
                 AppDispatcher.Post(() =>
                 {
                     ToastService.ShowInfo(
-                        "Bản cập nhật mới",
-                        $"Đã có phiên bản {tagName}! Khởi động lại với '-update' để nâng cấp.");
+                        Shiro.Services.LocalizationService.Get("Auto_UpdateCheckServi_272"),
+                        Shiro.Services.LocalizationService.Format("Auto_UpdateCheckServi_273", tagName));
                 });
                 return true;
             }

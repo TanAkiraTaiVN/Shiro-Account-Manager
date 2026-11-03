@@ -576,5 +576,55 @@ namespace Shiro.Tests
             Assert.True(violations.Count == 0,
                 $"Sync-over-async violations found:\n{string.Join("\n", violations)}");
         }
+
+        [Fact]
+        public void CSharpSourceFiles_ShouldNotContain_HardcodedVietnameseStringLiterals()
+        {
+            var dir = new DirectoryInfo(AppContext.BaseDirectory);
+            string? repoRoot = null;
+            while (dir != null)
+            {
+                if (File.Exists(Path.Combine(dir.FullName, "Shiro.sln")))
+                {
+                    repoRoot = dir.FullName;
+                    break;
+                }
+                dir = dir.Parent;
+            }
+
+            Assert.NotNull(repoRoot);
+            var appDir = Path.Combine(repoRoot!, "src", "Shiro");
+            var files = Directory.GetFiles(appDir, "*.cs", SearchOption.AllDirectories)
+                .Where(f => !f.Contains(@"\bin\") && !f.Contains(@"\obj\") && !f.EndsWith(".g.cs"))
+                .Where(f => !Path.GetFileName(f).StartsWith("LocalizationService", StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            var vnLiteralRegex = new System.Text.RegularExpressions.Regex(
+                "\"[^\"\\\\r\\\\n]*[àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬÈÉẺẼẸÊỀẾỂỄỆÌÍỈĨỊÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢÙÚỦŨỤƯỪỨỬỮỰỲÝỶỸỴĐ][^\"\\\\r\\\\n]*\"");
+
+            var violations = new System.Collections.Generic.List<string>();
+            foreach (var file in files)
+            {
+                string[] lines = File.ReadAllLines(file);
+                for (int i = 0; i < lines.Length; i++)
+                {
+                    string line = lines[i].Trim();
+                    if (line.StartsWith("//", StringComparison.Ordinal) || line.StartsWith("/*", StringComparison.Ordinal) || line.StartsWith("*", StringComparison.Ordinal))
+                        continue;
+
+                    int commentIdx = line.IndexOf("//", StringComparison.Ordinal);
+                    string codePart = commentIdx >= 0 ? line.Substring(0, commentIdx) : line;
+                    var match = vnLiteralRegex.Match(codePart);
+                    if (match.Success)
+                    {
+                        violations.Add($"{Path.GetFileName(file)}:{i + 1} -> {match.Value}");
+                    }
+                }
+            }
+
+            Assert.True(violations.Count == 0,
+                $"Found {violations.Count} hardcoded Vietnamese string literals outside LocalizationService*:\n" +
+                string.Join("\n", violations.Take(40)));
+        }
     }
 }

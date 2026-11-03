@@ -46,7 +46,7 @@ namespace Shiro.Tests
         [Fact]
         public async Task Validate_UsersOk_AndLiveStoreOk_IsValid()
         {
-            var handler = new FakeHandler(req => req.RequestUri.Host == "users.roblox.com"
+            var handler = new FakeHandler(req => req.RequestUri!.Host == "users.roblox.com"
                 ? Json(HttpStatusCode.OK, "{\"id\":42,\"name\":\"Tester\"}")
                 : Json(HttpStatusCode.OK));
             Account.TestHttpClientFactory = _ => new HttpClient(handler);
@@ -59,7 +59,7 @@ namespace Shiro.Tests
         [Fact]
         public async Task Validate_UsersOk_LiveStoreUnauthorized_IsExpired()
         {
-            var handler = new FakeHandler(req => req.RequestUri.Host == "users.roblox.com"
+            var handler = new FakeHandler(req => req.RequestUri!.Host == "users.roblox.com"
                 ? Json(HttpStatusCode.OK, "{\"id\":42,\"name\":\"Tester\"}")
                 : Json(HttpStatusCode.Unauthorized));
             Account.TestHttpClientFactory = _ => new HttpClient(handler);
@@ -72,7 +72,7 @@ namespace Shiro.Tests
         [Fact]
         public async Task Validate_UsersOk_LiveStore401_ButFriendsOk_IsValid()
         {
-            var handler = new FakeHandler(req => req.RequestUri.Host switch
+            var handler = new FakeHandler(req => req.RequestUri!.Host switch
             {
                 "users.roblox.com" => Json(HttpStatusCode.OK, "{\"id\":42,\"name\":\"Tester\"}"),
                 "friends.roblox.com" => Json(HttpStatusCode.OK, "{\"count\":3}"),
@@ -89,7 +89,7 @@ namespace Shiro.Tests
         [Fact]
         public async Task Validate_Users401_ButFriendsOk_IsValid()
         {
-            var handler = new FakeHandler(req => req.RequestUri.Host == "friends.roblox.com"
+            var handler = new FakeHandler(req => req.RequestUri!.Host == "friends.roblox.com"
                 ? Json(HttpStatusCode.OK, "{\"count\":3}")
                 : Json(HttpStatusCode.Unauthorized));
             Account.TestHttpClientFactory = _ => new HttpClient(handler);
@@ -354,6 +354,41 @@ namespace Shiro.Tests
                     {
                         Content = new StringContent("{\"errors\":[{\"code\":9002,\"subcode\":1,\"message\":\"User is not authenticated\"}]}")
                     };
+                }
+
+                return Json(HttpStatusCode.Unauthorized);
+            });
+            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+
+            var acc = NewAccount();
+            acc.Valid = false;
+            acc.AccountStatusIssue = "Bị khóa / Ban";
+
+            bool valid = await acc.ValidateSessionAsync();
+
+            Assert.False(valid);
+            Assert.False(acc.Valid);
+            Assert.False(acc.IsBannedOrLocked);
+            Assert.Equal(string.Empty, acc.AccountStatusIssue);
+        }
+
+        [Fact]
+        public async Task Validate_WhenHomeRedirectsToNotApprovedWhichRedirectsToLogin_ClearsStaleBanAndMarksExpired()
+        {
+            var handler = new FakeHandler(req =>
+            {
+                if (req.RequestUri!.Host == "www.roblox.com" && req.RequestUri.AbsolutePath.Equals("/home", StringComparison.OrdinalIgnoreCase))
+                {
+                    var redirect = new HttpResponseMessage(HttpStatusCode.Found);
+                    redirect.Headers.Location = new Uri("https://www.roblox.com/not-approved");
+                    return redirect;
+                }
+
+                if (req.RequestUri.Host == "www.roblox.com" && req.RequestUri.AbsolutePath.Contains("not-approved", StringComparison.OrdinalIgnoreCase))
+                {
+                    var loginRedirect = new HttpResponseMessage(HttpStatusCode.Found);
+                    loginRedirect.Headers.Location = new Uri("https://www.roblox.com/NewLogin?ReturnUrl=%2fnot-approved");
+                    return loginRedirect;
                 }
 
                 return Json(HttpStatusCode.Unauthorized);

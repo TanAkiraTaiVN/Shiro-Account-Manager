@@ -13,7 +13,7 @@ namespace Shiro.Tests
     {
         private class TestObservable : ObservableObject
         {
-            private string _name;
+            private string _name = string.Empty;
             public bool ChangedCallbackFired { get; private set; }
 
             public string Name
@@ -37,7 +37,7 @@ namespace Shiro.Tests
         [Fact]
         public void RelayCommand_Generic_ExecutesWithTypedParameter()
         {
-            string received = null;
+            string? received = null;
             var command = new RelayCommand<string>(param => received = param);
 
             Assert.True(command.CanExecute("test-string"));
@@ -214,17 +214,17 @@ namespace Shiro.Tests
         }
 
         [Fact]
-        public void NexusWebSocketServer_StartsAndStopsGracefully()
+        public async Task NexusWebSocketServer_StartsAndStopsGracefully()
         {
-            var server = new Shiro.Nexus.NexusWebSocketServer(System.Net.IPAddress.Loopback, 7996);
+            await using var server = new Shiro.Nexus.NexusWebSocketServer(System.Net.IPAddress.Loopback, 7996);
             try
             {
-                server.Start();
+                await server.StartAsync();
                 Assert.True(server.IsListening);
             }
             finally
             {
-                server.Stop();
+                await server.StopAsync();
                 Assert.False(server.IsListening);
             }
         }

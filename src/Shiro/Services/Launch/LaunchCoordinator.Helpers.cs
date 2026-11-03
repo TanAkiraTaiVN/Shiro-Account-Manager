@@ -309,8 +309,8 @@ namespace Shiro.Services
                 AppDispatcher.Post(() =>
                 {
                     ToastService.ShowWarning(
-                        "Yêu cầu xác minh (Captcha)",
-                        $"Tài khoản {request.Account.Username} đang bị bắt buộc xác minh. Hãy giải Captcha hoặc đóng cửa sổ đó để tiếp tục mở {nextUsername}.");
+                        Shiro.Services.LocalizationService.Get("Auto_LaunchCoordinato_234"),
+                        Shiro.Services.LocalizationService.Format("Auto_LaunchCoordinato_235", request.Account.Username, nextUsername));
                 });
 
                 long waitStart = Stopwatch.GetTimestamp();
@@ -328,7 +328,7 @@ namespace Shiro.Services
                         Account = request.Account,
                         Status = LaunchOutcome.Pending,
                         Completed = false,
-                        Message = $"[{index + 1}/{launchList.Count}] ⚠️ {request.Account.Username} cần xác minh (Captcha). Hãy hoàn tất hoặc đóng cửa sổ ({remainingSecs}s) trước khi mở {nextUsername}..."
+                        Message = Shiro.Services.LocalizationService.Format("Auto_LaunchCoordinato_236", index + 1, launchList.Count, request.Account.Username, remainingSecs, nextUsername)
                     });
 
                     await Task.Delay(500, cancellationToken).ConfigureAwait(false);
@@ -346,8 +346,8 @@ namespace Shiro.Services
                         Program.Logger?.Info($"[LaunchCoordinator] Challenged client for '{request.Account.Username}' (PID {targetPid}) was closed by user. Resuming batch.");
                         AutoReconnectService.Instance.SuppressReconnect(request.Account.Username);
                         state.Status = LaunchOutcome.Failed;
-                        state.Result = Loc.Get("Launch_CaptchaClosedError", "ERROR: Tài khoản bị yêu cầu xác minh (Captcha) và đã đóng.");
-                        state.Message = $"Warning ({request.Account.Username}): Yêu cầu xác minh (Captcha) chưa hoàn tất.";
+                        state.Result = Loc.Get("Launch_CaptchaClosedError", Shiro.Services.LocalizationService.Get("Launch_CaptchaClosedError"));
+                        state.Message = Shiro.Services.LocalizationService.Format("Auto_LaunchCoordinato_237", request.Account.Username);
                         Report(progress, state);
                         return;
                     }
@@ -369,8 +369,8 @@ namespace Shiro.Services
                 catch (Exception ex) { Program.Logger?.Debug($"Close challenged fallback client failed: {ex.Message}"); }
 
                 state.Status = LaunchOutcome.Failed;
-                state.Result = Loc.Get("Launch_CaptchaRequiredError", "ERROR: Tài khoản bị bắt buộc xác minh (Captcha) nên không thể vào game.");
-                state.Message = $"Warning ({request.Account.Username}): Bị bắt buộc xác minh (Captcha) — đã đóng tab chờ để tránh trùng tài khoản tiếp theo.";
+                state.Result = Loc.Get("Launch_CaptchaRequiredError", Shiro.Services.LocalizationService.Get("Launch_CaptchaRequiredError"));
+                state.Message = Shiro.Services.LocalizationService.Format("Auto_LaunchCoordinato_238", request.Account.Username);
                 Report(progress, state);
             }
         }

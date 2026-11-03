@@ -107,5 +107,8 @@ sequenceDiagram
 
 Architecture rules are permanently verified on every build via `NetArchTest.eNhancedEdition` in `tests/Shiro.Tests/ArchitectureTests.cs`:
 - **MVVM Separation**: `Types.InAssembly(CoreAssembly).That().ResideInNamespace("Shiro.ViewModels").ShouldNot().HaveDependencyOnAny("Shiro.AvaloniaUI.Views")`.
-- **Micro-File Limit**: An automated test inspects the codebase to ensure zero C# files exceed 500 lines.
-- **Naming Conventions**: Strict adherence to domain suffixes across the entire Services namespace.
+- **Service Decoupling & DI (`AppServices`)**: Services in `Shiro.Services` resolve dependencies via `AppServices` (`IAccountRepository`, `IRobloxApiClient`, `IRobloxSessionService`, `IRobloxLauncherService`, `IDialogService`, `AppSettings`) rather than static `AccountManager.*` state.
+- **Zero Sync-over-Async**: Automated checks verify zero `.GetAwaiter().GetResult()` blocking calls across `src/Shiro`.
+- **Encoding & Localization Integrity**: Automated checks enforce zero `U+FFFD` replacement characters across `.cs`, `.axaml`, and `.json` files, and verify 100% of AXAML `{DynamicResource}` localization keys exist in `LocalizationService`.
+- **Micro-File & Partial Class Budgets**: Automated tests enforce <= 500 lines per `.cs` file and strict line budgets across `partial class` definitions.
+- **Naming Conventions**: Strict adherence to domain suffixes across the entire `Shiro.Services` namespace.

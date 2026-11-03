@@ -25,7 +25,7 @@ Write-Host "Overall Branch Coverage: $("{0:N2}" -f $branchRate)%" -ForegroundCol
 # Calculate Core package/classes coverage (Cryptography, VaultKey, AccountDataSerializer, AccountStore, StoragePaths)
 $classes = $doc.coverage.packages.package.classes.class
 $coreClasses = $classes | Where-Object {
-    $_.filename -match 'Cryptography\.cs|VaultKey\.cs|AccountDataSerializer\.cs|AccountStore\.cs|StoragePaths\.cs'
+    $_.filename -match 'Cryptography\.cs|VaultKey\.cs|AccountDataSerializer\.cs|AccountStore\.cs|StoragePaths\.cs|WebAuthPolicy\.cs|LogRedactor\.cs|AccountFileDecoder\.cs'
 }
 
 $coreTotalLines = 0

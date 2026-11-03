@@ -109,9 +109,9 @@ namespace Shiro.AvaloniaUI.Views
                         string title = Loc.Get("tos_disclaimer_title");
                         string msg = Loc.Get("tos_disclaimer_message");
                         if (string.IsNullOrWhiteSpace(title) || title == "tos_disclaimer_title")
-                            title = "Shiro - Điều khoản & Trách nhiệm sử dụng";
+                            title = Shiro.Services.LocalizationService.Get("tos_disclaimer_title");
                         if (string.IsNullOrWhiteSpace(msg) || msg == "tos_disclaimer_message")
-                            msg = "Shiro là tiện ích quản lý tài khoản và hỗ trợ đa phiên chạy cục bộ trên máy tính của bạn.\n\nLưu ý quan trọng:\n1. Mọi kết nối được thực hiện trực tiếp giữa thiết bị của bạn và Roblox, không qua máy chủ trung gian.\n2. Bạn hoàn toàn chịu trách nhiệm về bảo mật thông tin tài khoản và tuân thủ Điều khoản dịch vụ (ToS) của Roblox.\n3. Các tính năng tự động (như Anti-AFK, Multi-Instance) được cung cấp theo nguyên tắc tự nguyện và mặc định tắt.\n\nNhấn Đồng ý để tiếp tục sử dụng.";
+                            msg = Shiro.Services.LocalizationService.Get("tos_disclaimer_message");
 
                         await MessageBoxDialog.ShowAsync(msg, title, MessageBoxButtons.OK, MessageBoxIcon.Information, this);
                         AppSettings.General.Set(AppSettingsKeys.General.HasAcceptedRiskDisclaimer, "true");
@@ -147,8 +147,8 @@ namespace Shiro.AvaloniaUI.Views
                         if (vaultKeyNewerThanData)
                         {
                             var recoverRes = await MessageBoxDialog.ShowAsync(
-                                "Phát hiện tệp khóa bảo mật (vault.key) vừa bị thay đổi sau khi lưu dữ liệu tài khoản.\n\nBạn có muốn Shiro tự động quét khôi phục khóa vault.key gốc (hoặc bản sao lưu hợp lệ) để lấy lại danh sách tài khoản không?\n(Chọn 'Không' nếu bạn đã đặt mật khẩu Master Password thủ công)",
-                                "Khôi phục dữ liệu Shiro",
+                                Shiro.Services.LocalizationService.Get("Auto_MainWindowaxaml_112"),
+                                Shiro.Services.LocalizationService.Get("Auto_MainWindowaxaml_113"),
                                 MessageBoxButtons.YesNo,
                                 MessageBoxIcon.Question,
                                 this);
@@ -158,15 +158,15 @@ namespace Shiro.AvaloniaUI.Views
                                 if (AppServices.AccountRepository.TryRecoverOrRestore(out string statusMsg))
                                 {
                                     RefreshAccounts(AppServices.AccountRepository.GetAll());
-                                    ToastService.ShowSuccess("Khôi phục thành công", statusMsg);
+                                    ToastService.ShowSuccess(Shiro.Services.LocalizationService.Get("Auto_MainWindowaxaml_114"), statusMsg);
                                     return;
                                 }
                             }
                         }
 
                         string pass = await InputDialog.PromptAsync(
-                            "Nhập mật khẩu Master Password để mở khóa dữ liệu tài khoản (hoặc bấm Hủy để khôi phục tự động):",
-                            "Mở khóa Shiro",
+                            Shiro.Services.LocalizationService.Get("Auto_MainWindowaxaml_115"),
+                            Shiro.Services.LocalizationService.Get("Auto_MainWindowaxaml_116"),
                             "",
                             false,
                             this);
@@ -177,16 +177,16 @@ namespace Shiro.AvaloniaUI.Views
                             if (AppServices.AccountRepository.LoadFromStore(hash))
                             {
                                 RefreshAccounts(AppServices.AccountRepository.GetAll());
-                                ToastService.ShowSuccess("Đã mở khóa", $"Đã tải {AppServices.AccountRepository.Count} tài khoản.");
+                                ToastService.ShowSuccess(Shiro.Services.LocalizationService.Get("Auto_MainWindowaxaml_117"), Shiro.Services.LocalizationService.Format("Auto_MainWindowaxaml_118", AppServices.AccountRepository.Count));
                                 return;
                             }
 
-                            ToastService.ShowWarning("Sai mật khẩu", "Mật khẩu Master Password không chính xác.");
+                            ToastService.ShowWarning(Shiro.Services.LocalizationService.Get("Auto_MainWindowaxaml_120"), Shiro.Services.LocalizationService.Get("Auto_MainWindowaxaml_119"));
                         }
 
                         var fallbackRes = await MessageBoxDialog.ShowAsync(
-                            "Không thể giải mã AccountData.json bằng mật khẩu vừa nhập.\n\nBạn có muốn tự động khôi phục khóa vault.key gốc hoặc tải bản sao lưu hợp lệ gần nhất không?",
-                            "Khôi phục dữ liệu",
+                            Shiro.Services.LocalizationService.Get("Auto_MainWindowaxaml_121"),
+                            Shiro.Services.LocalizationService.Get("Auto_MainWindowaxaml_122"),
                             MessageBoxButtons.YesNo,
                             MessageBoxIcon.Question,
                             this);
@@ -194,7 +194,7 @@ namespace Shiro.AvaloniaUI.Views
                         if (fallbackRes == MessageBoxResult.Yes && AppServices.AccountRepository.TryRecoverOrRestore(out string fallbackMsg))
                         {
                             RefreshAccounts(AppServices.AccountRepository.GetAll());
-                            ToastService.ShowSuccess("Khôi phục thành công", fallbackMsg);
+                            ToastService.ShowSuccess(Shiro.Services.LocalizationService.Get("Auto_MainWindowaxaml_114"), fallbackMsg);
                         }
                     }
                     catch (Exception ex)

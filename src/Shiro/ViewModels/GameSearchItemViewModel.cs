@@ -44,7 +44,7 @@ namespace Shiro.ViewModels
             }
         }
 
-        public string PlayerCountDisplay => PlayerCount > 0 ? $"{PlayerCount:N0} người chơi" : "Roblox Experience";
+        public string PlayerCountDisplay => PlayerCount > 0 ? Shiro.Services.LocalizationService.Format("Auto_GameSearchItemVi_359", PlayerCount) : "Roblox Experience";
 
         public string ThumbnailUrl
         {

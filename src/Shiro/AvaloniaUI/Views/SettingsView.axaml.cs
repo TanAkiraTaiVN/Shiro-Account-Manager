@@ -277,13 +277,13 @@ namespace Shiro.AvaloniaUI.Views
                     AppSettings.QueueDeferredSave();
                 }
 
-                _ = ShowSaveFeedbackAsync("Đã lưu toàn bộ cài đặt thành công!");
+                _ = ShowSaveFeedbackAsync(Shiro.Services.LocalizationService.Get("Auto_SettingsViewaxam_174"));
             }
             catch (Exception ex)
             {
                 Program.Logger?.Error($"[SettingsView.OnSaveSettingsClicked] {ex}");
                 if (TxtSaveFeedback != null)
-                    TxtSaveFeedback.Text = $"Lỗi khi lưu cài đặt: {ex.Message}";
+                    TxtSaveFeedback.Text = Shiro.Services.LocalizationService.Format("Auto_SettingsViewaxam_175", ex.Message);
             }
         }
 
@@ -312,7 +312,7 @@ namespace Shiro.AvaloniaUI.Views
         private void OnCleanTrayClicked(object sender, RoutedEventArgs e)
         {
             Task.Run(() => Utilities.ThoroughCleanNotificationArea());
-            AppServices.Dialogs.ShowInfo("Đã gửi yêu cầu làm sạch khay hệ thống Windows (Taskbar Tray) thành công!", "Dọn dẹp");
+            AppServices.Dialogs.ShowInfo(Shiro.Services.LocalizationService.Get("Auto_SettingsViewaxam_177"), Shiro.Services.LocalizationService.Get("Auto_SettingsViewaxam_176"));
         }
 
         private void OnClearAvatarCacheClicked(object sender, RoutedEventArgs e)
@@ -349,16 +349,16 @@ namespace Shiro.AvaloniaUI.Views
 
                 if (deletedCount > 0)
                 {
-                    AppServices.Dialogs.ShowInfo($"Đã xóa {deletedCount} file ảnh đại diện avatar và làm mới bộ nhớ đệm.", "Dọn dẹp");
+                    AppServices.Dialogs.ShowInfo(Shiro.Services.LocalizationService.Format("Auto_SettingsViewaxam_178", deletedCount), Shiro.Services.LocalizationService.Get("Auto_SettingsViewaxam_176"));
                 }
                 else
                 {
-                    AppServices.Dialogs.ShowInfo("Đã làm mới bộ nhớ đệm avatar (ổ đĩa hiện đang trống).", "Dọn dẹp");
+                    AppServices.Dialogs.ShowInfo(Shiro.Services.LocalizationService.Get("Auto_SettingsViewaxam_179"), Shiro.Services.LocalizationService.Get("Auto_SettingsViewaxam_176"));
                 }
             }
             catch (Exception ex)
             {
-                AppServices.Dialogs.ShowError($"Lỗi khi xóa cache avatar: {ex.Message}", "Lỗi");
+                AppServices.Dialogs.ShowError(Shiro.Services.LocalizationService.Format("Auto_SettingsViewaxam_180", ex.Message), Shiro.Services.LocalizationService.Get("Status_Error"));
             }
         }
 
@@ -370,7 +370,7 @@ namespace Shiro.AvaloniaUI.Views
             }
             catch (Exception ex)
             {
-                AppServices.Dialogs.ShowError($"Lỗi khi đổi mật khẩu chủ: {ex.Message}", "Lỗi");
+                AppServices.Dialogs.ShowError(Shiro.Services.LocalizationService.Format("Auto_SettingsViewaxam_181", ex.Message), Shiro.Services.LocalizationService.Get("Status_Error"));
             }
         }
     }

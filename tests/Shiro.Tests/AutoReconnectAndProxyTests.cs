@@ -151,7 +151,7 @@ namespace Shiro.Tests
         [Fact]
         public void ProxyBindingService_GetClient_ReturnsSharedClientWhenNullOrEmpty()
         {
-            var clientNull = ProxyBindingService.GetClient((Account)null);
+            var clientNull = ProxyBindingService.GetClient((Account)null!);
             var clientEmpty = ProxyBindingService.GetClient(string.Empty);
 
             Assert.NotNull(clientNull);
@@ -422,7 +422,7 @@ namespace Shiro.Tests
         [Fact]
         public void RobloxProcessService_CloseAccountRobloxProcess_HandlesNullGracefully()
         {
-            bool result = RobloxProcessService.CloseAccountRobloxProcess(null);
+            bool result = RobloxProcessService.CloseAccountRobloxProcess(null!);
             Assert.False(result);
         }
 

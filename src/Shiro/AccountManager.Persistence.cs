@@ -62,8 +62,8 @@ namespace Shiro
             if (manualReset)
             {
                 string? newPass = await Shiro.AvaloniaUI.Views.InputDialog.PromptAsync(
-                    "Nhập mật khẩu mới (để trống để dùng khóa Vault mặc định AES-256-GCM, được bảo vệ bằng Windows DPAPI):",
-                    "Đổi mật khẩu cơ sở dữ liệu");
+                    Shiro.Services.LocalizationService.Get("Auto_AccountManagerPe_024"),
+                    Shiro.Services.LocalizationService.Get("Auto_AccountManagerPe_025"));
 
                 if (newPass == "/UC" || newPass == null) return;
 
@@ -71,20 +71,20 @@ namespace Shiro
                 {
                     PasswordHash = Array.Empty<byte>();
                     SaveAccounts(true, true);
-                    AppServices.Dialogs.ShowInfo("Đã chuyển sang mã hóa AES-256-GCM với khóa Vault mặc định (không cần mật khẩu khi khởi động).");
+                    AppServices.Dialogs.ShowInfo(Shiro.Services.LocalizationService.Get("Auto_AccountManagerPe_026"));
                 }
                 else
                 {
                     if (newPass.Length < 8)
                     {
-                        AppServices.Dialogs.ShowWarning("Mật khẩu chính (Master Password) phải có ít nhất 8 ký tự để đảm bảo an toàn!");
+                        AppServices.Dialogs.ShowWarning(Shiro.Services.LocalizationService.Get("Auto_AccountManagerPe_027"));
                         return;
                     }
                     byte[] hash = SHA512.HashData(Encoding.UTF8.GetBytes(newPass));
                     try { PasswordHash = new ReadOnlyMemory<byte>(ProtectedData.Protect(hash, Array.Empty<byte>(), DataProtectionScope.CurrentUser)); }
                     finally { CryptographicOperations.ZeroMemory(hash); }
                     SaveAccounts(true, true);
-                    AppServices.Dialogs.ShowInfo("Đã đặt mật khẩu mới thành công!");
+                    AppServices.Dialogs.ShowInfo(Shiro.Services.LocalizationService.Get("Auto_AccountManagerPe_028"));
                 }
             }
         }
@@ -457,7 +457,7 @@ namespace Shiro
         public static void QueueDeferredSave()
         {
             try { _deferredSaveTimer.Change(1500, Timeout.Infinite); }
-            catch (ObjectDisposedException) { }
+            catch (ObjectDisposedException) { /* timer disposed during shutdown */ }
             catch (Exception ex) { Program.Logger?.Warn($"Failed to schedule deferred account save: {ex.Message}"); }
         }
 

@@ -87,14 +87,14 @@ namespace Shiro.AvaloniaUI.Views
                 if (TxtDialogTitle != null)
                 {
                     TxtDialogTitle.Text = _accountQueue.Count > 1
-                        ? $"Đăng nhập: {_username} ({index + 1}/{_accountQueue.Count})"
-                        : $"Đăng nhập: {_username}";
+                        ? Shiro.Services.LocalizationService.Format("Auto_FastLoginDialoga_082", _username, index + 1, _accountQueue.Count)
+                        : Shiro.Services.LocalizationService.Format("Auto_FastLoginDialoga_083", _username);
                 }
                 if (TxtDialogSubtitle != null)
                 {
                     TxtDialogSubtitle.Text = !string.IsNullOrEmpty(_password)
-                        ? "Tự động điền Tài khoản + Mật khẩu và bấm Log In"
-                        : "Tự động điền Tài khoản và bắt phiên đăng nhập";
+                        ? Shiro.Services.LocalizationService.Get("Auto_FastLoginDialoga_084")
+                        : Shiro.Services.LocalizationService.Get("Auto_FastLoginDialoga_085");
                 }
             }
 
@@ -130,12 +130,12 @@ namespace Shiro.AvaloniaUI.Views
         {
             if (!e.IsSuccess)
             {
-                TxtInAppStatus.Text = $"Không thể khởi tạo WebView2: {e.Error?.Message}";
+                TxtInAppStatus.Text = Shiro.Services.LocalizationService.Format("Auto_FastLoginDialoga_086", e.Error?.Message);
                 TxtInAppStatus.Foreground = Brushes.OrangeRed;
                 return;
             }
 
-            TxtInAppStatus.Text = "Đang tải trang đăng nhập Roblox an toàn...";
+            TxtInAppStatus.Text = Shiro.Services.LocalizationService.Get("Auto_FastLoginDialoga_087");
             TxtInAppStatus.Foreground = Brushes.DeepSkyBlue;
 
             var core = WvBrowser?.CoreWebView2;
@@ -150,7 +150,7 @@ namespace Shiro.AvaloniaUI.Views
                 {
                     _restoredHbaScriptId = await RobloxHbaService.RestoreWebViewModerationSessionAsync(core, singleAcc, _currentHbaSnapshot);
                     _ignoredCookieValues.Add(Fingerprint(singleAcc.SecurityToken));
-                    TxtInAppStatus.Text = $"Đang mở trang kiểm duyệt Roblox cho {singleAcc.Username} ({singleAcc.AccountStatusIssue})...";
+                    TxtInAppStatus.Text = Shiro.Services.LocalizationService.Format("Auto_FastLoginDialoga_088", singleAcc.Username, singleAcc.AccountStatusIssue);
                     core.Navigate("https://www.roblox.com/home");
                 }
                 else
@@ -170,7 +170,7 @@ namespace Shiro.AvaloniaUI.Views
             }
             catch (Exception ex)
             {
-                TxtInAppStatus.Text = $"Lỗi: {ex.Message}";
+                TxtInAppStatus.Text = Shiro.Services.LocalizationService.Format("Proxy_Dead", ex.Message);
                 TxtInAppStatus.Foreground = Brushes.OrangeRed;
             }
         }
@@ -201,7 +201,7 @@ namespace Shiro.AvaloniaUI.Views
                         return;
                     }
 
-                    TxtInAppStatus.Text = "Không thể tải trang đăng nhập. Hãy kiểm tra kết nối Proton VPN và bấm 'Tải lại'.";
+                    TxtInAppStatus.Text = Shiro.Services.LocalizationService.Get("Auto_FastLoginDialoga_089");
                     TxtInAppStatus.Foreground = Brushes.OrangeRed;
                     return;
                 }
@@ -212,14 +212,14 @@ namespace Shiro.AvaloniaUI.Views
                 if (!string.IsNullOrEmpty(_username) && isLoginPage)
                 {
                     TxtInAppStatus.Text = !string.IsNullOrEmpty(_password)
-                        ? $"Đang tự động điền và đăng nhập {_username}..."
-                        : $"Đang tự động điền {_username}...";
+                        ? Shiro.Services.LocalizationService.Format("Auto_FastLoginDialoga_090", _username)
+                        : Shiro.Services.LocalizationService.Format("Auto_FastLoginDialoga_091", _username);
                     TxtInAppStatus.Foreground = Brushes.LightGreen;
                     await TryFillCredentialsAsync(forceClick: false);
                 }
                 else if (isLoginPage)
                 {
-                    TxtInAppStatus.Text = "Trang đăng nhập đã sẵn sàng. Hãy đăng nhập tài khoản của bạn.";
+                    TxtInAppStatus.Text = Shiro.Services.LocalizationService.Get("Auto_FastLoginDialoga_092");
                     TxtInAppStatus.Foreground = Brushes.LightGreen;
                 }
 
@@ -291,12 +291,12 @@ namespace Shiro.AvaloniaUI.Views
             string cookie = Account.SanitizeCookie(TxtCookie?.Text ?? string.Empty);
             if (string.IsNullOrEmpty(cookie))
             {
-                TxtPreviewStatus.Text = "Vui lòng dán Cookie trước khi kiểm tra.";
+                TxtPreviewStatus.Text = Shiro.Services.LocalizationService.Get("Auto_FastLoginDialoga_093");
                 TxtPreviewStatus.Foreground = Brushes.OrangeRed;
                 return;
             }
 
-            TxtPreviewStatus.Text = "Đang kiểm tra với Roblox API...";
+            TxtPreviewStatus.Text = Shiro.Services.LocalizationService.Get("Auto_FastLoginDialoga_094");
             TxtPreviewStatus.Foreground = Brushes.DeepSkyBlue;
             BtnVerify.IsEnabled = false;
 
@@ -308,15 +308,15 @@ namespace Shiro.AvaloniaUI.Views
                     _lastVerifiedCookie = cookie;
                     _lastVerifiedAccount = account;
                     TxtPreviewUsername.Text = $"{account.Username} (ID: {account.UserID})";
-                    TxtPreviewStatus.Text = "Cookie hợp lệ và đã được xác thực!";
+                    TxtPreviewStatus.Text = Shiro.Services.LocalizationService.Get("Auto_FastLoginDialoga_095");
                     TxtPreviewStatus.Foreground = Brushes.LightGreen;
                 }
                 else
                 {
                     _lastVerifiedCookie = string.Empty;
                     _lastVerifiedAccount = null;
-                    TxtPreviewUsername.Text = "Tài khoản không hợp lệ";
-                    TxtPreviewStatus.Text = "Cookie đã hết hạn hoặc không đúng.";
+                    TxtPreviewUsername.Text = Shiro.Services.LocalizationService.Get("Auto_FastLoginDialoga_096");
+                    TxtPreviewStatus.Text = Shiro.Services.LocalizationService.Get("Auto_FastLoginDialoga_097");
                     TxtPreviewStatus.Foreground = Brushes.OrangeRed;
                 }
             }
@@ -324,7 +324,7 @@ namespace Shiro.AvaloniaUI.Views
             {
                 _lastVerifiedCookie = string.Empty;
                 _lastVerifiedAccount = null;
-                TxtPreviewStatus.Text = $"Lỗi: {ex.Message}";
+                TxtPreviewStatus.Text = Shiro.Services.LocalizationService.Format("Proxy_Dead", ex.Message);
                 TxtPreviewStatus.Foreground = Brushes.OrangeRed;
             }
             finally
@@ -338,7 +338,7 @@ namespace Shiro.AvaloniaUI.Views
             string cookie = Account.SanitizeCookie(TxtCookie?.Text ?? string.Empty);
             if (string.IsNullOrEmpty(cookie))
             {
-                TxtPreviewStatus.Text = "Vui lòng nhập Cookie hợp lệ.";
+                TxtPreviewStatus.Text = Shiro.Services.LocalizationService.Get("Auto_FastLoginDialoga_098");
                 TxtPreviewStatus.Foreground = Brushes.OrangeRed;
                 return;
             }
@@ -383,18 +383,18 @@ namespace Shiro.AvaloniaUI.Views
 
                     CreatedAccount = newAcc;
                     MainWindow.Instance?.DashboardView?.LoadDashboardData();
-                    AppSettings.SetDashboardStatus($"Đã thêm tài khoản {newAcc.Username} thành công!");
+                    AppSettings.SetDashboardStatus(Shiro.Services.LocalizationService.Format("Auto_FastLoginDialoga_099", newAcc.Username));
                     Close(true);
                 }
                 else
                 {
-                    TxtPreviewStatus.Text = "Thất bại: Cookie không hợp lệ hoặc đã hết hạn.";
+                    TxtPreviewStatus.Text = Shiro.Services.LocalizationService.Get("Auto_FastLoginDialoga_100");
                     TxtPreviewStatus.Foreground = Brushes.OrangeRed;
                 }
             }
             catch (Exception ex)
             {
-                TxtPreviewStatus.Text = $"Lỗi: {ex.Message}";
+                TxtPreviewStatus.Text = Shiro.Services.LocalizationService.Format("Proxy_Dead", ex.Message);
                 TxtPreviewStatus.Foreground = Brushes.OrangeRed;
             }
             finally

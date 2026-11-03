@@ -68,7 +68,7 @@ namespace Shiro.Services
             set { _password = value; OnPropertyChanged(); OnPropertyChanged(nameof(AuthDisplay)); }
         }
 
-        public string AuthDisplay => string.IsNullOrEmpty(Username) ? "Không có (No Auth)" : $"{Username}:***";
+        public string AuthDisplay => string.IsNullOrEmpty(Username) ? Shiro.Services.LocalizationService.Get("Auto_ProxyManagerServ_256") : $"{Username}:***";
 
         public string Protocol
         {
@@ -115,9 +115,9 @@ namespace Shiro.Services
         {
             get
             {
-                if (IsTesting) return "⏳ Đang test...";
-                if (LatencyMs == -1) return "Chưa test";
-                if (LatencyMs == -2) return "❌ Timeout / Lỗi";
+                if (IsTesting) return Shiro.Services.LocalizationService.Get("Auto_ProxyManagerServ_257");
+                if (LatencyMs == -1) return Shiro.Services.LocalizationService.Get("Auto_ProxyManagerServ_258");
+                if (LatencyMs == -2) return Shiro.Services.LocalizationService.Get("Auto_ProxyManagerServ_259");
                 return $"⚡ {LatencyMs} ms";
             }
         }

@@ -26,7 +26,7 @@ namespace Shiro.AvaloniaUI.Views
         private void OnClearClicked(object sender, RoutedEventArgs e)
         {
             TxtImportData.Text = string.Empty;
-            TxtStatus.Text = "Đã xóa nội dung.";
+            TxtStatus.Text = Shiro.Services.LocalizationService.Get("Auto_BulkImportDialog_065");
             TxtStatus.Foreground = Brushes.Gray;
         }
 
@@ -47,7 +47,7 @@ namespace Shiro.AvaloniaUI.Views
             string? raw = TxtImportData.Text;
             if (string.IsNullOrWhiteSpace(raw))
             {
-                TxtStatus.Text = "Vui lòng dán danh sách tài khoản cần nhập.";
+                TxtStatus.Text = Shiro.Services.LocalizationService.Get("Auto_BulkImportDialog_066");
                 TxtStatus.Foreground = Brushes.OrangeRed;
                 return;
             }
@@ -56,7 +56,7 @@ namespace Shiro.AvaloniaUI.Views
 
             if (lines.Length == 0)
             {
-                TxtStatus.Text = "Không tìm thấy dòng tài khoản nào hợp lệ.";
+                TxtStatus.Text = Shiro.Services.LocalizationService.Get("Auto_BulkImportDialog_067");
                 TxtStatus.Foreground = Brushes.OrangeRed;
                 return;
             }
@@ -136,7 +136,7 @@ namespace Shiro.AvaloniaUI.Views
 
                             int current = newSuccess + newFailed;
                             PrgProgress.Value = current;
-                            TxtStatus.Text = $"Đang nhập Cookie ({current}/{lines.Length})...";
+                            TxtStatus.Text = Shiro.Services.LocalizationService.Format("Auto_BulkImportDialog_068", current, lines.Length);
                         }
                         catch (OperationCanceledException) { /* Cancelled */ }
                         finally
@@ -167,7 +167,7 @@ namespace Shiro.AvaloniaUI.Views
                         if (token.IsCancellationRequested) break;
                         upIndex++;
 
-                        TxtStatus.Text = $"Đang lưu thông tin tài khoản {up.username} ({upIndex}/{userPassLines.Count})...";
+                        TxtStatus.Text = Shiro.Services.LocalizationService.Format("Auto_BulkImportDialog_069", up.username, upIndex, userPassLines.Count);
 
                         if (!existingByUsername.TryGetValue(up.username, out Account? targetAcc))
                         {
@@ -216,7 +216,7 @@ namespace Shiro.AvaloniaUI.Views
                     try { AppServices.AccountRepository.Save(true); }
                     catch (Exception ex) { Program.Logger?.Warn($"SaveAccounts after bulk import failed: {ex.Message}"); }
                     MainWindow.Instance?.DashboardView?.LoadDashboardData();
-                    AppSettings.SetDashboardStatus($"Nhập hàng loạt hoàn tất: Đã thêm/cập nhật {success} tài khoản.");
+                    AppSettings.SetDashboardStatus(Shiro.Services.LocalizationService.Format("Auto_BulkImportDialog_070", success));
                 }
 
                 ImportedCount = success;
@@ -226,7 +226,7 @@ namespace Shiro.AvaloniaUI.Views
 
                 if (queuedForFastLogin.Count > 0 && !token.IsCancellationRequested)
                 {
-                    TxtStatus.Text = $"Đã lưu {success} tài khoản! Đang mở In-App Login tự động cho {queuedForFastLogin.Count} tài khoản...";
+                    TxtStatus.Text = Shiro.Services.LocalizationService.Format("Auto_BulkImportDialog_071", success, queuedForFastLogin.Count);
                     TxtStatus.Foreground = Brushes.LightGreen;
 
                     if (queuedForFastLogin.Count == 1)
@@ -236,18 +236,18 @@ namespace Shiro.AvaloniaUI.Views
                 }
                 else if (token.IsCancellationRequested)
                 {
-                    TxtStatus.Text = $"Đã dừng: Đã nhập {success} tài khoản thành công.";
+                    TxtStatus.Text = Shiro.Services.LocalizationService.Format("Auto_BulkImportDialog_072", success);
                     TxtStatus.Foreground = Brushes.Orange;
                 }
                 else
                 {
-                    TxtStatus.Text = $"Hoàn tất: {success} thành công, {failed} thất bại hoặc bị đóng.";
+                    TxtStatus.Text = Shiro.Services.LocalizationService.Format("Auto_BulkImportDialog_073", success, failed);
                     TxtStatus.Foreground = success > 0 ? Brushes.LightGreen : Brushes.OrangeRed;
                 }
             }
             catch (Exception ex)
             {
-                TxtStatus.Text = $"Lỗi: {ex.Message}";
+                TxtStatus.Text = Shiro.Services.LocalizationService.Format("Proxy_Dead", ex.Message);
                 TxtStatus.Foreground = Brushes.OrangeRed;
                 BtnStartImport.IsEnabled = true;
                 BtnClear.IsEnabled = true;

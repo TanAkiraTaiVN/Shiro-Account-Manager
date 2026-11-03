@@ -197,20 +197,20 @@ namespace Shiro.Services
             string details;
             if (!string.IsNullOrWhiteSpace(gameName) && showGame)
             {
-                details = $"Chơi: {gameName}";
+                details = Shiro.Services.LocalizationService.Format("Auto_DiscordRpcServic_251", gameName);
             }
             else
             {
-                details = $"Quản lý {totalAccounts} tài khoản Roblox";
+                details = Shiro.Services.LocalizationService.Format("Auto_DiscordRpcServic_252", totalAccounts);
             }
 
             string state = activeInGameAccounts > 0
-                ? $"{activeInGameAccounts} client đang online"
-                : "Sẵn sàng mở game";
+                ? Shiro.Services.LocalizationService.Format("Auto_DiscordRpcServic_253", activeInGameAccounts)
+                : Shiro.Services.LocalizationService.Get("Auto_DiscordRpcServic_254");
 
             if (isStreamerMode)
             {
-                state = "Chế độ Streamer (Bảo vệ riêng tư)";
+                state = Shiro.Services.LocalizationService.Get("Auto_DiscordRpcServic_255");
             }
 
             var activity = new DiscordActivityItem

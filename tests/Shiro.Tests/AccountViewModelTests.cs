@@ -45,7 +45,7 @@ namespace Shiro.Tests
 
             var vm = new AccountViewModel(account);
             var changedProperties = new List<string>();
-            vm.PropertyChanged += (s, e) => changedProperties.Add(e.PropertyName);
+            vm.PropertyChanged += (s, e) => changedProperties.Add(e.PropertyName!);
 
             Assert.Equal("Player1", vm.PrimaryTitle);
 
@@ -139,7 +139,7 @@ namespace Shiro.Tests
             var account = new Account { Username = "TargetPlayer", UserID = 123456 };
             var vm = new AccountViewModel(account);
             var changedProps = new List<string>();
-            vm.PropertyChanged += (s, e) => changedProps.Add(e.PropertyName);
+            vm.PropertyChanged += (s, e) => changedProps.Add(e.PropertyName!);
 
             Assert.False(vm.IsSelected);
 
@@ -180,6 +180,56 @@ namespace Shiro.Tests
             Assert.Equal("Ban 7 ngày", bannedAccount.AccountStatusIssue);
             Assert.True(avm.IsBannedOrLocked);
             Assert.False(avm.IsExpiredAndNotBanned);
+        }
+
+        [Fact]
+        public void MainViewModel_SeparatesBannedAndExpiredAccounts_InCountsAndFilterTabs()
+        {
+            var readyAcc = new Account
+            {
+                Username = "ReadyAcc",
+                UserID = 1001,
+                SecurityToken = "_|WARNING:-DO-NOT-SHARE-THIS.|_TOKEN1",
+                Valid = true
+            };
+            var expiredAcc = new Account
+            {
+                Username = "ExpiredAcc",
+                UserID = 1002,
+                SecurityToken = "_|WARNING:-DO-NOT-SHARE-THIS.|_TOKEN2",
+                Valid = false,
+                AccountStatusIssue = string.Empty
+            };
+            var bannedAcc = new Account
+            {
+                Username = "Real_KnightFool",
+                UserID = 9075404876,
+                SecurityToken = "_|WARNING:-DO-NOT-SHARE-THIS.|_TOKEN3",
+                Valid = false,
+                AccountStatusIssue = "Bị khóa / Ban"
+            };
+
+            var mainVm = new MainViewModel();
+            mainVm.LoadAccounts(new[] { readyAcc, expiredAcc, bannedAcc });
+
+            Assert.Equal(3, mainVm.TotalCount);
+            Assert.Equal(1, mainVm.ReadyCount);
+            Assert.Equal(1, mainVm.ExpiredCount);
+            Assert.Equal(1, mainVm.BannedCount);
+            Assert.True(mainVm.HasExpiredAccounts);
+            Assert.True(mainVm.HasBannedAccounts);
+
+            // Expired tab should ONLY show expired accounts (not banned accounts)
+            mainVm.IsFilterExpired = true;
+            Assert.Equal(AccountFilterTab.Expired, mainVm.ActiveTab);
+            Assert.Single(mainVm.FilteredAccounts);
+            Assert.Equal("ExpiredAcc", mainVm.FilteredAccounts[0].Username);
+
+            // Banned tab should ONLY show banned/locked accounts
+            mainVm.IsFilterBanned = true;
+            Assert.Equal(AccountFilterTab.Banned, mainVm.ActiveTab);
+            Assert.Single(mainVm.FilteredAccounts);
+            Assert.Equal("Real_KnightFool", mainVm.FilteredAccounts[0].Username);
         }
     }
 }

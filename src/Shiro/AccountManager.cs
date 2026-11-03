@@ -123,8 +123,18 @@ namespace Shiro
         private bool shutdownRequested;
         private bool shutdownFinalized;
 
-        public static IniFile IniSettings = null!;
-        public static IniSection General = null!;
+        private static IniFile _iniSettings = null!;
+        public static IniFile IniSettings
+        {
+            get => _iniSettings;
+            set { _iniSettings = value; AppSettings.ActiveIniFile = value; }
+        }
+        private static IniSection _general = null!;
+        public static IniSection General
+        {
+            get => _general;
+            set { _general = value; AppSettings.General = value; }
+        }
         public static IniSection Developer = null!;
         public static IniSection WebServer = null!;
         public static IniSection AccountControl = null!;

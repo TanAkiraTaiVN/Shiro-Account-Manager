@@ -234,7 +234,7 @@ namespace Shiro.Tests
         [Fact]
         public void GameThumbnailService_DiskCachePath_IsValid()
         {
-            string path = GameThumbnailService.GetDiskCachePath(123456);
+            string? path = GameThumbnailService.GetDiskCachePath(123456);
             Assert.NotNull(path);
             Assert.Contains("GameThumbnails", path);
             Assert.EndsWith("123456.png", path);

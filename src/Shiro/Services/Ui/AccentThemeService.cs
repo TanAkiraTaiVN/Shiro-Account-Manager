@@ -64,13 +64,22 @@ namespace Shiro.Services
                 return AccentTheme.Monochrome;
 
             string clean = value.Trim().ToLowerInvariant();
+            if (clean == Shiro.Services.LocalizationService.Get("Auto_AccentThemeServi_335"))
+                return AccentTheme.Monochrome;
+            if (clean == Shiro.Services.LocalizationService.Get("Auto_AccentThemeServi_336"))
+                return AccentTheme.Violet;
+            if (clean == Shiro.Services.LocalizationService.Get("Auto_AccentThemeServi_337"))
+                return AccentTheme.Emerald;
+            if (clean == Shiro.Services.LocalizationService.Get("Auto_AccentThemeServi_338"))
+                return AccentTheme.Pink;
+
             return clean switch
             {
-                "monochrome" or "trắng" or "trang" or "white" or "default" => AccentTheme.Monochrome,
-                "violet" or "purple" or "tím" or "tim" => AccentTheme.Violet,
+                "monochrome" or "trang" or "white" or "default" => AccentTheme.Monochrome,
+                "violet" or "purple" or "tim" => AccentTheme.Violet,
                 "cyan" or "blue" or "xanh lam" or "xanh" => AccentTheme.Cyan,
-                "emerald" or "green" or "xanh lá" or "xanh la" => AccentTheme.Emerald,
-                "pink" or "hồng" or "hong" => AccentTheme.Pink,
+                "emerald" or "green" or "xanh la" => AccentTheme.Emerald,
+                "pink" or "hong" => AccentTheme.Pink,
                 _ => Enum.TryParse<AccentTheme>(value, true, out var parsed) ? parsed : AccentTheme.Monochrome
             };
         }

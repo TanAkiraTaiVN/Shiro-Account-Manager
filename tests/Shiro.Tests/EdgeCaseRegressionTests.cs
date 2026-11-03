@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Threading.Tasks;
 using Shiro.AvaloniaUI.Views;
 using Shiro.Classes;
@@ -15,7 +15,7 @@ namespace Shiro.Tests
         [Fact]
         public void SanitizeCookie_NullOrWhitespace_ReturnsEmptyString()
         {
-            Assert.Equal(string.Empty, Account.SanitizeCookie(null));
+            Assert.Equal(string.Empty, Account.SanitizeCookie(null!));
             Assert.Equal(string.Empty, Account.SanitizeCookie(""));
             Assert.Equal(string.Empty, Account.SanitizeCookie("   "));
         }
@@ -120,7 +120,7 @@ namespace Shiro.Tests
         public void BulkImportDialog_CleanCookie_ExtractsStartingAtWarningEvenIfDirtyPrefix()
         {
             string dirty = $"random_prefix_user_123_{SampleCookie}; other_attribute=true";
-            string cleaned = BulkImportDialog.CleanCookie(dirty);
+            string? cleaned = BulkImportDialog.CleanCookie(dirty);
             Assert.Equal(SampleCookie, cleaned);
         }
 

@@ -85,14 +85,14 @@ namespace Shiro.ViewModels
         {
             get
             {
-                if (StreamerModeService.IsActive && (AccountManager.General?.Get<bool>(AppSettingsKeys.General.StreamerModeHideUsernames, true) ?? true))
+                if (StreamerModeService.IsActive && (AppSettings.General?.Get<bool>(AppSettingsKeys.General.StreamerModeHideUsernames, true) ?? true))
                 {
                     return StreamerModeService.MaskUsername(Username);
                 }
 
-                bool hideUsernames = AccountManager.General != null &&
-                                     AccountManager.General.Exists("HideUsernames") &&
-                                     AccountManager.General.Get<bool>("HideUsernames");
+                bool hideUsernames = AppSettings.General != null &&
+                                     AppSettings.General.Exists("HideUsernames") &&
+                                     AppSettings.General.Get<bool>("HideUsernames");
                 return hideUsernames ? "Hidden Account" : Username;
             }
         }
@@ -147,15 +147,15 @@ namespace Shiro.ViewModels
         }
 
         public string GroupDisplay => string.IsNullOrEmpty(_model.Group) || string.Equals(_model.Group, "Default", StringComparison.OrdinalIgnoreCase)
-            ? (LocalizationService.IsEnglish ? "Default" : "Mặc định")
+            ? (LocalizationService.IsEnglish ? "Default" : Shiro.Services.LocalizationService.Get("Auto_ValueConverters_033"))
             : _model.Group;
 
         public string GroupTooltip => LocalizationService.IsEnglish
             ? $"Group: {GroupDisplay}"
-            : $"Nhóm: {GroupDisplay}";
+            : Shiro.Services.LocalizationService.Format("Auto_AccountViewModel_355", GroupDisplay);
 
-        public string LaunchButtonText => LocalizationService.IsEnglish ? "Launch" : "Chơi";
-        public string FocusWindowButtonText => LocalizationService.IsEnglish ? "Show" : "Hiện";
+        public string LaunchButtonText => LocalizationService.IsEnglish ? "Launch" : Shiro.Services.LocalizationService.Get("Srv_Play");
+        public string FocusWindowButtonText => LocalizationService.IsEnglish ? "Show" : Shiro.Services.LocalizationService.Get("Auto_AccountViewModel_356");
         public string ViewBanButtonText => LocalizationService.IsEnglish ? "View Ban" : "Xem Ban";
 
         public string Description
@@ -224,7 +224,7 @@ namespace Shiro.ViewModels
         public bool IsExpiredAndNotBanned => IsExpired && !IsBannedOrLocked;
         public string BanNoticeText => !string.IsNullOrEmpty(_model.AccountStatusIssue)
             ? _model.AccountStatusIssue
-            : (LocalizationService.IsEnglish ? "Account Moderated / Locked" : "Tài khoản bị khóa / Ban");
+            : (LocalizationService.IsEnglish ? "Account Moderated / Locked" : Shiro.Services.LocalizationService.Get("Auto_LaunchCoordinato_242"));
         public bool IsShortLivedSession => _model.IsShortLivedSession;
         public SessionHealth SessionHealth => _model.SessionHealthStatus;
 
@@ -330,7 +330,7 @@ namespace Shiro.ViewModels
         {
             get
             {
-                if (StreamerModeService.IsActive && (AccountManager.General?.Get<bool>(AppSettingsKeys.General.StreamerModeHideRobux, true) ?? true))
+                if (StreamerModeService.IsActive && (AppSettings.General?.Get<bool>(AppSettingsKeys.General.StreamerModeHideRobux, true) ?? true))
                     return "***";
                 return RobuxBalance >= 0 ? $"{RobuxBalance:N0}" : string.Empty;
             }
@@ -340,12 +340,12 @@ namespace Shiro.ViewModels
         {
             get
             {
-                if (StreamerModeService.IsActive && (AccountManager.General?.Get<bool>(AppSettingsKeys.General.StreamerModeHideRobux, true) ?? true))
+                if (StreamerModeService.IsActive && (AppSettings.General?.Get<bool>(AppSettingsKeys.General.StreamerModeHideRobux, true) ?? true))
                     return "R$ ***";
                 return RobuxBalance >= 0 ? $"R$ {RobuxBalance:N0}" : string.Empty;
             }
         }
-        public string RobuxTooltip => RobuxBalance >= 0 ? $"Số dư: {RobuxBalance:N0} Robux" : "Chưa cập nhật số dư Robux";
+        public string RobuxTooltip => RobuxBalance >= 0 ? Shiro.Services.LocalizationService.Format("Auto_AccountViewModel_358", RobuxBalance) : Shiro.Services.LocalizationService.Get("Auto_AccountViewModel_357");
 
         public void NotifyThemeChanged()
         {

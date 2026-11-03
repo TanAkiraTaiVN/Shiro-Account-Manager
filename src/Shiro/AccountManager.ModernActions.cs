@@ -33,14 +33,14 @@ namespace Shiro
         {
             if (GetAccountsSnapshot().Count == 0)
             {
-                SetDashboardStatus("Vui lòng thêm tài khoản trước khi khởi chạy.");
+                SetDashboardStatus(Shiro.Services.LocalizationService.Get("Auto_AccountManagerMo_011"));
                 return;
             }
 
             List<Account> multiSel = GetCurrentSelectedAccounts();
             if (multiSel == null || multiSel.Count == 0)
             {
-                SetDashboardStatus("Vui lòng tick chọn ít nhất một tài khoản (hoặc bấm 'Chọn hết') trước khi mở Home!");
+                SetDashboardStatus(Shiro.Services.LocalizationService.Get("Auto_AccountManagerMo_012"));
                 return;
             }
 
@@ -48,7 +48,7 @@ namespace Shiro
                 return;
 
             _ = LaunchHomeAccountsAsync(multiSel, preferChromeHome: false);
-            SetDashboardStatus($"Đang mở trang chủ Roblox Home cho {multiSel.Count} tài khoản đã chọn…");
+            SetDashboardStatus(Shiro.Services.LocalizationService.Format("Auto_AccountManagerMo_013", multiSel.Count));
         }
 
         internal async Task ModernJoinServerDirect(List<Account> accounts, long placeId, string jobId)
@@ -56,7 +56,7 @@ namespace Shiro
             var snapshot = GetAccountsSnapshot();
             if (snapshot.Count == 0)
             {
-                SetDashboardStatus("Vui lòng thêm tài khoản trước khi vào server.");
+                SetDashboardStatus(Shiro.Services.LocalizationService.Get("Auto_AccountManagerMo_014"));
                 return;
             }
 
@@ -70,7 +70,7 @@ namespace Shiro
 
             if (targetAccounts == null || targetAccounts.Count == 0)
             {
-                SetDashboardStatus("Vui lòng tick chọn ít nhất một tài khoản trước khi vào server!");
+                SetDashboardStatus(Shiro.Services.LocalizationService.Get("Auto_AccountManagerMo_015"));
                 return;
             }
 
@@ -88,7 +88,7 @@ namespace Shiro
 
             if (placeId <= 0)
             {
-                SetDashboardStatus("Vui lòng nhập Place ID ở thanh trên trước khi vào server!");
+                SetDashboardStatus(Shiro.Services.LocalizationService.Get("Auto_AccountManagerMo_016"));
                 return;
             }
 
@@ -109,7 +109,7 @@ namespace Shiro
 
             if (targetAccounts.Count > 1 && General.Get<bool>("EnableMultiRbx") && !RobloxSingletonService.MutexHeld && !TryEnableMultiRoblox(promptIfRobloxRunning: false))
             {
-                SetDashboardStatus("Không thể kích hoạt Multi Roblox. Vui lòng đóng Roblox và thử lại.");
+                SetDashboardStatus(Shiro.Services.LocalizationService.Get("Auto_AccountManagerMo_017"));
                 return;
             }
 
@@ -119,7 +119,7 @@ namespace Shiro
             CancelLaunching();
             if (!await WaitForLaunchQueueToDrainAsync(TimeSpan.FromSeconds(8)).ConfigureAwait(true))
             {
-                SetDashboardStatus("Hàng đợi khởi chạy trước đó đang dừng. Vui lòng thử lại sau giây lát.");
+                SetDashboardStatus(Shiro.Services.LocalizationService.Get("Auto_AccountManagerMo_018"));
                 return;
             }
 
@@ -127,7 +127,7 @@ namespace Shiro
             SelectedAccount = SelectedAccounts.Count == 1 ? SelectedAccounts[0] : null;
 
             string serverDesc = string.IsNullOrEmpty(cleanJobId) ? "Public Server" : (isVip ? "VIP Server" : $"Server {cleanJobId}");
-            SetDashboardStatus($"Đang vào {serverDesc} (Place ID {placeId}) cho {SelectedAccounts.Count} tài khoản…");
+            SetDashboardStatus(Shiro.Services.LocalizationService.Format("Auto_AccountManagerMo_019", serverDesc, placeId, SelectedAccounts.Count));
 
             await LaunchAccounts(SelectedAccounts, placeId, cleanJobId, false, isVip).ConfigureAwait(true);
         }
@@ -138,8 +138,8 @@ namespace Shiro
             if (notify)
             {
                 SetDashboardStatus(totalKilled > 0
-                    ? $"Đã tắt {totalKilled} tiến trình Roblox và làm sạch khay hệ thống."
-                    : "Không tìm thấy tiến trình Roblox nào đang chạy.");
+                    ? Shiro.Services.LocalizationService.Format("Auto_AccountManagerMo_020", totalKilled)
+                    : Shiro.Services.LocalizationService.Get("Auto_AccountManagerMo_021"));
             }
 
             if (Shiro.AvaloniaUI.Views.MainWindow.Instance?.DashboardView?.ViewModel is var mainVm && mainVm != null)
@@ -147,14 +147,14 @@ namespace Shiro
                 if (notify)
                 {
                     mainVm.StatusMessage = totalKilled > 0
-                        ? $"Đã tắt {totalKilled} tiến trình Roblox và làm sạch khay hệ thống!"
-                        : "Không tìm thấy tiến trình Roblox nào đang chạy.";
+                        ? Shiro.Services.LocalizationService.Format("Auto_AccountManagerMo_022", totalKilled)
+                        : Shiro.Services.LocalizationService.Get("Auto_AccountManagerMo_021");
                 }
                 foreach (var acc in mainVm.Accounts) acc.IsInGame = false;
                 mainVm.NotifyCounts();
             }
             if (General.Get<bool>("EnableMultiRbx") && !RobloxSingletonService.MutexHeld && UpdateMultiRoblox() && notify)
-                SetDashboardStatus("Đã tắt Roblox và kích hoạt Multi Roblox.");
+                SetDashboardStatus(Shiro.Services.LocalizationService.Get("Auto_AccountManagerMo_023"));
 
             ModernRefreshPresence();
         }

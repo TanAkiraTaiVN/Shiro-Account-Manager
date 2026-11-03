@@ -163,7 +163,7 @@ namespace Shiro.Services
         {
             if (result.IsBanned)
             {
-                string message = result.Reason ?? result.IssueBadge ?? "Tài khoản bị khóa hoặc kiểm duyệt";
+                string message = result.Reason ?? result.IssueBadge ?? Shiro.Services.LocalizationService.Get("Auto_FastLoginDialogS_077");
                 WebhookNotificationService.EnqueueAlert(new WebhookAlert
                 {
                     EventType = WebhookEventType.ModerationWarning,
@@ -203,9 +203,9 @@ namespace Shiro.Services
                 {
                     string lowUrl = url.ToLowerInvariant();
                     if (lowUrl.Contains("/security-notification") || lowUrl.Contains("/account-locked"))
-                        return (true, "Khóa bảo mật", "Tài khoản bị khóa bảo mật (Account Locked)");
+                        return (true, Shiro.Services.LocalizationService.Get("Auto_FastLoginCoordin_227"), Shiro.Services.LocalizationService.Get("Auto_RobloxModeration_260"));
                     if (lowUrl.Contains("/not-approved") || lowUrl.Contains("/banned") || lowUrl.Contains("/account-status") || lowUrl.Contains("/moderation"))
-                        return (true, "Bị khóa / Ban", "Tài khoản bị khóa hoặc kiểm duyệt");
+                        return (true, Shiro.Services.LocalizationService.Get("Auto_FastLoginDialogS_078"), Shiro.Services.LocalizationService.Get("Auto_FastLoginDialogS_077"));
                 }
                 return (false, null, null);
             }
@@ -222,8 +222,8 @@ namespace Shiro.Services
                 text.Contains("your account has been") ||
                 text.Contains("punishment:") ||
                 text.Contains("reactivate my account") ||
-                text.Contains("tiêu chuẩn cộng đồng") ||
-                text.Contains("lý do:") ||
+                text.Contains(Shiro.Services.LocalizationService.Get("Auto_RobloxModeration_261")) ||
+                text.Contains(Shiro.Services.LocalizationService.Get("Auto_RobloxModeration_262")) ||
                 text.Contains("i agree");
 
             if (!hasModerationMarker && !text.Contains("banned") && !text.Contains("warning"))
@@ -231,23 +231,23 @@ namespace Shiro.Services
                 return (false, null, null);
             }
 
-            if (text.Contains("7 day") || text.Contains("7-day") || text.Contains("7 ngày"))
-                return (true, "Ban 7 ngày", "Tài khoản bị cấm 7 ngày do vi phạm Tiêu chuẩn cộng đồng");
-            if (text.Contains("3 day") || text.Contains("3-day") || text.Contains("3 ngày"))
-                return (true, "Ban 3 ngày", "Tài khoản bị cấm 3 ngày do vi phạm Tiêu chuẩn cộng đồng");
-            if (text.Contains("1 day") || text.Contains("1-day") || text.Contains("1 ngày"))
-                return (true, "Ban 1 ngày", "Tài khoản bị cấm 1 ngày do vi phạm Tiêu chuẩn cộng đồng");
-            if (text.Contains("14 day") || text.Contains("14-day") || text.Contains("14 ngày"))
-                return (true, "Ban 14 ngày", "Tài khoản bị cấm 14 ngày do vi phạm Tiêu chuẩn cộng đồng");
-            if (text.Contains("deleted") || text.Contains("terminated") || text.Contains("đã bị xóa") || text.Contains("vĩnh viễn"))
-                return (true, "Ban vĩnh viễn", "Tài khoản đã bị xóa vĩnh viễn (Terminated)");
-            if (text.Contains("warning") || text.Contains("cảnh báo"))
-                return (true, "Cảnh báo", "Tài khoản nhận cảnh báo kiểm duyệt, cần xác nhận để mở khóa");
-            if (text.Contains("locked") || text.Contains("khóa bảo mật") || text.Contains("security notification") || text.Contains("reset your password"))
-                return (true, "Khóa bảo mật", "Tài khoản bị khóa bảo mật (Account Locked)");
+            if (text.Contains("7 day") || text.Contains("7-day") || text.Contains(Shiro.Services.LocalizationService.Get("Auto_FastLoginCoordin_207")))
+                return (true, Shiro.Services.LocalizationService.Get("Auto_FastLoginCoordin_216"), Shiro.Services.LocalizationService.Get("Auto_RobloxModeration_263"));
+            if (text.Contains("3 day") || text.Contains("3-day") || text.Contains(Shiro.Services.LocalizationService.Get("Auto_FastLoginCoordin_208")))
+                return (true, Shiro.Services.LocalizationService.Get("Auto_FastLoginCoordin_218"), Shiro.Services.LocalizationService.Get("Auto_RobloxModeration_264"));
+            if (text.Contains("1 day") || text.Contains("1-day") || text.Contains(Shiro.Services.LocalizationService.Get("Auto_FastLoginCoordin_209")))
+                return (true, Shiro.Services.LocalizationService.Get("Auto_FastLoginCoordin_220"), Shiro.Services.LocalizationService.Get("Auto_RobloxModeration_265"));
+            if (text.Contains("14 day") || text.Contains("14-day") || text.Contains(Shiro.Services.LocalizationService.Get("Auto_FastLoginCoordin_206")))
+                return (true, Shiro.Services.LocalizationService.Get("Auto_FastLoginCoordin_222"), Shiro.Services.LocalizationService.Get("Auto_RobloxModeration_266"));
+            if (text.Contains("deleted") || text.Contains("terminated") || text.Contains(Shiro.Services.LocalizationService.Get("Auto_FastLoginCoordin_211")) || text.Contains(Shiro.Services.LocalizationService.Get("Auto_FastLoginCoordin_210")))
+                return (true, Shiro.Services.LocalizationService.Get("Auto_FastLoginCoordin_224"), Shiro.Services.LocalizationService.Get("Auto_RobloxModeration_267"));
+            if (text.Contains("warning") || text.Contains(Shiro.Services.LocalizationService.Get("Auto_FastLoginCoordin_212")))
+                return (true, Shiro.Services.LocalizationService.Get("Msg_WarningTitle"), Shiro.Services.LocalizationService.Get("Auto_RobloxModeration_268"));
+            if (text.Contains("locked") || text.Contains(Shiro.Services.LocalizationService.Get("Auto_RobloxModeration_269")) || text.Contains("security notification") || text.Contains("reset your password"))
+                return (true, Shiro.Services.LocalizationService.Get("Auto_FastLoginCoordin_227"), Shiro.Services.LocalizationService.Get("Auto_RobloxModeration_260"));
 
             if (hasModerationMarker)
-                return (true, "Bị khóa / Ban", "Tài khoản bị khóa hoặc kiểm duyệt");
+                return (true, Shiro.Services.LocalizationService.Get("Auto_FastLoginDialogS_078"), Shiro.Services.LocalizationService.Get("Auto_FastLoginDialogS_077"));
 
             return (false, null, null);
         }

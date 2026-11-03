@@ -100,7 +100,7 @@ namespace Shiro.Services
                 return new BloxGenAccountResult
                 {
                     Success = false,
-                    ErrorMessage = "Vui lòng nhập BloxGen API Key (BLOX-...)"
+                    ErrorMessage = Shiro.Services.LocalizationService.Get("Auto_BloxGenService_200")
                 };
             }
 
@@ -140,7 +140,7 @@ namespace Shiro.Services
                 bool success = root.TryGetProperty("success", out var succProp) ? succProp.GetBoolean() : true;
                 if (!success)
                 {
-                    string err = root.TryGetProperty("message", out var msgProp) ? (msgProp.GetString() ?? "Lỗi không xác định") : "Yêu cầu không thành công";
+                    string err = root.TryGetProperty("message", out var msgProp) ? (msgProp.GetString() ?? Shiro.Services.LocalizationService.Get("Auto_AltGenDialogaxam_058")) : Shiro.Services.LocalizationService.Get("Auto_BloxGenService_201");
                     return new BloxGenAccountResult { Success = false, ErrorMessage = err };
                 }
 
@@ -155,7 +155,7 @@ namespace Shiro.Services
                     return new BloxGenAccountResult
                     {
                         Success = false,
-                        ErrorMessage = "Phản hồi từ BloxGen không chứa cookie hợp lệ."
+                        ErrorMessage = Shiro.Services.LocalizationService.Get("Auto_BloxGenService_202")
                     };
                 }
 
@@ -191,7 +191,7 @@ namespace Shiro.Services
             }
             catch (OperationCanceledException)
             {
-                return new BloxGenAccountResult { Success = false, ErrorMessage = "Yêu cầu đã bị hủy." };
+                return new BloxGenAccountResult { Success = false, ErrorMessage = Shiro.Services.LocalizationService.Get("Auto_BloxGenService_203") };
             }
             catch (Exception ex)
             {

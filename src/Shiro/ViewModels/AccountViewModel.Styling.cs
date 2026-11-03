@@ -13,16 +13,16 @@ namespace Shiro.ViewModels
             get
             {
                 if (IsBannedOrLocked)
-                    return $"Tài khoản gặp sự cố: {_model.AccountStatusIssue}";
+                    return Shiro.Services.LocalizationService.Format("Auto_AccountViewModel_347", _model.AccountStatusIssue);
                 if (IsExpired)
-                    return "Phiên đăng nhập (.ROBLOSECURITY) đã hết hạn hoặc bị thu hồi. Hãy nhấn Đăng nhập lại (Re-login).";
+                    return Shiro.Services.LocalizationService.Get("Auto_AccountViewModel_348");
                 int payloadLen = Account.GetSessionTokenPayloadLength(_model.SecurityToken);
-                string lastUseStr = _model.LastUse != DateTime.MinValue ? _model.LastUse.ToString("dd/MM/yyyy HH:mm") : "Chưa rõ";
+                string lastUseStr = _model.LastUse != DateTime.MinValue ? _model.LastUse.ToString("dd/MM/yyyy HH:mm") : Shiro.Services.LocalizationService.Get("Auto_AccountViewModel_349");
                 if (IsShortLivedSession)
-                    return $"Phiên ngắn hạn (Payload: {payloadLen} ký tự, cấp lúc {lastUseStr}). Có thể hết hạn sau ~30 phút — khuyến nghị Re-login để nhận phiên dài hạn 939 ký tự.";
+                    return Shiro.Services.LocalizationService.Format("Auto_AccountViewModel_350", payloadLen, lastUseStr);
                 return payloadLen > 0
-                    ? $"Phiên dài hạn khỏe mạnh (Payload: {payloadLen} ký tự, cập nhật: {lastUseStr})"
-                    : $"Phiên hợp lệ (Cập nhật: {lastUseStr})";
+                    ? Shiro.Services.LocalizationService.Format("Auto_AccountViewModel_351", payloadLen, lastUseStr)
+                    : Shiro.Services.LocalizationService.Format("Auto_AccountViewModel_352", lastUseStr);
             }
         }
 
@@ -53,10 +53,10 @@ namespace Shiro.ViewModels
                     return string.IsNullOrEmpty(LiveMemoryText) ? Loc.Get("Status_InGame") : $"{Loc.Get("Status_InGame")} ({LiveMemoryText})";
                 }
                 if (IsLocalClientRunning)
-                    return LocalizationService.IsEnglish ? "Client Open" : "Đang mở Roblox";
+                    return LocalizationService.IsEnglish ? "Client Open" : Shiro.Services.LocalizationService.Get("Auto_AccountViewModel_353");
                 if (IsInStudio) return "Roblox Studio";
                 if (IsOnline) return Loc.Get("Status_Online");
-                if (IsShortLivedSession) return LocalizationService.IsEnglish ? "Short Session (~30m)" : "Phiên ngắn (~30p)";
+                if (IsShortLivedSession) return LocalizationService.IsEnglish ? "Short Session (~30m)" : Shiro.Services.LocalizationService.Get("Auto_AccountViewModel_354");
                 return Loc.Get("Status_Ready");
             }
         }

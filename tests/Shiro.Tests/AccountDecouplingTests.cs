@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Xunit;
 
 namespace Shiro.Tests
@@ -26,7 +26,7 @@ namespace Shiro.Tests
         [Fact]
         public void CurrentJobId_WhenNull_ReturnsEmptyString()
         {
-            AccountManager.CurrentJobId = null;
+            AccountManager.CurrentJobId = null!;
 
             Assert.Equal(string.Empty, AccountManager.CurrentJobId);
         }
@@ -38,7 +38,7 @@ namespace Shiro.Tests
             Assert.False(resEmpty.Success);
             Assert.Equal(-1, resEmpty.UserId);
 
-            var resNull = await AccountManager.GetUserIDAsync(null);
+            var resNull = await AccountManager.GetUserIDAsync(null!);
             Assert.False(resNull.Success);
             Assert.Equal(-1, resNull.UserId);
         }

@@ -25,7 +25,7 @@ namespace Shiro.ViewModels
         private string _placeIdInput = string.Empty;
         private long _lastLoadedPlaceId;
         private bool _isLoadingServers;
-        private string _loadingStatus = LocalizationService.IsEnglish ? "Ready" : "Sẵn sàng";
+        private string _loadingStatus = LocalizationService.IsEnglish ? "Ready" : Shiro.Services.LocalizationService.Get("Status_Ready");
         private ServerItemViewModel? _selectedServer;
         private int _selectedSubTabIndex = 0; // 0: Servers, 1: Games, 2: Recent & Favorites, 3: Watcher
 
@@ -116,7 +116,7 @@ namespace Shiro.ViewModels
 
             string rawPid = !string.IsNullOrWhiteSpace(PlaceIdInput)
                 ? PlaceIdInput
-                : (!string.IsNullOrWhiteSpace(_mainViewModel?.PlaceId) ? _mainViewModel!.PlaceId : (AccountManager.CurrentPlaceId ?? string.Empty));
+                : (!string.IsNullOrWhiteSpace(_mainViewModel?.PlaceId) ? _mainViewModel!.PlaceId : (AppSettings.CurrentPlaceId ?? string.Empty));
 
             if (string.IsNullOrWhiteSpace(PlaceIdInput) && !string.IsNullOrWhiteSpace(rawPid))
                 SyncPlaceId(rawPid);
@@ -169,9 +169,9 @@ namespace Shiro.ViewModels
 
             LocalizationService.LanguageChanged += lang =>
             {
-                if (_loadingStatus == "Sẵn sàng" || _loadingStatus == "Ready")
+                if (_loadingStatus == Shiro.Services.LocalizationService.Get("Status_Ready") || _loadingStatus == "Ready")
                 {
-                    LoadingStatus = LocalizationService.IsEnglish ? "Ready" : "Sẵn sàng";
+                    LoadingStatus = LocalizationService.IsEnglish ? "Ready" : Shiro.Services.LocalizationService.Get("Status_Ready");
                 }
                 foreach (var s in _allServers)
                 {
@@ -195,12 +195,12 @@ namespace Shiro.ViewModels
             var prevCts = Interlocked.Exchange(ref _operationCts, nextCts);
             if (prevCts != null)
             {
-                try { prevCts.Cancel(); }
-                catch (ObjectDisposedException) { }
-                catch (Exception) { }
+                SafeExecuteHelper.Try(() => prevCts.Cancel(), "ServerListViewModel.ResetOperationCts.Cancel");
 
-                try { prevCts.Dispose(); }
-                catch (Exception) { }
+
+
+                SafeExecuteHelper.Try(() => prevCts.Dispose(), "ServerListViewModel.ResetOperationCts.Dispose");
+
             }
             return nextCts;
         }
@@ -211,7 +211,7 @@ namespace Shiro.ViewModels
             IsLoadingServers = false;
             IsSearchingPlayer = false;
             if (_allServers.Count == 0) _lastLoadedPlaceId = 0;
-            LoadingStatus = LocalizationService.IsEnglish ? "Operation cancelled." : "Đã hủy thao tác.";
+            LoadingStatus = LocalizationService.IsEnglish ? "Operation cancelled." : Shiro.Services.LocalizationService.Get("Auto_ServerListViewMo_554");
             NotifyServerCounts();
         }
 
@@ -223,7 +223,7 @@ namespace Shiro.ViewModels
             {
                 LoadingStatus = LocalizationService.IsEnglish
                     ? "Please enter a valid Place ID before loading!"
-                    : "Vui lòng nhập Place ID hợp lệ trước khi tải danh sách!";
+                    : Shiro.Services.LocalizationService.Get("Auto_ServerListViewMo_555");
                 return;
             }
 
@@ -235,14 +235,14 @@ namespace Shiro.ViewModels
             IsLoadingServers = true;
             LoadingStatus = LocalizationService.IsEnglish
                 ? $"Searching servers for Place ID {placeId}..."
-                : $"Đang tìm máy chủ cho Place ID {placeId}...";
+                : Shiro.Services.LocalizationService.Format("Auto_ServerListViewMo_556", placeId);
             ClearRawServers();
 
             await Task.Run(async () =>
             {
                 try
                 {
-                    var gamesClient = AccountManager.GamesClient ?? new RestClient("https://games.roblox.com");
+                    var gamesClient = AppServices.RobloxApi.Games;
                     var vipAuthAccount = ResolveAuthAccount();
                     Task<List<ServerItemViewModel>?> vipTask = vipAuthAccount != null
                         ? FetchVipServersAsync(gamesClient, vipAuthAccount, placeId, ct)
@@ -269,7 +269,7 @@ namespace Shiro.ViewModels
                                     if (!ct.IsCancellationRequested)
                                         LoadingStatus = LocalizationService.IsEnglish
                                             ? $"Failed to load server list: {response.StatusCode}"
-                                            : $"Không thể tải danh sách server: {response.StatusCode}";
+                                            : Shiro.Services.LocalizationService.Format("Auto_ServerListViewMo_557", response.StatusCode);
                                 });
                             }
                             break;
@@ -307,7 +307,7 @@ namespace Shiro.ViewModels
                             AppendRawServers(batch);
                             LoadingStatus = LocalizationService.IsEnglish
                                 ? $"Loaded {currentCount} servers..."
-                                : $"Đã tải {currentCount} máy chủ...";
+                                : Shiro.Services.LocalizationService.Format("Auto_ServerListViewMo_558", currentCount);
                         });
 
                         if (totalLoaded >= 200) break;
@@ -329,8 +329,8 @@ namespace Shiro.ViewModels
                     {
                         if (ct.IsCancellationRequested) return;
                         LoadingStatus = totalLoaded > 0
-                            ? (LocalizationService.IsEnglish ? $"Successfully loaded {totalLoaded} servers!" : $"Đã tải thành công {totalLoaded} máy chủ!")
-                            : (LocalizationService.IsEnglish ? "No servers found for this Place ID." : "Không tìm thấy máy chủ nào cho Place ID này.");
+                            ? (LocalizationService.IsEnglish ? $"Successfully loaded {totalLoaded} servers!" : Shiro.Services.LocalizationService.Format("Auto_ServerListViewMo_559", totalLoaded))
+                            : (LocalizationService.IsEnglish ? "No servers found for this Place ID." : Shiro.Services.LocalizationService.Get("Auto_ServerListViewMo_560"));
                         NotifyServerCounts();
                     });
                 }
@@ -338,7 +338,7 @@ namespace Shiro.ViewModels
                 {
                     AppDispatcher.Post(() =>
                     {
-                        LoadingStatus = LocalizationService.IsEnglish ? "Server loading cancelled." : "Đã hủy tải máy chủ.";
+                        LoadingStatus = LocalizationService.IsEnglish ? "Server loading cancelled." : Shiro.Services.LocalizationService.Get("Auto_ServerListViewMo_561");
                         _lastLoadedPlaceId = 0;
                         NotifyServerCounts();
                     });
@@ -348,7 +348,7 @@ namespace Shiro.ViewModels
                     Program.Logger?.Error($"[RefreshServersAsync] {ex}");
                     AppDispatcher.Post(() =>
                     {
-                        LoadingStatus = LocalizationService.IsEnglish ? $"Error: {ex.Message}" : $"Lỗi: {ex.Message}";
+                        LoadingStatus = LocalizationService.IsEnglish ? $"Error: {ex.Message}" : Shiro.Services.LocalizationService.Format("Proxy_Dead", ex.Message);
                         NotifyServerCounts();
                     });
                 }

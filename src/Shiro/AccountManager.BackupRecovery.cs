@@ -19,14 +19,14 @@ namespace Shiro
                 Instance.LoadAccounts(null, out bool unlocked);
                 if (unlocked)
                 {
-                    statusMessage = $"Đã khôi phục thành công khóa vault.key và tải lại {AccountCount} tài khoản!";
+                    statusMessage = Shiro.Services.LocalizationService.Format("Auto_AccountManagerBa_007", AccountCount);
                     return true;
                 }
             }
 
             if (Instance.TryRestoreReadableBackup())
             {
-                statusMessage = $"Đã khôi phục {AccountCount} tài khoản từ bản sao lưu hợp lệ gần nhất.";
+                statusMessage = Shiro.Services.LocalizationService.Format("Auto_AccountManagerBa_008", AccountCount);
                 return true;
             }
 

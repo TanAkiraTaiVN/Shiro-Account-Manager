@@ -65,7 +65,7 @@ namespace Shiro.Services
             var result = new ServerRegionPingResult();
             if (account == null || placeId <= 0 || string.IsNullOrWhiteSpace(serverId))
             {
-                result.Region = "Cần đăng nhập";
+                result.Region = Shiro.Services.LocalizationService.Get("Auto_RobloxServerQuer_270");
                 return result;
             }
 
@@ -137,7 +137,7 @@ namespace Shiro.Services
                     }
                     else
                     {
-                        result.Region = js.TryGetProperty("status", out var stVal) ? (stVal.GetString() ?? "Không rõ") : "Không rõ";
+                        result.Region = js.TryGetProperty("status", out var stVal) ? (stVal.GetString() ?? Shiro.Services.LocalizationService.Get("Auto_RobloxServerQuer_271")) : Shiro.Services.LocalizationService.Get("Auto_RobloxServerQuer_271");
                     }
                 }
             }

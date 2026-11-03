@@ -38,14 +38,14 @@ namespace Shiro.ViewModels
                 int picked = SelectFirstReadyAccounts(targetCount);
                 StatusMessage = LocalizationService.IsEnglish
                     ? $"Selected {picked} ready idle account(s)."
-                    : $"Đã chọn nhanh {picked} tài khoản Sẵn sàng (chưa mở game).";
+                    : Shiro.Services.LocalizationService.Format("Auto_MainViewModelUiC_498", picked);
                 if (picked == 0)
                 {
                     ToastService.ShowWarning(
-                        LocalizationService.IsEnglish ? "Quick Select" : "Chọn nhanh",
+                        LocalizationService.IsEnglish ? "Quick Select" : Shiro.Services.LocalizationService.Get("Dash_QuickSelect"),
                         LocalizationService.IsEnglish
                             ? "No idle Ready accounts found in the current view."
-                            : "Không có tài khoản Sẵn sàng (chưa vào game) nào trong danh sách hiện tại.");
+                            : Shiro.Services.LocalizationService.Get("Auto_MainViewModelUiC_499"));
                 }
             });
 
@@ -54,15 +54,15 @@ namespace Shiro.ViewModels
                 int count = InvertFilteredSelection();
                 StatusMessage = LocalizationService.IsEnglish
                     ? $"Inverted selection ({count} account(s) selected)."
-                    : $"Đã đảo ngược lựa chọn ({count} tài khoản đang được chọn).";
+                    : Shiro.Services.LocalizationService.Format("Auto_MainViewModelUiC_500", count);
             });
 
             SelectByRangePromptCommand = new RelayCommand(() =>
             {
                 string prompt = LocalizationService.IsEnglish
                     ? "Enter account index range (e.g. 1-15 or 1-5, 10, 21-30):"
-                    : "Nhập dải số thứ tự tài khoản cần chọn (ví dụ: 1-15 hoặc 1-5, 10, 21-30):";
-                string title = LocalizationService.IsEnglish ? "Select by Range" : "Chọn theo dải số thứ tự";
+                    : Shiro.Services.LocalizationService.Get("Auto_MainViewModelUiC_501");
+                string title = LocalizationService.IsEnglish ? "Select by Range" : Shiro.Services.LocalizationService.Get("Auto_MainViewModelUiC_502");
                 string input = AppServices.Dialogs.ShowInputPrompt(prompt, title);
                 if (string.IsNullOrWhiteSpace(input) || input == "/UC")
                     return;
@@ -72,7 +72,7 @@ namespace Shiro.ViewModels
                 {
                     string msg = LocalizationService.IsEnglish
                         ? $"Selected {picked} account(s) from range '{input}'."
-                        : $"Đã chọn {picked} tài khoản theo dải '{input}'.";
+                        : Shiro.Services.LocalizationService.Format("Auto_MainViewModelUiC_503", picked, input);
                     StatusMessage = msg;
                     ToastService.ShowSuccess(title, msg);
                 }
@@ -80,7 +80,7 @@ namespace Shiro.ViewModels
                 {
                     string warn = LocalizationService.IsEnglish
                         ? $"No accounts matched range '{input}'."
-                        : $"Không tìm thấy tài khoản nào khớp với dải '{input}'.";
+                        : Shiro.Services.LocalizationService.Format("Auto_MainViewModelUiC_504", input);
                     StatusMessage = "" + warn;
                     ToastService.ShowWarning(title, warn);
                 }
@@ -126,10 +126,10 @@ namespace Shiro.ViewModels
                 }
                 string stopMsg = LocalizationService.IsEnglish
                     ? "Stopped batch launch queue."
-                    : "Đã dừng hàng đợi khởi chạy.";
+                    : Shiro.Services.LocalizationService.Get("Auto_MainViewModelUiC_505");
                 StatusMessage = stopMsg;
                 ToastService.ShowWarning(
-                    LocalizationService.IsEnglish ? "Queue Stopped" : "Đã dừng hàng đợi",
+                    LocalizationService.IsEnglish ? "Queue Stopped" : Shiro.Services.LocalizationService.Get("Auto_MainViewModelUiC_506"),
                     stopMsg);
             });
 
@@ -143,7 +143,7 @@ namespace Shiro.ViewModels
                 {
                     StatusMessage = LocalizationService.IsEnglish
                         ? $"Brought Roblox window for {avm.Username} to foreground."
-                        : $"Đã đưa cửa sổ Roblox của {avm.Username} lên phía trước.";
+                        : Shiro.Services.LocalizationService.Format("Auto_MainViewModelUiC_507", avm.Username);
                 }
                 else
                 {
@@ -152,7 +152,7 @@ namespace Shiro.ViewModels
                         avm.Username,
                         LocalizationService.IsEnglish
                             ? "Could not find an active Roblox window for this account."
-                            : "Không tìm thấy cửa sổ Roblox đang mở của tài khoản này.");
+                            : Shiro.Services.LocalizationService.Get("Auto_MainViewModelUiC_508"));
                 }
             });
 
@@ -180,17 +180,17 @@ namespace Shiro.ViewModels
                 {
                     string okMsg = LocalizationService.IsEnglish
                         ? $"Arranged {arranged} Roblox window(s) ({desc})!"
-                        : $"Đã sắp xếp {arranged} cửa sổ Roblox ({desc})!";
+                        : Shiro.Services.LocalizationService.Format("Auto_MainViewModelUiC_509", arranged, desc);
                     StatusMessage = okMsg;
                     ToastService.ShowSuccess(
-                        LocalizationService.IsEnglish ? "Window Arranger" : "Sắp xếp cửa sổ",
+                        LocalizationService.IsEnglish ? "Window Arranger" : Shiro.Services.LocalizationService.Get("Auto_MainViewModelUiC_510"),
                         okMsg);
                 }
                 else
                 {
                     StatusMessage = $"{desc}";
                     ToastService.ShowWarning(
-                        LocalizationService.IsEnglish ? "Window Arranger" : "Sắp xếp cửa sổ",
+                        LocalizationService.IsEnglish ? "Window Arranger" : Shiro.Services.LocalizationService.Get("Auto_MainViewModelUiC_510"),
                         desc);
                 }
             });
@@ -199,17 +199,17 @@ namespace Shiro.ViewModels
             {
                 bool next = !RobloxAudioService.IsSmartMuteEnabled;
                 RobloxAudioService.ConfigureSmartMute(next);
-                AccountManager.General?.Set("AutoMuteBackgroundClients", next ? "true" : "false");
-                AccountManager.QueueDeferredSaveSettings();
+                AppSettings.General?.Set("AutoMuteBackgroundClients", next ? "true" : "false");
+                AppSettings.QueueDeferredSave();
                 NotifyToolStatesChanged();
 
                 string msg = next
                     ? (LocalizationService.IsEnglish
                         ? "Smart Auto-Mute ON: Background Roblox clients are automatically muted."
-                        : "Đã BẬT Auto-Mute thông minh: Tự tắt tiếng các cửa sổ Roblox chạy nền.")
+                        : Shiro.Services.LocalizationService.Get("Auto_MainViewModelUiC_511"))
                     : (LocalizationService.IsEnglish
                         ? "Smart Auto-Mute OFF: Restored audio for all Roblox clients."
-                        : "Đã TẮT Auto-Mute thông minh: Đã mở lại tiếng cho toàn bộ Roblox.");
+                        : Shiro.Services.LocalizationService.Get("Auto_MainViewModelUiC_512"));
                 StatusMessage = msg;
                 ToastService.ShowInfo("Smart Auto-Mute", msg);
             });

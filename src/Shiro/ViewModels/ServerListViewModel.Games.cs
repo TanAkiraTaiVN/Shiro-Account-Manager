@@ -148,7 +148,7 @@ namespace Shiro.ViewModels
                     _mainViewModel.PlaceId = game.PlaceId.ToString();
                     _mainViewModel.StatusMessage = LocalizationService.IsEnglish
                         ? $"Selected game: {game.Name} ({game.PlaceId})"
-                        : $"Đã chọn game: {game.Name} ({game.PlaceId})";
+                        : Shiro.Services.LocalizationService.Format("Auto_ServerListViewMo_523", game.Name, game.PlaceId);
                 }
                 SelectedSubTabIndex = 0;
                 _ = RefreshServersAsync();
@@ -169,13 +169,13 @@ namespace Shiro.ViewModels
                     {
                         _mainViewModel.StatusMessage = LocalizationService.IsEnglish
                             ? $"Launching game: {game.Name} ({game.PlaceId})"
-                            : $"Đang khởi chạy game: {game.Name} ({game.PlaceId})";
+                            : Shiro.Services.LocalizationService.Format("Auto_ServerListViewMo_524", game.Name, game.PlaceId);
                     }
                     else
                     {
                         LoadingStatus = LocalizationService.IsEnglish
                             ? "Please select at least one account in the Accounts tab first!"
-                            : "Vui lòng tick chọn tài khoản ở tab 'Tài khoản' trước khi bấm Chơi!";
+                            : Shiro.Services.LocalizationService.Get("Auto_ServerListViewMo_525");
                     }
                 }
                 _mainViewModel?.JoinServerSelectedCommand?.Execute(null);
@@ -217,7 +217,7 @@ namespace Shiro.ViewModels
             {
                 LoadingStatus = LocalizationService.IsEnglish
                     ? "This game is already in Favorites!"
-                    : "Game này đã có trong danh sách Yêu Thích!";
+                    : Shiro.Services.LocalizationService.Get("Auto_ServerListViewMo_526");
                 return;
             }
 
@@ -251,7 +251,7 @@ namespace Shiro.ViewModels
             }
             LoadingStatus = LocalizationService.IsEnglish
                 ? $"⭐ Added '{name}' to Favorites!"
-                : $"⭐ Đã thêm '{name}' vào Yêu Thích!";
+                : Shiro.Services.LocalizationService.Format("Auto_ServerListViewMo_527", name);
         }
 
         private void RemoveFavorite(object? param)
@@ -262,7 +262,7 @@ namespace Shiro.ViewModels
                 SaveFavorites();
                 LoadingStatus = LocalizationService.IsEnglish
                     ? $"Removed '{fav.Name}' from Favorites."
-                    : $"Đã xóa '{fav.Name}' khỏi Yêu Thích.";
+                    : Shiro.Services.LocalizationService.Format("Auto_ServerListViewMo_528", fav.Name);
             }
         }
 
@@ -279,7 +279,7 @@ namespace Shiro.ViewModels
                         _mainViewModel.JobId = fav.PrivateServer;
                     _mainViewModel.StatusMessage = LocalizationService.IsEnglish
                         ? $"⭐ Selected Favorite game: {fav.Name}"
-                        : $"⭐ Đã chọn game Yêu Thích: {fav.Name}";
+                        : Shiro.Services.LocalizationService.Format("Auto_ServerListViewMo_529", fav.Name);
                 }
                 SelectedSubTabIndex = 0;
                 _ = RefreshServersAsync();
@@ -299,13 +299,13 @@ namespace Shiro.ViewModels
                     {
                         _mainViewModel.StatusMessage = LocalizationService.IsEnglish
                             ? $"⭐ Launching Favorite game: {fav.Name}"
-                            : $"⭐ Đang khởi chạy game Yêu Thích: {fav.Name}";
+                            : Shiro.Services.LocalizationService.Format("Auto_ServerListViewMo_530", fav.Name);
                     }
                     else
                     {
                         LoadingStatus = LocalizationService.IsEnglish
                             ? "Please select at least one account in the Accounts tab first!"
-                            : "Vui lòng tick chọn tài khoản ở tab 'Tài khoản' trước khi bấm Chơi!";
+                            : Shiro.Services.LocalizationService.Get("Auto_ServerListViewMo_525");
                     }
                 }
                 _mainViewModel?.JoinServerSelectedCommand?.Execute(null);

@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Shiro.Classes;
 using Shiro.Services;
@@ -18,14 +18,14 @@ namespace Shiro.Tests
         [InlineData(null, 0)]
         public void ParsePlaceId_ParsesVariousFormatsCorrectly(string? input, long expected)
         {
-            long result = AccountLauncherService.ParsePlaceId(input);
+            long result = AccountLauncherService.ParsePlaceId(input!);
             Assert.Equal(expected, result);
         }
 
         [Fact]
         public async Task LaunchAppHomeAsync_NullAccount_DoesNotThrow()
         {
-            var exception = await Record.ExceptionAsync(() => AccountLauncherService.LaunchAppHomeAsync(null));
+            var exception = await Record.ExceptionAsync(() => AccountLauncherService.LaunchAppHomeAsync(null!));
             Assert.Null(exception);
         }
 

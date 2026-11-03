@@ -174,11 +174,11 @@ namespace Shiro.AvaloniaUI.Views
 
             if (!int.TryParse(TxtNexusPort.Text?.Trim(), out int port) || port < 1 || port > 65535)
             {
-                SetStatus("Cổng kết nối không hợp lệ (1-65535).");
+                SetStatus(Shiro.Services.LocalizationService.Get("Auto_NexusWindowaxaml_149"));
                 return;
             }
 
-            SetStatus("Đang khởi động WebSocket Server...");
+            SetStatus(Shiro.Services.LocalizationService.Get("Auto_NexusWindowaxaml_150"));
             try
             {
                 bool allowExternal = ChkAllowExternal.IsChecked == true;
@@ -196,26 +196,26 @@ namespace Shiro.AvaloniaUI.Views
                     Program.Logger?.Warn($"Save Nexus settings threw: {ex.Message}");
                 }
 
-                TxtServerStatusBadge.Text = $"Server: Đang chạy (Port {port})";
+                TxtServerStatusBadge.Text = Shiro.Services.LocalizationService.Format("Auto_NexusWindowaxaml_151", port);
                 TxtServerStatusBadge.Foreground = RunningBadgeBrush;
-                if (TxtToggleServerLabel != null) TxtToggleServerLabel.Text = "Dừng Server";
+                if (TxtToggleServerLabel != null) TxtToggleServerLabel.Text = Shiro.Services.LocalizationService.Get("Auto_NexusWindowaxaml_152");
                 BtnToggleServer.Background = StopButtonBrush;
-                SetStatus($"WebSocket Server đã khởi động trên cổng {port}.");
+                SetStatus(Shiro.Services.LocalizationService.Format("Auto_NexusWindowaxaml_153", port));
             }
             catch (Exception ex)
             {
                 Server = null;
-                TxtServerStatusBadge.Text = "Server: Đang dừng";
+                TxtServerStatusBadge.Text = Shiro.Services.LocalizationService.Get("Auto_NexusWindowaxaml_154");
                 TxtServerStatusBadge.Foreground = StoppedBadgeBrush;
-                if (TxtToggleServerLabel != null) TxtToggleServerLabel.Text = "Bật Server";
+                if (TxtToggleServerLabel != null) TxtToggleServerLabel.Text = Shiro.Services.LocalizationService.Get("Auto_NexusWindowaxaml_155");
                 BtnToggleServer.Background = StartButtonBrush;
-                SetStatus($"Lỗi khởi động WebSocket Server: {ex.Message}");
+                SetStatus(Shiro.Services.LocalizationService.Format("Auto_NexusWindowaxaml_156", ex.Message));
             }
         }
 
         public async Task StopServerAsync()
         {
-            SetStatus("Đang dừng WebSocket Server...");
+            SetStatus(Shiro.Services.LocalizationService.Get("Auto_NexusWindowaxaml_157"));
             try
             {
                 if (Server != null)
@@ -223,15 +223,15 @@ namespace Shiro.AvaloniaUI.Views
                     await Server.StopAsync();
                     Server = null;
                 }
-                TxtServerStatusBadge.Text = "Server: Đang dừng";
+                TxtServerStatusBadge.Text = Shiro.Services.LocalizationService.Get("Auto_NexusWindowaxaml_154");
                 TxtServerStatusBadge.Foreground = StoppedBadgeBrush;
-                if (TxtToggleServerLabel != null) TxtToggleServerLabel.Text = "Bật Server";
+                if (TxtToggleServerLabel != null) TxtToggleServerLabel.Text = Shiro.Services.LocalizationService.Get("Auto_NexusWindowaxaml_155");
                 BtnToggleServer.Background = StartButtonBrush;
-                SetStatus("WebSocket Server đã dừng.");
+                SetStatus(Shiro.Services.LocalizationService.Get("Auto_NexusWindowaxaml_158"));
             }
             catch (Exception ex)
             {
-                SetStatus($"Lỗi khi dừng WebSocket Server: {ex.Message}");
+                SetStatus(Shiro.Services.LocalizationService.Format("Auto_NexusWindowaxaml_159", ex.Message));
             }
         }
 
@@ -272,7 +272,7 @@ namespace Shiro.AvaloniaUI.Views
                     if (acc?.Status == AccountStatus.Online)
                         online++;
                 }
-                TxtClientCount.Text = $"Đã kết nối: {online} client";
+                TxtClientCount.Text = Shiro.Services.LocalizationService.Format("Auto_NexusWindowaxaml_160", online);
             });
         }
 
@@ -293,11 +293,11 @@ namespace Shiro.AvaloniaUI.Views
             string? script = TxtScriptInput.Text;
             if (string.IsNullOrWhiteSpace(script))
             {
-                SetStatus("Vui lòng nhập mã script cần thực thi.");
+                SetStatus(Shiro.Services.LocalizationService.Get("Auto_NexusWindowaxaml_161"));
                 return;
             }
             EmitMessage($"Execute:{script}", toAll: false);
-            SetStatus("Đã gửi mã script tới các tài khoản đã chọn.");
+            SetStatus(Shiro.Services.LocalizationService.Get("Auto_NexusWindowaxaml_162"));
         }
 
         private void BtnExecuteAll_Click(object? sender, RoutedEventArgs e)
@@ -305,11 +305,11 @@ namespace Shiro.AvaloniaUI.Views
             string? script = TxtScriptInput.Text;
             if (string.IsNullOrWhiteSpace(script))
             {
-                SetStatus("Vui lòng nhập mã script cần thực thi.");
+                SetStatus(Shiro.Services.LocalizationService.Get("Auto_NexusWindowaxaml_161"));
                 return;
             }
             EmitMessage($"Execute:{script}", toAll: true);
-            SetStatus("Đã gửi mã script tới TẤT CẢ tài khoản.");
+            SetStatus(Shiro.Services.LocalizationService.Get("Auto_NexusWindowaxaml_163"));
         }
 
         public void LogMessage(string message)

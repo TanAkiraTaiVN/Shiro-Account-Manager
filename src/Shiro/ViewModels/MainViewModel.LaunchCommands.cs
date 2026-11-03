@@ -37,9 +37,9 @@ namespace Shiro.ViewModels
             {
                 string normalized = parsed.ToString();
                 PlaceId = normalized;
-                AccountManager.CurrentPlaceId = normalized;
-                AccountManager.General?.Set("SavedPlaceId", normalized);
-                AccountManager.QueueDeferredSaveSettings();
+                AppSettings.CurrentPlaceId = normalized;
+                AppSettings.General?.Set("SavedPlaceId", normalized);
+                AppSettings.QueueDeferredSave();
             }
         }
 
@@ -54,11 +54,11 @@ namespace Shiro.ViewModels
         private void ExecuteViewBanForAccount(AccountViewModel? avm)
         {
             if (avm?.Model == null) return;
-            string notice = !string.IsNullOrWhiteSpace(avm.BanNoticeText) ? avm.BanNoticeText : "Tài khoản bị kiểm duyệt hoặc khóa";
-            StatusMessage = $"{avm.Username}: Đang mở trình duyệt In-App để xem thông báo ({notice})...";
+            string notice = !string.IsNullOrWhiteSpace(avm.BanNoticeText) ? avm.BanNoticeText : Shiro.Services.LocalizationService.Get("Auto_MainViewModelLau_487");
+            StatusMessage = Shiro.Services.LocalizationService.Format("Auto_MainViewModelLau_488", avm.Username, notice);
             ToastService.ShowWarning(
-                $"Xem lệnh Ban: {avm.Username}",
-                $"{notice}\nĐang mở trình duyệt In-App đã gắn phiên để xem chi tiết án phạt và mở khóa tài khoản...",
+                Shiro.Services.LocalizationService.Format("Auto_MainViewModelLau_489", avm.Username),
+                Shiro.Services.LocalizationService.Format("Auto_MainViewModelLau_490", notice),
                 4.0);
 
             if (OnFastReLoginRequested != null)
@@ -80,9 +80,9 @@ namespace Shiro.ViewModels
                 AppDispatcher.Post(() =>
                 {
                     if (closed)
-                        ToastService.ShowSuccess($"Đã đóng Roblox cho {username}.");
+                        ToastService.ShowSuccess(Shiro.Services.LocalizationService.Format("Auto_MainViewModelLau_491", username));
                     else
-                        ToastService.ShowInfo($"Tài khoản {username} không có tiến trình Roblox nào đang chạy.");
+                        ToastService.ShowInfo(Shiro.Services.LocalizationService.Format("Auto_MainViewModelLau_492", username));
                     RefreshLiveProcessStatus();
                 });
             });
@@ -107,7 +107,7 @@ namespace Shiro.ViewModels
             }
             else
             {
-                StatusMessage = "Vui lòng nhập Place ID hoặc link game hợp lệ trước khi vào Server!";
+                StatusMessage = Shiro.Services.LocalizationService.Get("Auto_MainViewModelLau_493");
             }
         }
 
@@ -177,10 +177,10 @@ namespace Shiro.ViewModels
                 var selected = _accounts.Where(a => a.IsSelected).ToList();
                 if (selected.Count == 0)
                 {
-                    string warnTitle = LocalizationService.IsEnglish ? "No Account Selected" : "Chưa chọn tài khoản";
+                    string warnTitle = LocalizationService.IsEnglish ? "No Account Selected" : Shiro.Services.LocalizationService.Get("Auto_MainViewModelLau_494");
                     string warnMsg = LocalizationService.IsEnglish
                         ? "Please select at least one account before opening Roblox Home!"
-                        : "Vui lòng tick chọn ít nhất một tài khoản trước khi mở Roblox Home!";
+                        : Shiro.Services.LocalizationService.Get("Auto_MainViewModelLau_495");
                     StatusMessage = warnMsg;
                     ToastService.ShowWarning(warnTitle, warnMsg);
                     return;
@@ -193,7 +193,7 @@ namespace Shiro.ViewModels
                 }
 
                 var models = selected.Where(a => a.Model != null).Select(a => a.Model).ToList();
-                AccountManager.SelectedAccounts = models;
+                AppSettings.SelectedAccounts = models;
                 AccountLauncherService.MultiLaunchHome();
             });
 
@@ -202,10 +202,10 @@ namespace Shiro.ViewModels
                 var selected = _accounts.Where(a => a.IsSelected).ToList();
                 if (selected.Count == 0)
                 {
-                    string warnTitle = LocalizationService.IsEnglish ? "No Account Selected" : "Chưa chọn tài khoản";
+                    string warnTitle = LocalizationService.IsEnglish ? "No Account Selected" : Shiro.Services.LocalizationService.Get("Auto_MainViewModelLau_494");
                     string warnMsg = LocalizationService.IsEnglish
                         ? "Please select at least one account in the Accounts tab before playing!"
-                        : "Chưa chọn tài khoản nào! Vui lòng tick chọn tài khoản ở tab 'Tài khoản' trước khi bấm Chơi / Vào Server.";
+                        : Shiro.Services.LocalizationService.Get("Auto_MainViewModelLau_496");
                     StatusMessage = warnMsg;
                     ToastService.ShowWarning(warnTitle, warnMsg);
                     return;
@@ -216,9 +216,9 @@ namespace Shiro.ViewModels
                 {
                     string pidWarn = LocalizationService.IsEnglish
                         ? "Please enter a valid Place ID or game link before joining!"
-                        : "Vui lòng nhập Place ID hoặc link game hợp lệ trước khi vào Server!";
+                        : Shiro.Services.LocalizationService.Get("Auto_MainViewModelLau_493");
                     StatusMessage = pidWarn;
-                    ToastService.ShowWarning(LocalizationService.IsEnglish ? "Invalid Place ID" : "Thiếu Place ID", pidWarn);
+                    ToastService.ShowWarning(LocalizationService.IsEnglish ? "Invalid Place ID" : Shiro.Services.LocalizationService.Get("Auto_MainViewModelLau_497"), pidWarn);
                     return;
                 }
 

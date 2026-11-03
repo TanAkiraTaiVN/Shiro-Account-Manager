@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.IO;
@@ -23,7 +23,7 @@ namespace Shiro.Tests
             // Raw 32-byte key
             byte[] raw32 = new byte[32];
             Random.Shared.NextBytes(raw32);
-            byte[] extractedRaw = VaultKeyRecoveryService.TryExtractKeyFromFileBytes(raw32);
+            byte[]? extractedRaw = VaultKeyRecoveryService.TryExtractKeyFromFileBytes(raw32);
             Assert.Equal(raw32, extractedRaw);
 
             // Invalid length (not 32, not DPAPI)
@@ -39,7 +39,7 @@ namespace Shiro.Tests
             Buffer.BlockCopy(dpapiHeader, 0, wrapped, 0, dpapiHeader.Length);
             Buffer.BlockCopy(protectedBlob, 0, wrapped, dpapiHeader.Length, protectedBlob.Length);
 
-            byte[] extractedDpapi = VaultKeyRecoveryService.TryExtractKeyFromFileBytes(wrapped);
+            byte[]? extractedDpapi = VaultKeyRecoveryService.TryExtractKeyFromFileBytes(wrapped);
             Assert.Equal(raw32, extractedDpapi);
         }
 
@@ -85,7 +85,7 @@ namespace Shiro.Tests
             byte[] encrypted = Cryptography.Encrypt("{\"accounts\":[]}", validKey);
 
             var candidates = new List<byte[]> { dummy1, validKey, dummy2 };
-            byte[] found = VaultKeyRecoveryService.TestCandidatesParallel(encrypted, candidates);
+            byte[]? found = VaultKeyRecoveryService.TestCandidatesParallel(encrypted, candidates);
 
             Assert.Equal(validKey, found);
 

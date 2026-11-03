@@ -193,8 +193,8 @@ namespace Shiro
                         try
                         {
                             bool resume = AppServices.Dialogs.ShowConfirmation(
-                                $"Lần đăng nhập lại hàng loạt trước chưa hoàn tất. Tiếp tục với {pending.Count} tài khoản còn lại?",
-                                "Tiếp tục đăng nhập lại");
+                                Shiro.Services.LocalizationService.Format("Auto_AccountManagerLi_009", pending.Count),
+                                Shiro.Services.LocalizationService.Get("Auto_AccountManagerLi_010"));
                             if (!resume)
                             {
                                 ReloginQueueStore.Clear();
@@ -210,7 +210,7 @@ namespace Shiro
                         }
                     });
                 }
-                catch (OperationCanceledException) { }
+                catch (OperationCanceledException) { /* canceled */ }
                 catch (Exception ex)
                 {
                     Program.Logger?.Debug($"[OfferResumeReloginQueue] {ex.Message}");
@@ -225,24 +225,24 @@ namespace Shiro
 
             shutdownRequested = true;
 
-            try { CancelLaunching(); } catch (Exception) { }
-            try { launchCoordinator?.Dispose(); } catch (Exception) { }
-            try { lifetimeCancellation?.Cancel(); } catch (Exception) { }
-            try { AutoCookieRefresh?.Stop(); } catch (Exception) { }
-            try { PresenceTimer?.Stop(); } catch (Exception) { }
-            try { AutoCookieRefresh?.Dispose(); } catch (Exception) { }
-            try { PresenceTimer?.Dispose(); } catch (Exception) { }
-            try { RobloxSingletonService.Stop(); } catch (Exception) { }
-            try { AntiAfkService.Stop(); } catch (Exception) { }
-            try { RobloxAudioService.ConfigureSmartMute(false); } catch (Exception) { }
-            try { RobloxWatcher.Stop(); } catch (Exception) { }
-            try { MemoryOptimizer.ConfigureAutoTrim(false); } catch (Exception) { }
-            try { RobloxJobObjectService.Close(); } catch (Exception) { }
-            try { RobloxWindowService.ShowAllWindows(); } catch (Exception) { }
-            try { Task.Run(() => AltManagerWS?.StopAsync()).Wait(TimeSpan.FromSeconds(3)); } catch (Exception) { }
-            try { RobloxDirectLauncher.RestoreOriginalCookies(); } catch (Exception) { }
-            try { AccountRuntimeStateStore.Flush(); } catch (Exception) { }
-            try { DiscordRpcService.Default.Dispose(); } catch (Exception) { }
+            SafeExecuteHelper.Try(CancelLaunching);
+            SafeExecuteHelper.Try(() => launchCoordinator?.Dispose());
+            SafeExecuteHelper.Try(() => lifetimeCancellation?.Cancel());
+            SafeExecuteHelper.Try(() => AutoCookieRefresh?.Stop());
+            SafeExecuteHelper.Try(() => PresenceTimer?.Stop());
+            SafeExecuteHelper.Try(() => AutoCookieRefresh?.Dispose());
+            SafeExecuteHelper.Try(() => PresenceTimer?.Dispose());
+            SafeExecuteHelper.Try(RobloxSingletonService.Stop);
+            SafeExecuteHelper.Try(AntiAfkService.Stop);
+            SafeExecuteHelper.Try(() => RobloxAudioService.ConfigureSmartMute(false));
+            SafeExecuteHelper.Try(RobloxWatcher.Stop);
+            SafeExecuteHelper.Try(() => MemoryOptimizer.ConfigureAutoTrim(false));
+            SafeExecuteHelper.Try(RobloxJobObjectService.Close);
+            SafeExecuteHelper.Try(RobloxWindowService.ShowAllWindows);
+            SafeExecuteHelper.Try(() => { if (AltManagerWS != null) _ = AltManagerWS.StopAsync(); });
+            SafeExecuteHelper.Try(() => RobloxDirectLauncher.RestoreOriginalCookies());
+            SafeExecuteHelper.Try(() => AccountRuntimeStateStore.Flush());
+            SafeExecuteHelper.Try(DiscordRpcService.Default.Dispose);
 
             try
             {
@@ -266,7 +266,7 @@ namespace Shiro
                 Program.Logger?.Warn($"Settings save on shutdown threw: {ex.Message}");
             }
 
-            try { StoragePaths.ClearCachedVaultKey(); } catch (Exception) { }
+            SafeExecuteHelper.Try(StoragePaths.ClearCachedVaultKey);
 
             shutdownFinalized = true;
 
@@ -299,7 +299,7 @@ namespace Shiro
             {
                 if (AutoCookieRefresh != null)
                 {
-                    try { AutoCookieRefresh.Dispose(); } catch { }
+                    SafeExecuteHelper.Try(AutoCookieRefresh.Dispose);
                     AutoCookieRefresh = null;
                 }
             }

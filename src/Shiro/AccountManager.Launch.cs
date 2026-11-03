@@ -206,7 +206,7 @@ namespace Shiro
             }
             catch (OperationCanceledException)
             {
-                SetDashboardStatus("Đã hủy hàng đợi khởi chạy.");
+                SetDashboardStatus(Shiro.Services.LocalizationService.Get("Launch_QueueCancelled"));
             }
         }
 

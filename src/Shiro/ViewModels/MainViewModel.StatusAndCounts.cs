@@ -14,6 +14,7 @@ namespace Shiro.ViewModels
         private int _inGameCount;
         private int _readyCount;
         private int _expiredCount;
+        private int _bannedCount;
         private int _pinnedCount;
         private int _selectedCount;
         private long _totalRobuxCount;
@@ -25,6 +26,8 @@ namespace Shiro.ViewModels
         public int ReadyCount => _readyCount;
         public int ExpiredCount => _expiredCount;
         public bool HasExpiredAccounts => _expiredCount > 0;
+        public int BannedCount => _bannedCount;
+        public bool HasBannedAccounts => _bannedCount > 0;
         public int PinnedCount => _pinnedCount;
         public int SelectedCount => _selectedCount;
         public bool HasSelection => _selectedCount > 0;
@@ -74,7 +77,9 @@ namespace Shiro.ViewModels
             if (refreshFilterAndCounts)
             {
                 NotifyCounts();
-                if (ActiveTab == AccountFilterTab.Expired || ActiveTab == AccountFilterTab.Ready)
+                if (ActiveTab == AccountFilterTab.Expired ||
+                    ActiveTab == AccountFilterTab.Banned ||
+                    ActiveTab == AccountFilterTab.Ready)
                 {
                     ApplyFilter();
                 }
@@ -213,7 +218,7 @@ namespace Shiro.ViewModels
                 return;
 
             int total = _accounts.Count;
-            int inGame = 0, ready = 0, expired = 0, pinned = 0, selected = 0;
+            int inGame = 0, ready = 0, expired = 0, banned = 0, pinned = 0, selected = 0;
             long robux = 0;
 
             for (int i = 0; i < total; i++)
@@ -221,7 +226,8 @@ namespace Shiro.ViewModels
                 var a = _accounts[i];
                 if (a.IsInGame) inGame++;
                 else if (a.Valid) ready++;
-                if (a.IsExpired) expired++;
+                if (a.IsBannedOrLocked) banned++;
+                else if (a.IsExpired) expired++;
                 if (a.Pinned) pinned++;
                 if (a.IsSelected) selected++;
                 if (a.RobuxBalance > 0) robux += a.RobuxBalance;
@@ -236,6 +242,13 @@ namespace Shiro.ViewModels
                 _expiredCount = expired;
                 OnPropertyChanged(nameof(ExpiredCount));
                 if (hadExpired != (expired > 0)) OnPropertyChanged(nameof(HasExpiredAccounts));
+            }
+            if (_bannedCount != banned)
+            {
+                bool hadBanned = _bannedCount > 0;
+                _bannedCount = banned;
+                OnPropertyChanged(nameof(BannedCount));
+                if (hadBanned != (banned > 0)) OnPropertyChanged(nameof(HasBannedAccounts));
             }
             if (_pinnedCount != pinned) { _pinnedCount = pinned; OnPropertyChanged(nameof(PinnedCount)); }
             if (_selectedCount != selected)

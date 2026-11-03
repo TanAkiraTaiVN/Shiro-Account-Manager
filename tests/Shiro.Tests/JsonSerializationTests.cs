@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using Shiro.Classes;
 using Shiro.Nexus;
@@ -109,6 +109,7 @@ namespace Shiro.Tests
             Assert.Equal("e45a2cbb-3e28-4ef6-bb4d-6169ce3309a9", server.id);
             Assert.Equal(20, server.maxPlayers);
             Assert.Equal(18, server.playing);
+            Assert.NotNull(server.playerTokens);
             Assert.Equal(2, server.playerTokens.Count);
             Assert.Equal("59.8", server.fps);
             Assert.Equal(42, server.ping);
@@ -141,6 +142,7 @@ namespace Shiro.Tests
             bool success = Utilities.FastJson.TryDeserialize<ThumbnailBatchResponse>(batchResponseJson, out var batch);
             Assert.True(success);
             Assert.NotNull(batch);
+            Assert.NotNull(batch.Data);
             Assert.Equal(2, batch.Data.Count);
 
             Assert.Equal(12345678, batch.Data[0].TargetId);

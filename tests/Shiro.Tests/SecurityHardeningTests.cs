@@ -42,8 +42,8 @@ namespace Shiro.Tests
             Assert.True(AccountManager.FixedTimeEqualsPassword("secret123", "secret123"));
             Assert.False(AccountManager.FixedTimeEqualsPassword("secret123", "secret124"));
             Assert.False(AccountManager.FixedTimeEqualsPassword("short", "longer-password"));
-            Assert.False(AccountManager.FixedTimeEqualsPassword(null, "x"));
-            Assert.False(AccountManager.FixedTimeEqualsPassword("x", null));
+            Assert.False(AccountManager.FixedTimeEqualsPassword(null!, "x"));
+            Assert.False(AccountManager.FixedTimeEqualsPassword("x", null!));
         }
 
         [Fact]

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Net;
 using System.Net.Http;
 using System.Threading;
@@ -20,7 +20,7 @@ namespace Shiro.Tests
             string validCookie = "_|WARNING:-DO-NOT-SHARE-THIS.--Sharing-this-will-allow-someone-to-log-in-as-you-and-to-steal-your-ROBUX-and-items.|_1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF";
             string setCookieHeader = $".ROBLOSECURITY={validCookie}; path=/; domain=.roblox.com; HttpOnly";
 
-            string extracted = Account.ExtractRoblosecurityFromSetCookie(setCookieHeader);
+            string? extracted = Account.ExtractRoblosecurityFromSetCookie(setCookieHeader);
 
             Assert.NotNull(extracted);
             Assert.Equal(validCookie, extracted);

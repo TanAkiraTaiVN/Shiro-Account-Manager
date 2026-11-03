@@ -153,7 +153,7 @@ namespace Shiro.ViewModels
                         _mainViewModel.PlaceId = recent.PlaceId.ToString();
                         _mainViewModel.StatusMessage = LocalizationService.IsEnglish
                             ? $"Selected recent game: {recent.Name} ({recent.PlaceId})"
-                            : $"Đã chọn game gần đây: {recent.Name} ({recent.PlaceId})";
+                            : Shiro.Services.LocalizationService.Format("Auto_ServerListViewMo_552", recent.Name, recent.PlaceId);
                     }
                     SelectedSubTabIndex = 0;
                     _ = RefreshServersAsync();
@@ -174,13 +174,13 @@ namespace Shiro.ViewModels
                         {
                             _mainViewModel.StatusMessage = LocalizationService.IsEnglish
                                 ? $"Launching recent game: {recent.Name} ({recent.PlaceId})"
-                                : $"Đang khởi chạy game gần đây: {recent.Name} ({recent.PlaceId})";
+                                : Shiro.Services.LocalizationService.Format("Auto_ServerListViewMo_553", recent.Name, recent.PlaceId);
                         }
                         else
                         {
                             LoadingStatus = LocalizationService.IsEnglish
                                 ? "Please select at least one account in the Accounts tab first!"
-                                : "Vui lòng tick chọn tài khoản ở tab 'Tài khoản' trước khi bấm Chơi!";
+                                : Shiro.Services.LocalizationService.Get("Auto_ServerListViewMo_525");
                         }
                         _mainViewModel.JoinServerSelectedCommand?.Execute(null);
                     }

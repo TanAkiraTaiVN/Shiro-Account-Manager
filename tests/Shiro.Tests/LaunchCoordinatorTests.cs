@@ -36,7 +36,7 @@ namespace Shiro.Tests
         public void LaunchRequest_HandlesNullJobIdGracefully()
         {
             var account = new Account();
-            var request = new LaunchRequest(account, 123, null, false, false);
+            var request = new LaunchRequest(account, 123, null!, false, false);
 
             Assert.NotNull(request.JobId);
             Assert.Empty(request.JobId);
@@ -120,7 +120,7 @@ namespace Shiro.Tests
         public async System.Threading.Tasks.Task LegacyLaunchCoordinator_ClassifiesOnlyExactSuccess(string? result, LaunchOutcome expected)
         {
             var request = new LaunchRequest(new Account { Username = "Player" }, 123, "", false, false);
-            var coordinator = new LaunchCoordinator((req, ct) => System.Threading.Tasks.Task.FromResult(result));
+            var coordinator = new LaunchCoordinator((req, ct) => System.Threading.Tasks.Task.FromResult(result!));
 
             var batchResult = await coordinator.EnqueueAsync(
                 new[] { request },

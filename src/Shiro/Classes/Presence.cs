@@ -223,7 +223,7 @@ namespace Shiro.Classes
 
         public static string GetStatusText(Account? account, bool isLaunching = false)
         {
-            if (account != null && !account.Valid) return "● Hết hạn phiên (Re-login)";
+            if (account != null && !account.Valid) return Shiro.Services.LocalizationService.Get("Auto_Presence_197");
             if (isLaunching) return "● Launching…";
             if (AppSettings.General == null || !AppSettings.General.Get<bool>("ShowPresence")) return "● Ready";
             if (account?.Presence == null) return "● Checking…";

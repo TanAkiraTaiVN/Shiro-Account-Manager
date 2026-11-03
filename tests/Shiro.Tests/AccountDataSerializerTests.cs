@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
@@ -112,7 +112,7 @@ namespace Shiro.Tests
             Assert.False(req1);
             Assert.Empty(emptyResult);
 
-            var nullResult = AccountDataSerializer.Deserialize(null, out bool req2);
+            var nullResult = AccountDataSerializer.Deserialize(null!, out bool req2);
             Assert.False(req2);
             Assert.Empty(nullResult);
         }

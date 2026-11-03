@@ -38,14 +38,14 @@ namespace Shiro.ViewModels
         {
             if (string.IsNullOrWhiteSpace(SearchPlayerUsername))
             {
-                PlayerSearchStatus = LocalizationService.IsEnglish ? "Please enter player username!" : "Vui lòng nhập tên người chơi (Username)!";
+                PlayerSearchStatus = LocalizationService.IsEnglish ? "Please enter player username!" : Shiro.Services.LocalizationService.Get("Auto_ServerListViewMo_531");
                 LoadingStatus = PlayerSearchStatus;
                 return;
             }
 
             if (!long.TryParse(PlaceIdInput, out long placeId) || placeId <= 0)
             {
-                PlayerSearchStatus = LocalizationService.IsEnglish ? "Please enter Place ID above first!" : "Vui lòng nhập Place ID ở trên trước!";
+                PlayerSearchStatus = LocalizationService.IsEnglish ? "Please enter Place ID above first!" : Shiro.Services.LocalizationService.Get("Auto_ServerListViewMo_532");
                 LoadingStatus = PlayerSearchStatus;
                 return;
             }
@@ -54,29 +54,29 @@ namespace Shiro.ViewModels
             var ct = cts.Token;
 
             IsSearchingPlayer = true;
-            PlayerSearchStatus = LocalizationService.IsEnglish ? $"Searching for player '{SearchPlayerUsername}'..." : $"Đang tìm người chơi '{SearchPlayerUsername}'...";
+            PlayerSearchStatus = LocalizationService.IsEnglish ? $"Searching for player '{SearchPlayerUsername}'..." : Shiro.Services.LocalizationService.Format("Auto_ServerListViewMo_533", SearchPlayerUsername);
             LoadingStatus = PlayerSearchStatus;
 
             try
             {
-                var (userFound, userId, _) = await AccountManager.GetUserIDAsync(SearchPlayerUsername.Trim(), ct);
+                var (userFound, userId, _) = await AppServices.AccountRepository.LookupUserIdAsync(SearchPlayerUsername.Trim(), ct);
                 ct.ThrowIfCancellationRequested();
 
                 if (!userFound)
                 {
-                    PlayerSearchStatus = LocalizationService.IsEnglish ? $"User ID not found for {SearchPlayerUsername}!" : $"Không tìm thấy User ID của {SearchPlayerUsername}!";
+                    PlayerSearchStatus = LocalizationService.IsEnglish ? $"User ID not found for {SearchPlayerUsername}!" : Shiro.Services.LocalizationService.Format("Auto_ServerListViewMo_534", SearchPlayerUsername);
                     LoadingStatus = PlayerSearchStatus;
                     return;
                 }
 
-                var thumbClient = AccountManager.ThumbnailsClient ?? new RestClient("https://thumbnails.roblox.com");
+                var thumbClient = AppServices.RobloxApi.Thumbnails;
                 var avReq = new RestRequest($"v1/users/avatar-headshot?size=48x48&format=png&userIds={userId}", Method.Get);
                 var avResp = await thumbClient.ExecuteAsync(avReq, ct);
                 ct.ThrowIfCancellationRequested();
 
                 if (!avResp.IsSuccessful || string.IsNullOrEmpty(avResp.Content))
                 {
-                    PlayerSearchStatus = LocalizationService.IsEnglish ? "Could not fetch player avatar!" : "Không thể lấy avatar người chơi!";
+                    PlayerSearchStatus = LocalizationService.IsEnglish ? "Could not fetch player avatar!" : Shiro.Services.LocalizationService.Get("Auto_ServerListViewMo_535");
                     LoadingStatus = PlayerSearchStatus;
                     return;
                 }
@@ -86,13 +86,13 @@ namespace Shiro.ViewModels
 
                 if (string.IsNullOrEmpty(targetAvatarUrl))
                 {
-                    PlayerSearchStatus = LocalizationService.IsEnglish ? "Player avatar does not exist!" : "Avatar người chơi không tồn tại!";
+                    PlayerSearchStatus = LocalizationService.IsEnglish ? "Player avatar does not exist!" : Shiro.Services.LocalizationService.Get("Auto_ServerListViewMo_536");
                     LoadingStatus = PlayerSearchStatus;
                     return;
                 }
 
                 bool populateInitialServers = _servers.Count == 0;
-                var gamesClient = AccountManager.GamesClient ?? new RestClient("https://games.roblox.com");
+                var gamesClient = AppServices.RobloxApi.Games;
                 string cursor = "_";
                 ServerData? matchedServer = null;
                 int scannedServers = 0;
@@ -168,7 +168,7 @@ namespace Shiro.ViewModels
 
                     PlayerSearchStatus = LocalizationService.IsEnglish
                         ? $"Scanning {scannedServers} servers for '{SearchPlayerUsername}'..."
-                        : $"Đang quét {scannedServers} máy chủ tìm '{SearchPlayerUsername}'...";
+                        : Shiro.Services.LocalizationService.Format("Auto_ServerListViewMo_537", scannedServers, SearchPlayerUsername);
                     LoadingStatus = PlayerSearchStatus;
 
                     // Process packed batches with bounded concurrency (up to 3 requests in flight)
@@ -243,23 +243,23 @@ namespace Shiro.ViewModels
                     SelectServerJobId(matchVm);
                     PlayerSearchStatus = LocalizationService.IsEnglish
                         ? $"FOUND! {SearchPlayerUsername} is in server: {matchedServer.id}"
-                        : $"TÌM THẤY! {SearchPlayerUsername} đang ở server: {matchedServer.id}";
+                        : Shiro.Services.LocalizationService.Format("Auto_ServerListViewMo_538", SearchPlayerUsername, matchedServer.id);
                     LoadingStatus = PlayerSearchStatus;
                 }
                 else
                 {
-                    PlayerSearchStatus = LocalizationService.IsEnglish ? $"Player '{SearchPlayerUsername}' was not found in current public servers." : $"Không tìm thấy '{SearchPlayerUsername}' trong server nào.";
+                    PlayerSearchStatus = LocalizationService.IsEnglish ? $"Player '{SearchPlayerUsername}' was not found in current public servers." : Shiro.Services.LocalizationService.Format("Auto_ServerListViewMo_539", SearchPlayerUsername);
                     LoadingStatus = PlayerSearchStatus;
                 }
             }
             catch (OperationCanceledException)
             {
-                PlayerSearchStatus = LocalizationService.IsEnglish ? "Player search cancelled." : "Đã hủy tìm kiếm người chơi.";
+                PlayerSearchStatus = LocalizationService.IsEnglish ? "Player search cancelled." : Shiro.Services.LocalizationService.Get("Auto_ServerListViewMo_540");
                 LoadingStatus = PlayerSearchStatus;
             }
             catch (Exception ex)
             {
-                PlayerSearchStatus = LocalizationService.IsEnglish ? $"Search error: {ex.Message}" : $"Lỗi tìm kiếm: {ex.Message}";
+                PlayerSearchStatus = LocalizationService.IsEnglish ? $"Search error: {ex.Message}" : Shiro.Services.LocalizationService.Format("Auto_ServerListViewMo_541", ex.Message);
                 LoadingStatus = PlayerSearchStatus;
             }
             finally

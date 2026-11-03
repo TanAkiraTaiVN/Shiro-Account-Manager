@@ -23,7 +23,7 @@ namespace Shiro.AvaloniaUI.Views
             _redirectedFromUnauthenticatedModeration = true;
 
             var currentAcc = GetCurrentQueueAccount();
-            string accName = currentAcc?.Username ?? _username ?? "Tài khoản";
+            string accName = currentAcc?.Username ?? _username ?? Shiro.Services.LocalizationService.Get("Nav_Accounts");
             if (currentAcc != null)
             {
                 currentAcc.Valid = false;
@@ -32,9 +32,9 @@ namespace Shiro.AvaloniaUI.Views
                 MainWindow.Instance?.ViewModel?.UpdateAccountValidity(currentAcc, false);
             }
 
-            TxtInAppStatus.Text = $"{accName}: Phiên cũ đã hết hạn (9002). Đang mở trang đăng nhập...";
+            TxtInAppStatus.Text = Shiro.Services.LocalizationService.Format("Auto_FastLoginDialogS_074", accName);
             TxtInAppStatus.Foreground = Brushes.DeepSkyBlue;
-            AppSettings.SetDashboardStatus($"{accName}: Phiên cookie đã hết hạn, đang chuyển sang đăng nhập...");
+            AppSettings.SetDashboardStatus(Shiro.Services.LocalizationService.Format("Auto_FastLoginDialogS_075", accName));
 
             try
             {
@@ -61,7 +61,7 @@ namespace Shiro.AvaloniaUI.Views
         private async Task MarkCurrentAccountIssueAndSkipAsync(string issueBadge, string statusReason)
         {
             var currentAcc = GetCurrentQueueAccount();
-            string accName = currentAcc?.Username ?? _username ?? "Tài khoản";
+            string accName = currentAcc?.Username ?? _username ?? Shiro.Services.LocalizationService.Get("Nav_Accounts");
             if (currentAcc != null)
             {
                 currentAcc.Valid = false;
@@ -100,7 +100,7 @@ namespace Shiro.AvaloniaUI.Views
 
                 LoadAccountAtIndex(_currentQueueIndex + 1);
                 _captured = true;
-                TxtInAppStatus.Text = $"Chuyển sang {_username} ({_currentQueueIndex + 1}/{_accountQueue.Count})...";
+                TxtInAppStatus.Text = Shiro.Services.LocalizationService.Format("Auto_FastLoginDialogS_076", _username, _currentQueueIndex + 1, _accountQueue.Count);
                 TxtInAppStatus.Foreground = Brushes.DeepSkyBlue;
 
                 if (WvBrowser != null)
@@ -142,7 +142,7 @@ namespace Shiro.AvaloniaUI.Views
                 {
                     var (b, r) = await DetectDomAccountIssueAsync(core);
                     if (b == "UNAUTHENTICATED_MODERATION") { await RedirectUnauthenticatedModerationToLoginAsync(core); return; }
-                    await MarkCurrentAccountIssueAndSkipAsync(b ?? "Bị khóa / Ban", r ?? "Tài khoản bị khóa hoặc kiểm duyệt");
+                    await MarkCurrentAccountIssueAndSkipAsync(b ?? Shiro.Services.LocalizationService.Get("Auto_FastLoginDialogS_078"), r ?? Shiro.Services.LocalizationService.Get("Auto_FastLoginDialogS_077"));
                     return;
                 }
 
@@ -181,7 +181,7 @@ namespace Shiro.AvaloniaUI.Views
                     _ignoredCookieValues.Add(fp);
                     Program.Logger.Info($"[FastLogin] .ROBLOSECURITY detected for '{_username}' (len={secCookie.Value.Length}, url={core.Source}). Waiting for settle...");
 
-                    TxtInAppStatus.Text = $"Đã bắt phiên {_username ?? "tài khoản"}! Đang chờ xoay Cookie & lưu...";
+                    TxtInAppStatus.Text = Shiro.Services.LocalizationService.Format("Auto_FastLoginDialogS_079", _username ?? Shiro.Services.LocalizationService.Get("Dash_AccountsUnit"));
                     TxtInAppStatus.Foreground = Brushes.LightGreen;
 
                     for (int w = 0; w < 24; w++)
@@ -194,7 +194,7 @@ namespace Shiro.AvaloniaUI.Views
                             await Task.Delay(700);
                             var (b, r) = await DetectDomAccountIssueAsync(core);
                             if (b == "UNAUTHENTICATED_MODERATION") { await RedirectUnauthenticatedModerationToLoginAsync(core); return; }
-                            await MarkCurrentAccountIssueAndSkipAsync(b ?? "Bị khóa / Ban", r ?? "Tài khoản bị khóa hoặc kiểm duyệt");
+                            await MarkCurrentAccountIssueAndSkipAsync(b ?? Shiro.Services.LocalizationService.Get("Auto_FastLoginDialogS_078"), r ?? Shiro.Services.LocalizationService.Get("Auto_FastLoginDialogS_077"));
                             return;
                         }
                         if (!string.IsNullOrEmpty(navUrl) && !navUrl.Contains("/login", StringComparison.OrdinalIgnoreCase)) break;
@@ -210,7 +210,7 @@ namespace Shiro.AvaloniaUI.Views
                         if (qAcc != null) qAcc.SecurityToken = secCookie.Value;
                         var (b, r) = await DetectDomAccountIssueAsync(core);
                         if (b == "UNAUTHENTICATED_MODERATION") { await RedirectUnauthenticatedModerationToLoginAsync(core); return; }
-                        await MarkCurrentAccountIssueAndSkipAsync(b ?? "Bị khóa / Ban", r ?? "Tài khoản bị khóa hoặc kiểm duyệt");
+                        await MarkCurrentAccountIssueAndSkipAsync(b ?? Shiro.Services.LocalizationService.Get("Auto_FastLoginDialogS_078"), r ?? Shiro.Services.LocalizationService.Get("Auto_FastLoginDialogS_077"));
                         return;
                     }
 
@@ -312,7 +312,7 @@ namespace Shiro.AvaloniaUI.Views
 
                             string progressTag = _accountQueue.Count > 1 ? $" ({_currentQueueIndex + 1}/{_accountQueue.Count})" : "";
                             if (captureOutcome.Account != null && !Account.IsShortLivedCookie(captureOutcome.Account.SecurityToken))
-                                AppSettings.SetDashboardStatus($"Đăng nhập In-App thành công{progressTag}: {captureOutcome.Account.Username}!");
+                                AppSettings.SetDashboardStatus(Shiro.Services.LocalizationService.Format("Auto_FastLoginDialogS_080", progressTag, captureOutcome.Account.Username));
 
                             await AdvanceToNextAccountOrCloseAsync();
                             return;
@@ -339,8 +339,8 @@ namespace Shiro.AvaloniaUI.Views
 
                         case FastLoginCaptureStatus.AccountIssue:
                             await MarkCurrentAccountIssueAndSkipAsync(
-                                captureOutcome.IssueBadge ?? "Bị khóa / Ban",
-                                captureOutcome.Reason ?? "Phiên bị khóa hoặc kiểm duyệt");
+                                captureOutcome.IssueBadge ?? Shiro.Services.LocalizationService.Get("Auto_FastLoginDialogS_078"),
+                                captureOutcome.Reason ?? Shiro.Services.LocalizationService.Get("Auto_FastLoginDialogS_081"));
                             return;
 
                         default:

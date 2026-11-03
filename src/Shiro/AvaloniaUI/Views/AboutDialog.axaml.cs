@@ -27,7 +27,7 @@ namespace Shiro.AvaloniaUI.Views
                 TxtMemory.Text = $"{memMb} MB (Working Set)";
 
                 int count = AppServices.AccountRepository.Count;
-                TxtAccountCount.Text = $"{count} tài khoản";
+                TxtAccountCount.Text = Shiro.Services.LocalizationService.Format("Auto_AboutDialogaxaml_034", count);
             }
             catch (Exception ex)
             {

@@ -130,7 +130,7 @@ namespace Shiro.Services
         public static (int arrangedCount, string description) ArrangeWindows(RobloxWindowLayoutMode mode)
         {
             if (!OperatingSystem.IsWindows())
-                return (0, LocalizationService.IsEnglish ? "Supported on Windows only." : "Chỉ hỗ trợ trên Windows.");
+                return (0, LocalizationService.IsEnglish ? "Supported on Windows only." : Shiro.Services.LocalizationService.Get("Auto_RobloxWindowArra_342"));
 
             if (mode != RobloxWindowLayoutMode.CascadeCorner)
             {
@@ -153,7 +153,7 @@ namespace Shiro.Services
             {
                 return (0, LocalizationService.IsEnglish
                     ? "No running Roblox clients found."
-                    : "Không tìm thấy client Roblox nào đang chạy.");
+                    : Shiro.Services.LocalizationService.Get("Auto_RobloxWindowArra_343"));
             }
 
             var pidSet = new HashSet<uint>(runningPids.Where(p => p > 0).Select(p => (uint)p));
@@ -162,7 +162,7 @@ namespace Shiro.Services
             {
                 return (0, LocalizationService.IsEnglish
                     ? "No active Roblox windows found."
-                    : "Không tìm thấy cửa sổ Roblox nào.");
+                    : Shiro.Services.LocalizationService.Get("Auto_RobloxWindowArra_344"));
             }
 
             var workArea = RobloxWindowService.GetTargetWorkArea();
@@ -182,7 +182,7 @@ namespace Shiro.Services
 
             string desc = LocalizationService.IsEnglish
                 ? $"Corner Cascade ({arranged} windows)"
-                : $"Thu gọn góc ({arranged} cửa sổ)";
+                : Shiro.Services.LocalizationService.Format("Auto_RobloxWindowArra_345", arranged);
             return (arranged, desc);
         }
 

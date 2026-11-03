@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -123,7 +123,7 @@ namespace Shiro
             if (UpdateMultiRoblox())
             {
                 if (notify)
-                    SetDashboardStatus("Multi Roblox đang hoạt động.");
+                    SetDashboardStatus(Shiro.Services.LocalizationService.Get("Auto_AccountManagerPr_029"));
                 return true;
             }
 
@@ -134,7 +134,7 @@ namespace Shiro
                 if (UpdateMultiRoblox())
                 {
                     if (notify)
-                        SetDashboardStatus("Đã tự động tắt Roblox và kích hoạt Multi Roblox.");
+                        SetDashboardStatus(Shiro.Services.LocalizationService.Get("Auto_AccountManagerPr_030"));
                     return true;
                 }
             }
@@ -142,7 +142,7 @@ namespace Shiro
             if (General.Get<bool>("HideRbxAlert"))
             {
                 if (notify)
-                    SetDashboardStatus("Roblox đang chạy. Multi Roblox chưa kích hoạt.");
+                    SetDashboardStatus(Shiro.Services.LocalizationService.Get("Auto_AccountManagerPr_031"));
                 return false;
             }
 
@@ -165,20 +165,20 @@ namespace Shiro
                         if (UpdateMultiRoblox())
                         {
                             if (notify)
-                                SetDashboardStatus("Đã tắt Roblox và kích hoạt Multi Roblox.");
+                                SetDashboardStatus(Shiro.Services.LocalizationService.Get("Auto_AccountManagerMo_023"));
                             return true;
                         }
                     }
                     else
                     {
                         if (notify)
-                            SetDashboardStatus("Không thể kích hoạt Multi Roblox do Roblox vẫn đang mở.");
+                            SetDashboardStatus(Shiro.Services.LocalizationService.Get("Auto_AccountManagerPr_032"));
                     }
                 }
                 else
                 {
                     if (notify)
-                        SetDashboardStatus("Roblox đang chạy. Multi Roblox chưa kích hoạt.");
+                        SetDashboardStatus(Shiro.Services.LocalizationService.Get("Auto_AccountManagerPr_031"));
                     return false;
                 }
             }
@@ -234,6 +234,7 @@ namespace Shiro
                 }
                 catch (OperationCanceledException)
                 {
+                    /* canceled */
                 }
                 catch (Exception ex)
                 {

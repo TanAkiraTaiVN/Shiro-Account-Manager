@@ -153,7 +153,7 @@ namespace Shiro.Services
                 catch (Exception ex)
                 {
                     Program.Logger?.Error($"Failed to open Nexus: {ex}");
-                    ShowError($"Không thể mở bảng điều khiển Nexus: {ex.Message}", "Lỗi Nexus");
+                    ShowError(Shiro.Services.LocalizationService.Format("Auto_AvaloniaDialogSe_340", ex.Message), Shiro.Services.LocalizationService.Get("Auto_AvaloniaDialogSe_339"));
                 }
             });
         }

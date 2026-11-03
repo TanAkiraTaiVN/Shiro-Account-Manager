@@ -47,7 +47,7 @@ namespace Shiro.AvaloniaUI.Views
             string key = TxtApiKey.Text?.Trim() ?? string.Empty;
             if (string.IsNullOrWhiteSpace(key))
             {
-                TxtStatus.Text = "Vui lòng nhập API Key từ BloxGen.";
+                TxtStatus.Text = Shiro.Services.LocalizationService.Get("Auto_AltGenDialogaxam_050");
                 return;
             }
 
@@ -61,7 +61,7 @@ namespace Shiro.AvaloniaUI.Views
             BloxGenService.Default.DefaultContinent = continent;
 
             BtnGenerate.IsEnabled = false;
-            TxtStatus.Text = "Đang kết nối tới BloxGen API để tạo tài khoản...";
+            TxtStatus.Text = Shiro.Services.LocalizationService.Get("Auto_AltGenDialogaxam_051");
             BrdResult.IsVisible = false;
 
             try
@@ -72,26 +72,26 @@ namespace Shiro.AvaloniaUI.Views
                     bool imported = BloxGenService.Default.ImportAccountToShiro(result.Account, group);
 
                     TxtResultUser.Text = result.Account.Username;
-                    TxtResultId.Text = result.Account.UserId > 0 ? result.Account.UserId.ToString() : "(Đang nạp)";
-                    TxtResultPass.Text = !string.IsNullOrWhiteSpace(result.Account.Password) ? result.Account.Password : "(Không có)";
+                    TxtResultId.Text = result.Account.UserId > 0 ? result.Account.UserId.ToString() : Shiro.Services.LocalizationService.Get("Auto_AltGenDialogaxam_052");
+                    TxtResultPass.Text = !string.IsNullOrWhiteSpace(result.Account.Password) ? result.Account.Password : Shiro.Services.LocalizationService.Get("Auto_AltGenDialogaxam_053");
                     BrdResult.IsVisible = true;
 
                     TxtStatus.Text = imported
-                        ? $"Tạo thành công! Đã tự động thêm vào nhóm '{group}' trong Shiro."
-                        : "Tạo thành công từ BloxGen nhưng không thể lưu vào Shiro.";
+                        ? Shiro.Services.LocalizationService.Format("Auto_AltGenDialogaxam_054", group)
+                        : Shiro.Services.LocalizationService.Get("Auto_AltGenDialogaxam_055");
 
-                    ToastService.ShowSuccess("Tạo Alt thành công", $"Tài khoản {result.Account.Username} đã được thêm vào Shiro!");
+                    ToastService.ShowSuccess(Shiro.Services.LocalizationService.Get("Auto_AltGenDialogaxam_056"), Shiro.Services.LocalizationService.Format("Auto_AltGenDialogaxam_057", result.Account.Username));
                 }
                 else
                 {
-                    TxtStatus.Text = $"Thất bại: {result.ErrorMessage ?? "Lỗi không xác định"}";
-                    ToastService.ShowError("Tạo Alt thất bại", result.ErrorMessage ?? "Không thể tạo tài khoản từ BloxGen.");
+                    TxtStatus.Text = Shiro.Services.LocalizationService.Format("Auto_AltGenDialogaxam_059", result.ErrorMessage ?? Shiro.Services.LocalizationService.Get("Auto_AltGenDialogaxam_058"));
+                    ToastService.ShowError(Shiro.Services.LocalizationService.Get("Auto_AltGenDialogaxam_061"), result.ErrorMessage ?? Shiro.Services.LocalizationService.Get("Auto_AltGenDialogaxam_060"));
                 }
             }
             catch (Exception ex)
             {
-                TxtStatus.Text = $"Lỗi: {ex.Message}";
-                ToastService.ShowError("Lỗi hệ thống", ex.Message);
+                TxtStatus.Text = Shiro.Services.LocalizationService.Format("Proxy_Dead", ex.Message);
+                ToastService.ShowError(Shiro.Services.LocalizationService.Get("Auto_AltGenDialogaxam_062"), ex.Message);
             }
             finally
             {
@@ -110,12 +110,12 @@ namespace Shiro.AvaloniaUI.Views
                 }
                 else
                 {
-                    TxtStatus.Text = "Chưa có lịch sử tạo tài khoản.";
+                    TxtStatus.Text = Shiro.Services.LocalizationService.Get("Auto_AltGenDialogaxam_063");
                 }
             }
             catch (Exception ex)
             {
-                TxtStatus.Text = $"Không thể mở file CSV: {ex.Message}";
+                TxtStatus.Text = Shiro.Services.LocalizationService.Format("Auto_AltGenDialogaxam_064", ex.Message);
             }
         }
 

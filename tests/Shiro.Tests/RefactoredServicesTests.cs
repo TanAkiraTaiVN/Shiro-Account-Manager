@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Threading.Tasks;
 using Xunit;
@@ -142,7 +142,7 @@ namespace Shiro.Tests
 
         private class TestPayload
         {
-            public string Name { get; set; }
+            public string Name { get; set; } = string.Empty;
             public int Value { get; set; }
         }
     }

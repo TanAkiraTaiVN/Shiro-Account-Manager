@@ -106,7 +106,7 @@ namespace Shiro.ViewModels
                     try
                     {
                         await BrowserService.Default.SignInAsync().ConfigureAwait(false);
-                        AppDispatcher.Post(() => LoadAccounts(AccountManager.GetAccountsSnapshot()));
+                        AppDispatcher.Post(() => LoadAccounts(AppServices.AccountRepository.GetAll()));
                     }
                     catch (Exception ex)
                     {
@@ -122,22 +122,22 @@ namespace Shiro.ViewModels
                     return;
                 }
 
-                string cookie = AppServices.Dialogs.ShowInputPrompt("Dán chuỗi Cookie .ROBLOSECURITY vào ô bên dưới:", "Nhập Cookie");
+                string cookie = AppServices.Dialogs.ShowInputPrompt(Shiro.Services.LocalizationService.Get("Auto_MainViewModelAcc_361"), Shiro.Services.LocalizationService.Get("Auto_MainViewModelAcc_360"));
                 if (!string.IsNullOrWhiteSpace(cookie) && cookie != "/UC")
                 {
                     _ = Task.Run(async () =>
                     {
-                        var acc = await AccountManager.AddAccountAsync(cookie.Trim()).ConfigureAwait(false);
+                        var acc = await AppServices.AccountRepository.AddOrUpdateAsync(cookie.Trim()).ConfigureAwait(false);
                         AppDispatcher.Post(() =>
                         {
                             if (acc != null)
                             {
-                                LoadAccounts(AccountManager.GetAccountsSnapshot());
-                                StatusMessage = $"Đã thêm tài khoản {acc.Username} qua Cookie thành công!";
+                                LoadAccounts(AppServices.AccountRepository.GetAll());
+                                StatusMessage = Shiro.Services.LocalizationService.Format("Auto_MainViewModelAcc_362", acc.Username);
                             }
                             else
                             {
-                                StatusMessage = "Cookie không hợp lệ hoặc đã hết hạn.";
+                                StatusMessage = Shiro.Services.LocalizationService.Get("Auto_MainViewModelAcc_363");
                             }
                         });
                     });
@@ -147,8 +147,8 @@ namespace Shiro.ViewModels
             {
                 bool ok = RobloxProcessService.ClearRobloxClientSession();
                 StatusMessage = ok
-                    ? "Đã xóa sạch session đăng nhập của Roblox Client."
-                    : "Không thể xóa session Roblox Client (có thể Roblox đang chạy).";
+                    ? Shiro.Services.LocalizationService.Get("Auto_MainViewModelAcc_364")
+                    : Shiro.Services.LocalizationService.Get("Auto_MainViewModelAcc_365");
             });
             BulkImportCommand = new RelayCommand(() =>
             {
@@ -199,9 +199,9 @@ namespace Shiro.ViewModels
                     _ = Task.Run(async () =>
                     {
                         bool ok = await a.Model.ValidateSessionAsync().ConfigureAwait(false);
-                        AccountManager.SaveAccounts(true);
+                        AppServices.AccountRepository.Save(true);
                         UpdateAccountValidity(a.Model, ok);
-                        PostStatusMessage(ok ? $"{a.Username}: Phiên đăng nhập hợp lệ!" : (a.Model.IsBannedOrLocked ? $"{a.Username}: {a.Model.AccountStatusIssue}!" : $"{a.Username}: Phiên đã hết hạn!"));
+                        PostStatusMessage(ok ? Shiro.Services.LocalizationService.Format("Auto_MainViewModelAcc_367", a.Username) : (a.Model.IsBannedOrLocked ? $"{a.Username}: {a.Model.AccountStatusIssue}!" : Shiro.Services.LocalizationService.Format("Auto_MainViewModelAcc_366", a.Username)));
                     });
                 }
             });
@@ -342,7 +342,7 @@ namespace Shiro.ViewModels
                 var selected = _accounts.Where(a => a.IsSelected).ToList();
                 if (selected.Count == 0)
                 {
-                    StatusMessage = "Vui lòng tick chọn ít nhất một tài khoản trước khi Re-login!";
+                    StatusMessage = Shiro.Services.LocalizationService.Get("Auto_MainViewModelAcc_368");
                     return;
                 }
                 if (OnReLoginSelectedRequested != null)
@@ -361,7 +361,7 @@ namespace Shiro.ViewModels
                 var selected = _accounts.Where(a => a.IsSelected).ToList();
                 if (selected.Count == 0)
                 {
-                    StatusMessage = "Vui lòng tick chọn ít nhất một tài khoản trước khi kiểm tra phiên!";
+                    StatusMessage = Shiro.Services.LocalizationService.Get("Auto_MainViewModelAcc_369");
                     return;
                 }
                 if (OnValidateSessionSelectedRequested != null) OnValidateSessionSelectedRequested.Invoke(selected);

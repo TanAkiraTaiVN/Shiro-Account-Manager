@@ -37,7 +37,7 @@ namespace Shiro.AvaloniaUI.Views
             }
             catch (Exception ex)
             {
-                ShowError($"Cập nhật thất bại: {ex.Message}");
+                ShowError(Shiro.Services.LocalizationService.Format("Auto_UpdaterWindowaxa_182", ex.Message));
             }
         }
 
@@ -55,8 +55,8 @@ namespace Shiro.AvaloniaUI.Views
         {
             AppDispatcher.Post(() =>
             {
-                TxtStatus.Text = "Đã xảy ra lỗi!";
-                TxtPercent.Text = "Lỗi";
+                TxtStatus.Text = Shiro.Services.LocalizationService.Get("Auto_UpdaterWindowaxa_183");
+                TxtPercent.Text = Shiro.Services.LocalizationService.Get("Status_Error");
                 TxtSubStatus.Text = message;
                 PnlErrorActions.IsVisible = true;
             });
@@ -66,9 +66,9 @@ namespace Shiro.AvaloniaUI.Views
         {
             AppDispatcher.Post(() =>
             {
-                TxtStatus.Text = "Hệ thống đã ở phiên bản mới nhất!";
+                TxtStatus.Text = Shiro.Services.LocalizationService.Get("Auto_UpdaterWindowaxa_184");
                 TxtPercent.Text = "100%";
-                TxtSubStatus.Text = "Không có bản cập nhật mới nào cần tải.";
+                TxtSubStatus.Text = Shiro.Services.LocalizationService.Get("Auto_UpdaterWindowaxa_185");
                 Close();
             });
         }
@@ -95,9 +95,9 @@ namespace Shiro.AvaloniaUI.Views
         {
             if (File.Exists(_fileName))
             {
-                SetStatus("Đang giải nén gói cập nhật...", "40%", 40);
+                SetStatus(Shiro.Services.LocalizationService.Get("Auto_UpdaterWindowaxa_186"), "40%", 40);
                 await Task.Run(() => ApplyLocalUpdateArchive(_fileName, _updatePath, StoragePaths.BaseDirectory));
-                SetStatus("Cập nhật hoàn tất! Đang khởi động lại...", "100%", 100);
+                SetStatus(Shiro.Services.LocalizationService.Get("Auto_UpdaterWindowaxa_187"), "100%", 100);
                 await Task.Delay(400);
 
                 string? mainExe = Environment.ProcessPath;
@@ -120,7 +120,7 @@ namespace Shiro.AvaloniaUI.Views
 
         private async Task CheckAndDownloadReleaseAsync()
         {
-            SetStatus("Đang kiểm tra bản cập nhật mới trên GitHub...", "20%", 20);
+            SetStatus(Shiro.Services.LocalizationService.Get("Auto_UpdaterWindowaxa_188"), "20%", 20);
             try
             {
                 var client = SharedHttpClient.Get();
@@ -132,7 +132,7 @@ namespace Shiro.AvaloniaUI.Views
                 {
                     AppDispatcher.Post(() =>
                     {
-                        SetStatus("Phiên bản hiện tại là mới nhất.", "100%", 100);
+                        SetStatus(Shiro.Services.LocalizationService.Get("Auto_UpdaterWindowaxa_189"), "100%", 100);
                         ShowComplete();
                     });
                     return;
@@ -166,7 +166,7 @@ namespace Shiro.AvaloniaUI.Views
 
                             if (!string.IsNullOrEmpty(downloadUrl))
                             {
-                                SetStatus($"Đang tải bản cập nhật v{cleanTag}...", "30%", 30);
+                                SetStatus(Shiro.Services.LocalizationService.Format("Auto_UpdaterWindowaxa_190", cleanTag), "30%", 30);
                                 using var downloadClient = new HttpClient { Timeout = TimeSpan.FromMinutes(5) };
                                 downloadClient.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "Shiro-Account-Manager");
                                 using var getResp = await downloadClient.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false);
@@ -185,14 +185,14 @@ namespace Shiro.AvaloniaUI.Views
                                         if (expectedSize > 0)
                                         {
                                             int pct = 30 + (int)((totalRead / (double)expectedSize) * 40.0);
-                                            SetStatus($"Đang tải bản cập nhật... ({totalRead / 1048576} MB)", $"{pct}%", pct);
+                                            SetStatus(Shiro.Services.LocalizationService.Format("Auto_UpdaterWindowaxa_191", totalRead / 1048576), $"{pct}%", pct);
                                         }
                                     }
                                 }
 
-                                SetStatus("Đang giải nén gói cập nhật...", "75%", 75);
+                                SetStatus(Shiro.Services.LocalizationService.Get("Auto_UpdaterWindowaxa_186"), "75%", 75);
                                 await Task.Run(() => ApplyLocalUpdateArchive(_fileName, _updatePath, StoragePaths.BaseDirectory));
-                                SetStatus("Cập nhật hoàn tất! Đang khởi động lại...", "100%", 100);
+                                SetStatus(Shiro.Services.LocalizationService.Get("Auto_UpdaterWindowaxa_187"), "100%", 100);
                                 await Task.Delay(400);
 
                                 string? mainExe = Environment.ProcessPath;
@@ -213,7 +213,7 @@ namespace Shiro.AvaloniaUI.Views
 
                 AppDispatcher.Post(() =>
                 {
-                    SetStatus("Hệ thống đã ở phiên bản mới nhất!", "100%", 100);
+                    SetStatus(Shiro.Services.LocalizationService.Get("Auto_UpdaterWindowaxa_184"), "100%", 100);
                     ShowComplete();
                 });
             }
@@ -222,7 +222,7 @@ namespace Shiro.AvaloniaUI.Views
                 Program.Logger?.Warn($"Update check failed: {ex.Message}");
                 AppDispatcher.Post(() =>
                 {
-                    SetStatus("Không thể kết nối đến máy chủ cập nhật.", "100%", 100);
+                    SetStatus(Shiro.Services.LocalizationService.Get("Auto_UpdaterWindowaxa_192"), "100%", 100);
                     ShowComplete();
                 });
             }

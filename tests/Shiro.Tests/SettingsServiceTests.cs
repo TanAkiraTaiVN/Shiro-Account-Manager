@@ -53,7 +53,7 @@ namespace Shiro.Tests
 
             bool boolVal = service.Get<bool>("General", "NonExistentKey123", true);
             int intVal = service.Get<int>("General", "NonExistentIntKey", 42);
-            string strVal = service.Get<string>("General", "NonExistentStrKey", "DefaultString");
+            string? strVal = service.Get<string>("General", "NonExistentStrKey", "DefaultString");
 
             Assert.True(boolVal);
             Assert.Equal(42, intVal);

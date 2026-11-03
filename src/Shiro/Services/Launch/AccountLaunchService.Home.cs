@@ -131,7 +131,7 @@ namespace Shiro.Services
             bool preferChrome = false,
             CancellationToken cancellationToken = default)
         {
-            if (account == null) return LaunchResult.Fail(LaunchOutcome.Failed, "ERROR: Tài khoản không hợp lệ.");
+            if (account == null) return LaunchResult.Fail(LaunchOutcome.Failed, Shiro.Services.LocalizationService.Get("Auto_AccountLaunchSer_230"));
             cancellationToken.ThrowIfCancellationRequested();
             if (preferChrome || AppSettings.General.Get<bool>("UseChromeHome", false))
                 return await LaunchHomeInChromeResultAsync(account, cancellationToken).ConfigureAwait(false);
@@ -207,9 +207,9 @@ namespace Shiro.Services
             else
             {
                 if (account.LastAuthTicketRateLimited)
-                    return LaunchResult.Fail(LaunchOutcome.RateLimited, "ERROR: Roblox đang giới hạn xác thực (HTTP 429). Hãy chờ một lúc hoặc đổi máy chủ VPN rồi thử lại.");
+                    return LaunchResult.Fail(LaunchOutcome.RateLimited, Shiro.Services.LocalizationService.Get("Auto_AccountLaunchSer_231"));
 
-                return LaunchResult.Fail(LaunchOutcome.TicketError, "ERROR: Không thể lấy Authentication Ticket từ Roblox. Phiên tài khoản vẫn được giữ nguyên, vui lòng kiểm tra Proton VPN hoặc thử lại sau.");
+                return LaunchResult.Fail(LaunchOutcome.TicketError, Shiro.Services.LocalizationService.Get("Auto_AccountLaunchSer_232"));
             }
         }
 
@@ -221,7 +221,7 @@ namespace Shiro.Services
 
         public async Task<LaunchResult> LaunchHomeInChromeResultAsync(Account account, CancellationToken cancellationToken = default)
         {
-            if (account == null) return LaunchResult.Fail(LaunchOutcome.Failed, "ERROR: Tài khoản không hợp lệ.");
+            if (account == null) return LaunchResult.Fail(LaunchOutcome.Failed, Shiro.Services.LocalizationService.Get("Auto_AccountLaunchSer_230"));
             try
             {
                 cancellationToken.ThrowIfCancellationRequested();

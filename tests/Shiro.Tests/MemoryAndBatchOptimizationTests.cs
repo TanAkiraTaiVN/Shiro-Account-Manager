@@ -15,8 +15,8 @@ namespace Shiro.Tests
         public void GetCommandLineByPid_CurrentProcess_ReturnsAndCachesCommandLine()
         {
             int currentPid = Environment.ProcessId;
-            string cmd1 = ProcessExtensions.GetCommandLineByPid(currentPid);
-            string cmd2 = ProcessExtensions.GetCommandLineByPid(currentPid);
+            string? cmd1 = ProcessExtensions.GetCommandLineByPid(currentPid);
+            string? cmd2 = ProcessExtensions.GetCommandLineByPid(currentPid);
 
             Assert.False(string.IsNullOrWhiteSpace(cmd1));
             Assert.Same(cmd1, cmd2);

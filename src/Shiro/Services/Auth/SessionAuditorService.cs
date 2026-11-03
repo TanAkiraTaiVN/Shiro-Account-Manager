@@ -141,7 +141,7 @@ namespace Shiro.Services
                     {
                         account.Valid = false;
                         if (string.IsNullOrEmpty(account.AccountStatusIssue))
-                            account.AccountStatusIssue = "Bị khóa / Ban";
+                            account.AccountStatusIssue = Shiro.Services.LocalizationService.Get("Auto_FastLoginDialogS_078");
                         string modDetails = "Account moderation / lock detected";
                         auditMessage = $"Account {account.Username} received moderation notice: {modDetails}";
                         WebhookNotificationService.EnqueueAlert(new WebhookAlert

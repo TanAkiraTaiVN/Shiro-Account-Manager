@@ -110,8 +110,8 @@ namespace Shiro.ViewModels
             var prev = Interlocked.Exchange(ref _gameLookupCts, null);
             if (prev != null)
             {
-                try { prev.Cancel(); } catch { }
-                try { prev.Dispose(); } catch { }
+                SafeExecuteHelper.Try(() => prev.Cancel(), "MainViewModel.ScheduleCurrentGameLookup.Cancel");
+                SafeExecuteHelper.Try(() => prev.Dispose(), "MainViewModel.ScheduleCurrentGameLookup.Dispose");
             }
 
             long placeId = AccountLauncherService.ParsePlaceId(rawPlaceId ?? string.Empty);
@@ -178,7 +178,7 @@ namespace Shiro.ViewModels
                             CurrentGameThumbnail = resolvedThumb;
                     });
                 }
-                catch (OperationCanceledException) { }
+                catch (OperationCanceledException) { /* lookup canceled */ }
                 catch (Exception ex)
                 {
                     Program.Logger?.Debug($"[ScheduleCurrentGameLookup] {ex.Message}");
@@ -340,11 +340,11 @@ namespace Shiro.ViewModels
         #region Item 5: Sort Mode Display
         public string CurrentSortLabel => SortMode switch
         {
-            AccountSortMode.NaturalDescending => LocalizationService.IsEnglish ? "Name Z → A" : "Tên Z → A",
-            AccountSortMode.Original => LocalizationService.IsEnglish ? "Original Order" : "Thứ tự gốc",
-            AccountSortMode.Status => LocalizationService.IsEnglish ? "Playing First" : "Đang chơi trước",
-            AccountSortMode.RobuxDescending => LocalizationService.IsEnglish ? "Robux High → Low" : "Robux cao → thấp",
-            _ => LocalizationService.IsEnglish ? "Name A → Z" : "Tên A → Z"
+            AccountSortMode.NaturalDescending => LocalizationService.IsEnglish ? "Name Z → A" : Shiro.Services.LocalizationService.Get("Auto_MainViewModelUiU_513"),
+            AccountSortMode.Original => LocalizationService.IsEnglish ? "Original Order" : Shiro.Services.LocalizationService.Get("Auto_MainViewModelUiU_514"),
+            AccountSortMode.Status => LocalizationService.IsEnglish ? "Playing First" : Shiro.Services.LocalizationService.Get("Auto_MainViewModelUiU_515"),
+            AccountSortMode.RobuxDescending => LocalizationService.IsEnglish ? "Robux High → Low" : Shiro.Services.LocalizationService.Get("Auto_MainViewModelUiU_516"),
+            _ => LocalizationService.IsEnglish ? "Name A → Z" : Shiro.Services.LocalizationService.Get("Auto_MainViewModelUiU_517")
         };
         #endregion
 
@@ -396,10 +396,10 @@ namespace Shiro.ViewModels
                 string accName = progress.Account?.Username ?? string.Empty;
                 BatchLaunchTitleText = LocalizationService.IsEnglish
                     ? $"Batch Queue ({index}/{total}): {accName}"
-                    : $"Hàng đợi khởi chạy ({index}/{total}): {accName}";
+                    : Shiro.Services.LocalizationService.Format("Auto_MainViewModelUiU_518", index, total, accName);
                 BatchLaunchDetailText = !string.IsNullOrWhiteSpace(progress.Message)
                     ? progress.Message!
-                    : (LocalizationService.IsEnglish ? "Preparing Roblox client..." : "Đang chuẩn bị mở client Roblox...");
+                    : (LocalizationService.IsEnglish ? "Preparing Roblox client..." : Shiro.Services.LocalizationService.Get("Auto_MainViewModelUiU_519"));
             }
         }
         #endregion

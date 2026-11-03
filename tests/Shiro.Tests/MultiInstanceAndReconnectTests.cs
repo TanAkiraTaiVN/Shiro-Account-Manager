@@ -155,7 +155,7 @@ namespace Shiro.Tests
         public void ProcessExtensions_GetCommandLine_WorksWithLimitedQueryInformation()
         {
             using var current = Process.GetCurrentProcess();
-            string cmdLine = current.GetCommandLine();
+            string? cmdLine = current.GetCommandLine();
 
             Assert.False(string.IsNullOrWhiteSpace(cmdLine));
         }
@@ -343,8 +343,8 @@ namespace Shiro.Tests
         public void Account_FindRobloxPlayerExecutablePublic_UsesCacheAndSupportsInvalidation()
         {
             Account.InvalidateExecutableCache();
-            string path1 = Account.FindRobloxPlayerExecutablePublic();
-            string path2 = Account.FindRobloxPlayerExecutablePublic();
+            string? path1 = Account.FindRobloxPlayerExecutablePublic();
+            string? path2 = Account.FindRobloxPlayerExecutablePublic();
             Assert.Equal(path1, path2);
         }
 
@@ -452,6 +452,22 @@ namespace Shiro.Tests
                 "2026-11-01T07:31:17.861Z,43.932,3dd0,6,Info [FLog::Output] ! Joining game '9ccfd18c-0a9f-4e64-b5c5-f6b64deefca1' place 109983668079237 at 128.116.51.34"
             };
             Assert.Equal(ClientGameJoinState.JoinedGame, LaunchCoordinator.AnalyzeClientLogLines(solvedAndJoinedLines));
+
+            var launchingExperienceThenChallenged = new[]
+            {
+                "2026-11-02T08:34:36.093Z,3.093401,74b8,6,Warning [FLog::DataModelStarterModule] Launching experience at 113290951185459",
+                "2026-11-02T08:34:38.110Z,5.110469,8304,12 [DFLog::HttpTraceError] status:403 url:{ \"https://gamejoin.roblox.com/v1/join-game\" } challengedByGcs",
+                "2026-11-02T08:35:04.063Z,31.063820,74b8,6 [FLog::SingleSurfaceApp] returnToLuaApp: (stage:UGCGame)."
+            };
+            Assert.Equal(ClientGameJoinState.ChallengeFailedToLuaApp, LaunchCoordinator.AnalyzeClientLogLines(launchingExperienceThenChallenged));
+
+            var joinedThenNormalLeave = new[]
+            {
+                "2026-11-02T08:34:36.093Z,3.093,74b8,6,Info [FLog::UgcExperienceController] UgcExperienceController: join: initialized dm 0x2be321039d0",
+                "2026-11-02T08:34:38.110Z,5.110,74b8,6,Info [FLog::Output] ! Joining game '9ccfd18c-0a9f-4e64-b5c5-f6b64deefca1' place 109983668079237 at 128.116.51.34",
+                "2026-11-02T08:40:04.063Z,331.063,74b8,6,Info [FLog::SingleSurfaceApp] returnToLuaAppInternal: ... App has been initialized, returning from game."
+            };
+            Assert.Equal(ClientGameJoinState.JoinedGame, LaunchCoordinator.AnalyzeClientLogLines(joinedThenNormalLeave));
         }
 
         [Fact]

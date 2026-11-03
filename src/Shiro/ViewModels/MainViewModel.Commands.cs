@@ -75,9 +75,9 @@ namespace Shiro.ViewModels
                 var (bytesSaved, count, prioCount) = MemoryOptimizer.OptimizeRobloxClients(true);
                 double mb = bytesSaved / (1024.0 * 1024.0);
                 if (count > 0 || prioCount > 0)
-                    StatusMessage = $"Siêu tối ưu chống Lag thành công: Tiết kiệm {mb:F1} MB RAM, hạ ưu tiên CPU {prioCount} client(s)!";
+                    StatusMessage = Shiro.Services.LocalizationService.Format("Auto_MainViewModelCom_442", mb, prioCount);
                 else
-                    StatusMessage = "Đã tối ưu hóa bộ nhớ và độ ưu tiên hệ thống.";
+                    StatusMessage = Shiro.Services.LocalizationService.Get("Auto_MainViewModelCom_443");
             });
 
             ToggleWindowsCommand = new RelayCommand(() =>
@@ -91,7 +91,7 @@ namespace Shiro.ViewModels
                     NotifyToolStatesChanged();
                     StatusMessage = LocalizationService.IsEnglish
                         ? $"Restored {shown} Roblox window(s)."
-                        : $"Đã hiển thị lại {shown} cửa sổ Roblox.";
+                        : Shiro.Services.LocalizationService.Format("Auto_MainViewModelCom_444", shown);
                 }
                 else
                 {
@@ -105,7 +105,7 @@ namespace Shiro.ViewModels
                     {
                         string msg = LocalizationService.IsEnglish
                             ? $"Hidden {hidden} Roblox window(s) (Zero-GPU Mode)!"
-                            : $"Đã ẩn {hidden} cửa sổ Roblox (Zero-GPU Mode)! Tiết kiệm tối đa điện năng và GPU.";
+                            : Shiro.Services.LocalizationService.Format("Auto_MainViewModelCom_445", hidden);
                         StatusMessage = msg;
                         ToastService.ShowSuccess("Zero-GPU Mode", msg);
                     }
@@ -113,7 +113,7 @@ namespace Shiro.ViewModels
                     {
                         string warn = LocalizationService.IsEnglish
                             ? "No running Roblox windows found to hide."
-                            : "Chưa có cửa sổ Roblox nào đang mở để bật Zero-GPU.";
+                            : Shiro.Services.LocalizationService.Get("Auto_MainViewModelCom_446");
                         StatusMessage = "" + warn;
                         ToastService.ShowInfo("Zero-GPU Mode", warn);
                     }
@@ -125,19 +125,19 @@ namespace Shiro.ViewModels
                 AntiAfkService.Toggle();
                 IsAntiAfk = AntiAfkService.IsEnabled;
                 StatusMessage = IsAntiAfk
-                    ? "Anti-AFK đã BẬT: Tự động bảo vệ chống kick 20 phút cho tất cả tài khoản!"
-                    : "Anti-AFK đã TẮT.";
+                    ? Shiro.Services.LocalizationService.Get("Auto_MainViewModelCom_447")
+                    : Shiro.Services.LocalizationService.Get("Auto_MainViewModelCom_448");
             });
 
             TogglePotatoModeCommand = new RelayCommand(() =>
             {
                 bool next = !IsPotatoMode;
                 IsPotatoMode = next;
-                AccountManager.General?.Set("EnablePotatoMode", next ? "true" : "false");
+                AppSettings.General?.Set("EnablePotatoMode", next ? "true" : "false");
                 ClientSettingsPatcher.PatchSettings();
                 StatusMessage = next
-                    ? "Đã BẬT FastFlags Potato Mode! Game khởi động tiếp theo sẽ siêu nhẹ."
-                    : "Đã TẮT Potato Mode.";
+                    ? Shiro.Services.LocalizationService.Get("Auto_MainViewModelCom_449")
+                    : Shiro.Services.LocalizationService.Get("Auto_MainViewModelCom_450");
             });
 
             ToggleStreamerModeCommand = new RelayCommand(() =>
@@ -168,7 +168,7 @@ namespace Shiro.ViewModels
                 }
                 var (tiled, desc) = RobloxWindowService.TileWindows(cols, rows);
                 StatusMessage = tiled > 0
-                    ? $"Đã sắp xếp {tiled} cửa sổ Roblox theo lưới {desc} thành công!"
+                    ? Shiro.Services.LocalizationService.Format("Auto_MainViewModelCom_451", tiled, desc)
                     : $"{desc}";
             });
 
@@ -189,11 +189,11 @@ namespace Shiro.ViewModels
                 var validAccounts = _accounts.Where(a => a.Valid && a.UserId > 0 && a.Model != null).ToList();
                 if (validAccounts.Count == 0)
                 {
-                    StatusMessage = "Không có tài khoản hợp lệ nào để cập nhật số dư Robux.";
+                    StatusMessage = Shiro.Services.LocalizationService.Get("Auto_MainViewModelCom_452");
                     return;
                 }
                 int total = validAccounts.Count;
-                StatusMessage = $"Đang cập nhật số dư Robux cho {total} tài khoản...";
+                StatusMessage = Shiro.Services.LocalizationService.Format("Auto_MainViewModelCom_453", total);
                 int updated = 0;
 
                 using var concurrencyGate = new SemaphoreSlim(4, 4);
@@ -211,7 +211,7 @@ namespace Shiro.ViewModels
                         AppDispatcher.Post(() =>
                         {
                             acc.NotifyRobuxChanged();
-                            StatusMessage = $"Đang cập nhật số dư Robux ({current}/{total}): {acc.Username}...";
+                            StatusMessage = Shiro.Services.LocalizationService.Format("Auto_MainViewModelCom_454", current, total, acc.Username);
                         });
                     }
                     finally
@@ -221,31 +221,31 @@ namespace Shiro.ViewModels
                 }).ToArray();
 
                 await Task.WhenAll(tasks);
-                await AccountManager.SaveAccountsAsync(true);
+                await AppServices.AccountRepository.SaveAsync(true);
                 NotifyCounts();
                 if (SortMode == AccountSortMode.RobuxDescending)
                 {
                     ApplyFilter();
                 }
-                StatusMessage = $"Đã cập nhật xong số dư Robux cho {updated} tài khoản!";
+                StatusMessage = Shiro.Services.LocalizationService.Format("Auto_MainViewModelCom_455", updated);
             });
 
             CheckRobuxAccountCommand = new AsyncRelayCommand(async p =>
             {
                 if (p is AccountViewModel a && a.Model != null)
                 {
-                    StatusMessage = $"Đang kiểm tra số dư Robux cho {a.Username}...";
+                    StatusMessage = Shiro.Services.LocalizationService.Format("Auto_MainViewModelCom_456", a.Username);
                     long bal = await a.Model.FetchRobuxBalanceAsync();
                     a.NotifyRobuxChanged();
-                    await AccountManager.SaveAccountsAsync(true);
+                    await AppServices.AccountRepository.SaveAsync(true);
                     NotifyCounts();
                     if (SortMode == AccountSortMode.RobuxDescending)
                     {
                         ApplyFilter();
                     }
                     StatusMessage = bal >= 0
-                        ? $"{a.Username}: Số dư hiện tại là {bal:N0} Robux."
-                        : $"Chưa lấy được số dư cho {a.Username}.";
+                        ? Shiro.Services.LocalizationService.Format("Auto_MainViewModelCom_457", a.Username, bal)
+                        : Shiro.Services.LocalizationService.Format("Auto_MainViewModelCom_458", a.Username);
                 }
             });
 
@@ -286,7 +286,7 @@ namespace Shiro.ViewModels
             RefreshPresenceCommand = new RelayCommand(() =>
             {
                 RefreshLiveProcessStatus();
-                StatusMessage = "Đã cập nhật trạng thái hoạt động của các tài khoản.";
+                StatusMessage = Shiro.Services.LocalizationService.Get("Auto_MainViewModelCom_459");
             });
 
             CheckSessionsCommand = new RelayCommand(() =>
@@ -305,7 +305,7 @@ namespace Shiro.ViewModels
                 }
                 catch (Exception ex)
                 {
-                    StatusMessage = "Lỗi khi kiểm tra phiên: " + ex.Message;
+                    StatusMessage = Shiro.Services.LocalizationService.Get("Auto_MainViewModelCom_460") + ex.Message;
                 }
             });
 
@@ -335,13 +335,13 @@ namespace Shiro.ViewModels
                     if (expired.Count == 0)
                     {
                         StatusMessage = skippedLocked > 0
-                            ? $"Không có tài khoản hết hạn bình thường nào cần Re-login (đã bỏ qua {skippedLocked} tài khoản bị khóa/lỗi)."
-                            : "Không có tài khoản nào bị hết hạn!";
+                            ? Shiro.Services.LocalizationService.Format("Auto_MainViewModelCom_461", skippedLocked)
+                            : Shiro.Services.LocalizationService.Get("Auto_MainViewModelCom_462");
                         return;
                     }
                     if (skippedLocked > 0)
                     {
-                        StatusMessage = $"Đang Re-login {expired.Count} tài khoản hết hạn (bỏ qua {skippedLocked} tài khoản bị khóa/lỗi)...";
+                        StatusMessage = Shiro.Services.LocalizationService.Format("Auto_MainViewModelCom_463", expired.Count, skippedLocked);
                     }
                     if (expired.Count == 1)
                         AppServices.Dialogs.OpenFastLoginDialog(expired[0]);
@@ -350,7 +350,7 @@ namespace Shiro.ViewModels
                 }
                 catch (Exception ex)
                 {
-                    StatusMessage = "Lỗi khi Re-login hàng loạt: " + ex.Message;
+                    StatusMessage = Shiro.Services.LocalizationService.Get("Auto_MainViewModelCom_464") + ex.Message;
                 }
             });
 
@@ -374,7 +374,7 @@ namespace Shiro.ViewModels
                     int killed = RobloxProcessService.KillAllRobloxProcesses();
                     AppDispatcher.Post(() =>
                     {
-                        StatusMessage = $"Đã đóng {killed} tiến trình Roblox!";
+                        StatusMessage = Shiro.Services.LocalizationService.Format("Auto_MainViewModelCom_465", killed);
                         RefreshLiveProcessStatus();
                     });
                 });
@@ -382,8 +382,8 @@ namespace Shiro.ViewModels
             CleanSystemTrayCommand = new RelayCommand(() =>
             {
                 Task.Run(() => Utilities.ThoroughCleanNotificationArea());
-                StatusMessage = "Đã làm sạch toàn bộ khay hệ thống Windows!";
-                ToastService.ShowSuccess("Khay hệ thống", "Đã làm sạch khay hệ thống, loại bỏ icon Roblox ma!");
+                StatusMessage = Shiro.Services.LocalizationService.Get("Auto_MainViewModelCom_466");
+                ToastService.ShowSuccess(Shiro.Services.LocalizationService.Get("Auto_MainViewModelCom_468"), Shiro.Services.LocalizationService.Get("Auto_MainViewModelCom_467"));
             });
             SelectRecentGameCommand = new RelayCommand(p =>
             {
@@ -391,11 +391,11 @@ namespace Shiro.ViewModels
                 {
                     SetKnownGameTitle(item.PlaceId, item.Name);
                     PlaceId = item.PlaceId.ToString();
-                    AccountManager.CurrentPlaceId = PlaceId;
-                    AccountManager.General?.Set("SavedPlaceId", PlaceId);
-                    AccountManager.QueueDeferredSaveSettings();
+                    AppSettings.CurrentPlaceId = PlaceId;
+                    AppSettings.General?.Set("SavedPlaceId", PlaceId);
+                    AppSettings.QueueDeferredSave();
                     CurrentPage = NavigationPage.Accounts;
-                    StatusMessage = $"Đã chọn: {item.Name} (Place ID: {item.PlaceId})";
+                    StatusMessage = Shiro.Services.LocalizationService.Format("Auto_MainViewModelCom_469", item.Name, item.PlaceId);
                 }
             });
             LaunchRecentGameCommand = new RelayCommand(p =>
@@ -423,7 +423,7 @@ namespace Shiro.ViewModels
                     {
                         string warnMsg = LocalizationService.IsEnglish
                             ? $"Selected {item.Name} (Place ID: {item.PlaceId}). Please select at least one account first!"
-                            : $"Đã chọn {item.Name} (Place ID: {item.PlaceId}). Hãy tick chọn tài khoản rồi nhấn 'Vào Server'!";
+                            : Shiro.Services.LocalizationService.Format("Auto_MainViewModelCom_470", item.Name, item.PlaceId);
                         StatusMessage = warnMsg;
                         ToastService.ShowInfo(item.Name, warnMsg);
                     }

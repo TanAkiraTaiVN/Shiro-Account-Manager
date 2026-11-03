@@ -74,11 +74,11 @@ namespace Shiro.ViewModels
                     if (!string.IsNullOrWhiteSpace(PlaceIdInput))
                         _mainViewModel.PlaceId = PlaceIdInput;
                     _mainViewModel.JobId = targetId;
-                    _mainViewModel.StatusMessage = LocalizationService.IsEnglish ? $"Selected Server: {targetId}" : $"Đã chọn Server: {targetId}";
+                    _mainViewModel.StatusMessage = LocalizationService.IsEnglish ? $"Selected Server: {targetId}" : Shiro.Services.LocalizationService.Format("Auto_ServerListViewMo_542", targetId);
                 }
 
                 ClipboardHelper.SetText(targetId);
-                LoadingStatus = LocalizationService.IsEnglish ? $"Selected and copied Job ID: {targetId}" : $"Đã chọn và sao chép Job ID: {targetId}";
+                LoadingStatus = LocalizationService.IsEnglish ? $"Selected and copied Job ID: {targetId}" : Shiro.Services.LocalizationService.Format("Auto_ServerListViewMo_543", targetId);
             }
         }
 
@@ -90,7 +90,7 @@ namespace Shiro.ViewModels
                     ? $"VIP:{server.RawData.accessCode}"
                     : server.JobId;
                 ClipboardHelper.SetText(targetId);
-                LoadingStatus = LocalizationService.IsEnglish ? $"Copied Job ID: {targetId}" : $"Đã sao chép Job ID: {targetId}";
+                LoadingStatus = LocalizationService.IsEnglish ? $"Copied Job ID: {targetId}" : Shiro.Services.LocalizationService.Format("Auto_ServerListViewMo_544", targetId);
             }
         }
 
@@ -106,7 +106,7 @@ namespace Shiro.ViewModels
             long placeId = AccountLauncherService.ParsePlaceId(pidText);
             if (placeId <= 0)
             {
-                LoadingStatus = LocalizationService.IsEnglish ? "Invalid Place ID!" : "Place ID không hợp lệ!";
+                LoadingStatus = LocalizationService.IsEnglish ? "Invalid Place ID!" : Shiro.Services.LocalizationService.Get("Auto_ServerListViewMo_545");
                 return;
             }
 
@@ -119,10 +119,10 @@ namespace Shiro.ViewModels
             var selectedAccounts = _mainViewModel?.GetSelectedAccounts();
             if (selectedAccounts == null || selectedAccounts.Count == 0)
             {
-                string warnTitle = LocalizationService.IsEnglish ? "No Account Selected" : "Chưa chọn tài khoản";
+                string warnTitle = LocalizationService.IsEnglish ? "No Account Selected" : Shiro.Services.LocalizationService.Get("Auto_MainViewModelLau_494");
                 string warnMsg = LocalizationService.IsEnglish
                     ? "Please select at least one account in the Accounts tab before joining a server!"
-                    : "Chưa chọn tài khoản nào! Vui lòng tick chọn tài khoản ở tab 'Tài khoản' trước khi vào Server.";
+                    : Shiro.Services.LocalizationService.Get("Auto_ServerListViewMo_546");
                 LoadingStatus = warnMsg;
                 if (_mainViewModel != null)
                     _mainViewModel.StatusMessage = warnMsg;
@@ -130,13 +130,13 @@ namespace Shiro.ViewModels
                 return;
             }
 
-            string serverDesc = string.IsNullOrEmpty(targetServer) ? (LocalizationService.IsEnglish ? "random" : "ngẫu nhiên") : targetServer;
+            string serverDesc = string.IsNullOrEmpty(targetServer) ? (LocalizationService.IsEnglish ? "random" : Shiro.Services.LocalizationService.Get("Auto_ServerListViewMo_547")) : targetServer;
             LoadingStatus = LocalizationService.IsEnglish
                 ? $"Joining Server {serverDesc} with {selectedAccounts.Count} account(s)..."
-                : $"Đang vào Server {serverDesc} với {selectedAccounts.Count} tài khoản...";
-            if (AccountManager.Instance != null)
+                : Shiro.Services.LocalizationService.Format("Auto_ServerListViewMo_548", serverDesc, selectedAccounts.Count);
+
             {
-                await AccountManager.Instance.ModernJoinServerDirect(selectedAccounts, placeId, targetServer).ConfigureAwait(true);
+            await AppSettings.JoinServerFromHostAsync(selectedAccounts, placeId, targetServer).ConfigureAwait(true);
             }
         }
 
@@ -146,15 +146,15 @@ namespace Shiro.ViewModels
             if (selectedFromVm != null)
                 return selectedFromVm;
 
-            if (AccountManager.SelectedAccount != null && AccountManager.SelectedAccount.Valid)
-                return AccountManager.SelectedAccount;
+            if (AppSettings.SelectedAccount != null && AppSettings.SelectedAccount.Valid)
+                return AppSettings.SelectedAccount;
 
-            if (AccountManager.LastValidAccount != null && AccountManager.LastValidAccount.Valid)
-                return AccountManager.LastValidAccount;
+            if (AppSettings.LastValidAccount != null && AppSettings.LastValidAccount.Valid)
+                return AppSettings.LastValidAccount;
 
-            return AccountManager.GetAccountsSnapshot().FirstOrDefault(a => a != null && a.Valid)
-                   ?? AccountManager.SelectedAccount
-                   ?? AccountManager.LastValidAccount;
+            return AppServices.AccountRepository.GetAll().FirstOrDefault(a => a != null && a.Valid)
+                   ?? AppSettings.SelectedAccount
+                   ?? AppSettings.LastValidAccount;
         }
 
         private async Task LoadRegionAsync(object? param)
@@ -176,7 +176,7 @@ namespace Shiro.ViewModels
                 var acc = ResolveAuthAccount();
                 if (acc == null)
                 {
-                    server.Region = LocalizationService.IsEnglish ? "Login required" : "Cần đăng nhập";
+                    server.Region = LocalizationService.IsEnglish ? "Login required" : Shiro.Services.LocalizationService.Get("Auto_RobloxServerQuer_270");
                     return;
                 }
 
@@ -195,7 +195,7 @@ namespace Shiro.ViewModels
                 }
                 else
                 {
-                    server.Region = !string.IsNullOrEmpty(result.Region) ? result.Region : (LocalizationService.IsEnglish ? "Unknown" : "Không rõ");
+                    server.Region = !string.IsNullOrEmpty(result.Region) ? result.Region : (LocalizationService.IsEnglish ? "Unknown" : Shiro.Services.LocalizationService.Get("Auto_RobloxServerQuer_271"));
                 }
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
@@ -203,7 +203,7 @@ namespace Shiro.ViewModels
             }
             catch (Exception ex)
             {
-                server.Region = LocalizationService.IsEnglish ? "Load error" : "Lỗi nạp";
+                server.Region = LocalizationService.IsEnglish ? "Load error" : Shiro.Services.LocalizationService.Get("Auto_MissingAssetsDia_138");
                 Program.Logger?.Warn($"[LoadRegionAsync] {ex.Message}");
             }
             finally
@@ -221,20 +221,20 @@ namespace Shiro.ViewModels
 
             var pendingServers = _servers
                 .Take(25)
-                .Where(server => string.IsNullOrEmpty(server.Region) || server.Region == "Chưa nạp" || server.Region == "Not loaded" || string.IsNullOrEmpty(server.Ip))
+                .Where(server => string.IsNullOrEmpty(server.Region) || server.Region == Shiro.Services.LocalizationService.Get("Auto_ServerItemViewMo_522") || server.Region == "Not loaded" || string.IsNullOrEmpty(server.Ip))
                 .ToList();
 
             if (pendingServers.Count == 0)
             {
                 LoadingStatus = LocalizationService.IsEnglish
                     ? "Server regions loaded."
-                    : "Đã nạp vị trí máy chủ hoàn tất.";
+                    : Shiro.Services.LocalizationService.Get("Auto_ServerListViewMo_549");
                 return;
             }
 
             LoadingStatus = LocalizationService.IsEnglish
                 ? $"Loading server regions and measuring ping ({pendingServers.Count} servers)..."
-                : $"Đang nạp vị trí vùng và đo ping ({pendingServers.Count} máy chủ)...";
+                : Shiro.Services.LocalizationService.Format("Auto_ServerListViewMo_550", pendingServers.Count);
 
             try
             {
@@ -260,13 +260,13 @@ namespace Shiro.ViewModels
                 }
                 LoadingStatus = LocalizationService.IsEnglish
                     ? "Server regions loaded."
-                    : "Đã nạp vị trí máy chủ hoàn tất.";
+                    : Shiro.Services.LocalizationService.Get("Auto_ServerListViewMo_549");
             }
             catch (OperationCanceledException)
             {
                 LoadingStatus = LocalizationService.IsEnglish
                     ? "Region loading cancelled."
-                    : "Đã hủy nạp vị trí máy chủ.";
+                    : Shiro.Services.LocalizationService.Get("Auto_ServerListViewMo_551");
             }
         }
     }

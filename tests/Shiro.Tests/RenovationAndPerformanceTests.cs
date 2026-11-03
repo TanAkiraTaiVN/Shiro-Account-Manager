@@ -59,8 +59,11 @@ namespace Shiro.Tests
         {
             string modernLaunch = "2026-10-31T09:05:00.745Z,1.745162,29ac,6,Warning [FLog::DataModelStarterModule] Launching experience at 113290951185459";
             string legacyJoin = "2025-05-01T12:00:00.000Z,2.100,1a2b,6 [FLog::Output] ! Joining game '550e8400-e29b-41d4-a716-446655440000' place 189707 at 128.116.50.1";
-            Assert.True(RobloxProcess.IsJoiningGameLogLine(modernLaunch));
+            string modernConnect = "2026-11-02T08:34:08.487Z,2.487760,8054,6,Info [DFLog::RbxTransportDummyClient] Connected to server at 128.116.46.33:51791";
+            Assert.True(RobloxProcess.IsLaunchingExperienceLogLine(modernLaunch));
+            Assert.False(RobloxProcess.IsJoiningGameLogLine(modernLaunch));
             Assert.True(RobloxProcess.IsJoiningGameLogLine(legacyJoin));
+            Assert.True(RobloxProcess.IsJoiningGameLogLine(modernConnect));
 
             string modernDisconnect = "2026-10-31T09:06:10.123Z,71.123456,29ac,6,Info [FLog::Network] Sending disconnect with reason: 277";
             Assert.True(RobloxProcess.TryParseDisconnectReason(modernDisconnect, out int reason));

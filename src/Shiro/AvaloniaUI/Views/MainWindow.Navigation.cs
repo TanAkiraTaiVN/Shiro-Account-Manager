@@ -164,8 +164,8 @@ namespace Shiro.AvaloniaUI.Views
                 if (selected.Count > 1)
                 {
                     bool confirm = AppServices.Dialogs.ShowConfirmation(
-                        $"Bạn có chắc chắn muốn đóng tiến trình Roblox của {selected.Count} tài khoản đang chọn không?",
-                        "Xác nhận đóng Roblox hàng loạt");
+                        Shiro.Services.LocalizationService.Format("Auto_MainWindowNaviga_102", selected.Count),
+                        Shiro.Services.LocalizationService.Get("Auto_MainWindowNaviga_103"));
                     if (!confirm) return;
                 }
 
@@ -175,9 +175,9 @@ namespace Shiro.AvaloniaUI.Views
                     AppDispatcher.Post(() =>
                     {
                         if (closed > 0)
-                            ToastService.ShowSuccess($"Đã đóng Roblox cho {closed} tài khoản đã chọn.");
+                            ToastService.ShowSuccess(Shiro.Services.LocalizationService.Format("Auto_MainWindowNaviga_104", closed));
                         else
-                            ToastService.ShowInfo("Không tìm thấy tiến trình Roblox đang chạy của các tài khoản đã chọn.");
+                            ToastService.ShowInfo(Shiro.Services.LocalizationService.Get("Auto_MainWindowNaviga_105"));
                         ViewModel?.RefreshLiveProcessStatus();
                     });
                 });
@@ -185,8 +185,8 @@ namespace Shiro.AvaloniaUI.Views
             else
             {
                 bool confirm = AppServices.Dialogs.ShowConfirmation(
-                    "Bạn có chắc chắn muốn đóng toàn bộ tất cả tiến trình Roblox đang chạy trên máy không?",
-                    "Xác nhận đóng tất cả Roblox");
+                    Shiro.Services.LocalizationService.Get("Auto_MainWindowNaviga_106"),
+                    Shiro.Services.LocalizationService.Get("Auto_MainWindowNaviga_107"));
                 if (confirm)
                 {
                     ViewModel?.KillAllClientsCommand.Execute(null);
@@ -210,8 +210,8 @@ namespace Shiro.AvaloniaUI.Views
         {
             bool wasUnmuted = RobloxAudioService.ToggleMuteAll();
             string msg = wasUnmuted
-                ? "Đã tắt tiếng toàn bộ các client Roblox đang chạy."
-                : "Đã bật lại tiếng cho toàn bộ client Roblox.";
+                ? Shiro.Services.LocalizationService.Get("Auto_MainWindowNaviga_108")
+                : Shiro.Services.LocalizationService.Get("Auto_MainWindowNaviga_109");
             ToastService.ShowSuccess(msg);
         }
 
@@ -250,8 +250,8 @@ namespace Shiro.AvaloniaUI.Views
                 StreamerModeService.IsEnabled = !StreamerModeService.IsEnabled;
 
             ToastService.ShowInfo("Streamer Mode", StreamerModeService.IsActive
-                ? "Đã BẬT Streamer Mode (Bảo vệ riêng tư & tàng hình khi quay màn hình)."
-                : "Đã TẮT Streamer Mode.");
+                ? Shiro.Services.LocalizationService.Get("Auto_MainWindowNaviga_110")
+                : Shiro.Services.LocalizationService.Get("Auto_MainWindowNaviga_111"));
         }
 
         private void OnToolAltGenClicked(object sender, RoutedEventArgs e)

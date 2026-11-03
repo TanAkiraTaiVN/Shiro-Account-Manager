@@ -42,8 +42,6 @@ namespace Shiro.Nexus
             _allowExternal = address != null && !address.Equals(IPAddress.Loopback);
         }
 
-        public void Start() => Task.Run(async () => await StartAsync().ConfigureAwait(false)).GetAwaiter().GetResult();
-
         public async Task StartAsync()
         {
             if (_isDisposed) throw new ObjectDisposedException(nameof(NexusWebSocketServer));
@@ -177,7 +175,7 @@ namespace Shiro.Nexus
                                 {
                                     await webSocket.CloseAsync(WebSocketCloseStatus.MessageTooBig, "Payload exceeded limit", CancellationToken.None).ConfigureAwait(false);
                                 }
-                                catch (Exception) { }
+                                catch (Exception ex) { Program.Logger?.Debug($"[Nexus] CloseAsync after oversized payload: {ex.Message}"); }
                                 break;
                             }
 
@@ -205,7 +203,7 @@ namespace Shiro.Nexus
                     {
                         Program.Logger?.Debug($"[Nexus] Client WebSocket disconnected: {ex.Message}");
                     }
-                    catch (OperationCanceledException) { }
+                    catch (OperationCanceledException) { /* canceled */ }
                     catch (Exception ex)
                     {
                         Program.Logger?.Error($"[Nexus] Client error for {account?.Username ?? "unknown"}: {ex}");
@@ -223,8 +221,6 @@ namespace Shiro.Nexus
                 Program.Logger?.Info($"[Nexus] Native Kestrel WebSocket Server started on port {_port} (AllowExternal: {_allowExternal})");
             }).ConfigureAwait(false);
         }
-
-        public void Stop() => Task.Run(async () => await StopAsync().ConfigureAwait(false)).GetAwaiter().GetResult();
 
         public async Task StopAsync()
         {
@@ -267,8 +263,26 @@ namespace Shiro.Nexus
             if (_isDisposed) return;
             _isDisposed = true;
 
-            try { Stop(); }
-            catch (Exception ex) { Program.Logger?.Debug($"Error stopping Nexus on dispose: {ex.Message}"); }
+            try
+            {
+                _cts.Cancel();
+                foreach (var ws in _activeSockets.Keys)
+                {
+                    try { ws.Dispose(); }
+                    catch (Exception ex) { Program.Logger?.Debug($"Error disposing socket on Nexus dispose: {ex.Message}"); }
+                }
+                _activeSockets.Clear();
+                if (_app != null)
+                {
+                    _ = _app.DisposeAsync();
+                    _app = null;
+                }
+                IsListening = false;
+            }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"Error stopping Nexus on dispose: {ex.Message}");
+            }
 
             _cts.Dispose();
         }

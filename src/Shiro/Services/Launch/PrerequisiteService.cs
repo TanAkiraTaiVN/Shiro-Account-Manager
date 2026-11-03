@@ -57,7 +57,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Warn($"[PrerequisiteService] Lỗi cài đặt VCRedist: {ex.Message}");
+                Program.Logger?.Warn(Shiro.Services.LocalizationService.Format("Auto_PrerequisiteServ_249", ex.Message));
                 return false;
             }
             finally

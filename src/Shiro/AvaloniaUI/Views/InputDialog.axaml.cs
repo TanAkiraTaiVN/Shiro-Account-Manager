@@ -39,7 +39,7 @@ namespace Shiro.AvaloniaUI.Views
             dialog.TxtPrompt.Text = text ?? string.Empty;
             dialog.TxtInput.Text = defaultText ?? string.Empty;
 
-            if (caption != null && (caption.Contains("mật khẩu", StringComparison.OrdinalIgnoreCase) || caption.Contains("password", StringComparison.OrdinalIgnoreCase)))
+            if (caption != null && (caption.Contains(Shiro.Services.LocalizationService.Get("Auto_InputDialogaxaml_101"), StringComparison.OrdinalIgnoreCase) || caption.Contains("password", StringComparison.OrdinalIgnoreCase)))
             {
                 dialog.TxtInput.PasswordChar = '•';
             }

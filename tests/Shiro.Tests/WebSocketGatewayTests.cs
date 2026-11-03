@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
@@ -41,7 +41,7 @@ namespace Shiro.Tests
         public void LaunchCoordinator_LaunchProgressChanged_EventCanBeSubscribedAndFires()
         {
             bool eventFired = false;
-            LaunchProgress receivedProgress = null;
+            LaunchProgress? receivedProgress = null;
 
             Action<LaunchProgress> handler = p =>
             {
@@ -66,7 +66,7 @@ namespace Shiro.Tests
                     Completed = true
                 };
 
-                reportMethod.Invoke(null, new object[] { null, dummyProgress });
+                reportMethod.Invoke(null, new object?[] { null, dummyProgress });
 
                 Assert.True(eventFired);
                 Assert.NotNull(receivedProgress);

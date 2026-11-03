@@ -85,7 +85,7 @@ namespace Shiro.Tests
         [Fact]
         public void CloseAccountRobloxProcess_NullAccount_ReturnsFalse()
         {
-            bool result = RobloxProcessService.CloseAccountRobloxProcess(null);
+            bool result = RobloxProcessService.CloseAccountRobloxProcess(null!);
             Assert.False(result);
         }
 
@@ -104,7 +104,7 @@ namespace Shiro.Tests
         [Fact]
         public void CloseAccountRobloxProcesses_NullOrEmptyList_ReturnsZero()
         {
-            Assert.Equal(0, RobloxProcessService.CloseAccountRobloxProcesses(null));
+            Assert.Equal(0, RobloxProcessService.CloseAccountRobloxProcesses(null!));
             Assert.Equal(0, RobloxProcessService.CloseAccountRobloxProcesses(System.Array.Empty<Account>()));
         }
 

@@ -7,6 +7,7 @@ using Xunit;
 
 namespace Shiro.Tests
 {
+    [Collection("SequentialStateTests")]
     public class StateServicesAndContractsTests
     {
         [Fact]

@@ -21,7 +21,7 @@ namespace Shiro.Tests
         [Fact]
         public void GetSessionTokenPayloadLength_EmptyOrMalformed_ReturnsZero()
         {
-            Assert.Equal(0, Account.GetSessionTokenPayloadLength(null));
+            Assert.Equal(0, Account.GetSessionTokenPayloadLength(null!));
             Assert.Equal(0, Account.GetSessionTokenPayloadLength(""));
             Assert.Equal(0, Account.GetSessionTokenPayloadLength("nodots"));
         }

@@ -17,8 +17,8 @@ namespace Shiro.AvaloniaUI.Views
 {
     public class MissingAssetDisplayItem : ObservableObject
     {
-        private string _name = "Đang tải...";
-        private string _priceText = "Giá: Đang kiểm tra...";
+        private string _name = Shiro.Services.LocalizationService.Get("Auto_MissingAssetsDia_123");
+        private string _priceText = Shiro.Services.LocalizationService.Get("Auto_MissingAssetsDia_124");
         private string _imageUrl = string.Empty;
         private bool _canBuy;
         private string _buyButtonText = "Mua";
@@ -79,8 +79,8 @@ namespace Shiro.AvaloniaUI.Views
             _account = account ?? throw new ArgumentNullException(nameof(account));
             _assetIds = assetIds ?? Array.Empty<long>();
 
-            TxtTitle.Text = $"Vật phẩm còn thiếu • {_account.Username}";
-            TxtSubtitle.Text = $"Phát hiện {_assetIds.Length} vật phẩm chưa sở hữu trên tài khoản này.";
+            TxtTitle.Text = Shiro.Services.LocalizationService.Format("Auto_MissingAssetsDia_125", _account.Username);
+            TxtSubtitle.Text = Shiro.Services.LocalizationService.Format("Auto_MissingAssetsDia_126", _assetIds.Length);
 
             AssetsListBox.ItemsSource = _items;
 
@@ -91,7 +91,7 @@ namespace Shiro.AvaloniaUI.Views
         {
             if (_account == null)
             {
-                TxtStatus.Text = "Không tìm thấy tài khoản.";
+                TxtStatus.Text = Shiro.Services.LocalizationService.Get("Auto_MissingAssetsDia_127");
                 return;
             }
 
@@ -107,7 +107,7 @@ namespace Shiro.AvaloniaUI.Views
                     _items.Add(new MissingAssetDisplayItem { AssetId = id });
                 }
 
-                TxtStatus.Text = $"Đang tải thông tin cho {_items.Count} vật phẩm...";
+                TxtStatus.Text = Shiro.Services.LocalizationService.Format("Auto_MissingAssetsDia_128", _items.Count);
 
                 int loaded = 0;
                 long totalCost = 0;
@@ -132,7 +132,7 @@ namespace Shiro.AvaloniaUI.Views
                             AppDispatcher.Post(() =>
                             {
                                 if (!token.IsCancellationRequested)
-                                    TxtStatus.Text = $"Đang tải ({currentLoaded}/{_items.Count})...";
+                                    TxtStatus.Text = Shiro.Services.LocalizationService.Format("Auto_MissingAssetsDia_129", currentLoaded, _items.Count);
                             });
                         }
                         finally
@@ -145,8 +145,8 @@ namespace Shiro.AvaloniaUI.Views
                 await Task.WhenAll(tasks).ConfigureAwait(true);
                 if (token.IsCancellationRequested) return;
 
-                TxtStatus.Text = $"Hoàn tất tải {_items.Count} vật phẩm.";
-                TxtTotalPrice.Text = $"Tổng Robux: {Interlocked.Read(ref totalCost):N0} R$";
+                TxtStatus.Text = Shiro.Services.LocalizationService.Format("Auto_MissingAssetsDia_130", _items.Count);
+                TxtTotalPrice.Text = Shiro.Services.LocalizationService.Format("Auto_MissingAssetsDia_131", Interlocked.Read(ref totalCost));
             }
             catch (OperationCanceledException) { /* canceled */ }
             catch (Exception ex)
@@ -170,7 +170,7 @@ namespace Shiro.AvaloniaUI.Views
                     {
                         string name = (root.TryGetProperty("Name", out var nameElem) && nameElem.ValueKind == JsonValueKind.String
                             ? nameElem.GetString()
-                            : $"Vật phẩm #{item.AssetId}") ?? $"Vật phẩm #{item.AssetId}";
+                            : Shiro.Services.LocalizationService.Format("Auto_MissingAssetsDia_132", item.AssetId)) ?? Shiro.Services.LocalizationService.Format("Auto_MissingAssetsDia_132", item.AssetId);
 
                         bool isForSale = root.TryGetProperty("IsForSale", out var saleElem) &&
                                          (saleElem.ValueKind == JsonValueKind.True || (saleElem.ValueKind == JsonValueKind.False && false));
@@ -212,22 +212,22 @@ namespace Shiro.AvaloniaUI.Views
 
                         AppDispatcher.Post(() =>
                         {
-                            item.Name = name ?? $"Vật phẩm #{item.AssetId}";
+                            item.Name = name ?? Shiro.Services.LocalizationService.Format("Auto_MissingAssetsDia_132", item.AssetId);
                             if (cost == 0)
                             {
-                                item.PriceText = "Miễn phí (Free)";
+                                item.PriceText = Shiro.Services.LocalizationService.Get("Auto_MissingAssetsDia_133");
                                 item.CanBuy = true;
                             }
                             else if (cost > 0)
                             {
-                                item.PriceText = $"Giá: R$ {cost:N0}";
+                                item.PriceText = Shiro.Services.LocalizationService.Format("Auto_MissingAssetsDia_134", cost);
                                 item.CanBuy = true;
                             }
                             else
                             {
-                                item.PriceText = "Không còn bán (Off-sale)";
+                                item.PriceText = Shiro.Services.LocalizationService.Get("Auto_MissingAssetsDia_135");
                                 item.CanBuy = false;
-                                item.BuyButtonText = "Hết hàng";
+                                item.BuyButtonText = Shiro.Services.LocalizationService.Get("Auto_MissingAssetsDia_136");
                             }
                         });
                         return;
@@ -236,8 +236,8 @@ namespace Shiro.AvaloniaUI.Views
 
                 AppDispatcher.Post(() =>
                 {
-                    item.Name = $"Vật phẩm #{item.AssetId}";
-                    item.PriceText = "Không thể lấy giá";
+                    item.Name = Shiro.Services.LocalizationService.Format("Auto_MissingAssetsDia_132", item.AssetId);
+                    item.PriceText = Shiro.Services.LocalizationService.Get("Auto_MissingAssetsDia_137");
                     item.CanBuy = false;
                 });
             }
@@ -246,8 +246,8 @@ namespace Shiro.AvaloniaUI.Views
                 Program.Logger?.Debug($"[MissingAssetsDialog] Load failed for asset {item.AssetId}: {ex.Message}");
                 AppDispatcher.Post(() =>
                 {
-                    item.Name = $"Vật phẩm #{item.AssetId}";
-                    item.PriceText = "Lỗi nạp";
+                    item.Name = Shiro.Services.LocalizationService.Format("Auto_MissingAssetsDia_132", item.AssetId);
+                    item.PriceText = Shiro.Services.LocalizationService.Get("Auto_MissingAssetsDia_138");
                 });
             }
         }
@@ -272,7 +272,7 @@ namespace Shiro.AvaloniaUI.Views
         {
             if (_account == null)
             {
-                await MessageBoxDialog.ShowAsync("Không có thông tin tài khoản hợp lệ.", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error, this);
+                await MessageBoxDialog.ShowAsync(Shiro.Services.LocalizationService.Get("Auto_MissingAssetsDia_139"), Shiro.Services.LocalizationService.Get("Status_Error"), MessageBoxButtons.OK, MessageBoxIcon.Error, this);
                 return;
             }
 
@@ -286,25 +286,25 @@ namespace Shiro.AvaloniaUI.Views
 
                 if (productId <= 0)
                 {
-                    await MessageBoxDialog.ShowAsync("Vật phẩm này không có ProductId hợp lệ để mua.", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning, this);
+                    await MessageBoxDialog.ShowAsync(Shiro.Services.LocalizationService.Get("Auto_MissingAssetsDia_140"), Shiro.Services.LocalizationService.Get("Msg_InfoTitle"), MessageBoxButtons.OK, MessageBoxIcon.Warning, this);
                     return;
                 }
 
                 var confirm = await MessageBoxDialog.ShowAsync(
-                    $"Bạn có chắc chắn muốn mua '{item.Name}' với giá {item.PriceText} cho '{_account.Username}' không?",
-                    "Xác nhận mua", MessageBoxButtons.YesNo, MessageBoxIcon.Question, this);
+                    Shiro.Services.LocalizationService.Format("Auto_MissingAssetsDia_141", item.Name, item.PriceText, _account.Username),
+                    Shiro.Services.LocalizationService.Get("Auto_MissingAssetsDia_142"), MessageBoxButtons.YesNo, MessageBoxIcon.Question, this);
 
                 if (confirm != MessageBoxResult.Yes) return;
 
                 item.CanBuy = false;
-                item.BuyButtonText = "Đang mua...";
+                item.BuyButtonText = Shiro.Services.LocalizationService.Get("Auto_MissingAssetsDia_143");
 
                 try
                 {
                     var csrf = await _account.GetCSRFTokenAsync().ConfigureAwait(true);
                     if (!csrf.Success)
                     {
-                        await MessageBoxDialog.ShowAsync("Không thể lấy CSRF Token để thực hiện mua.", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error, this);
+                        await MessageBoxDialog.ShowAsync(Shiro.Services.LocalizationService.Get("Auto_MissingAssetsDia_144"), Shiro.Services.LocalizationService.Get("Status_Error"), MessageBoxButtons.OK, MessageBoxIcon.Error, this);
                         item.CanBuy = true;
                         item.BuyButtonText = "Mua";
                         return;
@@ -322,21 +322,21 @@ namespace Shiro.AvaloniaUI.Views
                     var response = await _account.ExecuteAccountRestAsync(AppServices.RobloxApi.Economy, "https://economy.roblox.com", buyRequest).ConfigureAwait(true);
                     if (response != null && response.IsSuccessful)
                     {
-                        item.BuyButtonText = "Đã mua";
-                        await MessageBoxDialog.ShowAsync($"Đã mua thành công '{item.Name}'!", "Thành công", MessageBoxButtons.OK, MessageBoxIcon.Information, this);
+                        item.BuyButtonText = Shiro.Services.LocalizationService.Get("Auto_MissingAssetsDia_145");
+                        await MessageBoxDialog.ShowAsync(Shiro.Services.LocalizationService.Format("Auto_MissingAssetsDia_146", item.Name), Shiro.Services.LocalizationService.Get("Msg_SuccessTitle"), MessageBoxButtons.OK, MessageBoxIcon.Information, this);
                     }
                     else
                     {
                         item.CanBuy = true;
                         item.BuyButtonText = "Mua";
-                        await MessageBoxDialog.ShowAsync($"Mua không thành công: {response?.ErrorMessage ?? response?.Content}", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error, this);
+                        await MessageBoxDialog.ShowAsync(Shiro.Services.LocalizationService.Format("Auto_MissingAssetsDia_147", response?.ErrorMessage ?? response?.Content), Shiro.Services.LocalizationService.Get("Status_Error"), MessageBoxButtons.OK, MessageBoxIcon.Error, this);
                     }
                 }
                 catch (Exception ex)
                 {
                     item.CanBuy = true;
                     item.BuyButtonText = "Mua";
-                    await MessageBoxDialog.ShowAsync($"Lỗi giao dịch: {ex.Message}", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error, this);
+                    await MessageBoxDialog.ShowAsync(Shiro.Services.LocalizationService.Format("Auto_MissingAssetsDia_148", ex.Message), Shiro.Services.LocalizationService.Get("Status_Error"), MessageBoxButtons.OK, MessageBoxIcon.Error, this);
                 }
             }
         }

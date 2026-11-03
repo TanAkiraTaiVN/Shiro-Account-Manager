@@ -1,6 +1,7 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using Shiro.Classes;
+using Shiro.Services;
 
 namespace Shiro.ViewModels
 {
@@ -89,7 +90,7 @@ namespace Shiro.ViewModels
         {
             try
             {
-                var watcher = AccountManager.Watcher;
+                var watcher = AppSettings.Watcher;
                 if (watcher != null)
                 {
                     _watcherEnabled = watcher.Get<bool>("Enabled");
@@ -127,8 +128,8 @@ namespace Shiro.ViewModels
         {
             try
             {
-                AccountManager.Watcher?.Set(key, value);
-                AccountManager.SaveSettings();
+                AppSettings.Watcher?.Set(key, value);
+                AppSettings.Save();
             }
             catch (Exception ex)
             {

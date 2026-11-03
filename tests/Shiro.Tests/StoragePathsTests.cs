@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using Shiro.Services;
 using Xunit;
@@ -101,7 +101,7 @@ namespace Shiro.Tests
             vm.SearchText = "t";
             vm.SearchText = "ta";
             vm.SearchText = "tan";
-            vm.SearchText = null;
+            vm.SearchText = null!;
             vm.SearchText = "jackpot";
             Assert.Equal("jackpot", vm.SearchText);
         }

@@ -151,16 +151,37 @@ namespace Shiro.Services
             return fallback ?? key;
         }
 
-        public static string Format(string key, params object[] args)
+        public static string Format(string key, params object?[] args)
         {
             string template = Get(key);
+            if (string.Equals(template, key, StringComparison.Ordinal) &&
+                args != null && args.Length >= 2 &&
+                args[0] is string fallbackTemplate && fallbackTemplate.Contains('{'))
+            {
+                var rest = new object?[args.Length - 1];
+                Array.Copy(args, 1, rest, 0, rest.Length);
+                return SafeFormat(fallbackTemplate, rest);
+            }
+            return SafeFormat(template, args ?? Array.Empty<object?>());
+        }
+
+        private static string SafeFormat(string template, object?[] args)
+        {
+            if (args == null || args.Length == 0)
+                return template;
+
             try
             {
                 return string.Format(template, args);
             }
             catch
             {
-                return template;
+                string result = template;
+                for (int i = 0; i < args.Length; i++)
+                {
+                    result = result.Replace("{" + i + "}", args[i]?.ToString() ?? string.Empty, StringComparison.Ordinal);
+                }
+                return result;
             }
         }
 
@@ -188,6 +209,6 @@ namespace Shiro.Services
     public static class Loc
     {
         public static string Get(string key, string? fallback = null) => LocalizationService.Get(key, fallback);
-        public static string Format(string key, params object[] args) => LocalizationService.Format(key, args);
+        public static string Format(string key, params object?[] args) => LocalizationService.Format(key, args);
     }
 }

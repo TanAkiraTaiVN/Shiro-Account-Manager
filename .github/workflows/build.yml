@@ -43,7 +43,7 @@ jobs:
 
       - name: Enforce Coverage Gate
         shell: pwsh
-        run: ./scripts/Check-Coverage.ps1 -CoverageDir "coverage" -MinOverall 30.0 -MinCore 60.0
+        run: ./scripts/Check-Coverage.ps1 -CoverageDir "coverage" -MinOverall 45.0 -MinCore 70.0
 
       - name: Verify architecture boundaries
         shell: pwsh

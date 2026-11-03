@@ -16,6 +16,7 @@ namespace Shiro.ViewModels
         InGame,
         Ready,
         Expired,
+        Banned,
         Pinned
     }
 
@@ -46,12 +47,8 @@ namespace Shiro.ViewModels
                     var previousCts = System.Threading.Interlocked.Exchange(ref _searchCts, null);
                     if (previousCts != null)
                     {
-                        try { previousCts.Cancel(); }
-                        catch (ObjectDisposedException) { }
-                        catch (Exception) { }
-
-                        try { previousCts.Dispose(); }
-                        catch (Exception) { }
+                        SafeExecuteHelper.Try(previousCts.Cancel);
+                        SafeExecuteHelper.Try(previousCts.Dispose);
                     }
 
                     if (string.IsNullOrEmpty(value))
@@ -73,8 +70,8 @@ namespace Shiro.ViewModels
                                     AppDispatcher.Post(() => ApplyFilter());
                                 }
                             }
-                            catch (OperationCanceledException) { }
-                            catch (ObjectDisposedException) { }
+                            catch (OperationCanceledException) { /* debounce canceled */ }
+                            catch (ObjectDisposedException) { /* cts disposed */ }
                         });
                     }
                 }
@@ -102,6 +99,7 @@ namespace Shiro.ViewModels
                     OnPropertyChanged(nameof(IsFilterInGame));
                     OnPropertyChanged(nameof(IsFilterReady));
                     OnPropertyChanged(nameof(IsFilterExpired));
+                    OnPropertyChanged(nameof(IsFilterBanned));
                     OnPropertyChanged(nameof(IsFilterPinned));
                     ApplyFilter();
                 }
@@ -130,6 +128,12 @@ namespace Shiro.ViewModels
         {
             get => ActiveTab == AccountFilterTab.Expired;
             set { if (value) ActiveTab = AccountFilterTab.Expired; }
+        }
+
+        public bool IsFilterBanned
+        {
+            get => ActiveTab == AccountFilterTab.Banned;
+            set { if (value) ActiveTab = AccountFilterTab.Banned; }
         }
 
         public bool IsFilterPinned
@@ -241,7 +245,7 @@ namespace Shiro.ViewModels
         {
             return string.IsNullOrEmpty(group) ||
                    string.Equals(group, "All Groups", StringComparison.OrdinalIgnoreCase) ||
-                   string.Equals(group, "Tất cả nhóm", StringComparison.OrdinalIgnoreCase);
+                   string.Equals(group, Shiro.Services.LocalizationService.Get("Dash_AllGroups"), StringComparison.OrdinalIgnoreCase);
         }
 
         public void ApplyFilter()
@@ -274,7 +278,10 @@ namespace Shiro.ViewModels
                         if (!a.Valid || a.IsInGame) continue;
                         break;
                     case AccountFilterTab.Expired:
-                        if (!a.IsExpired) continue;
+                        if (!a.IsExpiredAndNotBanned) continue;
+                        break;
+                    case AccountFilterTab.Banned:
+                        if (!a.IsBannedOrLocked) continue;
                         break;
                     case AccountFilterTab.Pinned:
                         if (!a.Pinned) continue;

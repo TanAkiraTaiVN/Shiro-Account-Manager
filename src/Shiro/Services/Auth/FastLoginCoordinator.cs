@@ -64,34 +64,34 @@ namespace Shiro.Services
 
             if (combined.Contains("incorrect username or password", StringComparison.Ordinal) ||
                 combined.Contains("invalid username or password", StringComparison.Ordinal) ||
-                combined.Contains("sai mật khẩu", StringComparison.Ordinal) ||
-                combined.Contains("tên người dùng hoặc mật khẩu không đúng", StringComparison.Ordinal))
+                combined.Contains(Shiro.Services.LocalizationService.Get("Auto_FastLoginCoordin_204"), StringComparison.Ordinal) ||
+                combined.Contains(Shiro.Services.LocalizationService.Get("Auto_FastLoginCoordin_205"), StringComparison.Ordinal))
             {
                 return "WRONG_PASSWORD";
             }
 
             if (isModUrl)
             {
-                if (combined.Contains("14 day", StringComparison.Ordinal) || combined.Contains("14-day", StringComparison.Ordinal) || combined.Contains("14 ngày", StringComparison.Ordinal))
+                if (combined.Contains("14 day", StringComparison.Ordinal) || combined.Contains("14-day", StringComparison.Ordinal) || combined.Contains(Shiro.Services.LocalizationService.Get("Auto_FastLoginCoordin_206"), StringComparison.Ordinal))
                     return "BAN_14_DAYS";
-                if (combined.Contains("7 day", StringComparison.Ordinal) || combined.Contains("7-day", StringComparison.Ordinal) || combined.Contains("7 ngày", StringComparison.Ordinal))
+                if (combined.Contains("7 day", StringComparison.Ordinal) || combined.Contains("7-day", StringComparison.Ordinal) || combined.Contains(Shiro.Services.LocalizationService.Get("Auto_FastLoginCoordin_207"), StringComparison.Ordinal))
                     return "BAN_7_DAYS";
-                if (combined.Contains("3 day", StringComparison.Ordinal) || combined.Contains("3-day", StringComparison.Ordinal) || combined.Contains("3 ngày", StringComparison.Ordinal))
+                if (combined.Contains("3 day", StringComparison.Ordinal) || combined.Contains("3-day", StringComparison.Ordinal) || combined.Contains(Shiro.Services.LocalizationService.Get("Auto_FastLoginCoordin_208"), StringComparison.Ordinal))
                     return "BAN_3_DAYS";
-                if (combined.Contains("1 day", StringComparison.Ordinal) || combined.Contains("1-day", StringComparison.Ordinal) || combined.Contains("1 ngày", StringComparison.Ordinal))
+                if (combined.Contains("1 day", StringComparison.Ordinal) || combined.Contains("1-day", StringComparison.Ordinal) || combined.Contains(Shiro.Services.LocalizationService.Get("Auto_FastLoginCoordin_209"), StringComparison.Ordinal))
                     return "BAN_1_DAY";
-                if (combined.Contains("deleted", StringComparison.Ordinal) || combined.Contains("terminated", StringComparison.Ordinal) || combined.Contains("đã bị xóa", StringComparison.Ordinal) || combined.Contains("vĩnh viễn", StringComparison.Ordinal))
+                if (combined.Contains("deleted", StringComparison.Ordinal) || combined.Contains("terminated", StringComparison.Ordinal) || combined.Contains(Shiro.Services.LocalizationService.Get("Auto_FastLoginCoordin_211"), StringComparison.Ordinal) || combined.Contains(Shiro.Services.LocalizationService.Get("Auto_FastLoginCoordin_210"), StringComparison.Ordinal))
                     return "TERMINATED";
-                if (combined.Contains("warning", StringComparison.Ordinal) || combined.Contains("cảnh báo", StringComparison.Ordinal))
+                if (combined.Contains("warning", StringComparison.Ordinal) || combined.Contains(Shiro.Services.LocalizationService.Get("Auto_FastLoginCoordin_212"), StringComparison.Ordinal))
                     return "WARNING";
-                if (combined.Contains("locked", StringComparison.Ordinal) || combined.Contains("bị khóa", StringComparison.Ordinal) || combined.Contains("reset your password", StringComparison.Ordinal) || combined.Contains("security notification", StringComparison.Ordinal))
+                if (combined.Contains("locked", StringComparison.Ordinal) || combined.Contains(Shiro.Services.LocalizationService.Get("Auto_FastLoginCoordin_213"), StringComparison.Ordinal) || combined.Contains("reset your password", StringComparison.Ordinal) || combined.Contains("security notification", StringComparison.Ordinal))
                     return "ACCOUNT_LOCKED";
                 if (combined.Contains("not approved", StringComparison.Ordinal) || combined.Contains("banned", StringComparison.Ordinal) || combined.Contains("moderated", StringComparison.Ordinal) || combined.Contains("suspended", StringComparison.Ordinal))
                     return "ACCOUNT_BANNED";
                 return "LOCKED_OR_BANNED";
             }
 
-            if (combined.Contains("locked", StringComparison.Ordinal) || combined.Contains("bị khóa", StringComparison.Ordinal) || combined.Contains("reset your password", StringComparison.Ordinal) || combined.Contains("security notification", StringComparison.Ordinal))
+            if (combined.Contains("locked", StringComparison.Ordinal) || combined.Contains(Shiro.Services.LocalizationService.Get("Auto_FastLoginCoordin_213"), StringComparison.Ordinal) || combined.Contains("reset your password", StringComparison.Ordinal) || combined.Contains("security notification", StringComparison.Ordinal))
                 return "ACCOUNT_LOCKED";
 
             return string.Empty;
@@ -104,17 +104,17 @@ namespace Shiro.Services
 
             return code.Trim().Trim('"') switch
             {
-                "UNAUTHENTICATED_MODERATION" => ("UNAUTHENTICATED_MODERATION", "Phiên cookie đã hết hạn, đang mở trang đăng nhập để xem án phạt..."),
-                "BAN_7_DAYS" => ("Ban 7 ngày", "Tài khoản bị cấm 7 ngày"),
-                "BAN_3_DAYS" => ("Ban 3 ngày", "Tài khoản bị cấm 3 ngày"),
-                "BAN_1_DAY" => ("Ban 1 ngày", "Tài khoản bị cấm 1 ngày"),
-                "BAN_14_DAYS" => ("Ban 14 ngày", "Tài khoản bị cấm 14 ngày"),
-                "TERMINATED" => ("Ban vĩnh viễn", "Tài khoản đã bị xóa vĩnh viễn"),
-                "WARNING" => ("Cảnh báo", "Tài khoản nhận cảnh báo kiểm duyệt"),
-                "ACCOUNT_LOCKED" => ("Khóa bảo mật", "Tài khoản bị khóa bảo mật"),
-                "ACCOUNT_BANNED" => ("Bị khóa / Ban", "Tài khoản bị Ban / Đình chỉ"),
-                "LOCKED_OR_BANNED" => ("Bị khóa / Ban", "Tài khoản bị khóa hoặc kiểm duyệt"),
-                "WRONG_PASSWORD" => ("Sai mật khẩu", "Sai tài khoản hoặc mật khẩu"),
+                "UNAUTHENTICATED_MODERATION" => ("UNAUTHENTICATED_MODERATION", Shiro.Services.LocalizationService.Get("Auto_FastLoginCoordin_214")),
+                "BAN_7_DAYS" => (Shiro.Services.LocalizationService.Get("Auto_FastLoginCoordin_216"), Shiro.Services.LocalizationService.Get("Auto_FastLoginCoordin_215")),
+                "BAN_3_DAYS" => (Shiro.Services.LocalizationService.Get("Auto_FastLoginCoordin_218"), Shiro.Services.LocalizationService.Get("Auto_FastLoginCoordin_217")),
+                "BAN_1_DAY" => (Shiro.Services.LocalizationService.Get("Auto_FastLoginCoordin_220"), Shiro.Services.LocalizationService.Get("Auto_FastLoginCoordin_219")),
+                "BAN_14_DAYS" => (Shiro.Services.LocalizationService.Get("Auto_FastLoginCoordin_222"), Shiro.Services.LocalizationService.Get("Auto_FastLoginCoordin_221")),
+                "TERMINATED" => (Shiro.Services.LocalizationService.Get("Auto_FastLoginCoordin_224"), Shiro.Services.LocalizationService.Get("Auto_FastLoginCoordin_223")),
+                "WARNING" => (Shiro.Services.LocalizationService.Get("Msg_WarningTitle"), Shiro.Services.LocalizationService.Get("Auto_FastLoginCoordin_225")),
+                "ACCOUNT_LOCKED" => (Shiro.Services.LocalizationService.Get("Auto_FastLoginCoordin_227"), Shiro.Services.LocalizationService.Get("Auto_FastLoginCoordin_226")),
+                "ACCOUNT_BANNED" => (Shiro.Services.LocalizationService.Get("Auto_FastLoginDialogS_078"), Shiro.Services.LocalizationService.Get("Auto_FastLoginCoordin_228")),
+                "LOCKED_OR_BANNED" => (Shiro.Services.LocalizationService.Get("Auto_FastLoginDialogS_078"), Shiro.Services.LocalizationService.Get("Auto_FastLoginDialogS_077")),
+                "WRONG_PASSWORD" => (Shiro.Services.LocalizationService.Get("Auto_MainWindowaxaml_120"), Shiro.Services.LocalizationService.Get("Auto_FastLoginCoordin_229")),
                 _ => (null, null)
             };
         }
@@ -464,7 +464,7 @@ namespace Shiro.Services
                         FastLoginCaptureStatus.AccountIssue,
                         capturedAccount,
                         capturedAccount.AccountStatusIssue,
-                        "Phiên bị khóa hoặc kiểm duyệt");
+                        Shiro.Services.LocalizationService.Get("Auto_FastLoginDialogS_081"));
                 }
 
                 if (detectDomIssueAsync != null)
@@ -482,7 +482,7 @@ namespace Shiro.Services
                             FastLoginCaptureStatus.AccountIssue,
                             currentQueueAccount,
                             domBadge,
-                            domReason ?? "Phiên bị khóa hoặc kiểm duyệt");
+                            domReason ?? Shiro.Services.LocalizationService.Get("Auto_FastLoginDialogS_081"));
                     }
                 }
             }

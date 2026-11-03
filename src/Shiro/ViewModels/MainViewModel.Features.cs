@@ -34,11 +34,11 @@ namespace Shiro.ViewModels
             {
                 if (SetProperty(ref _isPotatoMode, value))
                 {
-                    AccountManager.General?.Set("EnablePotatoMode", value ? "true" : "false");
+                    AppSettings.General?.Set("EnablePotatoMode", value ? "true" : "false");
                     ClientSettingsPatcher.PatchSettings();
                     StatusMessage = value
-                        ? "Đã BẬT FastFlags Potato Mode! Game khởi động tiếp theo sẽ siêu nhẹ."
-                        : "Đã TẮT Potato Mode.";
+                        ? Shiro.Services.LocalizationService.Get("Auto_MainViewModelCom_449")
+                        : Shiro.Services.LocalizationService.Get("Auto_MainViewModelCom_450");
                     NotifyToolStatesChanged();
                 }
             }
@@ -53,8 +53,8 @@ namespace Shiro.ViewModels
                 {
                     AntiAfkService.SetConfig(value);
                     StatusMessage = value
-                        ? "Anti-AFK đã BẬT: Tự động bảo vệ chống kick 20 phút cho tất cả tài khoản!"
-                        : "Anti-AFK đã TẮT.";
+                        ? Shiro.Services.LocalizationService.Get("Auto_MainViewModelCom_447")
+                        : Shiro.Services.LocalizationService.Get("Auto_MainViewModelCom_448");
                     NotifyToolStatesChanged();
                 }
             }
@@ -72,8 +72,8 @@ namespace Shiro.ViewModels
                     StreamerModeService.IsEnabled = value;
                     NotifyToolStatesChanged();
                     StatusMessage = value
-                        ? "Đã BẬT Streamer Mode! Cửa sổ Shiro đã được bảo vệ khỏi phần mềm quay/stream màn hình."
-                        : "Đã TẮT Streamer Mode.";
+                        ? Shiro.Services.LocalizationService.Get("Auto_MainViewModelFea_471")
+                        : Shiro.Services.LocalizationService.Get("Auto_MainWindowNaviga_111");
                     RefreshAllAccountDisplays();
                 }
             }
@@ -99,12 +99,12 @@ namespace Shiro.ViewModels
                     if (value)
                     {
                         var (hidden, _) = RobloxWindowService.HideAllWindows();
-                        StatusMessage = $"Đã ẩn {hidden} cửa sổ Roblox (Zero GPU Mode)! Tiết kiệm tối đa điện năng và GPU.";
+                        StatusMessage = Shiro.Services.LocalizationService.Format("Auto_MainViewModelFea_472", hidden);
                     }
                     else
                     {
                         var (restored, _) = RobloxWindowService.ShowAllWindows();
-                        StatusMessage = $"Đã hiển thị lại {restored} cửa sổ Roblox.";
+                        StatusMessage = Shiro.Services.LocalizationService.Format("Auto_MainViewModelCom_444", restored);
                     }
                     NotifyToolStatesChanged();
                 }
@@ -115,9 +115,9 @@ namespace Shiro.ViewModels
         {
             IsAntiAfk = AntiAfkService.IsEnabled;
             AreWindowsHidden = RobloxWindowService.AreWindowsHidden;
-            IsPotatoMode = AccountManager.General != null &&
-                           AccountManager.General.Exists("EnablePotatoMode") &&
-                           AccountManager.General.Get<bool>("EnablePotatoMode");
+            IsPotatoMode = AppSettings.General != null &&
+                           AppSettings.General.Exists("EnablePotatoMode") &&
+                           AppSettings.General.Get<bool>("EnablePotatoMode");
             NotifyToolStatesChanged();
         }
 
@@ -130,6 +130,7 @@ namespace Shiro.ViewModels
             OnPropertyChanged(nameof(TabInGameText));
             OnPropertyChanged(nameof(TabReadyText));
             OnPropertyChanged(nameof(TabExpiredText));
+            OnPropertyChanged(nameof(TabBannedText));
             OnPropertyChanged(nameof(TabPinnedText));
             OnPropertyChanged(nameof(DeselectCountText));
             OnPropertyChanged(nameof(LaunchHomeButtonText));
@@ -158,59 +159,63 @@ namespace Shiro.ViewModels
 
         public string LaunchHomeButtonText => LocalizationService.IsEnglish
             ? $"Launch Home ({SelectedCount})"
-            : $"Mở Roblox Home ({SelectedCount})";
+            : Shiro.Services.LocalizationService.Format("Auto_MainViewModelFea_473", SelectedCount);
 
         public string JoinServerButtonText => LocalizationService.IsEnglish
             ? $"Join Server ({SelectedCount})"
-            : $"Vào Server ({SelectedCount})";
+            : Shiro.Services.LocalizationService.Format("Auto_MainViewModelFea_474", SelectedCount);
 
         public string FooterSelectedText => LocalizationService.IsEnglish
             ? $"Selected {SelectedCount} accounts"
-            : $"Đã chọn {SelectedCount} tài khoản";
+            : Shiro.Services.LocalizationService.Format("Auto_MainViewModelFea_475", SelectedCount);
 
         public string FooterTotalText => LocalizationService.IsEnglish
             ? $"Total: {TotalCount}"
-            : $"Tổng số: {TotalCount}";
+            : Shiro.Services.LocalizationService.Format("Auto_MainViewModelFea_476", TotalCount);
 
         public string FooterReadyStatusText => LocalizationService.IsEnglish
             ? "Shiro • Ready"
-            : "Shiro • Sẵn sàng";
+            : Shiro.Services.LocalizationService.Get("Auto_MainViewModelFea_477");
 
         public string SubtitleTotalText => LocalizationService.IsEnglish
             ? $"{TotalCount} accounts"
-            : $"{TotalCount} tài khoản";
+            : Shiro.Services.LocalizationService.Format("Auto_AboutDialogaxaml_034", TotalCount);
 
         public string SubtitleReadyText => LocalizationService.IsEnglish
             ? $"{ReadyCount} ready"
-            : $"{ReadyCount} sẵn sàng";
+            : Shiro.Services.LocalizationService.Format("Auto_MainViewModelFea_478", ReadyCount);
 
         public string SubtitleSelectedText => LocalizationService.IsEnglish
             ? $"{SelectedCount} selected"
-            : $"{SelectedCount} đã chọn";
+            : Shiro.Services.LocalizationService.Format("Auto_MainViewModelFea_479", SelectedCount);
 
         public string TabAllText => LocalizationService.IsEnglish
             ? $"All ({TotalCount})"
-            : $"Tất cả ({TotalCount})";
+            : Shiro.Services.LocalizationService.Format("Auto_MainViewModelFea_480", TotalCount);
 
         public string TabInGameText => LocalizationService.IsEnglish
             ? $"Playing ({InGameCount})"
-            : $"Đang chơi ({InGameCount})";
+            : Shiro.Services.LocalizationService.Format("Auto_MainViewModelFea_481", InGameCount);
 
         public string TabReadyText => LocalizationService.IsEnglish
             ? $"Ready ({ReadyCount})"
-            : $"Sẵn sàng ({ReadyCount})";
+            : Shiro.Services.LocalizationService.Format("Auto_MainViewModelFea_482", ReadyCount);
 
         public string TabExpiredText => LocalizationService.IsEnglish
             ? $"Expired ({ExpiredCount})"
-            : $"Hết hạn ({ExpiredCount})";
+            : Shiro.Services.LocalizationService.Format("Auto_MainViewModelFea_483", ExpiredCount);
+
+        public string TabBannedText => LocalizationService.IsEnglish
+            ? $"Banned ({BannedCount})"
+            : Shiro.Services.LocalizationService.Format("Auto_MainViewModelFea_484", BannedCount);
 
         public string TabPinnedText => LocalizationService.IsEnglish
             ? $"Pinned ({PinnedCount})"
-            : $"Đã ghim ({PinnedCount})";
+            : Shiro.Services.LocalizationService.Format("Auto_MainViewModelFea_485", PinnedCount);
 
         public string DeselectCountText => LocalizationService.IsEnglish
             ? $"Deselect ({SelectedCount})"
-            : $"Bỏ chọn ({SelectedCount})";
+            : Shiro.Services.LocalizationService.Format("Auto_MainViewModelFea_486", SelectedCount);
 
         public void ReloadRecentGames()
         {
@@ -219,11 +224,11 @@ namespace Shiro.ViewModels
                 try
                 {
                     var list = new List<RecentGameItemViewModel>();
-                    if (AccountManager.RecentGames != null)
+                    if (AppSettings.RecentGames != null)
                     {
-                        lock (AccountManager.RecentGames)
+                        lock (AppSettings.RecentGames)
                         {
-                            foreach (var g in AccountManager.RecentGames)
+                            foreach (var g in AppSettings.RecentGames)
                             {
                                 if (g?.Details?.placeId != null)
                                 {

@@ -117,8 +117,8 @@ namespace Shiro.Classes
             }
         }
 
-        public const string BrowserNotFoundMessage =
-            "Không tìm thấy Google Chrome hoặc Microsoft Edge. Vui lòng cài đặt Chrome hoặc Edge rồi thử lại.";
+        public static string BrowserNotFoundMessage =>
+            Shiro.Services.LocalizationService.Get("Auto_AccountBrowserDi_195");
 
         public static void CreateGrid(Vector2 Size)
         {

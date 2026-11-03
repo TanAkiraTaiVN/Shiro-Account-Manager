@@ -13,24 +13,30 @@ namespace Shiro
 {
     public partial class AccountManager
     {
+        private static void ApplyAccountValidityCore(Account account, bool isValid)
+        {
+            account.Valid = isValid;
+            if (isValid)
+                account.AccountStatusIssue = string.Empty;
+            Shiro.AvaloniaUI.Views.MainWindow.Instance?.UpdateAccountValidity(account, isValid);
+        }
+
         public void UpdateAccountValidity(Account account, bool isValid)
         {
             if (account == null) return;
-            account.Valid = isValid;
-            Shiro.AvaloniaUI.Views.MainWindow.Instance?.UpdateAccountValidity(account, isValid);
+            ApplyAccountValidityCore(account, isValid);
         }
 
         public static void NotifyAccountValidity(Account account, bool isValid)
         {
             if (account == null) return;
-            account.Valid = isValid;
             if (Instance != null)
             {
                 Instance.UpdateAccountValidity(account, isValid);
             }
             else
             {
-                Shiro.AvaloniaUI.Views.MainWindow.Instance?.UpdateAccountValidity(account, isValid);
+                ApplyAccountValidityCore(account, isValid);
             }
         }
 
@@ -296,6 +302,7 @@ namespace Shiro
             }
             catch (OperationCanceledException)
             {
+                /* canceled */
             }
             catch (Exception exception)
             {
@@ -321,7 +328,7 @@ namespace Shiro
             {
                 if (cancellationToken.IsCancellationRequested || lifetimeCancellation.IsCancellationRequested)
                 {
-                    string cancelMsg = "Đã dừng tiến trình đăng nhập hàng loạt.";
+                    string cancelMsg = Shiro.Services.LocalizationService.Get("Auto_AccountManagerAc_001");
                     SetDashboardStatus(cancelMsg);
                     statusCallback?.Invoke(cancelMsg);
                     break;
@@ -345,7 +352,7 @@ namespace Shiro
                 validCount++;
                 int windowSlot = activeSlotTasks[0] == null ? 0 : 1;
                 activeSlotTasks[windowSlot] = RunBulkUserPassLoginAsync(username, password, windowSlot, cancellationToken);
-                string msg = $"Đã mở trình duyệt đăng nhập cho {username} ({validCount}/{comboList.Length})...";
+                string msg = Shiro.Services.LocalizationService.Format("Auto_AccountManagerAc_002", username, validCount, comboList.Length);
                 SetDashboardStatus(msg);
                 statusCallback?.Invoke(msg);
 
@@ -372,7 +379,7 @@ namespace Shiro
 
             if (validCount == 0)
             {
-                string msg = "Không tìm thấy dòng tài khoản:mật khẩu hợp lệ nào.";
+                string msg = Shiro.Services.LocalizationService.Get("Auto_AccountManagerAc_003");
                 SetDashboardStatus(msg);
                 statusCallback?.Invoke(msg);
                 return;
@@ -384,14 +391,14 @@ namespace Shiro
             if (failedAccounts.Count > 0)
             {
                 string failedNames = string.Join(", ", failedAccounts.Select(f => f.Username));
-                string msg = $"Đăng nhập xong: {validCount - failedAccounts.Count}/{validCount} thành công. Thất bại: {failedNames} (cửa sổ bị đóng trước khi thêm acc)";
+                string msg = Shiro.Services.LocalizationService.Format("Auto_AccountManagerAc_004", validCount - failedAccounts.Count, validCount, failedNames);
                 SetDashboardStatus(msg);
                 statusCallback?.Invoke(msg);
                 Program.Logger.Warn($"Bulk sign-in completed with {failedAccounts.Count} failures: {failedNames}");
             }
             else
             {
-                string msg = $"Đăng nhập hàng loạt hoàn tất thành công cho {validCount} tài khoản.";
+                string msg = Shiro.Services.LocalizationService.Format("Auto_AccountManagerAc_005", validCount);
                 SetDashboardStatus(msg);
                 statusCallback?.Invoke(msg);
             }
@@ -412,7 +419,7 @@ namespace Shiro
             }
             catch (OperationCanceledException)
             {
-                return (false, username, "Hủy bởi người dùng", windowSlot);
+                return (false, username, Shiro.Services.LocalizationService.Get("Auto_AccountManagerAc_006"), windowSlot);
             }
             catch (Exception exception)
             {

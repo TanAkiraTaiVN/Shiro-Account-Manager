@@ -72,15 +72,15 @@ namespace Shiro.ViewModels
 
         public MainViewModel()
         {
-            string? savedPid = AccountManager.General?.Get("SavedPlaceId");
+            string? savedPid = AppSettings.General?.Get("SavedPlaceId");
             if (!string.IsNullOrWhiteSpace(savedPid))
             {
                 _placeId = savedPid.Trim();
-                AccountManager.CurrentPlaceId = _placeId;
+                AppSettings.CurrentPlaceId = _placeId;
             }
-            else if (!string.IsNullOrWhiteSpace(AccountManager.CurrentPlaceId))
+            else if (!string.IsNullOrWhiteSpace(AppSettings.CurrentPlaceId))
             {
-                _placeId = AccountManager.CurrentPlaceId;
+                _placeId = AppSettings.CurrentPlaceId;
             }
             else
             {
@@ -175,16 +175,16 @@ namespace Shiro.ViewModels
 
         public bool IsShuffleJobId
         {
-            get => AccountManager.ShuffleJobID;
+            get => AppSettings.ShuffleJobId;
             set
             {
-                if (AccountManager.ShuffleJobID != value)
+                if (AppSettings.ShuffleJobId != value)
                 {
-                    AccountManager.ShuffleJobID = value;
+                    AppSettings.ShuffleJobId = value;
                     OnPropertyChanged();
                     StatusMessage = value
-                        ? "Shuffle Job ID đã BẬT: Tham gia server ngẫu nhiên khi vào game."
-                        : "Shuffle Job ID đã TẮT.";
+                        ? Shiro.Services.LocalizationService.Get("Auto_MainViewModel_520")
+                        : Shiro.Services.LocalizationService.Get("Auto_MainViewModel_521");
                 }
             }
         }
@@ -204,9 +204,9 @@ namespace Shiro.ViewModels
                 {
                     if (!string.IsNullOrWhiteSpace(value))
                     {
-                        AccountManager.CurrentPlaceId = value.Trim();
-                        AccountManager.General?.Set("SavedPlaceId", value.Trim());
-                        AccountManager.QueueDeferredSaveSettings();
+                        AppSettings.CurrentPlaceId = value.Trim();
+                        AppSettings.General?.Set("SavedPlaceId", value.Trim());
+                        AppSettings.QueueDeferredSave();
                     }
                     ServerListViewModel?.SyncPlaceId(value);
                     ScheduleCurrentGameLookup(value);
@@ -221,7 +221,7 @@ namespace Shiro.ViewModels
             {
                 if (SetProperty(ref _jobId, value))
                 {
-                    AccountManager.CurrentJobId = value?.Trim() ?? string.Empty;
+                    AppSettings.CurrentJobId = value?.Trim() ?? string.Empty;
                 }
             }
         }

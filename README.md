@@ -61,7 +61,7 @@ Sau khi hoàn tất, file thực thi phát hành chuẩn sẽ được tạo t�
 
 ## 📋 Kiểm thử tự động (Unit Tests)
 
-Dự án đi kèm bộ 500+ unit test kiểm tra toàn diện tính toàn vẹn của mã hóa AES-256-GCM / PBKDF2-SHA256, bảo mật DPAPI, quản lý hàng đợi, kiến trúc MVVM strongly-typed, engine đồ họa Avalonia UI 11 và cấu hình JSON:
+Dự án đi kèm bộ 650+ unit test kiểm tra toàn diện tính toàn vẹn của mã hóa AES-256-GCM / PBKDF2-SHA256, bảo mật DPAPI, quản lý hàng đợi, kiến trúc MVVM strongly-typed, engine đồ họa Avalonia UI 11 và cấu hình JSON:
 
 ```powershell
 dotnet test tests\Shiro.Tests

@@ -28,7 +28,7 @@ namespace Shiro.Services
             var list = AppServices.AccountRepository.GetAll();
             if (list == null || list.Count == 0) return;
 
-            statusCallback?.Invoke("Đang kiểm tra phiên đăng nhập của tất cả tài khoản...");
+            statusCallback?.Invoke(Shiro.Services.LocalizationService.Get("Auto_AccountWorkflowS_274"));
 
             int total = list.Count;
             int checkedCount = 0;
@@ -53,8 +53,8 @@ namespace Shiro.Services
                     int c = Interlocked.Increment(ref checkedCount);
                     if (!isValid) Interlocked.Increment(ref expiredCount);
 
-                    string state = isValid ? "Hợp lệ" : (acc.IsBannedOrLocked ? acc.AccountStatusIssue : "Hết hạn");
-                    statusCallback?.Invoke($"Đang kiểm tra ({c}/{total}): {acc.Username} -> {state} (Hết hạn: {expiredCount})");
+                    string state = isValid ? Shiro.Services.LocalizationService.Get("Auto_AccountWorkflowS_275") : (acc.IsBannedOrLocked ? acc.AccountStatusIssue : Shiro.Services.LocalizationService.Get("KPI_Expired"));
+                    statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_276", c, total, acc.Username, state, expiredCount));
                     viewModel?.UpdateAccountValidity(acc, isValid, refreshFilterAndCounts: false);
                     AppDispatcher.Post(() => viewModel?.NotifyCounts());
                 }
@@ -82,37 +82,37 @@ namespace Shiro.Services
             });
 
             statusCallback?.Invoke((expired > 0 || banned > 0)
-                ? $"Quét hoàn tất: {valid} sẵn sàng, {expired} hết hạn, {banned} bị ban! Xem tab 'Hết hạn' / 'Bị ban' để kiểm tra."
-                : $"Quét hoàn tất: Toàn bộ {total} tài khoản đều đang hoạt động tốt!");
+                ? Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_277", valid, expired, banned)
+                : Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_278", total));
 
             string msg = (expired > 0 || banned > 0)
-                ? $"KẾT QUẢ KIỂM TRA PHIÊN (SESSION CHECK):\n\n" +
-                  $"• Tổng số tài khoản: {total}\n" +
-                  $"• Sẵn sàng hoạt động: {valid}\n" +
-                  $"• Hết hạn phiên: {expired}\n" +
-                  $"• Bị khóa / Ban / Kiểm duyệt: {banned}\n\n" +
+                ? Shiro.Services.LocalizationService.Get("Auto_AccountWorkflowS_279") +
+                  Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_280", total) +
+                  Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_281", valid) +
+                  Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_282", expired) +
+                  Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_283", banned) +
                   (banned > 0
-                      ? $"CÁC TÀI KHOẢN BỊ BAN / KHÓA:\n" +
+                      ? Shiro.Services.LocalizationService.Get("Auto_AccountWorkflowS_284") +
                         string.Join("\n", bannedAccounts.Take(5).Select(a => $"• {a.Username}: {a.AccountStatusIssue}")) +
-                        (bannedAccounts.Count > 5 ? $"\n• ...và {bannedAccounts.Count - 5} tài khoản khác" : "") + "\n\n"
+                        (bannedAccounts.Count > 5 ? Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_285", bannedAccounts.Count - 5) : "") + "\n\n"
                       : "") +
                   (expired == total
-                      ? "LƯU Ý ĐẶC BIỆT: Tất cả tài khoản đều báo hết hạn phiên!\n" +
-                        "Khả năng cao là địa chỉ IP của bạn vừa thay đổi (do đổi mạng, bật/tắt VPN, hoặc router reset).\n\n"
+                      ? Shiro.Services.LocalizationService.Get("Auto_AccountWorkflowS_286") +
+                        Shiro.Services.LocalizationService.Get("Auto_AccountWorkflowS_287")
                       : "") +
-                  $"Hệ thống đã tự động gia hạn Cookie xoay (Cookie Rotation) cho các tài khoản hợp lệ.\n" +
-                  $"Các tài khoản hết hạn và bị ban đã được phân loại vào tab 'Hết hạn' và 'Bị ban'."
-                : $"KẾT QUẢ KIỂM TRA PHIÊN (SESSION CHECK):\n\n" +
-                  $"• Tổng số tài khoản: {total}\n" +
-                  $"• Sẵn sàng hoạt động: {valid}\n" +
-                  $"• Hết hạn phiên: 0\n" +
-                  $"• Bị khóa / Ban: 0\n\n" +
-                  $"Tất cả tài khoản đều có phiên đăng nhập hợp lệ và đã được tự động cập nhật Cookie xoay!";
+                  Shiro.Services.LocalizationService.Get("Auto_AccountWorkflowS_288") +
+                  Shiro.Services.LocalizationService.Get("Auto_AccountWorkflowS_289")
+                : Shiro.Services.LocalizationService.Get("Auto_AccountWorkflowS_279") +
+                  Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_280", total) +
+                  Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_281", valid) +
+                  Shiro.Services.LocalizationService.Get("Auto_AccountWorkflowS_290") +
+                  Shiro.Services.LocalizationService.Get("Auto_AccountWorkflowS_291") +
+                  Shiro.Services.LocalizationService.Get("Auto_AccountWorkflowS_292");
 
             if (expired > 0 || banned > 0)
-                AppServices.Dialogs.ShowWarning(msg, "Kiểm Tra Phiên Tài Khoản");
+                AppServices.Dialogs.ShowWarning(msg, Shiro.Services.LocalizationService.Get("Auto_AccountWorkflowS_293"));
             else
-                AppServices.Dialogs.ShowInfo(msg, "Kiểm Tra Phiên Tài Khoản");
+                AppServices.Dialogs.ShowInfo(msg, Shiro.Services.LocalizationService.Get("Auto_AccountWorkflowS_293"));
         }
 
         public async Task ReLoginWithCookieAsync(
@@ -125,8 +125,8 @@ namespace Shiro.Services
 
             string? cookie = await AppDispatcher.InvokeAsync(() =>
                 AppServices.Dialogs.ShowInputPrompt(
-                    $"Nhập Cookie mới (.ROBLOSECURITY) cho {acc.Username}:",
-                    $"Cập nhật Cookie cho {acc.Username}",
+                    Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_294", acc.Username),
+                    Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_295", acc.Username),
                     string.Empty)).ConfigureAwait(false);
 
             if (!string.IsNullOrWhiteSpace(cookie) && cookie != "/UC")
@@ -138,7 +138,7 @@ namespace Shiro.Services
                 bool wasValid = acc.Model.Valid;
 
                 acc.Model.SecurityToken = token;
-                statusCallback?.Invoke($"Đang xác thực phiên mới cho {acc.Username}...");
+                statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_296", acc.Username));
                 bool ok = await acc.Model.ValidateSessionAsync().ConfigureAwait(false);
 
                 if (ok)
@@ -149,7 +149,7 @@ namespace Shiro.Services
                     acc.Model.LastAuthTicketRateLimited = false;
                     await AppServices.AccountRepository.SaveAsync(true).ConfigureAwait(false);
                     viewModel?.UpdateAccountValidity(acc.Model, true);
-                    statusCallback?.Invoke($"Cập nhật Cookie thành công cho {acc.Username}! Phiên đã sẵn sàng.");
+                    statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_297", acc.Username));
                 }
                 else
                 {
@@ -158,13 +158,13 @@ namespace Shiro.Services
                         acc.Model.SecurityToken = previousToken;
                         acc.Model.Valid = true;
                         viewModel?.UpdateAccountValidity(acc.Model, true);
-                        statusCallback?.Invoke($"Cookie vừa nhập không hợp lệ cho {acc.Username}. Đã giữ nguyên phiên hợp lệ trước đó.");
+                        statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_298", acc.Username));
                     }
                     else
                     {
                         await AppServices.AccountRepository.SaveAsync(true).ConfigureAwait(false);
                         viewModel?.UpdateAccountValidity(acc.Model, false);
-                        statusCallback?.Invoke($"Cookie vừa nhập không hợp lệ hoặc đã hết hạn cho {acc.Username}.");
+                        statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_299", acc.Username));
                     }
                 }
             }
@@ -175,8 +175,8 @@ namespace Shiro.Services
             if (acc?.Model == null) return;
             string current = acc.Model.Alias ?? string.Empty;
             string input = AppServices.Dialogs.ShowInputPrompt(
-                $"Nhập Alias (Tên gợi nhớ) cho {acc.Username}:",
-                "Đổi Alias",
+                Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_300", acc.Username),
+                Shiro.Services.LocalizationService.Get("Auto_AccountWorkflowS_301"),
                 current);
 
             if (input != null && input != "/UC")
@@ -184,7 +184,7 @@ namespace Shiro.Services
                 acc.Model.Alias = string.IsNullOrWhiteSpace(input) ? string.Empty : input.Trim();
                 acc.Alias = acc.Model.Alias;
                 AppServices.AccountRepository.QueueDeferredSave();
-                statusCallback?.Invoke($"Đã đổi Alias cho {acc.Username} thành: {acc.Model.Alias}");
+                statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_302", acc.Username, acc.Model.Alias));
             }
         }
 
@@ -193,8 +193,8 @@ namespace Shiro.Services
             if (acc?.Model == null) return;
             string currentGroup = !string.IsNullOrWhiteSpace(acc.Model.Group) ? acc.Model.Group : "Default";
             string groupName = AppServices.Dialogs.ShowInputPrompt(
-                $"Nhóm cho {acc.Username}:",
-                "Phân Nhóm",
+                Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_303", acc.Username),
+                Shiro.Services.LocalizationService.Get("Auto_AccountWorkflowS_304"),
                 currentGroup);
 
             if (groupName != null && groupName != "/UC")
@@ -205,7 +205,7 @@ namespace Shiro.Services
                 AppServices.AccountRepository.QueueDeferredSave();
                 viewModel?.RebuildGroupList();
                 viewModel?.ApplyFilter();
-                statusCallback?.Invoke($"Đã chuyển {acc.Username} sang nhóm {groupName}.");
+                statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_305", acc.Username, groupName));
             }
         }
 
@@ -214,8 +214,8 @@ namespace Shiro.Services
             if (acc?.Model == null) return;
             string current = acc.Model.Description ?? string.Empty;
             string newDesc = AppServices.Dialogs.ShowInputPrompt(
-                $"Nhập ghi chú cho {acc.Username}:",
-                "Đổi Ghi Chú",
+                Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_306", acc.Username),
+                Shiro.Services.LocalizationService.Get("Auto_AccountWorkflowS_307"),
                 current);
 
             if (newDesc != null && newDesc != "/UC")
@@ -223,7 +223,7 @@ namespace Shiro.Services
                 acc.Model.Description = newDesc;
                 acc.Description = newDesc;
                 AppServices.AccountRepository.QueueDeferredSave();
-                statusCallback?.Invoke($"Đã cập nhật ghi chú cho {acc.Username}.");
+                statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_308", acc.Username));
             }
         }
 
@@ -234,14 +234,14 @@ namespace Shiro.Services
             acc.Pinned = acc.Model.Pinned;
             AppServices.AccountRepository.QueueDeferredSave();
             viewModel?.ApplyFilter();
-            statusCallback?.Invoke(acc.Pinned ? $"Đã ghim {acc.Username} lên đầu danh sách." : $"Đã bỏ ghim {acc.Username}.");
+            statusCallback?.Invoke(acc.Pinned ? Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_310", acc.Username) : Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_309", acc.Username));
         }
 
         public void CopyUsername(AccountViewModel acc, Action<string> statusCallback)
         {
             if (acc?.Model == null || string.IsNullOrEmpty(acc.Model.Username)) return;
             ClipboardHelper.SetClipboardTextSafe(acc.Model.Username);
-            statusCallback?.Invoke($"Đã sao chép Username: {acc.Model.Username}");
+            statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_311", acc.Model.Username));
         }
 
         public void CopyUserPass(AccountViewModel acc, Action<string> statusCallback)
@@ -249,7 +249,7 @@ namespace Shiro.Services
             if (acc?.Model != null)
             {
                 ClipboardHelper.SetClipboardTextSafe($"{acc.Model.Username}:{(acc.Model.Password ?? string.Empty)}");
-                statusCallback?.Invoke($"Đã sao chép User:Pass của {acc.Model.Username} vào Clipboard.");
+                statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_312", acc.Model.Username));
             }
         }
 
@@ -257,29 +257,29 @@ namespace Shiro.Services
         {
             if (acc?.Model == null || acc.Model.UserID <= 0) return;
             ClipboardHelper.SetClipboardTextSafe(acc.Model.UserID.ToString());
-            statusCallback?.Invoke($"Đã sao chép User ID: {acc.Model.UserID}");
+            statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_313", acc.Model.UserID));
         }
 
         public void CopyProfileUrl(AccountViewModel acc, Action<string> statusCallback)
         {
             if (acc?.Model == null || acc.Model.UserID <= 0) return;
             ClipboardHelper.SetClipboardTextSafe($"https://www.roblox.com/users/{acc.Model.UserID}/profile");
-            statusCallback?.Invoke($"Đã sao chép liên kết hồ sơ của {acc.Username}");
+            statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_314", acc.Username));
         }
 
         public void CopySecurityToken(AccountViewModel acc, Action<string> statusCallback)
         {
             if (acc?.Model == null || string.IsNullOrEmpty(acc.Model.SecurityToken)) return;
             ClipboardHelper.SetClipboardTextSafe(acc.Model.SecurityToken);
-            statusCallback?.Invoke($"Đã sao chép Security Token (.ROBLOSECURITY) của {acc.Username}");
+            statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_315", acc.Username));
         }
 
         public void RemoveAccount(AccountViewModel acc, MainViewModel viewModel, Action<string> statusCallback)
         {
             if (acc?.Model == null) return;
             bool confirmed = AppServices.Dialogs.ShowConfirmation(
-                $"Bạn có chắc chắn muốn xóa tài khoản '{acc.Username}' khỏi Shiro không?",
-                "Xác nhận xóa tài khoản");
+                Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_316", acc.Username),
+                Shiro.Services.LocalizationService.Get("Auto_AccountWorkflowS_317"));
 
             if (confirmed)
             {
@@ -288,7 +288,7 @@ namespace Shiro.Services
                 viewModel?.NotifyCounts();
                 viewModel?.RebuildGroupList();
                 viewModel?.ApplyFilter();
-                statusCallback?.Invoke($"Đã xóa tài khoản {acc.Username}.");
+                statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_318", acc.Username));
             }
         }
 
@@ -298,13 +298,13 @@ namespace Shiro.Services
             var selectedVms = viewModel.GetSelectedAccountViewModels();
             if (selectedVms.Count == 0)
             {
-                statusCallback?.Invoke("Vui lòng tick chọn ít nhất một tài khoản trước khi đổi nhóm.");
+                statusCallback?.Invoke(Shiro.Services.LocalizationService.Get("Auto_AccountWorkflowS_319"));
                 return;
             }
 
             string currentGroup = selectedVms.Count == 1 && !string.IsNullOrWhiteSpace(selectedVms[0].Group) ? selectedVms[0].Group : "Default";
-            string prompt = selectedVms.Count == 1 ? $"Nhóm cho {selectedVms[0].Username}:" : $"Nhóm cho {selectedVms.Count} tài khoản đã chọn:";
-            string groupName = AppServices.Dialogs.ShowInputPrompt(prompt, "Phân Nhóm Hàng Loạt", currentGroup);
+            string prompt = selectedVms.Count == 1 ? Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_303", selectedVms[0].Username) : Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_320", selectedVms.Count);
+            string groupName = AppServices.Dialogs.ShowInputPrompt(prompt, Shiro.Services.LocalizationService.Get("Auto_AccountWorkflowS_321"), currentGroup);
 
             if (groupName != null && groupName != "/UC")
             {
@@ -316,7 +316,7 @@ namespace Shiro.Services
                 AppServices.AccountRepository.QueueDeferredSave();
                 viewModel.RebuildGroupList();
                 viewModel.ApplyFilter();
-                statusCallback?.Invoke($"Đã chuyển {selectedVms.Count} tài khoản sang nhóm {groupName}.");
+                statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_322", selectedVms.Count, groupName));
             }
         }
 
@@ -326,14 +326,14 @@ namespace Shiro.Services
             var targets = viewModel.GetSelectedAccounts();
             if (targets.Count == 0)
             {
-                statusCallback?.Invoke("Vui lòng tick chọn ít nhất một tài khoản để lưu Place ID.");
+                statusCallback?.Invoke(Shiro.Services.LocalizationService.Get("Auto_AccountWorkflowS_323"));
                 return;
             }
 
             long parsedPid = AccountLauncherService.ParsePlaceId(viewModel.PlaceId);
             if (parsedPid <= 0)
             {
-                statusCallback?.Invoke("Hãy nhập Place ID hợp lệ vào ô trên trước khi lưu.");
+                statusCallback?.Invoke(Shiro.Services.LocalizationService.Get("Auto_AccountWorkflowS_324"));
                 return;
             }
 
@@ -343,7 +343,7 @@ namespace Shiro.Services
                 a.SetField("SavedPlaceId", pid);
             }
             AppServices.AccountRepository.QueueDeferredSave();
-            statusCallback?.Invoke($"Đã lưu Place ID {pid} cho {targets.Count} tài khoản.");
+            statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_325", pid, targets.Count));
         }
 
         public void CopyUserPassSelected(MainViewModel viewModel, Action<string> statusCallback)
@@ -352,13 +352,13 @@ namespace Shiro.Services
             var targets = viewModel.GetSelectedAccounts();
             if (targets.Count == 0)
             {
-                statusCallback?.Invoke("Vui lòng tick chọn ít nhất một tài khoản để sao chép User:Pass.");
+                statusCallback?.Invoke(Shiro.Services.LocalizationService.Get("Auto_AccountWorkflowS_326"));
                 return;
             }
 
             var lines = targets.Select(a => $"{a.Username}:{(a.Password ?? string.Empty)}").ToList();
             ClipboardHelper.SetClipboardTextSafe(string.Join(Environment.NewLine, lines));
-            statusCallback?.Invoke($"Đã sao chép User:Pass của {lines.Count} tài khoản vào Clipboard.");
+            statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_327", lines.Count));
         }
 
         public void RemoveSelectedAccounts(MainViewModel viewModel, Action<string> statusCallback)
@@ -367,13 +367,13 @@ namespace Shiro.Services
             var selectedVms = viewModel.GetSelectedAccountViewModels();
             if (selectedVms.Count == 0)
             {
-                statusCallback?.Invoke("Vui lòng tick chọn ít nhất một tài khoản để xóa!");
+                statusCallback?.Invoke(Shiro.Services.LocalizationService.Get("Auto_AccountWorkflowS_328"));
                 return;
             }
 
             bool confirmed = AppServices.Dialogs.ShowConfirmation(
-                $"Bạn có chắc chắn muốn xóa {selectedVms.Count} tài khoản đã chọn khỏi Shiro không?\n\nHành động này không thể hoàn tác!",
-                "Xác nhận xóa hàng loạt");
+                Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_329", selectedVms.Count),
+                Shiro.Services.LocalizationService.Get("Auto_AccountWorkflowS_330"));
 
             if (confirmed)
             {
@@ -386,7 +386,7 @@ namespace Shiro.Services
                 viewModel.NotifyCounts();
                 viewModel.RebuildGroupList();
                 viewModel.ApplyFilter();
-                statusCallback?.Invoke($"Đã xóa {count} tài khoản khỏi hệ thống.");
+                statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_331", count));
             }
         }
 
@@ -424,8 +424,8 @@ namespace Shiro.Services
                             int c = Interlocked.Increment(ref checkedCount);
                             viewModel?.UpdateAccountValidity(item.Model, ok, refreshFilterAndCounts: false);
                             AppDispatcher.Post(() => viewModel?.NotifyCounts());
-                            string itemState = ok ? "Hợp lệ" : (item.Model.IsBannedOrLocked ? item.Model.AccountStatusIssue : "Hết hạn");
-                            statusCallback?.Invoke($"Đang kiểm tra ({c}/{total}): {item.Username} -> {itemState}");
+                            string itemState = ok ? Shiro.Services.LocalizationService.Get("Auto_AccountWorkflowS_275") : (item.Model.IsBannedOrLocked ? item.Model.AccountStatusIssue : Shiro.Services.LocalizationService.Get("KPI_Expired"));
+                            statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_332", c, total, item.Username, itemState));
                         }
                         catch (Exception ex)
                         {
@@ -439,12 +439,12 @@ namespace Shiro.Services
                         viewModel?.NotifyCounts();
                         viewModel?.ApplyFilter();
                     });
-                    statusCallback?.Invoke($"Đã hoàn tất kiểm tra phiên cho {checkedCount} tài khoản đã chọn.");
+                    statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_333", checkedCount));
                 }
                 catch (Exception ex)
                 {
                     Program.Logger?.Error($"[OnValidateSessionSelectedRequested] {ex.Message}");
-                    statusCallback?.Invoke($"Lỗi khi kiểm tra phiên: {ex.Message}");
+                    statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_334", ex.Message));
                 }
             });
         }
