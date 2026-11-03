@@ -181,7 +181,7 @@ namespace Shiro.ViewModels
                 catch (OperationCanceledException) { /* lookup canceled */ }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Debug($"[ScheduleCurrentGameLookup] {ex.Message}");
+                    _logger.Debug($"[ScheduleCurrentGameLookup] {ex.Message}");
                 }
             }, ct);
         }

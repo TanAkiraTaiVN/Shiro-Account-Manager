@@ -167,11 +167,11 @@ namespace Shiro.Services
             bool isLocal = context.Connection.RemoteIpAddress != null &&
                            IPAddress.IsLoopback(context.Connection.RemoteIpAddress);
 
-            var webServer = AppSettings.WebServer;
+            var webServer = AppServices.Settings.GetSection("WebServer");
             bool allowExternal = webServer != null && webServer.Get<bool>("AllowExternalConnections");
             bool everyReq = webServer != null && webServer.Get<bool>("EveryRequestRequiresPassword");
 
-            var settings = new AuthSettings(allowExternal, everyReq, AppSettings.WebSocketPassword);
+            var settings = new AuthSettings(allowExternal, everyReq, AppServices.ServerBrowserState.WebSocketPassword);
             var request = new AuthRequest(
                 AuthScope.Api,
                 isLocal,
@@ -215,14 +215,14 @@ namespace Shiro.Services
                 ? AuthScope.PublicTelemetry
                 : AuthScope.Api;
 
-            var webServer = AppSettings.WebServer;
+            var webServer = AppServices.Settings.GetSection("WebServer");
             bool allowExternal = webServer != null && webServer.Get<bool>("AllowExternalConnections");
             bool everyReq = webServer != null && webServer.Get<bool>("EveryRequestRequiresPassword");
 
             string? headerPass = ExtractHeaderPassword(req.GetHeader);
             string? queryPass = ExtractQueryPassword(req.GetQuery);
 
-            var authSettings = new AuthSettings(allowExternal, everyReq, AppSettings.WebSocketPassword);
+            var authSettings = new AuthSettings(allowExternal, everyReq, AppServices.ServerBrowserState.WebSocketPassword);
             var authReq = new AuthRequest(
                 scope,
                 req.IsLocal,

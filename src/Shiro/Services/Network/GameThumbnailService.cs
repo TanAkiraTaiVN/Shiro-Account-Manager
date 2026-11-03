@@ -15,6 +15,13 @@ namespace Shiro.Services
 {
     public static class GameThumbnailService
     {
+        private static IAppLogger _logger = AppServices.Logger;
+        public static IAppLogger Logger
+        {
+            get => _logger;
+            set => _logger = value ?? throw new ArgumentNullException(nameof(value));
+        }
+
         private static readonly LruCache<long, Bitmap> _bitmapCache = new LruCache<long, Bitmap>(256);
         private static readonly ConcurrentDictionary<long, Task<Bitmap?>> _inFlightDownloads = new ConcurrentDictionary<long, Task<Bitmap?>>();
 
@@ -75,7 +82,7 @@ namespace Shiro.Services
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Debug($"[GameThumbnailService] Error decoding cache for {placeId}: {ex.Message}");
+                    _logger.Debug($"[GameThumbnailService] Error decoding cache for {placeId}: {ex.Message}");
                 }
             }
 
@@ -147,7 +154,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[GameThumbnailService] Failed fetching thumbnail for {placeId}: {ex.Message}");
+                _logger.Debug($"[GameThumbnailService] Failed fetching thumbnail for {placeId}: {ex.Message}");
             }
             finally
             {
@@ -197,7 +204,7 @@ namespace Shiro.Services
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Debug($"Batch game thumbnail chunk failed: {ex.Message}");
+                    _logger.Debug($"Batch game thumbnail chunk failed: {ex.Message}");
                 }
             }
         }
@@ -221,7 +228,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"Download game thumbnail item {targetId} failed: {ex.Message}");
+                _logger.Debug($"Download game thumbnail item {targetId} failed: {ex.Message}");
             }
             finally
             {

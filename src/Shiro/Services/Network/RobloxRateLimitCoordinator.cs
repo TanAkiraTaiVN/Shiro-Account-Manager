@@ -23,10 +23,12 @@ namespace Shiro.Services
     public sealed class RobloxRateLimitCoordinator
     {
         private static readonly Lazy<RobloxRateLimitCoordinator> _instance =
-            new Lazy<RobloxRateLimitCoordinator>(() => new RobloxRateLimitCoordinator(), LazyThreadSafetyMode.ExecutionAndPublication);
+            new Lazy<RobloxRateLimitCoordinator>(() => new RobloxRateLimitCoordinator(AppServices.Logger), LazyThreadSafetyMode.ExecutionAndPublication);
 
+        public static RobloxRateLimitCoordinator Default => _instance.Value;
         public static RobloxRateLimitCoordinator Instance => _instance.Value;
 
+        private readonly IAppLogger _logger;
         private readonly ConcurrentDictionary<RateLimitCategory, SemaphoreSlim> _categorySemaphores;
         private readonly ConcurrentDictionary<RateLimitCategory, DateTime> _lastRequestTimes;
         private readonly System.Threading.Lock _backoffLock = new();
@@ -48,8 +50,11 @@ namespace Shiro.Services
             }
         }
 
-        private RobloxRateLimitCoordinator()
+        public RobloxRateLimitCoordinator() : this(AppServices.Logger) { }
+
+        public RobloxRateLimitCoordinator(IAppLogger logger)
         {
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _categorySemaphores = new ConcurrentDictionary<RateLimitCategory, SemaphoreSlim>
             {
                 [RateLimitCategory.SessionCheck] = new SemaphoreSlim(12, 12),
@@ -121,7 +126,7 @@ namespace Shiro.Services
                 if (proposedExpiry > _backoffUntilUtc)
                 {
                     _backoffUntilUtc = proposedExpiry;
-                    Program.Logger?.Warn($"[RateLimitCoordinator] HTTP 429 Rate-Limit hit #{_consecutive429Count} for {category}. Backing off for {backoffSeconds:0.#}s (+{jitterMs}ms jitter) across application.");
+                    _logger.Warn($"[RateLimitCoordinator] HTTP 429 Rate-Limit hit #{_consecutive429Count} for {category}. Backing off for {backoffSeconds:0.#}s (+{jitterMs}ms jitter) across application.");
 
                     WebhookNotificationService.EnqueueAlert(new WebhookAlert
                     {

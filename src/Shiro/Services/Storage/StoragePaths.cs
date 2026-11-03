@@ -11,6 +11,13 @@ namespace Shiro.Services
     /// </summary>
     internal static partial class StoragePaths
     {
+        private static IAppLogger? _logger = AppServices.Logger;
+        public static IAppLogger? Logger
+        {
+            get => _logger ?? AppServices.Logger;
+            set => _logger = value;
+        }
+
         private static readonly System.Threading.Lock Sync = new();
         private static bool initialized;
         private static string dataDirectory = string.Empty;
@@ -63,7 +70,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"StoragePaths assembly probe encountered error: {ex.Message}");
+                _logger?.Debug($"StoragePaths assembly probe encountered error: {ex.Message}");
             }
             return false;
         }
@@ -176,7 +183,7 @@ namespace Shiro.Services
                     try { lastWriteUtc = Directory.GetLastWriteTimeUtc(directory); }
                     catch (Exception ex)
                     {
-                        Program.Logger?.Debug($"Failed to get last write time for {directory}: {ex.Message}");
+                        _logger?.Debug($"Failed to get last write time for {directory}: {ex.Message}");
                         continue;
                     }
 
@@ -190,13 +197,13 @@ namespace Shiro.Services
                     }
                     catch (Exception exception)
                     {
-                        Program.Logger?.Debug($"Could not remove stale browser session: {exception.Message}");
+                        _logger?.Debug($"Could not remove stale browser session: {exception.Message}");
                     }
                 }
             }
             catch (Exception exception)
             {
-                Program.Logger?.Debug($"Could not enumerate browser sessions: {exception.Message}");
+                _logger?.Debug($"Could not enumerate browser sessions: {exception.Message}");
             }
 
             // AtomicWriteBytes creates uniquely named siblings and removes
@@ -210,7 +217,7 @@ namespace Shiro.Services
                     try { lastWriteUtc = File.GetLastWriteTimeUtc(temporary); }
                     catch (Exception ex)
                     {
-                        Program.Logger?.Debug($"Failed to get last write time for {temporary}: {ex.Message}");
+                        _logger?.Debug($"Failed to get last write time for {temporary}: {ex.Message}");
                         continue;
                     }
 
@@ -224,13 +231,13 @@ namespace Shiro.Services
                     }
                     catch (Exception exception)
                     {
-                        Program.Logger?.Debug($"Could not remove stale temporary data file: {exception.Message}");
+                        _logger?.Debug($"Could not remove stale temporary data file: {exception.Message}");
                     }
                 }
             }
             catch (Exception exception)
             {
-                Program.Logger?.Debug($"Could not enumerate temporary data files: {exception.Message}");
+                _logger?.Debug($"Could not enumerate temporary data files: {exception.Message}");
             }
 
             return removed;
@@ -305,7 +312,7 @@ namespace Shiro.Services
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Debug($"Failed to clean up temporary write file {temporary}: {ex.Message}");
+                    _logger?.Debug($"Failed to clean up temporary write file {temporary}: {ex.Message}");
                 }
             }
         }
@@ -348,7 +355,7 @@ namespace Shiro.Services
                 {
                     // File.Replace is not available on every filesystem (for
                     // example, some removable drives). Fall back to a move.
-                    Program.Logger?.Debug($"File.Replace failed, falling back to File.Move: {ex.Message}");
+                    _logger?.Debug($"File.Replace failed, falling back to File.Move: {ex.Message}");
                 }
             }
 

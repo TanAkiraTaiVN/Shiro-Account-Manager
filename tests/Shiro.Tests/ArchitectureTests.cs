@@ -843,5 +843,66 @@ namespace Shiro.Tests
 
             Assert.Empty(offenders);
         }
+
+        [Fact]
+        public void AmbientStaticAccess_ShouldNotExceedPerFolderBaseline()
+        {
+            var baseline = new Dictionary<string, (int Logger, int Settings)>
+            {
+                ["Services/Network"] = (0, 0),
+                ["Services/Auth"] = (0, 0),
+                ["Services/Storage"] = (0, 0),
+                ["ViewModels"] = (0, 0),
+                // locked at current baseline; may only go down:
+                ["Classes"] = (175, 52),
+                ["Services/Launch"] = (137, 50),
+                ["Services/Windows"] = (97, 14),
+                ["Services/Ui"] = (17, 11),
+                ["AvaloniaUI/Views"] = (60, 49),
+            };
+
+            var violations = new List<string>();
+
+            foreach (var (folder, (maxLogger, maxSettings)) in baseline)
+            {
+                var dir = Path.Combine(RepoRoot, "src", "Shiro", folder.Replace('/', Path.DirectorySeparatorChar));
+                if (!Directory.Exists(dir))
+                {
+                    violations.Add($"Directory does not exist: {folder}");
+                    continue;
+                }
+
+                var files = Directory.GetFiles(dir, "*.cs", SearchOption.AllDirectories)
+                    .Where(f => !f.Contains(@"\bin\") && !f.Contains(@"\obj\") && !f.EndsWith(".g.cs"));
+
+                if (folder == "Services/Storage")
+                {
+                    files = files.Where(f => !Path.GetFileName(f).Equals("AppSettings.cs", StringComparison.OrdinalIgnoreCase) &&
+                                             !Path.GetFileName(f).Equals("AppLogger.cs", StringComparison.OrdinalIgnoreCase));
+                }
+
+                int actualLogger = 0;
+                int actualSettings = 0;
+
+                foreach (var file in files)
+                {
+                    string text = File.ReadAllText(file);
+                    actualLogger += Regex.Matches(text, @"Program\.Logger\b").Count;
+                    actualSettings += Regex.Matches(text, @"AppSettings\.").Count;
+                }
+
+                if (actualLogger > maxLogger)
+                {
+                    violations.Add($"{folder}: Program.Logger count {actualLogger} exceeds baseline {maxLogger}");
+                }
+                if (actualSettings > maxSettings)
+                {
+                    violations.Add($"{folder}: AppSettings. count {actualSettings} exceeds baseline {maxSettings}");
+                }
+            }
+
+            Assert.True(violations.Count == 0,
+                $"Ambient static access exceeded baseline:\n{string.Join("\n", violations)}");
+        }
     }
 }

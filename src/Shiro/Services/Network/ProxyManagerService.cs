@@ -151,6 +151,13 @@ namespace Shiro.Services
 
     public static class ProxyManagerService
     {
+        private static IAppLogger _logger = AppServices.Logger;
+        public static IAppLogger Logger
+        {
+            get => _logger;
+            set => _logger = value ?? throw new ArgumentNullException(nameof(value));
+        }
+
         private static readonly System.Threading.Lock CacheLock = new();
         private static IReadOnlyList<string>? _cachedRawProxies;
         private static string? _cachedFilePath;
@@ -307,7 +314,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Error($"[ProxyManagerService] Failed to load proxies: {ex.Message}");
+                _logger.Error($"[ProxyManagerService] Failed to load proxies: {ex.Message}");
             }
 
             lock (CacheLock)
@@ -361,7 +368,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Error($"[ProxyManagerService] Failed to save proxies: {ex.Message}");
+                _logger.Error($"[ProxyManagerService] Failed to save proxies: {ex.Message}");
             }
         }
 

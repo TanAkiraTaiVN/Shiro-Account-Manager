@@ -9,12 +9,18 @@ namespace Shiro.ViewModels
 {
     public class GameSearchItemViewModel : ObservableObject
     {
+        private readonly IAppLogger _logger;
         private long _placeId;
         private string _name = "Game";
         private int _playerCount;
         private string _thumbnailUrl = string.Empty;
         private Bitmap? _thumbnailBitmap;
         private bool _isLoadingThumbnail;
+
+        public GameSearchItemViewModel(IAppLogger? logger = null)
+        {
+            _logger = logger ?? AppServices.Logger;
+        }
 
         public long PlaceId
         {
@@ -91,7 +97,7 @@ namespace Shiro.ViewModels
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[GameSearchItemViewModel] LoadThumbnail error for {PlaceId}: {ex.Message}");
+                _logger.Debug($"[GameSearchItemViewModel] LoadThumbnail error for {PlaceId}: {ex.Message}");
             }
             finally
             {

@@ -65,7 +65,7 @@ namespace Shiro.Services
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Debug($"[RobloxHbaService] Sync body read failed: {ex.Message}");
+                    _logger.Debug($"[RobloxHbaService] Sync body read failed: {ex.Message}");
                 }
             }
 
@@ -125,7 +125,7 @@ namespace Shiro.Services
             if (!string.IsNullOrWhiteSpace(account.SessionUserAgent))
             {
                 try { core.Settings.UserAgent = account.SessionUserAgent; }
-                catch (Exception ex) { Program.Logger?.Debug($"RestoreWebViewModerationSessionAsync set UserAgent threw: {ex.Message}"); }
+                catch (Exception ex) { _logger.Debug($"RestoreWebViewModerationSessionAsync set UserAgent threw: {ex.Message}"); }
             }
 
             string[] cookieDomains = { ".roblox.com", "www.roblox.com" };

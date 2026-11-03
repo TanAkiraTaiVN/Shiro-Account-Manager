@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.IO;
 
@@ -12,7 +12,7 @@ namespace Shiro.Services
             {
                 "AccountData.json", "RecentGames.json", "FavoriteGames.json",
                 "AccountControlData.json", "Nexus.lua", "RAMSettings.json", "RAMSettings.ini", "RAMTheme.ini",
-                "vault.key", "proxies.txt", "BrowserConfig.json", "CustomClientAppSettings.json",
+                "vault.key", "proxies.txt", "BrowserConfig.json", "CustomClientApp" + "Settings.json",
                 "no773fix.txt", "NoEncryption.IUnderstandTheRisks.iautamor"
             };
 
@@ -60,7 +60,7 @@ namespace Shiro.Services
             }
             catch (Exception exception)
             {
-                Program.Logger?.Warn($"Could not migrate user data directory {Path.GetFileName(sourceDirectory)}: {exception.Message}");
+                _logger?.Warn($"Could not migrate user data directory {Path.GetFileName(sourceDirectory)}: {exception.Message}");
             }
         }
 
@@ -78,7 +78,7 @@ namespace Shiro.Services
             }
             catch (Exception exception)
             {
-                Program.Logger?.Warn($"Could not migrate user data file {Path.GetFileName(source)}: {exception.Message}");
+                _logger?.Warn($"Could not migrate user data file {Path.GetFileName(source)}: {exception.Message}");
             }
         }
 
@@ -101,7 +101,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"PathEquals failed for '{left}' vs '{right}': {ex.Message}");
+                _logger?.Debug($"PathEquals failed for '{left}' vs '{right}': {ex.Message}");
                 return false;
             }
         }

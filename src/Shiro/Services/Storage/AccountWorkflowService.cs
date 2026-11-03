@@ -18,8 +18,17 @@ namespace Shiro.Services
         [GeneratedRegex(@"_\|WARNING:-[^;\r\n""]+")]
         private static partial Regex CookieCleanRegex();
 
-        private static readonly Lazy<AccountWorkflowService> _defaultInstance = new(() => new AccountWorkflowService());
+        private static readonly Lazy<AccountWorkflowService> _defaultInstance = new(() => new AccountWorkflowService(AppServices.Logger));
         public static AccountWorkflowService Default => _defaultInstance.Value;
+
+        private readonly IAppLogger _logger;
+
+        public AccountWorkflowService() : this(AppServices.Logger) { }
+
+        public AccountWorkflowService(IAppLogger logger)
+        {
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        }
 
         public async Task CheckAllSessionsAsync(
             MainViewModel viewModel,
@@ -60,7 +69,7 @@ namespace Shiro.Services
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Warn($"[CheckSessions] {acc.Username}: {ex.Message}");
+                    _logger.Warn($"[CheckSessions] {acc.Username}: {ex.Message}");
                     int c = Interlocked.Increment(ref checkedCount);
                     if (!acc.Valid) Interlocked.Increment(ref expiredCount);
                 }
@@ -429,7 +438,7 @@ namespace Shiro.Services
                         }
                         catch (Exception ex)
                         {
-                            Program.Logger?.Warn($"[OnValidateSessionSelectedRequested] {item.Username}: {ex.Message}");
+                            _logger.Warn($"[OnValidateSessionSelectedRequested] {item.Username}: {ex.Message}");
                             int c = Interlocked.Increment(ref checkedCount);
                         }
                     }).ConfigureAwait(false);
@@ -443,7 +452,7 @@ namespace Shiro.Services
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Error($"[OnValidateSessionSelectedRequested] {ex.Message}");
+                    _logger.Error($"[OnValidateSessionSelectedRequested] {ex.Message}");
                     statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("AccountWorkflow.SessionCheckError", ex.Message));
                 }
             });

@@ -36,14 +36,25 @@ namespace Shiro.Services
     /// </summary>
     public sealed class DiscordRpcService : IDisposable
     {
-        private static readonly Lazy<DiscordRpcService> _instance = new(() => new DiscordRpcService());
+        private static readonly Lazy<DiscordRpcService> _instance = new(() => new DiscordRpcService(AppServices.Logger, AppServices.GeneralSettings));
         public static DiscordRpcService Default => _instance.Value;
+
+        private readonly IAppLogger _logger;
+        private readonly ISettingsService _settings;
+
+        public DiscordRpcService() : this(AppServices.Logger, AppServices.GeneralSettings) { }
+
+        public DiscordRpcService(IAppLogger logger, ISettingsService settings)
+        {
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _settings = settings ?? throw new ArgumentNullException(nameof(settings));
+        }
 
         // Shiro's registered Discord Client Application ID (or generic fallback)
         public const string DefaultClientId = "1301012345678901234";
 
         public static string ClientId =>
-            AppSettings.General.Get<string>(AppSettingsKeys.General.DiscordRpcClientId, DefaultClientId) ?? DefaultClientId;
+            AppServices.GeneralSettings.Get<string>(AppSettingsKeys.General.DiscordRpcClientId, DefaultClientId) ?? DefaultClientId;
 
         private readonly System.Threading.Lock _pipeLock = new();
         private readonly SemaphoreSlim _pipeGate = new(1, 1);
@@ -58,10 +69,10 @@ namespace Shiro.Services
 
         public bool IsEnabled
         {
-            get => AppSettings.General.Get<bool>(AppSettingsKeys.General.DiscordRpcEnabled, true);
+            get => _settings.Get<bool>(AppSettingsKeys.General.DiscordRpcEnabled, true);
             set
             {
-                AppSettings.General.Set(AppSettingsKeys.General.DiscordRpcEnabled, value ? "true" : "false");
+                _settings.Set(AppSettingsKeys.General.DiscordRpcEnabled, value ? "true" : "false");
                 if (value)
                 {
                     Start();
@@ -114,7 +125,7 @@ namespace Shiro.Services
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Debug($"[DiscordRpcService] Loop tick exception: {ex.Message}");
+                    _logger.Debug($"[DiscordRpcService] Loop tick exception: {ex.Message}");
                     Disconnect();
                 }
             }
@@ -144,7 +155,7 @@ namespace Shiro.Services
                     var (_, _) = await ReadFrameAsync(ct).ConfigureAwait(false);
 
                     _isConnected = true;
-                    Program.Logger?.Info($"[DiscordRpcService] Connected to Discord IPC via pipe discord-ipc-{i}.");
+                    _logger.Info($"[DiscordRpcService] Connected to Discord IPC via pipe discord-ipc-{i}.");
 
                     if (_lastActivity != null)
                     {
@@ -160,7 +171,7 @@ namespace Shiro.Services
                             _pipeStream = null;
                     }
                     try { pipe?.Dispose(); }
-                    catch (Exception ex) { Program.Logger?.Debug($"[DiscordRpcService.ConnectPipeAsync] Pipe dispose: {ex.Message}"); }
+                    catch (Exception ex) { _logger.Debug($"[DiscordRpcService.ConnectPipeAsync] Pipe dispose: {ex.Message}"); }
                     // Continue probing next pipe index
                 }
             }
@@ -177,7 +188,7 @@ namespace Shiro.Services
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Debug($"[DiscordRpcService.Disconnect] {ex.Message}");
+                    _logger.Debug($"[DiscordRpcService.Disconnect] {ex.Message}");
                 }
                 _pipeStream = null;
             }
@@ -191,8 +202,8 @@ namespace Shiro.Services
             if (!IsEnabled) return;
 
             bool isStreamerMode = StreamerModeService.IsActive;
-            bool allowJoin = AppSettings.General.Get<bool>(AppSettingsKeys.General.DiscordRpcJoinCurrentServer, true);
-            bool showGame = AppSettings.General.Get<bool>(AppSettingsKeys.General.DiscordRpcShowGame, true);
+            bool allowJoin = _settings.Get<bool>(AppSettingsKeys.General.DiscordRpcJoinCurrentServer, true);
+            bool showGame = _settings.Get<bool>(AppSettingsKeys.General.DiscordRpcShowGame, true);
 
             string details;
             if (!string.IsNullOrWhiteSpace(gameName) && showGame)
@@ -262,22 +273,22 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[DiscordRpcService.UpdatePresence] {ex.Message}");
+                _logger.Debug($"[DiscordRpcService.UpdatePresence] {ex.Message}");
             }
             finally
             {
                 foreach (var p in procs)
                 {
                     try { p.Dispose(); }
-                    catch (Exception ex) { Program.Logger?.Debug($"[DiscordRpcService.UpdatePresence] Process dispose: {ex.Message}"); }
+                    catch (Exception ex) { _logger.Debug($"[DiscordRpcService.UpdatePresence] Process dispose: {ex.Message}"); }
                 }
             }
 
-            string currentPlace = AppSettings.CurrentPlaceId;
+            string currentPlace = AppServices.ServerBrowserState.CurrentPlaceId;
             long placeId = 0;
             long.TryParse(currentPlace, out placeId);
 
-            UpdatePresence(null, placeId, AppSettings.CurrentJobId, total, active);
+            UpdatePresence(null, placeId, AppServices.ServerBrowserState.CurrentJobId, total, active);
         }
 
         public void ClearPresence()
@@ -300,7 +311,7 @@ namespace Shiro.Services
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Debug($"[DiscordRpcService.ClearPresence] {ex.Message}");
+                    _logger.Debug($"[DiscordRpcService.ClearPresence] {ex.Message}");
                 }
             });
         }
@@ -349,7 +360,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[DiscordRpcService] SendActivity failed: {ex.Message}");
+                _logger.Debug($"[DiscordRpcService] SendActivity failed: {ex.Message}");
                 Disconnect();
             }
         }

@@ -13,6 +13,13 @@ namespace Shiro.Services
     /// </summary>
     internal static class ReloginQueueStore
     {
+        private static IAppLogger _logger = AppServices.Logger;
+        public static IAppLogger Logger
+        {
+            get => _logger;
+            set => _logger = value ?? throw new ArgumentNullException(nameof(value));
+        }
+
         private static string QueueFile => StoragePaths.GetUserFile("relogin_queue.json");
 
         public static void Save(IEnumerable<long> pendingUserIds)
@@ -29,7 +36,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[ReloginQueueStore] Save failed: {ex.Message}");
+                _logger.Debug($"[ReloginQueueStore] Save failed: {ex.Message}");
             }
         }
 
@@ -49,7 +56,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[ReloginQueueStore] Load failed: {ex.Message}");
+                _logger.Debug($"[ReloginQueueStore] Load failed: {ex.Message}");
                 return Array.Empty<long>();
             }
         }
@@ -57,7 +64,7 @@ namespace Shiro.Services
         public static void Clear()
         {
             try { if (File.Exists(QueueFile)) File.Delete(QueueFile); }
-            catch (Exception ex) { Program.Logger?.Debug($"[ReloginQueueStore] Clear failed: {ex.Message}"); }
+            catch (Exception ex) { _logger.Debug($"[ReloginQueueStore] Clear failed: {ex.Message}"); }
         }
     }
 }

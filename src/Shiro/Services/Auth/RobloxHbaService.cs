@@ -19,6 +19,13 @@ namespace Shiro.Services
     /// </summary>
     public static partial class RobloxHbaService
     {
+        private static IAppLogger _logger = AppServices.Logger;
+        public static IAppLogger Logger
+        {
+            get => _logger;
+            set => _logger = value ?? throw new ArgumentNullException(nameof(value));
+        }
+
         public const string BoundAuthHeaderName = "x-bound-auth-token";
         public const string DefaultTemplate = "v1|b64|HB,TS,URL,M|,TS,URL,M";
 
@@ -215,7 +222,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[RobloxHbaService] Failed to sign x-bound-auth-token: {ex.Message}");
+                _logger.Debug($"[RobloxHbaService] Failed to sign x-bound-auth-token: {ex.Message}");
                 return false;
             }
         }

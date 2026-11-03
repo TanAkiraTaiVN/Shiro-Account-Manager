@@ -18,12 +18,14 @@ namespace Shiro.Services
 
         private readonly string? _accountFile;
         private readonly string? _backupsDirectory;
+        private readonly IAppLogger _logger;
         private DateTime _lastHistoricalBackupUtc = DateTime.MinValue;
 
-        public AccountStore(string? accountFile = null, string? backupsDirectory = null)
+        public AccountStore(string? accountFile = null, string? backupsDirectory = null, IAppLogger? logger = null)
         {
             _accountFile = accountFile;
             _backupsDirectory = backupsDirectory;
+            _logger = logger ?? AppServices.Logger;
         }
 
         public string AccountFile => _accountFile ?? StoragePaths.AccountDataFile;
@@ -45,14 +47,14 @@ namespace Shiro.Services
                 // replacement can briefly hold the primary file. Preserve
                 // startup by reading the last known-good backup when the
                 // primary cannot be opened at all.
-                Program.Logger?.Warn($"Could not read account data; trying backup: {exception.Message}");
+                _logger.Warn($"Could not read account data; trying backup: {exception.Message}");
                 try
                 {
                     return File.Exists(BackupFile) ? File.ReadAllBytes(BackupFile) : Array.Empty<byte>();
                 }
                 catch (Exception backupEx)
                 {
-                    Program.Logger?.Error($"Could not read backup account data: {backupEx.Message}");
+                    _logger.Error($"Could not read backup account data: {backupEx.Message}");
                     return Array.Empty<byte>();
                 }
             }
@@ -90,7 +92,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                SafeExecuteHelper.Try(() => Program.Logger?.Warn($"[AccountStore] Failed to create historical backup: {ex.Message}"), "AccountStore.LogBackupWarn");
+                SafeExecuteHelper.Try(() => _logger.Warn($"[AccountStore] Failed to create historical backup: {ex.Message}"), "AccountStore.LogBackupWarn");
             }
         }
 
@@ -143,7 +145,7 @@ namespace Shiro.Services
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Warn($"[AccountStore] Pre-write OS backup copy warning: {ex.Message}");
+                    _logger.Warn($"[AccountStore] Pre-write OS backup copy warning: {ex.Message}");
                 }
             }
 
@@ -190,7 +192,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Error($"[AccountStore.RestoreHistoricalBackup] {ex}");
+                _logger.Error($"[AccountStore.RestoreHistoricalBackup] {ex}");
                 return false;
             }
         }

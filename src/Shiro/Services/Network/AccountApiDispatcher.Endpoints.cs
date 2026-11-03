@@ -18,9 +18,9 @@ namespace Shiro.Services
             Func<string, bool, int, string?, string> reply)
         {
             bool v2 = req.IsV2;
-            var webServer = AppSettings.WebServer;
-            var general = AppSettings.General;
-            string wsPassword = AppSettings.WebSocketPassword ?? string.Empty;
+            var webServer = AppServices.Settings.GetSection("WebServer");
+            var general = AppServices.GeneralSettings;
+            string wsPassword = AppServices.ServerBrowserState.WebSocketPassword ?? string.Empty;
 
             if (method == "GetWebSocketStats" || method == "WebSocketStats")
             {
@@ -124,7 +124,7 @@ namespace Shiro.Services
             {
                 bool next = !general.Get<bool>("EnableMultiRbx");
                 general.Set("EnableMultiRbx", next ? "true" : "false");
-                AppSettings.UpdateMultiRoblox();
+                AppServices.HostUiBridge.UpdateMultiRoblox();
                 return reply(Utilities.FastJson.Serialize(new { Enabled = next, Status = RobloxSingletonService.StatusText }), true, -1, null);
             }
 
@@ -156,7 +156,7 @@ namespace Shiro.Services
 
             if (method.Equals("KillRoblox", StringComparison.OrdinalIgnoreCase) || method.Equals("KillAllRoblox", StringComparison.OrdinalIgnoreCase))
             {
-                AppSettings.CloseAllRobloxFromUi();
+                AppServices.HostUiBridge.CloseAllRobloxFromUi();
                 return reply("Closed all Roblox processes", true, -1, null);
             }
 
@@ -270,7 +270,7 @@ namespace Shiro.Services
                     return reply("Method `SetAlias` not allowed", false, -1, "Method not allowed");
 
                 account.Alias = body;
-                AppSettings.RefreshAccountView(account);
+                AppServices.HostUiBridge.RefreshAccountView(account);
                 AppServices.AccountRepository.QueueDeferredSave();
                 return reply($"Set Alias of {account.Username} to {body}", true, -1, null);
             }
@@ -281,7 +281,7 @@ namespace Shiro.Services
                     return reply("Method `SetDescription` not allowed", false, -1, "Method not allowed");
 
                 account.Description = body;
-                AppSettings.RefreshAccountView(account);
+                AppServices.HostUiBridge.RefreshAccountView(account);
                 AppServices.AccountRepository.QueueDeferredSave();
                 return reply($"Set Description of {account.Username} to {body}", true, -1, null);
             }
@@ -292,7 +292,7 @@ namespace Shiro.Services
                     return v2 ? WebServerResponse("Method `AppendDescription` not allowed", false) : "Method not allowed";
 
                 account.Description += body;
-                AppSettings.RefreshAccountView(account);
+                AppServices.HostUiBridge.RefreshAccountView(account);
                 AppServices.AccountRepository.QueueDeferredSave();
                 return reply($"Appended Description of {account.Username} with {body}", true, -1, null);
             }
@@ -390,7 +390,7 @@ namespace Shiro.Services
             if (method == "SetRecommendedServer")
             {
                 int attempts = 0;
-                var cachedServers = AppSettings.CachedServers;
+                var cachedServers = AppServices.ServerBrowserState.CachedServers;
                 ServerData[] serversSnapshot;
                 if (cachedServers == null)
                 {
@@ -421,7 +421,7 @@ namespace Shiro.Services
                     attempts++;
                     long targetPlaceId = (!string.IsNullOrEmpty(req.GetQuery("PlaceId")) && long.TryParse(req.GetQuery("PlaceId"), out var reqPid))
                         ? reqPid
-                        : (long.TryParse(AppSettings.CurrentPlaceId, out var pid) ? pid : 0);
+                        : (long.TryParse(AppServices.ServerBrowserState.CurrentPlaceId, out var pid) ? pid : 0);
 
                     var (iSuccess, iMessage) = await account.SetServerAsync(targetPlaceId, server.id).ConfigureAwait(false);
                     if (iSuccess) return reply(iMessage, true, -1, null);

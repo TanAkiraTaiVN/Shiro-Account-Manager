@@ -65,7 +65,7 @@ namespace Shiro.Services
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Warn($"Failed to save recovered vault key: {ex.Message}");
+                    _logger?.Warn($"Failed to save recovered vault key: {ex.Message}");
                 }
 
                 _cachedVaultKey = copy;
@@ -125,7 +125,7 @@ namespace Shiro.Services
                                 }
                                 catch (Exception ex)
                                 {
-                                    Program.Logger?.Warn($"Failed to upgrade raw key to DPAPI format: {ex.Message}");
+                                    _logger?.Warn($"Failed to upgrade raw key to DPAPI format: {ex.Message}");
                                 }
                             }
                             _cachedVaultKey = raw;
@@ -134,7 +134,7 @@ namespace Shiro.Services
                     }
                     catch (Exception ex)
                     {
-                        Program.Logger?.Warn($"Failed to read existing vault key from {keyFile}: {ex.Message}");
+                        _logger?.Warn($"Failed to read existing vault key from {keyFile}: {ex.Message}");
                     }
 
                     // Never silently destroy an existing non-empty key file without preserving a backup copy.
@@ -145,7 +145,7 @@ namespace Shiro.Services
                     }
                     catch (Exception ex)
                     {
-                        Program.Logger?.Warn($"Failed to preserve backup of damaged vault key file: {ex.Message}");
+                        _logger?.Warn($"Failed to preserve backup of damaged vault key file: {ex.Message}");
                     }
                 }
 
@@ -158,7 +158,7 @@ namespace Shiro.Services
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Error($"Failed to persist newly generated vault key to {keyFile}: {ex.Message}");
+                    _logger?.Error($"Failed to persist newly generated vault key to {keyFile}: {ex.Message}");
                 }
 
                 _cachedVaultKey = newKey;

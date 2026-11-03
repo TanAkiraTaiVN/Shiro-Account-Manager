@@ -3,6 +3,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
+using Shiro.Services;
 
 namespace Shiro.ViewModels
 {
@@ -33,7 +34,7 @@ namespace Shiro.ViewModels
             }
             catch (Exception ex)
             {
-                Program.Logger?.Error($"[RelayCommand] Execution error: {ex.Message}", ex);
+                AppServices.Logger.Error($"[RelayCommand] Execution error: {ex.Message}", ex);
             }
         }
 
@@ -75,7 +76,7 @@ namespace Shiro.ViewModels
             }
             catch (Exception ex)
             {
-                Program.Logger?.Error($"[AsyncRelayCommand] Execution error: {ex.Message}", ex);
+                AppServices.Logger.Error($"[AsyncRelayCommand] Execution error: {ex.Message}", ex);
             }
             finally
             {
@@ -124,7 +125,7 @@ namespace Shiro.ViewModels
             }
             catch (Exception ex)
             {
-                Program.Logger?.Error($"[RelayCommand<{typeof(T).Name}>] Execution error: {ex.Message}", ex);
+                AppServices.Logger.Error($"[RelayCommand<{typeof(T).Name}>] Execution error: {ex.Message}", ex);
             }
         }
 
@@ -177,7 +178,7 @@ namespace Shiro.ViewModels
             }
             catch (Exception ex)
             {
-                Program.Logger?.Error($"[AsyncRelayCommand<{typeof(T).Name}>] Execution error: {ex.Message}", ex);
+                AppServices.Logger.Error($"[AsyncRelayCommand<{typeof(T).Name}>] Execution error: {ex.Message}", ex);
             }
             finally
             {

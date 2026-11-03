@@ -38,50 +38,61 @@ namespace Shiro.Services
     /// </summary>
     public sealed class BloxGenService
     {
-        private static readonly Lazy<BloxGenService> _instance = new(() => new BloxGenService());
+        private static readonly Lazy<BloxGenService> _instance = new(() => new BloxGenService(null, AppServices.Logger, AppServices.GeneralSettings));
         public static BloxGenService Default => _instance.Value;
 
+        private static IAppLogger _staticLogger = AppServices.Logger;
+        public static IAppLogger Logger
+        {
+            get => _staticLogger;
+            set => _staticLogger = value ?? throw new ArgumentNullException(nameof(value));
+        }
+
         private readonly HttpClient _httpClient;
+        private readonly IAppLogger _logger;
+        private readonly ISettingsService _settings;
         private const string DefaultBaseUrl = "https://bloxgen.net/api/";
 
-        public BloxGenService(HttpClient? httpClient = null)
+        public BloxGenService(HttpClient? httpClient = null, IAppLogger? logger = null, ISettingsService? settings = null)
         {
             _httpClient = httpClient ?? new HttpClient
             {
                 BaseAddress = new Uri(DefaultBaseUrl),
                 Timeout = TimeSpan.FromSeconds(30)
             };
+            _logger = logger ?? AppServices.Logger;
+            _settings = settings ?? AppServices.GeneralSettings;
         }
 
         public string SavedApiKey
         {
             get
             {
-                string raw = AppSettings.General.Get<string>(AppSettingsKeys.General.BloxGenApiKey) ?? string.Empty;
+                string raw = _settings.Get<string>(AppSettingsKeys.General.BloxGenApiKey) ?? string.Empty;
                 return CryptoHelper.UnprotectSecretString(raw);
             }
             set
             {
                 string protectedVal = CryptoHelper.ProtectSecretString(value ?? string.Empty);
-                AppSettings.General.Set(AppSettingsKeys.General.BloxGenApiKey, protectedVal);
+                _settings.Set(AppSettingsKeys.General.BloxGenApiKey, protectedVal);
             }
         }
 
         public string DefaultContinent
         {
-            get => AppSettings.General.Get<string>(AppSettingsKeys.General.BloxGenContinent) ?? "RANDOM";
+            get => _settings.Get<string>(AppSettingsKeys.General.BloxGenContinent) ?? "RANDOM";
             set
             {
-                AppSettings.General.Set(AppSettingsKeys.General.BloxGenContinent, value ?? "RANDOM");
+                _settings.Set(AppSettingsKeys.General.BloxGenContinent, value ?? "RANDOM");
             }
         }
 
         public string DefaultGenType
         {
-            get => AppSettings.General.Get<string>(AppSettingsKeys.General.BloxGenGenType) ?? "unverified";
+            get => _settings.Get<string>(AppSettingsKeys.General.BloxGenGenType) ?? "unverified";
             set
             {
-                AppSettings.General.Set(AppSettingsKeys.General.BloxGenGenType, value ?? "unverified");
+                _settings.Set(AppSettingsKeys.General.BloxGenGenType, value ?? "unverified");
             }
         }
 
@@ -195,7 +206,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Error($"[BloxGenService] Generation failed: {ex.Message}");
+                _logger.Error($"[BloxGenService] Generation failed: {ex.Message}");
                 return new BloxGenAccountResult { Success = false, ErrorMessage = ex.Message };
             }
         }
@@ -231,15 +242,15 @@ namespace Shiro.Services
 
                 AppServices.AccountRepository.AddThreadSafe(account);
                 AppServices.AccountRepository.Save(true);
-                AppSettings.RefreshAccountView();
+                AppServices.HostUiBridge.RefreshAccountView();
 
                 AppendToHistoryCsv(alt);
-                Program.Logger?.Info($"[BloxGenService] Successfully imported alt account {uname} (ID: {alt.UserId}) to group '{groupName}'.");
+                _logger.Info($"[BloxGenService] Successfully imported alt account {uname} (ID: {alt.UserId}) to group '{groupName}'.");
                 return true;
             }
             catch (Exception ex)
             {
-                Program.Logger?.Error($"[BloxGenService] Failed to import generated account: {ex.Message}");
+                _logger.Error($"[BloxGenService] Failed to import generated account: {ex.Message}");
                 return false;
             }
         }
@@ -271,7 +282,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[BloxGenService] Append CSV history failed: {ex.Message}");
+                _staticLogger.Debug($"[BloxGenService] Append CSV history failed: {ex.Message}");
             }
         }
 
@@ -288,7 +299,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[BloxGenService.ExtractErrorMessage] {ex.Message}");
+                _staticLogger.Debug($"[BloxGenService.ExtractErrorMessage] {ex.Message}");
             }
             return responseText.Length > 100 ? responseText.Substring(0, 100) + "..." : responseText;
         }

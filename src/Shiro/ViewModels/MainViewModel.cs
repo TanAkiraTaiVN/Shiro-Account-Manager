@@ -22,6 +22,8 @@ namespace Shiro.ViewModels
 
     public partial class MainViewModel : ObservableObject
     {
+        private readonly IAppLogger _logger;
+        private readonly ISettingsService _settings = null!;
         private readonly BulkObservableCollection<AccountViewModel> _accounts = new BulkObservableCollection<AccountViewModel>();
         private readonly BulkObservableCollection<AccountViewModel> _filteredAccounts = new BulkObservableCollection<AccountViewModel>();
         private readonly BulkObservableCollection<AccountRowViewModel> _filteredAccountRows = new BulkObservableCollection<AccountRowViewModel>();
@@ -70,17 +72,22 @@ namespace Shiro.ViewModels
 
         public ServerListViewModel ServerListViewModel { get; private set; }
 
-        public MainViewModel()
+        public MainViewModel() : this(null, null) { }
+
+        public MainViewModel(IAppLogger? logger = null, ISettingsService? settings = null)
         {
-            string? savedPid = AppSettings.General?.Get("SavedPlaceId");
+            _logger = logger ?? AppServices.Logger;
+            _settings = settings ?? AppServices.GeneralSettings!;
+
+            string? savedPid = _settings?.Get("SavedPlaceId");
             if (!string.IsNullOrWhiteSpace(savedPid))
             {
                 _placeId = savedPid.Trim();
-                AppSettings.CurrentPlaceId = _placeId;
+                AppServices.ServerBrowserState.CurrentPlaceId = _placeId;
             }
-            else if (!string.IsNullOrWhiteSpace(AppSettings.CurrentPlaceId))
+            else if (!string.IsNullOrWhiteSpace(AppServices.ServerBrowserState.CurrentPlaceId))
             {
-                _placeId = AppSettings.CurrentPlaceId;
+                _placeId = AppServices.ServerBrowserState.CurrentPlaceId;
             }
             else
             {
@@ -103,7 +110,7 @@ namespace Shiro.ViewModels
                 }
             };
 
-            ServerListViewModel = new ServerListViewModel(this);
+            ServerListViewModel = new ServerListViewModel(this, _logger, _settings);
             InitializeCommands();
             RefreshStateFromSettings();
             ScheduleCurrentGameLookup(_placeId);
@@ -153,7 +160,7 @@ namespace Shiro.ViewModels
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Debug($"Clearing launching state on queue empty threw: {ex.Message}");
+                    _logger.Debug($"Clearing launching state on queue empty threw: {ex.Message}");
                 }
             });
         }
@@ -169,18 +176,18 @@ namespace Shiro.ViewModels
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"NotifyThemeChanged loop threw: {ex.Message}");
+                _logger.Debug($"NotifyThemeChanged loop threw: {ex.Message}");
             }
         }
 
         public bool IsShuffleJobId
         {
-            get => AppSettings.ShuffleJobId;
+            get => AppServices.ServerBrowserState.ShuffleJobId;
             set
             {
-                if (AppSettings.ShuffleJobId != value)
+                if (AppServices.ServerBrowserState.ShuffleJobId != value)
                 {
-                    AppSettings.ShuffleJobId = value;
+                    AppServices.ServerBrowserState.ShuffleJobId = value;
                     OnPropertyChanged();
                     StatusMessage = value
                         ? Shiro.Services.LocalizationService.Get("Main.ShuffleJobIdEnabled")
@@ -204,9 +211,9 @@ namespace Shiro.ViewModels
                 {
                     if (!string.IsNullOrWhiteSpace(value))
                     {
-                        AppSettings.CurrentPlaceId = value.Trim();
-                        AppSettings.General?.Set("SavedPlaceId", value.Trim());
-                        AppSettings.QueueDeferredSave();
+                        AppServices.ServerBrowserState.CurrentPlaceId = value.Trim();
+                        _settings?.Set("SavedPlaceId", value.Trim());
+                        AppServices.HostUiBridge.QueueDeferredSaveSettings();
                     }
                     ServerListViewModel?.SyncPlaceId(value);
                     ScheduleCurrentGameLookup(value);
@@ -221,7 +228,7 @@ namespace Shiro.ViewModels
             {
                 if (SetProperty(ref _jobId, value))
                 {
-                    AppSettings.CurrentJobId = value?.Trim() ?? string.Empty;
+                    AppServices.ServerBrowserState.CurrentJobId = value?.Trim() ?? string.Empty;
                 }
             }
         }
@@ -388,7 +395,7 @@ namespace Shiro.ViewModels
                         }
                         catch (Exception ex)
                         {
-                            Program.Logger?.Debug($"[LoadAccounts] Avatar warmup error: {ex.Message}");
+                            _logger.Debug($"[LoadAccounts] Avatar warmup error: {ex.Message}");
                         }
                     });
                 }

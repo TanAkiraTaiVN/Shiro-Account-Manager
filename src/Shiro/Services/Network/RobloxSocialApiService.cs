@@ -12,7 +12,25 @@ namespace Shiro.Services
 {
     public sealed class RobloxSocialApiService
     {
-        public static RobloxSocialApiService Instance { get; } = new();
+        private static readonly Lazy<RobloxSocialApiService> _defaultInstance = new(() => new RobloxSocialApiService(AppServices.Logger));
+        public static RobloxSocialApiService Default => _defaultInstance.Value;
+        public static RobloxSocialApiService Instance => Default;
+
+        private static IAppLogger _staticLogger = AppServices.Logger;
+        public static IAppLogger Logger
+        {
+            get => _staticLogger;
+            set => _staticLogger = value ?? throw new ArgumentNullException(nameof(value));
+        }
+
+        private readonly IAppLogger _logger;
+
+        public RobloxSocialApiService() : this(AppServices.Logger) { }
+
+        public RobloxSocialApiService(IAppLogger logger)
+        {
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        }
 
         public static bool IsUserIdInBlockedListJson(string json, long targetUserId)
         {
@@ -64,7 +82,7 @@ namespace Shiro.Services
             }
             catch (JsonException ex)
             {
-                Program.Logger?.Debug($"Parse blocked users json failed: {ex.Message}");
+                _staticLogger.Debug($"Parse blocked users json failed: {ex.Message}");
             }
 
             return false;
@@ -122,7 +140,7 @@ namespace Shiro.Services
             }
             catch (JsonException ex)
             {
-                Program.Logger?.Debug($"Extract blocked user ids json failed: {ex.Message}");
+                _staticLogger.Debug($"Extract blocked user ids json failed: {ex.Message}");
             }
 
             return result;
@@ -142,7 +160,7 @@ namespace Shiro.Services
 
             RestResponse? blockRes = await account.ExecuteAccountRestAsync(AppServices.RobloxApi.Api, "https://apis.roblox.com/", blockReq, cancellationToken).ConfigureAwait(false);
 
-            Program.Logger?.Info($"Block Response for {userId} | Unblocking: {unblock}: [{blockRes?.StatusCode}] {blockRes?.Content}");
+            _logger.Info($"Block Response for {userId} | Unblocking: {unblock}: [{blockRes?.StatusCode}] {blockRes?.Content}");
 
             return blockRes;
         }
@@ -231,7 +249,7 @@ namespace Shiro.Services
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Debug($"Parse QuickLogIn deviceInfo failed: {ex.Message}");
+                    _logger.Debug($"Parse QuickLogIn deviceInfo failed: {ex.Message}");
                 }
 
                 if (Utilities.YesNoPrompt("Quick Log In", "Please confirm you are logging in with this device", $"Device: {deviceInfo}\nLocation: {location}"))

@@ -90,7 +90,7 @@ namespace Shiro.ViewModels
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Debug($"[AvatarUrl] Could not read cached avatar for {UserId}: {ex.Message}");
+                    _logger.Debug($"[AvatarUrl] Could not read cached avatar for {UserId}: {ex.Message}");
                 }
 
                 if (_requestedAvatarDownloads.TryAdd(UserId, 0))
@@ -160,7 +160,7 @@ namespace Shiro.ViewModels
             catch (Exception ex)
             {
                 _avatarLoadState = 2;
-                Program.Logger?.Debug($"[LoadOrFetchAvatar] Error loading avatar for {userId}: {ex.Message}");
+                _logger.Debug($"[LoadOrFetchAvatar] Error loading avatar for {userId}: {ex.Message}");
             }
         }
 
@@ -196,7 +196,7 @@ namespace Shiro.ViewModels
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[FetchAndCacheAvatarAsync] Could not fetch avatar for {userId}: {ex.Message}");
+                _logger.Debug($"[FetchAndCacheAvatarAsync] Could not fetch avatar for {userId}: {ex.Message}");
             }
             finally
             {

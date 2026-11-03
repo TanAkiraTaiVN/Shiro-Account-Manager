@@ -9,7 +9,18 @@ namespace Shiro.Services
 {
     public sealed class RobloxEconomyService
     {
-        public static RobloxEconomyService Instance { get; } = new();
+        private static readonly Lazy<RobloxEconomyService> _defaultInstance = new(() => new RobloxEconomyService(AppServices.Logger));
+        public static RobloxEconomyService Default => _defaultInstance.Value;
+        public static RobloxEconomyService Instance => Default;
+
+        private readonly IAppLogger _logger;
+
+        public RobloxEconomyService() : this(AppServices.Logger) { }
+
+        public RobloxEconomyService(IAppLogger logger)
+        {
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        }
 
         public async Task<long> FetchRobuxBalanceAsync(Account account, CancellationToken cancellationToken = default)
         {
@@ -53,7 +64,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger.Debug($"[FetchRobuxBalanceAsync] {account.Username}: {ex.Message}");
+                _logger.Debug($"[FetchRobuxBalanceAsync] {account.Username}: {ex.Message}");
                 return account.RobuxBalance;
             }
         }

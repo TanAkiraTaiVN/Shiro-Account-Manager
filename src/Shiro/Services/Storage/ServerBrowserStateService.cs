@@ -10,8 +10,16 @@ namespace Shiro.Services
     {
         public static readonly ServerBrowserStateService Default = new();
 
+        private readonly ISettingsService _settings;
         private string _currentPlaceId = string.Empty;
         private string _currentJobId = string.Empty;
+
+        public ServerBrowserStateService() : this(AppServices.GeneralSettings) { }
+
+        public ServerBrowserStateService(ISettingsService settings)
+        {
+            _settings = settings ?? throw new ArgumentNullException(nameof(settings));
+        }
 
         public Func<CancellationToken, Task>? LoadClientVersionDelegate { get; set; }
 
@@ -22,7 +30,7 @@ namespace Shiro.Services
                 if (!string.IsNullOrEmpty(_currentPlaceId))
                     return _currentPlaceId;
 
-                var general = AppSettings.General;
+                var general = _settings;
                 if (general != null && general.Exists("SavedPlaceId"))
                     return general.Get("SavedPlaceId") ?? "5315046213";
 
@@ -31,11 +39,11 @@ namespace Shiro.Services
             set
             {
                 _currentPlaceId = value ?? string.Empty;
-                var general = AppSettings.General;
+                var general = _settings;
                 if (general != null && !string.IsNullOrEmpty(_currentPlaceId))
                 {
                     general.Set("SavedPlaceId", _currentPlaceId);
-                    AppSettings.QueueDeferredSave();
+                    AppServices.HostUiBridge.QueueDeferredSaveSettings();
                 }
             }
         }
@@ -47,7 +55,7 @@ namespace Shiro.Services
                 if (!string.IsNullOrEmpty(_currentJobId))
                     return _currentJobId;
 
-                var general = AppSettings.General;
+                var general = _settings;
                 if (general != null && general.Exists("SavedJobId"))
                     return general.Get("SavedJobId") ?? string.Empty;
 
@@ -56,11 +64,11 @@ namespace Shiro.Services
             set
             {
                 _currentJobId = value ?? string.Empty;
-                var general = AppSettings.General;
+                var general = _settings;
                 if (general != null)
                 {
                     general.Set("SavedJobId", _currentJobId);
-                    AppSettings.QueueDeferredSave();
+                    AppServices.HostUiBridge.QueueDeferredSaveSettings();
                 }
             }
         }

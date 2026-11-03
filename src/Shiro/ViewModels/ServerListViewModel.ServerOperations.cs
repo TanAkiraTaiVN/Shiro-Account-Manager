@@ -55,7 +55,7 @@ namespace Shiro.ViewModels
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[LoadVIPServers] {ex.Message}");
+                AppServices.Logger.Debug($"[LoadVIPServers] {ex.Message}");
             }
 
             return null;
@@ -132,7 +132,7 @@ namespace Shiro.ViewModels
             LoadingStatus = Shiro.Services.LocalizationService.Format("ServerList.JoiningServerWithAccounts", serverDesc, selectedAccounts.Count);
 
             {
-            await AppSettings.JoinServerFromHostAsync(selectedAccounts, placeId, targetServer).ConfigureAwait(true);
+            await AppServices.HostUiBridge.JoinServerFromHostAsync(selectedAccounts, placeId, targetServer).ConfigureAwait(true);
             }
         }
 
@@ -142,15 +142,15 @@ namespace Shiro.ViewModels
             if (selectedFromVm != null)
                 return selectedFromVm;
 
-            if (AppSettings.SelectedAccount != null && AppSettings.SelectedAccount.Valid)
-                return AppSettings.SelectedAccount;
+            if (AppServices.SelectionState.SelectedAccount != null && AppServices.SelectionState.SelectedAccount.Valid)
+                return AppServices.SelectionState.SelectedAccount;
 
-            if (AppSettings.LastValidAccount != null && AppSettings.LastValidAccount.Valid)
-                return AppSettings.LastValidAccount;
+            if (AppServices.SelectionState.LastValidAccount != null && AppServices.SelectionState.LastValidAccount.Valid)
+                return AppServices.SelectionState.LastValidAccount;
 
             return AppServices.AccountRepository.GetAll().FirstOrDefault(a => a != null && a.Valid)
-                   ?? AppSettings.SelectedAccount
-                   ?? AppSettings.LastValidAccount;
+                   ?? AppServices.SelectionState.SelectedAccount
+                   ?? AppServices.SelectionState.LastValidAccount;
         }
 
         private async Task LoadRegionAsync(object? param)
@@ -180,7 +180,7 @@ namespace Shiro.ViewModels
                 long placeId = AccountLauncherService.ParsePlaceId(rawPid);
                 if (placeId <= 0) return;
 
-                var result = await RobloxServerQueryService.Default.QueryServerRegionAndPingAsync(acc, placeId, server.RawData.id, cancellationToken: ct).ConfigureAwait(true);
+                var result = await AppServices.RobloxServerQueryService.QueryServerRegionAndPingAsync(acc, placeId, server.RawData.id, cancellationToken: ct).ConfigureAwait(true);
                 if (result.Success)
                 {
                     server.Ip = result.Ip ?? string.Empty;
@@ -200,7 +200,7 @@ namespace Shiro.ViewModels
             catch (Exception ex)
             {
                 server.Region = Shiro.Services.LocalizationService.Get("MissingAssets.PriceLoadError");
-                Program.Logger?.Warn($"[LoadRegionAsync] {ex.Message}");
+                _logger.Warn($"[LoadRegionAsync] {ex.Message}");
             }
             finally
             {

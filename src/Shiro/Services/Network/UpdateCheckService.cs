@@ -13,6 +13,20 @@ namespace Shiro.Services
     /// </summary>
     public static class UpdateCheckService
     {
+        private static IAppLogger _logger = AppServices.Logger;
+        public static IAppLogger Logger
+        {
+            get => _logger;
+            set => _logger = value ?? throw new ArgumentNullException(nameof(value));
+        }
+
+        private static ISettingsService _settings = AppServices.GeneralSettings;
+        public static ISettingsService Settings
+        {
+            get => _settings;
+            set => _settings = value ?? throw new ArgumentNullException(nameof(value));
+        }
+
         private const string ReleaseApiUrl = "https://api.github.com/repos/X-Shiro-X/Shiro-Account-Manager/releases/latest";
         private static int _checkInitiated = 0;
 
@@ -31,16 +45,16 @@ namespace Shiro.Services
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Debug($"[UpdateCheckService] Background update check error: {ex.Message}");
+                    _logger.Debug($"[UpdateCheckService] Background update check error: {ex.Message}");
                 }
             });
         }
 
         public static async Task<bool> CheckForUpdatesInternalAsync(CancellationToken cancellationToken)
         {
-            bool checkEnabled = AppSettings.General == null ||
-                                !AppSettings.General.Exists(AppSettingsKeys.General.CheckForUpdates) ||
-                                AppSettings.General.Get<bool>(AppSettingsKeys.General.CheckForUpdates, true);
+            bool checkEnabled = _settings == null ||
+                                !_settings.Exists(AppSettingsKeys.General.CheckForUpdates) ||
+                                _settings.Get<bool>(AppSettingsKeys.General.CheckForUpdates, true);
 
             if (!checkEnabled)
                 return false;

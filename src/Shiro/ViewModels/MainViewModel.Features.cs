@@ -34,7 +34,7 @@ namespace Shiro.ViewModels
             {
                 if (SetProperty(ref _isPotatoMode, value))
                 {
-                    AppSettings.General?.Set("EnablePotatoMode", value ? "true" : "false");
+                    _settings.Set("EnablePotatoMode", value ? "true" : "false");
                     ClientSettingsPatcher.PatchSettings();
                     StatusMessage = value
                         ? Shiro.Services.LocalizationService.Get("Main.PotatoModeActivated")
@@ -115,9 +115,9 @@ namespace Shiro.ViewModels
         {
             IsAntiAfk = AntiAfkService.IsEnabled;
             AreWindowsHidden = RobloxWindowService.AreWindowsHidden;
-            IsPotatoMode = AppSettings.General != null &&
-                           AppSettings.General.Exists("EnablePotatoMode") &&
-                           AppSettings.General.Get<bool>("EnablePotatoMode");
+            IsPotatoMode = _settings != null &&
+                           _settings.Exists("EnablePotatoMode") &&
+                           _settings.Get<bool>("EnablePotatoMode");
             NotifyToolStatesChanged();
         }
 
@@ -194,11 +194,12 @@ namespace Shiro.ViewModels
                 try
                 {
                     var list = new List<RecentGameItemViewModel>();
-                    if (AppSettings.RecentGames != null)
+                    var recent = AppServices.ServerBrowserState.RecentGames;
+                    if (recent != null)
                     {
-                        lock (AppSettings.RecentGames)
+                        lock (recent)
                         {
-                            foreach (var g in AppSettings.RecentGames)
+                            foreach (var g in recent)
                             {
                                 if (g?.Details?.placeId != null)
                                 {
@@ -271,7 +272,7 @@ namespace Shiro.ViewModels
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Debug($"Failed to reload recent games: {ex.Message}");
+                    _logger.Debug($"Failed to reload recent games: {ex.Message}");
                 }
             });
         }
@@ -349,7 +350,7 @@ namespace Shiro.ViewModels
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[RecentGameItemViewModel] LoadThumbnail error for {PlaceId}: {ex.Message}");
+                AppServices.Logger.Debug($"[RecentGameItemViewModel] LoadThumbnail error for {PlaceId}: {ex.Message}");
             }
             finally
             {

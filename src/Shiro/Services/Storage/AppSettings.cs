@@ -150,7 +150,7 @@ namespace Shiro.Services
             _generalOverride = null;
         }
 
-        private IniSection? GetSection(string sectionName) =>
+        public IniSection? GetSection(string sectionName) =>
             ActiveIniFile?.Section(sectionName);
 
         private bool GetBool(string section, string key, bool fallback = false)

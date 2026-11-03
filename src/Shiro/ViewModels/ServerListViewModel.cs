@@ -20,6 +20,8 @@ namespace Shiro.ViewModels
     public partial class ServerListViewModel : ObservableObject
     {
         private readonly MainViewModel? _mainViewModel;
+        private readonly IAppLogger _logger;
+        private readonly ISettingsService _settings;
         private readonly BulkObservableCollection<ServerItemViewModel> _servers = new BulkObservableCollection<ServerItemViewModel>();
 
         private string _placeIdInput = string.Empty;
@@ -116,7 +118,7 @@ namespace Shiro.ViewModels
 
             string rawPid = !string.IsNullOrWhiteSpace(PlaceIdInput)
                 ? PlaceIdInput
-                : (!string.IsNullOrWhiteSpace(_mainViewModel?.PlaceId) ? _mainViewModel!.PlaceId : (AppSettings.CurrentPlaceId ?? string.Empty));
+                : (!string.IsNullOrWhiteSpace(_mainViewModel?.PlaceId) ? _mainViewModel!.PlaceId : (AppServices.ServerBrowserState.CurrentPlaceId ?? string.Empty));
 
             if (string.IsNullOrWhiteSpace(PlaceIdInput) && !string.IsNullOrWhiteSpace(rawPid))
                 SyncPlaceId(rawPid);
@@ -142,9 +144,11 @@ namespace Shiro.ViewModels
         public ICommand SelectFavoriteCommand { get; }
         public ICommand LaunchFavoriteCommand { get; }
 
-        public ServerListViewModel(MainViewModel? mainViewModel)
+        public ServerListViewModel(MainViewModel? mainViewModel = null, IAppLogger? logger = null, ISettingsService? settings = null)
         {
             _mainViewModel = mainViewModel;
+            _logger = logger ?? AppServices.Logger;
+            _settings = settings ?? AppServices.GeneralSettings;
             _placeIdInput = mainViewModel?.PlaceId ?? string.Empty;
 
             RefreshServersCommand = new AsyncRelayCommand(RefreshServersAsync);
@@ -337,7 +341,7 @@ namespace Shiro.ViewModels
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Error($"[RefreshServersAsync] {ex}");
+                    _logger.Error($"[RefreshServersAsync] {ex}");
                     AppDispatcher.Post(() =>
                     {
                         LoadingStatus = Shiro.Services.LocalizationService.Format("Proxy_Dead", ex.Message);

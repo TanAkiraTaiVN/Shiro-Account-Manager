@@ -22,12 +22,19 @@ namespace Shiro.Services
     public sealed class KestrelWebServer : IAsyncDisposable
     {
         private static readonly ConcurrentDictionary<WebSocket, SemaphoreSlim> _activeSockets = new();
+        private static IAppLogger _staticLogger = AppServices.Logger;
+        public static IAppLogger Logger
+        {
+            get => _staticLogger;
+            set => _staticLogger = value ?? throw new ArgumentNullException(nameof(value));
+        }
 
         private WebApplication? _app;
         private readonly int _port;
         private bool _allowExternal;
         private readonly Func<HttpContext, Task<string>> _handler;
         private readonly Func<HttpContext, bool>? _authValidator;
+        private readonly IAppLogger _logger;
         private readonly CancellationTokenSource _cts = new();
 
         public bool IsRunning { get; private set; }
@@ -42,22 +49,24 @@ namespace Shiro.Services
             int port,
             bool allowExternal,
             Func<HttpContext, Task<string>> handler,
-            Func<HttpContext, bool>? authValidator = null)
+            Func<HttpContext, bool>? authValidator = null,
+            IAppLogger? logger = null)
         {
             _port = port > 0 ? port : 7963;
             _allowExternal = allowExternal;
             _handler = handler ?? throw new ArgumentNullException(nameof(handler));
             _authValidator = authValidator;
+            _logger = logger ?? AppServices.Logger;
         }
 
         public async Task StartAsync()
         {
             if (IsRunning) return;
 
-            if (_allowExternal && !WebAuthPolicy.IsPasswordConfigured(AppSettings.WebSocketPassword))
+            if (_allowExternal && !WebAuthPolicy.IsPasswordConfigured(AppServices.ServerBrowserState.WebSocketPassword))
             {
                 _allowExternal = false;
-                Program.Logger?.Warn("[KestrelWebServer] External connections require a WebServer password (>= 6 chars); listening on localhost only.");
+                _logger.Warn("[KestrelWebServer] External connections require a WebServer password (>= 6 chars); listening on localhost only.");
             }
 
             _app = LocalKestrelWebServer.Build("Shiro.WebServer", _port, _allowExternal);
@@ -124,7 +133,7 @@ namespace Shiro.Services
 
             await _app.StartAsync(_cts.Token);
             IsRunning = true;
-            Program.Logger?.Info($"[KestrelWebServer] ASP.NET Core Kestrel HTTP/WebSocket Gateway started on port {_port} (AllowExternal: {_allowExternal})");
+            _logger.Info($"[KestrelWebServer] ASP.NET Core Kestrel HTTP/WebSocket Gateway started on port {_port} (AllowExternal: {_allowExternal})");
         }
 
         private async Task HandleWebSocketEndpointAsync(HttpContext context)
@@ -196,10 +205,10 @@ namespace Shiro.Services
                 }
             }
             catch (OperationCanceledException) { /* canceled */ }
-            catch (WebSocketException ex) { Program.Logger?.Debug($"[KestrelWebServer] WebSocket closed: {ex.Message}"); }
+            catch (WebSocketException ex) { _logger.Debug($"[KestrelWebServer] WebSocket closed: {ex.Message}"); }
             catch (Exception ex)
             {
-                Program.Logger?.Warn($"[KestrelWebServer] WebSocket client error: {ex.Message}");
+                _logger.Warn($"[KestrelWebServer] WebSocket client error: {ex.Message}");
             }
             finally
             {
@@ -313,7 +322,7 @@ namespace Shiro.Services
                         }
                         catch (Exception ex)
                         {
-                            Program.Logger?.Debug($"WebSocket broadcast to client failed: {ex.Message}");
+                            _staticLogger.Debug($"WebSocket broadcast to client failed: {ex.Message}");
                             if (_activeSockets.TryRemove(socket, out var removedGate))
                             {
                                 SafeExecuteHelper.Try(removedGate.Dispose);
@@ -331,7 +340,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"BroadcastAsync failed: {ex.Message}");
+                _staticLogger.Debug($"BroadcastAsync failed: {ex.Message}");
             }
         }
 
@@ -386,7 +395,7 @@ namespace Shiro.Services
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Debug($"Closing active socket failed: {ex.Message}");
+                    _logger.Debug($"Closing active socket failed: {ex.Message}");
                 }
                 SafeExecuteHelper.Try(kvp.Value.Dispose);
             }
@@ -403,7 +412,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Warn($"Kestrel stop/dispose threw: {ex.Message}");
+                _logger.Warn($"Kestrel stop/dispose threw: {ex.Message}");
             }
             finally
             {

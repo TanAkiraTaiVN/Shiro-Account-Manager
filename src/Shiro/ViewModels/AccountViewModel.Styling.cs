@@ -108,7 +108,7 @@ namespace Shiro.ViewModels
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"AccountViewModel static ctor theme brush init failed: {ex.Message}");
+                AppServices.Logger.Debug($"AccountViewModel static ctor theme brush init failed: {ex.Message}");
             }
         }
 
@@ -121,7 +121,7 @@ namespace Shiro.ViewModels
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"UpdateThemeBrush failed: {ex.Message}");
+                AppServices.Logger.Debug($"UpdateThemeBrush failed: {ex.Message}");
             }
         }
 

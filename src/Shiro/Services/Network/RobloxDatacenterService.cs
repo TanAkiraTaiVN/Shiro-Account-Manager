@@ -58,9 +58,10 @@ namespace Shiro.Services
     /// </summary>
     public sealed class RobloxDatacenterService
     {
-        private static readonly Lazy<RobloxDatacenterService> _instance = new(() => new RobloxDatacenterService());
+        private static readonly Lazy<RobloxDatacenterService> _instance = new(() => new RobloxDatacenterService(AppServices.Logger));
         public static RobloxDatacenterService Default => _instance.Value;
 
+        private readonly IAppLogger _logger;
         private readonly Dictionary<int, DatacenterEntryItem> _byDataCenterId = new();
         private readonly Dictionary<string, DatacenterEntryItem> _byExactIp = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, DatacenterEntryItem> _bySubnet24 = new(StringComparer.OrdinalIgnoreCase);
@@ -70,8 +71,11 @@ namespace Shiro.Services
         public bool IsLoaded => _isLoaded;
         public int TotalDatacenters => _allEntries.Count;
 
-        public RobloxDatacenterService()
+        public RobloxDatacenterService() : this(AppServices.Logger) { }
+
+        public RobloxDatacenterService(IAppLogger logger)
         {
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             try
             {
                 string? json = LoadDatacentersJson();
@@ -118,7 +122,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[RobloxDatacenterService] Failed to load datacenters: {ex.Message}");
+                _logger.Debug($"[RobloxDatacenterService] Failed to load datacenters: {ex.Message}");
             }
         }
 

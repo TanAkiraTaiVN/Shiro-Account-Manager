@@ -16,6 +16,13 @@ namespace Shiro.Services
     /// </summary>
     public static class AccountRuntimeStateStore
     {
+        private static IAppLogger _logger = AppServices.Logger;
+        public static IAppLogger Logger
+        {
+            get => _logger;
+            set => _logger = value ?? throw new ArgumentNullException(nameof(value));
+        }
+
         public sealed class RuntimeStateEntry
         {
             public long UserId { get; set; }
@@ -199,7 +206,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[AccountRuntimeStateStore.Flush] Failed writing runtime state: {ex.Message}");
+                _logger.Debug($"[AccountRuntimeStateStore.Flush] Failed writing runtime state: {ex.Message}");
                 return false;
             }
         }
@@ -247,7 +254,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[AccountRuntimeStateStore] Could not read {Path.GetFileName(path)}: {ex.Message}");
+                _logger.Debug($"[AccountRuntimeStateStore] Could not read {Path.GetFileName(path)}: {ex.Message}");
             }
 
             return new RuntimeStateDocument();

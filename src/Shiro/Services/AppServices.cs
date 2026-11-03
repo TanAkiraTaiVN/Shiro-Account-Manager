@@ -31,6 +31,10 @@ namespace Shiro.Services
 
                 var services = new ServiceCollection();
 
+                // Core Infrastructure & Configuration Services
+                services.AddSingleton<IAppLogger>(Program.Logger);
+                services.AddSingleton<ISettingsService>(AppSettings.General);
+
                 // Core Domain Services
                 services.AddSingleton<IAccountRepository>(Services.AccountRepository.Default);
                 services.AddSingleton<IRobloxApiClient>(Services.RobloxApiClient.Default);
@@ -124,6 +128,22 @@ namespace Shiro.Services
             set => ReplaceService(value);
         }
 
+        public static IAppLogger Logger
+        {
+            get => _serviceProvider?.GetService<IAppLogger>() ?? Program.Logger;
+            set => ReplaceService(value);
+        }
+
+        public static ISettingsService GeneralSettings
+        {
+            get => _serviceProvider?.GetService<ISettingsService>() ?? (ISettingsService?)AppSettings.General ?? new IniSection("General");
+            set => ReplaceService(value);
+        }
+
+        public static ISettingsService? WatcherSettings => AppSettings.Watcher;
+
+        public static void SaveSettings() => AppSettings.Save();
+
         public static AppSettings Settings => GetRequiredService<AppSettings>();
 
         private static void ReplaceService<T>(T instance) where T : class
@@ -132,6 +152,8 @@ namespace Shiro.Services
             {
                 var services = new ServiceCollection();
 
+                services.AddSingleton<IAppLogger>((instance as IAppLogger) ?? Logger);
+                services.AddSingleton<ISettingsService>((instance as ISettingsService) ?? GeneralSettings);
                 services.AddSingleton<IAccountRepository>((instance as IAccountRepository) ?? AccountRepository);
                 services.AddSingleton<IRobloxApiClient>((instance as IRobloxApiClient) ?? RobloxApi);
                 services.AddSingleton<IRobloxSessionService>((instance as IRobloxSessionService) ?? RobloxSessionService);

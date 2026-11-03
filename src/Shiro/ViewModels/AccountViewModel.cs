@@ -13,6 +13,8 @@ namespace Shiro.ViewModels
     public partial class AccountViewModel : ObservableObject
     {
         private Account _model;
+        private readonly IAppLogger _logger;
+        private readonly ISettingsService _settings;
         private bool _isSelected;
         private bool _isLaunching;
         private bool _isInGame;
@@ -24,9 +26,11 @@ namespace Shiro.ViewModels
 
         public Account Model => _model;
 
-        public AccountViewModel(Account model)
+        public AccountViewModel(Account model, IAppLogger? logger = null, ISettingsService? settings = null)
         {
             _model = model ?? throw new ArgumentNullException(nameof(model));
+            _logger = logger ?? AppServices.Logger;
+            _settings = settings ?? AppServices.GeneralSettings;
         }
 
         public void UpdateModel(Account model)
@@ -85,14 +89,14 @@ namespace Shiro.ViewModels
         {
             get
             {
-                if (StreamerModeService.IsActive && (AppSettings.General?.Get<bool>(AppSettingsKeys.General.StreamerModeHideUsernames, true) ?? true))
+                if (StreamerModeService.IsActive && (_settings?.Get<bool>(AppSettingsKeys.General.StreamerModeHideUsernames, true) ?? true))
                 {
                     return StreamerModeService.MaskUsername(Username);
                 }
 
-                bool hideUsernames = AppSettings.General != null &&
-                                     AppSettings.General.Exists("HideUsernames") &&
-                                     AppSettings.General.Get<bool>("HideUsernames");
+                bool hideUsernames = _settings != null &&
+                                     _settings.Exists("HideUsernames") &&
+                                     _settings.Get<bool>("HideUsernames");
                 return hideUsernames ? "Hidden Account" : Username;
             }
         }
@@ -328,7 +332,7 @@ namespace Shiro.ViewModels
         {
             get
             {
-                if (StreamerModeService.IsActive && (AppSettings.General?.Get<bool>(AppSettingsKeys.General.StreamerModeHideRobux, true) ?? true))
+                if (StreamerModeService.IsActive && (_settings?.Get<bool>(AppSettingsKeys.General.StreamerModeHideRobux, true) ?? true))
                     return "***";
                 return RobuxBalance >= 0 ? $"{RobuxBalance:N0}" : string.Empty;
             }
@@ -338,7 +342,7 @@ namespace Shiro.ViewModels
         {
             get
             {
-                if (StreamerModeService.IsActive && (AppSettings.General?.Get<bool>(AppSettingsKeys.General.StreamerModeHideRobux, true) ?? true))
+                if (StreamerModeService.IsActive && (_settings?.Get<bool>(AppSettingsKeys.General.StreamerModeHideRobux, true) ?? true))
                     return "R$ ***";
                 return RobuxBalance >= 0 ? $"R$ {RobuxBalance:N0}" : string.Empty;
             }

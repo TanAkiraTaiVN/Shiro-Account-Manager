@@ -101,7 +101,7 @@ namespace Shiro.ViewModels
                     }
                     catch (Exception ex)
                     {
-                        Program.Logger?.Debug($"[ParseGamesBatch] {ex.Message}");
+                        _logger.Debug($"[ParseGamesBatch] {ex.Message}");
                     }
 
                     if (gamesList.Count > 0)
@@ -126,7 +126,7 @@ namespace Shiro.ViewModels
             }
             catch (Exception ex)
             {
-                Program.Logger?.Error($"[SearchGamesAsync] {ex.Message}");
+                _logger.Error($"[SearchGamesAsync] {ex.Message}");
             }
             finally
             {
@@ -320,7 +320,7 @@ namespace Shiro.ViewModels
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Debug($"[LoadFavorites] {ex.Message}");
+                    _logger.Debug($"[LoadFavorites] {ex.Message}");
                 }
             }
             OnPropertyChanged(nameof(IsFavoritesEmpty));
@@ -341,7 +341,7 @@ namespace Shiro.ViewModels
             }
             catch (Exception ex)
             {
-                Program.Logger?.Error($"[SaveFavorites] {ex.Message}");
+                _logger.Error($"[SaveFavorites] {ex.Message}");
             }
         }
 
@@ -395,7 +395,7 @@ namespace Shiro.ViewModels
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[FetchPlaceIconsBatchAsync] {ex.Message}");
+                AppServices.Logger.Debug($"[FetchPlaceIconsBatchAsync] {ex.Message}");
             }
 
             return result;
@@ -421,7 +421,7 @@ namespace Shiro.ViewModels
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[ResolveFavoriteThumbnails] {ex.Message}");
+                _logger.Debug($"[ResolveFavoriteThumbnails] {ex.Message}");
             }
         }
     }

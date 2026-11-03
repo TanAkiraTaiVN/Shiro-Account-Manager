@@ -127,7 +127,7 @@ namespace Shiro.ViewModels
             {
                 bool next = !IsPotatoMode;
                 IsPotatoMode = next;
-                AppSettings.General?.Set("EnablePotatoMode", next ? "true" : "false");
+                _settings.Set("EnablePotatoMode", next ? "true" : "false");
                 ClientSettingsPatcher.PatchSettings();
                 StatusMessage = next
                     ? Shiro.Services.LocalizationService.Get("Main.PotatoModeActivated")
@@ -385,9 +385,9 @@ namespace Shiro.ViewModels
                 {
                     SetKnownGameTitle(item.PlaceId, item.Name);
                     PlaceId = item.PlaceId.ToString();
-                    AppSettings.CurrentPlaceId = PlaceId;
-                    AppSettings.General?.Set("SavedPlaceId", PlaceId);
-                    AppSettings.QueueDeferredSave();
+                    AppServices.ServerBrowserState.CurrentPlaceId = PlaceId;
+                    _settings.Set("SavedPlaceId", PlaceId);
+                    AppServices.HostUiBridge.QueueDeferredSaveSettings();
                     CurrentPage = NavigationPage.Accounts;
                     StatusMessage = Shiro.Services.LocalizationService.Format("Main.GameSelected", item.Name, item.PlaceId);
                 }

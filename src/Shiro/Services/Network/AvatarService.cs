@@ -13,6 +13,13 @@ namespace Shiro.Services
 {
     internal sealed class AvatarService
     {
+        private static IAppLogger _logger = AppServices.Logger;
+        public static IAppLogger Logger
+        {
+            get => _logger;
+            set => _logger = value ?? throw new ArgumentNullException(nameof(value));
+        }
+
         private static readonly ConcurrentDictionary<long, Task<string?>> InFlightDownloads = new();
 
         public async Task<byte[]?> DownloadAsync(string? imageUrl, CancellationToken cancellationToken = default(CancellationToken))
@@ -103,7 +110,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"EnsureAvatarHeadshotAsync {userId} failed: {ex.Message}");
+                _logger.Debug($"EnsureAvatarHeadshotAsync {userId} failed: {ex.Message}");
             }
             finally
             {
@@ -122,7 +129,7 @@ namespace Shiro.Services
             if (list.Count == 0) return downloaded;
 
             try { EnsureAvatarDirectory(); }
-            catch (Exception ex) { Program.Logger?.Debug($"EnsureAvatarDirectory failed: {ex.Message}"); }
+            catch (Exception ex) { _logger.Debug($"EnsureAvatarDirectory failed: {ex.Message}"); }
 
             for (int i = 0; i < list.Count; i += 100)
             {
@@ -177,7 +184,7 @@ namespace Shiro.Services
                                 }
                                 catch (Exception ex)
                                 {
-                                    Program.Logger?.Debug($"Download avatar entry failed: {ex.Message}");
+                                    _logger.Debug($"Download avatar entry failed: {ex.Message}");
                                 }
                                 finally
                                 {
@@ -191,7 +198,7 @@ namespace Shiro.Services
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Debug($"Batch avatar chunk fetch failed: {ex.Message}");
+                    _logger.Debug($"Batch avatar chunk fetch failed: {ex.Message}");
                 }
             }
 

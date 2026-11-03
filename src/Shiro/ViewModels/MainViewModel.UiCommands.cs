@@ -179,8 +179,8 @@ namespace Shiro.ViewModels
             {
                 bool next = !RobloxAudioService.IsSmartMuteEnabled;
                 RobloxAudioService.ConfigureSmartMute(next);
-                AppSettings.General?.Set("AutoMuteBackgroundClients", next ? "true" : "false");
-                AppSettings.QueueDeferredSave();
+                _settings.Set("AutoMuteBackgroundClients", next ? "true" : "false");
+                AppServices.HostUiBridge.QueueDeferredSaveSettings();
                 NotifyToolStatesChanged();
 
                 string msg = next

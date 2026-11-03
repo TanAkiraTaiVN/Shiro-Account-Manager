@@ -29,6 +29,20 @@ namespace Shiro.Services
 
     public static class WebhookNotificationService
     {
+        private static IAppLogger _logger = AppServices.Logger;
+        public static IAppLogger Logger
+        {
+            get => _logger;
+            set => _logger = value ?? throw new ArgumentNullException(nameof(value));
+        }
+
+        private static ISettingsService _settings = AppServices.GeneralSettings;
+        public static ISettingsService Settings
+        {
+            get => _settings;
+            set => _settings = value ?? throw new ArgumentNullException(nameof(value));
+        }
+
         private static readonly SemaphoreSlim Gate = new(1, 1);
         private static DateTimeOffset _lastDispatchUtc = DateTimeOffset.MinValue;
 
@@ -49,50 +63,50 @@ namespace Shiro.Services
 
         public static string? DiscordWebhookUrl
         {
-            get => AppSettings.General.Get(AppSettingsKeys.General.DiscordWebhookUrl);
+            get => _settings.Get(AppSettingsKeys.General.DiscordWebhookUrl);
             set
             {
                 if (string.IsNullOrWhiteSpace(value))
-                    AppSettings.General.RemoveProperty(AppSettingsKeys.General.DiscordWebhookUrl);
+                    _settings.RemoveProperty(AppSettingsKeys.General.DiscordWebhookUrl);
                 else
-                    AppSettings.General.Set(AppSettingsKeys.General.DiscordWebhookUrl, value);
+                    _settings.Set(AppSettingsKeys.General.DiscordWebhookUrl, value);
             }
         }
 
         public static string? TelegramBotToken
         {
-            get => AppSettings.General.Get(AppSettingsKeys.General.TelegramBotToken);
+            get => _settings.Get(AppSettingsKeys.General.TelegramBotToken);
             set
             {
                 if (string.IsNullOrWhiteSpace(value))
-                    AppSettings.General.RemoveProperty(AppSettingsKeys.General.TelegramBotToken);
+                    _settings.RemoveProperty(AppSettingsKeys.General.TelegramBotToken);
                 else
-                    AppSettings.General.Set(AppSettingsKeys.General.TelegramBotToken, value);
+                    _settings.Set(AppSettingsKeys.General.TelegramBotToken, value);
             }
         }
 
         public static string? TelegramChatId
         {
-            get => AppSettings.General.Get(AppSettingsKeys.General.TelegramChatId);
+            get => _settings.Get(AppSettingsKeys.General.TelegramChatId);
             set
             {
                 if (string.IsNullOrWhiteSpace(value))
-                    AppSettings.General.RemoveProperty(AppSettingsKeys.General.TelegramChatId);
+                    _settings.RemoveProperty(AppSettingsKeys.General.TelegramChatId);
                 else
-                    AppSettings.General.Set(AppSettingsKeys.General.TelegramChatId, value);
+                    _settings.Set(AppSettingsKeys.General.TelegramChatId, value);
             }
         }
 
         public static bool NotifyOnDisconnect
         {
-            get => AppSettings.General.GetBool(AppSettingsKeys.General.NotifyOnDisconnect, true);
-            set => AppSettings.General.Set(AppSettingsKeys.General.NotifyOnDisconnect, value ? "true" : "false");
+            get => _settings.GetBool(AppSettingsKeys.General.NotifyOnDisconnect, true);
+            set => _settings.Set(AppSettingsKeys.General.NotifyOnDisconnect, value ? "true" : "false");
         }
 
         public static bool NotifyOnModeration
         {
-            get => AppSettings.General.GetBool(AppSettingsKeys.General.NotifyOnModeration, true);
-            set => AppSettings.General.Set(AppSettingsKeys.General.NotifyOnModeration, value ? "true" : "false");
+            get => _settings.GetBool(AppSettingsKeys.General.NotifyOnModeration, true);
+            set => _settings.Set(AppSettingsKeys.General.NotifyOnModeration, value ? "true" : "false");
         }
 
         public static string EscapeTelegramMarkdown(string? text)
@@ -229,7 +243,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[Webhook] AlertDispatched subscriber error: {ex.Message}");
+                _logger.Debug($"[Webhook] AlertDispatched subscriber error: {ex.Message}");
             }
         }
 
@@ -269,7 +283,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[Webhook] Alert processing loop ended: {ex.Message}");
+                _logger.Debug($"[Webhook] Alert processing loop ended: {ex.Message}");
             }
         }
 
@@ -318,11 +332,11 @@ namespace Shiro.Services
             }
             catch (OperationCanceledException ex)
             {
-                Program.Logger?.Debug($"[Webhook] Alert dispatch canceled: {ex.Message}");
+                _logger.Debug($"[Webhook] Alert dispatch canceled: {ex.Message}");
             }
             catch (Exception ex)
             {
-                Program.Logger?.Warn($"[Webhook] Alert dispatch failed: {ex.Message}");
+                _logger.Warn($"[Webhook] Alert dispatch failed: {ex.Message}");
             }
         }
 
@@ -335,12 +349,12 @@ namespace Shiro.Services
                 using var response = await client.PostAsync(webhookUrl, content, ct).ConfigureAwait(false);
                 if (!response.IsSuccessStatusCode)
                 {
-                    Program.Logger?.Warn($"[Webhook] Discord returned {(int)response.StatusCode} {response.ReasonPhrase}");
+                    _logger.Warn($"[Webhook] Discord returned {(int)response.StatusCode} {response.ReasonPhrase}");
                 }
             }
             catch (Exception ex)
             {
-                Program.Logger?.Warn($"[Webhook] Discord send failed: {ex.Message}");
+                _logger.Warn($"[Webhook] Discord send failed: {ex.Message}");
             }
         }
 
@@ -356,12 +370,12 @@ namespace Shiro.Services
                 using var response = await client.PostAsync(endpoint, content, ct).ConfigureAwait(false);
                 if (!response.IsSuccessStatusCode)
                 {
-                    Program.Logger?.Warn($"[Webhook] Telegram returned {(int)response.StatusCode} {response.ReasonPhrase}");
+                    _logger.Warn($"[Webhook] Telegram returned {(int)response.StatusCode} {response.ReasonPhrase}");
                 }
             }
             catch (Exception ex)
             {
-                Program.Logger?.Warn($"[Webhook] Telegram send failed: {ex.Message}");
+                _logger.Warn($"[Webhook] Telegram send failed: {ex.Message}");
             }
         }
     }

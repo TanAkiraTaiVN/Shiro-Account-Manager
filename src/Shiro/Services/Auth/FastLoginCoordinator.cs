@@ -32,6 +32,9 @@ namespace Shiro.Services
     /// </summary>
     public static class FastLoginCoordinator
     {
+        private static IAppLogger _logger = AppServices.Logger;
+        public static IAppLogger Logger { get => _logger; set => _logger = value ?? throw new ArgumentNullException(nameof(value)); }
+
         public static string FingerprintCookie(string? value) =>
             Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value ?? string.Empty)));
 
@@ -165,7 +168,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"DetectDomAccountIssueAsync failed: {ex.Message}");
+                _logger.Debug($"DetectDomAccountIssueAsync failed: {ex.Message}");
                 return (null, null);
             }
         }
@@ -325,7 +328,7 @@ namespace Shiro.Services
 
             try
             {
-                try { core.Stop(); } catch (Exception ex) { Program.Logger?.Debug($"WebView stop ignored: {ex.Message}"); }
+                try { core.Stop(); } catch (Exception ex) { _logger.Debug($"WebView stop ignored: {ex.Message}"); }
 
                 try
                 {
@@ -339,7 +342,7 @@ namespace Shiro.Services
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Debug($"Navigate to about:blank failed: {ex.Message}");
+                    _logger.Debug($"Navigate to about:blank failed: {ex.Message}");
                 }
 
                 var cookieManager = core.CookieManager;
@@ -369,17 +372,17 @@ namespace Shiro.Services
                     }
                     catch (Exception ex)
                     {
-                        Program.Logger?.Debug($"Clear cookies for {url} threw: {ex.Message}");
+                        _logger.Debug($"Clear cookies for {url} threw: {ex.Message}");
                     }
                 }
 
-                try { cookieManager.DeleteCookiesWithDomainAndPath(".ROBLOSECURITY", ".roblox.com", "/"); } catch (Exception ex) { Program.Logger?.Debug($"Delete .ROBLOSECURITY ignored: {ex.Message}"); }
-                try { cookieManager.DeleteCookiesWithDomainAndPath(".RBXIDCHECK", ".roblox.com", "/"); } catch (Exception ex) { Program.Logger?.Debug($"Delete .RBXIDCHECK ignored: {ex.Message}"); }
-                try { cookieManager.DeleteCookiesWithDomainAndPath(".RBXSESSIONTRACKER", ".roblox.com", "/"); } catch (Exception ex) { Program.Logger?.Debug($"Delete .RBXSESSIONTRACKER ignored: {ex.Message}"); }
-                try { cookieManager.DeleteCookiesWithDomainAndPath("RBXEventTrackerV2", ".roblox.com", "/"); } catch (Exception ex) { Program.Logger?.Debug($"Delete RBXEventTrackerV2 ignored: {ex.Message}"); }
+                try { cookieManager.DeleteCookiesWithDomainAndPath(".ROBLOSECURITY", ".roblox.com", "/"); } catch (Exception ex) { _logger.Debug($"Delete .ROBLOSECURITY ignored: {ex.Message}"); }
+                try { cookieManager.DeleteCookiesWithDomainAndPath(".RBXIDCHECK", ".roblox.com", "/"); } catch (Exception ex) { _logger.Debug($"Delete .RBXIDCHECK ignored: {ex.Message}"); }
+                try { cookieManager.DeleteCookiesWithDomainAndPath(".RBXSESSIONTRACKER", ".roblox.com", "/"); } catch (Exception ex) { _logger.Debug($"Delete .RBXSESSIONTRACKER ignored: {ex.Message}"); }
+                try { cookieManager.DeleteCookiesWithDomainAndPath("RBXEventTrackerV2", ".roblox.com", "/"); } catch (Exception ex) { _logger.Debug($"Delete RBXEventTrackerV2 ignored: {ex.Message}"); }
 
-                try { await core.Profile.ClearBrowsingDataAsync(); } catch (Exception ex) { Program.Logger?.Debug($"ClearBrowsingDataAsync ignored: {ex.Message}"); }
-                try { await core.CallDevToolsProtocolMethodAsync("Network.clearBrowserCookies", "{}"); } catch (Exception ex) { Program.Logger?.Debug($"clearBrowserCookies ignored: {ex.Message}"); }
+                try { await core.Profile.ClearBrowsingDataAsync(); } catch (Exception ex) { _logger.Debug($"ClearBrowsingDataAsync ignored: {ex.Message}"); }
+                try { await core.CallDevToolsProtocolMethodAsync("Network.clearBrowserCookies", "{}"); } catch (Exception ex) { _logger.Debug($"clearBrowserCookies ignored: {ex.Message}"); }
                 try
                 {
                     await core.CallDevToolsProtocolMethodAsync(
@@ -388,7 +391,7 @@ namespace Shiro.Services
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Debug($"DevTools clearDataForOrigin roblox.com threw: {ex.Message}");
+                    _logger.Debug($"DevTools clearDataForOrigin roblox.com threw: {ex.Message}");
                 }
                 try
                 {
@@ -398,7 +401,7 @@ namespace Shiro.Services
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Debug($"DevTools clearDataForOrigin auth.roblox.com threw: {ex.Message}");
+                    _logger.Debug($"DevTools clearDataForOrigin auth.roblox.com threw: {ex.Message}");
                 }
 
                 try
@@ -411,12 +414,12 @@ namespace Shiro.Services
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Debug($"GDPR cookie create threw: {ex.Message}");
+                    _logger.Debug($"GDPR cookie create threw: {ex.Message}");
                 }
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"ClearWebViewAuthCookiesAsync threw: {ex.Message}");
+                _logger.Debug($"ClearWebViewAuthCookiesAsync threw: {ex.Message}");
             }
         }
 
@@ -449,7 +452,7 @@ namespace Shiro.Services
                     capturedAccount.Group = group;
 
                 try { await AppServices.AccountRepository.SaveAsync(true).ConfigureAwait(false); }
-                catch (Exception ex) { Program.Logger?.Warn($"SaveAccountsAsync after fast login failed: {ex.Message}"); }
+                catch (Exception ex) { _logger.Warn($"SaveAccountsAsync after fast login failed: {ex.Message}"); }
 
                 return new FastLoginCaptureResult(FastLoginCaptureStatus.Success, capturedAccount);
             }

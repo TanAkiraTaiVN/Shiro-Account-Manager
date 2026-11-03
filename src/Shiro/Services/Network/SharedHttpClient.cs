@@ -14,6 +14,13 @@ namespace Shiro.Services
 {
     internal static class SharedHttpClient
     {
+        private static IAppLogger _logger = AppServices.Logger;
+        public static IAppLogger Logger
+        {
+            get => _logger;
+            set => _logger = value ?? throw new ArgumentNullException(nameof(value));
+        }
+
         private static readonly ConcurrentDictionary<string, Lazy<HttpClient>> Clients =
             new ConcurrentDictionary<string, Lazy<HttpClient>>(StringComparer.OrdinalIgnoreCase);
 
@@ -104,7 +111,7 @@ namespace Shiro.Services
                     continue;
 
                 try { entry.Value.Value.Dispose(); }
-                catch (Exception ex) { Program.Logger?.Debug($"Disposing SharedHttpClient threw: {ex.Message}"); }
+                catch (Exception ex) { _logger.Debug($"Disposing SharedHttpClient threw: {ex.Message}"); }
             }
 
             Clients.Clear();

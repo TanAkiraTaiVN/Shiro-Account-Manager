@@ -19,6 +19,20 @@ namespace Shiro.Services
     /// </summary>
     public static class ProxyBindingService
     {
+        private static IAppLogger _logger = AppServices.Logger;
+        public static IAppLogger Logger
+        {
+            get => _logger;
+            set => _logger = value ?? throw new ArgumentNullException(nameof(value));
+        }
+
+        private static ISettingsService _settings = AppServices.GeneralSettings;
+        public static ISettingsService Settings
+        {
+            get => _settings;
+            set => _settings = value ?? throw new ArgumentNullException(nameof(value));
+        }
+
         private static readonly ConcurrentDictionary<string, Lazy<HttpClient>> _proxyClients =
             new ConcurrentDictionary<string, Lazy<HttpClient>>(StringComparer.OrdinalIgnoreCase);
         private static readonly System.Threading.Lock _distributionLock = new();
@@ -58,20 +72,20 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Warn($"[ProxyBindingService] Failed to parse proxy '{proxyString}': {ex.Message}");
+                _logger.Warn($"[ProxyBindingService] Failed to parse proxy '{proxyString}': {ex.Message}");
                 return null;
             }
         }
 
         /// <summary>
         /// Determines whether proxy routing is currently allowed by global settings.
-        /// When <c>AppSettings.General</c> has an explicit <c>UseProxies</c> key set to <c>false</c>,
+        /// When <c>GeneralSettings</c> has an explicit <c>UseProxies</c> key set to <c>false</c>,
         /// proxy routing is bypassed so disabling proxies in Settings takes effect immediately.
         /// </summary>
         internal static bool IsProxyRoutingAllowed()
         {
-            if (AppSettings.General.Exists(AppSettingsKeys.General.UseProxies))
-                return AppSettings.General.Get<bool>(AppSettingsKeys.General.UseProxies, false);
+            if (_settings.Exists(AppSettingsKeys.General.UseProxies))
+                return _settings.Get<bool>(AppSettingsKeys.General.UseProxies, false);
 
             return true;
         }
@@ -86,8 +100,8 @@ namespace Shiro.Services
                 return SharedHttpClient.Get();
 
             if (string.IsNullOrWhiteSpace(account.Proxy) &&
-                AppSettings.General.Exists(AppSettingsKeys.General.UseProxies) &&
-                AppSettings.General.Get<bool>(AppSettingsKeys.General.UseProxies, false))
+                _settings.Exists(AppSettingsKeys.General.UseProxies) &&
+                _settings.Get<bool>(AppSettingsKeys.General.UseProxies, false))
             {
                 try
                 {
@@ -109,7 +123,7 @@ namespace Shiro.Services
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Warn($"Failed to distribute sticky proxies for account {account.Username}: {ex.Message}");
+                    _logger.Warn($"Failed to distribute sticky proxies for account {account.Username}: {ex.Message}");
                 }
             }
 
@@ -134,7 +148,7 @@ namespace Shiro.Services
                 IWebProxy? webProxy = ParseWebProxy(normalized);
                 if (webProxy == null)
                 {
-                    Program.Logger?.Error($"[ProxyBindingService] Proxy '{normalized}' is invalid. Fail-Closed enforced to prevent IP leak.");
+                    _logger.Error($"[ProxyBindingService] Proxy '{normalized}' is invalid. Fail-Closed enforced to prevent IP leak.");
                     throw new InvalidOperationException($"Proxy '{normalized}' failed to parse. Fallback to direct IP blocked to prevent IP leak.");
                 }
 
@@ -177,7 +191,7 @@ namespace Shiro.Services
                 IWebProxy? webProxy = ParseWebProxy(key);
                 if (webProxy == null)
                 {
-                    Program.Logger?.Error($"[ProxyBindingService] Proxy '{key}' is invalid. Fail-Closed enforced to prevent IP leak.");
+                    _logger.Error($"[ProxyBindingService] Proxy '{key}' is invalid. Fail-Closed enforced to prevent IP leak.");
                     throw new InvalidOperationException($"Proxy '{key}' failed to parse. Fallback to direct IP blocked to prevent IP leak.");
                 }
 
@@ -355,7 +369,7 @@ namespace Shiro.Services
                         }
                         catch (Exception ex)
                         {
-                            Program.Logger?.Debug($"Error disposing proxy client: {ex.Message}");
+                            _logger.Debug($"Error disposing proxy client: {ex.Message}");
                         }
                     }
                 }
@@ -381,7 +395,7 @@ namespace Shiro.Services
                     }
                     catch (Exception ex)
                     {
-                        Program.Logger?.Debug($"Error disposing proxy client: {ex.Message}");
+                        _logger.Debug($"Error disposing proxy client: {ex.Message}");
                     }
                 }
             }

@@ -110,7 +110,7 @@ namespace Shiro.ViewModels
                     }
                     catch (Exception ex)
                     {
-                        Program.Logger?.Error($"[AddAccountChromeCommand] {ex}");
+                        _logger.Error($"[AddAccountChromeCommand] {ex}");
                     }
                 });
             });

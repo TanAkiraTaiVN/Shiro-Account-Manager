@@ -16,6 +16,13 @@ namespace Shiro.Services
     /// </summary>
     public static class GameInfoService
     {
+        private static IAppLogger _logger = AppServices.Logger;
+        public static IAppLogger Logger
+        {
+            get => _logger;
+            set => _logger = value ?? throw new ArgumentNullException(nameof(value));
+        }
+
         private static readonly ConcurrentDictionary<long, string> _placeNameCache = new();
         private static readonly ConcurrentDictionary<long, Task<string?>> _inFlightNameQueries = new();
 
@@ -57,7 +64,7 @@ namespace Shiro.Services
                 return true;
             }
 
-            var recentGames = AppSettings.RecentGames;
+            var recentGames = AppServices.ServerBrowserState.RecentGames;
             if (recentGames != null)
             {
                 lock (recentGames)
@@ -106,7 +113,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[GameInfoService] ResolvePlaceNameAsync({placeId}) failed: {ex.Message}");
+                _logger.Debug($"[GameInfoService] ResolvePlaceNameAsync({placeId}) failed: {ex.Message}");
             }
             finally
             {
@@ -191,7 +198,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[GameInfoService] Public universe lookup for {placeId} failed: {ex.Message}");
+                _logger.Debug($"[GameInfoService] Public universe lookup for {placeId} failed: {ex.Message}");
             }
 
             return null;

@@ -27,7 +27,20 @@ namespace Shiro.Services
 {
     public sealed partial class RobloxSettingsApiService
     {
-        public static RobloxSettingsApiService Instance { get; } = new();
+        private static readonly Lazy<RobloxSettingsApiService> _defaultInstance = new(() => new RobloxSettingsApiService(AppServices.Logger, AppServices.GeneralSettings));
+        public static RobloxSettingsApiService Default => _defaultInstance.Value;
+        public static RobloxSettingsApiService Instance => Default;
+
+        private readonly IAppLogger _logger;
+        private readonly ISettingsService _settings;
+
+        public RobloxSettingsApiService() : this(AppServices.Logger, AppServices.GeneralSettings) { }
+
+        public RobloxSettingsApiService(IAppLogger logger, ISettingsService? settings = null)
+        {
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _settings = settings ?? AppServices.GeneralSettings;
+        }
 
         [GeneratedRegex(@"Roblox\.GameLauncher\.joinPrivateGame\(\d+\,\s*'(\w+\-\w+\-\w+\-\w+\-\w+)'")]
         private static partial Regex JoinPrivateGameRegex();
@@ -47,7 +60,7 @@ namespace Shiro.Services
             if (string.IsNullOrWhiteSpace(account.SecurityToken))
             {
                 if (!Internal)
-                    Program.Logger.Warn($"[CheckPinAsync] {account.Username}: Invalid Account Session.");
+                    _logger.Warn($"[CheckPinAsync] {account.Username}: Invalid Account Session.");
                 return false;
             }
 
@@ -57,7 +70,7 @@ namespace Shiro.Services
             if (response != null && response.StatusCode == HttpStatusCode.Unauthorized)
             {
                 if (!Internal)
-                    Program.Logger.Warn($"[CheckPinAsync] {account.Username}: Invalid Account Session.");
+                    _logger.Warn($"[CheckPinAsync] {account.Username}: Invalid Account Session.");
                 return false;
             }
 
@@ -72,7 +85,7 @@ namespace Shiro.Services
                 {
                     if (!Internal)
                     {
-                        Program.Logger.Warn($"[CheckPinAsync] {account.Username}: Pin required for operation.");
+                        _logger.Warn($"[CheckPinAsync] {account.Username}: Pin required for operation.");
                     }
                     return false;
                 }
@@ -119,7 +132,7 @@ namespace Shiro.Services
 
                 if (account.PinUnlocked > DateTime.Now)
                 {
-                    Program.Logger?.Info($"[UnlockPinAsync] {account.Username}: Pin unlocked for 5 minutes.");
+                    _logger.Info($"[UnlockPinAsync] {account.Username}: Pin unlocked for 5 minutes.");
                     return true;
                 }
             }
@@ -176,7 +189,12 @@ namespace Shiro.Services
             }
 
             RestResponse? response = await account.ExecuteAccountRestAsync(AppServices.RobloxApi.Main, "https://www.roblox.com/", request, cancellationToken).ConfigureAwait(false);
-            return response?.IsSuccessful == true && response.StatusCode == HttpStatusCode.OK;
+            if (response == null || !response.IsSuccessful || response.StatusCode != HttpStatusCode.OK)
+            {
+                _logger.Warn($"[SetFollowPrivacyAsync] {account.Username}: Failed to set follow privacy ({response?.StatusCode}).");
+                return false;
+            }
+            return true;
         }
 
         public async Task<bool> ChangePasswordAsync(Account account, string currentPassword, string newPassword, CancellationToken cancellationToken = default)
@@ -206,14 +224,14 @@ namespace Shiro.Services
                 }
                 else
                 {
-                    Program.Logger?.Warn($"[ChangePasswordAsync] {account.Username}: Password changed, but no new .ROBLOSECURITY was captured.");
+                    _logger.Warn($"[ChangePasswordAsync] {account.Username}: Password changed, but no new .ROBLOSECURITY was captured.");
                 }
 
-                Program.Logger?.Info($"[ChangePasswordAsync] {account.Username}: Password changed successfully.");
+                _logger.Info($"[ChangePasswordAsync] {account.Username}: Password changed successfully.");
                 return true;
             }
 
-            Program.Logger?.Warn($"[ChangePasswordAsync] {account.Username}: Failed to change password ({response?.StatusCode}).");
+            _logger.Warn($"[ChangePasswordAsync] {account.Username}: Failed to change password ({response?.StatusCode}).");
             return false;
         }
 
@@ -234,11 +252,11 @@ namespace Shiro.Services
 
             if (response != null && response.IsSuccessful && response.StatusCode == HttpStatusCode.OK)
             {
-                Program.Logger?.Info($"[ChangeEmailAsync] {account.Username}: Email changed successfully.");
+                _logger.Info($"[ChangeEmailAsync] {account.Username}: Email changed successfully.");
                 return true;
             }
 
-            Program.Logger?.Warn($"[ChangeEmailAsync] {account.Username}: Failed to change email ({response?.StatusCode}).");
+            _logger.Warn($"[ChangeEmailAsync] {account.Username}: Failed to change email ({response?.StatusCode}).");
             return false;
         }
 
@@ -272,17 +290,17 @@ namespace Shiro.Services
                 if (rotated)
                 {
                     await AppServices.AccountRepository.SaveAsync(true).ConfigureAwait(false);
-                    Program.Logger?.Info($"[LogOutOfOtherSessionsAsync] {account.Username}: Signed out of all other sessions.");
+                    _logger.Info($"[LogOutOfOtherSessionsAsync] {account.Username}: Signed out of all other sessions.");
                     return true;
                 }
                 else
                 {
-                    Program.Logger?.Warn($"[LogOutOfOtherSessionsAsync] Roblox did not issue a replacement .ROBLOSECURITY cookie for {account.Username} during session signout.");
+                    _logger.Warn($"[LogOutOfOtherSessionsAsync] Roblox did not issue a replacement .ROBLOSECURITY cookie for {account.Username} during session signout.");
                     return false;
                 }
             }
 
-            Program.Logger?.Warn($"[LogOutOfOtherSessionsAsync] {account.Username}: Failed to log out of other sessions ({response?.StatusCode}).");
+            _logger.Warn($"[LogOutOfOtherSessionsAsync] {account.Username}: Failed to log out of other sessions ({response?.StatusCode}).");
             return false;
         }
 
@@ -347,7 +365,7 @@ namespace Shiro.Services
                 }
                 catch (JsonException ex)
                 {
-                    Program.Logger?.Debug($"Parse error message JSON failed: {ex.Message}");
+                    _logger.Debug($"Parse error message JSON failed: {ex.Message}");
                 }
                 throw new Exception(errMsg ?? $"Something went wrong\n{dpResponse?.StatusCode}: {dpResponse?.Content}");
             }
@@ -363,7 +381,7 @@ namespace Shiro.Services
             }
             catch (JsonException ex)
             {
-                Program.Logger?.Warn($"SetAvatarAsync: invalid JSON payload: {ex.Message}");
+                _logger.Warn($"SetAvatarAsync: invalid JSON payload: {ex.Message}");
                 return;
             }
 
@@ -375,7 +393,7 @@ namespace Shiro.Services
                 var csrf = await account.GetCSRFTokenAsync(cancellationToken).ConfigureAwait(false);
                 if (!csrf.Success)
                 {
-                    Program.Logger.Warn($"[SetAvatarAsync] {account.Username}: Failed to acquire CSRF token: {csrf.Error}");
+                    _logger.Warn($"[SetAvatarAsync] {account.Username}: Failed to acquire CSRF token: {csrf.Error}");
                     return;
                 }
 
@@ -436,7 +454,7 @@ namespace Shiro.Services
                         }
                         catch (JsonException ex)
                         {
-                            Program.Logger?.Debug($"Parse invalidAssetIds JSON failed: {ex.Message}");
+                            _logger.Debug($"Parse invalidAssetIds JSON failed: {ex.Message}");
                         }
                     }
                 }

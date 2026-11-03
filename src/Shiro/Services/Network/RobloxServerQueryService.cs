@@ -17,8 +17,19 @@ namespace Shiro.Services
     {
         internal static Func<System.Net.Http.HttpClient>? TestHttpClientFactory { get; set; }
 
-        private static readonly Lazy<RobloxServerQueryService> _defaultInstance = new(() => new RobloxServerQueryService());
+        private static readonly Lazy<RobloxServerQueryService> _defaultInstance = new(() => new RobloxServerQueryService(AppServices.Logger, AppServices.GeneralSettings));
         public static RobloxServerQueryService Default => _defaultInstance.Value;
+
+        private readonly IAppLogger _logger;
+        private readonly ISettingsService _settings;
+
+        public RobloxServerQueryService() : this(AppServices.Logger, AppServices.GeneralSettings) { }
+
+        public RobloxServerQueryService(IAppLogger logger, ISettingsService settings)
+        {
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _settings = settings ?? throw new ArgumentNullException(nameof(settings));
+        }
 
         private static readonly ConcurrentDictionary<string, string> _geoIpCache = new(StringComparer.OrdinalIgnoreCase);
 
@@ -145,13 +156,13 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[QueryServerRegionAndPingAsync] {ex.Message}");
+                _logger.Debug($"[QueryServerRegionAndPingAsync] {ex.Message}");
             }
 
             return result;
         }
 
-        private static async Task<int?> MeasurePingMsAsync(string ip)
+        private async Task<int?> MeasurePingMsAsync(string ip)
         {
             if (string.IsNullOrWhiteSpace(ip)) return null;
 
@@ -165,7 +176,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[PingServer ICMP] {ip}: {ex.Message}");
+                _logger.Debug($"[PingServer ICMP] {ip}: {ex.Message}");
             }
 
             // 2. TCP handshake RTT probe fallback (Roblox/AWS firewalls often drop ICMP echo requests)
@@ -180,13 +191,13 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[PingServer TCP] {ip}: {ex.Message}");
+                _logger.Debug($"[PingServer TCP] {ip}: {ex.Message}");
             }
 
             return null;
         }
 
-        private static async Task<string> ResolveGeoIpRegionAsync(string ip, string? ipApiTemplate, CancellationToken cancellationToken)
+        private async Task<string> ResolveGeoIpRegionAsync(string ip, string? ipApiTemplate, CancellationToken cancellationToken)
         {
             string subnetKey = GetIpv4SubnetPrefix(ip);
             if (_geoIpCache.TryGetValue(ip, out string? cachedRegion) ||
@@ -197,7 +208,7 @@ namespace Shiro.Services
 
             string ipLink = !string.IsNullOrWhiteSpace(ipApiTemplate)
                 ? ipApiTemplate
-                : (AppSettings.General.Get<string>("IPApiLink") ?? "https://ipwho.is/<ip>");
+                : (_settings.Get<string>("IPApiLink") ?? "https://ipwho.is/<ip>");
 
             try
             {
@@ -227,7 +238,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[GeoIP] {ip}: {ex.Message}");
+                _logger.Debug($"[GeoIP] {ip}: {ex.Message}");
             }
 
             return string.Empty;
@@ -289,7 +300,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[QueryPublicServersAsync] {ex.Message}");
+                _logger.Debug($"[QueryPublicServersAsync] {ex.Message}");
             }
 
             return result;

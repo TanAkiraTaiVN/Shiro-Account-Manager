@@ -6,11 +6,13 @@ namespace Shiro.Services
     internal sealed class SettingsService
     {
         private readonly System.Threading.Lock sync = new();
+        private readonly IAppLogger _logger;
         public IniFile File { get; }
 
-        public SettingsService(IniFile file)
+        public SettingsService(IniFile file, IAppLogger? logger = null)
         {
             File = file ?? throw new ArgumentNullException(nameof(file));
+            _logger = logger ?? AppServices.Logger;
         }
 
         public T? Get<T>(string section, string key, T? fallback = default(T))
@@ -24,7 +26,7 @@ namespace Shiro.Services
                 try { return target.Get<T>(key); }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Debug($"SettingsService parse '{key}' in '{section}' failed: {ex.Message}");
+                    _logger.Debug($"SettingsService parse '{key}' in '{section}' failed: {ex.Message}");
                     return fallback;
                 }
             }

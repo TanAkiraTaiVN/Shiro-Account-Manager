@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Threading.Tasks;
 using Avalonia.Media.Imaging;
@@ -9,12 +9,18 @@ namespace Shiro.ViewModels
 {
     public class FavoriteGameItemViewModel : ObservableObject
     {
+        private readonly IAppLogger _logger;
         private long _placeId;
         private string _name = string.Empty;
         private string _privateServer = string.Empty;
         private string _thumbnailUrl = string.Empty;
         private Bitmap? _thumbnailBitmap;
         private bool _isLoadingThumbnail;
+
+        public FavoriteGameItemViewModel(IAppLogger? logger = null)
+        {
+            _logger = logger ?? AppServices.Logger;
+        }
 
         public long PlaceId
         {
@@ -85,7 +91,7 @@ namespace Shiro.ViewModels
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[FavoriteGameItemViewModel] LoadThumbnail error for {PlaceId}: {ex.Message}");
+                _logger.Debug($"[FavoriteGameItemViewModel] LoadThumbnail error for {PlaceId}: {ex.Message}");
             }
             finally
             {

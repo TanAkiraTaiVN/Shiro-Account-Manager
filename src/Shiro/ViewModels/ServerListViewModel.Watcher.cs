@@ -90,7 +90,7 @@ namespace Shiro.ViewModels
         {
             try
             {
-                var watcher = AppSettings.Watcher;
+                var watcher = AppServices.WatcherSettings;
                 if (watcher != null)
                 {
                     _watcherEnabled = watcher.Get<bool>("Enabled");
@@ -120,7 +120,7 @@ namespace Shiro.ViewModels
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[LoadWatcherSettings] {ex.Message}");
+                _logger.Debug($"[LoadWatcherSettings] {ex.Message}");
             }
         }
 
@@ -128,12 +128,12 @@ namespace Shiro.ViewModels
         {
             try
             {
-                AppSettings.Watcher?.Set(key, value);
-                AppSettings.Save();
+                AppServices.WatcherSettings?.Set(key, value);
+                AppServices.SaveSettings();
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[SaveWatcherSetting] {key}: {ex.Message}");
+                _logger.Debug($"[SaveWatcherSetting] {key}: {ex.Message}");
             }
         }
     }

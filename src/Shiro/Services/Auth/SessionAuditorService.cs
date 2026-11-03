@@ -45,7 +45,25 @@ namespace Shiro.Services
     /// </summary>
     public sealed class SessionAuditorService
     {
-        public static SessionAuditorService Instance { get; } = new();
+        private static readonly Lazy<SessionAuditorService> _defaultInstance = new(() => new SessionAuditorService(AppServices.Logger));
+        public static SessionAuditorService Default => _defaultInstance.Value;
+        public static SessionAuditorService Instance => Default;
+
+        private static IAppLogger _staticLogger = AppServices.Logger;
+        public static IAppLogger Logger
+        {
+            get => _staticLogger;
+            set => _staticLogger = value ?? throw new ArgumentNullException(nameof(value));
+        }
+
+        private readonly IAppLogger _logger;
+
+        public SessionAuditorService() : this(AppServices.Logger) { }
+
+        public SessionAuditorService(IAppLogger logger)
+        {
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        }
 
         internal static Func<Account, HttpClient>? TestHttpClientFactory;
 
@@ -183,7 +201,7 @@ namespace Shiro.Services
                     }
                     catch (Exception ex)
                     {
-                        Program.Logger?.Debug($"[SessionAuditor] Failed to deserialize user info for {account.Username}: {ex.Message}");
+                        _staticLogger.Debug($"[SessionAuditor] Failed to deserialize user info for {account.Username}: {ex.Message}");
                     }
                 }
 
@@ -216,7 +234,7 @@ namespace Shiro.Services
                     }
                     catch (Exception ex)
                     {
-                        Program.Logger?.Debug($"[SessionAuditor] Economy currency query error for {account.Username}: {ex.Message}");
+                        _staticLogger.Debug($"[SessionAuditor] Economy currency query error for {account.Username}: {ex.Message}");
                     }
 
                     // 3. Optional Pending Robux probe
@@ -242,7 +260,7 @@ namespace Shiro.Services
                     }
                     catch (Exception ex)
                     {
-                        Program.Logger?.Debug($"[SessionAuditor] Pending Robux query error for {account.Username}: {ex.Message}");
+                        _staticLogger.Debug($"[SessionAuditor] Pending Robux query error for {account.Username}: {ex.Message}");
                     }
                 }
 
@@ -261,7 +279,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Warn($"[SessionAuditor] Audit exception for {account.Username}: {ex.Message}");
+                _staticLogger.Warn($"[SessionAuditor] Audit exception for {account.Username}: {ex.Message}");
                 return new AccountSessionAuditResult
                 {
                     Status = AccountSessionStatus.Unknown,

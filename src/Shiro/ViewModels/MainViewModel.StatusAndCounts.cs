@@ -150,7 +150,7 @@ namespace Shiro.ViewModels
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Debug($"[RefreshLiveProcessStatus] Process check error: {ex.Message}");
+                    _logger.Debug($"[RefreshLiveProcessStatus] Process check error: {ex.Message}");
                 }
                 finally
                 {
@@ -206,7 +206,7 @@ namespace Shiro.ViewModels
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[ApplyLiveProcessStatusResults] UI update error: {ex.Message}");
+                _logger.Debug($"[ApplyLiveProcessStatusResults] UI update error: {ex.Message}");
             }
 
             NotifyCounts();

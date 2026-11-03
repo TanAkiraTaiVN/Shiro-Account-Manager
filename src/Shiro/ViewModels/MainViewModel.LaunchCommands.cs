@@ -37,9 +37,9 @@ namespace Shiro.ViewModels
             {
                 string normalized = parsed.ToString();
                 PlaceId = normalized;
-                AppSettings.CurrentPlaceId = normalized;
-                AppSettings.General?.Set("SavedPlaceId", normalized);
-                AppSettings.QueueDeferredSave();
+                AppServices.ServerBrowserState.CurrentPlaceId = normalized;
+                _settings.Set("SavedPlaceId", normalized);
+                AppServices.HostUiBridge.QueueDeferredSaveSettings();
             }
         }
 
@@ -191,7 +191,7 @@ namespace Shiro.ViewModels
                 }
 
                 var models = selected.Where(a => a.Model != null).Select(a => a.Model).ToList();
-                AppSettings.SelectedAccounts = models;
+                AppServices.SelectionState.SelectedAccounts = models;
                 AccountLauncherService.MultiLaunchHome();
             });
 

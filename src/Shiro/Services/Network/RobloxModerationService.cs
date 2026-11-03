@@ -8,7 +8,18 @@ namespace Shiro.Services
 {
     public sealed class RobloxModerationService
     {
-        public static RobloxModerationService Instance { get; } = new();
+        private static readonly Lazy<RobloxModerationService> _defaultInstance = new(() => new RobloxModerationService(AppServices.Logger));
+        public static RobloxModerationService Default => _defaultInstance.Value;
+        public static RobloxModerationService Instance => Default;
+
+        private readonly IAppLogger _logger;
+
+        public RobloxModerationService() : this(AppServices.Logger) { }
+
+        public RobloxModerationService(IAppLogger logger)
+        {
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        }
 
         public async Task<(bool IsBanned, string? IssueBadge, string? Reason)> CheckModerationStatusAsync(
             Account account,
@@ -113,7 +124,7 @@ namespace Shiro.Services
                         }
                         catch (Exception ex)
                         {
-                            Program.Logger?.Debug($"[CheckModerationStatusAsync] Moderation target fetch failed: {ex.Message}");
+                            _logger.Debug($"[CheckModerationStatusAsync] Moderation target fetch failed: {ex.Message}");
                         }
                         return DispatchModerationAlertIfBanned(account, ParseModerationText(string.Empty, redirectLocation));
                     }
@@ -147,12 +158,12 @@ namespace Shiro.Services
             }
             catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
             {
-                Program.Logger?.Debug($"[CheckModerationStatusAsync] {account.Username}: Moderation probe timed out (presumed normal).");
+                _logger.Debug($"[CheckModerationStatusAsync] {account.Username}: Moderation probe timed out (presumed normal).");
                 return (false, null, null);
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[CheckModerationStatusAsync] {account.Username}: {ex.Message}");
+                _logger.Debug($"[CheckModerationStatusAsync] {account.Username}: {ex.Message}");
                 return (false, null, null);
             }
         }
