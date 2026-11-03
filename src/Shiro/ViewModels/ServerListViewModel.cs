@@ -221,9 +221,7 @@ namespace Shiro.ViewModels
             long placeId = AccountLauncherService.ParsePlaceId(rawPid);
             if (placeId <= 0)
             {
-                LoadingStatus = LocalizationService.IsEnglish
-                    ? "Please enter a valid Place ID before loading!"
-                    : Shiro.Services.LocalizationService.Get("Auto_ServerListViewMo_555");
+                LoadingStatus = LocalizationService.Get("Auto_ServerListViewMo_555");
                 return;
             }
 
@@ -233,9 +231,7 @@ namespace Shiro.ViewModels
 
             _lastLoadedPlaceId = placeId;
             IsLoadingServers = true;
-            LoadingStatus = LocalizationService.IsEnglish
-                ? $"Searching servers for Place ID {placeId}..."
-                : Shiro.Services.LocalizationService.Format("Auto_ServerListViewMo_556", placeId);
+            LoadingStatus = LocalizationService.Format("Auto_ServerListViewMo_556", placeId);
             ClearRawServers();
 
             await Task.Run(async () =>
@@ -267,9 +263,7 @@ namespace Shiro.ViewModels
                                 {
                                     if (!ct.IsCancellationRequested) _lastLoadedPlaceId = 0;
                                     if (!ct.IsCancellationRequested)
-                                        LoadingStatus = LocalizationService.IsEnglish
-                                            ? $"Failed to load server list: {response.StatusCode}"
-                                            : Shiro.Services.LocalizationService.Format("Auto_ServerListViewMo_557", response.StatusCode);
+                                        LoadingStatus = LocalizationService.Format("Auto_ServerListViewMo_557", response.StatusCode);
                                 });
                             }
                             break;
@@ -305,9 +299,7 @@ namespace Shiro.ViewModels
                         {
                             if (ct.IsCancellationRequested) return;
                             AppendRawServers(batch);
-                            LoadingStatus = LocalizationService.IsEnglish
-                                ? $"Loaded {currentCount} servers..."
-                                : Shiro.Services.LocalizationService.Format("Auto_ServerListViewMo_558", currentCount);
+                            LoadingStatus = LocalizationService.Format("Auto_ServerListViewMo_558", currentCount);
                         });
 
                         if (totalLoaded >= 200) break;

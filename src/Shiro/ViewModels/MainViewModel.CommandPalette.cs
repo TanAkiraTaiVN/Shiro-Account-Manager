@@ -61,7 +61,6 @@ namespace Shiro.ViewModels
 
             string rawQuery = _commandPaletteSearchText.Trim();
             string normQuery = NormalizeSearchText(rawQuery);
-            bool isEnglish = LocalizationService.IsEnglish;
 
             // 1. Filter Commands & Navigation
             var matchedCommands = new List<CommandPaletteItemViewModel>();
@@ -74,12 +73,12 @@ namespace Shiro.ViewModels
                     // Empty search: present popular default actions
                     if (cmd.IsDefaultQuickAction)
                     {
-                        matchedCommands.Add(cmd.ToViewModel(isEnglish));
+                        matchedCommands.Add(cmd.ToViewModel());
                     }
                 }
-                else if (cmd.Matches(normQuery, isEnglish))
+                else if (cmd.Matches(normQuery))
                 {
-                    matchedCommands.Add(cmd.ToViewModel(isEnglish));
+                    matchedCommands.Add(cmd.ToViewModel());
                 }
             }
 
@@ -201,7 +200,7 @@ namespace Shiro.ViewModels
             Action<MainViewModel> Action
         )
         {
-            public bool Matches(string normQuery, bool isEnglish = false)
+            public bool Matches(string normQuery, bool _ = false)
             {
                 if (string.IsNullOrWhiteSpace(normQuery))
                     return IsDefaultQuickAction;
@@ -225,7 +224,7 @@ namespace Shiro.ViewModels
                 return false;
             }
 
-            public CommandPaletteItemViewModel ToViewModel(bool isEnglish = false) => new()
+            public CommandPaletteItemViewModel ToViewModel(bool _ = false) => new()
             {
                 ItemType = CategoryKey == "Auto_MainViewModelCom_426" ? CommandPaletteItemType.Navigation : CommandPaletteItemType.Command,
                 Title = Shiro.Services.LocalizationService.Get(TitleKey),

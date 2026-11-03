@@ -222,15 +222,11 @@ namespace Shiro.ViewModels
 
             if (pendingServers.Count == 0)
             {
-                LoadingStatus = LocalizationService.IsEnglish
-                    ? "Server regions loaded."
-                    : Shiro.Services.LocalizationService.Get("Auto_ServerListViewMo_549");
+                LoadingStatus = LocalizationService.Get("Auto_ServerListViewMo_549");
                 return;
             }
 
-            LoadingStatus = LocalizationService.IsEnglish
-                ? $"Loading server regions and measuring ping ({pendingServers.Count} servers)..."
-                : Shiro.Services.LocalizationService.Format("Auto_ServerListViewMo_550", pendingServers.Count);
+            LoadingStatus = LocalizationService.Format("Auto_ServerListViewMo_550", pendingServers.Count);
 
             try
             {
@@ -254,15 +250,11 @@ namespace Shiro.ViewModels
                 {
                     ApplyServerSortAndFilter();
                 }
-                LoadingStatus = LocalizationService.IsEnglish
-                    ? "Server regions loaded."
-                    : Shiro.Services.LocalizationService.Get("Auto_ServerListViewMo_549");
+                LoadingStatus = LocalizationService.Get("Auto_ServerListViewMo_549");
             }
             catch (OperationCanceledException)
             {
-                LoadingStatus = LocalizationService.IsEnglish
-                    ? "Region loading cancelled."
-                    : Shiro.Services.LocalizationService.Get("Auto_ServerListViewMo_551");
+                LoadingStatus = LocalizationService.Get("Auto_ServerListViewMo_551");
             }
         }
     }

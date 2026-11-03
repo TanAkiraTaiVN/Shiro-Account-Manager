@@ -146,9 +146,7 @@ namespace Shiro.ViewModels
                 if (_mainViewModel != null)
                 {
                     _mainViewModel.PlaceId = game.PlaceId.ToString();
-                    _mainViewModel.StatusMessage = LocalizationService.IsEnglish
-                        ? $"Selected game: {game.Name} ({game.PlaceId})"
-                        : Shiro.Services.LocalizationService.Format("Auto_ServerListViewMo_523", game.Name, game.PlaceId);
+                    _mainViewModel.StatusMessage = LocalizationService.Format("Auto_ServerListViewMo_523", game.Name, game.PlaceId);
                 }
                 SelectedSubTabIndex = 0;
                 _ = RefreshServersAsync();
@@ -167,15 +165,11 @@ namespace Shiro.ViewModels
                     _mainViewModel.JobId = string.Empty;
                     if (_mainViewModel.SelectedCount > 0)
                     {
-                        _mainViewModel.StatusMessage = LocalizationService.IsEnglish
-                            ? $"Launching game: {game.Name} ({game.PlaceId})"
-                            : Shiro.Services.LocalizationService.Format("Auto_ServerListViewMo_524", game.Name, game.PlaceId);
+                        _mainViewModel.StatusMessage = LocalizationService.Format("Auto_ServerListViewMo_524", game.Name, game.PlaceId);
                     }
                     else
                     {
-                        LoadingStatus = LocalizationService.IsEnglish
-                            ? "Please select at least one account in the Accounts tab first!"
-                            : Shiro.Services.LocalizationService.Get("Auto_ServerListViewMo_525");
+                        LoadingStatus = LocalizationService.Get("Auto_ServerListViewMo_525");
                     }
                 }
                 _mainViewModel?.JoinServerSelectedCommand?.Execute(null);
@@ -215,9 +209,7 @@ namespace Shiro.ViewModels
 
             if (_favorites.Any(f => f.PlaceId == pid))
             {
-                LoadingStatus = LocalizationService.IsEnglish
-                    ? "This game is already in Favorites!"
-                    : Shiro.Services.LocalizationService.Get("Auto_ServerListViewMo_526");
+                LoadingStatus = LocalizationService.Get("Auto_ServerListViewMo_526");
                 return;
             }
 
@@ -249,9 +241,7 @@ namespace Shiro.ViewModels
             {
                 _ = ResolveFavoriteThumbnailsAsync();
             }
-            LoadingStatus = LocalizationService.IsEnglish
-                ? $"⭐ Added '{name}' to Favorites!"
-                : Shiro.Services.LocalizationService.Format("Auto_ServerListViewMo_527", name);
+            LoadingStatus = LocalizationService.Format("Auto_ServerListViewMo_527", name);
         }
 
         private void RemoveFavorite(object? param)
@@ -260,9 +250,7 @@ namespace Shiro.ViewModels
             {
                 _favorites.Remove(fav);
                 SaveFavorites();
-                LoadingStatus = LocalizationService.IsEnglish
-                    ? $"Removed '{fav.Name}' from Favorites."
-                    : Shiro.Services.LocalizationService.Format("Auto_ServerListViewMo_528", fav.Name);
+                LoadingStatus = LocalizationService.Format("Auto_ServerListViewMo_528", fav.Name);
             }
         }
 
@@ -277,9 +265,7 @@ namespace Shiro.ViewModels
                     _mainViewModel.PlaceId = fav.PlaceId.ToString();
                     if (!string.IsNullOrEmpty(fav.PrivateServer))
                         _mainViewModel.JobId = fav.PrivateServer;
-                    _mainViewModel.StatusMessage = LocalizationService.IsEnglish
-                        ? $"⭐ Selected Favorite game: {fav.Name}"
-                        : Shiro.Services.LocalizationService.Format("Auto_ServerListViewMo_529", fav.Name);
+                    _mainViewModel.StatusMessage = LocalizationService.Format("Auto_ServerListViewMo_529", fav.Name);
                 }
                 SelectedSubTabIndex = 0;
                 _ = RefreshServersAsync();
@@ -297,15 +283,11 @@ namespace Shiro.ViewModels
                     _mainViewModel.JobId = fav.PrivateServer ?? string.Empty;
                     if (_mainViewModel.SelectedCount > 0)
                     {
-                        _mainViewModel.StatusMessage = LocalizationService.IsEnglish
-                            ? $"⭐ Launching Favorite game: {fav.Name}"
-                            : Shiro.Services.LocalizationService.Format("Auto_ServerListViewMo_530", fav.Name);
+                        _mainViewModel.StatusMessage = LocalizationService.Format("Auto_ServerListViewMo_530", fav.Name);
                     }
                     else
                     {
-                        LoadingStatus = LocalizationService.IsEnglish
-                            ? "Please select at least one account in the Accounts tab first!"
-                            : Shiro.Services.LocalizationService.Get("Auto_ServerListViewMo_525");
+                        LoadingStatus = LocalizationService.Get("Auto_ServerListViewMo_525");
                     }
                 }
                 _mainViewModel?.JoinServerSelectedCommand?.Execute(null);

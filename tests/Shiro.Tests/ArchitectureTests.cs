@@ -709,12 +709,21 @@ namespace Shiro.Tests
         [Fact]
         public void CSharpSourceFiles_ShouldNotBranchOnIsEnglish()
         {
-            var offenders = SourceFiles("src/Shiro", "*.cs")
+            var files = SourceFiles("src/Shiro", "*.cs")
                 .Where(f => !Path.GetFileName(f).StartsWith("LocalizationService"))
-                .SelectMany(f => File.ReadLines(f).Select((l, i) => (f, i, l)))
-                .Where(x => Regex.IsMatch(x.l, @"IsEnglish\s*\?", RegexOptions.IgnoreCase))
-                .Select(x => $"{x.f}:{x.i + 1}").ToList();
-            Assert.Empty(offenders);
+                .ToList();
+
+            var ternaryOffenders = files
+                .Where(f => Regex.IsMatch(File.ReadAllText(f), @"\bIsEnglish\s*\?", RegexOptions.IgnoreCase))
+                .Select(Path.GetFileName)
+                .ToList();
+            Assert.Empty(ternaryOffenders);
+
+            var anyIsEnglishOffenders = files
+                .Where(f => Regex.IsMatch(File.ReadAllText(f), @"\bIsEnglish\b"))
+                .Select(Path.GetFileName)
+                .ToList();
+            Assert.Empty(anyIsEnglishOffenders);
         }
 
         private static string RepoRoot

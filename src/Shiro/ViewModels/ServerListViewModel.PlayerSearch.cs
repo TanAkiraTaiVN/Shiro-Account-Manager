@@ -166,9 +166,7 @@ namespace Shiro.ViewModels
                         batches.Add((currentRequests, currentMap, lastServerInBatch));
                     }
 
-                    PlayerSearchStatus = LocalizationService.IsEnglish
-                        ? $"Scanning {scannedServers} servers for '{SearchPlayerUsername}'..."
-                        : Shiro.Services.LocalizationService.Format("Auto_ServerListViewMo_537", scannedServers, SearchPlayerUsername);
+                    PlayerSearchStatus = LocalizationService.Format("Auto_ServerListViewMo_537", scannedServers, SearchPlayerUsername);
                     LoadingStatus = PlayerSearchStatus;
 
                     // Process packed batches with bounded concurrency (up to 3 requests in flight)

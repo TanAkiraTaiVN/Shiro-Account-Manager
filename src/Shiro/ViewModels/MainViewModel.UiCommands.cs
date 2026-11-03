@@ -68,9 +68,7 @@ namespace Shiro.ViewModels
                 }
                 else
                 {
-                    string warn = LocalizationService.IsEnglish
-                        ? $"No accounts matched range '{input}'."
-                        : Shiro.Services.LocalizationService.Format("Auto_MainViewModelUiC_504", input);
+                    string warn = Shiro.Services.LocalizationService.Format("Auto_MainViewModelUiC_504", input);
                     StatusMessage = "" + warn;
                     ToastService.ShowWarning(title, warn);
                 }
@@ -129,18 +127,14 @@ namespace Shiro.ViewModels
                 bool ok = RobloxWindowArrangerService.FocusAccountWindow(avm.Model);
                 if (ok)
                 {
-                    StatusMessage = LocalizationService.IsEnglish
-                        ? $"Brought Roblox window for {avm.Username} to foreground."
-                        : Shiro.Services.LocalizationService.Format("Auto_MainViewModelUiC_507", avm.Username);
+                    StatusMessage = Shiro.Services.LocalizationService.Format("Auto_MainViewModelUiC_507", avm.Username);
                 }
                 else
                 {
                     RefreshLiveProcessStatus();
                     ToastService.ShowInfo(
                         avm.Username,
-                        LocalizationService.IsEnglish
-                            ? "Could not find an active Roblox window for this account."
-                            : Shiro.Services.LocalizationService.Get("Auto_MainViewModelUiC_508"));
+                        Shiro.Services.LocalizationService.Get("Auto_MainViewModelUiC_508"));
                 }
             });
 
@@ -190,12 +184,8 @@ namespace Shiro.ViewModels
                 NotifyToolStatesChanged();
 
                 string msg = next
-                    ? (LocalizationService.IsEnglish
-                        ? "Smart Auto-Mute ON: Background Roblox clients are automatically muted."
-                        : Shiro.Services.LocalizationService.Get("Auto_MainViewModelUiC_511"))
-                    : (LocalizationService.IsEnglish
-                        ? "Smart Auto-Mute OFF: Restored audio for all Roblox clients."
-                        : Shiro.Services.LocalizationService.Get("Auto_MainViewModelUiC_512"));
+                    ? LocalizationService.Get("Auto_MainViewModelUiC_511")
+                    : LocalizationService.Get("Auto_MainViewModelUiC_512");
                 StatusMessage = msg;
                 ToastService.ShowInfo("Smart Auto-Mute", msg);
             });

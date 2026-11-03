@@ -151,18 +151,14 @@ namespace Shiro.Services
             var runningPids = RobloxProcessService.GetRunningRobloxPids();
             if (runningPids.Count == 0)
             {
-                return (0, LocalizationService.IsEnglish
-                    ? "No running Roblox clients found."
-                    : Shiro.Services.LocalizationService.Get("Auto_RobloxWindowArra_343"));
+                return (0, LocalizationService.Get("Auto_RobloxWindowArra_343"));
             }
 
             var pidSet = new HashSet<uint>(runningPids.Where(p => p > 0).Select(p => (uint)p));
             var windows = RobloxWindowService.FindWindowsForPids(pidSet).Where(IsWindow).Distinct().ToList();
             if (windows.Count == 0)
             {
-                return (0, LocalizationService.IsEnglish
-                    ? "No active Roblox windows found."
-                    : Shiro.Services.LocalizationService.Get("Auto_RobloxWindowArra_344"));
+                return (0, LocalizationService.Get("Auto_RobloxWindowArra_344"));
             }
 
             var workArea = RobloxWindowService.GetTargetWorkArea();
@@ -180,9 +176,7 @@ namespace Shiro.Services
                 }
             }
 
-            string desc = LocalizationService.IsEnglish
-                ? $"Corner Cascade ({arranged} windows)"
-                : Shiro.Services.LocalizationService.Format("Auto_RobloxWindowArra_345", arranged);
+            string desc = LocalizationService.Format("Auto_RobloxWindowArra_345", arranged);
             return (arranged, desc);
         }
 

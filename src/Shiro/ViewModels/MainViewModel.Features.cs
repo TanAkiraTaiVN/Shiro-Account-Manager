@@ -157,65 +157,35 @@ namespace Shiro.ViewModels
             }
         }
 
-        public string LaunchHomeButtonText => LocalizationService.IsEnglish
-            ? $"Launch Home ({SelectedCount})"
-            : Shiro.Services.LocalizationService.Format("Auto_MainViewModelFea_473", SelectedCount);
+        public string LaunchHomeButtonText => LocalizationService.Format("Auto_MainViewModelFea_473", SelectedCount);
 
-        public string JoinServerButtonText => LocalizationService.IsEnglish
-            ? $"Join Server ({SelectedCount})"
-            : Shiro.Services.LocalizationService.Format("Auto_MainViewModelFea_474", SelectedCount);
+        public string JoinServerButtonText => LocalizationService.Format("Auto_MainViewModelFea_474", SelectedCount);
 
-        public string FooterSelectedText => LocalizationService.IsEnglish
-            ? $"Selected {SelectedCount} accounts"
-            : Shiro.Services.LocalizationService.Format("Auto_MainViewModelFea_475", SelectedCount);
+        public string FooterSelectedText => LocalizationService.Format("Auto_MainViewModelFea_475", SelectedCount);
 
-        public string FooterTotalText => LocalizationService.IsEnglish
-            ? $"Total: {TotalCount}"
-            : Shiro.Services.LocalizationService.Format("Auto_MainViewModelFea_476", TotalCount);
+        public string FooterTotalText => LocalizationService.Format("Auto_MainViewModelFea_476", TotalCount);
 
-        public string FooterReadyStatusText => LocalizationService.IsEnglish
-            ? "Shiro • Ready"
-            : Shiro.Services.LocalizationService.Get("Auto_MainViewModelFea_477");
+        public string FooterReadyStatusText => LocalizationService.Get("Auto_MainViewModelFea_477");
 
-        public string SubtitleTotalText => LocalizationService.IsEnglish
-            ? $"{TotalCount} accounts"
-            : Shiro.Services.LocalizationService.Format("Auto_AboutDialogaxaml_034", TotalCount);
+        public string SubtitleTotalText => LocalizationService.Format("Auto_AboutDialogaxaml_034", TotalCount);
 
-        public string SubtitleReadyText => LocalizationService.IsEnglish
-            ? $"{ReadyCount} ready"
-            : Shiro.Services.LocalizationService.Format("Auto_MainViewModelFea_478", ReadyCount);
+        public string SubtitleReadyText => LocalizationService.Format("Auto_MainViewModelFea_478", ReadyCount);
 
-        public string SubtitleSelectedText => LocalizationService.IsEnglish
-            ? $"{SelectedCount} selected"
-            : Shiro.Services.LocalizationService.Format("Auto_MainViewModelFea_479", SelectedCount);
+        public string SubtitleSelectedText => LocalizationService.Format("Auto_MainViewModelFea_479", SelectedCount);
 
-        public string TabAllText => LocalizationService.IsEnglish
-            ? $"All ({TotalCount})"
-            : Shiro.Services.LocalizationService.Format("Auto_MainViewModelFea_480", TotalCount);
+        public string TabAllText => LocalizationService.Format("Auto_MainViewModelFea_480", TotalCount);
 
-        public string TabInGameText => LocalizationService.IsEnglish
-            ? $"Playing ({InGameCount})"
-            : Shiro.Services.LocalizationService.Format("Auto_MainViewModelFea_481", InGameCount);
+        public string TabInGameText => LocalizationService.Format("Auto_MainViewModelFea_481", InGameCount);
 
-        public string TabReadyText => LocalizationService.IsEnglish
-            ? $"Ready ({ReadyCount})"
-            : Shiro.Services.LocalizationService.Format("Auto_MainViewModelFea_482", ReadyCount);
+        public string TabReadyText => LocalizationService.Format("Auto_MainViewModelFea_482", ReadyCount);
 
-        public string TabExpiredText => LocalizationService.IsEnglish
-            ? $"Expired ({ExpiredCount})"
-            : Shiro.Services.LocalizationService.Format("Auto_MainViewModelFea_483", ExpiredCount);
+        public string TabExpiredText => LocalizationService.Format("Auto_MainViewModelFea_483", ExpiredCount);
 
-        public string TabBannedText => LocalizationService.IsEnglish
-            ? $"Banned ({BannedCount})"
-            : Shiro.Services.LocalizationService.Format("Auto_MainViewModelFea_484", BannedCount);
+        public string TabBannedText => LocalizationService.Format("Auto_MainViewModelFea_484", BannedCount);
 
-        public string TabPinnedText => LocalizationService.IsEnglish
-            ? $"Pinned ({PinnedCount})"
-            : Shiro.Services.LocalizationService.Format("Auto_MainViewModelFea_485", PinnedCount);
+        public string TabPinnedText => LocalizationService.Format("Auto_MainViewModelFea_485", PinnedCount);
 
-        public string DeselectCountText => LocalizationService.IsEnglish
-            ? $"Deselect ({SelectedCount})"
-            : Shiro.Services.LocalizationService.Format("Auto_MainViewModelFea_486", SelectedCount);
+        public string DeselectCountText => LocalizationService.Format("Auto_MainViewModelFea_486", SelectedCount);
 
         public void ReloadRecentGames()
         {

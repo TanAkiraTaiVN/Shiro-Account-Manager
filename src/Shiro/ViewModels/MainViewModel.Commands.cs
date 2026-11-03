@@ -89,9 +89,7 @@ namespace Shiro.ViewModels
                     _areWindowsHidden = false;
                     OnPropertyChanged(nameof(AreWindowsHidden));
                     NotifyToolStatesChanged();
-                    StatusMessage = LocalizationService.IsEnglish
-                        ? $"Restored {shown} Roblox window(s)."
-                        : Shiro.Services.LocalizationService.Format("Auto_MainViewModelCom_444", shown);
+                    StatusMessage = LocalizationService.Format("Auto_MainViewModelCom_444", shown);
                 }
                 else
                 {
@@ -103,17 +101,13 @@ namespace Shiro.ViewModels
 
                     if (active)
                     {
-                        string msg = LocalizationService.IsEnglish
-                            ? $"Hidden {hidden} Roblox window(s) (Zero-GPU Mode)!"
-                            : Shiro.Services.LocalizationService.Format("Auto_MainViewModelCom_445", hidden);
+                        string msg = LocalizationService.Format("Auto_MainViewModelCom_445", hidden);
                         StatusMessage = msg;
                         ToastService.ShowSuccess("Zero-GPU Mode", msg);
                     }
                     else
                     {
-                        string warn = LocalizationService.IsEnglish
-                            ? "No running Roblox windows found to hide."
-                            : Shiro.Services.LocalizationService.Get("Auto_MainViewModelCom_446");
+                        string warn = LocalizationService.Get("Auto_MainViewModelCom_446");
                         StatusMessage = "" + warn;
                         ToastService.ShowInfo("Zero-GPU Mode", warn);
                     }
@@ -421,9 +415,7 @@ namespace Shiro.ViewModels
                     }
                     else
                     {
-                        string warnMsg = LocalizationService.IsEnglish
-                            ? $"Selected {item.Name} (Place ID: {item.PlaceId}). Please select at least one account first!"
-                            : Shiro.Services.LocalizationService.Format("Auto_MainViewModelCom_470", item.Name, item.PlaceId);
+                        string warnMsg = LocalizationService.Format("Auto_MainViewModelCom_470", item.Name, item.PlaceId);
                         StatusMessage = warnMsg;
                         ToastService.ShowInfo(item.Name, warnMsg);
                     }
