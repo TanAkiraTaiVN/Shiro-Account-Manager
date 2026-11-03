@@ -128,7 +128,7 @@ namespace Shiro.Tests
             var acc = new Account { Username = "Old", UserID = 1, SecurityToken = shortToken, Valid = true, LastUse = DateTime.Now.AddHours(-2) };
 
             await acc.ValidateSessionAsync();
-            Assert.True(handler.Calls > 0);
+            Assert.Equal(1, handler.Calls);
         }
 
         [Fact]

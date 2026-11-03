@@ -118,16 +118,16 @@ namespace Shiro.Tests
         public void AppServices_ServiceProvider_ResolvesAllRegisteredServices()
         {
             var repo = AppServices.GetRequiredService<IAccountRepository>();
-            Assert.NotNull(repo);
+            Assert.Same(AppServices.AccountRepository, repo);
 
             var launcher = AppServices.GetRequiredService<IRobloxLauncherService>();
-            Assert.NotNull(launcher);
+            Assert.Same(AppServices.RobloxLauncherService, launcher);
 
             var session = AppServices.GetRequiredService<IRobloxSessionService>();
-            Assert.NotNull(session);
+            Assert.Same(AppServices.RobloxSessionService, session);
 
             var browser = AppServices.GetRequiredService<BrowserService>();
-            Assert.NotNull(browser);
+            Assert.IsType<BrowserService>(browser);
         }
 
         [Fact]
@@ -141,7 +141,7 @@ namespace Shiro.Tests
         public void AvaloniaUI_AppBuilder_BuildsSuccessfully()
         {
             var builder = Program.BuildAvaloniaApp();
-            Assert.NotNull(builder);
+            Assert.IsType<Avalonia.AppBuilder>(builder);
         }
 
         [Fact]
@@ -232,8 +232,10 @@ namespace Shiro.Tests
         [Fact]
         public async Task ClipboardHelper_SetClipboardTextAsync_HandlesSafelyWithoutBlocking()
         {
-            bool ok = await ClipboardHelper.SetClipboardTextAsync("ShiroUniversalClipboard");
-            Assert.True(ok || !ok);
+            var ex = await Record.ExceptionAsync(() => ClipboardHelper.SetClipboardTextAsync("ShiroUniversalClipboard"));
+            Assert.Null(ex);
+            bool fallback = ClipboardHelper.SetText(null!);
+            Assert.False(fallback);
         }
 
         [Fact]

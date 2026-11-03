@@ -64,7 +64,8 @@ namespace Shiro.Tests
         {
             var repo = Services.AccountRepository.Default;
             bool isPw = repo.IsPasswordEncrypted();
-            Assert.True(isPw || !isPw);
+            bool expected = AccountManager.IsDatabasePasswordEncrypted();
+            Assert.Equal(expected, isPw);
         }
     }
 }

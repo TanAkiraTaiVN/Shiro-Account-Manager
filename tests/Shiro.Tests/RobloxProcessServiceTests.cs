@@ -19,30 +19,34 @@ namespace Shiro.Tests
         [Fact]
         public void GetRunningRobloxProcesses_ExecutesWithoutException()
         {
-            var procs = RobloxProcessService.GetRunningRobloxProcesses();
-            Assert.NotNull(procs);
+            var ex = Record.Exception(() => RobloxProcessService.GetRunningRobloxProcesses());
+            Assert.Null(ex);
         }
 
         [Fact]
         public void IsAnyRobloxRunning_ExecutesWithoutException()
         {
             bool running = RobloxProcessService.IsAnyRobloxRunning();
-            // Boolean return value is valid regardless of whether Roblox is running
-            Assert.True(running || !running);
+            int count = RobloxProcessService.GetRunningRobloxCount();
+            Assert.Equal(count > 0, running);
         }
 
         [Fact]
         public void GetRunningRobloxCount_ReturnsNonNegative()
         {
             int count = RobloxProcessService.GetRunningRobloxCount();
-            Assert.True(count >= 0);
+            int actualProcs = RobloxProcessService.GetRunningRobloxProcesses().Count;
+            Assert.Equal(actualProcs, count);
         }
 
         [Fact]
         public void GetTotalRunningRobloxCount_ReturnsNonNegative()
         {
             int total = RobloxProcessService.GetTotalRunningRobloxCount();
-            Assert.True(total >= 0);
+            int running = RobloxProcessService.GetRunningRobloxCount();
+            Assert.True(total >= running);
+            var ex = Record.Exception(() => RobloxProcessService.GetTotalRunningRobloxCount());
+            Assert.Null(ex);
         }
 
         [Fact]

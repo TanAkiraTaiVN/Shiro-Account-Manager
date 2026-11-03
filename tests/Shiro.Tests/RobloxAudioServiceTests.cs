@@ -57,10 +57,8 @@ namespace Shiro.Tests
         public void MemoryOptimizer_OptimizeRobloxClients_RunsSafelyWithoutExceptions()
         {
             // Verify execution does not crash even when no Roblox clients are running
-            var (bytesSaved, clientCount, prioCount) = MemoryOptimizer.OptimizeRobloxClients(lowerPriority: true);
-            Assert.True(bytesSaved >= 0);
-            Assert.True(clientCount >= 0);
-            Assert.True(prioCount >= 0);
+            var ex = Record.Exception(() => MemoryOptimizer.OptimizeRobloxClients(lowerPriority: true));
+            Assert.Null(ex);
         }
 
         [Fact]

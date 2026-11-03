@@ -113,7 +113,8 @@ namespace Shiro.Tests
             var task2 = Task.Run(() => KestrelWebServer.BroadcastAsync("event2", new { b = 2 }));
             var task3 = Task.Run(() => KestrelWebServer.BroadcastAsync("event3", new { c = 3 }));
 
-            await Task.WhenAll(task1, task2, task3);
+            var ex = await Record.ExceptionAsync(() => Task.WhenAll(task1, task2, task3));
+            Assert.Null(ex);
         }
 
         [Fact]

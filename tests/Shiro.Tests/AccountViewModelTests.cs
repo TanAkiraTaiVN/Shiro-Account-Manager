@@ -121,7 +121,7 @@ namespace Shiro.Tests
         {
             var account = new Account();
             var vm = new AccountViewModel(account);
-            Assert.NotNull(vm.Initials);
+            Assert.Equal("?", vm.Initials);
         }
 
         [Fact]
@@ -230,6 +230,56 @@ namespace Shiro.Tests
             Assert.Equal(AccountFilterTab.Banned, mainVm.ActiveTab);
             Assert.Single(mainVm.FilteredAccounts);
             Assert.Equal("Real_KnightFool", mainVm.FilteredAccounts[0].Username);
+        }
+
+        [Fact]
+        public void AccountViewModel_DisplayTitlesAndBadges_MatchExactExpectedValues()
+        {
+            var accModel = new Account
+            {
+                Username = "TestPlayer99",
+                UserID = 12345678,
+                SecurityToken = "_|WARNING:-DO-NOT-SHARE-THIS|--token",
+                Valid = true,
+                RobuxBalance = 500
+            };
+            var accVm = new AccountViewModel(accModel);
+            accVm.Alias = "MyAlias";
+            accVm.Group = "VIP";
+            accVm.Description = "Test description";
+            accVm.Pinned = false;
+            accVm.Valid = true;
+            accVm.IsSelected = true;
+            accVm.IsLaunching = true;
+            accVm.IsInGame = true;
+            accVm.IsLocalClientRunning = true;
+            accVm.IsCommandPaletteSelected = true;
+            accVm.LiveMemoryText = "512 MB";
+
+            accVm.NotifyLanguageChanged();
+            accVm.NotifyStatusIssueChanged();
+            accVm.NotifyDisplayNameChanged();
+            accVm.NotifyThemeChanged();
+            accVm.NotifyValidityChanged();
+            accVm.NotifyRobuxChanged();
+            accVm.NotifyAllPropertiesChanged();
+
+            Assert.Equal("MyAlias", accVm.PrimaryTitle);
+            Assert.Equal("@TestPlayer99  •  ID: 12345678", accVm.SecondaryTitle);
+            Assert.Equal("MyAlias (TestPlayer99)", accVm.DisplayTitle);
+            Assert.Equal("VIP", accVm.GroupDisplay);
+            Assert.Equal(Services.LocalizationService.Format("Account.GroupLabel", "VIP"), accVm.GroupTooltip);
+            Assert.Equal(Services.LocalizationService.Get("Srv_Play"), accVm.LaunchButtonText);
+            Assert.Equal(Services.LocalizationService.Get("Account.ShowAction"), accVm.FocusWindowButtonText);
+            Assert.Equal(Services.LocalizationService.Get("Account.ViewBan"), accVm.ViewBanButtonText);
+            Assert.Equal("T", accVm.Initials);
+            Assert.Equal("500", accVm.RobuxText);
+            Assert.Equal("R$ 500", accVm.RobuxFormatted);
+            Assert.Equal(Services.LocalizationService.Format("Account.RobuxBalance", 500), accVm.RobuxTooltip);
+
+            accVm.UpdateModel(new Account { Username = "UpdatedPlayer", UserID = 999 });
+            Assert.Equal("ID: 999", accVm.SecondaryTitle);
+            Assert.Equal("UpdatedPlayer (999)", accVm.DisplayTitle);
         }
     }
 }

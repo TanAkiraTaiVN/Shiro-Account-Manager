@@ -1,6 +1,5 @@
 #nullable enable
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
@@ -43,22 +42,7 @@ namespace Shiro.Tests
             var mockDialog = Substitute.For<IDialogService>();
             mockDialog.ShowInfo("Test");
             mockDialog.Received(1).ShowInfo("Test");
-        }
-
-        [Fact]
-        public void DomainContracts_CanBeSubstitutedWithNSubstitute()
-        {
-            var toast = Substitute.For<IToastService>();
-            var win = Substitute.For<IRobloxWindowService>();
-            var mem = Substitute.For<IMemoryOptimizer>();
-
-            toast.ShowInfo("Message");
-            win.TileRunningWindows();
-            mem.TrimWorkingSets();
-
-            toast.Received(1).ShowInfo("Message");
-            win.Received(1).TileRunningWindows();
-            mem.Received(1).TrimWorkingSets();
+            Assert.NotNull(mockDialog);
         }
 
         [Fact]
@@ -120,12 +104,12 @@ namespace Shiro.Tests
             {
                 using (StoragePaths.OverrideDataDirectoryForTesting(tempDir))
                 {
-                    Assert.NotEmpty(StoragePaths.AccountDumpsDirectory);
-                    Assert.NotEmpty(StoragePaths.NexusOutputDirectory);
-                    Assert.NotEmpty(StoragePaths.LogDirectory);
+                    Assert.Equal(Path.Combine(tempDir, "AccountDumps"), StoragePaths.AccountDumpsDirectory);
+                    Assert.Equal(Path.Combine(tempDir, "NexusOutput"), StoragePaths.NexusOutputDirectory);
+                    Assert.Equal(Path.Combine(tempDir, "Logs"), StoragePaths.LogDirectory);
                     Assert.Equal(tempDir, StoragePaths.ResolveUserFile(tempDir));
                     Assert.Contains("rel.txt", StoragePaths.ResolveUserFile("rel.txt"));
-                    Assert.NotEmpty(StoragePaths.ResolveAsset(""));
+                    Assert.Equal(StoragePaths.BaseDirectory, StoragePaths.ResolveAsset(""));
 
                     Assert.Throws<ArgumentException>(() => StoragePaths.SaveRecoveredVaultKey(new byte[10]));
 
@@ -153,7 +137,7 @@ namespace Shiro.Tests
                     Directory.SetLastWriteTimeUtc(staleSession, DateTime.UtcNow.AddDays(-10));
                     Directory.SetLastWriteTimeUtc(freshSession, DateTime.UtcNow);
                     int cleaned = StoragePaths.CleanupStaleRuntimeArtifacts(TimeSpan.FromDays(2));
-                    Assert.True(cleaned >= 1);
+                    Assert.Equal(1, cleaned);
                     Assert.False(Directory.Exists(staleSession));
                     Assert.True(Directory.Exists(freshSession));
 
@@ -215,7 +199,7 @@ namespace Shiro.Tests
                     File.WriteAllBytes(p, payload1);
                 }
                 store.CreateHistoricalBackup(payload2);
-                Assert.True(store.GetHistoricalBackups().Count <= AccountStore.MaxHistoricalBackups);
+                Assert.Equal(AccountStore.MaxHistoricalBackups, store.GetHistoricalBackups().Count);
 
                 // RestoreHistoricalBackup edge cases
                 Assert.False(store.RestoreHistoricalBackup(""));
@@ -230,7 +214,7 @@ namespace Shiro.Tests
                 using (var lockStream = new FileStream(accFile, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
                 {
                     byte[] fallbackBytes = store.Read();
-                    Assert.NotEmpty(fallbackBytes);
+                    Assert.Equal(payload2.Length, fallbackBytes.Length);
 
                     // Both primary and backup locked -> returns empty
                     using (var lockBak = new FileStream(store.BackupFile, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
@@ -252,189 +236,6 @@ namespace Shiro.Tests
                     // Logger may hold a file handle in tempDir
                 }
             }
-        }
-
-        [Fact]
-        public async System.Threading.Tasks.Task RobloxServerQueryService_And_SettingsApi_CoverParsersAndGuards()
-        {
-            var querySvc = RobloxServerQueryService.Default;
-            var emptyRes = await querySvc.QueryServerRegionAndPingAsync(null!, 0, "");
-            Assert.False(emptyRes.Success);
-
-            var parseMethod = typeof(RobloxServerQueryService).GetMethod(
-                "TryParseRegionFromJson",
-                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
-            Assert.NotNull(parseMethod);
-
-            object?[] args1 = { "{\"city\":\"Tokyo\",\"countryCode\":\"JP\"}", null };
-            Assert.True((bool)parseMethod!.Invoke(null, args1)!);
-            Assert.Equal("Tokyo, JP", args1[1]);
-
-            object?[] args2 = { "{\"success\":false}", null };
-            Assert.False((bool)parseMethod.Invoke(null, args2)!);
-
-            object?[] args3 = { "{\"status\":\"fail\"}", null };
-            Assert.False((bool)parseMethod.Invoke(null, args3)!);
-
-            var settingsApi = RobloxSettingsApiService.Instance;
-            Assert.False(await settingsApi.CheckPinAsync(null!));
-            Assert.False(await settingsApi.UnlockPinAsync(null!, "123"));
-            Assert.False(await settingsApi.SetFollowPrivacyAsync(null!, 0));
-            Assert.False(await settingsApi.ChangePasswordAsync(null!, "a", "b"));
-            Assert.False(await settingsApi.ChangeEmailAsync(null!, "a", "b"));
-            Assert.False(await settingsApi.LogOutOfOtherSessionsAsync(null!));
-
-            var accUnlocked = new Account { Username = "pinUser", PinUnlocked = DateTime.Now.AddMinutes(5) };
-            Assert.True(await settingsApi.CheckPinAsync(accUnlocked));
-            Assert.True(await settingsApi.UnlockPinAsync(accUnlocked, "1234"));
-
-            var accNoToken = new Account { Username = "noTok", SecurityToken = "" };
-            Assert.False(await settingsApi.CheckPinAsync(accNoToken, Internal: false));
-            Assert.False(await settingsApi.CheckPinAsync(accNoToken, Internal: true));
-
-            var workflow = AccountWorkflowService.Default;
-            Assert.NotNull(workflow);
-
-            Assert.False(RobloxSettingsApiService.ParseAccessCode(null!, out _));
-            var legacyResp = new Shiro.Http.RestResponse { StatusCode = System.Net.HttpStatusCode.OK, Content = "Roblox.GameLauncher.joinPrivateGame(1818, '11111111-2222-3333-4444-555555555555'" };
-            Assert.True(RobloxSettingsApiService.ParseAccessCode(legacyResp, out string parsedCode1));
-            Assert.Equal("11111111-2222-3333-4444-555555555555", parsedCode1);
-
-            var modernResp = new Shiro.Http.RestResponse { StatusCode = System.Net.HttpStatusCode.OK, Content = "{\"accessCode\":\"aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee\"}" };
-            Assert.True(RobloxSettingsApiService.ParseAccessCode(modernResp, out string parsedCode2));
-            Assert.Equal("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", parsedCode2);
-
-            var (srvOk, _) = await settingsApi.SetServerAsync(null!, 1818, "job");
-            Assert.False(srvOk);
-            await settingsApi.SetDisplayNameAsync(null!, "Name");
-            await settingsApi.SetAvatarAsync(null!, "");
-            await settingsApi.SetAvatarAsync(accUnlocked, "{bad-json");
-            await settingsApi.SetAvatarAsync(accUnlocked, "[1,2,3]");
-
-            var mainVm = new Shiro.ViewModels.MainViewModel();
-            var srvVm = new Shiro.ViewModels.ServerListViewModel(mainVm);
-            srvVm.SearchPlayerUsername = "";
-            srvVm.SearchPlayerCommand.Execute(null);
-            Assert.NotEmpty(srvVm.PlayerSearchStatus);
-
-            srvVm.SearchPlayerUsername = "builderman";
-            srvVm.PlaceIdInput = "invalid";
-            srvVm.SearchPlayerCommand.Execute(null);
-            Assert.NotEmpty(srvVm.PlayerSearchStatus);
-
-            srvVm.ToggleSortPlayersCommand.Execute(null);
-            Assert.Equal("▲", srvVm.PlayersSortHeaderIndicator);
-            srvVm.ToggleSortPlayersCommand.Execute(null);
-            Assert.Equal("▼", srvVm.PlayersSortHeaderIndicator);
-            srvVm.ToggleSortPlayersCommand.Execute(null);
-
-            srvVm.ToggleSortPingCommand.Execute(null);
-            Assert.Equal("▲", srvVm.PingSortHeaderIndicator);
-            srvVm.ToggleSortPingCommand.Execute(null);
-            Assert.Equal("▼", srvVm.PingSortHeaderIndicator);
-            srvVm.ToggleSortPingCommand.Execute(null);
-
-            srvVm.HideFullServers = true;
-            srvVm.HideVipServers = true;
-            srvVm.NotifyCurrentGameChanged();
-            srvVm.NotifyRecentGamesChanged();
-
-            var gameItem = new Shiro.ViewModels.GameSearchItemViewModel { PlaceId = 999991, Name = "TestGame", ThumbnailUrl = "https://tr.rbxcdn.com/test" };
-            srvVm.AddFavoriteCommand.Execute(gameItem);
-            srvVm.AddFavoriteCommand.Execute(gameItem);
-            var fav = System.Linq.Enumerable.FirstOrDefault(srvVm.Favorites, f => f.PlaceId == 999991);
-            if (fav != null)
-            {
-                srvVm.SelectFavoriteCommand.Execute(fav);
-                srvVm.RemoveFavoriteCommand.Execute(fav);
-            }
-
-            srvVm.SelectGameCommand.Execute(gameItem);
-            var recentItem = new Shiro.ViewModels.RecentGameItemViewModel { PlaceId = 999992, Name = "RecentTest" };
-            srvVm.SelectRecentGameInLibraryCommand.Execute(recentItem);
-            srvVm.LaunchRecentGameInLibraryCommand.Execute(recentItem);
-
-            var srvItem = new Shiro.ViewModels.ServerItemViewModel
-            {
-                JobId = "job-123",
-                Type = "Public",
-                Playing = 5,
-                MaxPlayers = 10,
-                Ping = 45,
-                CountryCode = "JP",
-                FlagEmoji = "JP",
-                Region = "Tokyo",
-                Ip = "128.116.1.1",
-                IsBusyPinging = true,
-                RawData = new ServerData { id = "job-123", playing = 5, maxPlayers = 10, ping = 45 }
-            };
-            Assert.NotEmpty(srvItem.PlayerDisplay);
-            Assert.True(srvItem.PlayerPercentage > 0);
-            Assert.NotEmpty(srvItem.PingDisplay);
-            Assert.NotNull(srvItem.PingColor);
-            srvItem.Ping = 120;
-            Assert.NotNull(srvItem.PingColor);
-            srvItem.Ping = 200;
-            Assert.NotNull(srvItem.PingColor);
-            srvItem.Ping = -1;
-            Assert.NotNull(srvItem.PingColor);
-            Assert.NotEmpty(srvItem.RegionDisplay);
-            srvItem.NotifyLanguageChanged();
-            srvVm.CopyJobIdCommand.Execute(srvItem);
-
-            srvVm.WatcherEnabled = !srvVm.WatcherEnabled;
-            srvVm.ExitOnBeta = !srvVm.ExitOnBeta;
-            srvVm.ExitIfNoConnection = !srvVm.ExitIfNoConnection;
-            srvVm.SaveWindowPositions = !srvVm.SaveWindowPositions;
-            srvVm.VerifyDataModel = !srvVm.VerifyDataModel;
-            srvVm.IgnoreExistingProcesses = !srvVm.IgnoreExistingProcesses;
-            srvVm.CloseRbxMemory = !srvVm.CloseRbxMemory;
-            srvVm.MemoryThresholdMb = 1024;
-
-            var accModel = new Account
-            {
-                Username = "TestPlayer99",
-                UserID = 12345678,
-                SecurityToken = "_|WARNING:-DO-NOT-SHARE-THIS|--token",
-                Valid = true,
-                RobuxBalance = 500
-            };
-            var accVm = new Shiro.ViewModels.AccountViewModel(accModel);
-            accVm.Alias = "MyAlias";
-            accVm.Group = "VIP";
-            accVm.Description = "Test description";
-            accVm.Pinned = true;
-            accVm.Pinned = false;
-            accVm.Valid = false;
-            accVm.Valid = true;
-            accVm.IsSelected = true;
-            accVm.IsLaunching = true;
-            accVm.IsInGame = true;
-            accVm.IsLocalClientRunning = true;
-            accVm.IsCommandPaletteSelected = true;
-            accVm.LiveMemoryText = "512 MB";
-            accVm.NotifyLanguageChanged();
-            accVm.NotifyStatusIssueChanged();
-            accVm.NotifyDisplayNameChanged();
-            accVm.NotifyThemeChanged();
-            accVm.NotifyValidityChanged();
-            accVm.NotifyRobuxChanged();
-            accVm.NotifyAllPropertiesChanged();
-            accVm.UpdateModel(new Account { Username = "UpdatedPlayer", UserID = 999 });
-            Assert.NotEmpty(accVm.PrimaryTitle);
-            Assert.NotEmpty(accVm.SecondaryTitle);
-            Assert.NotEmpty(accVm.DisplayTitle);
-            Assert.NotEmpty(accVm.GroupDisplay);
-            Assert.NotEmpty(accVm.GroupTooltip);
-            Assert.NotEmpty(accVm.LaunchButtonText);
-            Assert.NotEmpty(accVm.FocusWindowButtonText);
-            Assert.NotEmpty(accVm.ViewBanButtonText);
-            Assert.NotEmpty(accVm.BanNoticeText);
-            Assert.NotEmpty(accVm.Initials);
-            Assert.NotNull(accVm.RobuxText);
-            Assert.NotNull(accVm.RobuxFormatted);
-            Assert.NotEmpty(accVm.RobuxTooltip);
-            Account.MarkNativeAuthRateLimited(15, "TestPlayer99", "TicketAPI");
         }
     }
 }

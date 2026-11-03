@@ -759,5 +759,89 @@ namespace Shiro.Tests
                 .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
             Assert.Equal(approved.OrderBy(x => x), actual.OrderBy(x => x));
         }
+
+        [Fact]
+        public void TestMethods_ShouldAssertOnValues_NotOnlyNullness()
+        {
+            var testDir = Path.Combine(RepoRoot, "tests", "Shiro.Tests");
+            var csFiles = Directory.GetFiles(testDir, "*.cs", SearchOption.AllDirectories)
+                .Where(f => !f.Contains(@"\bin\") && !f.Contains(@"\obj\") && !f.EndsWith(".g.cs"))
+                .ToList();
+
+            var methodRegex = new Regex(
+                @"\[(?:Fact|Theory)\b[^\]]*\](?:\s*\[[^\]]+\])*\s*(?:public|internal|private|protected)?\s*(?:static\s+)?(?:async\s+)?(?:void|Task(?:<[^>]+>)?)\s+([A-Za-z0-9_]+)\s*\([^)]*\)\s*\{",
+                RegexOptions.Singleline | RegexOptions.Compiled);
+
+            var assertRegex = new Regex(@"Assert\.([A-Za-z0-9_]+)\b", RegexOptions.Compiled);
+            var weakTrueRegex = new Regex(@"Assert\.True\s*\([^;)]*(?:>|>=)\s*0|Assert\.True\s*\(\s*(\w+)\s*\|\|\s*!\1\s*\)", RegexOptions.Compiled | RegexOptions.Singleline);
+
+            var offenders = new List<string>();
+
+            foreach (var file in csFiles)
+            {
+                string text = File.ReadAllText(file);
+                var matches = methodRegex.Matches(text);
+
+                foreach (Match m in matches)
+                {
+                    string methodName = m.Groups[1].Value;
+                    int startIdx = m.Index + m.Length - 1;
+                    int braceCount = 1;
+                    int i = startIdx + 1;
+                    while (i < text.Length && braceCount > 0)
+                    {
+                        if (text[i] == '{') braceCount++;
+                        else if (text[i] == '}') braceCount--;
+                        i++;
+                    }
+
+                    string body = text.Substring(startIdx, i - startIdx);
+                    var assertMatches = assertRegex.Matches(body);
+                    bool hasThrows = body.Contains("Assert.Throws", StringComparison.Ordinal) ||
+                                     body.Contains("Record.Exception", StringComparison.Ordinal);
+
+                    if (assertMatches.Count == 0)
+                    {
+                        if (!hasThrows)
+                        {
+                            offenders.Add($"{Path.GetFileName(file)}::{methodName} (0 asserts)");
+                        }
+                    }
+                    else
+                    {
+                        bool allWeak = true;
+                        foreach (Match a in assertMatches)
+                        {
+                            string assertName = a.Groups[1].Value;
+                            if (assertName == "NotNull" || assertName == "NotEmpty")
+                            {
+                                continue;
+                            }
+
+                            if (assertName == "True")
+                            {
+                                int callIdx = a.Index;
+                                int semiIdx = body.IndexOf(';', callIdx);
+                                string statement = semiIdx >= 0 ? body.Substring(callIdx, semiIdx - callIdx) : body.Substring(callIdx);
+                                if (weakTrueRegex.IsMatch(statement))
+                                {
+                                    continue;
+                                }
+                            }
+
+                            allWeak = false;
+                            break;
+                        }
+
+                        if (allWeak)
+                        {
+                            offenders.Add($"{Path.GetFileName(file)}::{methodName} (all asserts are weak)");
+                        }
+                    }
+                }
+            }
+
+            Assert.Empty(offenders);
+        }
     }
 }

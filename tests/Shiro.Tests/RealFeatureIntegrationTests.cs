@@ -175,10 +175,12 @@ namespace Shiro.Tests
         [Fact]
         public void RobloxDirectLauncher_ElevationCheckReturnsBool()
         {
-            // Verify IsCurrentProcessElevated executes without crashing
+            using var identity = System.Security.Principal.WindowsIdentity.GetCurrent();
+            var principal = new System.Security.Principal.WindowsPrincipal(identity);
+            bool expected = principal.IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator);
+
             bool isElevated = RobloxDirectLauncher.IsCurrentProcessElevated();
-            // Boolean result is valid (true or false depending on current test process)
-            Assert.True(isElevated || !isElevated);
+            Assert.Equal(expected, isElevated);
         }
     }
 }
