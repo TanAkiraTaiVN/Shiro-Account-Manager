@@ -1,8 +1,10 @@
 #nullable enable
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using NetArchTest.Rules;
 using Shiro.ViewModels;
 using Xunit;
@@ -695,6 +697,24 @@ namespace Shiro.Tests
 
             Assert.True(violations.Count == 0,
                 $"Unpinned GitHub Actions found:\n{string.Join("\n", violations)}");
+        }
+
+        private static IEnumerable<string> SourceFiles(string relativeDir, string pattern)
+        {
+            var appDir = Path.Combine(RepoRoot, relativeDir);
+            return Directory.GetFiles(appDir, pattern, SearchOption.AllDirectories)
+                .Where(f => !f.Contains(@"\bin\") && !f.Contains(@"\obj\") && !f.EndsWith(".g.cs"));
+        }
+
+        [Fact]
+        public void CSharpSourceFiles_ShouldNotBranchOnIsEnglish()
+        {
+            var offenders = SourceFiles("src/Shiro", "*.cs")
+                .Where(f => !Path.GetFileName(f).StartsWith("LocalizationService"))
+                .SelectMany(f => File.ReadLines(f).Select((l, i) => (f, i, l)))
+                .Where(x => Regex.IsMatch(x.l, @"IsEnglish\s*\?", RegexOptions.IgnoreCase))
+                .Select(x => $"{x.f}:{x.i + 1}").ToList();
+            Assert.Empty(offenders);
         }
 
         private static string RepoRoot

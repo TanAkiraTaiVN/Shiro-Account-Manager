@@ -82,17 +82,17 @@ namespace Shiro.AvaloniaUI.Converters
         public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
         {
             if (value is not string s || string.IsNullOrWhiteSpace(s))
-                return Loc.Get("Dash_AllGroups", LocalizationService.IsEnglish ? "All Groups" : Shiro.Services.LocalizationService.Get("Dash_AllGroups"));
+                return Loc.Get("Dash_AllGroups");
 
             if (string.Equals(s, "All Groups", StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(s, Shiro.Services.LocalizationService.Get("Dash_AllGroups"), StringComparison.OrdinalIgnoreCase))
             {
-                return Loc.Get("Dash_AllGroups", LocalizationService.IsEnglish ? "All Groups" : Shiro.Services.LocalizationService.Get("Dash_AllGroups"));
+                return Loc.Get("Dash_AllGroups");
             }
 
             if (string.Equals(s, "Default", StringComparison.OrdinalIgnoreCase))
             {
-                return LocalizationService.IsEnglish ? "Default" : Shiro.Services.LocalizationService.Get("Auto_ValueConverters_033");
+                return LocalizationService.Get("Auto_ValueConverters_033");
             }
 
             return s;

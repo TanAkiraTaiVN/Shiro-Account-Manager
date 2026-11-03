@@ -177,10 +177,8 @@ namespace Shiro.ViewModels
                 var selected = _accounts.Where(a => a.IsSelected).ToList();
                 if (selected.Count == 0)
                 {
-                    string warnTitle = LocalizationService.IsEnglish ? "No Account Selected" : Shiro.Services.LocalizationService.Get("Auto_MainViewModelLau_494");
-                    string warnMsg = LocalizationService.IsEnglish
-                        ? "Please select at least one account before opening Roblox Home!"
-                        : Shiro.Services.LocalizationService.Get("Auto_MainViewModelLau_495");
+                    string warnTitle = Shiro.Services.LocalizationService.Get("Auto_MainViewModelLau_494");
+                    string warnMsg = Shiro.Services.LocalizationService.Get("Auto_MainViewModelLau_495");
                     StatusMessage = warnMsg;
                     ToastService.ShowWarning(warnTitle, warnMsg);
                     return;
@@ -202,10 +200,8 @@ namespace Shiro.ViewModels
                 var selected = _accounts.Where(a => a.IsSelected).ToList();
                 if (selected.Count == 0)
                 {
-                    string warnTitle = LocalizationService.IsEnglish ? "No Account Selected" : Shiro.Services.LocalizationService.Get("Auto_MainViewModelLau_494");
-                    string warnMsg = LocalizationService.IsEnglish
-                        ? "Please select at least one account in the Accounts tab before playing!"
-                        : Shiro.Services.LocalizationService.Get("Auto_MainViewModelLau_496");
+                    string warnTitle = Shiro.Services.LocalizationService.Get("Auto_MainViewModelLau_494");
+                    string warnMsg = Shiro.Services.LocalizationService.Get("Auto_MainViewModelLau_496");
                     StatusMessage = warnMsg;
                     ToastService.ShowWarning(warnTitle, warnMsg);
                     return;
@@ -214,11 +210,9 @@ namespace Shiro.ViewModels
                 long placeId = AccountLauncherService.ParsePlaceId(PlaceId?.Trim() ?? string.Empty);
                 if (placeId <= 0)
                 {
-                    string pidWarn = LocalizationService.IsEnglish
-                        ? "Please enter a valid Place ID or game link before joining!"
-                        : Shiro.Services.LocalizationService.Get("Auto_MainViewModelLau_493");
+                    string pidWarn = Shiro.Services.LocalizationService.Get("Auto_MainViewModelLau_493");
                     StatusMessage = pidWarn;
-                    ToastService.ShowWarning(LocalizationService.IsEnglish ? "Invalid Place ID" : Shiro.Services.LocalizationService.Get("Auto_MainViewModelLau_497"), pidWarn);
+                    ToastService.ShowWarning(Shiro.Services.LocalizationService.Get("Auto_MainViewModelLau_497"), pidWarn);
                     return;
                 }
 

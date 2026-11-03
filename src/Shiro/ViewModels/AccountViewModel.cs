@@ -147,16 +147,14 @@ namespace Shiro.ViewModels
         }
 
         public string GroupDisplay => string.IsNullOrEmpty(_model.Group) || string.Equals(_model.Group, "Default", StringComparison.OrdinalIgnoreCase)
-            ? (LocalizationService.IsEnglish ? "Default" : Shiro.Services.LocalizationService.Get("Auto_ValueConverters_033"))
+            ? LocalizationService.Get("Auto_ValueConverters_033")
             : _model.Group;
 
-        public string GroupTooltip => LocalizationService.IsEnglish
-            ? $"Group: {GroupDisplay}"
-            : Shiro.Services.LocalizationService.Format("Auto_AccountViewModel_355", GroupDisplay);
+        public string GroupTooltip => LocalizationService.Format("Auto_AccountViewModel_355", GroupDisplay);
 
-        public string LaunchButtonText => LocalizationService.IsEnglish ? "Launch" : Shiro.Services.LocalizationService.Get("Srv_Play");
-        public string FocusWindowButtonText => LocalizationService.IsEnglish ? "Show" : Shiro.Services.LocalizationService.Get("Auto_AccountViewModel_356");
-        public string ViewBanButtonText => LocalizationService.IsEnglish ? "View Ban" : "Xem Ban";
+        public string LaunchButtonText => LocalizationService.Get("Srv_Play");
+        public string FocusWindowButtonText => LocalizationService.Get("Auto_AccountViewModel_356");
+        public string ViewBanButtonText => LocalizationService.Get("Account.ViewBan");
 
         public string Description
         {
@@ -224,7 +222,7 @@ namespace Shiro.ViewModels
         public bool IsExpiredAndNotBanned => IsExpired && !IsBannedOrLocked;
         public string BanNoticeText => !string.IsNullOrEmpty(_model.AccountStatusIssue)
             ? _model.AccountStatusIssue
-            : (LocalizationService.IsEnglish ? "Account Moderated / Locked" : Shiro.Services.LocalizationService.Get("Auto_LaunchCoordinato_242"));
+            : LocalizationService.Get("Auto_LaunchCoordinato_242");
         public bool IsShortLivedSession => _model.IsShortLivedSession;
         public SessionHealth SessionHealth => _model.SessionHealthStatus;
 

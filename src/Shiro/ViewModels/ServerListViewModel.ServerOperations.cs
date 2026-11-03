@@ -74,11 +74,11 @@ namespace Shiro.ViewModels
                     if (!string.IsNullOrWhiteSpace(PlaceIdInput))
                         _mainViewModel.PlaceId = PlaceIdInput;
                     _mainViewModel.JobId = targetId;
-                    _mainViewModel.StatusMessage = LocalizationService.IsEnglish ? $"Selected Server: {targetId}" : Shiro.Services.LocalizationService.Format("Auto_ServerListViewMo_542", targetId);
+                    _mainViewModel.StatusMessage = Shiro.Services.LocalizationService.Format("Auto_ServerListViewMo_542", targetId);
                 }
 
                 ClipboardHelper.SetText(targetId);
-                LoadingStatus = LocalizationService.IsEnglish ? $"Selected and copied Job ID: {targetId}" : Shiro.Services.LocalizationService.Format("Auto_ServerListViewMo_543", targetId);
+                LoadingStatus = Shiro.Services.LocalizationService.Format("Auto_ServerListViewMo_543", targetId);
             }
         }
 
@@ -90,7 +90,7 @@ namespace Shiro.ViewModels
                     ? $"VIP:{server.RawData.accessCode}"
                     : server.JobId;
                 ClipboardHelper.SetText(targetId);
-                LoadingStatus = LocalizationService.IsEnglish ? $"Copied Job ID: {targetId}" : Shiro.Services.LocalizationService.Format("Auto_ServerListViewMo_544", targetId);
+                LoadingStatus = Shiro.Services.LocalizationService.Format("Auto_ServerListViewMo_544", targetId);
             }
         }
 
@@ -106,7 +106,7 @@ namespace Shiro.ViewModels
             long placeId = AccountLauncherService.ParsePlaceId(pidText);
             if (placeId <= 0)
             {
-                LoadingStatus = LocalizationService.IsEnglish ? "Invalid Place ID!" : Shiro.Services.LocalizationService.Get("Auto_ServerListViewMo_545");
+                LoadingStatus = Shiro.Services.LocalizationService.Get("Auto_ServerListViewMo_545");
                 return;
             }
 
@@ -119,10 +119,8 @@ namespace Shiro.ViewModels
             var selectedAccounts = _mainViewModel?.GetSelectedAccounts();
             if (selectedAccounts == null || selectedAccounts.Count == 0)
             {
-                string warnTitle = LocalizationService.IsEnglish ? "No Account Selected" : Shiro.Services.LocalizationService.Get("Auto_MainViewModelLau_494");
-                string warnMsg = LocalizationService.IsEnglish
-                    ? "Please select at least one account in the Accounts tab before joining a server!"
-                    : Shiro.Services.LocalizationService.Get("Auto_ServerListViewMo_546");
+                string warnTitle = Shiro.Services.LocalizationService.Get("Auto_MainViewModelLau_494");
+                string warnMsg = Shiro.Services.LocalizationService.Get("Auto_ServerListViewMo_546");
                 LoadingStatus = warnMsg;
                 if (_mainViewModel != null)
                     _mainViewModel.StatusMessage = warnMsg;
@@ -130,10 +128,8 @@ namespace Shiro.ViewModels
                 return;
             }
 
-            string serverDesc = string.IsNullOrEmpty(targetServer) ? (LocalizationService.IsEnglish ? "random" : Shiro.Services.LocalizationService.Get("Auto_ServerListViewMo_547")) : targetServer;
-            LoadingStatus = LocalizationService.IsEnglish
-                ? $"Joining Server {serverDesc} with {selectedAccounts.Count} account(s)..."
-                : Shiro.Services.LocalizationService.Format("Auto_ServerListViewMo_548", serverDesc, selectedAccounts.Count);
+            string serverDesc = string.IsNullOrEmpty(targetServer) ? Shiro.Services.LocalizationService.Get("Auto_ServerListViewMo_547") : targetServer;
+            LoadingStatus = Shiro.Services.LocalizationService.Format("Auto_ServerListViewMo_548", serverDesc, selectedAccounts.Count);
 
             {
             await AppSettings.JoinServerFromHostAsync(selectedAccounts, placeId, targetServer).ConfigureAwait(true);
@@ -176,7 +172,7 @@ namespace Shiro.ViewModels
                 var acc = ResolveAuthAccount();
                 if (acc == null)
                 {
-                    server.Region = LocalizationService.IsEnglish ? "Login required" : Shiro.Services.LocalizationService.Get("Auto_RobloxServerQuer_270");
+                    server.Region = Shiro.Services.LocalizationService.Get("Auto_RobloxServerQuer_270");
                     return;
                 }
 
@@ -195,7 +191,7 @@ namespace Shiro.ViewModels
                 }
                 else
                 {
-                    server.Region = !string.IsNullOrEmpty(result.Region) ? result.Region : (LocalizationService.IsEnglish ? "Unknown" : Shiro.Services.LocalizationService.Get("Auto_RobloxServerQuer_271"));
+                    server.Region = !string.IsNullOrEmpty(result.Region) ? result.Region : Shiro.Services.LocalizationService.Get("Auto_RobloxServerQuer_271");
                 }
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
@@ -203,7 +199,7 @@ namespace Shiro.ViewModels
             }
             catch (Exception ex)
             {
-                server.Region = LocalizationService.IsEnglish ? "Load error" : Shiro.Services.LocalizationService.Get("Auto_MissingAssetsDia_138");
+                server.Region = Shiro.Services.LocalizationService.Get("Auto_MissingAssetsDia_138");
                 Program.Logger?.Warn($"[LoadRegionAsync] {ex.Message}");
             }
             finally

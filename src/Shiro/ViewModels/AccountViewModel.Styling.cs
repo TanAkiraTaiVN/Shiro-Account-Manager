@@ -53,10 +53,10 @@ namespace Shiro.ViewModels
                     return string.IsNullOrEmpty(LiveMemoryText) ? Loc.Get("Status_InGame") : $"{Loc.Get("Status_InGame")} ({LiveMemoryText})";
                 }
                 if (IsLocalClientRunning)
-                    return LocalizationService.IsEnglish ? "Client Open" : Shiro.Services.LocalizationService.Get("Auto_AccountViewModel_353");
+                    return LocalizationService.Get("Auto_AccountViewModel_353");
                 if (IsInStudio) return "Roblox Studio";
                 if (IsOnline) return Loc.Get("Status_Online");
-                if (IsShortLivedSession) return LocalizationService.IsEnglish ? "Short Session (~30m)" : Shiro.Services.LocalizationService.Get("Auto_AccountViewModel_354");
+                if (IsShortLivedSession) return LocalizationService.Get("Auto_AccountViewModel_354");
                 return Loc.Get("Status_Ready");
             }
         }

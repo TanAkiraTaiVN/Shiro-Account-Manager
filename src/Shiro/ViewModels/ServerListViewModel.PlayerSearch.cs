@@ -38,14 +38,14 @@ namespace Shiro.ViewModels
         {
             if (string.IsNullOrWhiteSpace(SearchPlayerUsername))
             {
-                PlayerSearchStatus = LocalizationService.IsEnglish ? "Please enter player username!" : Shiro.Services.LocalizationService.Get("Auto_ServerListViewMo_531");
+                PlayerSearchStatus = Shiro.Services.LocalizationService.Get("Auto_ServerListViewMo_531");
                 LoadingStatus = PlayerSearchStatus;
                 return;
             }
 
             if (!long.TryParse(PlaceIdInput, out long placeId) || placeId <= 0)
             {
-                PlayerSearchStatus = LocalizationService.IsEnglish ? "Please enter Place ID above first!" : Shiro.Services.LocalizationService.Get("Auto_ServerListViewMo_532");
+                PlayerSearchStatus = Shiro.Services.LocalizationService.Get("Auto_ServerListViewMo_532");
                 LoadingStatus = PlayerSearchStatus;
                 return;
             }
@@ -54,7 +54,7 @@ namespace Shiro.ViewModels
             var ct = cts.Token;
 
             IsSearchingPlayer = true;
-            PlayerSearchStatus = LocalizationService.IsEnglish ? $"Searching for player '{SearchPlayerUsername}'..." : Shiro.Services.LocalizationService.Format("Auto_ServerListViewMo_533", SearchPlayerUsername);
+            PlayerSearchStatus = Shiro.Services.LocalizationService.Format("Auto_ServerListViewMo_533", SearchPlayerUsername);
             LoadingStatus = PlayerSearchStatus;
 
             try
@@ -64,7 +64,7 @@ namespace Shiro.ViewModels
 
                 if (!userFound)
                 {
-                    PlayerSearchStatus = LocalizationService.IsEnglish ? $"User ID not found for {SearchPlayerUsername}!" : Shiro.Services.LocalizationService.Format("Auto_ServerListViewMo_534", SearchPlayerUsername);
+                    PlayerSearchStatus = Shiro.Services.LocalizationService.Format("Auto_ServerListViewMo_534", SearchPlayerUsername);
                     LoadingStatus = PlayerSearchStatus;
                     return;
                 }
@@ -76,7 +76,7 @@ namespace Shiro.ViewModels
 
                 if (!avResp.IsSuccessful || string.IsNullOrEmpty(avResp.Content))
                 {
-                    PlayerSearchStatus = LocalizationService.IsEnglish ? "Could not fetch player avatar!" : Shiro.Services.LocalizationService.Get("Auto_ServerListViewMo_535");
+                    PlayerSearchStatus = Shiro.Services.LocalizationService.Get("Auto_ServerListViewMo_535");
                     LoadingStatus = PlayerSearchStatus;
                     return;
                 }
@@ -86,7 +86,7 @@ namespace Shiro.ViewModels
 
                 if (string.IsNullOrEmpty(targetAvatarUrl))
                 {
-                    PlayerSearchStatus = LocalizationService.IsEnglish ? "Player avatar does not exist!" : Shiro.Services.LocalizationService.Get("Auto_ServerListViewMo_536");
+                    PlayerSearchStatus = Shiro.Services.LocalizationService.Get("Auto_ServerListViewMo_536");
                     LoadingStatus = PlayerSearchStatus;
                     return;
                 }
@@ -241,25 +241,23 @@ namespace Shiro.ViewModels
 
                     SelectedServer = matchVm;
                     SelectServerJobId(matchVm);
-                    PlayerSearchStatus = LocalizationService.IsEnglish
-                        ? $"FOUND! {SearchPlayerUsername} is in server: {matchedServer.id}"
-                        : Shiro.Services.LocalizationService.Format("Auto_ServerListViewMo_538", SearchPlayerUsername, matchedServer.id);
+                    PlayerSearchStatus = Shiro.Services.LocalizationService.Format("Auto_ServerListViewMo_538", SearchPlayerUsername, matchedServer.id);
                     LoadingStatus = PlayerSearchStatus;
                 }
                 else
                 {
-                    PlayerSearchStatus = LocalizationService.IsEnglish ? $"Player '{SearchPlayerUsername}' was not found in current public servers." : Shiro.Services.LocalizationService.Format("Auto_ServerListViewMo_539", SearchPlayerUsername);
+                    PlayerSearchStatus = Shiro.Services.LocalizationService.Format("ServerList.PlayerNotFound", SearchPlayerUsername);
                     LoadingStatus = PlayerSearchStatus;
                 }
             }
             catch (OperationCanceledException)
             {
-                PlayerSearchStatus = LocalizationService.IsEnglish ? "Player search cancelled." : Shiro.Services.LocalizationService.Get("Auto_ServerListViewMo_540");
+                PlayerSearchStatus = Shiro.Services.LocalizationService.Get("Auto_ServerListViewMo_540");
                 LoadingStatus = PlayerSearchStatus;
             }
             catch (Exception ex)
             {
-                PlayerSearchStatus = LocalizationService.IsEnglish ? $"Search error: {ex.Message}" : Shiro.Services.LocalizationService.Format("Auto_ServerListViewMo_541", ex.Message);
+                PlayerSearchStatus = Shiro.Services.LocalizationService.Format("Auto_ServerListViewMo_541", ex.Message);
                 LoadingStatus = PlayerSearchStatus;
             }
             finally

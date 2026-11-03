@@ -36,33 +36,25 @@ namespace Shiro.ViewModels
                     targetCount = parsed;
 
                 int picked = SelectFirstReadyAccounts(targetCount);
-                StatusMessage = LocalizationService.IsEnglish
-                    ? $"Selected {picked} ready idle account(s)."
-                    : Shiro.Services.LocalizationService.Format("Auto_MainViewModelUiC_498", picked);
+                StatusMessage = Shiro.Services.LocalizationService.Format("Auto_MainViewModelUiC_498", picked);
                 if (picked == 0)
                 {
                     ToastService.ShowWarning(
-                        LocalizationService.IsEnglish ? "Quick Select" : Shiro.Services.LocalizationService.Get("Dash_QuickSelect"),
-                        LocalizationService.IsEnglish
-                            ? "No idle Ready accounts found in the current view."
-                            : Shiro.Services.LocalizationService.Get("Auto_MainViewModelUiC_499"));
+                        Shiro.Services.LocalizationService.Get("Dash_QuickSelect"),
+                        Shiro.Services.LocalizationService.Get("Auto_MainViewModelUiC_499"));
                 }
             });
 
             InvertSelectionCommand = new RelayCommand(() =>
             {
                 int count = InvertFilteredSelection();
-                StatusMessage = LocalizationService.IsEnglish
-                    ? $"Inverted selection ({count} account(s) selected)."
-                    : Shiro.Services.LocalizationService.Format("Auto_MainViewModelUiC_500", count);
+                StatusMessage = Shiro.Services.LocalizationService.Format("Auto_MainViewModelUiC_500", count);
             });
 
             SelectByRangePromptCommand = new RelayCommand(() =>
             {
-                string prompt = LocalizationService.IsEnglish
-                    ? "Enter account index range (e.g. 1-15 or 1-5, 10, 21-30):"
-                    : Shiro.Services.LocalizationService.Get("Auto_MainViewModelUiC_501");
-                string title = LocalizationService.IsEnglish ? "Select by Range" : Shiro.Services.LocalizationService.Get("Auto_MainViewModelUiC_502");
+                string prompt = Shiro.Services.LocalizationService.Get("Auto_MainViewModelUiC_501");
+                string title = Shiro.Services.LocalizationService.Get("Auto_MainViewModelUiC_502");
                 string input = AppServices.Dialogs.ShowInputPrompt(prompt, title);
                 if (string.IsNullOrWhiteSpace(input) || input == "/UC")
                     return;
@@ -70,9 +62,7 @@ namespace Shiro.ViewModels
                 int picked = SelectRangeExpression(input);
                 if (picked > 0)
                 {
-                    string msg = LocalizationService.IsEnglish
-                        ? $"Selected {picked} account(s) from range '{input}'."
-                        : Shiro.Services.LocalizationService.Format("Auto_MainViewModelUiC_503", picked, input);
+                    string msg = Shiro.Services.LocalizationService.Format("Auto_MainViewModelUiC_503", picked, input);
                     StatusMessage = msg;
                     ToastService.ShowSuccess(title, msg);
                 }
@@ -124,12 +114,10 @@ namespace Shiro.ViewModels
                 {
                     acc.IsLaunching = false;
                 }
-                string stopMsg = LocalizationService.IsEnglish
-                    ? "Stopped batch launch queue."
-                    : Shiro.Services.LocalizationService.Get("Auto_MainViewModelUiC_505");
+                string stopMsg = Shiro.Services.LocalizationService.Get("Auto_MainViewModelUiC_505");
                 StatusMessage = stopMsg;
                 ToastService.ShowWarning(
-                    LocalizationService.IsEnglish ? "Queue Stopped" : Shiro.Services.LocalizationService.Get("Auto_MainViewModelUiC_506"),
+                    Shiro.Services.LocalizationService.Get("Auto_MainViewModelUiC_506"),
                     stopMsg);
             });
 
@@ -178,19 +166,17 @@ namespace Shiro.ViewModels
                 var (arranged, desc) = RobloxWindowArrangerService.ArrangeWindows(mode);
                 if (arranged > 0)
                 {
-                    string okMsg = LocalizationService.IsEnglish
-                        ? $"Arranged {arranged} Roblox window(s) ({desc})!"
-                        : Shiro.Services.LocalizationService.Format("Auto_MainViewModelUiC_509", arranged, desc);
+                    string okMsg = Shiro.Services.LocalizationService.Format("Auto_MainViewModelUiC_509", arranged, desc);
                     StatusMessage = okMsg;
                     ToastService.ShowSuccess(
-                        LocalizationService.IsEnglish ? "Window Arranger" : Shiro.Services.LocalizationService.Get("Auto_MainViewModelUiC_510"),
+                        Shiro.Services.LocalizationService.Get("Auto_MainViewModelUiC_510"),
                         okMsg);
                 }
                 else
                 {
                     StatusMessage = $"{desc}";
                     ToastService.ShowWarning(
-                        LocalizationService.IsEnglish ? "Window Arranger" : Shiro.Services.LocalizationService.Get("Auto_MainViewModelUiC_510"),
+                        Shiro.Services.LocalizationService.Get("Auto_MainViewModelUiC_510"),
                         desc);
                 }
             });

@@ -25,7 +25,7 @@ namespace Shiro.ViewModels
         private string _placeIdInput = string.Empty;
         private long _lastLoadedPlaceId;
         private bool _isLoadingServers;
-        private string _loadingStatus = LocalizationService.IsEnglish ? "Ready" : Shiro.Services.LocalizationService.Get("Status_Ready");
+        private string _loadingStatus = Shiro.Services.LocalizationService.Get("Status_Ready");
         private ServerItemViewModel? _selectedServer;
         private int _selectedSubTabIndex = 0; // 0: Servers, 1: Games, 2: Recent & Favorites, 3: Watcher
 
@@ -171,7 +171,7 @@ namespace Shiro.ViewModels
             {
                 if (_loadingStatus == Shiro.Services.LocalizationService.Get("Status_Ready") || _loadingStatus == "Ready")
                 {
-                    LoadingStatus = LocalizationService.IsEnglish ? "Ready" : Shiro.Services.LocalizationService.Get("Status_Ready");
+                    LoadingStatus = Shiro.Services.LocalizationService.Get("Status_Ready");
                 }
                 foreach (var s in _allServers)
                 {
@@ -211,7 +211,7 @@ namespace Shiro.ViewModels
             IsLoadingServers = false;
             IsSearchingPlayer = false;
             if (_allServers.Count == 0) _lastLoadedPlaceId = 0;
-            LoadingStatus = LocalizationService.IsEnglish ? "Operation cancelled." : Shiro.Services.LocalizationService.Get("Auto_ServerListViewMo_554");
+            LoadingStatus = Shiro.Services.LocalizationService.Get("Auto_ServerListViewMo_554");
             NotifyServerCounts();
         }
 
@@ -329,8 +329,8 @@ namespace Shiro.ViewModels
                     {
                         if (ct.IsCancellationRequested) return;
                         LoadingStatus = totalLoaded > 0
-                            ? (LocalizationService.IsEnglish ? $"Successfully loaded {totalLoaded} servers!" : Shiro.Services.LocalizationService.Format("Auto_ServerListViewMo_559", totalLoaded))
-                            : (LocalizationService.IsEnglish ? "No servers found for this Place ID." : Shiro.Services.LocalizationService.Get("Auto_ServerListViewMo_560"));
+                            ? Shiro.Services.LocalizationService.Format("Auto_ServerListViewMo_559", totalLoaded)
+                            : Shiro.Services.LocalizationService.Get("Auto_ServerListViewMo_560");
                         NotifyServerCounts();
                     });
                 }
@@ -338,7 +338,7 @@ namespace Shiro.ViewModels
                 {
                     AppDispatcher.Post(() =>
                     {
-                        LoadingStatus = LocalizationService.IsEnglish ? "Server loading cancelled." : Shiro.Services.LocalizationService.Get("Auto_ServerListViewMo_561");
+                        LoadingStatus = Shiro.Services.LocalizationService.Get("Auto_ServerListViewMo_561");
                         _lastLoadedPlaceId = 0;
                         NotifyServerCounts();
                     });
@@ -348,7 +348,7 @@ namespace Shiro.ViewModels
                     Program.Logger?.Error($"[RefreshServersAsync] {ex}");
                     AppDispatcher.Post(() =>
                     {
-                        LoadingStatus = LocalizationService.IsEnglish ? $"Error: {ex.Message}" : Shiro.Services.LocalizationService.Format("Proxy_Dead", ex.Message);
+                        LoadingStatus = Shiro.Services.LocalizationService.Format("Proxy_Dead", ex.Message);
                         NotifyServerCounts();
                     });
                 }

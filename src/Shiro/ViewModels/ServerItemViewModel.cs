@@ -135,7 +135,7 @@ namespace Shiro.ViewModels
             {
                 if (string.IsNullOrEmpty(_region) || _region == Shiro.Services.LocalizationService.Get("Auto_ServerItemViewMo_522") || _region == "Not loaded")
                 {
-                    return LocalizationService.IsEnglish ? "Not loaded" : Shiro.Services.LocalizationService.Get("Auto_ServerItemViewMo_522");
+                    return Shiro.Services.LocalizationService.Get("Auto_ServerItemViewMo_522");
                 }
                 if (!string.IsNullOrEmpty(_flagEmoji))
                 {

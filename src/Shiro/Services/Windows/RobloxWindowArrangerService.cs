@@ -130,7 +130,7 @@ namespace Shiro.Services
         public static (int arrangedCount, string description) ArrangeWindows(RobloxWindowLayoutMode mode)
         {
             if (!OperatingSystem.IsWindows())
-                return (0, LocalizationService.IsEnglish ? "Supported on Windows only." : Shiro.Services.LocalizationService.Get("Auto_RobloxWindowArra_342"));
+                return (0, LocalizationService.Get("Auto_RobloxWindowArra_342"));
 
             if (mode != RobloxWindowLayoutMode.CascadeCorner)
             {
