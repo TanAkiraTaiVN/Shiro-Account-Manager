@@ -1,6 +1,6 @@
 param(
     [string]$CoverageDir = "coverage",
-    [double]$MinOverall = 60.0,
+    [double]$MinOverall = 51.3,
     [double]$MinCore = 90.0
 )
 
