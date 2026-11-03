@@ -110,7 +110,7 @@ namespace Shiro.Services
                             Total = launchList.Count,
                             Account = request.Account,
                             Status = LaunchOutcome.RateLimited,
-                            Message = Shiro.Services.LocalizationService.Format("Auto_LaunchCoordinato_239", index + 1, launchList.Count, backoffSecs, request.Account.Username)
+                            Message = Shiro.Services.LocalizationService.Format("Launch.RateLimitedIpWaiting", index + 1, launchList.Count, backoffSecs, request.Account.Username)
                         });
                         await RobloxRateLimitCoordinator.Instance.WaitForBackoffAsync(linkedCancellation.Token).ConfigureAwait(false);
                     }
@@ -161,7 +161,7 @@ namespace Shiro.Services
                             Total = launchList.Count,
                             Account = request.Account,
                             Status = LaunchOutcome.RateLimited,
-                            Message = Shiro.Services.LocalizationService.Format("Auto_LaunchCoordinato_240", index + 1, launchList.Count, request.Account.Username, waitSecs, retry, MaxRateLimitRetries)
+                            Message = Shiro.Services.LocalizationService.Format("Launch.RateLimitedRetryWaiting", index + 1, launchList.Count, request.Account.Username, waitSecs, retry, MaxRateLimitRetries)
                         });
 
                         await RobloxRateLimitCoordinator.Instance.WaitForBackoffAsync(linkedCancellation.Token).ConfigureAwait(false);
@@ -209,23 +209,23 @@ namespace Shiro.Services
 
                         if (wasAlreadyBanned || request.Account.IsBannedOrLocked)
                         {
-                            Program.Logger?.Warn(Shiro.Services.LocalizationService.Format("Auto_LaunchCoordinato_241", request.Account.Username, request.Account.AccountStatusIssue));
+                            Program.Logger?.Warn(Shiro.Services.LocalizationService.Format("Launch.AccountBannedLog", request.Account.Username, request.Account.AccountStatusIssue));
                             if (launchList.Count == 1)
                             {
                                 AppDispatcher.Post(() =>
                                 {
-                                    ToastService.ShowWarning(Shiro.Services.LocalizationService.Get("Auto_LaunchCoordinato_242"), Shiro.Services.LocalizationService.Format("Auto_LaunchCoordinato_243", request.Account.Username, request.Account.AccountStatusIssue));
+                                    ToastService.ShowWarning(Shiro.Services.LocalizationService.Get("Launch.AccountBannedStatus"), Shiro.Services.LocalizationService.Format("Launch.CheckBanButtonTip", request.Account.Username, request.Account.AccountStatusIssue));
                                 });
                             }
                         }
                         else
                         {
-                            Program.Logger?.Warn(Shiro.Services.LocalizationService.Format("Auto_LaunchCoordinato_244", request.Account.Username));
+                            Program.Logger?.Warn(Shiro.Services.LocalizationService.Format("Launch.SessionExpiredLog", request.Account.Username));
                             if (launchList.Count == 1)
                             {
                                 AppDispatcher.Post(() =>
                                 {
-                                    ToastService.ShowWarning(Shiro.Services.LocalizationService.Get("Status_Expired"), Shiro.Services.LocalizationService.Format("Auto_LaunchCoordinato_245", request.Account.Username));
+                                    ToastService.ShowWarning(Shiro.Services.LocalizationService.Get("Status_Expired"), Shiro.Services.LocalizationService.Format("Launch.SessionExpiredCardTip", request.Account.Username));
                                 });
                             }
                         }
@@ -235,8 +235,8 @@ namespace Shiro.Services
                         ? $"[{index + 1}/{launchList.Count}] {request.Account.Username} launched."
                         : (isTicketAuthError
                             ? (request.Account.IsBannedOrLocked
-                                ? Shiro.Services.LocalizationService.Format("Auto_LaunchCoordinato_246", request.Account.Username, request.Account.AccountStatusIssue)
-                                : Shiro.Services.LocalizationService.Format("Auto_LaunchCoordinato_247", request.Account.Username))
+                                ? Shiro.Services.LocalizationService.Format("Launch.CheckBanButtonAlert", request.Account.Username, request.Account.AccountStatusIssue)
+                                : Shiro.Services.LocalizationService.Format("Launch.SessionExpiredAlert", request.Account.Username))
                             : $"Warning ({request.Account.Username}): {state.Result}");
                     results.Add(state);
                     Report(progress, state);
@@ -276,7 +276,7 @@ namespace Shiro.Services
                             Account = request.Account,
                             Status = LaunchOutcome.Success,
                             Completed = true,
-                            Message = Shiro.Services.LocalizationService.Format("Auto_LaunchCoordinato_248", statusPrefix, index + 1, launchList.Count, request.Account.Username, minDelayMs / 1000.0, launchList[index + 1].Account.Username)
+                            Message = Shiro.Services.LocalizationService.Format("Launch.QueueProgressWaiting", statusPrefix, index + 1, launchList.Count, request.Account.Username, minDelayMs / 1000.0, launchList[index + 1].Account.Username)
                         });
 
                         await Task.Delay(minDelayMs, linkedCancellation.Token).ConfigureAwait(false);

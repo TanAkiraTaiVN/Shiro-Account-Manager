@@ -163,7 +163,7 @@ namespace Shiro.Services
         {
             if (result.IsBanned)
             {
-                string message = result.Reason ?? result.IssueBadge ?? Shiro.Services.LocalizationService.Get("Auto_FastLoginDialogS_077");
+                string message = result.Reason ?? result.IssueBadge ?? Shiro.Services.LocalizationService.Get("FastLogin.AccountLockedOrModerated");
                 WebhookNotificationService.EnqueueAlert(new WebhookAlert
                 {
                     EventType = WebhookEventType.ModerationWarning,
@@ -203,9 +203,9 @@ namespace Shiro.Services
                 {
                     string lowUrl = url.ToLowerInvariant();
                     if (lowUrl.Contains("/security-notification") || lowUrl.Contains("/account-locked"))
-                        return (true, Shiro.Services.LocalizationService.Get("Auto_FastLoginCoordin_227"), Shiro.Services.LocalizationService.Get("Auto_RobloxModeration_260"));
+                        return (true, Shiro.Services.LocalizationService.Get("FastLogin.SecurityLockoutShort"), Shiro.Services.LocalizationService.Get("Moderation.CannotGetSessionInfo"));
                     if (lowUrl.Contains("/not-approved") || lowUrl.Contains("/banned") || lowUrl.Contains("/account-status") || lowUrl.Contains("/moderation"))
-                        return (true, Shiro.Services.LocalizationService.Get("Auto_FastLoginDialogS_078"), Shiro.Services.LocalizationService.Get("Auto_FastLoginDialogS_077"));
+                        return (true, Shiro.Services.LocalizationService.Get("FastLogin.LockedOrBannedBadge"), Shiro.Services.LocalizationService.Get("FastLogin.AccountLockedOrModerated"));
                 }
                 return (false, null, null);
             }
@@ -222,8 +222,8 @@ namespace Shiro.Services
                 text.Contains("your account has been") ||
                 text.Contains("punishment:") ||
                 text.Contains("reactivate my account") ||
-                text.Contains(Shiro.Services.LocalizationService.Get("Auto_RobloxModeration_261")) ||
-                text.Contains(Shiro.Services.LocalizationService.Get("Auto_RobloxModeration_262")) ||
+                text.Contains(Shiro.Services.LocalizationService.Get("Moderation.ReactivatedSuccess")) ||
+                text.Contains(Shiro.Services.LocalizationService.Get("Moderation.ReactivateFailed")) ||
                 text.Contains("i agree");
 
             if (!hasModerationMarker && !text.Contains("banned") && !text.Contains("warning"))
@@ -231,23 +231,23 @@ namespace Shiro.Services
                 return (false, null, null);
             }
 
-            if (text.Contains("7 day") || text.Contains("7-day") || text.Contains(Shiro.Services.LocalizationService.Get("Auto_FastLoginCoordin_207")))
-                return (true, Shiro.Services.LocalizationService.Get("Auto_FastLoginCoordin_216"), Shiro.Services.LocalizationService.Get("Auto_RobloxModeration_263"));
-            if (text.Contains("3 day") || text.Contains("3-day") || text.Contains(Shiro.Services.LocalizationService.Get("Auto_FastLoginCoordin_208")))
-                return (true, Shiro.Services.LocalizationService.Get("Auto_FastLoginCoordin_218"), Shiro.Services.LocalizationService.Get("Auto_RobloxModeration_264"));
-            if (text.Contains("1 day") || text.Contains("1-day") || text.Contains(Shiro.Services.LocalizationService.Get("Auto_FastLoginCoordin_209")))
-                return (true, Shiro.Services.LocalizationService.Get("Auto_FastLoginCoordin_220"), Shiro.Services.LocalizationService.Get("Auto_RobloxModeration_265"));
-            if (text.Contains("14 day") || text.Contains("14-day") || text.Contains(Shiro.Services.LocalizationService.Get("Auto_FastLoginCoordin_206")))
-                return (true, Shiro.Services.LocalizationService.Get("Auto_FastLoginCoordin_222"), Shiro.Services.LocalizationService.Get("Auto_RobloxModeration_266"));
-            if (text.Contains("deleted") || text.Contains("terminated") || text.Contains(Shiro.Services.LocalizationService.Get("Auto_FastLoginCoordin_211")) || text.Contains(Shiro.Services.LocalizationService.Get("Auto_FastLoginCoordin_210")))
-                return (true, Shiro.Services.LocalizationService.Get("Auto_FastLoginCoordin_224"), Shiro.Services.LocalizationService.Get("Auto_RobloxModeration_267"));
-            if (text.Contains("warning") || text.Contains(Shiro.Services.LocalizationService.Get("Auto_FastLoginCoordin_212")))
-                return (true, Shiro.Services.LocalizationService.Get("Msg_WarningTitle"), Shiro.Services.LocalizationService.Get("Auto_RobloxModeration_268"));
-            if (text.Contains("locked") || text.Contains(Shiro.Services.LocalizationService.Get("Auto_RobloxModeration_269")) || text.Contains("security notification") || text.Contains("reset your password"))
-                return (true, Shiro.Services.LocalizationService.Get("Auto_FastLoginCoordin_227"), Shiro.Services.LocalizationService.Get("Auto_RobloxModeration_260"));
+            if (text.Contains("7 day") || text.Contains("7-day") || text.Contains(Shiro.Services.LocalizationService.Get("FastLogin.SevenDaysKeyword")))
+                return (true, Shiro.Services.LocalizationService.Get("FastLogin.BanSevenDaysShort"), Shiro.Services.LocalizationService.Get("Moderation.ConnectionError"));
+            if (text.Contains("3 day") || text.Contains("3-day") || text.Contains(Shiro.Services.LocalizationService.Get("FastLogin.ThreeDaysKeyword")))
+                return (true, Shiro.Services.LocalizationService.Get("FastLogin.BanThreeDaysShort"), Shiro.Services.LocalizationService.Get("Moderation.CannotGetSessionForNotice"));
+            if (text.Contains("1 day") || text.Contains("1-day") || text.Contains(Shiro.Services.LocalizationService.Get("FastLogin.OneDayKeyword")))
+                return (true, Shiro.Services.LocalizationService.Get("FastLogin.BanOneDayShort"), Shiro.Services.LocalizationService.Get("Moderation.WarningReceived"));
+            if (text.Contains("14 day") || text.Contains("14-day") || text.Contains(Shiro.Services.LocalizationService.Get("FastLogin.FourteenDaysKeyword")))
+                return (true, Shiro.Services.LocalizationService.Get("FastLogin.BanFourteenDaysShort"), Shiro.Services.LocalizationService.Get("Moderation.AccountBannedWithDuration"));
+            if (text.Contains("deleted") || text.Contains("terminated") || text.Contains(Shiro.Services.LocalizationService.Get("FastLogin.DeletedKeyword")) || text.Contains(Shiro.Services.LocalizationService.Get("FastLogin.PermanentKeyword")))
+                return (true, Shiro.Services.LocalizationService.Get("FastLogin.BanPermanentShort"), Shiro.Services.LocalizationService.Get("Moderation.AccountBannedGeneric"));
+            if (text.Contains("warning") || text.Contains(Shiro.Services.LocalizationService.Get("FastLogin.WarningKeyword")))
+                return (true, Shiro.Services.LocalizationService.Get("Msg_WarningTitle"), Shiro.Services.LocalizationService.Get("Moderation.NoSpecificViolationFound"));
+            if (text.Contains("locked") || text.Contains(Shiro.Services.LocalizationService.Get("Moderation.LoadNoticeError")) || text.Contains("security notification") || text.Contains("reset your password"))
+                return (true, Shiro.Services.LocalizationService.Get("FastLogin.SecurityLockoutShort"), Shiro.Services.LocalizationService.Get("Moderation.CannotGetSessionInfo"));
 
             if (hasModerationMarker)
-                return (true, Shiro.Services.LocalizationService.Get("Auto_FastLoginDialogS_078"), Shiro.Services.LocalizationService.Get("Auto_FastLoginDialogS_077"));
+                return (true, Shiro.Services.LocalizationService.Get("FastLogin.LockedOrBannedBadge"), Shiro.Services.LocalizationService.Get("FastLogin.AccountLockedOrModerated"));
 
             return (false, null, null);
         }

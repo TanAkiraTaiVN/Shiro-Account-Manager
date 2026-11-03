@@ -123,7 +123,7 @@ namespace Shiro
             if (UpdateMultiRoblox())
             {
                 if (notify)
-                    SetDashboardStatus(Shiro.Services.LocalizationService.Get("Auto_AccountManagerPr_029"));
+                    SetDashboardStatus(Shiro.Services.LocalizationService.Get("AccountManager.MultiRobloxActive"));
                 return true;
             }
 
@@ -134,7 +134,7 @@ namespace Shiro
                 if (UpdateMultiRoblox())
                 {
                     if (notify)
-                        SetDashboardStatus(Shiro.Services.LocalizationService.Get("Auto_AccountManagerPr_030"));
+                        SetDashboardStatus(Shiro.Services.LocalizationService.Get("AccountManager.AutoClosedRobloxActivatedMulti"));
                     return true;
                 }
             }
@@ -142,7 +142,7 @@ namespace Shiro
             if (General.Get<bool>("HideRbxAlert"))
             {
                 if (notify)
-                    SetDashboardStatus(Shiro.Services.LocalizationService.Get("Auto_AccountManagerPr_031"));
+                    SetDashboardStatus(Shiro.Services.LocalizationService.Get("AccountManager.RobloxRunningMultiInactive"));
                 return false;
             }
 
@@ -165,20 +165,20 @@ namespace Shiro
                         if (UpdateMultiRoblox())
                         {
                             if (notify)
-                                SetDashboardStatus(Shiro.Services.LocalizationService.Get("Auto_AccountManagerMo_023"));
+                                SetDashboardStatus(Shiro.Services.LocalizationService.Get("AccountManager.KilledAndActivatedMulti"));
                             return true;
                         }
                     }
                     else
                     {
                         if (notify)
-                            SetDashboardStatus(Shiro.Services.LocalizationService.Get("Auto_AccountManagerPr_032"));
+                            SetDashboardStatus(Shiro.Services.LocalizationService.Get("AccountManager.MultiRobloxCannotActivate"));
                     }
                 }
                 else
                 {
                     if (notify)
-                        SetDashboardStatus(Shiro.Services.LocalizationService.Get("Auto_AccountManagerPr_031"));
+                        SetDashboardStatus(Shiro.Services.LocalizationService.Get("AccountManager.RobloxRunningMultiInactive"));
                     return false;
                 }
             }

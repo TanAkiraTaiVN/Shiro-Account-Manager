@@ -309,8 +309,8 @@ namespace Shiro.Services
                 AppDispatcher.Post(() =>
                 {
                     ToastService.ShowWarning(
-                        Shiro.Services.LocalizationService.Get("Auto_LaunchCoordinato_234"),
-                        Shiro.Services.LocalizationService.Format("Auto_LaunchCoordinato_235", request.Account.Username, nextUsername));
+                        Shiro.Services.LocalizationService.Get("Launch.CaptchaRequiredTitle"),
+                        Shiro.Services.LocalizationService.Format("Launch.CaptchaPromptMessage", request.Account.Username, nextUsername));
                 });
 
                 long waitStart = Stopwatch.GetTimestamp();
@@ -328,7 +328,7 @@ namespace Shiro.Services
                         Account = request.Account,
                         Status = LaunchOutcome.Pending,
                         Completed = false,
-                        Message = Shiro.Services.LocalizationService.Format("Auto_LaunchCoordinato_236", index + 1, launchList.Count, request.Account.Username, remainingSecs, nextUsername)
+                        Message = Shiro.Services.LocalizationService.Format("Launch.CaptchaProgressWarning", index + 1, launchList.Count, request.Account.Username, remainingSecs, nextUsername)
                     });
 
                     await Task.Delay(500, cancellationToken).ConfigureAwait(false);
@@ -347,7 +347,7 @@ namespace Shiro.Services
                         AutoReconnectService.Instance.SuppressReconnect(request.Account.Username);
                         state.Status = LaunchOutcome.Failed;
                         state.Result = Loc.Get("Launch_CaptchaClosedError", Shiro.Services.LocalizationService.Get("Launch_CaptchaClosedError"));
-                        state.Message = Shiro.Services.LocalizationService.Format("Auto_LaunchCoordinato_237", request.Account.Username);
+                        state.Message = Shiro.Services.LocalizationService.Format("Launch.CaptchaIncompleteWarning", request.Account.Username);
                         Report(progress, state);
                         return;
                     }
@@ -370,7 +370,7 @@ namespace Shiro.Services
 
                 state.Status = LaunchOutcome.Failed;
                 state.Result = Loc.Get("Launch_CaptchaRequiredError", Shiro.Services.LocalizationService.Get("Launch_CaptchaRequiredError"));
-                state.Message = Shiro.Services.LocalizationService.Format("Auto_LaunchCoordinato_238", request.Account.Username);
+                state.Message = Shiro.Services.LocalizationService.Format("Launch.CaptchaTabClosedWarning", request.Account.Username);
                 Report(progress, state);
             }
         }

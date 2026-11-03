@@ -33,14 +33,14 @@ namespace Shiro
         {
             if (GetAccountsSnapshot().Count == 0)
             {
-                SetDashboardStatus(Shiro.Services.LocalizationService.Get("Auto_AccountManagerMo_011"));
+                SetDashboardStatus(Shiro.Services.LocalizationService.Get("AccountManager.AddAccountBeforeLaunch"));
                 return;
             }
 
             List<Account> multiSel = GetCurrentSelectedAccounts();
             if (multiSel == null || multiSel.Count == 0)
             {
-                SetDashboardStatus(Shiro.Services.LocalizationService.Get("Auto_AccountManagerMo_012"));
+                SetDashboardStatus(Shiro.Services.LocalizationService.Get("AccountManager.SelectAccountBeforeHome"));
                 return;
             }
 
@@ -48,7 +48,7 @@ namespace Shiro
                 return;
 
             _ = LaunchHomeAccountsAsync(multiSel, preferChromeHome: false);
-            SetDashboardStatus(Shiro.Services.LocalizationService.Format("Auto_AccountManagerMo_013", multiSel.Count));
+            SetDashboardStatus(Shiro.Services.LocalizationService.Format("AccountManager.OpeningHome", multiSel.Count));
         }
 
         internal async Task ModernJoinServerDirect(List<Account> accounts, long placeId, string jobId)
@@ -56,7 +56,7 @@ namespace Shiro
             var snapshot = GetAccountsSnapshot();
             if (snapshot.Count == 0)
             {
-                SetDashboardStatus(Shiro.Services.LocalizationService.Get("Auto_AccountManagerMo_014"));
+                SetDashboardStatus(Shiro.Services.LocalizationService.Get("AccountManager.AddAccountBeforeJoin"));
                 return;
             }
 
@@ -70,7 +70,7 @@ namespace Shiro
 
             if (targetAccounts == null || targetAccounts.Count == 0)
             {
-                SetDashboardStatus(Shiro.Services.LocalizationService.Get("Auto_AccountManagerMo_015"));
+                SetDashboardStatus(Shiro.Services.LocalizationService.Get("AccountManager.SelectAccountBeforeJoin"));
                 return;
             }
 
@@ -88,7 +88,7 @@ namespace Shiro
 
             if (placeId <= 0)
             {
-                SetDashboardStatus(Shiro.Services.LocalizationService.Get("Auto_AccountManagerMo_016"));
+                SetDashboardStatus(Shiro.Services.LocalizationService.Get("AccountManager.EnterPlaceIdBeforeJoin"));
                 return;
             }
 
@@ -109,7 +109,7 @@ namespace Shiro
 
             if (targetAccounts.Count > 1 && General.Get<bool>("EnableMultiRbx") && !RobloxSingletonService.MutexHeld && !TryEnableMultiRoblox(promptIfRobloxRunning: false))
             {
-                SetDashboardStatus(Shiro.Services.LocalizationService.Get("Auto_AccountManagerMo_017"));
+                SetDashboardStatus(Shiro.Services.LocalizationService.Get("AccountManager.MultiRobloxFailedCloseClient"));
                 return;
             }
 
@@ -119,7 +119,7 @@ namespace Shiro
             CancelLaunching();
             if (!await WaitForLaunchQueueToDrainAsync(TimeSpan.FromSeconds(8)).ConfigureAwait(true))
             {
-                SetDashboardStatus(Shiro.Services.LocalizationService.Get("Auto_AccountManagerMo_018"));
+                SetDashboardStatus(Shiro.Services.LocalizationService.Get("AccountManager.PreviousQueueStopping"));
                 return;
             }
 
@@ -127,7 +127,7 @@ namespace Shiro
             SelectedAccount = SelectedAccounts.Count == 1 ? SelectedAccounts[0] : null;
 
             string serverDesc = string.IsNullOrEmpty(cleanJobId) ? "Public Server" : (isVip ? "VIP Server" : $"Server {cleanJobId}");
-            SetDashboardStatus(Shiro.Services.LocalizationService.Format("Auto_AccountManagerMo_019", serverDesc, placeId, SelectedAccounts.Count));
+            SetDashboardStatus(Shiro.Services.LocalizationService.Format("AccountManager.JoiningServer", serverDesc, placeId, SelectedAccounts.Count));
 
             await LaunchAccounts(SelectedAccounts, placeId, cleanJobId, false, isVip).ConfigureAwait(true);
         }
@@ -138,8 +138,8 @@ namespace Shiro
             if (notify)
             {
                 SetDashboardStatus(totalKilled > 0
-                    ? Shiro.Services.LocalizationService.Format("Auto_AccountManagerMo_020", totalKilled)
-                    : Shiro.Services.LocalizationService.Get("Auto_AccountManagerMo_021"));
+                    ? Shiro.Services.LocalizationService.Format("AccountManager.KilledRobloxProcesses", totalKilled)
+                    : Shiro.Services.LocalizationService.Get("AccountManager.NoRobloxProcessesRunning"));
             }
 
             if (Shiro.AvaloniaUI.Views.MainWindow.Instance?.DashboardView?.ViewModel is var mainVm && mainVm != null)
@@ -147,14 +147,14 @@ namespace Shiro
                 if (notify)
                 {
                     mainVm.StatusMessage = totalKilled > 0
-                        ? Shiro.Services.LocalizationService.Format("Auto_AccountManagerMo_022", totalKilled)
-                        : Shiro.Services.LocalizationService.Get("Auto_AccountManagerMo_021");
+                        ? Shiro.Services.LocalizationService.Format("AccountManager.KilledRobloxProcessesExclamation", totalKilled)
+                        : Shiro.Services.LocalizationService.Get("AccountManager.NoRobloxProcessesRunning");
                 }
                 foreach (var acc in mainVm.Accounts) acc.IsInGame = false;
                 mainVm.NotifyCounts();
             }
             if (General.Get<bool>("EnableMultiRbx") && !RobloxSingletonService.MutexHeld && UpdateMultiRoblox() && notify)
-                SetDashboardStatus(Shiro.Services.LocalizationService.Get("Auto_AccountManagerMo_023"));
+                SetDashboardStatus(Shiro.Services.LocalizationService.Get("AccountManager.KilledAndActivatedMulti"));
 
             ModernRefreshPresence();
         }

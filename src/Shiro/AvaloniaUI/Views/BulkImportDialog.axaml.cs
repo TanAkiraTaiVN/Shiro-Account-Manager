@@ -26,7 +26,7 @@ namespace Shiro.AvaloniaUI.Views
         private void OnClearClicked(object sender, RoutedEventArgs e)
         {
             TxtImportData.Text = string.Empty;
-            TxtStatus.Text = Shiro.Services.LocalizationService.Get("Auto_BulkImportDialog_065");
+            TxtStatus.Text = Shiro.Services.LocalizationService.Get("BulkImport.ContentCleared");
             TxtStatus.Foreground = Brushes.Gray;
         }
 
@@ -47,7 +47,7 @@ namespace Shiro.AvaloniaUI.Views
             string? raw = TxtImportData.Text;
             if (string.IsNullOrWhiteSpace(raw))
             {
-                TxtStatus.Text = Shiro.Services.LocalizationService.Get("Auto_BulkImportDialog_066");
+                TxtStatus.Text = Shiro.Services.LocalizationService.Get("BulkImport.PasteAccountListPrompt");
                 TxtStatus.Foreground = Brushes.OrangeRed;
                 return;
             }
@@ -56,7 +56,7 @@ namespace Shiro.AvaloniaUI.Views
 
             if (lines.Length == 0)
             {
-                TxtStatus.Text = Shiro.Services.LocalizationService.Get("Auto_BulkImportDialog_067");
+                TxtStatus.Text = Shiro.Services.LocalizationService.Get("BulkImport.NoValidAccountsFound");
                 TxtStatus.Foreground = Brushes.OrangeRed;
                 return;
             }
@@ -136,7 +136,7 @@ namespace Shiro.AvaloniaUI.Views
 
                             int current = newSuccess + newFailed;
                             PrgProgress.Value = current;
-                            TxtStatus.Text = Shiro.Services.LocalizationService.Format("Auto_BulkImportDialog_068", current, lines.Length);
+                            TxtStatus.Text = Shiro.Services.LocalizationService.Format("BulkImport.ImportingCookie", current, lines.Length);
                         }
                         catch (OperationCanceledException) { /* Cancelled */ }
                         finally
@@ -167,7 +167,7 @@ namespace Shiro.AvaloniaUI.Views
                         if (token.IsCancellationRequested) break;
                         upIndex++;
 
-                        TxtStatus.Text = Shiro.Services.LocalizationService.Format("Auto_BulkImportDialog_069", up.username, upIndex, userPassLines.Count);
+                        TxtStatus.Text = Shiro.Services.LocalizationService.Format("BulkImport.SavingAccount", up.username, upIndex, userPassLines.Count);
 
                         if (!existingByUsername.TryGetValue(up.username, out Account? targetAcc))
                         {
@@ -216,7 +216,7 @@ namespace Shiro.AvaloniaUI.Views
                     try { AppServices.AccountRepository.Save(true); }
                     catch (Exception ex) { Program.Logger?.Warn($"SaveAccounts after bulk import failed: {ex.Message}"); }
                     MainWindow.Instance?.DashboardView?.LoadDashboardData();
-                    AppSettings.SetDashboardStatus(Shiro.Services.LocalizationService.Format("Auto_BulkImportDialog_070", success));
+                    AppSettings.SetDashboardStatus(Shiro.Services.LocalizationService.Format("BulkImport.Completed", success));
                 }
 
                 ImportedCount = success;
@@ -226,7 +226,7 @@ namespace Shiro.AvaloniaUI.Views
 
                 if (queuedForFastLogin.Count > 0 && !token.IsCancellationRequested)
                 {
-                    TxtStatus.Text = Shiro.Services.LocalizationService.Format("Auto_BulkImportDialog_071", success, queuedForFastLogin.Count);
+                    TxtStatus.Text = Shiro.Services.LocalizationService.Format("BulkImport.OpeningInAppLogin", success, queuedForFastLogin.Count);
                     TxtStatus.Foreground = Brushes.LightGreen;
 
                     if (queuedForFastLogin.Count == 1)
@@ -236,12 +236,12 @@ namespace Shiro.AvaloniaUI.Views
                 }
                 else if (token.IsCancellationRequested)
                 {
-                    TxtStatus.Text = Shiro.Services.LocalizationService.Format("Auto_BulkImportDialog_072", success);
+                    TxtStatus.Text = Shiro.Services.LocalizationService.Format("BulkImport.StoppedWithSuccessCount", success);
                     TxtStatus.Foreground = Brushes.Orange;
                 }
                 else
                 {
-                    TxtStatus.Text = Shiro.Services.LocalizationService.Format("Auto_BulkImportDialog_073", success, failed);
+                    TxtStatus.Text = Shiro.Services.LocalizationService.Format("BulkImport.SummaryResult", success, failed);
                     TxtStatus.Foreground = success > 0 ? Brushes.LightGreen : Brushes.OrangeRed;
                 }
             }

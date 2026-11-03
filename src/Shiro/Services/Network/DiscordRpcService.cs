@@ -197,20 +197,20 @@ namespace Shiro.Services
             string details;
             if (!string.IsNullOrWhiteSpace(gameName) && showGame)
             {
-                details = Shiro.Services.LocalizationService.Format("Auto_DiscordRpcServic_251", gameName);
+                details = Shiro.Services.LocalizationService.Format("DiscordRpc.PlayingGame", gameName);
             }
             else
             {
-                details = Shiro.Services.LocalizationService.Format("Auto_DiscordRpcServic_252", totalAccounts);
+                details = Shiro.Services.LocalizationService.Format("DiscordRpc.ManagingAccounts", totalAccounts);
             }
 
             string state = activeInGameAccounts > 0
-                ? Shiro.Services.LocalizationService.Format("Auto_DiscordRpcServic_253", activeInGameAccounts)
-                : Shiro.Services.LocalizationService.Get("Auto_DiscordRpcServic_254");
+                ? Shiro.Services.LocalizationService.Format("DiscordRpc.ClientsOnline", activeInGameAccounts)
+                : Shiro.Services.LocalizationService.Get("DiscordRpc.ReadyToLaunch");
 
             if (isStreamerMode)
             {
-                state = Shiro.Services.LocalizationService.Get("Auto_DiscordRpcServic_255");
+                state = Shiro.Services.LocalizationService.Get("DiscordRpc.StreamerMode");
             }
 
             var activity = new DiscordActivityItem

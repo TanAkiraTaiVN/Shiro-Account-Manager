@@ -71,8 +71,8 @@ namespace Shiro.Services
                 AppDispatcher.Post(() =>
                 {
                     ToastService.ShowInfo(
-                        Shiro.Services.LocalizationService.Get("Auto_UpdateCheckServi_272"),
-                        Shiro.Services.LocalizationService.Format("Auto_UpdateCheckServi_273", tagName));
+                        Shiro.Services.LocalizationService.Get("UpdateCheck.NewUpdateTitle"),
+                        Shiro.Services.LocalizationService.Format("UpdateCheck.NewVersionAvailable", tagName));
                 });
                 return true;
             }

@@ -62,8 +62,8 @@ namespace Shiro
             if (manualReset)
             {
                 string? newPass = await Shiro.AvaloniaUI.Views.InputDialog.PromptAsync(
-                    Shiro.Services.LocalizationService.Get("Auto_AccountManagerPe_024"),
-                    Shiro.Services.LocalizationService.Get("Auto_AccountManagerPe_025"));
+                    Shiro.Services.LocalizationService.Get("AccountManager.EnterNewPasswordPrompt"),
+                    Shiro.Services.LocalizationService.Get("AccountManager.ChangeDatabasePassword"));
 
                 if (newPass == "/UC" || newPass == null) return;
 
@@ -71,20 +71,20 @@ namespace Shiro
                 {
                     PasswordHash = Array.Empty<byte>();
                     SaveAccounts(true, true);
-                    AppServices.Dialogs.ShowInfo(Shiro.Services.LocalizationService.Get("Auto_AccountManagerPe_026"));
+                    AppServices.Dialogs.ShowInfo(Shiro.Services.LocalizationService.Get("AccountManager.SwitchedToDefaultVault"));
                 }
                 else
                 {
                     if (newPass.Length < 8)
                     {
-                        AppServices.Dialogs.ShowWarning(Shiro.Services.LocalizationService.Get("Auto_AccountManagerPe_027"));
+                        AppServices.Dialogs.ShowWarning(Shiro.Services.LocalizationService.Get("AccountManager.MasterPasswordMinLength"));
                         return;
                     }
                     byte[] hash = SHA512.HashData(Encoding.UTF8.GetBytes(newPass));
                     try { PasswordHash = new ReadOnlyMemory<byte>(ProtectedData.Protect(hash, Array.Empty<byte>(), DataProtectionScope.CurrentUser)); }
                     finally { CryptographicOperations.ZeroMemory(hash); }
                     SaveAccounts(true, true);
-                    AppServices.Dialogs.ShowInfo(Shiro.Services.LocalizationService.Get("Auto_AccountManagerPe_028"));
+                    AppServices.Dialogs.ShowInfo(Shiro.Services.LocalizationService.Get("AccountManager.NewPasswordSet"));
                 }
             }
         }

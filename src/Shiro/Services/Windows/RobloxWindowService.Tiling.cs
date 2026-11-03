@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -22,11 +22,11 @@ namespace Shiro.Services
 
             var pids = GetRobloxPids();
             if (pids.Count == 0)
-                return (0, Shiro.Services.LocalizationService.Get("Auto_RobloxWindowArra_343"));
+                return (0, Shiro.Services.LocalizationService.Get("WindowArranger.NoClientsRunning"));
 
             var windows = FindWindowsForPids(pids).Where(IsWindow).Distinct().ToList();
             if (windows.Count == 0)
-                return (0, Shiro.Services.LocalizationService.Get("Auto_RobloxWindowArra_344"));
+                return (0, Shiro.Services.LocalizationService.Get("WindowArranger.NoWindowsFound"));
 
             var workArea = GetTargetWorkArea();
             int count = windows.Count;
@@ -53,7 +53,7 @@ namespace Shiro.Services
                 }
             }
 
-            string desc = Shiro.Services.LocalizationService.Format("Auto_RobloxWindowServ_346", cols, rows, tiled);
+            string desc = Shiro.Services.LocalizationService.Format("WindowService.GridDimensionsFormat", cols, rows, tiled);
             Program.Logger.Info($"[RobloxWindowService] Tiled {tiled} Roblox window(s) into {desc} grid.");
             return (tiled, desc);
         }

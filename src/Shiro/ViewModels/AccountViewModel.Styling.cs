@@ -13,16 +13,16 @@ namespace Shiro.ViewModels
             get
             {
                 if (IsBannedOrLocked)
-                    return Shiro.Services.LocalizationService.Format("Auto_AccountViewModel_347", _model.AccountStatusIssue);
+                    return Shiro.Services.LocalizationService.Format("Account.StatusIssue", _model.AccountStatusIssue);
                 if (IsExpired)
-                    return Shiro.Services.LocalizationService.Get("Auto_AccountViewModel_348");
+                    return Shiro.Services.LocalizationService.Get("Account.SessionExpiredTip");
                 int payloadLen = Account.GetSessionTokenPayloadLength(_model.SecurityToken);
-                string lastUseStr = _model.LastUse != DateTime.MinValue ? _model.LastUse.ToString("dd/MM/yyyy HH:mm") : Shiro.Services.LocalizationService.Get("Auto_AccountViewModel_349");
+                string lastUseStr = _model.LastUse != DateTime.MinValue ? _model.LastUse.ToString("dd/MM/yyyy HH:mm") : Shiro.Services.LocalizationService.Get("Account.SessionUnknown");
                 if (IsShortLivedSession)
-                    return Shiro.Services.LocalizationService.Format("Auto_AccountViewModel_350", payloadLen, lastUseStr);
+                    return Shiro.Services.LocalizationService.Format("Account.ShortSessionTip", payloadLen, lastUseStr);
                 return payloadLen > 0
-                    ? Shiro.Services.LocalizationService.Format("Auto_AccountViewModel_351", payloadLen, lastUseStr)
-                    : Shiro.Services.LocalizationService.Format("Auto_AccountViewModel_352", lastUseStr);
+                    ? Shiro.Services.LocalizationService.Format("Account.HealthySessionTip", payloadLen, lastUseStr)
+                    : Shiro.Services.LocalizationService.Format("Account.ValidSessionTip", lastUseStr);
             }
         }
 
@@ -53,10 +53,10 @@ namespace Shiro.ViewModels
                     return string.IsNullOrEmpty(LiveMemoryText) ? Loc.Get("Status_InGame") : $"{Loc.Get("Status_InGame")} ({LiveMemoryText})";
                 }
                 if (IsLocalClientRunning)
-                    return LocalizationService.Get("Auto_AccountViewModel_353");
+                    return LocalizationService.Get("Account.OpeningRoblox");
                 if (IsInStudio) return "Roblox Studio";
                 if (IsOnline) return Loc.Get("Status_Online");
-                if (IsShortLivedSession) return LocalizationService.Get("Auto_AccountViewModel_354");
+                if (IsShortLivedSession) return LocalizationService.Get("Account.ShortSessionBadge");
                 return Loc.Get("Status_Ready");
             }
         }

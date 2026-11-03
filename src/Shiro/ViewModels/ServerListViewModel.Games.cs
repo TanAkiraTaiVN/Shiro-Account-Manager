@@ -146,7 +146,7 @@ namespace Shiro.ViewModels
                 if (_mainViewModel != null)
                 {
                     _mainViewModel.PlaceId = game.PlaceId.ToString();
-                    _mainViewModel.StatusMessage = LocalizationService.Format("Auto_ServerListViewMo_523", game.Name, game.PlaceId);
+                    _mainViewModel.StatusMessage = LocalizationService.Format("ServerList.GameSelected", game.Name, game.PlaceId);
                 }
                 SelectedSubTabIndex = 0;
                 _ = RefreshServersAsync();
@@ -165,11 +165,11 @@ namespace Shiro.ViewModels
                     _mainViewModel.JobId = string.Empty;
                     if (_mainViewModel.SelectedCount > 0)
                     {
-                        _mainViewModel.StatusMessage = LocalizationService.Format("Auto_ServerListViewMo_524", game.Name, game.PlaceId);
+                        _mainViewModel.StatusMessage = LocalizationService.Format("ServerList.LaunchingGame", game.Name, game.PlaceId);
                     }
                     else
                     {
-                        LoadingStatus = LocalizationService.Get("Auto_ServerListViewMo_525");
+                        LoadingStatus = LocalizationService.Get("ServerList.SelectAccountBeforePlay");
                     }
                 }
                 _mainViewModel?.JoinServerSelectedCommand?.Execute(null);
@@ -209,7 +209,7 @@ namespace Shiro.ViewModels
 
             if (_favorites.Any(f => f.PlaceId == pid))
             {
-                LoadingStatus = LocalizationService.Get("Auto_ServerListViewMo_526");
+                LoadingStatus = LocalizationService.Get("ServerList.GameAlreadyFavorite");
                 return;
             }
 
@@ -241,7 +241,7 @@ namespace Shiro.ViewModels
             {
                 _ = ResolveFavoriteThumbnailsAsync();
             }
-            LoadingStatus = LocalizationService.Format("Auto_ServerListViewMo_527", name);
+            LoadingStatus = LocalizationService.Format("ServerList.AddedToFavorites", name);
         }
 
         private void RemoveFavorite(object? param)
@@ -250,7 +250,7 @@ namespace Shiro.ViewModels
             {
                 _favorites.Remove(fav);
                 SaveFavorites();
-                LoadingStatus = LocalizationService.Format("Auto_ServerListViewMo_528", fav.Name);
+                LoadingStatus = LocalizationService.Format("ServerList.RemovedFromFavorites", fav.Name);
             }
         }
 
@@ -265,7 +265,7 @@ namespace Shiro.ViewModels
                     _mainViewModel.PlaceId = fav.PlaceId.ToString();
                     if (!string.IsNullOrEmpty(fav.PrivateServer))
                         _mainViewModel.JobId = fav.PrivateServer;
-                    _mainViewModel.StatusMessage = LocalizationService.Format("Auto_ServerListViewMo_529", fav.Name);
+                    _mainViewModel.StatusMessage = LocalizationService.Format("ServerList.FavoriteGameSelected", fav.Name);
                 }
                 SelectedSubTabIndex = 0;
                 _ = RefreshServersAsync();
@@ -283,11 +283,11 @@ namespace Shiro.ViewModels
                     _mainViewModel.JobId = fav.PrivateServer ?? string.Empty;
                     if (_mainViewModel.SelectedCount > 0)
                     {
-                        _mainViewModel.StatusMessage = LocalizationService.Format("Auto_ServerListViewMo_530", fav.Name);
+                        _mainViewModel.StatusMessage = LocalizationService.Format("ServerList.LaunchingFavoriteGame", fav.Name);
                     }
                     else
                     {
-                        LoadingStatus = LocalizationService.Get("Auto_ServerListViewMo_525");
+                        LoadingStatus = LocalizationService.Get("ServerList.SelectAccountBeforePlay");
                     }
                 }
                 _mainViewModel?.JoinServerSelectedCommand?.Execute(null);

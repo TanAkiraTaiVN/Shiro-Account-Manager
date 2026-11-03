@@ -92,7 +92,7 @@ namespace Shiro.AvaloniaUI.Converters
 
             if (string.Equals(s, "Default", StringComparison.OrdinalIgnoreCase))
             {
-                return LocalizationService.Get("Auto_ValueConverters_033");
+                return LocalizationService.Get("Converters.DefaultGroup");
             }
 
             return s;

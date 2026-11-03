@@ -64,13 +64,13 @@ namespace Shiro.Services
                 return AccentTheme.Monochrome;
 
             string clean = value.Trim().ToLowerInvariant();
-            if (clean == Shiro.Services.LocalizationService.Get("Auto_AccentThemeServi_335"))
+            if (clean == Shiro.Services.LocalizationService.Get("AccentTheme.White"))
                 return AccentTheme.Monochrome;
-            if (clean == Shiro.Services.LocalizationService.Get("Auto_AccentThemeServi_336"))
+            if (clean == Shiro.Services.LocalizationService.Get("AccentTheme.Purple"))
                 return AccentTheme.Violet;
-            if (clean == Shiro.Services.LocalizationService.Get("Auto_AccentThemeServi_337"))
+            if (clean == Shiro.Services.LocalizationService.Get("AccentTheme.Green"))
                 return AccentTheme.Emerald;
-            if (clean == Shiro.Services.LocalizationService.Get("Auto_AccentThemeServi_338"))
+            if (clean == Shiro.Services.LocalizationService.Get("AccentTheme.Pink"))
                 return AccentTheme.Pink;
 
             return clean switch

@@ -36,25 +36,25 @@ namespace Shiro.ViewModels
                     targetCount = parsed;
 
                 int picked = SelectFirstReadyAccounts(targetCount);
-                StatusMessage = Shiro.Services.LocalizationService.Format("Auto_MainViewModelUiC_498", picked);
+                StatusMessage = Shiro.Services.LocalizationService.Format("Main.QuickSelectedReady", picked);
                 if (picked == 0)
                 {
                     ToastService.ShowWarning(
                         Shiro.Services.LocalizationService.Get("Dash_QuickSelect"),
-                        Shiro.Services.LocalizationService.Get("Auto_MainViewModelUiC_499"));
+                        Shiro.Services.LocalizationService.Get("Main.NoReadyAccountsInList"));
                 }
             });
 
             InvertSelectionCommand = new RelayCommand(() =>
             {
                 int count = InvertFilteredSelection();
-                StatusMessage = Shiro.Services.LocalizationService.Format("Auto_MainViewModelUiC_500", count);
+                StatusMessage = Shiro.Services.LocalizationService.Format("Main.InvertedSelectionResult", count);
             });
 
             SelectByRangePromptCommand = new RelayCommand(() =>
             {
-                string prompt = Shiro.Services.LocalizationService.Get("Auto_MainViewModelUiC_501");
-                string title = Shiro.Services.LocalizationService.Get("Auto_MainViewModelUiC_502");
+                string prompt = Shiro.Services.LocalizationService.Get("Main.EnterSelectionRangePrompt");
+                string title = Shiro.Services.LocalizationService.Get("Main.SelectByRangeTitle");
                 string input = AppServices.Dialogs.ShowInputPrompt(prompt, title);
                 if (string.IsNullOrWhiteSpace(input) || input == "/UC")
                     return;
@@ -62,13 +62,13 @@ namespace Shiro.ViewModels
                 int picked = SelectRangeExpression(input);
                 if (picked > 0)
                 {
-                    string msg = Shiro.Services.LocalizationService.Format("Auto_MainViewModelUiC_503", picked, input);
+                    string msg = Shiro.Services.LocalizationService.Format("Main.SelectedByRangeResult", picked, input);
                     StatusMessage = msg;
                     ToastService.ShowSuccess(title, msg);
                 }
                 else
                 {
-                    string warn = Shiro.Services.LocalizationService.Format("Auto_MainViewModelUiC_504", input);
+                    string warn = Shiro.Services.LocalizationService.Format("Main.NoAccountsMatchedRange", input);
                     StatusMessage = "" + warn;
                     ToastService.ShowWarning(title, warn);
                 }
@@ -112,10 +112,10 @@ namespace Shiro.ViewModels
                 {
                     acc.IsLaunching = false;
                 }
-                string stopMsg = Shiro.Services.LocalizationService.Get("Auto_MainViewModelUiC_505");
+                string stopMsg = Shiro.Services.LocalizationService.Get("Main.LaunchQueueStopped");
                 StatusMessage = stopMsg;
                 ToastService.ShowWarning(
-                    Shiro.Services.LocalizationService.Get("Auto_MainViewModelUiC_506"),
+                    Shiro.Services.LocalizationService.Get("Main.LaunchQueueStoppedTitle"),
                     stopMsg);
             });
 
@@ -127,14 +127,14 @@ namespace Shiro.ViewModels
                 bool ok = RobloxWindowArrangerService.FocusAccountWindow(avm.Model);
                 if (ok)
                 {
-                    StatusMessage = Shiro.Services.LocalizationService.Format("Auto_MainViewModelUiC_507", avm.Username);
+                    StatusMessage = Shiro.Services.LocalizationService.Format("Main.BroughtWindowToFront", avm.Username);
                 }
                 else
                 {
                     RefreshLiveProcessStatus();
                     ToastService.ShowInfo(
                         avm.Username,
-                        Shiro.Services.LocalizationService.Get("Auto_MainViewModelUiC_508"));
+                        Shiro.Services.LocalizationService.Get("Main.WindowNotFoundForAccount"));
                 }
             });
 
@@ -160,17 +160,17 @@ namespace Shiro.ViewModels
                 var (arranged, desc) = RobloxWindowArrangerService.ArrangeWindows(mode);
                 if (arranged > 0)
                 {
-                    string okMsg = Shiro.Services.LocalizationService.Format("Auto_MainViewModelUiC_509", arranged, desc);
+                    string okMsg = Shiro.Services.LocalizationService.Format("Main.WindowsArrangedWithLayout", arranged, desc);
                     StatusMessage = okMsg;
                     ToastService.ShowSuccess(
-                        Shiro.Services.LocalizationService.Get("Auto_MainViewModelUiC_510"),
+                        Shiro.Services.LocalizationService.Get("Main.ArrangeWindowsTitle"),
                         okMsg);
                 }
                 else
                 {
                     StatusMessage = $"{desc}";
                     ToastService.ShowWarning(
-                        Shiro.Services.LocalizationService.Get("Auto_MainViewModelUiC_510"),
+                        Shiro.Services.LocalizationService.Get("Main.ArrangeWindowsTitle"),
                         desc);
                 }
             });
@@ -184,8 +184,8 @@ namespace Shiro.ViewModels
                 NotifyToolStatesChanged();
 
                 string msg = next
-                    ? LocalizationService.Get("Auto_MainViewModelUiC_511")
-                    : LocalizationService.Get("Auto_MainViewModelUiC_512");
+                    ? LocalizationService.Get("Main.SmartAutoMuteActivated")
+                    : LocalizationService.Get("Main.SmartAutoMuteDeactivated");
                 StatusMessage = msg;
                 ToastService.ShowInfo("Smart Auto-Mute", msg);
             });

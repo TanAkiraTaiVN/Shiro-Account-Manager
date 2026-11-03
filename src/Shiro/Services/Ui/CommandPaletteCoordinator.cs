@@ -20,7 +20,7 @@ namespace Shiro.Services
                 if (uc != UnicodeCategory.NonSpacingMark)
                     sb.Append(char.ToLowerInvariant(c));
             }
-            return sb.ToString().Normalize(NormalizationForm.FormC).Replace(Shiro.Services.LocalizationService.Get("Auto_CommandPaletteCo_341"), "d");
+            return sb.ToString().Normalize(NormalizationForm.FormC).Replace(Shiro.Services.LocalizationService.Get("CommandPalette.CharDWithStroke"), "d");
         }
     }
 }

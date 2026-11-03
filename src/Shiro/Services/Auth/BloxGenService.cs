@@ -100,7 +100,7 @@ namespace Shiro.Services
                 return new BloxGenAccountResult
                 {
                     Success = false,
-                    ErrorMessage = Shiro.Services.LocalizationService.Get("Auto_BloxGenService_200")
+                    ErrorMessage = Shiro.Services.LocalizationService.Get("BloxGen.EnterApiKey")
                 };
             }
 
@@ -140,7 +140,7 @@ namespace Shiro.Services
                 bool success = root.TryGetProperty("success", out var succProp) ? succProp.GetBoolean() : true;
                 if (!success)
                 {
-                    string err = root.TryGetProperty("message", out var msgProp) ? (msgProp.GetString() ?? Shiro.Services.LocalizationService.Get("Auto_AltGenDialogaxam_058")) : Shiro.Services.LocalizationService.Get("Auto_BloxGenService_201");
+                    string err = root.TryGetProperty("message", out var msgProp) ? (msgProp.GetString() ?? Shiro.Services.LocalizationService.Get("AltGen.UnknownError")) : Shiro.Services.LocalizationService.Get("BloxGen.RequestFailed");
                     return new BloxGenAccountResult { Success = false, ErrorMessage = err };
                 }
 
@@ -155,7 +155,7 @@ namespace Shiro.Services
                     return new BloxGenAccountResult
                     {
                         Success = false,
-                        ErrorMessage = Shiro.Services.LocalizationService.Get("Auto_BloxGenService_202")
+                        ErrorMessage = Shiro.Services.LocalizationService.Get("BloxGen.MissingCookieResponse")
                     };
                 }
 
@@ -191,7 +191,7 @@ namespace Shiro.Services
             }
             catch (OperationCanceledException)
             {
-                return new BloxGenAccountResult { Success = false, ErrorMessage = Shiro.Services.LocalizationService.Get("Auto_BloxGenService_203") };
+                return new BloxGenAccountResult { Success = false, ErrorMessage = Shiro.Services.LocalizationService.Get("BloxGen.RequestCancelled") };
             }
             catch (Exception ex)
             {

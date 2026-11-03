@@ -87,14 +87,14 @@ namespace Shiro.AvaloniaUI.Views
                 if (TxtDialogTitle != null)
                 {
                     TxtDialogTitle.Text = _accountQueue.Count > 1
-                        ? Shiro.Services.LocalizationService.Format("Auto_FastLoginDialoga_082", _username, index + 1, _accountQueue.Count)
-                        : Shiro.Services.LocalizationService.Format("Auto_FastLoginDialoga_083", _username);
+                        ? Shiro.Services.LocalizationService.Format("FastLogin.DialogProgressTitle", _username, index + 1, _accountQueue.Count)
+                        : Shiro.Services.LocalizationService.Format("FastLogin.DialogSingleTitle", _username);
                 }
                 if (TxtDialogSubtitle != null)
                 {
                     TxtDialogSubtitle.Text = !string.IsNullOrEmpty(_password)
-                        ? Shiro.Services.LocalizationService.Get("Auto_FastLoginDialoga_084")
-                        : Shiro.Services.LocalizationService.Get("Auto_FastLoginDialoga_085");
+                        ? Shiro.Services.LocalizationService.Get("FastLogin.AutoFillUserPassTip")
+                        : Shiro.Services.LocalizationService.Get("FastLogin.AutoFillUserOnlyTip");
                 }
             }
 
@@ -130,12 +130,12 @@ namespace Shiro.AvaloniaUI.Views
         {
             if (!e.IsSuccess)
             {
-                TxtInAppStatus.Text = Shiro.Services.LocalizationService.Format("Auto_FastLoginDialoga_086", e.Error?.Message);
+                TxtInAppStatus.Text = Shiro.Services.LocalizationService.Format("FastLogin.WebViewInitFailed", e.Error?.Message);
                 TxtInAppStatus.Foreground = Brushes.OrangeRed;
                 return;
             }
 
-            TxtInAppStatus.Text = Shiro.Services.LocalizationService.Get("Auto_FastLoginDialoga_087");
+            TxtInAppStatus.Text = Shiro.Services.LocalizationService.Get("FastLogin.LoadingSecureLoginPage");
             TxtInAppStatus.Foreground = Brushes.DeepSkyBlue;
 
             var core = WvBrowser?.CoreWebView2;
@@ -150,7 +150,7 @@ namespace Shiro.AvaloniaUI.Views
                 {
                     _restoredHbaScriptId = await RobloxHbaService.RestoreWebViewModerationSessionAsync(core, singleAcc, _currentHbaSnapshot);
                     _ignoredCookieValues.Add(Fingerprint(singleAcc.SecurityToken));
-                    TxtInAppStatus.Text = Shiro.Services.LocalizationService.Format("Auto_FastLoginDialoga_088", singleAcc.Username, singleAcc.AccountStatusIssue);
+                    TxtInAppStatus.Text = Shiro.Services.LocalizationService.Format("FastLogin.OpeningModerationPage", singleAcc.Username, singleAcc.AccountStatusIssue);
                     core.Navigate("https://www.roblox.com/home");
                 }
                 else
@@ -201,7 +201,7 @@ namespace Shiro.AvaloniaUI.Views
                         return;
                     }
 
-                    TxtInAppStatus.Text = Shiro.Services.LocalizationService.Get("Auto_FastLoginDialoga_089");
+                    TxtInAppStatus.Text = Shiro.Services.LocalizationService.Get("FastLogin.CannotLoadLoginPage");
                     TxtInAppStatus.Foreground = Brushes.OrangeRed;
                     return;
                 }
@@ -212,14 +212,14 @@ namespace Shiro.AvaloniaUI.Views
                 if (!string.IsNullOrEmpty(_username) && isLoginPage)
                 {
                     TxtInAppStatus.Text = !string.IsNullOrEmpty(_password)
-                        ? Shiro.Services.LocalizationService.Format("Auto_FastLoginDialoga_090", _username)
-                        : Shiro.Services.LocalizationService.Format("Auto_FastLoginDialoga_091", _username);
+                        ? Shiro.Services.LocalizationService.Format("FastLogin.AutoFillingAndLoggingIn", _username)
+                        : Shiro.Services.LocalizationService.Format("FastLogin.AutoFillingUsername", _username);
                     TxtInAppStatus.Foreground = Brushes.LightGreen;
                     await TryFillCredentialsAsync(forceClick: false);
                 }
                 else if (isLoginPage)
                 {
-                    TxtInAppStatus.Text = Shiro.Services.LocalizationService.Get("Auto_FastLoginDialoga_092");
+                    TxtInAppStatus.Text = Shiro.Services.LocalizationService.Get("FastLogin.LoginPageReady");
                     TxtInAppStatus.Foreground = Brushes.LightGreen;
                 }
 
@@ -291,12 +291,12 @@ namespace Shiro.AvaloniaUI.Views
             string cookie = Account.SanitizeCookie(TxtCookie?.Text ?? string.Empty);
             if (string.IsNullOrEmpty(cookie))
             {
-                TxtPreviewStatus.Text = Shiro.Services.LocalizationService.Get("Auto_FastLoginDialoga_093");
+                TxtPreviewStatus.Text = Shiro.Services.LocalizationService.Get("FastLogin.PasteCookiePrompt");
                 TxtPreviewStatus.Foreground = Brushes.OrangeRed;
                 return;
             }
 
-            TxtPreviewStatus.Text = Shiro.Services.LocalizationService.Get("Auto_FastLoginDialoga_094");
+            TxtPreviewStatus.Text = Shiro.Services.LocalizationService.Get("FastLogin.CheckingRobloxApi");
             TxtPreviewStatus.Foreground = Brushes.DeepSkyBlue;
             BtnVerify.IsEnabled = false;
 
@@ -308,15 +308,15 @@ namespace Shiro.AvaloniaUI.Views
                     _lastVerifiedCookie = cookie;
                     _lastVerifiedAccount = account;
                     TxtPreviewUsername.Text = $"{account.Username} (ID: {account.UserID})";
-                    TxtPreviewStatus.Text = Shiro.Services.LocalizationService.Get("Auto_FastLoginDialoga_095");
+                    TxtPreviewStatus.Text = Shiro.Services.LocalizationService.Get("FastLogin.CookieValidAndVerified");
                     TxtPreviewStatus.Foreground = Brushes.LightGreen;
                 }
                 else
                 {
                     _lastVerifiedCookie = string.Empty;
                     _lastVerifiedAccount = null;
-                    TxtPreviewUsername.Text = Shiro.Services.LocalizationService.Get("Auto_FastLoginDialoga_096");
-                    TxtPreviewStatus.Text = Shiro.Services.LocalizationService.Get("Auto_FastLoginDialoga_097");
+                    TxtPreviewUsername.Text = Shiro.Services.LocalizationService.Get("FastLogin.InvalidAccountTitle");
+                    TxtPreviewStatus.Text = Shiro.Services.LocalizationService.Get("FastLogin.CookieExpiredOrInvalid");
                     TxtPreviewStatus.Foreground = Brushes.OrangeRed;
                 }
             }
@@ -338,7 +338,7 @@ namespace Shiro.AvaloniaUI.Views
             string cookie = Account.SanitizeCookie(TxtCookie?.Text ?? string.Empty);
             if (string.IsNullOrEmpty(cookie))
             {
-                TxtPreviewStatus.Text = Shiro.Services.LocalizationService.Get("Auto_FastLoginDialoga_098");
+                TxtPreviewStatus.Text = Shiro.Services.LocalizationService.Get("FastLogin.EnterValidCookiePrompt");
                 TxtPreviewStatus.Foreground = Brushes.OrangeRed;
                 return;
             }
@@ -383,12 +383,12 @@ namespace Shiro.AvaloniaUI.Views
 
                     CreatedAccount = newAcc;
                     MainWindow.Instance?.DashboardView?.LoadDashboardData();
-                    AppSettings.SetDashboardStatus(Shiro.Services.LocalizationService.Format("Auto_FastLoginDialoga_099", newAcc.Username));
+                    AppSettings.SetDashboardStatus(Shiro.Services.LocalizationService.Format("FastLogin.AccountAddedSuccess", newAcc.Username));
                     Close(true);
                 }
                 else
                 {
-                    TxtPreviewStatus.Text = Shiro.Services.LocalizationService.Get("Auto_FastLoginDialoga_100");
+                    TxtPreviewStatus.Text = Shiro.Services.LocalizationService.Get("FastLogin.CookieFailedOrExpired");
                     TxtPreviewStatus.Foreground = Brushes.OrangeRed;
                 }
             }

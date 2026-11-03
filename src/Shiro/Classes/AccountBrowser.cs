@@ -238,7 +238,7 @@ namespace Shiro.Classes
             catch (InvalidOperationException ex)
             {
                 Program.Logger?.Error($"[AccountBrowser] {ex.Message}");
-                ToastService.ShowError(Shiro.Services.LocalizationService.Get("Auto_AccountBrowser_196"), ex.Message);
+                ToastService.ShowError(Shiro.Services.LocalizationService.Get("AccountBrowser.ProxyError"), ex.Message);
                 return;
             }
             if (verifiedProxy != null)

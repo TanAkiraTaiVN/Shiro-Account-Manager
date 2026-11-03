@@ -77,16 +77,16 @@ namespace Shiro.AvaloniaUI.Views
                 if (TxtStatus != null)
                 {
                     string extra = (skippedDuplicate > 0 || invalid > 0)
-                        ? Shiro.Services.LocalizationService.Format("Auto_ProxyManagerDial_164", skippedDuplicate, invalid)
+                        ? Shiro.Services.LocalizationService.Format("ProxyManager.DuplicatesAndErrorsSummary", skippedDuplicate, invalid)
                         : string.Empty;
-                    TxtStatus.Text = Shiro.Services.LocalizationService.Format("Auto_ProxyManagerDial_165", added, extra);
+                    TxtStatus.Text = Shiro.Services.LocalizationService.Format("ProxyManager.AddedProxiesCount", added, extra);
                 }
             }
             else if (TxtStatus != null)
             {
                 TxtStatus.Text = skippedDuplicate > 0
-                    ? Shiro.Services.LocalizationService.Get("Auto_ProxyManagerDial_166")
-                    : Shiro.Services.LocalizationService.Get("Auto_ProxyManagerDial_167");
+                    ? Shiro.Services.LocalizationService.Get("ProxyManager.ProxyAlreadyExists")
+                    : Shiro.Services.LocalizationService.Get("ProxyManager.InvalidProxyFormat");
             }
         }
 
@@ -96,7 +96,7 @@ namespace Shiro.AvaloniaUI.Views
             {
                 _proxies.Remove(item);
                 if (TxtStatus != null)
-                    TxtStatus.Text = Shiro.Services.LocalizationService.Format("Auto_ProxyManagerDial_168", _proxies.Count);
+                    TxtStatus.Text = Shiro.Services.LocalizationService.Format("ProxyManager.TotalProxiesCount", _proxies.Count);
             }
         }
 
@@ -105,7 +105,7 @@ namespace Shiro.AvaloniaUI.Views
             if (_proxies.Count == 0)
             {
                 if (TxtStatus != null)
-                    TxtStatus.Text = Shiro.Services.LocalizationService.Get("Auto_ProxyManagerDial_169");
+                    TxtStatus.Text = Shiro.Services.LocalizationService.Get("ProxyManager.NoProxiesToCheck");
                 return;
             }
 
@@ -115,7 +115,7 @@ namespace Shiro.AvaloniaUI.Views
 
             BtnTestAll.IsEnabled = false;
             if (TxtStatus != null)
-                TxtStatus.Text = Shiro.Services.LocalizationService.Format("Auto_ProxyManagerDial_170", _proxies.Count);
+                TxtStatus.Text = Shiro.Services.LocalizationService.Format("ProxyManager.CheckingProxiesProgress", _proxies.Count);
 
             try
             {
@@ -124,7 +124,7 @@ namespace Shiro.AvaloniaUI.Views
                 {
                     int online = _proxies.Count(p => p.IsOnline);
                     int dead = _proxies.Count(p => p.LatencyMs == -2);
-                    TxtStatus.Text = Shiro.Services.LocalizationService.Format("Auto_ProxyManagerDial_171", online, _proxies.Count, dead);
+                    TxtStatus.Text = Shiro.Services.LocalizationService.Format("ProxyManager.CheckSummaryResult", online, _proxies.Count, dead);
                 }
             }
             catch (OperationCanceledException) { /* canceled */ }
@@ -161,8 +161,8 @@ namespace Shiro.AvaloniaUI.Views
             if (TxtStatus != null)
             {
                 TxtStatus.Text = removedCount > 0
-                    ? Shiro.Services.LocalizationService.Format("Auto_ProxyManagerDial_172", removedCount)
-                    : Shiro.Services.LocalizationService.Get("Auto_ProxyManagerDial_173");
+                    ? Shiro.Services.LocalizationService.Format("ProxyManager.DeletedFailedProxies", removedCount)
+                    : Shiro.Services.LocalizationService.Get("ProxyManager.NoFailedProxiesToDelete");
             }
         }
 

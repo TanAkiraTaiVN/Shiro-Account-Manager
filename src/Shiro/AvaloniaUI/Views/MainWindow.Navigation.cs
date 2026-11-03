@@ -164,8 +164,8 @@ namespace Shiro.AvaloniaUI.Views
                 if (selected.Count > 1)
                 {
                     bool confirm = AppServices.Dialogs.ShowConfirmation(
-                        Shiro.Services.LocalizationService.Format("Auto_MainWindowNaviga_102", selected.Count),
-                        Shiro.Services.LocalizationService.Get("Auto_MainWindowNaviga_103"));
+                        Shiro.Services.LocalizationService.Format("MainWindow.ConfirmCloseRobloxSelectedPrompt", selected.Count),
+                        Shiro.Services.LocalizationService.Get("MainWindow.ConfirmCloseRobloxBatchTitle"));
                     if (!confirm) return;
                 }
 
@@ -175,9 +175,9 @@ namespace Shiro.AvaloniaUI.Views
                     AppDispatcher.Post(() =>
                     {
                         if (closed > 0)
-                            ToastService.ShowSuccess(Shiro.Services.LocalizationService.Format("Auto_MainWindowNaviga_104", closed));
+                            ToastService.ShowSuccess(Shiro.Services.LocalizationService.Format("MainWindow.ClosedRobloxForSelected", closed));
                         else
-                            ToastService.ShowInfo(Shiro.Services.LocalizationService.Get("Auto_MainWindowNaviga_105"));
+                            ToastService.ShowInfo(Shiro.Services.LocalizationService.Get("MainWindow.NoRobloxRunningForSelected"));
                         ViewModel?.RefreshLiveProcessStatus();
                     });
                 });
@@ -185,8 +185,8 @@ namespace Shiro.AvaloniaUI.Views
             else
             {
                 bool confirm = AppServices.Dialogs.ShowConfirmation(
-                    Shiro.Services.LocalizationService.Get("Auto_MainWindowNaviga_106"),
-                    Shiro.Services.LocalizationService.Get("Auto_MainWindowNaviga_107"));
+                    Shiro.Services.LocalizationService.Get("MainWindow.ConfirmKillAllRobloxPrompt"),
+                    Shiro.Services.LocalizationService.Get("MainWindow.ConfirmKillAllRobloxTitle"));
                 if (confirm)
                 {
                     ViewModel?.KillAllClientsCommand.Execute(null);
@@ -210,8 +210,8 @@ namespace Shiro.AvaloniaUI.Views
         {
             bool wasUnmuted = RobloxAudioService.ToggleMuteAll();
             string msg = wasUnmuted
-                ? Shiro.Services.LocalizationService.Get("Auto_MainWindowNaviga_108")
-                : Shiro.Services.LocalizationService.Get("Auto_MainWindowNaviga_109");
+                ? Shiro.Services.LocalizationService.Get("MainWindow.MutedAllRobloxClients")
+                : Shiro.Services.LocalizationService.Get("MainWindow.UnmutedAllRobloxClients");
             ToastService.ShowSuccess(msg);
         }
 
@@ -250,8 +250,8 @@ namespace Shiro.AvaloniaUI.Views
                 StreamerModeService.IsEnabled = !StreamerModeService.IsEnabled;
 
             ToastService.ShowInfo("Streamer Mode", StreamerModeService.IsActive
-                ? Shiro.Services.LocalizationService.Get("Auto_MainWindowNaviga_110")
-                : Shiro.Services.LocalizationService.Get("Auto_MainWindowNaviga_111"));
+                ? Shiro.Services.LocalizationService.Get("MainWindow.StreamerModeEnabled")
+                : Shiro.Services.LocalizationService.Get("MainWindow.StreamerModeDisabled"));
         }
 
         private void OnToolAltGenClicked(object sender, RoutedEventArgs e)

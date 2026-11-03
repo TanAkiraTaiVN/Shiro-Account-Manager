@@ -47,7 +47,7 @@ namespace Shiro.AvaloniaUI.Views
         public AccountFieldsDialog(Account account) : this()
         {
             _account = account ?? throw new ArgumentNullException(nameof(account));
-            TxtHeaderTitle.Text = Shiro.Services.LocalizationService.Format("Auto_AccountFieldsDia_035", account.Username);
+            TxtHeaderTitle.Text = Shiro.Services.LocalizationService.Format("AccountFields.TitleFormat", account.Username);
 
             if (_account.Fields != null)
             {

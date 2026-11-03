@@ -340,11 +340,11 @@ namespace Shiro.ViewModels
         #region Item 5: Sort Mode Display
         public string CurrentSortLabel => SortMode switch
         {
-            AccountSortMode.NaturalDescending => Shiro.Services.LocalizationService.Get("Auto_MainViewModelUiU_513"),
-            AccountSortMode.Original => Shiro.Services.LocalizationService.Get("Auto_MainViewModelUiU_514"),
-            AccountSortMode.Status => Shiro.Services.LocalizationService.Get("Auto_MainViewModelUiU_515"),
-            AccountSortMode.RobuxDescending => Shiro.Services.LocalizationService.Get("Auto_MainViewModelUiU_516"),
-            _ => Shiro.Services.LocalizationService.Get("Auto_MainViewModelUiU_517")
+            AccountSortMode.NaturalDescending => Shiro.Services.LocalizationService.Get("Main.SortNameDesc"),
+            AccountSortMode.Original => Shiro.Services.LocalizationService.Get("Main.SortOriginal"),
+            AccountSortMode.Status => Shiro.Services.LocalizationService.Get("Main.SortPlayingFirst"),
+            AccountSortMode.RobuxDescending => Shiro.Services.LocalizationService.Get("Main.SortRobuxDesc"),
+            _ => Shiro.Services.LocalizationService.Get("Main.SortNameAsc")
         };
         #endregion
 
@@ -394,10 +394,10 @@ namespace Shiro.ViewModels
                 IsBatchLaunching = true;
                 BatchLaunchProgressPercent = Math.Clamp((units / total) * 100.0, 5.0, 100.0);
                 string accName = progress.Account?.Username ?? string.Empty;
-                BatchLaunchTitleText = Shiro.Services.LocalizationService.Format("Auto_MainViewModelUiU_518", index, total, accName);
+                BatchLaunchTitleText = Shiro.Services.LocalizationService.Format("Main.LaunchQueueProgress", index, total, accName);
                 BatchLaunchDetailText = !string.IsNullOrWhiteSpace(progress.Message)
                     ? progress.Message!
-                    : Shiro.Services.LocalizationService.Get("Auto_MainViewModelUiU_519");
+                    : Shiro.Services.LocalizationService.Get("Main.PreparingClientLaunch");
             }
         }
         #endregion

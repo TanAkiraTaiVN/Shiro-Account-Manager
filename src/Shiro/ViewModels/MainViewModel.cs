@@ -183,8 +183,8 @@ namespace Shiro.ViewModels
                     AppSettings.ShuffleJobId = value;
                     OnPropertyChanged();
                     StatusMessage = value
-                        ? Shiro.Services.LocalizationService.Get("Auto_MainViewModel_520")
-                        : Shiro.Services.LocalizationService.Get("Auto_MainViewModel_521");
+                        ? Shiro.Services.LocalizationService.Get("Main.ShuffleJobIdEnabled")
+                        : Shiro.Services.LocalizationService.Get("Main.ShuffleJobIdDisabled");
                 }
             }
         }

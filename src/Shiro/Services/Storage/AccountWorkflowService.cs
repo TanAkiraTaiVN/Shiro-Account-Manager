@@ -28,7 +28,7 @@ namespace Shiro.Services
             var list = AppServices.AccountRepository.GetAll();
             if (list == null || list.Count == 0) return;
 
-            statusCallback?.Invoke(Shiro.Services.LocalizationService.Get("Auto_AccountWorkflowS_274"));
+            statusCallback?.Invoke(Shiro.Services.LocalizationService.Get("AccountWorkflow.CheckingAllSessions"));
 
             int total = list.Count;
             int checkedCount = 0;
@@ -53,8 +53,8 @@ namespace Shiro.Services
                     int c = Interlocked.Increment(ref checkedCount);
                     if (!isValid) Interlocked.Increment(ref expiredCount);
 
-                    string state = isValid ? Shiro.Services.LocalizationService.Get("Auto_AccountWorkflowS_275") : (acc.IsBannedOrLocked ? acc.AccountStatusIssue : Shiro.Services.LocalizationService.Get("KPI_Expired"));
-                    statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_276", c, total, acc.Username, state, expiredCount));
+                    string state = isValid ? Shiro.Services.LocalizationService.Get("AccountWorkflow.StatusValid") : (acc.IsBannedOrLocked ? acc.AccountStatusIssue : Shiro.Services.LocalizationService.Get("KPI_Expired"));
+                    statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("AccountWorkflow.CheckingProgressWithExpired", c, total, acc.Username, state, expiredCount));
                     viewModel?.UpdateAccountValidity(acc, isValid, refreshFilterAndCounts: false);
                     AppDispatcher.Post(() => viewModel?.NotifyCounts());
                 }
@@ -82,37 +82,37 @@ namespace Shiro.Services
             });
 
             statusCallback?.Invoke((expired > 0 || banned > 0)
-                ? Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_277", valid, expired, banned)
-                : Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_278", total));
+                ? Shiro.Services.LocalizationService.Format("AccountWorkflow.ScanCompletedWithBans", valid, expired, banned)
+                : Shiro.Services.LocalizationService.Format("AccountWorkflow.ScanCompletedAllHealthy", total));
 
             string msg = (expired > 0 || banned > 0)
-                ? Shiro.Services.LocalizationService.Get("Auto_AccountWorkflowS_279") +
-                  Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_280", total) +
-                  Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_281", valid) +
-                  Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_282", expired) +
-                  Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_283", banned) +
+                ? Shiro.Services.LocalizationService.Get("AccountWorkflow.SessionCheckResultHeader") +
+                  Shiro.Services.LocalizationService.Format("AccountWorkflow.TotalAccountsSummary", total) +
+                  Shiro.Services.LocalizationService.Format("AccountWorkflow.ReadyAccountsSummary", valid) +
+                  Shiro.Services.LocalizationService.Format("AccountWorkflow.ExpiredSessionsSummary", expired) +
+                  Shiro.Services.LocalizationService.Format("AccountWorkflow.BannedAccountsSummary", banned) +
                   (banned > 0
-                      ? Shiro.Services.LocalizationService.Get("Auto_AccountWorkflowS_284") +
+                      ? Shiro.Services.LocalizationService.Get("AccountWorkflow.BannedAccountsListHeader") +
                         string.Join("\n", bannedAccounts.Take(5).Select(a => $"• {a.Username}: {a.AccountStatusIssue}")) +
-                        (bannedAccounts.Count > 5 ? Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_285", bannedAccounts.Count - 5) : "") + "\n\n"
+                        (bannedAccounts.Count > 5 ? Shiro.Services.LocalizationService.Format("AccountWorkflow.MoreAccountsTruncated", bannedAccounts.Count - 5) : "") + "\n\n"
                       : "") +
                   (expired == total
-                      ? Shiro.Services.LocalizationService.Get("Auto_AccountWorkflowS_286") +
-                        Shiro.Services.LocalizationService.Get("Auto_AccountWorkflowS_287")
+                      ? Shiro.Services.LocalizationService.Get("AccountWorkflow.SpecialNoteAllExpired") +
+                        Shiro.Services.LocalizationService.Get("AccountWorkflow.IpChangedWarning")
                       : "") +
-                  Shiro.Services.LocalizationService.Get("Auto_AccountWorkflowS_288") +
-                  Shiro.Services.LocalizationService.Get("Auto_AccountWorkflowS_289")
-                : Shiro.Services.LocalizationService.Get("Auto_AccountWorkflowS_279") +
-                  Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_280", total) +
-                  Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_281", valid) +
-                  Shiro.Services.LocalizationService.Get("Auto_AccountWorkflowS_290") +
-                  Shiro.Services.LocalizationService.Get("Auto_AccountWorkflowS_291") +
-                  Shiro.Services.LocalizationService.Get("Auto_AccountWorkflowS_292");
+                  Shiro.Services.LocalizationService.Get("AccountWorkflow.CookieRotationAutoRenewed") +
+                  Shiro.Services.LocalizationService.Get("AccountWorkflow.CategorizedTabsNotification")
+                : Shiro.Services.LocalizationService.Get("AccountWorkflow.SessionCheckResultHeader") +
+                  Shiro.Services.LocalizationService.Format("AccountWorkflow.TotalAccountsSummary", total) +
+                  Shiro.Services.LocalizationService.Format("AccountWorkflow.ReadyAccountsSummary", valid) +
+                  Shiro.Services.LocalizationService.Get("AccountWorkflow.ZeroExpiredSessions") +
+                  Shiro.Services.LocalizationService.Get("AccountWorkflow.ZeroBannedAccounts") +
+                  Shiro.Services.LocalizationService.Get("AccountWorkflow.AllAccountsValidAndRotated");
 
             if (expired > 0 || banned > 0)
-                AppServices.Dialogs.ShowWarning(msg, Shiro.Services.LocalizationService.Get("Auto_AccountWorkflowS_293"));
+                AppServices.Dialogs.ShowWarning(msg, Shiro.Services.LocalizationService.Get("AccountWorkflow.SessionCheckDialogTitle"));
             else
-                AppServices.Dialogs.ShowInfo(msg, Shiro.Services.LocalizationService.Get("Auto_AccountWorkflowS_293"));
+                AppServices.Dialogs.ShowInfo(msg, Shiro.Services.LocalizationService.Get("AccountWorkflow.SessionCheckDialogTitle"));
         }
 
         public async Task ReLoginWithCookieAsync(
@@ -125,8 +125,8 @@ namespace Shiro.Services
 
             string? cookie = await AppDispatcher.InvokeAsync(() =>
                 AppServices.Dialogs.ShowInputPrompt(
-                    Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_294", acc.Username),
-                    Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_295", acc.Username),
+                    Shiro.Services.LocalizationService.Format("AccountWorkflow.EnterNewCookiePrompt", acc.Username),
+                    Shiro.Services.LocalizationService.Format("AccountWorkflow.UpdateCookieDialogTitle", acc.Username),
                     string.Empty)).ConfigureAwait(false);
 
             if (!string.IsNullOrWhiteSpace(cookie) && cookie != "/UC")
@@ -138,7 +138,7 @@ namespace Shiro.Services
                 bool wasValid = acc.Model.Valid;
 
                 acc.Model.SecurityToken = token;
-                statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_296", acc.Username));
+                statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("AccountWorkflow.ValidatingNewSession", acc.Username));
                 bool ok = await acc.Model.ValidateSessionAsync().ConfigureAwait(false);
 
                 if (ok)
@@ -149,7 +149,7 @@ namespace Shiro.Services
                     acc.Model.LastAuthTicketRateLimited = false;
                     await AppServices.AccountRepository.SaveAsync(true).ConfigureAwait(false);
                     viewModel?.UpdateAccountValidity(acc.Model, true);
-                    statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_297", acc.Username));
+                    statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("AccountWorkflow.UpdateCookieSuccess", acc.Username));
                 }
                 else
                 {
@@ -158,13 +158,13 @@ namespace Shiro.Services
                         acc.Model.SecurityToken = previousToken;
                         acc.Model.Valid = true;
                         viewModel?.UpdateAccountValidity(acc.Model, true);
-                        statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_298", acc.Username));
+                        statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("AccountWorkflow.InvalidCookieRetainedOld", acc.Username));
                     }
                     else
                     {
                         await AppServices.AccountRepository.SaveAsync(true).ConfigureAwait(false);
                         viewModel?.UpdateAccountValidity(acc.Model, false);
-                        statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_299", acc.Username));
+                        statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("AccountWorkflow.InvalidOrExpiredCookie", acc.Username));
                     }
                 }
             }
@@ -175,8 +175,8 @@ namespace Shiro.Services
             if (acc?.Model == null) return;
             string current = acc.Model.Alias ?? string.Empty;
             string input = AppServices.Dialogs.ShowInputPrompt(
-                Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_300", acc.Username),
-                Shiro.Services.LocalizationService.Get("Auto_AccountWorkflowS_301"),
+                Shiro.Services.LocalizationService.Format("AccountWorkflow.EnterAliasPrompt", acc.Username),
+                Shiro.Services.LocalizationService.Get("AccountWorkflow.ChangeAliasTitle"),
                 current);
 
             if (input != null && input != "/UC")
@@ -184,7 +184,7 @@ namespace Shiro.Services
                 acc.Model.Alias = string.IsNullOrWhiteSpace(input) ? string.Empty : input.Trim();
                 acc.Alias = acc.Model.Alias;
                 AppServices.AccountRepository.QueueDeferredSave();
-                statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_302", acc.Username, acc.Model.Alias));
+                statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("AccountWorkflow.AliasChanged", acc.Username, acc.Model.Alias));
             }
         }
 
@@ -193,8 +193,8 @@ namespace Shiro.Services
             if (acc?.Model == null) return;
             string currentGroup = !string.IsNullOrWhiteSpace(acc.Model.Group) ? acc.Model.Group : "Default";
             string groupName = AppServices.Dialogs.ShowInputPrompt(
-                Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_303", acc.Username),
-                Shiro.Services.LocalizationService.Get("Auto_AccountWorkflowS_304"),
+                Shiro.Services.LocalizationService.Format("AccountWorkflow.EnterGroupPrompt", acc.Username),
+                Shiro.Services.LocalizationService.Get("AccountWorkflow.AssignGroupTitle"),
                 currentGroup);
 
             if (groupName != null && groupName != "/UC")
@@ -205,7 +205,7 @@ namespace Shiro.Services
                 AppServices.AccountRepository.QueueDeferredSave();
                 viewModel?.RebuildGroupList();
                 viewModel?.ApplyFilter();
-                statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_305", acc.Username, groupName));
+                statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("AccountWorkflow.MovedToGroup", acc.Username, groupName));
             }
         }
 
@@ -214,8 +214,8 @@ namespace Shiro.Services
             if (acc?.Model == null) return;
             string current = acc.Model.Description ?? string.Empty;
             string newDesc = AppServices.Dialogs.ShowInputPrompt(
-                Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_306", acc.Username),
-                Shiro.Services.LocalizationService.Get("Auto_AccountWorkflowS_307"),
+                Shiro.Services.LocalizationService.Format("AccountWorkflow.EnterNotesPrompt", acc.Username),
+                Shiro.Services.LocalizationService.Get("AccountWorkflow.ChangeNotesTitle"),
                 current);
 
             if (newDesc != null && newDesc != "/UC")
@@ -223,7 +223,7 @@ namespace Shiro.Services
                 acc.Model.Description = newDesc;
                 acc.Description = newDesc;
                 AppServices.AccountRepository.QueueDeferredSave();
-                statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_308", acc.Username));
+                statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("AccountWorkflow.NotesUpdated", acc.Username));
             }
         }
 
@@ -234,14 +234,14 @@ namespace Shiro.Services
             acc.Pinned = acc.Model.Pinned;
             AppServices.AccountRepository.QueueDeferredSave();
             viewModel?.ApplyFilter();
-            statusCallback?.Invoke(acc.Pinned ? Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_310", acc.Username) : Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_309", acc.Username));
+            statusCallback?.Invoke(acc.Pinned ? Shiro.Services.LocalizationService.Format("AccountWorkflow.PinnedAccount", acc.Username) : Shiro.Services.LocalizationService.Format("AccountWorkflow.UnpinnedAccount", acc.Username));
         }
 
         public void CopyUsername(AccountViewModel acc, Action<string> statusCallback)
         {
             if (acc?.Model == null || string.IsNullOrEmpty(acc.Model.Username)) return;
             ClipboardHelper.SetClipboardTextSafe(acc.Model.Username);
-            statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_311", acc.Model.Username));
+            statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("AccountWorkflow.CopiedUsername", acc.Model.Username));
         }
 
         public void CopyUserPass(AccountViewModel acc, Action<string> statusCallback)
@@ -249,7 +249,7 @@ namespace Shiro.Services
             if (acc?.Model != null)
             {
                 ClipboardHelper.SetClipboardTextSafe($"{acc.Model.Username}:{(acc.Model.Password ?? string.Empty)}");
-                statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_312", acc.Model.Username));
+                statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("AccountWorkflow.CopiedUserPass", acc.Model.Username));
             }
         }
 
@@ -257,29 +257,29 @@ namespace Shiro.Services
         {
             if (acc?.Model == null || acc.Model.UserID <= 0) return;
             ClipboardHelper.SetClipboardTextSafe(acc.Model.UserID.ToString());
-            statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_313", acc.Model.UserID));
+            statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("AccountWorkflow.CopiedUserId", acc.Model.UserID));
         }
 
         public void CopyProfileUrl(AccountViewModel acc, Action<string> statusCallback)
         {
             if (acc?.Model == null || acc.Model.UserID <= 0) return;
             ClipboardHelper.SetClipboardTextSafe($"https://www.roblox.com/users/{acc.Model.UserID}/profile");
-            statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_314", acc.Username));
+            statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("AccountWorkflow.CopiedProfileLink", acc.Username));
         }
 
         public void CopySecurityToken(AccountViewModel acc, Action<string> statusCallback)
         {
             if (acc?.Model == null || string.IsNullOrEmpty(acc.Model.SecurityToken)) return;
             ClipboardHelper.SetClipboardTextSafe(acc.Model.SecurityToken);
-            statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_315", acc.Username));
+            statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("AccountWorkflow.CopiedSecurityToken", acc.Username));
         }
 
         public void RemoveAccount(AccountViewModel acc, MainViewModel viewModel, Action<string> statusCallback)
         {
             if (acc?.Model == null) return;
             bool confirmed = AppServices.Dialogs.ShowConfirmation(
-                Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_316", acc.Username),
-                Shiro.Services.LocalizationService.Get("Auto_AccountWorkflowS_317"));
+                Shiro.Services.LocalizationService.Format("AccountWorkflow.DeleteAccountPrompt", acc.Username),
+                Shiro.Services.LocalizationService.Get("AccountWorkflow.ConfirmDeleteTitle"));
 
             if (confirmed)
             {
@@ -288,7 +288,7 @@ namespace Shiro.Services
                 viewModel?.NotifyCounts();
                 viewModel?.RebuildGroupList();
                 viewModel?.ApplyFilter();
-                statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_318", acc.Username));
+                statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("AccountWorkflow.AccountDeleted", acc.Username));
             }
         }
 
@@ -298,13 +298,13 @@ namespace Shiro.Services
             var selectedVms = viewModel.GetSelectedAccountViewModels();
             if (selectedVms.Count == 0)
             {
-                statusCallback?.Invoke(Shiro.Services.LocalizationService.Get("Auto_AccountWorkflowS_319"));
+                statusCallback?.Invoke(Shiro.Services.LocalizationService.Get("AccountWorkflow.SelectAccountBeforeGroup"));
                 return;
             }
 
             string currentGroup = selectedVms.Count == 1 && !string.IsNullOrWhiteSpace(selectedVms[0].Group) ? selectedVms[0].Group : "Default";
-            string prompt = selectedVms.Count == 1 ? Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_303", selectedVms[0].Username) : Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_320", selectedVms.Count);
-            string groupName = AppServices.Dialogs.ShowInputPrompt(prompt, Shiro.Services.LocalizationService.Get("Auto_AccountWorkflowS_321"), currentGroup);
+            string prompt = selectedVms.Count == 1 ? Shiro.Services.LocalizationService.Format("AccountWorkflow.EnterGroupPrompt", selectedVms[0].Username) : Shiro.Services.LocalizationService.Format("AccountWorkflow.BatchGroupPrompt", selectedVms.Count);
+            string groupName = AppServices.Dialogs.ShowInputPrompt(prompt, Shiro.Services.LocalizationService.Get("AccountWorkflow.BatchGroupTitle"), currentGroup);
 
             if (groupName != null && groupName != "/UC")
             {
@@ -316,7 +316,7 @@ namespace Shiro.Services
                 AppServices.AccountRepository.QueueDeferredSave();
                 viewModel.RebuildGroupList();
                 viewModel.ApplyFilter();
-                statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_322", selectedVms.Count, groupName));
+                statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("AccountWorkflow.BatchMovedToGroup", selectedVms.Count, groupName));
             }
         }
 
@@ -326,14 +326,14 @@ namespace Shiro.Services
             var targets = viewModel.GetSelectedAccounts();
             if (targets.Count == 0)
             {
-                statusCallback?.Invoke(Shiro.Services.LocalizationService.Get("Auto_AccountWorkflowS_323"));
+                statusCallback?.Invoke(Shiro.Services.LocalizationService.Get("AccountWorkflow.SelectAccountBeforeSavePlace"));
                 return;
             }
 
             long parsedPid = AccountLauncherService.ParsePlaceId(viewModel.PlaceId);
             if (parsedPid <= 0)
             {
-                statusCallback?.Invoke(Shiro.Services.LocalizationService.Get("Auto_AccountWorkflowS_324"));
+                statusCallback?.Invoke(Shiro.Services.LocalizationService.Get("AccountWorkflow.EnterValidPlaceBeforeSave"));
                 return;
             }
 
@@ -343,7 +343,7 @@ namespace Shiro.Services
                 a.SetField("SavedPlaceId", pid);
             }
             AppServices.AccountRepository.QueueDeferredSave();
-            statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_325", pid, targets.Count));
+            statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("AccountWorkflow.PlaceIdSaved", pid, targets.Count));
         }
 
         public void CopyUserPassSelected(MainViewModel viewModel, Action<string> statusCallback)
@@ -352,13 +352,13 @@ namespace Shiro.Services
             var targets = viewModel.GetSelectedAccounts();
             if (targets.Count == 0)
             {
-                statusCallback?.Invoke(Shiro.Services.LocalizationService.Get("Auto_AccountWorkflowS_326"));
+                statusCallback?.Invoke(Shiro.Services.LocalizationService.Get("AccountWorkflow.SelectAccountBeforeCopyPass"));
                 return;
             }
 
             var lines = targets.Select(a => $"{a.Username}:{(a.Password ?? string.Empty)}").ToList();
             ClipboardHelper.SetClipboardTextSafe(string.Join(Environment.NewLine, lines));
-            statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_327", lines.Count));
+            statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("AccountWorkflow.BatchCopiedUserPass", lines.Count));
         }
 
         public void RemoveSelectedAccounts(MainViewModel viewModel, Action<string> statusCallback)
@@ -367,13 +367,13 @@ namespace Shiro.Services
             var selectedVms = viewModel.GetSelectedAccountViewModels();
             if (selectedVms.Count == 0)
             {
-                statusCallback?.Invoke(Shiro.Services.LocalizationService.Get("Auto_AccountWorkflowS_328"));
+                statusCallback?.Invoke(Shiro.Services.LocalizationService.Get("AccountWorkflow.SelectAccountBeforeDelete"));
                 return;
             }
 
             bool confirmed = AppServices.Dialogs.ShowConfirmation(
-                Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_329", selectedVms.Count),
-                Shiro.Services.LocalizationService.Get("Auto_AccountWorkflowS_330"));
+                Shiro.Services.LocalizationService.Format("AccountWorkflow.BatchDeletePrompt", selectedVms.Count),
+                Shiro.Services.LocalizationService.Get("AccountWorkflow.BatchDeleteTitle"));
 
             if (confirmed)
             {
@@ -386,7 +386,7 @@ namespace Shiro.Services
                 viewModel.NotifyCounts();
                 viewModel.RebuildGroupList();
                 viewModel.ApplyFilter();
-                statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_331", count));
+                statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("AccountWorkflow.BatchAccountsDeleted", count));
             }
         }
 
@@ -424,8 +424,8 @@ namespace Shiro.Services
                             int c = Interlocked.Increment(ref checkedCount);
                             viewModel?.UpdateAccountValidity(item.Model, ok, refreshFilterAndCounts: false);
                             AppDispatcher.Post(() => viewModel?.NotifyCounts());
-                            string itemState = ok ? Shiro.Services.LocalizationService.Get("Auto_AccountWorkflowS_275") : (item.Model.IsBannedOrLocked ? item.Model.AccountStatusIssue : Shiro.Services.LocalizationService.Get("KPI_Expired"));
-                            statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_332", c, total, item.Username, itemState));
+                            string itemState = ok ? Shiro.Services.LocalizationService.Get("AccountWorkflow.StatusValid") : (item.Model.IsBannedOrLocked ? item.Model.AccountStatusIssue : Shiro.Services.LocalizationService.Get("KPI_Expired"));
+                            statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("AccountWorkflow.CheckingProgressSimple", c, total, item.Username, itemState));
                         }
                         catch (Exception ex)
                         {
@@ -439,12 +439,12 @@ namespace Shiro.Services
                         viewModel?.NotifyCounts();
                         viewModel?.ApplyFilter();
                     });
-                    statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_333", checkedCount));
+                    statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("AccountWorkflow.SessionCheckCompleted", checkedCount));
                 }
                 catch (Exception ex)
                 {
                     Program.Logger?.Error($"[OnValidateSessionSelectedRequested] {ex.Message}");
-                    statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("Auto_AccountWorkflowS_334", ex.Message));
+                    statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("AccountWorkflow.SessionCheckError", ex.Message));
                 }
             });
         }

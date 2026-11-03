@@ -114,7 +114,7 @@ namespace Shiro
                         var (modBanned, modBadge, _) = await CheckModerationStatusAsync(GetCurrentSecurityToken(), cancellationToken).ConfigureAwait(false);
                         if (modBanned)
                         {
-                            AccountStatusIssue = modBadge ?? Shiro.Services.LocalizationService.Get("Auto_FastLoginDialogS_078");
+                            AccountStatusIssue = modBadge ?? Shiro.Services.LocalizationService.Get("FastLogin.LockedOrBannedBadge");
                             Valid = false;
                             return false;
                         }
@@ -193,7 +193,7 @@ namespace Shiro
                             var (isBanned, issueBadge, reason) = await moderationTask.ConfigureAwait(false);
                             if (isBanned)
                             {
-                                string badge = issueBadge ?? Shiro.Services.LocalizationService.Get("Auto_FastLoginDialogS_078");
+                                string badge = issueBadge ?? Shiro.Services.LocalizationService.Get("FastLogin.LockedOrBannedBadge");
                                 Program.Logger?.Warn($"[ValidateSessionAsync] {Username}: Active moderation detected: {badge} ({reason}). Marking invalid.");
                                 AccountStatusIssue = badge;
                                 Valid = false;
@@ -255,7 +255,7 @@ namespace Shiro
                         var (modBanned, modBadge, _) = await CheckModerationStatusAsync(GetCurrentSecurityToken(), cancellationToken).ConfigureAwait(false);
                         if (modBanned)
                         {
-                            AccountStatusIssue = modBadge ?? Shiro.Services.LocalizationService.Get("Auto_FastLoginDialogS_078");
+                            AccountStatusIssue = modBadge ?? Shiro.Services.LocalizationService.Get("FastLogin.LockedOrBannedBadge");
                             Valid = false;
                             return false;
                         }
@@ -477,7 +477,7 @@ namespace Shiro
 
             Program.Logger?.Warn($"Roblox {source} returned HTTP 429 for {username}. The current launch was stopped; retry after about {seconds} seconds or change network before starting another batch.");
             AppSettings.SetDashboardStatus(
-                Shiro.Services.LocalizationService.Format("Auto_AccountSessionSt_194", username, seconds));
+                Shiro.Services.LocalizationService.Format("Account.RateLimitCooldown", username, seconds));
             RobloxRateLimitCoordinator.Instance.RecordRateLimitHit(RateLimitCategory.Authentication, defaultBackoffSeconds: seconds);
         }
 

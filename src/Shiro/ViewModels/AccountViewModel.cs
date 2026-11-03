@@ -147,13 +147,13 @@ namespace Shiro.ViewModels
         }
 
         public string GroupDisplay => string.IsNullOrEmpty(_model.Group) || string.Equals(_model.Group, "Default", StringComparison.OrdinalIgnoreCase)
-            ? LocalizationService.Get("Auto_ValueConverters_033")
+            ? LocalizationService.Get("Converters.DefaultGroup")
             : _model.Group;
 
-        public string GroupTooltip => LocalizationService.Format("Auto_AccountViewModel_355", GroupDisplay);
+        public string GroupTooltip => LocalizationService.Format("Account.GroupLabel", GroupDisplay);
 
         public string LaunchButtonText => LocalizationService.Get("Srv_Play");
-        public string FocusWindowButtonText => LocalizationService.Get("Auto_AccountViewModel_356");
+        public string FocusWindowButtonText => LocalizationService.Get("Account.ShowAction");
         public string ViewBanButtonText => LocalizationService.Get("Account.ViewBan");
 
         public string Description
@@ -222,7 +222,7 @@ namespace Shiro.ViewModels
         public bool IsExpiredAndNotBanned => IsExpired && !IsBannedOrLocked;
         public string BanNoticeText => !string.IsNullOrEmpty(_model.AccountStatusIssue)
             ? _model.AccountStatusIssue
-            : LocalizationService.Get("Auto_LaunchCoordinato_242");
+            : LocalizationService.Get("Launch.AccountBannedStatus");
         public bool IsShortLivedSession => _model.IsShortLivedSession;
         public SessionHealth SessionHealth => _model.SessionHealthStatus;
 
@@ -343,7 +343,7 @@ namespace Shiro.ViewModels
                 return RobuxBalance >= 0 ? $"R$ {RobuxBalance:N0}" : string.Empty;
             }
         }
-        public string RobuxTooltip => RobuxBalance >= 0 ? Shiro.Services.LocalizationService.Format("Auto_AccountViewModel_358", RobuxBalance) : Shiro.Services.LocalizationService.Get("Auto_AccountViewModel_357");
+        public string RobuxTooltip => RobuxBalance >= 0 ? Shiro.Services.LocalizationService.Format("Account.RobuxBalance", RobuxBalance) : Shiro.Services.LocalizationService.Get("Account.RobuxNotUpdated");
 
         public void NotifyThemeChanged()
         {

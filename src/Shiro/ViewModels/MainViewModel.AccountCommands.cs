@@ -122,7 +122,7 @@ namespace Shiro.ViewModels
                     return;
                 }
 
-                string cookie = AppServices.Dialogs.ShowInputPrompt(Shiro.Services.LocalizationService.Get("Auto_MainViewModelAcc_361"), Shiro.Services.LocalizationService.Get("Auto_MainViewModelAcc_360"));
+                string cookie = AppServices.Dialogs.ShowInputPrompt(Shiro.Services.LocalizationService.Get("Main.PasteCookiePrompt"), Shiro.Services.LocalizationService.Get("Main.EnterCookieTitle"));
                 if (!string.IsNullOrWhiteSpace(cookie) && cookie != "/UC")
                 {
                     _ = Task.Run(async () =>
@@ -133,11 +133,11 @@ namespace Shiro.ViewModels
                             if (acc != null)
                             {
                                 LoadAccounts(AppServices.AccountRepository.GetAll());
-                                StatusMessage = Shiro.Services.LocalizationService.Format("Auto_MainViewModelAcc_362", acc.Username);
+                                StatusMessage = Shiro.Services.LocalizationService.Format("Main.AccountAddedViaCookie", acc.Username);
                             }
                             else
                             {
-                                StatusMessage = Shiro.Services.LocalizationService.Get("Auto_MainViewModelAcc_363");
+                                StatusMessage = Shiro.Services.LocalizationService.Get("Main.CookieInvalidOrExpired");
                             }
                         });
                     });
@@ -147,8 +147,8 @@ namespace Shiro.ViewModels
             {
                 bool ok = RobloxProcessService.ClearRobloxClientSession();
                 StatusMessage = ok
-                    ? Shiro.Services.LocalizationService.Get("Auto_MainViewModelAcc_364")
-                    : Shiro.Services.LocalizationService.Get("Auto_MainViewModelAcc_365");
+                    ? Shiro.Services.LocalizationService.Get("Main.ClientSessionCleared")
+                    : Shiro.Services.LocalizationService.Get("Main.CannotClearClientSession");
             });
             BulkImportCommand = new RelayCommand(() =>
             {
@@ -201,7 +201,7 @@ namespace Shiro.ViewModels
                         bool ok = await a.Model.ValidateSessionAsync().ConfigureAwait(false);
                         AppServices.AccountRepository.Save(true);
                         UpdateAccountValidity(a.Model, ok);
-                        PostStatusMessage(ok ? Shiro.Services.LocalizationService.Format("Auto_MainViewModelAcc_367", a.Username) : (a.Model.IsBannedOrLocked ? $"{a.Username}: {a.Model.AccountStatusIssue}!" : Shiro.Services.LocalizationService.Format("Auto_MainViewModelAcc_366", a.Username)));
+                        PostStatusMessage(ok ? Shiro.Services.LocalizationService.Format("Main.SessionValidToast", a.Username) : (a.Model.IsBannedOrLocked ? $"{a.Username}: {a.Model.AccountStatusIssue}!" : Shiro.Services.LocalizationService.Format("Main.SessionExpiredToast", a.Username)));
                     });
                 }
             });
@@ -342,7 +342,7 @@ namespace Shiro.ViewModels
                 var selected = _accounts.Where(a => a.IsSelected).ToList();
                 if (selected.Count == 0)
                 {
-                    StatusMessage = Shiro.Services.LocalizationService.Get("Auto_MainViewModelAcc_368");
+                    StatusMessage = Shiro.Services.LocalizationService.Get("Main.SelectAccountBeforeRelogin");
                     return;
                 }
                 if (OnReLoginSelectedRequested != null)
@@ -361,7 +361,7 @@ namespace Shiro.ViewModels
                 var selected = _accounts.Where(a => a.IsSelected).ToList();
                 if (selected.Count == 0)
                 {
-                    StatusMessage = Shiro.Services.LocalizationService.Get("Auto_MainViewModelAcc_369");
+                    StatusMessage = Shiro.Services.LocalizationService.Get("Main.SelectAccountBeforeCheckSession");
                     return;
                 }
                 if (OnValidateSessionSelectedRequested != null) OnValidateSessionSelectedRequested.Invoke(selected);

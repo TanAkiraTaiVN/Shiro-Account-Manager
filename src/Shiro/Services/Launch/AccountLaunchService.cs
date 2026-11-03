@@ -210,7 +210,7 @@ namespace Shiro.Services
             bool internalCall = false,
             CancellationToken cancellationToken = default)
         {
-            if (account == null) return LaunchResult.Fail(LaunchOutcome.Failed, Shiro.Services.LocalizationService.Get("Auto_AccountLaunchSer_230"));
+            if (account == null) return LaunchResult.Fail(LaunchOutcome.Failed, Shiro.Services.LocalizationService.Get("AccountLaunch.InvalidAccount"));
             cancellationToken.ThrowIfCancellationRequested();
             account.LastNativeLaunchRateLimited = false;
             account.EnsureBrowserTrackerId();
@@ -292,7 +292,7 @@ namespace Shiro.Services
                         if (changePrivacy)
                         {
                             if (!await account.CheckPinAsync(true, cancellationToken).ConfigureAwait(false))
-                                return LaunchResult.Fail(LaunchOutcome.Failed, Shiro.Services.LocalizationService.Get("Auto_AccountLaunchSer_233"));
+                                return LaunchResult.Fail(LaunchOutcome.Failed, Shiro.Services.LocalizationService.Get("AccountLaunch.PinAuthFailed"));
 
                             var setRequest = account.MakeRequest("user-settings-api/v1/user-settings", Method.Post)
                                 .AddHeader("X-CSRF-TOKEN", token)
@@ -358,9 +358,9 @@ namespace Shiro.Services
             else
             {
                 if (account.LastAuthTicketRateLimited)
-                    return LaunchResult.Fail(LaunchOutcome.RateLimited, Shiro.Services.LocalizationService.Get("Auto_AccountLaunchSer_231"));
+                    return LaunchResult.Fail(LaunchOutcome.RateLimited, Shiro.Services.LocalizationService.Get("AccountLaunch.RateLimited"));
 
-                return LaunchResult.Fail(LaunchOutcome.TicketError, Shiro.Services.LocalizationService.Get("Auto_AccountLaunchSer_232"));
+                return LaunchResult.Fail(LaunchOutcome.TicketError, Shiro.Services.LocalizationService.Get("AccountLaunch.TicketFailed"));
             }
         }
     }

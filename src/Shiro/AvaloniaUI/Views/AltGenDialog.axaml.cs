@@ -47,7 +47,7 @@ namespace Shiro.AvaloniaUI.Views
             string key = TxtApiKey.Text?.Trim() ?? string.Empty;
             if (string.IsNullOrWhiteSpace(key))
             {
-                TxtStatus.Text = Shiro.Services.LocalizationService.Get("Auto_AltGenDialogaxam_050");
+                TxtStatus.Text = Shiro.Services.LocalizationService.Get("AltGen.EnterApiKey");
                 return;
             }
 
@@ -61,7 +61,7 @@ namespace Shiro.AvaloniaUI.Views
             BloxGenService.Default.DefaultContinent = continent;
 
             BtnGenerate.IsEnabled = false;
-            TxtStatus.Text = Shiro.Services.LocalizationService.Get("Auto_AltGenDialogaxam_051");
+            TxtStatus.Text = Shiro.Services.LocalizationService.Get("AltGen.ConnectingApi");
             BrdResult.IsVisible = false;
 
             try
@@ -72,26 +72,26 @@ namespace Shiro.AvaloniaUI.Views
                     bool imported = BloxGenService.Default.ImportAccountToShiro(result.Account, group);
 
                     TxtResultUser.Text = result.Account.Username;
-                    TxtResultId.Text = result.Account.UserId > 0 ? result.Account.UserId.ToString() : Shiro.Services.LocalizationService.Get("Auto_AltGenDialogaxam_052");
-                    TxtResultPass.Text = !string.IsNullOrWhiteSpace(result.Account.Password) ? result.Account.Password : Shiro.Services.LocalizationService.Get("Auto_AltGenDialogaxam_053");
+                    TxtResultId.Text = result.Account.UserId > 0 ? result.Account.UserId.ToString() : Shiro.Services.LocalizationService.Get("AltGen.LoadingState");
+                    TxtResultPass.Text = !string.IsNullOrWhiteSpace(result.Account.Password) ? result.Account.Password : Shiro.Services.LocalizationService.Get("AltGen.NoneState");
                     BrdResult.IsVisible = true;
 
                     TxtStatus.Text = imported
-                        ? Shiro.Services.LocalizationService.Format("Auto_AltGenDialogaxam_054", group)
-                        : Shiro.Services.LocalizationService.Get("Auto_AltGenDialogaxam_055");
+                        ? Shiro.Services.LocalizationService.Format("AltGen.CreateSuccessWithGroup", group)
+                        : Shiro.Services.LocalizationService.Get("AltGen.SaveToShiroFailed");
 
-                    ToastService.ShowSuccess(Shiro.Services.LocalizationService.Get("Auto_AltGenDialogaxam_056"), Shiro.Services.LocalizationService.Format("Auto_AltGenDialogaxam_057", result.Account.Username));
+                    ToastService.ShowSuccess(Shiro.Services.LocalizationService.Get("AltGen.CreateSuccessTitle"), Shiro.Services.LocalizationService.Format("AltGen.AccountAdded", result.Account.Username));
                 }
                 else
                 {
-                    TxtStatus.Text = Shiro.Services.LocalizationService.Format("Auto_AltGenDialogaxam_059", result.ErrorMessage ?? Shiro.Services.LocalizationService.Get("Auto_AltGenDialogaxam_058"));
-                    ToastService.ShowError(Shiro.Services.LocalizationService.Get("Auto_AltGenDialogaxam_061"), result.ErrorMessage ?? Shiro.Services.LocalizationService.Get("Auto_AltGenDialogaxam_060"));
+                    TxtStatus.Text = Shiro.Services.LocalizationService.Format("AltGen.FailedFormat", result.ErrorMessage ?? Shiro.Services.LocalizationService.Get("AltGen.UnknownError"));
+                    ToastService.ShowError(Shiro.Services.LocalizationService.Get("AltGen.CreateFailedTitle"), result.ErrorMessage ?? Shiro.Services.LocalizationService.Get("AltGen.CreateFailedGeneric"));
                 }
             }
             catch (Exception ex)
             {
                 TxtStatus.Text = Shiro.Services.LocalizationService.Format("Proxy_Dead", ex.Message);
-                ToastService.ShowError(Shiro.Services.LocalizationService.Get("Auto_AltGenDialogaxam_062"), ex.Message);
+                ToastService.ShowError(Shiro.Services.LocalizationService.Get("AltGen.SystemErrorTitle"), ex.Message);
             }
             finally
             {
@@ -110,12 +110,12 @@ namespace Shiro.AvaloniaUI.Views
                 }
                 else
                 {
-                    TxtStatus.Text = Shiro.Services.LocalizationService.Get("Auto_AltGenDialogaxam_063");
+                    TxtStatus.Text = Shiro.Services.LocalizationService.Get("AltGen.NoHistory");
                 }
             }
             catch (Exception ex)
             {
-                TxtStatus.Text = Shiro.Services.LocalizationService.Format("Auto_AltGenDialogaxam_064", ex.Message);
+                TxtStatus.Text = Shiro.Services.LocalizationService.Format("AltGen.CannotOpenCsv", ex.Message);
             }
         }
 

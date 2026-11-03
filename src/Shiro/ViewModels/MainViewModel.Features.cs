@@ -37,8 +37,8 @@ namespace Shiro.ViewModels
                     AppSettings.General?.Set("EnablePotatoMode", value ? "true" : "false");
                     ClientSettingsPatcher.PatchSettings();
                     StatusMessage = value
-                        ? Shiro.Services.LocalizationService.Get("Auto_MainViewModelCom_449")
-                        : Shiro.Services.LocalizationService.Get("Auto_MainViewModelCom_450");
+                        ? Shiro.Services.LocalizationService.Get("Main.PotatoModeActivated")
+                        : Shiro.Services.LocalizationService.Get("Main.PotatoModeDeactivated");
                     NotifyToolStatesChanged();
                 }
             }
@@ -53,8 +53,8 @@ namespace Shiro.ViewModels
                 {
                     AntiAfkService.SetConfig(value);
                     StatusMessage = value
-                        ? Shiro.Services.LocalizationService.Get("Auto_MainViewModelCom_447")
-                        : Shiro.Services.LocalizationService.Get("Auto_MainViewModelCom_448");
+                        ? Shiro.Services.LocalizationService.Get("Main.AntiAfkActivated")
+                        : Shiro.Services.LocalizationService.Get("Main.AntiAfkDeactivated");
                     NotifyToolStatesChanged();
                 }
             }
@@ -72,8 +72,8 @@ namespace Shiro.ViewModels
                     StreamerModeService.IsEnabled = value;
                     NotifyToolStatesChanged();
                     StatusMessage = value
-                        ? Shiro.Services.LocalizationService.Get("Auto_MainViewModelFea_471")
-                        : Shiro.Services.LocalizationService.Get("Auto_MainWindowNaviga_111");
+                        ? Shiro.Services.LocalizationService.Get("Main.StreamerModeActivated")
+                        : Shiro.Services.LocalizationService.Get("MainWindow.StreamerModeDisabled");
                     RefreshAllAccountDisplays();
                 }
             }
@@ -99,12 +99,12 @@ namespace Shiro.ViewModels
                     if (value)
                     {
                         var (hidden, _) = RobloxWindowService.HideAllWindows();
-                        StatusMessage = Shiro.Services.LocalizationService.Format("Auto_MainViewModelFea_472", hidden);
+                        StatusMessage = Shiro.Services.LocalizationService.Format("Main.ZeroGpuActivatedCount", hidden);
                     }
                     else
                     {
                         var (restored, _) = RobloxWindowService.ShowAllWindows();
-                        StatusMessage = Shiro.Services.LocalizationService.Format("Auto_MainViewModelCom_444", restored);
+                        StatusMessage = Shiro.Services.LocalizationService.Format("Main.RestoredRobloxWindows", restored);
                     }
                     NotifyToolStatesChanged();
                 }
@@ -157,35 +157,35 @@ namespace Shiro.ViewModels
             }
         }
 
-        public string LaunchHomeButtonText => LocalizationService.Format("Auto_MainViewModelFea_473", SelectedCount);
+        public string LaunchHomeButtonText => LocalizationService.Format("Main.OpenRobloxHomeAction", SelectedCount);
 
-        public string JoinServerButtonText => LocalizationService.Format("Auto_MainViewModelFea_474", SelectedCount);
+        public string JoinServerButtonText => LocalizationService.Format("Main.JoinServerAction", SelectedCount);
 
-        public string FooterSelectedText => LocalizationService.Format("Auto_MainViewModelFea_475", SelectedCount);
+        public string FooterSelectedText => LocalizationService.Format("Main.AccountsSelectedCount", SelectedCount);
 
-        public string FooterTotalText => LocalizationService.Format("Auto_MainViewModelFea_476", TotalCount);
+        public string FooterTotalText => LocalizationService.Format("Main.TotalAccountsCount", TotalCount);
 
-        public string FooterReadyStatusText => LocalizationService.Get("Auto_MainViewModelFea_477");
+        public string FooterReadyStatusText => LocalizationService.Get("Main.ShiroReadyStatus");
 
-        public string SubtitleTotalText => LocalizationService.Format("Auto_AboutDialogaxaml_034", TotalCount);
+        public string SubtitleTotalText => LocalizationService.Format("About.AccountsCount", TotalCount);
 
-        public string SubtitleReadyText => LocalizationService.Format("Auto_MainViewModelFea_478", ReadyCount);
+        public string SubtitleReadyText => LocalizationService.Format("Main.ReadyAccountsCount", ReadyCount);
 
-        public string SubtitleSelectedText => LocalizationService.Format("Auto_MainViewModelFea_479", SelectedCount);
+        public string SubtitleSelectedText => LocalizationService.Format("Main.SelectedCountShort", SelectedCount);
 
-        public string TabAllText => LocalizationService.Format("Auto_MainViewModelFea_480", TotalCount);
+        public string TabAllText => LocalizationService.Format("Main.TabAllCount", TotalCount);
 
-        public string TabInGameText => LocalizationService.Format("Auto_MainViewModelFea_481", InGameCount);
+        public string TabInGameText => LocalizationService.Format("Main.TabPlayingCount", InGameCount);
 
-        public string TabReadyText => LocalizationService.Format("Auto_MainViewModelFea_482", ReadyCount);
+        public string TabReadyText => LocalizationService.Format("Main.TabReadyCount", ReadyCount);
 
-        public string TabExpiredText => LocalizationService.Format("Auto_MainViewModelFea_483", ExpiredCount);
+        public string TabExpiredText => LocalizationService.Format("Main.TabExpiredCount", ExpiredCount);
 
-        public string TabBannedText => LocalizationService.Format("Auto_MainViewModelFea_484", BannedCount);
+        public string TabBannedText => LocalizationService.Format("Main.TabBannedCount", BannedCount);
 
-        public string TabPinnedText => LocalizationService.Format("Auto_MainViewModelFea_485", PinnedCount);
+        public string TabPinnedText => LocalizationService.Format("Main.TabPinnedCount", PinnedCount);
 
-        public string DeselectCountText => LocalizationService.Format("Auto_MainViewModelFea_486", SelectedCount);
+        public string DeselectCountText => LocalizationService.Format("Main.DeselectCountAction", SelectedCount);
 
         public void ReloadRecentGames()
         {

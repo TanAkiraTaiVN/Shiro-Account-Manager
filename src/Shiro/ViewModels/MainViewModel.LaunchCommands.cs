@@ -54,11 +54,11 @@ namespace Shiro.ViewModels
         private void ExecuteViewBanForAccount(AccountViewModel? avm)
         {
             if (avm?.Model == null) return;
-            string notice = !string.IsNullOrWhiteSpace(avm.BanNoticeText) ? avm.BanNoticeText : Shiro.Services.LocalizationService.Get("Auto_MainViewModelLau_487");
-            StatusMessage = Shiro.Services.LocalizationService.Format("Auto_MainViewModelLau_488", avm.Username, notice);
+            string notice = !string.IsNullOrWhiteSpace(avm.BanNoticeText) ? avm.BanNoticeText : Shiro.Services.LocalizationService.Get("Main.AccountModeratedOrLocked");
+            StatusMessage = Shiro.Services.LocalizationService.Format("Main.OpeningModerationBrowser", avm.Username, notice);
             ToastService.ShowWarning(
-                Shiro.Services.LocalizationService.Format("Auto_MainViewModelLau_489", avm.Username),
-                Shiro.Services.LocalizationService.Format("Auto_MainViewModelLau_490", notice),
+                Shiro.Services.LocalizationService.Format("Main.ViewBanTitle", avm.Username),
+                Shiro.Services.LocalizationService.Format("Main.OpeningBanDetailsPrompt", notice),
                 4.0);
 
             if (OnFastReLoginRequested != null)
@@ -80,9 +80,9 @@ namespace Shiro.ViewModels
                 AppDispatcher.Post(() =>
                 {
                     if (closed)
-                        ToastService.ShowSuccess(Shiro.Services.LocalizationService.Format("Auto_MainViewModelLau_491", username));
+                        ToastService.ShowSuccess(Shiro.Services.LocalizationService.Format("Main.ClosedRobloxForAccount", username));
                     else
-                        ToastService.ShowInfo(Shiro.Services.LocalizationService.Format("Auto_MainViewModelLau_492", username));
+                        ToastService.ShowInfo(Shiro.Services.LocalizationService.Format("Main.NoRobloxRunningForAccount", username));
                     RefreshLiveProcessStatus();
                 });
             });
@@ -107,7 +107,7 @@ namespace Shiro.ViewModels
             }
             else
             {
-                StatusMessage = Shiro.Services.LocalizationService.Get("Auto_MainViewModelLau_493");
+                StatusMessage = Shiro.Services.LocalizationService.Get("Main.EnterPlaceIdOrLink");
             }
         }
 
@@ -177,8 +177,8 @@ namespace Shiro.ViewModels
                 var selected = _accounts.Where(a => a.IsSelected).ToList();
                 if (selected.Count == 0)
                 {
-                    string warnTitle = Shiro.Services.LocalizationService.Get("Auto_MainViewModelLau_494");
-                    string warnMsg = Shiro.Services.LocalizationService.Get("Auto_MainViewModelLau_495");
+                    string warnTitle = Shiro.Services.LocalizationService.Get("Main.NoAccountSelectedTitle");
+                    string warnMsg = Shiro.Services.LocalizationService.Get("Main.SelectAccountBeforeOpenHome");
                     StatusMessage = warnMsg;
                     ToastService.ShowWarning(warnTitle, warnMsg);
                     return;
@@ -200,8 +200,8 @@ namespace Shiro.ViewModels
                 var selected = _accounts.Where(a => a.IsSelected).ToList();
                 if (selected.Count == 0)
                 {
-                    string warnTitle = Shiro.Services.LocalizationService.Get("Auto_MainViewModelLau_494");
-                    string warnMsg = Shiro.Services.LocalizationService.Get("Auto_MainViewModelLau_496");
+                    string warnTitle = Shiro.Services.LocalizationService.Get("Main.NoAccountSelectedTitle");
+                    string warnMsg = Shiro.Services.LocalizationService.Get("Main.SelectAccountBeforePlayServer");
                     StatusMessage = warnMsg;
                     ToastService.ShowWarning(warnTitle, warnMsg);
                     return;
@@ -210,9 +210,9 @@ namespace Shiro.ViewModels
                 long placeId = AccountLauncherService.ParsePlaceId(PlaceId?.Trim() ?? string.Empty);
                 if (placeId <= 0)
                 {
-                    string pidWarn = Shiro.Services.LocalizationService.Get("Auto_MainViewModelLau_493");
+                    string pidWarn = Shiro.Services.LocalizationService.Get("Main.EnterPlaceIdOrLink");
                     StatusMessage = pidWarn;
-                    ToastService.ShowWarning(Shiro.Services.LocalizationService.Get("Auto_MainViewModelLau_497"), pidWarn);
+                    ToastService.ShowWarning(Shiro.Services.LocalizationService.Get("Main.MissingPlaceIdTitle"), pidWarn);
                     return;
                 }
 

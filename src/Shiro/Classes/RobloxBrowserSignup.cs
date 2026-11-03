@@ -140,7 +140,7 @@ namespace Shiro.Classes
 
                 Program.Logger.Info("Roblox sign-up page opened in Chrome. Waiting for user to complete registration...");
                 AppSettings.SetDashboardStatus(
-                    Shiro.Services.LocalizationService.Get("Auto_RobloxBrowserSig_198"));
+                    Shiro.Services.LocalizationService.Get("RobloxSignup.OpenedBrowser"));
 
                 string? lastAttemptedCookie = null;
                 DateTime lastCookieAttemptUtc = DateTime.MinValue;
@@ -235,7 +235,7 @@ namespace Shiro.Classes
                             {
                                 Program.Logger?.Info($"Roblox account '{createdAccount.Username}' registered and added to manager successfully.");
                                 AppSettings.SetDashboardStatus(
-                                    Shiro.Services.LocalizationService.Format("Auto_RobloxBrowserSig_199", createdAccount.Username));
+                                    Shiro.Services.LocalizationService.Format("RobloxSignup.SuccessAddedAccount", createdAccount.Username));
                                 await Task.Delay(1500, cancellationToken).ConfigureAwait(false);
                                 break;
                             }

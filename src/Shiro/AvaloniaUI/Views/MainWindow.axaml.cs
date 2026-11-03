@@ -147,8 +147,8 @@ namespace Shiro.AvaloniaUI.Views
                         if (vaultKeyNewerThanData)
                         {
                             var recoverRes = await MessageBoxDialog.ShowAsync(
-                                Shiro.Services.LocalizationService.Get("Auto_MainWindowaxaml_112"),
-                                Shiro.Services.LocalizationService.Get("Auto_MainWindowaxaml_113"),
+                                Shiro.Services.LocalizationService.Get("MainWindow.VaultKeyChangedPrompt"),
+                                Shiro.Services.LocalizationService.Get("MainWindow.RecoverShiroDataTitle"),
                                 MessageBoxButtons.YesNo,
                                 MessageBoxIcon.Question,
                                 this);
@@ -158,15 +158,15 @@ namespace Shiro.AvaloniaUI.Views
                                 if (AppServices.AccountRepository.TryRecoverOrRestore(out string statusMsg))
                                 {
                                     RefreshAccounts(AppServices.AccountRepository.GetAll());
-                                    ToastService.ShowSuccess(Shiro.Services.LocalizationService.Get("Auto_MainWindowaxaml_114"), statusMsg);
+                                    ToastService.ShowSuccess(Shiro.Services.LocalizationService.Get("MainWindow.RecoverySuccessTitle"), statusMsg);
                                     return;
                                 }
                             }
                         }
 
                         string pass = await InputDialog.PromptAsync(
-                            Shiro.Services.LocalizationService.Get("Auto_MainWindowaxaml_115"),
-                            Shiro.Services.LocalizationService.Get("Auto_MainWindowaxaml_116"),
+                            Shiro.Services.LocalizationService.Get("MainWindow.EnterMasterPasswordPrompt"),
+                            Shiro.Services.LocalizationService.Get("MainWindow.UnlockShiroTitle"),
                             "",
                             false,
                             this);
@@ -177,16 +177,16 @@ namespace Shiro.AvaloniaUI.Views
                             if (AppServices.AccountRepository.LoadFromStore(hash))
                             {
                                 RefreshAccounts(AppServices.AccountRepository.GetAll());
-                                ToastService.ShowSuccess(Shiro.Services.LocalizationService.Get("Auto_MainWindowaxaml_117"), Shiro.Services.LocalizationService.Format("Auto_MainWindowaxaml_118", AppServices.AccountRepository.Count));
+                                ToastService.ShowSuccess(Shiro.Services.LocalizationService.Get("MainWindow.UnlockedTitle"), Shiro.Services.LocalizationService.Format("MainWindow.AccountsLoadedCount", AppServices.AccountRepository.Count));
                                 return;
                             }
 
-                            ToastService.ShowWarning(Shiro.Services.LocalizationService.Get("Auto_MainWindowaxaml_120"), Shiro.Services.LocalizationService.Get("Auto_MainWindowaxaml_119"));
+                            ToastService.ShowWarning(Shiro.Services.LocalizationService.Get("MainWindow.WrongPasswordTitle"), Shiro.Services.LocalizationService.Get("MainWindow.IncorrectMasterPassword"));
                         }
 
                         var fallbackRes = await MessageBoxDialog.ShowAsync(
-                            Shiro.Services.LocalizationService.Get("Auto_MainWindowaxaml_121"),
-                            Shiro.Services.LocalizationService.Get("Auto_MainWindowaxaml_122"),
+                            Shiro.Services.LocalizationService.Get("MainWindow.CannotDecryptAccountDataPrompt"),
+                            Shiro.Services.LocalizationService.Get("MainWindow.RecoverDataTitle"),
                             MessageBoxButtons.YesNo,
                             MessageBoxIcon.Question,
                             this);
@@ -194,7 +194,7 @@ namespace Shiro.AvaloniaUI.Views
                         if (fallbackRes == MessageBoxResult.Yes && AppServices.AccountRepository.TryRecoverOrRestore(out string fallbackMsg))
                         {
                             RefreshAccounts(AppServices.AccountRepository.GetAll());
-                            ToastService.ShowSuccess(Shiro.Services.LocalizationService.Get("Auto_MainWindowaxaml_114"), fallbackMsg);
+                            ToastService.ShowSuccess(Shiro.Services.LocalizationService.Get("MainWindow.RecoverySuccessTitle"), fallbackMsg);
                         }
                     }
                     catch (Exception ex)

@@ -131,7 +131,7 @@ namespace Shiro.Services
             bool preferChrome = false,
             CancellationToken cancellationToken = default)
         {
-            if (account == null) return LaunchResult.Fail(LaunchOutcome.Failed, Shiro.Services.LocalizationService.Get("Auto_AccountLaunchSer_230"));
+            if (account == null) return LaunchResult.Fail(LaunchOutcome.Failed, Shiro.Services.LocalizationService.Get("AccountLaunch.InvalidAccount"));
             cancellationToken.ThrowIfCancellationRequested();
             if (preferChrome || AppSettings.General.Get<bool>("UseChromeHome", false))
                 return await LaunchHomeInChromeResultAsync(account, cancellationToken).ConfigureAwait(false);
@@ -207,9 +207,9 @@ namespace Shiro.Services
             else
             {
                 if (account.LastAuthTicketRateLimited)
-                    return LaunchResult.Fail(LaunchOutcome.RateLimited, Shiro.Services.LocalizationService.Get("Auto_AccountLaunchSer_231"));
+                    return LaunchResult.Fail(LaunchOutcome.RateLimited, Shiro.Services.LocalizationService.Get("AccountLaunch.RateLimited"));
 
-                return LaunchResult.Fail(LaunchOutcome.TicketError, Shiro.Services.LocalizationService.Get("Auto_AccountLaunchSer_232"));
+                return LaunchResult.Fail(LaunchOutcome.TicketError, Shiro.Services.LocalizationService.Get("AccountLaunch.TicketFailed"));
             }
         }
 
@@ -221,7 +221,7 @@ namespace Shiro.Services
 
         public async Task<LaunchResult> LaunchHomeInChromeResultAsync(Account account, CancellationToken cancellationToken = default)
         {
-            if (account == null) return LaunchResult.Fail(LaunchOutcome.Failed, Shiro.Services.LocalizationService.Get("Auto_AccountLaunchSer_230"));
+            if (account == null) return LaunchResult.Fail(LaunchOutcome.Failed, Shiro.Services.LocalizationService.Get("AccountLaunch.InvalidAccount"));
             try
             {
                 cancellationToken.ThrowIfCancellationRequested();

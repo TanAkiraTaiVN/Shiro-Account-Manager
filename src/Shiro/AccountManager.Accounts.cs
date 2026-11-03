@@ -328,7 +328,7 @@ namespace Shiro
             {
                 if (cancellationToken.IsCancellationRequested || lifetimeCancellation.IsCancellationRequested)
                 {
-                    string cancelMsg = Shiro.Services.LocalizationService.Get("Auto_AccountManagerAc_001");
+                    string cancelMsg = Shiro.Services.LocalizationService.Get("AccountManager.BulkLoginStopped");
                     SetDashboardStatus(cancelMsg);
                     statusCallback?.Invoke(cancelMsg);
                     break;
@@ -352,7 +352,7 @@ namespace Shiro
                 validCount++;
                 int windowSlot = activeSlotTasks[0] == null ? 0 : 1;
                 activeSlotTasks[windowSlot] = RunBulkUserPassLoginAsync(username, password, windowSlot, cancellationToken);
-                string msg = Shiro.Services.LocalizationService.Format("Auto_AccountManagerAc_002", username, validCount, comboList.Length);
+                string msg = Shiro.Services.LocalizationService.Format("AccountManager.OpeningBrowser", username, validCount, comboList.Length);
                 SetDashboardStatus(msg);
                 statusCallback?.Invoke(msg);
 
@@ -379,7 +379,7 @@ namespace Shiro
 
             if (validCount == 0)
             {
-                string msg = Shiro.Services.LocalizationService.Get("Auto_AccountManagerAc_003");
+                string msg = Shiro.Services.LocalizationService.Get("AccountManager.NoValidCredentials");
                 SetDashboardStatus(msg);
                 statusCallback?.Invoke(msg);
                 return;
@@ -391,14 +391,14 @@ namespace Shiro
             if (failedAccounts.Count > 0)
             {
                 string failedNames = string.Join(", ", failedAccounts.Select(f => f.Username));
-                string msg = Shiro.Services.LocalizationService.Format("Auto_AccountManagerAc_004", validCount - failedAccounts.Count, validCount, failedNames);
+                string msg = Shiro.Services.LocalizationService.Format("AccountManager.BulkLoginSummary", validCount - failedAccounts.Count, validCount, failedNames);
                 SetDashboardStatus(msg);
                 statusCallback?.Invoke(msg);
                 Program.Logger.Warn($"Bulk sign-in completed with {failedAccounts.Count} failures: {failedNames}");
             }
             else
             {
-                string msg = Shiro.Services.LocalizationService.Format("Auto_AccountManagerAc_005", validCount);
+                string msg = Shiro.Services.LocalizationService.Format("AccountManager.BulkLoginCompleted", validCount);
                 SetDashboardStatus(msg);
                 statusCallback?.Invoke(msg);
             }
@@ -419,7 +419,7 @@ namespace Shiro
             }
             catch (OperationCanceledException)
             {
-                return (false, username, Shiro.Services.LocalizationService.Get("Auto_AccountManagerAc_006"), windowSlot);
+                return (false, username, Shiro.Services.LocalizationService.Get("AccountManager.CancelledByUser"), windowSlot);
             }
             catch (Exception exception)
             {

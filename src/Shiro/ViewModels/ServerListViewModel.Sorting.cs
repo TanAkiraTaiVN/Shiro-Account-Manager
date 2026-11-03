@@ -151,7 +151,7 @@ namespace Shiro.ViewModels
                     if (_mainViewModel != null)
                     {
                         _mainViewModel.PlaceId = recent.PlaceId.ToString();
-                        _mainViewModel.StatusMessage = LocalizationService.Format("Auto_ServerListViewMo_552", recent.Name, recent.PlaceId);
+                        _mainViewModel.StatusMessage = LocalizationService.Format("ServerList.RecentGameSelected", recent.Name, recent.PlaceId);
                     }
                     SelectedSubTabIndex = 0;
                     _ = RefreshServersAsync();
@@ -170,11 +170,11 @@ namespace Shiro.ViewModels
                         _mainViewModel.JobId = string.Empty;
                         if (_mainViewModel.SelectedCount > 0)
                         {
-                            _mainViewModel.StatusMessage = LocalizationService.Format("Auto_ServerListViewMo_553", recent.Name, recent.PlaceId);
+                            _mainViewModel.StatusMessage = LocalizationService.Format("ServerList.LaunchingRecentGame", recent.Name, recent.PlaceId);
                         }
                         else
                         {
-                            LoadingStatus = LocalizationService.Get("Auto_ServerListViewMo_525");
+                            LoadingStatus = LocalizationService.Get("ServerList.SelectAccountBeforePlay");
                         }
                         _mainViewModel.JoinServerSelectedCommand?.Execute(null);
                     }

@@ -174,11 +174,11 @@ namespace Shiro.AvaloniaUI.Views
 
             if (!int.TryParse(TxtNexusPort.Text?.Trim(), out int port) || port < 1 || port > 65535)
             {
-                SetStatus(Shiro.Services.LocalizationService.Get("Auto_NexusWindowaxaml_149"));
+                SetStatus(Shiro.Services.LocalizationService.Get("Nexus.InvalidPort"));
                 return;
             }
 
-            SetStatus(Shiro.Services.LocalizationService.Get("Auto_NexusWindowaxaml_150"));
+            SetStatus(Shiro.Services.LocalizationService.Get("Nexus.StartingServer"));
             try
             {
                 bool allowExternal = ChkAllowExternal.IsChecked == true;
@@ -196,26 +196,26 @@ namespace Shiro.AvaloniaUI.Views
                     Program.Logger?.Warn($"Save Nexus settings threw: {ex.Message}");
                 }
 
-                TxtServerStatusBadge.Text = Shiro.Services.LocalizationService.Format("Auto_NexusWindowaxaml_151", port);
+                TxtServerStatusBadge.Text = Shiro.Services.LocalizationService.Format("Nexus.ServerRunning", port);
                 TxtServerStatusBadge.Foreground = RunningBadgeBrush;
-                if (TxtToggleServerLabel != null) TxtToggleServerLabel.Text = Shiro.Services.LocalizationService.Get("Auto_NexusWindowaxaml_152");
+                if (TxtToggleServerLabel != null) TxtToggleServerLabel.Text = Shiro.Services.LocalizationService.Get("Nexus.StopServerAction");
                 BtnToggleServer.Background = StopButtonBrush;
-                SetStatus(Shiro.Services.LocalizationService.Format("Auto_NexusWindowaxaml_153", port));
+                SetStatus(Shiro.Services.LocalizationService.Format("Nexus.ServerStartedOnPort", port));
             }
             catch (Exception ex)
             {
                 Server = null;
-                TxtServerStatusBadge.Text = Shiro.Services.LocalizationService.Get("Auto_NexusWindowaxaml_154");
+                TxtServerStatusBadge.Text = Shiro.Services.LocalizationService.Get("Nexus.ServerStoppedStatus");
                 TxtServerStatusBadge.Foreground = StoppedBadgeBrush;
-                if (TxtToggleServerLabel != null) TxtToggleServerLabel.Text = Shiro.Services.LocalizationService.Get("Auto_NexusWindowaxaml_155");
+                if (TxtToggleServerLabel != null) TxtToggleServerLabel.Text = Shiro.Services.LocalizationService.Get("Nexus.StartServerAction");
                 BtnToggleServer.Background = StartButtonBrush;
-                SetStatus(Shiro.Services.LocalizationService.Format("Auto_NexusWindowaxaml_156", ex.Message));
+                SetStatus(Shiro.Services.LocalizationService.Format("Nexus.ServerStartError", ex.Message));
             }
         }
 
         public async Task StopServerAsync()
         {
-            SetStatus(Shiro.Services.LocalizationService.Get("Auto_NexusWindowaxaml_157"));
+            SetStatus(Shiro.Services.LocalizationService.Get("Nexus.StoppingServer"));
             try
             {
                 if (Server != null)
@@ -223,15 +223,15 @@ namespace Shiro.AvaloniaUI.Views
                     await Server.StopAsync();
                     Server = null;
                 }
-                TxtServerStatusBadge.Text = Shiro.Services.LocalizationService.Get("Auto_NexusWindowaxaml_154");
+                TxtServerStatusBadge.Text = Shiro.Services.LocalizationService.Get("Nexus.ServerStoppedStatus");
                 TxtServerStatusBadge.Foreground = StoppedBadgeBrush;
-                if (TxtToggleServerLabel != null) TxtToggleServerLabel.Text = Shiro.Services.LocalizationService.Get("Auto_NexusWindowaxaml_155");
+                if (TxtToggleServerLabel != null) TxtToggleServerLabel.Text = Shiro.Services.LocalizationService.Get("Nexus.StartServerAction");
                 BtnToggleServer.Background = StartButtonBrush;
-                SetStatus(Shiro.Services.LocalizationService.Get("Auto_NexusWindowaxaml_158"));
+                SetStatus(Shiro.Services.LocalizationService.Get("Nexus.ServerStoppedNotification"));
             }
             catch (Exception ex)
             {
-                SetStatus(Shiro.Services.LocalizationService.Format("Auto_NexusWindowaxaml_159", ex.Message));
+                SetStatus(Shiro.Services.LocalizationService.Format("Nexus.ServerStopError", ex.Message));
             }
         }
 
@@ -272,7 +272,7 @@ namespace Shiro.AvaloniaUI.Views
                     if (acc?.Status == AccountStatus.Online)
                         online++;
                 }
-                TxtClientCount.Text = Shiro.Services.LocalizationService.Format("Auto_NexusWindowaxaml_160", online);
+                TxtClientCount.Text = Shiro.Services.LocalizationService.Format("Nexus.ConnectedClientsCount", online);
             });
         }
 
@@ -293,11 +293,11 @@ namespace Shiro.AvaloniaUI.Views
             string? script = TxtScriptInput.Text;
             if (string.IsNullOrWhiteSpace(script))
             {
-                SetStatus(Shiro.Services.LocalizationService.Get("Auto_NexusWindowaxaml_161"));
+                SetStatus(Shiro.Services.LocalizationService.Get("Nexus.EnterScriptPrompt"));
                 return;
             }
             EmitMessage($"Execute:{script}", toAll: false);
-            SetStatus(Shiro.Services.LocalizationService.Get("Auto_NexusWindowaxaml_162"));
+            SetStatus(Shiro.Services.LocalizationService.Get("Nexus.ScriptSentSelected"));
         }
 
         private void BtnExecuteAll_Click(object? sender, RoutedEventArgs e)
@@ -305,11 +305,11 @@ namespace Shiro.AvaloniaUI.Views
             string? script = TxtScriptInput.Text;
             if (string.IsNullOrWhiteSpace(script))
             {
-                SetStatus(Shiro.Services.LocalizationService.Get("Auto_NexusWindowaxaml_161"));
+                SetStatus(Shiro.Services.LocalizationService.Get("Nexus.EnterScriptPrompt"));
                 return;
             }
             EmitMessage($"Execute:{script}", toAll: true);
-            SetStatus(Shiro.Services.LocalizationService.Get("Auto_NexusWindowaxaml_163"));
+            SetStatus(Shiro.Services.LocalizationService.Get("Nexus.ScriptSentAll"));
         }
 
         public void LogMessage(string message)

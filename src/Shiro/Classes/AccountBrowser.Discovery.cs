@@ -118,7 +118,7 @@ namespace Shiro.Classes
         }
 
         public static string BrowserNotFoundMessage =>
-            Shiro.Services.LocalizationService.Get("Auto_AccountBrowserDi_195");
+            Shiro.Services.LocalizationService.Get("AccountBrowser.BrowserNotFound");
 
         public static void CreateGrid(Vector2 Size)
         {

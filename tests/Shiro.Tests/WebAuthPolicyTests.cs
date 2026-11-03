@@ -132,7 +132,7 @@ namespace Shiro.Tests
             try
             {
                 AccountManager.WSPassword = "";
-                int testPort = 59981;
+                int testPort = 27981;
                 var server = new KestrelWebServer(testPort, allowExternal: true, async ctx =>
                 {
                     await Task.Yield();
@@ -162,7 +162,7 @@ namespace Shiro.Tests
             try
             {
                 AccountManager.WSPassword = "";
-                int testPort = 59982;
+                int testPort = 27982;
                 var server = new NexusWebSocketServer(IPAddress.Any, testPort);
 
                 await server.StartAsync();

@@ -17,8 +17,8 @@ namespace Shiro.AvaloniaUI.Views
 {
     public class MissingAssetDisplayItem : ObservableObject
     {
-        private string _name = Shiro.Services.LocalizationService.Get("Auto_MissingAssetsDia_123");
-        private string _priceText = Shiro.Services.LocalizationService.Get("Auto_MissingAssetsDia_124");
+        private string _name = Shiro.Services.LocalizationService.Get("MissingAssets.LoadingText");
+        private string _priceText = Shiro.Services.LocalizationService.Get("MissingAssets.PriceChecking");
         private string _imageUrl = string.Empty;
         private bool _canBuy;
         private string _buyButtonText = "Mua";
@@ -79,8 +79,8 @@ namespace Shiro.AvaloniaUI.Views
             _account = account ?? throw new ArgumentNullException(nameof(account));
             _assetIds = assetIds ?? Array.Empty<long>();
 
-            TxtTitle.Text = Shiro.Services.LocalizationService.Format("Auto_MissingAssetsDia_125", _account.Username);
-            TxtSubtitle.Text = Shiro.Services.LocalizationService.Format("Auto_MissingAssetsDia_126", _assetIds.Length);
+            TxtTitle.Text = Shiro.Services.LocalizationService.Format("MissingAssets.TitleFormat", _account.Username);
+            TxtSubtitle.Text = Shiro.Services.LocalizationService.Format("MissingAssets.UnownedAssetsDetected", _assetIds.Length);
 
             AssetsListBox.ItemsSource = _items;
 
@@ -91,7 +91,7 @@ namespace Shiro.AvaloniaUI.Views
         {
             if (_account == null)
             {
-                TxtStatus.Text = Shiro.Services.LocalizationService.Get("Auto_MissingAssetsDia_127");
+                TxtStatus.Text = Shiro.Services.LocalizationService.Get("MissingAssets.AccountNotFound");
                 return;
             }
 
@@ -107,7 +107,7 @@ namespace Shiro.AvaloniaUI.Views
                     _items.Add(new MissingAssetDisplayItem { AssetId = id });
                 }
 
-                TxtStatus.Text = Shiro.Services.LocalizationService.Format("Auto_MissingAssetsDia_128", _items.Count);
+                TxtStatus.Text = Shiro.Services.LocalizationService.Format("MissingAssets.LoadingAssetInfoCount", _items.Count);
 
                 int loaded = 0;
                 long totalCost = 0;
@@ -132,7 +132,7 @@ namespace Shiro.AvaloniaUI.Views
                             AppDispatcher.Post(() =>
                             {
                                 if (!token.IsCancellationRequested)
-                                    TxtStatus.Text = Shiro.Services.LocalizationService.Format("Auto_MissingAssetsDia_129", currentLoaded, _items.Count);
+                                    TxtStatus.Text = Shiro.Services.LocalizationService.Format("MissingAssets.LoadingProgress", currentLoaded, _items.Count);
                             });
                         }
                         finally
@@ -145,8 +145,8 @@ namespace Shiro.AvaloniaUI.Views
                 await Task.WhenAll(tasks).ConfigureAwait(true);
                 if (token.IsCancellationRequested) return;
 
-                TxtStatus.Text = Shiro.Services.LocalizationService.Format("Auto_MissingAssetsDia_130", _items.Count);
-                TxtTotalPrice.Text = Shiro.Services.LocalizationService.Format("Auto_MissingAssetsDia_131", Interlocked.Read(ref totalCost));
+                TxtStatus.Text = Shiro.Services.LocalizationService.Format("MissingAssets.LoadingCompleted", _items.Count);
+                TxtTotalPrice.Text = Shiro.Services.LocalizationService.Format("MissingAssets.TotalRobux", Interlocked.Read(ref totalCost));
             }
             catch (OperationCanceledException) { /* canceled */ }
             catch (Exception ex)
@@ -170,7 +170,7 @@ namespace Shiro.AvaloniaUI.Views
                     {
                         string name = (root.TryGetProperty("Name", out var nameElem) && nameElem.ValueKind == JsonValueKind.String
                             ? nameElem.GetString()
-                            : Shiro.Services.LocalizationService.Format("Auto_MissingAssetsDia_132", item.AssetId)) ?? Shiro.Services.LocalizationService.Format("Auto_MissingAssetsDia_132", item.AssetId);
+                            : Shiro.Services.LocalizationService.Format("MissingAssets.ItemNumber", item.AssetId)) ?? Shiro.Services.LocalizationService.Format("MissingAssets.ItemNumber", item.AssetId);
 
                         bool isForSale = root.TryGetProperty("IsForSale", out var saleElem) &&
                                          (saleElem.ValueKind == JsonValueKind.True || (saleElem.ValueKind == JsonValueKind.False && false));
@@ -212,22 +212,22 @@ namespace Shiro.AvaloniaUI.Views
 
                         AppDispatcher.Post(() =>
                         {
-                            item.Name = name ?? Shiro.Services.LocalizationService.Format("Auto_MissingAssetsDia_132", item.AssetId);
+                            item.Name = name ?? Shiro.Services.LocalizationService.Format("MissingAssets.ItemNumber", item.AssetId);
                             if (cost == 0)
                             {
-                                item.PriceText = Shiro.Services.LocalizationService.Get("Auto_MissingAssetsDia_133");
+                                item.PriceText = Shiro.Services.LocalizationService.Get("MissingAssets.PriceFree");
                                 item.CanBuy = true;
                             }
                             else if (cost > 0)
                             {
-                                item.PriceText = Shiro.Services.LocalizationService.Format("Auto_MissingAssetsDia_134", cost);
+                                item.PriceText = Shiro.Services.LocalizationService.Format("MissingAssets.PriceRobux", cost);
                                 item.CanBuy = true;
                             }
                             else
                             {
-                                item.PriceText = Shiro.Services.LocalizationService.Get("Auto_MissingAssetsDia_135");
+                                item.PriceText = Shiro.Services.LocalizationService.Get("MissingAssets.PriceOffSale");
                                 item.CanBuy = false;
-                                item.BuyButtonText = Shiro.Services.LocalizationService.Get("Auto_MissingAssetsDia_136");
+                                item.BuyButtonText = Shiro.Services.LocalizationService.Get("MissingAssets.PriceOutOfStock");
                             }
                         });
                         return;
@@ -236,8 +236,8 @@ namespace Shiro.AvaloniaUI.Views
 
                 AppDispatcher.Post(() =>
                 {
-                    item.Name = Shiro.Services.LocalizationService.Format("Auto_MissingAssetsDia_132", item.AssetId);
-                    item.PriceText = Shiro.Services.LocalizationService.Get("Auto_MissingAssetsDia_137");
+                    item.Name = Shiro.Services.LocalizationService.Format("MissingAssets.ItemNumber", item.AssetId);
+                    item.PriceText = Shiro.Services.LocalizationService.Get("MissingAssets.PriceUnavailable");
                     item.CanBuy = false;
                 });
             }
@@ -246,8 +246,8 @@ namespace Shiro.AvaloniaUI.Views
                 Program.Logger?.Debug($"[MissingAssetsDialog] Load failed for asset {item.AssetId}: {ex.Message}");
                 AppDispatcher.Post(() =>
                 {
-                    item.Name = Shiro.Services.LocalizationService.Format("Auto_MissingAssetsDia_132", item.AssetId);
-                    item.PriceText = Shiro.Services.LocalizationService.Get("Auto_MissingAssetsDia_138");
+                    item.Name = Shiro.Services.LocalizationService.Format("MissingAssets.ItemNumber", item.AssetId);
+                    item.PriceText = Shiro.Services.LocalizationService.Get("MissingAssets.PriceLoadError");
                 });
             }
         }
@@ -272,7 +272,7 @@ namespace Shiro.AvaloniaUI.Views
         {
             if (_account == null)
             {
-                await MessageBoxDialog.ShowAsync(Shiro.Services.LocalizationService.Get("Auto_MissingAssetsDia_139"), Shiro.Services.LocalizationService.Get("Status_Error"), MessageBoxButtons.OK, MessageBoxIcon.Error, this);
+                await MessageBoxDialog.ShowAsync(Shiro.Services.LocalizationService.Get("MissingAssets.NoValidAccountInfo"), Shiro.Services.LocalizationService.Get("Status_Error"), MessageBoxButtons.OK, MessageBoxIcon.Error, this);
                 return;
             }
 
@@ -286,25 +286,25 @@ namespace Shiro.AvaloniaUI.Views
 
                 if (productId <= 0)
                 {
-                    await MessageBoxDialog.ShowAsync(Shiro.Services.LocalizationService.Get("Auto_MissingAssetsDia_140"), Shiro.Services.LocalizationService.Get("Msg_InfoTitle"), MessageBoxButtons.OK, MessageBoxIcon.Warning, this);
+                    await MessageBoxDialog.ShowAsync(Shiro.Services.LocalizationService.Get("MissingAssets.NoValidProductId"), Shiro.Services.LocalizationService.Get("Msg_InfoTitle"), MessageBoxButtons.OK, MessageBoxIcon.Warning, this);
                     return;
                 }
 
                 var confirm = await MessageBoxDialog.ShowAsync(
-                    Shiro.Services.LocalizationService.Format("Auto_MissingAssetsDia_141", item.Name, item.PriceText, _account.Username),
-                    Shiro.Services.LocalizationService.Get("Auto_MissingAssetsDia_142"), MessageBoxButtons.YesNo, MessageBoxIcon.Question, this);
+                    Shiro.Services.LocalizationService.Format("MissingAssets.ConfirmPurchasePrompt", item.Name, item.PriceText, _account.Username),
+                    Shiro.Services.LocalizationService.Get("MissingAssets.ConfirmPurchaseTitle"), MessageBoxButtons.YesNo, MessageBoxIcon.Question, this);
 
                 if (confirm != MessageBoxResult.Yes) return;
 
                 item.CanBuy = false;
-                item.BuyButtonText = Shiro.Services.LocalizationService.Get("Auto_MissingAssetsDia_143");
+                item.BuyButtonText = Shiro.Services.LocalizationService.Get("MissingAssets.PurchasingText");
 
                 try
                 {
                     var csrf = await _account.GetCSRFTokenAsync().ConfigureAwait(true);
                     if (!csrf.Success)
                     {
-                        await MessageBoxDialog.ShowAsync(Shiro.Services.LocalizationService.Get("Auto_MissingAssetsDia_144"), Shiro.Services.LocalizationService.Get("Status_Error"), MessageBoxButtons.OK, MessageBoxIcon.Error, this);
+                        await MessageBoxDialog.ShowAsync(Shiro.Services.LocalizationService.Get("MissingAssets.CannotGetCsrfToken"), Shiro.Services.LocalizationService.Get("Status_Error"), MessageBoxButtons.OK, MessageBoxIcon.Error, this);
                         item.CanBuy = true;
                         item.BuyButtonText = "Mua";
                         return;
@@ -322,21 +322,21 @@ namespace Shiro.AvaloniaUI.Views
                     var response = await _account.ExecuteAccountRestAsync(AppServices.RobloxApi.Economy, "https://economy.roblox.com", buyRequest).ConfigureAwait(true);
                     if (response != null && response.IsSuccessful)
                     {
-                        item.BuyButtonText = Shiro.Services.LocalizationService.Get("Auto_MissingAssetsDia_145");
-                        await MessageBoxDialog.ShowAsync(Shiro.Services.LocalizationService.Format("Auto_MissingAssetsDia_146", item.Name), Shiro.Services.LocalizationService.Get("Msg_SuccessTitle"), MessageBoxButtons.OK, MessageBoxIcon.Information, this);
+                        item.BuyButtonText = Shiro.Services.LocalizationService.Get("MissingAssets.PurchasedBadge");
+                        await MessageBoxDialog.ShowAsync(Shiro.Services.LocalizationService.Format("MissingAssets.PurchaseSuccess", item.Name), Shiro.Services.LocalizationService.Get("Msg_SuccessTitle"), MessageBoxButtons.OK, MessageBoxIcon.Information, this);
                     }
                     else
                     {
                         item.CanBuy = true;
                         item.BuyButtonText = "Mua";
-                        await MessageBoxDialog.ShowAsync(Shiro.Services.LocalizationService.Format("Auto_MissingAssetsDia_147", response?.ErrorMessage ?? response?.Content), Shiro.Services.LocalizationService.Get("Status_Error"), MessageBoxButtons.OK, MessageBoxIcon.Error, this);
+                        await MessageBoxDialog.ShowAsync(Shiro.Services.LocalizationService.Format("MissingAssets.PurchaseFailed", response?.ErrorMessage ?? response?.Content), Shiro.Services.LocalizationService.Get("Status_Error"), MessageBoxButtons.OK, MessageBoxIcon.Error, this);
                     }
                 }
                 catch (Exception ex)
                 {
                     item.CanBuy = true;
                     item.BuyButtonText = "Mua";
-                    await MessageBoxDialog.ShowAsync(Shiro.Services.LocalizationService.Format("Auto_MissingAssetsDia_148", ex.Message), Shiro.Services.LocalizationService.Get("Status_Error"), MessageBoxButtons.OK, MessageBoxIcon.Error, this);
+                    await MessageBoxDialog.ShowAsync(Shiro.Services.LocalizationService.Format("MissingAssets.TransactionError", ex.Message), Shiro.Services.LocalizationService.Get("Status_Error"), MessageBoxButtons.OK, MessageBoxIcon.Error, this);
                 }
             }
         }

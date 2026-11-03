@@ -130,7 +130,7 @@ namespace Shiro.Services
         public static (int arrangedCount, string description) ArrangeWindows(RobloxWindowLayoutMode mode)
         {
             if (!OperatingSystem.IsWindows())
-                return (0, LocalizationService.Get("Auto_RobloxWindowArra_342"));
+                return (0, LocalizationService.Get("WindowArranger.WindowsOnly"));
 
             if (mode != RobloxWindowLayoutMode.CascadeCorner)
             {
@@ -151,14 +151,14 @@ namespace Shiro.Services
             var runningPids = RobloxProcessService.GetRunningRobloxPids();
             if (runningPids.Count == 0)
             {
-                return (0, LocalizationService.Get("Auto_RobloxWindowArra_343"));
+                return (0, LocalizationService.Get("WindowArranger.NoClientsRunning"));
             }
 
             var pidSet = new HashSet<uint>(runningPids.Where(p => p > 0).Select(p => (uint)p));
             var windows = RobloxWindowService.FindWindowsForPids(pidSet).Where(IsWindow).Distinct().ToList();
             if (windows.Count == 0)
             {
-                return (0, LocalizationService.Get("Auto_RobloxWindowArra_344"));
+                return (0, LocalizationService.Get("WindowArranger.NoWindowsFound"));
             }
 
             var workArea = RobloxWindowService.GetTargetWorkArea();
@@ -176,7 +176,7 @@ namespace Shiro.Services
                 }
             }
 
-            string desc = LocalizationService.Format("Auto_RobloxWindowArra_345", arranged);
+            string desc = LocalizationService.Format("WindowArranger.MinimizeToCorner", arranged);
             return (arranged, desc);
         }
 

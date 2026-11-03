@@ -277,13 +277,13 @@ namespace Shiro.AvaloniaUI.Views
                     AppSettings.QueueDeferredSave();
                 }
 
-                _ = ShowSaveFeedbackAsync(Shiro.Services.LocalizationService.Get("Auto_SettingsViewaxam_174"));
+                _ = ShowSaveFeedbackAsync(Shiro.Services.LocalizationService.Get("Settings.SaveSuccess"));
             }
             catch (Exception ex)
             {
                 Program.Logger?.Error($"[SettingsView.OnSaveSettingsClicked] {ex}");
                 if (TxtSaveFeedback != null)
-                    TxtSaveFeedback.Text = Shiro.Services.LocalizationService.Format("Auto_SettingsViewaxam_175", ex.Message);
+                    TxtSaveFeedback.Text = Shiro.Services.LocalizationService.Format("Settings.SaveError", ex.Message);
             }
         }
 
@@ -312,7 +312,7 @@ namespace Shiro.AvaloniaUI.Views
         private void OnCleanTrayClicked(object sender, RoutedEventArgs e)
         {
             Task.Run(() => Utilities.ThoroughCleanNotificationArea());
-            AppServices.Dialogs.ShowInfo(Shiro.Services.LocalizationService.Get("Auto_SettingsViewaxam_177"), Shiro.Services.LocalizationService.Get("Auto_SettingsViewaxam_176"));
+            AppServices.Dialogs.ShowInfo(Shiro.Services.LocalizationService.Get("Settings.CleanTrayRequestSent"), Shiro.Services.LocalizationService.Get("Settings.CleanActionTitle"));
         }
 
         private void OnClearAvatarCacheClicked(object sender, RoutedEventArgs e)
@@ -349,16 +349,16 @@ namespace Shiro.AvaloniaUI.Views
 
                 if (deletedCount > 0)
                 {
-                    AppServices.Dialogs.ShowInfo(Shiro.Services.LocalizationService.Format("Auto_SettingsViewaxam_178", deletedCount), Shiro.Services.LocalizationService.Get("Auto_SettingsViewaxam_176"));
+                    AppServices.Dialogs.ShowInfo(Shiro.Services.LocalizationService.Format("Settings.AvatarCacheClearedFiles", deletedCount), Shiro.Services.LocalizationService.Get("Settings.CleanActionTitle"));
                 }
                 else
                 {
-                    AppServices.Dialogs.ShowInfo(Shiro.Services.LocalizationService.Get("Auto_SettingsViewaxam_179"), Shiro.Services.LocalizationService.Get("Auto_SettingsViewaxam_176"));
+                    AppServices.Dialogs.ShowInfo(Shiro.Services.LocalizationService.Get("Settings.AvatarCacheRefreshedEmpty"), Shiro.Services.LocalizationService.Get("Settings.CleanActionTitle"));
                 }
             }
             catch (Exception ex)
             {
-                AppServices.Dialogs.ShowError(Shiro.Services.LocalizationService.Format("Auto_SettingsViewaxam_180", ex.Message), Shiro.Services.LocalizationService.Get("Status_Error"));
+                AppServices.Dialogs.ShowError(Shiro.Services.LocalizationService.Format("Settings.ClearAvatarCacheError", ex.Message), Shiro.Services.LocalizationService.Get("Status_Error"));
             }
         }
 
@@ -370,7 +370,7 @@ namespace Shiro.AvaloniaUI.Views
             }
             catch (Exception ex)
             {
-                AppServices.Dialogs.ShowError(Shiro.Services.LocalizationService.Format("Auto_SettingsViewaxam_181", ex.Message), Shiro.Services.LocalizationService.Get("Status_Error"));
+                AppServices.Dialogs.ShowError(Shiro.Services.LocalizationService.Format("Settings.ChangeMasterPasswordError", ex.Message), Shiro.Services.LocalizationService.Get("Status_Error"));
             }
         }
     }

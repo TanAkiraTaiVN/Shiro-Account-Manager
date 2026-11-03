@@ -77,7 +77,7 @@ namespace Shiro
                         RobloxRateLimitCoordinator.Instance.RecordRateLimitHit(RateLimitCategory.Authentication, response);
                         LastAuthTicketRateLimited = true;
                         MarkNativeAuthRateLimited(60, Username, "CSRF token");
-                        return (false, string.Empty, Shiro.Services.LocalizationService.Get("Auto_AccountApi_193"));
+                        return (false, string.Empty, Shiro.Services.LocalizationService.Get("Account.RateLimited"));
                     }
 
                     if (response.Headers.TryGetValues("x-csrf-token", out var vals))

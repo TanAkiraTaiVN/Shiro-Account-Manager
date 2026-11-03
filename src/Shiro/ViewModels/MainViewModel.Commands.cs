@@ -75,9 +75,9 @@ namespace Shiro.ViewModels
                 var (bytesSaved, count, prioCount) = MemoryOptimizer.OptimizeRobloxClients(true);
                 double mb = bytesSaved / (1024.0 * 1024.0);
                 if (count > 0 || prioCount > 0)
-                    StatusMessage = Shiro.Services.LocalizationService.Format("Auto_MainViewModelCom_442", mb, prioCount);
+                    StatusMessage = Shiro.Services.LocalizationService.Format("Main.SuperOptimizationSuccess", mb, prioCount);
                 else
-                    StatusMessage = Shiro.Services.LocalizationService.Get("Auto_MainViewModelCom_443");
+                    StatusMessage = Shiro.Services.LocalizationService.Get("Main.MemoryOptimizedStatus");
             });
 
             ToggleWindowsCommand = new RelayCommand(() =>
@@ -89,7 +89,7 @@ namespace Shiro.ViewModels
                     _areWindowsHidden = false;
                     OnPropertyChanged(nameof(AreWindowsHidden));
                     NotifyToolStatesChanged();
-                    StatusMessage = LocalizationService.Format("Auto_MainViewModelCom_444", shown);
+                    StatusMessage = LocalizationService.Format("Main.RestoredRobloxWindows", shown);
                 }
                 else
                 {
@@ -101,13 +101,13 @@ namespace Shiro.ViewModels
 
                     if (active)
                     {
-                        string msg = LocalizationService.Format("Auto_MainViewModelCom_445", hidden);
+                        string msg = LocalizationService.Format("Main.ZeroGpuActivated", hidden);
                         StatusMessage = msg;
                         ToastService.ShowSuccess("Zero-GPU Mode", msg);
                     }
                     else
                     {
-                        string warn = LocalizationService.Get("Auto_MainViewModelCom_446");
+                        string warn = LocalizationService.Get("Main.ZeroGpuNoWindowsOpen");
                         StatusMessage = "" + warn;
                         ToastService.ShowInfo("Zero-GPU Mode", warn);
                     }
@@ -119,8 +119,8 @@ namespace Shiro.ViewModels
                 AntiAfkService.Toggle();
                 IsAntiAfk = AntiAfkService.IsEnabled;
                 StatusMessage = IsAntiAfk
-                    ? Shiro.Services.LocalizationService.Get("Auto_MainViewModelCom_447")
-                    : Shiro.Services.LocalizationService.Get("Auto_MainViewModelCom_448");
+                    ? Shiro.Services.LocalizationService.Get("Main.AntiAfkActivated")
+                    : Shiro.Services.LocalizationService.Get("Main.AntiAfkDeactivated");
             });
 
             TogglePotatoModeCommand = new RelayCommand(() =>
@@ -130,8 +130,8 @@ namespace Shiro.ViewModels
                 AppSettings.General?.Set("EnablePotatoMode", next ? "true" : "false");
                 ClientSettingsPatcher.PatchSettings();
                 StatusMessage = next
-                    ? Shiro.Services.LocalizationService.Get("Auto_MainViewModelCom_449")
-                    : Shiro.Services.LocalizationService.Get("Auto_MainViewModelCom_450");
+                    ? Shiro.Services.LocalizationService.Get("Main.PotatoModeActivated")
+                    : Shiro.Services.LocalizationService.Get("Main.PotatoModeDeactivated");
             });
 
             ToggleStreamerModeCommand = new RelayCommand(() =>
@@ -162,7 +162,7 @@ namespace Shiro.ViewModels
                 }
                 var (tiled, desc) = RobloxWindowService.TileWindows(cols, rows);
                 StatusMessage = tiled > 0
-                    ? Shiro.Services.LocalizationService.Format("Auto_MainViewModelCom_451", tiled, desc)
+                    ? Shiro.Services.LocalizationService.Format("Main.WindowsArrangedSuccess", tiled, desc)
                     : $"{desc}";
             });
 
@@ -183,11 +183,11 @@ namespace Shiro.ViewModels
                 var validAccounts = _accounts.Where(a => a.Valid && a.UserId > 0 && a.Model != null).ToList();
                 if (validAccounts.Count == 0)
                 {
-                    StatusMessage = Shiro.Services.LocalizationService.Get("Auto_MainViewModelCom_452");
+                    StatusMessage = Shiro.Services.LocalizationService.Get("Main.NoValidAccountsForRobux");
                     return;
                 }
                 int total = validAccounts.Count;
-                StatusMessage = Shiro.Services.LocalizationService.Format("Auto_MainViewModelCom_453", total);
+                StatusMessage = Shiro.Services.LocalizationService.Format("Main.RefreshingRobuxMultiple", total);
                 int updated = 0;
 
                 using var concurrencyGate = new SemaphoreSlim(4, 4);
@@ -205,7 +205,7 @@ namespace Shiro.ViewModels
                         AppDispatcher.Post(() =>
                         {
                             acc.NotifyRobuxChanged();
-                            StatusMessage = Shiro.Services.LocalizationService.Format("Auto_MainViewModelCom_454", current, total, acc.Username);
+                            StatusMessage = Shiro.Services.LocalizationService.Format("Main.RefreshingRobuxProgress", current, total, acc.Username);
                         });
                     }
                     finally
@@ -221,14 +221,14 @@ namespace Shiro.ViewModels
                 {
                     ApplyFilter();
                 }
-                StatusMessage = Shiro.Services.LocalizationService.Format("Auto_MainViewModelCom_455", updated);
+                StatusMessage = Shiro.Services.LocalizationService.Format("Main.RefreshingRobuxCompleted", updated);
             });
 
             CheckRobuxAccountCommand = new AsyncRelayCommand(async p =>
             {
                 if (p is AccountViewModel a && a.Model != null)
                 {
-                    StatusMessage = Shiro.Services.LocalizationService.Format("Auto_MainViewModelCom_456", a.Username);
+                    StatusMessage = Shiro.Services.LocalizationService.Format("Main.CheckingRobuxSingle", a.Username);
                     long bal = await a.Model.FetchRobuxBalanceAsync();
                     a.NotifyRobuxChanged();
                     await AppServices.AccountRepository.SaveAsync(true);
@@ -238,8 +238,8 @@ namespace Shiro.ViewModels
                         ApplyFilter();
                     }
                     StatusMessage = bal >= 0
-                        ? Shiro.Services.LocalizationService.Format("Auto_MainViewModelCom_457", a.Username, bal)
-                        : Shiro.Services.LocalizationService.Format("Auto_MainViewModelCom_458", a.Username);
+                        ? Shiro.Services.LocalizationService.Format("Main.RobuxBalanceResult", a.Username, bal)
+                        : Shiro.Services.LocalizationService.Format("Main.CannotFetchRobux", a.Username);
                 }
             });
 
@@ -280,7 +280,7 @@ namespace Shiro.ViewModels
             RefreshPresenceCommand = new RelayCommand(() =>
             {
                 RefreshLiveProcessStatus();
-                StatusMessage = Shiro.Services.LocalizationService.Get("Auto_MainViewModelCom_459");
+                StatusMessage = Shiro.Services.LocalizationService.Get("Main.PresenceStatusUpdated");
             });
 
             CheckSessionsCommand = new RelayCommand(() =>
@@ -299,7 +299,7 @@ namespace Shiro.ViewModels
                 }
                 catch (Exception ex)
                 {
-                    StatusMessage = Shiro.Services.LocalizationService.Get("Auto_MainViewModelCom_460") + ex.Message;
+                    StatusMessage = Shiro.Services.LocalizationService.Get("Main.SessionCheckErrorPrefix") + ex.Message;
                 }
             });
 
@@ -329,13 +329,13 @@ namespace Shiro.ViewModels
                     if (expired.Count == 0)
                     {
                         StatusMessage = skippedLocked > 0
-                            ? Shiro.Services.LocalizationService.Format("Auto_MainViewModelCom_461", skippedLocked)
-                            : Shiro.Services.LocalizationService.Get("Auto_MainViewModelCom_462");
+                            ? Shiro.Services.LocalizationService.Format("Main.NoNormalExpiredAccounts", skippedLocked)
+                            : Shiro.Services.LocalizationService.Get("Main.NoExpiredAccountsFound");
                         return;
                     }
                     if (skippedLocked > 0)
                     {
-                        StatusMessage = Shiro.Services.LocalizationService.Format("Auto_MainViewModelCom_463", expired.Count, skippedLocked);
+                        StatusMessage = Shiro.Services.LocalizationService.Format("Main.ReloggingInExpiredAccounts", expired.Count, skippedLocked);
                     }
                     if (expired.Count == 1)
                         AppServices.Dialogs.OpenFastLoginDialog(expired[0]);
@@ -344,7 +344,7 @@ namespace Shiro.ViewModels
                 }
                 catch (Exception ex)
                 {
-                    StatusMessage = Shiro.Services.LocalizationService.Get("Auto_MainViewModelCom_464") + ex.Message;
+                    StatusMessage = Shiro.Services.LocalizationService.Get("Main.BatchReloginErrorPrefix") + ex.Message;
                 }
             });
 
@@ -368,7 +368,7 @@ namespace Shiro.ViewModels
                     int killed = RobloxProcessService.KillAllRobloxProcesses();
                     AppDispatcher.Post(() =>
                     {
-                        StatusMessage = Shiro.Services.LocalizationService.Format("Auto_MainViewModelCom_465", killed);
+                        StatusMessage = Shiro.Services.LocalizationService.Format("Main.KilledRobloxCount", killed);
                         RefreshLiveProcessStatus();
                     });
                 });
@@ -376,8 +376,8 @@ namespace Shiro.ViewModels
             CleanSystemTrayCommand = new RelayCommand(() =>
             {
                 Task.Run(() => Utilities.ThoroughCleanNotificationArea());
-                StatusMessage = Shiro.Services.LocalizationService.Get("Auto_MainViewModelCom_466");
-                ToastService.ShowSuccess(Shiro.Services.LocalizationService.Get("Auto_MainViewModelCom_468"), Shiro.Services.LocalizationService.Get("Auto_MainViewModelCom_467"));
+                StatusMessage = Shiro.Services.LocalizationService.Get("Main.TrayCleanedSuccess");
+                ToastService.ShowSuccess(Shiro.Services.LocalizationService.Get("Main.SystemTrayTitle"), Shiro.Services.LocalizationService.Get("Main.TrayCleanedGhostIcons"));
             });
             SelectRecentGameCommand = new RelayCommand(p =>
             {
@@ -389,7 +389,7 @@ namespace Shiro.ViewModels
                     AppSettings.General?.Set("SavedPlaceId", PlaceId);
                     AppSettings.QueueDeferredSave();
                     CurrentPage = NavigationPage.Accounts;
-                    StatusMessage = Shiro.Services.LocalizationService.Format("Auto_MainViewModelCom_469", item.Name, item.PlaceId);
+                    StatusMessage = Shiro.Services.LocalizationService.Format("Main.GameSelected", item.Name, item.PlaceId);
                 }
             });
             LaunchRecentGameCommand = new RelayCommand(p =>
@@ -415,7 +415,7 @@ namespace Shiro.ViewModels
                     }
                     else
                     {
-                        string warnMsg = LocalizationService.Format("Auto_MainViewModelCom_470", item.Name, item.PlaceId);
+                        string warnMsg = LocalizationService.Format("Main.GameSelectedWithJoinPrompt", item.Name, item.PlaceId);
                         StatusMessage = warnMsg;
                         ToastService.ShowInfo(item.Name, warnMsg);
                     }

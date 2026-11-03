@@ -38,14 +38,14 @@ namespace Shiro.ViewModels
         {
             if (string.IsNullOrWhiteSpace(SearchPlayerUsername))
             {
-                PlayerSearchStatus = Shiro.Services.LocalizationService.Get("Auto_ServerListViewMo_531");
+                PlayerSearchStatus = Shiro.Services.LocalizationService.Get("ServerList.EnterPlayerUsername");
                 LoadingStatus = PlayerSearchStatus;
                 return;
             }
 
             if (!long.TryParse(PlaceIdInput, out long placeId) || placeId <= 0)
             {
-                PlayerSearchStatus = Shiro.Services.LocalizationService.Get("Auto_ServerListViewMo_532");
+                PlayerSearchStatus = Shiro.Services.LocalizationService.Get("ServerList.EnterPlaceIdFirst");
                 LoadingStatus = PlayerSearchStatus;
                 return;
             }
@@ -54,7 +54,7 @@ namespace Shiro.ViewModels
             var ct = cts.Token;
 
             IsSearchingPlayer = true;
-            PlayerSearchStatus = Shiro.Services.LocalizationService.Format("Auto_ServerListViewMo_533", SearchPlayerUsername);
+            PlayerSearchStatus = Shiro.Services.LocalizationService.Format("ServerList.SearchingPlayer", SearchPlayerUsername);
             LoadingStatus = PlayerSearchStatus;
 
             try
@@ -64,7 +64,7 @@ namespace Shiro.ViewModels
 
                 if (!userFound)
                 {
-                    PlayerSearchStatus = Shiro.Services.LocalizationService.Format("Auto_ServerListViewMo_534", SearchPlayerUsername);
+                    PlayerSearchStatus = Shiro.Services.LocalizationService.Format("ServerList.PlayerUserIdNotFound", SearchPlayerUsername);
                     LoadingStatus = PlayerSearchStatus;
                     return;
                 }
@@ -76,7 +76,7 @@ namespace Shiro.ViewModels
 
                 if (!avResp.IsSuccessful || string.IsNullOrEmpty(avResp.Content))
                 {
-                    PlayerSearchStatus = Shiro.Services.LocalizationService.Get("Auto_ServerListViewMo_535");
+                    PlayerSearchStatus = Shiro.Services.LocalizationService.Get("ServerList.CannotGetPlayerAvatar");
                     LoadingStatus = PlayerSearchStatus;
                     return;
                 }
@@ -86,7 +86,7 @@ namespace Shiro.ViewModels
 
                 if (string.IsNullOrEmpty(targetAvatarUrl))
                 {
-                    PlayerSearchStatus = Shiro.Services.LocalizationService.Get("Auto_ServerListViewMo_536");
+                    PlayerSearchStatus = Shiro.Services.LocalizationService.Get("ServerList.PlayerAvatarNotExist");
                     LoadingStatus = PlayerSearchStatus;
                     return;
                 }
@@ -166,7 +166,7 @@ namespace Shiro.ViewModels
                         batches.Add((currentRequests, currentMap, lastServerInBatch));
                     }
 
-                    PlayerSearchStatus = LocalizationService.Format("Auto_ServerListViewMo_537", scannedServers, SearchPlayerUsername);
+                    PlayerSearchStatus = LocalizationService.Format("ServerList.ScanningServersForPlayer", scannedServers, SearchPlayerUsername);
                     LoadingStatus = PlayerSearchStatus;
 
                     // Process packed batches with bounded concurrency (up to 3 requests in flight)
@@ -239,7 +239,7 @@ namespace Shiro.ViewModels
 
                     SelectedServer = matchVm;
                     SelectServerJobId(matchVm);
-                    PlayerSearchStatus = Shiro.Services.LocalizationService.Format("Auto_ServerListViewMo_538", SearchPlayerUsername, matchedServer.id);
+                    PlayerSearchStatus = Shiro.Services.LocalizationService.Format("ServerList.PlayerFoundInServer", SearchPlayerUsername, matchedServer.id);
                     LoadingStatus = PlayerSearchStatus;
                 }
                 else
@@ -250,12 +250,12 @@ namespace Shiro.ViewModels
             }
             catch (OperationCanceledException)
             {
-                PlayerSearchStatus = Shiro.Services.LocalizationService.Get("Auto_ServerListViewMo_540");
+                PlayerSearchStatus = Shiro.Services.LocalizationService.Get("ServerList.PlayerSearchCancelled");
                 LoadingStatus = PlayerSearchStatus;
             }
             catch (Exception ex)
             {
-                PlayerSearchStatus = Shiro.Services.LocalizationService.Format("Auto_ServerListViewMo_541", ex.Message);
+                PlayerSearchStatus = Shiro.Services.LocalizationService.Format("ServerList.PlayerSearchError", ex.Message);
                 LoadingStatus = PlayerSearchStatus;
             }
             finally

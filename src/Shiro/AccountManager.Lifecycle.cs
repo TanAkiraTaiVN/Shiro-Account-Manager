@@ -193,8 +193,8 @@ namespace Shiro
                         try
                         {
                             bool resume = AppServices.Dialogs.ShowConfirmation(
-                                Shiro.Services.LocalizationService.Format("Auto_AccountManagerLi_009", pending.Count),
-                                Shiro.Services.LocalizationService.Get("Auto_AccountManagerLi_010"));
+                                Shiro.Services.LocalizationService.Format("AccountManager.ResumeBulkLoginPrompt", pending.Count),
+                                Shiro.Services.LocalizationService.Get("AccountManager.ResumeBulkLoginTitle"));
                             if (!resume)
                             {
                                 ReloginQueueStore.Clear();

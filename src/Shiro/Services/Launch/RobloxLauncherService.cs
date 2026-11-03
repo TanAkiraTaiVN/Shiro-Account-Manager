@@ -17,7 +17,7 @@ namespace Shiro.Services
         public async Task<string> LaunchAppHomeAsync(Account account, bool preferChrome = false, CancellationToken cancellationToken = default)
         {
             if (account == null)
-                return Shiro.Services.LocalizationService.Get("Auto_RobloxLauncherSe_250");
+                return Shiro.Services.LocalizationService.Get("RobloxLauncher.PlayerExeNotFound");
 
             return await account.LaunchAppHome(preferChrome, cancellationToken).ConfigureAwait(false);
         }
@@ -31,7 +31,7 @@ namespace Shiro.Services
             CancellationToken cancellationToken = default)
         {
             if (account == null)
-                return Shiro.Services.LocalizationService.Get("Auto_RobloxLauncherSe_250");
+                return Shiro.Services.LocalizationService.Get("RobloxLauncher.PlayerExeNotFound");
 
             return await account.JoinServer(placeId, jobId, followUser, joinVip, false, cancellationToken).ConfigureAwait(false);
         }

@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.IO;
 using Shiro.Classes;
@@ -19,14 +19,14 @@ namespace Shiro
                 Instance.LoadAccounts(null, out bool unlocked);
                 if (unlocked)
                 {
-                    statusMessage = Shiro.Services.LocalizationService.Format("Auto_AccountManagerBa_007", AccountCount);
+                    statusMessage = Shiro.Services.LocalizationService.Format("AccountManager.VaultRestored", AccountCount);
                     return true;
                 }
             }
 
             if (Instance.TryRestoreReadableBackup())
             {
-                statusMessage = Shiro.Services.LocalizationService.Format("Auto_AccountManagerBa_008", AccountCount);
+                statusMessage = Shiro.Services.LocalizationService.Format("AccountManager.BackupRestored", AccountCount);
                 return true;
             }
 

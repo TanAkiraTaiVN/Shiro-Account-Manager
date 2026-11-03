@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Threading.Tasks;
 using Avalonia.Media.Imaging;
@@ -44,7 +44,7 @@ namespace Shiro.ViewModels
             }
         }
 
-        public string PlayerCountDisplay => PlayerCount > 0 ? Shiro.Services.LocalizationService.Format("Auto_GameSearchItemVi_359", PlayerCount) : "Roblox Experience";
+        public string PlayerCountDisplay => PlayerCount > 0 ? Shiro.Services.LocalizationService.Format("ServerList.PlayerCount", PlayerCount) : "Roblox Experience";
 
         public string ThumbnailUrl
         {
