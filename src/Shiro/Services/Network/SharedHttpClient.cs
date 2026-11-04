@@ -31,6 +31,12 @@ namespace Shiro.Services
 
         public static HttpClient GetNoRedirect() => Get("no-redirect");
 
+        internal static void SetTestClient(string name, HttpClient client) =>
+            Clients[name ?? "default"] = new Lazy<HttpClient>(() => client);
+
+        internal static void ResetTestClient(string name) =>
+            Clients.TryRemove(name ?? "default", out _);
+
         /// <summary>
         /// Creates a short-lived client for an explicitly selected proxy.
         /// Proxy candidates are intentionally not pooled together: a proxy

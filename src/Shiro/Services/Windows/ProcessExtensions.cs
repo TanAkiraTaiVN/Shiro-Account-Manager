@@ -64,8 +64,12 @@ namespace Shiro.Services
             return GetCommandLineByPid(pid);
         }
 
+        internal static Func<int, string?>? TestCommandLineOverride;
+
         public static unsafe string? GetCommandLineByPid(int pid)
         {
+            if (TestCommandLineOverride != null)
+                return TestCommandLineOverride(pid);
             if (pid <= 0)
                 return null;
 

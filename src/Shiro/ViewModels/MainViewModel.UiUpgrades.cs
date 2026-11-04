@@ -125,7 +125,7 @@ namespace Shiro.ViewModels
             string instantName = string.Empty;
             if (!GameInfoService.TryGetCachedName(placeId, out instantName))
             {
-                var recent = RecentGamesList?.ToArray().FirstOrDefault(r => r.PlaceId == placeId && !GameInfoService.IsGenericPlaceholderName(placeId, r.Name));
+                RecentGameItemViewModel? recent = null; try { var rl = RecentGamesList; if (rl != null) { for (int i = 0; i < rl.Count; i++) { var r = i < rl.Count ? rl[i] : null; if (r != null && r.PlaceId == placeId && !GameInfoService.IsGenericPlaceholderName(placeId, r.Name)) { recent = r; break; } } } } catch (Exception ex) { AppServices.Logger.Debug("Lookup error: " + ex.Message); }
                 if (recent != null)
                 {
                     instantName = recent.Name;
@@ -133,7 +133,7 @@ namespace Shiro.ViewModels
                 }
                 else
                 {
-                    var fav = ServerListViewModel?.Favorites?.ToArray().FirstOrDefault(f => f.PlaceId == placeId && !GameInfoService.IsGenericPlaceholderName(placeId, f.Name));
+                    FavoriteGameItemViewModel? fav = null; try { var fl = ServerListViewModel?.Favorites; if (fl != null) { for (int i = 0; i < fl.Count; i++) { var f = i < fl.Count ? fl[i] : null; if (f != null && f.PlaceId == placeId && !GameInfoService.IsGenericPlaceholderName(placeId, f.Name)) { fav = f; break; } } } } catch (Exception ex) { AppServices.Logger.Debug("Lookup error: " + ex.Message); }
                     if (fav != null)
                     {
                         instantName = fav.Name;

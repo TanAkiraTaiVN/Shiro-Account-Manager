@@ -1,6 +1,9 @@
 #nullable enable
 using System;
 using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
+using NSubstitute;
 using Shiro.Classes;
 using Shiro.Services;
 using Shiro.ViewModels;
@@ -243,6 +246,208 @@ namespace Shiro.Tests
 
             var ex = Record.Exception(() => vm.LoadAllRegionsCommand.Execute(null));
             Assert.Null(ex);
+        }
+
+        [Fact]
+        public async Task SearchGamesAsync_WithSharedHttpClient_PopulatesSearchGamesAndThumbnails()
+        {
+            var handler = new Shiro.Tests.TestInfrastructure.FakeHttpHandler(req =>
+            {
+                string url = req.RequestUri?.AbsoluteUri ?? "";
+                if (url.Contains("omni-search"))
+                {
+                    string json = "{\"searchResults\":[{\"contents\":[{\"rootPlaceId\":189707,\"name\":\"Natural Disaster Survival\",\"playerCount\":5000},{\"placeId\":554433,\"name\":\"Tycoon\",\"playerCount\":200}]}]}";
+                    return new System.Net.Http.HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = new System.Net.Http.StringContent(json) };
+                }
+                if (url.Contains("gameicons"))
+                {
+                    string json = "{\"data\":[{\"targetId\":189707,\"imageUrl\":\"https://icon.rbx/189707.png\"},{\"targetId\":554433,\"imageUrl\":\"https://icon.rbx/554433.png\"}]}";
+                    return new System.Net.Http.HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = new System.Net.Http.StringContent(json) };
+                }
+                return new System.Net.Http.HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = new System.Net.Http.StringContent("{}") };
+            });
+
+            SharedHttpClient.SetTestClient("default", new System.Net.Http.HttpClient(handler));
+            try
+            {
+                var vm = new ServerListViewModel();
+                vm.GameSearchTerm = "Disaster";
+
+                vm.SearchGamesCommand.Execute(null);
+
+                // Give background Task.Run a brief moment
+                for (int i = 0; i < 20 && vm.IsSearchingGames; i++)
+                {
+                    await Task.Delay(50);
+                }
+
+                Assert.False(vm.IsSearchingGames);
+                Assert.True(vm.SearchGames.Count >= 2);
+                Assert.Equal(189707, vm.SearchGames[0].PlaceId);
+                Assert.Equal("Natural Disaster Survival", vm.SearchGames[0].Name);
+                Assert.Equal("https://icon.rbx/189707.png", vm.SearchGames[0].ThumbnailUrl);
+            }
+            finally
+            {
+                SharedHttpClient.ResetTestClient("default");
+            }
+        }
+
+        [Fact]
+        public async Task Favorites_LoadSaveSelectAndLaunch_CoversBranches()
+        {
+            using (StoragePaths.OverrideDataDirectoryForTesting(_testDir))
+            {
+                string favPath = StoragePaths.GetUserFile("FavoriteGames.json");
+                string initialJson = "[{\"Name\":\"Disaster\",\"PlaceID\":189707,\"PrivateServer\":\"vip-link-1\"},{\"Name\":\"\",\"PlaceID\":554433,\"PrivateServer\":\"\"}]";
+                File.WriteAllText(favPath, initialJson);
+
+                var mainVm = new MainViewModel();
+                var vm = mainVm.ServerListViewModel;
+
+                Assert.Equal(2, vm.Favorites.Count);
+                Assert.Equal("Disaster", vm.Favorites[0].Name);
+                Assert.Equal("Place 554433", vm.Favorites[1].Name);
+
+                // LaunchFavoriteCommand without selected accounts
+                vm.LaunchFavoriteCommand.Execute(vm.Favorites[0]);
+                Assert.Equal(LocalizationService.Get("ServerList.SelectAccountBeforePlay"), vm.LoadingStatus);
+
+                // LaunchFavoriteCommand with selected accounts
+                var acc = new Account { Username = "FavPlayer", Valid = true };
+                var accVm = new AccountViewModel(acc) { IsSelected = true };
+                mainVm.Accounts.Add(accVm);
+                mainVm.NotifyCounts();
+                vm.LaunchFavoriteCommand.Execute(vm.Favorites[0]);
+                Assert.Equal(LocalizationService.Format("ServerList.LaunchingFavoriteGame", "Disaster"), mainVm.StatusMessage);
+
+                // SelectFavoriteCommand
+                vm.SelectFavoriteCommand.Execute(vm.Favorites[0]);
+                Assert.Equal("189707", vm.PlaceIdInput);
+                Assert.Equal("vip-link-1", mainVm.JobId);
+
+                // AddFavorite duplicate
+                vm.AddFavoriteCommand.Execute(189707);
+                Assert.Equal(LocalizationService.Get("ServerList.GameAlreadyFavorite"), vm.LoadingStatus);
+
+                // AddFavorite new by long placeId
+                vm.PlaceIdInput = "778899";
+                vm.AddFavoriteCommand.Execute(null);
+                Assert.Equal(3, vm.Favorites.Count);
+
+                // RemoveFavorite
+                var toRemove = vm.Favorites[0];
+                vm.RemoveFavoriteCommand.Execute(toRemove);
+                Assert.Equal(2, vm.Favorites.Count);
+                Assert.Contains("Disaster", vm.LoadingStatus);
+            }
+        }
+
+        [Fact]
+        public async Task FetchVipServers_And_ServerOperations_Branches()
+        {
+            var handler = new Shiro.Tests.TestInfrastructure.FakeHttpHandler(req =>
+            {
+                string url = req.RequestUri?.AbsoluteUri ?? "";
+                if (url.Contains("VIP"))
+                {
+                    string json = "{\"data\":[{\"id\":\"vip-guid-1\",\"accessCode\":\"code-123\",\"maxPlayers\":10,\"playing\":2,\"ping\":45,\"region\":\"US-East\",\"ip\":\"127.0.0.1\"}]}";
+                    return new System.Net.Http.HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = new System.Net.Http.StringContent(json) };
+                }
+                return new System.Net.Http.HttpResponseMessage(System.Net.HttpStatusCode.BadRequest) { Content = new System.Net.Http.StringContent("{}") };
+            });
+
+            var prevFactory = Account.TestHttpClientFactory;
+            Account.TestHttpClientFactory = _ => new System.Net.Http.HttpClient(handler);
+            var restClient = new Shiro.Http.RestClient(new System.Net.Http.HttpClient(handler), "https://games.roblox.com/");
+            var acc = new Account { Username = "VipUser", SecurityToken = "_|WARNING:-test" };
+
+            // 1. Success response
+            var vips = await ServerListViewModel.TestFetchVipServersAsync(restClient, acc, 189707, CancellationToken.None);
+            Assert.NotNull(vips);
+            Assert.Single(vips);
+            Assert.Equal("VIP:code-123", vips[0].JobId);
+            Assert.Equal("VIP", vips[0].Type);
+            Assert.Equal(10, vips[0].MaxPlayers);
+            Assert.Equal(2, vips[0].Playing);
+            Assert.Equal(45, vips[0].Ping);
+            Assert.Equal("US-East", vips[0].Region);
+            Assert.Equal("127.0.0.1", vips[0].Ip);
+
+            // 2. Error / canceled response
+            using var cts = new CancellationTokenSource();
+            cts.Cancel();
+            var canceledVips = await ServerListViewModel.TestFetchVipServersAsync(restClient, acc, 189707, cts.Token);
+            Assert.Null(canceledVips);
+
+            // 3. Exception in client
+            Account.TestHttpClientFactory = _ => throw new InvalidOperationException("boom");
+            var throwingClient = new Shiro.Http.RestClient(new System.Net.Http.HttpClient(new Shiro.Tests.TestInfrastructure.FakeHttpHandler(_ => throw new InvalidOperationException("boom"))), "https://games.roblox.com/");
+            var throwVips = await ServerListViewModel.TestFetchVipServersAsync(throwingClient, acc, 189707, CancellationToken.None);
+            Assert.Null(throwVips);
+            Account.TestHttpClientFactory = prevFactory;
+        }
+
+        [Fact]
+        public async Task JoinServerCommand_And_LoadRegionCommands_AllBranches()
+        {
+            var mainVm = new MainViewModel();
+            var vm = mainVm.ServerListViewModel;
+            vm.PlaceIdInput = "189707";
+
+            // Guard branches
+            vm.JoinServerCommand.Execute(null);
+            vm.JoinServerCommand.Execute("not-a-server-item");
+
+            var server = new ServerItemViewModel
+            {
+                JobId = "job-oper-1",
+                Type = "Public",
+                RawData = new ServerData { id = "job-oper-1" }
+            };
+
+            // Join with selected accounts
+            var acc = new Account { Username = "JoinUser1", UserID = 111, Valid = true, SecurityToken = "_|WARNING:-valid" };
+            var accVm = new AccountViewModel(acc) { IsSelected = true };
+            mainVm.Accounts.Add(accVm);
+                mainVm.NotifyCounts();
+
+            vm.JoinServerCommand.Execute(server);
+            Assert.Equal(LocalizationService.Format("ServerList.JoiningServerWithAccounts", "job-oper-1", 1), vm.LoadingStatus);
+
+            // LoadRegion branches
+            vm.LoadRegionCommand.Execute(null);
+
+            var queryMock = NSubstitute.Substitute.For<IRobloxServerQueryService>();
+            queryMock.QueryServerRegionAndPingAsync(Arg.Any<Account>(), Arg.Any<long>(), Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(new ServerRegionPingResult
+                {
+                    Success = true,
+                    Ip = "1.2.3.4",
+                    PingMs = 35,
+                    CountryCode = "US",
+                    FlagEmoji = "🇺🇸",
+                    Region = "North America"
+                }));
+
+            var origQuery = AppServices.RobloxServerQueryService;
+            AppServices.RobloxServerQueryService = queryMock;
+            try
+            {
+                await ((AsyncRelayCommand)vm.LoadRegionCommand).ExecuteAsync(server);
+                Assert.Equal("1.2.3.4", server.Ip);
+                Assert.Equal(35, server.Ping);
+                Assert.Equal("North America", server.Region);
+
+                // LoadAllRegionsCommand with servers
+                vm.SetRawServers(new[] { server, new ServerItemViewModel { JobId = "job-2", Type = "Public", RawData = new ServerData { id = "job-2" } } });
+                await ((AsyncRelayCommand)vm.LoadAllRegionsCommand).ExecuteAsync(null);
+                Assert.Equal(LocalizationService.Get("ServerList.RegionsLoadedComplete"), vm.LoadingStatus);
+            }
+            finally
+            {
+                AppServices.RobloxServerQueryService = origQuery;
+            }
         }
     }
 }

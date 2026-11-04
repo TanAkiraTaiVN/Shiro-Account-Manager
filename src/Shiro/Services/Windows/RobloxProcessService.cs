@@ -328,8 +328,12 @@ namespace Shiro.Services
         /// <summary>
         /// Gets all process IDs of running RobloxPlayerBeta game client instances safely.
         /// </summary>
+        internal static Func<IReadOnlyList<int>>? TestGetRunningRobloxPidsOverride;
+
         public static List<int> GetRunningRobloxPids()
         {
+            if (TestGetRunningRobloxPidsOverride != null)
+                return TestGetRunningRobloxPidsOverride().ToList();
             var result = new List<int>();
             if (TryGetProcessCountsNative(out _, out _, result))
                 return result;

@@ -13,6 +13,12 @@ namespace Shiro.ViewModels
 {
     public partial class ServerListViewModel
     {
+        internal static Task<List<ServerItemViewModel>?> TestFetchVipServersAsync(
+            RestClient gamesClient,
+            Account vipAuthAccount,
+            long placeId,
+            CancellationToken ct) => FetchVipServersAsync(gamesClient, vipAuthAccount, placeId, ct);
+
         private static async Task<List<ServerItemViewModel>?> FetchVipServersAsync(
             RestClient gamesClient,
             Account vipAuthAccount,
