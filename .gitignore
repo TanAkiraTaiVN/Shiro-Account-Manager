@@ -340,4 +340,5 @@ coverage/
 TestResults/
 
 !tests/coverage.runsettings
+!tests/coverage-floors.json
 

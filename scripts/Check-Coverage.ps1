@@ -2,7 +2,8 @@ param(
     [string]$CoverageDir = "coverage",
     [double]$MinOverall = 65.0,
     [double]$MinBranch = 50.0,
-    [double]$MinCore = 90.0
+    [double]$MinCore = 90.0,
+    [string]$FloorsFile = "tests/coverage-floors.json"
 )
 
 $ErrorActionPreference = "Stop"
@@ -61,6 +62,41 @@ if ($MinBranch -gt 0 -and $branchRate -lt $MinBranch) {
 if ($MinCore -gt 0 -and $coreRate -lt $MinCore) {
     Write-Host "FAILED: Core coverage $("{0:N2}" -f $coreRate)% is below required core minimum $MinCore%" -ForegroundColor Red
     $failed = $true
+}
+
+if ($FloorsFile -and (Test-Path $FloorsFile)) {
+    $byFileBranch = @{}
+    foreach ($cls in $classes) {
+        $rawPath = ([string]$cls.filename) -replace '\\', '/'
+        $relPath = if ($rawPath -match 'src/Shiro/(.+)$') { $Matches[1] } else { $rawPath }
+        if (-not $byFileBranch.ContainsKey($relPath)) {
+            $byFileBranch[$relPath] = @{ Cov = 0; Tot = 0 }
+        }
+        $lines = $cls.lines.line
+        if (-not $lines) { continue }
+        foreach ($line in $lines) {
+            if (([string]$line.branch) -eq "True" -and ([string]$line.'condition-coverage' -match '\((\d+)/(\d+)\)')) {
+                $byFileBranch[$relPath].Cov += [int]$Matches[1]
+                $byFileBranch[$relPath].Tot += [int]$Matches[2]
+            }
+        }
+    }
+
+    $floorsJson = Get-Content $FloorsFile -Raw | ConvertFrom-Json
+    foreach ($prop in $floorsJson.PSObject.Properties) {
+        $fileKey = $prop.Name
+        $minFileBranch = [double]$prop.Value.branch
+        if ($byFileBranch.ContainsKey($fileKey) -and $byFileBranch[$fileKey].Tot -gt 0) {
+            $actualFileBranch = ($byFileBranch[$fileKey].Cov * 100.0) / $byFileBranch[$fileKey].Tot
+            if ($actualFileBranch + 1e-9 -lt $minFileBranch) {
+                Write-Host ("FAILED: {0} branch {1:N1}% < {2:N1}%" -f $fileKey, $actualFileBranch, $minFileBranch) -ForegroundColor Red
+                $failed = $true
+            }
+        } else {
+            Write-Host ("FAILED: {0} not found in coverage report" -f $fileKey) -ForegroundColor Red
+            $failed = $true
+        }
+    }
 }
 
 if ($failed) {

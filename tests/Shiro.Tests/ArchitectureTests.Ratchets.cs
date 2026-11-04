@@ -57,5 +57,45 @@ namespace Shiro.Tests
 
             Assert.True(actual <= Baseline, $"Shiro.AvaloniaUI references in Nexus ({actual}) exceed baseline ({Baseline}).");
         }
+
+        [Fact]
+        public void CoverageFloors_FileExists_AndCoversHotspots()
+        {
+            var floorsPath = Path.Combine(RepoRoot, "tests", "coverage-floors.json");
+            Assert.True(File.Exists(floorsPath), $"Missing {floorsPath}");
+
+            using var doc = System.Text.Json.JsonDocument.Parse(File.ReadAllText(floorsPath));
+            var root = doc.RootElement;
+            Assert.Equal(System.Text.Json.JsonValueKind.Object, root.ValueKind);
+
+            string[] requiredHotspots =
+            {
+                "Services/Network/RobloxSettingsApiService.cs",
+                "Services/Network/AccountApiDispatcher.Endpoints.cs",
+                "Services/Windows/RobloxProcessService.Lifecycle.cs",
+                "AccountManager.ModernActions.cs",
+                "Services/Storage/AccountWorkflowService.cs",
+                "Services/Network/RobloxServerQueryService.cs",
+                "AccountManager.cs",
+                "Services/Launch/LaunchCoordinator.Helpers.cs",
+                "AccountManager.Persistence.cs",
+                "AccountManager.Accounts.cs",
+                "Services/Launch/AccountLaunchService.Diagnostics.cs",
+                "ViewModels/ServerListViewModel.Games.cs",
+                "Services/Launch/AccountLaunchService.cs",
+                "ViewModels/ServerListViewModel.ServerOperations.cs",
+                "Services/Launch/AutoReconnectService.cs",
+                "Services/Network/RobloxModerationService.cs",
+                "Services/Launch/RobloxPlaceHelper.cs"
+            };
+
+            foreach (var hotspot in requiredHotspots)
+            {
+                Assert.True(root.TryGetProperty(hotspot, out var entry), $"Missing hotspot floor for {hotspot}");
+                Assert.True(entry.TryGetProperty("branch", out var branchProp), $"Missing branch property for {hotspot}");
+                double floorVal = branchProp.GetDouble();
+                Assert.InRange(floorVal, 0.0, 100.0);
+            }
+        }
     }
 }

@@ -1,0 +1,20 @@
+{
+  "Services/Network/RobloxSettingsApiService.cs": { "branch": 40 },
+  "Services/Network/AccountApiDispatcher.Endpoints.cs": { "branch": 52 },
+  "Services/Windows/RobloxProcessService.Lifecycle.cs": { "branch": 28 },
+  "AccountManager.ModernActions.cs": { "branch": 11 },
+  "Services/Storage/AccountWorkflowService.cs": { "branch": 52 },
+  "Services/Network/RobloxServerQueryService.cs": { "branch": 40 },
+  "AccountManager.cs": { "branch": 47 },
+  "Services/Launch/LaunchCoordinator.Helpers.cs": { "branch": 36 },
+  "AccountManager.Persistence.cs": { "branch": 46 },
+  "AccountManager.Accounts.cs": { "branch": 48 },
+  "AccountManager.Lifecycle.cs": { "branch": 33 },
+  "Services/Launch/AccountLaunchService.Diagnostics.cs": { "branch": 21 },
+  "ViewModels/ServerListViewModel.Games.cs": { "branch": 46 },
+  "Services/Launch/AccountLaunchService.cs": { "branch": 14 },
+  "ViewModels/ServerListViewModel.ServerOperations.cs": { "branch": 36 },
+  "Services/Launch/AutoReconnectService.cs": { "branch": 54 },
+  "Services/Network/RobloxModerationService.cs": { "branch": 64 },
+  "Services/Launch/RobloxPlaceHelper.cs": { "branch": 2 }
+}
