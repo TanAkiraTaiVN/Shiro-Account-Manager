@@ -30,6 +30,7 @@ namespace Shiro.AvaloniaUI
                 }
                 else
                 {
+                    Nexus.NexusHost.Current ??= ViewModels.Dialogs.NexusViewModel.Default;
                     desktop.MainWindow = new Views.MainWindow();
                     ForegroundWindowService.Start();
                     UpdateCheckService.StartBackgroundCheck();

@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Buffers;
 using System.ComponentModel;
@@ -142,10 +142,10 @@ namespace Shiro.Nexus
 
             this.WebSocket = webSocket;
 
-            if (Shiro.AvaloniaUI.Views.NexusWindow.Instance != null && webSocket != null)
+            if (NexusHost.Current != null && webSocket != null)
             {
-                Shiro.AvaloniaUI.Views.NexusWindow.Instance.ContextList[webSocket] = this;
-                Shiro.AvaloniaUI.Views.NexusWindow.Instance.RefreshAccount(this);
+                NexusHost.Current.ContextList[webSocket] = this;
+                NexusHost.Current.RefreshAccount(this);
             }
 
             Logger.Info($"{Username} has connected");
@@ -183,7 +183,7 @@ namespace Shiro.Nexus
 
             if (WebSocket != null)
             {
-                Shiro.AvaloniaUI.Views.NexusWindow.Instance?.ContextList?.TryRemove(WebSocket, out _);
+                NexusHost.Current?.ContextList?.TryRemove(WebSocket, out _);
             }
 
             try
@@ -198,7 +198,7 @@ namespace Shiro.Nexus
 
             WebSocket = null;
 
-            Shiro.AvaloniaUI.Views.NexusWindow.Instance?.RefreshAccount(this);
+            NexusHost.Current?.RefreshAccount(this);
         }
 
         public void HandleMessage(string Message)
@@ -229,7 +229,7 @@ namespace Shiro.Nexus
                 }
                 else if (command.Name == "Log" && command.Payload != null && command.Payload.TryGetValue("Content", out string? logContent) && logContent != null)
                 {
-                    Shiro.AvaloniaUI.Views.NexusWindow.Instance?.LogMessage(logContent);
+                    NexusHost.Current?.LogMessage(logContent);
                 }
                 else if (command.Name == "GetText" && command.Payload != null && command.Payload.TryGetValue("Name", out string? _))
                 {
@@ -248,7 +248,7 @@ namespace Shiro.Nexus
                     JobId = jobIdContent;
                 else if (command.Name == "Echo" && command.Payload != null && command.Payload.TryGetValue("Content", out string? echoContent) && !string.IsNullOrEmpty(echoContent))
                 {
-                    Shiro.AvaloniaUI.Views.NexusWindow.Instance?.EmitMessage(echoContent, true);
+                    NexusHost.Current?.EmitMessage(echoContent, true);
                 }
                 else if (Enum.TryParse(command.Name, out CommandCreateElement elementType))
                 {

@@ -1,64 +1,64 @@
 #nullable enable
 using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.IO;
-using System.Linq;
-using System.Net;
+using System.ComponentModel;
 using System.Net.WebSockets;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Media;
-using Avalonia.Threading;
 using Shiro.Classes;
 using Shiro.Nexus;
 using Shiro.Services;
+using Shiro.ViewModels.Dialogs;
 
 namespace Shiro.AvaloniaUI.Views
 {
     public partial class NexusWindow : Window
     {
-        private static readonly string ACFile = StoragePaths.GetUserFile("AccountControlData.json");
-        private static readonly System.Threading.Lock SaveLock = new();
         private static readonly IBrush RunningBadgeBrush = new SolidColorBrush(Color.Parse("#38BDF8"));
         private static readonly IBrush StoppedBadgeBrush = new SolidColorBrush(Color.Parse("#94A3B8"));
         private static readonly IBrush StopButtonBrush = new SolidColorBrush(Color.Parse("#DC2626"));
         private static readonly IBrush StartButtonBrush = new SolidColorBrush(Color.Parse("#0284C7"));
 
+        private readonly NexusViewModel _vm;
+
         public static NexusWindow? Instance { get; private set; }
-        public static NexusWebSocketServer? Server { get; private set; }
+        public static NexusWebSocketServer? Server => NexusViewModel.Default.Server;
 
-        public ObservableCollection<ControlledAccount> Accounts { get; } = new();
-        public ConcurrentDictionary<WebSocket, ControlledAccount> ContextList { get; } = new();
+        public ObservableCollection<ControlledAccount> Accounts => _vm.Accounts;
+        public ConcurrentDictionary<WebSocket, ControlledAccount> ContextList => _vm.ContextList;
 
-        public NexusWindow()
+        public NexusWindow() : this(NexusViewModel.Default)
+        {
+        }
+
+        public NexusWindow(NexusViewModel viewModel)
         {
             InitializeComponent();
             Instance = this;
-            DgAccounts.ItemsSource = Accounts;
+            _vm = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
+            NexusHost.Current ??= _vm;
+            DataContext = _vm;
+
+            _vm.PropertyChanged += OnViewModelPropertyChanged;
+            ApplyServerVisualState(_vm.IsServerRunning);
 
             Loaded += NexusWindow_Loaded;
             Closing += (s, e) =>
             {
-                SaveAccounts();
+                _vm.SaveAccounts();
                 e.Cancel = true;
                 Hide();
             };
         }
 
-        private async void NexusWindow_Loaded(object? sender, RoutedEventArgs e)
+        private void NexusWindow_Loaded(object? sender, RoutedEventArgs e)
         {
             try
             {
-                LoadSettings();
-                LoadAccounts();
-
-                if (AppSettings.AccountControl?.Get<bool>("StartOnLaunch") == true)
-                {
-                    await StartServerAsync();
-                }
+                _ = _vm.InitializeOnLaunchAsync();
             }
             catch (Exception ex)
             {
@@ -66,265 +66,32 @@ namespace Shiro.AvaloniaUI.Views
             }
         }
 
-        #region Settings & Persistence
-
-        private void LoadSettings()
+        private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
-            try
+            if (e.PropertyName == nameof(NexusViewModel.IsServerRunning))
             {
-                TxtNexusPort.Text = AppSettings.AccountControl?.Get("NexusPort") ?? "5242";
-                ChkAllowExternal.IsChecked = AppSettings.AccountControl?.Get<bool>("AllowExternalConnections") ?? false;
-            }
-            catch (Exception ex)
-            {
-                Program.Logger?.Debug($"LoadSettings threw: {ex.Message}");
+                AppDispatcher.Post(() => ApplyServerVisualState(_vm.IsServerRunning));
             }
         }
 
-        public void SaveAccounts()
+        private void ApplyServerVisualState(bool running)
         {
-            lock (SaveLock)
-            {
-                try
-                {
-                    StoragePaths.AtomicWriteText(ACFile, Utilities.FastJson.Serialize(Accounts.ToList(), indented: true));
-                }
-                catch (Exception ex)
-                {
-                    Program.Logger?.Error($"[NexusWindow] SaveAccounts failed: {ex.Message}");
-                }
-            }
+            if (TxtServerStatusBadge != null)
+                TxtServerStatusBadge.Foreground = running ? RunningBadgeBrush : StoppedBadgeBrush;
+            if (BtnToggleServer != null)
+                BtnToggleServer.Background = running ? StopButtonBrush : StartButtonBrush;
         }
 
-        public void LoadAccounts()
-        {
-            try
-            {
-                Accounts.Clear();
-                var savedConfigs = new Dictionary<string, ControlledAccount>(StringComparer.OrdinalIgnoreCase);
-
-                if (File.Exists(ACFile))
-                {
-                    string json = File.ReadAllText(ACFile);
-                    if (!string.IsNullOrWhiteSpace(json))
-                    {
-                        if (Utilities.FastJson.TryDeserialize<List<ControlledAccount>>(json, out var list) && list != null)
-                        {
-                            foreach (var ca in list)
-                            {
-                                if (!string.IsNullOrEmpty(ca?.Username))
-                                    savedConfigs[ca.Username] = ca;
-                            }
-                        }
-                    }
-                }
-
-                var snapshot = AppServices.AccountRepository.GetAll();
-                foreach (var acc in snapshot)
-                {
-                    if (string.IsNullOrEmpty(acc?.Username)) continue;
-
-                    if (savedConfigs.TryGetValue(acc.Username, out var ca))
-                    {
-                        ca.LinkedAccount = acc;
-                        Accounts.Add(ca);
-                    }
-                    else
-                    {
-                        Accounts.Add(new ControlledAccount(acc));
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Program.Logger?.Error($"[NexusWindow] LoadAccounts error: {ex.Message}");
-            }
-            UpdateClientCount();
-        }
-
-        #endregion
-
-        #region Server Controls
-
-        private async void BtnToggleServer_Click(object sender, RoutedEventArgs e)
-        {
-            if (BtnToggleServer.IsEnabled == false) return;
-            BtnToggleServer.IsEnabled = false;
-
-            try
-            {
-                if (Server != null && Server.IsListening)
-                    await StopServerAsync();
-                else
-                    await StartServerAsync();
-            }
-            catch (Exception ex)
-            {
-                Program.Logger?.Error($"[NexusWindow.ToggleServer] {ex.Message}");
-            }
-            finally
-            {
-                BtnToggleServer.IsEnabled = true;
-            }
-        }
-
-        public async Task StartServerAsync()
-        {
-            if (Server != null && Server.IsListening) return;
-
-            if (!int.TryParse(TxtNexusPort.Text?.Trim(), out int port) || port < 1 || port > 65535)
-            {
-                SetStatus(Shiro.Services.LocalizationService.Get("Nexus.InvalidPort"));
-                return;
-            }
-
-            SetStatus(Shiro.Services.LocalizationService.Get("Nexus.StartingServer"));
-            try
-            {
-                bool allowExternal = ChkAllowExternal.IsChecked == true;
-                Server = new NexusWebSocketServer(allowExternal ? IPAddress.Any : IPAddress.Loopback, port);
-                await Server.StartAsync();
-
-                try
-                {
-                    AppSettings.AccountControl?.Set("NexusPort", port.ToString());
-                    AppSettings.AccountControl?.Set("AllowExternalConnections", allowExternal ? "true" : "false");
-                    AppSettings.Save();
-                }
-                catch (Exception ex)
-                {
-                    Program.Logger?.Warn($"Save Nexus settings threw: {ex.Message}");
-                }
-
-                TxtServerStatusBadge.Text = Shiro.Services.LocalizationService.Format("Nexus.ServerRunning", port);
-                TxtServerStatusBadge.Foreground = RunningBadgeBrush;
-                if (TxtToggleServerLabel != null) TxtToggleServerLabel.Text = Shiro.Services.LocalizationService.Get("Nexus.StopServerAction");
-                BtnToggleServer.Background = StopButtonBrush;
-                SetStatus(Shiro.Services.LocalizationService.Format("Nexus.ServerStartedOnPort", port));
-            }
-            catch (Exception ex)
-            {
-                Server = null;
-                TxtServerStatusBadge.Text = Shiro.Services.LocalizationService.Get("Nexus.ServerStoppedStatus");
-                TxtServerStatusBadge.Foreground = StoppedBadgeBrush;
-                if (TxtToggleServerLabel != null) TxtToggleServerLabel.Text = Shiro.Services.LocalizationService.Get("Nexus.StartServerAction");
-                BtnToggleServer.Background = StartButtonBrush;
-                SetStatus(Shiro.Services.LocalizationService.Format("Nexus.ServerStartError", ex.Message));
-            }
-        }
-
-        public async Task StopServerAsync()
-        {
-            SetStatus(Shiro.Services.LocalizationService.Get("Nexus.StoppingServer"));
-            try
-            {
-                if (Server != null)
-                {
-                    await Server.StopAsync();
-                    Server = null;
-                }
-                TxtServerStatusBadge.Text = Shiro.Services.LocalizationService.Get("Nexus.ServerStoppedStatus");
-                TxtServerStatusBadge.Foreground = StoppedBadgeBrush;
-                if (TxtToggleServerLabel != null) TxtToggleServerLabel.Text = Shiro.Services.LocalizationService.Get("Nexus.StartServerAction");
-                BtnToggleServer.Background = StartButtonBrush;
-                SetStatus(Shiro.Services.LocalizationService.Get("Nexus.ServerStoppedNotification"));
-            }
-            catch (Exception ex)
-            {
-                SetStatus(Shiro.Services.LocalizationService.Format("Nexus.ServerStopError", ex.Message));
-            }
-        }
-
-        public void StartServer() => _ = StartServerAsync();
-        public void StopServer() => _ = StopServerAsync();
-
-        #endregion
-
-        #region Account & Messages
-
-        public void RefreshAccount(ControlledAccount account)
-        {
-            AppDispatcher.Post(() =>
-            {
-                try
-                {
-                    if (account == null) return;
-                    if (!Accounts.Contains(account))
-                    {
-                        Accounts.Add(account);
-                    }
-                    UpdateClientCount();
-                }
-                catch (Exception ex)
-                {
-                    Program.Logger?.Debug($"RefreshAccount UI update threw: {ex.Message}");
-                }
-            });
-        }
-
-        public void UpdateClientCount()
-        {
-            AppDispatcher.Post(() =>
-            {
-                int online = 0;
-                foreach (var acc in Accounts)
-                {
-                    if (acc?.Status == AccountStatus.Online)
-                        online++;
-                }
-                TxtClientCount.Text = Shiro.Services.LocalizationService.Format("Nexus.ConnectedClientsCount", online);
-            });
-        }
-
-        public void EmitMessage(string message, bool toAll = false)
-        {
-            for (int i = 0; i < Accounts.Count; i++)
-            {
-                var account = Accounts[i];
-                if (account != null && (toAll || account.IsChecked))
-                {
-                    account.SendMessage(message);
-                }
-            }
-        }
-
-        private void BtnExecuteSelected_Click(object? sender, RoutedEventArgs e)
-        {
-            string? script = TxtScriptInput.Text;
-            if (string.IsNullOrWhiteSpace(script))
-            {
-                SetStatus(Shiro.Services.LocalizationService.Get("Nexus.EnterScriptPrompt"));
-                return;
-            }
-            EmitMessage($"Execute:{script}", toAll: false);
-            SetStatus(Shiro.Services.LocalizationService.Get("Nexus.ScriptSentSelected"));
-        }
-
-        private void BtnExecuteAll_Click(object? sender, RoutedEventArgs e)
-        {
-            string? script = TxtScriptInput.Text;
-            if (string.IsNullOrWhiteSpace(script))
-            {
-                SetStatus(Shiro.Services.LocalizationService.Get("Nexus.EnterScriptPrompt"));
-                return;
-            }
-            EmitMessage($"Execute:{script}", toAll: true);
-            SetStatus(Shiro.Services.LocalizationService.Get("Nexus.ScriptSentAll"));
-        }
-
-        public void LogMessage(string message)
-        {
-            SetStatus(message);
-        }
-
-        public void SetStatus(string message)
-        {
-            AppDispatcher.Post(() =>
-            {
-                TxtStatus.Text = message;
-            });
-        }
-
-        #endregion
+        public void SaveAccounts() => _vm.SaveAccounts();
+        public void LoadAccounts() => _vm.LoadAccounts();
+        public Task StartServerAsync() => _vm.StartServerAsync();
+        public Task StopServerAsync() => _vm.StopServerAsync();
+        public void StartServer() => _ = _vm.StartServerAsync();
+        public void StopServer() => _ = _vm.StopServerAsync();
+        public void RefreshAccount(ControlledAccount account) => _vm.RefreshAccount(account);
+        public void UpdateClientCount() => _vm.UpdateClientCount();
+        public void EmitMessage(string message, bool toAll = false) => _vm.EmitMessage(message, toAll);
+        public void LogMessage(string message) => _vm.LogMessage(message);
+        public void SetStatus(string message) => _vm.LogMessage(message);
     }
 }

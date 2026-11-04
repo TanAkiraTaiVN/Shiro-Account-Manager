@@ -97,7 +97,7 @@ namespace Shiro.Nexus
                     string? id = query["id"];
                     string jobId = string.IsNullOrEmpty(query["jobId"]) ? "UNKNOWN" : query["jobId"].ToString();
 
-                    var modernNexus = Shiro.AvaloniaUI.Views.NexusWindow.Instance;
+                    var modernNexus = NexusHost.Current;
                     if (string.IsNullOrEmpty(name) || string.IsNullOrEmpty(id) || modernNexus == null)
                     {
                         context.Response.StatusCode = StatusCodes.Status400BadRequest;

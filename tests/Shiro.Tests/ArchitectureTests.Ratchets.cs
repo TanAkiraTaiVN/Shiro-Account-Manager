@@ -12,7 +12,7 @@ namespace Shiro.Tests
         [Fact]
         public void AsyncVoidHandlers_InViews_ShouldNotExceedBaseline()
         {
-            const int Baseline = 14;
+            const int Baseline = 12;
             var viewsDir = Path.Combine(RepoRoot, "src", "Shiro", "AvaloniaUI");
             var files = Directory.GetFiles(viewsDir, "*.cs", SearchOption.AllDirectories)
                 .Where(f => !f.Replace('\\', '/').Contains("/bin/") && !f.Replace('\\', '/').Contains("/obj/") && !f.EndsWith(".g.cs"));
@@ -45,7 +45,7 @@ namespace Shiro.Tests
         [Fact]
         public void NexusFolder_ShouldNotDependOn_Views()
         {
-            const int Baseline = 8;
+            const int Baseline = 0;
             var nexusDir = Path.Combine(RepoRoot, "src", "Shiro", "Nexus");
             var files = Directory.GetFiles(nexusDir, "*.cs", SearchOption.AllDirectories);
 

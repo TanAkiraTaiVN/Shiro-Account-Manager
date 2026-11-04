@@ -2,7 +2,9 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:lucide="clr-namespace:LucideAvalonia;assembly=LucideAvalonia"
         xmlns:nexus="clr-namespace:Shiro.Nexus"
+        xmlns:vm="clr-namespace:Shiro.ViewModels.Dialogs"
         x:Class="Shiro.AvaloniaUI.Views.NexusWindow"
+        x:DataType="vm:NexusViewModel"
         x:CompileBindings="True"
         Icon="/Resources/shiro.ico"
         Title="Nexus In-Game Controller • Shiro"
@@ -23,24 +25,24 @@
                     </Border>
                     <TextBlock Text="Nexus Account Controller" FontSize="16" FontWeight="Bold" Foreground="#FFFFFF" VerticalAlignment="Center"/>
                     <Border Background="#1E1E28" CornerRadius="4" Padding="6,2" Margin="6,0,0,0">
-                        <TextBlock x:Name="TxtServerStatusBadge" Text="Server: Đang dừng" FontSize="11" Foreground="#94A3B8"/>
+                        <TextBlock x:Name="TxtServerStatusBadge" Text="{Binding ServerStatusText}" FontSize="11" Foreground="#94A3B8"/>
                     </Border>
                 </StackPanel>
 
                 <!-- Server Config Quick Controls -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                     <TextBlock Text="Port:" VerticalAlignment="Center" FontSize="12" Foreground="#A1A1AA"/>
-                    <TextBox x:Name="TxtNexusPort" Text="8080" Width="65" Height="28"
+                    <TextBox x:Name="TxtNexusPort" Text="{Binding PortText, Mode=TwoWay}" Width="65" Height="28"
                              Background="#1C1C24" Foreground="#FFFFFF" BorderBrush="#2E2E38" BorderThickness="1"
                              CornerRadius="4" Padding="6,4" FontSize="12"/>
-                    <CheckBox x:Name="ChkAllowExternal" Content="External" FontSize="12" Foreground="#A1A1AA"
+                    <CheckBox x:Name="ChkAllowExternal" IsChecked="{Binding AllowExternal, Mode=TwoWay}" Content="External" FontSize="12" Foreground="#A1A1AA"
                               VerticalAlignment="Center"/>
-                    <Button x:Name="BtnToggleServer" Click="BtnToggleServer_Click"
+                    <Button x:Name="BtnToggleServer" Command="{Binding ToggleServerCommand}" IsEnabled="{Binding !IsBusy}"
                             Background="#0284C7" Foreground="#FFFFFF" FontWeight="SemiBold"
                             CornerRadius="5" Padding="12,5" BorderThickness="0" Cursor="Hand">
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <lucide:Lucide Icon="Power" Width="12" Height="12" StrokeBrush="#FFFFFF" VerticalAlignment="Center" />
-                            <TextBlock x:Name="TxtToggleServerLabel" Text="Bật Server" VerticalAlignment="Center" />
+                            <TextBlock x:Name="TxtToggleServerLabel" Text="{Binding ToggleLabel}" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
                 </StackPanel>
@@ -61,7 +63,7 @@
                         <TextBlock Grid.Column="6" Text="Ping" FontSize="11" Foreground="#94A3B8" FontWeight="SemiBold"/>
                     </Grid>
                 </Border>
-                <ListBox Grid.Row="1" x:Name="DgAccounts" Background="Transparent">
+                <ListBox Grid.Row="1" x:Name="DgAccounts" ItemsSource="{Binding Accounts}" Background="Transparent">
                     <ListBox.ItemTemplate>
                         <DataTemplate x:DataType="nexus:ControlledAccount">
                             <Grid ColumnDefinitions="50,150,110,200,*,70,70" Margin="0,2">
@@ -82,12 +84,13 @@
         <!-- Script Command Console Area -->
         <Border Grid.Row="2" Background="#141419" BorderBrush="#22222A" BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,0,0,12">
             <Grid ColumnDefinitions="*,Auto">
-                <TextBox x:Name="TxtScriptInput" Watermark="Nhập script Lua hoặc lệnh Nexus để thực thi (vd: print('Hello from Shiro'))..."
+                <TextBox x:Name="TxtScriptInput" Text="{Binding ScriptInput, Mode=TwoWay}"
+                         Watermark="Nhập script Lua hoặc lệnh Nexus để thực thi (vd: print('Hello from Shiro'))..."
                          AcceptsReturn="True" Height="64" TextWrapping="Wrap"
                          Background="#1A1A22" Foreground="#FFFFFF" BorderBrush="#2A2A36" BorderThickness="1"
                          CornerRadius="6" Padding="10,6" FontSize="12" Margin="0,0,10,0"/>
                 <StackPanel Grid.Column="1" Spacing="6" VerticalAlignment="Center">
-                    <Button x:Name="BtnExecuteSelected" Click="BtnExecuteSelected_Click"
+                    <Button x:Name="BtnExecuteSelected" Command="{Binding ExecuteSelectedCommand}"
                             Background="#2563EB" Foreground="#FFFFFF" FontWeight="SemiBold"
                             CornerRadius="5" Padding="14,6" Width="148" HorizontalContentAlignment="Center" Cursor="Hand">
                         <StackPanel Orientation="Horizontal" Spacing="6">
@@ -95,7 +98,7 @@
                             <TextBlock Text="Chạy (Đã chọn)" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
-                    <Button x:Name="BtnExecuteAll" Click="BtnExecuteAll_Click"
+                    <Button x:Name="BtnExecuteAll" Command="{Binding ExecuteAllCommand}"
                             Background="#374151" Foreground="#FFFFFF" FontWeight="SemiBold"
                             CornerRadius="5" Padding="14,6" Width="148" HorizontalContentAlignment="Center" Cursor="Hand">
                         <StackPanel Orientation="Horizontal" Spacing="6">
@@ -110,8 +113,10 @@
         <!-- Status & Log Output -->
         <Border Grid.Row="3" Background="#0F0F14" BorderBrush="#1F1F26" BorderThickness="1" CornerRadius="6" Padding="10,6">
             <Grid ColumnDefinitions="*,Auto">
-                <TextBlock x:Name="TxtStatus" Text="Sẵn sàng." FontSize="12" Foreground="#94A3B8" VerticalAlignment="Center"/>
-                <TextBlock x:Name="TxtClientCount" Grid.Column="1" Text="Đã kết nối: 0 client" FontSize="12" Foreground="#38BDF8" VerticalAlignment="Center"/>
+                <TextBlock x:Name="TxtStatus" Text="{Binding StatusText}"
+                           Foreground="{Binding StatusKind, Converter={StaticResource StatusKindToBrush}}"
+                           FontSize="12" VerticalAlignment="Center"/>
+                <TextBlock x:Name="TxtClientCount" Grid.Column="1" Text="{Binding ClientCountText}" FontSize="12" Foreground="#38BDF8" VerticalAlignment="Center"/>
             </Grid>
         </Border>
     </Grid>

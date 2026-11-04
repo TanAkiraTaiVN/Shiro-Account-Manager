@@ -166,7 +166,8 @@ namespace Shiro.Services
                         return;
                     }
 
-                    var window = new NexusWindow();
+                    Nexus.NexusHost.Current ??= ViewModels.Dialogs.NexusViewModel.Default;
+                    var window = new NexusWindow(ViewModels.Dialogs.NexusViewModel.Default);
                     window.Show();
                     window.Activate();
                 }
