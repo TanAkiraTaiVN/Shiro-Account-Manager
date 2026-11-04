@@ -1,7 +1,9 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:lucide="clr-namespace:LucideAvalonia;assembly=LucideAvalonia"
+        xmlns:dlg="clr-namespace:Shiro.ViewModels.Dialogs"
         x:Class="Shiro.AvaloniaUI.Views.AccountUtilsDialog"
+        x:DataType="dlg:AccountUtilsViewModel"
         Icon="/Resources/shiro.ico"
         Title="Tiện ích tài khoản • Account Utilities"
         Width="480" SizeToContent="Height"
@@ -20,8 +22,8 @@
                     <lucide:Lucide Icon="Wrench" Width="17" Height="17" StrokeBrush="#38BDF8" HorizontalAlignment="Center" VerticalAlignment="Center" />
                 </Border>
                 <StackPanel Spacing="2" VerticalAlignment="Center">
-                    <TextBlock x:Name="TxtTitle" Text="Tiện ích tài khoản" FontSize="16" FontWeight="SemiBold" Foreground="#FFFFFF"/>
-                    <TextBlock x:Name="TxtDisplayName" Text="Username" FontSize="12" Foreground="#A1A1AA"/>
+                    <TextBlock x:Name="TxtTitle" Text="{Binding Title}" FontSize="16" FontWeight="SemiBold" Foreground="#FFFFFF"/>
+                    <TextBlock x:Name="TxtDisplayName" Text="{Binding DisplayName}" FontSize="12" Foreground="#A1A1AA"/>
                 </StackPanel>
             </StackPanel>
 
@@ -34,7 +36,8 @@
                             <TextBlock Text="Đăng xuất phiên khác" FontWeight="SemiBold" Foreground="#FFFFFF" FontSize="13"/>
                             <TextBlock Text="Đăng xuất tất cả các phiên trình duyệt/app khác ngoại trừ cookie hiện tại" FontSize="11" Foreground="#71717A" TextWrapping="Wrap"/>
                         </StackPanel>
-                        <Button Grid.Column="1" Click="BtnLogOutOtherSessions_Click"
+                        <Button Grid.Column="1"
+                                Command="{Binding LogOutOtherSessionsCommand}"
                                 Background="#3F3F46" Foreground="#FFFFFF" CornerRadius="5" Padding="12,6" FontSize="12"
                                 VerticalAlignment="Center" Cursor="Hand">
                             <StackPanel Orientation="Horizontal" Spacing="5">
@@ -53,10 +56,13 @@
                             <TextBlock Text="Lưu mật khẩu mã hóa an toàn để tự động điền khi Re-login" FontSize="11" Foreground="#71717A"/>
                         </StackPanel>
                         <Grid Grid.Row="1" ColumnDefinitions="*,Auto">
-                            <TextBox x:Name="TxtPassword" Watermark="Mật khẩu tài khoản..." PasswordChar="•"
+                            <TextBox x:Name="TxtPassword"
+                                     Text="{Binding Password, Mode=TwoWay}"
+                                     Watermark="Mật khẩu tài khoản..." PasswordChar="•"
                                      Background="#1F1F28" Foreground="#FFFFFF" BorderBrush="#2E2E38" BorderThickness="1"
                                      CornerRadius="5" Padding="8,6" FontSize="13" Margin="0,0,8,0"/>
-                            <Button Grid.Column="1" Click="BtnSavePassword_Click"
+                            <Button Grid.Column="1"
+                                    Command="{Binding SavePasswordCommand}"
                                     Background="#10B981" Foreground="#FFFFFF" FontWeight="SemiBold" CornerRadius="5" Padding="14,6" FontSize="12" Cursor="Hand">
                                 <StackPanel Orientation="Horizontal" Spacing="5">
                                     <lucide:Lucide Icon="Save" Width="13" Height="13" StrokeBrush="#FFFFFF" VerticalAlignment="Center" />
@@ -75,10 +81,13 @@
                             <TextBlock Text="Nhập mã PIN gồm 4 số để mở khóa phiên Roblox" FontSize="11" Foreground="#71717A"/>
                         </StackPanel>
                         <Grid Grid.Row="1" ColumnDefinitions="*,Auto">
-                            <TextBox x:Name="PbPin" Watermark="Mã PIN 4 số" PasswordChar="•" MaxLength="4"
+                            <TextBox x:Name="PbPin"
+                                     Text="{Binding Pin, Mode=TwoWay}"
+                                     Watermark="Mã PIN 4 số" PasswordChar="•" MaxLength="4"
                                      Background="#1F1F28" Foreground="#FFFFFF" BorderBrush="#2E2E38" BorderThickness="1"
                                      CornerRadius="5" Padding="8,6" FontSize="13" Margin="0,0,8,0"/>
-                            <Button Grid.Column="1" Click="BtnUnlockPin_Click"
+                            <Button Grid.Column="1"
+                                    Command="{Binding UnlockPinCommand}"
                                     Background="#2563EB" Foreground="#FFFFFF" FontWeight="SemiBold" CornerRadius="5" Padding="14,6" FontSize="12" Cursor="Hand">
                                 <StackPanel Orientation="Horizontal" Spacing="5">
                                     <lucide:Lucide Icon="LockOpen" Width="13" Height="13" StrokeBrush="#FFFFFF" VerticalAlignment="Center" />
@@ -91,11 +100,15 @@
             </StackPanel>
 
             <!-- Status text -->
-            <TextBlock x:Name="TxtStatus" Grid.Row="2" Text="" FontSize="12" Foreground="#38BDF8" TextWrapping="Wrap" Margin="0,0,0,16"/>
+            <TextBlock x:Name="TxtStatus" Grid.Row="2"
+                       Text="{Binding StatusText}"
+                       Foreground="{Binding StatusKind, Converter={StaticResource StatusKindToBrush}}"
+                       FontSize="12" TextWrapping="Wrap" Margin="0,0,0,16"/>
 
             <!-- Close Button -->
             <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right">
-                <Button Height="32" Click="BtnClose_Click"
+                <Button Height="32"
+                        Command="{Binding CloseCommand}"
                         Background="#272730" Foreground="#D4D4D8" FontWeight="SemiBold"
                         CornerRadius="5" Padding="14,0" Cursor="Hand"
                         HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
