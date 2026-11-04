@@ -1,9 +1,6 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text.Json;
-using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Media;
@@ -12,21 +9,22 @@ using Microsoft.Web.WebView2.Core;
 using Shiro.AvaloniaUI.Controls;
 using Shiro.Classes;
 using Shiro.Services;
+using Shiro.ViewModels;
+using Shiro.ViewModels.Dialogs;
 
 namespace Shiro.AvaloniaUI.Views
 {
     public partial class FastLoginDialog : Window
     {
         private DispatcherTimer? _pollTimer;
-        private readonly List<Account> _accountQueue = new List<Account>();
+        private FastLoginQueue _queue = new(Array.Empty<Account>());
         private readonly HashSet<string> _ignoredCookieValues = new HashSet<string>(StringComparer.Ordinal);
-        private int _currentQueueIndex;
         private string _username = string.Empty;
         private string _password = string.Empty;
         private bool _captured;
         private bool _isCheckingSession;
-        private string _lastVerifiedCookie = string.Empty;
-        private Account? _lastVerifiedAccount;
+
+        public CookieImportViewModel CookieViewModel { get; } = new();
 
         public Account? CreatedAccount { get; private set; }
 
@@ -36,30 +34,34 @@ namespace Shiro.AvaloniaUI.Views
 
         public FastLoginDialog()
         {
+            DataContext = CookieViewModel;
+            CookieViewModel.OnAccountCreated = () =>
+            {
+                CreatedAccount = CookieViewModel.CreatedAccount;
+                MainWindow.Instance?.DashboardView?.LoadDashboardData();
+            };
+            CookieViewModel.CloseRequested += (_, r) => Close(r);
+
             InitializeComponent();
+            if (BtnSkipNext != null)
+            {
+                BtnSkipNext.Command = new AsyncRelayCommand(AdvanceToNextAccountOrCloseAsync);
+            }
         }
 
         public FastLoginDialog(Account? account = null) : this()
         {
             if (account != null)
             {
-                _accountQueue.Add(account);
+                _queue = new FastLoginQueue(new[] { account });
                 LoadAccountAtIndex(0);
             }
         }
 
         public FastLoginDialog(IReadOnlyList<Account> accounts) : this()
         {
-            if (accounts != null)
-            {
-                foreach (var acc in accounts)
-                {
-                    if (acc != null)
-                        _accountQueue.Add(acc);
-                }
-            }
-
-            if (_accountQueue.Count > 0)
+            _queue = new FastLoginQueue(accounts);
+            if (_queue.Count > 0)
             {
                 LoadAccountAtIndex(0);
             }
@@ -67,48 +69,35 @@ namespace Shiro.AvaloniaUI.Views
 
         private void LoadAccountAtIndex(int index)
         {
-            if (index < 0 || index >= _accountQueue.Count)
+            if (!_queue.MoveTo(index) || _queue.Current == null)
                 return;
 
-            _currentQueueIndex = index;
-            var account = _accountQueue[index];
+            var account = _queue.Current;
             _username = account.Username;
             _password = account.Password;
             _captured = false;
             _redirectedFromUnauthenticatedModeration = false;
             _restoredHbaScriptId = null;
 
-            if (_accountQueue.Count > 1)
-                ReloginQueueStore.Save(_accountQueue.Skip(index).Select(a => a.UserID));
-
             if (!string.IsNullOrEmpty(_username))
             {
                 BtnRefill.IsVisible = true;
                 if (TxtDialogTitle != null)
                 {
-                    TxtDialogTitle.Text = _accountQueue.Count > 1
-                        ? Shiro.Services.LocalizationService.Format("FastLogin.DialogProgressTitle", _username, index + 1, _accountQueue.Count)
-                        : Shiro.Services.LocalizationService.Format("FastLogin.DialogSingleTitle", _username);
+                    TxtDialogTitle.Text = _queue.Title;
                 }
                 if (TxtDialogSubtitle != null)
                 {
-                    TxtDialogSubtitle.Text = !string.IsNullOrEmpty(_password)
-                        ? Shiro.Services.LocalizationService.Get("FastLogin.AutoFillUserPassTip")
-                        : Shiro.Services.LocalizationService.Get("FastLogin.AutoFillUserOnlyTip");
+                    TxtDialogSubtitle.Text = _queue.Subtitle;
                 }
             }
 
             if (BtnSkipNext != null)
             {
-                BtnSkipNext.IsVisible = _accountQueue.Count > 1 && index + 1 < _accountQueue.Count;
+                BtnSkipNext.IsVisible = _queue.HasNext;
             }
 
-            if (TxtCookieAlias != null)
-                TxtCookieAlias.Text = account.Alias ?? string.Empty;
-            if (TxtCookieGroup != null)
-                TxtCookieGroup.Text = account.Group ?? string.Empty;
-            if (TxtCookie != null && !string.IsNullOrEmpty(account.SecurityToken))
-                TxtCookie.Text = account.SecurityToken;
+            CookieViewModel.LoadFromAccount(account);
         }
 
         private void OnModeCheckedChanged(object sender, RoutedEventArgs e)
@@ -145,7 +134,7 @@ namespace Shiro.AvaloniaUI.Views
             {
                 await ConfigureCoreWebViewAsync(core);
 
-                var singleAcc = _accountQueue.Count == 1 ? _accountQueue[0] : null;
+                var singleAcc = _queue.Count == 1 ? _queue.Current : null;
                 if (singleAcc != null && singleAcc.IsBannedOrLocked && !string.IsNullOrWhiteSpace(singleAcc.SecurityToken))
                 {
                     _restoredHbaScriptId = await RobloxHbaService.RestoreWebViewModerationSessionAsync(core, singleAcc, _currentHbaSnapshot);
@@ -262,18 +251,6 @@ namespace Shiro.AvaloniaUI.Views
             }
         }
 
-        private async void OnSkipNextClicked(object sender, RoutedEventArgs e)
-        {
-            try
-            {
-                await AdvanceToNextAccountOrCloseAsync();
-            }
-            catch (Exception ex)
-            {
-                Program.Logger?.Debug($"[FastLoginDialog.OnSkipNextClicked] {ex.Message}");
-            }
-        }
-
         private void OnReloadClicked(object sender, RoutedEventArgs e)
         {
             try
@@ -286,123 +263,6 @@ namespace Shiro.AvaloniaUI.Views
             }
         }
 
-        private async void OnVerifyClicked(object sender, RoutedEventArgs e)
-        {
-            string cookie = Account.SanitizeCookie(TxtCookie?.Text ?? string.Empty);
-            if (string.IsNullOrEmpty(cookie))
-            {
-                TxtPreviewStatus.Text = Shiro.Services.LocalizationService.Get("FastLogin.PasteCookiePrompt");
-                TxtPreviewStatus.Foreground = Brushes.OrangeRed;
-                return;
-            }
-
-            TxtPreviewStatus.Text = Shiro.Services.LocalizationService.Get("FastLogin.CheckingRobloxApi");
-            TxtPreviewStatus.Foreground = Brushes.DeepSkyBlue;
-            BtnVerify.IsEnabled = false;
-
-            try
-            {
-                var account = await Account.CreateAsync(cookie);
-                if (account.Valid)
-                {
-                    _lastVerifiedCookie = cookie;
-                    _lastVerifiedAccount = account;
-                    TxtPreviewUsername.Text = $"{account.Username} (ID: {account.UserID})";
-                    TxtPreviewStatus.Text = Shiro.Services.LocalizationService.Get("FastLogin.CookieValidAndVerified");
-                    TxtPreviewStatus.Foreground = Brushes.LightGreen;
-                }
-                else
-                {
-                    _lastVerifiedCookie = string.Empty;
-                    _lastVerifiedAccount = null;
-                    TxtPreviewUsername.Text = Shiro.Services.LocalizationService.Get("FastLogin.InvalidAccountTitle");
-                    TxtPreviewStatus.Text = Shiro.Services.LocalizationService.Get("FastLogin.CookieExpiredOrInvalid");
-                    TxtPreviewStatus.Foreground = Brushes.OrangeRed;
-                }
-            }
-            catch (Exception ex)
-            {
-                _lastVerifiedCookie = string.Empty;
-                _lastVerifiedAccount = null;
-                TxtPreviewStatus.Text = Shiro.Services.LocalizationService.Format("Common.ErrorFormat", ex.Message);
-                TxtPreviewStatus.Foreground = Brushes.OrangeRed;
-            }
-            finally
-            {
-                BtnVerify.IsEnabled = true;
-            }
-        }
-
-        private async void OnAddClicked(object sender, RoutedEventArgs e)
-        {
-            string cookie = Account.SanitizeCookie(TxtCookie?.Text ?? string.Empty);
-            if (string.IsNullOrEmpty(cookie))
-            {
-                TxtPreviewStatus.Text = Shiro.Services.LocalizationService.Get("FastLogin.EnterValidCookiePrompt");
-                TxtPreviewStatus.Foreground = Brushes.OrangeRed;
-                return;
-            }
-
-            BtnAddCookie.IsEnabled = false;
-            try
-            {
-                Account? newAcc;
-                if (_lastVerifiedAccount != null &&
-                    _lastVerifiedAccount.Valid &&
-                    string.Equals(_lastVerifiedCookie, cookie, StringComparison.Ordinal))
-                {
-                    newAcc = AppServices.AccountRepository.RegisterValidated(_lastVerifiedAccount, _lastVerifiedAccount.SecurityToken, _password ?? "", saveImmediate: true);
-                }
-                else
-                {
-                    newAcc = await AppServices.AccountRepository.AddOrUpdateAsync(cookie, _password ?? "");
-                }
-
-                if (newAcc != null && newAcc.Valid)
-                {
-                    string? alias = TxtCookieAlias?.Text?.Trim();
-                    string? group = TxtCookieGroup?.Text?.Trim();
-                    bool metadataUpdated = false;
-
-                    if (!string.IsNullOrEmpty(alias))
-                    {
-                        newAcc.Alias = alias;
-                        metadataUpdated = true;
-                    }
-                    if (!string.IsNullOrEmpty(group))
-                    {
-                        newAcc.Group = group;
-                        metadataUpdated = true;
-                    }
-
-                    if (metadataUpdated)
-                    {
-                        try { await AppServices.AccountRepository.SaveAsync(true); }
-                        catch (Exception ex) { Program.Logger?.Warn($"SaveAccountsAsync after fast login failed: {ex.Message}"); }
-                    }
-
-                    CreatedAccount = newAcc;
-                    MainWindow.Instance?.DashboardView?.LoadDashboardData();
-                    AppSettings.SetDashboardStatus(Shiro.Services.LocalizationService.Format("FastLogin.AccountAddedSuccess", newAcc.Username));
-                    Close(true);
-                }
-                else
-                {
-                    TxtPreviewStatus.Text = Shiro.Services.LocalizationService.Get("FastLogin.CookieFailedOrExpired");
-                    TxtPreviewStatus.Foreground = Brushes.OrangeRed;
-                }
-            }
-            catch (Exception ex)
-            {
-                TxtPreviewStatus.Text = Shiro.Services.LocalizationService.Format("Common.ErrorFormat", ex.Message);
-                TxtPreviewStatus.Foreground = Brushes.OrangeRed;
-            }
-            finally
-            {
-                BtnAddCookie.IsEnabled = true;
-            }
-        }
-
         private void OnCancelClicked(object sender, RoutedEventArgs e)
         {
             SafeExecuteHelper.Try(() => _pollTimer?.Stop());
@@ -411,6 +271,7 @@ namespace Shiro.AvaloniaUI.Views
 
         protected override void OnClosing(WindowClosingEventArgs e)
         {
+            CookieViewModel.OnClosing();
             DisposeInteractiveLoginScope();
             try
             {

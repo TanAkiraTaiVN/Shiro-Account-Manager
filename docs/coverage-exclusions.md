@@ -40,3 +40,13 @@ The 17 extra exclusions artificially added in commit `ccb4f6b` have been removed
 `AccountBrowser*.cs`, `RobloxProcess*.cs`, `ChromeLaunchHelper*.cs`, `AvaloniaDialogService.cs`, `AccountLaunchService*.cs`, `RobloxDirectLauncher*.cs`, `RobloxSingletonService.cs`, `AntiAfkService.cs`, `DiscordRpcService.cs`, `Program.cs`, `AccountManager*.cs`, `MemoryOptimizer.cs`, `Presence.cs`, `RobloxWindow*.cs`, `RobloxAudioService.cs`, `SystemTrayService.cs`, `UpdaterService.cs`, `PrerequisiteService.cs`, `RobloxLauncherService.cs`.
 
 These files contain testable business logic and their coverage will be increased honestly through behavioral unit tests in subsequent tasks.
+
+## Accepted async void (WebView2 events)
+
+The remaining 5 `async void` methods in `src/Shiro/AvaloniaUI/Views/FastLoginDialog.axaml.cs` are event handlers required by `CoreWebView2` / `DispatcherTimer` / `WebView2Control` signatures and directly drive `CoreWebView2`:
+- `OnWebViewInitialized`
+- `OnSourceChanged`
+- `OnNavigationCompleted`
+- `OnPollTimerTick`
+- `OnRefillClicked`
+

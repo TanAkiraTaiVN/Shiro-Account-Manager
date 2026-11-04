@@ -14,7 +14,7 @@ namespace Shiro.AvaloniaUI.Views
             FastLoginCoordinator.IsModerationOrLockedUrl(url);
 
         private Task<(string? IssueBadge, string? Reason)> DetectDomAccountIssueAsync(CoreWebView2? core) =>
-            FastLoginCoordinator.DetectDomAccountIssueAsync(core, _accountQueue.Count > 0);
+            FastLoginCoordinator.DetectDomAccountIssueAsync(core, _queue.Count > 0);
 
         private async Task ConfigureCoreWebViewAsync(CoreWebView2 core)
         {

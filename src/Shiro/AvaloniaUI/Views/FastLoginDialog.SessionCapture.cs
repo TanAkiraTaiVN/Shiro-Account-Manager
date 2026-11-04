@@ -11,8 +11,7 @@ namespace Shiro.AvaloniaUI.Views
 {
     public partial class FastLoginDialog
     {
-        private Account? GetCurrentQueueAccount() =>
-            (_currentQueueIndex >= 0 && _currentQueueIndex < _accountQueue.Count) ? _accountQueue[_currentQueueIndex] : null;
+        private Account? GetCurrentQueueAccount() => _queue.Current;
 
         private bool _redirectedFromUnauthenticatedModeration;
         private string? _restoredHbaScriptId;
@@ -70,12 +69,12 @@ namespace Shiro.AvaloniaUI.Views
                 MainWindow.Instance?.ViewModel?.UpdateAccountValidity(currentAcc, false);
             }
 
-            string progressTag = _accountQueue.Count > 1 ? $" ({_currentQueueIndex + 1}/{_accountQueue.Count})" : "";
+            string progressTag = _queue.Count > 1 ? $" ({_queue.Index + 1}/{_queue.Count})" : "";
             TxtInAppStatus.Text = $"{accName}{progressTag}: {statusReason}";
             TxtInAppStatus.Foreground = Brushes.OrangeRed;
             AppSettings.SetDashboardStatus($"{accName}{progressTag}: {issueBadge} ({statusReason})");
 
-            if (_accountQueue.Count > 1)
+            if (_queue.Count > 1)
             {
                 _captured = true;
                 _pollTimer?.Stop();
@@ -86,7 +85,7 @@ namespace Shiro.AvaloniaUI.Views
 
         private async Task AdvanceToNextAccountOrCloseAsync()
         {
-            if (_currentQueueIndex + 1 < _accountQueue.Count)
+            if (_queue.HasNext)
             {
                 _captured = true;
                 _pollTimer?.Stop();
@@ -98,9 +97,9 @@ namespace Shiro.AvaloniaUI.Views
                     oldCore.SourceChanged -= OnSourceChanged;
                 }
 
-                LoadAccountAtIndex(_currentQueueIndex + 1);
+                LoadAccountAtIndex(_queue.Index + 1);
                 _captured = true;
-                TxtInAppStatus.Text = Shiro.Services.LocalizationService.Format("FastLogin.TransitioningToNext", _username, _currentQueueIndex + 1, _accountQueue.Count);
+                TxtInAppStatus.Text = Shiro.Services.LocalizationService.Format("FastLogin.TransitioningToNext", _username, _queue.Index + 1, _queue.Count);
                 TxtInAppStatus.Foreground = Brushes.DeepSkyBlue;
 
                 if (WvBrowser != null)
@@ -138,7 +137,7 @@ namespace Shiro.AvaloniaUI.Views
             try
             {
                 string currentUrl = core.Source ?? string.Empty;
-                if (_accountQueue.Count > 1 && IsModerationOrLockedUrl(currentUrl))
+                if (_queue.Count > 1 && IsModerationOrLockedUrl(currentUrl))
                 {
                     var (b, r) = await DetectDomAccountIssueAsync(core);
                     if (b == "UNAUTHENTICATED_MODERATION") { await RedirectUnauthenticatedModerationToLoginAsync(core); return; }
@@ -165,7 +164,7 @@ namespace Shiro.AvaloniaUI.Views
                             if (!string.IsNullOrEmpty(domBadge)) await MarkCurrentAccountIssueAndSkipAsync(domBadge, domReason ?? domBadge);
                             return;
                         }
-                        if (_accountQueue.Count == 1 && _accountQueue[0].IsBannedOrLocked && currentUrl.Contains("/home", StringComparison.OrdinalIgnoreCase))
+                        if (_queue.Count == 1 && _queue.Current != null && _queue.Current.IsBannedOrLocked && currentUrl.Contains("/home", StringComparison.OrdinalIgnoreCase))
                         {
                             _ignoredCookieValues.Remove(fp);
                         }
@@ -187,7 +186,7 @@ namespace Shiro.AvaloniaUI.Views
                     for (int w = 0; w < 24; w++)
                     {
                         string navUrl = core.Source ?? string.Empty;
-                        if (_accountQueue.Count > 0 && IsModerationOrLockedUrl(navUrl))
+                        if (_queue.Count > 0 && IsModerationOrLockedUrl(navUrl))
                         {
                             var qAcc = GetCurrentQueueAccount();
                             if (qAcc != null) qAcc.SecurityToken = secCookie.Value;
@@ -204,7 +203,7 @@ namespace Shiro.AvaloniaUI.Views
                     await Task.Delay(1500);
 
                     string postRedirectUrl = core.Source ?? string.Empty;
-                    if (_accountQueue.Count > 0 && IsModerationOrLockedUrl(postRedirectUrl))
+                    if (_queue.Count > 0 && IsModerationOrLockedUrl(postRedirectUrl))
                     {
                         var qAcc = GetCurrentQueueAccount();
                         if (qAcc != null) qAcc.SecurityToken = secCookie.Value;
@@ -295,9 +294,9 @@ namespace Shiro.AvaloniaUI.Views
                         cookieValue,
                         _username,
                         _password,
-                        TxtCookieAlias?.Text?.Trim(),
-                        TxtCookieGroup?.Text?.Trim(),
-                        _accountQueue.Count,
+                        CookieViewModel.Alias?.Trim(),
+                        CookieViewModel.Group?.Trim(),
+                        _queue.Count,
                         GetCurrentQueueAccount(),
                         () => DetectDomAccountIssueAsync(core));
 
@@ -305,12 +304,12 @@ namespace Shiro.AvaloniaUI.Views
                     {
                         case FastLoginCaptureStatus.Success:
                             CreatedAccount = captureOutcome.Account;
-                            if (_accountQueue.Count > 0 && captureOutcome.Account != null)
+                            if (_queue.Count > 0 && captureOutcome.Account != null)
                                 MainWindow.Instance?.ViewModel?.UpdateAccountValidity(captureOutcome.Account, true);
                             else
                                 MainWindow.Instance?.DashboardView?.LoadDashboardData();
 
-                            string progressTag = _accountQueue.Count > 1 ? $" ({_currentQueueIndex + 1}/{_accountQueue.Count})" : "";
+                            string progressTag = _queue.Count > 1 ? $" ({_queue.Index + 1}/{_queue.Count})" : "";
                             if (captureOutcome.Account != null && !Account.IsShortLivedCookie(captureOutcome.Account.SecurityToken))
                                 AppSettings.SetDashboardStatus(Shiro.Services.LocalizationService.Format("FastLogin.InAppLoginSuccess", progressTag, captureOutcome.Account.Username));
 
@@ -349,7 +348,7 @@ namespace Shiro.AvaloniaUI.Views
                             return;
                     }
                 }
-                else if (_accountQueue.Count > 0)
+                else if (_queue.Count > 0)
                 {
                     var (issueBadge, reason) = await DetectDomAccountIssueAsync(core);
                     if (issueBadge == "UNAUTHENTICATED_MODERATION")
