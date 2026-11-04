@@ -11,7 +11,7 @@ using Xunit;
 
 namespace Shiro.Tests
 {
-    [Collection("RateLimitCoordinator")]
+    [Collection("StaticSeams")]
     public class ValidateSessionTests : IDisposable
     {
         private const string FullToken =

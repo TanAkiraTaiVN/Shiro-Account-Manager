@@ -9,7 +9,7 @@ using Xunit;
 
 namespace Shiro.Tests
 {
-    [Collection("SerialGlobalState")]
+    [Collection("StaticSeams")]
     public class AccountWorkflowServiceBehaviorTests : IDisposable
     {
         private sealed class WorkflowTestDialogService : IDialogService

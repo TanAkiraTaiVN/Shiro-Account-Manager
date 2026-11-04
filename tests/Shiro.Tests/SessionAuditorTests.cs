@@ -12,7 +12,7 @@ using Xunit;
 
 namespace Shiro.Tests
 {
-    [Collection("RateLimitCoordinator")]
+    [Collection("StaticSeams")]
     public class SessionAuditorTests : IDisposable
     {
         private const string TestToken =

@@ -1,11 +1,11 @@
-﻿using System;
+using System;
 using System.Threading.Tasks;
 using Shiro.Services;
 using Xunit;
 
 namespace Shiro.Tests
 {
-    [Collection("RateLimitCoordinator")]
+    [Collection("StaticSeams")]
     public class RobloxRateLimitCoordinatorTests
     {
         [Fact]

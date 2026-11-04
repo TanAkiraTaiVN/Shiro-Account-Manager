@@ -13,7 +13,7 @@ using Xunit;
 
 namespace Shiro.Tests
 {
-    [Collection("RateLimitCoordinator")]
+    [Collection("StaticSeams")]
     public class AccountSessionStateBehaviorTests : IDisposable
     {
         private const string InitialToken = "_|WARNING:-DO-NOT-SHARE-THIS.INITIALTOKEN123";

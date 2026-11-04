@@ -69,7 +69,7 @@ namespace Shiro.Tests
             Assert.True(Directory.Exists(appDir));
 
             var files = Directory.GetFiles(appDir, "*.cs", SearchOption.AllDirectories)
-                .Where(f => !f.Contains(@"\bin\") && !f.Contains(@"\obj\") && !f.EndsWith(".g.cs"))
+                .Where(f => !f.Replace('\\', '/').Contains("/bin/") && !f.Replace('\\', '/').Contains("/obj/") && !f.EndsWith(".g.cs"))
                 .ToList();
 
             var oversizedFiles = files
@@ -191,7 +191,7 @@ namespace Shiro.Tests
             Assert.NotNull(repoRoot);
             var appDir = Path.Combine(repoRoot!, "src", "Shiro");
             var files = Directory.GetFiles(appDir, "*.cs", SearchOption.AllDirectories)
-                .Where(f => !f.Contains(@"\bin\") && !f.Contains(@"\obj\") && !f.EndsWith(".g.cs"))
+                .Where(f => !f.Replace('\\', '/').Contains("/bin/") && !f.Replace('\\', '/').Contains("/obj/") && !f.EndsWith(".g.cs"))
                 .ToList();
 
             foreach (var file in files)
@@ -221,7 +221,7 @@ namespace Shiro.Tests
             Assert.NotNull(repoRoot);
             var appDir = Path.Combine(repoRoot!, "src", "Shiro");
             var axamlFiles = Directory.GetFiles(appDir, "*.axaml", SearchOption.AllDirectories)
-                .Where(f => !f.Contains(@"\bin\") && !f.Contains(@"\obj\"))
+                .Where(f => !f.Replace('\\', '/').Contains("/bin/") && !f.Replace('\\', '/').Contains("/obj/"))
                 .ToList();
 
             Shiro.Services.LocalizationService.EnsureCoreKeys();
@@ -294,7 +294,7 @@ namespace Shiro.Tests
             Assert.NotNull(repoRoot);
             var appDir = Path.Combine(repoRoot!, "src", "Shiro");
             var files = Directory.GetFiles(appDir, "*.cs", SearchOption.AllDirectories)
-                .Where(f => !f.Contains(@"\bin\") && !f.Contains(@"\obj\") && !f.EndsWith(".g.cs"))
+                .Where(f => !f.Replace('\\', '/').Contains("/bin/") && !f.Replace('\\', '/').Contains("/obj/") && !f.EndsWith(".g.cs"))
                 .ToList();
 
             const int DefaultBudget = 1200;
@@ -359,7 +359,7 @@ namespace Shiro.Tests
             Assert.NotNull(repoRoot);
             var appDir = Path.Combine(repoRoot!, "src", "Shiro");
             var files = Directory.GetFiles(appDir, "*.cs", SearchOption.AllDirectories)
-                .Where(f => !f.Contains(@"\bin\") && !f.Contains(@"\obj\") && !f.EndsWith(".g.cs"))
+                .Where(f => !f.Replace('\\', '/').Contains("/bin/") && !f.Replace('\\', '/').Contains("/obj/") && !f.EndsWith(".g.cs"))
                 .ToList();
 
             const int Baseline = 0;
@@ -438,7 +438,7 @@ namespace Shiro.Tests
             Assert.NotNull(repoRoot);
             var appDir = Path.Combine(repoRoot!, "src", "Shiro");
             var files = Directory.GetFiles(appDir, "*.axaml", SearchOption.AllDirectories)
-                .Where(f => !f.Contains(@"\bin\") && !f.Contains(@"\obj\"))
+                .Where(f => !f.Replace('\\', '/').Contains("/bin/") && !f.Replace('\\', '/').Contains("/obj/"))
                 .ToList();
 
             var violations = new System.Collections.Generic.List<string>();
@@ -529,7 +529,8 @@ namespace Shiro.Tests
             {
                 foreach (var file in Directory.GetFiles(appDir, ext, SearchOption.AllDirectories))
                 {
-                    if (file.Contains(@"\bin\") || file.Contains(@"\obj\"))
+                    string norm = file.Replace('\\', '/');
+                    if (norm.Contains("/bin/") || norm.Contains("/obj/"))
                         continue;
 
                     string content = File.ReadAllText(file);
@@ -562,7 +563,7 @@ namespace Shiro.Tests
             Assert.NotNull(repoRoot);
             var appDir = Path.Combine(repoRoot!, "src", "Shiro");
             var files = Directory.GetFiles(appDir, "*.cs", SearchOption.AllDirectories)
-                .Where(f => !f.Contains(@"\bin\") && !f.Contains(@"\obj\") && !f.EndsWith(".g.cs"))
+                .Where(f => !f.Replace('\\', '/').Contains("/bin/") && !f.Replace('\\', '/').Contains("/obj/") && !f.EndsWith(".g.cs"))
                 .ToList();
 
             var violations = new System.Collections.Generic.List<string>();
@@ -597,7 +598,7 @@ namespace Shiro.Tests
             Assert.NotNull(repoRoot);
             var appDir = Path.Combine(repoRoot!, "src", "Shiro");
             var files = Directory.GetFiles(appDir, "*.cs", SearchOption.AllDirectories)
-                .Where(f => !f.Contains(@"\bin\") && !f.Contains(@"\obj\") && !f.EndsWith(".g.cs"))
+                .Where(f => !f.Replace('\\', '/').Contains("/bin/") && !f.Replace('\\', '/').Contains("/obj/") && !f.EndsWith(".g.cs"))
                 .Where(f => !Path.GetFileName(f).StartsWith("LocalizationService", StringComparison.OrdinalIgnoreCase))
                 .ToList();
 
@@ -704,7 +705,7 @@ namespace Shiro.Tests
         {
             var appDir = Path.Combine(RepoRoot, relativeDir);
             return Directory.GetFiles(appDir, pattern, SearchOption.AllDirectories)
-                .Where(f => !f.Contains(@"\bin\") && !f.Contains(@"\obj\") && !f.EndsWith(".g.cs"));
+                .Where(f => !f.Replace('\\', '/').Contains("/bin/") && !f.Replace('\\', '/').Contains("/obj/") && !f.EndsWith(".g.cs"));
         }
 
         [Fact]
@@ -766,7 +767,7 @@ namespace Shiro.Tests
         {
             var testDir = Path.Combine(RepoRoot, "tests", "Shiro.Tests");
             var csFiles = Directory.GetFiles(testDir, "*.cs", SearchOption.AllDirectories)
-                .Where(f => !f.Contains(@"\bin\") && !f.Contains(@"\obj\") && !f.EndsWith(".g.cs"))
+                .Where(f => !f.Replace('\\', '/').Contains("/bin/") && !f.Replace('\\', '/').Contains("/obj/") && !f.EndsWith(".g.cs"))
                 .ToList();
 
             var methodRegex = new Regex(
@@ -874,7 +875,7 @@ namespace Shiro.Tests
                 }
 
                 var files = Directory.GetFiles(dir, "*.cs", SearchOption.AllDirectories)
-                    .Where(f => !f.Contains(@"\bin\") && !f.Contains(@"\obj\") && !f.EndsWith(".g.cs"));
+                    .Where(f => !f.Replace('\\', '/').Contains("/bin/") && !f.Replace('\\', '/').Contains("/obj/") && !f.EndsWith(".g.cs"));
 
                 if (folder == "Services/Storage")
                 {

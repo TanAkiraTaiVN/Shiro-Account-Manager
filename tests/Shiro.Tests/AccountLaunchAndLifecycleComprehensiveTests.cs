@@ -141,7 +141,7 @@ namespace Shiro.Tests
         [Fact]
         public async Task ResolveNewClientPidAsync_WithZeroMatchingPids_ReturnsZeroAfterTimeout()
         {
-            var existingPids = new HashSet<int> { 11111, 22222 };
+            var existingPids = new HashSet<int>(RobloxProcessService.GetRunningRobloxPids()) { 11111, 22222 };
             int resolved = await AccountLaunchService.ResolveNewClientPidAsync(
                 existingPids,
                 launcherPid: -1,
