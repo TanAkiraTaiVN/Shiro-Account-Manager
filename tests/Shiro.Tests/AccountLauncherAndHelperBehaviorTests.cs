@@ -160,5 +160,108 @@ namespace Shiro.Tests
 
             Assert.Equal(0, pid);
         }
+
+        [Fact]
+        public void AppSettings_EnsureBackendInitialized_WiresHostUiBridgeLaunchHandlers()
+        {
+            // Reset handlers to simulate uninitialized startup
+            HostUiBridgeService.Default.EnsureBackendInitializedHandler = null;
+            HostUiBridgeService.Default.LaunchAppHomeHandler = null;
+            HostUiBridgeService.Default.JoinServerHandler = null;
+
+            // Trigger backend initialization
+            AppSettings.EnsureBackendInitialized();
+
+            // Verify bridge handlers are registered and ready
+            Assert.NotNull(HostUiBridgeService.Default.LaunchAppHomeHandler);
+            Assert.NotNull(HostUiBridgeService.Default.JoinServerHandler);
+            var task = HostUiBridgeService.Default.LaunchAppHomeHandler(null!);
+            Assert.True(task.IsCompletedSuccessfully);
+        }
+
+        [Fact]
+        public async Task HostUiBridgeService_LaunchAppHome_AutoInitializes_WhenHandlerNull()
+        {
+            var bridge = new HostUiBridgeService();
+            bool initialized = false;
+            bridge.EnsureBackendInitializedHandler = () =>
+            {
+                initialized = true;
+                bridge.LaunchAppHomeHandler = acc => Task.CompletedTask;
+            };
+
+            await bridge.LaunchAppHomeFromHostAsync(new Account { Username = "TestBridgeUser" });
+
+            Assert.True(initialized);
+            Assert.NotNull(bridge.LaunchAppHomeHandler);
+        }
+
+        [Fact]
+        public async Task HostUiBridgeService_JoinServer_AutoInitializes_WhenHandlerNull()
+        {
+            var bridge = new HostUiBridgeService();
+            bool initialized = false;
+            bridge.EnsureBackendInitializedHandler = () =>
+            {
+                initialized = true;
+                bridge.JoinServerHandler = (accs, pid, jid) => Task.CompletedTask;
+            };
+
+            await bridge.JoinServerFromHostAsync(new[] { new Account { Username = "TestBridgeUser" } }, 12345, "job-id");
+
+            Assert.True(initialized);
+            Assert.NotNull(bridge.JoinServerHandler);
+        }
+
+        [Fact]
+        public void HostUiBridgeService_MultiLaunchHome_AutoInitializes_WhenHandlerNull()
+        {
+            var bridge = new HostUiBridgeService();
+            bool initialized = false;
+            bridge.EnsureBackendInitializedHandler = () =>
+            {
+                initialized = true;
+                bridge.MultiLaunchHomeHandler = () => { };
+            };
+
+            bridge.MultiLaunchHomeFromHost();
+
+            Assert.True(initialized);
+            Assert.NotNull(bridge.MultiLaunchHomeHandler);
+        }
+
+        [Fact]
+        public void HostUiBridgeService_InitializePostStartup_AutoInitializes_WhenHandlerNull()
+        {
+            var bridge = new HostUiBridgeService();
+            bool initialized = false;
+            bridge.EnsureBackendInitializedHandler = () =>
+            {
+                initialized = true;
+                bridge.InitializePostStartupHandler = () => { };
+            };
+
+            bridge.InitializePostStartup();
+
+            Assert.True(initialized);
+            Assert.NotNull(bridge.InitializePostStartupHandler);
+        }
+
+        [Fact]
+        public void HostUiBridgeService_GetCurrentSelectedAccounts_AutoInitializes_WhenHandlerNull()
+        {
+            var bridge = new HostUiBridgeService();
+            bool initialized = false;
+            bridge.EnsureBackendInitializedHandler = () =>
+            {
+                initialized = true;
+                bridge.GetCurrentSelectedAccountsHandler = () => new List<Account>();
+            };
+
+            var list = bridge.GetCurrentSelectedAccountsFromHost();
+
+            Assert.True(initialized);
+            Assert.NotNull(list);
+        }
     }
 }

@@ -13,7 +13,30 @@ namespace Shiro
 {
     public partial class AccountManager
     {
+        private static readonly object _initLock = new();
+        private static bool _accountsInitialLoaded = false;
         private bool _backendServicesInitialized = false;
+
+        public static void EnsureBackendInitialized()
+        {
+            lock (_initLock)
+            {
+                if (Instance == null)
+                {
+                    _ = new AccountManager();
+                }
+                if (Instance != null)
+                {
+                    Instance.WireStateAndHostBridgeServices();
+                    Instance.InitializeBackendServices();
+                    if (!_accountsInitialLoaded)
+                    {
+                        _accountsInitialLoaded = true;
+                        Instance.LoadAccounts();
+                    }
+                }
+            }
+        }
 
         public void InitializeBackendServices()
         {

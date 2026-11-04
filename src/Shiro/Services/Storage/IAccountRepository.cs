@@ -28,5 +28,6 @@ namespace Shiro.Services
         bool TryRecoverOrRestore(out string statusMessage);
         bool IsPasswordEncrypted();
         Task<(bool Success, long UserId, RestResponse? Response)> LookupUserIdAsync(string username, CancellationToken cancellationToken = default);
+        void EnsureBackendInitialized();
     }
 }

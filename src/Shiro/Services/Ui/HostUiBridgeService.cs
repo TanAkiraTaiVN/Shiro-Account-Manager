@@ -38,22 +38,92 @@ namespace Shiro.Services
         public void UpdateMultiRoblox() => UpdateMultiRobloxHandler?.Invoke();
         public void CloseAllRobloxFromUi() => CloseAllRobloxFromUiHandler?.Invoke();
 
-        public Task LaunchAppHomeFromHostAsync(Account account) =>
-            LaunchAppHomeHandler != null ? LaunchAppHomeHandler(account) : Task.CompletedTask;
+        public async Task LaunchAppHomeFromHostAsync(Account account)
+        {
+            if (LaunchAppHomeHandler == null)
+            {
+                EnsureBackendInitialized();
+            }
 
-        public Task JoinServerFromHostAsync(IReadOnlyList<Account> accounts, long placeId, string jobId) =>
-            JoinServerHandler != null ? JoinServerHandler(accounts, placeId, jobId) : Task.CompletedTask;
+            if (LaunchAppHomeHandler != null)
+            {
+                await LaunchAppHomeHandler(account).ConfigureAwait(false);
+            }
+            else
+            {
+                AppServices.Logger.Warn("[HostUiBridgeService] LaunchAppHomeHandler is not registered even after EnsureBackendInitialized.");
+            }
+        }
 
-        public void MultiLaunchHomeFromHost() => MultiLaunchHomeHandler?.Invoke();
+        public async Task JoinServerFromHostAsync(IReadOnlyList<Account> accounts, long placeId, string jobId)
+        {
+            if (JoinServerHandler == null)
+            {
+                EnsureBackendInitialized();
+            }
 
-        public List<Account> GetCurrentSelectedAccountsFromHost() =>
-            GetCurrentSelectedAccountsHandler != null ? GetCurrentSelectedAccountsHandler() : new List<Account>();
+            if (JoinServerHandler != null)
+            {
+                await JoinServerHandler(accounts, placeId, jobId).ConfigureAwait(false);
+            }
+            else
+            {
+                AppServices.Logger.Warn("[HostUiBridgeService] JoinServerHandler is not registered even after EnsureBackendInitialized.");
+            }
+        }
+
+        public void MultiLaunchHomeFromHost()
+        {
+            if (MultiLaunchHomeHandler == null)
+            {
+                EnsureBackendInitialized();
+            }
+
+            if (MultiLaunchHomeHandler != null)
+            {
+                MultiLaunchHomeHandler();
+            }
+            else
+            {
+                AppServices.Logger.Warn("[HostUiBridgeService] MultiLaunchHomeHandler is not registered even after EnsureBackendInitialized.");
+            }
+        }
+
+        public List<Account> GetCurrentSelectedAccountsFromHost()
+        {
+            if (GetCurrentSelectedAccountsHandler == null)
+            {
+                EnsureBackendInitialized();
+            }
+
+            return GetCurrentSelectedAccountsHandler != null ? GetCurrentSelectedAccountsHandler() : new List<Account>();
+        }
 
         public void SaveSettings() => SaveSettingsHandler?.Invoke();
         public void QueueDeferredSaveSettings() => QueueDeferredSaveSettingsHandler?.Invoke();
         public void SetDashboardStatus(string message) => SetDashboardStatusHandler?.Invoke(message);
-        public void EnsureBackendInitialized() => EnsureBackendInitializedHandler?.Invoke();
-        public void InitializePostStartup() => InitializePostStartupHandler?.Invoke();
+
+        public void EnsureBackendInitialized()
+        {
+            if (EnsureBackendInitializedHandler != null)
+            {
+                EnsureBackendInitializedHandler();
+            }
+            else
+            {
+                AppServices.AccountRepository.EnsureBackendInitialized();
+            }
+        }
+
+        public void InitializePostStartup()
+        {
+            if (InitializePostStartupHandler == null)
+            {
+                EnsureBackendInitialized();
+            }
+
+            InitializePostStartupHandler?.Invoke();
+        }
 
         public Task RestartWebServerAsync(int port, bool allowExternal) =>
             RestartWebServerHandler != null ? RestartWebServerHandler(port, allowExternal) : Task.CompletedTask;

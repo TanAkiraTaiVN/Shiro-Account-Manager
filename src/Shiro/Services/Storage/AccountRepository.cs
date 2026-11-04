@@ -106,5 +106,10 @@ namespace Shiro.Services
         {
             return AccountManager.GetUserIDAsync(username, cancellationToken);
         }
+
+        public void EnsureBackendInitialized()
+        {
+            AccountManager.EnsureBackendInitialized();
+        }
     }
 }

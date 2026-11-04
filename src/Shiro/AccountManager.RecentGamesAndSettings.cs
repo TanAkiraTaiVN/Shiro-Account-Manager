@@ -154,6 +154,7 @@ namespace Shiro
             bridge.StopWebServerHandler = StopWebServerAsync;
             bridge.SetAutoCookieRefreshEnabledHandler = SetAutoCookieRefreshEnabled;
             bridge.ResetEncryptionHandler = ResetEncryptionAsync;
+            ServerBrowserStateService.Default.LoadClientVersionDelegate = LoadClientVersionAsync;
         }
 
         static AccountManager()

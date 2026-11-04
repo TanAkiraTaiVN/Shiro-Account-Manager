@@ -435,19 +435,6 @@ namespace Shiro
             RefreshModernDashboard();
         }
 
-        public static void EnsureBackendInitialized()
-        {
-            if (Instance == null)
-            {
-                _ = new AccountManager();
-            }
-            if (Instance != null)
-            {
-                Instance.InitializeBackendServices();
-                Instance.LoadAccounts();
-            }
-        }
-
         private void EnableModernDashboard()
         {
             RefreshModernDashboard();
