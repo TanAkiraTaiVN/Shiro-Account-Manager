@@ -14,6 +14,7 @@ namespace Shiro.ViewModels
 
     public interface IAsyncRelayCommand : ICommand, IRaiseCanExecuteChanged
     {
+        Task ExecuteAsync(object? parameter = null);
     }
 
     public class RelayCommand : ICommand, IRaiseCanExecuteChanged
@@ -71,7 +72,9 @@ namespace Shiro.ViewModels
 
         public bool CanExecute(object? parameter) => Volatile.Read(ref _isExecuting) == 0 && (_canExecute == null || _canExecute(parameter));
 
-        public async void Execute(object? parameter)
+        public async void Execute(object? parameter) => await ExecuteAsync(parameter);
+
+        public async Task ExecuteAsync(object? parameter = null)
         {
             if (!CanExecute(parameter)) return;
             if (Interlocked.CompareExchange(ref _isExecuting, 1, 0) != 0) return;
@@ -170,7 +173,9 @@ namespace Shiro.ViewModels
             return false;
         }
 
-        public async void Execute(object? parameter)
+        public async void Execute(object? parameter) => await ExecuteAsync(parameter);
+
+        public async Task ExecuteAsync(object? parameter = null)
         {
             if (!CanExecute(parameter)) return;
             if (Interlocked.CompareExchange(ref _isExecuting, 1, 0) != 0) return;

@@ -205,6 +205,7 @@ namespace Shiro.Tests
             Assert.Equal(string.Empty, RobloxWindowService.GetWindowTextString(IntPtr.Zero));
             Assert.Equal(IntPtr.Zero, RobloxWindowService.FindWindowForPid(0));
             Assert.Empty(RobloxWindowService.FindWindowsForPids(new HashSet<uint>()));
+            if (RobloxProcessService.GetTotalRunningRobloxCount() > 0) return;
             var (hidden, _) = RobloxWindowService.HideAllWindows();
             Assert.InRange(hidden, 0, int.MaxValue);
             var (shown, _) = RobloxWindowService.ShowAllWindows();

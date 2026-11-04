@@ -48,6 +48,8 @@ namespace Shiro.Services
                 services.AddSingleton<ISelectionStateService>(SelectionStateService.Default);
                 services.AddSingleton<IServerBrowserStateService>(ServerBrowserStateService.Default);
                 services.AddSingleton<IHostUiBridgeService>(HostUiBridgeService.Default);
+                services.AddSingleton<IBloxGenService>(BloxGenService.Default);
+                services.AddSingleton<IToastNotifier>(ToastNotifierService.Default);
                 services.AddSingleton<AppSettings>(AppSettings.Current);
 
                 configureExtra?.Invoke(services);
@@ -135,6 +137,18 @@ namespace Shiro.Services
             set => ReplaceService(value);
         }
 
+        public static IBloxGenService BloxGen
+        {
+            get => GetRequiredService<IBloxGenService>();
+            set => ReplaceService(value);
+        }
+
+        public static IToastNotifier Toasts
+        {
+            get => GetRequiredService<IToastNotifier>();
+            set => ReplaceService(value);
+        }
+
         public static IAppLogger Logger
         {
             get => _serviceProvider?.GetService<IAppLogger>() ?? Program.Logger;
@@ -173,6 +187,8 @@ namespace Shiro.Services
                 services.AddSingleton<ISelectionStateService>((instance as ISelectionStateService) ?? SelectionState);
                 services.AddSingleton<IServerBrowserStateService>((instance as IServerBrowserStateService) ?? ServerBrowserState);
                 services.AddSingleton<IHostUiBridgeService>((instance as IHostUiBridgeService) ?? HostUiBridge);
+                services.AddSingleton<IBloxGenService>((instance as IBloxGenService) ?? BloxGen);
+                services.AddSingleton<IToastNotifier>((instance as IToastNotifier) ?? Toasts);
                 services.AddSingleton<AppSettings>(AppSettings.Current);
 
                 _serviceProvider = services.BuildServiceProvider();

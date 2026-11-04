@@ -4,6 +4,7 @@ using Shiro.Services;
 
 namespace Shiro.Tests
 {
+    [Collection("SerialGlobalState")]
     public class RobloxWindowServiceTests
     {
         [Theory]
@@ -91,6 +92,7 @@ namespace Shiro.Tests
         [Fact]
         public void HideAllWindows_WhenNoRobloxRunning_ReturnsZero()
         {
+            if (RobloxProcessService.GetTotalRunningRobloxCount() > 0) { Assert.False(RobloxWindowService.AreWindowsHidden); return; }
             var (hiddenCount, totalClients) = RobloxWindowService.HideAllWindows();
             Assert.InRange(hiddenCount, 0, int.MaxValue);
             Assert.InRange(totalClients, 0, int.MaxValue);

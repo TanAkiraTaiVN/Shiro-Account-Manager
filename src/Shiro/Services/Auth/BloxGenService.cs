@@ -36,7 +36,7 @@ namespace Shiro.Services
     /// Service for automated Roblox alternate account generation via BloxGen API (bloxgen.net).
     /// Supports continent/region selection, auto-importing to Shiro Vault, and CSV history tracking.
     /// </summary>
-    public sealed class BloxGenService
+    public sealed class BloxGenService : IBloxGenService
     {
         private static readonly Lazy<BloxGenService> _instance = new(() => new BloxGenService(null, AppServices.Logger, AppServices.GeneralSettings));
         public static BloxGenService Default => _instance.Value;
