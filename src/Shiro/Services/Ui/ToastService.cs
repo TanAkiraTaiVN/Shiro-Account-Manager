@@ -122,6 +122,7 @@ namespace Shiro.Services
 
     public static partial class ToastService
     {
+        private static readonly System.Threading.Lock _toastLock = new();
         public static ObservableCollection<ToastItem> ActiveToasts { get; } = [];
 
         public static void ShowSuccess(string title, string message = "", double durationSeconds = 3.0) => Show(title, message, ToastType.Success, durationSeconds);
@@ -133,35 +134,41 @@ namespace Shiro.Services
         {
             AppDispatcher.Post(() =>
             {
-                string cleanTitle = title ?? string.Empty;
-                string cleanMessage = message ?? string.Empty;
-
-                // Coalesce identical consecutive toasts or replace same-title progress toast
-                for (int i = ActiveToasts.Count - 1; i >= 0; i--)
+                ToastItem toast;
+                lock (_toastLock)
                 {
-                    var existing = ActiveToasts[i];
-                    if (existing.Type == type &&
-                        string.Equals(existing.Title, cleanTitle, StringComparison.Ordinal) &&
-                        string.Equals(existing.Message, cleanMessage, StringComparison.Ordinal))
+                    string cleanTitle = title ?? string.Empty;
+                    string cleanMessage = message ?? string.Empty;
+
+                    // Coalesce identical consecutive toasts or replace same-title progress toast
+                    for (int i = ActiveToasts.Count - 1; i >= 0; i--)
                     {
-                        return;
+                        var existing = ActiveToasts[i];
+                        if (existing.Type == type &&
+                            string.Equals(existing.Title, cleanTitle, StringComparison.Ordinal) &&
+                            string.Equals(existing.Message, cleanMessage, StringComparison.Ordinal))
+                        {
+                            return;
+                        }
                     }
+
+                    toast = new ToastItem
+                    {
+                        Title = cleanTitle,
+                        Message = cleanMessage,
+                        Type = type
+                    };
+
+                    // Limit active toasts to 2 to keep the viewport clean and unobstructed
+                    while (ActiveToasts.Count >= 2)
+                    {
+                        if (ActiveToasts.Count > 0)
+                            ActiveToasts.RemoveAt(0);
+                    }
+
+                    ActiveToasts.Add(toast);
                 }
 
-                var toast = new ToastItem
-                {
-                    Title = cleanTitle,
-                    Message = cleanMessage,
-                    Type = type
-                };
-
-                // Limit active toasts to 2 to keep the viewport clean and unobstructed
-                while (ActiveToasts.Count >= 2)
-                {
-                    ActiveToasts.RemoveAt(0);
-                }
-
-                ActiveToasts.Add(toast);
                 PlayNotificationSound(type);
 
                 if (durationSeconds > 0)
@@ -181,7 +188,10 @@ namespace Shiro.Services
 
             AppDispatcher.Post(() =>
             {
-                ActiveToasts.Remove(toast);
+                lock (_toastLock)
+                {
+                    ActiveToasts.Remove(toast);
+                }
             });
         }
 
@@ -189,7 +199,10 @@ namespace Shiro.Services
         {
             AppDispatcher.Post(() =>
             {
-                ActiveToasts.Clear();
+                lock (_toastLock)
+                {
+                    ActiveToasts.Clear();
+                }
             });
         }
 

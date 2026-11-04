@@ -12,7 +12,7 @@ namespace Shiro.Tests
         [Fact]
         public void AsyncVoidHandlers_InViews_ShouldNotExceedBaseline()
         {
-            const int Baseline = 10;
+            const int Baseline = 9;
             var viewsDir = Path.Combine(RepoRoot, "src", "Shiro", "AvaloniaUI");
             var files = Directory.GetFiles(viewsDir, "*.cs", SearchOption.AllDirectories)
                 .Where(f => !f.Replace('\\', '/').Contains("/bin/") && !f.Replace('\\', '/').Contains("/obj/") && !f.EndsWith(".g.cs"));

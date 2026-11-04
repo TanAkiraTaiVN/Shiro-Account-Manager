@@ -1,7 +1,10 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:lucide="clr-namespace:LucideAvalonia;assembly=LucideAvalonia"
+        xmlns:vm="clr-namespace:Shiro.ViewModels.Dialogs"
         x:Class="Shiro.AvaloniaUI.Views.UpdaterWindow"
+        x:DataType="vm:UpdaterViewModel"
+        x:CompileBindings="True"
         Icon="/Resources/shiro.ico"
         Title="Cập nhật hệ thống • Shiro Account Manager"
         Width="480" Height="260"
@@ -27,24 +30,24 @@
             <!-- Status & Progress -->
             <StackPanel Grid.Row="1" VerticalAlignment="Center" Spacing="10">
                 <Grid ColumnDefinitions="*,Auto">
-                    <TextBlock x:Name="TxtStatus" Text="Đang kiểm tra phiên bản mới nhất..." FontSize="13" Foreground="#E2E8F0"/>
-                    <TextBlock Grid.Column="1" x:Name="TxtPercent" Text="0%" FontSize="13" FontWeight="Bold" Foreground="#60A5FA"/>
+                    <TextBlock x:Name="TxtStatus" Text="{Binding StatusText}" FontSize="13" Foreground="#E2E8F0"/>
+                    <TextBlock Grid.Column="1" x:Name="TxtPercent" Text="{Binding PercentText}" FontSize="13" FontWeight="Bold" Foreground="#60A5FA"/>
                 </Grid>
-                <ProgressBar x:Name="PrgUpdate" Height="8" Minimum="0" Maximum="100" Value="0"
+                <ProgressBar x:Name="PrgUpdate" Height="8" Minimum="0" Maximum="100" Value="{Binding Progress}"
                              Background="#1E1E2E" Foreground="#3B82F6" CornerRadius="4"/>
-                <TextBlock x:Name="TxtSubStatus" Text="" FontSize="11" Foreground="#94A3B8"/>
+                <TextBlock x:Name="TxtSubStatus" Text="{Binding SubStatusText}" FontSize="11" Foreground="#94A3B8"/>
             </StackPanel>
 
             <!-- Error buttons -->
-            <StackPanel Grid.Row="2" x:Name="PnlErrorActions" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" IsVisible="False">
-                <Button Click="BtnRetry_Click"
+            <StackPanel Grid.Row="2" x:Name="PnlErrorActions" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" IsVisible="{Binding HasError}">
+                <Button Command="{Binding RetryCommand}"
                         Background="#2563EB" Foreground="#FFFFFF" CornerRadius="5" Padding="14,6" FontSize="12" Cursor="Hand">
                     <StackPanel Orientation="Horizontal" Spacing="6">
                         <lucide:Lucide Icon="RefreshCw" Width="12" Height="12" StrokeBrush="#FFFFFF" VerticalAlignment="Center" />
                         <TextBlock Text="Thử lại" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
-                <Button Click="BtnClose_Click"
+                <Button Command="{Binding CloseCommand}"
                         Background="#272730" Foreground="#D4D4D8" CornerRadius="5" Padding="14,6" FontSize="12" Cursor="Hand">
                     <StackPanel Orientation="Horizontal" Spacing="6">
                         <lucide:Lucide Icon="X" Width="12" Height="12" StrokeBrush="#D4D4D8" VerticalAlignment="Center" />

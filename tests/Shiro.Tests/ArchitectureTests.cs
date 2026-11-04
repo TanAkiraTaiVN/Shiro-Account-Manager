@@ -159,6 +159,12 @@ namespace Shiro.Tests
                 .Or()
                 .HaveNameEndingWith("Decoder")
                 .Or()
+                .HaveNameEndingWith("Parser")
+                .Or()
+                .HaveNameEndingWith("Installer")
+                .Or()
+                .HaveNameEndingWith("Info")
+                .Or()
                 .HaveName("AppServices")
                 .GetResult();
 
