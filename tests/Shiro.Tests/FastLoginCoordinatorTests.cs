@@ -6,6 +6,7 @@ using Xunit;
 
 namespace Shiro.Tests
 {
+    [Collection("StaticSeams")]
     public class FastLoginCoordinatorTests
     {
         [Theory]

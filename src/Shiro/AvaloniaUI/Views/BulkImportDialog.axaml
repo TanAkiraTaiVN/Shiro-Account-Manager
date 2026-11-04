@@ -1,7 +1,9 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:lucide="clr-namespace:LucideAvalonia;assembly=LucideAvalonia"
+        xmlns:dlg="clr-namespace:Shiro.ViewModels.Dialogs"
         x:Class="Shiro.AvaloniaUI.Views.BulkImportDialog"
+        x:DataType="dlg:BulkImportViewModel"
         Icon="/Resources/shiro.ico"
         Title="Nhập danh sách tài khoản - Shiro"
         Width="640" Height="580"
@@ -26,6 +28,7 @@
         <!-- Editor Box -->
         <Grid Grid.Row="1" RowDefinitions="*,Auto">
             <TextBox x:Name="TxtImportData"
+                     Text="{Binding InputText, Mode=TwoWay}"
                      AcceptsReturn="True" TextWrapping="NoWrap"
                      Watermark="Dán danh sách tài khoản hoặc cookie vào đây, mỗi tài khoản một dòng:&#x0a;user1:pass1&#x0a;user2:pass2&#x0a;user:pass:cookie&#x0a;_|WARNING:-DO-NOT-SHARE-THIS..."
                      Background="#14141C" Foreground="#FFFFFF" BorderBrush="#272733"
@@ -39,16 +42,23 @@
         <!-- Status & Stats Bar -->
         <Border Grid.Row="2" Background="#14141C" BorderBrush="#272733" BorderThickness="1" CornerRadius="6" Padding="12,8" Margin="0,12,0,0">
             <Grid ColumnDefinitions="*,Auto">
-                <TextBlock x:Name="TxtStatus" Text="Sẵn sàng nhập dữ liệu" FontSize="12" Foreground="#A1A1AA" VerticalAlignment="Center" />
-                <ProgressBar Grid.Column="1" x:Name="PrgProgress" Width="140" Height="6" MinWidth="0" MinHeight="0" Minimum="0" Maximum="100" Value="0" IsVisible="False"
-                    VerticalAlignment="Center" />
+                <TextBlock x:Name="TxtStatus"
+                           Text="{Binding StatusText}"
+                           Foreground="{Binding StatusKind, Converter={StaticResource StatusKindToBrush}}"
+                           FontSize="12" VerticalAlignment="Center" />
+                <ProgressBar Grid.Column="1" x:Name="PrgProgress"
+                             Width="140" Height="6" MinWidth="0" MinHeight="0"
+                             Minimum="0" Maximum="{Binding ProgressMax}" Value="{Binding ProgressValue}"
+                             IsVisible="{Binding IsProgressVisible}"
+                             VerticalAlignment="Center" />
             </Grid>
         </Border>
 
         <!-- Bottom Action Buttons -->
         <Border Grid.Row="3" Margin="0,14,0,0">
             <Grid ColumnDefinitions="Auto,*,Auto">
-                <Button Grid.Column="0" x:Name="BtnClear" Click="OnClearClicked"
+                <Button Grid.Column="0" x:Name="BtnClear"
+                        Command="{Binding ClearCommand}"
                         Background="#1E1E2A" Foreground="#A1A1AA"
                         CornerRadius="6" Padding="14,8" Cursor="Hand">
                     <StackPanel Orientation="Horizontal" Spacing="6">
@@ -58,7 +68,8 @@
                 </Button>
 
                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
-                    <Button x:Name="BtnClose" Click="OnCloseClicked"
+                    <Button x:Name="BtnClose"
+                            Command="{Binding CloseCommand}"
                             Background="Transparent" Foreground="#A1A1AA"
                             CornerRadius="6" Padding="16,8" Cursor="Hand">
                         <StackPanel Orientation="Horizontal" Spacing="6">
@@ -66,7 +77,8 @@
                             <TextBlock Text="Đóng" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
-                    <Button x:Name="BtnStartImport" Click="OnStartImportClicked"
+                    <Button x:Name="BtnStartImport"
+                            Command="{Binding StartImportCommand}"
                             Background="#FFFFFF" Foreground="#09090B" FontWeight="Bold"
                             CornerRadius="6" Padding="20,8" Cursor="Hand">
                         <StackPanel Orientation="Horizontal" Spacing="6">
