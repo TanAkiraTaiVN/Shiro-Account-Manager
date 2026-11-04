@@ -125,7 +125,7 @@ namespace Shiro.ViewModels
             string instantName = string.Empty;
             if (!GameInfoService.TryGetCachedName(placeId, out instantName))
             {
-                var recent = RecentGamesList?.FirstOrDefault(r => r.PlaceId == placeId && !GameInfoService.IsGenericPlaceholderName(placeId, r.Name));
+                var recent = RecentGamesList?.ToArray().FirstOrDefault(r => r.PlaceId == placeId && !GameInfoService.IsGenericPlaceholderName(placeId, r.Name));
                 if (recent != null)
                 {
                     instantName = recent.Name;
@@ -133,7 +133,7 @@ namespace Shiro.ViewModels
                 }
                 else
                 {
-                    var fav = ServerListViewModel?.Favorites?.FirstOrDefault(f => f.PlaceId == placeId && !GameInfoService.IsGenericPlaceholderName(placeId, f.Name));
+                    var fav = ServerListViewModel?.Favorites?.ToArray().FirstOrDefault(f => f.PlaceId == placeId && !GameInfoService.IsGenericPlaceholderName(placeId, f.Name));
                     if (fav != null)
                     {
                         instantName = fav.Name;

@@ -22,17 +22,16 @@ namespace Shiro.Services
         public static AccountLaunchService Instance { get; } = new();
 
         private static readonly SemaphoreSlim NativeLaunchGate = new(1, 1);
+        internal static Func<string, string, string, string, string?, string?, CancellationToken, Task<int>>? TestStartNativeGameOverride;
+        internal static Func<Account, CancellationToken, Task<(bool Success, string Ticket)>>? TestGetAuthTicketOverride;
+        internal static Func<bool>? TestPrivacyConfirmOverride;
 
         [GeneratedRegex(@"(?:privateServerLinkCode|shareCode|code)=([^&\s]+)", RegexOptions.IgnoreCase)]
         private static partial Regex LinkCodeRegex();
 
-        private static void AddDirectGameArguments(ProcessStartInfo launchInfo, string ticket, string joinUrl)
+        internal static void AddDirectGameArguments(ProcessStartInfo launchInfo, string ticket, string joinUrl)
         {
-            launchInfo.ArgumentList.Add("--app");
-            launchInfo.ArgumentList.Add("-t");
-            launchInfo.ArgumentList.Add(ticket);
-            launchInfo.ArgumentList.Add("-j");
-            launchInfo.ArgumentList.Add(joinUrl);
+            foreach (var a in new[] { "--app", "-t", ticket, "-j", joinUrl }) launchInfo.ArgumentList.Add(a);
         }
 
         /// <summary>
@@ -223,8 +222,9 @@ namespace Shiro.Services
 
             await account.TryRebindSessionToCurrentNetworkAsync(force: false, cancellationToken).ConfigureAwait(false);
 
-            (bool Success, string Ticket) ticketResult =
-                await account.GetAuthTicketAsync(cancellationToken).ConfigureAwait(false);
+            (bool Success, string Ticket) ticketResult = TestGetAuthTicketOverride != null
+                ? await TestGetAuthTicketOverride(account, cancellationToken).ConfigureAwait(false)
+                : await account.GetAuthTicketAsync(cancellationToken).ConfigureAwait(false);
             if (ticketResult.Success)
             {
                 try
@@ -285,7 +285,7 @@ namespace Shiro.Services
 
                     if (needsPrivacyUpdate)
                     {
-                        bool changePrivacy = await AppDispatcher.InvokeAsync(() =>
+                        bool changePrivacy = TestPrivacyConfirmOverride != null ? TestPrivacyConfirmOverride() : await AppDispatcher.InvokeAsync(() =>
                             Utilities.YesNoPrompt("Shiro", "Account Manager has detected your account's privacy settings do not allow you to join private servers.", "Would you like to change this setting to Everyone now?")
                         ).ConfigureAwait(false);
 
@@ -326,7 +326,9 @@ namespace Shiro.Services
                 try
                 {
                     DateTime launchStartedUtc = DateTime.UtcNow;
-                    nativePid = await StartNativeGameAsync(nativeLaunchUri, ticket, joinUrl, account.Username, account.BrowserTrackerID, account.SecurityToken, cancellationToken).ConfigureAwait(false);
+                    nativePid = TestStartNativeGameOverride != null
+                        ? await TestStartNativeGameOverride(nativeLaunchUri, ticket, joinUrl, account.Username, account.BrowserTrackerID, account.SecurityToken, cancellationToken).ConfigureAwait(false)
+                        : await StartNativeGameAsync(nativeLaunchUri, ticket, joinUrl, account.Username, account.BrowserTrackerID, account.SecurityToken, cancellationToken).ConfigureAwait(false);
                     account.LastLaunchedProcessId = nativePid;
 
                     ObserveBackgroundTask(

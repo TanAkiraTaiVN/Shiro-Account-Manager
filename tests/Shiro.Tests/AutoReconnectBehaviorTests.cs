@@ -258,6 +258,208 @@ namespace Shiro.Tests
             Assert.Equal(AutoReconnectService.ReconnectDecision.None, decision);
         }
 
+
+        [Fact]
+        public async System.Threading.Tasks.Task HandleProcessExit_And_CheckSessionsCallback_ReconnectSuccessFailureAndMaxRetries_CoverBranches()
+        {
+            _service.Clear();
+            _service.IsEnabled = true;
+            _service.MaxRetries = 3;
+            _service.TestReconnectDelayMsOverride = 1;
+
+            try
+            {
+                var uidAcc = new Account { Username = "", UserID = 556677 };
+                _service.RegisterSession(uidAcc, 1000, "j1", false, false, 0);
+                Assert.Equal(1, _service.ActiveSessionsCount);
+                _service.Clear();
+
+                var accOk = new Account { Username = "ReconnSuccessUser", UserID = 101 };
+                _service.RegisterSession(accOk, 189707, "job-ok", false, false, 0, nowUtcOverride: DateTime.UtcNow.AddMinutes(-15));
+                Assert.True(_service.TryGetSession("ReconnSuccessUser", out var sOk));
+                var tcsOk = new System.Threading.Tasks.TaskCompletionSource<bool>();
+                _service.TestJoinServerOverride = _ =>
+                {
+                    tcsOk.TrySetResult(true);
+                    return System.Threading.Tasks.Task.FromResult("Success");
+                };
+
+                _service.HandleProcessExit(sOk!);
+                await tcsOk.Task.WaitAsync(TimeSpan.FromSeconds(3));
+                await System.Threading.Tasks.Task.Delay(30);
+                Assert.True(sOk!.IsActive);
+                Assert.Equal(1, sOk.RetryCount);
+
+                var tcsFail = new System.Threading.Tasks.TaskCompletionSource<bool>();
+                _service.TestJoinServerOverride = _ =>
+                {
+                    tcsFail.TrySetResult(true);
+                    return System.Threading.Tasks.Task.FromResult("Failed");
+                };
+                _service.HandleProcessExit(sOk);
+                await tcsFail.Task.WaitAsync(TimeSpan.FromSeconds(3));
+                await System.Threading.Tasks.Task.Delay(30);
+                Assert.True(sOk.IsActive);
+                Assert.Equal(2, sOk.RetryCount);
+
+                sOk.RetryCount = 3;
+                bool maxExceeded = false;
+                Action<AutoReconnectService.ReconnectSession> onMax = _ => maxExceeded = true;
+                _service.MaxRetriesExceeded += onMax;
+                try
+                {
+                    _service.HandleProcessExit(sOk);
+                    Assert.True(maxExceeded);
+                    Assert.False(_service.TryGetSession("ReconnSuccessUser", out _));
+                }
+                finally
+                {
+                    _service.MaxRetriesExceeded -= onMax;
+                }
+
+                var accStable = new Account { Username = "StableUser", UserID = 202 };
+                _service.RegisterSession(accStable, 189707, "j2", false, false, 999998, nowUtcOverride: DateTime.UtcNow.AddMinutes(-20));
+                Assert.True(_service.TryGetSession("StableUser", out var sStable));
+                sStable!.RetryCount = 2;
+                sStable.ObservedProcessExited = true;
+                sStable.ObservedExitCode = 0;
+                _service.CheckSessionsCallback(null);
+                Assert.Equal(0, sStable.RetryCount);
+            }
+            finally
+            {
+                _service.TestReconnectDelayMsOverride = null;
+                _service.TestJoinServerOverride = null;
+                _service.Clear();
+            }
+        }
+
+        [Fact]
+        public void AutoReconnectService_AllBranches_CoverRemainingScenarios()
+        {
+            DateTime now = DateTime.UtcNow;
+            _service.Clear();
+            _service.IsEnabled = true;
+            Assert.True(_service.IsEnabled);
+            _service.IsEnabled = false;
+            Assert.False(_service.IsEnabled);
+            _service.IsEnabled = true;
+            Assert.Equal(0, _service.TotalReconnections);
+
+            // 1. Session registration edge cases
+            _service.RegisterSession(null!, 0);
+            _service.RegisterSession(new Account { Username = "", UserID = 0 }, 0);
+            Assert.Equal(0, _service.ActiveSessionsCount);
+
+            var acc = new Account { Username = "BranchUser", UserID = 777 };
+            _service.RegisterSession(acc, 12345, "j-branch", false, false, 999901, nowUtcOverride: now.AddMinutes(-5));
+            Assert.Equal(1, _service.ActiveSessionsCount);
+
+            if (_service.TryGetSession("BranchUser", out var sBranch))
+            {
+                sBranch.RetryCount = 3;
+                sBranch.LastReconnectUtc = now.AddMinutes(-1);
+            }
+            _service.RegisterSession(acc, 12345, "j-branch", false, false, 999901, nowUtcOverride: now);
+            Assert.True(_service.TryGetSession("BranchUser", out var sPreserved));
+            Assert.Equal(3, sPreserved.RetryCount);
+
+            _service.RegisterSession(acc, 12345, "j-branch", false, false, 999901, nowUtcOverride: now.AddMinutes(20));
+            Assert.True(_service.TryGetSession("BranchUser", out var sReset));
+            Assert.Equal(0, sReset.RetryCount);
+
+            // 2. Unregister edge cases
+            _service.UnregisterSession(null!);
+            _service.UnregisterSession("   ");
+            _service.UnregisterSession("NonExistentUser");
+            _service.UnregisterSession("BranchUser");
+            Assert.False(_service.TryGetSession("BranchUser", out _));
+
+            // 3. Suppress edge cases
+            _service.RegisterSession(acc, 12345, "j-branch", false, false, 999902);
+            _service.SuppressReconnect(null!);
+            _service.SuppressReconnect("   ");
+            _service.SuppressReconnect("NonExistentUser");
+            _service.SuppressReconnect("BranchUser");
+            Assert.True(_service.TryGetSession("BranchUser", out var sSuppressed));
+            Assert.True(sSuppressed.IsSuppressed);
+            Assert.False(sSuppressed.IsActive);
+            Assert.Equal(0, _service.ActiveSessionsCount);
+
+            _service.RegisterSession(acc, 12345, "j-branch", false, false, 999903);
+            _service.SuppressReconnectByPid(0);
+            _service.SuppressReconnectByPid(-1);
+            _service.SuppressReconnectByPid(111111);
+            _service.SuppressReconnectByPid(999903);
+            Assert.True(_service.TryGetSession("BranchUser", out var sPidSupp));
+            Assert.True(sPidSupp.IsSuppressed);
+
+            _service.RegisterSession(acc, 12345, "j-branch", false, false, 999904);
+            _service.SuppressAll();
+            Assert.True(_service.TryGetSession("BranchUser", out var sAllSupp));
+            Assert.True(sAllSupp.IsSuppressed);
+
+            // 4. TryGetSession with invalid input
+            Assert.False(_service.TryGetSession(null, out _));
+            Assert.False(_service.TryGetSession("   ", out _));
+
+            // 5. NotifyMaxRetriesExceededForTesting
+            _service.NotifyMaxRetriesExceededForTesting(null!);
+            _service.NotifyMaxRetriesExceededForTesting("nonexistent");
+
+            // 6. NotifyDisconnected & NotifyConnected
+            _service.NotifyDisconnected(0, 0);
+            _service.NotifyDisconnected(-1, 0);
+            _service.NotifyDisconnected(888888, 277);
+
+            _service.RegisterSession(acc, 12345, "j-branch", false, false, 999905);
+            _service.NotifyDisconnected(999905, 277);
+            Assert.True(_service.TryGetSession("BranchUser", out var sDc));
+            Assert.NotNull(sDc.LastDisconnectUtc);
+            Assert.Equal(277, sDc.LastDisconnectReason);
+
+            DateTime? firstDc = sDc.LastDisconnectUtc;
+            _service.NotifyDisconnected(999905, 0);
+            Assert.Equal(firstDc, sDc.LastDisconnectUtc);
+
+            _service.NotifyConnected(0);
+            _service.NotifyConnected(-1);
+            _service.NotifyConnected(888888);
+            _service.NotifyConnected(999905);
+            Assert.Null(sDc.LastDisconnectUtc);
+            Assert.Equal(0, sDc.LastDisconnectReason);
+
+            // 7. CheckSessionsCallback branches
+            _service.IsEnabled = false;
+            _service.CheckSessionsCallback(null);
+            _service.IsEnabled = true;
+
+            sDc.IsActive = false;
+            _service.CheckSessionsCallback(null);
+            sDc.IsActive = true;
+            sDc.IsSuppressed = true;
+            _service.CheckSessionsCallback(null);
+            sDc.IsSuppressed = false;
+
+            sDc.ProcessId = 0;
+            _service.CheckSessionsCallback(null);
+
+            sDc.ProcessId = 999905;
+            sDc.LaunchTimeUtc = DateTime.UtcNow.AddMinutes(-10);
+            sDc.LastDisconnectUtc = DateTime.UtcNow.AddMinutes(-5);
+            sDc.RetryCount = 0;
+            _service.TestReconnectDelayMsOverride = 1;
+            _service.TestJoinServerOverride = _ => Task.FromResult("Success");
+            _service.CheckSessionsCallback(null);
+
+            var inactiveS = new AutoReconnectService.ReconnectSession { Account = acc, IsActive = false };
+            _service.HandleProcessExit(inactiveS);
+            var suppS = new AutoReconnectService.ReconnectSession { Account = acc, IsActive = true, IsSuppressed = true };
+            _service.HandleProcessExit(suppS);
+
+            _service.Clear();
+        }
+
         [Theory]
         [InlineData(0, false, 0, 5, AutoReconnectService.ReconnectDecision.CloseCleanly)]
         [InlineData(0, true, 0, 5, AutoReconnectService.ReconnectDecision.Reconnect)]

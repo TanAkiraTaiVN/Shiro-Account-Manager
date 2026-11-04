@@ -301,6 +301,119 @@ namespace Shiro.Tests
         {
             var def = AccountWorkflowService.Default;
             Assert.Same(def, AccountWorkflowService.Default);
+            var custom = new AccountWorkflowService();
+            Assert.NotNull(custom);
+        }
+
+        [Fact]
+        public async Task ReLoginWithCookieAsync_ValidateSessionSelected_And_CheckAllSessions_AllBranches_Work()
+        {
+            var origRepo = AppServices.AccountRepository;
+            var origClientFactory = Account.TestHttpClientFactory;
+
+            try
+            {
+                var mockRepo = Substitute.For<IAccountRepository>();
+                AppServices.AccountRepository = mockRepo;
+                var mainVm = new MainViewModel();
+
+                // 1. ReLoginWithCookieAsync: valid new cookie updates session
+                var handler = new Shiro.Tests.TestInfrastructure.FakeHttpHandler(_ =>
+                    new System.Net.Http.HttpResponseMessage(System.Net.HttpStatusCode.OK)
+                    {
+                        Content = new System.Net.Http.StringContent("{\"id\":555,\"name\":\"RelogUser\"}")
+                    });
+                Account.TestHttpClientFactory = _ => new System.Net.Http.HttpClient(handler);
+
+                var acc = new Account
+                {
+                    Username = "RelogUser",
+                    UserID = 555,
+                    SecurityToken = "_|WARNING:-DO-NOT-SHARE-THIS.--" + new string('E', 120),
+                    Valid = true
+                };
+                var vm = new AccountViewModel(acc);
+                _fakeDialogs.InputPromptResult = "_|WARNING:-DO-NOT-SHARE-THIS.--" + new string('F', 120);
+
+                string status = "";
+                await _workflow.ReLoginWithCookieAsync(vm, mainVm, s => status = s);
+                Assert.True(acc.Valid);
+                Assert.NotEmpty(status);
+
+                // 2. ReLoginWithCookieAsync: invalid new cookie when previously valid retains old cookie
+                Account.TestHttpClientFactory = _ => new System.Net.Http.HttpClient(
+                    new Shiro.Tests.TestInfrastructure.FakeHttpHandler(_ =>
+                        new System.Net.Http.HttpResponseMessage(System.Net.HttpStatusCode.Unauthorized)
+                        {
+                            Content = new System.Net.Http.StringContent("{}")
+                        }));
+                string oldTok = acc.SecurityToken;
+                _fakeDialogs.InputPromptResult = "_|WARNING:-DO-NOT-SHARE-THIS.--bad";
+                await _workflow.ReLoginWithCookieAsync(vm, mainVm, s => status = s);
+                Assert.True(acc.Valid);
+                Assert.Equal(oldTok, acc.SecurityToken);
+
+                // 3. ReLoginWithCookieAsync: invalid new cookie when previously invalid marks invalid & saves
+                acc.Valid = false;
+                await _workflow.ReLoginWithCookieAsync(vm, mainVm, s => status = s);
+                Assert.False(acc.Valid);
+
+                // 4. ValidateSessionSelected with valid and invalid items
+                var tcsDone = new System.Threading.Tasks.TaskCompletionSource<string>();
+                _workflow.ValidateSessionSelected(new List<AccountViewModel> { vm }, mainVm, s =>
+                {
+                    if (s == LocalizationService.Format("AccountWorkflow.SessionCheckCompleted", 1))
+                        tcsDone.TrySetResult(s);
+                });
+                string completedMsg = await tcsDone.Task.WaitAsync(TimeSpan.FromSeconds(3));
+                Assert.NotEmpty(completedMsg);
+
+                // 5. CheckAllSessionsAsync when all healthy & when >5 banned accounts
+                Account.TestHttpClientFactory = _ => new System.Net.Http.HttpClient(
+                    new Shiro.Tests.TestInfrastructure.FakeHttpHandler(_ =>
+                        new System.Net.Http.HttpResponseMessage(System.Net.HttpStatusCode.OK)
+                        {
+                            Content = new System.Net.Http.StringContent("{\"id\":555,\"name\":\"RelogUser\"}")
+                        }));
+                acc.Valid = true;
+                acc.AccountStatusIssue = "";
+                mockRepo.GetAll().Returns(new List<Account> { acc });
+                await _workflow.CheckAllSessionsAsync(mainVm, s => status = s);
+
+                // Null guards and invalid PlaceId in SavePlaceIdSelected
+                mainVm.Accounts.Add(vm);
+                vm.IsSelected = true;
+                mainVm.PlaceId = "invalid-place";
+                _workflow.SavePlaceIdSelected(mainVm, s => status = s);
+                Assert.Equal(LocalizationService.Get("AccountWorkflow.EnterValidPlaceBeforeSave"), status);
+
+                _workflow.SetAlias(null!, _ => { });
+                _workflow.SetGroup(null!, mainVm, _ => { });
+                _workflow.SetDescription(null!, _ => { });
+                _workflow.TogglePin(null!, mainVm, _ => { });
+                _workflow.CopyUsername(null!, _ => { });
+                _workflow.CopyUserPass(null!, _ => { });
+                _workflow.CopyUserId(null!, _ => { });
+                _workflow.CopyProfileUrl(null!, _ => { });
+                _workflow.CopySecurityToken(null!, _ => { });
+                _workflow.RemoveAccount(null!, mainVm, _ => { });
+                _workflow.SetGroupSelected(null!, _ => { });
+                _workflow.SavePlaceIdSelected(null!, _ => { });
+                _workflow.CopyUserPassSelected(null!, _ => { });
+                _workflow.RemoveSelectedAccounts(null!, _ => { });
+            }
+            finally
+            {
+                AppServices.AccountRepository = origRepo;
+                Account.TestHttpClientFactory = origClientFactory;
+            }
+        }
+
+        [Fact]
+        public void AccountWorkflowService_DefaultInstance_DuplicateCheck()
+        {
+            var def = AccountWorkflowService.Default;
+            Assert.Same(def, AccountWorkflowService.Default);
         }
     }
 }

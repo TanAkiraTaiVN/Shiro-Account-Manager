@@ -43,6 +43,8 @@ namespace Shiro.Services
         private bool _isEnabled = true;
         public int MaxRetries { get; set; } = 5;
         public TimeSpan InitialBackoff { get; set; } = TimeSpan.FromSeconds(10);
+        internal int? TestReconnectDelayMsOverride { get; set; }
+        internal Func<ReconnectSession, Task<string>>? TestJoinServerOverride { get; set; }
         public TimeSpan LaunchGracePeriod { get; set; } = TimeSpan.FromSeconds(15);
         public TimeSpan DisconnectTimeout { get; set; } = TimeSpan.FromSeconds(20);
         public TimeSpan StableResetWindow { get; set; } = TimeSpan.FromMinutes(10);
@@ -298,7 +300,7 @@ namespace Shiro.Services
             }
         }
 
-        private void CheckSessionsCallback(object? state)
+        internal void CheckSessionsCallback(object? state)
         {
             if (!IsEnabled || _disposed || _sessions.IsEmpty)
                 return;
@@ -394,7 +396,7 @@ namespace Shiro.Services
             }
         }
 
-        private void HandleProcessExit(ReconnectSession session)
+        internal void HandleProcessExit(ReconnectSession session)
         {
             lock (_lock)
             {
@@ -426,7 +428,10 @@ namespace Shiro.Services
             {
                 try
                 {
-                    await Task.Delay(TimeSpan.FromSeconds(delaySeconds)).ConfigureAwait(false);
+                    if (TestReconnectDelayMsOverride.HasValue)
+                        await Task.Delay(TestReconnectDelayMsOverride.Value).ConfigureAwait(false);
+                    else
+                        await Task.Delay(TimeSpan.FromSeconds(delaySeconds)).ConfigureAwait(false);
 
                     if (_disposed || session.IsSuppressed)
                     {
@@ -443,11 +448,13 @@ namespace Shiro.Services
                         await RobloxRateLimitCoordinator.Instance.WaitForBackoffAsync().ConfigureAwait(false);
 
                         Program.Logger?.Info($"[AutoReconnect] Reconnecting '{session.Account.Username}' to PlaceId: {session.PlaceId}...");
-                        string result = await session.Account.JoinServer(
-                            session.PlaceId,
-                            session.JobId,
-                            session.FollowUser,
-                            session.JoinVip).ConfigureAwait(false);
+                        string result = TestJoinServerOverride != null
+                            ? await TestJoinServerOverride(session).ConfigureAwait(false)
+                            : await session.Account.JoinServer(
+                                session.PlaceId,
+                                session.JobId,
+                                session.FollowUser,
+                                session.JoinVip).ConfigureAwait(false);
 
                         if (result == "Success")
                         {

@@ -24,7 +24,9 @@ namespace Shiro.Services
         private static string? _cachedRobloxExecutablePath;
         private static long _cachedRobloxExecutableTick = -60000;
         private const long ExecutableCacheTtlMs = 30000;
-
+        internal static string[]? TestVersionRootsOverride;
+        internal static string? TestProtocolCommandOverride;
+        internal static string? TestDefaultIconOverride;
         public static void InvalidateExecutableCache()
         {
             _cachedRobloxExecutablePath = null;
@@ -49,12 +51,12 @@ namespace Shiro.Services
             return resolved;
         }
 
-        private static string? FindRobloxPlayerExecutableCore()
+        internal static string? FindRobloxPlayerExecutableCore()
         {
             string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
             string? programFilesX86 = Environment.GetEnvironmentVariable("ProgramFiles(x86)");
             string programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
-            string[] roots =
+            string[] roots = TestVersionRootsOverride ?? new[]
             {
                 Path.Combine(localAppData, "Roblox", "Versions"),
                 string.IsNullOrWhiteSpace(programFilesX86) ? string.Empty : Path.Combine(programFilesX86, "Roblox", "Versions"),
@@ -63,8 +65,12 @@ namespace Shiro.Services
 
             try
             {
-                using RegistryKey? commandKey = Registry.ClassesRoot.OpenSubKey(@"roblox-player\shell\open\command");
-                string? command = commandKey?.GetValue("") as string;
+                string? command = TestProtocolCommandOverride;
+                if (command == null)
+                {
+                    using RegistryKey? commandKey = Registry.ClassesRoot.OpenSubKey(@"roblox-player\shell\open\command");
+                    command = commandKey?.GetValue("") as string;
+                }
                 if (!string.IsNullOrWhiteSpace(command))
                 {
                     var match = RobloxExeRegex().Match(command);
@@ -92,8 +98,12 @@ namespace Shiro.Services
 
             try
             {
-                using RegistryKey? iconKey = Registry.ClassesRoot.OpenSubKey(@"roblox\DefaultIcon");
-                string? registered = iconKey?.GetValue("") as string;
+                string? registered = TestDefaultIconOverride;
+                if (registered == null)
+                {
+                    using RegistryKey? iconKey = Registry.ClassesRoot.OpenSubKey(@"roblox\DefaultIcon");
+                    registered = iconKey?.GetValue("") as string;
+                }
                 if (!string.IsNullOrWhiteSpace(registered))
                 {
                     string path = registered.Trim().Trim('"');
@@ -168,8 +178,12 @@ namespace Shiro.Services
         {
             try
             {
-                using RegistryKey? commandKey = Registry.ClassesRoot.OpenSubKey(@"roblox-player\shell\open\command");
-                string? command = commandKey?.GetValue("") as string;
+                string? command = TestProtocolCommandOverride;
+                if (command == null)
+                {
+                    using RegistryKey? commandKey = Registry.ClassesRoot.OpenSubKey(@"roblox-player\shell\open\command");
+                    command = commandKey?.GetValue("") as string;
+                }
 
                 if (string.IsNullOrWhiteSpace(command))
                     return false;

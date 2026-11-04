@@ -84,6 +84,54 @@ namespace Shiro.Tests
         }
 
         [Fact]
+        public async Task GetRandomJobId_ChooseLowest_MultiPage_And_CachedFallback_CoverBranches()
+        {
+            var prevGamesClient = AccountManager.GamesClient;
+            var prevCached = ServerBrowserStateService.Default.CachedServers;
+            var handler = new Shiro.Tests.TestInfrastructure.FakeHttpHandler();
+            AccountManager.GamesClient = new Shiro.Http.RestClient(new System.Net.Http.HttpClient(handler), "https://games.roblox.com/");
+
+            try
+            {
+                handler.Enqueue(System.Net.HttpStatusCode.OK, "{\"nextPageCursor\":\"cursor_p2\",\"data\":[{\"id\":\"srv-full\",\"playing\":10,\"maxPlayers\":10},{\"id\":\"srv-low\",\"playing\":2,\"maxPlayers\":10}]}");
+                string lowest = await RobloxPlaceHelper.GetRandomJobId(189707, chooseLowestServer: true);
+                Assert.Equal("srv-low", lowest);
+
+                AppSettings.General.Set("ShuffleChoosesLowestServer", "false");
+                AppSettings.General.Set("ShufflePageCount", "2");
+                handler.Enqueue(System.Net.HttpStatusCode.OK, "{\"nextPageCursor\":\"cursor_p2\",\"data\":[{\"id\":\"srv-p1\",\"playing\":3,\"maxPlayers\":10}]}");
+                handler.Enqueue(System.Net.HttpStatusCode.OK, "{\"nextPageCursor\":null,\"data\":[{\"id\":\"srv-p2\",\"playing\":4,\"maxPlayers\":10}]}");
+                string randomSrv = await RobloxPlaceHelper.GetRandomJobId(189707, chooseLowestServer: false);
+                Assert.True(randomSrv == "srv-p1" || randomSrv == "srv-p2");
+
+                handler.Enqueue(System.Net.HttpStatusCode.OK, "{broken-json");
+                ServerBrowserStateService.Default.CachedServers = new System.Collections.Generic.List<ServerData>
+                {
+                    new ServerData { id = "cached-srv-1", playing = 5, maxPlayers = 12 }
+                };
+                string fromCache = await RobloxPlaceHelper.GetRandomJobId(189707, chooseLowestServer: false);
+                Assert.Equal("cached-srv-1", fromCache);
+
+                ServerBrowserStateService.Default.CachedServers = new System.Collections.Generic.List<ServerData>();
+                handler.Enqueue(System.Net.HttpStatusCode.InternalServerError, "");
+                string emptyRes = await RobloxPlaceHelper.GetRandomJobId(189707, chooseLowestServer: false);
+                Assert.Equal(string.Empty, emptyRes);
+            }
+            finally
+            {
+                AccountManager.GamesClient = prevGamesClient!;
+                ServerBrowserStateService.Default.CachedServers = prevCached;
+            }
+        }
+
+        [Fact]
+        public void PrerequisiteService_NeedsVCRedist_DuplicateCheck()
+        {
+            bool needs = PrerequisiteService.NeedsVCRedist();
+            Assert.Equal(needs, PrerequisiteService.NeedsVCRedist());
+        }
+
+        [Fact]
         public void BrowserService_NoPasswordManagerSwitches_ContainsExpectedSwitches()
         {
             Assert.Contains("--password-store=basic", BrowserService.NoPasswordManagerSwitches);

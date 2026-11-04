@@ -2,8 +2,14 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
+using System.Net;
+using System.Net.Http;
 using Shiro.Classes;
 using Shiro.Services;
+using Shiro.Tests.TestInfrastructure;
 using Xunit;
 
 namespace Shiro.Tests
@@ -260,6 +266,131 @@ namespace Shiro.Tests
 
         [Fact]
         public async Task PrepareNativeLaunchEnvironmentAsync_And_SingletonSweep_ExecuteCleanly()
+        {
+            var ex = await Record.ExceptionAsync(async () =>
+            {
+                await AccountLaunchService.PrepareNativeLaunchEnvironmentAsync(CancellationToken.None);
+                AccountLaunchService.SchedulePostLaunchSingletonSweep(10);
+            });
+            Assert.Null(ex);
+        }
+
+        [Fact]
+        public async Task JoinServerResultAsync_AllBranches_And_Diagnostics_CoverBranches()
+        {
+            var psi = new ProcessStartInfo("RobloxPlayerBeta.exe");
+            AccountLaunchService.AddDirectGameArguments(psi, "t-123", "https://join.url");
+            Assert.Equal(5, psi.ArgumentList.Count);
+            Assert.Equal("--app", psi.ArgumentList[0]);
+
+            var prevTicketOverride = AccountLaunchService.TestGetAuthTicketOverride;
+            var prevNativeOverride = AccountLaunchService.TestStartNativeGameOverride;
+            var prevPrivacyOverride = AccountLaunchService.TestPrivacyConfirmOverride;
+            var prevHttpFactory = Account.TestHttpClientFactory;
+
+            string tempDir = Path.Combine(Path.GetTempPath(), "ShiroLaunchDiag_" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(tempDir);
+
+            try
+            {
+                var handler = new FakeHttpHandler(req =>
+                {
+                    string url = req.RequestUri?.AbsoluteUri ?? "";
+                    if (url.Contains("privateServerLinkCode"))
+                        return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("Roblox.GameLauncher.joinPrivateGame(12345, 'access-code-777', 'link-1')") };
+                    if (url.Contains("user-settings") && req.Method == HttpMethod.Get)
+                        return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("{\"whoCanInviteMeToPrivateServers\":\"Friends\"}") };
+                    return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("{}") };
+                });
+                Account.TestHttpClientFactory = _ => new HttpClient(handler);
+                AccountLaunchService.TestGetAuthTicketOverride = (_, _) => Task.FromResult((true, "ticket-abc"));
+                AccountLaunchService.TestStartNativeGameOverride = (_, _, _, _, _, _, _) => Task.FromResult(43210);
+                AccountLaunchService.TestPrivacyConfirmOverride = () => true;
+
+                var acc = new Account
+                {
+                    Username = "FullLaunchUser",
+                    UserID = 889900,
+                    SecurityToken = "_|WARNING:-DO-NOT-SHARE-THIS.--" + new string('D', 120),
+                    CSRFToken = "csrf-1",
+                    PinUnlocked = DateTime.Now.AddHours(1)
+                };
+
+                var pubRes = await AccountLaunchService.Instance.JoinServerResultAsync(acc, 189707, "job-111");
+                Assert.Equal(LaunchOutcome.Success, pubRes.Outcome);
+                Assert.Equal(43210, acc.LastLaunchedProcessId);
+
+                var followRes = await AccountLaunchService.Instance.JoinServerResultAsync(acc, 998877, "", followUser: true);
+                Assert.Equal(LaunchOutcome.Success, followRes.Outcome);
+
+                var vipRes = await AccountLaunchService.Instance.JoinServerResultAsync(acc, 189707, "https://www.roblox.com/games/189707?privateServerLinkCode=link123", joinVip: true);
+                Assert.Equal(LaunchOutcome.Success, vipRes.Outcome);
+
+                AccountLaunchService.TestStartNativeGameOverride = (_, _, _, _, _, _, _) => throw new InvalidOperationException("simulated native start error");
+                var failRes = await AccountLaunchService.Instance.JoinServerResultAsync(acc, 189707, "");
+                Assert.Equal(LaunchOutcome.Failed, failRes.Outcome);
+
+                string v1Dir = Path.Combine(tempDir, "version-aaa111");
+                string v2Dir = Path.Combine(tempDir, "version-bbb222");
+                Directory.CreateDirectory(v1Dir);
+                Directory.CreateDirectory(v2Dir);
+                string exe1 = Path.Combine(v1Dir, "RobloxPlayerBeta.exe");
+                string exe2 = Path.Combine(v2Dir, "RobloxPlayerBeta.exe");
+                File.WriteAllText(exe1, "dummy1");
+                File.WriteAllText(exe2, "dummy2");
+                File.SetLastWriteTimeUtc(exe1, DateTime.UtcNow.AddMinutes(-10));
+                File.SetLastWriteTimeUtc(exe2, DateTime.UtcNow);
+
+                AccountLaunchService.TestVersionRootsOverride = new[] { tempDir };
+                AccountLaunchService.TestProtocolCommandOverride = "";
+                AccountLaunchService.TestDefaultIconOverride = $"\"{exe1}\",0";
+
+                AppSettings.CurrentClientVersion = "version-aaa111";
+                AccountLaunchService.InvalidateExecutableCache();
+                Assert.Equal(exe1, AccountLaunchService.FindRobloxPlayerExecutableCore());
+
+                AppSettings.CurrentClientVersion = "";
+                Assert.Equal(exe2, AccountLaunchService.FindRobloxPlayerExecutableCore());
+
+                AccountLaunchService.TestProtocolCommandOverride = $"\"{exe1}\" %1";
+                Assert.Equal(exe1, AccountLaunchService.FindRobloxPlayerExecutableCore());
+                Assert.True(AccountLaunchService.HasRobloxPlayerProtocolHandler());
+
+                AccountLaunchService.TestProtocolCommandOverride = "\"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe\" %1";
+                Assert.False(AccountLaunchService.HasRobloxPlayerProtocolHandler());
+
+                AccountLaunchService.TestProtocolCommandOverride = "   ";
+                Assert.False(AccountLaunchService.HasRobloxPlayerProtocolHandler());
+
+                using var shortProc = Process.Start(new ProcessStartInfo
+                {
+                    FileName = "cmd.exe",
+                    Arguments = "/c exit 0",
+                    CreateNoWindow = true,
+                    UseShellExecute = false
+                });
+                if (shortProc != null)
+                {
+                    bool exited = await AccountLaunchService.WaitForExitAsync(shortProc, 2000, CancellationToken.None);
+                    Assert.True(exited);
+                }
+            }
+            finally
+            {
+                AccountLaunchService.TestGetAuthTicketOverride = prevTicketOverride;
+                AccountLaunchService.TestStartNativeGameOverride = prevNativeOverride;
+                AccountLaunchService.TestPrivacyConfirmOverride = prevPrivacyOverride;
+                AccountLaunchService.TestVersionRootsOverride = null;
+                AccountLaunchService.TestProtocolCommandOverride = null;
+                AccountLaunchService.TestDefaultIconOverride = null;
+                Account.TestHttpClientFactory = prevHttpFactory;
+                AutoReconnectService.Instance.Clear();
+                try { Directory.Delete(tempDir, recursive: true); } catch { /* ignore */ }
+            }
+        }
+
+        [Fact]
+        public async Task PrepareNativeLaunchEnvironmentAsync_And_SingletonSweep_DuplicateCheck()
         {
             var ex = await Record.ExceptionAsync(async () =>
             {

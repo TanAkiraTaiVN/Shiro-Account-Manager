@@ -23,6 +23,11 @@ namespace Shiro.Services
     {
         public static event Action<LaunchProgress>? LaunchProgressChanged;
         public static event Action? GlobalCancelRequested;
+        internal delegate ClientGameJoinState InspectGameJoinStateDelegate(int pid, string? browserTrackerId, ref string? cachedLogPath);
+        internal static InspectGameJoinStateDelegate? TestInspectProcessGameJoinStateOverride;
+        internal static string? TestLogsDirectoryOverride;
+        internal static int ChallengeProbeDelayMs = 500;
+        internal static double MaxChallengeVerificationWaitSeconds = 90.0;
 
         public static void RequestGlobalCancel()
         {
@@ -58,7 +63,7 @@ namespace Shiro.Services
             return (seconds * 1000) + jitterMs;
         }
 
-        private static void Report(Action<LaunchProgress>? progress, LaunchProgress state)
+        internal static void Report(Action<LaunchProgress>? progress, LaunchProgress state)
         {
             try { progress?.Invoke(state); }
             catch (Exception ex) { Program.Logger?.Warn($"Launch progress callback threw: {ex.Message}"); }
@@ -155,7 +160,7 @@ namespace Shiro.Services
                 }
             }
 
-            string defaultLogsDir = Path.Combine(
+            string defaultLogsDir = TestLogsDirectoryOverride ?? Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "Roblox",
                 "logs");
@@ -233,6 +238,8 @@ namespace Shiro.Services
 
         internal static ClientGameJoinState InspectProcessGameJoinState(int pid, string? browserTrackerId, ref string? cachedLogPath)
         {
+            if (TestInspectProcessGameJoinStateOverride != null)
+                return TestInspectProcessGameJoinStateOverride(pid, browserTrackerId, ref cachedLogPath);
             if (pid <= 0 || !RobloxProcessService.IsProcessAlive(pid))
                 return ClientGameJoinState.ProcessExited;
 
@@ -270,7 +277,7 @@ namespace Shiro.Services
             }
         }
 
-        private static async Task WaitIfClientChallengedBeforeNextLaunchAsync(
+        internal static async Task WaitIfClientChallengedBeforeNextLaunchAsync(
             LaunchRequest request,
             int index,
             IReadOnlyList<LaunchRequest> launchList,
@@ -292,7 +299,7 @@ namespace Shiro.Services
                 // Breaks immediately as soon as the client logs JoinedGame, Challenged, ChallengeFailedToLuaApp, or ProcessExited.
                 for (int probe = 0; probe < 8 && joinState == ClientGameJoinState.Pending; probe++)
                 {
-                    await Task.Delay(500, cancellationToken).ConfigureAwait(false);
+                    await Task.Delay(ChallengeProbeDelayMs, cancellationToken).ConfigureAwait(false);
                     joinState = InspectProcessGameJoinState(targetPid, trackerId, ref cachedLogPath);
                 }
             }
@@ -314,7 +321,7 @@ namespace Shiro.Services
                 });
 
                 long waitStart = Stopwatch.GetTimestamp();
-                TimeSpan maxVerificationWait = TimeSpan.FromSeconds(90);
+                TimeSpan maxVerificationWait = TimeSpan.FromSeconds(MaxChallengeVerificationWaitSeconds);
 
                 while (Stopwatch.GetElapsedTime(waitStart) < maxVerificationWait)
                 {
@@ -331,13 +338,13 @@ namespace Shiro.Services
                         Message = Shiro.Services.LocalizationService.Format("Launch.CaptchaProgressWarning", index + 1, launchList.Count, request.Account.Username, remainingSecs, nextUsername)
                     });
 
-                    await Task.Delay(500, cancellationToken).ConfigureAwait(false);
+                    await Task.Delay(ChallengeProbeDelayMs, cancellationToken).ConfigureAwait(false);
                     joinState = InspectProcessGameJoinState(targetPid, trackerId, ref cachedLogPath);
 
                     if (joinState == ClientGameJoinState.JoinedGame)
                     {
                         Program.Logger?.Info($"[LaunchCoordinator] Account '{request.Account.Username}' (PID {targetPid}) completed verification and joined game. Resuming batch.");
-                        await Task.Delay(1500, cancellationToken).ConfigureAwait(false);
+                        await Task.Delay(Math.Min(1500, ChallengeProbeDelayMs * 3), cancellationToken).ConfigureAwait(false);
                         return;
                     }
 

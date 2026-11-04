@@ -211,6 +211,7 @@ namespace Shiro.Tests
                 mgr.SchedulePresenceRefresh(null!);
                 mgr.SchedulePresenceRefresh(new Account { UserID = -1 });
                 mgr.SchedulePresenceRefresh(new Account { UserID = 987654 });
+                RobloxSingletonService.Apply(true);
             });
             Assert.Null(ex);
         }
