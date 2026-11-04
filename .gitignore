@@ -334,7 +334,7 @@ __pycache__/
 # Shiro: user data & scratch (never commit)
 scratch/
 RAMSettings.json
-RAMAccount.lua
+/RAMAccount.lua
 *.backup
 coverage/
 TestResults/

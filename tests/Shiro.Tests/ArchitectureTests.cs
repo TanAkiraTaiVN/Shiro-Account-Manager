@@ -728,7 +728,7 @@ namespace Shiro.Tests
             Assert.Empty(anyIsEnglishOffenders);
         }
 
-        private static string RepoRoot
+        internal static string RepoRoot
         {
             get
             {

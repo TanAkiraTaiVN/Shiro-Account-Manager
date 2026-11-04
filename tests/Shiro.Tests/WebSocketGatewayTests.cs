@@ -89,23 +89,20 @@ namespace Shiro.Tests
         [Fact]
         public void RAMAccountLua_ContainsModernAntiAfkAndWebSocketHelpers()
         {
-            string workspaceDir = AppDomain.CurrentDomain.BaseDirectory;
-            // Navigate up to workspace root
-            string luaPath = Path.GetFullPath(Path.Combine(workspaceDir, "..", "..", "..", "..", "..", "RAMAccount.lua"));
-            if (!File.Exists(luaPath))
-            {
-                luaPath = Path.GetFullPath(Path.Combine(workspaceDir, "..", "..", "..", "..", "..", "..", "RAMAccount.lua"));
-            }
+            string luaPath = Path.Combine(ArchitectureTests.RepoRoot, "src", "Shiro", "Nexus", "RAMAccount.lua");
+            Assert.True(File.Exists(luaPath), $"Missing tracked Lua script: {luaPath}");
+            string lua = File.ReadAllText(luaPath);
+            Assert.Contains("EnableInGameAntiAfk", lua);
+            Assert.Contains("DisableInGameAntiAfk", lua);
+            Assert.Contains("VirtualUser", lua);
+            Assert.Contains("ConnectEvents", lua);
+            Assert.Contains("GetWebSocketStats", lua);
+        }
 
-            if (File.Exists(luaPath))
-            {
-                string luaContent = File.ReadAllText(luaPath);
-                Assert.Contains("EnableInGameAntiAfk", luaContent);
-                Assert.Contains("DisableInGameAntiAfk", luaContent);
-                Assert.Contains("VirtualUser", luaContent);
-                Assert.Contains("ConnectEvents", luaContent);
-                Assert.Contains("GetWebSocketStats", luaContent);
-            }
+        [Fact]
+        public void RAMAccountLua_IsCopiedToOutput()
+        {
+            Assert.True(File.Exists(Path.Combine(AppContext.BaseDirectory, "Nexus", "RAMAccount.lua")));
         }
     }
 }

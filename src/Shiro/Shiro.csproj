@@ -76,6 +76,7 @@
   <ItemGroup>
     <None Update="Resources\**\*" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="Never" />
     <None Update="Nexus\Nexus.lua" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="Never" />
+    <None Update="Nexus\RAMAccount.lua" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="Never" />
     <None Update="app1.manifest" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="Never" />
     <None Include="Resources\shiro.ico">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
