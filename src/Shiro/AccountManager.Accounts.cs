@@ -42,6 +42,7 @@ namespace Shiro
 
         private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, long> ResolvedUserIdsCache =
             new(StringComparer.OrdinalIgnoreCase);
+        internal static void ClearResolvedUserIdsCacheForTesting() => ResolvedUserIdsCache.Clear();
 
         public static async Task<(bool Success, long UserId, RestResponse? Response)> GetUserIDAsync(string Username, CancellationToken cancellationToken = default)
         {
@@ -237,7 +238,7 @@ namespace Shiro
             return count;
         }
 
-        private async Task RefreshStaleCookiesAsync(CancellationToken cancellationToken)
+        internal async Task RefreshStaleCookiesAsync(CancellationToken cancellationToken)
         {
             if (RobloxHbaService.IsInteractiveLoginActive)
                 return;
@@ -431,7 +432,7 @@ namespace Shiro
         private static readonly System.Buffers.SearchValues<char> InvalidFileNameChars =
             System.Buffers.SearchValues.Create(Path.GetInvalidFileNameChars());
 
-        private static string MakeSafeFileName(string value, string fallback)
+        internal static string MakeSafeFileName(string value, string fallback)
         {
             if (string.IsNullOrWhiteSpace(value))
                 return fallback;

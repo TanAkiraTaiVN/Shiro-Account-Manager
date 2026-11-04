@@ -141,7 +141,7 @@ namespace Shiro
         public static IniSection Watcher = null!;
         public static IniSection Prompts = null!;
         private readonly SettingsService settingsService;
-        private static AccountStore accountStore = null!;
+        internal static AccountStore accountStore = null!;
         internal static readonly System.Threading.Lock AccountListLock = new();
         private readonly PresenceService presenceService;
         private readonly BrowserService browserService;
@@ -249,7 +249,7 @@ namespace Shiro
             }
         }
 
-        private static void ReplaceAccountsList(List<Account> accounts)
+        internal static void ReplaceAccountsList(List<Account> accounts)
         {
             if (accounts != null)
             {
@@ -286,7 +286,7 @@ namespace Shiro
         private static readonly System.Threading.Lock rgSaveLock = new();
         public event EventHandler<GameArgs>? RecentGameAdded;
 
-        private readonly ILaunchCoordinator launchCoordinator;
+        internal ILaunchCoordinator launchCoordinator;
         // Roblox accepts the app protocol asynchronously. A safe stagger keeps
         // multi-account Home launches reliable and prevents Roblox from invalidating sessions due to rapid requests.
         private const int HomeLaunchStaggerMilliseconds = 2500;
@@ -456,7 +456,7 @@ namespace Shiro
             return Shiro.AvaloniaUI.Views.InputDialog.Prompt(text, caption, defaultText, big);
         }
 
-        private async Task ObserveBackgroundTaskAsync(Task? task, string operation)
+        internal async Task ObserveBackgroundTaskAsync(Task? task, string operation)
         {
             if (task == null)
                 return;

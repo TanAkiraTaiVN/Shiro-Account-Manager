@@ -191,14 +191,16 @@ namespace Shiro
         }
 
         // Offers to continue a batch re-login that was interrupted (dialog or app closed mid-way).
-        private void OfferResumeReloginQueue()
+        internal static int OfferResumeDelayMilliseconds = 12000;
+        internal static bool SuppressExitOnShutdown;
+        internal Task OfferResumeReloginQueue()
         {
-            _ = Task.Run(async () =>
+            return Task.Run(async () =>
             {
                 try
                 {
                     // Wait for startup validation so already-recovered accounts are skipped.
-                    await Task.Delay(12000, lifetimeCancellation.Token).ConfigureAwait(false);
+                    await Task.Delay(OfferResumeDelayMilliseconds, lifetimeCancellation.Token).ConfigureAwait(false);
                     var pendingIds = ReloginQueueStore.Load();
                     if (pendingIds.Count == 0) return;
 
@@ -295,7 +297,7 @@ namespace Shiro
 
             try
             {
-                if (Avalonia.Application.Current == null)
+                if (!SuppressExitOnShutdown && Avalonia.Application.Current == null)
                 {
                     Environment.Exit(0);
                 }

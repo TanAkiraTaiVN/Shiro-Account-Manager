@@ -124,6 +124,7 @@ namespace Shiro.Services
         }
 
         private static readonly SemaphoreSlim SignInGate = new SemaphoreSlim(2, 2);
+        internal static Func<string?, string?, int, bool, CancellationToken, Task<Account?>>? TestSignInOverride;
 
         public async Task<Account?> SignInAsync(
             string? username = null,
@@ -135,6 +136,10 @@ namespace Shiro.Services
             await SignInGate.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
             {
+                if (TestSignInOverride != null)
+                {
+                    return await TestSignInOverride(username, password, windowSlot, submitCredentials, cancellationToken).ConfigureAwait(false);
+                }
                 return await RobloxBrowserLogin.LoginAsync(
                     username,
                     password,

@@ -21,7 +21,7 @@ namespace Shiro
 
     public partial class AccountManager
     {
-        private static string SaveFilePath => StoragePaths.AccountDataFile;
+        private static string SaveFilePath => accountStore?.AccountFile ?? StoragePaths.AccountDataFile;
 
         private static ReadOnlyMemory<byte> PasswordHash; // Store the hash after the data is successfully decrypted so we can encrypt again.
         // A legacy install could explicitly opt into plaintext account data
@@ -30,10 +30,11 @@ namespace Shiro
         // instead of preserving plaintext indefinitely.
         private static bool legacyPlaintextLoaded;
         private static string PlaintextOptInFile => StoragePaths.GetUserFile("NoEncryption.IUnderstandTheRisks.iautamor");
+        internal static Func<string, string, Task<string?>>? TestPasswordPromptAsync;
 
         public static bool IsDatabasePasswordEncrypted()
         {
-            byte[] data = new AccountStore().Read();
+            byte[] data = (accountStore ?? new AccountStore()).Read();
             if (data == null || data.Length == 0 || !Cryptography.IsEncrypted(data))
                 return false;
 
@@ -61,7 +62,11 @@ namespace Shiro
         {
             if (manualReset)
             {
-                string? newPass = await Shiro.AvaloniaUI.Views.InputDialog.PromptAsync(
+                string? newPass = TestPasswordPromptAsync != null
+                    ? await TestPasswordPromptAsync(
+                        Shiro.Services.LocalizationService.Get("AccountManager.EnterNewPasswordPrompt"),
+                        Shiro.Services.LocalizationService.Get("AccountManager.ChangeDatabasePassword")).ConfigureAwait(false)
+                    : await Shiro.AvaloniaUI.Views.InputDialog.PromptAsync(
                     Shiro.Services.LocalizationService.Get("AccountManager.EnterNewPasswordPrompt"),
                     Shiro.Services.LocalizationService.Get("AccountManager.ChangeDatabasePassword"));
 
