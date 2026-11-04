@@ -16,11 +16,17 @@ namespace Shiro.Tests.Network
         public RobloxServerQueryServiceBehaviorTests()
         {
             RobloxServerQueryService.TestHttpClientFactory = null;
+            RobloxServerQueryService.TestPingProbe = null;
+            RobloxServerQueryService.TestGeoHttpGetString = null;
+            Account.TestHttpClientFactory = null;
         }
 
         public void Dispose()
         {
             RobloxServerQueryService.TestHttpClientFactory = null;
+            RobloxServerQueryService.TestPingProbe = null;
+            RobloxServerQueryService.TestGeoHttpGetString = null;
+            Account.TestHttpClientFactory = null;
         }
 
         [Fact]
@@ -34,26 +40,145 @@ namespace Shiro.Tests.Network
         }
 
         [Fact]
+        public void Ctor_NullArguments_Throw()
+        {
+            Assert.Throws<ArgumentNullException>(() => new RobloxServerQueryService(null!, AppServices.GeneralSettings));
+            Assert.Throws<ArgumentNullException>(() => new RobloxServerQueryService(AppServices.Logger, null!));
+        }
+
+        [Fact]
         public async Task QueryServerRegionAndPingAsync_InvalidInputs_ReturnsFetchingRegionStatus()
         {
             var service = RobloxServerQueryService.Default;
             string fetchingRegion = LocalizationService.Get("ServerQuery.FetchingRegion");
 
-            // Null account
             var resNullAcc = await service.QueryServerRegionAndPingAsync(null!, 12345, "job-id");
             Assert.False(resNullAcc.Success);
             Assert.Equal(fetchingRegion, resNullAcc.Region);
 
-            // Invalid placeId
             var account = new Account { Username = "TestUser" };
             var resZeroPlace = await service.QueryServerRegionAndPingAsync(account, 0, "job-id");
             Assert.False(resZeroPlace.Success);
             Assert.Equal(fetchingRegion, resZeroPlace.Region);
 
-            // Empty serverId
             var resEmptyServer = await service.QueryServerRegionAndPingAsync(account, 12345, "");
             Assert.False(resEmptyServer.Success);
             Assert.Equal(fetchingRegion, resEmptyServer.Region);
+        }
+
+        [Fact]
+        public async Task QueryServerRegionAndPingAsync_GeoIpFallback_ResolvesCityAndCountry()
+        {
+            var handler = new FakeHttpHandler()
+                .Enqueue(HttpStatusCode.OK, "{\"joinScript\":{\"MachineAddress\":\"198.51.100.42\",\"DataCenterId\":999999}}")
+                .Enqueue(HttpStatusCode.OK, "{\"joinScript\":{\"MachineAddress\":\"198.51.100.43\",\"DataCenterId\":999999}}");
+            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+            RobloxServerQueryService.TestPingProbe = _ => Task.FromResult<int?>(42);
+            RobloxServerQueryService.TestGeoHttpGetString = (url, _) =>
+            {
+                if (url.Contains("custom.geo"))
+                    return Task.FromResult("{\"status\":\"fail\"}");
+                return Task.FromResult("{\"success\":true,\"city\":\"Tokyo\",\"country_code\":\"JP\"}");
+            };
+
+            var account = new Account
+            {
+                Username = "GeoUser",
+                SecurityToken = "_|WARNING:-DO-NOT-SHARE-THIS.--GeoCookie12345"
+            };
+
+            var res = await RobloxServerQueryService.Default.QueryServerRegionAndPingAsync(
+                account,
+                1818,
+                "job-geo-1",
+                ipApiTemplate: "https://custom.geo/<ip>");
+
+            Assert.True(res.Success);
+            Assert.Equal("198.51.100.42", res.Ip);
+            Assert.Equal(42, res.PingMs);
+            Assert.Equal("Tokyo, JP", res.Region);
+            Assert.Equal("JP", res.CountryCode);
+
+            // Second call for same subnet hits cache
+            var resCached = await RobloxServerQueryService.Default.QueryServerRegionAndPingAsync(
+                account,
+                1818,
+                "job-geo-2");
+            Assert.Equal(42, resCached.PingMs);
+        }
+
+        [Fact]
+        public async Task QueryServerRegionAndPingAsync_MissingMachineAddress_SetsStatusOrUnknownRegion()
+        {
+            var handler = new FakeHttpHandler()
+                .Enqueue(HttpStatusCode.OK, "{\"status\":\"GameFull\"}")
+                .Enqueue(HttpStatusCode.OK, "{}");
+            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+
+            var account = new Account
+            {
+                Username = "NoIpUser",
+                SecurityToken = "_|WARNING:-DO-NOT-SHARE-THIS.--NoIpCookie12345"
+            };
+
+            var res = await RobloxServerQueryService.Default.QueryServerRegionAndPingAsync(account, 1818, "job-full");
+            Assert.False(res.Success);
+            Assert.Equal("GameFull", res.Region);
+
+            var resUnknown = await RobloxServerQueryService.Default.QueryServerRegionAndPingAsync(account, 1818, "job-empty");
+            Assert.False(resUnknown.Success);
+            Assert.Equal(LocalizationService.Get("ServerQuery.UnknownRegion"), resUnknown.Region);
+        }
+
+        [Fact]
+        public async Task QueryServerRegionAndPingAsync_OfflineDatacenterAndGeoIpVariants_Work()
+        {
+            var handler = new FakeHttpHandler()
+                // 1. Offline datacenter resolution via root dataCenterId=295, direct ping null -> fallback SamplePingIp
+                .Enqueue(HttpStatusCode.OK, "{\"joinScript\":{\"MachineAddress\":\"203.0.113.55\"},\"dataCenterId\":295}")
+                // 2. GeoIP countryCode only (no city)
+                .Enqueue(HttpStatusCode.OK, "{\"joinScript\":{\"MachineAddress\":\"198.51.101.10\"}}")
+                // 3. GeoIP country property + real localhost ping
+                .Enqueue(HttpStatusCode.OK, "{\"joinScript\":{\"MachineAddress\":\"127.0.0.1\"}}");
+
+            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+            RobloxServerQueryService.TestPingProbe = ip =>
+                Task.FromResult<int?>(ip == "203.0.113.55" ? null : 19);
+
+            int geoCall = 0;
+            RobloxServerQueryService.TestGeoHttpGetString = (_, _) =>
+            {
+                geoCall++;
+                if (geoCall == 1)
+                    return Task.FromResult("{\"countryCode\":\"DE\"}");
+                if (geoCall == 2)
+                    return Task.FromResult("{\"success\":false}");
+                return Task.FromResult("{\"city\":\"Berlin\",\"country\":\"Germany\"}");
+            };
+
+            var account = new Account
+            {
+                Username = "DcUser",
+                SecurityToken = "_|WARNING:-DO-NOT-SHARE-THIS.--DcCookie12345"
+            };
+
+            var dcRes = await RobloxServerQueryService.Default.QueryServerRegionAndPingAsync(account, 1818, "job-dc");
+            Assert.True(dcRes.Success);
+            Assert.Equal(19, dcRes.PingMs);
+
+            var deRes = await RobloxServerQueryService.Default.QueryServerRegionAndPingAsync(account, 1818, "job-de");
+            Assert.True(deRes.Success);
+            Assert.Equal("DE", deRes.Region);
+
+            // Real localhost ping path (TestPingProbe = null)
+            RobloxServerQueryService.TestPingProbe = null;
+            var localRes = await RobloxServerQueryService.Default.QueryServerRegionAndPingAsync(
+                account,
+                1818,
+                "job-local",
+                ipApiTemplate: "https://custom.geo/<ip>");
+            Assert.True(localRes.Success);
+            Assert.Equal("Berlin, Germany", localRes.Region);
         }
 
         [Fact]

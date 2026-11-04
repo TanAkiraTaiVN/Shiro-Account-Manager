@@ -1,23 +1,37 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Net;
+using System.Net.Http;
 using System.Threading.Tasks;
 using Shiro.Classes;
 using Shiro.Services;
+using Shiro.Tests.TestInfrastructure;
 using Xunit;
 
 namespace Shiro.Tests
 {
     [Collection("SerialGlobalState")]
-    public class AccountApiDispatcherEndpointsBehaviorTests
+    public class AccountApiDispatcherEndpointsBehaviorTests : IDisposable
     {
         private const string AdminPassword = "StrongAdminPass123";
+
+        public AccountApiDispatcherEndpointsBehaviorTests()
+        {
+            Account.TestHttpClientFactory = null;
+        }
+
+        public void Dispose()
+        {
+            Account.TestHttpClientFactory = null;
+        }
 
         private static AccountManager.ApiRequestContext CreateRequest(
             string path,
             string password = AdminPassword,
             Dictionary<string, string>? query = null,
-            string body = "")
+            string body = "",
+            bool isV2 = true)
         {
             var q = query ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             if (!string.IsNullOrEmpty(password))
@@ -26,7 +40,7 @@ namespace Shiro.Tests
             return new AccountManager.ApiRequestContext
             {
                 AbsolutePath = path,
-                IsV2 = true,
+                IsV2 = isV2,
                 IsLocal = true,
                 Host = "localhost",
                 Origin = "",
@@ -46,6 +60,74 @@ namespace Shiro.Tests
             string resp = await mgr.ProcessApiRequestAsync(CreateRequest("/Memory/Trim"));
             Assert.Contains("BytesSaved", resp);
             Assert.Contains("ClientsCount", resp);
+        }
+
+        [Fact]
+        public async Task GlobalControlEndpoints_WebSocketStats_AntiAfk_KillRoblox_Work()
+        {
+            var mgr = AccountManager.Instance ?? new AccountManager();
+            AccountManager.WSPassword = AdminPassword;
+
+            string wsStats = await mgr.ProcessApiRequestAsync(CreateRequest("/GetWebSocketStats"));
+            Assert.Contains("Shiro Kestrel Gateway", wsStats);
+
+            string afkStatus = await mgr.ProcessApiRequestAsync(CreateRequest("/AntiAfk/Status"));
+            Assert.Contains("TapsSent", afkStatus);
+
+            string afkEnable = await mgr.ProcessApiRequestAsync(CreateRequest("/AntiAfk/Enable"));
+            Assert.Contains("Enabled", afkEnable);
+
+            string afkDisable = await mgr.ProcessApiRequestAsync(CreateRequest("/AntiAfk/Disable"));
+            Assert.Contains("Enabled", afkDisable);
+
+            string afkToggle = await mgr.ProcessApiRequestAsync(CreateRequest("/AntiAfk/Toggle"));
+            Assert.Contains("Enabled", afkToggle);
+
+            await mgr.ProcessApiRequestAsync(CreateRequest("/AntiAfk/Disable"));
+
+            string killResp = await mgr.ProcessApiRequestAsync(CreateRequest("/KillRoblox"));
+            Assert.Contains("Closed all Roblox processes", killResp);
+        }
+
+        [Fact]
+        public async Task GetAccounts_GetAccountsJson_ImportCookie_PermissionAndFilterPaths()
+        {
+            var mgr = AccountManager.Instance ?? new AccountManager();
+            AccountManager.WSPassword = AdminPassword;
+
+            var acc1 = new Account { Username = "UserA", UserID = 101, Group = "G1", SecurityToken = "_|WARNING:-DO-NOT-SHARE-THIS.--TokA" };
+            var acc2 = new Account { Username = "UserB", UserID = 102, Group = "G2", SecurityToken = "_|WARNING:-DO-NOT-SHARE-THIS.--TokB" };
+            lock (AccountManager.AccountListLock)
+            {
+                AccountManager.AccountsList.Clear();
+            }
+            AccountManager.AddAccountThreadSafe(acc1);
+            AccountManager.AddAccountThreadSafe(acc2);
+
+            AccountManager.WebServer.Set("AllowGetAccounts", "false");
+            string deniedGet = await mgr.ProcessApiRequestAsync(CreateRequest("/GetAccounts"));
+            Assert.Contains("not allowed", deniedGet);
+
+            string deniedJson = await mgr.ProcessApiRequestAsync(CreateRequest("/GetAccountsJson"));
+            Assert.Contains("not allowed", deniedJson);
+
+            AccountManager.WebServer.Set("AllowGetAccounts", "true");
+            AccountManager.WebServer.Set("AllowGetCookie", "true");
+
+            string groupAccounts = await mgr.ProcessApiRequestAsync(CreateRequest(
+                "/GetAccounts",
+                query: new Dictionary<string, string> { ["Group"] = "G1" }));
+            Assert.Contains("UserA", groupAccounts);
+            Assert.DoesNotContain("UserB", groupAccounts);
+
+            string jsonWithCookies = await mgr.ProcessApiRequestAsync(CreateRequest(
+                "/GetAccountsJson",
+                query: new Dictionary<string, string> { ["Group"] = "G1", ["IncludeCookies"] = "true" }));
+            Assert.Contains("UserA", jsonWithCookies);
+            Assert.Contains("TokA", jsonWithCookies);
+
+            string missingCookieImport = await mgr.ProcessApiRequestAsync(CreateRequest("/ImportCookie"));
+            Assert.Contains("Cookie parameter required", missingCookieImport);
         }
 
         [Fact]
@@ -92,17 +174,140 @@ namespace Shiro.Tests
             AccountManager.WebServer.Set("AllowGetAccounts", "true");
             AccountManager.WebServer.Set("AllowGetCookie", "true");
 
-            // Invalid password returns 401
             string badPassResp = await mgr.ProcessApiRequestAsync(CreateRequest("/Accounts/Export", password: "wrong"));
             Assert.Contains("Invalid Password", badPassResp);
 
-            // Export CSV
             string csvResp = await mgr.ProcessApiRequestAsync(CreateRequest("/Accounts/Export", query: new Dictionary<string, string> { ["Format"] = "Csv" }));
             Assert.NotEmpty(csvResp);
 
-            // Export SimpleText
-            string txtResp = await mgr.ProcessApiRequestAsync(CreateRequest("/Accounts/Export", query: new Dictionary<string, string> { ["Format"] = "SimpleText" }));
+            string txtResp = await mgr.ProcessApiRequestAsync(CreateRequest("/Accounts/Export", query: new Dictionary<string, string> { ["Format"] = "SimpleText", ["Group"] = "G1" }));
             Assert.NotEmpty(txtResp);
+
+            AccountManager.WebServer.Set("AllowGetCookie", "false");
+            string deniedExport = await mgr.ProcessApiRequestAsync(CreateRequest("/Accounts/Export"));
+            Assert.Contains("not allowed", deniedExport);
+        }
+
+        [Fact]
+        public async Task AccountSpecificEndpoints_PermissionsAndCsrfAuthenticatedRoutes_Work()
+        {
+            var mgr = AccountManager.Instance ?? new AccountManager();
+            AccountManager.WSPassword = AdminPassword;
+            AccountManager.WebServer.Set("AllowGetAccounts", "true");
+            AccountManager.WebServer.Set("AllowGetCookie", "true");
+            AccountManager.WebServer.Set("AllowAccountEditing", "true");
+            AccountManager.WebServer.Set("AllowLaunchAccount", "true");
+
+            var testAcc = new Account
+            {
+                Username = "DispatcherEndpointUser",
+                UserID = 998877,
+                SecurityToken = "_|WARNING:-DO-NOT-SHARE-THIS.--Sharing-this-will-allow-someone-to-log-in-as-you-and-to-steal-your-ROBUX-and-items.|_H.DISPATCHER123",
+                PinUnlocked = DateTime.Now.AddHours(1)
+            };
+
+            lock (AccountManager.AccountListLock)
+            {
+                AccountManager.AccountsList.Clear();
+            }
+            AccountManager.AddAccountThreadSafe(testAcc);
+
+            // Empty and unknown account
+            Assert.Contains("Empty Account", await mgr.ProcessApiRequestAsync(CreateRequest("/GetAlias")));
+            Assert.Contains("Invalid Account", await mgr.ProcessApiRequestAsync(CreateRequest("/GetAlias", query: new Dictionary<string, string> { ["Account"] = "NoSuchUser" })));
+
+            // GetCookie allowed & denied
+            string cookieAllowed = await mgr.ProcessApiRequestAsync(CreateRequest("/GetCookie", query: new Dictionary<string, string> { ["Account"] = "998877" }));
+            Assert.Contains("DISPATCHER123", cookieAllowed);
+
+            AccountManager.WebServer.Set("AllowGetCookie", "false");
+            Assert.Contains("not allowed", await mgr.ProcessApiRequestAsync(CreateRequest("/GetCookie", query: new Dictionary<string, string> { ["Account"] = "998877" })));
+
+            // Editing denied paths
+            AccountManager.WebServer.Set("AllowAccountEditing", "false");
+            var editQuery = new Dictionary<string, string> { ["Account"] = "DispatcherEndpointUser", ["Field"] = "F1", ["Value"] = "V1" };
+            Assert.Contains("not allowed", await mgr.ProcessApiRequestAsync(CreateRequest("/SetField", query: editQuery)));
+            Assert.Contains("not allowed", await mgr.ProcessApiRequestAsync(CreateRequest("/RemoveField", query: editQuery)));
+            Assert.Contains("not allowed", await mgr.ProcessApiRequestAsync(CreateRequest("/SetAlias", query: editQuery, body: "A")));
+            Assert.Contains("not allowed", await mgr.ProcessApiRequestAsync(CreateRequest("/SetDescription", query: editQuery, body: "D")));
+            Assert.Contains("not allowed", await mgr.ProcessApiRequestAsync(CreateRequest("/AppendDescription", query: editQuery, body: "D", isV2: true)));
+            Assert.Contains("not allowed", await mgr.ProcessApiRequestAsync(CreateRequest("/AppendDescription", query: editQuery, body: "D", isV2: false)));
+
+            // LaunchAccount & FollowUser validation
+            AccountManager.WebServer.Set("AllowLaunchAccount", "false");
+            Assert.Contains("not allowed", await mgr.ProcessApiRequestAsync(CreateRequest("/LaunchAccount", query: editQuery)));
+            Assert.Contains("not allowed", await mgr.ProcessApiRequestAsync(CreateRequest("/FollowUser", query: editQuery)));
+
+            AccountManager.WebServer.Set("AllowLaunchAccount", "true");
+            Assert.Contains("Invalid PlaceId", await mgr.ProcessApiRequestAsync(CreateRequest("/LaunchAccount", query: new Dictionary<string, string> { ["Account"] = "DispatcherEndpointUser", ["PlaceId"] = "not-a-number" })));
+            Assert.Contains("Invalid Username", await mgr.ProcessApiRequestAsync(CreateRequest("/FollowUser", query: new Dictionary<string, string> { ["Account"] = "DispatcherEndpointUser" })));
+
+            // Authenticated endpoints with route-based FakeHttpHandler
+            var handler = new FakeHttpHandler(req =>
+            {
+                string url = req.RequestUri?.ToString() ?? string.Empty;
+                if (url.Contains("auth.roblox.com"))
+                {
+                    var csrfResp = new HttpResponseMessage(HttpStatusCode.Forbidden)
+                    {
+                        Content = new System.Net.Http.StringContent("{}")
+                    };
+                    csrfResp.Headers.TryAddWithoutValidation("x-csrf-token", "csrf-1");
+                    return csrfResp;
+                }
+                if (url.Contains("get-blocked-users"))
+                {
+                    return new HttpResponseMessage(HttpStatusCode.OK)
+                    {
+                        Content = new System.Net.Http.StringContent("{\"blockedUsers\":[{\"userId\":777}]}")
+                    };
+                }
+                if (url.Contains("gamejoin.roblox.com"))
+                {
+                    return new HttpResponseMessage(HttpStatusCode.OK)
+                    {
+                        Content = new System.Net.Http.StringContent("{\"joinScriptUrl\":\"ok\"}")
+                    };
+                }
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new System.Net.Http.StringContent("{\"success\":true}")
+                };
+            });
+
+            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+
+            string csrfResp = await mgr.ProcessApiRequestAsync(CreateRequest("/GetCSRFToken", query: new Dictionary<string, string> { ["Account"] = "DispatcherEndpointUser" }));
+            Assert.Contains("csrf-1", csrfResp);
+
+            string blockResp = await mgr.ProcessApiRequestAsync(CreateRequest("/BlockUser", query: new Dictionary<string, string> { ["Account"] = "DispatcherEndpointUser", ["UserId"] = "12345" }));
+            Assert.Contains("success", blockResp);
+
+            string unblockResp = await mgr.ProcessApiRequestAsync(CreateRequest("/UnblockUser", query: new Dictionary<string, string> { ["Account"] = "DispatcherEndpointUser", ["UserId"] = "12345" }));
+            Assert.Contains("success", unblockResp);
+
+            string blockedListResp = await mgr.ProcessApiRequestAsync(CreateRequest("/GetBlockedList", query: new Dictionary<string, string> { ["Account"] = "DispatcherEndpointUser" }));
+            Assert.Contains("blockedUsers", blockedListResp);
+
+            string unblockAllResp = await mgr.ProcessApiRequestAsync(CreateRequest("/UnblockEveryone", query: new Dictionary<string, string> { ["Account"] = "DispatcherEndpointUser" }));
+            Assert.NotEmpty(unblockAllResp);
+
+            string badPlaceServer = await mgr.ProcessApiRequestAsync(CreateRequest("/SetServer", query: new Dictionary<string, string> { ["Account"] = "DispatcherEndpointUser", ["PlaceId"] = "bad", ["JobId"] = "j1" }));
+            Assert.Contains("Invalid PlaceId", badPlaceServer);
+
+            string okServer = await mgr.ProcessApiRequestAsync(CreateRequest("/SetServer", query: new Dictionary<string, string> { ["Account"] = "DispatcherEndpointUser", ["PlaceId"] = "1818", ["JobId"] = "j1" }));
+            Assert.Contains("Success", okServer);
+
+            AppServices.ServerBrowserState.CachedServers.Clear();
+            AppServices.ServerBrowserState.CachedServers.Add(new ServerData { id = "rec-srv-1" });
+            string recServer = await mgr.ProcessApiRequestAsync(CreateRequest("/SetRecommendedServer", query: new Dictionary<string, string> { ["Account"] = "DispatcherEndpointUser", ["PlaceId"] = "1818" }));
+            Assert.Contains("Success", recServer);
+
+            string setAvatarResp = await mgr.ProcessApiRequestAsync(CreateRequest("/SetAvatar", query: new Dictionary<string, string> { ["Account"] = "DispatcherEndpointUser" }, body: "{}"));
+            Assert.Contains("Attempting to set avatar", setAvatarResp);
+
+            string unknownResp = await mgr.ProcessApiRequestAsync(CreateRequest("/NonExistentEndpoint", query: new Dictionary<string, string> { ["Account"] = "DispatcherEndpointUser" }));
+            Assert.Contains("404 not found", unknownResp);
         }
 
         [Fact]
@@ -127,7 +332,6 @@ namespace Shiro.Tests
             }
             AccountManager.AddAccountThreadSafe(testAcc);
 
-            // 1. SetProxy and GetProxy
             string setProxyResp = await mgr.ProcessApiRequestAsync(CreateRequest(
                 "/SetProxy",
                 query: new Dictionary<string, string> { ["Account"] = "DispatcherEndpointUser", ["Proxy"] = "http://127.0.0.1:8888" }));
@@ -138,7 +342,6 @@ namespace Shiro.Tests
                 query: new Dictionary<string, string> { ["Account"] = "DispatcherEndpointUser" }));
             Assert.Contains("127.0.0.1:8888", getProxyResp);
 
-            // 2. SetAlias and GetAlias
             string setAliasResp = await mgr.ProcessApiRequestAsync(CreateRequest(
                 "/SetAlias",
                 query: new Dictionary<string, string> { ["Account"] = "DispatcherEndpointUser" },
@@ -150,7 +353,6 @@ namespace Shiro.Tests
                 query: new Dictionary<string, string> { ["Account"] = "DispatcherEndpointUser" }));
             Assert.Contains("DispatcherAlias99", getAliasResp);
 
-            // 3. SetDescription and AppendDescription
             await mgr.ProcessApiRequestAsync(CreateRequest(
                 "/SetDescription",
                 query: new Dictionary<string, string> { ["Account"] = "DispatcherEndpointUser" },
@@ -163,7 +365,6 @@ namespace Shiro.Tests
             Assert.Contains("ExtraNotes", appendDescResp);
             Assert.Equal("BaseDescExtraNotes", testAcc.Description);
 
-            // 4. SetField, GetField, and RemoveField
             string setFieldResp = await mgr.ProcessApiRequestAsync(CreateRequest(
                 "/SetField",
                 query: new Dictionary<string, string>

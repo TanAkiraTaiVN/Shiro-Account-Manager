@@ -16,6 +16,8 @@ namespace Shiro.Services
     public class RobloxServerQueryService : IRobloxServerQueryService
     {
         internal static Func<System.Net.Http.HttpClient>? TestHttpClientFactory { get; set; }
+        internal static Func<string, Task<int?>>? TestPingProbe { get; set; }
+        internal static Func<string, CancellationToken, Task<string>>? TestGeoHttpGetString { get; set; }
 
         private static readonly Lazy<RobloxServerQueryService> _defaultInstance = new(() => new RobloxServerQueryService(AppServices.Logger, AppServices.GeneralSettings));
         public static RobloxServerQueryService Default => _defaultInstance.Value;
@@ -165,6 +167,7 @@ namespace Shiro.Services
         private async Task<int?> MeasurePingMsAsync(string ip)
         {
             if (string.IsNullOrWhiteSpace(ip)) return null;
+            if (TestPingProbe != null) return await TestPingProbe(ip).ConfigureAwait(false);
 
             // 1. Try ICMP ping with short timeout
             try
@@ -212,10 +215,16 @@ namespace Shiro.Services
 
             try
             {
-                string geoJson = await SharedHttpClient.GetStringAsync(ipLink.Replace("<ip>", ip), retryTransient: false, cancellationToken: cancellationToken).ConfigureAwait(false);
+                string primaryUrl = ipLink.Replace("<ip>", ip);
+                string geoJson = TestGeoHttpGetString != null
+                    ? await TestGeoHttpGetString(primaryUrl, cancellationToken).ConfigureAwait(false)
+                    : await SharedHttpClient.GetStringAsync(primaryUrl, retryTransient: false, cancellationToken: cancellationToken).ConfigureAwait(false);
                 if (!TryParseRegionFromJson(geoJson, out string resolvedRegion) && !ipLink.Contains("ipwho.is", StringComparison.OrdinalIgnoreCase))
                 {
-                    string fallbackJson = await SharedHttpClient.GetStringAsync($"https://ipwho.is/{ip}", retryTransient: false, cancellationToken: cancellationToken).ConfigureAwait(false);
+                    string fbUrl = $"https://ipwho.is/{ip}";
+                    string fallbackJson = TestGeoHttpGetString != null
+                        ? await TestGeoHttpGetString(fbUrl, cancellationToken).ConfigureAwait(false)
+                        : await SharedHttpClient.GetStringAsync(fbUrl, retryTransient: false, cancellationToken: cancellationToken).ConfigureAwait(false);
                     TryParseRegionFromJson(fallbackJson, out resolvedRegion);
                 }
 
