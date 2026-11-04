@@ -665,6 +665,7 @@
   "Menu_ResetPlaceId": "Đặt lại / Xóa Place ID",
   "Menu_TogglePin": "Ghim / Bỏ ghim tài khoản",
   "MissingAssets.AccountNotFound": "Không tìm thấy tài khoản.",
+  "MissingAssets.BuyAction": "Mua",
   "MissingAssets.CannotGetCsrfToken": "Không thể lấy CSRF Token để thực hiện mua.",
   "MissingAssets.ConfirmPurchasePrompt": "Bạn có chắc chắn muốn mua '{0}' với giá {1} cho '{2}' không?",
   "MissingAssets.ConfirmPurchaseTitle": "Xác nhận mua",
