@@ -170,7 +170,7 @@ namespace Shiro.AvaloniaUI.Views
             }
             catch (Exception ex)
             {
-                TxtInAppStatus.Text = Shiro.Services.LocalizationService.Format("Proxy_Dead", ex.Message);
+                TxtInAppStatus.Text = Shiro.Services.LocalizationService.Format("Common.ErrorFormat", ex.Message);
                 TxtInAppStatus.Foreground = Brushes.OrangeRed;
             }
         }
@@ -324,7 +324,7 @@ namespace Shiro.AvaloniaUI.Views
             {
                 _lastVerifiedCookie = string.Empty;
                 _lastVerifiedAccount = null;
-                TxtPreviewStatus.Text = Shiro.Services.LocalizationService.Format("Proxy_Dead", ex.Message);
+                TxtPreviewStatus.Text = Shiro.Services.LocalizationService.Format("Common.ErrorFormat", ex.Message);
                 TxtPreviewStatus.Foreground = Brushes.OrangeRed;
             }
             finally
@@ -394,7 +394,7 @@ namespace Shiro.AvaloniaUI.Views
             }
             catch (Exception ex)
             {
-                TxtPreviewStatus.Text = Shiro.Services.LocalizationService.Format("Proxy_Dead", ex.Message);
+                TxtPreviewStatus.Text = Shiro.Services.LocalizationService.Format("Common.ErrorFormat", ex.Message);
                 TxtPreviewStatus.Foreground = Brushes.OrangeRed;
             }
             finally

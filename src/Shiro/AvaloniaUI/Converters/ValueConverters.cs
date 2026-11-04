@@ -3,7 +3,9 @@ using System;
 using System.Globalization;
 using Avalonia.Data;
 using Avalonia.Data.Converters;
+using Avalonia.Media;
 using Shiro.Services;
+using Shiro.ViewModels.Dialogs;
 
 namespace Shiro.AvaloniaUI.Converters
 {
@@ -96,6 +98,35 @@ namespace Shiro.AvaloniaUI.Converters
             }
 
             return s;
+        }
+
+        public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+            => BindingOperations.DoNothing;
+    }
+
+    public class StatusKindToBrushConverter : IValueConverter
+    {
+        public static readonly StatusKindToBrushConverter Instance = new();
+        private static readonly IBrush NeutralBrush = new SolidColorBrush(Color.Parse("#94A3B8"));
+        private static readonly IBrush InfoBrush = Brushes.DeepSkyBlue;
+        private static readonly IBrush SuccessBrush = new SolidColorBrush(Color.Parse("#22C55E"));
+        private static readonly IBrush WarningBrush = Brushes.Orange;
+        private static readonly IBrush ErrorBrush = new SolidColorBrush(Color.Parse("#EF4444"));
+
+        public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+        {
+            if (value is StatusKind kind)
+            {
+                return kind switch
+                {
+                    StatusKind.Info => InfoBrush,
+                    StatusKind.Success => SuccessBrush,
+                    StatusKind.Warning => WarningBrush,
+                    StatusKind.Error => ErrorBrush,
+                    _ => NeutralBrush
+                };
+            }
+            return NeutralBrush;
         }
 
         public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)

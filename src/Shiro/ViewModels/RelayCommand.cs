@@ -7,7 +7,16 @@ using Shiro.Services;
 
 namespace Shiro.ViewModels
 {
-    public class RelayCommand : ICommand
+    public interface IRaiseCanExecuteChanged
+    {
+        void RaiseCanExecuteChanged();
+    }
+
+    public interface IAsyncRelayCommand : ICommand, IRaiseCanExecuteChanged
+    {
+    }
+
+    public class RelayCommand : ICommand, IRaiseCanExecuteChanged
     {
         private readonly Action<object?> _execute;
         private readonly Predicate<object?>? _canExecute;
@@ -15,6 +24,7 @@ namespace Shiro.ViewModels
         public event EventHandler? CanExecuteChanged;
 
         public RelayCommand(Action execute) : this(_ => execute(), null) { }
+        public RelayCommand(Action execute, Func<bool>? canExecute) : this(_ => execute(), canExecute == null ? null : _ => canExecute()) { }
         public RelayCommand(Action<object?> execute) : this(execute, null) { }
 
         public RelayCommand(Action<object?> execute, Predicate<object?>? canExecute)
@@ -41,7 +51,7 @@ namespace Shiro.ViewModels
         public void RaiseCanExecuteChanged() => CanExecuteChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    public class AsyncRelayCommand : ICommand
+    public class AsyncRelayCommand : IAsyncRelayCommand
     {
         private readonly Func<object?, Task> _executeAsync;
         private readonly Predicate<object?>? _canExecute;
@@ -50,6 +60,7 @@ namespace Shiro.ViewModels
         public event EventHandler? CanExecuteChanged;
 
         public AsyncRelayCommand(Func<Task> executeAsync) : this(_ => executeAsync(), null) { }
+        public AsyncRelayCommand(Func<Task> executeAsync, Func<bool>? canExecute) : this(_ => executeAsync(), canExecute == null ? null : _ => canExecute()) { }
 
         public AsyncRelayCommand(Func<object?, Task> executeAsync, Predicate<object?>? canExecute = null)
         {
@@ -92,7 +103,7 @@ namespace Shiro.ViewModels
     /// Strongly-typed generic RelayCommand for modern C# MVVM pattern.
     /// Eliminates unsafe runtime casting of command parameters.
     /// </summary>
-    public class RelayCommand<T> : ICommand
+    public class RelayCommand<T> : ICommand, IRaiseCanExecuteChanged
     {
         private readonly Action<T> _execute;
         private readonly Predicate<T>? _canExecute;
@@ -135,7 +146,7 @@ namespace Shiro.ViewModels
     /// <summary>
     /// Strongly-typed generic asynchronous RelayCommand for modern C# MVVM pattern.
     /// </summary>
-    public class AsyncRelayCommand<T> : ICommand
+    public class AsyncRelayCommand<T> : IAsyncRelayCommand
     {
         private readonly Func<T, Task> _executeAsync;
         private readonly Predicate<T>? _canExecute;

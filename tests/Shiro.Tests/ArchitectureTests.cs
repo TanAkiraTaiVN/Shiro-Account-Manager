@@ -11,7 +11,7 @@ using Xunit;
 
 namespace Shiro.Tests
 {
-    public class ArchitectureTests
+    public partial class ArchitectureTests
     {
         private static readonly Assembly CoreAssembly = typeof(AccountViewModel).Assembly;
 

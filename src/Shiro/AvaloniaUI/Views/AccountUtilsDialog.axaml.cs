@@ -66,7 +66,7 @@ namespace Shiro.AvaloniaUI.Views
                     }
                     catch (Exception ex)
                     {
-                        SetStatus(Shiro.Services.LocalizationService.Format("Proxy_Dead", ex.Message), true);
+                        SetStatus(Shiro.Services.LocalizationService.Format("Common.ErrorFormat", ex.Message), true);
                     }
                     finally
                     {
@@ -77,7 +77,7 @@ namespace Shiro.AvaloniaUI.Views
             }
             catch (Exception ex)
             {
-                SetStatus(Shiro.Services.LocalizationService.Format("Proxy_Dead", ex.Message), true);
+                SetStatus(Shiro.Services.LocalizationService.Format("Common.ErrorFormat", ex.Message), true);
             }
         }
 

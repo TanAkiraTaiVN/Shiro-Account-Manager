@@ -247,7 +247,7 @@ namespace Shiro.AvaloniaUI.Views
             }
             catch (Exception ex)
             {
-                TxtStatus.Text = Shiro.Services.LocalizationService.Format("Proxy_Dead", ex.Message);
+                TxtStatus.Text = Shiro.Services.LocalizationService.Format("Common.ErrorFormat", ex.Message);
                 TxtStatus.Foreground = Brushes.OrangeRed;
                 BtnStartImport.IsEnabled = true;
                 BtnClear.IsEnabled = true;

@@ -344,7 +344,7 @@ namespace Shiro.ViewModels
                     _logger.Error($"[RefreshServersAsync] {ex}");
                     AppDispatcher.Post(() =>
                     {
-                        LoadingStatus = Shiro.Services.LocalizationService.Format("Proxy_Dead", ex.Message);
+                        LoadingStatus = Shiro.Services.LocalizationService.Format("Common.ErrorFormat", ex.Message);
                         NotifyServerCounts();
                     });
                 }

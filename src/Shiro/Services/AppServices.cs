@@ -41,6 +41,7 @@ namespace Shiro.Services
                 services.AddSingleton<IRobloxSessionService>(Services.RobloxSessionService.Default);
                 services.AddSingleton<IRobloxLauncherService>(Services.RobloxLauncherService.Default);
                 services.AddSingleton<IDialogService>(AvaloniaDialogService.Default);
+                services.AddSingleton<IUserPrompt>(AvaloniaDialogService.Default);
                 services.AddSingleton<AccountWorkflowService>(Services.AccountWorkflowService.Default);
                 services.AddSingleton<IRobloxServerQueryService>(Services.RobloxServerQueryService.Default);
                 services.AddSingleton<BrowserService>(Services.BrowserService.Default);
@@ -91,6 +92,12 @@ namespace Shiro.Services
         }
 
         public static IDialogService Dialogs => DialogService;
+
+        public static IUserPrompt Prompt
+        {
+            get => GetRequiredService<IUserPrompt>();
+            set => ReplaceService(value);
+        }
 
         public static AccountWorkflowService AccountWorkflowService
         {
@@ -159,6 +166,7 @@ namespace Shiro.Services
                 services.AddSingleton<IRobloxSessionService>((instance as IRobloxSessionService) ?? RobloxSessionService);
                 services.AddSingleton<IRobloxLauncherService>((instance as IRobloxLauncherService) ?? RobloxLauncherService);
                 services.AddSingleton<IDialogService>((instance as IDialogService) ?? DialogService);
+                services.AddSingleton<IUserPrompt>((instance as IUserPrompt) ?? Prompt);
                 services.AddSingleton<AccountWorkflowService>((instance as AccountWorkflowService) ?? AccountWorkflowService);
                 services.AddSingleton<IRobloxServerQueryService>((instance as IRobloxServerQueryService) ?? RobloxServerQueryService);
                 services.AddSingleton<BrowserService>((instance as BrowserService) ?? BrowserService);

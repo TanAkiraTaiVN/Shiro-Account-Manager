@@ -286,6 +286,7 @@
   "Col_Robux": "ROBUX",
   "Col_Status": "TRẠNG THÁI",
   "CommandPalette.CharDWithStroke": "đ",
+  "Common.ErrorFormat": "Lỗi: {0}",
   "Converters.DefaultGroup": "Mặc định",
   "Ctx_JoinServer": "Vào nhanh Server",
   "Dash_AccountsTitle": "Tài khoản",

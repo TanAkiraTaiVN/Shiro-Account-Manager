@@ -9,6 +9,7 @@
         <conv:CountToVisibilityConverter x:Key="CountToVisibility" />
         <conv:EqualityToBooleanConverter x:Key="EqualityToBoolean" />
         <conv:GroupNameDisplayConverter x:Key="GroupNameDisplay" />
+        <conv:StatusKindToBrushConverter x:Key="StatusKindToBrush" />
 
         <!-- Status Brushes -->
         <SolidColorBrush x:Key="GreenBrush">#22C55E</SolidColorBrush>

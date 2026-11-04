@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Threading;
 using Shiro.AvaloniaUI.Views;
@@ -7,12 +8,31 @@ using Shiro.Classes;
 
 namespace Shiro.Services
 {
-    public class AvaloniaDialogService : IDialogService
+    public class AvaloniaDialogService : IDialogService, IUserPrompt
     {
         private static readonly Lazy<AvaloniaDialogService> _defaultInstance = new(() => new AvaloniaDialogService());
         public static AvaloniaDialogService Default => _defaultInstance.Value;
 
         private static Window? GetActiveOwner() => MessageBoxDialog.GetActiveWindow();
+
+        public async Task<bool> ConfirmAsync(string message, string title)
+        {
+            var owner = GetActiveOwner();
+            var res = await MessageBoxDialog.ShowAsync(message, title, MessageBoxButtons.YesNo, MessageBoxIcon.Warning, owner);
+            return res == MessageBoxResult.Yes;
+        }
+
+        public async Task AlertAsync(string message, string title, PromptSeverity severity)
+        {
+            var owner = GetActiveOwner();
+            var icon = severity switch
+            {
+                PromptSeverity.Warning => MessageBoxIcon.Warning,
+                PromptSeverity.Error => MessageBoxIcon.Error,
+                _ => MessageBoxIcon.Information
+            };
+            await MessageBoxDialog.ShowAsync(message, title, MessageBoxButtons.OK, icon, owner);
+        }
 
         public void ShowInfo(string message, string title = "Shiro")
         {
