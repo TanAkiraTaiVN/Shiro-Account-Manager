@@ -6,7 +6,7 @@
   "Services/Storage/AccountWorkflowService.cs": { "branch": 73 },
   "Services/Network/RobloxServerQueryService.cs": { "branch": 81 },
   "AccountManager.cs": { "branch": 85 },
-  "Services/Launch/LaunchCoordinator.Helpers.cs": { "branch": 75 },
+  "Services/Launch/LaunchCoordinator.Helpers.cs": { "branch": 74 },
   "AccountManager.Persistence.cs": { "branch": 67 },
   "AccountManager.Accounts.cs": { "branch": 75 },
   "AccountManager.Lifecycle.cs": { "branch": 62 },

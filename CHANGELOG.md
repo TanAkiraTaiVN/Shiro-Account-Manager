@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [5.0.0] - 2026-11-04 (Milestone 10/10 Architecture Overhaul)
+
+### Added
+- **Dialog MVVM & Headless Decoupling**:
+  - Implemented `DialogViewModelBase` across all dialog ViewModels with standardized lifecycle, busy status management (`StatusKind`), and `RequestClose` handling.
+  - Introduced `IUserPrompt` abstraction, decoupling UI alert/confirmation prompts from Avalonia window contexts and enabling deterministic headless mocking in unit tests.
+  - Extracted `FastLoginCoordinator` and `FastLoginQueue` to isolate WebView2 web automation logic from UI presentation.
+- **Nexus Controller Decoupling**:
+  - Introduced `INexusHost` interface and thread-safe registry `NexusHost.Current`.
+  - Added comprehensive headless integration test coverage for Nexus WebSocket payloads, anti-AFK pulses, and remote Lua executions.
+- **Ratchet Test Coverage Gates (75 / 60 / 92)**:
+  - Added 150+ behavioral unit tests covering launch services, window tiling, avatar downloads, cookie rotation, de-elevation, rate-limiting, and network services, expanding test suite to 1,555 tests (100% passing).
+  - Raised global quality gates in CI/CD (`build.yml`, `release.yml`, `scripts/Check-Coverage.ps1`, and `ArchitectureTests.cs`):
+    - Overall Line Coverage: raised to **75.47%** (Gate: >= 75.0%)
+    - Overall Branch Coverage: raised to **63.93%** (Gate: >= 60.0%)
+    - Core Security / Persistence Coverage: raised to **92.83%** (Gate: >= 92.0%)
+  - Configured per-file branch coverage floors in `tests/coverage-floors.json`.
+- **Architectural Quality Enforcement**:
+  - Added strict assertion quality validation (`TestMethods_ShouldAssertOnValues_NotOnlyNullness`) preventing mock-less or trivial assertions.
+  - Eliminated all unhandled `async void` methods; strictly documented and scoped the remaining 5 native WebView2 event handlers in `docs/coverage-exclusions.md`.
+  - Verified 0 empty catch blocks, 0 sync-over-async blocking calls, and 100% adherence to the <= 500 lines per file budget across all source files.
+
 ## [4.2.0] - 2026-10-30 (Project Real Architecture Transfer & Hardening)
 
 ### Added

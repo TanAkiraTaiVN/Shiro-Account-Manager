@@ -197,20 +197,23 @@ namespace Shiro.Tests
         [Fact]
         public async Task Presence_UpdateAndGetPresence_ExecutesNetworkAndCachesGameNames()
         {
+            var prevApi = AppServices.RobloxApi;
+            RobloxRateLimitCoordinator.Instance.ResetBackoff();
             var mockApi = Substitute.For<IRobloxApiClient>();
 
             string presenceJson = "{\"userPresences\":[{\"userId\":998877,\"userPresenceType\":2,\"placeId\":1818,\"universeId\":55555}]}";
-            var presenceHandler = new FakeHttpHandler()
-                .Enqueue(HttpStatusCode.OK, presenceJson)
-                .Enqueue(HttpStatusCode.OK, presenceJson)
-                .Enqueue(HttpStatusCode.OK, presenceJson)
-                .Enqueue(HttpStatusCode.OK, presenceJson);
+            var presenceHandler = new FakeHttpHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(presenceJson, System.Text.Encoding.UTF8, "application/json")
+            });
             var presenceClient = new RestClient(new HttpClient(presenceHandler), "https://presence.roblox.com/");
             mockApi.Presence.Returns(presenceClient);
 
             string gamesJson = "{\"data\":[{\"id\":55555,\"name\":\"Test Game Experience\"}]}";
-            var gamesHandler = new FakeHttpHandler()
-                .Enqueue(HttpStatusCode.OK, gamesJson);
+            var gamesHandler = new FakeHttpHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(gamesJson, System.Text.Encoding.UTF8, "application/json")
+            });
             var gamesClient = new RestClient(new HttpClient(gamesHandler), "https://games.roblox.com/");
             mockApi.Games.Returns(gamesClient);
 
@@ -258,6 +261,8 @@ namespace Shiro.Tests
             }
             finally
             {
+                AppServices.RobloxApi = prevApi;
+                RobloxRateLimitCoordinator.Instance.ResetBackoff();
                 AccountRepository.Default.Remove(testAccount);
                 lock (AccountManager.AccountListLock)
                 {

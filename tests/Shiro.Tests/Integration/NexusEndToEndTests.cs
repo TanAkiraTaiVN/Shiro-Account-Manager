@@ -30,6 +30,12 @@ namespace Shiro.Tests.Integration
 
         private static async Task<(NexusWebSocketServer Server, NexusViewModel ViewModel, int Port)> SetupServerAsync()
         {
+            AccountManager.WSPassword = "";
+            if (AccountManager.WebServer != null)
+            {
+                AccountManager.WebServer.Set("EveryRequestRequiresPassword", "false");
+            }
+
             int port = GetFreePort();
             var account = new Account { Username = "alice", UserID = 42 };
             var repo = Substitute.For<IAccountRepository>();

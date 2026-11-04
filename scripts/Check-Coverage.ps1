@@ -1,8 +1,8 @@
 param(
     [string]$CoverageDir = "coverage",
-    [double]$MinOverall = 65.0,
-    [double]$MinBranch = 50.0,
-    [double]$MinCore = 90.0,
+    [double]$MinOverall = 75.0,
+    [double]$MinBranch = 60.0,
+    [double]$MinCore = 92.0,
     [string]$FloorsFile = "tests/coverage-floors.json"
 )
 

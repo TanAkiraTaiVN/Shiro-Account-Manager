@@ -6,7 +6,7 @@ namespace Shiro.Services
 {
     internal static partial class StoragePaths
     {
-        private static void MigrateLegacyFiles(string sourceDirectory, string destinationDirectory)
+        internal static void MigrateLegacyFiles(string sourceDirectory, string destinationDirectory)
         {
             string[] files =
             {
@@ -82,7 +82,7 @@ namespace Shiro.Services
             }
         }
 
-        private static string EnsureTrailingSeparator(string path)
+        internal static string EnsureTrailingSeparator(string path)
         {
             if (string.IsNullOrEmpty(path))
                 return path;
@@ -91,7 +91,7 @@ namespace Shiro.Services
             return path.EndsWith(separator.ToString(), StringComparison.Ordinal) ? path : path + separator;
         }
 
-        private static bool PathEquals(string left, string right)
+        internal static bool PathEquals(string left, string right)
         {
             try
             {

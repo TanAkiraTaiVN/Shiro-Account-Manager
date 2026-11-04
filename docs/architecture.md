@@ -112,3 +112,25 @@ Architecture rules are permanently verified on every build via `NetArchTest.eNha
 - **Encoding & Localization Integrity**: Automated checks enforce zero `U+FFFD` replacement characters across `.cs`, `.axaml`, and `.json` files, and verify 100% of AXAML `{DynamicResource}` localization keys exist in `LocalizationService`.
 - **Micro-File & Partial Class Budgets**: Automated tests enforce <= 500 lines per `.cs` file and strict line budgets across `partial class` definitions.
 - **Naming Conventions**: Strict adherence to domain suffixes across the entire `Shiro.Services` namespace.
+
+---
+
+## 6. Dialog MVVM Architecture & Headless Decoupling
+
+To ensure 100% testability and prevent UI thread deadlocks, all dialogs in Shiro Account Manager are architected with a decoupled MVVM foundation:
+- **`DialogViewModelBase`**: Unified base class for dialog ViewModels, managing title, status text, reactive `StatusKind` (Idle, Busy, Success, Error), and standard confirmation/cancellation request events (`RequestClose`).
+- **`IUserPrompt` Abstraction**: Replaces intrusive synchronous or asynchronous `MessageBox` calls with an injectable interface. In headless unit tests, mock implementations (`Substitute.For<IUserPrompt>()`) supply deterministic user responses (Accept, Decline, Retry) without showing UI dialogs.
+- **`FastLoginCoordinator` & `FastLoginQueue`**: Separates WebView2 DOM injection, URL inspection, and batch queue state from the Avalonia code-behind.
+- **Headless Test Coverage**: All dialog ViewModels (`NexusViewModel`, `FastLoginDialogViewModel`, `CookieImportViewModel`, `AltGenViewModel`, `SettingsViewModel`) are exercised by headless xUnit suites without Avalonia windowing dependencies.
+
+---
+
+## 7. Nexus Controller Architecture (`INexusHost`)
+
+The Nexus multi-client controller provides real-time bi-directional telemetry and execution orchestration between Shiro and running Roblox client sessions:
+- **`INexusHost` Interface**: Abstracts the hosting environment for Nexus WebSocket clients, anti-AFK heartbeat dispatching, and remote Lua script execution (`RAMAccount.lua`).
+- **`NexusHost.Current`**: Thread-safe active host registry allowing seamless switching between production Kestrel WebSocket services and isolated test harnesses.
+- **Security & Concurrency**:
+  - Validates client session tokens and origin integrity.
+  - Enforces loopback restriction for unauthenticated endpoints.
+  - Constant-time password comparison protects against side-channel analysis.

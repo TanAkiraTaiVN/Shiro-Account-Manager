@@ -143,6 +143,7 @@ namespace Shiro.Tests
         [Fact]
         public async Task WaitForClientUnlockedAsync_NonExistentPid_ReturnsFalsePromptly()
         {
+            RobloxSingletonService.Apply(true);
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
             bool unlocked = await RobloxSingletonService.WaitForClientUnlockedAsync(
                 targetPid: int.MaxValue - 1,

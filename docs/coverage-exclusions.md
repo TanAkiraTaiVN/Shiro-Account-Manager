@@ -1,12 +1,12 @@
 # Coverage Exclusions & Baseline
 
-## Enforced Coverage Gates (Task 7)
+## Enforced Coverage Gates (Task 19 - 10/10 Overhaul)
 
-- **Overall Line Coverage**: 65.37% (Gate: >= 65.0%)
-- **Overall Branch Coverage**: 51.53% (Gate: >= 50.0%)
-- **Core Security/Persistence Coverage**: 90.39% (Gate: >= 90.0%)
+- **Overall Line Coverage**: 75.47% (Gate: >= 75.0%)
+- **Overall Branch Coverage**: 63.93% (Gate: >= 60.0%)
+- **Core Security/Persistence Coverage**: 92.83% (Gate: >= 92.0%)
 
-Enforced by `scripts/Check-Coverage.ps1 -MinOverall 65.0 -MinBranch 50.0 -MinCore 90.0`, GitHub Actions workflows (`.github/workflows/build.yml` and `.github/workflows/release.yml`), and validated by `ArchitectureTests.cs`.
+Enforced by `scripts/Check-Coverage.ps1 -MinOverall 75.0 -MinBranch 60.0 -MinCore 92.0`, GitHub Actions workflows (`.github/workflows/build.yml` and `.github/workflows/release.yml`), and validated by `ArchitectureTests.cs`.
 
 ## Measured Honest Baseline (Task 1)
 
@@ -43,10 +43,12 @@ These files contain testable business logic and their coverage will be increased
 
 ## Accepted async void (WebView2 events)
 
-The remaining 5 `async void` methods in `src/Shiro/AvaloniaUI/Views/FastLoginDialog.axaml.cs` are event handlers required by `CoreWebView2` / `DispatcherTimer` / `WebView2Control` signatures and directly drive `CoreWebView2`:
-- `OnWebViewInitialized`
-- `OnSourceChanged`
-- `OnNavigationCompleted`
-- `OnPollTimerTick`
-- `OnRefillClicked`
+The remaining 5 `async void` methods in `src/Shiro/AvaloniaUI/Views/FastLoginDialog.axaml.cs` are event handlers strictly required by native `CoreWebView2` / `DispatcherTimer` / `WebView2Control` delegate signatures and directly drive the embedded browser control:
+- `OnWebViewInitialized`: Native WebView2 initialization callback; delegates credentials and script injection to `FastLoginCoordinator`.
+- `OnSourceChanged`: Browser URI change observer; inspects URL for moderation checkpoints and authentication redirections.
+- `OnNavigationCompleted`: Page load completion handler; triggers DOM verification and automated login scripts.
+- `OnPollTimerTick`: UI timer tick capturing `.ROBLOSECURITY` cookies from the session partition upon successful login.
+- `OnRefillClicked`: User click event initiating form auto-fill via coordinator.
+
+All domain logic, account creation, cookie parsing, and queue operations have been fully extracted into `FastLoginCoordinator` and `FastLoginDialogViewModel`, enabling 100% headless testability without WebView2 instantiation.
 

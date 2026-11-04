@@ -22,6 +22,16 @@ namespace Shiro.Services
         private static bool initialized;
         private static string dataDirectory = string.Empty;
         private static string? _testDataDirectoryOverride;
+        internal static bool? UnitTestOverride;
+        internal static bool TestForceAssemblyProbe;
+
+        internal static void ResetInitializedForTesting()
+        {
+            lock (Sync)
+            {
+                initialized = false;
+            }
+        }
 
         public static string BaseDirectory { get; private set; } = AppContext.BaseDirectory;
         public static string DataDirectory
@@ -52,11 +62,14 @@ namespace Shiro.Services
 
         private static bool IsRunningUnderUnitTests()
         {
+            if (UnitTestOverride.HasValue)
+                return UnitTestOverride.Value;
             try
             {
                 string friendlyName = AppDomain.CurrentDomain.FriendlyName ?? string.Empty;
-                if (friendlyName.Contains("testhost", StringComparison.OrdinalIgnoreCase) ||
-                    friendlyName.Contains("xunit", StringComparison.OrdinalIgnoreCase))
+                if (!TestForceAssemblyProbe &&
+                    (friendlyName.Contains("testhost", StringComparison.OrdinalIgnoreCase) ||
+                     friendlyName.Contains("xunit", StringComparison.OrdinalIgnoreCase)))
                     return true;
 
                 foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())

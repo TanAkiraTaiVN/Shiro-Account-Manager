@@ -136,5 +136,70 @@ namespace Shiro.Tests
             Assert.Null(ex);
             Assert.InRange(vm.RunningRobloxProcessCount, 0, int.MaxValue);
         }
+
+        [Fact]
+        public void MainViewModel_NavigationAndProperties_CoversBranches()
+        {
+            var vm = new MainViewModel();
+
+            // Navigation
+            vm.CurrentPage = NavigationPage.ServerList;
+            Assert.True(vm.IsServerListActive);
+            Assert.False(vm.IsAccountsActive);
+
+            vm.CurrentPage = NavigationPage.RecentGames;
+            Assert.True(vm.IsRecentGamesActive);
+
+            vm.CurrentPage = NavigationPage.Settings;
+            Assert.True(vm.IsSettingsActive);
+
+            vm.CurrentPage = NavigationPage.Accounts;
+            Assert.True(vm.IsAccountsActive);
+
+            // Properties
+            vm.PlaceId = "987654321";
+            Assert.Equal("987654321", vm.PlaceId);
+
+            vm.JobId = "job-guid-123";
+            Assert.Equal("job-guid-123", vm.JobId);
+
+            vm.RunningRobloxProcessCount = 2;
+            Assert.Equal(2, vm.RunningRobloxProcessCount);
+            Assert.True(vm.HasRunningRobloxProcesses);
+
+            vm.IsCompactView = true;
+            Assert.True(vm.IsCompactView);
+            Assert.False(vm.IsCardView);
+
+            vm.IsCompactView = false;
+            Assert.True(vm.IsCardView);
+
+            vm.IsShuffleJobId = true;
+            Assert.True(vm.IsShuffleJobId);
+            vm.IsShuffleJobId = false;
+            Assert.False(vm.IsShuffleJobId);
+
+            vm.StatusMessage = "Testing status message";
+            Assert.Equal("Testing status message", vm.StatusMessage);
+
+            // TryGetAccountViewModel lookups
+            var acc = new Account { Username = "LookupUser", UserID = 554433, Valid = true };
+            vm.LoadAccounts(new[] { acc });
+
+            var byModel = vm.TryGetAccountViewModel(acc);
+            Assert.NotNull(byModel);
+            Assert.Equal("LookupUser", byModel.Username);
+
+            var byId = vm.TryGetAccountViewModel(new Account { UserID = 554433 });
+            Assert.NotNull(byId);
+            Assert.Equal("LookupUser", byId.Username);
+
+            var byName = vm.TryGetAccountViewModel(new Account { Username = "LookupUser" });
+            Assert.NotNull(byName);
+            Assert.Equal("LookupUser", byName.Username);
+
+            Assert.Null(vm.TryGetAccountViewModel(null));
+            Assert.Null(vm.TryGetAccountViewModel(new Account { Username = "NoSuchUser" }));
+        }
     }
 }

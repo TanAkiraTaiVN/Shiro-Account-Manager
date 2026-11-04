@@ -36,6 +36,7 @@ namespace Shiro.Tests
         [Fact]
         public async Task WaitForClientUnlockedAsync_HandlesCancellationPromptly()
         {
+            RobloxSingletonService.Apply(true);
             using var cts = new CancellationTokenSource();
             cts.Cancel(); // Pre-cancelled token
 
@@ -48,6 +49,7 @@ namespace Shiro.Tests
         [Fact]
         public async Task WaitForClientUnlockedAsync_TimesOutGracefullyWhenNoClients()
         {
+            RobloxSingletonService.Apply(true);
             using var cts = new CancellationTokenSource();
             // 250ms short timeout to verify graceful timeout return
             bool result = await RobloxSingletonService.WaitForClientUnlockedAsync(TimeSpan.FromMilliseconds(250), cts.Token);

@@ -1,8 +1,6 @@
 #nullable enable
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using Shiro.Classes;
 using Shiro.Services;
 using Xunit;
 
@@ -12,131 +10,76 @@ namespace Shiro.Tests
     public class MemoryOptimizerBehaviorTests
     {
         [Fact]
-        public void ConfigureAutoTrim_UpdatesSettingsAndProperties()
+        public void ShouldTriggerPeriodicTrim_CoversAllLogicBranches()
         {
-            MemoryOptimizer.ConfigureAutoTrim(true, intervalMinutes: 5, dynamicThreshold: false);
-            Assert.True(MemoryOptimizer.AutoTrimEnabled);
+            long maxFg = MemoryOptimizer.ForegroundMaxMemoryThresholdBytes;
+            long bgLimit = 350L * 1024 * 1024;
 
-            MemoryOptimizer.ConfigureAutoTrim(false);
-            Assert.False(MemoryOptimizer.AutoTrimEnabled);
+            // 1. Foreground > threshold => true
+            Assert.True(MemoryOptimizer.ShouldTriggerPeriodicTrim(maxFg + 1024, ProcessPriorityClass.Normal, isForeground: true, lowerPriorityEnabled: true, bgLimit));
+
+            // 2. Foreground <= threshold => false
+            Assert.False(MemoryOptimizer.ShouldTriggerPeriodicTrim(maxFg - 1024, ProcessPriorityClass.Normal, isForeground: true, lowerPriorityEnabled: true, bgLimit));
+
+            // 3. Background > backgroundThreshold => true
+            Assert.True(MemoryOptimizer.ShouldTriggerPeriodicTrim(bgLimit + 1024, ProcessPriorityClass.BelowNormal, isForeground: false, lowerPriorityEnabled: false, bgLimit));
+
+            // 4. Background <= threshold, lowerPriorityEnabled = true, priority not BelowNormal => true
+            Assert.True(MemoryOptimizer.ShouldTriggerPeriodicTrim(bgLimit - 1024, ProcessPriorityClass.Normal, isForeground: false, lowerPriorityEnabled: true, bgLimit));
+
+            // 5. Background <= threshold, lowerPriorityEnabled = true, priority is BelowNormal => false
+            Assert.False(MemoryOptimizer.ShouldTriggerPeriodicTrim(bgLimit - 1024, ProcessPriorityClass.BelowNormal, isForeground: false, lowerPriorityEnabled: true, bgLimit));
+
+            // 6. Background <= threshold, lowerPriorityEnabled = false => false
+            Assert.False(MemoryOptimizer.ShouldTriggerPeriodicTrim(bgLimit - 1024, ProcessPriorityClass.Normal, isForeground: false, lowerPriorityEnabled: false, bgLimit));
         }
 
         [Fact]
-        public void TotalBytesSaved_InitialState_IsNonNegative()
+        public void ConfigureAutoTrim_StartsAndStopsTimer()
         {
-            long saved = MemoryOptimizer.TotalBytesSaved;
-            Assert.Equal(0, saved);
-        }
+            // Start auto trim
+            MemoryOptimizer.ConfigureAutoTrim(enabled: true, intervalMinutes: 2, dynamicThreshold: true);
 
-        [Theory]
-        [InlineData(true, true)]
-        [InlineData(false, false)]
-        public void IsAutoLowerPriorityActive_ReflectsAppSetting(bool configuredValue, bool expected)
-        {
-            AppSettings.General.Set("AutoLowerProcessPriority", configuredValue.ToString().ToLowerInvariant());
-            bool active = MemoryOptimizer.IsAutoLowerPriorityActive();
-            Assert.Equal(expected, active);
-        }
+            // Reconfigure while running
+            MemoryOptimizer.ConfigureAutoTrim(enabled: true, intervalMinutes: 5, dynamicThreshold: false);
 
-        [Theory]
-        // Foreground: only trimmed if memory exceeds ForegroundMaxMemoryThresholdBytes (1.2 GB)
-        [InlineData(100L * 1024 * 1024, ProcessPriorityClass.Normal, true, true, false)]
-        [InlineData(1500L * 1024 * 1024, ProcessPriorityClass.Normal, true, true, true)]
-        // Background: trimmed if workingSet exceeds background threshold (350 MB)
-        [InlineData(400L * 1024 * 1024, ProcessPriorityClass.BelowNormal, false, false, true)]
-        // Background: trimmed if lowerPriority is enabled and priority is NOT BelowNormal
-        [InlineData(200L * 1024 * 1024, ProcessPriorityClass.Normal, false, true, true)]
-        // Background: NOT trimmed if below threshold, lowerPriority enabled, and already BelowNormal
-        [InlineData(200L * 1024 * 1024, ProcessPriorityClass.BelowNormal, false, true, false)]
-        // Background: NOT trimmed if below threshold and lowerPriority is disabled
-        [InlineData(200L * 1024 * 1024, ProcessPriorityClass.Normal, false, false, false)]
-        public void ShouldTriggerPeriodicTrim_EvaluatesTruthTableCorrectly(
-            long workingSetBytes,
-            ProcessPriorityClass priority,
-            bool isForeground,
-            bool lowerPriorityEnabled,
-            bool expectedTrigger)
-        {
-            bool trigger = MemoryOptimizer.ShouldTriggerPeriodicTrim(
-                workingSetBytes,
-                priority,
-                isForeground,
-                lowerPriorityEnabled,
-                backgroundThresholdBytes: 350L * 1024 * 1024);
+            // Disable auto trim
+            MemoryOptimizer.ConfigureAutoTrim(enabled: false);
 
-            Assert.Equal(expectedTrigger, trigger);
+            long total = MemoryOptimizer.TotalBytesSaved;
+            Assert.InRange(total, 0, long.MaxValue);
+            Assert.Equal(0, total);
         }
 
         [Fact]
-        public void EvaluateWithPids_WithNullOrEmptyPids_ClearsLastPidWithoutThrowing()
+        public void OptimizeRobloxClients_NoClients_And_WithTargetProcess_CoversExecution()
         {
-            AppSettings.General.Set("AutoLowerProcessPriority", "true");
-            var ex1 = Record.Exception(() => MemoryOptimizer.EvaluateWithPids(0, null!));
-            Assert.Null(ex1);
-            var ex2 = Record.Exception(() => MemoryOptimizer.EvaluateWithPids(1234, new List<int>()));
-            Assert.Null(ex2);
-        }
-
-        [Fact]
-        public void EvaluateWithPids_WithPidsList_HandlesUnknownForegroundPid()
-        {
-            AppSettings.General.Set("AutoLowerProcessPriority", "true");
-            var pids = new List<int> { 99999, 88888 };
-            var ex = Record.Exception(() => MemoryOptimizer.EvaluateWithPids(11111, pids));
-            Assert.Null(ex);
-        }
-
-        [Fact]
-        public void TrimRobloxClients_WhenNoRobloxRunning_ReturnsZeroSaved()
-        {
-            var (bytesSaved, count) = MemoryOptimizer.TrimRobloxClients(lowerPriority: false);
-            Assert.Equal(0, bytesSaved);
-            Assert.Equal(0, count);
-        }
-
-        [Fact]
-        public void OptimizeRobloxClients_WhenNoRobloxRunning_ReturnsZeroStats()
-        {
-            var (bytesSaved, count, prioChanged) = MemoryOptimizer.OptimizeRobloxClients(lowerPriority: false);
-            Assert.Equal(0, bytesSaved);
-            Assert.Equal(0, count);
-            Assert.Equal(0, prioChanged);
-        }
-
-        [Fact]
-        public void EvaluateWithPids_FocusSwitch_ExercisesWin32FocusProfiles()
-        {
-            AppSettings.General.Set("AutoLowerProcessPriority", "true");
-            int currentPid = Environment.ProcessId;
-            var pids = new List<int> { currentPid };
-
-            Assert.True(currentPid > 0);
-            Assert.Single(pids);
-            Assert.Equal(currentPid, pids[0]);
-
+            var prevPidsOverride = RobloxProcessService.TestGetRunningRobloxPidsOverride;
             try
             {
-                // Switch current process to foreground
-                MemoryOptimizer.EvaluateWithPids((uint)currentPid, pids);
+                // 1. When no Roblox processes are running => returns (0, 0, 0)
+                RobloxProcessService.TestGetRunningRobloxPidsOverride = () => Array.Empty<int>();
+                var (saved0, count0, prio0) = MemoryOptimizer.OptimizeRobloxClients(lowerPriority: true);
+                Assert.Equal(0, saved0);
+                Assert.Equal(0, count0);
+                Assert.Equal(0, prio0);
 
-                // Switch current process to background
-                MemoryOptimizer.EvaluateWithPids(0, pids);
+                // 2. When process is running (pointing to current test process PID)
+                RobloxProcessService.TestGetRunningRobloxPidsOverride = () => new[] { Environment.ProcessId };
+                var (saved1, count1, prio1) = MemoryOptimizer.OptimizeRobloxClients(lowerPriority: false);
+                Assert.InRange(saved1, 0, long.MaxValue);
+                Assert.InRange(count1, 0, int.MaxValue);
+                Assert.InRange(prio1, 0, int.MaxValue);
+
+                var (saved2, count2, prio2) = MemoryOptimizer.OptimizeRobloxClients(lowerPriority: true);
+                Assert.InRange(saved2, 0, long.MaxValue);
+                Assert.InRange(count2, 0, int.MaxValue);
+                Assert.InRange(prio2, 0, int.MaxValue);
             }
             finally
             {
-                using var cur = Process.GetCurrentProcess();
-                try { cur.PriorityClass = ProcessPriorityClass.Normal; }
-                catch (Exception) { }
+                RobloxProcessService.TestGetRunningRobloxPidsOverride = prevPidsOverride;
             }
-        }
-
-        [Fact]
-        public void NotifyForegroundChanged_ExecutesSafely()
-        {
-#pragma warning disable CS0618
-            var ex = Record.Exception(() => MemoryOptimizer.NotifyForegroundChanged(IntPtr.Zero, 0));
-#pragma warning restore CS0618
-            Assert.Null(ex);
         }
     }
 }

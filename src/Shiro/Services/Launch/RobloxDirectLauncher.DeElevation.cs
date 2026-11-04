@@ -134,7 +134,7 @@ namespace Shiro.Services
             return Process.Start(startInfo);
         }
 
-        private static bool TrySpawnDeElevated(string playerPath, string args, out Process? process)
+        internal static bool TrySpawnDeElevated(string playerPath, string args, out Process? process)
         {
             process = null;
             try
