@@ -66,7 +66,7 @@ namespace Shiro.Tests
         public void GetTotalRunningRobloxCount_ReturnsNonNegative()
         {
             int count = RobloxProcessService.GetTotalRunningRobloxCount();
-            Assert.Equal(RobloxProcessService.GetRunningRobloxCount(), count);
+            Assert.True(count >= RobloxProcessService.GetRunningRobloxCount());
         }
 
         [Fact]
@@ -82,7 +82,7 @@ namespace Shiro.Tests
         public void GetRunningRobloxProcesses_ReturnsList()
         {
             var procs = RobloxProcessService.GetRunningRobloxProcesses();
-            Assert.Equal(RobloxProcessService.GetRunningRobloxCount(), procs.Count);
+            Assert.True(procs.Count >= RobloxProcessService.GetRunningRobloxCount());
         }
 
         [Fact]

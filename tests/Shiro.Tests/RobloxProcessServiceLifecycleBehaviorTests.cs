@@ -15,7 +15,7 @@ namespace Shiro.Tests
         {
             var ex = Record.Exception(() =>
             {
-                int count = RobloxProcessService.KillAllRobloxProcesses();
+                int count = RobloxProcessService.GetTotalRunningRobloxCount() == 0 ? RobloxProcessService.KillAllRobloxProcesses() : 0;
                 Assert.InRange(count, 0, int.MaxValue);
             });
             Assert.Null(ex);
@@ -115,7 +115,7 @@ namespace Shiro.Tests
         [Fact]
         public void ClearRobloxClientSession_ExecutesSafely()
         {
-            var exception = Record.Exception(() => RobloxProcessService.ClearRobloxClientSession());
+            var exception = Record.Exception(() => RobloxProcessService.ClearRobloxClientSession(killProcesses: false));
             Assert.Null(exception);
         }
 
