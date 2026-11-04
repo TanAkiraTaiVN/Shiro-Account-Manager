@@ -650,14 +650,15 @@ namespace Shiro.Tests
             Assert.Contains("Include=\"NSubstitute\"", testCsproj, StringComparison.Ordinal);
 
             string checkCov = File.ReadAllText(Path.Combine(repoRoot!, "scripts", "Check-Coverage.ps1"));
-            Assert.Contains("[double]$MinOverall = 51.3", checkCov, StringComparison.Ordinal);
+            Assert.Contains("[double]$MinOverall = 65.0", checkCov, StringComparison.Ordinal);
+            Assert.Contains("[double]$MinBranch = 50.0", checkCov, StringComparison.Ordinal);
             Assert.Contains("[double]$MinCore = 90.0", checkCov, StringComparison.Ordinal);
 
             string buildYml = File.ReadAllText(Path.Combine(repoRoot!, ".github", "workflows", "build.yml"));
-            Assert.Contains("-MinOverall 51.3 -MinCore 90.0", buildYml, StringComparison.Ordinal);
+            Assert.Contains("-MinOverall 65.0 -MinBranch 50.0 -MinCore 90.0", buildYml, StringComparison.Ordinal);
 
             string releaseYml = File.ReadAllText(Path.Combine(repoRoot!, ".github", "workflows", "release.yml"));
-            Assert.Contains("-MinOverall 51.3 -MinCore 90.0", releaseYml, StringComparison.Ordinal);
+            Assert.Contains("-MinOverall 65.0 -MinBranch 50.0 -MinCore 90.0", releaseYml, StringComparison.Ordinal);
         }
 
         [Fact]

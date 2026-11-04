@@ -1,6 +1,7 @@
 param(
     [string]$CoverageDir = "coverage",
-    [double]$MinOverall = 51.3,
+    [double]$MinOverall = 65.0,
+    [double]$MinBranch = 50.0,
     [double]$MinCore = 90.0
 )
 
@@ -49,6 +50,11 @@ if ($coreTotalLines -gt 0) {
 $failed = $false
 if ($overallRate -lt $MinOverall) {
     Write-Host "FAILED: Overall coverage $("{0:N2}" -f $overallRate)% is below required minimum $MinOverall%" -ForegroundColor Red
+    $failed = $true
+}
+
+if ($MinBranch -gt 0 -and $branchRate -lt $MinBranch) {
+    Write-Host "FAILED: Branch coverage $("{0:N2}" -f $branchRate)% is below required minimum $MinBranch%" -ForegroundColor Red
     $failed = $true
 }
 

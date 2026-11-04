@@ -1,5 +1,13 @@
 # Coverage Exclusions & Baseline
 
+## Enforced Coverage Gates (Task 7)
+
+- **Overall Line Coverage**: 65.37% (Gate: >= 65.0%)
+- **Overall Branch Coverage**: 51.53% (Gate: >= 50.0%)
+- **Core Security/Persistence Coverage**: 90.39% (Gate: >= 90.0%)
+
+Enforced by `scripts/Check-Coverage.ps1 -MinOverall 65.0 -MinBranch 50.0 -MinCore 90.0`, GitHub Actions workflows (`.github/workflows/build.yml` and `.github/workflows/release.yml`), and validated by `ArchitectureTests.cs`.
+
 ## Measured Honest Baseline (Task 1)
 
 - **HonestOverallLine**: 51.36% (Floor: 51.3%)

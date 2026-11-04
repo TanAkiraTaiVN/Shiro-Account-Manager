@@ -9,6 +9,22 @@ namespace Shiro.Tests
     public class StoragePathsTests
     {
         [Fact]
+        public void StoragePaths_Logger_GetterAndSetter_Work()
+        {
+            var prev = StoragePaths.Logger;
+            StoragePaths.Logger = prev;
+            Assert.Same(prev, StoragePaths.Logger);
+        }
+
+        [Theory]
+        [InlineData(null)]
+        [InlineData("")]
+        public void LogRedactor_NullOrEmpty_ReturnsEmpty(string? msg)
+        {
+            Assert.Equal(string.Empty, LogRedactor.Redact(msg));
+        }
+
+        [Fact]
         public void EnsureInitialized_SetsBaseAndDataDirectory()
         {
             StoragePaths.EnsureInitialized();
@@ -211,7 +227,7 @@ namespace Shiro.Tests
         }
 
         [Fact]
-        public void CleanupStaleRuntimeArtifacts_RemovesExpiredTempFilesOnly()
+        public void CleanupStaleRuntimeArtifacts_RemovesExpiredTempFilesAndBrowserSessions()
         {
             string isolated = Path.Combine(Path.GetTempPath(), "Shiro-Cleanup-" + Guid.NewGuid().ToString("N"));
             try
@@ -225,10 +241,21 @@ namespace Shiro.Tests
                     string freshTmp = StoragePaths.GetUserFile("fresh_test.tmp-67890");
                     File.WriteAllText(freshTmp, "fresh temp content");
 
-                    int removed = StoragePaths.CleanupStaleRuntimeArtifacts(TimeSpan.FromDays(5));
-                    Assert.True(removed >= 1);
+                    string browserRoot = StoragePaths.BrowserSessionsDirectory;
+                    string staleBrowserDir = Path.Combine(browserRoot, "stale-session-1");
+                    Directory.CreateDirectory(staleBrowserDir);
+                    Directory.SetLastWriteTimeUtc(staleBrowserDir, DateTime.UtcNow.AddDays(-10));
+
+                    string freshBrowserDir = Path.Combine(browserRoot, "fresh-session-1");
+                    Directory.CreateDirectory(freshBrowserDir);
+
+                    // Test with zero TimeSpan (defaults to 7 days)
+                    int removed = StoragePaths.CleanupStaleRuntimeArtifacts(TimeSpan.Zero);
+                    Assert.True(removed >= 2);
                     Assert.False(File.Exists(oldTmp));
                     Assert.True(File.Exists(freshTmp));
+                    Assert.False(Directory.Exists(staleBrowserDir));
+                    Assert.True(Directory.Exists(freshBrowserDir));
                 }
             }
             finally

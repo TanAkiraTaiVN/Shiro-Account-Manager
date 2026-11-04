@@ -59,12 +59,23 @@ Sau khi hoàn tất, file thực thi phát hành chuẩn sẽ được tạo t�
 
 ---
 
-## 📋 Kiểm thử tự động (Unit Tests)
+## 📋 Kiểm thử tự động & Coverage Gates (Unit Tests)
 
-Dự án đi kèm bộ 650+ unit test kiểm tra toàn diện tính toàn vẹn của mã hóa AES-256-GCM / PBKDF2-SHA256, bảo mật DPAPI, quản lý hàng đợi, kiến trúc MVVM strongly-typed, engine đồ họa Avalonia UI 11 và cấu hình JSON:
+Dự án sở hữu bộ test suite tự động với hơn 1,400 unit tests bao phủ toàn diện tính toàn vẹn của mã hóa AES-256-GCM / PBKDF2-SHA256, bảo mật DPAPI, quản lý hàng đợi mở game, kiến trúc MVVM strongly-typed, engine đồ họa Avalonia UI 11 và cấu hình JSON.
 
+Các cổng chất lượng kiểm thử (Coverage Gates) được kiểm tra tự động trong CI/CD pipeline và `ArchitectureTests`:
+- **Overall Line Coverage**: **65.37%** (Ngưỡng yêu cầu: >= 65.0%)
+- **Overall Branch Coverage**: **51.53%** (Ngưỡng yêu cầu: >= 50.0%)
+- **Core Security/Persistence Coverage**: **90.39%** (Ngưỡng yêu cầu: >= 90.0%)
+
+Chạy toàn bộ unit test suite:
 ```powershell
 dotnet test tests\Shiro.Tests
+```
+
+Kiểm tra ngưỡng coverage với Cobertura:
+```powershell
+powershell -File .\scripts\Check-Coverage.ps1 -CoverageDir "coverage" -MinOverall 65.0 -MinBranch 50.0 -MinCore 90.0
 ```
 
 ---

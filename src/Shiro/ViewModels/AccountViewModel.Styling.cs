@@ -49,7 +49,7 @@ namespace Shiro.ViewModels
                 if (IsInGame)
                 {
                     if (!string.IsNullOrWhiteSpace(GameName))
-                        return Loc.Get("Status_InGameNamed", GameName);
+                        return Loc.Format("Status_InGameNamed", GameName);
                     return string.IsNullOrEmpty(LiveMemoryText) ? Loc.Get("Status_InGame") : $"{Loc.Get("Status_InGame")} ({LiveMemoryText})";
                 }
                 if (IsLocalClientRunning)

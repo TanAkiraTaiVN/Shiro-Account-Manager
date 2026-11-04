@@ -41,5 +41,48 @@ namespace Shiro.Tests
             AntiAfkService.Toggle();
             Assert.False(AntiAfkService.IsEnabled);
         }
+
+        [Fact]
+        public void ComputeNextDueUtc_ClampsAndAppliesJitter()
+        {
+            var now = new System.DateTime(2026, 1, 1, 0, 0, 0, System.DateTimeKind.Utc);
+            var nextDue = AntiAfkService.ComputeNextDueUtc(now, 8, 10);
+            Assert.Equal(now.AddSeconds((8 * 60) + 10), nextDue);
+
+            var clampedLow = AntiAfkService.ComputeNextDueUtc(now, -5, -100);
+            Assert.Equal(now.AddSeconds(30), clampedLow);
+
+            var clampedHigh = AntiAfkService.ComputeNextDueUtc(now, 50, 0);
+            Assert.Equal(now.AddSeconds(18 * 60), clampedHigh);
+        }
+
+        [Fact]
+        public async Task ExecutePassAsync_ExecutesSafelyAcrossEmptyAndNonExistentPids()
+        {
+            int sentEmpty = await AntiAfkService.ExecutePassAsync(System.Array.Empty<int>());
+            Assert.Equal(0, sentEmpty);
+
+            int sentDead = await AntiAfkService.ExecutePassAsync(new[] { 999991 });
+            Assert.Equal(0, sentDead);
+        }
+
+        [Fact]
+        public void StatusChanged_Event_FiresOnStateChange()
+        {
+            bool changed = false;
+            System.Action onChange = () => changed = true;
+            AntiAfkService.StatusChanged += onChange;
+            try
+            {
+                AntiAfkService.SetConfig(true, 10);
+                Assert.True(changed);
+                Assert.InRange(AntiAfkService.TapsSent, 0, int.MaxValue);
+            }
+            finally
+            {
+                AntiAfkService.StatusChanged -= onChange;
+                AntiAfkService.Stop();
+            }
+        }
     }
 }

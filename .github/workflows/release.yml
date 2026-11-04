@@ -33,7 +33,7 @@ jobs:
         shell: pwsh
         run: |
           dotnet test "tests/Shiro.Tests/Shiro.Tests.csproj" --configuration Release --no-restore --collect:"XPlat Code Coverage" --settings "tests/coverage.runsettings" --results-directory "coverage" --logger "console;verbosity=normal"
-          ./scripts/Check-Coverage.ps1 -CoverageDir "coverage" -MinOverall 51.3 -MinCore 90.0
+          ./scripts/Check-Coverage.ps1 -CoverageDir "coverage" -MinOverall 65.0 -MinBranch 50.0 -MinCore 90.0
 
       - name: Publish single-file win-x64
         shell: pwsh

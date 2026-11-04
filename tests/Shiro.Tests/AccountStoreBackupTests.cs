@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -74,6 +74,85 @@ namespace Shiro.Tests
 
             byte[] current = store.Read();
             Assert.Equal(originalData, current);
+        }
+
+        [Fact]
+        public void AccountStore_RestoreHistoricalBackup_EdgeCases()
+        {
+            var store = new AccountStore(_testAccountFile, _testBackupsDir);
+            Assert.False(store.RestoreHistoricalBackup(null!));
+            Assert.False(store.RestoreHistoricalBackup(string.Empty));
+            Assert.False(store.RestoreHistoricalBackup("nonexistent.bak"));
+
+            string emptyFile = Path.Combine(_testBackupsDir, "empty.bak");
+            File.WriteAllBytes(emptyFile, Array.Empty<byte>());
+            Assert.False(store.RestoreHistoricalBackup(emptyFile));
+
+            // Test restoring when primary already has data (covers safety backup creation branch)
+            byte[] initial = Encoding.UTF8.GetBytes("{\"initial\":\"data\"}");
+            store.Write(initial);
+
+            byte[] newPayload = Encoding.UTF8.GetBytes("{\"new\":\"payload\"}");
+            string validBackup = Path.Combine(_testBackupsDir, "AccountData_valid.json.bak");
+            File.WriteAllBytes(validBackup, newPayload);
+
+            Assert.True(store.RestoreHistoricalBackup(validBackup));
+            Assert.Equal(newPayload, store.Read());
+        }
+
+        [Fact]
+        public void AccountStore_WriteWithBackup_WithForceHistoricalBackup()
+        {
+            var store = new AccountStore(_testAccountFile, _testBackupsDir);
+            byte[] firstData = Encoding.UTF8.GetBytes("{\"v\":1}");
+            store.Write(firstData);
+
+            byte[] secondData = Encoding.UTF8.GetBytes("{\"v\":2}");
+            store.WriteWithBackup(secondData, forceHistoricalBackup: true);
+
+            Assert.Equal(secondData, store.Read());
+            Assert.True(File.Exists(store.BackupFile));
+            Assert.NotEmpty(store.GetHistoricalBackups());
+        }
+
+        [Fact]
+        public void AccountStore_ExportAndImportVault_RoundTripsSuccessfully()
+        {
+            var store = new AccountStore(_testAccountFile, _testBackupsDir);
+            string vaultPath = Path.Combine(_testDir, "test_vault.shiro");
+            var accounts = new[]
+            {
+                new Account { Username = "VaultUser1", SecurityToken = "tok1", UserID = 101 },
+                new Account { Username = "VaultUser2", SecurityToken = "tok2", UserID = 102 }
+            };
+
+            store.ExportVault(accounts, "SuperSecret123!", vaultPath);
+            Assert.True(File.Exists(vaultPath));
+
+            var imported = store.ImportVault(vaultPath, "SuperSecret123!");
+            Assert.Equal(2, imported.Count);
+            Assert.Contains(imported, a => a.Username == "VaultUser1" && a.UserID == 101);
+            Assert.Contains(imported, a => a.Username == "VaultUser2" && a.UserID == 102);
+        }
+
+        [Fact]
+        public void AccountStore_PruneHistoricalBackups_EnforcesMaxLimit()
+        {
+            var store = new AccountStore(_testAccountFile, _testBackupsDir);
+
+            // Create 15 fake historical backup files
+            for (int i = 0; i < 15; i++)
+            {
+                string path = Path.Combine(_testBackupsDir, $"AccountData_{20260101 + i}_120000.json.bak");
+                File.WriteAllText(path, $"data-{i}");
+                File.SetCreationTimeUtc(path, DateTime.UtcNow.AddMinutes(i - 30));
+            }
+
+            // Creating a new backup triggers PruneHistoricalBackups
+            store.CreateHistoricalBackup(Encoding.UTF8.GetBytes("{\"latest\":true}"));
+
+            var remaining = store.GetHistoricalBackups();
+            Assert.True(remaining.Count <= 10);
         }
     }
 }

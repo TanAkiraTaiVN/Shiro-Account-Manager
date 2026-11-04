@@ -301,13 +301,13 @@ namespace Shiro
             string backupPath = $"{saveFilePath}.backup";
             if (File.Exists(backupPath))
             {
-                try { File.Move(backupPath, saveFilePath); }
+                try { File.Move(backupPath, saveFilePath, overwrite: true); }
                 catch (Exception moveEx)
                 {
                     Program.Logger?.Error($"[PromoteBackupToPrimary] Failed to move backup to primary: {moveEx.Message}. Rolling back preserved primary...");
                     if (!string.IsNullOrEmpty(preservedPrimaryPath) && File.Exists(preservedPrimaryPath))
                     {
-                        try { File.Move(preservedPrimaryPath, saveFilePath); }
+                        try { File.Move(preservedPrimaryPath, saveFilePath, overwrite: true); }
                         catch (Exception rollbackEx) { Program.Logger?.Error($"[PromoteBackupToPrimary] Rollback failed: {rollbackEx.Message}"); }
                     }
                     throw;

@@ -60,6 +60,14 @@ namespace Shiro.Tests
         }
 
         [Fact]
+        public void Deserialize_NewerSchemaVersion_ThrowsInvalidDataException()
+        {
+            string json = "{\"schemaVersion\":9999,\"accounts\":[]}";
+            byte[] bytes = Encoding.UTF8.GetBytes(json);
+            Assert.Throws<InvalidDataException>(() => AccountDataSerializer.Deserialize(bytes, out _));
+        }
+
+        [Fact]
         public void ExcludePasswords_OmitsPasswordProperty()
         {
             var original = new List<Account>

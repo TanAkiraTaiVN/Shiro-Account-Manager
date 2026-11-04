@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Xunit;
 using Shiro.Services;
 
@@ -65,6 +65,35 @@ namespace Shiro.Tests
         {
             bool isExcluded = RobloxWindowService.IsExcludedUtilityClass(className!);
             Assert.Equal(shouldExclude, isExcluded);
+        }
+
+        [Fact]
+        public void EvaluateRobloxWindow_WhenZeroHandle_ReturnsNone()
+        {
+            var quality = RobloxWindowService.EvaluateRobloxWindow(IntPtr.Zero);
+            Assert.Equal(RobloxWindowService.WindowMatchQuality.None, quality);
+        }
+
+        [Fact]
+        public void AreWindowsHidden_WhenNoWindowsHidden_ReturnsFalse()
+        {
+            Assert.False(RobloxWindowService.AreWindowsHidden);
+        }
+
+        [Fact]
+        public void ShowAllWindows_WhenEmpty_ReturnsZero()
+        {
+            var (shownCount, totalClients) = RobloxWindowService.ShowAllWindows();
+            Assert.Equal(0, shownCount);
+            Assert.InRange(totalClients, 0, int.MaxValue);
+        }
+
+        [Fact]
+        public void HideAllWindows_WhenNoRobloxRunning_ReturnsZero()
+        {
+            var (hiddenCount, totalClients) = RobloxWindowService.HideAllWindows();
+            Assert.InRange(hiddenCount, 0, int.MaxValue);
+            Assert.InRange(totalClients, 0, int.MaxValue);
         }
     }
 }

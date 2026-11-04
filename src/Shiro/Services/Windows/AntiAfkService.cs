@@ -142,7 +142,7 @@ namespace Shiro.Services
             }
         }
 
-        private static async Task<int> ExecutePassAsync(IReadOnlyList<int> pids)
+        internal static async Task<int> ExecutePassAsync(IReadOnlyList<int> pids)
         {
             if (!OperatingSystem.IsWindows())
                 return 0;

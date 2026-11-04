@@ -1,0 +1,306 @@
+#nullable enable
+using System;
+using System.Collections.Generic;
+using NSubstitute;
+using Shiro.Classes;
+using Shiro.Services;
+using Shiro.ViewModels;
+using Xunit;
+
+namespace Shiro.Tests
+{
+    [Collection("SerialGlobalState")]
+    public class AccountWorkflowServiceBehaviorTests : IDisposable
+    {
+        private sealed class WorkflowTestDialogService : IDialogService
+        {
+            public string InputPromptResult { get; set; } = string.Empty;
+            public bool ConfirmationResult { get; set; } = true;
+            public bool? YesNoCancelResult { get; set; } = true;
+
+            public void ShowInfo(string message, string title = "Shiro") { }
+            public void ShowWarning(string message, string title = "Shiro") { }
+            public void ShowError(string message, string title = "Shiro") { }
+            public bool ShowConfirmation(string message, string title = "Shiro") => ConfirmationResult;
+            public bool? ShowYesNoCancel(string message, string title = "Shiro") => YesNoCancelResult;
+            public string ShowInputPrompt(string message, string title, string defaultValue = "") => InputPromptResult;
+            public void OpenFastLoginDialog(Account? account = null) { }
+            public void OpenFastLoginDialogBatch(IReadOnlyList<Account> accounts) { }
+            public void OpenBulkImportDialog() { }
+            public void OpenAltGenDialog() { }
+            public void OpenProxyManagerDialog() { }
+            public void OpenNexusWindow() { }
+            public void OpenAboutDialog() { }
+            public void OpenAccountFieldsDialog(Account account) { }
+            public void OpenAccountUtilsDialog(Account account) { }
+            public void OpenMissingAssetsDialog(Account account, long[] assetIds) { }
+        }
+
+        private readonly IDialogService _originalDialogs;
+        private readonly WorkflowTestDialogService _fakeDialogs;
+        private readonly AccountWorkflowService _workflow;
+
+        public AccountWorkflowServiceBehaviorTests()
+        {
+            _originalDialogs = AppServices.DialogService;
+            _fakeDialogs = new WorkflowTestDialogService();
+            AppServices.DialogService = _fakeDialogs;
+            _workflow = AccountWorkflowService.Default;
+        }
+
+        public void Dispose()
+        {
+            AppServices.DialogService = _originalDialogs;
+        }
+
+        [Fact]
+        public void SetAlias_UserEntersAlias_UpdatesAccountAndInvokesCallback()
+        {
+            var acc = new Account { Username = "AliasTestUser" };
+            var vm = new AccountViewModel(acc);
+            _fakeDialogs.InputPromptResult = "NewAliasName";
+
+            string status = "";
+            _workflow.SetAlias(vm, s => status = s);
+
+            Assert.Equal("NewAliasName", acc.Alias);
+            Assert.Equal("NewAliasName", vm.Alias);
+            Assert.Contains("NewAliasName", status);
+
+            // If cancelled (/UC), should not update
+            _fakeDialogs.InputPromptResult = "/UC";
+            _workflow.SetAlias(vm, s => status = s);
+            Assert.Equal("NewAliasName", acc.Alias);
+        }
+
+        [Fact]
+        public void SetGroup_UserEntersGroup_UpdatesAccountAndRebuildsGroups()
+        {
+            var mainVm = new MainViewModel();
+            var acc = new Account { Username = "GroupTestUser" };
+            var vm = new AccountViewModel(acc);
+            _fakeDialogs.InputPromptResult = "FarmingGroup";
+
+            string status = "";
+            _workflow.SetGroup(vm, mainVm, s => status = s);
+
+            Assert.Equal("FarmingGroup", acc.Group);
+            Assert.Equal("FarmingGroup", vm.Group);
+            Assert.Contains("FarmingGroup", status);
+
+            // Cancelled (/UC)
+            _fakeDialogs.InputPromptResult = "/UC";
+            _workflow.SetGroup(vm, mainVm, s => status = s);
+            Assert.Equal("FarmingGroup", acc.Group);
+        }
+
+        [Fact]
+        public void SetDescription_UserEntersNotes_UpdatesAccount()
+        {
+            var acc = new Account { Username = "NotesTestUser" };
+            var vm = new AccountViewModel(acc);
+            _fakeDialogs.InputPromptResult = "Important Notes 123";
+
+            string status = "";
+            _workflow.SetDescription(vm, s => status = s);
+
+            Assert.Equal("Important Notes 123", acc.Description);
+            Assert.Equal("Important Notes 123", vm.Description);
+            Assert.Contains(acc.Username, status);
+        }
+
+        [Fact]
+        public void TogglePin_FlipsPinnedState()
+        {
+            var mainVm = new MainViewModel();
+            var acc = new Account { Username = "PinTestUser", Pinned = false };
+            var vm = new AccountViewModel(acc);
+
+            string status1 = "";
+            _workflow.TogglePin(vm, mainVm, s => status1 = s);
+            Assert.True(acc.Pinned);
+            Assert.True(vm.Pinned);
+
+            string status2 = "";
+            _workflow.TogglePin(vm, mainVm, s => status2 = s);
+            Assert.False(acc.Pinned);
+            Assert.False(vm.Pinned);
+        }
+
+        [Fact]
+        public void CopyCommands_InvokeStatusCallbacks()
+        {
+            var acc = new Account
+            {
+                Username = "CopyUser",
+                Password = "SecretPassword!",
+                UserID = 778899,
+                SecurityToken = "dummy-security-token-value"
+            };
+            var vm = new AccountViewModel(acc);
+
+            string status = "";
+            _workflow.CopyUsername(vm, s => status = s);
+            Assert.Contains("CopyUser", status);
+
+            _workflow.CopyUserPass(vm, s => status = s);
+            Assert.Contains("CopyUser", status);
+
+            _workflow.CopyUserId(vm, s => status = s);
+            Assert.Contains("778899", status);
+
+            _workflow.CopyProfileUrl(vm, s => status = s);
+            Assert.Contains("CopyUser", status);
+
+            _workflow.CopySecurityToken(vm, s => status = s);
+            Assert.Contains("CopyUser", status);
+        }
+
+        [Fact]
+        public void RemoveAccount_Confirmed_RemovesFromCollection()
+        {
+            var mainVm = new MainViewModel();
+            var acc = new Account { Username = "DeleteUser" };
+            var vm = new AccountViewModel(acc);
+            mainVm.Accounts.Add(vm);
+
+            _fakeDialogs.ConfirmationResult = true;
+            string status = "";
+            _workflow.RemoveAccount(vm, mainVm, s => status = s);
+
+            Assert.DoesNotContain(vm, mainVm.Accounts);
+            Assert.Contains("DeleteUser", status);
+        }
+
+        [Fact]
+        public void BatchOperations_WhenNoAccountsSelected_PromptSelection()
+        {
+            var mainVm = new MainViewModel();
+            string status = "";
+
+            _workflow.SetGroupSelected(mainVm, s => status = s);
+            Assert.Equal(LocalizationService.Get("AccountWorkflow.SelectAccountBeforeGroup"), status);
+
+            status = "";
+            _workflow.SavePlaceIdSelected(mainVm, s => status = s);
+            Assert.Equal(LocalizationService.Get("AccountWorkflow.SelectAccountBeforeSavePlace"), status);
+
+            status = "";
+            _workflow.CopyUserPassSelected(mainVm, s => status = s);
+            Assert.Equal(LocalizationService.Get("AccountWorkflow.SelectAccountBeforeCopyPass"), status);
+
+            status = "";
+            _workflow.RemoveSelectedAccounts(mainVm, s => status = s);
+            Assert.Equal(LocalizationService.Get("AccountWorkflow.SelectAccountBeforeDelete"), status);
+        }
+
+        [Fact]
+        public void BatchOperations_WithSelectedAccounts_ExecutesSuccessfully()
+        {
+            var mainVm = new MainViewModel();
+            var acc1 = new Account { Username = "Batch1", Password = "p1" };
+            var acc2 = new Account { Username = "Batch2", Password = "p2" };
+            var vm1 = new AccountViewModel(acc1) { IsSelected = true };
+            var vm2 = new AccountViewModel(acc2) { IsSelected = true };
+            mainVm.Accounts.Add(vm1);
+            mainVm.Accounts.Add(vm2);
+
+            _fakeDialogs.InputPromptResult = "BatchGroup";
+            string status = "";
+            _workflow.SetGroupSelected(mainVm, s => status = s);
+
+            Assert.Equal("BatchGroup", vm1.Group);
+            Assert.Equal("BatchGroup", vm2.Group);
+
+            // Batch save place id
+            mainVm.PlaceId = "18973";
+            _workflow.SavePlaceIdSelected(mainVm, s => status = s);
+            Assert.Equal("18973", acc1.GetField("SavedPlaceId"));
+            Assert.Equal("18973", acc2.GetField("SavedPlaceId"));
+
+            // Batch copy user pass
+            _workflow.CopyUserPassSelected(mainVm, s => status = s);
+            Assert.NotEmpty(status);
+
+            // Batch remove
+            _fakeDialogs.ConfirmationResult = true;
+            _workflow.RemoveSelectedAccounts(mainVm, s => status = s);
+            Assert.Empty(mainVm.Accounts);
+        }
+
+        [Fact]
+        public async Task CheckAllSessionsAsync_EmptyAccounts_ReturnsEarly()
+        {
+            var mainVm = new MainViewModel();
+            string status = "";
+            await _workflow.CheckAllSessionsAsync(mainVm, s => status = s);
+            Assert.Empty(status);
+        }
+
+        [Fact]
+        public async Task CheckAllSessionsAsync_WithAccounts_ScansAndReportsResults()
+        {
+            var origRepo = AppServices.AccountRepository;
+            var origClientFactory = Account.TestHttpClientFactory;
+
+            try
+            {
+                var handler = new Shiro.Tests.TestInfrastructure.FakeHttpHandler()
+                    .Enqueue(System.Net.HttpStatusCode.OK, "{\"id\":111,\"name\":\"HealthyUser\"}")
+                    .Enqueue(System.Net.HttpStatusCode.Unauthorized, "{}");
+                Account.TestHttpClientFactory = _ => new System.Net.Http.HttpClient(handler);
+
+                var mockRepo = NSubstitute.Substitute.For<IAccountRepository>();
+                var healthyAcc = new Account { Username = "HealthyUser", UserID = 111, SecurityToken = "_|WARNING:-token-healthy", Valid = true };
+                var expiredAcc = new Account { Username = "ExpiredUser", UserID = 222, SecurityToken = "_|WARNING:-token-expired", Valid = false };
+
+                mockRepo.GetAll().Returns(new List<Account> { healthyAcc, expiredAcc });
+                AppServices.AccountRepository = mockRepo;
+
+                var mainVm = new MainViewModel();
+                var reportedStatuses = new List<string>();
+
+                await _workflow.CheckAllSessionsAsync(mainVm, s => reportedStatuses.Add(s));
+
+                Assert.Contains(reportedStatuses, s => s.Contains("HealthyUser"));
+                await mockRepo.Received(1).SaveAsync(true);
+            }
+            finally
+            {
+                AppServices.AccountRepository = origRepo;
+                Account.TestHttpClientFactory = origClientFactory;
+            }
+        }
+
+        [Fact]
+        public void ValidateSessionSelected_NullOrEmptyList_ReturnsSafely()
+        {
+            var mainVm = new MainViewModel();
+            string status = "";
+            var ex1 = Record.Exception(() => _workflow.ValidateSessionSelected(null!, mainVm, s => status = s));
+            Assert.Null(ex1);
+
+            var ex2 = Record.Exception(() => _workflow.ValidateSessionSelected(new List<AccountViewModel>(), mainVm, s => status = s));
+            Assert.Null(ex2);
+
+            var ex3 = Record.Exception(() => _workflow.ValidateSessionSelected(new List<AccountViewModel> { null! }, mainVm, s => status = s));
+            Assert.Null(ex3);
+        }
+
+        [Fact]
+        public async Task ReLoginWithCookieAsync_NullModel_ReturnsEarly()
+        {
+            var mainVm = new MainViewModel();
+            string status = "";
+            await _workflow.ReLoginWithCookieAsync(null!, mainVm, s => status = s);
+            Assert.Empty(status);
+        }
+
+        [Fact]
+        public void AccountWorkflowService_DefaultInstance_NotNull()
+        {
+            var def = AccountWorkflowService.Default;
+            Assert.Same(def, AccountWorkflowService.Default);
+        }
+    }
+}
