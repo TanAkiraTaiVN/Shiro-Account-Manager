@@ -7,7 +7,7 @@ using Xunit;
 
 namespace Shiro.Tests
 {
-    public class HeadlessUiTests
+    public class ViewModelIntegrationTests
     {
         [Fact]
         public void ServerListViewModel_InitializationAndProperties_BehaveCorrectly()
