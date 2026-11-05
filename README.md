@@ -27,6 +27,14 @@
 
 ---
 
+> [!WARNING]
+> **Tuyên bố miễn trừ trách nhiệm & Cảnh báo điều khoản (ToS):**
+> - **Dự án không chính thức**: Shiro Account Manager là phần mềm mã nguồn mở độc lập và hoàn toàn **không** liên kết, bảo trợ hay trực thuộc Roblox Corporation.
+> - **Rủi ro tài khoản & ToS**: Các tính năng quản lý nhiều client (Multi-Roblox), tự động trích xuất cookie xác thực (`.ROBLOSECURITY`) hoặc tự động gửi tín hiệu chống AFK có thể không tuân thủ Điều khoản dịch vụ (Terms of Use) của Roblox. Người dùng tự chịu trách nhiệm đối với tài khoản khi sử dụng.
+> - **Bảo vệ khóa bí mật**: Cookie `.ROBLOSECURITY` đại diện cho quyền truy cập trực tiếp vào tài khoản. Tuyệt đối **không chia sẻ** cookie, tệp cơ sở dữ liệu Vault hoặc tệp backup cho người khác.
+
+---
+
 ## 📥 Tải về & Cài đặt
 
 Ứng dụng được đóng gói thành file thực thi duy nhất **Single-File Executable**, tích hợp sẵn .NET 10 Runtime không yêu cầu cài đặt thêm thư viện phụ thuộc:
