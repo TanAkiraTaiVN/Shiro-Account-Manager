@@ -30,7 +30,25 @@ namespace Shiro.Services
         public const string DefaultTemplate = "v1|b64|HB,TS,URL,M|,TS,URL,M";
 
         private static readonly ConcurrentDictionary<string, byte[]> CachedPkcs8Keys = new(StringComparer.Ordinal);
+        private static readonly ConcurrentDictionary<string, ECParameters> CachedEcParameters = new(StringComparer.Ordinal);
         private static int _activeInteractiveLoginCount;
+
+        public static void ClearKeyCache()
+        {
+            foreach (var kvp in CachedPkcs8Keys)
+            {
+                if (kvp.Value != null)
+                    CryptographicOperations.ZeroMemory(kvp.Value);
+            }
+            CachedPkcs8Keys.Clear();
+
+            foreach (var kvp in CachedEcParameters)
+            {
+                if (kvp.Value.D != null)
+                    CryptographicOperations.ZeroMemory(kvp.Value.D);
+            }
+            CachedEcParameters.Clear();
+        }
 
         public static bool IsInteractiveLoginActive => Volatile.Read(ref _activeInteractiveLoginCount) > 0;
 
@@ -162,12 +180,20 @@ namespace Shiro.Services
             try
             {
                 string trimmedKey = privateKeyPkcs8Base64.Trim();
-                if (!CachedPkcs8Keys.TryGetValue(trimmedKey, out byte[]? keyBytes))
+                if (!CachedEcParameters.TryGetValue(trimmedKey, out ECParameters ecParams))
                 {
-                    keyBytes = Convert.FromBase64String(trimmedKey);
-                    if (CachedPkcs8Keys.Count > 512)
-                        CachedPkcs8Keys.Clear();
-                    CachedPkcs8Keys[trimmedKey] = keyBytes;
+                    if (!CachedPkcs8Keys.TryGetValue(trimmedKey, out byte[]? keyBytes))
+                    {
+                        keyBytes = Convert.FromBase64String(trimmedKey);
+                        if (CachedPkcs8Keys.Count > 512)
+                            ClearKeyCache();
+                        CachedPkcs8Keys[trimmedKey] = keyBytes;
+                    }
+
+                    using ECDsa parserEcdsa = ECDsa.Create();
+                    parserEcdsa.ImportPkcs8PrivateKey(keyBytes, out _);
+                    ecParams = parserEcdsa.ExportParameters(includePrivateParameters: true);
+                    CachedEcParameters[trimmedKey] = ecParams;
                 }
 
                 string template = string.IsNullOrWhiteSpace(tokenTemplate) ? DefaultTemplate : tokenTemplate.Trim();
@@ -196,8 +222,7 @@ namespace Shiro.Services
                     ? parsedUri.PathAndQuery
                     : fullUrl;
 
-                using ECDsa ecdsa = ECDsa.Create();
-                ecdsa.ImportPkcs8PrivateKey(keyBytes, out _);
+                using ECDsa ecdsa = ECDsa.Create(ecParams);
 
                 var outputSegments = new List<string>(tplParts.Length + 1)
                 {

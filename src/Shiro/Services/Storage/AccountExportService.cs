@@ -71,22 +71,22 @@ namespace Shiro.Services
                     break;
 
                 case AccountExportFormat.Json:
-                    var exportModels = list.Select(a => new
+                    var exportModels = new List<AccountExportJsonItem>(list.Count);
+                    for (int i = 0; i < list.Count; i++)
                     {
-                        Username = a.Username,
-                        UserID = a.UserID,
-                        Alias = a.Alias,
-                        Group = a.Group,
-                        Password = a.Password,
-                        RobuxBalance = a.RobuxBalance,
-                        Proxy = a.Proxy,
-                        LastUse = a.LastUse,
-                        SecurityToken = a.SecurityToken
-                    });
-                    return JsonSerializer.Serialize(exportModels, new JsonSerializerOptions
-                    {
-                        WriteIndented = true
-                    });
+                        var a = list[i];
+                        exportModels.Add(new AccountExportJsonItem(
+                            a.Username,
+                            a.UserID,
+                            a.Alias,
+                            a.Group,
+                            a.Password,
+                            a.RobuxBalance,
+                            a.Proxy,
+                            a.LastUse,
+                            a.SecurityToken));
+                    }
+                    return FastJson.Serialize(exportModels, indented: true);
             }
 
             return sb.ToString();

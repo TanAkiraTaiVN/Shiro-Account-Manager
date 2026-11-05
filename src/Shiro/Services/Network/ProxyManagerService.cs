@@ -198,92 +198,108 @@ namespace Shiro.Services
         public static ProxyItem? ParseProxy(string? raw)
         {
             if (string.IsNullOrWhiteSpace(raw)) return null;
-            string trimmed = raw.Trim();
-            if (trimmed.StartsWith("#")) return null;
+            ReadOnlySpan<char> trimmedSpan = raw.AsSpan().Trim();
+            if (trimmedSpan.IsEmpty || trimmedSpan[0] == '#') return null;
 
+            string trimmed = trimmedSpan.Length == raw.Length ? raw : trimmedSpan.ToString();
             string scheme = "http";
-            string working = trimmed;
+            ReadOnlySpan<char> working = trimmedSpan;
 
-            int schemeIdx = working.IndexOf("://", StringComparison.Ordinal);
+            int schemeIdx = working.IndexOf("://".AsSpan(), StringComparison.Ordinal);
             if (schemeIdx >= 0)
             {
-                scheme = working.Substring(0, schemeIdx).ToLowerInvariant();
-                working = working.Substring(schemeIdx + 3);
+                scheme = working[..schemeIdx].ToString().ToLowerInvariant();
+                working = working[(schemeIdx + 3)..];
             }
 
-            string username = string.Empty;
-            string password = string.Empty;
+            ReadOnlySpan<char> usernameSpan = ReadOnlySpan<char>.Empty;
+            ReadOnlySpan<char> passwordSpan = ReadOnlySpan<char>.Empty;
+            ReadOnlySpan<char> hostPortSpan = working;
 
             // 1. Check ip:port:user:pass format first (supports '@' and ':' inside password)
-            var colons = working.Split(':');
-            if (colons.Length >= 4 &&
-                !colons[0].Contains('@') &&
-                int.TryParse(colons[1].Trim(), out int colonPort) &&
+            Span<Range> colonRanges = stackalloc Range[5];
+            int colonCount = working.Split(colonRanges, ':');
+            if (colonCount >= 4 &&
+                working[colonRanges[0]].IndexOf('@') < 0 &&
+                int.TryParse(working[colonRanges[1]].Trim(), out int colonPort) &&
                 colonPort is > 0 and <= 65535)
             {
-                working = $"{colons[0].Trim()}:{colonPort}";
-                username = colons[2].Trim();
-                password = string.Join(":", colons.Skip(3)).Trim();
-            }
-            else
-            {
-                // 2. Handle user:pass@host:port or host:port@user:pass
-                int atIdx = working.LastIndexOf('@');
-                if (atIdx >= 0)
-                {
-                    string part1 = working.Substring(0, atIdx);
-                    string part2 = working.Substring(atIdx + 1);
+                ReadOnlySpan<char> hostOnly = working[colonRanges[0]].Trim();
+                if (hostOnly.IsEmpty || hostOnly.IsWhiteSpace())
+                    return null;
 
-                    if (part2.Contains(':') && int.TryParse(part2.Substring(part2.LastIndexOf(':') + 1), out _))
+                usernameSpan = working[colonRanges[2]].Trim();
+                int passStart = colonRanges[3].Start.GetOffset(working.Length);
+                passwordSpan = working[passStart..].Trim();
+
+                return new ProxyItem
+                {
+                    RawEntry = trimmed,
+                    Protocol = scheme,
+                    Host = hostOnly.ToString(),
+                    Port = colonPort,
+                    Username = usernameSpan.IsEmpty ? string.Empty : usernameSpan.ToString(),
+                    Password = passwordSpan.IsEmpty ? string.Empty : passwordSpan.ToString()
+                };
+            }
+
+            // 2. Handle user:pass@host:port or host:port@user:pass
+            int atIdx = working.LastIndexOf('@');
+            if (atIdx >= 0)
+            {
+                ReadOnlySpan<char> part1 = working[..atIdx];
+                ReadOnlySpan<char> part2 = working[(atIdx + 1)..];
+
+                int part2LastColon = part2.LastIndexOf(':');
+                if (part2LastColon >= 0 && int.TryParse(part2[(part2LastColon + 1)..], out _))
+                {
+                    // user:pass@host:port
+                    hostPortSpan = part2;
+                    int colon = part1.IndexOf(':');
+                    if (colon >= 0)
                     {
-                        // user:pass@host:port
-                        working = part2;
-                        int colon = part1.IndexOf(':');
-                        if (colon >= 0)
-                        {
-                            username = part1.Substring(0, colon);
-                            password = part1.Substring(colon + 1);
-                        }
-                        else
-                        {
-                            username = part1;
-                        }
+                        usernameSpan = part1[..colon];
+                        passwordSpan = part1[(colon + 1)..];
                     }
                     else
                     {
-                        // host:port@user:pass
-                        working = part1;
-                        int colon = part2.IndexOf(':');
-                        if (colon >= 0)
-                        {
-                            username = part2.Substring(0, colon);
-                            password = part2.Substring(colon + 1);
-                        }
-                        else
-                        {
-                            username = part2;
-                        }
+                        usernameSpan = part1;
+                    }
+                }
+                else
+                {
+                    // host:port@user:pass
+                    hostPortSpan = part1;
+                    int colon = part2.IndexOf(':');
+                    if (colon >= 0)
+                    {
+                        usernameSpan = part2[..colon];
+                        passwordSpan = part2[(colon + 1)..];
+                    }
+                    else
+                    {
+                        usernameSpan = part2;
                     }
                 }
             }
 
             // Now extract host and port (explicit port is required)
-            int portSep = working.LastIndexOf(':');
-            if (portSep <= 0 || !int.TryParse(working.Substring(portSep + 1).Trim(), out int port) || port is <= 0 or > 65535)
+            int portSep = hostPortSpan.LastIndexOf(':');
+            if (portSep <= 0 || !int.TryParse(hostPortSpan[(portSep + 1)..].Trim(), out int port) || port is <= 0 or > 65535)
                 return null;
 
-            string host = working.Substring(0, portSep).Trim();
-            if (string.IsNullOrWhiteSpace(host))
+            ReadOnlySpan<char> hostSpan = hostPortSpan[..portSep].Trim();
+            if (hostSpan.IsEmpty || hostSpan.IsWhiteSpace())
                 return null;
 
             return new ProxyItem
             {
                 RawEntry = trimmed,
                 Protocol = scheme,
-                Host = host,
+                Host = hostSpan.ToString(),
                 Port = port,
-                Username = username,
-                Password = password
+                Username = usernameSpan.IsEmpty ? string.Empty : usernameSpan.ToString(),
+                Password = passwordSpan.IsEmpty ? string.Empty : passwordSpan.ToString()
             };
         }
 
@@ -424,22 +440,14 @@ namespace Shiro.Services
             var snapshot = proxies.Where(p => p != null).ToList();
             if (snapshot.Count == 0) return;
 
-            using var semaphore = new SemaphoreSlim(maxConcurrency, maxConcurrency);
-            var tasks = snapshot.Select(async proxy =>
-            {
-                await semaphore.WaitAsync(ct).ConfigureAwait(false);
-                try
+            await Parallel.ForEachAsync(
+                snapshot,
+                new ParallelOptions { MaxDegreeOfParallelism = Math.Max(1, maxConcurrency), CancellationToken = ct },
+                async (proxy, token) =>
                 {
-                    await TestProxyLatencyAsync(proxy, timeoutMs, ct).ConfigureAwait(false);
+                    await TestProxyLatencyAsync(proxy, timeoutMs, token).ConfigureAwait(false);
                     progress?.Report(proxy);
-                }
-                finally
-                {
-                    semaphore.Release();
-                }
-            });
-
-            await Task.WhenAll(tasks).ConfigureAwait(false);
+                }).ConfigureAwait(false);
         }
     }
 }

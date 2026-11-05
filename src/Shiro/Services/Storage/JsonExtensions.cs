@@ -56,6 +56,9 @@ namespace Shiro.Services
     {
         private static JsonSerializerOptions CreateOptions(bool indented)
         {
+            IJsonTypeInfoResolver resolver = JsonSerializer.IsReflectionEnabledByDefault
+                ? JsonTypeInfoResolver.Combine(ShiroAppJson.Default, new DefaultJsonTypeInfoResolver())
+                : ShiroAppJson.Default;
             var options = new JsonSerializerOptions
             {
                 PropertyNameCaseInsensitive = true,
@@ -63,7 +66,7 @@ namespace Shiro.Services
                 AllowTrailingCommas = true,
                 IncludeFields = true,
                 WriteIndented = indented,
-                TypeInfoResolver = JsonTypeInfoResolver.Combine(ShiroAppJson.Default, new DefaultJsonTypeInfoResolver())
+                TypeInfoResolver = resolver
             };
             options.Converters.Add(new FlexibleStringConverter());
             return options;
@@ -112,11 +115,20 @@ namespace Shiro.Services
 
         public static string Serialize<T>(T value, bool indented = false)
         {
-            if (typeof(T) != typeof(object) && value != null && typeof(T) == value.GetType() && !indented && ShiroAppJson.Default.GetTypeInfo(typeof(T)) is System.Text.Json.Serialization.Metadata.JsonTypeInfo<T> typeInfo)
+            if (value != null && !indented && ShiroAppJson.Default.GetTypeInfo(value.GetType()) is JsonTypeInfo typeInfo)
             {
                 return JsonSerializer.Serialize(value, typeInfo);
             }
             return JsonSerializer.Serialize(value, indented ? IndentedOptions : DefaultOptions);
+        }
+
+        public static byte[] SerializeToUtf8Bytes<T>(T value, bool indented = false)
+        {
+            if (value != null && !indented && ShiroAppJson.Default.GetTypeInfo(value.GetType()) is JsonTypeInfo typeInfo)
+            {
+                return JsonSerializer.SerializeToUtf8Bytes(value, typeInfo);
+            }
+            return JsonSerializer.SerializeToUtf8Bytes(value, indented ? IndentedOptions : DefaultOptions);
         }
     }
 

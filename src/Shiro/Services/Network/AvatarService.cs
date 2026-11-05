@@ -160,39 +160,34 @@ namespace Shiro.Services
 
                         if (entries.Count > 0)
                         {
-                            using var downloadGate = new SemaphoreSlim(8, 8);
-                            var tasks = entries.Select(async entry =>
-                            {
-                                await downloadGate.WaitAsync(cancellationToken).ConfigureAwait(false);
-                                try
+                            await Parallel.ForEachAsync(
+                                entries,
+                                new ParallelOptions { MaxDegreeOfParallelism = 8, CancellationToken = cancellationToken },
+                                async (entry, ct) =>
                                 {
-                                    using var imgReq = new HttpRequestMessage(HttpMethod.Get, entry.ImageUrl);
-                                    using var imgResp = await SharedHttpClient.SendAsync(imgReq, true, cancellationToken).ConfigureAwait(false);
-                                    if (imgResp.IsSuccessStatusCode)
+                                    try
                                     {
-                                        byte[] bytes = await imgResp.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
-                                        string? diskPath = GetDiskCachePath(entry.TargetId);
-                                        if (bytes != null && bytes.Length > 0 && !string.IsNullOrEmpty(diskPath))
+                                        using var imgReq = new HttpRequestMessage(HttpMethod.Get, entry.ImageUrl);
+                                        using var imgResp = await SharedHttpClient.SendAsync(imgReq, true, ct).ConfigureAwait(false);
+                                        if (imgResp.IsSuccessStatusCode)
                                         {
-                                            StoragePaths.AtomicWriteBytes(diskPath, bytes);
-                                            lock (downloaded)
+                                            byte[] bytes = await imgResp.Content.ReadAsByteArrayAsync(ct).ConfigureAwait(false);
+                                            string? diskPath = GetDiskCachePath(entry.TargetId);
+                                            if (bytes != null && bytes.Length > 0 && !string.IsNullOrEmpty(diskPath))
                                             {
-                                                downloaded.Add(entry.TargetId);
+                                                StoragePaths.AtomicWriteBytes(diskPath, bytes);
+                                                lock (downloaded)
+                                                {
+                                                    downloaded.Add(entry.TargetId);
+                                                }
                                             }
                                         }
                                     }
-                                }
-                                catch (Exception ex)
-                                {
-                                    _logger.Debug($"Download avatar entry failed: {ex.Message}");
-                                }
-                                finally
-                                {
-                                    downloadGate.Release();
-                                }
-                            }).ToArray();
-
-                            await Task.WhenAll(tasks).ConfigureAwait(false);
+                                    catch (Exception ex)
+                                    {
+                                        _logger.Debug($"Download avatar entry failed: {ex.Message}");
+                                    }
+                                }).ConfigureAwait(false);
                         }
                     }
                 }

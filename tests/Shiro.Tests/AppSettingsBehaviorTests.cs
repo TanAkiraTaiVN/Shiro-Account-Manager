@@ -212,6 +212,9 @@ namespace Shiro.Tests
                 await AppSettings.RestartWebServerAsync(7991, false);
                 await AppSettings.StopWebServerAsync();
                 await AppSettings.ResetEncryptionAsync(prompt: false);
+                AntiAfkService.Stop();
+                MemoryOptimizer.ConfigureAutoTrim(false);
+                RobloxAudioService.ConfigureSmartMute(false);
             });
 
             Assert.Null(ex);

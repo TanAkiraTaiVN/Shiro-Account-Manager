@@ -37,12 +37,7 @@ public sealed class AssetCommerceService : IAssetCommerce
 
         var buyRequest = a.MakeRequest($"v1/purchases/products/{productId}", Method.Post);
         buyRequest.AddHeader("X-CSRF-Token", csrf.Token);
-        buyRequest.AddJsonBody(new
-        {
-            expectedCurrency = 1,
-            expectedPrice = expectedPrice,
-            expectedSellerId = sellerId
-        });
+        buyRequest.AddJsonBody(new PurchaseProductPayload(1, expectedPrice, sellerId));
 
         var response = await a.ExecuteAccountRestAsync(AppServices.RobloxApi.Economy, "https://economy.roblox.com", buyRequest, ct).ConfigureAwait(false);
         if (response != null && response.IsSuccessful)

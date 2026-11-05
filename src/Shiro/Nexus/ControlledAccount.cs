@@ -173,8 +173,13 @@ namespace Shiro.Nexus
             });
         }
 
-        public void Disconnect()
+        public void Disconnect(WebSocket? expectedSocket = null)
         {
+            if (expectedSocket != null && !ReferenceEquals(this.WebSocket, expectedSocket))
+            {
+                return;
+            }
+
             Logger.Info($"{Username} has disconnected");
 
             Status = AccountStatus.Offline;
@@ -272,6 +277,7 @@ namespace Shiro.Nexus
             }
         }
 
+        private const int DefaultSendTimeoutMs = 3000;
         private readonly SemaphoreSlim _sendLock = new SemaphoreSlim(1, 1);
 
         public void SendMessage(string Message)
@@ -279,38 +285,41 @@ namespace Shiro.Nexus
             _ = SendMessageAsync(Message);
         }
 
-        public async Task SendMessageAsync(string Message)
+        public async Task SendMessageAsync(string Message, int sendTimeoutMs = DefaultSendTimeoutMs)
         {
             if (Status == AccountStatus.Offline || WebSocket == null || string.IsNullOrEmpty(Message)) return;
 
+            using var cts = new CancellationTokenSource(Math.Max(50, sendTimeoutMs));
+            bool lockAcquired = false;
             try
             {
-                await _sendLock.WaitAsync().ConfigureAwait(false);
-                try
+                await _sendLock.WaitAsync(cts.Token).ConfigureAwait(false);
+                lockAcquired = true;
+                if (WebSocket != null && WebSocket.State == WebSocketState.Open)
                 {
-                    if (WebSocket != null && WebSocket.State == WebSocketState.Open)
+                    int maxByteCount = Encoding.UTF8.GetMaxByteCount(Message.Length);
+                    byte[] rentedBuffer = ArrayPool<byte>.Shared.Rent(maxByteCount);
+                    try
                     {
-                        int maxByteCount = Encoding.UTF8.GetMaxByteCount(Message.Length);
-                        byte[] rentedBuffer = ArrayPool<byte>.Shared.Rent(maxByteCount);
-                        try
-                        {
-                            int actualBytes = Encoding.UTF8.GetBytes(Message, 0, Message.Length, rentedBuffer, 0);
-                            await WebSocket.SendAsync(new ArraySegment<byte>(rentedBuffer, 0, actualBytes), WebSocketMessageType.Text, true, CancellationToken.None).ConfigureAwait(false);
-                        }
-                        finally
-                        {
-                            ArrayPool<byte>.Shared.Return(rentedBuffer);
-                        }
+                        int actualBytes = Encoding.UTF8.GetBytes(Message, 0, Message.Length, rentedBuffer, 0);
+                        await WebSocket.SendAsync(new ArraySegment<byte>(rentedBuffer, 0, actualBytes), WebSocketMessageType.Text, true, cts.Token).ConfigureAwait(false);
                     }
-                }
-                finally
-                {
-                    _sendLock.Release();
+                    finally
+                    {
+                        ArrayPool<byte>.Shared.Return(rentedBuffer);
+                    }
                 }
             }
             catch (Exception ex)
             {
                 Logger.Warn($"Failed to send message to {Username}: {ex.Message}");
+            }
+            finally
+            {
+                if (lockAcquired)
+                {
+                    SafeExecuteHelper.Try(() => _sendLock.Release(), "ControlledAccount.SendMessageAsync.Release");
+                }
             }
         }
     }

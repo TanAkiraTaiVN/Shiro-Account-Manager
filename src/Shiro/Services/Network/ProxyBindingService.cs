@@ -266,17 +266,20 @@ namespace Shiro.Services
                 .ToList();
             if (proxyList.Count == 0) return;
 
-            var proxyUsage = proxyList.ToDictionary(p => p, _ => 0, StringComparer.OrdinalIgnoreCase);
-
-            var accountList = accounts.Where(a => a != null).ToList();
+            var proxyUsage = new Dictionary<string, (int Usage, int Order)>(proxyList.Count, StringComparer.OrdinalIgnoreCase);
+            for (int i = 0; i < proxyList.Count; i++)
+            {
+                proxyUsage[proxyList[i]] = (0, i);
+            }
 
             // First pass: tally accounts that already use one of the supplied proxies
             var needsAssignment = new List<Account>();
-            foreach (var acc in accountList)
+            foreach (var acc in accounts)
             {
-                if (!string.IsNullOrWhiteSpace(acc.Proxy) && proxyUsage.ContainsKey(acc.Proxy))
+                if (acc == null) continue;
+                if (!string.IsNullOrWhiteSpace(acc.Proxy) && proxyUsage.TryGetValue(acc.Proxy, out var current))
                 {
-                    proxyUsage[acc.Proxy]++;
+                    proxyUsage[acc.Proxy] = (current.Usage + 1, current.Order);
                 }
                 else
                 {
@@ -284,12 +287,23 @@ namespace Shiro.Services
                 }
             }
 
-            // Second pass: assign remaining accounts to the proxy with lowest current usage
+            if (needsAssignment.Count == 0)
+                return;
+
+            // Second pass: O((M + N) log M) min-heap assignment with deterministic tie-breaking by original proxy order
+            var minHeap = new PriorityQueue<string, (int Usage, int Order)>(proxyList.Count);
+            foreach (string proxy in proxyList)
+            {
+                minHeap.Enqueue(proxy, proxyUsage[proxy]);
+            }
+
             foreach (var acc in needsAssignment)
             {
-                var leastUsed = proxyUsage.MinBy(kvp => kvp.Value);
-                acc.Proxy = leastUsed.Key;
-                proxyUsage[leastUsed.Key]++;
+                if (minHeap.TryDequeue(out string? leastUsedProxy, out var priority))
+                {
+                    acc.Proxy = leastUsedProxy;
+                    minHeap.Enqueue(leastUsedProxy, (priority.Usage + 1, priority.Order));
+                }
             }
         }
 

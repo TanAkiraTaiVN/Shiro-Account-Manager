@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.Buffers;
 using System.Collections.Generic;
@@ -30,17 +30,25 @@ namespace Shiro.Classes
         private DateTime DisconnectedTime;
         private string? LastLine;
         private int _cleanedUp;
+        private string? _expectedTrackerId;
+        private bool _trackerIdResolved;
         private readonly CancellationTokenSource exitMonitoringCancellation = new CancellationTokenSource();
         private readonly CancellationTokenSource logLookupCancellation = new CancellationTokenSource();
+        private readonly System.Threading.Lock _logSync = new();
 
         public static event Action<int, int>? Disconnected;
         public static event Action<int>? Connected;
 
-        public RobloxProcess(Process process)
+        public RobloxProcess(Process process, string? expectedTrackerId = null)
         {
             Program.Logger.Info($"New RobloxProcess created for {process.Id}");
 
             RbxProcess = process;
+            if (!string.IsNullOrEmpty(expectedTrackerId))
+            {
+                _expectedTrackerId = expectedTrackerId;
+                _trackerIdResolved = true;
+            }
 
             RobloxWatcher.LogFileRead += ReadLogFile;
 
@@ -61,22 +69,15 @@ namespace Shiro.Classes
             try
             {
                 if (!RbxProcess.HasExited && !Program.Closed)
-                {
                     await RbxProcess.WaitForExitAsync(token).ConfigureAwait(false);
-                }
             }
             catch (OperationCanceledException) { /* Intentional: cancellation requested */ }
             catch (InvalidOperationException) { /* Intentional: process exited before wait */ }
-            catch (Exception x)
-            {
-                Program.Logger.Error($"WaitForExit Error: {x}");
-            }
+            catch (Exception x) { Program.Logger.Error($"WaitForExit Error: {x}"); }
             finally
             {
                 if (Program.Closed || SafeHasExited())
-                {
                     CleanupProcessExit();
-                }
             }
         }
 
@@ -87,95 +88,67 @@ namespace Shiro.Classes
         {
             try
             {
-                if (AppSettings.Watcher == null || !AppSettings.Watcher.Get<bool>("ExitIfNoConnection"))
-                    return;
-
+                if (AppSettings.Watcher == null || !AppSettings.Watcher.Get<bool>("ExitIfNoConnection")) return;
                 double timeout = AppSettings.Watcher.Get<double>("NoConnectionTimeout");
-                if (timeout <= 0)
-                    return;
+                if (timeout <= 0) return;
 
                 var token = exitMonitoringCancellation.Token;
                 _ = Task.Run(async () =>
                 {
                     try
                     {
-                        double waitSeconds = Math.Max(1.0, initialGraceSeconds + timeout + 0.5);
-                        await Task.Delay(TimeSpan.FromSeconds(waitSeconds), token).ConfigureAwait(false);
-
-                        if (token.IsCancellationRequested || IsConnected || Program.Closed || SafeHasExited())
-                            return;
-
-                        if (AppSettings.Watcher == null || !AppSettings.Watcher.Get<bool>("ExitIfNoConnection"))
-                            return;
+                        await Task.Delay(TimeSpan.FromSeconds(Math.Max(1.0, initialGraceSeconds + timeout + 0.5)), token).ConfigureAwait(false);
+                        if (token.IsCancellationRequested || IsConnected || Program.Closed || SafeHasExited()) return;
+                        if (AppSettings.Watcher == null || !AppSettings.Watcher.Get<bool>("ExitIfNoConnection")) return;
 
                         double configuredTimeout = AppSettings.Watcher.Get<double>("NoConnectionTimeout");
                         double elapsed = (DateTime.UtcNow - DisconnectedTime).TotalSeconds;
                         if (configuredTimeout > 0 && !IsConnected && elapsed > configuredTimeout)
-                        {
                             KillProcess($"Lost connection for more than {elapsed:0.0} second(s)");
-                        }
                     }
                     catch (OperationCanceledException) { /* Intentional: watchdog cancelled */ }
-                    catch (Exception ex)
-                    {
-                        Program.Logger?.Debug($"NoConnection watchdog error: {ex.Message}");
-                    }
+                    catch (Exception ex) { Program.Logger?.Debug($"NoConnection watchdog error: {ex.Message}"); }
                 }, token);
             }
-            catch (Exception ex)
-            {
-                Program.Logger?.Debug($"ScheduleNoConnectionWatchdogIfEnabled failed: {ex.Message}");
-            }
+            catch (Exception ex) { Program.Logger?.Debug($"ScheduleNoConnectionWatchdogIfEnabled failed: {ex.Message}"); }
         }
 
         private void CleanupProcessExit()
         {
-            if (Interlocked.Exchange(ref _cleanedUp, 1) != 0)
-                return;
-
+            if (Interlocked.Exchange(ref _cleanedUp, 1) != 0) return;
             try
             {
                 SafeExecuteHelper.Try(exitMonitoringCancellation.Cancel);
                 SafeExecuteHelper.Try(logLookupCancellation.Cancel);
 
                 int processId = SafeExecuteHelper.Try(() => RbxProcess?.Id ?? 0, fallback: 0);
-                if (processId > 0)
-                    Program.Logger.Info($"{processId} has exited");
+                if (processId > 0) Program.Logger.Info($"{processId} has exited");
 
                 RobloxWatcher.LogFileRead -= ReadLogFile;
+                lock (RobloxWatcher.InstanceRegistryLock) { RobloxWatcher.Instances.Remove(this); }
+                if (processId > 0) RobloxWatcher.RemoveProcessMetadata(processId);
 
-                lock (RobloxWatcher.InstanceRegistryLock)
+                lock (_logSync)
                 {
-                    RobloxWatcher.Instances.Remove(this);
+                    StreamDisposed = true;
+                    LogStream?.Dispose();
+                    LogStream = null;
                 }
-                if (processId > 0)
-                    RobloxWatcher.RemoveProcessMetadata(processId);
-
-                LogStream?.Dispose();
                 SafeExecuteHelper.Try(() => RbxProcess?.Dispose());
                 SafeExecuteHelper.Try(logLookupCancellation.Dispose);
                 SafeExecuteHelper.Try(exitMonitoringCancellation.Dispose);
-
                 Utilities.QueueRefreshNotificationArea();
             }
-            catch (Exception ex)
-            {
-                Program.Logger?.Debug($"CleanupProcessExit error: {ex.Message}");
-            }
+            catch (Exception ex) { Program.Logger?.Debug($"CleanupProcessExit error: {ex.Message}"); }
         }
 
         internal static string[] ReadAppendedLines(Stream stream, ref long lastPosition)
         {
-            if (stream == null || !stream.CanRead)
-                return Array.Empty<string>();
-
+            if (stream == null || !stream.CanRead) return Array.Empty<string>();
             long currentLength = stream.Length;
-            if (currentLength <= lastPosition)
-                return Array.Empty<string>();
-
+            if (currentLength <= lastPosition) return Array.Empty<string>();
             long delta = currentLength - lastPosition;
-            if (delta <= 0 || delta > int.MaxValue)
-                return Array.Empty<string>();
+            if (delta <= 0 || delta > int.MaxValue) return Array.Empty<string>();
 
             int length = (int)delta;
             byte[] rented = ArrayPool<byte>.Shared.Rent(length);
@@ -190,33 +163,40 @@ namespace Shiro.Classes
                 if (stream is FileStream && rented[length - 1] != (byte)'\n')
                 {
                     int lastNewline = Array.LastIndexOf(rented, (byte)'\n', length - 1, length);
-                    if (lastNewline >= 0)
-                    {
-                        consumeLength = lastNewline + 1;
-                    }
+                    if (lastNewline < 0) return Array.Empty<string>();
+                    consumeLength = lastNewline + 1;
                 }
-
                 lastPosition += consumeLength;
-                string content = Encoding.UTF8.GetString(rented.AsSpan(0, consumeLength));
-                return content.Split('\n');
+                return Encoding.UTF8.GetString(rented.AsSpan(0, consumeLength)).Split('\n');
             }
-            finally
-            {
-                ArrayPool<byte>.Shared.Return(rented);
-            }
+            finally { ArrayPool<byte>.Shared.Return(rented); }
         }
 
         private void ReadLogFile(object? s, EventArgs e)
         {
             if (StreamDisposed) return;
-            FileStream? stream = LogStream;
-            if (stream == null) return;
-            try { if (!stream.CanRead) return; }
-            catch (ObjectDisposedException) { return; }
+
+            string[] Lines;
+            lock (_logSync)
+            {
+                if (StreamDisposed) return;
+                FileStream? stream = LogStream;
+                if (stream == null) return;
+                try
+                {
+                    if (!stream.CanRead) return;
+                    Lines = ReadAppendedLines(stream, ref LastPosition);
+                }
+                catch (ObjectDisposedException) { return; }
+                catch (Exception x)
+                {
+                    Program.Logger.Error($"An error occured while trying to read LogFile of {RbxProcess.Id}: {x}");
+                    return;
+                }
+            }
 
             try
             {
-                string[] Lines = ReadAppendedLines(stream, ref LastPosition);
                 if (Lines.Length > 0)
                 {
                     for (int i = 0; i < Lines.Length; i++)
@@ -422,27 +402,51 @@ namespace Shiro.Classes
                             return cmp != 0 ? cmp : b.LastWriteUtc.CompareTo(a.LastWriteUtc);
                         });
 
+                        if (!_trackerIdResolved)
+                        {
+                            _expectedTrackerId = ResolveExpectedTrackerIdForPid(SafeExecuteHelper.Try(() => RbxProcess?.Id ?? 0, fallback: 0));
+                            _trackerIdResolved = true;
+                        }
+                        string? expectedTrackerId = _expectedTrackerId;
+                        FileInfo? inconclusiveFile = null;
+                        FileStream? inconclusiveStream = null;
+
                         foreach (var candidate in candidateLogs)
                         {
                             var file = candidate.File;
-                            lock (RobloxWatcher.InstanceRegistryLock)
-                            {
-                                if (RobloxWatcher.Instances.Any(inst => inst != this && inst.LogFile != null && string.Equals(inst.LogFile.FullName, file.FullName, StringComparison.OrdinalIgnoreCase)))
-                                    continue;
-                            }
 
-                            try
+                            if (TryOpenCandidateLog(file, expectedTrackerId, ref inconclusiveFile, ref inconclusiveStream, out FileStream? matchedStream) && matchedStream != null)
                             {
-                                FileStream stream = File.Open(file.FullName, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
-                                LogFile = file;
-                                LogStream = stream;
+                                lock (_logSync)
+                                {
+                                    if (Volatile.Read(ref _cleanedUp) != 0 || StreamDisposed)
+                                    {
+                                        matchedStream.Dispose();
+                                        inconclusiveStream?.Dispose();
+                                        return;
+                                    }
+                                    LogFile = file;
+                                    LogStream = matchedStream;
+                                }
                                 Program.Logger?.Info($"Found LogFile Path via direct logs folder: {LogFile.FullName}");
                                 return;
                             }
-                            catch
+                        }
+
+                        if (inconclusiveStream != null && inconclusiveFile != null)
+                        {
+                            lock (_logSync)
                             {
-                                // In use exclusively or not ready yet, check next candidate
+                                if (Volatile.Read(ref _cleanedUp) != 0 || StreamDisposed)
+                                {
+                                    inconclusiveStream.Dispose();
+                                    return;
+                                }
+                                LogFile = inconclusiveFile;
+                                LogStream = inconclusiveStream;
                             }
+                            AppServices.Logger.Info($"Found LogFile Path via direct logs folder: {LogFile.FullName}");
+                            return;
                         }
                     }
                     catch (Exception ex)
@@ -451,7 +455,7 @@ namespace Shiro.Classes
                     }
                 }
 
-                await Task.Delay(1500, cancellationToken).ConfigureAwait(false);
+                await Task.Delay(LogFileRetries <= 4 ? 400 : 1500, cancellationToken).ConfigureAwait(false);
             }
         }
 

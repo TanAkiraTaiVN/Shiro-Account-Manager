@@ -537,6 +537,8 @@ namespace Shiro.Tests
                 AccountManager.AccountControl.Set("StartOnLaunch", "false");
 
                 AccountManager.SuppressExitOnShutdown = true;
+                string prevPlaceId = AccountManager.CurrentPlaceId;
+                AccountManager.CurrentPlaceId = string.Empty;
                 var tempMgr = new AccountManager();
                 AccountManager.General.Set("ShuffleJobId", "true");
                 AccountManager.General.Set("AutoCookieRefresh", "true");
@@ -547,6 +549,7 @@ namespace Shiro.Tests
                 tempMgr.Dispose();
                 Assert.True(tempMgr.IsDisposed);
                 tempMgr.ShutdownBackend();
+                AccountManager.CurrentPlaceId = prevPlaceId;
 
                 // Second temp instance with AutoCookieRefresh=false, ShowPresence=true, EnableWebServer=true, and old updater files + Update dir
                 string oldAu1 = Path.Combine(Directory.GetCurrentDirectory(), "Auto Update.exe");
@@ -562,9 +565,11 @@ namespace Shiro.Tests
                 AccountManager.General.Set("AutoCookieRefresh", "false");
                 AccountManager.General.Set("ShowPresence", "true");
                 AccountManager.Developer.Set("EnableWebServer", "true");
-                AccountManager.WebServer.Set("WebServerPort", (49152 + Random.Shared.Next(1000, 9000)).ToString());
+                AccountManager.WebServer.Set("WebServerPort", "invalid_numeric_port");
+                AccountManager.WebServer.Set("AllowExternalConnections", "true");
                 tempMgr2.InitializeBackendServices();
                 AccountManager.Developer.Set("EnableWebServer", "false");
+                AccountManager.WebServer.Set("AllowExternalConnections", "false");
                 Assert.False(File.Exists(oldAu1));
                 Assert.False(File.Exists(oldAu2));
                 Assert.False(Directory.Exists(updateDir));

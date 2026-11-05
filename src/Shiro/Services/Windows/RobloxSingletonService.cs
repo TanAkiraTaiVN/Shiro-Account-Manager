@@ -283,6 +283,9 @@ namespace Shiro.Services
         {
             lock (_gate)
             {
+                RobloxJobObjectService.ProcessExitedFromJob -= OnJobProcessExited;
+                RobloxJobObjectService.ProcessExitedFromJob += OnJobProcessExited;
+
                 if (_watcher != null && _watchSeconds == seconds) return false;
 
                 var period = TimeSpan.FromSeconds(Math.Max(2, seconds));
@@ -299,8 +302,35 @@ namespace Shiro.Services
         {
             lock (_gate)
             {
+                RobloxJobObjectService.ProcessExitedFromJob -= OnJobProcessExited;
                 _watcher?.Dispose();
                 _watcher = null;
+            }
+        }
+
+        private static void OnJobProcessExited(int pid, bool abnormal)
+        {
+            _ = abnormal;
+            if (!_isEnabled || pid <= 0) return;
+
+            lock (_gate)
+            {
+                _lastObservedPids.Remove(pid);
+            }
+
+            ThreadPool.QueueUserWorkItem(static _ =>
+            {
+                try { Sweep(force: true); }
+                catch (Exception ex) { AppServices.Logger.Debug($"[RobloxSingletonService] Event-driven sweep failed: {ex.Message}"); }
+            });
+        }
+
+        internal static bool NotifyProcessExitedFromJobForTest(int pid)
+        {
+            if (pid <= 0) return false;
+            lock (_gate)
+            {
+                return _lastObservedPids.Remove(pid);
             }
         }
 
@@ -440,38 +470,5 @@ namespace Shiro.Services
                 Program.Logger?.Debug($"[RobloxSingletonService.StatusChanged] {ex.Message}");
             }
         }
-
-        // Native Win32 Interop
-        [StructLayout(LayoutKind.Sequential)]
-        private struct SECURITY_ATTRIBUTES
-        {
-            public int nLength;
-            public IntPtr lpSecurityDescriptor;
-            public int bInheritHandle;
-        }
-
-        [LibraryImport("advapi32.dll", EntryPoint = "ConvertStringSecurityDescriptorToSecurityDescriptorW", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static partial bool ConvertStringSecurityDescriptorToSecurityDescriptorW(string StringSecurityDescriptor, uint StringSDRevision, out IntPtr SecurityDescriptor, IntPtr SecurityDescriptorSize);
-        [LibraryImport("kernel32.dll", SetLastError = true)]
-        private static partial IntPtr LocalFree(IntPtr hMem);
-        [LibraryImport("advapi32.dll", SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static partial bool InitializeSecurityDescriptor(IntPtr pSecurityDescriptor, uint dwRevision);
-        [LibraryImport("advapi32.dll", SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static partial bool SetSecurityDescriptorDacl(IntPtr pSecurityDescriptor, [MarshalAs(UnmanagedType.Bool)] bool bDaclPresent, IntPtr pDacl, [MarshalAs(UnmanagedType.Bool)] bool bDaclDefaulted);
-        [LibraryImport("kernel32.dll", EntryPoint = "CreateMutexW", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
-        private static partial IntPtr CreateMutexW(IntPtr lpMutexAttributes, [MarshalAs(UnmanagedType.Bool)] bool bInitialOwner, string lpName);
-        [LibraryImport("kernel32.dll", EntryPoint = "CreateEventW", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
-        private static partial IntPtr CreateEventW(IntPtr lpEventAttributes, [MarshalAs(UnmanagedType.Bool)] bool bManualReset, [MarshalAs(UnmanagedType.Bool)] bool bInitialState, string lpName);
-        [LibraryImport("kernel32.dll", SetLastError = true)]
-        private static partial uint WaitForSingleObject(IntPtr hHandle, uint dwMilliseconds);
-        [LibraryImport("kernel32.dll", SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static partial bool ReleaseMutex(IntPtr hMutex);
-        [LibraryImport("kernel32.dll", SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static partial bool CloseHandle(IntPtr handle);
     }
 }

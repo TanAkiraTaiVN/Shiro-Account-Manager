@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -71,6 +71,7 @@ namespace Shiro.Services
         {
             RobloxProcess.Disconnected += NotifyDisconnected;
             RobloxProcess.Connected += NotifyConnected;
+            RobloxJobObjectService.ProcessExitedFromJob += OnJobProcessExited;
             MaxRetriesExceeded += OnMaxRetriesExceeded;
 
             // Scan process states every 5 seconds
@@ -155,6 +156,8 @@ namespace Shiro.Services
 
             if (_sessions.TryGetValue(sessionKey, out var existing) && existing != null)
             {
+                existing.IsSuppressed = true;
+                existing.IsActive = false;
                 DateTime baseline = existing.LastReconnectUtc ?? existing.LaunchTimeUtc;
                 if (existing.RetryCount > 0 && (now - baseline) < StableResetWindow)
                 {
@@ -220,7 +223,7 @@ namespace Shiro.Services
                 {
                     session.IsSuppressed = true;
                     session.IsActive = false;
-                    _sessions.TryRemove(session.Account.Username, out _);
+                    _sessions.TryRemove(GetSessionKey(session.Account), out _);
                     Program.Logger?.Info($"[AutoReconnect] '{session.Account.Username}' exited gracefully by user (ExitCode 0). Session closed.");
                 }
                 else if (decision == ReconnectDecision.Reconnect || decision == ReconnectDecision.GiveUp)
@@ -241,9 +244,7 @@ namespace Shiro.Services
         {
             if (string.IsNullOrWhiteSpace(username)) return;
             if (_sessions.TryRemove(username, out _))
-            {
                 Program.Logger.Debug($"[AutoReconnect] Unregistered session for '{username}'.");
-            }
         }
 
         /// <summary>
@@ -276,10 +277,7 @@ namespace Shiro.Services
         /// <summary>
         /// Clears all tracked sessions.
         /// </summary>
-        public void Clear()
-        {
-            _sessions.Clear();
-        }
+        public void Clear() => _sessions.Clear();
 
         /// <summary>
         /// Retrieves the session for a given account username, if registered.
@@ -287,17 +285,13 @@ namespace Shiro.Services
         public bool TryGetSession(string? username, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out ReconnectSession? session)
         {
             session = null;
-            if (string.IsNullOrWhiteSpace(username))
-                return false;
-            return _sessions.TryGetValue(username, out session);
+            return !string.IsNullOrWhiteSpace(username) && _sessions.TryGetValue(username, out session);
         }
 
         internal void NotifyMaxRetriesExceededForTesting(string username)
         {
             if (TryGetSession(username, out var session) && session != null)
-            {
                 MaxRetriesExceeded?.Invoke(session);
-            }
         }
 
         internal void CheckSessionsCallback(object? state)
@@ -366,7 +360,7 @@ namespace Shiro.Services
                     case ReconnectDecision.CloseCleanly:
                         session.IsSuppressed = true;
                         session.IsActive = false;
-                        _sessions.TryRemove(session.Account.Username, out _);
+                        _sessions.TryRemove(GetSessionKey(session.Account), out _);
                         Program.Logger?.Info($"[AutoReconnect] '{session.Account.Username}' exited gracefully by user (ExitCode 0). Session closed.");
                         break;
 
@@ -407,11 +401,12 @@ namespace Shiro.Services
                 session.IsActive = false;
             }
 
+            string sessionKey = GetSessionKey(session.Account);
             if (session.RetryCount >= MaxRetries)
             {
                 Program.Logger?.Warn($"[AutoReconnect] '{session.Account.Username}' exceeded max reconnect attempts ({MaxRetries}). Aborting.");
                 MaxRetriesExceeded?.Invoke(session);
-                _sessions.TryRemove(session.Account.Username, out _);
+                _sessions.TryRemove(sessionKey, out _);
                 return;
             }
 
@@ -433,7 +428,9 @@ namespace Shiro.Services
                     else
                         await Task.Delay(TimeSpan.FromSeconds(delaySeconds)).ConfigureAwait(false);
 
-                    if (_disposed || session.IsSuppressed)
+                    if (_disposed || session.IsSuppressed ||
+                        !_sessions.TryGetValue(sessionKey, out var activeSession) ||
+                        !ReferenceEquals(activeSession, session))
                     {
                         Program.Logger?.Info($"[AutoReconnect] Reconnect for '{session.Account.Username}' cancelled due to user suppression.");
                         return;
@@ -442,7 +439,9 @@ namespace Shiro.Services
                     await _reconnectGate.WaitAsync().ConfigureAwait(false);
                     try
                     {
-                        if (_disposed || session.IsSuppressed)
+                        if (_disposed || session.IsSuppressed ||
+                            !_sessions.TryGetValue(sessionKey, out activeSession) ||
+                            !ReferenceEquals(activeSession, session))
                             return;
 
                         await RobloxRateLimitCoordinator.Instance.WaitForBackoffAsync().ConfigureAwait(false);
@@ -460,6 +459,8 @@ namespace Shiro.Services
                         {
                             Interlocked.Increment(ref _totalReconnections);
                             session.LaunchTimeUtc = DateTime.UtcNow;
+                            session.ObservedProcessExited = false;
+                            session.ObservedExitCode = null;
                             session.IsActive = true;
                             Program.Logger?.Info($"[AutoReconnect] Successfully reconnected '{session.Account.Username}'.");
                         }
@@ -489,6 +490,7 @@ namespace Shiro.Services
             _disposed = true;
             RobloxProcess.Disconnected -= NotifyDisconnected;
             RobloxProcess.Connected -= NotifyConnected;
+            RobloxJobObjectService.ProcessExitedFromJob -= OnJobProcessExited;
             MaxRetriesExceeded -= OnMaxRetriesExceeded;
             _monitorTimer?.Dispose();
             _sessions.Clear();

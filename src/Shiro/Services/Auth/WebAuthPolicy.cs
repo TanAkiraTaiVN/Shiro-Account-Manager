@@ -35,12 +35,32 @@ namespace Shiro.Services
     public static class WebAuthPolicy
     {
         public const int MinPasswordLength = 6;
+        public const int RecommendedExternalPasswordLength = 12;
 
         public static bool IsPasswordConfigured(string? configured) =>
             !string.IsNullOrEmpty(configured) && configured.Length >= MinPasswordLength;
 
+        public static bool IsStrongExternalPassword(string? configured) =>
+            !string.IsNullOrEmpty(configured) && configured.Length >= RecommendedExternalPasswordLength;
+
         public static bool CanListenExternally(in AuthSettings settings) =>
             settings.AllowExternal && IsPasswordConfigured(settings.ConfiguredPassword);
+
+        /// <summary>
+        /// Redacts sensitive query parameters (Password, password, token, Cookie, cookie)
+        /// from a URL or query string before diagnostic logging.
+        /// </summary>
+        public static string RedactSensitiveQuery(string? urlOrQuery)
+        {
+            if (string.IsNullOrEmpty(urlOrQuery))
+                return string.Empty;
+
+            return System.Text.RegularExpressions.Regex.Replace(
+                urlOrQuery,
+                @"([?&](?:Password|password|token|Cookie|cookie)=)[^&\s#]*",
+                "$1[REDACTED]",
+                System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+        }
 
         public static int ToStatusCode(AuthDecision decision) =>
             decision switch
@@ -61,18 +81,18 @@ namespace Shiro.Services
             }
 
             // 2. !AllowExternal: Host không rỗng và không phải loopback (AccountApiDispatcher.IsLoopbackHostName) -> ForbiddenHost;
-            //    Origin không tin cậy (AccountApiDispatcher.IsTrustedLocalOrigin) -> ForbiddenOrigin.
+            //    Origin không tin cậy (AccountApiDispatcher.IsTrustedLocalOrigin) -> ForbiddenOrigin (luôn kiểm tra cả khi AllowExternal = true).
             if (!settings.AllowExternal)
             {
                 if (!string.IsNullOrEmpty(request.Host) && !AccountApiDispatcher.IsLoopbackHostName(request.Host))
                 {
                     return AuthDecision.ForbiddenHost;
                 }
+            }
 
-                if (!AccountApiDispatcher.IsTrustedLocalOrigin(request.Origin ?? string.Empty))
-                {
-                    return AuthDecision.ForbiddenOrigin;
-                }
+            if (!AccountApiDispatcher.IsTrustedLocalOrigin(request.Origin ?? string.Empty))
+            {
+                return AuthDecision.ForbiddenOrigin;
             }
 
             // 3. Mật khẩu hiệu lực = HeaderPassword; nếu rỗng thì dùng QueryPassword chỉ khi Scope == NexusControl || IsLoopbackRemote.

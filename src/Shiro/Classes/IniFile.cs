@@ -1,10 +1,12 @@
 #nullable enable
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Text;
 using System.Text.Json;
 using Shiro.Services;
 
@@ -84,6 +86,17 @@ namespace Shiro
                     dict[prop.Name] = prop.Value;
                 }
                 return dict;
+            }
+        }
+
+        internal void WritePropertiesTo(Utf8JsonWriter writer)
+        {
+            lock (_sync)
+            {
+                foreach (var prop in _properties.Values)
+                {
+                    writer.WriteString(prop.Name, prop.Value);
+                }
             }
         }
 
@@ -301,7 +314,7 @@ namespace Shiro
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Warn($"Failed to parse JSON configuration: {ex.Message}. Attempting legacy fallback.");
+                    AppServices.Logger.Warn($"Failed to parse JSON configuration: {ex.Message}. Attempting legacy fallback.");
                 }
             }
 
@@ -362,16 +375,28 @@ namespace Shiro
                 _sections.Remove(sectionName);
         }
 
-        public string ToJsonString()
+        public byte[] ToUtf8JsonBytes()
         {
-            var root = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
-            foreach (IniSection section in Sections)
+            var buffer = new ArrayBufferWriter<byte>(512);
+            using (var writer = new Utf8JsonWriter(buffer, new JsonWriterOptions { Indented = true }))
             {
-                root[section.Name] = section.ToDictionary();
+                writer.WriteStartObject();
+                lock (_saveLock)
+                {
+                    foreach (IniSection section in _sections.Values)
+                    {
+                        writer.WritePropertyName(section.Name);
+                        writer.WriteStartObject();
+                        section.WritePropertiesTo(writer);
+                        writer.WriteEndObject();
+                    }
+                }
+                writer.WriteEndObject();
             }
-
-            return JsonSerializer.Serialize(root, Utilities.FastJson.IndentedOptions);
+            return buffer.WrittenSpan.ToArray();
         }
+
+        public string ToJsonString() => Encoding.UTF8.GetString(ToUtf8JsonBytes());
 
         public void Save(string path)
         {
@@ -379,7 +404,7 @@ namespace Shiro
             string? directory = Path.GetDirectoryName(resolvedPath);
             if (string.IsNullOrEmpty(directory))
             {
-                Program.Logger?.Error($"Cannot save settings, target directory does not exist: {path}");
+                AppServices.Logger.Error($"Cannot save settings, target directory does not exist: {path}");
                 return;
             }
 
@@ -387,8 +412,8 @@ namespace Shiro
 
             lock (_saveLock)
             {
-                string text = ToJsonString();
-                StoragePaths.AtomicWriteText(resolvedPath, text, durable: true);
+                byte[] bytes = ToUtf8JsonBytes();
+                StoragePaths.AtomicWriteBytes(resolvedPath, bytes, durable: true);
             }
         }
 

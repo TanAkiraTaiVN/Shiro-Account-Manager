@@ -58,6 +58,33 @@ namespace Shiro.Tests
             string fillScript = FastLoginCoordinator.BuildCredentialFillScript("TestUser", "TestPass", forceClick: true);
             Assert.Contains("TestUser", fillScript);
             Assert.Contains("TestPass", fillScript);
+            Assert.Contains("_valueTracker", fillScript);
+            Assert.Contains("forceEvents", fillScript);
+            Assert.Contains("isButtonDisabled", fillScript);
+            Assert.Contains("if (clickLoginButton())", fillScript);
+        }
+
+        [Theory]
+        [InlineData("https://www.roblox.com/home", false, false, IgnoredCookieAction.DeleteCookie)]
+        [InlineData("about:blank", true, false, IgnoredCookieAction.WaitForModerationRedirect)]
+        [InlineData("https://www.roblox.com/home", true, false, IgnoredCookieAction.WaitForModerationRedirect)]
+        [InlineData("https://www.roblox.com/not-approved", true, false, IgnoredCookieAction.InspectModerationDom)]
+        [InlineData("https://www.roblox.com/account-status", true, true, IgnoredCookieAction.InspectModerationDom)]
+        [InlineData("https://www.roblox.com/login", true, false, IgnoredCookieAction.RedirectToLogin)]
+        [InlineData("https://www.roblox.com/NewLogin?ReturnUrl=%2fnot-approved", true, true, IgnoredCookieAction.RedirectToLogin)]
+        [InlineData("https://www.roblox.com/home", true, true, IgnoredCookieAction.CaptureReactivatedSession)]
+        [InlineData("https://www.roblox.com/discover", true, true, IgnoredCookieAction.CaptureReactivatedSession)]
+        public void EvaluateIgnoredCookieAction_HandlesRestoredModerationSessionLifecycle(
+            string? currentUrl,
+            bool isRestoredModerationCookie,
+            bool hasSeenModerationPage,
+            IgnoredCookieAction expected)
+        {
+            var actual = FastLoginCoordinator.EvaluateIgnoredCookieAction(
+                currentUrl,
+                isRestoredModerationCookie,
+                hasSeenModerationPage);
+            Assert.Equal(expected, actual);
         }
 
         [Fact]

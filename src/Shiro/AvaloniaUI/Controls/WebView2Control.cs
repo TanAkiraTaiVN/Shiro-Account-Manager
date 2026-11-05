@@ -194,7 +194,14 @@ namespace Shiro.AvaloniaUI.Controls
                 SafeExecuteHelper.Try(() => oldController.Close(), "WebView2Control.CloseOldController");
             }
 
-            _controller = await CreateIsolatedControllerCoreAsync();
+            var controller = await CreateIsolatedControllerCoreAsync();
+            if (_childHwnd == IntPtr.Zero)
+            {
+                SafeExecuteHelper.Try(() => controller.Close(), "WebView2Control.CloseDisposedResetController");
+                return null;
+            }
+
+            _controller = controller;
             _lastWidth = -1;
             _lastHeight = -1;
             UpdateBounds();
@@ -210,8 +217,14 @@ namespace Shiro.AvaloniaUI.Controls
 
             try
             {
-                _controller = await CreateIsolatedControllerCoreAsync();
+                var controller = await CreateIsolatedControllerCoreAsync();
+                if (_childHwnd == IntPtr.Zero)
+                {
+                    SafeExecuteHelper.Try(() => controller.Close(), "WebView2Control.CloseDisposedInitController");
+                    return;
+                }
 
+                _controller = controller;
                 UpdateBounds();
                 _controller.IsVisible = true;
                 _isInitialized = true;

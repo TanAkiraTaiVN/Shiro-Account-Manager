@@ -109,7 +109,9 @@ namespace Shiro.Services
                     return;
                 }
 
-                string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+                string localAppData = UnitTestOverride == false
+                    ? Path.Combine(Path.GetTempPath(), "Shiro-ProdBranchTest")
+                    : Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
                 string defaultDataDirectory = Path.Combine(localAppData, "Shiro");
                 dataDirectory = IsPortable ? BaseDirectory : defaultDataDirectory;
 

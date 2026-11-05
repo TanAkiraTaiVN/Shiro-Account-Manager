@@ -149,12 +149,10 @@ namespace Shiro.Classes
             try
             {
                 // Wait for the main frame to be attached
-                for (int i = 0; i < 20; i++)
-                {
-                    if (page.MainFrame != null)
-                        break;
-                    await Task.Delay(100);
-                }
+                await AsyncWaitHelper.WaitUntilAsync(
+                    () => page.MainFrame != null,
+                    TimeSpan.FromMilliseconds(2000),
+                    TimeSpan.FromMilliseconds(50)).ConfigureAwait(false);
 
                 string currentUrl = string.Empty;
                 try { currentUrl = page.Url ?? string.Empty; }

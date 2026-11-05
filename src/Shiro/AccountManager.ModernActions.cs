@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -76,11 +76,12 @@ namespace Shiro
 
             if (placeId <= 0)
             {
-                string? pidSource = Shiro.AvaloniaUI.Views.MainWindow.Instance?.DashboardView?.ViewModel?.PlaceId is string vmPid && !string.IsNullOrWhiteSpace(vmPid)
-                    ? vmPid
-                    : !string.IsNullOrWhiteSpace(CurrentPlaceId)
-                        ? CurrentPlaceId
-                        : targetAccounts.FirstOrDefault(a => !string.IsNullOrEmpty(a.GetField("SavedPlaceId")))?.GetField("SavedPlaceId");
+                // Prefer the dashboard input, then the global CurrentPlaceId (unless the user explicitly
+                // cleared it), and only then fall back to the target account's own SavedPlaceId.
+                string? pidSource = ResolveEffectivePlaceIdSource(
+                    Shiro.AvaloniaUI.Views.MainWindow.Instance?.DashboardView?.ViewModel?.PlaceId,
+                    targetAccounts,
+                    ServerBrowserStateService.Default.IsPlaceIdExplicitlyCleared ? string.Empty : CurrentPlaceId);
 
                 if (!string.IsNullOrWhiteSpace(pidSource))
                     placeId = AccountLauncherService.ParsePlaceId(pidSource);
@@ -157,6 +158,15 @@ namespace Shiro
                 SetDashboardStatus(Shiro.Services.LocalizationService.Get("AccountManager.KilledAndActivatedMulti"));
 
             ModernRefreshPresence();
+        }
+
+        internal static string? ResolveEffectivePlaceIdSource(string? viewModelPlaceId, IEnumerable<Account>? targetAccounts, string? fallbackCurrentPlaceId)
+        {
+            if (!string.IsNullOrWhiteSpace(viewModelPlaceId))
+                return viewModelPlaceId;
+            if (!string.IsNullOrWhiteSpace(fallbackCurrentPlaceId))
+                return fallbackCurrentPlaceId;
+            return targetAccounts?.FirstOrDefault(a => a != null && !string.IsNullOrWhiteSpace(a.GetField("SavedPlaceId")))?.GetField("SavedPlaceId");
         }
     }
 }

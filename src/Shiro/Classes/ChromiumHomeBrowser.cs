@@ -30,9 +30,9 @@ namespace Shiro.Classes
     internal static partial class ChromiumHomeBrowser
     {
         private const string HomeUrl = "https://www.roblox.com/home";
-        private const int StartupTimeoutSeconds = 20;
-        private const int NavigationTimeoutSeconds = 45;
-        private const int ProbeIntervalMilliseconds = 2000;
+        private const int StartupTimeoutSeconds = 15;
+        private const int NavigationTimeoutSeconds = 30;
+        private const int ProbeIntervalMilliseconds = 1500;
         // Reuse the process-wide short-lived CDP client.  Creating a new
         // HttpClient for every account made multi-Home launch pay repeated
         // handler/socket setup costs and could leave loopback connections in

@@ -130,7 +130,9 @@ namespace Shiro.Services
                     continent = region.Equals("RANDOM", StringComparison.OrdinalIgnoreCase) ? null : region
                 };
 
-                string jsonPayload = JsonSerializer.Serialize(payload);
+                string jsonPayload = JsonSerializer.Serialize(
+                    new BloxGenGenerateRequest(type, region.Equals("RANDOM", StringComparison.OrdinalIgnoreCase) ? null : region),
+                    ShiroAppJson.Default.BloxGenGenerateRequest);
                 request.Content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
 
                 using HttpResponseMessage response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);

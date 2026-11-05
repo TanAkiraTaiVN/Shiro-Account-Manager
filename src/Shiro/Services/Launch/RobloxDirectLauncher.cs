@@ -134,6 +134,25 @@ namespace Shiro.Services
         }
 
         /// <summary>
+        /// Builds the command-line arguments for launching Roblox Desktop App Home directly.
+        /// Always includes -t (ticket) when available so RobloxPlayerBeta.exe redeems the ticket via WebLoginController
+        /// and binds the session to its native HBA keypair instead of failing with 401 (code 9002).
+        /// </summary>
+        public static string BuildHomeLaunchArguments(string? ticket, string? browserTrackerId = null)
+        {
+            string args = "--app";
+            if (!string.IsNullOrWhiteSpace(ticket))
+            {
+                args += $" -t \"{ticket}\"";
+            }
+            if (!string.IsNullOrWhiteSpace(browserTrackerId))
+            {
+                args += $" -b {browserTrackerId}";
+            }
+            return args;
+        }
+
+        /// <summary>
         /// Attempts to launch RobloxPlayerBeta.exe directly with credentials and server join instructions.
         /// </summary>
         public static LaunchResult LaunchDirect(string ticket, string joinUrl, string username, string? browserTrackerId = null, string? securityToken = null)
@@ -218,19 +237,14 @@ namespace Shiro.Services
 
             try
             {
-                bool injectedCookie = !string.IsNullOrWhiteSpace(securityToken) &&
+                // When an authentication ticket (-t) is provided, RobloxPlayerBeta.exe redeems it via WebLoginController
+                // (/v1/authentication-ticket/redeem) and generates a native client-HBA-bound .ROBLOSECURITY cookie.
+                // Only fall back to raw RobloxCookies.dat injection when no ticket is available.
+                bool injectedCookie = string.IsNullOrWhiteSpace(ticket) &&
+                    !string.IsNullOrWhiteSpace(securityToken) &&
                     InjectAccountCookieToLocalStorage(securityToken, browserTrackerId, username: username);
 
-                string args = "--app";
-                // Only pass ticket if securityToken was not directly injected, to prevent 403 ticket redeem failures on VPN
-                if (string.IsNullOrWhiteSpace(securityToken) && !string.IsNullOrWhiteSpace(ticket))
-                {
-                    args += $" -t \"{ticket}\"";
-                }
-                if (!string.IsNullOrWhiteSpace(browserTrackerId))
-                {
-                    args += $" -b {browserTrackerId}";
-                }
+                string args = BuildHomeLaunchArguments(ticket, browserTrackerId);
 
                 Process? process = SpawnRobloxProcess(playerPath, args, username);
                 if (process == null)

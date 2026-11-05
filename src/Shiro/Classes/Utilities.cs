@@ -56,6 +56,9 @@ namespace Shiro
 
             public static string Serialize<T>(T value, bool indented = false) =>
                 Services.FastJson.Serialize(value, indented);
+
+            public static byte[] SerializeToUtf8Bytes<T>(T value, bool indented = false) =>
+                Services.FastJson.SerializeToUtf8Bytes(value, indented);
         }
 
         public static void InvokeIfRequired(this Avalonia.Threading.Dispatcher dispatcher, Action? action)

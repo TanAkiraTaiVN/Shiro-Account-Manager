@@ -9,6 +9,7 @@ using Xunit;
 
 namespace Shiro.Tests
 {
+    [Collection("SerialGlobalState")]
     public class MvvmFoundationTests
     {
         private class TestObservable : ObservableObject

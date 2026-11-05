@@ -2,6 +2,9 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
+using System.Text.Json;
+using System.Text.RegularExpressions;
 using Microsoft.Win32;
 using Shiro.Services;
 
@@ -14,9 +17,15 @@ namespace Shiro.Classes
     /// This patcher actively PURGES and removes any ClientSettings folders to ensure Roblox stays
     /// 100% vanilla, clean, and safe from anti-cheat bans.
     /// </summary>
-    public static class ClientSettingsPatcher
+    public static partial class ClientSettingsPatcher
     {
         private static readonly System.Threading.Lock PatchLock = new();
+
+        [GeneratedRegex(@"<int name=""GraphicsQualityLevel"">\d+</int>")]
+        private static partial Regex GraphicsQualityXmlRegex();
+
+        [GeneratedRegex(@"<bool name=""Fullscreen"">(true|false)</bool>")]
+        private static partial Regex FullscreenXmlRegex();
 
         public static void PatchSettings()
         {
@@ -65,18 +74,13 @@ namespace Shiro.Classes
                     if (!Directory.Exists(settingsDir))
                         Directory.CreateDirectory(settingsDir);
 
-                    var dict = new Dictionary<string, object>();
+                    Dictionary<string, JsonElement>? parsed = null;
                     if (File.Exists(jsonPath))
                     {
                         try
                         {
                             string existing = File.ReadAllText(jsonPath);
-                            var parsed = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, System.Text.Json.JsonElement>>(existing);
-                            if (parsed != null)
-                            {
-                                foreach (var kvp in parsed)
-                                    dict[kvp.Key] = kvp.Value;
-                            }
+                            parsed = JsonSerializer.Deserialize(existing, ShiroAppJson.Default.DictionaryStringJsonElement);
                         }
                         catch (Exception ex)
                         {
@@ -84,8 +88,7 @@ namespace Shiro.Classes
                         }
                     }
 
-                    dict[FpsFlagKey] = clampedFps;
-                    string updatedJson = System.Text.Json.JsonSerializer.Serialize(dict, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+                    string updatedJson = SerializeClientSettingsWithFps(parsed, clampedFps);
                     StoragePaths.AtomicWriteText(jsonPath, updatedJson, durable: true);
                     Program.Logger?.Info($"[ClientSettingsPatcher] Applied safe FPS limit ({clampedFps}) to {Path.GetFileName(versionFolder)}");
                 }
@@ -96,17 +99,10 @@ namespace Shiro.Classes
                         try
                         {
                             string existing = File.ReadAllText(jsonPath);
-                            var parsed = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, System.Text.Json.JsonElement>>(existing);
-                            if (parsed != null && parsed.ContainsKey(FpsFlagKey))
+                            var parsed = JsonSerializer.Deserialize(existing, ShiroAppJson.Default.DictionaryStringJsonElement);
+                            if (parsed != null && parsed.Remove(FpsFlagKey))
                             {
-                                var dict = new Dictionary<string, object>();
-                                foreach (var kvp in parsed)
-                                {
-                                    if (kvp.Key != FpsFlagKey)
-                                        dict[kvp.Key] = kvp.Value;
-                                }
-
-                                if (dict.Count == 0)
+                                if (parsed.Count == 0)
                                 {
                                     File.Delete(jsonPath);
                                     if (Directory.Exists(settingsDir) && Directory.GetFileSystemEntries(settingsDir).Length == 0)
@@ -114,7 +110,7 @@ namespace Shiro.Classes
                                 }
                                 else
                                 {
-                                    string updatedJson = System.Text.Json.JsonSerializer.Serialize(dict, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+                                    string updatedJson = SerializeClientSettingsWithFps(parsed, fpsOverride: null);
                                     StoragePaths.AtomicWriteText(jsonPath, updatedJson, durable: true);
                                 }
                                 Program.Logger?.Info($"[ClientSettingsPatcher] Removed FPS limit from {Path.GetFileName(versionFolder)}");
@@ -131,6 +127,35 @@ namespace Shiro.Classes
             {
                 Program.Logger?.Warn($"[ClientSettingsPatcher] ApplyFpsLimitToDirectory failed for {versionFolder}: {ex.Message}");
             }
+        }
+
+        private static string SerializeClientSettingsWithFps(Dictionary<string, JsonElement>? existing, int? fpsOverride)
+        {
+            using var ms = new MemoryStream();
+            using (var writer = new Utf8JsonWriter(ms, new JsonWriterOptions { Indented = true }))
+            {
+                writer.WriteStartObject();
+                if (existing != null)
+                {
+                    foreach (var kvp in existing)
+                    {
+                        if (fpsOverride.HasValue && string.Equals(kvp.Key, FpsFlagKey, StringComparison.Ordinal))
+                            continue;
+
+                        writer.WritePropertyName(kvp.Key);
+                        kvp.Value.WriteTo(writer);
+                    }
+                }
+
+                if (fpsOverride.HasValue)
+                {
+                    writer.WriteNumber(FpsFlagKey, fpsOverride.Value);
+                }
+
+                writer.WriteEndObject();
+            }
+
+            return Encoding.UTF8.GetString(ms.GetBuffer(), 0, (int)ms.Length);
         }
 
         public static void PurgeSettings()
@@ -170,6 +195,42 @@ namespace Shiro.Classes
             }
         }
 
+        internal static string UpdateBasicSettingsXmlContent(
+            string xml,
+            int? graphicsQualityLevel,
+            bool? fullscreen,
+            out bool modified)
+        {
+            modified = false;
+            if (string.IsNullOrEmpty(xml))
+                return string.Empty;
+
+            string current = xml;
+            if (graphicsQualityLevel.HasValue)
+            {
+                int lvl = Math.Clamp(graphicsQualityLevel.Value, 1, 10);
+                string next = GraphicsQualityXmlRegex().Replace(current, $"<int name=\"GraphicsQualityLevel\">{lvl}</int>");
+                if (!ReferenceEquals(next, current) && !string.Equals(next, current, StringComparison.Ordinal))
+                {
+                    current = next;
+                    modified = true;
+                }
+            }
+
+            if (fullscreen.HasValue)
+            {
+                string fsVal = fullscreen.Value ? "true" : "false";
+                string next = FullscreenXmlRegex().Replace(current, $"<bool name=\"Fullscreen\">{fsVal}</bool>");
+                if (!ReferenceEquals(next, current) && !string.Equals(next, current, StringComparison.Ordinal))
+                {
+                    current = next;
+                    modified = true;
+                }
+            }
+
+            return current;
+        }
+
         /// <summary>
         /// Updates Roblox's native GlobalBasicSettings_13.xml safely without touching FastFlags or triggering anti-cheat detections.
         /// </summary>
@@ -183,33 +244,11 @@ namespace Shiro.Classes
                     return false;
 
                 string xml = File.ReadAllText(settingsPath);
-                bool modified = false;
-
-                if (graphicsQualityLevel.HasValue)
-                {
-                    int lvl = Math.Clamp(graphicsQualityLevel.Value, 1, 10);
-                    var pattern = @"<int name=""GraphicsQualityLevel"">\d+</int>";
-                    if (System.Text.RegularExpressions.Regex.IsMatch(xml, pattern))
-                    {
-                        xml = System.Text.RegularExpressions.Regex.Replace(xml, pattern, $"<int name=\"GraphicsQualityLevel\">{lvl}</int>");
-                        modified = true;
-                    }
-                }
-
-                if (fullscreen.HasValue)
-                {
-                    string fsVal = fullscreen.Value ? "true" : "false";
-                    var pattern = @"<bool name=""Fullscreen"">(true|false)</bool>";
-                    if (System.Text.RegularExpressions.Regex.IsMatch(xml, pattern))
-                    {
-                        xml = System.Text.RegularExpressions.Regex.Replace(xml, pattern, $"<bool name=\"Fullscreen\">{fsVal}</bool>");
-                        modified = true;
-                    }
-                }
+                string updatedXml = UpdateBasicSettingsXmlContent(xml, graphicsQualityLevel, fullscreen, out bool modified);
 
                 if (modified)
                 {
-                    StoragePaths.AtomicWriteText(settingsPath, xml, durable: true);
+                    StoragePaths.AtomicWriteText(settingsPath, updatedXml, durable: true);
                     Program.Logger?.Info("[ClientSettingsPatcher] Successfully updated native GlobalBasicSettings_13.xml");
                     return true;
                 }

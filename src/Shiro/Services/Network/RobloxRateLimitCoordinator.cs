@@ -30,8 +30,9 @@ namespace Shiro.Services
 
         private readonly IAppLogger _logger;
         private readonly ConcurrentDictionary<RateLimitCategory, SemaphoreSlim> _categorySemaphores;
-        private readonly ConcurrentDictionary<RateLimitCategory, DateTime> _lastRequestTimes;
+        private readonly System.Collections.Generic.Dictionary<RateLimitCategory, DateTime> _nextAllowedSlotUtc;
         private readonly System.Threading.Lock _backoffLock = new();
+        private readonly System.Threading.Lock _pacingLock = new();
 
         private DateTime _backoffUntilUtc = DateTime.MinValue;
         private int _consecutive429Count = 0;
@@ -63,7 +64,7 @@ namespace Shiro.Services
                 [RateLimitCategory.General] = new SemaphoreSlim(6, 6)
             };
 
-            _lastRequestTimes = new ConcurrentDictionary<RateLimitCategory, DateTime>();
+            _nextAllowedSlotUtc = new System.Collections.Generic.Dictionary<RateLimitCategory, DateTime>();
         }
 
         public bool IsBackingOff
@@ -160,6 +161,31 @@ namespace Shiro.Services
                 _consecutive429Count = 0;
                 _backoffUntilUtc = DateTime.MinValue;
             }
+
+            lock (_pacingLock)
+            {
+                _nextAllowedSlotUtc.Clear();
+            }
+        }
+
+        /// <summary>
+        /// Atomically reserves the next available execution time slot for <paramref name="category"/>,
+        /// ensuring concurrent callers stagger smoothly by <paramref name="minIntervalMs"/> instead of bursting together.
+        /// </summary>
+        internal TimeSpan ReserveNextSlotDelay(RateLimitCategory category, int minIntervalMs, DateTime utcNow)
+        {
+            if (minIntervalMs <= 0)
+                return TimeSpan.Zero;
+
+            lock (_pacingLock)
+            {
+                DateTime nextSlot = _nextAllowedSlotUtc.TryGetValue(category, out DateTime existing) && existing > utcNow
+                    ? existing
+                    : utcNow;
+
+                _nextAllowedSlotUtc[category] = nextSlot.AddMilliseconds(minIntervalMs);
+                return nextSlot > utcNow ? nextSlot - utcNow : TimeSpan.Zero;
+            }
         }
 
         /// <summary>
@@ -196,18 +222,12 @@ namespace Shiro.Services
                 // 1. Backoff if global rate limit is currently active
                 await WaitForBackoffAsync(cancellationToken).ConfigureAwait(false);
 
-                // 2. Pace requests to avoid rapid bursts
-                if (minIntervalMs > 0 && _lastRequestTimes.TryGetValue(category, out var lastTime))
+                // 2. Atomically reserve staggered pacing slot to avoid rapid bursts across concurrent callers
+                TimeSpan slotDelay = ReserveNextSlotDelay(category, minIntervalMs, DateTime.UtcNow);
+                if (slotDelay > TimeSpan.Zero)
                 {
-                    var elapsed = (DateTime.UtcNow - lastTime).TotalMilliseconds;
-                    if (elapsed < minIntervalMs)
-                    {
-                        int waitMs = (int)(minIntervalMs - elapsed);
-                        await Task.Delay(waitMs, cancellationToken).ConfigureAwait(false);
-                    }
+                    await Task.Delay(slotDelay, cancellationToken).ConfigureAwait(false);
                 }
-
-                _lastRequestTimes[category] = DateTime.UtcNow;
 
                 // 3. Execute the operation
                 return await action().ConfigureAwait(false);

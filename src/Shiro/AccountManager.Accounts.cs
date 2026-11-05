@@ -72,7 +72,7 @@ namespace Shiro
             try
             {
                 RestRequest request = LastValidAccount?.MakeRequest("v1/usernames/users", Method.Post) ?? new RestRequest("v1/usernames/users", Method.Post);
-                request.AddJsonBody(new { usernames = new string[] { trimmedName } });
+                request.AddJsonBody(new UsernamesLookupPayload(new string[] { trimmedName }));
 
                 RestResponse response = await UsersClient.ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 

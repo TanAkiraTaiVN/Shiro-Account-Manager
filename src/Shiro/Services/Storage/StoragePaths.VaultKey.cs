@@ -29,6 +29,147 @@ namespace Shiro.Services
                    raw.AsSpan(0, DpapiKeyHeader.Length).SequenceEqual(DpapiKeyHeader);
         }
 
+        internal static byte[] BuildProtectedVaultKeyPayload(byte[] rawKey)
+        {
+            return WrapVaultKey(rawKey);
+        }
+
+        internal static bool TryReadAndUnprotectKeyFile(string path, out byte[]? key, out bool wasRawLegacy)
+        {
+            key = null;
+            wasRawLegacy = false;
+            if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+                return false;
+
+            for (int attempt = 0; attempt < 3; attempt++)
+            {
+                try
+                {
+                    byte[] raw = File.ReadAllBytes(path);
+                    if (HasDpapiKeyHeader(raw))
+                    {
+                        byte[] blob = raw.AsSpan(DpapiKeyHeader.Length).ToArray();
+                        byte[] unprotected = ProtectedData.Unprotect(
+                            blob, DpapiKeyEntropy, DataProtectionScope.CurrentUser);
+                        if (unprotected.Length == 32)
+                        {
+                            key = unprotected;
+                            return true;
+                        }
+                    }
+                    else if (raw.Length == 32)
+                    {
+                        wasRawLegacy = true;
+                        key = raw;
+                        return true;
+                    }
+                    return false;
+                }
+                catch (IOException) when (attempt < 2)
+                {
+                    System.Threading.Thread.Sleep(15);
+                }
+                catch (Exception ex)
+                {
+                    _logger?.Warn($"Failed to read existing vault key from {path}: {ex.Message}");
+                    return false;
+                }
+            }
+
+            return false;
+        }
+
+        internal static byte[] LoadOrCreateVaultKeyAtPath(string keyFile, bool hasExistingEncryptedVault = false)
+        {
+            string bakFile = keyFile + ".bak";
+
+            if (TryReadAndUnprotectKeyFile(keyFile, out byte[]? primaryKey, out bool wasRawLegacy) && primaryKey != null)
+            {
+                if (wasRawLegacy && !IsPortable)
+                {
+                    // Upgrade both primary and backup key files to DPAPI-wrapped format so no raw 32-byte key remains on disk.
+                    try
+                    {
+                        byte[] wrapped = WrapVaultKey(primaryKey);
+                        AtomicWriteBytes(keyFile, wrapped, durable: true);
+                        AtomicWriteBytes(bakFile, wrapped, durable: true);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger?.Warn($"Failed to upgrade raw key to DPAPI format: {ex.Message}");
+                    }
+                }
+                else if (!File.Exists(bakFile))
+                {
+                    try
+                    {
+                        byte[] payload = IsPortable ? primaryKey : WrapVaultKey(primaryKey);
+                        AtomicWriteBytes(bakFile, payload, durable: true);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger?.Warn($"Failed to populate missing backup vault key file: {ex.Message}");
+                    }
+                }
+
+                return primaryKey;
+            }
+
+            if (TryReadAndUnprotectKeyFile(bakFile, out byte[]? backupKey, out _) && backupKey != null)
+            {
+                _logger?.Warn($"Primary vault key at {keyFile} was unreadable; restoring from {bakFile}.");
+                try
+                {
+                    if (File.Exists(keyFile))
+                    {
+                        string corruptCopy = $"{keyFile}.corrupt-{DateTime.UtcNow:yyyyMMdd_HHmmss}.bak";
+                        File.Copy(keyFile, corruptCopy, overwrite: true);
+                    }
+                    byte[] bakBytes = File.ReadAllBytes(bakFile);
+                    AtomicWriteBytes(keyFile, bakBytes, durable: true);
+                }
+                catch (Exception ex)
+                {
+                    _logger?.Warn($"Failed to restore primary vault key file from backup: {ex.Message}");
+                }
+
+                return backupKey;
+            }
+
+            if (File.Exists(keyFile))
+            {
+                // Never silently destroy an existing non-empty key file without preserving a backup copy.
+                try
+                {
+                    string corruptCopy = $"{keyFile}.corrupt-{DateTime.UtcNow:yyyyMMdd_HHmmss}.bak";
+                    File.Copy(keyFile, corruptCopy, overwrite: true);
+                    if (!File.Exists(bakFile))
+                        File.Copy(keyFile, bakFile, overwrite: false);
+                }
+                catch (Exception ex)
+                {
+                    _logger?.Warn($"Failed to preserve backup of damaged vault key file: {ex.Message}");
+                }
+            }
+
+            byte[] newKey = RandomNumberGenerator.GetBytes(32);
+            try
+            {
+                byte[] payload = IsPortable ? newKey : WrapVaultKey(newKey);
+                AtomicWriteBytes(keyFile, payload, durable: true);
+                if (!File.Exists(bakFile) && !hasExistingEncryptedVault)
+                {
+                    AtomicWriteBytes(bakFile, payload, durable: true);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.Error($"Failed to persist newly generated vault key to {keyFile}: {ex.Message}");
+            }
+
+            return newKey;
+        }
+
         public static void ReloadVaultKeyCache()
         {
             lock (_vaultKeyLock)
@@ -95,74 +236,10 @@ namespace Shiro.Services
 
                 EnsureInitialized();
                 string keyFile = VaultKeyFile;
-
-                if (File.Exists(keyFile))
-                {
-                    try
-                    {
-                        byte[] raw = File.ReadAllBytes(keyFile);
-                        if (HasDpapiKeyHeader(raw))
-                        {
-                            byte[] blob = raw.AsSpan(DpapiKeyHeader.Length).ToArray();
-                            byte[] key = ProtectedData.Unprotect(
-                                blob, DpapiKeyEntropy, DataProtectionScope.CurrentUser);
-                            if (key.Length == 32)
-                            {
-                                _cachedVaultKey = key;
-                                return key;
-                            }
-                        }
-                        else if (raw.Length == 32)
-                        {
-                            if (!IsPortable)
-                            {
-                                // Upgrade both primary and backup key files to DPAPI-wrapped format so no raw 32-byte key remains on disk.
-                                try
-                                {
-                                    byte[] wrapped = WrapVaultKey(raw);
-                                    AtomicWriteBytes(keyFile, wrapped, durable: true);
-                                    AtomicWriteBytes(keyFile + ".bak", wrapped, durable: true);
-                                }
-                                catch (Exception ex)
-                                {
-                                    _logger?.Warn($"Failed to upgrade raw key to DPAPI format: {ex.Message}");
-                                }
-                            }
-                            _cachedVaultKey = raw;
-                            return raw;
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger?.Warn($"Failed to read existing vault key from {keyFile}: {ex.Message}");
-                    }
-
-                    // Never silently destroy an existing non-empty key file without preserving a backup copy.
-                    try
-                    {
-                        if (!File.Exists(keyFile + ".bak"))
-                            File.Copy(keyFile, keyFile + ".bak", overwrite: false);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger?.Warn($"Failed to preserve backup of damaged vault key file: {ex.Message}");
-                    }
-                }
-
-                byte[] newKey = RandomNumberGenerator.GetBytes(32);
-                try
-                {
-                    byte[] payload = IsPortable ? newKey : WrapVaultKey(newKey);
-                    AtomicWriteBytes(keyFile, payload, durable: true);
-                    AtomicWriteBytes(keyFile + ".bak", payload, durable: true);
-                }
-                catch (Exception ex)
-                {
-                    _logger?.Error($"Failed to persist newly generated vault key to {keyFile}: {ex.Message}");
-                }
-
-                _cachedVaultKey = newKey;
-                return newKey;
+                bool hasExistingEncryptedVault = File.Exists(AccountDataFile);
+                byte[] resolvedKey = LoadOrCreateVaultKeyAtPath(keyFile, hasExistingEncryptedVault);
+                _cachedVaultKey = resolvedKey;
+                return resolvedKey;
             }
         }
     }

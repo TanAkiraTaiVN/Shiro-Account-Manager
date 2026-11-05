@@ -68,6 +68,10 @@ namespace Shiro.Services
                 _allowExternal = false;
                 _logger.Warn("[KestrelWebServer] External connections require a WebServer password (>= 6 chars); listening on localhost only.");
             }
+            else if (_allowExternal && !WebAuthPolicy.IsStrongExternalPassword(AppServices.ServerBrowserState.WebSocketPassword))
+            {
+                _logger.Warn($"[KestrelWebServer] External access is enabled with a short password (< {WebAuthPolicy.RecommendedExternalPasswordLength} chars). A password of at least {WebAuthPolicy.RecommendedExternalPasswordLength} characters is strongly recommended.");
+            }
 
             _app = LocalKestrelWebServer.Build("Shiro.WebServer", _port, _allowExternal);
 
@@ -264,41 +268,83 @@ namespace Shiro.Services
             }
         }
 
+        private const int DefaultBroadcastSendTimeoutMs = 2000;
+
         /// <summary>
-        /// Asynchronously broadcasts an event envelope to all connected WebSocket clients.
+        /// Serializes a broadcast envelope directly to UTF-8 bytes using source-generated JSON metadata (zero intermediate MemoryStream).
         /// </summary>
-        private static byte[] SerializeBroadcastEnvelope(string eventName, object payload)
+        internal static byte[] SerializeBroadcastEnvelope(string eventName, object? payload)
         {
-            using var stream = new MemoryStream();
-            using (var writer = new Utf8JsonWriter(stream))
+            long timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            return payload switch
             {
-                writer.WriteStartObject();
-                writer.WriteString("event"u8, eventName);
-                writer.WriteNumber("timestamp"u8, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
-                writer.WritePropertyName("data"u8);
-                if (payload is StatusBroadcastPayload status)
+                StatusBroadcastPayload status => JsonSerializer.SerializeToUtf8Bytes(
+                    new BroadcastEnvelope<StatusBroadcastPayload>(eventName, timestamp, status),
+                    ShiroAppJson.Default.BroadcastEnvelopeStatusBroadcastPayload),
+                LaunchProgressBroadcastPayload progress => JsonSerializer.SerializeToUtf8Bytes(
+                    new BroadcastEnvelope<LaunchProgressBroadcastPayload>(eventName, timestamp, progress),
+                    ShiroAppJson.Default.BroadcastEnvelopeLaunchProgressBroadcastPayload),
+                PulseBroadcastPayload pulse => JsonSerializer.SerializeToUtf8Bytes(
+                    new BroadcastEnvelope<PulseBroadcastPayload>(eventName, timestamp, pulse),
+                    ShiroAppJson.Default.BroadcastEnvelopePulseBroadcastPayload),
+                string str => JsonSerializer.SerializeToUtf8Bytes(
+                    new BroadcastEnvelope<string?>(eventName, timestamp, str),
+                    ShiroAppJson.Default.BroadcastEnvelopeString),
+                _ => JsonSerializer.SerializeToUtf8Bytes(
+                    new BroadcastEnvelope<string?>(eventName, timestamp, null),
+                    ShiroAppJson.Default.BroadcastEnvelopeString)
+            };
+        }
+
+        internal static async Task BroadcastToSocketsAsync(
+            ConcurrentDictionary<WebSocket, SemaphoreSlim> sockets,
+            ArraySegment<byte> segment,
+            int sendTimeoutMs = DefaultBroadcastSendTimeoutMs)
+        {
+            if (sockets.IsEmpty) return;
+
+            var tasks = new System.Collections.Generic.List<Task>(sockets.Count);
+            foreach (var kvp in sockets)
+            {
+                var socket = kvp.Key;
+                var gate = kvp.Value;
+                if (socket.State == WebSocketState.Open)
                 {
-                    JsonSerializer.Serialize(writer, status, ShiroAppJson.Default.StatusBroadcastPayload);
+                    tasks.Add(SendWithTimeoutAndPruneAsync(sockets, socket, gate, segment, sendTimeoutMs));
                 }
-                else if (payload is LaunchProgressBroadcastPayload progress)
+                else if (sockets.TryRemove(socket, out var removedGate))
                 {
-                    JsonSerializer.Serialize(writer, progress, ShiroAppJson.Default.LaunchProgressBroadcastPayload);
+                    SafeExecuteHelper.Try(removedGate.Dispose);
                 }
-                else if (payload is PulseBroadcastPayload pulse)
-                {
-                    JsonSerializer.Serialize(writer, pulse, ShiroAppJson.Default.PulseBroadcastPayload);
-                }
-                else if (payload is string str)
-                {
-                    writer.WriteStringValue(str);
-                }
-                else
-                {
-                    writer.WriteNullValue();
-                }
-                writer.WriteEndObject();
             }
-            return stream.ToArray();
+
+            if (tasks.Count > 0)
+            {
+                await Task.WhenAll(tasks).ConfigureAwait(false);
+            }
+        }
+
+        private static async Task SendWithTimeoutAndPruneAsync(
+            ConcurrentDictionary<WebSocket, SemaphoreSlim> sockets,
+            WebSocket socket,
+            SemaphoreSlim gate,
+            ArraySegment<byte> segment,
+            int sendTimeoutMs)
+        {
+            using var cts = new CancellationTokenSource(sendTimeoutMs);
+            try
+            {
+                await SendSafeAsync(socket, gate, segment, cts.Token).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _staticLogger.Debug($"WebSocket broadcast to client failed or timed out: {ex.Message}");
+                if (sockets.TryRemove(socket, out var removedGate))
+                {
+                    SafeExecuteHelper.Try(removedGate.Dispose);
+                }
+                SafeExecuteHelper.Try(socket.Abort);
+            }
         }
 
         public static async Task BroadcastAsync(string eventName, object payload)
@@ -308,35 +354,7 @@ namespace Shiro.Services
             try
             {
                 byte[] bytes = SerializeBroadcastEnvelope(eventName, payload);
-                var segment = new ArraySegment<byte>(bytes);
-
-                foreach (var kvp in _activeSockets)
-                {
-                    var socket = kvp.Key;
-                    var gate = kvp.Value;
-                    if (socket.State == WebSocketState.Open)
-                    {
-                        try
-                        {
-                            await SendSafeAsync(socket, gate, segment).ConfigureAwait(false);
-                        }
-                        catch (Exception ex)
-                        {
-                            _staticLogger.Debug($"WebSocket broadcast to client failed: {ex.Message}");
-                            if (_activeSockets.TryRemove(socket, out var removedGate))
-                            {
-                                SafeExecuteHelper.Try(removedGate.Dispose);
-                            }
-                        }
-                    }
-                    else
-                    {
-                        if (_activeSockets.TryRemove(socket, out var removedGate))
-                        {
-                            SafeExecuteHelper.Try(removedGate.Dispose);
-                        }
-                    }
-                }
+                await BroadcastToSocketsAsync(_activeSockets, new ArraySegment<byte>(bytes)).ConfigureAwait(false);
             }
             catch (Exception ex)
             {

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -22,6 +22,15 @@ namespace Shiro
     public partial class AccountManager
     {
         private static string SaveFilePath => accountStore?.AccountFile ?? StoragePaths.AccountDataFile;
+        private static string? _lockedVaultFilePath;
+
+        public static bool IsVaultLockedPendingMasterPassword
+        {
+            get => !string.IsNullOrEmpty(_lockedVaultFilePath) &&
+                   string.Equals(_lockedVaultFilePath, SaveFilePath, StringComparison.OrdinalIgnoreCase) &&
+                   File.Exists(SaveFilePath);
+            internal set => _lockedVaultFilePath = value ? SaveFilePath : null;
+        }
 
         private static ReadOnlyMemory<byte> PasswordHash; // Store the hash after the data is successfully decrypted so we can encrypt again.
         // A legacy install could explicitly opt into plaintext account data
@@ -41,25 +50,23 @@ namespace Shiro
             try
             {
                 byte[] vaultKey = StoragePaths.GetOrCreateVaultKeyCopy();
-                try
-                {
-                    _ = Cryptography.Decrypt(data, vaultKey);
-                    return false;
-                }
-                finally
-                {
-                    CryptographicOperations.ZeroMemory(vaultKey);
-                }
+                try { _ = Cryptography.Decrypt(data, vaultKey); return false; }
+                finally { CryptographicOperations.ZeroMemory(vaultKey); }
             }
             catch
             {
-                byte[]? recovered = VaultKeyRecoveryService.TryRecoverInProcess(data);
-                return recovered == null;
+                return VaultKeyRecoveryService.TryRecoverInProcess(data) == null;
             }
         }
 
         public async Task ResetEncryptionAsync(bool manualReset = false)
         {
+            if (IsVaultLockedPendingMasterPassword)
+            {
+                AppServices.Dialogs.ShowWarning("Cannot change or reset database encryption while the vault is locked with a Master Password.");
+                return;
+            }
+
             if (manualReset)
             {
                 string? newPass = TestPasswordPromptAsync != null
@@ -112,6 +119,7 @@ namespace Shiro
         {
             unlocked = false;
             legacyPlaintextLoaded = false;
+            IsVaultLockedPendingMasterPassword = false;
             bool EnteredPassword = false;
             byte[] Data = accountStore.Read();
 
@@ -146,6 +154,7 @@ namespace Shiro
                         break;
 
                     case AccountDecodeStatus.NeedsMasterPassword:
+                        IsVaultLockedPendingMasterPassword = true;
                         if (Hash != null)
                             Program.Logger?.Warn($"[LoadAccounts] Master Password decryption failed: {decodeResult.Error?.Message}");
                         else
@@ -172,19 +181,14 @@ namespace Shiro
                 var backupResult = TryLoadFromBackup(BackupData);
                 if (backupResult == BackupLoadResult.PromotedNeedsPassword)
                 {
+                    IsVaultLockedPendingMasterPassword = true;
                     EnableModernDashboard();
                     return;
                 }
             }
 
-            try
-            {
-                AccountRuntimeStateStore.HydrateAccounts(GetAccountsSnapshot());
-            }
-            catch (Exception ex)
-            {
-                Program.Logger?.Debug($"[LoadAccounts] Runtime state hydration skipped: {ex.Message}");
-            }
+            try { AccountRuntimeStateStore.HydrateAccounts(GetAccountsSnapshot()); }
+            catch (Exception ex) { Program.Logger?.Debug($"[LoadAccounts] Runtime state hydration skipped: {ex.Message}"); }
 
             RefreshView();
 
@@ -192,7 +196,6 @@ namespace Shiro
             if (loadedAccounts.Count > 0)
             {
                 LastValidAccount = loadedAccounts[0];
-
                 foreach (Account account in loadedAccounts)
                     if (account.LastUse > LastValidAccount.LastUse)
                         LastValidAccount = account;
@@ -208,24 +211,21 @@ namespace Shiro
                     accountDataNeedsMigration = false;
                     Program.Logger?.Info($"Migrated account data to schema {AccountDataSerializer.CurrentSchemaVersion}.");
                 }
-                catch (Exception exception)
-                {
-                    Program.Logger?.Warn($"Account data migration will be retried after the next successful save: {exception.Message}");
-                }
+                catch (Exception exception) { Program.Logger?.Warn($"Account data migration will be retried after the next successful save: {exception.Message}"); }
             }
         }
 
-        private AccountDecodeKeys CreateDecodeKeys(bool allowRecovery)
+        private AccountDecodeKeys CreateDecodeKeys(bool allowRecovery) => new(
+            GetVaultKeyCopy: StoragePaths.GetOrCreateVaultKeyCopy,
+            TryRecoverVaultKey: allowRecovery ? VaultKeyRecoveryService.TryRecoverInProcess : null,
+            UnprotectDpapi: data => { byte[] plain = TryUnprotectAccountData(data, out bool legacyScope); return (plain, legacyScope); },
+            PlaintextOptIn: File.Exists(PlaintextOptInFile));
+
+        private static void EvictCorruptPrimaryBeforeBackupSave(string saveFilePath)
         {
-            return new AccountDecodeKeys(
-                GetVaultKeyCopy: StoragePaths.GetOrCreateVaultKeyCopy,
-                TryRecoverVaultKey: allowRecovery ? VaultKeyRecoveryService.TryRecoverInProcess : null,
-                UnprotectDpapi: data =>
-                {
-                    byte[] plain = TryUnprotectAccountData(data, out bool legacyScope);
-                    return (plain, legacyScope);
-                },
-                PlaintextOptIn: File.Exists(PlaintextOptInFile));
+            if (string.IsNullOrWhiteSpace(saveFilePath) || !File.Exists(saveFilePath)) return;
+            try { File.Move(saveFilePath, $"{saveFilePath}.corrupt-{DateTime.Now:yyyyMMdd_HHmmss}.bak", overwrite: true); }
+            catch (Exception ex) { Program.Logger?.Warn($"[TryLoadFromBackup] Could not move unreadable primary file before saving backup: {ex.Message}"); }
         }
 
         internal BackupLoadResult TryLoadFromBackup(byte[] backupData)
@@ -242,7 +242,10 @@ namespace Shiro
                     accountDataNeedsMigration |= vaultResult.NeedsMigration;
                     Program.Logger?.Info($"[LoadAccounts] Restored {AccountCount} accounts from backup via vault key.");
                     if (AccountCount > 0)
+                    {
+                        EvictCorruptPrimaryBeforeBackupSave(SaveFilePath);
                         SaveAccounts(true);
+                    }
                     return BackupLoadResult.Restored;
                 }
 
@@ -274,6 +277,7 @@ namespace Shiro
                     if (AccountCount > 0)
                     {
                         Program.Logger?.Info($"[AccountManager] Restored {AccountCount} accounts from backup. Re-persisting primary vault...");
+                        EvictCorruptPrimaryBeforeBackupSave(SaveFilePath);
                         SaveAccounts(true);
                     }
                     return BackupLoadResult.Restored;
@@ -365,6 +369,12 @@ namespace Shiro
         {
             lock (saveLock)
             {
+                if (IsVaultLockedPendingMasterPassword)
+                {
+                    Program.Logger?.Warn("[AccountManager.SaveAccounts] Save blocked because the vault is locked pending Master Password.");
+                    return;
+                }
+
                 IReadOnlyList<Account> accountsSnapshot = GetAccountsSnapshot();
                 bool anyDirty = accountsSnapshot.Any(a => a.IsDirty);
                 SaveGate gate = EvaluateSaveGate(DateTime.Now, startTime, lastSaveTime, BypassRateLimit, BypassCountCheck, accountsSnapshot.Count, anyDirty);
@@ -419,7 +429,9 @@ namespace Shiro
                             byte[] vaultKey = StoragePaths.GetOrCreateVaultKeyCopy();
                             try
                             {
-                                byte[] encrypted = Cryptography.Encrypt(SaveData, vaultKey);
+                                byte[] encrypted = vaultKey.Length == 32
+                                    ? Cryptography.EncryptWithRandomKey(SaveData, vaultKey)
+                                    : Cryptography.Encrypt(SaveData, vaultKey);
                                 accountStore.WriteWithBackup(encrypted, forceHistorical);
                             }
                             finally

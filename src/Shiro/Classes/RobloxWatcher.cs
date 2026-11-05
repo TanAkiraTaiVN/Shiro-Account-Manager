@@ -126,10 +126,14 @@ namespace Shiro.Classes
                     _ => { LogFileRead?.Invoke(null, EventArgs.Empty); return Task.CompletedTask; },
                     enabled: true);
             }
+
+            StartLogDirectoryWatcher();
         }
 
         public static void Stop()
         {
+            StopLogDirectoryWatcher();
+
             _watcherLoop?.Stop();
             _watcherLoop?.Dispose();
             _watcherLoop = null;
@@ -193,13 +197,15 @@ namespace Shiro.Classes
                 }
             }
 
-            var activePids = new HashSet<int>(runningPids.Count);
-            for (int i = 0; i < runningPids.Count; i++)
-                activePids.Add(runningPids[i]);
+            Dictionary<int, IntPtr>? mainWindowByPid = null;
+            if (CloseIfWindowTitle || RememberWindowPositions)
+            {
+                var activePids = new HashSet<int>(runningPids.Count);
+                for (int i = 0; i < runningPids.Count; i++)
+                    activePids.Add(runningPids[i]);
 
-            Dictionary<int, IntPtr>? mainWindowByPid = (CloseIfWindowTitle || RememberWindowPositions)
-                ? BuildMainWindowMap(activePids)
-                : null;
+                mainWindowByPid = BuildMainWindowMap(activePids);
+            }
 
             long nowFileTimeUtc = DateTime.UtcNow.ToFileTimeUtc();
 
@@ -227,18 +233,20 @@ namespace Shiro.Classes
                 if (!hasCachedMeta)
                 {
                     string? commandLine = ProcessExtensions.GetCommandLineByPid(pid);
-                    if (!string.IsNullOrEmpty(commandLine) &&
-                        !commandLine.StartsWith("\\??\\", StringComparison.Ordinal) &&
-                        (commandLine.Contains("-t ", StringComparison.Ordinal) || commandLine.Contains("-j ", StringComparison.Ordinal) || commandLine.Contains("--app", StringComparison.Ordinal)))
+                    if (!string.IsNullOrEmpty(commandLine))
                     {
-                        isGameClient = true;
-                        var trackerMatch = TrackerRegex().Match(commandLine);
-                        trackerId = trackerMatch.Success ? trackerMatch.Groups[1].Value : string.Empty;
-                    }
+                        if (!commandLine.StartsWith("\\??\\", StringComparison.Ordinal) &&
+                            (commandLine.Contains("-t ", StringComparison.Ordinal) || commandLine.Contains("-j ", StringComparison.Ordinal) || commandLine.Contains("--app", StringComparison.Ordinal)))
+                        {
+                            isGameClient = true;
+                            var trackerMatch = TrackerRegex().Match(commandLine);
+                            trackerId = trackerMatch.Success ? trackerMatch.Groups[1].Value : string.Empty;
+                        }
 
-                    lock (InstanceRegistryLock)
-                    {
-                        _pidMetadataCache[pid] = (trackerId, isGameClient, default);
+                        lock (InstanceRegistryLock)
+                        {
+                            _pidMetadataCache[pid] = (trackerId, isGameClient, default);
+                        }
                     }
                 }
 
@@ -312,10 +320,12 @@ namespace Shiro.Classes
                         if (Seen.Contains(pid))
                             continue;
 
-                        Instances.Add(new RobloxProcess(process));
+                        Instances.Add(new RobloxProcess(process, trackerId));
                         Seen.Add(pid);
                         retained = true;
                     }
+
+                    RobloxJobObjectService.AssignProcessByPid(pid);
                 }
                 catch (ArgumentException)
                 {
@@ -342,7 +352,7 @@ namespace Shiro.Classes
 
         private static void PruneExitedMetadataUnderLock(IReadOnlyList<int> activePids)
         {
-            if (_pidMetadataCache.Count <= activePids.Count && Seen.Count <= activePids.Count)
+            if (_pidMetadataCache.Count == 0 && Seen.Count == 0)
                 return;
 
             List<int>? exitedPids = null;

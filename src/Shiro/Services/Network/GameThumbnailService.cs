@@ -22,8 +22,9 @@ namespace Shiro.Services
             set => _logger = value ?? throw new ArgumentNullException(nameof(value));
         }
 
-        private static readonly LruCache<long, Bitmap> _bitmapCache = new LruCache<long, Bitmap>(256);
+        private static readonly LruCache<long, Bitmap> _bitmapCache = new LruCache<long, Bitmap>(256, disposeOnEvict: false);
         private static readonly ConcurrentDictionary<long, Task<Bitmap?>> _inFlightDownloads = new ConcurrentDictionary<long, Task<Bitmap?>>();
+        private static readonly SemaphoreSlim _diskDecodeGate = new SemaphoreSlim(6, 6);
 
         private static string? EnsureThumbnailDirectory()
         {
@@ -43,6 +44,7 @@ namespace Shiro.Services
         public static void ClearCache()
         {
             _bitmapCache.Clear();
+            _inFlightDownloads.Clear();
         }
 
         public static string? GetDiskCachePath(long placeId)
@@ -67,7 +69,7 @@ namespace Shiro.Services
 
         public static bool TryGetCachedBitmap(long placeId, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out Bitmap? bitmap)
         {
-            if (_bitmapCache.TryGetValue(placeId, out bitmap))
+            if (_bitmapCache.TryGetValue(placeId, out bitmap) && bitmap != null)
                 return true;
 
             string? diskPath = GetDiskCachePath(placeId);
@@ -94,8 +96,9 @@ namespace Shiro.Services
         {
             if (placeId <= 0) return null;
 
-            if (TryGetCachedBitmap(placeId, out var cached))
-                return cached;
+            // Fast O(1) memory-only check on caller thread so UI thread never blocks on disk I/O
+            if (_bitmapCache.TryGetValue(placeId, out var memCached) && memCached != null)
+                return memCached;
 
             var downloadTask = _inFlightDownloads.GetOrAdd(placeId, id => DownloadAndCacheThumbnailCoreAsync(id, cdnUrl));
             try
@@ -111,9 +114,39 @@ namespace Shiro.Services
 
         private static async Task<Bitmap?> DownloadAndCacheThumbnailCoreAsync(long placeId, string? cdnUrl)
         {
+            await Task.Yield();
             try
             {
+                if (_bitmapCache.TryGetValue(placeId, out var memCached) && memCached != null)
+                    return memCached;
+
                 string? diskPath = GetDiskCachePath(placeId);
+                if (!string.IsNullOrEmpty(diskPath) && File.Exists(diskPath))
+                {
+                    await _diskDecodeGate.WaitAsync().ConfigureAwait(false);
+                    try
+                    {
+                        if (_bitmapCache.TryGetValue(placeId, out var raceCached) && raceCached != null)
+                            return raceCached;
+
+                        if (File.Exists(diskPath))
+                        {
+                            using var diskStream = File.OpenRead(diskPath);
+                            var diskBmp = Bitmap.DecodeToWidth(diskStream, 96);
+                            _bitmapCache.Set(placeId, diskBmp);
+                            return diskBmp;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Debug($"[GameThumbnailService] Error decoding disk cache for {placeId}: {ex.Message}");
+                    }
+                    finally
+                    {
+                        _diskDecodeGate.Release();
+                    }
+                }
+
                 string? imageUrl = cdnUrl;
 
                 if (string.IsNullOrWhiteSpace(imageUrl))
@@ -144,10 +177,18 @@ namespace Shiro.Services
                             EnsureThumbnailDirectory();
                             StoragePaths.AtomicWriteBytes(diskPath, bytes);
 
-                            using var memStream = new MemoryStream(bytes);
-                            var bmp = Bitmap.DecodeToWidth(memStream, 96);
-                            _bitmapCache.Set(placeId, bmp);
-                            return bmp;
+                            await _diskDecodeGate.WaitAsync().ConfigureAwait(false);
+                            try
+                            {
+                                using var memStream = new MemoryStream(bytes);
+                                var bmp = Bitmap.DecodeToWidth(memStream, 96);
+                                _bitmapCache.Set(placeId, bmp);
+                                return bmp;
+                            }
+                            finally
+                            {
+                                _diskDecodeGate.Release();
+                            }
                         }
                     }
                 }
@@ -187,8 +228,7 @@ namespace Shiro.Services
                     using var doc = await JsonDocument.ParseAsync(await resp.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false), cancellationToken: cancellationToken).ConfigureAwait(false);
                     if (doc.RootElement.TryGetProperty("data", out var dataElem) && dataElem.ValueKind == JsonValueKind.Array)
                     {
-                        using var downloadGate = new SemaphoreSlim(8, 8);
-                        var tasks = new List<Task>();
+                        var entries = new List<(long TargetId, string ImageUrl)>();
                         foreach (var item in dataElem.EnumerateArray())
                         {
                             long targetId = item.TryGetProperty("targetId", out var idProp) && idProp.TryGetInt64(out long tid) ? tid : 0;
@@ -196,10 +236,20 @@ namespace Shiro.Services
 
                             if (targetId > 0 && !string.IsNullOrWhiteSpace(imageUrl))
                             {
-                                tasks.Add(DownloadBatchThumbnailItemAsync(targetId, imageUrl, downloadGate, cancellationToken));
+                                entries.Add((targetId, imageUrl));
                             }
                         }
-                        await Task.WhenAll(tasks).ConfigureAwait(false);
+
+                        if (entries.Count > 0)
+                        {
+                            await Parallel.ForEachAsync(
+                                entries,
+                                new ParallelOptions { MaxDegreeOfParallelism = 8, CancellationToken = cancellationToken },
+                                async (entry, ct) =>
+                                {
+                                    await DownloadBatchThumbnailItemAsync(entry.TargetId, entry.ImageUrl, ct).ConfigureAwait(false);
+                                }).ConfigureAwait(false);
+                        }
                     }
                 }
                 catch (Exception ex)
@@ -209,9 +259,8 @@ namespace Shiro.Services
             }
         }
 
-        private static async Task DownloadBatchThumbnailItemAsync(long targetId, string imageUrl, SemaphoreSlim downloadGate, CancellationToken cancellationToken)
+        private static async Task DownloadBatchThumbnailItemAsync(long targetId, string imageUrl, CancellationToken cancellationToken)
         {
-            await downloadGate.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
             {
                 using var imgReq = new HttpRequestMessage(HttpMethod.Get, imageUrl);
@@ -229,10 +278,6 @@ namespace Shiro.Services
             catch (Exception ex)
             {
                 _logger.Debug($"Download game thumbnail item {targetId} failed: {ex.Message}");
-            }
-            finally
-            {
-                SafeExecuteHelper.Try(() => downloadGate.Release(), "GameThumbnailService.ReleaseDownloadGate");
             }
         }
     }

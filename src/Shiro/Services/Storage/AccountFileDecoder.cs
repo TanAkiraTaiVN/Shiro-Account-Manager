@@ -41,13 +41,15 @@ namespace Shiro.Services
 
             if (Cryptography.IsEncrypted(data))
             {
+                bool legacyCryptoHeader = Cryptography.IsLegacyHeader(data);
+
                 if (masterPassword != null)
                 {
                     try
                     {
                         byte[] decrypted = Cryptography.Decrypt(data, masterPassword);
                         var accounts = AccountDataSerializer.Deserialize(decrypted, out bool needsMigration);
-                        return new AccountDecodeResult(AccountDecodeStatus.Loaded, accounts, needsMigration, false, null);
+                        return new AccountDecodeResult(AccountDecodeStatus.Loaded, accounts, needsMigration || legacyCryptoHeader, false, null);
                     }
                     catch (Exception ex)
                     {
@@ -122,7 +124,7 @@ namespace Shiro.Services
                     try
                     {
                         var accounts = AccountDataSerializer.Deserialize(decryptedVault, out bool needsMigration);
-                        return new AccountDecodeResult(AccountDecodeStatus.Loaded, accounts, needsMigration, false, null);
+                        return new AccountDecodeResult(AccountDecodeStatus.Loaded, accounts, needsMigration || legacyCryptoHeader, false, null);
                     }
                     catch (Exception ex)
                     {

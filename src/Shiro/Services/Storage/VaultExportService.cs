@@ -10,17 +10,19 @@ namespace Shiro.Services
 {
     /// <summary>
     /// Service for cross-device encrypted vault transfer (export and import).
-    /// Uses PBKDF2-SHA256 (300,000 iterations) key derivation, AES-256-GCM authenticated
+    /// Uses PBKDF2-SHA256 (600,000 iterations in V2; 300,000 in legacy V1) key derivation, AES-256-GCM authenticated
     /// encryption with zero-memory key wiping, allowing secure transfer independent of DPAPI.
     /// </summary>
     public static class VaultExportService
     {
-        private static ReadOnlySpan<byte> HeaderMagic => "SHIRO_VAULT_V1"u8;
+        private static ReadOnlySpan<byte> HeaderMagic => "SHIRO_VAULT_V2"u8;
+        private static ReadOnlySpan<byte> LegacyHeaderMagicV1 => "SHIRO_VAULT_V1"u8;
         private const int SaltSizeBytes = 16;
         private const int NonceSizeBytes = 12;
         private const int TagSizeBytes = 16;
         private const int KeySizeBytes = 32;
-        private const int Pbkdf2Iterations = 300_000;
+        public const int Pbkdf2Iterations = 600_000;
+        public const int LegacyV1Pbkdf2Iterations = 300_000;
         private const int HeaderPrefixSizeBytes = 14 + SaltSizeBytes + NonceSizeBytes + TagSizeBytes; // 58 bytes
 
         /// <summary>
@@ -98,7 +100,16 @@ namespace Shiro.Services
             }
 
             ReadOnlySpan<byte> magic = headerBuffer[..HeaderMagic.Length];
-            if (!magic.SequenceEqual(HeaderMagic))
+            int iterations;
+            if (magic.SequenceEqual(HeaderMagic))
+            {
+                iterations = Pbkdf2Iterations;
+            }
+            else if (magic.SequenceEqual(LegacyHeaderMagicV1))
+            {
+                iterations = LegacyV1Pbkdf2Iterations;
+            }
+            else
             {
                 throw new InvalidDataException("Invalid or unsupported vault header magic.");
             }
@@ -129,7 +140,7 @@ namespace Shiro.Services
                 Span<byte> key = stackalloc byte[KeySizeBytes];
                 try
                 {
-                    Rfc2898DeriveBytes.Pbkdf2(passphrase, salt, key, Pbkdf2Iterations, HashAlgorithmName.SHA256);
+                    Rfc2898DeriveBytes.Pbkdf2(passphrase, salt, key, iterations, HashAlgorithmName.SHA256);
                     using var aesGcm = new AesGcm(key, TagSizeBytes);
                     try
                     {

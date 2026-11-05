@@ -31,6 +31,7 @@
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
 
     <!-- .NET 10 High Performance Runtime & Compiler Options -->
+    <SelfContained>true</SelfContained>
     <TieredPGO>true</TieredPGO>
     <PublishReadyToRun>true</PublishReadyToRun>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
@@ -46,6 +47,10 @@
     <EnableRequestDelegateGenerator Condition="'$(PublishAot)' == 'true'">false</EnableRequestDelegateGenerator>
     <NoWarn Condition="'$(PublishAot)' == 'true'">$(NoWarn);IL2026;IL3050;CS9144;IL2072;IL2087</NoWarn>
   </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Shiro.Tests" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Web.WebView2" />

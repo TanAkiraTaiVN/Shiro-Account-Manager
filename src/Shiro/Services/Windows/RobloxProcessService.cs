@@ -220,12 +220,75 @@ namespace Shiro.Services
             }
         }
 
+        private static unsafe bool TryCollectRobloxPidsNative(List<int> pids)
+        {
+            if (!OperatingSystem.IsWindows())
+                return false;
+
+            IntPtr hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+            if (hSnapshot == INVALID_HANDLE_VALUE || hSnapshot == IntPtr.Zero)
+                return false;
+
+            try
+            {
+                PROCESSENTRY32W entry = default;
+                entry.dwSize = (uint)sizeof(PROCESSENTRY32W);
+
+                if (!Process32FirstW(hSnapshot, &entry))
+                    return false;
+
+                do
+                {
+                    ReadOnlySpan<char> exeSpan = MemoryMarshal.CreateReadOnlySpanFromNullTerminated(entry.szExeFile);
+                    if (exeSpan.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+                        exeSpan = exeSpan[..^4];
+
+                    for (int i = 0; i < RobloxProcessNames.Length; i++)
+                    {
+                        if (exeSpan.Equals(RobloxProcessNames[i].AsSpan(), StringComparison.OrdinalIgnoreCase))
+                        {
+                            pids.Add((int)entry.th32ProcessID);
+                            break;
+                        }
+                    }
+                } while (Process32NextW(hSnapshot, &entry));
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                AppServices.Logger.Debug($"TryCollectRobloxPidsNative failed: {ex.Message}");
+                return false;
+            }
+            finally
+            {
+                CloseHandle(hSnapshot);
+            }
+        }
+
         /// <summary>
         /// Gets all active Roblox processes currently running on the system.
         /// </summary>
         public static IReadOnlyList<Process> GetRunningRobloxProcesses()
         {
             var result = new List<Process>();
+            var pids = new List<int>(8);
+            if (TryCollectRobloxPidsNative(pids))
+            {
+                foreach (int pid in pids)
+                {
+                    try
+                    {
+                        result.Add(Process.GetProcessById(pid));
+                    }
+                    catch (Exception ex)
+                    {
+                        AppServices.Logger.Debug($"[RobloxProcessService] GetProcessById({pid}) skipped: {ex.Message}");
+                    }
+                }
+                return result;
+            }
+
             foreach (var name in RobloxProcessNames)
             {
                 try
@@ -235,7 +298,7 @@ namespace Shiro.Services
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Debug($"[RobloxProcessService] Error querying process '{name}': {ex.Message}");
+                    AppServices.Logger.Debug($"[RobloxProcessService] Error querying process '{name}': {ex.Message}");
                 }
             }
             return result;
@@ -330,13 +393,22 @@ namespace Shiro.Services
         /// </summary>
         internal static Func<IReadOnlyList<int>>? TestGetRunningRobloxPidsOverride;
 
-        public static List<int> GetRunningRobloxPids()
+        public static List<int> GetRunningRobloxPids(bool includeTrayDaemons = false)
         {
             if (TestGetRunningRobloxPidsOverride != null)
-                return TestGetRunningRobloxPidsOverride().ToList();
+            {
+                var overridden = TestGetRunningRobloxPidsOverride().ToList();
+                if (!includeTrayDaemons && ProcessExtensions.TestCommandLineOverride != null)
+                    overridden.RemoveAll(ProcessExtensions.IsLaunchToTrayProcess);
+                return overridden;
+            }
             var result = new List<int>();
             if (TryGetProcessCountsNative(out _, out _, result))
+            {
+                if (!includeTrayDaemons && result.Count > 0)
+                    result.RemoveAll(ProcessExtensions.IsLaunchToTrayProcess);
                 return result;
+            }
 
             try
             {
@@ -349,8 +421,7 @@ namespace Shiro.Services
                         {
                             if (!p.HasExited)
                             {
-                                string? cmd = p.GetCommandLine();
-                                if (!string.IsNullOrEmpty(cmd) && cmd.Contains("--launch-to-tray", StringComparison.OrdinalIgnoreCase))
+                                if (!includeTrayDaemons && ProcessExtensions.IsLaunchToTrayCommandLine(p.GetCommandLine()))
                                     continue;
                                 result.Add(p.Id);
                             }

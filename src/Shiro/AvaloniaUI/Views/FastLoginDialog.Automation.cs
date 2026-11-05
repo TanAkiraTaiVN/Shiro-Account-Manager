@@ -1,5 +1,7 @@
 #nullable enable
 using System;
+using System.IO;
+using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.Web.WebView2.Core;
@@ -24,6 +26,17 @@ namespace Shiro.AvaloniaUI.Views
             await InstallHbaCaptureHookAsync(core);
             await core.AddScriptToExecuteOnDocumentCreatedAsync(FastLoginCoordinator.GetLoginPageEnhancementScript());
 
+            try
+            {
+                core.AddWebResourceRequestedFilter("*://*.roblox.com/*", CoreWebView2WebResourceContext.All);
+                core.WebResourceRequested -= OnWebResourceRequested;
+                core.WebResourceRequested += OnWebResourceRequested;
+            }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"[FastLoginDialog] AddWebResourceRequestedFilter threw: {ex.Message}");
+            }
+
             core.WebMessageReceived -= OnWebMessageReceived;
             core.WebMessageReceived += OnWebMessageReceived;
 
@@ -31,6 +44,49 @@ namespace Shiro.AvaloniaUI.Views
             core.SourceChanged -= OnSourceChanged;
             core.NavigationCompleted += OnNavigationCompleted;
             core.SourceChanged += OnSourceChanged;
+        }
+
+        private void OnWebResourceRequested(object? sender, CoreWebView2WebResourceRequestedEventArgs e)
+        {
+            try
+            {
+                var acc = _restoredModerationAccount;
+                if (acc == null || !acc.HasHbaBinding || e?.Request == null)
+                    return;
+
+                if (e.Request.Headers.Contains(RobloxHbaService.BoundAuthHeaderName))
+                    return;
+
+                string uri = e.Request.Uri ?? string.Empty;
+                if (string.IsNullOrEmpty(uri))
+                    return;
+
+                string method = string.IsNullOrWhiteSpace(e.Request.Method) ? "GET" : e.Request.Method;
+                string? bodyContent = null;
+                if (e.Request.Content != null && e.Request.Content.CanSeek)
+                {
+                    long pos = e.Request.Content.Position;
+                    using var reader = new StreamReader(e.Request.Content, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: true);
+                    bodyContent = reader.ReadToEnd();
+                    e.Request.Content.Position = pos;
+                }
+
+                if (RobloxHbaService.TryBuildBoundAuthToken(
+                    acc.HbaPrivateKeyPkcs8,
+                    uri,
+                    method,
+                    bodyContent,
+                    acc.HbaTemplate,
+                    unixTimestampOverride: null,
+                    out string batToken) && !string.IsNullOrEmpty(batToken))
+                {
+                    e.Request.Headers.SetHeader(RobloxHbaService.BoundAuthHeaderName, batToken);
+                }
+            }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"[FastLoginDialog.OnWebResourceRequested] {ex.Message}");
+            }
         }
 
         private void OnWebMessageReceived(object? sender, CoreWebView2WebMessageReceivedEventArgs e)

@@ -6,4 +6,14 @@ namespace Shiro.Tests.TestInfrastructure
     public sealed class StaticSeamsCollection
     {
     }
+
+    [CollectionDefinition("SerialGlobalState", DisableParallelization = true)]
+    public sealed class SerialGlobalStateCollection
+    {
+    }
+
+    [CollectionDefinition("SequentialStateTests", DisableParallelization = true)]
+    public sealed class SequentialStateTestsCollection
+    {
+    }
 }

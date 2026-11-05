@@ -15,8 +15,21 @@ namespace Shiro.Services
 
         private static Window? GetActiveOwner() => MessageBoxDialog.GetActiveWindow();
 
+        private static async Task ShowModalOrTopLevelAsync(Window dialog)
+        {
+            var owner = GetActiveOwner();
+            if (MessageBoxDialog.IsValidDialogOwner(owner))
+                await dialog.ShowDialog(owner!);
+            else
+                dialog.Show();
+        }
+
         public async Task<bool> ConfirmAsync(string message, string title)
         {
+            if (!Dispatcher.UIThread.CheckAccess())
+            {
+                return await Dispatcher.UIThread.InvokeAsync(() => ConfirmAsync(message, title));
+            }
             var owner = GetActiveOwner();
             var res = await MessageBoxDialog.ShowAsync(message, title, MessageBoxButtons.YesNo, MessageBoxIcon.Warning, owner);
             return res == MessageBoxResult.Yes;
@@ -24,6 +37,11 @@ namespace Shiro.Services
 
         public async Task AlertAsync(string message, string title, PromptSeverity severity)
         {
+            if (!Dispatcher.UIThread.CheckAccess())
+            {
+                await Dispatcher.UIThread.InvokeAsync(() => AlertAsync(message, title, severity));
+                return;
+            }
             var owner = GetActiveOwner();
             var icon = severity switch
             {
@@ -90,12 +108,15 @@ namespace Shiro.Services
         {
             AppDispatcher.Post(async () =>
             {
-                var owner = GetActiveOwner();
-                var dialog = new FastLoginDialog(account!);
-                if (owner != null)
-                    await dialog.ShowDialog(owner);
-                else
-                    dialog.Show();
+                try
+                {
+                    var dialog = new FastLoginDialog(account!);
+                    await ShowModalOrTopLevelAsync(dialog);
+                }
+                catch (Exception ex)
+                {
+                    AppServices.Logger.Error($"[AvaloniaDialogService.OpenFastLoginDialog] {ex}");
+                }
             });
         }
 
@@ -103,12 +124,15 @@ namespace Shiro.Services
         {
             AppDispatcher.Post(async () =>
             {
-                var owner = GetActiveOwner();
-                var dialog = new FastLoginDialog(accounts);
-                if (owner != null)
-                    await dialog.ShowDialog(owner);
-                else
-                    dialog.Show();
+                try
+                {
+                    var dialog = new FastLoginDialog(accounts);
+                    await ShowModalOrTopLevelAsync(dialog);
+                }
+                catch (Exception ex)
+                {
+                    AppServices.Logger.Error($"[AvaloniaDialogService.OpenFastLoginDialogBatch] {ex}");
+                }
             });
         }
 
@@ -116,12 +140,15 @@ namespace Shiro.Services
         {
             AppDispatcher.Post(async () =>
             {
-                var owner = GetActiveOwner();
-                var dialog = new BulkImportDialog();
-                if (owner != null)
-                    await dialog.ShowDialog(owner);
-                else
-                    dialog.Show();
+                try
+                {
+                    var dialog = new BulkImportDialog();
+                    await ShowModalOrTopLevelAsync(dialog);
+                }
+                catch (Exception ex)
+                {
+                    AppServices.Logger.Error($"[AvaloniaDialogService.OpenBulkImportDialog] {ex}");
+                }
             });
         }
 
@@ -129,12 +156,15 @@ namespace Shiro.Services
         {
             AppDispatcher.Post(async () =>
             {
-                var owner = GetActiveOwner();
-                var dialog = new AltGenDialog();
-                if (owner != null)
-                    await dialog.ShowDialog(owner);
-                else
-                    dialog.Show();
+                try
+                {
+                    var dialog = new AltGenDialog();
+                    await ShowModalOrTopLevelAsync(dialog);
+                }
+                catch (Exception ex)
+                {
+                    AppServices.Logger.Error($"[AvaloniaDialogService.OpenAltGenDialog] {ex}");
+                }
             });
         }
 
@@ -142,12 +172,15 @@ namespace Shiro.Services
         {
             AppDispatcher.Post(async () =>
             {
-                var owner = GetActiveOwner();
-                var dialog = new ProxyManagerDialog();
-                if (owner != null)
-                    await dialog.ShowDialog(owner);
-                else
-                    dialog.Show();
+                try
+                {
+                    var dialog = new ProxyManagerDialog();
+                    await ShowModalOrTopLevelAsync(dialog);
+                }
+                catch (Exception ex)
+                {
+                    AppServices.Logger.Error($"[AvaloniaDialogService.OpenProxyManagerDialog] {ex}");
+                }
             });
         }
 
@@ -173,7 +206,7 @@ namespace Shiro.Services
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Error($"Failed to open Nexus: {ex}");
+                    AppServices.Logger.Error($"Failed to open Nexus: {ex}");
                     ShowError(Shiro.Services.LocalizationService.Format("Dialog.NexusOpenFailed", ex.Message), Shiro.Services.LocalizationService.Get("Dialog.NexusErrorTitle"));
                 }
             });
@@ -183,12 +216,15 @@ namespace Shiro.Services
         {
             AppDispatcher.Post(async () =>
             {
-                var owner = GetActiveOwner();
-                var dialog = new AboutDialog();
-                if (owner != null)
-                    await dialog.ShowDialog(owner);
-                else
-                    dialog.Show();
+                try
+                {
+                    var dialog = new AboutDialog();
+                    await ShowModalOrTopLevelAsync(dialog);
+                }
+                catch (Exception ex)
+                {
+                    AppServices.Logger.Error($"[AvaloniaDialogService.OpenAboutDialog] {ex}");
+                }
             });
         }
 
@@ -197,12 +233,15 @@ namespace Shiro.Services
             if (account == null) return;
             AppDispatcher.Post(async () =>
             {
-                var owner = GetActiveOwner();
-                var dialog = new AccountFieldsDialog(account);
-                if (owner != null)
-                    await dialog.ShowDialog(owner);
-                else
-                    dialog.Show();
+                try
+                {
+                    var dialog = new AccountFieldsDialog(account);
+                    await ShowModalOrTopLevelAsync(dialog);
+                }
+                catch (Exception ex)
+                {
+                    AppServices.Logger.Error($"[AvaloniaDialogService.OpenAccountFieldsDialog] {ex}");
+                }
             });
         }
 
@@ -211,12 +250,15 @@ namespace Shiro.Services
             if (account == null) return;
             AppDispatcher.Post(async () =>
             {
-                var owner = GetActiveOwner();
-                var dialog = new AccountUtilsDialog(account);
-                if (owner != null)
-                    await dialog.ShowDialog(owner);
-                else
-                    dialog.Show();
+                try
+                {
+                    var dialog = new AccountUtilsDialog(account);
+                    await ShowModalOrTopLevelAsync(dialog);
+                }
+                catch (Exception ex)
+                {
+                    AppServices.Logger.Error($"[AvaloniaDialogService.OpenAccountUtilsDialog] {ex}");
+                }
             });
         }
 
@@ -225,12 +267,19 @@ namespace Shiro.Services
             if (account == null) return;
             AppDispatcher.Post(() =>
             {
-                var dialog = new MissingAssetsDialog(account, assetIds);
-                var owner = GetActiveOwner();
-                if (owner != null)
-                    dialog.Show(owner);
-                else
-                    dialog.Show();
+                try
+                {
+                    var dialog = new MissingAssetsDialog(account, assetIds);
+                    var owner = GetActiveOwner();
+                    if (MessageBoxDialog.IsValidDialogOwner(owner))
+                        dialog.Show(owner!);
+                    else
+                        dialog.Show();
+                }
+                catch (Exception ex)
+                {
+                    AppServices.Logger.Error($"[AvaloniaDialogService.OpenMissingAssetsDialog] {ex}");
+                }
             });
         }
     }

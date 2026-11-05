@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using Shiro.Classes;
@@ -33,10 +34,14 @@ namespace Shiro.Services
                         }
                         else
                         {
-                            if (string.IsNullOrWhiteSpace(existing.SecurityToken) && !string.IsNullOrWhiteSpace(acc.SecurityToken))
+                            bool accHasNewerToken = !string.IsNullOrWhiteSpace(acc.SecurityToken) &&
+                                                    (string.IsNullOrWhiteSpace(existing.SecurityToken) || acc.LastUse > existing.LastUse);
+                            if (accHasNewerToken)
                             {
                                 existing.SecurityToken = acc.SecurityToken;
                                 existing.Valid = acc.Valid;
+                                if (acc.LastUse > existing.LastUse)
+                                    existing.LastUse = acc.LastUse;
                             }
                             if (string.IsNullOrWhiteSpace(existing.Password) && !string.IsNullOrWhiteSpace(acc.Password))
                                 existing.Password = acc.Password;
@@ -44,25 +49,65 @@ namespace Shiro.Services
                                 existing.UserID = acc.UserID;
                             if (string.IsNullOrWhiteSpace(existing.Alias) && !string.IsNullOrWhiteSpace(acc.Alias))
                                 existing.Alias = acc.Alias;
+                            if (acc.Fields != null && acc.Fields.Count > 0)
+                            {
+                                existing.Fields ??= new Dictionary<string, string>();
+                                foreach (var kvp in acc.Fields)
+                                {
+                                    if (!existing.Fields.TryGetValue(kvp.Key, out string? curVal) || string.IsNullOrWhiteSpace(curVal))
+                                        existing.Fields[kvp.Key] = kvp.Value;
+                                }
+                            }
                         }
                     }
                 }
 
-                // 1. Load current AccountData.json
-                if (File.Exists(StoragePaths.AccountDataFile))
+                // 1. Load current AccountData.json and historical AES backups (newest first)
+                var encryptedCandidates = new List<string>
                 {
+                    StoragePaths.AccountDataFile,
+                    StoragePaths.AccountDataFile + ".backup",
+                    StoragePaths.AccountDataFile + ".bak"
+                };
+
+                try
+                {
+                    if (Directory.Exists(StoragePaths.BackupsDirectory))
+                    {
+                        var historical = Directory.GetFiles(StoragePaths.BackupsDirectory, "AccountData_*.json.bak")
+                            .OrderByDescending(f =>
+                            {
+                                try { return File.GetLastWriteTimeUtc(f); }
+                                catch { return DateTime.MinValue; }
+                            });
+                        encryptedCandidates.AddRange(historical);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    TraceLog($"Failed enumerating BackupsDirectory: {ex.Message}");
+                }
+
+                bool primaryDecrypted = false;
+                foreach (string encFile in encryptedCandidates)
+                {
+                    if (!File.Exists(encFile))
+                        continue;
+
                     try
                     {
-                        byte[] raw = File.ReadAllBytes(StoragePaths.AccountDataFile);
+                        byte[] raw = File.ReadAllBytes(encFile);
                         if (Cryptography.IsEncrypted(raw))
                         {
                             byte[] dec = Cryptography.Decrypt(raw, vaultKey);
                             MergeList(AccountDataSerializer.Deserialize(dec, out _));
+                            if (string.Equals(encFile, StoragePaths.AccountDataFile, StringComparison.OrdinalIgnoreCase))
+                                primaryDecrypted = true;
                         }
                     }
                     catch (Exception ex)
                     {
-                        TraceLog($"Failed reading current AccountData.json candidate: {ex.Message}");
+                        TraceLog($"Failed reading encrypted account candidate '{encFile}': {ex.Message}");
                     }
                 }
 
@@ -144,6 +189,29 @@ namespace Shiro.Services
                 }
 
                 var finalList = new List<Account>(byUsername.Values);
+                int validTokenCount = finalList.Count(a => !string.IsNullOrWhiteSpace(a.SecurityToken));
+                if (File.Exists(StoragePaths.AccountDataFile) && !primaryDecrypted && validTokenCount == 0)
+                {
+                    TraceLog("Merge aborted: existing AccountData.json could not be decrypted and no valid tokens were recovered.");
+                    return 1;
+                }
+
+                if (File.Exists(StoragePaths.AccountDataFile))
+                {
+                    try
+                    {
+                        Directory.CreateDirectory(StoragePaths.BackupsDirectory);
+                        string preMergePath = Path.Combine(
+                            StoragePaths.BackupsDirectory,
+                            $"AccountData_pre_merge_{DateTime.UtcNow:yyyyMMdd_HHmmss}.json.bak");
+                        File.Copy(StoragePaths.AccountDataFile, preMergePath, overwrite: true);
+                    }
+                    catch (Exception ex)
+                    {
+                        TraceLog($"Failed to create pre-merge backup: {ex.Message}");
+                    }
+                }
+
                 byte[] serialized = AccountDataSerializer.Serialize(finalList, includePasswords: true);
                 byte[] encrypted = Cryptography.Encrypt(serialized, vaultKey);
                 StoragePaths.AtomicWriteBytes(StoragePaths.AccountDataFile, encrypted, durable: true);

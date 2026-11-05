@@ -32,6 +32,16 @@ namespace Shiro.Services
 
         private static readonly ConcurrentDictionary<int, ClientState> _clients = new ConcurrentDictionary<int, ClientState>();
 
+        static AntiAfkService()
+        {
+            RobloxJobObjectService.ProcessExitedFromJob += static (pid, _) => RemoveClientState(pid);
+        }
+
+        internal static bool RemoveClientState(int pid)
+        {
+            return pid > 0 && _clients.TryRemove(pid, out _);
+        }
+
         private static bool _enabled = false;
         private static int _intervalMinutes = 8;
         private static int _tapsSent = 0;
@@ -172,6 +182,12 @@ namespace Shiro.Services
                 }
                 var windowMap = RobloxWindowService.FindWindowMapForPids(pidSet);
 
+                // Silent non-disruptive background message injection:
+                // Computes the hardware scan code once per pass so DirectInput and Win32 message loops recognize the pulse.
+                uint scanCode = MapVirtualKey((uint)VK_F15, 0);
+                IntPtr lParamDown = (IntPtr)(1 | (scanCode << 16));
+                IntPtr lParamUp = (IntPtr)(1 | (scanCode << 16) | (1 << 30) | (1 << 31));
+
                 foreach (int pid in pids)
                 {
                     var st = _clients.GetOrAdd(pid, _ => new ClientState());
@@ -182,12 +198,6 @@ namespace Shiro.Services
                         st.NextDueUtc = DateTime.UtcNow.AddMinutes(2);
                         continue;
                     }
-
-                    // Silent non-disruptive background message injection:
-                    // Computes the hardware scan code so DirectInput and Win32 message loops recognize the pulse.
-                    uint scanCode = MapVirtualKey((uint)VK_F15, 0);
-                    IntPtr lParamDown = (IntPtr)(1 | (scanCode << 16));
-                    IntPtr lParamUp = (IntPtr)(1 | (scanCode << 16) | (1 << 30) | (1 << 31));
 
                     bool isHidden = RobloxWindowService.AreWindowsHidden || !IsWindowVisible(hWnd);
                     bool isForegroundWindow = hWnd == GetForegroundWindow();

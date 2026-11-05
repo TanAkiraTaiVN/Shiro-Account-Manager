@@ -66,6 +66,13 @@ namespace Shiro.Services
 
         internal static Func<int, string?>? TestCommandLineOverride;
 
+        public static bool IsLaunchToTrayCommandLine(string? commandLine) =>
+            !string.IsNullOrEmpty(commandLine) &&
+            commandLine.Contains("--launch-to-tray", StringComparison.OrdinalIgnoreCase);
+
+        public static bool IsLaunchToTrayProcess(int pid) =>
+            pid > 0 && IsLaunchToTrayCommandLine(GetCommandLineByPid(pid));
+
         public static unsafe string? GetCommandLineByPid(int pid)
         {
             if (TestCommandLineOverride != null)

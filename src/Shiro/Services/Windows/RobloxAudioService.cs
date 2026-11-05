@@ -70,6 +70,7 @@ namespace Shiro.Services
             {
                 try { MuteAllRoblox(false, updateStatus: false); }
                 catch (Exception ex) { Program.Logger?.Debug($"Failed to unmute all Roblox sessions: {ex.Message}"); }
+                ClearAudioSessionCache();
             }
         }
 
@@ -207,94 +208,116 @@ namespace Shiro.Services
             if (!OperatingSystem.IsWindows() || onSession == null) return false;
 
             var robloxPids = preloadedPids ?? RobloxProcessService.GetRunningRobloxPids();
-            if (robloxPids.Count == 0) return true;
-
-            int hrCoInit = CoInitializeEx(IntPtr.Zero, COINIT_MULTITHREADED);
-            bool shouldUninit = hrCoInit >= 0; // S_OK (0) or S_FALSE (1)
-            if (hrCoInit < 0 && hrCoInit != RPC_E_CHANGED_MODE)
+            if (robloxPids.Count == 0)
             {
-                return false;
-            }
-
-            IntPtr pEnumerator = IntPtr.Zero;
-            IntPtr pDevice = IntPtr.Zero;
-            IntPtr pSessionManager2 = IntPtr.Zero;
-            IntPtr pSessionEnum = IntPtr.Zero;
-
-            try
-            {
-                Guid clsid = CLSID_MMDeviceEnumerator;
-                Guid iidEnum = IID_IMMDeviceEnumerator;
-                IntPtr createdEnumerator = IntPtr.Zero;
-                int hr = CoCreateInstance(&clsid, IntPtr.Zero, CLSCTX_ALL, &iidEnum, &createdEnumerator);
-                if (hr < 0 || createdEnumerator == IntPtr.Zero)
-                    return false;
-
-                pEnumerator = createdEnumerator;
-
-                // eRender = 0, eMultimedia = 1
-                if (DeviceEnumeratorGetDefaultEndpoint(pEnumerator, 0, 1, out pDevice) < 0 || pDevice == IntPtr.Zero)
-                {
-                    // No default audio render device attached (e.g. headless/unplugged speakers) -> treat as non-fatal
-                    return false;
-                }
-
-                if (DeviceActivateSessionManager2(pDevice, out pSessionManager2) < 0 || pSessionManager2 == IntPtr.Zero)
-                    return false;
-
-                if (SessionManager2GetEnumerator(pSessionManager2, out pSessionEnum) < 0 || pSessionEnum == IntPtr.Zero)
-                    return false;
-
-                if (SessionEnumeratorGetCount(pSessionEnum, out int count) < 0 || count <= 0)
-                    return true;
-
-                for (int i = 0; i < count; i++)
-                {
-                    IntPtr pSession = IntPtr.Zero;
-                    IntPtr pSession2 = IntPtr.Zero;
-                    IntPtr pVolume = IntPtr.Zero;
-
-                    try
-                    {
-                        if (SessionEnumeratorGetSession(pSessionEnum, i, out pSession) < 0 || pSession == IntPtr.Zero)
-                            continue;
-
-                        if (ComQueryInterface(pSession, in IID_IAudioSessionControl2, out pSession2) < 0 || pSession2 == IntPtr.Zero)
-                            continue;
-
-                        if (SessionControl2GetProcessId(pSession2, out uint pid) < 0 || pid == 0 || !ContainsPid(robloxPids, (int)pid))
-                            continue;
-
-                        if (ComQueryInterface(pSession, in IID_ISimpleAudioVolume, out pVolume) < 0 || pVolume == IntPtr.Zero)
-                            continue;
-
-                        var nativeVolume = new NativeSimpleAudioVolume(pVolume);
-                        if (!onSession(pid, nativeVolume))
-                            break;
-                    }
-                    catch (Exception ex)
-                    {
-                        Program.Logger?.Debug($"Failed inspecting audio session: {ex.Message}");
-                    }
-                    finally
-                    {
-                        ComRelease(ref pVolume);
-                        ComRelease(ref pSession2);
-                        ComRelease(ref pSession);
-                    }
-                }
-
+                ClearAudioSessionCache();
                 return true;
             }
-            finally
+
+            lock (_gate)
             {
-                ComRelease(ref pSessionEnum);
-                ComRelease(ref pSessionManager2);
-                ComRelease(ref pDevice);
-                ComRelease(ref pEnumerator);
-                if (shouldUninit)
+                if (TryForEachCachedAudioSession(robloxPids, onSession))
                 {
-                    CoUninitialize();
+                    return true;
+                }
+
+                PruneExitedCachedAudioSessions(robloxPids);
+
+                int hrCoInit = CoInitializeEx(IntPtr.Zero, COINIT_MULTITHREADED);
+                bool shouldUninit = hrCoInit >= 0; // S_OK (0) or S_FALSE (1)
+                if (hrCoInit < 0 && hrCoInit != RPC_E_CHANGED_MODE)
+                {
+                    return false;
+                }
+
+                IntPtr pEnumerator = IntPtr.Zero;
+                IntPtr pDevice = IntPtr.Zero;
+                IntPtr pSessionManager2 = IntPtr.Zero;
+                IntPtr pSessionEnum = IntPtr.Zero;
+
+                try
+                {
+                    Guid clsid = CLSID_MMDeviceEnumerator;
+                    Guid iidEnum = IID_IMMDeviceEnumerator;
+                    IntPtr createdEnumerator = IntPtr.Zero;
+                    int hr = CoCreateInstance(&clsid, IntPtr.Zero, CLSCTX_ALL, &iidEnum, &createdEnumerator);
+                    if (hr < 0 || createdEnumerator == IntPtr.Zero)
+                        return false;
+
+                    pEnumerator = createdEnumerator;
+
+                    // eRender = 0, eMultimedia = 1
+                    if (DeviceEnumeratorGetDefaultEndpoint(pEnumerator, 0, 1, out pDevice) < 0 || pDevice == IntPtr.Zero)
+                    {
+                        // No default audio render device attached (e.g. headless/unplugged speakers) -> treat as non-fatal
+                        return false;
+                    }
+
+                    if (DeviceActivateSessionManager2(pDevice, out pSessionManager2) < 0 || pSessionManager2 == IntPtr.Zero)
+                        return false;
+
+                    if (SessionManager2GetEnumerator(pSessionManager2, out pSessionEnum) < 0 || pSessionEnum == IntPtr.Zero)
+                        return false;
+
+                    if (SessionEnumeratorGetCount(pSessionEnum, out int count) < 0 || count <= 0)
+                        return true;
+
+                    for (int i = 0; i < count; i++)
+                    {
+                        IntPtr pSession = IntPtr.Zero;
+                        IntPtr pSession2 = IntPtr.Zero;
+                        IntPtr pVolume = IntPtr.Zero;
+
+                        try
+                        {
+                            if (SessionEnumeratorGetSession(pSessionEnum, i, out pSession) < 0 || pSession == IntPtr.Zero)
+                                continue;
+
+                            if (ComQueryInterface(pSession, in IID_IAudioSessionControl2, out pSession2) < 0 || pSession2 == IntPtr.Zero)
+                                continue;
+
+                            if (SessionControl2GetProcessId(pSession2, out uint pid) < 0 || pid == 0 || !ContainsPid(robloxPids, (int)pid))
+                                continue;
+
+                            if (ComQueryInterface(pSession, in IID_ISimpleAudioVolume, out pVolume) < 0 || pVolume == IntPtr.Zero)
+                                continue;
+
+                            var nativeVolume = new NativeSimpleAudioVolume(pVolume);
+                            if (_cachedVolumePointers.TryRemove((int)pid, out IntPtr oldPtr) && oldPtr != IntPtr.Zero)
+                            {
+                                ComRelease(ref oldPtr);
+                            }
+                            _cachedVolumePointers[(int)pid] = pVolume;
+                            // Ownership of pVolume reference transferred to _cachedVolumePointers
+                            pVolume = IntPtr.Zero;
+
+                            if (!onSession(pid, nativeVolume))
+                                break;
+                        }
+                        catch (Exception ex)
+                        {
+                            Program.Logger?.Debug($"Failed inspecting audio session: {ex.Message}");
+                        }
+                        finally
+                        {
+                            ComRelease(ref pVolume);
+                            ComRelease(ref pSession2);
+                            ComRelease(ref pSession);
+                        }
+                    }
+
+                    return true;
+                }
+                finally
+                {
+                    ComRelease(ref pSessionEnum);
+                    ComRelease(ref pSessionManager2);
+                    ComRelease(ref pDevice);
+                    ComRelease(ref pEnumerator);
+                    if (shouldUninit)
+                    {
+                        CoUninitialize();
+                    }
                 }
             }
         }

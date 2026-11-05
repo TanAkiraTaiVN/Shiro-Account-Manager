@@ -23,7 +23,7 @@
                         IsVisible="{Binding CurrentGameThumbnail, Converter={x:Static ObjectConverters.IsNotNull}}" />
                                 </Panel>
                             </Border>
-                            <TextBlock Grid.Column="1" Text="{Binding CurrentGameName}" FontSize="11" FontWeight="SemiBold" Foreground="#E4E4E7" VerticalAlignment="Center"
+                            <TextBlock Grid.Column="1" Text="{Binding CurrentGameName}" FontSize="11" FontWeight="Normal" Foreground="#E4E4E7" VerticalAlignment="Center"
                         TextTrimming="CharacterEllipsis" />
                         </Grid>
                     </Border>
@@ -134,7 +134,7 @@
                         IsVisible="{Binding ThumbnailBitmap, Converter={x:Static ObjectConverters.IsNotNull}}" />
                                                         </Panel>
                                                     </Border>
-                                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="3" Margin="0,0,8,0"><TextBlock Text="{Binding Name}" FontWeight="Bold"
+                                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="3" Margin="0,0,8,0"><TextBlock Text="{Binding Name}" FontWeight="Normal"
                         FontSize="13" Foreground="#FFFFFF" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name}" /><TextBlock Text="{Binding PlaceId, StringFormat='ID: {0}'}"
                         FontSize="11" Foreground="#71717A" /></StackPanel>
                                                     <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
@@ -174,7 +174,7 @@
                         IsVisible="{Binding ThumbnailBitmap, Converter={x:Static ObjectConverters.IsNotNull}}" />
                                                         </Panel>
                                                     </Border>
-                                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="3" Margin="0,0,8,0"><TextBlock Text="{Binding Name}" FontWeight="Bold"
+                                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="3" Margin="0,0,8,0"><TextBlock Text="{Binding Name}" FontWeight="Normal"
                         FontSize="13" Foreground="#FFFFFF" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name}" /><TextBlock Text="{Binding PlaceId, StringFormat='ID: {0}'}"
                         FontSize="11" Foreground="#71717A" /></StackPanel>
                                                     <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">

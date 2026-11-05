@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
@@ -107,7 +107,48 @@ namespace Shiro.Tests
             byte[] v2Encrypted = ms.ToArray();
 
             Assert.True(Cryptography.IsEncrypted(v2Encrypted));
+            Assert.True(Cryptography.IsLegacyHeader(v2Encrypted));
             byte[] decrypted = Cryptography.Decrypt(v2Encrypted, password);
+            Assert.Equal(original, Encoding.UTF8.GetString(decrypted));
+        }
+
+        [Fact]
+        public void Decrypt_ShiroVaultHeaderV1_WorksForBackwardCompatibilityAndFlagsLegacy()
+        {
+            string original = "{\"LegacyV1\":\"Data210K\"}";
+            byte[] password = Encoding.UTF8.GetBytes("PasswordV1_210K!");
+            byte[] plaintextBytes = Encoding.UTF8.GetBytes(original);
+
+            byte[] salt = new byte[16];
+            byte[] nonce = new byte[12];
+            RandomNumberGenerator.Fill(salt);
+            RandomNumberGenerator.Fill(nonce);
+
+            byte[] derivedKey = Rfc2898DeriveBytes.Pbkdf2(password, salt, Cryptography.LegacyPbkdf2Iterations, HashAlgorithmName.SHA256, 32);
+            byte[] ciphertext = new byte[plaintextBytes.Length];
+            byte[] tag = new byte[16];
+
+            using (var aesGcm = new AesGcm(derivedKey, 16))
+            {
+                aesGcm.Encrypt(nonce, plaintextBytes, ciphertext, tag);
+            }
+
+            using var ms = new MemoryStream();
+            using var writer = new BinaryWriter(ms);
+            writer.Write(Cryptography.ShiroVaultHeaderV1);
+            writer.Write(salt);
+            writer.Write(nonce);
+            writer.Write(tag);
+            writer.Write(ciphertext);
+            byte[] v1Encrypted = ms.ToArray();
+
+            Assert.True(Cryptography.IsEncrypted(v1Encrypted));
+            Assert.True(Cryptography.IsLegacyHeader(v1Encrypted));
+
+            byte[] v3Encrypted = Cryptography.Encrypt(original, password);
+            Assert.False(Cryptography.IsLegacyHeader(v3Encrypted));
+
+            byte[] decrypted = Cryptography.Decrypt(v1Encrypted, password);
             Assert.Equal(original, Encoding.UTF8.GetString(decrypted));
         }
 

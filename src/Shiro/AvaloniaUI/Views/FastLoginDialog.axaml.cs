@@ -78,6 +78,9 @@ namespace Shiro.AvaloniaUI.Views
             _captured = false;
             _redirectedFromUnauthenticatedModeration = false;
             _restoredHbaScriptId = null;
+            _restoredModerationCookieFp = null;
+            _restoredModerationAccount = null;
+            _hasSeenModerationPage = false;
 
             if (!string.IsNullOrEmpty(_username))
             {
@@ -137,8 +140,11 @@ namespace Shiro.AvaloniaUI.Views
                 var singleAcc = _queue.Count == 1 ? _queue.Current : null;
                 if (singleAcc != null && singleAcc.IsBannedOrLocked && !string.IsNullOrWhiteSpace(singleAcc.SecurityToken))
                 {
+                    _restoredModerationAccount = singleAcc;
+                    _restoredModerationCookieFp = Fingerprint(singleAcc.SecurityToken);
+                    _hasSeenModerationPage = false;
                     _restoredHbaScriptId = await RobloxHbaService.RestoreWebViewModerationSessionAsync(core, singleAcc, _currentHbaSnapshot);
-                    _ignoredCookieValues.Add(Fingerprint(singleAcc.SecurityToken));
+                    _ignoredCookieValues.Add(_restoredModerationCookieFp);
                     TxtInAppStatus.Text = Shiro.Services.LocalizationService.Format("FastLogin.OpeningModerationPage", singleAcc.Username, singleAcc.AccountStatusIssue);
                     core.Navigate("https://www.roblox.com/home");
                 }
@@ -170,6 +176,16 @@ namespace Shiro.AvaloniaUI.Views
         {
             try
             {
+                string currentUrl = WvBrowser?.CoreWebView2?.Source ?? string.Empty;
+                if (!string.IsNullOrEmpty(_username) && currentUrl.Contains("/login", StringComparison.OrdinalIgnoreCase))
+                {
+                    TxtInAppStatus.Text = !string.IsNullOrEmpty(_password)
+                        ? Shiro.Services.LocalizationService.Format("FastLogin.AutoFillingAndLoggingIn", _username)
+                        : Shiro.Services.LocalizationService.Format("FastLogin.AutoFillingUsername", _username);
+                    TxtInAppStatus.Foreground = Brushes.LightGreen;
+                    await TryFillCredentialsAsync(forceClick: false);
+                }
+
                 await CheckAndCaptureSessionAsync();
             }
             catch (Exception ex)
@@ -269,8 +285,11 @@ namespace Shiro.AvaloniaUI.Views
             Close(false);
         }
 
+        private bool _isClosed;
+
         protected override void OnClosing(WindowClosingEventArgs e)
         {
+            _isClosed = true;
             CookieViewModel.OnClosing();
             DisposeInteractiveLoginScope();
             try
@@ -287,6 +306,7 @@ namespace Shiro.AvaloniaUI.Views
                 {
                     core.NavigationCompleted -= OnNavigationCompleted;
                     core.SourceChanged -= OnSourceChanged;
+                    core.WebResourceRequested -= OnWebResourceRequested;
                 }
             }
             catch (Exception ex)

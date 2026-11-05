@@ -94,5 +94,30 @@ namespace Shiro.Services
                 }
             }
         }
+
+        private void OnJobProcessExited(int processId, bool abnormalExit)
+        {
+            if (processId <= 0 || _disposed) return;
+
+            bool matchedAny = false;
+            foreach (var kvp in _sessions)
+            {
+                var session = kvp.Value;
+                if (session != null && session.ProcessId == processId && session.IsActive && !session.IsSuppressed)
+                {
+                    session.ObservedProcessExited = true;
+                    if (abnormalExit && !session.ObservedExitCode.HasValue)
+                    {
+                        session.ObservedExitCode = -1;
+                    }
+                    matchedAny = true;
+                }
+            }
+
+            if (matchedAny)
+            {
+                CheckSessionsCallback(null);
+            }
+        }
     }
 }

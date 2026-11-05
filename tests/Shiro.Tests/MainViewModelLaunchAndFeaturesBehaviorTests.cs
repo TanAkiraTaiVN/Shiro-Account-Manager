@@ -143,6 +143,8 @@ namespace Shiro.Tests
         [Fact]
         public void Features_TogglesAndProperties_UpdateSettingsAndText()
         {
+            AntiAfkService.Stop();
+            AppServices.GeneralSettings?.Set("EnablePotatoMode", "false");
             var vm = new MainViewModel();
 
             // Potato Mode

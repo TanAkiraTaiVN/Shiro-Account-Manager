@@ -11,6 +11,8 @@ namespace Shiro.Services
 {
     public sealed partial class AccountLaunchService
     {
+        internal static Func<string, string, string, string?, string?, CancellationToken, Task<int>>? TestStartNativeHomeOverride;
+
         public static async Task<int> StartNativeHomeAsync(
             string nativeHomeUri,
             string ticket,
@@ -27,7 +29,7 @@ namespace Shiro.Services
                 bool preferDirect = AppSettings.General.Get<bool>(AppSettingsKeys.General.PreferDirectLaunch, false);
                 if (preferDirect)
                 {
-                    var directResult = RobloxDirectLauncher.LaunchHomeDirect(username, ticket, browserTrackerId, securityToken);
+                    var directResult = RobloxDirectLauncher.LaunchHomeDirect(username, ticket, browserTrackerId, securityToken); directResult.Process?.Dispose();
                     if (directResult.Success)
                     {
                         await Task.Delay(250, cancellationToken).ConfigureAwait(false);
@@ -141,24 +143,11 @@ namespace Shiro.Services
             try { ClientSettingsPatcher.PatchSettings(); }
             catch (Exception ex) { Program.Logger.Error($"Failed to patch ClientAppSettings: {ex}"); }
 
-            bool preferDirect = AppSettings.General.Get<bool>(AppSettingsKeys.General.PreferDirectLaunch, false);
-            if (preferDirect && !string.IsNullOrWhiteSpace(account.SecurityToken))
-            {
-                var directResult = RobloxDirectLauncher.LaunchHomeDirect(account.Username, ticket: null, account.BrowserTrackerID, account.SecurityToken);
-                if (directResult.Success)
-                {
-                    account.LastLaunchedProcessId = directResult.ProcessId;
-                    AppSettings.SchedulePresenceRefresh(account);
-                    AppSettings.SignalNextLaunchAccount();
-                    ObserveBackgroundTask(AdjustWindowPositionAsync(account, directResult.ProcessId, cancellationToken), "Roblox window positioning");
-                    return LaunchResult.Success();
-                }
-            }
-
             await account.TryRebindSessionToCurrentNetworkAsync(force: false, cancellationToken).ConfigureAwait(false);
 
-            (bool Success, string Ticket) ticketResult =
-                await account.GetAuthTicketAsync(cancellationToken).ConfigureAwait(false);
+            (bool Success, string Ticket) ticketResult = TestGetAuthTicketOverride != null
+                ? await TestGetAuthTicketOverride(account, cancellationToken).ConfigureAwait(false)
+                : await account.GetAuthTicketAsync(cancellationToken).ConfigureAwait(false);
             if (ticketResult.Success)
             {
                 try
@@ -179,7 +168,9 @@ namespace Shiro.Services
                 try
                 {
                     DateTime launchStartedUtc = DateTime.UtcNow;
-                    int homePid = await StartNativeHomeAsync(nativeHomeUri, ticket, account.Username, account.BrowserTrackerID, account.SecurityToken, cancellationToken).ConfigureAwait(false);
+                    int homePid = TestStartNativeHomeOverride != null
+                        ? await TestStartNativeHomeOverride(nativeHomeUri, ticket, account.Username, account.BrowserTrackerID, account.SecurityToken, cancellationToken).ConfigureAwait(false)
+                        : await StartNativeHomeAsync(nativeHomeUri, ticket, account.Username, account.BrowserTrackerID, account.SecurityToken, cancellationToken).ConfigureAwait(false);
                     account.LastLaunchedProcessId = homePid;
                     ObserveBackgroundTask(
                         MonitorNativeAuthRateLimitAsync(launchStartedUtc, account, cancellationToken),

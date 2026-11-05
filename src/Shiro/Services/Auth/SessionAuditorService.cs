@@ -201,60 +201,67 @@ namespace Shiro.Services
                 long robuxBalance = account.RobuxBalance > 0 ? account.RobuxBalance : 0;
                 long pendingRobux = account.PendingRobux;
 
-                // 2. Fetch Robux Currency
+                // 2. Fetch Robux Currency and Pending Robux concurrently
                 if (userId > 0)
                 {
-                    try
+                    async Task FetchCurrencyAsync()
                     {
-                        using var ecoReq = account.CreateAuthenticatedGetRequest($"https://economy.roblox.com/v1/users/{userId}/currency");
-                        using var ecoResp = await client.SendAsync(ecoReq, HttpCompletionOption.ResponseContentRead, ct).ConfigureAwait(false);
-                        account.TryUpdateRotatedCookie(ecoResp);
-
-                        if (ecoResp.IsSuccessStatusCode)
+                        try
                         {
-                            string ecoJson = await ecoResp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
-                            if (!string.IsNullOrWhiteSpace(ecoJson))
+                            using var ecoReq = account.CreateAuthenticatedGetRequest($"https://economy.roblox.com/v1/users/{userId}/currency");
+                            using var ecoResp = await client.SendAsync(ecoReq, HttpCompletionOption.ResponseContentRead, ct).ConfigureAwait(false);
+                            account.TryUpdateRotatedCookie(ecoResp);
+
+                            if (ecoResp.IsSuccessStatusCode)
                             {
-                                var currency = JsonSerializer.Deserialize(ecoJson, ShiroAppJson.Default.RobloxCurrencyResponse);
-                                if (currency != null)
+                                string ecoJson = await ecoResp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+                                if (!string.IsNullOrWhiteSpace(ecoJson))
                                 {
-                                    robuxBalance = currency.Robux;
-                                    account.RobuxBalance = currency.Robux;
-                                    account.LastEconomyCheck = DateTime.UtcNow;
+                                    var currency = JsonSerializer.Deserialize(ecoJson, ShiroAppJson.Default.RobloxCurrencyResponse);
+                                    if (currency != null)
+                                    {
+                                        robuxBalance = currency.Robux;
+                                        account.RobuxBalance = currency.Robux;
+                                        account.LastEconomyCheck = DateTime.UtcNow;
+                                    }
                                 }
                             }
                         }
-                    }
-                    catch (Exception ex)
-                    {
-                        _staticLogger.Debug($"[SessionAuditor] Economy currency query error for {account.Username}: {ex.Message}");
-                    }
-
-                    // 3. Optional Pending Robux probe
-                    try
-                    {
-                        using var pendReq = account.CreateAuthenticatedGetRequest($"https://economy.roblox.com/v2/users/{userId}/transaction-totals?timeFrame=Month&transactionType=summary");
-                        using var pendResp = await client.SendAsync(pendReq, HttpCompletionOption.ResponseContentRead, ct).ConfigureAwait(false);
-                        account.TryUpdateRotatedCookie(pendResp);
-
-                        if (pendResp.IsSuccessStatusCode)
+                        catch (Exception ex)
                         {
-                            string pendJson = await pendResp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
-                            if (!string.IsNullOrWhiteSpace(pendJson))
+                            _staticLogger.Debug($"[SessionAuditor] Economy currency query error for {account.Username}: {ex.Message}");
+                        }
+                    }
+
+                    async Task FetchPendingRobuxAsync()
+                    {
+                        try
+                        {
+                            using var pendReq = account.CreateAuthenticatedGetRequest($"https://economy.roblox.com/v2/users/{userId}/transaction-totals?timeFrame=Month&transactionType=summary");
+                            using var pendResp = await client.SendAsync(pendReq, HttpCompletionOption.ResponseContentRead, ct).ConfigureAwait(false);
+                            account.TryUpdateRotatedCookie(pendResp);
+
+                            if (pendResp.IsSuccessStatusCode)
                             {
-                                using var doc = JsonDocument.Parse(pendJson);
-                                if (doc.RootElement.TryGetProperty("pendingRobuxTotal", out var prtProp) && prtProp.TryGetInt64(out long prt))
+                                string pendJson = await pendResp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+                                if (!string.IsNullOrWhiteSpace(pendJson))
                                 {
-                                    pendingRobux = prt;
-                                    account.PendingRobux = prt;
+                                    using var doc = JsonDocument.Parse(pendJson);
+                                    if (doc.RootElement.TryGetProperty("pendingRobuxTotal", out var prtProp) && prtProp.TryGetInt64(out long prt))
+                                    {
+                                        pendingRobux = prt;
+                                        account.PendingRobux = prt;
+                                    }
                                 }
                             }
                         }
+                        catch (Exception ex)
+                        {
+                            _staticLogger.Debug($"[SessionAuditor] Pending Robux query error for {account.Username}: {ex.Message}");
+                        }
                     }
-                    catch (Exception ex)
-                    {
-                        _staticLogger.Debug($"[SessionAuditor] Pending Robux query error for {account.Username}: {ex.Message}");
-                    }
+
+                    await Task.WhenAll(FetchCurrencyAsync(), FetchPendingRobuxAsync()).ConfigureAwait(false);
                 }
 
                 return new AccountSessionAuditResult

@@ -3,6 +3,7 @@ using System;
 using System.IO;
 using System.Net;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Shiro.Classes;
@@ -35,7 +36,9 @@ namespace Shiro.Services
         private readonly System.Collections.Generic.HashSet<string> AttemptedJoins = new(StringComparer.Ordinal);
 
         internal static string WebServerResponse(object message, bool success) =>
-            Utilities.FastJson.Serialize(new { Success = success, Message = message });
+            JsonSerializer.Serialize(
+                new WebServerV2Response(success, message?.ToString() ?? string.Empty),
+                ShiroAppJson.Default.WebServerV2Response);
 
         public async Task<string> SendKestrelResponseAsync(HttpContext context)
         {
@@ -126,12 +129,22 @@ namespace Shiro.Services
                 Span<byte> bufB = stackalloc byte[maxByteB];
                 int lenA = Encoding.UTF8.GetBytes(provided.AsSpan(), bufA);
                 int lenB = Encoding.UTF8.GetBytes(expected.AsSpan(), bufB);
-                return System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(bufA[..lenA], bufB[..lenB]);
+                Span<byte> digestA = stackalloc byte[32];
+                Span<byte> digestB = stackalloc byte[32];
+                System.Security.Cryptography.SHA256.HashData(bufA[..lenA], digestA);
+                System.Security.Cryptography.SHA256.HashData(bufB[..lenB], digestB);
+                bool digestsMatch = System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(digestA, digestB);
+                return digestsMatch & (lenA == lenB);
             }
 
             byte[] a = Encoding.UTF8.GetBytes(provided);
             byte[] b = Encoding.UTF8.GetBytes(expected);
-            return System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(a, b);
+            Span<byte> hashA = stackalloc byte[32];
+            Span<byte> hashB = stackalloc byte[32];
+            System.Security.Cryptography.SHA256.HashData(a, hashA);
+            System.Security.Cryptography.SHA256.HashData(b, hashB);
+            bool match = System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(hashA, hashB);
+            return match & (a.Length == b.Length);
         }
 
         public static string? ExtractHeaderPassword(Func<string, string?> getHeader)

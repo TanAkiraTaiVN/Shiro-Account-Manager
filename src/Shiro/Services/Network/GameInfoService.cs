@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Net.Http;
+using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -26,17 +27,106 @@ namespace Shiro.Services
         private static readonly ConcurrentDictionary<long, string> _placeNameCache = new();
         private static readonly ConcurrentDictionary<long, Task<string?>> _inFlightNameQueries = new();
 
+        /// <summary>
+        /// Strips supplementary surrogate-pair characters (e.g. color emojis like 🎉) and variation selectors
+        /// that trigger a native SkiaSharp SKStream.Read Access Violation (0xc0000005) on Windows when Avalonia
+        /// attempts to synthesize SemiBold/Bold glyphs on Segoe UI Emoji (seguiemj.ttf).
+        /// </summary>
+        public static string SanitizeDisplayTitle(string? rawTitle)
+        {
+            if (string.IsNullOrWhiteSpace(rawTitle))
+                return string.Empty;
+
+            var sb = new StringBuilder(rawTitle.Length);
+            bool lastWasSpace = false;
+
+            for (int i = 0; i < rawTitle.Length; i++)
+            {
+                char c = rawTitle[i];
+
+                // Skip UTF-16 surrogate pairs (U+10000..U+10FFFF emojis/pictographs) and variation selectors / zero-width joiners
+                if (char.IsSurrogate(c) ||
+                    (c >= '\uFE00' && c <= '\uFE0F') ||
+                    c == '\u200D' ||
+                    c == '\u20E3')
+                {
+                    continue;
+                }
+
+                if (char.IsWhiteSpace(c))
+                {
+                    if (!lastWasSpace && sb.Length > 0)
+                    {
+                        sb.Append(' ');
+                        lastWasSpace = true;
+                    }
+                    continue;
+                }
+
+                // Avoid leaving leading space right after an opening bracket when an emoji like "[🎉UPD 11]" is stripped
+                if (lastWasSpace && sb.Length > 0 && (sb[^1] == '[' || sb[^1] == '(' || sb[^1] == '{'))
+                {
+                    sb.Length--;
+                }
+
+                sb.Append(c);
+                lastWasSpace = false;
+            }
+
+            return sb.ToString().Trim();
+        }
+
         public static void CachePlaceName(long placeId, string? name)
         {
             if (placeId <= 0 || string.IsNullOrWhiteSpace(name))
                 return;
 
-            string trimmed = name.Trim();
-            // Do not overwrite a real title with a generic placeholder like "Place 123" or "Game 123"
-            if (IsGenericPlaceholderName(placeId, trimmed) && _placeNameCache.ContainsKey(placeId))
+            string trimmed = SanitizeDisplayTitle(name);
+            // Do not cache or overwrite a real title with a generic placeholder like "Unknown", "[TITLE UNAVAILABLE]", "Place 123", etc.
+            if (IsGenericPlaceholderName(placeId, trimmed))
                 return;
 
             _placeNameCache[placeId] = trimmed;
+            UpdateRecentGamesCachedTitle(placeId, trimmed);
+        }
+
+        private static void UpdateRecentGamesCachedTitle(long placeId, string resolvedTitle)
+        {
+            try
+            {
+                var recentGames = AppServices.ServerBrowserState.RecentGames;
+                if (recentGames == null) return;
+
+                bool updated = false;
+                string? serialized = null;
+                lock (recentGames)
+                {
+                    foreach (var rg in recentGames)
+                    {
+                        if (rg?.Details != null && rg.Details.placeId == placeId &&
+                            IsGenericPlaceholderName(placeId, rg.Details.BestDisplayName))
+                        {
+                            rg.Details.name = resolvedTitle;
+                            rg.Details.sourceName = resolvedTitle;
+                            updated = true;
+                        }
+                    }
+
+                    if (updated)
+                    {
+                        serialized = Utilities.FastJson.Serialize(recentGames, indented: true);
+                    }
+                }
+
+                if (updated && !string.IsNullOrEmpty(serialized))
+                {
+                    StoragePaths.AtomicWriteText(StoragePaths.RecentGamesFile, serialized);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Debug($"[GameInfoService] UpdateRecentGamesCachedTitle({placeId}) failed: {ex.Message}");
+            }
         }
 
         public static bool IsGenericPlaceholderName(long placeId, string? name)
@@ -47,7 +137,11 @@ namespace Shiro.Services
             string trimmed = name.Trim();
             return string.Equals(trimmed, $"Place {placeId}", StringComparison.OrdinalIgnoreCase) ||
                    string.Equals(trimmed, $"Game {placeId}", StringComparison.OrdinalIgnoreCase) ||
-                   string.Equals(trimmed, "Favorite Game", StringComparison.OrdinalIgnoreCase);
+                   string.Equals(trimmed, "Favorite Game", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(trimmed, "Unknown", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(trimmed, "???", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(trimmed, "[TITLE UNAVAILABLE]", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(trimmed, "[ Content Deleted ]", StringComparison.OrdinalIgnoreCase);
         }
 
         public static bool TryGetCachedName(long placeId, out string name)
@@ -74,7 +168,7 @@ namespace Shiro.Services
                         var rg = recentGames[i];
                         if (rg?.Details != null && rg.Details.placeId == placeId)
                         {
-                            string candidate = rg.Details.BestDisplayName;
+                            string candidate = SanitizeDisplayTitle(rg.Details.BestDisplayName);
                             if (!string.IsNullOrWhiteSpace(candidate) && !IsGenericPlaceholderName(placeId, candidate))
                             {
                                 name = candidate;
@@ -101,9 +195,9 @@ namespace Shiro.Services
             try
             {
                 string? resolved = await queryTask.WaitAsync(cancellationToken).ConfigureAwait(false);
-                if (!string.IsNullOrWhiteSpace(resolved))
+                if (!string.IsNullOrWhiteSpace(resolved) && !IsGenericPlaceholderName(placeId, resolved))
                 {
-                    _placeNameCache[placeId] = resolved;
+                    CachePlaceName(placeId, resolved);
                     return resolved;
                 }
             }
@@ -146,17 +240,25 @@ namespace Shiro.Services
             if (gameElement.TryGetProperty("sourceName", out var sourceProp) &&
                 sourceProp.ValueKind == JsonValueKind.String)
             {
-                string? sourceTitle = sourceProp.GetString();
-                if (!string.IsNullOrWhiteSpace(sourceTitle))
-                    return sourceTitle.Trim();
+                string? sourceTitle = SanitizeDisplayTitle(sourceProp.GetString());
+                if (!string.IsNullOrWhiteSpace(sourceTitle) && !IsGenericPlaceholderName(0, sourceTitle))
+                    return sourceTitle;
             }
 
             if (gameElement.TryGetProperty("name", out var nameProp) &&
                 nameProp.ValueKind == JsonValueKind.String)
             {
-                string? title = nameProp.GetString();
-                if (!string.IsNullOrWhiteSpace(title))
-                    return title.Trim();
+                string? title = SanitizeDisplayTitle(nameProp.GetString());
+                if (!string.IsNullOrWhiteSpace(title) && !IsGenericPlaceholderName(0, title))
+                    return title;
+            }
+
+            if (gameElement.TryGetProperty("Name", out var upperNameProp) &&
+                upperNameProp.ValueKind == JsonValueKind.String)
+            {
+                string? upperTitle = SanitizeDisplayTitle(upperNameProp.GetString());
+                if (!string.IsNullOrWhiteSpace(upperTitle) && !IsGenericPlaceholderName(0, upperTitle))
+                    return upperTitle;
             }
 
             return null;
@@ -166,7 +268,7 @@ namespace Shiro.Services
         {
             try
             {
-                // Public unauthenticated 2-step lookup: PlaceId -> UniverseId -> Original Game Name (sourceName)
+                // 1. Public unauthenticated 2-step lookup: PlaceId -> UniverseId -> Original Game Name (sourceName)
                 string uniUrl = $"https://apis.roblox.com/universes/v1/places/{placeId}/universe";
                 using var uniReq = new HttpRequestMessage(HttpMethod.Get, uniUrl);
                 using var uniResp = await SharedHttpClient.SendAsync(uniReq, retryTransient: false).ConfigureAwait(false);
@@ -189,7 +291,7 @@ namespace Shiro.Services
                                 dataArr.GetArrayLength() > 0)
                             {
                                 string? bestTitle = ExtractBestGameTitle(dataArr[0]);
-                                if (!string.IsNullOrWhiteSpace(bestTitle))
+                                if (!string.IsNullOrWhiteSpace(bestTitle) && !IsGenericPlaceholderName(placeId, bestTitle))
                                     return bestTitle;
                             }
                         }
@@ -199,6 +301,25 @@ namespace Shiro.Services
             catch (Exception ex)
             {
                 _logger.Debug($"[GameInfoService] Public universe lookup for {placeId} failed: {ex.Message}");
+            }
+
+            // 2. Fallback to economy asset details API (works without authentication even when games.roblox.com returns [TITLE UNAVAILABLE] for sub-places / restricted experiences)
+            try
+            {
+                string assetUrl = $"https://economy.roblox.com/v2/assets/{placeId}/details";
+                using var assetReq = new HttpRequestMessage(HttpMethod.Get, assetUrl);
+                using var assetResp = await SharedHttpClient.SendAsync(assetReq, retryTransient: false).ConfigureAwait(false);
+                if (assetResp.IsSuccessStatusCode)
+                {
+                    using var assetDoc = await JsonDocument.ParseAsync(await assetResp.Content.ReadAsStreamAsync().ConfigureAwait(false)).ConfigureAwait(false);
+                    string? assetTitle = ExtractBestGameTitle(assetDoc.RootElement);
+                    if (!string.IsNullOrWhiteSpace(assetTitle) && !IsGenericPlaceholderName(placeId, assetTitle))
+                        return assetTitle;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Debug($"[GameInfoService] Economy asset details fallback for {placeId} failed: {ex.Message}");
             }
 
             return null;

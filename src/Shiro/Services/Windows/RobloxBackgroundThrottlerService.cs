@@ -127,11 +127,18 @@ namespace Shiro.Services
 
             try
             {
-                uint priority = isForeground
-                    ? NORMAL_PRIORITY_CLASS
-                    : (backgroundFps <= 15 ? IDLE_PRIORITY_CLASS : BELOW_NORMAL_PRIORITY_CLASS);
-
+                uint priority = MemoryOptimizer.ComputeTargetPriorityClass(isForeground, throttlerEnabled: true, backgroundFps);
                 SetPriorityClass(hProcess, priority);
+                if (isForeground)
+                {
+                    MemoryOptimizer.DisableEcoQoS(hProcess);
+                    MemoryOptimizer.SetProcessMemoryPriorityNative(hProcess, isForeground: true);
+                }
+                else
+                {
+                    MemoryOptimizer.EnableEcoQoS(hProcess);
+                    MemoryOptimizer.SetProcessMemoryPriorityNative(hProcess, isForeground: false);
+                }
             }
             catch (Exception ex)
             {
@@ -190,7 +197,7 @@ namespace Shiro.Services
                 {
                     bool shouldTrim = !_throttledPids.ContainsKey(pid);
                     ApplyThrottleState(pid, isForeground: false, backgroundFps: targetFps);
-                    if (shouldTrim)
+                    if (shouldTrim && AppServices.GeneralSettings.Get<bool>("AllowEmptyWorkingSetTrimming", false))
                     {
                         TrimWorkingSet(pid);
                     }

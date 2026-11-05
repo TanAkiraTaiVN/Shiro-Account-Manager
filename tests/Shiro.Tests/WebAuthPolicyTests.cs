@@ -93,6 +93,39 @@ namespace Shiro.Tests
             Assert.False(WebAuthPolicy.IsPasswordConfigured("12345"));
             Assert.True(WebAuthPolicy.IsPasswordConfigured("123456"));
             Assert.True(WebAuthPolicy.IsPasswordConfigured("longerpassword"));
+            Assert.False(WebAuthPolicy.IsStrongExternalPassword(null));
+            Assert.False(WebAuthPolicy.IsStrongExternalPassword("123456"));
+            Assert.False(WebAuthPolicy.IsStrongExternalPassword("12345678901"));
+            Assert.True(WebAuthPolicy.IsStrongExternalPassword("123456789012"));
+        }
+
+        [Fact]
+        public void RedactSensitiveQuery_MasksPasswordsAndTokens()
+        {
+            string raw = "http://localhost:7963/Nexus?name=Player1&Password=MySecret123&token=Tok456&Cookie=_|WARNING";
+            string redacted = WebAuthPolicy.RedactSensitiveQuery(raw);
+            Assert.DoesNotContain("MySecret123", redacted);
+            Assert.DoesNotContain("Tok456", redacted);
+            Assert.DoesNotContain("_|WARNING", redacted);
+            Assert.Contains("Password=[REDACTED]", redacted);
+            Assert.Contains("token=[REDACTED]", redacted);
+            Assert.Contains("Cookie=[REDACTED]", redacted);
+            Assert.Equal(string.Empty, WebAuthPolicy.RedactSensitiveQuery(null));
+        }
+
+        [Fact]
+        public void FixedTimeEqualsPassword_HandlesShortAndLongPasswordsCorrectly()
+        {
+            Assert.False(AccountApiDispatcher.FixedTimeEqualsPassword(null!, "secret"));
+            Assert.False(AccountApiDispatcher.FixedTimeEqualsPassword("secret", null!));
+            Assert.True(AccountApiDispatcher.FixedTimeEqualsPassword("secret123", "secret123"));
+            Assert.False(AccountApiDispatcher.FixedTimeEqualsPassword("secret123", "secret1234"));
+
+            string longPassA = new string('X', 300);
+            string longPassB = new string('X', 300);
+            string longPassC = new string('X', 299) + "Y";
+            Assert.True(AccountApiDispatcher.FixedTimeEqualsPassword(longPassA, longPassB));
+            Assert.False(AccountApiDispatcher.FixedTimeEqualsPassword(longPassA, longPassC));
         }
 
         [Fact]

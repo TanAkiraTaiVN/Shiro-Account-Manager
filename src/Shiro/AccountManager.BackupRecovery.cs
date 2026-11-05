@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Collections.Generic;
 using System.IO;
 using Shiro.Classes;
 using Shiro.Services;
@@ -35,13 +36,30 @@ namespace Shiro
 
         public bool TryRestoreReadableBackup()
         {
-            string[] candidates =
+            var candidates = new List<string>
             {
                 $"{SaveFilePath}.backup",
                 $"{SaveFilePath}.previous",
                 $"{SaveFilePath}.backup.previous",
                 $"{SaveFilePath}.bak"
             };
+
+            try
+            {
+                string backupsDir = accountStore?.BackupsDirectory ?? StoragePaths.BackupsDirectory;
+                if (Directory.Exists(backupsDir))
+                {
+                    candidates.AddRange(Directory.GetFiles(backupsDir, "AccountData_*.json.bak"));
+                }
+            }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"Could not enumerate historical backups: {ex.Message}");
+            }
+
+            List<Account>? bestRestored = null;
+            bool bestNeedsMigration = false;
+            string bestPath = string.Empty;
 
             foreach (string path in candidates)
             {
@@ -67,27 +85,11 @@ namespace Shiro
                     if (decoded != null && decoded.Length > 2)
                     {
                         var restored = AccountDataSerializer.Deserialize(decoded, out bool needsMigration);
-                        if (restored != null && restored.Count > 0)
+                        if (restored != null && restored.Count > (bestRestored?.Count ?? 0))
                         {
-                            // Preserve the locked primary file before replacing it
-                            try
-                            {
-                                if (File.Exists(SaveFilePath))
-                                    File.Copy(SaveFilePath, $"{SaveFilePath}.locked-{DateTime.Now:yyyyMMdd_HHmmss}.bak", overwrite: true);
-                            }
-                            catch (Exception ex)
-                            {
-                                Program.Logger?.Warn($"Could not create copy of locked primary account data: {ex.Message}");
-                            }
-
-                            ReplaceAccountsList(restored);
-                            accountDataNeedsMigration |= needsMigration;
-                            PasswordHash = Array.Empty<byte>();
-                            SaveAccounts(true, true);
-                            RefreshView();
-                            EnableModernDashboard();
-                            Program.Logger?.Info($"[LoadAccounts] Restored {restored.Count} accounts from '{path}'.");
-                            return true;
+                            bestRestored = restored;
+                            bestNeedsMigration = needsMigration;
+                            bestPath = path;
                         }
                     }
                 }
@@ -95,6 +97,31 @@ namespace Shiro
                 {
                     Program.Logger?.Debug($"Candidate backup '{path}' could not be loaded: {ex.Message}");
                 }
+            }
+
+            if (bestRestored != null && bestRestored.Count > 0)
+            {
+                // Move the locked/corrupt primary file out of SaveFilePath before SaveAccounts
+                // so AccountStore.WriteWithBackup does not copy the locked/corrupt file over AccountData.json.backup.
+                try
+                {
+                    if (File.Exists(SaveFilePath))
+                        File.Move(SaveFilePath, $"{SaveFilePath}.locked-{DateTime.Now:yyyyMMdd_HHmmss}.bak", overwrite: true);
+                }
+                catch (Exception ex)
+                {
+                    Program.Logger?.Warn($"Could not move locked primary account data: {ex.Message}");
+                }
+
+                IsVaultLockedPendingMasterPassword = false;
+                ReplaceAccountsList(bestRestored);
+                accountDataNeedsMigration |= bestNeedsMigration;
+                PasswordHash = Array.Empty<byte>();
+                SaveAccounts(true, true);
+                RefreshView();
+                EnableModernDashboard();
+                Program.Logger?.Info($"[LoadAccounts] Restored {bestRestored.Count} accounts from '{bestPath}'.");
+                return true;
             }
 
             return false;

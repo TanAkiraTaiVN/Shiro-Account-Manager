@@ -15,6 +15,9 @@ namespace Shiro.AvaloniaUI.Views
 
         private bool _redirectedFromUnauthenticatedModeration;
         private string? _restoredHbaScriptId;
+        private string? _restoredModerationCookieFp;
+        private Account? _restoredModerationAccount;
+        private bool _hasSeenModerationPage;
 
         private async Task RedirectUnauthenticatedModerationToLoginAsync(CoreWebView2 core)
         {
@@ -26,7 +29,6 @@ namespace Shiro.AvaloniaUI.Views
             if (currentAcc != null)
             {
                 currentAcc.Valid = false;
-                currentAcc.AccountStatusIssue = string.Empty;
                 AppServices.AccountRepository.SaveAsync(true).Forget();
                 MainWindow.Instance?.ViewModel?.UpdateAccountValidity(currentAcc, false);
             }
@@ -44,6 +46,10 @@ namespace Shiro.AvaloniaUI.Views
                     _restoredHbaScriptId = null;
                 }
 
+                _restoredModerationAccount = null;
+                _restoredModerationCookieFp = null;
+                _hasSeenModerationPage = false;
+
                 ResetHbaSnapshot();
                 await ClearAuthCookiesAsync();
 
@@ -51,8 +57,11 @@ namespace Shiro.AvaloniaUI.Views
                 _pollTimer?.Start();
 
                 core.Navigate("https://www.roblox.com/login");
-                await Task.Delay(350);
-                await TryFillCredentialsAsync(forceClick: false);
+                await AsyncWaitHelper.WaitUntilAsync(
+                    () => (core.Source ?? string.Empty).Contains("/login", StringComparison.OrdinalIgnoreCase),
+                    TimeSpan.FromMilliseconds(1200),
+                    TimeSpan.FromMilliseconds(50));
+                await TryFillCredentialsAsync(forceClick: true);
             }
             catch (Exception ex) { Program.Logger?.Debug($"RedirectUnauthenticatedModerationToLoginAsync threw: {ex.Message}"); }
         }
@@ -85,50 +94,66 @@ namespace Shiro.AvaloniaUI.Views
 
         private async Task AdvanceToNextAccountOrCloseAsync()
         {
-            if (_queue.HasNext)
+            if (_isClosed) return;
+            try
             {
-                _captured = true;
-                _pollTimer?.Stop();
-
-                var oldCore = WvBrowser?.CoreWebView2;
-                if (oldCore != null)
+                if (_queue.HasNext)
                 {
-                    oldCore.NavigationCompleted -= OnNavigationCompleted;
-                    oldCore.SourceChanged -= OnSourceChanged;
-                }
+                    _captured = true;
+                    _pollTimer?.Stop();
 
-                LoadAccountAtIndex(_queue.Index + 1);
-                _captured = true;
-                TxtInAppStatus.Text = Shiro.Services.LocalizationService.Format("FastLogin.TransitioningToNext", _username, _queue.Index + 1, _queue.Count);
-                TxtInAppStatus.Foreground = Brushes.DeepSkyBlue;
-
-                if (WvBrowser != null)
-                {
-                    ResetHbaSnapshot();
-                    var freshCore = await WvBrowser.ResetToFreshProfileAsync();
-                    if (freshCore != null)
+                    var oldCore = WvBrowser?.CoreWebView2;
+                    if (oldCore != null)
                     {
-                        await ConfigureCoreWebViewAsync(freshCore);
-                        freshCore.Navigate("https://www.roblox.com/login");
+                        oldCore.NavigationCompleted -= OnNavigationCompleted;
+                        oldCore.SourceChanged -= OnSourceChanged;
+                        oldCore.WebResourceRequested -= OnWebResourceRequested;
                     }
-                }
 
-                await Task.Delay(350);
-                _captured = false;
-                _pollTimer?.Start();
-                await TryFillCredentialsAsync(forceClick: false);
+                    LoadAccountAtIndex(_queue.Index + 1);
+                    _captured = true;
+                    TxtInAppStatus.Text = Shiro.Services.LocalizationService.Format("FastLogin.TransitioningToNext", _username, _queue.Index + 1, _queue.Count);
+                    TxtInAppStatus.Foreground = Brushes.DeepSkyBlue;
+
+                    if (WvBrowser != null && !_isClosed)
+                    {
+                        ResetHbaSnapshot();
+                        var freshCore = await WvBrowser.ResetToFreshProfileAsync();
+                        if (_isClosed) return;
+                        if (freshCore != null)
+                        {
+                            await ConfigureCoreWebViewAsync(freshCore);
+                            if (_isClosed) return;
+                            freshCore.Navigate("https://www.roblox.com/login");
+                        }
+                    }
+
+                    await AsyncWaitHelper.WaitUntilAsync(
+                        () => _isClosed || (WvBrowser?.CoreWebView2?.Source ?? string.Empty).Contains("/login", StringComparison.OrdinalIgnoreCase),
+                        TimeSpan.FromMilliseconds(350),
+                        TimeSpan.FromMilliseconds(50));
+                    if (_isClosed) return;
+                    _captured = false;
+                    _pollTimer?.Start();
+                    await TryFillCredentialsAsync(forceClick: true);
+                }
+                else
+                {
+                    ReloginQueueStore.Clear();
+                    await Task.Delay(300);
+                    if (!_isClosed)
+                        Close(true);
+                }
             }
-            else
+            catch (Exception ex)
             {
-                ReloginQueueStore.Clear();
-                await Task.Delay(300);
-                Close(true);
+                Program.Logger?.Debug($"[FastLoginDialog.AdvanceToNextAccountOrCloseAsync] {ex.Message}");
             }
         }
 
         private async Task CheckAndCaptureSessionAsync()
         {
-            if (_captured || _isCheckingSession) return;
+            if (_isClosed || _captured || _isCheckingSession) return;
 
             var core = WvBrowser?.CoreWebView2;
             if (core == null) return;
@@ -157,21 +182,44 @@ namespace Shiro.AvaloniaUI.Views
                     string fp = Fingerprint(secCookie.Value);
                     if (_ignoredCookieValues.Contains(fp))
                     {
-                        if (IsModerationOrLockedUrl(currentUrl))
+                        bool isRestoredModerationCookie =
+                            !string.IsNullOrEmpty(_restoredModerationCookieFp) &&
+                            string.Equals(fp, _restoredModerationCookieFp, StringComparison.Ordinal);
+
+                        var ignoredAction = FastLoginCoordinator.EvaluateIgnoredCookieAction(
+                            currentUrl,
+                            isRestoredModerationCookie,
+                            _hasSeenModerationPage);
+
+                        switch (ignoredAction)
                         {
-                            var (domBadge, domReason) = await DetectDomAccountIssueAsync(core);
-                            if (domBadge == "UNAUTHENTICATED_MODERATION") { await RedirectUnauthenticatedModerationToLoginAsync(core); return; }
-                            if (!string.IsNullOrEmpty(domBadge)) await MarkCurrentAccountIssueAndSkipAsync(domBadge, domReason ?? domBadge);
-                            return;
-                        }
-                        if (_queue.Count == 1 && _queue.Current != null && _queue.Current.IsBannedOrLocked && currentUrl.Contains("/home", StringComparison.OrdinalIgnoreCase))
-                        {
-                            _ignoredCookieValues.Remove(fp);
-                        }
-                        else
-                        {
-                            SafeExecuteHelper.Try(() => core.CookieManager.DeleteCookie(secCookie), "FastLoginDialog.DeleteIgnoredCookie");
-                            return;
+                            case IgnoredCookieAction.InspectModerationDom:
+                            {
+                                _hasSeenModerationPage = true;
+                                var (domBadge, domReason) = await DetectDomAccountIssueAsync(core);
+                                if (domBadge == "UNAUTHENTICATED_MODERATION") { await RedirectUnauthenticatedModerationToLoginAsync(core); return; }
+                                if (!string.IsNullOrEmpty(domBadge)) await MarkCurrentAccountIssueAndSkipAsync(domBadge, domReason ?? domBadge);
+                                return;
+                            }
+
+                            case IgnoredCookieAction.WaitForModerationRedirect:
+                                return;
+
+                            case IgnoredCookieAction.RedirectToLogin:
+                                await RedirectUnauthenticatedModerationToLoginAsync(core);
+                                return;
+
+                            case IgnoredCookieAction.CaptureReactivatedSession:
+                                _ignoredCookieValues.Remove(fp);
+                                _restoredModerationCookieFp = null;
+                                _restoredModerationAccount = null;
+                                _hasSeenModerationPage = false;
+                                break;
+
+                            case IgnoredCookieAction.DeleteCookie:
+                            default:
+                                SafeExecuteHelper.Try(() => core.CookieManager.DeleteCookie(secCookie), "FastLoginDialog.DeleteIgnoredCookie");
+                                return;
                         }
                     }
 
@@ -189,7 +237,20 @@ namespace Shiro.AvaloniaUI.Views
                         if (_queue.Count > 0 && IsModerationOrLockedUrl(navUrl))
                         {
                             var qAcc = GetCurrentQueueAccount();
-                            if (qAcc != null) qAcc.SecurityToken = secCookie.Value;
+                            if (qAcc != null)
+                            {
+                                qAcc.SecurityToken = secCookie.Value;
+                                var modHba = await CollectFinalHbaAndFingerprintAsync(core);
+                                qAcc.ApplyHbaCapture(modHba);
+                                if (_queue.Count == 1)
+                                {
+                                    _restoredModerationCookieFp = fp;
+                                    _restoredModerationAccount = qAcc;
+                                    _hasSeenModerationPage = true;
+                                    _captured = false;
+                                    _pollTimer?.Start();
+                                }
+                            }
                             await Task.Delay(700);
                             var (b, r) = await DetectDomAccountIssueAsync(core);
                             if (b == "UNAUTHENTICATED_MODERATION") { await RedirectUnauthenticatedModerationToLoginAsync(core); return; }
@@ -200,13 +261,37 @@ namespace Shiro.AvaloniaUI.Views
                         await Task.Delay(250);
                     }
 
-                    await Task.Delay(1500);
+                    await AsyncWaitHelper.WaitUntilAsync(
+                        () =>
+                        {
+                            string u = core.Source ?? string.Empty;
+                            return IsModerationOrLockedUrl(u) ||
+                                   u.Contains("/home", StringComparison.OrdinalIgnoreCase) ||
+                                   u.Contains("/charts", StringComparison.OrdinalIgnoreCase) ||
+                                   u.Contains("/games", StringComparison.OrdinalIgnoreCase) ||
+                                   u.Contains("/users", StringComparison.OrdinalIgnoreCase);
+                        },
+                        TimeSpan.FromMilliseconds(1200),
+                        TimeSpan.FromMilliseconds(100));
 
                     string postRedirectUrl = core.Source ?? string.Empty;
                     if (_queue.Count > 0 && IsModerationOrLockedUrl(postRedirectUrl))
                     {
                         var qAcc = GetCurrentQueueAccount();
-                        if (qAcc != null) qAcc.SecurityToken = secCookie.Value;
+                        if (qAcc != null)
+                        {
+                            qAcc.SecurityToken = secCookie.Value;
+                            var modHba = await CollectFinalHbaAndFingerprintAsync(core);
+                            qAcc.ApplyHbaCapture(modHba);
+                            if (_queue.Count == 1)
+                            {
+                                _restoredModerationCookieFp = fp;
+                                _restoredModerationAccount = qAcc;
+                                _hasSeenModerationPage = true;
+                                _captured = false;
+                                _pollTimer?.Start();
+                            }
+                        }
                         var (b, r) = await DetectDomAccountIssueAsync(core);
                         if (b == "UNAUTHENTICATED_MODERATION") { await RedirectUnauthenticatedModerationToLoginAsync(core); return; }
                         await MarkCurrentAccountIssueAndSkipAsync(b ?? Shiro.Services.LocalizationService.Get("FastLogin.LockedOrBannedBadge"), r ?? Shiro.Services.LocalizationService.Get("FastLogin.AccountLockedOrModerated"));
@@ -230,7 +315,6 @@ namespace Shiro.AvaloniaUI.Views
                             catch (Exception) { inPageAccountJson = rawAuthJson.Trim('"'); }
                             if (string.IsNullOrWhiteSpace(inPageAccountJson) || !inPageAccountJson.StartsWith('{')) inPageAccountJson = null;
                         }
-                        await Task.Delay(300);
                     }
                     catch (Exception ex) { Program.Logger?.Debug($"Trigger in-page auth request threw: {ex.Message}"); }
 

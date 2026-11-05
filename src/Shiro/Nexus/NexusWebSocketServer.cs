@@ -52,6 +52,10 @@ namespace Shiro.Nexus
                 _allowExternal = false;
                 Program.Logger?.Warn("[NexusWebSocketServer] External connections require a WebServer password (>= 6 chars); listening on localhost only.");
             }
+            else if (_allowExternal && !WebAuthPolicy.IsStrongExternalPassword(AccountManager.WSPassword))
+            {
+                Program.Logger?.Warn($"[NexusWebSocketServer] External access is enabled with a short password (< {WebAuthPolicy.RecommendedExternalPasswordLength} chars). A password of at least {WebAuthPolicy.RecommendedExternalPasswordLength} characters is strongly recommended.");
+            }
 
             // Build and start entirely on ThreadPool to avoid capturing UI SynchronizationContext
             await Task.Run(async () =>
@@ -104,7 +108,11 @@ namespace Shiro.Nexus
                         return;
                     }
 
-                    ControlledAccount? account = modernNexus.Accounts?.FirstOrDefault(x => string.Equals(x.Username, name, StringComparison.OrdinalIgnoreCase));
+                    ControlledAccount? account = null;
+                    lock (_activeSockets)
+                    {
+                        account = modernNexus.Accounts?.FirstOrDefault(x => string.Equals(x.Username, name, StringComparison.OrdinalIgnoreCase));
+                    }
                     if (account == null)
                     {
                         var snapshot = AccountManager.GetAccountsSnapshot();
@@ -114,9 +122,12 @@ namespace Shiro.Nexus
                             account = new ControlledAccount(matched);
                             AppDispatcher.Post(() =>
                             {
-                                if (modernNexus.Accounts != null && !modernNexus.Accounts.Any(a => string.Equals(a.Username, name, StringComparison.OrdinalIgnoreCase)))
+                                lock (_activeSockets)
                                 {
-                                    modernNexus.Accounts.Add(account);
+                                    if (modernNexus.Accounts != null && !modernNexus.Accounts.Any(a => string.Equals(a.Username, name, StringComparison.OrdinalIgnoreCase)))
+                                    {
+                                        modernNexus.Accounts.Add(account);
+                                    }
                                 }
                             });
                         }
@@ -146,27 +157,13 @@ namespace Shiro.Nexus
                     byte[] buffer = ArrayPool<byte>.Shared.Rent(8192);
                     try
                     {
-                        using var ms = new MemoryStream();
                         while (webSocket.State == WebSocketState.Open && !_cts.IsCancellationRequested)
                         {
-                            ms.SetLength(0);
-                            ValueWebSocketReceiveResult result;
-                            bool payloadExceeded = false;
-                            do
-                            {
-                                result = await webSocket.ReceiveAsync(new Memory<byte>(buffer), _cts.Token);
-                                if (result.MessageType == WebSocketMessageType.Close)
-                                    break;
-
-                                if (ms.Length + result.Count > MaxPayloadBytes)
-                                {
-                                    payloadExceeded = true;
-                                    break;
-                                }
-
-                                ms.Write(buffer, 0, result.Count);
-                            }
-                            while (!result.EndOfMessage);
+                            var (msgType, messageText, payloadExceeded) = await ReceiveFullTextMessageAsync(
+                                webSocket,
+                                buffer,
+                                MaxPayloadBytes,
+                                _cts.Token).ConfigureAwait(false);
 
                             if (payloadExceeded)
                             {
@@ -179,7 +176,7 @@ namespace Shiro.Nexus
                                 break;
                             }
 
-                            if (result.MessageType == WebSocketMessageType.Close)
+                            if (msgType == WebSocketMessageType.Close)
                             {
                                 try
                                 {
@@ -192,10 +189,9 @@ namespace Shiro.Nexus
                                 break;
                             }
 
-                            if (result.MessageType == WebSocketMessageType.Text && ms.Length > 0)
+                            if (msgType == WebSocketMessageType.Text && !string.IsNullOrEmpty(messageText))
                             {
-                                string message = Encoding.UTF8.GetString(ms.GetBuffer(), 0, (int)ms.Length);
-                                account.HandleMessage(message);
+                                account.HandleMessage(messageText);
                             }
                         }
                     }
@@ -212,7 +208,7 @@ namespace Shiro.Nexus
                     {
                         ArrayPool<byte>.Shared.Return(buffer);
                         _activeSockets.TryRemove(webSocket, out _);
-                        account.Disconnect();
+                        account.Disconnect(webSocket);
                     }
                 });
 
@@ -220,6 +216,51 @@ namespace Shiro.Nexus
                 IsListening = true;
                 Program.Logger?.Info($"[Nexus] Native Kestrel WebSocket Server started on port {_port} (AllowExternal: {_allowExternal})");
             }).ConfigureAwait(false);
+        }
+
+        internal static async Task<(WebSocketMessageType MessageType, string? Text, bool PayloadExceeded)> ReceiveFullTextMessageAsync(
+            WebSocket webSocket,
+            byte[] buffer,
+            int maxPayloadBytes,
+            CancellationToken ct)
+        {
+            ValueWebSocketReceiveResult first = await webSocket.ReceiveAsync(new Memory<byte>(buffer), ct).ConfigureAwait(false);
+            if (first.MessageType == WebSocketMessageType.Close)
+                return (WebSocketMessageType.Close, null, false);
+
+            if (first.Count > maxPayloadBytes)
+                return (first.MessageType, null, true);
+
+            // Fast path: 99%+ of Nexus control frames fit in a single WebSocket frame (zero MemoryStream allocation)
+            if (first.EndOfMessage)
+            {
+                string? singleFrameText = (first.MessageType == WebSocketMessageType.Text && first.Count > 0)
+                    ? Encoding.UTF8.GetString(buffer.AsSpan(0, first.Count))
+                    : null;
+                return (first.MessageType, singleFrameText, false);
+            }
+
+            using var ms = new MemoryStream(Math.Max(8192, first.Count * 2));
+            ms.Write(buffer, 0, first.Count);
+
+            ValueWebSocketReceiveResult next;
+            do
+            {
+                next = await webSocket.ReceiveAsync(new Memory<byte>(buffer), ct).ConfigureAwait(false);
+                if (next.MessageType == WebSocketMessageType.Close)
+                    return (WebSocketMessageType.Close, null, false);
+
+                if (ms.Length + next.Count > maxPayloadBytes)
+                    return (first.MessageType, null, true);
+
+                ms.Write(buffer, 0, next.Count);
+            }
+            while (!next.EndOfMessage);
+
+            string? text = (first.MessageType == WebSocketMessageType.Text && ms.Length > 0)
+                ? Encoding.UTF8.GetString(ms.GetBuffer(), 0, (int)ms.Length)
+                : null;
+            return (first.MessageType, text, false);
         }
 
         public async Task StopAsync()

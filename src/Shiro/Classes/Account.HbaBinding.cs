@@ -84,7 +84,7 @@ namespace Shiro
 
         private string GetProtectedField(string key)
         {
-            lock (CookieSyncRoot)
+            lock (FieldsSyncRoot)
             {
                 return Fields != null && Fields.TryGetValue(key, out string? val) && val != null
                     ? val
@@ -95,7 +95,7 @@ namespace Shiro
         private void SetProtectedField(string key, string? value)
         {
             string normalized = value?.Trim() ?? string.Empty;
-            lock (CookieSyncRoot)
+            lock (FieldsSyncRoot)
             {
                 Fields ??= new Dictionary<string, string>();
                 string current = Fields.TryGetValue(key, out string? existing) && existing != null ? existing : string.Empty;
@@ -105,7 +105,8 @@ namespace Shiro
                         Fields.Remove(key);
                     else
                         Fields[key] = normalized;
-                    IsDirty = true;
+                    if (!IsSuppressingDeferredSave)
+                        IsDirty = true;
                 }
             }
         }
@@ -275,6 +276,10 @@ namespace Shiro
                 else if (request.StringBody != null)
                 {
                     bodyStr = request.StringBody;
+                }
+                else if (request.Parameters.Count > 0)
+                {
+                    bodyStr = string.Join("&", request.Parameters.Select(p => $"{Uri.EscapeDataString(p.Key)}={Uri.EscapeDataString(p.Value)}"));
                 }
             }
 

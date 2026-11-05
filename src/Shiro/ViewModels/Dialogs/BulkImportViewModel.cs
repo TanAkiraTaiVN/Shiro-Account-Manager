@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -143,8 +144,11 @@ namespace Shiro.ViewModels.Dialogs
                                 : Volatile.Read(ref failed);
 
                             int current = newSuccess + newFailed;
-                            ProgressValue = current;
-                            SetStatus(LocalizationService.Format("BulkImport.ImportingCookie", current, totalLines), StatusKind.Info);
+                            AppDispatcher.Post(() =>
+                            {
+                                ProgressValue = current;
+                                SetStatus(LocalizationService.Format("BulkImport.ImportingCookie", current, totalLines), StatusKind.Info);
+                            });
                         }
                         catch (OperationCanceledException)
                         {
@@ -169,6 +173,42 @@ namespace Shiro.ViewModels.Dialogs
                             existingByUsername.TryAdd(acc.Username, acc);
                     }
 
+                    var unknownUsernames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    for (int i = 0; i < classification.UserPass.Count; i++)
+                    {
+                        string u = classification.UserPass[i].User;
+                        if (!string.IsNullOrEmpty(u) && !existingByUsername.ContainsKey(u))
+                            unknownUsernames.Add(u);
+                    }
+
+                    var resolvedUserIds = new ConcurrentDictionary<string, long>(StringComparer.OrdinalIgnoreCase);
+                    if (unknownUsernames.Count > 0)
+                    {
+                        try
+                        {
+                            await Parallel.ForEachAsync(
+                                unknownUsernames,
+                                new ParallelOptions { MaxDegreeOfParallelism = _cookieConcurrency, CancellationToken = token },
+                                async (username, ct) =>
+                                {
+                                    try
+                                    {
+                                        var (okId, uid, _) = await _repo.LookupUserIdAsync(username, ct).ConfigureAwait(false);
+                                        if (okId && uid > 0)
+                                            resolvedUserIds[username] = uid;
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        _logger.Debug($"Resolve userId for {username} failed: {ex.Message}");
+                                    }
+                                }).ConfigureAwait(false);
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            // Cancelled mid-lookup
+                        }
+                    }
+
                     int upIndex = 0;
                     foreach (var up in classification.UserPass)
                     {
@@ -179,17 +219,7 @@ namespace Shiro.ViewModels.Dialogs
 
                         if (!existingByUsername.TryGetValue(up.User, out Account? targetAcc))
                         {
-                            long resolvedUserId = 0;
-                            try
-                            {
-                                var (okId, uid, _) = await _repo.LookupUserIdAsync(up.User, token).ConfigureAwait(false);
-                                if (okId && uid > 0)
-                                    resolvedUserId = uid;
-                            }
-                            catch (Exception ex)
-                            {
-                                _logger.Debug($"Resolve userId for {up.User} failed: {ex.Message}");
-                            }
+                            resolvedUserIds.TryGetValue(up.User, out long resolvedUserId);
 
                             targetAcc = new Account
                             {

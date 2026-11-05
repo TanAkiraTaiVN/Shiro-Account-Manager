@@ -106,6 +106,50 @@ namespace Shiro.Tests
         }
 
         [Fact]
+        public async Task LaunchAppHomeResultAsync_WithPreferDirectLaunch_AcquiresAndPassesAuthTicket()
+        {
+            var prevTicketOverride = AccountLaunchService.TestGetAuthTicketOverride;
+            var prevHomeOverride = AccountLaunchService.TestStartNativeHomeOverride;
+            bool prevPreferDirect = AppSettings.General.Get<bool>(AppSettingsKeys.General.PreferDirectLaunch, false);
+
+            try
+            {
+                AppSettings.General.Set(AppSettingsKeys.General.PreferDirectLaunch, "True");
+                string? capturedTicket = null;
+                string? capturedCookie = null;
+
+                AccountLaunchService.TestGetAuthTicketOverride = (_, _) => Task.FromResult((true, "home-auth-ticket-999"));
+                AccountLaunchService.TestStartNativeHomeOverride = (nativeUri, ticket, username, btid, securityToken, _) =>
+                {
+                    capturedTicket = ticket;
+                    capturedCookie = securityToken;
+                    return Task.FromResult(54321);
+                };
+
+                var account = new Account
+                {
+                    Username = "DirectHomeUser",
+                    UserID = 11223344,
+                    SecurityToken = "_|WARNING:-DO-NOT-SHARE-THIS.--" + new string('E', 120),
+                    BrowserTrackerID = "123456789012"
+                };
+
+                var result = await AccountLaunchService.Instance.LaunchAppHomeResultAsync(account, preferChrome: false);
+                Assert.Equal(LaunchOutcome.Success, result.Outcome);
+                Assert.Equal("home-auth-ticket-999", capturedTicket);
+                Assert.Equal(account.SecurityToken, capturedCookie);
+                Assert.Equal(54321, account.LastLaunchedProcessId);
+            }
+            finally
+            {
+                AccountLaunchService.TestGetAuthTicketOverride = prevTicketOverride;
+                AccountLaunchService.TestStartNativeHomeOverride = prevHomeOverride;
+                AppSettings.General.Set(AppSettingsKeys.General.PreferDirectLaunch, prevPreferDirect.ToString());
+                AutoReconnectService.Instance.Clear();
+            }
+        }
+
+        [Fact]
         public async Task LaunchAppHomeAsync_NullAccount_ReturnsLegacyFailedString()
         {
             string result = await AccountLaunchService.Instance.LaunchAppHomeAsync(null!);

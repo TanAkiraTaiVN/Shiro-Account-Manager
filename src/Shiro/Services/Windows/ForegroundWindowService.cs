@@ -176,10 +176,10 @@ namespace Shiro.Services
 
                         if (needAudio)
                             RobloxAudioService.EvaluateWithPids(pid, runningPids);
-                        if (needMemory)
-                            MemoryOptimizer.EvaluateWithPids(pid, runningPids);
                         if (needThrottler)
                             RobloxBackgroundThrottlerService.Instance.OnForegroundWindowChanged((int)pid, runningPids);
+                        else if (needMemory)
+                            MemoryOptimizer.EvaluateWithPids(pid, runningPids);
                     }
                     catch (Exception ex)
                     {

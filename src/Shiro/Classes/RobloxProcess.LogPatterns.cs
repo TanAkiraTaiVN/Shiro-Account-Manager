@@ -1,12 +1,75 @@
 #nullable enable
 using System;
 using System.Globalization;
+using System.IO;
+using System.Text;
 using System.Text.RegularExpressions;
+using Shiro.Services;
 
 namespace Shiro.Classes
 {
+    public enum LogHeaderMatchResult
+    {
+        Inconclusive = 0,
+        Matched = 1,
+        Mismatched = 2
+    }
+
     internal partial class RobloxProcess
     {
+        [GeneratedRegex(@"(?:\-b\s+|browserTrackerId[=:]\s*)(\d{6,20})", RegexOptions.IgnoreCase)]
+        private static partial Regex LogTrackerIdRegex();
+
+        internal static LogHeaderMatchResult EvaluateLogHeaderForTracker(string? logHeaderSample, string? expectedTrackerId)
+        {
+            if (string.IsNullOrWhiteSpace(logHeaderSample) || string.IsNullOrWhiteSpace(expectedTrackerId))
+                return LogHeaderMatchResult.Inconclusive;
+
+            Match match = LogTrackerIdRegex().Match(logHeaderSample);
+            if (!match.Success || match.Groups.Count < 2 || string.IsNullOrEmpty(match.Groups[1].Value))
+                return LogHeaderMatchResult.Inconclusive;
+
+            return string.Equals(match.Groups[1].Value, expectedTrackerId.Trim(), StringComparison.Ordinal)
+                ? LogHeaderMatchResult.Matched
+                : LogHeaderMatchResult.Mismatched;
+        }
+
+        internal static string? ResolveExpectedTrackerIdForPid(int pid)
+        {
+            if (pid <= 0) return null;
+            string? cmd = ProcessExtensions.GetCommandLineByPid(pid);
+            if (string.IsNullOrEmpty(cmd)) return null;
+            Match match = LogTrackerIdRegex().Match(cmd);
+            return match.Success && match.Groups.Count >= 2 ? match.Groups[1].Value : null;
+        }
+
+        internal static LogHeaderMatchResult InspectStreamHeaderForTracker(FileStream stream, string? expectedTrackerId)
+        {
+            if (stream == null || !stream.CanRead || string.IsNullOrWhiteSpace(expectedTrackerId))
+                return LogHeaderMatchResult.Inconclusive;
+
+            try
+            {
+                int toRead = (int)Math.Min(8192L, stream.Length);
+                if (toRead <= 0)
+                    return LogHeaderMatchResult.Inconclusive;
+
+                Span<byte> buf = stackalloc byte[toRead];
+                stream.Seek(0, SeekOrigin.Begin);
+                int read = stream.Read(buf);
+                stream.Seek(0, SeekOrigin.Begin);
+                if (read <= 0)
+                    return LogHeaderMatchResult.Inconclusive;
+
+                string sample = Encoding.UTF8.GetString(buf.Slice(0, read));
+                return EvaluateLogHeaderForTracker(sample, expectedTrackerId);
+            }
+            catch (Exception ex)
+            {
+                AppServices.Logger.Debug($"[RobloxProcess] InspectStreamHeaderForTracker failed: {ex.Message}");
+                return LogHeaderMatchResult.Inconclusive;
+            }
+        }
         // Supports both legacy 4-column FLog headers and modern 0.745+ 5-column headers (",Info", ",Warning", ",Error")
         [GeneratedRegex(@"\[FLog::Output\] ! Joining game '[\w\-]{36}' place \d+ at [\d\.]+")]
         internal static partial Regex JoiningGameRegex();
@@ -172,6 +235,50 @@ namespace Shiro.Classes
             // In modern 0.745+ clients, transitioning out of an active UGC experience back to the desktop app
             // emits "[FLog::SingleSurfaceApp] setStage: (stage:LuaApp)".
             return hasActiveGameDataModel && StageLuaAppRegex().IsMatch(line);
+        }
+        internal static bool TryOpenCandidateLog(
+            FileInfo file,
+            string? expectedTrackerId,
+            ref FileInfo? inconclusiveFile,
+            ref FileStream? inconclusiveStream,
+            out FileStream? matchedStream)
+        {
+            matchedStream = null;
+            try
+            {
+                FileStream stream = File.Open(file.FullName, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+                var matchResult = InspectStreamHeaderForTracker(stream, expectedTrackerId);
+                if (matchResult == LogHeaderMatchResult.Mismatched)
+                {
+                    stream.Dispose();
+                    return false;
+                }
+
+                if (matchResult == LogHeaderMatchResult.Matched || string.IsNullOrEmpty(expectedTrackerId))
+                {
+                    inconclusiveStream?.Dispose();
+                    inconclusiveStream = null;
+                    inconclusiveFile = null;
+                    matchedStream = stream;
+                    return true;
+                }
+
+                if (inconclusiveStream == null)
+                {
+                    inconclusiveFile = file;
+                    inconclusiveStream = stream;
+                }
+                else
+                {
+                    stream.Dispose();
+                }
+            }
+            catch
+            {
+                // In use exclusively or not ready yet, check next candidate
+            }
+
+            return false;
         }
     }
 }

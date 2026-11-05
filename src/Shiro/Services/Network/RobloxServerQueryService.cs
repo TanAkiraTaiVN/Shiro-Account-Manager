@@ -89,7 +89,7 @@ namespace Shiro.Services
                 var client = AppServices.RobloxApi.GameJoin;
                 var request = account.MakeRequest("v1/join-game-instance", Method.Post)
                     .AddHeader("Content-Type", "application/json")
-                    .AddJsonBody(new { gameId = serverId, placeId = placeId });
+                    .AddJsonBody(new JoinGameInstancePayload(serverId, placeId));
 
                 RestResponse? response = await account.ExecuteAccountRestAsync(client, "https://gamejoin.roblox.com/", request, cancellationToken).ConfigureAwait(false);
                 if (response != null && response.IsSuccessful && !string.IsNullOrEmpty(response.Content))
@@ -164,40 +164,80 @@ namespace Shiro.Services
             return result;
         }
 
+        internal static async Task<int?> RacePingProbesAsync(
+            Func<CancellationToken, Task<int?>> icmpProbe,
+            Func<CancellationToken, Task<int?>> tcpProbe,
+            CancellationToken cancellationToken = default)
+        {
+            using var raceCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            Task<int?> icmpTask = SafeRunProbeAsync(icmpProbe, raceCts.Token);
+            Task<int?> tcpTask = SafeRunProbeAsync(tcpProbe, raceCts.Token);
+
+            Task<int?> firstCompleted = await Task.WhenAny(icmpTask, tcpTask).ConfigureAwait(false);
+            int? firstResult = await firstCompleted.ConfigureAwait(false);
+            if (firstResult.HasValue)
+            {
+                SafeExecuteHelper.Try(raceCts.Cancel);
+                return firstResult;
+            }
+
+            Task<int?> secondTask = ReferenceEquals(firstCompleted, icmpTask) ? tcpTask : icmpTask;
+            return await secondTask.ConfigureAwait(false);
+        }
+
+        private static async Task<int?> SafeRunProbeAsync(Func<CancellationToken, Task<int?>> probe, CancellationToken ct)
+        {
+            try
+            {
+                return await probe(ct).ConfigureAwait(false);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
         private async Task<int?> MeasurePingMsAsync(string ip)
         {
             if (string.IsNullOrWhiteSpace(ip)) return null;
             if (TestPingProbe != null) return await TestPingProbe(ip).ConfigureAwait(false);
 
-            // 1. Try ICMP ping with short timeout
-            try
-            {
-                using var pinger = new Ping();
-                var reply = await pinger.SendPingAsync(ip, 250).ConfigureAwait(false);
-                if (reply.Status == IPStatus.Success)
-                    return (int)reply.RoundtripTime;
-            }
-            catch (Exception ex)
-            {
-                _logger.Debug($"[PingServer ICMP] {ip}: {ex.Message}");
-            }
-
-            // 2. TCP handshake RTT probe fallback (Roblox/AWS firewalls often drop ICMP echo requests)
-            try
-            {
-                var sw = Stopwatch.StartNew();
-                using var tcp = new TcpClient();
-                using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(400));
-                await tcp.ConnectAsync(ip, 443, cts.Token).ConfigureAwait(false);
-                sw.Stop();
-                return (int)sw.ElapsedMilliseconds;
-            }
-            catch (Exception ex)
-            {
-                _logger.Debug($"[PingServer TCP] {ip}: {ex.Message}");
-            }
-
-            return null;
+            return await RacePingProbesAsync(
+                icmpProbe: async ct =>
+                {
+                    try
+                    {
+                        using var pinger = new Ping();
+                        var reply = await pinger.SendPingAsync(ip, TimeSpan.FromMilliseconds(250), cancellationToken: ct).ConfigureAwait(false);
+                        if (reply.Status == IPStatus.Success)
+                            return (int)reply.RoundtripTime;
+                    }
+                    catch (OperationCanceledException) { /* canceled by winning probe */ }
+                    catch (Exception ex)
+                    {
+                        _logger.Debug($"[PingServer ICMP] {ip}: {ex.Message}");
+                    }
+                    return null;
+                },
+                tcpProbe: async ct =>
+                {
+                    try
+                    {
+                        var sw = Stopwatch.StartNew();
+                        using var tcp = new TcpClient();
+                        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                        timeoutCts.CancelAfter(400);
+                        await tcp.ConnectAsync(ip, 443, timeoutCts.Token).ConfigureAwait(false);
+                        sw.Stop();
+                        return (int)sw.ElapsedMilliseconds;
+                    }
+                    catch (OperationCanceledException) { /* canceled by winning probe or timeout */ }
+                    catch (Exception ex)
+                    {
+                        _logger.Debug($"[PingServer TCP] {ip}: {ex.Message}");
+                    }
+                    return null;
+                }).ConfigureAwait(false);
         }
 
         private async Task<string> ResolveGeoIpRegionAsync(string ip, string? ipApiTemplate, CancellationToken cancellationToken)

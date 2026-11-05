@@ -1,46 +1,45 @@
 #nullable enable
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Linq;
+using System.Threading;
 
 namespace Shiro.Services
 {
     /// <summary>
-    /// Thread-safe, bounded Least Recently Used (LRU) memory cache designed for UI resources
-    /// such as Avalonia Bitmap images. Automatically disposes evicted entries to prevent memory leaks.
+    /// Thread-safe, bounded Least Recently Used (LRU) memory cache with lock-free reads.
+    /// Supports opt-in disposal on eviction; UI bitmap caches pass <c>disposeOnEvict: false</c>
+    /// so bitmaps still bound to active controls are never disposed while displayed.
     /// </summary>
     /// <typeparam name="TKey">The cache key type.</typeparam>
     /// <typeparam name="TValue">The disposable value type.</typeparam>
     public sealed class LruCache<TKey, TValue> : IDisposable where TKey : notnull where TValue : IDisposable
     {
         private readonly int _capacity;
-        private readonly Dictionary<TKey, LinkedListNode<CacheEntry>> _index;
-        private readonly LinkedList<CacheEntry> _lruList = new LinkedList<CacheEntry>();
-        private readonly System.Threading.Lock _lock = new();
-        private bool _disposed;
+        private readonly bool _disposeOnEvict;
+        private readonly ConcurrentDictionary<TKey, CacheEntry> _entries;
+        private readonly System.Threading.Lock _writeLock = new();
+        private long _clock;
+        private volatile bool _disposed;
 
         private sealed class CacheEntry
         {
             public required TKey Key { get; init; }
             public required TValue Value { get; set; }
+            public long Stamp;
         }
 
-        public LruCache(int capacity)
+        public LruCache(int capacity, bool disposeOnEvict = true)
         {
             if (capacity <= 0)
                 throw new ArgumentOutOfRangeException(nameof(capacity), "Capacity must be greater than zero.");
 
             _capacity = capacity;
-            _index = new Dictionary<TKey, LinkedListNode<CacheEntry>>(capacity);
+            _disposeOnEvict = disposeOnEvict;
+            _entries = new ConcurrentDictionary<TKey, CacheEntry>(Environment.ProcessorCount, capacity);
         }
 
-        public int Count
-        {
-            get
-            {
-                lock (_lock) return _index.Count;
-            }
-        }
+        public int Count => _entries.Count;
 
         public int Capacity => _capacity;
 
@@ -52,88 +51,106 @@ namespace Shiro.Services
 
         public bool TryGetValue(TKey key, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out TValue? value)
         {
-            lock (_lock)
+            if (_disposed)
             {
-                if (_disposed)
-                {
-                    value = default;
-                    return false;
-                }
-
-                if (_index.TryGetValue(key, out var node))
-                {
-                    _lruList.Remove(node);
-                    _lruList.AddFirst(node);
-                    value = node.Value.Value!;
-                    return true;
-                }
-
                 value = default;
                 return false;
             }
+
+            if (_entries.TryGetValue(key, out var entry))
+            {
+                Interlocked.Exchange(ref entry.Stamp, Interlocked.Increment(ref _clock));
+                value = entry.Value!;
+                return true;
+            }
+
+            value = default;
+            return false;
         }
 
         public void Set(TKey key, TValue value)
         {
-            TValue? evicted = default;
-            bool shouldDispose = false;
+            List<TValue>? toDispose = null;
 
-            lock (_lock)
+            lock (_writeLock)
             {
                 if (_disposed)
                 {
-                    SafeExecuteHelper.Try(() => value?.Dispose(), "LruBitmapCache.Set.Disposed");
+                    if (_disposeOnEvict)
+                    {
+                        SafeExecuteHelper.Try(() => value?.Dispose(), "LruBitmapCache.Set.Disposed");
+                    }
                     return;
                 }
 
-                if (_index.TryGetValue(key, out var existingNode))
+                long stamp = Interlocked.Increment(ref _clock);
+                if (_entries.TryGetValue(key, out var existingNode))
                 {
-                    evicted = existingNode.Value.Value;
-                    shouldDispose = !EqualityComparer<TValue>.Default.Equals(evicted, value);
-                    existingNode.Value.Value = value;
-                    _lruList.Remove(existingNode);
-                    _lruList.AddFirst(existingNode);
+                    TValue previous = existingNode.Value;
+                    existingNode.Value = value;
+                    Interlocked.Exchange(ref existingNode.Stamp, stamp);
+
+                    if (_disposeOnEvict && !EqualityComparer<TValue>.Default.Equals(previous, value))
+                    {
+                        toDispose = new List<TValue>(1) { previous };
+                    }
                 }
                 else
                 {
-                    if (_index.Count >= _capacity)
+                    while (_entries.Count >= _capacity)
                     {
-                        var oldest = _lruList.Last;
-                        if (oldest != null)
+                        CacheEntry? oldest = null;
+                        long minStamp = long.MaxValue;
+
+                        foreach (var kvp in _entries)
                         {
-                            _lruList.RemoveLast();
-                            _index.Remove(oldest.Value.Key);
-                            evicted = oldest.Value.Value;
-                            shouldDispose = true;
+                            long s = Interlocked.Read(ref kvp.Value.Stamp);
+                            if (s < minStamp)
+                            {
+                                minStamp = s;
+                                oldest = kvp.Value;
+                            }
+                        }
+
+                        if (oldest == null)
+                            break;
+
+                        if (_entries.TryRemove(oldest.Key, out var removed) && _disposeOnEvict && removed.Value != null)
+                        {
+                            toDispose ??= new List<TValue>(1);
+                            toDispose.Add(removed.Value);
                         }
                     }
 
-                    var newEntry = new CacheEntry { Key = key, Value = value };
-                    var newNode = new LinkedListNode<CacheEntry>(newEntry);
-                    _lruList.AddFirst(newNode);
-                    _index[key] = newNode;
+                    _entries[key] = new CacheEntry
+                    {
+                        Key = key,
+                        Value = value,
+                        Stamp = stamp
+                    };
                 }
             }
 
-            if (shouldDispose && evicted != null)
+            if (toDispose != null)
             {
-                var captured = evicted;
-                AppDispatcher.Post(() =>
+                foreach (var evicted in toDispose)
                 {
-                    SafeExecuteHelper.Try(() => captured.Dispose(), "LruBitmapCache.Set.Evict");
-                });
+                    var captured = evicted;
+                    AppDispatcher.Post(() =>
+                    {
+                        SafeExecuteHelper.Try(() => captured.Dispose(), "LruBitmapCache.Set.Evict");
+                    });
+                }
             }
         }
 
         public bool TryRemove(TKey key, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out TValue? removed)
         {
-            lock (_lock)
+            lock (_writeLock)
             {
-                if (_index.TryGetValue(key, out var node))
+                if (_entries.TryRemove(key, out var entry))
                 {
-                    _lruList.Remove(node);
-                    _index.Remove(key);
-                    removed = node.Value.Value!;
+                    removed = entry.Value!;
                     return true;
                 }
 
@@ -144,21 +161,31 @@ namespace Shiro.Services
 
         public void Clear()
         {
-            List<TValue> toDispose;
-            lock (_lock)
+            List<TValue>? toDispose = null;
+            lock (_writeLock)
             {
-                toDispose = _lruList.Select(entry => entry.Value).ToList();
-                _lruList.Clear();
-                _index.Clear();
+                if (_disposeOnEvict && !_entries.IsEmpty)
+                {
+                    toDispose = new List<TValue>(_entries.Count);
+                    foreach (var kvp in _entries)
+                    {
+                        if (kvp.Value.Value != null)
+                            toDispose.Add(kvp.Value.Value);
+                    }
+                }
+                _entries.Clear();
             }
 
-            foreach (var val in toDispose)
+            if (toDispose != null)
             {
-                var captured = val;
-                AppDispatcher.Post(() =>
+                foreach (var val in toDispose)
                 {
-                    SafeExecuteHelper.Try(() => captured?.Dispose(), "LruBitmapCache.Clear");
-                });
+                    var captured = val;
+                    AppDispatcher.Post(() =>
+                    {
+                        SafeExecuteHelper.Try(() => captured?.Dispose(), "LruBitmapCache.Clear");
+                    });
+                }
             }
         }
 

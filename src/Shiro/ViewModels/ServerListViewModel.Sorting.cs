@@ -20,7 +20,7 @@ namespace Shiro.ViewModels
     }
 
     /// <summary>
-    /// Server List sorting/filtering (Players Asc/Desc, Ping Asc/Desc, Hide Full, Hide VIP),
+    /// Server List sorting/filtering (Players Asc/Desc, Ping Asc/Desc, Hide Full, Hide Low/Empty),
     /// Recent Games library integration, and Active Game Info Chip forwarding.
     /// </summary>
     public partial class ServerListViewModel
@@ -91,15 +91,12 @@ namespace Shiro.ViewModels
 
         public bool HasPlayersSortIndicator => !string.IsNullOrEmpty(PlayersSortHeaderIndicator);
         public bool HasPingSortIndicator => !string.IsNullOrEmpty(PingSortHeaderIndicator);
-
         public int RawServersCount => _allServers.Count;
 
-        // Forwarding for Active Game Chip next to Place ID
+        // Forwarding for Active Game Chip next to Place ID & Recent Games inside Tab 2
         public string CurrentGameName => _mainViewModel?.CurrentGameName ?? string.Empty;
         public Bitmap? CurrentGameThumbnail => _mainViewModel?.CurrentGameThumbnail;
         public bool HasCurrentGameInfo => _mainViewModel?.HasCurrentGameInfo == true;
-
-        // Forwarding for Recent Games inside Tab 2
         public ObservableCollection<RecentGameItemViewModel>? RecentGames => _mainViewModel?.RecentGamesList;
         public bool HasRecentGames => _mainViewModel?.HasRecentGames == true;
         public bool IsRecentGamesEmpty => !HasRecentGames;
@@ -120,65 +117,49 @@ namespace Shiro.ViewModels
 
         private void InitializeSortingAndLibraryCommands()
         {
-            ToggleSortPlayersCommand = new RelayCommand(() =>
+            ToggleSortPlayersCommand = new RelayCommand(() => SortMode = SortMode switch
             {
-                SortMode = SortMode switch
-                {
-                    ServerSortMode.Default => ServerSortMode.PlayersAsc,
-                    ServerSortMode.PlayersAsc => ServerSortMode.PlayersDesc,
-                    ServerSortMode.PlayersDesc => ServerSortMode.Default,
-                    _ => ServerSortMode.PlayersAsc
-                };
+                ServerSortMode.Default => ServerSortMode.PlayersAsc,
+                ServerSortMode.PlayersAsc => ServerSortMode.PlayersDesc,
+                ServerSortMode.PlayersDesc => ServerSortMode.Default,
+                _ => ServerSortMode.PlayersAsc
             });
 
-            ToggleSortPingCommand = new RelayCommand(() =>
+            ToggleSortPingCommand = new RelayCommand(() => SortMode = SortMode switch
             {
-                SortMode = SortMode switch
-                {
-                    ServerSortMode.Default => ServerSortMode.PingAsc,
-                    ServerSortMode.PingAsc => ServerSortMode.PingDesc,
-                    ServerSortMode.PingDesc => ServerSortMode.Default,
-                    _ => ServerSortMode.PingAsc
-                };
+                ServerSortMode.Default => ServerSortMode.PingAsc,
+                ServerSortMode.PingAsc => ServerSortMode.PingDesc,
+                ServerSortMode.PingDesc => ServerSortMode.Default,
+                _ => ServerSortMode.PingAsc
             });
 
             SelectRecentGameInLibraryCommand = new RelayCommand(param =>
             {
-                if (param is RecentGameItemViewModel recent)
+                if (param is not RecentGameItemViewModel recent) return;
+                _mainViewModel?.SetKnownGameTitle(recent.PlaceId, recent.Name);
+                PlaceIdInput = recent.PlaceId.ToString();
+                if (_mainViewModel != null)
                 {
-                    _mainViewModel?.SetKnownGameTitle(recent.PlaceId, recent.Name);
-                    PlaceIdInput = recent.PlaceId.ToString();
-                    if (_mainViewModel != null)
-                    {
-                        _mainViewModel.PlaceId = recent.PlaceId.ToString();
-                        _mainViewModel.StatusMessage = LocalizationService.Format("ServerList.RecentGameSelected", recent.Name, recent.PlaceId);
-                    }
-                    SelectedSubTabIndex = 0;
-                    _ = RefreshServersAsync();
+                    _mainViewModel.PlaceId = recent.PlaceId.ToString();
+                    _mainViewModel.StatusMessage = LocalizationService.Format("ServerList.RecentGameSelected", recent.Name, recent.PlaceId);
                 }
+                SelectedSubTabIndex = 0;
+                _ = RefreshServersAsync();
             });
 
             LaunchRecentGameInLibraryCommand = new RelayCommand(param =>
             {
-                if (param is RecentGameItemViewModel recent)
-                {
-                    _mainViewModel?.SetKnownGameTitle(recent.PlaceId, recent.Name);
-                    PlaceIdInput = recent.PlaceId.ToString();
-                    if (_mainViewModel != null)
-                    {
-                        _mainViewModel.PlaceId = recent.PlaceId.ToString();
-                        _mainViewModel.JobId = string.Empty;
-                        if (_mainViewModel.SelectedCount > 0)
-                        {
-                            _mainViewModel.StatusMessage = LocalizationService.Format("ServerList.LaunchingRecentGame", recent.Name, recent.PlaceId);
-                        }
-                        else
-                        {
-                            LoadingStatus = LocalizationService.Get("ServerList.SelectAccountBeforePlay");
-                        }
-                        _mainViewModel.JoinServerSelectedCommand?.Execute(null);
-                    }
-                }
+                if (param is not RecentGameItemViewModel recent) return;
+                _mainViewModel?.SetKnownGameTitle(recent.PlaceId, recent.Name);
+                PlaceIdInput = recent.PlaceId.ToString();
+                if (_mainViewModel == null) return;
+                _mainViewModel.PlaceId = recent.PlaceId.ToString();
+                _mainViewModel.JobId = string.Empty;
+                if (_mainViewModel.SelectedCount > 0)
+                    _mainViewModel.StatusMessage = LocalizationService.Format("ServerList.LaunchingRecentGame", recent.Name, recent.PlaceId);
+                else
+                    LoadingStatus = LocalizationService.Get("ServerList.SelectAccountBeforePlay");
+                _mainViewModel.JoinServerSelectedCommand?.Execute(null);
             });
         }
 
@@ -193,10 +174,7 @@ namespace Shiro.ViewModels
         public void SetRawServers(IEnumerable<ServerItemViewModel> servers)
         {
             _allServers.Clear();
-            if (servers != null)
-            {
-                _allServers.AddRange(servers);
-            }
+            if (servers != null) _allServers.AddRange(servers);
             OnPropertyChanged(nameof(RawServersCount));
             ApplyServerSortAndFilter();
         }
@@ -219,40 +197,72 @@ namespace Shiro.ViewModels
 
         public void ApplyServerSortAndFilter()
         {
-            IEnumerable<ServerItemViewModel> query = _allServers;
-
-            if (_hideFullServers)
+            int rawCount = _allServers.Count;
+            if (rawCount == 0)
             {
-                query = query.Where(s => s.MaxPlayers <= 0 || s.Playing < s.MaxPlayers);
+                if (_servers.Count > 0) _servers.Clear();
+                NotifyServerCounts();
+                return;
             }
 
+            int minPlayersThreshold = 1;
             if (_hideVipServers)
             {
-                query = query.Where(s =>
-                    !s.Type.StartsWith("VIP", StringComparison.OrdinalIgnoreCase) &&
-                    !s.JobId.StartsWith("VIP:", StringComparison.OrdinalIgnoreCase) &&
-                    !string.Equals(s.Region, "VIP Private", StringComparison.OrdinalIgnoreCase));
+                for (int i = 0; i < rawCount; i++)
+                {
+                    if (_allServers[i].Playing > 1) { minPlayersThreshold = 2; break; }
+                }
             }
 
-            query = _serverSortMode switch
+            var filtered = new List<ServerItemViewModel>(rawCount);
+            for (int i = 0; i < rawCount; i++)
             {
-                ServerSortMode.PlayersAsc => query
-                    .OrderBy(s => s.Playing)
-                    .ThenBy(s => s.Ping >= 0 ? s.Ping : int.MaxValue),
-                ServerSortMode.PlayersDesc => query
-                    .OrderByDescending(s => s.Playing)
-                    .ThenBy(s => s.Ping >= 0 ? s.Ping : int.MaxValue),
-                ServerSortMode.PingAsc => query
-                    .OrderBy(s => s.Ping >= 0 ? s.Ping : int.MaxValue)
-                    .ThenBy(s => s.Playing),
-                ServerSortMode.PingDesc => query
-                    .OrderByDescending(s => s.Ping >= 0 ? s.Ping : -1)
-                    .ThenBy(s => s.Playing),
-                _ => query
-            };
+                ServerItemViewModel s = _allServers[i];
+                if (_hideFullServers && s.MaxPlayers > 0 && s.Playing >= s.MaxPlayers) continue;
+                if (_hideVipServers && (s.Playing < minPlayersThreshold ||
+                    s.Type.StartsWith("VIP", StringComparison.OrdinalIgnoreCase) ||
+                    s.JobId.StartsWith("VIP:", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(s.Region, "VIP Private", StringComparison.OrdinalIgnoreCase)))
+                {
+                    continue;
+                }
+                filtered.Add(s);
+            }
 
-            _servers.ReplaceAll(query.ToList());
+            switch (_serverSortMode)
+            {
+                case ServerSortMode.PlayersAsc: filtered.Sort(ComparePlayersAsc); break;
+                case ServerSortMode.PlayersDesc: filtered.Sort(ComparePlayersDesc); break;
+                case ServerSortMode.PingAsc: filtered.Sort(ComparePingAsc); break;
+                case ServerSortMode.PingDesc: filtered.Sort(ComparePingDesc); break;
+            }
+
+            _servers.Sync(filtered);
             NotifyServerCounts();
+        }
+
+        private static int ComparePlayersAsc(ServerItemViewModel a, ServerItemViewModel b)
+        {
+            int cmp = a.Playing.CompareTo(b.Playing);
+            return cmp != 0 ? cmp : (a.Ping >= 0 ? a.Ping : int.MaxValue).CompareTo(b.Ping >= 0 ? b.Ping : int.MaxValue);
+        }
+
+        private static int ComparePlayersDesc(ServerItemViewModel a, ServerItemViewModel b)
+        {
+            int cmp = b.Playing.CompareTo(a.Playing);
+            return cmp != 0 ? cmp : (a.Ping >= 0 ? a.Ping : int.MaxValue).CompareTo(b.Ping >= 0 ? b.Ping : int.MaxValue);
+        }
+
+        private static int ComparePingAsc(ServerItemViewModel a, ServerItemViewModel b)
+        {
+            int cmp = (a.Ping >= 0 ? a.Ping : int.MaxValue).CompareTo(b.Ping >= 0 ? b.Ping : int.MaxValue);
+            return cmp != 0 ? cmp : a.Playing.CompareTo(b.Playing);
+        }
+
+        private static int ComparePingDesc(ServerItemViewModel a, ServerItemViewModel b)
+        {
+            int cmp = (b.Ping >= 0 ? b.Ping : -1).CompareTo(a.Ping >= 0 ? a.Ping : -1);
+            return cmp != 0 ? cmp : a.Playing.CompareTo(b.Playing);
         }
     }
 }

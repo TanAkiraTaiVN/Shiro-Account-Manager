@@ -1,4 +1,4 @@
-using Shiro.Classes;
+﻿using Shiro.Classes;
 using Shiro.Http;
 using Microsoft.Win32;
 using System;
@@ -34,17 +34,44 @@ namespace Shiro
         // frequently used accounts at the top across restarts.
         public bool Pinned;
         [JsonIgnore] public bool IsDirty { get; set; } = true;
-        private readonly System.Threading.Lock _fieldsLock = new();
+        private System.Threading.Lock? _fieldsLock = new();
+        internal System.Threading.Lock FieldsSyncRoot => _fieldsLock ?? Interlocked.CompareExchange(ref _fieldsLock, new System.Threading.Lock(), null) ?? _fieldsLock!;
+
+        [ThreadStatic]
+        private static int _suppressDeferredSaveDepth;
+
+        internal static bool IsSuppressingDeferredSave => _suppressDeferredSaveDepth > 0;
+
+        internal static IDisposable BeginSuppressDeferredSaveScope()
+        {
+            _suppressDeferredSaveDepth++;
+            return new SuppressDeferredSaveScope();
+        }
+
+        private sealed class SuppressDeferredSaveScope : IDisposable
+        {
+            private bool _disposed;
+            public void Dispose()
+            {
+                if (_disposed) return;
+                _disposed = true;
+                if (_suppressDeferredSaveDepth > 0) _suppressDeferredSaveDepth--;
+            }
+        }
+
+        internal Dictionary<string, string> GetFieldsSnapshot()
+        {
+            lock (FieldsSyncRoot)
+                return Fields != null ? new Dictionary<string, string>(Fields) : new Dictionary<string, string>();
+        }
 
         [JsonIgnore]
         public string AccountStatusIssue
         {
             get
             {
-                lock (_fieldsLock)
-                {
+                lock (FieldsSyncRoot)
                     return Fields != null && Fields.TryGetValue("AccountStatusIssue", out var v) ? v : string.Empty;
-                }
             }
             set
             {
@@ -52,13 +79,11 @@ namespace Shiro
                 string normalized = value?.Trim() ?? string.Empty;
                 if (!string.Equals(current, normalized, StringComparison.Ordinal))
                 {
-                    lock (_fieldsLock)
+                    lock (FieldsSyncRoot)
                     {
                         Fields ??= new Dictionary<string, string>();
-                        if (string.IsNullOrEmpty(normalized))
-                            Fields.Remove("AccountStatusIssue");
-                        else
-                            Fields["AccountStatusIssue"] = normalized;
+                        if (string.IsNullOrEmpty(normalized)) Fields.Remove("AccountStatusIssue");
+                        else Fields["AccountStatusIssue"] = normalized;
                     }
                     IsDirty = true;
                 }
@@ -100,8 +125,11 @@ namespace Shiro
                 if (!string.Equals(_Group, value, StringComparison.Ordinal))
                 {
                     _Group = value ?? "Default";
-                    IsDirty = true;
-                    AppServices.AccountRepository.QueueDeferredSave();
+                    if (!IsSuppressingDeferredSave)
+                    {
+                        IsDirty = true;
+                        AppServices.AccountRepository.QueueDeferredSave();
+                    }
                 }
             }
         }
@@ -115,8 +143,11 @@ namespace Shiro
                 if (!string.Equals(_Proxy, value, StringComparison.Ordinal))
                 {
                     _Proxy = value;
-                    IsDirty = true;
-                    AppServices.AccountRepository.QueueDeferredSave();
+                    if (!IsSuppressingDeferredSave)
+                    {
+                        IsDirty = true;
+                        AppServices.AccountRepository.QueueDeferredSave();
+                    }
                 }
             }
         }
@@ -135,13 +166,7 @@ namespace Shiro
         public long PendingRobux = 0;
         [JsonIgnore] public DateTime LastEconomyCheck;
 
-        public int CompareTo(Account? compareTo)
-        {
-            if (compareTo == null)
-                return 1;
-            else
-                return Group.CompareTo(compareTo.Group);
-        }
+        public int CompareTo(Account? compareTo) => compareTo == null ? 1 : Group.CompareTo(compareTo.Group);
 
         // Retry up to 4 attempts on transient network glitches, stale CSRF (403), or short burst 429s
         // with backoff to guarantee high-concurrency multi-launch reliability.
@@ -162,9 +187,7 @@ namespace Shiro
         internal void EnsureBrowserTrackerId()
         {
             if (string.IsNullOrEmpty(BrowserTrackerID))
-            {
                 BrowserTrackerID = $"{Random.Shared.Next(100000, 175000)}{Random.Shared.Next(100000, 900000)}";
-            }
         }
 
         public string Alias
@@ -178,8 +201,11 @@ namespace Shiro
                 if (_Alias != value)
                 {
                     _Alias = value;
-                    IsDirty = true;
-                    AppServices.AccountRepository.QueueDeferredSave();
+                    if (!IsSuppressingDeferredSave)
+                    {
+                        IsDirty = true;
+                        AppServices.AccountRepository.QueueDeferredSave();
+                    }
                 }
             }
         }
@@ -194,8 +220,11 @@ namespace Shiro
                 if (_Description != value)
                 {
                     _Description = value;
-                    IsDirty = true;
-                    AppServices.AccountRepository.QueueDeferredSave();
+                    if (!IsSuppressingDeferredSave)
+                    {
+                        IsDirty = true;
+                        AppServices.AccountRepository.QueueDeferredSave();
+                    }
                 }
             }
         }
@@ -210,8 +239,11 @@ namespace Shiro
                 if (_Password != value)
                 {
                     _Password = value;
-                    IsDirty = true;
-                    AppServices.AccountRepository.QueueDeferredSave();
+                    if (!IsSuppressingDeferredSave)
+                    {
+                        IsDirty = true;
+                        AppServices.AccountRepository.QueueDeferredSave();
+                    }
                 }
             }
         }
@@ -407,15 +439,13 @@ namespace Shiro
 
         public string GetField(string Name)
         {
-            lock (_fieldsLock)
-            {
+            lock (FieldsSyncRoot)
                 return Fields != null && Fields.TryGetValue(Name, out string? value) ? value : string.Empty;
-            }
         }
 
         public void SetField(string Name, string Value)
         {
-            lock (_fieldsLock)
+            lock (FieldsSyncRoot)
             {
                 Fields ??= new Dictionary<string, string>();
                 Fields[Name] = Value;
@@ -432,7 +462,7 @@ namespace Shiro
 
         internal void ApplyWindowBoundsInMemory(int x, int y, int width, int height)
         {
-            lock (_fieldsLock)
+            lock (FieldsSyncRoot)
             {
                 Fields ??= new Dictionary<string, string>();
                 Fields["Window_Position_X"] = x.ToString(CultureInfo.InvariantCulture);
@@ -451,26 +481,13 @@ namespace Shiro
         public void RemoveField(string Name)
         {
             bool removed;
-            lock (_fieldsLock)
-            {
+            lock (FieldsSyncRoot)
                 removed = Fields != null && Fields.Remove(Name);
-            }
             if (removed)
             {
                 IsDirty = true;
                 AppServices.AccountRepository.QueueDeferredSave();
             }
         }
-    }
-
-    public class AccountJson
-    {
-        public long UserId { get; set; }
-        public string Name { get; set; } = string.Empty;
-        public string DisplayName { get; set; } = string.Empty;
-        public string UserEmail { get; set; } = string.Empty;
-        public bool IsEmailVerified { get; set; }
-        public int AgeBracket { get; set; }
-        public bool UserAbove13 { get; set; }
     }
 }

@@ -119,8 +119,15 @@ namespace Shiro.Services
             return count;
         }
 
+        internal static bool ShouldAssignToJobObject(int pid, int cpuCapPercent)
+        {
+            _ = cpuCapPercent;
+            return pid > 0;
+        }
+
         /// <summary>
         /// Applies baseline launch optimization to a newly spawned Roblox process.
+        /// Always enrolls the process into RobloxJobObjectService so kernel IOCP exit telemetry works even when CPU rate-limiting is 0%.
         /// </summary>
         public static void OptimizeLaunchedProcess(int pid)
         {
@@ -133,12 +140,13 @@ namespace Shiro.Services
                 }
 
                 int cpuCapPercent = AppSettings.General.Get<int>(AppSettingsKeys.General.MaxTotalRobloxCpuPercent, 0);
-                if (cpuCapPercent > 0 || RobloxJobObjectService.CurrentCpuRatePercent > 0)
+                if (cpuCapPercent > 0 && RobloxJobObjectService.CurrentCpuRatePercent != cpuCapPercent)
                 {
-                    if (RobloxJobObjectService.CurrentCpuRatePercent != cpuCapPercent && cpuCapPercent > 0)
-                    {
-                        RobloxJobObjectService.SetCpuRateLimit(cpuCapPercent);
-                    }
+                    RobloxJobObjectService.SetCpuRateLimit(cpuCapPercent);
+                }
+
+                if (ShouldAssignToJobObject(pid, cpuCapPercent))
+                {
                     RobloxJobObjectService.AssignProcessByPid(pid);
                 }
             }

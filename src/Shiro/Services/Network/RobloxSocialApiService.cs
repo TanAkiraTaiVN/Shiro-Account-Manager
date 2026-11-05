@@ -156,7 +156,7 @@ namespace Shiro.Services
             string action = unblock ? "unblock-user" : "block-user";
             RestRequest blockReq = account.MakeRequest($"user-blocking-api/v1/users/{userId}/{action}", Method.Post)
                 .AddHeader("X-CSRF-TOKEN", token)
-                .AddJsonBody(new { });
+                .AddJsonBody(new EmptyJsonObjectPayload());
 
             RestResponse? blockRes = await account.ExecuteAccountRestAsync(AppServices.RobloxApi.Api, "https://apis.roblox.com/", blockReq, cancellationToken).ConfigureAwait(false);
 
@@ -233,7 +233,7 @@ namespace Shiro.Services
 
             RestRequest enterRequest = account.MakeRequest("auth-token-service/v1/login/enterCode", Method.Post)
                 .AddHeader("X-CSRF-TOKEN", token)
-                .AddJsonBody(new { code });
+                .AddJsonBody(new QuickLoginCodePayload(code));
 
             var response = await account.ExecuteAccountRestAsync(AppServices.RobloxApi.Api, "https://apis.roblox.com/", enterRequest, cancellationToken).ConfigureAwait(false);
 
@@ -256,7 +256,7 @@ namespace Shiro.Services
                 {
                     RestRequest validateRequest = account.MakeRequest("auth-token-service/v1/login/validateCode", Method.Post)
                         .AddHeader("X-CSRF-TOKEN", token)
-                        .AddJsonBody(new { code });
+                        .AddJsonBody(new QuickLoginCodePayload(code));
 
                     var validateResponse = await account.ExecuteAccountRestAsync(AppServices.RobloxApi.Api, "https://apis.roblox.com/", validateRequest, cancellationToken).ConfigureAwait(false);
                     return validateResponse?.IsSuccessful == true;

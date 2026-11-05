@@ -32,7 +32,7 @@ namespace Shiro.Services
                     Clear();
                     return;
                 }
-                File.WriteAllText(QueueFile, JsonSerializer.Serialize(ids));
+                File.WriteAllText(QueueFile, JsonSerializer.Serialize(ids, ShiroAppJson.Default.Int64Array));
             }
             catch (Exception ex)
             {
@@ -52,7 +52,7 @@ namespace Shiro.Services
                     Clear();
                     return Array.Empty<long>();
                 }
-                return JsonSerializer.Deserialize<long[]>(File.ReadAllText(QueueFile)) ?? Array.Empty<long>();
+                return JsonSerializer.Deserialize(File.ReadAllText(QueueFile), ShiroAppJson.Default.Int64Array) ?? Array.Empty<long>();
             }
             catch (Exception ex)
             {

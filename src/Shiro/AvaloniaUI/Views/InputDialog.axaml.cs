@@ -18,15 +18,20 @@ namespace Shiro.AvaloniaUI.Views
             InitializeComponent();
         }
 
+        internal static bool IsValidDialogOwner(Window? window)
+        {
+            return window is { IsVisible: true };
+        }
+
         public static Window? GetActiveWindow()
         {
             if (Avalonia.Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
             {
                 foreach (var win in desktop.Windows)
                 {
-                    if (win.IsActive) return win;
+                    if (win.IsActive && win.IsVisible) return win;
                 }
-                return desktop.MainWindow;
+                return IsValidDialogOwner(desktop.MainWindow) ? desktop.MainWindow : null;
             }
             return null;
         }
@@ -56,12 +61,14 @@ namespace Shiro.AvaloniaUI.Views
 
         public static async Task<string> PromptAsync(string text, string caption = "Shiro", string defaultText = "", bool big = false, Window? owner = null)
         {
-            owner ??= GetActiveWindow();
+            if (!IsValidDialogOwner(owner))
+                owner = GetActiveWindow();
+
             var dialog = CreateDialogInstance(text, caption, defaultText, big);
 
-            if (owner != null)
+            if (IsValidDialogOwner(owner))
             {
-                await dialog.ShowDialog(owner);
+                await dialog.ShowDialog(owner!);
             }
             else
             {
@@ -81,16 +88,28 @@ namespace Shiro.AvaloniaUI.Views
         {
             if (Dispatcher.UIThread.CheckAccess())
             {
-                owner ??= GetActiveWindow();
+                if (!IsValidDialogOwner(owner))
+                    owner = GetActiveWindow();
+
                 var dialog = CreateDialogInstance(text, caption, defaultText, big);
 
                 var frame = new DispatcherFrame();
                 dialog.Closed += (s, e) => frame.Continue = false;
 
-                if (owner != null)
-                    _ = dialog.ShowDialog(owner);
+                if (IsValidDialogOwner(owner))
+                {
+                    _ = dialog.ShowDialog(owner!).ContinueWith(
+                        t =>
+                        {
+                            if (t.IsFaulted || t.IsCanceled)
+                                frame.Continue = false;
+                        },
+                        TaskScheduler.FromCurrentSynchronizationContext());
+                }
                 else
+                {
                     dialog.Show();
+                }
 
                 Dispatcher.UIThread.PushFrame(frame);
                 return dialog._value;

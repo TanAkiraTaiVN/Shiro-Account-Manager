@@ -113,6 +113,8 @@ namespace Shiro.Tests
             Assert.True(GameInfoService.IsGenericPlaceholderName(bloxFruitsPlaceId, $"Place {bloxFruitsPlaceId}"));
             Assert.True(GameInfoService.IsGenericPlaceholderName(bloxFruitsPlaceId, $"Game {bloxFruitsPlaceId}"));
             Assert.True(GameInfoService.IsGenericPlaceholderName(bloxFruitsPlaceId, "Favorite Game"));
+            Assert.True(GameInfoService.IsGenericPlaceholderName(bloxFruitsPlaceId, "Unknown"));
+            Assert.True(GameInfoService.IsGenericPlaceholderName(bloxFruitsPlaceId, "[TITLE UNAVAILABLE]"));
             Assert.False(GameInfoService.IsGenericPlaceholderName(bloxFruitsPlaceId, "Blox Fruits"));
 
             GameInfoService.CachePlaceName(bloxFruitsPlaceId, "Blox Fruits");

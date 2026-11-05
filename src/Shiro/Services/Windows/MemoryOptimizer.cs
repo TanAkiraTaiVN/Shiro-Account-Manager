@@ -98,21 +98,27 @@ namespace Shiro.Services
             });
         }
 
-        private static void ApplyProcessFocusProfile(int pid, bool isForeground)
+        internal static void ApplyProcessFocusProfile(int pid, bool isForeground)
         {
-            IntPtr hProcess = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_SET_INFORMATION, false, pid);
+            IntPtr hProcess = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_SET_INFORMATION | PROCESS_SET_QUOTA, false, pid);
             if (hProcess == IntPtr.Zero) return;
             try
             {
-                uint targetPrio = isForeground
-                    ? RobloxProcessOptimizer.NORMAL_PRIORITY_CLASS
-                    : RobloxProcessOptimizer.BELOW_NORMAL_PRIORITY_CLASS;
+                var throttler = RobloxBackgroundThrottlerService.Instance;
+                uint targetPrio = ComputeTargetPriorityClass(isForeground, throttler.IsEnabled, throttler.TargetBackgroundFps);
                 SetPriorityClass(hProcess, targetPrio);
 
                 if (isForeground)
+                {
                     DisableEcoQoS(hProcess);
+                    SetProcessMemoryPriorityNative(hProcess, isForeground: true);
+                }
                 else
+                {
                     EnableEcoQoS(hProcess);
+                    SetProcessMemoryPriorityNative(hProcess, isForeground: false);
+                    SoftRelaxWorkingSetNative(hProcess);
+                }
             }
             finally
             {
@@ -408,7 +414,7 @@ namespace Shiro.Services
         [return: MarshalAs(UnmanagedType.Bool)]
         private static partial bool SetProcessInformation(IntPtr hProcess, int processInformationClass, ref PROCESS_POWER_THROTTLING_STATE processInformation, uint processInformationSize);
 
-        private static bool EnableEcoQoS(IntPtr hProcess)
+        internal static bool EnableEcoQoS(IntPtr hProcess)
         {
             try
             {
@@ -426,7 +432,7 @@ namespace Shiro.Services
             }
         }
 
-        private static bool DisableEcoQoS(IntPtr hProcess)
+        internal static bool DisableEcoQoS(IntPtr hProcess)
         {
             try
             {

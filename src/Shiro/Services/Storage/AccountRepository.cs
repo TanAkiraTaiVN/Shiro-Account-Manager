@@ -10,23 +10,101 @@ namespace Shiro.Services
 {
     public class AccountRepository : IAccountRepository
     {
+        private sealed class SnapshotIndex
+        {
+            public readonly IReadOnlyList<Account> Snapshot;
+            public readonly Dictionary<long, Account> ById;
+            public readonly Dictionary<string, Account> ByUsername;
+
+            public SnapshotIndex(IReadOnlyList<Account> snapshot)
+            {
+                Snapshot = snapshot;
+                int capacity = snapshot.Count;
+                ById = new Dictionary<long, Account>(capacity);
+                ByUsername = new Dictionary<string, Account>(capacity, StringComparer.OrdinalIgnoreCase);
+
+                for (int i = 0; i < capacity; i++)
+                {
+                    Account? acc = snapshot[i];
+                    if (acc == null) continue;
+                    if (acc.UserID > 0 && !ById.ContainsKey(acc.UserID))
+                    {
+                        ById[acc.UserID] = acc;
+                    }
+                    if (!string.IsNullOrWhiteSpace(acc.Username) && !ByUsername.ContainsKey(acc.Username))
+                    {
+                        ByUsername[acc.Username] = acc;
+                    }
+                }
+            }
+        }
+
         private static readonly Lazy<AccountRepository> _defaultInstance = new(() => new AccountRepository());
+        private static volatile SnapshotIndex? _cachedIndex;
         public static AccountRepository Default => _defaultInstance.Value;
 
         public int Count => AccountManager.AccountCount;
 
         public IReadOnlyList<Account> GetAll() => AccountManager.GetAccountsSnapshot();
 
+        private static SnapshotIndex GetOrBuildIndex(IReadOnlyList<Account> currentSnapshot)
+        {
+            SnapshotIndex? current = _cachedIndex;
+            if (current != null && ReferenceEquals(current.Snapshot, currentSnapshot))
+                return current;
+
+            var built = new SnapshotIndex(currentSnapshot);
+            _cachedIndex = built;
+            return built;
+        }
+
         public Account? GetById(long userId)
         {
             if (userId <= 0) return null;
-            return GetAll().FirstOrDefault(a => a.UserID == userId);
+            IReadOnlyList<Account> snapshot = GetAll();
+            if (snapshot.Count == 0) return null;
+
+            SnapshotIndex index = GetOrBuildIndex(snapshot);
+            if (index.ById.TryGetValue(userId, out Account? match) && match.UserID == userId)
+                return match;
+
+            for (int i = 0; i < snapshot.Count; i++)
+            {
+                Account? acc = snapshot[i];
+                if (acc != null && acc.UserID == userId)
+                {
+                    _cachedIndex = new SnapshotIndex(snapshot);
+                    return acc;
+                }
+            }
+
+            return null;
         }
 
         public Account? GetByUsername(string username)
         {
             if (string.IsNullOrWhiteSpace(username)) return null;
-            return GetAll().FirstOrDefault(a => string.Equals(a.Username, username, StringComparison.OrdinalIgnoreCase));
+            IReadOnlyList<Account> snapshot = GetAll();
+            if (snapshot.Count == 0) return null;
+
+            SnapshotIndex index = GetOrBuildIndex(snapshot);
+            if (index.ByUsername.TryGetValue(username, out Account? match) &&
+                string.Equals(match.Username, username, StringComparison.OrdinalIgnoreCase))
+            {
+                return match;
+            }
+
+            for (int i = 0; i < snapshot.Count; i++)
+            {
+                Account? acc = snapshot[i];
+                if (acc != null && string.Equals(acc.Username, username, StringComparison.OrdinalIgnoreCase))
+                {
+                    _cachedIndex = new SnapshotIndex(snapshot);
+                    return acc;
+                }
+            }
+
+            return null;
         }
 
         public Account? AddOrUpdate(string securityToken, string password = "", string? accountJson = null)

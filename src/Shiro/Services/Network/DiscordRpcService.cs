@@ -1,7 +1,7 @@
 #nullable enable
 using System;
+using System.Buffers.Binary;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.IO.Pipes;
 using System.Text;
@@ -63,6 +63,7 @@ namespace Shiro.Services
         private bool _isConnected;
         private bool _isDisposed;
         private DiscordActivityItem? _lastActivity;
+        private byte[]? _lastActivityFrame;
         private readonly long _sessionStartTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
         public bool IsConnected => _isConnected;
@@ -114,9 +115,17 @@ namespace Shiro.Services
                 try
                 {
                     await Task.Delay(15000, ct).ConfigureAwait(false);
-                    if (_isConnected && _lastActivity != null)
+                    if (_isConnected)
                     {
-                        await SendActivityAsync(_lastActivity, ct).ConfigureAwait(false);
+                        byte[]? cachedFrame = Volatile.Read(ref _lastActivityFrame);
+                        if (cachedFrame != null)
+                        {
+                            await WriteFrameBytesAsync(cachedFrame, ct).ConfigureAwait(false);
+                        }
+                        else if (_lastActivity != null)
+                        {
+                            await SendActivityAsync(_lastActivity, ct).ConfigureAwait(false);
+                        }
                     }
                 }
                 catch (OperationCanceledException)
@@ -147,9 +156,11 @@ namespace Shiro.Services
                         _pipeStream = pipe;
                     }
 
-                    // Send Handshake (Opcode 0)
-                    string handshakeJson = JsonSerializer.Serialize(new { v = 1, client_id = ClientId });
-                    await WriteFrameAsync(0, handshakeJson, ct).ConfigureAwait(false);
+                    // Send Handshake (Opcode 0) via source-generated DTO
+                    byte[] handshakeUtf8 = JsonSerializer.SerializeToUtf8Bytes(
+                        new DiscordHandshakePayload(1, ClientId),
+                        ShiroAppJson.Default.DiscordHandshakePayload);
+                    await WriteFrameBytesAsync(BuildFrame(0, handshakeUtf8), ct).ConfigureAwait(false);
 
                     // Read Handshake response
                     var (_, _) = await ReadFrameAsync(ct).ConfigureAwait(false);
@@ -172,7 +183,6 @@ namespace Shiro.Services
                     }
                     try { pipe?.Dispose(); }
                     catch (Exception ex) { _logger.Debug($"[DiscordRpcService.ConnectPipeAsync] Pipe dispose: {ex.Message}"); }
-                    // Continue probing next pipe index
                 }
             }
         }
@@ -233,7 +243,6 @@ namespace Shiro.Services
                 LargeImageText = "Shiro Account Manager"
             };
 
-            // Add "Join Game" Button if in game, placeId is valid, and streamer mode allows it
             if (placeId > 0 && allowJoin && !isStreamerMode)
             {
                 string joinUrl = !string.IsNullOrWhiteSpace(jobId)
@@ -251,9 +260,12 @@ namespace Shiro.Services
             }
 
             _lastActivity = activity;
+            byte[] encodedFrame = BuildFrame(1, BuildSetActivityPayload(activity));
+            Volatile.Write(ref _lastActivityFrame, encodedFrame);
+
             if (_isConnected)
             {
-                _ = SendActivityAsync(activity, CancellationToken.None);
+                _ = SendFrameSafeAsync(encodedFrame, CancellationToken.None);
             }
             else
             {
@@ -265,28 +277,17 @@ namespace Shiro.Services
         {
             int total = AppServices.AccountRepository.Count;
             int active = 0;
-            Process[] procs = Array.Empty<Process>();
             try
             {
-                procs = Process.GetProcessesByName("RobloxPlayerBeta");
-                active = procs.Length;
+                active = RobloxProcessService.GetRunningRobloxCount();
             }
             catch (Exception ex)
             {
                 _logger.Debug($"[DiscordRpcService.UpdatePresence] {ex.Message}");
             }
-            finally
-            {
-                foreach (var p in procs)
-                {
-                    try { p.Dispose(); }
-                    catch (Exception ex) { _logger.Debug($"[DiscordRpcService.UpdatePresence] Process dispose: {ex.Message}"); }
-                }
-            }
 
             string currentPlace = AppServices.ServerBrowserState.CurrentPlaceId;
-            long placeId = 0;
-            long.TryParse(currentPlace, out placeId);
+            long.TryParse(currentPlace, out long placeId);
 
             UpdatePresence(null, placeId, AppServices.ServerBrowserState.CurrentJobId, total, active);
         }
@@ -294,20 +295,15 @@ namespace Shiro.Services
         public void ClearPresence()
         {
             _lastActivity = null;
+            Volatile.Write(ref _lastActivityFrame, null);
             if (!_isConnected) return;
 
             _ = Task.Run(async () =>
             {
                 try
                 {
-                    var payload = new
-                    {
-                        cmd = "SET_ACTIVITY",
-                        args = new { pid = Process.GetCurrentProcess().Id, activity = (object?)null },
-                        nonce = Guid.NewGuid().ToString()
-                    };
-                    string json = JsonSerializer.Serialize(payload);
-                    await WriteFrameAsync(1, json, CancellationToken.None).ConfigureAwait(false);
+                    byte[] clearFrame = BuildFrame(1, BuildSetActivityPayload(null));
+                    await WriteFrameBytesAsync(clearFrame, CancellationToken.None).ConfigureAwait(false);
                 }
                 catch (Exception ex)
                 {
@@ -316,47 +312,66 @@ namespace Shiro.Services
             });
         }
 
+        internal static byte[] BuildSetActivityPayload(DiscordActivityItem? activity, string? nonce = null)
+        {
+            DiscordActivityPayload? activityDto = null;
+            if (activity != null)
+            {
+                List<DiscordButtonPayload>? buttons = null;
+                if (activity.Buttons is { Count: > 0 })
+                {
+                    buttons = new List<DiscordButtonPayload>(activity.Buttons.Count);
+                    foreach (var btn in activity.Buttons)
+                    {
+                        buttons.Add(new DiscordButtonPayload(btn.Label, btn.Url));
+                    }
+                }
+
+                activityDto = new DiscordActivityPayload
+                {
+                    details = activity.Details,
+                    state = activity.State,
+                    timestamps = activity.StartTimestamp.HasValue
+                        ? new DiscordTimestampsPayload(activity.StartTimestamp.Value)
+                        : null,
+                    assets = new DiscordAssetsPayload(
+                        activity.LargeImageKey,
+                        activity.LargeImageText,
+                        activity.SmallImageKey,
+                        activity.SmallImageText),
+                    buttons = buttons
+                };
+            }
+
+            var command = new DiscordSetActivityCommand(
+                "SET_ACTIVITY",
+                new DiscordSetActivityArgs(Environment.ProcessId, activityDto),
+                nonce ?? Guid.NewGuid().ToString("N"));
+
+            return JsonSerializer.SerializeToUtf8Bytes(command, ShiroAppJson.Default.DiscordSetActivityCommand);
+        }
+
+        internal static byte[] BuildFrame(int opcode, ReadOnlySpan<byte> payloadUtf8)
+        {
+            byte[] frame = new byte[8 + payloadUtf8.Length];
+            BinaryPrimitives.WriteInt32LittleEndian(frame.AsSpan(0, 4), opcode);
+            BinaryPrimitives.WriteInt32LittleEndian(frame.AsSpan(4, 4), payloadUtf8.Length);
+            payloadUtf8.CopyTo(frame.AsSpan(8));
+            return frame;
+        }
+
         private async Task SendActivityAsync(DiscordActivityItem activity, CancellationToken ct)
+        {
+            byte[] frame = Volatile.Read(ref _lastActivityFrame) ?? BuildFrame(1, BuildSetActivityPayload(activity));
+            Volatile.Write(ref _lastActivityFrame, frame);
+            await SendFrameSafeAsync(frame, ct).ConfigureAwait(false);
+        }
+
+        private async Task SendFrameSafeAsync(byte[] frame, CancellationToken ct)
         {
             try
             {
-                var discordActivityObj = new Dictionary<string, object?>
-                {
-                    ["details"] = activity.Details,
-                    ["state"] = activity.State,
-                    ["timestamps"] = activity.StartTimestamp.HasValue ? new { start = activity.StartTimestamp.Value } : null,
-                    ["assets"] = new
-                    {
-                        large_image = activity.LargeImageKey,
-                        large_text = activity.LargeImageText,
-                        small_image = activity.SmallImageKey,
-                        small_text = activity.SmallImageText
-                    }
-                };
-
-                if (activity.Buttons != null && activity.Buttons.Count > 0)
-                {
-                    var buttonsList = new List<object>();
-                    foreach (var btn in activity.Buttons)
-                    {
-                        buttonsList.Add(new { label = btn.Label, url = btn.Url });
-                    }
-                    discordActivityObj["buttons"] = buttonsList;
-                }
-
-                var payload = new
-                {
-                    cmd = "SET_ACTIVITY",
-                    args = new
-                    {
-                        pid = Process.GetCurrentProcess().Id,
-                        activity = discordActivityObj
-                    },
-                    nonce = Guid.NewGuid().ToString()
-                };
-
-                string json = JsonSerializer.Serialize(payload);
-                await WriteFrameAsync(1, json, ct).ConfigureAwait(false);
+                await WriteFrameBytesAsync(frame, ct).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -365,13 +380,8 @@ namespace Shiro.Services
             }
         }
 
-        private async Task WriteFrameAsync(int opcode, string json, CancellationToken ct)
+        private async Task WriteFrameBytesAsync(byte[] frameBytes, CancellationToken ct)
         {
-            byte[] payloadBytes = Encoding.UTF8.GetBytes(json);
-            byte[] header = new byte[8];
-            BitConverter.GetBytes(opcode).CopyTo(header, 0);
-            BitConverter.GetBytes(payloadBytes.Length).CopyTo(header, 4);
-
             await _pipeGate.WaitAsync(ct).ConfigureAwait(false);
             try
             {
@@ -384,8 +394,7 @@ namespace Shiro.Services
                 if (stream == null || !stream.IsConnected)
                     throw new IOException("Discord NamedPipe is not connected.");
 
-                await stream.WriteAsync(header, ct).ConfigureAwait(false);
-                await stream.WriteAsync(payloadBytes, ct).ConfigureAwait(false);
+                await stream.WriteAsync(frameBytes, ct).ConfigureAwait(false);
                 await stream.FlushAsync(ct).ConfigureAwait(false);
             }
             finally
@@ -394,9 +403,8 @@ namespace Shiro.Services
             }
         }
 
-        private async Task<(int Opcode, string Payload)> ReadFrameAsync(CancellationToken ct)
+        private Task<(int Opcode, string Payload)> ReadFrameAsync(CancellationToken ct)
         {
-            byte[] header = new byte[8];
             NamedPipeClientStream? stream;
             lock (_pipeLock)
             {
@@ -406,26 +414,26 @@ namespace Shiro.Services
             if (stream == null || !stream.IsConnected)
                 throw new IOException("Discord NamedPipe is not connected.");
 
-            int bytesRead = await stream.ReadAsync(header, ct).ConfigureAwait(false);
-            if (bytesRead < 8)
-                throw new IOException("Incomplete frame header read from Discord pipe.");
+            return ReadFrameFromStreamAsync(stream, ct);
+        }
 
-            int opcode = BitConverter.ToInt32(header, 0);
-            int length = BitConverter.ToInt32(header, 4);
+        internal static async Task<(int Opcode, string Payload)> ReadFrameFromStreamAsync(Stream stream, CancellationToken ct = default)
+        {
+            byte[] header = new byte[8];
+            await stream.ReadExactlyAsync(header, ct).ConfigureAwait(false);
+
+            int opcode = BinaryPrimitives.ReadInt32LittleEndian(header.AsSpan(0, 4));
+            int length = BinaryPrimitives.ReadInt32LittleEndian(header.AsSpan(4, 4));
 
             if (length < 0 || length > 64 * 1024)
                 throw new IOException($"Invalid Discord frame length: {length}");
 
-            byte[] buffer = new byte[length];
-            int totalRead = 0;
-            while (totalRead < length)
-            {
-                int r = await stream.ReadAsync(buffer.AsMemory(totalRead, length - totalRead), ct).ConfigureAwait(false);
-                if (r == 0) break;
-                totalRead += r;
-            }
+            if (length == 0)
+                return (opcode, string.Empty);
 
-            string payload = Encoding.UTF8.GetString(buffer, 0, totalRead);
+            byte[] buffer = new byte[length];
+            await stream.ReadExactlyAsync(buffer, ct).ConfigureAwait(false);
+            string payload = Encoding.UTF8.GetString(buffer);
             return (opcode, payload);
         }
 

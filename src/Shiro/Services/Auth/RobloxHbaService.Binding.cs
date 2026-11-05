@@ -2,6 +2,7 @@
 using System;
 using System.Globalization;
 using System.Net.Http;
+using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -172,6 +173,33 @@ namespace Shiro.Services
             return null;
         }
 
+        internal static bool TryDeriveSpkiPublicKeyBase64(string? pkcs8PrivateKeyBase64, out string spkiPublicKeyBase64)
+        {
+            spkiPublicKeyBase64 = string.Empty;
+            if (string.IsNullOrWhiteSpace(pkcs8PrivateKeyBase64))
+                return false;
+
+            try
+            {
+                byte[] pkcs8 = Convert.FromBase64String(pkcs8PrivateKeyBase64.Trim());
+                try
+                {
+                    using var ecdsa = ECDsa.Create();
+                    ecdsa.ImportPkcs8PrivateKey(pkcs8, out _);
+                    spkiPublicKeyBase64 = Convert.ToBase64String(ecdsa.ExportSubjectPublicKeyInfo());
+                    return !string.IsNullOrWhiteSpace(spkiPublicKeyBase64);
+                }
+                finally
+                {
+                    CryptographicOperations.ZeroMemory(pkcs8);
+                }
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
         public static string GetPersistedKeyInjectionScript(
             string? privateKeyPkcs8Base64,
             string? publicKeySpkiBase64,
@@ -179,6 +207,12 @@ namespace Shiro.Services
         {
             if (string.IsNullOrWhiteSpace(privateKeyPkcs8Base64))
                 return string.Empty;
+
+            if (string.IsNullOrWhiteSpace(publicKeySpkiBase64) &&
+                TryDeriveSpkiPublicKeyBase64(privateKeyPkcs8Base64, out string derivedSpki))
+            {
+                publicKeySpkiBase64 = derivedSpki;
+            }
 
             static string EscapeJsSingleQuoted(string value) =>
                 value.Replace("\\", "\\\\")
@@ -234,7 +268,7 @@ namespace Shiro.Services
                 const algName = typeof algorithm === 'string' ? algorithm : (algorithm && algorithm.name ? algorithm.name : '');
                 if (String(algName).toUpperCase() === 'ECDSA') {{
                     const imported = await getImportedPair(this);
-                    if (imported && imported.privateKey && imported.publicKey) {{
+                    if (imported && imported.privateKey) {{
                         return imported;
                     }}
                 }}

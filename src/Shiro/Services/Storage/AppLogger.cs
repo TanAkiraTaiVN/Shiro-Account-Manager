@@ -31,12 +31,19 @@ namespace Shiro.Services
     /// </summary>
     public sealed class AppLogger : IAppLogger, IDisposable
     {
+        internal readonly record struct LogEntry(
+            DateTime Timestamp,
+            int ThreadId,
+            string Level,
+            string MessageText,
+            Exception? Exception);
+
         private const long MaxFileSizeBytes = 5 * 1024 * 1024; // 5 MB
         private readonly string _loggerName;
         private readonly string _logDirectory;
         private readonly string _logFilePath;
         private readonly string _backupFilePath;
-        private readonly Channel<string> _channel;
+        private readonly Channel<LogEntry> _channel;
         private readonly CancellationTokenSource _cts;
         private readonly Task _writerTask;
         private readonly UTF8Encoding _utf8NoBom = new UTF8Encoding(false);
@@ -57,7 +64,7 @@ namespace Shiro.Services
 
             Directory.CreateDirectory(_logDirectory);
 
-            _channel = Channel.CreateUnbounded<string>(new UnboundedChannelOptions
+            _channel = Channel.CreateUnbounded<LogEntry>(new UnboundedChannelOptions
             {
                 SingleReader = true,
                 SingleWriter = false
@@ -86,17 +93,26 @@ namespace Shiro.Services
             if (Volatile.Read(ref _disposed) != 0)
                 return;
 
-            string text = message?.ToString() ?? string.Empty;
-            if (exception != null)
-                text = $"{text}{Environment.NewLine}{exception}";
+            string text = message as string ?? message?.ToString() ?? string.Empty;
+            var entry = new LogEntry(
+                DateTime.Now,
+                Environment.CurrentManagedThreadId,
+                level,
+                text,
+                exception);
+
+            _channel.Writer.TryWrite(entry);
+        }
+
+        internal static string FormatLogLine(in LogEntry entry, string loggerName)
+        {
+            string text = entry.Exception != null
+                ? $"{entry.MessageText}{Environment.NewLine}{entry.Exception}"
+                : entry.MessageText;
 
             text = LogRedactor.Redact(text);
-
-            int threadId = Environment.CurrentManagedThreadId;
-            string timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss,fff");
-            string line = $"{timestamp} [{threadId}] {level,-5} {_loggerName} - {text}";
-
-            _channel.Writer.TryWrite(line);
+            string timestamp = entry.Timestamp.ToString("yyyy-MM-dd HH:mm:ss,fff");
+            return $"{timestamp} [{entry.ThreadId}] {entry.Level,-5} {loggerName} - {text}";
         }
 
         private async Task ProcessLogQueueAsync(CancellationToken cancellationToken)
@@ -108,30 +124,47 @@ namespace Shiro.Services
             {
                 OpenLogFile(ref writer, ref currentLength);
 
-                ChannelReader<string> reader = _channel.Reader;
+                ChannelReader<LogEntry> reader = _channel.Reader;
                 while (await reader.WaitToReadAsync(cancellationToken).ConfigureAwait(false))
                 {
-                    while (reader.TryRead(out string? line) && line != null)
+                    while (reader.TryRead(out LogEntry entry))
                     {
-                        if (writer == null)
-                            OpenLogFile(ref writer, ref currentLength);
-
-                        int encodedByteCount = _utf8NoBom.GetByteCount(line) + _newLineByteCount;
-                        if (currentLength + encodedByteCount > MaxFileSizeBytes)
+                        // A single I/O failure (disk full, file locked by AV, rotation race) must not
+                        // terminate the reader loop: the channel is unbounded, so a dead reader would
+                        // silently drop all future logs and grow memory without limit.
+                        try
                         {
-                            RotateFile(ref writer, ref currentLength);
+                            string line = FormatLogLine(in entry, _loggerName);
+                            if (writer == null)
+                                OpenLogFile(ref writer, ref currentLength);
+
+                            int encodedByteCount = _utf8NoBom.GetByteCount(line) + _newLineByteCount;
+                            if (currentLength + encodedByteCount > MaxFileSizeBytes)
+                            {
+                                RotateFile(ref writer, ref currentLength);
+                            }
+
+                            if (writer != null)
+                            {
+                                await writer.WriteLineAsync(line).ConfigureAwait(false);
+                                currentLength += encodedByteCount;
+                            }
                         }
-
-                        if (writer != null)
+                        catch (Exception ex) when (ex is not OperationCanceledException)
                         {
-                            await writer.WriteLineAsync(line).ConfigureAwait(false);
-                            currentLength += encodedByteCount;
+                            SafeExecuteHelper.Try(() => writer?.Dispose());
+                            writer = null;
                         }
                     }
 
                     if (writer != null)
                     {
-                        await writer.FlushAsync().ConfigureAwait(false);
+                        try { await writer.FlushAsync().ConfigureAwait(false); }
+                        catch (Exception ex) when (ex is not OperationCanceledException)
+                        {
+                            SafeExecuteHelper.Try(() => writer?.Dispose());
+                            writer = null;
+                        }
                     }
                 }
             }

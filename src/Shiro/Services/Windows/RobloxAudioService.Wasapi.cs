@@ -1,5 +1,7 @@
 #nullable enable
 using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 
 namespace Shiro.Services
@@ -9,6 +11,122 @@ namespace Shiro.Services
         private const uint COINIT_MULTITHREADED = 0x0;
         private const uint CLSCTX_ALL = 0x17;
         private const int RPC_E_CHANGED_MODE = unchecked((int)0x80010106);
+
+        private static readonly ConcurrentDictionary<int, IntPtr> _cachedVolumePointers = new();
+
+        static RobloxAudioService()
+        {
+            RobloxJobObjectService.ProcessExitedFromJob += static (pid, _) => InvalidateCachedAudioSession(pid);
+        }
+
+        internal static int CachedAudioSessionCount => _cachedVolumePointers.Count;
+
+        internal static bool AreAllPidsCached(IReadOnlyList<int> runningPids, IReadOnlyDictionary<int, IntPtr> cache)
+        {
+            if (runningPids == null || cache == null || runningPids.Count == 0)
+                return false;
+
+            for (int i = 0; i < runningPids.Count; i++)
+            {
+                int pid = runningPids[i];
+                if (pid <= 0 || !cache.TryGetValue(pid, out IntPtr ptr) || ptr == IntPtr.Zero)
+                    return false;
+            }
+
+            return true;
+        }
+
+        internal static bool InvalidateCachedAudioSession(int pid)
+        {
+            if (pid <= 0) return false;
+            lock (_gate)
+            {
+                if (_cachedVolumePointers.TryRemove(pid, out IntPtr ptr) && ptr != IntPtr.Zero)
+                {
+                    ComRelease(ref ptr);
+                    return true;
+                }
+                return false;
+            }
+        }
+
+        internal static void ClearAudioSessionCache()
+        {
+            lock (_gate)
+            {
+                foreach (var kvp in _cachedVolumePointers)
+                {
+                    if (_cachedVolumePointers.TryRemove(kvp.Key, out IntPtr ptr) && ptr != IntPtr.Zero)
+                    {
+                        ComRelease(ref ptr);
+                    }
+                }
+            }
+        }
+
+        internal static void PruneExitedCachedAudioSessions(IReadOnlyList<int> runningPids)
+        {
+            lock (_gate)
+            {
+                if (_cachedVolumePointers.IsEmpty) return;
+
+                foreach (var kvp in _cachedVolumePointers)
+                {
+                    if (!ContainsPid(runningPids, kvp.Key))
+                    {
+                        InvalidateCachedAudioSession(kvp.Key);
+                    }
+                }
+            }
+        }
+
+        internal static bool TryForEachCachedAudioSession(
+            IReadOnlyList<int> robloxPids,
+            Func<uint, NativeSimpleAudioVolume, bool> onSession)
+        {
+            lock (_gate)
+            {
+                if (!AreAllPidsCached(robloxPids, _cachedVolumePointers))
+                    return false;
+
+                PruneExitedCachedAudioSessions(robloxPids);
+
+                int hrCoInit = CoInitializeEx(IntPtr.Zero, COINIT_MULTITHREADED);
+                bool shouldUninit = hrCoInit >= 0;
+                if (hrCoInit < 0 && hrCoInit != RPC_E_CHANGED_MODE)
+                    return false;
+
+                try
+                {
+                    for (int i = 0; i < robloxPids.Count; i++)
+                    {
+                        int pid = robloxPids[i];
+                        if (!_cachedVolumePointers.TryGetValue(pid, out IntPtr pVolume) || pVolume == IntPtr.Zero)
+                            return false;
+
+                        var nativeVolume = new NativeSimpleAudioVolume(pVolume);
+                        // Probe vtable validity first (detects AUDCLNT_E_DEVICE_INVALIDATED when audio endpoint changes)
+                        if (!nativeVolume.TryGetMute(out _))
+                        {
+                            ClearAudioSessionCache();
+                            return false;
+                        }
+
+                        if (!onSession((uint)pid, nativeVolume))
+                            break;
+                    }
+
+                    return true;
+                }
+                finally
+                {
+                    if (shouldUninit)
+                    {
+                        CoUninitialize();
+                    }
+                }
+            }
+        }
 
         private static readonly Guid CLSID_MMDeviceEnumerator = new("BCDE0395-E52F-467C-8E3D-C4579291692E");
         private static readonly Guid IID_IMMDeviceEnumerator = new("A95664D2-9614-4F35-A746-DE8DB63617E6");

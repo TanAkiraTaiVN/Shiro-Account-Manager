@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using System.Threading;
 
 namespace Shiro.Services
 {
@@ -14,9 +15,20 @@ namespace Shiro.Services
     {
         private static readonly System.Threading.Lock _gate = new();
         private static IntPtr _hJob = IntPtr.Zero;
+        private static IntPtr _hIocp = IntPtr.Zero;
+        private static Thread? _iocpThread;
         private static int _cpuRatePercent = 0;
 
+        private const int JobObjectAssociateCompletionPortInformation = 7;
         private const int JobObjectCpuRateControlInformation = 15;
+
+        private const uint JOB_OBJECT_MSG_EXIT_PROCESS = 4;
+        private const uint JOB_OBJECT_MSG_NEW_PROCESS = 6;
+        private const uint JOB_OBJECT_MSG_ABNORMAL_EXIT_PROCESS = 8;
+        private const uint IOCP_QUIT_MESSAGE = 0;
+        private const uint INFINITE_TIMEOUT = 0xFFFFFFFF;
+
+        public static event Action<int, bool>? ProcessExitedFromJob;
 
         private const uint JOB_OBJECT_CPU_RATE_CONTROL_ENABLE = 0x1;
         private const uint JOB_OBJECT_CPU_RATE_CONTROL_HARD_CAP = 0x4;
@@ -39,6 +51,37 @@ namespace Shiro.Services
             public uint ControlFlags;
             public uint CpuRate;
         }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct JOBOBJECT_ASSOCIATE_COMPLETION_PORT
+        {
+            public IntPtr CompletionKey;
+            public IntPtr CompletionPort;
+        }
+
+        [LibraryImport("kernel32.dll", SetLastError = true)]
+        private static partial IntPtr CreateIoCompletionPort(
+            IntPtr FileHandle,
+            IntPtr ExistingCompletionPort,
+            nuint CompletionKey,
+            uint NumberOfConcurrentThreads);
+
+        [LibraryImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static partial bool GetQueuedCompletionStatus(
+            IntPtr CompletionPort,
+            out uint lpNumberOfBytesTransferred,
+            out nuint lpCompletionKey,
+            out nuint lpOverlapped,
+            uint dwMilliseconds);
+
+        [LibraryImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static partial bool PostQueuedCompletionStatus(
+            IntPtr CompletionPort,
+            uint dwNumberOfBytesTransferred,
+            nuint dwCompletionKey,
+            IntPtr lpOverlapped);
 
         [LibraryImport("kernel32.dll", SetLastError = true, EntryPoint = "CreateJobObjectW", StringMarshalling = StringMarshalling.Utf16)]
         private static partial IntPtr CreateJobObject(IntPtr lpJobAttributes, string lpName);
@@ -70,9 +113,13 @@ namespace Shiro.Services
                     {
                         // Note: JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE is intentionally NOT set so closing Shiro leaves active games running.
                         _hJob = CreateJobObject(IntPtr.Zero, "Shiro_Roblox_Farming_Job_" + Environment.ProcessId);
-                        if (_hJob != IntPtr.Zero && _cpuRatePercent > 0)
+                        if (_hJob != IntPtr.Zero)
                         {
-                            ApplyCpuRateLimitInternal(_cpuRatePercent);
+                            AttachCompletionPortInternal(_hJob);
+                            if (_cpuRatePercent > 0)
+                            {
+                                ApplyCpuRateLimitInternal(_cpuRatePercent);
+                            }
                         }
                     }
                     catch (Exception ex)
@@ -201,11 +248,115 @@ namespace Shiro.Services
             }
         }
 
+        internal static bool DispatchCompletionMessage(uint messageId, nuint processId)
+        {
+            if (messageId == JOB_OBJECT_MSG_NEW_PROCESS)
+            {
+                RobloxProcessService.InvalidateSnapshotCache();
+                return true;
+            }
+
+            if (messageId == JOB_OBJECT_MSG_EXIT_PROCESS || messageId == JOB_OBJECT_MSG_ABNORMAL_EXIT_PROCESS)
+            {
+                RobloxProcessService.InvalidateSnapshotCache();
+                int pid = (int)processId;
+                if (pid > 0)
+                {
+                    bool abnormal = messageId == JOB_OBJECT_MSG_ABNORMAL_EXIT_PROCESS;
+                    var handlers = ProcessExitedFromJob;
+                    if (handlers != null)
+                    {
+                        try
+                        {
+                            handlers(pid, abnormal);
+                        }
+                        catch (Exception ex)
+                        {
+                            AppServices.Logger.Debug($"[RobloxJobObjectService] ProcessExitedFromJob handler error: {ex.Message}");
+                        }
+                    }
+                }
+                return true;
+            }
+
+            return false;
+        }
+
+        private static unsafe void AttachCompletionPortInternal(IntPtr hJob)
+        {
+            if (_hIocp != IntPtr.Zero || hJob == IntPtr.Zero || hJob == (IntPtr)(-1))
+                return;
+
+            try
+            {
+                IntPtr iocp = CreateIoCompletionPort(new IntPtr(-1), IntPtr.Zero, 0, 1);
+                if (iocp == IntPtr.Zero)
+                    return;
+
+                var assoc = new JOBOBJECT_ASSOCIATE_COMPLETION_PORT
+                {
+                    CompletionKey = hJob,
+                    CompletionPort = iocp
+                };
+
+                if (!SetInformationJobObject(
+                        hJob,
+                        JobObjectAssociateCompletionPortInformation,
+                        (IntPtr)(&assoc),
+                        (uint)sizeof(JOBOBJECT_ASSOCIATE_COMPLETION_PORT)))
+                {
+                    CloseHandle(iocp);
+                    return;
+                }
+
+                _hIocp = iocp;
+                _iocpThread = new Thread(() => PumpCompletionPort(iocp))
+                {
+                    IsBackground = true,
+                    Name = "shiro-job-iocp"
+                };
+                _iocpThread.Start();
+            }
+            catch (Exception ex)
+            {
+                AppServices.Logger.Debug($"[RobloxJobObjectService] AttachCompletionPortInternal error: {ex.Message}");
+            }
+        }
+
+        private static void PumpCompletionPort(IntPtr iocp)
+        {
+            try
+            {
+                while (GetQueuedCompletionStatus(iocp, out uint messageId, out _, out nuint processId, INFINITE_TIMEOUT))
+                {
+                    if (messageId == IOCP_QUIT_MESSAGE)
+                        break;
+
+                    DispatchCompletionMessage(messageId, processId);
+                }
+            }
+            catch (Exception ex)
+            {
+                AppServices.Logger.Debug($"[RobloxJobObjectService] PumpCompletionPort stopped: {ex.Message}");
+            }
+        }
+
         public static void Close()
         {
             lock (_gate)
             {
                 _cpuRatePercent = 0;
+                if (_hIocp != IntPtr.Zero)
+                {
+                    try { PostQueuedCompletionStatus(_hIocp, IOCP_QUIT_MESSAGE, 0, IntPtr.Zero); }
+                    catch (Exception ex) { AppServices.Logger.Debug($"Failed posting quit to job IOCP: {ex.Message}"); }
+
+                    try { CloseHandle(_hIocp); }
+                    catch (Exception ex) { AppServices.Logger.Debug($"Failed closing job IOCP handle: {ex.Message}"); }
+                    _hIocp = IntPtr.Zero;
+                    _iocpThread = null;
+                }
+
                 if (_hJob != IntPtr.Zero && _hJob != (IntPtr)(-1))
                 {
                     try { CloseHandle(_hJob); }

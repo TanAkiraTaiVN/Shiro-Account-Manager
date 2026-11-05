@@ -114,7 +114,7 @@ namespace Shiro.Services
             RestRequest request = account.MakeRequest("v1/account/pin/unlock", Method.Post)
                 .AddHeader("Referer", "https://www.roblox.com/")
                 .AddHeader("X-CSRF-TOKEN", csrf.Token)
-                .AddJsonBody(new { pin });
+                .AddJsonBody(new PinUnlockPayload(pin));
 
             RestResponse? response = await account.ExecuteAccountRestAsync(AppServices.RobloxApi.Auth, "https://auth.roblox.com/", request, cancellationToken).ConfigureAwait(false);
 
@@ -158,7 +158,7 @@ namespace Shiro.Services
             RestRequest modernRequest = account.MakeRequest("user-settings-api/v1/user-settings", Method.Post)
                 .AddHeader("Referer", "https://www.roblox.com/")
                 .AddHeader("X-CSRF-TOKEN", csrf.Token)
-                .AddJsonBody(new { whoCanJoinMeInExperiences = modernSetting });
+                .AddJsonBody(new FollowPrivacySettingPayload(modernSetting));
 
             RestResponse? modernResponse = await account.ExecuteAccountRestAsync(AppServices.RobloxApi.Api, "https://apis.roblox.com/", modernRequest, cancellationToken).ConfigureAwait(false);
             if (modernResponse != null && modernResponse.IsSuccessful)
@@ -270,7 +270,7 @@ namespace Shiro.Services
             RestRequest request = account.MakeRequest("v1/logoutfromallsessionsandreauthenticate", Method.Post)
                 .AddHeader("Referer", "https://www.roblox.com/")
                 .AddHeader("X-CSRF-TOKEN", csrf.Token)
-                .AddJsonBody(new { });
+                .AddJsonBody(new EmptyJsonObjectPayload());
 
             RestResponse? response = await account.ExecuteAccountRestAsync(AppServices.RobloxApi.Auth, "https://auth.roblox.com/", request, cancellationToken).ConfigureAwait(false);
 
@@ -333,7 +333,7 @@ namespace Shiro.Services
             if (!csrf.Success || string.IsNullOrEmpty(csrf.Token))
                 return (false, $"ERROR: Account Session Expired, re-add the account or try again. (Invalid X-CSRF-Token)\n{csrf.Error}");
 
-            RestRequest request = account.MakeRequest("v1/join-game-instance", Method.Post).AddHeader("Content-Type", "application/json").AddJsonBody(new { gameId = jobId, placeId });
+            RestRequest request = account.MakeRequest("v1/join-game-instance", Method.Post).AddHeader("Content-Type", "application/json").AddJsonBody(new JoinGameInstancePayload(jobId, placeId));
             RestResponse? response = await account.ExecuteAccountRestAsync(AppServices.RobloxApi.GameJoin, "https://gamejoin.roblox.com/", request, cancellationToken).ConfigureAwait(false);
 
             if (response != null && response.StatusCode == HttpStatusCode.OK)
@@ -351,7 +351,7 @@ namespace Shiro.Services
             var csrf = await account.GetCSRFTokenAsync(cancellationToken).ConfigureAwait(false);
             if (!csrf.Success) throw new InvalidOperationException(csrf.Error ?? "Failed to acquire CSRF token");
 
-            RestRequest dpRequest = account.MakeRequest($"/v1/users/{account.UserID}/display-names", Method.Patch).AddHeader("X-CSRF-TOKEN", csrf.Token).AddJsonBody(new { newDisplayName = displayName });
+            RestRequest dpRequest = account.MakeRequest($"/v1/users/{account.UserID}/display-names", Method.Patch).AddHeader("X-CSRF-TOKEN", csrf.Token).AddJsonBody(new SetDisplayNamePayload(displayName));
             RestResponse? dpResponse = await account.ExecuteAccountRestAsync(AppServices.RobloxApi.Users, "https://users.roblox.com/", dpRequest, cancellationToken).ConfigureAwait(false);
 
             if (dpResponse == null || dpResponse.StatusCode != HttpStatusCode.OK)
@@ -404,7 +404,7 @@ namespace Shiro.Services
                     string patVal = (patElem.ValueKind == JsonValueKind.String ? patElem.GetString() : patElem.ToString()) ?? string.Empty;
                     var patRequest = account.MakeRequest("v1/avatar/set-player-avatar-type", Method.Post)
                         .AddHeader("X-CSRF-TOKEN", csrf.Token)
-                        .AddJsonBody(new { playerAvatarType = patVal });
+                        .AddJsonBody(new SetPlayerAvatarTypePayload(patVal));
 
                     attributeTasks.Add(account.ExecuteAccountRestAsync(AppServices.RobloxApi.Avatar, "https://avatar.roblox.com/", patRequest, cancellationToken));
                 }

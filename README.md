@@ -14,16 +14,16 @@
 - **Quản lý đa tài khoản không giới hạn**: Lưu trữ danh sách tài khoản theo nhóm (Groups), tìm kiếm nhanh, ghim tài khoản yêu thích, tự động tính toán tổng số dư Robux.
 - **Multi-Roblox Client**: Hỗ trợ mở đồng thời nhiều tài khoản Roblox trên cùng một máy tính với cơ chế xếp hàng tuần tự (`LaunchCoordinator`), tránh lỗi đè process và tránh xung đột singleton mutex.
 - **Đăng nhập nhanh trong ứng dụng (In-App Fast Login)**: Tích hợp Microsoft Edge WebView2 nhúng, tự động điền tài khoản, tự động bắt cookie `.ROBLOSECURITY` và tự triệt tiêu banner Cookie Consent.
-- **Bảo mật tuyệt đối**: Dữ liệu tài khoản được mã hóa bằng AES-256-GCM + PBKDF2-SHA256 (210.000 vòng lặp), khóa Vault mặc định được bảo vệ bằng Windows DPAPI `CurrentUser` (chế độ Portable giữ khóa thô để di chuyển), hỗ trợ mật khẩu tùy chọn, ghi đĩa nguyên tử (`atomic replacement`) kèm bản sao lưu an toàn (`.backup`).
-- **Trình theo dõi Roblox Watcher & Dọn dẹp RAM**:
+- **Bảo mật dữ liệu đa lớp**: Dữ liệu tài khoản được mã hóa bằng **AES-256-GCM + PBKDF2-SHA256 (600.000 vòng lặp — chuẩn OWASP, tự động nâng cấp từ định dạng V1/V2 210.000 vòng)**, khóa Vault mặc định được bảo vệ bằng Windows DPAPI `CurrentUser` (chế độ Portable giữ khóa thô để di chuyển), hỗ trợ mật khẩu tùy chọn, ghi đĩa nguyên tử (`atomic replacement`) kèm bản sao lưu an toàn (`.backup`).
+- **Trình theo dõi Roblox Watcher & Tối ưu Bộ nhớ**:
   - Tự động phát hiện lỗi mất kết nối, lỗi mã 429 và thông báo rate limit.
-  - Tối ưu bộ nhớ (`MemoryOptimizer`) tự động giải phóng Working Set của Shiro xuống ~17 MB.
+  - Quản lý bộ nhớ thông minh (`MemoryOptimizer`): ưu tiên hạ mức ưu tiên tiến trình nền (`BelowNormal`) và thu gọn heap .NET, trong khi tùy chọn `EmptyWorkingSet` (ép giải phóng Working Set vật lý xuống pagefile, đưa Working Set hiển thị về ~17 MB) được tắt mặc định để tránh hiện tượng hard page-fault gây giật khung hình khi chuyển cửa sổ game.
   - Tự động dọn sạch biểu tượng khay hệ thống (Ghost Tray Icons) khi game thoát.
 - **Server List & Khám phá Server**:
   - Tra cứu danh sách server theo Place ID, hiển thị độ trễ ping và vị trí địa lý của server (Server Region).
   - Hỗ trợ vào VIP Server, tìm kiếm server nhỏ, tự động đổi Job ID ngẫu nhiên (`Shuffle Job ID`).
-- **Điều khiển trong game (Nexus Controller)**: Tích hợp WebSocket Server nội bộ hỗ trợ kết nối và điều khiển tự động các tài khoản đang chơi trong game.
-- **Chống treo máy (Anti-AFK)**: Tự động gửi phím ảo định kỳ bảo vệ tài khoản không bị ngắt kết nối do không hoạt động (idle 20 phút).
+- **Điều khiển trong game (Nexus Controller & Lua SDK)**: Tích hợp Kestrel WebSocket/HTTP Server nội bộ (mặc định chỉ lắng nghe `localhost`, yêu cầu mật khẩu xác thực hằng số thời gian khi mở kết nối ngoài). Đi kèm thư viện mẫu `RAMAccount.lua` (client Luau kết nối REST/WebSocket) và `RAMSettings.json` (tệp cấu hình mẫu tương thích ngược).
+- **Chống treo máy (Anti-AFK)**: Tự động gửi thông điệp phím/chuột ảo (`PostMessage` nền không chiếm tiêu điểm cửa sổ) hoặc phát xung qua cổng WebSocket (`VirtualUser` Luau) định kỳ bảo vệ tài khoản không bị ngắt kết nối do không hoạt động (idle 20 phút).
 
 ---
 
@@ -61,7 +61,7 @@ Sau khi hoàn tất, file thực thi phát hành chuẩn sẽ được tạo t�
 
 ## 📋 Kiểm thử tự động & Coverage Gates (Unit Tests)
 
-Dự án sở hữu bộ test suite tự động với 1,555 unit tests bao phủ toàn diện tính toàn vẹn của mã hóa AES-256-GCM / PBKDF2-SHA256, bảo mật DPAPI, quản lý hàng đợi mở game, kiến trúc MVVM strongly-typed, engine đồ họa Avalonia UI 11 và cấu hình JSON.
+Dự án sở hữu bộ test suite tự động với hơn 1,560 unit tests bao phủ toàn diện tính toàn vẹn của mã hóa AES-256-GCM / PBKDF2-SHA256 (600,000 vòng), bảo mật DPAPI, quản lý hàng đợi mở game, kiến trúc MVVM strongly-typed, engine đồ họa Avalonia UI 11 và cấu hình JSON.
 
 Các cổng chất lượng kiểm thử (Coverage Gates) được kiểm tra tự động trong CI/CD pipeline và `ArchitectureTests`:
 - **Overall Line Coverage**: **75.47%** (Ngưỡng yêu cầu: >= 75.0%)

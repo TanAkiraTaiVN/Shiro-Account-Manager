@@ -83,6 +83,14 @@ namespace Shiro.Tests
                 string? extracted = RobloxDirectLauncher.TryExtractCookieFromCookiesDatFile(cookiesPath);
                 Assert.NotNull(extracted);
                 Assert.Equal(TestToken, extracted);
+
+                bool trackerExtracted = RobloxDirectLauncher.TryExtractTrackerMetadataFromCookiesDatFile(
+                    cookiesPath,
+                    out _,
+                    out string? extractedBtid);
+                Assert.True(trackerExtracted);
+                Assert.Equal("btid_test_123", extractedBtid);
+                Assert.DoesNotContain(";", extractedBtid ?? string.Empty);
             }
             finally
             {
@@ -196,6 +204,15 @@ namespace Shiro.Tests
 
             string argsWithTracker = RobloxDirectLauncher.BuildGameLaunchArguments("ticket123", "https://roblox.com/join", "987654321");
             Assert.Equal("--app -t \"ticket123\" -j \"https://roblox.com/join\" -b 987654321", argsWithTracker);
+        }
+
+        [Fact]
+        public void BuildHomeLaunchArguments_FormatsTicketAndTrackerId()
+        {
+            Assert.Equal("--app", RobloxDirectLauncher.BuildHomeLaunchArguments(null));
+            Assert.Equal("--app", RobloxDirectLauncher.BuildHomeLaunchArguments(""));
+            Assert.Equal("--app -t \"ticket_home_1\"", RobloxDirectLauncher.BuildHomeLaunchArguments("ticket_home_1"));
+            Assert.Equal("--app -t \"ticket_home_1\" -b 123456789012", RobloxDirectLauncher.BuildHomeLaunchArguments("ticket_home_1", "123456789012"));
         }
 
         [Fact]

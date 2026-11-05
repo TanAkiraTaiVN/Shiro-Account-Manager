@@ -13,6 +13,9 @@ namespace Shiro.Classes
 {
     public class ThumbnailBatchItem
     {
+        [JsonPropertyName("requestId")]
+        public string? RequestId { get; set; }
+
         [JsonPropertyName("targetId")]
         public long TargetId { get; set; }
 
@@ -48,10 +51,44 @@ namespace Shiro.Classes
         private static readonly System.Threading.Lock PlaceTaskLock = new();
         private static readonly System.Threading.Lock BatchTaskLock = new();
 
+        internal sealed class BatchLookupResult
+        {
+            public readonly Dictionary<string, string> ByRequestId = new(StringComparer.Ordinal);
+            public readonly Dictionary<long, string> ByTargetId = new();
+
+            public void AddItems(List<ThumbnailBatchItem>? items)
+            {
+                if (items == null) return;
+                for (int i = 0; i < items.Count; i++)
+                {
+                    var item = items[i];
+                    if (item == null || item.ErrorCode != 0 || string.IsNullOrEmpty(item.ImageUrl))
+                        continue;
+
+                    if (!string.IsNullOrEmpty(item.RequestId))
+                        ByRequestId[item.RequestId] = item.ImageUrl;
+
+                    if (item.TargetId != 0 && !ByTargetId.ContainsKey(item.TargetId))
+                        ByTargetId[item.TargetId] = item.ImageUrl;
+                }
+            }
+
+            public string Resolve(string requestId, long targetId)
+            {
+                if (!string.IsNullOrEmpty(requestId) && ByRequestId.TryGetValue(requestId, out string? byReq) && !string.IsNullOrEmpty(byReq))
+                    return byReq;
+
+                if (targetId != 0 && ByTargetId.TryGetValue(targetId, out string? byTarget) && !string.IsNullOrEmpty(byTarget))
+                    return byTarget;
+
+                return "UNK";
+            }
+        }
+
         private sealed class BatchWork
         {
-            public readonly TaskCompletionSource<List<ThumbnailBatchItem>> Completion =
-                new TaskCompletionSource<List<ThumbnailBatchItem>>(TaskCreationOptions.RunContinuationsAsynchronously);
+            public readonly TaskCompletionSource<BatchLookupResult> Completion =
+                new TaskCompletionSource<BatchLookupResult>(TaskCreationOptions.RunContinuationsAsynchronously);
         }
 
         private sealed class PlaceWork
@@ -60,7 +97,7 @@ namespace Shiro.Classes
                 new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         }
 
-        private sealed class BatchRequestPayload
+        internal sealed class BatchRequestPayload
         {
             [JsonPropertyName("requestId")]
             public string RequestId { get; init; } = string.Empty;
@@ -125,10 +162,8 @@ namespace Shiro.Classes
                     work = CurrentBatchWork;
             }
 
-            List<ThumbnailBatchItem> result = await work.Completion.Task.ConfigureAwait(false);
-            return result?
-                .FirstOrDefault(item => item != null && item.ErrorCode == 0 && item.TargetId == assetId)?
-                .ImageUrl ?? "UNK";
+            BatchLookupResult result = await work.Completion.Task.ConfigureAwait(false);
+            return result != null ? result.Resolve(requestId, assetId) : "UNK";
         }
 
         public static async Task<string> GetGameIcon(long placeId)
@@ -170,7 +205,7 @@ namespace Shiro.Classes
                 // Keep the original 50 ms coalescing window while ensuring
                 // every queue operation is serialized.
                 await Task.Delay(50).ConfigureAwait(false);
-                List<ThumbnailBatchItem> returnList = new List<ThumbnailBatchItem>();
+                var lookupResult = new BatchLookupResult();
 
                 while (true)
                 {
@@ -187,7 +222,7 @@ namespace Shiro.Classes
                             if (ReferenceEquals(CurrentBatchWork, work))
                                 CurrentBatchWork = null;
 
-                            work.Completion.TrySetResult(returnList);
+                            work.Completion.TrySetResult(lookupResult);
                             return;
                         }
 
@@ -207,8 +242,7 @@ namespace Shiro.Classes
                         throw new HttpRequestException($"{response?.StatusCode} Batch request failed\nError: {response?.ErrorMessage}");
 
                     ThumbnailBatchResponse? data = Utilities.FastJson.TryDeserialize<ThumbnailBatchResponse>(response.Content ?? "{}", out var b) ? b : null;
-                    if (data?.Data != null)
-                        returnList.AddRange(data.Data);
+                    lookupResult.AddItems(data?.Data);
                 }
             }
             catch (Exception exception)
@@ -233,11 +267,13 @@ namespace Shiro.Classes
             {
                 await Task.Delay(50).ConfigureAwait(false);
 
-                // A game card can be rendered before the first account
-                // finishes loading. Bound this wait instead of keeping an
-                // orphaned task alive for the whole application lifetime.
-                for (int attempt = 0; attempt < 100 && AppSettings.LastValidAccount == null; attempt++)
-                    await Task.Delay(80).ConfigureAwait(false);
+                // Bound this wait briefly when accounts exist so unauthenticated startup
+                // immediately falls back to public APIs without stalling 8 seconds.
+                if (AppServices.AccountRepository.Count > 0)
+                {
+                    for (int attempt = 0; attempt < 6 && AppSettings.LastValidAccount == null; attempt++)
+                        await Task.Delay(50).ConfigureAwait(false);
+                }
 
                 if (AppSettings.LastValidAccount == null)
                 {

@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using Avalonia.Media;
 using Shiro.Classes;
 using Shiro.Services;
 
@@ -102,8 +103,28 @@ namespace Shiro.ViewModels
         public string CountryCode
         {
             get => _countryCode;
-            set => SetProperty(ref _countryCode, value ?? string.Empty);
+            set
+            {
+                if (SetProperty(ref _countryCode, value ?? string.Empty))
+                {
+                    OnPropertyChanged(nameof(FlagImage));
+                    OnPropertyChanged(nameof(HasFlagImage));
+                    OnPropertyChanged(nameof(RegionText));
+                    OnPropertyChanged(nameof(RegionDisplay));
+                }
+            }
         }
+
+        public IImage? FlagImage
+        {
+            get
+            {
+                string? code = FlagIconService.InferCountryCode(_countryCode, _region);
+                return FlagIconService.GetFlagImage(code);
+            }
+        }
+
+        public bool HasFlagImage => FlagImage != null;
 
         public string FlagEmoji
         {
@@ -124,8 +145,25 @@ namespace Shiro.ViewModels
             {
                 if (SetProperty(ref _region, value ?? string.Empty))
                 {
+                    OnPropertyChanged(nameof(FlagImage));
+                    OnPropertyChanged(nameof(HasFlagImage));
+                    OnPropertyChanged(nameof(RegionText));
                     OnPropertyChanged(nameof(RegionDisplay));
                 }
+            }
+        }
+
+        public string RegionText
+        {
+            get
+            {
+                if (string.IsNullOrEmpty(_region) ||
+                    _region == Shiro.Services.LocalizationService.Get("ServerList.NotLoaded") ||
+                    _region == "Not loaded")
+                {
+                    return Shiro.Services.LocalizationService.Get("ServerList.NotLoaded");
+                }
+                return _region;
             }
         }
 
@@ -147,6 +185,7 @@ namespace Shiro.ViewModels
 
         public void NotifyLanguageChanged()
         {
+            OnPropertyChanged(nameof(RegionText));
             OnPropertyChanged(nameof(RegionDisplay));
         }
 

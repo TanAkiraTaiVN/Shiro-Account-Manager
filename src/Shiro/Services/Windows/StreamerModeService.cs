@@ -20,6 +20,23 @@ namespace Shiro.Services
         private const uint WDA_NONE = 0x00000000;
         private const uint WDA_MONITOR = 0x00000001;
         private const uint WDA_EXCLUDEFROMCAPTURE = 0x00000011;
+        private const uint TH32CS_SNAPPROCESS = 0x00000002;
+        private static readonly IntPtr INVALID_HANDLE_VALUE = new(-1);
+
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        private unsafe struct PROCESSENTRY32W
+        {
+            public uint dwSize;
+            public uint cntUsage;
+            public uint th32ProcessID;
+            public nuint th32DefaultHeapID;
+            public uint th32ModuleID;
+            public uint cntThreads;
+            public uint th32ParentProcessID;
+            public int pcPriClassBase;
+            public uint dwFlags;
+            public fixed char szExeFile[260];
+        }
 
         private static readonly System.Threading.Lock _lock = new();
         private static readonly List<WeakReference<Window>> _registeredWindows = new();
@@ -52,7 +69,7 @@ namespace Shiro.Services
                 {
                     if (_isEnabled == value) return;
                     _isEnabled = value;
-                    AppSettings.General.Set(AppSettingsKeys.General.StreamerModeEnabled, value ? "true" : "false");
+                    AppServices.GeneralSettings.Set(AppSettingsKeys.General.StreamerModeEnabled, value ? "true" : "false");
                 }
                 UpdateAffinityState();
             }
@@ -67,7 +84,7 @@ namespace Shiro.Services
                 {
                     if (_autoDetectEnabled == value) return;
                     _autoDetectEnabled = value;
-                    AppSettings.General.Set(AppSettingsKeys.General.StreamerModeAutoDetect, value ? "true" : "false");
+                    AppServices.GeneralSettings.Set(AppSettingsKeys.General.StreamerModeAutoDetect, value ? "true" : "false");
 
                     if (value)
                     {
@@ -99,6 +116,21 @@ namespace Shiro.Services
         [return: MarshalAs(UnmanagedType.Bool)]
         private static partial bool SetWindowDisplayAffinity(IntPtr hWnd, uint dwAffinity);
 
+        [LibraryImport("kernel32.dll", SetLastError = true)]
+        private static partial IntPtr CreateToolhelp32Snapshot(uint dwFlags, uint th32ProcessID);
+
+        [LibraryImport("kernel32.dll", EntryPoint = "Process32FirstW", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static unsafe partial bool Process32FirstW(IntPtr hSnapshot, PROCESSENTRY32W* lppe);
+
+        [LibraryImport("kernel32.dll", EntryPoint = "Process32NextW", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static unsafe partial bool Process32NextW(IntPtr hSnapshot, PROCESSENTRY32W* lppe);
+
+        [LibraryImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static partial bool CloseHandle(IntPtr hObject);
+
         public static void Initialize()
         {
             lock (_lock)
@@ -106,8 +138,8 @@ namespace Shiro.Services
                 if (_initialized) return;
                 _initialized = true;
 
-                _isEnabled = AppSettings.General.Get<bool>(AppSettingsKeys.General.StreamerModeEnabled, false);
-                _autoDetectEnabled = AppSettings.General.Get<bool>(AppSettingsKeys.General.StreamerModeAutoDetect, false);
+                _isEnabled = AppServices.GeneralSettings.Get<bool>(AppSettingsKeys.General.StreamerModeEnabled, false);
+                _autoDetectEnabled = AppServices.GeneralSettings.Get<bool>(AppSettingsKeys.General.StreamerModeAutoDetect, false);
 
                 if (_autoDetectEnabled)
                 {
@@ -129,6 +161,60 @@ namespace Shiro.Services
             ApplyAffinityToWindow(window, IsActive);
         }
 
+        internal static bool MatchesStreamingProcessName(ReadOnlySpan<char> exeFileOrProcessName)
+        {
+            ReadOnlySpan<char> name = exeFileOrProcessName.Trim();
+            if (name.IsEmpty)
+                return false;
+
+            if (name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+                name = name[..^4];
+
+            if (name.IsEmpty)
+                return false;
+
+            foreach (string target in StreamingProcessNames)
+            {
+                if (name.Equals(target.AsSpan(), StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+
+            return false;
+        }
+
+        internal static unsafe bool HasAnyStreamingProcessRunning()
+        {
+            if (!OperatingSystem.IsWindows())
+                return false;
+
+            IntPtr snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+            if (snapshot == IntPtr.Zero || snapshot == INVALID_HANDLE_VALUE)
+                return false;
+
+            try
+            {
+                PROCESSENTRY32W entry = default;
+                entry.dwSize = (uint)sizeof(PROCESSENTRY32W);
+
+                if (!Process32FirstW(snapshot, &entry))
+                    return false;
+
+                do
+                {
+                    ReadOnlySpan<char> exeSpan = MemoryMarshal.CreateReadOnlySpanFromNullTerminated(entry.szExeFile);
+                    if (MatchesStreamingProcessName(exeSpan))
+                        return true;
+                }
+                while (Process32NextW(snapshot, &entry));
+
+                return false;
+            }
+            finally
+            {
+                CloseHandle(snapshot);
+            }
+        }
+
         private static void CheckStreamingProcesses(object? state)
         {
             if (!_autoDetectEnabled) return;
@@ -136,29 +222,17 @@ namespace Shiro.Services
             bool detected = false;
             try
             {
-                foreach (string name in StreamingProcessNames)
-                {
-                    Process[] procs = Process.GetProcessesByName(name);
-                    if (procs.Length > 0)
-                    {
-                        detected = true;
-                    }
-                    foreach (var p in procs)
-                    {
-                        SafeExecuteHelper.Try(() => p.Dispose(), "StreamerModeService.DisposeProc");
-                    }
-                    if (detected) break;
-                }
+                detected = HasAnyStreamingProcessRunning();
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[StreamerModeService] Process check failed: {ex.Message}");
+                AppServices.Logger.Debug($"[StreamerModeService] Process check failed: {ex.Message}");
             }
 
             if (_isStreamingAppDetected != detected)
             {
                 _isStreamingAppDetected = detected;
-                Program.Logger?.Info($"[StreamerModeService] Streaming software active: {detected}");
+                AppServices.Logger.Info($"[StreamerModeService] Streaming software active: {detected}");
                 UpdateAffinityState();
             }
         }
@@ -193,7 +267,7 @@ namespace Shiro.Services
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Debug($"[StreamerModeService] StateChanged handler exception: {ex.Message}");
+                    AppServices.Logger.Debug($"[StreamerModeService] StateChanged handler exception: {ex.Message}");
                 }
             });
         }
@@ -234,7 +308,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[StreamerModeService] Failed to set window affinity: {ex.Message}");
+                AppServices.Logger.Debug($"[StreamerModeService] Failed to set window affinity: {ex.Message}");
             }
         }
 
@@ -245,7 +319,12 @@ namespace Shiro.Services
         {
             if (string.IsNullOrEmpty(username)) return string.Empty;
             if (username.Length <= 2) return "**";
-            return string.Concat(username[0], new string('*', username.Length - 2), username[^1]);
+            return string.Create(username.Length, username, static (span, src) =>
+            {
+                span[0] = src[0];
+                span[1..^1].Fill('*');
+                span[^1] = src[^1];
+            });
         }
 
         /// <summary>

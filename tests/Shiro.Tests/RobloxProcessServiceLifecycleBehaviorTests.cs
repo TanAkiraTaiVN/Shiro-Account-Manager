@@ -359,6 +359,11 @@ namespace Shiro.Tests
                 });
                 Assert.NotNull(pBeta2);
 
+                ProcessExtensions.TestCommandLineOverride = pid => pid == pBeta2.Id ? $"{betaExe} -b 88776655" : null;
+                var accTrackerMismatch = new Account { Username = "", LastLaunchedProcessId = 0, BrowserTrackerID = "mismatch_9999" };
+                bool closedMismatch = RobloxProcessService.CloseAccountRobloxProcess(accTrackerMismatch);
+                Assert.False(closedMismatch);
+
                 var accBatch1 = new Account { Username = "BatchBeta1", LastLaunchedProcessId = pBeta2.Id, BrowserTrackerID = "88776655" };
                 var accBatch2 = new Account { Username = "BatchBeta2", LastLaunchedProcessId = pBeta2.Id, BrowserTrackerID = "88776655" }; // duplicate PID
 

@@ -98,14 +98,35 @@ namespace Shiro.Services
 
         private static void PruneHistoricalBackups(string dir)
         {
-            var backupFiles = Directory.GetFiles(dir, "AccountData_*.json.bak")
-                .Select(f => new FileInfo(f))
+            var dirInfo = new DirectoryInfo(dir);
+            if (!dirInfo.Exists)
+                return;
+
+            var backupFiles = dirInfo.EnumerateFiles("AccountData_*.json.bak")
                 .OrderByDescending(f => f.CreationTimeUtc)
                 .ToList();
 
             if (backupFiles.Count > MaxHistoricalBackups)
             {
-                foreach (var oldFile in backupFiles.Skip(MaxHistoricalBackups))
+                // Always preserve the largest historical snapshot so a series of
+                // smaller saves can never rotate out the full vault backup.
+                var largestFile = backupFiles.OrderByDescending(f => f.Length).FirstOrDefault();
+                var toKeep = new HashSet<string>(
+                    backupFiles.Take(MaxHistoricalBackups).Select(f => f.FullName),
+                    StringComparer.OrdinalIgnoreCase);
+
+                if (largestFile != null && !toKeep.Contains(largestFile.FullName))
+                {
+                    var smallestKept = backupFiles
+                        .Take(MaxHistoricalBackups)
+                        .OrderBy(f => f.Length)
+                        .ThenBy(f => f.CreationTimeUtc)
+                        .First();
+                    toKeep.Remove(smallestKept.FullName);
+                    toKeep.Add(largestFile.FullName);
+                }
+
+                foreach (var oldFile in backupFiles.Where(f => !toKeep.Contains(f.FullName)))
                 {
                     SafeExecuteHelper.Try(() => oldFile.Delete(), "AccountStore.PruneHistoricalBackups");
                 }
@@ -121,32 +142,29 @@ namespace Shiro.Services
         public void WriteWithBackup(byte[] data, bool forceHistoricalBackup = false)
         {
             string primaryPath = AccountFile;
-            if (File.Exists(primaryPath))
+            try
             {
-                try
+                var info = new FileInfo(primaryPath);
+                if (info.Exists && info.Length > 0)
                 {
-                    var info = new FileInfo(primaryPath);
-                    if (info.Length > 0)
-                    {
-                        File.Copy(primaryPath, BackupFile, overwrite: true);
+                    File.Copy(primaryPath, BackupFile, overwrite: true);
 
-                        DateTime nowUtc = DateTime.UtcNow;
-                        if (forceHistoricalBackup || (nowUtc - _lastHistoricalBackupUtc) >= HistoricalBackupInterval)
-                        {
-                            string dir = BackupsDirectory;
-                            Directory.CreateDirectory(dir);
-                            string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-                            string backupPath = Path.Combine(dir, $"AccountData_{timestamp}.json.bak");
-                            File.Copy(primaryPath, backupPath, overwrite: true);
-                            _lastHistoricalBackupUtc = nowUtc;
-                            PruneHistoricalBackups(dir);
-                        }
+                    DateTime nowUtc = DateTime.UtcNow;
+                    if (forceHistoricalBackup || (nowUtc - _lastHistoricalBackupUtc) >= HistoricalBackupInterval)
+                    {
+                        string dir = BackupsDirectory;
+                        Directory.CreateDirectory(dir);
+                        string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                        string backupPath = Path.Combine(dir, $"AccountData_{timestamp}.json.bak");
+                        File.Copy(primaryPath, backupPath, overwrite: true);
+                        _lastHistoricalBackupUtc = nowUtc;
+                        PruneHistoricalBackups(dir);
                     }
                 }
-                catch (Exception ex)
-                {
-                    _logger.Warn($"[AccountStore] Pre-write OS backup copy warning: {ex.Message}");
-                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Warn($"[AccountStore] Pre-write OS backup copy warning: {ex.Message}");
             }
 
             Write(data);
@@ -156,11 +174,13 @@ namespace Shiro.Services
         {
             try
             {
-                if (!Directory.Exists(BackupsDirectory))
+                var dirInfo = new DirectoryInfo(BackupsDirectory);
+                if (!dirInfo.Exists)
                     return Array.Empty<string>();
 
-                return Directory.GetFiles(BackupsDirectory, "AccountData_*.json.bak")
-                    .OrderByDescending(f => new FileInfo(f).CreationTimeUtc)
+                return dirInfo.EnumerateFiles("AccountData_*.json.bak")
+                    .OrderByDescending(f => f.CreationTimeUtc)
+                    .Select(f => f.FullName)
                     .ToList();
             }
             catch

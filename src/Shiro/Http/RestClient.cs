@@ -259,14 +259,24 @@ namespace Shiro.Http
             {
                 if (request.JsonBody != null)
                 {
-                    string json;
                     if (request.JsonBody is string rawJson)
-                        json = rawJson;
+                    {
+                        message.Content = new StringContent(rawJson, Encoding.UTF8, "application/json");
+                    }
                     else if (request.JsonBody is JsonElement je)
-                        json = je.GetRawText();
+                    {
+                        message.Content = new StringContent(je.GetRawText(), Encoding.UTF8, "application/json");
+                    }
                     else
-                        json = Utilities.FastJson.Serialize(request.JsonBody);
-                    message.Content = new StringContent(json, Encoding.UTF8, "application/json");
+                    {
+                        byte[] utf8Bytes = Utilities.FastJson.SerializeToUtf8Bytes(request.JsonBody);
+                        var byteContent = new ByteArrayContent(utf8Bytes);
+                        byteContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json")
+                        {
+                            CharSet = "utf-8"
+                        };
+                        message.Content = byteContent;
+                    }
                 }
                 else if (specifiedContentType != null && specifiedContentType.Contains("x-www-form-urlencoded", StringComparison.OrdinalIgnoreCase))
                 {

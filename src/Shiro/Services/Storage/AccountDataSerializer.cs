@@ -2,10 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Text.Json;
-using System.Text.Json.Nodes;
-using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 using Shiro.Classes;
 
@@ -37,7 +34,16 @@ namespace Shiro.Services
                 // Version zero is the format used by every release before
                 // the schema envelope was introduced.
                 requiresMigration = true;
-                return root.Deserialize(ShiroAppJson.Default.ListAccount) ?? [];
+                using (Account.BeginSuppressDeferredSaveScope())
+                {
+                    var legacyList = root.Deserialize(ShiroAppJson.Default.ListAccount) ?? [];
+                    for (int i = 0; i < legacyList.Count; i++)
+                    {
+                        if (legacyList[i] != null)
+                            legacyList[i].IsDirty = false;
+                    }
+                    return legacyList;
+                }
             }
 
             if (root.ValueKind != JsonValueKind.Object)
@@ -56,7 +62,16 @@ namespace Shiro.Services
                 throw new InvalidDataException($"Account data schema {schemaVersion} is newer than this application supports.");
 
             requiresMigration = schemaVersion < CurrentSchemaVersion;
-            return accountsElement.Deserialize(ShiroAppJson.Default.ListAccount) ?? [];
+            using (Account.BeginSuppressDeferredSaveScope())
+            {
+                var list = accountsElement.Deserialize(ShiroAppJson.Default.ListAccount) ?? [];
+                for (int i = 0; i < list.Count; i++)
+                {
+                    if (list[i] != null)
+                        list[i].IsDirty = false;
+                }
+                return list;
+            }
         }
 
         internal readonly struct AccountEnvelope
@@ -65,41 +80,47 @@ namespace Shiro.Services
             public IReadOnlyCollection<Account> accounts { get; init; }
         }
 
-        public static byte[] Serialize(IReadOnlyCollection<Account> accounts, bool includePasswords = true)
+        internal static readonly JsonTypeInfo<AccountEnvelope> PasswordEnvelopeTypeInfo = CreateEnvelopeTypeInfo(includePasswords: true);
+        internal static readonly JsonTypeInfo<AccountEnvelope> NoPasswordEnvelopeTypeInfo = CreateEnvelopeTypeInfo(includePasswords: false);
+
+        private static JsonTypeInfo<AccountEnvelope> CreateEnvelopeTypeInfo(bool includePasswords)
         {
-            if (includePasswords)
+            var options = new JsonSerializerOptions(ShiroAppJson.Default.Options)
             {
-                return JsonSerializer.SerializeToUtf8Bytes(
-                    new AccountEnvelope
+                TypeInfoResolver = ShiroAppJson.Default.WithAddedModifier(typeInfo =>
+                {
+                    if (typeInfo.Type != typeof(Account))
+                        return;
+
+                    for (int i = 0; i < typeInfo.Properties.Count; i++)
                     {
-                        schemaVersion = CurrentSchemaVersion,
-                        accounts = accounts ?? Array.Empty<Account>()
-                    },
-                    ShiroAppJson.Default.AccountEnvelope);
-            }
-
-            JsonArray accountArray = JsonSerializer.SerializeToNode(accounts ?? [], ShiroAppJson.Default.IReadOnlyCollectionAccount) as JsonArray ?? [];
-            // Do not mutate the live Account instances just to persist a
-            // privacy preference. Removing the property from this JSON
-            // snapshot also makes the option effective for existing
-            // passwords on the very next save.
-            foreach (JsonObject account in accountArray.OfType<JsonObject>())
-            {
-                account.Remove("Password");
-            }
-
-            JsonObject envelope = new JsonObject
-            {
-                ["schemaVersion"] = CurrentSchemaVersion,
-                ["accounts"] = accountArray
+                        JsonPropertyInfo prop = typeInfo.Properties[i];
+                        if (!includePasswords && string.Equals(prop.Name, nameof(Account.Password), StringComparison.OrdinalIgnoreCase))
+                        {
+                            prop.ShouldSerialize = static (_, _) => false;
+                        }
+                        else if (string.Equals(prop.Name, nameof(Account.Fields), StringComparison.OrdinalIgnoreCase))
+                        {
+                            prop.Get = static obj => ((Account)obj).GetFieldsSnapshot();
+                        }
+                    }
+                })
             };
 
-            using var stream = new MemoryStream();
-            using (var writer = new Utf8JsonWriter(stream))
+            return (JsonTypeInfo<AccountEnvelope>)options.GetTypeInfo(typeof(AccountEnvelope));
+        }
+
+        public static byte[] Serialize(IReadOnlyCollection<Account> accounts, bool includePasswords = true)
+        {
+            var envelope = new AccountEnvelope
             {
-                envelope.WriteTo(writer);
-            }
-            return stream.ToArray();
+                schemaVersion = CurrentSchemaVersion,
+                accounts = accounts ?? Array.Empty<Account>()
+            };
+
+            return JsonSerializer.SerializeToUtf8Bytes(
+                envelope,
+                includePasswords ? PasswordEnvelopeTypeInfo : NoPasswordEnvelopeTypeInfo);
         }
     }
 }

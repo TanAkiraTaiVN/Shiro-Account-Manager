@@ -493,7 +493,7 @@ namespace Shiro
                 .AddHeader("Sec-Fetch-Dest", "empty")
                 .AddHeader("Sec-Fetch-Mode", "cors")
                 .AddHeader("Sec-Fetch-Site", "same-site")
-                .AddJsonBody(new { });
+                .AddJsonBody(new EmptyJsonObjectPayload());
         }
     }
 }

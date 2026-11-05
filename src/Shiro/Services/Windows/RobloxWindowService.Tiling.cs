@@ -9,6 +9,51 @@ namespace Shiro.Services
 {
     public static partial class RobloxWindowService
     {
+        [LibraryImport("user32.dll", SetLastError = true)]
+        private static partial IntPtr BeginDeferWindowPos(int nNumWindows);
+
+        [LibraryImport("user32.dll", SetLastError = true)]
+        private static partial IntPtr DeferWindowPos(
+            IntPtr hWinPosInfo,
+            IntPtr hWnd,
+            IntPtr hWndInsertAfter,
+            int x,
+            int y,
+            int cx,
+            int cy,
+            uint uFlags);
+
+        [LibraryImport("user32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static partial bool EndDeferWindowPos(IntPtr hWinPosInfo);
+
+        public static (int Cols, int Rows, List<(IntPtr Hwnd, int X, int Y, int Width, int Height)> Placements) ComputeTilePlacements(
+            IReadOnlyList<IntPtr> windows,
+            DesktopRect workArea,
+            int customCols = 0,
+            int customRows = 0)
+        {
+            int count = windows?.Count ?? 0;
+            var placements = new List<(IntPtr Hwnd, int X, int Y, int Width, int Height)>(count);
+            if (count == 0 || windows == null)
+                return (1, 1, placements);
+
+            var (cols, rows) = CalculateOptimalGrid(count, customCols, customRows);
+            int tileWidth = Math.Max(100, (int)(workArea.Width / cols));
+            int tileHeight = Math.Max(100, (int)(workArea.Height / rows));
+
+            for (int i = 0; i < count; i++)
+            {
+                int col = i % cols;
+                int row = i / cols;
+                int x = workArea.Left + (col * tileWidth);
+                int y = workArea.Top + (row * tileHeight);
+                placements.Add((windows[i], x, y, tileWidth, tileHeight));
+            }
+
+            return (cols, rows, placements);
+        }
+
         /// <summary>
         /// Restores and neatly arranges all running Roblox game windows into an optimal grid layout.
         /// </summary>
@@ -29,27 +74,51 @@ namespace Shiro.Services
                 return (0, Shiro.Services.LocalizationService.Get("WindowArranger.NoWindowsFound"));
 
             var workArea = GetTargetWorkArea();
-            int count = windows.Count;
+            var (cols, rows, placements) = ComputeTilePlacements(windows, workArea, customCols, customRows);
 
-            var (cols, rows) = CalculateOptimalGrid(count, customCols, customRows);
-
-            int tileWidth = Math.Max(100, (int)(workArea.Width / cols));
-            int tileHeight = Math.Max(100, (int)(workArea.Height / rows));
-
-            int tiled = 0;
-            for (int i = 0; i < count; i++)
+            for (int i = 0; i < placements.Count; i++)
             {
-                int col = i % cols;
-                int row = i / cols;
+                ShowWindow(placements[i].Hwnd, SW_RESTORE);
+            }
 
-                int x = (int)workArea.Left + (col * tileWidth);
-                int y = (int)workArea.Top + (row * tileHeight);
+            const uint flags = SWP_NOZORDER | SWP_NOACTIVATE | SWP_SHOWWINDOW;
+            int tiled = 0;
+            bool deferredSuccess = false;
 
-                IntPtr hWnd = windows[i];
-                ShowWindow(hWnd, SW_RESTORE);
-                if (SetWindowPos(hWnd, IntPtr.Zero, x, y, tileWidth, tileHeight, SWP_NOZORDER | SWP_NOACTIVATE | SWP_SHOWWINDOW))
+            IntPtr hdwp = BeginDeferWindowPos(placements.Count);
+            if (hdwp != IntPtr.Zero)
+            {
+                deferredSuccess = true;
+                for (int i = 0; i < placements.Count; i++)
                 {
-                    tiled++;
+                    var p = placements[i];
+                    hdwp = DeferWindowPos(hdwp, p.Hwnd, IntPtr.Zero, p.X, p.Y, p.Width, p.Height, flags);
+                    if (hdwp == IntPtr.Zero)
+                    {
+                        deferredSuccess = false;
+                        break;
+                    }
+                }
+
+                if (deferredSuccess && EndDeferWindowPos(hdwp))
+                {
+                    tiled = placements.Count;
+                }
+                else
+                {
+                    deferredSuccess = false;
+                }
+            }
+
+            if (!deferredSuccess)
+            {
+                for (int i = 0; i < placements.Count; i++)
+                {
+                    var p = placements[i];
+                    if (SetWindowPos(p.Hwnd, IntPtr.Zero, p.X, p.Y, p.Width, p.Height, flags))
+                    {
+                        tiled++;
+                    }
                 }
             }
 

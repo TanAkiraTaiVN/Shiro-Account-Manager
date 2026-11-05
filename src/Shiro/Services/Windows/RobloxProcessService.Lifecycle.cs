@@ -340,6 +340,31 @@ namespace Shiro.Services
             return closed;
         }
 
+        internal static (List<int> TrayDaemonPids, List<int> ActiveClientPids) PartitionRobloxPidsByCommandLine(
+            IReadOnlyList<int> allPids,
+            Func<int, string?> commandLineResolver)
+        {
+            var trayDaemons = new List<int>();
+            var activeClients = new List<int>(allPids?.Count ?? 0);
+            if (allPids == null || commandLineResolver == null)
+                return (trayDaemons, activeClients);
+
+            for (int i = 0; i < allPids.Count; i++)
+            {
+                int pid = allPids[i];
+                string? cmd = null;
+                try { cmd = commandLineResolver(pid); }
+                catch (Exception ex) { AppServices.Logger.Debug($"CommandLine check for PID {pid} threw: {ex.Message}"); }
+
+                if (ProcessExtensions.IsLaunchToTrayCommandLine(cmd))
+                    trayDaemons.Add(pid);
+                else
+                    activeClients.Add(pid);
+            }
+
+            return (trayDaemons, activeClients);
+        }
+
         /// <summary>
         /// Cleans up dead crash handlers (RobloxCrashHandler) that hang indefinitely after a game crash.
         /// Preserves all running RobloxPlayerBeta instances so user game windows are never unexpectedly terminated.
@@ -350,21 +375,21 @@ namespace Shiro.Services
             int cleaned = 0;
             try
             {
+                var (trayDaemonPids, runningClientPids) = PartitionRobloxPidsByCommandLine(
+                    GetRunningRobloxPids(includeTrayDaemons: true),
+                    ProcessExtensions.GetCommandLineByPid);
+
                 // Purge dead background tray daemons (--launch-to-tray) which have no window
                 // and hijack single-instance mutex checks when a game client exits.
-                foreach (int pid in GetRunningRobloxPids())
+                foreach (int pid in trayDaemonPids)
                 {
                     try
                     {
-                        string? cmd = ProcessExtensions.GetCommandLineByPid(pid);
-                        if (!string.IsNullOrEmpty(cmd) && cmd.Contains("--launch-to-tray", StringComparison.OrdinalIgnoreCase))
-                        {
-                            using var p = Process.GetProcessById(pid);
-                            p.Kill();
-                            p.WaitForExit(300);
-                            cleaned++;
-                            Program.Logger?.Info($"[RobloxProcessService] Purged ghost tray daemon PID {pid} (--launch-to-tray).");
-                        }
+                        using var p = Process.GetProcessById(pid);
+                        p.Kill();
+                        p.WaitForExit(300);
+                        cleaned++;
+                        Program.Logger?.Info($"[RobloxProcessService] Purged ghost tray daemon PID {pid} (--launch-to-tray).");
                     }
                     catch (Exception ex)
                     {
@@ -375,7 +400,6 @@ namespace Shiro.Services
                 if (cleaned > 0)
                     InvalidateSnapshotCache();
 
-                var runningClientPids = GetRunningRobloxPids();
                 // If game clients are actively running, do not terminate their crash handler processes
                 // as Hyperion / anti-tamper treats an aborted crash monitor as a corruption signal and drops game windows.
                 if (runningClientPids.Count > 0)

@@ -93,97 +93,118 @@ namespace Shiro.ViewModels
 
                 bool populateInitialServers = _servers.Count == 0;
                 var gamesClient = AppServices.RobloxApi.Games;
-                string cursor = "_";
                 ServerData? matchedServer = null;
                 int scannedServers = 0;
 
-                while (!string.IsNullOrEmpty(cursor) && matchedServer == null)
+                using var searchLinkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                var searchToken = searchLinkedCts.Token;
+                var channel = System.Threading.Channels.Channel.CreateBounded<(List<TokenRequest> Requests, Dictionary<string, ServerData> RequestMap, ServerData? FallbackServer)>(
+                    new System.Threading.Channels.BoundedChannelOptions(6)
+                    {
+                        SingleWriter = true,
+                        FullMode = System.Threading.Channels.BoundedChannelFullMode.Wait
+                    });
+
+                async Task ProduceServerBatchesAsync()
                 {
-                    ct.ThrowIfCancellationRequested();
-
-                    string cursorParam = cursor == "_" ? string.Empty : $"&cursor={Uri.EscapeDataString(cursor)}";
-                    var req = new RestRequest($"v1/games/{placeId}/servers/public?limit=100{cursorParam}", Method.Get);
-                    var resp = await gamesClient.ExecuteAsync(req, ct);
-                    if (!resp.IsSuccessful || string.IsNullOrEmpty(resp.Content)) break;
-
-                    var sInfo = Utilities.FastJson.TryDeserialize<ServersInfo>(resp.Content, out var si) ? si : null;
-                    if (sInfo?.data == null || sInfo.data.Count == 0) break;
-
-                    if (populateInitialServers)
+                    try
                     {
-                        populateInitialServers = false;
-                        var initialBatch = sInfo.data.Select(s => new ServerItemViewModel
+                        string cursor = "_";
+                        while (!string.IsNullOrEmpty(cursor) && Volatile.Read(ref matchedServer) == null && !searchToken.IsCancellationRequested)
                         {
-                            JobId = s.id,
-                            Type = "Public",
-                            MaxPlayers = s.maxPlayers,
-                            Playing = s.playing,
-                            Ping = s.ping ?? -1,
-                            Region = string.IsNullOrEmpty(s.region) ? string.Empty : s.region,
-                            Ip = s.ip ?? string.Empty,
-                            RawData = s
-                        }).ToList();
+                            string cursorParam = cursor == "_" ? string.Empty : $"&cursor={Uri.EscapeDataString(cursor)}";
+                            var req = new RestRequest($"v1/games/{placeId}/servers/public?limit=100{cursorParam}", Method.Get);
+                            var resp = await gamesClient.ExecuteAsync(req, searchToken);
+                            if (!resp.IsSuccessful || string.IsNullOrEmpty(resp.Content)) break;
 
-                        AppDispatcher.Post(() =>
-                        {
-                            if (!ct.IsCancellationRequested && _allServers.Count == 0)
+                            var sInfo = Utilities.FastJson.TryDeserialize<ServersInfo>(resp.Content, out var si) ? si : null;
+                            if (sInfo?.data == null || sInfo.data.Count == 0) break;
+
+                            if (populateInitialServers)
                             {
-                                AppendRawServers(initialBatch);
-                            }
-                        });
-                    }
+                                populateInitialServers = false;
+                                var initialBatch = sInfo.data.Select(s => new ServerItemViewModel
+                                {
+                                    JobId = s.id,
+                                    Type = "Public",
+                                    MaxPlayers = s.maxPlayers,
+                                    Playing = s.playing,
+                                    Ping = s.ping ?? -1,
+                                    Region = string.IsNullOrEmpty(s.region) ? string.Empty : s.region,
+                                    Ip = s.ip ?? string.Empty,
+                                    RawData = s
+                                }).ToList();
 
-                    // Pack playerTokens across multiple servers into chunks of up to 100 tokens (Roblox v1/batch limit)
-                    var batches = new List<(List<TokenRequest> Requests, Dictionary<string, ServerData> RequestMap, ServerData? FallbackServer)>();
-                    var currentRequests = new List<TokenRequest>(100);
-                    var currentMap = new Dictionary<string, ServerData>(StringComparer.Ordinal);
-                    ServerData? lastServerInBatch = null;
-
-                    foreach (var s in sInfo.data)
-                    {
-                        if (s?.playerTokens == null || s.playerTokens.Count == 0) continue;
-                        scannedServers++;
-
-                        foreach (var token in s.playerTokens)
-                        {
-                            if (string.IsNullOrEmpty(token)) continue;
-                            if (currentRequests.Count >= 100)
-                            {
-                                batches.Add((currentRequests, currentMap, lastServerInBatch));
-                                currentRequests = new List<TokenRequest>(100);
-                                currentMap = new Dictionary<string, ServerData>(StringComparer.Ordinal);
+                                AppDispatcher.Post(() =>
+                                {
+                                    if (!ct.IsCancellationRequested && _allServers.Count == 0)
+                                    {
+                                        AppendRawServers(initialBatch);
+                                    }
+                                });
                             }
 
-                            var tokenReq = new TokenRequest(token);
-                            currentRequests.Add(tokenReq);
-                            currentMap[tokenReq.requestId] = s;
-                            lastServerInBatch = s;
+                            var currentRequests = new List<TokenRequest>(100);
+                            var currentMap = new Dictionary<string, ServerData>(StringComparer.Ordinal);
+                            ServerData? lastServerInBatch = null;
+
+                            foreach (var s in sInfo.data)
+                            {
+                                if (s?.playerTokens == null || s.playerTokens.Count == 0) continue;
+                                int totalScanned = Interlocked.Increment(ref scannedServers);
+
+                                foreach (var token in s.playerTokens)
+                                {
+                                    if (string.IsNullOrEmpty(token)) continue;
+                                    if (currentRequests.Count >= 100)
+                                    {
+                                        await channel.Writer.WriteAsync((currentRequests, currentMap, lastServerInBatch), searchToken);
+                                        currentRequests = new List<TokenRequest>(100);
+                                        currentMap = new Dictionary<string, ServerData>(StringComparer.Ordinal);
+                                    }
+
+                                    var tokenReq = new TokenRequest(token);
+                                    currentRequests.Add(tokenReq);
+                                    currentMap[tokenReq.requestId] = s;
+                                    lastServerInBatch = s;
+                                }
+
+                                PlayerSearchStatus = LocalizationService.Format("ServerList.ScanningServersForPlayer", totalScanned, SearchPlayerUsername);
+                                LoadingStatus = PlayerSearchStatus;
+                            }
+
+                            if (currentRequests.Count > 0 && Volatile.Read(ref matchedServer) == null)
+                            {
+                                await channel.Writer.WriteAsync((currentRequests, currentMap, lastServerInBatch), searchToken);
+                            }
+
+                            cursor = sInfo.nextPageCursor ?? string.Empty;
                         }
                     }
-
-                    if (currentRequests.Count > 0)
+                    catch (OperationCanceledException) when (!ct.IsCancellationRequested)
                     {
-                        batches.Add((currentRequests, currentMap, lastServerInBatch));
+                        // Stopped early because a consumer matched targetAvatarUrl
                     }
-
-                    PlayerSearchStatus = LocalizationService.Format("ServerList.ScanningServersForPlayer", scannedServers, SearchPlayerUsername);
-                    LoadingStatus = PlayerSearchStatus;
-
-                    // Process packed batches with bounded concurrency (up to 3 requests in flight)
-                    using var batchGate = new SemaphoreSlim(3, 3);
-                    var batchTasks = batches.Select(async batch =>
+                    finally
                     {
-                        await batchGate.WaitAsync(ct);
-                        try
+                        channel.Writer.TryComplete();
+                    }
+                }
+
+                async Task ConsumeBatchesAsync()
+                {
+                    try
+                    {
+                        await foreach (var batch in channel.Reader.ReadAllAsync(searchToken))
                         {
-                            if (Volatile.Read(ref matchedServer) != null || ct.IsCancellationRequested)
-                                return;
+                            if (Volatile.Read(ref matchedServer) != null || searchToken.IsCancellationRequested)
+                                break;
 
                             var batchReq = new RestRequest("v1/batch", Method.Post);
                             batchReq.AddJsonBody(batch.Requests);
-                            var batchResp = await thumbClient.ExecuteAsync(batchReq, ct);
+                            var batchResp = await thumbClient.ExecuteAsync(batchReq, searchToken);
                             if (!batchResp.IsSuccessful || string.IsNullOrEmpty(batchResp.Content))
-                                return;
+                                continue;
 
                             var avatars = Utilities.FastJson.TryDeserialize<TokenAvatarRoot>(batchResp.Content, out var ta) ? ta : null;
                             TokenAvatar? hit = null;
@@ -207,19 +228,30 @@ namespace Shiro.ViewModels
                                 }
                                 if (serverHit != null)
                                 {
-                                    Interlocked.CompareExchange(ref matchedServer, serverHit, null);
+                                    if (Interlocked.CompareExchange(ref matchedServer, serverHit, null) == null)
+                                    {
+                                        try { searchLinkedCts.Cancel(); }
+                                        catch (ObjectDisposedException) { /* already disposed */ }
+                                    }
+                                    break;
                                 }
                             }
                         }
-                        finally
-                        {
-                            batchGate.Release();
-                        }
-                    }).ToArray();
-
-                    await Task.WhenAll(batchTasks);
-                    cursor = sInfo.nextPageCursor ?? string.Empty;
+                    }
+                    catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+                    {
+                        // Cancelled early on match
+                    }
                 }
+
+                var pipelineTasks = new Task[]
+                {
+                    ProduceServerBatchesAsync(),
+                    ConsumeBatchesAsync(),
+                    ConsumeBatchesAsync(),
+                    ConsumeBatchesAsync()
+                };
+                await Task.WhenAll(pipelineTasks);
 
                 if (matchedServer != null)
                 {

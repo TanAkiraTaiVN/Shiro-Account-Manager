@@ -12,6 +12,7 @@ namespace Shiro.Services
 
         private readonly ISettingsService _settings;
         private string _currentPlaceId = string.Empty;
+        private bool _placeIdExplicitlyCleared;
         private string _currentJobId = string.Empty;
 
         public ServerBrowserStateService() : this(AppServices.GeneralSettings) { }
@@ -22,6 +23,7 @@ namespace Shiro.Services
         }
 
         public Func<CancellationToken, Task>? LoadClientVersionDelegate { get; set; }
+        public bool IsPlaceIdExplicitlyCleared => _placeIdExplicitlyCleared;
 
         public string CurrentPlaceId
         {
@@ -39,6 +41,7 @@ namespace Shiro.Services
             set
             {
                 _currentPlaceId = value ?? string.Empty;
+                _placeIdExplicitlyCleared = string.IsNullOrEmpty(_currentPlaceId);
                 var general = _settings;
                 if (general != null && !string.IsNullOrEmpty(_currentPlaceId))
                 {

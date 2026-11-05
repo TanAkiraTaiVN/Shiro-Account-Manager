@@ -1,4 +1,3 @@
-
 #nullable enable
 using Shiro.Http;
 using System;
@@ -84,17 +83,17 @@ namespace Shiro.Classes
                     }
                     catch (Exception exception)
                     {
-                        Program.Logger?.Warn($"Presence request failed: {exception.Message}");
+                        AppServices.Logger.Warn($"Presence request failed: {exception.Message}");
                         continue;
                     }
 
                     if (!result.Success)
                     {
-                        Program.Logger?.Warn($"Presence request returned HTTP {(int)result.StatusCode} {result.StatusCode}: {result.ErrorMessage}");
+                        AppServices.Logger.Warn($"Presence request returned HTTP {(int)result.StatusCode} {result.StatusCode}: {result.ErrorMessage}");
                         if ((int)result.StatusCode == 429)
                         {
                             RobloxRateLimitCoordinator.Instance.RecordRateLimitHit(RateLimitCategory.Presence, defaultBackoffSeconds: 6);
-                            Program.Logger?.Warn("Roblox presence API rate limit (429) hit, aborting remaining presence batches to protect IP.");
+                            AppServices.Logger.Warn("Roblox presence API rate limit (429) hit, aborting remaining presence batches to protect IP.");
                             break;
                         }
                         continue;
@@ -105,7 +104,7 @@ namespace Shiro.Classes
                     List<UserPresence>? Presences = result.Data?.userPresences;
                     if (Presences == null)
                     {
-                        Program.Logger?.Warn("Presence response did not contain userPresences.");
+                        AppServices.Logger.Warn("Presence response did not contain userPresences.");
                         continue;
                     }
 
@@ -147,10 +146,10 @@ namespace Shiro.Classes
             lock (GameNameCacheLock)
             {
                 MissingUniverseIds = InGame
-                    .Select(presence => presence.universeId!.Value)
-                    .Distinct()
-                    .Where(universeId => !GameNameCache.ContainsKey(universeId))
-                    .ToArray();
+                .Select(presence => presence.universeId!.Value)
+                .Distinct()
+                .Where(universeId => !GameNameCache.ContainsKey(universeId))
+                .ToArray();
             }
 
             // The games endpoint accepts up to 50 universe IDs per request.
@@ -170,7 +169,7 @@ namespace Shiro.Classes
                         if ((int)gamesResult.StatusCode == 429)
                         {
                             RobloxRateLimitCoordinator.Instance.RecordRateLimitHit(RateLimitCategory.General, defaultBackoffSeconds: 5);
-                            Program.Logger?.Warn("Roblox games API rate limit (429) hit, aborting remaining game-name batches.");
+                            AppServices.Logger.Warn("Roblox games API rate limit (429) hit, aborting remaining game-name batches.");
                             break;
                         }
                         continue;
@@ -225,7 +224,7 @@ namespace Shiro.Classes
         {
             if (account != null && !account.Valid) return Shiro.Services.LocalizationService.Get("Presence.SessionExpiredBadge");
             if (isLaunching) return "● Launching…";
-            if (AppSettings.General == null || !AppSettings.General.Get<bool>("ShowPresence")) return "● Ready";
+            if (!AppServices.GeneralSettings.Get<bool>("ShowPresence", true)) return "● Ready";
             if (account?.Presence == null) return "● Checking…";
 
             switch (account.Presence.userPresenceType)
@@ -247,7 +246,7 @@ namespace Shiro.Classes
         {
             if (account != null && !account.Valid) return Color.FromArgb(255, 255, 92, 92);
             if (isLaunching) return Color.FromArgb(255, 170, 170, 170);
-            if (account?.Presence == null || AppSettings.General == null || !AppSettings.General.Get<bool>("ShowPresence"))
+            if (account?.Presence == null || !AppServices.GeneralSettings.Get<bool>("ShowPresence", true))
                 return Color.FromArgb(255, 160, 160, 160);
 
             return Colors.TryGetValue(account.Presence.userPresenceType, out Color color)
@@ -280,11 +279,12 @@ namespace Shiro.Classes
 
                 int batchEnd = Math.Min(offset + 50, uniqueIds.Length);
                 long[] batch = uniqueIds[offset..batchEnd];
-                RestResponse? response;
+                (bool Success, RobloxPresenceEnvelope? Data, System.Net.HttpStatusCode StatusCode, string? ErrorMessage) batchResult;
                 try
                 {
-                    response = await PresenceClient.ExecuteAsync(
-                        new RestRequest("v1/presence/users", Method.Post).AddJsonBody(new { userIds = batch }),
+                    batchResult = await PresenceClient.ExecuteJsonAsync(
+                        new RestRequest("v1/presence/users", Method.Post).AddJsonBody(new RobloxPresenceUsersRequest(batch)),
+                        ShiroAppJson.Default.RobloxPresenceEnvelope,
                         cancellationToken).ConfigureAwait(false);
                 }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -293,17 +293,17 @@ namespace Shiro.Classes
                 }
                 catch (Exception exception)
                 {
-                    Program.Logger?.Warn($"Presence request failed: {exception.Message}");
+                    AppServices.Logger.Warn($"Presence request failed: {exception.Message}");
                     continue;
                 }
 
-                if (response == null || !response.IsSuccessful)
+                if (!batchResult.Success)
                 {
-                    Program.Logger?.Warn($"Presence request returned HTTP {(response == null ? 0 : (int)response.StatusCode)} {response?.StatusCode}: {response?.Content}");
-                    if (response != null && (int)response.StatusCode == 429)
+                    AppServices.Logger.Warn($"Presence request returned HTTP {(int)batchResult.StatusCode} {batchResult.StatusCode}: {batchResult.ErrorMessage}");
+                    if ((int)batchResult.StatusCode == 429)
                     {
                         RobloxRateLimitCoordinator.Instance.RecordRateLimitHit(RateLimitCategory.Presence, defaultBackoffSeconds: 6);
-                        Program.Logger?.Warn("Roblox presence API rate limit (429) hit, aborting remaining presence batches to protect IP.");
+                        AppServices.Logger.Warn("Roblox presence API rate limit (429) hit, aborting remaining presence batches to protect IP.");
                         break;
                     }
                     continue;
@@ -311,15 +311,10 @@ namespace Shiro.Classes
 
                 RobloxRateLimitCoordinator.Instance.RecordSuccess(RateLimitCategory.Presence);
 
-                List<UserPresence>? presences = null;
-                if (response.Content != null && Utilities.FastJson.TryDeserialize<RobloxPresenceEnvelope>(response.Content, out var env) && env?.userPresences != null)
-                {
-                    presences = env.userPresences;
-                }
-
+                List<UserPresence>? presences = batchResult.Data?.userPresences;
                 if (presences == null)
                 {
-                    Program.Logger?.Warn("Presence response did not contain userPresences.");
+                    AppServices.Logger.Warn("Presence response did not contain userPresences.");
                     continue;
                 }
 
@@ -401,4 +396,3 @@ namespace Shiro.Classes
         InStudio
     }
 }
-

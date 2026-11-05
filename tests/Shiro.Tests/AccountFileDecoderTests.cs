@@ -210,5 +210,42 @@ namespace Shiro.Tests
             Assert.Equal("FallbackRecoveryUser", result.Accounts[0].Username);
             Assert.Null(result.Error);
         }
+
+        [Fact]
+        public void Decode_LegacyV1VaultHeader_SetsNeedsMigrationTrue()
+        {
+            byte[] key = Create32ByteKey(0x44);
+            var accounts = new List<Account> { new Account { Username = "LegacyV1User", UserID = 303 } };
+            byte[] serialized = AccountDataSerializer.Serialize(accounts, includePasswords: true);
+
+            byte[] salt = new byte[16];
+            byte[] nonce = new byte[12];
+            RandomNumberGenerator.Fill(salt);
+            RandomNumberGenerator.Fill(nonce);
+
+            byte[] derivedKey = Rfc2898DeriveBytes.Pbkdf2(key, salt, Cryptography.LegacyPbkdf2Iterations, HashAlgorithmName.SHA256, 32);
+            byte[] ciphertext = new byte[serialized.Length];
+            byte[] tag = new byte[16];
+            using (var aesGcm = new AesGcm(derivedKey, 16))
+            {
+                aesGcm.Encrypt(nonce, serialized, ciphertext, tag);
+            }
+
+            using var ms = new MemoryStream();
+            ms.Write(Cryptography.ShiroVaultHeaderV1);
+            ms.Write(salt);
+            ms.Write(nonce);
+            ms.Write(tag);
+            ms.Write(ciphertext);
+            byte[] v1Payload = ms.ToArray();
+
+            var keys = CreateDummyKeys(getVaultKey: () => (byte[])key.Clone());
+            var result = AccountFileDecoder.Decode(v1Payload, null, keys);
+
+            Assert.Equal(AccountDecodeStatus.Loaded, result.Status);
+            Assert.True(result.NeedsMigration);
+            Assert.Single(result.Accounts);
+            Assert.Equal("LegacyV1User", result.Accounts[0].Username);
+        }
     }
 }

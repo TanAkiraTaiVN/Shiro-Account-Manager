@@ -137,9 +137,7 @@ namespace Shiro.ViewModels
             string serverDesc = string.IsNullOrEmpty(targetServer) ? Shiro.Services.LocalizationService.Get("ServerList.RandomServerKeyword") : targetServer;
             LoadingStatus = Shiro.Services.LocalizationService.Format("ServerList.JoiningServerWithAccounts", serverDesc, selectedAccounts.Count);
 
-            {
             await AppServices.HostUiBridge.JoinServerFromHostAsync(selectedAccounts, placeId, targetServer).ConfigureAwait(true);
-            }
         }
 
         private Account? ResolveAuthAccount()
@@ -171,14 +169,14 @@ namespace Shiro.ViewModels
         private async Task LoadRegionCoreAsync(ServerItemViewModel? server, CancellationToken ct)
         {
             if (server == null || server.RawData == null) return;
-            server.IsBusyPinging = true;
+            AppDispatcher.Post(() => server.IsBusyPinging = true);
 
             try
             {
                 var acc = ResolveAuthAccount();
                 if (acc == null)
                 {
-                    server.Region = Shiro.Services.LocalizationService.Get("ServerQuery.FetchingRegion");
+                    AppDispatcher.Post(() => server.Region = Shiro.Services.LocalizationService.Get("ServerQuery.FetchingRegion"));
                     return;
                 }
 
@@ -186,31 +184,34 @@ namespace Shiro.ViewModels
                 long placeId = AccountLauncherService.ParsePlaceId(rawPid);
                 if (placeId <= 0) return;
 
-                var result = await AppServices.RobloxServerQueryService.QueryServerRegionAndPingAsync(acc, placeId, server.RawData.id, cancellationToken: ct).ConfigureAwait(true);
-                if (result.Success)
+                var result = await AppServices.RobloxServerQueryService.QueryServerRegionAndPingAsync(acc, placeId, server.RawData.id, cancellationToken: ct).ConfigureAwait(false);
+                AppDispatcher.Post(() =>
                 {
-                    server.Ip = result.Ip ?? string.Empty;
-                    if (result.PingMs.HasValue) server.Ping = result.PingMs.Value;
-                    server.CountryCode = result.CountryCode ?? string.Empty;
-                    server.FlagEmoji = result.FlagEmoji ?? string.Empty;
-                    server.Region = result.Region ?? string.Empty;
-                }
-                else
-                {
-                    server.Region = !string.IsNullOrEmpty(result.Region) ? result.Region : Shiro.Services.LocalizationService.Get("ServerQuery.UnknownRegion");
-                }
+                    if (result.Success)
+                    {
+                        server.Ip = result.Ip ?? string.Empty;
+                        if (result.PingMs.HasValue) server.Ping = result.PingMs.Value;
+                        server.CountryCode = result.CountryCode ?? string.Empty;
+                        server.FlagEmoji = result.FlagEmoji ?? string.Empty;
+                        server.Region = result.Region ?? string.Empty;
+                    }
+                    else
+                    {
+                        server.Region = !string.IsNullOrEmpty(result.Region) ? result.Region : Shiro.Services.LocalizationService.Get("ServerQuery.UnknownRegion");
+                    }
+                });
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
             }
             catch (Exception ex)
             {
-                server.Region = Shiro.Services.LocalizationService.Get("MissingAssets.PriceLoadError");
+                AppDispatcher.Post(() => server.Region = Shiro.Services.LocalizationService.Get("MissingAssets.PriceLoadError"));
                 _logger.Warn($"[LoadRegionAsync] {ex.Message}");
             }
             finally
             {
-                server.IsBusyPinging = false;
+                AppDispatcher.Post(() => server.IsBusyPinging = false);
             }
         }
 
@@ -221,10 +222,19 @@ namespace Shiro.ViewModels
             var cts = ResetOperationCts(createNew: true);
             var ct = cts!.Token;
 
-            var pendingServers = _servers
-                .Take(25)
-                .Where(server => string.IsNullOrEmpty(server.Region) || server.Region == Shiro.Services.LocalizationService.Get("ServerList.NotLoaded") || server.Region == "Not loaded" || string.IsNullOrEmpty(server.Ip))
-                .ToList();
+            string notLoadedText = LocalizationService.Get("ServerList.NotLoaded");
+            var pendingServers = new List<ServerItemViewModel>(25);
+            for (int i = 0; i < _servers.Count && pendingServers.Count < 25; i++)
+            {
+                ServerItemViewModel server = _servers[i];
+                if (string.IsNullOrEmpty(server.Region) ||
+                    string.Equals(server.Region, notLoadedText, StringComparison.Ordinal) ||
+                    string.Equals(server.Region, "Not loaded", StringComparison.Ordinal) ||
+                    string.IsNullOrEmpty(server.Ip))
+                {
+                    pendingServers.Add(server);
+                }
+            }
 
             if (pendingServers.Count == 0)
             {
@@ -236,22 +246,18 @@ namespace Shiro.ViewModels
 
             try
             {
-                using var gate = new SemaphoreSlim(4, 4);
-                var tasks = pendingServers.Select(async server =>
+                var parallelOptions = new ParallelOptions
                 {
-                    await gate.WaitAsync(ct);
-                    try
-                    {
-                        if (ct.IsCancellationRequested) return;
-                        await LoadRegionCoreAsync(server, ct);
-                    }
-                    finally
-                    {
-                        gate.Release();
-                    }
-                }).ToArray();
+                    MaxDegreeOfParallelism = 4,
+                    CancellationToken = ct
+                };
 
-                await Task.WhenAll(tasks);
+                await Parallel.ForEachAsync(pendingServers, parallelOptions, async (server, token) =>
+                {
+                    if (token.IsCancellationRequested) return;
+                    await LoadRegionCoreAsync(server, token);
+                });
+
                 if (SortMode is ServerSortMode.PingAsc or ServerSortMode.PingDesc)
                 {
                     ApplyServerSortAndFilter();

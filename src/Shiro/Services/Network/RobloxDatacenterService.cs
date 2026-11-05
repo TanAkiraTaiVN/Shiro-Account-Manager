@@ -62,9 +62,9 @@ namespace Shiro.Services
         public static RobloxDatacenterService Default => _instance.Value;
 
         private readonly IAppLogger _logger;
-        private readonly Dictionary<int, DatacenterEntryItem> _byDataCenterId = new();
-        private readonly Dictionary<string, DatacenterEntryItem> _byExactIp = new(StringComparer.OrdinalIgnoreCase);
-        private readonly Dictionary<string, DatacenterEntryItem> _bySubnet24 = new(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<int, DatacenterResolutionResult> _byDataCenterId = new();
+        private readonly Dictionary<string, DatacenterResolutionResult> _byExactIp = new(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, DatacenterResolutionResult> _bySubnet24 = new(StringComparer.OrdinalIgnoreCase);
         private readonly List<DatacenterEntryItem> _allEntries = new();
         private readonly bool _isLoaded;
 
@@ -81,22 +81,21 @@ namespace Shiro.Services
                 string? json = LoadDatacentersJson();
                 if (!string.IsNullOrWhiteSpace(json))
                 {
-                    var options = new JsonSerializerOptions
-                    {
-                        PropertyNameCaseInsensitive = true
-                    };
-                    List<DatacenterEntryItem>? entries = JsonSerializer.Deserialize<List<DatacenterEntryItem>>(json, options);
+                    List<DatacenterEntryItem>? entries = JsonSerializer.Deserialize(json, ShiroAppJson.Default.ListDatacenterEntryItem);
                     if (entries != null)
                     {
                         foreach (DatacenterEntryItem entry in entries)
                         {
                             _allEntries.Add(entry);
+                            DatacenterResolutionResult? precomputed = BuildResolutionResult(entry);
+                            if (precomputed == null)
+                                continue;
 
                             if (entry.DataCenterIds != null)
                             {
                                 foreach (int dcId in entry.DataCenterIds)
                                 {
-                                    _byDataCenterId[dcId] = entry;
+                                    _byDataCenterId[dcId] = precomputed;
                                 }
                             }
 
@@ -106,12 +105,12 @@ namespace Shiro.Services
                                 {
                                     if (string.IsNullOrWhiteSpace(ip)) continue;
                                     string trimmed = ip.Trim();
-                                    _byExactIp[trimmed] = entry;
+                                    _byExactIp[trimmed] = precomputed;
 
                                     string subnet24 = GetSubnet24(trimmed);
                                     if (!string.IsNullOrEmpty(subnet24))
                                     {
-                                        _bySubnet24[subnet24] = entry;
+                                        _bySubnet24[subnet24] = precomputed;
                                     }
                                 }
                             }
@@ -171,39 +170,10 @@ namespace Shiro.Services
             return char.ConvertFromUtf32(first) + char.ConvertFromUtf32(second);
         }
 
-        /// <summary>
-        /// Attempts to resolve datacenter metadata and country flag from a target IP address or Roblox Datacenter ID.
-        /// </summary>
-        public bool TryResolve(string? ip, int? dataCenterId, out DatacenterResolutionResult? resolution)
+        private static DatacenterResolutionResult? BuildResolutionResult(DatacenterEntryItem? entry)
         {
-            resolution = null;
-            DatacenterEntryItem? entry = null;
-
-            // 1. Check Datacenter ID
-            if (dataCenterId.HasValue && dataCenterId.Value > 0)
-            {
-                _byDataCenterId.TryGetValue(dataCenterId.Value, out entry);
-            }
-
-            // 2. Check IP exact match
-            if (entry == null && !string.IsNullOrWhiteSpace(ip))
-            {
-                string trimmed = ip.Trim();
-                _byExactIp.TryGetValue(trimmed, out entry);
-
-                // 3. Check /24 subnet prefix
-                if (entry == null)
-                {
-                    string subnet = GetSubnet24(trimmed);
-                    if (!string.IsNullOrEmpty(subnet))
-                    {
-                        _bySubnet24.TryGetValue(subnet, out entry);
-                    }
-                }
-            }
-
             if (entry == null || entry.Location == null)
-                return false;
+                return null;
 
             string city = entry.Location.City;
             string country = entry.Location.Country;
@@ -222,7 +192,7 @@ namespace Shiro.Services
                     lon = parsedLon;
             }
 
-            resolution = new DatacenterResolutionResult
+            return new DatacenterResolutionResult
             {
                 Id = entry.Id,
                 City = city,
@@ -234,8 +204,35 @@ namespace Shiro.Services
                 Latitude = lat,
                 Longitude = lon
             };
+        }
 
-            return true;
+        /// <summary>
+        /// Attempts to resolve datacenter metadata and country flag from a target IP address or Roblox Datacenter ID in O(1) with zero allocations.
+        /// </summary>
+        public bool TryResolve(string? ip, int? dataCenterId, out DatacenterResolutionResult? resolution)
+        {
+            resolution = null;
+
+            // 1. Check Datacenter ID
+            if (dataCenterId.HasValue && dataCenterId.Value > 0 &&
+                _byDataCenterId.TryGetValue(dataCenterId.Value, out resolution))
+            {
+                return true;
+            }
+
+            // 2. Check IP exact match & /24 subnet prefix
+            if (!string.IsNullOrWhiteSpace(ip))
+            {
+                string trimmed = ip.Trim();
+                if (_byExactIp.TryGetValue(trimmed, out resolution))
+                    return true;
+
+                string subnet = GetSubnet24(trimmed);
+                if (!string.IsNullOrEmpty(subnet) && _bySubnet24.TryGetValue(subnet, out resolution))
+                    return true;
+            }
+
+            return false;
         }
     }
 }

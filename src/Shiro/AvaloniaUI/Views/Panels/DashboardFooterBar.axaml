@@ -9,12 +9,10 @@
              x:DataType="vm:MainViewModel"
              x:CompileBindings="True">
     <StackPanel>
-        <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,12">
-            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10"
-                        VerticalAlignment="Center">
-                <Border Background="#121218" BorderBrush="#20202C" BorderThickness="1"
-                        CornerRadius="8" Padding="3">
-                    <StackPanel Orientation="Horizontal" Spacing="2">
+        <WrapPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,10">
+            <Border Background="#121218" BorderBrush="#20202C" BorderThickness="1"
+                    CornerRadius="8" Padding="3" Margin="0,2,8,2">
+                <WrapPanel Orientation="Horizontal">
                         <RadioButton Classes="FilterTabPill" GroupName="FilterTabGroup"
                                      IsChecked="{Binding IsFilterAll, Mode=TwoWay}">
                             <TextBlock Text="{Binding TabAllText}" />
@@ -64,10 +62,10 @@
                                            VerticalAlignment="Center" />
                             </StackPanel>
                         </RadioButton>
-                    </StackPanel>
+                    </WrapPanel>
                 </Border>
                 <Border Background="#121218" BorderBrush="#20202C" BorderThickness="1"
-                        CornerRadius="8" Padding="3">
+                        CornerRadius="8" Padding="3" Margin="0,2,8,2">
                     <StackPanel Orientation="Horizontal" Spacing="2">
                         <RadioButton Classes="FilterTabPill" GroupName="ViewModeGroup"
                                      IsChecked="{Binding IsCardView, Mode=TwoWay}"
@@ -91,11 +89,10 @@
                         </RadioButton>
                     </StackPanel>
                 </Border>
-            </StackPanel>
-            <Button Grid.Column="2" Command="{Binding CheckSessionsCommand}"
+            <Button Command="{Binding CheckSessionsCommand}"
                     Background="#14141C" Foreground="#9CA3AF" BorderBrush="#242432"
-                    BorderThickness="1" CornerRadius="6" Padding="12,6" FontSize="12"
-                    Cursor="Hand" ToolTip.Tip="{DynamicResource Tab_TipScanExpired}">
+                    BorderThickness="1" CornerRadius="6" Padding="12,7" Margin="0,2,0,2" FontSize="12"
+                    VerticalAlignment="Center" Cursor="Hand" ToolTip.Tip="{DynamicResource Tab_TipScanExpired}">
                 <StackPanel Orientation="Horizontal" Spacing="6">
                     <lucide:Lucide Icon="Search" Width="13" Height="13"
                                    StrokeBrush="#9CA3AF" VerticalAlignment="Center" />
@@ -103,7 +100,7 @@
                                VerticalAlignment="Center" />
                 </StackPanel>
             </Button>
-        </Grid>
+        </WrapPanel>
         <Border IsVisible="{Binding IsBatchLaunching}" Background="#12141E"
                 BorderBrush="#252A3E" BorderThickness="1" CornerRadius="10"
                 Padding="14,10" Margin="0,0,0,12">

@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Shiro.Classes;
 
@@ -9,6 +10,23 @@ namespace Shiro.Services
 {
     public sealed partial class AccountApiDispatcher
     {
+        private static readonly string[] DefaultWebSocketEndpoints = new[] { "/ws", "/events", "/v2/events" };
+
+        internal static Account? ResolveTargetAccount(string? accountParam)
+        {
+            if (string.IsNullOrEmpty(accountParam))
+                return null;
+
+            Account? byUsername = AppServices.AccountRepository.GetByUsername(accountParam);
+            if (byUsername != null)
+                return byUsername;
+
+            if (long.TryParse(accountParam, out long targetAccountId))
+                return AppServices.AccountRepository.GetById(targetAccountId);
+
+            return null;
+        }
+
         private async Task<string> HandleApiEndpointAsync(
             ApiRequestContext req,
             string method,
@@ -24,12 +42,11 @@ namespace Shiro.Services
 
             if (method == "GetWebSocketStats" || method == "WebSocketStats")
             {
-                return reply(Utilities.FastJson.Serialize(new
-                {
-                    ActiveClients = KestrelWebServer.ActiveWebSocketCount,
-                    Server = "Shiro Kestrel Gateway",
-                    Endpoints = new[] { "/ws", "/events", "/v2/events" }
-                }), true, -1, null);
+                var payload = new WebSocketStatsPayload(
+                    KestrelWebServer.ActiveWebSocketCount,
+                    "Shiro Kestrel Gateway",
+                    DefaultWebSocketEndpoints);
+                return reply(JsonSerializer.Serialize(payload, ShiroAppJson.Default.WebSocketStatsPayload), true, -1, null);
             }
 
             if (method == "GetAccounts")
@@ -56,8 +73,9 @@ namespace Shiro.Services
                                    FixedTimeEqualsPassword(password ?? string.Empty, wsPassword) &&
                                    req.GetQuery("IncludeCookies") == "true" && webServer.Get<bool>("AllowGetCookie");
 
-                List<ApiAccountJsonItem> objects = new();
-                foreach (Account acc in AppServices.AccountRepository.GetAll())
+                var allAccounts = AppServices.AccountRepository.GetAll();
+                List<ApiAccountJsonItem> objects = new(allAccounts.Count);
+                foreach (Account acc in allAccounts)
                 {
                     if (!string.IsNullOrEmpty(groupFilter) && acc.Group != groupFilter) continue;
 
@@ -91,59 +109,77 @@ namespace Shiro.Services
 
             // Global commands (do not require an Account parameter)
             if (method.Equals("AntiAfk/Status", StringComparison.OrdinalIgnoreCase) || method.Equals("AntiAfkStatus", StringComparison.OrdinalIgnoreCase))
-                return reply(Utilities.FastJson.Serialize(new { Enabled = AntiAfkService.IsEnabled, TapsSent = AntiAfkService.TapsSent, Status = AntiAfkService.StatusText }), true, -1, null);
+            {
+                var payload = new AntiAfkStatusPayload(AntiAfkService.IsEnabled, AntiAfkService.TapsSent, AntiAfkService.StatusText);
+                return reply(JsonSerializer.Serialize(payload, ShiroAppJson.Default.AntiAfkStatusPayload), true, -1, null);
+            }
 
             if (method.Equals("AntiAfk/Toggle", StringComparison.OrdinalIgnoreCase) || method.Equals("ToggleAntiAfk", StringComparison.OrdinalIgnoreCase))
             {
                 AntiAfkService.Toggle();
-                return reply(Utilities.FastJson.Serialize(new { Enabled = AntiAfkService.IsEnabled, Status = AntiAfkService.StatusText }), true, -1, null);
+                var payload = new AntiAfkTogglePayload(AntiAfkService.IsEnabled, AntiAfkService.StatusText);
+                return reply(JsonSerializer.Serialize(payload, ShiroAppJson.Default.AntiAfkTogglePayload), true, -1, null);
             }
 
             if (method.Equals("AntiAfk/Enable", StringComparison.OrdinalIgnoreCase))
             {
                 AntiAfkService.Start();
-                return reply(Utilities.FastJson.Serialize(new { Enabled = AntiAfkService.IsEnabled, Status = AntiAfkService.StatusText }), true, -1, null);
+                var payload = new AntiAfkTogglePayload(AntiAfkService.IsEnabled, AntiAfkService.StatusText);
+                return reply(JsonSerializer.Serialize(payload, ShiroAppJson.Default.AntiAfkTogglePayload), true, -1, null);
             }
 
             if (method.Equals("AntiAfk/Disable", StringComparison.OrdinalIgnoreCase))
             {
                 AntiAfkService.Stop();
-                return reply(Utilities.FastJson.Serialize(new { Enabled = AntiAfkService.IsEnabled, Status = AntiAfkService.StatusText }), true, -1, null);
+                var payload = new AntiAfkTogglePayload(AntiAfkService.IsEnabled, AntiAfkService.StatusText);
+                return reply(JsonSerializer.Serialize(payload, ShiroAppJson.Default.AntiAfkTogglePayload), true, -1, null);
             }
 
             if (method.Equals("Memory/Trim", StringComparison.OrdinalIgnoreCase) || method.Equals("TrimMemory", StringComparison.OrdinalIgnoreCase) || method.Equals("CleanRAM", StringComparison.OrdinalIgnoreCase))
             {
                 var (bytesSaved, count) = MemoryOptimizer.TrimRobloxClients();
-                return reply(Utilities.FastJson.Serialize(new { BytesSaved = bytesSaved, ClientsCount = count }), true, -1, null);
+                var payload = new MemoryTrimPayload(bytesSaved, count);
+                return reply(JsonSerializer.Serialize(payload, ShiroAppJson.Default.MemoryTrimPayload), true, -1, null);
             }
 
             if (method.Equals("MultiRoblox/Status", StringComparison.OrdinalIgnoreCase))
-                return reply(Utilities.FastJson.Serialize(new { Enabled = general.Get<bool>("EnableMultiRbx"), Status = RobloxSingletonService.StatusText, TotalClosed = RobloxSingletonService.TotalClosed, MutexHeld = RobloxSingletonService.MutexHeld }), true, -1, null);
+            {
+                var payload = new MultiRobloxStatusPayload(
+                    general.Get<bool>("EnableMultiRbx"),
+                    RobloxSingletonService.StatusText,
+                    RobloxSingletonService.TotalClosed,
+                    RobloxSingletonService.MutexHeld);
+                return reply(JsonSerializer.Serialize(payload, ShiroAppJson.Default.MultiRobloxStatusPayload), true, -1, null);
+            }
 
             if (method.Equals("MultiRoblox/Toggle", StringComparison.OrdinalIgnoreCase))
             {
                 bool next = !general.Get<bool>("EnableMultiRbx");
                 general.Set("EnableMultiRbx", next ? "true" : "false");
                 AppServices.HostUiBridge.UpdateMultiRoblox();
-                return reply(Utilities.FastJson.Serialize(new { Enabled = next, Status = RobloxSingletonService.StatusText }), true, -1, null);
+                var payload = new MultiRobloxTogglePayload(next, RobloxSingletonService.StatusText);
+                return reply(JsonSerializer.Serialize(payload, ShiroAppJson.Default.MultiRobloxTogglePayload), true, -1, null);
             }
 
             if (method.Equals("Roblox/HideWindows", StringComparison.OrdinalIgnoreCase) || method.Equals("HideWindows", StringComparison.OrdinalIgnoreCase))
             {
                 var (hidden, total) = RobloxWindowService.HideAllWindows();
-                return reply(Utilities.FastJson.Serialize(new { HiddenCount = hidden, TotalClients = total, AreHidden = true }), true, -1, null);
+                var payload = new HideWindowsPayload(hidden, total, true);
+                return reply(JsonSerializer.Serialize(payload, ShiroAppJson.Default.HideWindowsPayload), true, -1, null);
             }
 
             if (method.Equals("Roblox/ShowWindows", StringComparison.OrdinalIgnoreCase) || method.Equals("ShowWindows", StringComparison.OrdinalIgnoreCase))
             {
                 var (shown, total) = RobloxWindowService.ShowAllWindows();
-                return reply(Utilities.FastJson.Serialize(new { ShownCount = shown, TotalClients = total, AreHidden = false }), true, -1, null);
+                var payload = new ShowWindowsPayload(shown, total, false);
+                return reply(JsonSerializer.Serialize(payload, ShiroAppJson.Default.ShowWindowsPayload), true, -1, null);
             }
 
             if (method.Equals("Roblox/ToggleWindows", StringComparison.OrdinalIgnoreCase) || method.Equals("ToggleWindows", StringComparison.OrdinalIgnoreCase))
             {
                 var (nowHidden, affected) = RobloxWindowService.ToggleVisibility();
-                return reply(Utilities.FastJson.Serialize(new { AreHidden = nowHidden, AffectedCount = affected }), true, -1, null);
+                var payload = new ToggleWindowsPayload(nowHidden, affected);
+                return reply(JsonSerializer.Serialize(payload, ShiroAppJson.Default.ToggleWindowsPayload), true, -1, null);
             }
 
             if (method.Equals("PotatoMode/Toggle", StringComparison.OrdinalIgnoreCase))
@@ -151,7 +187,8 @@ namespace Shiro.Services
                 bool next = !general.Get<bool>("EnablePotatoMode");
                 general.Set("EnablePotatoMode", next ? "true" : "false");
                 ClientSettingsPatcher.PatchSettings();
-                return reply(Utilities.FastJson.Serialize(new { PotatoMode = next }), true, -1, null);
+                var payload = new PotatoModeTogglePayload(next);
+                return reply(JsonSerializer.Serialize(payload, ShiroAppJson.Default.PotatoModeTogglePayload), true, -1, null);
             }
 
             if (method.Equals("KillRoblox", StringComparison.OrdinalIgnoreCase) || method.Equals("KillAllRoblox", StringComparison.OrdinalIgnoreCase))
@@ -162,22 +199,20 @@ namespace Shiro.Services
 
             if (method.Equals("AutoReconnect/Status", StringComparison.OrdinalIgnoreCase))
             {
-                return reply(Utilities.FastJson.Serialize(new
-                {
-                    Enabled = AutoReconnectService.Instance.IsEnabled,
-                    ActiveSessions = AutoReconnectService.Instance.ActiveSessionsCount,
-                    TotalReconnections = AutoReconnectService.Instance.TotalReconnections
-                }), true, -1, null);
+                var payload = new AutoReconnectStatusPayload(
+                    AutoReconnectService.Instance.IsEnabled,
+                    AutoReconnectService.Instance.ActiveSessionsCount,
+                    AutoReconnectService.Instance.TotalReconnections);
+                return reply(JsonSerializer.Serialize(payload, ShiroAppJson.Default.AutoReconnectStatusPayload), true, -1, null);
             }
 
             if (method.Equals("AutoReconnect/Toggle", StringComparison.OrdinalIgnoreCase))
             {
                 AutoReconnectService.Instance.IsEnabled = !AutoReconnectService.Instance.IsEnabled;
-                return reply(Utilities.FastJson.Serialize(new
-                {
-                    Enabled = AutoReconnectService.Instance.IsEnabled,
-                    ActiveSessions = AutoReconnectService.Instance.ActiveSessionsCount
-                }), true, -1, null);
+                var payload = new AutoReconnectTogglePayload(
+                    AutoReconnectService.Instance.IsEnabled,
+                    AutoReconnectService.Instance.ActiveSessionsCount);
+                return reply(JsonSerializer.Serialize(payload, ShiroAppJson.Default.AutoReconnectTogglePayload), true, -1, null);
             }
 
             if (method.Equals("Accounts/Export", StringComparison.OrdinalIgnoreCase) || method.Equals("ExportAccounts", StringComparison.OrdinalIgnoreCase))
@@ -203,18 +238,7 @@ namespace Shiro.Services
 
             if (string.IsNullOrEmpty(accountParam)) return reply("Empty Account", false, -1, null);
 
-            bool isNumericAccountId = long.TryParse(accountParam, out long targetAccountId);
-            Account? account = null;
-            foreach (Account candidate in AppServices.AccountRepository.GetAll())
-            {
-                if (candidate == null) continue;
-                if (string.Equals(candidate.Username, accountParam, StringComparison.OrdinalIgnoreCase) ||
-                    (isNumericAccountId && candidate.UserID == targetAccountId))
-                {
-                    account = candidate;
-                    break;
-                }
-            }
+            Account? account = ResolveTargetAccount(accountParam);
 
             if (account == null)
                 return reply("Invalid Account, the account's cookie may have expired and resulted in the account being logged out", false, -1, "Invalid Account");

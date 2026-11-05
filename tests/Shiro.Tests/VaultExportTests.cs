@@ -155,5 +155,43 @@ namespace Shiro.Tests
                 }
             }
         }
+
+        [Fact]
+        public void ImportVault_WithLegacyV1Format_RestoresAccountsSuccessfully()
+        {
+            var originalAccounts = new List<Account>
+            {
+                new Account("LegacyExportUser", "PassV1", "AliasV1") { SecurityToken = "_|WARNING:V1" }
+            };
+
+            string passphrase = "LegacyPassphrase300K!";
+            byte[] plaintext = AccountDataSerializer.Serialize(originalAccounts, includePasswords: true);
+            byte[] salt = new byte[16];
+            byte[] nonce = new byte[12];
+            byte[] tag = new byte[16];
+            byte[] ciphertext = new byte[plaintext.Length];
+            RandomNumberGenerator.Fill(salt);
+            RandomNumberGenerator.Fill(nonce);
+
+            byte[] key = new byte[32];
+            Rfc2898DeriveBytes.Pbkdf2(passphrase, salt, key, VaultExportService.LegacyV1Pbkdf2Iterations, HashAlgorithmName.SHA256);
+            using (var aesGcm = new AesGcm(key, 16))
+            {
+                aesGcm.Encrypt(nonce, plaintext, ciphertext, tag);
+            }
+
+            using var ms = new MemoryStream();
+            ms.Write("SHIRO_VAULT_V1"u8);
+            ms.Write(salt);
+            ms.Write(nonce);
+            ms.Write(tag);
+            ms.Write(ciphertext);
+            ms.Position = 0;
+
+            var restored = VaultExportService.ImportVault(ms, passphrase);
+            Assert.Single(restored);
+            Assert.Equal("LegacyExportUser", restored[0].Username);
+            Assert.Equal("_|WARNING:V1", restored[0].SecurityToken);
+        }
     }
 }

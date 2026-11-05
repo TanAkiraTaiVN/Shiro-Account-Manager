@@ -200,11 +200,7 @@ namespace Shiro.ViewModels
             if (prevCts != null)
             {
                 SafeExecuteHelper.Try(() => prevCts.Cancel(), "ServerListViewModel.ResetOperationCts.Cancel");
-
-
-
                 SafeExecuteHelper.Try(() => prevCts.Dispose(), "ServerListViewModel.ResetOperationCts.Dispose");
-
             }
             return nextCts;
         }
@@ -309,16 +305,22 @@ namespace Shiro.ViewModels
                         if (totalLoaded >= 200) break;
                     }
 
-                    // Await VIP servers that were started in parallel
+                    // Await VIP servers that were started in parallel, keeping only genuine VIP entries
                     var vipList = await vipTask.ConfigureAwait(false);
                     if (!ct.IsCancellationRequested && vipList != null && vipList.Count > 0)
                     {
-                        totalLoaded += vipList.Count;
-                        AppDispatcher.Post(() =>
+                        var realVipList = vipList
+                            .Where(v => v.RawData != null && (!string.IsNullOrEmpty(v.RawData.accessCode) || v.RawData.vipServerId > 0 || !string.IsNullOrEmpty(v.RawData.name)))
+                            .ToList();
+                        if (realVipList.Count > 0)
                         {
-                            if (ct.IsCancellationRequested) return;
-                            PrependRawServers(vipList);
-                        });
+                            totalLoaded += realVipList.Count;
+                            AppDispatcher.Post(() =>
+                            {
+                                if (ct.IsCancellationRequested) return;
+                                PrependRawServers(realVipList);
+                            });
+                        }
                     }
 
                     AppDispatcher.Post(() =>
@@ -328,12 +330,17 @@ namespace Shiro.ViewModels
                             ? Shiro.Services.LocalizationService.Format("ServerList.LoadedServersSuccess", totalLoaded)
                             : Shiro.Services.LocalizationService.Get("ServerList.NoServersFoundForPlace");
                         NotifyServerCounts();
+                        if (totalLoaded > 0)
+                        {
+                            _ = LoadAllRegionsAsync();
+                        }
                     });
                 }
                 catch (OperationCanceledException)
                 {
                     AppDispatcher.Post(() =>
                     {
+                        if (!ReferenceEquals(_operationCts, cts)) return;
                         LoadingStatus = Shiro.Services.LocalizationService.Get("ServerList.LoadingServersCancelled");
                         _lastLoadedPlaceId = 0;
                         NotifyServerCounts();
@@ -344,6 +351,7 @@ namespace Shiro.ViewModels
                     _logger.Error($"[RefreshServersAsync] {ex}");
                     AppDispatcher.Post(() =>
                     {
+                        if (!ReferenceEquals(_operationCts, cts)) return;
                         LoadingStatus = Shiro.Services.LocalizationService.Format("Common.ErrorFormat", ex.Message);
                         NotifyServerCounts();
                     });
@@ -352,6 +360,7 @@ namespace Shiro.ViewModels
                 {
                     AppDispatcher.Post(() =>
                     {
+                        if (!ReferenceEquals(_operationCts, cts)) return;
                         IsLoadingServers = false;
                         NotifyServerCounts();
                     });

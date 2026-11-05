@@ -19,6 +19,15 @@ namespace Shiro.Services
         AccountIssue = 4
     }
 
+    public enum IgnoredCookieAction
+    {
+        DeleteCookie = 0,
+        InspectModerationDom = 1,
+        WaitForModerationRedirect = 2,
+        RedirectToLogin = 3,
+        CaptureReactivatedSession = 4
+    }
+
     public sealed record FastLoginCaptureResult(
         FastLoginCaptureStatus Status,
         Account? Account = null,
@@ -30,7 +39,7 @@ namespace Shiro.Services
     /// and credential auto-fill for <see cref="AvaloniaUI.Views.FastLoginDialog"/>.
     /// Extracted from UI code-behind so authentication and moderation edge cases can be unit-tested.
     /// </summary>
-    public static class FastLoginCoordinator
+    public static partial class FastLoginCoordinator
     {
         private static IAppLogger _logger = AppServices.Logger;
         public static IAppLogger Logger { get => _logger; set => _logger = value ?? throw new ArgumentNullException(nameof(value)); }
@@ -51,10 +60,52 @@ namespace Shiro.Services
                    url.Contains("/security-notification", StringComparison.OrdinalIgnoreCase);
         }
 
+        public static IgnoredCookieAction EvaluateIgnoredCookieAction(
+            string? currentUrl,
+            bool isRestoredModerationCookie,
+            bool hasSeenModerationPage)
+        {
+            if (isRestoredModerationCookie &&
+                !string.IsNullOrEmpty(currentUrl) &&
+                (currentUrl.Contains("/login", StringComparison.OrdinalIgnoreCase) ||
+                 currentUrl.Contains("/newlogin", StringComparison.OrdinalIgnoreCase)))
+            {
+                return IgnoredCookieAction.RedirectToLogin;
+            }
+
+            if (IsModerationOrLockedUrl(currentUrl))
+                return IgnoredCookieAction.InspectModerationDom;
+
+            if (isRestoredModerationCookie)
+            {
+                if (hasSeenModerationPage &&
+                    !string.IsNullOrEmpty(currentUrl) &&
+                    (currentUrl.Contains("/home", StringComparison.OrdinalIgnoreCase) ||
+                     currentUrl.Contains("/discover", StringComparison.OrdinalIgnoreCase) ||
+                     currentUrl.Contains("/charts", StringComparison.OrdinalIgnoreCase) ||
+                     currentUrl.Contains("/games", StringComparison.OrdinalIgnoreCase) ||
+                     currentUrl.Contains("/users", StringComparison.OrdinalIgnoreCase)))
+                {
+                    return IgnoredCookieAction.CaptureReactivatedSession;
+                }
+
+                return IgnoredCookieAction.WaitForModerationRedirect;
+            }
+
+            return IgnoredCookieAction.DeleteCookie;
+        }
+
         public static string ClassifyDomIssueCode(string? combinedText, bool isModUrl)
         {
             if (string.IsNullOrWhiteSpace(combinedText))
                 return isModUrl ? "LOCKED_OR_BANNED" : string.Empty;
+
+            if (combinedText.Contains('{', StringComparison.Ordinal))
+            {
+                string structured = ClassifyAuthOrModerationApiPayload(combinedText);
+                if (!string.IsNullOrEmpty(structured))
+                    return structured;
+            }
 
             string combined = combinedText.ToLowerInvariant();
 
@@ -128,51 +179,6 @@ namespace Shiro.Services
         public static (string? IssueBadge, string? Reason) ClassifyDomIssueText(string? combinedText, bool isModUrl) =>
             MapDomIssueCode(ClassifyDomIssueCode(combinedText, isModUrl));
 
-        public static async Task<(string? IssueBadge, string? Reason)> DetectDomAccountIssueAsync(CoreWebView2? core, bool hasQueueAccounts)
-        {
-            if (core == null || !hasQueueAccounts)
-                return (null, null);
-
-            try
-            {
-                string currentUrl = core.Source ?? string.Empty;
-                bool isModUrl = IsModerationOrLockedUrl(currentUrl);
-                string rawJson = await core.ExecuteScriptAsync(@"
-                    (() => {
-                        try {
-                            const url = (window.location.href || '').toLowerCase();
-                            const isMod = url.includes('/not-approved') || url.includes('/account-status') || url.includes('/banned') || url.includes('/moderation') || url.includes('/security-notification') || url.includes('/account-locked');
-                            const nodes = document.querySelectorAll('#login-form-error, .form-error, .text-error, .not-approved-container');
-                            let combined = '';
-                            for (const n of nodes) {
-                                if (n && n.offsetParent !== null && n.innerText) {
-                                    combined += ' ' + n.innerText;
-                                }
-                            }
-                            if (isMod && document.body && document.body.innerText) {
-                                combined += ' ' + document.body.innerText;
-                            }
-                            return combined.trim();
-                        } catch (_) { return ''; }
-                    })()
-                ");
-
-                string? combinedText = null;
-                if (!string.IsNullOrWhiteSpace(rawJson) && rawJson != "null")
-                {
-                    try { combinedText = JsonSerializer.Deserialize(rawJson, ShiroAppJson.Default.String); }
-                    catch (Exception) { combinedText = rawJson.Trim('"'); }
-                }
-
-                return ClassifyDomIssueText(combinedText, isModUrl);
-            }
-            catch (Exception ex)
-            {
-                _logger.Debug($"DetectDomAccountIssueAsync failed: {ex.Message}");
-                return (null, null);
-            }
-        }
-
         public static string GetLoginPageEnhancementScript() => @"
             try {
                 const style = document.createElement('style');
@@ -216,109 +222,91 @@ namespace Shiro.Services
             string hasPassJs = !string.IsNullOrEmpty(password) ? "true" : "false";
             string forceClickJs = forceClick ? "true" : "false";
 
-            return $@"
-                (() => {{
-                    try {{
-                        const targetUser = {userJson};
-                        const targetPass = {passJson};
-                        const hasPass = {hasPassJs};
-                        const forceClick = {forceClickJs};
+            return $@"(() => {{
+                try {{
+                    const targetUser = {userJson}, targetPass = {passJson}, hasPass = {hasPassJs}, forceClick = {forceClickJs};
+                    if (forceClick) window.__shiroAutoSubmittedForUser = '';
 
-                        if (forceClick) {{
-                            window.__shiroAutoSubmittedForUser = '';
+                    const setReactValue = (el, val, forceEvents = false) => {{
+                        if (!el || val === undefined || val === null) return false;
+                        if (!forceEvents && el.value === val) return true;
+                        try {{
+                            el.focus();
+                            if (el._valueTracker) el._valueTracker.setValue('__shiro_unset__');
+                            const proto = window.HTMLInputElement ? window.HTMLInputElement.prototype : Object.getPrototypeOf(el);
+                            const desc = Object.getOwnPropertyDescriptor(proto, 'value');
+                            if (desc && desc.set) desc.set.call(el, val); else el.value = val;
+                            try {{ el.dispatchEvent(new InputEvent('input', {{ bubbles: true, cancelable: true, inputType: 'insertText', data: val }})); }}
+                            catch (_) {{ el.dispatchEvent(new Event('input', {{ bubbles: true }})); }}
+                            el.dispatchEvent(new Event('change', {{ bubbles: true }}));
+                            return el.value === val;
+                        }} catch (_) {{ return false; }}
+                    }};
+
+                    const findLoginButton = () => document.querySelector('#login-button') ||
+                        document.querySelector('button[id*=""login-button""]') ||
+                        Array.from(document.querySelectorAll('button, input[type=""submit""], [role=""button""]')).find(b => {{
+                            const t = (b.innerText || b.textContent || b.value || '').trim().toLowerCase();
+                            return t === 'log in' || t === 'login' || t === 'sign in' || t === 'đăng nhập';
+                        }});
+
+                    const isButtonDisabled = (btn) => !btn || btn.disabled || (btn.getAttribute('aria-disabled') || '').toLowerCase() === 'true';
+
+                    const clickLoginButton = () => {{
+                        const btn = findLoginButton();
+                        if (btn && !isButtonDisabled(btn)) {{
+                            try {{ btn.focus(); }} catch (_) {{}}
+                            btn.click();
+                            return true;
                         }}
+                        return false;
+                    }};
 
-                        const setReactValue = (el, val) => {{
-                            if (!el || val === undefined || val === null) return false;
-                            if (el.value === val) return true;
-                            try {{
-                                el.focus();
-                                if (el._valueTracker) {{
-                                    el._valueTracker.setValue('');
-                                }}
-                                const proto = window.HTMLInputElement ? window.HTMLInputElement.prototype : Object.getPrototypeOf(el);
-                                const desc = Object.getOwnPropertyDescriptor(proto, 'value');
-                                if (desc && desc.set) {{
-                                    desc.set.call(el, val);
-                                }} else {{
-                                    el.value = val;
-                                }}
-                                try {{
-                                    el.dispatchEvent(new InputEvent('input', {{ bubbles: true, cancelable: true, inputType: 'insertText', data: val }}));
-                                }} catch (_) {{
-                                    el.dispatchEvent(new Event('input', {{ bubbles: true }}));
-                                }}
-                                el.dispatchEvent(new Event('change', {{ bubbles: true }}));
-                                el.blur();
-                                return el.value === val;
-                            }} catch (_) {{
-                                return false;
+                    let attempts = 0, firstFilledAt = 0;
+                    const stopWatching = () => {{
+                        if (window.__shiroFillInterval) {{ clearInterval(window.__shiroFillInterval); window.__shiroFillInterval = null; }}
+                        if (window.__shiroFillObserver) {{ try {{ window.__shiroFillObserver.disconnect(); }} catch (_) {{}} window.__shiroFillObserver = null; }}
+                    }};
+                    stopWatching();
+
+                    const tick = (fromInterval = false) => {{
+                        if (fromInterval) attempts++;
+                        const u = document.querySelector('#login-username') || document.querySelector('input[name=""username""]') || document.querySelector('input[autocomplete=""username""]');
+                        const p = document.querySelector('#login-password') || document.querySelector('input[name=""password""]') || document.querySelector('input[type=""password""]');
+                        if (!u || (hasPass && !p)) {{ if (attempts > 50) stopWatching(); return; }}
+
+                        const btn = findLoginButton();
+                        const needForceEvents = (firstFilledAt === 0) || (u.value !== targetUser) || (hasPass && p.value !== targetPass) || (hasPass && isButtonDisabled(btn));
+                        const uOk = setReactValue(u, targetUser, needForceEvents);
+                        const pOk = !hasPass || setReactValue(p, targetPass, needForceEvents);
+
+                        if (uOk && pOk) {{
+                            if (firstFilledAt === 0) firstFilledAt = Date.now();
+                            if (!hasPass) {{ if (Date.now() - firstFilledAt >= 300) stopWatching(); return; }}
+                            if (window.__shiroAutoSubmittedForUser === targetUser && !forceClick) {{ stopWatching(); return; }}
+                            if (Date.now() - firstFilledAt >= 180) {{
+                                setReactValue(u, targetUser, true);
+                                setReactValue(p, targetPass, true);
+                                if (clickLoginButton()) {{ window.__shiroAutoSubmittedForUser = targetUser; stopWatching(); return; }}
                             }}
-                        }};
-
-                        const clickLoginButton = () => {{
-                            const btn = document.querySelector('#login-button') ||
-                                Array.from(document.querySelectorAll('button, input[type=""submit""], [role=""button""]'))
-                                    .find(b => {{
-                                        const t = (b.innerText || b.value || '').trim().toLowerCase();
-                                        return t === 'log in' || t === 'login' || t === 'đăng nhập';
-                                    }});
-                            if (btn && !btn.disabled) {{
-                                btn.click();
-                                return true;
-                            }}
-                            return false;
-                        }};
-
-                        let attempts = 0;
-                        if (window.__shiroFillInterval) {{
-                            clearInterval(window.__shiroFillInterval);
-                            window.__shiroFillInterval = null;
                         }}
+                        if (attempts > 50) stopWatching();
+                    }};
 
-                        const tick = () => {{
-                            attempts++;
-                            const u = document.querySelector('#login-username') || document.querySelector('input[name=""username""]');
-                            const p = document.querySelector('#login-password') || document.querySelector('input[type=""password""]');
-
-                            if (!u || (hasPass && !p)) {{
-                                if (attempts > 40 && window.__shiroFillInterval) {{
-                                    clearInterval(window.__shiroFillInterval);
-                                    window.__shiroFillInterval = null;
-                                }}
-                                return;
+                    tick(false);
+                    if (window.MutationObserver && document.documentElement) {{
+                        let mutationScheduled = false;
+                        window.__shiroFillObserver = new MutationObserver(() => {{
+                            if (!mutationScheduled) {{
+                                mutationScheduled = true;
+                                setTimeout(() => {{ mutationScheduled = false; tick(false); }}, 80);
                             }}
-
-                            const uOk = setReactValue(u, targetUser);
-                            const pOk = !hasPass || setReactValue(p, targetPass);
-
-                            if (uOk && pOk && hasPass) {{
-                                if (window.__shiroFillInterval) {{
-                                    clearInterval(window.__shiroFillInterval);
-                                    window.__shiroFillInterval = null;
-                                }}
-                                if (window.__shiroAutoSubmittedForUser !== targetUser) {{
-                                    window.__shiroAutoSubmittedForUser = targetUser;
-                                    setTimeout(() => {{
-                                        setReactValue(u, targetUser);
-                                        setReactValue(p, targetPass);
-                                        clickLoginButton();
-                                    }}, 280);
-                                }}
-                                return;
-                            }}
-
-                            if (attempts > 40 && window.__shiroFillInterval) {{
-                                clearInterval(window.__shiroFillInterval);
-                                window.__shiroFillInterval = null;
-                            }}
-                        }};
-
-                        tick();
-                        window.__shiroFillInterval = setInterval(tick, 220);
-                    }} catch(_) {{}}
-                }})();
-            ";
+                        }});
+                        window.__shiroFillObserver.observe(document.documentElement, {{ childList: true, subtree: true }});
+                    }}
+                    window.__shiroFillInterval = setInterval(() => tick(true), 200);
+                }} catch(_) {{}}
+            }})();";
         }
 
         public static async Task ClearWebViewAuthCookiesAsync(CoreWebView2? core, ISet<string> ignoredCookieValues)

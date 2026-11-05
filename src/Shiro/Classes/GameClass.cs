@@ -30,9 +30,23 @@ namespace Shiro
             try
             {
                 ImageUrl = await Batch.GetGameIcon(placeId).ConfigureAwait(false);
-                Details = Batch.PlaceDetails.TryGetValue(placeId, out GameDetails? resolvedDetails)
-                    ? resolvedDetails
-                    : (Details ?? GameDetails.Unknown(placeId, name));
+                if (Batch.PlaceDetails.TryGetValue(placeId, out GameDetails? resolvedDetails) &&
+                    !Services.GameInfoService.IsGenericPlaceholderName(placeId, resolvedDetails.BestDisplayName))
+                {
+                    Details = resolvedDetails;
+                    Services.GameInfoService.CachePlaceName(placeId, resolvedDetails.BestDisplayName);
+                }
+                else
+                {
+                    string? fallbackTitle = await Services.GameInfoService.ResolvePlaceNameAsync(placeId).ConfigureAwait(false);
+                    string finalName = !string.IsNullOrWhiteSpace(fallbackTitle) ? fallbackTitle! : name;
+                    Details ??= GameDetails.Unknown(placeId, finalName);
+                    if (!string.IsNullOrWhiteSpace(fallbackTitle))
+                    {
+                        Details.name = fallbackTitle!;
+                        Details.sourceName = fallbackTitle!;
+                    }
+                }
             }
             catch (Exception exception)
             {
@@ -90,9 +104,10 @@ namespace Shiro
         public string? sourceDescription;
 
         [JsonIgnore]
-        public string BestDisplayName => !string.IsNullOrWhiteSpace(sourceName)
-            ? sourceName.Trim()
-            : (name ?? string.Empty).Trim();
+        public string BestDisplayName => Services.GameInfoService.SanitizeDisplayTitle(
+            !string.IsNullOrWhiteSpace(sourceName)
+                ? sourceName.Trim()
+                : (name ?? string.Empty).Trim());
         public string? url;
         public string? builder;
         public long builderId;
@@ -141,13 +156,13 @@ namespace Shiro
         public string PrivateServer;
         public long PlaceID;
 
+        [JsonConstructor]
         public FavoriteGame() : base(0)
         {
             Name = "???";
             PrivateServer = "";
         }
 
-        [JsonConstructor]
         public FavoriteGame(long PlaceID, Action? Callback = null) : base(PlaceID)
         {
             Name = "???";

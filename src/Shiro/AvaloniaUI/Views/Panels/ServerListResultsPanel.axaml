@@ -137,7 +137,13 @@
                                     <StackPanel Grid.Column="3" Orientation="Horizontal"
                                                 Spacing="6" VerticalAlignment="Center"
                                                 Margin="0,0,8,0">
-                                        <TextBlock Text="{Binding RegionDisplay}" FontSize="11"
+                                        <Border Width="18" Height="13" CornerRadius="2"
+                                                ClipToBounds="True" VerticalAlignment="Center"
+                                                IsVisible="{Binding HasFlagImage}">
+                                            <Image Source="{Binding FlagImage}" Width="18"
+                                                   Height="13" Stretch="Fill" />
+                                        </Border>
+                                        <TextBlock Text="{Binding RegionText}" FontSize="11"
                                                    Foreground="#A1A1AA" VerticalAlignment="Center"
                                                    TextTrimming="CharacterEllipsis" />
                                         <Button Classes="FastIconBtn"
@@ -246,7 +252,7 @@
                                         </Border>
                                         <StackPanel Grid.Column="1" VerticalAlignment="Center"
                                                     Spacing="2" Margin="0,0,8,0">
-                                            <TextBlock Text="{Binding Name}" FontWeight="Bold"
+                                            <TextBlock Text="{Binding Name}" FontWeight="Normal"
                                                        FontSize="13" Foreground="#FFFFFF"
                                                        TextTrimming="CharacterEllipsis" />
                                             <TextBlock Text="{Binding PlaceId, StringFormat='ID: {0}'}"

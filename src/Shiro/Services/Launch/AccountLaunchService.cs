@@ -96,7 +96,7 @@ namespace Shiro.Services
                 bool preferDirect = AppSettings.General.Get<bool>(AppSettingsKeys.General.PreferDirectLaunch, false);
                 if (preferDirect)
                 {
-                    var directResult = RobloxDirectLauncher.LaunchDirect(ticket, joinUrl, username, browserTrackerId, securityToken);
+                    var directResult = RobloxDirectLauncher.LaunchDirect(ticket, joinUrl, username, browserTrackerId, securityToken); directResult.Process?.Dispose();
                     if (directResult.Success)
                     {
                         await Task.Delay(250, cancellationToken).ConfigureAwait(false);
@@ -297,7 +297,7 @@ namespace Shiro.Services
                             var setRequest = account.MakeRequest("user-settings-api/v1/user-settings", Method.Post)
                                 .AddHeader("X-CSRF-TOKEN", token)
                                 .AddHeader("Referer", "https://www.roblox.com/my/account")
-                                .AddJsonBody(new { whoCanInviteMeToPrivateServers = "AllUsers" });
+                                .AddJsonBody(new PrivateServerInviteSettingPayload("AllUsers"));
 
                             await account.ExecuteAccountRestAsync(AppServices.RobloxApi.Api, "https://apis.roblox.com/", setRequest, cancellationToken).ConfigureAwait(false);
                         }
