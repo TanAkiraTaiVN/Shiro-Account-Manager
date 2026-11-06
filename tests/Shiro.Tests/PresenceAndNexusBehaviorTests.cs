@@ -229,7 +229,7 @@ namespace Shiro.Tests
             AccountRepository.Default.AddThreadSafe(testAccount);
             lock (AccountManager.AccountListLock)
             {
-                AccountManager.AccountsList.Add(testAccount);
+                AccountManager.AddAccountThreadSafe(testAccount);
             }
 
             try
@@ -266,7 +266,7 @@ namespace Shiro.Tests
                 AccountRepository.Default.Remove(testAccount);
                 lock (AccountManager.AccountListLock)
                 {
-                    AccountManager.AccountsList.Remove(testAccount);
+                    AccountManager.RemoveAccount(testAccount);
                 }
             }
         }

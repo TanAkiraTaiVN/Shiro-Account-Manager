@@ -110,7 +110,7 @@ namespace Shiro.Tests
 
                 lock (AccountManager.AccountListLock)
                 {
-                    AccountManager.AccountsList.Clear();
+                    AccountManager.ResetAccountsForTests(Array.Empty<Account>());
                 }
                 AccountManager.AddAccountThreadSafe(testAcc);
 
@@ -275,7 +275,7 @@ namespace Shiro.Tests
 
                 lock (AccountManager.AccountListLock)
                 {
-                    AccountManager.AccountsList.Clear();
+                    AccountManager.ResetAccountsForTests(Array.Empty<Account>());
                 }
                 foreach (var oldAcc in oldAccounts)
                 {
@@ -316,7 +316,7 @@ namespace Shiro.Tests
 
                 lock (AccountManager.AccountListLock)
                 {
-                    AccountManager.AccountsList.Clear();
+                    AccountManager.ResetAccountsForTests(Array.Empty<Account>());
                 }
                 AccountManager.AddAccountThreadSafe(acc1);
                 AccountManager.AddAccountThreadSafe(acc2);
@@ -431,7 +431,7 @@ namespace Shiro.Tests
                 AppServices.DialogService = originalDialog;
                 lock (AccountManager.AccountListLock)
                 {
-                    AccountManager.AccountsList.Clear();
+                    AccountManager.ResetAccountsForTests(Array.Empty<Account>());
                 }
                 foreach (var oldAcc in oldAccounts)
                 {
@@ -461,7 +461,7 @@ namespace Shiro.Tests
 
                 lock (AccountManager.AccountListLock)
                 {
-                    AccountManager.AccountsList.Clear();
+                    AccountManager.ResetAccountsForTests(Array.Empty<Account>());
                 }
                 AccountManager.AddAccountThreadSafe(knownAcc);
 
@@ -496,7 +496,7 @@ namespace Shiro.Tests
             {
                 lock (AccountManager.AccountListLock)
                 {
-                    AccountManager.AccountsList.Clear();
+                    AccountManager.ResetAccountsForTests(Array.Empty<Account>());
                 }
                 foreach (var oldAcc in oldAccounts)
                 {

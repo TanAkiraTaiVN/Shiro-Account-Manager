@@ -65,29 +65,26 @@ namespace Shiro.Tests
         [Fact]
         public void GetAccountsSnapshot_CachesImmutableArrayUntilListMutates()
         {
-            lock (AccountManager.AccountListLock)
+            var original = AccountManager.GetAccountsSnapshot();
+            try
             {
-                var original = AccountManager.AccountsList;
-                try
-                {
-                    var acc1 = (Account)RuntimeHelpers.GetUninitializedObject(typeof(Account));
-                    var acc2 = (Account)RuntimeHelpers.GetUninitializedObject(typeof(Account));
-                    AccountManager.AccountsList = new List<Account> { acc1 };
+                var acc1 = (Account)RuntimeHelpers.GetUninitializedObject(typeof(Account));
+                var acc2 = (Account)RuntimeHelpers.GetUninitializedObject(typeof(Account));
+                AccountManager.ResetAccountsForTests(new[] { acc1 });
 
-                    var snap1 = AccountManager.GetAccountsSnapshot();
-                    var snap2 = AccountManager.GetAccountsSnapshot();
-                    Assert.Single(snap1);
-                    Assert.Same(snap1, snap2);
+                var snap1 = AccountManager.GetAccountsSnapshot();
+                var snap2 = AccountManager.GetAccountsSnapshot();
+                Assert.Single(snap1);
+                Assert.Same(snap1, snap2);
 
-                    AccountManager.AccountsList.Add(acc2);
-                    var snap3 = AccountManager.GetAccountsSnapshot();
-                    Assert.Equal(2, snap3.Count);
-                    Assert.NotSame(snap1, snap3);
-                }
-                finally
-                {
-                    AccountManager.AccountsList = original;
-                }
+                AccountManager.AddAccountThreadSafe(acc2);
+                var snap3 = AccountManager.GetAccountsSnapshot();
+                Assert.Equal(2, snap3.Count);
+                Assert.NotSame(snap1, snap3);
+            }
+            finally
+            {
+                AccountManager.ResetAccountsForTests(original);
             }
         }
 

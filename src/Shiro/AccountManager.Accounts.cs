@@ -56,9 +56,9 @@ namespace Shiro
 
             lock (AccountListLock)
             {
-                if (AccountsList != null)
+                if (_accounts != null)
                 {
-                    Account? knownAccount = AccountsList.FirstOrDefault(a =>
+                    Account? knownAccount = _accounts.FirstOrDefault(a =>
                         a != null && a.UserID > 0 &&
                         string.Equals(a.Username, trimmedName, StringComparison.OrdinalIgnoreCase));
                     if (knownAccount != null)
@@ -138,7 +138,7 @@ namespace Shiro
 
                 Account? exists;
                 lock (AccountListLock)
-                    exists = AccountsList.FirstOrDefault(acc => (account.UserID > 0 && acc.UserID == account.UserID) ||
+                    exists = _accounts.FirstOrDefault(acc => (account.UserID > 0 && acc.UserID == account.UserID) ||
                                                                 (!string.IsNullOrEmpty(acc.Username) && !string.IsNullOrEmpty(account.Username) && acc.Username.Equals(account.Username, StringComparison.OrdinalIgnoreCase)));
 
                 if (exists != null)
@@ -198,12 +198,12 @@ namespace Shiro
             bool isNowEmpty = false;
             lock (AccountListLock)
             {
-                if (AccountsList != null)
+                if (_accounts != null)
                 {
-                    count = AccountsList.RemoveAll(a => toRemove.Contains(a));
+                    count = _accounts.RemoveAll(a => toRemove.Contains(a));
                     if (count > 0)
                         _cachedAccountsSnapshot = Array.Empty<Account>();
-                    isNowEmpty = AccountsList.Count == 0;
+                    isNowEmpty = _accounts.Count == 0;
                 }
                 else
                 {

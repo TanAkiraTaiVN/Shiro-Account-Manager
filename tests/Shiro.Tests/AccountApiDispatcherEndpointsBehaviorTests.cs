@@ -97,10 +97,7 @@ namespace Shiro.Tests
 
             var acc1 = new Account { Username = "UserA", UserID = 101, Group = "G1", SecurityToken = "_|WARNING:-DO-NOT-SHARE-THIS.--TokA" };
             var acc2 = new Account { Username = "UserB", UserID = 102, Group = "G2", SecurityToken = "_|WARNING:-DO-NOT-SHARE-THIS.--TokB" };
-            lock (AccountManager.AccountListLock)
-            {
-                AccountManager.AccountsList.Clear();
-            }
+            AccountManager.ResetAccountsForTests(Array.Empty<Account>());
             AccountManager.AddAccountThreadSafe(acc1);
             AccountManager.AddAccountThreadSafe(acc2);
 
@@ -206,10 +203,7 @@ namespace Shiro.Tests
                 PinUnlocked = DateTime.Now.AddHours(1)
             };
 
-            lock (AccountManager.AccountListLock)
-            {
-                AccountManager.AccountsList.Clear();
-            }
+            AccountManager.ResetAccountsForTests(Array.Empty<Account>());
             AccountManager.AddAccountThreadSafe(testAcc);
 
             // Empty and unknown account
@@ -326,10 +320,7 @@ namespace Shiro.Tests
                 SecurityToken = "_|WARNING:-DO-NOT-SHARE-THIS.DISPATCHER123"
             };
 
-            lock (AccountManager.AccountListLock)
-            {
-                AccountManager.AccountsList.Clear();
-            }
+            AccountManager.ResetAccountsForTests(Array.Empty<Account>());
             AccountManager.AddAccountThreadSafe(testAcc);
 
             string setProxyResp = await mgr.ProcessApiRequestAsync(CreateRequest(

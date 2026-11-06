@@ -10,6 +10,14 @@ namespace Shiro.Tests
     public partial class ArchitectureTests
     {
         [Fact]
+        public void AccountManager_AccountList_IsNotAccessibleOutsideClass()
+        {
+            var field = typeof(AccountManager).GetField("AccountsList",
+                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.True(field is null || field.IsPrivate);
+        }
+
+        [Fact]
         public void AccountManager_ShouldNotExpose_StaticRestClients()
         {
             var offenders = typeof(AccountManager)

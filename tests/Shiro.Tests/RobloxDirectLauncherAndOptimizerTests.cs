@@ -101,12 +101,12 @@ namespace Shiro.Tests
         [Fact]
         public void RemoveAccountsFromDatabase_WhenEmpty_BypassesCountCheckAndClears()
         {
-            AccountManager.AccountsList ??= new System.Collections.Generic.List<Account>();
+            AccountManager.ResetAccountsForTests(Array.Empty<Account>());
             var acc = new Account { Username = "TestUserToDelete", UserID = 9999999 };
-            AccountManager.AccountsList.Add(acc);
+            AccountManager.AddAccountThreadSafe(acc);
             int removed = AccountManager.RemoveAccountsFromDatabase(new[] { acc });
             Assert.Equal(1, removed);
-            Assert.DoesNotContain(acc, AccountManager.AccountsList);
+            Assert.DoesNotContain(acc, AccountManager.GetAccountsSnapshot());
         }
 
         [Fact]

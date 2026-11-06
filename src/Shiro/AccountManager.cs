@@ -27,7 +27,7 @@ namespace Shiro
     public partial class AccountManager : IDisposable
     {
         public static AccountManager? Instance;
-        internal static List<Account> AccountsList = new();
+        private static List<Account> _accounts = new();
         public static List<Account> SelectedAccounts
         {
             get => SelectionStateService.Default.SelectedAccounts;
@@ -168,16 +168,16 @@ namespace Shiro
         {
             lock (AccountListLock)
             {
-                if (AccountsList == null || AccountsList.Count == 0)
+                if (_accounts == null || _accounts.Count == 0)
                     return Array.Empty<Account>();
 
                 Account[] cached = _cachedAccountsSnapshot;
-                if (cached != null && cached.Length == AccountsList.Count)
+                if (cached != null && cached.Length == _accounts.Count)
                 {
                     bool same = true;
                     for (int i = 0; i < cached.Length; i++)
                     {
-                        if (!ReferenceEquals(cached[i], AccountsList[i]))
+                        if (!ReferenceEquals(cached[i], _accounts[i]))
                         {
                             same = false;
                             break;
@@ -188,9 +188,9 @@ namespace Shiro
                 }
 
                 int nonNullCount = 0;
-                for (int i = 0; i < AccountsList.Count; i++)
+                for (int i = 0; i < _accounts.Count; i++)
                 {
-                    if (AccountsList[i] != null)
+                    if (_accounts[i] != null)
                         nonNullCount++;
                 }
 
@@ -202,9 +202,9 @@ namespace Shiro
 
                 var result = new Account[nonNullCount];
                 int idx = 0;
-                for (int i = 0; i < AccountsList.Count; i++)
+                for (int i = 0; i < _accounts.Count; i++)
                 {
-                    var acc = AccountsList[i];
+                    var acc = _accounts[i];
                     if (acc != null)
                         result[idx++] = acc;
                 }
@@ -220,7 +220,7 @@ namespace Shiro
         {
             get
             {
-                lock (AccountListLock) return AccountsList?.Count ?? 0;
+                lock (AccountListLock) return _accounts?.Count ?? 0;
             }
         }
 
@@ -229,8 +229,8 @@ namespace Shiro
             if (account == null) return;
             lock (AccountListLock)
             {
-                AccountsList ??= new List<Account>();
-                AccountsList.Add(account);
+                _accounts ??= new List<Account>();
+                _accounts.Add(account);
                 _cachedAccountsSnapshot = Array.Empty<Account>();
             }
         }
@@ -259,12 +259,17 @@ namespace Shiro
             IReadOnlyList<Account> snapshot;
             lock (AccountListLock)
             {
-                AccountsList = accounts ?? new List<Account>();
+                _accounts = accounts ?? new List<Account>();
                 _cachedAccountsSnapshot = Array.Empty<Account>();
                 snapshot = GetAccountsSnapshot();
             }
 
             MainWindow.Instance?.RefreshAccounts(snapshot);
+        }
+
+        internal static void ResetAccountsForTests(IEnumerable<Account> accounts)
+        {
+            ReplaceAccountsList(accounts.ToList());
         }
 
         private static readonly System.Threading.Lock saveLock = new();

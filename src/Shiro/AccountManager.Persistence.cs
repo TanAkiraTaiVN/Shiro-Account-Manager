@@ -124,7 +124,7 @@ namespace Shiro
             byte[] Data = accountStore.Read();
 
             lock (AccountListLock)
-                AccountsList ??= new List<Account>();
+                _accounts ??= new List<Account>();
 
             if (Data.Length > 0)
             {
@@ -174,7 +174,7 @@ namespace Shiro
             }
 
             lock (AccountListLock)
-                AccountsList ??= new List<Account>();
+                _accounts ??= new List<Account>();
 
             if (!EnteredPassword && AccountCount == 0 && File.Exists($"{SaveFilePath}.backup") && File.ReadAllBytes($"{SaveFilePath}.backup") is byte[] BackupData && BackupData.Length > 0)
             {

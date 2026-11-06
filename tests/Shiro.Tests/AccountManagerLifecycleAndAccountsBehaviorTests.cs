@@ -77,10 +77,7 @@ namespace Shiro.Tests
                 SecurityToken = "test_token"
             };
 
-            lock (AccountManager.AccountListLock)
-            {
-                AccountManager.AccountsList.Add(known);
-            }
+            AccountManager.AddAccountThreadSafe(known);
 
             try
             {
@@ -97,10 +94,7 @@ namespace Shiro.Tests
             }
             finally
             {
-                lock (AccountManager.AccountListLock)
-                {
-                    AccountManager.AccountsList.Remove(known);
-                }
+                AccountManager.RemoveAccount(known);
             }
         }
 
@@ -147,10 +141,7 @@ namespace Shiro.Tests
             }
             finally
             {
-                lock (AccountManager.AccountListLock)
-                {
-                    AccountManager.AccountsList.Remove(valid);
-                }
+                AccountManager.RemoveAccount(valid);
             }
         }
 

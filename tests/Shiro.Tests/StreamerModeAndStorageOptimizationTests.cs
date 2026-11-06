@@ -71,7 +71,7 @@ namespace Shiro.Tests
 
                 lock (AccountManager.AccountListLock)
                 {
-                    AccountManager.AccountsList = new List<Account> { acc1, acc2, acc3 };
+                    AccountManager.ResetAccountsForTests(new[] { acc1, acc2, acc3 });
                 }
 
                 var repo = AccountRepository.Default;
@@ -98,7 +98,7 @@ namespace Shiro.Tests
             {
                 lock (AccountManager.AccountListLock)
                 {
-                    AccountManager.AccountsList = previous;
+                    AccountManager.ResetAccountsForTests(previous);
                 }
             }
         }
