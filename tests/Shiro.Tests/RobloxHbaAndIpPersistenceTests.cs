@@ -400,5 +400,41 @@ namespace Shiro.Tests
             string headerValue = headerValues.First();
             Assert.StartsWith("v1|", headerValue);
         }
+
+        [Fact]
+        public async Task TryBuildBoundAuthToken_ConcurrentWithClearKeyCache_NeverFails()
+        {
+            var pkcs8CacheField = typeof(RobloxHbaService).GetField(
+                "CachedPkcs8Keys",
+                System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+            Assert.Null(pkcs8CacheField);
+
+            var (privB64, _) = GenerateP256KeyPair();
+            using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(600));
+            var signTasks = Enumerable.Range(0, 4).Select(_ => Task.Run(() =>
+            {
+                while (!cts.IsCancellationRequested)
+                {
+                    bool ok = RobloxHbaService.TryBuildBoundAuthToken(
+                        privB64,
+                        "https://auth.roblox.com/v1/authentication-ticket",
+                        "POST",
+                        "{}",
+                        RobloxHbaService.DefaultTemplate,
+                        1700000000L,
+                        out string token);
+                    Assert.True(ok);
+                    Assert.False(string.IsNullOrWhiteSpace(token));
+                }
+            }));
+            var clearTask = Task.Run(() =>
+            {
+                while (!cts.IsCancellationRequested)
+                {
+                    RobloxHbaService.ClearKeyCache();
+                }
+            });
+            await Task.WhenAll(signTasks.Append(clearTask));
+        }
     }
 }

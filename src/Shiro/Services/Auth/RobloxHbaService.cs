@@ -27,25 +27,21 @@ namespace Shiro.Services
         public const string BoundAuthHeaderName = "x-bound-auth-token";
         public const string DefaultTemplate = "v1|b64|HB,TS,URL,M|,TS,PATH,M";
 
-        private static readonly ConcurrentDictionary<string, byte[]> CachedPkcs8Keys = new(StringComparer.Ordinal);
+        private static readonly System.Threading.Lock KeyCacheLock = new();
         private static readonly ConcurrentDictionary<string, ECParameters> CachedEcParameters = new(StringComparer.Ordinal);
         private static int _activeInteractiveLoginCount;
 
         public static void ClearKeyCache()
         {
-            foreach (var kvp in CachedPkcs8Keys)
+            lock (KeyCacheLock)
             {
-                if (kvp.Value != null)
-                    CryptographicOperations.ZeroMemory(kvp.Value);
+                foreach (var kvp in CachedEcParameters)
+                {
+                    if (kvp.Value.D != null)
+                        CryptographicOperations.ZeroMemory(kvp.Value.D);
+                }
+                CachedEcParameters.Clear();
             }
-            CachedPkcs8Keys.Clear();
-
-            foreach (var kvp in CachedEcParameters)
-            {
-                if (kvp.Value.D != null)
-                    CryptographicOperations.ZeroMemory(kvp.Value.D);
-            }
-            CachedEcParameters.Clear();
         }
 
         public static bool IsInteractiveLoginActive => Volatile.Read(ref _activeInteractiveLoginCount) > 0;
@@ -103,9 +99,16 @@ namespace Shiro.Services
             try
             {
                 byte[] keyBytes = Convert.FromBase64String(base64Pkcs8.Trim());
-                using ECDsa ecdsa = ECDsa.Create();
-                ecdsa.ImportPkcs8PrivateKey(keyBytes, out _);
-                return true;
+                try
+                {
+                    using ECDsa ecdsa = ECDsa.Create();
+                    ecdsa.ImportPkcs8PrivateKey(keyBytes, out _);
+                    return true;
+                }
+                finally
+                {
+                    CryptographicOperations.ZeroMemory(keyBytes);
+                }
             }
             catch
             {
@@ -133,21 +136,7 @@ namespace Shiro.Services
             try
             {
                 string trimmedKey = privateKeyPkcs8Base64.Trim();
-                if (!CachedEcParameters.TryGetValue(trimmedKey, out ECParameters ecParams))
-                {
-                    if (!CachedPkcs8Keys.TryGetValue(trimmedKey, out byte[]? keyBytes))
-                    {
-                        keyBytes = Convert.FromBase64String(trimmedKey);
-                        if (CachedPkcs8Keys.Count > 512)
-                            ClearKeyCache();
-                        CachedPkcs8Keys[trimmedKey] = keyBytes;
-                    }
-
-                    using ECDsa parserEcdsa = ECDsa.Create();
-                    parserEcdsa.ImportPkcs8PrivateKey(keyBytes, out _);
-                    ecParams = parserEcdsa.ExportParameters(includePrivateParameters: true);
-                    CachedEcParameters[trimmedKey] = ecParams;
-                }
+                using ECDsa ecdsa = AcquireCachedEcdsa(trimmedKey);
 
                 string template = string.IsNullOrWhiteSpace(tokenTemplate) ? DefaultTemplate : tokenTemplate.Trim();
                 string[] tplParts = template.Split('|');
@@ -175,8 +164,6 @@ namespace Shiro.Services
                     ? parsedUri.PathAndQuery
                     : fullUrl;
 
-                using ECDsa ecdsa = ECDsa.Create(ecParams);
-
                 var outputSegments = new List<string>(tplParts.Length + 1)
                 {
                     version,
@@ -202,6 +189,34 @@ namespace Shiro.Services
             {
                 _logger.Debug($"[RobloxHbaService] Failed to sign x-bound-auth-token: {ex.Message}");
                 return false;
+            }
+        }
+
+        private static ECDsa AcquireCachedEcdsa(string trimmedKey)
+        {
+            lock (KeyCacheLock)
+            {
+                if (!CachedEcParameters.TryGetValue(trimmedKey, out ECParameters ecParams))
+                {
+                    byte[] keyBytes = Convert.FromBase64String(trimmedKey);
+                    try
+                    {
+                        using ECDsa parserEcdsa = ECDsa.Create();
+                        parserEcdsa.ImportPkcs8PrivateKey(keyBytes, out _);
+                        ecParams = parserEcdsa.ExportParameters(includePrivateParameters: true);
+                    }
+                    finally
+                    {
+                        CryptographicOperations.ZeroMemory(keyBytes);
+                    }
+
+                    if (CachedEcParameters.Count > 512)
+                        ClearKeyCache();
+
+                    CachedEcParameters[trimmedKey] = ecParams;
+                }
+
+                return ECDsa.Create(ecParams);
             }
         }
 
