@@ -108,6 +108,9 @@ namespace Shiro
             CurrentPlaceId = placeId.ToString();
             CurrentJobId = isVip ? ("VIP:" + cleanJobId) : cleanJobId;
 
+            SelectedAccounts = targetAccounts.ToList();
+            SelectedAccount = SelectedAccounts.Count == 1 ? SelectedAccounts[0] : null;
+
             if (targetAccounts.Count > 1 && General.Get<bool>("EnableMultiRbx") && !RobloxSingletonService.MutexHeld && !TryEnableMultiRoblox(promptIfRobloxRunning: false))
             {
                 SetDashboardStatus(Shiro.Services.LocalizationService.Get("AccountManager.MultiRobloxFailedCloseClient"));
@@ -123,9 +126,6 @@ namespace Shiro
                 SetDashboardStatus(Shiro.Services.LocalizationService.Get("AccountManager.PreviousQueueStopping"));
                 return;
             }
-
-            SelectedAccounts = targetAccounts.ToList();
-            SelectedAccount = SelectedAccounts.Count == 1 ? SelectedAccounts[0] : null;
 
             string serverDesc = string.IsNullOrEmpty(cleanJobId) ? "Public Server" : (isVip ? "VIP Server" : $"Server {cleanJobId}");
             SetDashboardStatus(Shiro.Services.LocalizationService.Format("AccountManager.JoiningServer", serverDesc, placeId, SelectedAccounts.Count));
