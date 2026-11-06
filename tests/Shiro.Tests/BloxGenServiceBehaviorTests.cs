@@ -29,7 +29,7 @@ namespace Shiro.Tests
             _fakeHttp = new FakeHttpHandler();
             _httpClient = new HttpClient(_fakeHttp)
             {
-                BaseAddress = new Uri("https://bloxgen.net/api/")
+                BaseAddress = new Uri("https://core.bloxgen.net/api/")
             };
             _loggerMock = Substitute.For<IAppLogger>();
             _settings = new InMemorySettingsService();
@@ -86,6 +86,22 @@ namespace Shiro.Tests
             Assert.Null(result.Account);
             Assert.Contains("401", result.ErrorMessage);
             Assert.Contains("Invalid API token provided", result.ErrorMessage);
+        }
+
+        [Fact]
+        public async Task GenerateAccountAsync_WhenHttpErrorWithHtml_ReturnsSanitizedErrorMessage()
+        {
+            _fakeHttp.Enqueue(new HttpResponseMessage(HttpStatusCode.NotFound)
+            {
+                Content = new StringContent("<!DOCTYPE html><html><head><title>404</title></head><body>Not found</body></html>")
+            });
+
+            var result = await _service.GenerateAccountAsync(apiKey: "BLOX-TEST");
+
+            Assert.False(result.Success);
+            Assert.Null(result.Account);
+            Assert.Contains("404", result.ErrorMessage);
+            Assert.DoesNotContain("<!DOCTYPE html>", result.ErrorMessage);
         }
 
         [Fact]
@@ -149,6 +165,45 @@ namespace Shiro.Tests
             Assert.Equal("NA", result.Account.Region);
             Assert.Equal("unverified", result.Account.GenType);
             Assert.Equal(15.50, result.RemainingBalance);
+        }
+
+        [Fact]
+        public async Task GenerateAccountAsync_WhenSuccessfulWithLiveSchema_ParsesIdAndNormalizesPayload()
+        {
+            const string cookie = "_|WARNING:-DO-NOT-SHARE-THIS.--Sharing-this-will-allow-someone-to-log-in-as-you-...secret";
+            string json = $@"{{
+                ""success"": true,
+                ""data"": {{
+                    ""id"": 555666777,
+                    ""username"": ""LiveSchemaAlt"",
+                    ""password"": ""LivePass999!"",
+                    ""cookie"": ""{cookie}"",
+                    ""type"": ""alt"",
+                    ""region"": ""GB""
+                }}
+            }}";
+
+            _fakeHttp.Enqueue(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(json)
+            });
+
+            var result = await _service.GenerateAccountAsync(apiKey: "BLOX-LIVEKEY", genType: "unverified", continent: "EU");
+
+            Assert.True(result.Success);
+            Assert.NotNull(result.Account);
+            Assert.Equal("LiveSchemaAlt", result.Account!.Username);
+            Assert.Equal(555666777, result.Account.UserId);
+            Assert.Equal("LivePass999!", result.Account.Password);
+            Assert.Equal(cookie, result.Account.Cookie);
+            Assert.Equal("GB", result.Account.Region);
+
+            var sentReq = Assert.Single(_fakeHttp.Requests);
+            string? sentBody = Assert.Single(_fakeHttp.RequestBodies);
+            Assert.Equal("https://core.bloxgen.net/api/generate", sentReq.RequestUri?.ToString());
+            Assert.Contains("\"apiKey\":\"BLOX-LIVEKEY\"", sentBody);
+            Assert.Contains("\"type\":\"alt\"", sentBody);
+            Assert.Contains("\"continent\":\"europe\"", sentBody);
         }
 
         [Fact]

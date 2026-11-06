@@ -334,8 +334,21 @@ namespace Shiro.Classes
                                 Program.Logger?.Debug($"Re-read settled cookie failed: {ex.Message}");
                             }
 
-                            // 4. Add or update account with the settled cookie
+                            // 4. Add or update account with the settled cookie (re-checking cookie after HBA/authenticated fetch)
                             var hbaSnapshot = await ExtractHbaCaptureFromPageAsync(signInPage).ConfigureAwait(false);
+                            try
+                            {
+                                if (signInPage != null && !signInPage.IsClosed)
+                                {
+                                    var postHbaCookie = await ExtractRoblosecurityCookieAsync(signInPage).ConfigureAwait(false);
+                                    if (postHbaCookie != null && !string.IsNullOrWhiteSpace(postHbaCookie.Value))
+                                        settledCookieValue = postHbaCookie.Value;
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                Program.Logger?.Debug($"Post-HBA cookie re-read failed: {ex.Message}");
+                            }
                             Account? account = await AppServices.AccountRepository.AddOrUpdateWithHbaAsync(settledCookieValue, password ?? string.Empty, accountJson, cancellationToken: cancellationToken, hbaCapture: hbaSnapshot).ConfigureAwait(false);
                             if (account != null)
                             {

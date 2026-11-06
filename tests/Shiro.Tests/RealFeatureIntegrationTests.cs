@@ -132,7 +132,7 @@ namespace Shiro.Tests
 
             var handler = new FakeHttpHandler().Enqueue(HttpStatusCode.OK, mockResponseJson);
 
-            using var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://bloxgen.net/api/") };
+            using var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://core.bloxgen.net/api/") };
             var service = new BloxGenService(httpClient);
 
             var result = await service.GenerateAccountAsync("BLOX-TEST-API-KEY", "unverified", "AS");
@@ -150,7 +150,7 @@ namespace Shiro.Tests
         [Fact]
         public async Task BloxGenService_FailsGracefullyOnMissingKey()
         {
-            using var httpClient = new HttpClient { BaseAddress = new Uri("https://bloxgen.net/api/") };
+            using var httpClient = new HttpClient { BaseAddress = new Uri("https://core.bloxgen.net/api/") };
             var service = new BloxGenService(httpClient);
 
             var result = await service.GenerateAccountAsync(string.Empty);

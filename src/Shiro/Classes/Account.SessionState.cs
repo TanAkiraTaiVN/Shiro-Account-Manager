@@ -65,6 +65,7 @@ namespace Shiro
 
                 try
                 {
+                    int versionBefore = CookieRotationVersion;
                     HttpClient httpClient = GetSessionHttpClient();
                     using var request = CreateAuthenticatedGetRequest("https://users.roblox.com/v1/users/authenticated");
 
@@ -74,7 +75,12 @@ namespace Shiro
                     if (response == null)
                         return Valid;
 
-                    TryUpdateRotatedCookie(response);
+                    bool rotatedOnPrimary = TryUpdateRotatedCookie(response) || CookieRotationVersion != versionBefore;
+                    if (attempt == 0 && rotatedOnPrimary &&
+                        (response.StatusCode == HttpStatusCode.Unauthorized || response.StatusCode == HttpStatusCode.Forbidden))
+                    {
+                        continue;
+                    }
 
                     if (response.RequestMessage?.RequestUri != null)
                     {
@@ -252,13 +258,44 @@ namespace Shiro
 
                     if (response.StatusCode == HttpStatusCode.Forbidden)
                     {
-                        var (modBanned, modBadge, _) = await CheckModerationStatusAsync(GetCurrentSecurityToken(), cancellationToken).ConfigureAwait(false);
+                        string forbiddenBody = string.Empty;
+                        try
+                        {
+                            forbiddenBody = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+                        }
+                        catch (Exception ex)
+                        {
+                            Program.Logger?.Debug($"[ValidateSessionAsync] Reading 403 body failed: {ex.Message}");
+                        }
+
+                        var (modBanned, modBadge, modReason) = await CheckModerationStatusAsync(GetCurrentSecurityToken(), cancellationToken).ConfigureAwait(false);
                         if (modBanned)
                         {
-                            AccountStatusIssue = modBadge ?? Shiro.Services.LocalizationService.Get("FastLogin.LockedOrBannedBadge");
+                            string badge = modBadge ?? Shiro.Services.LocalizationService.Get("FastLogin.LockedOrBannedBadge");
+                            Program.Logger?.Warn($"[ValidateSessionAsync] {Username}: Active moderation detected on 403: {badge} ({modReason}). Marking invalid.");
+                            AccountStatusIssue = badge;
                             Valid = false;
                             return false;
                         }
+
+                        if (!string.IsNullOrWhiteSpace(forbiddenBody))
+                        {
+                            string forbiddenCode = FastLoginCoordinator.ClassifyAuthOrModerationApiPayload(forbiddenBody, 403);
+                            if (!string.IsNullOrEmpty(forbiddenCode) &&
+                                forbiddenCode != "UNAUTHENTICATED_MODERATION" &&
+                                forbiddenCode != "WRONG_PASSWORD")
+                            {
+                                var (fbBadge, fbReason) = FastLoginCoordinator.MapDomIssueCode(forbiddenCode);
+                                string resolvedBadge = !string.IsNullOrEmpty(AccountStatusIssue)
+                                    ? AccountStatusIssue
+                                    : (fbBadge ?? Shiro.Services.LocalizationService.Get("FastLogin.LockedOrBannedBadge"));
+                                Program.Logger?.Warn($"[ValidateSessionAsync] {Username}: 403 payload indicates moderation ({resolvedBadge}: {fbReason}). Marking invalid.");
+                                AccountStatusIssue = resolvedBadge;
+                                Valid = false;
+                                return false;
+                            }
+                        }
+
                         bool secondaryOk = await ValidateViaSecondaryEndpointAsync(cancellationToken).ConfigureAwait(false);
                         if (secondaryOk)
                         {
@@ -432,68 +469,6 @@ namespace Shiro
             }
 
             return response;
-        }
-
-        private static int GetRateLimitRecoverySeconds(RestResponse? response)
-        {
-            string? retryAfter = response?.Headers?
-                .FirstOrDefault(x => string.Equals(x.Name, "Retry-After", StringComparison.OrdinalIgnoreCase))?
-                .Value?.ToString()?.Trim();
-
-            if (int.TryParse(retryAfter, out int serverDelay) && serverDelay > 0)
-                return Math.Min(serverDelay, 180);
-
-            if (DateTimeOffset.TryParse(
-                retryAfter,
-                CultureInfo.InvariantCulture,
-                DateTimeStyles.AllowWhiteSpaces | DateTimeStyles.AssumeUniversal,
-                out DateTimeOffset retryAt))
-            {
-                double dateDelay = (retryAt.ToUniversalTime() - DateTimeOffset.UtcNow).TotalSeconds;
-                if (dateDelay > 0)
-                    return Math.Min(180, Math.Max(1, (int)Math.Ceiling(dateDelay)));
-            }
-
-            string? reset = response?.Headers?
-                .FirstOrDefault(x => string.Equals(x.Name, "X-RateLimit-Reset", StringComparison.OrdinalIgnoreCase))?
-                .Value?.ToString()?.Trim();
-            if (long.TryParse(reset, NumberStyles.Integer, CultureInfo.InvariantCulture, out long resetUnix))
-            {
-                try
-                {
-                    double resetDelay = (DateTimeOffset.FromUnixTimeSeconds(resetUnix) - DateTimeOffset.UtcNow).TotalSeconds;
-                    if (resetDelay > 0)
-                        return Math.Min(180, Math.Max(1, (int)Math.Ceiling(resetDelay)));
-                }
-                catch (ArgumentOutOfRangeException) { /* invalid unix timestamp */ }
-            }
-
-            return NativeAuthRecoverySeconds;
-        }
-
-        internal static void MarkNativeAuthRateLimited(int seconds, string username, string source)
-        {
-            seconds = Math.Max(1, Math.Min(180, seconds));
-
-            Program.Logger?.Warn($"Roblox {source} returned HTTP 429 for {username}. The current launch was stopped; retry after about {seconds} seconds or change network before starting another batch.");
-            AppSettings.SetDashboardStatus(
-                Shiro.Services.LocalizationService.Format("Account.RateLimitCooldown", username, seconds));
-            RobloxRateLimitCoordinator.Instance.RecordRateLimitHit(RateLimitCategory.Authentication, defaultBackoffSeconds: seconds);
-        }
-
-        private RestRequest CreateAuthTicketRequest(string token)
-        {
-            return MakeRequest("/v1/authentication-ticket/", Method.Post)
-                .AddHeader("X-CSRF-TOKEN", token)
-                .AddHeader("Content-Type", "application/json")
-                .AddHeader("Origin", "https://www.roblox.com")
-                .AddHeader("Referer", "https://www.roblox.com/games/4924922222/Brookhaven-RP")
-                .AddHeader("rbxauthenticationnegotiation", "1")
-                .AddHeader("Accept", "application/json, text/plain, */*")
-                .AddHeader("Sec-Fetch-Dest", "empty")
-                .AddHeader("Sec-Fetch-Mode", "cors")
-                .AddHeader("Sec-Fetch-Site", "same-site")
-                .AddJsonBody(new EmptyJsonObjectPayload());
         }
     }
 }

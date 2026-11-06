@@ -186,6 +186,16 @@ namespace Shiro.Services
                         }
                     }
 
+                    bool sessionConfirmedValidOnTicketError = false;
+                    if (state.Status == LaunchOutcome.TicketError && !linkedCancellation.IsCancellationRequested)
+                    {
+                        var recovery = await TryRecoverTicketErrorAsync(request, launchResult, linkedCancellation.Token).ConfigureAwait(false);
+                        launchResult = recovery.Result;
+                        state.Result = launchResult.Message;
+                        state.Status = launchResult.Outcome;
+                        sessionConfirmedValidOnTicketError = recovery.SessionConfirmedValid;
+                    }
+
                     if (state.Status == LaunchOutcome.Success)
                     {
                         RobloxRateLimitCoordinator.Instance.RecordSuccess(RateLimitCategory.Authentication);
@@ -198,7 +208,8 @@ namespace Shiro.Services
                     state.Completed = true;
 
                     bool wasAlreadyBanned = request.Account.IsBannedOrLocked;
-                    bool isTicketAuthError = !request.Account.Valid || state.Status == LaunchOutcome.TicketError;
+                    bool isTicketAuthError = !request.Account.Valid ||
+                        (state.Status == LaunchOutcome.TicketError && !sessionConfirmedValidOnTicketError);
 
                     if (isTicketAuthError)
                     {

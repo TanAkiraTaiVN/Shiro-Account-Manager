@@ -40,7 +40,7 @@ namespace Shiro.Services
                     break;
 
                 TimeSpan delay = step < remaining ? step : remaining;
-                await Task.Delay(delay, provider, cancellationToken).ConfigureAwait(false);
+                await Task.Delay(delay, provider, cancellationToken);
 
                 if (condition())
                     return true;
@@ -58,7 +58,7 @@ namespace Shiro.Services
         {
             ArgumentNullException.ThrowIfNull(asyncCondition);
 
-            if (await asyncCondition().ConfigureAwait(false))
+            if (await asyncCondition())
                 return true;
 
             if (timeout <= TimeSpan.Zero)
@@ -77,13 +77,13 @@ namespace Shiro.Services
                     break;
 
                 TimeSpan delay = step < remaining ? step : remaining;
-                await Task.Delay(delay, provider, cancellationToken).ConfigureAwait(false);
+                await Task.Delay(delay, provider, cancellationToken);
 
-                if (await asyncCondition().ConfigureAwait(false))
+                if (await asyncCondition())
                     return true;
             }
 
-            return await asyncCondition().ConfigureAwait(false);
+            return await asyncCondition();
         }
     }
 }

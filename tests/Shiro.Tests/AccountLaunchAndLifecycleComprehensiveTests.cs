@@ -31,7 +31,7 @@ namespace Shiro.Tests
             using HttpRequestMessage request = AccountLaunchService.CreateTicketRequest(account, "test-csrf-token", "{\"sample\":1}");
 
             Assert.Equal(HttpMethod.Post, request.Method);
-            Assert.Equal(new Uri("https://auth.roblox.com/v1/authentication-ticket/"), request.RequestUri);
+            Assert.Equal(new Uri("https://auth.roblox.com/v1/authentication-ticket"), request.RequestUri);
             Assert.True(request.Headers.Contains("X-CSRF-TOKEN"));
             Assert.True(request.Headers.Contains("Origin"));
             Assert.True(request.Headers.Contains("Referer"));
@@ -46,7 +46,7 @@ namespace Shiro.Tests
             using HttpRequestMessage request = AccountLaunchService.CreateTicketRequest(account, null, "{}");
 
             Assert.False(request.Headers.Contains("X-CSRF-TOKEN"));
-            Assert.Equal("https://auth.roblox.com/v1/authentication-ticket/", request.RequestUri?.ToString());
+            Assert.Equal("https://auth.roblox.com/v1/authentication-ticket", request.RequestUri?.ToString());
         }
 
         [Fact]

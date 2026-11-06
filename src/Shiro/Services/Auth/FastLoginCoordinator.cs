@@ -243,15 +243,21 @@ namespace Shiro.Services
                         }} catch (_) {{ return false; }}
                     }};
 
-                    const findLoginButton = () => document.querySelector('#login-button') ||
-                        document.querySelector('button[id*=""login-button""]') ||
-                        Array.from(document.querySelectorAll('button, input[type=""submit""], [role=""button""]')).find(b => {{
+                    const isQuickOrAltButton = (b) => {{
+                        if (!b) return true;
+                        const id = (b.id || '').toLowerCase(), t = (b.innerText || b.textContent || b.value || '').trim().toLowerCase();
+                        return id.includes('cross-device') || id.includes('quick') || id.includes('otp') || t.includes('quick') || t.includes('one-time') || t.includes('code') || t.includes('email');
+                    }};
+                    const findLoginButton = () => {{
+                        const byId = document.querySelector('#login-button');
+                        if (byId && !isQuickOrAltButton(byId)) return byId;
+                        return Array.from(document.querySelectorAll('button, input[type=""submit""], [role=""button""]')).find(b => {{
+                            if (isQuickOrAltButton(b)) return false;
                             const t = (b.innerText || b.textContent || b.value || '').trim().toLowerCase();
                             return t === 'log in' || t === 'login' || t === 'sign in' || t === 'đăng nhập';
                         }});
-
+                    }};
                     const isButtonDisabled = (btn) => !btn || btn.disabled || (btn.getAttribute('aria-disabled') || '').toLowerCase() === 'true';
-
                     const clickLoginButton = () => {{
                         const btn = findLoginButton();
                         if (btn && !isButtonDisabled(btn)) {{
@@ -271,6 +277,16 @@ namespace Shiro.Services
 
                     const tick = (fromInterval = false) => {{
                         if (fromInterval) attempts++;
+                        try {{
+                            const qModal = Array.from(document.querySelectorAll('.modal-dialog, [role=""dialog""], .quick-sign-in-container')).find(d => {{
+                                const text = (d.innerText || d.textContent || '').toLowerCase();
+                                return text.includes('quick sign in') || text.includes('quick sign-in') || text.includes('đăng nhập nhanh');
+                            }});
+                            if (qModal) {{
+                                const closeBtn = qModal.querySelector('button[aria-label=""Close""], button.close, .modal-close, [data-testid=""modal-close-button""], button.modal-close-btn');
+                                if (closeBtn) closeBtn.click();
+                            }}
+                        }} catch (_) {{}}
                         const u = document.querySelector('#login-username') || document.querySelector('input[name=""username""]') || document.querySelector('input[autocomplete=""username""]');
                         const p = document.querySelector('#login-password') || document.querySelector('input[name=""password""]') || document.querySelector('input[type=""password""]');
                         if (!u || (hasPass && !p)) {{ if (attempts > 50) stopWatching(); return; }}
@@ -284,7 +300,7 @@ namespace Shiro.Services
                             if (firstFilledAt === 0) firstFilledAt = Date.now();
                             if (!hasPass) {{ if (Date.now() - firstFilledAt >= 300) stopWatching(); return; }}
                             if (window.__shiroAutoSubmittedForUser === targetUser && !forceClick) {{ stopWatching(); return; }}
-                            if (Date.now() - firstFilledAt >= 180) {{
+                            if (Date.now() - firstFilledAt >= 300) {{
                                 setReactValue(u, targetUser, true);
                                 setReactValue(p, targetPass, true);
                                 if (clickLoginButton()) {{ window.__shiroAutoSubmittedForUser = targetUser; stopWatching(); return; }}

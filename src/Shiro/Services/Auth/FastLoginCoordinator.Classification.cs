@@ -96,6 +96,14 @@ namespace Shiro.Services
 
                         if (code == 4 || code == 10 || msg.Contains("locked", StringComparison.OrdinalIgnoreCase))
                             return "ACCOUNT_LOCKED";
+
+                        if (msg.Contains("moderated", StringComparison.OrdinalIgnoreCase) ||
+                            msg.Contains("not approved", StringComparison.OrdinalIgnoreCase) ||
+                            msg.Contains("banned", StringComparison.OrdinalIgnoreCase) ||
+                            msg.Contains("suspended", StringComparison.OrdinalIgnoreCase))
+                        {
+                            return "ACCOUNT_BANNED";
+                        }
                     }
                 }
 
@@ -127,6 +135,58 @@ namespace Shiro.Services
                         return "TERMINATED";
                     if (pt.Contains("Warn", StringComparison.OrdinalIgnoreCase))
                         return "WARNING";
+
+                    return "ACCOUNT_BANNED";
+                }
+
+                bool hasPunishedUser =
+                    (root.TryGetProperty("punishedUserId", out var puid) && puid.ValueKind == JsonValueKind.Number && puid.TryGetInt64(out long uidVal) && uidVal > 0) ||
+                    (root.TryGetProperty("interventionId", out var intId) && intId.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(intId.GetString())) ||
+                    (root.TryGetProperty("messageToUser", out var mtu) && mtu.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(mtu.GetString()));
+
+                if (hasPunishedUser)
+                {
+                    DateTimeOffset? beginDate = null;
+                    DateTimeOffset? endDate = null;
+                    if (root.TryGetProperty("beginDate", out var bdProp) && bdProp.ValueKind == JsonValueKind.String &&
+                        DateTimeOffset.TryParse(bdProp.GetString(), System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AssumeUniversal, out var bd))
+                    {
+                        beginDate = bd;
+                    }
+                    if (root.TryGetProperty("endDate", out var edProp) && edProp.ValueKind == JsonValueKind.String &&
+                        DateTimeOffset.TryParse(edProp.GetString(), System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AssumeUniversal, out var ed))
+                    {
+                        endDate = ed;
+                    }
+
+                    if (endDate.HasValue)
+                    {
+                        double days = beginDate.HasValue
+                            ? Math.Round((endDate.Value - beginDate.Value).TotalDays)
+                            : Math.Ceiling((endDate.Value - DateTimeOffset.UtcNow).TotalDays);
+                        if (days >= 13) return "BAN_14_DAYS";
+                        if (days >= 6) return "BAN_7_DAYS";
+                        if (days >= 2) return "BAN_3_DAYS";
+                        if (days >= 0.5) return "BAN_1_DAY";
+                        return "ACCOUNT_BANNED";
+                    }
+
+                    string msgToUser = root.TryGetProperty("messageToUser", out var mProp) && mProp.ValueKind == JsonValueKind.String
+                        ? (mProp.GetString() ?? string.Empty)
+                        : string.Empty;
+                    if (msgToUser.Contains("deleted", StringComparison.OrdinalIgnoreCase) ||
+                        msgToUser.Contains("terminated", StringComparison.OrdinalIgnoreCase) ||
+                        msgToUser.Contains("closed", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return "TERMINATED";
+                    }
+
+                    if (root.TryGetProperty("endDate", out var edNullProp) && edNullProp.ValueKind == JsonValueKind.Null)
+                    {
+                        // Permanent ban or warning: check punishmentId / badUtterances / messageToUser
+                        if (msgToUser.Contains("warn", StringComparison.OrdinalIgnoreCase))
+                            return "WARNING";
+                    }
 
                     return "ACCOUNT_BANNED";
                 }

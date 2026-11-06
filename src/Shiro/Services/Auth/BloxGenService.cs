@@ -51,7 +51,7 @@ namespace Shiro.Services
         private readonly HttpClient _httpClient;
         private readonly IAppLogger _logger;
         private readonly ISettingsService _settings;
-        private const string DefaultBaseUrl = "https://bloxgen.net/api/";
+        private const string DefaultBaseUrl = "https://core.bloxgen.net/api/";
 
         public BloxGenService(HttpClient? httpClient = null, IAppLogger? logger = null, ISettingsService? settings = null)
         {
@@ -96,6 +96,45 @@ namespace Shiro.Services
             }
         }
 
+        internal static string NormalizeGenType(string? genType)
+        {
+            if (string.IsNullOrWhiteSpace(genType))
+                return "alt";
+
+            return genType.Trim().ToLowerInvariant() switch
+            {
+                "unverified" or "alt" => "alt",
+                "verified" or "18+ age verified" => "18+ age verified",
+                "+30 days old" or "30+ days old" => "+30 days old",
+                "+1 year old" or "1+ year old" => "+1 year old",
+                "5+ years old" or "+5 years old" => "5+ years old",
+                "dump" => "dump",
+                _ => genType.Trim()
+            };
+        }
+
+        internal static string? NormalizeContinentSlug(string? continent)
+        {
+            if (string.IsNullOrWhiteSpace(continent))
+                return null;
+
+            string trimmed = continent.Trim();
+            if (trimmed.Equals("RANDOM", StringComparison.OrdinalIgnoreCase))
+                return null;
+
+            return trimmed.ToUpperInvariant() switch
+            {
+                "AS" or "ASIA" => "asia",
+                "NA" or "NORTH-AMERICA" or "NORTH AMERICA" => "north-america",
+                "EU" or "EUROPE" => "europe",
+                "OC" or "OCEANIA" => "oceania",
+                "SA" or "SOUTH-AMERICA" or "SOUTH AMERICA" => "south-america",
+                "AF" or "AFRICA" => "africa",
+                "AN" or "ANTARCTICA" => "antarctica",
+                _ => trimmed.ToLowerInvariant()
+            };
+        }
+
         /// <summary>
         /// Generates a new Roblox alt account using the BloxGen API.
         /// </summary>
@@ -115,8 +154,10 @@ namespace Shiro.Services
                 };
             }
 
-            string type = !string.IsNullOrWhiteSpace(genType) ? genType : DefaultGenType;
+            string rawType = !string.IsNullOrWhiteSpace(genType) ? genType : DefaultGenType;
+            string apiType = NormalizeGenType(rawType);
             string region = !string.IsNullOrWhiteSpace(continent) ? continent : DefaultContinent;
+            string? continentSlug = NormalizeContinentSlug(region);
 
             try
             {
@@ -124,14 +165,8 @@ namespace Shiro.Services
                 request.Headers.Add("Authorization", $"Bearer {key}");
                 request.Headers.Add("X-API-Key", key);
 
-                var payload = new
-                {
-                    gen_type = type,
-                    continent = region.Equals("RANDOM", StringComparison.OrdinalIgnoreCase) ? null : region
-                };
-
                 string jsonPayload = JsonSerializer.Serialize(
-                    new BloxGenGenerateRequest(type, region.Equals("RANDOM", StringComparison.OrdinalIgnoreCase) ? null : region),
+                    new BloxGenGenerateRequest(key, apiType, continentSlug),
                     ShiroAppJson.Default.BloxGenGenerateRequest);
                 request.Content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
 
@@ -175,10 +210,20 @@ namespace Shiro.Services
                 string username = dataElem.TryGetProperty("username", out var uProp) ? (uProp.GetString() ?? string.Empty) : string.Empty;
                 string password = dataElem.TryGetProperty("password", out var pProp) ? (pProp.GetString() ?? string.Empty) : string.Empty;
                 long userId = 0;
-                if (dataElem.TryGetProperty("user_id", out var uidProp) && uidProp.TryGetInt64(out long uidVal))
+                if (dataElem.TryGetProperty("id", out var idProp) && idProp.TryGetInt64(out long idVal))
+                    userId = idVal;
+                else if (dataElem.TryGetProperty("user_id", out var uidProp) && uidProp.TryGetInt64(out long uidVal))
                     userId = uidVal;
                 else if (dataElem.TryGetProperty("userId", out var uidProp2) && uidProp2.TryGetInt64(out long uidVal2))
                     userId = uidVal2;
+
+                string resolvedRegion = region;
+                if (dataElem.TryGetProperty("region", out var regProp) && regProp.ValueKind == JsonValueKind.String)
+                {
+                    string? apiRegion = regProp.GetString();
+                    if (!string.IsNullOrWhiteSpace(apiRegion))
+                        resolvedRegion = apiRegion;
+                }
 
                 double? balance = null;
                 if (root.TryGetProperty("remaining_balance", out var balProp) && balProp.TryGetDouble(out double balVal))
@@ -190,8 +235,8 @@ namespace Shiro.Services
                     Username = username,
                     Password = password,
                     Cookie = cookie,
-                    Region = region,
-                    GenType = type,
+                    Region = resolvedRegion,
+                    GenType = rawType,
                     CreatedAtUtc = DateTime.UtcNow
                 };
 
@@ -233,14 +278,22 @@ namespace Shiro.Services
                 }
 
                 string uname = !string.IsNullOrWhiteSpace(alt.Username) ? alt.Username : $"Alt_{alt.UserId}";
-                var account = new Account(cleanCookie)
+                string? accountJson = alt.UserId > 0
+                    ? $"{{\"id\":{alt.UserId},\"name\":{JsonSerializer.Serialize(uname, ShiroAppJson.Default.String)},\"displayName\":{JsonSerializer.Serialize(uname, ShiroAppJson.Default.String)}}}"
+                    : null;
+
+                var account = new Account(cleanCookie, accountJson)
                 {
                     Username = uname,
-                    UserID = alt.UserId,
                     Group = !string.IsNullOrWhiteSpace(groupName) ? groupName : "AltGen",
                     Description = $"BloxGen ({alt.Region} / {alt.GenType})",
-                    Password = alt.Password
+                    Password = alt.Password,
+                    Valid = true
                 };
+                if (alt.UserId > 0)
+                {
+                    account.UserID = alt.UserId;
+                }
 
                 AppServices.AccountRepository.AddThreadSafe(account);
                 AppServices.AccountRepository.Save(true);
@@ -288,22 +341,28 @@ namespace Shiro.Services
             }
         }
 
-        private static string ExtractErrorMessage(string responseText)
+        internal static string ExtractErrorMessage(string responseText)
         {
             if (string.IsNullOrWhiteSpace(responseText)) return "Empty response";
+            string trimmed = responseText.Trim();
+            if (trimmed.StartsWith("<!DOCTYPE", StringComparison.OrdinalIgnoreCase) ||
+                trimmed.StartsWith("<html", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Endpoint not found or service temporarily unavailable (HTML response).";
+            }
             try
             {
-                using var doc = JsonDocument.Parse(responseText);
-                if (doc.RootElement.TryGetProperty("message", out var mProp))
-                    return mProp.GetString() ?? responseText;
-                if (doc.RootElement.TryGetProperty("error", out var eProp))
-                    return eProp.GetString() ?? responseText;
+                using var doc = JsonDocument.Parse(trimmed);
+                if (doc.RootElement.TryGetProperty("message", out var mProp) && mProp.ValueKind == JsonValueKind.String)
+                    return mProp.GetString() ?? trimmed;
+                if (doc.RootElement.TryGetProperty("error", out var eProp) && eProp.ValueKind == JsonValueKind.String)
+                    return eProp.GetString() ?? trimmed;
             }
             catch (Exception ex)
             {
                 _staticLogger.Debug($"[BloxGenService.ExtractErrorMessage] {ex.Message}");
             }
-            return responseText.Length > 100 ? responseText.Substring(0, 100) + "..." : responseText;
+            return trimmed.Length > 100 ? trimmed.Substring(0, 100) + "..." : trimmed;
         }
     }
 }

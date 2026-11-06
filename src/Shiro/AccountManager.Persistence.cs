@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -197,8 +197,10 @@ namespace Shiro
             {
                 LastValidAccount = loadedAccounts[0];
                 foreach (Account account in loadedAccounts)
+                {
                     if (account.LastUse > LastValidAccount.LastUse)
                         LastValidAccount = account;
+                }
             }
 
             EnableModernDashboard();

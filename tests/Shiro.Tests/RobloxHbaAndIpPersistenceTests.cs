@@ -72,7 +72,7 @@ namespace Shiro.Tests
             verifier.ImportSubjectPublicKeyInfo(Convert.FromBase64String(pubB64), out _);
 
             string expectedPayload1 = $"{expectedHash}|1760000000|{url}|POST";
-            string expectedPayload2 = $"|1760000000|{url}|POST";
+            string expectedPayload2 = "|1760000000|/v1/authentication-ticket/|POST";
 
             Assert.True(verifier.VerifyData(Encoding.UTF8.GetBytes(expectedPayload1), sig1, HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation));
             Assert.True(verifier.VerifyData(Encoding.UTF8.GetBytes(expectedPayload2), sig2, HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation));
@@ -162,7 +162,7 @@ namespace Shiro.Tests
             Assert.Equal(5, batParts.Length);
             using ECDsa verifier = ECDsa.Create();
             verifier.ImportSubjectPublicKeyInfo(Convert.FromBase64String(pubB64), out _);
-            string expectedPayload1 = $"{batParts[1]}|{batParts[2]}|https://auth.roblox.com/v1/authentication-ticket/|POST";
+            string expectedPayload1 = $"{batParts[1]}|{batParts[2]}|https://auth.roblox.com/v1/authentication-ticket|POST";
             Assert.True(verifier.VerifyData(
                 Encoding.UTF8.GetBytes(expectedPayload1),
                 Convert.FromBase64String(batParts[3]),
@@ -182,7 +182,8 @@ namespace Shiro.Tests
             Account.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler(async (req, ct) =>
             {
                 string uri = req.RequestUri!.AbsoluteUri;
-                if (uri.EndsWith("/v1/authentication-ticket/", StringComparison.OrdinalIgnoreCase))
+                if (uri.Contains("/v1/authentication-ticket", StringComparison.OrdinalIgnoreCase) &&
+                    !uri.Contains("/redeem", StringComparison.OrdinalIgnoreCase))
                 {
                     var ticketResp = new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("{}") };
                     ticketResp.Headers.TryAddWithoutValidation("x-csrf-token", "csrf-vn");

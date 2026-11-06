@@ -3,8 +3,6 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
-using System.Net.NetworkInformation;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -27,7 +25,7 @@ namespace Shiro.Services
         }
 
         public const string BoundAuthHeaderName = "x-bound-auth-token";
-        public const string DefaultTemplate = "v1|b64|HB,TS,URL,M|,TS,URL,M";
+        public const string DefaultTemplate = "v1|b64|HB,TS,URL,M|,TS,PATH,M";
 
         private static readonly ConcurrentDictionary<string, byte[]> CachedPkcs8Keys = new(StringComparer.Ordinal);
         private static readonly ConcurrentDictionary<string, ECParameters> CachedEcParameters = new(StringComparer.Ordinal);
@@ -95,51 +93,6 @@ namespace Shiro.Services
             return match.Success && !string.IsNullOrWhiteSpace(match.Groups[1].Value)
                 ? match.Groups[1].Value
                 : null;
-        }
-
-        /// <summary>
-        /// Computes a fast, offline SHA-256 fingerprint of active non-loopback network interfaces and IPv4 addresses.
-        /// Changes immediately when a system VPN/TUN adapter connects or disconnects.
-        /// </summary>
-        public static string GetLocalNetworkSignature()
-        {
-            try
-            {
-                var parts = new List<string>(8);
-                foreach (NetworkInterface nic in NetworkInterface.GetAllNetworkInterfaces())
-                {
-                    if (nic.OperationalStatus != OperationalStatus.Up ||
-                        nic.NetworkInterfaceType == NetworkInterfaceType.Loopback)
-                    {
-                        continue;
-                    }
-
-                    IPInterfaceProperties props = nic.GetIPProperties();
-                    bool hasGateway = props.GatewayAddresses.Any(g => g?.Address != null && !g.Address.ToString().Equals("0.0.0.0", StringComparison.Ordinal));
-                    if (!hasGateway && nic.NetworkInterfaceType != NetworkInterfaceType.Tunnel && nic.NetworkInterfaceType != NetworkInterfaceType.Ppp)
-                        continue;
-
-                    foreach (UnicastIPAddressInformation uni in props.UnicastAddresses)
-                    {
-                        if (uni.Address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
-                        {
-                            parts.Add($"{nic.Id}:{uni.Address}");
-                        }
-                    }
-                }
-
-                if (parts.Count == 0)
-                    return "offline";
-
-                parts.Sort(StringComparer.Ordinal);
-                string joined = string.Join("|", parts);
-                byte[] hash = SHA256.HashData(Encoding.UTF8.GetBytes(joined));
-                return Convert.ToHexStringLower(hash.AsSpan(0, 12));
-            }
-            catch
-            {
-                return "unknown";
-            }
         }
 
         public static bool IsValidPkcs8EcdsaKey(string? base64Pkcs8)
@@ -276,174 +229,5 @@ namespace Shiro.Services
             }
             return string.Join("|", values);
         }
-
-        /// <summary>
-        /// JavaScript injected at <c>document_start</c> in WebView2 and Chrome sign-in containers.
-        /// Hooks <c>SubtleCrypto.prototype.generateKey</c> to force <c>extractable = true</c> on Roblox's
-        /// HBA ECDSA P-256 keypair, exports PKCS#8/SPKI keys, and self-calibrates the live BAT signing template.
-        /// </summary>
-        public static string GetBrowserCaptureScript() => @"
-(() => {
-    try {
-        if (window.__shiroHbaHookInstalled) return;
-        window.__shiroHbaHookInstalled = true;
-
-        const state = window.__shiroHbaState = window.__shiroHbaState || {
-            privateKeyPkcs8: '',
-            publicKeySpki: '',
-            tokenTemplate: '',
-            userAgent: navigator.userAgent || '',
-            recentSigns: []
-        };
-
-        const toBase64 = (buf) => {
-            const bytes = new Uint8Array(buf);
-            let bin = '';
-            for (let i = 0; i < bytes.byteLength; i++) bin += String.fromCharCode(bytes[i]);
-            return btoa(bin);
-        };
-
-        const notifyHost = () => {
-            try {
-                if (window.chrome && window.chrome.webview && (state.privateKeyPkcs8 || state.tokenTemplate)) {
-                    window.chrome.webview.postMessage(JSON.stringify({
-                        type: 'shiro_hba_captured',
-                        privateKeyPkcs8: state.privateKeyPkcs8,
-                        publicKeySpki: state.publicKeySpki,
-                        tokenTemplate: state.tokenTemplate,
-                        userAgent: state.userAgent
-                    }));
-                }
-            } catch (_) { /* ignore */ }
-        };
-
-        if (window.SubtleCrypto && SubtleCrypto.prototype) {
-            const origGen = SubtleCrypto.prototype.generateKey;
-            const origExport = SubtleCrypto.prototype.exportKey;
-            const origSign = SubtleCrypto.prototype.sign;
-
-            const tryExportPair = async (subtle, privKey, pubKey) => {
-                try {
-                    if (privKey && privKey.extractable) {
-                        const pkcs8 = await origExport.call(subtle, 'pkcs8', privKey);
-                        state.privateKeyPkcs8 = toBase64(pkcs8);
-                    }
-                    if (pubKey && pubKey.extractable) {
-                        const spki = await origExport.call(subtle, 'spki', pubKey);
-                        state.publicKeySpki = toBase64(spki);
-                    }
-                    if (state.privateKeyPkcs8) notifyHost();
-                } catch (_) { /* ignore */ }
-            };
-
-            SubtleCrypto.prototype.generateKey = async function(algorithm, extractable, keyUsages) {
-                let forceExtract = extractable;
-                try {
-                    const algName = typeof algorithm === 'string' ? algorithm : (algorithm && algorithm.name ? algorithm.name : '');
-                    if (String(algName).toUpperCase() === 'ECDSA') forceExtract = true;
-                } catch (_) { /* ignore */ }
-                const result = await origGen.call(this, algorithm, forceExtract, keyUsages);
-                try {
-                    if (result && result.privateKey) {
-                        await tryExportPair(this, result.privateKey, result.publicKey);
-                    }
-                } catch (_) { /* ignore */ }
-                return result;
-            };
-
-            SubtleCrypto.prototype.sign = async function(algorithm, key, data) {
-                try {
-                    const algName = typeof algorithm === 'string' ? algorithm : (algorithm && algorithm.name ? algorithm.name : '');
-                    if (String(algName).toUpperCase() === 'ECDSA') {
-                        if (!state.privateKeyPkcs8 && key && key.extractable) {
-                            await tryExportPair(this, key, null);
-                        }
-                        const view = data instanceof ArrayBuffer ? new Uint8Array(data) : new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
-                        const decoded = new TextDecoder().decode(view);
-                        if (decoded && decoded.includes('|')) {
-                            state.recentSigns.push(decoded);
-                            if (state.recentSigns.length > 8) state.recentSigns.shift();
-                        }
-                    }
-                } catch (_) { /* ignore */ }
-                return origSign.call(this, algorithm, key, data);
-            };
-        }
-
-        const inspectBoundHeader = (headerVal, reqUrl, reqMethod) => {
-            try {
-                if (!headerVal || typeof headerVal !== 'string' || !headerVal.includes('|')) return;
-                const parts = headerVal.split('|');
-                if (parts.length < 4) return;
-                const ver = parts[0];
-                const hb = parts[1];
-                const ts = parts[2];
-                const sigCount = parts.length - 3;
-                const enc = (hb.length === 64 && /^[0-9a-f]+$/i.test(hb)) ? 'hex' : 'b64';
-                let fullUrl = reqUrl || '';
-                try { fullUrl = new URL(fullUrl, window.location.origin).href; } catch (_) { /* ignore */ }
-                let pathOnly = '';
-                try { const u = new URL(fullUrl); pathOnly = u.pathname + u.search; } catch (_) { /* ignore */ }
-                const methodUp = String(reqMethod || 'GET').toUpperCase();
-
-                const matched = state.recentSigns.filter(s => s.includes(ts)).slice(-sigCount);
-                if (matched.length > 0) {
-                    const specs = matched.map(s => s.split('|').map(seg => {
-                        if (seg === '') return '';
-                        if (seg === hb) return 'HB';
-                        if (seg === ts) return 'TS';
-                        if (fullUrl && seg === fullUrl) return 'URL';
-                        if (pathOnly && seg === pathOnly) return 'PATH';
-                        if (seg.toUpperCase() === methodUp) return 'M';
-                        return '';
-                    }).join(','));
-                    state.tokenTemplate = [ver, enc, ...specs].join('|');
-                    notifyHost();
-                }
-            } catch (_) { /* ignore */ }
-        };
-
-        if (window.fetch) {
-            const origFetch = window.fetch;
-            window.fetch = function(input, init) {
-                try {
-                    const url = typeof input === 'string' ? input : (input && input.url ? input.url : '');
-                    const method = (init && init.method) || (input && input.method) || 'GET';
-                    const hdrs = (init && init.headers) || (input && input.headers);
-                    if (hdrs) {
-                        let bat = '';
-                        if (typeof hdrs.get === 'function') bat = hdrs.get('x-bound-auth-token') || '';
-                        else if (Array.isArray(hdrs)) {
-                            const found = hdrs.find(x => x && String(x[0]).toLowerCase() === 'x-bound-auth-token');
-                            if (found) bat = found[1];
-                        } else if (typeof hdrs === 'object') {
-                            for (const k of Object.keys(hdrs)) {
-                                if (k.toLowerCase() === 'x-bound-auth-token') { bat = hdrs[k]; break; }
-                            }
-                        }
-                        if (bat) inspectBoundHeader(bat, url, method);
-                    }
-                } catch (_) { /* ignore */ }
-                return origFetch.apply(this, arguments);
-            };
-        }
-
-        if (window.XMLHttpRequest && XMLHttpRequest.prototype) {
-            const origOpen = XMLHttpRequest.prototype.open;
-            const origSetHeader = XMLHttpRequest.prototype.setRequestHeader;
-            XMLHttpRequest.prototype.open = function(method, url) {
-                this.__shiroMethod = method;
-                this.__shiroUrl = url;
-                return origOpen.apply(this, arguments);
-            };
-            XMLHttpRequest.prototype.setRequestHeader = function(name, value) {
-                if (name && String(name).toLowerCase() === 'x-bound-auth-token') {
-                    inspectBoundHeader(value, this.__shiroUrl || '', this.__shiroMethod || 'GET');
-                }
-                return origSetHeader.apply(this, arguments);
-            };
-        }
-    } catch (_) { /* ignore */ }
-})();";
     }
 }

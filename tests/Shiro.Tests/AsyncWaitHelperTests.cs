@@ -106,5 +106,114 @@ namespace Shiro.Tests
             await Assert.ThrowsAsync<ArgumentNullException>(() =>
                 AsyncWaitHelper.WaitUntilAsync((Func<Task<bool>>)null!, TimeSpan.FromSeconds(1), TimeSpan.FromMilliseconds(10)));
         }
+
+        [Fact]
+        public async Task WaitUntilAsync_SyncConditionWithUiSynchronizationContext_InvokesConditionOnUiThreadEveryPoll()
+        {
+            using var uiContext = new DedicatedThreadSynchronizationContext();
+            bool ok = await uiContext.RunAsync(async () =>
+            {
+                int uiThreadId = Environment.CurrentManagedThreadId;
+                int polls = 0;
+
+                return await AsyncWaitHelper.WaitUntilAsync(
+                    () =>
+                    {
+                        if (Environment.CurrentManagedThreadId != uiThreadId)
+                            throw new InvalidOperationException("CoreWebView2 members can only be accessed from the UI thread.");
+
+                        return ++polls >= 3;
+                    },
+                    TimeSpan.FromSeconds(2),
+                    TimeSpan.FromMilliseconds(15));
+            });
+
+            Assert.True(ok);
+        }
+
+        [Fact]
+        public async Task WaitUntilAsync_AsyncConditionWithUiSynchronizationContext_InvokesConditionOnUiThreadEveryPoll()
+        {
+            using var uiContext = new DedicatedThreadSynchronizationContext();
+            bool ok = await uiContext.RunAsync(async () =>
+            {
+                int uiThreadId = Environment.CurrentManagedThreadId;
+                int polls = 0;
+
+                return await AsyncWaitHelper.WaitUntilAsync(
+                    async () =>
+                    {
+                        if (Environment.CurrentManagedThreadId != uiThreadId)
+                            throw new InvalidOperationException("CoreWebView2 members can only be accessed from the UI thread.");
+
+                        await Task.Yield();
+
+                        if (Environment.CurrentManagedThreadId != uiThreadId)
+                            throw new InvalidOperationException("CoreWebView2 members can only be accessed from the UI thread.");
+
+                        return ++polls >= 3;
+                    },
+                    TimeSpan.FromSeconds(2),
+                    TimeSpan.FromMilliseconds(15));
+            });
+
+            Assert.True(ok);
+        }
+
+        private sealed class DedicatedThreadSynchronizationContext : SynchronizationContext, IDisposable
+        {
+            private readonly System.Collections.Concurrent.BlockingCollection<(SendOrPostCallback Callback, object? State)> _queue = new();
+            private readonly Thread _thread;
+
+            public DedicatedThreadSynchronizationContext()
+            {
+                _thread = new Thread(MessagePump)
+                {
+                    IsBackground = true,
+                    Name = "TestUiThread"
+                };
+                _thread.Start();
+            }
+
+            public override void Post(SendOrPostCallback d, object? state)
+            {
+                if (!_queue.IsAddingCompleted)
+                    _queue.Add((d, state));
+            }
+
+            public Task<T> RunAsync<T>(Func<Task<T>> action)
+            {
+                var tcs = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
+                Post(async _ =>
+                {
+                    try
+                    {
+                        T result = await action();
+                        tcs.TrySetResult(result);
+                    }
+                    catch (Exception ex)
+                    {
+                        tcs.TrySetException(ex);
+                    }
+                }, null);
+                return tcs.Task;
+            }
+
+            private void MessagePump()
+            {
+                SetSynchronizationContext(this);
+                foreach (var (callback, state) in _queue.GetConsumingEnumerable())
+                {
+                    callback(state);
+                }
+            }
+
+            public void Dispose()
+            {
+                _queue.CompleteAdding();
+                _thread.Join(TimeSpan.FromSeconds(2));
+                _queue.Dispose();
+            }
+        }
     }
 }

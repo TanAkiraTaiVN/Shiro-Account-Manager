@@ -51,7 +51,7 @@ namespace Shiro
 
             string[] endpoints =
             {
-                "https://auth.roblox.com/v1/authentication-ticket/",
+                "https://auth.roblox.com/v1/authentication-ticket",
                 "https://auth.roblox.com/v2/login"
             };
             HttpClient httpClient = GetSessionHttpClient();
@@ -114,12 +114,32 @@ namespace Shiro
         /// <summary>
         /// 1-step optimistic authentication ticket negotiation.
         /// Posts directly to v1/authentication-ticket/ using any cached CSRF token (or empty on first call),
-        /// and captures the x-csrf-token directly from the 403 Forbidden challenge response without hitting v2/login.
+        /// captures the x-csrf-token directly from the 403 Forbidden challenge response, and self-heals
+        /// IP-transition 401s by synchronizing/rotating .ROBLOSECURITY onto the current IP.
         /// </summary>
-        public async Task<(bool Success, string Ticket)> GetAuthTicketAsync(CancellationToken cancellationToken = default)
+        public Task<(bool Success, string Ticket)> GetAuthTicketAsync(CancellationToken cancellationToken = default) =>
+            GetAuthTicketCoreAsync(allowIpSyncRetry: true, cancellationToken);
+
+        internal async Task<(bool Success, string Ticket)> GetAuthTicketCoreAsync(bool allowIpSyncRetry, CancellationToken cancellationToken = default)
         {
             LastAuthTicketRateLimited = false;
             HttpClient httpClient = GetSessionHttpClient();
+            bool attemptedIpSync = false;
+            string currentSigAtStart = RobloxHbaService.GetLocalNetworkSignature();
+            bool wasSameNetworkAtStart =
+                !string.IsNullOrEmpty(LastBoundIpSignature) &&
+                string.Equals(LastBoundIpSignature, currentSigAtStart, StringComparison.Ordinal);
+
+            if (allowIpSyncRetry && HasHbaBinding)
+            {
+                if (!string.IsNullOrEmpty(LastBoundIpSignature) &&
+                    !wasSameNetworkAtStart &&
+                    currentSigAtStart is not ("offline" or "unknown"))
+                {
+                    Program.Logger?.Info($"[GetAuthTicketAsync] Network signature changed from '{LastBoundIpSignature}' to '{currentSigAtStart}' for {Username}. Proactively synchronizing session to current network...");
+                    await TryRebindSessionToCurrentNetworkAsync(force: true, cancellationToken).ConfigureAwait(false);
+                }
+            }
 
             string currentCsrf;
             lock (CookieSyncRoot)
@@ -129,19 +149,21 @@ namespace Shiro
                     : string.Empty;
             }
 
+            bool useHba = HasHbaBinding;
             for (int attempt = 0; attempt < AuthTicketMaxAttempts; attempt++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 await RobloxRateLimitCoordinator.Instance.WaitForBackoffAsync(cancellationToken).ConfigureAwait(false);
 
-                using var request = AccountLaunchService.CreateTicketRequest(this, currentCsrf);
+                int rotationBefore = CookieRotationVersion;
+                using var request = AccountLaunchService.CreateTicketRequest(this, currentCsrf, includeHba: useHba);
 
                 try
                 {
                     using var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
                     if (response == null) return (false, string.Empty);
 
-                    TryUpdateRotatedCookie(response);
+                    bool rotatedOnTicketCall = TryUpdateRotatedCookie(response) || CookieRotationVersion != rotationBefore;
 
                     if (response.Headers.TryGetValues("x-csrf-token", out var csrfVals))
                     {
@@ -180,27 +202,55 @@ namespace Shiro
                         if (attempt + 1 < AuthTicketMaxAttempts)
                         {
                             var backoff = RobloxRateLimitCoordinator.Instance.RemainingBackoff;
-                            Program.Logger.Warn($"Roblox authentication-ticket request was rate limited (HTTP 429) for {Username}. Backing off for {backoff.TotalSeconds:F1}s before retry (attempt {attempt + 1}/{AuthTicketMaxAttempts})...");
+                            Program.Logger?.Warn($"Roblox authentication-ticket request was rate limited (HTTP 429) for {Username}. Backing off for {backoff.TotalSeconds:F1}s before retry (attempt {attempt + 1}/{AuthTicketMaxAttempts})...");
                             continue;
                         }
 
                         MarkNativeAuthRateLimited(30, Username, "authentication-ticket");
-                        Program.Logger.Warn($"Roblox authentication-ticket request was rate limited (HTTP 429) for {Username}; exhausted all {AuthTicketMaxAttempts} attempts.");
+                        Program.Logger?.Warn($"Roblox authentication-ticket request was rate limited (HTTP 429) for {Username}; exhausted all {AuthTicketMaxAttempts} attempts.");
                         return (false, string.Empty);
                     }
 
                     if (response.StatusCode == HttpStatusCode.Unauthorized)
                     {
-                        Program.Logger.Warn($"Roblox authentication-ticket request returned HTTP 401 Unauthorized for {Username}. Preserving stored session.");
+                        Program.Logger?.Warn($"Roblox authentication-ticket request returned HTTP 401 Unauthorized for {Username} (hba={useHba}). Preserving stored session.");
                         currentCsrf = string.Empty;
                         lock (CookieSyncRoot)
                         {
                             CSRFToken = null;
                         }
-                        if (attempt + 1 < AuthTicketMaxAttempts)
+
+                        if (rotatedOnTicketCall && attempt + 1 < AuthTicketMaxAttempts)
+                            continue;
+
+                        if (allowIpSyncRetry && !attemptedIpSync && attempt + 1 < AuthTicketMaxAttempts)
                         {
+                            attemptedIpSync = true;
+                            if (await TrySynchronizeSessionForIpChangeAsync(cancellationToken).ConfigureAwait(false))
+                            {
+                                lock (CookieSyncRoot)
+                                {
+                                    currentCsrf = (!string.IsNullOrEmpty(CSRFToken) && (DateTime.Now - TokenSet).TotalMinutes < 4)
+                                        ? CSRFToken
+                                        : string.Empty;
+                                }
+                                continue;
+                            }
+                        }
+
+                        // Only retry without HBA if we were already on the same network at the start of ticket negotiation
+                        // and the cookie is not a downgraded short-lived token.
+                        // On a network transition (e.g. VPN to residential VN IP), stripping HBA causes Roblox
+                        // to immediately invalidate the session cookie due to an un-bound cross-region jump.
+                        if (useHba && attempt + 1 < AuthTicketMaxAttempts &&
+                            wasSameNetworkAtStart &&
+                            !IsShortLivedCookie(GetCurrentSecurityToken()))
+                        {
+                            useHba = false;
+                            Program.Logger?.Info($"[GetAuthTicketAsync] Retrying authentication-ticket for {Username} without HBA header on same network...");
                             continue;
                         }
+
                         return (false, string.Empty);
                     }
 
@@ -224,7 +274,7 @@ namespace Shiro
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger.Warn($"[GetAuthTicketAsync] Error on attempt {attempt}: {ex.Message}");
+                    Program.Logger?.Warn($"[GetAuthTicketAsync] Error on attempt {attempt}: {ex.Message}");
                 }
             }
 

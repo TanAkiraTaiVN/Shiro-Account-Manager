@@ -245,7 +245,7 @@ namespace Shiro.Tests
 
             try
             {
-                var handler = new Shiro.Tests.TestInfrastructure.FakeHttpHandler()
+                var handler = new Shiro.Tests.TestInfrastructure.FakeHttpHandler(req => new System.Net.Http.HttpResponseMessage(System.Net.HttpStatusCode.Unauthorized))
                     .Enqueue(System.Net.HttpStatusCode.OK, "{\"id\":111,\"name\":\"HealthyUser\"}")
                     .Enqueue(System.Net.HttpStatusCode.Unauthorized, "{}");
                 Account.TestHttpClientFactory = _ => new System.Net.Http.HttpClient(handler);

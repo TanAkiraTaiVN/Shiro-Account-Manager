@@ -123,8 +123,10 @@ namespace Shiro.Services
     internal readonly record struct EmptyJsonObjectPayload();
     internal readonly record struct UsernamesLookupPayload(string[] usernames);
     internal readonly record struct BloxGenGenerateRequest(
-        [property: JsonPropertyName("gen_type")] string gen_type,
-        [property: JsonPropertyName("continent")] string? continent);
+        [property: JsonPropertyName("apiKey")] string apiKey,
+        [property: JsonPropertyName("type")] string type,
+        [property: JsonPropertyName("continent"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? continent = null,
+        [property: JsonPropertyName("region"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? region = null);
     internal readonly record struct PrivateServerInviteSettingPayload(string whoCanInviteMeToPrivateServers);
     internal readonly record struct PurchaseProductPayload(int expectedCurrency, long expectedPrice, long expectedSellerId);
     internal readonly record struct JoinGameInstancePayload(string gameId, long placeId);

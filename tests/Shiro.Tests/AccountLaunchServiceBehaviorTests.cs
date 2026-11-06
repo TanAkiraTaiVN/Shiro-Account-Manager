@@ -301,7 +301,7 @@ namespace Shiro.Tests
             using var req = AccountLaunchService.CreateTicketRequest(acc, "csrf_token_xyz");
 
             Assert.Equal(System.Net.Http.HttpMethod.Post, req.Method);
-            Assert.Equal("https://auth.roblox.com/v1/authentication-ticket/", req.RequestUri?.ToString());
+            Assert.Equal("https://auth.roblox.com/v1/authentication-ticket", req.RequestUri?.ToString());
             Assert.True(req.Headers.Contains("X-CSRF-TOKEN"));
             Assert.True(req.Headers.Contains("Origin"));
             Assert.True(req.Headers.Contains("Referer"));

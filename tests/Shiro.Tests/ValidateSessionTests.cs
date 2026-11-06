@@ -407,5 +407,61 @@ namespace Shiro.Tests
             Assert.False(acc.IsBannedOrLocked);
             Assert.Equal(string.Empty, acc.AccountStatusIssue);
         }
+
+        [Fact]
+        public async Task Validate_WhenUsersReturns403UserIsModeratedAndHomeTimesOut_DetectsBanViaUserModerationApi()
+        {
+            var handler = new FakeHttpHandler(req =>
+            {
+                if (req.RequestUri!.Host == "users.roblox.com")
+                    return Json(HttpStatusCode.Forbidden, "{\"errors\":[{\"code\":0,\"message\":\"User is moderated\"}]}");
+
+                if (req.RequestUri.Host == "usermoderation.roblox.com")
+                {
+                    return Json(HttpStatusCode.OK, "{\"punishedUserId\":10911124164,\"interventionId\":\"f9f89b0e-38d8-47b8-8c41-b7ad463971e8\",\"punishmentId\":0,\"messageToUser\":\"We noticed a modified version of Roblox was used.\",\"beginDate\":\"2026-11-01T00:00:00Z\",\"endDate\":\"2026-11-08T00:00:00Z\"}");
+                }
+
+                if (req.RequestUri.Host == "www.roblox.com")
+                    throw new TaskCanceledException("The operation was canceled (Vietnam ISP SNI drop on www.roblox.com).");
+
+                return Json(HttpStatusCode.Unauthorized);
+            });
+            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+
+            var acc = NewAccount();
+            acc.Valid = true;
+            acc.AccountStatusIssue = string.Empty;
+
+            bool valid = await acc.ValidateSessionAsync();
+
+            Assert.False(valid);
+            Assert.False(acc.Valid);
+            Assert.True(acc.IsBannedOrLocked);
+            Assert.Contains("7", acc.AccountStatusIssue);
+        }
+
+        [Fact]
+        public async Task Validate_WhenUsersReturns403UserIsModeratedAndAllModerationProbesFail_StillMarksBanned()
+        {
+            var handler = new FakeHttpHandler(req =>
+            {
+                if (req.RequestUri!.Host == "users.roblox.com")
+                    return Json(HttpStatusCode.Forbidden, "{\"errors\":[{\"code\":0,\"message\":\"User is moderated\"}]}");
+
+                throw new TaskCanceledException("Timed out");
+            });
+            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+
+            var acc = NewAccount();
+            acc.Valid = true;
+            acc.AccountStatusIssue = string.Empty;
+
+            bool valid = await acc.ValidateSessionAsync();
+
+            Assert.False(valid);
+            Assert.False(acc.Valid);
+            Assert.True(acc.IsBannedOrLocked);
+            Assert.False(string.IsNullOrEmpty(acc.AccountStatusIssue));
+        }
     }
 }

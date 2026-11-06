@@ -82,6 +82,14 @@ namespace Shiro
         [JsonIgnore]
         public bool HasHbaBinding => !string.IsNullOrWhiteSpace(HbaPrivateKey);
 
+        public void ClearHbaBinding()
+        {
+            HbaPrivateKey = string.Empty;
+            HbaPublicKey = string.Empty;
+            HbaTemplate = string.Empty;
+            LastBoundIpSignature = string.Empty;
+        }
+
         private string GetProtectedField(string key)
         {
             lock (FieldsSyncRoot)
@@ -128,7 +136,8 @@ namespace Shiro
                 return $".ROBLOSECURITY={token}";
 
             string uidPart = UserID > 0 ? UserID.ToString(CultureInfo.InvariantCulture) : string.Empty;
-            return $".ROBLOSECURITY={token}; RBXEventTrackerV2=CreateDate=01/01/2026 00:00:00&rbxid={uidPart}&browserid={btid}";
+            string nowUtc = DateTime.UtcNow.ToString("MM/dd/yyyy HH:mm:ss", CultureInfo.InvariantCulture);
+            return $".ROBLOSECURITY={token}; RBXEventTrackerV2=CreateDate={nowUtc}&rbxid={uidPart}&browserid={btid}";
         }
 
         public void ApplyHbaCapture(RobloxHbaService.CaptureSnapshot? snapshot)
@@ -146,6 +155,8 @@ namespace Shiro
 
             if (!string.IsNullOrWhiteSpace(snapshot.TokenTemplate))
                 HbaTemplate = snapshot.TokenTemplate;
+            else if (HasHbaBinding && string.IsNullOrWhiteSpace(HbaTemplate))
+                HbaTemplate = RobloxHbaService.DefaultTemplate;
 
             if (!string.IsNullOrWhiteSpace(snapshot.UserAgent))
                 SessionUserAgent = snapshot.UserAgent;
@@ -167,11 +178,12 @@ namespace Shiro
                 return;
 
             if (!string.IsNullOrWhiteSpace(HbaPrivateKey))
+            {
                 target.HbaPrivateKey = HbaPrivateKey;
-            if (!string.IsNullOrWhiteSpace(HbaPublicKey))
                 target.HbaPublicKey = HbaPublicKey;
-            if (!string.IsNullOrWhiteSpace(HbaTemplate))
-                target.HbaTemplate = HbaTemplate;
+                target.HbaTemplate = !string.IsNullOrWhiteSpace(HbaTemplate) ? HbaTemplate : RobloxHbaService.DefaultTemplate;
+            }
+
             if (!string.IsNullOrWhiteSpace(SessionUserAgent))
                 target.SessionUserAgent = SessionUserAgent;
             if (!string.IsNullOrWhiteSpace(LastBoundIpSignature))
@@ -186,7 +198,8 @@ namespace Shiro
         internal void ApplySessionFingerprintAndHba(
             HttpRequestMessage request,
             string? bodyContent = null,
-            string? tokenOverride = null)
+            string? tokenOverride = null,
+            bool includeHba = true)
         {
             if (request == null)
                 return;
@@ -199,7 +212,8 @@ namespace Shiro
             request.Headers.Remove("User-Agent");
             request.Headers.TryAddWithoutValidation("User-Agent", GetEffectiveUserAgent());
 
-            RobloxHbaService.TryAttachHbaHeader(request, this, bodyContent);
+            if (includeHba)
+                RobloxHbaService.TryAttachHbaHeader(request, this, bodyContent);
         }
 
         internal void ApplySessionFingerprintAndHbaToRestRequest(RestRequest request, string baseUrl)
@@ -294,106 +308,6 @@ namespace Shiro
             {
                 request.Headers[RobloxHbaService.BoundAuthHeaderName] = batToken;
             }
-        }
-
-        /// <summary>
-        /// Proactively exchanges an HBA-signed authentication ticket via <c>/v1/authentication-ticket/redeem</c>
-        /// when the local network interface changes (e.g., turning off VPN back to Vietnam IP),
-        /// re-binding the rotated <c>.ROBLOSECURITY</c> session cookie to the current IP.
-        /// </summary>
-        public async Task<bool> TryRebindSessionToCurrentNetworkAsync(bool force = false, CancellationToken cancellationToken = default)
-        {
-            if (string.IsNullOrWhiteSpace(GetCurrentSecurityToken()))
-                return false;
-
-            string currentNetSig = RobloxHbaService.GetLocalNetworkSignature();
-            string previousSig = LastBoundIpSignature;
-
-            if (!force)
-            {
-                if (currentNetSig is "offline" or "unknown")
-                    return false;
-
-                if (string.IsNullOrEmpty(previousSig))
-                {
-                    LastBoundIpSignature = currentNetSig;
-                    AppServices.AccountRepository.QueueDeferredSave();
-                    return true;
-                }
-
-                if (string.Equals(previousSig, currentNetSig, StringComparison.Ordinal))
-                    return true;
-            }
-
-            try
-            {
-                var (ticketOk, ticket) = await GetAuthTicketAsync(cancellationToken).ConfigureAwait(false);
-                if (!ticketOk || string.IsNullOrWhiteSpace(ticket))
-                    return false;
-
-                HttpClient httpClient = GetSessionHttpClient();
-                string payloadJson = JsonSerializer.Serialize(new AuthenticationTicketPayload(ticket), ShiroAppJson.Default.AuthenticationTicketPayload);
-
-                string currentCsrf;
-                lock (CookieSyncRoot)
-                {
-                    currentCsrf = CSRFToken ?? string.Empty;
-                }
-
-                for (int attempt = 0; attempt < 2; attempt++)
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    using var request = new HttpRequestMessage(HttpMethod.Post, "https://auth.roblox.com/v1/authentication-ticket/redeem");
-                    ApplySessionFingerprintAndHba(request, payloadJson);
-                    if (!string.IsNullOrEmpty(currentCsrf))
-                        request.Headers.TryAddWithoutValidation("X-CSRF-TOKEN", currentCsrf);
-                    request.Headers.TryAddWithoutValidation("Origin", "https://www.roblox.com");
-                    request.Headers.TryAddWithoutValidation("Referer", "https://www.roblox.com/");
-                    request.Headers.TryAddWithoutValidation("rbxauthenticationnegotiation", "1");
-                    request.Content = new StringContent(payloadJson, Encoding.UTF8, "application/json");
-
-                    using HttpResponseMessage response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
-                    bool rotated = TryUpdateRotatedCookie(response);
-
-                    if (response.Headers.TryGetValues("x-csrf-token", out var csrfVals))
-                    {
-                        string? freshCsrf = csrfVals.FirstOrDefault();
-                        if (!string.IsNullOrWhiteSpace(freshCsrf))
-                        {
-                            currentCsrf = freshCsrf;
-                            lock (CookieSyncRoot)
-                            {
-                                CSRFToken = freshCsrf;
-                                TokenSet = DateTime.Now;
-                            }
-                        }
-                    }
-
-                    if (response.StatusCode == HttpStatusCode.Forbidden && attempt == 0 && !string.IsNullOrEmpty(currentCsrf))
-                        continue;
-
-                    if (rotated || response.IsSuccessStatusCode)
-                    {
-                        if (currentNetSig is not ("offline" or "unknown"))
-                            LastBoundIpSignature = currentNetSig;
-                        AppServices.AccountRepository.QueueDeferredSave();
-                        Program.Logger?.Info($"[HbaRebind] Session synchronized to current network for {Username} (rotated={rotated}).");
-                        return true;
-                    }
-
-                    break;
-                }
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                Program.Logger?.Debug($"[HbaRebind] Fail-soft during network session rebind for {Username}: {ex.Message}");
-            }
-
-            return false;
         }
     }
 }

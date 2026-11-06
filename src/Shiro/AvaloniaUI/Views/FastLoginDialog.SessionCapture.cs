@@ -105,6 +105,7 @@ namespace Shiro.AvaloniaUI.Views
                     var oldCore = WvBrowser?.CoreWebView2;
                     if (oldCore != null)
                     {
+                        oldCore.NavigationStarting -= OnNavigationStarting;
                         oldCore.NavigationCompleted -= OnNavigationCompleted;
                         oldCore.SourceChanged -= OnSourceChanged;
                         oldCore.WebResourceRequested -= OnWebResourceRequested;
@@ -159,6 +160,7 @@ namespace Shiro.AvaloniaUI.Views
             if (core == null) return;
 
             _isCheckingSession = true;
+            string? pendingCapturedFp = null;
             try
             {
                 string currentUrl = core.Source ?? string.Empty;
@@ -226,6 +228,7 @@ namespace Shiro.AvaloniaUI.Views
                     _captured = true;
                     _pollTimer?.Stop();
                     _ignoredCookieValues.Add(fp);
+                    pendingCapturedFp = fp;
                     Program.Logger.Info($"[FastLogin] .ROBLOSECURITY detected for '{_username}' (len={secCookie.Value.Length}, url={core.Source}). Waiting for settle...");
 
                     TxtInAppStatus.Text = Shiro.Services.LocalizationService.Format("FastLogin.SessionCapturedRotating", _username ?? Shiro.Services.LocalizationService.Get("Dash_AccountsUnit"));
@@ -261,18 +264,52 @@ namespace Shiro.AvaloniaUI.Views
                         await Task.Delay(250);
                     }
 
+                    // Wait for post-login navigation to reach /home (or other target) AND for Roblox to upgrade
+                    // the intermediate/short-lived cookie to a full long-lived session cookie.
+                    // This handles high-latency VPN connections without prematurely capturing a downgraded token.
+                    DateTime settleStart = DateTime.UtcNow;
                     await AsyncWaitHelper.WaitUntilAsync(
-                        () =>
+                        async () =>
                         {
+                            if (_isClosed) return true;
                             string u = core.Source ?? string.Empty;
-                            return IsModerationOrLockedUrl(u) ||
-                                   u.Contains("/home", StringComparison.OrdinalIgnoreCase) ||
-                                   u.Contains("/charts", StringComparison.OrdinalIgnoreCase) ||
-                                   u.Contains("/games", StringComparison.OrdinalIgnoreCase) ||
-                                   u.Contains("/users", StringComparison.OrdinalIgnoreCase);
+                            if (IsModerationOrLockedUrl(u)) return true;
+
+                            try
+                            {
+                                var currentCookies = await core.CookieManager.GetCookiesAsync("https://www.roblox.com");
+                                var currentSec = currentCookies.FirstOrDefault(c =>
+                                    c.Name.Equals(".ROBLOSECURITY", StringComparison.OrdinalIgnoreCase) &&
+                                    !string.IsNullOrWhiteSpace(c.Value) &&
+                                    c.Value.StartsWith("_|"));
+
+                                if (currentSec != null)
+                                {
+                                    if (!Account.IsShortLivedCookie(currentSec.Value))
+                                        return true;
+
+                                    if (!string.IsNullOrEmpty(u) &&
+                                        !u.Contains("/login", StringComparison.OrdinalIgnoreCase) &&
+                                        (DateTime.UtcNow - settleStart).TotalMilliseconds >= 3500)
+                                    {
+                                        return true;
+                                    }
+                                }
+                            }
+                            catch (Exception ex) { Program.Logger?.Debug($"Cookie probe during settle wait threw: {ex.Message}"); }
+
+                            return false;
                         },
-                        TimeSpan.FromMilliseconds(1200),
-                        TimeSpan.FromMilliseconds(100));
+                        TimeSpan.FromSeconds(10),
+                        TimeSpan.FromMilliseconds(250));
+
+                    // Also wait for the post-login document navigation (/home) to commit its HTTP response headers
+                    await AsyncWaitHelper.WaitUntilAsync(
+                        () => _isClosed || !_isDocumentNavigating || IsModerationOrLockedUrl(core.Source ?? string.Empty),
+                        TimeSpan.FromSeconds(4),
+                        TimeSpan.FromMilliseconds(150));
+                    if (!_isClosed)
+                        await Task.Delay(300);
 
                     string postRedirectUrl = core.Source ?? string.Empty;
                     if (_queue.Count > 0 && IsModerationOrLockedUrl(postRedirectUrl))
@@ -301,7 +338,7 @@ namespace Shiro.AvaloniaUI.Views
                     string? inPageAccountJson = null;
                     try
                     {
-                        string rawAuthJson = await core.ExecuteScriptAsync(@"
+                        string? resolvedAuthJson = await EvaluateAsyncJsStringAsync(core, @"
                             (async () => {
                                 try {
                                     const res = await fetch('https://users.roblox.com/v1/users/authenticated', { method: 'GET', credentials: 'include', headers: { 'Accept': 'application/json' } });
@@ -309,19 +346,17 @@ namespace Shiro.AvaloniaUI.Views
                                 } catch (_) { /* ignore fetch error */ }
                                 return '';
                             })()");
-                        if (!string.IsNullOrWhiteSpace(rawAuthJson) && rawAuthJson != "null" && rawAuthJson != "\"\"")
-                        {
-                            try { inPageAccountJson = JsonSerializer.Deserialize(rawAuthJson, ShiroAppJson.Default.String); }
-                            catch (Exception) { inPageAccountJson = rawAuthJson.Trim('"'); }
-                            if (string.IsNullOrWhiteSpace(inPageAccountJson) || !inPageAccountJson.StartsWith('{')) inPageAccountJson = null;
-                        }
+                        if (!string.IsNullOrWhiteSpace(resolvedAuthJson) && resolvedAuthJson.StartsWith('{'))
+                            inPageAccountJson = resolvedAuthJson;
                     }
                     catch (Exception ex) { Program.Logger?.Debug($"Trigger in-page auth request threw: {ex.Message}"); }
+
+                    var hbaSnapshot = await CollectFinalHbaAndFingerprintAsync(core);
 
                     string cookieValue = secCookie.Value;
                     try
                     {
-                        string[] checkUrls = { "https://www.roblox.com", "https://auth.roblox.com", "https://roblox.com" };
+                        string[] checkUrls = { "https://www.roblox.com", "https://users.roblox.com", "https://auth.roblox.com", "https://roblox.com" };
                         foreach (string checkUrl in checkUrls)
                         {
                             var settledCookies = await core.CookieManager.GetCookiesAsync(checkUrl);
@@ -329,9 +364,12 @@ namespace Shiro.AvaloniaUI.Views
                             {
                                 if (c.Name.Equals(".ROBLOSECURITY", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(c.Value) && c.Value.StartsWith("_|"))
                                 {
-                                    cookieValue = c.Value;
-                                    _ignoredCookieValues.Add(Fingerprint(cookieValue));
-                                    break;
+                                    // Prefer a full (long-lived) cookie over a temporary/short-lived cookie
+                                    if (!Account.IsShortLivedCookie(c.Value) || Account.IsShortLivedCookie(cookieValue))
+                                    {
+                                        cookieValue = c.Value;
+                                    }
+                                    _ignoredCookieValues.Add(Fingerprint(c.Value));
                                 }
                             }
                         }
@@ -366,11 +404,8 @@ namespace Shiro.AvaloniaUI.Views
                         catch (Exception ex) { Program.Logger?.Debug($"Capturing password from DOM threw: {ex.Message}"); }
                     }
 
-                    var hbaSnapshot = await CollectFinalHbaAndFingerprintAsync(core);
-                    try { core.Stop(); }
-                    catch (Exception ex) { Program.Logger?.Debug($"core.Stop() threw: {ex.Message}"); }
-
                     Account? acc = await AppServices.AccountRepository.AddOrUpdateWithHbaAsync(cookieValue, _password ?? "", accountJson: inPageAccountJson, hbaCapture: hbaSnapshot);
+                    pendingCapturedFp = null;
                     Program.Logger?.Info($"[FastLogin] Captured session for '{_username}': payloadLen={Account.GetSessionTokenPayloadLength(cookieValue)}, hba={hbaSnapshot.HasPrivateKey}, registeredValid={acc?.Valid}, resolvedUser={acc?.Username}.");
 
                     var captureOutcome = await FastLoginCoordinator.ProcessCapturedSessionAsync(
@@ -401,6 +436,7 @@ namespace Shiro.AvaloniaUI.Views
                             return;
 
                         case FastLoginCaptureStatus.UsernameMismatch:
+                            core.NavigationStarting -= OnNavigationStarting;
                             core.NavigationCompleted -= OnNavigationCompleted;
                             core.SourceChanged -= OnSourceChanged;
                             ResetHbaSnapshot();
@@ -444,6 +480,12 @@ namespace Shiro.AvaloniaUI.Views
             catch (Exception captureEx)
             {
                 Program.Logger.Warn($"[FastLogin] Capture error for '{_username}': {captureEx}");
+                if (!_isClosed && pendingCapturedFp != null)
+                {
+                    _ignoredCookieValues.Remove(pendingCapturedFp);
+                    _captured = false;
+                    _pollTimer?.Start();
+                }
             }
             finally
             {

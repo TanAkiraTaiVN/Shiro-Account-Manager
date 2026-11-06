@@ -29,6 +29,50 @@ namespace Shiro.Services
         internal static int ChallengeProbeDelayMs = 500;
         internal static double MaxChallengeVerificationWaitSeconds = 90.0;
 
+        private async Task<(LaunchResult Result, bool SessionConfirmedValid)> TryRecoverTicketErrorAsync(
+            LaunchRequest request,
+            LaunchResult initialResult,
+            CancellationToken cancellationToken)
+        {
+            if (initialResult.Outcome != LaunchOutcome.TicketError ||
+                cancellationToken.IsCancellationRequested ||
+                !request.Account.Valid ||
+                request.Account.IsBannedOrLocked ||
+                string.IsNullOrWhiteSpace(request.Account.SecurityToken))
+            {
+                return (initialResult, false);
+            }
+
+            try
+            {
+                int versionBefore = request.Account.CookieRotationVersion;
+                bool sessionValid = await request.Account.ValidateSessionAsync(cancellationToken).ConfigureAwait(false);
+                if (!sessionValid && request.Account.HasHbaBinding && !request.Account.IsBannedOrLocked)
+                {
+                    if (await request.Account.TryRebindSessionToCurrentNetworkAsync(force: true, cancellationToken).ConfigureAwait(false))
+                        sessionValid = await request.Account.ValidateSessionAsync(cancellationToken).ConfigureAwait(false);
+                }
+
+                if (request.Account.CookieRotationVersion != versionBefore && !cancellationToken.IsCancellationRequested)
+                {
+                    Program.Logger?.Info($"[LaunchCoordinator] Session cookie rotated during TicketError recovery for '{request.Account.Username}'. Retrying launch once...");
+                    LaunchResult retryResult = await executeLaunch(request, cancellationToken).ConfigureAwait(false);
+                    return (retryResult, retryResult.Outcome == LaunchOutcome.Success || sessionValid);
+                }
+
+                return (initialResult, sessionValid);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"[LaunchCoordinator.TryRecoverTicketErrorAsync] {ex.Message}");
+                return (initialResult, false);
+            }
+        }
+
         public static void RequestGlobalCancel()
         {
             try { AppSettings.CancelLaunching(); }

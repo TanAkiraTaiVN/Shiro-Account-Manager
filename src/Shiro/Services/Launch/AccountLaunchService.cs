@@ -37,15 +37,16 @@ namespace Shiro.Services
         /// <summary>
         /// Constructs and cryptographically signs an authentication ticket request for Roblox launch using HBA binding.
         /// </summary>
-        public static HttpRequestMessage CreateTicketRequest(Account account, string? csrfToken = null, string body = "{}")
+        public static HttpRequestMessage CreateTicketRequest(Account account, string? csrfToken = null, string body = "{}", bool includeHba = true)
         {
-            var request = new HttpRequestMessage(HttpMethod.Post, "https://auth.roblox.com/v1/authentication-ticket/");
-            account.ApplySessionFingerprintAndHba(request, body);
+            var request = new HttpRequestMessage(HttpMethod.Post, "https://auth.roblox.com/v1/authentication-ticket");
+            account.ApplySessionFingerprintAndHba(request, body, includeHba: includeHba);
             if (!string.IsNullOrEmpty(csrfToken))
                 request.Headers.TryAddWithoutValidation("X-CSRF-TOKEN", csrfToken);
             request.Headers.TryAddWithoutValidation("Origin", "https://www.roblox.com");
             request.Headers.TryAddWithoutValidation("Referer", "https://www.roblox.com/");
             request.Headers.TryAddWithoutValidation("rbxauthenticationnegotiation", "1");
+            request.Headers.TryAddWithoutValidation("Accept", "application/json, text/plain, */*");
             request.Content = new System.Net.Http.StringContent(body, System.Text.Encoding.UTF8, "application/json");
             return request;
         }
@@ -220,7 +221,9 @@ namespace Shiro.Services
             if (AppSettings.ShuffleJobId && string.IsNullOrEmpty(jobId))
                 jobId = await Utilities.GetRandomJobId(placeId, cancellationToken: cancellationToken).ConfigureAwait(false);
 
-            await account.TryRebindSessionToCurrentNetworkAsync(force: false, cancellationToken).ConfigureAwait(false);
+            bool shouldForceRebind = account.HasHbaBinding &&
+                !string.Equals(account.LastBoundIpSignature, RobloxHbaService.GetLocalNetworkSignature(), StringComparison.Ordinal);
+            await account.TryRebindSessionToCurrentNetworkAsync(force: shouldForceRebind, cancellationToken).ConfigureAwait(false);
 
             (bool Success, string Ticket) ticketResult = TestGetAuthTicketOverride != null
                 ? await TestGetAuthTicketOverride(account, cancellationToken).ConfigureAwait(false)

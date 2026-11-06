@@ -18,10 +18,21 @@ namespace Shiro.AvaloniaUI.Views
         private Task<(string? IssueBadge, string? Reason)> DetectDomAccountIssueAsync(CoreWebView2? core) =>
             FastLoginCoordinator.DetectDomAccountIssueAsync(core, _queue.Count > 0);
 
+        private volatile bool _isDocumentNavigating;
+
+        private void OnNavigationStarting(object? sender, CoreWebView2NavigationStartingEventArgs e)
+        {
+            if (e != null && !e.IsRedirected)
+                _isDocumentNavigating = true;
+            else
+                _isDocumentNavigating = true;
+        }
+
         private async Task ConfigureCoreWebViewAsync(CoreWebView2 core)
         {
             if (core == null) return;
 
+            _isDocumentNavigating = false;
             await ClearAuthCookiesAsync();
             await InstallHbaCaptureHookAsync(core);
             await core.AddScriptToExecuteOnDocumentCreatedAsync(FastLoginCoordinator.GetLoginPageEnhancementScript());
@@ -40,8 +51,10 @@ namespace Shiro.AvaloniaUI.Views
             core.WebMessageReceived -= OnWebMessageReceived;
             core.WebMessageReceived += OnWebMessageReceived;
 
+            core.NavigationStarting -= OnNavigationStarting;
             core.NavigationCompleted -= OnNavigationCompleted;
             core.SourceChanged -= OnSourceChanged;
+            core.NavigationStarting += OnNavigationStarting;
             core.NavigationCompleted += OnNavigationCompleted;
             core.SourceChanged += OnSourceChanged;
         }

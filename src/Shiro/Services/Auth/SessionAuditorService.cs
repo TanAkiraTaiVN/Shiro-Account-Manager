@@ -141,6 +141,35 @@ namespace Shiro.Services
                     status = AccountSessionStatus.Moderated;
                 }
 
+                string responseBody = string.Empty;
+                if (status == AccountSessionStatus.VerificationRequired || status == AccountSessionStatus.Valid)
+                {
+                    try { responseBody = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false); }
+                    catch (Exception ex) { _staticLogger.Debug($"[SessionAuditor] Read response body failed: {ex.Message}"); }
+                }
+
+                if (status == AccountSessionStatus.VerificationRequired)
+                {
+                    string modCode = FastLoginCoordinator.ClassifyAuthOrModerationApiPayload(responseBody, (int)response.StatusCode);
+                    if (!string.IsNullOrEmpty(modCode) && modCode != "UNAUTHENTICATED_MODERATION" && modCode != "WRONG_PASSWORD")
+                    {
+                        status = AccountSessionStatus.Moderated;
+                        var (modBadge, _) = FastLoginCoordinator.MapDomIssueCode(modCode);
+                        if (!string.IsNullOrEmpty(modBadge) && string.IsNullOrEmpty(account.AccountStatusIssue))
+                            account.AccountStatusIssue = modBadge;
+                    }
+
+                    var (probedBan, probedBadge, _) = await RobloxModerationService.Instance
+                        .CheckModerationStatusAsync(account, account.SecurityToken, ct)
+                        .ConfigureAwait(false);
+                    if (probedBan)
+                    {
+                        status = AccountSessionStatus.Moderated;
+                        if (!string.IsNullOrEmpty(probedBadge))
+                            account.AccountStatusIssue = probedBadge;
+                    }
+                }
+
                 if (status != AccountSessionStatus.Valid)
                 {
                     string auditMessage = $"Audit returned HTTP {(int)response.StatusCode} ({response.ReasonPhrase})";
@@ -153,7 +182,7 @@ namespace Shiro.Services
                         account.Valid = false;
                         if (string.IsNullOrEmpty(account.AccountStatusIssue))
                             account.AccountStatusIssue = Shiro.Services.LocalizationService.Get("FastLogin.LockedOrBannedBadge");
-                        string modDetails = "Account moderation / lock detected";
+                        string modDetails = account.AccountStatusIssue;
                         auditMessage = $"Account {account.Username} received moderation notice: {modDetails}";
                         WebhookNotificationService.EnqueueAlert(new WebhookAlert
                         {
@@ -176,7 +205,7 @@ namespace Shiro.Services
 
                 account.Valid = true;
                 account.AccountStatusIssue = string.Empty;
-                string userJson = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+                string userJson = responseBody;
                 long userId = account.UserID;
 
                 if (!string.IsNullOrWhiteSpace(userJson))

@@ -48,8 +48,12 @@
                                       SelectedValue="{Binding SelectedGenType, Mode=TwoWay}"
                                       SelectedValueBinding="{Binding Tag, DataType=ComboBoxItem}"
                                       Background="#1F1F28" Foreground="#FFFFFF" BorderBrush="#2E2E38" CornerRadius="4">
-                                <ComboBoxItem Content="Unverified (Chuẩn cày bot)" Tag="unverified"/>
-                                <ComboBoxItem Content="Verified (Email Verified)" Tag="verified"/>
+                                <ComboBoxItem Content="Alt (Chuẩn cày bot / Free)" Tag="unverified"/>
+                                <ComboBoxItem Content="+30 Days Old (Trên 30 ngày)" Tag="+30 days old"/>
+                                <ComboBoxItem Content="+1 Year Old (Trên 1 năm)" Tag="+1 year old"/>
+                                <ComboBoxItem Content="5+ Years Old (Trên 5 năm)" Tag="5+ years old"/>
+                                <ComboBoxItem Content="18+ Age Verified (Xác minh tuổi)" Tag="18+ age verified"/>
+                                <ComboBoxItem Content="Dump (Random / Có Robux)" Tag="dump"/>
                             </ComboBox>
                         </StackPanel>
 

@@ -1,8 +1,10 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Net.Http;
+using Shiro.Classes;
 using Shiro.Http;
 using Shiro.Services;
 
@@ -90,6 +92,10 @@ namespace Shiro
         public static string? ExtractRoblosecurityFromSetCookie(string? header)
         {
             if (string.IsNullOrWhiteSpace(header)) return null;
+            if (header.IndexOf("expires=Thu, 01 Jan 1970", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                header.IndexOf("max-age=0", StringComparison.OrdinalIgnoreCase) >= 0)
+                return null;
+
             ReadOnlySpan<char> span = header.AsSpan();
             int idx = span.IndexOf(".ROBLOSECURITY=", StringComparison.OrdinalIgnoreCase);
             if (idx < 0) return null;
@@ -144,6 +150,68 @@ namespace Shiro
                 Program.Logger?.Debug($"UI notification update error: {ex.Message}");
             }
             return true;
+        }
+
+        private static int GetRateLimitRecoverySeconds(RestResponse? response)
+        {
+            string? retryAfter = response?.Headers?
+                .FirstOrDefault(x => string.Equals(x.Name, "Retry-After", StringComparison.OrdinalIgnoreCase))?
+                .Value?.ToString()?.Trim();
+
+            if (int.TryParse(retryAfter, out int serverDelay) && serverDelay > 0)
+                return Math.Min(serverDelay, 180);
+
+            if (DateTimeOffset.TryParse(
+                retryAfter,
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.AllowWhiteSpaces | DateTimeStyles.AssumeUniversal,
+                out DateTimeOffset retryAt))
+            {
+                double dateDelay = (retryAt.ToUniversalTime() - DateTimeOffset.UtcNow).TotalSeconds;
+                if (dateDelay > 0)
+                    return Math.Min(180, Math.Max(1, (int)Math.Ceiling(dateDelay)));
+            }
+
+            string? reset = response?.Headers?
+                .FirstOrDefault(x => string.Equals(x.Name, "X-RateLimit-Reset", StringComparison.OrdinalIgnoreCase))?
+                .Value?.ToString()?.Trim();
+            if (long.TryParse(reset, NumberStyles.Integer, CultureInfo.InvariantCulture, out long resetUnix))
+            {
+                try
+                {
+                    double resetDelay = (DateTimeOffset.FromUnixTimeSeconds(resetUnix) - DateTimeOffset.UtcNow).TotalSeconds;
+                    if (resetDelay > 0)
+                        return Math.Min(180, Math.Max(1, (int)Math.Ceiling(resetDelay)));
+                }
+                catch (ArgumentOutOfRangeException) { /* invalid unix timestamp */ }
+            }
+
+            return NativeAuthRecoverySeconds;
+        }
+
+        internal static void MarkNativeAuthRateLimited(int seconds, string username, string source)
+        {
+            seconds = Math.Max(1, Math.Min(180, seconds));
+
+            Program.Logger?.Warn($"Roblox {source} returned HTTP 429 for {username}. The current launch was stopped; retry after about {seconds} seconds or change network before starting another batch.");
+            AppSettings.SetDashboardStatus(
+                Shiro.Services.LocalizationService.Format("Account.RateLimitCooldown", username, seconds));
+            RobloxRateLimitCoordinator.Instance.RecordRateLimitHit(RateLimitCategory.Authentication, defaultBackoffSeconds: seconds);
+        }
+
+        private RestRequest CreateAuthTicketRequest(string token)
+        {
+            return MakeRequest("/v1/authentication-ticket/", Method.Post)
+                .AddHeader("X-CSRF-TOKEN", token)
+                .AddHeader("Content-Type", "application/json")
+                .AddHeader("Origin", "https://www.roblox.com")
+                .AddHeader("Referer", "https://www.roblox.com/games/4924922222/Brookhaven-RP")
+                .AddHeader("rbxauthenticationnegotiation", "1")
+                .AddHeader("Accept", "application/json, text/plain, */*")
+                .AddHeader("Sec-Fetch-Dest", "empty")
+                .AddHeader("Sec-Fetch-Mode", "cors")
+                .AddHeader("Sec-Fetch-Site", "same-site")
+                .AddJsonBody(new EmptyJsonObjectPayload());
         }
     }
 }

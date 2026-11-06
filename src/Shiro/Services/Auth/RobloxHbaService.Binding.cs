@@ -262,6 +262,31 @@ namespace Shiro.Services
             return cachedPairPromise;
         }};
 
+        try {{
+            if (window.indexedDB) {{
+                getImportedPair(window.crypto && window.crypto.subtle).then((pair) => {{
+                    if (!pair || !pair.privateKey) return;
+                    try {{
+                        const openReq = indexedDB.open('hbaDB', 1);
+                        openReq.onupgradeneeded = () => {{
+                            const db = openReq.result;
+                            if (!db.objectStoreNames.contains('hbaObjectStore')) db.createObjectStore('hbaObjectStore');
+                        }};
+                        openReq.onsuccess = () => {{
+                            try {{
+                                const db = openReq.result;
+                                if (db.objectStoreNames.contains('hbaObjectStore')) {{
+                                    const tx = db.transaction('hbaObjectStore', 'readwrite');
+                                    tx.objectStore('hbaObjectStore').put(pair, 'hba_keys');
+                                }}
+                                db.close();
+                            }} catch (_) {{ /* ignore */ }}
+                        }};
+                    }} catch (_) {{ /* ignore */ }}
+                }}).catch(() => {{}});
+            }}
+        }} catch (_) {{ /* ignore */ }}
+
         const origGen = SubtleCrypto.prototype.generateKey;
         SubtleCrypto.prototype.generateKey = async function(algorithm, extractable, keyUsages) {{
             try {{

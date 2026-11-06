@@ -266,7 +266,7 @@ namespace Shiro.Tests
             acc.SecurityToken = "_|WARNING:-DO-NOT-SHARE-THIS.--valid-looking-token";
             using var ticketReq = AccountLaunchService.CreateTicketRequest(acc, "csrf-123");
             Assert.Equal(System.Net.Http.HttpMethod.Post, ticketReq.Method);
-            Assert.Equal("https://auth.roblox.com/v1/authentication-ticket/", ticketReq.RequestUri?.ToString());
+            Assert.Equal("https://auth.roblox.com/v1/authentication-ticket", ticketReq.RequestUri?.ToString());
             Assert.True(ticketReq.Headers.Contains("X-CSRF-TOKEN"));
             Assert.True(ticketReq.Headers.Contains("rbxauthenticationnegotiation"));
         }

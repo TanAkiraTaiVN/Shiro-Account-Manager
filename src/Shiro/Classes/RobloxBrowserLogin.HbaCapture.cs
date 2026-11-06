@@ -32,19 +32,9 @@ namespace Shiro.Classes
                         if (!alreadyHooked) {
                             (0, eval)(hookCode);
                             if (window.location && window.location.pathname.toLowerCase().includes('/login')) {
-                                try {
-                                    const req = indexedDB.open('hbaStore');
-                                    req.onsuccess = () => {
-                                        try {
-                                            const db = req.result;
-                                            if (db.objectStoreNames.contains('hbaObjectStore')) {
-                                                const tx = db.transaction('hbaObjectStore', 'readwrite');
-                                                tx.objectStore('hbaObjectStore').clear();
-                                            }
-                                            db.close();
-                                        } catch (_) { /* ignore */ }
-                                    };
-                                } catch (_) { /* ignore */ }
+                                for (const dbName of ['hbaDB', 'hbaStore']) {
+                                    try { indexedDB.deleteDatabase(dbName); } catch (_) { /* ignore */ }
+                                }
                             }
                         }
                     } catch (_) { /* ignore */ }
@@ -73,6 +63,9 @@ namespace Shiro.Classes
                                 headers: { 'Accept': 'application/json' }
                             });
                         } catch (_) { /* ignore */ }
+                        if (typeof window.__shiroSyncHbaFromIndexedDb === 'function') {
+                            return await window.__shiroSyncHbaFromIndexedDb();
+                        }
                         const s = window.__shiroHbaState || {};
                         return JSON.stringify({
                             privateKeyPkcs8: s.privateKeyPkcs8 || '',

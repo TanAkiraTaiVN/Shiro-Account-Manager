@@ -196,6 +196,7 @@ namespace Shiro.AvaloniaUI.Views
 
         private async void OnNavigationCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs e)
         {
+            _isDocumentNavigating = false;
             try
             {
                 if (!e.IsSuccess)
@@ -304,6 +305,7 @@ namespace Shiro.AvaloniaUI.Views
                 var core = WvBrowser?.CoreWebView2;
                 if (core != null)
                 {
+                    core.NavigationStarting -= OnNavigationStarting;
                     core.NavigationCompleted -= OnNavigationCompleted;
                     core.SourceChanged -= OnSourceChanged;
                     core.WebResourceRequested -= OnWebResourceRequested;

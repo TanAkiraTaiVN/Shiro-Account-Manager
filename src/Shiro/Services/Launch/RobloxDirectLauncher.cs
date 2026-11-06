@@ -28,7 +28,7 @@ namespace Shiro.Services
             string? trackerBrowserId,
             string? expectedBrowserId)
         {
-            if (target == null)
+            if (target == null || target.HasHbaBinding)
                 return false;
 
             // If RobloxCookies.dat contains a concrete rbxuid from RobloxPlayerBeta.exe, it MUST match target.UserID

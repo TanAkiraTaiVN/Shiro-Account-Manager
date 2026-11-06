@@ -34,6 +34,44 @@ namespace Shiro.Services
                 linkedCts.CancelAfter(TimeSpan.FromMilliseconds(2500));
 
                 HttpClient httpClient = account.GetSessionHttpClient(allowAutoRedirect: false);
+
+                // 1. Probe official JSON moderation endpoint (usermoderation.roblox.com/v1/not-approved) first.
+                // Unlike www.roblox.com/home, this API endpoint is not blocked by Vietnam ISP SNI filters and returns
+                // structured punishment details (punishedUserId, beginDate, endDate, messageToUser) in ~250ms.
+                try
+                {
+                    using var apiReq = account.CreateAuthenticatedGetRequest(
+                        "https://usermoderation.roblox.com/v1/not-approved",
+                        "application/json",
+                        token);
+                    using HttpResponseMessage apiRes = await httpClient.SendAsync(apiReq, HttpCompletionOption.ResponseContentRead, linkedCts.Token).ConfigureAwait(false);
+                    if (apiRes != null)
+                    {
+                        account.TryUpdateRotatedCookie(apiRes);
+                        if (apiRes.IsSuccessStatusCode)
+                        {
+                            string apiBody = await apiRes.Content.ReadAsStringAsync(linkedCts.Token).ConfigureAwait(false);
+                            if (!string.IsNullOrWhiteSpace(apiBody) && apiBody.Contains('{', StringComparison.Ordinal))
+                            {
+                                string apiCode = FastLoginCoordinator.ClassifyAuthOrModerationApiPayload(apiBody, (int)apiRes.StatusCode);
+                                if (!string.IsNullOrEmpty(apiCode) && apiCode != "UNAUTHENTICATED_MODERATION" && apiCode != "WRONG_PASSWORD")
+                                {
+                                    var (badge, reason) = FastLoginCoordinator.MapDomIssueCode(apiCode);
+                                    if (!string.IsNullOrEmpty(badge))
+                                    {
+                                        return DispatchModerationAlertIfBanned(account, (true, badge, reason));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.Debug($"[CheckModerationStatusAsync] usermoderation API probe skipped: {ex.Message}");
+                }
+
+                // 2. Fallback / secondary check via www.roblox.com/home redirect inspection
                 using var request = account.CreateAuthenticatedGetRequest(
                     "https://www.roblox.com/home",
                     "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -223,6 +261,19 @@ namespace Shiro.Services
 
             if (IsUnauthenticatedModerationResponse(content))
                 return (false, null, null);
+
+            if (content.Contains('{', StringComparison.Ordinal))
+            {
+                string structuredCode = FastLoginCoordinator.ClassifyAuthOrModerationApiPayload(content);
+                if (!string.IsNullOrEmpty(structuredCode) &&
+                    structuredCode != "UNAUTHENTICATED_MODERATION" &&
+                    structuredCode != "WRONG_PASSWORD")
+                {
+                    var (badge, reason) = FastLoginCoordinator.MapDomIssueCode(structuredCode);
+                    if (!string.IsNullOrEmpty(badge))
+                        return (true, badge, reason);
+                }
+            }
 
             string text = content.ToLowerInvariant();
 

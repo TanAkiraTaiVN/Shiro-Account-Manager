@@ -31,6 +31,35 @@ namespace Shiro.AvaloniaUI.Views
             await core.AddScriptToExecuteOnDocumentCreatedAsync(RobloxHbaService.GetBrowserCaptureScript());
         }
 
+        private static async Task<string?> EvaluateAsyncJsStringAsync(CoreWebView2 core, string asyncJsExpression)
+        {
+            if (core == null || string.IsNullOrWhiteSpace(asyncJsExpression))
+                return null;
+
+            try
+            {
+                string escapedExpr = JsonSerializer.Serialize(asyncJsExpression, ShiroAppJson.Default.String);
+                string cdpParams = $"{{\"expression\":{escapedExpr},\"awaitPromise\":true,\"returnByValue\":true}}";
+                string cdpResponse = await core.CallDevToolsProtocolMethodAsync("Runtime.evaluate", cdpParams);
+                if (!string.IsNullOrWhiteSpace(cdpResponse))
+                {
+                    using var doc = JsonDocument.Parse(cdpResponse);
+                    if (doc.RootElement.TryGetProperty("result", out var resEl) &&
+                        resEl.TryGetProperty("value", out var valEl) &&
+                        valEl.ValueKind == JsonValueKind.String)
+                    {
+                        return valEl.GetString();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"[FastLogin] CDP Runtime.evaluate awaitPromise threw: {ex.Message}");
+            }
+
+            return null;
+        }
+
         private bool TryHandleHbaWebMessage(JsonElement root)
         {
             if (!root.TryGetProperty("type", out JsonElement typeEl) ||
@@ -83,9 +112,12 @@ namespace Shiro.AvaloniaUI.Views
             {
                 try
                 {
-                    string rawStateJson = await core.ExecuteScriptAsync(@"
-                        (() => {
+                    string? syncedJson = await EvaluateAsyncJsStringAsync(core, @"
+                        (async () => {
                             try {
+                                if (typeof window.__shiroSyncHbaFromIndexedDb === 'function') {
+                                    return await window.__shiroSyncHbaFromIndexedDb();
+                                }
                                 const s = window.__shiroHbaState || {};
                                 return JSON.stringify({
                                     privateKeyPkcs8: s.privateKeyPkcs8 || '',
@@ -97,22 +129,15 @@ namespace Shiro.AvaloniaUI.Views
                         })()
                     ");
 
-                    if (!string.IsNullOrWhiteSpace(rawStateJson) && rawStateJson != "null")
+                    if (!string.IsNullOrWhiteSpace(syncedJson) && syncedJson.StartsWith('{'))
                     {
-                        string? innerJson = null;
-                        try { innerJson = JsonSerializer.Deserialize(rawStateJson, ShiroAppJson.Default.String); }
-                        catch (Exception) { innerJson = rawStateJson; }
-
-                        if (!string.IsNullOrWhiteSpace(innerJson) && innerJson.StartsWith('{'))
-                        {
-                            using JsonDocument doc = JsonDocument.Parse(innerJson);
-                            MergeHbaJsonIntoSnapshot(doc.RootElement);
-                        }
+                        using JsonDocument doc = JsonDocument.Parse(syncedJson);
+                        MergeHbaJsonIntoSnapshot(doc.RootElement);
                     }
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Debug($"[FastLogin] Reading final HBA state from DOM threw: {ex.Message}");
+                    Program.Logger?.Debug($"[FastLogin] Reading final HBA state from IndexedDB/DOM threw: {ex.Message}");
                 }
 
                 try
@@ -146,7 +171,10 @@ namespace Shiro.AvaloniaUI.Views
 
             if (_currentHbaSnapshot.HasPrivateKey)
             {
-                Program.Logger?.Info($"[FastLogin] Captured HBA ECDSA device-binding key for '{_username}' (template='{_currentHbaSnapshot.TokenTemplate ?? RobloxHbaService.DefaultTemplate}', trackerId={!string.IsNullOrEmpty(_currentHbaSnapshot.BrowserTrackerId)}).");
+                if (string.IsNullOrWhiteSpace(_currentHbaSnapshot.TokenTemplate))
+                    _currentHbaSnapshot.TokenTemplate = RobloxHbaService.DefaultTemplate;
+
+                Program.Logger?.Info($"[FastLogin] Captured HBA ECDSA device-binding key for '{_username}' (template='{_currentHbaSnapshot.TokenTemplate}', trackerId={!string.IsNullOrEmpty(_currentHbaSnapshot.BrowserTrackerId)}).");
             }
 
             return _currentHbaSnapshot;
