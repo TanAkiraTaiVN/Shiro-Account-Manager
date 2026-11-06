@@ -143,18 +143,14 @@ namespace Shiro.Services
             try { ClientSettingsPatcher.PatchSettings(); }
             catch (Exception ex) { Program.Logger.Error($"Failed to patch ClientAppSettings: {ex}"); }
 
-            (bool Success, string Ticket) ticketResult;
             if (TestGetAuthTicketOverride != null)
             {
-                bool shouldForceRebind = account.HasHbaBinding &&
-                    !string.Equals(account.LastBoundIpSignature, RobloxHbaService.GetLocalNetworkSignature(), StringComparison.Ordinal);
+                bool shouldForceRebind = account.HasHbaBinding && !string.Equals(account.LastBoundIpSignature, RobloxHbaService.GetLocalNetworkSignature(), StringComparison.Ordinal);
                 await account.TryRebindSessionToCurrentNetworkAsync(force: shouldForceRebind, cancellationToken).ConfigureAwait(false);
-                ticketResult = await TestGetAuthTicketOverride(account, cancellationToken).ConfigureAwait(false);
             }
-            else
-            {
-                ticketResult = await account.GetAuthTicketAsync(cancellationToken).ConfigureAwait(false);
-            }
+            (bool Success, string Ticket) ticketResult = TestGetAuthTicketOverride != null
+                ? await TestGetAuthTicketOverride(account, cancellationToken).ConfigureAwait(false)
+                : await account.GetAuthTicketAsync(cancellationToken).ConfigureAwait(false);
             if (ticketResult.Success)
             {
                 try

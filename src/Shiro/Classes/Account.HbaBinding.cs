@@ -294,8 +294,8 @@ namespace Shiro
                 }
                 else if (request.Parameters.Count > 0)
                 {
-                    using var formContent = new FormUrlEncodedContent(request.Parameters);
-                    bodyStr = formContent.ReadAsStringAsync().GetAwaiter().GetResult();
+                    bodyStr = string.Join("&", request.Parameters.Select(p =>
+                        $"{Uri.EscapeDataString(p.Key).Replace("%20", "+")}={Uri.EscapeDataString(p.Value).Replace("%20", "+")}"));
                 }
             }
 

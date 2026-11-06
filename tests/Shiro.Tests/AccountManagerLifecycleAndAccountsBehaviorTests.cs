@@ -16,7 +16,7 @@ using Xunit;
 
 namespace Shiro.Tests
 {
-    [Collection("SerialGlobalState")]
+    [Collection("StaticSeams")]
     public class AccountManagerLifecycleAndAccountsBehaviorTests : IDisposable
     {
         public void Dispose()
