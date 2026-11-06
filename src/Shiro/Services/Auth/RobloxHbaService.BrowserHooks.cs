@@ -249,7 +249,7 @@ namespace Shiro.Services
                 const methodUp = reqMethod ? String(reqMethod).toUpperCase() : '';
 
                 const matched = state.recentSigns.filter(s => s.includes(ts)).slice(-sigCount);
-                if (matched.length > 0) {
+                if (matched.length === sigCount) {
                     const specs = matched.map(s => s.split('|').map(seg => {
                         if (seg === '') return '';
                         if (seg === hb) return 'HB';
@@ -261,8 +261,10 @@ namespace Shiro.Services
                         if ((methodUp && seg.toUpperCase() === methodUp) || /^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)$/i.test(seg)) return 'M';
                         return '';
                     }).join(','));
-                    state.tokenTemplate = [ver, enc, ...specs].join('|');
-                    notifyHost();
+                    if (specs.every(Boolean)) {
+                        state.tokenTemplate = [ver, enc, ...specs].join('|');
+                        notifyHost();
+                    }
                 }
             } catch (_) { /* ignore */ }
         };

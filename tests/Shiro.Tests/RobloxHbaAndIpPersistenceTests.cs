@@ -436,5 +436,43 @@ namespace Shiro.Tests
             });
             await Task.WhenAll(signTasks.Append(clearTask));
         }
+
+        [Fact]
+        public void ApplySessionFingerprintAndHbaToRestRequest_FormParametersWithSpaces_MatchesFormUrlEncodedHash()
+        {
+            var (privB64, pubB64) = GenerateP256KeyPair();
+            var acc = new Account("RestFormUser", "pass", "alias")
+            {
+                UserID = 123456,
+                HbaPrivateKeyPkcs8 = privB64,
+                HbaPublicKeySpki = pubB64,
+                BrowserTrackerID = "555666"
+            };
+
+            var req = new Shiro.Http.RestRequest("/v1/test", Shiro.Http.Method.Post);
+            req.Headers["Cookie"] = ".ROBLOSECURITY=test";
+            req.AddParameter("note", "hello world");
+
+            acc.ApplySessionFingerprintAndHbaToRestRequest(req, "https://www.roblox.com/");
+
+            Assert.True(req.Headers.TryGetValue(RobloxHbaService.BoundAuthHeaderName, out string? batHeader));
+            Assert.NotNull(batHeader);
+            string[] segments = batHeader.Split('|');
+            Assert.True(segments.Length >= 4);
+            string expectedHash = Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes("note=hello+world")));
+            Assert.Equal(expectedHash, segments[1]);
+
+            Assert.True(req.Headers.TryGetValue("Cookie", out string? cookieHeader));
+            Assert.NotNull(cookieHeader);
+            Assert.DoesNotContain("01/01/2026 00:00:00", cookieHeader);
+            Assert.Contains("RBXEventTrackerV2=CreateDate=", cookieHeader);
+        }
+
+        [Fact]
+        public void GetBrowserCaptureScript_RequiresAllSignaturesBeforeUpdatingTemplate()
+        {
+            string script = RobloxHbaService.GetBrowserCaptureScript();
+            Assert.Contains("matched.length === sigCount", script);
+        }
     }
 }

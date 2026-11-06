@@ -232,7 +232,8 @@ namespace Shiro
                 !existingCookie.Contains("RBXEventTrackerV2=", StringComparison.OrdinalIgnoreCase))
             {
                 string uidPart = UserID > 0 ? UserID.ToString(CultureInfo.InvariantCulture) : string.Empty;
-                request.Headers["Cookie"] = $"{existingCookie}; RBXEventTrackerV2=CreateDate=01/01/2026 00:00:00&rbxid={uidPart}&browserid={BrowserTrackerID}";
+                string nowUtc = DateTime.UtcNow.ToString("MM/dd/yyyy HH:mm:ss", CultureInfo.InvariantCulture);
+                request.Headers["Cookie"] = $"{existingCookie}; RBXEventTrackerV2=CreateDate={nowUtc}&rbxid={uidPart}&browserid={BrowserTrackerID}";
             }
 
             string privKey = HbaPrivateKey;
@@ -293,7 +294,8 @@ namespace Shiro
                 }
                 else if (request.Parameters.Count > 0)
                 {
-                    bodyStr = string.Join("&", request.Parameters.Select(p => $"{Uri.EscapeDataString(p.Key)}={Uri.EscapeDataString(p.Value)}"));
+                    using var formContent = new FormUrlEncodedContent(request.Parameters);
+                    bodyStr = formContent.ReadAsStringAsync().GetAwaiter().GetResult();
                 }
             }
 
