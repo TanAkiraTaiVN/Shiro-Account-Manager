@@ -130,9 +130,17 @@ namespace Shiro
                 !string.IsNullOrEmpty(LastBoundIpSignature) &&
                 string.Equals(LastBoundIpSignature, currentSigAtStart, StringComparison.Ordinal);
 
-            if (allowIpSyncRetry && HasHbaBinding)
+            if (allowIpSyncRetry)
             {
-                if (!string.IsNullOrEmpty(LastBoundIpSignature) &&
+                if (string.IsNullOrEmpty(LastBoundIpSignature) &&
+                    currentSigAtStart is not ("offline" or "unknown"))
+                {
+                    LastBoundIpSignature = currentSigAtStart;
+                    AppServices.AccountRepository.QueueDeferredSave();
+                    wasSameNetworkAtStart = true;
+                }
+                else if (HasHbaBinding &&
+                    !string.IsNullOrEmpty(LastBoundIpSignature) &&
                     !wasSameNetworkAtStart &&
                     currentSigAtStart is not ("offline" or "unknown"))
                 {

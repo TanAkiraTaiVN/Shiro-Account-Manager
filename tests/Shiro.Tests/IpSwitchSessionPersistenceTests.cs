@@ -31,6 +31,8 @@ namespace Shiro.Tests
         public void Dispose()
         {
             Account.TestHttpClientFactory = null;
+            AccountLaunchService.TestGetAuthTicketOverride = null;
+            AccountLaunchService.TestStartNativeGameOverride = null;
             RobloxRateLimitCoordinator.Instance.ResetBackoff();
         }
 
@@ -510,6 +512,69 @@ namespace Shiro.Tests
             Assert.NotEqual(normalVietnamSig, withWarpSig);
             Assert.NotEqual(normalVietnamSig, withSystemProxySig);
             Assert.NotEqual(normalVietnamSig, differentRouterSig);
+        }
+
+        [Fact]
+        public async Task JoinServerResultAsync_WhenNetworkChangedAndStage2TicketFailsOnce_DoesNotRunRebindTwice()
+        {
+            var (privB64, pubB64) = GenerateP256KeyPair();
+            int usersAuthCalls = 0;
+            int ticketCalls = 0;
+
+            AccountLaunchService.TestGetAuthTicketOverride = null;
+            AccountLaunchService.TestStartNativeGameOverride = (_, _, _, _, _, _, _) => Task.FromResult(4242);
+
+            Account.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler((req, _) =>
+            {
+                string uri = req.RequestUri!.AbsoluteUri;
+                if (uri.Contains("users.roblox.com/v1/users/authenticated", StringComparison.OrdinalIgnoreCase))
+                {
+                    Interlocked.Increment(ref usersAuthCalls);
+                    return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                    {
+                        Content = new StringContent("{\"id\":707,\"name\":\"NoDupRebindUser\"}")
+                    });
+                }
+
+                if (uri.Contains("/v1/authentication-ticket", StringComparison.OrdinalIgnoreCase) &&
+                    !uri.Contains("/redeem", StringComparison.OrdinalIgnoreCase))
+                {
+                    int callNum = Interlocked.Increment(ref ticketCalls);
+                    if (callNum == 1)
+                    {
+                        // Stage 2 ticket probe fails transiently without ticket header -> falls through to Stage 3
+                        return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("{}") });
+                    }
+
+                    var ticketResp = new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("{}") };
+                    ticketResp.Headers.TryAddWithoutValidation("x-csrf-token", "csrf-launch");
+                    ticketResp.Headers.TryAddWithoutValidation("rbx-authentication-ticket", "LAUNCH_TICKET_OK");
+                    return Task.FromResult(ticketResp);
+                }
+
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("{}") });
+            }));
+
+            var acc = new Account
+            {
+                Username = "NoDupRebindUser",
+                UserID = 707,
+                SecurityToken = VpnInitialCookie,
+                BrowserTrackerID = "1234567890",
+                Valid = true
+            };
+            acc.ApplyHbaCapture(new RobloxHbaService.CaptureSnapshot
+            {
+                PrivateKeyPkcs8Base64 = privB64,
+                PublicKeySpkiBase64 = pubB64,
+                BrowserTrackerId = "1234567890"
+            });
+            acc.LastBoundIpSignature = "old_vpn_sig";
+
+            var result = await AccountLaunchService.Instance.JoinServerResultAsync(acc, 189707, "job-123");
+
+            Assert.Equal(LaunchOutcome.Success, result.Outcome);
+            Assert.Equal(1, usersAuthCalls);
         }
     }
 }
