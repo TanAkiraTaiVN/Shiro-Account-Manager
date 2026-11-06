@@ -71,24 +71,9 @@ namespace Shiro
                 Program.Logger?.Debug($"Cookie restore on startup threw: {ex.Message}");
             }
 
-            // Build the shared API boundary before child forms are created.
-            // Previously ServerList constructed its own RestClients in its
-            // constructor, which made timeout/proxy configuration diverge
-            // from the rest of the application.
-            apiClient = new RobloxApiClient();
-            MainClient = apiClient.Main;
-            AvatarClient = apiClient.Avatar;
-            AuthClient = apiClient.Auth;
-            EconClient = apiClient.Economy;
-            AccountClient = apiClient.Account;
-            GameJoinClient = apiClient.GameJoin;
-            UsersClient = apiClient.Users;
-            FriendsClient = apiClient.Friends;
-            ThumbnailsClient = apiClient.Thumbnails;
-            GamesClient = apiClient.Games;
-            DevelopClient = apiClient.Develop;
-            PresenceClient = apiClient.Presence;
-            ApiClient = apiClient.Api;
+            // Shared API boundary is owned by AppServices.RobloxApi.
+            // Keeping RobloxApiClient as the single owner prevents independent client construction
+            // and ensures consistent timeout/proxy configuration across the application.
 
             CurrentPlaceId = General.Exists("SavedPlaceId") ? (General.Get("SavedPlaceId") ?? "5315046213") : "5315046213";
 

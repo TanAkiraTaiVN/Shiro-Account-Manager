@@ -274,9 +274,9 @@ namespace Shiro.Tests
         public async Task GetUserIDAsync_HttpExecution_And_RefreshStaleCookiesAsync_CoverBranches()
         {
             var mgr = AccountManager.Instance ?? new AccountManager();
-            var prevUsersClient = AccountManager.UsersClient;
+            var prev = AppServices.RobloxApi;
             var handler = new FakeHttpHandler();
-            AccountManager.UsersClient = new RestClient(new System.Net.Http.HttpClient(handler), "https://users.roblox.com/");
+            AppServices.RobloxApi = new RobloxApiClient(handler);
 
             try
             {
@@ -326,7 +326,7 @@ namespace Shiro.Tests
             }
             finally
             {
-                AccountManager.UsersClient = prevUsersClient!;
+                AppServices.RobloxApi = prev;
                 AccountManager.ReplaceAccountsList(new List<Account>());
             }
         }

@@ -2,6 +2,7 @@
 using Shiro.Http;
 using System;
 using System.Net;
+using System.Net.Http;
 
 namespace Shiro.Services
 {
@@ -31,19 +32,19 @@ namespace Shiro.Services
         private static readonly Lazy<RobloxApiClient> _default = new(() => new RobloxApiClient());
         public static RobloxApiClient Default => _default.Value;
 
-        public RestClient Main => AccountManager.MainClient ?? _main;
-        public RestClient Avatar => AccountManager.AvatarClient ?? _avatar;
-        public RestClient Friends => AccountManager.FriendsClient ?? _friends;
-        public RestClient Users => AccountManager.UsersClient ?? _users;
-        public RestClient Auth => AccountManager.AuthClient ?? _auth;
-        public RestClient Economy => AccountManager.EconClient ?? _economy;
-        public RestClient Account => AccountManager.AccountClient ?? _account;
-        public RestClient GameJoin => AccountManager.GameJoinClient ?? _gameJoin;
-        public RestClient Thumbnails => AccountManager.ThumbnailsClient ?? _thumbnails;
-        public RestClient Games => AccountManager.GamesClient ?? _games;
-        public RestClient Develop => AccountManager.DevelopClient ?? _develop;
-        public RestClient Presence => AccountManager.PresenceClient ?? _presence;
-        public RestClient Api => AccountManager.ApiClient ?? _api;
+        public RestClient Main => _main;
+        public RestClient Avatar => _avatar;
+        public RestClient Friends => _friends;
+        public RestClient Users => _users;
+        public RestClient Auth => _auth;
+        public RestClient Economy => _economy;
+        public RestClient Account => _account;
+        public RestClient GameJoin => _gameJoin;
+        public RestClient Thumbnails => _thumbnails;
+        public RestClient Games => _games;
+        public RestClient Develop => _develop;
+        public RestClient Presence => _presence;
+        public RestClient Api => _api;
 
         private readonly RestClient _main;
         private readonly RestClient _avatar;
@@ -74,6 +75,24 @@ namespace Shiro.Services
             _develop = Create("https://develop.roblox.com/");
             _presence = Create("https://presence.roblox.com/");
             _api = Create("https://apis.roblox.com/");
+        }
+
+        internal RobloxApiClient(HttpMessageHandler handler)
+        {
+            var httpClient = new HttpClient(handler, disposeHandler: false);
+            _main = new RestClient(httpClient, "https://www.roblox.com/");
+            _avatar = new RestClient(httpClient, "https://avatar.roblox.com/");
+            _auth = new RestClient(httpClient, "https://auth.roblox.com/");
+            _economy = new RestClient(httpClient, "https://economy.roblox.com/");
+            _account = new RestClient(httpClient, "https://accountsettings.roblox.com/");
+            _gameJoin = new RestClient(httpClient, "https://gamejoin.roblox.com/", "Roblox/WinInet");
+            _users = new RestClient(httpClient, "https://users.roblox.com");
+            _friends = new RestClient(httpClient, "https://friends.roblox.com");
+            _thumbnails = new RestClient(httpClient, "https://thumbnails.roblox.com/");
+            _games = new RestClient(httpClient, "https://games.roblox.com/");
+            _develop = new RestClient(httpClient, "https://develop.roblox.com/");
+            _presence = new RestClient(httpClient, "https://presence.roblox.com/");
+            _api = new RestClient(httpClient, "https://apis.roblox.com/");
         }
 
         private static RestClient Create(string baseUrl, string? userAgent = null)

@@ -74,7 +74,7 @@ namespace Shiro
                 RestRequest request = LastValidAccount?.MakeRequest("v1/usernames/users", Method.Post) ?? new RestRequest("v1/usernames/users", Method.Post);
                 request.AddJsonBody(new UsernamesLookupPayload(new string[] { trimmedName }));
 
-                RestResponse response = await UsersClient.ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
+                RestResponse response = await AppServices.RobloxApi.Users.ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
                 if (response != null && response.StatusCode == HttpStatusCode.OK && !string.IsNullOrEmpty(response.Content))
                 {

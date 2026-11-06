@@ -48,19 +48,6 @@ namespace Shiro
             get => SelectionStateService.Default.LastValidAccount;
             set => SelectionStateService.Default.LastValidAccount = value;
         }
-        public static RestClient MainClient = null!;
-        public static RestClient AvatarClient = null!;
-        public static RestClient FriendsClient = null!;
-        public static RestClient UsersClient = null!;
-        public static RestClient AuthClient = null!;
-        public static RestClient EconClient = null!;
-        public static RestClient AccountClient = null!;
-        public static RestClient GameJoinClient = null!;
-        public static RestClient ThumbnailsClient = null!;
-        public static RestClient GamesClient = null!;
-        public static RestClient DevelopClient = null!;
-        public static RestClient PresenceClient = null!;
-        public static RestClient ApiClient = null!;
 
         public static string CurrentPlaceId
         {
@@ -145,7 +132,6 @@ namespace Shiro
         internal static readonly System.Threading.Lock AccountListLock = new();
         private readonly PresenceService presenceService;
         private readonly BrowserService browserService;
-        private RobloxApiClient? apiClient;
         private bool accountDataNeedsMigration;
 
         // Keep the value used by the launch countdown and the native launch
