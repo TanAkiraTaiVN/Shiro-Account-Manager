@@ -148,6 +148,7 @@ namespace Shiro.Services
                     catch (Exception ex) { _staticLogger.Debug($"[SessionAuditor] Read response body failed: {ex.Message}"); }
                 }
 
+                bool alertAlreadyDispatched = false;
                 if (status == AccountSessionStatus.VerificationRequired)
                 {
                     string modCode = FastLoginCoordinator.ClassifyAuthOrModerationApiPayload(responseBody, (int)response.StatusCode);
@@ -159,14 +160,18 @@ namespace Shiro.Services
                             account.AccountStatusIssue = modBadge;
                     }
 
-                    var (probedBan, probedBadge, _) = await RobloxModerationService.Instance
-                        .CheckModerationStatusAsync(account, account.SecurityToken, ct)
-                        .ConfigureAwait(false);
-                    if (probedBan)
+                    if (status != AccountSessionStatus.Moderated)
                     {
-                        status = AccountSessionStatus.Moderated;
-                        if (!string.IsNullOrEmpty(probedBadge))
-                            account.AccountStatusIssue = probedBadge;
+                        var (probedBan, probedBadge, _) = await RobloxModerationService.Instance
+                            .CheckModerationStatusAsync(account, account.SecurityToken, ct)
+                            .ConfigureAwait(false);
+                        if (probedBan)
+                        {
+                            status = AccountSessionStatus.Moderated;
+                            alertAlreadyDispatched = true;
+                            if (!string.IsNullOrEmpty(probedBadge))
+                                account.AccountStatusIssue = probedBadge;
+                        }
                     }
                 }
 
@@ -184,13 +189,16 @@ namespace Shiro.Services
                             account.AccountStatusIssue = Shiro.Services.LocalizationService.Get("FastLogin.LockedOrBannedBadge");
                         string modDetails = account.AccountStatusIssue;
                         auditMessage = $"Account {account.Username} received moderation notice: {modDetails}";
-                        WebhookNotificationService.EnqueueAlert(new WebhookAlert
+                        if (!alertAlreadyDispatched)
                         {
-                            EventType = WebhookEventType.ModerationWarning,
-                            AccountUsername = account.Username,
-                            Description = $"Account {account.Username} received moderation notice: {modDetails}",
-                            Timestamp = DateTimeOffset.UtcNow
-                        });
+                            WebhookNotificationService.EnqueueAlert(new WebhookAlert
+                            {
+                                EventType = WebhookEventType.ModerationWarning,
+                                AccountUsername = account.Username,
+                                Description = $"Account {account.Username} received moderation notice: {modDetails}",
+                                Timestamp = DateTimeOffset.UtcNow
+                            });
+                        }
                     }
 
                     return new AccountSessionAuditResult

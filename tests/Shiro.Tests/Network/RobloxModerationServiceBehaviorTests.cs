@@ -128,5 +128,54 @@ namespace Shiro.Tests.Network
             Assert.True(apiBanResult.IsBanned);
             Assert.Equal(LocalizationService.Get("FastLogin.BanSevenDaysShort"), apiBanResult.IssueBadge);
         }
+
+        [Fact]
+        public void ClassifyAuthOrModerationApiPayload_MultiDigitBanDays_DoesNotMisclassifyAsShortBan()
+        {
+            Assert.Equal("ACCOUNT_BANNED", FastLoginCoordinator.ClassifyAuthOrModerationApiPayload("{\"punishmentType\":\"Ban 365 Days\"}", 200));
+            Assert.Equal("ACCOUNT_BANNED", FastLoginCoordinator.ClassifyAuthOrModerationApiPayload("{\"punishmentType\":\"Ban 21 Days\"}", 200));
+            Assert.Equal("BAN_14_DAYS", FastLoginCoordinator.ClassifyAuthOrModerationApiPayload("{\"punishmentType\":\"Ban 14 Days\"}", 200));
+            Assert.Equal("BAN_7_DAYS", FastLoginCoordinator.ClassifyAuthOrModerationApiPayload("{\"punishmentType\":\"Ban 7 Days\"}", 200));
+            Assert.Equal("BAN_3_DAYS", FastLoginCoordinator.ClassifyAuthOrModerationApiPayload("{\"punishmentType\":\"Ban 3 Days\"}", 200));
+            Assert.Equal("BAN_1_DAY", FastLoginCoordinator.ClassifyAuthOrModerationApiPayload("{\"punishmentType\":\"Ban 1 Day\"}", 200));
+        }
+
+        [Fact]
+        public async Task AuditAccountAsync_WhenModeratedOn403_DoesNotDuplicateModerationCheckOrWebhook()
+        {
+            int notApprovedCalls = 0;
+            Account.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler((req, _) =>
+            {
+                string uri = req.RequestUri!.AbsoluteUri;
+                if (uri.Contains("users.roblox.com/v1/users/authenticated", StringComparison.OrdinalIgnoreCase))
+                {
+                    return Task.FromResult(new HttpResponseMessage(HttpStatusCode.Forbidden)
+                    {
+                        Content = new StringContent("{\"errors\":[{\"code\":0,\"message\":\"Account has been moderated\"}]}")
+                    });
+                }
+
+                if (uri.Contains("usermoderation.roblox.com/v1/not-approved", StringComparison.OrdinalIgnoreCase))
+                {
+                    Interlocked.Increment(ref notApprovedCalls);
+                }
+
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("{}") });
+            }));
+
+            var acc = new Account
+            {
+                Username = "AuditModeratedUser",
+                UserID = 808,
+                SecurityToken = "_|WARNING:-DO-NOT-SHARE-THIS.--AuditCookie1234",
+                Valid = true
+            };
+
+            var auditResult = await SessionAuditorService.AuditAccountAsync(acc);
+
+            Assert.Equal(AccountSessionStatus.Moderated, auditResult.Status);
+            Assert.False(acc.Valid);
+            Assert.Equal(0, notApprovedCalls);
+        }
     }
 }

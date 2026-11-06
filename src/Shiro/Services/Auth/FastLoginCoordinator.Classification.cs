@@ -123,13 +123,13 @@ namespace Shiro.Services
                 if (!string.IsNullOrWhiteSpace(punishmentType))
                 {
                     string pt = punishmentType.Trim();
-                    if (pt.Contains("14", StringComparison.OrdinalIgnoreCase))
+                    if (ContainsExactNumber(pt, "14"))
                         return "BAN_14_DAYS";
-                    if (pt.Contains("7", StringComparison.OrdinalIgnoreCase))
+                    if (ContainsExactNumber(pt, "7"))
                         return "BAN_7_DAYS";
-                    if (pt.Contains("3", StringComparison.OrdinalIgnoreCase))
+                    if (ContainsExactNumber(pt, "3"))
                         return "BAN_3_DAYS";
-                    if (pt.Contains("1", StringComparison.OrdinalIgnoreCase))
+                    if (ContainsExactNumber(pt, "1"))
                         return "BAN_1_DAY";
                     if (pt.Contains("Delete", StringComparison.OrdinalIgnoreCase) || pt.Contains("Terminate", StringComparison.OrdinalIgnoreCase))
                         return "TERMINATED";
@@ -200,6 +200,21 @@ namespace Shiro.Services
             }
 
             return string.Empty;
+        }
+
+        private static bool ContainsExactNumber(string text, string numberToken)
+        {
+            int idx = 0;
+            while ((idx = text.IndexOf(numberToken, idx, StringComparison.Ordinal)) >= 0)
+            {
+                bool prevIsDigit = idx > 0 && char.IsAsciiDigit(text[idx - 1]);
+                int end = idx + numberToken.Length;
+                bool nextIsDigit = end < text.Length && char.IsAsciiDigit(text[end]);
+                if (!prevIsDigit && !nextIsDigit)
+                    return true;
+                idx = end;
+            }
+            return false;
         }
     }
 }
