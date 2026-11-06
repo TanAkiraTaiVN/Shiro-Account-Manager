@@ -382,35 +382,28 @@ namespace Shiro.Tests.Network
             await RobloxSettingsApiService.Instance.SetAvatarAsync(acc, "not-valid-json");
             await RobloxSettingsApiService.Instance.SetAvatarAsync(acc, "[1, 2, 3]");
 
-            var prevDialogs = AppServices.DialogService;
             var fakeDialogs = Substitute.For<IDialogService>();
-            AppServices.DialogService = fakeDialogs;
-            try
-            {
-                var handler = new FakeHttpHandler()
-                    .Enqueue(HttpStatusCode.Forbidden, "{}", ("x-csrf-token", "av-csrf"))
-                    .Enqueue(HttpStatusCode.OK, "{}")
-                    .Enqueue(HttpStatusCode.OK, "{}")
-                    .Enqueue(HttpStatusCode.OK, "{}")
-                    .Enqueue(HttpStatusCode.OK, "{\"invalidAssetIds\":[111,222]}");
+            using var _ = AppServices.Override<IDialogService>(fakeDialogs);
 
-                Account.TestHttpClientFactory = _ => new HttpClient(handler);
-                string avatarPayload = @"{
-                    ""playerAvatarType"": ""R15"",
-                    ""scales"": { ""height"": 1.0 },
-                    ""bodyColors"": { ""headColorId"": 1 },
-                    ""assets"": [ { ""id"": 111 }, { ""id"": 222 } ]
-                }";
+            var handler = new FakeHttpHandler()
+                .Enqueue(HttpStatusCode.Forbidden, "{}", ("x-csrf-token", "av-csrf"))
+                .Enqueue(HttpStatusCode.OK, "{}")
+                .Enqueue(HttpStatusCode.OK, "{}")
+                .Enqueue(HttpStatusCode.OK, "{}")
+                .Enqueue(HttpStatusCode.OK, "{\"invalidAssetIds\":[111,222]}");
 
-                await RobloxSettingsApiService.Instance.SetAvatarAsync(acc, avatarPayload);
+            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+            string avatarPayload = @"{
+                ""playerAvatarType"": ""R15"",
+                ""scales"": { ""height"": 1.0 },
+                ""bodyColors"": { ""headColorId"": 1 },
+                ""assets"": [ { ""id"": 111 }, { ""id"": 222 } ]
+            }";
 
-                Assert.Equal(5, handler.Requests.Count);
-                fakeDialogs.Received(1).OpenMissingAssetsDialog(acc, Arg.Is<long[]>(arr => arr.SequenceEqual(new long[] { 111, 222 })));
-            }
-            finally
-            {
-                AppServices.DialogService = prevDialogs;
-            }
+            await RobloxSettingsApiService.Instance.SetAvatarAsync(acc, avatarPayload);
+
+            Assert.Equal(5, handler.Requests.Count);
+            fakeDialogs.Received(1).OpenMissingAssetsDialog(acc, Arg.Is<long[]>(arr => arr.SequenceEqual(new long[] { 111, 222 })));
         }
     }
 }

@@ -36,21 +36,20 @@ namespace Shiro.Tests
             public void OpenMissingAssetsDialog(Account account, long[] assetIds) { }
         }
 
-        private readonly IDialogService _originalDialogs;
+        private readonly IDisposable _dialogsScope;
         private readonly WorkflowTestDialogService _fakeDialogs;
         private readonly AccountWorkflowService _workflow;
 
         public AccountWorkflowServiceBehaviorTests()
         {
-            _originalDialogs = AppServices.DialogService;
             _fakeDialogs = new WorkflowTestDialogService();
-            AppServices.DialogService = _fakeDialogs;
+            _dialogsScope = AppServices.Override<IDialogService>(_fakeDialogs);
             _workflow = AccountWorkflowService.Default;
         }
 
         public void Dispose()
         {
-            AppServices.DialogService = _originalDialogs;
+            _dialogsScope.Dispose();
         }
 
         [Fact]
@@ -240,7 +239,6 @@ namespace Shiro.Tests
         [Fact]
         public async Task CheckAllSessionsAsync_WithAccounts_ScansAndReportsResults()
         {
-            var origRepo = AppServices.AccountRepository;
             var origClientFactory = Account.TestHttpClientFactory;
 
             try
@@ -255,7 +253,7 @@ namespace Shiro.Tests
                 var expiredAcc = new Account { Username = "ExpiredUser", UserID = 222, SecurityToken = "_|WARNING:-token-expired", Valid = false };
 
                 mockRepo.GetAll().Returns(new List<Account> { healthyAcc, expiredAcc });
-                AppServices.AccountRepository = mockRepo;
+                using var _ = AppServices.Override<IAccountRepository>(mockRepo);
 
                 var mainVm = new MainViewModel();
                 var reportedStatuses = new List<string>();
@@ -267,7 +265,6 @@ namespace Shiro.Tests
             }
             finally
             {
-                AppServices.AccountRepository = origRepo;
                 Account.TestHttpClientFactory = origClientFactory;
             }
         }
@@ -308,13 +305,12 @@ namespace Shiro.Tests
         [Fact]
         public async Task ReLoginWithCookieAsync_ValidateSessionSelected_And_CheckAllSessions_AllBranches_Work()
         {
-            var origRepo = AppServices.AccountRepository;
             var origClientFactory = Account.TestHttpClientFactory;
 
             try
             {
                 var mockRepo = Substitute.For<IAccountRepository>();
-                AppServices.AccountRepository = mockRepo;
+                using var _ = AppServices.Override<IAccountRepository>(mockRepo);
                 var mainVm = new MainViewModel();
 
                 // 1. ReLoginWithCookieAsync: valid new cookie updates session
@@ -404,7 +400,6 @@ namespace Shiro.Tests
             }
             finally
             {
-                AppServices.AccountRepository = origRepo;
                 Account.TestHttpClientFactory = origClientFactory;
             }
         }

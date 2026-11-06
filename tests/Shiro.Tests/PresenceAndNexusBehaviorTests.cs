@@ -20,14 +20,12 @@ namespace Shiro.Tests
     public class PresenceAndNexusBehaviorTests : IDisposable
     {
         private readonly string? _originalShowPresence;
-        private readonly IRobloxApiClient _originalRobloxApi;
 
         public PresenceAndNexusBehaviorTests()
         {
             AccountManager.IniSettings ??= new IniFile();
             AccountManager.General ??= AccountManager.IniSettings.Section("General");
             _originalShowPresence = AppSettings.General.Get("ShowPresence");
-            _originalRobloxApi = AppServices.RobloxApi;
             AppSettings.General.Set("ShowPresence", "true");
         }
 
@@ -37,8 +35,6 @@ namespace Shiro.Tests
                 AppSettings.General.Set("ShowPresence", _originalShowPresence);
             else
                 AppSettings.General.Set("ShowPresence", "true");
-
-            AppServices.RobloxApi = _originalRobloxApi;
         }
 
         [Fact]
@@ -197,7 +193,6 @@ namespace Shiro.Tests
         [Fact]
         public async Task Presence_UpdateAndGetPresence_ExecutesNetworkAndCachesGameNames()
         {
-            var prevApi = AppServices.RobloxApi;
             RobloxRateLimitCoordinator.Instance.ResetBackoff();
             var mockApi = Substitute.For<IRobloxApiClient>();
 
@@ -217,7 +212,7 @@ namespace Shiro.Tests
             var gamesClient = new RestClient(new HttpClient(gamesHandler), "https://games.roblox.com/");
             mockApi.Games.Returns(gamesClient);
 
-            AppServices.RobloxApi = mockApi;
+            using var _ = AppServices.Override<IRobloxApiClient>(mockApi);
 
             var testAccount = new Account
             {
@@ -261,7 +256,6 @@ namespace Shiro.Tests
             }
             finally
             {
-                AppServices.RobloxApi = prevApi;
                 RobloxRateLimitCoordinator.Instance.ResetBackoff();
                 AccountRepository.Default.Remove(testAccount);
                 lock (AccountManager.AccountListLock)

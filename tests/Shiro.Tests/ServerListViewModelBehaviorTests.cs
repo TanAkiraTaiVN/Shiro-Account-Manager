@@ -430,24 +430,16 @@ namespace Shiro.Tests
                     Region = "North America"
                 }));
 
-            var origQuery = AppServices.RobloxServerQueryService;
-            AppServices.RobloxServerQueryService = queryMock;
-            try
-            {
-                await ((AsyncRelayCommand)vm.LoadRegionCommand).ExecuteAsync(server);
-                Assert.Equal("1.2.3.4", server.Ip);
-                Assert.Equal(35, server.Ping);
-                Assert.Equal("North America", server.Region);
+            using var _ = AppServices.Override<IRobloxServerQueryService>(queryMock);
+            await ((AsyncRelayCommand)vm.LoadRegionCommand).ExecuteAsync(server);
+            Assert.Equal("1.2.3.4", server.Ip);
+            Assert.Equal(35, server.Ping);
+            Assert.Equal("North America", server.Region);
 
-                // LoadAllRegionsCommand with servers
-                vm.SetRawServers(new[] { server, new ServerItemViewModel { JobId = "job-2", Type = "Public", RawData = new ServerData { id = "job-2" } } });
-                await ((AsyncRelayCommand)vm.LoadAllRegionsCommand).ExecuteAsync(null);
-                Assert.Equal(LocalizationService.Get("ServerList.RegionsLoadedComplete"), vm.LoadingStatus);
-            }
-            finally
-            {
-                AppServices.RobloxServerQueryService = origQuery;
-            }
+            // LoadAllRegionsCommand with servers
+            vm.SetRawServers(new[] { server, new ServerItemViewModel { JobId = "job-2", Type = "Public", RawData = new ServerData { id = "job-2" } } });
+            await ((AsyncRelayCommand)vm.LoadAllRegionsCommand).ExecuteAsync(null);
+            Assert.Equal(LocalizationService.Get("ServerList.RegionsLoadedComplete"), vm.LoadingStatus);
         }
     }
 }

@@ -196,9 +196,8 @@ namespace Shiro.Tests
         public async Task OfferResumeReloginQueue_And_RestartWebServerCatch_CoverRemainingBranches()
         {
             var snap = StaticSettingsSnapshot.Capture();
-            var prevDialogs = AppServices.DialogService;
             var dialogSub = Substitute.For<IDialogService>();
-            AppServices.DialogService = dialogSub;
+            using var _ = AppServices.Override<IDialogService>(dialogSub);
             bool prevSuppress = AccountManager.SuppressExitOnShutdown;
             int prevDelay = AccountManager.OfferResumeDelayMilliseconds;
             AccountManager.OfferResumeDelayMilliseconds = 1;
@@ -248,7 +247,6 @@ namespace Shiro.Tests
             finally
             {
                 tempMgr?.Dispose();
-                AppServices.DialogService = prevDialogs;
                 ReloginQueueStore.Clear();
                 AccountManager.ReplaceAccountsList(new List<Account>());
                 AccountManager.OfferResumeDelayMilliseconds = prevDelay;

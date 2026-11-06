@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Collections.Generic;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Shiro.Services
@@ -11,7 +12,9 @@ namespace Shiro.Services
     public static class AppServices
     {
         private static IServiceProvider? _serviceProvider;
+        private static IServiceCollection? _currentServices;
         private static readonly System.Threading.Lock _initLock = new();
+        private static readonly Stack<OverrideScope> _overrideStack = new();
 
         public static IServiceProvider ServiceProvider
         {
@@ -54,7 +57,71 @@ namespace Shiro.Services
 
                 configureExtra?.Invoke(services);
 
+                _currentServices = services;
                 _serviceProvider = services.BuildServiceProvider();
+            }
+        }
+
+        internal static IDisposable Override<T>(T instance) where T : class
+        {
+            ArgumentNullException.ThrowIfNull(instance);
+
+            lock (_initLock)
+            {
+                if (_serviceProvider == null)
+                    EnsureInitialized();
+
+                var previousProvider = _serviceProvider!;
+                var previousServices = _currentServices ?? new ServiceCollection();
+
+                IServiceCollection newServices = new ServiceCollection();
+                foreach (var descriptor in previousServices)
+                {
+                    if (descriptor.ServiceType == typeof(T))
+                        continue;
+                    newServices.Add(descriptor);
+                }
+
+                newServices.AddSingleton<T>(instance);
+
+                var scope = new OverrideScope(previousProvider, previousServices);
+                _overrideStack.Push(scope);
+
+                _currentServices = newServices;
+                _serviceProvider = newServices.BuildServiceProvider();
+
+                return scope;
+            }
+        }
+
+        private sealed class OverrideScope : IDisposable
+        {
+            private readonly IServiceProvider _previousProvider;
+            private readonly IServiceCollection _previousServices;
+            private bool _disposed;
+
+            public OverrideScope(IServiceProvider previousProvider, IServiceCollection previousServices)
+            {
+                _previousProvider = previousProvider;
+                _previousServices = previousServices;
+            }
+
+            public void Dispose()
+            {
+                lock (_initLock)
+                {
+                    if (_disposed) return;
+
+                    if (_overrideStack.Count == 0 || _overrideStack.Peek() != this)
+                    {
+                        throw new InvalidOperationException("Service override scopes must be disposed in reverse order of creation (LIFO).");
+                    }
+
+                    _overrideStack.Pop();
+                    _serviceProvider = _previousProvider;
+                    _currentServices = _previousServices;
+                    _disposed = true;
+                }
             }
         }
 
@@ -63,136 +130,25 @@ namespace Shiro.Services
         public static T GetRequiredService<T>() where T : class => ServiceProvider.GetRequiredService<T>();
 
         // Strongly-typed static convenience accessors resolving directly from DI
-        public static IAccountRepository AccountRepository
-        {
-            get => GetRequiredService<IAccountRepository>();
-            set => ReplaceService(value);
-        }
-
-        public static IRobloxApiClient RobloxApi
-        {
-            get => GetRequiredService<IRobloxApiClient>();
-            set => ReplaceService(value);
-        }
-
-        public static IRobloxSessionService RobloxSessionService
-        {
-            get => GetRequiredService<IRobloxSessionService>();
-            set => ReplaceService(value);
-        }
-
-        public static IRobloxLauncherService RobloxLauncherService
-        {
-            get => GetRequiredService<IRobloxLauncherService>();
-            set => ReplaceService(value);
-        }
-
-        public static IDialogService DialogService
-        {
-            get => GetRequiredService<IDialogService>();
-            set => ReplaceService(value);
-        }
-
+        public static IAccountRepository AccountRepository => GetRequiredService<IAccountRepository>();
+        public static IRobloxApiClient RobloxApi => GetRequiredService<IRobloxApiClient>();
+        public static IRobloxSessionService RobloxSessionService => GetRequiredService<IRobloxSessionService>();
+        public static IRobloxLauncherService RobloxLauncherService => GetRequiredService<IRobloxLauncherService>();
+        public static IDialogService DialogService => GetRequiredService<IDialogService>();
         public static IDialogService Dialogs => DialogService;
-
-        public static IUserPrompt Prompt
-        {
-            get => GetRequiredService<IUserPrompt>();
-            set => ReplaceService(value);
-        }
-
-        public static AccountWorkflowService AccountWorkflowService
-        {
-            get => GetRequiredService<AccountWorkflowService>();
-            set => ReplaceService(value);
-        }
-
-        public static IRobloxServerQueryService RobloxServerQueryService
-        {
-            get => GetRequiredService<IRobloxServerQueryService>();
-            set => ReplaceService(value);
-        }
-
-        public static BrowserService BrowserService
-        {
-            get => GetRequiredService<BrowserService>();
-            set => ReplaceService(value);
-        }
-
-        public static ISelectionStateService SelectionState
-        {
-            get => GetRequiredService<ISelectionStateService>();
-            set => ReplaceService(value);
-        }
-
-        public static IServerBrowserStateService ServerBrowserState
-        {
-            get => GetRequiredService<IServerBrowserStateService>();
-            set => ReplaceService(value);
-        }
-
-        public static IHostUiBridgeService HostUiBridge
-        {
-            get => GetRequiredService<IHostUiBridgeService>();
-            set => ReplaceService(value);
-        }
-
-        public static IBloxGenService BloxGen
-        {
-            get => GetRequiredService<IBloxGenService>();
-            set => ReplaceService(value);
-        }
-
-        public static IToastNotifier Toasts
-        {
-            get => GetRequiredService<IToastNotifier>();
-            set => ReplaceService(value);
-        }
-
-        public static IAppLogger Logger
-        {
-            get => _serviceProvider?.GetService<IAppLogger>() ?? Program.Logger;
-            set => ReplaceService(value);
-        }
-
-        public static ISettingsService GeneralSettings
-        {
-            get => _serviceProvider?.GetService<ISettingsService>() ?? (ISettingsService?)AppSettings.General ?? new IniSection("General");
-            set => ReplaceService(value);
-        }
-
+        public static IUserPrompt Prompt => GetRequiredService<IUserPrompt>();
+        public static AccountWorkflowService AccountWorkflowService => GetRequiredService<AccountWorkflowService>();
+        public static IRobloxServerQueryService RobloxServerQueryService => GetRequiredService<IRobloxServerQueryService>();
+        public static BrowserService BrowserService => GetRequiredService<BrowserService>();
+        public static ISelectionStateService SelectionState => GetRequiredService<ISelectionStateService>();
+        public static IServerBrowserStateService ServerBrowserState => GetRequiredService<IServerBrowserStateService>();
+        public static IHostUiBridgeService HostUiBridge => GetRequiredService<IHostUiBridgeService>();
+        public static IBloxGenService BloxGen => GetRequiredService<IBloxGenService>();
+        public static IToastNotifier Toasts => GetRequiredService<IToastNotifier>();
+        public static IAppLogger Logger => _serviceProvider?.GetService<IAppLogger>() ?? Program.Logger;
+        public static ISettingsService GeneralSettings => _serviceProvider?.GetService<ISettingsService>() ?? (ISettingsService?)AppSettings.General ?? new IniSection("General");
         public static ISettingsService? WatcherSettings => AppSettings.Watcher;
-
         public static void SaveSettings() => AppSettings.Save();
-
         public static AppSettings Settings => GetRequiredService<AppSettings>();
-
-        private static void ReplaceService<T>(T instance) where T : class
-        {
-            lock (_initLock)
-            {
-                var services = new ServiceCollection();
-
-                services.AddSingleton<IAppLogger>((instance as IAppLogger) ?? Logger);
-                services.AddSingleton<ISettingsService>((instance as ISettingsService) ?? GeneralSettings);
-                services.AddSingleton<IAccountRepository>((instance as IAccountRepository) ?? AccountRepository);
-                services.AddSingleton<IRobloxApiClient>((instance as IRobloxApiClient) ?? RobloxApi);
-                services.AddSingleton<IRobloxSessionService>((instance as IRobloxSessionService) ?? RobloxSessionService);
-                services.AddSingleton<IRobloxLauncherService>((instance as IRobloxLauncherService) ?? RobloxLauncherService);
-                services.AddSingleton<IDialogService>((instance as IDialogService) ?? DialogService);
-                services.AddSingleton<IUserPrompt>((instance as IUserPrompt) ?? Prompt);
-                services.AddSingleton<AccountWorkflowService>((instance as AccountWorkflowService) ?? AccountWorkflowService);
-                services.AddSingleton<IRobloxServerQueryService>((instance as IRobloxServerQueryService) ?? RobloxServerQueryService);
-                services.AddSingleton<BrowserService>((instance as BrowserService) ?? BrowserService);
-                services.AddSingleton<ISelectionStateService>((instance as ISelectionStateService) ?? SelectionState);
-                services.AddSingleton<IServerBrowserStateService>((instance as IServerBrowserStateService) ?? ServerBrowserState);
-                services.AddSingleton<IHostUiBridgeService>((instance as IHostUiBridgeService) ?? HostUiBridge);
-                services.AddSingleton<IBloxGenService>((instance as IBloxGenService) ?? BloxGen);
-                services.AddSingleton<IToastNotifier>((instance as IToastNotifier) ?? Toasts);
-                services.AddSingleton<AppSettings>(AppSettings.Current);
-
-                _serviceProvider = services.BuildServiceProvider();
-            }
-        }
     }
 }

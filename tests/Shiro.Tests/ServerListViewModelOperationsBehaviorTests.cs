@@ -111,9 +111,8 @@ namespace Shiro.Tests
             mainVm.Accounts.Add(new AccountViewModel(acc));
             mainVm.Accounts[0].IsSelected = true;
 
-            var origQuery = AppServices.RobloxServerQueryService;
             var queryMock = Substitute.For<IRobloxServerQueryService>();
-            AppServices.RobloxServerQueryService = queryMock;
+            using var _ = AppServices.Override<IRobloxServerQueryService>(queryMock);
 
             try
             {
@@ -226,7 +225,6 @@ namespace Shiro.Tests
             }
             finally
             {
-                AppServices.RobloxServerQueryService = origQuery;
             }
         }
 

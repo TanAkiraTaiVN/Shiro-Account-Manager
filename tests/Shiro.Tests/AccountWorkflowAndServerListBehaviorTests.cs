@@ -37,21 +37,20 @@ namespace Shiro.Tests
             public void OpenMissingAssetsDialog(Account account, long[] assetIds) { }
         }
 
-        private readonly IDialogService _prevDialogs;
+        private readonly IDisposable _dialogsScope;
         private readonly FakeDialogService _fakeDialogs;
         private readonly AccountWorkflowService _workflow;
 
         public AccountWorkflowAndServerListBehaviorTests()
         {
-            _prevDialogs = AppServices.DialogService;
             _fakeDialogs = new FakeDialogService();
-            AppServices.DialogService = _fakeDialogs;
+            _dialogsScope = AppServices.Override<IDialogService>(_fakeDialogs);
             _workflow = AccountWorkflowService.Default;
         }
 
         public void Dispose()
         {
-            AppServices.DialogService = _prevDialogs;
+            _dialogsScope.Dispose();
         }
 
         [Fact]

@@ -15,22 +15,8 @@ using Xunit;
 namespace Shiro.Tests
 {
     [Collection("SerialGlobalState")]
-    public class ServerListPlayerSearchBehaviorTests : IDisposable
+    public class ServerListPlayerSearchBehaviorTests
     {
-        private readonly IAccountRepository _originalRepo;
-        private readonly IRobloxApiClient _originalApi;
-
-        public ServerListPlayerSearchBehaviorTests()
-        {
-            _originalRepo = AppServices.AccountRepository;
-            _originalApi = AppServices.RobloxApi;
-        }
-
-        public void Dispose()
-        {
-            AppServices.AccountRepository = _originalRepo;
-            AppServices.RobloxApi = _originalApi;
-        }
 
         private static async Task WaitForSearchCompletion(ServerListViewModel vm, int maxWaitMs = 3000)
         {
@@ -47,7 +33,7 @@ namespace Shiro.Tests
             var mockRepo = Substitute.For<IAccountRepository>();
             mockRepo.LookupUserIdAsync("MissingUser", Arg.Any<CancellationToken>())
                 .Returns(Task.FromResult((false, -1L, (RestResponse?)null)));
-            AppServices.AccountRepository = mockRepo;
+            using var _repoScope = AppServices.Override<IAccountRepository>(mockRepo);
 
             var mainVm = new MainViewModel();
             var vm = mainVm.ServerListViewModel;
@@ -67,13 +53,13 @@ namespace Shiro.Tests
             var mockRepo = Substitute.For<IAccountRepository>();
             mockRepo.LookupUserIdAsync("AvatarFailUser", Arg.Any<CancellationToken>())
                 .Returns(Task.FromResult((true, 55555L, (RestResponse?)null)));
-            AppServices.AccountRepository = mockRepo;
+            using var _repoScope = AppServices.Override<IAccountRepository>(mockRepo);
 
             var mockApi = Substitute.For<IRobloxApiClient>();
             var thumbHandler = new FakeHttpHandler().Enqueue(HttpStatusCode.InternalServerError, "Error");
             var thumbClient = new RestClient(new HttpClient(thumbHandler), "https://thumbnails.roblox.com/");
             mockApi.Thumbnails.Returns(thumbClient);
-            AppServices.RobloxApi = mockApi;
+            using var _apiScope = AppServices.Override<IRobloxApiClient>(mockApi);
 
             var mainVm = new MainViewModel();
             var vm = mainVm.ServerListViewModel;
@@ -93,7 +79,7 @@ namespace Shiro.Tests
             var mockRepo = Substitute.For<IAccountRepository>();
             mockRepo.LookupUserIdAsync("OnlinePlayer", Arg.Any<CancellationToken>())
                 .Returns(Task.FromResult((true, 77777L, (RestResponse?)null)));
-            AppServices.AccountRepository = mockRepo;
+            using var _repoScope = AppServices.Override<IAccountRepository>(mockRepo);
 
             var mockApi = Substitute.For<IRobloxApiClient>();
 
@@ -114,7 +100,7 @@ namespace Shiro.Tests
             var gamesClient = new RestClient(new HttpClient(gamesHandler), "https://games.roblox.com/");
             mockApi.Games.Returns(gamesClient);
 
-            AppServices.RobloxApi = mockApi;
+            using var _apiScope = AppServices.Override<IRobloxApiClient>(mockApi);
 
             var mainVm = new MainViewModel();
             var vm = mainVm.ServerListViewModel;
@@ -136,7 +122,7 @@ namespace Shiro.Tests
             var mockRepo = Substitute.For<IAccountRepository>();
             mockRepo.LookupUserIdAsync("OnlinePlayerNotInGame", Arg.Any<CancellationToken>())
                 .Returns(Task.FromResult((true, 66666L, (RestResponse?)null)));
-            AppServices.AccountRepository = mockRepo;
+            using var _repoScope = AppServices.Override<IAccountRepository>(mockRepo);
 
             var mockApi = Substitute.For<IRobloxApiClient>();
 
@@ -154,7 +140,7 @@ namespace Shiro.Tests
             var gamesClient = new RestClient(new HttpClient(gamesHandler), "https://games.roblox.com/");
             mockApi.Games.Returns(gamesClient);
 
-            AppServices.RobloxApi = mockApi;
+            using var _apiScope = AppServices.Override<IRobloxApiClient>(mockApi);
 
             var mainVm = new MainViewModel();
             var vm = mainVm.ServerListViewModel;

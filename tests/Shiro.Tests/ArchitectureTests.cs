@@ -405,8 +405,7 @@ namespace Shiro.Tests
             var classesDir = Path.Combine(repoRoot!, "src", "Shiro", "Classes");
             var avaloniaDir = Path.Combine(repoRoot!, "src", "Shiro", "AvaloniaUI");
             var files = Directory.GetFiles(servicesDir, "*.cs", SearchOption.AllDirectories)
-                .Where(f => !f.EndsWith("AccountRepository.cs", StringComparison.OrdinalIgnoreCase) &&
-                            !f.EndsWith("RobloxApiClient.cs", StringComparison.OrdinalIgnoreCase))
+                .Where(f => !f.EndsWith("AccountRepository.cs", StringComparison.OrdinalIgnoreCase))
                 .Concat(Directory.GetFiles(viewModelsDir, "*.cs", SearchOption.AllDirectories))
                 .Concat(Directory.GetFiles(classesDir, "*.cs", SearchOption.AllDirectories))
                 .Concat(Directory.GetFiles(avaloniaDir, "*.cs", SearchOption.AllDirectories))

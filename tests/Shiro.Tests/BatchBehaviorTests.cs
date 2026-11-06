@@ -16,18 +16,15 @@ namespace Shiro.Tests
     [Collection("SerialGlobalState")]
     public class BatchBehaviorTests : IDisposable
     {
-        private readonly IRobloxApiClient _previousApi;
         private readonly Account? _previousValidAcc;
 
         public BatchBehaviorTests()
         {
-            _previousApi = AppServices.RobloxApi;
             _previousValidAcc = AppSettings.LastValidAccount;
         }
 
         public void Dispose()
         {
-            AppServices.RobloxApi = _previousApi;
             AppSettings.LastValidAccount = _previousValidAcc;
             AppSettings.General.Set("DisableImages", "false");
         }
@@ -78,7 +75,7 @@ namespace Shiro.Tests
 
             mockApi.Thumbnails.Returns(thumbClient);
             mockApi.Games.Returns(gamesClient);
-            AppServices.RobloxApi = mockApi;
+            using var _ = AppServices.Override<IRobloxApiClient>(mockApi);
 
             AppSettings.LastValidAccount = new Account { SecurityToken = "dummy_token" };
 

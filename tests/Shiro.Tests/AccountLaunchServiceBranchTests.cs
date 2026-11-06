@@ -554,7 +554,7 @@ namespace Shiro.Tests
                 apiSub.Main.Returns(prevApi.Main);
                 apiSub.Api.Returns(prevApi.Api);
                 apiSub.Auth.Returns(prevApi.Auth);
-                AppServices.RobloxApi = apiSub;
+                using var _ = AppServices.Override<IRobloxApiClient>(apiSub);
 
                 AppSettings.ShuffleJobId = true;
                 var shuffleAcc = new Account { Username = "ShuffleUser", UserID = 334455 };
@@ -609,7 +609,6 @@ namespace Shiro.Tests
             finally
             {
                 AppSettings.ShuffleJobId = origShuffle;
-                AppServices.RobloxApi = prevApi;
                 Account.TestHttpClientFactory = prevHttpFactory;
                 AutoReconnectService.Instance.Clear();
                 ResetOverrides();

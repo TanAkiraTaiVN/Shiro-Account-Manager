@@ -85,24 +85,16 @@ namespace Shiro.Tests
             var mockRobloxApi = Substitute.For<IRobloxApiClient>();
             mockRobloxApi.Games.Returns(_ => throw new InvalidOperationException("Simulated network outage"));
 
-            var originalApi = AppServices.RobloxApi;
-            try
+            using var _ = AppServices.Override<IRobloxApiClient>(mockRobloxApi);
+            var vm = new ServerListViewModel(null, mockLogger, null)
             {
-                AppServices.RobloxApi = mockRobloxApi;
-                var vm = new ServerListViewModel(null, mockLogger, null)
-                {
-                    PlaceIdInput = "123456"
-                };
+                PlaceIdInput = "123456"
+            };
 
-                await vm.RefreshServersAsync();
+            await vm.RefreshServersAsync();
 
-                Assert.Equal(0, vm.TotalServersCount);
-                mockLogger.Received().Error(Arg.Is<object>(o => o.ToString()!.Contains("[RefreshServersAsync]")));
-            }
-            finally
-            {
-                AppServices.RobloxApi = originalApi;
-            }
+            Assert.Equal(0, vm.TotalServersCount);
+            mockLogger.Received().Error(Arg.Is<object>(o => o.ToString()!.Contains("[RefreshServersAsync]")));
         }
     }
 }

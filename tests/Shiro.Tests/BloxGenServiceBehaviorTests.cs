@@ -21,9 +21,6 @@ namespace Shiro.Tests
         private readonly IAppLogger _loggerMock;
         private readonly InMemorySettingsService _settings;
         private readonly BloxGenService _service;
-        private readonly IAccountRepository _originalRepo;
-        private readonly IHostUiBridgeService _originalBridge;
-
         public BloxGenServiceBehaviorTests()
         {
             _fakeHttp = new FakeHttpHandler();
@@ -34,17 +31,12 @@ namespace Shiro.Tests
             _loggerMock = Substitute.For<IAppLogger>();
             _settings = new InMemorySettingsService();
             _service = new BloxGenService(_httpClient, _loggerMock, _settings);
-
-            _originalRepo = AppServices.AccountRepository;
-            _originalBridge = AppServices.HostUiBridge;
         }
 
         public void Dispose()
         {
             _httpClient.Dispose();
             _fakeHttp.Dispose();
-            AppServices.AccountRepository = _originalRepo;
-            AppServices.HostUiBridge = _originalBridge;
         }
 
         [Fact]
@@ -231,8 +223,8 @@ namespace Shiro.Tests
         {
             var repoMock = Substitute.For<IAccountRepository>();
             var bridgeMock = Substitute.For<IHostUiBridgeService>();
-            AppServices.AccountRepository = repoMock;
-            AppServices.HostUiBridge = bridgeMock;
+            using var _repoScope = AppServices.Override<IAccountRepository>(repoMock);
+            using var _bridgeScope = AppServices.Override<IHostUiBridgeService>(bridgeMock);
 
             var item = new BloxGenAccountItem
             {

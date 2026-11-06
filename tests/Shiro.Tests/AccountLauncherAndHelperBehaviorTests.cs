@@ -86,10 +86,9 @@ namespace Shiro.Tests
         [Fact]
         public async Task GetRandomJobId_ChooseLowest_MultiPage_And_CachedFallback_CoverBranches()
         {
-            var prev = AppServices.RobloxApi;
             var prevCached = ServerBrowserStateService.Default.CachedServers;
             var handler = new Shiro.Tests.TestInfrastructure.FakeHttpHandler();
-            AppServices.RobloxApi = new RobloxApiClient(handler);
+            using var _ = AppServices.Override<IRobloxApiClient>(new RobloxApiClient(handler));
 
             try
             {
@@ -119,7 +118,6 @@ namespace Shiro.Tests
             }
             finally
             {
-                AppServices.RobloxApi = prev;
                 ServerBrowserStateService.Default.CachedServers = prevCached;
             }
         }

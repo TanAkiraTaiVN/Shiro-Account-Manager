@@ -10,19 +10,8 @@ using Xunit;
 namespace Shiro.Tests
 {
     [Collection("SerialGlobalState")]
-    public class FastLoginCoordinatorBehaviorTests : IDisposable
+    public class FastLoginCoordinatorBehaviorTests
     {
-        private readonly IAccountRepository _previousRepo;
-
-        public FastLoginCoordinatorBehaviorTests()
-        {
-            _previousRepo = AppServices.AccountRepository;
-        }
-
-        public void Dispose()
-        {
-            AppServices.AccountRepository = _previousRepo;
-        }
 
         [Fact]
         public void FingerprintCookie_ProducesSha256Hex()
@@ -93,7 +82,7 @@ namespace Shiro.Tests
         public async Task ProcessCapturedSessionAsync_ValidSessionSuccess_UpdatesFieldsAndSaves()
         {
             var repo = Substitute.For<IAccountRepository>();
-            AppServices.AccountRepository = repo;
+            using var _ = AppServices.Override<IAccountRepository>(repo);
 
             var acc = new Account { Username = "shiro_user", SecurityToken = "old_token", Valid = true };
             var result = await FastLoginCoordinator.ProcessCapturedSessionAsync(

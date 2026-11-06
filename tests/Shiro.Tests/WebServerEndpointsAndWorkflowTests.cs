@@ -287,9 +287,8 @@ namespace Shiro.Tests
         [Fact]
         public void AccountWorkflowService_SynchronousOperations_WorkWithMockDialogs()
         {
-            var originalDialog = AppServices.DialogService;
             var fakeDialog = new FakeDialogService();
-            AppServices.DialogService = fakeDialog;
+            using var _ = AppServices.Override<IDialogService>(fakeDialog);
 
             var oldAccounts = AccountManager.GetAccountsSnapshot().ToList();
             try
@@ -428,7 +427,6 @@ namespace Shiro.Tests
             }
             finally
             {
-                AppServices.DialogService = originalDialog;
                 lock (AccountManager.AccountListLock)
                 {
                     AccountManager.ResetAccountsForTests(Array.Empty<Account>());

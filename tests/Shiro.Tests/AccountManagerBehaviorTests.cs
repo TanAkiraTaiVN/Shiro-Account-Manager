@@ -269,9 +269,8 @@ namespace Shiro.Tests
             var oldCoordinator = mgr.launchCoordinator;
             var fakeCoord = new FakeLaunchCoordinator();
             mgr.launchCoordinator = fakeCoord;
-            var prevDialog = AppServices.DialogService;
             var dialogSub = Substitute.For<IDialogService>();
-            AppServices.DialogService = dialogSub;
+            using var _ = AppServices.Override<IDialogService>(dialogSub);
 
             var acc1 = new Account { Username = "ModAcc1", UserID = 1001, Valid = true, SecurityToken = "tok1" };
             var acc2 = new Account { Username = "ModAcc2", UserID = 1002, Valid = true, SecurityToken = "tok2" };
@@ -344,7 +343,6 @@ namespace Shiro.Tests
             finally
             {
                 mgr.launchCoordinator = oldCoordinator;
-                AppServices.DialogService = prevDialog;
                 AccountManager.ReplaceAccountsList(new List<Account>());
             }
         }

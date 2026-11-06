@@ -265,9 +265,8 @@ namespace Shiro.Tests
         public async Task GetUserIDAsync_HttpExecution_And_RefreshStaleCookiesAsync_CoverBranches()
         {
             var mgr = AccountManager.Instance ?? new AccountManager();
-            var prev = AppServices.RobloxApi;
             var handler = new FakeHttpHandler();
-            AppServices.RobloxApi = new RobloxApiClient(handler);
+            using var _ = AppServices.Override<IRobloxApiClient>(new RobloxApiClient(handler));
 
             try
             {
@@ -317,7 +316,6 @@ namespace Shiro.Tests
             }
             finally
             {
-                AppServices.RobloxApi = prev;
                 AccountManager.ReplaceAccountsList(new List<Account>());
             }
         }
@@ -332,10 +330,9 @@ namespace Shiro.Tests
             string tempBackupsDir = Path.Combine(tempDir, "Backups");
 
             var prevStore = AccountManager.accountStore;
-            var prevDialogs = AppServices.DialogService;
             var prevPrompt = AccountManager.TestPasswordPromptAsync;
             var dialogSub = Substitute.For<IDialogService>();
-            AppServices.DialogService = dialogSub;
+            using var _dialogScope = AppServices.Override<IDialogService>(dialogSub);
             AccountManager.accountStore = new AccountStore(tempAccFile, tempBackupsDir);
 
             try
@@ -448,7 +445,6 @@ namespace Shiro.Tests
             {
                 AccountManager.TestPasswordPromptAsync = prevPrompt;
                 AccountManager.accountStore = prevStore;
-                AppServices.DialogService = prevDialogs;
                 AccountManager.ReplaceAccountsList(new List<Account>());
                 try { Directory.Delete(tempDir, recursive: true); } catch { /* ignore cleanup error */ }
             }
@@ -458,9 +454,8 @@ namespace Shiro.Tests
         public async Task Lifecycle_InitializePostStartup_AutoCookieRefresh_WebServer_And_OfferResume_CoverBranches()
         {
             var mgr = AccountManager.Instance ?? new AccountManager();
-            var prevDialogs = AppServices.DialogService;
             var dialogSub = Substitute.For<IDialogService>();
-            AppServices.DialogService = dialogSub;
+            using var _dialogScope = AppServices.Override<IDialogService>(dialogSub);
             int prevDelay = AccountManager.OfferResumeDelayMilliseconds;
             AccountManager.OfferResumeDelayMilliseconds = 1;
 
@@ -579,7 +574,6 @@ namespace Shiro.Tests
             {
                 AccountManager.SuppressExitOnShutdown = false;
                 AccountManager.OfferResumeDelayMilliseconds = prevDelay;
-                AppServices.DialogService = prevDialogs;
                 ReloginQueueStore.Clear();
                 AccountManager.ReplaceAccountsList(new List<Account>());
             }
