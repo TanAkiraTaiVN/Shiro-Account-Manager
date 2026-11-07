@@ -208,13 +208,8 @@ public sealed class UpdaterViewModel : DialogViewModelBase
 
         UpdateProgress(LocalizationService.Get("Updater.CompletedRestarting"), "100%", 100);
 
-        string? mainExe = Environment.ProcessPath;
-        if (string.IsNullOrEmpty(mainExe) || !File.Exists(mainExe))
-            mainExe = Path.Combine(_baseDirectory, "Shiro.exe");
-        if (!File.Exists(mainExe))
-            mainExe = Path.Combine(_baseDirectory, "Roblox Account Manager.exe");
-
-        if (File.Exists(mainExe))
+        string? mainExe = ResolveRestartExecutablePath(_baseDirectory, Environment.ProcessPath);
+        if (!string.IsNullOrEmpty(mainExe))
         {
             try
             {
@@ -227,6 +222,26 @@ public sealed class UpdaterViewModel : DialogViewModelBase
         }
 
         RequestClose(true);
+    }
+
+    internal static string? ResolveRestartExecutablePath(string baseDirectory, string? currentProcessPath)
+    {
+        string shiroExe = Path.Combine(baseDirectory, "Shiro.exe");
+        if (File.Exists(shiroExe))
+            return shiroExe;
+
+        string legacyExe = Path.Combine(baseDirectory, "Roblox Account Manager.exe");
+        if (File.Exists(legacyExe))
+            return legacyExe;
+
+        if (!string.IsNullOrEmpty(currentProcessPath) &&
+            File.Exists(currentProcessPath) &&
+            !Path.GetFileName(currentProcessPath).Equals("Auto Update.exe", StringComparison.OrdinalIgnoreCase))
+        {
+            return currentProcessPath;
+        }
+
+        return null;
     }
 
     private void UpdateProgress(string status, string percentText, int progress)

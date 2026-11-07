@@ -160,7 +160,8 @@ public sealed class UpdaterViewModelTests
         Directory.CreateDirectory(tempDir);
         try
         {
-            File.WriteAllText(Path.Combine(tempDir, "Shiro.exe"), "stub");
+            string expectedShiroExe = Path.Combine(tempDir, "Shiro.exe");
+            File.WriteAllText(expectedShiroExe, "stub");
             using var ms = new MemoryStream();
             using (var zip = new ZipArchive(ms, ZipArchiveMode.Create, leaveOpen: true))
             {
@@ -185,7 +186,7 @@ public sealed class UpdaterViewModelTests
 
             Assert.False(vm.HasError);
             Assert.Equal("verified", File.ReadAllText(Path.Combine(tempDir, "payload.txt")));
-            Assert.NotNull(restartedExe);
+            Assert.Equal(expectedShiroExe, restartedExe);
         }
         finally
         {
@@ -200,7 +201,8 @@ public sealed class UpdaterViewModelTests
         Directory.CreateDirectory(tempDir);
         try
         {
-            File.WriteAllText(Path.Combine(tempDir, "Shiro.exe"), "stub");
+            string expectedShiroExe = Path.Combine(tempDir, "Shiro.exe");
+            File.WriteAllText(expectedShiroExe, "stub");
             using var ms = new MemoryStream();
             using (var zip = new ZipArchive(ms, ZipArchiveMode.Create, leaveOpen: true))
             {
@@ -230,7 +232,39 @@ public sealed class UpdaterViewModelTests
 
             Assert.False(vm.HasError);
             Assert.Equal("verified-via-sums", File.ReadAllText(Path.Combine(tempDir, "fallback.txt")));
-            Assert.NotNull(restartedExe);
+            Assert.Equal(expectedShiroExe, restartedExe);
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir)) Directory.Delete(tempDir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void ResolveRestartExecutablePath_PrefersShiroExe_AndAvoidsAutoUpdateExe()
+    {
+        string tempDir = Path.Combine(Path.GetTempPath(), $"updater-restart-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            string autoUpdateExe = Path.Combine(tempDir, "Auto Update.exe");
+            string legacyExe = Path.Combine(tempDir, "Roblox Account Manager.exe");
+            string shiroExe = Path.Combine(tempDir, "Shiro.exe");
+            File.WriteAllText(autoUpdateExe, "updater");
+            File.WriteAllText(legacyExe, "legacy");
+            File.WriteAllText(shiroExe, "updated");
+
+            Assert.Equal(shiroExe, UpdaterViewModel.ResolveRestartExecutablePath(tempDir, autoUpdateExe));
+
+            File.Delete(shiroExe);
+            Assert.Equal(legacyExe, UpdaterViewModel.ResolveRestartExecutablePath(tempDir, autoUpdateExe));
+
+            File.Delete(legacyExe);
+            Assert.Null(UpdaterViewModel.ResolveRestartExecutablePath(tempDir, autoUpdateExe));
+
+            string customHostExe = Path.Combine(tempDir, "CustomShiro.exe");
+            File.WriteAllText(customHostExe, "custom");
+            Assert.Equal(customHostExe, UpdaterViewModel.ResolveRestartExecutablePath(tempDir, customHostExe));
         }
         finally
         {
