@@ -23,7 +23,7 @@ namespace Shiro
             if (string.IsNullOrWhiteSpace(GetCurrentSecurityToken()))
                 return false;
 
-            string currentNetSig = RobloxHbaService.GetLocalNetworkSignature();
+            string currentNetSig = RobloxHbaService.GetNetworkSignatureForAccount(this);
             string previousSig = LastBoundIpSignature;
 
             if (!force)
@@ -101,7 +101,7 @@ namespace Shiro
             if (string.IsNullOrWhiteSpace(GetCurrentSecurityToken()))
                 return false;
 
-            string currentNetSig = RobloxHbaService.GetLocalNetworkSignature();
+            string currentNetSig = RobloxHbaService.GetNetworkSignatureForAccount(this);
             int versionBefore = CookieRotationVersion;
 
             var (rotatedViaUsers, _, _) =

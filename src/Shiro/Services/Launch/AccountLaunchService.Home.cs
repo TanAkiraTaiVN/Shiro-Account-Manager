@@ -145,7 +145,7 @@ namespace Shiro.Services
 
             if (TestGetAuthTicketOverride != null)
             {
-                bool shouldForceRebind = account.HasHbaBinding && !string.Equals(account.LastBoundIpSignature, RobloxHbaService.GetLocalNetworkSignature(), StringComparison.Ordinal);
+                bool shouldForceRebind = account.HasHbaBinding && !string.Equals(account.LastBoundIpSignature, RobloxHbaService.GetNetworkSignatureForAccount(account), StringComparison.Ordinal);
                 await account.TryRebindSessionToCurrentNetworkAsync(force: shouldForceRebind, cancellationToken).ConfigureAwait(false);
             }
             (bool Success, string Ticket) ticketResult = TestGetAuthTicketOverride != null

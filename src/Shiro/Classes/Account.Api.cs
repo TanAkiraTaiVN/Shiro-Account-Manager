@@ -125,7 +125,7 @@ namespace Shiro
             LastAuthTicketRateLimited = false;
             HttpClient httpClient = GetSessionHttpClient();
             bool attemptedIpSync = false;
-            string currentSigAtStart = RobloxHbaService.GetLocalNetworkSignature();
+            string currentSigAtStart = RobloxHbaService.GetNetworkSignatureForAccount(this);
             bool wasSameNetworkAtStart =
                 !string.IsNullOrEmpty(LastBoundIpSignature) &&
                 string.Equals(LastBoundIpSignature, currentSigAtStart, StringComparison.Ordinal);

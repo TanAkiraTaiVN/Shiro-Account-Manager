@@ -39,7 +39,7 @@ namespace Shiro.AvaloniaUI.Views
 
             try
             {
-                core.AddWebResourceRequestedFilter("*://*.roblox.com/*", CoreWebView2WebResourceContext.All);
+                core.AddWebResourceRequestedFilter("https://*.roblox.com/*", CoreWebView2WebResourceContext.All);
                 core.WebResourceRequested -= OnWebResourceRequested;
                 core.WebResourceRequested += OnWebResourceRequested;
             }
@@ -71,7 +71,7 @@ namespace Shiro.AvaloniaUI.Views
                     return;
 
                 string uri = e.Request.Uri ?? string.Empty;
-                if (string.IsNullOrEmpty(uri))
+                if (!WebAuthPolicy.IsTrustedRobloxOrigin(uri))
                     return;
 
                 string method = string.IsNullOrWhiteSpace(e.Request.Method) ? "GET" : e.Request.Method;

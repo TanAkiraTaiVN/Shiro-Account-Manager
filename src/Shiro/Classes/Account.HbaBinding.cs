@@ -198,7 +198,7 @@ namespace Shiro
                 IsDirty = true;
             }
 
-            string netSig = RobloxHbaService.GetLocalNetworkSignature();
+            string netSig = RobloxHbaService.GetNetworkSignatureForAccount(this);
             if (netSig is not ("offline" or "unknown"))
                 LastBoundIpSignature = netSig;
         }

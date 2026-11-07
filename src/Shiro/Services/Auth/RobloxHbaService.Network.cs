@@ -2,6 +2,8 @@
 using System;
 using System.Collections.Generic;
 using System.Net.NetworkInformation;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace Shiro.Services
 {
@@ -23,6 +25,22 @@ namespace Shiro.Services
 
         public static string GetLocalNetworkSignature() =>
             NetworkSignatureHelper.GetLocalNetworkSignature(_logger);
+
+        public static string GetNetworkSignatureForAccount(Account? account) =>
+            GetNetworkSignatureForAccount(account, GetLocalNetworkSignature());
+
+        internal static string GetNetworkSignatureForAccount(Account? account, string localSig)
+        {
+            if (localSig is "offline" or "unknown")
+                return localSig;
+
+            string? normalizedProxy = NetworkSignatureHelper.NormalizeAccountProxyEndpoint(account?.Proxy);
+            if (normalizedProxy == null)
+                return localSig;
+
+            byte[] hash = SHA256.HashData(Encoding.UTF8.GetBytes($"{localSig}|acctproxy:{normalizedProxy}"));
+            return Convert.ToHexStringLower(hash.AsSpan(0, 12));
+        }
 
         internal static string ComputeNetworkSignature(
             IReadOnlyList<NetworkAdapterSnapshot>? adapters,

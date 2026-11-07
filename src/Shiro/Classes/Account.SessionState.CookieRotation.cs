@@ -131,7 +131,7 @@ namespace Shiro
             }
 
             Program.Logger?.Info($"[CookieRotation] Captured rotated .ROBLOSECURITY from {source} for {Username ?? "account"}. Updating stored session.");
-            string netSig = RobloxHbaService.GetLocalNetworkSignature();
+            string netSig = RobloxHbaService.GetNetworkSignatureForAccount(this);
             if (netSig is not ("offline" or "unknown"))
                 LastBoundIpSignature = netSig;
             try

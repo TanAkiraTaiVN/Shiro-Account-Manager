@@ -49,12 +49,9 @@ namespace Shiro.AvaloniaUI.Views
             _account = account ?? throw new ArgumentNullException(nameof(account));
             TxtHeaderTitle.Text = Shiro.Services.LocalizationService.Format("AccountFields.TitleFormat", account.Username);
 
-            if (_account.Fields != null)
+            foreach (var kvp in _account.GetPublicFieldsSnapshot())
             {
-                foreach (var kvp in _account.Fields)
-                {
-                    _fieldItems.Add(new AccountFieldItem(kvp.Key, kvp.Value));
-                }
+                _fieldItems.Add(new AccountFieldItem(kvp.Key, kvp.Value));
             }
 
             FieldsListBox.ItemsSource = _fieldItems;
@@ -67,6 +64,7 @@ namespace Shiro.AvaloniaUI.Views
             string val = TxtNewValue.Text?.Trim() ?? string.Empty;
 
             if (string.IsNullOrEmpty(key)) return;
+            if (Account.IsProtectedInternalField(key)) return;
 
             AccountFieldItem? existing = null;
             for (int i = 0; i < _fieldItems.Count; i++)
@@ -86,8 +84,7 @@ namespace Shiro.AvaloniaUI.Views
                 _fieldItems.Add(new AccountFieldItem(key, val));
             }
 
-            _account.Fields[key] = val;
-            AppServices.AccountRepository.QueueDeferredSave();
+            _account.SetField(key, val);
 
             TxtNewKey.Text = string.Empty;
             TxtNewValue.Text = string.Empty;
@@ -98,9 +95,9 @@ namespace Shiro.AvaloniaUI.Views
             if (_account == null) return;
             if (sender is Button btn && btn.DataContext is AccountFieldItem item)
             {
+                if (Account.IsProtectedInternalField(item.Key)) return;
                 _fieldItems.Remove(item);
-                _account.Fields.Remove(item.Key);
-                AppServices.AccountRepository.QueueDeferredSave();
+                _account.RemoveField(item.Key);
             }
         }
 

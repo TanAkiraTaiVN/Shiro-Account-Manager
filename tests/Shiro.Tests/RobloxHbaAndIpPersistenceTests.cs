@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -630,6 +631,112 @@ namespace Shiro.Tests
             int readJsonIdx = automationSource.IndexOf("WebMessageAsJson", methodIdx, StringComparison.Ordinal);
             Assert.InRange(guardIdx, methodIdx, readStringIdx - 1);
             Assert.InRange(guardIdx, methodIdx, readJsonIdx - 1);
+        }
+
+        private static string FindRepoRoot() => ArchitectureTests.RepoRoot;
+
+        [Fact]
+        public void GetNetworkSignatureForAccount_IncludesProxyHostPort_StripsCredentials_AndPreservesDirectSignature()
+        {
+            string directBase = RobloxHbaService.GetLocalNetworkSignature();
+            var directAcc = new Account { Username = "DirectUser", Proxy = "" };
+            Assert.Equal(directBase, RobloxHbaService.GetNetworkSignatureForAccount(directAcc));
+            Assert.Equal(directBase, RobloxHbaService.GetNetworkSignatureForAccount(null));
+
+            if (directBase is not ("offline" or "unknown"))
+            {
+                var proxyUriAcc1 = new Account { Username = "P1", Proxy = "http://alice:secret1@203.0.113.10:8080" };
+                var proxyUriAcc2 = new Account { Username = "P2", Proxy = "203.0.113.10:8080:bob:secret2" };
+                var proxyOtherHost = new Account { Username = "P3", Proxy = "http://203.0.113.99:8080" };
+
+                string sig1 = RobloxHbaService.GetNetworkSignatureForAccount(proxyUriAcc1);
+                string sig2 = RobloxHbaService.GetNetworkSignatureForAccount(proxyUriAcc2);
+                string sig3 = RobloxHbaService.GetNetworkSignatureForAccount(proxyOtherHost);
+
+                Assert.Equal(24, sig1.Length);
+                Assert.NotEqual(directBase, sig1);
+                Assert.Equal(sig1, sig2); // Same host:port with different credentials produces identical endpoint signature
+                Assert.NotEqual(sig1, sig3);
+            }
+
+            Assert.Equal("http://203.0.113.10:8080", NetworkSignatureHelper.NormalizeAccountProxyEndpoint("http://u:p@203.0.113.10:8080"));
+            Assert.Equal("http://203.0.113.10:8080", NetworkSignatureHelper.NormalizeAccountProxyEndpoint("203.0.113.10:8080:u:p"));
+            Assert.Equal("socks5://203.0.113.10:1080", NetworkSignatureHelper.NormalizeAccountProxyEndpoint("socks5://u:p@203.0.113.10:1080"));
+            Assert.Null(NetworkSignatureHelper.NormalizeAccountProxyEndpoint("   "));
+        }
+
+        [Fact]
+        public void FastLoginAutomation_And_AccountFieldsDialog_EnforceHttpsResourceFilterAndProtectedFieldGuard()
+        {
+            string repoRoot = FindRepoRoot();
+            string fastLogin = File.ReadAllText(Path.Combine(repoRoot, "src", "Shiro", "AvaloniaUI", "Views", "FastLoginDialog.Automation.cs"));
+            Assert.Contains("AddWebResourceRequestedFilter(\"https://*.roblox.com/*\"", fastLogin, StringComparison.Ordinal);
+            Assert.Contains("!WebAuthPolicy.IsTrustedRobloxOrigin(uri)", fastLogin, StringComparison.Ordinal);
+
+            string fieldsDialog = File.ReadAllText(Path.Combine(repoRoot, "src", "Shiro", "AvaloniaUI", "Views", "AccountFieldsDialog.axaml.cs"));
+            Assert.Contains("GetPublicFieldsSnapshot()", fieldsDialog, StringComparison.Ordinal);
+            Assert.Contains("Account.IsProtectedInternalField", fieldsDialog, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public async Task RefreshStaleCookiesAsync_WhenVpnTunnelActive_ProtectsMismatchedProxyAndAllowsMatchingProxySignature()
+        {
+            var mgr = AccountManager.Instance ?? new AccountManager();
+            int httpCalls = 0;
+            Account.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler((_, _) =>
+            {
+                Interlocked.Increment(ref httpCalls);
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("{\"id\":88002,\"name\":\"ProxyMatchedAcc\"}")
+                });
+            }));
+            RobloxHbaService.TestIsVpnTunnelActiveOverride = () => true;
+
+            var proxyMismatchAcc = new Account
+            {
+                Username = "ProxyMismatchAcc",
+                UserID = 88003,
+                SecurityToken = SampleCookie,
+                Proxy = "http://203.0.113.10:8080",
+                Valid = true,
+                LastAttemptedRefresh = DateTime.MinValue,
+                LastBoundIpSignature = "stale_previous_proxy_sig"
+            };
+
+            string matchedSig = RobloxHbaService.GetNetworkSignatureForAccount(
+                new Account { Username = "Probe", Proxy = "203.0.113.20:8080:bob:pass" });
+            var proxyMatchAcc = new Account
+            {
+                Username = "ProxyMatchedAcc",
+                UserID = 88002,
+                SecurityToken = SampleCookie,
+                Proxy = "http://alice:other@203.0.113.20:8080",
+                Valid = true,
+                LastAttemptedRefresh = DateTime.MinValue,
+                LastBoundIpSignature = matchedSig
+            };
+
+            try
+            {
+                AccountManager.ReplaceAccountsList(new System.Collections.Generic.List<Account> { proxyMismatchAcc, proxyMatchAcc });
+                await mgr.RefreshStaleCookiesAsync(CancellationToken.None);
+
+                string localSig = RobloxHbaService.GetLocalNetworkSignature();
+                if (localSig is not ("offline" or "unknown"))
+                {
+                    Assert.Equal(DateTime.MinValue, proxyMismatchAcc.LastAttemptedRefresh);
+                    Assert.NotEqual(DateTime.MinValue, proxyMatchAcc.LastAttemptedRefresh);
+                }
+                else
+                {
+                    Assert.NotEqual(DateTime.MinValue, proxyMatchAcc.LastAttemptedRefresh);
+                }
+            }
+            finally
+            {
+                AccountManager.ReplaceAccountsList(new System.Collections.Generic.List<Account>());
+            }
         }
     }
 }
