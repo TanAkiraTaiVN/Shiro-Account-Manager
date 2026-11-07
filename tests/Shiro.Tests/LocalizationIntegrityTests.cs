@@ -169,5 +169,55 @@ namespace Shiro.Tests
             string malformed = LocalizationService.Format("NonExistent_Key_999", "bad {0} {5}", "onlyOne");
             Assert.False(string.IsNullOrWhiteSpace(malformed));
         }
+
+        private static readonly HashSet<string> AllowedBilingualKeysInEnJson = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "Cap_Language",
+            "Set_Language_EN",
+            "Set_Language_VN"
+        };
+
+        private static readonly Regex VietnameseDiacriticRegex = new(
+            "[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴÈÉẸẺẼÊỀẾỆỂỄÌÍỊỈĨÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠÙÚỤỦŨƯỪỨỰỬỮỲÝỴỶỸĐ]",
+            RegexOptions.Compiled);
+
+        private static readonly Regex FormatPlaceholderRegex = new(
+            @"\{\d+(?:[:,][^}]+)?\}",
+            RegexOptions.Compiled);
+
+        [Fact]
+        public void EnJson_ShouldNotContainUntranslatedVietnameseDiacritics()
+        {
+            var enDict = JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(EnJsonPath))!;
+            var untranslated = enDict
+                .Where(kvp => !AllowedBilingualKeysInEnJson.Contains(kvp.Key) && VietnameseDiacriticRegex.IsMatch(kvp.Value))
+                .Select(kvp => $"{kvp.Key}: {kvp.Value}")
+                .ToList();
+
+            Assert.True(untranslated.Count == 0,
+                $"Found {untranslated.Count} untranslated Vietnamese entries in en.json:\n{string.Join("\n", untranslated.Take(30))}");
+        }
+
+        [Fact]
+        public void EnJson_And_ViJson_ShouldHaveMatchingFormatPlaceholders()
+        {
+            var viDict = JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(ViJsonPath))!;
+            var enDict = JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(EnJsonPath))!;
+
+            var mismatches = new List<string>();
+            foreach (var (key, viVal) in viDict)
+            {
+                if (!enDict.TryGetValue(key, out string? enVal)) continue;
+                var viTokens = FormatPlaceholderRegex.Matches(viVal).Select(m => m.Value).OrderBy(x => x).ToArray();
+                var enTokens = FormatPlaceholderRegex.Matches(enVal).Select(m => m.Value).OrderBy(x => x).ToArray();
+                if (!viTokens.SequenceEqual(enTokens))
+                {
+                    mismatches.Add($"{key}: vi=[{string.Join(", ", viTokens)}] vs en=[{string.Join(", ", enTokens)}]");
+                }
+            }
+
+            Assert.True(mismatches.Count == 0,
+                $"Format placeholder mismatches between vi.json and en.json:\n{string.Join("\n", mismatches)}");
+        }
     }
 }
