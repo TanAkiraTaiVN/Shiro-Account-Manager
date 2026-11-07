@@ -1,4 +1,5 @@
 using System;
+using System.Text.Json.Serialization.Metadata;
 using Shiro.Services;
 using Xunit;
 
@@ -303,6 +304,47 @@ namespace Shiro.Tests
             string enStr = Loc.Get(key);
             Assert.False(string.IsNullOrWhiteSpace(enStr));
             Assert.NotEqual(key, enStr);
+        }
+
+        [Fact]
+        public void FastJson_IndentedSerialize_UsesSourceGeneratedContext_WithoutReflectionResolver()
+        {
+            var items = new List<AccountExportJsonItem>
+            {
+                new("Alice", 12345, "Main", "Farming", "pw", 500, null, new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc), "tok")
+            };
+
+            JsonTypeInfo? indentedTypeInfo = FastJson.IndentedContext.GetTypeInfo(items.GetType());
+            Assert.NotNull(indentedTypeInfo);
+            Assert.True(indentedTypeInfo!.Options.WriteIndented);
+
+            string compact = FastJson.Serialize<object>(items, indented: false);
+            string pretty = FastJson.Serialize<object>(items, indented: true);
+            byte[] prettyUtf8 = FastJson.SerializeToUtf8Bytes<object>(items, indented: true);
+
+            Assert.DoesNotContain("\n", compact, StringComparison.Ordinal);
+            Assert.Contains("\n  ", pretty, StringComparison.Ordinal);
+            Assert.Equal(pretty, System.Text.Encoding.UTF8.GetString(prettyUtf8));
+        }
+
+        [Fact]
+        public void LocalizationServiceResources_UsesSourceGeneratedDictionaryTypeInfo_WithoutReflectionDeserialize()
+        {
+            string resourcesPath = System.IO.Path.Combine(
+                ArchitectureTests.RepoRoot,
+                "src", "Shiro", "Services", "Ui", "LocalizationService.Resources.cs");
+            string source = System.IO.File.ReadAllText(resourcesPath);
+
+            Assert.DoesNotContain("JsonSerializer.Deserialize<", source, StringComparison.Ordinal);
+            Assert.Contains("ShiroAppJson.Default.DictionaryStringString", source, StringComparison.Ordinal);
+
+            using var stream = new System.IO.MemoryStream(
+                System.Text.Encoding.UTF8.GetBytes("{\"Btn_OK\":\"OK\",\"Count\":42,}"));
+            var parsed = System.Text.Json.JsonSerializer.Deserialize(stream, ShiroAppJson.Default.DictionaryStringString);
+
+            Assert.NotNull(parsed);
+            Assert.Equal("OK", parsed!["Btn_OK"]);
+            Assert.Equal("42", parsed["Count"]);
         }
     }
 }

@@ -54,6 +54,16 @@ namespace Shiro.Services
 
     public static class FastJson
     {
+        private static JsonSerializerOptions CreateContextOptions(bool indented) => new()
+        {
+            PropertyNameCaseInsensitive = true,
+            ReadCommentHandling = JsonCommentHandling.Skip,
+            AllowTrailingCommas = true,
+            IncludeFields = true,
+            WriteIndented = indented,
+            Converters = { new FlexibleStringConverter() }
+        };
+
         private static JsonSerializerOptions CreateOptions(bool indented)
         {
             IJsonTypeInfoResolver resolver = JsonSerializer.IsReflectionEnabledByDefault
@@ -72,6 +82,7 @@ namespace Shiro.Services
             return options;
         }
 
+        internal static readonly ShiroAppJson IndentedContext = new(CreateContextOptions(indented: true));
         public static readonly JsonSerializerOptions DefaultOptions = CreateOptions(false);
         public static readonly JsonSerializerOptions IndentedOptions = CreateOptions(true);
 
@@ -115,7 +126,8 @@ namespace Shiro.Services
 
         public static string Serialize<T>(T value, bool indented = false)
         {
-            if (value != null && !indented && ShiroAppJson.Default.GetTypeInfo(value.GetType()) is JsonTypeInfo typeInfo)
+            var ctx = indented ? IndentedContext : ShiroAppJson.Default;
+            if (value != null && ctx.GetTypeInfo(value.GetType()) is JsonTypeInfo typeInfo)
             {
                 return JsonSerializer.Serialize(value, typeInfo);
             }
@@ -124,7 +136,8 @@ namespace Shiro.Services
 
         public static byte[] SerializeToUtf8Bytes<T>(T value, bool indented = false)
         {
-            if (value != null && !indented && ShiroAppJson.Default.GetTypeInfo(value.GetType()) is JsonTypeInfo typeInfo)
+            var ctx = indented ? IndentedContext : ShiroAppJson.Default;
+            if (value != null && ctx.GetTypeInfo(value.GetType()) is JsonTypeInfo typeInfo)
             {
                 return JsonSerializer.SerializeToUtf8Bytes(value, typeInfo);
             }

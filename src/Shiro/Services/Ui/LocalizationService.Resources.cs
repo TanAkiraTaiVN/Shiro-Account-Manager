@@ -62,7 +62,7 @@ namespace Shiro.Services
                     using var stream = assembly.GetManifestResourceStream(resourceName);
                     if (stream != null)
                     {
-                        var dict = JsonSerializer.Deserialize<Dictionary<string, string>>(stream);
+                        var dict = JsonSerializer.Deserialize(stream, ShiroAppJson.Default.DictionaryStringString);
                         if (dict != null)
                             return dict.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
                     }
