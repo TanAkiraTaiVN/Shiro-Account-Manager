@@ -229,13 +229,15 @@ namespace Shiro.Services
             return $@"
 (() => {{
     try {{
+        const h = (window.location && window.location.hostname ? window.location.hostname : '').toLowerCase();
+        if (!window.location || window.location.protocol !== 'https:' || (h !== 'roblox.com' && !h.endsWith('.roblox.com'))) return;
+
         const privB64 = '{privEscaped}';
         const pubB64 = '{pubEscaped}';
         const tpl = '{tplEscaped}';
         if (!privB64 || !window.SubtleCrypto || !SubtleCrypto.prototype) return;
 
         window.__shiroHbaState = window.__shiroHbaState || {{}};
-        window.__shiroHbaState.privateKeyPkcs8 = privB64;
         window.__shiroHbaState.authoritativeKey = true;
         if (pubB64) window.__shiroHbaState.publicKeySpki = pubB64;
         if (tpl) window.__shiroHbaState.tokenTemplate = tpl;
@@ -252,7 +254,7 @@ namespace Shiro.Services
             if (!cachedPairPromise) {{
                 cachedPairPromise = (async () => {{
                     const alg = {{ name: 'ECDSA', namedCurve: 'P-256' }};
-                    const privKey = await subtle.importKey('pkcs8', fromB64(privB64), alg, true, ['sign']);
+                    const privKey = await subtle.importKey('pkcs8', fromB64(privB64), alg, false, ['sign']);
                     let pubKey = null;
                     if (pubB64) {{
                         try {{ pubKey = await subtle.importKey('spki', fromB64(pubB64), alg, true, ['verify']); }} catch (_) {{ /* ignore */ }}

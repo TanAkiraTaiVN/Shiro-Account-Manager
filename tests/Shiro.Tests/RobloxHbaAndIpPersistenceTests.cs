@@ -581,5 +581,55 @@ namespace Shiro.Tests
                 AccountManager.ReplaceAccountsList(new System.Collections.Generic.List<Account>());
             }
         }
+
+        [Theory]
+        [InlineData("https://www.roblox.com/login", true)]
+        [InlineData("https://roblox.com/", true)]
+        [InlineData("https://auth.roblox.com/v2/login", true)]
+        [InlineData("HTTPS://WWW.ROBLOX.COM/login", true)]
+        [InlineData("http://www.roblox.com/login", false)]
+        [InlineData("https://roblox.com.evil.example/login", false)]
+        [InlineData("https://notroblox.com/login", false)]
+        [InlineData("https://.roblox.com/login", false)]
+        [InlineData("https://client-api.arkoselabs.com/fc/gc/", false)]
+        [InlineData("about:blank", false)]
+        [InlineData("", false)]
+        [InlineData(null, false)]
+        public void IsTrustedRobloxOrigin_ValidatesHttpsAndExactDomainBoundary(string? url, bool expected)
+        {
+            Assert.Equal(expected, WebAuthPolicy.IsTrustedRobloxOrigin(url));
+        }
+
+        [Fact]
+        public void GetPersistedKeyInjectionScript_EnforcesOriginGuardAndNonExtractableImport()
+        {
+            var (privB64, pubB64) = GenerateP256KeyPair();
+            string script = RobloxHbaService.GetPersistedKeyInjectionScript(privB64, pubB64, RobloxHbaService.DefaultTemplate);
+
+            Assert.Contains("location.protocol !== 'https:'", script);
+            Assert.Contains(".endsWith('.roblox.com')", script);
+            Assert.DoesNotContain("privateKeyPkcs8 =", script);
+            Assert.Contains("importKey('pkcs8', fromB64(privB64), alg, false, ['sign'])", script);
+
+            string captureScript = RobloxHbaService.GetBrowserCaptureScript();
+            Assert.Contains("location.protocol !== 'https:'", captureScript);
+            Assert.Contains(".endsWith('.roblox.com')", captureScript);
+
+            string automationPath = System.IO.Path.Combine(
+                ArchitectureTests.RepoRoot,
+                "src",
+                "Shiro",
+                "AvaloniaUI",
+                "Views",
+                "FastLoginDialog.Automation.cs");
+            string automationSource = System.IO.File.ReadAllText(automationPath);
+            int methodIdx = automationSource.IndexOf("void OnWebMessageReceived", StringComparison.Ordinal);
+            Assert.InRange(methodIdx, 0, automationSource.Length - 1);
+            int guardIdx = automationSource.IndexOf("WebAuthPolicy.IsTrustedRobloxOrigin(e.Source)", methodIdx, StringComparison.Ordinal);
+            int readStringIdx = automationSource.IndexOf("TryGetWebMessageAsString", methodIdx, StringComparison.Ordinal);
+            int readJsonIdx = automationSource.IndexOf("WebMessageAsJson", methodIdx, StringComparison.Ordinal);
+            Assert.InRange(guardIdx, methodIdx, readStringIdx - 1);
+            Assert.InRange(guardIdx, methodIdx, readJsonIdx - 1);
+        }
     }
 }

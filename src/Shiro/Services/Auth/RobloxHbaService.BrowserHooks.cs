@@ -13,6 +13,9 @@ namespace Shiro.Services
         public static string GetBrowserCaptureScript() => @"
 (() => {
     try {
+        const h = (window.location && window.location.hostname ? window.location.hostname : '').toLowerCase();
+        if (!window.location || window.location.protocol !== 'https:' || (h !== 'roblox.com' && !h.endsWith('.roblox.com'))) return;
+
         if (window.__shiroHbaHookInstalled) return;
         window.__shiroHbaHookInstalled = true;
 

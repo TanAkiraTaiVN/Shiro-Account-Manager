@@ -62,6 +62,23 @@ namespace Shiro.Services
                 System.Text.RegularExpressions.RegexOptions.CultureInvariant);
         }
 
+        /// <summary>
+        /// Validates that a WebView2 document or message source URI uses HTTPS and belongs
+        /// strictly to <c>roblox.com</c> or a subdomain of <c>.roblox.com</c>.
+        /// </summary>
+        public static bool IsTrustedRobloxOrigin(string? sourceUri)
+        {
+            if (string.IsNullOrWhiteSpace(sourceUri) ||
+                !Uri.TryCreate(sourceUri, UriKind.Absolute, out var uri) ||
+                uri.Scheme != Uri.UriSchemeHttps)
+            {
+                return false;
+            }
+
+            return string.Equals(uri.Host, "roblox.com", StringComparison.OrdinalIgnoreCase) ||
+                   uri.Host.EndsWith(".roblox.com", StringComparison.OrdinalIgnoreCase);
+        }
+
         public static int ToStatusCode(AuthDecision decision) =>
             decision switch
             {

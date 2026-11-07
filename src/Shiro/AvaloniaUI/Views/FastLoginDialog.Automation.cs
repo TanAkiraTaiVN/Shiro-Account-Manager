@@ -106,6 +106,9 @@ namespace Shiro.AvaloniaUI.Views
         {
             try
             {
+                if (e == null || !WebAuthPolicy.IsTrustedRobloxOrigin(e.Source))
+                    return;
+
                 string? raw = null;
                 try { raw = e.TryGetWebMessageAsString(); } catch (Exception ex) { Program.Logger?.Debug($"TryGetWebMessageAsString: {ex.Message}"); }
                 if (string.IsNullOrEmpty(raw))
