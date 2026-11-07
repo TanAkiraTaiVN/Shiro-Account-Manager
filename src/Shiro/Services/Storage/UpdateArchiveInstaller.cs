@@ -2,6 +2,7 @@
 using System;
 using System.IO;
 using System.IO.Compression;
+using System.Security.Cryptography;
 
 namespace Shiro.Services;
 
@@ -35,6 +36,97 @@ public static class UpdateArchiveInstaller
 
         int pct = 30 + (int)((read * 40L) / size);
         return Math.Clamp(pct, 30, 70);
+    }
+
+    public static bool VerifyFileSha256(string filePath, string? expectedHexSha256)
+    {
+        if (string.IsNullOrWhiteSpace(filePath) || string.IsNullOrWhiteSpace(expectedHexSha256))
+            return false;
+
+        ReadOnlySpan<char> trimmedHex = expectedHexSha256.AsSpan().Trim();
+        if (trimmedHex.Length != 64)
+            return false;
+
+        foreach (char c in trimmedHex)
+        {
+            if (!char.IsAsciiHexDigit(c))
+                return false;
+        }
+
+        if (!File.Exists(filePath))
+            return false;
+
+        try
+        {
+            byte[] expectedBytes = Convert.FromHexString(trimmedHex);
+            using var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+            byte[] actualBytes = SHA256.HashData(stream);
+            return CryptographicOperations.FixedTimeEquals(actualBytes, expectedBytes);
+        }
+        catch (Exception ex)
+        {
+            AppServices.Logger.Warn($"[UpdateArchiveInstaller.VerifyFileSha256] {ex.Message}");
+            return false;
+        }
+    }
+
+    public static string? TryParseSha256Sums(string? sumsText, string assetFileName)
+    {
+        if (string.IsNullOrWhiteSpace(sumsText) || string.IsNullOrWhiteSpace(assetFileName))
+            return null;
+
+        string targetName = ExtractBaseName(assetFileName.Trim());
+        if (string.IsNullOrEmpty(targetName))
+            return null;
+
+        string[] lines = sumsText.TrimStart('\uFEFF')
+            .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+
+        foreach (string rawLine in lines)
+        {
+            string line = rawLine.Trim().TrimStart('\uFEFF');
+            if (line.Length <= 65 || line[0] == '#')
+                continue;
+
+            int wsIndex = -1;
+            for (int i = 0; i < line.Length; i++)
+            {
+                if (char.IsWhiteSpace(line[i]))
+                {
+                    wsIndex = i;
+                    break;
+                }
+            }
+
+            if (wsIndex != 64)
+                continue;
+
+            ReadOnlySpan<char> hashSpan = line.AsSpan(0, 64);
+            bool validHex = true;
+            foreach (char c in hashSpan)
+            {
+                if (!char.IsAsciiHexDigit(c))
+                {
+                    validHex = false;
+                    break;
+                }
+            }
+
+            if (!validHex)
+                continue;
+
+            string entryPart = line.Substring(wsIndex).TrimStart();
+            if (entryPart.StartsWith('*'))
+                entryPart = entryPart.Substring(1).TrimStart();
+
+            string entryBaseName = ExtractBaseName(entryPart.Trim('"'));
+            if (string.Equals(entryBaseName, targetName, StringComparison.OrdinalIgnoreCase))
+            {
+                return hashSpan.ToString().ToLowerInvariant();
+            }
+        }
+
+        return null;
     }
 
     public static void Apply(string archive, string staging, string target, string currentExeName)
@@ -78,5 +170,11 @@ public static class UpdateArchiveInstaller
 
         SafeExecuteHelper.Try(() => File.Delete(archive), "UpdateArchiveInstaller.DeleteArchive");
         SafeExecuteHelper.Try(() => new DirectoryInfo(staging).RecursiveDelete(), "UpdateArchiveInstaller.DeleteStaging");
+    }
+
+    private static string ExtractBaseName(string rawPath)
+    {
+        int slashIdx = rawPath.LastIndexOfAny(new[] { '/', '\\' });
+        return slashIdx >= 0 ? rawPath.Substring(slashIdx + 1) : rawPath;
     }
 }

@@ -93,8 +93,7 @@ public sealed class UpdaterViewModel : DialogViewModelBase
             string archivePath = Path.Combine(_baseDirectory, "Update.zip");
             if (File.Exists(archivePath))
             {
-                await ApplyAndRestartAsync(archivePath, updatePath, ct).ConfigureAwait(true);
-                return;
+                SafeExecuteHelper.Try(() => File.Delete(archivePath), "Updater.CleanStaleArchive");
             }
 
             await CheckAndDownloadReleaseAsync(archivePath, updatePath, ct).ConfigureAwait(true);
@@ -165,6 +164,27 @@ public sealed class UpdaterViewModel : DialogViewModelBase
                         UpdateProgress(LocalizationService.Format("Updater.DownloadingSize", totalRead / 1048576), $"{pct}%", pct);
                     }
                 }
+            }
+
+            string? expectedHash = release.ExpectedSha256;
+            if (string.IsNullOrWhiteSpace(expectedHash) && !string.IsNullOrWhiteSpace(release.ChecksumsUrl))
+            {
+                using var sumsReq = new HttpRequestMessage(HttpMethod.Get, release.ChecksumsUrl);
+                sumsReq.Headers.TryAddWithoutValidation("User-Agent", "Shiro-Account-Manager");
+                using var sumsResp = await _http.SendAsync(sumsReq, ct).ConfigureAwait(true);
+                if (sumsResp.IsSuccessStatusCode)
+                {
+                    string sumsBody = await sumsResp.Content.ReadAsStringAsync(ct).ConfigureAwait(true);
+                    expectedHash = UpdateArchiveInstaller.TryParseSha256Sums(sumsBody, release.AssetName);
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(expectedHash) || !UpdateArchiveInstaller.VerifyFileSha256(archivePath, expectedHash))
+            {
+                SafeExecuteHelper.Try(() => File.Delete(archivePath), "Updater.DeleteUnverifiedArchive");
+                _logger.Warn($"Updater rejected archive '{release.AssetName}': SHA-256 integrity verification failed.");
+                ShowError("SHA-256 integrity verification failed.");
+                return;
             }
 
             await ApplyAndRestartAsync(archivePath, updatePath, ct).ConfigureAwait(true);
