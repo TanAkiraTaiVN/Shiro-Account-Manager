@@ -23,6 +23,37 @@ namespace Shiro
         private const string FieldSessionUserAgent = "SessionUserAgent";
         private const string FieldLastBoundIpSig = "LastBoundIpSig";
 
+        internal static bool IsProtectedInternalField(string? fieldName)
+        {
+            if (string.IsNullOrWhiteSpace(fieldName))
+                return false;
+
+            ReadOnlySpan<char> name = fieldName.AsSpan().Trim();
+            return name.Equals(FieldHbaPrivateKey, StringComparison.OrdinalIgnoreCase) ||
+                   name.Equals(FieldHbaPublicKey, StringComparison.OrdinalIgnoreCase) ||
+                   name.Equals(FieldHbaTemplate, StringComparison.OrdinalIgnoreCase) ||
+                   name.Equals(FieldSessionUserAgent, StringComparison.OrdinalIgnoreCase) ||
+                   name.Equals(FieldLastBoundIpSig, StringComparison.OrdinalIgnoreCase) ||
+                   name.StartsWith("Hba", StringComparison.OrdinalIgnoreCase);
+        }
+
+        internal Dictionary<string, string> GetPublicFieldsSnapshot()
+        {
+            lock (FieldsSyncRoot)
+            {
+                var snapshot = new Dictionary<string, string>();
+                if (Fields != null)
+                {
+                    foreach (var kvp in Fields)
+                    {
+                        if (!IsProtectedInternalField(kvp.Key))
+                            snapshot[kvp.Key] = kvp.Value;
+                    }
+                }
+                return snapshot;
+            }
+        }
+
         public Account(string username, string password, string alias)
         {
             Username = username;

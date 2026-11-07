@@ -384,5 +384,94 @@ namespace Shiro.Tests
                 }));
             Assert.Contains("Removed Field CustomField1", removeFieldResp);
         }
+
+        [Fact]
+        public async Task Dispatch_BlocksProtectedInternalFields_CaseInsensitively_AndScrubsAccountsJson()
+        {
+            var mgr = AccountManager.Instance ?? new AccountManager();
+            AccountManager.WSPassword = AdminPassword;
+            AccountManager.WebServer.Set("AllowGetAccounts", "true");
+            AccountManager.WebServer.Set("AllowAccountEditing", "true");
+            AccountManager.WebServer.Set("AllowGetCookie", "false");
+
+            var acc = new Account { Username = "HbaGuardUser", UserID = 777, Valid = true };
+            acc.HbaPrivateKey = "MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgSecretKeyMaterial";
+            acc.SetField("LastBoundIpSig", "sig-secret-123");
+            acc.SetField("Note", "SafeVal");
+            AccountManager.ResetAccountsForTests(new[] { acc });
+
+            int statusGet = 200;
+            var reqGet = CreateRequest("/GetField", query: new(StringComparer.OrdinalIgnoreCase) { ["Account"] = "HbaGuardUser", ["Field"] = "hbaprivatekey" });
+            reqGet.SetStatusCode = s => statusGet = s;
+            string getBody = await mgr.ProcessApiRequestAsync(reqGet);
+            Assert.Equal(403, statusGet);
+            Assert.DoesNotContain("SecretKeyMaterial", getBody, StringComparison.Ordinal);
+
+            int statusSet = 200;
+            var reqSet = CreateRequest("/SetField", query: new(StringComparer.OrdinalIgnoreCase) { ["Account"] = "HbaGuardUser", ["Field"] = "HbaPrivateKey", ["Value"] = "overwritten" });
+            reqSet.SetStatusCode = s => statusSet = s;
+            _ = await mgr.ProcessApiRequestAsync(reqSet);
+            Assert.Equal(403, statusSet);
+            Assert.Contains("SecretKeyMaterial", acc.HbaPrivateKey, StringComparison.Ordinal);
+
+            int statusRem = 200;
+            var reqRem = CreateRequest("/RemoveField", query: new(StringComparer.OrdinalIgnoreCase) { ["Account"] = "HbaGuardUser", ["Field"] = "lastboundipsig" });
+            reqRem.SetStatusCode = s => statusRem = s;
+            _ = await mgr.ProcessApiRequestAsync(reqRem);
+            Assert.Equal(403, statusRem);
+            Assert.Equal("sig-secret-123", acc.GetField("LastBoundIpSig"));
+
+            string safeField = await mgr.ProcessApiRequestAsync(CreateRequest("/GetField", query: new(StringComparer.OrdinalIgnoreCase) { ["Account"] = "HbaGuardUser", ["Field"] = "Note" }));
+            Assert.Contains("SafeVal", safeField, StringComparison.Ordinal);
+
+            string listJson = await mgr.ProcessApiRequestAsync(CreateRequest("/GetAccountsJson"));
+            Assert.Contains("SafeVal", listJson, StringComparison.Ordinal);
+            Assert.DoesNotContain("SecretKeyMaterial", listJson, StringComparison.Ordinal);
+            Assert.DoesNotContain("HbaPrivateKey", listJson, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("sig-secret-123", listJson, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public async Task Dispatch_BlocksAllProtectedSessionAndHbaPrefixFields_AcrossV1AndV2()
+        {
+            var mgr = AccountManager.Instance ?? new AccountManager();
+            AccountManager.WSPassword = AdminPassword;
+            AccountManager.WebServer.Set("AllowGetAccounts", "true");
+            AccountManager.WebServer.Set("AllowAccountEditing", "true");
+            AccountManager.WebServer.Set("AllowGetCookie", "false");
+
+            var acc = new Account { Username = "HbaPrefixUser", UserID = 778, Valid = true };
+            acc.HbaPublicKey = "PubKeySpkiSecret";
+            acc.HbaTemplate = "v1|{0}";
+            acc.SessionUserAgent = "Mozilla/5.0 SecretFingerprintUA";
+            acc.SetField("HbaCustomFuture", "FutureSecret");
+            acc.SetField("PublicTag", "VisibleTag");
+            AccountManager.ResetAccountsForTests(new[] { acc });
+
+            foreach (string blockedField in new[] { "hbapublickey", "HBATEMPLATE", "sessionuseragent", "hbacustomfuture", "  HbaPrivateKey  " })
+            {
+                int v1Status = 200;
+                var v1Req = CreateRequest("/GetField", query: new(StringComparer.OrdinalIgnoreCase) { ["Account"] = "HbaPrefixUser", ["Field"] = blockedField }, isV2: false);
+                v1Req.SetStatusCode = s => v1Status = s;
+                string v1Body = await mgr.ProcessApiRequestAsync(v1Req);
+                Assert.Equal(403, v1Status);
+                Assert.Equal("Forbidden field", v1Body);
+            }
+
+            string listJson = await mgr.ProcessApiRequestAsync(CreateRequest("/GetAccountsJson"));
+            Assert.Contains("VisibleTag", listJson, StringComparison.Ordinal);
+            Assert.DoesNotContain("PubKeySpkiSecret", listJson, StringComparison.Ordinal);
+            Assert.DoesNotContain("SecretFingerprintUA", listJson, StringComparison.Ordinal);
+            Assert.DoesNotContain("FutureSecret", listJson, StringComparison.Ordinal);
+            Assert.DoesNotContain("SessionUserAgent", listJson, StringComparison.OrdinalIgnoreCase);
+
+            Assert.False(Account.IsProtectedInternalField(null));
+            Assert.False(Account.IsProtectedInternalField("   "));
+            Assert.False(Account.IsProtectedInternalField("Note"));
+            Assert.True(Account.IsProtectedInternalField("  SessionUserAgent  "));
+
+            var nullFieldsAcc = new Account { Fields = null! };
+            Assert.Empty(nullFieldsAcc.GetPublicFieldsSnapshot());
+        }
     }
 }

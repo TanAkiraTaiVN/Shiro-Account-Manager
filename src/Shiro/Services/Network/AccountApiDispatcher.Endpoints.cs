@@ -88,7 +88,7 @@ namespace Shiro.Services
                         acc.CSRFToken,
                         acc.LastUse.ToRobloxTick(),
                         showCookies ? acc.SecurityToken : null,
-                        acc.Fields);
+                        acc.GetPublicFieldsSnapshot());
 
                     objects.Add(accountObject);
                 }
@@ -265,6 +265,8 @@ namespace Shiro.Services
             if (method == "GetDescription") return reply(account.Description, true, -1, null);
 
             string? fieldName = req.GetQuery("Field");
+            if ((method is "GetField" or "SetField" or "RemoveField") && Account.IsProtectedInternalField(fieldName))
+                return reply("Protected internal field", false, 403, "Forbidden field");
             if (method == "GetField" && !string.IsNullOrEmpty(fieldName)) return reply(account.GetField(fieldName), true, -1, null);
 
             string? fieldValue = req.GetQuery("Value");
