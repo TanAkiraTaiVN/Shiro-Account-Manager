@@ -1,4 +1,8 @@
 using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.IO;
+using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using Shiro.Classes;
@@ -7,6 +11,7 @@ using Xunit;
 
 namespace Shiro.Tests
 {
+    [Collection("SerialGlobalState")]
     public class CryptographyAndHbaOptimizationTests
     {
         [Fact]
@@ -71,6 +76,110 @@ namespace Shiro.Tests
                 pkcs8Base64, "https://auth.roblox.com/v1/authentication-ticket/", "POST", "{}", null, 1700000000L, out string token3);
             Assert.True(okAfterClear);
             Assert.StartsWith("v1|", token3, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void CryptoHelper_ProtectSecretString_FailsClosedOnDpapiError_AndUnprotectRejectsCorruptDpapiPrefix()
+        {
+            string protectedVal = CryptoHelper.ProtectSecretString("super-secret-token");
+            Assert.StartsWith("dpapi:", protectedVal, StringComparison.Ordinal);
+            Assert.DoesNotContain("super-secret-token", protectedVal, StringComparison.Ordinal);
+            Assert.Equal("super-secret-token", CryptoHelper.UnprotectSecretString(protectedVal));
+
+            // Corrupt dpapi: payload must fail closed to empty string, never leaking raw "dpapi:..." into headers/URLs
+            Assert.Equal(string.Empty, CryptoHelper.UnprotectSecretString("dpapi:not-valid-base64!!!"));
+            Assert.Equal(string.Empty, CryptoHelper.UnprotectSecretString("dpapi:AAAA"));
+
+            // Legacy plaintext without prefix remains readable for backward compatibility
+            Assert.Equal("legacy-plain", CryptoHelper.UnprotectSecretString("legacy-plain"));
+
+            var prev = CryptoHelper.TestProtectBytesOverride;
+            byte[]? capturedPlainBytes = null;
+            try
+            {
+                CryptoHelper.TestProtectBytesOverride = bytes =>
+                {
+                    capturedPlainBytes = bytes;
+                    throw new CryptographicException("DPAPI unavailable");
+                };
+                Assert.Throws<CryptographicException>(() => CryptoHelper.ProtectSecretString("must-not-leak-plaintext"));
+                Assert.NotNull(capturedPlainBytes);
+                Assert.All(capturedPlainBytes!, b => Assert.Equal(0, b));
+            }
+            finally
+            {
+                CryptoHelper.TestProtectBytesOverride = prev;
+            }
+        }
+
+        [Fact]
+        public void AccountFileDecoder_WipesUnprotectedDpapiBuffer_AfterDeserialization()
+        {
+            var sample = new List<Account> { new Account { Username = "ZeroMemUser", UserID = 101, SecurityToken = "_|WARNING:-DO-NOT-SHARE-THIS.--SecretCookiePayload12345" } };
+            byte[] serialized = AccountDataSerializer.Serialize(sample, includePasswords: true);
+            byte[]? capturedPlainBuffer = null;
+
+            var keys = new AccountDecodeKeys(
+                GetVaultKeyCopy: () => Array.Empty<byte>(),
+                TryRecoverVaultKey: null,
+                UnprotectDpapi: _ =>
+                {
+                    capturedPlainBuffer = (byte[])serialized.Clone();
+                    return (capturedPlainBuffer, false);
+                },
+                PlaintextOptIn: false);
+
+            byte[] callerInput = new byte[] { 0x01, 0x02, 0x03 };
+            var result = AccountFileDecoder.Decode(callerInput, null, keys);
+            Assert.Equal(AccountDecodeStatus.Loaded, result.Status);
+            Assert.Single(result.Accounts);
+            Assert.NotNull(capturedPlainBuffer);
+            Assert.All(capturedPlainBuffer!, b => Assert.Equal(0, b));
+            Assert.Equal(new byte[] { 0x01, 0x02, 0x03 }, callerInput);
+        }
+
+        [Fact]
+        public void AccountManager_ShutdownBackend_ClearsRobloxHbaKeyCache()
+        {
+            using var ecdsa = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+            string pkcs8Base64 = Convert.ToBase64String(ecdsa.ExportPkcs8PrivateKey());
+
+            Assert.True(RobloxHbaService.TryBuildBoundAuthToken(
+                pkcs8Base64, "https://auth.roblox.com/v1/authentication-ticket/", "POST", "{}", null, 1700000000L, out _));
+
+            var cacheField = typeof(RobloxHbaService).GetField("CachedEcParameters", BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.NotNull(cacheField);
+            var dict = (ConcurrentDictionary<string, ECParameters>)cacheField!.GetValue(null)!;
+            Assert.True(dict.TryGetValue(pkcs8Base64, out ECParameters cachedBefore));
+            Assert.NotNull(cachedBefore.D);
+            byte[] privateScalarRef = cachedBefore.D!;
+            Assert.Contains(privateScalarRef, b => b != 0);
+
+            string tempDir = Path.Combine(Path.GetTempPath(), "ShiroShutdownHba_" + Guid.NewGuid().ToString("N"));
+            bool prevSuppress = AccountManager.SuppressExitOnShutdown;
+            var prevInstance = AccountManager.Instance;
+            try
+            {
+                using (StoragePaths.OverrideDataDirectoryForTesting(tempDir))
+                {
+                    AccountManager.SuppressExitOnShutdown = true;
+                    var tempMgr = new AccountManager();
+                    tempMgr.ShutdownBackend();
+                }
+
+                Assert.False(dict.ContainsKey(pkcs8Base64));
+                Assert.All(privateScalarRef, b => Assert.Equal(0, b));
+            }
+            finally
+            {
+                AccountManager.SuppressExitOnShutdown = prevSuppress;
+                AccountManager.Instance = prevInstance;
+                RobloxHbaService.ClearKeyCache();
+                if (Directory.Exists(tempDir))
+                {
+                    Directory.Delete(tempDir, recursive: true);
+                }
+            }
         }
     }
 }

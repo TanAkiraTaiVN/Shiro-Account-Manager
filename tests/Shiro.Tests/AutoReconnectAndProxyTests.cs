@@ -340,6 +340,35 @@ namespace Shiro.Tests
             Assert.Contains("500", lines[1]);
         }
 
+        [Theory]
+        [InlineData("=CMD|' /C calc'!A0")]
+        [InlineData("  =HYPERLINK(\"http://evil\")")]
+        [InlineData("+SUM(1,1)")]
+        [InlineData("-2+3")]
+        [InlineData("@import")]
+        [InlineData("\t=1+1")]
+        [InlineData("\r=1+1")]
+        public void ExportAccounts_Csv_NeutralizesFormulaInjectionPayloads_IncludingLeadingWhitespace(string maliciousAlias)
+        {
+            var acc = new Account { Username = "CsvSafeUser", UserID = 42, Alias = maliciousAlias };
+            string csv = AccountExportService.ExportAccounts(new[] { acc }, AccountExportFormat.Csv);
+            string dataLine = csv.Split('\n', StringSplitOptions.RemoveEmptyEntries)[1].TrimEnd('\r');
+            string[] cols = dataLine.Split(',');
+            Assert.StartsWith("\"'", cols[2], StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void ExportAccounts_Csv_PreservesNormalAndSpacesOnlyValuesWithoutFormulaPrefix()
+        {
+            var acc = new Account { Username = "NormalUser", UserID = 43, Alias = "   ", Group = "MainFarm" };
+            string csv = AccountExportService.ExportAccounts(new[] { acc }, AccountExportFormat.Csv);
+            string dataLine = csv.Split('\n', StringSplitOptions.RemoveEmptyEntries)[1].TrimEnd('\r');
+            string[] cols = dataLine.Split(',');
+            Assert.Equal("NormalUser", cols[0]);
+            Assert.Equal("   ", cols[2]);
+            Assert.Equal("MainFarm", cols[3]);
+        }
+
         [Fact]
         public void AccountExportService_Json_ProducesValidJsonArray()
         {

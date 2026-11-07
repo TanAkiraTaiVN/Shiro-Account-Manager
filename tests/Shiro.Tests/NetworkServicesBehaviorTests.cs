@@ -82,11 +82,17 @@ namespace Shiro.Tests
         public async Task WebhookNotificationService_PropertiesAndEnqueueAlert_DispatchesEvent()
         {
             WebhookNotificationService.DiscordWebhookUrl = "https://discord.com/api/webhooks/test";
+            string? storedDiscordRaw = AppServices.GeneralSettings.Get(AppSettingsKeys.General.DiscordWebhookUrl);
+            Assert.NotNull(storedDiscordRaw);
+            Assert.StartsWith("dpapi:", storedDiscordRaw!, StringComparison.Ordinal);
             Assert.Equal("https://discord.com/api/webhooks/test", WebhookNotificationService.DiscordWebhookUrl);
             WebhookNotificationService.DiscordWebhookUrl = null;
             Assert.Null(WebhookNotificationService.DiscordWebhookUrl);
 
             WebhookNotificationService.TelegramBotToken = "12345:TOKEN";
+            string? storedTelegramRaw = AppServices.GeneralSettings.Get(AppSettingsKeys.General.TelegramBotToken);
+            Assert.NotNull(storedTelegramRaw);
+            Assert.StartsWith("dpapi:", storedTelegramRaw!, StringComparison.Ordinal);
             Assert.Equal("12345:TOKEN", WebhookNotificationService.TelegramBotToken);
             WebhookNotificationService.TelegramBotToken = null;
             Assert.Null(WebhookNotificationService.TelegramBotToken);
@@ -156,6 +162,30 @@ namespace Shiro.Tests
 
             rpc.Stop();
             Assert.False(rpc.IsConnected);
+        }
+
+        [Fact]
+        public void WebhookNotificationService_SecretProperties_FailClosedToNullOnCorruptDpapi_AndReadLegacyPlaintext()
+        {
+            try
+            {
+                AppServices.GeneralSettings.Set(AppSettingsKeys.General.DiscordWebhookUrl, "dpapi:corrupt-base64!!!");
+                Assert.Null(WebhookNotificationService.DiscordWebhookUrl);
+
+                AppServices.GeneralSettings.Set(AppSettingsKeys.General.TelegramBotToken, "dpapi:corrupt-base64!!!");
+                Assert.Null(WebhookNotificationService.TelegramBotToken);
+
+                AppServices.GeneralSettings.Set(AppSettingsKeys.General.DiscordWebhookUrl, "   ");
+                Assert.Null(WebhookNotificationService.DiscordWebhookUrl);
+
+                AppServices.GeneralSettings.Set(AppSettingsKeys.General.DiscordWebhookUrl, "https://discord.com/api/webhooks/legacy");
+                Assert.Equal("https://discord.com/api/webhooks/legacy", WebhookNotificationService.DiscordWebhookUrl);
+            }
+            finally
+            {
+                WebhookNotificationService.DiscordWebhookUrl = null;
+                WebhookNotificationService.TelegramBotToken = null;
+            }
         }
     }
 }

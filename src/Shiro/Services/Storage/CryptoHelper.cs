@@ -57,6 +57,8 @@ namespace Shiro.Services
             return Convert.ToHexString(hash);
         }
 
+        internal static Func<byte[], byte[]>? TestProtectBytesOverride;
+
         /// <summary>
         /// Encrypts a sensitive string bound to the current Windows user profile using DPAPI.
         /// Prepends a "dpapi:" prefix to differentiate protected secrets from legacy plaintext.
@@ -65,35 +67,49 @@ namespace Shiro.Services
         {
             if (string.IsNullOrEmpty(plainText)) return string.Empty;
             if (plainText.StartsWith("dpapi:", StringComparison.Ordinal)) return plainText;
+
+            byte[] plainBytes = Encoding.UTF8.GetBytes(plainText);
             try
             {
-                byte[] plainBytes = Encoding.UTF8.GetBytes(plainText);
-                byte[] enc = ProtectedData.Protect(plainBytes, null, DataProtectionScope.CurrentUser);
+                byte[] enc = TestProtectBytesOverride != null
+                    ? TestProtectBytesOverride(plainBytes)
+                    : ProtectedData.Protect(plainBytes, null, DataProtectionScope.CurrentUser);
                 return "dpapi:" + Convert.ToBase64String(enc);
             }
-            catch
+            finally
             {
-                return plainText;
+                CryptographicOperations.ZeroMemory(plainBytes);
             }
         }
 
         /// <summary>
-        /// Decrypts a DPAPI-protected secret string. Falls back to plaintext for backward compatibility.
+        /// Decrypts a DPAPI-protected secret string. Falls back to plaintext for legacy unprefixed values,
+        /// and fails closed to <see cref="string.Empty"/> when a "dpapi:" payload cannot be unprotected.
         /// </summary>
         public static string UnprotectSecretString(string cipherText)
         {
             if (string.IsNullOrEmpty(cipherText)) return string.Empty;
             if (!cipherText.StartsWith("dpapi:", StringComparison.Ordinal)) return cipherText;
+
+            byte[]? plain = null;
             try
             {
                 string b64 = cipherText.Substring("dpapi:".Length);
                 byte[] enc = Convert.FromBase64String(b64);
-                byte[] plain = ProtectedData.Unprotect(enc, null, DataProtectionScope.CurrentUser);
+                plain = ProtectedData.Unprotect(enc, null, DataProtectionScope.CurrentUser);
                 return Encoding.UTF8.GetString(plain);
             }
-            catch
+            catch (Exception ex) when (ex is FormatException or CryptographicException)
             {
-                return cipherText;
+                AppServices.Logger.Debug($"[CryptoHelper] Failed to unprotect DPAPI secret: {ex.Message}");
+                return string.Empty;
+            }
+            finally
+            {
+                if (plain != null)
+                {
+                    CryptographicOperations.ZeroMemory(plain);
+                }
             }
         }
     }

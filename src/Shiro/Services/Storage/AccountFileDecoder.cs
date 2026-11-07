@@ -45,15 +45,23 @@ namespace Shiro.Services
 
                 if (masterPassword != null)
                 {
+                    byte[]? decrypted = null;
                     try
                     {
-                        byte[] decrypted = Cryptography.Decrypt(data, masterPassword);
+                        decrypted = Cryptography.Decrypt(data, masterPassword);
                         var accounts = AccountDataSerializer.Deserialize(decrypted, out bool needsMigration);
                         return new AccountDecodeResult(AccountDecodeStatus.Loaded, accounts, needsMigration || legacyCryptoHeader, false, null);
                     }
                     catch (Exception ex)
                     {
                         return new AccountDecodeResult(AccountDecodeStatus.NeedsMasterPassword, new List<Account>(), false, false, ex);
+                    }
+                    finally
+                    {
+                        if (decrypted != null)
+                        {
+                            CryptographicOperations.ZeroMemory(decrypted);
+                        }
                     }
                 }
 
@@ -130,6 +138,10 @@ namespace Shiro.Services
                     {
                         return new AccountDecodeResult(AccountDecodeStatus.Corrupt, new List<Account>(), false, false, ex);
                     }
+                    finally
+                    {
+                        CryptographicOperations.ZeroMemory(decryptedVault);
+                    }
                 }
 
                 return new AccountDecodeResult(AccountDecodeStatus.NeedsMasterPassword, new List<Account>(), false, false, failureEx);
@@ -139,9 +151,11 @@ namespace Shiro.Services
             Exception? dpapiEx = null;
             if (keys.UnprotectDpapi != null)
             {
+                byte[]? plain = null;
                 try
                 {
-                    var (plain, legacyScope) = keys.UnprotectDpapi(data);
+                    bool legacyScope;
+                    (plain, legacyScope) = keys.UnprotectDpapi(data);
                     var accounts = AccountDataSerializer.Deserialize(plain, out bool dpapiNeedsMigration);
                     bool needsMigration = dpapiNeedsMigration || legacyScope;
                     return new AccountDecodeResult(AccountDecodeStatus.Loaded, accounts, needsMigration, false, null);
@@ -149,6 +163,13 @@ namespace Shiro.Services
                 catch (Exception ex)
                 {
                     dpapiEx = ex;
+                }
+                finally
+                {
+                    if (plain != null)
+                    {
+                        CryptographicOperations.ZeroMemory(plain);
+                    }
                 }
             }
 

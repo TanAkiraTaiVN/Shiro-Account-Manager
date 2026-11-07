@@ -277,6 +277,7 @@ namespace Shiro
             }
 
             SafeExecuteHelper.Try(StoragePaths.ClearCachedVaultKey);
+            SafeExecuteHelper.Try(RobloxHbaService.ClearKeyCache);
 
             shutdownFinalized = true;
 

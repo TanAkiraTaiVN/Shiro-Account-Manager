@@ -50,7 +50,7 @@ namespace Shiro
             try
             {
                 byte[] vaultKey = StoragePaths.GetOrCreateVaultKeyCopy();
-                try { _ = Cryptography.Decrypt(data, vaultKey); return false; }
+                try { byte[] p = Cryptography.Decrypt(data, vaultKey); CryptographicOperations.ZeroMemory(p); return false; }
                 finally { CryptographicOperations.ZeroMemory(vaultKey); }
             }
             catch

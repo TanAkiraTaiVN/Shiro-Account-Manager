@@ -63,25 +63,37 @@ namespace Shiro.Services
 
         public static string? DiscordWebhookUrl
         {
-            get => _settings.Get(AppSettingsKeys.General.DiscordWebhookUrl);
+            get
+            {
+                string? raw = _settings.Get(AppSettingsKeys.General.DiscordWebhookUrl);
+                if (string.IsNullOrWhiteSpace(raw)) return null;
+                string plain = CryptoHelper.UnprotectSecretString(raw);
+                return string.IsNullOrEmpty(plain) ? null : plain;
+            }
             set
             {
                 if (string.IsNullOrWhiteSpace(value))
                     _settings.RemoveProperty(AppSettingsKeys.General.DiscordWebhookUrl);
                 else
-                    _settings.Set(AppSettingsKeys.General.DiscordWebhookUrl, value);
+                    _settings.Set(AppSettingsKeys.General.DiscordWebhookUrl, CryptoHelper.ProtectSecretString(value));
             }
         }
 
         public static string? TelegramBotToken
         {
-            get => _settings.Get(AppSettingsKeys.General.TelegramBotToken);
+            get
+            {
+                string? raw = _settings.Get(AppSettingsKeys.General.TelegramBotToken);
+                if (string.IsNullOrWhiteSpace(raw)) return null;
+                string plain = CryptoHelper.UnprotectSecretString(raw);
+                return string.IsNullOrEmpty(plain) ? null : plain;
+            }
             set
             {
                 if (string.IsNullOrWhiteSpace(value))
                     _settings.RemoveProperty(AppSettingsKeys.General.TelegramBotToken);
                 else
-                    _settings.Set(AppSettingsKeys.General.TelegramBotToken, value);
+                    _settings.Set(AppSettingsKeys.General.TelegramBotToken, CryptoHelper.ProtectSecretString(value));
             }
         }
 
