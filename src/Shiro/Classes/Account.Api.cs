@@ -283,6 +283,8 @@ namespace Shiro
                 catch (Exception ex)
                 {
                     Program.Logger?.Warn($"[GetAuthTicketAsync] Error on attempt {attempt}: {ex.Message}");
+                    if (attempt + 1 < AuthTicketMaxAttempts)
+                        await Task.Delay(350, cancellationToken).ConfigureAwait(false);
                 }
             }
 

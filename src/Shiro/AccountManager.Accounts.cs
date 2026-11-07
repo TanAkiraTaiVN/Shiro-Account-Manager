@@ -253,9 +253,18 @@ namespace Shiro
                     IReadOnlyList<Account> snapshot = GetAccountsSnapshot();
                     if (snapshot.Count == 0) return;
 
+                    bool protectCrossNetwork = RobloxHbaService.IsVpnOrTunnelInterfaceActive() ||
+                                               RobloxHbaService.IsWithinPostInteractiveLoginGracePeriod(TimeSpan.FromMinutes(5));
+                    string currentNetSig = protectCrossNetwork ? RobloxHbaService.GetLocalNetworkSignature() : string.Empty;
+
                     var candidates = snapshot
                         .Where(a => a != null && !string.IsNullOrWhiteSpace(a.SecurityToken))
                         .Where(a => a.GetField("NoCookieRefresh") != "true")
+                        .Where(a => !protectCrossNetwork ||
+                                    !string.IsNullOrWhiteSpace(a.Proxy) ||
+                                    string.IsNullOrWhiteSpace(a.LastBoundIpSignature) ||
+                                    currentNetSig is "offline" or "unknown" ||
+                                    string.Equals(a.LastBoundIpSignature, currentNetSig, StringComparison.Ordinal))
                         .Where(a => (DateTime.Now - a.LastAttemptedRefresh).TotalHours >= 24 || a.LastAttemptedRefresh == DateTime.MinValue)
                         .OrderByDescending(a => a.Valid)
                         .ThenBy(a => a.LastAttemptedRefresh)

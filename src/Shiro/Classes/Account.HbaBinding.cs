@@ -154,9 +154,9 @@ namespace Shiro
             }
 
             if (!string.IsNullOrWhiteSpace(snapshot.TokenTemplate))
-                HbaTemplate = snapshot.TokenTemplate;
-            else if (HasHbaBinding && string.IsNullOrWhiteSpace(HbaTemplate))
-                HbaTemplate = RobloxHbaService.DefaultTemplate;
+                HbaTemplate = RobloxHbaService.NormalizeTemplate(snapshot.TokenTemplate);
+            else if (HasHbaBinding)
+                HbaTemplate = RobloxHbaService.NormalizeTemplate(HbaTemplate);
 
             if (!string.IsNullOrWhiteSpace(snapshot.UserAgent))
                 SessionUserAgent = snapshot.UserAgent;

@@ -72,39 +72,8 @@ namespace Shiro.AvaloniaUI.Views
             return true;
         }
 
-        private void MergeHbaJsonIntoSnapshot(JsonElement root)
-        {
-            if (root.ValueKind != JsonValueKind.Object)
-                return;
-
-            if (root.TryGetProperty("privateKeyPkcs8", out JsonElement privEl))
-            {
-                string? priv = privEl.GetString();
-                if (!string.IsNullOrWhiteSpace(priv))
-                    _currentHbaSnapshot.PrivateKeyPkcs8Base64 = priv;
-            }
-
-            if (root.TryGetProperty("publicKeySpki", out JsonElement pubEl))
-            {
-                string? pub = pubEl.GetString();
-                if (!string.IsNullOrWhiteSpace(pub))
-                    _currentHbaSnapshot.PublicKeySpkiBase64 = pub;
-            }
-
-            if (root.TryGetProperty("tokenTemplate", out JsonElement tplEl))
-            {
-                string? tpl = tplEl.GetString();
-                if (!string.IsNullOrWhiteSpace(tpl))
-                    _currentHbaSnapshot.TokenTemplate = tpl;
-            }
-
-            if (root.TryGetProperty("userAgent", out JsonElement uaEl))
-            {
-                string? ua = uaEl.GetString();
-                if (!string.IsNullOrWhiteSpace(ua))
-                    _currentHbaSnapshot.UserAgent = ua;
-            }
-        }
+        private void MergeHbaJsonIntoSnapshot(JsonElement root) =>
+            RobloxHbaService.MergeCapturePayloadIntoSnapshot(_currentHbaSnapshot, root);
 
         private async Task<RobloxHbaService.CaptureSnapshot> CollectFinalHbaAndFingerprintAsync(CoreWebView2 core)
         {
@@ -123,7 +92,9 @@ namespace Shiro.AvaloniaUI.Views
                                     privateKeyPkcs8: s.privateKeyPkcs8 || '',
                                     publicKeySpki: s.publicKeySpki || '',
                                     tokenTemplate: s.tokenTemplate || '',
-                                    userAgent: s.userAgent || navigator.userAgent || ''
+                                    userAgent: s.userAgent || navigator.userAgent || '',
+                                    authoritativeKey: !!s.authoritativeKey,
+                                    saiBound: !!s.saiBound
                                 });
                             } catch (_) { return ''; }
                         })()
@@ -171,8 +142,7 @@ namespace Shiro.AvaloniaUI.Views
 
             if (_currentHbaSnapshot.HasPrivateKey)
             {
-                if (string.IsNullOrWhiteSpace(_currentHbaSnapshot.TokenTemplate))
-                    _currentHbaSnapshot.TokenTemplate = RobloxHbaService.DefaultTemplate;
+                _currentHbaSnapshot.TokenTemplate = RobloxHbaService.NormalizeTemplate(_currentHbaSnapshot.TokenTemplate);
 
                 Program.Logger?.Info($"[FastLogin] Captured HBA ECDSA device-binding key for '{_username}' (template='{_currentHbaSnapshot.TokenTemplate}', trackerId={!string.IsNullOrEmpty(_currentHbaSnapshot.BrowserTrackerId)}).");
             }

@@ -26,6 +26,7 @@ namespace Shiro.Tests
         public void Dispose()
         {
             Account.TestHttpClientFactory = null;
+            RobloxHbaService.TestIsVpnTunnelActiveOverride = null;
             RobloxRateLimitCoordinator.Instance.ResetBackoff();
         }
 
@@ -72,7 +73,7 @@ namespace Shiro.Tests
             verifier.ImportSubjectPublicKeyInfo(Convert.FromBase64String(pubB64), out _);
 
             string expectedPayload1 = $"{expectedHash}|1760000000|{url}|POST";
-            string expectedPayload2 = "|1760000000|/v1/authentication-ticket/|POST";
+            string expectedPayload2 = $"|1760000000|{url}|POST";
 
             Assert.True(verifier.VerifyData(Encoding.UTF8.GetBytes(expectedPayload1), sig1, HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation));
             Assert.True(verifier.VerifyData(Encoding.UTF8.GetBytes(expectedPayload2), sig2, HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation));
@@ -473,6 +474,112 @@ namespace Shiro.Tests
         {
             string script = RobloxHbaService.GetBrowserCaptureScript();
             Assert.Contains("matched.length === sigCount", script);
+            Assert.Contains("data-hba-indexed-db-name", script);
+            Assert.Contains("data-hba-indexed-db-obj-store-name", script);
+            Assert.Contains("data-hba-indexed-db-key-name", script);
+            Assert.Contains("saiBound", script);
+            Assert.DoesNotContain("inspectBoundHeader(String(value), '', '')", script);
+        }
+
+        [Theory]
+        [InlineData("v1|b64|HB,TS,URL,M|,TS,PATH,M")]
+        [InlineData("v1|b64|HB,TS,,M|,TS,,M")]
+        [InlineData("v1|b64|,TS,,|,TS,,")]
+        public void TryBuildBoundAuthToken_HealsCorruptedAndRegressedTemplates_ToFullUrlDualSignatures(string brokenTemplate)
+        {
+            var (privB64, pubB64) = GenerateP256KeyPair();
+            string url = "https://auth.roblox.com/v1/authentication-ticket";
+            string body = "{}";
+            long ts = 1762483200L;
+
+            bool ok = RobloxHbaService.TryBuildBoundAuthToken(
+                privB64,
+                url,
+                "POST",
+                body,
+                brokenTemplate,
+                ts,
+                out string token);
+
+            Assert.True(ok);
+            string[] parts = token.Split('|');
+            Assert.Equal(5, parts.Length);
+
+            using ECDsa verifier = ECDsa.Create();
+            verifier.ImportSubjectPublicKeyInfo(Convert.FromBase64String(pubB64), out _);
+
+            string expectedHash = Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(body)));
+            string expectedPayload1 = $"{expectedHash}|1762483200|{url}|POST";
+            string expectedPayload2 = $"|1762483200|{url}|POST";
+
+            Assert.True(verifier.VerifyData(
+                Encoding.UTF8.GetBytes(expectedPayload1),
+                Convert.FromBase64String(parts[3]),
+                HashAlgorithmName.SHA256,
+                DSASignatureFormat.IeeeP1363FixedFieldConcatenation));
+            Assert.True(verifier.VerifyData(
+                Encoding.UTF8.GetBytes(expectedPayload2),
+                Convert.FromBase64String(parts[4]),
+                HashAlgorithmName.SHA256,
+                DSASignatureFormat.IeeeP1363FixedFieldConcatenation));
+        }
+
+        [Fact]
+        public void MergeCapturePayloadIntoSnapshot_PreservesSaiBoundKey_OverSubsequentPostLoginKeys()
+        {
+            var (saiPriv, saiPub) = GenerateP256KeyPair();
+            var (homePriv, homePub) = GenerateP256KeyPair();
+            var snapshot = new RobloxHbaService.CaptureSnapshot();
+
+            using var loginDoc = System.Text.Json.JsonDocument.Parse(
+                $"{{\"privateKeyPkcs8\":\"{saiPriv}\",\"publicKeySpki\":\"{saiPub}\",\"authoritativeKey\":true,\"saiBound\":true,\"userAgent\":\"Mozilla/5.0 Login\"}}");
+            RobloxHbaService.MergeCapturePayloadIntoSnapshot(snapshot, loginDoc.RootElement);
+
+            using var homeSpeculativeDoc = System.Text.Json.JsonDocument.Parse(
+                $"{{\"privateKeyPkcs8\":\"{homePriv}\",\"publicKeySpki\":\"{homePub}\",\"authoritativeKey\":true,\"saiBound\":false,\"tokenTemplate\":\"v1|b64|HB,TS,URL,M|,TS,URL,M\"}}");
+            RobloxHbaService.MergeCapturePayloadIntoSnapshot(snapshot, homeSpeculativeDoc.RootElement);
+
+            Assert.Equal(saiPriv, snapshot.PrivateKeyPkcs8Base64);
+            Assert.Equal(saiPub, snapshot.PublicKeySpkiBase64);
+            Assert.True(snapshot.IsSaiBound);
+            Assert.Equal("v1|b64|HB,TS,URL,M|,TS,URL,M", snapshot.TokenTemplate);
+        }
+
+        [Fact]
+        public async Task RefreshStaleCookiesAsync_WhenVpnTunnelActive_SkipsCrossNetworkBoundAccounts()
+        {
+            var mgr = AccountManager.Instance ?? new AccountManager();
+            int httpCalls = 0;
+            Account.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler((_, _) =>
+            {
+                Interlocked.Increment(ref httpCalls);
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.Unauthorized));
+            }));
+            RobloxHbaService.TestIsVpnTunnelActiveOverride = () => true;
+
+            var vnBoundAcc = new Account
+            {
+                Username = "VnBoundAccount",
+                UserID = 88001,
+                SecurityToken = SampleCookie,
+                Valid = true,
+                LastAttemptedRefresh = DateTime.MinValue,
+                LastBoundIpSignature = "vietnam_residential_isp_sig"
+            };
+
+            try
+            {
+                AccountManager.ReplaceAccountsList(new System.Collections.Generic.List<Account> { vnBoundAcc });
+                await mgr.RefreshStaleCookiesAsync(CancellationToken.None);
+
+                Assert.Equal(0, httpCalls);
+                Assert.True(vnBoundAcc.Valid);
+                Assert.Equal(DateTime.MinValue, vnBoundAcc.LastAttemptedRefresh);
+            }
+            finally
+            {
+                AccountManager.ReplaceAccountsList(new System.Collections.Generic.List<Account>());
+            }
         }
     }
 }

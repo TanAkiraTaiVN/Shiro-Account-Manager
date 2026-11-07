@@ -22,6 +22,7 @@ namespace Shiro.Services
             tokenTemplate: '',
             userAgent: navigator.userAgent || '',
             authoritativeKey: false,
+            saiBound: false,
             recentSigns: []
         };
 
@@ -40,7 +41,9 @@ namespace Shiro.Services
                         privateKeyPkcs8: state.privateKeyPkcs8,
                         publicKeySpki: state.publicKeySpki,
                         tokenTemplate: state.tokenTemplate,
-                        userAgent: state.userAgent
+                        userAgent: state.userAgent,
+                        authoritativeKey: !!state.authoritativeKey,
+                        saiBound: !!state.saiBound
                     }));
                 }
             } catch (_) { /* ignore */ }
@@ -52,10 +55,14 @@ namespace Shiro.Services
             let keyName = 'hba_keys';
             try {
                 const meta = document.querySelector && document.querySelector('meta[name=""hardware-backed-authentication-data""]');
-                if (meta && meta.dataset) {
-                    if (meta.dataset.indexedDbName) dbName = meta.dataset.indexedDbName;
-                    if (meta.dataset.indexedDbObjectStoreName) storeName = meta.dataset.indexedDbObjectStoreName;
-                    if (meta.dataset.indexedDbKeyName) keyName = meta.dataset.indexedDbKeyName;
+                if (meta) {
+                    const ds = meta.dataset || {};
+                    const attrDb = (meta.getAttribute && meta.getAttribute('data-hba-indexed-db-name')) || ds.hbaIndexedDbName || ds.indexedDbName;
+                    const attrStore = (meta.getAttribute && meta.getAttribute('data-hba-indexed-db-obj-store-name')) || ds.hbaIndexedDbObjStoreName || ds.indexedDbObjectStoreName;
+                    const attrKey = (meta.getAttribute && meta.getAttribute('data-hba-indexed-db-key-name')) || ds.hbaIndexedDbKeyName || ds.indexedDbKeyName;
+                    if (attrDb) dbName = attrDb;
+                    if (attrStore) storeName = attrStore;
+                    if (attrKey) keyName = attrKey;
                 }
             } catch (_) { /* ignore */ }
             return { dbName, storeName, keyName };
@@ -64,10 +71,11 @@ namespace Shiro.Services
         const origExport = (window.SubtleCrypto && SubtleCrypto.prototype) ? SubtleCrypto.prototype.exportKey : null;
         const getSubtle = () => (window.crypto && window.crypto.subtle) ? window.crypto.subtle : null;
 
-        const tryExportPair = async (subtle, privKey, pubKey, authoritative = false) => {
+        const tryExportPair = async (subtle, privKey, pubKey, authoritative = false, saiBound = false) => {
             try {
                 const sc = subtle || getSubtle();
                 if (!sc || !origExport) return false;
+                if (!saiBound && state.saiBound && state.privateKeyPkcs8) return true;
                 if (!authoritative && state.authoritativeKey && state.privateKeyPkcs8) return true;
 
                 let exportedPriv = false;
@@ -75,9 +83,10 @@ namespace Shiro.Services
                     const pkcs8 = await origExport.call(sc, 'pkcs8', privKey);
                     state.privateKeyPkcs8 = toBase64(pkcs8);
                     exportedPriv = true;
-                    if (authoritative) state.authoritativeKey = true;
+                    if (authoritative || saiBound) state.authoritativeKey = true;
+                    if (saiBound) state.saiBound = true;
                 }
-                if (pubKey && pubKey.extractable) {
+                if (pubKey && pubKey.extractable && (exportedPriv || !state.publicKeySpki)) {
                     const spki = await origExport.call(sc, 'spki', pubKey);
                     state.publicKeySpki = toBase64(spki);
                 }
@@ -167,7 +176,9 @@ namespace Shiro.Services
                 privateKeyPkcs8: state.privateKeyPkcs8 || '',
                 publicKeySpki: state.publicKeySpki || '',
                 tokenTemplate: state.tokenTemplate || '',
-                userAgent: state.userAgent || navigator.userAgent || ''
+                userAgent: state.userAgent || navigator.userAgent || '',
+                authoritativeKey: !!state.authoritativeKey,
+                saiBound: !!state.saiBound
             });
         };
 
@@ -214,9 +225,11 @@ namespace Shiro.Services
                     if (String(algName).toUpperCase() === 'ECDSA') {
                         const view = data instanceof ArrayBuffer ? new Uint8Array(data) : new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
                         const decoded = new TextDecoder().decode(view);
-                        const isBatPayload = !!(decoded && decoded.includes('|'));
-                        if (key && key.extractable && (isBatPayload || !state.privateKeyPkcs8)) {
-                            await tryExportPair(this, key, null, isBatPayload);
+                        const pipeParts = decoded ? decoded.split('|') : [];
+                        const isSaiPayload = pipeParts.length === 3 && pipeParts[0].length >= 60 && /^\d{9,12}$/.test(pipeParts[1]);
+                        const isBatPayload = pipeParts.length === 4;
+                        if (key && key.extractable && (isSaiPayload || isBatPayload || !state.privateKeyPkcs8)) {
+                            await tryExportPair(this, key, null, isSaiPayload || isBatPayload, isSaiPayload);
                         }
                         if (isBatPayload) {
                             state.recentSigns.push(decoded);
@@ -274,7 +287,6 @@ namespace Shiro.Services
                 try {
                     if (name && String(name).toLowerCase() === 'x-bound-auth-token' && value) {
                         this.__shiroBatHeader = String(value);
-                        inspectBoundHeader(String(value), '', '');
                     }
                 } catch (_) { /* ignore */ }
                 return origFn.apply(this, arguments);

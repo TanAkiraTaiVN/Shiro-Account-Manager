@@ -224,7 +224,7 @@ namespace Shiro.Services
 
             string privEscaped = EscapeJsSingleQuoted(privateKeyPkcs8Base64.Trim());
             string pubEscaped = EscapeJsSingleQuoted((publicKeySpkiBase64 ?? string.Empty).Trim());
-            string tplEscaped = EscapeJsSingleQuoted(string.IsNullOrWhiteSpace(tokenTemplate) ? DefaultTemplate : tokenTemplate.Trim());
+            string tplEscaped = EscapeJsSingleQuoted(NormalizeTemplate(tokenTemplate));
 
             return $@"
 (() => {{
@@ -236,6 +236,7 @@ namespace Shiro.Services
 
         window.__shiroHbaState = window.__shiroHbaState || {{}};
         window.__shiroHbaState.privateKeyPkcs8 = privB64;
+        window.__shiroHbaState.authoritativeKey = true;
         if (pubB64) window.__shiroHbaState.publicKeySpki = pubB64;
         if (tpl) window.__shiroHbaState.tokenTemplate = tpl;
 

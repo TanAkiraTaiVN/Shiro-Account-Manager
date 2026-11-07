@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading;
 
@@ -25,11 +26,13 @@ namespace Shiro.Services
         }
 
         public const string BoundAuthHeaderName = "x-bound-auth-token";
-        public const string DefaultTemplate = "v1|b64|HB,TS,URL,M|,TS,PATH,M";
+        public const string DefaultTemplate = "v1|b64|HB,TS,URL,M|,TS,URL,M";
+        private const string LegacyBrokenPathTemplate = "v1|b64|HB,TS,URL,M|,TS,PATH,M";
 
         private static readonly System.Threading.Lock KeyCacheLock = new();
         private static readonly ConcurrentDictionary<string, ECParameters> CachedEcParameters = new(StringComparer.Ordinal);
         private static int _activeInteractiveLoginCount;
+        private static long _lastInteractiveLoginEndedUtcTicks;
 
         public static void ClearKeyCache()
         {
@@ -46,6 +49,19 @@ namespace Shiro.Services
 
         public static bool IsInteractiveLoginActive => Volatile.Read(ref _activeInteractiveLoginCount) > 0;
 
+        public static bool IsWithinPostInteractiveLoginGracePeriod(TimeSpan graceWindow)
+        {
+            if (graceWindow <= TimeSpan.Zero)
+                return false;
+
+            long endedTicks = Interlocked.Read(ref _lastInteractiveLoginEndedUtcTicks);
+            if (endedTicks <= 0)
+                return false;
+
+            long elapsedTicks = DateTime.UtcNow.Ticks - endedTicks;
+            return elapsedTicks >= 0 && elapsedTicks <= graceWindow.Ticks;
+        }
+
         public static IDisposable BeginInteractiveLoginScope()
         {
             Interlocked.Increment(ref _activeInteractiveLoginCount);
@@ -59,6 +75,7 @@ namespace Shiro.Services
             {
                 if (Interlocked.Exchange(ref _disposed, 1) == 0)
                 {
+                    Interlocked.Exchange(ref _lastInteractiveLoginEndedUtcTicks, DateTime.UtcNow.Ticks);
                     int val = Interlocked.Decrement(ref _activeInteractiveLoginCount);
                     if (val < 0)
                         Interlocked.Exchange(ref _activeInteractiveLoginCount, 0);
@@ -73,8 +90,98 @@ namespace Shiro.Services
             public string? TokenTemplate { get; set; }
             public string? UserAgent { get; set; }
             public string? BrowserTrackerId { get; set; }
+            public bool IsAuthoritativeKey { get; set; }
+            public bool IsSaiBound { get; set; }
 
             public bool HasPrivateKey => !string.IsNullOrWhiteSpace(PrivateKeyPkcs8Base64);
+        }
+
+        public static string NormalizeTemplate(string? tokenTemplate)
+        {
+            if (string.IsNullOrWhiteSpace(tokenTemplate))
+                return DefaultTemplate;
+
+            string trimmed = tokenTemplate.Trim();
+            if (string.Equals(trimmed, LegacyBrokenPathTemplate, StringComparison.OrdinalIgnoreCase))
+                return DefaultTemplate;
+
+            string[] parts = trimmed.Split('|');
+            if (parts.Length < 3)
+                return DefaultTemplate;
+
+            for (int i = 2; i < parts.Length; i++)
+            {
+                string[] tokens = parts[i].Split(',');
+                bool hasTs = false;
+                bool hasTarget = false;
+                bool hasMethod = false;
+                foreach (string rawToken in tokens)
+                {
+                    string t = rawToken.Trim();
+                    if (string.Equals(t, "TS", StringComparison.Ordinal)) hasTs = true;
+                    else if (string.Equals(t, "URL", StringComparison.Ordinal) || string.Equals(t, "PATH", StringComparison.Ordinal)) hasTarget = true;
+                    else if (string.Equals(t, "M", StringComparison.Ordinal)) hasMethod = true;
+                }
+
+                if (!hasTs || !hasTarget || !hasMethod)
+                    return DefaultTemplate;
+            }
+
+            return trimmed;
+        }
+
+        public static void MergeCapturePayloadIntoSnapshot(CaptureSnapshot snapshot, JsonElement root)
+        {
+            if (snapshot == null || root.ValueKind != JsonValueKind.Object)
+                return;
+
+            bool incomingSaiBound = root.TryGetProperty("saiBound", out JsonElement saiEl) && saiEl.ValueKind == JsonValueKind.True;
+            bool incomingAuth = incomingSaiBound ||
+                                (root.TryGetProperty("authoritativeKey", out JsonElement authEl) && authEl.ValueKind == JsonValueKind.True);
+
+            bool updatedPrivateKey = false;
+            if (root.TryGetProperty("privateKeyPkcs8", out JsonElement privEl))
+            {
+                string? priv = privEl.GetString();
+                if (!string.IsNullOrWhiteSpace(priv))
+                {
+                    bool canReplace = !snapshot.HasPrivateKey ||
+                                      incomingSaiBound ||
+                                      (incomingAuth && !snapshot.IsSaiBound) ||
+                                      (!snapshot.IsAuthoritativeKey && !snapshot.IsSaiBound);
+                    if (canReplace)
+                    {
+                        snapshot.PrivateKeyPkcs8Base64 = priv;
+                        if (incomingAuth) snapshot.IsAuthoritativeKey = true;
+                        if (incomingSaiBound) snapshot.IsSaiBound = true;
+                        updatedPrivateKey = true;
+                    }
+                }
+            }
+
+            if (root.TryGetProperty("publicKeySpki", out JsonElement pubEl))
+            {
+                string? pub = pubEl.GetString();
+                if (!string.IsNullOrWhiteSpace(pub) &&
+                    (updatedPrivateKey || string.IsNullOrWhiteSpace(snapshot.PublicKeySpkiBase64)))
+                {
+                    snapshot.PublicKeySpkiBase64 = pub;
+                }
+            }
+
+            if (root.TryGetProperty("tokenTemplate", out JsonElement tplEl))
+            {
+                string? tpl = tplEl.GetString();
+                if (!string.IsNullOrWhiteSpace(tpl))
+                    snapshot.TokenTemplate = NormalizeTemplate(tpl);
+            }
+
+            if (root.TryGetProperty("userAgent", out JsonElement uaEl))
+            {
+                string? ua = uaEl.GetString();
+                if (!string.IsNullOrWhiteSpace(ua))
+                    snapshot.UserAgent = ua;
+            }
         }
 
         [GeneratedRegex(@"(?:^|[&\s;])browserid=(\d+)", RegexOptions.IgnoreCase)]
@@ -138,7 +245,7 @@ namespace Shiro.Services
                 string trimmedKey = privateKeyPkcs8Base64.Trim();
                 using ECDsa ecdsa = AcquireCachedEcdsa(trimmedKey);
 
-                string template = string.IsNullOrWhiteSpace(tokenTemplate) ? DefaultTemplate : tokenTemplate.Trim();
+                string template = NormalizeTemplate(tokenTemplate);
                 string[] tplParts = template.Split('|');
                 if (tplParts.Length < 3)
                 {
