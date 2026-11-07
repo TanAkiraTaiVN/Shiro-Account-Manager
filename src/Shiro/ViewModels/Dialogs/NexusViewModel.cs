@@ -358,7 +358,7 @@ public sealed class NexusViewModel : DialogViewModelBase, INexusHost
             return;
         }
 
-        EmitMessage($"Execute:{ScriptInput}", toAll);
+        EmitMessage($"execute {ScriptInput}", toAll);
         SetStatus(
             LocalizationService.Get(toAll ? "Nexus.ScriptSentAll" : "Nexus.ScriptSentSelected"),
             StatusKind.Success);

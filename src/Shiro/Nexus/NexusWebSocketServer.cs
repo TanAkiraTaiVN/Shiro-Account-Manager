@@ -140,10 +140,9 @@ namespace Shiro.Nexus
                     }
 
                     if (account.LinkedAccount != null && account.LinkedAccount.UserID > 0 &&
-                        long.TryParse(id, out long parsedUserId) && parsedUserId > 0 &&
-                        account.LinkedAccount.UserID != parsedUserId)
+                        (!long.TryParse(id, out long parsedUserId) || parsedUserId != account.LinkedAccount.UserID))
                     {
-                        Program.Logger?.Warn($"[Nexus] Account ID mismatch for '{name}': account UserID is {account.LinkedAccount.UserID}, client supplied {parsedUserId}.");
+                        Program.Logger?.Warn($"[Nexus] Account ID mismatch for '{name}': account UserID is {account.LinkedAccount.UserID}, client supplied '{id}'.");
                         context.Response.StatusCode = StatusCodes.Status403Forbidden;
                         return;
                     }

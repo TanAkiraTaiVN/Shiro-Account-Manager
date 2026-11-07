@@ -119,7 +119,7 @@ public sealed class NexusViewModelTests
         vm.ExecuteSelectedCommand.Execute(null);
 
         Assert.Single(sent);
-        Assert.Equal(("a", "Execute:print(1)"), sent[0]);
+        Assert.Equal(("a", "execute print(1)"), sent[0]);
         Assert.Equal(LocalizationService.Get("Nexus.ScriptSentSelected"), vm.StatusText);
     }
 

@@ -253,6 +253,12 @@ namespace Shiro.Nexus
                     JobId = jobIdContent;
                 else if (command.Name == "Echo" && command.Payload != null && command.Payload.TryGetValue("Content", out string? echoContent) && !string.IsNullOrEmpty(echoContent))
                 {
+                    if (IsExecuteCommandPayload(echoContent))
+                    {
+                        Logger.Warn($"[Nexus] Blocked lateral 'execute' Echo payload from {Username}.");
+                        return;
+                    }
+
                     NexusHost.Current?.EmitMessage(echoContent, true);
                 }
                 else if (Enum.TryParse(command.Name, out CommandCreateElement elementType))
@@ -275,6 +281,17 @@ namespace Shiro.Nexus
                     Logger.Info($"[Nexus] Custom element received from {Username}: {elementType} ({elementName})");
                 }
             }
+        }
+
+        private static bool IsExecuteCommandPayload(string content)
+        {
+            ReadOnlySpan<char> trimmed = content.AsSpan().TrimStart();
+            if (!trimmed.StartsWith("execute", StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            return trimmed.Length == "execute".Length ||
+                   trimmed["execute".Length] == ':' ||
+                   char.IsWhiteSpace(trimmed["execute".Length]);
         }
 
         private const int DefaultSendTimeoutMs = 3000;

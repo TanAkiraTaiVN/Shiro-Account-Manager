@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
@@ -189,7 +190,7 @@ namespace Shiro.Tests.Integration
 
                 Assert.Equal(WebSocketMessageType.Text, res.MessageType);
                 string received = Encoding.UTF8.GetString(buffer, 0, res.Count);
-                Assert.Equal("Execute:print(1)", received);
+                Assert.Equal("execute print(1)", received);
 
                 await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "done", CancellationToken.None);
             }
@@ -198,6 +199,69 @@ namespace Shiro.Tests.Integration
                 await server.StopAsync();
                 NexusHost.Current = null;
             }
+        }
+
+        [Fact]
+        public void ControlledAccount_EchoExecutePayload_IsBlockedFromBroadcast()
+        {
+            var emitted = new List<(string Message, bool ToAll)>();
+            var host = Substitute.For<INexusHost>();
+            host.When(x => x.EmitMessage(Arg.Any<string>(), Arg.Any<bool>()))
+                .Do(ci => emitted.Add((ci.ArgAt<string>(0), ci.ArgAt<bool>(1))));
+            NexusHost.Current = host;
+            try
+            {
+                var controlled = new ControlledAccount(new Account { Username = "alice", UserID = 42 });
+                controlled.HandleMessage("""{"Name":"Echo","Payload":{"Content":"execute"}}""");
+                controlled.HandleMessage("""{"Name":"Echo","Payload":{"Content":"  execute print('pwn')"}}""");
+                controlled.HandleMessage("""{"Name":"Echo","Payload":{"Content":"Execute:print('pwn')"}}""");
+                controlled.HandleMessage("""{"Name":"Echo","Payload":{"Content":"\texecute\tprint('pwn')"}}""");
+                controlled.HandleMessage("""{"Name":"Echo","Payload":{"Content":"execute\nprint('pwn')"}}""");
+                controlled.HandleMessage("""{"Name":"Echo","Payload":{"Content":"execute\rprint('pwn')"}}""");
+                host.DidNotReceiveWithAnyArgs().EmitMessage(default!, default);
+                Assert.Empty(emitted);
+
+                controlled.HandleMessage("""{"Name":"Echo","Payload":{"Content":"chat hello"}}""");
+                host.Received(1).EmitMessage("chat hello", true);
+                Assert.Single(emitted);
+                Assert.Equal(("chat hello", true), emitted[0]);
+            }
+            finally
+            {
+                NexusHost.Current = null;
+            }
+        }
+
+        [Theory]
+        [InlineData("0")]
+        [InlineData("-1")]
+        [InlineData("not-a-number")]
+        [InlineData("9999")]
+        public async Task Client_InvalidOrZeroUserId_ForLinkedAccount_Rejected403(string suppliedId)
+        {
+            var (server, _, port) = await SetupServerAsync(); // LinkedAccount "alice" has UserID = 42
+            try
+            {
+                using var ws = new ClientWebSocket();
+                var uri = new Uri($"ws://127.0.0.1:{port}/Nexus?name=alice&id={suppliedId}&jobId=J1");
+                var ex = await Assert.ThrowsAsync<WebSocketException>(() => ws.ConnectAsync(uri, CancellationToken.None));
+                Assert.Contains("403", ex.Message, StringComparison.Ordinal);
+            }
+            finally
+            {
+                await server.StopAsync();
+                NexusHost.Current = null;
+            }
+        }
+
+        [Fact]
+        public void NexusLua_NormalizesLegacyExecuteColonPrefix()
+        {
+            string luaPath = Path.Combine(AppContext.BaseDirectory, "Nexus", "Nexus.lua");
+            Assert.True(File.Exists(luaPath), $"Expected Nexus.lua at {luaPath}");
+            string content = File.ReadAllText(luaPath);
+            Assert.Contains("Message:sub(1, 8):lower() == 'execute:'", content, StringComparison.Ordinal);
+            Assert.Contains("Message = 'execute ' .. Message:sub(9)", content, StringComparison.Ordinal);
         }
 
         [Fact]

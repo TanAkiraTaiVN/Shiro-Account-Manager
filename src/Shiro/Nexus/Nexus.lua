@@ -309,6 +309,9 @@ do -- Nexus
     end
 
     Nexus.MessageReceived:Connect(function(Message)
+        if Message:sub(1, 8):lower() == 'execute:' then
+            Message = 'execute ' .. Message:sub(9)
+        end
         local S = Message:find(' ')
 
         if S then
