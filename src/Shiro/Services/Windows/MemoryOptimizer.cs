@@ -127,19 +127,16 @@ namespace Shiro.Services
         }
 
         internal static bool ShouldTriggerPeriodicTrim(
-            long workingSetBytes,
-            ProcessPriorityClass currentPriority,
-            bool isForeground,
-            bool lowerPriorityEnabled,
-            long backgroundThresholdBytes = 350L * 1024 * 1024)
+            long workingSetBytes, ProcessPriorityClass currentPriority, bool isForeground,
+            bool lowerPriorityEnabled, long backgroundThresholdBytes = 350L * 1024 * 1024, bool aggressiveTrimEnabled = true)
         {
             if (isForeground)
             {
                 // Foreground client intentionally runs at Normal priority; only trim if its RAM is extreme
-                return workingSetBytes > ForegroundMaxMemoryThresholdBytes;
+                return aggressiveTrimEnabled && workingSetBytes > ForegroundMaxMemoryThresholdBytes;
             }
 
-            return workingSetBytes > backgroundThresholdBytes ||
+            return (aggressiveTrimEnabled && workingSetBytes > backgroundThresholdBytes) ||
                    (lowerPriorityEnabled && currentPriority != ProcessPriorityClass.BelowNormal);
         }
 
@@ -176,6 +173,7 @@ namespace Shiro.Services
                     return;
 
                 bool lowerPriority = !AppSettings.General.Exists("AutoLowerProcessPriority") || AppSettings.General.Get<bool>("AutoLowerProcessPriority");
+                bool aggressiveTrim = IsAggressiveWorkingSetTrimEnabled();
                 
                 // If enough time has passed for full interval trim, or if any client exceeds 350MB, optimize!
                 bool fullIntervalDue = (DateTime.UtcNow - _lastFullTrim).TotalMinutes >= _trimIntervalMinutes;
@@ -207,7 +205,7 @@ namespace Shiro.Services
                                 long ws = GetWorkingSetBytesNative(hProcess);
                                 ProcessPriorityClass prio = GetProcessPriorityClassNative(hProcess);
                                 bool isFg = fgPid > 0 && pid == (int)fgPid;
-                                if (ShouldTriggerPeriodicTrim(ws, prio, isFg, lowerPriority, _maxMemoryThresholdBytes))
+                                if (ShouldTriggerPeriodicTrim(ws, prio, isFg, lowerPriority, _maxMemoryThresholdBytes, aggressiveTrim))
                                 {
                                     needsThresholdTrim = true;
                                     break;
@@ -240,14 +238,14 @@ namespace Shiro.Services
         /// <returns>Bytes saved and count of clients trimmed.</returns>
         public static (long bytesSaved, int clientsCount) TrimRobloxClients(bool lowerPriority = true)
         {
-            var res = OptimizeRobloxClients(lowerPriority);
+            var res = OptimizeRobloxClients(lowerPriority, forceWorkingSetTrim: true);
             return (res.bytesSaved, res.clientsCount);
         }
 
         /// <summary>
         /// Comprehensive anti-lag optimization: trims RAM and sets BelowNormal CPU priority.
         /// </summary>
-        public static (long bytesSaved, int clientsCount, int priorityChanged) OptimizeRobloxClients(bool lowerPriority = true)
+        public static (long bytesSaved, int clientsCount, int priorityChanged) OptimizeRobloxClients(bool lowerPriority = true, bool forceWorkingSetTrim = false)
         {
             if (!RobloxProcessService.IsAnyRobloxRunning())
                 return (0, 0, 0);
@@ -275,6 +273,7 @@ namespace Shiro.Services
                 Program.Logger?.Debug($"GetForegroundWindow thread pid lookup threw: {ex.Message}");
             }
 
+            bool allowEmptyWorkingSet = forceWorkingSetTrim || IsAggressiveWorkingSetTrimEnabled();
             foreach (int pid in pids)
             {
                 IntPtr hProcess = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_SET_QUOTA | PROCESS_SET_INFORMATION, false, pid);
@@ -300,11 +299,15 @@ namespace Shiro.Services
 
                     // Avoid forcing the working set to disk with EmptyWorkingSet unless specifically opted into,
                     // preventing page-fault micro-stutters and unnecessary paging overhead.
-                    bool allowEmptyWorkingSet = AppSettings.General.Get<bool>("AllowEmptyWorkingSetTrimming", false);
                     if (allowEmptyWorkingSet && (!isForeground || before > ForegroundMaxMemoryThresholdBytes))
                     {
                         EmptyWorkingSet(hProcess);
                         count++;
+                    }
+                    else if (!isForeground)
+                    {
+                        SetProcessMemoryPriorityNative(hProcess, isForeground: false);
+                        if (SoftRelaxWorkingSetNative(hProcess)) count++;
                     }
 
                     if (lowerPriority)

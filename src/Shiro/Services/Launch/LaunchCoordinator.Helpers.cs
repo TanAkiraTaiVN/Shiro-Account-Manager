@@ -182,28 +182,6 @@ namespace Shiro.Services
             if (pid <= 0)
                 return null;
 
-            lock (RobloxWatcher.InstanceRegistryLock)
-            {
-                foreach (var inst in RobloxWatcher.Instances)
-                {
-                    try
-                    {
-                        if (inst?.LogFile != null && inst.LogFile.Exists && File.Exists(inst.LogFile.FullName))
-                        {
-                            // Match by checking if the log file contains our browserTrackerId or is the newest log for this process
-                            if (!string.IsNullOrEmpty(browserTrackerId))
-                            {
-                                // Fast path checked below across candidates
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Program.Logger?.Debug($"[LaunchCoordinator.TryFindProcessPlayerLogPath] Watcher lookup: {ex.Message}");
-                    }
-                }
-            }
-
             string defaultLogsDir = TestLogsDirectoryOverride ?? Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "Roblox",

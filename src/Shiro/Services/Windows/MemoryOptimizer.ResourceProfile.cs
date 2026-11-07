@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Runtime.InteropServices;
+using System.Threading;
 
 namespace Shiro.Services
 {
@@ -76,6 +77,21 @@ namespace Shiro.Services
                 AppServices.Logger.Debug($"[MemoryOptimizer] SoftRelaxWorkingSetNative failed: {ex.Message}");
                 return false;
             }
+        }
+
+        internal static bool IsAggressiveWorkingSetTrimEnabled()
+        {
+            if (AppServices.GeneralSettings.Exists(AppSettingsKeys.General.AggressiveRamTrimming))
+                return AppServices.GeneralSettings.Get<bool>(AppSettingsKeys.General.AggressiveRamTrimming, false);
+            if (AppServices.GeneralSettings.Exists("AllowEmptyWorkingSetTrimming"))
+                return AppServices.GeneralSettings.Get<bool>("AllowEmptyWorkingSetTrimming", false);
+            return false;
+        }
+
+        internal static void ResetStatsForTests()
+        {
+            Interlocked.Exchange(ref _totalBytesSaved, 0);
+            _lastFullTrim = DateTime.MinValue;
         }
     }
 }

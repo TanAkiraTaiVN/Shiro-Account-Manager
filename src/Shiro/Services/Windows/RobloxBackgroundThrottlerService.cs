@@ -197,7 +197,7 @@ namespace Shiro.Services
                 {
                     bool shouldTrim = !_throttledPids.ContainsKey(pid);
                     ApplyThrottleState(pid, isForeground: false, backgroundFps: targetFps);
-                    if (shouldTrim && AppServices.GeneralSettings.Get<bool>("AllowEmptyWorkingSetTrimming", false))
+                    if (shouldTrim && MemoryOptimizer.IsAggressiveWorkingSetTrimEnabled())
                     {
                         TrimWorkingSet(pid);
                     }
