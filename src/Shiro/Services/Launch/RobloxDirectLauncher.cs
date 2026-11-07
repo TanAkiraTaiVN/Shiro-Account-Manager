@@ -120,15 +120,65 @@ namespace Shiro.Services
         }
 
         /// <summary>
+        /// Validates and trims a Roblox server jobId, allowing 1..64 ASCII letters, digits, '-', or '_'.
+        /// </summary>
+        public static string SanitizeJobId(string? jobId)
+        {
+            if (string.IsNullOrWhiteSpace(jobId))
+                return string.Empty;
+
+            string trimmed = jobId.Trim();
+            if (trimmed.Length is < 1 or > 64)
+                return string.Empty;
+
+            foreach (char c in trimmed)
+            {
+                if (!char.IsAsciiLetterOrDigit(c) && c != '-' && c != '_')
+                    return string.Empty;
+            }
+
+            return trimmed;
+        }
+
+        private static string SanitizeCliArgumentValue(string? value)
+        {
+            if (string.IsNullOrEmpty(value))
+                return string.Empty;
+
+            return value
+                .Replace("\"", string.Empty, StringComparison.Ordinal)
+                .Replace("\r", string.Empty, StringComparison.Ordinal)
+                .Replace("\n", string.Empty, StringComparison.Ordinal);
+        }
+
+        private static string SanitizeBrowserTrackerId(string? browserTrackerId)
+        {
+            if (string.IsNullOrWhiteSpace(browserTrackerId))
+                return string.Empty;
+
+            string trimmed = browserTrackerId.Trim();
+            foreach (char c in trimmed)
+            {
+                if (!char.IsAsciiDigit(c))
+                    return string.Empty;
+            }
+
+            return trimmed;
+        }
+
+        /// <summary>
         /// Builds the command-line arguments for launching a Roblox game server directly.
         /// Both -t (ticket) and -j (joinUrl) must always be included so RobloxPlayerBeta.exe enters game-join mode instead of Home mode.
         /// </summary>
         public static string BuildGameLaunchArguments(string ticket, string joinUrl, string? browserTrackerId = null)
         {
-            string args = $"--app -t \"{ticket}\" -j \"{joinUrl}\"";
-            if (!string.IsNullOrWhiteSpace(browserTrackerId))
+            string safeTicket = SanitizeCliArgumentValue(ticket);
+            string safeJoinUrl = SanitizeCliArgumentValue(joinUrl);
+            string args = $"--app -t \"{safeTicket}\" -j \"{safeJoinUrl}\"";
+            string safeTracker = SanitizeBrowserTrackerId(browserTrackerId);
+            if (safeTracker.Length > 0)
             {
-                args += $" -b {browserTrackerId}";
+                args += $" -b {safeTracker}";
             }
             return args;
         }
@@ -141,13 +191,15 @@ namespace Shiro.Services
         public static string BuildHomeLaunchArguments(string? ticket, string? browserTrackerId = null)
         {
             string args = "--app";
-            if (!string.IsNullOrWhiteSpace(ticket))
+            string safeTicket = SanitizeCliArgumentValue(ticket);
+            if (!string.IsNullOrWhiteSpace(safeTicket))
             {
-                args += $" -t \"{ticket}\"";
+                args += $" -t \"{safeTicket}\"";
             }
-            if (!string.IsNullOrWhiteSpace(browserTrackerId))
+            string safeTracker = SanitizeBrowserTrackerId(browserTrackerId);
+            if (safeTracker.Length > 0)
             {
-                args += $" -b {browserTrackerId}";
+                args += $" -b {safeTracker}";
             }
             return args;
         }

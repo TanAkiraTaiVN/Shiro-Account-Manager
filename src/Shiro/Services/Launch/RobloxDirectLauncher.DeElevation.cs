@@ -63,7 +63,7 @@ namespace Shiro.Services
             IntPtr hToken,
             uint dwLogonFlags,
             string? lpApplicationName,
-            string? lpCommandLine,
+            Span<char> lpCommandLine,
             uint dwCreationFlags,
             IntPtr lpEnvironment,
             string? lpCurrentDirectory,
@@ -200,14 +200,14 @@ namespace Shiro.Services
                                 cb = Marshal.SizeOf<STARTUPINFO>()
                             };
 
-                            string cmdLine = $"\"{playerPath}\" {args}";
+                            char[] cmdBuffer = ($"\"{playerPath}\" {args}\0").ToCharArray();
                             string workDir = Path.GetDirectoryName(playerPath) ?? Environment.CurrentDirectory;
 
                             if (CreateProcessWithToken(
                                 hNewToken,
                                 LOGON_WITH_PROFILE,
-                                null,
-                                cmdLine,
+                                lpApplicationName: playerPath,
+                                lpCommandLine: cmdBuffer,
                                 0,
                                 IntPtr.Zero,
                                 workDir,

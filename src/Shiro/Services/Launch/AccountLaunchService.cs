@@ -309,7 +309,7 @@ namespace Shiro.Services
                 }
 
                 long launchTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-                string joinUrl;
+                string safeJob = RobloxDirectLauncher.SanitizeJobId(jobId); string joinUrl;
 
                 if (joinVip)
                 {
@@ -320,7 +320,7 @@ namespace Shiro.Services
                 else if (followUser)
                     joinUrl = $"https://assetgame.roblox.com/game/PlaceLauncher.ashx?request=RequestFollowUser&userId={placeId}";
                 else
-                    joinUrl = $"https://assetgame.roblox.com/game/PlaceLauncher.ashx?request=RequestGame{(string.IsNullOrEmpty(jobId) ? "" : "Job")}&browserTrackerId={account.BrowserTrackerID}&placeId={placeId}{(string.IsNullOrEmpty(jobId) ? "" : "&gameId=" + jobId)}&isPlayTogetherGame=false";
+                    joinUrl = $"https://assetgame.roblox.com/game/PlaceLauncher.ashx?request=RequestGame{(string.IsNullOrEmpty(safeJob) ? "" : "Job")}&browserTrackerId={account.BrowserTrackerID}&placeId={placeId}{(string.IsNullOrEmpty(safeJob) ? "" : "&gameId=" + Uri.EscapeDataString(safeJob))}&isPlayTogetherGame=false";
 
                 string nativeLaunchUri =
                     $"roblox-player:1+launchmode:play+gameinfo:{ticket}+launchtime:{launchTime}+placelauncherurl:{Uri.EscapeDataString(joinUrl)}+browsertrackerid:{account.BrowserTrackerID}+robloxLocale:en_us+gameLocale:en_us+channel:+LaunchExp:InApp";
