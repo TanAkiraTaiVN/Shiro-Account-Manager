@@ -90,5 +90,68 @@ namespace Shiro.Tests
                 outer.Dispose();
             }
         }
+
+        [Fact]
+        public void GeneralSettings_DelegatesDynamically_WhenActiveIniFileChangesAfterInit()
+        {
+            var prevIni = AccountManager.IniSettings;
+            var prevGeneral = AccountManager.General;
+            try
+            {
+                _ = AppServices.ServiceProvider; // Force initialization before swapping IniFile
+
+                var iniA = new IniFile();
+                iniA.Section("General").Set("ShowPresence", "false");
+                AccountManager.IniSettings = iniA;
+                AccountManager.General = iniA.Section("General");
+                Assert.False(AppServices.GeneralSettings.Get<bool>("ShowPresence", true));
+                Assert.False(AppServices.GeneralSettings.GetBool("ShowPresence", true));
+
+                var iniB = new IniFile();
+                iniB.Section("General").Set("ShowPresence", "true");
+                iniB.Section("General").Set("JoinDelay", "12");
+                iniB.Section("General").Set("Ratio", "1.5");
+                AccountManager.IniSettings = iniB;
+                AccountManager.General = iniB.Section("General");
+                Assert.True(AppServices.GeneralSettings.Get<bool>("ShowPresence", false));
+                Assert.True(AppServices.GeneralSettings.GetBool("ShowPresence", false));
+                Assert.Equal(12, AppServices.GeneralSettings.GetInt("JoinDelay", 0));
+                Assert.Equal(1.5m, AppServices.GeneralSettings.GetDecimal("Ratio", 0m));
+
+                AppServices.GeneralSettings.Set("CustomFlag", "enabled");
+                Assert.True(AppServices.GeneralSettings.Exists("CustomFlag"));
+                Assert.Equal("enabled", AppServices.GeneralSettings.Get("CustomFlag"));
+                Assert.Equal("enabled", iniB.Section("General").Get("CustomFlag"));
+
+                AppServices.GeneralSettings.RemoveProperty("CustomFlag");
+                Assert.False(AppServices.GeneralSettings.Exists("CustomFlag"));
+                Assert.False(iniB.Section("General").Exists("CustomFlag"));
+            }
+            finally
+            {
+                AccountManager.IniSettings = prevIni;
+                AccountManager.General = prevGeneral;
+            }
+        }
+
+        [Fact]
+        public void Override_DisposesScopedServiceProvider_OnScopeExit()
+        {
+            var previousProvider = AppServices.ServiceProvider;
+            var mockSettings = Substitute.For<ISettingsService>();
+            mockSettings.Get<bool>("ShowPresence", Arg.Any<bool>()).Returns(false);
+
+            IServiceProvider scopedProvider;
+            using (AppServices.Override<ISettingsService>(mockSettings))
+            {
+                scopedProvider = AppServices.ServiceProvider;
+                Assert.Same(mockSettings, AppServices.GeneralSettings);
+                Assert.False(AppServices.GeneralSettings.Get<bool>("ShowPresence", true));
+            }
+
+            Assert.Same(previousProvider, AppServices.ServiceProvider);
+            Assert.NotSame(mockSettings, AppServices.GeneralSettings);
+            Assert.Throws<ObjectDisposedException>(() => scopedProvider.GetService(typeof(ISettingsService)));
+        }
     }
 }

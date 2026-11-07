@@ -15,6 +15,7 @@ namespace Shiro.Services
         private static IServiceCollection? _currentServices;
         private static readonly System.Threading.Lock _initLock = new();
         private static readonly Stack<OverrideScope> _overrideStack = new();
+        private static readonly ISettingsService _defaultGeneralSettings = new DelegatingSettingsService();
 
         public static IServiceProvider ServiceProvider
         {
@@ -36,7 +37,7 @@ namespace Shiro.Services
 
                 // Core Infrastructure & Configuration Services
                 services.AddSingleton<IAppLogger>(Program.Logger);
-                services.AddSingleton<ISettingsService>(AppSettings.General);
+                services.AddSingleton<ISettingsService>(_defaultGeneralSettings);
 
                 // Core Domain Services
                 services.AddSingleton<IAccountRepository>(Services.AccountRepository.Default);
@@ -84,26 +85,53 @@ namespace Shiro.Services
 
                 newServices.AddSingleton<T>(instance);
 
-                var scope = new OverrideScope(previousProvider, previousServices);
+                ServiceProvider newProvider = newServices.BuildServiceProvider();
+                var scope = new OverrideScope(previousProvider, previousServices, newProvider);
                 _overrideStack.Push(scope);
 
                 _currentServices = newServices;
-                _serviceProvider = newServices.BuildServiceProvider();
+                _serviceProvider = newProvider;
 
                 return scope;
             }
+        }
+
+        private sealed class DelegatingSettingsService : ISettingsService
+        {
+            private static ISettingsService Current => AppSettings.General ?? new IniSection("General");
+
+            public string? Get(string name) => Current.Get(name);
+
+            public T? Get<T>(string name, T? defaultValue = default) => Current.Get(name, defaultValue);
+
+            public bool GetBool(string name, bool defaultValue = false) => Current.GetBool(name, defaultValue);
+
+            public int GetInt(string name, int defaultValue = 0) => Current.GetInt(name, defaultValue);
+
+            public decimal GetDecimal(string name, decimal defaultValue = 0m) => Current.GetDecimal(name, defaultValue);
+
+            public bool Exists(string name) => Current.Exists(name);
+
+            public void Set(string name, string? value, string? comment = null) => Current.Set(name, value, comment);
+
+            public void RemoveProperty(string name) => Current.RemoveProperty(name);
         }
 
         private sealed class OverrideScope : IDisposable
         {
             private readonly IServiceProvider _previousProvider;
             private readonly IServiceCollection _previousServices;
+            private readonly ServiceProvider _ownedProvider;
             private bool _disposed;
 
-            public OverrideScope(IServiceProvider previousProvider, IServiceCollection previousServices)
+            public OverrideScope(
+                IServiceProvider previousProvider,
+                IServiceCollection previousServices,
+                ServiceProvider ownedProvider)
             {
                 _previousProvider = previousProvider;
                 _previousServices = previousServices;
+                _ownedProvider = ownedProvider;
             }
 
             public void Dispose()
@@ -122,6 +150,8 @@ namespace Shiro.Services
                     _currentServices = _previousServices;
                     _disposed = true;
                 }
+
+                _ownedProvider.Dispose();
             }
         }
 
@@ -146,7 +176,7 @@ namespace Shiro.Services
         public static IBloxGenService BloxGen => GetRequiredService<IBloxGenService>();
         public static IToastNotifier Toasts => GetRequiredService<IToastNotifier>();
         public static IAppLogger Logger => _serviceProvider?.GetService<IAppLogger>() ?? Program.Logger;
-        public static ISettingsService GeneralSettings => _serviceProvider?.GetService<ISettingsService>() ?? (ISettingsService?)AppSettings.General ?? new IniSection("General");
+        public static ISettingsService GeneralSettings => _serviceProvider?.GetService<ISettingsService>() ?? _defaultGeneralSettings;
         public static ISettingsService? WatcherSettings => AppSettings.Watcher;
         public static void SaveSettings() => AppSettings.Save();
         public static AppSettings Settings => GetRequiredService<AppSettings>();
