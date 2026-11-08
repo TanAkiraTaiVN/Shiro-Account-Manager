@@ -170,28 +170,28 @@ namespace Shiro.Tests
         [Fact]
         public void NotifyAccountValidity_WithNull_ReturnsSafely()
         {
-            var ex = Record.Exception(() => AccountManager.NotifyAccountValidity(null!, true));
+            var ex = Record.Exception(() => AccountRegistrationService.Default.NotifyAccountValidity(null!, true));
             Assert.Null(ex);
         }
 
         [Fact]
         public void RemoveAccountsFromDatabase_WithNullOrEmpty_ReturnsZero()
         {
-            int r1 = AccountManager.RemoveAccountsFromDatabase(null!);
+            int r1 = AccountRegistrationService.Default.RemoveAccountsFromDatabase(null!);
             Assert.Equal(0, r1);
 
-            int r2 = AccountManager.RemoveAccountsFromDatabase(new List<Account>());
+            int r2 = AccountRegistrationService.Default.RemoveAccountsFromDatabase(new List<Account>());
             Assert.Equal(0, r2);
         }
 
         [Fact]
         public void RegisterValidatedAccount_WithInvalidOrNull_ReturnsNull()
         {
-            var accNull = AccountManager.RegisterValidatedAccount(null!, "tok");
+            var accNull = AccountRegistrationService.Default.RegisterValidatedAccount(null!, "tok");
             Assert.Null(accNull);
 
             var accInvalid = new Account { Username = "Bad", Valid = false };
-            var resInvalid = AccountManager.RegisterValidatedAccount(accInvalid, "tok");
+            var resInvalid = AccountRegistrationService.Default.RegisterValidatedAccount(accInvalid, "tok");
             Assert.Null(resInvalid);
         }
 
@@ -210,11 +210,11 @@ namespace Shiro.Tests
         public void AccountManager_ValidityAndCache_EdgeCases()
         {
             var acc = new Account { Username = "ValidUser1", AccountStatusIssue = "OldIssue" };
-            AccountManager.NotifyAccountValidity(acc, true);
+            AccountRegistrationService.Default.NotifyAccountValidity(acc, true);
             Assert.True(acc.Valid);
             Assert.Empty(acc.AccountStatusIssue);
 
-            AccountManager.NotifyAccountValidity(acc, false);
+            AccountRegistrationService.Default.NotifyAccountValidity(acc, false);
             Assert.False(acc.Valid);
             var mgr = AccountManager.Instance ?? new AccountManager();
             Assert.True(mgr.IsHandleCreated);

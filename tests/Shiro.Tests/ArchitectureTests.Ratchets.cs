@@ -79,7 +79,7 @@ namespace Shiro.Tests
                 "AccountManager.cs",
                 "Services/Launch/LaunchCoordinator.Helpers.cs",
                 "Services/Storage/AccountPersistenceService.cs",
-                "AccountManager.Accounts.cs",
+                "Services/Storage/AccountRegistrationService.cs",
                 "Services/Launch/AccountLaunchService.Diagnostics.cs",
                 "ViewModels/ServerListViewModel.Games.cs",
                 "Services/Launch/AccountLaunchService.cs",

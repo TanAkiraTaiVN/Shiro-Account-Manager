@@ -37,11 +37,11 @@ namespace Shiro.Tests
         [Fact]
         public async System.Threading.Tasks.Task GetUserIDAsync_WithEmptyOrNullUsername_ReturnsFalse()
         {
-            var resEmpty = await AccountManager.GetUserIDAsync("");
+            var resEmpty = await AccountRegistrationService.Default.GetUserIdAsync("");
             Assert.False(resEmpty.Success);
             Assert.Equal(-1, resEmpty.UserId);
 
-            var resNull = await AccountManager.GetUserIDAsync(null!);
+            var resNull = await AccountRegistrationService.Default.GetUserIdAsync(null!);
             Assert.False(resNull.Success);
             Assert.Equal(-1, resNull.UserId);
         }

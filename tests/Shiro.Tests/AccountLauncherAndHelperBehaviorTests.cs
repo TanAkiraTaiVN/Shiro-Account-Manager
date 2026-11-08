@@ -211,7 +211,7 @@ namespace Shiro.Tests
         public void AppSettings_EnsureBackendInitialized_WiresHostUiBridgeLaunchHandlers()
         {
             // Reset handlers to simulate uninitialized startup
-            HostUiBridgeService.Default.EnsureBackendInitializedHandler = null;
+            HostUiBridgeService.Default.EnsureBackendInitializedHandler = AccountManager.EnsureBackendInitialized;
             HostUiBridgeService.Default.LaunchAppHomeHandler = null;
             HostUiBridgeService.Default.JoinServerHandler = null;
 

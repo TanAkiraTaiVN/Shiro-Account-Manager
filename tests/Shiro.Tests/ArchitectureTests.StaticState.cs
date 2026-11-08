@@ -64,5 +64,16 @@ namespace Shiro.Tests
             Assert.NotNull(p);
             Assert.False(p!.SetMethod!.IsPublic);
         }
+
+        [Fact]
+        public void ServicesAndNexus_ShouldNotDependOn_AccountManager()
+        {
+            var result = Types.InAssembly(CoreAssembly)
+                .That().ResideInNamespace("Shiro.Services").Or().ResideInNamespace("Shiro.Nexus")
+                .ShouldNot().HaveDependencyOnAny("Shiro.AccountManager")
+                .GetResult();
+            var failingNames = result.FailingTypes?.Select(t => t.FullName) ?? Enumerable.Empty<string>();
+            Assert.True(result.IsSuccessful, string.Join(", ", failingNames));
+        }
     }
 }

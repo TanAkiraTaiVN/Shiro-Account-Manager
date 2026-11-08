@@ -234,7 +234,7 @@ namespace Shiro
                 return;
 
             shutdownRequested = true;
-            AccountPersistenceService.Default.IsShutdownRequested = true;
+            Persistence.IsShutdownRequested = true;
 
             SafeExecuteHelper.Try(CancelLaunching);
             SafeExecuteHelper.Try(() => launchCoordinator?.Dispose());

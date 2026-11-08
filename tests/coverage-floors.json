@@ -8,7 +8,7 @@
   "AccountManager.cs": { "branch": 85 },
   "Services/Launch/LaunchCoordinator.Helpers.cs": { "branch": 74 },
   "Services/Storage/AccountPersistenceService.cs": { "branch": 67 },
-  "AccountManager.Accounts.cs": { "branch": 75 },
+  "Services/Storage/AccountRegistrationService.cs": { "branch": 75 },
   "AccountManager.Lifecycle.cs": { "branch": 70 },
   "Services/Launch/AccountLaunchService.Diagnostics.cs": { "branch": 77 },
   "ViewModels/ServerListViewModel.Games.cs": { "branch": 78 },

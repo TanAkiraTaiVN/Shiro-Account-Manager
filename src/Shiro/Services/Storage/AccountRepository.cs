@@ -169,22 +169,22 @@ namespace Shiro.Services
 
         public Account? AddOrUpdate(string securityToken, string password = "", string? accountJson = null)
         {
-            return AccountManager.AddAccount(securityToken, password, accountJson!);
+            return AccountRegistrationService.Default.AddAccount(securityToken, password, accountJson!);
         }
 
         public Task<Account?> AddOrUpdateAsync(string securityToken, string password = "", string? accountJson = null, bool saveImmediate = true, CancellationToken cancellationToken = default)
         {
-            return AccountManager.AddAccountAsync(securityToken, password, accountJson!, saveImmediate, cancellationToken);
+            return AccountRegistrationService.Default.AddAccountAsync(securityToken, password, accountJson!, saveImmediate, cancellationToken);
         }
 
         public Task<Account?> AddOrUpdateWithHbaAsync(string securityToken, string password = "", string? accountJson = null, bool saveImmediate = true, RobloxHbaService.CaptureSnapshot? hbaCapture = null, CancellationToken cancellationToken = default)
         {
-            return AccountManager.AddAccountAsync(securityToken, password, accountJson!, saveImmediate, cancellationToken, hbaCapture);
+            return AccountRegistrationService.Default.AddAccountAsync(securityToken, password, accountJson!, saveImmediate, cancellationToken, hbaCapture);
         }
 
         public Account? RegisterValidated(Account validatedAccount, string securityToken, string password = "", bool saveImmediate = true)
         {
-            return AccountManager.RegisterValidatedAccount(validatedAccount, securityToken, password, saveImmediate);
+            return AccountRegistrationService.Default.RegisterValidatedAccount(validatedAccount, securityToken, password, saveImmediate);
         }
 
         public void AddThreadSafe(Account account)
@@ -266,13 +266,13 @@ namespace Shiro.Services
         public bool Remove(Account account)
         {
             if (account == null) return false;
-            return AccountManager.RemoveAccountsFromDatabase(new[] { account }) > 0;
+            return AccountRegistrationService.Default.RemoveAccount(account);
         }
 
         public int RemoveRange(IEnumerable<Account> accounts)
         {
             if (accounts == null) return 0;
-            return AccountManager.RemoveAccountsFromDatabase(accounts);
+            return AccountRegistrationService.Default.RemoveAccountsFromDatabase(accounts);
         }
 
         public void Save(bool force = false)
@@ -312,12 +312,12 @@ namespace Shiro.Services
 
         public Task<(bool Success, long UserId, RestResponse? Response)> LookupUserIdAsync(string username, CancellationToken cancellationToken = default)
         {
-            return AccountManager.GetUserIDAsync(username, cancellationToken);
+            return AccountRegistrationService.Default.GetUserIdAsync(username, cancellationToken);
         }
 
         public void EnsureBackendInitialized()
         {
-            AccountManager.EnsureBackendInitialized();
+            AppServices.HostUiBridge.EnsureBackendInitialized();
         }
     }
 }

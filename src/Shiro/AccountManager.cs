@@ -25,6 +25,7 @@ namespace Shiro
     {
         public static AccountManager? Instance { get; internal set; }
         private static AccountPersistenceService Persistence => AppServices.GetRequiredService<AccountPersistenceService>();
+        private static AccountRegistrationService Registration => AppServices.GetRequiredService<AccountRegistrationService>();
 
         private static bool PuppeteerSupported;
         public bool IsDisposed => shutdownFinalized;
@@ -156,8 +157,8 @@ namespace Shiro
 
             AppSettings.ActiveIniFile = iniSettings;
             settingsService = new SettingsService(iniSettings);
-            AccountPersistenceService.Default.Store = new AccountStore();
-            AccountPersistenceService.Default.IsShutdownRequested = false;
+            Persistence.Store = new AccountStore();
+            Persistence.IsShutdownRequested = false;
             presenceService = new PresenceService();
             browserService = new BrowserService();
 

@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -30,8 +30,8 @@ namespace Shiro.Tests
         {
             var exception = Record.Exception(() =>
             {
-                AccountManager.NotifyAccountValidity(null!, true);
-                AccountManager.NotifyAccountValidity(null!, false);
+                AccountRegistrationService.Default.NotifyAccountValidity(null!, true);
+                AccountRegistrationService.Default.NotifyAccountValidity(null!, false);
             });
             Assert.Null(exception);
 
@@ -42,27 +42,27 @@ namespace Shiro.Tests
                 AccountStatusIssue = "LockedOut"
             };
 
-            AccountManager.NotifyAccountValidity(acc, true);
+            AccountRegistrationService.Default.NotifyAccountValidity(acc, true);
             Assert.True(acc.Valid);
             Assert.Equal(string.Empty, acc.AccountStatusIssue);
 
-            AccountManager.NotifyAccountValidity(acc, false);
+            AccountRegistrationService.Default.NotifyAccountValidity(acc, false);
             Assert.False(acc.Valid);
         }
 
         [Fact]
         public async Task AccountManager_GetUserIDAsync_EmptyOrWhitespace_ReturnsFalse()
         {
-            var resNull = await AccountManager.GetUserIDAsync(null!);
+            var resNull = await AccountRegistrationService.Default.GetUserIdAsync(null!);
             Assert.False(resNull.Success);
             Assert.Equal(-1, resNull.UserId);
             Assert.Null(resNull.Response);
 
-            var resEmpty = await AccountManager.GetUserIDAsync("");
+            var resEmpty = await AccountRegistrationService.Default.GetUserIdAsync("");
             Assert.False(resEmpty.Success);
             Assert.Equal(-1, resEmpty.UserId);
 
-            var resWhitespace = await AccountManager.GetUserIDAsync("   ");
+            var resWhitespace = await AccountRegistrationService.Default.GetUserIdAsync("   ");
             Assert.False(resWhitespace.Success);
             Assert.Equal(-1, resWhitespace.UserId);
         }
@@ -81,20 +81,20 @@ namespace Shiro.Tests
 
             try
             {
-                var (success1, uid1, resp1) = await AccountManager.GetUserIDAsync("KnownListUser");
+                var (success1, uid1, resp1) = await AccountRegistrationService.Default.GetUserIdAsync("KnownListUser");
                 Assert.True(success1);
                 Assert.Equal(887766, uid1);
                 Assert.Null(resp1);
 
                 // Call again to verify in-memory cache lookup
-                var (success2, uid2, resp2) = await AccountManager.GetUserIDAsync("KnownListUser");
+                var (success2, uid2, resp2) = await AccountRegistrationService.Default.GetUserIdAsync("KnownListUser");
                 Assert.True(success2);
                 Assert.Equal(887766, uid2);
                 Assert.Null(resp2);
             }
             finally
             {
-                AccountManager.RemoveAccount(known);
+                AccountRegistrationService.Default.RemoveAccount(known);
             }
         }
 
@@ -103,7 +103,7 @@ namespace Shiro.Tests
         {
             // Invalid account -> returns null
             var invalid = new Account { Valid = false, Username = "InvalidUser" };
-            var regInvalid = AccountManager.RegisterValidatedAccount(invalid, "token", saveImmediate: false);
+            var regInvalid = AccountRegistrationService.Default.RegisterValidatedAccount(invalid, "token", saveImmediate: false);
             Assert.Null(regInvalid);
 
             // Valid account -> registered
@@ -115,7 +115,7 @@ namespace Shiro.Tests
                 SecurityToken = "InitialToken"
             };
 
-            var registered = AccountManager.RegisterValidatedAccount(valid, "InitialToken", "InitialPass", saveImmediate: false);
+            var registered = AccountRegistrationService.Default.RegisterValidatedAccount(valid, "InitialToken", "InitialPass", saveImmediate: false);
             Assert.NotNull(registered);
             Assert.Equal("InitialPass", registered.Password);
 
@@ -130,20 +130,20 @@ namespace Shiro.Tests
                     SecurityToken = "UpdatedToken"
                 };
 
-                var secondReg = AccountManager.RegisterValidatedAccount(updated, "UpdatedToken", "UpdatedPass", saveImmediate: false);
+                var secondReg = AccountRegistrationService.Default.RegisterValidatedAccount(updated, "UpdatedToken", "UpdatedPass", saveImmediate: false);
                 Assert.NotNull(secondReg);
                 Assert.Equal("UpdatedToken", secondReg.SecurityToken);
                 Assert.Equal("UpdatedPass", secondReg.Password);
 
                 // Remove account from database
-                int removedCount = AccountManager.RemoveAccountsFromDatabase(new[] { secondReg });
+                int removedCount = AccountRegistrationService.Default.RemoveAccountsFromDatabase(new[] { secondReg });
                 Assert.Equal(string.Empty, secondReg.SecurityToken);
                 Assert.Equal(string.Empty, secondReg.Password);
                 Assert.Equal(1, removedCount);
             }
             finally
             {
-                AccountManager.RemoveAccount(valid);
+                AccountRegistrationService.Default.RemoveAccount(valid);
             }
         }
 
@@ -171,13 +171,13 @@ namespace Shiro.Tests
         [Fact]
         public void AccountManager_RemoveAccounts_ValidationEdgeCases()
         {
-            bool removedNull = AccountManager.RemoveAccount(null!);
+            bool removedNull = AccountRegistrationService.Default.RemoveAccount(null!);
             Assert.False(removedNull);
 
-            int countNull = AccountManager.RemoveAccountsFromDatabase(null!);
+            int countNull = AccountRegistrationService.Default.RemoveAccountsFromDatabase(null!);
             Assert.Equal(0, countNull);
 
-            int countEmpty = AccountManager.RemoveAccountsFromDatabase(Array.Empty<Account>());
+            int countEmpty = AccountRegistrationService.Default.RemoveAccountsFromDatabase(Array.Empty<Account>());
             Assert.Equal(0, countEmpty);
         }
 
@@ -280,24 +280,24 @@ namespace Shiro.Tests
 
             try
             {
-                AccountManager.ClearResolvedUserIdsCacheForTesting();
+                AccountRegistrationService.Default.ClearResolvedUserIdsCacheForTesting();
 
                 handler.Enqueue(HttpStatusCode.OK, "{\"data\":[{\"id\":445566,\"name\":\"HttpResolvedUser\"}]}");
-                var (ok1, id1, _) = await AccountManager.GetUserIDAsync("HttpResolvedUser");
+                var (ok1, id1, _) = await AccountRegistrationService.Default.GetUserIdAsync("HttpResolvedUser");
                 Assert.True(ok1);
                 Assert.Equal(445566, id1);
 
-                var (okCached, idCached, _) = await AccountManager.GetUserIDAsync("HttpResolvedUser");
+                var (okCached, idCached, _) = await AccountRegistrationService.Default.GetUserIdAsync("HttpResolvedUser");
                 Assert.True(okCached);
                 Assert.Equal(445566, idCached);
 
                 handler.Enqueue(HttpStatusCode.OK, "{\"data\":[]}");
-                var (okEmpty, idEmpty, _) = await AccountManager.GetUserIDAsync("UnknownUserX");
+                var (okEmpty, idEmpty, _) = await AccountRegistrationService.Default.GetUserIdAsync("UnknownUserX");
                 Assert.False(okEmpty);
                 Assert.Equal(-1, idEmpty);
 
                 handler.Enqueue(HttpStatusCode.OK, "{not-json");
-                var (okBadJson, _, _) = await AccountManager.GetUserIDAsync("BadJsonUser");
+                var (okBadJson, _, _) = await AccountRegistrationService.Default.GetUserIdAsync("BadJsonUser");
                 Assert.False(okBadJson);
 
                 AccountManager.ReplaceAccountsList(new List<Account>());

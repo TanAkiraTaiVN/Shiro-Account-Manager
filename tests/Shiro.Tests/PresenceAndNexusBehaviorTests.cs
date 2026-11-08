@@ -259,7 +259,7 @@ namespace Shiro.Tests
                 AccountRepository.Default.Remove(testAccount);
                 lock (AccountManager.AccountListLock)
                 {
-                    AccountManager.RemoveAccount(testAccount);
+                    AccountRegistrationService.Default.RemoveAccount(testAccount);
                 }
             }
         }

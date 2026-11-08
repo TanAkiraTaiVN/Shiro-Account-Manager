@@ -521,7 +521,7 @@ namespace Shiro.Tests
             try
             {
                 // Empty/whitespace username returns false immediately
-                var emptyRes = await AccountManager.GetUserIDAsync("   ");
+                var emptyRes = await AccountRegistrationService.Default.GetUserIdAsync("   ");
                 Assert.False(emptyRes.Success);
                 Assert.Equal(-1, emptyRes.UserId);
 
@@ -540,12 +540,12 @@ namespace Shiro.Tests
                 AppServices.AccountRepository.AddThreadSafe(knownAcc);
 
                 // Known account in AccountsList resolves without network call and populates cache
-                var knownRes = await AccountManager.GetUserIDAsync("CachedKnownPlayer");
+                var knownRes = await AccountRegistrationService.Default.GetUserIdAsync("CachedKnownPlayer");
                 Assert.True(knownRes.Success);
                 Assert.Equal(99887766, knownRes.UserId);
 
                 // Second call hits ResolvedUserIdsCache directly
-                var cachedRes = await AccountManager.GetUserIDAsync("cachedknownplayer");
+                var cachedRes = await AccountRegistrationService.Default.GetUserIdAsync("cachedknownplayer");
                 Assert.True(cachedRes.Success);
                 Assert.Equal(99887766, cachedRes.UserId);
 
@@ -557,14 +557,14 @@ namespace Shiro.Tests
                     SecurityToken = "_|WARNING:-DO-NOT-SHARE-THIS.--token-updated",
                     Valid = true
                 };
-                var registered = AccountManager.RegisterValidatedAccount(updatedAcc, updatedAcc.SecurityToken, "NewSecretPass", saveImmediate: false);
+                var registered = AccountRegistrationService.Default.RegisterValidatedAccount(updatedAcc, updatedAcc.SecurityToken, "NewSecretPass", saveImmediate: false);
                 Assert.Same(knownAcc, registered);
                 Assert.Equal("NewSecretPass", knownAcc.Password);
                 Assert.Equal("_|WARNING:-DO-NOT-SHARE-THIS.--token-updated", knownAcc.SecurityToken);
 
                 // RegisterValidatedAccount returns null for invalid account
                 var invalidAcc = new Account { Username = "InvalidAcc", Valid = false };
-                Assert.Null(AccountManager.RegisterValidatedAccount(invalidAcc, "bad", saveImmediate: false));
+                Assert.Null(AccountRegistrationService.Default.RegisterValidatedAccount(invalidAcc, "bad", saveImmediate: false));
             }
             finally
             {

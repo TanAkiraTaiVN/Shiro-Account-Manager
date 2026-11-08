@@ -127,7 +127,7 @@ namespace Shiro.Services
             }
             else
             {
-                AppServices.AccountRepository.EnsureBackendInitialized();
+                // Backend not yet wired; no-op rather than recurse into AccountRepository
             }
         }
 

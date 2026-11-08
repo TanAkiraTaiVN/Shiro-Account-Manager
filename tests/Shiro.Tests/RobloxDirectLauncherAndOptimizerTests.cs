@@ -104,7 +104,7 @@ namespace Shiro.Tests
             AccountManager.ResetAccountsForTests(Array.Empty<Account>());
             var acc = new Account { Username = "TestUserToDelete", UserID = 9999999 };
             AppServices.AccountRepository.AddThreadSafe(acc);
-            int removed = AccountManager.RemoveAccountsFromDatabase(new[] { acc });
+            int removed = AccountRegistrationService.Default.RemoveAccountsFromDatabase(new[] { acc });
             Assert.Equal(1, removed);
             Assert.DoesNotContain(acc, AppServices.AccountRepository.GetAll());
         }

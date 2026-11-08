@@ -41,6 +41,7 @@ namespace Shiro.Services
 
                 // Core Domain Services
                 services.AddSingleton(AccountPersistenceService.Default);
+                services.AddSingleton(AccountRegistrationService.Default);
                 services.AddSingleton<IAccountRepository>(Services.AccountRepository.Default);
                 services.AddSingleton<IRobloxApiClient>(Services.RobloxApiClient.Default);
                 services.AddSingleton<IRobloxSessionService>(Services.RobloxSessionService.Default);
@@ -162,6 +163,7 @@ namespace Shiro.Services
 
         // Strongly-typed static convenience accessors resolving directly from DI
         public static AccountPersistenceService AccountPersistence => GetRequiredService<AccountPersistenceService>();
+        public static AccountRegistrationService AccountRegistration => GetRequiredService<AccountRegistrationService>();
         public static IAccountRepository AccountRepository => GetRequiredService<IAccountRepository>();
         public static IRobloxApiClient RobloxApi => GetRequiredService<IRobloxApiClient>();
         public static IRobloxSessionService RobloxSessionService => GetRequiredService<IRobloxSessionService>();
