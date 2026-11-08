@@ -136,13 +136,13 @@ namespace Shiro.Tests
                 RobloxProcessService.TestGetRunningRobloxPidsOverride = () => new[] { Environment.ProcessId };
                 var (saved1, count1, prio1) = MemoryOptimizer.OptimizeRobloxClients(lowerPriority: false);
                 Assert.InRange(saved1, 0, long.MaxValue);
-                Assert.InRange(count1, 0, int.MaxValue);
-                Assert.InRange(prio1, 0, int.MaxValue);
+                Assert.Equal(1, count1);
+                Assert.Equal(0, prio1);
 
                 var (saved2, count2, prio2) = MemoryOptimizer.OptimizeRobloxClients(lowerPriority: true);
                 Assert.InRange(saved2, 0, long.MaxValue);
-                Assert.InRange(count2, 0, int.MaxValue);
-                Assert.InRange(prio2, 0, int.MaxValue);
+                Assert.Equal(1, count2);
+                Assert.InRange(prio2, 0, 1);
             }
             finally
             {

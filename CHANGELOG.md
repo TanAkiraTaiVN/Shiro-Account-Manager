@@ -28,6 +28,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added strict assertion quality validation (`TestMethods_ShouldAssertOnValues_NotOnlyNullness`) preventing mock-less or trivial assertions.
   - Eliminated all unhandled `async void` methods; strictly documented and scoped the remaining 5 native WebView2 event handlers in `docs/coverage-exclusions.md`.
   - Verified 0 empty catch blocks, 0 sync-over-async blocking calls, and 100% adherence to the <= 500 lines per file budget across all source files.
+- **P0 Security Hardening**:
+  - Implemented Dual-KDF Vault Encryption: PBKDF2-SHA256 (`600,000` iterations, `SHIRO_SECURE_VAULT_V3` / `SHIRO_VAULT_V3`) for user-supplied passwords and fast HKDF-SHA256 (`SHIRO_SECURE_VAULT_V4`) for high-entropy 256-bit DPAPI machine keys.
+  - Locked WebView2 HBA (`x-bound-auth-token`) fetch bridge and credential autofill scripts to verified `https://*.roblox.com` origins.
+  - Blocked internal `Hba*` security fields on Kestrel `SetField`/`GetField` endpoints, enforced `UserID` ownership verification on Nexus WebSocket registration, and encrypted Discord monitoring webhook URLs via Windows DPAPI.
+  - Enforced fail-closed SHA-256 verification and PowerShell single-quote path escaping in `AutoUpdaterService`, plus Windows Authenticode signature verification in `VcRedistInstaller`.
+- **P1 Concurrency, Handle & Resource Hardening**:
+  - Added `CancellationToken` propagation, bounded shutdown timeouts, and deterministic native/managed handle disposal across `AccountBrowser`, `LaunchCoordinator`, `NexusWebSocketServer`, `DiscordRpcService`, and `ToastService`.
+  - Fixed `AsyncRelayCommand` overlap synchronization, UI thread dispatching for `ServerListViewModel.Servers`, and single-instance `EventWaitHandle` lifecycle.
+- **P2 Architecture, State Ownership & Documentation Sync**:
+  - Decoupled `AccountManager` from `Shiro.AvaloniaUI.Views` via `IDialogService.ShowInputPromptAsync` and `IHostUiBridgeService`.
+  - Implemented `IDisposable` on `MainViewModel` and `ServerListViewModel` to unsubscribe static events and dispose timers/cancellation tokens.
+  - Consolidated `AccountsList` and `PlaceHistory` ownership in `AccountRepository`, removed synchronous HTTP from `Account` constructors, zeroed decrypted backup buffers in `AccountManager.BackupRecovery`, and expanded the test suite to **1,868+ unit tests**.
 
 ## [4.2.0] - 2026-10-30 (Project Real Architecture Transfer & Hardening)
 

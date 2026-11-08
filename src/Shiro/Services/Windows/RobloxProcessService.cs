@@ -309,6 +309,8 @@ namespace Shiro.Services
         /// </summary>
         public static bool IsAnyRobloxRunning()
         {
+            if (TestGetRunningRobloxPidsOverride != null)
+                return TestGetRunningRobloxPidsOverride().Count > 0;
             if (TryGetProcessCountsNative(out _, out int clientCount))
                 return clientCount > 0;
 

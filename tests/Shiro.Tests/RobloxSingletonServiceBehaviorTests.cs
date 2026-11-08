@@ -24,8 +24,12 @@ namespace Shiro.Tests
         [Fact]
         public void ServiceProperties_ReflectValidStates()
         {
-            bool elevated = RobloxSingletonService.IsElevated;
-            Assert.InRange(elevated ? 1 : 0, 0, 1);
+            Assert.True(RobloxSingletonService.IsEnabled);
+
+            using var identity = System.Security.Principal.WindowsIdentity.GetCurrent();
+            bool expectedElevated = new System.Security.Principal.WindowsPrincipal(identity)
+                .IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator);
+            Assert.Equal(expectedElevated, RobloxSingletonService.IsElevated);
 
             string status = RobloxSingletonService.StatusText;
             Assert.False(string.IsNullOrWhiteSpace(status));
@@ -33,8 +37,7 @@ namespace Shiro.Tests
             int totalClosed = RobloxSingletonService.TotalClosed;
             Assert.InRange(totalClosed, 0, int.MaxValue);
 
-            bool accessDenied = RobloxSingletonService.AccessDenied;
-            Assert.InRange(accessDenied ? 1 : 0, 0, 1);
+            Assert.False(RobloxSingletonService.AccessDenied);
         }
 
         [Fact]

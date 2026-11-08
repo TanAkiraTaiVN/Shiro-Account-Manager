@@ -282,8 +282,8 @@ namespace Shiro.AvaloniaUI.Views
                     if (notify)
                     {
                         mainVm.StatusMessage = totalKilled > 0
-                            ? Shiro.Services.LocalizationService.Format("Account" + "Manager.KilledRobloxProcessesExclamation", totalKilled)
-                            : Shiro.Services.LocalizationService.Get("Account" + "Manager.NoRobloxProcessesRunning");
+                            ? Shiro.Services.LocalizationService.Format("AccountManager.KilledRobloxProcessesExclamation", totalKilled)
+                            : Shiro.Services.LocalizationService.Get("AccountManager.NoRobloxProcessesRunning");
                     }
                     foreach (var acc in mainVm.Accounts) acc.IsInGame = false;
                     mainVm.NotifyCounts();

@@ -170,7 +170,7 @@ namespace Shiro.Services
                     DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
                     new GatewayWelcomeData(
                         "Shiro Account Manager Gateway",
-                        typeof(KestrelWebServer).Assembly.GetName().Version?.ToString(3) ?? "4.2.0",
+                        typeof(KestrelWebServer).Assembly.GetName().Version?.ToString(3) ?? "5.0.0",
                         _activeSockets.Count));
 
                 byte[] welcomeBytes = JsonSerializer.SerializeToUtf8Bytes(welcome, ShiroAppJson.Default.GatewayWelcomeMessage);

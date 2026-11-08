@@ -23,7 +23,7 @@ namespace Shiro.Services
                 {
                     ["title"] = "Shiro Account Manager API",
                     ["description"] = "Local REST & WebSocket Gateway for Roblox Account Automation, Multi-Instance Management, and Performance Controls.",
-                    ["version"] = "4.2.0"
+                    ["version"] = "5.0.0"
                 },
                 ["servers"] = new JsonArray
                 {
@@ -205,7 +205,7 @@ namespace Shiro.Services
 <body>
     <div class=""container"">
         <h1>Shiro Account Manager • REST API</h1>
-        <p style=""color: #94a3b8;"">Gateway v4.2.0 &bull; Raw OpenAPI: <a href=""/swagger.json"">/swagger.json</a> &bull; WebSocket: <span class=""badge"">ws://localhost:7963/ws</span></p>
+        <p style=""color: #94a3b8;"">Gateway v5.0.0 &bull; Raw OpenAPI: <a href=""/swagger.json"">/swagger.json</a> &bull; WebSocket: <span class=""badge"">ws://localhost:7963/ws</span></p>
 
         <div class=""endpoint"">
             <div><span class=""method get"">GET</span><span class=""path"">/Running</span></div>
