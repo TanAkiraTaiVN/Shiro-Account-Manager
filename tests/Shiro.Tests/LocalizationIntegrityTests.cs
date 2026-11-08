@@ -170,11 +170,13 @@ namespace Shiro.Tests
             Assert.False(string.IsNullOrWhiteSpace(malformed));
         }
 
+        // Intentional bilingual UI labels plus the U+0111 ('đ') Unicode folding constant used by CommandPaletteCoordinator.NormalizeSearchText.
         private static readonly HashSet<string> AllowedBilingualKeysInEnJson = new(StringComparer.OrdinalIgnoreCase)
         {
             "Cap_Language",
             "Set_Language_EN",
-            "Set_Language_VN"
+            "Set_Language_VN",
+            "CommandPalette.CharDWithStroke"
         };
 
         private static readonly Regex VietnameseDiacriticRegex = new(
@@ -218,6 +220,21 @@ namespace Shiro.Tests
 
             Assert.True(mismatches.Count == 0,
                 $"Format placeholder mismatches between vi.json and en.json:\n{string.Join("\n", mismatches)}");
+        }
+
+        [Fact]
+        public void CommandPalette_NormalizeSearchText_FoldsDWithStroke_WhenLanguageIsEnglish()
+        {
+            try
+            {
+                LocalizationService.SetLanguage(AppLanguage.English, saveSetting: false);
+                Assert.Equal("dong", CommandPaletteCoordinator.NormalizeSearchText("Đóng"));
+                Assert.Equal("dang nhap lai", CommandPaletteCoordinator.NormalizeSearchText("đăng nhập lại"));
+            }
+            finally
+            {
+                LocalizationService.SetLanguage(AppLanguage.Vietnamese, saveSetting: false);
+            }
         }
     }
 }
