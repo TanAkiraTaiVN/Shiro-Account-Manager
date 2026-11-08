@@ -150,8 +150,9 @@ namespace Shiro
                 if (!int.TryParse(configured, NumberStyles.Integer, CultureInfo.InvariantCulture, out delay))
                     delay = DefaultAccountJoinDelaySeconds;
             }
-            catch
+            catch (Exception ex)
             {
+                AppServices.Logger.Debug("[AccountManager] GetConfiguredAccountJoinDelaySeconds failed", ex);
                 delay = DefaultAccountJoinDelaySeconds;
             }
 

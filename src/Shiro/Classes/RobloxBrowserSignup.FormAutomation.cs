@@ -156,8 +156,9 @@ namespace Shiro.Classes
                     await WaitForNavigationToSettleAsync(page);
                     continue;
                 }
-                catch (Exception) when (!IsLikelySignupPage(page))
+                catch (Exception ex) when (!IsLikelySignupPage(page))
                 {
+                    AppServices.Logger.Debug("[RobloxBrowserSignup] Type value aborted because page is no longer sign-up", ex);
                     return false;
                 }
 

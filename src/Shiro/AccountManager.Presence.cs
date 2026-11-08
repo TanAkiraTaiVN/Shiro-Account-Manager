@@ -18,8 +18,9 @@ namespace Shiro
                     : 5;
                 return Math.Max(1, Math.Min(9999, configured));
             }
-            catch
+            catch (Exception ex)
             {
+                AppServices.Logger.Debug("[AccountManager] GetPresenceRefreshMinutes failed, defaulting to 5", ex);
                 return 5;
             }
         }

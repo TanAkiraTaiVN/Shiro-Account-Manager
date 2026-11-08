@@ -56,7 +56,7 @@ namespace Shiro.Services
             {
                 pid = process.Id;
             }
-            catch
+            catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException or ArgumentException)
             {
                 return null;
             }

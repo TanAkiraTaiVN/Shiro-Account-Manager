@@ -204,9 +204,10 @@ namespace Shiro.Classes
                 {
                     throw;
                 }
-                catch
+                catch (Exception ex)
                 {
                     // Presence should continue to work if the optional game-name request fails.
+                    AppServices.Logger.Debug("[Presence] Optional game-name request failed", ex);
                 }
             }
 

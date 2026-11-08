@@ -63,8 +63,9 @@ namespace Shiro.ViewModels
             {
                 return StreamGeometry.Parse(pathData);
             }
-            catch
+            catch (Exception ex)
             {
+                Shiro.Services.AppServices.Logger.Debug("[CommandPaletteItemViewModel] TryParseGeometry failed", ex);
                 return null;
             }
         }

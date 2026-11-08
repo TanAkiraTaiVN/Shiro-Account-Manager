@@ -15,7 +15,7 @@ namespace Shiro.Tests
         [Fact]
         public void UntypedCatchBlocks_ShouldNotExceedBaseline()
         {
-            const int Baseline = 22; // 44 lúc bắt đầu Task 2; Task 3 hạ về 0
+            const int Baseline = 0;
             var offenders = SourceScan.AppSourceFiles(RepoRoot)
                 .Where(f => !UntypedCatchAllowList.Contains(Path.GetFileName(f)))
                 .SelectMany(f => Regex.Matches(SourceScan.StripStringLiterals(File.ReadAllText(f)),

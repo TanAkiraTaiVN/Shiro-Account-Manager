@@ -71,8 +71,9 @@ namespace Shiro.Services
             {
                 return StreamGeometry.Parse(pathData);
             }
-            catch
+            catch (Exception ex)
             {
+                AppServices.Logger.Debug("[ToastItem] TryParseGeometry failed", ex);
                 return null;
             }
         }

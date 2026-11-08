@@ -52,8 +52,9 @@ namespace Shiro
                 try { byte[] p = Cryptography.Decrypt(data, vaultKey); CryptographicOperations.ZeroMemory(p); return false; }
                 finally { CryptographicOperations.ZeroMemory(vaultKey); }
             }
-            catch
+            catch (Exception ex)
             {
+                AppServices.Logger.Debug("[AccountManager] Primary key decrypt failed, trying recovery", ex);
                 return VaultKeyRecoveryService.TryRecoverInProcess(data) == null;
             }
         }
@@ -454,8 +455,9 @@ namespace Shiro
                         System.Security.Cryptography.CryptographicOperations.ZeroMemory(SaveData);
                     }
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
+                    AppServices.Logger.Debug("[AccountManager] SaveAccountsAsync failed, restoring dirty state", ex);
                     RestoreDirty(taken);
                     throw;
                 }

@@ -222,9 +222,9 @@ namespace Shiro.Services
                                 return m.Groups[1].Value;
                         }
                     }
-                    catch
+                    catch (Exception ex)
                     {
-                        // Ignore inaccessible transient processes
+                        AppServices.Logger.Debug("[RobloxWindowArrangerService] Resolve process tracker failed", ex);
                     }
                     return string.Empty;
                 });

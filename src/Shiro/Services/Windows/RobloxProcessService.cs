@@ -78,7 +78,11 @@ namespace Shiro.Services
                     return !p.HasExited;
                 }
                 catch (ArgumentException) { return false; }
-                catch (Exception) { return false; }
+                catch (Exception ex)
+                {
+                    AppServices.Logger.Debug("[RobloxProcessService] IsProcessAlive check failed", ex);
+                    return false;
+                }
             }
 
             IntPtr hProcess = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE, false, (uint)pid);

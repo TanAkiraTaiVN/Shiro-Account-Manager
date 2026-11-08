@@ -370,8 +370,9 @@ namespace Shiro
                     // Timeout on secondary store: treat as valid to prevent false positive expiration
                     return true;
                 }
-                catch
+                catch (Exception ex)
                 {
+                    AppServices.Logger.Debug("[Account] VerifyLiveSessionStore failed", ex);
                     return true;
                 }
             }

@@ -280,7 +280,7 @@ namespace Shiro.Classes
                     stream.Dispose();
                 }
             }
-            catch
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
                 // In use exclusively or not ready yet, check next candidate
             }

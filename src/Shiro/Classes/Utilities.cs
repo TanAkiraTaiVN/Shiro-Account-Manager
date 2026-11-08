@@ -160,8 +160,9 @@ namespace Shiro
             {
                 return System.Net.NetworkInformation.NetworkInterface.GetIsNetworkAvailable();
             }
-            catch
+            catch (Exception ex)
             {
+                AppServices.Logger.Debug("[Utilities] GetIsNetworkAvailable failed, defaulting to true", ex);
                 return true;
             }
         }

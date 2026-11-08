@@ -174,8 +174,9 @@ namespace Shiro.Services
             {
                 return string.Format(template, args);
             }
-            catch
+            catch (FormatException ex)
             {
+                AppServices.Logger.Debug("[LocalizationService] SafeFormat failed with FormatException", ex);
                 string result = template;
                 for (int i = 0; i < args.Length; i++)
                 {

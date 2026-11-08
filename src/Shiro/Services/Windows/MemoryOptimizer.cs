@@ -429,7 +429,7 @@ namespace Shiro.Services
                 };
                 return SetProcessInformation(hProcess, ProcessPowerThrottling, ref state, (uint)Marshal.SizeOf<PROCESS_POWER_THROTTLING_STATE>());
             }
-            catch
+            catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException or ArgumentException)
             {
                 return false;
             }
@@ -447,7 +447,7 @@ namespace Shiro.Services
                 };
                 return SetProcessInformation(hProcess, ProcessPowerThrottling, ref state, (uint)Marshal.SizeOf<PROCESS_POWER_THROTTLING_STATE>());
             }
-            catch
+            catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException or ArgumentException)
             {
                 return false;
             }

@@ -123,8 +123,9 @@ namespace Shiro.Services
                 AccentTheme theme = ParseTheme(saved);
                 ApplyTheme(theme, save: false);
             }
-            catch
+            catch (Exception ex)
             {
+                AppServices.Logger.Debug("[AccentThemeService] Initialize theme failed, falling back to Monochrome", ex);
                 ApplyTheme(AccentTheme.Monochrome, save: false);
             }
         }

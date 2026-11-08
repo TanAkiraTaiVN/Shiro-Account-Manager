@@ -195,7 +195,7 @@ namespace Shiro
                     {
                         return (T?)Convert.ChangeType(property.Value, typeof(T), CultureInfo.InvariantCulture);
                     }
-                    catch
+                    catch (Exception ex) when (ex is FormatException or InvalidCastException or OverflowException)
                     {
                         return defaultValue;
                     }

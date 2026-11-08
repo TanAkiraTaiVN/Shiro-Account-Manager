@@ -120,9 +120,9 @@ namespace Shiro.Services
                 if (AssetLoader.Exists(uri))
                     return AssetLoader.Open(uri);
             }
-            catch
+            catch (Exception ex)
             {
-                // AssetLoader may not be initialized in non-UI unit test contexts; fall back to disk
+                AppServices.Logger.Debug($"[FlagIconService] AssetLoader.Open failed for '{code}', falling back to disk", ex);
             }
 
             string diskPath = Path.Combine(AppContext.BaseDirectory, "Resources", "Flags", $"{code}.svg");
@@ -285,8 +285,9 @@ namespace Shiro.Services
                         return null;
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                AppServices.Logger.Debug($"[FlagIconService] CreateGeometry failed for <{localName}>", ex);
                 return null;
             }
         }

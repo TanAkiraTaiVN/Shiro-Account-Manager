@@ -143,8 +143,9 @@ namespace Shiro.AvaloniaUI.Views
                 return Avalonia.Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop
                     && desktop.MainWindow != null;
             }
-            catch
+            catch (Exception ex)
             {
+                Shiro.Services.AppServices.Logger.Debug("[MessageBoxDialog] IsAvaloniaUiReady check failed", ex);
                 return false;
             }
         }
