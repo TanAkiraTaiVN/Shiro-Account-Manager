@@ -104,6 +104,12 @@ namespace Shiro.Services
             return InputDialog.Prompt(message, title, defaultValue, false, owner);
         }
 
+        public Task<string> ShowInputPromptAsync(string message, string title, string defaultValue = "")
+        {
+            var owner = GetActiveOwner();
+            return InputDialog.PromptAsync(message, title, defaultValue, false, owner);
+        }
+
         public void OpenFastLoginDialog(Account? account = null)
         {
             AppDispatcher.Post(async () =>

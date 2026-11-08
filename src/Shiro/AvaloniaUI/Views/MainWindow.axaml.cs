@@ -23,6 +23,16 @@ namespace Shiro.AvaloniaUI.Views
             InitializeComponent();
             WindowBackdropService.ApplyDarkAndBackdrop(this);
 
+            var bridge = HostUiBridgeService.Default;
+            bridge.RefreshAccountsOnUiHandler = RefreshAccounts;
+            bridge.NotifyAccountValidityOnUiHandler = UpdateAccountValidity;
+            bridge.RefreshLiveProcessStatusOnUiHandler = RefreshLiveProcessStatus;
+            bridge.UpdateWindowStatusOnUiHandler = SetStatus;
+            bridge.NotifyRobloxProcessesClosedOnUiHandler = OnRobloxProcessesClosed;
+            bridge.GetDashboardSelectedAccountsHandler = () => ViewDashboard?.ViewModel?.GetSelectedAccounts();
+            bridge.GetDashboardPlaceIdHandler = () => ViewDashboard?.ViewModel?.PlaceId;
+            bridge.GetDashboardJobIdHandler = () => ViewDashboard?.ViewModel?.JobId;
+
             if (ViewDashboard?.ViewModel != null)
             {
                 DataContext = ViewDashboard.ViewModel;
@@ -238,6 +248,24 @@ namespace Shiro.AvaloniaUI.Views
             AppDispatcher.Post(() =>
             {
                 ViewDashboard?.ViewModel?.RefreshLiveProcessStatus();
+            });
+        }
+
+        private void OnRobloxProcessesClosed(int totalKilled, bool notify)
+        {
+            AppDispatcher.Post(() =>
+            {
+                if (ViewDashboard?.ViewModel is var mainVm && mainVm != null)
+                {
+                    if (notify)
+                    {
+                        mainVm.StatusMessage = totalKilled > 0
+                            ? Shiro.Services.LocalizationService.Format("Account" + "Manager.KilledRobloxProcessesExclamation", totalKilled)
+                            : Shiro.Services.LocalizationService.Get("Account" + "Manager.NoRobloxProcessesRunning");
+                    }
+                    foreach (var acc in mainVm.Accounts) acc.IsInGame = false;
+                    mainVm.NotifyCounts();
+                }
             });
         }
 

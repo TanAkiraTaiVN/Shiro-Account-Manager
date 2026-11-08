@@ -32,11 +32,21 @@ namespace Shiro.Tests
         [Fact]
         public void Services_And_Classes_ShouldNotDependOn_Views()
         {
+            var coveredTypes = Types.InAssembly(CoreAssembly)
+                .That()
+                .DoNotResideInNamespace("Shiro.AvaloniaUI")
+                .And()
+                .DoNotHaveName("AvaloniaDialogService")
+                .GetTypes()
+                .Select(t => t.FullName)
+                .ToList();
+
+            Assert.Contains(typeof(AccountManager).FullName, coveredTypes);
+            Assert.Contains(typeof(Account).FullName, coveredTypes);
+
             var result = Types.InAssembly(CoreAssembly)
                 .That()
-                .ResideInNamespace("Shiro.Services")
-                .Or()
-                .ResideInNamespace("Shiro.Classes")
+                .DoNotResideInNamespace("Shiro.AvaloniaUI")
                 .And()
                 .DoNotHaveName("AvaloniaDialogService")
                 .ShouldNot()
@@ -46,7 +56,7 @@ namespace Shiro.Tests
             var failingNames = (result.FailingTypes?.Select(t => t.FullName ?? t.Name) ?? Enumerable.Empty<string>())
                 .Where(name => !name.StartsWith("Shiro.Services.AvaloniaDialogService", StringComparison.Ordinal))
                 .ToList();
-            Assert.True(failingNames.Count == 0, $"Services and Classes (except AvaloniaDialogService) should not depend on Views. Violations: {string.Join(", ", failingNames)}");
+            Assert.True(failingNames.Count == 0, $"Non-UI types (except AvaloniaDialogService) should not depend on Views. Violations: {string.Join(", ", failingNames)}");
         }
 
         [Fact]

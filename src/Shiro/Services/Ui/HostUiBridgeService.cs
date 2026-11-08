@@ -29,6 +29,14 @@ namespace Shiro.Services
         public Func<Task>? StopWebServerHandler { get; set; }
         public Action<bool>? SetAutoCookieRefreshEnabledHandler { get; set; }
         public Func<bool, Task>? ResetEncryptionHandler { get; set; }
+        public Action<IReadOnlyList<Account>>? RefreshAccountsOnUiHandler { get; set; }
+        public Action<Account, bool>? NotifyAccountValidityOnUiHandler { get; set; }
+        public Action? RefreshLiveProcessStatusOnUiHandler { get; set; }
+        public Action<string>? UpdateWindowStatusOnUiHandler { get; set; }
+        public Action<int, bool>? NotifyRobloxProcessesClosedOnUiHandler { get; set; }
+        public Func<List<Account>?>? GetDashboardSelectedAccountsHandler { get; set; }
+        public Func<string?>? GetDashboardPlaceIdHandler { get; set; }
+        public Func<string?>? GetDashboardJobIdHandler { get; set; }
 
         public void RefreshAccountView(Account? account = null) => RefreshAccountViewHandler?.Invoke(account);
         public void UpdateAccountValidityOnUi(Account account, bool valid) => UpdateAccountValidityOnUiHandler?.Invoke(account, valid);
@@ -37,6 +45,14 @@ namespace Shiro.Services
         public void CancelLaunching() => CancelLaunchingHandler?.Invoke();
         public void UpdateMultiRoblox() => UpdateMultiRobloxHandler?.Invoke();
         public void CloseAllRobloxFromUi() => CloseAllRobloxFromUiHandler?.Invoke();
+        public void NotifyAccountsReplaced(IReadOnlyList<Account> accounts) => RefreshAccountsOnUiHandler?.Invoke(accounts);
+        public void NotifyAccountValidityChanged(Account account, bool isValid) => NotifyAccountValidityOnUiHandler?.Invoke(account, isValid);
+        public void NotifyLiveProcessStatusChanged() => RefreshLiveProcessStatusOnUiHandler?.Invoke();
+        public void NotifyWindowStatus(string message) => UpdateWindowStatusOnUiHandler?.Invoke(message);
+        public void NotifyRobloxProcessesClosed(int totalKilled, bool notify) => NotifyRobloxProcessesClosedOnUiHandler?.Invoke(totalKilled, notify);
+        public List<Account>? TryGetDashboardSelectedAccounts() => GetDashboardSelectedAccountsHandler?.Invoke();
+        public string? TryGetDashboardPlaceId() => GetDashboardPlaceIdHandler?.Invoke();
+        public string? TryGetDashboardJobId() => GetDashboardJobIdHandler?.Invoke();
 
         public async Task LaunchAppHomeFromHostAsync(Account account)
         {

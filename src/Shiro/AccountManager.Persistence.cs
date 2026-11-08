@@ -73,7 +73,7 @@ namespace Shiro
                     ? await TestPasswordPromptAsync(
                         Shiro.Services.LocalizationService.Get("AccountManager.EnterNewPasswordPrompt"),
                         Shiro.Services.LocalizationService.Get("AccountManager.ChangeDatabasePassword")).ConfigureAwait(false)
-                    : await Shiro.AvaloniaUI.Views.InputDialog.PromptAsync(
+                    : await AppServices.Dialogs.ShowInputPromptAsync(
                     Shiro.Services.LocalizationService.Get("AccountManager.EnterNewPasswordPrompt"),
                     Shiro.Services.LocalizationService.Get("AccountManager.ChangeDatabasePassword"));
 

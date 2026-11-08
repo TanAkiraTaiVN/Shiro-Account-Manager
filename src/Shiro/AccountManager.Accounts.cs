@@ -18,7 +18,7 @@ namespace Shiro
             account.Valid = isValid;
             if (isValid)
                 account.AccountStatusIssue = string.Empty;
-            Shiro.AvaloniaUI.Views.MainWindow.Instance?.UpdateAccountValidity(account, isValid);
+            HostUiBridgeService.Default.NotifyAccountValidityChanged(account, isValid);
         }
 
         public void UpdateAccountValidity(Account account, bool isValid)
@@ -109,7 +109,7 @@ namespace Shiro
         }
 
         public void UpdateAccountView(Account? account = null) =>
-            Shiro.AvaloniaUI.Views.MainWindow.Instance?.RefreshLiveProcessStatus();
+            HostUiBridgeService.Default.NotifyLiveProcessStatusChanged();
 
         public static Account? AddAccount(string SecurityToken, string Password = "", string? AccountJSON = null, bool saveImmediate = true)
         {

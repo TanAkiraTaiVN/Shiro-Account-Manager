@@ -36,7 +36,7 @@ namespace Shiro
         {
             if (!General.Get<bool>("ShowPresence"))
             {
-                AvaloniaUI.Views.MainWindow.Instance?.RefreshLiveProcessStatus();
+                HostUiBridgeService.Default.NotifyLiveProcessStatusChanged();
                 return;
             }
 

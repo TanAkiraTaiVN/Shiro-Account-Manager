@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -9,7 +9,7 @@ namespace Shiro
 {
     public partial class AccountManager
     {
-        internal void SetDashboardStatus(string message) => Shiro.AvaloniaUI.Views.MainWindow.Instance?.SetStatus(message);
+        internal void SetDashboardStatus(string message) => HostUiBridgeService.Default.NotifyWindowStatus(message);
 
         internal async Task ModernLaunchAccountAppHome(Account account)
         {
@@ -24,7 +24,7 @@ namespace Shiro
         }
 
         internal List<Account> GetCurrentSelectedAccounts() =>
-            Shiro.AvaloniaUI.Views.MainWindow.Instance?.DashboardView?.ViewModel?.GetSelectedAccounts()
+            HostUiBridgeService.Default.TryGetDashboardSelectedAccounts()
             ?? SelectedAccounts?.ToList() ?? new List<Account>();
 
         internal void ModernOpenAccountControl() => AppServices.Dialogs.OpenNexusWindow();
@@ -79,7 +79,7 @@ namespace Shiro
                 // Prefer the dashboard input, then the global CurrentPlaceId (unless the user explicitly
                 // cleared it), and only then fall back to the target account's own SavedPlaceId.
                 string? pidSource = ResolveEffectivePlaceIdSource(
-                    Shiro.AvaloniaUI.Views.MainWindow.Instance?.DashboardView?.ViewModel?.PlaceId,
+                    HostUiBridgeService.Default.TryGetDashboardPlaceId(),
                     targetAccounts,
                     ServerBrowserStateService.Default.IsPlaceIdExplicitlyCleared ? string.Empty : CurrentPlaceId);
 
@@ -95,7 +95,7 @@ namespace Shiro
 
             string cleanJobId = !string.IsNullOrWhiteSpace(jobId)
                 ? jobId
-                : Shiro.AvaloniaUI.Views.MainWindow.Instance?.DashboardView?.ViewModel?.JobId is string vmJid && !string.IsNullOrWhiteSpace(vmJid)
+                : HostUiBridgeService.Default.TryGetDashboardJobId() is string vmJid && !string.IsNullOrWhiteSpace(vmJid)
                     ? vmJid
                     : !string.IsNullOrWhiteSpace(CurrentJobId)
                         ? CurrentJobId
@@ -143,17 +143,7 @@ namespace Shiro
                     : Shiro.Services.LocalizationService.Get("AccountManager.NoRobloxProcessesRunning"));
             }
 
-            if (Shiro.AvaloniaUI.Views.MainWindow.Instance?.DashboardView?.ViewModel is var mainVm && mainVm != null)
-            {
-                if (notify)
-                {
-                    mainVm.StatusMessage = totalKilled > 0
-                        ? Shiro.Services.LocalizationService.Format("AccountManager.KilledRobloxProcessesExclamation", totalKilled)
-                        : Shiro.Services.LocalizationService.Get("AccountManager.NoRobloxProcessesRunning");
-                }
-                foreach (var acc in mainVm.Accounts) acc.IsInGame = false;
-                mainVm.NotifyCounts();
-            }
+            HostUiBridgeService.Default.NotifyRobloxProcessesClosed(totalKilled, notify);
             if (General.Get<bool>("EnableMultiRbx") && !RobloxSingletonService.MutexHeld && UpdateMultiRoblox() && notify)
                 SetDashboardStatus(Shiro.Services.LocalizationService.Get("AccountManager.KilledAndActivatedMulti"));
 

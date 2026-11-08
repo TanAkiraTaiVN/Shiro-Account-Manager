@@ -18,7 +18,6 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Shiro.Services;
-using Shiro.AvaloniaUI.Views;
 
 
 
@@ -264,7 +263,7 @@ namespace Shiro
                 snapshot = GetAccountsSnapshot();
             }
 
-            MainWindow.Instance?.RefreshAccounts(snapshot);
+            HostUiBridgeService.Default.NotifyAccountsReplaced(snapshot);
         }
 
         internal static void ResetAccountsForTests(IEnumerable<Account> accounts)
@@ -437,14 +436,14 @@ namespace Shiro
         private void RefreshModernDashboard()
         {
             var snapshot = GetAccountsSnapshot();
-            Shiro.AvaloniaUI.Views.MainWindow.Instance?.RefreshAccounts(snapshot);
+            HostUiBridgeService.Default.NotifyAccountsReplaced(snapshot);
         }
 
         // Modern dashboard and Avalonia action entry points extracted to AccountManager.ModernActions.cs
 
         public static string ShowDialog(string text, string caption, string defaultText = "", bool big = false)
         {
-            return Shiro.AvaloniaUI.Views.InputDialog.Prompt(text, caption, defaultText, big);
+            return AppServices.Dialogs.ShowInputPrompt(text, caption, defaultText);
         }
 
         internal async Task ObserveBackgroundTaskAsync(Task? task, string operation)
