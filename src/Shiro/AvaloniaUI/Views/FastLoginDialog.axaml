@@ -6,7 +6,7 @@
         x:Class="Shiro.AvaloniaUI.Views.FastLoginDialog"
         x:DataType="vm:CookieImportViewModel"
         Icon="/Resources/shiro.ico"
-        Title="Roblox Login - Shiro"
+        Title="{DynamicResource Loc_FastLogin_WindowTitle}"
         Width="460" Height="580"
         MinWidth="400" MinHeight="480"
         WindowStartupLocation="CenterOwner"
@@ -54,8 +54,8 @@
                     <lucide:Lucide Icon="LogIn" Width="15" Height="15" StrokeBrush="#38BDF8" HorizontalAlignment="Center" VerticalAlignment="Center" />
                 </Border>
                 <StackPanel VerticalAlignment="Center">
-                    <TextBlock x:Name="TxtDialogTitle" Text="Đăng nhập tài khoản" FontSize="14" FontWeight="Bold" Foreground="#FFFFFF" />
-                    <TextBlock x:Name="TxtDialogSubtitle" Text="Tự động bắt phiên và lưu tài khoản" FontSize="11" Foreground="#71717A" />
+                    <TextBlock x:Name="TxtDialogTitle" Text="{DynamicResource Loc_FastLogin_AccountLoginTitle}" FontSize="14" FontWeight="Bold" Foreground="#FFFFFF" />
+                    <TextBlock x:Name="TxtDialogSubtitle" Text="{DynamicResource Loc_FastLogin_AccountLoginSubtitle}" FontSize="11" Foreground="#71717A" />
                 </StackPanel>
             </StackPanel>
 
@@ -92,7 +92,7 @@
                         <!-- Live Status Text -->
                         <Grid Grid.Column="0" ColumnDefinitions="Auto,*" VerticalAlignment="Center" Margin="0,0,8,0">
                             <Ellipse Grid.Column="0" Width="6" Height="6" Fill="#38BDF8" VerticalAlignment="Center" Margin="0,0,6,0" />
-                            <TextBlock Grid.Column="1" x:Name="TxtInAppStatus" Text="Đang khởi tạo trình duyệt..."
+                            <TextBlock Grid.Column="1" x:Name="TxtInAppStatus" Text="{DynamicResource Loc_FastLogin_InitializingBrowser}"
                                        FontSize="11" Foreground="#A1A1AA" VerticalAlignment="Center"
                                        TextTrimming="CharacterEllipsis" />
                         </Grid>
@@ -104,20 +104,20 @@
                                     CornerRadius="5" Padding="8,3" Cursor="Hand" IsVisible="False">
                                 <StackPanel Orientation="Horizontal" Spacing="5">
                                     <lucide:Lucide Icon="Key" Width="11" Height="11" StrokeBrush="#38BDF8" VerticalAlignment="Center" />
-                                    <TextBlock Text="Điền &amp; Login" VerticalAlignment="Center" />
+                                    <TextBlock Text="{DynamicResource Loc_FastLogin_FillAndLoginBtn}" VerticalAlignment="Center" />
                                 </StackPanel>
                             </Button>
                             <Button x:Name="BtnSkipNext"
                                     Background="#1E1E2A" Foreground="#F59E0B" FontSize="11" FontWeight="SemiBold"
                                     CornerRadius="5" Padding="8,3" Cursor="Hand" IsVisible="False">
                                 <StackPanel Orientation="Horizontal" Spacing="5">
-                                    <TextBlock Text="Bỏ qua" VerticalAlignment="Center" />
+                                    <TextBlock Text="{DynamicResource Loc_FastLogin_SkipBtn}" VerticalAlignment="Center" />
                                     <lucide:Lucide Icon="ArrowRight" Width="11" Height="11" StrokeBrush="#F59E0B" VerticalAlignment="Center" />
                                 </StackPanel>
                             </Button>
                             <Button x:Name="BtnReload" Click="OnReloadClicked"
                                     Background="#1E1E2A" Foreground="#FFFFFF"
-                                    CornerRadius="5" Padding="6,3" Cursor="Hand" ToolTip.Tip="Tải lại trang">
+                                    CornerRadius="5" Padding="6,3" Cursor="Hand" ToolTip.Tip="{DynamicResource Loc_FastLogin_ReloadPageTip}">
                                 <lucide:Lucide Icon="RefreshCw" Width="12" Height="12" StrokeBrush="#A1A1AA" />
                             </Button>
                         </StackPanel>
@@ -146,13 +146,13 @@
                     <!-- Alias & Group -->
                     <Grid ColumnDefinitions="*,*">
                         <StackPanel Grid.Column="0" Spacing="5" Margin="0,0,4,0">
-                            <TextBlock Text="Alias (Tùy chọn):" FontSize="11" FontWeight="SemiBold" Foreground="#D4D4D8" />
+                            <TextBlock Text="{DynamicResource Loc_FastLogin_AliasOptionalLabel}" FontSize="11" FontWeight="SemiBold" Foreground="#D4D4D8" />
                             <TextBox x:Name="TxtCookieAlias" Text="{Binding Alias}" Watermark="e.g. Main Farm"
                                      Background="#14141C" Foreground="#FFFFFF" BorderBrush="#272733"
                                      CornerRadius="6" Padding="8,6" FontSize="11" />
                         </StackPanel>
                         <StackPanel Grid.Column="1" Spacing="5" Margin="4,0,0,0">
-                            <TextBlock Text="Nhóm (Tùy chọn):" FontSize="11" FontWeight="SemiBold" Foreground="#D4D4D8" />
+                            <TextBlock Text="{DynamicResource Loc_FastLogin_GroupOptionalLabel}" FontSize="11" FontWeight="SemiBold" Foreground="#D4D4D8" />
                             <TextBox x:Name="TxtCookieGroup" Text="{Binding Group}" Watermark="e.g. Alts"
                                      Background="#14141C" Foreground="#FFFFFF" BorderBrush="#272733"
                                      CornerRadius="6" Padding="8,6" FontSize="11" />
@@ -183,7 +183,7 @@
             <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" Margin="0,0,8,0">
                 <lucide:Lucide Icon="Info" Width="13" Height="13" StrokeBrush="#38BDF8" VerticalAlignment="Center"
                                IsVisible="{Binding #TxtTip.IsVisible}" />
-                <TextBlock x:Name="TxtTip" Text="Cửa sổ sẽ tự đóng khi đăng nhập xong."
+                <TextBlock x:Name="TxtTip" Text="{DynamicResource Loc_FastLogin_CloseOnCompleteTip}"
                            FontSize="11" Foreground="#71717A" VerticalAlignment="Center"
                            TextTrimming="CharacterEllipsis" IsVisible="True" />
             </StackPanel>
@@ -195,7 +195,7 @@
                         CornerRadius="6" Padding="12,6" FontSize="11" Cursor="Hand" IsVisible="False">
                     <StackPanel Orientation="Horizontal" Spacing="5">
                         <lucide:Lucide Icon="ShieldCheck" Width="12" Height="12" StrokeBrush="#38BDF8" VerticalAlignment="Center" />
-                        <TextBlock Text="Verify" VerticalAlignment="Center" />
+                        <TextBlock Text="{DynamicResource Loc_FastLogin_VerifyBtn}" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
 
@@ -204,7 +204,7 @@
                         CornerRadius="6" Padding="14,6" FontSize="11" Cursor="Hand" IsVisible="False">
                     <StackPanel Orientation="Horizontal" Spacing="5">
                         <lucide:Lucide Icon="Plus" Width="12" Height="12" StrokeBrush="#09090B" StrokeThickness="2.5" VerticalAlignment="Center" />
-                        <TextBlock Text="Thêm Tài Khoản" VerticalAlignment="Center" />
+                        <TextBlock Text="{DynamicResource Loc_FastLogin_AddAccountBtn}" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
 
@@ -213,7 +213,7 @@
                         CornerRadius="6" Padding="14,6" FontSize="11" Cursor="Hand">
                     <StackPanel Orientation="Horizontal" Spacing="5">
                         <lucide:Lucide Icon="X" Width="12" Height="12" StrokeBrush="#A1A1AA" VerticalAlignment="Center" />
-                        <TextBlock Text="Đóng" VerticalAlignment="Center" />
+                        <TextBlock Text="{DynamicResource Loc_Btn_Close}" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
             </StackPanel>

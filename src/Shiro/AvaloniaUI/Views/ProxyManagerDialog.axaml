@@ -7,7 +7,7 @@
         x:DataType="dlg:ProxyManagerViewModel"
         x:CompileBindings="True"
         Icon="/Resources/shiro.ico"
-        Title="Proxy Manager &amp; Ping Checker - Shiro"
+        Title="{DynamicResource Loc_Proxy_Title}"
         Width="740" Height="580"
         WindowStartupLocation="CenterOwner"
         CanResize="False"
@@ -21,8 +21,8 @@
                     <lucide:Lucide Icon="Globe" Width="18" Height="18" StrokeBrush="#818CF8" HorizontalAlignment="Center" VerticalAlignment="Center" />
                 </Border>
                 <StackPanel VerticalAlignment="Center">
-                    <TextBlock Text="Proxy Manager &amp; Latency Checker" FontSize="17" FontWeight="Bold" Foreground="#FFFFFF" />
-                    <TextBlock Text="Manage HTTP/SOCKS5 proxies and test live connection latency" FontSize="12" Foreground="#71717A" />
+                    <TextBlock Text="{DynamicResource Loc_Proxy_HeaderTitle}" FontSize="17" FontWeight="Bold" Foreground="#FFFFFF" />
+                    <TextBlock Text="{DynamicResource Loc_Proxy_HeaderSubtitle}" FontSize="12" Foreground="#71717A" />
                 </StackPanel>
             </StackPanel>
         </StackPanel>
@@ -32,7 +32,7 @@
             <Grid ColumnDefinitions="*,Auto">
                 <TextBox x:Name="TxtNewProxy"
                          Text="{Binding NewProxyText, Mode=TwoWay}"
-                         Watermark="Enter proxy: IP:Port or user:pass@ip:port..."
+                         Watermark="{DynamicResource Loc_Proxy_Placeholder}"
                          Background="#1A1A24" Foreground="#FFFFFF" BorderBrush="#2E2E3E"
                          CornerRadius="6" Padding="10,8" Margin="0,0,10,0" />
 
@@ -42,7 +42,7 @@
                         CornerRadius="6" Padding="16,8" Cursor="Hand">
                     <StackPanel Orientation="Horizontal" Spacing="6">
                         <lucide:Lucide Icon="Plus" Width="13" Height="13" StrokeBrush="#09090B" StrokeThickness="2.5" VerticalAlignment="Center" />
-                        <TextBlock Text="Add Proxy" VerticalAlignment="Center" />
+                        <TextBlock Text="{DynamicResource Loc_Proxy_BtnAdd}" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
             </Grid>
@@ -75,7 +75,7 @@
                                     <Button Grid.Column="3"
                                             Command="{Binding $parent[Window].((dlg:ProxyManagerViewModel)DataContext).DeleteProxyCommand}"
                                             CommandParameter="{Binding}"
-                                            Background="Transparent" Padding="8,4" CornerRadius="4" Cursor="Hand" ToolTip.Tip="Xóa proxy này">
+                                            Background="Transparent" Padding="8,4" CornerRadius="4" Cursor="Hand" ToolTip.Tip="{DynamicResource Loc_Proxy_TipRemoveSingle}">
                                         <lucide:Lucide Icon="Trash2" Width="13" Height="13" StrokeBrush="#EF4444" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                     </Button>
                                 </Grid>
@@ -96,7 +96,7 @@
                             CornerRadius="6" Padding="14,8" Cursor="Hand">
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <lucide:Lucide Icon="Zap" Width="13" Height="13" StrokeBrush="#F59E0B" VerticalAlignment="Center" />
-                            <TextBlock Text="Test All Latencies" VerticalAlignment="Center" />
+                            <TextBlock Text="{DynamicResource Loc_Proxy_BtnTestAll}" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
                     <Button x:Name="BtnRemoveDead"
@@ -105,7 +105,7 @@
                             CornerRadius="6" Padding="14,8" Cursor="Hand">
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <lucide:Lucide Icon="Trash2" Width="13" Height="13" StrokeBrush="#EF4444" VerticalAlignment="Center" />
-                            <TextBlock Text="Remove Dead" VerticalAlignment="Center" />
+                            <TextBlock Text="{DynamicResource Loc_Proxy_BtnRemoveDead}" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
                 </StackPanel>
@@ -123,7 +123,7 @@
                             CornerRadius="6" Padding="18,8" Cursor="Hand">
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <lucide:Lucide Icon="Check" Width="13" Height="13" StrokeBrush="#09090B" StrokeThickness="2.5" VerticalAlignment="Center" />
-                            <TextBlock Text="Save &amp; Close" VerticalAlignment="Center" />
+                            <TextBlock Text="{DynamicResource Loc_Proxy_BtnSaveClose}" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
                 </StackPanel>

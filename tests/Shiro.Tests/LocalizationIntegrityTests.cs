@@ -183,6 +183,33 @@ namespace Shiro.Tests
             "[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴÈÉẸẺẼÊỀẾỆỂỄÌÍỊỈĨÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠÙÚỤỦŨƯỪỨỰỬỮỲÝỴỶỸĐ]",
             RegexOptions.Compiled);
 
+        private static readonly Regex AxamlCommentRegex = new(
+            @"<!--[\s\S]*?-->",
+            RegexOptions.Compiled);
+
+        [Fact]
+        public void AxamlFiles_ShouldNotContain_HardcodedVietnameseText()
+        {
+            var violations = new List<string>();
+
+            foreach (var file in SourceFiles("src/Shiro", "*.axaml"))
+            {
+                string raw = File.ReadAllText(file);
+                string withoutComments = AxamlCommentRegex.Replace(raw, string.Empty);
+                string[] lines = withoutComments.Split('\n');
+                for (int i = 0; i < lines.Length; i++)
+                {
+                    if (VietnameseDiacriticRegex.IsMatch(lines[i]))
+                    {
+                        violations.Add($"{Path.GetFileName(file)}:{i + 1} -> {lines[i].Trim()}");
+                    }
+                }
+            }
+
+            Assert.True(violations.Count == 0,
+                $"Found hardcoded Vietnamese text in AXAML files ({violations.Count}):\n{string.Join("\n", violations.Take(40))}");
+        }
+
         private static readonly Regex FormatPlaceholderRegex = new(
             @"\{\d+(?:[:,][^}]+)?\}",
             RegexOptions.Compiled);

@@ -21,7 +21,7 @@
                     <lucide:Lucide x:Name="IconLucide" Icon="Info" Width="18" Height="18" StrokeBrush="#38BDF8"
                                    HorizontalAlignment="Center" VerticalAlignment="Center" />
                 </Border>
-                <TextBlock x:Name="TxtTitle" Text="Thông báo" FontSize="16" FontWeight="SemiBold"
+                <TextBlock x:Name="TxtTitle" Text="{DynamicResource Loc_Msg_InfoTitle}" FontSize="16" FontWeight="SemiBold"
                            VerticalAlignment="Center" Foreground="#FFFFFF"/>
             </StackPanel>
 
@@ -40,7 +40,7 @@
                         Click="BtnYes_Click" IsVisible="False">
                     <StackPanel Orientation="Horizontal" Spacing="5">
                         <lucide:Lucide Icon="Check" Width="13" Height="13" StrokeBrush="#FFFFFF" StrokeThickness="2.2" VerticalAlignment="Center" />
-                        <TextBlock Text="Có" VerticalAlignment="Center" />
+                        <TextBlock Text="{DynamicResource Loc_Btn_Yes}" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
                 <Button x:Name="BtnNo" Height="32"
@@ -50,7 +50,7 @@
                         Click="BtnNo_Click" IsVisible="False">
                     <StackPanel Orientation="Horizontal" Spacing="5">
                         <lucide:Lucide Icon="X" Width="13" Height="13" StrokeBrush="#D4D4D8" VerticalAlignment="Center" />
-                        <TextBlock Text="Không" VerticalAlignment="Center" />
+                        <TextBlock Text="{DynamicResource Loc_Btn_No}" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
                 <Button x:Name="BtnOK" Height="32"
@@ -60,7 +60,7 @@
                         Click="BtnOK_Click" IsVisible="True">
                     <StackPanel Orientation="Horizontal" Spacing="5">
                         <lucide:Lucide Icon="Check" Width="13" Height="13" StrokeBrush="#FFFFFF" StrokeThickness="2.2" VerticalAlignment="Center" />
-                        <TextBlock Text="OK" VerticalAlignment="Center" />
+                        <TextBlock Text="{DynamicResource Loc_Btn_OK}" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
                 <Button x:Name="BtnCancel" Height="32"
@@ -70,7 +70,7 @@
                         Click="BtnCancel_Click" IsVisible="False">
                     <StackPanel Orientation="Horizontal" Spacing="5">
                         <lucide:Lucide Icon="X" Width="13" Height="13" StrokeBrush="#D4D4D8" VerticalAlignment="Center" />
-                        <TextBlock Text="Hủy" VerticalAlignment="Center" />
+                        <TextBlock Text="{DynamicResource Loc_Dialog_CancelShort}" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
             </StackPanel>

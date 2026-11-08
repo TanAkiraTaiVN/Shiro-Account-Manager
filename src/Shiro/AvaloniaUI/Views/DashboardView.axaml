@@ -5,47 +5,53 @@
     x:Name="RootDashboard">
     <UserControl.Resources>
         <ContextMenu x:Key="AccountSharedContextMenu">
-            <MenuItem Header="Mở Roblox Home" Click="OnMenuLaunchHome"><MenuItem.Icon><lucide:Lucide Icon="House" Width="14" Height="14" StrokeBrush="#A1A1AA" /></MenuItem.Icon></MenuItem>
-            <MenuItem Header="Vào Server này" Click="OnMenuJoinServer"><MenuItem.Icon><lucide:Lucide Icon="Rocket" Width="14" Height="14" StrokeBrush="#22C55E" /></MenuItem.Icon></MenuItem>
-            <MenuItem Header="Hiện cửa sổ Roblox" Click="OnMenuFocusAccountWindow"><MenuItem.Icon><lucide:Lucide Icon="AppWindow" Width="14" Height="14" StrokeBrush="#4ADE80"
+            <MenuItem Header="{DynamicResource Dash_LaunchHome}" Click="OnMenuLaunchHome"><MenuItem.Icon><lucide:Lucide Icon="House" Width="14" Height="14" StrokeBrush="#A1A1AA"
                 /></MenuItem.Icon></MenuItem>
-            <MenuItem Header="Đóng Roblox tài khoản này" Click="OnMenuCloseAccountRoblox"><MenuItem.Icon><lucide:Lucide Icon="X" Width="14" Height="14" StrokeBrush="#EF4444"
+            <MenuItem Header="{DynamicResource Ctx_JoinThisServer}" Click="OnMenuJoinServer"><MenuItem.Icon><lucide:Lucide Icon="Rocket" Width="14" Height="14" StrokeBrush="#22C55E"
                 /></MenuItem.Icon></MenuItem>
-            <Separator />
-            <MenuItem Header="Đăng nhập lại In-App" Click="OnMenuReLoginFast"><MenuItem.Icon><lucide:Lucide Icon="LogIn" Width="14" Height="14" StrokeBrush="#F59E0B" /></MenuItem.Icon></MenuItem>
-            <MenuItem Header="Kiểm tra phiên tài khoản" Click="OnMenuValidateSession"><MenuItem.Icon><lucide:Lucide Icon="ShieldCheck" Width="14" Height="14" StrokeBrush="#38BDF8"
+            <MenuItem Header="{DynamicResource Ctx_FocusWindow}" Click="OnMenuFocusAccountWindow"><MenuItem.Icon><lucide:Lucide Icon="AppWindow" Width="14" Height="14" StrokeBrush="#4ADE80"
                 /></MenuItem.Icon></MenuItem>
-            <MenuItem Header="Cập nhật số dư Robux" Click="OnMenuCheckRobux"><MenuItem.Icon><lucide:Lucide Icon="Coins" Width="14" Height="14" StrokeBrush="#F59E0B" /></MenuItem.Icon></MenuItem>
-            <MenuItem Header="Mở Roblox xem Ban (App)" Click="OnMenuOpenModerationPage"><MenuItem.Icon><lucide:Lucide Icon="ShieldAlert" Width="14" Height="14" StrokeBrush="#FDA4AF"
+            <MenuItem Header="{DynamicResource Ctx_CloseClient}" Click="OnMenuCloseAccountRoblox"><MenuItem.Icon><lucide:Lucide Icon="X" Width="14" Height="14" StrokeBrush="#EF4444"
                 /></MenuItem.Icon></MenuItem>
             <Separator />
-            <MenuItem Header="Đổi Alias (Tên gợi nhớ)" Click="OnMenuChangeAlias"><MenuItem.Icon><lucide:Lucide Icon="Pencil" Width="14" Height="14" StrokeBrush="#A1A1AA"
+            <MenuItem Header="{DynamicResource Ctx_ReLoginInApp}" Click="OnMenuReLoginFast"><MenuItem.Icon><lucide:Lucide Icon="LogIn" Width="14" Height="14" StrokeBrush="#F59E0B"
                 /></MenuItem.Icon></MenuItem>
-            <MenuItem Header="Phân nhóm tài khoản" Click="OnMenuChangeGroup"><MenuItem.Icon><lucide:Lucide Icon="Tag" Width="14" Height="14" StrokeBrush="#A855F7" /></MenuItem.Icon></MenuItem>
-            <MenuItem Header="Ghi chú tài khoản" Click="OnMenuChangeDescription"><MenuItem.Icon><lucide:Lucide Icon="FileText" Width="14" Height="14" StrokeBrush="#A1A1AA"
+            <MenuItem Header="{DynamicResource Ctx_ValidateSession}" Click="OnMenuValidateSession"><MenuItem.Icon><lucide:Lucide Icon="ShieldCheck" Width="14" Height="14" StrokeBrush="#38BDF8"
+                /></MenuItem.Icon></MenuItem>
+            <MenuItem Header="{DynamicResource Ctx_UpdateRobux}" Click="OnMenuCheckRobux"><MenuItem.Icon><lucide:Lucide Icon="Coins" Width="14" Height="14" StrokeBrush="#F59E0B"
+                /></MenuItem.Icon></MenuItem>
+            <MenuItem Header="{DynamicResource Ctx_ViewBanApp}" Click="OnMenuOpenModerationPage"><MenuItem.Icon><lucide:Lucide Icon="ShieldAlert" Width="14" Height="14" StrokeBrush="#FDA4AF"
                 /></MenuItem.Icon></MenuItem>
             <Separator />
-            <MenuItem Header="Sao chép thông tin">
+            <MenuItem Header="{DynamicResource Ctx_ChangeAlias}" Click="OnMenuChangeAlias"><MenuItem.Icon><lucide:Lucide Icon="Pencil" Width="14" Height="14" StrokeBrush="#A1A1AA"
+                /></MenuItem.Icon></MenuItem>
+            <MenuItem Header="{DynamicResource Ctx_AssignGroup}" Click="OnMenuChangeGroup"><MenuItem.Icon><lucide:Lucide Icon="Tag" Width="14" Height="14" StrokeBrush="#A855F7"
+                /></MenuItem.Icon></MenuItem>
+            <MenuItem Header="{DynamicResource Ctx_AccountNotes}" Click="OnMenuChangeDescription"><MenuItem.Icon><lucide:Lucide Icon="FileText" Width="14" Height="14" StrokeBrush="#A1A1AA"
+                /></MenuItem.Icon></MenuItem>
+            <Separator />
+            <MenuItem Header="{DynamicResource Ctx_CopyInfoMenu}">
                 <MenuItem.Icon><lucide:Lucide Icon="ClipboardCopy" Width="14" Height="14" StrokeBrush="#38BDF8" /></MenuItem.Icon>
-                <MenuItem Header="Sao chép Cookie (.ROBLOSECURITY)" Click="OnMenuCopyCookie"><MenuItem.Icon><lucide:Lucide Icon="Cookie" Width="14" Height="14" StrokeBrush="#F59E0B"
+                <MenuItem Header="{DynamicResource Menu_CopyCookie}" Click="OnMenuCopyCookie"><MenuItem.Icon><lucide:Lucide Icon="Cookie" Width="14" Height="14" StrokeBrush="#F59E0B"
                     /></MenuItem.Icon></MenuItem>
-                <MenuItem Header="Sao chép User:Pass" Click="OnMenuCopyUserPass"><MenuItem.Icon><lucide:Lucide Icon="KeyRound" Width="14" Height="14" StrokeBrush="#A1A1AA"
+                <MenuItem Header="{DynamicResource Menu_CopyUserPass}" Click="OnMenuCopyUserPass"><MenuItem.Icon><lucide:Lucide Icon="KeyRound" Width="14" Height="14" StrokeBrush="#A1A1AA"
                     /></MenuItem.Icon></MenuItem>
-                <MenuItem Header="Sao chép User ID" Click="OnMenuCopyUserId"><MenuItem.Icon><lucide:Lucide Icon="Hash" Width="14" Height="14" StrokeBrush="#A1A1AA" /></MenuItem.Icon></MenuItem>
-                <MenuItem Header="Sao chép Username" Click="OnMenuCopyUsername"><MenuItem.Icon><lucide:Lucide Icon="User" Width="14" Height="14" StrokeBrush="#A1A1AA"
+                <MenuItem Header="{DynamicResource Menu_CopyUserId}" Click="OnMenuCopyUserId"><MenuItem.Icon><lucide:Lucide Icon="Hash" Width="14" Height="14" StrokeBrush="#A1A1AA"
                     /></MenuItem.Icon></MenuItem>
-                <MenuItem Header="Sao chép Profile URL" Click="OnMenuCopyProfileUrl"><MenuItem.Icon><lucide:Lucide Icon="Link" Width="14" Height="14" StrokeBrush="#A1A1AA"
+                <MenuItem Header="{DynamicResource Ctx_CopyUsername}" Click="OnMenuCopyUsername"><MenuItem.Icon><lucide:Lucide Icon="User" Width="14" Height="14" StrokeBrush="#A1A1AA"
+                    /></MenuItem.Icon></MenuItem>
+                <MenuItem Header="{DynamicResource Ctx_CopyProfileUrl}" Click="OnMenuCopyProfileUrl"><MenuItem.Icon><lucide:Lucide Icon="Link" Width="14" Height="14" StrokeBrush="#A1A1AA"
                     /></MenuItem.Icon></MenuItem>
             </MenuItem>
-            <MenuItem Header="Tiện ích nâng cao">
+            <MenuItem Header="{DynamicResource Ctx_AdvancedUtilsMenu}">
                 <MenuItem.Icon><lucide:Lucide Icon="Cpu" Width="14" Height="14" StrokeBrush="#9CA3AF" /></MenuItem.Icon>
-                <MenuItem Header="Thuộc tính tài khoản" Click="OnMenuAccountFields"><MenuItem.Icon><lucide:Lucide Icon="Settings" Width="14" Height="14" StrokeBrush="#A1A1AA"
+                <MenuItem Header="{DynamicResource Ctx_AccountFields}" Click="OnMenuAccountFields"><MenuItem.Icon><lucide:Lucide Icon="Settings" Width="14" Height="14" StrokeBrush="#A1A1AA"
                     /></MenuItem.Icon></MenuItem>
-                <MenuItem Header="Tiện ích tài khoản" Click="OnMenuAccountUtils"><MenuItem.Icon><lucide:Lucide Icon="Wrench" Width="14" Height="14" StrokeBrush="#A1A1AA"
+                <MenuItem Header="{DynamicResource Ctx_AccountUtils}" Click="OnMenuAccountUtils"><MenuItem.Icon><lucide:Lucide Icon="Wrench" Width="14" Height="14" StrokeBrush="#A1A1AA"
                     /></MenuItem.Icon></MenuItem>
             </MenuItem>
             <Separator />
-            <MenuItem Header="Xóa tài khoản này khỏi Shiro" Foreground="#EF4444" Click="OnMenuDeleteAccount"><MenuItem.Icon><lucide:Lucide Icon="Trash2" Width="14" Height="14"
+            <MenuItem Header="{DynamicResource Ctx_DeleteFromShiro}" Foreground="#EF4444" Click="OnMenuDeleteAccount"><MenuItem.Icon><lucide:Lucide Icon="Trash2" Width="14" Height="14"
                 StrokeBrush="#EF4444" /></MenuItem.Icon></MenuItem>
         </ContextMenu>
     </UserControl.Resources>
@@ -170,8 +176,9 @@
                         Width="14" Height="14" StrokeBrush="#EF4444" /></MenuItem.Icon></MenuItem>
                         </MenuFlyout>
                     </Button.Flyout>
-                    <StackPanel Orientation="Horizontal" Spacing="6"><lucide:Lucide Icon="Zap" Width="13" Height="13" StrokeBrush="#FBBF24" VerticalAlignment="Center" /><TextBlock
-                        Text="{Binding SelectedCount, StringFormat='Thao tác ({0})'}" VerticalAlignment="Center" /><lucide:Lucide Icon="ChevronDown" Width="12" Height="12" StrokeBrush="#71717A"
+                    <StackPanel Orientation="Horizontal" Spacing="6"><lucide:Lucide Icon="Zap" Width="13" Height="13" StrokeBrush="#FBBF24" VerticalAlignment="Center" /><StackPanel
+                        Orientation="Horizontal" VerticalAlignment="Center"><TextBlock Text="{DynamicResource Bar_BatchActions}" /><TextBlock Text="{Binding SelectedCount}" />
+                        <TextBlock Text=")" /></StackPanel><lucide:Lucide Icon="ChevronDown" Width="12" Height="12" StrokeBrush="#71717A"
                         VerticalAlignment="Center" /></StackPanel>
                 </Button>
             </WrapPanel>

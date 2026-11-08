@@ -54,11 +54,11 @@
             <Grid RowDefinitions="Auto,*">
                 <Border Grid.Row="0" Background="#181820" Padding="8,6" CornerRadius="4" Margin="0,0,0,4">
                     <Grid ColumnDefinitions="50,150,110,200,*,70,70">
-                        <TextBlock Grid.Column="0" Text="Chọn" FontSize="11" Foreground="#94A3B8" FontWeight="SemiBold"/>
-                        <TextBlock Grid.Column="1" Text="Tài khoản" FontSize="11" Foreground="#94A3B8" FontWeight="SemiBold"/>
-                        <TextBlock Grid.Column="2" Text="Trạng thái" FontSize="11" Foreground="#94A3B8" FontWeight="SemiBold"/>
-                        <TextBlock Grid.Column="3" Text="Server JobId" FontSize="11" Foreground="#94A3B8" FontWeight="SemiBold"/>
-                        <TextBlock Grid.Column="4" Text="Tọa độ" FontSize="11" Foreground="#94A3B8" FontWeight="SemiBold"/>
+                        <TextBlock Grid.Column="0" Text="{DynamicResource Loc_Nexus_ColSelect}" FontSize="11" Foreground="#94A3B8" FontWeight="SemiBold"/>
+                        <TextBlock Grid.Column="1" Text="{DynamicResource Loc_Col_Account}" FontSize="11" Foreground="#94A3B8" FontWeight="SemiBold"/>
+                        <TextBlock Grid.Column="2" Text="{DynamicResource Loc_Nexus_ColStatus}" FontSize="11" Foreground="#94A3B8" FontWeight="SemiBold"/>
+                        <TextBlock Grid.Column="3" Text="{DynamicResource Loc_Nexus_ColServerJobId}" FontSize="11" Foreground="#94A3B8" FontWeight="SemiBold"/>
+                        <TextBlock Grid.Column="4" Text="{DynamicResource Loc_Nexus_ColPosition}" FontSize="11" Foreground="#94A3B8" FontWeight="SemiBold"/>
                         <TextBlock Grid.Column="5" Text="FPS" FontSize="11" Foreground="#94A3B8" FontWeight="SemiBold"/>
                         <TextBlock Grid.Column="6" Text="Ping" FontSize="11" Foreground="#94A3B8" FontWeight="SemiBold"/>
                     </Grid>
@@ -85,7 +85,7 @@
         <Border Grid.Row="2" Background="#141419" BorderBrush="#22222A" BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,0,0,12">
             <Grid ColumnDefinitions="*,Auto">
                 <TextBox x:Name="TxtScriptInput" Text="{Binding ScriptInput, Mode=TwoWay}"
-                         Watermark="Nhập script Lua hoặc lệnh Nexus để thực thi (vd: print('Hello from Shiro'))..."
+                         Watermark="{DynamicResource Loc_Nexus_ScriptWatermark}"
                          AcceptsReturn="True" Height="64" TextWrapping="Wrap"
                          Background="#1A1A22" Foreground="#FFFFFF" BorderBrush="#2A2A36" BorderThickness="1"
                          CornerRadius="6" Padding="10,6" FontSize="12" Margin="0,0,10,0"/>
@@ -95,7 +95,7 @@
                             CornerRadius="5" Padding="14,6" Width="148" HorizontalContentAlignment="Center" Cursor="Hand">
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <lucide:Lucide Icon="Play" Width="12" Height="12" StrokeBrush="#FFFFFF" VerticalAlignment="Center" />
-                            <TextBlock Text="Chạy (Đã chọn)" VerticalAlignment="Center" />
+                            <TextBlock Text="{DynamicResource Loc_Nexus_ExecuteSelectedBtn}" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
                     <Button x:Name="BtnExecuteAll" Command="{Binding ExecuteAllCommand}"
@@ -103,7 +103,7 @@
                             CornerRadius="5" Padding="14,6" Width="148" HorizontalContentAlignment="Center" Cursor="Hand">
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <lucide:Lucide Icon="Zap" Width="12" Height="12" StrokeBrush="#FBBF24" VerticalAlignment="Center" />
-                            <TextBlock Text="Chạy tất cả" VerticalAlignment="Center" />
+                            <TextBlock Text="{DynamicResource Loc_Nexus_ExecuteAllBtn}" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
                 </StackPanel>

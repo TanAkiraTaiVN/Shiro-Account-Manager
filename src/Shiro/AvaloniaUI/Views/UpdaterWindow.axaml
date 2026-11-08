@@ -6,7 +6,7 @@
         x:DataType="vm:UpdaterViewModel"
         x:CompileBindings="True"
         Icon="/Resources/shiro.ico"
-        Title="Cập nhật hệ thống • Shiro Account Manager"
+        Title="{DynamicResource Loc_Updater_WindowTitle}"
         Width="480" Height="260"
         WindowStartupLocation="CenterScreen"
         CanResize="False"
@@ -23,7 +23,7 @@
                 </Border>
                 <StackPanel VerticalAlignment="Center">
                     <TextBlock Text="Shiro Account Manager" FontSize="15" FontWeight="SemiBold" Foreground="#FFFFFF"/>
-                    <TextBlock Text="Trình cập nhật tự động • Auto Updater" FontSize="12" Foreground="#94A3B8"/>
+                    <TextBlock Text="{DynamicResource Loc_Updater_HeaderSubtitle}" FontSize="12" Foreground="#94A3B8"/>
                 </StackPanel>
             </StackPanel>
 
@@ -44,14 +44,14 @@
                         Background="#2563EB" Foreground="#FFFFFF" CornerRadius="5" Padding="14,6" FontSize="12" Cursor="Hand">
                     <StackPanel Orientation="Horizontal" Spacing="6">
                         <lucide:Lucide Icon="RefreshCw" Width="12" Height="12" StrokeBrush="#FFFFFF" VerticalAlignment="Center" />
-                        <TextBlock Text="Thử lại" VerticalAlignment="Center" />
+                        <TextBlock Text="{DynamicResource Loc_Updater_RetryBtn}" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
                 <Button Command="{Binding CloseCommand}"
                         Background="#272730" Foreground="#D4D4D8" CornerRadius="5" Padding="14,6" FontSize="12" Cursor="Hand">
                     <StackPanel Orientation="Horizontal" Spacing="6">
                         <lucide:Lucide Icon="X" Width="12" Height="12" StrokeBrush="#D4D4D8" VerticalAlignment="Center" />
-                        <TextBlock Text="Đóng" VerticalAlignment="Center" />
+                        <TextBlock Text="{DynamicResource Loc_Btn_Close}" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
             </StackPanel>

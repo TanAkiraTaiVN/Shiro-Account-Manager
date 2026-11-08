@@ -5,7 +5,7 @@
         x:Class="Shiro.AvaloniaUI.Views.AccountFieldsDialog"
         x:CompileBindings="True"
         Icon="/Resources/shiro.ico"
-        Title="Trường dữ liệu tùy chỉnh • Custom Fields"
+        Title="{DynamicResource Loc_AccountFields_WindowTitle}"
         Width="500" Height="480"
         MinWidth="420" MinHeight="360"
         WindowStartupLocation="CenterOwner"
@@ -20,7 +20,7 @@
                 <Border Background="#252536" CornerRadius="8" Width="32" Height="32">
                     <lucide:Lucide Icon="Database" Width="16" Height="16" StrokeBrush="#38BDF8" HorizontalAlignment="Center" VerticalAlignment="Center" />
                 </Border>
-                <TextBlock x:Name="TxtHeaderTitle" Text="Trường dữ liệu • Username"
+                <TextBlock x:Name="TxtHeaderTitle" Text="{DynamicResource Loc_AccountFields_DefaultHeader}"
                            FontSize="16" FontWeight="SemiBold" Foreground="#FFFFFF" VerticalAlignment="Center"/>
             </StackPanel>
 
@@ -38,7 +38,7 @@
                                     <StackPanel Orientation="Horizontal" Spacing="4">
                                         <Path Data="{StaticResource GeoTrash}" Width="11" Height="11" Stretch="Uniform"
                                               Stroke="#F87171" StrokeThickness="1.8" StrokeLineCap="Round" StrokeJoin="Round" VerticalAlignment="Center" />
-                                        <TextBlock Text="Xóa" VerticalAlignment="Center" />
+                                        <TextBlock Text="{DynamicResource Loc_Btn_Delete}" VerticalAlignment="Center" />
                                     </StackPanel>
                                 </Button>
                             </Grid>
@@ -49,10 +49,10 @@
 
             <!-- Add new field inputs -->
             <Grid Grid.Row="2" ColumnDefinitions="*,*,Auto" Margin="0,0,0,12">
-                <TextBox x:Name="TxtNewKey" Watermark="Tên trường (Key)" Margin="0,0,8,0"
+                <TextBox x:Name="TxtNewKey" Watermark="{DynamicResource Loc_AccountFields_KeyWatermark}" Margin="0,0,8,0"
                          Background="#18181F" Foreground="#FFFFFF" BorderBrush="#2E2E38" BorderThickness="1"
                          CornerRadius="5" Padding="8,6" FontSize="12"/>
-                <TextBox Grid.Column="1" x:Name="TxtNewValue" Watermark="Giá trị (Value)" Margin="0,0,8,0"
+                <TextBox Grid.Column="1" x:Name="TxtNewValue" Watermark="{DynamicResource Loc_AccountFields_ValueWatermark}" Margin="0,0,8,0"
                          Background="#18181F" Foreground="#FFFFFF" BorderBrush="#2E2E38" BorderThickness="1"
                          CornerRadius="5" Padding="8,6" FontSize="12"/>
                 <Button Grid.Column="2" Click="BtnAddField_Click"
@@ -60,7 +60,7 @@
                         CornerRadius="5" Padding="12,6" FontSize="12" Cursor="Hand">
                     <StackPanel Orientation="Horizontal" Spacing="5">
                         <lucide:Lucide Icon="Plus" Width="13" Height="13" StrokeBrush="#FFFFFF" StrokeThickness="2.2" VerticalAlignment="Center" />
-                        <TextBlock Text="Thêm" VerticalAlignment="Center" />
+                        <TextBlock Text="{DynamicResource Loc_Btn_Add}" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
             </Grid>
@@ -73,7 +73,7 @@
                         HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
                     <StackPanel Orientation="Horizontal" Spacing="6">
                         <lucide:Lucide Icon="X" Width="13" Height="13" StrokeBrush="#D4D4D8" VerticalAlignment="Center" />
-                        <TextBlock Text="Đóng" VerticalAlignment="Center" />
+                        <TextBlock Text="{DynamicResource Loc_Btn_Close}" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
             </StackPanel>

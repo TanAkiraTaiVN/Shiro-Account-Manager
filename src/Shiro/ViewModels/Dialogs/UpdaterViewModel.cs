@@ -40,7 +40,7 @@ public sealed class UpdaterViewModel : DialogViewModelBase
         _restart = restart ?? DefaultRestart;
         _logger = logger ?? AppServices.Logger;
 
-        SetStatus("Đang kiểm tra phiên bản mới nhất...", StatusKind.Info);
+        SetStatus(LocalizationService.Get("Updater.CheckingLatestVersion"), StatusKind.Info);
 
         StartCommand = TrackCommand(new AsyncRelayCommand(StartUpdateAsync, () => !IsBusy));
         RetryCommand = TrackCommand(new AsyncRelayCommand(StartUpdateAsync, () => !IsBusy));

@@ -5,7 +5,7 @@
         x:Class="Shiro.AvaloniaUI.Views.BulkImportDialog"
         x:DataType="dlg:BulkImportViewModel"
         Icon="/Resources/shiro.ico"
-        Title="Nhập danh sách tài khoản - Shiro"
+        Title="{DynamicResource Loc_BulkImport_WindowTitle}"
         Width="640" Height="580"
         WindowStartupLocation="CenterOwner"
         CanResize="False"
@@ -19,8 +19,8 @@
                     <lucide:Lucide Icon="Download" Width="18" Height="18" StrokeBrush="#818CF8" HorizontalAlignment="Center" VerticalAlignment="Center" />
                 </Border>
                 <StackPanel VerticalAlignment="Center">
-                    <TextBlock Text="Nhập danh sách tài khoản (Bulk Import)" FontSize="17" FontWeight="Bold" Foreground="#FFFFFF" />
-                    <TextBlock Text="Hỗ trợ danh sách username:password hoặc chuỗi Cookie (.ROBLOSECURITY)" FontSize="12" Foreground="#71717A" />
+                    <TextBlock Text="{DynamicResource Loc_BulkImport_DialogHeading}" FontSize="17" FontWeight="Bold" Foreground="#FFFFFF" />
+                    <TextBlock Text="{DynamicResource Loc_BulkImport_DialogSubtitle}" FontSize="12" Foreground="#71717A" />
                 </StackPanel>
             </StackPanel>
         </StackPanel>
@@ -30,12 +30,12 @@
             <TextBox x:Name="TxtImportData"
                      Text="{Binding InputText, Mode=TwoWay}"
                      AcceptsReturn="True" TextWrapping="NoWrap"
-                     Watermark="Dán danh sách tài khoản hoặc cookie vào đây, mỗi tài khoản một dòng:&#x0a;user1:pass1&#x0a;user2:pass2&#x0a;user:pass:cookie&#x0a;_|WARNING:-DO-NOT-SHARE-THIS..."
+                     Watermark="{DynamicResource Loc_BulkImport_InputWatermark}"
                      Background="#14141C" Foreground="#FFFFFF" BorderBrush="#272733"
                      CornerRadius="8" Padding="12" FontFamily="Consolas, monospace" FontSize="11" />
 
             <!-- Quick Format Hint -->
-            <TextBlock Grid.Row="1" Text="Định dạng hỗ trợ: username:password (tự điền vào trình duyệt), user:pass:cookie hoặc Cookie thuần"
+            <TextBlock Grid.Row="1" Text="{DynamicResource Loc_BulkImport_SupportedFormatNote}"
                        FontSize="11" Foreground="#71717A" Margin="4,6,0,0" />
         </Grid>
 
@@ -63,7 +63,7 @@
                         CornerRadius="6" Padding="14,8" Cursor="Hand">
                     <StackPanel Orientation="Horizontal" Spacing="6">
                         <lucide:Lucide Icon="Trash2" Width="13" Height="13" StrokeBrush="#A1A1AA" VerticalAlignment="Center" />
-                        <TextBlock Text="Xóa nội dung" VerticalAlignment="Center" />
+                        <TextBlock Text="{DynamicResource Loc_BulkImport_ClearContentBtn}" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
 
@@ -74,7 +74,7 @@
                             CornerRadius="6" Padding="16,8" Cursor="Hand">
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <lucide:Lucide Icon="X" Width="13" Height="13" StrokeBrush="#A1A1AA" VerticalAlignment="Center" />
-                            <TextBlock Text="Đóng" VerticalAlignment="Center" />
+                            <TextBlock Text="{DynamicResource Loc_Btn_Close}" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
                     <Button x:Name="BtnStartImport"
@@ -83,7 +83,7 @@
                             CornerRadius="6" Padding="20,8" Cursor="Hand">
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <lucide:Lucide Icon="Check" Width="13" Height="13" StrokeBrush="#09090B" StrokeThickness="2.5" VerticalAlignment="Center" />
-                            <TextBlock Text="Bắt đầu nhập" VerticalAlignment="Center" />
+                            <TextBlock Text="{DynamicResource Loc_Bulk_BtnStart}" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
                 </StackPanel>

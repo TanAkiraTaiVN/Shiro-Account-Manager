@@ -33,9 +33,9 @@ public sealed class NexusViewModel : DialogViewModelBase, INexusHost
     private string _portText = "5242";
     private bool _allowExternal;
     private bool _isServerRunning;
-    private string _serverStatusText = "Server: Đang dừng";
-    private string _toggleLabel = "Bật Server";
-    private string _clientCountText = "Đã kết nối: 0 client";
+    private string _serverStatusText = LocalizationService.Get("Nexus.ServerStoppedStatus");
+    private string _toggleLabel = LocalizationService.Get("Nexus.StartServerAction");
+    private string _clientCountText = LocalizationService.Format("Nexus.ConnectedClientsCount", 0);
     private string _scriptInput = string.Empty;
 
     public NexusViewModel(
@@ -53,7 +53,7 @@ public sealed class NexusViewModel : DialogViewModelBase, INexusHost
         _serverStarter = serverStarter ?? (s => s.StartAsync());
         _sendTo = sendTo ?? ((ca, msg) => ca.SendMessage(msg));
 
-        SetStatus("Sẵn sàng.", StatusKind.Neutral);
+        SetStatus(LocalizationService.Get("Nexus.ReadyStatus"), StatusKind.Neutral);
 
         ToggleServerCommand = TrackCommand(new AsyncRelayCommand(ToggleServerAsync, () => !IsBusy));
         ExecuteSelectedCommand = new RelayCommand(() => ExecuteScript(toAll: false));

@@ -5,7 +5,7 @@
         x:Class="Shiro.AvaloniaUI.Views.AltGenDialog"
         x:DataType="vm:AltGenViewModel"
         Icon="/Resources/shiro.ico"
-        Title="Tạo tài khoản Alt tự động - BloxGen"
+        Title="{DynamicResource Loc_AltGen_WindowTitle}"
         Width="540" SizeToContent="Height"
         MinWidth="480" MaxWidth="600"
         WindowStartupLocation="CenterOwner"
@@ -22,8 +22,8 @@
                         <lucide:Lucide Icon="UserPlus" Width="18" Height="18" StrokeBrush="#818CF8" HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
                     <StackPanel VerticalAlignment="Center">
-                        <TextBlock Text="Tạo tài khoản Alt tự động (BloxGen API)" FontSize="16" FontWeight="Bold" Foreground="#FFFFFF"/>
-                        <TextBlock Text="Tự động tạo tài khoản Roblox mới và thêm trực tiếp vào Shiro Vault" FontSize="11" Foreground="#71717A"/>
+                        <TextBlock Text="{DynamicResource Loc_AltGen_HeaderTitle}" FontSize="16" FontWeight="Bold" Foreground="#FFFFFF"/>
+                        <TextBlock Text="{DynamicResource Loc_AltGen_HeaderSubtitle}" FontSize="11" Foreground="#71717A"/>
                     </StackPanel>
                 </StackPanel>
             </StackPanel>
@@ -33,8 +33,8 @@
                 <StackPanel Spacing="12">
                     <!-- API Key Input -->
                     <StackPanel Spacing="4">
-                        <TextBlock Text="BloxGen API Key (BLOX-...)" FontSize="12" FontWeight="SemiBold" Foreground="#D4D4D8"/>
-                        <TextBox x:Name="TxtApiKey" Text="{Binding ApiKey, Mode=TwoWay}" PasswordChar="•" Watermark="Dán API Key BloxGen vào đây..."
+                        <TextBlock Text="{DynamicResource Loc_AltGen_ApiKeyLabel}" FontSize="12" FontWeight="SemiBold" Foreground="#D4D4D8"/>
+                        <TextBox x:Name="TxtApiKey" Text="{Binding ApiKey, Mode=TwoWay}" PasswordChar="•" Watermark="{DynamicResource Loc_AltGen_ApiKeyWatermark}"
                                  Background="#1F1F28" Foreground="#FFFFFF" BorderBrush="#2E2E38" BorderThickness="1"
                                  CornerRadius="4" Padding="10,7" FontSize="12" />
                     </StackPanel>
@@ -43,40 +43,40 @@
                     <Grid ColumnDefinitions="*,*">
                         <!-- Gen Type -->
                         <StackPanel Grid.Column="0" Spacing="4" Margin="0,0,8,0">
-                            <TextBlock Text="Loại tài khoản (Gen Type)" FontSize="12" FontWeight="SemiBold" Foreground="#D4D4D8"/>
+                            <TextBlock Text="{DynamicResource Loc_AltGen_GenTypeLabel}" FontSize="12" FontWeight="SemiBold" Foreground="#D4D4D8"/>
                             <ComboBox x:Name="CmbGenType" HorizontalAlignment="Stretch"
                                       SelectedValue="{Binding SelectedGenType, Mode=TwoWay}"
                                       SelectedValueBinding="{Binding Tag, DataType=ComboBoxItem}"
                                       Background="#1F1F28" Foreground="#FFFFFF" BorderBrush="#2E2E38" CornerRadius="4">
-                                <ComboBoxItem Content="Alt (Chuẩn cày bot / Free)" Tag="unverified"/>
-                                <ComboBoxItem Content="+30 Days Old (Trên 30 ngày)" Tag="+30 days old"/>
-                                <ComboBoxItem Content="+1 Year Old (Trên 1 năm)" Tag="+1 year old"/>
-                                <ComboBoxItem Content="5+ Years Old (Trên 5 năm)" Tag="5+ years old"/>
-                                <ComboBoxItem Content="18+ Age Verified (Xác minh tuổi)" Tag="18+ age verified"/>
-                                <ComboBoxItem Content="Dump (Random / Có Robux)" Tag="dump"/>
+                                <ComboBoxItem Content="{DynamicResource Loc_AltGen_TypeUnverified}" Tag="unverified"/>
+                                <ComboBoxItem Content="{DynamicResource Loc_AltGen_Type30Days}" Tag="+30 days old"/>
+                                <ComboBoxItem Content="{DynamicResource Loc_AltGen_Type1Year}" Tag="+1 year old"/>
+                                <ComboBoxItem Content="{DynamicResource Loc_AltGen_Type5Years}" Tag="5+ years old"/>
+                                <ComboBoxItem Content="{DynamicResource Loc_AltGen_TypeAgeVerified}" Tag="18+ age verified"/>
+                                <ComboBoxItem Content="{DynamicResource Loc_AltGen_TypeDump}" Tag="dump"/>
                             </ComboBox>
                         </StackPanel>
 
                         <!-- Continent -->
                         <StackPanel Grid.Column="1" Spacing="4" Margin="8,0,0,0">
-                            <TextBlock Text="Khu vực (Continent)" FontSize="12" FontWeight="SemiBold" Foreground="#D4D4D8"/>
+                            <TextBlock Text="{DynamicResource Loc_AltGen_ContinentLabel}" FontSize="12" FontWeight="SemiBold" Foreground="#D4D4D8"/>
                             <ComboBox x:Name="CmbContinent" HorizontalAlignment="Stretch"
                                       SelectedValue="{Binding SelectedContinent, Mode=TwoWay}"
                                       SelectedValueBinding="{Binding Tag, DataType=ComboBoxItem}"
                                       Background="#1F1F28" Foreground="#FFFFFF" BorderBrush="#2E2E38" CornerRadius="4">
-                                <ComboBoxItem Content="RANDOM (Ngẫu nhiên)" Tag="RANDOM"/>
-                                <ComboBoxItem Content="AS (Châu Á)" Tag="AS"/>
-                                <ComboBoxItem Content="NA (Bắc Mỹ)" Tag="NA"/>
-                                <ComboBoxItem Content="EU (Châu Âu)" Tag="EU"/>
-                                <ComboBoxItem Content="OC (Châu Đại Dương)" Tag="OC"/>
-                                <ComboBoxItem Content="SA (Nam Mỹ)" Tag="SA"/>
+                                <ComboBoxItem Content="{DynamicResource Loc_AltGen_ContinentRandom}" Tag="RANDOM"/>
+                                <ComboBoxItem Content="{DynamicResource Loc_AltGen_ContinentAS}" Tag="AS"/>
+                                <ComboBoxItem Content="{DynamicResource Loc_AltGen_ContinentNA}" Tag="NA"/>
+                                <ComboBoxItem Content="{DynamicResource Loc_AltGen_ContinentEU}" Tag="EU"/>
+                                <ComboBoxItem Content="{DynamicResource Loc_AltGen_ContinentOC}" Tag="OC"/>
+                                <ComboBoxItem Content="{DynamicResource Loc_AltGen_ContinentSA}" Tag="SA"/>
                             </ComboBox>
                         </StackPanel>
                     </Grid>
 
                     <!-- Target Group -->
                     <StackPanel Spacing="4">
-                        <TextBlock Text="Nhóm đích trong Shiro (Target Group)" FontSize="12" FontWeight="SemiBold" Foreground="#D4D4D8"/>
+                        <TextBlock Text="{DynamicResource Loc_AltGen_TargetGroupLabel}" FontSize="12" FontWeight="SemiBold" Foreground="#D4D4D8"/>
                         <TextBox x:Name="TxtGroup" Text="{Binding GroupName, Mode=TwoWay}"
                                  Background="#1F1F28" Foreground="#FFFFFF" BorderBrush="#2E2E38" BorderThickness="1"
                                  CornerRadius="4" Padding="10,7" FontSize="12" />
@@ -89,7 +89,7 @@
                 <StackPanel Spacing="6">
                     <StackPanel Orientation="Horizontal" Spacing="6">
                         <lucide:Lucide Icon="CircleCheck" Width="14" Height="14" StrokeBrush="#34D399" VerticalAlignment="Center" />
-                        <TextBlock Text="Tài khoản mới đã được tạo và lưu vào Vault!" FontSize="12" FontWeight="Bold" Foreground="#34D399" VerticalAlignment="Center"/>
+                        <TextBlock Text="{DynamicResource Loc_AltGen_ResultSavedHeading}" FontSize="12" FontWeight="Bold" Foreground="#34D399" VerticalAlignment="Center"/>
                     </StackPanel>
                     <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto">
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="Username: " Foreground="#9CA3AF" FontSize="11"/>
@@ -115,7 +115,7 @@
                         Background="#1E1E2A" Foreground="#A1A1AA" CornerRadius="6" Padding="14,8" FontSize="12" Cursor="Hand">
                     <StackPanel Orientation="Horizontal" Spacing="6">
                         <lucide:Lucide Icon="FileText" Width="13" Height="13" StrokeBrush="#A1A1AA" VerticalAlignment="Center" />
-                        <TextBlock Text="Mở lịch sử CSV" VerticalAlignment="Center" />
+                        <TextBlock Text="{DynamicResource Loc_AltGen_OpenHistoryBtn}" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
 
@@ -124,14 +124,14 @@
                             Background="Transparent" Foreground="#A1A1AA" CornerRadius="6" Padding="14,8" FontSize="12" Cursor="Hand">
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <lucide:Lucide Icon="X" Width="13" Height="13" StrokeBrush="#A1A1AA" VerticalAlignment="Center" />
-                            <TextBlock Text="Đóng" VerticalAlignment="Center" />
+                            <TextBlock Text="{DynamicResource Loc_Btn_Close}" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
                     <Button x:Name="BtnGenerate" Command="{Binding GenerateCommand}" IsEnabled="{Binding !IsBusy}"
                             Background="#4F46E5" Foreground="#FFFFFF" FontWeight="Bold" CornerRadius="6" Padding="18,8" FontSize="12" Cursor="Hand">
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <lucide:Lucide Icon="Sparkles" Width="13" Height="13" StrokeBrush="#FFFFFF" VerticalAlignment="Center" />
-                            <TextBlock Text="Tạo tài khoản ngay" VerticalAlignment="Center" />
+                            <TextBlock Text="{DynamicResource Loc_AltGen_GenerateNowBtn}" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
                 </StackPanel>

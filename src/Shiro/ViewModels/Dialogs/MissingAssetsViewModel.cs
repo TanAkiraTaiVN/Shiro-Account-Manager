@@ -21,9 +21,9 @@ public sealed class MissingAssetsViewModel : DialogViewModelBase
     private readonly int _concurrency;
     private readonly IAppLogger _logger;
 
-    private string _title = "Vật phẩm còn thiếu trong trang phục";
-    private string _subtitle = "Tài khoản • 0 vật phẩm cần mua hoặc sở hữu";
-    private string _totalPriceText = "Tổng Robux: 0 R$";
+    private string _title = LocalizationService.Get("MissingAssets.DefaultTitle");
+    private string _subtitle = LocalizationService.Get("MissingAssets.DefaultSubtitle");
+    private string _totalPriceText = LocalizationService.Format("MissingAssets.TotalRobux", 0);
 
     public MissingAssetsViewModel(
         Account? account = null,

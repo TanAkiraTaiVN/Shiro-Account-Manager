@@ -46,8 +46,8 @@
                             </StackPanel>
                             <ComboBox Grid.Column="1" x:Name="CmbLanguage" SelectedIndex="{Binding SelectedLanguageIndex}" Width="160" HorizontalAlignment="Right"
                                 VerticalAlignment="Center" Background="#18181F" Foreground="#FFFFFF" BorderBrush="#2E2E38">
-                                <ComboBoxItem Content="Tiếng Việt (VN)" />
-                                <ComboBoxItem Content="English (US/UK)" />
+                                <ComboBoxItem Content="{DynamicResource Set_Language_VN}" />
+                                <ComboBoxItem Content="{DynamicResource Set_Language_EN}" />
                             </ComboBox>
                         </Grid>
                         <Separator Background="#24242C" Height="1" />

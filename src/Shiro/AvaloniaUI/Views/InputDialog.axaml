@@ -19,12 +19,12 @@
                 <Border Background="#252536" CornerRadius="8" Width="32" Height="32">
                     <lucide:Lucide Icon="Pencil" Width="15" Height="15" StrokeBrush="#38BDF8" HorizontalAlignment="Center" VerticalAlignment="Center" />
                 </Border>
-                <TextBlock x:Name="TxtTitle" Text="Nhập dữ liệu"
+                <TextBlock x:Name="TxtTitle" Text="{DynamicResource Loc_InputDialog_DefaultTitle}"
                            FontSize="16" FontWeight="SemiBold" Foreground="#FFFFFF" VerticalAlignment="Center"/>
             </StackPanel>
 
             <!-- Prompt Message -->
-            <SelectableTextBlock x:Name="TxtPrompt" Grid.Row="1" Text="Nhập giá trị bên dưới:"
+            <SelectableTextBlock x:Name="TxtPrompt" Grid.Row="1" Text="{DynamicResource Loc_InputDialog_DefaultPrompt}"
                                  FontSize="13" Foreground="#A1A1AA" TextWrapping="Wrap" Margin="0,0,0,14"/>
 
             <!-- Input Box -->
@@ -43,7 +43,7 @@
                         Click="BtnCancel_Click">
                     <StackPanel Orientation="Horizontal" Spacing="5">
                         <lucide:Lucide Icon="X" Width="13" Height="13" StrokeBrush="#D4D4D8" VerticalAlignment="Center" />
-                        <TextBlock Text="Hủy" VerticalAlignment="Center" />
+                        <TextBlock Text="{DynamicResource Loc_Dialog_CancelShort}" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
                 <Button x:Name="BtnOK" Height="32"
@@ -53,7 +53,7 @@
                         Click="BtnOK_Click">
                     <StackPanel Orientation="Horizontal" Spacing="5">
                         <lucide:Lucide Icon="Check" Width="13" Height="13" StrokeBrush="#FFFFFF" StrokeThickness="2.2" VerticalAlignment="Center" />
-                        <TextBlock Text="Đồng ý" VerticalAlignment="Center" />
+                        <TextBlock Text="{DynamicResource Loc_Btn_OK}" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
             </StackPanel>

@@ -41,7 +41,7 @@ public sealed class AltGenViewModel : DialogViewModelBase
         _selectedContinent = string.IsNullOrWhiteSpace(_bloxGen.DefaultContinent) ? "RANDOM" : _bloxGen.DefaultContinent;
         _selectedGenType = string.IsNullOrWhiteSpace(_bloxGen.DefaultGenType) ? "unverified" : _bloxGen.DefaultGenType;
 
-        SetStatus("Sẵn sàng tạo tài khoản", StatusKind.Neutral);
+        SetStatus(LocalizationService.Get("AltGen.ReadyStatus"), StatusKind.Neutral);
 
         GenerateCommand = TrackCommand(new AsyncRelayCommand(GenerateAsync, () => !IsBusy));
         OpenHistoryCommand = new RelayCommand(OpenHistory);
