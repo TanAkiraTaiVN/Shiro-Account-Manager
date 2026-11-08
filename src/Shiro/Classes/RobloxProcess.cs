@@ -3,10 +3,8 @@ using System;
 using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Globalization;
 using System.IO;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Shiro.Services;
@@ -20,14 +18,10 @@ namespace Shiro.Classes
         public FileInfo? LogFile;
         private FileStream? LogStream;
         private long LastPosition = 0;
-        private long CurrentDataModel;
-        private bool IsDMPaused;
-        private bool HasGameJoinChallenge;
-        private bool HasSecurityCookieChanged;
+        private RobloxLogSessionState _sessionState;
         private bool StreamDisposed;
         private volatile bool IsConnected;
         private DateTime DisconnectedTime;
-        private string? LastLine;
         private int _cleanedUp;
         private string? _expectedTrackerId;
         private bool _trackerIdResolved;
@@ -198,109 +192,57 @@ namespace Shiro.Classes
             {
                 if (Lines.Length > 0)
                 {
+                    bool exitOnBeta = AppSettings.Watcher?.Get<bool>("ExitOnBeta") == true;
+                    bool verifyDataModel = RobloxWatcher.VerifyDataModel;
+                    _sessionState.IsConnected = IsConnected;
+
                     for (int i = 0; i < Lines.Length; i++)
                     {
-                        string Line = Lines[i];
+                        RobloxLogLineOutcome outcome = AdvanceLogSessionState(
+                            Lines[i],
+                            ref _sessionState,
+                            verifyDataModel,
+                            exitOnBeta);
+                        IsConnected = _sessionState.IsConnected;
 
-                        if (IsJoiningGameLogLine(Line))
+                        switch (outcome)
                         {
-                            IsConnected = true;
-                            HasGameJoinChallenge = false;
-                            HasSecurityCookieChanged = false;
-                            try { if (RbxProcess != null) Connected?.Invoke(RbxProcess.Id); }
-                            catch (Exception ex) { Program.Logger?.Error($"Connected event handler failed: {ex.Message}"); }
-                            continue;
-                        }
+                            case RobloxLogLineOutcome.Connected:
+                                try { if (RbxProcess != null) Connected?.Invoke(RbxProcess.Id); }
+                                catch (Exception ex) { Program.Logger?.Error($"Connected event handler failed: {ex.Message}"); }
+                                break;
 
-                        if (IsChallengeCompletedLogLine(Line))
-                            HasGameJoinChallenge = false;
+                            case RobloxLogLineOutcome.Disconnected:
+                                DisconnectedTime = DateTime.UtcNow;
+                                ScheduleNoConnectionWatchdogIfEnabled(initialGraceSeconds: 0);
+                                try { if (RbxProcess != null) Disconnected?.Invoke(RbxProcess.Id, _sessionState.LastDisconnectReason); }
+                                catch (Exception ex) { Program.Logger?.Error($"Disconnected event handler failed: {ex.Message}"); }
+                                break;
 
-                        if (!IsConnected && IsGameJoinChallengedLogLine(Line))
-                            HasGameJoinChallenge = true;
+                            case RobloxLogLineOutcome.DataModelInitialized:
+                                Program.Logger?.Info($"CurrentDataModel set to {_sessionState.CurrentDataModel:X}");
+                                if (AppSettings.General?.Get<bool>(AppSettingsKeys.General.AggressiveRamTrimming, false) ?? false)
+                                    _ = SchedulePostLaunchRamTrimAsync();
+                                break;
 
-                        if (IsSecurityCookieChangedLogLine(Line))
-                            HasSecurityCookieChanged = true;
+                            case RobloxLogLineOutcome.DataModelReset:
+                                Program.Logger?.Info($"CurrentDataModel reset to {_sessionState.CurrentDataModel} | Position: {LastPosition}");
+                                break;
 
-                        if (TryParseDisconnectReason(Line, out int reason))
-                        {
-                            IsConnected = false;
-                            DisconnectedTime = DateTime.UtcNow;
-                            ScheduleNoConnectionWatchdogIfEnabled(initialGraceSeconds: 0);
-                            try { if (RbxProcess != null) Disconnected?.Invoke(RbxProcess.Id, reason); }
-                            catch (Exception ex) { Program.Logger?.Error($"Disconnected event handler failed: {ex.Message}"); }
-                            continue;
-                        }
-
-                        if (CurrentDataModel <= 0 && TryParseDataModelInit(Line, out long parsedDataModel))
-                        {
-                            CurrentDataModel = parsedDataModel;
-                            IsDMPaused = false;
-                            Program.Logger?.Info($"CurrentDataModel set to {CurrentDataModel:X}");
-
-                            // Automatically trim launch working set 15 seconds after map assets finish loading if enabled
-                            if (AppSettings.General?.Get<bool>(AppSettingsKeys.General.AggressiveRamTrimming, false) ?? false)
-                                _ = SchedulePostLaunchRamTrimAsync();
-                            continue;
-                        }
-
-                        Match legacyPause = LegacyDataModelPauseRegex().Match(Line);
-                        if ((legacyPause.Success &&
-                             legacyPause.Groups.Count == 2 &&
-                             long.TryParse(legacyPause.Groups[1].Value, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out long pausedDm) &&
-                             pausedDm == CurrentDataModel) ||
-                            (CurrentDataModel > 0 && ModernDataModelPauseRegex().IsMatch(Line)))
-                        {
-                            IsDMPaused = true;
-                            continue;
-                        }
-
-                        if (IsReturnToLuaAppLine(Line, hasActiveGameDataModel: CurrentDataModel > 0))
-                        {
-                            // Prevent duplicate LuaApp Home windows when a verification challenge (challengedByGcs)
-                            // fails before entering the game, or when the session cookie was hijacked mid-session.
-                            if ((HasGameJoinChallenge && !IsConnected) ||
-                                ((HasGameJoinChallenge || CurrentDataModel > 0) && HasSecurityCookieChanged))
-                            {
-                                CurrentDataModel = -1;
+                            case RobloxLogLineOutcome.KillChallengedOrHijackedClient:
                                 int pid = SafeExecuteHelper.Try(() => RbxProcess?.Id ?? 0, fallback: 0);
                                 if (pid > 0)
                                     AutoReconnectService.Instance.SuppressReconnectByPid(pid);
-
                                 if (KillProcess("Game client challenged or session modified during fallback to LuaApp"))
                                     return;
-                            }
+                                break;
 
-                            if (RobloxWatcher.VerifyDataModel && !string.IsNullOrEmpty(LastLine))
-                            {
-                                Match legacyStop = LegacyDataModelStopRegex().Match(LastLine);
-                                bool legacyStoppedCurrent = legacyStop.Success &&
-                                    legacyStop.Groups.Count == 2 &&
-                                    long.TryParse(legacyStop.Groups[1].Value, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out long stoppedDm) &&
-                                    stoppedDm == CurrentDataModel;
-                                bool modernStoppedCurrent = CurrentDataModel > 0 &&
-                                    (ModernDataModelStopRegex().IsMatch(LastLine) || StageLuaAppRegex().IsMatch(Line) || ReturnToLuaAppStageRegex().IsMatch(Line));
-
-                                if (IsDMPaused || legacyStoppedCurrent || modernStoppedCurrent)
-                                {
-                                    CurrentDataModel = -1;
-                                    Program.Logger?.Info($"CurrentDataModel reset to {CurrentDataModel} | Position: {LastPosition}");
-
-                                    if (AppSettings.Watcher?.Get<bool>("ExitOnBeta") == true && KillProcess("Beta home menu detected"))
-                                        return;
-                                }
-                            }
-                            else
-                            {
-                                CurrentDataModel = -1;
-                                if (AppSettings.Watcher?.Get<bool>("ExitOnBeta") == true && KillProcess("Beta home menu detected"))
+                            case RobloxLogLineOutcome.KillBetaHomeMenu:
+                                Program.Logger?.Info($"CurrentDataModel reset to {_sessionState.CurrentDataModel} | Position: {LastPosition}");
+                                if (KillProcess("Beta home menu detected"))
                                     return;
-                            }
+                                break;
                         }
-
-                        if (RobloxWatcher.VerifyDataModel && IsDMPaused && DataModelStop2Regex().IsMatch(Line))
-                            CurrentDataModel = -1;
-
-                        LastLine = Line;
                     }
                 }
             }

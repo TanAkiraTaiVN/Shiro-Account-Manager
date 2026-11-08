@@ -11,11 +11,23 @@ using Shiro.Services;
 
 namespace Shiro.Classes
 {
-    public enum LogHeaderMatchResult
+    public enum LogHeaderMatchResult { Inconclusive = 0, Matched = 1, Mismatched = 2 }
+
+    internal enum RobloxLogLineOutcome
     {
-        Inconclusive = 0,
-        Matched = 1,
-        Mismatched = 2
+        None, Connected, Disconnected, DataModelInitialized, DataModelPaused,
+        DataModelReset, KillChallengedOrHijackedClient, KillBetaHomeMenu
+    }
+
+    internal struct RobloxLogSessionState
+    {
+        public long CurrentDataModel;
+        public bool IsDMPaused;
+        public bool IsConnected;
+        public bool HasGameJoinChallenge;
+        public bool HasSecurityCookieChanged;
+        public string? LastLine;
+        public int LastDisconnectReason;
     }
 
     internal partial class RobloxProcess
@@ -130,17 +142,11 @@ namespace Shiro.Classes
         [GeneratedRegex(@"cookie Engine => Native set RBXEventTrackerV2 as [^\r\n]*?rbx(?:u)?id=(\d+)(?:&rbxuid=(\d*))?&browserid=(\d+)")]
         internal static partial Regex CookieEngineTrackerRegex();
 
-        internal static bool IsJoiningGameLogLine(string line)
-        {
-            if (string.IsNullOrEmpty(line)) return false;
-            return JoiningGameRegex().IsMatch(line) || ConnectedToServerRegex().IsMatch(line);
-        }
+        internal static bool IsJoiningGameLogLine(string line) =>
+            !string.IsNullOrEmpty(line) && (JoiningGameRegex().IsMatch(line) || ConnectedToServerRegex().IsMatch(line));
 
-        internal static bool IsLaunchingExperienceLogLine(string line)
-        {
-            if (string.IsNullOrEmpty(line)) return false;
-            return LaunchingExperienceRegex().IsMatch(line);
-        }
+        internal static bool IsLaunchingExperienceLogLine(string line) =>
+            !string.IsNullOrEmpty(line) && LaunchingExperienceRegex().IsMatch(line);
 
         internal static bool IsGameJoinChallengedLogLine(string line)
         {
@@ -152,11 +158,8 @@ namespace Shiro.Classes
                    line.Contains("[FLog::NewWebView2Browser] WebView2 browser is successfully launched", StringComparison.OrdinalIgnoreCase);
         }
 
-        internal static bool IsChallengeCompletedLogLine(string line)
-        {
-            if (string.IsNullOrEmpty(line)) return false;
-            return line.Contains("\"feature\":\"challengeCompleted\"", StringComparison.OrdinalIgnoreCase);
-        }
+        internal static bool IsChallengeCompletedLogLine(string line) =>
+            !string.IsNullOrEmpty(line) && line.Contains("\"feature\":\"challengeCompleted\"", StringComparison.OrdinalIgnoreCase);
 
         internal static bool IsChallengeInvalidatedOrAbandonedLogLine(string line)
         {
@@ -367,6 +370,92 @@ namespace Shiro.Classes
                  line.Contains("statusCode: 429", StringComparison.OrdinalIgnoreCase) ||
                  line.Contains("statusCode:429", StringComparison.OrdinalIgnoreCase) ||
                  line.Contains("429 Too Many Requests", StringComparison.OrdinalIgnoreCase));
+        }
+
+        internal static RobloxLogLineOutcome AdvanceLogSessionState(
+            string line, ref RobloxLogSessionState state, bool verifyDataModel, bool exitOnBeta)
+        {
+            if (string.IsNullOrEmpty(line))
+            {
+                state.LastLine = line;
+                return RobloxLogLineOutcome.None;
+            }
+
+            if (IsJoiningGameLogLine(line))
+            {
+                state.IsConnected = true;
+                state.HasGameJoinChallenge = false;
+                state.HasSecurityCookieChanged = false;
+                return RobloxLogLineOutcome.Connected;
+            }
+
+            if (IsChallengeCompletedLogLine(line)) state.HasGameJoinChallenge = false;
+            if (!state.IsConnected && IsGameJoinChallengedLogLine(line)) state.HasGameJoinChallenge = true;
+            if (IsSecurityCookieChangedLogLine(line)) state.HasSecurityCookieChanged = true;
+
+            if (TryParseDisconnectReason(line, out int reason))
+            {
+                state.IsConnected = false;
+                state.LastDisconnectReason = reason;
+                return RobloxLogLineOutcome.Disconnected;
+            }
+
+            if (state.CurrentDataModel <= 0 && TryParseDataModelInit(line, out long parsedDataModel))
+            {
+                state.CurrentDataModel = parsedDataModel;
+                state.IsDMPaused = false;
+                return RobloxLogLineOutcome.DataModelInitialized;
+            }
+
+            Match legacyPause = LegacyDataModelPauseRegex().Match(line);
+            if ((legacyPause.Success &&
+                 long.TryParse(legacyPause.Groups[1].Value, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out long pausedDm) &&
+                 pausedDm == state.CurrentDataModel) ||
+                (state.CurrentDataModel > 0 && ModernDataModelPauseRegex().IsMatch(line)))
+            {
+                state.IsDMPaused = true;
+                return RobloxLogLineOutcome.DataModelPaused;
+            }
+
+            if (IsReturnToLuaAppLine(line, hasActiveGameDataModel: state.CurrentDataModel > 0))
+            {
+                if ((state.HasGameJoinChallenge && !state.IsConnected) ||
+                    ((state.HasGameJoinChallenge || state.CurrentDataModel > 0) && state.HasSecurityCookieChanged))
+                {
+                    state.CurrentDataModel = -1;
+                    state.LastLine = line;
+                    return RobloxLogLineOutcome.KillChallengedOrHijackedClient;
+                }
+
+                bool shouldReset = !verifyDataModel || string.IsNullOrEmpty(state.LastLine) || state.IsDMPaused;
+                if (!shouldReset && state.LastLine is string lastLine)
+                {
+                    Match legacyStop = LegacyDataModelStopRegex().Match(lastLine);
+                    bool legacyStoppedCurrent = legacyStop.Success &&
+                        long.TryParse(legacyStop.Groups[1].Value, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out long stoppedDm) &&
+                        stoppedDm == state.CurrentDataModel;
+                    bool modernStoppedCurrent = state.CurrentDataModel > 0 &&
+                        (ModernDataModelStopRegex().IsMatch(lastLine) || StageLuaAppRegex().IsMatch(line) || ReturnToLuaAppStageRegex().IsMatch(line));
+                    shouldReset = legacyStoppedCurrent || modernStoppedCurrent;
+                }
+
+                if (shouldReset)
+                {
+                    state.CurrentDataModel = -1;
+                    state.LastLine = line;
+                    return exitOnBeta ? RobloxLogLineOutcome.KillBetaHomeMenu : RobloxLogLineOutcome.DataModelReset;
+                }
+            }
+
+            if (verifyDataModel && state.IsDMPaused && DataModelStop2Regex().IsMatch(line))
+            {
+                state.CurrentDataModel = -1;
+                state.LastLine = line;
+                return RobloxLogLineOutcome.DataModelReset;
+            }
+
+            state.LastLine = line;
+            return RobloxLogLineOutcome.None;
         }
     }
 }
