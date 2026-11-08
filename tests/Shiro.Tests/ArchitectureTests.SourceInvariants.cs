@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text.RegularExpressions;
 using Xunit;
 
@@ -94,6 +95,23 @@ namespace Shiro.Tests
                 var content = File.ReadAllText(file);
                 Assert.False(Regex.IsMatch(content, @"NET Framework 4\.7\.2"),
                     "The .NET Framework 4.7.2 runtime check is obsolete for the .NET 10 self-contained build.");
+            }
+
+            [Fact]
+            public void WebAuthPolicy_ShouldNotDependOn_AccountApiDispatcher()
+            {
+                var text = File.ReadAllText(Path.Combine(RepoRoot, "src", "Shiro", "Services", "Auth", "WebAuthPolicy.cs"));
+                Assert.DoesNotContain("AccountApiDispatcher", text);
+            }
+
+            [Fact]
+            public void AccountManager_ShouldNotExpose_WebAuthForwarders()
+            {
+                string[] removed = { "IsLoopbackHostName", "IsTrustedLocalOrigin", "FixedTimeEqualsPassword",
+                                     "ExtractHeaderPassword", "ExtractQueryPassword", "ExtractRequestPassword" };
+                var present = typeof(AccountManager).GetMethods(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)
+                    .Select(m => m.Name).Intersect(removed).ToList();
+                Assert.Empty(present);
             }
         }
     }

@@ -20,23 +20,5 @@ namespace Shiro
 
         internal bool ValidateWebSocketAuth(HttpContext context) =>
             AccountApiDispatcher.Instance.ValidateWebSocketAuth(context);
-
-        internal static bool IsLoopbackHostName(string host) =>
-            AccountApiDispatcher.IsLoopbackHostName(host);
-
-        internal static bool IsTrustedLocalOrigin(string origin) =>
-            AccountApiDispatcher.IsTrustedLocalOrigin(origin);
-
-        internal static bool FixedTimeEqualsPassword(string provided, string expected) =>
-            AccountApiDispatcher.FixedTimeEqualsPassword(provided, expected);
-
-        internal static string? ExtractHeaderPassword(Func<string, string?> getHeader) =>
-            AccountApiDispatcher.ExtractHeaderPassword(getHeader);
-
-        internal static string? ExtractQueryPassword(Func<string, string?> getQuery) =>
-            AccountApiDispatcher.ExtractQueryPassword(getQuery);
-
-        internal static string ExtractRequestPassword(Func<string, string?> getHeader, Func<string, string?> getQuery) =>
-            AccountApiDispatcher.ExtractRequestPassword(getHeader, getQuery);
     }
 }

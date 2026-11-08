@@ -47,12 +47,12 @@ namespace Shiro.Nexus
             if (_isDisposed) throw new ObjectDisposedException(nameof(NexusWebSocketServer));
             if (IsListening) return;
 
-            if (_allowExternal && !WebAuthPolicy.IsPasswordConfigured(AccountManager.WSPassword))
+            if (_allowExternal && !WebAuthPolicy.IsPasswordConfigured(AppSettings.WebSocketPassword))
             {
                 _allowExternal = false;
                 Program.Logger?.Warn("[NexusWebSocketServer] External connections require a WebServer password (>= 6 chars); listening on localhost only.");
             }
-            else if (_allowExternal && !WebAuthPolicy.IsStrongExternalPassword(AccountManager.WSPassword))
+            else if (_allowExternal && !WebAuthPolicy.IsStrongExternalPassword(AppSettings.WebSocketPassword))
             {
                 Program.Logger?.Warn($"[NexusWebSocketServer] External access is enabled with a short password (< {WebAuthPolicy.RecommendedExternalPasswordLength} chars). A password of at least {WebAuthPolicy.RecommendedExternalPasswordLength} characters is strongly recommended.");
             }
@@ -65,16 +65,16 @@ namespace Shiro.Nexus
 
                 _app.Map("/Nexus", async (HttpContext context) =>
                 {
-                    bool allowExt = _allowExternal && (AccountManager.AccountControl?.Get<bool>("AllowExternalConnections") ?? _allowExternal);
-                    bool everyReq = AccountManager.WebServer != null && AccountManager.WebServer.Get<bool>("EveryRequestRequiresPassword");
+                    bool allowExt = _allowExternal && (AppSettings.AccountControl?.Get<bool>("AllowExternalConnections") ?? _allowExternal);
+                    bool everyReq = AppSettings.WebServer != null && AppSettings.WebServer.Get<bool>("EveryRequestRequiresPassword");
 
                     var remoteIp = context.Connection.RemoteIpAddress;
                     bool isLoopback = remoteIp != null && IPAddress.IsLoopback(remoteIp);
 
-                    string? headerPass = AccountManager.ExtractHeaderPassword(k => context.Request.Headers.TryGetValue(k, out var hVal) ? hVal.ToString() : null);
-                    string? queryPass = AccountManager.ExtractQueryPassword(k => context.Request.Query.TryGetValue(k, out var qVal) ? qVal.ToString() : null);
+                    string? headerPass = WebAuthPolicy.ExtractHeaderPassword(k => context.Request.Headers.TryGetValue(k, out var hVal) ? hVal.ToString() : null);
+                    string? queryPass = WebAuthPolicy.ExtractQueryPassword(k => context.Request.Query.TryGetValue(k, out var qVal) ? qVal.ToString() : null);
 
-                    var authSettings = new AuthSettings(allowExt, everyReq, AccountManager.WSPassword);
+                    var authSettings = new AuthSettings(allowExt, everyReq, AppSettings.WebSocketPassword);
                     var authRequest = new AuthRequest(
                         AuthScope.NexusControl,
                         isLoopback,
@@ -115,7 +115,7 @@ namespace Shiro.Nexus
                     }
                     if (account == null)
                     {
-                        var snapshot = AccountManager.GetAccountsSnapshot();
+                        var snapshot = AppServices.AccountRepository.GetAll();
                         var matched = snapshot.FirstOrDefault(x => string.Equals(x.Username, name, StringComparison.OrdinalIgnoreCase));
                         if (matched != null)
                         {

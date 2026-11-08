@@ -439,6 +439,84 @@ namespace Shiro.Tests
         }
 
         [Fact]
+        public async Task BlockUserEndpoint_WhenAccountThrows_Returns500WithoutExceptionMessage()
+        {
+            EnsureWebServerSettings();
+            var mgr = AccountManager.Instance ?? new AccountManager();
+            string oldPass = AccountManager.WSPassword;
+            var oldAccounts = AccountManager.GetAccountsSnapshot().ToList();
+
+            try
+            {
+                const string pass = "TestSecretPass99";
+                AccountManager.WSPassword = pass;
+
+                var testAcc = new Account
+                {
+                    Username = "ThrowingEndpointUser",
+                    UserID = 987654321,
+                    Valid = true
+                };
+
+                lock (AccountManager.AccountListLock)
+                {
+                    AccountManager.ResetAccountsForTests(Array.Empty<Account>());
+                }
+                AccountManager.AddAccountThreadSafe(testAcc);
+
+                int userIdCallCount = 0;
+                var q = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["Account"] = "ThrowingEndpointUser",
+                    ["Password"] = pass
+                };
+
+                int statusCode = 0;
+                var req = new AccountManager.ApiRequestContext
+                {
+                    AbsolutePath = "/BlockUser",
+                    IsV2 = true,
+                    IsLocal = true,
+                    Host = "localhost",
+                    Origin = "",
+                    Body = "",
+                    GetHeader = _ => null,
+                    SetStatusCode = code => statusCode = code,
+                    GetQuery = key =>
+                    {
+                        if (key == "UserId")
+                        {
+                            if (++userIdCallCount > 1)
+                                throw new InvalidOperationException("leak-https://x/?cookie=ABC");
+                            return "12345";
+                        }
+                        return q.TryGetValue(key, out var val) ? val : null;
+                    }
+                };
+
+                string responseBody = await mgr.ProcessApiRequestAsync(req);
+
+                Assert.Equal(500, statusCode);
+                Assert.DoesNotContain("leak-", responseBody);
+                Assert.Contains(AccountApiDispatcher.InternalErrorMessage, responseBody);
+            }
+            finally
+            {
+                AccountManager.WSPassword = oldPass;
+                lock (AccountManager.AccountListLock)
+                {
+                    AccountManager.ResetAccountsForTests(Array.Empty<Account>());
+                }
+                foreach (var oldAcc in oldAccounts)
+                {
+                    AccountManager.AddAccountThreadSafe(oldAcc);
+                }
+            }
+        }
+
+
+
+        [Fact]
         public async Task AccountManager_GetUserIdCache_AndRegisterValidatedAccount_WorkCorrectly()
         {
             var oldAccounts = AccountManager.GetAccountsSnapshot().ToList();

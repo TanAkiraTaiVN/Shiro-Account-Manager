@@ -93,7 +93,7 @@ namespace Shiro.Tests
         [InlineData(null, false)]
         public void IsLoopbackHostName_IdentifiesLoopbacks(string? host, bool expected)
         {
-            bool isLoopback = AccountManager.IsLoopbackHostName(host!);
+            bool isLoopback = WebAuthPolicy.IsLoopbackHostName(host!);
             Assert.Equal(expected, isLoopback);
         }
 
@@ -106,7 +106,7 @@ namespace Shiro.Tests
         [InlineData(null, true)]
         public void IsTrustedLocalOrigin_ValidatesOrigins(string? origin, bool expected)
         {
-            bool trusted = AccountManager.IsTrustedLocalOrigin(origin!);
+            bool trusted = WebAuthPolicy.IsTrustedLocalOrigin(origin!);
             Assert.Equal(expected, trusted);
         }
 
@@ -118,49 +118,49 @@ namespace Shiro.Tests
         [InlineData(null, "pwd", false)]
         public void FixedTimeEqualsPassword_ConstantTimeComparison(string? a, string? b, bool expected)
         {
-            bool equal = AccountManager.FixedTimeEqualsPassword(a!, b!);
+            bool equal = CryptoHelper.FixedTimeEqualsSecret(a!, b!);
             Assert.Equal(expected, equal);
         }
 
         [Fact]
         public void ExtractHeaderPassword_ExtractsFromHeaders()
         {
-            string? shiro = AccountManager.ExtractHeaderPassword(key => key == "X-Shiro-Auth" ? "Pass123" : null);
+            string? shiro = WebAuthPolicy.ExtractHeaderPassword(key => key == "X-Shiro-Auth" ? "Pass123" : null);
             Assert.Equal("Pass123", shiro);
 
-            string? ram = AccountManager.ExtractHeaderPassword(key => key == "X-RAM-Auth" ? "RamPass" : null);
+            string? ram = WebAuthPolicy.ExtractHeaderPassword(key => key == "X-RAM-Auth" ? "RamPass" : null);
             Assert.Equal("RamPass", ram);
 
-            string? bearer = AccountManager.ExtractHeaderPassword(key => key == "Authorization" ? "Bearer Token456" : null);
+            string? bearer = WebAuthPolicy.ExtractHeaderPassword(key => key == "Authorization" ? "Bearer Token456" : null);
             Assert.Equal("Token456", bearer);
 
-            string? none = AccountManager.ExtractHeaderPassword(_ => null);
+            string? none = WebAuthPolicy.ExtractHeaderPassword(_ => null);
             Assert.Null(none);
         }
 
         [Fact]
         public void ExtractQueryPassword_ExtractsQueryParameter()
         {
-            string? pwd = AccountManager.ExtractQueryPassword(key => key == "password" ? "QueryPass" : null);
+            string? pwd = WebAuthPolicy.ExtractQueryPassword(key => key == "password" ? "QueryPass" : null);
             Assert.Equal("QueryPass", pwd);
 
-            string? token = AccountManager.ExtractQueryPassword(key => key == "token" ? "TokenPass" : null);
+            string? token = WebAuthPolicy.ExtractQueryPassword(key => key == "token" ? "TokenPass" : null);
             Assert.Equal("TokenPass", token);
 
-            string? none = AccountManager.ExtractQueryPassword(_ => null);
+            string? none = WebAuthPolicy.ExtractQueryPassword(_ => null);
             Assert.Null(none);
         }
 
         [Fact]
         public void ExtractRequestPassword_PrefersHeaderOverQuery()
         {
-            string pwd = AccountManager.ExtractRequestPassword(
+            string pwd = WebAuthPolicy.ExtractRequestPassword(
                 h => h == "X-Shiro-Auth" ? "HeaderPass" : null,
                 q => q == "password" ? "QueryPass" : null);
 
             Assert.Equal("HeaderPass", pwd);
 
-            string fallback = AccountManager.ExtractRequestPassword(
+            string fallback = WebAuthPolicy.ExtractRequestPassword(
                 _ => null,
                 q => q == "password" ? "QueryPass" : null);
 

@@ -45,6 +45,14 @@ namespace Shiro.Tests
         }
 
         [Fact]
+        public void NexusAuth_ExternalWithShortPassword_IsRejected()
+        {
+            var settings = new AuthSettings(AllowExternal: true, EveryRequestRequiresPassword: false, ConfiguredPassword: "abc");
+            var request = new AuthRequest(AuthScope.NexusControl, IsLoopbackRemote: false, "192.168.1.5:5242", null, "abc", null);
+            Assert.NotEqual(AuthDecision.Allow, WebAuthPolicy.Evaluate(request, settings));
+        }
+
+        [Fact]
         public void Evaluate_LocalOnly_RejectsForeignOrigin()
         {
             var settings = new AuthSettings(AllowExternal: false, EveryRequestRequiresPassword: false, ConfiguredPassword: null);
@@ -116,16 +124,16 @@ namespace Shiro.Tests
         [Fact]
         public void FixedTimeEqualsPassword_HandlesShortAndLongPasswordsCorrectly()
         {
-            Assert.False(AccountApiDispatcher.FixedTimeEqualsPassword(null!, "secret"));
-            Assert.False(AccountApiDispatcher.FixedTimeEqualsPassword("secret", null!));
-            Assert.True(AccountApiDispatcher.FixedTimeEqualsPassword("secret123", "secret123"));
-            Assert.False(AccountApiDispatcher.FixedTimeEqualsPassword("secret123", "secret1234"));
+            Assert.False(CryptoHelper.FixedTimeEqualsSecret(null!, "secret"));
+            Assert.False(CryptoHelper.FixedTimeEqualsSecret("secret", null!));
+            Assert.True(CryptoHelper.FixedTimeEqualsSecret("secret123", "secret123"));
+            Assert.False(CryptoHelper.FixedTimeEqualsSecret("secret123", "secret1234"));
 
             string longPassA = new string('X', 300);
             string longPassB = new string('X', 300);
             string longPassC = new string('X', 299) + "Y";
-            Assert.True(AccountApiDispatcher.FixedTimeEqualsPassword(longPassA, longPassB));
-            Assert.False(AccountApiDispatcher.FixedTimeEqualsPassword(longPassA, longPassC));
+            Assert.True(CryptoHelper.FixedTimeEqualsSecret(longPassA, longPassB));
+            Assert.False(CryptoHelper.FixedTimeEqualsSecret(longPassA, longPassC));
         }
 
         [Fact]
@@ -142,20 +150,20 @@ namespace Shiro.Tests
         [Fact]
         public void ExtractPassword_Helpers_SeparateHeadersAndQuery()
         {
-            Assert.Equal("hdr-sh", AccountManager.ExtractHeaderPassword(k => k == "X-Shiro-Auth" ? "hdr-sh" : null));
-            Assert.Equal("hdr-ram", AccountManager.ExtractHeaderPassword(k => k == "X-RAM-Auth" ? "hdr-ram" : null));
-            Assert.Equal("hdr-bearer", AccountManager.ExtractHeaderPassword(k => k == "Authorization" ? "Bearer hdr-bearer" : null));
-            Assert.Null(AccountManager.ExtractHeaderPassword(_ => null));
+            Assert.Equal("hdr-sh", WebAuthPolicy.ExtractHeaderPassword(k => k == "X-Shiro-Auth" ? "hdr-sh" : null));
+            Assert.Equal("hdr-ram", WebAuthPolicy.ExtractHeaderPassword(k => k == "X-RAM-Auth" ? "hdr-ram" : null));
+            Assert.Equal("hdr-bearer", WebAuthPolicy.ExtractHeaderPassword(k => k == "Authorization" ? "Bearer hdr-bearer" : null));
+            Assert.Null(WebAuthPolicy.ExtractHeaderPassword(_ => null));
 
-            Assert.Equal("query-pass", AccountManager.ExtractQueryPassword(k => k == "Password" ? "query-pass" : null));
-            Assert.Equal("query-pass2", AccountManager.ExtractQueryPassword(k => k == "password" ? "query-pass2" : null));
-            Assert.Equal("query-tok", AccountManager.ExtractQueryPassword(k => k == "token" ? "query-tok" : null));
-            Assert.Null(AccountManager.ExtractQueryPassword(_ => null));
+            Assert.Equal("query-pass", WebAuthPolicy.ExtractQueryPassword(k => k == "Password" ? "query-pass" : null));
+            Assert.Equal("query-pass2", WebAuthPolicy.ExtractQueryPassword(k => k == "password" ? "query-pass2" : null));
+            Assert.Equal("query-tok", WebAuthPolicy.ExtractQueryPassword(k => k == "token" ? "query-tok" : null));
+            Assert.Null(WebAuthPolicy.ExtractQueryPassword(_ => null));
 
             // Legacy ExtractRequestPassword wrapper still works for both
-            Assert.Equal("from-h", AccountManager.ExtractRequestPassword(k => k == "X-Shiro-Auth" ? "from-h" : null, _ => "from-q"));
-            Assert.Equal("from-q", AccountManager.ExtractRequestPassword(_ => null, k => k == "Password" ? "from-q" : null));
-            Assert.Equal(string.Empty, AccountManager.ExtractRequestPassword(_ => null, _ => null));
+            Assert.Equal("from-h", WebAuthPolicy.ExtractRequestPassword(k => k == "X-Shiro-Auth" ? "from-h" : null, _ => "from-q"));
+            Assert.Equal("from-q", WebAuthPolicy.ExtractRequestPassword(_ => null, k => k == "Password" ? "from-q" : null));
+            Assert.Equal(string.Empty, WebAuthPolicy.ExtractRequestPassword(_ => null, _ => null));
         }
 
         [Fact]

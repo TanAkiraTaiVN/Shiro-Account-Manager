@@ -31,6 +31,7 @@ namespace Shiro.Services
         }
 
         public static AccountApiDispatcher Instance { get; } = new();
+        internal const string InternalErrorMessage = "Internal server error";
 
         private const int MaxRequestBodySizeBytes = 256 * 1024; // 256 KB max payload
         private readonly System.Collections.Generic.HashSet<string> AttemptedJoins = new(StringComparer.Ordinal);
@@ -101,78 +102,6 @@ namespace Shiro.Services
             return await ProcessApiRequestAsync(apiCtx).ConfigureAwait(false);
         }
 
-        public static bool IsLoopbackHostName(string host)
-        {
-            if (string.IsNullOrEmpty(host)) return false;
-            host = host.Trim().TrimStart('[').TrimEnd(']');
-            return host.Equals("localhost", StringComparison.OrdinalIgnoreCase) ||
-                   host.Equals("127.0.0.1", StringComparison.Ordinal) ||
-                   host.Equals("::1", StringComparison.Ordinal);
-        }
-
-        public static bool IsTrustedLocalOrigin(string origin)
-        {
-            if (string.IsNullOrEmpty(origin)) return true;
-            if (!Uri.TryCreate(origin, UriKind.Absolute, out Uri? uri) || uri == null) return false;
-            if (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps) return false;
-            return IsLoopbackHostName(uri.Host);
-        }
-
-        public static bool FixedTimeEqualsPassword(string provided, string expected)
-        {
-            if (provided == null || expected == null) return false;
-            int maxByteA = Encoding.UTF8.GetMaxByteCount(provided.Length);
-            int maxByteB = Encoding.UTF8.GetMaxByteCount(expected.Length);
-            if (maxByteA <= 256 && maxByteB <= 256)
-            {
-                Span<byte> bufA = stackalloc byte[maxByteA];
-                Span<byte> bufB = stackalloc byte[maxByteB];
-                int lenA = Encoding.UTF8.GetBytes(provided.AsSpan(), bufA);
-                int lenB = Encoding.UTF8.GetBytes(expected.AsSpan(), bufB);
-                Span<byte> digestA = stackalloc byte[32];
-                Span<byte> digestB = stackalloc byte[32];
-                System.Security.Cryptography.SHA256.HashData(bufA[..lenA], digestA);
-                System.Security.Cryptography.SHA256.HashData(bufB[..lenB], digestB);
-                bool digestsMatch = System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(digestA, digestB);
-                return digestsMatch & (lenA == lenB);
-            }
-
-            byte[] a = Encoding.UTF8.GetBytes(provided);
-            byte[] b = Encoding.UTF8.GetBytes(expected);
-            Span<byte> hashA = stackalloc byte[32];
-            Span<byte> hashB = stackalloc byte[32];
-            System.Security.Cryptography.SHA256.HashData(a, hashA);
-            System.Security.Cryptography.SHA256.HashData(b, hashB);
-            bool match = System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(hashA, hashB);
-            return match & (a.Length == b.Length);
-        }
-
-        public static string? ExtractHeaderPassword(Func<string, string?> getHeader)
-        {
-            string? password = getHeader("X-Shiro-Auth");
-            if (string.IsNullOrEmpty(password))
-                password = getHeader("X-RAM-Auth");
-            if (string.IsNullOrEmpty(password))
-            {
-                string? authHeader = getHeader("Authorization");
-                if (!string.IsNullOrEmpty(authHeader) && authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
-                    password = authHeader.Substring(7).Trim();
-            }
-
-            return string.IsNullOrEmpty(password) ? null : password;
-        }
-
-        public static string? ExtractQueryPassword(Func<string, string?> getQuery)
-        {
-            string? password = getQuery("Password") ?? getQuery("password") ?? getQuery("token");
-            return string.IsNullOrEmpty(password) ? null : password;
-        }
-
-        public static string ExtractRequestPassword(Func<string, string?> getHeader, Func<string, string?> getQuery)
-        {
-            return ExtractHeaderPassword(getHeader) ?? ExtractQueryPassword(getQuery) ?? string.Empty;
-        }
-
         public bool ValidateWebSocketAuth(HttpContext context)
         {
             if (context == null) return false;
@@ -190,8 +119,8 @@ namespace Shiro.Services
                 isLocal,
                 context.Request.Host.Host,
                 context.Request.Headers["Origin"].ToString(),
-                ExtractHeaderPassword(k => context.Request.Headers.TryGetValue(k, out var hVal) ? hVal.ToString() : null),
-                ExtractQueryPassword(k => context.Request.Query.TryGetValue(k, out var qVal) ? qVal.ToString() : null));
+                WebAuthPolicy.ExtractHeaderPassword(k => context.Request.Headers.TryGetValue(k, out var hVal) ? hVal.ToString() : null),
+                WebAuthPolicy.ExtractQueryPassword(k => context.Request.Query.TryGetValue(k, out var qVal) ? qVal.ToString() : null));
 
             return WebAuthPolicy.Evaluate(request, settings) == AuthDecision.Allow;
         }
@@ -232,8 +161,8 @@ namespace Shiro.Services
             bool allowExternal = webServer != null && webServer.Get<bool>("AllowExternalConnections");
             bool everyReq = webServer != null && webServer.Get<bool>("EveryRequestRequiresPassword");
 
-            string? headerPass = ExtractHeaderPassword(req.GetHeader);
-            string? queryPass = ExtractQueryPassword(req.GetQuery);
+            string? headerPass = WebAuthPolicy.ExtractHeaderPassword(req.GetHeader);
+            string? queryPass = WebAuthPolicy.ExtractQueryPassword(req.GetQuery);
 
             var authSettings = new AuthSettings(allowExternal, everyReq, AppServices.ServerBrowserState.WebSocketPassword);
             var authReq = new AuthRequest(

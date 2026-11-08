@@ -79,6 +79,49 @@ namespace Shiro.Services
                    uri.Host.EndsWith(".roblox.com", StringComparison.OrdinalIgnoreCase);
         }
 
+        public static bool IsLoopbackHostName(string host)
+        {
+            if (string.IsNullOrEmpty(host)) return false;
+            host = host.Trim().TrimStart('[').TrimEnd(']');
+            return host.Equals("localhost", StringComparison.OrdinalIgnoreCase) ||
+                   host.Equals("127.0.0.1", StringComparison.Ordinal) ||
+                   host.Equals("::1", StringComparison.Ordinal);
+        }
+
+        public static bool IsTrustedLocalOrigin(string origin)
+        {
+            if (string.IsNullOrEmpty(origin)) return true;
+            if (!Uri.TryCreate(origin, UriKind.Absolute, out Uri? uri) || uri == null) return false;
+            if (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps) return false;
+            return IsLoopbackHostName(uri.Host);
+        }
+
+        public static string? ExtractHeaderPassword(Func<string, string?> getHeader)
+        {
+            string? password = getHeader("X-Shiro-Auth");
+            if (string.IsNullOrEmpty(password))
+                password = getHeader("X-RAM-Auth");
+            if (string.IsNullOrEmpty(password))
+            {
+                string? authHeader = getHeader("Authorization");
+                if (!string.IsNullOrEmpty(authHeader) && authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+                    password = authHeader.Substring(7).Trim();
+            }
+
+            return string.IsNullOrEmpty(password) ? null : password;
+        }
+
+        public static string? ExtractQueryPassword(Func<string, string?> getQuery)
+        {
+            string? password = getQuery("Password") ?? getQuery("password") ?? getQuery("token");
+            return string.IsNullOrEmpty(password) ? null : password;
+        }
+
+        public static string ExtractRequestPassword(Func<string, string?> getHeader, Func<string, string?> getQuery)
+        {
+            return ExtractHeaderPassword(getHeader) ?? ExtractQueryPassword(getQuery) ?? string.Empty;
+        }
+
         public static int ToStatusCode(AuthDecision decision) =>
             decision switch
             {
@@ -91,28 +134,27 @@ namespace Shiro.Services
 
         public static AuthDecision Evaluate(in AuthRequest request, in AuthSettings settings)
         {
-            // 1. !IsLoopbackRemote && !AllowExternal -> ForbiddenExternal
+            // 1. Remote request without external connections allowed -> ForbiddenExternal.
             if (!request.IsLoopbackRemote && !settings.AllowExternal)
             {
                 return AuthDecision.ForbiddenExternal;
             }
 
-            // 2. !AllowExternal: Host không rỗng và không phải loopback (AccountApiDispatcher.IsLoopbackHostName) -> ForbiddenHost;
-            //    Origin không tin cậy (AccountApiDispatcher.IsTrustedLocalOrigin) -> ForbiddenOrigin (luôn kiểm tra cả khi AllowExternal = true).
+            // 2. When AllowExternal is false: non-empty host must be loopback (IsLoopbackHostName) -> ForbiddenHost; Origin must be trusted local origin (IsTrustedLocalOrigin) -> ForbiddenOrigin (always checked even when AllowExternal is true).
             if (!settings.AllowExternal)
             {
-                if (!string.IsNullOrEmpty(request.Host) && !AccountApiDispatcher.IsLoopbackHostName(request.Host))
+                if (!string.IsNullOrEmpty(request.Host) && !IsLoopbackHostName(request.Host))
                 {
                     return AuthDecision.ForbiddenHost;
                 }
             }
 
-            if (!AccountApiDispatcher.IsTrustedLocalOrigin(request.Origin ?? string.Empty))
+            if (!IsTrustedLocalOrigin(request.Origin ?? string.Empty))
             {
                 return AuthDecision.ForbiddenOrigin;
             }
 
-            // 3. Mật khẩu hiệu lực = HeaderPassword; nếu rỗng thì dùng QueryPassword chỉ khi Scope == NexusControl || IsLoopbackRemote.
+            // 3. Effective password = HeaderPassword; if empty, QueryPassword is used only when Scope == NexusControl or IsLoopbackRemote is true.
             string? effectivePassword = request.HeaderPassword;
             if (string.IsNullOrEmpty(effectivePassword))
             {
@@ -122,14 +164,14 @@ namespace Shiro.Services
                 }
             }
 
-            // 4. Bắt buộc mật khẩu khi: Scope == Api hoặc EveryRequestRequiresPassword hoặc !IsLoopbackRemote hoặc (Scope == NexusControl && IsPasswordConfigured).
+            // 4. Password required when: Scope == Api, or EveryRequestRequiresPassword, or !IsLoopbackRemote, or (Scope == NexusControl && IsPasswordConfigured).
             bool passwordRequired =
                 request.Scope == AuthScope.Api ||
                 settings.EveryRequestRequiresPassword ||
                 !request.IsLoopbackRemote ||
                 (request.Scope == AuthScope.NexusControl && IsPasswordConfigured(settings.ConfiguredPassword));
 
-            // 5. Nếu bắt buộc: chưa cấu hình -> PasswordNotConfigured; mật khẩu hiệu lực rỗng hoặc sai (AccountApiDispatcher.FixedTimeEqualsPassword) -> InvalidPassword.
+            // 5. If required: not configured -> PasswordNotConfigured; effective password empty or incorrect (CryptoHelper.FixedTimeEqualsSecret) -> InvalidPassword.
             if (passwordRequired)
             {
                 if (!IsPasswordConfigured(settings.ConfiguredPassword))
@@ -138,7 +180,7 @@ namespace Shiro.Services
                 }
 
                 if (string.IsNullOrEmpty(effectivePassword) ||
-                    !AccountApiDispatcher.FixedTimeEqualsPassword(effectivePassword, settings.ConfiguredPassword!))
+                    !CryptoHelper.FixedTimeEqualsSecret(effectivePassword, settings.ConfiguredPassword!))
                 {
                     return AuthDecision.InvalidPassword;
                 }

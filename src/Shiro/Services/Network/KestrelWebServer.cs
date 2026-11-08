@@ -81,7 +81,7 @@ namespace Shiro.Services
                 {
                     // Only reflect loopback origins; other browser origins get no CORS grant.
                     string origin = context.Request.Headers["Origin"].ToString();
-                    if (!string.IsNullOrEmpty(origin) && AccountApiDispatcher.IsTrustedLocalOrigin(origin))
+                    if (!string.IsNullOrEmpty(origin) && WebAuthPolicy.IsTrustedLocalOrigin(origin))
                     {
                         context.Response.Headers.Append("Access-Control-Allow-Origin", origin);
                         context.Response.Headers.Append("Vary", "Origin");

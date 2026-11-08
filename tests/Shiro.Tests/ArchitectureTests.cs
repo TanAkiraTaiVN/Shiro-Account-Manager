@@ -416,11 +416,13 @@ namespace Shiro.Tests
             var viewModelsDir = Path.Combine(repoRoot!, "src", "Shiro", "ViewModels");
             var classesDir = Path.Combine(repoRoot!, "src", "Shiro", "Classes");
             var avaloniaDir = Path.Combine(repoRoot!, "src", "Shiro", "AvaloniaUI");
+            var nexusDir = Path.Combine(repoRoot!, "src", "Shiro", "Nexus");
             var files = Directory.GetFiles(servicesDir, "*.cs", SearchOption.AllDirectories)
                 .Where(f => !f.EndsWith("AccountRepository.cs", StringComparison.OrdinalIgnoreCase))
                 .Concat(Directory.GetFiles(viewModelsDir, "*.cs", SearchOption.AllDirectories))
                 .Concat(Directory.GetFiles(classesDir, "*.cs", SearchOption.AllDirectories))
                 .Concat(Directory.GetFiles(avaloniaDir, "*.cs", SearchOption.AllDirectories))
+                .Concat(Directory.GetFiles(nexusDir, "*.cs", SearchOption.AllDirectories))
                 .ToList();
 
             var violations = new System.Collections.Generic.List<string>();

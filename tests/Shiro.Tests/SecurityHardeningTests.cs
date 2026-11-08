@@ -24,7 +24,7 @@ namespace Shiro.Tests
         [InlineData("", false)]
         public void IsLoopbackHostName_MatchesExactly(string host, bool expected)
         {
-            Assert.Equal(expected, AccountManager.IsLoopbackHostName(host));
+            Assert.Equal(expected, WebAuthPolicy.IsLoopbackHostName(host));
         }
 
         [Theory]
@@ -38,17 +38,27 @@ namespace Shiro.Tests
         [InlineData("not a url", false)]
         public void IsTrustedLocalOrigin_RejectsSpoofedOrigins(string origin, bool expected)
         {
-            Assert.Equal(expected, AccountManager.IsTrustedLocalOrigin(origin));
+            Assert.Equal(expected, WebAuthPolicy.IsTrustedLocalOrigin(origin));
         }
 
         [Fact]
         public void FixedTimeEqualsPassword_ComparesCorrectly()
         {
-            Assert.True(AccountManager.FixedTimeEqualsPassword("secret123", "secret123"));
-            Assert.False(AccountManager.FixedTimeEqualsPassword("secret123", "secret124"));
-            Assert.False(AccountManager.FixedTimeEqualsPassword("short", "longer-password"));
-            Assert.False(AccountManager.FixedTimeEqualsPassword(null!, "x"));
-            Assert.False(AccountManager.FixedTimeEqualsPassword("x", null!));
+            Assert.True(CryptoHelper.FixedTimeEqualsSecret("secret123", "secret123"));
+            Assert.False(CryptoHelper.FixedTimeEqualsSecret("secret123", "secret124"));
+            Assert.False(CryptoHelper.FixedTimeEqualsSecret("short", "longer-password"));
+            Assert.False(CryptoHelper.FixedTimeEqualsSecret(null!, "x"));
+            Assert.False(CryptoHelper.FixedTimeEqualsSecret("x", null!));
+        }
+
+        [Theory]
+        [InlineData("secret123", "secret123", true)]
+        [InlineData("secret123", "secret124", false)]
+        [InlineData("short", "muchlongersecret", false)]
+        [InlineData("", "secret123", false)]
+        public void FixedTimeEqualsSecret_ComparesByValue(string provided, string expected, bool match)
+        {
+            Assert.Equal(match, CryptoHelper.FixedTimeEqualsSecret(provided, expected));
         }
 
         [Fact]
@@ -209,17 +219,17 @@ namespace Shiro.Tests
         [Fact]
         public void ExtractRequestPassword_PrefersXShiroAuthAndSupportsFallbackHeaders()
         {
-            string fromShiro = AccountManager.ExtractRequestPassword(
+            string fromShiro = WebAuthPolicy.ExtractRequestPassword(
                 k => k == "X-Shiro-Auth" ? "shiro-secret" : (k == "X-RAM-Auth" ? "legacy-secret" : null),
                 _ => null);
             Assert.Equal("shiro-secret", fromShiro);
 
-            string fromLegacy = AccountManager.ExtractRequestPassword(
+            string fromLegacy = WebAuthPolicy.ExtractRequestPassword(
                 k => k == "X-RAM-Auth" ? "legacy-secret" : null,
                 _ => null);
             Assert.Equal("legacy-secret", fromLegacy);
 
-            string fromBearer = AccountManager.ExtractRequestPassword(
+            string fromBearer = WebAuthPolicy.ExtractRequestPassword(
                 k => k == "Authorization" ? "Bearer bearer-token-123" : null,
                 _ => null);
             Assert.Equal("bearer-token-123", fromBearer);

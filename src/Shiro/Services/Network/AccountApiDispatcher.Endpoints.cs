@@ -70,7 +70,7 @@ namespace Shiro.Services
 
                 string? groupFilter = req.GetQuery("Group");
                 bool showCookies = !string.IsNullOrEmpty(wsPassword) && wsPassword.Length >= 6 &&
-                                   FixedTimeEqualsPassword(password ?? string.Empty, wsPassword) &&
+                                   CryptoHelper.FixedTimeEqualsSecret(password ?? string.Empty, wsPassword) &&
                                    req.GetQuery("IncludeCookies") == "true" && webServer.Get<bool>("AllowGetCookie");
 
                 var allAccounts = AppServices.AccountRepository.GetAll();
@@ -220,7 +220,7 @@ namespace Shiro.Services
                 if (webServer == null || !webServer.Get<bool>("AllowGetAccounts") || !webServer.Get<bool>("AllowGetCookie"))
                     return reply("Method `Accounts/Export` not allowed", false, 401, "Method not allowed");
 
-                if (string.IsNullOrEmpty(wsPassword) || wsPassword.Length < 6 || !FixedTimeEqualsPassword(password ?? string.Empty, wsPassword))
+                if (string.IsNullOrEmpty(wsPassword) || wsPassword.Length < 6 || !CryptoHelper.FixedTimeEqualsSecret(password ?? string.Empty, wsPassword))
                     return reply("Invalid Password, make sure your password contains 6 or more characters", false, 401, "Invalid Password");
 
                 string formatStr = req.GetQuery("Format") ?? "Json";
@@ -373,7 +373,11 @@ namespace Shiro.Services
                     var res = await account.BlockUserIdAsync(req.GetQuery("UserId") ?? string.Empty).ConfigureAwait(false);
                     return reply(res?.Content ?? string.Empty, res?.IsSuccessful == true, res != null ? (int)res.StatusCode : 500, null);
                 }
-                catch (Exception x) { return reply(x.Message, false, 500, null); }
+                catch (Exception x)
+                {
+                    AppServices.Logger.Warn("[AccountApiDispatcher] BlockUser failed", x);
+                    return reply(InternalErrorMessage, false, 500, null);
+                }
             }
 
             if (method == "UnblockUser" && !string.IsNullOrEmpty(req.GetQuery("UserId")))
@@ -383,7 +387,11 @@ namespace Shiro.Services
                     var res = await account.UnblockUserIdAsync(req.GetQuery("UserId") ?? string.Empty).ConfigureAwait(false);
                     return reply(res?.Content ?? string.Empty, res?.IsSuccessful == true, res != null ? (int)res.StatusCode : 500, null);
                 }
-                catch (Exception x) { return reply(x.Message, false, 500, null); }
+                catch (Exception x)
+                {
+                    AppServices.Logger.Warn("[AccountApiDispatcher] UnblockUser failed", x);
+                    return reply(InternalErrorMessage, false, 500, null);
+                }
             }
 
             if (method == "GetBlockedList")
@@ -393,7 +401,11 @@ namespace Shiro.Services
                     var res = await account.GetBlockedListAsync().ConfigureAwait(false);
                     return reply(res?.Content ?? string.Empty, res?.IsSuccessful == true, res != null ? (int)res.StatusCode : 500, null);
                 }
-                catch (Exception x) { return reply(x.Message, false, 500, null); }
+                catch (Exception x)
+                {
+                    AppServices.Logger.Warn("[AccountApiDispatcher] GetBlockedList failed", x);
+                    return reply(InternalErrorMessage, false, 500, null);
+                }
             }
 
             if (method == "UnblockEveryone")

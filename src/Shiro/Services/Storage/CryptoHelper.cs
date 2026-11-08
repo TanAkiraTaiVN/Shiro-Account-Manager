@@ -57,6 +57,39 @@ namespace Shiro.Services
             return Convert.ToHexString(hash);
         }
 
+        /// <summary>
+        /// Performs a constant-time equality check between two secrets by hashing both with SHA-256
+        /// before evaluating FixedTimeEquals to prevent timing side-channel attacks on secret length and content.
+        /// </summary>
+        public static bool FixedTimeEqualsSecret(string provided, string expected)
+        {
+            if (provided == null || expected == null) return false;
+            int maxByteA = Encoding.UTF8.GetMaxByteCount(provided.Length);
+            int maxByteB = Encoding.UTF8.GetMaxByteCount(expected.Length);
+            if (maxByteA <= 256 && maxByteB <= 256)
+            {
+                Span<byte> bufA = stackalloc byte[maxByteA];
+                Span<byte> bufB = stackalloc byte[maxByteB];
+                int lenA = Encoding.UTF8.GetBytes(provided.AsSpan(), bufA);
+                int lenB = Encoding.UTF8.GetBytes(expected.AsSpan(), bufB);
+                Span<byte> digestA = stackalloc byte[32];
+                Span<byte> digestB = stackalloc byte[32];
+                System.Security.Cryptography.SHA256.HashData(bufA[..lenA], digestA);
+                System.Security.Cryptography.SHA256.HashData(bufB[..lenB], digestB);
+                bool digestsMatch = CryptographicOperations.FixedTimeEquals(digestA, digestB);
+                return digestsMatch & (lenA == lenB);
+            }
+
+            byte[] a = Encoding.UTF8.GetBytes(provided);
+            byte[] b = Encoding.UTF8.GetBytes(expected);
+            Span<byte> hashA = stackalloc byte[32];
+            Span<byte> hashB = stackalloc byte[32];
+            System.Security.Cryptography.SHA256.HashData(a, hashA);
+            System.Security.Cryptography.SHA256.HashData(b, hashB);
+            bool match = CryptographicOperations.FixedTimeEquals(hashA, hashB);
+            return match & (a.Length == b.Length);
+        }
+
         internal static Func<byte[], byte[]>? TestProtectBytesOverride;
 
         /// <summary>
