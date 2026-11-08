@@ -278,8 +278,9 @@ namespace Shiro.Services
                     fullPath.StartsWith(fullDirectory + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) ||
                     fullPath.StartsWith(fullDirectory + Path.AltDirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
             }
-            catch
+            catch (Exception ex)
             {
+                AppServices.Logger.Debug("[StoragePaths] IsWithinDirectory failed", ex);
                 return false;
             }
         }

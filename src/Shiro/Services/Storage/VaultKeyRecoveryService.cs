@@ -257,8 +257,13 @@ namespace Shiro.Services
                 byte[] plain = Cryptography.Decrypt(encryptedAccountData, candidateKey);
                 return plain != null && plain.Length > 2;
             }
-            catch
+            catch (CryptographicException)
             {
+                return false;
+            }
+            catch (Exception ex)
+            {
+                AppServices.Logger.Debug("[VaultKeyRecoveryService] CanDecrypt failed", ex);
                 return false;
             }
         }

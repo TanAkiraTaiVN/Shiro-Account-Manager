@@ -183,8 +183,9 @@ namespace Shiro.Services
                     .Select(f => f.FullName)
                     .ToList();
             }
-            catch
+            catch (Exception ex)
             {
+                _logger.Debug("[AccountStore] GetHistoricalBackups failed", ex);
                 return Array.Empty<string>();
             }
         }
@@ -242,8 +243,9 @@ namespace Shiro.Services
                 }
                 File.Move(tempFile, destinationPath, overwrite: true);
             }
-            catch
+            catch (Exception ex)
             {
+                _logger.Debug("[AccountStore] ExportVault failed, cleaning up temp file", ex);
                 try
                 {
                     if (File.Exists(tempFile))
@@ -251,9 +253,10 @@ namespace Shiro.Services
                         File.Delete(tempFile);
                     }
                 }
-                catch
+                catch (Exception cleanupEx)
                 {
                     // Best-effort cleanup
+                    _logger.Debug("[AccountStore] ExportVault temp file cleanup failed", cleanupEx);
                 }
                 throw;
             }

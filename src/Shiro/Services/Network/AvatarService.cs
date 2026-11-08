@@ -50,8 +50,9 @@ namespace Shiro.Services
                 string dir = Path.Combine(StoragePaths.CacheDirectory, "Avatars");
                 return Path.Combine(dir, $"{userId}.png");
             }
-            catch
+            catch (Exception ex)
             {
+                AppServices.Logger.Debug("[AvatarService] GetDiskCachePath failed", ex);
                 return null;
             }
         }

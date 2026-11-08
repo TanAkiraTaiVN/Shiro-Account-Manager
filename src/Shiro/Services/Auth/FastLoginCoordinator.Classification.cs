@@ -42,7 +42,7 @@ namespace Shiro.Services
                 if (!string.IsNullOrWhiteSpace(rawJson) && rawJson != "null")
                 {
                     try { combinedText = JsonSerializer.Deserialize(rawJson, ShiroAppJson.Default.String); }
-                    catch (Exception) { combinedText = rawJson.Trim('"'); }
+                    catch (JsonException) { combinedText = rawJson.Trim('"'); }
                 }
 
                 return ClassifyDomIssueText(combinedText, isModUrl);

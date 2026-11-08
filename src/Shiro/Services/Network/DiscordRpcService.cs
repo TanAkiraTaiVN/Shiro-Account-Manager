@@ -174,15 +174,16 @@ namespace Shiro.Services
                     }
                     return;
                 }
-                catch
+                catch (Exception ex)
                 {
+                    _logger.Debug($"[DiscordRpcService] Connect pipe discord-ipc-{i} failed", ex);
                     lock (_pipeLock)
                     {
                         if (ReferenceEquals(_pipeStream, pipe))
                             _pipeStream = null;
                     }
                     try { pipe?.Dispose(); }
-                    catch (Exception ex) { _logger.Debug($"[DiscordRpcService.ConnectPipeAsync] Pipe dispose: {ex.Message}"); }
+                    catch (Exception disposeEx) { _logger.Debug($"[DiscordRpcService.ConnectPipeAsync] Pipe dispose: {disposeEx.Message}"); }
                 }
             }
         }

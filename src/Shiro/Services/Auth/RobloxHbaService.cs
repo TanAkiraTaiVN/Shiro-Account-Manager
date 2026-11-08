@@ -217,8 +217,9 @@ namespace Shiro.Services
                     CryptographicOperations.ZeroMemory(keyBytes);
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                AppServices.Logger.Debug("[RobloxHbaService] ValidatePkcs8PrivateKey failed", ex);
                 return false;
             }
         }

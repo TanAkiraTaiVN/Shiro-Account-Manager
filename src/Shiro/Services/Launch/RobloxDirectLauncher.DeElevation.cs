@@ -103,8 +103,9 @@ namespace Shiro.Services
                 var principal = new WindowsPrincipal(identity);
                 return principal.IsInRole(WindowsBuiltInRole.Administrator);
             }
-            catch
+            catch (Exception ex)
             {
+                AppServices.Logger.Debug("[RobloxDirectLauncher] Check IsCurrentProcessElevated failed", ex);
                 return false;
             }
         }

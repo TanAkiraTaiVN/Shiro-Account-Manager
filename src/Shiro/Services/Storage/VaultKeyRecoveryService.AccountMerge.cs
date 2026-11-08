@@ -78,7 +78,11 @@ namespace Shiro.Services
                             .OrderByDescending(f =>
                             {
                                 try { return File.GetLastWriteTimeUtc(f); }
-                                catch { return DateTime.MinValue; }
+                                catch (Exception ex)
+                                {
+                                    AppServices.Logger.Debug("[VaultKeyRecoveryService] GetLastWriteTimeUtc failed", ex);
+                                    return DateTime.MinValue;
+                                }
                             });
                         encryptedCandidates.AddRange(historical);
                     }

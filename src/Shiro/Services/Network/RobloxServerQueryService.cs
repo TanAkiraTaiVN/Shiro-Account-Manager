@@ -191,8 +191,9 @@ namespace Shiro.Services
             {
                 return await probe(ct).ConfigureAwait(false);
             }
-            catch
+            catch (Exception ex)
             {
+                AppServices.Logger.Debug("[RobloxServerQueryService] SafeRunProbeAsync failed", ex);
                 return null;
             }
         }

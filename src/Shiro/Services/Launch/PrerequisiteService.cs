@@ -31,8 +31,9 @@ namespace Shiro.Services
                 using RegistryKey? vcKey = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\WOW6432Node\Microsoft\VisualStudio\14.0\VC\Runtimes\X86");
                 return vcKey == null || !(vcKey.GetValue("Bld") is int vcVersion) || vcVersion < 32532;
             }
-            catch
+            catch (Exception ex)
             {
+                AppServices.Logger.Debug("[PrerequisiteService] Check NeedsVCRedist failed", ex);
                 return false;
             }
         }

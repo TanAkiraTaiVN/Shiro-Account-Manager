@@ -419,8 +419,9 @@ namespace Shiro.Services
                     measuredLatency = tcpMs;
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                AppServices.Logger.Debug("[ProxyManagerService] PingProxyAsync failed", ex);
                 measuredLatency = -2; // Failed or timeout
             }
             finally

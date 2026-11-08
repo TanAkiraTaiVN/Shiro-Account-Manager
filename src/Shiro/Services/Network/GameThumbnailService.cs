@@ -35,8 +35,9 @@ namespace Shiro.Services
                     Directory.CreateDirectory(dir);
                 return dir;
             }
-            catch
+            catch (Exception ex)
             {
+                AppServices.Logger.Debug("[GameThumbnailService] EnsureThumbnailDirectory failed", ex);
                 return null;
             }
         }
@@ -54,8 +55,9 @@ namespace Shiro.Services
                 string dir = Path.Combine(StoragePaths.CacheDirectory, "GameThumbnails");
                 return Path.Combine(dir, $"{placeId}.png");
             }
-            catch
+            catch (Exception ex)
             {
+                AppServices.Logger.Debug("[GameThumbnailService] GetDiskCachePath failed", ex);
                 return null;
             }
         }

@@ -106,8 +106,9 @@ namespace Shiro.Services
                 {
                     bodyContent = await request.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
                 }
-                catch
+                catch (Exception ex)
                 {
+                    AppServices.Logger.Debug("[RobloxHbaService] Read body content failed", ex);
                     bodyContent = null;
                 }
             }
@@ -194,8 +195,9 @@ namespace Shiro.Services
                     CryptographicOperations.ZeroMemory(pkcs8);
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                AppServices.Logger.Debug("[RobloxHbaService] TryDeriveSpkiPublicKeyBase64 failed", ex);
                 return false;
             }
         }

@@ -231,8 +231,9 @@ namespace Shiro.Services
                     HandleProcessExit(session);
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                AppServices.Logger.Debug("[AutoReconnectService] Process observation failed", ex);
                 // Fallback timer will handle any edge case
             }
         }

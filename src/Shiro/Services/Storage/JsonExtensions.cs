@@ -100,8 +100,9 @@ namespace Shiro.Services
                 result = JsonSerializer.Deserialize<T>(json, DefaultOptions);
                 return result != null;
             }
-            catch
+            catch (Exception ex)
             {
+                AppServices.Logger.Debug("[JsonExtensions] TryDeserialize failed", ex);
                 result = default;
                 return false;
             }
@@ -118,8 +119,9 @@ namespace Shiro.Services
                 }
                 return JsonSerializer.Deserialize<T>(json, DefaultOptions);
             }
-            catch
+            catch (Exception ex)
             {
+                AppServices.Logger.Debug("[JsonExtensions] Deserialize failed", ex);
                 return default;
             }
         }

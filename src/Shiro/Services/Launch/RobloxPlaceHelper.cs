@@ -76,8 +76,9 @@ namespace Shiro.Services
                         }
                     }
                 }
-                catch
+                catch (Exception ex)
                 {
+                    AppServices.Logger.Debug("[RobloxPlaceHelper] Querying server page failed", ex);
                     break;
                 }
 
