@@ -26,7 +26,6 @@ namespace Shiro
     public partial class AccountManager : IDisposable
     {
         public static AccountManager? Instance;
-        private static List<Account> _accounts = new();
         public static List<Account> SelectedAccounts
         {
             get => SelectionStateService.Default.SelectedAccounts;
@@ -128,7 +127,7 @@ namespace Shiro
         public static IniSection Prompts = null!;
         private readonly SettingsService settingsService;
         internal static AccountStore accountStore = null!;
-        internal static readonly System.Threading.Lock AccountListLock = new();
+        internal static System.Threading.Lock AccountListLock => AccountRepository.Default.SyncRoot;
         private readonly PresenceService presenceService;
         private readonly BrowserService browserService;
         private bool accountDataNeedsMigration;
@@ -161,108 +160,17 @@ namespace Shiro
                 Math.Min(MaximumAccountJoinDelaySeconds, delay));
         }
 
-        private static Account[] _cachedAccountsSnapshot = Array.Empty<Account>();
-
-        internal static IReadOnlyList<Account> GetAccountsSnapshot()
-        {
-            lock (AccountListLock)
-            {
-                if (_accounts == null || _accounts.Count == 0)
-                    return Array.Empty<Account>();
-
-                Account[] cached = _cachedAccountsSnapshot;
-                if (cached != null && cached.Length == _accounts.Count)
-                {
-                    bool same = true;
-                    for (int i = 0; i < cached.Length; i++)
-                    {
-                        if (!ReferenceEquals(cached[i], _accounts[i]))
-                        {
-                            same = false;
-                            break;
-                        }
-                    }
-                    if (same)
-                        return cached;
-                }
-
-                int nonNullCount = 0;
-                for (int i = 0; i < _accounts.Count; i++)
-                {
-                    if (_accounts[i] != null)
-                        nonNullCount++;
-                }
-
-                if (nonNullCount == 0)
-                {
-                    _cachedAccountsSnapshot = Array.Empty<Account>();
-                    return _cachedAccountsSnapshot;
-                }
-
-                var result = new Account[nonNullCount];
-                int idx = 0;
-                for (int i = 0; i < _accounts.Count; i++)
-                {
-                    var acc = _accounts[i];
-                    if (acc != null)
-                        result[idx++] = acc;
-                }
-
-                _cachedAccountsSnapshot = result;
-                return result;
-            }
-        }
+        internal static IReadOnlyList<Account> GetAccountsSnapshot() => AccountRepository.Default.GetAll();
 
         public static IReadOnlyList<Account> Accounts => GetAccountsSnapshot();
 
-        public static int AccountCount
-        {
-            get
-            {
-                lock (AccountListLock) return _accounts?.Count ?? 0;
-            }
-        }
+        public static int AccountCount => AccountRepository.Default.Count;
 
-        public static void AddAccountThreadSafe(Account account)
-        {
-            if (account == null) return;
-            lock (AccountListLock)
-            {
-                _accounts ??= new List<Account>();
-                _accounts.Add(account);
-                _cachedAccountsSnapshot = Array.Empty<Account>();
-            }
-        }
+        public static void AddAccountThreadSafe(Account account) => AccountRepository.Default.AddThreadSafe(account);
 
         internal static void ReplaceAccountsList(List<Account> accounts)
         {
-            if (accounts != null)
-            {
-                foreach (var acc in accounts)
-                {
-                    if (acc != null)
-                    {
-                        if (string.IsNullOrWhiteSpace(acc.SecurityToken))
-                        {
-                            acc.Valid = false;
-                        }
-                        else if (acc.Valid && acc.HasExpiredShortLivedCookie())
-                        {
-                            acc.Valid = false;
-                            acc.IsDirty = true;
-                        }
-                    }
-                }
-            }
-
-            IReadOnlyList<Account> snapshot;
-            lock (AccountListLock)
-            {
-                _accounts = accounts ?? new List<Account>();
-                _cachedAccountsSnapshot = Array.Empty<Account>();
-                snapshot = GetAccountsSnapshot();
-            }
-
+            IReadOnlyList<Account> snapshot = AccountRepository.Default.ReplaceAll(accounts);
             HostUiBridgeService.Default.NotifyAccountsReplaced(snapshot);
         }
 

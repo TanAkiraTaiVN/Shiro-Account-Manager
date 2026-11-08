@@ -585,9 +585,9 @@ namespace Shiro.Tests
             foreach (var file in files)
             {
                 string content = File.ReadAllText(file);
-                if (content.Contains(".GetAwaiter().GetResult()", StringComparison.Ordinal))
+                if (content.Contains(".GetAwaiter().GetResult()", StringComparison.Ordinal) || content.Contains("httpClient.Send(", StringComparison.Ordinal))
                 {
-                    violations.Add($"{Path.GetFileName(file)} uses sync-over-async .GetAwaiter().GetResult()");
+                    violations.Add($"{Path.GetFileName(file)} uses synchronous blocking (.GetAwaiter().GetResult() or httpClient.Send)");
                 }
             }
 
