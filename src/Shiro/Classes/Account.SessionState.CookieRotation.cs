@@ -119,10 +119,8 @@ namespace Shiro
 
             lock (CookieSyncRoot)
             {
-                if (string.Equals(_SecurityToken, sanitized, StringComparison.Ordinal))
+                if (!TryReplaceProtectedSecurityTokenLocked(sanitized))
                     return false;
-
-                _SecurityToken = sanitized;
                 IsDirty = true;
                 TokenSet = DateTime.MinValue;
                 CSRFToken = null;
@@ -212,6 +210,64 @@ namespace Shiro
                 .AddHeader("Sec-Fetch-Mode", "cors")
                 .AddHeader("Sec-Fetch-Site", "same-site")
                 .AddJsonBody(new EmptyJsonObjectPayload());
+        }
+
+        internal string GetCurrentPassword()
+        {
+            lock (CookieSyncRoot)
+            {
+                return InMemorySecretProtector.Unprotect(_protectedPassword);
+            }
+        }
+
+        private bool TryReplaceProtectedPassword(string value)
+        {
+            lock (CookieSyncRoot)
+            {
+                string current = InMemorySecretProtector.Unprotect(_protectedPassword);
+                if (string.Equals(current, value, StringComparison.Ordinal))
+                    return false;
+
+                InMemorySecretProtector.ZeroAndClear(ref _protectedPassword);
+                _protectedPassword = InMemorySecretProtector.Protect(value);
+                return true;
+            }
+        }
+
+        private bool TryReplaceProtectedSecurityTokenLocked(string sanitized)
+        {
+            string current = InMemorySecretProtector.Unprotect(_protectedSecurityToken);
+            if (string.Equals(current, sanitized, StringComparison.Ordinal))
+                return false;
+
+            InMemorySecretProtector.ZeroAndClear(ref _protectedSecurityToken);
+            bool hasToken = !string.IsNullOrWhiteSpace(sanitized);
+            _protectedSecurityToken = hasToken ? InMemorySecretProtector.Protect(sanitized) : null;
+            _hasSecurityToken = hasToken;
+            _securityTokenPayloadLength = hasToken ? GetSessionTokenPayloadLength(sanitized) : 0;
+            return true;
+        }
+
+        private (bool HasToken, int PayloadLength) GetCachedTokenMetadata()
+        {
+            lock (CookieSyncRoot)
+            {
+                return (_hasSecurityToken, _securityTokenPayloadLength);
+            }
+        }
+
+        public void ClearSensitiveMemory()
+        {
+            lock (CookieSyncRoot)
+            {
+                InMemorySecretProtector.ZeroAndClear(ref _protectedSecurityToken);
+                _hasSecurityToken = false;
+                _securityTokenPayloadLength = 0;
+                InMemorySecretProtector.ZeroAndClear(ref _protectedPassword);
+                CSRFToken = null;
+                TokenSet = DateTime.MinValue;
+                System.Threading.Interlocked.Increment(ref _cookieRotationVersion);
+            }
         }
     }
 }

@@ -32,7 +32,7 @@ namespace Shiro
         {
             lock (CookieSyncRoot)
             {
-                return _SecurityToken ?? string.Empty;
+                return InMemorySecretProtector.Unprotect(_protectedSecurityToken);
             }
         }
 

@@ -92,7 +92,9 @@ namespace Shiro
 
         [JsonIgnore]
         public bool IsBannedOrLocked => !Valid && !string.IsNullOrEmpty(AccountStatusIssue);
-        private string _SecurityToken = "";
+        private byte[]? _protectedSecurityToken;
+        private bool _hasSecurityToken;
+        private int _securityTokenPayloadLength;
         public string SecurityToken
         {
             get => GetCurrentSecurityToken();
@@ -101,9 +103,8 @@ namespace Shiro
                 string sanitized = SanitizeCookie(value);
                 lock (CookieSyncRoot)
                 {
-                    if (!string.Equals(_SecurityToken, sanitized, StringComparison.Ordinal))
+                    if (TryReplaceProtectedSecurityTokenLocked(sanitized))
                     {
-                        _SecurityToken = sanitized;
                         IsDirty = true;
                         Interlocked.Increment(ref _cookieRotationVersion);
                     }
@@ -114,7 +115,7 @@ namespace Shiro
         public DateTime LastUse;
         private string _Alias = "";
         private string _Description = "";
-        private string _Password = "";
+        private byte[]? _protectedPassword;
         private string _Group = "Default";
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string Group
@@ -230,20 +231,16 @@ namespace Shiro
         }
         public string Password
         {
-            get => _Password;
+            get => GetCurrentPassword();
             set
             {
                 if (value == null || value.Length > 5000)
                     return;
 
-                if (_Password != value)
+                if (TryReplaceProtectedPassword(value) && !IsSuppressingDeferredSave)
                 {
-                    _Password = value;
-                    if (!IsSuppressingDeferredSave)
-                    {
-                        IsDirty = true;
-                        AppServices.AccountRepository.QueueDeferredSave();
-                    }
+                    IsDirty = true;
+                    AppServices.AccountRepository.QueueDeferredSave();
                 }
             }
         }
@@ -321,7 +318,8 @@ namespace Shiro
         /// </summary>
         public bool HasExpiredShortLivedCookie()
         {
-            if (string.IsNullOrWhiteSpace(_SecurityToken))
+            var (hasToken, _) = GetCachedTokenMetadata();
+            if (!hasToken)
                 return true;
 
             // NOTE: Do NOT invalidate short-lived cookies based on a local clock. LastUse is not refreshed
@@ -331,7 +329,15 @@ namespace Shiro
         }
 
         [JsonIgnore]
-        public bool IsShortLivedSession => Valid && IsShortLivedCookie(_SecurityToken) && !HasExpiredShortLivedCookie();
+        public bool IsShortLivedSession
+        {
+            get
+            {
+                if (!Valid) return false;
+                var (hasToken, payloadLen) = GetCachedTokenMetadata();
+                return hasToken && payloadLen is >= 500 and < 850 && !HasExpiredShortLivedCookie();
+            }
+        }
 
         [JsonIgnore]
         public SessionHealth SessionHealthStatus
@@ -339,9 +345,10 @@ namespace Shiro
             get
             {
                 if (IsBannedOrLocked) return SessionHealth.Locked;
-                if (!Valid || string.IsNullOrWhiteSpace(_SecurityToken) || HasExpiredShortLivedCookie())
+                var (hasToken, payloadLen) = GetCachedTokenMetadata();
+                if (!Valid || !hasToken || HasExpiredShortLivedCookie())
                     return SessionHealth.Expired;
-                if (IsShortLivedCookie(_SecurityToken))
+                if (payloadLen is >= 500 and < 850)
                     return SessionHealth.ShortLived;
                 return SessionHealth.Healthy;
             }
