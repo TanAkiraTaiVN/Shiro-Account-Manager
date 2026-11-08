@@ -194,6 +194,7 @@ namespace Shiro
                 AutoReconnectService.Instance.UnregisterSession(a.Username);
                 try { RobloxProcessService.CloseAccountRobloxProcess(a); }
                 catch (Exception ex) { Program.Logger?.Debug($"Closing removed account client threw: {ex.Message}"); }
+                a.ClearSensitiveMemory();
             }
 
             if (count > 0)

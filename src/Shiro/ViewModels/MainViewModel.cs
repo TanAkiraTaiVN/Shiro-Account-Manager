@@ -274,10 +274,9 @@ namespace Shiro.ViewModels
             get => _runningRobloxProcessCount;
             set
             {
-                if (SetProperty(ref _runningRobloxProcessCount, value))
+                if (System.Threading.Volatile.Read(ref _disposed) == 0 && SetProperty(ref _runningRobloxProcessCount, value))
                 {
-                    if (System.Threading.Volatile.Read(ref _disposed) != 0) return;
-                OnPropertyChanged(nameof(CloseRobloxButtonText));
+                    OnPropertyChanged(nameof(CloseRobloxButtonText));
                     OnPropertyChanged(nameof(HasRunningRobloxProcesses));
                 }
             }
@@ -421,6 +420,7 @@ namespace Shiro.ViewModels
                                 {
                                     foreach (var acc in _accounts)
                                     {
+                                        if (System.Threading.Volatile.Read(ref _disposed) != 0) return;
                                         if (updatedSet.Contains(acc.UserId))
                                         {
                                             acc.InvalidateAvatar();

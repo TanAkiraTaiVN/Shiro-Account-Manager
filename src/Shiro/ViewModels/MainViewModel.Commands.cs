@@ -61,15 +61,15 @@ namespace Shiro.ViewModels
 
         private void PostStatusMessage(string message)
         {
-            AppDispatcher.Post(() => StatusMessage = message);
+            AppDispatcher.Post(() => { if (System.Threading.Volatile.Read(ref _disposed) == 0) StatusMessage = message; });
         }
 
         private void OnStreamerModeStateChanged(bool active)
         {
             AppDispatcher.Post(() =>
             {
-                NotifyToolStatesChanged();
                 if (System.Threading.Volatile.Read(ref _disposed) != 0) return;
+                NotifyToolStatesChanged();
                 RefreshAllAccountDisplays();
             });
         }

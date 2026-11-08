@@ -57,7 +57,9 @@ namespace Shiro.Services
 
                 byte[] encrypted = Convert.FromBase64String(base64);
                 byte[] plain = ProtectedData.Unprotect(encrypted, null, DataProtectionScope.CurrentUser);
-                string netscape = Encoding.UTF8.GetString(plain);
+                string netscape;
+                try { netscape = Encoding.UTF8.GetString(plain); }
+                finally { CryptographicOperations.ZeroMemory(plain); }
 
                 foreach (string rawLine in netscape.Split('\n'))
                 {
@@ -101,7 +103,9 @@ namespace Shiro.Services
 
                 byte[] encrypted = Convert.FromBase64String(base64);
                 byte[] plain = ProtectedData.Unprotect(encrypted, null, DataProtectionScope.CurrentUser);
-                string netscape = Encoding.UTF8.GetString(plain);
+                string netscape;
+                try { netscape = Encoding.UTF8.GetString(plain); }
+                finally { CryptographicOperations.ZeroMemory(plain); }
 
                 foreach (string rawLine in netscape.Split('\n'))
                 {
