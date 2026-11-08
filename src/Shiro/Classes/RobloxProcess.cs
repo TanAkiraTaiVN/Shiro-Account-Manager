@@ -1,11 +1,10 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
-using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -210,24 +209,17 @@ namespace Shiro.Classes
                             HasSecurityCookieChanged = false;
                             try { if (RbxProcess != null) Connected?.Invoke(RbxProcess.Id); }
                             catch (Exception ex) { Program.Logger?.Error($"Connected event handler failed: {ex.Message}"); }
-
                             continue;
                         }
 
                         if (IsChallengeCompletedLogLine(Line))
-                        {
                             HasGameJoinChallenge = false;
-                        }
 
                         if (!IsConnected && IsGameJoinChallengedLogLine(Line))
-                        {
                             HasGameJoinChallenge = true;
-                        }
 
                         if (IsSecurityCookieChangedLogLine(Line))
-                        {
                             HasSecurityCookieChanged = true;
-                        }
 
                         if (TryParseDisconnectReason(Line, out int reason))
                         {
@@ -236,7 +228,6 @@ namespace Shiro.Classes
                             ScheduleNoConnectionWatchdogIfEnabled(initialGraceSeconds: 0);
                             try { if (RbxProcess != null) Disconnected?.Invoke(RbxProcess.Id, reason); }
                             catch (Exception ex) { Program.Logger?.Error($"Disconnected event handler failed: {ex.Message}"); }
-
                             continue;
                         }
 
@@ -244,15 +235,11 @@ namespace Shiro.Classes
                         {
                             CurrentDataModel = parsedDataModel;
                             IsDMPaused = false;
-
                             Program.Logger?.Info($"CurrentDataModel set to {CurrentDataModel:X}");
 
                             // Automatically trim launch working set 15 seconds after map assets finish loading if enabled
                             if (AppSettings.General?.Get<bool>(AppSettingsKeys.General.AggressiveRamTrimming, false) ?? false)
-                            {
                                 _ = SchedulePostLaunchRamTrimAsync();
-                            }
-
                             continue;
                         }
 
@@ -337,10 +324,7 @@ namespace Shiro.Classes
                 if (!RbxProcess.HasExited)
                     RbxProcess.Kill(entireProcessTree: true);
             }
-            catch (Exception ex)
-            {
-                Program.Logger?.Debug($"Kill process failed: {ex.Message}");
-            }
+            catch (Exception ex) { Program.Logger?.Debug($"Kill process failed: {ex.Message}"); }
 
             CleanupProcessExit();
             return true;
@@ -379,10 +363,7 @@ namespace Shiro.Classes
                         foreach (var file in dirInfo.EnumerateFiles("*_Player_*_last.log"))
                         {
                             // Skip empty CrashHandler companion logs created at the exact same timestamp in 0.745+
-                            if (file.Name.Contains("_CrashHandler_", StringComparison.OrdinalIgnoreCase))
-                                continue;
-
-                            if (claimedPaths.Contains(file.FullName))
+                            if (file.Name.Contains("_CrashHandler_", StringComparison.OrdinalIgnoreCase) || claimedPaths.Contains(file.FullName))
                                 continue;
 
                             DateTime lastWriteUtc = file.LastWriteTimeUtc;
@@ -414,7 +395,6 @@ namespace Shiro.Classes
                         foreach (var candidate in candidateLogs)
                         {
                             var file = candidate.File;
-
                             if (TryOpenCandidateLog(file, expectedTrackerId, ref inconclusiveFile, ref inconclusiveStream, out FileStream? matchedStream) && matchedStream != null)
                             {
                                 lock (_logSync)
@@ -449,10 +429,7 @@ namespace Shiro.Classes
                             return;
                         }
                     }
-                    catch (Exception ex)
-                    {
-                        Program.Logger?.Debug($"Direct logs scan error: {ex.Message}");
-                    }
+                    catch (Exception ex) { Program.Logger?.Debug($"Direct logs scan error: {ex.Message}"); }
                 }
 
                 await Task.Delay(LogFileRetries <= 4 ? 400 : 1500, cancellationToken).ConfigureAwait(false);
@@ -466,10 +443,7 @@ namespace Shiro.Classes
                 await Task.Delay(15000, exitMonitoringCancellation.Token).ConfigureAwait(false);
                 MemoryOptimizer.TrimRobloxClients();
             }
-            catch (Exception ex)
-            {
-                Program.Logger?.Debug($"SchedulePostLaunchRamTrimAsync stopped: {ex.Message}");
-            }
+            catch (Exception ex) { Program.Logger?.Debug($"SchedulePostLaunchRamTrimAsync stopped: {ex.Message}"); }
         }
 
         private async Task ObserveLogPathLookupAsync()
@@ -479,10 +453,7 @@ namespace Shiro.Classes
                 await WaitForLogPathAsync(logLookupCancellation.Token).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (logLookupCancellation.IsCancellationRequested) { /* Intentional: cancelled */ }
-            catch (Exception exception)
-            {
-                Program.Logger.Error($"WaitForLogPath Error for Roblox process {RbxProcess?.Id}: {exception}");
-            }
+            catch (Exception exception) { Program.Logger.Error($"WaitForLogPath Error for Roblox process {RbxProcess?.Id}: {exception}"); }
         }
     }
 }

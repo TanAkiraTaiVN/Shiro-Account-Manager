@@ -1,9 +1,12 @@
 #nullable enable
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
+using System.Threading.Tasks;
 using Shiro.Services;
 
 namespace Shiro.Classes
@@ -236,6 +239,7 @@ namespace Shiro.Classes
             // emits "[FLog::SingleSurfaceApp] setStage: (stage:LuaApp)".
             return hasActiveGameDataModel && StageLuaAppRegex().IsMatch(line);
         }
+
         internal static bool TryOpenCandidateLog(
             FileInfo file,
             string? expectedTrackerId,
@@ -279,6 +283,90 @@ namespace Shiro.Classes
             }
 
             return false;
+        }
+
+        internal static async Task<bool> ContainsRecentNativeAuthRateLimitInLogAsync(
+            string logPath,
+            DateTime minimumTimestampUtc,
+            CancellationToken cancellationToken)
+        {
+            DateTime modifiedUtc;
+            try { modifiedUtc = File.GetLastWriteTimeUtc(logPath); }
+            catch (Exception ex) { AppServices.Logger.Debug($"GetLastWriteTimeUtc failed: {ex.Message}"); return false; }
+
+            if (modifiedUtc < minimumTimestampUtc)
+                return false;
+
+            var logLines = new List<string>(256);
+            try
+            {
+                using var stream = new FileStream(logPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+                const int tailBytes = 64 * 1024;
+                if (stream.Length > tailBytes)
+                {
+                    stream.Seek(-tailBytes, SeekOrigin.End);
+                }
+                using var reader = new StreamReader(stream, Encoding.UTF8);
+                if (stream.Position > 0)
+                {
+                    await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false);
+                }
+
+                string? l;
+                while ((l = await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false)) != null)
+                {
+                    logLines.Add(l);
+                }
+            }
+            catch (Exception ex) { AppServices.Logger.Debug($"Read logLines failed: {ex.Message}"); return false; }
+
+            DateTime recentTimestampUtc = DateTime.MinValue;
+            for (int lineIndex = 0; lineIndex < logLines.Count; lineIndex++)
+            {
+                string line = logLines[lineIndex];
+                if (TryGetRobloxLogTimestampUtc(line, out DateTime parsedTimestampUtc))
+                    recentTimestampUtc = parsedTimestampUtc;
+
+                if (recentTimestampUtc < minimumTimestampUtc ||
+                    !line.Contains("authentication-ticket/redeem", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                int lookAheadEnd = Math.Min(logLines.Count - 1, lineIndex + 3);
+                for (int lookAhead = lineIndex; lookAhead <= lookAheadEnd; lookAhead++)
+                {
+                    if (IsRobloxRateLimitedLogLine(logLines[lookAhead]))
+                        return true;
+                }
+            }
+
+            return false;
+        }
+
+        internal static bool TryGetRobloxLogTimestampUtc(string line, out DateTime timestampUtc)
+        {
+            timestampUtc = DateTime.MinValue;
+            if (string.IsNullOrWhiteSpace(line) || line.Length < 24)
+                return false;
+
+            if (!DateTimeOffset.TryParse(
+                    line.AsSpan(0, 24),
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
+                    out DateTimeOffset parsed))
+                return false;
+
+            timestampUtc = parsed.UtcDateTime;
+            return true;
+        }
+
+        internal static bool IsRobloxRateLimitedLogLine(string line)
+        {
+            return !string.IsNullOrWhiteSpace(line) &&
+                (line.Contains("status:429", StringComparison.OrdinalIgnoreCase) ||
+                 line.Contains("status: 429", StringComparison.OrdinalIgnoreCase) ||
+                 line.Contains("statusCode: 429", StringComparison.OrdinalIgnoreCase) ||
+                 line.Contains("statusCode:429", StringComparison.OrdinalIgnoreCase) ||
+                 line.Contains("429 Too Many Requests", StringComparison.OrdinalIgnoreCase));
         }
     }
 }

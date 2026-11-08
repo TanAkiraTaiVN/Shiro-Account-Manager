@@ -230,10 +230,6 @@ namespace Shiro.Services
                         await Task.Delay(Math.Max(0, delayMs), token).ConfigureAwait(false);
                         if (IsCookieGuardHeld) return;
 
-                        // Never overwrite RobloxCookies.dat with .shiro-orig while any Roblox client is actively running:
-                        // if a running client is displaying a WebView2 verification challenge (challengedByGcs) or LuaApp Home,
-                        // restoring a previous account's cookie triggers "[FLog::NewWebView2Browser] Security cookie value changed"
-                        // and hijacks the running client's session into the previous account!
                         if (RobloxProcessService.IsAnyRobloxRunning())
                         {
                             lock (_cookieLock)
@@ -311,48 +307,8 @@ namespace Shiro.Services
             }
         }
 
-        public static string? TryExtractCookieFromCookiesDatFile(string filePath)
-        {
-            if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
-                return null;
-
-            try
-            {
-                using var doc = JsonDocument.Parse(File.ReadAllBytes(filePath));
-                if (!doc.RootElement.TryGetProperty("CookiesData", out var dataProp))
-                    return null;
-
-                string? base64 = dataProp.GetString();
-                if (string.IsNullOrWhiteSpace(base64))
-                    return null;
-
-                byte[] encrypted = Convert.FromBase64String(base64);
-                byte[] plain = System.Security.Cryptography.ProtectedData.Unprotect(
-                    encrypted, null, System.Security.Cryptography.DataProtectionScope.CurrentUser);
-                string netscape = System.Text.Encoding.UTF8.GetString(plain);
-
-                foreach (string rawLine in netscape.Split('\n'))
-                {
-                    string line = rawLine.Trim();
-                    if (string.IsNullOrEmpty(line) || line.StartsWith('#'))
-                        continue;
-
-                    string[] cols = line.Split('\t');
-                    if (cols.Length >= 7 && string.Equals(cols[5], ".ROBLOSECURITY", StringComparison.OrdinalIgnoreCase))
-                    {
-                        string val = Account.SanitizeCookie(cols[6]);
-                        if (!string.IsNullOrWhiteSpace(val) && val.Contains("_|WARNING:-DO-NOT-SHARE-THIS", StringComparison.Ordinal))
-                            return val;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                AppServices.Logger.Debug($"[RobloxDirectLauncher] Could not extract cookie from {Path.GetFileName(filePath)}: {ex.Message}");
-            }
-
-            return null;
-        }
+        public static string? TryExtractCookieFromCookiesDatFile(string filePath) =>
+            RobloxCookieFileHelper.TryExtractCookieFromCookiesDatFile(filePath);
 
         private static void SyncRotatedClientCookieIfApplicable(string cookiesDatPath, string backupPath)
         {

@@ -1,6 +1,6 @@
 #nullable enable
 using System;
-using System.Text.Json;
+using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Media;
 using Microsoft.Web.WebView2.Core;
@@ -266,7 +266,6 @@ namespace Shiro.AvaloniaUI.Views
 
                     // Wait for post-login navigation to reach /home (or other target) AND for Roblox to upgrade
                     // the intermediate/short-lived cookie to a full long-lived session cookie.
-                    // This handles high-latency VPN connections without prematurely capturing a downgraded token.
                     DateTime settleStart = DateTime.UtcNow;
                     await AsyncWaitHelper.WaitUntilAsync(
                         async () =>
@@ -352,57 +351,7 @@ namespace Shiro.AvaloniaUI.Views
                     catch (Exception ex) { Program.Logger?.Debug($"Trigger in-page auth request threw: {ex.Message}"); }
 
                     var hbaSnapshot = await CollectFinalHbaAndFingerprintAsync(core);
-
-                    string cookieValue = secCookie.Value;
-                    try
-                    {
-                        string[] checkUrls = { "https://www.roblox.com", "https://users.roblox.com", "https://auth.roblox.com", "https://roblox.com" };
-                        foreach (string checkUrl in checkUrls)
-                        {
-                            var settledCookies = await core.CookieManager.GetCookiesAsync(checkUrl);
-                            foreach (var c in settledCookies)
-                            {
-                                if (c.Name.Equals(".ROBLOSECURITY", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(c.Value) && c.Value.StartsWith("_|"))
-                                {
-                                    // Prefer a full (long-lived) cookie over a temporary/short-lived cookie
-                                    if (!Account.IsShortLivedCookie(c.Value) || Account.IsShortLivedCookie(cookieValue))
-                                    {
-                                        cookieValue = c.Value;
-                                    }
-                                    _ignoredCookieValues.Add(Fingerprint(c.Value));
-                                }
-                            }
-                        }
-                    }
-                    catch (Exception ex) { Program.Logger?.Debug($"Reading settled cookies threw: {ex.Message}"); }
-
-                    if (string.IsNullOrEmpty(_password))
-                    {
-                        try
-                        {
-                            string passJson = await core.ExecuteScriptAsync(@"
-                                (() => {
-                                    try {
-                                        const p = document.querySelector('#login-password') || document.querySelector('input[type=""password""]');
-                                        return p && p.value ? p.value : '';
-                                    } catch (_) { return ''; }
-                                })()
-                            ");
-                            if (!string.IsNullOrWhiteSpace(passJson) && passJson != "null" && passJson != "\"\"")
-                            {
-                                string? unescaped = null;
-                                try { unescaped = JsonSerializer.Deserialize(passJson, ShiroAppJson.Default.String); } catch (Exception ex) { Program.Logger?.Debug($"Deserialize password JSON: {ex.Message}"); }
-                                if (string.IsNullOrEmpty(unescaped)) unescaped = passJson.Trim('"');
-                                if (!string.IsNullOrEmpty(unescaped))
-                                {
-                                    _password = unescaped;
-                                    var currAcc = GetCurrentQueueAccount();
-                                    if (currAcc != null) currAcc.Password = unescaped;
-                                }
-                            }
-                        }
-                        catch (Exception ex) { Program.Logger?.Debug($"Capturing password from DOM threw: {ex.Message}"); }
-                    }
+                    string cookieValue = await CaptureSettledCookieAndDomPasswordAsync(core, secCookie.Value);
 
                     Account? acc = await AppServices.AccountRepository.AddOrUpdateWithHbaAsync(cookieValue, _password ?? "", accountJson: inPageAccountJson, hbaCapture: hbaSnapshot);
                     pendingCapturedFp = null;

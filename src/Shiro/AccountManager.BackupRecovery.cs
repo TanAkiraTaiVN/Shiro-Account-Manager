@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Security.Cryptography;
+using System.Threading;
 using Shiro.Classes;
 using Shiro.Services;
 
@@ -10,6 +11,31 @@ namespace Shiro
 {
     public partial class AccountManager
     {
+        private static readonly Timer _deferredSaveTimer = new Timer(_ =>
+        {
+            try { SaveAccounts(BypassRateLimit: false); }
+            catch (Exception ex) { Program.Logger.Error($"[DeferredSave] Error saving accounts: {ex.Message}"); }
+        }, null, Timeout.Infinite, Timeout.Infinite);
+
+        public static void QueueDeferredSave()
+        {
+            try { _deferredSaveTimer.Change(1500, Timeout.Infinite); }
+            catch (ObjectDisposedException) { /* timer disposed during shutdown */ }
+            catch (Exception ex) { Program.Logger?.Warn($"Failed to schedule deferred account save: {ex.Message}"); }
+        }
+
+        private static byte[] TryUnprotectAccountData(byte[] data, out bool usedLegacyScope)
+        {
+            usedLegacyScope = false;
+            try { return ProtectedData.Unprotect(data, Entropy, DataProtectionScope.CurrentUser); }
+            catch (CryptographicException)
+            {
+                byte[] legacy = ProtectedData.Unprotect(data, Entropy, DataProtectionScope.LocalMachine);
+                usedLegacyScope = true;
+                return legacy;
+            }
+        }
+
         public static bool TryRecoverOrRestoreAccounts(out string statusMessage)
         {
             statusMessage = string.Empty;

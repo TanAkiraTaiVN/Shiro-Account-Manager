@@ -148,6 +148,22 @@ namespace Shiro.AvaloniaUI.Views
         private Task ClearAuthCookiesAsync() =>
             FastLoginCoordinator.ClearWebViewAuthCookiesAsync(WvBrowser?.CoreWebView2, _ignoredCookieValues);
 
+        private async Task<string> CaptureSettledCookieAndDomPasswordAsync(CoreWebView2 core, string initialCookieValue)
+        {
+            string cookieValue = await FastLoginScripts.ResolveSettledCookieAsync(core, initialCookieValue, _ignoredCookieValues);
+            if (string.IsNullOrEmpty(_password))
+            {
+                string? extracted = await FastLoginScripts.TryExtractDomPasswordAsync(core);
+                if (!string.IsNullOrEmpty(extracted))
+                {
+                    _password = extracted;
+                    var currAcc = GetCurrentQueueAccount();
+                    if (currAcc != null) currAcc.Password = extracted;
+                }
+            }
+            return cookieValue;
+        }
+
         private async Task TryFillCredentialsAsync(bool forceClick = false)
         {
             var core = WvBrowser?.CoreWebView2;
