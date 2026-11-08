@@ -170,7 +170,7 @@ namespace Shiro
                 }
 
                 if (saveImmediate)
-                    SaveAccounts(true);
+                    Persistence.SaveAccounts(bypassRateLimit: true);
 
                 return account;
             }
@@ -199,7 +199,7 @@ namespace Shiro
 
             if (count > 0)
             {
-                SaveAccounts(BypassRateLimit: true, BypassCountCheck: true);
+                Persistence.SaveAccounts(bypassRateLimit: true, bypassCountCheck: true);
                 if (isNowEmpty)
                 {
                     try
@@ -281,7 +281,7 @@ namespace Shiro
 
                     if (anyChanged)
                     {
-                        SaveAccounts(true);
+                        Persistence.SaveAccounts(bypassRateLimit: true);
                     }
                 }
                 finally

@@ -24,8 +24,8 @@ namespace Shiro
     public partial class AccountManager : IDisposable
     {
         public static AccountManager? Instance { get; internal set; }
+        private static AccountPersistenceService Persistence => AppServices.GetRequiredService<AccountPersistenceService>();
 
-        private readonly static DateTime startTime = DateTime.Now;
         private static bool PuppeteerSupported;
         public bool IsDisposed => shutdownFinalized;
         public bool IsHandleCreated => true;
@@ -58,11 +58,9 @@ namespace Shiro
         private bool shutdownFinalized;
 
         private readonly SettingsService settingsService;
-        internal static AccountStore accountStore = null!;
         internal static System.Threading.Lock AccountListLock => AccountRepository.Default.SyncRoot;
         private readonly PresenceService presenceService;
         private readonly BrowserService browserService;
-        private bool accountDataNeedsMigration;
 
         // Keep the value used by the launch countdown and the native launch
         // gate in one place. Older builds had a second hardcoded 30-second
@@ -104,8 +102,6 @@ namespace Shiro
             ReplaceAccountsList(accounts.ToList());
         }
 
-        private static readonly System.Threading.Lock saveLock = new();
-        private static DateTime lastSaveTime = DateTime.MinValue;
         private static readonly System.Threading.Lock rgSaveLock = new();
         public event EventHandler<GameArgs>? RecentGameAdded;
 
@@ -114,7 +110,6 @@ namespace Shiro
         // multi-account Home launches reliable and prevents Roblox from invalidating sessions due to rapid requests.
         private const int HomeLaunchStaggerMilliseconds = 2500;
 
-        private static readonly byte[] Entropy = new byte[] { 0x52, 0x4f, 0x42, 0x4c, 0x4f, 0x58, 0x20, 0x41, 0x43, 0x43, 0x4f, 0x55, 0x4e, 0x54, 0x20, 0x4d, 0x41, 0x4e, 0x41, 0x47, 0x45, 0x52, 0x20, 0x7c, 0x20, 0x3a, 0x29, 0x20, 0x7c, 0x20, 0x42, 0x52, 0x4f, 0x55, 0x47, 0x48, 0x54, 0x20, 0x54, 0x4f, 0x20, 0x59, 0x4f, 0x55, 0x20, 0x42, 0x55, 0x59, 0x20, 0x69, 0x63, 0x33, 0x77, 0x30, 0x6c, 0x66 };
 
         public AccountManager()
         {
@@ -161,7 +156,8 @@ namespace Shiro
 
             AppSettings.ActiveIniFile = iniSettings;
             settingsService = new SettingsService(iniSettings);
-            accountStore = new AccountStore();
+            AccountPersistenceService.Default.Store = new AccountStore();
+            AccountPersistenceService.Default.IsShutdownRequested = false;
             presenceService = new PresenceService();
             browserService = new BrowserService();
 

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Security.Cryptography;
@@ -21,23 +21,23 @@ namespace Shiro.Tests
                 using (StoragePaths.OverrideDataDirectoryForTesting(tempDir))
                 {
                     // No file exists -> returns false
-                    Assert.False(AccountManager.IsDatabasePasswordEncrypted());
+                    Assert.False(AccountPersistenceService.Default.IsDatabasePasswordEncrypted());
 
                     // Plaintext file exists -> returns false
                     File.WriteAllText(StoragePaths.AccountDataFile, "[]");
-                    Assert.False(AccountManager.IsDatabasePasswordEncrypted());
+                    Assert.False(AccountPersistenceService.Default.IsDatabasePasswordEncrypted());
 
                     // Encrypted with default vault key -> returns false (since default key can decrypt it)
                     byte[] vaultKey = StoragePaths.GetOrCreateVaultKey();
                     byte[] encWithVault = Cryptography.Encrypt("[]", vaultKey);
                     File.WriteAllBytes(StoragePaths.AccountDataFile, encWithVault);
-                    Assert.False(AccountManager.IsDatabasePasswordEncrypted());
+                    Assert.False(AccountPersistenceService.Default.IsDatabasePasswordEncrypted());
 
                     // Encrypted with an unknown custom password -> returns true
                     byte[] customPassword = Encoding.UTF8.GetBytes("CustomUserPassword999!");
                     byte[] encWithCustom = Cryptography.Encrypt("[]", customPassword);
                     File.WriteAllBytes(StoragePaths.AccountDataFile, encWithCustom);
-                    Assert.True(AccountManager.IsDatabasePasswordEncrypted());
+                    Assert.True(AccountPersistenceService.Default.IsDatabasePasswordEncrypted());
                 }
             }
             finally
@@ -132,7 +132,7 @@ namespace Shiro.Tests
                     File.WriteAllBytes(StoragePaths.AccountDataFile, encrypted);
 
                     AccountManager.EnsureBackendInitialized();
-                    bool unlocked = AccountManager.LoadAccountsFromStore();
+                    bool unlocked = AccountPersistenceService.Default.LoadAccountsFromStore();
                     Assert.True(unlocked);
 
                     var loaded = AppServices.AccountRepository.GetAll();
@@ -149,6 +149,7 @@ namespace Shiro.Tests
             }
             finally
             {
+                AccountRepository.Default.ReplaceAll(Array.Empty<Account>());
                 if (Directory.Exists(tempDir))
                 {
                     try { Directory.Delete(tempDir, true); }
@@ -174,7 +175,7 @@ namespace Shiro.Tests
                     File.WriteAllText(backupPath, "B");
 
                     var now = new DateTime(2026, 11, 1, 22, 0, 0);
-                    string preservedPath = AccountManager.PromoteBackupToPrimary(path, now);
+                    string preservedPath = AccountPersistenceService.Default.PromoteBackupToPrimary(path, now);
 
                     Assert.Equal("B", File.ReadAllText(path));
                     Assert.Equal("OLD", File.ReadAllText(oldPath));
@@ -209,7 +210,7 @@ namespace Shiro.Tests
                     File.WriteAllText(backupPath, "BACKUP_DATA");
                     File.WriteAllText(collisionPath, "EXISTING_COLLISION");
 
-                    string preservedPath = AccountManager.PromoteBackupToPrimary(path, now);
+                    string preservedPath = AccountPersistenceService.Default.PromoteBackupToPrimary(path, now);
 
                     Assert.Equal(path + ".old.20261101220000.1", preservedPath);
                     Assert.Equal("BACKUP_DATA", File.ReadAllText(path));
@@ -245,7 +246,7 @@ namespace Shiro.Tests
                     // Lock the backup file exclusively so File.Move fails
                     using (var fs = new FileStream(backupPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
                     {
-                        Assert.Throws<IOException>(() => AccountManager.PromoteBackupToPrimary(path, now));
+                        Assert.Throws<IOException>(() => AccountPersistenceService.Default.PromoteBackupToPrimary(path, now));
                     }
 
                     // Verify primary file was rolled back and is not missing
@@ -267,7 +268,7 @@ namespace Shiro.Tests
         [Fact]
         public void TryLoadFromBackup_EmptyOrNullData_ReturnsNotAttempted()
         {
-            var mgr = new AccountManager();
+            var mgr = AccountPersistenceService.Default;
             Assert.Equal(BackupLoadResult.NotAttempted, mgr.TryLoadFromBackup(Array.Empty<byte>()));
             Assert.Equal(BackupLoadResult.NotAttempted, mgr.TryLoadFromBackup(null!));
         }

@@ -16,27 +16,27 @@ namespace Shiro.Tests
     {
         [Theory]
         // Count 0 without bypassCountCheck -> Skip
-        [InlineData(0, false, false, false, AccountManager.SaveGate.Skip)]
+        [InlineData(0, false, false, false, AccountPersistenceService.SaveGate.Skip)]
         // Not dirty without bypass -> Skip
-        [InlineData(5, false, false, false, AccountManager.SaveGate.Skip)]
+        [InlineData(5, false, false, false, AccountPersistenceService.SaveGate.Skip)]
         // Throttled by startTime -> Defer
-        [InlineData(5, true, false, false, AccountManager.SaveGate.Defer)]
+        [InlineData(5, true, false, false, AccountPersistenceService.SaveGate.Defer)]
         // Bypass rate limit -> Proceed
-        [InlineData(5, true, true, false, AccountManager.SaveGate.Proceed)]
+        [InlineData(5, true, true, false, AccountPersistenceService.SaveGate.Proceed)]
         // Bypass count check and rate limit -> Proceed
-        [InlineData(0, false, true, true, AccountManager.SaveGate.Proceed)]
+        [InlineData(0, false, true, true, AccountPersistenceService.SaveGate.Proceed)]
         public void EvaluateSaveGate_EvaluatesTruthTable(
             int count,
             bool anyDirty,
             bool bypassRateLimit,
             bool bypassCountCheck,
-            AccountManager.SaveGate expected)
+            AccountPersistenceService.SaveGate expected)
         {
             DateTime now = DateTime.UtcNow;
             DateTime startTime = bypassRateLimit ? now.AddSeconds(-10) : now.AddSeconds(-0.5);
             DateTime lastSave = now.AddSeconds(-10);
 
-            var gate = AccountManager.EvaluateSaveGate(
+            var gate = AccountPersistenceService.EvaluateSaveGate(
                 now,
                 startTime,
                 lastSave,
@@ -56,14 +56,14 @@ namespace Shiro.Tests
             var acc3 = new Account { Username = "Acc3", IsDirty = true };
             var list = new List<Account> { acc1, acc2, acc3 };
 
-            var taken = AccountManager.TakeDirtyAccounts(list);
+            var taken = AccountPersistenceService.TakeDirtyAccounts(list);
             Assert.Equal(2, taken.Count);
             Assert.Contains(acc1, taken);
             Assert.Contains(acc3, taken);
             Assert.False(acc1.IsDirty);
             Assert.False(acc3.IsDirty);
 
-            AccountManager.RestoreDirty(taken);
+            AccountPersistenceService.RestoreDirty(taken);
             Assert.True(acc1.IsDirty);
             Assert.True(acc3.IsDirty);
         }
@@ -71,14 +71,14 @@ namespace Shiro.Tests
         [Fact]
         public void TakeDirtyAccounts_WithNull_ReturnsEmpty()
         {
-            var taken = AccountManager.TakeDirtyAccounts(null!);
+            var taken = AccountPersistenceService.TakeDirtyAccounts(null!);
             Assert.Empty(taken);
         }
 
         [Fact]
         public void RestoreDirty_WithNull_DoesNotThrow()
         {
-            var ex = Record.Exception(() => AccountManager.RestoreDirty(null!));
+            var ex = Record.Exception(() => AccountPersistenceService.RestoreDirty(null!));
             Assert.Null(ex);
         }
 

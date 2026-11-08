@@ -5,19 +5,14 @@ using System.IO;
 using System.Security.Cryptography;
 using System.Threading;
 using Shiro.Classes;
-using Shiro.Services;
 
-namespace Shiro
+namespace Shiro.Services
 {
-    public partial class AccountManager
+    public sealed partial class AccountPersistenceService
     {
-        private static readonly Timer _deferredSaveTimer = new Timer(_ =>
-        {
-            try { SaveAccounts(BypassRateLimit: false); }
-            catch (Exception ex) { AppServices.Logger.Error($"[DeferredSave] Error saving accounts: {ex.Message}"); }
-        }, null, Timeout.Infinite, Timeout.Infinite);
+        private static readonly byte[] Entropy = new byte[] { 0x52, 0x4f, 0x42, 0x4c, 0x4f, 0x58, 0x20, 0x41, 0x43, 0x43, 0x4f, 0x55, 0x4e, 0x54, 0x20, 0x4d, 0x41, 0x4e, 0x41, 0x47, 0x45, 0x52, 0x20, 0x7c, 0x20, 0x3a, 0x29, 0x20, 0x7c, 0x20, 0x42, 0x52, 0x4f, 0x55, 0x47, 0x48, 0x54, 0x20, 0x54, 0x4f, 0x20, 0x59, 0x4f, 0x55, 0x20, 0x42, 0x55, 0x59, 0x20, 0x69, 0x63, 0x33, 0x77, 0x30, 0x6c, 0x66 };
 
-        public static void QueueDeferredSave()
+        public void QueueDeferredSave()
         {
             try { _deferredSaveTimer.Change(1500, Timeout.Infinite); }
             catch (ObjectDisposedException) { /* timer disposed during shutdown */ }
@@ -36,25 +31,23 @@ namespace Shiro
             }
         }
 
-        public static bool TryRecoverOrRestoreAccounts(out string statusMessage)
+        public bool TryRecoverOrRestoreAccounts(out string statusMessage)
         {
             statusMessage = string.Empty;
-            if (Instance == null)
-                return false;
 
             if (VaultKeyRecoveryService.RunElevatedRecovery())
             {
-                Instance.LoadAccounts(null, out bool unlocked);
+                LoadAccounts(null, out bool unlocked);
                 if (unlocked)
                 {
-                    statusMessage = Shiro.Services.LocalizationService.Format("AccountManager.VaultRestored", AppServices.AccountRepository.Count);
+                    statusMessage = LocalizationService.Format("AccountManager.VaultRestored", _repository.Count);
                     return true;
                 }
             }
 
-            if (Instance.TryRestoreReadableBackup())
+            if (TryRestoreReadableBackup())
             {
-                statusMessage = Shiro.Services.LocalizationService.Format("AccountManager.BackupRestored", AppServices.AccountRepository.Count);
+                statusMessage = LocalizationService.Format("AccountManager.BackupRestored", _repository.Count);
                 return true;
             }
 
@@ -73,7 +66,7 @@ namespace Shiro
 
             try
             {
-                string backupsDir = accountStore?.BackupsDirectory ?? StoragePaths.BackupsDirectory;
+                string backupsDir = Store?.BackupsDirectory ?? StoragePaths.BackupsDirectory;
                 if (Directory.Exists(backupsDir))
                 {
                     candidates.AddRange(Directory.GetFiles(backupsDir, "AccountData_*.json.bak"));
@@ -162,6 +155,41 @@ namespace Shiro
             }
 
             return false;
+        }
+
+        internal string PromoteBackupToPrimary(string saveFilePath, DateTime now)
+        {
+            string preservedPrimaryPath = string.Empty;
+            if (File.Exists(saveFilePath))
+            {
+                string baseCandidate = $"{saveFilePath}.old.{now:yyyyMMddHHmmss}";
+                preservedPrimaryPath = baseCandidate;
+                if (File.Exists(preservedPrimaryPath))
+                {
+                    int counter = 1;
+                    while (File.Exists($"{baseCandidate}.{counter}")) counter++;
+                    preservedPrimaryPath = $"{baseCandidate}.{counter}";
+                }
+                File.Move(saveFilePath, preservedPrimaryPath);
+            }
+
+            string backupPath = $"{saveFilePath}.backup";
+            if (File.Exists(backupPath))
+            {
+                try { File.Move(backupPath, saveFilePath, overwrite: true); }
+                catch (Exception moveEx)
+                {
+                    AppServices.Logger?.Error($"[PromoteBackupToPrimary] Failed to move backup to primary: {moveEx.Message}. Rolling back preserved primary...");
+                    if (!string.IsNullOrEmpty(preservedPrimaryPath) && File.Exists(preservedPrimaryPath))
+                    {
+                        try { File.Move(preservedPrimaryPath, saveFilePath, overwrite: true); }
+                        catch (Exception rollbackEx) { AppServices.Logger?.Error($"[PromoteBackupToPrimary] Rollback failed: {rollbackEx.Message}"); }
+                    }
+                    throw;
+                }
+            }
+
+            return preservedPrimaryPath;
         }
     }
 }

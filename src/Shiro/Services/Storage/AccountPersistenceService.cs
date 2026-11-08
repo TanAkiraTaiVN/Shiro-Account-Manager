@@ -1,14 +1,15 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Shiro.Classes;
-using Shiro.Services;
 
-namespace Shiro
+namespace Shiro.Services
 {
     internal enum BackupLoadResult
     {
@@ -18,12 +19,23 @@ namespace Shiro
         Failed
     }
 
-    public partial class AccountManager
+    public sealed partial class AccountPersistenceService
     {
-        private static string SaveFilePath => accountStore?.AccountFile ?? StoragePaths.AccountDataFile;
-        private static string? _lockedVaultFilePath;
+        private static readonly Lazy<AccountPersistenceService> _defaultInstance = new(() => new AccountPersistenceService());
+        public static AccountPersistenceService Default => _defaultInstance.Value;
 
-        public static bool IsVaultLockedPendingMasterPassword
+        private readonly AccountRepository _repository;
+        private readonly Timer _deferredSaveTimer;
+
+        internal AccountStore Store { get; set; }
+        internal bool IsShutdownRequested { get; set; }
+        internal DateTime StartTime { get; set; } = DateTime.Now;
+        internal DateTime LastSaveTime { get; set; } = DateTime.MinValue;
+
+        private string SaveFilePath => Store?.AccountFile ?? StoragePaths.AccountDataFile;
+        private string? _lockedVaultFilePath;
+
+        public bool IsVaultLockedPendingMasterPassword
         {
             get => !string.IsNullOrEmpty(_lockedVaultFilePath) &&
                    string.Equals(_lockedVaultFilePath, SaveFilePath, StringComparison.OrdinalIgnoreCase) &&
@@ -31,18 +43,45 @@ namespace Shiro
             internal set => _lockedVaultFilePath = value ? SaveFilePath : null;
         }
 
-        private static ReadOnlyMemory<byte> PasswordHash; // Store the hash after the data is successfully decrypted so we can encrypt again.
-        // A legacy install could explicitly opt into plaintext account data
-        // with this marker. Once such a file is read successfully, the next
-        // save must migrate it to the normal DPAPI CurrentUser protection
-        // instead of preserving plaintext indefinitely.
-        private static bool legacyPlaintextLoaded;
-        private static string PlaintextOptInFile => StoragePaths.GetUserFile("NoEncryption.IUnderstandTheRisks.iautamor");
-        internal static Func<string, string, Task<string?>>? TestPasswordPromptAsync;
+        private ReadOnlyMemory<byte> PasswordHash; // Store the hash after the data is successfully decrypted so we can encrypt again.
+        private bool legacyPlaintextLoaded;
+        private string PlaintextOptInFile => StoragePaths.GetUserFile("NoEncryption.IUnderstandTheRisks.iautamor");
+        internal Func<string, string, Task<string?>>? TestPasswordPromptAsync { get; set; }
 
-        public static bool IsDatabasePasswordEncrypted()
+        private bool accountDataNeedsMigration;
+        private byte[]? _lastSavedPlaintextHash;
+        private readonly System.Threading.Lock saveLock = new();
+
+        internal AccountPersistenceService(AccountRepository? repository = null)
         {
-            byte[] data = (accountStore ?? new AccountStore()).Read();
+            _repository = repository ?? AccountRepository.Default;
+            Store = new AccountStore();
+            _deferredSaveTimer = new Timer(_ =>
+            {
+                try { SaveAccounts(bypassRateLimit: false); }
+                catch (Exception ex) { AppServices.Logger.Error($"[DeferredSave] Error saving accounts: {ex.Message}"); }
+            }, null, Timeout.Infinite, Timeout.Infinite);
+        }
+
+        private void ReplaceAccountsList(List<Account> accounts)
+        {
+            IReadOnlyList<Account> snapshot = _repository.ReplaceAll(accounts);
+            AppServices.HostUiBridge.NotifyAccountsReplaced(snapshot);
+        }
+
+        private void RefreshView() =>
+            AppServices.HostUiBridge.NotifyAccountsReplaced(_repository.GetAll());
+
+        private void EnableModernDashboard()
+        {
+            RefreshView();
+            if (AppServices.GeneralSettings.Get<bool>("ShowPresence"))
+                AppServices.HostUiBridge.SchedulePresenceRefresh(null);
+        }
+
+        public bool IsDatabasePasswordEncrypted()
+        {
+            byte[] data = (Store ?? new AccountStore()).Read();
             if (data == null || data.Length == 0 || !Cryptography.IsEncrypted(data))
                 return false;
 
@@ -54,7 +93,7 @@ namespace Shiro
             }
             catch (Exception ex)
             {
-                AppServices.Logger.Debug("[AccountManager] Primary key decrypt failed, trying recovery", ex);
+                AppServices.Logger.Debug("[AccountPersistenceService] Primary key decrypt failed, trying recovery", ex);
                 return VaultKeyRecoveryService.TryRecoverInProcess(data) == null;
             }
         }
@@ -71,11 +110,11 @@ namespace Shiro
             {
                 string? newPass = TestPasswordPromptAsync != null
                     ? await TestPasswordPromptAsync(
-                        Shiro.Services.LocalizationService.Get("AccountManager.EnterNewPasswordPrompt"),
-                        Shiro.Services.LocalizationService.Get("AccountManager.ChangeDatabasePassword")).ConfigureAwait(false)
+                        LocalizationService.Get("AccountManager.EnterNewPasswordPrompt"),
+                        LocalizationService.Get("AccountManager.ChangeDatabasePassword")).ConfigureAwait(false)
                     : await AppServices.Dialogs.ShowInputPromptAsync(
-                    Shiro.Services.LocalizationService.Get("AccountManager.EnterNewPasswordPrompt"),
-                    Shiro.Services.LocalizationService.Get("AccountManager.ChangeDatabasePassword"));
+                        LocalizationService.Get("AccountManager.EnterNewPasswordPrompt"),
+                        LocalizationService.Get("AccountManager.ChangeDatabasePassword"));
 
                 if (newPass == "/UC" || newPass == null) return;
 
@@ -83,20 +122,20 @@ namespace Shiro
                 {
                     PasswordHash = Array.Empty<byte>();
                     SaveAccounts(true, true);
-                    AppServices.Dialogs.ShowInfo(Shiro.Services.LocalizationService.Get("AccountManager.SwitchedToDefaultVault"));
+                    AppServices.Dialogs.ShowInfo(LocalizationService.Get("AccountManager.SwitchedToDefaultVault"));
                 }
                 else
                 {
                     if (newPass.Length < 8)
                     {
-                        AppServices.Dialogs.ShowWarning(Shiro.Services.LocalizationService.Get("AccountManager.MasterPasswordMinLength"));
+                        AppServices.Dialogs.ShowWarning(LocalizationService.Get("AccountManager.MasterPasswordMinLength"));
                         return;
                     }
                     byte[] hash = SHA512.HashData(Encoding.UTF8.GetBytes(newPass));
                     try { PasswordHash = new ReadOnlyMemory<byte>(ProtectedData.Protect(hash, Array.Empty<byte>(), DataProtectionScope.CurrentUser)); }
                     finally { CryptographicOperations.ZeroMemory(hash); }
                     SaveAccounts(true, true);
-                    AppServices.Dialogs.ShowInfo(Shiro.Services.LocalizationService.Get("AccountManager.NewPasswordSet"));
+                    AppServices.Dialogs.ShowInfo(LocalizationService.Get("AccountManager.NewPasswordSet"));
                 }
             }
         }
@@ -106,10 +145,9 @@ namespace Shiro
             _ = ResetEncryptionAsync(manualReset);
         }
 
-        public static bool LoadAccountsFromStore(byte[]? Hash = null)
+        public bool LoadAccountsFromStore(byte[]? Hash = null)
         {
-            if (Instance == null) return false;
-            Instance.LoadAccounts(Hash, out bool unlocked);
+            LoadAccounts(Hash, out bool unlocked);
             return unlocked;
         }
 
@@ -121,8 +159,7 @@ namespace Shiro
             legacyPlaintextLoaded = false;
             IsVaultLockedPendingMasterPassword = false;
             bool EnteredPassword = false;
-            byte[] Data = accountStore.Read();
-
+            byte[] Data = Store.Read();
 
             if (Data.Length > 0)
             {
@@ -142,11 +179,11 @@ namespace Shiro
                             if (Hash != null)
                             {
                                 PasswordHash = new ReadOnlyMemory<byte>(ProtectedData.Protect(Hash, Array.Empty<byte>(), DataProtectionScope.CurrentUser));
-                                AppServices.Logger?.Info($"[LoadAccounts] Loaded {AppServices.AccountRepository.Count} accounts via Master Password.");
+                                AppServices.Logger?.Info($"[LoadAccounts] Loaded {_repository.Count} accounts via Master Password.");
                             }
                             else
                             {
-                                AppServices.Logger?.Info($"[LoadAccounts] Loaded {AppServices.AccountRepository.Count} accounts via vault key.");
+                                AppServices.Logger?.Info($"[LoadAccounts] Loaded {_repository.Count} accounts via vault key.");
                             }
                         }
                         break;
@@ -171,8 +208,7 @@ namespace Shiro
                 }
             }
 
-
-            if (!EnteredPassword && AppServices.AccountRepository.Count == 0 && File.Exists($"{SaveFilePath}.backup") && File.ReadAllBytes($"{SaveFilePath}.backup") is byte[] BackupData && BackupData.Length > 0)
+            if (!EnteredPassword && _repository.Count == 0 && File.Exists($"{SaveFilePath}.backup") && File.ReadAllBytes($"{SaveFilePath}.backup") is byte[] BackupData && BackupData.Length > 0)
             {
                 var backupResult = TryLoadFromBackup(BackupData);
                 if (backupResult == BackupLoadResult.PromotedNeedsPassword)
@@ -183,12 +219,12 @@ namespace Shiro
                 }
             }
 
-            try { AccountRuntimeStateStore.HydrateAccounts(AppServices.AccountRepository.GetAll()); }
+            try { AccountRuntimeStateStore.HydrateAccounts(_repository.GetAll()); }
             catch (Exception ex) { AppServices.Logger?.Debug($"[LoadAccounts] Runtime state hydration skipped: {ex.Message}"); }
 
             RefreshView();
 
-            IReadOnlyList<Account> loadedAccounts = AppServices.AccountRepository.GetAll();
+            IReadOnlyList<Account> loadedAccounts = _repository.GetAll();
             if (loadedAccounts.Count > 0)
             {
                 AppServices.SelectionState.LastValidAccount = loadedAccounts[0];
@@ -238,8 +274,8 @@ namespace Shiro
                 {
                     ReplaceAccountsList(vaultResult.Accounts);
                     accountDataNeedsMigration |= vaultResult.NeedsMigration;
-                    AppServices.Logger?.Info($"[LoadAccounts] Restored {AppServices.AccountRepository.Count} accounts from backup via vault key.");
-                    if (AppServices.AccountRepository.Count > 0)
+                    AppServices.Logger?.Info($"[LoadAccounts] Restored {_repository.Count} accounts from backup via vault key.");
+                    if (_repository.Count > 0)
                     {
                         EvictCorruptPrimaryBeforeBackupSave(SaveFilePath);
                         SaveAccounts(true);
@@ -272,9 +308,9 @@ namespace Shiro
                     accountDataNeedsMigration |= unencResult.NeedsMigration;
                     legacyPlaintextLoaded = unencResult.LegacyPlaintext;
 
-                    if (AppServices.AccountRepository.Count > 0)
+                    if (_repository.Count > 0)
                     {
-                        AppServices.Logger?.Info($"[AccountManager] Restored {AppServices.AccountRepository.Count} accounts from backup. Re-persisting primary vault...");
+                        AppServices.Logger?.Info($"[AccountPersistenceService] Restored {_repository.Count} accounts from backup. Re-persisting primary vault...");
                         EvictCorruptPrimaryBeforeBackupSave(SaveFilePath);
                         SaveAccounts(true);
                     }
@@ -287,41 +323,6 @@ namespace Shiro
             }
 
             return BackupLoadResult.NotAttempted;
-        }
-
-        internal static string PromoteBackupToPrimary(string saveFilePath, DateTime now)
-        {
-            string preservedPrimaryPath = string.Empty;
-            if (File.Exists(saveFilePath))
-            {
-                string baseCandidate = $"{saveFilePath}.old.{now:yyyyMMddHHmmss}";
-                preservedPrimaryPath = baseCandidate;
-                if (File.Exists(preservedPrimaryPath))
-                {
-                    int counter = 1;
-                    while (File.Exists($"{baseCandidate}.{counter}")) counter++;
-                    preservedPrimaryPath = $"{baseCandidate}.{counter}";
-                }
-                File.Move(saveFilePath, preservedPrimaryPath);
-            }
-
-            string backupPath = $"{saveFilePath}.backup";
-            if (File.Exists(backupPath))
-            {
-                try { File.Move(backupPath, saveFilePath, overwrite: true); }
-                catch (Exception moveEx)
-                {
-                    AppServices.Logger?.Error($"[PromoteBackupToPrimary] Failed to move backup to primary: {moveEx.Message}. Rolling back preserved primary...");
-                    if (!string.IsNullOrEmpty(preservedPrimaryPath) && File.Exists(preservedPrimaryPath))
-                    {
-                        try { File.Move(preservedPrimaryPath, saveFilePath, overwrite: true); }
-                        catch (Exception rollbackEx) { AppServices.Logger?.Error($"[PromoteBackupToPrimary] Rollback failed: {rollbackEx.Message}"); }
-                    }
-                    throw;
-                }
-            }
-
-            return preservedPrimaryPath;
         }
 
         public enum SaveGate { Proceed, Defer, Skip }
@@ -358,56 +359,54 @@ namespace Shiro
                 if (acc != null) acc.IsDirty = true;
         }
 
-        private static byte[]? _lastSavedPlaintextHash;
+        public Task SaveAccountsAsync(bool bypassRateLimit = false, bool bypassCountCheck = false)
+            => Task.Run(() => SaveAccounts(bypassRateLimit, bypassCountCheck));
 
-        public static Task SaveAccountsAsync(bool BypassRateLimit = false, bool BypassCountCheck = false)
-            => Task.Run(() => SaveAccounts(BypassRateLimit, BypassCountCheck));
-
-        public static void SaveAccounts(bool BypassRateLimit = false, bool BypassCountCheck = false)
+        public void SaveAccounts(bool bypassRateLimit = false, bool bypassCountCheck = false)
         {
             lock (saveLock)
             {
                 if (IsVaultLockedPendingMasterPassword)
                 {
-                    AppServices.Logger?.Warn("[AccountManager.SaveAccounts] Save blocked because the vault is locked pending Master Password.");
+                    AppServices.Logger?.Warn("[AccountPersistenceService.SaveAccounts] Save blocked because the vault is locked pending Master Password.");
                     return;
                 }
 
-                IReadOnlyList<Account> accountsSnapshot = AppServices.AccountRepository.GetAll();
+                IReadOnlyList<Account> accountsSnapshot = _repository.GetAll();
                 bool anyDirty = accountsSnapshot.Any(a => a.IsDirty);
-                SaveGate gate = EvaluateSaveGate(DateTime.Now, startTime, lastSaveTime, BypassRateLimit, BypassCountCheck, accountsSnapshot.Count, anyDirty);
+                SaveGate gate = EvaluateSaveGate(DateTime.Now, StartTime, LastSaveTime, bypassRateLimit, bypassCountCheck, accountsSnapshot.Count, anyDirty);
 
                 if (gate == SaveGate.Defer) { QueueDeferredSave(); return; }
                 if (gate == SaveGate.Skip) return;
 
-                lastSaveTime = DateTime.Now;
+                LastSaveTime = DateTime.Now;
                 var taken = TakeDirtyAccounts(accountsSnapshot);
 
                 try
                 {
-                    accountStore ??= new AccountStore();
+                    Store ??= new AccountStore();
                     bool savePasswords = !AppServices.GeneralSettings.Exists("SavePasswords") || AppServices.GeneralSettings.Get<bool>("SavePasswords");
                     byte[] SaveData = AccountDataSerializer.Serialize(accountsSnapshot, savePasswords);
 
                     if (SaveData == null || SaveData.Length < 2)
                     {
-                        AppServices.Logger?.Error("[AccountManager.SaveAccounts] Serialization produced empty or corrupted payload. Save aborted to protect data integrity.");
+                        AppServices.Logger?.Error("[AccountPersistenceService.SaveAccounts] Serialization produced empty or corrupted payload. Save aborted to protect data integrity.");
                         RestoreDirty(taken);
                         return;
                     }
 
                     try
                     {
-                        byte[] currentHash = System.Security.Cryptography.SHA256.HashData(SaveData);
+                        byte[] currentHash = SHA256.HashData(SaveData);
 
-                        if (!BypassRateLimit && _lastSavedPlaintextHash != null &&
+                        if (!bypassRateLimit && _lastSavedPlaintextHash != null &&
                             currentHash.AsSpan().SequenceEqual(_lastSavedPlaintextHash) &&
-                            File.Exists(accountStore.AccountFile))
+                            File.Exists(Store.AccountFile))
                         {
                             return;
                         }
 
-                        bool forceHistorical = Instance?.shutdownRequested == true;
+                        bool forceHistorical = IsShutdownRequested;
 
                         if (!PasswordHash.IsEmpty)
                         {
@@ -415,11 +414,11 @@ namespace Shiro
                             try
                             {
                                 byte[] encrypted = Cryptography.Encrypt(SaveData, unprotectedHash);
-                                accountStore.WriteWithBackup(encrypted, forceHistorical);
+                                Store.WriteWithBackup(encrypted, forceHistorical);
                             }
                             finally
                             {
-                                System.Security.Cryptography.CryptographicOperations.ZeroMemory(unprotectedHash);
+                                CryptographicOperations.ZeroMemory(unprotectedHash);
                             }
                         }
                         else
@@ -430,7 +429,7 @@ namespace Shiro
                                 byte[] encrypted = vaultKey.Length == 32
                                     ? Cryptography.EncryptWithRandomKey(SaveData, vaultKey)
                                     : Cryptography.Encrypt(SaveData, vaultKey);
-                                accountStore.WriteWithBackup(encrypted, forceHistorical);
+                                Store.WriteWithBackup(encrypted, forceHistorical);
                             }
                             finally
                             {
@@ -452,12 +451,12 @@ namespace Shiro
                     }
                     finally
                     {
-                        System.Security.Cryptography.CryptographicOperations.ZeroMemory(SaveData);
+                        CryptographicOperations.ZeroMemory(SaveData);
                     }
                 }
                 catch (Exception ex)
                 {
-                    AppServices.Logger.Debug("[AccountManager] SaveAccountsAsync failed, restoring dirty state", ex);
+                    AppServices.Logger.Debug("[AccountPersistenceService] SaveAccountsAsync failed, restoring dirty state", ex);
                     RestoreDirty(taken);
                     throw;
                 }

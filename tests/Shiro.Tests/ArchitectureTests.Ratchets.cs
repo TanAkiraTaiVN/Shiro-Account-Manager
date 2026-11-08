@@ -78,7 +78,7 @@ namespace Shiro.Tests
                 "Services/Network/RobloxServerQueryService.cs",
                 "AccountManager.cs",
                 "Services/Launch/LaunchCoordinator.Helpers.cs",
-                "AccountManager.Persistence.cs",
+                "Services/Storage/AccountPersistenceService.cs",
                 "AccountManager.Accounts.cs",
                 "Services/Launch/AccountLaunchService.Diagnostics.cs",
                 "ViewModels/ServerListViewModel.Games.cs",

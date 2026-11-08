@@ -32,7 +32,7 @@ namespace Shiro
                     if (!_accountsInitialLoaded)
                     {
                         _accountsInitialLoaded = true;
-                        Instance.LoadAccounts();
+                        Persistence.LoadAccounts();
                     }
                 }
             }
@@ -234,6 +234,7 @@ namespace Shiro
                 return;
 
             shutdownRequested = true;
+            AccountPersistenceService.Default.IsShutdownRequested = true;
 
             SafeExecuteHelper.Try(CancelLaunching);
             SafeExecuteHelper.Try(() => launchCoordinator?.Dispose());
@@ -256,7 +257,7 @@ namespace Shiro
 
             try
             {
-                SaveAccounts(true);
+                Persistence.SaveAccounts(bypassRateLimit: true);
             }
             catch (Exception ex)
             {

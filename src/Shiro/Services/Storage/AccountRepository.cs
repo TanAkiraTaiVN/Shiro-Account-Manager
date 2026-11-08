@@ -277,37 +277,37 @@ namespace Shiro.Services
 
         public void Save(bool force = false)
         {
-            AccountManager.SaveAccounts(BypassRateLimit: force, BypassCountCheck: force);
+            AccountPersistenceService.Default.SaveAccounts(bypassRateLimit: force, bypassCountCheck: force);
         }
 
         public Task SaveAsync(bool force = false)
         {
-            return AccountManager.SaveAccountsAsync(BypassRateLimit: force, BypassCountCheck: force);
+            return AccountPersistenceService.Default.SaveAccountsAsync(bypassRateLimit: force, bypassCountCheck: force);
         }
 
         public void QueueDeferredSave()
         {
-            AccountManager.QueueDeferredSave();
+            AccountPersistenceService.Default.QueueDeferredSave();
         }
 
         public void Load(byte[]? masterPasswordHash = null)
         {
-            AccountManager.LoadAccountsFromStore(masterPasswordHash!);
+            AccountPersistenceService.Default.LoadAccounts(masterPasswordHash);
         }
 
         public bool LoadFromStore(byte[]? masterPasswordHash = null)
         {
-            return AccountManager.LoadAccountsFromStore(masterPasswordHash!);
+            return AccountPersistenceService.Default.LoadAccountsFromStore(masterPasswordHash);
         }
 
         public bool TryRecoverOrRestore(out string statusMessage)
         {
-            return AccountManager.TryRecoverOrRestoreAccounts(out statusMessage);
+            return AccountPersistenceService.Default.TryRecoverOrRestoreAccounts(out statusMessage);
         }
 
         public bool IsPasswordEncrypted()
         {
-            return AccountManager.IsDatabasePasswordEncrypted();
+            return AccountPersistenceService.Default.IsDatabasePasswordEncrypted();
         }
 
         public Task<(bool Success, long UserId, RestResponse? Response)> LookupUserIdAsync(string username, CancellationToken cancellationToken = default)

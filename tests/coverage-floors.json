@@ -7,7 +7,7 @@
   "Services/Network/RobloxServerQueryService.cs": { "branch": 81 },
   "AccountManager.cs": { "branch": 85 },
   "Services/Launch/LaunchCoordinator.Helpers.cs": { "branch": 74 },
-  "AccountManager.Persistence.cs": { "branch": 67 },
+  "Services/Storage/AccountPersistenceService.cs": { "branch": 67 },
   "AccountManager.Accounts.cs": { "branch": 75 },
   "AccountManager.Lifecycle.cs": { "branch": 70 },
   "Services/Launch/AccountLaunchService.Diagnostics.cs": { "branch": 77 },

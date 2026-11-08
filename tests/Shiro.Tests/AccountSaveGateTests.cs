@@ -2,7 +2,8 @@ using System;
 using System.Collections.Generic;
 using Shiro.Classes;
 using Xunit;
-using static Shiro.AccountManager;
+using Shiro.Services;
+using static Shiro.Services.AccountPersistenceService;
 
 namespace Shiro.Tests
 {

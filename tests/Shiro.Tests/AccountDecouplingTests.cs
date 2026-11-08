@@ -67,7 +67,7 @@ namespace Shiro.Tests
         {
             var repo = Services.AccountRepository.Default;
             bool isPw = repo.IsPasswordEncrypted();
-            bool expected = AccountManager.IsDatabasePasswordEncrypted();
+            bool expected = AccountPersistenceService.Default.IsDatabasePasswordEncrypted();
             Assert.Equal(expected, isPw);
         }
 
@@ -117,7 +117,7 @@ namespace Shiro.Tests
         [Fact]
         public void BackupRecovery_SourceCode_ZeroesDecodedPlaintextBuffersInFinally()
         {
-            string path = System.IO.Path.Combine(ArchitectureTests.RepoRoot, "src", "Shiro", "AccountManager.BackupRecovery.cs");
+            string path = System.IO.Path.Combine(ArchitectureTests.RepoRoot, "src", "Shiro", "Services", "Storage", "AccountPersistenceService.Recovery.cs");
             string content = System.IO.File.ReadAllText(path);
             Assert.Contains("CryptographicOperations.ZeroMemory(decoded)", content, StringComparison.Ordinal);
         }

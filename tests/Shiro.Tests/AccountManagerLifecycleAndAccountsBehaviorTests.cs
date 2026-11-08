@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -150,13 +150,21 @@ namespace Shiro.Tests
         [Fact]
         public void AccountManager_PersistenceAndEncryption_MethodsExecuteSafely()
         {
-            var exEnc = Record.Exception(() => AccountManager.IsDatabasePasswordEncrypted());
+            var exEnc = Record.Exception(() => AccountPersistenceService.Default.IsDatabasePasswordEncrypted());
             Assert.Null(exEnc);
 
-            if (AccountManager.Instance == null)
+            string tempDir = Path.Combine(Path.GetTempPath(), "ShiroEmptyStore_" + Guid.NewGuid().ToString("N"));
+            var prevStore = AccountPersistenceService.Default.Store;
+            try
             {
-                bool loaded = AccountManager.LoadAccountsFromStore();
+                AccountPersistenceService.Default.Store = new AccountStore(Path.Combine(tempDir, "AccountData.json"), Path.Combine(tempDir, "Backups"));
+                bool loaded = AccountPersistenceService.Default.LoadAccountsFromStore();
                 Assert.False(loaded);
+            }
+            finally
+            {
+                AccountPersistenceService.Default.Store = prevStore;
+                if (Directory.Exists(tempDir)) try { Directory.Delete(tempDir, true); } catch { }
             }
         }
 
@@ -325,29 +333,29 @@ namespace Shiro.Tests
         [Fact]
         public async Task Persistence_Save_Load_Backup_Promote_And_ResetEncryption_CoverBranches()
         {
-            var mgr = AccountManager.Instance ?? new AccountManager();
+            var mgr = AccountPersistenceService.Default;
             string tempDir = Path.Combine(Path.GetTempPath(), "ShiroPersistTest_" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(tempDir);
             string tempAccFile = Path.Combine(tempDir, "AccountData.json");
             string tempBackupsDir = Path.Combine(tempDir, "Backups");
 
-            var prevStore = AccountManager.accountStore;
-            var prevPrompt = AccountManager.TestPasswordPromptAsync;
+            var prevStore = AccountPersistenceService.Default.Store;
+            var prevPrompt = AccountPersistenceService.Default.TestPasswordPromptAsync;
             var dialogSub = Substitute.For<IDialogService>();
             using var _dialogScope = AppServices.Override<IDialogService>(dialogSub);
-            AccountManager.accountStore = new AccountStore(tempAccFile, tempBackupsDir);
+            AccountPersistenceService.Default.Store = new AccountStore(tempAccFile, tempBackupsDir);
 
             try
             {
                 File.WriteAllText(tempAccFile, "old-primary-1");
                 File.WriteAllText(tempAccFile + ".backup", "backup-content-1");
                 DateTime fixedNow = new DateTime(2026, 11, 4, 12, 0, 0, DateTimeKind.Utc);
-                string preserved1 = AccountManager.PromoteBackupToPrimary(tempAccFile, fixedNow);
+                string preserved1 = AccountPersistenceService.Default.PromoteBackupToPrimary(tempAccFile, fixedNow);
                 Assert.True(File.Exists(preserved1));
                 Assert.Equal("backup-content-1", File.ReadAllText(tempAccFile));
 
                 File.WriteAllText(tempAccFile + ".backup", "backup-content-2");
-                string preserved2 = AccountManager.PromoteBackupToPrimary(tempAccFile, fixedNow);
+                string preserved2 = AccountPersistenceService.Default.PromoteBackupToPrimary(tempAccFile, fixedNow);
                 Assert.EndsWith(".1", preserved2);
                 Assert.Equal("backup-content-2", File.ReadAllText(tempAccFile));
 
@@ -363,14 +371,14 @@ namespace Shiro.Tests
                     LastUse = DateTime.UtcNow
                 };
                 AccountManager.ReplaceAccountsList(new List<Account> { acc });
-                await AccountManager.SaveAccountsAsync(BypassRateLimit: true, BypassCountCheck: true);
+                await AccountPersistenceService.Default.SaveAccountsAsync(bypassRateLimit: true, bypassCountCheck: true);
                 Assert.True(File.Exists(tempAccFile));
-                Assert.False(AccountManager.IsDatabasePasswordEncrypted());
+                Assert.False(AccountPersistenceService.Default.IsDatabasePasswordEncrypted());
 
                 acc.IsDirty = true;
-                AccountManager.SaveAccounts(BypassRateLimit: false, BypassCountCheck: true);
+                AccountPersistenceService.Default.SaveAccounts(bypassRateLimit: false, bypassCountCheck: true);
 
-                bool unlocked = AccountManager.LoadAccountsFromStore();
+                bool unlocked = AccountPersistenceService.Default.LoadAccountsFromStore();
                 Assert.True(unlocked);
                 Assert.Single(AppServices.AccountRepository.GetAll());
 
@@ -409,16 +417,16 @@ namespace Shiro.Tests
                 await mgr.ResetEncryptionAsync(manualReset: false);
                 mgr.ResetEncryption(manualReset: false);
 
-                AccountManager.TestPasswordPromptAsync = (_, _) => Task.FromResult<string?>("/UC");
+                AccountPersistenceService.Default.TestPasswordPromptAsync = (_, _) => Task.FromResult<string?>("/UC");
                 await mgr.ResetEncryptionAsync(manualReset: true);
 
-                AccountManager.TestPasswordPromptAsync = (_, _) => Task.FromResult<string?>("short");
+                AccountPersistenceService.Default.TestPasswordPromptAsync = (_, _) => Task.FromResult<string?>("short");
                 await mgr.ResetEncryptionAsync(manualReset: true);
                 dialogSub.Received().ShowWarning(Arg.Any<string>(), Arg.Any<string>());
 
-                AccountManager.TestPasswordPromptAsync = (_, _) => Task.FromResult<string?>("StrongMasterPass123!");
+                AccountPersistenceService.Default.TestPasswordPromptAsync = (_, _) => Task.FromResult<string?>("StrongMasterPass123!");
                 await mgr.ResetEncryptionAsync(manualReset: true);
-                Assert.True(AccountManager.IsDatabasePasswordEncrypted());
+                Assert.True(AccountPersistenceService.Default.IsDatabasePasswordEncrypted());
 
                 // Encrypted backup locked with master password -> NeedsMasterPassword -> PromotedNeedsPassword or NotAttempted
                 byte[] masterEncryptedBytes = File.ReadAllBytes(tempAccFile);
@@ -437,16 +445,16 @@ namespace Shiro.Tests
                 mgr.LoadAccounts(rightHash, out bool rightUnlocked);
                 Assert.True(rightUnlocked);
 
-                AccountManager.TestPasswordPromptAsync = (_, _) => Task.FromResult<string?>("");
+                AccountPersistenceService.Default.TestPasswordPromptAsync = (_, _) => Task.FromResult<string?>("");
                 await mgr.ResetEncryptionAsync(manualReset: true);
-                Assert.False(AccountManager.IsDatabasePasswordEncrypted());
+                Assert.False(AccountPersistenceService.Default.IsDatabasePasswordEncrypted());
 
-                AccountManager.QueueDeferredSave();
+                AccountPersistenceService.Default.QueueDeferredSave();
             }
             finally
             {
-                AccountManager.TestPasswordPromptAsync = prevPrompt;
-                AccountManager.accountStore = prevStore;
+                AccountPersistenceService.Default.TestPasswordPromptAsync = prevPrompt;
+                AccountPersistenceService.Default.Store = prevStore;
                 AccountManager.ReplaceAccountsList(new List<Account>());
                 try { Directory.Delete(tempDir, recursive: true); } catch { /* ignore cleanup error */ }
             }
