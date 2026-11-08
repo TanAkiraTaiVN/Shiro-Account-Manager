@@ -69,6 +69,7 @@ namespace Shiro.ViewModels
             AppDispatcher.Post(() =>
             {
                 NotifyToolStatesChanged();
+                if (System.Threading.Volatile.Read(ref _disposed) != 0) return;
                 RefreshAllAccountDisplays();
             });
         }

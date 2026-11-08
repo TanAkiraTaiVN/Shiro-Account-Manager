@@ -53,7 +53,7 @@ namespace Shiro.Tests.Ui
         }
     }
 
-    [Collection("StaticSeams")]
+    [Collection("SerialGlobalState")]
     public class DialogSmokeTests
     {
         [AvaloniaFact]
