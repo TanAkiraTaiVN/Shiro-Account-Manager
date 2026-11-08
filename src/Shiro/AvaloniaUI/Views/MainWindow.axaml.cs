@@ -215,6 +215,28 @@ namespace Shiro.AvaloniaUI.Views
             }
         }
 
+        protected override void OnClosed(EventArgs e)
+        {
+            ViewDashboard?.ViewModel?.Dispose();
+
+            var bridge = HostUiBridgeService.Default;
+            bridge.RefreshAccountsOnUiHandler = null;
+            bridge.NotifyAccountValidityOnUiHandler = null;
+            bridge.RefreshLiveProcessStatusOnUiHandler = null;
+            bridge.UpdateWindowStatusOnUiHandler = null;
+            bridge.NotifyRobloxProcessesClosedOnUiHandler = null;
+            bridge.GetDashboardSelectedAccountsHandler = null;
+            bridge.GetDashboardPlaceIdHandler = null;
+            bridge.GetDashboardJobIdHandler = null;
+
+            if (ReferenceEquals(Instance, this))
+            {
+                Instance = null;
+            }
+
+            base.OnClosed(e);
+        }
+
         public void SetStatus(string message)
         {
             if (string.IsNullOrWhiteSpace(message)) return;
