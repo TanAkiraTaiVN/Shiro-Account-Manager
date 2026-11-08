@@ -17,7 +17,7 @@ using Shiro.Services;
 
 namespace Shiro.ViewModels
 {
-    public partial class ServerListViewModel : ObservableObject
+    public partial class ServerListViewModel : ObservableObject, IDisposable
     {
         private readonly MainViewModel? _mainViewModel;
         private readonly IAppLogger _logger;
@@ -30,6 +30,7 @@ namespace Shiro.ViewModels
         private string _loadingStatus = Shiro.Services.LocalizationService.Get("Status_Ready");
         private ServerItemViewModel? _selectedServer;
         private int _selectedSubTabIndex = 0; // 0: Servers, 1: Games, 2: Recent & Favorites, 3: Watcher
+        private int _disposed;
 
         private CancellationTokenSource? _operationCts;
 
@@ -46,9 +47,7 @@ namespace Shiro.ViewModels
                 if (SetProperty(ref _placeIdInput, value))
                 {
                     if (_mainViewModel != null && !string.IsNullOrWhiteSpace(value) && _mainViewModel.PlaceId != value)
-                    {
                         _mainViewModel.PlaceId = value;
-                    }
                 }
             }
         }
@@ -95,13 +94,9 @@ namespace Shiro.ViewModels
                 if (SetProperty(ref _selectedSubTabIndex, value))
                 {
                     if (value == 0)
-                    {
                         EnsureServersLoadedForCurrentPlaceId();
-                    }
                     else if (value == 1 && _searchGames.Count == 0 && !IsSearchingGames)
-                    {
                         _ = SearchGamesAsync();
-                    }
                     else if (value == 2)
                     {
                         _mainViewModel?.ReloadRecentGames();
@@ -171,17 +166,27 @@ namespace Shiro.ViewModels
             LoadWatcherSettings();
             LoadFavorites();
 
-            LocalizationService.LanguageChanged += lang =>
+            LocalizationService.LanguageChanged += OnLanguageChanged;
+        }
+
+        private void OnLanguageChanged(AppLanguage lang)
+        {
+            AppDispatcher.Post(() =>
             {
                 if (_loadingStatus == Shiro.Services.LocalizationService.Get("Status_Ready") || _loadingStatus == "Ready")
-                {
                     LoadingStatus = Shiro.Services.LocalizationService.Get("Status_Ready");
-                }
                 foreach (var s in _allServers)
-                {
                     s.NotifyLanguageChanged();
-                }
-            };
+            });
+        }
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) != 0)
+                return;
+            LocalizationService.LanguageChanged -= OnLanguageChanged;
+            ResetOperationCts(createNew: false);
+            GC.SuppressFinalize(this);
         }
 
         public void SyncPlaceId(string pid)
@@ -271,9 +276,7 @@ namespace Shiro.ViewModels
 
                         var serverInfo = Utilities.FastJson.TryDeserialize<ServersInfo>(response.Content, out var sInfo) ? sInfo : null;
                         if (serverInfo?.data == null || serverInfo.data.Count == 0)
-                        {
                             break;
-                        }
 
                         var batch = new List<ServerItemViewModel>(serverInfo.data.Count);
                         foreach (var s in serverInfo.data)
@@ -331,9 +334,7 @@ namespace Shiro.ViewModels
                             : Shiro.Services.LocalizationService.Get("ServerList.NoServersFoundForPlace");
                         NotifyServerCounts();
                         if (totalLoaded > 0)
-                        {
                             _ = LoadAllRegionsAsync();
-                        }
                     });
                 }
                 catch (OperationCanceledException)

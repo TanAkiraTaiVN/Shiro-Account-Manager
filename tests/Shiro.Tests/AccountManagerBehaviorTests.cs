@@ -476,5 +476,73 @@ namespace Shiro.Tests
 
             AccountManager.ReplaceAccountsList(new List<Account>());
         }
+
+        [Fact]
+        public async Task AccountManager_ModernActions_UsesHostUiBridgeCallbacks_WithoutReferencingViews()
+        {
+            var mgr = AccountManager.Instance ?? new AccountManager();
+            var oldCoordinator = mgr.launchCoordinator;
+            var fakeCoord = new FakeLaunchCoordinator();
+            mgr.launchCoordinator = fakeCoord;
+
+            var bridge = HostUiBridgeService.Default;
+            var prevAccountsHandler = bridge.RefreshAccountsOnUiHandler;
+            var prevValidityHandler = bridge.NotifyAccountValidityOnUiHandler;
+            var prevLiveStatusHandler = bridge.RefreshLiveProcessStatusOnUiHandler;
+            var prevPlaceHandler = bridge.GetDashboardPlaceIdHandler;
+            var prevJobHandler = bridge.GetDashboardJobIdHandler;
+            var prevSelHandler = bridge.GetDashboardSelectedAccountsHandler;
+            var prevStatusHandler = bridge.UpdateWindowStatusOnUiHandler;
+            var prevClosedHandler = bridge.NotifyRobloxProcessesClosedOnUiHandler;
+
+            var acc = new Account { Username = "BridgeUser", UserID = 7788, Valid = true, SecurityToken = "tok" };
+            int refreshedCount = -1;
+            bool? validityNotified = null;
+            bool liveStatusRefreshed = false;
+            string? lastStatus = null;
+            (int Killed, bool Notify)? closedNotification = null;
+
+            try
+            {
+                bridge.RefreshAccountsOnUiHandler = list => refreshedCount = list.Count;
+                bridge.NotifyAccountValidityOnUiHandler = (_, valid) => validityNotified = valid;
+                bridge.RefreshLiveProcessStatusOnUiHandler = () => liveStatusRefreshed = true;
+                AccountManager.ReplaceAccountsList(new List<Account> { acc });
+                Assert.Equal(1, refreshedCount);
+                mgr.UpdateAccountValidity(acc, true);
+                Assert.Equal(true, validityNotified);
+                mgr.UpdateAccountView(acc);
+                Assert.True(liveStatusRefreshed);
+
+                bridge.GetDashboardSelectedAccountsHandler = () => new List<Account> { acc };
+                bridge.GetDashboardPlaceIdHandler = () => "1818";
+                bridge.GetDashboardJobIdHandler = () => "bridge-job-42";
+                bridge.UpdateWindowStatusOnUiHandler = msg => lastStatus = msg;
+                bridge.NotifyRobloxProcessesClosedOnUiHandler = (killed, notify) => closedNotification = (killed, notify);
+
+                await mgr.ModernJoinServerDirect(new List<Account>(), 0, "");
+                Assert.Single(fakeCoord.EnqueuedBatches);
+                Assert.Equal(1818L, fakeCoord.EnqueuedBatches[0][0].PlaceId);
+                Assert.Equal("bridge-job-42", fakeCoord.EnqueuedBatches[0][0].JobId);
+                Assert.False(string.IsNullOrWhiteSpace(lastStatus));
+
+                mgr.ModernCloseRoblox(notify: true);
+                Assert.NotNull(closedNotification);
+                Assert.True(closedNotification!.Value.Notify);
+            }
+            finally
+            {
+                bridge.RefreshAccountsOnUiHandler = prevAccountsHandler;
+                bridge.NotifyAccountValidityOnUiHandler = prevValidityHandler;
+                bridge.RefreshLiveProcessStatusOnUiHandler = prevLiveStatusHandler;
+                bridge.GetDashboardPlaceIdHandler = prevPlaceHandler;
+                bridge.GetDashboardJobIdHandler = prevJobHandler;
+                bridge.GetDashboardSelectedAccountsHandler = prevSelHandler;
+                bridge.UpdateWindowStatusOnUiHandler = prevStatusHandler;
+                bridge.NotifyRobloxProcessesClosedOnUiHandler = prevClosedHandler;
+                mgr.launchCoordinator = oldCoordinator;
+                AccountManager.ReplaceAccountsList(new List<Account>());
+            }
+        }
     }
 }

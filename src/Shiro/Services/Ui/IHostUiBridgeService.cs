@@ -27,5 +27,13 @@ namespace Shiro.Services
         Task StopWebServerAsync();
         void SetAutoCookieRefreshEnabled(bool enabled);
         Task ResetEncryptionAsync(bool prompt);
+        void NotifyAccountsReplaced(IReadOnlyList<Account> accounts) { }
+        void NotifyAccountValidityChanged(Account account, bool isValid) { }
+        void NotifyLiveProcessStatusChanged() { }
+        void NotifyWindowStatus(string message) { }
+        void NotifyRobloxProcessesClosed(int totalKilled, bool notify) { }
+        List<Account>? TryGetDashboardSelectedAccounts() => null;
+        string? TryGetDashboardPlaceId() => null;
+        string? TryGetDashboardJobId() => null;
     }
 }

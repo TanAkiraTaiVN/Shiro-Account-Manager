@@ -24,7 +24,7 @@ dotnet test tests/Shiro.Tests/Shiro.Tests.csproj --configuration Release
 
 ## 2. Code Coverage Gate
 
-Core security, serialization, and storage classes must maintain **>= 70%** line coverage, and overall project coverage must remain **>= 45%**.
+Core security, serialization, and storage classes must maintain **>= 92%** line coverage, overall line coverage must remain **>= 75%**, and branch coverage must remain **>= 60%**.
 
 ```powershell
 dotnet test "tests/Shiro.Tests/Shiro.Tests.csproj" `
@@ -33,7 +33,7 @@ dotnet test "tests/Shiro.Tests/Shiro.Tests.csproj" `
   --settings "tests/coverage.runsettings" `
   --results-directory "coverage"
 
-./scripts/Check-Coverage.ps1 -CoverageDir "coverage" -MinOverall 45.0 -MinCore 70.0
+./scripts/Check-Coverage.ps1 -CoverageDir "coverage" -MinOverall 75.0 -MinBranch 60.0 -MinCore 92.0
 ```
 
 ---

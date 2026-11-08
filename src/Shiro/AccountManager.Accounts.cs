@@ -18,7 +18,7 @@ namespace Shiro
             account.Valid = isValid;
             if (isValid)
                 account.AccountStatusIssue = string.Empty;
-            Shiro.AvaloniaUI.Views.MainWindow.Instance?.UpdateAccountValidity(account, isValid);
+            HostUiBridgeService.Default.NotifyAccountValidityChanged(account, isValid);
         }
 
         public void UpdateAccountValidity(Account account, bool isValid)
@@ -54,19 +54,13 @@ namespace Shiro
             if (ResolvedUserIdsCache.TryGetValue(trimmedName, out long cachedUserId) && cachedUserId > 0)
                 return (true, cachedUserId, null);
 
-            lock (AccountListLock)
+            Account? knownAccount = AccountRepository.Default.FindFirst(a =>
+                a.UserID > 0 &&
+                string.Equals(a.Username, trimmedName, StringComparison.OrdinalIgnoreCase));
+            if (knownAccount != null)
             {
-                if (_accounts != null)
-                {
-                    Account? knownAccount = _accounts.FirstOrDefault(a =>
-                        a != null && a.UserID > 0 &&
-                        string.Equals(a.Username, trimmedName, StringComparison.OrdinalIgnoreCase));
-                    if (knownAccount != null)
-                    {
-                        ResolvedUserIdsCache[trimmedName] = knownAccount.UserID;
-                        return (true, knownAccount.UserID, null);
-                    }
-                }
+                ResolvedUserIdsCache[trimmedName] = knownAccount.UserID;
+                return (true, knownAccount.UserID, null);
             }
 
             try
@@ -109,7 +103,7 @@ namespace Shiro
         }
 
         public void UpdateAccountView(Account? account = null) =>
-            Shiro.AvaloniaUI.Views.MainWindow.Instance?.RefreshLiveProcessStatus();
+            HostUiBridgeService.Default.NotifyLiveProcessStatusChanged();
 
         public static Account? AddAccount(string SecurityToken, string Password = "", string? AccountJSON = null, bool saveImmediate = true)
         {
@@ -136,10 +130,9 @@ namespace Shiro
             {
                 account.Password = Password;
 
-                Account? exists;
-                lock (AccountListLock)
-                    exists = _accounts.FirstOrDefault(acc => (account.UserID > 0 && acc.UserID == account.UserID) ||
-                                                                (!string.IsNullOrEmpty(acc.Username) && !string.IsNullOrEmpty(account.Username) && acc.Username.Equals(account.Username, StringComparison.OrdinalIgnoreCase)));
+                Account? exists = AccountRepository.Default.FindFirst(acc =>
+                    (account.UserID > 0 && acc.UserID == account.UserID) ||
+                    (!string.IsNullOrEmpty(acc.Username) && !string.IsNullOrEmpty(account.Username) && acc.Username.Equals(account.Username, StringComparison.OrdinalIgnoreCase)));
 
                 if (exists != null)
                 {
@@ -194,22 +187,7 @@ namespace Shiro
             var toRemove = new HashSet<Account>(accountsToRemove.Where(a => a != null));
             if (toRemove.Count == 0) return 0;
 
-            int count = 0;
-            bool isNowEmpty = false;
-            lock (AccountListLock)
-            {
-                if (_accounts != null)
-                {
-                    count = _accounts.RemoveAll(a => toRemove.Contains(a));
-                    if (count > 0)
-                        _cachedAccountsSnapshot = Array.Empty<Account>();
-                    isNowEmpty = _accounts.Count == 0;
-                }
-                else
-                {
-                    isNowEmpty = true;
-                }
-            }
+            var (count, isNowEmpty) = AccountRepository.Default.RemoveMatching(toRemove);
 
             foreach (var a in toRemove)
             {

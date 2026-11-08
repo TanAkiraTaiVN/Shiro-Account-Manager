@@ -1,4 +1,4 @@
-﻿using Shiro.Classes;
+using Shiro.Classes;
 using Shiro.Http;
 using Microsoft.Win32;
 using System;
@@ -377,13 +377,12 @@ namespace Shiro
         }
 
         /// <summary>
-        /// Synchronous account constructor. Prefer <see cref="CreateAsync(string, string?, string?)"/> to avoid blocking threads.
+        /// Synchronous account constructor. Prefer <see cref="CreateAsync(string, string?, CancellationToken, RobloxHbaService.CaptureSnapshot?)"/> to avoid blocking threads.
         /// </summary>
         public Account(string Cookie, string? AccountJSON = null)
         {
             SecurityToken = Cookie;
 
-            // 1. Try provided AccountJSON if valid
             if (!string.IsNullOrEmpty(AccountJSON) && Utilities.TryParseJson(AccountJSON, out AccountJson? data) && data != null && data.UserId > 0)
             {
                 Username = data.Name;
@@ -392,41 +391,6 @@ namespace Shiro
                 LastUse = DateTime.Now;
                 AppSettings.LastValidAccount = this;
                 return;
-            }
-
-            // 2. Query official users.roblox.com/v1/users/authenticated (fast, reliable, isolated headers)
-            try
-            {
-                string token = GetCurrentSecurityToken();
-                if (!string.IsNullOrEmpty(token))
-                {
-                    HttpClient httpClient = GetSessionHttpClient();
-                    using var req = CreateAuthenticatedGetRequest("https://users.roblox.com/v1/users/authenticated", tokenOverride: token);
-
-                    using var resp = httpClient.Send(req);
-                    if (resp != null && resp.StatusCode == HttpStatusCode.OK)
-                    {
-                        TryUpdateRotatedCookie(resp);
-                        using var streamReader = new System.IO.StreamReader(resp.Content.ReadAsStream());
-                        string body = streamReader.ReadToEnd();
-                        if (!string.IsNullOrWhiteSpace(body) && !body.StartsWith("<"))
-                        {
-                            if (Utilities.FastJson.TryDeserialize<RobloxAuthenticatedUser>(body, out var authUser) && authUser?.Id > 0)
-                            {
-                                UserID = authUser.Id;
-                                Username = authUser.Name ?? string.Empty;
-                                Valid = true;
-                                LastUse = DateTime.Now;
-                                AppSettings.LastValidAccount = this;
-                                return;
-                            }
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Program.Logger.Warn($"[Account constructor] Failed to authenticate user: {ex.Message}");
             }
 
             Valid = false;

@@ -40,14 +40,74 @@ namespace Shiro.Services
         }
 
         private static readonly Lazy<AccountRepository> _defaultInstance = new(() => new AccountRepository());
-        private static volatile SnapshotIndex? _cachedIndex;
         public static AccountRepository Default => _defaultInstance.Value;
 
-        public int Count => AccountManager.AccountCount;
+        private readonly System.Threading.Lock _syncRoot = new();
+        private List<Account> _accounts = new();
+        private Account[] _cachedSnapshot = Array.Empty<Account>();
+        private volatile SnapshotIndex? _cachedIndex;
 
-        public IReadOnlyList<Account> GetAll() => AccountManager.GetAccountsSnapshot();
+        internal System.Threading.Lock SyncRoot => _syncRoot;
 
-        private static SnapshotIndex GetOrBuildIndex(IReadOnlyList<Account> currentSnapshot)
+        public int Count
+        {
+            get
+            {
+                lock (_syncRoot) return _accounts?.Count ?? 0;
+            }
+        }
+
+        public IReadOnlyList<Account> GetAll()
+        {
+            lock (_syncRoot)
+            {
+                if (_accounts == null || _accounts.Count == 0)
+                    return Array.Empty<Account>();
+
+                Account[] cached = _cachedSnapshot;
+                if (cached != null && cached.Length == _accounts.Count)
+                {
+                    bool same = true;
+                    for (int i = 0; i < cached.Length; i++)
+                    {
+                        if (!ReferenceEquals(cached[i], _accounts[i]))
+                        {
+                            same = false;
+                            break;
+                        }
+                    }
+                    if (same)
+                        return cached;
+                }
+
+                int nonNullCount = 0;
+                for (int i = 0; i < _accounts.Count; i++)
+                {
+                    if (_accounts[i] != null)
+                        nonNullCount++;
+                }
+
+                if (nonNullCount == 0)
+                {
+                    _cachedSnapshot = Array.Empty<Account>();
+                    return _cachedSnapshot;
+                }
+
+                var result = new Account[nonNullCount];
+                int idx = 0;
+                for (int i = 0; i < _accounts.Count; i++)
+                {
+                    var acc = _accounts[i];
+                    if (acc != null)
+                        result[idx++] = acc;
+                }
+
+                _cachedSnapshot = result;
+                return result;
+            }
+        }
+
+        private SnapshotIndex GetOrBuildIndex(IReadOnlyList<Account> currentSnapshot)
         {
             SnapshotIndex? current = _cachedIndex;
             if (current != null && ReferenceEquals(current.Snapshot, currentSnapshot))
@@ -129,8 +189,78 @@ namespace Shiro.Services
 
         public void AddThreadSafe(Account account)
         {
-            if (account != null)
-                AccountManager.AddAccountThreadSafe(account);
+            if (account == null) return;
+            lock (_syncRoot)
+            {
+                _accounts ??= new List<Account>();
+                _accounts.Add(account);
+                _cachedSnapshot = Array.Empty<Account>();
+                _cachedIndex = null;
+            }
+        }
+
+        internal IReadOnlyList<Account> ReplaceAll(IEnumerable<Account>? accounts)
+        {
+            var nextList = accounts != null ? new List<Account>(accounts) : new List<Account>();
+            foreach (var acc in nextList)
+            {
+                if (acc != null)
+                {
+                    if (string.IsNullOrWhiteSpace(acc.SecurityToken))
+                    {
+                        acc.Valid = false;
+                    }
+                    else if (acc.Valid && acc.HasExpiredShortLivedCookie())
+                    {
+                        acc.Valid = false;
+                        acc.IsDirty = true;
+                    }
+                }
+            }
+
+            lock (_syncRoot)
+            {
+                _accounts = nextList;
+                _cachedSnapshot = Array.Empty<Account>();
+                _cachedIndex = null;
+                return GetAll();
+            }
+        }
+
+        internal Account? FindFirst(Func<Account, bool> predicate)
+        {
+            if (predicate == null) return null;
+            lock (_syncRoot)
+            {
+                if (_accounts == null || _accounts.Count == 0) return null;
+                for (int i = 0; i < _accounts.Count; i++)
+                {
+                    Account? acc = _accounts[i];
+                    if (acc != null && predicate(acc))
+                        return acc;
+                }
+                return null;
+            }
+        }
+
+        internal (int RemovedCount, bool IsNowEmpty) RemoveMatching(ISet<Account> toRemove)
+        {
+            if (toRemove == null || toRemove.Count == 0)
+                return (0, Count == 0);
+
+            lock (_syncRoot)
+            {
+                if (_accounts == null)
+                    return (0, true);
+
+                int removed = _accounts.RemoveAll(a => a != null && toRemove.Contains(a));
+                if (removed > 0)
+                {
+                    _cachedSnapshot = Array.Empty<Account>();
+                    _cachedIndex = null;
+                }
+                return (removed, _accounts.Count == 0);
+            }
         }
 
         public bool Remove(Account account)

@@ -64,6 +64,15 @@ namespace Shiro.ViewModels
             AppDispatcher.Post(() => StatusMessage = message);
         }
 
+        private void OnStreamerModeStateChanged(bool active)
+        {
+            AppDispatcher.Post(() =>
+            {
+                NotifyToolStatesChanged();
+                RefreshAllAccountDisplays();
+            });
+        }
+
         private void InitializeCommands()
         {
             InitializeLaunchCommands();
@@ -139,14 +148,7 @@ namespace Shiro.ViewModels
                 IsStreamerModeEnabled = !IsStreamerModeEnabled;
             });
 
-            StreamerModeService.StateChanged += active =>
-            {
-                AppDispatcher.Post(() =>
-                {
-                    NotifyToolStatesChanged();
-                    RefreshAllAccountDisplays();
-                });
-            };
+            StreamerModeService.StateChanged += OnStreamerModeStateChanged;
 
             TileWindowsCommand = new RelayCommand(param =>
             {

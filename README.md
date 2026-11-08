@@ -14,7 +14,7 @@
 - **Quản lý đa tài khoản không giới hạn**: Lưu trữ danh sách tài khoản theo nhóm (Groups), tìm kiếm nhanh, ghim tài khoản yêu thích, tự động tính toán tổng số dư Robux.
 - **Multi-Roblox Client**: Hỗ trợ mở đồng thời nhiều tài khoản Roblox trên cùng một máy tính với cơ chế xếp hàng tuần tự (`LaunchCoordinator`), tránh lỗi đè process và tránh xung đột singleton mutex.
 - **Đăng nhập nhanh trong ứng dụng (In-App Fast Login)**: Tích hợp Microsoft Edge WebView2 nhúng, tự động điền tài khoản, tự động bắt cookie `.ROBLOSECURITY` và tự triệt tiêu banner Cookie Consent.
-- **Bảo mật dữ liệu đa lớp**: Dữ liệu tài khoản được mã hóa bằng **AES-256-GCM + PBKDF2-SHA256 (600.000 vòng lặp — chuẩn OWASP, tự động nâng cấp từ định dạng V1/V2 210.000 vòng)**, khóa Vault mặc định được bảo vệ bằng Windows DPAPI `CurrentUser` (chế độ Portable giữ khóa thô để di chuyển), hỗ trợ mật khẩu tùy chọn, ghi đĩa nguyên tử (`atomic replacement`) kèm bản sao lưu an toàn (`.backup`).
+- **Bảo mật dữ liệu đa lớp**: Dữ liệu tài khoản được mã hóa bằng **AES-256-GCM** kết hợp kiến trúc **Dual-KDF (PBKDF2-SHA256 600.000 vòng lặp chuẩn OWASP V3 cho mật khẩu người dùng + HKDF-SHA256 V4 tốc độ cao cho khóa máy 256-bit)**, khóa Vault mặc định được bảo vệ bằng Windows DPAPI `CurrentUser` (chế độ Portable giữ khóa thô để di chuyển), hỗ trợ mật khẩu tùy chọn, ghi đĩa nguyên tử (`atomic replacement`) kèm bản sao lưu an toàn (`.backup`).
 - **Trình theo dõi Roblox Watcher & Tối ưu Bộ nhớ**:
   - Tự động phát hiện lỗi mất kết nối, lỗi mã 429 và thông báo rate limit.
   - Quản lý bộ nhớ thông minh (`MemoryOptimizer`): ưu tiên hạ mức ưu tiên tiến trình nền (`BelowNormal`) và thu gọn heap .NET, trong khi tùy chọn `EmptyWorkingSet` (ép giải phóng Working Set vật lý xuống pagefile, đưa Working Set hiển thị về ~17 MB) được tắt mặc định để tránh hiện tượng hard page-fault gây giật khung hình khi chuyển cửa sổ game.
@@ -69,7 +69,7 @@ Sau khi hoàn tất, file thực thi phát hành chuẩn sẽ được tạo t�
 
 ## 📋 Kiểm thử tự động & Coverage Gates (Unit Tests)
 
-Dự án sở hữu bộ test suite tự động với hơn 1,560 unit tests bao phủ toàn diện tính toàn vẹn của mã hóa AES-256-GCM / PBKDF2-SHA256 (600,000 vòng), bảo mật DPAPI, quản lý hàng đợi mở game, kiến trúc MVVM strongly-typed, engine đồ họa Avalonia UI 11 và cấu hình JSON.
+Dự án sở hữu bộ test suite tự động với hơn 1,865+ unit tests bao phủ toàn diện tính toàn vẹn của mã hóa AES-256-GCM / Dual-KDF (PBKDF2-SHA256 600,000 vòng V3 & HKDF-SHA256 V4), bảo mật DPAPI, quản lý hàng đợi mở game, kiến trúc MVVM strongly-typed, engine đồ họa Avalonia UI 11 và cấu hình JSON.
 
 Các cổng chất lượng kiểm thử (Coverage Gates) được kiểm tra tự động trong CI/CD pipeline và `ArchitectureTests`:
 - **Overall Line Coverage**: **75.47%** (Ngưỡng yêu cầu: >= 75.0%)

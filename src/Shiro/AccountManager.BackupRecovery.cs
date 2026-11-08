@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Security.Cryptography;
 using Shiro.Classes;
 using Shiro.Services;
 
@@ -73,23 +74,33 @@ namespace Shiro
                         continue;
 
                     byte[]? decoded = null;
-                    if (Cryptography.IsEncrypted(raw))
+                    try
                     {
-                        decoded = Cryptography.Decrypt(raw, StoragePaths.GetOrCreateVaultKey());
-                    }
-                    else
-                    {
-                        decoded = TryUnprotectAccountData(raw, out _);
-                    }
-
-                    if (decoded != null && decoded.Length > 2)
-                    {
-                        var restored = AccountDataSerializer.Deserialize(decoded, out bool needsMigration);
-                        if (restored != null && restored.Count > (bestRestored?.Count ?? 0))
+                        if (Cryptography.IsEncrypted(raw))
                         {
-                            bestRestored = restored;
-                            bestNeedsMigration = needsMigration;
-                            bestPath = path;
+                            decoded = Cryptography.Decrypt(raw, StoragePaths.GetOrCreateVaultKey());
+                        }
+                        else
+                        {
+                            decoded = TryUnprotectAccountData(raw, out _);
+                        }
+
+                        if (decoded != null && decoded.Length > 2)
+                        {
+                            var restored = AccountDataSerializer.Deserialize(decoded, out bool needsMigration);
+                            if (restored != null && restored.Count > (bestRestored?.Count ?? 0))
+                            {
+                                bestRestored = restored;
+                                bestNeedsMigration = needsMigration;
+                                bestPath = path;
+                            }
+                        }
+                    }
+                    finally
+                    {
+                        if (decoded != null)
+                        {
+                            CryptographicOperations.ZeroMemory(decoded);
                         }
                     }
                 }

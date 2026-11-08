@@ -32,11 +32,21 @@ namespace Shiro.Tests
         [Fact]
         public void Services_And_Classes_ShouldNotDependOn_Views()
         {
+            var coveredTypes = Types.InAssembly(CoreAssembly)
+                .That()
+                .DoNotResideInNamespace("Shiro.AvaloniaUI")
+                .And()
+                .DoNotHaveName("AvaloniaDialogService")
+                .GetTypes()
+                .Select(t => t.FullName)
+                .ToList();
+
+            Assert.Contains(typeof(AccountManager).FullName, coveredTypes);
+            Assert.Contains(typeof(Account).FullName, coveredTypes);
+
             var result = Types.InAssembly(CoreAssembly)
                 .That()
-                .ResideInNamespace("Shiro.Services")
-                .Or()
-                .ResideInNamespace("Shiro.Classes")
+                .DoNotResideInNamespace("Shiro.AvaloniaUI")
                 .And()
                 .DoNotHaveName("AvaloniaDialogService")
                 .ShouldNot()
@@ -46,7 +56,7 @@ namespace Shiro.Tests
             var failingNames = (result.FailingTypes?.Select(t => t.FullName ?? t.Name) ?? Enumerable.Empty<string>())
                 .Where(name => !name.StartsWith("Shiro.Services.AvaloniaDialogService", StringComparison.Ordinal))
                 .ToList();
-            Assert.True(failingNames.Count == 0, $"Services and Classes (except AvaloniaDialogService) should not depend on Views. Violations: {string.Join(", ", failingNames)}");
+            Assert.True(failingNames.Count == 0, $"Non-UI types (except AvaloniaDialogService) should not depend on Views. Violations: {string.Join(", ", failingNames)}");
         }
 
         [Fact]
@@ -415,7 +425,7 @@ namespace Shiro.Tests
             foreach (var file in files)
             {
                 string text = File.ReadAllText(file);
-                if (text.Contains("AccountManager.", StringComparison.Ordinal))
+                if (Regex.IsMatch(text, @"(?<!"")\bAccountManager\."))
                 {
                     violations.Add($"{Path.GetFileName(file)} references AccountManager.* directly (use AppServices / AppSettings)");
                 }
@@ -575,9 +585,9 @@ namespace Shiro.Tests
             foreach (var file in files)
             {
                 string content = File.ReadAllText(file);
-                if (content.Contains(".GetAwaiter().GetResult()", StringComparison.Ordinal))
+                if (content.Contains(".GetAwaiter().GetResult()", StringComparison.Ordinal) || content.Contains("httpClient.Send(", StringComparison.Ordinal))
                 {
-                    violations.Add($"{Path.GetFileName(file)} uses sync-over-async .GetAwaiter().GetResult()");
+                    violations.Add($"{Path.GetFileName(file)} uses synchronous blocking (.GetAwaiter().GetResult() or httpClient.Send)");
                 }
             }
 
@@ -910,6 +920,48 @@ namespace Shiro.Tests
 
             Assert.True(violations.Count == 0,
                 $"Ambient static access exceeded baseline:\n{string.Join("\n", violations)}");
+        }
+
+        [Fact]
+        public void VersionMetadata_ShouldBeSynchronizedAcrossProjectAndDocs()
+        {
+            const string ExpectedVersion = "5.0.0";
+
+            string csproj = File.ReadAllText(Path.Combine(RepoRoot, "src", "Shiro", "Shiro.csproj"));
+            Assert.Contains($"<Version>{ExpectedVersion}</Version>", csproj, StringComparison.Ordinal);
+            Assert.Contains($"<AssemblyVersion>{ExpectedVersion}.0</AssemblyVersion>", csproj, StringComparison.Ordinal);
+            Assert.Contains($"<FileVersion>{ExpectedVersion}.0</FileVersion>", csproj, StringComparison.Ordinal);
+
+            Version? asmVersion = CoreAssembly.GetName().Version;
+            Assert.Equal(new Version(5, 0, 0, 0), asmVersion);
+
+            string aboutView = File.ReadAllText(Path.Combine(RepoRoot, "src", "Shiro", "AvaloniaUI", "Views", "AboutView.axaml"));
+            Assert.Contains($"v{ExpectedVersion}", aboutView, StringComparison.Ordinal);
+
+            string openApiJson = Shiro.Services.ApiDocumentationService.GetOpenApiJson();
+            Assert.Contains($"\"version\":\"{ExpectedVersion}\"", openApiJson.Replace(" ", ""), StringComparison.Ordinal);
+
+            string docsHtml = Shiro.Services.ApiDocumentationService.GetDocsHtml();
+            Assert.Contains($"Gateway v{ExpectedVersion}", docsHtml, StringComparison.Ordinal);
+
+            string enJson = File.ReadAllText(Path.Combine(RepoRoot, "src", "Shiro", "Resources", "Strings", "en.json"));
+            string viJson = File.ReadAllText(Path.Combine(RepoRoot, "src", "Shiro", "Resources", "Strings", "vi.json"));
+            Assert.Contains($"Version {ExpectedVersion}", enJson, StringComparison.Ordinal);
+            Assert.Contains($"Phiên bản {ExpectedVersion}", viJson, StringComparison.Ordinal);
+
+            string securityMd = File.ReadAllText(Path.Combine(RepoRoot, "SECURITY.md"));
+            Assert.Contains("5.0.x", securityMd, StringComparison.Ordinal);
+
+            string noticeMd = File.ReadAllText(Path.Combine(RepoRoot, "NOTICE.md"));
+            Assert.Contains($"v{ExpectedVersion}", noticeMd, StringComparison.Ordinal);
+
+            string contributingMd = File.ReadAllText(Path.Combine(RepoRoot, "CONTRIBUTING.md"));
+            Assert.Contains("-MinOverall 75.0", contributingMd, StringComparison.Ordinal);
+            Assert.Contains("-MinCore 92.0", contributingMd, StringComparison.Ordinal);
+
+            string threatModelMd = File.ReadAllText(Path.Combine(RepoRoot, "docs", "threat-model.md"));
+            Assert.DoesNotContain("AccountData.dat", threatModelMd, StringComparison.Ordinal);
+            Assert.Contains("AccountData.json", threatModelMd, StringComparison.Ordinal);
         }
     }
 }

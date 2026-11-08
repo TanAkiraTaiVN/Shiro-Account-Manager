@@ -20,7 +20,7 @@ namespace Shiro.ViewModels
         Settings
     }
 
-    public partial class MainViewModel : ObservableObject
+    public partial class MainViewModel : ObservableObject, IDisposable
     {
         private readonly IAppLogger _logger;
         private readonly ISettingsService _settings = null!;
@@ -40,6 +40,7 @@ namespace Shiro.ViewModels
         private bool _isAntiAfk;
         private bool _areWindowsHidden;
         private int _lastRobloxProcessCount = -1;
+        private int _disposed;
 
         public NavigationPage CurrentPage
         {
@@ -94,7 +95,20 @@ namespace Shiro.ViewModels
                 _placeId = string.Empty;
             }
             _statusMessage = Loc.Get("Status_ReadyDefault");
-            LocalizationService.LanguageChanged += lang =>
+            LocalizationService.LanguageChanged += OnLanguageChanged;
+
+            ServerListViewModel = new ServerListViewModel(this, _logger, _settings);
+            InitializeCommands();
+            RefreshStateFromSettings();
+            ScheduleCurrentGameLookup(_placeId);
+            RobloxAudioService.StatusChanged += OnAudioStatusChanged;
+            AccentThemeService.ThemeChanged += OnAccentThemeChanged;
+            LaunchCoordinator.LaunchProgressChanged += OnLaunchProgressChanged;
+        }
+
+        private void OnLanguageChanged(AppLanguage lang)
+        {
+            AppDispatcher.Post(() =>
             {
                 OnPropertyChanged(nameof(CloseRobloxButtonText));
                 OnPropertyChanged(nameof(CurrentSortLabel));
@@ -108,15 +122,7 @@ namespace Shiro.ViewModels
                     foreach (var acc in Accounts.ToArray())
                         acc.NotifyLanguageChanged();
                 }
-            };
-
-            ServerListViewModel = new ServerListViewModel(this, _logger, _settings);
-            InitializeCommands();
-            RefreshStateFromSettings();
-            ScheduleCurrentGameLookup(_placeId);
-            RobloxAudioService.StatusChanged += OnAudioStatusChanged;
-            AccentThemeService.ThemeChanged += OnAccentThemeChanged;
-            LaunchCoordinator.LaunchProgressChanged += OnLaunchProgressChanged;
+            });
         }
 
         private void OnAudioStatusChanged()
@@ -167,17 +173,43 @@ namespace Shiro.ViewModels
 
         private void OnAccentThemeChanged(AccentTheme theme)
         {
-            try
+            AppDispatcher.Post(() =>
             {
-                foreach (var acc in _accounts)
+                try
                 {
-                    acc.NotifyThemeChanged();
+                    foreach (var acc in _accounts)
+                    {
+                        acc.NotifyThemeChanged();
+                    }
                 }
-            }
-            catch (Exception ex)
-            {
-                _logger.Debug($"NotifyThemeChanged loop threw: {ex.Message}");
-            }
+                catch (Exception ex)
+                {
+                    _logger.Debug($"NotifyThemeChanged loop threw: {ex.Message}");
+                }
+            });
+        }
+
+        public void Dispose()
+        {
+            if (System.Threading.Interlocked.Exchange(ref _disposed, 1) != 0)
+                return;
+
+            LocalizationService.LanguageChanged -= OnLanguageChanged;
+            RobloxAudioService.StatusChanged -= OnAudioStatusChanged;
+            AccentThemeService.ThemeChanged -= OnAccentThemeChanged;
+            LaunchCoordinator.LaunchProgressChanged -= OnLaunchProgressChanged;
+            StreamerModeService.StateChanged -= OnStreamerModeStateChanged;
+
+            var searchCts = System.Threading.Interlocked.Exchange(ref _searchCts, null);
+            SafeExecuteHelper.Try(() => searchCts?.Cancel(), "MainViewModel.Dispose.SearchCtsCancel");
+            SafeExecuteHelper.Try(() => searchCts?.Dispose(), "MainViewModel.Dispose.SearchCtsDispose");
+
+            var gameCts = System.Threading.Interlocked.Exchange(ref _gameLookupCts, null);
+            SafeExecuteHelper.Try(() => gameCts?.Cancel(), "MainViewModel.Dispose.GameCtsCancel");
+            SafeExecuteHelper.Try(() => gameCts?.Dispose(), "MainViewModel.Dispose.GameCtsDispose");
+
+            ServerListViewModel?.Dispose();
+            GC.SuppressFinalize(this);
         }
 
         public bool IsShuffleJobId

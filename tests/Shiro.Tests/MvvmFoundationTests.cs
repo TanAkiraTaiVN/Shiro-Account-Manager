@@ -111,10 +111,6 @@ namespace Shiro.Tests
             Assert.Equal(1, count);
         }
 
-        
-
-        
-
         [Fact]
         public void AppServices_ServiceProvider_ResolvesAllRegisteredServices()
         {
@@ -152,8 +148,6 @@ namespace Shiro.Tests
             AppDispatcher.Post(() => executed = true);
             Assert.True(executed);
         }
-
-        
 
         [Fact]
         public void NaturalStringComparer_SortsAlphanumericNaturallyWithoutWin32()
@@ -260,6 +254,41 @@ namespace Shiro.Tests
 
             AntiAfkService.Toggle();
             Assert.False(AntiAfkService.IsEnabled);
+        }
+
+        [Fact]
+        public void MainViewModel_Dispose_UnsubscribesAllStaticEvents_AndIsIdempotent()
+        {
+            var prevLang = LocalizationService.CurrentLanguage;
+            var prevTheme = AccentThemeService.CurrentTheme;
+            try
+            {
+                var vm = new MainViewModel();
+                var serverVm = vm.ServerListViewModel;
+                Assert.IsAssignableFrom<IDisposable>(vm);
+                Assert.IsAssignableFrom<IDisposable>(serverVm);
+
+                vm.Dispose();
+                vm.Dispose(); // idempotent second call
+
+                int mainPropChanges = 0;
+                int serverPropChanges = 0;
+                vm.PropertyChanged += (_, _) => mainPropChanges++;
+                serverVm.PropertyChanged += (_, _) => serverPropChanges++;
+
+                LocalizationService.SetLanguage(prevLang == AppLanguage.Vietnamese ? AppLanguage.English : AppLanguage.Vietnamese);
+                AccentThemeService.ApplyTheme(prevTheme == AccentTheme.Cyan ? AccentTheme.Emerald : AccentTheme.Cyan);
+                StreamerModeService.IsEnabled = !StreamerModeService.IsEnabled;
+                StreamerModeService.IsEnabled = !StreamerModeService.IsEnabled;
+
+                Assert.Equal(0, mainPropChanges);
+                Assert.Equal(0, serverPropChanges);
+            }
+            finally
+            {
+                LocalizationService.SetLanguage(prevLang);
+                AccentThemeService.ApplyTheme(prevTheme);
+            }
         }
     }
 }
