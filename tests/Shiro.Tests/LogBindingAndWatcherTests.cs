@@ -123,6 +123,18 @@ namespace Shiro.Tests
             Assert.Equal(RobloxLogLineOutcome.Disconnected, disconnectOutcome);
             Assert.False(state.IsConnected);
             Assert.Equal(277, state.LastDisconnectReason);
+        }
+
+        [Fact]
+        public void AdvanceLogSessionState_DisconnectAndConnectOutcomes_DriveAutoReconnectSessionState()
+        {
+            var state = new RobloxLogSessionState();
+            var disconnectOutcome = RobloxProcess.AdvanceLogSessionState(
+                "2026-11-08T10:00:05.000Z [FLog::Network] Sending disconnect with reason: 277",
+                ref state,
+                verifyDataModel: true,
+                exitOnBeta: false);
+            Assert.Equal(RobloxLogLineOutcome.Disconnected, disconnectOutcome);
 
             using var reconnectSvc = new Shiro.Services.AutoReconnectService();
             var trackedAccount = new Account { Username = "LogStateWatcherUser", UserID = 777001 };
@@ -136,6 +148,13 @@ namespace Shiro.Tests
             Assert.NotNull(trackedSession.LastDisconnectUtc);
             reconnectSvc.NotifyDisconnected(42424, reason: state.LastDisconnectReason);
             Assert.Equal(277, trackedSession.LastDisconnectReason);
+
+            var connectOutcome = RobloxProcess.AdvanceLogSessionState(
+                "2026-11-08T10:00:06.000Z Connected to server at 128.116.1.10:53640",
+                ref state,
+                verifyDataModel: true,
+                exitOnBeta: false);
+            Assert.Equal(RobloxLogLineOutcome.Connected, connectOutcome);
 
             reconnectSvc.NotifyConnected(42424);
             Assert.Null(trackedSession.LastDisconnectUtc);
@@ -190,6 +209,32 @@ namespace Shiro.Tests
                 exitOnBeta: false);
             Assert.Equal(RobloxLogLineOutcome.KillChallengedOrHijackedClient, challengedOutcome);
             Assert.Equal(-1L, challengedState.CurrentDataModel);
+
+            var idleCookieChangeState = new RobloxLogSessionState();
+            RobloxProcess.AdvanceLogSessionState(
+                "2026-11-08T10:02:30.000Z [FLog::NewWebView2Browser] Security cookie value changed, updating HTTP layer cookie",
+                ref idleCookieChangeState,
+                verifyDataModel: true,
+                exitOnBeta: false);
+            Assert.False(idleCookieChangeState.HasGameJoinChallenge);
+            Assert.Equal(0L, idleCookieChangeState.CurrentDataModel);
+            Assert.True(idleCookieChangeState.HasSecurityCookieChanged);
+
+            var verifiedIdleReturnOutcome = RobloxProcess.AdvanceLogSessionState(
+                "2026-11-08T10:02:31.000Z [FLog::SingleSurfaceApp] returnToLuaApp: ... App has been initialized, returning from game.",
+                ref idleCookieChangeState,
+                verifyDataModel: true,
+                exitOnBeta: false);
+            Assert.Equal(RobloxLogLineOutcome.None, verifiedIdleReturnOutcome);
+            Assert.NotEqual(RobloxLogLineOutcome.KillChallengedOrHijackedClient, verifiedIdleReturnOutcome);
+
+            var unverifiedIdleReturnOutcome = RobloxProcess.AdvanceLogSessionState(
+                "2026-11-08T10:02:32.000Z [FLog::SingleSurfaceApp] returnToLuaApp: ... App has been initialized, returning from game.",
+                ref idleCookieChangeState,
+                verifyDataModel: false,
+                exitOnBeta: false);
+            Assert.Equal(RobloxLogLineOutcome.DataModelReset, unverifiedIdleReturnOutcome);
+            Assert.NotEqual(RobloxLogLineOutcome.KillChallengedOrHijackedClient, unverifiedIdleReturnOutcome);
         }
 
         [Fact]
