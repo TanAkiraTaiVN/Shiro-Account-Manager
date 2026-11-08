@@ -24,9 +24,7 @@ namespace Shiro.Tests
             {
                 using (StoragePaths.OverrideDataDirectoryForTesting(tempDir))
                 {
-                    AccountManager.IniSettings ??= new IniFile();
-                    AccountManager.Watcher ??= AccountManager.IniSettings.Section("Watcher");
-                    AccountManager.General ??= AccountManager.IniSettings.Section("General");
+                    AppSettings.ActiveIniFile ??= new IniFile();
 
                     var mainVm = new MainViewModel();
                     var vm = mainVm.ServerListViewModel;

@@ -13,8 +13,8 @@ namespace Shiro
         {
             try
             {
-                int configured = General != null && General.Exists("PresenceUpdateRate")
-                    ? General.Get<int>("PresenceUpdateRate")
+                int configured = AppSettings.General.Exists("PresenceUpdateRate")
+                    ? AppSettings.General.Get<int>("PresenceUpdateRate")
                     : 5;
                 return Math.Max(1, Math.Min(9999, configured));
             }
@@ -35,7 +35,7 @@ namespace Shiro
 
         internal void ModernRefreshPresence()
         {
-            if (!General.Get<bool>("ShowPresence"))
+            if (!AppSettings.General.Get<bool>("ShowPresence"))
             {
                 HostUiBridgeService.Default.NotifyLiveProcessStatusChanged();
                 return;
@@ -50,7 +50,7 @@ namespace Shiro
 
         internal void SchedulePresenceRefresh(Account account)
         {
-            if (account == null || account.UserID <= 0 || !General.Get<bool>("ShowPresence"))
+            if (account == null || account.UserID <= 0 || !AppSettings.General.Get<bool>("ShowPresence"))
                 return;
 
             lock (_pendingLaunchedPresenceLock)
@@ -128,7 +128,7 @@ namespace Shiro
                 return true;
             }
 
-            bool autoClose = General.Exists("AutoCloseRobloxOnLaunch") ? General.Get<bool>("AutoCloseRobloxOnLaunch") : false;
+            bool autoClose = AppSettings.General.Exists("AutoCloseRobloxOnLaunch") ? AppSettings.General.Get<bool>("AutoCloseRobloxOnLaunch") : false;
             if (autoClose)
             {
                 ModernCloseRoblox(notify: notify);
@@ -140,7 +140,7 @@ namespace Shiro
                 }
             }
 
-            if (General.Get<bool>("HideRbxAlert"))
+            if (AppSettings.General.Get<bool>("HideRbxAlert"))
             {
                 if (notify)
                     SetDashboardStatus(Shiro.Services.LocalizationService.Get("AccountManager.RobloxRunningMultiInactive"));
@@ -189,7 +189,7 @@ namespace Shiro
 
         public bool UpdateMultiRoblox()
         {
-            bool Enabled = General.Get<bool>("EnableMultiRbx");
+            bool Enabled = AppSettings.General.Get<bool>("EnableMultiRbx");
 
             try
             {
@@ -205,7 +205,7 @@ namespace Shiro
 
         private Task UpdatePresence()
         {
-            if (!General.Get<bool>("ShowPresence")) return Task.CompletedTask;
+            if (!AppSettings.General.Get<bool>("ShowPresence")) return Task.CompletedTask;
 
             lock (presenceTaskLock)
             {
@@ -221,9 +221,9 @@ namespace Shiro
         {
             try
             {
-                if (!General.Get<bool>("ShowPresence")) return;
+                if (!AppSettings.General.Get<bool>("ShowPresence")) return;
 
-                var snapshot = GetAccountsSnapshot();
+                var snapshot = AppServices.AccountRepository.GetAll();
                 long[] userIds = snapshot.Where(account => account != null && account.UserID > 0).Select(account => account.UserID).ToArray();
                 if (userIds.Length == 0) return;
 

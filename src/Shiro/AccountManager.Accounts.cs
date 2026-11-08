@@ -65,7 +65,7 @@ namespace Shiro
 
             try
             {
-                RestRequest request = LastValidAccount?.MakeRequest("v1/usernames/users", Method.Post) ?? new RestRequest("v1/usernames/users", Method.Post);
+                RestRequest request = AppServices.SelectionState.LastValidAccount?.MakeRequest("v1/usernames/users", Method.Post) ?? new RestRequest("v1/usernames/users", Method.Post);
                 request.AddJsonBody(new UsernamesLookupPayload(new string[] { trimmedName }));
 
                 RestResponse response = await AppServices.RobloxApi.Users.ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
@@ -89,7 +89,7 @@ namespace Shiro
                     }
                     catch (System.Text.Json.JsonException ex)
                     {
-                        Program.Logger?.Debug($"Parse GetUserIDAsync JSON failed: {ex.Message}");
+                        AppServices.Logger?.Debug($"Parse GetUserIDAsync JSON failed: {ex.Message}");
                     }
                 }
 
@@ -97,7 +97,7 @@ namespace Shiro
             }
             catch (Exception ex)
             {
-                Program.Logger.Debug($"GetUserIDAsync exception for {Username}: {ex.Message}");
+                AppServices.Logger.Debug($"GetUserIDAsync exception for {Username}: {ex.Message}");
                 return (false, -1, null);
             }
         }
@@ -125,7 +125,7 @@ namespace Shiro
 
         internal static Account? RegisterValidatedAccount(Account account, string SecurityToken, string Password = "", bool saveImmediate = true)
         {
-            Program.Logger.Info($"[RegisterAccount] user='{account?.Username}' id={account?.UserID} valid={account?.Valid} payloadLen={Account.GetSessionTokenPayloadLength(SecurityToken)} shortLived={Account.IsShortLivedCookie(SecurityToken)}.");
+            AppServices.Logger.Info($"[RegisterAccount] user='{account?.Username}' id={account?.UserID} valid={account?.Valid} payloadLen={Account.GetSessionTokenPayloadLength(SecurityToken)} shortLived={Account.IsShortLivedCookie(SecurityToken)}.");
             if (account != null && account.Valid)
             {
                 account.Password = Password;
@@ -160,7 +160,7 @@ namespace Shiro
                 }
                 else
                 {
-                    AddAccountThreadSafe(account);
+                    AppServices.AccountRepository.AddThreadSafe(account);
 
                     if (saveImmediate)
                     {
@@ -193,7 +193,7 @@ namespace Shiro
             {
                 AutoReconnectService.Instance.UnregisterSession(a.Username);
                 try { RobloxProcessService.CloseAccountRobloxProcess(a); }
-                catch (Exception ex) { Program.Logger?.Debug($"Closing removed account client threw: {ex.Message}"); }
+                catch (Exception ex) { AppServices.Logger?.Debug($"Closing removed account client threw: {ex.Message}"); }
                 a.ClearSensitiveMemory();
             }
 
@@ -209,7 +209,7 @@ namespace Shiro
                     }
                     catch (Exception ex)
                     {
-                        Program.Logger?.Warn($"Failed to delete empty backup file: {ex.Message}");
+                        AppServices.Logger?.Warn($"Failed to delete empty backup file: {ex.Message}");
                     }
                     RobloxProcessService.ClearRobloxClientSession();
                 }
@@ -229,7 +229,7 @@ namespace Shiro
 
                 try
                 {
-                    IReadOnlyList<Account> snapshot = GetAccountsSnapshot();
+                    IReadOnlyList<Account> snapshot = AppServices.AccountRepository.GetAll();
                     if (snapshot.Count == 0) return;
 
                     bool protectCrossNetwork = RobloxHbaService.IsVpnOrTunnelInterfaceActive() ||
@@ -275,7 +275,7 @@ namespace Shiro
                         }
                         catch (Exception ex)
                         {
-                            Program.Logger.Warn($"[RefreshStaleCookiesAsync] Error refreshing {account.Username}: {ex.Message}");
+                            AppServices.Logger.Warn($"[RefreshStaleCookiesAsync] Error refreshing {account.Username}: {ex.Message}");
                         }
                     }
 
@@ -295,7 +295,7 @@ namespace Shiro
             }
             catch (Exception exception)
             {
-                Program.Logger.Warn($"Automatic cookie refresh stopped early: {exception.Message}");
+                AppServices.Logger.Warn($"Automatic cookie refresh stopped early: {exception.Message}");
             }
         }
 
@@ -383,7 +383,7 @@ namespace Shiro
                 string msg = Shiro.Services.LocalizationService.Format("AccountManager.BulkLoginSummary", validCount - failedAccounts.Count, validCount, failedNames);
                 SetDashboardStatus(msg);
                 statusCallback?.Invoke(msg);
-                Program.Logger.Warn($"Bulk sign-in completed with {failedAccounts.Count} failures: {failedNames}");
+                AppServices.Logger.Warn($"Bulk sign-in completed with {failedAccounts.Count} failures: {failedNames}");
             }
             else
             {
@@ -412,7 +412,7 @@ namespace Shiro
             }
             catch (Exception exception)
             {
-                Program.Logger.Error($"Bulk user:pass login failed for {username}: {exception.Message}");
+                AppServices.Logger.Error($"Bulk user:pass login failed for {username}: {exception.Message}");
                 return (false, username, exception.Message, windowSlot);
             }
         }

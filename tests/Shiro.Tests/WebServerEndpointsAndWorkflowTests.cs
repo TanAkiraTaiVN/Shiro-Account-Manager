@@ -43,9 +43,7 @@ namespace Shiro.Tests
 
         private static void EnsureWebServerSettings()
         {
-            AccountManager.IniSettings ??= new IniFile();
-            AccountManager.WebServer ??= AccountManager.IniSettings.Section("WebServer");
-            AccountManager.General ??= AccountManager.IniSettings.Section("General");
+            AppSettings.ActiveIniFile ??= new IniFile();
         }
 
         private static AccountManager.ApiRequestContext CreateLocalApiRequest(
@@ -80,21 +78,21 @@ namespace Shiro.Tests
             EnsureWebServerSettings();
             var mgr = AccountManager.Instance ?? new AccountManager();
 
-            string oldPass = AccountManager.WSPassword;
-            var oldAccounts = AccountManager.GetAccountsSnapshot().ToList();
-            string? oldAllowGetAccounts = AccountManager.WebServer.Get("AllowGetAccounts");
-            string? oldAllowGetCookie = AccountManager.WebServer.Get("AllowGetCookie");
-            string? oldAllowEdit = AccountManager.WebServer.Get("AllowAccountEditing");
-            string? oldAllowLaunch = AccountManager.WebServer.Get("AllowLaunchAccount");
+            string oldPass = AppSettings.WebSocketPassword ?? string.Empty;
+            var oldAccounts = AppServices.AccountRepository.GetAll().ToList();
+            string? oldAllowGetAccounts = AppSettings.WebServer.Get("AllowGetAccounts");
+            string? oldAllowGetCookie = AppSettings.WebServer.Get("AllowGetCookie");
+            string? oldAllowEdit = AppSettings.WebServer.Get("AllowAccountEditing");
+            string? oldAllowLaunch = AppSettings.WebServer.Get("AllowLaunchAccount");
 
             try
             {
                 const string pass = "TestSecretPass99";
-                AccountManager.WSPassword = pass;
-                AccountManager.WebServer.Set("AllowGetAccounts", "true");
-                AccountManager.WebServer.Set("AllowGetCookie", "true");
-                AccountManager.WebServer.Set("AllowAccountEditing", "true");
-                AccountManager.WebServer.Set("AllowLaunchAccount", "false");
+                AppSettings.WebSocketPassword = pass;
+                AppSettings.WebServer.Set("AllowGetAccounts", "true");
+                AppSettings.WebServer.Set("AllowGetCookie", "true");
+                AppSettings.WebServer.Set("AllowAccountEditing", "true");
+                AppSettings.WebServer.Set("AllowLaunchAccount", "false");
 
                 var testAcc = new Account
                 {
@@ -112,7 +110,7 @@ namespace Shiro.Tests
                 {
                     AccountManager.ResetAccountsForTests(Array.Empty<Account>());
                 }
-                AccountManager.AddAccountThreadSafe(testAcc);
+                AppServices.AccountRepository.AddThreadSafe(testAcc);
 
                 // 1. GetWebSocketStats
                 string statsResp = await mgr.ProcessApiRequestAsync(CreateLocalApiRequest("/GetWebSocketStats", pass));
@@ -229,9 +227,9 @@ namespace Shiro.Tests
                 Assert.Equal("BaseDesc_Appended", testAcc.Description);
 
                 // 12. Permission checks when disabled
-                AccountManager.WebServer.Set("AllowGetAccounts", "false");
-                AccountManager.WebServer.Set("AllowGetCookie", "false");
-                AccountManager.WebServer.Set("AllowAccountEditing", "false");
+                AppSettings.WebServer.Set("AllowGetAccounts", "false");
+                AppSettings.WebServer.Set("AllowGetCookie", "false");
+                AppSettings.WebServer.Set("AllowAccountEditing", "false");
 
                 int status = 200;
                 string deniedAccounts = await mgr.ProcessApiRequestAsync(CreateLocalApiRequest("/GetAccounts", pass, onStatus: c => status = c));
@@ -267,11 +265,11 @@ namespace Shiro.Tests
             }
             finally
             {
-                AccountManager.WSPassword = oldPass;
-                AccountManager.WebServer.Set("AllowGetAccounts", oldAllowGetAccounts);
-                AccountManager.WebServer.Set("AllowGetCookie", oldAllowGetCookie);
-                AccountManager.WebServer.Set("AllowAccountEditing", oldAllowEdit);
-                AccountManager.WebServer.Set("AllowLaunchAccount", oldAllowLaunch);
+                AppSettings.WebSocketPassword = oldPass;
+                AppSettings.WebServer.Set("AllowGetAccounts", oldAllowGetAccounts);
+                AppSettings.WebServer.Set("AllowGetCookie", oldAllowGetCookie);
+                AppSettings.WebServer.Set("AllowAccountEditing", oldAllowEdit);
+                AppSettings.WebServer.Set("AllowLaunchAccount", oldAllowLaunch);
 
                 lock (AccountManager.AccountListLock)
                 {
@@ -279,7 +277,7 @@ namespace Shiro.Tests
                 }
                 foreach (var oldAcc in oldAccounts)
                 {
-                    AccountManager.AddAccountThreadSafe(oldAcc);
+                    AppServices.AccountRepository.AddThreadSafe(oldAcc);
                 }
             }
         }
@@ -290,7 +288,7 @@ namespace Shiro.Tests
             var fakeDialog = new FakeDialogService();
             using var _ = AppServices.Override<IDialogService>(fakeDialog);
 
-            var oldAccounts = AccountManager.GetAccountsSnapshot().ToList();
+            var oldAccounts = AppServices.AccountRepository.GetAll().ToList();
             try
             {
                 var acc1 = new Account
@@ -317,11 +315,11 @@ namespace Shiro.Tests
                 {
                     AccountManager.ResetAccountsForTests(Array.Empty<Account>());
                 }
-                AccountManager.AddAccountThreadSafe(acc1);
-                AccountManager.AddAccountThreadSafe(acc2);
+                AppServices.AccountRepository.AddThreadSafe(acc1);
+                AppServices.AccountRepository.AddThreadSafe(acc2);
 
                 var mainVm = new MainViewModel();
-                mainVm.LoadAccounts(AccountManager.GetAccountsSnapshot());
+                mainVm.LoadAccounts(AppServices.AccountRepository.GetAll());
                 var vm1 = mainVm.Accounts.First(a => a.Username == "WorkflowUser1");
                 var vm2 = mainVm.Accounts.First(a => a.Username == "WorkflowUser2");
 
@@ -433,7 +431,7 @@ namespace Shiro.Tests
                 }
                 foreach (var oldAcc in oldAccounts)
                 {
-                    AccountManager.AddAccountThreadSafe(oldAcc);
+                    AppServices.AccountRepository.AddThreadSafe(oldAcc);
                 }
             }
         }
@@ -443,13 +441,13 @@ namespace Shiro.Tests
         {
             EnsureWebServerSettings();
             var mgr = AccountManager.Instance ?? new AccountManager();
-            string oldPass = AccountManager.WSPassword;
-            var oldAccounts = AccountManager.GetAccountsSnapshot().ToList();
+            string oldPass = AppSettings.WebSocketPassword ?? string.Empty;
+            var oldAccounts = AppServices.AccountRepository.GetAll().ToList();
 
             try
             {
                 const string pass = "TestSecretPass99";
-                AccountManager.WSPassword = pass;
+                AppSettings.WebSocketPassword = pass;
 
                 var testAcc = new Account
                 {
@@ -462,7 +460,7 @@ namespace Shiro.Tests
                 {
                     AccountManager.ResetAccountsForTests(Array.Empty<Account>());
                 }
-                AccountManager.AddAccountThreadSafe(testAcc);
+                AppServices.AccountRepository.AddThreadSafe(testAcc);
 
                 int userIdCallCount = 0;
                 var q = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
@@ -502,14 +500,14 @@ namespace Shiro.Tests
             }
             finally
             {
-                AccountManager.WSPassword = oldPass;
+                AppSettings.WebSocketPassword = oldPass;
                 lock (AccountManager.AccountListLock)
                 {
                     AccountManager.ResetAccountsForTests(Array.Empty<Account>());
                 }
                 foreach (var oldAcc in oldAccounts)
                 {
-                    AccountManager.AddAccountThreadSafe(oldAcc);
+                    AppServices.AccountRepository.AddThreadSafe(oldAcc);
                 }
             }
         }
@@ -519,7 +517,7 @@ namespace Shiro.Tests
         [Fact]
         public async Task AccountManager_GetUserIdCache_AndRegisterValidatedAccount_WorkCorrectly()
         {
-            var oldAccounts = AccountManager.GetAccountsSnapshot().ToList();
+            var oldAccounts = AppServices.AccountRepository.GetAll().ToList();
             try
             {
                 // Empty/whitespace username returns false immediately
@@ -539,7 +537,7 @@ namespace Shiro.Tests
                 {
                     AccountManager.ResetAccountsForTests(Array.Empty<Account>());
                 }
-                AccountManager.AddAccountThreadSafe(knownAcc);
+                AppServices.AccountRepository.AddThreadSafe(knownAcc);
 
                 // Known account in AccountsList resolves without network call and populates cache
                 var knownRes = await AccountManager.GetUserIDAsync("CachedKnownPlayer");
@@ -576,7 +574,7 @@ namespace Shiro.Tests
                 }
                 foreach (var oldAcc in oldAccounts)
                 {
-                    AccountManager.AddAccountThreadSafe(oldAcc);
+                    AppServices.AccountRepository.AddThreadSafe(oldAcc);
                 }
             }
         }

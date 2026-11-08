@@ -169,10 +169,10 @@ namespace Shiro.Tests
         [Fact]
         public async Task KestrelWebServer_ExternalWithoutPassword_FallsBackToLocalhost()
         {
-            string oldPass = AccountManager.WSPassword;
+            string oldPass = AppSettings.WebSocketPassword ?? string.Empty;
             try
             {
-                AccountManager.WSPassword = "";
+                AppSettings.WebSocketPassword = "";
                 int testPort = 27981;
                 var server = new KestrelWebServer(testPort, allowExternal: true, async ctx =>
                 {
@@ -192,17 +192,17 @@ namespace Shiro.Tests
             }
             finally
             {
-                AccountManager.WSPassword = oldPass;
+                AppSettings.WebSocketPassword = oldPass;
             }
         }
 
         [Fact]
         public async Task NexusWebSocketServer_ExternalWithoutPassword_FallsBackToLocalhost()
         {
-            string oldPass = AccountManager.WSPassword;
+            string oldPass = AppSettings.WebSocketPassword ?? string.Empty;
             try
             {
-                AccountManager.WSPassword = "";
+                AppSettings.WebSocketPassword = "";
                 int testPort = 27982;
                 var server = new NexusWebSocketServer(IPAddress.Any, testPort);
 
@@ -218,7 +218,7 @@ namespace Shiro.Tests
             }
             finally
             {
-                AccountManager.WSPassword = oldPass;
+                AppSettings.WebSocketPassword = oldPass;
             }
         }
 
@@ -226,18 +226,14 @@ namespace Shiro.Tests
         public async Task ProcessApiRequestAsync_ExternalQueryPassword_IsRejected()
         {
             var mgr = AccountManager.Instance ?? new AccountManager();
-            if (AccountManager.WebServer == null)
-            {
-                AccountManager.IniSettings ??= new IniFile();
-                AccountManager.WebServer = AccountManager.IniSettings.Section("WebServer");
-            }
 
-            string oldPass = AccountManager.WSPassword;
-            string? oldAllow = AccountManager.WebServer.Get("AllowExternalConnections");
+
+            string oldPass = AppSettings.WebSocketPassword ?? string.Empty;
+            string? oldAllow = AppSettings.WebServer.Get("AllowExternalConnections");
             try
             {
-                AccountManager.WSPassword = "ValidPassword123";
-                AccountManager.WebServer.Set("AllowExternalConnections", "true");
+                AppSettings.WebSocketPassword = "ValidPassword123";
+                AppSettings.WebServer.Set("AllowExternalConnections", "true");
 
                 int statusCode = 200;
                 var ctx = new AccountManager.ApiRequestContext
@@ -258,8 +254,8 @@ namespace Shiro.Tests
             }
             finally
             {
-                AccountManager.WebServer.Set("AllowExternalConnections", oldAllow);
-                AccountManager.WSPassword = oldPass;
+                AppSettings.WebServer.Set("AllowExternalConnections", oldAllow);
+                AppSettings.WebSocketPassword = oldPass;
             }
         }
 
@@ -267,18 +263,14 @@ namespace Shiro.Tests
         public async Task ProcessApiRequestAsync_ExternalHeaderPassword_IsAccepted()
         {
             var mgr = AccountManager.Instance ?? new AccountManager();
-            if (AccountManager.WebServer == null)
-            {
-                AccountManager.IniSettings ??= new IniFile();
-                AccountManager.WebServer = AccountManager.IniSettings.Section("WebServer");
-            }
 
-            string oldPass = AccountManager.WSPassword;
-            string? oldAllow = AccountManager.WebServer.Get("AllowExternalConnections");
+
+            string oldPass = AppSettings.WebSocketPassword ?? string.Empty;
+            string? oldAllow = AppSettings.WebServer.Get("AllowExternalConnections");
             try
             {
-                AccountManager.WSPassword = "ValidPassword123";
-                AccountManager.WebServer.Set("AllowExternalConnections", "true");
+                AppSettings.WebSocketPassword = "ValidPassword123";
+                AppSettings.WebServer.Set("AllowExternalConnections", "true");
 
                 int statusCode = 200;
                 var ctx = new AccountManager.ApiRequestContext
@@ -299,8 +291,8 @@ namespace Shiro.Tests
             }
             finally
             {
-                AccountManager.WebServer.Set("AllowExternalConnections", oldAllow);
-                AccountManager.WSPassword = oldPass;
+                AppSettings.WebServer.Set("AllowExternalConnections", oldAllow);
+                AppSettings.WebSocketPassword = oldPass;
             }
         }
 

@@ -12,26 +12,26 @@ namespace Shiro.Tests
         public void CurrentPlaceId_CanBeSetAndRetrievedSafely()
         {
             const string testPlaceId = "1818";
-            AccountManager.CurrentPlaceId = testPlaceId;
+            AppServices.ServerBrowserState.CurrentPlaceId = testPlaceId;
 
-            Assert.Equal(testPlaceId, AccountManager.CurrentPlaceId);
+            Assert.Equal(testPlaceId, AppServices.ServerBrowserState.CurrentPlaceId);
         }
 
         [Fact]
         public void CurrentJobId_CanBeSetAndRetrievedSafely()
         {
             const string testJobId = "test-job-uuid-1234";
-            AccountManager.CurrentJobId = testJobId;
+            AppServices.ServerBrowserState.CurrentJobId = testJobId;
 
-            Assert.Equal(testJobId, AccountManager.CurrentJobId);
+            Assert.Equal(testJobId, AppServices.ServerBrowserState.CurrentJobId);
         }
 
         [Fact]
         public void CurrentJobId_WhenNull_ReturnsEmptyString()
         {
-            AccountManager.CurrentJobId = null!;
+            AppServices.ServerBrowserState.CurrentJobId = null!;
 
-            Assert.Equal(string.Empty, AccountManager.CurrentJobId);
+            Assert.Equal(string.Empty, AppServices.ServerBrowserState.CurrentJobId);
         }
 
         [Fact]
@@ -89,7 +89,7 @@ namespace Shiro.Tests
                 AccountManager.ReplaceAccountsList(new List<Account> { sharedAcc });
 
                 Assert.Equal(1, AccountRepository.Default.Count);
-                Assert.Equal(1, AccountManager.AccountCount);
+                Assert.Equal(1, AppServices.AccountRepository.Count);
                 Assert.Same(sharedAcc, AccountRepository.Default.GetByUsername("shareduser"));
                 Assert.Equal(1, isolatedRepo.Count);
             }

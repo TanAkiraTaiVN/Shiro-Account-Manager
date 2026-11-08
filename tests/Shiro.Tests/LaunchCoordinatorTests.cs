@@ -84,25 +84,25 @@ namespace Shiro.Tests
         [Fact]
         public void GetSmartLaunchMinDelayMs_RespectsSmartSettingAndIgnoresAccountJoinDelay()
         {
-            var prevGeneral = AccountManager.General;
-            AccountManager.General = new IniSection("General");
+            var prevGeneral = AppSettings.General;
+            AppSettings.General = new IniSection("General");
             try
             {
                 // AccountJoinDelay = 15s should NOT leak into SmartLaunch delay
-                AccountManager.General.Set(AppSettingsKeys.General.AccountJoinDelay, "15");
+                AppSettings.General.Set(AppSettingsKeys.General.AccountJoinDelay, "15");
 
                 // Without explicit SmartLaunchMinDelaySeconds, defaults to DefaultSmartLaunchMinDelaySeconds (2s = 2000ms)
                 int defaultDelay = LaunchCoordinator.GetSmartLaunchMinDelayMs(null, includeJitter: false);
                 Assert.Equal(2000, defaultDelay);
 
                 // With explicit SmartLaunchMinDelaySeconds = 4s
-                AccountManager.General.Set(AppSettingsKeys.General.SmartLaunchMinDelaySeconds, "4");
+                AppSettings.General.Set(AppSettingsKeys.General.SmartLaunchMinDelaySeconds, "4");
                 int configuredDelay = LaunchCoordinator.GetSmartLaunchMinDelayMs(null, includeJitter: false);
                 Assert.Equal(4000, configuredDelay);
             }
             finally
             {
-                AccountManager.General = prevGeneral;
+                AppSettings.General = prevGeneral;
             }
         }
 
@@ -158,9 +158,9 @@ namespace Shiro.Tests
             var executedAccounts = new System.Collections.Generic.List<string>();
             var progressUpdates = new System.Collections.Generic.List<LaunchProgress>();
 
-            var prevGeneral = AccountManager.General;
-            AccountManager.General = new IniSection("General");
-            AccountManager.General.Set(AppSettingsKeys.General.SmartFastLaunch, "false");
+            var prevGeneral = AppSettings.General;
+            AppSettings.General = new IniSection("General");
+            AppSettings.General.Set(AppSettingsKeys.General.SmartFastLaunch, "false");
 
             try
             {
@@ -201,7 +201,7 @@ namespace Shiro.Tests
             }
             finally
             {
-                AccountManager.General = prevGeneral;
+                AppSettings.General = prevGeneral;
             }
         }
 

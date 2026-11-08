@@ -188,10 +188,10 @@ namespace Shiro.Tests
         [InlineData("/BlockUser")]
         public async System.Threading.Tasks.Task WebServer_SensitiveEndpoints_RejectWhenPasswordNotConfigured(string path)
         {
-            string oldPass = AccountManager.WSPassword;
+            string oldPass = AppSettings.WebSocketPassword ?? string.Empty;
             try
             {
-                AccountManager.WSPassword = "";
+                AppSettings.WebSocketPassword = "";
                 var mgr = AccountManager.Instance ?? new AccountManager();
                 int statusCode = 200;
                 var ctx = new AccountManager.ApiRequestContext
@@ -212,7 +212,7 @@ namespace Shiro.Tests
             }
             finally
             {
-                AccountManager.WSPassword = oldPass;
+                AppSettings.WebSocketPassword = oldPass;
             }
         }
 

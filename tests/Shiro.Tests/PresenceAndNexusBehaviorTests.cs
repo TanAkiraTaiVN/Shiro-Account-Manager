@@ -23,8 +23,7 @@ namespace Shiro.Tests
 
         public PresenceAndNexusBehaviorTests()
         {
-            AccountManager.IniSettings ??= new IniFile();
-            AccountManager.General ??= AccountManager.IniSettings.Section("General");
+            AppSettings.ActiveIniFile ??= new IniFile();
             _originalShowPresence = AppSettings.General.Get("ShowPresence");
             AppSettings.General.Set("ShowPresence", "true");
         }
@@ -224,7 +223,7 @@ namespace Shiro.Tests
             AccountRepository.Default.AddThreadSafe(testAccount);
             lock (AccountManager.AccountListLock)
             {
-                AccountManager.AddAccountThreadSafe(testAccount);
+                AppServices.AccountRepository.AddThreadSafe(testAccount);
             }
 
             try

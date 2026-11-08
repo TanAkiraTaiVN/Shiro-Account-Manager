@@ -320,7 +320,7 @@ namespace Shiro.Tests
             {
                 ["Account"] = 2400,
                 ["MainViewModel"] = 3300,
-                ["AccountManager"] = 2850,
+                ["AccountManager"] = 2671,
                 ["ServerListViewModel"] = 1650
             };
 

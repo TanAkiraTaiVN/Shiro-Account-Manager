@@ -135,7 +135,7 @@ namespace Shiro.Tests
                     bool unlocked = AccountManager.LoadAccountsFromStore();
                     Assert.True(unlocked);
 
-                    var loaded = AccountManager.Accounts;
+                    var loaded = AppServices.AccountRepository.GetAll();
                     Assert.Equal(2, loaded.Count);
 
                     Assert.False(loaded[0].Valid);

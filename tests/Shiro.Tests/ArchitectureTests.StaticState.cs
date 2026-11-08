@@ -45,5 +45,24 @@ namespace Shiro.Tests
             Assert.Same(before, AppServices.RobloxApi);
             Assert.Same(before.Games, AppServices.RobloxApi.Games);
         }
+
+        [Fact]
+        public void AccountManager_ShouldNotExpose_StaticStateFacade()
+        {
+            string[] forbidden = { "SelectedAccounts", "RecentGames", "SelectedAccount", "LastValidAccount", "CurrentPlaceId",
+                "CurrentJobId", "CachedServers", "ShuffleJobID", "CurrentVersion", "WSPassword", "IniSettings", "General",
+                "Developer", "WebServer", "AccountControl", "Watcher", "Prompts", "Accounts", "AccountCount", "AddAccountThreadSafe" };
+            const BindingFlags flags = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
+            var present = typeof(AccountManager).GetMembers(flags).Select(m => m.Name).Intersect(forbidden).ToList();
+            Assert.Empty(present);
+        }
+
+        [Fact]
+        public void AccountManager_Instance_IsPropertyWithNonPublicSetter()
+        {
+            var p = typeof(AccountManager).GetProperty("Instance", BindingFlags.Static | BindingFlags.Public);
+            Assert.NotNull(p);
+            Assert.False(p!.SetMethod!.IsPublic);
+        }
     }
 }

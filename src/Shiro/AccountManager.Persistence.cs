@@ -142,11 +142,11 @@ namespace Shiro
                             if (Hash != null)
                             {
                                 PasswordHash = new ReadOnlyMemory<byte>(ProtectedData.Protect(Hash, Array.Empty<byte>(), DataProtectionScope.CurrentUser));
-                                Program.Logger?.Info($"[LoadAccounts] Loaded {AccountCount} accounts via Master Password.");
+                                AppServices.Logger?.Info($"[LoadAccounts] Loaded {AppServices.AccountRepository.Count} accounts via Master Password.");
                             }
                             else
                             {
-                                Program.Logger?.Info($"[LoadAccounts] Loaded {AccountCount} accounts via vault key.");
+                                AppServices.Logger?.Info($"[LoadAccounts] Loaded {AppServices.AccountRepository.Count} accounts via vault key.");
                             }
                         }
                         break;
@@ -154,9 +154,9 @@ namespace Shiro
                     case AccountDecodeStatus.NeedsMasterPassword:
                         IsVaultLockedPendingMasterPassword = true;
                         if (Hash != null)
-                            Program.Logger?.Warn($"[LoadAccounts] Master Password decryption failed: {decodeResult.Error?.Message}");
+                            AppServices.Logger?.Warn($"[LoadAccounts] Master Password decryption failed: {decodeResult.Error?.Message}");
                         else
-                            Program.Logger?.Warn($"[LoadAccounts] Vault-key decryption failed: {decodeResult.Error?.Message}");
+                            AppServices.Logger?.Warn($"[LoadAccounts] Vault-key decryption failed: {decodeResult.Error?.Message}");
 
                         EnableModernDashboard();
                         return;
@@ -172,7 +172,7 @@ namespace Shiro
             }
 
 
-            if (!EnteredPassword && AccountCount == 0 && File.Exists($"{SaveFilePath}.backup") && File.ReadAllBytes($"{SaveFilePath}.backup") is byte[] BackupData && BackupData.Length > 0)
+            if (!EnteredPassword && AppServices.AccountRepository.Count == 0 && File.Exists($"{SaveFilePath}.backup") && File.ReadAllBytes($"{SaveFilePath}.backup") is byte[] BackupData && BackupData.Length > 0)
             {
                 var backupResult = TryLoadFromBackup(BackupData);
                 if (backupResult == BackupLoadResult.PromotedNeedsPassword)
@@ -183,19 +183,19 @@ namespace Shiro
                 }
             }
 
-            try { AccountRuntimeStateStore.HydrateAccounts(GetAccountsSnapshot()); }
-            catch (Exception ex) { Program.Logger?.Debug($"[LoadAccounts] Runtime state hydration skipped: {ex.Message}"); }
+            try { AccountRuntimeStateStore.HydrateAccounts(AppServices.AccountRepository.GetAll()); }
+            catch (Exception ex) { AppServices.Logger?.Debug($"[LoadAccounts] Runtime state hydration skipped: {ex.Message}"); }
 
             RefreshView();
 
-            IReadOnlyList<Account> loadedAccounts = GetAccountsSnapshot();
+            IReadOnlyList<Account> loadedAccounts = AppServices.AccountRepository.GetAll();
             if (loadedAccounts.Count > 0)
             {
-                LastValidAccount = loadedAccounts[0];
+                AppServices.SelectionState.LastValidAccount = loadedAccounts[0];
                 foreach (Account account in loadedAccounts)
                 {
-                    if (account.LastUse > LastValidAccount.LastUse)
-                        LastValidAccount = account;
+                    if (account.LastUse > AppServices.SelectionState.LastValidAccount.LastUse)
+                        AppServices.SelectionState.LastValidAccount = account;
                 }
             }
 
@@ -207,9 +207,9 @@ namespace Shiro
                 {
                     SaveAccounts(true, true);
                     accountDataNeedsMigration = false;
-                    Program.Logger?.Info($"Migrated account data to schema {AccountDataSerializer.CurrentSchemaVersion}.");
+                    AppServices.Logger?.Info($"Migrated account data to schema {AccountDataSerializer.CurrentSchemaVersion}.");
                 }
-                catch (Exception exception) { Program.Logger?.Warn($"Account data migration will be retried after the next successful save: {exception.Message}"); }
+                catch (Exception exception) { AppServices.Logger?.Warn($"Account data migration will be retried after the next successful save: {exception.Message}"); }
             }
         }
 
@@ -223,7 +223,7 @@ namespace Shiro
         {
             if (string.IsNullOrWhiteSpace(saveFilePath) || !File.Exists(saveFilePath)) return;
             try { File.Move(saveFilePath, $"{saveFilePath}.corrupt-{DateTime.Now:yyyyMMdd_HHmmss}.bak", overwrite: true); }
-            catch (Exception ex) { Program.Logger?.Warn($"[TryLoadFromBackup] Could not move unreadable primary file before saving backup: {ex.Message}"); }
+            catch (Exception ex) { AppServices.Logger?.Warn($"[TryLoadFromBackup] Could not move unreadable primary file before saving backup: {ex.Message}"); }
         }
 
         internal BackupLoadResult TryLoadFromBackup(byte[] backupData)
@@ -238,8 +238,8 @@ namespace Shiro
                 {
                     ReplaceAccountsList(vaultResult.Accounts);
                     accountDataNeedsMigration |= vaultResult.NeedsMigration;
-                    Program.Logger?.Info($"[LoadAccounts] Restored {AccountCount} accounts from backup via vault key.");
-                    if (AccountCount > 0)
+                    AppServices.Logger?.Info($"[LoadAccounts] Restored {AppServices.AccountRepository.Count} accounts from backup via vault key.");
+                    if (AppServices.AccountRepository.Count > 0)
                     {
                         EvictCorruptPrimaryBeforeBackupSave(SaveFilePath);
                         SaveAccounts(true);
@@ -247,7 +247,7 @@ namespace Shiro
                     return BackupLoadResult.Restored;
                 }
 
-                Program.Logger?.Debug($"Direct vault key load from backup was not successful: {vaultResult.Error?.Message}");
+                AppServices.Logger?.Debug($"Direct vault key load from backup was not successful: {vaultResult.Error?.Message}");
 
                 if (vaultResult.Status == AccountDecodeStatus.NeedsMasterPassword)
                 {
@@ -272,16 +272,16 @@ namespace Shiro
                     accountDataNeedsMigration |= unencResult.NeedsMigration;
                     legacyPlaintextLoaded = unencResult.LegacyPlaintext;
 
-                    if (AccountCount > 0)
+                    if (AppServices.AccountRepository.Count > 0)
                     {
-                        Program.Logger?.Info($"[AccountManager] Restored {AccountCount} accounts from backup. Re-persisting primary vault...");
+                        AppServices.Logger?.Info($"[AccountManager] Restored {AppServices.AccountRepository.Count} accounts from backup. Re-persisting primary vault...");
                         EvictCorruptPrimaryBeforeBackupSave(SaveFilePath);
                         SaveAccounts(true);
                     }
                     return BackupLoadResult.Restored;
                 }
 
-                Program.Logger?.Error($"Failed to load backup file: {unencResult.Error?.Message}");
+                AppServices.Logger?.Error($"Failed to load backup file: {unencResult.Error?.Message}");
                 AppServices.Dialogs.ShowError("Failed to load backup file!");
                 return BackupLoadResult.Failed;
             }
@@ -311,11 +311,11 @@ namespace Shiro
                 try { File.Move(backupPath, saveFilePath, overwrite: true); }
                 catch (Exception moveEx)
                 {
-                    Program.Logger?.Error($"[PromoteBackupToPrimary] Failed to move backup to primary: {moveEx.Message}. Rolling back preserved primary...");
+                    AppServices.Logger?.Error($"[PromoteBackupToPrimary] Failed to move backup to primary: {moveEx.Message}. Rolling back preserved primary...");
                     if (!string.IsNullOrEmpty(preservedPrimaryPath) && File.Exists(preservedPrimaryPath))
                     {
                         try { File.Move(preservedPrimaryPath, saveFilePath, overwrite: true); }
-                        catch (Exception rollbackEx) { Program.Logger?.Error($"[PromoteBackupToPrimary] Rollback failed: {rollbackEx.Message}"); }
+                        catch (Exception rollbackEx) { AppServices.Logger?.Error($"[PromoteBackupToPrimary] Rollback failed: {rollbackEx.Message}"); }
                     }
                     throw;
                 }
@@ -369,11 +369,11 @@ namespace Shiro
             {
                 if (IsVaultLockedPendingMasterPassword)
                 {
-                    Program.Logger?.Warn("[AccountManager.SaveAccounts] Save blocked because the vault is locked pending Master Password.");
+                    AppServices.Logger?.Warn("[AccountManager.SaveAccounts] Save blocked because the vault is locked pending Master Password.");
                     return;
                 }
 
-                IReadOnlyList<Account> accountsSnapshot = GetAccountsSnapshot();
+                IReadOnlyList<Account> accountsSnapshot = AppServices.AccountRepository.GetAll();
                 bool anyDirty = accountsSnapshot.Any(a => a.IsDirty);
                 SaveGate gate = EvaluateSaveGate(DateTime.Now, startTime, lastSaveTime, BypassRateLimit, BypassCountCheck, accountsSnapshot.Count, anyDirty);
 
@@ -386,12 +386,12 @@ namespace Shiro
                 try
                 {
                     accountStore ??= new AccountStore();
-                    bool savePasswords = General == null || !General.Exists("SavePasswords") || General.Get<bool>("SavePasswords");
+                    bool savePasswords = !AppServices.GeneralSettings.Exists("SavePasswords") || AppServices.GeneralSettings.Get<bool>("SavePasswords");
                     byte[] SaveData = AccountDataSerializer.Serialize(accountsSnapshot, savePasswords);
 
                     if (SaveData == null || SaveData.Length < 2)
                     {
-                        Program.Logger?.Error("[AccountManager.SaveAccounts] Serialization produced empty or corrupted payload. Save aborted to protect data integrity.");
+                        AppServices.Logger?.Error("[AccountManager.SaveAccounts] Serialization produced empty or corrupted payload. Save aborted to protect data integrity.");
                         RestoreDirty(taken);
                         return;
                     }
@@ -442,7 +442,7 @@ namespace Shiro
                                 try { File.Delete(PlaintextOptInFile); }
                                 catch (Exception exception)
                                 {
-                                    Program.Logger.Warn($"Account data was protected with AES vault, but the legacy plaintext marker could not be removed: {exception.Message}");
+                                    AppServices.Logger.Warn($"Account data was protected with AES vault, but the legacy plaintext marker could not be removed: {exception.Message}");
                                 }
                                 legacyPlaintextLoaded = false;
                             }

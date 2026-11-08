@@ -55,7 +55,7 @@ namespace Shiro.Tests
         public async Task MemoryTrim_Endpoint_ReturnsBytesSaved()
         {
             var mgr = AccountManager.Instance ?? new AccountManager();
-            AccountManager.WSPassword = AdminPassword;
+            AppSettings.WebSocketPassword = AdminPassword;
 
             string resp = await mgr.ProcessApiRequestAsync(CreateRequest("/Memory/Trim"));
             Assert.Contains("BytesSaved", resp);
@@ -66,7 +66,7 @@ namespace Shiro.Tests
         public async Task GlobalControlEndpoints_WebSocketStats_AntiAfk_KillRoblox_Work()
         {
             var mgr = AccountManager.Instance ?? new AccountManager();
-            AccountManager.WSPassword = AdminPassword;
+            AppSettings.WebSocketPassword = AdminPassword;
 
             string wsStats = await mgr.ProcessApiRequestAsync(CreateRequest("/GetWebSocketStats"));
             Assert.Contains("Shiro Kestrel Gateway", wsStats);
@@ -93,23 +93,23 @@ namespace Shiro.Tests
         public async Task GetAccounts_GetAccountsJson_ImportCookie_PermissionAndFilterPaths()
         {
             var mgr = AccountManager.Instance ?? new AccountManager();
-            AccountManager.WSPassword = AdminPassword;
+            AppSettings.WebSocketPassword = AdminPassword;
 
             var acc1 = new Account { Username = "UserA", UserID = 101, Group = "G1", SecurityToken = "_|WARNING:-DO-NOT-SHARE-THIS.--TokA" };
             var acc2 = new Account { Username = "UserB", UserID = 102, Group = "G2", SecurityToken = "_|WARNING:-DO-NOT-SHARE-THIS.--TokB" };
             AccountManager.ResetAccountsForTests(Array.Empty<Account>());
-            AccountManager.AddAccountThreadSafe(acc1);
-            AccountManager.AddAccountThreadSafe(acc2);
+            AppServices.AccountRepository.AddThreadSafe(acc1);
+            AppServices.AccountRepository.AddThreadSafe(acc2);
 
-            AccountManager.WebServer.Set("AllowGetAccounts", "false");
+            AppSettings.WebServer.Set("AllowGetAccounts", "false");
             string deniedGet = await mgr.ProcessApiRequestAsync(CreateRequest("/GetAccounts"));
             Assert.Contains("not allowed", deniedGet);
 
             string deniedJson = await mgr.ProcessApiRequestAsync(CreateRequest("/GetAccountsJson"));
             Assert.Contains("not allowed", deniedJson);
 
-            AccountManager.WebServer.Set("AllowGetAccounts", "true");
-            AccountManager.WebServer.Set("AllowGetCookie", "true");
+            AppSettings.WebServer.Set("AllowGetAccounts", "true");
+            AppSettings.WebServer.Set("AllowGetCookie", "true");
 
             string groupAccounts = await mgr.ProcessApiRequestAsync(CreateRequest(
                 "/GetAccounts",
@@ -131,7 +131,7 @@ namespace Shiro.Tests
         public async Task MultiRoblox_StatusAndToggle_Work()
         {
             var mgr = AccountManager.Instance ?? new AccountManager();
-            AccountManager.WSPassword = AdminPassword;
+            AppSettings.WebSocketPassword = AdminPassword;
 
             string statusResp = await mgr.ProcessApiRequestAsync(CreateRequest("/MultiRoblox/Status"));
             Assert.Contains("MutexHeld", statusResp);
@@ -144,7 +144,7 @@ namespace Shiro.Tests
         public async Task PotatoMode_Toggle_Works()
         {
             var mgr = AccountManager.Instance ?? new AccountManager();
-            AccountManager.WSPassword = AdminPassword;
+            AppSettings.WebSocketPassword = AdminPassword;
 
             string resp = await mgr.ProcessApiRequestAsync(CreateRequest("/PotatoMode/Toggle"));
             Assert.Contains("PotatoMode", resp);
@@ -154,7 +154,7 @@ namespace Shiro.Tests
         public async Task AutoReconnect_StatusAndToggle_Work()
         {
             var mgr = AccountManager.Instance ?? new AccountManager();
-            AccountManager.WSPassword = AdminPassword;
+            AppSettings.WebSocketPassword = AdminPassword;
 
             string statusResp = await mgr.ProcessApiRequestAsync(CreateRequest("/AutoReconnect/Status"));
             Assert.Contains("ActiveSessions", statusResp);
@@ -167,9 +167,9 @@ namespace Shiro.Tests
         public async Task AccountsExport_FormatsAndSecurity_Enforced()
         {
             var mgr = AccountManager.Instance ?? new AccountManager();
-            AccountManager.WSPassword = AdminPassword;
-            AccountManager.WebServer.Set("AllowGetAccounts", "true");
-            AccountManager.WebServer.Set("AllowGetCookie", "true");
+            AppSettings.WebSocketPassword = AdminPassword;
+            AppSettings.WebServer.Set("AllowGetAccounts", "true");
+            AppSettings.WebServer.Set("AllowGetCookie", "true");
 
             string badPassResp = await mgr.ProcessApiRequestAsync(CreateRequest("/Accounts/Export", password: "wrong"));
             Assert.Contains("Invalid Password", badPassResp);
@@ -180,7 +180,7 @@ namespace Shiro.Tests
             string txtResp = await mgr.ProcessApiRequestAsync(CreateRequest("/Accounts/Export", query: new Dictionary<string, string> { ["Format"] = "SimpleText", ["Group"] = "G1" }));
             Assert.NotEmpty(txtResp);
 
-            AccountManager.WebServer.Set("AllowGetCookie", "false");
+            AppSettings.WebServer.Set("AllowGetCookie", "false");
             string deniedExport = await mgr.ProcessApiRequestAsync(CreateRequest("/Accounts/Export"));
             Assert.Contains("not allowed", deniedExport);
         }
@@ -189,11 +189,11 @@ namespace Shiro.Tests
         public async Task AccountSpecificEndpoints_PermissionsAndCsrfAuthenticatedRoutes_Work()
         {
             var mgr = AccountManager.Instance ?? new AccountManager();
-            AccountManager.WSPassword = AdminPassword;
-            AccountManager.WebServer.Set("AllowGetAccounts", "true");
-            AccountManager.WebServer.Set("AllowGetCookie", "true");
-            AccountManager.WebServer.Set("AllowAccountEditing", "true");
-            AccountManager.WebServer.Set("AllowLaunchAccount", "true");
+            AppSettings.WebSocketPassword = AdminPassword;
+            AppSettings.WebServer.Set("AllowGetAccounts", "true");
+            AppSettings.WebServer.Set("AllowGetCookie", "true");
+            AppSettings.WebServer.Set("AllowAccountEditing", "true");
+            AppSettings.WebServer.Set("AllowLaunchAccount", "true");
 
             var testAcc = new Account
             {
@@ -204,7 +204,7 @@ namespace Shiro.Tests
             };
 
             AccountManager.ResetAccountsForTests(Array.Empty<Account>());
-            AccountManager.AddAccountThreadSafe(testAcc);
+            AppServices.AccountRepository.AddThreadSafe(testAcc);
 
             // Empty and unknown account
             Assert.Contains("Empty Account", await mgr.ProcessApiRequestAsync(CreateRequest("/GetAlias")));
@@ -214,11 +214,11 @@ namespace Shiro.Tests
             string cookieAllowed = await mgr.ProcessApiRequestAsync(CreateRequest("/GetCookie", query: new Dictionary<string, string> { ["Account"] = "998877" }));
             Assert.Contains("DISPATCHER123", cookieAllowed);
 
-            AccountManager.WebServer.Set("AllowGetCookie", "false");
+            AppSettings.WebServer.Set("AllowGetCookie", "false");
             Assert.Contains("not allowed", await mgr.ProcessApiRequestAsync(CreateRequest("/GetCookie", query: new Dictionary<string, string> { ["Account"] = "998877" })));
 
             // Editing denied paths
-            AccountManager.WebServer.Set("AllowAccountEditing", "false");
+            AppSettings.WebServer.Set("AllowAccountEditing", "false");
             var editQuery = new Dictionary<string, string> { ["Account"] = "DispatcherEndpointUser", ["Field"] = "F1", ["Value"] = "V1" };
             Assert.Contains("not allowed", await mgr.ProcessApiRequestAsync(CreateRequest("/SetField", query: editQuery)));
             Assert.Contains("not allowed", await mgr.ProcessApiRequestAsync(CreateRequest("/RemoveField", query: editQuery)));
@@ -228,11 +228,11 @@ namespace Shiro.Tests
             Assert.Contains("not allowed", await mgr.ProcessApiRequestAsync(CreateRequest("/AppendDescription", query: editQuery, body: "D", isV2: false)));
 
             // LaunchAccount & FollowUser validation
-            AccountManager.WebServer.Set("AllowLaunchAccount", "false");
+            AppSettings.WebServer.Set("AllowLaunchAccount", "false");
             Assert.Contains("not allowed", await mgr.ProcessApiRequestAsync(CreateRequest("/LaunchAccount", query: editQuery)));
             Assert.Contains("not allowed", await mgr.ProcessApiRequestAsync(CreateRequest("/FollowUser", query: editQuery)));
 
-            AccountManager.WebServer.Set("AllowLaunchAccount", "true");
+            AppSettings.WebServer.Set("AllowLaunchAccount", "true");
             Assert.Contains("Invalid PlaceId", await mgr.ProcessApiRequestAsync(CreateRequest("/LaunchAccount", query: new Dictionary<string, string> { ["Account"] = "DispatcherEndpointUser", ["PlaceId"] = "not-a-number" })));
             Assert.Contains("Invalid Username", await mgr.ProcessApiRequestAsync(CreateRequest("/FollowUser", query: new Dictionary<string, string> { ["Account"] = "DispatcherEndpointUser" })));
 
@@ -308,10 +308,10 @@ namespace Shiro.Tests
         public async Task AccountSpecificEndpoints_ProxyAliasDescriptionAndFields_Work()
         {
             var mgr = AccountManager.Instance ?? new AccountManager();
-            AccountManager.WSPassword = AdminPassword;
-            AccountManager.WebServer.Set("AllowGetAccounts", "true");
-            AccountManager.WebServer.Set("AllowGetCookie", "true");
-            AccountManager.WebServer.Set("AllowAccountEditing", "true");
+            AppSettings.WebSocketPassword = AdminPassword;
+            AppSettings.WebServer.Set("AllowGetAccounts", "true");
+            AppSettings.WebServer.Set("AllowGetCookie", "true");
+            AppSettings.WebServer.Set("AllowAccountEditing", "true");
 
             var testAcc = new Account
             {
@@ -321,7 +321,7 @@ namespace Shiro.Tests
             };
 
             AccountManager.ResetAccountsForTests(Array.Empty<Account>());
-            AccountManager.AddAccountThreadSafe(testAcc);
+            AppServices.AccountRepository.AddThreadSafe(testAcc);
 
             string setProxyResp = await mgr.ProcessApiRequestAsync(CreateRequest(
                 "/SetProxy",
@@ -389,10 +389,10 @@ namespace Shiro.Tests
         public async Task Dispatch_BlocksProtectedInternalFields_CaseInsensitively_AndScrubsAccountsJson()
         {
             var mgr = AccountManager.Instance ?? new AccountManager();
-            AccountManager.WSPassword = AdminPassword;
-            AccountManager.WebServer.Set("AllowGetAccounts", "true");
-            AccountManager.WebServer.Set("AllowAccountEditing", "true");
-            AccountManager.WebServer.Set("AllowGetCookie", "false");
+            AppSettings.WebSocketPassword = AdminPassword;
+            AppSettings.WebServer.Set("AllowGetAccounts", "true");
+            AppSettings.WebServer.Set("AllowAccountEditing", "true");
+            AppSettings.WebServer.Set("AllowGetCookie", "false");
 
             var acc = new Account { Username = "HbaGuardUser", UserID = 777, Valid = true };
             acc.HbaPrivateKey = "MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgSecretKeyMaterial";
@@ -435,10 +435,10 @@ namespace Shiro.Tests
         public async Task Dispatch_BlocksAllProtectedSessionAndHbaPrefixFields_AcrossV1AndV2()
         {
             var mgr = AccountManager.Instance ?? new AccountManager();
-            AccountManager.WSPassword = AdminPassword;
-            AccountManager.WebServer.Set("AllowGetAccounts", "true");
-            AccountManager.WebServer.Set("AllowAccountEditing", "true");
-            AccountManager.WebServer.Set("AllowGetCookie", "false");
+            AppSettings.WebSocketPassword = AdminPassword;
+            AppSettings.WebServer.Set("AllowGetAccounts", "true");
+            AppSettings.WebServer.Set("AllowAccountEditing", "true");
+            AppSettings.WebServer.Set("AllowGetCookie", "false");
 
             var acc = new Account { Username = "HbaPrefixUser", UserID = 778, Valid = true };
             acc.HbaPublicKey = "PubKeySpkiSecret";

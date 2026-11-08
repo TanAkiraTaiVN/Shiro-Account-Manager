@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Shiro.Classes;
+using Shiro.Services;
 using Xunit;
 
 namespace Shiro.Tests
@@ -39,7 +40,7 @@ namespace Shiro.Tests
                     {
                         while (!cts.Token.IsCancellationRequested)
                         {
-                            var snapshot = AccountManager.GetAccountsSnapshot();
+                            var snapshot = AppServices.AccountRepository.GetAll();
                             _ = snapshot.Count;
                             Thread.Yield();
                         }
@@ -67,7 +68,7 @@ namespace Shiro.Tests
                                 UserID = (writerIndex * 10000) + i + 1,
                                 SecurityToken = "token"
                             };
-                            AccountManager.AddAccountThreadSafe(acc);
+                            AppServices.AccountRepository.AddThreadSafe(acc);
                         }
                     }
                     catch (Exception ex)
@@ -82,7 +83,7 @@ namespace Shiro.Tests
             await Task.WhenAll(readers);
 
             Assert.Empty(exceptions);
-            Assert.Equal(2000, AccountManager.AccountCount);
+            Assert.Equal(2000, AppServices.AccountRepository.Count);
         }
     }
 }

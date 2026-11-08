@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
@@ -16,26 +17,36 @@ namespace Shiro.Services
         private static readonly Lazy<AppSettings> _currentInstance = new(() => new AppSettings());
         public static AppSettings Current => _currentInstance.Value;
 
-        private static ISettingsService? _generalOverride;
+        private static IniFile? _activeIniFile;
+        private static readonly IniFile FallbackIniFile = new();
 
-        public static IniFile? ActiveIniFile { get; set; }
+        [AllowNull]
+        public static IniFile ActiveIniFile
+        {
+            get => _activeIniFile ?? FallbackIniFile;
+            set
+            {
+                _activeIniFile = value;
+                _generalOverride = null;
+            }
+        }
+
+        private static ISettingsService? _generalOverride;
 
         /// <summary>
         /// General application settings service. Can be overridden in unit tests to prevent cross-test contamination.
         /// </summary>
         public static ISettingsService General
         {
-            get => _generalOverride ?? (ISettingsService?)ActiveIniFile?.Section("General") ?? FallbackGeneral;
+            get => _generalOverride ?? (ISettingsService)ActiveIniFile.Section("General");
             set => _generalOverride = value;
         }
 
-        private static readonly IniSection FallbackGeneral = new("General");
-
-        public static IniSection? WebServer => ActiveIniFile?.Section("WebServer");
-        public static IniSection? Developer => ActiveIniFile?.Section("Developer");
-        public static IniSection? AccountControl => ActiveIniFile?.Section("AccountControl");
-        public static IniSection? Watcher => ActiveIniFile?.Section("Watcher");
-        public static IniSection? Prompts => ActiveIniFile?.Section("Prompts");
+        public static IniSection WebServer => ActiveIniFile.Section("WebServer");
+        public static IniSection Developer => ActiveIniFile.Section("Developer");
+        public static IniSection AccountControl => ActiveIniFile.Section("AccountControl");
+        public static IniSection Watcher => ActiveIniFile.Section("Watcher");
+        public static IniSection Prompts => ActiveIniFile.Section("Prompts");
 
         public static string? WebSocketPassword
         {
@@ -150,8 +161,8 @@ namespace Shiro.Services
             _generalOverride = null;
         }
 
-        public IniSection? GetSection(string sectionName) =>
-            ActiveIniFile?.Section(sectionName);
+        public IniSection GetSection(string sectionName) =>
+            ActiveIniFile.Section(sectionName);
 
         private bool GetBool(string section, string key, bool fallback = false)
         {

@@ -42,14 +42,14 @@ namespace Shiro
                 return;
             }
 
-            IniSettings?.Save(StoragePaths.SettingsFile);
+            AppSettings.ActiveIniFile.Save(StoragePaths.SettingsFile);
         }
 
         private async Task LoadRecentGames()
         {
             lock (rgSaveLock)
             {
-                RecentGames = new List<Game>();
+                AppServices.ServerBrowserState.RecentGames = new List<Game>();
             }
 
             if (File.Exists(RecentGamesFilePath))
@@ -83,24 +83,24 @@ namespace Shiro
             if (RG == null) return;
             await RG.WaitForDetails().ConfigureAwait(false);
 
-            int maxRecentGames = General?.Get<int>("MaxRecentGames") ?? 10;
+            int maxRecentGames = AppSettings.General.Exists("MaxRecentGames") ? AppSettings.General.Get<int>("MaxRecentGames") : 10;
             string? serialized = null;
 
             lock (rgSaveLock)
             {
-                RecentGames ??= new List<Game>();
-                RecentGames.RemoveAll(g => g?.Details?.placeId == RG.Details?.placeId);
+                AppServices.ServerBrowserState.RecentGames ??= new List<Game>();
+                AppServices.ServerBrowserState.RecentGames.RemoveAll(g => g?.Details?.placeId == RG.Details?.placeId);
 
-                while (RecentGames.Count > maxRecentGames && RecentGames.Count > 0)
+                while (AppServices.ServerBrowserState.RecentGames.Count > maxRecentGames && AppServices.ServerBrowserState.RecentGames.Count > 0)
                 {
-                    RecentGames.RemoveAt(0);
+                    AppServices.ServerBrowserState.RecentGames.RemoveAt(0);
                 }
 
-                RecentGames.Add(RG);
+                AppServices.ServerBrowserState.RecentGames.Add(RG);
 
                 if (!Loading)
                 {
-                    serialized = Utilities.FastJson.Serialize(RecentGames, indented: true);
+                    serialized = Utilities.FastJson.Serialize(AppServices.ServerBrowserState.RecentGames, indented: true);
                     StoragePaths.AtomicWriteText(RecentGamesFilePath, serialized);
                 }
             }
@@ -113,7 +113,7 @@ namespace Shiro
 
         private void WireStateAndHostBridgeServices()
         {
-            AppSettings.ActiveIniFile = IniSettings;
+            // AppSettings.ActiveIniFile already configured
             ServerBrowserStateService.Default.LoadClientVersionDelegate = LoadClientVersionAsync;
 
             var bridge = HostUiBridgeService.Default;
@@ -174,7 +174,7 @@ namespace Shiro
 
                 using var vDoc = System.Text.Json.JsonDocument.Parse(versionJson);
                 if (vDoc.RootElement.TryGetProperty("clientVersionUpload", out var token))
-                    CurrentVersion = token.GetString() ?? string.Empty;
+                    AppServices.ServerBrowserState.CurrentClientVersion = token.GetString() ?? string.Empty;
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {

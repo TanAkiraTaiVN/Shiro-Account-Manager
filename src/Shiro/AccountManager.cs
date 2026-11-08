@@ -19,60 +19,14 @@ using System.Threading;
 using System.Threading.Tasks;
 using Shiro.Services;
 
-
-
 namespace Shiro
 {
     public partial class AccountManager : IDisposable
     {
-        public static AccountManager? Instance;
-        public static List<Account> SelectedAccounts
-        {
-            get => SelectionStateService.Default.SelectedAccounts;
-            set => SelectionStateService.Default.SelectedAccounts = value;
-        }
-        public static List<Game> RecentGames
-        {
-            get => ServerBrowserStateService.Default.RecentGames;
-            set => ServerBrowserStateService.Default.RecentGames = value;
-        }
-        public static Account? SelectedAccount
-        {
-            get => SelectionStateService.Default.SelectedAccount;
-            set => SelectionStateService.Default.SelectedAccount = value;
-        }
-        public static Account? LastValidAccount
-        {
-            get => SelectionStateService.Default.LastValidAccount;
-            set => SelectionStateService.Default.LastValidAccount = value;
-        }
-
-        public static string CurrentPlaceId
-        {
-            get => ServerBrowserStateService.Default.CurrentPlaceId;
-            set => ServerBrowserStateService.Default.CurrentPlaceId = value;
-        }
-
-        public static string CurrentJobId
-        {
-            get => ServerBrowserStateService.Default.CurrentJobId;
-            set => ServerBrowserStateService.Default.CurrentJobId = value;
-        }
-
-        public static List<ServerData> CachedServers => ServerBrowserStateService.Default.CachedServers;
+        public static AccountManager? Instance { get; internal set; }
 
         private readonly static DateTime startTime = DateTime.Now;
-        public static bool ShuffleJobID
-        {
-            get => ServerBrowserStateService.Default.ShuffleJobId;
-            set => ServerBrowserStateService.Default.ShuffleJobId = value;
-        }
         private static bool PuppeteerSupported;
-        public static string CurrentVersion
-        {
-            get => ServerBrowserStateService.Default.CurrentClientVersion ?? string.Empty;
-            set => ServerBrowserStateService.Default.CurrentClientVersion = value;
-        }
         public bool IsDisposed => shutdownFinalized;
         public bool IsHandleCreated => true;
 
@@ -91,11 +45,6 @@ namespace Shiro
             AppDispatcher.Post(action);
         }
         private KestrelWebServer? AltManagerWS;
-        internal static string WSPassword
-        {
-            get => ServerBrowserStateService.Default.WebSocketPassword ?? string.Empty;
-            set => ServerBrowserStateService.Default.WebSocketPassword = value;
-        }
         public Shiro.Services.ModernPeriodicTask? AutoCookieRefresh { get; private set; }
         public Shiro.Services.ModernPeriodicTask? PresenceTimer { get; private set; }
         private readonly System.Threading.Lock presenceTaskLock = new();
@@ -108,23 +57,6 @@ namespace Shiro
         private bool shutdownRequested;
         private bool shutdownFinalized;
 
-        private static IniFile _iniSettings = null!;
-        public static IniFile IniSettings
-        {
-            get => _iniSettings;
-            set { _iniSettings = value; AppSettings.ActiveIniFile = value; }
-        }
-        private static IniSection _general = null!;
-        public static IniSection General
-        {
-            get => _general;
-            set { _general = value; AppSettings.General = value; }
-        }
-        public static IniSection Developer = null!;
-        public static IniSection WebServer = null!;
-        public static IniSection AccountControl = null!;
-        public static IniSection Watcher = null!;
-        public static IniSection Prompts = null!;
         private readonly SettingsService settingsService;
         internal static AccountStore accountStore = null!;
         internal static System.Threading.Lock AccountListLock => AccountRepository.Default.SyncRoot;
@@ -133,7 +65,7 @@ namespace Shiro
         private bool accountDataNeedsMigration;
 
         // Keep the value used by the launch countdown and the native launch
-        // gate in one place.  Older builds had a second hardcoded 30-second
+        // gate in one place. Older builds had a second hardcoded 30-second
         // gate in Account.cs, which made smaller values in Settings appear to
         // be ignored.
         internal const int DefaultAccountJoinDelaySeconds = 8;
@@ -146,7 +78,7 @@ namespace Shiro
 
             try
             {
-                string? configured = General?.Get("AccountJoinDelay");
+                string? configured = AppSettings.General.Get("AccountJoinDelay");
                 if (!int.TryParse(configured, NumberStyles.Integer, CultureInfo.InvariantCulture, out delay))
                     delay = DefaultAccountJoinDelaySeconds;
             }
@@ -160,14 +92,6 @@ namespace Shiro
                 MinimumAccountJoinDelaySeconds,
                 Math.Min(MaximumAccountJoinDelaySeconds, delay));
         }
-
-        internal static IReadOnlyList<Account> GetAccountsSnapshot() => AccountRepository.Default.GetAll();
-
-        public static IReadOnlyList<Account> Accounts => GetAccountsSnapshot();
-
-        public static int AccountCount => AccountRepository.Default.Count;
-
-        public static void AddAccountThreadSafe(Account account) => AccountRepository.Default.AddThreadSafe(account);
 
         internal static void ReplaceAccountsList(List<Account> accounts)
         {
@@ -196,15 +120,16 @@ namespace Shiro
         {
             Instance = this;
 
+            IniFile iniSettings;
             if (File.Exists(StoragePaths.SettingsFile))
             {
-                IniSettings = new IniFile(StoragePaths.SettingsFile);
+                iniSettings = new IniFile(StoragePaths.SettingsFile);
                 if (File.Exists(StoragePaths.LegacySettingsFile))
                 {
                     try
                     {
                         var legacy = new IniFile(StoragePaths.LegacySettingsFile);
-                        var gen = IniSettings.Section("General");
+                        var gen = iniSettings.Section("General");
                         var legGen = legacy.Section("General");
                         if (legGen != null)
                         {
@@ -226,106 +151,102 @@ namespace Shiro
             }
             else if (File.Exists(StoragePaths.LegacySettingsFile))
             {
-                IniSettings = new IniFile(StoragePaths.LegacySettingsFile);
-                IniSettings.Save(StoragePaths.SettingsFile);
+                iniSettings = new IniFile(StoragePaths.LegacySettingsFile);
+                iniSettings.Save(StoragePaths.SettingsFile);
             }
             else
             {
-                IniSettings = new IniFile();
+                iniSettings = new IniFile();
             }
-            settingsService = new SettingsService(IniSettings);
+
+            AppSettings.ActiveIniFile = iniSettings;
+            settingsService = new SettingsService(iniSettings);
             accountStore = new AccountStore();
             presenceService = new PresenceService();
             browserService = new BrowserService();
 
-            General = IniSettings.Section("General");
-            Developer = IniSettings.Section("Developer");
-            WebServer = IniSettings.Section("WebServer");
-            AccountControl = IniSettings.Section("AccountControl");
-            Watcher = IniSettings.Section("Watcher");
-            Prompts = IniSettings.Section("Prompts");
             WireStateAndHostBridgeServices();
 
-            if (General.Exists("SavedPlaceId") && !string.IsNullOrWhiteSpace(General.Get("SavedPlaceId")))
+            if (AppSettings.General.Exists("SavedPlaceId") && !string.IsNullOrWhiteSpace(AppSettings.General.Get("SavedPlaceId")))
             {
-                CurrentPlaceId = General.Get("SavedPlaceId")?.Trim() ?? string.Empty;
+                AppServices.ServerBrowserState.CurrentPlaceId = AppSettings.General.Get("SavedPlaceId")?.Trim() ?? string.Empty;
             }
 
-            if (!General.Exists("AccentTheme")) General.Set("AccentTheme", "Monochrome");
-            if (!General.Exists("CheckForUpdates")) General.Set("CheckForUpdates", "true");
-            if (!General.Exists("AccountJoinDelay"))
-                General.Set("AccountJoinDelay", DefaultAccountJoinDelaySeconds.ToString(CultureInfo.InvariantCulture));
-            if (!General.Exists("AsyncJoin")) General.Set("AsyncJoin", "false");
-            if (!General.Exists("DisableAgingAlert")) General.Set("DisableAgingAlert", "false");
-            if (!General.Exists("SavePasswords")) General.Set("SavePasswords", "true");
-            if (!General.Exists("ServerRegionFormat")) General.Set("ServerRegionFormat", "<city>, <countryCode>", "Visit http://ip-api.com/json/1.1.1.1 to see available format options");
-            if (!General.Exists("MaxRecentGames")) General.Set("MaxRecentGames", "8");
-            if (!General.Exists("ShuffleChoosesLowestServer")) General.Set("ShuffleChoosesLowestServer", "false");
-            if (!General.Exists("ShufflePageCount")) General.Set("ShufflePageCount", "5");
-            if (!General.Exists("IPApiLink")) General.Set("IPApiLink", "http://ip-api.com/json/<ip>");
-            if (!General.Exists("WindowScale"))
+            if (!AppSettings.General.Exists("AccentTheme")) AppSettings.General.Set("AccentTheme", "Monochrome");
+            if (!AppSettings.General.Exists("CheckForUpdates")) AppSettings.General.Set("CheckForUpdates", "true");
+            if (!AppSettings.General.Exists("AccountJoinDelay"))
+                AppSettings.General.Set("AccountJoinDelay", DefaultAccountJoinDelaySeconds.ToString(CultureInfo.InvariantCulture));
+            if (!AppSettings.General.Exists("AsyncJoin")) AppSettings.General.Set("AsyncJoin", "false");
+            if (!AppSettings.General.Exists("DisableAgingAlert")) AppSettings.General.Set("DisableAgingAlert", "false");
+            if (!AppSettings.General.Exists("SavePasswords")) AppSettings.General.Set("SavePasswords", "true");
+            if (!AppSettings.General.Exists("ServerRegionFormat")) AppSettings.General.Set("ServerRegionFormat", "<city>, <countryCode>", "Visit http://ip-api.com/json/1.1.1.1 to see available format options");
+            if (!AppSettings.General.Exists("MaxRecentGames")) AppSettings.General.Set("MaxRecentGames", "8");
+            if (!AppSettings.General.Exists("ShuffleChoosesLowestServer")) AppSettings.General.Set("ShuffleChoosesLowestServer", "false");
+            if (!AppSettings.General.Exists("ShufflePageCount")) AppSettings.General.Set("ShufflePageCount", "5");
+            if (!AppSettings.General.Exists("IPApiLink")) AppSettings.General.Set("IPApiLink", "http://ip-api.com/json/<ip>");
+            if (!AppSettings.General.Exists("WindowScale"))
             {
                 double screenHeight = OperatingSystem.IsWindows() ? GetSystemMetrics(1) : 1080;
                 double screenWidth = OperatingSystem.IsWindows() ? GetSystemMetrics(0) : 1920;
-                General.Set("WindowScale", screenHeight <= screenWidth ? Math.Max(Math.Min((float)(screenHeight / 1080.0), 2f), 1f).ToString(".0#", CultureInfo.InvariantCulture) : "1.0");
+                AppSettings.General.Set("WindowScale", screenHeight <= screenWidth ? Math.Max(Math.Min((float)(screenHeight / 1080.0), 2f), 1f).ToString(".0#", CultureInfo.InvariantCulture) : "1.0");
 
                 if (Program.Scale > 1)
                     if (!Utilities.YesNoPrompt("Shiro", "Shiro has detected you have a monitor larger than average", $"Would you like to keep the WindowScale setting of {Program.Scale:F2}?", false))
-                        General.Set("WindowScale", "1.0");
+                        AppSettings.General.Set("WindowScale", "1.0");
                     else
                         AppServices.Dialogs.ShowInfo("In case the font scaling is incorrect, open RAMSettings.ini and change \"ScaleFonts=true\" to \"ScaleFonts=false\" without the quotes.");
             }
-            if (!General.Exists("ScaleFonts")) General.Set("ScaleFonts", "true");
-            if (!General.Exists("AutoCookieRefresh")) General.Set("AutoCookieRefresh", "true");
-            if (!General.Exists("AutoCloseLastProcess")) General.Set("AutoCloseLastProcess", "true");
-            if (!General.Exists("AutoCloseRobloxOnLaunch")) General.Set("AutoCloseRobloxOnLaunch", "false");
-            if (!General.Exists("ShowPresence")) General.Set("ShowPresence", "true");
-            if (!General.Exists("PresenceUpdateRate")) General.Set("PresenceUpdateRate", "5");
+            if (!AppSettings.General.Exists("ScaleFonts")) AppSettings.General.Set("ScaleFonts", "true");
+            if (!AppSettings.General.Exists("AutoCookieRefresh")) AppSettings.General.Set("AutoCookieRefresh", "true");
+            if (!AppSettings.General.Exists("AutoCloseLastProcess")) AppSettings.General.Set("AutoCloseLastProcess", "true");
+            if (!AppSettings.General.Exists("AutoCloseRobloxOnLaunch")) AppSettings.General.Set("AutoCloseRobloxOnLaunch", "false");
+            if (!AppSettings.General.Exists("ShowPresence")) AppSettings.General.Set("ShowPresence", "true");
+            if (!AppSettings.General.Exists("PresenceUpdateRate")) AppSettings.General.Set("PresenceUpdateRate", "5");
             // Multi-client support is the default for fresh installations so
             // the Launch selected workflow can open more than one Roblox
             // client without requiring a first-run settings change. An
             // existing user preference is preserved when the key is present.
-            if (!General.Exists("EnableMultiRbx")) General.Set("EnableMultiRbx", "true");
-            if (!General.Exists("UnlockFPS")) General.Set("UnlockFPS", "false");
-            if (!General.Exists("MaxFPSValue")) General.Set("MaxFPSValue", "120");
-            if (!General.Exists("EnablePotatoMode")) General.Set("EnablePotatoMode", "false");
+            if (!AppSettings.General.Exists("EnableMultiRbx")) AppSettings.General.Set("EnableMultiRbx", "true");
+            if (!AppSettings.General.Exists("UnlockFPS")) AppSettings.General.Set("UnlockFPS", "false");
+            if (!AppSettings.General.Exists("MaxFPSValue")) AppSettings.General.Set("MaxFPSValue", "120");
+            if (!AppSettings.General.Exists("EnablePotatoMode")) AppSettings.General.Set("EnablePotatoMode", "false");
             // Keep the native Roblox Home protocol as the default. Chrome is
             // still available as an optional compatibility workaround when
             // native authentication is rate-limited.
-            if (!General.Exists("UseChromeHome")) General.Set("UseChromeHome", "false");
+            if (!AppSettings.General.Exists("UseChromeHome")) AppSettings.General.Set("UseChromeHome", "false");
             // Optional per-browser proxy routing. Keep this off by default so
             // normal installations retain the direct/system network route.
             // When enabled, RobloxBrowserLogin reads proxies.txt from the
             // application folder and validates entries before launching Chrome.
-            if (!General.Exists("UseProxies")) General.Set("UseProxies", "false");
-            if (!General.Exists("ProxyTimeout")) General.Set("ProxyTimeout", "5000");
-            if (!General.Exists("ProxyTestLimit")) General.Set("ProxyTestLimit", "10");
-            if (!General.Exists(AppSettingsKeys.General.PreferDirectLaunch)) General.Set(AppSettingsKeys.General.PreferDirectLaunch, "false");
-            if (!General.Exists(AppSettingsKeys.General.SmartFastLaunch)) General.Set(AppSettingsKeys.General.SmartFastLaunch, "true");
+            if (!AppSettings.General.Exists("UseProxies")) AppSettings.General.Set("UseProxies", "false");
+            if (!AppSettings.General.Exists("ProxyTimeout")) AppSettings.General.Set("ProxyTimeout", "5000");
+            if (!AppSettings.General.Exists("ProxyTestLimit")) AppSettings.General.Set("ProxyTestLimit", "10");
+            if (!AppSettings.General.Exists(AppSettingsKeys.General.PreferDirectLaunch)) AppSettings.General.Set(AppSettingsKeys.General.PreferDirectLaunch, "false");
+            if (!AppSettings.General.Exists(AppSettingsKeys.General.SmartFastLaunch)) AppSettings.General.Set(AppSettingsKeys.General.SmartFastLaunch, "true");
 
-            if (!Developer.Exists("DevMode")) Developer.Set("DevMode", "false");
-            if (!Developer.Exists("EnableWebServer")) Developer.Set("EnableWebServer", "false");
+            if (!AppSettings.Developer.Exists("DevMode")) AppSettings.Developer.Set("DevMode", "false");
+            if (!AppSettings.Developer.Exists("EnableWebServer")) AppSettings.Developer.Set("EnableWebServer", "false");
 
-            if (!WebServer.Exists("WebServerPort")) WebServer.Set("WebServerPort", "7963");
-            if (!WebServer.Exists("AllowGetCookie")) WebServer.Set("AllowGetCookie", "false");
-            if (!WebServer.Exists("AllowGetAccounts")) WebServer.Set("AllowGetAccounts", "false");
-            if (!WebServer.Exists("AllowLaunchAccount")) WebServer.Set("AllowLaunchAccount", "false");
-            if (!WebServer.Exists("AllowAccountEditing")) WebServer.Set("AllowAccountEditing", "false");
-            if (!WebServer.Exists("Password")) WebServer.Set("Password", ""); else WSPassword = CryptoHelper.UnprotectSecretString(WebServer.Get("Password") ?? string.Empty);
-            if (!WebServer.Exists("EveryRequestRequiresPassword")) WebServer.Set("EveryRequestRequiresPassword", "false");
-            if (!WebServer.Exists("AllowExternalConnections")) WebServer.Set("AllowExternalConnections", "false");
+            if (!AppSettings.WebServer.Exists("WebServerPort")) AppSettings.WebServer.Set("WebServerPort", "7963");
+            if (!AppSettings.WebServer.Exists("AllowGetCookie")) AppSettings.WebServer.Set("AllowGetCookie", "false");
+            if (!AppSettings.WebServer.Exists("AllowGetAccounts")) AppSettings.WebServer.Set("AllowGetAccounts", "false");
+            if (!AppSettings.WebServer.Exists("AllowLaunchAccount")) AppSettings.WebServer.Set("AllowLaunchAccount", "false");
+            if (!AppSettings.WebServer.Exists("AllowAccountEditing")) AppSettings.WebServer.Set("AllowAccountEditing", "false");
+            if (!AppSettings.WebServer.Exists("Password")) AppSettings.WebServer.Set("Password", ""); else AppSettings.WebSocketPassword = CryptoHelper.UnprotectSecretString(AppSettings.WebServer.Get("Password") ?? string.Empty);
+            if (!AppSettings.WebServer.Exists("EveryRequestRequiresPassword")) AppSettings.WebServer.Set("EveryRequestRequiresPassword", "false");
+            if (!AppSettings.WebServer.Exists("AllowExternalConnections")) AppSettings.WebServer.Set("AllowExternalConnections", "false");
 
-            if (!AccountControl.Exists("AllowExternalConnections")) AccountControl.Set("AllowExternalConnections", "false");
-            if (!AccountControl.Exists("RelaunchDelay")) AccountControl.Set("RelaunchDelay", "60");
-            if (!AccountControl.Exists("LauncherDelayNumber")) AccountControl.Set("LauncherDelayNumber", "9");
-            if (!AccountControl.Exists("NexusPort")) AccountControl.Set("NexusPort", "5242");
+            if (!AppSettings.AccountControl.Exists("AllowExternalConnections")) AppSettings.AccountControl.Set("AllowExternalConnections", "false");
+            if (!AppSettings.AccountControl.Exists("RelaunchDelay")) AppSettings.AccountControl.Set("RelaunchDelay", "60");
+            if (!AppSettings.AccountControl.Exists("LauncherDelayNumber")) AppSettings.AccountControl.Set("LauncherDelayNumber", "9");
+            if (!AppSettings.AccountControl.Exists("NexusPort")) AppSettings.AccountControl.Set("NexusPort", "5242");
 
             ReplaceAccountsList(new List<Account>());
-            SelectedAccounts = new List<Account>();
+            AppServices.SelectionState.SelectedAccounts = new List<Account>();
             launchCoordinator = new LaunchCoordinator(ExecuteLaunchRequestAsync);
             browserService = BrowserService.Default;
 
-            if (!Prompts.Exists("VCPrompted") && PrerequisiteService.NeedsVCRedist())
+            if (!AppSettings.Prompts.Exists("VCPrompted") && PrerequisiteService.NeedsVCRedist())
                 vcredistInstallTask = PrerequisiteService.InstallVCRedistAsync(lifetimeCancellation.Token);
         }
 
@@ -338,13 +259,13 @@ namespace Shiro
         {
             RefreshModernDashboard();
 
-            if (General != null && General.Get<bool>("ShowPresence"))
+            if (AppSettings.General.Get<bool>("ShowPresence"))
                 _ = UpdatePresence();
         }
 
         private void RefreshModernDashboard()
         {
-            var snapshot = GetAccountsSnapshot();
+            var snapshot = AppServices.AccountRepository.GetAll();
             HostUiBridgeService.Default.NotifyAccountsReplaced(snapshot);
         }
 

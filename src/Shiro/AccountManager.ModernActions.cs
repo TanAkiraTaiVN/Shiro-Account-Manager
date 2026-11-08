@@ -25,13 +25,13 @@ namespace Shiro
 
         internal List<Account> GetCurrentSelectedAccounts() =>
             HostUiBridgeService.Default.TryGetDashboardSelectedAccounts()
-            ?? SelectedAccounts?.ToList() ?? new List<Account>();
+            ?? AppServices.SelectionState.SelectedAccounts?.ToList() ?? new List<Account>();
 
         internal void ModernOpenAccountControl() => AppServices.Dialogs.OpenNexusWindow();
 
         internal void ModernMultiLaunch()
         {
-            if (GetAccountsSnapshot().Count == 0)
+            if (AppServices.AccountRepository.Count == 0)
             {
                 SetDashboardStatus(Shiro.Services.LocalizationService.Get("AccountManager.AddAccountBeforeLaunch"));
                 return;
@@ -44,7 +44,7 @@ namespace Shiro
                 return;
             }
 
-            if (multiSel.Count > 1 && General.Get<bool>("EnableMultiRbx") && !RobloxSingletonService.MutexHeld && !TryEnableMultiRoblox(promptIfRobloxRunning: true))
+            if (multiSel.Count > 1 && AppSettings.General.Get<bool>("EnableMultiRbx") && !RobloxSingletonService.MutexHeld && !TryEnableMultiRoblox(promptIfRobloxRunning: true))
                 return;
 
             _ = LaunchHomeAccountsAsync(multiSel, preferChromeHome: false);
@@ -53,7 +53,7 @@ namespace Shiro
 
         internal async Task ModernJoinServerDirect(List<Account> accounts, long placeId, string jobId)
         {
-            var snapshot = GetAccountsSnapshot();
+            var snapshot = AppServices.AccountRepository.GetAll();
             if (snapshot.Count == 0)
             {
                 SetDashboardStatus(Shiro.Services.LocalizationService.Get("AccountManager.AddAccountBeforeJoin"));
@@ -81,7 +81,7 @@ namespace Shiro
                 string? pidSource = ResolveEffectivePlaceIdSource(
                     HostUiBridgeService.Default.TryGetDashboardPlaceId(),
                     targetAccounts,
-                    ServerBrowserStateService.Default.IsPlaceIdExplicitlyCleared ? string.Empty : CurrentPlaceId);
+                    ServerBrowserStateService.Default.IsPlaceIdExplicitlyCleared ? string.Empty : AppServices.ServerBrowserState.CurrentPlaceId);
 
                 if (!string.IsNullOrWhiteSpace(pidSource))
                     placeId = AccountLauncherService.ParsePlaceId(pidSource);
@@ -97,21 +97,21 @@ namespace Shiro
                 ? jobId
                 : HostUiBridgeService.Default.TryGetDashboardJobId() is string vmJid && !string.IsNullOrWhiteSpace(vmJid)
                     ? vmJid
-                    : !string.IsNullOrWhiteSpace(CurrentJobId)
-                        ? CurrentJobId
+                    : !string.IsNullOrWhiteSpace(AppServices.ServerBrowserState.CurrentJobId)
+                        ? AppServices.ServerBrowserState.CurrentJobId
                         : targetAccounts.FirstOrDefault(a => !string.IsNullOrEmpty(a.GetField("SavedJobId")))?.GetField("SavedJobId") ?? string.Empty;
 
             cleanJobId = cleanJobId?.Trim() ?? string.Empty;
             bool isVip = cleanJobId.StartsWith("VIP:", StringComparison.OrdinalIgnoreCase);
             if (isVip) cleanJobId = cleanJobId.Substring(4).Trim();
 
-            CurrentPlaceId = placeId.ToString();
-            CurrentJobId = isVip ? ("VIP:" + cleanJobId) : cleanJobId;
+            AppServices.ServerBrowserState.CurrentPlaceId = placeId.ToString();
+            AppServices.ServerBrowserState.CurrentJobId = isVip ? ("VIP:" + cleanJobId) : cleanJobId;
 
-            SelectedAccounts = targetAccounts.ToList();
-            SelectedAccount = SelectedAccounts.Count == 1 ? SelectedAccounts[0] : null;
+            AppServices.SelectionState.SelectedAccounts = targetAccounts.ToList();
+            AppServices.SelectionState.SelectedAccount = AppServices.SelectionState.SelectedAccounts.Count == 1 ? AppServices.SelectionState.SelectedAccounts[0] : null;
 
-            if (targetAccounts.Count > 1 && General.Get<bool>("EnableMultiRbx") && !RobloxSingletonService.MutexHeld && !TryEnableMultiRoblox(promptIfRobloxRunning: false))
+            if (targetAccounts.Count > 1 && AppSettings.General.Get<bool>("EnableMultiRbx") && !RobloxSingletonService.MutexHeld && !TryEnableMultiRoblox(promptIfRobloxRunning: false))
             {
                 SetDashboardStatus(Shiro.Services.LocalizationService.Get("AccountManager.MultiRobloxFailedCloseClient"));
                 return;
@@ -128,9 +128,9 @@ namespace Shiro
             }
 
             string serverDesc = string.IsNullOrEmpty(cleanJobId) ? "Public Server" : (isVip ? "VIP Server" : $"Server {cleanJobId}");
-            SetDashboardStatus(Shiro.Services.LocalizationService.Format("AccountManager.JoiningServer", serverDesc, placeId, SelectedAccounts.Count));
+            SetDashboardStatus(Shiro.Services.LocalizationService.Format("AccountManager.JoiningServer", serverDesc, placeId, AppServices.SelectionState.SelectedAccounts.Count));
 
-            await LaunchAccounts(SelectedAccounts, placeId, cleanJobId, false, isVip).ConfigureAwait(true);
+            await LaunchAccounts(AppServices.SelectionState.SelectedAccounts, placeId, cleanJobId, false, isVip).ConfigureAwait(true);
         }
 
         internal void ModernCloseRoblox(bool notify = true)
@@ -144,7 +144,7 @@ namespace Shiro
             }
 
             HostUiBridgeService.Default.NotifyRobloxProcessesClosed(totalKilled, notify);
-            if (General.Get<bool>("EnableMultiRbx") && !RobloxSingletonService.MutexHeld && UpdateMultiRoblox() && notify)
+            if (AppSettings.General.Get<bool>("EnableMultiRbx") && !RobloxSingletonService.MutexHeld && UpdateMultiRoblox() && notify)
                 SetDashboardStatus(Shiro.Services.LocalizationService.Get("AccountManager.KilledAndActivatedMulti"));
 
             ModernRefreshPresence();

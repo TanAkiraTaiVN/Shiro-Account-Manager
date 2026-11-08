@@ -18,12 +18,6 @@ namespace Shiro.Tests
         {
             public AccountManager? Instance { get; init; }
             public IniFile IniSettings { get; init; } = null!;
-            public IniSection General { get; init; } = null!;
-            public IniSection Developer { get; init; } = null!;
-            public IniSection WebServer { get; init; } = null!;
-            public IniSection AccountControl { get; init; } = null!;
-            public IniSection Watcher { get; init; } = null!;
-            public IniSection Prompts { get; init; } = null!;
 
             public static StaticSettingsSnapshot Capture()
             {
@@ -31,25 +25,13 @@ namespace Shiro.Tests
                 return new StaticSettingsSnapshot
                 {
                     Instance = mgr,
-                    IniSettings = AccountManager.IniSettings,
-                    General = AccountManager.General,
-                    Developer = AccountManager.Developer,
-                    WebServer = AccountManager.WebServer,
-                    AccountControl = AccountManager.AccountControl,
-                    Watcher = AccountManager.Watcher,
-                    Prompts = AccountManager.Prompts
+                    IniSettings = AppSettings.ActiveIniFile,
                 };
             }
 
             public void Restore()
             {
-                AccountManager.IniSettings = IniSettings;
-                AccountManager.General = General;
-                AccountManager.Developer = Developer;
-                AccountManager.WebServer = WebServer;
-                AccountManager.AccountControl = AccountControl;
-                AccountManager.Watcher = Watcher;
-                AccountManager.Prompts = Prompts;
+                AppSettings.ActiveIniFile = IniSettings;
                 AccountManager.Instance = Instance;
                 if (Instance != null)
                 {
@@ -91,7 +73,7 @@ namespace Shiro.Tests
         {
             var snap = StaticSettingsSnapshot.Capture();
             bool prevSuppress = AccountManager.SuppressExitOnShutdown;
-            string prevPlaceId = AccountManager.CurrentPlaceId;
+            string prevPlaceId = AppServices.ServerBrowserState.CurrentPlaceId;
 
             AccountManager? temp1 = null;
             AccountManager? temp2 = null;
@@ -101,13 +83,13 @@ namespace Shiro.Tests
 
                 // 1. Missing SavedPlaceId + missing WebServerPort (with WebServer disabled to avoid port 7963 collision)
                 temp1 = new AccountManager();
-                AccountManager.General.RemoveProperty("SavedPlaceId");
-                AccountManager.WebServer.RemoveProperty("WebServerPort");
-                AccountManager.Developer.Set("EnableWebServer", "false");
-                AccountManager.General.Set("ShowPresence", "false");
-                AccountManager.General.Set("AutoCookieRefresh", "false");
+                AppSettings.General.RemoveProperty("SavedPlaceId");
+                AppSettings.WebServer.RemoveProperty("WebServerPort");
+                AppSettings.Developer.Set("EnableWebServer", "false");
+                AppSettings.General.Set("ShowPresence", "false");
+                AppSettings.General.Set("AutoCookieRefresh", "false");
                 temp1.InitializeBackendServices();
-                Assert.Equal("5315046213", AccountManager.CurrentPlaceId);
+                Assert.Equal("5315046213", AppServices.ServerBrowserState.CurrentPlaceId);
 
                 // 2. Valid numeric WebServerPort + missing WebServerPort fallback when EnableWebServer=true
                 int freePort;
@@ -118,9 +100,9 @@ namespace Shiro.Tests
                 }
 
                 temp2 = new AccountManager();
-                AccountManager.Developer.Set("EnableWebServer", "true");
-                AccountManager.WebServer.Set("WebServerPort", freePort.ToString());
-                AccountManager.WebServer.Set("AllowExternalConnections", "false");
+                AppSettings.Developer.Set("EnableWebServer", "true");
+                AppSettings.WebServer.Set("WebServerPort", freePort.ToString());
+                AppSettings.WebServer.Set("AllowExternalConnections", "false");
                 temp2.InitializeBackendServices();
                 await Task.Delay(50);
                 await temp2.StopWebServerAsync();
@@ -128,8 +110,8 @@ namespace Shiro.Tests
 
                 // 3. Also exercise missing WebServerPort with EnableWebServer=true
                 using var temp3 = new AccountManager();
-                AccountManager.Developer.Set("EnableWebServer", "true");
-                AccountManager.WebServer.RemoveProperty("WebServerPort");
+                AppSettings.Developer.Set("EnableWebServer", "true");
+                AppSettings.WebServer.RemoveProperty("WebServerPort");
                 temp3.InitializeBackendServices();
                 await Task.Delay(50);
                 await temp3.StopWebServerAsync();
@@ -138,7 +120,7 @@ namespace Shiro.Tests
             {
                 temp1?.Dispose();
                 temp2?.Dispose();
-                AccountManager.CurrentPlaceId = prevPlaceId;
+                AppServices.ServerBrowserState.CurrentPlaceId = prevPlaceId;
                 snap.Restore();
                 AccountManager.SuppressExitOnShutdown = prevSuppress;
             }
@@ -157,29 +139,29 @@ namespace Shiro.Tests
                 tempMgr = new AccountManager();
 
                 // Pass A: all optional General keys removed -> exercises Exists(...) == false arms
-                AccountManager.General.RemoveProperty("AutoCloseRobloxOnLaunch");
-                AccountManager.General.Set("EnableMultiRbx", "false");
-                AccountManager.General.RemoveProperty("EnableAntiAfk");
-                AccountManager.General.RemoveProperty("AutoTrimMemory");
-                AccountManager.General.Set(AppSettingsKeys.General.AggressiveRamTrimming, "false");
-                AccountManager.General.RemoveProperty(AppSettingsKeys.General.AutoMuteBackgroundClients);
-                AccountManager.General.RemoveProperty(AppSettingsKeys.General.MaxTotalRobloxCpuPercent);
-                AccountManager.General.Set("UseEmbeddedBrowser", "true");
-                AccountManager.AccountControl.Set("StartOnLaunch", "false");
+                AppSettings.General.RemoveProperty("AutoCloseRobloxOnLaunch");
+                AppSettings.General.Set("EnableMultiRbx", "false");
+                AppSettings.General.RemoveProperty("EnableAntiAfk");
+                AppSettings.General.RemoveProperty("AutoTrimMemory");
+                AppSettings.General.Set(AppSettingsKeys.General.AggressiveRamTrimming, "false");
+                AppSettings.General.RemoveProperty(AppSettingsKeys.General.AutoMuteBackgroundClients);
+                AppSettings.General.RemoveProperty(AppSettingsKeys.General.MaxTotalRobloxCpuPercent);
+                AppSettings.General.Set("UseEmbeddedBrowser", "true");
+                AppSettings.AccountControl.Set("StartOnLaunch", "false");
 
                 tempMgr.InitializePostStartup();
-                Assert.False(AccountManager.General.Exists("AutoCloseRobloxOnLaunch"));
+                Assert.False(AppSettings.General.Exists("AutoCloseRobloxOnLaunch"));
 
                 // Pass B: EnableAntiAfk=true without AntiAfkIntervalMinutes, AggressiveRamTrimming=true without AutoTrimIntervalMinutes, cpuCap=0
-                AccountManager.General.Set("EnableAntiAfk", "true");
-                AccountManager.General.RemoveProperty("AntiAfkIntervalMinutes");
-                AccountManager.General.RemoveProperty("AutoTrimMemory");
-                AccountManager.General.Set(AppSettingsKeys.General.AggressiveRamTrimming, "true");
-                AccountManager.General.RemoveProperty("AutoTrimIntervalMinutes");
-                AccountManager.General.Set(AppSettingsKeys.General.MaxTotalRobloxCpuPercent, "0");
+                AppSettings.General.Set("EnableAntiAfk", "true");
+                AppSettings.General.RemoveProperty("AntiAfkIntervalMinutes");
+                AppSettings.General.RemoveProperty("AutoTrimMemory");
+                AppSettings.General.Set(AppSettingsKeys.General.AggressiveRamTrimming, "true");
+                AppSettings.General.RemoveProperty("AutoTrimIntervalMinutes");
+                AppSettings.General.Set(AppSettingsKeys.General.MaxTotalRobloxCpuPercent, "0");
 
                 tempMgr.InitializePostStartup();
-                Assert.Equal(0, AccountManager.General.Get<int>(AppSettingsKeys.General.MaxTotalRobloxCpuPercent, -1));
+                Assert.Equal(0, AppSettings.General.Get<int>(AppSettingsKeys.General.MaxTotalRobloxCpuPercent, -1));
             }
             finally
             {

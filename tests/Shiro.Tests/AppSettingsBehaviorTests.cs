@@ -13,9 +13,11 @@ namespace Shiro.Tests
     public class AppSettingsBehaviorTests : IDisposable
     {
         private readonly string _tempFile;
+        private readonly IniFile? _prevIni;
 
         public AppSettingsBehaviorTests()
         {
+            _prevIni = AppSettings.ActiveIniFile;
             _tempFile = Path.Combine(Path.GetTempPath(), $"Shiro_Settings_Test_{Guid.NewGuid():N}.ini");
             AppSettings.ActiveIniFile = new IniFile(_tempFile);
         }
@@ -23,7 +25,7 @@ namespace Shiro.Tests
         public void Dispose()
         {
             AppSettings.ResetOverrides();
-            AppSettings.ActiveIniFile = null;
+            AppSettings.ActiveIniFile = _prevIni;
             if (File.Exists(_tempFile))
             {
                 try { File.Delete(_tempFile); }
@@ -218,6 +220,28 @@ namespace Shiro.Tests
             });
 
             Assert.Null(ex);
+        }
+
+        [Fact]
+        public void AppSettingsGeneral_WritesThroughToActiveIniFileSection()
+        {
+            var temp = Path.Combine(Path.GetTempPath(), $"Shiro_WriteThrough_{Guid.NewGuid():N}.ini");
+            try
+            {
+                var ini = new IniFile(temp);
+                AppSettings.ActiveIniFile = ini;
+                AppSettings.General = null!; // clear override
+                AppSettings.General.Set("SaveThrottleMs", "1234");
+                Assert.Equal("1234", ini.Section("General").Get("SaveThrottleMs"));
+            }
+            finally
+            {
+                if (File.Exists(temp))
+                {
+                    try { File.Delete(temp); }
+                    catch (IOException) { }
+                }
+            }
         }
     }
 }

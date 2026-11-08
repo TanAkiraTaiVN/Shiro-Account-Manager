@@ -62,7 +62,7 @@ namespace Shiro.Tests
         [Fact]
         public void AccountRepository_IndexedLookup_ResolvesByIdAndUsernameAndHandlesMutations()
         {
-            var previous = AccountManager.GetAccountsSnapshot().ToList();
+            var previous = AppServices.AccountRepository.GetAll().ToList();
             try
             {
                 var acc1 = new Account { UserID = 1001, Username = "AlphaPlayer", Valid = true };

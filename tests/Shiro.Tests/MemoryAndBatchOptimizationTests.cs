@@ -65,20 +65,20 @@ namespace Shiro.Tests
         [Fact]
         public void GetAccountsSnapshot_CachesImmutableArrayUntilListMutates()
         {
-            var original = AccountManager.GetAccountsSnapshot();
+            var original = AppServices.AccountRepository.GetAll();
             try
             {
                 var acc1 = (Account)RuntimeHelpers.GetUninitializedObject(typeof(Account));
                 var acc2 = (Account)RuntimeHelpers.GetUninitializedObject(typeof(Account));
                 AccountManager.ResetAccountsForTests(new[] { acc1 });
 
-                var snap1 = AccountManager.GetAccountsSnapshot();
-                var snap2 = AccountManager.GetAccountsSnapshot();
+                var snap1 = AppServices.AccountRepository.GetAll();
+                var snap2 = AppServices.AccountRepository.GetAll();
                 Assert.Single(snap1);
                 Assert.Same(snap1, snap2);
 
-                AccountManager.AddAccountThreadSafe(acc2);
-                var snap3 = AccountManager.GetAccountsSnapshot();
+                AppServices.AccountRepository.AddThreadSafe(acc2);
+                var snap3 = AppServices.AccountRepository.GetAll();
                 Assert.Equal(2, snap3.Count);
                 Assert.NotSame(snap1, snap3);
             }

@@ -94,16 +94,15 @@ namespace Shiro.Tests
         [Fact]
         public void GeneralSettings_DelegatesDynamically_WhenActiveIniFileChangesAfterInit()
         {
-            var prevIni = AccountManager.IniSettings;
-            var prevGeneral = AccountManager.General;
+            var prevIni = AppSettings.ActiveIniFile;
+            var prevGeneral = AppSettings.General;
             try
             {
                 _ = AppServices.ServiceProvider; // Force initialization before swapping IniFile
 
                 var iniA = new IniFile();
                 iniA.Section("General").Set("ShowPresence", "false");
-                AccountManager.IniSettings = iniA;
-                AccountManager.General = iniA.Section("General");
+                AppSettings.ActiveIniFile = iniA;
                 Assert.False(AppServices.GeneralSettings.Get<bool>("ShowPresence", true));
                 Assert.False(AppServices.GeneralSettings.GetBool("ShowPresence", true));
 
@@ -111,8 +110,7 @@ namespace Shiro.Tests
                 iniB.Section("General").Set("ShowPresence", "true");
                 iniB.Section("General").Set("JoinDelay", "12");
                 iniB.Section("General").Set("Ratio", "1.5");
-                AccountManager.IniSettings = iniB;
-                AccountManager.General = iniB.Section("General");
+                AppSettings.ActiveIniFile = iniB;
                 Assert.True(AppServices.GeneralSettings.Get<bool>("ShowPresence", false));
                 Assert.True(AppServices.GeneralSettings.GetBool("ShowPresence", false));
                 Assert.Equal(12, AppServices.GeneralSettings.GetInt("JoinDelay", 0));
@@ -129,8 +127,8 @@ namespace Shiro.Tests
             }
             finally
             {
-                AccountManager.IniSettings = prevIni;
-                AccountManager.General = prevGeneral;
+                AppSettings.ActiveIniFile = prevIni;
+                AppSettings.General = prevGeneral;
             }
         }
 

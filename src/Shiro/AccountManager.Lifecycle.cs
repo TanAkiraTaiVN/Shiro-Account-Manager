@@ -75,15 +75,15 @@ namespace Shiro
             // Keeping RobloxApiClient as the single owner prevents independent client construction
             // and ensures consistent timeout/proxy configuration across the application.
 
-            CurrentPlaceId = General.Exists("SavedPlaceId") ? (General.Get("SavedPlaceId") ?? "5315046213") : "5315046213";
+            AppServices.ServerBrowserState.CurrentPlaceId = AppSettings.General.Exists("SavedPlaceId") ? (AppSettings.General.Get("SavedPlaceId") ?? "5315046213") : "5315046213";
 
             try
             {
-                if (Developer.Get<bool>("EnableWebServer"))
+                if (AppSettings.Developer.Get<bool>("EnableWebServer"))
                 {
-                    string PortStr = WebServer.Exists("WebServerPort") ? (WebServer.Get("WebServerPort") ?? "7963") : "7963";
+                    string PortStr = AppSettings.WebServer.Exists("WebServerPort") ? (AppSettings.WebServer.Get("WebServerPort") ?? "7963") : "7963";
                     int Port = int.TryParse(PortStr, out int p) ? p : 7963;
-                    bool AllowExternal = WebServer.Get<bool>("AllowExternalConnections");
+                    bool AllowExternal = AppSettings.WebServer.Get<bool>("AllowExternalConnections");
 
                     AltManagerWS = new KestrelWebServer(Port, AllowExternal, SendKestrelResponse, ValidateWebSocketAuth);
                     _ = ObserveBackgroundTaskAsync(AltManagerWS.StartAsync(), "Kestrel WebServer startup");
@@ -99,10 +99,10 @@ namespace Shiro
 
             recentGamesTask = ObserveBackgroundTaskAsync(LoadRecentGames(), "recent games load");
 
-            if (General.Get<bool>("ShuffleJobId"))
-                ShuffleJobID = true;
+            if (AppSettings.General.Get<bool>("ShuffleJobId"))
+                AppServices.ServerBrowserState.ShuffleJobId = true;
 
-            if (General.Get<bool>("AutoCookieRefresh"))
+            if (AppSettings.General.Get<bool>("AutoCookieRefresh"))
             {
                 AutoCookieRefresh = new Shiro.Services.ModernPeriodicTask(
                     TimeSpan.FromMinutes(5),
@@ -117,36 +117,36 @@ namespace Shiro
                     if (shutdownRequested || token.IsCancellationRequested || Shiro.Services.RobloxHbaService.IsInteractiveLoginActive) return;
                     await UpdatePresence().ConfigureAwait(false);
                 },
-                enabled: General.Get<bool>("ShowPresence"));
+                enabled: AppSettings.General.Get<bool>("ShowPresence"));
 
-            if (General.Get<bool>("ShowPresence"))
+            if (AppSettings.General.Get<bool>("ShowPresence"))
                 _ = ObserveBackgroundTaskAsync(UpdatePresence(), "initial presence refresh");
         }
 
         public void InitializePostStartup()
         {
-            bool autoClose = General.Exists("AutoCloseRobloxOnLaunch") ? General.Get<bool>("AutoCloseRobloxOnLaunch") : false;
+            bool autoClose = AppSettings.General.Exists("AutoCloseRobloxOnLaunch") ? AppSettings.General.Get<bool>("AutoCloseRobloxOnLaunch") : false;
             if (autoClose)
             {
                 ModernCloseRoblox(notify: false);
             }
 
-            if (General.Get<bool>("EnableMultiRbx"))
+            if (AppSettings.General.Get<bool>("EnableMultiRbx"))
                 TryEnableMultiRoblox(promptIfRobloxRunning: false, notify: false);
 
-            if (General.Exists("EnableAntiAfk") && General.Get<bool>("EnableAntiAfk"))
-                AntiAfkService.SetConfig(true, General.Exists("AntiAfkIntervalMinutes") ? General.Get<int>("AntiAfkIntervalMinutes") : 8);
+            if (AppSettings.General.Exists("EnableAntiAfk") && AppSettings.General.Get<bool>("EnableAntiAfk"))
+                AntiAfkService.SetConfig(true, AppSettings.General.Exists("AntiAfkIntervalMinutes") ? AppSettings.General.Get<int>("AntiAfkIntervalMinutes") : 8);
 
-            if ((General.Exists("AutoTrimMemory") && General.Get<bool>("AutoTrimMemory")) ||
-                General.Get<bool>(AppSettingsKeys.General.AggressiveRamTrimming, false))
-                MemoryOptimizer.ConfigureAutoTrim(true, General.Exists("AutoTrimIntervalMinutes") ? General.Get<int>("AutoTrimIntervalMinutes") : 1);
+            if ((AppSettings.General.Exists("AutoTrimMemory") && AppSettings.General.Get<bool>("AutoTrimMemory")) ||
+                AppSettings.General.Get<bool>(AppSettingsKeys.General.AggressiveRamTrimming, false))
+                MemoryOptimizer.ConfigureAutoTrim(true, AppSettings.General.Exists("AutoTrimIntervalMinutes") ? AppSettings.General.Get<int>("AutoTrimIntervalMinutes") : 1);
 
-            if (General.Exists(AppSettingsKeys.General.AutoMuteBackgroundClients) && General.Get<bool>(AppSettingsKeys.General.AutoMuteBackgroundClients))
+            if (AppSettings.General.Exists(AppSettingsKeys.General.AutoMuteBackgroundClients) && AppSettings.General.Get<bool>(AppSettingsKeys.General.AutoMuteBackgroundClients))
                 RobloxAudioService.ConfigureSmartMute(true);
 
-            if (General.Exists(AppSettingsKeys.General.MaxTotalRobloxCpuPercent))
+            if (AppSettings.General.Exists(AppSettingsKeys.General.MaxTotalRobloxCpuPercent))
             {
-                int cpuCap = General.Get<int>(AppSettingsKeys.General.MaxTotalRobloxCpuPercent, 0);
+                int cpuCap = AppSettings.General.Get<int>(AppSettingsKeys.General.MaxTotalRobloxCpuPercent, 0);
                 if (cpuCap > 0)
                     RobloxJobObjectService.SetCpuRateLimit(cpuCap);
             }
@@ -161,7 +161,7 @@ namespace Shiro
             // Use installed Chrome/Chromium through CDP by default. The
             // compatibility flag is retained for existing settings files and
             // now selects the maintained WebView2 runtime.
-            PuppeteerSupported = !General.Get<bool>("UseEmbeddedBrowser");
+            PuppeteerSupported = !AppSettings.General.Get<bool>("UseEmbeddedBrowser");
 
             if (PuppeteerSupported && AccountBrowser.FindSystemBrowserExecutable() == null && AccountBrowser.FindCachedChromiumExecutable() == null)
             {
@@ -169,7 +169,7 @@ namespace Shiro
                 SetDashboardStatus("" + AccountBrowser.BrowserNotFoundMessage);
             }
 
-            if (AccountControl.Get<bool>("StartOnLaunch"))
+            if (AppSettings.AccountControl.Get<bool>("StartOnLaunch"))
                 ModernOpenAccountControl();
 
             OfferResumeReloginQueue();
@@ -189,7 +189,7 @@ namespace Shiro
                     var pendingIds = ReloginQueueStore.Load();
                     if (pendingIds.Count == 0) return;
 
-                    var pending = GetAccountsSnapshot()
+                    var pending = AppServices.AccountRepository.GetAll()
                         .Where(a => a != null && !a.Valid && !a.IsBannedOrLocked && pendingIds.Contains(a.UserID))
                         .ToList();
                     if (pending.Count == 0)
@@ -265,9 +265,9 @@ namespace Shiro
 
             try
             {
-                if (!string.IsNullOrEmpty(CurrentPlaceId))
+                if (!string.IsNullOrEmpty(AppServices.ServerBrowserState.CurrentPlaceId))
                 {
-                    General?.Set("SavedPlaceId", CurrentPlaceId);
+                    AppSettings.General.Set("SavedPlaceId", AppServices.ServerBrowserState.CurrentPlaceId);
                 }
                 settingsService?.Save();
             }

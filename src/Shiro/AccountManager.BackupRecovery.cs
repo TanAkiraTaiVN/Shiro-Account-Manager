@@ -14,14 +14,14 @@ namespace Shiro
         private static readonly Timer _deferredSaveTimer = new Timer(_ =>
         {
             try { SaveAccounts(BypassRateLimit: false); }
-            catch (Exception ex) { Program.Logger.Error($"[DeferredSave] Error saving accounts: {ex.Message}"); }
+            catch (Exception ex) { AppServices.Logger.Error($"[DeferredSave] Error saving accounts: {ex.Message}"); }
         }, null, Timeout.Infinite, Timeout.Infinite);
 
         public static void QueueDeferredSave()
         {
             try { _deferredSaveTimer.Change(1500, Timeout.Infinite); }
             catch (ObjectDisposedException) { /* timer disposed during shutdown */ }
-            catch (Exception ex) { Program.Logger?.Warn($"Failed to schedule deferred account save: {ex.Message}"); }
+            catch (Exception ex) { AppServices.Logger?.Warn($"Failed to schedule deferred account save: {ex.Message}"); }
         }
 
         private static byte[] TryUnprotectAccountData(byte[] data, out bool usedLegacyScope)
@@ -47,14 +47,14 @@ namespace Shiro
                 Instance.LoadAccounts(null, out bool unlocked);
                 if (unlocked)
                 {
-                    statusMessage = Shiro.Services.LocalizationService.Format("AccountManager.VaultRestored", AccountCount);
+                    statusMessage = Shiro.Services.LocalizationService.Format("AccountManager.VaultRestored", AppServices.AccountRepository.Count);
                     return true;
                 }
             }
 
             if (Instance.TryRestoreReadableBackup())
             {
-                statusMessage = Shiro.Services.LocalizationService.Format("AccountManager.BackupRestored", AccountCount);
+                statusMessage = Shiro.Services.LocalizationService.Format("AccountManager.BackupRestored", AppServices.AccountRepository.Count);
                 return true;
             }
 
@@ -81,7 +81,7 @@ namespace Shiro
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"Could not enumerate historical backups: {ex.Message}");
+                AppServices.Logger?.Debug($"Could not enumerate historical backups: {ex.Message}");
             }
 
             List<Account>? bestRestored = null;
@@ -132,7 +132,7 @@ namespace Shiro
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Debug($"Candidate backup '{path}' could not be loaded: {ex.Message}");
+                    AppServices.Logger?.Debug($"Candidate backup '{path}' could not be loaded: {ex.Message}");
                 }
             }
 
@@ -147,7 +147,7 @@ namespace Shiro
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Warn($"Could not move locked primary account data: {ex.Message}");
+                    AppServices.Logger?.Warn($"Could not move locked primary account data: {ex.Message}");
                 }
 
                 IsVaultLockedPendingMasterPassword = false;
@@ -157,7 +157,7 @@ namespace Shiro
                 SaveAccounts(true, true);
                 RefreshView();
                 EnableModernDashboard();
-                Program.Logger?.Info($"[LoadAccounts] Restored {bestRestored.Count} accounts from '{bestPath}'.");
+                AppServices.Logger?.Info($"[LoadAccounts] Restored {bestRestored.Count} accounts from '{bestPath}'.");
                 return true;
             }
 

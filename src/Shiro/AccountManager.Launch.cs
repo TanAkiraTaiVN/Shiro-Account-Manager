@@ -45,7 +45,7 @@ namespace Shiro
                 LaunchBatchResult batch = await launchCoordinator.EnqueueAsync(
                     requests,
                     GetConfiguredAccountJoinDelaySeconds(),
-                    General.Get<bool>("AsyncJoin"),
+                    AppSettings.General.Get<bool>("AsyncJoin"),
                     progress =>
                     {
                         if (!string.IsNullOrWhiteSpace(progress?.Message))
@@ -119,7 +119,7 @@ namespace Shiro
             if (launchList.Count == 0)
                 return;
 
-            if (General.Get<bool>("EnableMultiRbx") && !RobloxSingletonService.MutexHeld)
+            if (AppSettings.General.Get<bool>("EnableMultiRbx") && !RobloxSingletonService.MutexHeld)
             {
                 TryEnableMultiRoblox(promptIfRobloxRunning: false);
             }

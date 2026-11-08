@@ -77,7 +77,7 @@ namespace Shiro.Tests
                 SecurityToken = "test_token"
             };
 
-            AccountManager.AddAccountThreadSafe(known);
+            AppServices.AccountRepository.AddThreadSafe(known);
 
             try
             {
@@ -372,7 +372,7 @@ namespace Shiro.Tests
 
                 bool unlocked = AccountManager.LoadAccountsFromStore();
                 Assert.True(unlocked);
-                Assert.Single(AccountManager.GetAccountsSnapshot());
+                Assert.Single(AppServices.AccountRepository.GetAll());
 
                 byte[] encryptedBytes = File.ReadAllBytes(tempAccFile);
                 Assert.Equal(BackupLoadResult.NotAttempted, mgr.TryLoadFromBackup(Array.Empty<byte>()));
@@ -495,49 +495,49 @@ namespace Shiro.Tests
                 await mgr.OfferResumeReloginQueue();
                 Assert.Empty(ReloginQueueStore.Load());
 
-                AccountManager.General.Set("AutoCloseRobloxOnLaunch", "false");
-                AccountManager.General.Set("EnableMultiRbx", "false");
-                AccountManager.General.Set("EnableAntiAfk", "false");
-                AccountManager.General.Set("AutoTrimMemory", "false");
-                AccountManager.General.Set("UseEmbeddedBrowser", "true");
-                AccountManager.AccountControl.Set("StartOnLaunch", "false");
+                AppSettings.General.Set("AutoCloseRobloxOnLaunch", "false");
+                AppSettings.General.Set("EnableMultiRbx", "false");
+                AppSettings.General.Set("EnableAntiAfk", "false");
+                AppSettings.General.Set("AutoTrimMemory", "false");
+                AppSettings.General.Set("UseEmbeddedBrowser", "true");
+                AppSettings.AccountControl.Set("StartOnLaunch", "false");
                 mgr.InitializePostStartup();
 
                 // Exercise true branches of InitializePostStartup + EnsureBackendInitialized
                 AccountManager.EnsureBackendInitialized();
                 mgr.InitializeBackendServices(); // second call hits early return
-                AccountManager.General.Set("EnableAntiAfk", "true");
-                AccountManager.General.Set("AntiAfkIntervalMinutes", "5");
-                AccountManager.General.Set("AutoTrimMemory", "true");
-                AccountManager.General.Set("AutoTrimIntervalMinutes", "2");
-                AccountManager.General.Set(AppSettingsKeys.General.AutoMuteBackgroundClients, "true");
-                AccountManager.General.Set(AppSettingsKeys.General.MaxTotalRobloxCpuPercent, "50");
-                AccountManager.AccountControl.Set("StartOnLaunch", "true");
+                AppSettings.General.Set("EnableAntiAfk", "true");
+                AppSettings.General.Set("AntiAfkIntervalMinutes", "5");
+                AppSettings.General.Set("AutoTrimMemory", "true");
+                AppSettings.General.Set("AutoTrimIntervalMinutes", "2");
+                AppSettings.General.Set(AppSettingsKeys.General.AutoMuteBackgroundClients, "true");
+                AppSettings.General.Set(AppSettingsKeys.General.MaxTotalRobloxCpuPercent, "50");
+                AppSettings.AccountControl.Set("StartOnLaunch", "true");
                 mgr.InitializePostStartup();
 
                 AntiAfkService.Stop();
                 MemoryOptimizer.ConfigureAutoTrim(false);
                 RobloxAudioService.ConfigureSmartMute(false);
-                AccountManager.General.Set("EnableAntiAfk", "false");
-                AccountManager.General.Set("AutoTrimMemory", "false");
-                AccountManager.General.Set(AppSettingsKeys.General.AutoMuteBackgroundClients, "false");
-                AccountManager.General.Set(AppSettingsKeys.General.MaxTotalRobloxCpuPercent, "0");
-                AccountManager.AccountControl.Set("StartOnLaunch", "false");
+                AppSettings.General.Set("EnableAntiAfk", "false");
+                AppSettings.General.Set("AutoTrimMemory", "false");
+                AppSettings.General.Set(AppSettingsKeys.General.AutoMuteBackgroundClients, "false");
+                AppSettings.General.Set(AppSettingsKeys.General.MaxTotalRobloxCpuPercent, "0");
+                AppSettings.AccountControl.Set("StartOnLaunch", "false");
 
                 AccountManager.SuppressExitOnShutdown = true;
-                string prevPlaceId = AccountManager.CurrentPlaceId;
-                AccountManager.CurrentPlaceId = string.Empty;
+                string prevPlaceId = AppServices.ServerBrowserState.CurrentPlaceId;
+                AppServices.ServerBrowserState.CurrentPlaceId = string.Empty;
                 var tempMgr = new AccountManager();
-                AccountManager.General.Set("ShuffleJobId", "true");
-                AccountManager.General.Set("AutoCookieRefresh", "true");
-                AccountManager.General.Set("ShowPresence", "false");
-                AccountManager.Developer.Set("EnableWebServer", "false");
+                AppSettings.General.Set("ShuffleJobId", "true");
+                AppSettings.General.Set("AutoCookieRefresh", "true");
+                AppSettings.General.Set("ShowPresence", "false");
+                AppSettings.Developer.Set("EnableWebServer", "false");
                 tempMgr.InitializeBackendServices();
                 tempMgr.Close();
                 tempMgr.Dispose();
                 Assert.True(tempMgr.IsDisposed);
                 tempMgr.ShutdownBackend();
-                AccountManager.CurrentPlaceId = prevPlaceId;
+                AppServices.ServerBrowserState.CurrentPlaceId = prevPlaceId;
 
                 // Second temp instance with AutoCookieRefresh=false, ShowPresence=true, EnableWebServer=true, and old updater files + Update dir
                 string oldAu1 = Path.Combine(Directory.GetCurrentDirectory(), "Auto Update.exe");
@@ -549,25 +549,25 @@ namespace Shiro.Tests
                 File.WriteAllText(Path.Combine(updateDir, "temp.txt"), "x");
 
                 var tempMgr2 = new AccountManager();
-                AccountManager.General.Set("ShuffleJobId", "false");
-                AccountManager.General.Set("AutoCookieRefresh", "false");
-                AccountManager.General.Set("ShowPresence", "true");
-                AccountManager.Developer.Set("EnableWebServer", "true");
-                AccountManager.WebServer.Set("WebServerPort", "invalid_numeric_port");
-                AccountManager.WebServer.Set("AllowExternalConnections", "true");
+                AppSettings.General.Set("ShuffleJobId", "false");
+                AppSettings.General.Set("AutoCookieRefresh", "false");
+                AppSettings.General.Set("ShowPresence", "true");
+                AppSettings.Developer.Set("EnableWebServer", "true");
+                AppSettings.WebServer.Set("WebServerPort", "invalid_numeric_port");
+                AppSettings.WebServer.Set("AllowExternalConnections", "true");
                 tempMgr2.InitializeBackendServices();
-                AccountManager.Developer.Set("EnableWebServer", "false");
-                AccountManager.WebServer.Set("AllowExternalConnections", "false");
+                AppSettings.Developer.Set("EnableWebServer", "false");
+                AppSettings.WebServer.Set("AllowExternalConnections", "false");
                 Assert.False(File.Exists(oldAu1));
                 Assert.False(File.Exists(oldAu2));
                 Assert.False(Directory.Exists(updateDir));
 
                 // Also cover InitializePostStartup with AutoCloseRobloxOnLaunch=true, EnableMultiRbx=true, UseEmbeddedBrowser=false
-                AccountManager.General.Set("AutoCloseRobloxOnLaunch", "true");
-                AccountManager.General.Set("EnableMultiRbx", "true");
-                AccountManager.General.Set("UseEmbeddedBrowser", "false");
+                AppSettings.General.Set("AutoCloseRobloxOnLaunch", "true");
+                AppSettings.General.Set("EnableMultiRbx", "true");
+                AppSettings.General.Set("UseEmbeddedBrowser", "false");
                 tempMgr2.InitializePostStartup();
-                AccountManager.General.Set("AutoCloseRobloxOnLaunch", "false");
+                AppSettings.General.Set("AutoCloseRobloxOnLaunch", "false");
                 tempMgr2.Dispose();
 
                 AccountManager.Instance = mgr;
