@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -235,63 +235,6 @@ namespace Shiro.Services
             {
                 // Fallback timer will handle any edge case
             }
-        }
-
-        /// <summary>
-        /// Removes an account session from monitoring (e.g. account removed or gracefully finished).
-        /// </summary>
-        public void UnregisterSession(string username)
-        {
-            if (string.IsNullOrWhiteSpace(username)) return;
-            if (_sessions.TryRemove(username, out _))
-                Program.Logger.Debug($"[AutoReconnect] Unregistered session for '{username}'.");
-        }
-
-        /// <summary>
-        /// Suppresses reconnecting for a specific account (e.g. user manually killed or closed its client).
-        /// </summary>
-        public void SuppressReconnect(string username)
-        {
-            if (string.IsNullOrWhiteSpace(username)) return;
-            if (_sessions.TryGetValue(username, out var session))
-            {
-                session.IsSuppressed = true;
-                session.IsActive = false;
-                Program.Logger?.Debug($"[AutoReconnect] Reconnection suppressed for '{username}'.");
-            }
-        }
-
-        /// <summary>
-        /// Suppresses all active sessions from reconnecting (e.g. user clicked 'Close Roblox' or app is shutting down).
-        /// </summary>
-        public void SuppressAll()
-        {
-            foreach (var session in _sessions.Values)
-            {
-                session.IsSuppressed = true;
-                session.IsActive = false;
-            }
-            Program.Logger.Info("[AutoReconnect] Suppressed reconnect for all active sessions.");
-        }
-
-        /// <summary>
-        /// Clears all tracked sessions.
-        /// </summary>
-        public void Clear() => _sessions.Clear();
-
-        /// <summary>
-        /// Retrieves the session for a given account username, if registered.
-        /// </summary>
-        public bool TryGetSession(string? username, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out ReconnectSession? session)
-        {
-            session = null;
-            return !string.IsNullOrWhiteSpace(username) && _sessions.TryGetValue(username, out session);
-        }
-
-        internal void NotifyMaxRetriesExceededForTesting(string username)
-        {
-            if (TryGetSession(username, out var session) && session != null)
-                MaxRetriesExceeded?.Invoke(session);
         }
 
         internal void CheckSessionsCallback(object? state)

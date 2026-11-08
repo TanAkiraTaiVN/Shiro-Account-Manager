@@ -1,13 +1,10 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Globalization;
 using System.IO;
-using System.Linq;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Shiro.Services;
@@ -21,19 +18,16 @@ namespace Shiro.Classes
         public FileInfo? LogFile;
         private FileStream? LogStream;
         private long LastPosition = 0;
-        private long CurrentDataModel;
-        private bool IsDMPaused;
-        private bool HasGameJoinChallenge;
-        private bool HasSecurityCookieChanged;
+        private RobloxLogSessionState _sessionState;
         private bool StreamDisposed;
         private volatile bool IsConnected;
         private DateTime DisconnectedTime;
-        private string? LastLine;
         private int _cleanedUp;
         private string? _expectedTrackerId;
         private bool _trackerIdResolved;
         private readonly CancellationTokenSource exitMonitoringCancellation = new CancellationTokenSource();
         private readonly CancellationTokenSource logLookupCancellation = new CancellationTokenSource();
+        private readonly System.Threading.Lock _readGate = new();
         private readonly System.Threading.Lock _logSync = new();
 
         public static event Action<int, int>? Disconnected;
@@ -176,149 +170,89 @@ namespace Shiro.Classes
         {
             if (StreamDisposed) return;
 
-            string[] Lines;
-            lock (_logSync)
+            lock (_readGate)
             {
                 if (StreamDisposed) return;
-                FileStream? stream = LogStream;
-                if (stream == null) return;
-                try
-                {
-                    if (!stream.CanRead) return;
-                    Lines = ReadAppendedLines(stream, ref LastPosition);
-                }
-                catch (ObjectDisposedException) { return; }
-                catch (Exception x)
-                {
-                    Program.Logger.Error($"An error occured while trying to read LogFile of {RbxProcess.Id}: {x}");
-                    return;
-                }
-            }
 
-            try
-            {
-                if (Lines.Length > 0)
+                string[] Lines;
+                lock (_logSync)
                 {
-                    for (int i = 0; i < Lines.Length; i++)
+                    if (StreamDisposed) return;
+                    FileStream? stream = LogStream;
+                    if (stream == null) return;
+                    try
                     {
-                        string Line = Lines[i];
-
-                        if (IsJoiningGameLogLine(Line))
-                        {
-                            IsConnected = true;
-                            HasGameJoinChallenge = false;
-                            HasSecurityCookieChanged = false;
-                            try { if (RbxProcess != null) Connected?.Invoke(RbxProcess.Id); }
-                            catch (Exception ex) { Program.Logger?.Error($"Connected event handler failed: {ex.Message}"); }
-
-                            continue;
-                        }
-
-                        if (IsChallengeCompletedLogLine(Line))
-                        {
-                            HasGameJoinChallenge = false;
-                        }
-
-                        if (!IsConnected && IsGameJoinChallengedLogLine(Line))
-                        {
-                            HasGameJoinChallenge = true;
-                        }
-
-                        if (IsSecurityCookieChangedLogLine(Line))
-                        {
-                            HasSecurityCookieChanged = true;
-                        }
-
-                        if (TryParseDisconnectReason(Line, out int reason))
-                        {
-                            IsConnected = false;
-                            DisconnectedTime = DateTime.UtcNow;
-                            ScheduleNoConnectionWatchdogIfEnabled(initialGraceSeconds: 0);
-                            try { if (RbxProcess != null) Disconnected?.Invoke(RbxProcess.Id, reason); }
-                            catch (Exception ex) { Program.Logger?.Error($"Disconnected event handler failed: {ex.Message}"); }
-
-                            continue;
-                        }
-
-                        if (CurrentDataModel <= 0 && TryParseDataModelInit(Line, out long parsedDataModel))
-                        {
-                            CurrentDataModel = parsedDataModel;
-                            IsDMPaused = false;
-
-                            Program.Logger?.Info($"CurrentDataModel set to {CurrentDataModel:X}");
-
-                            // Automatically trim launch working set 15 seconds after map assets finish loading if enabled
-                            if (AppSettings.General?.Get<bool>(AppSettingsKeys.General.AggressiveRamTrimming, false) ?? false)
-                            {
-                                _ = SchedulePostLaunchRamTrimAsync();
-                            }
-
-                            continue;
-                        }
-
-                        Match legacyPause = LegacyDataModelPauseRegex().Match(Line);
-                        if ((legacyPause.Success &&
-                             legacyPause.Groups.Count == 2 &&
-                             long.TryParse(legacyPause.Groups[1].Value, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out long pausedDm) &&
-                             pausedDm == CurrentDataModel) ||
-                            (CurrentDataModel > 0 && ModernDataModelPauseRegex().IsMatch(Line)))
-                        {
-                            IsDMPaused = true;
-                            continue;
-                        }
-
-                        if (IsReturnToLuaAppLine(Line, hasActiveGameDataModel: CurrentDataModel > 0))
-                        {
-                            // Prevent duplicate LuaApp Home windows when a verification challenge (challengedByGcs)
-                            // fails before entering the game, or when the session cookie was hijacked mid-session.
-                            if ((HasGameJoinChallenge && !IsConnected) ||
-                                ((HasGameJoinChallenge || CurrentDataModel > 0) && HasSecurityCookieChanged))
-                            {
-                                CurrentDataModel = -1;
-                                int pid = SafeExecuteHelper.Try(() => RbxProcess?.Id ?? 0, fallback: 0);
-                                if (pid > 0)
-                                    AutoReconnectService.Instance.SuppressReconnectByPid(pid);
-
-                                if (KillProcess("Game client challenged or session modified during fallback to LuaApp"))
-                                    return;
-                            }
-
-                            if (RobloxWatcher.VerifyDataModel && !string.IsNullOrEmpty(LastLine))
-                            {
-                                Match legacyStop = LegacyDataModelStopRegex().Match(LastLine);
-                                bool legacyStoppedCurrent = legacyStop.Success &&
-                                    legacyStop.Groups.Count == 2 &&
-                                    long.TryParse(legacyStop.Groups[1].Value, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out long stoppedDm) &&
-                                    stoppedDm == CurrentDataModel;
-                                bool modernStoppedCurrent = CurrentDataModel > 0 &&
-                                    (ModernDataModelStopRegex().IsMatch(LastLine) || StageLuaAppRegex().IsMatch(Line) || ReturnToLuaAppStageRegex().IsMatch(Line));
-
-                                if (IsDMPaused || legacyStoppedCurrent || modernStoppedCurrent)
-                                {
-                                    CurrentDataModel = -1;
-                                    Program.Logger?.Info($"CurrentDataModel reset to {CurrentDataModel} | Position: {LastPosition}");
-
-                                    if (AppSettings.Watcher?.Get<bool>("ExitOnBeta") == true && KillProcess("Beta home menu detected"))
-                                        return;
-                                }
-                            }
-                            else
-                            {
-                                CurrentDataModel = -1;
-                                if (AppSettings.Watcher?.Get<bool>("ExitOnBeta") == true && KillProcess("Beta home menu detected"))
-                                    return;
-                            }
-                        }
-
-                        if (RobloxWatcher.VerifyDataModel && IsDMPaused && DataModelStop2Regex().IsMatch(Line))
-                            CurrentDataModel = -1;
-
-                        LastLine = Line;
+                        if (!stream.CanRead) return;
+                        Lines = ReadAppendedLines(stream, ref LastPosition);
+                    }
+                    catch (ObjectDisposedException) { return; }
+                    catch (Exception x)
+                    {
+                        Program.Logger.Error($"An error occured while trying to read LogFile of {RbxProcess.Id}: {x}");
+                        return;
                     }
                 }
+
+                try
+                {
+                    if (Lines.Length > 0)
+                    {
+                        bool exitOnBeta = AppSettings.Watcher?.Get<bool>("ExitOnBeta") == true;
+                        bool verifyDataModel = RobloxWatcher.VerifyDataModel;
+
+                        for (int i = 0; i < Lines.Length; i++)
+                        {
+                            RobloxLogLineOutcome outcome = AdvanceLogSessionState(
+                                Lines[i],
+                                ref _sessionState,
+                                verifyDataModel,
+                                exitOnBeta);
+                            IsConnected = _sessionState.IsConnected;
+
+                            switch (outcome)
+                            {
+                                case RobloxLogLineOutcome.Connected:
+                                    try { if (RbxProcess != null) Connected?.Invoke(RbxProcess.Id); }
+                                    catch (Exception ex) { Program.Logger?.Error($"Connected event handler failed: {ex.Message}"); }
+                                    break;
+
+                                case RobloxLogLineOutcome.Disconnected:
+                                    DisconnectedTime = DateTime.UtcNow;
+                                    ScheduleNoConnectionWatchdogIfEnabled(initialGraceSeconds: 0);
+                                    try { if (RbxProcess != null) Disconnected?.Invoke(RbxProcess.Id, _sessionState.LastDisconnectReason); }
+                                    catch (Exception ex) { Program.Logger?.Error($"Disconnected event handler failed: {ex.Message}"); }
+                                    break;
+
+                                case RobloxLogLineOutcome.DataModelInitialized:
+                                    Program.Logger?.Info($"CurrentDataModel set to {_sessionState.CurrentDataModel:X}");
+                                    if (AppSettings.General?.Get<bool>(AppSettingsKeys.General.AggressiveRamTrimming, false) ?? false)
+                                        _ = SchedulePostLaunchRamTrimAsync();
+                                    break;
+
+                                case RobloxLogLineOutcome.DataModelReset:
+                                    Program.Logger?.Info($"CurrentDataModel reset to {_sessionState.CurrentDataModel} | Position: {LastPosition}");
+                                    break;
+
+                                case RobloxLogLineOutcome.KillChallengedOrHijackedClient:
+                                    int pid = SafeExecuteHelper.Try(() => RbxProcess?.Id ?? 0, fallback: 0);
+                                    if (pid > 0)
+                                        AutoReconnectService.Instance.SuppressReconnectByPid(pid);
+                                    if (KillProcess("Game client challenged or session modified during fallback to LuaApp"))
+                                        return;
+                                    break;
+
+                                case RobloxLogLineOutcome.KillBetaHomeMenu:
+                                    Program.Logger?.Info($"CurrentDataModel reset to {_sessionState.CurrentDataModel} | Position: {LastPosition}");
+                                    if (KillProcess("Beta home menu detected"))
+                                        return;
+                                    break;
+                            }
+                        }
+                    }
+                }
+                catch (ObjectDisposedException) { /* Stream was closed concurrently */ }
+                catch (Exception x) { Program.Logger.Error($"An error occured while trying to read LogFile of {RbxProcess.Id}: {x}"); }
             }
-            catch (ObjectDisposedException) { /* Stream was closed concurrently */ }
-            catch (Exception x) { Program.Logger.Error($"An error occured while trying to read LogFile of {RbxProcess.Id}: {x}"); }
         }
 
         private bool KillProcess(string Reason)
@@ -337,10 +271,7 @@ namespace Shiro.Classes
                 if (!RbxProcess.HasExited)
                     RbxProcess.Kill(entireProcessTree: true);
             }
-            catch (Exception ex)
-            {
-                Program.Logger?.Debug($"Kill process failed: {ex.Message}");
-            }
+            catch (Exception ex) { Program.Logger?.Debug($"Kill process failed: {ex.Message}"); }
 
             CleanupProcessExit();
             return true;
@@ -379,10 +310,7 @@ namespace Shiro.Classes
                         foreach (var file in dirInfo.EnumerateFiles("*_Player_*_last.log"))
                         {
                             // Skip empty CrashHandler companion logs created at the exact same timestamp in 0.745+
-                            if (file.Name.Contains("_CrashHandler_", StringComparison.OrdinalIgnoreCase))
-                                continue;
-
-                            if (claimedPaths.Contains(file.FullName))
+                            if (file.Name.Contains("_CrashHandler_", StringComparison.OrdinalIgnoreCase) || claimedPaths.Contains(file.FullName))
                                 continue;
 
                             DateTime lastWriteUtc = file.LastWriteTimeUtc;
@@ -414,7 +342,6 @@ namespace Shiro.Classes
                         foreach (var candidate in candidateLogs)
                         {
                             var file = candidate.File;
-
                             if (TryOpenCandidateLog(file, expectedTrackerId, ref inconclusiveFile, ref inconclusiveStream, out FileStream? matchedStream) && matchedStream != null)
                             {
                                 lock (_logSync)
@@ -449,10 +376,7 @@ namespace Shiro.Classes
                             return;
                         }
                     }
-                    catch (Exception ex)
-                    {
-                        Program.Logger?.Debug($"Direct logs scan error: {ex.Message}");
-                    }
+                    catch (Exception ex) { Program.Logger?.Debug($"Direct logs scan error: {ex.Message}"); }
                 }
 
                 await Task.Delay(LogFileRetries <= 4 ? 400 : 1500, cancellationToken).ConfigureAwait(false);
@@ -466,10 +390,7 @@ namespace Shiro.Classes
                 await Task.Delay(15000, exitMonitoringCancellation.Token).ConfigureAwait(false);
                 MemoryOptimizer.TrimRobloxClients();
             }
-            catch (Exception ex)
-            {
-                Program.Logger?.Debug($"SchedulePostLaunchRamTrimAsync stopped: {ex.Message}");
-            }
+            catch (Exception ex) { Program.Logger?.Debug($"SchedulePostLaunchRamTrimAsync stopped: {ex.Message}"); }
         }
 
         private async Task ObserveLogPathLookupAsync()
@@ -479,10 +400,7 @@ namespace Shiro.Classes
                 await WaitForLogPathAsync(logLookupCancellation.Token).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (logLookupCancellation.IsCancellationRequested) { /* Intentional: cancelled */ }
-            catch (Exception exception)
-            {
-                Program.Logger.Error($"WaitForLogPath Error for Roblox process {RbxProcess?.Id}: {exception}");
-            }
+            catch (Exception exception) { Program.Logger.Error($"WaitForLogPath Error for Roblox process {RbxProcess?.Id}: {exception}"); }
         }
     }
 }

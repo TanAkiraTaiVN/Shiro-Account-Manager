@@ -3,7 +3,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Shiro.Services;
 
@@ -11,9 +10,6 @@ namespace Shiro.Classes
 {
     internal partial class RobloxWatcher
     {
-        [GeneratedRegex(@"\-b (\d+)")]
-        private static partial Regex TrackerRegex();
-
         private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
 
         private const uint PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
@@ -235,13 +231,7 @@ namespace Shiro.Classes
                     string? commandLine = ProcessExtensions.GetCommandLineByPid(pid);
                     if (!string.IsNullOrEmpty(commandLine))
                     {
-                        if (!commandLine.StartsWith("\\??\\", StringComparison.Ordinal) &&
-                            (commandLine.Contains("-t ", StringComparison.Ordinal) || commandLine.Contains("-j ", StringComparison.Ordinal) || commandLine.Contains("--app", StringComparison.Ordinal)))
-                        {
-                            isGameClient = true;
-                            var trackerMatch = TrackerRegex().Match(commandLine);
-                            trackerId = trackerMatch.Success ? trackerMatch.Groups[1].Value : string.Empty;
-                        }
+                        isGameClient = TryClassifyClientCommandLine(commandLine, out trackerId);
 
                         lock (InstanceRegistryLock)
                         {
@@ -285,19 +275,14 @@ namespace Shiro.Classes
                         mainWindowByPid != null &&
                         mainWindowByPid.TryGetValue(pid, out IntPtr hWnd) &&
                         hWnd != IntPtr.Zero &&
-                        GetWindowRect(hWnd, out RECT rect))
+                        GetWindowRect(hWnd, out RECT rect) &&
+                        TryValidateWindowBoundsChange(rect, lastRect, out int width, out int height))
                     {
-                        int width = rect.Right - rect.Left;
-                        int height = rect.Bottom - rect.Top;
-                        if (width >= 200 && height >= 200 && rect.Left > -10000 && rect.Top > -10000 &&
-                            (rect.Left != lastRect.Left || rect.Top != lastRect.Top || rect.Right != lastRect.Right || rect.Bottom != lastRect.Bottom))
-                        {
-                            account.SetWindowBounds(rect.Left, rect.Top, width, height);
+                        account.SetWindowBounds(rect.Left, rect.Top, width, height);
 
-                            lock (InstanceRegistryLock)
-                            {
-                                _pidMetadataCache[pid] = (trackerId, isGameClient, rect);
-                            }
+                        lock (InstanceRegistryLock)
+                        {
+                            _pidMetadataCache[pid] = (trackerId, isGameClient, rect);
                         }
                     }
                 }

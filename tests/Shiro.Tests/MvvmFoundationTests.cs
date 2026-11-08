@@ -279,7 +279,11 @@ namespace Shiro.Tests
                 LocalizationService.SetLanguage(prevLang == AppLanguage.Vietnamese ? AppLanguage.English : AppLanguage.Vietnamese);
                 AccentThemeService.ApplyTheme(prevTheme == AccentTheme.Cyan ? AccentTheme.Emerald : AccentTheme.Cyan);
                 StreamerModeService.IsEnabled = !StreamerModeService.IsEnabled;
+                vm.RunningRobloxProcessCount = 5;
+                vm.RefreshLiveProcessStatus();
                 StreamerModeService.IsEnabled = !StreamerModeService.IsEnabled;
+                vm.RunningRobloxProcessCount = 5;
+                vm.RefreshLiveProcessStatus();
 
                 Assert.Equal(0, mainPropChanges);
                 Assert.Equal(0, serverPropChanges);

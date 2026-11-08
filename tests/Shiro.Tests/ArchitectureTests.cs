@@ -84,11 +84,11 @@ namespace Shiro.Tests
 
             var oversizedFiles = files
                 .Select(f => new { Path = f, Lines = File.ReadAllLines(f).Length })
-                .Where(x => x.Lines > 500)
+                .Where(x => x.Lines > 485)
                 .ToList();
 
             Assert.True(oversizedFiles.Count == 0,
-                $"Expected 0 files exceeding 500 lines, but found {oversizedFiles.Count}:\n" +
+                $"Expected 0 files exceeding 485 lines, but found {oversizedFiles.Count}:\n" +
                 string.Join("\n", oversizedFiles.Select(x => $"{Path.GetFileName(x.Path)}: {x.Lines} lines")));
         }
 
@@ -174,6 +174,8 @@ namespace Shiro.Tests
                 .HaveNameEndingWith("Installer")
                 .Or()
                 .HaveNameEndingWith("Info")
+                .Or()
+                .HaveNameEndingWith("Scripts")
                 .Or()
                 .HaveName("AppServices")
                 .GetResult();
@@ -313,13 +315,13 @@ namespace Shiro.Tests
                 .Where(f => !f.Replace('\\', '/').Contains("/bin/") && !f.Replace('\\', '/').Contains("/obj/") && !f.EndsWith(".g.cs"))
                 .ToList();
 
-            const int DefaultBudget = 1200;
+            const int DefaultBudget = 1150;
             var baselines = new System.Collections.Generic.Dictionary<string, int>(StringComparer.Ordinal)
             {
-                ["Account"] = 2900,
-                ["MainViewModel"] = 3500,
-                ["AccountManager"] = 3400,
-                ["ServerListViewModel"] = 1800
+                ["Account"] = 2400,
+                ["MainViewModel"] = 3300,
+                ["AccountManager"] = 2850,
+                ["ServerListViewModel"] = 1650
             };
 
             var classLines = new System.Collections.Generic.Dictionary<string, int>(StringComparer.Ordinal);

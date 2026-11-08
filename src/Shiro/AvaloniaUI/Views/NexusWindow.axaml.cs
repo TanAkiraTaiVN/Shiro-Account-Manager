@@ -23,8 +23,9 @@ namespace Shiro.AvaloniaUI.Views
         private static readonly IBrush StartButtonBrush = new SolidColorBrush(Color.Parse("#0284C7"));
 
         private readonly NexusViewModel _vm;
+        private bool _allowClose;
 
-        public static NexusWindow? Instance { get; private set; }
+        public static NexusWindow? Instance { get; internal set; }
         public static NexusWebSocketServer? Server => NexusViewModel.Default.Server;
 
         public ObservableCollection<ControlledAccount> Accounts => _vm.Accounts;
@@ -48,10 +49,28 @@ namespace Shiro.AvaloniaUI.Views
             Loaded += NexusWindow_Loaded;
             Closing += (s, e) =>
             {
+                if (_allowClose)
+                    return;
+
                 _vm.SaveAccounts();
                 e.Cancel = true;
                 Hide();
             };
+        }
+
+        protected override void OnClosed(EventArgs e)
+        {
+            _vm.PropertyChanged -= OnViewModelPropertyChanged;
+            if (ReferenceEquals(Instance, this))
+                Instance = null;
+            base.OnClosed(e);
+        }
+
+        internal void ForceClose()
+        {
+            _allowClose = true;
+            _vm.PropertyChanged -= OnViewModelPropertyChanged;
+            Close();
         }
 
         private void NexusWindow_Loaded(object? sender, RoutedEventArgs e)

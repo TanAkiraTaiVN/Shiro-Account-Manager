@@ -169,7 +169,7 @@ namespace Shiro.ViewModels
 
                     AppDispatcher.Post(() =>
                     {
-                        if (ct.IsCancellationRequested || AccountLauncherService.ParsePlaceId(PlaceId) != placeId)
+                        if (System.Threading.Volatile.Read(ref _disposed) != 0 || ct.IsCancellationRequested || AccountLauncherService.ParsePlaceId(PlaceId) != placeId)
                             return;
 
                         if (!string.IsNullOrWhiteSpace(resolvedName))

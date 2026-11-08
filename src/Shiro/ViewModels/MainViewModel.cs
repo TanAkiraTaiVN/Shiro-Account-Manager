@@ -110,6 +110,7 @@ namespace Shiro.ViewModels
         {
             AppDispatcher.Post(() =>
             {
+                if (System.Threading.Volatile.Read(ref _disposed) != 0) return;
                 OnPropertyChanged(nameof(CloseRobloxButtonText));
                 OnPropertyChanged(nameof(CurrentSortLabel));
                 NotifyLocalizedLabelsChanged();
@@ -127,7 +128,7 @@ namespace Shiro.ViewModels
 
         private void OnAudioStatusChanged()
         {
-            AppDispatcher.Post(NotifyToolStatesChanged);
+            AppDispatcher.Post(() => { if (System.Threading.Volatile.Read(ref _disposed) == 0) NotifyToolStatesChanged(); });
         }
 
         private void OnLaunchProgressChanged(LaunchProgress progress)
@@ -137,6 +138,7 @@ namespace Shiro.ViewModels
             {
                 try
                 {
+                    if (System.Threading.Volatile.Read(ref _disposed) != 0) return;
                     UpdateBatchLaunchBanner(progress);
                     if (!string.IsNullOrWhiteSpace(progress.Message))
                     {
@@ -179,6 +181,7 @@ namespace Shiro.ViewModels
                 {
                     foreach (var acc in _accounts)
                     {
+                        if (System.Threading.Volatile.Read(ref _disposed) != 0) return;
                         acc.NotifyThemeChanged();
                     }
                 }
@@ -271,7 +274,7 @@ namespace Shiro.ViewModels
             get => _runningRobloxProcessCount;
             set
             {
-                if (SetProperty(ref _runningRobloxProcessCount, value))
+                if (System.Threading.Volatile.Read(ref _disposed) == 0 && SetProperty(ref _runningRobloxProcessCount, value))
                 {
                     OnPropertyChanged(nameof(CloseRobloxButtonText));
                     OnPropertyChanged(nameof(HasRunningRobloxProcesses));
@@ -417,6 +420,7 @@ namespace Shiro.ViewModels
                                 {
                                     foreach (var acc in _accounts)
                                     {
+                                        if (System.Threading.Volatile.Read(ref _disposed) != 0) return;
                                         if (updatedSet.Contains(acc.UserId))
                                         {
                                             acc.InvalidateAvatar();

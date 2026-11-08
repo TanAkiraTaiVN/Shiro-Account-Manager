@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Runtime.InteropServices;
-using System.Text.RegularExpressions;
 using Shiro.Classes;
 
 namespace Shiro.Services
@@ -445,6 +444,20 @@ namespace Shiro.Services
                 Program.Logger?.Debug($"[RobloxProcessService.GetRunningRobloxPids] Enumerate error: {ex.Message}");
             }
             return result;
+        }
+
+        /// <summary>
+        /// Clears the local Roblox Client session cookies and cached authentication data from %LOCALAPPDATA%\Roblox.
+        /// This ensures RobloxPlayerBeta.exe starts logged out rather than auto-logging into a previously deleted account.
+        /// </summary>
+        public static bool ClearRobloxClientSession(bool killProcesses = true)
+        {
+            if (killProcesses)
+            {
+                SafeExecuteHelper.Try(() => KillAllRobloxProcesses(), "RobloxProcessService.ClearRobloxClientSession.KillAll");
+            }
+
+            return RobloxCookieFileHelper.ClearLocalClientSessionFiles();
         }
     }
 }

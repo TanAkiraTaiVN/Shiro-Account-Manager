@@ -137,6 +137,8 @@ namespace Shiro.Tests
 
                 // Remove account from database
                 int removedCount = AccountManager.RemoveAccountsFromDatabase(new[] { secondReg });
+                Assert.Equal(string.Empty, secondReg.SecurityToken);
+                Assert.Equal(string.Empty, secondReg.Password);
                 Assert.Equal(1, removedCount);
             }
             finally

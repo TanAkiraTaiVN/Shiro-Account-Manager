@@ -62,6 +62,7 @@ namespace Shiro.ViewModels
         public void UpdateAccountValidity(Account account, bool isValid, bool refreshFilterAndCounts = true)
         {
             if (account == null) return;
+            if (System.Threading.Volatile.Read(ref _disposed) != 0) return;
             if (Avalonia.Application.Current != null && Dispatcher.UIThread != null && !Dispatcher.UIThread.CheckAccess())
             {
                 AppDispatcher.Post(() => UpdateAccountValidity(account, isValid, refreshFilterAndCounts));
@@ -91,6 +92,7 @@ namespace Shiro.ViewModels
 
         public void RefreshLiveProcessStatus()
         {
+            if (System.Threading.Volatile.Read(ref _disposed) != 0) return;
             if (Avalonia.Application.Current != null && Dispatcher.UIThread != null && !Dispatcher.UIThread.CheckAccess())
             {
                 AppDispatcher.Post(RefreshLiveProcessStatus);
@@ -155,7 +157,7 @@ namespace Shiro.ViewModels
                 finally
                 {
                     System.Threading.Interlocked.Exchange(ref _isRefreshingLiveProcessStatus, 0);
-                    if (_hasPendingRefreshRequest)
+                    if (_hasPendingRefreshRequest && System.Threading.Volatile.Read(ref _disposed) == 0)
                     {
                         AppDispatcher.Post(RefreshLiveProcessStatus);
                     }
@@ -167,6 +169,7 @@ namespace Shiro.ViewModels
         {
             try
             {
+                if (System.Threading.Volatile.Read(ref _disposed) != 0) return;
                 RunningRobloxProcessCount = totalRobloxProcs;
                 if (totalRobloxProcs == 0 && _areWindowsHidden)
                 {

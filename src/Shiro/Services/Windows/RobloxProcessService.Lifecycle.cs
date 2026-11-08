@@ -2,7 +2,6 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using Shiro.Classes;
@@ -400,8 +399,6 @@ namespace Shiro.Services
                 if (cleaned > 0)
                     InvalidateSnapshotCache();
 
-                // If game clients are actively running, do not terminate their crash handler processes
-                // as Hyperion / anti-tamper treats an aborted crash monitor as a corruption signal and drops game windows.
                 if (runningClientPids.Count > 0)
                 {
                     if (cleaned > 0)
@@ -437,56 +434,6 @@ namespace Shiro.Services
                 Program.Logger?.Debug($"[CleanZombieProcesses] {ex.Message}");
             }
             return cleaned;
-        }
-
-        /// <summary>
-        /// Clears the local Roblox Client session cookies and cached authentication data from %LOCALAPPDATA%\Roblox.
-        /// This ensures RobloxPlayerBeta.exe starts logged out rather than auto-logging into a previously deleted account.
-        /// </summary>
-        public static bool ClearRobloxClientSession(bool killProcesses = true)
-        {
-            try
-            {
-                if (killProcesses)
-                {
-                    try { KillAllRobloxProcesses(); }
-                    catch (Exception ex) { Program.Logger?.Warn($"KillAllRobloxProcesses in ClearRobloxClientSession failed: {ex.Message}"); }
-                }
-
-                string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-                string localStorageDir = Path.Combine(localAppData, "Roblox", "LocalStorage");
-                if (Directory.Exists(localStorageDir))
-                {
-                    string cookiesDat = Path.Combine(localStorageDir, "RobloxCookies.dat");
-                    if (File.Exists(cookiesDat))
-                    {
-                        try { File.Delete(cookiesDat); }
-                        catch (Exception ex) { Program.Logger?.Debug($"Delete cookiesDat failed: {ex.Message}"); }
-                    }
-
-                    string appStorage = Path.Combine(localStorageDir, "appStorage.json");
-                    if (File.Exists(appStorage))
-                    {
-                        try { File.Delete(appStorage); }
-                        catch (Exception ex) { Program.Logger?.Debug($"Delete appStorage failed: {ex.Message}"); }
-                    }
-                }
-
-                string rbxStorageDb = Path.Combine(localAppData, "Roblox", "rbx-storage.db");
-                if (File.Exists(rbxStorageDb))
-                {
-                    try { File.Delete(rbxStorageDb); }
-                    catch (Exception ex) { Program.Logger?.Debug($"Delete rbxStorageDb failed: {ex.Message}"); }
-                }
-
-                Program.Logger?.Info("[RobloxProcessService] Successfully cleared Roblox Client local session storage.");
-                return true;
-            }
-            catch (Exception ex)
-            {
-                Program.Logger?.Warn($"[RobloxProcessService] Failed to clear Roblox Client session: {ex.Message}");
-                return false;
-            }
         }
     }
 }

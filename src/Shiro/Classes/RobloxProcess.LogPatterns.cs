@@ -1,18 +1,33 @@
 #nullable enable
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
+using System.Threading.Tasks;
 using Shiro.Services;
 
 namespace Shiro.Classes
 {
-    public enum LogHeaderMatchResult
+    public enum LogHeaderMatchResult { Inconclusive = 0, Matched = 1, Mismatched = 2 }
+
+    internal enum RobloxLogLineOutcome
     {
-        Inconclusive = 0,
-        Matched = 1,
-        Mismatched = 2
+        None, Connected, Disconnected, DataModelInitialized, DataModelPaused,
+        DataModelReset, KillChallengedOrHijackedClient, KillBetaHomeMenu
+    }
+
+    internal struct RobloxLogSessionState
+    {
+        public long CurrentDataModel;
+        public bool IsDMPaused;
+        public bool IsConnected;
+        public bool HasGameJoinChallenge;
+        public bool HasSecurityCookieChanged;
+        public string? LastLine;
+        public int LastDisconnectReason;
     }
 
     internal partial class RobloxProcess
@@ -127,17 +142,11 @@ namespace Shiro.Classes
         [GeneratedRegex(@"cookie Engine => Native set RBXEventTrackerV2 as [^\r\n]*?rbx(?:u)?id=(\d+)(?:&rbxuid=(\d*))?&browserid=(\d+)")]
         internal static partial Regex CookieEngineTrackerRegex();
 
-        internal static bool IsJoiningGameLogLine(string line)
-        {
-            if (string.IsNullOrEmpty(line)) return false;
-            return JoiningGameRegex().IsMatch(line) || ConnectedToServerRegex().IsMatch(line);
-        }
+        internal static bool IsJoiningGameLogLine(string line) =>
+            !string.IsNullOrEmpty(line) && (JoiningGameRegex().IsMatch(line) || ConnectedToServerRegex().IsMatch(line));
 
-        internal static bool IsLaunchingExperienceLogLine(string line)
-        {
-            if (string.IsNullOrEmpty(line)) return false;
-            return LaunchingExperienceRegex().IsMatch(line);
-        }
+        internal static bool IsLaunchingExperienceLogLine(string line) =>
+            !string.IsNullOrEmpty(line) && LaunchingExperienceRegex().IsMatch(line);
 
         internal static bool IsGameJoinChallengedLogLine(string line)
         {
@@ -149,11 +158,8 @@ namespace Shiro.Classes
                    line.Contains("[FLog::NewWebView2Browser] WebView2 browser is successfully launched", StringComparison.OrdinalIgnoreCase);
         }
 
-        internal static bool IsChallengeCompletedLogLine(string line)
-        {
-            if (string.IsNullOrEmpty(line)) return false;
-            return line.Contains("\"feature\":\"challengeCompleted\"", StringComparison.OrdinalIgnoreCase);
-        }
+        internal static bool IsChallengeCompletedLogLine(string line) =>
+            !string.IsNullOrEmpty(line) && line.Contains("\"feature\":\"challengeCompleted\"", StringComparison.OrdinalIgnoreCase);
 
         internal static bool IsChallengeInvalidatedOrAbandonedLogLine(string line)
         {
@@ -236,6 +242,7 @@ namespace Shiro.Classes
             // emits "[FLog::SingleSurfaceApp] setStage: (stage:LuaApp)".
             return hasActiveGameDataModel && StageLuaAppRegex().IsMatch(line);
         }
+
         internal static bool TryOpenCandidateLog(
             FileInfo file,
             string? expectedTrackerId,
@@ -279,6 +286,176 @@ namespace Shiro.Classes
             }
 
             return false;
+        }
+
+        internal static async Task<bool> ContainsRecentNativeAuthRateLimitInLogAsync(
+            string logPath,
+            DateTime minimumTimestampUtc,
+            CancellationToken cancellationToken)
+        {
+            DateTime modifiedUtc;
+            try { modifiedUtc = File.GetLastWriteTimeUtc(logPath); }
+            catch (Exception ex) { AppServices.Logger.Debug($"GetLastWriteTimeUtc failed: {ex.Message}"); return false; }
+
+            if (modifiedUtc < minimumTimestampUtc)
+                return false;
+
+            var logLines = new List<string>(256);
+            try
+            {
+                using var stream = new FileStream(logPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+                const int tailBytes = 64 * 1024;
+                if (stream.Length > tailBytes)
+                {
+                    stream.Seek(-tailBytes, SeekOrigin.End);
+                }
+                using var reader = new StreamReader(stream, Encoding.UTF8);
+                if (stream.Position > 0)
+                {
+                    await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false);
+                }
+
+                string? l;
+                while ((l = await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false)) != null)
+                {
+                    logLines.Add(l);
+                }
+            }
+            catch (Exception ex) { AppServices.Logger.Debug($"Read logLines failed: {ex.Message}"); return false; }
+
+            DateTime recentTimestampUtc = DateTime.MinValue;
+            for (int lineIndex = 0; lineIndex < logLines.Count; lineIndex++)
+            {
+                string line = logLines[lineIndex];
+                if (TryGetRobloxLogTimestampUtc(line, out DateTime parsedTimestampUtc))
+                    recentTimestampUtc = parsedTimestampUtc;
+
+                if (recentTimestampUtc < minimumTimestampUtc ||
+                    !line.Contains("authentication-ticket/redeem", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                int lookAheadEnd = Math.Min(logLines.Count - 1, lineIndex + 3);
+                for (int lookAhead = lineIndex; lookAhead <= lookAheadEnd; lookAhead++)
+                {
+                    if (IsRobloxRateLimitedLogLine(logLines[lookAhead]))
+                        return true;
+                }
+            }
+
+            return false;
+        }
+
+        internal static bool TryGetRobloxLogTimestampUtc(string line, out DateTime timestampUtc)
+        {
+            timestampUtc = DateTime.MinValue;
+            if (string.IsNullOrWhiteSpace(line) || line.Length < 24)
+                return false;
+
+            if (!DateTimeOffset.TryParse(
+                    line.AsSpan(0, 24),
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
+                    out DateTimeOffset parsed))
+                return false;
+
+            timestampUtc = parsed.UtcDateTime;
+            return true;
+        }
+
+        internal static bool IsRobloxRateLimitedLogLine(string line)
+        {
+            return !string.IsNullOrWhiteSpace(line) &&
+                (line.Contains("status:429", StringComparison.OrdinalIgnoreCase) ||
+                 line.Contains("status: 429", StringComparison.OrdinalIgnoreCase) ||
+                 line.Contains("statusCode: 429", StringComparison.OrdinalIgnoreCase) ||
+                 line.Contains("statusCode:429", StringComparison.OrdinalIgnoreCase) ||
+                 line.Contains("429 Too Many Requests", StringComparison.OrdinalIgnoreCase));
+        }
+
+        internal static RobloxLogLineOutcome AdvanceLogSessionState(
+            string line, ref RobloxLogSessionState state, bool verifyDataModel, bool exitOnBeta)
+        {
+            if (string.IsNullOrEmpty(line))
+            {
+                state.LastLine = line;
+                return RobloxLogLineOutcome.None;
+            }
+
+            if (IsJoiningGameLogLine(line))
+            {
+                state.IsConnected = true;
+                state.HasGameJoinChallenge = false;
+                state.HasSecurityCookieChanged = false;
+                return RobloxLogLineOutcome.Connected;
+            }
+
+            if (IsChallengeCompletedLogLine(line)) state.HasGameJoinChallenge = false;
+            if (!state.IsConnected && IsGameJoinChallengedLogLine(line)) state.HasGameJoinChallenge = true;
+            if (IsSecurityCookieChangedLogLine(line)) state.HasSecurityCookieChanged = true;
+
+            if (TryParseDisconnectReason(line, out int reason))
+            {
+                state.IsConnected = false;
+                state.LastDisconnectReason = reason;
+                return RobloxLogLineOutcome.Disconnected;
+            }
+
+            if (state.CurrentDataModel <= 0 && TryParseDataModelInit(line, out long parsedDataModel))
+            {
+                state.CurrentDataModel = parsedDataModel;
+                state.IsDMPaused = false;
+                return RobloxLogLineOutcome.DataModelInitialized;
+            }
+
+            Match legacyPause = LegacyDataModelPauseRegex().Match(line);
+            if ((legacyPause.Success &&
+                 long.TryParse(legacyPause.Groups[1].Value, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out long pausedDm) &&
+                 pausedDm == state.CurrentDataModel) ||
+                (state.CurrentDataModel > 0 && ModernDataModelPauseRegex().IsMatch(line)))
+            {
+                state.IsDMPaused = true;
+                return RobloxLogLineOutcome.DataModelPaused;
+            }
+
+            if (IsReturnToLuaAppLine(line, hasActiveGameDataModel: state.CurrentDataModel > 0))
+            {
+                if ((state.HasGameJoinChallenge && !state.IsConnected) ||
+                    ((state.HasGameJoinChallenge || state.CurrentDataModel > 0) && state.HasSecurityCookieChanged))
+                {
+                    state.CurrentDataModel = -1;
+                    state.LastLine = line;
+                    return RobloxLogLineOutcome.KillChallengedOrHijackedClient;
+                }
+
+                bool shouldReset = !verifyDataModel || string.IsNullOrEmpty(state.LastLine) || state.IsDMPaused;
+                if (!shouldReset && state.LastLine is string lastLine)
+                {
+                    Match legacyStop = LegacyDataModelStopRegex().Match(lastLine);
+                    bool legacyStoppedCurrent = legacyStop.Success &&
+                        long.TryParse(legacyStop.Groups[1].Value, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out long stoppedDm) &&
+                        stoppedDm == state.CurrentDataModel;
+                    bool modernStoppedCurrent = state.CurrentDataModel > 0 &&
+                        (ModernDataModelStopRegex().IsMatch(lastLine) || StageLuaAppRegex().IsMatch(line) || ReturnToLuaAppStageRegex().IsMatch(line));
+                    shouldReset = legacyStoppedCurrent || modernStoppedCurrent;
+                }
+
+                if (shouldReset)
+                {
+                    state.CurrentDataModel = -1;
+                    state.LastLine = line;
+                    return exitOnBeta ? RobloxLogLineOutcome.KillBetaHomeMenu : RobloxLogLineOutcome.DataModelReset;
+                }
+            }
+
+            if (verifyDataModel && state.IsDMPaused && DataModelStop2Regex().IsMatch(line))
+            {
+                state.CurrentDataModel = -1;
+                state.LastLine = line;
+                return RobloxLogLineOutcome.DataModelReset;
+            }
+
+            state.LastLine = line;
+            return RobloxLogLineOutcome.None;
         }
     }
 }

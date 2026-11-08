@@ -173,6 +173,7 @@ namespace Shiro.ViewModels
         {
             AppDispatcher.Post(() =>
             {
+                if (Volatile.Read(ref _disposed) != 0) return;
                 if (_loadingStatus == Shiro.Services.LocalizationService.Get("Status_Ready") || _loadingStatus == "Ready")
                     LoadingStatus = Shiro.Services.LocalizationService.Get("Status_Ready");
                 foreach (var s in _allServers)
