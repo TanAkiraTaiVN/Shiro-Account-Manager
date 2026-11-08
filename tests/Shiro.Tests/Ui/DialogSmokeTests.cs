@@ -380,7 +380,7 @@ namespace Shiro.Tests.Ui
                 var account = new Account
                 {
                     Username = "CardSmokeUser",
-                    UserID = 123456,
+                    UserID = 0,
                     Valid = true,
                     SecurityToken = "valid_smoke_cookie",
                     RobuxBalance = 2500,
@@ -661,7 +661,7 @@ namespace Shiro.Tests.Ui
                 var acc1 = new Account
                 {
                     Username = "DashSmokeOne",
-                    UserID = 1001,
+                    UserID = 0,
                     Valid = true,
                     SecurityToken = "smoke_tok_1",
                     RobuxBalance = 500
@@ -669,7 +669,7 @@ namespace Shiro.Tests.Ui
                 var acc2 = new Account
                 {
                     Username = "DashSmokeTwo",
-                    UserID = 1002,
+                    UserID = 0,
                     Valid = false
                 };
                 repo.GetAll().Returns(new List<Account> { acc1, acc2 });
@@ -742,6 +742,7 @@ namespace Shiro.Tests.Ui
             var prevSink = Logger.Sink;
             var prevLang = LocalizationService.CurrentLanguage;
             var prevNexusHost = NexusHost.Current;
+            var prevNexusInstance = NexusWindow.Instance;
             string acFilePath = StoragePaths.GetUserFile("AccountControlData.json");
             bool acExisted = File.Exists(acFilePath);
             string? prevAcContent = acExisted ? File.ReadAllText(acFilePath) : null;
@@ -752,7 +753,7 @@ namespace Shiro.Tests.Ui
             {
                 using var suppressSave = Account.BeginSuppressDeferredSaveScope();
                 var repo = Substitute.For<IAccountRepository>();
-                var acc = new Account { Username = "NexusSmokeAcc", UserID = 9001 };
+                var acc = new Account { Username = "NexusSmokeAcc", UserID = 0 };
                 repo.GetAll().Returns(new List<Account> { acc });
 
                 var accountControl = Substitute.For<ISettingsService>();
@@ -778,6 +779,7 @@ namespace Shiro.Tests.Ui
                 nexusWindow.Show();
                 Dispatcher.UIThread.RunJobs();
 
+                Assert.Same(nexusWindow, NexusWindow.Instance);
                 Assert.Same(vm, nexusWindow.DataContext);
                 Assert.Single(nexusWindow.Accounts);
                 Assert.Equal("NexusSmokeAcc", nexusWindow.Accounts[0].Username);
@@ -824,7 +826,8 @@ namespace Shiro.Tests.Ui
             }
             finally
             {
-                nexusWindow?.Hide();
+                nexusWindow?.ForceClose();
+                NexusWindow.Instance = prevNexusInstance;
                 foreach (var srv in createdServers)
                 {
                     srv.Dispose();
