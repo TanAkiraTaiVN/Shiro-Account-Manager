@@ -241,7 +241,7 @@ namespace Shiro.Services
                     if (response == null || !response.IsSuccessful)
                         throw new HttpRequestException($"{response?.StatusCode} Batch request failed\nError: {response?.ErrorMessage}");
 
-                    ThumbnailBatchResponse? data = Utilities.FastJson.TryDeserialize<ThumbnailBatchResponse>(response.Content ?? "{}", out var b) ? b : null;
+                    ThumbnailBatchResponse? data = FastJson.TryDeserialize<ThumbnailBatchResponse>(response.Content ?? "{}", out var b) ? b : null;
                     lookupResult.AddItems(data?.Data);
                 }
             }
@@ -327,7 +327,7 @@ namespace Shiro.Services
                     if (response == null || !response.IsSuccessful)
                         continue;
 
-                    GameDetails[]? games = Utilities.FastJson.TryDeserialize<GameDetails[]>(response.Content ?? "[]", out var parsedGames) ? parsedGames : null;
+                    GameDetails[]? games = FastJson.TryDeserialize<GameDetails[]>(response.Content ?? "[]", out var parsedGames) ? parsedGames : null;
                     foreach (GameDetails game in games ?? Array.Empty<GameDetails>())
                     {
                         if (game == null)
@@ -365,7 +365,7 @@ namespace Shiro.Services
                 return "UNK";
             }
 
-            ThumbnailBatchResponse? data = Utilities.FastJson.TryDeserialize<ThumbnailBatchResponse>(response.Content ?? "{}", out var parsed) ? parsed : null;
+            ThumbnailBatchResponse? data = FastJson.TryDeserialize<ThumbnailBatchResponse>(response.Content ?? "{}", out var parsed) ? parsed : null;
             return data?.Data?.FirstOrDefault()?.ImageUrl ?? "UNK";
         }
     }

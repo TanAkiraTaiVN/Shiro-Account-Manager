@@ -204,6 +204,8 @@ namespace Shiro.Tests
                 .HaveNameEndingWith("Process")
                 .Or()
                 .HaveNameEndingWith("Watcher")
+                .Or()
+                .HaveName("Utilities")
                 .GetResult();
 
             var failingNames = result.FailingTypes?.Select(t => t.FullName) ?? Enumerable.Empty<string>();
@@ -900,7 +902,7 @@ namespace Shiro.Tests
                 ["Services/Storage"] = (0, 0),
                 ["ViewModels"] = (0, 0),
                 // locked at current baseline; may only go down:
-                ["Domain"] = (41, 13),
+                ["Domain"] = (39, 7),
                 ["Services/Browser"] = (94, 2),
                 ["Services/Launch"] = (132, 58),
                 ["Services/Windows"] = (110, 17),

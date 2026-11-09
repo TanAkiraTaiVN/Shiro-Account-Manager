@@ -302,7 +302,7 @@ namespace Shiro.ViewModels
                 try
                 {
                     string json = File.ReadAllText(favPath);
-                    var list = Utilities.FastJson.TryDeserialize<List<FavoriteGame>>(json, out var fl) ? fl : null;
+                    var list = FastJson.TryDeserialize<List<FavoriteGame>>(json, out var fl) ? fl : null;
                     if (list != null)
                     {
                         foreach (var g in list)
@@ -336,7 +336,7 @@ namespace Shiro.ViewModels
                 OnPropertyChanged(nameof(IsFavoritesEmpty));
                 string favPath = StoragePaths.GetUserFile("FavoriteGames.json");
                 var list = _favorites.Select(f => new FavoriteGame(f.Name, f.PlaceId, f.PrivateServer)).ToList();
-                StoragePaths.AtomicWriteText(favPath, Utilities.FastJson.Serialize(list, indented: true));
+                StoragePaths.AtomicWriteText(favPath, FastJson.Serialize(list, indented: true));
             }
             catch (Exception ex)
             {

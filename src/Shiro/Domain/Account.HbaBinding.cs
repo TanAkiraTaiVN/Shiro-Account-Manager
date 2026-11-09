@@ -317,7 +317,7 @@ namespace Shiro
                     else if (request.JsonBody is System.Text.Json.JsonElement je)
                         bodyStr = je.GetRawText();
                     else
-                        bodyStr = Utilities.FastJson.Serialize(request.JsonBody);
+                        bodyStr = FastJson.Serialize(request.JsonBody);
                 }
                 else if (request.StringBody != null)
                 {

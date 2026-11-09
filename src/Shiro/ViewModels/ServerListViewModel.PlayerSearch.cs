@@ -80,7 +80,7 @@ namespace Shiro.ViewModels
                     return;
                 }
 
-                var avatarData = Utilities.FastJson.TryDeserialize<AvatarRoot>(avResp.Content, out var ad) ? ad : null;
+                var avatarData = FastJson.TryDeserialize<AvatarRoot>(avResp.Content, out var ad) ? ad : null;
                 string? targetAvatarUrl = avatarData?.data?.FirstOrDefault()?.imageUrl;
 
                 if (string.IsNullOrEmpty(targetAvatarUrl))
@@ -116,7 +116,7 @@ namespace Shiro.ViewModels
                             var resp = await gamesClient.ExecuteAsync(req, searchToken);
                             if (!resp.IsSuccessful || string.IsNullOrEmpty(resp.Content)) break;
 
-                            var sInfo = Utilities.FastJson.TryDeserialize<ServersInfo>(resp.Content, out var si) ? si : null;
+                            var sInfo = FastJson.TryDeserialize<ServersInfo>(resp.Content, out var si) ? si : null;
                             if (sInfo?.data == null || sInfo.data.Count == 0) break;
 
                             if (populateInitialServers)
@@ -205,7 +205,7 @@ namespace Shiro.ViewModels
                             if (!batchResp.IsSuccessful || string.IsNullOrEmpty(batchResp.Content))
                                 continue;
 
-                            var avatars = Utilities.FastJson.TryDeserialize<TokenAvatarRoot>(batchResp.Content, out var ta) ? ta : null;
+                            var avatars = FastJson.TryDeserialize<TokenAvatarRoot>(batchResp.Content, out var ta) ? ta : null;
                             TokenAvatar? hit = null;
                             if (avatars?.data != null)
                             {

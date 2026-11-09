@@ -149,7 +149,7 @@ namespace Shiro
                     string trimmed = body?.TrimStart() ?? string.Empty;
                     if (!string.IsNullOrWhiteSpace(trimmed) && !trimmed.StartsWith("<", StringComparison.Ordinal))
                     {
-                        if (Utilities.FastJson.TryDeserialize<RobloxAuthenticatedUser>(trimmed, out var parsed) && parsed?.Id > 0)
+                        if (FastJson.TryDeserialize<RobloxAuthenticatedUser>(trimmed, out var parsed) && parsed?.Id > 0)
                             return (anyRotated, true, lastStatus);
 
                         try

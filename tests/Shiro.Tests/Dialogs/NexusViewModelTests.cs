@@ -132,7 +132,7 @@ public sealed class NexusViewModelTests
             {
                 new() { Username = "Alice", AutoExecute = "print('hi')", PlaceId = 12345 }
             };
-            File.WriteAllText(tempPath, Utilities.FastJson.Serialize(saved, indented: true));
+            File.WriteAllText(tempPath, FastJson.Serialize(saved, indented: true));
 
             var accAlice = new Account { Username = "alice", UserID = 1 };
             var accBob = new Account { Username = "bob", UserID = 2 };

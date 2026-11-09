@@ -43,24 +43,6 @@ namespace Shiro
         public static bool TryParseFast<T>(this string @this, [NotNullWhen(true)] out T? result) =>
             JsonExtensions.TryParseFast(@this, out result);
 
-        public static class FastJson
-        {
-            public static readonly System.Text.Json.JsonSerializerOptions DefaultOptions = Services.FastJson.DefaultOptions;
-            public static readonly System.Text.Json.JsonSerializerOptions IndentedOptions = Services.FastJson.IndentedOptions;
-
-            public static bool TryDeserialize<T>(string json, [NotNullWhen(true)] out T? result) =>
-                Services.FastJson.TryDeserialize(json, out result);
-
-            public static T? Deserialize<T>(string json) =>
-                Services.FastJson.Deserialize<T>(json);
-
-            public static string Serialize<T>(T value, bool indented = false) =>
-                Services.FastJson.Serialize(value, indented);
-
-            public static byte[] SerializeToUtf8Bytes<T>(T value, bool indented = false) =>
-                Services.FastJson.SerializeToUtf8Bytes(value, indented);
-        }
-
         public static void InvokeIfRequired(this Avalonia.Threading.Dispatcher dispatcher, Action? action)
         {
             if (action == null) return;
@@ -76,7 +58,7 @@ namespace Shiro
             }
             catch (Exception ex)
             {
-                Program.Logger?.Warn($"Failed to open URL '{url}': {ex.Message}");
+                AppServices.Logger.Warn($"Failed to open URL '{url}': {ex.Message}");
             }
         }
 
@@ -89,7 +71,7 @@ namespace Shiro
             }
             catch (Exception ex)
             {
-                Program.Logger?.Warn($"Failed to open file '{filePath}': {ex.Message}");
+                AppServices.Logger.Warn($"Failed to open file '{filePath}': {ex.Message}");
             }
         }
 
@@ -128,20 +110,21 @@ namespace Shiro
             string promptKey = $"{Caption}.{Instruction}.{Text}";
             string sha256Hash = CryptoHelper.SHA256(promptKey);
 
+            var prompts = AppServices.Settings.IniFile.Section("Prompts");
             if (CanSave)
             {
-                if (AppSettings.Prompts != null && AppSettings.Prompts.Exists(sha256Hash))
-                    return AppSettings.Prompts.Get<bool>(sha256Hash);
+                if (prompts != null && prompts.Exists(sha256Hash))
+                    return prompts.Get<bool>(sha256Hash);
             }
 
             string promptMessage = string.IsNullOrWhiteSpace(Instruction) ? (Text ?? string.Empty) : $"{Instruction}\n\n{Text}";
             bool isYes = AppServices.Dialogs.ShowConfirmation(promptMessage, Caption ?? "Shiro");
-            if (CanSave && AppSettings.Prompts != null)
+            if (CanSave && prompts != null)
             {
                 if (SaveIfNo || isYes)
                 {
-                    AppSettings.Prompts.Set(sha256Hash, isYes ? "true" : "false");
-                    AppSettings.Save();
+                    prompts.Set(sha256Hash, isYes ? "true" : "false");
+                    AppServices.SaveSettings();
                 }
             }
 

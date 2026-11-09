@@ -31,6 +31,8 @@ namespace Shiro.Services
             }
         }
 
+        public IniFile IniFile => ActiveIniFile;
+
         private static ISettingsService? _generalOverride;
 
         /// <summary>

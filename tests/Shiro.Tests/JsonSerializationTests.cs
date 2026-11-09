@@ -33,10 +33,10 @@ namespace Shiro.Tests
                 }
             };
 
-            string json = Utilities.FastJson.Serialize(accounts, indented: true);
+            string json = FastJson.Serialize(accounts, indented: true);
             Assert.False(string.IsNullOrWhiteSpace(json));
 
-            bool success = Utilities.FastJson.TryDeserialize<List<ControlledAccount>>(json, out var deserialized);
+            bool success = FastJson.TryDeserialize<List<ControlledAccount>>(json, out var deserialized);
             Assert.True(success);
             Assert.NotNull(deserialized);
             Assert.Equal(2, deserialized.Count);
@@ -63,10 +63,10 @@ namespace Shiro.Tests
                 new FavoriteGame("Pet Simulator 99", 8737899170, "")
             };
 
-            string json = Utilities.FastJson.Serialize(favorites, indented: true);
+            string json = FastJson.Serialize(favorites, indented: true);
             Assert.False(string.IsNullOrWhiteSpace(json));
 
-            bool success = Utilities.FastJson.TryDeserialize<List<FavoriteGame>>(json, out var deserialized);
+            bool success = FastJson.TryDeserialize<List<FavoriteGame>>(json, out var deserialized);
             Assert.True(success);
             Assert.NotNull(deserialized);
             Assert.Equal(2, deserialized.Count);
@@ -99,7 +99,7 @@ namespace Shiro.Tests
             }
             """;
 
-            bool success = Utilities.FastJson.TryDeserialize<ServersInfo>(robloxServersJson, out var info);
+            bool success = FastJson.TryDeserialize<ServersInfo>(robloxServersJson, out var info);
             Assert.True(success);
             Assert.NotNull(info);
             Assert.Equal("cursor_token_abc_123", info.nextPageCursor);
@@ -139,7 +139,7 @@ namespace Shiro.Tests
             }
             """;
 
-            bool success = Utilities.FastJson.TryDeserialize<ThumbnailBatchResponse>(batchResponseJson, out var batch);
+            bool success = FastJson.TryDeserialize<ThumbnailBatchResponse>(batchResponseJson, out var batch);
             Assert.True(success);
             Assert.NotNull(batch);
             Assert.NotNull(batch.Data);
@@ -162,7 +162,7 @@ namespace Shiro.Tests
             }
             """;
 
-            bool success = Utilities.FastJson.TryDeserialize<RobloxPinInfo>(pinJson, out var pin);
+            bool success = FastJson.TryDeserialize<RobloxPinInfo>(pinJson, out var pin);
             Assert.True(success);
             Assert.NotNull(pin);
             Assert.True(pin.isEnabled);
@@ -181,7 +181,7 @@ namespace Shiro.Tests
             }
             """;
 
-            bool success = Utilities.FastJson.TryDeserialize<Command>(commandJson, out var cmd);
+            bool success = FastJson.TryDeserialize<Command>(commandJson, out var cmd);
             Assert.True(success);
             Assert.NotNull(cmd);
             Assert.Equal("SetRelaunch", cmd.Name);
@@ -227,7 +227,7 @@ namespace Shiro.Tests
             }
             """;
 
-            bool success = Utilities.FastJson.TryDeserialize<ServersInfo>(apiJson, out var info);
+            bool success = FastJson.TryDeserialize<ServersInfo>(apiJson, out var info);
             Assert.True(success);
             Assert.NotNull(info);
             Assert.Equal(3, info.data.Count);

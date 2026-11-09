@@ -9,6 +9,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Shiro.Http;
+using Shiro.Services;
 
 namespace Shiro
 {
@@ -75,7 +76,7 @@ namespace Shiro.Services
 
             if (response != null && response.IsSuccessful && response.StatusCode == HttpStatusCode.OK &&
                 response.Content != null &&
-                Utilities.FastJson.TryDeserialize<RobloxPinInfo>(response.Content, out var pinInfo) && pinInfo != null)
+                FastJson.TryDeserialize<RobloxPinInfo>(response.Content, out var pinInfo) && pinInfo != null)
             {
                 bool isEnabled = pinInfo.isEnabled;
                 int unlockedUntil = pinInfo.unlockedUntil ?? 0;
@@ -119,7 +120,7 @@ namespace Shiro.Services
 
             if (response != null && response.IsSuccessful && response.StatusCode == HttpStatusCode.OK &&
                 response.Content != null &&
-                Utilities.FastJson.TryDeserialize<RobloxPinInfo>(response.Content, out var pinInfo) && pinInfo != null)
+                FastJson.TryDeserialize<RobloxPinInfo>(response.Content, out var pinInfo) && pinInfo != null)
             {
                 bool isEnabled = pinInfo.isEnabled;
                 int unlockedUntil = pinInfo.unlockedUntil ?? 0;

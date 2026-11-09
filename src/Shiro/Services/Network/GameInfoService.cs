@@ -113,7 +113,7 @@ namespace Shiro.Services
 
                     if (updated)
                     {
-                        serialized = Utilities.FastJson.Serialize(recentGames, indented: true);
+                        serialized = FastJson.Serialize(recentGames, indented: true);
                     }
                 }
 

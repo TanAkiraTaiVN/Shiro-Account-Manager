@@ -58,7 +58,7 @@ namespace Shiro
                     string json = await File.ReadAllTextAsync(RecentGamesFilePath).ConfigureAwait(false);
                     if (!string.IsNullOrWhiteSpace(json))
                     {
-                        List<Game>? Games = Utilities.FastJson.TryDeserialize<List<Game>>(json, out var gList) ? gList : null;
+                        List<Game>? Games = FastJson.TryDeserialize<List<Game>>(json, out var gList) ? gList : null;
                         if (Games != null && Games.Count > 0)
                         {
                             await Task.WhenAll(Games.Where(g => g != null).Select(g => g.WaitForDetails())).ConfigureAwait(false);
@@ -99,7 +99,7 @@ namespace Shiro
 
                 if (!Loading)
                 {
-                    serialized = Utilities.FastJson.Serialize(AppServices.ServerBrowserState.RecentGames, indented: true);
+                    serialized = FastJson.Serialize(AppServices.ServerBrowserState.RecentGames, indented: true);
                     StoragePaths.AtomicWriteText(RecentGamesFilePath, serialized);
                 }
             }

@@ -1,7 +1,6 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Text.RegularExpressions;
-using Shiro.ViewModels;
 
 namespace Shiro
 {
@@ -79,32 +78,33 @@ namespace Shiro
             };
         }
 
-        public bool IsMatch(AccountViewModel? acc)
+        public bool IsMatch(Account? acc) => acc != null && IsMatch(acc.Username, acc.Alias, acc.Group, acc.UserID);
+
+        public bool IsMatch(string? username, string? alias, string? group, long userId)
         {
-            if (acc == null) return false;
             if (IsEmpty) return true;
 
-            string username = acc.Username ?? string.Empty;
-            string alias = acc.Alias ?? string.Empty;
-            string group = acc.Group ?? string.Empty;
+            string user = username ?? string.Empty;
+            string al = alias ?? string.Empty;
+            string grp = group ?? string.Empty;
 
             // 1. Range Search
             if (IsRange)
             {
                 if (!string.IsNullOrEmpty(Prefix))
                 {
-                    if (!username.Contains(Prefix, StringComparison.OrdinalIgnoreCase) &&
-                        !alias.Contains(Prefix, StringComparison.OrdinalIgnoreCase))
+                    if (!user.Contains(Prefix, StringComparison.OrdinalIgnoreCase) &&
+                        !al.Contains(Prefix, StringComparison.OrdinalIgnoreCase))
                     {
                         return false;
                     }
                 }
 
-                long accNum = AccountSearchHelper.GetSuffixNumberSpan(username);
+                long accNum = AccountSearchHelper.GetSuffixNumberSpan(user);
                 if (accNum >= 0 && accNum >= RangeStart && accNum <= RangeEnd)
                     return true;
 
-                long aliasNum = AccountSearchHelper.GetSuffixNumberSpan(alias);
+                long aliasNum = AccountSearchHelper.GetSuffixNumberSpan(al);
                 if (aliasNum >= 0 && aliasNum >= RangeStart && aliasNum <= RangeEnd)
                     return true;
 
@@ -115,10 +115,10 @@ namespace Shiro
             if (IsSingleNum)
             {
                 // Long number (>= 5 digits) with no prefix -> Likely Roblox User ID search
-                if (string.IsNullOrEmpty(Prefix) && Digits.Length >= 5 && acc.UserId > 0)
+                if (string.IsNullOrEmpty(Prefix) && Digits.Length >= 5 && userId > 0)
                 {
                     Span<char> idBuf = stackalloc char[24];
-                    if (acc.UserId.TryFormat(idBuf, out int written) &&
+                    if (userId.TryFormat(idBuf, out int written) &&
                         idBuf[..written].IndexOf(Digits.AsSpan(), StringComparison.Ordinal) >= 0)
                     {
                         return true;
@@ -127,24 +127,24 @@ namespace Shiro
 
                 if (!string.IsNullOrEmpty(Prefix))
                 {
-                    if (!username.Contains(Prefix, StringComparison.OrdinalIgnoreCase) &&
-                        !alias.Contains(Prefix, StringComparison.OrdinalIgnoreCase))
+                    if (!user.Contains(Prefix, StringComparison.OrdinalIgnoreCase) &&
+                        !al.Contains(Prefix, StringComparison.OrdinalIgnoreCase))
                     {
                         return false;
                     }
                 }
 
                 // Check exact suffix number (e.g. AD_Jackpot7 ends with "7")
-                if (AccountSearchHelper.EndsWithDigits(username, Digits))
+                if (AccountSearchHelper.EndsWithDigits(user, Digits))
                     return true;
 
-                if (AccountSearchHelper.EndsWithDigits(alias, Digits))
+                if (AccountSearchHelper.EndsWithDigits(al, Digits))
                     return true;
 
                 // If prefix was explicitly specified (e.g. "jackpot 7"), also check substring
                 if (!string.IsNullOrEmpty(Prefix) &&
-                    (username.Contains(QueryText, StringComparison.OrdinalIgnoreCase) ||
-                     alias.Contains(QueryText, StringComparison.OrdinalIgnoreCase)))
+                    (user.Contains(QueryText, StringComparison.OrdinalIgnoreCase) ||
+                     al.Contains(QueryText, StringComparison.OrdinalIgnoreCase)))
                 {
                     return true;
                 }
@@ -152,26 +152,26 @@ namespace Shiro
                 // If pure short digits (e.g. "7"): only match if username/alias exactly equals digits or ends with it
                 if (string.IsNullOrEmpty(Prefix))
                 {
-                    return username.Equals(Digits, StringComparison.OrdinalIgnoreCase) ||
-                           alias.Equals(Digits, StringComparison.OrdinalIgnoreCase);
+                    return user.Equals(Digits, StringComparison.OrdinalIgnoreCase) ||
+                           al.Equals(Digits, StringComparison.OrdinalIgnoreCase);
                 }
             }
 
             // 3. General substring search
-            if (username.Contains(QueryText, StringComparison.OrdinalIgnoreCase) ||
-                alias.Contains(QueryText, StringComparison.OrdinalIgnoreCase))
+            if (user.Contains(QueryText, StringComparison.OrdinalIgnoreCase) ||
+                al.Contains(QueryText, StringComparison.OrdinalIgnoreCase))
             {
                 return true;
             }
 
-            if (group.Contains(QueryText, StringComparison.OrdinalIgnoreCase))
+            if (grp.Contains(QueryText, StringComparison.OrdinalIgnoreCase))
                 return true;
 
             // Only search by User ID if query has at least 4 digits to prevent single digits matching random UserIDs
-            if (QueryText.Length >= 4 && acc.UserId > 0)
+            if (QueryText.Length >= 4 && userId > 0)
             {
                 Span<char> idBuf = stackalloc char[24];
-                if (acc.UserId.TryFormat(idBuf, out int written) &&
+                if (userId.TryFormat(idBuf, out int written) &&
                     idBuf[..written].IndexOf(QueryText.AsSpan(), StringComparison.Ordinal) >= 0)
                 {
                     return true;
@@ -184,11 +184,8 @@ namespace Shiro
 
     public static class AccountSearchHelper
     {
-        public static bool IsMatch(AccountViewModel? acc, string? query)
-        {
-            var q = AccountSearchQuery.Create(query);
-            return q.IsMatch(acc);
-        }
+        public static bool IsMatch(Account? acc, string? query) =>
+            AccountSearchQuery.Create(query).IsMatch(acc);
 
         public static long GetSuffixNumber(string? text) => GetSuffixNumberSpan(text.AsSpan());
 

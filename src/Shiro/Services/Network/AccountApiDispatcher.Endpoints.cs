@@ -92,7 +92,7 @@ namespace Shiro.Services
                     objects.Add(accountObject);
                 }
 
-                return reply(Utilities.FastJson.Serialize(objects), true, -1, null);
+                return reply(FastJson.Serialize(objects), true, -1, null);
             }
 
             if (method == "ImportCookie")

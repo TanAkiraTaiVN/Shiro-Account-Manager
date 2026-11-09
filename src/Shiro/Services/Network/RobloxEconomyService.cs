@@ -42,7 +42,7 @@ namespace Shiro.Services
                         if (response.IsSuccessStatusCode)
                         {
                             string json = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-                            if (Utilities.FastJson.TryDeserialize<RobloxCurrencyResponse>(json, out var res) && res != null)
+                            if (FastJson.TryDeserialize<RobloxCurrencyResponse>(json, out var res) && res != null)
                             {
                                 account.RobuxBalance = res.Robux;
                                 account.LastEconomyCheck = DateTime.UtcNow;

@@ -30,7 +30,7 @@ namespace Shiro.ViewModels
                 var vipResp = await vipAuthAccount.ExecuteAccountRestAsync(gamesClient, "https://games.roblox.com/", vipReq, ct).ConfigureAwait(false);
                 if (vipResp != null && vipResp.IsSuccessful && !string.IsNullOrEmpty(vipResp.Content) && !ct.IsCancellationRequested)
                 {
-                    var vipInfo = Utilities.FastJson.TryDeserialize<ServersInfo>(vipResp.Content, out var vInfo) ? vInfo : null;
+                    var vipInfo = FastJson.TryDeserialize<ServersInfo>(vipResp.Content, out var vInfo) ? vInfo : null;
                     if (vipInfo?.data != null && vipInfo.data.Count > 0)
                     {
                         var vipList = new List<ServerItemViewModel>(vipInfo.data.Count);

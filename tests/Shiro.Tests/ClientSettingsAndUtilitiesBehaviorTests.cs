@@ -39,10 +39,10 @@ namespace Shiro.Tests
         public void Utilities_FastJson_RoundTripsObject()
         {
             var source = new IniProperty { Name = "TestKey", Value = "TestVal" };
-            string json = Utilities.FastJson.Serialize(source, indented: false);
+            string json = FastJson.Serialize(source, indented: false);
             Assert.Contains("TestKey", json);
 
-            bool success = Utilities.FastJson.TryDeserialize<IniProperty>(json, out var deserialized);
+            bool success = FastJson.TryDeserialize<IniProperty>(json, out var deserialized);
             Assert.True(success);
             Assert.Equal("TestKey", deserialized?.Name);
             Assert.Equal("TestVal", deserialized?.Value);

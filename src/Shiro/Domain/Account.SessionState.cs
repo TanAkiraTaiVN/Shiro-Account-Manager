@@ -149,7 +149,7 @@ namespace Shiro
                         }
 
                         RobloxAuthenticatedUser? authUser = null;
-                        if (Utilities.FastJson.TryDeserialize<RobloxAuthenticatedUser>(trimmedBody, out var parsedUser) && parsedUser?.Id > 0)
+                        if (FastJson.TryDeserialize<RobloxAuthenticatedUser>(trimmedBody, out var parsedUser) && parsedUser?.Id > 0)
                         {
                             authUser = parsedUser;
                         }
@@ -403,7 +403,7 @@ namespace Shiro
                         string body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
                         if (!string.IsNullOrWhiteSpace(body))
                         {
-                            if (Utilities.FastJson.TryDeserialize<RobloxFriendsCountResponse>(body, out var friendsRsp) && friendsRsp != null)
+                            if (FastJson.TryDeserialize<RobloxFriendsCountResponse>(body, out var friendsRsp) && friendsRsp != null)
                             {
                                 return true;
                             }

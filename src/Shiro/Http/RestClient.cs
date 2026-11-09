@@ -269,7 +269,7 @@ namespace Shiro.Http
                     }
                     else
                     {
-                        byte[] utf8Bytes = Utilities.FastJson.SerializeToUtf8Bytes(request.JsonBody);
+                        byte[] utf8Bytes = FastJson.SerializeToUtf8Bytes(request.JsonBody);
                         var byteContent = new ByteArrayContent(utf8Bytes);
                         byteContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json")
                         {
@@ -427,7 +427,7 @@ namespace Shiro.Http
             if (!raw.IsSuccessful || string.IsNullOrWhiteSpace(raw.Content))
                 return (false, default, raw);
 
-            if (Utilities.FastJson.TryDeserialize<T>(raw.Content, out var data))
+            if (FastJson.TryDeserialize<T>(raw.Content, out var data))
                 return (true, data, raw);
 
             return (false, default, raw);

@@ -274,7 +274,7 @@ namespace Shiro.ViewModels
                             break;
                         }
 
-                        var serverInfo = Utilities.FastJson.TryDeserialize<ServersInfo>(response.Content, out var sInfo) ? sInfo : null;
+                        var serverInfo = FastJson.TryDeserialize<ServersInfo>(response.Content, out var sInfo) ? sInfo : null;
                         if (serverInfo?.data == null || serverInfo.data.Count == 0)
                             break;
 

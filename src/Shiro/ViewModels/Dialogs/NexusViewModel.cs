@@ -144,7 +144,7 @@ public sealed class NexusViewModel : DialogViewModelBase, INexusHost
         {
             try
             {
-                StoragePaths.AtomicWriteText(targetPath, Utilities.FastJson.Serialize(Accounts.ToList(), indented: true));
+                StoragePaths.AtomicWriteText(targetPath, FastJson.Serialize(Accounts.ToList(), indented: true));
             }
             catch (Exception ex)
             {
@@ -165,7 +165,7 @@ public sealed class NexusViewModel : DialogViewModelBase, INexusHost
             {
                 string json = File.ReadAllText(targetPath);
                 if (!string.IsNullOrWhiteSpace(json) &&
-                    Utilities.FastJson.TryDeserialize<List<ControlledAccount>>(json, out var list) &&
+                    FastJson.TryDeserialize<List<ControlledAccount>>(json, out var list) &&
                     list != null)
                 {
                     foreach (var ca in list)

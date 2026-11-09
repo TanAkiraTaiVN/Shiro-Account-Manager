@@ -51,5 +51,24 @@ namespace Shiro.Tests
                 .Select(Path.GetFileName).ToList();
             Assert.Empty(offenders);
         }
+
+        [Fact]
+        public void DomainFolder_ShouldNotDependOn_ViewModelsOrAvaloniaOrWin32Registry()
+        {
+            var domainDir = Path.Combine(RepoRoot, "src", "Shiro", "Domain");
+            var forbidden = new Regex(@"\b(Shiro\.ViewModels|Shiro\.AvaloniaUI|Avalonia|Microsoft\.Win32)\b");
+            var offenders = Directory.GetFiles(domainDir, "*.cs", SearchOption.AllDirectories)
+                .Where(f => forbidden.IsMatch(SourceScan.StripStringLiterals(File.ReadAllText(f))))
+                .Select(Path.GetFileName)
+                .ToList();
+            Assert.Empty(offenders);
+        }
+
+        [Fact]
+        public void FastJson_ShouldHaveSingleDefinition()
+        {
+            var types = CoreAssembly.GetTypes().Where(t => t.Name == "FastJson").Select(t => t.FullName).ToList();
+            Assert.Single(types);
+        }
     }
 }
