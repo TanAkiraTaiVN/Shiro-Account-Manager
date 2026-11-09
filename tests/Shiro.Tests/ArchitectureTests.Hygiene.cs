@@ -70,5 +70,19 @@ namespace Shiro.Tests
             var types = CoreAssembly.GetTypes().Where(t => t.Name == "FastJson").Select(t => t.FullName).ToList();
             Assert.Single(types);
         }
+
+        [Fact]
+        public void NoTestFiles_ShouldExceed550Lines()
+        {
+            const int MaxTestLines = 550;
+            var testsDir = Path.Combine(RepoRoot, "tests", "Shiro.Tests");
+            var oversized = Directory.GetFiles(testsDir, "*.cs", SearchOption.AllDirectories)
+                .Where(f => !f.Replace('\\', '/').Contains("/bin/") && !f.Replace('\\', '/').Contains("/obj/") && !f.EndsWith(".g.cs"))
+                .Select(f => (File: Path.GetFileName(f), Lines: File.ReadAllLines(f).Length))
+                .Where(x => x.Lines > MaxTestLines)
+                .Select(x => $"{x.File} ({x.Lines} lines)")
+                .ToList();
+            Assert.Empty(oversized);
+        }
     }
 }

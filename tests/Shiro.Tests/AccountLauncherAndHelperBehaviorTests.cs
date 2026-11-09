@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -110,6 +111,15 @@ namespace Shiro.Tests
                 string fromCache = await RobloxPlaceHelper.GetRandomJobId(189707, chooseLowestServer: false);
                 Assert.Equal("cached-srv-1", fromCache);
 
+                handler.Enqueue(System.Net.HttpStatusCode.OK, "{broken-json");
+                string fromCacheLowest = await RobloxPlaceHelper.GetRandomJobId(189707, chooseLowestServer: true);
+                Assert.Equal("cached-srv-1", fromCacheLowest);
+
+                AppSettings.General.Set("ShuffleChoosesLowestServer", "not-a-bool");
+                handler.Enqueue(System.Net.HttpStatusCode.OK, "{\"nextPageCursor\":null,\"data\":[{\"id\":\"srv-p1\",\"playing\":3,\"maxPlayers\":10}]}");
+                string exSrv = await RobloxPlaceHelper.GetRandomJobId(189707, chooseLowestServer: false);
+                Assert.Equal("srv-p1", exSrv);
+
                 ServerBrowserStateService.Default.CachedServers = new System.Collections.Generic.List<ServerData>();
                 handler.Enqueue(System.Net.HttpStatusCode.InternalServerError, "");
                 string emptyRes = await RobloxPlaceHelper.GetRandomJobId(189707, chooseLowestServer: false);
@@ -117,6 +127,8 @@ namespace Shiro.Tests
             }
             finally
             {
+                AppSettings.General.Set("ShuffleChoosesLowestServer", "false");
+                AppSettings.General.Set("ShufflePageCount", "1");
                 ServerBrowserStateService.Default.CachedServers = prevCached;
             }
         }

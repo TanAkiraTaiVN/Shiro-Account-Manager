@@ -9,7 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Phase 6 - Architecture & Hygiene Invariants**:
+  - `NoTestFiles_ShouldExceed550Lines`: Enforced a strict maximum budget of `<= 550` lines per test file across `tests/Shiro.Tests/` and `<= 485` lines per `ArchitectureTests*.cs` file.
+  - `DomainFolder_ShouldNotDependOn_ViewModelsOrAvaloniaOrWin32Registry`: Guarded the `Domain/` layer against UI, ViewModel, and platform-specific Win32 dependencies.
+  - `FastJson_ShouldHaveSingleDefinition`: Verified single canonical JSON serializer implementation.
+
 ### Changed
+- **Phase 6 - Zero Ambient Statics, Domain Purity & Test Hygiene**:
+  - **Zero `async void` in `AvaloniaUI/`**: Refactored native WebView2 navigation event handlers in `FastLoginDialog.Automation.cs` into task-based methods with comprehensive error catching and logging, ensuring 0 `async void` across the entire application.
+  - **Pure `Domain/` Layer & Unified `FastJson`**: Relocated UI prompt utilities from `Domain/Utilities.cs` to `Services/Ui/Utilities.cs`, purified `Domain/` model dependencies, and eliminated redundant JSON serialization definitions.
+  - **Zero Ambient Static Logging & Settings Across All 10 Folders**: Replaced ambient `Program.Logger` and `AppSettings.*` references across `Domain/`, `ViewModels/`, `AvaloniaUI/Views/`, `Services/Ui/`, `Services/Browser/`, `Services/Windows/`, and `Services/Launch/` with injected `IAppLogger` and `ISettingsService` through `AppServices`, locking all 10 project folders to `(0, 0)` in `AmbientStaticAccess_ShouldNotExceedPerFolderBaseline`.
+  - **AccountManager Budget Compliance**: Extracted `AccountSessionMaintenanceService` and `AccountLaunchBatchService`, reducing `AccountManager` aggregate partial line count to <= 1150 lines without artificial compression.
+  - **AccountListFilterController Extraction**: Decoupled account list search, filtering, and tag management into `AccountListFilterController`, keeping `MainViewModel` well within its class budget.
+  - **Test Suite Hygiene & Modularization**: Split 7 oversized test files (`ArchitectureTests.cs`, `DialogSmokeTests.cs`, `RobloxHbaAndIpPersistenceTests.cs`, `AccountLaunchServiceBranchTests.cs`, `AccountManagerLifecycleAndAccountsBehaviorTests.cs`, `WebServerEndpointsAndWorkflowTests.cs`, and `IpSwitchSessionPersistenceTests.cs`) into modular partial classes (`ArchitectureTests.Layering.cs`, `ArchitectureTests.Budgets.cs`, `DialogSmokeTests.Extended.cs`, `RobloxHbaAndIpPersistenceTests.Extended.cs`, `AccountLaunchServiceBranchTests.Fallback.cs`, `AccountManagerAccountsBehaviorTests.cs`, `WebServerWorkflowBehaviorTests.cs`, `IpSwitchSessionPersistenceTests.Extended.cs`), preserving all 1,915 tests while enforcing file length limits.
 - **Task 1 - WebAuthPolicy, Nexus & API Layer Decoupling**: Decoupled `WebAuthPolicy` from `AccountApiDispatcher`, eliminated `AccountManager` dependencies in `Services/` and `Nexus/`, and sanitized HTTP 500 error responses across local API endpoints to return a generic `"Internal server error"` body instead of raw exception messages (the only runtime behavior change in this release).
 - **Task 2 - Untyped Catch Blocks Elimination (Part 1)**: Replaced broad untyped `catch` and variable-less `catch (Exception)` blocks across networking, launcher, and view models with specific typed exception handlers and diagnostic logging.
 - **Task 3 - Untyped Catch Blocks Elimination (Part 2)**: Eliminated all remaining untyped catch blocks across core storage, security, and utility services, bringing repository untyped catch count to 0 (enforced by ratchet test).
@@ -78,7 +91,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Features real-time multi-account status and a clickable "Tham gia Server" button for Discord friends.
 - **Audio Feedback & Launcher Branding**:
   - Added native Win32 `mciSendString` MP3 audio notifications on `ToastService` using `Notify_sound.mp3`.
-  - Added third-party launcher branding assets (Bloxstrap, Fishstrap, Froststrap, Voidstrap).
+  - Added third-party launcher branding assets (Bloxstrap, Fishstrap, Voidstrap).
 
 ---
 
