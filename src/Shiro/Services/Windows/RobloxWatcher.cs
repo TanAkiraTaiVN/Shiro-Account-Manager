@@ -318,7 +318,7 @@ namespace Shiro.Services
                 }
                 catch (Exception x)
                 {
-                    Program.Logger?.Debug($"Access to Process {pid} denied: {x.Message}");
+                    AppServices.Logger?.Debug($"Access to Process {pid} denied: {x.Message}");
                 }
                 finally
                 {
@@ -435,7 +435,7 @@ namespace Shiro.Services
 
         private static void KillNative(int pid, string reason)
         {
-            Program.Logger?.Info($"Attempting to kill process {pid}, reason: {reason}");
+            AppServices.Logger?.Info($"Attempting to kill process {pid}, reason: {reason}");
             IntPtr hProcess = OpenProcess(PROCESS_TERMINATE, false, pid);
             if (hProcess == IntPtr.Zero) return;
             try
@@ -444,7 +444,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"Kill process {pid} failed: {ex.Message}");
+                AppServices.Logger?.Debug($"Kill process {pid} failed: {ex.Message}");
             }
             finally
             {

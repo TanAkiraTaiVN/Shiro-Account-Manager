@@ -37,8 +37,8 @@ namespace Shiro.Services
         public static bool IsAutoLowerPriorityActive()
         {
             if (!OperatingSystem.IsWindows()) return false;
-            return !AppSettings.General.Exists("AutoLowerProcessPriority") ||
-                   AppSettings.General.Get<bool>("AutoLowerProcessPriority");
+            return !AppServices.GeneralSettings.Exists("AutoLowerProcessPriority") ||
+                   AppServices.GeneralSettings.Get<bool>("AutoLowerProcessPriority");
         }
 
         public static void EvaluateWithPids(uint foregroundPid, List<int> runningPids)
@@ -82,7 +82,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[MemoryOptimizer.EvaluateWithPids] {ex.Message}");
+                AppServices.Logger?.Debug($"[MemoryOptimizer.EvaluateWithPids] {ex.Message}");
             }
         }
 
@@ -172,7 +172,7 @@ namespace Shiro.Services
                 if (!RobloxProcessService.IsAnyRobloxRunning())
                     return;
 
-                bool lowerPriority = !AppSettings.General.Exists("AutoLowerProcessPriority") || AppSettings.General.Get<bool>("AutoLowerProcessPriority");
+                bool lowerPriority = !AppServices.GeneralSettings.Exists("AutoLowerProcessPriority") || AppServices.GeneralSettings.Get<bool>("AutoLowerProcessPriority");
                 bool aggressiveTrim = IsAggressiveWorkingSetTrimEnabled();
                 
                 // If enough time has passed for full interval trim, or if any client exceeds 350MB, optimize!
@@ -193,7 +193,7 @@ namespace Shiro.Services
                         }
                         catch (Exception ex)
                         {
-                            Program.Logger?.Debug($"GetForegroundWindow thread pid lookup threw: {ex.Message}");
+                            AppServices.Logger?.Debug($"GetForegroundWindow thread pid lookup threw: {ex.Message}");
                         }
 
                         foreach (int pid in pids)
@@ -227,7 +227,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[MemoryOptimizer.Check] {ex.Message}");
+                AppServices.Logger?.Debug($"[MemoryOptimizer.Check] {ex.Message}");
             }
         }
 
@@ -270,7 +270,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"GetForegroundWindow thread pid lookup threw: {ex.Message}");
+                AppServices.Logger?.Debug($"GetForegroundWindow thread pid lookup threw: {ex.Message}");
             }
 
             bool allowEmptyWorkingSet = forceWorkingSetTrim || IsAggressiveWorkingSetTrimEnabled();
@@ -327,7 +327,7 @@ namespace Shiro.Services
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Debug($"[MemoryOptimizer.TrimClient] {pid}: {ex.Message}");
+                    AppServices.Logger?.Debug($"[MemoryOptimizer.TrimClient] {pid}: {ex.Message}");
                 }
                 finally
                 {
@@ -341,7 +341,7 @@ namespace Shiro.Services
             if (count > 0 || prioCount > 0)
             {
                 double savedMb = saved / (1024.0 * 1024.0);
-                Program.Logger?.Info($"[MemoryOptimizer] Anti-Lag optimization: Freed ~{savedMb:F1} MB across {count} client(s), set BelowNormal priority on {prioCount} client(s).");
+                AppServices.Logger?.Info($"[MemoryOptimizer] Anti-Lag optimization: Freed ~{savedMb:F1} MB across {count} client(s), set BelowNormal priority on {prioCount} client(s).");
             }
 
             return (saved, count, prioCount);

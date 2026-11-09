@@ -130,7 +130,7 @@ namespace Shiro.Services
                     catch (OperationCanceledException) { /* canceled */ }
                     catch (Exception ex)
                     {
-                        Program.Logger?.Debug($"[QueueRefreshNotificationArea] {ex.Message}");
+                        AppServices.Logger?.Debug($"[QueueRefreshNotificationArea] {ex.Message}");
                     }
                 }, token);
             }
@@ -181,7 +181,7 @@ namespace Shiro.Services
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Debug($"EnumWindows tray sweep threw: {ex.Message}");
+                    AppServices.Logger?.Debug($"EnumWindows tray sweep threw: {ex.Message}");
                 }
 
                 // 3. Post WM_MOUSEMOVE across every target toolbar / overflow window (100% silent in background)
@@ -192,7 +192,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[RefreshNotificationArea] Error during tray sweep: {ex.Message}");
+                AppServices.Logger?.Debug($"[RefreshNotificationArea] Error during tray sweep: {ex.Message}");
             }
         }
 
@@ -213,7 +213,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"CollectToolbars threw: {ex.Message}");
+                AppServices.Logger?.Debug($"CollectToolbars threw: {ex.Message}");
             }
         }
 
@@ -243,7 +243,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"SweepWindowForDeadIcons threw: {ex.Message}");
+                AppServices.Logger?.Debug($"SweepWindowForDeadIcons threw: {ex.Message}");
             }
         }
 

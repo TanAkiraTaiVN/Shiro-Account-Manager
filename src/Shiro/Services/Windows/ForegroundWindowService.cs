@@ -86,13 +86,13 @@ namespace Shiro.Services
                             Volatile.Write(ref _lastForegroundPid, pid);
                         }
 
-                        Program.Logger?.Info("[ForegroundWindowService] Real-time SetWinEventHook(EVENT_SYSTEM_FOREGROUND) active.");
+                        AppServices.Logger?.Info("[ForegroundWindowService] Real-time SetWinEventHook(EVENT_SYSTEM_FOREGROUND) active.");
                         return true;
                     }
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Debug($"[ForegroundWindowService.Start] Failed to install WinEvent hook: {ex.Message}");
+                    AppServices.Logger?.Debug($"[ForegroundWindowService.Start] Failed to install WinEvent hook: {ex.Message}");
                 }
 
                 return false;
@@ -114,7 +114,7 @@ namespace Shiro.Services
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Debug($"[ForegroundWindowService.Stop] {ex.Message}");
+                    AppServices.Logger?.Debug($"[ForegroundWindowService.Stop] {ex.Message}");
                 }
                 finally
                 {
@@ -183,7 +183,7 @@ namespace Shiro.Services
                     }
                     catch (Exception ex)
                     {
-                        Program.Logger?.Debug($"[ForegroundWindowService.CoalescedFocus] {ex.Message}");
+                        AppServices.Logger?.Debug($"[ForegroundWindowService.CoalescedFocus] {ex.Message}");
                     }
                 });
 
@@ -193,13 +193,13 @@ namespace Shiro.Services
                     ThreadPool.QueueUserWorkItem(_ =>
                     {
                         try { handlers(hwnd, pid); }
-                        catch (Exception ex) { Program.Logger?.Debug($"[ForegroundWindowService] Handler error: {ex.Message}"); }
+                        catch (Exception ex) { AppServices.Logger?.Debug($"[ForegroundWindowService] Handler error: {ex.Message}"); }
                     });
                 }
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[ForegroundWindowService.OnWinEvent] {ex.Message}");
+                AppServices.Logger?.Debug($"[ForegroundWindowService.OnWinEvent] {ex.Message}");
             }
         }
     }

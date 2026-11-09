@@ -21,7 +21,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[RobloxBrowserLogin] EvaluateOnNewDocumentAsync HBA script threw: {ex.Message}");
+                AppServices.Logger?.Debug($"[RobloxBrowserLogin] EvaluateOnNewDocumentAsync HBA script threw: {ex.Message}");
             }
 
             try
@@ -42,7 +42,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[RobloxBrowserLogin] Live HBA hook injection threw: {ex.Message}");
+                AppServices.Logger?.Debug($"[RobloxBrowserLogin] Live HBA hook injection threw: {ex.Message}");
             }
         }
 
@@ -94,7 +94,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[RobloxBrowserLogin] ExtractHbaCaptureFromPageAsync DOM read threw: {ex.Message}");
+                AppServices.Logger?.Debug($"[RobloxBrowserLogin] ExtractHbaCaptureFromPageAsync DOM read threw: {ex.Message}");
             }
 
             try
@@ -115,7 +115,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[RobloxBrowserLogin] Reading RBXEventTrackerV2 cookie threw: {ex.Message}");
+                AppServices.Logger?.Debug($"[RobloxBrowserLogin] Reading RBXEventTrackerV2 cookie threw: {ex.Message}");
             }
 
             return snapshot;

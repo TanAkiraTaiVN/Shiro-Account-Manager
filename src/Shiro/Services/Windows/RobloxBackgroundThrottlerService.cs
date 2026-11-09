@@ -142,7 +142,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[RobloxBackgroundThrottlerService] ApplyThrottleState failed for PID {processId}: {ex.Message}");
+                AppServices.Logger?.Debug($"[RobloxBackgroundThrottlerService] ApplyThrottleState failed for PID {processId}: {ex.Message}");
             }
             finally
             {
@@ -166,7 +166,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[RobloxBackgroundThrottlerService] TrimWorkingSet failed for PID {processId}: {ex.Message}");
+                AppServices.Logger?.Debug($"[RobloxBackgroundThrottlerService] TrimWorkingSet failed for PID {processId}: {ex.Message}");
                 return false;
             }
             finally

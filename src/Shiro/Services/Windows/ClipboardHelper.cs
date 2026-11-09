@@ -30,7 +30,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"Clipboard.SetTextAsync threw: {ex.Message}");
+                AppServices.Logger?.Debug($"Clipboard.SetTextAsync threw: {ex.Message}");
             }
 
             return SetClipboardTextSafe(text);
@@ -59,13 +59,13 @@ namespace Shiro.Services
                     Avalonia.Threading.Dispatcher.UIThread.Post(() =>
                     {
                         try { desktop.MainWindow.Clipboard.SetTextAsync(text).Forget(); }
-                        catch (Exception ex) { Program.Logger?.Debug($"Clipboard dispatched SetTextAsync threw: {ex.Message}"); }
+                        catch (Exception ex) { AppServices.Logger?.Debug($"Clipboard dispatched SetTextAsync threw: {ex.Message}"); }
                     });
                     return true;
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Debug($"Clipboard sync SetTextAsync threw: {ex.Message}");
+                    AppServices.Logger?.Debug($"Clipboard sync SetTextAsync threw: {ex.Message}");
                 }
             }
 

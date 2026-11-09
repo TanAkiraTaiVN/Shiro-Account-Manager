@@ -261,7 +261,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"GetTargetWorkArea calculation threw: {ex.Message}");
+                AppServices.Logger?.Debug($"GetTargetWorkArea calculation threw: {ex.Message}");
             }
 
             return new DesktopRect(0, 0, 1920, 1080);
@@ -287,12 +287,12 @@ namespace Shiro.Services
                 }
             }
 
-            Program.Logger.Info($"[RobloxWindowService] Hidden {hidden} window(s) across {pids.Count} Roblox client(s).");
+            AppServices.Logger.Info($"[RobloxWindowService] Hidden {hidden} window(s) across {pids.Count} Roblox client(s).");
 
             // Automatically optimize background processes (lower scheduler priority and trim working set)
             try
             {
-                if (AppSettings.General.Get<bool>(AppSettingsKeys.General.AutoLowerProcessPriority, true))
+                if (AppServices.GeneralSettings.Get<bool>(AppSettingsKeys.General.AutoLowerProcessPriority, true))
                 {
                     RobloxProcessOptimizer.LowerPriorityForPids(pids.Select(p => (int)p));
                     MemoryOptimizer.TrimRobloxClients(lowerPriority: false);
@@ -300,7 +300,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"Process priority adjustment on hide threw: {ex.Message}");
+                AppServices.Logger?.Debug($"Process priority adjustment on hide threw: {ex.Message}");
             }
 
             return (hidden, pids.Count);
@@ -328,19 +328,19 @@ namespace Shiro.Services
             }
             _hiddenWindows.Clear();
 
-            Program.Logger.Info($"[RobloxWindowService] Restored {shown} Roblox window(s).");
+            AppServices.Logger.Info($"[RobloxWindowService] Restored {shown} Roblox window(s).");
 
             // Restore normal priority for unhidden clients
             try
             {
-                if (AppSettings.General.Get<bool>(AppSettingsKeys.General.AutoLowerProcessPriority, true))
+                if (AppServices.GeneralSettings.Get<bool>(AppSettingsKeys.General.AutoLowerProcessPriority, true))
                 {
                     RobloxProcessOptimizer.RestorePriorityForPids(pids.Select(p => (int)p));
                 }
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"Process priority adjustment on show threw: {ex.Message}");
+                AppServices.Logger?.Debug($"Process priority adjustment on show threw: {ex.Message}");
             }
 
             return (shown, pids.Count);

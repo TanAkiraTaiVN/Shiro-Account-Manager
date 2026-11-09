@@ -123,7 +123,7 @@ namespace Shiro.Services
             }
 
             string desc = Shiro.Services.LocalizationService.Format("WindowService.GridDimensionsFormat", cols, rows, tiled);
-            Program.Logger.Info($"[RobloxWindowService] Tiled {tiled} Roblox window(s) into {desc} grid.");
+            AppServices.Logger.Info($"[RobloxWindowService] Tiled {tiled} Roblox window(s) into {desc} grid.");
             return (tiled, desc);
         }
 

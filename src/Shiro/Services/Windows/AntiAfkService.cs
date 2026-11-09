@@ -148,7 +148,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger.Error($"[AntiAfk] Tick error: {ex.Message}");
+                AppServices.Logger.Error($"[AntiAfk] Tick error: {ex.Message}");
             }
         }
 
@@ -170,7 +170,7 @@ namespace Shiro.Services
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Debug($"Kestrel anti-afk pulse broadcast failed: {ex.Message}");
+                    AppServices.Logger?.Debug($"Kestrel anti-afk pulse broadcast failed: {ex.Message}");
                 }
 
                 var rand = Random.Shared;
@@ -237,7 +237,7 @@ namespace Shiro.Services
                     else
                     {
                         // Fallback: gentle foreground pulse only if PostMessage failed, window is visible, and explicit permission is given
-                        bool allowFocusSteal = AppSettings.General.Get<bool>("AntiAfkForegroundFallback", false);
+                        bool allowFocusSteal = AppServices.GeneralSettings.Get<bool>("AntiAfkForegroundFallback", false);
                         if (!allowFocusSteal)
                         {
                             st.Failures++;
@@ -280,13 +280,13 @@ namespace Shiro.Services
 
                 if (sent > 0)
                 {
-                    Program.Logger?.Info($"[AntiAfk] Kept alive {sent} Roblox client(s) via silent background pulse. Total keepalives: {_tapsSent}.");
+                    AppServices.Logger?.Info($"[AntiAfk] Kept alive {sent} Roblox client(s) via silent background pulse. Total keepalives: {_tapsSent}.");
                     SetStatus($"Anti-AFK Active ({pids.Count} clients • {_tapsSent} keepalives sent)");
                 }
             }
             catch (Exception ex)
             {
-                Program.Logger?.Error($"[AntiAfk] Pass error: {ex.Message}");
+                AppServices.Logger?.Error($"[AntiAfk] Pass error: {ex.Message}");
             }
             finally
             {
@@ -307,7 +307,7 @@ namespace Shiro.Services
             try { StatusChanged?.Invoke(); }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[StatusChanged] {ex.Message}");
+                AppServices.Logger?.Debug($"[StatusChanged] {ex.Message}");
             }
         }
 

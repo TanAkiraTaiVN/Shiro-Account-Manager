@@ -32,7 +32,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"CountOpenPagesAsync error: {ex.Message}");
+                AppServices.Logger?.Debug($"CountOpenPagesAsync error: {ex.Message}");
                 return 0;
             }
         }
@@ -56,7 +56,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"Browser.close websocket call failed: {ex.Message}");
+                AppServices.Logger?.Debug($"Browser.close websocket call failed: {ex.Message}");
             }
 
             try
@@ -66,7 +66,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"Kill process failed: {ex.Message}");
+                AppServices.Logger?.Debug($"Kill process failed: {ex.Message}");
             }
         }
 
@@ -86,7 +86,7 @@ namespace Shiro.Services
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Debug($"Directory.Delete attempt {attempt} failed: {ex.Message}");
+                    AppServices.Logger?.Debug($"Directory.Delete attempt {attempt} failed: {ex.Message}");
                     await Task.Delay(500).ConfigureAwait(false);
                 }
             }
@@ -101,13 +101,13 @@ namespace Shiro.Services
                     if (sensitiveFiles.Any(name => Path.GetFileName(file).StartsWith(name, StringComparison.OrdinalIgnoreCase)))
                     {
                         try { File.Delete(file); }
-                        catch (Exception ex) { Program.Logger?.Debug($"File.Delete sensitive file failed: {ex.Message}"); }
+                        catch (Exception ex) { AppServices.Logger?.Debug($"File.Delete sensitive file failed: {ex.Message}"); }
                     }
                 }
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"WipeProfile sensitive files scan failed: {ex.Message}");
+                AppServices.Logger?.Debug($"WipeProfile sensitive files scan failed: {ex.Message}");
             }
         }
     }

@@ -54,7 +54,7 @@ namespace Shiro.Services
                     using var id = WindowsIdentity.GetCurrent();
                     return new WindowsPrincipal(id).IsInRole(WindowsBuiltInRole.Administrator);
                 }
-                catch (Exception ex) { Program.Logger?.Debug($"IsAdministrator check threw: {ex.Message}"); return false; }
+                catch (Exception ex) { AppServices.Logger?.Debug($"IsAdministrator check threw: {ex.Message}"); return false; }
             }
         }
 
@@ -70,7 +70,7 @@ namespace Shiro.Services
 
             EnsureMutex(true);
             StartWatcher(_watchSeconds);
-            Task.Run(() => { try { Sweep(force: true); } catch (Exception ex) { Program.Logger?.Debug($"Initial sweep threw: {ex.Message}"); } });
+            Task.Run(() => { try { Sweep(force: true); } catch (Exception ex) { AppServices.Logger?.Debug($"Initial sweep threw: {ex.Message}"); } });
         }
 
         public static void Stop()
@@ -185,12 +185,12 @@ namespace Shiro.Services
                             if (wait == WAIT_OBJECT_0 || wait == WAIT_ABANDONED)
                             {
                                 mutexOwned = true;
-                                Program.Logger?.Info("[MultiRoblox] Claimed active singleton mutex ownership.");
+                                AppServices.Logger?.Info("[MultiRoblox] Claimed active singleton mutex ownership.");
                             }
                         }
                         catch (Exception ex)
                         {
-                            Program.Logger?.Debug($"WaitForSingleObject on hMutex threw: {ex.Message}");
+                            AppServices.Logger?.Debug($"WaitForSingleObject on hMutex threw: {ex.Message}");
                         }
                     }
                 }
@@ -209,21 +209,21 @@ namespace Shiro.Services
                     _handlesHeld = true;
                     _accessDenied = false;
                     SetStatus("Mutex Active • Multi-Instance Running");
-                    Program.Logger?.Info($"[MultiRoblox] Singleton Guard active (Mutex: 0x{hMutex:X}, Event: 0x{hEvent:X}).");
+                    AppServices.Logger?.Info($"[MultiRoblox] Singleton Guard active (Mutex: 0x{hMutex:X}, Event: 0x{hEvent:X}).");
                 }
                 else if (hMutex != IntPtr.Zero && !mutexOwned)
                 {
                     _handlesHeld = false;
                     _accessDenied = false;
                     SetStatus("Waiting for existing Roblox to release singleton mutex...");
-                    Program.Logger?.Warn("[MultiRoblox] Singleton mutex is currently held by an existing Roblox process.");
+                    AppServices.Logger?.Warn("[MultiRoblox] Singleton mutex is currently held by an existing Roblox process.");
                 }
                 else
                 {
                     _handlesHeld = false;
                     _accessDenied = (mutexErr == ERROR_ACCESS_DENIED || eventErr == ERROR_ACCESS_DENIED);
                     SetStatus($"Singleton Guard Warning: MutexErr={mutexErr}, EventErr={eventErr}");
-                    Program.Logger?.Warn($"[MultiRoblox] Guard handle warning: MutexErr={mutexErr}, EventErr={eventErr}");
+                    AppServices.Logger?.Warn($"[MultiRoblox] Guard handle warning: MutexErr={mutexErr}, EventErr={eventErr}");
                 }
 
                 ready?.Set();
@@ -238,7 +238,7 @@ namespace Shiro.Services
                         _handlesHeld = hEvent != IntPtr.Zero;
                         _accessDenied = false;
                         SetStatus("Mutex Active • Multi-Instance Running");
-                        Program.Logger?.Info("[MultiRoblox] Claimed singleton mutex after existing Roblox process exited.");
+                        AppServices.Logger?.Info("[MultiRoblox] Claimed singleton mutex after existing Roblox process exited.");
                         break;
                     }
                 }
@@ -250,7 +250,7 @@ namespace Shiro.Services
                 _handlesHeld = false;
                 ready?.Set();
                 SetStatus($"Singleton Guard Error: {ex.Message}");
-                Program.Logger?.Error($"[MultiRoblox] Exception in singleton guard thread: {ex.Message}");
+                AppServices.Logger?.Error($"[MultiRoblox] Exception in singleton guard thread: {ex.Message}");
             }
             finally
             {
@@ -290,7 +290,7 @@ namespace Shiro.Services
                 var period = TimeSpan.FromSeconds(Math.Max(2, seconds));
                 _watchSeconds = seconds;
                 if (_watcher == null)
-                    _watcher = new Timer(_ => { try { Sweep(); } catch (Exception ex) { Program.Logger?.Debug($"Periodic sweep threw: {ex.Message}"); } }, null, TimeSpan.Zero, period);
+                    _watcher = new Timer(_ => { try { Sweep(); } catch (Exception ex) { AppServices.Logger?.Debug($"Periodic sweep threw: {ex.Message}"); } }, null, TimeSpan.Zero, period);
                 else
                     _watcher.Change(TimeSpan.Zero, period);
                 return true;
@@ -466,7 +466,7 @@ namespace Shiro.Services
             try { StatusChanged?.Invoke(); }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[RobloxSingletonService.StatusChanged] {ex.Message}");
+                AppServices.Logger?.Debug($"[RobloxSingletonService.StatusChanged] {ex.Message}");
             }
         }
     }

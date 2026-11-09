@@ -69,7 +69,7 @@ namespace Shiro.Services
             if (shouldUnmuteAll)
             {
                 try { MuteAllRoblox(false, updateStatus: false); }
-                catch (Exception ex) { Program.Logger?.Debug($"Failed to unmute all Roblox sessions: {ex.Message}"); }
+                catch (Exception ex) { AppServices.Logger?.Debug($"Failed to unmute all Roblox sessions: {ex.Message}"); }
                 ClearAudioSessionCache();
             }
         }
@@ -192,7 +192,7 @@ namespace Shiro.Services
             catch (Exception ex)
             {
                 Interlocked.Exchange(ref _lastComFailureTick, Environment.TickCount64);
-                Program.Logger?.Debug($"[RobloxAudioService.SmartMute] {ex.Message}");
+                AppServices.Logger?.Debug($"[RobloxAudioService.SmartMute] {ex.Message}");
             }
         }
 
@@ -296,7 +296,7 @@ namespace Shiro.Services
                         }
                         catch (Exception ex)
                         {
-                            Program.Logger?.Debug($"Failed inspecting audio session: {ex.Message}");
+                            AppServices.Logger?.Debug($"Failed inspecting audio session: {ex.Message}");
                         }
                         finally
                         {
@@ -384,7 +384,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[RobloxAudioService.ApplyFocusAudioState] {ex.Message}");
+                AppServices.Logger?.Debug($"[RobloxAudioService.ApplyFocusAudioState] {ex.Message}");
                 muted = localMuted;
                 unmuted = localUnmuted;
                 totalSessions = localTotal;
@@ -419,7 +419,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Error($"[RobloxAudioService.MuteAllRoblox] {ex.Message}");
+                AppServices.Logger?.Error($"[RobloxAudioService.MuteAllRoblox] {ex.Message}");
             }
 
             return changed;
@@ -457,7 +457,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"Failed checking Roblox mute status: {ex.Message}");
+                AppServices.Logger?.Debug($"Failed checking Roblox mute status: {ex.Message}");
             }
 
             return anyUnmuted;
@@ -468,7 +468,7 @@ namespace Shiro.Services
             if (_status == text) return;
             _status = text;
             try { StatusChanged?.Invoke(); }
-            catch (Exception ex) { Program.Logger?.Warn($"StatusChanged handler error: {ex.Message}"); }
+            catch (Exception ex) { AppServices.Logger?.Warn($"StatusChanged handler error: {ex.Message}"); }
         }
     }
 }

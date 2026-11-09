@@ -112,7 +112,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"Win32 window icon apply threw: {ex.Message}");
+                AppServices.Logger?.Debug($"Win32 window icon apply threw: {ex.Message}");
             }
 
             try
@@ -143,7 +143,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"DwmSetWindowAttribute backdrop threw: {ex.Message}");
+                AppServices.Logger?.Debug($"DwmSetWindowAttribute backdrop threw: {ex.Message}");
             }
         }
     }

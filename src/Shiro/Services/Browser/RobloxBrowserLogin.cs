@@ -63,13 +63,13 @@ namespace Shiro.Services
             }
             catch (Exception exception)
             {
-                Program.Logger.Warn("No isolated Chrome/Edge/Chromium browser could be prepared for sign-in. " + exception.Message);
+                AppServices.Logger.Warn("No isolated Chrome/Edge/Chromium browser could be prepared for sign-in. " + exception.Message);
                 OpenManualSignIn(null);
                 return null;
             }
 
             FileVersionInfo browserVersion = FileVersionInfo.GetVersionInfo(browserPath);
-            Program.Logger.Info($"Using {Path.GetFileName(browserPath)} {browserVersion.ProductVersion} for interactive Roblox sign-in.");
+            AppServices.Logger.Info($"Using {Path.GetFileName(browserPath)} {browserVersion.ProductVersion} for interactive Roblox sign-in.");
 
             string sessionId = CreateNonce();
             string temporaryRoot = Path.Combine(StoragePaths.BrowserSessionsDirectory, "login-" + sessionId);
@@ -91,13 +91,13 @@ namespace Shiro.Services
                 if (routeChoice == true)
                 {
                     proxy = null;
-                    Program.Logger.Info("Interactive Roblox sign-in will use a direct connection.");
+                    AppServices.Logger.Info("Interactive Roblox sign-in will use a direct connection.");
                 }
                 else
-                    Program.Logger.Info("Interactive Roblox sign-in will use a configured proxy.");
+                    AppServices.Logger.Info("Interactive Roblox sign-in will use a configured proxy.");
             }
             else
-                Program.Logger.Info("No sign-in proxy was selected; interactive Roblox sign-in will use a direct connection.");
+                AppServices.Logger.Info("No sign-in proxy was selected; interactive Roblox sign-in will use a direct connection.");
 
             Process? browser = null;
             IBrowser? connectedBrowser = null;
@@ -161,7 +161,7 @@ namespace Shiro.Services
                 browser = Process.Start(startInfo);
                 if (browser == null)
                     throw new InvalidOperationException("The browser did not start.");
-                Program.Logger.Info("Started the interactive Roblox sign-in browser.");
+                AppServices.Logger.Info("Started the interactive Roblox sign-in browser.");
 
                 try
                 {
@@ -185,7 +185,7 @@ namespace Shiro.Services
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger.Warn("Chrome did not expose its local sign-in session to the account manager; falling back to manual cookie import. " + ex.Message);
+                    AppServices.Logger.Warn("Chrome did not expose its local sign-in session to the account manager; falling back to manual cookie import. " + ex.Message);
                     // Keep the already-open isolated profile. The previous
                     // fallback started a second browser without
                     // --user-data-dir, which touched the user's personal
@@ -216,7 +216,7 @@ namespace Shiro.Services
                     }
                     catch (Exception ex)
                     {
-                        Program.Logger?.Debug($"ApplyAntiDetectionAsync on targetcreated threw: {ex.Message}");
+                        AppServices.Logger?.Debug($"ApplyAntiDetectionAsync on targetcreated threw: {ex.Message}");
                     }
                 };
 
@@ -227,7 +227,7 @@ namespace Shiro.Services
 
                 await PrepareLoginAsync(signInPage, username, password, submitCredentials);
 
-                Program.Logger.Info(submitCredentials
+                AppServices.Logger.Info(submitCredentials
                     ? "Chrome is ready for interactive Roblox sign-in. Waiting for the user to finish sign-in and verification."
                     : "Chrome is ready for manual sign-in. Credentials were prefilled; click Log In and finish verification.");
 
@@ -257,7 +257,7 @@ namespace Shiro.Services
                                 }
                                 catch (Exception pageEx)
                                 {
-                                    Program.Logger?.Warn($"Could not create new tab in sign-in browser: {pageEx.Message}");
+                                    AppServices.Logger?.Warn($"Could not create new tab in sign-in browser: {pageEx.Message}");
                                     signInPage = null;
                                     await Task.Delay(500, cancellationToken).ConfigureAwait(false);
                                     continue;
@@ -277,7 +277,7 @@ namespace Shiro.Services
                             }
 
                             proxyAuthSession = await AttachProxyAuthenticationAsync(signInPage, proxy);
-                            Program.Logger?.Info("Reattached to the active Roblox sign-in browser tab.");
+                            AppServices.Logger?.Info("Reattached to the active Roblox sign-in browser tab.");
                         }
 
                         CookieParam? sessionCookie = await ExtractRoblosecurityCookieAsync(signInPage).ConfigureAwait(false);
@@ -289,7 +289,7 @@ namespace Shiro.Services
                             lastAttemptedCookie = sessionCookie.Value;
                             lastCookieAttemptUtc = DateTime.UtcNow;
 
-                            Program.Logger?.Info("[SignInAsync] Initial .ROBLOSECURITY cookie detected. Waiting for post-login navigation to /home and cookie rotation to settle...");
+                            AppServices.Logger?.Info("[SignInAsync] Initial .ROBLOSECURITY cookie detected. Waiting for post-login navigation to /home and cookie rotation to settle...");
 
                             // 1. Allow browser to settle: wait for redirect away from /login to /home or /discover
                             try
@@ -310,7 +310,7 @@ namespace Shiro.Services
                             catch (OperationCanceledException) { throw; }
                             catch (Exception ex)
                             {
-                                Program.Logger?.Debug($"Navigation wait loop failed: {ex.Message}");
+                                AppServices.Logger?.Debug($"Navigation wait loop failed: {ex.Message}");
                             }
 
                             // 2. Read account details through the authenticated browser page
@@ -331,7 +331,7 @@ namespace Shiro.Services
                             }
                             catch (Exception ex)
                             {
-                                Program.Logger?.Debug($"Re-read settled cookie failed: {ex.Message}");
+                                AppServices.Logger?.Debug($"Re-read settled cookie failed: {ex.Message}");
                             }
 
                             // 4. Add or update account with the settled cookie (re-checking cookie after HBA/authenticated fetch)
@@ -347,27 +347,27 @@ namespace Shiro.Services
                             }
                             catch (Exception ex)
                             {
-                                Program.Logger?.Debug($"Post-HBA cookie re-read failed: {ex.Message}");
+                                AppServices.Logger?.Debug($"Post-HBA cookie re-read failed: {ex.Message}");
                             }
                             Account? account = await AppServices.AccountRepository.AddOrUpdateWithHbaAsync(settledCookieValue, password ?? string.Empty, accountJson, cancellationToken: cancellationToken, hbaCapture: hbaSnapshot).ConfigureAwait(false);
                             if (account != null)
                             {
                                 createdAccount = account;
-                                Program.Logger?.Info($"[SignInAsync] Account {account.Username} registered from browser. Verifying session live before closing...");
+                                AppServices.Logger?.Info($"[SignInAsync] Account {account.Username} registered from browser. Verifying session live before closing...");
 
                                 // 5. Verify live against Roblox API. ValidateSessionAsync also automatically captures and updates
                                 // any rotated token from the response headers!
                                 bool sessionValid = await account.ValidateSessionAsync(cancellationToken).ConfigureAwait(false);
                                 if (!sessionValid)
                                 {
-                                    Program.Logger?.Warn($"[SignInAsync] Validation check for {account.Username} was not immediately OK. Waiting 1s to re-read page cookies...");
+                                    AppServices.Logger?.Warn($"[SignInAsync] Validation check for {account.Username} was not immediately OK. Waiting 1s to re-read page cookies...");
                                     await Task.Delay(1000, cancellationToken).ConfigureAwait(false);
                                     if (signInPage != null && !signInPage.IsClosed)
                                     {
                                         var fresh = await ExtractRoblosecurityCookieAsync(signInPage).ConfigureAwait(false);
                                         if (fresh != null && !string.Equals(account.SecurityToken, fresh.Value, StringComparison.Ordinal))
                                         {
-                                            Program.Logger?.Info($"[SignInAsync] Captured post-settle rotated cookie for {account.Username}.");
+                                            AppServices.Logger?.Info($"[SignInAsync] Captured post-settle rotated cookie for {account.Username}.");
                                             account.SecurityToken = fresh.Value;
                                             sessionValid = await account.ValidateSessionAsync(cancellationToken).ConfigureAwait(false);
                                         }
@@ -376,45 +376,45 @@ namespace Shiro.Services
 
                                 account.Valid = sessionValid;
                                 try { AppServices.AccountRepository.Save(true); }
-                                catch (Exception ex) { Program.Logger?.Warn($"SaveAccounts failed after browser login: {ex.Message}"); }
+                                catch (Exception ex) { AppServices.Logger?.Warn($"SaveAccounts failed after browser login: {ex.Message}"); }
 
                                 if (sessionValid)
                                 {
-                                    Program.Logger?.Info($"[SignInAsync] Live session verified successfully for {account.Username} (UserId: {account.UserID})! Ready to close browser.");
+                                    AppServices.Logger?.Info($"[SignInAsync] Live session verified successfully for {account.Username} (UserId: {account.UserID})! Ready to close browser.");
                                     await Task.Delay(1000, cancellationToken).ConfigureAwait(false);
                                     break;
                                 }
                                 else
                                 {
                                     lastAttemptedCookie = null;
-                                    Program.Logger?.Warn($"[SignInAsync] Session for {account.Username} could not be validated yet; keeping browser open for completion.");
+                                    AppServices.Logger?.Warn($"[SignInAsync] Session for {account.Username} could not be validated yet; keeping browser open for completion.");
                                 }
                             }
                             else
                             {
-                                Program.Logger?.Warn("Roblox did not accept the session from the temporary browser; the cookie value was not logged.");
+                                AppServices.Logger?.Warn("Roblox did not accept the session from the temporary browser; the cookie value was not logged.");
                             }
                         }
                     }
                     catch (TargetClosedException ex)
                     {
                         signInPage = null;
-                        Program.Logger?.Warn("The Roblox sign-in tab changed while reading cookies; waiting for the active tab. " + ex.Message);
+                        AppServices.Logger?.Warn("The Roblox sign-in tab changed while reading cookies; waiting for the active tab. " + ex.Message);
                     }
                     catch (PuppeteerException ex) when (IsDetachedPageException(ex))
                     {
                         signInPage = null;
-                        Program.Logger?.Warn("The Roblox sign-in tab was replaced while reading cookies; waiting for the active tab. " + ex.Message);
+                        AppServices.Logger?.Warn("The Roblox sign-in tab was replaced while reading cookies; waiting for the active tab. " + ex.Message);
                     }
                     catch (MessageException ex)
                     {
                         signInPage = null;
-                        Program.Logger?.Warn("DevTools protocol message error in sign-in browser; retrying tab: " + ex.Message);
+                        AppServices.Logger?.Warn("DevTools protocol message error in sign-in browser; retrying tab: " + ex.Message);
                     }
                     catch (PuppeteerException ex)
                     {
                         signInPage = null;
-                        Program.Logger?.Warn("Puppeteer exception in sign-in browser: " + ex.Message);
+                        AppServices.Logger?.Warn("Puppeteer exception in sign-in browser: " + ex.Message);
                     }
 
                     await Task.Delay(1000, cancellationToken).ConfigureAwait(false);
@@ -432,13 +432,13 @@ namespace Shiro.Services
                     if (connectedBrowser != null)
                     {
                         try { await connectedBrowser.CloseAsync(); }
-                        catch (Exception ex) { Program.Logger?.Debug($"connectedBrowser.CloseAsync threw: {ex.Message}"); }
+                        catch (Exception ex) { AppServices.Logger?.Debug($"connectedBrowser.CloseAsync threw: {ex.Message}"); }
                     }
 
                     if (browser != null)
                     {
                         try { if (!browser.HasExited) CloseBrowser(browser); }
-                        catch (Exception ex) { Program.Logger?.Debug($"CloseBrowser threw: {ex.Message}"); }
+                        catch (Exception ex) { AppServices.Logger?.Debug($"CloseBrowser threw: {ex.Message}"); }
                         browser.Dispose();
                     }
 

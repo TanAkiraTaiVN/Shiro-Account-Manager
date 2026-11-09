@@ -55,7 +55,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[RobloxProcessOptimizer] Failed to set priority for PID {pid}: {ex.Message}");
+                AppServices.Logger?.Debug($"[RobloxProcessOptimizer] Failed to set priority for PID {pid}: {ex.Message}");
                 return false;
             }
             finally
@@ -79,7 +79,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[RobloxProcessOptimizer] Failed to set affinity for PID {pid}: {ex.Message}");
+                AppServices.Logger?.Debug($"[RobloxProcessOptimizer] Failed to set affinity for PID {pid}: {ex.Message}");
                 return false;
             }
             finally
@@ -133,12 +133,12 @@ namespace Shiro.Services
             if (pid <= 0) return;
             try
             {
-                if (AppSettings.General.Get<bool>(AppSettingsKeys.General.AutoLowerProcessPriority, false))
+                if (AppServices.GeneralSettings.Get<bool>(AppSettingsKeys.General.AutoLowerProcessPriority, false))
                 {
                     SetProcessPriority(pid, BELOW_NORMAL_PRIORITY_CLASS);
                 }
 
-                int cpuCapPercent = AppSettings.General.Get<int>(AppSettingsKeys.General.MaxTotalRobloxCpuPercent, 0);
+                int cpuCapPercent = AppServices.GeneralSettings.Get<int>(AppSettingsKeys.General.MaxTotalRobloxCpuPercent, 0);
                 if (cpuCapPercent > 0 && RobloxJobObjectService.CurrentCpuRatePercent != cpuCapPercent)
                 {
                     RobloxJobObjectService.SetCpuRateLimit(cpuCapPercent);
@@ -151,7 +151,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"Failed optimizing launched process {pid}: {ex.Message}");
+                AppServices.Logger?.Debug($"Failed optimizing launched process {pid}: {ex.Message}");
             }
         }
     }

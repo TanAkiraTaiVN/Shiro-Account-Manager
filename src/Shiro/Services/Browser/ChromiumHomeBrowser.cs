@@ -56,7 +56,7 @@ namespace Shiro.Services
             string? executable = FindExecutable();
             if (string.IsNullOrWhiteSpace(executable))
             {
-                Program.Logger?.Warn("No Chrome or Edge executable was found for the Roblox Home browser.");
+                AppServices.Logger?.Warn("No Chrome or Edge executable was found for the Roblox Home browser.");
                 return false;
             }
 
@@ -89,18 +89,18 @@ namespace Shiro.Services
                 await InjectCookieAndNavigateAsync(target.WebSocketUrl, account.SecurityToken,
                     cancellationToken).ConfigureAwait(false);
 
-                Program.Logger?.Info($"Opened Roblox Home for {account.Username} in {Path.GetFileName(executable)} using an isolated Chromium profile.");
+                AppServices.Logger?.Info($"Opened Roblox Home for {account.Username} in {Path.GetFileName(executable)} using an isolated Chromium profile.");
                 return true;
             }
             catch (OperationCanceledException)
             {
-                Program.Logger?.Warn($"Opening Roblox Home for {account.Username} was cancelled.");
+                AppServices.Logger?.Warn($"Opening Roblox Home for {account.Username} was cancelled.");
                 if (cleanupStarted && process != null) await CloseBrowserAsync(port, process).ConfigureAwait(false);
                 return false;
             }
             catch (Exception exception)
             {
-                Program.Logger?.Error($"Failed to open Roblox Home in Chromium for {account.Username}.", exception);
+                AppServices.Logger?.Error($"Failed to open Roblox Home in Chromium for {account.Username}.", exception);
                 if (cleanupStarted && process != null) await CloseBrowserAsync(port, process).ConfigureAwait(false);
                 return false;
             }
@@ -130,7 +130,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"FindSystemBrowserExecutables failed: {ex.Message}");
+                AppServices.Logger?.Debug($"FindSystemBrowserExecutables failed: {ex.Message}");
                 return null;
             }
         }
@@ -245,7 +245,7 @@ namespace Shiro.Services
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Debug($"Parse webSocketDebuggerUrl JSON failed: {ex.Message}");
+                    AppServices.Logger?.Debug($"Parse webSocketDebuggerUrl JSON failed: {ex.Message}");
                 }
 
                 try
@@ -306,7 +306,7 @@ namespace Shiro.Services
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Debug($"Closing home browser websocket threw: {ex.Message}");
+                    AppServices.Logger?.Debug($"Closing home browser websocket threw: {ex.Message}");
                 }
             }
         }
@@ -398,7 +398,7 @@ namespace Shiro.Services
             }
             catch (Exception exception)
             {
-                Program.Logger?.Warn("Watching the Chromium Home window failed; cleaning up its temporary profile.", exception);
+                AppServices.Logger?.Warn("Watching the Chromium Home window failed; cleaning up its temporary profile.", exception);
             }
             finally
             {

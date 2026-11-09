@@ -903,9 +903,9 @@ namespace Shiro.Tests
                 ["ViewModels"] = (0, 0),
                 // locked at current baseline; may only go down:
                 ["Domain"] = (0, 0),
-                ["Services/Browser"] = (94, 2),
+                ["Services/Browser"] = (0, 0),
                 ["Services/Launch"] = (132, 58),
-                ["Services/Windows"] = (110, 17),
+                ["Services/Windows"] = (0, 0),
                 ["Services/Ui"] = (0, 0),
                 ["AvaloniaUI/Views"] = (0, 0),
             };

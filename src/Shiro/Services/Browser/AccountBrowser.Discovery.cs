@@ -87,7 +87,7 @@ namespace Shiro.Services
                     }
                     catch (Exception ex)
                     {
-                        Program.Logger?.Debug($"App Paths lookup for {exeName} failed: {ex.Message}");
+                        AppServices.Logger?.Debug($"App Paths lookup for {exeName} failed: {ex.Message}");
                     }
 
                     if (!string.IsNullOrWhiteSpace(path))
@@ -112,7 +112,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"Cached Chromium lookup failed: {ex.Message}");
+                AppServices.Logger?.Debug($"Cached Chromium lookup failed: {ex.Message}");
                 return null;
             }
         }

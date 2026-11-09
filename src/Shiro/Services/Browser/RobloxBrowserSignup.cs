@@ -138,8 +138,8 @@ namespace Shiro.Services
                 await ChromeLaunchHelper.DismissCookieBannerAsync(page).ConfigureAwait(false);
                 await FillSignupFormAsync(page, username, password, profile, submitCredentials: false);
 
-                Program.Logger.Info("Roblox sign-up page opened in Chrome. Waiting for user to complete registration...");
-                AppSettings.SetDashboardStatus(
+                AppServices.Logger.Info("Roblox sign-up page opened in Chrome. Waiting for user to complete registration...");
+                AppServices.HostUiBridge.NotifyWindowStatus(
                     Shiro.Services.LocalizationService.Get("RobloxSignup.OpenedBrowser"));
 
                 string? lastAttemptedCookie = null;
@@ -178,7 +178,7 @@ namespace Shiro.Services
                             }
                             catch (Exception ex)
                             {
-                                Program.Logger?.Debug($"Extract domPass threw: {ex.Message}");
+                                AppServices.Logger?.Debug($"Extract domPass threw: {ex.Message}");
                             }
                         }
 
@@ -191,7 +191,7 @@ namespace Shiro.Services
                         }
                         catch (Exception ex)
                         {
-                            Program.Logger?.Debug($"ExtractRoblosecurityCookieAsync threw: {ex.Message}");
+                            AppServices.Logger?.Debug($"ExtractRoblosecurityCookieAsync threw: {ex.Message}");
                         }
 
                         // Fallback: search across all pages in the browser
@@ -214,7 +214,7 @@ namespace Shiro.Services
                             }
                             catch (Exception ex)
                             {
-                                Program.Logger?.Debug($"Scan allPages for cookies threw: {ex.Message}");
+                                AppServices.Logger?.Debug($"Scan allPages for cookies threw: {ex.Message}");
                             }
                         }
 
@@ -233,14 +233,14 @@ namespace Shiro.Services
                             createdAccount = await AppServices.AccountRepository.AddOrUpdateAsync(sessionCookie.Value, finalPassword, accountJson, cancellationToken: cancellationToken).ConfigureAwait(false);
                             if (createdAccount != null)
                             {
-                                Program.Logger?.Info($"Roblox account '{createdAccount.Username}' registered and added to manager successfully.");
-                                AppSettings.SetDashboardStatus(
+                                AppServices.Logger?.Info($"Roblox account '{createdAccount.Username}' registered and added to manager successfully.");
+                                AppServices.HostUiBridge.NotifyWindowStatus(
                                     Shiro.Services.LocalizationService.Format("RobloxSignup.SuccessAddedAccount", createdAccount.Username));
                                 await Task.Delay(1500, cancellationToken).ConfigureAwait(false);
                                 break;
                             }
 
-                            Program.Logger?.Warn("Roblox session cookie was detected but AddAccount did not complete; retrying...");
+                            AppServices.Logger?.Warn("Roblox session cookie was detected but AddAccount did not complete; retrying...");
                         }
                     }
                     catch (TargetClosedException)
@@ -262,7 +262,7 @@ namespace Shiro.Services
                 if (connectedBrowser != null)
                 {
                     try { await connectedBrowser.CloseAsync(); }
-                    catch (Exception ex) { Program.Logger?.Debug($"connectedBrowser.CloseAsync threw: {ex.Message}"); }
+                    catch (Exception ex) { AppServices.Logger?.Debug($"connectedBrowser.CloseAsync threw: {ex.Message}"); }
                 }
                 if (browser != null)
                     CloseBrowser(browser);

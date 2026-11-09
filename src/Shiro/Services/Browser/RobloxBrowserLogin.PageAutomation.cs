@@ -55,7 +55,7 @@ namespace Shiro.Services
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Debug($"Register login watchdog threw: {ex.Message}");
+                    AppServices.Logger?.Debug($"Register login watchdog threw: {ex.Message}");
                 }
 
                 // Keep the one-click behavior, but let the normally
@@ -76,7 +76,7 @@ namespace Shiro.Services
                         }
                         catch (Exception ex)
                         {
-                            Program.Logger?.Debug($"Keyboard.PressAsync Enter threw: {ex.Message}");
+                            AppServices.Logger?.Debug($"Keyboard.PressAsync Enter threw: {ex.Message}");
                         }
                     }
                 }
@@ -85,7 +85,7 @@ namespace Shiro.Services
             {
                 // A changed Roblox selector should not prevent the user from
                 // completing the sign-in manually in the open Chrome window.
-                Program.Logger.Warn("Could not prefill the Roblox sign-in form; complete it manually in Chrome. " + ex.Message);
+                AppServices.Logger.Warn("Could not prefill the Roblox sign-in form; complete it manually in Chrome. " + ex.Message);
             }
         }
 
@@ -109,7 +109,7 @@ namespace Shiro.Services
                     }
                     catch (Exception ex)
                     {
-                        Program.Logger?.Debug($"Clearing text for {selector} threw: {ex.Message}");
+                        AppServices.Logger?.Debug($"Clearing text for {selector} threw: {ex.Message}");
                     }
 
                     // Real typing with Puppeteer
@@ -119,7 +119,7 @@ namespace Shiro.Services
                     }
                     catch (Exception ex)
                     {
-                        Program.Logger?.Debug($"TypeAsync {selector} threw: {ex.Message}");
+                        AppServices.Logger?.Debug($"TypeAsync {selector} threw: {ex.Message}");
                     }
 
                     // Verify DOM and apply React-aware controlled input fallback
@@ -138,7 +138,7 @@ namespace Shiro.Services
                 await Task.Delay(180);
             }
 
-            Program.Logger?.Warn($"Roblox did not confirm the prefilled login field {selector}; complete it manually in Chrome.");
+            AppServices.Logger?.Warn($"Roblox did not confirm the prefilled login field {selector}; complete it manually in Chrome.");
         }
 
         private static async Task EnsureLoginPageAsync(IPage page)
@@ -156,7 +156,7 @@ namespace Shiro.Services
 
                 string currentUrl = string.Empty;
                 try { currentUrl = page.Url ?? string.Empty; }
-                catch (Exception ex) { Program.Logger?.Debug($"Get page.Url threw: {ex.Message}"); }
+                catch (Exception ex) { AppServices.Logger?.Debug($"Get page.Url threw: {ex.Message}"); }
 
                 if (string.IsNullOrEmpty(currentUrl) ||
                     currentUrl.StartsWith("about:blank", StringComparison.OrdinalIgnoreCase) ||
@@ -180,14 +180,14 @@ namespace Shiro.Services
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Debug($"WaitForSelectorAsync login inputs timed out or threw: {ex.Message}");
+                    AppServices.Logger?.Debug($"WaitForSelectorAsync login inputs timed out or threw: {ex.Message}");
                 }
             }
             catch (Exception ex)
             {
                 // A blocked or slow network should leave the real Chrome page
                 // open for the user instead of making the app wait 60 seconds.
-                Program.Logger.Warn("The Roblox login page is still loading in Chrome. " + ex.Message);
+                AppServices.Logger.Warn("The Roblox login page is still loading in Chrome. " + ex.Message);
             }
         }
 
@@ -264,7 +264,7 @@ namespace Shiro.Services
                 return;
 
             try { await session.DetachAsync(); }
-            catch (Exception ex) { Program.Logger?.Debug($"DetachAsync threw: {ex.Message}"); }
+            catch (Exception ex) { AppServices.Logger?.Debug($"DetachAsync threw: {ex.Message}"); }
         }
 
         private static bool IsDetachedPageException(PuppeteerException exception)
@@ -328,7 +328,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Error($"OpenManualSignIn failed: {ex.Message}");
+                AppServices.Logger?.Error($"OpenManualSignIn failed: {ex.Message}");
                 AccountBrowser.Observe(TryDeleteTemporaryDirectoryAsync(sessionRoot));
                 throw;
             }
@@ -336,7 +336,7 @@ namespace Shiro.Services
 
         private static void HandOffManualSignIn(Process browser, string sessionRoot)
         {
-            Program.Logger.Info("Roblox sign-in is open in an isolated browser profile; cookie capture remains manual.");
+            AppServices.Logger.Info("Roblox sign-in is open in an isolated browser profile; cookie capture remains manual.");
             AccountBrowser.Observe(MonitorManualBrowserAndCleanupAsync(browser, sessionRoot));
             AppServices.Dialogs.ShowInfo(
                 "Roblox sign-in opened in an isolated Chrome/Edge profile. Complete verification there, then import the session using Add Account > By Cookie. " +
@@ -355,7 +355,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"WaitForExitAsync manual browser threw: {ex.Message}");
+                AppServices.Logger?.Debug($"WaitForExitAsync manual browser threw: {ex.Message}");
             }
             finally
             {

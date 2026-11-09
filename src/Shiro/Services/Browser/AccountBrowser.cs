@@ -74,7 +74,7 @@ namespace Shiro.Services
             }
             catch (Exception exception)
             {
-                Program.Logger.Error("Browser operation failed.", exception);
+                AppServices.Logger.Error("Browser operation failed.", exception);
             }
         }
 
@@ -141,7 +141,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Error($"Failed to launch or initialize isolated browser session: {ex.Message}");
+                AppServices.Logger?.Error($"Failed to launch or initialize isolated browser session: {ex.Message}");
                 try
                 {
                     if (session.browser != null && session.browser.IsConnected)
@@ -149,7 +149,7 @@ namespace Shiro.Services
                 }
                 catch (Exception closeEx)
                 {
-                    Program.Logger?.Debug($"Closing failed browser session threw: {closeEx.Message}");
+                    AppServices.Logger?.Debug($"Closing failed browser session threw: {closeEx.Message}");
                 }
 
                 // A browser can fail before the Disconnected handler is
@@ -190,7 +190,7 @@ namespace Shiro.Services
             IWebProxy? selectedProxy = Proxy;
             Proxy = null;
             try { (selectedProxy as IDisposable)?.Dispose(); }
-            catch (Exception ex) { Program.Logger?.Debug($"Disposing web proxy threw: {ex.Message}"); }
+            catch (Exception ex) { AppServices.Logger?.Debug($"Disposing web proxy threw: {ex.Message}"); }
         }
 
         public async Task LaunchBrowser(
@@ -237,7 +237,7 @@ namespace Shiro.Services
             }
             catch (InvalidOperationException ex)
             {
-                Program.Logger?.Error($"[AccountBrowser] {ex.Message}");
+                AppServices.Logger?.Error($"[AccountBrowser] {ex.Message}");
                 ToastService.ShowError(Shiro.Services.LocalizationService.Get("AccountBrowser.ProxyError"), ex.Message);
                 return;
             }
@@ -268,14 +268,14 @@ namespace Shiro.Services
 
                 try
                 {
-                    Program.Logger.Info($"Launching installed browser: {SystemBrowser}");
+                    AppServices.Logger.Info($"Launching installed browser: {SystemBrowser}");
                     browser = await LaunchBrowserInstance(Options, UseStealth);
                     cancellationToken.ThrowIfCancellationRequested();
                     break;
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger.Warn($"Unable to launch the installed browser at {SystemBrowser}; trying the next browser candidate.", ex);
+                    AppServices.Logger.Warn($"Unable to launch the installed browser at {SystemBrowser}; trying the next browser candidate.", ex);
                 }
             }
 
@@ -286,7 +286,7 @@ namespace Shiro.Services
                 if (string.IsNullOrEmpty(cachedChromium))
                     throw new FileNotFoundException(BrowserNotFoundMessage);
 
-                Program.Logger.Warn($"No installed browser launched successfully. Using previously cached Chromium at {cachedChromium}.");
+                AppServices.Logger.Warn($"No installed browser launched successfully. Using previously cached Chromium at {cachedChromium}.");
                 Options.ExecutablePath = cachedChromium;
                 browser = await LaunchBrowserInstance(Options, UseStealth);
                 cancellationToken.ThrowIfCancellationRequested();
@@ -305,7 +305,7 @@ namespace Shiro.Services
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Debug($"EvaluateExpressionOnNewDocumentAsync stealth failed: {ex.Message}");
+                    AppServices.Logger?.Debug($"EvaluateExpressionOnNewDocumentAsync stealth failed: {ex.Message}");
                 }
             }
 
@@ -333,10 +333,10 @@ namespace Shiro.Services
 
             if (PostPageCreation != null)
                 try { await PostPageCreation(); }
-                catch (Exception ex) { Program.Logger?.Error($"PostPageCreation hook failed: {ex.Message}"); }
+                catch (Exception ex) { AppServices.Logger?.Error($"PostPageCreation hook failed: {ex.Message}"); }
 
             try { await page.GoToAsync(Url, new NavigationOptions { Timeout = 300000 }); }
-            catch (Exception ex) { Program.Logger?.Warn($"Navigation to '{Url}' failed or timed out: {ex.Message}"); }
+            catch (Exception ex) { AppServices.Logger?.Warn($"Navigation to '{Url}' failed or timed out: {ex.Message}"); }
 
             if (!string.IsNullOrEmpty(Script)) await page.EvaluateExpressionAsync(Script);
 
@@ -345,7 +345,7 @@ namespace Shiro.Services
 
             if (PostNavigation != null)
                 try { await PostNavigation(page); }
-                catch (Exception ex) { Program.Logger?.Error($"PostNavigation hook failed: {ex.Message}"); }
+                catch (Exception ex) { AppServices.Logger?.Error($"PostNavigation hook failed: {ex.Message}"); }
 
             if (Config?.PostNavigateScripts != null)
                 foreach (var script in Config.PostNavigateScripts)

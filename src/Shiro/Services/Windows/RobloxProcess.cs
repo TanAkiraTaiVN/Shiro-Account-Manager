@@ -35,7 +35,7 @@ namespace Shiro.Services
 
         public RobloxProcess(Process process, string? expectedTrackerId = null)
         {
-            Program.Logger.Info($"New RobloxProcess created for {process.Id}");
+            AppServices.Logger.Info($"New RobloxProcess created for {process.Id}");
 
             RbxProcess = process;
             if (!string.IsNullOrEmpty(expectedTrackerId))
@@ -67,7 +67,7 @@ namespace Shiro.Services
             }
             catch (OperationCanceledException) { /* Intentional: cancellation requested */ }
             catch (InvalidOperationException) { /* Intentional: process exited before wait */ }
-            catch (Exception x) { Program.Logger.Error($"WaitForExit Error: {x}"); }
+            catch (Exception x) { AppServices.Logger.Error($"WaitForExit Error: {x}"); }
             finally
             {
                 if (Program.Closed || SafeHasExited())
@@ -82,8 +82,8 @@ namespace Shiro.Services
         {
             try
             {
-                if (AppSettings.Watcher == null || !AppSettings.Watcher.Get<bool>("ExitIfNoConnection")) return;
-                double timeout = AppSettings.Watcher.Get<double>("NoConnectionTimeout");
+                if (AppServices.WatcherSettings == null || !AppServices.WatcherSettings.Get<bool>("ExitIfNoConnection")) return;
+                double timeout = AppServices.WatcherSettings.Get<double>("NoConnectionTimeout");
                 if (timeout <= 0) return;
 
                 var token = exitMonitoringCancellation.Token;
@@ -93,18 +93,18 @@ namespace Shiro.Services
                     {
                         await Task.Delay(TimeSpan.FromSeconds(Math.Max(1.0, initialGraceSeconds + timeout + 0.5)), token).ConfigureAwait(false);
                         if (token.IsCancellationRequested || IsConnected || Program.Closed || SafeHasExited()) return;
-                        if (AppSettings.Watcher == null || !AppSettings.Watcher.Get<bool>("ExitIfNoConnection")) return;
+                        if (AppServices.WatcherSettings == null || !AppServices.WatcherSettings.Get<bool>("ExitIfNoConnection")) return;
 
-                        double configuredTimeout = AppSettings.Watcher.Get<double>("NoConnectionTimeout");
+                        double configuredTimeout = AppServices.WatcherSettings.Get<double>("NoConnectionTimeout");
                         double elapsed = (DateTime.UtcNow - DisconnectedTime).TotalSeconds;
                         if (configuredTimeout > 0 && !IsConnected && elapsed > configuredTimeout)
                             KillProcess($"Lost connection for more than {elapsed:0.0} second(s)");
                     }
                     catch (OperationCanceledException) { /* Intentional: watchdog cancelled */ }
-                    catch (Exception ex) { Program.Logger?.Debug($"NoConnection watchdog error: {ex.Message}"); }
+                    catch (Exception ex) { AppServices.Logger?.Debug($"NoConnection watchdog error: {ex.Message}"); }
                 }, token);
             }
-            catch (Exception ex) { Program.Logger?.Debug($"ScheduleNoConnectionWatchdogIfEnabled failed: {ex.Message}"); }
+            catch (Exception ex) { AppServices.Logger?.Debug($"ScheduleNoConnectionWatchdogIfEnabled failed: {ex.Message}"); }
         }
 
         private void CleanupProcessExit()
@@ -116,7 +116,7 @@ namespace Shiro.Services
                 SafeExecuteHelper.Try(logLookupCancellation.Cancel);
 
                 int processId = SafeExecuteHelper.Try(() => RbxProcess?.Id ?? 0, fallback: 0);
-                if (processId > 0) Program.Logger.Info($"{processId} has exited");
+                if (processId > 0) AppServices.Logger.Info($"{processId} has exited");
 
                 RobloxWatcher.LogFileRead -= ReadLogFile;
                 lock (RobloxWatcher.InstanceRegistryLock) { RobloxWatcher.Instances.Remove(this); }
@@ -133,7 +133,7 @@ namespace Shiro.Services
                 SafeExecuteHelper.Try(exitMonitoringCancellation.Dispose);
                 Utilities.QueueRefreshNotificationArea();
             }
-            catch (Exception ex) { Program.Logger?.Debug($"CleanupProcessExit error: {ex.Message}"); }
+            catch (Exception ex) { AppServices.Logger?.Debug($"CleanupProcessExit error: {ex.Message}"); }
         }
 
         internal static string[] ReadAppendedLines(Stream stream, ref long lastPosition)
@@ -188,7 +188,7 @@ namespace Shiro.Services
                     catch (ObjectDisposedException) { return; }
                     catch (Exception x)
                     {
-                        Program.Logger.Error($"An error occured while trying to read LogFile of {RbxProcess.Id}: {x}");
+                        AppServices.Logger.Error($"An error occured while trying to read LogFile of {RbxProcess.Id}: {x}");
                         return;
                     }
                 }
@@ -197,7 +197,7 @@ namespace Shiro.Services
                 {
                     if (Lines.Length > 0)
                     {
-                        bool exitOnBeta = AppSettings.Watcher?.Get<bool>("ExitOnBeta") == true;
+                        bool exitOnBeta = AppServices.WatcherSettings?.Get<bool>("ExitOnBeta") == true;
                         bool verifyDataModel = RobloxWatcher.VerifyDataModel;
 
                         for (int i = 0; i < Lines.Length; i++)
@@ -213,24 +213,24 @@ namespace Shiro.Services
                             {
                                 case RobloxLogLineOutcome.Connected:
                                     try { if (RbxProcess != null) Connected?.Invoke(RbxProcess.Id); }
-                                    catch (Exception ex) { Program.Logger?.Error($"Connected event handler failed: {ex.Message}"); }
+                                    catch (Exception ex) { AppServices.Logger?.Error($"Connected event handler failed: {ex.Message}"); }
                                     break;
 
                                 case RobloxLogLineOutcome.Disconnected:
                                     DisconnectedTime = DateTime.UtcNow;
                                     ScheduleNoConnectionWatchdogIfEnabled(initialGraceSeconds: 0);
                                     try { if (RbxProcess != null) Disconnected?.Invoke(RbxProcess.Id, _sessionState.LastDisconnectReason); }
-                                    catch (Exception ex) { Program.Logger?.Error($"Disconnected event handler failed: {ex.Message}"); }
+                                    catch (Exception ex) { AppServices.Logger?.Error($"Disconnected event handler failed: {ex.Message}"); }
                                     break;
 
                                 case RobloxLogLineOutcome.DataModelInitialized:
-                                    Program.Logger?.Info($"CurrentDataModel set to {_sessionState.CurrentDataModel:X}");
-                                    if (AppSettings.General?.Get<bool>(AppSettingsKeys.General.AggressiveRamTrimming, false) ?? false)
+                                    AppServices.Logger?.Info($"CurrentDataModel set to {_sessionState.CurrentDataModel:X}");
+                                    if (AppServices.GeneralSettings?.Get<bool>(AppSettingsKeys.General.AggressiveRamTrimming, false) ?? false)
                                         _ = SchedulePostLaunchRamTrimAsync();
                                     break;
 
                                 case RobloxLogLineOutcome.DataModelReset:
-                                    Program.Logger?.Info($"CurrentDataModel reset to {_sessionState.CurrentDataModel} | Position: {LastPosition}");
+                                    AppServices.Logger?.Info($"CurrentDataModel reset to {_sessionState.CurrentDataModel} | Position: {LastPosition}");
                                     break;
 
                                 case RobloxLogLineOutcome.KillChallengedOrHijackedClient:
@@ -242,7 +242,7 @@ namespace Shiro.Services
                                     break;
 
                                 case RobloxLogLineOutcome.KillBetaHomeMenu:
-                                    Program.Logger?.Info($"CurrentDataModel reset to {_sessionState.CurrentDataModel} | Position: {LastPosition}");
+                                    AppServices.Logger?.Info($"CurrentDataModel reset to {_sessionState.CurrentDataModel} | Position: {LastPosition}");
                                     if (KillProcess("Beta home menu detected"))
                                         return;
                                     break;
@@ -251,7 +251,7 @@ namespace Shiro.Services
                     }
                 }
                 catch (ObjectDisposedException) { /* Stream was closed concurrently */ }
-                catch (Exception x) { Program.Logger.Error($"An error occured while trying to read LogFile of {RbxProcess.Id}: {x}"); }
+                catch (Exception x) { AppServices.Logger.Error($"An error occured while trying to read LogFile of {RbxProcess.Id}: {x}"); }
             }
         }
 
@@ -259,7 +259,7 @@ namespace Shiro.Services
         {
             if (!(RobloxWatcher.IgnoreExistingProcesses || (!RobloxWatcher.IgnoreExistingProcesses && LastPosition > 0))) return false;
 
-            Program.Logger.Info($"Attempting to kill process {RbxProcess.Id}, reason: {Reason}");
+            AppServices.Logger.Info($"Attempting to kill process {RbxProcess.Id}, reason: {Reason}");
             StreamDisposed = true;
 
             SafeExecuteHelper.Try(exitMonitoringCancellation.Cancel);
@@ -271,7 +271,7 @@ namespace Shiro.Services
                 if (!RbxProcess.HasExited)
                     RbxProcess.Kill(entireProcessTree: true);
             }
-            catch (Exception ex) { Program.Logger?.Debug($"Kill process failed: {ex.Message}"); }
+            catch (Exception ex) { AppServices.Logger?.Debug($"Kill process failed: {ex.Message}"); }
 
             CleanupProcessExit();
             return true;
@@ -282,7 +282,7 @@ namespace Shiro.Services
             while (LogFileRetries <= 30 && !SafeHasExited())
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                Program.Logger?.Info($"Attempting to find LogFile for {RbxProcess.Id}, retries: {LogFileRetries}");
+                AppServices.Logger?.Info($"Attempting to find LogFile for {RbxProcess.Id}, retries: {LogFileRetries}");
                 LogFileRetries += 1;
 
                 // Scan standard Roblox logs folder directly (pure C#, high performance, zero external executable)
@@ -293,7 +293,7 @@ namespace Shiro.Services
                     {
                         var dirInfo = new DirectoryInfo(defaultLogsDir);
                         DateTime processStartTimeUtc = DateTime.MinValue;
-                        try { processStartTimeUtc = RbxProcess.StartTime.ToUniversalTime(); } catch (Exception ex) { Program.Logger?.Debug($"Get process start time failed: {ex.Message}"); }
+                        try { processStartTimeUtc = RbxProcess.StartTime.ToUniversalTime(); } catch (Exception ex) { AppServices.Logger?.Debug($"Get process start time failed: {ex.Message}"); }
                         DateTime minWriteUtc = processStartTimeUtc != DateTime.MinValue ? processStartTimeUtc.AddMinutes(-1) : DateTime.MinValue;
 
                         var claimedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -355,7 +355,7 @@ namespace Shiro.Services
                                     LogFile = file;
                                     LogStream = matchedStream;
                                 }
-                                Program.Logger?.Info($"Found LogFile Path via direct logs folder: {LogFile.FullName}");
+                                AppServices.Logger?.Info($"Found LogFile Path via direct logs folder: {file.FullName}");
                                 return;
                             }
                         }
@@ -372,11 +372,11 @@ namespace Shiro.Services
                                 LogFile = inconclusiveFile;
                                 LogStream = inconclusiveStream;
                             }
-                            AppServices.Logger.Info($"Found LogFile Path via direct logs folder: {LogFile.FullName}");
+                            AppServices.Logger?.Info($"Found LogFile Path via direct logs folder: {inconclusiveFile.FullName}");
                             return;
                         }
                     }
-                    catch (Exception ex) { Program.Logger?.Debug($"Direct logs scan error: {ex.Message}"); }
+                    catch (Exception ex) { AppServices.Logger?.Debug($"Direct logs scan error: {ex.Message}"); }
                 }
 
                 await Task.Delay(LogFileRetries <= 4 ? 400 : 1500, cancellationToken).ConfigureAwait(false);
@@ -390,7 +390,7 @@ namespace Shiro.Services
                 await Task.Delay(15000, exitMonitoringCancellation.Token).ConfigureAwait(false);
                 MemoryOptimizer.TrimRobloxClients();
             }
-            catch (Exception ex) { Program.Logger?.Debug($"SchedulePostLaunchRamTrimAsync stopped: {ex.Message}"); }
+            catch (Exception ex) { AppServices.Logger?.Debug($"SchedulePostLaunchRamTrimAsync stopped: {ex.Message}"); }
         }
 
         private async Task ObserveLogPathLookupAsync()
@@ -400,7 +400,7 @@ namespace Shiro.Services
                 await WaitForLogPathAsync(logLookupCancellation.Token).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (logLookupCancellation.IsCancellationRequested) { /* Intentional: cancelled */ }
-            catch (Exception exception) { Program.Logger.Error($"WaitForLogPath Error for Roblox process {RbxProcess?.Id}: {exception}"); }
+            catch (Exception exception) { AppServices.Logger.Error($"WaitForLogPath Error for Roblox process {RbxProcess?.Id}: {exception}"); }
         }
     }
 }

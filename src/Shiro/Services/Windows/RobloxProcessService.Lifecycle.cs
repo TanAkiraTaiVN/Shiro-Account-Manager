@@ -40,15 +40,15 @@ namespace Shiro.Services
                         }
                         catch (Exception ex)
                         {
-                            Program.Logger?.Debug($"[RobloxProcessService] Could not kill process {proc.Id} ({procName}): {ex.Message}");
+                            AppServices.Logger?.Debug($"[RobloxProcessService] Could not kill process {proc.Id} ({procName}): {ex.Message}");
                             try { proc.Dispose(); }
-                            catch (Exception disposeEx) { Program.Logger?.Debug($"[RobloxProcessService] Dispose error: {disposeEx.Message}"); }
+                            catch (Exception disposeEx) { AppServices.Logger?.Debug($"[RobloxProcessService] Dispose error: {disposeEx.Message}"); }
                         }
                     }
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Debug($"[RobloxProcessService] Error enumerating '{procName}' for kill: {ex.Message}");
+                    AppServices.Logger?.Debug($"[RobloxProcessService] Error enumerating '{procName}' for kill: {ex.Message}");
                 }
             }
 
@@ -66,7 +66,7 @@ namespace Shiro.Services
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Debug($"WaitForExit proc failed: {ex.Message}");
+                    AppServices.Logger?.Debug($"WaitForExit proc failed: {ex.Message}");
                 }
                 finally
                 {
@@ -83,7 +83,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[RobloxProcessService] RefreshNotificationArea error: {ex.Message}");
+                AppServices.Logger?.Debug($"[RobloxProcessService] RefreshNotificationArea error: {ex.Message}");
             }
 
             return totalKilled;
@@ -140,7 +140,7 @@ namespace Shiro.Services
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Debug($"Closing LastLaunchedProcessId failed: {ex.Message}");
+                    AppServices.Logger?.Debug($"Closing LastLaunchedProcessId failed: {ex.Message}");
                     account.LastLaunchedProcessId = 0;
                 }
             }
@@ -174,13 +174,13 @@ namespace Shiro.Services
                         }
                         catch (Exception ex)
                         {
-                            Program.Logger?.Debug($"Checking PID {pid} for tracker failed: {ex.Message}");
+                            AppServices.Logger?.Debug($"Checking PID {pid} for tracker failed: {ex.Message}");
                         }
                     }
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Debug($"Scanning GetRunningRobloxPids for tracker failed: {ex.Message}");
+                    AppServices.Logger?.Debug($"Scanning GetRunningRobloxPids for tracker failed: {ex.Message}");
                 }
             }
 
@@ -252,7 +252,7 @@ namespace Shiro.Services
                     }
                     catch (Exception ex)
                     {
-                        Program.Logger?.Debug($"Process lookup for LastLaunchedProcessId failed: {ex.Message}");
+                        AppServices.Logger?.Debug($"Process lookup for LastLaunchedProcessId failed: {ex.Message}");
                         account.LastLaunchedProcessId = 0;
                     }
                 }
@@ -274,7 +274,7 @@ namespace Shiro.Services
                             }
                             catch (Exception ex)
                             {
-                                Program.Logger?.Debug($"CommandLine lookup for pid {pid} failed: {ex.Message}");
+                                AppServices.Logger?.Debug($"CommandLine lookup for pid {pid} failed: {ex.Message}");
                             }
                         }
                     }
@@ -288,7 +288,7 @@ namespace Shiro.Services
                         }
                         catch (Exception ex)
                         {
-                            Program.Logger?.Debug($"GetProcessById {matchedPid} failed: {ex.Message}");
+                            AppServices.Logger?.Debug($"GetProcessById {matchedPid} failed: {ex.Message}");
                         }
                     }
                 }
@@ -300,7 +300,7 @@ namespace Shiro.Services
             foreach (var item in processesToTerminate)
             {
                 try { item.Process.CloseMainWindow(); }
-                catch (Exception ex) { Program.Logger?.Debug($"CloseMainWindow failed: {ex.Message}"); }
+                catch (Exception ex) { AppServices.Logger?.Debug($"CloseMainWindow failed: {ex.Message}"); }
             }
 
             var waitSw = Stopwatch.StartNew();
@@ -321,7 +321,7 @@ namespace Shiro.Services
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Debug($"Terminating process failed: {ex.Message}");
+                    AppServices.Logger?.Debug($"Terminating process failed: {ex.Message}");
                 }
                 finally
                 {
@@ -387,11 +387,11 @@ namespace Shiro.Services
                         p.Kill();
                         p.WaitForExit(300);
                         cleaned++;
-                        Program.Logger?.Info($"[RobloxProcessService] Purged ghost tray daemon PID {pid} (--launch-to-tray).");
+                        AppServices.Logger?.Info($"[RobloxProcessService] Purged ghost tray daemon PID {pid} (--launch-to-tray).");
                     }
                     catch (Exception ex)
                     {
-                        Program.Logger?.Debug($"Purging ghost tray daemon PID {pid} threw: {ex.Message}");
+                        AppServices.Logger?.Debug($"Purging ghost tray daemon PID {pid} threw: {ex.Message}");
                     }
                 }
 
@@ -416,7 +416,7 @@ namespace Shiro.Services
                     }
                     catch (Exception ex)
                     {
-                        Program.Logger?.Debug($"Killing zombie RobloxCrashHandler threw: {ex.Message}");
+                        AppServices.Logger?.Debug($"Killing zombie RobloxCrashHandler threw: {ex.Message}");
                     }
                     finally { SafeExecuteHelper.Try(() => p.Dispose(), "RobloxProcessService.CleanZombieProcesses.Dispose"); }
                 }
@@ -424,13 +424,13 @@ namespace Shiro.Services
                 if (cleaned > 0)
                 {
                     InvalidateSnapshotCache();
-                    Program.Logger?.Info($"[RobloxProcessService] Purged {cleaned} orphaned Roblox crash / tray process(es) and refreshed system tray silently.");
+                    AppServices.Logger?.Info($"[RobloxProcessService] Purged {cleaned} orphaned Roblox crash / tray process(es) and refreshed system tray silently.");
                     Utilities.QueueRefreshNotificationArea(400);
                 }
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[CleanZombieProcesses] {ex.Message}");
+                AppServices.Logger?.Debug($"[CleanZombieProcesses] {ex.Message}");
             }
             return cleaned;
         }

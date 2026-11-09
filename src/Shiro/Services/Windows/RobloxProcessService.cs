@@ -213,7 +213,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"TryGetProcessCountsNative failed: {ex.Message}");
+                AppServices.Logger?.Debug($"TryGetProcessCountsNative failed: {ex.Message}");
                 return false;
             }
             finally
@@ -331,7 +331,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"IsAnyRobloxRunning fallback failed: {ex.Message}");
+                AppServices.Logger?.Debug($"IsAnyRobloxRunning fallback failed: {ex.Message}");
                 return false;
             }
         }
@@ -359,7 +359,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"GetRunningRobloxCount fallback failed: {ex.Message}");
+                AppServices.Logger?.Debug($"GetRunningRobloxCount fallback failed: {ex.Message}");
                 return 0;
             }
         }
@@ -386,7 +386,7 @@ namespace Shiro.Services
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Debug($"GetTotalRunningRobloxCount fallback '{name}' failed: {ex.Message}");
+                    AppServices.Logger?.Debug($"GetTotalRunningRobloxCount fallback '{name}' failed: {ex.Message}");
                 }
             }
             return count;
@@ -432,19 +432,19 @@ namespace Shiro.Services
                         }
                         catch (Exception ex)
                         {
-                            Program.Logger?.Debug($"[RobloxProcessService.GetRunningRobloxPids] {ex.Message}");
+                            AppServices.Logger?.Debug($"[RobloxProcessService.GetRunningRobloxPids] {ex.Message}");
                         }
                         finally
                         {
                             try { p.Dispose(); }
-                            catch (Exception ex) { Program.Logger?.Debug($"[RobloxProcessService] Dispose error: {ex.Message}"); }
+                            catch (Exception ex) { AppServices.Logger?.Debug($"[RobloxProcessService] Dispose error: {ex.Message}"); }
                         }
                     }
                 }
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[RobloxProcessService.GetRunningRobloxPids] Enumerate error: {ex.Message}");
+                AppServices.Logger?.Debug($"[RobloxProcessService.GetRunningRobloxPids] Enumerate error: {ex.Message}");
             }
             return result;
         }

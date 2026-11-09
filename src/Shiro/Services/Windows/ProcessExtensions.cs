@@ -149,7 +149,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"GetCommandLineNative threw: {ex.Message}");
+                AppServices.Logger?.Debug($"GetCommandLineNative threw: {ex.Message}");
             }
 
             return null;

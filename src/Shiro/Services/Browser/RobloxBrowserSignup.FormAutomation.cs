@@ -17,7 +17,7 @@ namespace Shiro.Services
 
             string currentUrl = string.Empty;
             try { currentUrl = page.Url ?? string.Empty; }
-            catch (Exception ex) { Program.Logger?.Debug($"Get page.Url threw: {ex.Message}"); }
+            catch (Exception ex) { AppServices.Logger?.Debug($"Get page.Url threw: {ex.Message}"); }
 
             if (!currentUrl.Contains("roblox.com/signup", StringComparison.OrdinalIgnoreCase))
             {
@@ -92,11 +92,11 @@ namespace Shiro.Services
                 }
 
                 if (!birthdaySet)
-                    Program.Logger.Warn("Roblox did not confirm the generated birthday values; complete the birthday fields manually if needed.");
+                    AppServices.Logger.Warn("Roblox did not confirm the generated birthday values; complete the birthday fields manually if needed.");
             }
             catch (Exception ex)
             {
-                Program.Logger.Warn("Could not prefill birthday fields; complete them manually if needed. " + ex.Message);
+                AppServices.Logger.Warn("Could not prefill birthday fields; complete them manually if needed. " + ex.Message);
             }
 
             string genderSelector = string.Equals(profile.Gender, "Male", StringComparison.OrdinalIgnoreCase)
@@ -109,14 +109,14 @@ namespace Shiro.Services
             }
             catch (Exception exception)
             {
-                Program.Logger.Warn("Could not preselect the generated Roblox gender; choose it manually if needed. " + exception.Message);
+                AppServices.Logger.Warn("Could not preselect the generated Roblox gender; choose it manually if needed. " + exception.Message);
             }
 
             if (!string.IsNullOrWhiteSpace(username))
             {
                 if (!await FillTextInputAsync(page, "#signup-username", username.Trim()))
                 {
-                    Program.Logger.Warn("Roblox rebuilt the sign-up page while filling the username; leaving Chrome open for manual completion.");
+                    AppServices.Logger.Warn("Roblox rebuilt the sign-up page while filling the username; leaving Chrome open for manual completion.");
                 }
             }
 
@@ -124,13 +124,13 @@ namespace Shiro.Services
             {
                 if (!await FillTextInputAsync(page, "#signup-password", password))
                 {
-                    Program.Logger.Warn("Roblox rebuilt the sign-up page while filling the password; leaving Chrome open for manual completion.");
+                    AppServices.Logger.Warn("Roblox rebuilt the sign-up page while filling the password; leaving Chrome open for manual completion.");
                 }
             }
 
             if (!submitCredentials)
             {
-                Program.Logger.Info("Roblox sign-up fields prepared in an isolated browser; complete registration and verification in Chrome.");
+                AppServices.Logger.Info("Roblox sign-up fields prepared in an isolated browser; complete registration and verification in Chrome.");
                 return;
             }
 
@@ -206,7 +206,7 @@ namespace Shiro.Services
             }
             catch (Exception exception) when (IsTransientNavigationException(exception))
             {
-                Program.Logger.Warn("Roblox changed the sign-up document while loading the Sign Up button; leaving Chrome open for manual completion.");
+                AppServices.Logger.Warn("Roblox changed the sign-up document while loading the Sign Up button; leaving Chrome open for manual completion.");
                 return;
             }
 
@@ -229,7 +229,7 @@ namespace Shiro.Services
                 {
                     if (!IsLikelySignupPage(page))
                     {
-                        Program.Logger.Info("Roblox navigated while preparing the Sign Up button; leaving Chrome open for the next step.");
+                        AppServices.Logger.Info("Roblox navigated while preparing the Sign Up button; leaving Chrome open for the next step.");
                         return;
                     }
 
@@ -247,7 +247,7 @@ namespace Shiro.Services
 
             if (!ready)
             {
-                Program.Logger.Warn("Roblox kept the Sign Up button disabled; leaving the form open for manual completion.");
+                AppServices.Logger.Warn("Roblox kept the Sign Up button disabled; leaving the form open for manual completion.");
                 return;
             }
 
@@ -266,7 +266,7 @@ namespace Shiro.Services
                 // context at the exact moment the click is dispatched.  The
                 // click has already reached Roblox in that case, so keep the
                 // browser open for CAPTCHA/manual verification.
-                Program.Logger.Info("Roblox navigated after the Sign Up click; leaving Chrome open for human verification.");
+                AppServices.Logger.Info("Roblox navigated after the Sign Up click; leaving Chrome open for human verification.");
                 await WaitForNavigationToSettleAsync(page);
                 return;
             }
@@ -283,7 +283,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"WaitForSelectorAsync iframe timed out: {ex.Message}");
+                AppServices.Logger?.Debug($"WaitForSelectorAsync iframe timed out: {ex.Message}");
             }
             await Task.Delay(1800);
         }
@@ -343,7 +343,7 @@ namespace Shiro.Services
 
             if (lastNavigationException != null)
             {
-                Program.Logger.Warn("Roblox changed the sign-up page while it was being prepared; continuing with the browser open. " +
+                AppServices.Logger.Warn("Roblox changed the sign-up page while it was being prepared; continuing with the browser open. " +
                     lastNavigationException.Message);
             }
 
@@ -372,7 +372,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"IsLikelySignupPage threw: {ex.Message}");
+                AppServices.Logger?.Debug($"IsLikelySignupPage threw: {ex.Message}");
                 return true;
             }
         }
