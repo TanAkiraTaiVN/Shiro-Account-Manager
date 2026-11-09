@@ -54,28 +54,28 @@ namespace Shiro.Services
         {
             await WaitForInstallerAsync(cancellationToken).ConfigureAwait(false);
 
-            if (AppSettings.General.Get<bool>("AutoCleanZombiesOnLaunch", true))
+            if (AppServices.GeneralSettings.Get<bool>("AutoCleanZombiesOnLaunch", true))
             {
                 RobloxProcessService.CleanZombieProcesses();
             }
 
-            if (AppSettings.General.Get<bool>("EnableMultiRbx", true))
+            if (AppServices.GeneralSettings.Get<bool>("EnableMultiRbx", true))
             {
                 try { RobloxSingletonService.Sweep(force: true); }
-                catch (Exception ex) { Program.Logger?.Debug($"Pre-launch singleton sweep failed: {ex.Message}"); }
+                catch (Exception ex) { AppServices.Logger?.Debug($"Pre-launch singleton sweep failed: {ex.Message}"); }
             }
         }
 
         public static void SchedulePostLaunchSingletonSweep(int delayMs = 500)
         {
-            if (!AppSettings.General.Get<bool>("EnableMultiRbx", true))
+            if (!AppServices.GeneralSettings.Get<bool>("EnableMultiRbx", true))
                 return;
 
             ObserveBackgroundTask(Task.Run(async () =>
             {
                 await Task.Delay(delayMs).ConfigureAwait(false);
                 try { RobloxSingletonService.Sweep(force: true); }
-                catch (Exception ex) { Program.Logger?.Debug($"Post-launch singleton sweep failed: {ex.Message}"); }
+                catch (Exception ex) { AppServices.Logger?.Debug($"Post-launch singleton sweep failed: {ex.Message}"); }
             }), "post-launch singleton sweep");
         }
 
@@ -93,7 +93,7 @@ namespace Shiro.Services
             {
                 await PrepareNativeLaunchEnvironmentAsync(cancellationToken).ConfigureAwait(false);
 
-                bool preferDirect = AppSettings.General.Get<bool>(AppSettingsKeys.General.PreferDirectLaunch, false);
+                bool preferDirect = AppServices.GeneralSettings.Get<bool>(AppSettingsKeys.General.PreferDirectLaunch, false);
                 if (preferDirect)
                 {
                     var directResult = RobloxDirectLauncher.LaunchDirect(ticket, joinUrl, username, browserTrackerId, securityToken); directResult.Process?.Dispose();
@@ -105,7 +105,7 @@ namespace Shiro.Services
                         return directResult.ProcessId;
                     }
 
-                    Program.Logger.Info($"[StartNativeGameAsync] Direct binary launch unavailable ({directResult.ErrorMessage}); falling back to URI protocol.");
+                    AppServices.Logger.Info($"[StartNativeGameAsync] Direct binary launch unavailable ({directResult.ErrorMessage}); falling back to URI protocol.");
                 }
 
                 if (HasRobloxPlayerProtocolHandler() || !preferDirect)
@@ -125,7 +125,7 @@ namespace Shiro.Services
                         int launcherPid = launcher.Id;
 
                         if (!await WaitForExitAsync(launcher, 1500, cancellationToken).ConfigureAwait(false))
-                            Program.Logger.Info($"Roblox client for {username} is running; released handoff gate.");
+                            AppServices.Logger.Info($"Roblox client for {username} is running; released handoff gate.");
 
                         await Task.Delay(250, cancellationToken).ConfigureAwait(false);
                         await WaitForInstallerAsync(cancellationToken).ConfigureAwait(false);
@@ -136,7 +136,7 @@ namespace Shiro.Services
                             TimeSpan.FromSeconds(10),
                             cancellationToken).ConfigureAwait(false);
 
-                        Program.Logger.Info($"Launching Roblox through the registered protocol for {username} (Game PID: {resolvedGamePid}).");
+                        AppServices.Logger.Info($"Launching Roblox through the registered protocol for {username} (Game PID: {resolvedGamePid}).");
                         SchedulePostLaunchSingletonSweep(500);
                         return resolvedGamePid;
                     }
@@ -146,7 +146,7 @@ namespace Shiro.Services
                     }
                     catch (Exception protocolError)
                     {
-                        Program.Logger.Warn($"Roblox protocol launch failed for {username}; using the executable fallback.", protocolError);
+                        AppServices.Logger.Warn($"Roblox protocol launch failed for {username}; using the executable fallback.", protocolError);
                     }
                 }
 
@@ -170,7 +170,7 @@ namespace Shiro.Services
                 await Task.Delay(1000, cancellationToken).ConfigureAwait(false);
                 await WaitForInstallerAsync(cancellationToken).ConfigureAwait(false);
 
-                Program.Logger.Info($"Launching RobloxPlayerBeta.exe directly for {username} because the Roblox protocol is unavailable.");
+                AppServices.Logger.Info($"Launching RobloxPlayerBeta.exe directly for {username} because the Roblox protocol is unavailable.");
                 SchedulePostLaunchSingletonSweep(1500);
                 return fallbackPid;
             }
@@ -215,9 +215,9 @@ namespace Shiro.Services
             account.EnsureBrowserTrackerId();
 
             try { ClientSettingsPatcher.PatchSettings(); }
-            catch (Exception ex) { Program.Logger.Error($"Failed to patch ClientAppSettings: {ex}"); }
+            catch (Exception ex) { AppServices.Logger.Error($"Failed to patch ClientAppSettings: {ex}"); }
 
-            if (AppSettings.ShuffleJobId && string.IsNullOrEmpty(jobId))
+            if (AppServices.ServerBrowserState.ShuffleJobId && string.IsNullOrEmpty(jobId))
                 jobId = await Utilities.GetRandomJobId(placeId, cancellationToken: cancellationToken).ConfigureAwait(false);
 
             if (TestGetAuthTicketOverride != null)
@@ -234,7 +234,7 @@ namespace Shiro.Services
                 {
                     RobloxProcessService.CloseAccountRobloxProcess(account);
                 }
-                catch (Exception x) { Program.Logger?.Error($"An error occurred attempting to close {account.Username}'s previous process: {x.Message}"); }
+                catch (Exception x) { AppServices.Logger?.Error($"An error occurred attempting to close {account.Username}'s previous process: {x.Message}"); }
 
                 string ticket = ticketResult.Ticket;
                 string token = account.CSRFToken ?? string.Empty;
@@ -282,7 +282,7 @@ namespace Shiro.Services
                         }
                         catch (Exception ex)
                         {
-                            Program.Logger?.Debug($"Parse private server privacy settings failed: {ex.Message}");
+                            AppServices.Logger?.Debug($"Parse private server privacy settings failed: {ex.Message}");
                         }
                     }
 
@@ -337,9 +337,9 @@ namespace Shiro.Services
                     ObserveBackgroundTask(
                         MonitorNativeAuthRateLimitAsync(launchStartedUtc, account, cancellationToken),
                         "native auth rate-limit monitor");
-                    AppSettings.SchedulePresenceRefresh(account);
+                    AppServices.HostUiBridge.SchedulePresenceRefresh(account);
 
-                    AppSettings.SignalNextLaunchAccount();
+                    AppServices.HostUiBridge.SignalNextLaunchAccount();
 
                     ObserveBackgroundTask(AdjustWindowPositionAsync(account, nativePid, cancellationToken), "Roblox window positioning");
                 }
@@ -350,8 +350,8 @@ namespace Shiro.Services
                 catch (Exception x)
                 {
                     launchException = x;
-                    Program.Logger?.Error($"Failed to launch Roblox for {account.Username}: {x}");
-                    AppSettings.SignalNextLaunchAccount();
+                    AppServices.Logger?.Error($"Failed to launch Roblox for {account.Username}: {x}");
+                    AppServices.HostUiBridge.SignalNextLaunchAccount();
                 }
 
                 if (launchException != null)

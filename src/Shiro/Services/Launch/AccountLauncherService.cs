@@ -27,11 +27,11 @@ namespace Shiro.Services
 
             try
             {
-                await AppSettings.LaunchAppHomeFromHostAsync(account).ConfigureAwait(false);
+                await AppServices.HostUiBridge.LaunchAppHomeAsync(account).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
-                Program.Logger?.Error($"[AccountLauncherService.LaunchAppHomeAsync] {ex}");
+                AppServices.Logger?.Error($"[AccountLauncherService.LaunchAppHomeAsync] {ex}");
             }
         }
 
@@ -43,22 +43,22 @@ namespace Shiro.Services
             var targetList = accounts?.Where(a => a != null).ToList();
             if (targetList == null || targetList.Count == 0)
             {
-                targetList = AppSettings.GetCurrentSelectedAccountsFromHost().ToList();
+                targetList = AppServices.HostUiBridge.GetCurrentSelectedAccounts().ToList();
             }
 
             if (targetList == null || targetList.Count == 0)
             {
-                Program.Logger?.Warn("[AccountLauncherService] JoinServer requested with no target accounts.");
+                AppServices.Logger?.Warn("[AccountLauncherService] JoinServer requested with no target accounts.");
                 return;
             }
 
             try
             {
-                await AppSettings.JoinServerFromHostAsync(targetList, placeId, jobId ?? string.Empty).ConfigureAwait(false);
+                await AppServices.HostUiBridge.JoinServerAsync(targetList, placeId, jobId ?? string.Empty).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
-                Program.Logger?.Error($"[AccountLauncherService.JoinServerAsync] {ex}");
+                AppServices.Logger?.Error($"[AccountLauncherService.JoinServerAsync] {ex}");
             }
         }
 
@@ -69,11 +69,11 @@ namespace Shiro.Services
         {
             try
             {
-                AppSettings.MultiLaunchHomeFromHost();
+                AppServices.HostUiBridge.MultiLaunchHome();
             }
             catch (Exception ex)
             {
-                Program.Logger?.Error($"[AccountLauncherService.MultiLaunchHome] {ex}");
+                AppServices.Logger?.Error($"[AccountLauncherService.MultiLaunchHome] {ex}");
             }
         }
 

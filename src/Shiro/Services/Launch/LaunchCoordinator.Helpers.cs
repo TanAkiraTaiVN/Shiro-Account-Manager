@@ -54,7 +54,7 @@ namespace Shiro.Services
 
                 if (request.Account.CookieRotationVersion != versionBefore && !cancellationToken.IsCancellationRequested)
                 {
-                    Program.Logger?.Info($"[LaunchCoordinator] Session cookie rotated during TicketError recovery for '{request.Account.Username}'. Retrying launch once...");
+                    AppServices.Logger?.Info($"[LaunchCoordinator] Session cookie rotated during TicketError recovery for '{request.Account.Username}'. Retrying launch once...");
                     LaunchResult retryResult = await executeLaunch(request, cancellationToken).ConfigureAwait(false);
                     return (retryResult, retryResult.Outcome == LaunchOutcome.Success || sessionValid);
                 }
@@ -67,18 +67,18 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[LaunchCoordinator.TryRecoverTicketErrorAsync] {ex.Message}");
+                AppServices.Logger?.Debug($"[LaunchCoordinator.TryRecoverTicketErrorAsync] {ex.Message}");
                 return (initialResult, false);
             }
         }
 
         public static void RequestGlobalCancel()
         {
-            try { AppSettings.CancelLaunching(); }
-            catch (Exception ex) { Program.Logger?.Debug($"CancelLaunching threw: {ex.Message}"); }
+            try { AppServices.HostUiBridge.CancelLaunching(); }
+            catch (Exception ex) { AppServices.Logger?.Debug($"CancelLaunching threw: {ex.Message}"); }
 
             try { GlobalCancelRequested?.Invoke(); }
-            catch (Exception ex) { Program.Logger?.Debug($"GlobalCancelRequested subscriber threw: {ex.Message}"); }
+            catch (Exception ex) { AppServices.Logger?.Debug($"GlobalCancelRequested subscriber threw: {ex.Message}"); }
         }
 
         internal static int GetSmartLaunchMinDelayMs(int? configuredSecondsOverride = null, bool includeJitter = true)
@@ -88,15 +88,15 @@ namespace Shiro.Services
             {
                 seconds = configuredSecondsOverride.Value;
             }
-            else if (AppSettings.General != null && AppSettings.General.Exists(AppSettingsKeys.General.SmartLaunchMinDelaySeconds))
+            else if (AppServices.GeneralSettings != null && AppServices.GeneralSettings.Exists(AppSettingsKeys.General.SmartLaunchMinDelaySeconds))
             {
                 try
                 {
-                    seconds = AppSettings.General.Get<int>(AppSettingsKeys.General.SmartLaunchMinDelaySeconds, DefaultSmartLaunchMinDelaySeconds);
+                    seconds = AppServices.GeneralSettings.Get<int>(AppSettingsKeys.General.SmartLaunchMinDelaySeconds, DefaultSmartLaunchMinDelaySeconds);
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Debug($"[LaunchCoordinator.GetSmartLaunchMinDelayMs] {ex.Message}");
+                    AppServices.Logger?.Debug($"[LaunchCoordinator.GetSmartLaunchMinDelayMs] {ex.Message}");
                     seconds = DefaultSmartLaunchMinDelaySeconds;
                 }
             }
@@ -109,10 +109,10 @@ namespace Shiro.Services
         internal static void Report(Action<LaunchProgress>? progress, LaunchProgress state)
         {
             try { progress?.Invoke(state); }
-            catch (Exception ex) { Program.Logger?.Warn($"Launch progress callback threw: {ex.Message}"); }
+            catch (Exception ex) { AppServices.Logger?.Warn($"Launch progress callback threw: {ex.Message}"); }
 
             try { LaunchProgressChanged?.Invoke(state); }
-            catch (Exception ex) { Program.Logger?.Warn($"LaunchProgressChanged subscriber threw: {ex.Message}"); }
+            catch (Exception ex) { AppServices.Logger?.Warn($"LaunchProgressChanged subscriber threw: {ex.Message}"); }
         }
 
 
@@ -198,7 +198,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[LaunchCoordinator.TryFindProcessPlayerLogPath] Process start time: {ex.Message}");
+                AppServices.Logger?.Debug($"[LaunchCoordinator.TryFindProcessPlayerLogPath] Process start time: {ex.Message}");
                 return null;
             }
             try
@@ -237,7 +237,7 @@ namespace Shiro.Services
                         }
                         catch (Exception ex)
                         {
-                            Program.Logger?.Debug($"[LaunchCoordinator.TryFindProcessPlayerLogPath] Tracker stream read: {ex.Message}");
+                            AppServices.Logger?.Debug($"[LaunchCoordinator.TryFindProcessPlayerLogPath] Tracker stream read: {ex.Message}");
                         }
                     }
 
@@ -252,7 +252,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[LaunchCoordinator.TryFindProcessPlayerLogPath] Enumerate files: {ex.Message}");
+                AppServices.Logger?.Debug($"[LaunchCoordinator.TryFindProcessPlayerLogPath] Enumerate files: {ex.Message}");
                 return null;
             }
         }
@@ -293,7 +293,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[LaunchCoordinator.InspectProcessGameJoinState] {ex.Message}");
+                AppServices.Logger?.Debug($"[LaunchCoordinator.InspectProcessGameJoinState] {ex.Message}");
                 return ClientGameJoinState.Pending;
             }
         }
@@ -332,7 +332,7 @@ namespace Shiro.Services
 
             if (joinState == ClientGameJoinState.Challenged)
             {
-                Program.Logger?.Warn($"[LaunchCoordinator] Account '{request.Account.Username}' (PID {targetPid}) hit forced verification (challengedByGcs). Pausing batch before launching '{nextUsername}' to prevent WebView2 session hijacking.");
+                AppServices.Logger?.Warn($"[LaunchCoordinator] Account '{request.Account.Username}' (PID {targetPid}) hit forced verification (challengedByGcs). Pausing batch before launching '{nextUsername}' to prevent WebView2 session hijacking.");
 
                 AppDispatcher.Post(() =>
                 {
@@ -364,14 +364,14 @@ namespace Shiro.Services
 
                     if (joinState == ClientGameJoinState.JoinedGame)
                     {
-                        Program.Logger?.Info($"[LaunchCoordinator] Account '{request.Account.Username}' (PID {targetPid}) completed verification and joined game. Resuming batch.");
+                        AppServices.Logger?.Info($"[LaunchCoordinator] Account '{request.Account.Username}' (PID {targetPid}) completed verification and joined game. Resuming batch.");
                         await Task.Delay(Math.Min(1500, ChallengeProbeDelayMs * 3), cancellationToken).ConfigureAwait(false);
                         return;
                     }
 
                     if (joinState == ClientGameJoinState.ProcessExited)
                     {
-                        Program.Logger?.Info($"[LaunchCoordinator] Challenged client for '{request.Account.Username}' (PID {targetPid}) was closed by user. Resuming batch.");
+                        AppServices.Logger?.Info($"[LaunchCoordinator] Challenged client for '{request.Account.Username}' (PID {targetPid}) was closed by user. Resuming batch.");
                         AutoReconnectService.Instance.SuppressReconnect(request.Account.Username);
                         state.Status = LaunchOutcome.Failed;
                         state.Result = Loc.Get("Launch_CaptchaClosedError", Shiro.Services.LocalizationService.Get("Launch_CaptchaClosedError"));
@@ -390,11 +390,11 @@ namespace Shiro.Services
             // and spawn duplicate Home tabs of the same account!
             if (joinState == ClientGameJoinState.ChallengeFailedToLuaApp || joinState == ClientGameJoinState.Challenged)
             {
-                Program.Logger?.Warn($"[LaunchCoordinator] Closing unverified fallback client for '{request.Account.Username}' (PID {targetPid}) before launching '{nextUsername}' to prevent duplicate-account Home windows.");
+                AppServices.Logger?.Warn($"[LaunchCoordinator] Closing unverified fallback client for '{request.Account.Username}' (PID {targetPid}) before launching '{nextUsername}' to prevent duplicate-account Home windows.");
                 AutoReconnectService.Instance.SuppressReconnect(request.Account.Username);
                 AutoReconnectService.Instance.SuppressReconnectByPid(targetPid);
                 try { RobloxProcessService.CloseAccountRobloxProcess(request.Account); }
-                catch (Exception ex) { Program.Logger?.Debug($"Close challenged fallback client failed: {ex.Message}"); }
+                catch (Exception ex) { AppServices.Logger?.Debug($"Close challenged fallback client failed: {ex.Message}"); }
 
                 state.Status = LaunchOutcome.Failed;
                 state.Result = Loc.Get("Launch_CaptchaRequiredError", Shiro.Services.LocalizationService.Get("Launch_CaptchaRequiredError"));

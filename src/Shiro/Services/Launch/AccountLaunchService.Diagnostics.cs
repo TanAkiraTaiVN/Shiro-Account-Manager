@@ -79,15 +79,15 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[FindRobloxPlayerExecutable] Registry protocol read failed: {ex.Message}");
+                AppServices.Logger?.Debug($"[FindRobloxPlayerExecutable] Registry protocol read failed: {ex.Message}");
             }
 
-            if (!string.IsNullOrWhiteSpace(AppSettings.CurrentClientVersion))
+            if (!string.IsNullOrWhiteSpace(AppServices.ServerBrowserState.CurrentClientVersion))
             {
                 foreach (string root in roots)
                 {
                     if (string.IsNullOrWhiteSpace(root)) continue;
-                    string target = Path.Combine(root, AppSettings.CurrentClientVersion, "RobloxPlayerBeta.exe");
+                    string target = Path.Combine(root, AppServices.ServerBrowserState.CurrentClientVersion, "RobloxPlayerBeta.exe");
                     if (File.Exists(target))
                         return target;
                 }
@@ -113,7 +113,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[FindRobloxPlayerExecutable] Registry DefaultIcon read failed: {ex.Message}");
+                AppServices.Logger?.Debug($"[FindRobloxPlayerExecutable] Registry DefaultIcon read failed: {ex.Message}");
             }
 
             foreach (string root in roots)
@@ -131,7 +131,7 @@ namespace Shiro.Services
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Debug($"[FindRobloxPlayerExecutable] Version directory scan failed for '{root}': {ex.Message}");
+                    AppServices.Logger?.Debug($"[FindRobloxPlayerExecutable] Version directory scan failed for '{root}': {ex.Message}");
                 }
             }
 
@@ -153,13 +153,13 @@ namespace Shiro.Services
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Debug($"FileVersionInfo failed for '{path}': {ex.Message}");
+                    AppServices.Logger?.Debug($"FileVersionInfo failed for '{path}': {ex.Message}");
                     ver = new Version(0, 0, 0, 0);
                 }
 
                 DateTime writeUtc;
                 try { writeUtc = File.GetLastWriteTimeUtc(path); }
-                catch (Exception ex) { Program.Logger?.Debug($"GetLastWriteTimeUtc failed for '{path}': {ex.Message}"); writeUtc = DateTime.MinValue; }
+                catch (Exception ex) { AppServices.Logger?.Debug($"GetLastWriteTimeUtc failed for '{path}': {ex.Message}"); writeUtc = DateTime.MinValue; }
 
                 int cmp = ver.CompareTo(bestVersion);
                 if (bestPath == null || cmp > 0 || (cmp == 0 && writeUtc > bestWriteUtc))
@@ -197,7 +197,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"ResolveRobloxProtocolExecutable failed: {ex.Message}");
+                AppServices.Logger?.Debug($"ResolveRobloxProtocolExecutable failed: {ex.Message}");
                 return false;
             }
         }
@@ -225,7 +225,7 @@ namespace Shiro.Services
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Debug($"GetProcessesByName installers failed: {ex.Message}");
+                    AppServices.Logger?.Debug($"GetProcessesByName installers failed: {ex.Message}");
                     break;
                 }
 
@@ -233,7 +233,7 @@ namespace Shiro.Services
                     break;
 
                 wasUpdating = true;
-                Program.Logger.Info("Roblox is currently updating (RobloxPlayerInstaller is running). Waiting for update to finish before proceeding...");
+                AppServices.Logger.Info("Roblox is currently updating (RobloxPlayerInstaller is running). Waiting for update to finish before proceeding...");
 
                 try
                 {
@@ -242,7 +242,7 @@ namespace Shiro.Services
                 catch (OperationCanceledException) { throw; }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Debug($"WaitForExitAsync installer failed: {ex.Message}");
+                    AppServices.Logger?.Debug($"WaitForExitAsync installer failed: {ex.Message}");
                     await Task.Delay(1000, cancellationToken).ConfigureAwait(false);
                 }
                 finally
@@ -257,9 +257,9 @@ namespace Shiro.Services
             if (wasUpdating)
             {
                 InvalidateExecutableCache();
-                Program.Logger?.Info("Roblox update finished. Refreshing client version...");
-                try { await AppSettings.LoadClientVersionAsync(cancellationToken).ConfigureAwait(false); }
-                catch (Exception ex) { Program.Logger?.Warn($"Failed to refresh client version after update: {ex.Message}"); }
+                AppServices.Logger?.Info("Roblox update finished. Refreshing client version...");
+                try { await AppServices.ServerBrowserState.LoadClientVersionAsync(cancellationToken).ConfigureAwait(false); }
+                catch (Exception ex) { AppServices.Logger?.Warn($"Failed to refresh client version after update: {ex.Message}"); }
             }
         }
 

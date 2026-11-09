@@ -147,7 +147,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"ApplyAntiDetectionAsync threw: {ex.Message}");
+                AppServices.Logger?.Debug($"ApplyAntiDetectionAsync threw: {ex.Message}");
             }
         }
 
@@ -175,7 +175,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"DismissCookieBannerAsync threw: {ex.Message}");
+                AppServices.Logger?.Debug($"DismissCookieBannerAsync threw: {ex.Message}");
             }
         }
 
@@ -188,7 +188,7 @@ namespace Shiro.Services
             try { pages = await connectedBrowser.PagesAsync().ConfigureAwait(false); }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"FindActiveRobloxPageAsync PagesAsync threw: {ex.Message}");
+                AppServices.Logger?.Debug($"FindActiveRobloxPageAsync PagesAsync threw: {ex.Message}");
                 return null;
             }
 
@@ -208,7 +208,7 @@ namespace Shiro.Services
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Debug($"Page inspection during FindActiveRobloxPage threw: {ex.Message}");
+                    AppServices.Logger?.Debug($"Page inspection during FindActiveRobloxPage threw: {ex.Message}");
                 }
             }
 
@@ -235,7 +235,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"ExtractRoblosecurityCookieAsync threw: {ex.Message}");
+                AppServices.Logger?.Debug($"ExtractRoblosecurityCookieAsync threw: {ex.Message}");
                 return null;
             }
         }
@@ -276,13 +276,13 @@ namespace Shiro.Services
                     if (attempt == 0 && !page.IsClosed && maxAttempts > 1)
                     {
                         try { await Task.Delay(600, CancellationToken.None).ConfigureAwait(false); }
-                        catch (Exception ex) { Program.Logger?.Debug($"ChromeLaunchHelper retry delay: {ex.Message}"); }
+                        catch (Exception ex) { AppServices.Logger?.Debug($"ChromeLaunchHelper retry delay: {ex.Message}"); }
                         continue;
                     }
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Warn("Could not read account details through signed-in browser session: " + ex.Message);
+                    AppServices.Logger?.Warn("Could not read account details through signed-in browser session: " + ex.Message);
                     return null;
                 }
             }
@@ -326,7 +326,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"CloseBrowser threw: {ex.Message}");
+                AppServices.Logger?.Debug($"CloseBrowser threw: {ex.Message}");
             }
 
             if (dispose)
@@ -357,14 +357,14 @@ namespace Shiro.Services
                     }
                     catch (Exception ex)
                     {
-                        Program.Logger?.Debug($"TryDeleteSessionDirectory attempt {attempt} threw: {ex.Message}");
+                        AppServices.Logger?.Debug($"TryDeleteSessionDirectory attempt {attempt} threw: {ex.Message}");
                         await Task.Delay(250).ConfigureAwait(false);
                     }
                 }
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"TryDeleteSessionDirectory failed: {ex.Message}");
+                AppServices.Logger?.Debug($"TryDeleteSessionDirectory failed: {ex.Message}");
             }
         }
 
@@ -390,7 +390,7 @@ namespace Shiro.Services
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Debug($"TryDeleteDirectoryAsync threw: {ex.Message}");
+                    AppServices.Logger?.Debug($"TryDeleteDirectoryAsync threw: {ex.Message}");
                     break;
                 }
             }

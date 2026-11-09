@@ -9,7 +9,7 @@ namespace Shiro.Services
 {
     /// <summary>
     /// Owns the only active multi-account launch queue. The Roblox protocol
-    /// still signals the next account through AppSettings.SignalNextLaunchAccount(),
+    /// still signals the next account through AppServices.HostUiBridge.SignalNextLaunchAccount(),
     /// but all waiting, cancellation and duplicate-launch protection lives here.
     /// </summary>
     internal sealed partial class LaunchCoordinator : ILaunchCoordinator
@@ -88,8 +88,8 @@ namespace Shiro.Services
 
             List<LaunchProgress> results = new List<LaunchProgress>(launchList.Count);
             int safeDelay = Math.Max(
-                AppSettings.MinimumAccountJoinDelaySeconds,
-                Math.Min(AppSettings.MaximumAccountJoinDelaySeconds, delaySeconds));
+                AppServices.MinimumAccountJoinDelaySeconds,
+                Math.Min(AppServices.MaximumAccountJoinDelaySeconds, delaySeconds));
             int lastSpawnedPid = 0;
 
             using var cookieGuard = RobloxDirectLauncher.BeginCookieGuardScope(restoreDelayOnDisposeMs: 12_000);
@@ -140,7 +140,7 @@ namespace Shiro.Services
                     catch (Exception exception)
                     {
                         launchResult = LaunchResult.Fail(LaunchOutcome.Failed, $"ERROR: Failed to launch Roblox for {request.Account.Username}\n{exception.Message}");
-                        Program.Logger?.Error($"Unexpected launch error for {request.Account.Username}: {exception}");
+                        AppServices.Logger?.Error($"Unexpected launch error for {request.Account.Username}: {exception}");
                     }
 
                     state.Result = launchResult.Message;
@@ -152,7 +152,7 @@ namespace Shiro.Services
                     {
                         RobloxRateLimitCoordinator.Instance.RecordRateLimitHit(RateLimitCategory.Authentication);
                         double waitSecs = Math.Max(1.0, RobloxRateLimitCoordinator.Instance.RemainingBackoff.TotalSeconds);
-                        Program.Logger?.Warn($"[LaunchCoordinator] Account {request.Account.Username} was rate limited during launch. Waiting {waitSecs:0.0}s before retry {retry}/{MaxRateLimitRetries}...");
+                        AppServices.Logger?.Warn($"[LaunchCoordinator] Account {request.Account.Username} was rate limited during launch. Waiting {waitSecs:0.0}s before retry {retry}/{MaxRateLimitRetries}...");
 
                         Report(progress, new LaunchProgress
                         {
@@ -167,7 +167,7 @@ namespace Shiro.Services
                         try
                         {
                             try { RobloxProcessService.CloseAccountRobloxProcess(request.Account); }
-                            catch (Exception ex) { Program.Logger?.Debug($"Process cleanup ignored: {ex.Message}"); }
+                            catch (Exception ex) { AppServices.Logger?.Debug($"Process cleanup ignored: {ex.Message}"); }
 
                             launchResult = await executeLaunch(request, linkedCancellation.Token).ConfigureAwait(false);
                             state.Result = launchResult.Message;
@@ -179,7 +179,7 @@ namespace Shiro.Services
                         }
                         catch (Exception retryEx)
                         {
-                            Program.Logger?.Error($"[LaunchCoordinator] Retry #{retry} failed for {request.Account.Username}: {retryEx}");
+                            AppServices.Logger?.Error($"[LaunchCoordinator] Retry #{retry} failed for {request.Account.Username}: {retryEx}");
                             state.Status = LaunchOutcome.Failed;
                             state.Result = $"ERROR: Failed to launch Roblox for {request.Account.Username}\n{retryEx.Message}";
                         }
@@ -215,11 +215,11 @@ namespace Shiro.Services
                         if (!wasAlreadyBanned)
                             request.Account.AccountStatusIssue = string.Empty;
                         request.Account.Valid = false;
-                        AppSettings.UpdateAccountValidityOnUi(request.Account, false);
+                        AppServices.HostUiBridge.UpdateAccountValidityOnUi(request.Account, false);
 
                         if (wasAlreadyBanned || request.Account.IsBannedOrLocked)
                         {
-                            Program.Logger?.Warn(Shiro.Services.LocalizationService.Format("Launch.AccountBannedLog", request.Account.Username, request.Account.AccountStatusIssue));
+                            AppServices.Logger?.Warn(Shiro.Services.LocalizationService.Format("Launch.AccountBannedLog", request.Account.Username, request.Account.AccountStatusIssue));
                             if (launchList.Count == 1)
                             {
                                 AppDispatcher.Post(() =>
@@ -230,7 +230,7 @@ namespace Shiro.Services
                         }
                         else
                         {
-                            Program.Logger?.Warn(Shiro.Services.LocalizationService.Format("Launch.SessionExpiredLog", request.Account.Username));
+                            AppServices.Logger?.Warn(Shiro.Services.LocalizationService.Format("Launch.SessionExpiredLog", request.Account.Username));
                             if (launchList.Count == 1)
                             {
                                 AppDispatcher.Post(() =>
@@ -257,7 +257,7 @@ namespace Shiro.Services
                     if (state.Status != LaunchOutcome.Success)
                         signal.TrySetResult(false);
 
-                    bool smartLaunch = !AppSettings.General.Exists(AppSettingsKeys.General.SmartFastLaunch) || AppSettings.General.Get<bool>(AppSettingsKeys.General.SmartFastLaunch);
+                    bool smartLaunch = !AppServices.GeneralSettings.Exists(AppSettingsKeys.General.SmartFastLaunch) || AppServices.GeneralSettings.Get<bool>(AppSettingsKeys.General.SmartFastLaunch);
 
                     if (smartLaunch && state.Status == LaunchOutcome.Success)
                     {

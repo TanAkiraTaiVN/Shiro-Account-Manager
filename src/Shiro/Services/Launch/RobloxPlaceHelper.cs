@@ -23,14 +23,14 @@ namespace Shiro.Services
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!chooseLowestServer && AppSettings.General.Exists("ShuffleChoosesLowestServer"))
+            if (!chooseLowestServer && AppServices.GeneralSettings.Exists("ShuffleChoosesLowestServer"))
             {
-                try { chooseLowestServer = AppSettings.General.Get<bool>("ShuffleChoosesLowestServer"); }
-                catch (Exception ex) { Program.Logger?.Debug($"Failed reading ShuffleChoosesLowestServer setting: {ex.Message}"); }
+                try { chooseLowestServer = AppServices.GeneralSettings.Get<bool>("ShuffleChoosesLowestServer"); }
+                catch (Exception ex) { AppServices.Logger?.Debug($"Failed reading ShuffleChoosesLowestServer setting: {ex.Message}"); }
             }
 
             var validServers = new List<string>();
-            int stopAt = Math.Max(AppSettings.General.Get<int>("ShufflePageCount", 1), 1);
+            int stopAt = Math.Max(AppServices.GeneralSettings.Get<int>("ShufflePageCount", 1), 1);
             int pageCount = 0;
             string cursor = string.Empty;
 
@@ -78,7 +78,7 @@ namespace Shiro.Services
                 }
                 catch (Exception ex)
                 {
-                    AppServices.Logger.Debug("[RobloxPlaceHelper] Querying server page failed", ex);
+                    AppServices.Logger?.Debug("[RobloxPlaceHelper] Querying server page failed", ex);
                     break;
                 }
 
@@ -86,9 +86,9 @@ namespace Shiro.Services
                     break;
             }
 
-            if (validServers.Count == 0 && AppSettings.CachedServers != null && AppSettings.CachedServers.Count > 0)
+            if (validServers.Count == 0 && AppServices.ServerBrowserState.CachedServers != null && AppServices.ServerBrowserState.CachedServers.Count > 0)
             {
-                foreach (var s in AppSettings.CachedServers)
+                foreach (var s in AppServices.ServerBrowserState.CachedServers)
                 {
                     if (s != null && !string.IsNullOrEmpty(s.id) && s.playing > 0 && s.maxPlayers > 1 && s.playing < s.maxPlayers)
                     {

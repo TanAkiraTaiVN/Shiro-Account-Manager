@@ -217,5 +217,8 @@ namespace Shiro.Services
         public static void SaveSettings() => AppSettings.Save();
         public static void QueueDeferredSaveSettings() => AppSettings.QueueDeferredSave();
         public static AppSettings Settings => GetRequiredService<AppSettings>();
+
+        public const int MinimumAccountJoinDelaySeconds = 1;
+        public const int MaximumAccountJoinDelaySeconds = 3600;
     }
 }

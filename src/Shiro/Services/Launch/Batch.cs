@@ -132,7 +132,7 @@ namespace Shiro.Services
 
         public static async Task<string> GetImage(long assetId, string type, string size = "150x150", string? format = null)
         {
-            if (AppSettings.General?.Get<bool>("DisableImages") == true)
+            if (AppServices.GeneralSettings?.Get<bool>("DisableImages") == true)
                 return string.Empty;
 
             string requestId = $"{assetId}:undefined:{type}:{size}:{format}:regular";
@@ -168,7 +168,7 @@ namespace Shiro.Services
 
         public static async Task<string> GetGameIcon(long placeId)
         {
-            if (AppSettings.General?.Get<bool>("DisableImages") == true)
+            if (AppServices.GeneralSettings?.Get<bool>("DisableImages") == true)
                 return string.Empty;
 
             if (!PlaceUniversePair.TryGetValue(placeId, out long universeId))
@@ -271,11 +271,11 @@ namespace Shiro.Services
                 // immediately falls back to public APIs without stalling 8 seconds.
                 if (AppServices.AccountRepository.Count > 0)
                 {
-                    for (int attempt = 0; attempt < 6 && AppSettings.LastValidAccount == null; attempt++)
+                    for (int attempt = 0; attempt < 6 && AppServices.SelectionState.LastValidAccount == null; attempt++)
                         await Task.Delay(50).ConfigureAwait(false);
                 }
 
-                if (AppSettings.LastValidAccount == null)
+                if (AppServices.SelectionState.LastValidAccount == null)
                 {
                     lock (PlaceTaskLock)
                     {
@@ -319,7 +319,7 @@ namespace Shiro.Services
                         continue;
 
                     RestRequest request = new RestRequest($"v1/games/multiget-place-details?placeIds={string.Join("&placeIds=", pending)}");
-                    string? placeCookie = AppSettings.LastValidAccount?.SecurityToken;
+                    string? placeCookie = AppServices.SelectionState.LastValidAccount?.SecurityToken;
                     if (!string.IsNullOrWhiteSpace(placeCookie))
                         request.AddCookie(".ROBLOSECURITY", placeCookie, "/", ".roblox.com");
 
@@ -350,18 +350,18 @@ namespace Shiro.Services
 
         private static async Task<string> GetAssetImage(long assetId)
         {
-            if (AppSettings.General?.Get<bool>("DisableImages") == true)
+            if (AppServices.GeneralSettings?.Get<bool>("DisableImages") == true)
                 return string.Empty;
 
             RestRequest request = new RestRequest($"v1/assets?assetIds={assetId}&returnPolicy=PlaceHolder&size=150x150&format=Png&isCircular=false");
-            string? assetCookie = AppSettings.LastValidAccount?.SecurityToken;
+            string? assetCookie = AppServices.SelectionState.LastValidAccount?.SecurityToken;
             if (!string.IsNullOrWhiteSpace(assetCookie))
                 request.AddCookie(".ROBLOSECURITY", assetCookie, "/", ".roblox.com");
 
             RestResponse response = await ThumbnailAPI.ExecuteAsync(request).ConfigureAwait(false);
             if (response == null || !response.IsSuccessful)
             {
-                Program.Logger.Warn($"{response?.StatusCode} Asset image request failed: {response?.ErrorMessage}");
+                AppServices.Logger.Warn($"{response?.StatusCode} Asset image request failed: {response?.ErrorMessage}");
                 return "UNK";
             }
 

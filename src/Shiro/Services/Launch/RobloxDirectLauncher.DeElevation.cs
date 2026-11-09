@@ -115,15 +115,15 @@ namespace Shiro.Services
         /// </summary>
         public static Process? SpawnRobloxProcess(string playerPath, string args, string username)
         {
-            bool deElevateEnabled = AppSettings.General.Get<bool>(AppSettingsKeys.General.EnableTokenDeElevation, true);
+            bool deElevateEnabled = AppServices.GeneralSettings.Get<bool>(AppSettingsKeys.General.EnableTokenDeElevation, true);
             if (deElevateEnabled && IsCurrentProcessElevated())
             {
-                Program.Logger?.Info($"[RobloxDirectLauncher] Shiro is running elevated; de-elevating Roblox launch for {username}...");
+                AppServices.Logger?.Info($"[RobloxDirectLauncher] Shiro is running elevated; de-elevating Roblox launch for {username}...");
                 if (TrySpawnDeElevated(playerPath, args, out Process? deElevated) && deElevated != null)
                 {
                     return deElevated;
                 }
-                Program.Logger?.Warn($"[RobloxDirectLauncher] De-elevated launch failed; falling back to standard Process.Start.");
+                AppServices.Logger?.Warn($"[RobloxDirectLauncher] De-elevated launch failed; falling back to standard Process.Start.");
             }
 
             var startInfo = new ProcessStartInfo(playerPath, args)
@@ -166,14 +166,14 @@ namespace Shiro.Services
 
                 if (explorerPid <= 0)
                 {
-                    Program.Logger?.Debug("[RobloxDirectLauncher] Explorer process not found for de-elevation.");
+                    AppServices.Logger?.Debug("[RobloxDirectLauncher] Explorer process not found for de-elevation.");
                     return false;
                 }
 
                 IntPtr hProcess = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, explorerPid);
                 if (hProcess == IntPtr.Zero)
                 {
-                    Program.Logger?.Debug($"[RobloxDirectLauncher] OpenProcess(explorer) failed (err: {Marshal.GetLastWin32Error()}).");
+                    AppServices.Logger?.Debug($"[RobloxDirectLauncher] OpenProcess(explorer) failed (err: {Marshal.GetLastWin32Error()}).");
                     return false;
                 }
 
@@ -181,7 +181,7 @@ namespace Shiro.Services
                 {
                     if (!OpenProcessToken(hProcess, TOKEN_DUPLICATE | TOKEN_ASSIGN_PRIMARY | TOKEN_QUERY, out IntPtr hToken))
                     {
-                        Program.Logger?.Debug($"[RobloxDirectLauncher] OpenProcessToken failed (err: {Marshal.GetLastWin32Error()}).");
+                        AppServices.Logger?.Debug($"[RobloxDirectLauncher] OpenProcessToken failed (err: {Marshal.GetLastWin32Error()}).");
                         return false;
                     }
 
@@ -189,7 +189,7 @@ namespace Shiro.Services
                     {
                         if (!DuplicateTokenEx(hToken, MAXIMUM_ALLOWED, IntPtr.Zero, SecurityImpersonation, TokenPrimary, out IntPtr hNewToken))
                         {
-                            Program.Logger?.Debug($"[RobloxDirectLauncher] DuplicateTokenEx failed (err: {Marshal.GetLastWin32Error()}).");
+                            AppServices.Logger?.Debug($"[RobloxDirectLauncher] DuplicateTokenEx failed (err: {Marshal.GetLastWin32Error()}).");
                             return false;
                         }
 
@@ -217,7 +217,7 @@ namespace Shiro.Services
                                 try
                                 {
                                     process = Process.GetProcessById((int)pi.dwProcessId);
-                                    Program.Logger?.Info($"[RobloxDirectLauncher] Successfully spawned de-elevated Roblox process (PID: {pi.dwProcessId}).");
+                                    AppServices.Logger?.Info($"[RobloxDirectLauncher] Successfully spawned de-elevated Roblox process (PID: {pi.dwProcessId}).");
                                     return true;
                                 }
                                 finally
@@ -231,11 +231,11 @@ namespace Shiro.Services
                                 int win32Err = Marshal.GetLastWin32Error();
                                 if (win32Err == 1058)
                                 {
-                                    Program.Logger?.Warn("[RobloxDirectLauncher] Secondary Logon (seclogon) service is disabled on this system. Falling back to standard process launch.");
+                                    AppServices.Logger?.Warn("[RobloxDirectLauncher] Secondary Logon (seclogon) service is disabled on this system. Falling back to standard process launch.");
                                 }
                                 else
                                 {
-                                    Program.Logger?.Debug($"[RobloxDirectLauncher] CreateProcessWithTokenW failed (err: {win32Err}).");
+                                    AppServices.Logger?.Debug($"[RobloxDirectLauncher] CreateProcessWithTokenW failed (err: {win32Err}).");
                                 }
                             }
                         }
@@ -256,7 +256,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[RobloxDirectLauncher] De-elevation exception: {ex.Message}");
+                AppServices.Logger?.Debug($"[RobloxDirectLauncher] De-elevation exception: {ex.Message}");
             }
 
             return false;

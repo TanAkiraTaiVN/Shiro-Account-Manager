@@ -83,7 +83,7 @@ namespace Shiro.Services
         {
             if (string.IsNullOrWhiteSpace(username)) return;
             if (_sessions.TryRemove(username, out _))
-                Program.Logger.Debug($"[AutoReconnect] Unregistered session for '{username}'.");
+                AppServices.Logger.Debug($"[AutoReconnect] Unregistered session for '{username}'.");
         }
 
         /// <summary>
@@ -96,7 +96,7 @@ namespace Shiro.Services
             {
                 session.IsSuppressed = true;
                 session.IsActive = false;
-                Program.Logger?.Debug($"[AutoReconnect] Reconnection suppressed for '{username}'.");
+                AppServices.Logger?.Debug($"[AutoReconnect] Reconnection suppressed for '{username}'.");
             }
         }
 
@@ -110,7 +110,7 @@ namespace Shiro.Services
                 session.IsSuppressed = true;
                 session.IsActive = false;
             }
-            Program.Logger.Info("[AutoReconnect] Suppressed reconnect for all active sessions.");
+            AppServices.Logger.Info("[AutoReconnect] Suppressed reconnect for all active sessions.");
         }
 
         /// <summary>
@@ -146,7 +146,7 @@ namespace Shiro.Services
                 {
                     session.IsSuppressed = true;
                     session.IsActive = false;
-                    Program.Logger?.Debug($"[AutoReconnect] Reconnection suppressed for PID {processId} ('{session.Account?.Username}').");
+                    AppServices.Logger?.Debug($"[AutoReconnect] Reconnection suppressed for PID {processId} ('{session.Account?.Username}').");
                 }
             }
         }

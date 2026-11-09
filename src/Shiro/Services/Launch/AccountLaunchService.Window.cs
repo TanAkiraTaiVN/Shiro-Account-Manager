@@ -29,11 +29,11 @@ namespace Shiro.Services
             }
             catch (OperationCanceledException ex)
             {
-                Program.Logger?.Debug($"Background {operation} cancelled: {ex.Message}");
+                AppServices.Logger?.Debug($"Background {operation} cancelled: {ex.Message}");
             }
             catch (Exception exception)
             {
-                Program.Logger?.Warn($"Background {operation} failed: {exception.Message}");
+                AppServices.Logger?.Warn($"Background {operation} failed: {exception.Message}");
             }
         }
 
@@ -64,7 +64,7 @@ namespace Shiro.Services
                     if (hWnd != IntPtr.Zero)
                     {
                         MoveWindow(hWnd, PosX, PosY, Width, Height, true);
-                        Program.Logger?.Info($"[AdjustWindowPosition] Fast-repositioned window for PID {targetPid} to ({PosX},{PosY} {Width}x{Height}).");
+                        AppServices.Logger?.Info($"[AdjustWindowPosition] Fast-repositioned window for PID {targetPid} to ({PosX},{PosY} {Width}x{Height}).");
                         return;
                     }
                     await Task.Delay(200, cancellationToken).ConfigureAwait(false);
@@ -111,7 +111,7 @@ namespace Shiro.Services
                     }
                     catch (Exception ex)
                     {
-                        Program.Logger?.Debug($"MoveWindow inspection failed for pid {pid}: {ex.Message}");
+                        AppServices.Logger?.Debug($"MoveWindow inspection failed for pid {pid}: {ex.Message}");
                     }
                 }
 
@@ -158,7 +158,7 @@ namespace Shiro.Services
                 }
                 catch (Exception exception)
                 {
-                    Program.Logger?.Debug($"Unable to inspect Roblox launch logs for HTTP 429: {exception.Message}");
+                    AppServices.Logger?.Debug($"Unable to inspect Roblox launch logs for HTTP 429: {exception.Message}");
                 }
 
                 await Task.Delay(1000, cancellationToken).ConfigureAwait(false);

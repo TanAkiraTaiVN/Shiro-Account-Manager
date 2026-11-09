@@ -15,9 +15,13 @@ namespace Shiro.Services
         void UpdateMultiRoblox();
         void CloseAllRobloxFromUi();
         Task LaunchAppHomeFromHostAsync(Account account);
+        Task LaunchAppHomeAsync(Account account) => LaunchAppHomeFromHostAsync(account);
         Task JoinServerFromHostAsync(IReadOnlyList<Account> accounts, long placeId, string jobId);
+        Task JoinServerAsync(IReadOnlyList<Account> accounts, long placeId, string jobId) => JoinServerFromHostAsync(accounts, placeId, jobId);
         void MultiLaunchHomeFromHost();
+        void MultiLaunchHome() => MultiLaunchHomeFromHost();
         List<Account> GetCurrentSelectedAccountsFromHost();
+        List<Account> GetCurrentSelectedAccounts() => GetCurrentSelectedAccountsFromHost();
         void SaveSettings();
         void QueueDeferredSaveSettings();
         void SetDashboardStatus(string message);

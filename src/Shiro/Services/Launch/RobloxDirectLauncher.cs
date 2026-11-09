@@ -165,7 +165,7 @@ namespace Shiro.Services
                 }
 
                 int pid = process.Id;
-                Program.Logger?.Info($"[RobloxDirectLauncher] Successfully spawned RobloxPlayerBeta.exe directly for {username} (PID: {pid}).");
+                AppServices.Logger?.Info($"[RobloxDirectLauncher] Successfully spawned RobloxPlayerBeta.exe directly for {username} (PID: {pid}).");
 
                 RobloxProcessOptimizer.OptimizeLaunchedProcess(pid);
 
@@ -179,7 +179,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Error($"[RobloxDirectLauncher] Direct launch failed for {username}: {ex.Message}");
+                AppServices.Logger?.Error($"[RobloxDirectLauncher] Direct launch failed for {username}: {ex.Message}");
                 return new LaunchResult
                 {
                     Success = false,
@@ -222,7 +222,7 @@ namespace Shiro.Services
                 }
 
                 int pid = process.Id;
-                Program.Logger?.Info($"[RobloxDirectLauncher] Successfully spawned RobloxPlayerBeta.exe Home directly for {username} (PID: {pid}).");
+                AppServices.Logger?.Info($"[RobloxDirectLauncher] Successfully spawned RobloxPlayerBeta.exe Home directly for {username} (PID: {pid}).");
 
                 if (injectedCookie)
                 {
@@ -241,7 +241,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Error($"[RobloxDirectLauncher] Direct Home launch failed for {username}: {ex.Message}");
+                AppServices.Logger?.Error($"[RobloxDirectLauncher] Direct Home launch failed for {username}: {ex.Message}");
                 return new LaunchResult
                 {
                     Success = false,

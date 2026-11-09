@@ -31,14 +31,14 @@ namespace Shiro.Services
         {
             lock (PatchLock)
             {
-                bool potatoMode = AppSettings.General?.Get<bool>("EnablePotatoMode", false) ?? false;
+                bool potatoMode = AppServices.GeneralSettings?.Get<bool>("EnablePotatoMode", false) ?? false;
                 if (potatoMode)
                 {
                     ConfigureGlobalBasicSettings(graphicsQualityLevel: 1);
                 }
 
-                bool unlockFps = AppSettings.General?.Get<bool>("UnlockFPS", false) ?? false;
-                int targetFps = AppSettings.General?.Get<int>("MaxFPSValue", 144) ?? 144;
+                bool unlockFps = AppServices.GeneralSettings?.Get<bool>("UnlockFPS", false) ?? false;
+                int targetFps = AppServices.GeneralSettings?.Get<int>("MaxFPSValue", 144) ?? 144;
                 ApplyFpsLimit(unlockFps, targetFps);
 
                 PurgeSettings();
@@ -84,13 +84,13 @@ namespace Shiro.Services
                         }
                         catch (Exception ex)
                         {
-                            Program.Logger?.Debug($"Parse existing ClientAppSettings failed: {ex.Message}");
+                            AppServices.Logger?.Debug($"Parse existing ClientAppSettings failed: {ex.Message}");
                         }
                     }
 
                     string updatedJson = SerializeClientSettingsWithFps(parsed, clampedFps);
                     StoragePaths.AtomicWriteText(jsonPath, updatedJson, durable: true);
-                    Program.Logger?.Info($"[ClientSettingsPatcher] Applied safe FPS limit ({clampedFps}) to {Path.GetFileName(versionFolder)}");
+                    AppServices.Logger?.Info($"[ClientSettingsPatcher] Applied safe FPS limit ({clampedFps}) to {Path.GetFileName(versionFolder)}");
                 }
                 else
                 {
@@ -113,19 +113,19 @@ namespace Shiro.Services
                                     string updatedJson = SerializeClientSettingsWithFps(parsed, fpsOverride: null);
                                     StoragePaths.AtomicWriteText(jsonPath, updatedJson, durable: true);
                                 }
-                                Program.Logger?.Info($"[ClientSettingsPatcher] Removed FPS limit from {Path.GetFileName(versionFolder)}");
+                                AppServices.Logger?.Info($"[ClientSettingsPatcher] Removed FPS limit from {Path.GetFileName(versionFolder)}");
                             }
                         }
                         catch (Exception ex)
                         {
-                            Program.Logger?.Debug($"Clean FPS limit failed: {ex.Message}");
+                            AppServices.Logger?.Debug($"Clean FPS limit failed: {ex.Message}");
                         }
                     }
                 }
             }
             catch (Exception ex)
             {
-                Program.Logger?.Warn($"[ClientSettingsPatcher] ApplyFpsLimitToDirectory failed for {versionFolder}: {ex.Message}");
+                AppServices.Logger?.Warn($"[ClientSettingsPatcher] ApplyFpsLimitToDirectory failed for {versionFolder}: {ex.Message}");
             }
         }
 
@@ -160,7 +160,7 @@ namespace Shiro.Services
 
         public static void PurgeSettings()
         {
-            bool shouldPurge = AppSettings.General?.Get<bool>("PurgeClientSettings", false) ?? false;
+            bool shouldPurge = AppServices.GeneralSettings?.Get<bool>("PurgeClientSettings", false) ?? false;
             if (!shouldPurge)
             {
                 return;
@@ -177,7 +177,7 @@ namespace Shiro.Services
                                                folder.FullName.Contains("Voidstrap", StringComparison.OrdinalIgnoreCase);
                     if (isCustomBootstrapper)
                     {
-                        Program.Logger?.Debug($"[ClientSettingsPatcher] Preserving custom bootstrapper ClientSettings in {folder.FullName}");
+                        AppServices.Logger?.Debug($"[ClientSettingsPatcher] Preserving custom bootstrapper ClientSettings in {folder.FullName}");
                         continue;
                     }
 
@@ -185,12 +185,12 @@ namespace Shiro.Services
                     if (Directory.Exists(settingsDir))
                     {
                         Directory.Delete(settingsDir, recursive: true);
-                        Program.Logger?.Info($"[ClientSettingsPatcher] Safely purged ClientSettings in {folder.Name} to protect against Byfron bans.");
+                        AppServices.Logger?.Info($"[ClientSettingsPatcher] Safely purged ClientSettings in {folder.Name} to protect against Byfron bans.");
                     }
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Warn($"[ClientSettingsPatcher] Could not purge ClientSettings in {folder.FullName}: {ex.Message}");
+                    AppServices.Logger?.Warn($"[ClientSettingsPatcher] Could not purge ClientSettings in {folder.FullName}: {ex.Message}");
                 }
             }
         }
@@ -249,13 +249,13 @@ namespace Shiro.Services
                 if (modified)
                 {
                     StoragePaths.AtomicWriteText(settingsPath, updatedXml, durable: true);
-                    Program.Logger?.Info("[ClientSettingsPatcher] Successfully updated native GlobalBasicSettings_13.xml");
+                    AppServices.Logger?.Info("[ClientSettingsPatcher] Successfully updated native GlobalBasicSettings_13.xml");
                     return true;
                 }
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[ClientSettingsPatcher] ConfigureGlobalBasicSettings failed: {ex.Message}");
+                AppServices.Logger?.Debug($"[ClientSettingsPatcher] ConfigureGlobalBasicSettings failed: {ex.Message}");
             }
             return false;
         }
@@ -298,7 +298,7 @@ namespace Shiro.Services
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Debug($"Scan Roblox version directory '{versionsRoot}' failed: {ex.Message}");
+                    AppServices.Logger?.Debug($"Scan Roblox version directory '{versionsRoot}' failed: {ex.Message}");
                 }
             }
 
@@ -320,7 +320,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"Scan Roblox registry key failed: {ex.Message}");
+                AppServices.Logger?.Debug($"Scan Roblox registry key failed: {ex.Message}");
             }
 
             return folders;

@@ -25,7 +25,7 @@ namespace Shiro.Services
             {
                 await PrepareNativeLaunchEnvironmentAsync(cancellationToken).ConfigureAwait(false);
 
-                bool preferDirect = AppSettings.General.Get<bool>(AppSettingsKeys.General.PreferDirectLaunch, false);
+                bool preferDirect = AppServices.GeneralSettings.Get<bool>(AppSettingsKeys.General.PreferDirectLaunch, false);
                 if (preferDirect)
                 {
                     var directResult = RobloxDirectLauncher.LaunchHomeDirect(username, ticket, browserTrackerId, securityToken); directResult.Process?.Dispose();
@@ -37,7 +37,7 @@ namespace Shiro.Services
                         return directResult.ProcessId;
                     }
 
-                    Program.Logger.Info($"[StartNativeHomeAsync] Direct binary launch unavailable ({directResult.ErrorMessage}); falling back to URI protocol.");
+                    AppServices.Logger.Info($"[StartNativeHomeAsync] Direct binary launch unavailable ({directResult.ErrorMessage}); falling back to URI protocol.");
                 }
 
                 if (HasRobloxPlayerProtocolHandler() || !preferDirect)
@@ -58,11 +58,11 @@ namespace Shiro.Services
 
                         if (!await WaitForExitAsync(launcher, 1500, cancellationToken).ConfigureAwait(false))
                         {
-                            Program.Logger.Info($"Roblox client for {username} is running; released handoff gate.");
+                            AppServices.Logger.Info($"Roblox client for {username} is running; released handoff gate.");
                         }
                         else
                         {
-                            Program.Logger.Info($"Launching Roblox Home through the registered protocol for {username}.");
+                            AppServices.Logger.Info($"Launching Roblox Home through the registered protocol for {username}.");
                         }
 
                         await Task.Delay(250, cancellationToken).ConfigureAwait(false);
@@ -83,7 +83,7 @@ namespace Shiro.Services
                     }
                     catch (Exception protocolError)
                     {
-                        Program.Logger.Warn($"Roblox Home protocol launch failed for {username}; using the executable fallback.", protocolError);
+                        AppServices.Logger.Warn($"Roblox Home protocol launch failed for {username}; using the executable fallback.", protocolError);
                     }
                 }
 
@@ -108,7 +108,7 @@ namespace Shiro.Services
                 await Task.Delay(1000, cancellationToken).ConfigureAwait(false);
                 await WaitForInstallerAsync(cancellationToken).ConfigureAwait(false);
 
-                Program.Logger.Info($"Launching Roblox Home through RobloxPlayerBeta.exe directly for {username} because the Roblox protocol is unavailable.");
+                AppServices.Logger.Info($"Launching Roblox Home through RobloxPlayerBeta.exe directly for {username} because the Roblox protocol is unavailable.");
                 SchedulePostLaunchSingletonSweep(1500);
                 return fallbackPid;
             }
@@ -134,13 +134,13 @@ namespace Shiro.Services
         {
             if (account == null) return LaunchResult.Fail(LaunchOutcome.Failed, Shiro.Services.LocalizationService.Get("AccountLaunch.InvalidAccount"));
             cancellationToken.ThrowIfCancellationRequested();
-            if (preferChrome || AppSettings.General.Get<bool>("UseChromeHome", false))
+            if (preferChrome || AppServices.GeneralSettings.Get<bool>("UseChromeHome", false))
                 return await LaunchHomeInChromeResultAsync(account, cancellationToken).ConfigureAwait(false);
 
             account.EnsureBrowserTrackerId();
 
             try { ClientSettingsPatcher.PatchSettings(); }
-            catch (Exception ex) { Program.Logger.Error($"Failed to patch ClientAppSettings: {ex}"); }
+            catch (Exception ex) { AppServices.Logger.Error($"Failed to patch ClientAppSettings: {ex}"); }
 
             if (TestGetAuthTicketOverride != null)
             {
@@ -158,7 +158,7 @@ namespace Shiro.Services
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Debug($"Closing previous process for {account.Username} threw: {ex.Message}");
+                    AppServices.Logger?.Debug($"Closing previous process for {account.Username} threw: {ex.Message}");
                 }
 
                 string ticket = ticketResult.Ticket;
@@ -177,9 +177,9 @@ namespace Shiro.Services
                     ObserveBackgroundTask(
                         MonitorNativeAuthRateLimitAsync(launchStartedUtc, account, cancellationToken),
                         "native auth rate-limit monitor");
-                    AppSettings.SchedulePresenceRefresh(account);
+                    AppServices.HostUiBridge.SchedulePresenceRefresh(account);
 
-                    AppSettings.SignalNextLaunchAccount();
+                    AppServices.HostUiBridge.SignalNextLaunchAccount();
                     ObserveBackgroundTask(AdjustWindowPositionAsync(account, homePid, cancellationToken), "Roblox window positioning");
                 }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -189,7 +189,7 @@ namespace Shiro.Services
                 catch (Exception x)
                 {
                     launchException = x;
-                    Program.Logger?.Error($"Failed to launch Roblox Home for {account.Username}: {x}");
+                    AppServices.Logger?.Error($"Failed to launch Roblox Home for {account.Username}: {x}");
                 }
 
                 if (launchException != null)
@@ -218,7 +218,7 @@ namespace Shiro.Services
             try
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                bool useConfiguredProxy = AppSettings.General.Get<bool>("UseProxies", false) &&
+                bool useConfiguredProxy = AppServices.GeneralSettings.Get<bool>("UseProxies", false) &&
                     ProxyManagerService.GetCachedProxyStrings().Count > 0;
 
                 if (useConfiguredProxy)
@@ -228,24 +228,24 @@ namespace Shiro.Services
                         "https://www.roblox.com/home",
                         UseStealth: false,
                         cancellationToken: cancellationToken).ConfigureAwait(false);
-                    AppSettings.SchedulePresenceRefresh(account);
+                    AppServices.HostUiBridge.SchedulePresenceRefresh(account);
                     return LaunchResult.BrowserHome();
                 }
 
                 bool opened = await ChromiumHomeBrowser.OpenAsync(account, cancellationToken).ConfigureAwait(false);
                 if (opened)
                 {
-                    AppSettings.SchedulePresenceRefresh(account);
+                    AppServices.HostUiBridge.SchedulePresenceRefresh(account);
                     return LaunchResult.BrowserHome();
                 }
 
-                Program.Logger.Warn($"The CDP Home path failed for {account.Username}; falling back to the legacy Chromium browser path.");
+                AppServices.Logger.Warn($"The CDP Home path failed for {account.Username}; falling back to the legacy Chromium browser path.");
                 await AccountBrowser.OpenAsync(
                     account,
                     "https://www.roblox.com/home",
                     UseStealth: false,
                     cancellationToken: cancellationToken).ConfigureAwait(false);
-                AppSettings.SchedulePresenceRefresh(account);
+                AppServices.HostUiBridge.SchedulePresenceRefresh(account);
                 return LaunchResult.BrowserHome();
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -254,7 +254,7 @@ namespace Shiro.Services
             }
             catch (Exception exception)
             {
-                Program.Logger.Error($"Failed to open Roblox Home in Chrome for {account.Username}: {exception}");
+                AppServices.Logger.Error($"Failed to open Roblox Home in Chrome for {account.Username}: {exception}");
                 return LaunchResult.Fail(LaunchOutcome.Failed, $"ERROR: Failed to open Roblox Home in Chrome\n{exception.Message}");
             }
         }

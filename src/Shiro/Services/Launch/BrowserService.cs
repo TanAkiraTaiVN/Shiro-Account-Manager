@@ -85,7 +85,7 @@ namespace Shiro.Services
             string? cached = AccountBrowser.FindCachedChromiumExecutable();
             if (!string.IsNullOrWhiteSpace(cached))
             {
-                Program.Logger?.Warn($"Chrome and Edge were not found; using previously cached Chromium at {cached}.");
+                AppServices.Logger?.Warn($"Chrome and Edge were not found; using previously cached Chromium at {cached}.");
                 return Task.FromResult(cached);
             }
 
@@ -118,7 +118,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"SuppressPasswordManager failed: {ex.Message}");
+                AppServices.Logger?.Debug($"SuppressPasswordManager failed: {ex.Message}");
             }
         }
 

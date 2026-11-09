@@ -79,7 +79,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Warn($"Unable to answer a browser authentication challenge: {ex.Message}");
+                AppServices.Logger?.Warn($"Unable to answer a browser authentication challenge: {ex.Message}");
             }
         }
 
@@ -87,7 +87,7 @@ namespace Shiro.Services
             string[]? additionalProbeUrls = null,
             CancellationToken cancellationToken = default)
         {
-            if (!AppSettings.General.Get<bool>("UseProxies"))
+            if (!AppServices.GeneralSettings.Get<bool>("UseProxies"))
                 return null;
 
             string proxiesPath = StoragePaths.GetUserFile("proxies.txt");
@@ -95,8 +95,8 @@ namespace Shiro.Services
                 return null;
 
             Random rng = new Random(unchecked(Environment.TickCount ^ Guid.NewGuid().GetHashCode()));
-            int timeout = AppSettings.General.Exists("ProxyTimeout") ? AppSettings.General.Get<int>("ProxyTimeout") : 3000;
-            int limit = AppSettings.General.Exists("ProxyTestLimit") ? AppSettings.General.Get<int>("ProxyTestLimit") : 10;
+            int timeout = AppServices.GeneralSettings.Exists("ProxyTimeout") ? AppServices.GeneralSettings.Get<int>("ProxyTimeout") : 3000;
+            int limit = AppServices.GeneralSettings.Exists("ProxyTestLimit") ? AppServices.GeneralSettings.Get<int>("ProxyTestLimit") : 10;
             string[] proxies = File.ReadAllLines(proxiesPath)
                 .Select(line => line.Trim())
                 .Where(line => !string.IsNullOrWhiteSpace(line) && !line.StartsWith("#"))
@@ -110,7 +110,7 @@ namespace Shiro.Services
                 ProxyItem? parsed = ProxyManagerService.ParseProxy(entry);
                 if (parsed == null)
                 {
-                    Program.Logger?.Warn($"Skipping invalid proxy entry: {LogRedactor.Redact(entry)}");
+                    AppServices.Logger?.Warn($"Skipping invalid proxy entry: {LogRedactor.Redact(entry)}");
                     continue;
                 }
 
@@ -123,7 +123,7 @@ namespace Shiro.Services
                     browserScheme = "http";
                 else
                 {
-                    Program.Logger?.Warn($"Skipping proxy entry with unsupported protocol: {parsed.Protocol}");
+                    AppServices.Logger?.Warn($"Skipping proxy entry with unsupported protocol: {parsed.Protocol}");
                     continue;
                 }
 
@@ -133,7 +133,7 @@ namespace Shiro.Services
                 if (!Uri.TryCreate($"{parsed.Protocol}://{parsed.Host}:{parsed.Port}", UriKind.Absolute, out Uri? proxyUri) ||
                     string.IsNullOrWhiteSpace(proxyUri.Host) || proxyUri.Port < 1)
                 {
-                    Program.Logger?.Warn("Skipping a proxy entry with an invalid address.");
+                    AppServices.Logger?.Warn("Skipping a proxy entry with an invalid address.");
                     continue;
                 }
 
@@ -172,13 +172,13 @@ namespace Shiro.Services
 
                     if (!probeReachable)
                     {
-                        Program.Logger?.Warn("A configured proxy could reach Roblox but not its verification services; trying another proxy.");
+                        AppServices.Logger?.Warn("A configured proxy could reach Roblox but not its verification services; trying another proxy.");
                         continue;
                     }
 
                     bool isSocks = browserScheme.StartsWith("socks", StringComparison.OrdinalIgnoreCase);
                     bool canAuthenticate = !isSocks && !string.IsNullOrEmpty(username);
-                    Program.Logger?.Info("A configured proxy passed the Roblox connectivity check.");
+                    AppServices.Logger?.Info("A configured proxy passed the Roblox connectivity check.");
                     return new VerifiedBrowserProxy
                     {
                         WebProxy = webProxy,
@@ -192,13 +192,13 @@ namespace Shiro.Services
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Debug($"Proxy candidate test threw: {ex.Message}");
+                    AppServices.Logger?.Debug($"Proxy candidate test threw: {ex.Message}");
                 }
             }
 
             if (proxies.Length > 0)
             {
-                Program.Logger?.Error("No configured proxy passed the Roblox connectivity check. Fail-Closed enforced to prevent IP leak.");
+                AppServices.Logger?.Error("No configured proxy passed the Roblox connectivity check. Fail-Closed enforced to prevent IP leak.");
                 throw new InvalidOperationException("None of the configured proxies passed the connectivity check. Browser launch blocked to prevent IP leak.");
             }
 

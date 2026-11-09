@@ -36,8 +36,8 @@ namespace Shiro.Services
 
         public bool IsEnabled
         {
-            get => _isEnabled && AppSettings.General.Get<bool>("EnableAutoReconnect", false);
-            set { _isEnabled = value; AppSettings.General.Set("EnableAutoReconnect", value ? "true" : "false"); }
+            get => _isEnabled && AppServices.GeneralSettings.Get<bool>("EnableAutoReconnect", false);
+            set { _isEnabled = value; AppServices.GeneralSettings.Set("EnableAutoReconnect", value ? "true" : "false"); }
         }
         private bool _isEnabled = true;
         public int MaxRetries { get; set; } = 5;
@@ -106,7 +106,7 @@ namespace Shiro.Services
                         session.LastDisconnectUtc = DateTime.UtcNow;
                     }
                     session.LastDisconnectReason = reason;
-                    Program.Logger?.Warn($"[AutoReconnect] Detected in-game disconnect (reason {reason}) for '{session.Account?.Username}' (PID: {processId}).");
+                    AppServices.Logger?.Warn($"[AutoReconnect] Detected in-game disconnect (reason {reason}) for '{session.Account?.Username}' (PID: {processId}).");
 
                     if (isFirstDisconnect && session.Account?.Username is { } username)
                     {
@@ -184,7 +184,7 @@ namespace Shiro.Services
             };
 
             _sessions.AddOrUpdate(sessionKey, session, (_, _) => session);
-            Program.Logger?.Info($"[AutoReconnect] Registered session for '{sessionKey}' (PID: {processId}, PlaceId: {placeId}, RetryCount: {preservedRetries}).");
+            AppServices.Logger?.Info($"[AutoReconnect] Registered session for '{sessionKey}' (PID: {processId}, PlaceId: {placeId}, RetryCount: {preservedRetries}).");
 
             if (processId > 0)
             {
@@ -203,7 +203,7 @@ namespace Shiro.Services
                 await proc.WaitForExitAsync().ConfigureAwait(false);
                 session.ObservedProcessExited = true;
                 try { session.ObservedExitCode = proc.ExitCode; }
-                catch (Exception ex) { Program.Logger?.Debug($"Get ExitCode for pid {session.ProcessId} failed: {ex.Message}"); }
+                catch (Exception ex) { AppServices.Logger?.Debug($"Get ExitCode for pid {session.ProcessId} failed: {ex.Message}"); }
 
                 if (!IsEnabled || _disposed || !session.IsActive || session.IsSuppressed)
                     return;
@@ -223,7 +223,7 @@ namespace Shiro.Services
                     session.IsSuppressed = true;
                     session.IsActive = false;
                     _sessions.TryRemove(GetSessionKey(session.Account), out _);
-                    Program.Logger?.Info($"[AutoReconnect] '{session.Account.Username}' exited gracefully by user (ExitCode 0). Session closed.");
+                    AppServices.Logger?.Info($"[AutoReconnect] '{session.Account.Username}' exited gracefully by user (ExitCode 0). Session closed.");
                 }
                 else if (decision == ReconnectDecision.Reconnect || decision == ReconnectDecision.GiveUp)
                 {
@@ -274,7 +274,7 @@ namespace Shiro.Services
                             {
                                 processExited = true;
                                 try { exitCode = proc.ExitCode; }
-                                catch (Exception ex) { Program.Logger?.Debug($"Get ExitCode failed: {ex.Message}"); }
+                                catch (Exception ex) { AppServices.Logger?.Debug($"Get ExitCode failed: {ex.Message}"); }
                             }
                         }
                         catch (ArgumentException)
@@ -284,7 +284,7 @@ namespace Shiro.Services
                         }
                         catch (Exception ex)
                         {
-                            Program.Logger?.Debug($"[AutoReconnect] Error checking PID {session.ProcessId}: {ex.Message}");
+                            AppServices.Logger?.Debug($"[AutoReconnect] Error checking PID {session.ProcessId}: {ex.Message}");
                         }
                     }
                 }
@@ -304,7 +304,7 @@ namespace Shiro.Services
                         session.IsSuppressed = true;
                         session.IsActive = false;
                         _sessions.TryRemove(GetSessionKey(session.Account), out _);
-                        Program.Logger?.Info($"[AutoReconnect] '{session.Account.Username}' exited gracefully by user (ExitCode 0). Session closed.");
+                        AppServices.Logger?.Info($"[AutoReconnect] '{session.Account.Username}' exited gracefully by user (ExitCode 0). Session closed.");
                         break;
 
                     case ReconnectDecision.KillAndReconnect:
@@ -313,14 +313,14 @@ namespace Shiro.Services
                             using var staleProc = Process.GetProcessById(session.ProcessId);
                             if (!staleProc.HasExited)
                             {
-                                Program.Logger?.Warn($"[AutoReconnect] Terminating disconnected Roblox client PID {session.ProcessId} for '{session.Account.Username}' before reconnecting...");
+                                AppServices.Logger?.Warn($"[AutoReconnect] Terminating disconnected Roblox client PID {session.ProcessId} for '{session.Account.Username}' before reconnecting...");
                                 staleProc.Kill();
                                 staleProc.WaitForExit(1000);
                             }
                         }
                         catch (Exception ex)
                         {
-                            Program.Logger?.Debug($"Kill stale disconnected client PID {session.ProcessId} failed: {ex.Message}");
+                            AppServices.Logger?.Debug($"Kill stale disconnected client PID {session.ProcessId} failed: {ex.Message}");
                         }
                         HandleProcessExit(session);
                         break;
@@ -347,7 +347,7 @@ namespace Shiro.Services
             string sessionKey = GetSessionKey(session.Account);
             if (session.RetryCount >= MaxRetries)
             {
-                Program.Logger?.Warn($"[AutoReconnect] '{session.Account.Username}' exceeded max reconnect attempts ({MaxRetries}). Aborting.");
+                AppServices.Logger?.Warn($"[AutoReconnect] '{session.Account.Username}' exceeded max reconnect attempts ({MaxRetries}). Aborting.");
                 MaxRetriesExceeded?.Invoke(session);
                 _sessions.TryRemove(sessionKey, out _);
                 return;
@@ -359,7 +359,7 @@ namespace Shiro.Services
             int delaySeconds = (int)(InitialBackoff.TotalSeconds * Math.Pow(1.5, session.RetryCount - 1));
             delaySeconds = Math.Clamp(delaySeconds, 5, 60);
 
-            Program.Logger?.Warn($"[AutoReconnect] Roblox client for '{session.Account.Username}' terminated/disconnected. Scheduling reconnect attempt #{session.RetryCount}/{MaxRetries} in {delaySeconds}s...");
+            AppServices.Logger?.Warn($"[AutoReconnect] Roblox client for '{session.Account.Username}' terminated/disconnected. Scheduling reconnect attempt #{session.RetryCount}/{MaxRetries} in {delaySeconds}s...");
             ReconnectAttempted?.Invoke(session, session.RetryCount);
 
             Task.Run(async () =>
@@ -375,7 +375,7 @@ namespace Shiro.Services
                         !_sessions.TryGetValue(sessionKey, out var activeSession) ||
                         !ReferenceEquals(activeSession, session))
                     {
-                        Program.Logger?.Info($"[AutoReconnect] Reconnect for '{session.Account.Username}' cancelled due to user suppression.");
+                        AppServices.Logger?.Info($"[AutoReconnect] Reconnect for '{session.Account.Username}' cancelled due to user suppression.");
                         return;
                     }
 
@@ -389,7 +389,7 @@ namespace Shiro.Services
 
                         await RobloxRateLimitCoordinator.Instance.WaitForBackoffAsync().ConfigureAwait(false);
 
-                        Program.Logger?.Info($"[AutoReconnect] Reconnecting '{session.Account.Username}' to PlaceId: {session.PlaceId}...");
+                        AppServices.Logger?.Info($"[AutoReconnect] Reconnecting '{session.Account.Username}' to PlaceId: {session.PlaceId}...");
                         string result = TestJoinServerOverride != null
                             ? await TestJoinServerOverride(session).ConfigureAwait(false)
                             : await session.Account.JoinServer(
@@ -405,11 +405,11 @@ namespace Shiro.Services
                             session.ObservedProcessExited = false;
                             session.ObservedExitCode = null;
                             session.IsActive = true;
-                            Program.Logger?.Info($"[AutoReconnect] Successfully reconnected '{session.Account.Username}'.");
+                            AppServices.Logger?.Info($"[AutoReconnect] Successfully reconnected '{session.Account.Username}'.");
                         }
                         else
                         {
-                            Program.Logger?.Warn($"[AutoReconnect] Reconnect for '{session.Account.Username}' failed: {result}");
+                            AppServices.Logger?.Warn($"[AutoReconnect] Reconnect for '{session.Account.Username}' failed: {result}");
                             // Mark active again so next monitor cycle can retry if under MaxRetries
                             session.IsActive = true;
                         }
@@ -421,7 +421,7 @@ namespace Shiro.Services
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Error($"[AutoReconnect] Reconnect task error for '{session.Account.Username}': {ex.Message}");
+                    AppServices.Logger?.Error($"[AutoReconnect] Reconnect task error for '{session.Account.Username}': {ex.Message}");
                     session.IsActive = true;
                 }
             });
