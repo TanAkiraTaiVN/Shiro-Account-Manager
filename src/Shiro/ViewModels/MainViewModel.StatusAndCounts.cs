@@ -183,23 +183,7 @@ namespace Shiro.ViewModels
                 }
                 _lastRobloxProcessCount = totalRobloxProcs;
 
-                bool stateChanged = false;
-                foreach (var acc in _accounts)
-                {
-                    bool isRunningLocally = runningMap != null && acc.Model != null && runningMap.ContainsKey(acc.Model);
-                    acc.IsLocalClientRunning = isRunningLocally;
-
-                    // If Presence from Roblox API exists, it is authoritative; otherwise preserve current state
-                    bool hasActivePresence = acc.Model?.Presence != null
-                        ? acc.Model.Presence.userPresenceType == UserPresenceType.InGame
-                        : (acc.IsInGame || isRunningLocally);
-
-                    if (acc.IsInGame != hasActivePresence)
-                    {
-                        acc.IsInGame = hasActivePresence;
-                        stateChanged = true;
-                    }
-                }
+                bool stateChanged = AccountListFilterController.UpdateAccountLiveStatuses(_accounts, runningMap);
 
                 if (stateChanged && (ActiveTab == AccountFilterTab.InGame || ActiveTab == AccountFilterTab.Ready))
                 {
@@ -219,53 +203,39 @@ namespace Shiro.ViewModels
             if (_suppressCountNotifications)
                 return;
 
-            int total = _accounts.Count;
-            int inGame = 0, ready = 0, expired = 0, banned = 0, pinned = 0, selected = 0;
-            long robux = 0;
+            var c = AccountListFilterController.ComputeAccountCounts(_accounts);
 
-            for (int i = 0; i < total; i++)
-            {
-                var a = _accounts[i];
-                if (a.IsInGame) inGame++;
-                else if (a.Valid) ready++;
-                if (a.IsBannedOrLocked) banned++;
-                else if (a.IsExpired) expired++;
-                if (a.Pinned) pinned++;
-                if (a.IsSelected) selected++;
-                if (a.RobuxBalance > 0) robux += a.RobuxBalance;
-            }
-
-            if (_totalCount != total) { _totalCount = total; OnPropertyChanged(nameof(TotalCount)); }
-            if (_inGameCount != inGame) { _inGameCount = inGame; OnPropertyChanged(nameof(InGameCount)); }
-            if (_readyCount != ready) { _readyCount = ready; OnPropertyChanged(nameof(ReadyCount)); }
-            if (_expiredCount != expired)
+            if (_totalCount != c.Total) { _totalCount = c.Total; OnPropertyChanged(nameof(TotalCount)); }
+            if (_inGameCount != c.InGame) { _inGameCount = c.InGame; OnPropertyChanged(nameof(InGameCount)); }
+            if (_readyCount != c.Ready) { _readyCount = c.Ready; OnPropertyChanged(nameof(ReadyCount)); }
+            if (_expiredCount != c.Expired)
             {
                 bool hadExpired = _expiredCount > 0;
-                _expiredCount = expired;
+                _expiredCount = c.Expired;
                 OnPropertyChanged(nameof(ExpiredCount));
-                if (hadExpired != (expired > 0)) OnPropertyChanged(nameof(HasExpiredAccounts));
+                if (hadExpired != (c.Expired > 0)) OnPropertyChanged(nameof(HasExpiredAccounts));
             }
-            if (_bannedCount != banned)
+            if (_bannedCount != c.Banned)
             {
                 bool hadBanned = _bannedCount > 0;
-                _bannedCount = banned;
+                _bannedCount = c.Banned;
                 OnPropertyChanged(nameof(BannedCount));
-                if (hadBanned != (banned > 0)) OnPropertyChanged(nameof(HasBannedAccounts));
+                if (hadBanned != (c.Banned > 0)) OnPropertyChanged(nameof(HasBannedAccounts));
             }
-            if (_pinnedCount != pinned) { _pinnedCount = pinned; OnPropertyChanged(nameof(PinnedCount)); }
-            if (_selectedCount != selected)
+            if (_pinnedCount != c.Pinned) { _pinnedCount = c.Pinned; OnPropertyChanged(nameof(PinnedCount)); }
+            if (_selectedCount != c.Selected)
             {
                 bool hadSelection = _selectedCount > 0;
-                _selectedCount = selected;
+                _selectedCount = c.Selected;
                 OnPropertyChanged(nameof(SelectedCount));
                 OnPropertyChanged(nameof(IsAllSelected));
                 OnPropertyChanged(nameof(CloseRobloxButtonText));
-                if (hadSelection != (selected > 0)) OnPropertyChanged(nameof(HasSelection));
+                if (hadSelection != (c.Selected > 0)) OnPropertyChanged(nameof(HasSelection));
             }
-            if (_totalRobuxCount != robux)
+            if (_totalRobuxCount != c.Robux)
             {
-                _totalRobuxCount = robux;
-                _totalRobuxText = $"R$ {robux:N0}";
+                _totalRobuxCount = c.Robux;
+                _totalRobuxText = $"R$ {c.Robux:N0}";
                 OnPropertyChanged(nameof(TotalRobuxCount));
                 OnPropertyChanged(nameof(TotalRobuxText));
             }
