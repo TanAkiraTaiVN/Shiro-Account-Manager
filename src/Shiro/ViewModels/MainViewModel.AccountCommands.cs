@@ -183,7 +183,7 @@ namespace Shiro.ViewModels
                 if (p is AccountViewModel a)
                 {
                     if (OnReLoginWithCookieRequested != null) OnReLoginWithCookieRequested.Invoke(a);
-                    else _ = Task.Run(async () => await AccountWorkflowService.Default.ReLoginWithCookieAsync(a, this, PostStatusMessage).ConfigureAwait(false));
+                    else _ = Task.Run(async () => await AppServices.AccountWorkflowService.ReLoginWithCookieAsync(a, this, PostStatusMessage).ConfigureAwait(false));
                 }
             });
             ValidateSessionCommand = new RelayCommand(p =>
@@ -218,7 +218,7 @@ namespace Shiro.ViewModels
                 if (p is AccountViewModel a)
                 {
                     if (OnSetAliasRequested != null) OnSetAliasRequested.Invoke(a);
-                    else AccountWorkflowService.Default.SetAlias(a, msg => StatusMessage = msg);
+                    else AppServices.AccountWorkflowService.SetAlias(a, msg => StatusMessage = msg);
                 }
             });
             SetGroupCommand = new RelayCommand(p =>
@@ -226,7 +226,7 @@ namespace Shiro.ViewModels
                 if (p is AccountViewModel a)
                 {
                     if (OnSetGroupRequested != null) OnSetGroupRequested.Invoke(a);
-                    else AccountWorkflowService.Default.SetGroup(a, this, msg => StatusMessage = msg);
+                    else AppServices.AccountWorkflowService.SetGroup(a, this, msg => StatusMessage = msg);
                 }
             });
             SetDescriptionCommand = new RelayCommand(p =>
@@ -234,7 +234,7 @@ namespace Shiro.ViewModels
                 if (p is AccountViewModel a)
                 {
                     if (OnSetDescriptionRequested != null) OnSetDescriptionRequested.Invoke(a);
-                    else AccountWorkflowService.Default.SetDescription(a, msg => StatusMessage = msg);
+                    else AppServices.AccountWorkflowService.SetDescription(a, msg => StatusMessage = msg);
                 }
             });
             TogglePinCommand = new RelayCommand(p =>
@@ -242,7 +242,7 @@ namespace Shiro.ViewModels
                 if (p is AccountViewModel a)
                 {
                     if (OnTogglePinRequested != null) OnTogglePinRequested.Invoke(a);
-                    else AccountWorkflowService.Default.TogglePin(a, this, msg => StatusMessage = msg);
+                    else AppServices.AccountWorkflowService.TogglePin(a, this, msg => StatusMessage = msg);
                 }
             });
             CopyUsernameCommand = new RelayCommand(p =>
@@ -250,7 +250,7 @@ namespace Shiro.ViewModels
                 if (p is AccountViewModel a)
                 {
                     if (OnCopyUsernameRequested != null) OnCopyUsernameRequested.Invoke(a);
-                    else AccountWorkflowService.Default.CopyUsername(a, msg => StatusMessage = msg);
+                    else AppServices.AccountWorkflowService.CopyUsername(a, msg => StatusMessage = msg);
                 }
             });
             CopyUserPassCommand = new RelayCommand(p =>
@@ -258,7 +258,7 @@ namespace Shiro.ViewModels
                 if (p is AccountViewModel a)
                 {
                     if (OnCopyUserPassRequested != null) OnCopyUserPassRequested.Invoke(a);
-                    else AccountWorkflowService.Default.CopyUserPass(a, msg => StatusMessage = msg);
+                    else AppServices.AccountWorkflowService.CopyUserPass(a, msg => StatusMessage = msg);
                 }
             });
             CopyUserIdCommand = new RelayCommand(p =>
@@ -266,7 +266,7 @@ namespace Shiro.ViewModels
                 if (p is AccountViewModel a)
                 {
                     if (OnCopyUserIdRequested != null) OnCopyUserIdRequested.Invoke(a);
-                    else AccountWorkflowService.Default.CopyUserId(a, msg => StatusMessage = msg);
+                    else AppServices.AccountWorkflowService.CopyUserId(a, msg => StatusMessage = msg);
                 }
             });
             CopyProfileUrlCommand = new RelayCommand(p =>
@@ -274,7 +274,7 @@ namespace Shiro.ViewModels
                 if (p is AccountViewModel a)
                 {
                     if (OnCopyProfileUrlRequested != null) OnCopyProfileUrlRequested.Invoke(a);
-                    else AccountWorkflowService.Default.CopyProfileUrl(a, msg => StatusMessage = msg);
+                    else AppServices.AccountWorkflowService.CopyProfileUrl(a, msg => StatusMessage = msg);
                 }
             });
             CopySecurityTokenCommand = new RelayCommand(p =>
@@ -282,7 +282,7 @@ namespace Shiro.ViewModels
                 if (p is AccountViewModel a)
                 {
                     if (OnCopySecurityTokenRequested != null) OnCopySecurityTokenRequested.Invoke(a);
-                    else AccountWorkflowService.Default.CopySecurityToken(a, msg => StatusMessage = msg);
+                    else AppServices.AccountWorkflowService.CopySecurityToken(a, msg => StatusMessage = msg);
                 }
             });
             SavePlaceIdToAccountCommand = new RelayCommand(p => { if (p is AccountViewModel a) OnSavePlaceIdToAccountRequested?.Invoke(a); });
@@ -312,7 +312,7 @@ namespace Shiro.ViewModels
                 if (p is AccountViewModel a)
                 {
                     if (OnRemoveAccountRequested != null) OnRemoveAccountRequested.Invoke(a);
-                    else AccountWorkflowService.Default.RemoveAccount(a, this, msg => StatusMessage = msg);
+                    else AppServices.AccountWorkflowService.RemoveAccount(a, this, msg => StatusMessage = msg);
                 }
             });
 
@@ -320,22 +320,22 @@ namespace Shiro.ViewModels
             SetGroupSelectedCommand = new RelayCommand(() =>
             {
                 if (OnSetGroupSelectedRequested != null) OnSetGroupSelectedRequested.Invoke();
-                else AccountWorkflowService.Default.SetGroupSelected(this, PostStatusMessage);
+                else AppServices.AccountWorkflowService.SetGroupSelected(this, PostStatusMessage);
             });
             SavePlaceIdSelectedCommand = new RelayCommand(() =>
             {
                 if (OnSavePlaceIdSelectedRequested != null) OnSavePlaceIdSelectedRequested.Invoke();
-                else AccountWorkflowService.Default.SavePlaceIdSelected(this, PostStatusMessage);
+                else AppServices.AccountWorkflowService.SavePlaceIdSelected(this, PostStatusMessage);
             });
             CopyUserPassSelectedCommand = new RelayCommand(() =>
             {
                 if (OnCopyUserPassSelectedRequested != null) OnCopyUserPassSelectedRequested.Invoke();
-                else AccountWorkflowService.Default.CopyUserPassSelected(this, PostStatusMessage);
+                else AppServices.AccountWorkflowService.CopyUserPassSelected(this, PostStatusMessage);
             });
             RemoveSelectedCommand = new RelayCommand(() =>
             {
                 if (OnRemoveSelectedRequested != null) OnRemoveSelectedRequested.Invoke();
-                else AccountWorkflowService.Default.RemoveSelectedAccounts(this, PostStatusMessage);
+                else AppServices.AccountWorkflowService.RemoveSelectedAccounts(this, PostStatusMessage);
             });
             ReLoginSelectedCommand = new RelayCommand(() =>
             {
@@ -365,7 +365,7 @@ namespace Shiro.ViewModels
                     return;
                 }
                 if (OnValidateSessionSelectedRequested != null) OnValidateSessionSelectedRequested.Invoke(selected);
-                else AccountWorkflowService.Default.ValidateSessionSelected(selected, this, PostStatusMessage);
+                else AppServices.AccountWorkflowService.ValidateSessionSelected(selected, this, PostStatusMessage);
             });
         }
     }

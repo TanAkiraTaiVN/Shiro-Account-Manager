@@ -9,7 +9,7 @@ namespace Shiro
 {
     public partial class AccountManager
     {
-        internal void SetDashboardStatus(string message) => HostUiBridgeService.Default.NotifyWindowStatus(message);
+        internal void SetDashboardStatus(string message) => AppServices.HostUiBridge.NotifyWindowStatus(message);
 
         internal async Task ModernLaunchAccountAppHome(Account account)
         {
@@ -24,7 +24,7 @@ namespace Shiro
         }
 
         internal List<Account> GetCurrentSelectedAccounts() =>
-            HostUiBridgeService.Default.TryGetDashboardSelectedAccounts()
+            AppServices.HostUiBridge.TryGetDashboardSelectedAccounts()
             ?? AppServices.SelectionState.SelectedAccounts?.ToList() ?? new List<Account>();
 
         internal void ModernOpenAccountControl() => AppServices.Dialogs.OpenNexusWindow();
@@ -79,9 +79,9 @@ namespace Shiro
                 // Prefer the dashboard input, then the global CurrentPlaceId (unless the user explicitly
                 // cleared it), and only then fall back to the target account's own SavedPlaceId.
                 string? pidSource = ResolveEffectivePlaceIdSource(
-                    HostUiBridgeService.Default.TryGetDashboardPlaceId(),
+                    AppServices.HostUiBridge.TryGetDashboardPlaceId(),
                     targetAccounts,
-                    ServerBrowserStateService.Default.IsPlaceIdExplicitlyCleared ? string.Empty : AppServices.ServerBrowserState.CurrentPlaceId);
+                    (AppServices.ServerBrowserState as ServerBrowserStateService)?.IsPlaceIdExplicitlyCleared == true ? string.Empty : AppServices.ServerBrowserState.CurrentPlaceId);
 
                 if (!string.IsNullOrWhiteSpace(pidSource))
                     placeId = AccountLauncherService.ParsePlaceId(pidSource);
@@ -95,7 +95,7 @@ namespace Shiro
 
             string cleanJobId = !string.IsNullOrWhiteSpace(jobId)
                 ? jobId
-                : HostUiBridgeService.Default.TryGetDashboardJobId() is string vmJid && !string.IsNullOrWhiteSpace(vmJid)
+                : AppServices.HostUiBridge.TryGetDashboardJobId() is string vmJid && !string.IsNullOrWhiteSpace(vmJid)
                     ? vmJid
                     : !string.IsNullOrWhiteSpace(AppServices.ServerBrowserState.CurrentJobId)
                         ? AppServices.ServerBrowserState.CurrentJobId
@@ -143,7 +143,7 @@ namespace Shiro
                     : Shiro.Services.LocalizationService.Get("AccountManager.NoRobloxProcessesRunning"));
             }
 
-            HostUiBridgeService.Default.NotifyRobloxProcessesClosed(totalKilled, notify);
+            AppServices.HostUiBridge.NotifyRobloxProcessesClosed(totalKilled, notify);
             if (AppSettings.General.Get<bool>("EnableMultiRbx") && !RobloxSingletonService.MutexHeld && UpdateMultiRoblox() && notify)
                 SetDashboardStatus(Shiro.Services.LocalizationService.Get("AccountManager.KilledAndActivatedMulti"));
 

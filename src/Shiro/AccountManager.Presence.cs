@@ -37,7 +37,7 @@ namespace Shiro
         {
             if (!AppSettings.General.Get<bool>("ShowPresence"))
             {
-                HostUiBridgeService.Default.NotifyLiveProcessStatusChanged();
+                AppServices.HostUiBridge.NotifyLiveProcessStatusChanged();
                 return;
             }
 

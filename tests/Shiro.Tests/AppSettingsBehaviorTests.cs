@@ -5,6 +5,7 @@ using System.IO;
 using System.Threading.Tasks;
 using Shiro.Classes;
 using Shiro.Services;
+using NSubstitute;
 using Xunit;
 
 namespace Shiro.Tests
@@ -242,6 +243,16 @@ namespace Shiro.Tests
                     catch (IOException) { }
                 }
             }
+        }
+
+        [Fact]
+        public void SelectionStateOverride_IsObservedByAppSettingsFacade()
+        {
+            var fake = Substitute.For<ISelectionStateService>();
+            var acc = new Account { Username = "OverrideSelected", UserID = 12345 };
+            fake.SelectedAccount.Returns(acc);
+            using (AppServices.Override<ISelectionStateService>(fake))
+                Assert.Same(acc, AppSettings.SelectedAccount);
         }
     }
 }

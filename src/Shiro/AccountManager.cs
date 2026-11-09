@@ -59,7 +59,7 @@ namespace Shiro
         private bool shutdownFinalized;
 
         private readonly SettingsService settingsService;
-        internal static System.Threading.Lock AccountListLock => AccountRepository.Default.SyncRoot;
+        internal static System.Threading.Lock AccountListLock => Persistence.AccountListLock;
         private readonly PresenceService presenceService;
         private readonly BrowserService browserService;
 
@@ -92,11 +92,7 @@ namespace Shiro
                 Math.Min(MaximumAccountJoinDelaySeconds, delay));
         }
 
-        internal static void ReplaceAccountsList(List<Account> accounts)
-        {
-            IReadOnlyList<Account> snapshot = AccountRepository.Default.ReplaceAll(accounts);
-            HostUiBridgeService.Default.NotifyAccountsReplaced(snapshot);
-        }
+        internal static void ReplaceAccountsList(List<Account> accounts) => Persistence.ReplaceAccountsList(accounts);
 
         internal static void ResetAccountsForTests(IEnumerable<Account> accounts)
         {
@@ -263,7 +259,7 @@ namespace Shiro
         private void RefreshModernDashboard()
         {
             var snapshot = AppServices.AccountRepository.GetAll();
-            HostUiBridgeService.Default.NotifyAccountsReplaced(snapshot);
+            AppServices.HostUiBridge.NotifyAccountsReplaced(snapshot);
         }
 
         // Modern dashboard and Avalonia action entry points extracted to AccountManager.ModernActions.cs

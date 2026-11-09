@@ -18,7 +18,7 @@ namespace Shiro
         }
 
         public void UpdateAccountView(Account? account = null) =>
-            HostUiBridgeService.Default.NotifyLiveProcessStatusChanged();
+            AppServices.HostUiBridge.NotifyLiveProcessStatusChanged();
 
         internal async Task RefreshStaleCookiesAsync(CancellationToken cancellationToken)
         {

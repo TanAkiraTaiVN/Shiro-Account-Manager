@@ -23,15 +23,17 @@ namespace Shiro.AvaloniaUI.Views
             InitializeComponent();
             WindowBackdropService.ApplyDarkAndBackdrop(this);
 
-            var bridge = HostUiBridgeService.Default;
-            bridge.RefreshAccountsOnUiHandler = RefreshAccounts;
-            bridge.NotifyAccountValidityOnUiHandler = UpdateAccountValidity;
-            bridge.RefreshLiveProcessStatusOnUiHandler = RefreshLiveProcessStatus;
-            bridge.UpdateWindowStatusOnUiHandler = SetStatus;
-            bridge.NotifyRobloxProcessesClosedOnUiHandler = OnRobloxProcessesClosed;
-            bridge.GetDashboardSelectedAccountsHandler = () => ViewDashboard?.ViewModel?.GetSelectedAccounts();
-            bridge.GetDashboardPlaceIdHandler = () => ViewDashboard?.ViewModel?.PlaceId;
-            bridge.GetDashboardJobIdHandler = () => ViewDashboard?.ViewModel?.JobId;
+            if (AppServices.HostUiBridge is HostUiBridgeService bridge)
+            {
+                bridge.RefreshAccountsOnUiHandler = RefreshAccounts;
+                bridge.NotifyAccountValidityOnUiHandler = UpdateAccountValidity;
+                bridge.RefreshLiveProcessStatusOnUiHandler = RefreshLiveProcessStatus;
+                bridge.UpdateWindowStatusOnUiHandler = SetStatus;
+                bridge.NotifyRobloxProcessesClosedOnUiHandler = OnRobloxProcessesClosed;
+                bridge.GetDashboardSelectedAccountsHandler = () => ViewDashboard?.ViewModel?.GetSelectedAccounts();
+                bridge.GetDashboardPlaceIdHandler = () => ViewDashboard?.ViewModel?.PlaceId;
+                bridge.GetDashboardJobIdHandler = () => ViewDashboard?.ViewModel?.JobId;
+            }
 
             if (ViewDashboard?.ViewModel != null)
             {
@@ -219,15 +221,17 @@ namespace Shiro.AvaloniaUI.Views
         {
             ViewDashboard?.ViewModel?.Dispose();
 
-            var bridge = HostUiBridgeService.Default;
-            bridge.RefreshAccountsOnUiHandler = null;
-            bridge.NotifyAccountValidityOnUiHandler = null;
-            bridge.RefreshLiveProcessStatusOnUiHandler = null;
-            bridge.UpdateWindowStatusOnUiHandler = null;
-            bridge.NotifyRobloxProcessesClosedOnUiHandler = null;
-            bridge.GetDashboardSelectedAccountsHandler = null;
-            bridge.GetDashboardPlaceIdHandler = null;
-            bridge.GetDashboardJobIdHandler = null;
+            if (AppServices.HostUiBridge is HostUiBridgeService bridge)
+            {
+                bridge.RefreshAccountsOnUiHandler = null;
+                bridge.NotifyAccountValidityOnUiHandler = null;
+                bridge.RefreshLiveProcessStatusOnUiHandler = null;
+                bridge.UpdateWindowStatusOnUiHandler = null;
+                bridge.NotifyRobloxProcessesClosedOnUiHandler = null;
+                bridge.GetDashboardSelectedAccountsHandler = null;
+                bridge.GetDashboardPlaceIdHandler = null;
+                bridge.GetDashboardJobIdHandler = null;
+            }
 
             if (ReferenceEquals(Instance, this))
             {

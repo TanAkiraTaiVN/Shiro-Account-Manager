@@ -297,7 +297,7 @@ namespace Shiro.ViewModels
                     }
                     _ = Task.Run(async () =>
                     {
-                        await AccountWorkflowService.Default.CheckAllSessionsAsync(this, PostStatusMessage).ConfigureAwait(false);
+                        await AppServices.AccountWorkflowService.CheckAllSessionsAsync(this, PostStatusMessage).ConfigureAwait(false);
                     });
                 }
                 catch (Exception ex)

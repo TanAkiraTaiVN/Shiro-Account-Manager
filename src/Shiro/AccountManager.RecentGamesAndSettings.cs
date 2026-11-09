@@ -114,53 +114,55 @@ namespace Shiro
         private void WireStateAndHostBridgeServices()
         {
             // AppSettings.ActiveIniFile already configured
-            ServerBrowserStateService.Default.LoadClientVersionDelegate = LoadClientVersionAsync;
+            if (AppServices.ServerBrowserState is ServerBrowserStateService sbState)
+                sbState.LoadClientVersionDelegate = LoadClientVersionAsync;
 
-            var bridge = HostUiBridgeService.Default;
-            bridge.RefreshAccountViewHandler = account =>
+            if (AppServices.HostUiBridge is HostUiBridgeService bridge)
             {
-                if (account != null)
-                    UpdateAccountView(account);
-                else
-                    RefreshView();
-            };
-            bridge.UpdateAccountValidityOnUiHandler = (account, valid) =>
-            {
-                BeginInvoke(() =>
+                bridge.RefreshAccountViewHandler = account =>
                 {
-                    UpdateAccountValidity(account, valid);
-                    RefreshView(account);
-                });
-            };
-            bridge.SchedulePresenceRefreshHandler = account =>
-            {
-                if (account != null)
-                    SchedulePresenceRefresh(account);
-            };
-            bridge.SignalNextLaunchAccountHandler = () => NextAccount();
-            bridge.CancelLaunchingHandler = () => CancelLaunching();
-            bridge.UpdateMultiRobloxHandler = () => UpdateMultiRoblox();
-            bridge.CloseAllRobloxFromUiHandler = () => InvokeIfRequired(() => ModernCloseRoblox());
-            bridge.LaunchAppHomeHandler = ModernLaunchAccountAppHome;
-            bridge.JoinServerHandler = (accounts, placeId, jobId) => ModernJoinServerDirect(new List<Account>(accounts), placeId, jobId);
-            bridge.MultiLaunchHomeHandler = () => ModernMultiLaunch();
-            bridge.GetCurrentSelectedAccountsHandler = GetCurrentSelectedAccounts;
-            bridge.SaveSettingsHandler = SaveSettings;
-            bridge.QueueDeferredSaveSettingsHandler = () => QueueDeferredSaveSettings();
-            bridge.SetDashboardStatusHandler = SetDashboardStatus;
-            bridge.EnsureBackendInitializedHandler = EnsureBackendInitialized;
-            bridge.InitializePostStartupHandler = InitializePostStartup;
-            bridge.RestartWebServerHandler = RestartWebServerAsync;
-            bridge.StopWebServerHandler = StopWebServerAsync;
-            bridge.SetAutoCookieRefreshEnabledHandler = SetAutoCookieRefreshEnabled;
-            bridge.ResetEncryptionHandler = Persistence.ResetEncryptionAsync;
-            ServerBrowserStateService.Default.LoadClientVersionDelegate = LoadClientVersionAsync;
+                    if (account != null)
+                        UpdateAccountView(account);
+                    else
+                        RefreshView();
+                };
+                bridge.UpdateAccountValidityOnUiHandler = (account, valid) =>
+                {
+                    BeginInvoke(() =>
+                    {
+                        UpdateAccountValidity(account, valid);
+                        RefreshView(account);
+                    });
+                };
+                bridge.SchedulePresenceRefreshHandler = account =>
+                {
+                    if (account != null)
+                        SchedulePresenceRefresh(account);
+                };
+                bridge.SignalNextLaunchAccountHandler = () => NextAccount();
+                bridge.CancelLaunchingHandler = () => CancelLaunching();
+                bridge.UpdateMultiRobloxHandler = () => UpdateMultiRoblox();
+                bridge.CloseAllRobloxFromUiHandler = () => InvokeIfRequired(() => ModernCloseRoblox());
+                bridge.LaunchAppHomeHandler = ModernLaunchAccountAppHome;
+                bridge.JoinServerHandler = (accounts, placeId, jobId) => ModernJoinServerDirect(new List<Account>(accounts), placeId, jobId);
+                bridge.MultiLaunchHomeHandler = () => ModernMultiLaunch();
+                bridge.GetCurrentSelectedAccountsHandler = GetCurrentSelectedAccounts;
+                bridge.SaveSettingsHandler = SaveSettings;
+                bridge.QueueDeferredSaveSettingsHandler = () => QueueDeferredSaveSettings();
+                bridge.SetDashboardStatusHandler = SetDashboardStatus;
+                bridge.EnsureBackendInitializedHandler = EnsureBackendInitialized;
+                bridge.InitializePostStartupHandler = InitializePostStartup;
+                bridge.RestartWebServerHandler = RestartWebServerAsync;
+                bridge.StopWebServerHandler = StopWebServerAsync;
+                bridge.SetAutoCookieRefreshEnabledHandler = SetAutoCookieRefreshEnabled;
+                bridge.ResetEncryptionHandler = Persistence.ResetEncryptionAsync;
+            }
         }
 
         static AccountManager()
         {
-            HostUiBridgeService.Default.EnsureBackendInitializedHandler = EnsureBackendInitialized;
-            ServerBrowserStateService.Default.LoadClientVersionDelegate = LoadClientVersionAsync;
+            if (AppServices.HostUiBridge is HostUiBridgeService hostBridge) hostBridge.EnsureBackendInitializedHandler = EnsureBackendInitialized;
+            if (AppServices.ServerBrowserState is ServerBrowserStateService sbState) sbState.LoadClientVersionDelegate = LoadClientVersionAsync;
         }
 
         public static async Task LoadClientVersionAsync(CancellationToken cancellationToken = default)

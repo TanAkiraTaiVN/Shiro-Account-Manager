@@ -52,6 +52,8 @@ namespace Shiro.Services
         private byte[]? _lastSavedPlaintextHash;
         private readonly System.Threading.Lock saveLock = new();
 
+        internal System.Threading.Lock AccountListLock => _repository.SyncRoot;
+
         internal AccountPersistenceService(AccountRepository? repository = null)
         {
             _repository = repository ?? AccountRepository.Default;
@@ -63,7 +65,7 @@ namespace Shiro.Services
             }, null, Timeout.Infinite, Timeout.Infinite);
         }
 
-        private void ReplaceAccountsList(List<Account> accounts)
+        internal void ReplaceAccountsList(List<Account> accounts)
         {
             IReadOnlyList<Account> snapshot = _repository.ReplaceAll(accounts);
             AppServices.HostUiBridge.NotifyAccountsReplaced(snapshot);

@@ -1,5 +1,9 @@
 #nullable enable
+using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Reflection;
 using NetArchTest.Rules;
 using Shiro.Services;
@@ -74,6 +78,21 @@ namespace Shiro.Tests
                 .GetResult();
             var failingNames = result.FailingTypes?.Select(t => t.FullName) ?? Enumerable.Empty<string>();
             Assert.True(result.IsSuccessful, string.Join(", ", failingNames));
+        }
+
+        [Fact]
+        public void StateServiceDefaults_ShouldOnlyBeReferenced_ByCompositionRoot()
+        {
+            var allow = new HashSet<string>(StringComparer.OrdinalIgnoreCase) {
+                "AppServices.cs", "SelectionStateService.cs", "ServerBrowserStateService.cs", "AccountWorkflowService.cs",
+                "HostUiBridgeService.cs", "AccountRepository.cs", "AccountPersistenceService.cs",
+                "AccountPersistenceService.Recovery.cs", "AccountRegistrationService.cs" };
+            var offenders = SourceScan.AppSourceFiles(RepoRoot)
+                .Where(f => !allow.Contains(Path.GetFileName(f)))
+                .Where(f => Regex.IsMatch(SourceScan.StripStringLiterals(File.ReadAllText(f)),
+                    @"\b(SelectionStateService|ServerBrowserStateService|AccountWorkflowService|HostUiBridgeService|AccountRepository)\.Default\b"))
+                .Select(Path.GetFileName).ToList();
+            Assert.Empty(offenders);
         }
     }
 }
