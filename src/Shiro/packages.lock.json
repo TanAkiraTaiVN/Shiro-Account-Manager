@@ -53,6 +53,12 @@
           "Avalonia": "11.1.0-beta1"
         }
       },
+      "Microsoft.NET.ILLink.Tasks": {
+        "type": "Direct",
+        "requested": "[10.0.2, )",
+        "resolved": "10.0.2",
+        "contentHash": "sXdDtMf2qcnbygw9OdE535c2lxSxrZP8gO4UhDJ0xiJbl1wIqXS1OTcTDFTIJPOFd6Mhcm8gPEthqWGUxBsTqw=="
+      },
       "Microsoft.Web.WebView2": {
         "type": "Direct",
         "requested": "[1.0.2903.40, )",
