@@ -86,11 +86,11 @@ namespace Shiro.Tests
             var allow = new HashSet<string>(StringComparer.OrdinalIgnoreCase) {
                 "AppServices.cs", "SelectionStateService.cs", "ServerBrowserStateService.cs", "AccountWorkflowService.cs",
                 "HostUiBridgeService.cs", "AccountRepository.cs", "AccountPersistenceService.cs",
-                "AccountPersistenceService.Recovery.cs", "AccountRegistrationService.cs" };
+                "AccountPersistenceService.Recovery.cs", "AccountRegistrationService.cs", "AccountSessionMaintenanceService.cs" };
             var offenders = SourceScan.AppSourceFiles(RepoRoot)
                 .Where(f => !allow.Contains(Path.GetFileName(f)))
                 .Where(f => Regex.IsMatch(SourceScan.StripStringLiterals(File.ReadAllText(f)),
-                    @"\b(SelectionStateService|ServerBrowserStateService|AccountWorkflowService|HostUiBridgeService|AccountRepository)\.Default\b"))
+                    @"\b(SelectionStateService|ServerBrowserStateService|AccountWorkflowService|HostUiBridgeService|AccountRepository|AccountSessionMaintenanceService)\.Default\b"))
                 .Select(Path.GetFileName).ToList();
             Assert.Empty(offenders);
         }

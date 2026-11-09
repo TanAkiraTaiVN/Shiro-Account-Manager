@@ -1,6 +1,9 @@
 #nullable enable
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
@@ -322,6 +325,101 @@ namespace Shiro.Services
             }
 
             return null;
+        }
+
+        private static readonly System.Threading.Lock _recentGamesLock = new();
+
+        public static async Task LoadRecentGamesAsync(Action<Game>? onGameAdded = null)
+        {
+            lock (_recentGamesLock)
+            {
+                AppServices.ServerBrowserState.RecentGames = new List<Game>();
+            }
+
+            string recentGamesFilePath = StoragePaths.RecentGamesFile;
+            if (File.Exists(recentGamesFilePath))
+            {
+                try
+                {
+                    string json = await File.ReadAllTextAsync(recentGamesFilePath).ConfigureAwait(false);
+                    if (!string.IsNullOrWhiteSpace(json))
+                    {
+                        List<Game>? games = FastJson.TryDeserialize<List<Game>>(json, out var gList) ? gList : null;
+                        if (games != null && games.Count > 0)
+                        {
+                            await Task.WhenAll(games.Where(g => g != null).Select(g => g.WaitForDetails())).ConfigureAwait(false);
+                            foreach (Game rg in games)
+                            {
+                                if (rg != null)
+                                    await AddRecentGameAsync(rg, loading: true, onGameAdded).ConfigureAwait(false);
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.Warn($"Failed to load recent games: {ex.Message}");
+                }
+            }
+        }
+
+        public static async Task AddRecentGameAsync(Game rg, bool loading = false, Action<Game>? onGameAdded = null)
+        {
+            if (rg == null) return;
+            await rg.WaitForDetails().ConfigureAwait(false);
+
+            int maxRecentGames = AppServices.GeneralSettings.Exists("MaxRecentGames")
+                ? AppServices.GeneralSettings.GetInt("MaxRecentGames", 10)
+                : 10;
+            string? serialized = null;
+            string recentGamesFilePath = StoragePaths.RecentGamesFile;
+
+            lock (_recentGamesLock)
+            {
+                AppServices.ServerBrowserState.RecentGames ??= new List<Game>();
+                AppServices.ServerBrowserState.RecentGames.RemoveAll(g => g?.Details?.placeId == rg.Details?.placeId);
+
+                while (AppServices.ServerBrowserState.RecentGames.Count > maxRecentGames && AppServices.ServerBrowserState.RecentGames.Count > 0)
+                {
+                    AppServices.ServerBrowserState.RecentGames.RemoveAt(0);
+                }
+
+                AppServices.ServerBrowserState.RecentGames.Add(rg);
+
+                if (!loading)
+                {
+                    serialized = FastJson.Serialize(AppServices.ServerBrowserState.RecentGames, indented: true);
+                    StoragePaths.AtomicWriteText(recentGamesFilePath, serialized);
+                }
+            }
+
+            if (!loading)
+            {
+                onGameAdded?.Invoke(rg);
+            }
+        }
+
+        public static async Task LoadClientVersionAsync(CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                string versionJson = await SharedHttpClient.GetStringAsync(
+                    "https://clientsettings.roblox.com/v1/client-version/WindowsPlayer",
+                    retryTransient: true,
+                    cancellationToken: cancellationToken);
+
+                using var vDoc = JsonDocument.Parse(versionJson);
+                if (vDoc.RootElement.TryGetProperty("clientVersionUpload", out var token))
+                    AppServices.ServerBrowserState.CurrentClientVersion = token.GetString() ?? string.Empty;
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                // Shutdown cancelled the optional version probe.
+            }
+            catch (Exception exception)
+            {
+                _logger.Debug($"Roblox client version probe failed: {exception.Message}");
+            }
         }
     }
 }

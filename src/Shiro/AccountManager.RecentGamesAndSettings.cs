@@ -1,8 +1,6 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Shiro.Services;
@@ -11,12 +9,10 @@ namespace Shiro
 {
     public partial class AccountManager
     {
-        private static string RecentGamesFilePath => StoragePaths.RecentGamesFile;
-
         private static readonly Timer _deferredSettingsSaveTimer = new Timer(_ =>
         {
             try { SaveSettings(); }
-            catch (Exception ex) { Program.Logger?.Error($"[DeferredSettingsSave] Error saving settings: {ex.Message}"); }
+            catch (Exception ex) { AppServices.Logger.Error($"[DeferredSettingsSave] Error saving settings: {ex.Message}"); }
         }, null, Timeout.Infinite, Timeout.Infinite);
 
         internal static void QueueDeferredSaveSettings(int delayMs = 500)
@@ -28,7 +24,7 @@ namespace Shiro
             catch (ObjectDisposedException) { /* timer disposed during shutdown */ }
             catch (Exception ex)
             {
-                Program.Logger?.Warn($"Failed to schedule deferred settings save: {ex.Message}");
+                AppServices.Logger.Warn($"Failed to schedule deferred settings save: {ex.Message}");
             }
         }
 
@@ -44,71 +40,11 @@ namespace Shiro
             AppSettings.ActiveIniFile.Save(StoragePaths.SettingsFile);
         }
 
-        private async Task LoadRecentGames()
-        {
-            lock (rgSaveLock)
-            {
-                AppServices.ServerBrowserState.RecentGames = new List<Game>();
-            }
+        private Task LoadRecentGames() =>
+            GameInfoService.LoadRecentGamesAsync(rg => this.InvokeIfRequired(() => RecentGameAdded?.Invoke(this, new GameArgs(rg))));
 
-            if (File.Exists(RecentGamesFilePath))
-            {
-                try
-                {
-                    string json = await File.ReadAllTextAsync(RecentGamesFilePath).ConfigureAwait(false);
-                    if (!string.IsNullOrWhiteSpace(json))
-                    {
-                        List<Game>? Games = FastJson.TryDeserialize<List<Game>>(json, out var gList) ? gList : null;
-                        if (Games != null && Games.Count > 0)
-                        {
-                            await Task.WhenAll(Games.Where(g => g != null).Select(g => g.WaitForDetails())).ConfigureAwait(false);
-                            foreach (Game RG in Games)
-                            {
-                                if (RG != null)
-                                    await AddRecentGame(RG, true).ConfigureAwait(false);
-                            }
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Program.Logger?.Warn($"Failed to load recent games: {ex.Message}");
-                }
-            }
-        }
-
-        private async Task AddRecentGame(Game RG, bool Loading = false)
-        {
-            if (RG == null) return;
-            await RG.WaitForDetails().ConfigureAwait(false);
-
-            int maxRecentGames = AppSettings.General.Exists("MaxRecentGames") ? AppSettings.General.Get<int>("MaxRecentGames") : 10;
-            string? serialized = null;
-
-            lock (rgSaveLock)
-            {
-                AppServices.ServerBrowserState.RecentGames ??= new List<Game>();
-                AppServices.ServerBrowserState.RecentGames.RemoveAll(g => g?.Details?.placeId == RG.Details?.placeId);
-
-                while (AppServices.ServerBrowserState.RecentGames.Count > maxRecentGames && AppServices.ServerBrowserState.RecentGames.Count > 0)
-                {
-                    AppServices.ServerBrowserState.RecentGames.RemoveAt(0);
-                }
-
-                AppServices.ServerBrowserState.RecentGames.Add(RG);
-
-                if (!Loading)
-                {
-                    serialized = FastJson.Serialize(AppServices.ServerBrowserState.RecentGames, indented: true);
-                    StoragePaths.AtomicWriteText(RecentGamesFilePath, serialized);
-                }
-            }
-
-            if (!Loading)
-            {
-                this.InvokeIfRequired(() => RecentGameAdded?.Invoke(this, new GameArgs(RG)));
-            }
-        }
+        private Task AddRecentGame(Game RG, bool Loading = false) =>
+            GameInfoService.AddRecentGameAsync(RG, Loading, rg => this.InvokeIfRequired(() => RecentGameAdded?.Invoke(this, new GameArgs(rg))));
 
         private void WireStateAndHostBridgeServices()
         {
@@ -164,27 +100,7 @@ namespace Shiro
             if (AppServices.ServerBrowserState is ServerBrowserStateService sbState) sbState.LoadClientVersionDelegate = LoadClientVersionAsync;
         }
 
-        public static async Task LoadClientVersionAsync(CancellationToken cancellationToken = default)
-        {
-            try
-            {
-                string versionJson = await SharedHttpClient.GetStringAsync(
-                    "https://clientsettings.roblox.com/v1/client-version/WindowsPlayer",
-                    retryTransient: true,
-                    cancellationToken: cancellationToken);
-
-                using var vDoc = System.Text.Json.JsonDocument.Parse(versionJson);
-                if (vDoc.RootElement.TryGetProperty("clientVersionUpload", out var token))
-                    AppServices.ServerBrowserState.CurrentClientVersion = token.GetString() ?? string.Empty;
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
-                // Shutdown cancelled the optional version probe.
-            }
-            catch (Exception exception)
-            {
-                Program.Logger?.Debug($"Roblox client version probe failed: {exception.Message}");
-            }
-        }
+        public static Task LoadClientVersionAsync(CancellationToken cancellationToken = default) =>
+            GameInfoService.LoadClientVersionAsync(cancellationToken);
     }
 }

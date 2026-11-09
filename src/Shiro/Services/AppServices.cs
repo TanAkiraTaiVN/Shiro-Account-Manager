@@ -42,6 +42,7 @@ namespace Shiro.Services
                 // Core Domain Services
                 services.AddSingleton(AccountPersistenceService.Default);
                 services.AddSingleton(AccountRegistrationService.Default);
+                services.AddSingleton(AccountSessionMaintenanceService.Default);
                 services.AddSingleton<IAccountRepository>(Services.AccountRepository.Default);
                 services.AddSingleton<IRobloxApiClient>(Services.RobloxApiClient.Default);
                 services.AddSingleton<IRobloxSessionService>(Services.RobloxSessionService.Default);
@@ -207,6 +208,7 @@ namespace Shiro.Services
         public static IHostUiBridgeService HostUiBridge => GetRequiredService<IHostUiBridgeService>();
         public static IBloxGenService BloxGen => GetRequiredService<IBloxGenService>();
         public static IToastNotifier Toasts => GetRequiredService<IToastNotifier>();
+        public static AccountSessionMaintenanceService AccountSessionMaintenance => GetRequiredService<AccountSessionMaintenanceService>();
         public static IAppLogger Logger => _serviceProvider?.GetService<IAppLogger>() ?? Program.Logger;
         public static ISettingsService GeneralSettings => _serviceProvider?.GetService<ISettingsService>() ?? _defaultGeneralSettings;
         public static ISettingsService? WatcherSettings => AppSettings.Watcher;
