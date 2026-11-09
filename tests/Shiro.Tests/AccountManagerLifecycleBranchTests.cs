@@ -5,7 +5,6 @@ using System.Net;
 using System.Net.Sockets;
 using System.Threading.Tasks;
 using NSubstitute;
-using Shiro.Classes;
 using Shiro.Services;
 using Xunit;
 

@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using Shiro.Classes;
 using Xunit;
 using Shiro.Services;
 using static Shiro.Services.AccountPersistenceService;

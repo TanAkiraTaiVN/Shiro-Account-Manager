@@ -4,7 +4,6 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
-using Shiro.Classes;
 using Shiro.Services;
 using Shiro.ViewModels;
 

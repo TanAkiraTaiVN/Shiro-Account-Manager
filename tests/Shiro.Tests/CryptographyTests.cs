@@ -2,7 +2,7 @@ using System;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
-using Shiro.Classes;
+using Shiro.Services;
 using Xunit;
 
 namespace Shiro.Tests

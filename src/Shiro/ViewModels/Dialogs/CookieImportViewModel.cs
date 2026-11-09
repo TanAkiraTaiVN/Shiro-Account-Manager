@@ -1,7 +1,6 @@
 #nullable enable
 using System;
 using System.Threading.Tasks;
-using Shiro.Classes;
 using Shiro.Services;
 
 namespace Shiro.ViewModels.Dialogs

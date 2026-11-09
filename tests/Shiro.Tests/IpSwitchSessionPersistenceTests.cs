@@ -8,7 +8,6 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Shiro;
-using Shiro.Classes;
 using Shiro.Services;
 using Shiro.Tests.TestInfrastructure;
 using Xunit;

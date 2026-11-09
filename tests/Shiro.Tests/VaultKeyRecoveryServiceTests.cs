@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
-using Shiro.Classes;
 using Shiro.Services;
 using Xunit;
 

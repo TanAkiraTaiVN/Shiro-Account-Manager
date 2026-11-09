@@ -1,4 +1,4 @@
-﻿#nullable enable
+﻿﻿#nullable enable
 using System;
 using System.Buffers.Binary;
 using System.Collections.Generic;
@@ -8,7 +8,6 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
-using Shiro.Classes;
 using Shiro.Services;
 using Shiro.ViewModels;
 using Xunit;

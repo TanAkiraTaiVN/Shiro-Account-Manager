@@ -5,7 +5,6 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Web.WebView2.Core;
-using Shiro.Classes;
 
 namespace Shiro.Services
 {

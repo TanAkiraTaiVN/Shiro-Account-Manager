@@ -1,7 +1,6 @@
 #nullable enable
 using System.Threading.Tasks;
 using System.Threading;
-using Shiro.Classes;
 using PuppeteerSharp;
 using PuppeteerSharp.BrowserData;
 using System;

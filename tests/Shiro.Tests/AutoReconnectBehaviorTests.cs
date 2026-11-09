@@ -1,6 +1,5 @@
 #nullable enable
 using System;
-using Shiro.Classes;
 using Shiro.Services;
 using Xunit;
 

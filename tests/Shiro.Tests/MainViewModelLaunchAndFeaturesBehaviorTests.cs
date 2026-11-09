@@ -2,7 +2,6 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using Shiro.Classes;
 using Shiro.Services;
 using Shiro.ViewModels;
 using Xunit;

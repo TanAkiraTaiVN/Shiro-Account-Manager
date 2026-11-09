@@ -3,7 +3,7 @@ using System;
 using System.Text.RegularExpressions;
 using Shiro.ViewModels;
 
-namespace Shiro.Classes
+namespace Shiro
 {
     /// <summary>
     /// High-performance compiled search query for accounts.

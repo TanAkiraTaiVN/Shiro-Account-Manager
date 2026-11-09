@@ -2,7 +2,6 @@
 using System;
 using System.Threading.Tasks;
 using System.Windows.Input;
-using Shiro.Classes;
 using Shiro.Services;
 
 namespace Shiro.ViewModels.Dialogs

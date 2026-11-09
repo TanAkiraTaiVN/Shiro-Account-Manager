@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using NSubstitute;
-using Shiro.Classes;
 using Shiro.Http;
 using Shiro.Services;
 using Shiro.ViewModels.Dialogs;

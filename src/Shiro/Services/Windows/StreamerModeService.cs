@@ -6,7 +6,6 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
 using Avalonia.Controls;
-using Shiro.Classes;
 
 namespace Shiro.Services
 {

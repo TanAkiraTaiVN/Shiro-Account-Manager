@@ -6,7 +6,7 @@ using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Shiro.Services;
 
-namespace Shiro.Classes
+namespace Shiro.Services
 {
     internal partial class RobloxWatcher
     {

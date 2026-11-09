@@ -134,3 +134,26 @@ The Nexus multi-client controller provides real-time bi-directional telemetry an
   - Validates client session tokens and origin integrity.
   - Enforces loopback restriction for unauthenticated endpoints.
   - Constant-time password comparison protects against side-channel analysis.
+
+---
+
+## 8. Source Directory Structure
+
+```
+src/Shiro/
+├── AvaloniaUI/          # Presentation layer: Views, Controls, Converters, Assets
+├── Domain/              # Core domain models: Account, Avatar, GameClass, Server, NaturalStringComparer
+├── Http/                # HTTP client infrastructure (RestClient)
+├── Nexus/               # Multi-client controller, WebSocket protocols, ControlledAccount
+├── Services/            # Business logic, orchestration, and infrastructure services
+│   ├── Auth/            # Authentication, session auditing, HBA crypto, BloxGen
+│   ├── Browser/         # Web browser automation (ChromiumHomeBrowser, RobloxBrowserLogin/Signup, AccountBrowser)
+│   ├── Launch/          # Roblox launch orchestration, batch operations, client patchers
+│   ├── Network/         # External API dispatching, RPC, presence monitoring
+│   ├── Storage/         # Atomic file storage, account serializers, vault encryption (Cryptography, IniFile)
+│   ├── Ui/              # Theme, dialogs, localization, toasts
+│   └── Windows/         # Windows process monitoring (RobloxProcess, RobloxWatcher), window arrangement
+├── ViewModels/          # Strict MVVM ViewModels, dialog ViewModels, command palette
+├── Program.cs           # Application entry point, single-instance mutex, crash handler
+└── Shiro.csproj         # .NET 10 project definition
+```

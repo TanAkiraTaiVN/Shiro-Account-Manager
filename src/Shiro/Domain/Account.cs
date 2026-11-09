@@ -1,4 +1,3 @@
-using Shiro.Classes;
 using Shiro.Http;
 using Microsoft.Win32;
 using System;

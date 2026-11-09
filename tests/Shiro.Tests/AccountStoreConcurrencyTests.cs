@@ -4,7 +4,6 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using Shiro.Classes;
 using Shiro.Services;
 using Xunit;
 

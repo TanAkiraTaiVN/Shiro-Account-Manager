@@ -2,7 +2,6 @@ using System;
 using System.Net;
 using System.Threading.Tasks;
 using Shiro;
-using Shiro.Classes;
 using Shiro.Nexus;
 using Shiro.Services;
 using Xunit;

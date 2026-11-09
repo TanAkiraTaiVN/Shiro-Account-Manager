@@ -8,7 +8,7 @@ using System.Text.RegularExpressions;
 using Microsoft.Win32;
 using Shiro.Services;
 
-namespace Shiro.Classes
+namespace Shiro.Services
 {
     /// <summary>
     /// Safety guardian for Roblox ClientSettings.

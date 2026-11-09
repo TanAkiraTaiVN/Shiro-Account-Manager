@@ -11,7 +11,6 @@ using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Media;
-using Shiro.Classes;
 using Shiro.Services;
 using static Shiro.Program;
 

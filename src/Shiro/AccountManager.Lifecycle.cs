@@ -6,7 +6,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using PuppeteerSharp;
 using PuppeteerSharp.BrowserData;
-using Shiro.Classes;
 using Shiro.Services;
 
 namespace Shiro

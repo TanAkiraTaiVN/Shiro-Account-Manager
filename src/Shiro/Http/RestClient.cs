@@ -10,7 +10,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
 using System.Threading;
 using System.Threading.Tasks;
-using Shiro.Classes;
+using Shiro.Services;
 
 namespace Shiro.Http
 {

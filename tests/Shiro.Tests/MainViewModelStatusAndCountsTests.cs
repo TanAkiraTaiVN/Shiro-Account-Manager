@@ -1,7 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
-using Shiro.Classes;
+using Shiro.Services;
 using Shiro.ViewModels;
 using Xunit;
 

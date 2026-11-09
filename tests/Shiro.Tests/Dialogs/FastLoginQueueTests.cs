@@ -1,7 +1,6 @@
 #nullable enable
 using System.Collections.Generic;
 using System.Linq;
-using Shiro.Classes;
 using Shiro.Services;
 using Shiro.ViewModels.Dialogs;
 using Xunit;

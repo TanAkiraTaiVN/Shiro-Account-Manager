@@ -2,7 +2,6 @@ using System;
 using System.IO;
 using System.Net.WebSockets;
 using System.Text;
-using Shiro.Classes;
 using Shiro.Nexus;
 using Shiro.Services;
 using Xunit;

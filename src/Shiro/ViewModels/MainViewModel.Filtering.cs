@@ -5,7 +5,6 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Threading;
-using Shiro.Classes;
 using Shiro.Services;
 
 namespace Shiro.ViewModels

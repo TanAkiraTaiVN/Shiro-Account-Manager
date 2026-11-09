@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 using PuppeteerSharp;
 using Shiro.Services;
 
-namespace Shiro.Classes
+namespace Shiro.Services
 {
     internal static partial class RobloxBrowserLogin
     {

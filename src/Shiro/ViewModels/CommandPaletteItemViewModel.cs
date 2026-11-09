@@ -3,7 +3,7 @@ using System;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using LucideAvalonia.Enum;
-using Shiro.Classes;
+using Shiro.Services;
 
 namespace Shiro.ViewModels
 {

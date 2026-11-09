@@ -7,7 +7,6 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Platform;
 using Microsoft.Web.WebView2.Core;
-using Shiro.Classes;
 using Shiro.Services;
 
 namespace Shiro.AvaloniaUI.Controls

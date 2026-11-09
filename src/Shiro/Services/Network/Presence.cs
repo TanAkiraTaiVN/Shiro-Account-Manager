@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 using Avalonia.Media;
 using Shiro.Services;
 
-namespace Shiro.Classes
+namespace Shiro.Services
 {
     public static class Presence
     {
@@ -125,7 +125,7 @@ namespace Shiro.Classes
 
                 if (Updated.Count > 0)
                 {
-                    AppSettings.RefreshAccountView();
+                    AppServices.HostUiBridge.NotifyLiveProcessStatusChanged();
                 }
             }
             finally

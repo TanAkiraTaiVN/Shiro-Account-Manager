@@ -2,7 +2,7 @@
 using System;
 using Avalonia.Media;
 using LucideAvalonia.Enum;
-using Shiro.Classes;
+using Shiro.Services;
 using Shiro.ViewModels;
 using Xunit;
 

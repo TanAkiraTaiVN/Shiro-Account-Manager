@@ -9,7 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Shiro.Services;
 
-namespace Shiro.Classes
+namespace Shiro.Services
 {
     public enum LogHeaderMatchResult { Inconclusive = 0, Matched = 1, Mismatched = 2 }
 

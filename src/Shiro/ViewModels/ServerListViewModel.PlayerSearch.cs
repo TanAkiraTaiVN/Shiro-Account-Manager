@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Shiro.Classes;
 using Shiro.Http;
 using Shiro.Services;
 

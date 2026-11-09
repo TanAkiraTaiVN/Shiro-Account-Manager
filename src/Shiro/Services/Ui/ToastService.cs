@@ -6,7 +6,6 @@ using System.Threading.Tasks;
 using System.Windows.Input;
 using Avalonia.Media;
 using LucideAvalonia.Enum;
-using Shiro.Classes;
 using Shiro.ViewModels;
 
 namespace Shiro.Services

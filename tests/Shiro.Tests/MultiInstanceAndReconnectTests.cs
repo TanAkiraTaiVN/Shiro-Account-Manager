@@ -2,7 +2,6 @@ using System;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
-using Shiro.Classes;
 using Shiro.Services;
 using Xunit;
 
@@ -307,12 +306,12 @@ namespace Shiro.Tests
         public void ControlledAccount_StatusColorBrush_UsesCachedBrushes()
         {
             var acc = new Shiro.Nexus.ControlledAccount();
-            acc.Status = Shiro.Classes.AccountStatus.Offline;
+            acc.Status = Shiro.AccountStatus.Offline;
             var offlineBrush1 = acc.StatusColorBrush;
             var offlineBrush2 = acc.StatusColorBrush;
             Assert.Same(offlineBrush1, offlineBrush2);
 
-            acc.Status = Shiro.Classes.AccountStatus.Online;
+            acc.Status = Shiro.AccountStatus.Online;
             var onlineBrush1 = acc.StatusColorBrush;
             var onlineBrush2 = acc.StatusColorBrush;
             Assert.Same(onlineBrush1, onlineBrush2);

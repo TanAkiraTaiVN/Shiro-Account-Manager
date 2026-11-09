@@ -7,7 +7,6 @@ using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Net.Http;
-using Shiro.Classes;
 using Shiro.Services;
 using Shiro.Tests.TestInfrastructure;
 using Xunit;

@@ -5,7 +5,7 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace Shiro.Classes
+namespace Shiro.Services
 {
     /// <summary>
     /// Pure .NET 10 Cryptography engine for Shiro Account Manager.

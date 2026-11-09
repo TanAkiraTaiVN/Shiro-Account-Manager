@@ -1,8 +1,8 @@
-﻿#nullable enable
+﻿﻿#nullable enable
 using System;
 using System.Collections.Generic;
 
-namespace Shiro.Classes
+namespace Shiro
 {
     /// <summary>
     /// Next-Gen 100% Pure Managed Alphanumeric Natural String Comparer (e.g., AD_Jackpot1, AD_Jackpot2, ..., AD_Jackpot10).

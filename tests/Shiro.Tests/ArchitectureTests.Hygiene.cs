@@ -32,5 +32,13 @@ namespace Shiro.Tests
             const string code = "var js = \"\"\"\n try { x(); } catch (_) { }\n\"\"\"; try { } catch { }";
             Assert.Single(Regex.Matches(SourceScan.StripStringLiterals(code), @"\bcatch\s*\{"));
         }
+
+        [Fact]
+        public void LegacyClassesFolder_ShouldNotExist() =>
+            Assert.False(Directory.Exists(Path.Combine(RepoRoot, "src", "Shiro", "Classes")));
+
+        [Fact]
+        public void NoTypes_ShouldLiveIn_ShiroClassesNamespace() =>
+            Assert.Empty(CoreAssembly.GetTypes().Where(t => t.Namespace == "Shiro.Classes").Select(t => t.FullName));
     }
 }

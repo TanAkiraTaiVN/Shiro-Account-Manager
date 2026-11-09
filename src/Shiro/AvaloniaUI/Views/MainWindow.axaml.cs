@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using Shiro.Classes;
 using Shiro.Services;
 using Shiro.ViewModels;
 

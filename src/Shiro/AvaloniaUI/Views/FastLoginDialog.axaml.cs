@@ -7,7 +7,6 @@ using Avalonia.Media;
 using Avalonia.Threading;
 using Microsoft.Web.WebView2.Core;
 using Shiro.AvaloniaUI.Controls;
-using Shiro.Classes;
 using Shiro.Services;
 using Shiro.ViewModels;
 using Shiro.ViewModels.Dialogs;

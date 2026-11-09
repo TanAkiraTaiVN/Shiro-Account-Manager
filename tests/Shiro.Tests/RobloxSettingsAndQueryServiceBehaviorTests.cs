@@ -4,7 +4,6 @@ using System.Net;
 using System.Net.Http;
 using System.Reflection;
 using System.Threading.Tasks;
-using Shiro.Classes;
 using Shiro.Services;
 using Shiro.Tests.TestInfrastructure;
 using Xunit;

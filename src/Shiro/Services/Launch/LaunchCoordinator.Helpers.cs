@@ -6,7 +6,6 @@ using System.IO;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using Shiro.Classes;
 
 namespace Shiro.Services
 {

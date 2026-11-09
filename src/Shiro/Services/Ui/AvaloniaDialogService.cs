@@ -4,7 +4,6 @@ using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Threading;
 using Shiro.AvaloniaUI.Views;
-using Shiro.Classes;
 
 namespace Shiro.Services
 {

@@ -1,4 +1,4 @@
-﻿#nullable enable
+﻿﻿#nullable enable
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -10,7 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Shiro.Services;
 
-namespace Shiro.Classes
+namespace Shiro.Services
 {
     internal static partial class ChromiumHomeBrowser
     {

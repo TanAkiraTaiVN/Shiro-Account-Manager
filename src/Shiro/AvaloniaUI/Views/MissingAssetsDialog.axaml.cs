@@ -1,7 +1,7 @@
 #nullable enable
 using System;
 using Avalonia.Controls;
-using Shiro.Classes;
+using Shiro.Services;
 using Shiro.ViewModels.Dialogs;
 
 namespace Shiro.AvaloniaUI.Views

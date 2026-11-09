@@ -12,7 +12,6 @@ using System.Threading.Tasks;
 using System.Windows.Input;
 using System.Text.Json;
 using Shiro.Http;
-using Shiro.Classes;
 using Shiro.Services;
 
 namespace Shiro.ViewModels

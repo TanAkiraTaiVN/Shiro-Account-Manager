@@ -5,7 +5,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using Shiro.Services;
 
-namespace Shiro.Classes
+namespace Shiro.Services
 {
     internal partial class RobloxWatcher
     {

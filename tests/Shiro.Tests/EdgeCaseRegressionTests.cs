@@ -1,7 +1,6 @@
 using System;
 using System.Threading.Tasks;
 using Shiro.AvaloniaUI.Views;
-using Shiro.Classes;
 using Shiro.Http;
 using Shiro.Services;
 using Xunit;

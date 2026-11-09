@@ -2,7 +2,7 @@
 using System;
 using System.Net;
 using System.Net.Http;
-using Shiro.Classes;
+using Shiro.Services;
 using Shiro.Http;
 using Xunit;
 

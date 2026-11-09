@@ -16,7 +16,7 @@ namespace Shiro.Tests
             [Fact]
             public void Batch_ShouldNotUseTaskRun()
             {
-                var file = Path.Combine(RepoRoot, "src", "Shiro", "Classes", "Batch.cs");
+                var file = Path.Combine(RepoRoot, "src", "Shiro", "Services", "Launch", "Batch.cs");
                 Assert.True(File.Exists(file), $"File not found: {file}");
                 var content = File.ReadAllText(file);
                 Assert.False(Regex.IsMatch(content, @"Task\.Run"),
@@ -26,7 +26,7 @@ namespace Shiro.Tests
             [Fact]
             public void RobloxProcess_ShouldNotUseBlockingLogLookup()
             {
-                var file = Path.Combine(RepoRoot, "src", "Shiro", "Classes", "RobloxProcess.cs");
+                var file = Path.Combine(RepoRoot, "src", "Shiro", "Services", "Windows", "RobloxProcess.cs");
                 Assert.True(File.Exists(file), $"File not found: {file}");
                 var content = File.ReadAllText(file);
                 Assert.False(Regex.IsMatch(content, @"Task\.Run\(WaitForLogPath"),
@@ -90,7 +90,7 @@ namespace Shiro.Tests
             [Fact]
             public void Program_ShouldNotCheckNetFramework472()
             {
-                var file = Path.Combine(RepoRoot, "src", "Shiro", "Classes", "Program.cs");
+                var file = Path.Combine(RepoRoot, "src", "Shiro", "Program.cs");
                 Assert.True(File.Exists(file), $"File not found: {file}");
                 var content = File.ReadAllText(file);
                 Assert.False(Regex.IsMatch(content, @"NET Framework 4\.7\.2"),

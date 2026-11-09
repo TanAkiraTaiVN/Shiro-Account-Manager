@@ -152,7 +152,7 @@ namespace Shiro.Tests
         [Fact]
         public void NaturalStringComparer_SortsAlphanumericNaturallyWithoutWin32()
         {
-            var comparer = Shiro.Classes.NaturalStringComparer.Instance;
+            var comparer = Shiro.NaturalStringComparer.Instance;
 
             // Basic alphanumeric ordering (2 comes before 10)
             Assert.True(comparer.Compare("AD_Jackpot1", "AD_Jackpot2") < 0);

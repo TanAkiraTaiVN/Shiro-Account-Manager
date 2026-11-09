@@ -2,7 +2,6 @@
 using System;
 using System.IO;
 using System.Threading.Tasks;
-using Shiro.Classes;
 using Shiro.Services;
 using Shiro.ViewModels.Dialogs;
 using Xunit;

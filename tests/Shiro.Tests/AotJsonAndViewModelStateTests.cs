@@ -1,4 +1,3 @@
-using Shiro.Classes;
 using Shiro.Nexus;
 using Shiro.Services;
 using Xunit;

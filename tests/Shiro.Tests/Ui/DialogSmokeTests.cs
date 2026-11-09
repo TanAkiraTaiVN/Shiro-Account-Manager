@@ -13,7 +13,6 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using NSubstitute;
 using Shiro.AvaloniaUI.Views;
-using Shiro.Classes;
 using Shiro.Nexus;
 using Shiro.Services;
 using Shiro.ViewModels;

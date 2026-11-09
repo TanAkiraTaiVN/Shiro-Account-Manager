@@ -3,7 +3,6 @@ using System;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Media;
-using Shiro.Classes;
 
 namespace Shiro.Services
 {

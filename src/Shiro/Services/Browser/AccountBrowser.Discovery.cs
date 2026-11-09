@@ -7,7 +7,7 @@ using System.Numerics;
 using System.Runtime.InteropServices;
 using Shiro.Services;
 
-namespace Shiro.Classes
+namespace Shiro.Services
 {
     internal partial class AccountBrowser
     {

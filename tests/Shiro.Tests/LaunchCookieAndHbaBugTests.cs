@@ -1,7 +1,6 @@
 using System;
 using System.IO;
 using System.Security.Cryptography;
-using Shiro.Classes;
 using Shiro.Http;
 using Shiro.Services;
 using Xunit;

@@ -4,7 +4,6 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Shiro;
-using Shiro.Classes;
 using Shiro.Services;
 using Shiro.ViewModels;
 using Xunit;

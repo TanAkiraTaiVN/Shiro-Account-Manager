@@ -1,5 +1,5 @@
 #nullable enable
-using Shiro.Classes;
+using Shiro.Services;
 using Xunit;
 
 namespace Shiro.Tests

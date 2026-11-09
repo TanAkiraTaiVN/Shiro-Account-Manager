@@ -10,7 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Shiro.Services;
 
-namespace Shiro.Classes
+namespace Shiro.Services
 {
     /// <summary>
     /// Opens the Roblox sign-up page in a temporary, isolated browser profile.

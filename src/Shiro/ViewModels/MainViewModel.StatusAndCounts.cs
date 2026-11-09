@@ -3,7 +3,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Avalonia.Threading;
-using Shiro.Classes;
 using Shiro.Services;
 
 namespace Shiro.ViewModels

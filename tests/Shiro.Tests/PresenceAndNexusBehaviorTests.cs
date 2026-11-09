@@ -7,7 +7,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Media;
 using NSubstitute;
-using Shiro.Classes;
 using Shiro.Http;
 using Shiro.Nexus;
 using Shiro.Services;

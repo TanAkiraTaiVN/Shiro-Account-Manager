@@ -8,7 +8,6 @@ using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Media;
-using Shiro.Classes;
 using Shiro.Nexus;
 using Shiro.Services;
 using Shiro.ViewModels.Dialogs;

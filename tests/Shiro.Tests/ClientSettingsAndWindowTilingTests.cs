@@ -2,7 +2,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using Shiro.Classes;
 using Shiro.Services;
 using Xunit;
 

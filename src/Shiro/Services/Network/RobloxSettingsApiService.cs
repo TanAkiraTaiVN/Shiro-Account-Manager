@@ -8,7 +8,6 @@ using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-using Shiro.Classes;
 using Shiro.Http;
 
 namespace Shiro

@@ -5,7 +5,6 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-using Shiro.Classes;
 using Shiro.ViewModels;
 
 namespace Shiro.Services

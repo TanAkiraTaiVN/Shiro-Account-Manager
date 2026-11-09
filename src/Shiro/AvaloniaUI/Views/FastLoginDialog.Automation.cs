@@ -5,7 +5,6 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.Web.WebView2.Core;
-using Shiro.Classes;
 using Shiro.Services;
 
 namespace Shiro.AvaloniaUI.Views

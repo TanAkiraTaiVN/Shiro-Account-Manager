@@ -5,7 +5,6 @@ using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
 using NSubstitute;
-using Shiro.Classes;
 using Shiro.Http;
 using Shiro.Services;
 using Shiro.Tests.TestInfrastructure;

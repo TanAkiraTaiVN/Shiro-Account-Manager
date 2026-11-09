@@ -1,7 +1,6 @@
 using Microsoft.Win32;
 using PuppeteerSharp;
 using PuppeteerSharp.BrowserData;
-using Shiro.Classes;
 using Shiro.Http;
 using System;
 using System.Collections.Generic;

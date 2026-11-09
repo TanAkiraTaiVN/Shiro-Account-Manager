@@ -9,7 +9,7 @@ using System.Net.Http;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
-namespace Shiro.Classes
+namespace Shiro.Services
 {
     public class ThumbnailBatchItem
     {
@@ -40,7 +40,7 @@ namespace Shiro.Classes
         /// several cards concurrently while it is binding account data.
         /// </summary>
 
-        // AccountManager owns the shared API clients. Resolve them lazily so
+        // AppServices owns the shared API clients. Resolve them lazily so
         // this helper remains safe during early static initialization while
         // avoiding a second handler pool during normal app startup.
         private static RestClient ThumbnailAPI => AppServices.RobloxApi.Thumbnails

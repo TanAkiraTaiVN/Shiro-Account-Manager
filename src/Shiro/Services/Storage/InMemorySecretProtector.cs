@@ -4,7 +4,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 
-namespace Shiro.Classes
+namespace Shiro.Services
 {
     /// <summary>
     /// Protects sensitive <see cref="Account"/> secrets (<c>SecurityToken</c> and <c>Password</c>)

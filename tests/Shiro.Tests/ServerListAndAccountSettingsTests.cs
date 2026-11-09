@@ -5,7 +5,6 @@ using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using Shiro;
-using Shiro.Classes;
 using Shiro.Http;
 using Shiro.Services;
 using Shiro.ViewModels;

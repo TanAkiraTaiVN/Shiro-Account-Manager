@@ -9,7 +9,6 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using NSubstitute;
-using Shiro.Classes;
 using Shiro.Nexus;
 using Shiro.Services;
 using Shiro.ViewModels.Dialogs;

@@ -13,7 +13,7 @@ using System.Threading.Tasks;
 
 using Shiro.Services;
 
-namespace Shiro.Classes
+namespace Shiro.Services
 {
     /// <summary>
     /// Runs Roblox sign-in in a normal, isolated Chrome/Edge profile so Roblox's

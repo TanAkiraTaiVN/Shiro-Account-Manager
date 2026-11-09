@@ -4,7 +4,6 @@ using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Media;
 using Microsoft.Web.WebView2.Core;
-using Shiro.Classes;
 using Shiro.Services;
 
 namespace Shiro.AvaloniaUI.Views

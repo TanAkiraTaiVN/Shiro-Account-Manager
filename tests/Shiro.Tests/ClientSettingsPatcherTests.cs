@@ -1,7 +1,7 @@
 #nullable enable
 using System;
 using System.IO;
-using Shiro.Classes;
+using Shiro.Services;
 using Xunit;
 
 namespace Shiro.Tests

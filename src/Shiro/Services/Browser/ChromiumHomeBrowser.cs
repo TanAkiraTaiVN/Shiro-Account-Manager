@@ -15,7 +15,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Shiro.Services;
 
-namespace Shiro.Classes
+namespace Shiro.Services
 {
     /// <summary>
     /// Opens an authenticated Roblox Home page through the browser's Chrome DevTools

@@ -5,7 +5,6 @@ using System.Globalization;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
-using Shiro.Classes;
 
 namespace Shiro.Services
 {

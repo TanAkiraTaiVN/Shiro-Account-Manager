@@ -5,7 +5,6 @@ using System.Globalization;
 using System.Linq;
 using System.Text.Json;
 using Shiro.AvaloniaUI.Converters;
-using Shiro.Classes;
 using Shiro.Services;
 using Shiro.ViewModels;
 using Xunit;

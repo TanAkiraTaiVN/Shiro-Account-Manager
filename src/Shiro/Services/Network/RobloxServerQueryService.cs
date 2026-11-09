@@ -8,7 +8,6 @@ using System.Net.Sockets;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using Shiro.Classes;
 using Shiro.Http;
 
 namespace Shiro.Services
