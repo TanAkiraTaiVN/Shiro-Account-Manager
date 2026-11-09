@@ -1,4 +1,4 @@
-﻿﻿using Shiro.Services;
+﻿using Shiro.Services;
 using Shiro.ViewModels;
 using Xunit;
 

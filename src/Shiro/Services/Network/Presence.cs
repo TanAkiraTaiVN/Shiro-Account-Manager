@@ -125,7 +125,7 @@ namespace Shiro.Services
 
                 if (Updated.Count > 0)
                 {
-                    AppServices.HostUiBridge.NotifyLiveProcessStatusChanged();
+                    AppServices.HostUiBridge.RefreshAccountView();
                 }
             }
             finally

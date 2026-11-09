@@ -1,4 +1,4 @@
-﻿﻿using Avalonia.Media;
+﻿using Avalonia.Media;
 using Shiro.Services;
 using Xunit;
 
