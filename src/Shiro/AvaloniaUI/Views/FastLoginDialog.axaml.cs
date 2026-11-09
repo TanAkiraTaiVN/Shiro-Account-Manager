@@ -117,7 +117,9 @@ namespace Shiro.AvaloniaUI.Views
             }
         }
 
-        private async void OnWebViewInitialized(object sender, WebView2InitializedEventArgs e)
+        private void OnWebViewInitialized(object sender, WebView2InitializedEventArgs e) => _ = HandleWebViewInitializedAsync(e);
+
+        private async Task HandleWebViewInitializedAsync(WebView2InitializedEventArgs e)
         {
             if (!e.IsSuccess)
             {
@@ -171,7 +173,9 @@ namespace Shiro.AvaloniaUI.Views
 
         private int _isPollTickBusy;
 
-        private async void OnSourceChanged(object? sender, CoreWebView2SourceChangedEventArgs e)
+        private void OnSourceChanged(object? sender, CoreWebView2SourceChangedEventArgs e) => _ = HandleSourceChangedAsync();
+
+        private async Task HandleSourceChangedAsync()
         {
             try
             {
@@ -193,7 +197,9 @@ namespace Shiro.AvaloniaUI.Views
             }
         }
 
-        private async void OnNavigationCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs e)
+        private void OnNavigationCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs e) => _ = HandleNavigationCompletedAsync(e);
+
+        private async Task HandleNavigationCompletedAsync(CoreWebView2NavigationCompletedEventArgs e)
         {
             _isDocumentNavigating = false;
             try
@@ -236,7 +242,9 @@ namespace Shiro.AvaloniaUI.Views
             }
         }
 
-        private async void OnPollTimerTick(object? sender, EventArgs e)
+        private void OnPollTimerTick(object? sender, EventArgs e) => _ = HandlePollTimerTickAsync();
+
+        private async Task HandlePollTimerTickAsync()
         {
             if (System.Threading.Interlocked.CompareExchange(ref _isPollTickBusy, 1, 0) != 0)
                 return;
@@ -255,7 +263,9 @@ namespace Shiro.AvaloniaUI.Views
             }
         }
 
-        private async void OnRefillClicked(object sender, RoutedEventArgs e)
+        private void OnRefillClicked(object sender, RoutedEventArgs e) => _ = HandleRefillClickedAsync();
+
+        private async Task HandleRefillClickedAsync()
         {
             try
             {
