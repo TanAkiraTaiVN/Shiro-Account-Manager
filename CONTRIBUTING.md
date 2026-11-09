@@ -58,3 +58,14 @@ Every pull request is automatically validated against `tests/Shiro.Tests/Archite
 7. **Localization & UTF-8 Hygiene**:
    - Save all source files as UTF-8.
    - Every `{DynamicResource Loc_*}` key used in `.axaml` must be registered in `src/Shiro/Resources/Strings/vi.json` and `en.json`.
+
+
+---
+
+## Release Build
+
+To produce the single-file self-contained distributable in `build/Release`:
+
+```powershell
+dotnet publish src/Shiro/Shiro.csproj -c Release -r win-x64 --self-contained true -o build/Release /p:PublishSingleFile=true /p:IncludeNativeLibrariesForSelfExtract=true /p:EnableCompressionInSingleFile=true
+```

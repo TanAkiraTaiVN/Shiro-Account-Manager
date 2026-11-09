@@ -40,5 +40,16 @@ namespace Shiro.Tests
         [Fact]
         public void NoTypes_ShouldLiveIn_ShiroClassesNamespace() =>
             Assert.Empty(CoreAssembly.GetTypes().Where(t => t.Namespace == "Shiro.Classes").Select(t => t.FullName));
+
+        [Fact]
+        public void CSharpComments_ShouldNotContainVietnameseDiacritics()
+        {
+            var vn = new Regex(@"[\u00C0-\u00FF\u0102\u0103\u0110\u0111\u0128\u0129\u0168\u0169\u01A0\u01A1\u01AF\u01B0\u1EA0-\u1EF9]");
+            var comment = new Regex(@"//[^\r\n]*|/\*[\s\S]*?\*/");
+            var offenders = SourceScan.AppSourceFiles(RepoRoot)
+                .Where(f => comment.Matches(SourceScan.StripStringLiterals(File.ReadAllText(f))).Any(m => vn.IsMatch(m.Value)))
+                .Select(Path.GetFileName).ToList();
+            Assert.Empty(offenders);
+        }
     }
 }

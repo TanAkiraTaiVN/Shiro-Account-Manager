@@ -40,7 +40,7 @@
     <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
 
     <!-- Regular builds go to a disposable artifacts folder. The distributable
-         is written to build\Release by the publish command in UPGRADE_NOTES. -->
+         is written to build\Release by the publish command in CONTRIBUTING.md. -->
     <OutputPath>..\..\build\artifacts\$(Configuration)\</OutputPath>
     <PublishDocumentationFiles>false</PublishDocumentationFiles>
     <NoWarn>$(NoWarn);MSB3277</NoWarn>

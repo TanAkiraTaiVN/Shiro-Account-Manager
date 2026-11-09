@@ -43,6 +43,7 @@ graph TD
 
     subgraph Storage_Security ["Infrastructure & Security Layer"]
         Storage["StoragePaths (Atomic I/O)"]
+        Persistence["AccountPersistenceService & AccountRegistrationService"]
         Crypto["CryptoHelper (AES-256-GCM)"]
         Recovery["VaultKeyRecoveryService (NTFS Scanner)"]
         Logger["AppLogger & LogRedactor"]
@@ -150,10 +151,30 @@ src/Shiro/
 │   ├── Browser/         # Web browser automation (ChromiumHomeBrowser, RobloxBrowserLogin/Signup, AccountBrowser)
 │   ├── Launch/          # Roblox launch orchestration, batch operations, client patchers
 │   ├── Network/         # External API dispatching, RPC, presence monitoring
-│   ├── Storage/         # Atomic file storage, account serializers, vault encryption (Cryptography, IniFile)
+│   ├── Storage/         # Atomic file storage, account persistence (AccountPersistenceService, AccountRegistrationService), serializers, vault encryption
 │   ├── Ui/              # Theme, dialogs, localization, toasts
 │   └── Windows/         # Windows process monitoring (RobloxProcess, RobloxWatcher), window arrangement
 ├── ViewModels/          # Strict MVVM ViewModels, dialog ViewModels, command palette
 ├── Program.cs           # Application entry point, single-instance mutex, crash handler
 └── Shiro.csproj         # .NET 10 project definition
 ```
+
+
+---
+
+## 9. Platform Scope & Accepted Risks
+
+### 1. Windows x64 Exclusive Scope
+Shiro targets `net10.0-windows` (`win-x64`) exclusively due to deep Win32 integrations:
+- **DPAPI Secret Protection**: Windows Data Protection API for protecting sensitive credentials at rest.
+- **WebView2 Embedded Chromium**: Windows-specific embedded browser control for Roblox web sessions and authentication flows.
+- **Win32 Job Objects**: Process management and lifecycle grouping for spawned Roblox client instances.
+- **WASAPI Audio Muting**: Low-level Windows Core Audio APIs for individual client audio management.
+- **Window Arrangement & Tiling**: Native Win32 API calls (`SetWindowPos`, `GetWindowRect`, window enumeration) for desktop multi-window tiling.
+- **System Tray**: Windows shell tray notification icons and background execution.
+
+All native Win32 interop and process monitoring implementations are strictly isolated under `Services/Windows/` and `Services/Launch/`. Cross-platform execution (Linux/macOS) is explicitly out of scope.
+
+### 2. Roblox Terms of Service (Accepted Product Risk)
+Certain capabilities provided by Shiro—including multi-instance mutex management (`ROBLOX_singletonMutex`), `.ROBLOSECURITY` session handling, and anti-AFK automation—carry inherent Roblox Terms of Service (ToS) risk.
+This is an **accepted product risk** explicitly disclosed to users in `README.md`. No architectural bypass or obfuscation layers are introduced; users assume responsibility for usage compliance.

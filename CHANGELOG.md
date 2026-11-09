@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Changed
+- **Task 1 - WebAuthPolicy, Nexus & API Layer Decoupling**: Decoupled `WebAuthPolicy` from `AccountApiDispatcher`, eliminated `AccountManager` dependencies in `Services/` and `Nexus/`, and sanitized HTTP 500 error responses across local API endpoints to return a generic `"Internal server error"` body instead of raw exception messages (the only runtime behavior change in this release).
+- **Task 2 - Untyped Catch Blocks Elimination (Part 1)**: Replaced broad untyped `catch` and variable-less `catch (Exception)` blocks across networking, launcher, and view models with specific typed exception handlers and diagnostic logging.
+- **Task 3 - Untyped Catch Blocks Elimination (Part 2)**: Eliminated all remaining untyped catch blocks across core storage, security, and utility services, bringing repository untyped catch count to 0 (enforced by ratchet test).
+- **Task 4 - AccountManager Static State Facade Elimination**: Removed static state facade accessors on `AccountManager`, directing all state access through `IAccountRepository`, `ISettingsService`, and registered service abstractions.
+- **Task 5 - Account Persistence Extraction**: Extracted `AccountPersistenceService` from `AccountManager` to manage atomic JSON/binary serialization, recovery, and backup logic in `Services/Storage/`.
+- **Task 6 - Account Registration Extraction & Circular Dependency Break**: Extracted `AccountRegistrationService` for account credential onboarding and lifecycle registration, breaking circular references between `AccountRepository` and `AccountManager`.
+- **Task 7 - State Service Singleton Access Enforcement**: Enforced single-point resolution for state service `.Default` accessors, restricting direct `.Default` references to the composition root (`AppServices`).
+- **Task 8 - Legacy Classes Folder Dissolution**: Reorganized all remaining types in legacy `src/Shiro/Classes/` into appropriate domain namespaces (`Shiro.Services.Launch`, `Shiro.Services.Storage`, etc.) and removed `Classes/`.
+- **Task 9 - Repository Hygiene & Platform Scope Documentation**: Cleaned up historical superpowers plans and legacy upgrade notes into `docs/archive/`, untracked agent artifacts, enforced English comments via architecture test, and documented Windows x64 exclusive platform scope and accepted Roblox ToS product risks.
+
+---
+
 ## [5.0.0] - 2026-11-04 (Milestone 10/10 Architecture Overhaul)
 
 ### Added

@@ -21,11 +21,11 @@ namespace Shiro.ViewModels
 
     public enum AccountSortMode
     {
-        NaturalAscending,  // Tên (1 → 9, A → Z) - Mặc định
-        NaturalDescending, // Tên (9 → 1, Z → A)
-        Original,          // Thứ tự ban đầu
-        Status,            // Trạng thái (Đang chơi / Online)
-        RobuxDescending    // Số dư Robux (Nhiều → Ít)
+        NaturalAscending,  // Name (1 -> 9, A -> Z) - Default
+        NaturalDescending, // Name (9 -> 1, Z -> A)
+        Original,          // Original order
+        Status,            // Status (In-game / Online)
+        RobuxDescending    // Robux balance (High -> Low)
     }
 
     public partial class MainViewModel
