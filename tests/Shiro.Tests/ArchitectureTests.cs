@@ -902,12 +902,12 @@ namespace Shiro.Tests
                 ["Services/Storage"] = (0, 0),
                 ["ViewModels"] = (0, 0),
                 // locked at current baseline; may only go down:
-                ["Domain"] = (39, 7),
+                ["Domain"] = (0, 0),
                 ["Services/Browser"] = (94, 2),
                 ["Services/Launch"] = (132, 58),
                 ["Services/Windows"] = (110, 17),
-                ["Services/Ui"] = (17, 11),
-                ["AvaloniaUI/Views"] = (60, 49),
+                ["Services/Ui"] = (0, 0),
+                ["AvaloniaUI/Views"] = (0, 0),
             };
 
             var violations = new List<string>();

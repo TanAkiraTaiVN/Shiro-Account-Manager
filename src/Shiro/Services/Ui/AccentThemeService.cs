@@ -110,13 +110,13 @@ namespace Shiro.Services
             try
             {
                 string? saved = null;
-                if (AppSettings.General.Exists("AccentTheme"))
+                if (AppServices.GeneralSettings.Exists("AccentTheme"))
                 {
-                    saved = AppSettings.General.Get("AccentTheme");
+                    saved = AppServices.GeneralSettings.Get("AccentTheme");
                 }
                 else
                 {
-                    saved = AppSettings.Current.AccentTheme;
+                    saved = AppServices.Settings.AccentTheme;
                 }
 
                 AccentTheme theme = ParseTheme(saved);
@@ -170,14 +170,14 @@ namespace Shiro.Services
                 try
                 {
                     string themeStr = theme.ToString();
-                    AppSettings.General.Set("AccentTheme", themeStr);
-                    try { AppSettings.Current.AccentTheme = themeStr; }
-                    catch (Exception ex) { Program.Logger?.Debug($"AppSettings.AccentTheme setter failed: {ex.Message}"); }
-                    AppSettings.QueueDeferredSave();
+                    AppServices.GeneralSettings.Set("AccentTheme", themeStr);
+                    try { AppServices.Settings.AccentTheme = themeStr; }
+                    catch (Exception ex) { AppServices.Logger?.Debug($"AccentTheme setter failed: {ex.Message}"); }
+                    AppServices.QueueDeferredSaveSettings();
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Warn($"Failed to persist accent theme: {ex.Message}");
+                    AppServices.Logger?.Warn($"Failed to persist accent theme: {ex.Message}");
                 }
             }
 

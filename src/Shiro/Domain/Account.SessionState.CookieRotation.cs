@@ -26,7 +26,7 @@ namespace Shiro
                     }
                     catch (Exception ex)
                     {
-                        Program.Logger?.Debug($"NonValidated Set-Cookie header extraction error: {ex.Message}");
+                        AppServices.Logger?.Debug($"NonValidated Set-Cookie header extraction error: {ex.Message}");
                     }
                 }
 
@@ -42,7 +42,7 @@ namespace Shiro
             }
             catch (Exception ex)
             {
-                Program.Logger?.Warn($"[CookieRotation] Error inspecting Set-Cookie header for {Username ?? "account"}: {ex.Message}");
+                AppServices.Logger?.Warn($"[CookieRotation] Error inspecting Set-Cookie header for {Username ?? "account"}: {ex.Message}");
             }
             return false;
         }
@@ -77,7 +77,7 @@ namespace Shiro
             }
             catch (Exception ex)
             {
-                Program.Logger?.Warn($"[CookieRotation] Error inspecting RestResponse cookies for {Username ?? "account"}: {ex.Message}");
+                AppServices.Logger?.Warn($"[CookieRotation] Error inspecting RestResponse cookies for {Username ?? "account"}: {ex.Message}");
             }
             return false;
         }
@@ -127,7 +127,7 @@ namespace Shiro
                 System.Threading.Interlocked.Increment(ref _cookieRotationVersion);
             }
 
-            Program.Logger?.Info($"[CookieRotation] Captured rotated .ROBLOSECURITY from {source} for {Username ?? "account"}. Updating stored session.");
+            AppServices.Logger?.Info($"[CookieRotation] Captured rotated .ROBLOSECURITY from {source} for {Username ?? "account"}. Updating stored session.");
             string netSig = RobloxHbaService.GetNetworkSignatureForAccount(this);
             if (netSig is not ("offline" or "unknown"))
                 LastBoundIpSignature = netSig;
@@ -138,13 +138,13 @@ namespace Shiro
                 {
                     AppDispatcher.Post(() =>
                     {
-                        AppSettings.RefreshAccountView(this);
+                        AppServices.HostUiBridge.RefreshAccountView(this);
                     });
                 }
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"UI notification update error: {ex.Message}");
+                AppServices.Logger?.Debug($"UI notification update error: {ex.Message}");
             }
             return true;
         }
@@ -190,8 +190,8 @@ namespace Shiro
         {
             seconds = Math.Max(1, Math.Min(180, seconds));
 
-            Program.Logger?.Warn($"Roblox {source} returned HTTP 429 for {username}. The current launch was stopped; retry after about {seconds} seconds or change network before starting another batch.");
-            AppSettings.SetDashboardStatus(
+            AppServices.Logger?.Warn($"Roblox {source} returned HTTP 429 for {username}. The current launch was stopped; retry after about {seconds} seconds or change network before starting another batch.");
+            AppServices.HostUiBridge.NotifyWindowStatus(
                 Shiro.Services.LocalizationService.Format("Account.RateLimitCooldown", username, seconds));
             RobloxRateLimitCoordinator.Instance.RecordRateLimitHit(RateLimitCategory.Authentication, defaultBackoffSeconds: seconds);
         }

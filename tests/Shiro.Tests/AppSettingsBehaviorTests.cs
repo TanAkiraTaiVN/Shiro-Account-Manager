@@ -253,5 +253,23 @@ namespace Shiro.Tests
             using (AppServices.Override<ISelectionStateService>(fake))
                 Assert.Same(acc, AppSettings.SelectedAccount);
         }
+
+        [Fact]
+        public void SectionSettings_ReflectActiveIniFileChanges()
+        {
+            var prev = AppSettings.ActiveIniFile;
+            try
+            {
+                var tempPath = Path.Combine(Path.GetTempPath(), $"shiro-sec-{Guid.NewGuid():N}.ini");
+                AppSettings.ActiveIniFile = new IniFile(tempPath);
+                AppServices.PromptsSettings.Set("TestPromptKey", "true");
+                Assert.True(AppSettings.Prompts.Get<bool>("TestPromptKey"));
+                File.Delete(tempPath);
+            }
+            finally
+            {
+                AppSettings.ActiveIniFile = prev;
+            }
+        }
     }
 }

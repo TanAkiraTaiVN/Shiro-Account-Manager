@@ -80,7 +80,7 @@ namespace Shiro.AvaloniaUI.Views
             }
             catch (Exception ex)
             {
-                Program.Logger?.Error($"[NexusWindow.Loaded] {ex.Message}");
+                AppServices.Logger?.Error($"[NexusWindow.Loaded] {ex.Message}");
             }
         }
 

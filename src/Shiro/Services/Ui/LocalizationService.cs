@@ -91,16 +91,16 @@ namespace Shiro.Services
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Debug($"ProcessPath lookup threw: {ex.Message}");
+                    AppServices.Logger?.Debug($"ProcessPath lookup threw: {ex.Message}");
                 }
 
                 string[] args = Environment.GetCommandLineArgs();
-                string savedLang = AppSettings.General.Get<string>(AppSettingsKeys.General.Language) ?? string.Empty;
+                string savedLang = AppServices.GeneralSettings.Get<string>(AppSettingsKeys.General.Language) ?? string.Empty;
                 CurrentLanguage = ResolveInitialLanguage(procName, args, savedLang);
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"ResolveInitialLanguage threw: {ex.Message}");
+                AppServices.Logger?.Debug($"ResolveInitialLanguage threw: {ex.Message}");
                 CurrentLanguage = AppLanguage.Vietnamese;
             }
 
@@ -116,12 +116,12 @@ namespace Shiro.Services
             {
                 try
                 {
-                    AppSettings.General.Set(AppSettingsKeys.General.Language, language == AppLanguage.English ? "en" : "vi");
-                    AppSettings.QueueDeferredSave();
+                    AppServices.GeneralSettings.Set(AppSettingsKeys.General.Language, language == AppLanguage.English ? "en" : "vi");
+                    AppServices.QueueDeferredSaveSettings();
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Warn($"Failed to save Language setting: {ex.Message}");
+                    AppServices.Logger?.Warn($"Failed to save Language setting: {ex.Message}");
                 }
             }
 

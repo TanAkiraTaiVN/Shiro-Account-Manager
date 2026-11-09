@@ -370,14 +370,14 @@ namespace Shiro
                 account.UserID = data.UserId;
                 account.Valid = true;
                 account.LastUse = DateTime.Now;
-                AppSettings.LastValidAccount = account;
+                AppServices.SelectionState.LastValidAccount = account;
                 return account;
             }
 
             if (await account.ValidateSessionAsync(cancellationToken).ConfigureAwait(false) && account.UserID > 0)
             {
                 account.LastUse = DateTime.Now;
-                AppSettings.LastValidAccount = account;
+                AppServices.SelectionState.LastValidAccount = account;
             }
             return account;
         }
@@ -395,7 +395,7 @@ namespace Shiro
                 UserID = data.UserId;
                 Valid = true;
                 LastUse = DateTime.Now;
-                AppSettings.LastValidAccount = this;
+                AppServices.SelectionState.LastValidAccount = this;
                 return;
             }
 

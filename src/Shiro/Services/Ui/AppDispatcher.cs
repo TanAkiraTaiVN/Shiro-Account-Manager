@@ -53,7 +53,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"AppDispatcher.UIThreadPost dispatch failed: {ex.Message}");
+                AppServices.Logger?.Debug($"AppDispatcher.UIThreadPost dispatch failed: {ex.Message}");
             }
 
             // Direct invocation if no UI dispatcher is active (e.g. headless tests)
@@ -83,7 +83,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"AppDispatcher.UIThreadPost dispatch failed: {ex.Message}");
+                AppServices.Logger?.Debug($"AppDispatcher.UIThreadPost dispatch failed: {ex.Message}");
             }
 
             return func();
@@ -113,7 +113,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"AppDispatcher.UIThreadPost dispatch failed: {ex.Message}");
+                AppServices.Logger?.Debug($"AppDispatcher.UIThreadPost dispatch failed: {ex.Message}");
             }
 
             action();

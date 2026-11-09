@@ -70,7 +70,7 @@ namespace Shiro.AvaloniaUI.Views
                         }
                         catch (Exception ex)
                         {
-                            Program.Logger?.Debug($"Scroll reset on tab change threw: {ex.Message}");
+                            AppServices.Logger?.Debug($"Scroll reset on tab change threw: {ex.Message}");
                         }
                     });
                 }
@@ -102,9 +102,9 @@ namespace Shiro.AvaloniaUI.Views
         {
             try
             {
-                if (ViewModel != null && string.IsNullOrWhiteSpace(ViewModel.PlaceId) && !string.IsNullOrWhiteSpace(AppSettings.CurrentPlaceId))
+                if (ViewModel != null && string.IsNullOrWhiteSpace(ViewModel.PlaceId) && !string.IsNullOrWhiteSpace(AppServices.ServerBrowserState.CurrentPlaceId))
                 {
-                    ViewModel.PlaceId = AppSettings.CurrentPlaceId;
+                    ViewModel.PlaceId = AppServices.ServerBrowserState.CurrentPlaceId;
                 }
 
                 var accounts = accountsSnapshot ?? AppServices.AccountRepository.GetAll();
@@ -117,7 +117,7 @@ namespace Shiro.AvaloniaUI.Views
             }
             catch (Exception ex)
             {
-                Program.Logger?.Error($"[DashboardView.LoadDashboardData] {ex}");
+                AppServices.Logger?.Error($"[DashboardView.LoadDashboardData] {ex}");
             }
         }
 
@@ -193,7 +193,7 @@ namespace Shiro.AvaloniaUI.Views
             }
             catch (Exception ex)
             {
-                Program.Logger?.Error($"[ShowAccountContextMenu] {ex}");
+                AppServices.Logger?.Error($"[ShowAccountContextMenu] {ex}");
             }
         }
 

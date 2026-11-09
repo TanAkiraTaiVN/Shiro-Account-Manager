@@ -106,7 +106,7 @@ namespace Shiro.Services
                         }
                         catch (Exception ex)
                         {
-                            Program.Logger?.Error($"PeriodicTask error: {ex.Message}");
+                            AppServices.Logger?.Error($"PeriodicTask error: {ex.Message}");
                         }
                     }
                 }
@@ -121,7 +121,7 @@ namespace Shiro.Services
                 _loopCts?.Cancel();
                 _loopCts?.Dispose();
             }
-            catch (Exception ex) { Program.Logger?.Debug($"ModernPeriodicTask.StopLoop: {ex.Message}"); }
+            catch (Exception ex) { AppServices.Logger?.Debug($"ModernPeriodicTask.StopLoop: {ex.Message}"); }
             _loopCts = null;
         }
 
@@ -139,7 +139,7 @@ namespace Shiro.Services
                     _lifecycleCts.Cancel();
                     _lifecycleCts.Dispose();
                 }
-                catch (Exception ex) { Program.Logger?.Debug($"ModernPeriodicTask.StopLoop: {ex.Message}"); }
+                catch (Exception ex) { AppServices.Logger?.Debug($"ModernPeriodicTask.StopLoop: {ex.Message}"); }
             }
         }
     }

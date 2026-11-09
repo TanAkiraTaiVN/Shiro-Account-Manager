@@ -92,7 +92,7 @@ namespace Shiro.AvaloniaUI.Views
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Debug($"Center window position calculation threw: {ex.Message}");
+                    AppServices.Logger?.Debug($"Center window position calculation threw: {ex.Message}");
                 }
             };
 
@@ -115,7 +115,7 @@ namespace Shiro.AvaloniaUI.Views
             {
                 try
                 {
-                    if (AppSettings.General != null && !AppSettings.General.Get<bool>(AppSettingsKeys.General.HasAcceptedRiskDisclaimer))
+                    if (AppServices.GeneralSettings != null && !AppServices.GeneralSettings.Get<bool>(AppSettingsKeys.General.HasAcceptedRiskDisclaimer))
                     {
                         string title = Loc.Get("tos_disclaimer_title");
                         string msg = Loc.Get("tos_disclaimer_message");
@@ -125,13 +125,13 @@ namespace Shiro.AvaloniaUI.Views
                             msg = Shiro.Services.LocalizationService.Get("tos_disclaimer_message");
 
                         await MessageBoxDialog.ShowAsync(msg, title, MessageBoxButtons.OK, MessageBoxIcon.Information, this);
-                        AppSettings.General.Set(AppSettingsKeys.General.HasAcceptedRiskDisclaimer, "true");
-                        AppSettings.Save();
+                        AppServices.GeneralSettings.Set(AppSettingsKeys.General.HasAcceptedRiskDisclaimer, "true");
+                        AppServices.SaveSettings();
                     }
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Debug($"Disclaimer dialog error: {ex.Message}");
+                    AppServices.Logger?.Debug($"Disclaimer dialog error: {ex.Message}");
                 }
             };
 
@@ -152,7 +152,7 @@ namespace Shiro.AvaloniaUI.Views
                         }
                         catch (Exception ex)
                         {
-                            Program.Logger?.Debug($"VaultKey vs AccountData file time check threw: {ex.Message}");
+                            AppServices.Logger?.Debug($"VaultKey vs AccountData file time check threw: {ex.Message}");
                         }
 
                         if (vaultKeyNewerThanData)
@@ -210,7 +210,7 @@ namespace Shiro.AvaloniaUI.Views
                     }
                     catch (Exception ex)
                     {
-                        Program.Logger?.Error($"[MainWindow] Unlock flow error: {ex.Message}");
+                        AppServices.Logger?.Error($"[MainWindow] Unlock flow error: {ex.Message}");
                     }
                 };
             }

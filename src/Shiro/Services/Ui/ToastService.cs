@@ -216,7 +216,7 @@ namespace Shiro.Services
         public static void PlayNotificationSound(ToastType type = ToastType.Info)
         {
             // Quiet by default: avoid jarring raw Win32 system error/asterisk beeps unless user explicitly opts in.
-            if (!AppSettings.General.Get<bool>("PlayNotificationSound", false))
+            if (!AppServices.GeneralSettings.Get<bool>("PlayNotificationSound", false))
                 return;
 
             try
@@ -239,7 +239,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"PlayNotificationSound threw: {ex.Message}");
+                AppServices.Logger?.Debug($"PlayNotificationSound threw: {ex.Message}");
             }
         }
     }

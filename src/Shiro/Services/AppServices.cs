@@ -119,6 +119,34 @@ namespace Shiro.Services
             public void RemoveProperty(string name) => Current.RemoveProperty(name);
         }
 
+        private sealed class DelegatingSectionSettingsService : ISettingsService
+        {
+            private readonly Func<ISettingsService?> _resolver;
+
+            public DelegatingSectionSettingsService(Func<ISettingsService?> resolver)
+            {
+                _resolver = resolver ?? throw new ArgumentNullException(nameof(resolver));
+            }
+
+            private ISettingsService Current => _resolver() ?? new IniSection(string.Empty);
+
+            public string? Get(string name) => Current.Get(name);
+
+            public T? Get<T>(string name, T? defaultValue = default) => Current.Get(name, defaultValue);
+
+            public bool GetBool(string name, bool defaultValue = false) => Current.GetBool(name, defaultValue);
+
+            public int GetInt(string name, int defaultValue = 0) => Current.GetInt(name, defaultValue);
+
+            public decimal GetDecimal(string name, decimal defaultValue = 0m) => Current.GetDecimal(name, defaultValue);
+
+            public bool Exists(string name) => Current.Exists(name);
+
+            public void Set(string name, string? value, string? comment = null) => Current.Set(name, value, comment);
+
+            public void RemoveProperty(string name) => Current.RemoveProperty(name);
+        }
+
         private sealed class OverrideScope : IDisposable
         {
             private readonly IServiceProvider _previousProvider;
@@ -182,7 +210,12 @@ namespace Shiro.Services
         public static IAppLogger Logger => _serviceProvider?.GetService<IAppLogger>() ?? Program.Logger;
         public static ISettingsService GeneralSettings => _serviceProvider?.GetService<ISettingsService>() ?? _defaultGeneralSettings;
         public static ISettingsService? WatcherSettings => AppSettings.Watcher;
+        public static ISettingsService PromptsSettings => new DelegatingSectionSettingsService(() => AppSettings.Prompts);
+        public static ISettingsService DeveloperSettings => new DelegatingSectionSettingsService(() => AppSettings.Developer);
+        public static ISettingsService WebServerSettings => new DelegatingSectionSettingsService(() => AppSettings.WebServer);
+        public static ISettingsService AccountControlSettings => new DelegatingSectionSettingsService(() => AppSettings.AccountControl);
         public static void SaveSettings() => AppSettings.Save();
+        public static void QueueDeferredSaveSettings() => AppSettings.QueueDeferredSave();
         public static AppSettings Settings => GetRequiredService<AppSettings>();
     }
 }

@@ -20,7 +20,7 @@ namespace Shiro.AvaloniaUI.Views
         private void DisposeInteractiveLoginScope()
         {
             try { _interactiveLoginScope.Dispose(); }
-            catch (Exception ex) { Program.Logger?.Debug($"[FastLoginDialog.DisposeInteractiveLoginScope] {ex.Message}"); }
+            catch (Exception ex) { AppServices.Logger?.Debug($"[FastLoginDialog.DisposeInteractiveLoginScope] {ex.Message}"); }
         }
 
         private static async Task InstallHbaCaptureHookAsync(CoreWebView2 core)
@@ -54,7 +54,7 @@ namespace Shiro.AvaloniaUI.Views
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[FastLogin] CDP Runtime.evaluate awaitPromise threw: {ex.Message}");
+                AppServices.Logger?.Debug($"[FastLogin] CDP Runtime.evaluate awaitPromise threw: {ex.Message}");
             }
 
             return null;
@@ -108,7 +108,7 @@ namespace Shiro.AvaloniaUI.Views
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Debug($"[FastLogin] Reading final HBA state from IndexedDB/DOM threw: {ex.Message}");
+                    AppServices.Logger?.Debug($"[FastLogin] Reading final HBA state from IndexedDB/DOM threw: {ex.Message}");
                 }
 
                 try
@@ -136,7 +136,7 @@ namespace Shiro.AvaloniaUI.Views
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Debug($"[FastLogin] Reading RBXEventTrackerV2 cookie threw: {ex.Message}");
+                    AppServices.Logger?.Debug($"[FastLogin] Reading RBXEventTrackerV2 cookie threw: {ex.Message}");
                 }
             }
 
@@ -144,7 +144,7 @@ namespace Shiro.AvaloniaUI.Views
             {
                 _currentHbaSnapshot.TokenTemplate = RobloxHbaService.NormalizeTemplate(_currentHbaSnapshot.TokenTemplate);
 
-                Program.Logger?.Info($"[FastLogin] Captured HBA ECDSA device-binding key for '{_username}' (template='{_currentHbaSnapshot.TokenTemplate}', trackerId={!string.IsNullOrEmpty(_currentHbaSnapshot.BrowserTrackerId)}).");
+                AppServices.Logger?.Info($"[FastLogin] Captured HBA ECDSA device-binding key for '{_username}' (template='{_currentHbaSnapshot.TokenTemplate}', trackerId={!string.IsNullOrEmpty(_currentHbaSnapshot.BrowserTrackerId)}).");
             }
 
             return _currentHbaSnapshot;

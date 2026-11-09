@@ -85,7 +85,7 @@ namespace Shiro
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[HbaRebind] Fail-soft during network session rebind for {Username}: {ex.Message}");
+                AppServices.Logger?.Debug($"[HbaRebind] Fail-soft during network session rebind for {Username}: {ex.Message}");
             }
 
             return false;
@@ -160,7 +160,7 @@ namespace Shiro
                         }
                         catch (Exception ex)
                         {
-                            Program.Logger?.Debug($"[HbaRebind] Non-user JSON payload during users/authenticated probe: {ex.Message}");
+                            AppServices.Logger?.Debug($"[HbaRebind] Non-user JSON payload during users/authenticated probe: {ex.Message}");
                         }
                     }
                 }
@@ -236,7 +236,7 @@ namespace Shiro
             if (currentNetSig is not ("offline" or "unknown"))
                 LastBoundIpSignature = currentNetSig;
             AppServices.AccountRepository.QueueDeferredSave();
-            Program.Logger?.Info($"[HbaRebind] Session synchronized to current network via {source} for {Username} (rotated={rotated}).");
+            AppServices.Logger?.Info($"[HbaRebind] Session synchronized to current network via {source} for {Username} (rotated={rotated}).");
         }
     }
 }

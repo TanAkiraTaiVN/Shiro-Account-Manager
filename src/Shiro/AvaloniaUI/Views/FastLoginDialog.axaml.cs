@@ -193,7 +193,7 @@ namespace Shiro.AvaloniaUI.Views
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[FastLoginDialog.OnSourceChanged] {ex.Message}");
+                AppServices.Logger?.Debug($"[FastLoginDialog.OnSourceChanged] {ex.Message}");
             }
         }
 
@@ -238,7 +238,7 @@ namespace Shiro.AvaloniaUI.Views
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[FastLoginDialog.OnNavigationCompleted] {ex.Message}");
+                AppServices.Logger?.Debug($"[FastLoginDialog.OnNavigationCompleted] {ex.Message}");
             }
         }
 
@@ -255,7 +255,7 @@ namespace Shiro.AvaloniaUI.Views
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[FastLoginDialog.OnPollTimerTick] {ex.Message}");
+                AppServices.Logger?.Debug($"[FastLoginDialog.OnPollTimerTick] {ex.Message}");
             }
             finally
             {
@@ -273,7 +273,7 @@ namespace Shiro.AvaloniaUI.Views
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[FastLoginDialog.OnRefillClicked] {ex.Message}");
+                AppServices.Logger?.Debug($"[FastLoginDialog.OnRefillClicked] {ex.Message}");
             }
         }
 
@@ -285,7 +285,7 @@ namespace Shiro.AvaloniaUI.Views
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"Reload WebView2 threw: {ex.Message}");
+                AppServices.Logger?.Debug($"Reload WebView2 threw: {ex.Message}");
             }
         }
 
@@ -322,7 +322,7 @@ namespace Shiro.AvaloniaUI.Views
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"OnClosing cleanup threw: {ex.Message}");
+                AppServices.Logger?.Debug($"OnClosing cleanup threw: {ex.Message}");
             }
             base.OnClosing(e);
         }

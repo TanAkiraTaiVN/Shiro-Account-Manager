@@ -110,7 +110,7 @@ namespace Shiro
             string promptKey = $"{Caption}.{Instruction}.{Text}";
             string sha256Hash = CryptoHelper.SHA256(promptKey);
 
-            var prompts = AppServices.Settings.IniFile.Section("Prompts");
+            var prompts = AppServices.PromptsSettings;
             if (CanSave)
             {
                 if (prompts != null && prompts.Exists(sha256Hash))

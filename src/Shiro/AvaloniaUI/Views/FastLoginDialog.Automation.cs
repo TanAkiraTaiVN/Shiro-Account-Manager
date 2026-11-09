@@ -44,7 +44,7 @@ namespace Shiro.AvaloniaUI.Views
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[FastLoginDialog] AddWebResourceRequestedFilter threw: {ex.Message}");
+                AppServices.Logger?.Debug($"[FastLoginDialog] AddWebResourceRequestedFilter threw: {ex.Message}");
             }
 
             core.WebMessageReceived -= OnWebMessageReceived;
@@ -97,7 +97,7 @@ namespace Shiro.AvaloniaUI.Views
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[FastLoginDialog.OnWebResourceRequested] {ex.Message}");
+                AppServices.Logger?.Debug($"[FastLoginDialog.OnWebResourceRequested] {ex.Message}");
             }
         }
 
@@ -109,10 +109,10 @@ namespace Shiro.AvaloniaUI.Views
                     return;
 
                 string? raw = null;
-                try { raw = e.TryGetWebMessageAsString(); } catch (Exception ex) { Program.Logger?.Debug($"TryGetWebMessageAsString: {ex.Message}"); }
+                try { raw = e.TryGetWebMessageAsString(); } catch (Exception ex) { AppServices.Logger?.Debug($"TryGetWebMessageAsString: {ex.Message}"); }
                 if (string.IsNullOrEmpty(raw))
                 {
-                    try { raw = e.WebMessageAsJson; } catch (Exception ex) { Program.Logger?.Debug($"WebMessageAsJson: {ex.Message}"); }
+                    try { raw = e.WebMessageAsJson; } catch (Exception ex) { AppServices.Logger?.Debug($"WebMessageAsJson: {ex.Message}"); }
                 }
 
                 if (!string.IsNullOrEmpty(raw))
@@ -140,7 +140,7 @@ namespace Shiro.AvaloniaUI.Views
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"OnWebMessageReceived threw: {ex.Message}");
+                AppServices.Logger?.Debug($"OnWebMessageReceived threw: {ex.Message}");
             }
         }
 
@@ -175,7 +175,7 @@ namespace Shiro.AvaloniaUI.Views
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"Script execution in TryFillCredentialsAsync threw: {ex.Message}");
+                AppServices.Logger?.Debug($"Script execution in TryFillCredentialsAsync threw: {ex.Message}");
             }
         }
     }

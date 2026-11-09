@@ -31,7 +31,7 @@ namespace Shiro.AvaloniaUI.Views
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"LoadMetrics threw: {ex.Message}");
+                AppServices.Logger?.Debug($"LoadMetrics threw: {ex.Message}");
             }
         }
 

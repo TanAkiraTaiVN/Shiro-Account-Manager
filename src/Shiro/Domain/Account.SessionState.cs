@@ -89,14 +89,14 @@ namespace Shiro
                                             host.EndsWith(".roblox.com", StringComparison.OrdinalIgnoreCase);
                         if (!isRobloxHost)
                         {
-                            Program.Logger?.Warn($"[ValidateSessionAsync] {Username}: ISP redirected API to external host ({absUri}). Preserving session validity: {Valid}");
+                            AppServices.Logger?.Warn($"[ValidateSessionAsync] {Username}: ISP redirected API to external host ({absUri}). Preserving session validity: {Valid}");
                             return Valid;
                         }
 
                         if (absUri.IndexOf("/login", StringComparison.OrdinalIgnoreCase) >= 0 ||
                             absUri.IndexOf("NewLogin", StringComparison.OrdinalIgnoreCase) >= 0)
                         {
-                            Program.Logger?.Warn($"[ValidateSessionAsync] {Username}: Redirected to login ({absUri}). Cookie expired.");
+                            AppServices.Logger?.Warn($"[ValidateSessionAsync] {Username}: Redirected to login ({absUri}). Cookie expired.");
                             if (!IsBannedOrLocked)
                                 AccountStatusIssue = string.Empty;
                             Valid = false;
@@ -110,7 +110,7 @@ namespace Shiro
                         // validate fine minutes later. Cross-check before discarding the session.
                         if (await ValidateViaSecondaryEndpointAsync(cancellationToken).ConfigureAwait(false))
                         {
-                            Program.Logger?.Debug($"[ValidateSessionAsync] {Username}: users/authenticated returned 401 but secondary endpoint confirmed the session. Keeping it valid.");
+                            AppServices.Logger?.Debug($"[ValidateSessionAsync] {Username}: users/authenticated returned 401 but secondary endpoint confirmed the session. Keeping it valid.");
                             AccountStatusIssue = string.Empty;
                             Valid = true;
                             return true;
@@ -124,7 +124,7 @@ namespace Shiro
                             return false;
                         }
 
-                        Program.Logger?.Warn($"[ValidateSessionAsync] {Username}: Received 401 Unauthorized. Cookie expired.");
+                        AppServices.Logger?.Warn($"[ValidateSessionAsync] {Username}: Received 401 Unauthorized. Cookie expired.");
                         if (!IsBannedOrLocked)
                             AccountStatusIssue = string.Empty;
                         Valid = false;
@@ -137,7 +137,7 @@ namespace Shiro
                         string trimmedBody = body?.TrimStart() ?? string.Empty;
                         if (trimmedBody.StartsWith("<", StringComparison.Ordinal))
                         {
-                            Program.Logger?.Warn($"[ValidateSessionAsync] {Username}: Received HTML block/captive page instead of JSON for 200 OK. Preserving validity: {Valid}");
+                            AppServices.Logger?.Warn($"[ValidateSessionAsync] {Username}: Received HTML block/captive page instead of JSON for 200 OK. Preserving validity: {Valid}");
                             return Valid;
                         }
                         if (string.IsNullOrWhiteSpace(trimmedBody))
@@ -169,7 +169,7 @@ namespace Shiro
                             }
                             catch (Exception ex)
                             {
-                                Program.Logger?.Debug($"Parse authenticated user JSON failed: {ex.Message}");
+                                AppServices.Logger?.Debug($"Parse authenticated user JSON failed: {ex.Message}");
                             }
                         }
 
@@ -178,7 +178,7 @@ namespace Shiro
                             long authId = authUser.Id;
                             if (UserID > 0 && authId != UserID)
                             {
-                                Program.Logger?.Warn($"[ValidateSessionAsync] {Username}: UserID mismatch (Expected: {UserID}, Got: {authId}). Cookie expired or belongs to different user.");
+                                AppServices.Logger?.Warn($"[ValidateSessionAsync] {Username}: UserID mismatch (Expected: {UserID}, Got: {authId}). Cookie expired or belongs to different user.");
                                 AccountStatusIssue = string.Empty;
                                 Valid = false;
                                 return false;
@@ -199,7 +199,7 @@ namespace Shiro
                             if (isBanned)
                             {
                                 string badge = issueBadge ?? Shiro.Services.LocalizationService.Get("FastLogin.LockedOrBannedBadge");
-                                Program.Logger?.Warn($"[ValidateSessionAsync] {Username}: Active moderation detected: {badge} ({reason}). Marking invalid.");
+                                AppServices.Logger?.Warn($"[ValidateSessionAsync] {Username}: Active moderation detected: {badge} ({reason}). Marking invalid.");
                                 AccountStatusIssue = badge;
                                 Valid = false;
                                 return false;
@@ -214,11 +214,11 @@ namespace Shiro
                                 // signal: confirm with an independent authenticated endpoint first.
                                 liveSessionOk = await ValidateViaSecondaryEndpointAsync(cancellationToken).ConfigureAwait(false);
                                 if (liveSessionOk)
-                                    Program.Logger?.Debug($"[ValidateSessionAsync] {Username}: accountsettings returned 401 but secondary endpoint confirmed the session. Keeping it valid.");
+                                    AppServices.Logger?.Debug($"[ValidateSessionAsync] {Username}: accountsettings returned 401 but secondary endpoint confirmed the session. Keeping it valid.");
                             }
                             if (!liveSessionOk)
                             {
-                                Program.Logger?.Warn($"[ValidateSessionAsync] {Username}: Live session store and secondary endpoint both returned 401. Session expired or IP-locked.");
+                                AppServices.Logger?.Warn($"[ValidateSessionAsync] {Username}: Live session store and secondary endpoint both returned 401. Session expired or IP-locked.");
                                 if (!IsBannedOrLocked)
                                     AccountStatusIssue = string.Empty;
                                 Valid = false;
@@ -251,7 +251,7 @@ namespace Shiro
                             Valid = true;
                             return true;
                         }
-                        Program.Logger?.Warn($"[ValidateSessionAsync] {Username}: Rate limited (HTTP 429). Preserving existing session validity: {Valid}");
+                        AppServices.Logger?.Warn($"[ValidateSessionAsync] {Username}: Rate limited (HTTP 429). Preserving existing session validity: {Valid}");
                         return Valid;
                     }
 
@@ -264,14 +264,14 @@ namespace Shiro
                         }
                         catch (Exception ex)
                         {
-                            Program.Logger?.Debug($"[ValidateSessionAsync] Reading 403 body failed: {ex.Message}");
+                            AppServices.Logger?.Debug($"[ValidateSessionAsync] Reading 403 body failed: {ex.Message}");
                         }
 
                         var (modBanned, modBadge, modReason) = await CheckModerationStatusAsync(GetCurrentSecurityToken(), cancellationToken).ConfigureAwait(false);
                         if (modBanned)
                         {
                             string badge = modBadge ?? Shiro.Services.LocalizationService.Get("FastLogin.LockedOrBannedBadge");
-                            Program.Logger?.Warn($"[ValidateSessionAsync] {Username}: Active moderation detected on 403: {badge} ({modReason}). Marking invalid.");
+                            AppServices.Logger?.Warn($"[ValidateSessionAsync] {Username}: Active moderation detected on 403: {badge} ({modReason}). Marking invalid.");
                             AccountStatusIssue = badge;
                             Valid = false;
                             return false;
@@ -288,7 +288,7 @@ namespace Shiro
                                 string resolvedBadge = !string.IsNullOrEmpty(AccountStatusIssue)
                                     ? AccountStatusIssue
                                     : (fbBadge ?? Shiro.Services.LocalizationService.Get("FastLogin.LockedOrBannedBadge"));
-                                Program.Logger?.Warn($"[ValidateSessionAsync] {Username}: 403 payload indicates moderation ({resolvedBadge}: {fbReason}). Marking invalid.");
+                                AppServices.Logger?.Warn($"[ValidateSessionAsync] {Username}: 403 payload indicates moderation ({resolvedBadge}: {fbReason}). Marking invalid.");
                                 AccountStatusIssue = resolvedBadge;
                                 Valid = false;
                                 return false;
@@ -301,13 +301,13 @@ namespace Shiro
                             Valid = true;
                             return true;
                         }
-                        Program.Logger?.Warn($"[ValidateSessionAsync] {Username}: HTTP 403 Forbidden received. Preserving session validity: {Valid}");
+                        AppServices.Logger?.Warn($"[ValidateSessionAsync] {Username}: HTTP 403 Forbidden received. Preserving session validity: {Valid}");
                         return Valid;
                     }
 
                     if ((int)response.StatusCode >= 500)
                     {
-                        Program.Logger?.Warn($"[ValidateSessionAsync] {Username}: Server returned HTTP {(int)response.StatusCode} {response.StatusCode}. Roblox service is temporarily degraded. Preserving session validity: {Valid}");
+                        AppServices.Logger?.Warn($"[ValidateSessionAsync] {Username}: Server returned HTTP {(int)response.StatusCode} {response.StatusCode}. Roblox service is temporarily degraded. Preserving session validity: {Valid}");
                         return Valid;
                     }
 
@@ -322,13 +322,13 @@ namespace Shiro
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Warn($"[ValidateSessionAsync] {Username}: Network/connection error: {ex.Message}");
+                    AppServices.Logger?.Warn($"[ValidateSessionAsync] {Username}: Network/connection error: {ex.Message}");
                     if (attempt == 0)
                     {
                         await Task.Delay(500, cancellationToken).ConfigureAwait(false);
                         continue;
                     }
-                    Program.Logger?.Warn($"[ValidateSessionAsync] {Username}: Network unreachable after retries. Preserving session validity: {Valid}");
+                    AppServices.Logger?.Warn($"[ValidateSessionAsync] {Username}: Network unreachable after retries. Preserving session validity: {Valid}");
                     return Valid;
                 }
             }
@@ -394,7 +394,7 @@ namespace Shiro
                     {
                         if (attempt == 0 && CookieRotationVersion != versionBefore)
                             continue;
-                        Program.Logger?.Warn($"[ValidateViaSecondaryEndpointAsync] {Username}: Received 401 on friends.roblox.com. Cookie expired.");
+                        AppServices.Logger?.Warn($"[ValidateViaSecondaryEndpointAsync] {Username}: Received 401 on friends.roblox.com. Cookie expired.");
                         return false;
                     }
 
@@ -415,7 +415,7 @@ namespace Shiro
                             }
                             catch (Exception ex)
                             {
-                                Program.Logger?.Debug($"Parse friend count JSON failed: {ex.Message}");
+                                AppServices.Logger?.Debug($"Parse friend count JSON failed: {ex.Message}");
                             }
                         }
                     }
@@ -423,7 +423,7 @@ namespace Shiro
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Warn($"CheckFriendsCountAsync failed: {ex.Message}");
+                    AppServices.Logger?.Warn($"CheckFriendsCountAsync failed: {ex.Message}");
                     break;
                 }
             }

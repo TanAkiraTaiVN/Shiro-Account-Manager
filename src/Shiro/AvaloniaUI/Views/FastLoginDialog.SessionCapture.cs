@@ -34,14 +34,14 @@ namespace Shiro.AvaloniaUI.Views
 
             TxtInAppStatus.Text = Shiro.Services.LocalizationService.Format("FastLogin.SessionExpiredCodeOpening", accName);
             TxtInAppStatus.Foreground = Brushes.DeepSkyBlue;
-            AppSettings.SetDashboardStatus(Shiro.Services.LocalizationService.Format("FastLogin.CookieExpiredTransitioning", accName));
+            AppServices.HostUiBridge.NotifyWindowStatus(Shiro.Services.LocalizationService.Format("FastLogin.CookieExpiredTransitioning", accName));
 
             try
             {
                 if (!string.IsNullOrEmpty(_restoredHbaScriptId))
                 {
                     try { core.RemoveScriptToExecuteOnDocumentCreated(_restoredHbaScriptId); }
-                    catch (Exception ex) { Program.Logger?.Debug($"RemoveScriptToExecuteOnDocumentCreated threw: {ex.Message}"); }
+                    catch (Exception ex) { AppServices.Logger?.Debug($"RemoveScriptToExecuteOnDocumentCreated threw: {ex.Message}"); }
                     _restoredHbaScriptId = null;
                 }
 
@@ -62,7 +62,7 @@ namespace Shiro.AvaloniaUI.Views
                     TimeSpan.FromMilliseconds(50));
                 await TryFillCredentialsAsync(forceClick: true);
             }
-            catch (Exception ex) { Program.Logger?.Debug($"RedirectUnauthenticatedModerationToLoginAsync threw: {ex.Message}"); }
+            catch (Exception ex) { AppServices.Logger?.Debug($"RedirectUnauthenticatedModerationToLoginAsync threw: {ex.Message}"); }
         }
 
         private async Task MarkCurrentAccountIssueAndSkipAsync(string issueBadge, string statusReason)
@@ -80,7 +80,7 @@ namespace Shiro.AvaloniaUI.Views
             string progressTag = _queue.Count > 1 ? $" ({_queue.Index + 1}/{_queue.Count})" : "";
             TxtInAppStatus.Text = $"{accName}{progressTag}: {statusReason}";
             TxtInAppStatus.Foreground = Brushes.OrangeRed;
-            AppSettings.SetDashboardStatus($"{accName}{progressTag}: {issueBadge} ({statusReason})");
+            AppServices.HostUiBridge.NotifyWindowStatus($"{accName}{progressTag}: {issueBadge} ({statusReason})");
 
             if (_queue.Count > 1)
             {
@@ -147,7 +147,7 @@ namespace Shiro.AvaloniaUI.Views
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[FastLoginDialog.AdvanceToNextAccountOrCloseAsync] {ex.Message}");
+                AppServices.Logger?.Debug($"[FastLoginDialog.AdvanceToNextAccountOrCloseAsync] {ex.Message}");
             }
         }
 
@@ -228,7 +228,7 @@ namespace Shiro.AvaloniaUI.Views
                     _pollTimer?.Stop();
                     _ignoredCookieValues.Add(fp);
                     pendingCapturedFp = fp;
-                    Program.Logger.Info($"[FastLogin] .ROBLOSECURITY detected for '{_username}' (len={secCookie.Value.Length}, url={core.Source}). Waiting for settle...");
+                    AppServices.Logger.Info($"[FastLogin] .ROBLOSECURITY detected for '{_username}' (len={secCookie.Value.Length}, url={core.Source}). Waiting for settle...");
 
                     TxtInAppStatus.Text = Shiro.Services.LocalizationService.Format("FastLogin.SessionCapturedRotating", _username ?? Shiro.Services.LocalizationService.Get("Dash_AccountsUnit"));
                     TxtInAppStatus.Foreground = Brushes.LightGreen;
@@ -294,7 +294,7 @@ namespace Shiro.AvaloniaUI.Views
                                     }
                                 }
                             }
-                            catch (Exception ex) { Program.Logger?.Debug($"Cookie probe during settle wait threw: {ex.Message}"); }
+                            catch (Exception ex) { AppServices.Logger?.Debug($"Cookie probe during settle wait threw: {ex.Message}"); }
 
                             return false;
                         },
@@ -347,14 +347,14 @@ namespace Shiro.AvaloniaUI.Views
                         if (!string.IsNullOrWhiteSpace(resolvedAuthJson) && resolvedAuthJson.StartsWith('{'))
                             inPageAccountJson = resolvedAuthJson;
                     }
-                    catch (Exception ex) { Program.Logger?.Debug($"Trigger in-page auth request threw: {ex.Message}"); }
+                    catch (Exception ex) { AppServices.Logger?.Debug($"Trigger in-page auth request threw: {ex.Message}"); }
 
                     var hbaSnapshot = await CollectFinalHbaAndFingerprintAsync(core);
                     string cookieValue = await CaptureSettledCookieAndDomPasswordAsync(core, secCookie.Value);
 
                     Account? acc = await AppServices.AccountRepository.AddOrUpdateWithHbaAsync(cookieValue, _password ?? "", accountJson: inPageAccountJson, hbaCapture: hbaSnapshot);
                     pendingCapturedFp = null;
-                    Program.Logger?.Info($"[FastLogin] Captured session for '{_username}': payloadLen={Account.GetSessionTokenPayloadLength(cookieValue)}, hba={hbaSnapshot.HasPrivateKey}, registeredValid={acc?.Valid}, resolvedUser={acc?.Username}.");
+                    AppServices.Logger?.Info($"[FastLogin] Captured session for '{_username}': payloadLen={Account.GetSessionTokenPayloadLength(cookieValue)}, hba={hbaSnapshot.HasPrivateKey}, registeredValid={acc?.Valid}, resolvedUser={acc?.Username}.");
 
                     var captureOutcome = await FastLoginCoordinator.ProcessCapturedSessionAsync(
                         acc,
@@ -378,7 +378,7 @@ namespace Shiro.AvaloniaUI.Views
 
                             string progressTag = _queue.Count > 1 ? $" ({_queue.Index + 1}/{_queue.Count})" : "";
                             if (captureOutcome.Account != null && !Account.IsShortLivedCookie(captureOutcome.Account.SecurityToken))
-                                AppSettings.SetDashboardStatus(Shiro.Services.LocalizationService.Format("FastLogin.InAppLoginSuccess", progressTag, captureOutcome.Account.Username));
+                                AppServices.HostUiBridge.NotifyWindowStatus(Shiro.Services.LocalizationService.Format("FastLogin.InAppLoginSuccess", progressTag, captureOutcome.Account.Username));
 
                             await AdvanceToNextAccountOrCloseAsync();
                             return;
@@ -427,7 +427,7 @@ namespace Shiro.AvaloniaUI.Views
             }
             catch (Exception captureEx)
             {
-                Program.Logger.Warn($"[FastLogin] Capture error for '{_username}': {captureEx}");
+                AppServices.Logger.Warn($"[FastLogin] Capture error for '{_username}': {captureEx}");
                 if (!_isClosed && pendingCapturedFp != null)
                 {
                     _ignoredCookieValues.Remove(pendingCapturedFp);

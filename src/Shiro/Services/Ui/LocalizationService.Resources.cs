@@ -70,7 +70,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Error($"Failed to load embedded localization resource ending with {resourceSuffix}: {ex.Message}");
+                AppServices.Logger?.Error($"Failed to load embedded localization resource ending with {resourceSuffix}: {ex.Message}");
             }
 
             return FrozenDictionary<string, string>.Empty;

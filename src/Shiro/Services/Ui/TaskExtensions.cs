@@ -29,7 +29,7 @@ namespace Shiro.Services
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Error($"[UnhandledAsync:{operation}] {ex.Message}");
+                    AppServices.Logger?.Error($"[UnhandledAsync:{operation}] {ex.Message}");
                 }
             }
         }
@@ -46,7 +46,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[{caller}] Ignored cleanup exception: {ex.Message}");
+                AppServices.Logger?.Debug($"[{caller}] Ignored cleanup exception: {ex.Message}");
             }
         }
 
@@ -58,7 +58,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Program.Logger?.Debug($"[{caller}] Ignored exception: {ex.Message}");
+                AppServices.Logger?.Debug($"[{caller}] Ignored exception: {ex.Message}");
                 return fallback;
             }
         }

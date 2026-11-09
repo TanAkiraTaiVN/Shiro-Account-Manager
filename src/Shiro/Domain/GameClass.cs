@@ -50,7 +50,7 @@ namespace Shiro
             }
             catch (Exception exception)
             {
-                Program.Logger?.Debug($"Could not load game details for {placeId}: {exception.Message}");
+                AppServices.Logger?.Debug($"Could not load game details for {placeId}: {exception.Message}");
                 Details ??= GameDetails.Unknown(placeId, name);
             }
         }

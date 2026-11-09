@@ -91,7 +91,7 @@ namespace Shiro
                                 TokenSet = now;
                                 LastUse = now;
                             }
-                            AppSettings.LastValidAccount = this;
+                            AppServices.SelectionState.LastValidAccount = this;
                             RecordVolatileLastUse(now);
                             return (true, token, string.Empty);
                         }
@@ -103,7 +103,7 @@ namespace Shiro
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger.Warn($"[GetCSRFTokenAsync] Error on {endpoint}: {ex.Message}");
+                    AppServices.Logger.Warn($"[GetCSRFTokenAsync] Error on {endpoint}: {ex.Message}");
                 }
             }
 
@@ -143,7 +143,7 @@ namespace Shiro
                     !wasSameNetworkAtStart &&
                     currentSigAtStart is not ("offline" or "unknown"))
                 {
-                    Program.Logger?.Info($"[GetAuthTicketAsync] Network signature changed from '{LastBoundIpSignature}' to '{currentSigAtStart}' for {Username}. Proactively synchronizing session to current network...");
+                    AppServices.Logger?.Info($"[GetAuthTicketAsync] Network signature changed from '{LastBoundIpSignature}' to '{currentSigAtStart}' for {Username}. Proactively synchronizing session to current network...");
                     await TryRebindSessionToCurrentNetworkAsync(force: true, cancellationToken).ConfigureAwait(false);
                 }
             }
@@ -185,7 +185,7 @@ namespace Shiro
                                 TokenSet = now;
                                 LastUse = now;
                             }
-                            AppSettings.LastValidAccount = this;
+                            AppServices.SelectionState.LastValidAccount = this;
                             RecordVolatileLastUse(now);
                         }
                     }
@@ -209,18 +209,18 @@ namespace Shiro
                         if (attempt + 1 < AuthTicketMaxAttempts)
                         {
                             var backoff = RobloxRateLimitCoordinator.Instance.RemainingBackoff;
-                            Program.Logger?.Warn($"Roblox authentication-ticket request was rate limited (HTTP 429) for {Username}. Backing off for {backoff.TotalSeconds:F1}s before retry (attempt {attempt + 1}/{AuthTicketMaxAttempts})...");
+                            AppServices.Logger?.Warn($"Roblox authentication-ticket request was rate limited (HTTP 429) for {Username}. Backing off for {backoff.TotalSeconds:F1}s before retry (attempt {attempt + 1}/{AuthTicketMaxAttempts})...");
                             continue;
                         }
 
                         MarkNativeAuthRateLimited(30, Username, "authentication-ticket");
-                        Program.Logger?.Warn($"Roblox authentication-ticket request was rate limited (HTTP 429) for {Username}; exhausted all {AuthTicketMaxAttempts} attempts.");
+                        AppServices.Logger?.Warn($"Roblox authentication-ticket request was rate limited (HTTP 429) for {Username}; exhausted all {AuthTicketMaxAttempts} attempts.");
                         return (false, string.Empty);
                     }
 
                     if (response.StatusCode == HttpStatusCode.Unauthorized)
                     {
-                        Program.Logger?.Warn($"Roblox authentication-ticket request returned HTTP 401 Unauthorized for {Username} (hba={useHba}). Preserving stored session.");
+                        AppServices.Logger?.Warn($"Roblox authentication-ticket request returned HTTP 401 Unauthorized for {Username} (hba={useHba}). Preserving stored session.");
                         currentCsrf = string.Empty;
                         lock (CookieSyncRoot)
                         {
@@ -254,7 +254,7 @@ namespace Shiro
                             !IsShortLivedCookie(GetCurrentSecurityToken()))
                         {
                             useHba = false;
-                            Program.Logger?.Info($"[GetAuthTicketAsync] Retrying authentication-ticket for {Username} without HBA header on same network...");
+                            AppServices.Logger?.Info($"[GetAuthTicketAsync] Retrying authentication-ticket for {Username} without HBA header on same network...");
                             continue;
                         }
 
@@ -281,7 +281,7 @@ namespace Shiro
                 }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Warn($"[GetAuthTicketAsync] Error on attempt {attempt}: {ex.Message}");
+                    AppServices.Logger?.Warn($"[GetAuthTicketAsync] Error on attempt {attempt}: {ex.Message}");
                     if (attempt + 1 < AuthTicketMaxAttempts)
                         await Task.Delay(350, cancellationToken).ConfigureAwait(false);
                 }
@@ -310,7 +310,7 @@ namespace Shiro
                 try { return JsonNode.Parse(response.Content); }
                 catch (Exception ex)
                 {
-                    Program.Logger?.Debug($"Parse GetUserInfo JSON failed: {ex.Message}");
+                    AppServices.Logger?.Debug($"Parse GetUserInfo JSON failed: {ex.Message}");
                 }
             }
 

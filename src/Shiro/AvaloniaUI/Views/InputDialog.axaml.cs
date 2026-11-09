@@ -6,6 +6,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
+using Shiro.Services;
 
 namespace Shiro.AvaloniaUI.Views
 {
@@ -126,7 +127,7 @@ namespace Shiro.AvaloniaUI.Views
                     }
                     catch (Exception ex)
                     {
-                        Program.Logger?.Debug($"[InputDialog.Prompt] {ex.Message}");
+                        AppServices.Logger?.Debug($"[InputDialog.Prompt] {ex.Message}");
                     }
                     finally
                     {
