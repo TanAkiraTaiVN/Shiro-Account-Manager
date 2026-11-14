@@ -763,6 +763,8 @@
   "MissingAssets.DefaultSubtitle": "Tài khoản • 0 vật phẩm cần mua hoặc sở hữu",
   "MissingAssets.DefaultTitle": "Vật phẩm còn thiếu trong trang phục",
   "MissingAssets.ItemNumber": "Vật phẩm #{0}",
+  "MissingAssets.LegacyCatalogRedirectPrompt": "Vật phẩm cổ điển này không thể mua trực tiếp trong ứng dụng. Mở trang Roblox catalog trên trình duyệt để xem hoặc mua?",
+  "MissingAssets.LegacyPurchaseUnsupported": "Mua vật phẩm cổ điển không còn được hỗ trợ trong ứng dụng. Vui lòng mua qua Roblox catalog.",
   "MissingAssets.LoadingAssetInfoCount": "Đang tải thông tin cho {0} vật phẩm...",
   "MissingAssets.LoadingCompleted": "Hoàn tất tải {0} vật phẩm.",
   "MissingAssets.LoadingProgress": "Đang tải ({0}/{1})...",

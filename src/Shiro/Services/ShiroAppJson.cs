@@ -102,7 +102,10 @@ namespace Shiro.Services
     [JsonSerializable(typeof(UsernamesLookupPayload))]
     [JsonSerializable(typeof(BloxGenGenerateRequest))]
     [JsonSerializable(typeof(PrivateServerInviteSettingPayload))]
-    [JsonSerializable(typeof(PurchaseProductPayload))]
+    [JsonSerializable(typeof(CatalogItemDetailsItemPayload))]
+    [JsonSerializable(typeof(CatalogItemDetailsBatchRequest))]
+    [JsonSerializable(typeof(MarketplaceItemsDetailsRequest))]
+    [JsonSerializable(typeof(MarketplacePurchasePayload))]
     [JsonSerializable(typeof(JoinGameInstancePayload))]
     [JsonSerializable(typeof(FollowPrivacySettingPayload))]
     [JsonSerializable(typeof(SetDisplayNamePayload))]
@@ -128,7 +131,23 @@ namespace Shiro.Services
         [property: JsonPropertyName("continent"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? continent = null,
         [property: JsonPropertyName("region"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? region = null);
     internal readonly record struct PrivateServerInviteSettingPayload(string whoCanInviteMeToPrivateServers);
-    internal readonly record struct PurchaseProductPayload(int expectedCurrency, long expectedPrice, long expectedSellerId);
+    internal readonly record struct CatalogItemDetailsItemPayload(
+        [property: JsonPropertyName("itemType")] string itemType,
+        [property: JsonPropertyName("id")] long id);
+    internal readonly record struct CatalogItemDetailsBatchRequest(
+        [property: JsonPropertyName("items")] CatalogItemDetailsItemPayload[] items);
+    internal readonly record struct MarketplaceItemsDetailsRequest(
+        [property: JsonPropertyName("itemIds")] string[] itemIds);
+    internal readonly record struct MarketplacePurchasePayload(
+        [property: JsonPropertyName("collectibleItemId")] string collectibleItemId,
+        [property: JsonPropertyName("collectibleProductId")] string collectibleProductId,
+        [property: JsonPropertyName("expectedCurrency")] int expectedCurrency,
+        [property: JsonPropertyName("expectedPrice")] long expectedPrice,
+        [property: JsonPropertyName("expectedPurchaserId")] string expectedPurchaserId,
+        [property: JsonPropertyName("expectedPurchaserType")] string expectedPurchaserType,
+        [property: JsonPropertyName("expectedSellerId")] long expectedSellerId,
+        [property: JsonPropertyName("expectedSellerType")] string expectedSellerType,
+        [property: JsonPropertyName("idempotencyKey")] string idempotencyKey);
     internal readonly record struct JoinGameInstancePayload(string gameId, long placeId);
     internal readonly record struct FollowPrivacySettingPayload(string whoCanJoinMeInExperiences);
     internal readonly record struct SetDisplayNamePayload(string newDisplayName);

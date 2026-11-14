@@ -16,6 +16,9 @@ public class MissingAssetDisplayItem : ObservableObject
     public long Cost { get; set; } = -1;
     public long ProductId { get; set; }
     public long SellerId { get; set; }
+    public string? CollectibleItemId { get; set; }
+    public string? CollectibleProductId { get; set; }
+    public string SellerType { get; set; } = "User";
     public long PriceInRobux { get; set; }
     public bool IsLoaded { get; set; }
 

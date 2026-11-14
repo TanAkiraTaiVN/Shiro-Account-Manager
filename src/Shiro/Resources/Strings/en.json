@@ -763,6 +763,8 @@
   "MissingAssets.DefaultSubtitle": "Account • 0 assets needed to buy or own",
   "MissingAssets.DefaultTitle": "Missing Outfit Assets",
   "MissingAssets.ItemNumber": "Item #{0}",
+  "MissingAssets.LegacyCatalogRedirectPrompt": "This classic asset cannot be purchased in-app. Open Roblox catalog in browser to view or buy?",
+  "MissingAssets.LegacyPurchaseUnsupported": "Legacy asset purchase is no longer supported in-app. Please purchase via Roblox catalog.",
   "MissingAssets.LoadingAssetInfoCount": "Loading details for {0} item(s)...",
   "MissingAssets.LoadingCompleted": "Finished loading {0} item(s).",
   "MissingAssets.LoadingProgress": "Loading ({0}/{1})...",

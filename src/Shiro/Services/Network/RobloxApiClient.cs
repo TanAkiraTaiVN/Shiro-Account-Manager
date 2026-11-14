@@ -21,6 +21,7 @@ namespace Shiro.Services
         RestClient Develop { get; }
         RestClient Presence { get; }
         RestClient Api { get; }
+        RestClient Catalog { get; }
     }
 
     /// <summary>
@@ -45,6 +46,7 @@ namespace Shiro.Services
         public RestClient Develop => _develop;
         public RestClient Presence => _presence;
         public RestClient Api => _api;
+        public RestClient Catalog => _catalog;
 
         private readonly RestClient _main;
         private readonly RestClient _avatar;
@@ -59,6 +61,7 @@ namespace Shiro.Services
         private readonly RestClient _develop;
         private readonly RestClient _presence;
         private readonly RestClient _api;
+        private readonly RestClient _catalog;
 
         public RobloxApiClient()
         {
@@ -75,6 +78,7 @@ namespace Shiro.Services
             _develop = Create("https://develop.roblox.com/");
             _presence = Create("https://presence.roblox.com/");
             _api = Create("https://apis.roblox.com/");
+            _catalog = Create("https://catalog.roblox.com/");
         }
 
         internal RobloxApiClient(HttpMessageHandler handler)
@@ -93,6 +97,7 @@ namespace Shiro.Services
             _develop = new RestClient(httpClient, "https://develop.roblox.com/");
             _presence = new RestClient(httpClient, "https://presence.roblox.com/");
             _api = new RestClient(httpClient, "https://apis.roblox.com/");
+            _catalog = new RestClient(httpClient, "https://catalog.roblox.com/");
         }
 
         private static RestClient Create(string baseUrl, string? userAgent = null)
@@ -115,6 +120,7 @@ namespace Shiro.Services
             _develop?.Dispose();
             _presence?.Dispose();
             _api?.Dispose();
+            _catalog?.Dispose();
         }
     }
 }

@@ -29,6 +29,15 @@ namespace Shiro.Services
         private static readonly ConcurrentDictionary<long, string> _placeNameCache = new();
         private static readonly ConcurrentDictionary<long, Task<string?>> _inFlightNameQueries = new();
 
+        internal static Func<HttpClient>? HttpClientFactoryForTests { get; set; }
+
+        private static async Task<HttpResponseMessage> SendHttpAsync(HttpRequestMessage req, CancellationToken ct = default)
+        {
+            if (HttpClientFactoryForTests != null)
+                return await HttpClientFactoryForTests().SendAsync(req, ct).ConfigureAwait(false);
+            return await SharedHttpClient.SendAsync(req, retryTransient: false, ct).ConfigureAwait(false);
+        }
+
         /// <summary>
         /// Strips supplementary surrogate-pair characters (e.g. color emojis like 🎉) and variation selectors
         /// that trigger a native SkiaSharp SKStream.Read Access Violation (0xc0000005) on Windows when Avalonia
@@ -273,7 +282,7 @@ namespace Shiro.Services
                 // 1. Public unauthenticated 2-step lookup: PlaceId -> UniverseId -> Original Game Name (sourceName)
                 string uniUrl = $"https://apis.roblox.com/universes/v1/places/{placeId}/universe";
                 using var uniReq = new HttpRequestMessage(HttpMethod.Get, uniUrl);
-                using var uniResp = await SharedHttpClient.SendAsync(uniReq, retryTransient: false).ConfigureAwait(false);
+                using var uniResp = await SendHttpAsync(uniReq).ConfigureAwait(false);
                 if (uniResp.IsSuccessStatusCode)
                 {
                     using var uniDoc = await JsonDocument.ParseAsync(await uniResp.Content.ReadAsStreamAsync().ConfigureAwait(false)).ConfigureAwait(false);
@@ -284,7 +293,7 @@ namespace Shiro.Services
                         string gameUrl = $"https://games.roblox.com/v1/games?universeIds={universeId}";
                         using var gameReq = new HttpRequestMessage(HttpMethod.Get, gameUrl);
                         gameReq.Headers.AcceptLanguage.ParseAdd("en-US,en;q=0.9");
-                        using var gameResp = await SharedHttpClient.SendAsync(gameReq, retryTransient: false).ConfigureAwait(false);
+                        using var gameResp = await SendHttpAsync(gameReq).ConfigureAwait(false);
                         if (gameResp.IsSuccessStatusCode)
                         {
                             using var gameDoc = await JsonDocument.ParseAsync(await gameResp.Content.ReadAsStreamAsync().ConfigureAwait(false)).ConfigureAwait(false);
@@ -305,23 +314,43 @@ namespace Shiro.Services
                 _logger.Debug($"[GameInfoService] Public universe lookup for {placeId} failed: {ex.Message}");
             }
 
-            // 2. Fallback to economy asset details API (works without authentication even when games.roblox.com returns [TITLE UNAVAILABLE] for sub-places / restricted experiences)
+            // 2. Fallback to unauthenticated 2-step develop universe lookup when games.roblox.com details are unavailable
             try
             {
-                string assetUrl = $"https://economy.roblox.com/v2/assets/{placeId}/details";
-                using var assetReq = new HttpRequestMessage(HttpMethod.Get, assetUrl);
-                using var assetResp = await SharedHttpClient.SendAsync(assetReq, retryTransient: false).ConfigureAwait(false);
-                if (assetResp.IsSuccessStatusCode)
+                string uniUrl = $"https://apis.roblox.com/universes/v1/places/{placeId}/universe";
+                using var uniReq = new HttpRequestMessage(HttpMethod.Get, uniUrl);
+                using var uniResp = await SendHttpAsync(uniReq).ConfigureAwait(false);
+                if (uniResp.IsSuccessStatusCode)
                 {
-                    using var assetDoc = await JsonDocument.ParseAsync(await assetResp.Content.ReadAsStreamAsync().ConfigureAwait(false)).ConfigureAwait(false);
-                    string? assetTitle = ExtractBestGameTitle(assetDoc.RootElement);
-                    if (!string.IsNullOrWhiteSpace(assetTitle) && !IsGenericPlaceholderName(placeId, assetTitle))
-                        return assetTitle;
+                    using var uniDoc = await JsonDocument.ParseAsync(await uniResp.Content.ReadAsStreamAsync().ConfigureAwait(false)).ConfigureAwait(false);
+                    if (uniDoc.RootElement.TryGetProperty("universeId", out var uniProp) &&
+                        uniProp.TryGetInt64(out long universeId) &&
+                        universeId > 0)
+                    {
+                        string devUrl = $"https://develop.roblox.com/v1/universes/{universeId}";
+                        using var devReq = new HttpRequestMessage(HttpMethod.Get, devUrl);
+                        using var devResp = await SendHttpAsync(devReq).ConfigureAwait(false);
+                        if (devResp.IsSuccessStatusCode)
+                        {
+                            using var devDoc = await JsonDocument.ParseAsync(await devResp.Content.ReadAsStreamAsync().ConfigureAwait(false)).ConfigureAwait(false);
+                            if (devDoc.RootElement.TryGetProperty("name", out var nameProp) &&
+                                nameProp.ValueKind == JsonValueKind.String)
+                            {
+                                string? devTitle = nameProp.GetString();
+                                if (!string.IsNullOrWhiteSpace(devTitle) && !IsGenericPlaceholderName(placeId, devTitle))
+                                    return devTitle;
+                            }
+                        }
+                    }
                 }
             }
-            catch (Exception ex)
+            catch (HttpRequestException ex)
             {
-                _logger.Debug($"[GameInfoService] Economy asset details fallback for {placeId} failed: {ex.Message}");
+                _logger.Debug($"[GameInfoService] Develop universe fallback for {placeId} failed: {ex.Message}");
+            }
+            catch (JsonException ex)
+            {
+                _logger.Debug($"[GameInfoService] Develop universe JSON parse for {placeId} failed: {ex.Message}");
             }
 
             return null;

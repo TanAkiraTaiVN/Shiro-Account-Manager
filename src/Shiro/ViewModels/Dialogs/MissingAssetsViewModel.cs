@@ -170,6 +170,9 @@ public sealed class MissingAssetsViewModel : DialogViewModelBase
             long cost = AssetDetailsParser.ComputeCost(details);
             item.ProductId = details.ProductId;
             item.SellerId = details.SellerId;
+            item.CollectibleItemId = details.CollectibleItemId;
+            item.CollectibleProductId = details.CollectibleProductId;
+            item.SellerType = details.SellerType;
             item.PriceInRobux = details.Price > 0 ? details.Price : 0;
             item.Cost = cost;
             item.IsLoaded = true;
@@ -227,12 +230,25 @@ public sealed class MissingAssetsViewModel : DialogViewModelBase
         if (item == null || !item.IsLoaded)
             return;
 
-        if (item.ProductId <= 0)
+        if (string.IsNullOrWhiteSpace(item.CollectibleItemId))
         {
-            await _prompt.AlertAsync(
-                LocalizationService.Get("MissingAssets.NoValidProductId"),
-                LocalizationService.Get("Msg_InfoTitle"),
-                PromptSeverity.Warning).ConfigureAwait(true);
+            if (item.ProductId <= 0)
+            {
+                await _prompt.AlertAsync(
+                    LocalizationService.Get("MissingAssets.NoValidProductId"),
+                    LocalizationService.Get("Msg_InfoTitle"),
+                    PromptSeverity.Warning).ConfigureAwait(true);
+                return;
+            }
+
+            bool confirmedRedirect = await _prompt.ConfirmAsync(
+                LocalizationService.Get("MissingAssets.LegacyCatalogRedirectPrompt"),
+                LocalizationService.Get("MissingAssets.ConfirmPurchaseTitle")).ConfigureAwait(true);
+
+            if (confirmedRedirect)
+            {
+                _openUrl($"https://www.roblox.com/catalog/{item.AssetId}/-");
+            }
             return;
         }
 
@@ -250,7 +266,16 @@ public sealed class MissingAssetsViewModel : DialogViewModelBase
 
         try
         {
-            var (ok, error) = await _commerce.PurchaseAsync(_account, item.ProductId, item.PriceInRobux, item.SellerId, ct).ConfigureAwait(true);
+            var (ok, error) = await _commerce.PurchaseAsync(
+                _account,
+                item.AssetId,
+                item.ProductId,
+                item.PriceInRobux,
+                item.SellerId,
+                item.CollectibleItemId,
+                item.CollectibleProductId,
+                item.SellerType,
+                ct).ConfigureAwait(true);
             if (ok)
             {
                 item.BuyButtonText = LocalizationService.Get("MissingAssets.PurchasedBadge");
