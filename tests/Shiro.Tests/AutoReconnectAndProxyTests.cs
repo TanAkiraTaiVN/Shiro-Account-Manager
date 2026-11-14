@@ -432,22 +432,6 @@ namespace Shiro.Tests
         }
 
         [Fact]
-        public void AccountBrowser_FindSystemBrowserExecutables_ReturnsDistinctExistingPaths()
-        {
-            string[] browsers = AccountBrowser.FindSystemBrowserExecutables();
-            Assert.NotNull(browsers);
-
-            // All returned browser paths must physically exist on this system
-            foreach (var path in browsers)
-            {
-                Assert.True(System.IO.File.Exists(path));
-            }
-
-            // Must be distinct
-            Assert.Equal(browsers.Length, browsers.Distinct(StringComparer.OrdinalIgnoreCase).Count());
-        }
-
-        [Fact]
         public void RobloxProcessService_CloseAccountRobloxProcess_HandlesNullGracefully()
         {
             bool result = RobloxProcessService.CloseAccountRobloxProcess(null!);

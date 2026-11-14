@@ -234,15 +234,7 @@ namespace Shiro.Tests
                 tempMgr.ShutdownBackend();
                 AppServices.ServerBrowserState.CurrentPlaceId = prevPlaceId;
 
-                // Second temp instance with AutoCookieRefresh=false, ShowPresence=true, EnableWebServer=true, and old updater files + Update dir
-                string oldAu1 = Path.Combine(Directory.GetCurrentDirectory(), "Auto Update.exe");
-                string oldAu2 = Path.Combine(Directory.GetCurrentDirectory(), "AU.exe");
-                string updateDir = Path.Combine(Environment.CurrentDirectory, "Update");
-                File.WriteAllText(oldAu1, "dummy");
-                File.WriteAllText(oldAu2, "dummy");
-                Directory.CreateDirectory(updateDir);
-                File.WriteAllText(Path.Combine(updateDir, "temp.txt"), "x");
-
+                // Second temp instance with AutoCookieRefresh=false, ShowPresence=true, EnableWebServer=true
                 var tempMgr2 = new AccountManager();
                 AppSettings.General.Set("ShuffleJobId", "false");
                 AppSettings.General.Set("AutoCookieRefresh", "false");
@@ -251,11 +243,10 @@ namespace Shiro.Tests
                 AppSettings.WebServer.Set("WebServerPort", "invalid_numeric_port");
                 AppSettings.WebServer.Set("AllowExternalConnections", "true");
                 tempMgr2.InitializeBackendServices();
+                Assert.Null(tempMgr2.AutoCookieRefresh);
+                Assert.NotNull(tempMgr2.PresenceTimer);
                 AppSettings.Developer.Set("EnableWebServer", "false");
                 AppSettings.WebServer.Set("AllowExternalConnections", "false");
-                Assert.False(File.Exists(oldAu1));
-                Assert.False(File.Exists(oldAu2));
-                Assert.False(Directory.Exists(updateDir));
 
                 // Also cover InitializePostStartup with AutoCloseRobloxOnLaunch=true, EnableMultiRbx=true, UseEmbeddedBrowser=false
                 AppSettings.General.Set("AutoCloseRobloxOnLaunch", "true");

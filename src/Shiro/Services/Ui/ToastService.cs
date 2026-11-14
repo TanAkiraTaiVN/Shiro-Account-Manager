@@ -48,6 +48,8 @@ namespace Shiro.Services
         public ToastType Type { get; set; }
         public DateTime CreatedAt { get; } = DateTime.UtcNow;
         public ICommand DismissCommand { get; }
+        public string ActionText { get; set; } = string.Empty;
+        public ICommand? ActionCommand { get; set; }
 
         public ToastItem()
         {
@@ -55,6 +57,7 @@ namespace Shiro.Services
         }
 
         public bool HasMessage => !string.IsNullOrWhiteSpace(Message);
+        public bool HasAction => ActionCommand != null && !string.IsNullOrWhiteSpace(ActionText);
 
         public Geometry? IconGeometry => Type switch
         {
@@ -128,9 +131,27 @@ namespace Shiro.Services
         public static void ShowSuccess(string title, string message = "", double durationSeconds = 3.0) => Show(title, message, ToastType.Success, durationSeconds);
         public static void ShowInfo(string title, string message = "", double durationSeconds = 3.0) => Show(title, message, ToastType.Info, durationSeconds);
         public static void ShowWarning(string title, string message = "", double durationSeconds = 3.5) => Show(title, message, ToastType.Warning, durationSeconds);
+
+        public static void ShowWarningWithAction(
+            string title,
+            string message,
+            string actionText,
+            Action onAction,
+            double durationSeconds = 10.0)
+            => ShowInternal(title, message, ToastType.Warning, durationSeconds, actionText, onAction);
+
         public static void ShowError(string title, string message = "", double durationSeconds = 4.0) => Show(title, message, ToastType.Error, durationSeconds);
 
         public static void Show(string title, string message, ToastType type, double durationSeconds = 3.0)
+            => ShowInternal(title, message, type, durationSeconds, null, null);
+
+        private static void ShowInternal(
+            string title,
+            string message,
+            ToastType type,
+            double durationSeconds,
+            string? actionText,
+            Action? onAction)
         {
             AppDispatcher.Post(() =>
             {
@@ -139,6 +160,7 @@ namespace Shiro.Services
                 {
                     string cleanTitle = title ?? string.Empty;
                     string cleanMessage = message ?? string.Empty;
+                    string cleanAction = actionText ?? string.Empty;
 
                     // Coalesce identical consecutive toasts or replace same-title progress toast
                     for (int i = ActiveToasts.Count - 1; i >= 0; i--)
@@ -146,7 +168,8 @@ namespace Shiro.Services
                         var existing = ActiveToasts[i];
                         if (existing.Type == type &&
                             string.Equals(existing.Title, cleanTitle, StringComparison.Ordinal) &&
-                            string.Equals(existing.Message, cleanMessage, StringComparison.Ordinal))
+                            string.Equals(existing.Message, cleanMessage, StringComparison.Ordinal) &&
+                            string.Equals(existing.ActionText, cleanAction, StringComparison.Ordinal))
                         {
                             return;
                         }
@@ -156,8 +179,24 @@ namespace Shiro.Services
                     {
                         Title = cleanTitle,
                         Message = cleanMessage,
-                        Type = type
+                        Type = type,
+                        ActionText = cleanAction
                     };
+
+                    if (onAction != null && !string.IsNullOrWhiteSpace(cleanAction))
+                    {
+                        toast.ActionCommand = new RelayCommand(() =>
+                        {
+                            try
+                            {
+                                onAction();
+                            }
+                            finally
+                            {
+                                Dismiss(toast);
+                            }
+                        });
+                    }
 
                     // Limit active toasts to 2 to keep the viewport clean and unobstructed
                     while (ActiveToasts.Count >= 2)

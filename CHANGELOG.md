@@ -10,12 +10,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Launch Pacing, Telemetry & Server Operation Helpers**: Extracted `LaunchTimingService`, `LaunchQueuePacingHelper`, `LaunchCaptchaHelper`, `LaunchCoordinator.Queue`, and `ServerListOperationHelper`, backed by dedicated behavioral unit tests (`LaunchCoordinatorCaptchaAndAppendTests`, `LaunchSummaryAndSettingsCaptchaTests`).
 - **Phase 6 - Architecture & Hygiene Invariants**:
   - `NoTestFiles_ShouldExceed550Lines`: Enforced a strict maximum budget of `<= 550` lines per test file across `tests/Shiro.Tests/` and `<= 485` lines per `ArchitectureTests*.cs` file.
   - `DomainFolder_ShouldNotDependOn_ViewModelsOrAvaloniaOrWin32Registry`: Guarded the `Domain/` layer against UI, ViewModel, and platform-specific Win32 dependencies.
   - `FastJson_ShouldHaveSingleDefinition`: Verified single canonical JSON serializer implementation.
 
 ### Changed
+- **Legacy Module Consolidation & Removal**: Removed legacy `PuppeteerSharp` / Chromium browser automation (`Services/Browser/`, `ChromeLaunchHelper`), `Nexus` WebSocket controller (`src/Shiro/Nexus/`, `NexusWindow`, `NexusViewModel`), and archive self-installer (`UpdaterWindow`, `UpdaterViewModel`, `UpdateArchiveInstaller`, `ReleaseInfoParser`), consolidating interactive authentication on WebView2 `FastLoginDialog` and local automation on `KestrelWebServer`.
 - **Phase 6 - Zero Ambient Statics, Domain Purity & Test Hygiene**:
   - **Zero `async void` in `AvaloniaUI/`**: Refactored native WebView2 navigation event handlers in `FastLoginDialog.Automation.cs` into task-based methods with comprehensive error catching and logging, ensuring 0 `async void` across the entire application.
   - **Pure `Domain/` Layer & Unified `FastJson`**: Relocated UI prompt utilities from `Domain/Utilities.cs` to `Services/Ui/Utilities.cs`, purified `Domain/` model dependencies, and eliminated redundant JSON serialization definitions.

@@ -31,7 +31,7 @@
                         <StackPanel Orientation="Horizontal" Spacing="6"><lucide:Lucide Icon="Search" Width="13" Height="13" StrokeBrush="#09090B" StrokeThickness="2.5"
                         VerticalAlignment="Center" /><TextBlock Text="{DynamicResource Srv_SearchServers}" VerticalAlignment="Center" /></StackPanel>
                     </Button>
-                    <Button Command="{Binding CancelOperationCommand}" IsVisible="{Binding IsLoadingServers}" Margin="0,2,8,2" Background="#2B1518" Foreground="#EF4444" BorderBrush="#4A1E24"
+                    <Button Command="{Binding CancelOperationCommand}" IsVisible="{Binding CanCancelOperation}" Margin="0,2,8,2" Background="#2B1518" Foreground="#EF4444" BorderBrush="#4A1E24"
                         BorderThickness="1" CornerRadius="6" Padding="12,8" Cursor="Hand">
                         <StackPanel Orientation="Horizontal" Spacing="6"><lucide:Lucide Icon="Square" Width="12" Height="12" StrokeBrush="#EF4444" VerticalAlignment="Center" /><TextBlock
                         Text="{DynamicResource Srv_Cancel}" VerticalAlignment="Center" /></StackPanel>

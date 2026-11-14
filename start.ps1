@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Shiro Account Manager • Modern PowerShell Startup Script
 .DESCRIPTION
@@ -21,6 +21,9 @@ $targetExe = Join-Path $releaseDir 'Shiro.exe'
 $updateExe = Join-Path $updateDir 'Shiro.exe'
 
 # 1. Apply pending auto-update if present
+if (Test-Path -LiteralPath $releaseDir) {
+    Get-ChildItem -LiteralPath $releaseDir -Filter '*.old*' -File -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
+}
 if (Test-Path -LiteralPath $updateExe) {
     Write-Host "[Update] Applying pending Shiro update..." -ForegroundColor Cyan
     try {

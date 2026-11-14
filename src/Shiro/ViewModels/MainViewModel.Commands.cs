@@ -18,7 +18,6 @@ namespace Shiro.ViewModels
         public Action? OnReLoginAllExpiredRequested { get; set; }
         public Action? OnKillAllRequested { get; set; }
         public Action? OnProxyManagerRequested { get; set; }
-        public Action? OnNexusRequested { get; set; }
 
         #region Commands
         public ICommand ToggleViewModeCommand { get; private set; } = null!;
@@ -55,7 +54,6 @@ namespace Shiro.ViewModels
         public ICommand RefreshAllRobuxCommand { get; private set; } = null!;
         public ICommand CheckRobuxAccountCommand { get; private set; } = null!;
         public ICommand OpenProxyManagerCommand { get; private set; } = null!;
-        public ICommand OpenNexusCommand { get; private set; } = null!;
         public ICommand CleanSystemTrayCommand { get; private set; } = null!;
 
         private void PostStatusMessage(string message)
@@ -172,12 +170,6 @@ namespace Shiro.ViewModels
             {
                 if (OnProxyManagerRequested != null) OnProxyManagerRequested.Invoke();
                 else AppServices.Dialogs.OpenProxyManagerDialog();
-            });
-
-            OpenNexusCommand = new RelayCommand(() =>
-            {
-                if (OnNexusRequested != null) OnNexusRequested.Invoke();
-                else AppServices.Dialogs.OpenNexusWindow();
             });
 
             RefreshAllRobuxCommand = new AsyncRelayCommand(async () =>

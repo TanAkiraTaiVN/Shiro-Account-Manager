@@ -3,7 +3,6 @@ using System;
 using System.Collections.Generic;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Shiro.Nexus;
 
 namespace Shiro.Services
 {
@@ -21,14 +20,10 @@ namespace Shiro.Services
     [JsonSerializable(typeof(IReadOnlyCollection<Account>))]
     [JsonSerializable(typeof(Account[]))]
     [JsonSerializable(typeof(AccountJson))]
-    [JsonSerializable(typeof(ControlledAccount))]
-    [JsonSerializable(typeof(List<ControlledAccount>))]
-    [JsonSerializable(typeof(Command))]
     [JsonSerializable(typeof(RobloxCurrencyResponse))]
     [JsonSerializable(typeof(RobloxAuthenticatedUser))]
     [JsonSerializable(typeof(RobloxFriendsCountResponse))]
     [JsonSerializable(typeof(RobloxPinInfo))]
-    [JsonSerializable(typeof(BrowserConfig))]
     [JsonSerializable(typeof(ThumbnailBatchResponse))]
     [JsonSerializable(typeof(ThumbnailBatchItem))]
     [JsonSerializable(typeof(GameDetails))]

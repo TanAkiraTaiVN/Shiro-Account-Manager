@@ -12,7 +12,6 @@ namespace Shiro.ViewModels
     {
         // Add callbacks
         public Action? OnAddAccountRequested { get; set; }
-        public Action? OnAddAccountChromeRequested { get; set; }
         public Action? OnAddAccountFastLoginRequested { get; set; }
         public Action? OnAddAccountCookieRequested { get; set; }
         public Action? OnBulkImportRequested { get; set; }
@@ -48,7 +47,6 @@ namespace Shiro.ViewModels
 
         // Add Commands
         public ICommand AddAccountCommand { get; private set; } = null!;
-        public ICommand AddAccountChromeCommand { get; private set; } = null!;
         public ICommand AddAccountFastLoginCommand { get; private set; } = null!;
         public ICommand AddAccountCookieCommand { get; private set; } = null!;
         public ICommand BulkImportCommand { get; private set; } = null!;
@@ -92,55 +90,10 @@ namespace Shiro.ViewModels
                 else AppServices.Dialogs.OpenFastLoginDialog(null);
             });
             AddAccountFastLoginCommand = AddAccountCommand;
-            AddAccountChromeCommand = new RelayCommand(() =>
-            {
-                if (OnAddAccountChromeRequested != null)
-                {
-                    OnAddAccountChromeRequested.Invoke();
-                    return;
-                }
-
-                _ = Task.Run(async () =>
-                {
-                    try
-                    {
-                        await BrowserService.Default.SignInAsync().ConfigureAwait(false);
-                        AppDispatcher.Post(() => LoadAccounts(AppServices.AccountRepository.GetAll()));
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.Error($"[AddAccountChromeCommand] {ex}");
-                    }
-                });
-            });
             AddAccountCookieCommand = new RelayCommand(() =>
             {
-                if (OnAddAccountCookieRequested != null)
-                {
-                    OnAddAccountCookieRequested.Invoke();
-                    return;
-                }
-
-                string cookie = AppServices.Dialogs.ShowInputPrompt(Shiro.Services.LocalizationService.Get("Main.PasteCookiePrompt"), Shiro.Services.LocalizationService.Get("Main.EnterCookieTitle"));
-                if (!string.IsNullOrWhiteSpace(cookie) && cookie != "/UC")
-                {
-                    _ = Task.Run(async () =>
-                    {
-                        var acc = await AppServices.AccountRepository.AddOrUpdateAsync(cookie.Trim()).ConfigureAwait(false);
-                        AppDispatcher.Post(() =>
-                        {
-                            if (acc != null)
-                            {
-                                LoadAccounts(AppServices.AccountRepository.GetAll());
-                                StatusMessage = Shiro.Services.LocalizationService.Format("Main.AccountAddedViaCookie", acc.Username);
-                            }
-                            else
-                            {
-                                StatusMessage = Shiro.Services.LocalizationService.Get("Main.CookieInvalidOrExpired");
-                            }
-                        });
-                    });
-                }
+                if (OnAddAccountCookieRequested != null) OnAddAccountCookieRequested.Invoke();
+                else AppServices.Dialogs.OpenCookieImportDialog(null);
             });
             ClearRobloxClientSessionCommand = new RelayCommand(() =>
             {
@@ -182,7 +135,7 @@ namespace Shiro.ViewModels
                 if (p is AccountViewModel a)
                 {
                     if (OnReLoginWithCookieRequested != null) OnReLoginWithCookieRequested.Invoke(a);
-                    else _ = Task.Run(async () => await AppServices.AccountWorkflowService.ReLoginWithCookieAsync(a, this, PostStatusMessage).ConfigureAwait(false));
+                    else if (a.Model != null) AppServices.Dialogs.OpenCookieImportDialog(a.Model);
                 }
             });
             ValidateSessionCommand = new RelayCommand(p =>

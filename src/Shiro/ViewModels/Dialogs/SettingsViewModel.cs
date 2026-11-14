@@ -35,11 +35,11 @@ namespace Shiro.ViewModels.Dialogs
         private decimal? _jobCpuCap = 0m;
 
         private bool _smartFastLaunch = true;
+        private bool _waitForCaptchaInQueue;
         private decimal? _joinDelay = 8m;
         private bool _useProxies;
         private bool _enableWebServer;
         private decimal? _webServerPort = 7963m;
-        private decimal? _nexusPort = 5242m;
 
         private bool _autoCookieRefresh = true;
         private bool _savePasswords = true;
@@ -163,11 +163,8 @@ namespace Shiro.ViewModels.Dialogs
             set => SetProperty(ref _jobCpuCap, value);
         }
 
-        public bool SmartFastLaunch
-        {
-            get => _smartFastLaunch;
-            set => SetProperty(ref _smartFastLaunch, value);
-        }
+        public bool SmartFastLaunch { get => _smartFastLaunch; set => SetProperty(ref _smartFastLaunch, value); }
+        public bool WaitForCaptchaInQueue { get => _waitForCaptchaInQueue; set => SetProperty(ref _waitForCaptchaInQueue, value); }
 
         public decimal? JoinDelay
         {
@@ -191,12 +188,6 @@ namespace Shiro.ViewModels.Dialogs
         {
             get => _webServerPort;
             set => SetProperty(ref _webServerPort, value);
-        }
-
-        public decimal? NexusPort
-        {
-            get => _nexusPort;
-            set => SetProperty(ref _nexusPort, value);
         }
 
         public bool AutoCookieRefresh
@@ -259,11 +250,12 @@ namespace Shiro.ViewModels.Dialogs
 
                 SmartFastLaunch = !_general.Exists(AppSettingsKeys.General.SmartFastLaunch)
                     || _general.Get<bool>(AppSettingsKeys.General.SmartFastLaunch);
+                WaitForCaptchaInQueue = _general.Exists(AppSettingsKeys.General.WaitForCaptchaInQueue)
+                    && _general.Get<bool>(AppSettingsKeys.General.WaitForCaptchaInQueue);
                 JoinDelay = _settings.AccountJoinDelay;
                 UseProxies = _settings.UseProxies;
                 EnableWebServer = _settings.EnableWebServer;
                 WebServerPort = _settings.WebServerPort;
-                NexusPort = _settings.NexusPort;
 
                 AutoCookieRefresh = _settings.AutoCookieRefresh;
                 SavePasswords = _settings.SavePasswords;
@@ -349,6 +341,7 @@ namespace Shiro.ViewModels.Dialogs
                 }
 
                 _general.Set(AppSettingsKeys.General.SmartFastLaunch, SmartFastLaunch ? "true" : "false");
+                _general.Set(AppSettingsKeys.General.WaitForCaptchaInQueue, WaitForCaptchaInQueue ? "true" : "false");
                 if (JoinDelay.HasValue)
                     _settings.AccountJoinDelay = (int)JoinDelay.Value;
                 _settings.UseProxies = UseProxies;
@@ -372,9 +365,6 @@ namespace Shiro.ViewModels.Dialogs
                 {
                     _ = _effects.StopWebServerAsync();
                 }
-
-                if (NexusPort.HasValue)
-                    _settings.NexusPort = (int)NexusPort.Value;
 
                 bool prevAutoCookie = _settings.AutoCookieRefresh;
                 _settings.AutoCookieRefresh = AutoCookieRefresh;

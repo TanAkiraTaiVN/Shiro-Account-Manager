@@ -34,6 +34,66 @@ namespace Shiro.Services
         }
 
         /// <summary>
+        /// Constructs and cryptographically signs Roblox's pre-ticket client-assertion request.
+        /// </summary>
+        public static HttpRequestMessage CreateClientAssertionRequest(Account account, bool includeHba = true)
+        {
+            var request = new HttpRequestMessage(HttpMethod.Get, "https://auth.roblox.com/v1/client-assertion/");
+            account.ApplySessionFingerprintAndHba(request, string.Empty, includeHba: includeHba);
+            ApplyBrowserOriginHeaders(request);
+            return request;
+        }
+
+        /// <summary>
+        /// Fetches Roblox's /v1/client-assertion/ payload before requesting an authentication ticket,
+        /// falling back to "{}" to match web client behavior when unavailable.
+        /// </summary>
+        public static async Task<string> FetchClientAssertionBodyAsync(
+            Account account,
+            HttpClient httpClient,
+            bool includeHba = true,
+            CancellationToken cancellationToken = default)
+        {
+            for (int attempt = 0; attempt < 2; attempt++)
+            {
+                try
+                {
+                    using var request = CreateClientAssertionRequest(account, includeHba);
+                    using var response = await httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+                    if (response == null)
+                        return "{}";
+
+                    account.TryUpdateRotatedCookie(response);
+                    if (!response.IsSuccessStatusCode)
+                        return "{}";
+
+                    string raw = (await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false)).Trim();
+                    if (string.IsNullOrEmpty(raw))
+                        return "{}";
+
+                    using var doc = System.Text.Json.JsonDocument.Parse(raw);
+                    return doc.RootElement.ValueKind == System.Text.Json.JsonValueKind.Object ? raw : "{}";
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (System.Net.Http.HttpRequestException ex) when (attempt == 0)
+                {
+                    // Retry once to recover from a stale pooled HTTP/2 socket invalidated by a recent VPN/network change.
+                    AppServices.Logger?.Debug($"[AccountLaunchService] Retrying client-assertion probe for {account.Username} after transport error: {ex.Message}");
+                }
+                catch (Exception ex)
+                {
+                    AppServices.Logger?.Debug($"[AccountLaunchService] client-assertion probe fell back to empty payload for {account.Username}: {ex.Message}");
+                    return "{}";
+                }
+            }
+
+            return "{}";
+        }
+
+        /// <summary>
         /// Constructs and cryptographically signs an authentication ticket request for Roblox launch using HBA binding.
         /// </summary>
         public static HttpRequestMessage CreateTicketRequest(Account account, string? csrfToken = null, string body = "{}", bool includeHba = true)
@@ -42,12 +102,17 @@ namespace Shiro.Services
             account.ApplySessionFingerprintAndHba(request, body, includeHba: includeHba);
             if (!string.IsNullOrEmpty(csrfToken))
                 request.Headers.TryAddWithoutValidation("X-CSRF-TOKEN", csrfToken);
-            request.Headers.TryAddWithoutValidation("Origin", "https://www.roblox.com");
-            request.Headers.TryAddWithoutValidation("Referer", "https://www.roblox.com/");
+            ApplyBrowserOriginHeaders(request);
             request.Headers.TryAddWithoutValidation("rbxauthenticationnegotiation", "1");
-            request.Headers.TryAddWithoutValidation("Accept", "application/json, text/plain, */*");
             request.Content = new System.Net.Http.StringContent(body, System.Text.Encoding.UTF8, "application/json");
             return request;
+        }
+
+        private static void ApplyBrowserOriginHeaders(HttpRequestMessage request)
+        {
+            request.Headers.TryAddWithoutValidation("Origin", "https://www.roblox.com");
+            request.Headers.TryAddWithoutValidation("Referer", "https://www.roblox.com/");
+            request.Headers.TryAddWithoutValidation("Accept", "application/json, text/plain, */*");
         }
 
         public static async Task PrepareNativeLaunchEnvironmentAsync(CancellationToken cancellationToken)
@@ -225,9 +290,12 @@ namespace Shiro.Services
                 bool shouldForceRebind = account.HasHbaBinding && !string.Equals(account.LastBoundIpSignature, RobloxHbaService.GetNetworkSignatureForAccount(account), StringComparison.Ordinal);
                 await account.TryRebindSessionToCurrentNetworkAsync(force: shouldForceRebind, cancellationToken).ConfigureAwait(false);
             }
+            long ticketStartTicks = Stopwatch.GetTimestamp();
             (bool Success, string Ticket) ticketResult = TestGetAuthTicketOverride != null
                 ? await TestGetAuthTicketOverride(account, cancellationToken).ConfigureAwait(false)
                 : await account.GetAuthTicketAsync(cancellationToken).ConfigureAwait(false);
+            if (LaunchTimingService.CurrentAttempt != null)
+                LaunchTimingService.CurrentAttempt.TicketMs = (long)Stopwatch.GetElapsedTime(ticketStartTicks).TotalMilliseconds;
             if (ticketResult.Success)
             {
                 try
@@ -333,6 +401,11 @@ namespace Shiro.Services
                         ? await TestStartNativeGameOverride(nativeLaunchUri, ticket, joinUrl, account.Username, account.BrowserTrackerID, account.SecurityToken, cancellationToken).ConfigureAwait(false)
                         : await StartNativeGameAsync(nativeLaunchUri, ticket, joinUrl, account.Username, account.BrowserTrackerID, account.SecurityToken, cancellationToken).ConfigureAwait(false);
                     account.LastLaunchedProcessId = nativePid;
+                    if (LaunchTimingService.CurrentAttempt != null)
+                    {
+                        LaunchTimingService.CurrentAttempt.ProcessId = nativePid;
+                        LaunchTimingService.CurrentAttempt.SpawnMs = (long)Stopwatch.GetElapsedTime(LaunchTimingService.CurrentAttempt.AttemptStartTicks).TotalMilliseconds;
+                    }
 
                     ObserveBackgroundTask(
                         MonitorNativeAuthRateLimitAsync(launchStartedUtc, account, cancellationToken),

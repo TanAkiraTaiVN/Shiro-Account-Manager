@@ -1,19 +1,14 @@
 #nullable enable
-using System.Threading.Tasks;
-using System.Threading;
-using PuppeteerSharp;
-using PuppeteerSharp.BrowserData;
 using System;
 using System.IO;
-using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Shiro.Services
 {
     public sealed class BrowserService
     {
         public static BrowserService Default { get; } = new BrowserService();
-
-        private static string? cachedInstalledBrowserPath;
 
         private static ReadOnlySpan<byte> SuppressedPasswordPrefsUtf8 =>
             """
@@ -32,65 +27,6 @@ namespace Shiro.Services
               }
             }
             """u8;
-
-        /// <summary>
-        /// Returns the preferred installed browser executable. Chrome is
-        /// deliberately first; Edge is only used when Chrome is unavailable.
-        /// Keeping this choice here makes sign-in and sign-up use the same
-        /// browser policy as the rest of the application.
-        /// </summary>
-        public static string? FindInstalledBrowserExecutable()
-        {
-            string? cached = Volatile.Read(ref cachedInstalledBrowserPath);
-            if (!string.IsNullOrEmpty(cached) && File.Exists(cached))
-                return cached;
-
-            string[] candidates = AccountBrowser.FindSystemBrowserExecutables();
-            string? edgeFallback = null;
-            foreach (string path in candidates)
-            {
-                string fileName = Path.GetFileName(path);
-                if (string.Equals(fileName, "chrome.exe", StringComparison.OrdinalIgnoreCase))
-                {
-                    Volatile.Write(ref cachedInstalledBrowserPath, path);
-                    return path;
-                }
-                if (edgeFallback == null && string.Equals(fileName, "msedge.exe", StringComparison.OrdinalIgnoreCase))
-                {
-                    edgeFallback = path;
-                }
-            }
-
-            if (edgeFallback != null)
-                Volatile.Write(ref cachedInstalledBrowserPath, edgeFallback);
-
-            return edgeFallback;
-        }
-
-        /// <summary>
-        /// Resolves an isolated browser executable without ever opening the
-        /// user's default browser profile. Chrome/Edge are preferred; a
-        /// Chromium copy cached by an older Shiro version is the last resort.
-        /// Nothing is downloaded: Edge ships with Windows 10/11.
-        /// </summary>
-        public static Task<string> ResolveBrowserExecutableAsync(
-            CancellationToken cancellationToken = default(CancellationToken))
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            string? installed = FindInstalledBrowserExecutable();
-            if (!string.IsNullOrWhiteSpace(installed))
-                return Task.FromResult(installed);
-
-            string? cached = AccountBrowser.FindCachedChromiumExecutable();
-            if (!string.IsNullOrWhiteSpace(cached))
-            {
-                AppServices.Logger?.Warn($"Chrome and Edge were not found; using previously cached Chromium at {cached}.");
-                return Task.FromResult(cached);
-            }
-
-            return Task.FromException<string>(new FileNotFoundException(AccountBrowser.BrowserNotFoundMessage));
-        }
 
         public static readonly string[] NoPasswordManagerSwitches = new[]
         {
@@ -139,25 +75,17 @@ namespace Shiro.Services
                 {
                     return await TestSignInOverride(username, password, windowSlot, submitCredentials, cancellationToken).ConfigureAwait(false);
                 }
-                return await RobloxBrowserLogin.LoginAsync(
-                    username,
-                    password,
-                    windowSlot,
-                    submitCredentials,
-                    cancellationToken: cancellationToken).ConfigureAwait(false);
+
+                Account? target = (!string.IsNullOrWhiteSpace(username) || !string.IsNullOrWhiteSpace(password))
+                    ? new Account { Username = username ?? string.Empty, Password = password ?? string.Empty }
+                    : null;
+                AppDispatcher.Post(() => AppServices.Dialogs.OpenFastLoginDialog(target));
+                return null;
             }
             finally
             {
                 SignInGate.Release();
             }
-        }
-
-        public async Task<Account?> SignUpAsync(
-            string? username = null,
-            string? password = null,
-            CancellationToken cancellationToken = default(CancellationToken))
-        {
-            return await RobloxBrowserSignup.OpenAsync(username!, password!, cancellationToken).ConfigureAwait(false);
         }
 
         public Task<string> OpenHomeAsync(
@@ -168,9 +96,6 @@ namespace Shiro.Services
             if (account == null)
                 return Task.FromResult("ERROR: Account was not found.");
 
-            // Keep the Home decision in one browser boundary while allowing
-            // Account to retain the native Roblox protocol and proxy-aware
-            // Chromium fallbacks that existing users rely on.
             return account.LaunchAppHome(preferChrome, cancellationToken);
         }
 

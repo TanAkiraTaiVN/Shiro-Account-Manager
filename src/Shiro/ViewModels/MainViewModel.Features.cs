@@ -188,10 +188,16 @@ namespace Shiro.ViewModels
 
         public void ReloadRecentGames()
         {
+            if (System.Threading.Volatile.Read(ref _disposed) != 0)
+                return;
+
             Task.Run(() =>
             {
                 try
                 {
+                    if (System.Threading.Volatile.Read(ref _disposed) != 0)
+                        return;
+
                     var list = new List<RecentGameItemViewModel>();
                     var recent = AppServices.ServerBrowserState.RecentGames;
                     if (recent != null)
@@ -218,6 +224,9 @@ namespace Shiro.ViewModels
 
                     AppDispatcher.Post(() =>
                     {
+                        if (System.Threading.Volatile.Read(ref _disposed) != 0)
+                            return;
+
                         if (RecentGamesList.Count == list.Count)
                         {
                             bool same = true;
@@ -249,10 +258,12 @@ namespace Shiro.ViewModels
                                 _ = Task.Run(async () =>
                                 {
                                     var resolved = await GameInfoService.ResolvePlaceNameAsync(targetItem.PlaceId).ConfigureAwait(false);
-                                    if (!string.IsNullOrWhiteSpace(resolved))
+                                    if (!string.IsNullOrWhiteSpace(resolved) && System.Threading.Volatile.Read(ref _disposed) == 0)
                                     {
                                         AppDispatcher.Post(() =>
                                         {
+                                            if (System.Threading.Volatile.Read(ref _disposed) != 0)
+                                                return;
                                             targetItem.Name = resolved!;
                                             SetKnownGameTitle(targetItem.PlaceId, resolved);
                                         });

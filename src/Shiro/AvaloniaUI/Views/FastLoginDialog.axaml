@@ -7,8 +7,8 @@
         x:DataType="vm:CookieImportViewModel"
         Icon="/Resources/shiro.ico"
         Title="{DynamicResource Loc_FastLogin_WindowTitle}"
-        Width="460" Height="580"
-        MinWidth="400" MinHeight="480"
+        Width="500" Height="580"
+        MinWidth="440" MinHeight="480"
         WindowStartupLocation="CenterOwner"
         CanResize="True"
         Background="#0D0D11">
@@ -49,17 +49,21 @@
         <!-- Header Row -->
         <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,10">
             <!-- Title & Subtitle -->
-            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                <Border Background="#252536" CornerRadius="8" Width="30" Height="30">
+            <Grid Grid.Column="0" ColumnDefinitions="Auto,*" VerticalAlignment="Center" Margin="0,0,12,0">
+                <Border Grid.Column="0" Background="#252536" CornerRadius="8" Width="30" Height="30" Margin="0,0,10,0" VerticalAlignment="Center">
                     <lucide:Lucide Icon="LogIn" Width="15" Height="15" StrokeBrush="#38BDF8" HorizontalAlignment="Center" VerticalAlignment="Center" />
                 </Border>
-                <StackPanel VerticalAlignment="Center">
-                    <TextBlock x:Name="TxtDialogTitle" Text="{DynamicResource Loc_FastLogin_AccountLoginTitle}" FontSize="14" FontWeight="Bold" Foreground="#FFFFFF" />
-                    <TextBlock x:Name="TxtDialogSubtitle" Text="{DynamicResource Loc_FastLogin_AccountLoginSubtitle}" FontSize="11" Foreground="#71717A" />
+                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="1">
+                    <TextBlock x:Name="TxtDialogTitle" Text="{DynamicResource Loc_FastLogin_AccountLoginTitle}"
+                               FontSize="14" FontWeight="Bold" Foreground="#FFFFFF"
+                               TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding $self.Text}" />
+                    <TextBlock x:Name="TxtDialogSubtitle" Text="{DynamicResource Loc_FastLogin_AccountLoginSubtitle}"
+                               FontSize="11" Foreground="#71717A"
+                               TextWrapping="Wrap" />
                 </StackPanel>
-            </StackPanel>
+            </Grid>
 
-            <!-- Mode Tabs (In-App vs Dán Cookie) -->
+            <!-- Mode Tabs (In-App vs Cookie) -->
             <Border Grid.Column="1" Background="#14141C" BorderBrush="#242432" BorderThickness="1" CornerRadius="7" Padding="2" VerticalAlignment="Center">
                 <StackPanel Orientation="Horizontal" Spacing="2">
                     <RadioButton x:Name="TabInApp" Classes="ModeTabPill"
@@ -136,7 +140,7 @@
                 <StackPanel Spacing="12" Margin="10,8">
                     <!-- Cookie input -->
                     <StackPanel Spacing="5">
-                        <TextBlock Text="Roblox Cookie (.ROBLOSECURITY):" FontSize="11" FontWeight="SemiBold" Foreground="#D4D4D8" />
+                        <TextBlock Text="{DynamicResource Loc_FastLogin_CookieInputLabel}" FontSize="11" FontWeight="SemiBold" Foreground="#D4D4D8" />
                         <TextBox x:Name="TxtCookie" Text="{Binding Cookie}" Watermark="_|WARNING:-DO-NOT-SHARE-THIS..."
                                  Height="80" AcceptsReturn="True" TextWrapping="Wrap"
                                  Background="#14141C" Foreground="#FFFFFF" BorderBrush="#272733"
@@ -147,13 +151,13 @@
                     <Grid ColumnDefinitions="*,*">
                         <StackPanel Grid.Column="0" Spacing="5" Margin="0,0,4,0">
                             <TextBlock Text="{DynamicResource Loc_FastLogin_AliasOptionalLabel}" FontSize="11" FontWeight="SemiBold" Foreground="#D4D4D8" />
-                            <TextBox x:Name="TxtCookieAlias" Text="{Binding Alias}" Watermark="e.g. Main Farm"
+                            <TextBox x:Name="TxtCookieAlias" Text="{Binding Alias}" Watermark="{DynamicResource Loc_FastLogin_AliasWatermark}"
                                      Background="#14141C" Foreground="#FFFFFF" BorderBrush="#272733"
                                      CornerRadius="6" Padding="8,6" FontSize="11" />
                         </StackPanel>
                         <StackPanel Grid.Column="1" Spacing="5" Margin="4,0,0,0">
                             <TextBlock Text="{DynamicResource Loc_FastLogin_GroupOptionalLabel}" FontSize="11" FontWeight="SemiBold" Foreground="#D4D4D8" />
-                            <TextBox x:Name="TxtCookieGroup" Text="{Binding Group}" Watermark="e.g. Alts"
+                            <TextBox x:Name="TxtCookieGroup" Text="{Binding Group}" Watermark="{DynamicResource Loc_FastLogin_GroupWatermark}"
                                      Background="#14141C" Foreground="#FFFFFF" BorderBrush="#272733"
                                      CornerRadius="6" Padding="8,6" FontSize="11" />
                         </StackPanel>
@@ -161,17 +165,20 @@
 
                     <!-- Status & Preview Card -->
                     <Border Background="#14141C" BorderBrush="#272733" BorderThickness="1" CornerRadius="6" Padding="10">
-                        <StackPanel Spacing="6">
-                            <StackPanel Orientation="Horizontal" Spacing="10">
-                                <Border Width="36" Height="36" CornerRadius="18" Background="#1E1E2A">
-                                    <lucide:Lucide Icon="User" Width="18" Height="18" StrokeBrush="#A1A1AA" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                </Border>
-                                <StackPanel VerticalAlignment="Center" Spacing="2">
-                                    <TextBlock x:Name="TxtPreviewUsername" Text="{Binding PreviewUsername}" FontSize="12" FontWeight="Bold" Foreground="#FFFFFF" />
-                                    <TextBlock x:Name="TxtPreviewStatus" Text="{Binding StatusText}" FontSize="11" Foreground="#A1A1AA" />
-                                </StackPanel>
+                        <Grid ColumnDefinitions="Auto,*">
+                            <Border Grid.Column="0" Width="36" Height="36" CornerRadius="18" Background="#1E1E2A" Margin="0,0,10,0" VerticalAlignment="Center">
+                                <lucide:Lucide Icon="User" Width="18" Height="18" StrokeBrush="#A1A1AA" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                                <TextBlock x:Name="TxtPreviewUsername" Text="{Binding PreviewUsername}"
+                                           IsVisible="{Binding PreviewUsername, Converter={StaticResource StringNotNullOrEmpty}}"
+                                           FontSize="12" FontWeight="Bold" Foreground="#FFFFFF"
+                                           TextTrimming="CharacterEllipsis" />
+                                <TextBlock x:Name="TxtPreviewStatus" Text="{Binding StatusText}"
+                                           Foreground="{Binding StatusKind, Converter={StaticResource StatusKindToBrush}}"
+                                           FontSize="11" TextWrapping="Wrap" />
                             </StackPanel>
-                        </StackPanel>
+                        </Grid>
                     </Border>
                 </StackPanel>
             </ScrollViewer>
@@ -180,13 +187,13 @@
         <!-- Footer Row -->
         <Grid Grid.Row="2" ColumnDefinitions="*,Auto" Margin="0,10,0,0">
             <!-- Left Info -->
-            <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" Margin="0,0,8,0">
-                <lucide:Lucide Icon="Info" Width="13" Height="13" StrokeBrush="#38BDF8" VerticalAlignment="Center"
-                               IsVisible="{Binding #TxtTip.IsVisible}" />
-                <TextBlock x:Name="TxtTip" Text="{DynamicResource Loc_FastLogin_CloseOnCompleteTip}"
+            <Grid Grid.Column="0" ColumnDefinitions="Auto,*" VerticalAlignment="Center" Margin="0,0,10,0">
+                <lucide:Lucide Grid.Column="0" Icon="Info" Width="13" Height="13" StrokeBrush="#38BDF8" VerticalAlignment="Center"
+                               Margin="0,0,6,0" IsVisible="{Binding #TxtTip.IsVisible}" />
+                <TextBlock Grid.Column="1" x:Name="TxtTip" Text="{DynamicResource Loc_FastLogin_CloseOnCompleteTip}"
                            FontSize="11" Foreground="#71717A" VerticalAlignment="Center"
-                           TextTrimming="CharacterEllipsis" IsVisible="True" />
-            </StackPanel>
+                           TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding $self.Text}" IsVisible="True" />
+            </Grid>
 
             <!-- Actions -->
             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">

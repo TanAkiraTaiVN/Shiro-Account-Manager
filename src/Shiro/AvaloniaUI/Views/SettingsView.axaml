@@ -183,6 +183,16 @@
                         <Separator Background="#24242C" Height="1" />
                         <Grid ColumnDefinitions="*,Auto">
                             <StackPanel Grid.Column="0" Spacing="2" Margin="0,0,16,0">
+                                <TextBlock Text="{DynamicResource Set_WaitForCaptchaInQueue}" Foreground="#FFFFFF" FontSize="13" TextWrapping="Wrap" />
+                                <TextBlock Text="{DynamicResource Set_WaitForCaptchaInQueueTip}" FontSize="11" Foreground="#A1A1AA" TextWrapping="Wrap" />
+                            </StackPanel>
+                            <ToggleSwitch Grid.Column="1" x:Name="SwWaitForCaptchaInQueue"
+                                IsChecked="{Binding WaitForCaptchaInQueue}" HorizontalAlignment="Right"
+                                VerticalAlignment="Center" OnContent="{x:Null}" OffContent="{x:Null}" />
+                        </Grid>
+                        <Separator Background="#24242C" Height="1" />
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel Grid.Column="0" Spacing="2" Margin="0,0,16,0">
                                 <TextBlock Text="{DynamicResource Set_JoinDelay}" Foreground="#FFFFFF" FontSize="13" TextWrapping="Wrap" />
                                 <TextBlock Text="{DynamicResource Set_JoinDelayTip}" FontSize="11" Foreground="#A1A1AA" TextWrapping="Wrap" />
                             </StackPanel>
@@ -213,15 +223,6 @@
                                 <TextBlock Text="{DynamicResource Set_WebServerPortTip}" FontSize="11" Foreground="#A1A1AA" TextWrapping="Wrap" />
                             </StackPanel>
                             <NumericUpDown Grid.Column="1" x:Name="NumWebServerPort" Minimum="1024" Maximum="65535" Value="{Binding WebServerPort}" Width="120"
-                                HorizontalAlignment="Right" VerticalAlignment="Center" Background="#18181F" Foreground="#FFFFFF" BorderBrush="#2E2E38" />
-                        </Grid>
-                        <Separator Background="#24242C" Height="1" />
-                        <Grid ColumnDefinitions="*,Auto">
-                            <StackPanel Grid.Column="0" Spacing="2" Margin="0,0,16,0">
-                                <TextBlock Text="{DynamicResource Set_NexusPort}" Foreground="#FFFFFF" FontSize="13" TextWrapping="Wrap" />
-                                <TextBlock Text="{DynamicResource Set_NexusPortTip}" FontSize="11" Foreground="#A1A1AA" TextWrapping="Wrap" />
-                            </StackPanel>
-                            <NumericUpDown Grid.Column="1" x:Name="NumNexusPort" Minimum="1024" Maximum="65535" Value="{Binding NexusPort}" Width="120"
                                 HorizontalAlignment="Right" VerticalAlignment="Center" Background="#18181F" Foreground="#FFFFFF" BorderBrush="#2E2E38" />
                         </Grid>
                     </StackPanel>

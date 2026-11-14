@@ -2,9 +2,9 @@
 
 ## Enforced Coverage Gates (Task 19 - 10/10 Overhaul)
 
-- **Overall Line Coverage**: 75.47% (Gate: >= 75.0%)
-- **Overall Branch Coverage**: 63.93% (Gate: >= 60.0%)
-- **Core Security/Persistence Coverage**: 92.83% (Gate: >= 92.0%)
+- **Overall Line Coverage**: 78.82% (Gate: >= 75.0%)
+- **Overall Branch Coverage**: 68.21% (Gate: >= 60.0%)
+- **Core Security/Persistence Coverage**: 93.44% (Gate: >= 92.0%)
 
 Enforced by `scripts/Check-Coverage.ps1 -MinOverall 75.0 -MinBranch 60.0 -MinCore 92.0`, GitHub Actions workflows (`.github/workflows/build.yml` and `.github/workflows/release.yml`), and validated by `ArchitectureTests.cs`.
 
@@ -27,10 +27,6 @@ Only files falling strictly into the categories of generated code, desktop UI pr
 | `**/App.axaml.cs` | UI Framework | Avalonia application entrypoint and framework lifecycle requiring desktop runtime bootstrap. |
 | `**/AvaloniaUI/**` | UI Presentation | Avalonia visual tree, windowing, and XAML views requiring desktop GUI display context. |
 | `**/tests/**` | Test Harness | Test project source files and mock fixtures excluded from production coverage metrics. |
-| `**/RobloxBrowserLogin*.cs` | WebView Interop | Embedded browser login dialog managing web navigation and interactive Roblox session handling. |
-| `**/RobloxBrowserSignup*.cs` | WebView Interop | Embedded browser signup dialog managing web navigation and interactive signup forms. |
-| `**/AccountBrowser.cs` | WebView Interop | Embedded browser window wrapper handling direct cookie injection and interactive browser navigation. |
-| `**/ChromiumHomeBrowser.cs` | WebView Interop | Embedded Chromium/CefSharp view displaying the Roblox home portal inside the client UI. |
 | `**/RobloxProcess.cs` | Native Interop | Win32 process interop, memory inspection, and OS handle manipulation requiring a live Roblox game process. |
 | `**/RobloxWatcher.cs` | Native Interop | Background Win32 process watcher thread polling OS process lifecycle events. |
 
@@ -41,14 +37,9 @@ The 17 extra exclusions artificially added in commit `ccb4f6b` have been removed
 
 These files contain testable business logic and their coverage will be increased honestly through behavioral unit tests in subsequent tasks.
 
-## Accepted async void (WebView2 events)
+## Accepted async void (`ICommand.Execute`)
 
-The remaining 5 `async void` methods in `src/Shiro/AvaloniaUI/Views/FastLoginDialog.axaml.cs` are event handlers strictly required by native `CoreWebView2` / `DispatcherTimer` / `WebView2Control` delegate signatures and directly drive the embedded browser control:
-- `OnWebViewInitialized`: Native WebView2 initialization callback; delegates credentials and script injection to `FastLoginCoordinator`.
-- `OnSourceChanged`: Browser URI change observer; inspects URL for moderation checkpoints and authentication redirections.
-- `OnNavigationCompleted`: Page load completion handler; triggers DOM verification and automated login scripts.
-- `OnPollTimerTick`: UI timer tick capturing `.ROBLOSECURITY` cookies from the session partition upon successful login.
-- `OnRefillClicked`: User click event initiating form auto-fill via coordinator.
+`AvaloniaUI/` has **0** `async void` methods (`AsyncVoidHandlers_InViews_ShouldNotExceedBaseline` is locked at baseline `0`). All WebView2 navigation and polling handlers in `FastLoginDialog` are task-based methods with full exception catching and logging.
 
-All domain logic, account creation, cookie parsing, and queue operations have been fully extracted into `FastLoginCoordinator` and `FastLoginDialogViewModel`, enabling 100% headless testability without WebView2 instantiation.
+The only remaining `async void` methods in `src/Shiro` are the two `ICommand.Execute(object? parameter)` implementations in `src/Shiro/ViewModels/RelayCommand.cs` (`AsyncRelayCommand` and `AsyncRelayCommand<T>`), which wrap `ExecuteAsync(parameter)` with cancellation and error handling as required by the synchronous `void ICommand.Execute(object? parameter)` interface contract.
 

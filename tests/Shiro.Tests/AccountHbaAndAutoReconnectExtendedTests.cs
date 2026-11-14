@@ -159,43 +159,6 @@ namespace Shiro.Tests
         }
 
         [Fact]
-        public async Task ChromeLaunchHelper_SelectVerifiedBrowserProxyAsync_WhenDisabled_ReturnsNull()
-        {
-            AppSettings.General.Set("UseProxies", "false");
-            var res = await ChromeLaunchHelper.SelectVerifiedBrowserProxyAsync();
-            Assert.Null(res);
-        }
-
-        [Fact]
-        public async Task ChromeLaunchHelper_HandleCdpProxyAuthChallengeAsync_WithNulls_ReturnsSafely()
-        {
-            var ex = await Record.ExceptionAsync(() =>
-                ChromeLaunchHelper.HandleCdpProxyAuthChallengeAsync(null!, null!, "u", "p"));
-            Assert.Null(ex);
-        }
-
-        [Fact]
-        public void VerifiedBrowserProxy_PropertySettersAndGetters()
-        {
-            var proxy = new VerifiedBrowserProxy
-            {
-                BrowserServerArgument = "http://127.0.0.1:8080",
-                RawAuthority = "127.0.0.1:8080",
-                IsSocks = false,
-                AuthenticateInBrowser = true,
-                Username = "user1",
-                Password = "pass1"
-            };
-
-            Assert.Equal("http://127.0.0.1:8080", proxy.BrowserServerArgument);
-            Assert.Equal("127.0.0.1:8080", proxy.RawAuthority);
-            Assert.False(proxy.IsSocks);
-            Assert.True(proxy.AuthenticateInBrowser);
-            Assert.Equal("user1", proxy.Username);
-            Assert.Equal("pass1", proxy.Password);
-        }
-
-        [Fact]
         public void AutoReconnectService_PropertiesAndSettingsSync()
         {
             var service = AutoReconnectService.Instance;

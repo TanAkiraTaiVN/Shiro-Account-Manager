@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -9,6 +10,36 @@ namespace Shiro.Services
 {
     internal static class AccountLaunchBatchService
     {
+        public static List<LaunchRequest> BuildLaunchRequests(
+            IReadOnlyList<Account> accounts,
+            long placeId,
+            string? jobId,
+            bool followUser,
+            bool vipServer)
+        {
+            List<LaunchRequest> requests = new List<LaunchRequest>(accounts.Count);
+            foreach (Account account in accounts)
+            {
+                if (account == null)
+                    continue;
+
+                long targetPlaceId = placeId;
+                string targetJobId = jobId ?? string.Empty;
+
+                if (!followUser)
+                {
+                    if (targetPlaceId <= 0 && long.TryParse(account.GetField("SavedPlaceId"), out long savedPlaceId))
+                        targetPlaceId = savedPlaceId;
+                    if (string.IsNullOrEmpty(targetJobId) && !string.IsNullOrEmpty(account.GetField("SavedJobId")))
+                        targetJobId = account.GetField("SavedJobId");
+                }
+
+                requests.Add(new LaunchRequest(account, targetPlaceId, targetJobId, followUser, vipServer));
+            }
+
+            return requests;
+        }
+
         public static async Task LaunchAccountsAsync(
             ILaunchCoordinator launchCoordinator,
             List<Account>? accounts,
@@ -28,24 +59,8 @@ namespace Shiro.Services
             if (launchList.Count == 0)
                 return;
 
-            List<LaunchRequest> requests = new List<LaunchRequest>(launchList.Count);
-            foreach (Account account in launchList)
-            {
-                long targetPlaceId = placeId;
-                string targetJobId = jobId ?? string.Empty;
+            List<LaunchRequest> requests = BuildLaunchRequests(launchList, placeId, jobId, followUser, vipServer);
 
-                if (!followUser)
-                {
-                    if (targetPlaceId <= 0 && long.TryParse(account.GetField("SavedPlaceId"), out long savedPlaceId))
-                        targetPlaceId = savedPlaceId;
-                    if (string.IsNullOrEmpty(targetJobId) && !string.IsNullOrEmpty(account.GetField("SavedJobId")))
-                        targetJobId = account.GetField("SavedJobId");
-                }
-
-                requests.Add(new LaunchRequest(account, targetPlaceId, targetJobId, followUser, vipServer));
-            }
-
-            int requestedCount = requests.Count;
             void SetStatus(string message)
             {
                 AppServices.HostUiBridge.NotifyWindowStatus(message);
@@ -65,59 +80,165 @@ namespace Shiro.Services
                     },
                     cancellationToken).ConfigureAwait(true);
 
-                var expiredAccounts = batch.Results
-                    .Where(r => r.Status == LaunchOutcome.TicketError || (r.Account != null && !r.Account.Valid))
-                    .Select(r => r.Account?.Username ?? "Unknown")
-                    .Distinct()
-                    .ToList();
-
-                var otherFailedAccounts = batch.Results
-                    .Where(r => (r.Status == LaunchOutcome.Failed || r.Status == LaunchOutcome.Timeout) &&
-                                !expiredAccounts.Contains(r.Account?.Username ?? ""))
-                    .Select(r => r.Account?.Username ?? "Unknown")
-                    .Distinct()
-                    .ToList();
-
-                int successCount = batch.Results.Count(r => r.Status == LaunchOutcome.Success);
-
-                if (batch.Cancelled)
-                {
-                    SetStatus(LocalizationService.Get("Launch_QueueCancelled"));
-                }
-                else if (expiredAccounts.Count > 0 || otherFailedAccounts.Count > 0)
-                {
-                    string errDetail = "";
-                    if (expiredAccounts.Count > 0)
-                        errDetail += LocalizationService.Format("Launch_Summary_ExpiredDetail", expiredAccounts.Count, string.Join(", ", expiredAccounts));
-                    if (otherFailedAccounts.Count > 0)
-                        errDetail += LocalizationService.Format("Launch_Summary_OtherDetail", otherFailedAccounts.Count, string.Join(", ", otherFailedAccounts));
-
-                    AppServices.Logger.Warn($"[LaunchQueue] Launch queue completed: {successCount}/{requestedCount} succeeded. {errDetail}");
-                    SetStatus(LocalizationService.Format("Launch_Summary_CompletedWithErrors", successCount, requestedCount, errDetail));
-
-                    AppDispatcher.Post(() =>
-                    {
-                        string toastMsg = LocalizationService.Format("Launch_Toast_SuccessCount", successCount, requestedCount) + "\n" +
-                                          (expiredAccounts.Count > 0 ? LocalizationService.Format("Launch_Toast_ExpiredList", string.Join(", ", expiredAccounts)) + "\n" : "") +
-                                          (otherFailedAccounts.Count > 0 ? LocalizationService.Format("Launch_Toast_ErrorList", string.Join(", ", otherFailedAccounts)) + "\n" : "") +
-                                          LocalizationService.Get("Launch_Toast_CheckExpiredFooter");
-                        ToastService.ShowWarning(LocalizationService.Get("Launch_Toast_SessionError_Title"), toastMsg, 7.0);
-                    });
-                }
-                else
-                {
-                    AppServices.Logger.Info($"[LaunchQueue] Completed: All {successCount}/{requestedCount} accounts launched successfully.");
-                    SetStatus(LocalizationService.Format("Launch_Summary_Success", successCount, requestedCount));
-                    AppDispatcher.Post(() =>
-                    {
-                        ToastService.ShowSuccess(LocalizationService.Get("Launch_Toast_Success_Title"), LocalizationService.Format("Launch_Toast_Success_Message", successCount, requestedCount));
-                    });
-                }
+                ReportGameBatchSummary(batch, requests.Count, SetStatus);
             }
             catch (InvalidOperationException exception)
             {
                 SetStatus(exception.Message);
             }
+        }
+
+        private static void ReportGameBatchSummary(
+            LaunchBatchResult batch,
+            int initialRequestedCount,
+            Action<string> setStatus)
+        {
+            if (batch.Cancelled)
+            {
+                setStatus(LocalizationService.Get("Launch_QueueCancelled"));
+                return;
+            }
+
+            int totalCount = batch.Results.Count > 0 ? batch.Results.Count : initialRequestedCount;
+            int successCount = batch.Results.Count(r => r.Status == LaunchOutcome.Success);
+            int retriedSucceededCount = batch.Results.Count(r => r.Status == LaunchOutcome.Success && r.CaptchaRetried);
+
+            var captchaAccounts = batch.Results
+                .Where(r => r.Status != LaunchOutcome.Success && (r.CaptchaFailedAfterRetry || r.CaptchaDetected))
+                .Select(r => r.Account?.Username ?? "Unknown")
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
+
+            var captchaSet = new HashSet<string>(captchaAccounts, StringComparer.Ordinal);
+
+            var expiredResults = batch.Results
+                .Where(r => !captchaSet.Contains(r.Account?.Username ?? string.Empty) &&
+                            (r.Status == LaunchOutcome.TicketError || (r.Account != null && !r.Account.Valid)))
+                .ToList();
+
+            var expiredAccounts = expiredResults
+                .Select(r => r.Account?.Username ?? "Unknown")
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
+
+            var reloginModels = expiredResults
+                .Where(r => r.Account != null && !r.Account.IsBannedOrLocked)
+                .Select(r => r.Account!)
+                .Distinct()
+                .ToList();
+
+            var expiredSet = new HashSet<string>(expiredAccounts, StringComparer.Ordinal);
+
+            var otherFailedAccounts = batch.Results
+                .Where(r => (r.Status == LaunchOutcome.Failed || r.Status == LaunchOutcome.Timeout) &&
+                            !captchaSet.Contains(r.Account?.Username ?? string.Empty) &&
+                            !expiredSet.Contains(r.Account?.Username ?? string.Empty))
+                .Select(r => r.Account?.Username ?? "Unknown")
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
+
+            if (captchaAccounts.Count == 0 && expiredAccounts.Count == 0 && otherFailedAccounts.Count == 0)
+            {
+                string retriedSuffix = retriedSucceededCount > 0
+                    ? LocalizationService.Format("Launch_Summary_RetriedOkSuffix", retriedSucceededCount)
+                    : string.Empty;
+                AppServices.Logger.Info($"[LaunchQueue] Completed: {successCount}/{totalCount} accounts launched successfully{retriedSuffix}.");
+                setStatus(retriedSucceededCount > 0
+                    ? LocalizationService.Format("Launch_Summary_Done", successCount, totalCount, retriedSuffix, string.Empty)
+                    : LocalizationService.Format("Launch_Summary_Success", successCount, totalCount));
+
+                AppDispatcher.Post(() =>
+                {
+                    ToastService.ShowSuccess(
+                        LocalizationService.Get("Launch_Toast_Success_Title"),
+                        LocalizationService.Format("Launch_Toast_Success_Message", successCount, totalCount) + retriedSuffix);
+                });
+                return;
+            }
+
+            string detailSuffix = BuildErrorDetailSuffix(captchaAccounts, expiredAccounts, otherFailedAccounts);
+            string summaryRetriedSuffix = retriedSucceededCount > 0
+                ? LocalizationService.Format("Launch_Summary_RetriedOkSuffix", retriedSucceededCount)
+                : string.Empty;
+
+            AppServices.Logger.Warn($"[LaunchQueue] Launch queue completed: {successCount}/{totalCount} succeeded{summaryRetriedSuffix}.{detailSuffix}");
+            setStatus(LocalizationService.Format("Launch_Summary_Done", successCount, totalCount, summaryRetriedSuffix, detailSuffix));
+
+            string toastMsg = BuildSummaryToastMessage(
+                successCount,
+                totalCount,
+                summaryRetriedSuffix,
+                captchaAccounts,
+                expiredAccounts,
+                otherFailedAccounts);
+
+            string toastTitle = expiredAccounts.Count > 0
+                ? LocalizationService.Get("Launch_Toast_SessionError_Title")
+                : LocalizationService.Get("Launch_Toast_Summary_Title");
+
+            AppDispatcher.Post(() =>
+            {
+                if (reloginModels.Count > 0)
+                {
+                    ToastService.ShowWarningWithAction(
+                        toastTitle,
+                        toastMsg,
+                        LocalizationService.Get("Launch_Toast_ReloginExpiredBtn"),
+                        () => OpenReloginDialogs(reloginModels),
+                        durationSeconds: 12.0);
+                }
+                else
+                {
+                    ToastService.ShowWarning(toastTitle, toastMsg, 9.0);
+                }
+            });
+        }
+
+        private static string BuildErrorDetailSuffix(
+            List<string> captchaAccounts,
+            List<string> expiredAccounts,
+            List<string> otherFailedAccounts)
+        {
+            var sb = new StringBuilder();
+            if (captchaAccounts.Count > 0)
+                sb.Append(LocalizationService.Format("Launch_Summary_CaptchaDetail", captchaAccounts.Count, string.Join(", ", captchaAccounts)));
+            if (expiredAccounts.Count > 0)
+                sb.Append(LocalizationService.Format("Launch_Summary_ExpiredDetail", expiredAccounts.Count, string.Join(", ", expiredAccounts)));
+            if (otherFailedAccounts.Count > 0)
+                sb.Append(LocalizationService.Format("Launch_Summary_OtherDetail", otherFailedAccounts.Count, string.Join(", ", otherFailedAccounts)));
+            return sb.ToString();
+        }
+
+        private static string BuildSummaryToastMessage(
+            int successCount,
+            int totalCount,
+            string retriedSuffix,
+            List<string> captchaAccounts,
+            List<string> expiredAccounts,
+            List<string> otherFailedAccounts)
+        {
+            var lines = new List<string>
+            {
+                LocalizationService.Format("Launch_Toast_SuccessCount", successCount, totalCount) + retriedSuffix
+            };
+            if (captchaAccounts.Count > 0)
+                lines.Add(LocalizationService.Format("Launch_Toast_CaptchaList", string.Join(", ", captchaAccounts)));
+            if (expiredAccounts.Count > 0)
+                lines.Add(LocalizationService.Format("Launch_Toast_ExpiredList", string.Join(", ", expiredAccounts)));
+            if (otherFailedAccounts.Count > 0)
+                lines.Add(LocalizationService.Format("Launch_Toast_ErrorList", string.Join(", ", otherFailedAccounts)));
+            if (expiredAccounts.Count > 0)
+                lines.Add(LocalizationService.Get("Launch_Toast_CheckExpiredFooter"));
+
+            return string.Join("\n", lines);
+        }
+
+        private static void OpenReloginDialogs(List<Account> expiredModels)
+        {
+            if (expiredModels.Count == 1)
+                AppServices.Dialogs.OpenFastLoginDialog(expiredModels[0]);
+            else if (expiredModels.Count > 1)
+                AppServices.Dialogs.OpenFastLoginDialogBatch(expiredModels);
         }
 
         public static async Task LaunchHomeAccountsAsync(
@@ -168,9 +289,18 @@ namespace Shiro.Services
                     },
                     cancellationToken).ConfigureAwait(true);
 
-                var expiredAccounts = batch.Results
+                var expiredResults = batch.Results
                     .Where(r => r.Status == LaunchOutcome.TicketError || (r.Account != null && !r.Account.Valid))
+                    .ToList();
+
+                var expiredAccounts = expiredResults
                     .Select(r => r.Account?.Username ?? "Unknown")
+                    .Distinct(StringComparer.Ordinal)
+                    .ToList();
+
+                var reloginModels = expiredResults
+                    .Where(r => r.Account != null && !r.Account.IsBannedOrLocked)
+                    .Select(r => r.Account!)
                     .Distinct()
                     .ToList();
 
@@ -178,7 +308,7 @@ namespace Shiro.Services
                     .Where(r => (r.Status == LaunchOutcome.Failed || r.Status == LaunchOutcome.Timeout) &&
                                 !expiredAccounts.Contains(r.Account?.Username ?? ""))
                     .Select(r => r.Account?.Username ?? "Unknown")
-                    .Distinct()
+                    .Distinct(StringComparer.Ordinal)
                     .ToList();
 
                 int successCount = batch.Results.Count(r => r.Status == LaunchOutcome.Success);
@@ -189,22 +319,33 @@ namespace Shiro.Services
                 }
                 else if (expiredAccounts.Count > 0 || otherFailedAccounts.Count > 0)
                 {
-                    string errDetail = "";
-                    if (expiredAccounts.Count > 0)
-                        errDetail += LocalizationService.Format("Launch_Summary_ExpiredDetail", expiredAccounts.Count, string.Join(", ", expiredAccounts));
-                    if (otherFailedAccounts.Count > 0)
-                        errDetail += LocalizationService.Format("Launch_Summary_OtherDetail", otherFailedAccounts.Count, string.Join(", ", otherFailedAccounts));
+                    string errDetail = BuildErrorDetailSuffix(new List<string>(), expiredAccounts, otherFailedAccounts);
+                    AppServices.Logger.Warn($"[LaunchHomeQueue] Completed Home queue: {successCount}/{launchList.Count} succeeded.{errDetail}");
+                    SetStatus(LocalizationService.Format("Launch_Summary_Done", successCount, launchList.Count, string.Empty, errDetail));
 
-                    AppServices.Logger.Warn($"[LaunchHomeQueue] Completed Home queue: {successCount}/{launchList.Count} succeeded. {errDetail}");
-                    SetStatus(LocalizationService.Format("Launch_Summary_CompletedWithErrors", successCount, launchList.Count, errDetail));
+                    string toastMsg = LocalizationService.Format("Launch_Home_Toast_SuccessCount", successCount, launchList.Count) + "\n" +
+                                      (expiredAccounts.Count > 0 ? LocalizationService.Format("Launch_Toast_ExpiredList", string.Join(", ", expiredAccounts)) + "\n" : "") +
+                                      (otherFailedAccounts.Count > 0 ? LocalizationService.Format("Launch_Toast_ErrorList", string.Join(", ", otherFailedAccounts)) + "\n" : "") +
+                                      (expiredAccounts.Count > 0 ? LocalizationService.Get("Launch_Toast_CheckExpiredFooter") : string.Empty);
 
                     AppDispatcher.Post(() =>
                     {
-                        string toastMsg = LocalizationService.Format("Launch_Home_Toast_SuccessCount", successCount, launchList.Count) + "\n" +
-                                          (expiredAccounts.Count > 0 ? LocalizationService.Format("Launch_Toast_ExpiredList", string.Join(", ", expiredAccounts)) + "\n" : "") +
-                                          (otherFailedAccounts.Count > 0 ? LocalizationService.Format("Launch_Toast_ErrorList", string.Join(", ", otherFailedAccounts)) + "\n" : "") +
-                                          LocalizationService.Get("Launch_Toast_CheckExpiredFooter");
-                        ToastService.ShowWarning(LocalizationService.Get("Launch_Toast_SessionError_Title"), toastMsg, 7.0);
+                        string title = expiredAccounts.Count > 0
+                            ? LocalizationService.Get("Launch_Toast_SessionError_Title")
+                            : LocalizationService.Get("Launch_Toast_Summary_Title");
+                        if (reloginModels.Count > 0)
+                        {
+                            ToastService.ShowWarningWithAction(
+                                title,
+                                toastMsg.TrimEnd(),
+                                LocalizationService.Get("Launch_Toast_ReloginExpiredBtn"),
+                                () => OpenReloginDialogs(reloginModels),
+                                durationSeconds: 12.0);
+                        }
+                        else
+                        {
+                            ToastService.ShowWarning(title, toastMsg.TrimEnd(), 9.0);
+                        }
                     });
                 }
                 else

@@ -115,12 +115,28 @@ namespace Shiro.Services
             {
                 try
                 {
-                    var dialog = new FastLoginDialog(account!);
+                    var dialog = new FastLoginDialog(account);
                     await ShowModalOrTopLevelAsync(dialog);
                 }
                 catch (Exception ex)
                 {
                     AppServices.Logger.Error($"[AvaloniaDialogService.OpenFastLoginDialog] {ex}");
+                }
+            });
+        }
+
+        public void OpenCookieImportDialog(Account? account = null)
+        {
+            AppDispatcher.Post(async () =>
+            {
+                try
+                {
+                    var dialog = new FastLoginDialog(account, startInCookieMode: true);
+                    await ShowModalOrTopLevelAsync(dialog);
+                }
+                catch (Exception ex)
+                {
+                    AppServices.Logger.Error($"[AvaloniaDialogService.OpenCookieImportDialog] {ex}");
                 }
             });
         }
@@ -185,34 +201,6 @@ namespace Shiro.Services
                 catch (Exception ex)
                 {
                     AppServices.Logger.Error($"[AvaloniaDialogService.OpenProxyManagerDialog] {ex}");
-                }
-            });
-        }
-
-        public void OpenNexusWindow()
-        {
-            AppDispatcher.Post(() =>
-            {
-                try
-                {
-                    if (NexusWindow.Instance != null)
-                    {
-                        if (NexusWindow.Instance.WindowState == WindowState.Minimized)
-                            NexusWindow.Instance.WindowState = WindowState.Normal;
-                        NexusWindow.Instance.Show();
-                        NexusWindow.Instance.Activate();
-                        return;
-                    }
-
-                    Nexus.NexusHost.Current ??= ViewModels.Dialogs.NexusViewModel.Default;
-                    var window = new NexusWindow(ViewModels.Dialogs.NexusViewModel.Default);
-                    window.Show();
-                    window.Activate();
-                }
-                catch (Exception ex)
-                {
-                    AppServices.Logger.Error($"Failed to open Nexus: {ex}");
-                    ShowError(Shiro.Services.LocalizationService.Format("Dialog.NexusOpenFailed", ex.Message), Shiro.Services.LocalizationService.Get("Dialog.NexusErrorTitle"));
                 }
             });
         }

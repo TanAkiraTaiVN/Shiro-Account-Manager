@@ -232,9 +232,6 @@ namespace Shiro.AvaloniaUI.Views
         private void OnArrangeCascadeClicked(object sender, RoutedEventArgs e)
             => ViewModel?.ArrangeRobloxWindowsCommand.Execute("Cascade");
 
-        private void OnToolNexusClicked(object sender, RoutedEventArgs e)
-            => AppServices.Dialogs.OpenNexusWindow();
-
         private void OnToolProxyClicked(object sender, RoutedEventArgs e)
             => AppServices.Dialogs.OpenProxyManagerDialog();
 

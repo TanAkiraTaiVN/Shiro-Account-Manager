@@ -148,7 +148,6 @@ namespace Shiro.ViewModels
             new("nav.settings", "Main.OpenSettingsTitle", "Main.OpenSettingsDescription", "Main.NavigationCategory", "Settings", "#9CA3AF", false, new[] { "setting", "cai dat", "config", "ngon ngu" }, vm => vm.NavigateToSettingsCommand.Execute(null)),
             new("nav.accounts", "Main.OpenAccountsTitle", "Main.OpenAccountsDescription", "Main.NavigationCategory", "User", "#38BDF8", false, new[] { "tai khoan", "account", "home", "dashboard" }, vm => vm.NavigateToAccountsCommand.Execute(null)),
             new("dialog.proxy", "Main.OpenProxyManagerTitle", "Main.OpenProxyManagerDescription", "Main.ToolsCategory", "Network", "#34D399", false, new[] { "proxy", "ip", "socks" }, vm => vm.OpenProxyManagerCommand.Execute(null)),
-            new("dialog.nexus", "Main.OpenNexusTitle", "Main.OpenNexusDescription", "Main.ToolsCategory", "Radio", "#A855F7", false, new[] { "nexus", "socket", "engine" }, vm => vm.OpenNexusCommand.Execute(null)),
             new("dialog.altgen", "Main.OpenAltGenTitle", "Main.OpenAltGenDescription", "Main.ToolsCategory", "UserPlus", "#38BDF8", false, new[] { "alt", "tao acc", "generator" }, _ => AppServices.Dialogs.OpenAltGenDialog())
         };
     }

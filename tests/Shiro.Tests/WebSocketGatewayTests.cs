@@ -85,24 +85,5 @@ namespace Shiro.Tests
         {
             Assert.True(RobloxSingletonService.IsEnabled);
         }
-
-        [Fact]
-        public void RAMAccountLua_ContainsModernAntiAfkAndWebSocketHelpers()
-        {
-            string luaPath = Path.Combine(ArchitectureTests.RepoRoot, "src", "Shiro", "Nexus", "RAMAccount.lua");
-            Assert.True(File.Exists(luaPath), $"Missing tracked Lua script: {luaPath}");
-            string lua = File.ReadAllText(luaPath);
-            Assert.Contains("EnableInGameAntiAfk", lua);
-            Assert.Contains("DisableInGameAntiAfk", lua);
-            Assert.Contains("VirtualUser", lua);
-            Assert.Contains("ConnectEvents", lua);
-            Assert.Contains("GetWebSocketStats", lua);
-        }
-
-        [Fact]
-        public void RAMAccountLua_IsCopiedToOutput()
-        {
-            Assert.True(File.Exists(Path.Combine(AppContext.BaseDirectory, "Nexus", "RAMAccount.lua")));
-        }
     }
 }

@@ -16,17 +16,9 @@ namespace Shiro
                 await LaunchHomeAccountsAsync(new[] { account }, preferChromeHome: false).ConfigureAwait(true);
         }
 
-        internal async Task ModernOpenAccountHomeChrome(Account account)
-        {
-            if (account != null)
-                await LaunchHomeAccountsAsync(new[] { account }, preferChromeHome: true).ConfigureAwait(true);
-        }
-
         internal List<Account> GetCurrentSelectedAccounts() =>
             AppServices.HostUiBridge.TryGetDashboardSelectedAccounts()
             ?? AppServices.SelectionState.SelectedAccounts?.ToList() ?? new List<Account>();
-
-        internal void ModernOpenAccountControl() => AppServices.Dialogs.OpenNexusWindow();
 
         internal void ModernMultiLaunch()
         {
@@ -118,6 +110,19 @@ namespace Shiro
 
             if (placeId > 0)
                 _ = ObserveBackgroundTaskAsync(AddRecentGame(new Game(placeId)), "recent game update");
+
+            if (launchCoordinator != null && launchCoordinator.IsRunning)
+            {
+                var appendRequests = AccountLaunchBatchService.BuildLaunchRequests(
+                    AppServices.SelectionState.SelectedAccounts, placeId, cleanJobId, followUser: false, vipServer: isVip);
+                if (launchCoordinator.TryAppendRequests(appendRequests, out int appendedCount))
+                {
+                    SetDashboardStatus(appendedCount > 0
+                        ? Shiro.Services.LocalizationService.Format("AccountManager.AppendedToQueue", appendedCount)
+                        : Shiro.Services.LocalizationService.Get("AccountManager.AlreadyInQueue"));
+                    return;
+                }
+            }
 
             CancelLaunching();
             if (!await WaitForLaunchQueueToDrainAsync(TimeSpan.FromSeconds(8)).ConfigureAwait(true))

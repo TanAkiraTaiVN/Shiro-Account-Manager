@@ -8,7 +8,6 @@ using System.Threading.Tasks;
 using Avalonia.Media;
 using NSubstitute;
 using Shiro.Http;
-using Shiro.Nexus;
 using Shiro.Services;
 using Shiro.Tests.TestInfrastructure;
 using Xunit;
@@ -133,59 +132,6 @@ namespace Shiro.Tests
                 Presence = new UserPresence { userPresenceType = UserPresenceType.Online }
             };
             Assert.Equal(Presence.Colors[UserPresenceType.Online], Presence.GetStatusColor(onlineAcc));
-        }
-
-        [Fact]
-        public void ControlledAccount_StatusTransitions_UpdateDisplayProperties()
-        {
-            var acc = new Account { Username = "NexusPlayer", UserID = 12345 };
-            var controlled = new ControlledAccount(acc);
-
-            Assert.Equal("NexusPlayer", controlled.Username);
-            Assert.Equal(acc, controlled.LinkedAccount);
-            Assert.Equal(AccountStatus.Offline, controlled.Status);
-            Assert.Equal("Offline", controlled.StatusText);
-            Assert.NotNull(controlled.StatusColorBrush);
-
-            controlled.Status = AccountStatus.Online;
-            Assert.Equal("Online", controlled.StatusText);
-
-            controlled.Disconnect();
-            Assert.Equal(AccountStatus.Offline, controlled.Status);
-            Assert.Equal("Offline", controlled.StatusText);
-        }
-
-        [Fact]
-        public void ControlledAccount_Properties_PersistValues()
-        {
-            var controlled = new ControlledAccount
-            {
-                Username = "TestControlled",
-                Position = "X: 100, Y: 50, Z: -200",
-                Fps = "60",
-                Ping = "45ms",
-                AutoExecute = "print('Hello Nexus')",
-                PlaceId = 18973,
-                JobId = "job-nexus-123",
-                InGameJobId = "server-job-456",
-                RelaunchDelay = 15.5,
-                AutoRelaunch = true,
-                IsChecked = true,
-                ClientCanReceive = true
-            };
-
-            Assert.Equal("TestControlled", controlled.Username);
-            Assert.Equal("X: 100, Y: 50, Z: -200", controlled.Position);
-            Assert.Equal("60", controlled.Fps);
-            Assert.Equal("45ms", controlled.Ping);
-            Assert.Equal("print('Hello Nexus')", controlled.AutoExecute);
-            Assert.Equal(18973, controlled.PlaceId);
-            Assert.Equal("job-nexus-123", controlled.JobId);
-            Assert.Equal("server-job-456", controlled.InGameJobId);
-            Assert.Equal(15.5, controlled.RelaunchDelay);
-            Assert.True(controlled.AutoRelaunch);
-            Assert.True(controlled.IsChecked);
-            Assert.True(controlled.ClientCanReceive);
         }
 
         [Fact]

@@ -260,7 +260,7 @@ namespace Shiro.Services
                 }
                 let pathOnly = '';
                 if (fullUrl) {
-                    try { const u = new URL(fullUrl); pathOnly = u.pathname + u.search; } catch (_) { /* ignore */ }
+                    try { const u = new URL(fullUrl); pathOnly = u.pathname; } catch (_) { /* ignore */ }
                 }
                 const methodUp = reqMethod ? String(reqMethod).toUpperCase() : '';
 

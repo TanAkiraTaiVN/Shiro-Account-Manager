@@ -99,17 +99,6 @@ namespace Shiro.Tests
         }
 
         [Fact]
-        public void ChromeLaunchHelper_BuildLaunchArgs_ContainsRequiredFlags()
-        {
-            var args = ChromeLaunchHelper.BuildLaunchArgs("C:\\FakeProfile", "http://127.0.0.1:8080", headless: true);
-
-            Assert.Contains("--no-first-run", args);
-            Assert.Contains("--user-data-dir=C:\\FakeProfile", args);
-            Assert.Contains("--proxy-server=http://127.0.0.1:8080", args);
-            Assert.Contains("--headless=new", args);
-        }
-
-        [Fact]
         public async Task RobloxServerQueryService_QueryPublicServersAsync_WithZeroPlaceId_ReturnsNotSuccess()
         {
             var service = AppServices.RobloxServerQueryService;

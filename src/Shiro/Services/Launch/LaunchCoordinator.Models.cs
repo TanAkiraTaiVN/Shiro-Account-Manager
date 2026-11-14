@@ -44,6 +44,9 @@ namespace Shiro.Services
         public string? Result { get; set; }
         public string? Message { get; set; }
         public bool Completed { get; set; }
+        public bool CaptchaDetected { get; set; }
+        public bool CaptchaRetried { get; set; }
+        public bool CaptchaFailedAfterRetry { get; set; }
     }
 
     public enum LaunchOutcome
@@ -101,6 +104,7 @@ namespace Shiro.Services
             Action<LaunchProgress>? progress,
             CancellationToken cancellationToken = default(CancellationToken));
 
+        bool TryAppendRequests(IReadOnlyList<LaunchRequest> requests, out int appendedCount);
         void SignalNext();
         void Cancel();
         Task<bool> WaitForIdleAsync(

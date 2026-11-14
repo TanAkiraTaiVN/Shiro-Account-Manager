@@ -134,8 +134,6 @@ namespace Shiro.Services
         {
             if (account == null) return LaunchResult.Fail(LaunchOutcome.Failed, Shiro.Services.LocalizationService.Get("AccountLaunch.InvalidAccount"));
             cancellationToken.ThrowIfCancellationRequested();
-            if (preferChrome || AppServices.GeneralSettings.Get<bool>("UseChromeHome", false))
-                return await LaunchHomeInChromeResultAsync(account, cancellationToken).ConfigureAwait(false);
 
             account.EnsureBrowserTrackerId();
 
@@ -147,9 +145,12 @@ namespace Shiro.Services
                 bool shouldForceRebind = account.HasHbaBinding && !string.Equals(account.LastBoundIpSignature, RobloxHbaService.GetNetworkSignatureForAccount(account), StringComparison.Ordinal);
                 await account.TryRebindSessionToCurrentNetworkAsync(force: shouldForceRebind, cancellationToken).ConfigureAwait(false);
             }
+            long ticketStartTicks = Stopwatch.GetTimestamp();
             (bool Success, string Ticket) ticketResult = TestGetAuthTicketOverride != null
                 ? await TestGetAuthTicketOverride(account, cancellationToken).ConfigureAwait(false)
                 : await account.GetAuthTicketAsync(cancellationToken).ConfigureAwait(false);
+            if (LaunchTimingService.CurrentAttempt != null)
+                LaunchTimingService.CurrentAttempt.TicketMs = (long)Stopwatch.GetElapsedTime(ticketStartTicks).TotalMilliseconds;
             if (ticketResult.Success)
             {
                 try
@@ -174,6 +175,11 @@ namespace Shiro.Services
                         ? await TestStartNativeHomeOverride(nativeHomeUri, ticket, account.Username, account.BrowserTrackerID, account.SecurityToken, cancellationToken).ConfigureAwait(false)
                         : await StartNativeHomeAsync(nativeHomeUri, ticket, account.Username, account.BrowserTrackerID, account.SecurityToken, cancellationToken).ConfigureAwait(false);
                     account.LastLaunchedProcessId = homePid;
+                    if (LaunchTimingService.CurrentAttempt != null)
+                    {
+                        LaunchTimingService.CurrentAttempt.ProcessId = homePid;
+                        LaunchTimingService.CurrentAttempt.SpawnMs = (long)Stopwatch.GetElapsedTime(LaunchTimingService.CurrentAttempt.AttemptStartTicks).TotalMilliseconds;
+                    }
                     ObserveBackgroundTask(
                         MonitorNativeAuthRateLimitAsync(launchStartedUtc, account, cancellationToken),
                         "native auth rate-limit monitor");
@@ -203,59 +209,6 @@ namespace Shiro.Services
                     return LaunchResult.Fail(LaunchOutcome.RateLimited, Shiro.Services.LocalizationService.Get("AccountLaunch.RateLimited"));
 
                 return LaunchResult.Fail(LaunchOutcome.TicketError, Shiro.Services.LocalizationService.Get("AccountLaunch.TicketFailed"));
-            }
-        }
-
-        public async Task<string> LaunchHomeInChromeAsync(Account account, CancellationToken cancellationToken = default)
-        {
-            var result = await LaunchHomeInChromeResultAsync(account, cancellationToken).ConfigureAwait(false);
-            return result.ToLegacyString();
-        }
-
-        public async Task<LaunchResult> LaunchHomeInChromeResultAsync(Account account, CancellationToken cancellationToken = default)
-        {
-            if (account == null) return LaunchResult.Fail(LaunchOutcome.Failed, Shiro.Services.LocalizationService.Get("AccountLaunch.InvalidAccount"));
-            try
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                bool useConfiguredProxy = AppServices.GeneralSettings.Get<bool>("UseProxies", false) &&
-                    ProxyManagerService.GetCachedProxyStrings().Count > 0;
-
-                if (useConfiguredProxy)
-                {
-                    await AccountBrowser.OpenAsync(
-                        account,
-                        "https://www.roblox.com/home",
-                        UseStealth: false,
-                        cancellationToken: cancellationToken).ConfigureAwait(false);
-                    AppServices.HostUiBridge.SchedulePresenceRefresh(account);
-                    return LaunchResult.BrowserHome();
-                }
-
-                bool opened = await ChromiumHomeBrowser.OpenAsync(account, cancellationToken).ConfigureAwait(false);
-                if (opened)
-                {
-                    AppServices.HostUiBridge.SchedulePresenceRefresh(account);
-                    return LaunchResult.BrowserHome();
-                }
-
-                AppServices.Logger.Warn($"The CDP Home path failed for {account.Username}; falling back to the legacy Chromium browser path.");
-                await AccountBrowser.OpenAsync(
-                    account,
-                    "https://www.roblox.com/home",
-                    UseStealth: false,
-                    cancellationToken: cancellationToken).ConfigureAwait(false);
-                AppServices.HostUiBridge.SchedulePresenceRefresh(account);
-                return LaunchResult.BrowserHome();
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
-                throw;
-            }
-            catch (Exception exception)
-            {
-                AppServices.Logger.Error($"Failed to open Roblox Home in Chrome for {account.Username}: {exception}");
-                return LaunchResult.Fail(LaunchOutcome.Failed, $"ERROR: Failed to open Roblox Home in Chrome\n{exception.Message}");
             }
         }
     }

@@ -253,6 +253,12 @@ namespace Shiro.Tests
                 return Task.FromResult(new LaunchBatchResult(results, false));
             }
 
+            public bool TryAppendRequests(IReadOnlyList<LaunchRequest> requests, out int appendedCount)
+            {
+                appendedCount = 0;
+                return false;
+            }
+
             public Task<bool> WaitForIdleAsync(TimeSpan timeout, CancellationToken cancellationToken)
                 => Task.FromResult(WaitForIdleResult);
 
@@ -294,13 +300,9 @@ namespace Shiro.Tests
                 AppSettings.General.Set("EnableMultiRbx", "false");
                 mgr.ModernMultiLaunch();
                 await mgr.ModernLaunchAccountAppHome(null!);
-                await mgr.ModernOpenAccountHomeChrome(null!);
                 await mgr.ModernLaunchAccountAppHome(acc1);
-                await mgr.ModernOpenAccountHomeChrome(acc2);
+                await mgr.ModernLaunchAccountAppHome(acc2);
                 Assert.True(fakeCoord.EnqueuedBatches.Count >= 2);
-
-                mgr.ModernOpenAccountControl();
-                dialogSub.Received(1).OpenNexusWindow();
 
                 AppServices.ServerBrowserState.CurrentPlaceId = "invalid-place-id";
                 AppServices.ServerBrowserState.CurrentJobId = "";

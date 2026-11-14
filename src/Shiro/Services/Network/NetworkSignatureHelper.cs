@@ -28,7 +28,8 @@ namespace Shiro.Services
                 foreach (NetworkInterface nic in NetworkInterface.GetAllNetworkInterfaces())
                 {
                     if (nic.OperationalStatus != OperationalStatus.Up ||
-                        nic.NetworkInterfaceType == NetworkInterfaceType.Loopback)
+                        nic.NetworkInterfaceType == NetworkInterfaceType.Loopback ||
+                        IsTransitionPseudoInterface(nic.Name, nic.Description, nic.NetworkInterfaceType))
                     {
                         continue;
                     }
@@ -46,12 +47,7 @@ namespace Shiro.Services
                         name.Contains("WARP", StringComparison.OrdinalIgnoreCase) ||
                         desc.Contains("Cloudflare WARP", StringComparison.OrdinalIgnoreCase);
 
-                    bool isTunnelOrPpp = nic.NetworkInterfaceType == NetworkInterfaceType.Ppp ||
-                        (nic.NetworkInterfaceType == NetworkInterfaceType.Tunnel &&
-                         !desc.Contains("Teredo", StringComparison.OrdinalIgnoreCase) &&
-                         !desc.Contains("6to4", StringComparison.OrdinalIgnoreCase) &&
-                         !desc.Contains("ISATAP", StringComparison.OrdinalIgnoreCase) &&
-                         !desc.Contains("IPHTTPS", StringComparison.OrdinalIgnoreCase));
+                    bool isTunnelOrPpp = nic.NetworkInterfaceType is NetworkInterfaceType.Ppp or NetworkInterfaceType.Tunnel;
 
                     if (!isKnownVpnAdapter && !isTunnelOrPpp)
                         continue;
@@ -86,7 +82,8 @@ namespace Shiro.Services
                 foreach (NetworkInterface nic in NetworkInterface.GetAllNetworkInterfaces())
                 {
                     if (nic.OperationalStatus != OperationalStatus.Up ||
-                        nic.NetworkInterfaceType == NetworkInterfaceType.Loopback)
+                        nic.NetworkInterfaceType == NetworkInterfaceType.Loopback ||
+                        IsTransitionPseudoInterface(nic.Name, nic.Description, nic.NetworkInterfaceType))
                     {
                         continue;
                     }
@@ -132,7 +129,7 @@ namespace Shiro.Services
                         }
                         else if (addr.AddressFamily == AddressFamily.InterNetworkV6)
                         {
-                            if (addr.IsIPv6LinkLocal || addr.IsIPv6Multicast)
+                            if (addr.IsIPv6LinkLocal || addr.IsIPv6Multicast || IsTransitionTunnelIpv6(addr))
                                 continue;
                             unicasts.Add(addr.ToString());
                         }
@@ -169,8 +166,12 @@ namespace Shiro.Services
             {
                 foreach (RobloxHbaService.NetworkAdapterSnapshot nic in adapters)
                 {
-                    if (nic.UnicastAddresses == null || nic.UnicastAddresses.Length == 0)
+                    if (IsTransitionPseudoInterface(nic.Id, null, nic.InterfaceType) ||
+                        nic.UnicastAddresses == null ||
+                        nic.UnicastAddresses.Length == 0)
+                    {
                         continue;
+                    }
 
                     foreach (string rawIp in nic.UnicastAddresses)
                     {
@@ -182,7 +183,8 @@ namespace Shiro.Services
                             ip.StartsWith("169.254.", StringComparison.Ordinal) ||
                             ip.Equals("0.0.0.0", StringComparison.Ordinal) ||
                             ip.Equals("::1", StringComparison.Ordinal) ||
-                            ip.StartsWith("fe80:", StringComparison.OrdinalIgnoreCase))
+                            ip.StartsWith("fe80:", StringComparison.OrdinalIgnoreCase) ||
+                            (IPAddress.TryParse(ip, out IPAddress? parsedIp) && IsTransitionTunnelIpv6(parsedIp)))
                         {
                             continue;
                         }
@@ -217,6 +219,44 @@ namespace Shiro.Services
             string joined = string.Join("|", parts);
             byte[] hash = SHA256.HashData(Encoding.UTF8.GetBytes(joined));
             return Convert.ToHexStringLower(hash.AsSpan(0, 12));
+        }
+
+        private static bool IsTransitionPseudoInterface(string? nameOrId, string? description, NetworkInterfaceType interfaceType)
+        {
+            if (interfaceType != NetworkInterfaceType.Tunnel)
+                return false;
+
+            return ContainsTransitionToken(nameOrId) || ContainsTransitionToken(description);
+        }
+
+        private static bool ContainsTransitionToken(string? value)
+        {
+            if (string.IsNullOrEmpty(value))
+                return false;
+
+            return value.Contains("Teredo", StringComparison.OrdinalIgnoreCase) ||
+                value.Contains("6to4", StringComparison.OrdinalIgnoreCase) ||
+                value.Contains("ISATAP", StringComparison.OrdinalIgnoreCase) ||
+                value.Contains("IPHTTPS", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsTransitionTunnelIpv6(IPAddress address)
+        {
+            if (address.AddressFamily != AddressFamily.InterNetworkV6)
+                return false;
+
+            byte[] b = address.GetAddressBytes();
+            if (b.Length != 16)
+                return false;
+
+            // Teredo (2001::/32) and 6to4 (2002::/16)
+            if (b[0] == 0x20 && b[1] == 0x01 && b[2] == 0x00 && b[3] == 0x00)
+                return true;
+            if (b[0] == 0x20 && b[1] == 0x02)
+                return true;
+
+            // ISATAP interface identifier: 0000:5efe or 0200:5efe
+            return (b[8] == 0x00 || b[8] == 0x02) && b[9] == 0x00 && b[10] == 0x5e && b[11] == 0xfe;
         }
 
         internal static string? NormalizeAccountProxyEndpoint(string? rawProxy)

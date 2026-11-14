@@ -186,5 +186,18 @@ namespace Shiro.Tests
             var ex = Record.Exception(() => WebhookNotificationService.EnqueueAlert(alert));
             Assert.Null(ex);
         }
+
+        [Theory]
+        [InlineData("https://discord.com/api/webhooks/123/abc", true)]
+        [InlineData("https://canary.discord.com/api/webhooks/123/abc", true)]
+        [InlineData("https://ptb.discordapp.com/api/webhooks/123/abc", true)]
+        [InlineData("http://discord.com/api/webhooks/123/abc", false)]
+        [InlineData("https://evil-discord.com/api/webhooks/123/abc", false)]
+        [InlineData("https://127.0.0.1:8080/webhook", false)]
+        [InlineData("", false)]
+        public void IsAllowedDiscordWebhookUrl_ValidatesSchemeAndHost(string url, bool expected)
+        {
+            Assert.Equal(expected, WebhookNotificationService.IsAllowedDiscordWebhookUrl(url));
+        }
     }
 }

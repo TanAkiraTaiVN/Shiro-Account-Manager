@@ -53,7 +53,7 @@ if (Test-Path -LiteralPath $output) {
 New-Item -ItemType Directory -Path $output -Force | Out-Null
 
 Write-Host "Restoring locked packages for $Runtime..."
-& dotnet restore $project --runtime $Runtime --locked-mode
+& dotnet restore $project --runtime $Runtime --locked-mode /p:SelfContained=true
 Assert-ExitCode 'dotnet restore'
 
 $modeDesc = if ($Aot) { "(Native AOT)" } else { "(ReadyToRun SingleFile)" }

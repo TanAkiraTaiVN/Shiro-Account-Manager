@@ -16,96 +16,36 @@ namespace Shiro.ViewModels
             RestClient gamesClient,
             Account vipAuthAccount,
             long placeId,
-            CancellationToken ct) => FetchVipServersAsync(gamesClient, vipAuthAccount, placeId, ct);
-
-        private static async Task<List<ServerItemViewModel>?> FetchVipServersAsync(
-            RestClient gamesClient,
-            Account vipAuthAccount,
-            long placeId,
-            CancellationToken ct)
-        {
-            try
-            {
-                var vipReq = vipAuthAccount.MakeRequest($"v1/games/{placeId}/servers/VIP?sortOrder=Asc&limit=25", Method.Get);
-                var vipResp = await vipAuthAccount.ExecuteAccountRestAsync(gamesClient, "https://games.roblox.com/", vipReq, ct).ConfigureAwait(false);
-                if (vipResp != null && vipResp.IsSuccessful && !string.IsNullOrEmpty(vipResp.Content) && !ct.IsCancellationRequested)
-                {
-                    var vipInfo = FastJson.TryDeserialize<ServersInfo>(vipResp.Content, out var vInfo) ? vInfo : null;
-                    if (vipInfo?.data != null && vipInfo.data.Count > 0)
-                    {
-                        var vipList = new List<ServerItemViewModel>(vipInfo.data.Count);
-                        foreach (var v in vipInfo.data)
-                        {
-                            string jobId = !string.IsNullOrEmpty(v.accessCode)
-                                ? $"VIP:{v.accessCode}"
-                                : (!string.IsNullOrEmpty(v.id)
-                                    ? v.id
-                                    : (!string.IsNullOrEmpty(v.name) ? v.name : "VIP Server"));
-
-                            vipList.Add(new ServerItemViewModel
-                            {
-                                JobId = jobId,
-                                Type = "VIP",
-                                MaxPlayers = v.maxPlayers,
-                                Playing = v.playing,
-                                Ping = v.ping ?? -1,
-                                Region = !string.IsNullOrEmpty(v.region) ? v.region : "VIP Private",
-                                Ip = v.ip ?? string.Empty,
-                                RawData = v
-                            });
-                        }
-                        return vipList;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                AppServices.Logger.Debug($"[LoadVIPServers] {ex.Message}");
-            }
-
-            return null;
-        }
+            CancellationToken ct) => ServerListOperationHelper.FetchVipServersAsync(gamesClient, vipAuthAccount, placeId, ct);
 
         private void SelectServerJobId(object? param)
         {
-            if (param is ServerItemViewModel server)
+            if (param is not ServerItemViewModel server) return;
+            string targetId = ServerListOperationHelper.ResolveTargetServerId(server);
+            if (_mainViewModel != null)
             {
-                string targetId = server.Type == "VIP" && server.RawData != null && !string.IsNullOrEmpty(server.RawData.accessCode)
-                    ? $"VIP:{server.RawData.accessCode}"
-                    : server.JobId;
-
-                if (_mainViewModel != null)
-                {
-                    if (!string.IsNullOrWhiteSpace(PlaceIdInput))
-                        _mainViewModel.PlaceId = PlaceIdInput;
-                    _mainViewModel.JobId = targetId;
-                    _mainViewModel.StatusMessage = Shiro.Services.LocalizationService.Format("ServerList.ServerSelected", targetId);
-                }
-
-                ClipboardHelper.SetText(targetId);
-                LoadingStatus = Shiro.Services.LocalizationService.Format("ServerList.JobIdSelectedAndCopied", targetId);
+                if (!string.IsNullOrWhiteSpace(PlaceIdInput))
+                    _mainViewModel.PlaceId = PlaceIdInput;
+                _mainViewModel.JobId = targetId;
+                _mainViewModel.StatusMessage = LocalizationService.Format("ServerList.ServerSelected", targetId);
             }
+            ClipboardHelper.SetText(targetId);
+            LoadingStatus = LocalizationService.Format("ServerList.JobIdSelectedAndCopied", targetId);
         }
 
         private void CopyJobId(object? param)
         {
-            if (param is ServerItemViewModel server)
-            {
-                string targetId = server.Type == "VIP" && server.RawData != null && !string.IsNullOrEmpty(server.RawData.accessCode)
-                    ? $"VIP:{server.RawData.accessCode}"
-                    : server.JobId;
-                ClipboardHelper.SetText(targetId);
-                LoadingStatus = Shiro.Services.LocalizationService.Format("ServerList.JobIdCopied", targetId);
-            }
+            if (param is not ServerItemViewModel server) return;
+            string targetId = ServerListOperationHelper.ResolveTargetServerId(server);
+            ClipboardHelper.SetText(targetId);
+            LoadingStatus = LocalizationService.Format("ServerList.JobIdCopied", targetId);
         }
 
         private async Task JoinServerAsync(object? param)
         {
             if (param is not ServerItemViewModel server) return;
 
-            string targetServer = server.Type == "VIP" && server.RawData != null && !string.IsNullOrEmpty(server.RawData.accessCode)
-                ? $"VIP:{server.RawData.accessCode}"
-                : server.JobId;
+            string targetServer = ServerListOperationHelper.ResolveTargetServerId(server);
 
             string pidText = !string.IsNullOrWhiteSpace(PlaceIdInput) ? PlaceIdInput : (_mainViewModel?.PlaceId ?? string.Empty);
             long placeId = AccountLauncherService.ParsePlaceId(pidText);
@@ -139,22 +79,7 @@ namespace Shiro.ViewModels
             await AppServices.HostUiBridge.JoinServerFromHostAsync(selectedAccounts, placeId, targetServer).ConfigureAwait(true);
         }
 
-        private Account? ResolveAuthAccount()
-        {
-            var selectedFromVm = _mainViewModel?.Accounts?.FirstOrDefault(a => a.IsSelected && a.Valid && a.Model != null)?.Model;
-            if (selectedFromVm != null)
-                return selectedFromVm;
-
-            if (AppServices.SelectionState.SelectedAccount != null && AppServices.SelectionState.SelectedAccount.Valid)
-                return AppServices.SelectionState.SelectedAccount;
-
-            if (AppServices.SelectionState.LastValidAccount != null && AppServices.SelectionState.LastValidAccount.Valid)
-                return AppServices.SelectionState.LastValidAccount;
-
-            return AppServices.AccountRepository.GetAll().FirstOrDefault(a => a != null && a.Valid)
-                   ?? AppServices.SelectionState.SelectedAccount
-                   ?? AppServices.SelectionState.LastValidAccount;
-        }
+        private Account? ResolveAuthAccount() => ServerListOperationHelper.ResolveAuthAccount(_mainViewModel);
 
         private async Task LoadRegionAsync(object? param)
         {
@@ -218,29 +143,17 @@ namespace Shiro.ViewModels
         {
             if (_servers.Count == 0) return;
 
-            var cts = ResetOperationCts(createNew: true);
-            var ct = cts!.Token;
-
-            string notLoadedText = LocalizationService.Get("ServerList.NotLoaded");
-            var pendingServers = new List<ServerItemViewModel>(25);
-            for (int i = 0; i < _servers.Count && pendingServers.Count < 25; i++)
-            {
-                ServerItemViewModel server = _servers[i];
-                if (string.IsNullOrEmpty(server.Region) ||
-                    string.Equals(server.Region, notLoadedText, StringComparison.Ordinal) ||
-                    string.Equals(server.Region, "Not loaded", StringComparison.Ordinal) ||
-                    string.IsNullOrEmpty(server.Ip))
-                {
-                    pendingServers.Add(server);
-                }
-            }
-
+            var pendingServers = ServerListOperationHelper.CollectPendingRegionServers(_servers);
             if (pendingServers.Count == 0)
             {
                 LoadingStatus = LocalizationService.Get("ServerList.RegionsLoadedComplete");
                 return;
             }
 
+            var cts = ServerListOperationHelper.ReplaceCts(ref _regionsCts, createNew: true, "ServerListViewModel.RegionsCts")!;
+            var ct = cts.Token;
+
+            IsLoadingRegions = true;
             LoadingStatus = LocalizationService.Format("ServerList.LoadingRegionsAndPinging", pendingServers.Count);
 
             try
@@ -257,15 +170,30 @@ namespace Shiro.ViewModels
                     await LoadRegionCoreAsync(server, token);
                 });
 
-                if (SortMode is ServerSortMode.PingAsc or ServerSortMode.PingDesc)
+                AppDispatcher.Post(() =>
                 {
-                    ApplyServerSortAndFilter();
-                }
-                LoadingStatus = LocalizationService.Get("ServerList.RegionsLoadedComplete");
+                    if (!ReferenceEquals(Volatile.Read(ref _regionsCts), cts)) return;
+                    if (SortMode is ServerSortMode.PingAsc or ServerSortMode.PingDesc)
+                        ApplyServerSortAndFilter();
+                    LoadingStatus = LocalizationService.Get("ServerList.RegionsLoadedComplete");
+                });
             }
             catch (OperationCanceledException)
             {
-                LoadingStatus = LocalizationService.Get("ServerList.LoadingRegionsCancelled");
+                AppDispatcher.Post(() =>
+                {
+                    if (!ReferenceEquals(Volatile.Read(ref _regionsCts), cts)) return;
+                    LoadingStatus = LocalizationService.Get("ServerList.LoadingRegionsCancelled");
+                });
+            }
+            finally
+            {
+                AppDispatcher.Post(() =>
+                {
+                    if (!ReferenceEquals(Volatile.Read(ref _regionsCts), cts)) return;
+                    IsLoadingRegions = false;
+                    ServerListOperationHelper.ReleaseFinishedCts(ref _regionsCts, cts, "ServerListViewModel.RegionsCts");
+                });
             }
         }
     }

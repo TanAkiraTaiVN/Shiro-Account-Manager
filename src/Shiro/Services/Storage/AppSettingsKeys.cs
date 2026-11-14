@@ -67,6 +67,7 @@ namespace Shiro.Services
             public const string AutoMuteBackgroundClients = "AutoMuteBackgroundClients";
             public const string SmartFastLaunch = "SmartFastLaunch";
             public const string SmartLaunchMinDelaySeconds = "SmartLaunchMinDelaySeconds";
+            public const string WaitForCaptchaInQueue = "WaitForCaptchaInQueue";
             public const string AggressiveRamTrimming = "AggressiveRamTrimming";
             public const string DynamicHardwareThrottling = "DynamicHardwareThrottling";
             public const string MaxTotalRobloxCpuPercent = "MaxTotalRobloxCpuPercent";

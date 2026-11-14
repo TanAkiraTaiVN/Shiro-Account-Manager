@@ -22,8 +22,8 @@
 - **Server List & Khám phá Server**:
   - Tra cứu danh sách server theo Place ID, hiển thị độ trễ ping và vị trí địa lý của server (Server Region).
   - Hỗ trợ vào VIP Server, tìm kiếm server nhỏ, tự động đổi Job ID ngẫu nhiên (`Shuffle Job ID`).
-- **Điều khiển trong game (Nexus Controller & Lua SDK)**: Tích hợp Kestrel WebSocket/HTTP Server nội bộ (mặc định chỉ lắng nghe `localhost`, yêu cầu mật khẩu xác thực hằng số thời gian khi mở kết nối ngoài). Đi kèm thư viện mẫu `RAMAccount.lua` (client Luau kết nối REST/WebSocket) và `RAMSettings.json` (tệp cấu hình mẫu tương thích ngược).
-- **Chống treo máy (Anti-AFK)**: Tự động gửi thông điệp phím/chuột ảo (`PostMessage` nền không chiếm tiêu điểm cửa sổ) hoặc phát xung qua cổng WebSocket (`VirtualUser` Luau) định kỳ bảo vệ tài khoản không bị ngắt kết nối do không hoạt động (idle 20 phút).
+- **Local HTTP & WebSocket Gateway (Kestrel API)**: Tích hợp ASP.NET Core Kestrel HTTP/WebSocket Server nội bộ (mặc định chỉ lắng nghe `localhost`, yêu cầu mật khẩu xác thực hằng số thời gian khi mở kết nối ngoài), cung cấp REST endpoints, luồng sự kiện thời gian thực (`/ws`, `/events`, `/v2/events`) và tài liệu OpenAPI trực quan (`/docs`).
+- **Chống treo máy (Anti-AFK)**: Tự động gửi thông điệp phím/chuột ảo (`PostMessage` nền không chiếm tiêu điểm cửa sổ) định kỳ bảo vệ tài khoản không bị ngắt kết nối do không hoạt động (idle 20 phút).
 
 ---
 
@@ -69,12 +69,12 @@ Sau khi hoàn tất, file thực thi phát hành chuẩn sẽ được tạo t�
 
 ## 📋 Kiểm thử tự động & Coverage Gates (Unit Tests)
 
-Dự án sở hữu bộ test suite tự động với hơn 1,865+ unit tests bao phủ toàn diện tính toàn vẹn của mã hóa AES-256-GCM / Dual-KDF (PBKDF2-SHA256 600,000 vòng V3 & HKDF-SHA256 V4), bảo mật DPAPI, quản lý hàng đợi mở game, kiến trúc MVVM strongly-typed, engine đồ họa Avalonia UI 11 và cấu hình JSON.
+Dự án sở hữu bộ test suite tự động với hơn 1,808+ unit tests bao phủ toàn diện tính toàn vẹn của mã hóa AES-256-GCM / Dual-KDF (PBKDF2-SHA256 600,000 vòng V3 & HKDF-SHA256 V4), bảo mật DPAPI, quản lý hàng đợi mở game, kiến trúc MVVM strongly-typed, engine đồ họa Avalonia UI 11 và cấu hình JSON.
 
 Các cổng chất lượng kiểm thử (Coverage Gates) được kiểm tra tự động trong CI/CD pipeline và `ArchitectureTests`:
-- **Overall Line Coverage**: **75.47%** (Ngưỡng yêu cầu: >= 75.0%)
-- **Overall Branch Coverage**: **63.93%** (Ngưỡng yêu cầu: >= 60.0%)
-- **Core Security/Persistence Coverage**: **92.83%** (Ngưỡng yêu cầu: >= 92.0%)
+- **Overall Line Coverage**: **78.82%** (Ngưỡng yêu cầu: >= 75.0%)
+- **Overall Branch Coverage**: **68.21%** (Ngưỡng yêu cầu: >= 60.0%)
+- **Core Security/Persistence Coverage**: **93.44%** (Ngưỡng yêu cầu: >= 92.0%)
 
 Chạy toàn bộ unit test suite:
 ```powershell

@@ -13,7 +13,6 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using NSubstitute;
 using Shiro.AvaloniaUI.Views;
-using Shiro.Nexus;
 using Shiro.Services;
 using Shiro.ViewModels;
 using Shiro.ViewModels.Dialogs;
@@ -169,30 +168,6 @@ namespace Shiro.Tests.Ui
             finally
             {
                 dlg?.Close();
-                LocalizationService.SetLanguage(prevLang, saveSetting: false);
-                Avalonia.Application.Current?.Resources.MergedDictionaries.Clear();
-                Logger.Sink = prevSink;
-            }
-        }
-
-        [AvaloniaFact]
-        public void UpdaterWindow_Opens_WithViewModelDataContext()
-        {
-            var sink = new BindingErrorSink();
-            var prevSink = Logger.Sink;
-            var prevLang = LocalizationService.CurrentLanguage;
-            UpdaterWindow? w = null;
-            Logger.Sink = sink;
-            try
-            {
-                w = new UpdaterWindow();
-                w.Show();
-                Assert.IsType<UpdaterViewModel>(w.DataContext);
-                Assert.Empty(sink.Errors);
-            }
-            finally
-            {
-                w?.Close();
                 LocalizationService.SetLanguage(prevLang, saveSetting: false);
                 Avalonia.Application.Current?.Resources.MergedDictionaries.Clear();
                 Logger.Sink = prevSink;

@@ -121,7 +121,7 @@ namespace Shiro.Tests
                 Assert.NotNull(itemVm.IconBrush);
             }
 
-            Assert.Equal(30, count);
+            Assert.Equal(29, count);
         }
 
         [Fact]
@@ -332,8 +332,7 @@ namespace Shiro.Tests
         public static readonly string[] ApprovedCoverageExclusions =
         {
             "**/*.g.cs", "**/*.Designer.cs", "**/App.axaml.cs", "**/AvaloniaUI/**", "**/tests/**",
-            "**/RobloxBrowserLogin*.cs", "**/RobloxBrowserSignup*.cs", "**/AccountBrowser.cs",
-            "**/ChromiumHomeBrowser.cs", "**/RobloxProcess.cs", "**/RobloxWatcher.cs"
+            "**/RobloxProcess.cs", "**/RobloxWatcher.cs"
         };
 
         [Fact]

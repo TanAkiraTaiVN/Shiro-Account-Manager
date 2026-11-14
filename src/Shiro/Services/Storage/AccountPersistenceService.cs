@@ -132,9 +132,10 @@ namespace Shiro.Services
                         AppServices.Dialogs.ShowWarning(LocalizationService.Get("AccountManager.MasterPasswordMinLength"));
                         return;
                     }
-                    byte[] hash = SHA512.HashData(Encoding.UTF8.GetBytes(newPass));
+                    byte[] passBytes = Encoding.UTF8.GetBytes(newPass);
+                    byte[] hash = SHA512.HashData(passBytes);
                     try { PasswordHash = new ReadOnlyMemory<byte>(ProtectedData.Protect(hash, Array.Empty<byte>(), DataProtectionScope.CurrentUser)); }
-                    finally { CryptographicOperations.ZeroMemory(hash); }
+                    finally { CryptographicOperations.ZeroMemory(passBytes); CryptographicOperations.ZeroMemory(hash); }
                     SaveAccounts(true, true);
                     AppServices.Dialogs.ShowInfo(LocalizationService.Get("AccountManager.NewPasswordSet"));
                 }

@@ -1,8 +1,6 @@
 using System;
 using System.IO;
-using System.Net.WebSockets;
 using System.Text;
-using Shiro.Nexus;
 using Shiro.Services;
 using Xunit;
 
@@ -39,22 +37,6 @@ namespace Shiro.Tests
             {
                 try { File.Delete(tempFile); } catch { }
             }
-        }
-
-        [Fact]
-        public void ControlledAccount_DisconnectWithStaleSocket_DoesNotDisconnectActiveNewSocket()
-        {
-            var acc = new ControlledAccount { Username = "TeleportUser" };
-            using var ws1 = new ClientWebSocket();
-            using var ws2 = new ClientWebSocket();
-
-            acc.Connect(ws1);
-            acc.Connect(ws2);
-
-            acc.Disconnect(ws1);
-
-            Assert.Equal(AccountStatus.Online, acc.Status);
-            Assert.Same(ws2, acc.WebSocket);
         }
 
         [Fact]

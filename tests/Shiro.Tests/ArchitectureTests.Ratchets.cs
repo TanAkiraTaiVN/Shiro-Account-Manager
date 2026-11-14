@@ -43,22 +43,6 @@ namespace Shiro.Tests
         }
 
         [Fact]
-        public void NexusFolder_ShouldNotDependOn_Views()
-        {
-            const int Baseline = 0;
-            var nexusDir = Path.Combine(RepoRoot, "src", "Shiro", "Nexus");
-            var files = Directory.GetFiles(nexusDir, "*.cs", SearchOption.AllDirectories);
-
-            int actual = 0;
-            foreach (var file in files)
-            {
-                actual += Regex.Matches(File.ReadAllText(file), @"\bShiro\.AvaloniaUI\b").Count;
-            }
-
-            Assert.True(actual <= Baseline, $"Shiro.AvaloniaUI references in Nexus ({actual}) exceed baseline ({Baseline}).");
-        }
-
-        [Fact]
         public void CoverageFloors_FileExists_AndCoversHotspots()
         {
             var floorsPath = Path.Combine(RepoRoot, "tests", "coverage-floors.json");

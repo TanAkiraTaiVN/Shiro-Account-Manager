@@ -99,22 +99,6 @@ namespace Shiro.Tests
         }
 
         [Fact]
-        public async Task ChromeLaunchHelper_SelectVerifiedBrowserProxyAsync_DisabledOrMissingFile_ReturnsNull()
-        {
-            AppSettings.General.Set("UseProxies", "false");
-            var resDisabled = await ChromeLaunchHelper.SelectVerifiedBrowserProxyAsync();
-            Assert.Null(resDisabled);
-
-            AppSettings.General.Set("UseProxies", "true");
-            // In temp directory, proxies.txt does not exist
-            string proxyFile = StoragePaths.GetUserFile("proxies.txt");
-            if (File.Exists(proxyFile)) File.Delete(proxyFile);
-
-            var resMissing = await ChromeLaunchHelper.SelectVerifiedBrowserProxyAsync();
-            Assert.Null(resMissing);
-        }
-
-        [Fact]
         public void ForegroundWindowService_LifecycleAndDispatch_CoversBranches()
         {
             // 1. Start and Stop

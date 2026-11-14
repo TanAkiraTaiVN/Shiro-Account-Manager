@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -41,6 +42,7 @@ namespace Shiro
                     return true;
             }
 
+            long rebindStartTicks = Stopwatch.GetTimestamp();
             try
             {
                 // Stage 1: Non-destructive users/authenticated probe.
@@ -86,6 +88,15 @@ namespace Shiro
             catch (Exception ex)
             {
                 AppServices.Logger?.Debug($"[HbaRebind] Fail-soft during network session rebind for {Username}: {ex.Message}");
+            }
+            finally
+            {
+                LaunchAttemptContext? attemptCtx = LaunchTimingService.CurrentAttempt;
+                if (attemptCtx != null)
+                {
+                    attemptCtx.RebindPerformed = true;
+                    attemptCtx.RebindMs = (long)Stopwatch.GetElapsedTime(rebindStartTicks).TotalMilliseconds;
+                }
             }
 
             return false;

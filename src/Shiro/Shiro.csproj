@@ -31,9 +31,10 @@
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
 
     <!-- .NET 10 High Performance Runtime & Compiler Options -->
-    <SelfContained>true</SelfContained>
+    <SelfContained Condition="'$(SelfContained)' == ''">false</SelfContained>
+    <_RequiresILLinkPack>true</_RequiresILLinkPack>
     <TieredPGO>true</TieredPGO>
-    <PublishReadyToRun>true</PublishReadyToRun>
+    <PublishReadyToRun Condition="'$(PublishReadyToRun)' == ''">false</PublishReadyToRun>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     <ServerGarbageCollection>false</ServerGarbageCollection>
     <GarbageCollectionAdaptation>1</GarbageCollectionAdaptation>
@@ -55,7 +56,6 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Web.WebView2" />
     <PackageReference Include="LucideAvalonia" />
-    <PackageReference Include="PuppeteerSharp" />
     <PackageReference Include="System.Security.Cryptography.ProtectedData" />
     <PackageReference Include="Avalonia" />
     <PackageReference Include="Avalonia.Desktop" />
@@ -72,7 +72,6 @@
   <ItemGroup>
     <AvaloniaResource Include="Resources\shiro_logo.png" />
     <AvaloniaResource Include="Resources\shiro.ico" />
-    <AvaloniaResource Include="Resources\Launchers\*.png" />
     <EmbeddedResource Include="Resources\Strings\*.json" />
     <EmbeddedResource Include="Resources\Data\*.json" />
     <AvaloniaResource Include="Resources\Flags\*.svg" />
@@ -80,8 +79,6 @@
 
   <ItemGroup>
     <None Update="Resources\**\*" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="Never" />
-    <None Update="Nexus\Nexus.lua" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="Never" />
-    <None Update="Nexus\RAMAccount.lua" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="Never" />
     <None Update="app1.manifest" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="Never" />
     <None Include="Resources\shiro.ico">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

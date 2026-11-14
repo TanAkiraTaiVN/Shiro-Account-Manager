@@ -16,6 +16,7 @@ namespace Shiro.Services
         private static readonly System.Threading.Lock _initLock = new();
         private static readonly Stack<OverrideScope> _overrideStack = new();
         private static readonly ISettingsService _defaultGeneralSettings = new DelegatingSettingsService();
+        internal static Action? OnInitialized;
 
         public static IServiceProvider ServiceProvider
         {
@@ -63,6 +64,7 @@ namespace Shiro.Services
 
                 _currentServices = services;
                 _serviceProvider = services.BuildServiceProvider();
+                OnInitialized?.Invoke();
             }
         }
 

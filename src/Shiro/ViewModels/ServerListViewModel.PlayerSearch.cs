@@ -24,7 +24,11 @@ namespace Shiro.ViewModels
         public bool IsSearchingPlayer
         {
             get => _isSearchingPlayer;
-            set => SetProperty(ref _isSearchingPlayer, value);
+            set
+            {
+                if (SetProperty(ref _isSearchingPlayer, value))
+                    OnPropertyChanged(nameof(CanCancelOperation));
+            }
         }
 
         public string PlayerSearchStatus
@@ -49,7 +53,7 @@ namespace Shiro.ViewModels
                 return;
             }
 
-            var cts = ResetOperationCts(createNew: true)!;
+            var cts = ServerListOperationHelper.ReplaceCts(ref _playerSearchCts, createNew: true, "ServerListViewModel.PlayerSearchCts")!;
             var ct = cts.Token;
 
             IsSearchingPlayer = true;
@@ -281,18 +285,30 @@ namespace Shiro.ViewModels
             }
             catch (OperationCanceledException)
             {
-                PlayerSearchStatus = Shiro.Services.LocalizationService.Get("ServerList.PlayerSearchCancelled");
-                LoadingStatus = PlayerSearchStatus;
+                AppDispatcher.Post(() =>
+                {
+                    if (!ReferenceEquals(Volatile.Read(ref _playerSearchCts), cts)) return;
+                    PlayerSearchStatus = Shiro.Services.LocalizationService.Get("ServerList.PlayerSearchCancelled");
+                    LoadingStatus = PlayerSearchStatus;
+                });
             }
             catch (Exception ex)
             {
-                PlayerSearchStatus = Shiro.Services.LocalizationService.Format("ServerList.PlayerSearchError", ex.Message);
-                LoadingStatus = PlayerSearchStatus;
+                AppDispatcher.Post(() =>
+                {
+                    if (!ReferenceEquals(Volatile.Read(ref _playerSearchCts), cts)) return;
+                    PlayerSearchStatus = Shiro.Services.LocalizationService.Format("ServerList.PlayerSearchError", ex.Message);
+                    LoadingStatus = PlayerSearchStatus;
+                });
             }
             finally
             {
-                if (ReferenceEquals(_operationCts, cts))
+                AppDispatcher.Post(() =>
+                {
+                    if (!ReferenceEquals(Volatile.Read(ref _playerSearchCts), cts)) return;
                     IsSearchingPlayer = false;
+                    ServerListOperationHelper.ReleaseFinishedCts(ref _playerSearchCts, cts, "ServerListViewModel.PlayerSearchCts");
+                });
             }
         }
     }

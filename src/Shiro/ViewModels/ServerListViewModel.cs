@@ -26,12 +26,15 @@ namespace Shiro.ViewModels
         private string _placeIdInput = string.Empty;
         private long _lastLoadedPlaceId;
         private bool _isLoadingServers;
+        private bool _isLoadingRegions;
         private string _loadingStatus = Shiro.Services.LocalizationService.Get("Status_Ready");
         private ServerItemViewModel? _selectedServer;
         private int _selectedSubTabIndex = 0; // 0: Servers, 1: Games, 2: Recent & Favorites, 3: Watcher
         private int _disposed;
 
-        private CancellationTokenSource? _operationCts;
+        private CancellationTokenSource? _serversCts;
+        private CancellationTokenSource? _regionsCts;
+        private CancellationTokenSource? _playerSearchCts;
 
         public BulkObservableCollection<ServerItemViewModel> Servers => _servers;
         public int TotalServersCount => _servers.Count;
@@ -59,10 +62,23 @@ namespace Shiro.ViewModels
                 if (SetProperty(ref _isLoadingServers, value))
                 {
                     OnPropertyChanged(nameof(CanRefreshServers));
+                    OnPropertyChanged(nameof(CanCancelOperation));
                     NotifyServerCounts();
                 }
             }
         }
+
+        public bool IsLoadingRegions
+        {
+            get => _isLoadingRegions;
+            set
+            {
+                if (SetProperty(ref _isLoadingRegions, value))
+                    OnPropertyChanged(nameof(CanCancelOperation));
+            }
+        }
+
+        public bool CanCancelOperation => IsLoadingServers || IsLoadingRegions || IsSearchingPlayer;
 
         public void NotifyServerCounts()
         {
@@ -185,7 +201,7 @@ namespace Shiro.ViewModels
             if (Interlocked.Exchange(ref _disposed, 1) != 0)
                 return;
             LocalizationService.LanguageChanged -= OnLanguageChanged;
-            ResetOperationCts(createNew: false);
+            CancelAllOperations();
             GC.SuppressFinalize(this);
         }
 
@@ -198,22 +214,18 @@ namespace Shiro.ViewModels
             }
         }
 
-        private CancellationTokenSource? ResetOperationCts(bool createNew)
+        private void CancelAllOperations()
         {
-            var nextCts = createNew ? new CancellationTokenSource() : null;
-            var prevCts = Interlocked.Exchange(ref _operationCts, nextCts);
-            if (prevCts != null)
-            {
-                SafeExecuteHelper.Try(() => prevCts.Cancel(), "ServerListViewModel.ResetOperationCts.Cancel");
-                SafeExecuteHelper.Try(() => prevCts.Dispose(), "ServerListViewModel.ResetOperationCts.Dispose");
-            }
-            return nextCts;
+            ServerListOperationHelper.ReplaceCts(ref _serversCts, createNew: false, "ServerListViewModel.ServersCts");
+            ServerListOperationHelper.ReplaceCts(ref _regionsCts, createNew: false, "ServerListViewModel.RegionsCts");
+            ServerListOperationHelper.ReplaceCts(ref _playerSearchCts, createNew: false, "ServerListViewModel.PlayerSearchCts");
         }
 
         public void CancelOperation()
         {
-            ResetOperationCts(createNew: false);
+            CancelAllOperations();
             IsLoadingServers = false;
+            IsLoadingRegions = false;
             IsSearchingPlayer = false;
             if (_allServers.Count == 0) _lastLoadedPlaceId = 0;
             LoadingStatus = Shiro.Services.LocalizationService.Get("ServerList.OperationCancelled");
@@ -230,7 +242,10 @@ namespace Shiro.ViewModels
                 return;
             }
 
-            var cts = ResetOperationCts(createNew: true)!;
+            var cts = ServerListOperationHelper.ReplaceCts(ref _serversCts, createNew: true, "ServerListViewModel.ServersCts")!;
+            ServerListOperationHelper.ReplaceCts(ref _regionsCts, createNew: false, "ServerListViewModel.RegionsCts");
+            ServerListOperationHelper.ReplaceCts(ref _playerSearchCts, createNew: false, "ServerListViewModel.PlayerSearchCts");
+            IsLoadingRegions = false;
             IsSearchingPlayer = false;
             CancellationToken ct = cts.Token;
 
@@ -239,14 +254,16 @@ namespace Shiro.ViewModels
             LoadingStatus = LocalizationService.Format("ServerList.FindingServersForPlace", placeId);
             ClearRawServers();
 
-            await Task.Run(async () =>
+            try
+            {
+                await Task.Run(async () =>
             {
                 try
                 {
                     var gamesClient = AppServices.RobloxApi.Games;
                     var vipAuthAccount = ResolveAuthAccount();
                     Task<List<ServerItemViewModel>?> vipTask = vipAuthAccount != null
-                        ? FetchVipServersAsync(gamesClient, vipAuthAccount, placeId, ct)
+                        ? ServerListOperationHelper.FetchVipServersAsync(gamesClient, vipAuthAccount, placeId, ct)
                         : Task.FromResult<List<ServerItemViewModel>?>(null);
 
                     string cursor = "_";
@@ -281,17 +298,7 @@ namespace Shiro.ViewModels
                         var batch = new List<ServerItemViewModel>(serverInfo.data.Count);
                         foreach (var s in serverInfo.data)
                         {
-                            batch.Add(new ServerItemViewModel
-                            {
-                                JobId = s.id,
-                                Type = "Public",
-                                MaxPlayers = s.maxPlayers,
-                                Playing = s.playing,
-                                Ping = s.ping ?? -1,
-                                Region = string.IsNullOrEmpty(s.region) ? string.Empty : s.region,
-                                Ip = s.ip ?? string.Empty,
-                                RawData = s
-                            });
+                            batch.Add(ServerListOperationHelper.CreatePublicServerItem(s));
                             totalLoaded++;
                         }
 
@@ -328,7 +335,7 @@ namespace Shiro.ViewModels
 
                     AppDispatcher.Post(() =>
                     {
-                        if (ct.IsCancellationRequested) return;
+                        if (ct.IsCancellationRequested || !ReferenceEquals(Volatile.Read(ref _serversCts), cts)) return;
                         LoadingStatus = totalLoaded > 0
                             ? Shiro.Services.LocalizationService.Format("ServerList.LoadedServersSuccess", totalLoaded)
                             : Shiro.Services.LocalizationService.Get("ServerList.NoServersFoundForPlace");
@@ -341,7 +348,7 @@ namespace Shiro.ViewModels
                 {
                     AppDispatcher.Post(() =>
                     {
-                        if (!ReferenceEquals(_operationCts, cts)) return;
+                        if (!ReferenceEquals(Volatile.Read(ref _serversCts), cts)) return;
                         LoadingStatus = Shiro.Services.LocalizationService.Get("ServerList.LoadingServersCancelled");
                         _lastLoadedPlaceId = 0;
                         NotifyServerCounts();
@@ -352,21 +359,32 @@ namespace Shiro.ViewModels
                     _logger.Error($"[RefreshServersAsync] {ex}");
                     AppDispatcher.Post(() =>
                     {
-                        if (!ReferenceEquals(_operationCts, cts)) return;
+                        if (!ReferenceEquals(Volatile.Read(ref _serversCts), cts)) return;
                         LoadingStatus = Shiro.Services.LocalizationService.Format("Common.ErrorFormat", ex.Message);
                         NotifyServerCounts();
                     });
                 }
-                finally
+                }, ct);
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                AppDispatcher.Post(() =>
                 {
-                    AppDispatcher.Post(() =>
-                    {
-                        if (!ReferenceEquals(_operationCts, cts)) return;
-                        IsLoadingServers = false;
-                        NotifyServerCounts();
-                    });
-                }
-            }, ct);
+                    if (!ReferenceEquals(Volatile.Read(ref _serversCts), cts)) return;
+                    LoadingStatus = Shiro.Services.LocalizationService.Get("ServerList.LoadingServersCancelled");
+                    _lastLoadedPlaceId = 0;
+                });
+            }
+            finally
+            {
+                AppDispatcher.Post(() =>
+                {
+                    if (!ReferenceEquals(Volatile.Read(ref _serversCts), cts)) return;
+                    IsLoadingServers = false;
+                    NotifyServerCounts();
+                    ServerListOperationHelper.ReleaseFinishedCts(ref _serversCts, cts, "ServerListViewModel.ServersCts");
+                });
+            }
         }
     }
 }

@@ -20,6 +20,7 @@ namespace Shiro.Services
             public string AbsolutePath { get; set; } = string.Empty;
             public bool IsV2 { get; set; }
             public bool IsLocal { get; set; }
+            public string? ClientKey { get; set; }
             public string Host { get; set; } = string.Empty;
             public string Origin { get; set; } = string.Empty;
             public string Body { get; set; } = string.Empty;
@@ -89,6 +90,7 @@ namespace Shiro.Services
                 AbsolutePath = absolutePath,
                 IsV2 = isV2,
                 IsLocal = isLocal,
+                ClientKey = context.Connection.RemoteIpAddress?.ToString(),
                 Host = req.Host.Host,
                 Origin = req.Headers["Origin"].ToString(),
                 Body = body,
@@ -107,6 +109,9 @@ namespace Shiro.Services
 
             bool isLocal = context.Connection.RemoteIpAddress != null &&
                            IPAddress.IsLoopback(context.Connection.RemoteIpAddress);
+            string? clientKey = context.Connection.RemoteIpAddress?.ToString();
+            if (WebAuthPolicy.IsClientLockedOut(clientKey))
+                return false;
 
             var webServer = AppServices.Settings.GetSection("WebServer");
             bool allowExternal = webServer != null && webServer.Get<bool>("AllowExternalConnections");
@@ -121,7 +126,9 @@ namespace Shiro.Services
                 WebAuthPolicy.ExtractHeaderPassword(k => context.Request.Headers.TryGetValue(k, out var hVal) ? hVal.ToString() : null),
                 WebAuthPolicy.ExtractQueryPassword(k => context.Request.Query.TryGetValue(k, out var qVal) ? qVal.ToString() : null));
 
-            return WebAuthPolicy.Evaluate(request, settings) == AuthDecision.Allow;
+            var decision = WebAuthPolicy.Evaluate(request, settings);
+            WebAuthPolicy.RecordAuthResult(clientKey, decision);
+            return decision == AuthDecision.Allow;
         }
 
         public async Task<string> ProcessApiRequestAsync(ApiRequestContext req)
@@ -172,7 +179,13 @@ namespace Shiro.Services
                 headerPass,
                 queryPass);
 
+            if (!string.IsNullOrEmpty(req.ClientKey) && WebAuthPolicy.IsClientLockedOut(req.ClientKey))
+            {
+                return Reply("Too many failed authentication attempts. Please try again later.", false, StatusCodes.Status429TooManyRequests, "Too Many Requests");
+            }
+
             var decision = WebAuthPolicy.Evaluate(authReq, authSettings);
+            WebAuthPolicy.RecordAuthResult(req.ClientKey, decision);
             if (decision != AuthDecision.Allow)
             {
                 int statusCode = WebAuthPolicy.ToStatusCode(decision);

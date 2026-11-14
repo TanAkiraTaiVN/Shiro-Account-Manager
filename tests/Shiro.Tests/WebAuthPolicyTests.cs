@@ -2,7 +2,6 @@ using System;
 using System.Net;
 using System.Threading.Tasks;
 using Shiro;
-using Shiro.Nexus;
 using Shiro.Services;
 using Xunit;
 
@@ -196,32 +195,6 @@ namespace Shiro.Tests
         }
 
         [Fact]
-        public async Task NexusWebSocketServer_ExternalWithoutPassword_FallsBackToLocalhost()
-        {
-            string oldPass = AppSettings.WebSocketPassword ?? string.Empty;
-            try
-            {
-                AppSettings.WebSocketPassword = "";
-                int testPort = 27982;
-                var server = new NexusWebSocketServer(IPAddress.Any, testPort);
-
-                await server.StartAsync();
-                try
-                {
-                    Assert.False(server.IsListeningExternally);
-                }
-                finally
-                {
-                    await server.StopAsync();
-                }
-            }
-            finally
-            {
-                AppSettings.WebSocketPassword = oldPass;
-            }
-        }
-
-        [Fact]
         public async Task ProcessApiRequestAsync_ExternalQueryPassword_IsRejected()
         {
             var mgr = AccountManager.Instance ?? new AccountManager();
@@ -318,6 +291,40 @@ namespace Shiro.Tests
             string resp = await mgr.ProcessApiRequestAsync(ctx);
             Assert.Equal(200, statusCode);
             Assert.Contains("Shiro is running", resp, StringComparison.OrdinalIgnoreCase);
+        }
+
+        [Fact]
+        public void BruteForceLockout_BlocksAfterMaxFailedAttempts_AndExpiresOrResetsOnSuccess()
+        {
+            WebAuthPolicy.ResetLockoutsForTesting();
+            try
+            {
+                string clientKey = "192.168.1.250";
+                var t0 = DateTimeOffset.UtcNow;
+
+                for (int i = 1; i < WebAuthPolicy.MaxFailedAttempts; i++)
+                {
+                    bool locked = WebAuthPolicy.RecordAuthResult(clientKey, AuthDecision.InvalidPassword, t0);
+                    Assert.False(locked);
+                    Assert.False(WebAuthPolicy.IsClientLockedOut(clientKey, t0));
+                }
+
+                bool lockedOnMax = WebAuthPolicy.RecordAuthResult(clientKey, AuthDecision.InvalidPassword, t0);
+                Assert.True(lockedOnMax);
+                Assert.True(WebAuthPolicy.IsClientLockedOut(clientKey, t0.AddSeconds(10)));
+
+                // Expires after LockoutDuration
+                Assert.False(WebAuthPolicy.IsClientLockedOut(clientKey, t0.Add(WebAuthPolicy.LockoutDuration).AddSeconds(1)));
+
+                // Successful auth clears failure state immediately
+                WebAuthPolicy.RecordAuthResult(clientKey, AuthDecision.InvalidPassword, t0);
+                WebAuthPolicy.RecordAuthResult(clientKey, AuthDecision.Allow, t0);
+                Assert.False(WebAuthPolicy.IsClientLockedOut(clientKey, t0));
+            }
+            finally
+            {
+                WebAuthPolicy.ResetLockoutsForTesting();
+            }
         }
     }
 }

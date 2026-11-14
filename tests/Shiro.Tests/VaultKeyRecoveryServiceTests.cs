@@ -71,101 +71,22 @@ namespace Shiro.Tests
         }
 
         [Fact]
-        public void TestCandidatesParallel_FindsValidKeyAmongstCandidates()
+        public void TryRecoverInProcess_RecoversFromCandidateBackupKeyFile()
         {
-            byte[] validKey = new byte[32];
-            Random.Shared.NextBytes(validKey);
-
-            byte[] dummy1 = new byte[32];
-            Random.Shared.NextBytes(dummy1);
-            byte[] dummy2 = new byte[32];
-            Random.Shared.NextBytes(dummy2);
-
-            byte[] encrypted = Cryptography.Encrypt("{\"accounts\":[]}", validKey);
-
-            var candidates = new List<byte[]> { dummy1, validKey, dummy2 };
-            byte[]? found = VaultKeyRecoveryService.TestCandidatesParallel(encrypted, candidates);
-
-            Assert.Equal(validKey, found);
-
-            // No valid candidate
-            var noMatches = new List<byte[]> { dummy1, dummy2 };
-            Assert.Null(VaultKeyRecoveryService.TestCandidatesParallel(encrypted, noMatches));
-        }
-
-        [Fact]
-        public void ExecuteRecoveryCli_NoPayload_ReturnsExitCodeTwo()
-        {
-            string tempDir = Path.Combine(Path.GetTempPath(), "Shiro-CliTest-" + Guid.NewGuid().ToString("N"));
+            string tempDir = Path.Combine(Path.GetTempPath(), "Shiro-RecoverTest-" + Guid.NewGuid().ToString("N"));
             try
             {
                 using (StoragePaths.OverrideDataDirectoryForTesting(tempDir))
                 {
-                    int code = VaultKeyRecoveryService.ExecuteRecoveryCli();
-                    Assert.Equal(2, code);
-                }
-            }
-            finally
-            {
-                if (Directory.Exists(tempDir))
-                {
-                    try { Directory.Delete(tempDir, true); }
-                    catch (IOException) { }
-                }
-            }
-        }
+                    byte[] validKey = new byte[32];
+                    Random.Shared.NextBytes(validKey);
+                    byte[] payload = Encoding.UTF8.GetBytes("[{\"Username\":\"BackupKeyUser\"}]");
+                    byte[] encrypted = Cryptography.Encrypt(payload.AsSpan(), validKey);
 
-        [Fact]
-        public void MergeAllKnownAccountsCli_DeduplicatesAndMergesAccountsCorrectly()
-        {
-            string tempDir = Path.Combine(Path.GetTempPath(), "Shiro-MergeTest-" + Guid.NewGuid().ToString("N"));
-            try
-            {
-                using (StoragePaths.OverrideDataDirectoryForTesting(tempDir))
-                {
-                    // Create test accounts
-                    var initialAccounts = new List<Account>
-                    {
-                        new Account { Username = "PlayerA", SecurityToken = "tokenA", UserID = 100 },
-                        new Account { Username = "PlayerB", Password = "PassB" }
-                    };
+                    File.WriteAllBytes(StoragePaths.VaultKeyFile + ".bak", validKey);
 
-                    byte[] key = StoragePaths.GetOrCreateVaultKey();
-                    byte[] serialized = AccountDataSerializer.Serialize(initialAccounts, includePasswords: true);
-                    byte[] encrypted = Cryptography.Encrypt(serialized.AsSpan(), key);
-                    File.WriteAllBytes(StoragePaths.AccountDataFile, encrypted);
-
-                    // Add a legacy DPAPI backup file with extra information for PlayerB and PlayerC
-                    var backupAccounts = new List<Account>
-                    {
-                        new Account { Username = "PlayerB", SecurityToken = "tokenB_recovered", UserID = 200 },
-                        new Account { Username = "PlayerC", SecurityToken = "tokenC", UserID = 300 }
-                    };
-                    byte[] backupSerialized = AccountDataSerializer.Serialize(backupAccounts, includePasswords: true);
-                    byte[] legacyDpapiEntropy = new byte[]
-                    {
-                        0x52, 0x4f, 0x42, 0x4c, 0x4f, 0x58, 0x20, 0x41, 0x43, 0x43, 0x4f, 0x55, 0x4e, 0x54,
-                        0x20, 0x4d, 0x41, 0x4e, 0x41, 0x47, 0x45, 0x52, 0x20, 0x7c, 0x20, 0x3a, 0x29, 0x20,
-                        0x7c, 0x20, 0x42, 0x52, 0x4f, 0x55, 0x47, 0x48, 0x54, 0x20, 0x54, 0x4f, 0x20, 0x59,
-                        0x4f, 0x55, 0x20, 0x42, 0x55, 0x59, 0x20, 0x69, 0x63, 0x33, 0x77, 0x30, 0x6c, 0x66
-                    };
-                    byte[] backupProtected = ProtectedData.Protect(backupSerialized, legacyDpapiEntropy, DataProtectionScope.CurrentUser);
-                    File.WriteAllBytes(StoragePaths.AccountDataFile + ".previous", backupProtected);
-
-                    int exitCode = VaultKeyRecoveryService.MergeAllKnownAccountsCli();
-                    Assert.Equal(0, exitCode);
-
-                    // Verify merged results
-                    byte[] mergedEncrypted = File.ReadAllBytes(StoragePaths.AccountDataFile);
-                    byte[] decrypted = Cryptography.Decrypt(mergedEncrypted, key);
-                    var mergedList = AccountDataSerializer.Deserialize(decrypted, out _);
-
-                    Assert.Equal(3, mergedList.Count);
-                    var playerB = mergedList.Find(a => a.Username == "PlayerB");
-                    Assert.NotNull(playerB);
-                    Assert.Equal("tokenB_recovered", playerB.SecurityToken);
-                    Assert.Equal("PassB", playerB.Password);
-                    Assert.Equal(200, playerB.UserID);
+                    byte[]? recovered = VaultKeyRecoveryService.TryRecoverInProcess(encrypted);
+                    Assert.Equal(validKey, recovered);
                 }
             }
             finally

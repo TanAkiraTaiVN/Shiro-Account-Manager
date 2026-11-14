@@ -142,63 +142,6 @@ namespace Shiro
                 Logger?.Debug($"Administrator role check failed: {ex.Message}");
             }
 
-#if DEBUG
-            bool IsAutoUpdater = true;
-#else
-            string processPath = Environment.ProcessPath ?? string.Empty;
-            bool IsAutoUpdater = processPath.EndsWith("Auto Update.exe", StringComparison.OrdinalIgnoreCase);
-#endif
-
-            if (Arguments.Length >= 1 && string.Equals(Arguments[0], "--recover-vault-key", StringComparison.OrdinalIgnoreCase))
-            {
-                int exitCode = VaultKeyRecoveryService.ExecuteRecoveryCli();
-                Environment.Exit(exitCode);
-                return;
-            }
-
-            if (Arguments.Length >= 1 && string.Equals(Arguments[0], "--merge-accounts", StringComparison.OrdinalIgnoreCase))
-            {
-                int exitCode = VaultKeyRecoveryService.MergeAllKnownAccountsCli();
-                Environment.Exit(exitCode);
-                return;
-            }
-
-            if (Arguments.Length == 1 && Arguments[0] == "-update")
-            {
-                if (!IsAutoUpdater)
-                {
-                    string AFN = Path.Combine(Directory.GetCurrentDirectory(), "Auto Update.exe");
-                    string currentExe = Environment.ProcessPath ?? string.Empty;
-
-                    File.Copy(currentExe, AFN, true);
-                    Process.Start(AFN, "-update");
-                    Environment.Exit(2);
-                }
-
-                void StartUpdater() {
-                    BuildAvaloniaApp().StartWithClassicDesktopLifetime(Arguments);
-                }
-
-                if (!Elevated)
-                {
-                    try
-                    {
-                        Process.Start(new ProcessStartInfo(Environment.ProcessPath ?? string.Empty) { Arguments = "-update", Verb = "runas" });
-                        Environment.Exit(0);
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger?.Debug($"Runas updater failed, starting direct: {ex.Message}");
-                        StartUpdater();
-                    }
-                }
-                else
-                    StartUpdater();
-
-                return;
-            }
-
-
             ConfigureUnhandledExceptionRouting();
 
 
@@ -221,7 +164,7 @@ namespace Shiro
 #endif
                 try
                 {
-                    AppSettings.EnsureBackendInitialized();
+                    AccountManager.EnsureBackendInitialized();
 
                     Logger?.Info("Launching Shiro Account Manager with Pure Avalonia UI 11 engine...");
                     try

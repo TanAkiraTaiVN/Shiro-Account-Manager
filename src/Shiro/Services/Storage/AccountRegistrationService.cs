@@ -144,7 +144,9 @@ namespace Shiro.Services
                         exists.UserID = account.UserID;
                     if (string.IsNullOrEmpty(exists.Username) && !string.IsNullOrEmpty(account.Username))
                         exists.Username = account.Username;
-                    exists.LastUse = DateTime.Now;
+                    DateTime now = DateTime.Now;
+                    exists.LastUse = now;
+                    exists.LastAttemptedRefresh = now;
                     exists.CSRFToken = null;
                     exists.TokenSet = DateTime.MinValue;
                     exists.Valid = true;
@@ -160,6 +162,7 @@ namespace Shiro.Services
                 }
                 else
                 {
+                    account.LastAttemptedRefresh = DateTime.Now;
                     _repository.AddThreadSafe(account);
 
                     if (saveImmediate)

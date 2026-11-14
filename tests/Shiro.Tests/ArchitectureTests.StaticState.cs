@@ -70,10 +70,10 @@ namespace Shiro.Tests
         }
 
         [Fact]
-        public void ServicesAndNexus_ShouldNotDependOn_AccountManager()
+        public void Services_ShouldNotDependOn_AccountManager()
         {
             var result = Types.InAssembly(CoreAssembly)
-                .That().ResideInNamespace("Shiro.Services").Or().ResideInNamespace("Shiro.Nexus")
+                .That().ResideInNamespace("Shiro.Services")
                 .ShouldNot().HaveDependencyOnAny("Shiro.AccountManager")
                 .GetResult();
             var failingNames = result.FailingTypes?.Select(t => t.FullName) ?? Enumerable.Empty<string>();

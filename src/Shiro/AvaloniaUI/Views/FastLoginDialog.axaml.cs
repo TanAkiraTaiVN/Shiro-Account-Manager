@@ -15,6 +15,11 @@ namespace Shiro.AvaloniaUI.Views
 {
     public partial class FastLoginDialog : Window
     {
+        public const double InAppModeHeight = 580;
+        public const double InAppModeMinHeight = 480;
+        public const double CookieModeHeight = 360;
+        public const double CookieModeMinHeight = 330;
+
         private DispatcherTimer? _pollTimer;
         private FastLoginQueue _queue = new(Array.Empty<Account>());
         private readonly HashSet<string> _ignoredCookieValues = new HashSet<string>(StringComparer.Ordinal);
@@ -26,6 +31,8 @@ namespace Shiro.AvaloniaUI.Views
         public CookieImportViewModel CookieViewModel { get; } = new();
 
         public Account? CreatedAccount { get; private set; }
+
+        public bool IsCookieModeActive => TabCookie?.IsChecked == true;
 
         // Only SHA-256 fingerprints of seen cookies are kept in memory, never the raw .ROBLOSECURITY values.
         private static string Fingerprint(string value) =>
@@ -48,12 +55,20 @@ namespace Shiro.AvaloniaUI.Views
             }
         }
 
-        public FastLoginDialog(Account? account = null) : this()
+        public FastLoginDialog(Account? account = null) : this(account, startInCookieMode: false)
+        {
+        }
+
+        public FastLoginDialog(Account? account, bool startInCookieMode) : this()
         {
             if (account != null)
             {
                 _queue = new FastLoginQueue(new[] { account });
                 LoadAccountAtIndex(0);
+            }
+            if (startInCookieMode)
+            {
+                SelectLoginMode(isCookieMode: true);
             }
         }
 
@@ -84,32 +99,35 @@ namespace Shiro.AvaloniaUI.Views
             if (!string.IsNullOrEmpty(_username))
             {
                 BtnRefill.IsVisible = true;
-                if (TxtDialogTitle != null)
-                {
-                    TxtDialogTitle.Text = _queue.Title;
-                }
-                if (TxtDialogSubtitle != null)
-                {
-                    TxtDialogSubtitle.Text = _queue.Subtitle;
-                }
+                if (TxtDialogTitle != null) TxtDialogTitle.Text = _queue.Title;
+                if (TxtDialogSubtitle != null) TxtDialogSubtitle.Text = _queue.Subtitle;
             }
 
-            if (BtnSkipNext != null)
-            {
-                BtnSkipNext.IsVisible = _queue.HasNext;
-            }
-
+            if (BtnSkipNext != null) BtnSkipNext.IsVisible = _queue.HasNext;
             CookieViewModel.LoadFromAccount(account);
         }
 
-        private void OnModeCheckedChanged(object sender, RoutedEventArgs e)
+        public void SelectLoginMode(bool isCookieMode)
         {
-            bool isInApp = TabInApp?.IsChecked == true;
+            if (TabInApp != null) TabInApp.IsChecked = !isCookieMode;
+            if (TabCookie != null) TabCookie.IsChecked = isCookieMode;
+            ApplyModeLayout(isCookieMode);
+        }
+
+        private void OnModeCheckedChanged(object sender, RoutedEventArgs e)
+            => ApplyModeLayout(IsCookieModeActive);
+
+        private void ApplyModeLayout(bool isCookieMode)
+        {
+            bool isInApp = !isCookieMode;
             if (PnlInApp != null) PnlInApp.IsVisible = isInApp;
-            if (PnlCookie != null) PnlCookie.IsVisible = !isInApp;
-            if (BtnVerify != null) BtnVerify.IsVisible = !isInApp;
-            if (BtnAddCookie != null) BtnAddCookie.IsVisible = !isInApp;
+            if (PnlCookie != null) PnlCookie.IsVisible = isCookieMode;
+            if (BtnVerify != null) BtnVerify.IsVisible = isCookieMode;
+            if (BtnAddCookie != null) BtnAddCookie.IsVisible = isCookieMode;
             if (TxtTip != null) TxtTip.IsVisible = isInApp;
+
+            MinHeight = isCookieMode ? CookieModeMinHeight : InAppModeMinHeight;
+            Height = isCookieMode ? CookieModeHeight : InAppModeHeight;
 
             if (isInApp && WvBrowser != null)
             {

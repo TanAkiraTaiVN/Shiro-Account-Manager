@@ -25,6 +25,9 @@ namespace Shiro.Services
         internal delegate ClientGameJoinState InspectGameJoinStateDelegate(int pid, string? browserTrackerId, ref string? cachedLogPath);
         internal static InspectGameJoinStateDelegate? TestInspectProcessGameJoinStateOverride;
         internal static string? TestLogsDirectoryOverride;
+        internal static TimeSpan? TestCaptchaRetryCooldownOverride;
+        internal static Action<Account>? TestCloseChallengedProcessOverride;
+        internal static Func<int, TimeSpan, CancellationToken, Task<bool>>? TestWaitForClientUnlockedOverride;
         internal static int ChallengeProbeDelayMs = 500;
         internal static double MaxChallengeVerificationWaitSeconds = 90.0;
 
@@ -328,6 +331,7 @@ namespace Shiro.Services
             if (joinState != ClientGameJoinState.Challenged && joinState != ClientGameJoinState.ChallengeFailedToLuaApp)
                 return;
 
+            state.CaptchaDetected = true;
             string nextUsername = (index + 1 < launchList.Count) ? launchList[index + 1].Account.Username : string.Empty;
 
             if (joinState == ClientGameJoinState.Challenged)
@@ -391,10 +395,7 @@ namespace Shiro.Services
             if (joinState == ClientGameJoinState.ChallengeFailedToLuaApp || joinState == ClientGameJoinState.Challenged)
             {
                 AppServices.Logger?.Warn($"[LaunchCoordinator] Closing unverified fallback client for '{request.Account.Username}' (PID {targetPid}) before launching '{nextUsername}' to prevent duplicate-account Home windows.");
-                AutoReconnectService.Instance.SuppressReconnect(request.Account.Username);
-                AutoReconnectService.Instance.SuppressReconnectByPid(targetPid);
-                try { RobloxProcessService.CloseAccountRobloxProcess(request.Account); }
-                catch (Exception ex) { AppServices.Logger?.Debug($"Close challenged fallback client failed: {ex.Message}"); }
+                LaunchCaptchaHelper.CloseChallengedClient(request.Account, targetPid);
 
                 state.Status = LaunchOutcome.Failed;
                 state.Result = Loc.Get("Launch_CaptchaRequiredError", Shiro.Services.LocalizationService.Get("Launch_CaptchaRequiredError"));

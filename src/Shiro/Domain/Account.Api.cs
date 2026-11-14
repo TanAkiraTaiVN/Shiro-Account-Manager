@@ -161,10 +161,9 @@ namespace Shiro
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 await RobloxRateLimitCoordinator.Instance.WaitForBackoffAsync(cancellationToken).ConfigureAwait(false);
-
+                string ticketBody = await AccountLaunchService.FetchClientAssertionBodyAsync(this, httpClient, includeHba: useHba, cancellationToken).ConfigureAwait(false);
                 int rotationBefore = CookieRotationVersion;
-                using var request = AccountLaunchService.CreateTicketRequest(this, currentCsrf, includeHba: useHba);
-
+                using var request = AccountLaunchService.CreateTicketRequest(this, currentCsrf, body: ticketBody, includeHba: useHba);
                 try
                 {
                     using var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);

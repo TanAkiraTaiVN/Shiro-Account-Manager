@@ -196,12 +196,10 @@ namespace Shiro.Tests
             var viewModelsDir = Path.Combine(repoRoot!, "src", "Shiro", "ViewModels");
             var domainDir = Path.Combine(repoRoot!, "src", "Shiro", "Domain");
             var avaloniaDir = Path.Combine(repoRoot!, "src", "Shiro", "AvaloniaUI");
-            var nexusDir = Path.Combine(repoRoot!, "src", "Shiro", "Nexus");
             var files = Directory.GetFiles(servicesDir, "*.cs", SearchOption.AllDirectories)
                 .Concat(Directory.GetFiles(viewModelsDir, "*.cs", SearchOption.AllDirectories))
                 .Concat(Directory.GetFiles(domainDir, "*.cs", SearchOption.AllDirectories))
                 .Concat(Directory.GetFiles(avaloniaDir, "*.cs", SearchOption.AllDirectories))
-                .Concat(Directory.GetFiles(nexusDir, "*.cs", SearchOption.AllDirectories))
                 .ToList();
 
             var violations = new System.Collections.Generic.List<string>();
@@ -256,7 +254,6 @@ namespace Shiro.Tests
                 ["ViewModels"] = (0, 0),
                 // locked at current baseline; may only go down:
                 ["Domain"] = (0, 0),
-                ["Services/Browser"] = (0, 0),
                 ["Services/Launch"] = (0, 0),
                 ["Services/Windows"] = (0, 0),
                 ["Services/Ui"] = (0, 0),

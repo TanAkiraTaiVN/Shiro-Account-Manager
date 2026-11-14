@@ -73,8 +73,9 @@ namespace Shiro.Tests
             using ECDsa verifier = ECDsa.Create();
             verifier.ImportSubjectPublicKeyInfo(Convert.FromBase64String(pubB64), out _);
 
+            string expectedPath = new Uri(url).AbsolutePath;
             string expectedPayload1 = $"{expectedHash}|1760000000|{url}|POST";
-            string expectedPayload2 = $"|1760000000|{url}|POST";
+            string expectedPayload2 = $"|1760000000|{expectedPath}|POST";
 
             Assert.True(verifier.VerifyData(Encoding.UTF8.GetBytes(expectedPayload1), sig1, HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation));
             Assert.True(verifier.VerifyData(Encoding.UTF8.GetBytes(expectedPayload2), sig2, HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation));
@@ -108,7 +109,7 @@ namespace Shiro.Tests
             using ECDsa verifier = ECDsa.Create();
             verifier.ImportSubjectPublicKeyInfo(Convert.FromBase64String(pubB64), out _);
 
-            string expectedSigned = $"GET|/v1/users/authenticated?foo=1|{emptyHex}|1760000123";
+            string expectedSigned = $"GET|/v1/users/authenticated|{emptyHex}|1760000123";
             Assert.True(verifier.VerifyData(
                 Encoding.UTF8.GetBytes(expectedSigned),
                 Convert.FromBase64String(parts[3]),
@@ -381,6 +382,69 @@ namespace Shiro.Tests
             Assert.Single(headerValues);
             string headerValue = headerValues.First();
             Assert.StartsWith("v1|", headerValue);
+        }
+
+        [Fact]
+        public async Task GetAuthTicketAsync_RetriesClientAssertionOnceOnTransientSocketFailure()
+        {
+            var (privB64, pubB64) = GenerateP256KeyPair();
+            string expectedSig = RobloxHbaService.GetLocalNetworkSignature();
+            var acc = new Account
+            {
+                Username = "AssertionRetryUser",
+                UserID = 99002,
+                SecurityToken = SampleCookie,
+                Valid = true,
+                HbaPrivateKeyPkcs8 = privB64,
+                HbaPublicKeySpki = pubB64,
+                HbaTemplate = RobloxHbaService.DefaultTemplate,
+                LastBoundIpSignature = expectedSig
+            };
+
+            const string recoveredAssertionJson = "{\"clientAssertion\":\"eyJ-recovered-after-vpn-flap\"}";
+            int assertionAttempts = 0;
+            string? capturedTicketBody = null;
+
+            var prevFactory = Account.TestHttpClientFactory;
+            Account.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler(async (req, _) =>
+            {
+                string uri = req.RequestUri?.AbsoluteUri ?? string.Empty;
+                if (req.Method == HttpMethod.Get && uri.Contains("/v1/client-assertion", StringComparison.OrdinalIgnoreCase))
+                {
+                    assertionAttempts++;
+                    if (assertionAttempts == 1)
+                        throw new HttpRequestException("An error occurred while sending the request.");
+
+                    return new HttpResponseMessage(HttpStatusCode.OK)
+                    {
+                        Content = new StringContent(recoveredAssertionJson, Encoding.UTF8, "application/json")
+                    };
+                }
+
+                if (req.Method == HttpMethod.Post && uri.Contains("/v1/authentication-ticket", StringComparison.OrdinalIgnoreCase))
+                {
+                    capturedTicketBody = req.Content != null ? await req.Content.ReadAsStringAsync() : null;
+                    var resp = new HttpResponseMessage(HttpStatusCode.OK);
+                    resp.Headers.TryAddWithoutValidation("rbx-authentication-ticket", "ticket-after-assertion-retry");
+                    return resp;
+                }
+
+                return new HttpResponseMessage(HttpStatusCode.NotFound);
+            }));
+
+            try
+            {
+                var (ok, ticket) = await acc.GetAuthTicketAsync();
+
+                Assert.True(ok);
+                Assert.Equal("ticket-after-assertion-retry", ticket);
+                Assert.Equal(2, assertionAttempts);
+                Assert.Equal(recoveredAssertionJson, capturedTicketBody);
+            }
+            finally
+            {
+                Account.TestHttpClientFactory = prevFactory;
+            }
         }
     }
 }

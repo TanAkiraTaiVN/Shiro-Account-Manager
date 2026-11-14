@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 
 namespace Shiro.Services
 {
@@ -36,6 +37,62 @@ namespace Shiro.Services
     {
         public const int MinPasswordLength = 6;
         public const int RecommendedExternalPasswordLength = 12;
+        public const int MaxFailedAttempts = 5;
+        public static readonly TimeSpan LockoutDuration = TimeSpan.FromSeconds(30);
+
+        private static readonly ConcurrentDictionary<string, (int Failures, DateTimeOffset LockedUntilUtc)> ClientFailures =
+            new(StringComparer.OrdinalIgnoreCase);
+
+        public static void ResetLockoutsForTesting() => ClientFailures.Clear();
+
+        public static bool IsClientLockedOut(string? clientKey, DateTimeOffset? nowUtc = null)
+        {
+            if (string.IsNullOrWhiteSpace(clientKey))
+                return false;
+
+            DateTimeOffset now = nowUtc ?? DateTimeOffset.UtcNow;
+            if (ClientFailures.TryGetValue(clientKey, out var state))
+            {
+                if (state.LockedUntilUtc > now)
+                    return true;
+
+                if (state.LockedUntilUtc != DateTimeOffset.MinValue)
+                    ClientFailures.TryRemove(clientKey, out _);
+            }
+
+            return false;
+        }
+
+        public static bool RecordAuthResult(string? clientKey, AuthDecision decision, DateTimeOffset? nowUtc = null)
+        {
+            if (string.IsNullOrWhiteSpace(clientKey))
+                return false;
+
+            if (decision == AuthDecision.Allow)
+            {
+                ClientFailures.TryRemove(clientKey, out _);
+                return false;
+            }
+
+            if (decision != AuthDecision.InvalidPassword)
+                return IsClientLockedOut(clientKey, nowUtc);
+
+            DateTimeOffset now = nowUtc ?? DateTimeOffset.UtcNow;
+            var updated = ClientFailures.AddOrUpdate(
+                clientKey,
+                _ => (1, 1 >= MaxFailedAttempts ? now.Add(LockoutDuration) : DateTimeOffset.MinValue),
+                (_, prev) =>
+                {
+                    int baseFailures = (prev.LockedUntilUtc != DateTimeOffset.MinValue && prev.LockedUntilUtc <= now) ? 0 : prev.Failures;
+                    int nextFailures = baseFailures + 1;
+                    DateTimeOffset lockedUntil = nextFailures >= MaxFailedAttempts
+                        ? now.Add(LockoutDuration)
+                        : DateTimeOffset.MinValue;
+                    return (nextFailures, lockedUntil);
+                });
+
+            return updated.LockedUntilUtc > now;
+        }
 
         public static bool IsPasswordConfigured(string? configured) =>
             !string.IsNullOrEmpty(configured) && configured.Length >= MinPasswordLength;

@@ -1,6 +1,4 @@
 using Microsoft.Win32;
-using PuppeteerSharp;
-using PuppeteerSharp.BrowserData;
 using Shiro.Http;
 using System;
 using System.Collections.Generic;
@@ -26,7 +24,6 @@ namespace Shiro
         private static AccountPersistenceService Persistence => AppServices.GetRequiredService<AccountPersistenceService>();
         private static AccountRegistrationService Registration => AppServices.GetRequiredService<AccountRegistrationService>();
 
-        private static bool PuppeteerSupported;
         public bool IsDisposed => shutdownFinalized;
         public bool IsHandleCreated => true;
 
@@ -202,10 +199,6 @@ namespace Shiro
             if (!AppSettings.General.Exists("UnlockFPS")) AppSettings.General.Set("UnlockFPS", "false");
             if (!AppSettings.General.Exists("MaxFPSValue")) AppSettings.General.Set("MaxFPSValue", "120");
             if (!AppSettings.General.Exists("EnablePotatoMode")) AppSettings.General.Set("EnablePotatoMode", "false");
-            // Keep the native Roblox Home protocol as the default. Chrome is
-            // still available as an optional compatibility workaround when
-            // native authentication is rate-limited.
-            if (!AppSettings.General.Exists("UseChromeHome")) AppSettings.General.Set("UseChromeHome", "false");
             // Optional per-browser proxy routing. Keep this off by default so
             // normal installations retain the direct/system network route.
             // When enabled, RobloxBrowserLogin reads proxies.txt from the
@@ -231,7 +224,6 @@ namespace Shiro
             if (!AppSettings.AccountControl.Exists("AllowExternalConnections")) AppSettings.AccountControl.Set("AllowExternalConnections", "false");
             if (!AppSettings.AccountControl.Exists("RelaunchDelay")) AppSettings.AccountControl.Set("RelaunchDelay", "60");
             if (!AppSettings.AccountControl.Exists("LauncherDelayNumber")) AppSettings.AccountControl.Set("LauncherDelayNumber", "9");
-            if (!AppSettings.AccountControl.Exists("NexusPort")) AppSettings.AccountControl.Set("NexusPort", "5242");
 
             ReplaceAccountsList(new List<Account>());
             AppServices.SelectionState.SelectedAccounts = new List<Account>();
@@ -245,14 +237,6 @@ namespace Shiro
         public void RefreshView(object? obj = null)
         {
             RefreshModernDashboard();
-        }
-
-        private void EnableModernDashboard()
-        {
-            RefreshModernDashboard();
-
-            if (AppSettings.General.Get<bool>("ShowPresence"))
-                _ = UpdatePresence();
         }
 
         private void RefreshModernDashboard()

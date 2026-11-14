@@ -13,7 +13,6 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using NSubstitute;
 using Shiro.AvaloniaUI.Views;
-using Shiro.Nexus;
 using Shiro.Services;
 using Shiro.ViewModels;
 using Shiro.ViewModels.Dialogs;
@@ -23,6 +22,88 @@ namespace Shiro.Tests.Ui
 {
     public partial class DialogSmokeTests
     {
+        [AvaloniaFact]
+        public void FastLoginDialog_StartInCookieMode_CompactsHeight_HidesEmptyPreviewName_AndLocalizesWatermarks()
+        {
+            var sink = new BindingErrorSink();
+            var prevSink = Logger.Sink;
+            var prevLang = LocalizationService.CurrentLanguage;
+            FastLoginDialog? dlg = null;
+            Logger.Sink = sink;
+            try
+            {
+                LocalizationService.SetLanguage(AppLanguage.English, saveSetting: false);
+                dlg = new FastLoginDialog(null, startInCookieMode: true);
+                dlg.Show();
+                Dispatcher.UIThread.RunJobs();
+
+                Assert.True(dlg.IsCookieModeActive);
+                Assert.Equal(FastLoginDialog.CookieModeHeight, dlg.Height);
+                Assert.Equal(FastLoginDialog.CookieModeMinHeight, dlg.MinHeight);
+
+                var pnlInApp = dlg.FindControl<Grid>("PnlInApp");
+                var pnlCookie = dlg.FindControl<ScrollViewer>("PnlCookie");
+                var btnVerify = dlg.FindControl<Button>("BtnVerify");
+                var btnAddCookie = dlg.FindControl<Button>("BtnAddCookie");
+                var txtTip = dlg.FindControl<TextBlock>("TxtTip");
+                var txtPreviewUsername = dlg.FindControl<TextBlock>("TxtPreviewUsername");
+                var txtAlias = dlg.FindControl<TextBox>("TxtCookieAlias");
+                var txtGroup = dlg.FindControl<TextBox>("TxtCookieGroup");
+
+                Assert.NotNull(pnlInApp);
+                Assert.NotNull(pnlCookie);
+                Assert.NotNull(btnVerify);
+                Assert.NotNull(btnAddCookie);
+                Assert.NotNull(txtTip);
+                Assert.NotNull(txtPreviewUsername);
+                Assert.NotNull(txtAlias);
+                Assert.NotNull(txtGroup);
+
+                Assert.False(pnlInApp.IsVisible);
+                Assert.True(pnlCookie.IsVisible);
+                Assert.True(btnVerify.IsVisible);
+                Assert.True(btnAddCookie.IsVisible);
+                Assert.False(txtTip.IsVisible);
+                Assert.False(txtPreviewUsername.IsVisible);
+
+                string enAliasWatermark = LocalizationService.Get("FastLogin_AliasWatermark");
+                string enGroupWatermark = LocalizationService.Get("FastLogin_GroupWatermark");
+                Assert.Equal(enAliasWatermark, txtAlias.Watermark);
+                Assert.Equal(enGroupWatermark, txtGroup.Watermark);
+
+                LocalizationService.SetLanguage(AppLanguage.Vietnamese, saveSetting: false);
+                Dispatcher.UIThread.RunJobs();
+
+                string viAliasWatermark = LocalizationService.Get("FastLogin_AliasWatermark");
+                string viGroupWatermark = LocalizationService.Get("FastLogin_GroupWatermark");
+                Assert.NotEqual(enAliasWatermark, viAliasWatermark);
+                Assert.NotEqual(enGroupWatermark, viGroupWatermark);
+                Assert.Equal(viAliasWatermark, txtAlias.Watermark);
+                Assert.Equal(viGroupWatermark, txtGroup.Watermark);
+
+                dlg.SelectLoginMode(isCookieMode: false);
+                Dispatcher.UIThread.RunJobs();
+                Assert.False(dlg.IsCookieModeActive);
+                Assert.Equal(FastLoginDialog.InAppModeHeight, dlg.Height);
+                Assert.Equal(FastLoginDialog.InAppModeMinHeight, dlg.MinHeight);
+                Assert.True(pnlInApp.IsVisible);
+                Assert.False(pnlCookie.IsVisible);
+
+                dlg.SelectLoginMode(isCookieMode: true);
+                Dispatcher.UIThread.RunJobs();
+                Assert.True(dlg.IsCookieModeActive);
+                Assert.Equal(FastLoginDialog.CookieModeHeight, dlg.Height);
+                Assert.Empty(sink.Errors);
+            }
+            finally
+            {
+                dlg?.Close();
+                LocalizationService.SetLanguage(prevLang, saveSetting: false);
+                Avalonia.Application.Current?.Resources.MergedDictionaries.Clear();
+                Logger.Sink = prevSink;
+            }
+        }
+
         [AvaloniaFact]
         public void AccountFieldsDialog_Opens_FiltersInternalFields_AndHasZeroBindingErrors()
         {
@@ -321,120 +402,6 @@ namespace Shiro.Tests.Ui
                 window?.Close();
                 view?.ViewModel.Dispose();
                 AppSettings.CurrentPlaceId = prevPlaceId;
-                LocalizationService.SetLanguage(prevLang, saveSetting: false);
-                Avalonia.Application.Current?.Resources.MergedDictionaries.Clear();
-                Logger.Sink = prevSink;
-            }
-        }
-
-        [AvaloniaFact]
-        public void NexusWindow_Opens_TogglesVisualState_AndHides_WithZeroBindingErrors()
-        {
-            var sink = new BindingErrorSink();
-            var prevSink = Logger.Sink;
-            var prevLang = LocalizationService.CurrentLanguage;
-            var prevNexusHost = NexusHost.Current;
-            var prevNexusInstance = NexusWindow.Instance;
-            string acFilePath = StoragePaths.GetUserFile("AccountControlData.json");
-            bool acExisted = File.Exists(acFilePath);
-            string? prevAcContent = acExisted ? File.ReadAllText(acFilePath) : null;
-            var createdServers = new List<NexusWebSocketServer>();
-            NexusWindow? nexusWindow = null;
-            Logger.Sink = sink;
-            try
-            {
-                using var suppressSave = Account.BeginSuppressDeferredSaveScope();
-                var repo = Substitute.For<IAccountRepository>();
-                var acc = new Account { Username = "NexusSmokeAcc", UserID = 0 };
-                repo.GetAll().Returns(new List<Account> { acc });
-
-                var accountControl = Substitute.For<ISettingsService>();
-                accountControl.Get("NexusPort").Returns("15242");
-                accountControl.Get<bool>("AllowExternalConnections").Returns(false);
-                accountControl.Get<bool>("StartOnLaunch").Returns(false);
-
-                LocalizationService.SetLanguage(AppLanguage.English, saveSetting: false);
-
-                var vm = new NexusViewModel(
-                    repo,
-                    accountControl,
-                    (ip, p) =>
-                    {
-                        var srv = new NexusWebSocketServer(ip, p);
-                        createdServers.Add(srv);
-                        return srv;
-                    },
-                    _ => Task.CompletedTask,
-                    logger: Substitute.For<IAppLogger>());
-
-                nexusWindow = new NexusWindow(vm);
-                nexusWindow.Show();
-                Dispatcher.UIThread.RunJobs();
-
-                Assert.Same(nexusWindow, NexusWindow.Instance);
-                Assert.Same(vm, nexusWindow.DataContext);
-                Assert.Single(nexusWindow.Accounts);
-                Assert.Equal("NexusSmokeAcc", nexusWindow.Accounts[0].Username);
-
-                var badge = nexusWindow.FindControl<TextBlock>("TxtServerStatusBadge");
-                var btnToggle = nexusWindow.FindControl<Button>("BtnToggleServer");
-                var txtScript = nexusWindow.FindControl<TextBox>("TxtScriptInput");
-                Assert.NotNull(badge);
-                Assert.NotNull(btnToggle);
-                Assert.NotNull(txtScript);
-
-                Assert.Equal(Color.Parse("#94A3B8"), Assert.IsAssignableFrom<ISolidColorBrush>(badge.Foreground).Color);
-                Assert.Equal(Color.Parse("#0284C7"), Assert.IsAssignableFrom<ISolidColorBrush>(btnToggle.Background).Color);
-
-                string enScriptWatermark = LocalizationService.Get("Nexus_ScriptWatermark");
-                Assert.Equal(enScriptWatermark, txtScript.Watermark);
-
-                vm.ToggleServerCommand.Execute(null);
-                Dispatcher.UIThread.RunJobs();
-
-                Assert.True(vm.IsServerRunning);
-                Assert.Equal(Color.Parse("#38BDF8"), Assert.IsAssignableFrom<ISolidColorBrush>(badge.Foreground).Color);
-                Assert.Equal(Color.Parse("#DC2626"), Assert.IsAssignableFrom<ISolidColorBrush>(btnToggle.Background).Color);
-
-                vm.ToggleServerCommand.Execute(null);
-                Dispatcher.UIThread.RunJobs();
-
-                Assert.False(vm.IsServerRunning);
-                Assert.Equal(Color.Parse("#94A3B8"), Assert.IsAssignableFrom<ISolidColorBrush>(badge.Foreground).Color);
-                Assert.Equal(Color.Parse("#0284C7"), Assert.IsAssignableFrom<ISolidColorBrush>(btnToggle.Background).Color);
-
-                LocalizationService.SetLanguage(AppLanguage.Vietnamese, saveSetting: false);
-                Dispatcher.UIThread.RunJobs();
-
-                string viScriptWatermark = LocalizationService.Get("Nexus_ScriptWatermark");
-                Assert.NotEqual(enScriptWatermark, viScriptWatermark);
-                Assert.Equal(viScriptWatermark, txtScript.Watermark);
-
-                Assert.True(nexusWindow.IsVisible);
-                nexusWindow.Close();
-                Dispatcher.UIThread.RunJobs();
-                Assert.False(nexusWindow.IsVisible);
-                Assert.Empty(sink.Errors);
-            }
-            finally
-            {
-                nexusWindow?.ForceClose();
-                NexusWindow.Instance = prevNexusInstance;
-                foreach (var srv in createdServers)
-                {
-                    srv.Dispose();
-                }
-
-                if (acExisted && prevAcContent != null)
-                {
-                    File.WriteAllText(acFilePath, prevAcContent);
-                }
-                else if (!acExisted && File.Exists(acFilePath))
-                {
-                    File.Delete(acFilePath);
-                }
-
-                NexusHost.Current = prevNexusHost;
                 LocalizationService.SetLanguage(prevLang, saveSetting: false);
                 Avalonia.Application.Current?.Resources.MergedDictionaries.Clear();
                 Logger.Sink = prevSink;

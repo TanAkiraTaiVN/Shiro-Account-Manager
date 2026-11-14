@@ -1,4 +1,3 @@
-using Shiro.Nexus;
 using Shiro.Services;
 using Xunit;
 
@@ -6,20 +5,6 @@ namespace Shiro.Tests
 {
     public class AotJsonAndViewModelStateTests
     {
-        [Fact]
-        public void FastJson_TryDeserializeCommand_WithNumericAndBooleanPayloadValues_SucceedsViaShiroAppJson()
-        {
-            string raw = "{\"Name\":\"ping\",\"Payload\":{\"fps\":60,\"ping\":42,\"active\":true}}";
-            bool ok = FastJson.TryDeserialize<Command>(raw, out var cmd);
-
-            Assert.True(ok);
-            Assert.NotNull(cmd);
-            Assert.NotNull(cmd!.Payload);
-            Assert.Equal("60", cmd.Payload!["fps"]);
-            Assert.Equal("42", cmd.Payload["ping"]);
-            Assert.Equal("true", cmd.Payload["active"]);
-        }
-
         [Fact]
         public void ResolveEffectivePlaceIdSource_WhenPlaceIdExplicitlyCleared_PrefersAccountSavedPlaceIdBeforeDefaultFallback()
         {

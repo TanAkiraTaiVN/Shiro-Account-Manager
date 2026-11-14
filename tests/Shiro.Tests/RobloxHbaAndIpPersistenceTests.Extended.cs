@@ -117,22 +117,26 @@ namespace Shiro.Tests
         }
 
         [Theory]
+        [InlineData("v1|b64|HB,TS,URL,M|,TS,URL,M")]
         [InlineData("v1|b64|HB,TS,URL,M|,TS,PATH,M")]
         [InlineData("v1|b64|HB,TS,,M|,TS,,M")]
         [InlineData("v1|b64|,TS,,|,TS,,")]
-        public void TryBuildBoundAuthToken_HealsCorruptedAndRegressedTemplates_ToFullUrlDualSignatures(string brokenTemplate)
+        public void TryBuildBoundAuthToken_HealsCorruptedAndRegressedTemplates_ToUrlAndPathDualSignatures(string inputTemplate)
         {
             var (privB64, pubB64) = GenerateP256KeyPair();
-            string url = "https://auth.roblox.com/v1/authentication-ticket";
+            string url = "https://auth.roblox.com/v1/authentication-ticket?step=check";
             string body = "{}";
             long ts = 1762483200L;
+
+            Assert.Equal("v1|b64|HB,TS,URL,M|,TS,PATH,M", RobloxHbaService.DefaultTemplate);
+            Assert.Equal(RobloxHbaService.DefaultTemplate, RobloxHbaService.NormalizeTemplate(inputTemplate));
 
             bool ok = RobloxHbaService.TryBuildBoundAuthToken(
                 privB64,
                 url,
                 "POST",
                 body,
-                brokenTemplate,
+                inputTemplate,
                 ts,
                 out string token);
 
@@ -145,7 +149,7 @@ namespace Shiro.Tests
 
             string expectedHash = Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(body)));
             string expectedPayload1 = $"{expectedHash}|1762483200|{url}|POST";
-            string expectedPayload2 = $"|1762483200|{url}|POST";
+            string expectedPayload2 = "|1762483200|/v1/authentication-ticket|POST";
 
             Assert.True(verifier.VerifyData(
                 Encoding.UTF8.GetBytes(expectedPayload1),
@@ -171,13 +175,13 @@ namespace Shiro.Tests
             RobloxHbaService.MergeCapturePayloadIntoSnapshot(snapshot, loginDoc.RootElement);
 
             using var homeSpeculativeDoc = System.Text.Json.JsonDocument.Parse(
-                $"{{\"privateKeyPkcs8\":\"{homePriv}\",\"publicKeySpki\":\"{homePub}\",\"authoritativeKey\":true,\"saiBound\":false,\"tokenTemplate\":\"v1|b64|HB,TS,URL,M|,TS,URL,M\"}}");
+                $"{{\"privateKeyPkcs8\":\"{homePriv}\",\"publicKeySpki\":\"{homePub}\",\"authoritativeKey\":true,\"saiBound\":false,\"tokenTemplate\":\"v1|b64|HB,TS,URL,M|,TS,PATH,M\"}}");
             RobloxHbaService.MergeCapturePayloadIntoSnapshot(snapshot, homeSpeculativeDoc.RootElement);
 
             Assert.Equal(saiPriv, snapshot.PrivateKeyPkcs8Base64);
             Assert.Equal(saiPub, snapshot.PublicKeySpkiBase64);
             Assert.True(snapshot.IsSaiBound);
-            Assert.Equal("v1|b64|HB,TS,URL,M|,TS,URL,M", snapshot.TokenTemplate);
+            Assert.Equal(RobloxHbaService.DefaultTemplate, snapshot.TokenTemplate);
         }
 
         [Fact]
@@ -370,6 +374,133 @@ namespace Shiro.Tests
             finally
             {
                 AccountManager.ReplaceAccountsList(new System.Collections.Generic.List<Account>());
+            }
+        }
+
+        [Fact]
+        public void GetBrowserCaptureScript_UsesPathnameWithoutQueryStringForPathToken()
+        {
+            string script = RobloxHbaService.GetBrowserCaptureScript();
+            Assert.Contains("pathOnly = u.pathname;", script, StringComparison.Ordinal);
+            Assert.DoesNotContain("u.pathname + u.search", script, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void ComputeNetworkSignature_IgnoresWindowsTeredoAndTransitionTunnelNoise()
+        {
+            var homeLan = new RobloxHbaService.NetworkAdapterSnapshot(
+                "eth0",
+                System.Net.NetworkInformation.NetworkInterfaceType.Ethernet,
+                true,
+                new[] { "192.168.1.50", "2402:800:63a0::10" },
+                new[] { "192.168.1.1" });
+
+            var teredoPseudo = new RobloxHbaService.NetworkAdapterSnapshot(
+                "Teredo Tunneling Pseudo-Interface",
+                System.Net.NetworkInformation.NetworkInterfaceType.Tunnel,
+                false,
+                new[] { "2001:0:2851:782c:10b7:1234:abcd:ef01" },
+                Array.Empty<string>());
+
+            var isatapPseudo = new RobloxHbaService.NetworkAdapterSnapshot(
+                "isatap.{AAAA1111}",
+                System.Net.NetworkInformation.NetworkInterfaceType.Tunnel,
+                false,
+                new[] { "2002:c0a8:0101::1" },
+                Array.Empty<string>());
+
+            var wireguardVpn = new RobloxHbaService.NetworkAdapterSnapshot(
+                "WireGuard Tunnel",
+                System.Net.NetworkInformation.NetworkInterfaceType.Tunnel,
+                true,
+                new[] { "10.66.66.2" },
+                new[] { "10.66.66.1" });
+
+            string baseSig = RobloxHbaService.ComputeNetworkSignature(new[] { homeLan });
+            string withTeredoSig = RobloxHbaService.ComputeNetworkSignature(new[] { homeLan, teredoPseudo, isatapPseudo });
+            string withVpnSig = RobloxHbaService.ComputeNetworkSignature(new[] { homeLan, wireguardVpn });
+
+            Assert.Equal(baseSig, withTeredoSig);
+            Assert.NotEqual(baseSig, withVpnSig);
+        }
+
+        [Fact]
+        public async Task GetAuthTicketAsync_FetchesClientAssertionAndForwardsBodyWithMatchingBatHash()
+        {
+            var (privB64, pubB64) = GenerateP256KeyPair();
+            string expectedSig = RobloxHbaService.GetLocalNetworkSignature();
+            var acc = new Account
+            {
+                Username = "AssertionTicketUser",
+                UserID = 99001,
+                SecurityToken = SampleCookie,
+                Valid = true,
+                HbaPrivateKeyPkcs8 = privB64,
+                HbaPublicKeySpki = pubB64,
+                HbaTemplate = RobloxHbaService.DefaultTemplate,
+                LastBoundIpSignature = expectedSig
+            };
+
+            const string assertionJson = "{\"clientAssertion\":\"eyJ-test-assertion-token\"}";
+            string? capturedTicketBody = null;
+            string? capturedBatHeader = null;
+            bool fetchedAssertionBeforeTicket = false;
+            bool sawAssertionRequest = false;
+
+            var prevFactory = Account.TestHttpClientFactory;
+            Account.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler(async (req, _) =>
+            {
+                string uri = req.RequestUri?.AbsoluteUri ?? string.Empty;
+                if (req.Method == HttpMethod.Get && uri.Contains("/v1/client-assertion", StringComparison.OrdinalIgnoreCase))
+                {
+                    sawAssertionRequest = true;
+                    return new HttpResponseMessage(HttpStatusCode.OK)
+                    {
+                        Content = new StringContent(assertionJson, Encoding.UTF8, "application/json")
+                    };
+                }
+
+                if (req.Method == HttpMethod.Post && uri.Contains("/v1/authentication-ticket", StringComparison.OrdinalIgnoreCase))
+                {
+                    fetchedAssertionBeforeTicket = sawAssertionRequest;
+                    capturedTicketBody = req.Content != null ? await req.Content.ReadAsStringAsync() : null;
+                    if (req.Headers.TryGetValues(RobloxHbaService.BoundAuthHeaderName, out var batVals))
+                        capturedBatHeader = batVals.FirstOrDefault();
+
+                    var resp = new HttpResponseMessage(HttpStatusCode.OK);
+                    resp.Headers.TryAddWithoutValidation("rbx-authentication-ticket", "ticket-with-assertion");
+                    return resp;
+                }
+
+                return new HttpResponseMessage(HttpStatusCode.NotFound);
+            }));
+
+            try
+            {
+                var (ok, ticket) = await acc.GetAuthTicketAsync();
+
+                Assert.True(ok);
+                Assert.Equal("ticket-with-assertion", ticket);
+                Assert.True(fetchedAssertionBeforeTicket);
+                Assert.Equal(assertionJson, capturedTicketBody);
+                Assert.False(string.IsNullOrWhiteSpace(capturedBatHeader));
+
+                string[] batParts = capturedBatHeader!.Split('|');
+                Assert.Equal(5, batParts.Length);
+                string expectedHb = Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(assertionJson)));
+                Assert.Equal(expectedHb, batParts[1]);
+
+                using var verifier = ECDsa.Create();
+                verifier.ImportSubjectPublicKeyInfo(Convert.FromBase64String(pubB64), out _);
+                Assert.True(verifier.VerifyData(
+                    Encoding.UTF8.GetBytes($"|{batParts[2]}|/v1/authentication-ticket|POST"),
+                    Convert.FromBase64String(batParts[4]),
+                    HashAlgorithmName.SHA256,
+                    DSASignatureFormat.IeeeP1363FixedFieldConcatenation));
+            }
+            finally
+            {
+                Account.TestHttpClientFactory = prevFactory;
             }
         }
     }

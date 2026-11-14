@@ -236,12 +236,6 @@ namespace Shiro.Services
             set => SetBool(AppSettingsKeys.Sections.General, AppSettingsKeys.General.SavePasswords, value);
         }
 
-        public bool UseChromeHome
-        {
-            get => GetBool(AppSettingsKeys.Sections.General, "UseChromeHome", false);
-            set => SetBool(AppSettingsKeys.Sections.General, "UseChromeHome", value);
-        }
-
         public bool AutoCookieRefresh
         {
             get => GetBool(AppSettingsKeys.Sections.General, AppSettingsKeys.General.AutoCookieRefresh, true);
@@ -338,12 +332,6 @@ namespace Shiro.Services
         {
             get => GetInt(AppSettingsKeys.Sections.WebServer, AppSettingsKeys.WebServer.WebServerPort, 7963);
             set => SetInt(AppSettingsKeys.Sections.WebServer, AppSettingsKeys.WebServer.WebServerPort, value);
-        }
-
-        public int NexusPort
-        {
-            get => GetInt(AppSettingsKeys.Sections.AccountControl, "NexusPort", 5242);
-            set => SetInt(AppSettingsKeys.Sections.AccountControl, "NexusPort", value);
         }
     }
 }

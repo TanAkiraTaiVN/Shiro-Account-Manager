@@ -65,17 +65,6 @@
         "resolved": "1.0.2903.40",
         "contentHash": "THrzYAnJgE3+cNH+9Epr44XjoZoRELdVpXlWGPs6K9C9G6TqyDfVCeVAR/Er8ljLitIUX5gaSkPsy9wRhD1sgQ=="
       },
-      "PuppeteerSharp": {
-        "type": "Direct",
-        "requested": "[25.14.0, )",
-        "resolved": "25.14.0",
-        "contentHash": "/AWEK8IG6TCT5SIFK2Iirkc7kCQ2iwiu62ewLLXnIdE5sOWTz6kCHT/rWY/psAaVKjC/zyITCTbDbYAVZTEgng==",
-        "dependencies": {
-          "Microsoft.IO.RecyclableMemoryStream": "3.0.1",
-          "ReactiveExtensionsSharp": "0.3.0",
-          "WebDriverBiDi": "0.0.61"
-        }
-      },
       "System.Security.Cryptography.ProtectedData": {
         "type": "Direct",
         "requested": "[9.0.0, )",
@@ -181,16 +170,6 @@
         "resolved": "0.11.0",
         "contentHash": "MEnrZ3UIiH40hjzMDsxrTyi8dtqB5ziv3iBeeU4bXsL/7NLSal9F1lZKpK+tfBRnUoDSdtcW3KufE4yhATOMCA=="
       },
-      "Microsoft.IO.RecyclableMemoryStream": {
-        "type": "Transitive",
-        "resolved": "3.0.1",
-        "contentHash": "s/s20YTVY9r9TPfTrN5g8zPF1YhwxyqO6PxUkrYTGI2B+OGPe9AdajWZrLhFqXIvqIW23fnUE4+ztrUWNU1+9g=="
-      },
-      "ReactiveExtensionsSharp": {
-        "type": "Transitive",
-        "resolved": "0.3.0",
-        "contentHash": "7rF0x9AnfwuDl20ojNmGBK53Cqqr9aaxiCQ5MMnZHlhAiXZr8STN1IjTZJoA75GZVxv1ugz++UNphEy/bcSMMg=="
-      },
       "SkiaSharp": {
         "type": "Transitive",
         "resolved": "2.88.9",
@@ -222,11 +201,6 @@
         "type": "Transitive",
         "resolved": "2.88.9",
         "contentHash": "wb2kYgU7iy84nQLYZwMeJXixvK++GoIuECjU4ECaUKNuflyRlJKyiRhN1MAHswvlvzuvkrjRWlK0Za6+kYQK7w=="
-      },
-      "WebDriverBiDi": {
-        "type": "Transitive",
-        "resolved": "0.0.61",
-        "contentHash": "UJGHt0DqU2nNHf8l12QvJZvj47dFb0VUcKsY6KTn+Cm6tlwXfcmkftfsED9ce+KJCmx4ZgvcaBZjWlae3GKunw=="
       }
     },
     "net10.0-windows10.0.19041/win-x64": {

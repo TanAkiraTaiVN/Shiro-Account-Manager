@@ -66,12 +66,6 @@ namespace Shiro.Tests
             settings.SavePasswords = false;
             Assert.False(settings.SavePasswords);
 
-            // UseChromeHome
-            settings.UseChromeHome = true;
-            Assert.True(settings.UseChromeHome);
-            settings.UseChromeHome = false;
-            Assert.False(settings.UseChromeHome);
-
             // AutoCookieRefresh
             settings.AutoCookieRefresh = true;
             Assert.True(settings.AutoCookieRefresh);
@@ -148,9 +142,6 @@ namespace Shiro.Tests
 
             settings.WebServerPort = 8089;
             Assert.Equal(8089, settings.WebServerPort);
-
-            settings.NexusPort = 5555;
-            Assert.Equal(5555, settings.NexusPort);
         }
 
         [Fact]

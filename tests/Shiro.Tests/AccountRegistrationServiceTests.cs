@@ -129,5 +129,43 @@ namespace Shiro.Tests
                 if (File.Exists(backupFile)) File.Delete(backupFile);
             }
         }
+
+        [Fact]
+        public void RegisterValidatedAccount_SetsLastAttemptedRefresh_ForNewAndUpdatedAccounts()
+        {
+            var repo = new AccountRepository();
+            var service = new AccountRegistrationService(repo, AccountPersistenceService.Default);
+
+            var initial = new Account
+            {
+                Username = "FreshSessionUser",
+                UserID = 771122,
+                Valid = true,
+                SecurityToken = "Tok1",
+                LastAttemptedRefresh = DateTime.MinValue
+            };
+
+            DateTime beforeRegister = DateTime.Now.AddSeconds(-2);
+            Account? registered = service.RegisterValidatedAccount(initial, "Tok1", "Pass1", saveImmediate: false);
+            Assert.NotNull(registered);
+            Assert.True(registered!.LastAttemptedRefresh >= beforeRegister);
+
+            // Simulate aging past the 24h refresh window, then re-capturing a fresh session via FastLogin
+            registered.LastAttemptedRefresh = DateTime.Now.AddDays(-2);
+            var refreshedLogin = new Account
+            {
+                Username = "FreshSessionUser",
+                UserID = 771122,
+                Valid = true,
+                SecurityToken = "Tok2",
+                LastAttemptedRefresh = DateTime.MinValue
+            };
+
+            DateTime beforeUpdate = DateTime.Now.AddSeconds(-2);
+            Account? updated = service.RegisterValidatedAccount(refreshedLogin, "Tok2", "Pass2", saveImmediate: false);
+            Assert.NotNull(updated);
+            Assert.Same(registered, updated);
+            Assert.True(updated!.LastAttemptedRefresh >= beforeUpdate);
+        }
     }
 }

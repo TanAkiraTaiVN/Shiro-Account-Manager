@@ -209,22 +209,6 @@ namespace Shiro.Tests
         }
 
         [Fact]
-        public async Task NexusWebSocketServer_StartsAndStopsGracefully()
-        {
-            await using var server = new Shiro.Nexus.NexusWebSocketServer(System.Net.IPAddress.Loopback, 7996);
-            try
-            {
-                await server.StartAsync();
-                Assert.True(server.IsListening);
-            }
-            finally
-            {
-                await server.StopAsync();
-                Assert.False(server.IsListening);
-            }
-        }
-
-        [Fact]
         public async Task ClipboardHelper_SetClipboardTextAsync_HandlesSafelyWithoutBlocking()
         {
             var ex = await Record.ExceptionAsync(() => ClipboardHelper.SetClipboardTextAsync("ShiroUniversalClipboard"));

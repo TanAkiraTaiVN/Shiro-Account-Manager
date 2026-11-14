@@ -26,8 +26,8 @@ namespace Shiro.Services
         }
 
         public const string BoundAuthHeaderName = "x-bound-auth-token";
-        public const string DefaultTemplate = "v1|b64|HB,TS,URL,M|,TS,URL,M";
-        private const string LegacyBrokenPathTemplate = "v1|b64|HB,TS,URL,M|,TS,PATH,M";
+        public const string DefaultTemplate = "v1|b64|HB,TS,URL,M|,TS,PATH,M";
+        private const string LegacyBrokenUrlUrlTemplate = "v1|b64|HB,TS,URL,M|,TS,URL,M";
 
         private static readonly System.Threading.Lock KeyCacheLock = new();
         private static readonly ConcurrentDictionary<string, ECParameters> CachedEcParameters = new(StringComparer.Ordinal);
@@ -102,7 +102,7 @@ namespace Shiro.Services
                 return DefaultTemplate;
 
             string trimmed = tokenTemplate.Trim();
-            if (string.Equals(trimmed, LegacyBrokenPathTemplate, StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(trimmed, LegacyBrokenUrlUrlTemplate, StringComparison.OrdinalIgnoreCase))
                 return DefaultTemplate;
 
             string[] parts = trimmed.Split('|');
@@ -268,8 +268,8 @@ namespace Shiro.Services
                 string timestampStr = ts.ToString(CultureInfo.InvariantCulture);
                 string methodUpper = string.IsNullOrWhiteSpace(httpMethod) ? "GET" : httpMethod.Trim().ToUpperInvariant();
                 string fullUrl = requestUrl.Trim();
-                string pathAndQuery = Uri.TryCreate(fullUrl, UriKind.Absolute, out Uri? parsedUri) && parsedUri != null
-                    ? parsedUri.PathAndQuery
+                string pathOnly = Uri.TryCreate(fullUrl, UriKind.Absolute, out Uri? parsedUri) && parsedUri != null
+                    ? parsedUri.AbsolutePath
                     : fullUrl;
 
                 var outputSegments = new List<string>(tplParts.Length + 1)
@@ -282,7 +282,7 @@ namespace Shiro.Services
                 for (int i = 2; i < tplParts.Length; i++)
                 {
                     string sigSpec = tplParts[i];
-                    string payloadToSign = BuildPayloadFromSpec(sigSpec, hashedBody, timestampStr, fullUrl, pathAndQuery, methodUpper);
+                    string payloadToSign = BuildPayloadFromSpec(sigSpec, hashedBody, timestampStr, fullUrl, pathOnly, methodUpper);
                     byte[] sigBytes = ecdsa.SignData(
                         Encoding.UTF8.GetBytes(payloadToSign),
                         HashAlgorithmName.SHA256,
@@ -333,7 +333,7 @@ namespace Shiro.Services
             string hashedBody,
             string timestampStr,
             string fullUrl,
-            string pathAndQuery,
+            string pathOnly,
             string methodUpper)
         {
             string[] tokens = sigSpec.Split(',');
@@ -345,7 +345,7 @@ namespace Shiro.Services
                     "HB" => hashedBody,
                     "TS" => timestampStr,
                     "URL" => fullUrl,
-                    "PATH" => pathAndQuery,
+                    "PATH" => pathOnly,
                     "M" => methodUpper,
                     _ => string.Empty
                 };

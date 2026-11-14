@@ -37,7 +37,7 @@ graph TD
         AudioService["RobloxAudioService (WASAPI)"]
         AntiAfk["AntiAfkService"]
         ProxyMgr["ProxyManagerService"]
-        KestrelSvc["KestrelWebServer & NexusWebSocket"]
+        KestrelSvc["KestrelWebServer & AccountApiDispatcher"]
         LocSvc["LocalizationService (FrozenDictionary)"]
     end
 
@@ -45,7 +45,7 @@ graph TD
         Storage["StoragePaths (Atomic I/O)"]
         Persistence["AccountPersistenceService & AccountRegistrationService"]
         Crypto["CryptoHelper (AES-256-GCM)"]
-        Recovery["VaultKeyRecoveryService (NTFS Scanner)"]
+        Recovery["VaultKeyRecoveryService"]
         Logger["AppLogger & LogRedactor"]
     end
 
@@ -122,18 +122,19 @@ To ensure 100% testability and prevent UI thread deadlocks, all dialogs in Shiro
 - **`DialogViewModelBase`**: Unified base class for dialog ViewModels, managing title, status text, reactive `StatusKind` (Idle, Busy, Success, Error), and standard confirmation/cancellation request events (`RequestClose`).
 - **`IUserPrompt` Abstraction**: Replaces intrusive synchronous or asynchronous `MessageBox` calls with an injectable interface. In headless unit tests, mock implementations (`Substitute.For<IUserPrompt>()`) supply deterministic user responses (Accept, Decline, Retry) without showing UI dialogs.
 - **`FastLoginCoordinator` & `FastLoginQueue`**: Separates WebView2 DOM injection, URL inspection, and batch queue state from the Avalonia code-behind.
-- **Headless Test Coverage**: All dialog ViewModels (`NexusViewModel`, `FastLoginDialogViewModel`, `CookieImportViewModel`, `AltGenViewModel`, `SettingsViewModel`) are exercised by headless xUnit suites without Avalonia windowing dependencies.
+- **Headless Test Coverage**: All dialog ViewModels (`FastLoginDialogViewModel`, `CookieImportViewModel`, `AltGenViewModel`, `SettingsViewModel`) are exercised by headless xUnit suites without Avalonia windowing dependencies.
 
 ---
 
-## 7. Nexus Controller Architecture (`INexusHost`)
+## 7. Local HTTP & WebSocket Gateway Architecture (`KestrelWebServer`)
 
-The Nexus multi-client controller provides real-time bi-directional telemetry and execution orchestration between Shiro and running Roblox client sessions:
-- **`INexusHost` Interface**: Abstracts the hosting environment for Nexus WebSocket clients, anti-AFK heartbeat dispatching, and remote Lua script execution (`RAMAccount.lua`).
-- **`NexusHost.Current`**: Thread-safe active host registry allowing seamless switching between production Kestrel WebSocket services and isolated test harnesses.
-- **Security & Concurrency**:
-  - Validates client session tokens and origin integrity.
-  - Enforces loopback restriction for unauthenticated endpoints.
+The local automation gateway provides REST endpoints and real-time WebSocket event streaming between Shiro and external tooling:
+- **`KestrelWebServer`**: Hosts ASP.NET Core Kestrel endpoints (`LocalKestrelWebServer`) with WebSocket streaming on `/ws`, `/events`, and `/v2/events`, plus legacy and v2 REST routing.
+- **`AccountApiDispatcher`**: Handles request routing, 256 KB payload size limits, account operations, and sanitized HTTP 500 error responses (`InternalErrorMessage`).
+- **`ApiDocumentationService`**: Serves OpenAPI 3.0 JSON (`/openapi.json`) and interactive API documentation (`/docs`).
+- **`WebAuthPolicy`**:
+  - Enforces loopback restriction unless external access is explicitly enabled with a configured password.
+  - Validates `Origin` headers to prevent Cross-Site WebSocket Hijacking (CSWSH).
   - Constant-time password comparison protects against side-channel analysis.
 
 ---
@@ -145,12 +146,10 @@ src/Shiro/
 ├── AvaloniaUI/          # Presentation layer: Views, Controls, Converters, Assets
 ├── Domain/              # Core domain models: Account, Avatar, GameClass, Server, NaturalStringComparer
 ├── Http/                # HTTP client infrastructure (RestClient)
-├── Nexus/               # Multi-client controller, WebSocket protocols, ControlledAccount
 ├── Services/            # Business logic, orchestration, and infrastructure services
 │   ├── Auth/            # Authentication, session auditing, HBA crypto, BloxGen
-│   ├── Browser/         # Web browser automation (ChromiumHomeBrowser, RobloxBrowserLogin/Signup, AccountBrowser)
 │   ├── Launch/          # Roblox launch orchestration, batch operations, client patchers
-│   ├── Network/         # External API dispatching, RPC, presence monitoring
+│   ├── Network/         # External API dispatching, Kestrel gateway, RPC, presence monitoring
 │   ├── Storage/         # Atomic file storage, account persistence (AccountPersistenceService, AccountRegistrationService), serializers, vault encryption
 │   ├── Ui/              # Theme, dialogs, localization, toasts
 │   └── Windows/         # Windows process monitoring (RobloxProcess, RobloxWatcher), window arrangement

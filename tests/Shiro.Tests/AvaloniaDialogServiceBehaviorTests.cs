@@ -2,7 +2,9 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using NSubstitute;
 using Shiro.Services;
+using Shiro.ViewModels;
 using Xunit;
 
 namespace Shiro.Tests
@@ -58,6 +60,8 @@ namespace Shiro.Tests
 
             service.OpenFastLoginDialog(account);
             service.OpenFastLoginDialog(null);
+            service.OpenCookieImportDialog(account);
+            service.OpenCookieImportDialog(null);
             service.OpenFastLoginDialogBatch(new[] { account });
             service.OpenBulkImportDialog();
             service.OpenAltGenDialog();
@@ -67,7 +71,30 @@ namespace Shiro.Tests
             service.OpenAccountUtilsDialog(account);
             service.OpenMissingAssetsDialog(account, new long[] { 101, 102 });
 
-            Assert.Equal(10, postedActions.Count);
+            Assert.Equal(12, postedActions.Count);
+        }
+
+        [Fact]
+        public void CookieCommands_OnMainViewModel_InvokeOpenCookieImportDialog()
+        {
+            var dialogSub = Substitute.For<IDialogService>();
+            var repoSub = Substitute.For<IAccountRepository>();
+            repoSub.GetAll().Returns(new List<Account>());
+            using var dialogScope = AppServices.Override<IDialogService>(dialogSub);
+            using var repoScope = AppServices.Override<IAccountRepository>(repoSub);
+
+            using var vm = new MainViewModel();
+            vm.AddAccountCookieCommand.Execute(null);
+
+            dialogSub.Received(1).OpenCookieImportDialog(null);
+            dialogSub.DidNotReceiveWithAnyArgs().ShowInputPrompt(default!, default!, default!);
+
+            var account = new Account { Username = "ReloginCookieUser", UserID = 2222 };
+            var accountVm = new AccountViewModel(account);
+            Assert.Same(account, accountVm.Model);
+            vm.ReLoginWithCookieCommand.Execute(accountVm);
+
+            dialogSub.Received(1).OpenCookieImportDialog(account);
         }
 
         [Fact]

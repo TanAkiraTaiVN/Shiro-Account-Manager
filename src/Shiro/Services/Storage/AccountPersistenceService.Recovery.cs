@@ -34,16 +34,6 @@ namespace Shiro.Services
         {
             statusMessage = string.Empty;
 
-            if (VaultKeyRecoveryService.RunElevatedRecovery())
-            {
-                LoadAccounts(null, out bool unlocked);
-                if (unlocked)
-                {
-                    statusMessage = LocalizationService.Format("AccountManager.VaultRestored", _repository.Count);
-                    return true;
-                }
-            }
-
             if (TryRestoreReadableBackup())
             {
                 statusMessage = LocalizationService.Format("AccountManager.BackupRestored", _repository.Count);

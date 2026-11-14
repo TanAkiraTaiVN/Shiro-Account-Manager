@@ -278,11 +278,139 @@ namespace Shiro.Tests
             Assert.Equal("998877", mainVm.PlaceId);
             Assert.Equal(LocalizationService.Format("ServerList.JobIdSelectedAndCopied", "job-std-1"), vm.LoadingStatus);
 
-            // 3. ServerItemViewModel with VIP server and accessCode
+            // 3. ServerItemViewModel with VIP server and accessCode, plus empty PlaceIdInput and standalone VM
+            vm.PlaceIdInput = string.Empty;
             var vipServer = new ServerItemViewModel { JobId = "raw-id", Type = "VIP", RawData = new ServerData { accessCode = "secret-access" } };
             vm.SelectServerJobIdCommand.Execute(vipServer);
             Assert.Equal("VIP:secret-access", mainVm.JobId);
+            Assert.Equal("998877", mainVm.PlaceId);
             Assert.Equal(LocalizationService.Format("ServerList.JobIdSelectedAndCopied", "VIP:secret-access"), vm.LoadingStatus);
+
+            var standaloneVm = new ServerListViewModel(null);
+            standaloneVm.SelectServerJobIdCommand.Execute(pubServer);
+            Assert.Equal(LocalizationService.Format("ServerList.JobIdSelectedAndCopied", "job-std-1"), standaloneVm.LoadingStatus);
+
+            vm.CopyJobIdCommand.Execute(null);
+            vm.CopyJobIdCommand.Execute(pubServer);
+            Assert.Equal(LocalizationService.Format("ServerList.JobIdCopied", "job-std-1"), vm.LoadingStatus);
+        }
+
+        [Fact]
+        public async Task RefreshServersAsync_WhenServersReturned_ClearsIsLoadingServersAfterRegionAutoLoad()
+        {
+            var prevSelected = AppServices.SelectionState.SelectedAccount;
+            var prevLastValid = AppServices.SelectionState.LastValidAccount;
+            try
+            {
+                var acc = new Account { Username = "RegionUser", SecurityToken = "tok", Valid = true };
+                AppServices.SelectionState.SelectedAccount = acc;
+
+                var gamesHandler = new TestHttpHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("{\"data\":[{\"id\":\"srv-1\",\"maxPlayers\":12,\"playing\":4}],\"nextPageCursor\":null}")
+                });
+                using var gamesClient = new RestClient(new HttpClient(gamesHandler), "https://games.roblox.com/");
+                var apiMock = Substitute.For<IRobloxApiClient>();
+                apiMock.Games.Returns(gamesClient);
+                using var _apiScope = AppServices.Override<IRobloxApiClient>(apiMock);
+
+                var queryGate = new TaskCompletionSource<ServerRegionPingResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+                var queryMock = Substitute.For<IRobloxServerQueryService>();
+                queryMock.QueryServerRegionAndPingAsync(Arg.Any<Account>(), 1818L, "srv-1", Arg.Any<string?>(), Arg.Any<CancellationToken>())
+                    .Returns(_ => queryGate.Task);
+                using var _queryScope = AppServices.Override<IRobloxServerQueryService>(queryMock);
+
+                using var vm = new ServerListViewModel { PlaceIdInput = "1818" };
+                var regionsCompleted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+                string completedText = LocalizationService.Get("ServerList.RegionsLoadedComplete");
+                vm.PropertyChanged += (_, e) =>
+                {
+                    if (e.PropertyName == nameof(ServerListViewModel.CanCancelOperation) && !vm.CanCancelOperation && vm.LoadingStatus == completedText)
+                        regionsCompleted.TrySetResult(true);
+                };
+
+                await vm.RefreshServersAsync();
+
+                Assert.False(vm.IsLoadingServers);
+                Assert.True(vm.CanRefreshServers);
+                Assert.True(vm.IsLoadingRegions);
+                Assert.True(vm.CanCancelOperation);
+
+                queryGate.SetResult(new ServerRegionPingResult
+                {
+                    Success = true,
+                    Ip = "1.2.3.4",
+                    PingMs = 25,
+                    CountryCode = "US",
+                    FlagEmoji = "🇺🇸",
+                    Region = "US-East"
+                });
+
+                await regionsCompleted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+                Assert.False(vm.IsLoadingServers);
+                Assert.False(vm.IsLoadingRegions);
+                Assert.False(vm.CanCancelOperation);
+                Assert.True(vm.CanRefreshServers);
+                Assert.Equal(completedText, vm.LoadingStatus);
+            }
+            finally
+            {
+                AppServices.SelectionState.SelectedAccount = prevSelected;
+                AppServices.SelectionState.LastValidAccount = prevLastValid;
+            }
+        }
+
+        [Fact]
+        public async Task CancelOperation_WhileLoadingRegions_CancelsTokenAndClearsCanCancelOperation()
+        {
+            var prevSelected = AppServices.SelectionState.SelectedAccount;
+            var prevLastValid = AppServices.SelectionState.LastValidAccount;
+            try
+            {
+                var acc = new Account { Username = "RegionCancelUser", SecurityToken = "tok", Valid = true };
+                AppServices.SelectionState.SelectedAccount = acc;
+
+                var queryStarted = new TaskCompletionSource<CancellationToken>(TaskCreationOptions.RunContinuationsAsynchronously);
+                var queryMock = Substitute.For<IRobloxServerQueryService>();
+                queryMock.QueryServerRegionAndPingAsync(Arg.Any<Account>(), 1818L, "srv-cancel", Arg.Any<string?>(), Arg.Any<CancellationToken>())
+                    .Returns(callInfo =>
+                    {
+                        var token = callInfo.Arg<CancellationToken>();
+                        queryStarted.TrySetResult(token);
+                        return Task.Delay(Timeout.Infinite, token).ContinueWith(
+                            t => new ServerRegionPingResult(),
+                            CancellationToken.None,
+                            TaskContinuationOptions.ExecuteSynchronously,
+                            TaskScheduler.Default);
+                    });
+                using var _queryScope = AppServices.Override<IRobloxServerQueryService>(queryMock);
+
+                using var vm = new ServerListViewModel { PlaceIdInput = "1818" };
+                vm.SetRawServers(new[]
+                {
+                    new ServerItemViewModel { JobId = "srv-cancel", Type = "Public", RawData = new ServerData { id = "srv-cancel" } }
+                });
+
+                var loadTask = ((AsyncRelayCommand)vm.LoadAllRegionsCommand).ExecuteAsync(null);
+                var regionToken = await queryStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+                Assert.True(vm.IsLoadingRegions);
+                Assert.True(vm.CanCancelOperation);
+
+                vm.CancelOperationCommand.Execute(null);
+                await loadTask.WaitAsync(TimeSpan.FromSeconds(5));
+
+                Assert.True(regionToken.IsCancellationRequested);
+                Assert.False(vm.IsLoadingRegions);
+                Assert.False(vm.IsLoadingServers);
+                Assert.False(vm.CanCancelOperation);
+                Assert.Equal(LocalizationService.Get("ServerList.OperationCancelled"), vm.LoadingStatus);
+            }
+            finally
+            {
+                AppServices.SelectionState.SelectedAccount = prevSelected;
+                AppServices.SelectionState.LastValidAccount = prevLastValid;
+            }
         }
     }
 }

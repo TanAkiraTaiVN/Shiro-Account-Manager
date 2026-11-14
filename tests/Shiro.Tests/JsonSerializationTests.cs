@@ -1,59 +1,12 @@
 using System;
 using System.Collections.Generic;
 using Shiro.Services;
-using Shiro.Nexus;
 using Xunit;
 
 namespace Shiro.Tests
 {
     public class JsonSerializationTests
     {
-        [Fact]
-        public void ControlledAccount_Roundtrip_FastJson()
-        {
-            var accounts = new List<ControlledAccount>
-            {
-                new ControlledAccount
-                {
-                    Username = "TestBot1",
-                    AutoExecute = "print('hello')",
-                    PlaceId = 1818,
-                    JobId = "job-uuid-1234",
-                    AutoRelaunch = true,
-                    RelaunchDelay = 45
-                },
-                new ControlledAccount
-                {
-                    Username = "TestBot2",
-                    AutoExecute = "",
-                    PlaceId = 9999,
-                    JobId = "job-uuid-5678",
-                    AutoRelaunch = false,
-                    RelaunchDelay = 15
-                }
-            };
-
-            string json = FastJson.Serialize(accounts, indented: true);
-            Assert.False(string.IsNullOrWhiteSpace(json));
-
-            bool success = FastJson.TryDeserialize<List<ControlledAccount>>(json, out var deserialized);
-            Assert.True(success);
-            Assert.NotNull(deserialized);
-            Assert.Equal(2, deserialized.Count);
-
-            Assert.Equal("TestBot1", deserialized[0].Username);
-            Assert.Equal("print('hello')", deserialized[0].AutoExecute);
-            Assert.Equal(1818, deserialized[0].PlaceId);
-            Assert.Equal("job-uuid-1234", deserialized[0].JobId);
-            Assert.True(deserialized[0].AutoRelaunch);
-            Assert.Equal(45, deserialized[0].RelaunchDelay);
-
-            // Verify runtime fields were ignored during serialization
-            Assert.Null(deserialized[0].LinkedAccount);
-            Assert.Null(deserialized[0].WebSocket);
-            Assert.Null(deserialized[0].InGameJobId);
-        }
-
         [Fact]
         public void FavoriteGame_Roundtrip_FastJson()
         {
@@ -167,26 +120,6 @@ namespace Shiro.Tests
             Assert.NotNull(pin);
             Assert.True(pin.isEnabled);
             Assert.Equal(300, pin.unlockedUntil);
-        }
-
-        [Fact]
-        public void Command_Deserialization_FastJson()
-        {
-            string commandJson = """
-            {
-                "Name": "SetRelaunch",
-                "Payload": {
-                    "Seconds": "45"
-                }
-            }
-            """;
-
-            bool success = FastJson.TryDeserialize<Command>(commandJson, out var cmd);
-            Assert.True(success);
-            Assert.NotNull(cmd);
-            Assert.Equal("SetRelaunch", cmd.Name);
-            Assert.NotNull(cmd.Payload);
-            Assert.Equal("45", cmd.Payload["Seconds"]);
         }
 
         [Fact]

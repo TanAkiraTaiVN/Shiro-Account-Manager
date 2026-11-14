@@ -28,7 +28,6 @@ namespace Shiro.Tests
             public void OpenBulkImportDialog() { }
             public void OpenAltGenDialog() { }
             public void OpenProxyManagerDialog() { }
-            public void OpenNexusWindow() { }
             public void OpenAboutDialog() { }
             public void OpenAccountFieldsDialog(Account account) { }
             public void OpenAccountUtilsDialog(Account account) { }

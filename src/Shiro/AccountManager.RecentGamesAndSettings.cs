@@ -94,7 +94,15 @@ namespace Shiro
             }
         }
 
-        static AccountManager()
+        [System.Runtime.CompilerServices.ModuleInitializer]
+        internal static void RegisterModuleHooks()
+        {
+            AppServices.OnInitialized = WireStaticBridgeDelegates;
+        }
+
+        static AccountManager() => WireStaticBridgeDelegates();
+
+        private static void WireStaticBridgeDelegates()
         {
             if (AppServices.HostUiBridge is HostUiBridgeService hostBridge) hostBridge.EnsureBackendInitializedHandler = EnsureBackendInitialized;
             if (AppServices.ServerBrowserState is ServerBrowserStateService sbState) sbState.LoadClientVersionDelegate = LoadClientVersionAsync;

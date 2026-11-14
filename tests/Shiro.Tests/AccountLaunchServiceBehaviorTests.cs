@@ -156,32 +156,6 @@ namespace Shiro.Tests
         }
 
         [Fact]
-        public async Task LaunchHomeInChromeResultAsync_NullAccount_ReturnsFailed()
-        {
-            var result = await AccountLaunchService.Instance.LaunchHomeInChromeResultAsync(null!);
-            Assert.Equal(LaunchOutcome.Failed, result.Outcome);
-            Assert.Contains(LocalizationService.Get("AccountLaunch.InvalidAccount"), result.Message);
-        }
-
-        [Fact]
-        public async Task LaunchHomeInChromeResultAsync_CanceledToken_ThrowsOperationCanceledException()
-        {
-            var account = new Account { Username = "CancelChromeUser" };
-            using var cts = new CancellationTokenSource();
-            cts.Cancel();
-
-            await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-                AccountLaunchService.Instance.LaunchHomeInChromeResultAsync(account, cts.Token));
-        }
-
-        [Fact]
-        public async Task LaunchHomeInChromeAsync_NullAccount_ReturnsLegacyFailedString()
-        {
-            string result = await AccountLaunchService.Instance.LaunchHomeInChromeAsync(null!);
-            Assert.Contains(LocalizationService.Get("AccountLaunch.InvalidAccount"), result);
-        }
-
-        [Fact]
         public async Task AccountExtensionMethods_DelegateToAccountLaunchService()
         {
             var account = new Account { Username = "ExtUser" };
@@ -359,9 +333,20 @@ namespace Shiro.Tests
                     PinUnlocked = DateTime.Now.AddHours(1)
                 };
 
-                var pubRes = await AccountLaunchService.Instance.JoinServerResultAsync(acc, 189707, "job-111");
-                Assert.Equal(LaunchOutcome.Success, pubRes.Outcome);
-                Assert.Equal(43210, acc.LastLaunchedProcessId);
+                var attemptCtx = new LaunchAttemptContext();
+                LaunchTimingService.CurrentAttempt = attemptCtx;
+                try
+                {
+                    var pubRes = await AccountLaunchService.Instance.JoinServerResultAsync(acc, 189707, "job-111");
+                    Assert.Equal(LaunchOutcome.Success, pubRes.Outcome);
+                    Assert.Equal(43210, acc.LastLaunchedProcessId);
+                    Assert.Equal(43210, attemptCtx.ProcessId);
+                    Assert.True(attemptCtx.TicketMs >= 0 && attemptCtx.SpawnMs >= 0);
+                }
+                finally
+                {
+                    LaunchTimingService.CurrentAttempt = null;
+                }
 
                 var followRes = await AccountLaunchService.Instance.JoinServerResultAsync(acc, 998877, "", followUser: true);
                 Assert.Equal(LaunchOutcome.Success, followRes.Outcome);

@@ -4,8 +4,6 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using PuppeteerSharp;
-using PuppeteerSharp.BrowserData;
 using Shiro.Services;
 
 namespace Shiro
@@ -41,24 +39,6 @@ namespace Shiro
         {
             if (_backendServicesInitialized) return;
             _backendServicesInitialized = true;
-
-            try
-            {
-                string AFN = Path.Combine(Directory.GetCurrentDirectory(), "Auto Update.exe");
-                string AU2FN = Path.Combine(Directory.GetCurrentDirectory(), "AU.exe");
-
-                if (File.Exists(AFN)) File.Delete(AFN);
-                if (File.Exists(AU2FN)) File.Delete(AU2FN);
-
-                DirectoryInfo UpdateDir = new DirectoryInfo(Path.Combine(Environment.CurrentDirectory, "Update"));
-
-                if (UpdateDir.Exists)
-                    UpdateDir.RecursiveDelete();
-            }
-            catch (Exception ex)
-            {
-                Program.Logger?.Debug($"Old updater cleanup threw: {ex.Message}");
-            }
 
             try
             {
@@ -156,20 +136,6 @@ namespace Shiro
 
             try { ClientSettingsPatcher.PatchSettings(); }
             catch (Exception ex) { Program.Logger?.Warn($"PatchSettings failed: {ex.Message}"); }
-
-            // Use installed Chrome/Chromium through CDP by default. The
-            // compatibility flag is retained for existing settings files and
-            // now selects the maintained WebView2 runtime.
-            PuppeteerSupported = !AppSettings.General.Get<bool>("UseEmbeddedBrowser");
-
-            if (PuppeteerSupported && AccountBrowser.FindSystemBrowserExecutable() == null && AccountBrowser.FindCachedChromiumExecutable() == null)
-            {
-                Program.Logger?.Warn("No Chrome/Edge installation was found; browser-based sign-in will be unavailable until one is installed.");
-                SetDashboardStatus("" + AccountBrowser.BrowserNotFoundMessage);
-            }
-
-            if (AppSettings.AccountControl.Get<bool>("StartOnLaunch"))
-                ModernOpenAccountControl();
 
             OfferResumeReloginQueue();
         }

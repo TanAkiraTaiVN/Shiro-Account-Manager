@@ -266,31 +266,6 @@ namespace Shiro.Tests
         }
 
         [Fact]
-        public void UpdaterWindow_IsSafeArchiveEntryPath_BlocksZipSlipTraversal()
-        {
-            string root = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "ShiroUpdateTest");
-            Assert.True(Shiro.AvaloniaUI.Views.UpdaterWindow.IsSafeArchiveEntryPath(
-                root, "Shiro.dll", out string validDest));
-            Assert.StartsWith(System.IO.Path.GetFullPath(root), validDest, StringComparison.OrdinalIgnoreCase);
-
-            Assert.False(Shiro.AvaloniaUI.Views.UpdaterWindow.IsSafeArchiveEntryPath(
-                root, @"..\..\Windows\System32\evil.dll", out _));
-        }
-
-        [Fact]
-        public void ChromeLaunchHelper_SharedUtilities_WorkAsExpected()
-        {
-            int port = ChromeLaunchHelper.GetFreeLoopbackPort();
-            Assert.InRange(port, 1024, 65535);
-
-            Assert.Equal("\"C:\\\\Path\\\\With \\\"Quotes\\\"\"", ChromeLaunchHelper.QuoteArgument("C:\\\\Path\\\\With \"Quotes\""));
-
-            var detachedEx = new InvalidOperationException("Outer", new Exception("Execution context was destroyed, most likely because of a navigation."));
-            Assert.True(ChromeLaunchHelper.IsDetachedOrTransientBrowserException(detachedEx));
-            Assert.False(ChromeLaunchHelper.IsDetachedOrTransientBrowserException(new ArgumentException("Unrelated error")));
-        }
-
-        [Fact]
         public void RobloxProcessService_SnapshotCache_ReturnsConsistentCountsAndSupportsInvalidation()
         {
             RobloxProcessService.InvalidateSnapshotCache();
@@ -300,22 +275,6 @@ namespace Shiro.Tests
 
             Assert.Equal(count1, count2);
             Assert.Equal(count1, pids.Count);
-        }
-
-        [Fact]
-        public void ControlledAccount_StatusColorBrush_UsesCachedBrushes()
-        {
-            var acc = new Shiro.Nexus.ControlledAccount();
-            acc.Status = Shiro.AccountStatus.Offline;
-            var offlineBrush1 = acc.StatusColorBrush;
-            var offlineBrush2 = acc.StatusColorBrush;
-            Assert.Same(offlineBrush1, offlineBrush2);
-
-            acc.Status = Shiro.AccountStatus.Online;
-            var onlineBrush1 = acc.StatusColorBrush;
-            var onlineBrush2 = acc.StatusColorBrush;
-            Assert.Same(onlineBrush1, onlineBrush2);
-            Assert.NotSame(offlineBrush1, onlineBrush1);
         }
 
         [Fact]

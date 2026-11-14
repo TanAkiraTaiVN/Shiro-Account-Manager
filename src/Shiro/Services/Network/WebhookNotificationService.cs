@@ -352,8 +352,29 @@ namespace Shiro.Services
             }
         }
 
+        public static bool IsAllowedDiscordWebhookUrl(string? url)
+        {
+            if (string.IsNullOrWhiteSpace(url) ||
+                !Uri.TryCreate(url, UriKind.Absolute, out Uri? uri) ||
+                uri.Scheme != Uri.UriSchemeHttps)
+            {
+                return false;
+            }
+
+            return string.Equals(uri.Host, "discord.com", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(uri.Host, "discordapp.com", StringComparison.OrdinalIgnoreCase) ||
+                   uri.Host.EndsWith(".discord.com", StringComparison.OrdinalIgnoreCase) ||
+                   uri.Host.EndsWith(".discordapp.com", StringComparison.OrdinalIgnoreCase);
+        }
+
         private static async Task DispatchDiscordAsync(HttpClient client, string webhookUrl, WebhookAlert alert, CancellationToken ct)
         {
+            if (!IsAllowedDiscordWebhookUrl(webhookUrl))
+            {
+                _logger.Warn("[Webhook] Blocked Discord webhook dispatch: URL must use HTTPS and target discord.com or discordapp.com.");
+                return;
+            }
+
             try
             {
                 string json = FormatDiscordPayload(alert);

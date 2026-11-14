@@ -4,7 +4,6 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using Shiro.Http;
-using Shiro.Nexus;
 using Shiro.Services;
 using Xunit;
 
@@ -50,21 +49,6 @@ namespace Shiro.Tests
 
             Assert.Null(ex);
             Assert.Null(account.Presence);
-        }
-
-        [Fact]
-        public void ControlledAccount_StatusAndDisconnect_ThreadSafe()
-        {
-            var account = new Account { Username = "TestUser" };
-            var controlled = new ControlledAccount(account);
-
-            Assert.Equal(AccountStatus.Offline, controlled.Status);
-            Assert.Equal("Offline", controlled.StatusText);
-
-            controlled.SendMessage("test ping"); // Should not throw when disconnected
-
-            controlled.Disconnect();
-            Assert.Equal(AccountStatus.Offline, controlled.Status);
         }
 
         [Fact]
