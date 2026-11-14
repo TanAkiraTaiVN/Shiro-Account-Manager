@@ -27,19 +27,30 @@ namespace Shiro.Services
         [GeneratedRegex(@"<bool name=""Fullscreen"">(true|false)</bool>")]
         private static partial Regex FullscreenXmlRegex();
 
+        [GeneratedRegex(@"<int name=""FramerateCap"">-?\d+</int>")]
+        private static partial Regex FramerateCapXmlRegex();
+
+        [GeneratedRegex(@"<Item class=""UserGameSettings""[^>]*>\s*<Properties>", RegexOptions.Singleline)]
+        private static partial Regex UserGameSettingsPropertiesRegex();
+
         public static void PatchSettings()
+        {
+            PatchSettings(settingsPathOverride: null);
+        }
+
+        internal static void PatchSettings(string? settingsPathOverride)
         {
             lock (PatchLock)
             {
                 bool potatoMode = AppServices.GeneralSettings?.Get<bool>("EnablePotatoMode", false) ?? false;
                 if (potatoMode)
                 {
-                    ConfigureGlobalBasicSettings(graphicsQualityLevel: 1);
+                    ConfigureGlobalBasicSettings(graphicsQualityLevel: 1, fullscreen: null, framerateCap: null, settingsPathOverride: settingsPathOverride);
                 }
 
                 bool unlockFps = AppServices.GeneralSettings?.Get<bool>("UnlockFPS", false) ?? false;
                 int targetFps = AppServices.GeneralSettings?.Get<int>("MaxFPSValue", 144) ?? 144;
-                ApplyFpsLimit(unlockFps, targetFps);
+                ApplyFpsLimit(unlockFps, targetFps, settingsPathOverride);
 
                 PurgeSettings();
             }
@@ -53,6 +64,14 @@ namespace Shiro.Services
 
         public static void ApplyFpsLimit(bool unlockFps, int targetFps)
         {
+            ApplyFpsLimit(unlockFps, targetFps, xmlPathOverride: null);
+        }
+
+        internal static void ApplyFpsLimit(bool unlockFps, int targetFps, string? xmlPathOverride = null)
+        {
+            int cap = unlockFps ? Math.Clamp(targetFps, 30, 240) : -1;
+            ConfigureGlobalBasicSettings(graphicsQualityLevel: null, fullscreen: null, framerateCap: cap, settingsPathOverride: xmlPathOverride);
+
             var folders = FindRobloxVersionFolders();
             foreach (var folder in folders)
             {
@@ -62,96 +81,53 @@ namespace Shiro.Services
 
         public static void ApplyFpsLimitToDirectory(string versionFolder, bool unlockFps, int targetFps)
         {
+            ScrubLegacyFpsFastFlag(versionFolder);
+        }
+
+        public static void ScrubLegacyFpsFastFlag(string versionFolder)
+        {
             try
             {
                 string settingsDir = Path.Combine(versionFolder, "ClientSettings");
                 string jsonPath = Path.Combine(settingsDir, "ClientAppSettings.json");
+                if (!File.Exists(jsonPath))
+                    return;
 
-                int clampedFps = Math.Clamp(targetFps, 30, 360);
-
-                if (unlockFps)
+                string existing = File.ReadAllText(jsonPath);
+                var parsed = JsonSerializer.Deserialize(existing, ShiroAppJson.Default.DictionaryStringJsonElement);
+                if (parsed != null && parsed.Remove(FpsFlagKey))
                 {
-                    if (!Directory.Exists(settingsDir))
-                        Directory.CreateDirectory(settingsDir);
-
-                    Dictionary<string, JsonElement>? parsed = null;
-                    if (File.Exists(jsonPath))
+                    if (parsed.Count == 0)
                     {
-                        try
-                        {
-                            string existing = File.ReadAllText(jsonPath);
-                            parsed = JsonSerializer.Deserialize(existing, ShiroAppJson.Default.DictionaryStringJsonElement);
-                        }
-                        catch (Exception ex)
-                        {
-                            AppServices.Logger?.Debug($"Parse existing ClientAppSettings failed: {ex.Message}");
-                        }
+                        File.Delete(jsonPath);
+                        if (Directory.Exists(settingsDir) && Directory.GetFileSystemEntries(settingsDir).Length == 0)
+                            Directory.Delete(settingsDir);
                     }
-
-                    string updatedJson = SerializeClientSettingsWithFps(parsed, clampedFps);
-                    StoragePaths.AtomicWriteText(jsonPath, updatedJson, durable: true);
-                    AppServices.Logger?.Info($"[ClientSettingsPatcher] Applied safe FPS limit ({clampedFps}) to {Path.GetFileName(versionFolder)}");
-                }
-                else
-                {
-                    if (File.Exists(jsonPath))
+                    else
                     {
-                        try
-                        {
-                            string existing = File.ReadAllText(jsonPath);
-                            var parsed = JsonSerializer.Deserialize(existing, ShiroAppJson.Default.DictionaryStringJsonElement);
-                            if (parsed != null && parsed.Remove(FpsFlagKey))
-                            {
-                                if (parsed.Count == 0)
-                                {
-                                    File.Delete(jsonPath);
-                                    if (Directory.Exists(settingsDir) && Directory.GetFileSystemEntries(settingsDir).Length == 0)
-                                        Directory.Delete(settingsDir);
-                                }
-                                else
-                                {
-                                    string updatedJson = SerializeClientSettingsWithFps(parsed, fpsOverride: null);
-                                    StoragePaths.AtomicWriteText(jsonPath, updatedJson, durable: true);
-                                }
-                                AppServices.Logger?.Info($"[ClientSettingsPatcher] Removed FPS limit from {Path.GetFileName(versionFolder)}");
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            AppServices.Logger?.Debug($"Clean FPS limit failed: {ex.Message}");
-                        }
+                        string updatedJson = SerializeClientSettings(parsed);
+                        StoragePaths.AtomicWriteText(jsonPath, updatedJson, durable: true);
                     }
+                    AppServices.Logger?.Info($"[ClientSettingsPatcher] Scrubbed legacy FPS flag from {Path.GetFileName(versionFolder)}");
                 }
             }
             catch (Exception ex)
             {
-                AppServices.Logger?.Warn($"[ClientSettingsPatcher] ApplyFpsLimitToDirectory failed for {versionFolder}: {ex.Message}");
+                AppServices.Logger?.Debug($"[ClientSettingsPatcher] ScrubLegacyFpsFastFlag failed for {versionFolder}: {ex.Message}");
             }
         }
 
-        private static string SerializeClientSettingsWithFps(Dictionary<string, JsonElement>? existing, int? fpsOverride)
+        private static string SerializeClientSettings(Dictionary<string, JsonElement> settings)
         {
             using var ms = new MemoryStream();
             using (var writer = new Utf8JsonWriter(ms, new JsonWriterOptions { Indented = true }))
             {
                 writer.WriteStartObject();
-                if (existing != null)
+                foreach (var kvp in settings)
                 {
-                    foreach (var kvp in existing)
-                    {
-                        if (fpsOverride.HasValue && string.Equals(kvp.Key, FpsFlagKey, StringComparison.Ordinal))
-                            continue;
-
-                        writer.WritePropertyName(kvp.Key);
-                        kvp.Value.WriteTo(writer);
-                    }
+                    writer.WritePropertyName(kvp.Key);
+                    kvp.Value.WriteTo(writer);
                 }
-
-                if (fpsOverride.HasValue)
-                {
-                    writer.WriteNumber(FpsFlagKey, fpsOverride.Value);
-                }
-
                 writer.WriteEndObject();
             }
 
@@ -199,7 +175,8 @@ namespace Shiro.Services
             string xml,
             int? graphicsQualityLevel,
             bool? fullscreen,
-            out bool modified)
+            out bool modified,
+            int? framerateCap = null)
         {
             modified = false;
             if (string.IsNullOrEmpty(xml))
@@ -228,6 +205,30 @@ namespace Shiro.Services
                 }
             }
 
+            if (framerateCap.HasValue)
+            {
+                int cap = framerateCap.Value <= 0 ? -1 : Math.Clamp(framerateCap.Value, 30, 240);
+                if (FramerateCapXmlRegex().IsMatch(current))
+                {
+                    string next = FramerateCapXmlRegex().Replace(current, $"<int name=\"FramerateCap\">{cap}</int>");
+                    if (!ReferenceEquals(next, current) && !string.Equals(next, current, StringComparison.Ordinal))
+                    {
+                        current = next;
+                        modified = true;
+                    }
+                }
+                else if (cap > 0)
+                {
+                    var match = UserGameSettingsPropertiesRegex().Match(current);
+                    if (match.Success)
+                    {
+                        int insertIndex = match.Index + match.Length;
+                        current = current.Insert(insertIndex, $"<int name=\"FramerateCap\">{cap}</int>");
+                        modified = true;
+                    }
+                }
+            }
+
             return current;
         }
 
@@ -236,15 +237,26 @@ namespace Shiro.Services
         /// </summary>
         public static bool ConfigureGlobalBasicSettings(int? graphicsQualityLevel = null, bool? fullscreen = null)
         {
+            return ConfigureGlobalBasicSettings(graphicsQualityLevel, fullscreen, framerateCap: null, settingsPathOverride: null);
+        }
+
+        internal static bool ConfigureGlobalBasicSettings(
+            int? graphicsQualityLevel,
+            bool? fullscreen,
+            int? framerateCap,
+            string? settingsPathOverride = null)
+        {
             try
             {
-                string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-                string settingsPath = Path.Combine(localAppData, "Roblox", "GlobalBasicSettings_13.xml");
+                string settingsPath = settingsPathOverride ?? Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "Roblox",
+                    "GlobalBasicSettings_13.xml");
                 if (!File.Exists(settingsPath))
                     return false;
 
                 string xml = File.ReadAllText(settingsPath);
-                string updatedXml = UpdateBasicSettingsXmlContent(xml, graphicsQualityLevel, fullscreen, out bool modified);
+                string updatedXml = UpdateBasicSettingsXmlContent(xml, graphicsQualityLevel, fullscreen, out bool modified, framerateCap);
 
                 if (modified)
                 {

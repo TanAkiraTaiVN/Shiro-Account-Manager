@@ -428,26 +428,46 @@ namespace Shiro.Services
             }
         }
 
+        private static readonly string[] ClientVersionEndpoints =
+        [
+            "https://clientsettings.roblox.com/v2/client-version/WindowsPlayer",
+            "https://clientsettingscdn.roblox.com/v2/client-version/WindowsPlayer"
+        ];
+
         public static async Task LoadClientVersionAsync(CancellationToken cancellationToken = default)
         {
-            try
-            {
-                string versionJson = await SharedHttpClient.GetStringAsync(
-                    "https://clientsettings.roblox.com/v1/client-version/WindowsPlayer",
-                    retryTransient: true,
-                    cancellationToken: cancellationToken);
+            if (cancellationToken.IsCancellationRequested)
+                return;
 
-                using var vDoc = JsonDocument.Parse(versionJson);
-                if (vDoc.RootElement.TryGetProperty("clientVersionUpload", out var token))
-                    AppServices.ServerBrowserState.CurrentClientVersion = token.GetString() ?? string.Empty;
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            foreach (string endpoint in ClientVersionEndpoints)
             {
-                // Shutdown cancelled the optional version probe.
-            }
-            catch (Exception exception)
-            {
-                _logger.Debug($"Roblox client version probe failed: {exception.Message}");
+                if (cancellationToken.IsCancellationRequested)
+                    return;
+
+                try
+                {
+                    using var req = new HttpRequestMessage(HttpMethod.Get, endpoint);
+                    using var resp = await SendHttpAsync(req, cancellationToken).ConfigureAwait(false);
+                    if (!resp.IsSuccessStatusCode)
+                        continue;
+
+                    string versionJson = await resp.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+                    using var vDoc = JsonDocument.Parse(versionJson);
+                    if (vDoc.RootElement.TryGetProperty("clientVersionUpload", out var token) &&
+                        token.GetString() is { Length: > 0 } version)
+                    {
+                        AppServices.ServerBrowserState.CurrentClientVersion = version;
+                        return;
+                    }
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    return;
+                }
+                catch (Exception exception)
+                {
+                    _logger.Debug($"Roblox client version probe failed for {endpoint}: {exception.Message}");
+                }
             }
         }
     }

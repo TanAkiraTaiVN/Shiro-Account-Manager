@@ -110,7 +110,7 @@
                                 <TextBlock Text="{DynamicResource Set_TargetFps}" Foreground="#FFFFFF" FontSize="13" TextWrapping="Wrap" />
                                 <TextBlock Text="{DynamicResource Set_TargetFpsTip}" FontSize="11" Foreground="#A1A1AA" TextWrapping="Wrap" />
                             </StackPanel>
-                            <NumericUpDown Grid.Column="1" x:Name="NumTargetFps" Minimum="30" Maximum="360" Value="{Binding TargetFps}" Width="120"
+                            <NumericUpDown Grid.Column="1" x:Name="NumTargetFps" Minimum="30" Maximum="240" Value="{Binding TargetFps}" Width="120"
                                 HorizontalAlignment="Right" VerticalAlignment="Center" Background="#18181F" Foreground="#FFFFFF" BorderBrush="#2E2E38" />
                         </Grid>
                         <Separator Background="#24242C" Height="1" />

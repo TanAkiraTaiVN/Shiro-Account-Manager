@@ -9,23 +9,25 @@ namespace Shiro.Tests
     public class ClientSettingsAndAntiAfkTests
     {
         [Fact]
-        public void UpdateBasicSettingsXmlContent_ReplacesGraphicsAndFullscreen_InSingleCompiledPass()
+        public void UpdateBasicSettingsXmlContent_ReplacesGraphicsFullscreenAndFramerateCap()
         {
-            string xml = @"<roblox><Item class=""UserGameSettings""><Properties><int name=""GraphicsQualityLevel"">10</int><bool name=""Fullscreen"">true</bool></Properties></Item></roblox>";
+            string xml = @"<roblox><Item class=""UserGameSettings""><Properties><int name=""GraphicsQualityLevel"">10</int><bool name=""Fullscreen"">true</bool><int name=""FramerateCap"">-1</int></Properties></Item></roblox>";
 
             string updated = ClientSettingsPatcher.UpdateBasicSettingsXmlContent(
                 xml,
                 graphicsQualityLevel: 1,
                 fullscreen: false,
-                out bool modified);
+                out bool modified,
+                framerateCap: 240);
 
             Assert.True(modified);
             Assert.Contains(@"<int name=""GraphicsQualityLevel"">1</int>", updated);
             Assert.Contains(@"<bool name=""Fullscreen"">false</bool>", updated);
+            Assert.Contains(@"<int name=""FramerateCap"">240</int>", updated);
         }
 
         [Fact]
-        public void ApplyFpsLimitToDirectory_WritesAndRemovesFpsKey_WithoutReflection()
+        public void ApplyFpsLimitToDirectory_ScrubsLegacyFpsFlag_WithoutWritingFastFlag()
         {
             string tempDir = Path.Combine(Path.GetTempPath(), "ShiroFpsPatchTest_" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(tempDir);
@@ -34,17 +36,17 @@ namespace Shiro.Tests
                 string settingsDir = Path.Combine(tempDir, "ClientSettings");
                 Directory.CreateDirectory(settingsDir);
                 string jsonPath = Path.Combine(settingsDir, "ClientAppSettings.json");
-                File.WriteAllText(jsonPath, "{\"CustomExistingFlag\":true}");
+                File.WriteAllText(jsonPath, "{\"CustomExistingFlag\":true,\"DFIntTaskSchedulerTargetFps\":144}");
 
-                // 1. Unlock FPS -> sets DFIntTaskSchedulerTargetFps = 240 while preserving CustomExistingFlag
+                // 1. Unlock FPS -> scrubs DFIntTaskSchedulerTargetFps and does not write it back
                 ClientSettingsPatcher.ApplyFpsLimitToDirectory(tempDir, unlockFps: true, targetFps: 240);
                 using (var doc = JsonDocument.Parse(File.ReadAllText(jsonPath)))
                 {
                     Assert.True(doc.RootElement.GetProperty("CustomExistingFlag").GetBoolean());
-                    Assert.Equal(240, doc.RootElement.GetProperty(ClientSettingsPatcher.FpsFlagKey).GetInt32());
+                    Assert.False(doc.RootElement.TryGetProperty(ClientSettingsPatcher.FpsFlagKey, out _));
                 }
 
-                // 2. Disable FPS unlock -> removes DFIntTaskSchedulerTargetFps while preserving CustomExistingFlag
+                // 2. Disable FPS unlock -> ensures DFIntTaskSchedulerTargetFps remains absent
                 ClientSettingsPatcher.ApplyFpsLimitToDirectory(tempDir, unlockFps: false, targetFps: 144);
                 using (var doc2 = JsonDocument.Parse(File.ReadAllText(jsonPath)))
                 {
@@ -54,7 +56,7 @@ namespace Shiro.Tests
             }
             finally
             {
-                try { Directory.Delete(tempDir, recursive: true); } catch { }
+                try { Directory.Delete(tempDir, recursive: true); } catch (Exception) { }
             }
         }
 
@@ -66,4 +68,3 @@ namespace Shiro.Tests
         }
     }
 }
-

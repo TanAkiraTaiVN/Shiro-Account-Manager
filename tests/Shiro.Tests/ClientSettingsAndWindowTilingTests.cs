@@ -24,27 +24,26 @@ namespace Shiro.Tests
         }
 
         [Fact]
-        public void ClientSettingsPatcher_ApplyFpsLimitToDirectory_CreatesUpdatesAndRemoves()
+        public void ClientSettingsPatcher_ApplyFpsLimitToDirectory_ScrubsLegacyFlagAndCleansFolder()
         {
             string versionFolder = Path.Combine(_tempDir, "version-12345");
-            Directory.CreateDirectory(versionFolder);
+            string settingsDir = Path.Combine(versionFolder, "ClientSettings");
+            Directory.CreateDirectory(settingsDir);
+            string jsonPath = Path.Combine(settingsDir, "ClientAppSettings.json");
 
-            // 1. Unlock FPS = true (144 fps)
+            // 1. Legacy file with custom key + FPS key -> scrubs FPS, preserves custom key
+            File.WriteAllText(jsonPath, "{\"DFIntTaskSchedulerTargetFps\": 144, \"FStringOther\": \"Value\"}");
             ClientSettingsPatcher.ApplyFpsLimitToDirectory(versionFolder, unlockFps: true, targetFps: 144);
-            string jsonPath = Path.Combine(versionFolder, "ClientSettings", "ClientAppSettings.json");
             Assert.True(File.Exists(jsonPath));
             string json1 = File.ReadAllText(jsonPath);
-            Assert.Contains(ClientSettingsPatcher.FpsFlagKey, json1);
-            Assert.Contains("144", json1);
+            Assert.DoesNotContain(ClientSettingsPatcher.FpsFlagKey, json1);
+            Assert.Contains("FStringOther", json1);
 
-            // 2. Update to 240 fps
-            ClientSettingsPatcher.ApplyFpsLimitToDirectory(versionFolder, unlockFps: true, targetFps: 240);
-            string json2 = File.ReadAllText(jsonPath);
-            Assert.Contains("240", json2);
-
-            // 3. Unlock FPS = false -> deletes flag and empty directory
+            // 2. File with only legacy FPS key -> scrubs and deletes file + folder
+            File.WriteAllText(jsonPath, "{\"DFIntTaskSchedulerTargetFps\": 240}");
             ClientSettingsPatcher.ApplyFpsLimitToDirectory(versionFolder, unlockFps: false, targetFps: 144);
             Assert.False(File.Exists(jsonPath));
+            Assert.False(Directory.Exists(settingsDir));
         }
 
         [Fact]

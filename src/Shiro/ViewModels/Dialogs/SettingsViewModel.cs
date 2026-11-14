@@ -304,7 +304,7 @@ namespace Shiro.ViewModels.Dialogs
 
                 if (TargetFps.HasValue)
                 {
-                    int targetFpsInt = (int)TargetFps.Value;
+                    int targetFpsInt = Math.Clamp((int)TargetFps.Value, 30, 240);
                     if (_settings.MaxFPSValue != targetFpsInt)
                     {
                         patchSettingsNeeded = true;

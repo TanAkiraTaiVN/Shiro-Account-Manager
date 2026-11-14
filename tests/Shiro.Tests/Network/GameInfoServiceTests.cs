@@ -42,5 +42,64 @@ namespace Shiro.Tests.Network
 
             Assert.Equal("Fallback Modern Place", title);
         }
+
+        [Fact]
+        public async Task LoadClientVersionAsync_PrimaryEndpointSuccess_PopulatesCurrentClientVersion()
+        {
+            var handler = new FakeHttpHandler()
+                .Enqueue((req, _) =>
+                {
+                    Assert.Equal("https://clientsettings.roblox.com/v2/client-version/WindowsPlayer", req.RequestUri?.ToString());
+                    return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                    {
+                        Content = new StringContent("""{"version":"0.600.0.0","clientVersionUpload":"version-abc1234567","bootstrapperVersion":""}""")
+                    });
+                });
+
+            GameInfoService.HttpClientFactoryForTests = () => new HttpClient(handler);
+
+            await GameInfoService.LoadClientVersionAsync();
+
+            Assert.Equal("version-abc1234567", AppServices.ServerBrowserState.CurrentClientVersion);
+        }
+
+        [Fact]
+        public async Task LoadClientVersionAsync_PrimaryFails_FallsBackToCdnEndpoint()
+        {
+            var handler = new FakeHttpHandler()
+                .Enqueue((req, _) =>
+                {
+                    Assert.Equal("https://clientsettings.roblox.com/v2/client-version/WindowsPlayer", req.RequestUri?.ToString());
+                    return Task.FromResult(new HttpResponseMessage(HttpStatusCode.InternalServerError)
+                    {
+                        Content = new StringContent("error")
+                    });
+                })
+                .Enqueue((req, _) =>
+                {
+                    Assert.Equal("https://clientsettingscdn.roblox.com/v2/client-version/WindowsPlayer", req.RequestUri?.ToString());
+                    return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                    {
+                        Content = new StringContent("""{"version":"0.600.0.0","clientVersionUpload":"version-cdn999","bootstrapperVersion":""}""")
+                    });
+                });
+
+            GameInfoService.HttpClientFactoryForTests = () => new HttpClient(handler);
+
+            await GameInfoService.LoadClientVersionAsync();
+
+            Assert.Equal("version-cdn999", AppServices.ServerBrowserState.CurrentClientVersion);
+        }
+
+        [Fact]
+        public async Task LoadClientVersionAsync_PreCancelledToken_CompletesWithoutException()
+        {
+            using var cts = new System.Threading.CancellationTokenSource();
+            cts.Cancel();
+
+            var ex = await Record.ExceptionAsync(() => GameInfoService.LoadClientVersionAsync(cts.Token));
+
+            Assert.Null(ex);
+        }
     }
 }

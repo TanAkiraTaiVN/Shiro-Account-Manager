@@ -9,17 +9,22 @@ namespace Shiro.Tests
     public class ClientSettingsPatcherTests
     {
         [Fact]
-        public void ApplyFpsLimitToDirectory_WhenUnlocked_GeneratesValidJsonWithTargetFps()
+        public void ApplyFpsLimitToDirectory_WhenUnlocked_DoesNotWriteFastFlag_AndScrubsLegacyFastFlag()
         {
             string tempDir = Path.Combine(Path.GetTempPath(), "Shiro_Patcher_Test_" + Guid.NewGuid());
-            Directory.CreateDirectory(tempDir);
+            string settingsDir = Path.Combine(tempDir, "ClientSettings");
+            Directory.CreateDirectory(settingsDir);
             try
             {
+                string jsonPath = Path.Combine(settingsDir, "ClientAppSettings.json");
+                File.WriteAllText(jsonPath, "{\"DFIntTaskSchedulerTargetFps\": 144, \"FStringCustom\": \"Test\"}");
+
                 ClientSettingsPatcher.ApplyFpsLimitToDirectory(tempDir, unlockFps: true, targetFps: 144);
-                string jsonPath = Path.Combine(tempDir, "ClientSettings", "ClientAppSettings.json");
+
                 Assert.True(File.Exists(jsonPath));
                 string content = File.ReadAllText(jsonPath);
-                Assert.Contains("\"DFIntTaskSchedulerTargetFps\": 144", content);
+                Assert.DoesNotContain(ClientSettingsPatcher.FpsFlagKey, content);
+                Assert.Contains("FStringCustom", content);
             }
             finally
             {
@@ -36,16 +41,168 @@ namespace Shiro.Tests
             Directory.CreateDirectory(settingsDir);
             try
             {
-                File.WriteAllText(Path.Combine(settingsDir, "ClientAppSettings.json"), "{\"DFIntTaskSchedulerTargetFps\": 144, \"FStringCustom\": \"Test\"}");
+                string jsonPath = Path.Combine(settingsDir, "ClientAppSettings.json");
+                File.WriteAllText(jsonPath, "{\"DFIntTaskSchedulerTargetFps\": 144, \"FStringCustom\": \"Test\"}");
                 ClientSettingsPatcher.ApplyFpsLimitToDirectory(tempDir, unlockFps: false, targetFps: 60);
-                string content = File.ReadAllText(Path.Combine(settingsDir, "ClientAppSettings.json"));
-                Assert.DoesNotContain("DFIntTaskSchedulerTargetFps", content);
+                string content = File.ReadAllText(jsonPath);
+                Assert.DoesNotContain(ClientSettingsPatcher.FpsFlagKey, content);
                 Assert.Contains("FStringCustom", content);
             }
             finally
             {
                 if (Directory.Exists(tempDir))
                     Directory.Delete(tempDir, recursive: true);
+            }
+        }
+
+        [Fact]
+        public void ApplyFpsLimitToDirectory_WhenNoExistingFile_DoesNotCreateClientAppSettings()
+        {
+            string tempDir = Path.Combine(Path.GetTempPath(), "Shiro_Patcher_Test_" + Guid.NewGuid());
+            Directory.CreateDirectory(tempDir);
+            try
+            {
+                ClientSettingsPatcher.ApplyFpsLimitToDirectory(tempDir, unlockFps: true, targetFps: 144);
+                string jsonPath = Path.Combine(tempDir, "ClientSettings", "ClientAppSettings.json");
+                Assert.False(File.Exists(jsonPath));
+            }
+            finally
+            {
+                if (Directory.Exists(tempDir))
+                    Directory.Delete(tempDir, recursive: true);
+            }
+        }
+
+        [Theory]
+        [InlineData(144, 144)]
+        [InlineData(360, 240)]
+        [InlineData(10, 30)]
+        [InlineData(0, -1)]
+        [InlineData(-10, -1)]
+        public void UpdateBasicSettingsXmlContent_FramerateCap_ReplacesExistingNodeAndClamps(int inputCap, int expectedCap)
+        {
+            string xml = @"<roblox><Item class=""UserGameSettings""><Properties><int name=""FramerateCap"">60</int><int name=""GraphicsQualityLevel"">10</int></Properties></Item></roblox>";
+
+            string updated = ClientSettingsPatcher.UpdateBasicSettingsXmlContent(
+                xml,
+                graphicsQualityLevel: null,
+                fullscreen: null,
+                out bool modified,
+                framerateCap: inputCap);
+
+            Assert.True(modified);
+            Assert.Contains($@"<int name=""FramerateCap"">{expectedCap}</int>", updated);
+            Assert.Contains(@"<int name=""GraphicsQualityLevel"">10</int>", updated);
+        }
+
+        [Fact]
+        public void UpdateBasicSettingsXmlContent_FramerateCap_WhenUnchanged_ReportsNotModified()
+        {
+            string xml = @"<roblox><Item class=""UserGameSettings""><Properties><int name=""FramerateCap"">-1</int></Properties></Item></roblox>";
+
+            string updated = ClientSettingsPatcher.UpdateBasicSettingsXmlContent(
+                xml,
+                graphicsQualityLevel: null,
+                fullscreen: null,
+                out bool modified,
+                framerateCap: -1);
+
+            Assert.False(modified);
+            Assert.Equal(xml, updated);
+        }
+
+        [Fact]
+        public void UpdateBasicSettingsXmlContent_FramerateCap_InsertsNodeWhenMissingInUserGameSettings()
+        {
+            string xml = @"<roblox><Item class=""UserGameSettings""><Properties><token name=""SavedQualityLevel"">10</token></Properties></Item></roblox>";
+
+            string updated = ClientSettingsPatcher.UpdateBasicSettingsXmlContent(
+                xml,
+                graphicsQualityLevel: null,
+                fullscreen: null,
+                out bool modified,
+                framerateCap: 144);
+
+            Assert.True(modified);
+            Assert.Contains(@"<int name=""FramerateCap"">144</int>", updated);
+            Assert.Contains(@"<token name=""SavedQualityLevel"">10</token>", updated);
+        }
+
+        [Fact]
+        public void ApplyFpsLimit_UpdatesGlobalBasicSettingsXml()
+        {
+            string tempXml = Path.Combine(Path.GetTempPath(), $"Shiro_GBS_{Guid.NewGuid():N}.xml");
+            try
+            {
+                File.WriteAllText(tempXml, @"<roblox><Item class=""UserGameSettings""><Properties><int name=""FramerateCap"">-1</int></Properties></Item></roblox>");
+
+                ClientSettingsPatcher.ApplyFpsLimit(unlockFps: true, targetFps: 144, xmlPathOverride: tempXml);
+                string updated = File.ReadAllText(tempXml);
+                Assert.Contains(@"<int name=""FramerateCap"">144</int>", updated);
+
+                ClientSettingsPatcher.ApplyFpsLimit(unlockFps: false, targetFps: 60, xmlPathOverride: tempXml);
+                string reverted = File.ReadAllText(tempXml);
+                Assert.Contains(@"<int name=""FramerateCap"">-1</int>", reverted);
+            }
+            finally
+            {
+                if (File.Exists(tempXml))
+                    File.Delete(tempXml);
+            }
+        }
+
+        [Fact]
+        public void ConfigureGlobalBasicSettings_WithFramerateCap_UpdatesXml()
+        {
+            string tempXml = Path.Combine(Path.GetTempPath(), $"Shiro_GBS_{Guid.NewGuid():N}.xml");
+            try
+            {
+                File.WriteAllText(tempXml, @"<roblox><Item class=""UserGameSettings""><Properties><int name=""GraphicsQualityLevel"">10</int><bool name=""Fullscreen"">false</bool><int name=""FramerateCap"">-1</int></Properties></Item></roblox>");
+
+                bool success = ClientSettingsPatcher.ConfigureGlobalBasicSettings(
+                    graphicsQualityLevel: 1,
+                    fullscreen: true,
+                    framerateCap: 200,
+                    settingsPathOverride: tempXml);
+
+                Assert.True(success);
+                string updated = File.ReadAllText(tempXml);
+                Assert.Contains(@"<int name=""GraphicsQualityLevel"">1</int>", updated);
+                Assert.Contains(@"<bool name=""Fullscreen"">true</bool>", updated);
+                Assert.Contains(@"<int name=""FramerateCap"">200</int>", updated);
+            }
+            finally
+            {
+                if (File.Exists(tempXml))
+                    File.Delete(tempXml);
+            }
+        }
+
+        [Fact]
+        public void PatchSettings_WithSettingsPathOverride_AppliesPotatoModeAndFpsLimit()
+        {
+            string tempXml = Path.Combine(Path.GetTempPath(), $"Shiro_GBS_{Guid.NewGuid():N}.xml");
+            try
+            {
+                File.WriteAllText(tempXml, @"<roblox><Item class=""UserGameSettings""><Properties><int name=""GraphicsQualityLevel"">10</int><int name=""FramerateCap"">-1</int></Properties></Item></roblox>");
+
+                AppSettings.General.Set("EnablePotatoMode", "true");
+                AppSettings.General.Set("UnlockFPS", "true");
+                AppSettings.General.Set("MaxFPSValue", "200");
+
+                ClientSettingsPatcher.PatchSettings(settingsPathOverride: tempXml);
+
+                string updated = File.ReadAllText(tempXml);
+                Assert.Contains(@"<int name=""GraphicsQualityLevel"">1</int>", updated);
+                Assert.Contains(@"<int name=""FramerateCap"">200</int>", updated);
+            }
+            finally
+            {
+                AppSettings.General.Set("EnablePotatoMode", "false");
+                AppSettings.General.Set("UnlockFPS", "false");
+                AppSettings.General.Set("MaxFPSValue", "144");
+                if (File.Exists(tempXml))
+                    File.Delete(tempXml);
             }
         }
     }

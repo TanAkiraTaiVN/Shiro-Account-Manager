@@ -72,27 +72,29 @@ namespace Shiro.Tests
         }
 
         [Fact]
-        public void ClientSettingsPatcher_ApplyFpsLimitToDirectory_UnlocksAndRemovesFps()
+        public void ClientSettingsPatcher_ApplyFpsLimitToDirectory_ScrubsLegacyFpsFlag()
         {
             string testFolder = Path.Combine(Path.GetTempPath(), "Shiro-Patcher-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(testFolder);
             try
             {
-                // 1. Unlock FPS (clamped to 360)
+                string settingsDir = Path.Combine(testFolder, "ClientSettings");
+                Directory.CreateDirectory(settingsDir);
+                string jsonPath = Path.Combine(settingsDir, "ClientAppSettings.json");
+
+                // 1. Existing file with only DFIntTaskSchedulerTargetFps is deleted upon scrubbing
+                File.WriteAllText(jsonPath, "{\"DFIntTaskSchedulerTargetFps\": 144}");
                 ClientSettingsPatcher.ApplyFpsLimitToDirectory(testFolder, unlockFps: true, targetFps: 500);
-                string jsonPath = Path.Combine(testFolder, "ClientSettings", "ClientAppSettings.json");
-                Assert.True(File.Exists(jsonPath));
-
-                string content = File.ReadAllText(jsonPath);
-                using (var doc = JsonDocument.Parse(content))
-                {
-                    Assert.True(doc.RootElement.TryGetProperty(ClientSettingsPatcher.FpsFlagKey, out var prop));
-                    Assert.Equal(360, prop.GetInt32());
-                }
-
-                // 2. Remove FPS unlock
-                ClientSettingsPatcher.ApplyFpsLimitToDirectory(testFolder, unlockFps: false, targetFps: 144);
                 Assert.False(File.Exists(jsonPath));
+
+                // 2. Existing file with other flags preserves them and removes DFIntTaskSchedulerTargetFps
+                Directory.CreateDirectory(settingsDir);
+                File.WriteAllText(jsonPath, "{\"DFIntTaskSchedulerTargetFps\": 144, \"FFlagDebug\": false}");
+                ClientSettingsPatcher.ApplyFpsLimitToDirectory(testFolder, unlockFps: false, targetFps: 144);
+                Assert.True(File.Exists(jsonPath));
+                string content = File.ReadAllText(jsonPath);
+                Assert.DoesNotContain(ClientSettingsPatcher.FpsFlagKey, content);
+                Assert.Contains("FFlagDebug", content);
             }
             finally
             {
