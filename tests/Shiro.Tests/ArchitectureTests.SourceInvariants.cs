@@ -5,6 +5,9 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text.RegularExpressions;
+using System.Threading;
+using System.Threading.Tasks;
+using Shiro.Services;
 using Xunit;
 
 namespace Shiro.Tests
@@ -112,6 +115,85 @@ namespace Shiro.Tests
                 var present = typeof(AccountManager).GetMethods(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)
                     .Select(m => m.Name).Intersect(removed).ToList();
                 Assert.Empty(present);
+            }
+
+            [Fact]
+            public void Source_ShouldNotUseLegacyDllImport()
+            {
+                var regex = new Regex(@"\[(?:System\.Runtime\.InteropServices\.)?DllImport\b", RegexOptions.Compiled);
+                var files = SourceFiles("src/Shiro", "*.cs").ToList();
+                var offenders = new List<string>();
+
+                foreach (var file in files)
+                {
+                    var lines = File.ReadAllLines(file);
+                    for (int i = 0; i < lines.Length; i++)
+                    {
+                        if (regex.IsMatch(lines[i]))
+                        {
+                            var relativePath = Path.GetRelativePath(RepoRoot, file).Replace('\\', '/');
+                            offenders.Add($"{relativePath}:{i + 1}: {lines[i].Trim()}");
+                        }
+                    }
+                }
+
+                Assert.True(offenders.Count == 0,
+                    $"Legacy [DllImport] usage remains: {string.Join("; ", offenders)}");
+            }
+
+            [Fact]
+            public void ObsoleteForegroundHandlers_ShouldBeRemoved()
+            {
+                var memoryOptimizerMethod = typeof(MemoryOptimizer).GetMethod("NotifyForegroundChanged",
+                    BindingFlags.Public | BindingFlags.Static);
+                Assert.Null(memoryOptimizerMethod);
+
+                var robloxAudioServiceMethod = typeof(RobloxAudioService).GetMethod("NotifyForegroundChanged",
+                    BindingFlags.Public | BindingFlags.Static);
+                Assert.Null(robloxAudioServiceMethod);
+            }
+
+            [Fact]
+            public void AccountManager_ShouldNotExpose_WinFormsCompatibilityShims()
+            {
+                string[] removedMembers = { "IsHandleCreated", "BeginInvoke", "InvokeIfRequired" };
+                var type = typeof(AccountManager);
+                var presentMethods = type.GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+                    .Select(m => m.Name);
+                var presentProperties = type.GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+                    .Select(p => p.Name);
+                var present = presentMethods.Concat(presentProperties).Intersect(removedMembers).ToList();
+                Assert.Empty(present);
+            }
+
+            [Fact]
+            public void LaunchResult_ShouldNotExpose_LegacyAdapters()
+            {
+                var toLegacyString = typeof(LaunchResult).GetMethod("ToLegacyString", BindingFlags.Instance | BindingFlags.Public);
+                Assert.Null(toLegacyString);
+
+                var fromLegacy = typeof(LaunchResult).GetMethod("FromLegacy", BindingFlags.Static | BindingFlags.Public);
+                Assert.Null(fromLegacy);
+            }
+
+            [Fact]
+            public void LaunchCoordinator_ShouldNotAccept_LegacyStringDelegate()
+            {
+                var ctors = typeof(LaunchCoordinator).GetConstructors();
+                bool hasLegacyCtor = ctors.Any(c =>
+                    c.GetParameters().Length == 1 &&
+                    c.GetParameters()[0].ParameterType == typeof(Func<LaunchRequest, CancellationToken, Task<string>>));
+                Assert.False(hasLegacyCtor, "LaunchCoordinator still has legacy Func<..., Task<string>> constructor.");
+            }
+
+            [Fact]
+            public void UpdateCheckService_ShouldNotUse_VersionFourFallback()
+            {
+                var file = Path.Combine(RepoRoot, "src", "Shiro", "Services", "Network", "UpdateCheckService.cs");
+                Assert.True(File.Exists(file), $"File not found: {file}");
+                var content = File.ReadAllText(file);
+                Assert.False(Regex.IsMatch(content, @"new\s+Version\s*\(\s*4\s*,"),
+                    "UpdateCheckService still uses obsolete 4.x.x version fallback instead of 5.x.x.");
             }
         }
     }

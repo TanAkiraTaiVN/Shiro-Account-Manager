@@ -262,7 +262,7 @@ namespace Shiro.Services
                 joinVip,
                 internalCall,
                 cancellationToken).ConfigureAwait(false);
-            return result.ToLegacyString();
+            return result.Message;
         }
 
         public async Task<LaunchResult> JoinServerResultAsync(

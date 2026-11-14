@@ -18,5 +18,11 @@ namespace Shiro.Tests
             bool isNewer = UpdateCheckService.IsRemoteVersionNewer(currentVer, releaseTag);
             Assert.Equal(expectedNewer, isNewer);
         }
+
+        [Fact]
+        public void DefaultFallbackVersion_MatchesVersionFive()
+        {
+            Assert.Equal(new System.Version(5, 0, 0), UpdateCheckService.DefaultFallbackVersion);
+        }
     }
 }

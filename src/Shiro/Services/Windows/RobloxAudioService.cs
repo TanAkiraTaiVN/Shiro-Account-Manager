@@ -75,18 +75,6 @@ namespace Shiro.Services
         }
 
         /// <summary>
-        /// Legacy foreground notification hook. Preferred entry point is coalesced evaluation via <see cref="EvaluateWithPids"/>.
-        /// </summary>
-        [Obsolete("Use ForegroundWindowService coalesced focus evaluation or EvaluateWithPids.")]
-        public static void NotifyForegroundChanged(IntPtr hwnd, uint foregroundPid)
-        {
-            if (!_smartMuteEnabled) return;
-
-            // Dispatch onto ThreadPool so the WinEvent callback returns instantaneously to the OS message pump
-            ThreadPool.QueueUserWorkItem(_ => EvaluateSmartMuteForForegroundPid(foregroundPid));
-        }
-
-        /// <summary>
         /// Pure decision helper determining whether Smart Mute needs to enumerate WASAPI audio sessions on this tick.
         /// Skips COM enumeration when no Roblox processes are running or when neither the focused Roblox PID nor
         /// the running Roblox process count has changed since the last tick.

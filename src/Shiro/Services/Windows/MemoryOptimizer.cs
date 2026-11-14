@@ -86,18 +86,6 @@ namespace Shiro.Services
             }
         }
 
-        [Obsolete("Use ForegroundWindowService coalesced focus evaluation or EvaluateWithPids.")]
-        public static void NotifyForegroundChanged(IntPtr hwnd, uint foregroundPid)
-        {
-            if (!OperatingSystem.IsWindows() || !IsAutoLowerPriorityActive()) return;
-
-            ThreadPool.QueueUserWorkItem(_ =>
-            {
-                var runningPids = RobloxProcessService.GetRunningRobloxPids();
-                EvaluateWithPids(foregroundPid, runningPids);
-            });
-        }
-
         internal static void ApplyProcessFocusProfile(int pid, bool isForeground)
         {
             IntPtr hProcess = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_SET_INFORMATION | PROCESS_SET_QUOTA, false, pid);

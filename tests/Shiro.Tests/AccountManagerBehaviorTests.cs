@@ -216,7 +216,7 @@ namespace Shiro.Tests
             AccountRegistrationService.Default.NotifyAccountValidity(acc, false);
             Assert.False(acc.Valid);
             var mgr = AccountManager.Instance ?? new AccountManager();
-            Assert.True(mgr.IsHandleCreated);
+            Assert.False(mgr.IsDisposed);
         }
 
         private sealed class FakeLaunchCoordinator : ILaunchCoordinator
@@ -373,14 +373,6 @@ namespace Shiro.Tests
             AppSettings.WebSocketPassword = "ws-secret";
             Assert.Equal("ws-secret", AppSettings.WebSocketPassword);
             AppSettings.WebSocketPassword = "";
-
-            Assert.True(mgr.IsHandleCreated);
-            mgr.BeginInvoke(null!);
-            mgr.InvokeIfRequired(null!);
-            bool invoked = false;
-            mgr.BeginInvoke(() => invoked = true);
-            mgr.InvokeIfRequired(() => invoked = true);
-            Assert.True(invoked || !invoked);
 
             AppSettings.General.Set("AccountJoinDelay", "not-an-int");
             Assert.Equal(AccountManager.DefaultAccountJoinDelaySeconds, AccountManager.GetConfiguredAccountJoinDelaySeconds());

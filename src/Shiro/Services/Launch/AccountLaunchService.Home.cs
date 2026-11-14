@@ -124,7 +124,7 @@ namespace Shiro.Services
             CancellationToken cancellationToken = default)
         {
             var result = await LaunchAppHomeResultAsync(account, preferChrome, cancellationToken).ConfigureAwait(false);
-            return result.ToLegacyString();
+            return result.Message;
         }
 
         public async Task<LaunchResult> LaunchAppHomeResultAsync(

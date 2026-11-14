@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -134,8 +135,8 @@ namespace Shiro.AvaloniaUI.Views
             return dialog;
         }
 
-        [System.Runtime.InteropServices.DllImport("user32.dll", EntryPoint = "MessageBoxW", CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
-        private static extern int Win32MessageBox(IntPtr hWnd, string text, string caption, uint type);
+        [LibraryImport("user32.dll", EntryPoint = "MessageBoxW", StringMarshalling = StringMarshalling.Utf16)]
+        private static partial int Win32MessageBox(IntPtr hWnd, string text, string caption, uint type);
 
         public static bool IsAvaloniaUiReady()
         {

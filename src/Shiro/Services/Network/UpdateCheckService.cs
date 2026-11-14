@@ -29,6 +29,7 @@ namespace Shiro.Services
 
         private const string ReleaseApiUrl = "https://api.github.com/repos/X-Shiro-X/Shiro-Account-Manager/releases/latest";
         private static int _checkInitiated = 0;
+        internal static readonly Version DefaultFallbackVersion = new(5, 0, 0);
 
         public static void StartBackgroundCheck()
         {
@@ -79,7 +80,7 @@ namespace Shiro.Services
             if (string.IsNullOrWhiteSpace(tagName))
                 return false;
 
-            var currentVer = typeof(UpdateCheckService).Assembly.GetName().Version ?? new Version(4, 2, 0);
+            var currentVer = typeof(UpdateCheckService).Assembly.GetName().Version ?? DefaultFallbackVersion;
             if (IsRemoteVersionNewer(currentVer.ToString(), tagName))
             {
                 AppDispatcher.Post(() =>

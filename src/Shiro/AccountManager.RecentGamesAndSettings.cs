@@ -41,10 +41,10 @@ namespace Shiro
         }
 
         private Task LoadRecentGames() =>
-            GameInfoService.LoadRecentGamesAsync(rg => this.InvokeIfRequired(() => RecentGameAdded?.Invoke(this, new GameArgs(rg))));
+            GameInfoService.LoadRecentGamesAsync(rg => AppDispatcher.Post(() => RecentGameAdded?.Invoke(this, new GameArgs(rg))));
 
         private Task AddRecentGame(Game RG, bool Loading = false) =>
-            GameInfoService.AddRecentGameAsync(RG, Loading, rg => this.InvokeIfRequired(() => RecentGameAdded?.Invoke(this, new GameArgs(rg))));
+            GameInfoService.AddRecentGameAsync(RG, Loading, rg => AppDispatcher.Post(() => RecentGameAdded?.Invoke(this, new GameArgs(rg))));
 
         private void WireStateAndHostBridgeServices()
         {
@@ -63,7 +63,7 @@ namespace Shiro
                 };
                 bridge.UpdateAccountValidityOnUiHandler = (account, valid) =>
                 {
-                    BeginInvoke(() =>
+                    AppDispatcher.Post(() =>
                     {
                         UpdateAccountValidity(account, valid);
                         RefreshView(account);
@@ -77,7 +77,7 @@ namespace Shiro
                 bridge.SignalNextLaunchAccountHandler = () => NextAccount();
                 bridge.CancelLaunchingHandler = () => CancelLaunching();
                 bridge.UpdateMultiRobloxHandler = () => UpdateMultiRoblox();
-                bridge.CloseAllRobloxFromUiHandler = () => InvokeIfRequired(() => ModernCloseRoblox());
+                bridge.CloseAllRobloxFromUiHandler = () => AppDispatcher.Post(() => ModernCloseRoblox());
                 bridge.LaunchAppHomeHandler = ModernLaunchAccountAppHome;
                 bridge.JoinServerHandler = (accounts, placeId, jobId) => ModernJoinServerDirect(new List<Account>(accounts), placeId, jobId);
                 bridge.MultiLaunchHomeHandler = () => ModernMultiLaunch();

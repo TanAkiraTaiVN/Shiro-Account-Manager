@@ -106,20 +106,17 @@ namespace Shiro.Tests
         }
 
         [Theory]
-        [InlineData("Success", LaunchOutcome.Success)]
-        [InlineData(Account.BrowserHomeResult, LaunchOutcome.Success)]
-        [InlineData("Success! Process started.", LaunchOutcome.Failed)]
-        [InlineData("HTTP 429 Too Many Requests (Rate limit)", LaunchOutcome.Failed)]
-        [InlineData("Invalid Authentication Ticket: 401 Unauthorized", LaunchOutcome.Failed)]
-        [InlineData("Roblox has probably signed you out", LaunchOutcome.Failed)]
-        [InlineData("Operation timed out waiting for mutex", LaunchOutcome.Failed)]
-        [InlineData("Unknown process crash error", LaunchOutcome.Failed)]
-        [InlineData("", LaunchOutcome.Failed)]
-        [InlineData(null, LaunchOutcome.Failed)]
-        public async System.Threading.Tasks.Task LegacyLaunchCoordinator_ClassifiesOnlyExactSuccess(string? result, LaunchOutcome expected)
+        [InlineData(LaunchOutcome.Success)]
+        [InlineData(LaunchOutcome.RateLimited)]
+        [InlineData(LaunchOutcome.TicketError)]
+        [InlineData(LaunchOutcome.Timeout)]
+        [InlineData(LaunchOutcome.Failed)]
+        [InlineData(LaunchOutcome.Cancelled)]
+        public async System.Threading.Tasks.Task LaunchCoordinator_PropagatesOutcome(LaunchOutcome outcome)
         {
             var request = new LaunchRequest(new Account { Username = "Player" }, 123, "", false, false);
-            var coordinator = new LaunchCoordinator((req, ct) => System.Threading.Tasks.Task.FromResult(result!));
+            var coordinator = new LaunchCoordinator((req, ct) =>
+                System.Threading.Tasks.Task.FromResult(new LaunchResult(outcome, outcome.ToString())));
 
             var batchResult = await coordinator.EnqueueAsync(
                 new[] { request },
@@ -129,7 +126,7 @@ namespace Shiro.Tests
                 cancellationToken: System.Threading.CancellationToken.None);
 
             Assert.Single(batchResult.Results);
-            Assert.Equal(expected, batchResult.Results[0].Status);
+            Assert.Equal(outcome, batchResult.Results[0].Status);
         }
 
         [Fact]

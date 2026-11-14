@@ -43,16 +43,6 @@ namespace Shiro.Services
             GlobalCancelRequested += Cancel;
         }
 
-        public LaunchCoordinator(Func<LaunchRequest, CancellationToken, Task<string>> executeLaunch)
-            : this(async (req, ct) =>
-            {
-                if (executeLaunch == null) throw new ArgumentNullException(nameof(executeLaunch));
-                string legacy = await executeLaunch(req, ct).ConfigureAwait(false);
-                return LaunchResult.FromLegacy(legacy);
-            })
-        {
-        }
-
         public bool TryAppendRequests(IReadOnlyList<LaunchRequest> requests, out int appendedCount)
         {
             appendedCount = 0;

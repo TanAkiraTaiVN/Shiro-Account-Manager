@@ -27,22 +27,10 @@ namespace Shiro
         private static AccountRegistrationService Registration => AppServices.GetRequiredService<AccountRegistrationService>();
 
         public bool IsDisposed => shutdownFinalized;
-        public bool IsHandleCreated => true;
 
         [LibraryImport("user32.dll")]
         private static partial int GetSystemMetrics(int nIndex);
 
-        public void BeginInvoke(Action action)
-        {
-            if (action == null) return;
-            AppDispatcher.Post(action);
-        }
-
-        public void InvokeIfRequired(Action action)
-        {
-            if (action == null) return;
-            AppDispatcher.Post(action);
-        }
         private KestrelWebServer? AltManagerWS;
         public Shiro.Services.ModernPeriodicTask? AutoCookieRefresh { get; private set; }
         public Shiro.Services.ModernPeriodicTask? PresenceTimer { get; private set; }
