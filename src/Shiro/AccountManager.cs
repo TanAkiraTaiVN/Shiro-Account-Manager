@@ -21,6 +21,8 @@ namespace Shiro
     public partial class AccountManager : IDisposable
     {
         public static AccountManager? Instance { get; internal set; }
+        internal const string DefaultGeoIpLink = "https://ipwho.is/<ip>";
+        internal const string LegacyGeoIpLink = "http://ip-api.com/json/<ip>";
         private static AccountPersistenceService Persistence => AppServices.GetRequiredService<AccountPersistenceService>();
         private static AccountRegistrationService Registration => AppServices.GetRequiredService<AccountRegistrationService>();
 
@@ -168,11 +170,11 @@ namespace Shiro
             if (!AppSettings.General.Exists("AsyncJoin")) AppSettings.General.Set("AsyncJoin", "false");
             if (!AppSettings.General.Exists("DisableAgingAlert")) AppSettings.General.Set("DisableAgingAlert", "false");
             if (!AppSettings.General.Exists("SavePasswords")) AppSettings.General.Set("SavePasswords", "true");
-            if (!AppSettings.General.Exists("ServerRegionFormat")) AppSettings.General.Set("ServerRegionFormat", "<city>, <countryCode>", "Visit http://ip-api.com/json/1.1.1.1 to see available format options");
+            if (!AppSettings.General.Exists("ServerRegionFormat")) AppSettings.General.Set("ServerRegionFormat", "<city>, <countryCode>", "Visit https://ipwho.is/1.1.1.1 to see available format options");
             if (!AppSettings.General.Exists("MaxRecentGames")) AppSettings.General.Set("MaxRecentGames", "8");
             if (!AppSettings.General.Exists("ShuffleChoosesLowestServer")) AppSettings.General.Set("ShuffleChoosesLowestServer", "false");
             if (!AppSettings.General.Exists("ShufflePageCount")) AppSettings.General.Set("ShufflePageCount", "5");
-            if (!AppSettings.General.Exists("IPApiLink")) AppSettings.General.Set("IPApiLink", "http://ip-api.com/json/<ip>");
+            EnsureModernGeoIpLink(AppSettings.General);
             if (!AppSettings.General.Exists("WindowScale"))
             {
                 double screenHeight = OperatingSystem.IsWindows() ? GetSystemMetrics(1) : 1080;
@@ -232,6 +234,21 @@ namespace Shiro
 
             if (!AppSettings.Prompts.Exists("VCPrompted") && PrerequisiteService.NeedsVCRedist())
                 vcredistInstallTask = PrerequisiteService.InstallVCRedistAsync(lifetimeCancellation.Token);
+        }
+
+        internal static void EnsureModernGeoIpLink(Shiro.Services.ISettingsService generalSettings)
+        {
+            if (!generalSettings.Exists("IPApiLink"))
+            {
+                generalSettings.Set("IPApiLink", DefaultGeoIpLink);
+                return;
+            }
+
+            string? current = generalSettings.Get("IPApiLink");
+            if (current != null && string.Equals(current.Trim(), LegacyGeoIpLink, StringComparison.OrdinalIgnoreCase))
+            {
+                generalSettings.Set("IPApiLink", DefaultGeoIpLink);
+            }
         }
 
         public void RefreshView(object? obj = null)

@@ -11,11 +11,11 @@ using Microsoft.Win32;
 namespace Shiro.Services
 {
     /// <summary>
-    /// Service checking and installing system prerequisites (e.g. Visual C++ 2015-2022 X86 Redistributable).
+    /// Service checking and installing system prerequisites (e.g. Visual C++ 2015-2022/v18 X64 Redistributable).
     /// </summary>
     public static partial class PrerequisiteService
     {
-        private const string VcRedistUrl = "https://aka.ms/vs/17/release/vc_redist.x86.exe";
+        internal const string VcRedistUrl = "https://aka.ms/vs/18/release/vc_redist.x64.exe";
         private const uint WtdUiNone = 2;
         private const uint WtdRevokeWholeChain = 1;
         private const uint WtdChoiceFile = 1;
@@ -26,15 +26,68 @@ namespace Shiro.Services
 
         public static bool NeedsVCRedist()
         {
+            if (!OperatingSystem.IsWindows())
+            {
+                return false;
+            }
+
             try
             {
-                using RegistryKey? vcKey = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\WOW6432Node\Microsoft\VisualStudio\14.0\VC\Runtimes\X86");
-                return vcKey == null || !(vcKey.GetValue("Bld") is int vcVersion) || vcVersion < 32532;
+                using var baseKey = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64);
+                using var vcKey = baseKey.OpenSubKey(@"SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\X64")
+                    ?? Registry.LocalMachine.OpenSubKey(@"SOFTWARE\WOW6432Node\Microsoft\VisualStudio\14.0\VC\Runtimes\X64")
+                    ?? Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\X64");
+
+                if (vcKey != null)
+                {
+                    object? installed = vcKey.GetValue("Installed");
+                    object? major = vcKey.GetValue("Major");
+                    if (IsVcRuntimeSatisfied(installed, major))
+                    {
+                        return false;
+                    }
+                }
+
+                return true;
             }
             catch (Exception ex)
             {
                 AppServices.Logger.Debug("[PrerequisiteService] Check NeedsVCRedist failed", ex);
                 return false;
+            }
+        }
+
+        internal static bool IsVcRuntimeSatisfied(object? installedValue, object? majorValue = null)
+        {
+            if (!TryGetInt(installedValue, out int installed) || installed != 1)
+            {
+                return false;
+            }
+
+            if (majorValue == null)
+            {
+                return true;
+            }
+
+            return TryGetInt(majorValue, out int major) && major >= 14;
+        }
+
+        private static bool TryGetInt(object? value, out int result)
+        {
+            switch (value)
+            {
+                case int i:
+                    result = i;
+                    return true;
+                case long l:
+                    result = (int)l;
+                    return true;
+                case string s when int.TryParse(s, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int parsed):
+                    result = parsed;
+                    return true;
+                default:
+                    result = 0;
+                    return false;
             }
         }
 
