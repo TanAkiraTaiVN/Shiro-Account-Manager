@@ -66,5 +66,68 @@ namespace Shiro.Tests
             Assert.False(AntiAfkService.RemoveClientState(0));
             Assert.False(AntiAfkService.RemoveClientState(888888));
         }
+
+        [Theory]
+        [InlineData("ToolbarWindow32", true)]
+        [InlineData("SysPager", true)]
+        [InlineData("TrayNotifyWnd", true)]
+        [InlineData("Windows.UI.Composition.DesktopWindowContentBridge", true)]
+        [InlineData("toolbarwindow32", true)]
+        [InlineData("syspager", true)]
+        [InlineData("traynotifywnd", true)]
+        [InlineData("windows.ui.composition.desktopwindowcontentbridge", true)]
+        [InlineData("Button", false)]
+        [InlineData("", false)]
+        [InlineData("Static", false)]
+        [InlineData("WorkerW", false)]
+        public void Win32TrayHelper_IsTrayNotificationChildClass_MatchesExpectedClasses(string className, bool expected)
+        {
+            bool actual = Win32TrayHelper.IsTrayNotificationChildClass(className.AsSpan());
+            Assert.Equal(expected, actual);
+        }
+
+        [Fact]
+        public void Win32TrayHelper_ThoroughCleanNotificationArea_ExecutesCleanlyWithBothFlags()
+        {
+            var exFalse = Record.Exception(() => Win32TrayHelper.ThoroughCleanNotificationArea(forceOpenFlyout: false));
+            var exTrue = Record.Exception(() => Win32TrayHelper.ThoroughCleanNotificationArea(forceOpenFlyout: true));
+            Assert.Null(exFalse);
+            Assert.Null(exTrue);
+        }
+
+        [Fact]
+        public void AntiAfkService_FocuslessAdvisory_LogsOncePerCycleAndResets()
+        {
+            // Reset before test
+            AntiAfkService.ResetFocuslessAdvisory();
+            Assert.False(AntiAfkService.HasLoggedFocuslessAdvisory);
+
+            // When foreground fallback is allowed, advisory should NOT be logged
+            bool loggedWhenAllowed = AntiAfkService.MaybeLogFocuslessAdvisory(allowForegroundFallback: true);
+            Assert.False(loggedWhenAllowed);
+            Assert.False(AntiAfkService.HasLoggedFocuslessAdvisory);
+
+            // When foreground fallback is disallowed, advisory should be logged exactly once
+            bool loggedFirstTime = AntiAfkService.MaybeLogFocuslessAdvisory(allowForegroundFallback: false);
+            Assert.True(loggedFirstTime);
+            Assert.True(AntiAfkService.HasLoggedFocuslessAdvisory);
+
+            // Second attempt in same cycle must be suppressed (no spam)
+            bool loggedSecondTime = AntiAfkService.MaybeLogFocuslessAdvisory(allowForegroundFallback: false);
+            Assert.False(loggedSecondTime);
+            Assert.True(AntiAfkService.HasLoggedFocuslessAdvisory);
+
+            // Calling SetConfig / Reset should clear the flag for the next session
+            AntiAfkService.ResetFocuslessAdvisory();
+            Assert.False(AntiAfkService.HasLoggedFocuslessAdvisory);
+
+            // New cycle logs once again
+            bool loggedNewCycle = AntiAfkService.MaybeLogFocuslessAdvisory(allowForegroundFallback: false);
+            Assert.True(loggedNewCycle);
+            Assert.True(AntiAfkService.HasLoggedFocuslessAdvisory);
+
+            // Clean up
+            AntiAfkService.ResetFocuslessAdvisory();
+        }
     }
 }

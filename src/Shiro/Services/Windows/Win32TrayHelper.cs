@@ -87,9 +87,7 @@ namespace Shiro.Services
             if (length <= 0) return 1;
 
             ReadOnlySpan<char> cName = buffer.Slice(0, length);
-            if (cName.Equals("ToolbarWindow32".AsSpan(), StringComparison.OrdinalIgnoreCase) ||
-                cName.Contains("SysPager".AsSpan(), StringComparison.OrdinalIgnoreCase) ||
-                cName.Contains("TrayNotifyWnd".AsSpan(), StringComparison.OrdinalIgnoreCase))
+            if (IsTrayNotificationChildClass(cName))
             {
                 if (GCHandle.FromIntPtr(lParam).Target is HashSet<IntPtr> collection)
                 {
@@ -97,6 +95,16 @@ namespace Shiro.Services
                 }
             }
             return 1;
+        }
+
+        internal static bool IsTrayNotificationChildClass(ReadOnlySpan<char> className)
+        {
+            if (className.IsEmpty) return false;
+
+            return className.Equals("ToolbarWindow32".AsSpan(), StringComparison.OrdinalIgnoreCase) ||
+                   className.Contains("SysPager".AsSpan(), StringComparison.OrdinalIgnoreCase) ||
+                   className.Contains("TrayNotifyWnd".AsSpan(), StringComparison.OrdinalIgnoreCase) ||
+                   className.Contains("DesktopWindowContentBridge".AsSpan(), StringComparison.OrdinalIgnoreCase);
         }
 
         private static readonly System.Threading.Lock _refreshTrayLock = new();
@@ -139,9 +147,15 @@ namespace Shiro.Services
         /// <summary>
         /// Cleans up ghost/dead tray icons left in Windows notification area after processes terminate.
         /// Thoroughly enumerates all ToolbarWindow32 in Shell_TrayWnd, Shell_SecondaryTrayWnd,
-        /// NotifyIconOverflowWindow, and Windows 11 XAML Island trays, even when the flyout is closed.
+        /// NotifyIconOverflowWindow, and Windows 11 XAML Island trays.
         /// </summary>
-        public static void RefreshNotificationArea()
+        public static void RefreshNotificationArea() => RefreshNotificationArea(includeHiddenOverflow: false);
+
+        /// <summary>
+        /// Cleans up ghost/dead tray icons left in Windows notification area after processes terminate.
+        /// When includeHiddenOverflow is true, sweeps hidden overflow flyout windows without popping open UI.
+        /// </summary>
+        public static void RefreshNotificationArea(bool includeHiddenOverflow)
         {
             try
             {
@@ -159,10 +173,16 @@ namespace Shiro.Services
                 foreach (var cls in topLevelClasses)
                 {
                     IntPtr hTop = FindWindow(cls, null);
-                    if (hTop != IntPtr.Zero && IsWindowVisible(hTop))
+                    if (hTop != IntPtr.Zero)
                     {
-                        targets.Add(hTop);
-                        CollectToolbars(hTop, targets);
+                        bool isOverflow = string.Equals(cls, "TopLevelWindowForOverflowXamlIsland", StringComparison.OrdinalIgnoreCase) ||
+                                          string.Equals(cls, "NotifyIconOverflowWindow", StringComparison.OrdinalIgnoreCase);
+
+                        if (IsWindowVisible(hTop) || (includeHiddenOverflow && isOverflow))
+                        {
+                            targets.Add(hTop);
+                            CollectToolbars(hTop, targets);
+                        }
                     }
                 }
 
@@ -187,7 +207,7 @@ namespace Shiro.Services
                 // 3. Post WM_MOUSEMOVE across every target toolbar / overflow window (100% silent in background)
                 foreach (var target in targets)
                 {
-                    SweepWindowForDeadIcons(target);
+                    SweepWindowForDeadIcons(target, allowHidden: includeHiddenOverflow);
                 }
             }
             catch (Exception ex)
@@ -217,9 +237,10 @@ namespace Shiro.Services
             }
         }
 
-        private static void SweepWindowForDeadIcons(IntPtr hWnd)
+        private static void SweepWindowForDeadIcons(IntPtr hWnd, bool allowHidden = false)
         {
-            if (hWnd == IntPtr.Zero || !IsWindowVisible(hWnd)) return;
+            if (hWnd == IntPtr.Zero) return;
+            if (!allowHidden && !IsWindowVisible(hWnd)) return;
 
             try
             {
@@ -249,7 +270,7 @@ namespace Shiro.Services
 
         public static void ThoroughCleanNotificationArea(bool forceOpenFlyout = false)
         {
-            RefreshNotificationArea();
+            RefreshNotificationArea(includeHiddenOverflow: forceOpenFlyout);
         }
     }
 }

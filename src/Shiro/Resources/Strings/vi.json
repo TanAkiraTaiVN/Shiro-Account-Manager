@@ -975,7 +975,7 @@
   "Set_AllowRemote": "Cho phép truy cập từ mạng LAN (Remote Access)",
   "Set_AllowRemoteDesc": "Lắng nghe trên IP công khai 0.0.0.0 thay vì chỉ localhost 127.0.0.1.",
   "Set_AntiAfk": "Tự động chống kick 20 phút (Anti-AFK Global Protection)",
-  "Set_AntiAfkTip": "Gửi tín hiệu an toàn đến tất cả client đang chạy để không bị văng sau 20 phút không thao tác.",
+  "Set_AntiAfkTip": "Gửi tín hiệu nền định kỳ để chống ngắt kết nối sau 20 phút. Nếu DirectInput bỏ qua tín hiệu khi thu nhỏ cửa sổ, hãy bật AntiAfkForegroundFallback.",
   "Set_ApiPassword": "Mật khẩu xác thực API (API Password)",
   "Set_ApiPasswordDesc": "Yêu cầu mật khẩu đối với mọi yêu cầu HTTP gửi đến Web Server.",
   "Set_ApplyFastFlagsDesc": "Cập nhật cấu hình vào ClientAppSettings.json và áp dụng ngay cho các client khởi động tiếp theo.",

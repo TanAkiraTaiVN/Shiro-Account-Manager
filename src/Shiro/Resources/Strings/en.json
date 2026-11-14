@@ -975,7 +975,7 @@
   "Set_AllowRemote": "Allow LAN Remote Access",
   "Set_AllowRemoteDesc": "Listen on 0.0.0.0 instead of localhost only.",
   "Set_AntiAfk": "Anti-AFK Global Protection (20 Mins)",
-  "Set_AntiAfkTip": "Sends periodic heartbeat to prevent 20-minute idle disconnects.",
+  "Set_AntiAfkTip": "Sends periodic background keepalives to prevent 20-minute idle disconnects. If DirectInput ignores background input on minimized windows, enable AntiAfkForegroundFallback.",
   "Set_ApiPassword": "API Authentication Password",
   "Set_ApiPasswordDesc": "Require a password for HTTP requests to Web Server.",
   "Set_ApplyFastFlagsDesc": "Update settings in ClientAppSettings.json and apply immediately to next Roblox launches.",

@@ -42,6 +42,26 @@ namespace Shiro.Services
             return pid > 0 && _clients.TryRemove(pid, out _);
         }
 
+        private static int _focuslessWarningLogged = 0;
+
+        internal static bool HasLoggedFocuslessAdvisory => Volatile.Read(ref _focuslessWarningLogged) != 0;
+
+        internal static void ResetFocuslessAdvisory()
+        {
+            Interlocked.Exchange(ref _focuslessWarningLogged, 0);
+        }
+
+        internal static bool MaybeLogFocuslessAdvisory(bool allowForegroundFallback)
+        {
+            if (allowForegroundFallback) return false;
+            if (Interlocked.CompareExchange(ref _focuslessWarningLogged, 1, 0) == 0)
+            {
+                AppServices.Logger?.Warn("[AntiAfk] Notice: Modern Roblox RawInput/DirectInput ignores background PostMessage synthetic input when minimized or unfocused. Enable 'AntiAfkForegroundFallback' if idle disconnects occur.");
+                return true;
+            }
+            return false;
+        }
+
         private static bool _enabled = false;
         private static int _intervalMinutes = 8;
         private static int _tapsSent = 0;
@@ -55,6 +75,7 @@ namespace Shiro.Services
 
         public static void SetConfig(bool enabled, int intervalMinutes = 8)
         {
+            ResetFocuslessAdvisory();
             _enabled = enabled;
             _intervalMinutes = Math.Clamp(intervalMinutes, 1, 18);
 
@@ -77,6 +98,7 @@ namespace Shiro.Services
         {
             lock (_gate)
             {
+                ResetFocuslessAdvisory();
                 _enabled = true;
                 if (_timer == null)
                     _timer = new Timer(_ => Tick(), null, TimeSpan.Zero, TickPeriod);
@@ -88,6 +110,7 @@ namespace Shiro.Services
         {
             lock (_gate)
             {
+                ResetFocuslessAdvisory();
                 _enabled = false;
                 _timer?.Dispose();
                 _timer = null;
@@ -203,6 +226,9 @@ namespace Shiro.Services
                     bool isForegroundWindow = hWnd == GetForegroundWindow();
                     if (isHidden || !isForegroundWindow)
                     {
+                        bool allowFocusSteal = AppServices.GeneralSettings.Get<bool>("AntiAfkForegroundFallback", false);
+                        MaybeLogFocuslessAdvisory(allowFocusSteal);
+
                         // Silent non-disruptive pulse for hidden or background windows
                         bool bgPosted = PostMessage(hWnd, WM_KEYDOWN, (IntPtr)VK_F15, lParamDown) &&
                                         PostMessage(hWnd, WM_KEYUP, (IntPtr)VK_F15, lParamUp);
@@ -281,7 +307,7 @@ namespace Shiro.Services
                 if (sent > 0)
                 {
                     AppServices.Logger?.Info($"[AntiAfk] Kept alive {sent} Roblox client(s) via silent background pulse. Total keepalives: {_tapsSent}.");
-                    SetStatus($"Anti-AFK Active ({pids.Count} clients • {_tapsSent} keepalives sent)");
+                    SetStatus($"Anti-AFK Active ({pids.Count} clients - {_tapsSent} keepalives sent)");
                 }
             }
             catch (Exception ex)
