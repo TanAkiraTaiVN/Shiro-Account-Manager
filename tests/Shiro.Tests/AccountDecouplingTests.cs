@@ -47,14 +47,6 @@ namespace Shiro.Tests
         }
 
         [Fact]
-        public async System.Threading.Tasks.Task Account_UnlockPinAsync_WithInvalidPin_ReturnsFalse()
-        {
-            var acc = new Account();
-            bool result = await acc.UnlockPinAsync("12");
-            Assert.False(result);
-        }
-
-        [Fact]
         public async System.Threading.Tasks.Task Account_SendFriendRequestAsync_WithInvalidUsername_ReturnsFalse()
         {
             var acc = new Account();

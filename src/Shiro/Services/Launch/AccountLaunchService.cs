@@ -362,15 +362,14 @@ namespace Shiro.Services
 
                         if (changePrivacy)
                         {
-                            if (!await account.CheckPinAsync(true, cancellationToken).ConfigureAwait(false))
-                                return LaunchResult.Fail(LaunchOutcome.Failed, Shiro.Services.LocalizationService.Get("AccountLaunch.PinAuthFailed"));
-
                             var setRequest = account.MakeRequest("user-settings-api/v1/user-settings", Method.Post)
                                 .AddHeader("X-CSRF-TOKEN", token)
                                 .AddHeader("Referer", "https://www.roblox.com/my/account")
                                 .AddJsonBody(new PrivateServerInviteSettingPayload("AllUsers"));
 
-                            await account.ExecuteAccountRestAsync(AppServices.RobloxApi.Api, "https://apis.roblox.com/", setRequest, cancellationToken).ConfigureAwait(false);
+                            var setResponse = await account.ExecuteAccountRestAsync(AppServices.RobloxApi.Api, "https://apis.roblox.com/", setRequest, cancellationToken).ConfigureAwait(false);
+                            if (setResponse == null || !setResponse.IsSuccessful)
+                                return LaunchResult.Fail(LaunchOutcome.Failed, Shiro.Services.LocalizationService.Get("AccountLaunch.PinAuthFailed"));
                         }
                     }
                 }

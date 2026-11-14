@@ -36,12 +36,6 @@ namespace Shiro.Services
             return account.GetAuthTicketAsync(cancellationToken);
         }
 
-        public Task<bool> UnlockPinAsync(Account account, string pin, CancellationToken cancellationToken = default)
-        {
-            if (account == null) return Task.FromResult(false);
-            return account.UnlockPinAsync(pin, cancellationToken);
-        }
-
         public Task<bool> SendFriendRequestAsync(Account account, string username, CancellationToken cancellationToken = default)
         {
             if (account == null) return Task.FromResult(false);

@@ -265,10 +265,10 @@ namespace Shiro.Tests
                     string url = req.RequestUri?.AbsoluteUri ?? string.Empty;
                     if (url.Contains("privateServerLinkCode"))
                         return new HttpResponseMessage(HttpStatusCode.Forbidden) { Content = new StringContent("denied") };
-                    if (url.Contains("v1/account/pin"))
-                        return new HttpResponseMessage(HttpStatusCode.Unauthorized) { Content = new StringContent("{}") };
                     if (url.Contains("user-settings") && req.Method == HttpMethod.Get)
                         return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(settingsBody) };
+                    if (url.Contains("user-settings") && req.Method == HttpMethod.Post)
+                        return new HttpResponseMessage(HttpStatusCode.Forbidden) { Content = new StringContent("{}") };
                     return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("{}") };
                 });
                 Account.TestHttpClientFactory = _ => new HttpClient(vipHandler);
@@ -278,8 +278,7 @@ namespace Shiro.Tests
                     Username = "VipBranchUser",
                     UserID = 556677,
                     SecurityToken = "_|WARNING:-DO-NOT-SHARE-THIS.--" + new string('F', 120),
-                    CSRFToken = "csrf-vip",
-                    PinUnlocked = DateTime.MinValue
+                    CSRFToken = "csrf-vip"
                 };
 
                 var resAllUsers = await AccountLaunchService.Instance.JoinServerResultAsync(
@@ -298,8 +297,8 @@ namespace Shiro.Tests
                 Assert.Equal(LaunchOutcome.Success, resDeclined.Outcome);
 
                 AccountLaunchService.TestPrivacyConfirmOverride = () => true;
-                var resPinFail = await AccountLaunchService.Instance.JoinServerResultAsync(vipAcc, 1818, "code1", joinVip: true);
-                Assert.Equal(LaunchOutcome.Failed, resPinFail.Outcome);
+                var resPrivacyFail = await AccountLaunchService.Instance.JoinServerResultAsync(vipAcc, 1818, "code1", joinVip: true);
+                Assert.Equal(LaunchOutcome.Failed, resPrivacyFail.Outcome);
             }
             finally
             {

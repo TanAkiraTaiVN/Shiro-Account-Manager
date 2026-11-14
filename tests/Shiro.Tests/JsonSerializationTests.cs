@@ -106,23 +106,6 @@ namespace Shiro.Tests
         }
 
         [Fact]
-        public void RobloxPinInfo_Deserialization_FastJson()
-        {
-            string pinJson = """
-            {
-                "isEnabled": true,
-                "unlockedUntil": 300
-            }
-            """;
-
-            bool success = FastJson.TryDeserialize<RobloxPinInfo>(pinJson, out var pin);
-            Assert.True(success);
-            Assert.NotNull(pin);
-            Assert.True(pin.isEnabled);
-            Assert.Equal(300, pin.unlockedUntil);
-        }
-
-        [Fact]
         public void ServersInfo_Deserialization_FromRobloxApi()
         {
             string apiJson = """

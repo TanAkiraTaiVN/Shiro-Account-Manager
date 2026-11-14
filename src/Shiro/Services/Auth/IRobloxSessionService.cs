@@ -13,7 +13,6 @@ namespace Shiro.Services
         Task<long> FetchRobuxBalanceAsync(Account account, CancellationToken cancellationToken = default);
         Task<(bool Success, string Token, string Error)> GetCSRFTokenAsync(Account account, CancellationToken cancellationToken = default);
         Task<(bool Success, string Ticket)> GetAuthTicketAsync(Account account, CancellationToken cancellationToken = default);
-        Task<bool> UnlockPinAsync(Account account, string pin, CancellationToken cancellationToken = default);
         Task<bool> SendFriendRequestAsync(Account account, string username, CancellationToken cancellationToken = default);
         Task<bool> QuickLogInAsync(Account account, string code, CancellationToken cancellationToken = default);
         Task<(bool Success, string Message)> UnblockEveryoneAsync(Account account, Action<string>? progressCallback = null, CancellationToken cancellationToken = default);

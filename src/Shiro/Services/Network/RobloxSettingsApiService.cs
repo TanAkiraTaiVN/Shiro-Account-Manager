@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
@@ -10,18 +11,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Shiro.Http;
 using Shiro.Services;
-
-namespace Shiro
-{
-    public class RobloxPinInfo
-    {
-        [JsonPropertyName("isEnabled")]
-        public bool isEnabled { get; set; }
-
-        [JsonPropertyName("unlockedUntil")]
-        public int? unlockedUntil { get; set; }
-    }
-}
 
 namespace Shiro.Services
 {
@@ -51,98 +40,22 @@ namespace Shiro.Services
         [GeneratedRegex(@"""joinScriptUrl"":[%s+]?null")]
         private static partial Regex JoinScriptNullRegex();
 
-        public async Task<bool> CheckPinAsync(Account account, bool Internal = false, CancellationToken cancellationToken = default)
+        private bool HasValidSession(Account? account, [CallerMemberName] string caller = "")
         {
-            if (account == null) return false;
-            if (DateTime.Now < account.PinUnlocked)
-                return true;
-
-            if (string.IsNullOrWhiteSpace(account.SecurityToken))
+            if (account == null || string.IsNullOrWhiteSpace(account.SecurityToken))
             {
-                if (!Internal)
-                    _logger.Warn($"[CheckPinAsync] {account.Username}: Invalid Account Session.");
+                if (account != null)
+                {
+                    _logger.Warn($"[{caller}] {account.Username}: Invalid Account Session.");
+                }
                 return false;
             }
-
-            RestRequest request = account.MakeRequest("v1/account/pin/", Method.Get).AddHeader("Referer", "https://www.roblox.com/");
-            RestResponse? response = await account.ExecuteAccountRestAsync(AppServices.RobloxApi.Auth, "https://auth.roblox.com/", request, cancellationToken).ConfigureAwait(false);
-
-            if (response != null && response.StatusCode == HttpStatusCode.Unauthorized)
-            {
-                if (!Internal)
-                    _logger.Warn($"[CheckPinAsync] {account.Username}: Invalid Account Session.");
-                return false;
-            }
-
-            if (response != null && response.IsSuccessful && response.StatusCode == HttpStatusCode.OK &&
-                response.Content != null &&
-                FastJson.TryDeserialize<RobloxPinInfo>(response.Content, out var pinInfo) && pinInfo != null)
-            {
-                bool isEnabled = pinInfo.isEnabled;
-                int unlockedUntil = pinInfo.unlockedUntil ?? 0;
-
-                if (isEnabled && unlockedUntil <= 0)
-                {
-                    if (!Internal)
-                    {
-                        _logger.Warn($"[CheckPinAsync] {account.Username}: Pin required for operation.");
-                    }
-                    return false;
-                }
-
-                if (!isEnabled)
-                {
-                    account.PinUnlocked = DateTime.Now.AddMinutes(15);
-                }
-                else if (unlockedUntil > 0)
-                {
-                    account.PinUnlocked = DateTime.Now.AddSeconds(unlockedUntil);
-                }
-            }
-
             return true;
-        }
-
-        public async Task<bool> UnlockPinAsync(Account account, string pin, CancellationToken cancellationToken = default)
-        {
-            if (account == null || pin.Length != 4) return false;
-            if (await CheckPinAsync(account, true, cancellationToken).ConfigureAwait(false)) return true;
-
-            var csrf = await account.GetCSRFTokenAsync(cancellationToken).ConfigureAwait(false);
-            if (!csrf.Success) return false;
-
-            RestRequest request = account.MakeRequest("v1/account/pin/unlock", Method.Post)
-                .AddHeader("Referer", "https://www.roblox.com/")
-                .AddHeader("X-CSRF-TOKEN", csrf.Token)
-                .AddJsonBody(new PinUnlockPayload(pin));
-
-            RestResponse? response = await account.ExecuteAccountRestAsync(AppServices.RobloxApi.Auth, "https://auth.roblox.com/", request, cancellationToken).ConfigureAwait(false);
-
-            if (response != null && response.IsSuccessful && response.StatusCode == HttpStatusCode.OK &&
-                response.Content != null &&
-                FastJson.TryDeserialize<RobloxPinInfo>(response.Content, out var pinInfo) && pinInfo != null)
-            {
-                bool isEnabled = pinInfo.isEnabled;
-                int unlockedUntil = pinInfo.unlockedUntil ?? 0;
-
-                if (isEnabled && unlockedUntil > 0)
-                    account.PinUnlocked = DateTime.Now.AddSeconds(unlockedUntil);
-                else if (!isEnabled)
-                    account.PinUnlocked = DateTime.Now.AddMinutes(15);
-
-                if (account.PinUnlocked > DateTime.Now)
-                {
-                    _logger.Info($"[UnlockPinAsync] {account.Username}: Pin unlocked for 5 minutes.");
-                    return true;
-                }
-            }
-
-            return false;
         }
 
         public async Task<bool> SetFollowPrivacyAsync(Account account, int privacy, CancellationToken cancellationToken = default)
         {
-            if (account == null || !await CheckPinAsync(account, false, cancellationToken).ConfigureAwait(false)) return false;
+            if (!HasValidSession(account)) return false;
             var csrf = await account.GetCSRFTokenAsync(cancellationToken).ConfigureAwait(false);
             if (!csrf.Success) return false;
 
@@ -199,7 +112,7 @@ namespace Shiro.Services
 
         public async Task<bool> ChangePasswordAsync(Account account, string currentPassword, string newPassword, CancellationToken cancellationToken = default)
         {
-            if (account == null || !await CheckPinAsync(account, false, cancellationToken).ConfigureAwait(false)) return false;
+            if (!HasValidSession(account)) return false;
             var csrf = await account.GetCSRFTokenAsync(cancellationToken).ConfigureAwait(false);
             if (!csrf.Success) return false;
 
@@ -237,7 +150,7 @@ namespace Shiro.Services
 
         public async Task<bool> ChangeEmailAsync(Account account, string password, string newEmail, CancellationToken cancellationToken = default)
         {
-            if (account == null || !await CheckPinAsync(account, false, cancellationToken).ConfigureAwait(false)) return false;
+            if (!HasValidSession(account)) return false;
             var csrf = await account.GetCSRFTokenAsync(cancellationToken).ConfigureAwait(false);
             if (!csrf.Success) return false;
 
@@ -262,7 +175,7 @@ namespace Shiro.Services
 
         public async Task<bool> LogOutOfOtherSessionsAsync(Account account, bool Internal = false, CancellationToken cancellationToken = default)
         {
-            if (account == null || !await CheckPinAsync(account, Internal, cancellationToken).ConfigureAwait(false)) return false;
+            if (!HasValidSession(account)) return false;
             var csrf = await account.GetCSRFTokenAsync(cancellationToken).ConfigureAwait(false);
             if (!csrf.Success) return false;
 
@@ -347,7 +260,7 @@ namespace Shiro.Services
 
         public async Task SetDisplayNameAsync(Account account, string displayName, CancellationToken cancellationToken = default)
         {
-            if (account == null) return;
+            if (!HasValidSession(account)) return;
             var csrf = await account.GetCSRFTokenAsync(cancellationToken).ConfigureAwait(false);
             if (!csrf.Success) throw new InvalidOperationException(csrf.Error ?? "Failed to acquire CSRF token");
 

@@ -147,7 +147,6 @@ namespace Shiro.Services
 
         public async Task<RestResponse?> BlockUserIdAsync(Account account, string userId, bool skipPinCheck = false, bool unblock = false, CancellationToken cancellationToken = default)
         {
-            if (!skipPinCheck && !await account.CheckPinAsync(true, cancellationToken).ConfigureAwait(false)) throw new Exception("Pin Locked");
             var csrf = await account.GetCSRFTokenAsync(cancellationToken).ConfigureAwait(false);
             if (!csrf.Success) throw new Exception("Invalid X-CSRF-Token");
             string token = csrf.Token;
@@ -169,8 +168,6 @@ namespace Shiro.Services
 
         public async Task<RestResponse?> GetBlockedListAsync(Account account, CancellationToken cancellationToken = default)
         {
-            if (!await account.CheckPinAsync(true, cancellationToken).ConfigureAwait(false)) throw new Exception("Pin is Locked");
-
             RestRequest request = account.MakeRequest("user-blocking-api/v1/users/get-blocked-users", Method.Get);
             RestResponse? response = await account.ExecuteAccountRestAsync(AppServices.RobloxApi.Api, "https://apis.roblox.com/", request, cancellationToken).ConfigureAwait(false);
 
@@ -179,9 +176,6 @@ namespace Shiro.Services
 
         public async Task<(bool Success, string Message)> UnblockEveryoneAsync(Account account, CancellationToken cancellationToken = default)
         {
-            if (!await account.CheckPinAsync(true, cancellationToken).ConfigureAwait(false))
-                return (false, "Pin is Locked");
-
             RestResponse? response = await GetBlockedListAsync(account, cancellationToken).ConfigureAwait(false);
             if (response == null || !response.IsSuccessful || response.StatusCode != System.Net.HttpStatusCode.OK)
                 return (false, "Failed to unblock everyone");
@@ -203,7 +197,7 @@ namespace Shiro.Services
                 cancellationToken.ThrowIfCancellationRequested();
 
                 var retryResponse = await UnblockUserIdAsync(account, userId, true, cancellationToken).ConfigureAwait(false);
-                if ((retryResponse == null || !retryResponse.IsSuccessful) && !await account.CheckPinAsync(true, cancellationToken).ConfigureAwait(false))
+                if (retryResponse == null || !retryResponse.IsSuccessful)
                     break;
             }
 

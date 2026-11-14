@@ -9,12 +9,6 @@ namespace Shiro
 {
     public partial class Account : IComparable<Account>
     {
-        public Task<bool> CheckPinAsync(bool Internal = false, CancellationToken cancellationToken = default) =>
-            RobloxSettingsApiService.Instance.CheckPinAsync(this, Internal, cancellationToken);
-
-        public Task<bool> UnlockPinAsync(string pin, CancellationToken cancellationToken = default) =>
-            RobloxSettingsApiService.Instance.UnlockPinAsync(this, pin, cancellationToken);
-
         public Task<bool> SetFollowPrivacyAsync(int privacy, CancellationToken cancellationToken = default) =>
             RobloxSettingsApiService.Instance.SetFollowPrivacyAsync(this, privacy, cancellationToken);
 

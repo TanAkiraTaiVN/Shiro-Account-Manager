@@ -198,8 +198,7 @@ namespace Shiro.Tests
             {
                 Username = "DispatcherEndpointUser",
                 UserID = 998877,
-                SecurityToken = "_|WARNING:-DO-NOT-SHARE-THIS.--Sharing-this-will-allow-someone-to-log-in-as-you-and-to-steal-your-ROBUX-and-items.|_H.DISPATCHER123",
-                PinUnlocked = DateTime.Now.AddHours(1)
+                SecurityToken = "_|WARNING:-DO-NOT-SHARE-THIS.--Sharing-this-will-allow-someone-to-log-in-as-you-and-to-steal-your-ROBUX-and-items.|_H.DISPATCHER123"
             };
 
             AccountManager.ResetAccountsForTests(Array.Empty<Account>());

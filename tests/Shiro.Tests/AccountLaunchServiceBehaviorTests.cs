@@ -329,8 +329,7 @@ namespace Shiro.Tests
                     Username = "FullLaunchUser",
                     UserID = 889900,
                     SecurityToken = "_|WARNING:-DO-NOT-SHARE-THIS.--" + new string('D', 120),
-                    CSRFToken = "csrf-1",
-                    PinUnlocked = DateTime.Now.AddHours(1)
+                    CSRFToken = "csrf-1"
                 };
 
                 var attemptCtx = new LaunchAttemptContext();

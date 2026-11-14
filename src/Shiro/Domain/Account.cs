@@ -154,7 +154,6 @@ namespace Shiro
         public long UserID;
         public Dictionary<string, string> Fields = new Dictionary<string, string>();
         public DateTime LastAttemptedRefresh;
-        [JsonIgnore] public DateTime PinUnlocked;
         [JsonIgnore] public DateTime TokenSet;
         [JsonIgnore] public DateTime LastAppLaunch;
         [JsonIgnore] public string? CSRFToken;

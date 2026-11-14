@@ -57,8 +57,7 @@ namespace Shiro.Tests.Network
             {
                 Username = "Unblocker",
                 UserID = 12345,
-                SecurityToken = "_|WARNING:-DO-NOT-SHARE-THIS.--Sharing-this-will-allow-someone-to-log-in-as-you-and-to-steal-your-ROBUX-and-items.|_H.COOKIE.S",
-                PinUnlocked = DateTime.Now.AddHours(1)
+                SecurityToken = "_|WARNING:-DO-NOT-SHARE-THIS.--Sharing-this-will-allow-someone-to-log-in-as-you-and-to-steal-your-ROBUX-and-items.|_H.COOKIE.S"
             };
 
             var (success, message) = await RobloxSocialApiService.Instance.UnblockEveryoneAsync(account);

@@ -213,29 +213,16 @@ namespace Shiro.Tests
         }
 
         [Fact]
-        public async Task AccountSettingsApi_ParseAccessCode_PinAndTicketHelpers_WorkCorrectly()
+        public async Task AccountSettingsApi_ParseAccessCode_AndTicketHelpers_WorkCorrectly()
         {
             var acc = new Account
             {
                 Username = "SettingsTester",
                 UserID = 12345,
-                SecurityToken = "_|WARNING:-DO-NOT-SHARE-THIS.--fake-token",
-                PinUnlocked = DateTime.Now.AddMinutes(10)
+                SecurityToken = "_|WARNING:-DO-NOT-SHARE-THIS.--fake-token"
             };
 
-            // 1. CheckPinAsync returns true immediately when PinUnlocked is in the future
-            Assert.True(await acc.CheckPinAsync());
-
-            // 2. UnlockPinAsync rejects non-4-char pin, and returns true if already unlocked
-            Assert.False(await acc.UnlockPinAsync("12"));
-            Assert.True(await acc.UnlockPinAsync("1234"));
-
-            // 3. When PinUnlocked is expired and SecurityToken is empty, CheckPinAsync returns false
-            acc.PinUnlocked = DateTime.MinValue;
-            acc.SecurityToken = "";
-            Assert.False(await acc.CheckPinAsync(Internal: true));
-
-            // 4. ParseAccessCode supports both legacy JoinPrivateGame and modern JSON accessCode/gameInstanceId
+            // 1. ParseAccessCode supports both legacy JoinPrivateGame and modern JSON accessCode/gameInstanceId
             var legacyResp = new RestResponse
             {
                 StatusCode = HttpStatusCode.OK,

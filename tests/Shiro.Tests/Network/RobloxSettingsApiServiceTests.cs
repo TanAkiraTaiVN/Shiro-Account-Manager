@@ -29,8 +29,7 @@ namespace Shiro.Tests.Network
         {
             Username = name,
             UserID = 12345,
-            SecurityToken = "_|WARNING:-DO-NOT-SHARE-THIS.--Sharing-this-will-allow-someone-to-log-in-as-you-and-to-steal-your-ROBUX-and-items.|_H.COOKIE.S",
-            PinUnlocked = DateTime.Now.AddHours(1)
+            SecurityToken = "_|WARNING:-DO-NOT-SHARE-THIS.--Sharing-this-will-allow-someone-to-log-in-as-you-and-to-steal-your-ROBUX-and-items.|_H.COOKIE.S"
         };
 
         [Fact]
@@ -91,6 +90,8 @@ namespace Shiro.Tests.Network
         public async Task SetFollowPrivacy_ReturnsFalseOn401()
         {
             var handler = new FakeHttpHandler()
+                .Enqueue(HttpStatusCode.Forbidden, "{}", ("x-csrf-token", "test-csrf"))
+                .Enqueue(HttpStatusCode.Unauthorized, "{}")
                 .Enqueue(HttpStatusCode.Unauthorized, "{}");
 
             Account.TestHttpClientFactory = _ => new HttpClient(handler);
@@ -98,47 +99,41 @@ namespace Shiro.Tests.Network
             {
                 Username = "PrivacyUser401",
                 UserID = 12345,
-                SecurityToken = "_|WARNING:-DO-NOT-SHARE-THIS.--Sharing-this-will-allow-someone-to-log-in-as-you-and-to-steal-your-ROBUX-and-items.|_H.COOKIE.S",
-                PinUnlocked = DateTime.MinValue
+                SecurityToken = "_|WARNING:-DO-NOT-SHARE-THIS.--Sharing-this-will-allow-someone-to-log-in-as-you-and-to-steal-your-ROBUX-and-items.|_H.COOKIE.S"
             };
 
             bool result = await RobloxSettingsApiService.Instance.SetFollowPrivacyAsync(account, 0);
 
             Assert.False(result);
-            Assert.Single(handler.Requests);
-            Assert.Contains("v1/account/pin", handler.Requests[0].RequestUri!.ToString());
+            Assert.NotEmpty(handler.Requests);
+            Assert.DoesNotContain(handler.Requests, r => r.RequestUri!.ToString().Contains("v1/account/pin"));
+            Assert.Contains(handler.Requests, r => r.RequestUri!.ToString().Contains("user-settings"));
         }
 
         [Fact]
-        public async Task UnlockPin_SendsPinInBody_AndHandlesEnabledUnlockedUntil()
+        public async Task SetFollowPrivacy_EmptySecurityToken_ReturnsFalseWithoutHttpRequest()
         {
-            var handler = new FakeHttpHandler()
-                .Enqueue(HttpStatusCode.Forbidden, "{}", ("x-csrf-token", "test-csrf"))
-                .Enqueue(HttpStatusCode.OK, "{\"isEnabled\":true,\"unlockedUntil\":300}");
-
+            var handler = new FakeHttpHandler();
             Account.TestHttpClientFactory = _ => new HttpClient(handler);
-            var account = new Account
-            {
-                Username = "PinUser",
-                UserID = 12345,
-                SecurityToken = "",
-                PinUnlocked = DateTime.MinValue
-            };
+            var account = new Account { Username = "NoTokenPrivacyUser", SecurityToken = "" };
 
-            bool result = await RobloxSettingsApiService.Instance.UnlockPinAsync(account, "1234");
+            bool result = await RobloxSettingsApiService.Instance.SetFollowPrivacyAsync(account, 0);
 
-            Assert.True(result);
-            Assert.Equal(2, handler.Requests.Count);
-            Assert.NotNull(handler.RequestBodies[^1]);
-            Assert.Contains("\"pin\":\"1234\"", handler.RequestBodies[^1]!);
+            Assert.False(result);
+            Assert.Empty(handler.Requests);
+        }
 
-            // Failure path when unlockedUntil <= 0
-            var failHandler = new FakeHttpHandler()
-                .Enqueue(HttpStatusCode.Forbidden, "{}", ("x-csrf-token", "test-csrf"))
-                .Enqueue(HttpStatusCode.OK, "{\"isEnabled\":true,\"unlockedUntil\":0}");
-            Account.TestHttpClientFactory = _ => new HttpClient(failHandler);
-            var failAccount = new Account { Username = "PinFailUser", SecurityToken = "", PinUnlocked = DateTime.MinValue };
-            Assert.False(await RobloxSettingsApiService.Instance.UnlockPinAsync(failAccount, "1234"));
+        [Fact]
+        public async Task LogOutOfOtherSessions_EmptySecurityToken_ReturnsFalseWithoutHttpRequest()
+        {
+            var handler = new FakeHttpHandler();
+            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+            var account = new Account { Username = "NoTokenLogoutUser", SecurityToken = "" };
+
+            bool result = await RobloxSettingsApiService.Instance.LogOutOfOtherSessionsAsync(account);
+
+            Assert.False(result);
+            Assert.Empty(handler.Requests);
         }
 
         [Fact]
@@ -175,49 +170,6 @@ namespace Shiro.Tests.Network
             bool emptySuccess = RobloxSettingsApiService.ParseAccessCode(new RestResponse { Content = "" }, out string emptyCode);
             Assert.False(emptySuccess);
             Assert.Empty(emptyCode);
-        }
-
-        [Fact]
-        public async Task CheckPinAsync_VariousStates_EvaluatesExpectedly()
-        {
-            Assert.False(await RobloxSettingsApiService.Instance.CheckPinAsync(null!));
-
-            var accountUnlocked = new Account
-            {
-                Username = "UnlockedPinUser",
-                PinUnlocked = DateTime.Now.AddMinutes(10)
-            };
-            Assert.True(await RobloxSettingsApiService.Instance.CheckPinAsync(accountUnlocked));
-
-            var accountNoToken = new Account
-            {
-                Username = "NoTokenPinUser",
-                SecurityToken = "",
-                PinUnlocked = DateTime.MinValue
-            };
-            Assert.False(await RobloxSettingsApiService.Instance.CheckPinAsync(accountNoToken));
-            Assert.False(await RobloxSettingsApiService.Instance.CheckPinAsync(accountNoToken, Internal: true));
-
-            var handlerDisabled = new FakeHttpHandler()
-                .Enqueue(HttpStatusCode.OK, "{\"isEnabled\":false}");
-            Account.TestHttpClientFactory = _ => new HttpClient(handlerDisabled);
-            var accountPinDisabled = CreateUnlockedAccount("DisabledPinUser");
-            accountPinDisabled.PinUnlocked = DateTime.MinValue;
-            Assert.True(await RobloxSettingsApiService.Instance.CheckPinAsync(accountPinDisabled));
-
-            var handlerEnabledUnlocked = new FakeHttpHandler()
-                .Enqueue(HttpStatusCode.OK, "{\"isEnabled\":true,\"unlockedUntil\":120}");
-            Account.TestHttpClientFactory = _ => new HttpClient(handlerEnabledUnlocked);
-            var accountEnabledUnlocked = CreateUnlockedAccount("EnabledUnlockedPinUser");
-            accountEnabledUnlocked.PinUnlocked = DateTime.MinValue;
-            Assert.True(await RobloxSettingsApiService.Instance.CheckPinAsync(accountEnabledUnlocked));
-
-            var handlerLocked = new FakeHttpHandler()
-                .Enqueue(HttpStatusCode.OK, "{\"isEnabled\":true,\"unlockedUntil\":0}");
-            Account.TestHttpClientFactory = _ => new HttpClient(handlerLocked);
-            var accountPinLocked = CreateUnlockedAccount("LockedPinUser");
-            accountPinLocked.PinUnlocked = DateTime.MinValue;
-            Assert.False(await RobloxSettingsApiService.Instance.CheckPinAsync(accountPinLocked));
         }
 
         [Fact]
@@ -403,6 +355,32 @@ namespace Shiro.Tests.Network
 
             Assert.Equal(5, handler.Requests.Count);
             fakeDialogs.Received(1).OpenMissingAssetsDialog(acc, Arg.Is<long[]>(arr => arr.SequenceEqual(new long[] { 111, 222 })));
+        }
+
+        [Fact]
+        public async Task SettingsEndpoints_NegativeSessionAndCsrfBranches_HandledCleanly()
+        {
+            var customSvc = new RobloxSettingsApiService(AppServices.Logger, AppServices.GeneralSettings);
+            Assert.NotNull(customSvc);
+
+            var emptyAcc = new Account { Username = "EmptyTokenUser", SecurityToken = "" };
+            Assert.False(await RobloxSettingsApiService.Instance.ChangePasswordAsync(emptyAcc, "old", "new"));
+            Assert.False(await RobloxSettingsApiService.Instance.ChangeEmailAsync(emptyAcc, "old", "new@a.com"));
+            await RobloxSettingsApiService.Instance.SetDisplayNameAsync(emptyAcc, "name");
+
+            var failCsrfHandler = new FakeHttpHandler()
+                .Enqueue(HttpStatusCode.Unauthorized, "{}")
+                .Enqueue(HttpStatusCode.Unauthorized, "{}");
+            Account.TestHttpClientFactory = _ => new HttpClient(failCsrfHandler);
+
+            var acc = CreateUnlockedAccount("NoCsrfUser");
+            Assert.False(await RobloxSettingsApiService.Instance.SetFollowPrivacyAsync(acc, 0));
+            Assert.False(await RobloxSettingsApiService.Instance.ChangePasswordAsync(acc, "old", "new"));
+            Assert.False(await RobloxSettingsApiService.Instance.ChangeEmailAsync(acc, "old", "new@a.com"));
+            Assert.False(await RobloxSettingsApiService.Instance.LogOutOfOtherSessionsAsync(acc));
+            Assert.False((await RobloxSettingsApiService.Instance.SetServerAsync(acc, 1818, "job")).Successful);
+            await Assert.ThrowsAsync<InvalidOperationException>(() => RobloxSettingsApiService.Instance.SetDisplayNameAsync(acc, "name"));
+            await RobloxSettingsApiService.Instance.SetAvatarAsync(acc, "{\"playerAvatarType\":\"R15\"}");
         }
     }
 }

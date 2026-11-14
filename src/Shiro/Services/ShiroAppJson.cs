@@ -23,7 +23,6 @@ namespace Shiro.Services
     [JsonSerializable(typeof(RobloxCurrencyResponse))]
     [JsonSerializable(typeof(RobloxAuthenticatedUser))]
     [JsonSerializable(typeof(RobloxFriendsCountResponse))]
-    [JsonSerializable(typeof(RobloxPinInfo))]
     [JsonSerializable(typeof(ThumbnailBatchResponse))]
     [JsonSerializable(typeof(ThumbnailBatchItem))]
     [JsonSerializable(typeof(GameDetails))]
@@ -105,7 +104,6 @@ namespace Shiro.Services
     [JsonSerializable(typeof(PrivateServerInviteSettingPayload))]
     [JsonSerializable(typeof(PurchaseProductPayload))]
     [JsonSerializable(typeof(JoinGameInstancePayload))]
-    [JsonSerializable(typeof(PinUnlockPayload))]
     [JsonSerializable(typeof(FollowPrivacySettingPayload))]
     [JsonSerializable(typeof(SetDisplayNamePayload))]
     [JsonSerializable(typeof(SetPlayerAvatarTypePayload))]
@@ -124,7 +122,6 @@ namespace Shiro.Services
     internal readonly record struct PrivateServerInviteSettingPayload(string whoCanInviteMeToPrivateServers);
     internal readonly record struct PurchaseProductPayload(int expectedCurrency, long expectedPrice, long expectedSellerId);
     internal readonly record struct JoinGameInstancePayload(string gameId, long placeId);
-    internal readonly record struct PinUnlockPayload(string pin);
     internal readonly record struct FollowPrivacySettingPayload(string whoCanJoinMeInExperiences);
     internal readonly record struct SetDisplayNamePayload(string newDisplayName);
     internal readonly record struct SetPlayerAvatarTypePayload(string playerAvatarType);

@@ -177,7 +177,6 @@ namespace Shiro.Tests
             var acc = NewAccount();
             acc.CSRFToken = "csrf-123";
             acc.TokenSet = DateTime.Now;
-            acc.PinUnlocked = DateTime.Now.AddMinutes(5);
 
             bool ok = await acc.LogOutOfOtherSessionsAsync(Internal: true);
             Assert.True(ok);
