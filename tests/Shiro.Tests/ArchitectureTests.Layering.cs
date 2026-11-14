@@ -171,18 +171,6 @@ namespace Shiro.Tests
                 .Or()
                 .HaveNameEndingWith("Mapper")
                 .Or()
-                .HaveNameEndingWith("Model")
-                .Or()
-                .HaveNameEndingWith("Definition")
-                .Or()
-                .HaveNameEndingWith("Scales")
-                .Or()
-                .HaveNameEndingWith("Colors")
-                .Or()
-                .HaveNameEndingWith("Asset")
-                .Or()
-                .HaveNameEndingWith("ResponseV4")
-                .Or()
                 .HaveName("Utilities")
                 .GetResult();
 

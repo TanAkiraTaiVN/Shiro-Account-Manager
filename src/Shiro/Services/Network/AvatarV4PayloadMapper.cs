@@ -28,9 +28,9 @@ namespace Shiro.Services
             [194] = "#A3A2A5", [1002] = "#CDCDCD", [208] = "#E5E4DF", [1] = "#F2F3F3", [1001] = "#F8F8F8"
         }.ToFrozenDictionary();
 
-        public static bool TryMapPayload(string? avatarJsonData, out AvatarV4PatchRequest? request, out string? errorMessage)
+        public static bool TryMapPayload(string? avatarJsonData, out AvatarV4PatchRequest request, out string? errorMessage)
         {
-            request = null;
+            request = default;
             errorMessage = null;
             if (string.IsNullOrWhiteSpace(avatarJsonData)) return false;
 

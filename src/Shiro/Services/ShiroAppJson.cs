@@ -114,10 +114,6 @@ namespace Shiro.Services
     [JsonSerializable(typeof(AvatarV4BodyColors))]
     [JsonSerializable(typeof(AvatarV4Asset))]
     [JsonSerializable(typeof(AvatarV4Asset[]))]
-    [JsonSerializable(typeof(AvatarV4AssetItem))]
-    [JsonSerializable(typeof(AvatarV4AssetItem[]))]
-    [JsonSerializable(typeof(AvatarV4ValidationModel))]
-    [JsonSerializable(typeof(UpdateAvatarDefinitionResponseV4))]
     [JsonSerializable(typeof(string[]))]
     [JsonSerializable(typeof(long[]))]
     internal partial class ShiroAppJson : JsonSerializerContext
@@ -270,20 +266,20 @@ namespace Shiro.Services
     internal readonly record struct AutoReconnectStatusPayload(bool Enabled, int ActiveSessions, int TotalReconnections);
     internal readonly record struct AutoReconnectTogglePayload(bool Enabled, int ActiveSessions);
 
-    internal sealed record AvatarV4PatchRequest(
+    internal readonly record struct AvatarV4PatchRequest(
         [property: JsonPropertyName("updateTypes")] string[] UpdateTypes,
         [property: JsonPropertyName("avatarDefinition")] AvatarV4Definition AvatarDefinition);
 
-    internal sealed record AvatarV4Definition(
+    internal readonly record struct AvatarV4Definition(
         [property: JsonPropertyName("updateAvatarModel")] AvatarV4UpdateModel UpdateAvatarModel);
 
-    internal sealed record AvatarV4UpdateModel(
+    internal readonly record struct AvatarV4UpdateModel(
         [property: JsonPropertyName("scales"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] AvatarV4Scales? Scales = null,
         [property: JsonPropertyName("playerAvatarType"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? PlayerAvatarType = null,
         [property: JsonPropertyName("bodyColors"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] AvatarV4BodyColors? BodyColors = null,
         [property: JsonPropertyName("assets"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] AvatarV4Asset[]? Assets = null);
 
-    internal sealed record AvatarV4Scales(
+    internal readonly record struct AvatarV4Scales(
         [property: JsonPropertyName("height"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] double? Height = null,
         [property: JsonPropertyName("width"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] double? Width = null,
         [property: JsonPropertyName("head"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] double? Head = null,
@@ -291,7 +287,7 @@ namespace Shiro.Services
         [property: JsonPropertyName("proportion"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] double? Proportion = null,
         [property: JsonPropertyName("bodyType"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] double? BodyType = null);
 
-    internal sealed record AvatarV4BodyColors(
+    internal readonly record struct AvatarV4BodyColors(
         [property: JsonPropertyName("headColor"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? HeadColor = null,
         [property: JsonPropertyName("torsoColor"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? TorsoColor = null,
         [property: JsonPropertyName("rightArmColor"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? RightArmColor = null,
@@ -299,18 +295,7 @@ namespace Shiro.Services
         [property: JsonPropertyName("rightLegColor"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? RightLegColor = null,
         [property: JsonPropertyName("leftLegColor"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? LeftLegColor = null);
 
-    internal sealed record AvatarV4Asset(
+    internal readonly record struct AvatarV4Asset(
         [property: JsonPropertyName("id")] long Id,
         [property: JsonPropertyName("meta"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] JsonElement? Meta = null);
-
-    internal sealed record AvatarV4AssetItem(
-        [property: JsonPropertyName("id")] long Id);
-
-    internal sealed record AvatarV4ValidationModel(
-        [property: JsonPropertyName("invalidAssets")] AvatarV4AssetItem[]? InvalidAssets = null);
-
-    internal sealed record UpdateAvatarDefinitionResponseV4(
-        [property: JsonPropertyName("validation")] AvatarV4ValidationModel? Validation = null,
-        [property: JsonPropertyName("invalidAssets")] AvatarV4AssetItem[]? InvalidAssets = null,
-        [property: JsonPropertyName("invalidAssetIds")] long[]? InvalidAssetIds = null);
 }

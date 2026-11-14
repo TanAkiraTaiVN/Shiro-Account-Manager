@@ -288,7 +288,7 @@ namespace Shiro.Services
         {
             if (account == null || string.IsNullOrWhiteSpace(avatarJsonData)) return;
 
-            if (!AvatarV4PayloadMapper.TryMapPayload(avatarJsonData, out AvatarV4PatchRequest? patchRequest, out string? parseError))
+            if (!AvatarV4PayloadMapper.TryMapPayload(avatarJsonData, out AvatarV4PatchRequest patchRequest, out string? parseError))
             {
                 if (parseError != null)
                 {
@@ -304,7 +304,7 @@ namespace Shiro.Services
                 return;
             }
 
-            string requestJson = JsonSerializer.Serialize(patchRequest!, ShiroAppJson.Default.AvatarV4PatchRequest);
+            string requestJson = JsonSerializer.Serialize(patchRequest, ShiroAppJson.Default.AvatarV4PatchRequest);
             RestRequest request = account.MakeRequest("v4/avatar", Method.Patch)
                 .AddHeader("X-CSRF-TOKEN", csrf.Token)
                 .AddStringBody(requestJson, "application/json");

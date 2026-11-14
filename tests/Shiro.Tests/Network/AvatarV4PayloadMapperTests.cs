@@ -42,28 +42,27 @@ namespace Shiro.Tests.Network
 
             Assert.True(success);
             Assert.Null(error);
-            Assert.NotNull(request);
-            Assert.Equal(new[] { "UpdateAvatarType", "UpdateScales", "UpdateBodyColors", "UpdateAssets" }, request!.UpdateTypes);
+            Assert.NotEmpty(request.UpdateTypes);
+            Assert.Equal(new[] { "UpdateAvatarType", "UpdateScales", "UpdateBodyColors", "UpdateAssets" }, request.UpdateTypes);
 
             var model = request.AvatarDefinition.UpdateAvatarModel;
-            Assert.NotNull(model);
             Assert.Equal("R15", model.PlayerAvatarType);
 
-            Assert.NotNull(model.Scales);
-            Assert.Equal(1.05, model.Scales!.Height);
-            Assert.Equal(0.95, model.Scales.Width);
-            Assert.Equal(1.0, model.Scales.Head);
-            Assert.Equal(1.0, model.Scales.Depth);
-            Assert.Equal(0.2, model.Scales.Proportion);
-            Assert.Equal(0.1, model.Scales.BodyType);
+            Assert.True(model.Scales.HasValue);
+            Assert.Equal(1.05, model.Scales.Value.Height);
+            Assert.Equal(0.95, model.Scales.Value.Width);
+            Assert.Equal(1.0, model.Scales.Value.Head);
+            Assert.Equal(1.0, model.Scales.Value.Depth);
+            Assert.Equal(0.2, model.Scales.Value.Proportion);
+            Assert.Equal(0.1, model.Scales.Value.BodyType);
 
-            Assert.NotNull(model.BodyColors);
-            Assert.Equal("#F2F3F3", model.BodyColors!.HeadColor);
-            Assert.Equal("#112233", model.BodyColors.TorsoColor);
-            Assert.Equal("#445566", model.BodyColors.RightArmColor);
-            Assert.Equal("#778899", model.BodyColors.LeftArmColor);
-            Assert.Equal("#564236", model.BodyColors.RightLegColor);
-            Assert.Equal("#AABBCC", model.BodyColors.LeftLegColor);
+            Assert.True(model.BodyColors.HasValue);
+            Assert.Equal("#F2F3F3", model.BodyColors.Value.HeadColor);
+            Assert.Equal("#112233", model.BodyColors.Value.TorsoColor);
+            Assert.Equal("#445566", model.BodyColors.Value.RightArmColor);
+            Assert.Equal("#778899", model.BodyColors.Value.LeftArmColor);
+            Assert.Equal("#564236", model.BodyColors.Value.RightLegColor);
+            Assert.Equal("#AABBCC", model.BodyColors.Value.LeftLegColor);
 
             Assert.NotNull(model.Assets);
             Assert.Equal(2, model.Assets!.Length);
@@ -100,8 +99,8 @@ namespace Shiro.Tests.Network
             bool success = AvatarV4PayloadMapper.TryMapPayload(json, out var request, out _);
 
             Assert.True(success);
-            Assert.NotNull(request);
-            Assert.Single(request!.UpdateTypes);
+            Assert.NotEmpty(request.UpdateTypes);
+            Assert.Single(request.UpdateTypes);
             Assert.Equal("UpdateAvatarType", request.UpdateTypes[0]);
             Assert.Equal(expected, request.AvatarDefinition.UpdateAvatarModel.PlayerAvatarType);
         }
@@ -116,7 +115,7 @@ namespace Shiro.Tests.Network
             bool success = AvatarV4PayloadMapper.TryMapPayload(json, out var request, out _);
 
             Assert.False(success);
-            Assert.Null(request);
+            Assert.Null(request.UpdateTypes);
         }
 
         [Fact]
@@ -126,8 +125,8 @@ namespace Shiro.Tests.Network
             bool ok = AvatarV4PayloadMapper.TryMapPayload(jsonWithScale, out var request, out _);
 
             Assert.True(ok);
-            Assert.NotNull(request);
-            Assert.Single(request!.UpdateTypes);
+            Assert.NotEmpty(request.UpdateTypes);
+            Assert.Single(request.UpdateTypes);
             Assert.Equal("UpdateScales", request.UpdateTypes[0]);
             Assert.Equal(1.1, request.AvatarDefinition.UpdateAvatarModel.Scales?.Height);
             Assert.Equal(0.9, request.AvatarDefinition.UpdateAvatarModel.Scales?.Head);
@@ -157,18 +156,18 @@ namespace Shiro.Tests.Network
             bool ok = AvatarV4PayloadMapper.TryMapPayload(json, out var request, out _);
 
             Assert.True(ok);
-            Assert.NotNull(request);
-            Assert.Single(request!.UpdateTypes);
+            Assert.NotEmpty(request.UpdateTypes);
+            Assert.Single(request.UpdateTypes);
             Assert.Equal("UpdateBodyColors", request.UpdateTypes[0]);
 
             var bc = request.AvatarDefinition.UpdateAvatarModel.BodyColors;
-            Assert.NotNull(bc);
-            Assert.Equal("#AABBCC", bc!.HeadColor);
-            Assert.Equal("#112233", bc.TorsoColor);
-            Assert.Equal("#FF0000", bc.RightArmColor); // 1004
-            Assert.Equal("#F8F8F8", bc.LeftArmColor);  // 1001
-            Assert.Equal("#A34B4B", bc.RightLegColor); // 1007
-            Assert.Equal("#F5CD30", bc.LeftLegColor);  // 24
+            Assert.True(bc.HasValue);
+            Assert.Equal("#AABBCC", bc.Value.HeadColor);
+            Assert.Equal("#112233", bc.Value.TorsoColor);
+            Assert.Equal("#FF0000", bc.Value.RightArmColor); // 1004
+            Assert.Equal("#F8F8F8", bc.Value.LeftArmColor);  // 1001
+            Assert.Equal("#A34B4B", bc.Value.RightLegColor); // 1007
+            Assert.Equal("#F5CD30", bc.Value.LeftLegColor);  // 24
         }
 
         [Fact]
@@ -186,8 +185,8 @@ namespace Shiro.Tests.Network
             bool ok = AvatarV4PayloadMapper.TryMapPayload(json, out var request, out _);
 
             Assert.True(ok);
-            Assert.NotNull(request);
-            Assert.Single(request!.UpdateTypes);
+            Assert.NotEmpty(request.UpdateTypes);
+            Assert.Single(request.UpdateTypes);
             Assert.Equal("UpdateAssets", request.UpdateTypes[0]);
 
             var assets = request.AvatarDefinition.UpdateAvatarModel.Assets;
@@ -212,7 +211,7 @@ namespace Shiro.Tests.Network
             bool ok = AvatarV4PayloadMapper.TryMapPayload(invalidJson, out var request, out var error);
 
             Assert.False(ok);
-            Assert.Null(request);
+            Assert.Null(request.UpdateTypes);
             if (invalidJson == "not-a-json")
             {
                 Assert.NotNull(error);
