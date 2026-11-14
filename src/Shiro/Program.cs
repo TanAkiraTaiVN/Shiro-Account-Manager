@@ -43,31 +43,6 @@ namespace Shiro
         }
         public static bool Closed = false; // RobloxProcess.cs would cause the program to chill in the background as long roblox was also running
         public static bool Elevated;
-        public static float Scale
-        {
-            get
-            {
-                float _Scale = (AppSettings.General != null && AppSettings.General.Exists("WindowScale")) ? AppSettings.General.Get<float>("WindowScale") : 0f;
-
-                if (_Scale > 3f) AppSettings.General?.RemoveProperty("WindowScale");
-
-                if (_Scale > 0 && _Scale <= 3)
-                    return AppSettings.General?.Get<float>("WindowScale") ?? 1f;
-
-                return 1f;
-            }
-        }
-
-        public static bool ScaleFonts
-        {
-            get
-            {
-                if (AppSettings.General != null && AppSettings.General.Exists("ScaleFonts"))
-                    return AppSettings.General.Get<bool>("ScaleFonts");
-
-                return true;
-            }
-        }
 
 #if !DEBUG
         private static readonly Mutex mutex = new Mutex(false, "{93b3858f-3dac-4dc0-99cb-0476efc5adce}");
@@ -249,7 +224,7 @@ namespace Shiro
                     .Replace("\r", " ")
                     .Replace("\n", " ");
 
-                // Filter out benign transient browser lifecycle events (Puppeteer navigation redirects, tab closing)
+                // Filter out benign transient WebView2 / DevTools browser lifecycle events (navigation redirects, detached targets, tab closing)
                 if (IsBenignTransientException(exception, message))
                 {
                     Logger.Debug($"Transient {source} task exception ignored: {exception.GetType().Name}: {message}");

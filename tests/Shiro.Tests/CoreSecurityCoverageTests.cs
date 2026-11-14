@@ -242,7 +242,6 @@ namespace Shiro.Tests
                 Assert.Contains("RAMSettings.ini", StoragePaths.LegacySettingsFile);
                 Assert.Contains("Cache", StoragePaths.CacheDirectory);
                 Assert.Contains("AccountDumps", StoragePaths.AccountDumpsDirectory);
-                Assert.Contains("NexusOutput", StoragePaths.NexusOutputDirectory);
                 Assert.Contains("Logs", StoragePaths.LogDirectory);
 
                 // Test raw 32-byte key upgrade to DPAPI format
@@ -297,9 +296,6 @@ namespace Shiro.Tests
             Directory.CreateDirectory(Path.Combine(legacySrc, "AccountDumps"));
             File.WriteAllText(Path.Combine(legacySrc, "AccountDumps", "dump1.txt"), "dump");
 
-            Directory.CreateDirectory(Path.Combine(legacySrc, "Output"));
-            File.WriteAllText(Path.Combine(legacySrc, "Output", "out.lua"), "script");
-
             Directory.CreateDirectory(Path.Combine(legacySrc, "Cache"));
             File.WriteAllText(Path.Combine(legacySrc, "Cache", "avatar.png"), "image");
 
@@ -315,7 +311,6 @@ namespace Shiro.Tests
             Assert.True(File.Exists(Path.Combine(migDst, "RecentGames.json")));
             Assert.True(File.Exists(Path.Combine(migDst, "vault.key")));
             Assert.True(File.Exists(Path.Combine(migDst, "AccountDumps", "dump1.txt")));
-            Assert.True(File.Exists(Path.Combine(migDst, "NexusOutput", "out.lua")));
             Assert.True(File.Exists(Path.Combine(migDst, "Cache", "avatar.png")));
             Assert.True(File.Exists(Path.Combine(migDst, "Logs", "app.log")));
 

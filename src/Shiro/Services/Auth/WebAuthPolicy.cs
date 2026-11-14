@@ -6,8 +6,7 @@ namespace Shiro.Services
     public enum AuthScope
     {
         PublicTelemetry,
-        Api,
-        NexusControl
+        Api
     }
 
     public enum AuthDecision
@@ -211,22 +210,18 @@ namespace Shiro.Services
                 return AuthDecision.ForbiddenOrigin;
             }
 
-            // 3. Effective password = HeaderPassword; if empty, QueryPassword is used only when Scope == NexusControl or IsLoopbackRemote is true.
+            // 3. Effective password = HeaderPassword; if empty, QueryPassword is used only when IsLoopbackRemote is true.
             string? effectivePassword = request.HeaderPassword;
-            if (string.IsNullOrEmpty(effectivePassword))
+            if (string.IsNullOrEmpty(effectivePassword) && request.IsLoopbackRemote)
             {
-                if (request.Scope == AuthScope.NexusControl || request.IsLoopbackRemote)
-                {
-                    effectivePassword = request.QueryPassword;
-                }
+                effectivePassword = request.QueryPassword;
             }
 
-            // 4. Password required when: Scope == Api, or EveryRequestRequiresPassword, or !IsLoopbackRemote, or (Scope == NexusControl && IsPasswordConfigured).
+            // 4. Password required when: Scope == Api, or EveryRequestRequiresPassword, or !IsLoopbackRemote.
             bool passwordRequired =
                 request.Scope == AuthScope.Api ||
                 settings.EveryRequestRequiresPassword ||
-                !request.IsLoopbackRemote ||
-                (request.Scope == AuthScope.NexusControl && IsPasswordConfigured(settings.ConfiguredPassword));
+                !request.IsLoopbackRemote;
 
             // 5. If required: not configured -> PasswordNotConfigured; effective password empty or incorrect (CryptoHelper.FixedTimeEqualsSecret) -> InvalidPassword.
             if (passwordRequired)

@@ -104,7 +104,7 @@ namespace Shiro.Tests
                 using (StoragePaths.OverrideDataDirectoryForTesting(tempDir))
                 {
                     Assert.Equal(Path.Combine(tempDir, "AccountDumps"), StoragePaths.AccountDumpsDirectory);
-                    Assert.Equal(Path.Combine(tempDir, "NexusOutput"), StoragePaths.NexusOutputDirectory);
+                    Assert.Equal(Path.Combine(tempDir, "Cache"), StoragePaths.CacheDirectory);
                     Assert.Equal(Path.Combine(tempDir, "Logs"), StoragePaths.LogDirectory);
                     Assert.Equal(tempDir, StoragePaths.ResolveUserFile(tempDir));
                     Assert.Contains("rel.txt", StoragePaths.ResolveUserFile("rel.txt"));

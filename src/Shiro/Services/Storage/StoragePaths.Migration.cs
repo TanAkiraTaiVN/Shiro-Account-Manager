@@ -11,7 +11,7 @@ namespace Shiro.Services
             string[] files =
             {
                 "AccountData.json", "RecentGames.json", "FavoriteGames.json",
-                "AccountControlData.json", "Nexus.lua", "RAMSettings.json", "RAMSettings.ini", "RAMTheme.ini",
+                "AccountControlData.json", "RAMSettings.json", "RAMSettings.ini", "RAMTheme.ini",
                 "vault.key", "proxies.txt", "BrowserConfig.json", "CustomClientAppSettings.json",
                 "no773fix.txt", "NoEncryption.IUnderstandTheRisks.iautamor"
             };
@@ -34,7 +34,6 @@ namespace Shiro.Services
 
             string legacyDumps = Path.Combine(sourceDirectory, "AccountDumps");
             CopyDirectoryIfMissing(legacyDumps, Path.Combine(destinationDirectory, "AccountDumps"));
-            CopyDirectoryIfMissing(Path.Combine(sourceDirectory, "Output"), Path.Combine(destinationDirectory, "NexusOutput"));
 
             // Avatar/cache files and the previous log are safe to preserve,
             // but must follow the same AppData boundary as new writes. Browser

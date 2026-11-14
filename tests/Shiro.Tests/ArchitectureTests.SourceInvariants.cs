@@ -195,6 +195,30 @@ namespace Shiro.Tests
                 Assert.False(Regex.IsMatch(content, @"new\s+Version\s*\(\s*4\s*,"),
                     "UpdateCheckService still uses obsolete 4.x.x version fallback instead of 5.x.x.");
             }
+
+            [Fact]
+            public void LegacyDpiNexusAndEconomyRemnants_ShouldStayRemoved()
+            {
+                var accountManagerPath = Path.Combine(RepoRoot, "src", "Shiro", "AccountManager.cs");
+                var accountManagerContent = File.ReadAllText(accountManagerPath);
+                Assert.DoesNotContain("GetSystemMetrics", accountManagerContent, StringComparison.Ordinal);
+                Assert.DoesNotContain("ScaleFonts=true", accountManagerContent, StringComparison.Ordinal);
+
+                Assert.Null(typeof(Program).GetProperty("Scale", BindingFlags.Public | BindingFlags.Static));
+                Assert.Null(typeof(Program).GetProperty("ScaleFonts", BindingFlags.Public | BindingFlags.Static));
+                Assert.Null(typeof(IRobloxApiClient).GetProperty("Economy", BindingFlags.Public | BindingFlags.Instance));
+                Assert.Null(typeof(RobloxApiClient).GetProperty("Economy", BindingFlags.Public | BindingFlags.Instance));
+                Assert.Null(typeof(StoragePaths).GetProperty("NexusOutputDirectory", BindingFlags.Public | BindingFlags.Static));
+                Assert.False(Enum.IsDefined(typeof(AuthScope), "NexusControl"), "AuthScope.NexusControl should be removed.");
+
+                var generalKeys = typeof(AppSettingsKeys.General).GetFields(BindingFlags.Public | BindingFlags.Static).Select(f => f.Name).ToArray();
+                Assert.DoesNotContain("WindowScale", generalKeys);
+                Assert.DoesNotContain("ScaleFonts", generalKeys);
+
+                var accountControlKeys = typeof(AppSettingsKeys.AccountControl).GetFields(BindingFlags.Public | BindingFlags.Static).Select(f => f.Name).ToArray();
+                Assert.DoesNotContain("NexusPort", accountControlKeys);
+                Assert.DoesNotContain("AllowExternalConnections", accountControlKeys);
+            }
         }
     }
 }

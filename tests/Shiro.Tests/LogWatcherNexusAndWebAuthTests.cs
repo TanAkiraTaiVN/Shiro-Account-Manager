@@ -44,7 +44,7 @@ namespace Shiro.Tests
         {
             var settings = new AuthSettings(AllowExternal: true, EveryRequestRequiresPassword: false, ConfiguredPassword: "StrongPassword123");
             var req = new AuthRequest(
-                Scope: AuthScope.NexusControl,
+                Scope: AuthScope.Api,
                 IsLoopbackRemote: true,
                 Host: "localhost",
                 Origin: "https://evil.example.com",

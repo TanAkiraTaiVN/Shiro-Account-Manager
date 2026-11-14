@@ -13,7 +13,6 @@ namespace Shiro.Services
         RestClient Friends { get; }
         RestClient Users { get; }
         RestClient Auth { get; }
-        RestClient Economy { get; }
         RestClient Account { get; }
         RestClient GameJoin { get; }
         RestClient Thumbnails { get; }
@@ -38,7 +37,6 @@ namespace Shiro.Services
         public RestClient Friends => _friends;
         public RestClient Users => _users;
         public RestClient Auth => _auth;
-        public RestClient Economy => _economy;
         public RestClient Account => _account;
         public RestClient GameJoin => _gameJoin;
         public RestClient Thumbnails => _thumbnails;
@@ -53,7 +51,6 @@ namespace Shiro.Services
         private readonly RestClient _friends;
         private readonly RestClient _users;
         private readonly RestClient _auth;
-        private readonly RestClient _economy;
         private readonly RestClient _account;
         private readonly RestClient _gameJoin;
         private readonly RestClient _thumbnails;
@@ -68,7 +65,6 @@ namespace Shiro.Services
             _main = Create("https://www.roblox.com/");
             _avatar = Create("https://avatar.roblox.com/");
             _auth = Create("https://auth.roblox.com/");
-            _economy = Create("https://economy.roblox.com/");
             _account = Create("https://accountsettings.roblox.com/");
             _gameJoin = Create("https://gamejoin.roblox.com/", "Roblox/WinInet");
             _users = Create("https://users.roblox.com");
@@ -87,7 +83,6 @@ namespace Shiro.Services
             _main = new RestClient(httpClient, "https://www.roblox.com/");
             _avatar = new RestClient(httpClient, "https://avatar.roblox.com/");
             _auth = new RestClient(httpClient, "https://auth.roblox.com/");
-            _economy = new RestClient(httpClient, "https://economy.roblox.com/");
             _account = new RestClient(httpClient, "https://accountsettings.roblox.com/");
             _gameJoin = new RestClient(httpClient, "https://gamejoin.roblox.com/", "Roblox/WinInet");
             _users = new RestClient(httpClient, "https://users.roblox.com");
@@ -112,7 +107,6 @@ namespace Shiro.Services
             _friends?.Dispose();
             _users?.Dispose();
             _auth?.Dispose();
-            _economy?.Dispose();
             _account?.Dispose();
             _gameJoin?.Dispose();
             _thumbnails?.Dispose();

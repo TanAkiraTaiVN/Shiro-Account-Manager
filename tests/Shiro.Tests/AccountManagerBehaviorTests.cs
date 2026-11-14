@@ -445,7 +445,7 @@ namespace Shiro.Tests
                 if (File.Exists(legacyPath)) File.Delete(legacyPath);
                 var freshMgr = new AccountManager();
                 Assert.True(AppSettings.General.Exists("AccentTheme"));
-                Assert.True(AppSettings.General.Exists("WindowScale"));
+                Assert.True(AppSettings.General.Exists("EnableMultiRbx"));
                 Assert.True(AppSettings.WebServer.Exists("WebServerPort"));
             }
             finally

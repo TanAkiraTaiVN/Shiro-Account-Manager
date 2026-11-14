@@ -12,18 +12,15 @@ namespace Shiro.Tests
     {
         [Theory]
         // (scope, loopback, allowExt, everyReq, configured, header, query, expected)
-        [InlineData(AuthScope.NexusControl, true, false, false, null, null, null, AuthDecision.Allow)] // Nexus local cũ vẫn chạy
-        [InlineData(AuthScope.NexusControl, false, true, false, null, null, null, AuthDecision.PasswordNotConfigured)] // lỗ hổng chính
-        [InlineData(AuthScope.NexusControl, false, true, false, "secret1", null, "secret1", AuthDecision.Allow)] // Lua dùng query
-        [InlineData(AuthScope.NexusControl, false, true, false, "secret1", null, "wrong!", AuthDecision.InvalidPassword)]
-        [InlineData(AuthScope.NexusControl, true, false, false, "secret1", null, null, AuthDecision.InvalidPassword)]
         [InlineData(AuthScope.Api, true, false, false, null, null, null, AuthDecision.PasswordNotConfigured)]
-        [InlineData(AuthScope.Api, true, false, false, "secret1", null, "secret1", AuthDecision.Allow)] // local được dùng query
-        [InlineData(AuthScope.Api, false, true, false, "secret1", null, "secret1", AuthDecision.InvalidPassword)] // Api_External_QueryPasswordRejected
+        [InlineData(AuthScope.Api, true, false, false, "secret1", null, "secret1", AuthDecision.Allow)] // local query password allowed
+        [InlineData(AuthScope.Api, false, true, false, "secret1", null, "secret1", AuthDecision.InvalidPassword)] // external query password rejected
         [InlineData(AuthScope.Api, false, true, false, "secret1", "secret1", null, AuthDecision.Allow)]
         [InlineData(AuthScope.Api, false, false, false, "secret1", "secret1", null, AuthDecision.ForbiddenExternal)]
         [InlineData(AuthScope.PublicTelemetry, true, false, false, null, null, null, AuthDecision.Allow)]
         [InlineData(AuthScope.PublicTelemetry, true, false, true, "secret1", null, null, AuthDecision.InvalidPassword)]
+        [InlineData(AuthScope.PublicTelemetry, false, true, false, null, null, null, AuthDecision.PasswordNotConfigured)]
+        [InlineData(AuthScope.PublicTelemetry, false, true, false, "secret1", null, "wrong!", AuthDecision.InvalidPassword)]
         [InlineData(AuthScope.PublicTelemetry, false, true, false, "secret1", null, null, AuthDecision.InvalidPassword)]
         public void Evaluate_DecisionMatrix_MatchesExpected(
             AuthScope scope,
@@ -43,10 +40,10 @@ namespace Shiro.Tests
         }
 
         [Fact]
-        public void NexusAuth_ExternalWithShortPassword_IsRejected()
+        public void ApiAuth_ExternalWithShortPassword_IsRejected()
         {
             var settings = new AuthSettings(AllowExternal: true, EveryRequestRequiresPassword: false, ConfiguredPassword: "abc");
-            var request = new AuthRequest(AuthScope.NexusControl, IsLoopbackRemote: false, "192.168.1.5:5242", null, "abc", null);
+            var request = new AuthRequest(AuthScope.Api, IsLoopbackRemote: false, "192.168.1.5:7963", null, "abc", null);
             Assert.NotEqual(AuthDecision.Allow, WebAuthPolicy.Evaluate(request, settings));
         }
 
@@ -108,7 +105,7 @@ namespace Shiro.Tests
         [Fact]
         public void RedactSensitiveQuery_MasksPasswordsAndTokens()
         {
-            string raw = "http://localhost:7963/Nexus?name=Player1&Password=MySecret123&token=Tok456&Cookie=_|WARNING";
+            string raw = "http://localhost:7963/Launch?name=Player1&Password=MySecret123&token=Tok456&Cookie=_|WARNING";
             string redacted = WebAuthPolicy.RedactSensitiveQuery(raw);
             Assert.DoesNotContain("MySecret123", redacted);
             Assert.DoesNotContain("Tok456", redacted);

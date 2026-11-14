@@ -57,7 +57,6 @@ namespace Shiro.Services
         public static string BrowserSessionsDirectory => GetUserDirectory("BrowserSessions");
         public static string AccountDumpsDirectory => GetUserDirectory("AccountDumps");
         public static string BackupsDirectory => GetUserDirectory("Backups");
-        public static string NexusOutputDirectory => GetUserDirectory("NexusOutput");
         public static string LogDirectory => GetUserDirectory("Logs");
 
         private static bool IsRunningUnderUnitTests()

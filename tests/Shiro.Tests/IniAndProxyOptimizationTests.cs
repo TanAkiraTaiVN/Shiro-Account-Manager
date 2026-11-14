@@ -23,7 +23,7 @@ namespace Shiro.Tests
                 var ini = new IniFile();
                 ini.Section("General").Set("UnlockFPS", "true");
                 ini.Section("General").Set("MaxFPSValue", "240");
-                ini.Section("General").Set("WindowScale", "1.25");
+                ini.Section("General").Set("AccountJoinDelay", "1.25");
                 ini.Section("General").Set("AccentTheme", "Monochrome");
                 ini.Section("WebServer").Set("WebServerPort", "7963");
 
@@ -39,7 +39,7 @@ namespace Shiro.Tests
                 var reloaded = new IniFile(filePath);
                 Assert.True(reloaded.Section("General").GetBool("UnlockFPS"));
                 Assert.Equal(240, reloaded.Section("General").GetInt("MaxFPSValue"));
-                Assert.Equal(1.25m, reloaded.Section("General").GetDecimal("WindowScale"));
+                Assert.Equal(1.25m, reloaded.Section("General").GetDecimal("AccountJoinDelay"));
                 Assert.Equal("Monochrome", reloaded.Section("General").Get("AccentTheme"));
                 Assert.Equal(7963, reloaded.Section("WebServer").GetInt("WebServerPort"));
             }

@@ -2,7 +2,6 @@
 using System;
 using System.Reflection;
 using System.Threading.Tasks;
-using Shiro.Services;
 using Xunit;
 
 namespace Shiro.Tests
@@ -10,38 +9,6 @@ namespace Shiro.Tests
     [Collection("SerialGlobalState")]
     public class ProgramBehaviorTests
     {
-        [Fact]
-        public void Scale_EvaluatesAndClampsSettingsProperly()
-        {
-            // Unset or invalid
-            AppSettings.General.RemoveProperty("WindowScale");
-            Assert.Equal(1f, Program.Scale);
-
-            // Valid scale within (0, 3]
-            AppSettings.General.Set("WindowScale", "2.25");
-            Assert.Equal(2.25f, Program.Scale);
-
-            // Out-of-bounds scale (> 3f) resets to 1f and removes setting
-            AppSettings.General.Set("WindowScale", "4.5");
-            Assert.Equal(1f, Program.Scale);
-            Assert.False(AppSettings.General.Exists("WindowScale"));
-        }
-
-        [Fact]
-        public void ScaleFonts_ReflectsSettingOrDefault()
-        {
-            AppSettings.General.RemoveProperty("ScaleFonts");
-            Assert.True(Program.ScaleFonts);
-
-            AppSettings.General.Set("ScaleFonts", "false");
-            Assert.False(Program.ScaleFonts);
-
-            AppSettings.General.Set("ScaleFonts", "true");
-            Assert.True(Program.ScaleFonts);
-
-            AppSettings.General.RemoveProperty("ScaleFonts");
-        }
-
         [Fact]
         public void BuildAvaloniaApp_ReturnsConfiguredAppBuilder()
         {

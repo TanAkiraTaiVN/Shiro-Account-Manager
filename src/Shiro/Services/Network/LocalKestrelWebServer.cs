@@ -7,10 +7,9 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Shiro.Services
 {
     /// <summary>
-    /// Shared factory for Shiro's embedded Kestrel hosts (the Alt Manager web
-    /// API and the Nexus WebSocket server). Both hosts keep independent ports,
-    /// lifecycles and AllowExternal settings so existing Lua scripts and API
-    /// clients keep working; only the host construction is shared.
+    /// Shared factory for Shiro's embedded Kestrel local web API host.
+    /// Configures loopback binding, optional external listener settings,
+    /// and graceful shutdown so existing API clients work cleanly.
     /// </summary>
     /// <remarks>
     /// <see cref="WebApplication.CreateEmptyBuilder"/> is used on purpose: it

@@ -8,7 +8,6 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
-using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -27,9 +26,6 @@ namespace Shiro
         private static AccountRegistrationService Registration => AppServices.GetRequiredService<AccountRegistrationService>();
 
         public bool IsDisposed => shutdownFinalized;
-
-        [LibraryImport("user32.dll")]
-        private static partial int GetSystemMetrics(int nIndex);
 
         private KestrelWebServer? AltManagerWS;
         public Shiro.Services.ModernPeriodicTask? AutoCookieRefresh { get; private set; }
@@ -163,19 +159,6 @@ namespace Shiro
             if (!AppSettings.General.Exists("ShuffleChoosesLowestServer")) AppSettings.General.Set("ShuffleChoosesLowestServer", "false");
             if (!AppSettings.General.Exists("ShufflePageCount")) AppSettings.General.Set("ShufflePageCount", "5");
             EnsureModernGeoIpLink(AppSettings.General);
-            if (!AppSettings.General.Exists("WindowScale"))
-            {
-                double screenHeight = OperatingSystem.IsWindows() ? GetSystemMetrics(1) : 1080;
-                double screenWidth = OperatingSystem.IsWindows() ? GetSystemMetrics(0) : 1920;
-                AppSettings.General.Set("WindowScale", screenHeight <= screenWidth ? Math.Max(Math.Min((float)(screenHeight / 1080.0), 2f), 1f).ToString(".0#", CultureInfo.InvariantCulture) : "1.0");
-
-                if (Program.Scale > 1)
-                    if (!Utilities.YesNoPrompt("Shiro", "Shiro has detected you have a monitor larger than average", $"Would you like to keep the WindowScale setting of {Program.Scale:F2}?", false))
-                        AppSettings.General.Set("WindowScale", "1.0");
-                    else
-                        AppServices.Dialogs.ShowInfo("In case the font scaling is incorrect, open RAMSettings.ini and change \"ScaleFonts=true\" to \"ScaleFonts=false\" without the quotes.");
-            }
-            if (!AppSettings.General.Exists("ScaleFonts")) AppSettings.General.Set("ScaleFonts", "true");
             if (!AppSettings.General.Exists("AutoCookieRefresh")) AppSettings.General.Set("AutoCookieRefresh", "true");
             if (!AppSettings.General.Exists("AutoCloseLastProcess")) AppSettings.General.Set("AutoCloseLastProcess", "true");
             if (!AppSettings.General.Exists("AutoCloseRobloxOnLaunch")) AppSettings.General.Set("AutoCloseRobloxOnLaunch", "false");
@@ -211,7 +194,6 @@ namespace Shiro
             if (!AppSettings.WebServer.Exists("EveryRequestRequiresPassword")) AppSettings.WebServer.Set("EveryRequestRequiresPassword", "false");
             if (!AppSettings.WebServer.Exists("AllowExternalConnections")) AppSettings.WebServer.Set("AllowExternalConnections", "false");
 
-            if (!AppSettings.AccountControl.Exists("AllowExternalConnections")) AppSettings.AccountControl.Set("AllowExternalConnections", "false");
             if (!AppSettings.AccountControl.Exists("RelaunchDelay")) AppSettings.AccountControl.Set("RelaunchDelay", "60");
             if (!AppSettings.AccountControl.Exists("LauncherDelayNumber")) AppSettings.AccountControl.Set("LauncherDelayNumber", "9");
 

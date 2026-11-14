@@ -47,8 +47,6 @@ namespace Shiro.Services
             public const string UseProxies = "UseProxies";
             public const string AutoLowerProcessPriority = "AutoLowerProcessPriority";
             public const string UseEmbeddedBrowser = "UseEmbeddedBrowser";
-            public const string WindowScale = "WindowScale";
-            public const string ScaleFonts = "ScaleFonts";
             public const string AutoCleanZombiesOnLaunch = "AutoCleanZombiesOnLaunch";
             public const string PreferDirectLaunch = "PreferDirectLaunch";
             public const string EnableTokenDeElevation = "EnableTokenDeElevation";
@@ -120,8 +118,6 @@ namespace Shiro.Services
 
         public static class AccountControl
         {
-            public const string NexusPort = "NexusPort";
-            public const string AllowExternalConnections = "AllowExternalConnections";
             public const string StartOnLaunch = "StartOnLaunch";
             public const string AutoMinimizeEnabled = "AutoMinimizeEnabled";
             public const string AutoCloseEnabled = "AutoCloseEnabled";
