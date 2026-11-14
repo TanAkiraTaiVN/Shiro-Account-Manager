@@ -332,16 +332,14 @@ namespace Shiro.Tests.Network
             await RobloxSettingsApiService.Instance.SetAvatarAsync(acc, "");
             await RobloxSettingsApiService.Instance.SetAvatarAsync(acc, "not-valid-json");
             await RobloxSettingsApiService.Instance.SetAvatarAsync(acc, "[1, 2, 3]");
+            await RobloxSettingsApiService.Instance.SetAvatarAsync(acc, "{}");
 
             var fakeDialogs = Substitute.For<IDialogService>();
             using var _ = AppServices.Override<IDialogService>(fakeDialogs);
 
             var handler = new FakeHttpHandler()
                 .Enqueue(HttpStatusCode.Forbidden, "{}", ("x-csrf-token", "av-csrf"))
-                .Enqueue(HttpStatusCode.OK, "{}")
-                .Enqueue(HttpStatusCode.OK, "{}")
-                .Enqueue(HttpStatusCode.OK, "{}")
-                .Enqueue(HttpStatusCode.OK, "{\"invalidAssetIds\":[111,222]}");
+                .Enqueue(HttpStatusCode.OK, "{\"validation\":{\"invalidAssets\":[{\"id\":111},{\"id\":222}]}}");
 
             Account.TestHttpClientFactory = _ => new HttpClient(handler);
             string avatarPayload = @"{
@@ -353,8 +351,97 @@ namespace Shiro.Tests.Network
 
             await RobloxSettingsApiService.Instance.SetAvatarAsync(acc, avatarPayload);
 
-            Assert.Equal(5, handler.Requests.Count);
+            Assert.Equal(2, handler.Requests.Count);
+            var patchRequest = handler.Requests[1];
+            Assert.Equal("PATCH", patchRequest.Method.Method);
+            Assert.Contains("v4/avatar", patchRequest.RequestUri?.ToString());
+            Assert.True(patchRequest.Headers.TryGetValues("X-CSRF-TOKEN", out var csrfVals));
+            Assert.Equal("av-csrf", csrfVals.FirstOrDefault());
+
+            string? body = handler.RequestBodies.Count > 1 ? handler.RequestBodies[1] : null;
+            Assert.NotNull(body);
+            Assert.Contains("\"updateTypes\":[\"UpdateAvatarType\",\"UpdateScales\",\"UpdateBodyColors\",\"UpdateAssets\"]", body);
+            Assert.Contains("\"playerAvatarType\":\"R15\"", body);
+            Assert.Contains("\"headColor\":\"#F2F3F3\"", body);
+
             fakeDialogs.Received(1).OpenMissingAssetsDialog(acc, Arg.Is<long[]>(arr => arr.SequenceEqual(new long[] { 111, 222 })));
+        }
+
+        [Fact]
+        public async Task SetAvatarAsync_403ForbiddenWithRefreshedCsrfToken_RetriesPatchOnce()
+        {
+            var acc = CreateUnlockedAccount("RetryCsrfAvatarUser");
+            var fakeDialogs = Substitute.For<IDialogService>();
+            using var _ = AppServices.Override<IDialogService>(fakeDialogs);
+
+            var handler = new FakeHttpHandler()
+                .Enqueue(HttpStatusCode.Forbidden, "{}", ("x-csrf-token", "csrf-1"))
+                .Enqueue(HttpStatusCode.Forbidden, "{}", ("x-csrf-token", "csrf-2"))
+                .Enqueue(HttpStatusCode.OK, "{\"invalidAssets\":[{\"id\":555}]}");
+
+            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+            string avatarPayload = "{\"playerAvatarType\": \"R6\", \"assets\": [{\"id\": 555}]}";
+
+            await RobloxSettingsApiService.Instance.SetAvatarAsync(acc, avatarPayload);
+
+            Assert.Equal(3, handler.Requests.Count);
+            var retryReq = handler.Requests[2];
+            Assert.Equal("PATCH", retryReq.Method.Method);
+            Assert.True(retryReq.Headers.TryGetValues("X-CSRF-TOKEN", out var retryCsrfVals));
+            Assert.Equal("csrf-2", retryCsrfVals.FirstOrDefault());
+
+            fakeDialogs.Received(1).OpenMissingAssetsDialog(acc, Arg.Is<long[]>(arr => arr.SequenceEqual(new long[] { 555 })));
+        }
+
+        [Fact]
+        public async Task SetAvatarAsync_Http400WithAndWithoutInvalidAssets()
+        {
+            var acc = CreateUnlockedAccount("Http400AvatarUser");
+            var fakeDialogs = Substitute.For<IDialogService>();
+            using var _ = AppServices.Override<IDialogService>(fakeDialogs);
+
+            var handler = new FakeHttpHandler()
+                .Enqueue(HttpStatusCode.Forbidden, "{}", ("x-csrf-token", "csrf-1"))
+                .Enqueue(HttpStatusCode.BadRequest, "{\"invalidAssetIds\":[777]}")
+                .Enqueue(HttpStatusCode.Forbidden, "{}", ("x-csrf-token", "csrf-1"))
+                .Enqueue(HttpStatusCode.BadRequest, "{\"errors\":[{\"message\":\"Unknown error\"}]}");
+
+            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+            string avatarPayload = "{\"playerAvatarType\": \"R15\"}";
+
+            await RobloxSettingsApiService.Instance.SetAvatarAsync(acc, avatarPayload);
+            fakeDialogs.Received(1).OpenMissingAssetsDialog(acc, Arg.Is<long[]>(arr => arr.SequenceEqual(new long[] { 777 })));
+
+            await RobloxSettingsApiService.Instance.SetAvatarAsync(acc, avatarPayload);
+            fakeDialogs.Received(1).OpenMissingAssetsDialog(acc, Arg.Any<long[]>());
+            Assert.Equal(4, handler.Requests.Count);
+        }
+
+        [Fact]
+        public async Task SetAvatarAsync_403WithoutRefreshedCsrfOrNullResponse_HandledSafely()
+        {
+            var acc = CreateUnlockedAccount("NoRetryAvatarUser");
+            var fakeDialogs = Substitute.For<IDialogService>();
+            using var _ = AppServices.Override<IDialogService>(fakeDialogs);
+
+            var handler = new FakeHttpHandler()
+                .Enqueue(HttpStatusCode.Forbidden, "{}", ("x-csrf-token", "csrf-1"))
+                .Enqueue(HttpStatusCode.Forbidden, "{}");
+
+            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+            string avatarPayload = "{\"playerAvatarType\": \"R6\"}";
+
+            await RobloxSettingsApiService.Instance.SetAvatarAsync(acc, avatarPayload);
+            Assert.Equal(2, handler.Requests.Count);
+            fakeDialogs.DidNotReceiveWithAnyArgs().OpenMissingAssetsDialog(default!, default!);
+
+            var nullHandler = new FakeHttpHandler()
+                .Enqueue(HttpStatusCode.Forbidden, "{}", ("x-csrf-token", "csrf-1"))
+                .Enqueue((HttpRequestMessage _) => (HttpResponseMessage)null!);
+            Account.TestHttpClientFactory = _ => new HttpClient(nullHandler);
+
+            await RobloxSettingsApiService.Instance.SetAvatarAsync(acc, avatarPayload);
+            Assert.Equal(2, nullHandler.Requests.Count);
         }
 
         [Fact]

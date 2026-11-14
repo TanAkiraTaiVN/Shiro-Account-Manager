@@ -287,90 +287,49 @@ namespace Shiro.Services
         public async Task SetAvatarAsync(Account account, string avatarJsonData, CancellationToken cancellationToken = default)
         {
             if (account == null || string.IsNullOrWhiteSpace(avatarJsonData)) return;
-            JsonDocument avatarDoc;
-            try
+
+            if (!AvatarV4PayloadMapper.TryMapPayload(avatarJsonData, out AvatarV4PatchRequest? patchRequest, out string? parseError))
             {
-                avatarDoc = JsonDocument.Parse(avatarJsonData);
-            }
-            catch (JsonException ex)
-            {
-                _logger.Warn($"SetAvatarAsync: invalid JSON payload: {ex.Message}");
+                if (parseError != null)
+                {
+                    _logger.Warn($"SetAvatarAsync: invalid JSON payload: {parseError}");
+                }
                 return;
             }
 
-            using (avatarDoc)
+            var csrf = await account.GetCSRFTokenAsync(cancellationToken).ConfigureAwait(false);
+            if (!csrf.Success)
             {
-                var root = avatarDoc.RootElement;
-                if (root.ValueKind != JsonValueKind.Object) return;
+                _logger.Warn($"[SetAvatarAsync] {account.Username}: Failed to acquire CSRF token: {csrf.Error}");
+                return;
+            }
 
-                var csrf = await account.GetCSRFTokenAsync(cancellationToken).ConfigureAwait(false);
-                if (!csrf.Success)
+            string requestJson = JsonSerializer.Serialize(patchRequest!, ShiroAppJson.Default.AvatarV4PatchRequest);
+            RestRequest request = account.MakeRequest("v4/avatar", Method.Patch)
+                .AddHeader("X-CSRF-TOKEN", csrf.Token)
+                .AddStringBody(requestJson, "application/json");
+
+            RestResponse? response = await account.ExecuteAccountRestAsync(AppServices.RobloxApi.Avatar, "https://avatar.roblox.com/", request, cancellationToken).ConfigureAwait(false);
+
+            if (response != null && response.StatusCode == HttpStatusCode.Forbidden)
+            {
+                string? refreshedToken = response.Headers
+                    .FirstOrDefault(h => string.Equals(h.Name, "x-csrf-token", StringComparison.OrdinalIgnoreCase))?.Value?.ToString();
+
+                if (!string.IsNullOrEmpty(refreshedToken))
                 {
-                    _logger.Warn($"[SetAvatarAsync] {account.Username}: Failed to acquire CSRF token: {csrf.Error}");
-                    return;
+                    RestRequest retryRequest = account.MakeRequest("v4/avatar", Method.Patch)
+                        .AddHeader("X-CSRF-TOKEN", refreshedToken)
+                        .AddStringBody(requestJson, "application/json");
+
+                    response = await account.ExecuteAccountRestAsync(AppServices.RobloxApi.Avatar, "https://avatar.roblox.com/", retryRequest, cancellationToken).ConfigureAwait(false);
                 }
+            }
 
-                var attributeTasks = new List<Task<RestResponse?>>(3);
-
-                if (root.TryGetProperty("playerAvatarType", out var patElem) && patElem.ValueKind != JsonValueKind.Null && patElem.ValueKind != JsonValueKind.Undefined)
-                {
-                    string patVal = (patElem.ValueKind == JsonValueKind.String ? patElem.GetString() : patElem.ToString()) ?? string.Empty;
-                    var patRequest = account.MakeRequest("v1/avatar/set-player-avatar-type", Method.Post)
-                        .AddHeader("X-CSRF-TOKEN", csrf.Token)
-                        .AddJsonBody(new SetPlayerAvatarTypePayload(patVal));
-
-                    attributeTasks.Add(account.ExecuteAccountRestAsync(AppServices.RobloxApi.Avatar, "https://avatar.roblox.com/", patRequest, cancellationToken));
-                }
-
-                if ((root.TryGetProperty("scales", out var scaleElem) || root.TryGetProperty("scale", out scaleElem)) &&
-                    scaleElem.ValueKind == JsonValueKind.Object)
-                {
-                    var scaleRequest = account.MakeRequest("v1/avatar/set-scales", Method.Post)
-                        .AddHeader("X-CSRF-TOKEN", csrf.Token)
-                        .AddStringBody(scaleElem.GetRawText(), "application/json");
-
-                    attributeTasks.Add(account.ExecuteAccountRestAsync(AppServices.RobloxApi.Avatar, "https://avatar.roblox.com/", scaleRequest, cancellationToken));
-                }
-
-                if (root.TryGetProperty("bodyColors", out var bcElem) && bcElem.ValueKind == JsonValueKind.Object)
-                {
-                    var bcRequest = account.MakeRequest("v1/avatar/set-body-colors", Method.Post)
-                        .AddHeader("X-CSRF-TOKEN", csrf.Token)
-                        .AddStringBody(bcElem.GetRawText(), "application/json");
-
-                    attributeTasks.Add(account.ExecuteAccountRestAsync(AppServices.RobloxApi.Avatar, "https://avatar.roblox.com/", bcRequest, cancellationToken));
-                }
-
-                if (attributeTasks.Count > 0)
-                {
-                    await Task.WhenAll(attributeTasks).ConfigureAwait(false);
-                }
-
-                if (root.TryGetProperty("assets", out var assetsElem) && assetsElem.ValueKind == JsonValueKind.Array)
-                {
-                    var assetsRequest = account.MakeRequest("v2/avatar/set-wearing-assets", Method.Post)
-                        .AddHeader("X-CSRF-TOKEN", csrf.Token)
-                        .AddStringBody($"{{\"assets\":{assetsElem.GetRawText()}}}", "application/json");
-
-                    RestResponse? response = await account.ExecuteAccountRestAsync(AppServices.RobloxApi.Avatar, "https://avatar.roblox.com/", assetsRequest, cancellationToken).ConfigureAwait(false);
-
-                    if (response != null && response.IsSuccessful && !string.IsNullOrWhiteSpace(response.Content))
-                    {
-                        try
-                        {
-                            using var resDoc = JsonDocument.Parse(response.Content);
-                            if (resDoc.RootElement.TryGetProperty("invalidAssetIds", out var invalidArr) && invalidArr.ValueKind == JsonValueKind.Array)
-                            {
-                                long[] assetIds = invalidArr.EnumerateArray().Select(asset => asset.GetInt64()).ToArray();
-                                AppServices.Dialogs.OpenMissingAssetsDialog(account, assetIds);
-                            }
-                        }
-                        catch (JsonException ex)
-                        {
-                            _logger.Debug($"Parse invalidAssetIds JSON failed: {ex.Message}");
-                        }
-                    }
-                }
+            long[] missingIds = AvatarV4PayloadMapper.ExtractInvalidAssetIds(response?.Content);
+            if (missingIds.Length > 0)
+            {
+                AppServices.Dialogs.OpenMissingAssetsDialog(account, missingIds);
             }
         }
     }
