@@ -37,8 +37,16 @@ namespace Shiro.Services
             }
         }
 
+        internal static Func<Account, int, CancellationToken, Task>? TestAdjustWindowPositionOverride;
+        internal static Func<DateTime, Account, CancellationToken, Task>? TestMonitorNativeAuthRateLimitOverride;
+
         public static async Task AdjustWindowPositionAsync(Account account, int targetPid = 0, CancellationToken cancellationToken = default)
         {
+            if (TestAdjustWindowPositionOverride != null)
+            {
+                await TestAdjustWindowPositionOverride(account, targetPid, cancellationToken).ConfigureAwait(false);
+                return;
+            }
             if (account == null) return;
             cancellationToken.ThrowIfCancellationRequested();
             if (!RobloxWatcher.RememberWindowPositions)
@@ -124,6 +132,11 @@ namespace Shiro.Services
             Account account,
             CancellationToken cancellationToken = default)
         {
+            if (TestMonitorNativeAuthRateLimitOverride != null)
+            {
+                await TestMonitorNativeAuthRateLimitOverride(launchStartedUtc, account, cancellationToken).ConfigureAwait(false);
+                return;
+            }
             string username = account?.Username ?? "account";
             int targetPid = account?.LastLaunchedProcessId ?? 0;
             string? browserTrackerId = account?.BrowserTrackerID;

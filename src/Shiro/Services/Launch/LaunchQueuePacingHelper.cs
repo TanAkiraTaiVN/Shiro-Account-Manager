@@ -13,6 +13,55 @@ namespace Shiro.Services
     internal static class LaunchQueuePacingHelper
     {
         internal static TimeSpan? TestAsyncJoinTimeoutOverride;
+        private static readonly AsyncLocal<CoordinatorSignalScope?> ActiveSignalScope = new();
+
+        internal sealed class CoordinatorSignalScope : IDisposable
+        {
+            private readonly CoordinatorSignalScope? _previous;
+            private int _disposed;
+            public bool SignalRequested { get; private set; }
+
+            public CoordinatorSignalScope(CoordinatorSignalScope? previous)
+            {
+                _previous = previous;
+            }
+
+            public void RequestSignal() => SignalRequested = true;
+
+            public void FlushIfRequested()
+            {
+                if (!SignalRequested)
+                    return;
+
+                SignalRequested = false;
+                AppServices.HostUiBridge.SignalNextLaunchAccount();
+            }
+
+            public void Dispose()
+            {
+                if (Interlocked.Exchange(ref _disposed, 1) == 0)
+                    ActiveSignalScope.Value = _previous;
+            }
+        }
+
+        internal static CoordinatorSignalScope BeginCoordinatorSignalScope()
+        {
+            var scope = new CoordinatorSignalScope(ActiveSignalScope.Value);
+            ActiveSignalScope.Value = scope;
+            return scope;
+        }
+
+        internal static void SignalNextOrDefer()
+        {
+            var scope = ActiveSignalScope.Value;
+            if (scope != null)
+            {
+                scope.RequestSignal();
+                return;
+            }
+
+            AppServices.HostUiBridge.SignalNextLaunchAccount();
+        }
 
         public static void ApplyAuthFailureStatus(
             LaunchRequest request,
@@ -215,7 +264,7 @@ namespace Shiro.Services
                 metrics,
                 targetPid,
                 request.Account.BrowserTrackerID,
-                cancellationToken);
+                cancellationToken.IsCancellationRequested ? cancellationToken : CancellationToken.None);
         }
     }
 }

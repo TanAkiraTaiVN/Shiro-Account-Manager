@@ -2,6 +2,7 @@
 using System;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -181,6 +182,173 @@ namespace Shiro.Services
                 AppServices.Logger.Warn($"[RobloxProcessService] Failed to clear Roblox Client session: {ex.Message}");
                 return false;
             }
+        }
+
+        public static (bool Restored, bool StillHasPendingFiles) RestoreDirectoryCookies(
+            string localStorageDir,
+            Action<string>? deleteFileOverride = null)
+        {
+            Action<string> deleteFile = deleteFileOverride ?? File.Delete;
+            string cookiesDatPath = Path.Combine(localStorageDir, "RobloxCookies.dat");
+            string backupPath = Path.Combine(localStorageDir, "RobloxCookies.dat.shiro-orig");
+            string noOrigSentinelPath = Path.Combine(localStorageDir, "RobloxCookies.dat.shiro-none");
+
+            if (!File.Exists(backupPath))
+            {
+                if (!File.Exists(noOrigSentinelPath))
+                    return (false, false);
+
+                if (File.Exists(cookiesDatPath))
+                {
+                    try
+                    {
+                        deleteFile(cookiesDatPath);
+                    }
+                    catch (Exception ex)
+                    {
+                        AppServices.Logger.Debug($"[RobloxDirectLauncher] Failed to delete temporary RobloxCookies.dat: {ex.Message}");
+                        return (false, true);
+                    }
+
+                    if (File.Exists(cookiesDatPath))
+                        return (false, true);
+                }
+
+                try
+                {
+                    deleteFile(noOrigSentinelPath);
+                }
+                catch (Exception ex)
+                {
+                    AppServices.Logger.Debug($"[RobloxDirectLauncher] Failed to delete no-orig sentinel: {ex.Message}");
+                    return (false, File.Exists(noOrigSentinelPath));
+                }
+
+                return (true, false);
+            }
+
+            string backupJson = File.ReadAllText(backupPath, Encoding.UTF8);
+            StoragePaths.AtomicWriteText(cookiesDatPath, backupJson, durable: true);
+            try
+            {
+                deleteFile(backupPath);
+            }
+            catch (Exception ex)
+            {
+                AppServices.Logger.Debug($"[RobloxDirectLauncher] Failed to delete cookie backup file: {ex.Message}");
+            }
+            try
+            {
+                if (File.Exists(noOrigSentinelPath))
+                    deleteFile(noOrigSentinelPath);
+            }
+            catch (Exception ex)
+            {
+                AppServices.Logger.Debug($"[RobloxDirectLauncher] Failed to delete no-orig sentinel: {ex.Message}");
+            }
+
+            AppServices.Logger.Info("[RobloxDirectLauncher] Successfully restored original RobloxCookies.dat from backup.");
+            return (true, File.Exists(backupPath) || File.Exists(noOrigSentinelPath));
+        }
+
+        public static bool EnsureVersionSupportedAndBackupExisting(
+            string cookiesDatPath,
+            string backupPath,
+            string noOrigSentinelPath,
+            out bool shouldSyncRotated)
+        {
+            shouldSyncRotated = false;
+            if (!File.Exists(cookiesDatPath))
+                return true;
+
+            try
+            {
+                using var doc = JsonDocument.Parse(File.ReadAllBytes(cookiesDatPath));
+                if (doc.RootElement.TryGetProperty("CookiesVersion", out var verElement))
+                {
+                    string? ver = verElement.GetString();
+                    if (!string.IsNullOrEmpty(ver) && ver != "1")
+                    {
+                        AppServices.Logger.Warn($"[RobloxDirectLauncher] RobloxCookies.dat has unsupported CookiesVersion '{ver}'. Direct injection skipped.");
+                        return false;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                AppServices.Logger.Debug($"[RobloxDirectLauncher] Could not inspect existing RobloxCookies.dat JSON: {ex.Message}");
+            }
+
+            if (!File.Exists(backupPath) && !File.Exists(noOrigSentinelPath))
+            {
+                try
+                {
+                    File.Copy(cookiesDatPath, backupPath, overwrite: false);
+                    AppServices.Logger.Info("[RobloxDirectLauncher] Backed up original RobloxCookies.dat before injection.");
+                }
+                catch (Exception ex)
+                {
+                    AppServices.Logger.Debug($"[RobloxDirectLauncher] Could not create original cookie backup: {ex.Message}");
+                }
+            }
+            else
+            {
+                shouldSyncRotated = true;
+            }
+
+            return true;
+        }
+
+        public static void SyncRotatedClientCookie(
+            string cookiesDatPath,
+            string backupPath,
+            string? expectedUser,
+            string? injectedToken,
+            string? expectedTrackerId)
+        {
+            if (string.IsNullOrWhiteSpace(expectedUser) || string.IsNullOrWhiteSpace(injectedToken))
+                return;
+
+            string? currentClientCookie = TryExtractCookieFromCookiesDatFile(cookiesDatPath);
+            if (string.IsNullOrWhiteSpace(currentClientCookie) ||
+                string.Equals(currentClientCookie, injectedToken, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            string? backupCookie = TryExtractCookieFromCookiesDatFile(backupPath);
+            if (!string.IsNullOrWhiteSpace(backupCookie) &&
+                string.Equals(currentClientCookie, backupCookie, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            var target = AppServices.AccountRepository.GetAll().FirstOrDefault(a =>
+                a != null &&
+                string.Equals(a.Username, expectedUser, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(a.SecurityToken, injectedToken, StringComparison.Ordinal));
+
+            if (target == null)
+                return;
+
+            TryExtractTrackerMetadataFromCookiesDatFile(cookiesDatPath, out long trackerUserId, out string? trackerBrowserId);
+            if (!CanSyncRotatedCookieForTarget(target, trackerUserId, trackerBrowserId, expectedTrackerId))
+            {
+                AppServices.Logger.Warn($"[RobloxDirectLauncher] Refused to sync rotated cookie from RobloxCookies.dat to '{target.Username}' (Account UserID={target.UserID}, Tracker rbxuid={trackerUserId}, Tracker browserid={trackerBrowserId}) to prevent cross-account contamination.");
+                return;
+            }
+
+            bool belongsToAnotherAccount = AppServices.AccountRepository.GetAll().Any(a =>
+                a != null &&
+                !string.Equals(a.Username, target.Username, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(a.SecurityToken, currentClientCookie, StringComparison.Ordinal));
+            if (belongsToAnotherAccount)
+            {
+                AppServices.Logger.Warn($"[RobloxDirectLauncher] Refused to sync cookie from RobloxCookies.dat to '{target.Username}' because it belongs to another saved account.");
+                return;
+            }
+
+            target.ApplyRotatedSecurityToken(currentClientCookie, "RobloxCookies.dat post-launch sync");
         }
     }
 }

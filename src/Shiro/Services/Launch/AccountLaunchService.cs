@@ -380,13 +380,10 @@ namespace Shiro.Services
                     }
 
                     ObserveBackgroundTask(
-                        MonitorNativeAuthRateLimitAsync(launchStartedUtc, account, cancellationToken),
+                        MonitorNativeAuthRateLimitAsync(launchStartedUtc, account, CancellationToken.None),
                         "native auth rate-limit monitor");
                     AppServices.HostUiBridge.SchedulePresenceRefresh(account);
-
-                    AppServices.HostUiBridge.SignalNextLaunchAccount();
-
-                    ObserveBackgroundTask(AdjustWindowPositionAsync(account, nativePid, cancellationToken), "Roblox window positioning");
+                    ObserveBackgroundTask(AdjustWindowPositionAsync(account, nativePid, CancellationToken.None), "Roblox window positioning");
                 }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                 {
@@ -396,13 +393,14 @@ namespace Shiro.Services
                 {
                     launchException = x;
                     AppServices.Logger?.Error($"Failed to launch Roblox for {account.Username}: {x}");
-                    AppServices.HostUiBridge.SignalNextLaunchAccount();
+                    LaunchQueuePacingHelper.SignalNextOrDefer();
                 }
 
                 if (launchException != null)
                     return LaunchResult.Fail(LaunchOutcome.Failed, $"ERROR: Failed to launch Roblox for {account.Username}\n{launchException.Message}");
 
                 AutoReconnectService.Instance.RegisterSession(account, placeId, jobId, followUser, joinVip, nativePid);
+                LaunchQueuePacingHelper.SignalNextOrDefer();
                 return LaunchResult.Success();
             }
             else

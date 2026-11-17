@@ -158,10 +158,11 @@ namespace Shiro.Services
                         LaunchTimingService.CurrentAttempt.SpawnMs = (long)Stopwatch.GetElapsedTime(LaunchTimingService.CurrentAttempt.AttemptStartTicks).TotalMilliseconds;
                     }
                     ObserveBackgroundTask(
-                        MonitorNativeAuthRateLimitAsync(launchStartedUtc, account, cancellationToken),
+                        MonitorNativeAuthRateLimitAsync(launchStartedUtc, account, CancellationToken.None),
                         "native auth rate-limit monitor");
                     AppServices.HostUiBridge.SchedulePresenceRefresh(account);
-                    ObserveBackgroundTask(AdjustWindowPositionAsync(account, homePid, cancellationToken), "Roblox window positioning");
+                    ObserveBackgroundTask(AdjustWindowPositionAsync(account, homePid, CancellationToken.None), "Roblox window positioning");
+                    LaunchQueuePacingHelper.SignalNextOrDefer();
                 }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                 {
@@ -171,10 +172,7 @@ namespace Shiro.Services
                 {
                     launchException = x;
                     AppServices.Logger?.Error($"Failed to launch Roblox Home for {account.Username}: {x}");
-                }
-                finally
-                {
-                    AppServices.HostUiBridge.SignalNextLaunchAccount();
+                    LaunchQueuePacingHelper.SignalNextOrDefer();
                 }
 
                 if (launchException != null)

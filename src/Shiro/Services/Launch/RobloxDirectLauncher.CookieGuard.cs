@@ -1,7 +1,7 @@
 #nullable enable
 using System;
 using System.IO;
-using System.Linq;
+using System.Security.Cryptography;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -17,6 +17,13 @@ namespace Shiro.Services
         private static string? _lastInjectedTrackerId;
         private static int _activeGuardScopes;
         private static bool _hasPendingBackupRestore;
+        private static bool _hasPendingInjectionRestore;
+
+        internal static Func<bool>? TestIsAnyRobloxRunningOverride;
+        internal static Func<int, TimeSpan, CancellationToken, Task<bool>>? TestCookieGuardWaitForClientUnlockedOverride;
+        internal static int? TestCookieRestoreRetryDelayMsOverride;
+        internal static int? TestPostSpawnSettleDelayMsOverride;
+        internal static string? TestDefaultLocalStorageDirOverride;
 
         /// <summary>
         /// Indicates whether an active batch or launch scope is currently holding the RobloxCookies.dat guard,
@@ -38,6 +45,62 @@ namespace Shiro.Services
                 lock (_cookieLock)
                     return _activeGuardScopes;
             }
+        }
+
+        internal static bool HasPendingCookieBackup
+        {
+            get
+            {
+                lock (_cookieLock)
+                    return HasPendingCookieBackupLocked();
+            }
+        }
+
+        internal static bool TryConsumePostSpawnRestorePending()
+        {
+            lock (_cookieLock)
+            {
+                if (!_hasPendingInjectionRestore)
+                    return false;
+
+                _hasPendingInjectionRestore = false;
+                return true;
+            }
+        }
+
+        internal static void ResetCookieGuardStateForTest()
+        {
+            lock (_cookieLock)
+            {
+                _restoreCts?.Cancel();
+                _restoreCts = null;
+                _activeGuardScopes = 0;
+                _hasPendingBackupRestore = false;
+                _hasPendingInjectionRestore = false;
+                _lastInjectedUsername = null;
+                _lastInjectedToken = null;
+                _lastInjectedTrackerId = null;
+            }
+
+            TestIsAnyRobloxRunningOverride = null;
+            TestCookieGuardWaitForClientUnlockedOverride = null;
+            TestCookieRestoreRetryDelayMsOverride = null;
+            TestPostSpawnSettleDelayMsOverride = null;
+            TestDefaultLocalStorageDirOverride = null;
+        }
+
+        private static string GetDefaultLocalStorageDir() =>
+            TestDefaultLocalStorageDirOverride ??
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Roblox", "LocalStorage");
+
+        private static bool HasPendingCookieBackupLocked()
+        {
+            if (_hasPendingBackupRestore || _hasPendingInjectionRestore)
+                return true;
+
+            string localStorageDir = GetDefaultLocalStorageDir();
+            return File.Exists(Path.Combine(localStorageDir, "RobloxCookies.dat.shiro-orig")) ||
+                   File.Exists(Path.Combine(localStorageDir, "RobloxCookies.dat.shiro-none"));
         }
 
         public sealed class CookieGuardScope : IDisposable
@@ -82,11 +145,25 @@ namespace Shiro.Services
             {
                 _activeGuardScopes++;
                 _restoreCts?.Cancel();
-                _restoreCts?.Dispose();
                 _restoreCts = null;
             }
 
             return new CookieGuardScope(restoreDelayOnDisposeMs);
+        }
+
+        internal static byte[] ProtectAndZeroPlaintext(byte[] plainBytes, Func<byte[], byte[]>? protectOverride = null)
+        {
+            ArgumentNullException.ThrowIfNull(plainBytes);
+            try
+            {
+                return protectOverride != null
+                    ? protectOverride(plainBytes)
+                    : ProtectedData.Protect(plainBytes, null, DataProtectionScope.CurrentUser);
+            }
+            finally
+            {
+                CryptographicOperations.ZeroMemory(plainBytes);
+            }
         }
 
         /// <summary>
@@ -105,8 +182,7 @@ namespace Shiro.Services
             try
             {
                 string token = securityToken.Trim().Trim('"').Trim();
-                string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-                string localStorageDir = localStorageDirectoryOverride ?? Path.Combine(localAppData, "Roblox", "LocalStorage");
+                string localStorageDir = localStorageDirectoryOverride ?? GetDefaultLocalStorageDir();
                 Directory.CreateDirectory(localStorageDir);
                 string cookiesDatPath = Path.Combine(localStorageDir, "RobloxCookies.dat");
                 string backupPath = Path.Combine(localStorageDir, "RobloxCookies.dat.shiro-orig");
@@ -120,45 +196,15 @@ namespace Shiro.Services
                         catch (Exception ex) { AppServices.Logger.Debug($"[RobloxDirectLauncher] Could not write no-orig sentinel: {ex.Message}"); }
                     }
 
-                    // Validate existing CookiesVersion if file exists to prevent format corruption
-                    if (File.Exists(cookiesDatPath))
+                    // Validate existing CookiesVersion if file exists to prevent format corruption and back up original session
+                    if (!RobloxCookieFileHelper.EnsureVersionSupportedAndBackupExisting(
+                            cookiesDatPath, backupPath, noOrigSentinelPath, out bool shouldSyncRotated))
                     {
-                        try
-                        {
-                            using var doc = JsonDocument.Parse(File.ReadAllBytes(cookiesDatPath));
-                            if (doc.RootElement.TryGetProperty("CookiesVersion", out var verElement))
-                            {
-                                string? ver = verElement.GetString();
-                                if (!string.IsNullOrEmpty(ver) && ver != "1")
-                                {
-                                    AppServices.Logger.Warn($"[RobloxDirectLauncher] RobloxCookies.dat has unsupported CookiesVersion '{ver}'. Direct injection skipped.");
-                                    return false;
-                                }
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            AppServices.Logger.Debug($"[RobloxDirectLauncher] Could not inspect existing RobloxCookies.dat JSON: {ex.Message}");
-                        }
-
-                        // Preserve original user session backup only if an original file existed prior to Shiro injection
-                        if (!File.Exists(backupPath) && !File.Exists(noOrigSentinelPath))
-                        {
-                            try
-                            {
-                                File.Copy(cookiesDatPath, backupPath, overwrite: false);
-                                AppServices.Logger.Info("[RobloxDirectLauncher] Backed up original RobloxCookies.dat before injection.");
-                            }
-                            catch (Exception ex)
-                            {
-                                AppServices.Logger.Debug($"[RobloxDirectLauncher] Could not create original cookie backup: {ex.Message}");
-                            }
-                        }
-                        else if (localStorageDirectoryOverride == null)
-                        {
-                            // Sync any rotated cookie written by the preceding account's Roblox client before overwriting
-                            SyncRotatedClientCookieIfApplicable(cookiesDatPath, backupPath);
-                        }
+                        return false;
+                    }
+                    if (shouldSyncRotated && localStorageDirectoryOverride == null)
+                    {
+                        SyncRotatedClientCookieIfApplicable(cookiesDatPath, backupPath);
                     }
 
                     long expiry = (expiryUtc ?? DateTimeOffset.UtcNow.AddMonths(3)).ToUnixTimeSeconds();
@@ -169,8 +215,7 @@ namespace Shiro.Services
                         $".roblox.com\tTRUE\t/\tFALSE\t{expiry}\tRBXEventTrackerV2\tCreateDate={DateTime.UtcNow:MM/dd/yyyy HH:mm:ss}&rbxid=&rbxuid=&browserid={btid}\r\n";
 
                     byte[] plainBytes = System.Text.Encoding.UTF8.GetBytes(netscapeCookies);
-                    byte[] encryptedBytes = System.Security.Cryptography.ProtectedData.Protect(
-                        plainBytes, null, System.Security.Cryptography.DataProtectionScope.CurrentUser);
+                    byte[] encryptedBytes = ProtectAndZeroPlaintext(plainBytes);
                     string base64Data = Convert.ToBase64String(encryptedBytes);
 
                     var jsonObject = new RobloxCookiesDatEnvelope("1", base64Data);
@@ -185,6 +230,7 @@ namespace Shiro.Services
                         _lastInjectedToken = token;
                         _lastInjectedTrackerId = btid;
                         _hasPendingBackupRestore = true;
+                        _hasPendingInjectionRestore = true;
                         if (_activeGuardScopes == 0)
                         {
                             ScheduleOriginalCookieRestore(12_000);
@@ -206,49 +252,7 @@ namespace Shiro.Services
         /// Deferred automatically if an active <see cref="CookieGuardScope"/> is currently held.
         /// </summary>
         public static void ScheduleOriginalCookieRestore(int delayMs = 10_000)
-        {
-            lock (_cookieLock)
-            {
-                _restoreCts?.Cancel();
-                _restoreCts?.Dispose();
-                _restoreCts = null;
-
-                if (_activeGuardScopes > 0)
-                {
-                    _hasPendingBackupRestore = true;
-                    return;
-                }
-
-                _restoreCts = new CancellationTokenSource();
-                var token = _restoreCts.Token;
-
-                _ = Task.Run(async () =>
-                {
-                    try
-                    {
-                        await Task.Delay(Math.Max(0, delayMs), token).ConfigureAwait(false);
-                        if (IsCookieGuardHeld) return;
-
-                        if (RobloxProcessService.IsAnyRobloxRunning())
-                        {
-                            lock (_cookieLock)
-                            {
-                                _hasPendingBackupRestore = true;
-                            }
-                            ScheduleOriginalCookieRestore(5_000);
-                            return;
-                        }
-
-                        RestoreOriginalCookies();
-                    }
-                    catch (OperationCanceledException) { /* canceled */ }
-                    catch (Exception ex)
-                    {
-                        AppServices.Logger.Debug($"[RobloxDirectLauncher] Scheduled cookie restoration failed: {ex.Message}");
-                    }
-                }, token);
-            }
-        }
+            => ScheduleRestoreCore(initialDelayMs: Math.Max(0, delayMs), waitForPid: 0, requirePendingBackup: false);
 
         /// <summary>
         /// Waits for a spawned Roblox client process to initialize its main window (up to 18s) plus a 2.5s settle window
@@ -258,51 +262,121 @@ namespace Shiro.Services
         internal static void SchedulePostSpawnCookieRestore(int pid)
         {
             if (pid <= 0) return;
+            int settleDelayMs = TestPostSpawnSettleDelayMsOverride ?? 2_500;
+            ScheduleRestoreCore(initialDelayMs: Math.Max(0, settleDelayMs), waitForPid: pid, requirePendingBackup: true);
+        }
 
+        private static void ScheduleRestoreCore(int initialDelayMs, int waitForPid, bool requirePendingBackup)
+        {
+            CancellationTokenSource myCts;
             lock (_cookieLock)
             {
+                if (requirePendingBackup && !HasPendingCookieBackupLocked())
+                    return;
+
                 if (_activeGuardScopes > 0)
                 {
-                    _hasPendingBackupRestore = true;
+                    if (!requirePendingBackup || HasPendingCookieBackupLocked())
+                        _hasPendingBackupRestore = true;
                     return;
                 }
 
                 _restoreCts?.Cancel();
-                _restoreCts?.Dispose();
-                _restoreCts = new CancellationTokenSource();
-                var token = _restoreCts.Token;
+                myCts = new CancellationTokenSource();
+                _restoreCts = myCts;
+            }
 
-                _ = Task.Run(async () =>
+            _ = Task.Run(() => RunRestoreLoopAsync(myCts, initialDelayMs, waitForPid));
+        }
+
+        private static async Task RunRestoreLoopAsync(
+            CancellationTokenSource myCts,
+            int initialDelayMs,
+            int waitForPid)
+        {
+            CancellationToken token = myCts.Token;
+            try
+            {
+                if (token.IsCancellationRequested)
+                    return;
+
+                if (waitForPid > 0)
                 {
-                    try
+                    Task<bool> waitTask = TestCookieGuardWaitForClientUnlockedOverride != null
+                        ? TestCookieGuardWaitForClientUnlockedOverride(waitForPid, TimeSpan.FromSeconds(18), token)
+                        : RobloxSingletonService.WaitForClientUnlockedAsync(waitForPid, TimeSpan.FromSeconds(18), token);
+                    await waitTask.ConfigureAwait(false);
+                }
+
+                int nextDelayMs = Math.Max(0, initialDelayMs);
+                while (!token.IsCancellationRequested)
+                {
+                    if (nextDelayMs > 0)
+                        await Task.Delay(nextDelayMs, token).ConfigureAwait(false);
+
+                    lock (_cookieLock)
                     {
-                        await RobloxSingletonService.WaitForClientUnlockedAsync(
-                            pid,
-                            TimeSpan.FromSeconds(18),
-                            token).ConfigureAwait(false);
-                        await Task.Delay(2500, token).ConfigureAwait(false);
+                        if (!ReferenceEquals(_restoreCts, myCts) || token.IsCancellationRequested)
+                            return;
 
-                        if (!IsCookieGuardHeld)
+                        if (_activeGuardScopes > 0)
                         {
-                            if (RobloxProcessService.IsAnyRobloxRunning())
-                            {
-                                lock (_cookieLock)
-                                {
-                                    _hasPendingBackupRestore = true;
-                                }
-                                ScheduleOriginalCookieRestore(5_000);
-                                return;
-                            }
-
-                            RestoreOriginalCookies();
+                            _hasPendingBackupRestore = true;
+                            return;
                         }
                     }
-                    catch (OperationCanceledException) { /* canceled */ }
-                    catch (Exception ex)
+
+                    bool robloxRunning = TestIsAnyRobloxRunningOverride != null
+                        ? TestIsAnyRobloxRunningOverride()
+                        : RobloxProcessService.IsAnyRobloxRunning();
+                    if (robloxRunning)
                     {
-                        AppServices.Logger.Debug($"[RobloxDirectLauncher] Post-spawn cookie restore failed: {ex.Message}");
+                        lock (_cookieLock)
+                        {
+                            if (!ReferenceEquals(_restoreCts, myCts) || token.IsCancellationRequested)
+                                return;
+
+                            _hasPendingBackupRestore = true;
+                        }
+
+                        nextDelayMs = Math.Max(1, TestCookieRestoreRetryDelayMsOverride ?? 5_000);
+                        continue;
                     }
-                }, token);
+
+                    RestoreOriginalCookiesIfOwner(myCts);
+                    return;
+                }
+            }
+            catch (OperationCanceledException) { /* canceled */ }
+            catch (Exception ex)
+            {
+                AppServices.Logger.Debug($"[RobloxDirectLauncher] Scheduled cookie restoration failed: {ex.Message}");
+            }
+            finally
+            {
+                lock (_cookieLock)
+                {
+                    if (ReferenceEquals(_restoreCts, myCts))
+                        _restoreCts = null;
+
+                    SafeExecuteHelper.Try(myCts.Dispose, "RobloxDirectLauncher.DisposeRestoreCts");
+                }
+            }
+        }
+
+        private static void RestoreOriginalCookiesIfOwner(CancellationTokenSource myCts)
+        {
+            lock (_cookieLock)
+            {
+                if (!ReferenceEquals(_restoreCts, myCts) || myCts.IsCancellationRequested || _activeGuardScopes > 0)
+                {
+                    if (_activeGuardScopes > 0)
+                        _hasPendingBackupRestore = true;
+                    return;
+                }
+
+                _restoreCts = null;
+                RestoreOriginalCookiesCoreLocked(localStorageDirectoryOverride: null, deleteFileOverride: null);
             }
         }
 
@@ -324,56 +398,19 @@ namespace Shiro.Services
                 _lastInjectedTrackerId = null;
             }
 
-            if (string.IsNullOrWhiteSpace(expectedUser) || string.IsNullOrWhiteSpace(injectedToken))
-                return;
-
-            string? currentClientCookie = TryExtractCookieFromCookiesDatFile(cookiesDatPath);
-            if (string.IsNullOrWhiteSpace(currentClientCookie) ||
-                string.Equals(currentClientCookie, injectedToken, StringComparison.Ordinal))
-            {
-                return;
-            }
-
-            string? backupCookie = TryExtractCookieFromCookiesDatFile(backupPath);
-            if (!string.IsNullOrWhiteSpace(backupCookie) &&
-                string.Equals(currentClientCookie, backupCookie, StringComparison.Ordinal))
-            {
-                return;
-            }
-
-            var target = AppServices.AccountRepository.GetAll().FirstOrDefault(a =>
-                a != null &&
-                string.Equals(a.Username, expectedUser, StringComparison.OrdinalIgnoreCase) &&
-                string.Equals(a.SecurityToken, injectedToken, StringComparison.Ordinal));
-
-            if (target == null)
-                return;
-
-            TryExtractTrackerMetadataFromCookiesDatFile(cookiesDatPath, out long trackerUserId, out string? trackerBrowserId);
-            if (!CanSyncRotatedCookieForTarget(target, trackerUserId, trackerBrowserId, expectedTrackerId))
-            {
-                AppServices.Logger.Warn($"[RobloxDirectLauncher] Refused to sync rotated cookie from RobloxCookies.dat to '{target.Username}' (Account UserID={target.UserID}, Tracker rbxuid={trackerUserId}, Tracker browserid={trackerBrowserId}) to prevent cross-account contamination.");
-                return;
-            }
-
-            // Also ensure the rotated cookie does not already belong to a different account in AccountManager
-            bool belongsToAnotherAccount = AppServices.AccountRepository.GetAll().Any(a =>
-                a != null &&
-                !string.Equals(a.Username, target.Username, StringComparison.OrdinalIgnoreCase) &&
-                string.Equals(a.SecurityToken, currentClientCookie, StringComparison.Ordinal));
-            if (belongsToAnotherAccount)
-            {
-                AppServices.Logger.Warn($"[RobloxDirectLauncher] Refused to sync cookie from RobloxCookies.dat to '{target.Username}' because it belongs to another saved account.");
-                return;
-            }
-
-            target.ApplyRotatedSecurityToken(currentClientCookie, "RobloxCookies.dat post-launch sync");
+            RobloxCookieFileHelper.SyncRotatedClientCookie(
+                cookiesDatPath, backupPath, expectedUser, injectedToken, expectedTrackerId);
         }
 
         /// <summary>
         /// Restores the original RobloxCookies.dat backup if one exists and cleans up the backup file.
         /// </summary>
         public static bool RestoreOriginalCookies(string? localStorageDirectoryOverride = null)
+            => RestoreOriginalCookiesCore(localStorageDirectoryOverride, deleteFileOverride: null);
+
+        internal static bool RestoreOriginalCookiesCore(
+            string? localStorageDirectoryOverride = null,
+            Action<string>? deleteFileOverride = null)
         {
             lock (_cookieLock)
             {
@@ -386,64 +423,49 @@ namespace Shiro.Services
                     }
 
                     _restoreCts?.Cancel();
-                    _restoreCts?.Dispose();
                     _restoreCts = null;
-                    _hasPendingBackupRestore = false;
                 }
 
-                try
+                return RestoreOriginalCookiesCoreLocked(localStorageDirectoryOverride, deleteFileOverride);
+            }
+        }
+
+        private static bool RestoreOriginalCookiesCoreLocked(
+            string? localStorageDirectoryOverride,
+            Action<string>? deleteFileOverride)
+        {
+            bool isDefault = localStorageDirectoryOverride == null;
+            string localStorageDir = localStorageDirectoryOverride ?? GetDefaultLocalStorageDir();
+            bool stillHasPendingFiles = false;
+
+            try
+            {
+                if (isDefault)
                 {
-                    string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-                    string localStorageDir = localStorageDirectoryOverride ?? Path.Combine(localAppData, "Roblox", "LocalStorage");
                     string cookiesDatPath = Path.Combine(localStorageDir, "RobloxCookies.dat");
                     string backupPath = Path.Combine(localStorageDir, "RobloxCookies.dat.shiro-orig");
-                    string noOrigSentinelPath = Path.Combine(localStorageDir, "RobloxCookies.dat.shiro-none");
-
-                    if (localStorageDirectoryOverride == null)
-                    {
-                        SyncRotatedClientCookieIfApplicable(cookiesDatPath, backupPath);
-                    }
-
-                    if (!File.Exists(backupPath))
-                    {
-                        if (File.Exists(noOrigSentinelPath))
-                        {
-                            try { if (File.Exists(cookiesDatPath)) File.Delete(cookiesDatPath); }
-                            catch (Exception ex) { AppServices.Logger.Debug($"[RobloxDirectLauncher] Failed to delete temporary RobloxCookies.dat: {ex.Message}"); }
-                            try { File.Delete(noOrigSentinelPath); }
-                            catch (Exception ex) { AppServices.Logger.Debug($"[RobloxDirectLauncher] Failed to delete no-orig sentinel: {ex.Message}"); }
-                            return true;
-                        }
-                        return false;
-                    }
-
-                    string backupJson = File.ReadAllText(backupPath, System.Text.Encoding.UTF8);
-                    StoragePaths.AtomicWriteText(cookiesDatPath, backupJson, durable: true);
-                    try
-                    {
-                        File.Delete(backupPath);
-                    }
-                    catch (Exception ex)
-                    {
-                        AppServices.Logger.Debug($"[RobloxDirectLauncher] Failed to delete cookie backup file: {ex.Message}");
-                    }
-                    try
-                    {
-                        if (File.Exists(noOrigSentinelPath))
-                            File.Delete(noOrigSentinelPath);
-                    }
-                    catch (Exception ex)
-                    {
-                        AppServices.Logger.Debug($"[RobloxDirectLauncher] Failed to delete no-orig sentinel: {ex.Message}");
-                    }
-
-                    AppServices.Logger.Info("[RobloxDirectLauncher] Successfully restored original RobloxCookies.dat from backup.");
-                    return true;
+                    SyncRotatedClientCookieIfApplicable(cookiesDatPath, backupPath);
                 }
-                catch (Exception ex)
+
+                bool restored;
+                (restored, stillHasPendingFiles) = RobloxCookieFileHelper.RestoreDirectoryCookies(localStorageDir, deleteFileOverride);
+                return restored;
+            }
+            catch (Exception ex)
+            {
+                stillHasPendingFiles =
+                    File.Exists(Path.Combine(localStorageDir, "RobloxCookies.dat.shiro-orig")) ||
+                    File.Exists(Path.Combine(localStorageDir, "RobloxCookies.dat.shiro-none"));
+                AppServices.Logger.Warn($"[RobloxDirectLauncher] Failed to restore original RobloxCookies.dat: {ex.Message}");
+                return false;
+            }
+            finally
+            {
+                if (isDefault)
                 {
-                    AppServices.Logger.Warn($"[RobloxDirectLauncher] Failed to restore original RobloxCookies.dat: {ex.Message}");
-                    return false;
+                    _hasPendingBackupRestore = stillHasPendingFiles;
+                    if (!stillHasPendingFiles)
+                        _hasPendingInjectionRestore = false;
                 }
             }
         }

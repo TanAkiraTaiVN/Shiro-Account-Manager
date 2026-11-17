@@ -236,7 +236,7 @@ namespace Shiro.Services
             finally
             {
                 cookieGuard.Dispose();
-                if (lastSpawnedPid > 0)
+                if (lastSpawnedPid > 0 && RobloxDirectLauncher.TryConsumePostSpawnRestorePending())
                     RobloxDirectLauncher.SchedulePostSpawnCookieRestore(lastSpawnedPid);
 
                 Report(null, new LaunchProgress { Completed = true });

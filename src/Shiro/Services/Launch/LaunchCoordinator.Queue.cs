@@ -56,6 +56,7 @@ namespace Shiro.Services
             LaunchTimingService.CurrentAttempt = metrics;
 
             LaunchResult launchResult;
+            using var signalScope = LaunchQueuePacingHelper.BeginCoordinatorSignalScope();
             try
             {
                 try
@@ -133,6 +134,7 @@ namespace Shiro.Services
                 if (state.Status != LaunchOutcome.Success)
                     signal.TrySetResult(false);
 
+                signalScope.FlushIfRequested();
                 return new LaunchAttemptOutcome(state, metrics, gapMs, recent10mCount);
             }
             finally
