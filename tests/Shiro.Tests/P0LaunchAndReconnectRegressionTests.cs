@@ -277,18 +277,22 @@ namespace Shiro.Tests
             Assert.Equal(1, crashSession!.RetryCount);
             Assert.False(crashSession.IsActive);
 
-            // 3. OnJobProcessExited sets exit code (-1 abnormal, 0 clean fallback) before marking exited
+            // 3. OnJobProcessExited sets exit code (-1 abnormal, 0 clean fallback) before marking exited.
+            // Register within LaunchGracePeriod so any background CheckSessionsCallback queued by
+            // OnJobProcessExited evaluates ReconnectDecision.None instead of racing with HandleProcessExit.
+            svc.LaunchGracePeriod = TimeSpan.FromMinutes(2);
             svc.OnJobProcessExited(0, abnormalExit: true);
 
+            DateTime withinGrace = DateTime.UtcNow;
             var jobCrashAcc = new Account { Username = "JobAbnormalUser", UserID = 6003 };
-            svc.RegisterSession(jobCrashAcc, 1818, processId: 888881, nowUtcOverride: pastGrace);
+            svc.RegisterSession(jobCrashAcc, 1818, processId: 888881, nowUtcOverride: withinGrace);
             Assert.True(svc.TryGetSession("JobAbnormalUser", out var jobCrashSession));
             svc.OnJobProcessExited(888881, abnormalExit: true);
             Assert.Equal(-1, jobCrashSession!.ObservedExitCode);
             Assert.True(jobCrashSession.ObservedProcessExited);
 
             var jobCleanAcc = new Account { Username = "JobCleanUser", UserID = 6004 };
-            svc.RegisterSession(jobCleanAcc, 1818, processId: 888882, nowUtcOverride: pastGrace);
+            svc.RegisterSession(jobCleanAcc, 1818, processId: 888882, nowUtcOverride: withinGrace);
             Assert.True(svc.TryGetSession("JobCleanUser", out var jobCleanSession));
             svc.OnJobProcessExited(888882, abnormalExit: false);
             Assert.Equal(0, jobCleanSession!.ObservedExitCode);
@@ -312,29 +316,51 @@ namespace Shiro.Tests
             using var proc = Process.Start(new ProcessStartInfo
             {
                 FileName = cmdPath,
-                Arguments = "/c exit 0",
+                Arguments = "/c \"more >nul & exit /b 0\"",
+                RedirectStandardInput = true,
                 CreateNoWindow = true,
                 UseShellExecute = false
             });
             Assert.NotNull(proc);
 
-            var acc = new Account { Username = "RealProcCleanUser", UserID = 6005 };
-            svc.RegisterSession(acc, 1818, processId: proc!.Id, nowUtcOverride: DateTime.UtcNow.AddMinutes(-1));
-            await proc.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(5));
-
-            bool closedCleanly = false;
-            for (int i = 0; i < 40; i++)
+            try
             {
-                if (!svc.TryGetSession("RealProcCleanUser", out _))
-                {
-                    closedCleanly = true;
-                    break;
-                }
-                await Task.Delay(25);
-            }
+                Assert.False(proc!.HasExited);
 
-            Assert.True(closedCleanly);
-            Assert.Equal(0, svc.TotalReconnections);
+                var acc = new Account { Username = "RealProcCleanUser", UserID = 6005 };
+                svc.RegisterSession(acc, 1818, processId: proc.Id, nowUtcOverride: DateTime.UtcNow.AddMinutes(-1));
+
+                // Hold stdin open until RegisterSession has synchronously attached ObserveProcessExitImmediateAsync.
+                proc.StandardInput.Close();
+                await proc.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(5));
+                Assert.Equal(0, proc.ExitCode);
+
+                bool closedCleanly = false;
+                for (int i = 0; i < 80; i++)
+                {
+                    if (!svc.TryGetSession("RealProcCleanUser", out _))
+                    {
+                        closedCleanly = true;
+                        break;
+                    }
+                    await Task.Delay(25);
+                }
+
+                Assert.True(closedCleanly);
+                Assert.Equal(0, svc.TotalReconnections);
+            }
+            finally
+            {
+                try
+                {
+                    if (!proc!.HasExited)
+                        proc.Kill(entireProcessTree: true);
+                }
+                catch (InvalidOperationException)
+                {
+                    // Process already exited before cleanup.
+                }
+            }
         }
     }
 }
