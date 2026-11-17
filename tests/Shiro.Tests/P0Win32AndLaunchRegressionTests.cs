@@ -10,7 +10,7 @@ using Xunit;
 
 namespace Shiro.Tests
 {
-    [Collection("StaticSeams")]
+    [Collection("SerialGlobalState")]
     public sealed class P0Win32AndLaunchRegressionTests
     {
         [Fact]
