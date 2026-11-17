@@ -21,6 +21,7 @@ namespace Shiro.Services
         private TaskCompletionSource<bool>? nextSignal;
         private TaskCompletionSource<bool>? idleCompletion;
         private List<LaunchRequest>? activeLaunchList;
+        private readonly HashSet<string> _deferredCaptchaUsernames = new(StringComparer.OrdinalIgnoreCase);
         private bool acceptingAppends;
         private int currentPass1Index = -1;
         private bool disposed;
@@ -57,7 +58,7 @@ namespace Shiro.Services
                 if (requests == null || requests.Count == 0)
                     return true;
 
-                var pendingUsernames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                var pendingUsernames = new HashSet<string>(_deferredCaptchaUsernames, StringComparer.OrdinalIgnoreCase);
                 int startIndex = Math.Max(0, currentPass1Index);
                 for (int i = startIndex; i < activeLaunchList.Count; i++)
                 {
@@ -99,6 +100,9 @@ namespace Shiro.Services
                 .ToList();
             if (launchList.Count == 0)
                 return new LaunchBatchResult(Array.Empty<LaunchProgress>(), false);
+
+            if (cancellationToken.IsCancellationRequested)
+                return new LaunchBatchResult(Array.Empty<LaunchProgress>(), true);
 
             if (!await queueGate.WaitAsync(0, cancellationToken).ConfigureAwait(false))
                 throw new InvalidOperationException("A Roblox launch queue is already running.");
@@ -145,6 +149,12 @@ namespace Shiro.Services
                             totalInPass = launchList.Count;
                             currentPass1Index = pass1Index;
                         }
+                        if (request == null && deferredCaptcha.Count > 0)
+                        {
+                            foreach (var d in deferredCaptcha)
+                                if (!string.IsNullOrEmpty(d.Request.Account?.Username))
+                                    _deferredCaptchaUsernames.Add(d.Request.Account.Username);
+                        }
                     }
 
                     if (request != null)
@@ -153,6 +163,12 @@ namespace Shiro.Services
                         lastSpawnedPid = await RunPass1ItemAsync(
                             request, pass1Index, launchList, totalInPass, safeDelay, asyncJoin,
                             progress, results, deferredCaptcha, lastSpawnedPid, linkedCancellation.Token).ConfigureAwait(false);
+                        lock (stateLock)
+                        {
+                            foreach (var d in deferredCaptcha)
+                                if (!string.IsNullOrEmpty(d.Request.Account?.Username))
+                                    _deferredCaptchaUsernames.Add(d.Request.Account.Username);
+                        }
                         pass1Index++;
                         continue;
                     }
@@ -172,6 +188,7 @@ namespace Shiro.Services
                         if (pass1Index >= launchList.Count && deferredCaptcha.Count == 0)
                         {
                             acceptingAppends = false;
+                            _deferredCaptchaUsernames.Clear();
                             break;
                         }
                     }
@@ -185,6 +202,7 @@ namespace Shiro.Services
                 lock (stateLock)
                 {
                     acceptingAppends = false;
+                    _deferredCaptchaUsernames.Clear();
                     remainingSnapshot = launchList.ToList();
                 }
 

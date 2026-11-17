@@ -72,10 +72,31 @@ namespace Shiro.Services
                     (bool Success, RobloxPresenceEnvelope? Data, System.Net.HttpStatusCode StatusCode, string? ErrorMessage) result;
                     try
                     {
-                        result = await PresenceClient.ExecuteJsonAsync(
-                            new RestRequest("v1/presence/users", Method.Post).AddJsonBody(new RobloxPresenceUsersRequest(batch)),
-                            ShiroAppJson.Default.RobloxPresenceEnvelope,
-                            cancellationToken).ConfigureAwait(false);
+                        Account? proxiedRep = batch
+                            .Select(id => AccountsById.TryGetValue(id, out var a) ? a : null)
+                            .FirstOrDefault(a => a != null && ProxyBindingService.IsProxyRoutingAllowed() && !string.IsNullOrWhiteSpace(a.Proxy));
+                        var req = new RestRequest("v1/presence/users", Method.Post).AddJsonBody(new RobloxPresenceUsersRequest(batch));
+                        if (proxiedRep != null)
+                        {
+                            string cookie = proxiedRep.BuildCookieHeaderValue();
+                            if (!string.IsNullOrEmpty(cookie))
+                                req.AddHeader("Cookie", cookie);
+                            var rawResp = await PresenceClient.ExecuteAsync(
+                                req,
+                                ProxyBindingService.GetClient(proxiedRep),
+                                cancellationToken).ConfigureAwait(false);
+                            var parsed = rawResp.IsSuccessful && !string.IsNullOrWhiteSpace(rawResp.Content)
+                                ? System.Text.Json.JsonSerializer.Deserialize(rawResp.Content, ShiroAppJson.Default.RobloxPresenceEnvelope)
+                                : null;
+                            result = (rawResp.IsSuccessful && parsed != null, parsed, rawResp.StatusCode, rawResp.ErrorMessage);
+                        }
+                        else
+                        {
+                            result = await PresenceClient.ExecuteJsonAsync(
+                                req,
+                                ShiroAppJson.Default.RobloxPresenceEnvelope,
+                                cancellationToken).ConfigureAwait(false);
+                        }
                     }
                     catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                     {
@@ -156,6 +177,7 @@ namespace Shiro.Services
             for (int offset = 0; offset < MissingUniverseIds.Length; offset += 50)
             {
                 cancellationToken.ThrowIfCancellationRequested();
+                await RobloxRateLimitCoordinator.Instance.WaitForBackoffAsync(cancellationToken).ConfigureAwait(false);
                 int batchEnd = Math.Min(offset + 50, MissingUniverseIds.Length);
                 long[] batch = MissingUniverseIds[offset..batchEnd];
                 try
@@ -175,6 +197,7 @@ namespace Shiro.Services
                         continue;
                     }
 
+                    RobloxRateLimitCoordinator.Instance.RecordSuccess(RateLimitCategory.General);
                     if (gamesResult.Data?.data != null)
                     {
                         lock (GameNameCacheLock)
@@ -190,7 +213,9 @@ namespace Shiro.Services
                             foreach (var game in gamesResult.Data.data)
                             {
                                 if (game.id <= 0 || string.IsNullOrWhiteSpace(game.name)) continue;
-                                GameNameCache[game.id] = game.name.Trim();
+                                string cleanName = GameInfoService.SanitizeDisplayTitle(game.name);
+                                if (!string.IsNullOrWhiteSpace(cleanName))
+                                    GameNameCache[game.id] = cleanName;
                             }
                         }
                     }

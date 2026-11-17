@@ -77,6 +77,14 @@ namespace Shiro.Services
                 return IsClientLockedOut(clientKey, nowUtc);
 
             DateTimeOffset now = nowUtc ?? DateTimeOffset.UtcNow;
+            if (ClientFailures.Count > 512)
+            {
+                foreach (var entry in ClientFailures)
+                {
+                    if (entry.Value.LockedUntilUtc != DateTimeOffset.MinValue && entry.Value.LockedUntilUtc <= now)
+                        ClientFailures.TryRemove(entry.Key, out _);
+                }
+            }
             var updated = ClientFailures.AddOrUpdate(
                 clientKey,
                 _ => (1, 1 >= MaxFailedAttempts ? now.Add(LockoutDuration) : DateTimeOffset.MinValue),
@@ -113,9 +121,9 @@ namespace Shiro.Services
 
             return System.Text.RegularExpressions.Regex.Replace(
                 urlOrQuery,
-                @"([?&](?:Password|password|token|Cookie|cookie)=)[^&\s#]*",
+                @"([?&](?:Password|token|Cookie)=)[^&\s#]*",
                 "$1[REDACTED]",
-                System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+                System.Text.RegularExpressions.RegexOptions.CultureInvariant | System.Text.RegularExpressions.RegexOptions.IgnoreCase);
         }
 
         /// <summary>
@@ -135,13 +143,36 @@ namespace Shiro.Services
                    uri.Host.EndsWith(".roblox.com", StringComparison.OrdinalIgnoreCase);
         }
 
+        internal static string StripHostPort(string? hostHeader)
+        {
+            if (string.IsNullOrWhiteSpace(hostHeader)) return string.Empty;
+            string trimmed = hostHeader.Trim();
+            if (trimmed.StartsWith('['))
+            {
+                int closing = trimmed.IndexOf(']');
+                if (closing > 1)
+                    return trimmed.Substring(1, closing - 1);
+            }
+
+            int colon = trimmed.LastIndexOf(':');
+            if (colon > 0 && trimmed.IndexOf(':') == colon)
+                trimmed = trimmed.Substring(0, colon);
+
+            return trimmed.Trim('[', ']');
+        }
+
         public static bool IsLoopbackHostName(string host)
         {
-            if (string.IsNullOrEmpty(host)) return false;
-            host = host.Trim().TrimStart('[').TrimEnd(']');
-            return host.Equals("localhost", StringComparison.OrdinalIgnoreCase) ||
-                   host.Equals("127.0.0.1", StringComparison.Ordinal) ||
-                   host.Equals("::1", StringComparison.Ordinal);
+            string bare = StripHostPort(host);
+            if (string.IsNullOrEmpty(bare)) return false;
+            if (bare.Equals("localhost", StringComparison.OrdinalIgnoreCase)) return true;
+            if (System.Net.IPAddress.TryParse(bare, out var ip))
+            {
+                if (ip.IsIPv4MappedToIPv6)
+                    ip = ip.MapToIPv4();
+                return System.Net.IPAddress.IsLoopback(ip);
+            }
+            return false;
         }
 
         public static bool IsTrustedLocalOrigin(string origin)
@@ -150,6 +181,24 @@ namespace Shiro.Services
             if (!Uri.TryCreate(origin, UriKind.Absolute, out Uri? uri) || uri == null) return false;
             if (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps) return false;
             return IsLoopbackHostName(uri.Host);
+        }
+
+        internal static bool IsOriginAllowed(string origin, string? requestHost, bool allowExternal)
+        {
+            if (string.IsNullOrEmpty(origin) || IsTrustedLocalOrigin(origin))
+                return true;
+
+            if (!allowExternal)
+                return false;
+
+            if (!Uri.TryCreate(origin, UriKind.Absolute, out Uri? originUri) || originUri == null)
+                return false;
+            if (originUri.Scheme != Uri.UriSchemeHttp && originUri.Scheme != Uri.UriSchemeHttps)
+                return false;
+
+            string bareRequestHost = StripHostPort(requestHost);
+            return !string.IsNullOrEmpty(bareRequestHost) &&
+                   string.Equals(originUri.Host, bareRequestHost, StringComparison.OrdinalIgnoreCase);
         }
 
         public static string? ExtractHeaderPassword(Func<string, string?> getHeader)
@@ -196,16 +245,16 @@ namespace Shiro.Services
                 return AuthDecision.ForbiddenExternal;
             }
 
-            // 2. When AllowExternal is false: non-empty host must be loopback (IsLoopbackHostName) -> ForbiddenHost; Origin must be trusted local origin (IsTrustedLocalOrigin) -> ForbiddenOrigin (always checked even when AllowExternal is true).
+            // 2. When AllowExternal is false: Host must be present and loopback; Origin must be allowed for this mode.
             if (!settings.AllowExternal)
             {
-                if (!string.IsNullOrEmpty(request.Host) && !IsLoopbackHostName(request.Host))
+                if (string.IsNullOrWhiteSpace(request.Host) || !IsLoopbackHostName(request.Host))
                 {
                     return AuthDecision.ForbiddenHost;
                 }
             }
 
-            if (!IsTrustedLocalOrigin(request.Origin ?? string.Empty))
+            if (!IsOriginAllowed(request.Origin ?? string.Empty, request.Host, settings.AllowExternal))
             {
                 return AuthDecision.ForbiddenOrigin;
             }

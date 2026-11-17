@@ -15,12 +15,12 @@ namespace Shiro.Services
 {
     public class ProxyItem : INotifyPropertyChanged
     {
-        private static readonly IBrush BrushTesting = new SolidColorBrush(Color.Parse("#F59E0B"));
-        private static readonly IBrush BrushUntested = new SolidColorBrush(Color.Parse("#71717A"));
-        private static readonly IBrush BrushFailed = new SolidColorBrush(Color.Parse("#EF4444"));
-        private static readonly IBrush BrushFast = new SolidColorBrush(Color.Parse("#22C55E"));
-        private static readonly IBrush BrushMedium = new SolidColorBrush(Color.Parse("#EAB308"));
-        private static readonly IBrush BrushSlow = new SolidColorBrush(Color.Parse("#F97316"));
+        private static readonly IBrush BrushTesting = new Avalonia.Media.Immutable.ImmutableSolidColorBrush(Color.Parse("#F59E0B"));
+        private static readonly IBrush BrushUntested = new Avalonia.Media.Immutable.ImmutableSolidColorBrush(Color.Parse("#71717A"));
+        private static readonly IBrush BrushFailed = new Avalonia.Media.Immutable.ImmutableSolidColorBrush(Color.Parse("#EF4444"));
+        private static readonly IBrush BrushFast = new Avalonia.Media.Immutable.ImmutableSolidColorBrush(Color.Parse("#22C55E"));
+        private static readonly IBrush BrushMedium = new Avalonia.Media.Immutable.ImmutableSolidColorBrush(Color.Parse("#EAB308"));
+        private static readonly IBrush BrushSlow = new Avalonia.Media.Immutable.ImmutableSolidColorBrush(Color.Parse("#F97316"));
 
         private string _rawEntry = string.Empty;
         private string _host = string.Empty;
@@ -30,6 +30,7 @@ namespace Shiro.Services
         private string _protocol = "http";
         private long _latencyMs = -1;
         private bool _isTesting;
+        internal bool IsUriEncoded { get; set; }
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -195,113 +196,9 @@ namespace Shiro.Services
             return loaded.Select(p => p.RawEntry).ToList();
         }
 
-        public static ProxyItem? ParseProxy(string? raw)
-        {
-            if (string.IsNullOrWhiteSpace(raw)) return null;
-            ReadOnlySpan<char> trimmedSpan = raw.AsSpan().Trim();
-            if (trimmedSpan.IsEmpty || trimmedSpan[0] == '#') return null;
-
-            string trimmed = trimmedSpan.Length == raw.Length ? raw : trimmedSpan.ToString();
-            string scheme = "http";
-            ReadOnlySpan<char> working = trimmedSpan;
-
-            int schemeIdx = working.IndexOf("://".AsSpan(), StringComparison.Ordinal);
-            if (schemeIdx >= 0)
-            {
-                scheme = working[..schemeIdx].ToString().ToLowerInvariant();
-                working = working[(schemeIdx + 3)..];
-            }
-
-            ReadOnlySpan<char> usernameSpan = ReadOnlySpan<char>.Empty;
-            ReadOnlySpan<char> passwordSpan = ReadOnlySpan<char>.Empty;
-            ReadOnlySpan<char> hostPortSpan = working;
-
-            // 1. Check ip:port:user:pass format first (supports '@' and ':' inside password)
-            Span<Range> colonRanges = stackalloc Range[5];
-            int colonCount = working.Split(colonRanges, ':');
-            if (colonCount >= 4 &&
-                working[colonRanges[0]].IndexOf('@') < 0 &&
-                int.TryParse(working[colonRanges[1]].Trim(), out int colonPort) &&
-                colonPort is > 0 and <= 65535)
-            {
-                ReadOnlySpan<char> hostOnly = working[colonRanges[0]].Trim();
-                if (hostOnly.IsEmpty || hostOnly.IsWhiteSpace())
-                    return null;
-
-                usernameSpan = working[colonRanges[2]].Trim();
-                int passStart = colonRanges[3].Start.GetOffset(working.Length);
-                passwordSpan = working[passStart..].Trim();
-
-                return new ProxyItem
-                {
-                    RawEntry = trimmed,
-                    Protocol = scheme,
-                    Host = hostOnly.ToString(),
-                    Port = colonPort,
-                    Username = usernameSpan.IsEmpty ? string.Empty : usernameSpan.ToString(),
-                    Password = passwordSpan.IsEmpty ? string.Empty : passwordSpan.ToString()
-                };
-            }
-
-            // 2. Handle user:pass@host:port or host:port@user:pass
-            int atIdx = working.LastIndexOf('@');
-            if (atIdx >= 0)
-            {
-                ReadOnlySpan<char> part1 = working[..atIdx];
-                ReadOnlySpan<char> part2 = working[(atIdx + 1)..];
-
-                int part2LastColon = part2.LastIndexOf(':');
-                if (part2LastColon >= 0 && int.TryParse(part2[(part2LastColon + 1)..], out _))
-                {
-                    // user:pass@host:port
-                    hostPortSpan = part2;
-                    int colon = part1.IndexOf(':');
-                    if (colon >= 0)
-                    {
-                        usernameSpan = part1[..colon];
-                        passwordSpan = part1[(colon + 1)..];
-                    }
-                    else
-                    {
-                        usernameSpan = part1;
-                    }
-                }
-                else
-                {
-                    // host:port@user:pass
-                    hostPortSpan = part1;
-                    int colon = part2.IndexOf(':');
-                    if (colon >= 0)
-                    {
-                        usernameSpan = part2[..colon];
-                        passwordSpan = part2[(colon + 1)..];
-                    }
-                    else
-                    {
-                        usernameSpan = part2;
-                    }
-                }
-            }
-
-            // Now extract host and port (explicit port is required)
-            int portSep = hostPortSpan.LastIndexOf(':');
-            if (portSep <= 0 || !int.TryParse(hostPortSpan[(portSep + 1)..].Trim(), out int port) || port is <= 0 or > 65535)
-                return null;
-
-            ReadOnlySpan<char> hostSpan = hostPortSpan[..portSep].Trim();
-            if (hostSpan.IsEmpty || hostSpan.IsWhiteSpace())
-                return null;
-
-            return new ProxyItem
-            {
-                RawEntry = trimmed,
-                Protocol = scheme,
-                Host = hostSpan.ToString(),
-                Port = port,
-                Username = usernameSpan.IsEmpty ? string.Empty : usernameSpan.ToString(),
-                Password = passwordSpan.IsEmpty ? string.Empty : passwordSpan.ToString()
-            };
-        }
+        internal static string FormatHostForUri(string host) => ProxyStringParser.FormatHostForUri(host);
+        internal static string RedactProxy(string? raw) => ProxyStringParser.RedactProxy(raw);
+        public static ProxyItem? ParseProxy(string? raw) => ProxyStringParser.ParseProxy(raw);
 
         public static List<ProxyItem> LoadProxies()
         {
@@ -320,17 +217,21 @@ namespace Shiro.Services
 
             try
             {
-                var lines = File.ReadAllLines(path);
-                foreach (var line in lines)
+                string rawContent = File.ReadAllText(path);
+                string decrypted = CryptoHelper.UnprotectSecretString(rawContent);
+                if (!string.IsNullOrEmpty(decrypted))
                 {
-                    var item = ParseProxy(line);
-                    if (item != null)
-                        list.Add(item);
+                    foreach (string line in decrypted.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries))
+                    {
+                        var item = ParseProxy(line);
+                        if (item != null)
+                            list.Add(item);
+                    }
                 }
             }
             catch (Exception ex)
             {
-                _logger.Error($"[ProxyManagerService] Failed to load proxies: {ex.Message}");
+                _logger.Error($"[ProxyManagerService] Failed to load proxies: {LogRedactor.Redact(ex.Message)}");
             }
 
             lock (CacheLock)
@@ -354,7 +255,9 @@ namespace Shiro.Services
                     .Distinct(StringComparer.OrdinalIgnoreCase)
                     .ToList();
 
-                StoragePaths.AtomicWriteText(path, string.Join(Environment.NewLine, lines));
+                string joined = string.Join(Environment.NewLine, lines);
+                string protectedPayload = string.IsNullOrEmpty(joined) ? string.Empty : CryptoHelper.ProtectSecretString(joined);
+                StoragePaths.AtomicWriteText(path, protectedPayload);
 
                 lock (CacheLock)
                 {
@@ -364,20 +267,10 @@ namespace Shiro.Services
                 }
 
                 var accounts = AppServices.AccountRepository.GetAll();
-                if (accounts.Count > 0)
+                bool useProxies = AppServices.GeneralSettings.Get<bool>(AppSettingsKeys.General.UseProxies, false);
+                if (accounts.Count > 0 && lines.Count > 0 && useProxies)
                 {
-                    if (lines.Count > 0)
-                    {
-                        ProxyBindingService.DistributeProxiesSticky(accounts, lines);
-                    }
-                    else
-                    {
-                        foreach (var account in accounts)
-                        {
-                            if (account != null)
-                                account.Proxy = null;
-                        }
-                    }
+                    ProxyBindingService.DistributeProxiesSticky(accounts, lines);
                 }
 
                 ProxyBindingService.PruneClients(lines);

@@ -147,18 +147,33 @@ namespace Shiro.Services
 
         public async Task<RestResponse?> BlockUserIdAsync(Account account, string userId, bool skipPinCheck = false, bool unblock = false, CancellationToken cancellationToken = default)
         {
+            if (account == null || string.IsNullOrWhiteSpace(account.SecurityToken) ||
+                !long.TryParse(userId?.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out long parsedUserId) || parsedUserId <= 0)
+            {
+                return null;
+            }
+
             var csrf = await account.GetCSRFTokenAsync(cancellationToken).ConfigureAwait(false);
-            if (!csrf.Success) throw new Exception("Invalid X-CSRF-Token");
+            if (!csrf.Success)
+            {
+                _logger.Warn($"[BlockUserIdAsync] Failed to obtain X-CSRF-Token for {account.Username}.");
+                return null;
+            }
             string token = csrf.Token;
 
             string action = unblock ? "unblock-user" : "block-user";
-            RestRequest blockReq = account.MakeRequest($"user-blocking-api/v1/users/{userId}/{action}", Method.Post)
-                .AddHeader("X-CSRF-TOKEN", token)
-                .AddJsonBody(new EmptyJsonObjectPayload());
+            string safeUserId = parsedUserId.ToString(CultureInfo.InvariantCulture);
+            RestResponse? blockRes = await RobloxCsrfRetryHelper.ExecuteWithCsrfRetryAsync(
+                account,
+                AppServices.RobloxApi.Api,
+                "https://apis.roblox.com/",
+                token,
+                tok => account.MakeRequest($"user-blocking-api/v1/users/{safeUserId}/{action}", Method.Post)
+                    .AddHeader("X-CSRF-TOKEN", tok)
+                    .AddJsonBody(new EmptyJsonObjectPayload()),
+                cancellationToken).ConfigureAwait(false);
 
-            RestResponse? blockRes = await account.ExecuteAccountRestAsync(AppServices.RobloxApi.Api, "https://apis.roblox.com/", blockReq, cancellationToken).ConfigureAwait(false);
-
-            _logger.Info($"Block Response for {userId} | Unblocking: {unblock}: [{blockRes?.StatusCode}] {blockRes?.Content}");
+            _logger.Info($"Block Response for {safeUserId} | Unblocking: {unblock}: [{blockRes?.StatusCode}] {blockRes?.Content}");
 
             return blockRes;
         }
@@ -168,6 +183,9 @@ namespace Shiro.Services
 
         public async Task<RestResponse?> GetBlockedListAsync(Account account, CancellationToken cancellationToken = default)
         {
+            if (account == null || string.IsNullOrWhiteSpace(account.SecurityToken))
+                return null;
+
             RestRequest request = account.MakeRequest("user-blocking-api/v1/users/get-blocked-users", Method.Get);
             RestResponse? response = await account.ExecuteAccountRestAsync(AppServices.RobloxApi.Api, "https://apis.roblox.com/", request, cancellationToken).ConfigureAwait(false);
 
@@ -184,24 +202,38 @@ namespace Shiro.Services
             if (blockedIds.Count == 0)
                 return (true, "No blocked users");
 
+            bool allSucceeded = true;
+            string? failureReason = null;
             foreach (long blockedId in blockedIds)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 string userId = blockedId.ToString(CultureInfo.InvariantCulture);
 
-                RestResponse? unblockResponse = await UnblockUserIdAsync(account, userId, true, cancellationToken).ConfigureAwait(false);
+                RestResponse? unblockResponse = await RobloxRateLimitCoordinator.Instance.ExecuteWithPacingAsync(
+                    RateLimitCategory.General,
+                    () => UnblockUserIdAsync(account, userId, true, cancellationToken),
+                    minIntervalMs: 250,
+                    cancellationToken: cancellationToken).ConfigureAwait(false);
                 if (unblockResponse?.IsSuccessful == true)
                     continue;
 
-                await Task.Delay(TimeSpan.FromSeconds(20), cancellationToken).ConfigureAwait(false);
-                cancellationToken.ThrowIfCancellationRequested();
+                if (unblockResponse != null && (int)unblockResponse.StatusCode == 429)
+                    RobloxRateLimitCoordinator.Instance.RecordRateLimitHit(RateLimitCategory.General, defaultBackoffSeconds: 4);
 
-                var retryResponse = await UnblockUserIdAsync(account, userId, true, cancellationToken).ConfigureAwait(false);
+                var retryResponse = await RobloxRateLimitCoordinator.Instance.ExecuteWithPacingAsync(
+                    RateLimitCategory.General,
+                    () => UnblockUserIdAsync(account, userId, true, cancellationToken),
+                    minIntervalMs: 500,
+                    cancellationToken: cancellationToken).ConfigureAwait(false);
                 if (retryResponse == null || !retryResponse.IsSuccessful)
+                {
+                    allSucceeded = false;
+                    failureReason = $"Failed to unblock user {userId} ({retryResponse?.StatusCode}).";
                     break;
+                }
             }
 
-            return (true, "Unblocked everyone");
+            return allSucceeded ? (true, "Unblocked everyone") : (false, failureReason ?? "Failed to unblock everyone");
         }
 
         public async Task<bool> SendFriendRequestAsync(Account account, string username, CancellationToken cancellationToken = default)
@@ -211,8 +243,13 @@ namespace Shiro.Services
             var csrf = await account.GetCSRFTokenAsync(cancellationToken).ConfigureAwait(false);
             if (!csrf.Success) return false;
 
-            RestRequest friendRequest = account.MakeRequest($"/v1/users/{userRes.UserId}/request-friendship", Method.Post).AddHeader("X-CSRF-TOKEN", csrf.Token);
-            RestResponse? response = await account.ExecuteAccountRestAsync(AppServices.RobloxApi.Friends, "https://friends.roblox.com/", friendRequest, cancellationToken).ConfigureAwait(false);
+            RestResponse? response = await RobloxCsrfRetryHelper.ExecuteWithCsrfRetryAsync(
+                account,
+                AppServices.RobloxApi.Friends,
+                "https://friends.roblox.com/",
+                csrf.Token,
+                tok => account.MakeRequest($"/v1/users/{userRes.UserId}/request-friendship", Method.Post).AddHeader("X-CSRF-TOKEN", tok),
+                cancellationToken).ConfigureAwait(false);
 
             return response != null && response.IsSuccessful && response.StatusCode == System.Net.HttpStatusCode.OK;
         }
@@ -224,11 +261,15 @@ namespace Shiro.Services
             if (!csrf.Success || string.IsNullOrEmpty(csrf.Token)) return false;
             string token = csrf.Token;
 
-            RestRequest enterRequest = account.MakeRequest("auth-token-service/v1/login/enterCode", Method.Post)
-                .AddHeader("X-CSRF-TOKEN", token)
-                .AddJsonBody(new QuickLoginCodePayload(code));
-
-            var response = await account.ExecuteAccountRestAsync(AppServices.RobloxApi.Api, "https://apis.roblox.com/", enterRequest, cancellationToken).ConfigureAwait(false);
+            var response = await RobloxCsrfRetryHelper.ExecuteWithCsrfRetryAsync(
+                account,
+                AppServices.RobloxApi.Api,
+                "https://apis.roblox.com/",
+                token,
+                tok => account.MakeRequest("auth-token-service/v1/login/enterCode", Method.Post)
+                    .AddHeader("X-CSRF-TOKEN", tok)
+                    .AddJsonBody(new QuickLoginCodePayload(code)),
+                cancellationToken).ConfigureAwait(false);
 
             if (response != null && response.IsSuccessful && !string.IsNullOrWhiteSpace(response.Content))
             {
@@ -247,11 +288,16 @@ namespace Shiro.Services
 
                 if (Utilities.YesNoPrompt("Quick Log In", "Please confirm you are logging in with this device", $"Device: {deviceInfo}\nLocation: {location}"))
                 {
-                    RestRequest validateRequest = account.MakeRequest("auth-token-service/v1/login/validateCode", Method.Post)
-                        .AddHeader("X-CSRF-TOKEN", token)
-                        .AddJsonBody(new QuickLoginCodePayload(code));
-
-                    var validateResponse = await account.ExecuteAccountRestAsync(AppServices.RobloxApi.Api, "https://apis.roblox.com/", validateRequest, cancellationToken).ConfigureAwait(false);
+                    string validateCsrf = account.CSRFToken ?? token;
+                    var validateResponse = await RobloxCsrfRetryHelper.ExecuteWithCsrfRetryAsync(
+                        account,
+                        AppServices.RobloxApi.Api,
+                        "https://apis.roblox.com/",
+                        validateCsrf,
+                        tok => account.MakeRequest("auth-token-service/v1/login/validateCode", Method.Post)
+                            .AddHeader("X-CSRF-TOKEN", tok)
+                            .AddJsonBody(new QuickLoginCodePayload(code)),
+                        cancellationToken).ConfigureAwait(false);
                     return validateResponse?.IsSuccessful == true;
                 }
             }

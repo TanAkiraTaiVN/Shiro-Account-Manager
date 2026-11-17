@@ -49,8 +49,19 @@ namespace Shiro.Services
                 }
 
                 bool unlockFps = AppServices.GeneralSettings?.Get<bool>("UnlockFPS", false) ?? false;
-                int targetFps = AppServices.GeneralSettings?.Get<int>("MaxFPSValue", 144) ?? 144;
-                ApplyFpsLimit(unlockFps, targetFps, settingsPathOverride);
+                if (unlockFps)
+                {
+                    int targetFps = AppServices.GeneralSettings?.Get<int>("MaxFPSValue", 144) ?? 144;
+                    ApplyFpsLimit(true, targetFps, settingsPathOverride);
+                }
+                else
+                {
+                    // Do not overwrite user's in-game Roblox FPS setting when UnlockFPS is off; only scrub legacy FastFlags.
+                    foreach (var folder in FindRobloxVersionFolders())
+                    {
+                        ScrubLegacyFpsFastFlag(folder.FullName);
+                    }
+                }
 
                 PurgeSettings();
             }
@@ -320,9 +331,10 @@ namespace Shiro.Services
                 using (var subKey = Registry.ClassesRoot.OpenSubKey(@"roblox\DefaultIcon"))
                 {
                     object? regValue = subKey?.GetValue("");
-                    if (regValue is string robloxPath && !string.IsNullOrWhiteSpace(robloxPath))
+                    string cleanPath = NormalizeRegistryExecutablePath(regValue as string);
+                    if (!string.IsNullOrWhiteSpace(cleanPath))
                     {
-                        var regDir = Directory.GetParent(robloxPath);
+                        var regDir = Directory.GetParent(cleanPath);
                         if (regDir != null && regDir.Exists && seenFullNames.Add(regDir.FullName))
                         {
                             folders.Add(regDir);
@@ -336,6 +348,19 @@ namespace Shiro.Services
             }
 
             return folders;
+        }
+
+        internal static string NormalizeRegistryExecutablePath(string? rawValue)
+        {
+            if (string.IsNullOrWhiteSpace(rawValue))
+                return string.Empty;
+
+            string cleaned = rawValue.Trim().Trim('"');
+            int commaIdx = cleaned.IndexOf(',');
+            if (commaIdx > 0)
+                cleaned = cleaned.Substring(0, commaIdx).Trim().Trim('"');
+
+            return cleaned;
         }
     }
 }

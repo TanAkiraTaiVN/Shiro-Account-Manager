@@ -67,12 +67,20 @@ namespace Shiro.Services
         public static Task<string?> EnsureAvatarAsync(long userId, CancellationToken cancellationToken = default)
         {
             if (userId <= 0) return Task.FromResult<string?>(null);
+            if (cancellationToken.IsCancellationRequested)
+                return Task.FromCanceled<string?>(cancellationToken);
 
             string? diskPath = GetDiskCachePath(userId);
             if (!string.IsNullOrEmpty(diskPath) && File.Exists(diskPath))
                 return Task.FromResult<string?>(diskPath);
 
-            return InFlightDownloads.GetOrAdd(userId, id => DownloadAvatarCoreAsync(id, diskPath, cancellationToken));
+            Task<string?> downloadTask = InFlightDownloads.GetOrAdd(
+                userId,
+                id => DownloadAvatarCoreAsync(id, diskPath, CancellationToken.None));
+
+            return cancellationToken.CanBeCanceled
+                ? downloadTask.WaitAsync(cancellationToken)
+                : downloadTask;
         }
 
         private static async Task<string?> DownloadAvatarCoreAsync(long userId, string? diskPath, CancellationToken cancellationToken)

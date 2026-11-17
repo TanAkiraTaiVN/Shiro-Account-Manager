@@ -86,7 +86,15 @@ namespace Shiro.Services
                     {
                         if (Cryptography.IsEncrypted(raw))
                         {
-                            decoded = Cryptography.Decrypt(raw, StoragePaths.GetOrCreateVaultKey());
+                            byte[] keyCopy = StoragePaths.GetOrCreateVaultKeyCopy();
+                            try
+                            {
+                                decoded = Cryptography.Decrypt(raw, keyCopy);
+                            }
+                            finally
+                            {
+                                CryptographicOperations.ZeroMemory(keyCopy);
+                            }
                         }
                         else
                         {
@@ -135,7 +143,7 @@ namespace Shiro.Services
                 IsVaultLockedPendingMasterPassword = false;
                 ReplaceAccountsList(bestRestored);
                 accountDataNeedsMigration |= bestNeedsMigration;
-                PasswordHash = Array.Empty<byte>();
+                ClearPasswordHash();
                 SaveAccounts(true, true);
                 RefreshView();
                 EnableModernDashboard();
@@ -144,6 +152,23 @@ namespace Shiro.Services
             }
 
             return false;
+        }
+
+        internal void SetProtectedPasswordHash(byte[] hash)
+        {
+            byte[] protectedHash = ProtectedData.Protect(hash, Array.Empty<byte>(), DataProtectionScope.CurrentUser);
+            lock (saveLock)
+            {
+                PasswordHash = new ReadOnlyMemory<byte>(protectedHash);
+            }
+        }
+
+        internal void ClearPasswordHash()
+        {
+            lock (saveLock)
+            {
+                PasswordHash = ReadOnlyMemory<byte>.Empty;
+            }
         }
 
         internal string PromoteBackupToPrimary(string saveFilePath, DateTime now)

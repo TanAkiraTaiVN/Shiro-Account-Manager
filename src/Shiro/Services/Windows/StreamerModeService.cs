@@ -130,8 +130,20 @@ namespace Shiro.Services
         [return: MarshalAs(UnmanagedType.Bool)]
         private static partial bool CloseHandle(IntPtr hObject);
 
+        internal static void InitializeForTest()
+        {
+            lock (_lock)
+            {
+                _initialized = false;
+            }
+            Initialize();
+        }
+
+        internal static bool ShouldApplyActiveOnOpened(bool capturedActive) => IsActive;
+
         public static void Initialize()
         {
+            bool shouldUpdateAffinity;
             lock (_lock)
             {
                 if (_initialized) return;
@@ -139,12 +151,15 @@ namespace Shiro.Services
 
                 _isEnabled = AppServices.GeneralSettings.Get<bool>(AppSettingsKeys.General.StreamerModeEnabled, false);
                 _autoDetectEnabled = AppServices.GeneralSettings.Get<bool>(AppSettingsKeys.General.StreamerModeAutoDetect, false);
+                shouldUpdateAffinity = _isEnabled || _autoDetectEnabled;
 
                 if (_autoDetectEnabled)
                 {
                     _detectionTimer = new Timer(CheckStreamingProcesses, null, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(5));
                 }
             }
+            if (shouldUpdateAffinity)
+                UpdateAffinityState();
         }
 
         public static void RegisterWindow(Window window)
@@ -283,7 +298,7 @@ namespace Shiro.Services
                 {
                     window.Opened -= openedHandler;
                     IntPtr openedHwnd = window.TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
-                    ApplyToHwnd(openedHwnd, active);
+                    ApplyToHwnd(openedHwnd, ShouldApplyActiveOnOpened(active));
                 };
                 window.Opened += openedHandler;
                 return;

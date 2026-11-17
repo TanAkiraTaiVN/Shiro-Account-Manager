@@ -159,7 +159,7 @@ namespace Shiro.ViewModels.Dialogs
                         }
                     }).ToList();
 
-                    await Task.WhenAll(cookieTasks).ConfigureAwait(false);
+                    await Task.WhenAll(cookieTasks);
                 }
 
                 var queuedForFastLogin = new List<Account>();
@@ -200,7 +200,7 @@ namespace Shiro.ViewModels.Dialogs
                                     {
                                         _logger.Debug($"Resolve userId for {username} failed: {ex.Message}");
                                     }
-                                }).ConfigureAwait(false);
+                                });
                         }
                         catch (OperationCanceledException)
                         {

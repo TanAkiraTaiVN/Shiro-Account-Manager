@@ -230,7 +230,18 @@ namespace Shiro.AvaloniaUI.Views
                         return;
                     }
 
-                    TxtInAppStatus.Text = Shiro.Services.LocalizationService.Get("FastLogin.CannotLoadLoginPage");
+                    var core = WvBrowser?.CoreWebView2;
+                    AppServices.Logger?.Warn($"[FastLoginDialog] Navigation failed: url={WebAuthPolicy.RedactSensitiveQuery(core?.Source ?? string.Empty)}, http={e.HttpStatusCode}, webError={e.WebErrorStatus}");
+                    var action = await FastLoginCoordinator.ClassifyNavigationFailureAsync(core, e.HttpStatusCode, _restoredModerationAccount != null, _redirectedFromUnauthenticatedModeration);
+                    if (action == WebViewNavigationFailureAction.FallbackModerationToLogin && core != null)
+                    {
+                        await RedirectUnauthenticatedModerationToLoginAsync(core);
+                        return;
+                    }
+
+                    TxtInAppStatus.Text = action == WebViewNavigationFailureAction.ShowHttpError
+                        ? Shiro.Services.LocalizationService.Format("FastLogin.HttpErrorLoadFailed", e.HttpStatusCode)
+                        : Shiro.Services.LocalizationService.Get("FastLogin.CannotLoadLoginPage");
                     TxtInAppStatus.Foreground = Brushes.OrangeRed;
                     return;
                 }
@@ -336,6 +347,7 @@ namespace Shiro.AvaloniaUI.Views
                     core.NavigationCompleted -= OnNavigationCompleted;
                     core.SourceChanged -= OnSourceChanged;
                     core.WebResourceRequested -= OnWebResourceRequested;
+                    core.WebMessageReceived -= OnWebMessageReceived;
                 }
             }
             catch (Exception ex)

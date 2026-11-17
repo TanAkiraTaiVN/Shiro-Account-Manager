@@ -64,14 +64,13 @@ namespace Shiro.Tests
             service.OpenCookieImportDialog(null);
             service.OpenFastLoginDialogBatch(new[] { account });
             service.OpenBulkImportDialog();
-            service.OpenAltGenDialog();
             service.OpenProxyManagerDialog();
             service.OpenAboutDialog();
             service.OpenAccountFieldsDialog(account);
             service.OpenAccountUtilsDialog(account);
             service.OpenMissingAssetsDialog(account, new long[] { 101, 102 });
 
-            Assert.Equal(12, postedActions.Count);
+            Assert.Equal(11, postedActions.Count);
         }
 
         [Fact]

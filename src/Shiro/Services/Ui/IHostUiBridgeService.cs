@@ -26,12 +26,14 @@ namespace Shiro.Services
         void QueueDeferredSaveSettings();
         void SetDashboardStatus(string message);
         void EnsureBackendInitialized();
+        void ShutdownBackend() { }
         void InitializePostStartup();
         Task RestartWebServerAsync(int port, bool allowExternal);
         Task StopWebServerAsync();
         void SetAutoCookieRefreshEnabled(bool enabled);
         Task ResetEncryptionAsync(bool prompt);
         void NotifyAccountsReplaced(IReadOnlyList<Account> accounts) { }
+        void NotifyAccountUpdated(Account account) { }
         void NotifyAccountValidityChanged(Account account, bool isValid) { }
         void NotifyLiveProcessStatusChanged() { }
         void NotifyWindowStatus(string message) { }

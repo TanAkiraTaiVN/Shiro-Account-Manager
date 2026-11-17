@@ -167,6 +167,7 @@ namespace Shiro.Tests
             }
             finally
             {
+                RobloxRateLimitCoordinator.Instance.ResetBackoff();
                 try { if (File.Exists(testLog)) File.Delete(testLog); } catch { }
             }
         }

@@ -36,11 +36,12 @@ namespace Shiro.Services
             set => _logger = value ?? throw new ArgumentNullException(nameof(value));
         }
 
-        private static ISettingsService _settings = AppServices.GeneralSettings;
+        private static ISettingsService? _settingsOverride;
+        private static ISettingsService _settings => _settingsOverride ?? AppServices.GeneralSettings;
         public static ISettingsService Settings
         {
             get => _settings;
-            set => _settings = value ?? throw new ArgumentNullException(nameof(value));
+            set => _settingsOverride = value ?? throw new ArgumentNullException(nameof(value));
         }
 
         private static readonly SemaphoreSlim Gate = new(1, 1);
@@ -323,7 +324,7 @@ namespace Shiro.Services
                         await Task.Delay(delay, ct).ConfigureAwait(false);
                     }
 
-                    var httpClient = SharedHttpClient.Get();
+                    var httpClient = SharedHttpClient.GetNoRedirect();
 
                     if (hasDiscord)
                     {
@@ -356,7 +357,9 @@ namespace Shiro.Services
         {
             if (string.IsNullOrWhiteSpace(url) ||
                 !Uri.TryCreate(url, UriKind.Absolute, out Uri? uri) ||
-                uri.Scheme != Uri.UriSchemeHttps)
+                uri.Scheme != Uri.UriSchemeHttps ||
+                !string.IsNullOrEmpty(uri.UserInfo) ||
+                !uri.AbsolutePath.StartsWith("/api/webhooks/", StringComparison.OrdinalIgnoreCase))
             {
                 return false;
             }
@@ -365,6 +368,25 @@ namespace Shiro.Services
                    string.Equals(uri.Host, "discordapp.com", StringComparison.OrdinalIgnoreCase) ||
                    uri.Host.EndsWith(".discord.com", StringComparison.OrdinalIgnoreCase) ||
                    uri.Host.EndsWith(".discordapp.com", StringComparison.OrdinalIgnoreCase);
+        }
+
+        public static bool IsValidTelegramBotToken(string? token)
+        {
+            if (string.IsNullOrWhiteSpace(token))
+                return false;
+
+            string trimmed = token.Trim();
+            int colon = trimmed.IndexOf(':');
+            if (colon <= 0 || colon == trimmed.Length - 1)
+                return false;
+
+            foreach (char c in trimmed.AsSpan(0, colon))
+                if (!char.IsAsciiDigit(c)) return false;
+
+            foreach (char c in trimmed.AsSpan(colon + 1))
+                if (!char.IsAsciiLetterOrDigit(c) && c != '_' && c != '-') return false;
+
+            return true;
         }
 
         private static async Task DispatchDiscordAsync(HttpClient client, string webhookUrl, WebhookAlert alert, CancellationToken ct)
@@ -387,16 +409,22 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                _logger.Warn($"[Webhook] Discord send failed: {ex.Message}");
+                _logger.Warn($"[Webhook] Discord send failed: {LogRedactor.Redact(ex.Message)}");
             }
         }
 
         private static async Task DispatchTelegramAsync(HttpClient client, string token, string chatId, WebhookAlert alert, CancellationToken ct)
         {
+            if (!IsValidTelegramBotToken(token))
+            {
+                _logger.Warn("[Webhook] Blocked Telegram dispatch: bot token format is invalid.");
+                return;
+            }
+
             try
             {
                 string text = FormatTelegramMessage(alert);
-                string endpoint = $"https://api.telegram.org/bot{token}/sendMessage";
+                string endpoint = $"https://api.telegram.org/bot{token.Trim()}/sendMessage";
                 var payload = new TelegramSendMessagePayload(chatId, text, "MarkdownV2");
                 string json = JsonSerializer.Serialize(payload, ShiroAppJson.Default.TelegramSendMessagePayload);
                 using var content = new StringContent(json, Encoding.UTF8, "application/json");
@@ -408,7 +436,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                _logger.Warn($"[Webhook] Telegram send failed: {ex.Message}");
+                _logger.Warn($"[Webhook] Telegram send failed: {LogRedactor.Redact(ex.Message)}");
             }
         }
     }

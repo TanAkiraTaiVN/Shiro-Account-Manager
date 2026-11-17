@@ -64,54 +64,61 @@ namespace Shiro
         [JsonIgnore]
         public string HbaPrivateKey
         {
-            get => GetProtectedField(FieldHbaPrivateKey);
-            set => SetProtectedField(FieldHbaPrivateKey, value);
+            get
+            {
+                MigrateProtectedFieldsFromDictionary();
+                lock (CookieSyncRoot)
+                    return InMemorySecretProtector.Unprotect(_protectedHbaPrivateKey);
+            }
+            set
+            {
+                string normalized = value?.Trim() ?? string.Empty;
+                bool changed;
+                lock (CookieSyncRoot)
+                {
+                    string current = InMemorySecretProtector.Unprotect(_protectedHbaPrivateKey);
+                    changed = !string.Equals(current, normalized, StringComparison.Ordinal);
+                    if (changed)
+                    {
+                        InMemorySecretProtector.ZeroAndClear(ref _protectedHbaPrivateKey);
+                        _protectedHbaPrivateKey = string.IsNullOrEmpty(normalized) ? null : InMemorySecretProtector.Protect(normalized);
+                    }
+                }
+                lock (FieldsSyncRoot)
+                    Fields?.Remove(FieldHbaPrivateKey);
+                if (changed && !IsSuppressingDeferredSave)
+                    IsDirty = true;
+            }
         }
 
-        [JsonIgnore]
-        public string HbaPrivateKeyPkcs8
+        internal void MigrateProtectedFieldsFromDictionary()
         {
-            get => HbaPrivateKey;
-            set => HbaPrivateKey = value;
+            string? legacyPriv = null;
+            lock (FieldsSyncRoot)
+            {
+                if (Fields != null && Fields.TryGetValue(FieldHbaPrivateKey, out string? raw))
+                {
+                    legacyPriv = raw?.Trim();
+                    Fields.Remove(FieldHbaPrivateKey);
+                }
+            }
+            if (!string.IsNullOrEmpty(legacyPriv))
+            {
+                lock (CookieSyncRoot)
+                {
+                    if (_protectedHbaPrivateKey == null)
+                        _protectedHbaPrivateKey = InMemorySecretProtector.Protect(legacyPriv);
+                }
+            }
         }
 
-        [JsonIgnore]
-        public string HbaPublicKey
-        {
-            get => GetProtectedField(FieldHbaPublicKey);
-            set => SetProtectedField(FieldHbaPublicKey, value);
-        }
-
-        [JsonIgnore]
-        public string HbaPublicKeySpki
-        {
-            get => HbaPublicKey;
-            set => HbaPublicKey = value;
-        }
-
-        [JsonIgnore]
-        public string HbaTemplate
-        {
-            get => GetProtectedField(FieldHbaTemplate);
-            set => SetProtectedField(FieldHbaTemplate, value);
-        }
-
-        [JsonIgnore]
-        public string SessionUserAgent
-        {
-            get => GetProtectedField(FieldSessionUserAgent);
-            set => SetProtectedField(FieldSessionUserAgent, value);
-        }
-
-        [JsonIgnore]
-        public string LastBoundIpSignature
-        {
-            get => GetProtectedField(FieldLastBoundIpSig);
-            set => SetProtectedField(FieldLastBoundIpSig, value);
-        }
-
-        [JsonIgnore]
-        public bool HasHbaBinding => !string.IsNullOrWhiteSpace(HbaPrivateKey);
+        [JsonIgnore] public string HbaPrivateKeyPkcs8 { get => HbaPrivateKey; set => HbaPrivateKey = value; }
+        [JsonIgnore] public string HbaPublicKey { get => GetProtectedField(FieldHbaPublicKey); set => SetProtectedField(FieldHbaPublicKey, value); }
+        [JsonIgnore] public string HbaPublicKeySpki { get => HbaPublicKey; set => HbaPublicKey = value; }
+        [JsonIgnore] public string HbaTemplate { get => GetProtectedField(FieldHbaTemplate); set => SetProtectedField(FieldHbaTemplate, value); }
+        [JsonIgnore] public string SessionUserAgent { get => GetProtectedField(FieldSessionUserAgent); set => SetProtectedField(FieldSessionUserAgent, value); }
+        [JsonIgnore] public string LastBoundIpSignature { get => GetProtectedField(FieldLastBoundIpSig); set => SetProtectedField(FieldLastBoundIpSig, value); }
+        [JsonIgnore] public bool HasHbaBinding => !string.IsNullOrWhiteSpace(HbaPrivateKey);
 
         public void ClearHbaBinding()
         {
@@ -124,29 +131,22 @@ namespace Shiro
         private string GetProtectedField(string key)
         {
             lock (FieldsSyncRoot)
-            {
-                return Fields != null && Fields.TryGetValue(key, out string? val) && val != null
-                    ? val
-                    : string.Empty;
-            }
+                return Fields != null && Fields.TryGetValue(key, out string? val) && val != null ? val : string.Empty;
         }
 
-        private void SetProtectedField(string key, string? value)
+        private void SetProtectedField(string key, string? value, bool ignoreSuppress = false)
         {
             string normalized = value?.Trim() ?? string.Empty;
             lock (FieldsSyncRoot)
             {
                 Fields ??= new Dictionary<string, string>();
                 string current = Fields.TryGetValue(key, out string? existing) && existing != null ? existing : string.Empty;
-                if (!string.Equals(current, normalized, StringComparison.Ordinal))
-                {
-                    if (string.IsNullOrEmpty(normalized))
-                        Fields.Remove(key);
-                    else
-                        Fields[key] = normalized;
-                    if (!IsSuppressingDeferredSave)
-                        IsDirty = true;
-                }
+                if (string.Equals(current, normalized, StringComparison.Ordinal))
+                    return;
+
+                if (string.IsNullOrEmpty(normalized)) Fields.Remove(key);
+                else Fields[key] = normalized;
+                if (ignoreSuppress || !IsSuppressingDeferredSave) IsDirty = true;
             }
         }
 
@@ -307,28 +307,7 @@ namespace Shiro
                 finalUri = ub.Uri;
             }
 
-            string? bodyStr = null;
-            if (isBodyMethod)
-            {
-                if (request.JsonBody != null)
-                {
-                    if (request.JsonBody is string rawJson)
-                        bodyStr = rawJson;
-                    else if (request.JsonBody is System.Text.Json.JsonElement je)
-                        bodyStr = je.GetRawText();
-                    else
-                        bodyStr = FastJson.Serialize(request.JsonBody);
-                }
-                else if (request.StringBody != null)
-                {
-                    bodyStr = request.StringBody;
-                }
-                else if (request.Parameters.Count > 0)
-                {
-                    bodyStr = string.Join("&", request.Parameters.Select(p =>
-                        $"{Uri.EscapeDataString(p.Key).Replace("%20", "+")}={Uri.EscapeDataString(p.Value).Replace("%20", "+")}"));
-                }
-            }
+            string? bodyStr = isBodyMethod ? RestClient.SerializeRequestBodyForSigning(request) : null;
 
             if (RobloxHbaService.TryBuildBoundAuthToken(
                 privKey,

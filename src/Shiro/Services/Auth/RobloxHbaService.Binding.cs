@@ -109,11 +109,25 @@ namespace Shiro.Services
                 catch (Exception ex)
                 {
                     AppServices.Logger.Debug("[RobloxHbaService] Read body content failed", ex);
-                    bodyContent = null;
+                    return false;
                 }
             }
 
-            return TryAttachHbaHeader(request, account, bodyContent);
+            if (TryBuildBoundAuthToken(
+                account.HbaPrivateKeyPkcs8,
+                request.RequestUri.AbsoluteUri,
+                request.Method.Method,
+                bodyContent,
+                account.HbaTemplate,
+                unixTimestampOverride: null,
+                out string token))
+            {
+                request.Headers.Remove(BoundAuthHeaderName);
+                request.Headers.TryAddWithoutValidation(BoundAuthHeaderName, token);
+                return true;
+            }
+
+            return false;
         }
 
         public static async Task<string?> RestoreWebViewModerationSessionAsync(
@@ -130,14 +144,11 @@ namespace Shiro.Services
                 catch (Exception ex) { _logger.Debug($"RestoreWebViewModerationSessionAsync set UserAgent threw: {ex.Message}"); }
             }
 
-            string[] cookieDomains = { ".roblox.com", "www.roblox.com" };
-            foreach (string domain in cookieDomains)
-            {
-                var banCookie = core.CookieManager.CreateCookie(".ROBLOSECURITY", account.SecurityToken, domain, "/");
-                banCookie.IsHttpOnly = true;
-                banCookie.IsSecure = true;
-                core.CookieManager.AddOrUpdateCookie(banCookie);
-            }
+            core.CookieManager.DeleteCookiesWithDomainAndPath(".ROBLOSECURITY", "www.roblox.com", "/");
+            var banCookie = core.CookieManager.CreateCookie(".ROBLOSECURITY", account.SecurityToken, ".roblox.com", "/");
+            banCookie.IsHttpOnly = true;
+            banCookie.IsSecure = true;
+            core.CookieManager.AddOrUpdateCookie(banCookie);
 
             if (!string.IsNullOrWhiteSpace(account.BrowserTrackerID))
             {

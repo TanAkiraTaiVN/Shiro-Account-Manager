@@ -57,7 +57,7 @@ namespace Shiro.ViewModels.Dialogs
             {
                 bool confirmed = await _prompt.ConfirmAsync(
                     LocalizationService.Format("AccountUtils.LogoutOtherSessionsPrompt", _account.Username),
-                    LocalizationService.Get("AccountUtils.ConfirmTitle")).ConfigureAwait(false);
+                    LocalizationService.Get("AccountUtils.ConfirmTitle"));
 
                 if (!confirmed)
                     return;
@@ -66,7 +66,7 @@ namespace Shiro.ViewModels.Dialogs
                 SetStatus(LocalizationService.Get("AccountUtils.SendingLogoutRequest"), StatusKind.Info);
                 try
                 {
-                    bool ok = await _logoutOthers(_account).ConfigureAwait(false);
+                    bool ok = await _logoutOthers(_account);
                     SetStatus(
                         ok ? LocalizationService.Get("AccountUtils.LogoutOtherSessionsSuccess") : LocalizationService.Get("AccountUtils.LogoutOtherSessionsFailed"),
                         ok ? StatusKind.Success : StatusKind.Error);

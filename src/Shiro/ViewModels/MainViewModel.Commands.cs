@@ -55,6 +55,7 @@ namespace Shiro.ViewModels
         public ICommand CheckRobuxAccountCommand { get; private set; } = null!;
         public ICommand OpenProxyManagerCommand { get; private set; } = null!;
         public ICommand CleanSystemTrayCommand { get; private set; } = null!;
+        public IAsyncRelayCommand AuditAllAccountsCommand { get; private set; } = null!;
 
         private void PostStatusMessage(string message)
         {
@@ -172,6 +173,13 @@ namespace Shiro.ViewModels
                 else AppServices.Dialogs.OpenProxyManagerDialog();
             });
 
+            AuditAllAccountsCommand = new AsyncRelayCommand(async () =>
+            {
+                StatusMessage = LocalizationService.Get("Main.AuditAllSessionsDescription");
+                var audited = await AuditAccountSessionsAsync();
+                StatusMessage = LocalizationService.Format("Main.AuditAllSessionsCompleted", audited.Count);
+            });
+
             RefreshAllRobuxCommand = new AsyncRelayCommand(async () =>
             {
                 var validAccounts = _accounts.Where(a => a.Valid && a.UserId > 0 && a.Model != null).ToList();
@@ -190,10 +198,7 @@ namespace Shiro.ViewModels
                     await concurrencyGate.WaitAsync().ConfigureAwait(false);
                     try
                     {
-                        await RobloxRateLimitCoordinator.Instance.ExecuteWithPacingAsync(
-                            RateLimitCategory.General,
-                            () => acc.Model.FetchRobuxBalanceAsync(),
-                            minIntervalMs: 180).ConfigureAwait(false);
+                        await acc.Model.FetchRobuxBalanceAsync().ConfigureAwait(false);
 
                         int current = Interlocked.Increment(ref updated);
                         AppDispatcher.Post(() =>

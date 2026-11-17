@@ -27,7 +27,6 @@ namespace Shiro.Tests
             public void OpenFastLoginDialog(Account? account = null) { }
             public void OpenFastLoginDialogBatch(IReadOnlyList<Account> accounts) { }
             public void OpenBulkImportDialog() { }
-            public void OpenAltGenDialog() { }
             public void OpenProxyManagerDialog() { }
             public void OpenAboutDialog() { }
             public void OpenAccountFieldsDialog(Account account) { }

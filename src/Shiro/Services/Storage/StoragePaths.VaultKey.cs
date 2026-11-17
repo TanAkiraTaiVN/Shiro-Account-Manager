@@ -152,6 +152,12 @@ namespace Shiro.Services
                 }
             }
 
+            if (hasExistingEncryptedVault)
+            {
+                throw new CryptographicException(
+                    $"Encrypted vault exists at '{AccountDataFile}', but vault key at '{keyFile}' is missing or unreadable; refusing to generate an orphan key.");
+            }
+
             byte[] newKey = RandomNumberGenerator.GetBytes(32);
             try
             {
@@ -227,6 +233,24 @@ namespace Shiro.Services
         /// mode the raw 32-byte key is kept so the folder can be moved between machines.
         /// Legacy raw keys are transparently upgraded when not portable.
         /// </summary>
+        internal static bool HasExistingEncryptedVaultFile(string accountDataFile)
+        {
+            try
+            {
+                if (!File.Exists(accountDataFile))
+                    return false;
+
+                Span<byte> header = stackalloc byte[96];
+                using var fs = new FileStream(accountDataFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                int read = fs.Read(header);
+                return read > 0 && Cryptography.IsEncrypted(header.Slice(0, read));
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                return File.Exists(accountDataFile);
+            }
+        }
+
         public static byte[] GetOrCreateVaultKey()
         {
             lock (_vaultKeyLock)
@@ -236,7 +260,7 @@ namespace Shiro.Services
 
                 EnsureInitialized();
                 string keyFile = VaultKeyFile;
-                bool hasExistingEncryptedVault = File.Exists(AccountDataFile);
+                bool hasExistingEncryptedVault = HasExistingEncryptedVaultFile(AccountDataFile);
                 byte[] resolvedKey = LoadOrCreateVaultKeyAtPath(keyFile, hasExistingEncryptedVault);
                 _cachedVaultKey = resolvedKey;
                 return resolvedKey;

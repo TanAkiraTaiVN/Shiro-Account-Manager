@@ -203,7 +203,10 @@ namespace Shiro
             browserService = BrowserService.Default;
 
             if (!AppSettings.Prompts.Exists("VCPrompted") && PrerequisiteService.NeedsVCRedist())
+            {
+                AppSettings.Prompts.Set("VCPrompted", "true");
                 vcredistInstallTask = PrerequisiteService.InstallVCRedistAsync(lifetimeCancellation.Token);
+            }
         }
 
         internal static void EnsureModernGeoIpLink(Shiro.Services.ISettingsService generalSettings)

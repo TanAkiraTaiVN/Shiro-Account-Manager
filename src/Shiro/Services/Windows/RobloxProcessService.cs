@@ -97,12 +97,17 @@ namespace Shiro.Services
                 }
             }
 
-            return GetRunningRobloxPids().Contains(pid);
+            if (Marshal.GetLastWin32Error() != 5) // ERROR_ACCESS_DENIED
+                return false;
+
+            InvalidateSnapshotCache();
+            return GetRunningRobloxPids(includeTrayDaemons: true).Contains(pid);
         }
 
         private const long SnapshotCacheTtlMs = 350;
         private static readonly System.Threading.Lock _snapshotCacheLock = new();
         private static long _lastSnapshotTick = -SnapshotCacheTtlMs * 2;
+        private static long _snapshotEpoch;
         private static int _cachedTotalCount;
         private static int _cachedClientCount;
         private static bool _cachedInstallerRunning;
@@ -112,6 +117,7 @@ namespace Shiro.Services
         {
             lock (_snapshotCacheLock)
             {
+                _snapshotEpoch++;
                 _lastSnapshotTick = -SnapshotCacheTtlMs * 2;
             }
         }
@@ -139,8 +145,10 @@ namespace Shiro.Services
         private static bool TryGetProcessCountsNative(out int totalCount, out int clientCount, List<int>? clientPids = null)
         {
             long now = Environment.TickCount64;
+            long entryEpoch;
             lock (_snapshotCacheLock)
             {
+                entryEpoch = _snapshotEpoch;
                 if (now - _lastSnapshotTick <= SnapshotCacheTtlMs)
                 {
                     totalCount = _cachedTotalCount;
@@ -157,11 +165,14 @@ namespace Shiro.Services
 
             lock (_snapshotCacheLock)
             {
-                _lastSnapshotTick = Environment.TickCount64;
-                _cachedTotalCount = totalCount;
-                _cachedClientCount = clientCount;
-                _cachedInstallerRunning = installerRunning;
-                _cachedClientPids = capturedPids.Count == 0 ? Array.Empty<int>() : capturedPids.ToArray();
+                if (_snapshotEpoch == entryEpoch)
+                {
+                    _lastSnapshotTick = Environment.TickCount64;
+                    _cachedTotalCount = totalCount;
+                    _cachedClientCount = clientCount;
+                    _cachedInstallerRunning = installerRunning;
+                    _cachedClientPids = capturedPids.Count == 0 ? Array.Empty<int>() : capturedPids.ToArray();
+                }
             }
 
             if (clientPids != null && capturedPids.Count > 0)
@@ -309,60 +320,12 @@ namespace Shiro.Services
         /// <summary>
         /// Fast check whether any Roblox game client process is currently running.
         /// </summary>
-        public static bool IsAnyRobloxRunning()
-        {
-            if (TestGetRunningRobloxPidsOverride != null)
-                return TestGetRunningRobloxPidsOverride().Count > 0;
-            if (TryGetProcessCountsNative(out _, out int clientCount))
-                return clientCount > 0;
-
-            try
-            {
-                var procs = Process.GetProcessesByName("RobloxPlayerBeta");
-                bool any = procs != null && procs.Length > 0;
-                if (procs != null)
-                {
-                    foreach (var p in procs)
-                    {
-                        SafeExecuteHelper.Try(() => p.Dispose(), "RobloxProcessService.DisposeProc");
-                    }
-                }
-                return any;
-            }
-            catch (Exception ex)
-            {
-                AppServices.Logger?.Debug($"IsAnyRobloxRunning fallback failed: {ex.Message}");
-                return false;
-            }
-        }
+        public static bool IsAnyRobloxRunning() => GetRunningRobloxCount() > 0;
 
         /// <summary>
         /// Gets the total count of running Roblox game client processes.
         /// </summary>
-        public static int GetRunningRobloxCount()
-        {
-            if (TryGetProcessCountsNative(out _, out int clientCount))
-                return clientCount;
-
-            try
-            {
-                var procs = Process.GetProcessesByName("RobloxPlayerBeta");
-                int count = procs?.Length ?? 0;
-                if (procs != null)
-                {
-                    foreach (var p in procs)
-                    {
-                        SafeExecuteHelper.Try(() => p.Dispose(), "RobloxProcessService.DisposeProc");
-                    }
-                }
-                return count;
-            }
-            catch (Exception ex)
-            {
-                AppServices.Logger?.Debug($"GetRunningRobloxCount fallback failed: {ex.Message}");
-                return 0;
-            }
-        }
+        public static int GetRunningRobloxCount() => GetRunningRobloxPids().Count;
 
         /// <summary>
         /// Gets the total count of all running Roblox processes (clients, crash handlers, launchers).

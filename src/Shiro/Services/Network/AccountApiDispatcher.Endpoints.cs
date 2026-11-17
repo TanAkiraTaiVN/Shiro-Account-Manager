@@ -97,7 +97,20 @@ namespace Shiro.Services
 
             if (method == "ImportCookie")
             {
-                string? cookieVal = req.GetQuery("Cookie");
+                if (webServer == null || !webServer.Get<bool>("AllowAccountEditing"))
+                    return reply("Method `ImportCookie` not allowed", false, 401, "Method not allowed");
+
+                string? cookieVal = !string.IsNullOrWhiteSpace(body) ? body : null;
+                if (cookieVal == null)
+                {
+                    string? queryCookie = req.GetQuery("Cookie");
+                    if (!string.IsNullOrWhiteSpace(queryCookie))
+                    {
+                        if (!req.IsLocal)
+                            return reply("Remote ImportCookie requests must send the cookie in the POST body", false, 400, "Use POST body");
+                        cookieVal = queryCookie;
+                    }
+                }
                 if (string.IsNullOrWhiteSpace(cookieVal))
                     return reply("Cookie parameter required", false, 400, "Missing Cookie");
                 Account? newAcc = await AppServices.AccountRepository.AddOrUpdateAsync(cookieVal).ConfigureAwait(false);
@@ -107,112 +120,8 @@ namespace Shiro.Services
             }
 
             // Global commands (do not require an Account parameter)
-            if (method.Equals("AntiAfk/Status", StringComparison.OrdinalIgnoreCase) || method.Equals("AntiAfkStatus", StringComparison.OrdinalIgnoreCase))
-            {
-                var payload = new AntiAfkStatusPayload(AntiAfkService.IsEnabled, AntiAfkService.TapsSent, AntiAfkService.StatusText);
-                return reply(JsonSerializer.Serialize(payload, ShiroAppJson.Default.AntiAfkStatusPayload), true, -1, null);
-            }
-
-            if (method.Equals("AntiAfk/Toggle", StringComparison.OrdinalIgnoreCase) || method.Equals("ToggleAntiAfk", StringComparison.OrdinalIgnoreCase))
-            {
-                AntiAfkService.Toggle();
-                var payload = new AntiAfkTogglePayload(AntiAfkService.IsEnabled, AntiAfkService.StatusText);
-                return reply(JsonSerializer.Serialize(payload, ShiroAppJson.Default.AntiAfkTogglePayload), true, -1, null);
-            }
-
-            if (method.Equals("AntiAfk/Enable", StringComparison.OrdinalIgnoreCase))
-            {
-                AntiAfkService.Start();
-                var payload = new AntiAfkTogglePayload(AntiAfkService.IsEnabled, AntiAfkService.StatusText);
-                return reply(JsonSerializer.Serialize(payload, ShiroAppJson.Default.AntiAfkTogglePayload), true, -1, null);
-            }
-
-            if (method.Equals("AntiAfk/Disable", StringComparison.OrdinalIgnoreCase))
-            {
-                AntiAfkService.Stop();
-                var payload = new AntiAfkTogglePayload(AntiAfkService.IsEnabled, AntiAfkService.StatusText);
-                return reply(JsonSerializer.Serialize(payload, ShiroAppJson.Default.AntiAfkTogglePayload), true, -1, null);
-            }
-
-            if (method.Equals("Memory/Trim", StringComparison.OrdinalIgnoreCase) || method.Equals("TrimMemory", StringComparison.OrdinalIgnoreCase) || method.Equals("CleanRAM", StringComparison.OrdinalIgnoreCase))
-            {
-                var (bytesSaved, count) = MemoryOptimizer.TrimRobloxClients();
-                var payload = new MemoryTrimPayload(bytesSaved, count);
-                return reply(JsonSerializer.Serialize(payload, ShiroAppJson.Default.MemoryTrimPayload), true, -1, null);
-            }
-
-            if (method.Equals("MultiRoblox/Status", StringComparison.OrdinalIgnoreCase))
-            {
-                var payload = new MultiRobloxStatusPayload(
-                    general.Get<bool>("EnableMultiRbx"),
-                    RobloxSingletonService.StatusText,
-                    RobloxSingletonService.TotalClosed,
-                    RobloxSingletonService.MutexHeld);
-                return reply(JsonSerializer.Serialize(payload, ShiroAppJson.Default.MultiRobloxStatusPayload), true, -1, null);
-            }
-
-            if (method.Equals("MultiRoblox/Toggle", StringComparison.OrdinalIgnoreCase))
-            {
-                bool next = !general.Get<bool>("EnableMultiRbx");
-                general.Set("EnableMultiRbx", next ? "true" : "false");
-                AppServices.HostUiBridge.UpdateMultiRoblox();
-                var payload = new MultiRobloxTogglePayload(next, RobloxSingletonService.StatusText);
-                return reply(JsonSerializer.Serialize(payload, ShiroAppJson.Default.MultiRobloxTogglePayload), true, -1, null);
-            }
-
-            if (method.Equals("Roblox/HideWindows", StringComparison.OrdinalIgnoreCase) || method.Equals("HideWindows", StringComparison.OrdinalIgnoreCase))
-            {
-                var (hidden, total) = RobloxWindowService.HideAllWindows();
-                var payload = new HideWindowsPayload(hidden, total, true);
-                return reply(JsonSerializer.Serialize(payload, ShiroAppJson.Default.HideWindowsPayload), true, -1, null);
-            }
-
-            if (method.Equals("Roblox/ShowWindows", StringComparison.OrdinalIgnoreCase) || method.Equals("ShowWindows", StringComparison.OrdinalIgnoreCase))
-            {
-                var (shown, total) = RobloxWindowService.ShowAllWindows();
-                var payload = new ShowWindowsPayload(shown, total, false);
-                return reply(JsonSerializer.Serialize(payload, ShiroAppJson.Default.ShowWindowsPayload), true, -1, null);
-            }
-
-            if (method.Equals("Roblox/ToggleWindows", StringComparison.OrdinalIgnoreCase) || method.Equals("ToggleWindows", StringComparison.OrdinalIgnoreCase))
-            {
-                var (nowHidden, affected) = RobloxWindowService.ToggleVisibility();
-                var payload = new ToggleWindowsPayload(nowHidden, affected);
-                return reply(JsonSerializer.Serialize(payload, ShiroAppJson.Default.ToggleWindowsPayload), true, -1, null);
-            }
-
-            if (method.Equals("PotatoMode/Toggle", StringComparison.OrdinalIgnoreCase))
-            {
-                bool next = !general.Get<bool>("EnablePotatoMode");
-                general.Set("EnablePotatoMode", next ? "true" : "false");
-                ClientSettingsPatcher.PatchSettings();
-                var payload = new PotatoModeTogglePayload(next);
-                return reply(JsonSerializer.Serialize(payload, ShiroAppJson.Default.PotatoModeTogglePayload), true, -1, null);
-            }
-
-            if (method.Equals("KillRoblox", StringComparison.OrdinalIgnoreCase) || method.Equals("KillAllRoblox", StringComparison.OrdinalIgnoreCase))
-            {
-                AppServices.HostUiBridge.CloseAllRobloxFromUi();
-                return reply("Closed all Roblox processes", true, -1, null);
-            }
-
-            if (method.Equals("AutoReconnect/Status", StringComparison.OrdinalIgnoreCase))
-            {
-                var payload = new AutoReconnectStatusPayload(
-                    AutoReconnectService.Instance.IsEnabled,
-                    AutoReconnectService.Instance.ActiveSessionsCount,
-                    AutoReconnectService.Instance.TotalReconnections);
-                return reply(JsonSerializer.Serialize(payload, ShiroAppJson.Default.AutoReconnectStatusPayload), true, -1, null);
-            }
-
-            if (method.Equals("AutoReconnect/Toggle", StringComparison.OrdinalIgnoreCase))
-            {
-                AutoReconnectService.Instance.IsEnabled = !AutoReconnectService.Instance.IsEnabled;
-                var payload = new AutoReconnectTogglePayload(
-                    AutoReconnectService.Instance.IsEnabled,
-                    AutoReconnectService.Instance.ActiveSessionsCount);
-                return reply(JsonSerializer.Serialize(payload, ShiroAppJson.Default.AutoReconnectTogglePayload), true, -1, null);
-            }
+            if (TryHandleGlobalSystemCommand(method, general, reply) is string globalResult)
+                return globalResult;
 
             if (method.Equals("Accounts/Export", StringComparison.OrdinalIgnoreCase) || method.Equals("ExportAccounts", StringComparison.OrdinalIgnoreCase))
             {
@@ -224,7 +133,7 @@ namespace Shiro.Services
 
                 string formatStr = req.GetQuery("Format") ?? "Json";
                 if (!Enum.TryParse<AccountExportFormat>(formatStr, true, out var exportFormat))
-                    exportFormat = AccountExportFormat.Json;
+                    return reply("Invalid export Format parameter", false, 400, "Invalid Format");
 
                 string? groupFilter = req.GetQuery("Group");
                 var accountsToExport = AppServices.AccountRepository.GetAll();
@@ -244,7 +153,13 @@ namespace Shiro.Services
 
             if (method == "SetProxy")
             {
+                if (webServer == null || !webServer.Get<bool>("AllowAccountEditing"))
+                    return reply("Method `SetProxy` not allowed", false, 401, "Method not allowed");
+
                 string proxy = req.GetQuery("Proxy") ?? req.Body;
+                if (!string.IsNullOrWhiteSpace(proxy) && ProxyBindingService.ParseWebProxy(proxy) == null)
+                    return reply("Invalid proxy format", false, 400, "Invalid proxy");
+
                 ProxyBindingService.AssignProxy(account, proxy);
                 AppServices.AccountRepository.QueueDeferredSave();
                 return reply($"Proxy updated for {account.Username}", true, -1, null);
@@ -314,7 +229,7 @@ namespace Shiro.Services
             if (method == "AppendDescription" && !string.IsNullOrEmpty(body))
             {
                 if (webServer == null || !webServer.Get<bool>("AllowAccountEditing"))
-                    return v2 ? WebServerResponse("Method `AppendDescription` not allowed", false) : "Method not allowed";
+                    return reply("Method `AppendDescription` not allowed", false, 401, "Method not allowed");
 
                 account.Description += body;
                 AppServices.HostUiBridge.RefreshAccountView(account);
@@ -334,8 +249,14 @@ namespace Shiro.Services
                 string? followUser = req.GetQuery("FollowUser");
                 string? joinVip = req.GetQuery("JoinVIP");
 
-                await account.JoinServer(placeId, jobId, followUser == "true", joinVip == "true").ConfigureAwait(false);
-                return reply($"Launched {accountParam} to {placeId}", true, -1, null);
+                var launchResult = await account.JoinServerResult(placeId, jobId, followUser == "true", joinVip == "true").ConfigureAwait(false);
+                if (launchResult.Outcome == LaunchOutcome.Success)
+                    return reply($"Launched {accountParam} to {placeId}", true, -1, null);
+
+                string launchErr = string.IsNullOrWhiteSpace(launchResult.Message)
+                    ? $"Failed to launch {accountParam} to {placeId}"
+                    : launchResult.Message;
+                return reply(launchErr, false, -1, launchErr);
             }
 
             if (method == "FollowUser")
@@ -353,24 +274,35 @@ namespace Shiro.Services
                     return reply($"[{response?.StatusCode} {response?.StatusDescription}] Failed to get UserId: {response?.Content}", false, -1, null);
                 }
 
-                await account.JoinServer(userLookup.UserId, "", true).ConfigureAwait(false);
-                return reply($"Joining {user}'s game on {accountParam}", true, -1, null);
+                var followResult = await account.JoinServerResult(userLookup.UserId, "", true).ConfigureAwait(false);
+                if (followResult.Outcome == LaunchOutcome.Success)
+                    return reply($"Joining {user}'s game on {accountParam}", true, -1, null);
+
+                string followErr = string.IsNullOrWhiteSpace(followResult.Message)
+                    ? $"Failed to follow {user} on {accountParam}"
+                    : followResult.Message;
+                return reply(followErr, false, -1, followErr);
             }
 
-            // Endpoints below interact with authenticated Roblox APIs
-            var csrfResult = await account.GetCSRFTokenAsync().ConfigureAwait(false);
-            if (!csrfResult.Success)
-                return reply("Invalid Account, the account's cookie may have expired and resulted in the account being logged out", false, -1, "Invalid Account");
-
-            string token = csrfResult.Token;
-            if (method == "GetCSRFToken") return reply(token, true, -1, null);
-
-            if (method == "BlockUser" && !string.IsNullOrEmpty(req.GetQuery("UserId")))
+            // Endpoints below validate route & inputs before touching live Roblox CSRF endpoints
+            if (method == "GetCSRFToken")
             {
+                var csrfRes = await account.GetCSRFTokenAsync().ConfigureAwait(false);
+                return csrfRes.Success
+                    ? reply(csrfRes.Token, true, -1, null)
+                    : reply("Invalid Account, the account's cookie may have expired and resulted in the account being logged out", false, -1, "Invalid Account");
+            }
+
+            if (method == "BlockUser")
+            {
+                string? rawUserId = req.GetQuery("UserId");
+                if (!TryParsePositiveUserId(rawUserId, out long targetUserId))
+                    return reply("Invalid UserId parameter", false, 400, "Invalid UserId");
+                if (await TryEnsureCsrfAsync(account, reply).ConfigureAwait(false) is string csrfErr) return csrfErr;
                 try
                 {
-                    var res = await account.BlockUserIdAsync(req.GetQuery("UserId") ?? string.Empty).ConfigureAwait(false);
-                    return reply(res?.Content ?? string.Empty, res?.IsSuccessful == true, res != null ? (int)res.StatusCode : 500, null);
+                    var res = await account.BlockUserIdAsync(targetUserId.ToString(System.Globalization.CultureInfo.InvariantCulture)).ConfigureAwait(false);
+                    return ReplyUpstreamResult(res, reply);
                 }
                 catch (Exception x)
                 {
@@ -379,12 +311,16 @@ namespace Shiro.Services
                 }
             }
 
-            if (method == "UnblockUser" && !string.IsNullOrEmpty(req.GetQuery("UserId")))
+            if (method == "UnblockUser")
             {
+                string? rawUserId = req.GetQuery("UserId");
+                if (!TryParsePositiveUserId(rawUserId, out long targetUserId))
+                    return reply("Invalid UserId parameter", false, 400, "Invalid UserId");
+                if (await TryEnsureCsrfAsync(account, reply).ConfigureAwait(false) is string csrfErr) return csrfErr;
                 try
                 {
-                    var res = await account.UnblockUserIdAsync(req.GetQuery("UserId") ?? string.Empty).ConfigureAwait(false);
-                    return reply(res?.Content ?? string.Empty, res?.IsSuccessful == true, res != null ? (int)res.StatusCode : 500, null);
+                    var res = await account.UnblockUserIdAsync(targetUserId.ToString(System.Globalization.CultureInfo.InvariantCulture)).ConfigureAwait(false);
+                    return ReplyUpstreamResult(res, reply);
                 }
                 catch (Exception x)
                 {
@@ -395,10 +331,11 @@ namespace Shiro.Services
 
             if (method == "GetBlockedList")
             {
+                if (await TryEnsureCsrfAsync(account, reply).ConfigureAwait(false) is string csrfErr) return csrfErr;
                 try
                 {
                     var res = await account.GetBlockedListAsync().ConfigureAwait(false);
-                    return reply(res?.Content ?? string.Empty, res?.IsSuccessful == true, res != null ? (int)res.StatusCode : 500, null);
+                    return ReplyUpstreamResult(res, reply);
                 }
                 catch (Exception x)
                 {
@@ -409,23 +346,45 @@ namespace Shiro.Services
 
             if (method == "UnblockEveryone")
             {
+                if (await TryEnsureCsrfAsync(account, reply).ConfigureAwait(false) is string csrfErr) return csrfErr;
                 (bool success, string message) unblockResult = await account.UnblockEveryoneAsync().ConfigureAwait(false);
                 return reply(unblockResult.message, unblockResult.success, -1, null);
             }
 
-            if (method == "SetServer" && !string.IsNullOrEmpty(req.GetQuery("PlaceId")) && !string.IsNullOrEmpty(req.GetQuery("JobId")))
+            if (method == "SetServer")
             {
-                if (!long.TryParse(req.GetQuery("PlaceId"), out long setServerPlaceId))
+                if (!long.TryParse(req.GetQuery("PlaceId"), out long setServerPlaceId) || setServerPlaceId <= 0)
                     return reply("Invalid PlaceId provided", false, 400, null);
 
                 string? setJobId = req.GetQuery("JobId");
-                if (string.IsNullOrEmpty(setJobId)) return reply("JobId parameter required", false, 400, null);
+                if (string.IsNullOrWhiteSpace(setJobId)) return reply("JobId parameter required", false, 400, null);
+                if (await TryEnsureCsrfAsync(account, reply).ConfigureAwait(false) is string csrfErr) return csrfErr;
                 var (success, message) = await account.SetServerAsync(setServerPlaceId, setJobId).ConfigureAwait(false);
                 return reply(message, success, -1, null);
             }
 
             if (method == "SetRecommendedServer")
             {
+                string? rawPlaceId = req.GetQuery("PlaceId");
+                long targetPlaceId;
+                if (!string.IsNullOrEmpty(rawPlaceId))
+                {
+                    if (!long.TryParse(rawPlaceId, out targetPlaceId) || targetPlaceId <= 0)
+                        return reply("Invalid PlaceId provided", false, 400, null);
+                }
+                else if ((AppServices.ServerBrowserState as ServerBrowserStateService)?.IsPlaceIdExplicitlyCleared == true)
+                {
+                    targetPlaceId = 0;
+                }
+                else
+                {
+                    targetPlaceId = long.TryParse(AppServices.ServerBrowserState.CurrentPlaceId, out var pid) ? pid : 0;
+                }
+
+                if (targetPlaceId <= 0)
+                    return reply("Invalid PlaceId provided", false, 400, null);
+
+                if (await TryEnsureCsrfAsync(account, reply).ConfigureAwait(false) is string csrfErr) return csrfErr;
                 int attempts = 0;
                 var cachedServers = AppServices.ServerBrowserState.CachedServers;
                 ServerData[] serversSnapshot;
@@ -456,10 +415,6 @@ namespace Shiro.Services
                     }
 
                     attempts++;
-                    long targetPlaceId = (!string.IsNullOrEmpty(req.GetQuery("PlaceId")) && long.TryParse(req.GetQuery("PlaceId"), out var reqPid))
-                        ? reqPid
-                        : (long.TryParse(AppServices.ServerBrowserState.CurrentPlaceId, out var pid) ? pid : 0);
-
                     var (iSuccess, iMessage) = await account.SetServerAsync(targetPlaceId, server.id).ConfigureAwait(false);
                     if (iSuccess) return reply(iMessage, true, -1, null);
                 }
@@ -469,6 +424,7 @@ namespace Shiro.Services
 
             if (method == "SetAvatar" && !string.IsNullOrWhiteSpace(body))
             {
+                if (await TryEnsureCsrfAsync(account, reply).ConfigureAwait(false) is string csrfErr) return csrfErr;
                 await account.SetAvatarAsync(body).ConfigureAwait(false);
                 return reply($"Attempting to set avatar of {account.Username} to {body}", true, -1, null);
             }

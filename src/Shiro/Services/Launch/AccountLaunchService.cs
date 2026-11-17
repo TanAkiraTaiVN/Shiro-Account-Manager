@@ -28,9 +28,14 @@ namespace Shiro.Services
         [GeneratedRegex(@"(?:privateServerLinkCode|shareCode|code)=([^&\s]+)", RegexOptions.IgnoreCase)]
         private static partial Regex LinkCodeRegex();
 
-        internal static void AddDirectGameArguments(ProcessStartInfo launchInfo, string ticket, string joinUrl)
+        internal static void AddDirectGameArguments(ProcessStartInfo launchInfo, string ticket, string joinUrl, string? browserTrackerId = null)
         {
             foreach (var a in new[] { "--app", "-t", ticket, "-j", joinUrl }) launchInfo.ArgumentList.Add(a);
+            if (!string.IsNullOrWhiteSpace(browserTrackerId))
+            {
+                launchInfo.ArgumentList.Add("-b");
+                launchInfo.ArgumentList.Add(browserTrackerId.Trim());
+            }
         }
 
         /// <summary>
@@ -161,7 +166,7 @@ namespace Shiro.Services
                 bool preferDirect = AppServices.GeneralSettings.Get<bool>(AppSettingsKeys.General.PreferDirectLaunch, false);
                 if (preferDirect)
                 {
-                    var directResult = RobloxDirectLauncher.LaunchDirect(ticket, joinUrl, username, browserTrackerId, securityToken); directResult.Process?.Dispose();
+                    var directResult = RobloxDirectLauncher.LaunchDirect(ticket, joinUrl, username, browserTrackerId); directResult.Process?.Dispose();
                     if (directResult.Success)
                     {
                         await Task.Delay(250, cancellationToken).ConfigureAwait(false);
@@ -173,7 +178,7 @@ namespace Shiro.Services
                     AppServices.Logger.Info($"[StartNativeGameAsync] Direct binary launch unavailable ({directResult.ErrorMessage}); falling back to URI protocol.");
                 }
 
-                if (HasRobloxPlayerProtocolHandler() || !preferDirect)
+                if (HasRobloxPlayerProtocolHandler())
                 {
                     try
                     {
@@ -225,7 +230,7 @@ namespace Shiro.Services
                     UseShellExecute = false,
                     WorkingDirectory = Path.GetDirectoryName(playerPath) ?? Environment.CurrentDirectory
                 };
-                AddDirectGameArguments(directLaunch, ticket, joinUrl);
+                AddDirectGameArguments(directLaunch, ticket, joinUrl, browserTrackerId);
                 cancellationToken.ThrowIfCancellationRequested();
                 using Process? fallbackProc = Process.Start(directLaunch);
                 if (fallbackProc == null)
@@ -282,7 +287,7 @@ namespace Shiro.Services
             try { ClientSettingsPatcher.PatchSettings(); }
             catch (Exception ex) { AppServices.Logger.Error($"Failed to patch ClientAppSettings: {ex}"); }
 
-            if (AppServices.ServerBrowserState.ShuffleJobId && string.IsNullOrEmpty(jobId))
+            if (AppServices.ServerBrowserState.ShuffleJobId && !followUser && !joinVip && string.IsNullOrEmpty(jobId))
                 jobId = await Utilities.GetRandomJobId(placeId, cancellationToken: cancellationToken).ConfigureAwait(false);
 
             if (TestGetAuthTicketOverride != null)
@@ -329,49 +334,17 @@ namespace Shiro.Services
 
                 if (joinVip)
                 {
-                    var request = account.MakeRequest("user-settings-api/v1/user-settings", Method.Get)
-                        .AddHeader("X-CSRF-TOKEN", token)
-                        .AddHeader("Referer", "https://www.roblox.com/my/account");
-
-                    RestResponse? result = await account.ExecuteAccountRestAsync(AppServices.RobloxApi.Api, "https://apis.roblox.com/", request, cancellationToken).ConfigureAwait(false);
-
-                    bool needsPrivacyUpdate = false;
-                    if (result != null && result.IsSuccessful && !string.IsNullOrEmpty(result.Content))
-                    {
-                        try
-                        {
-                            using var doc = System.Text.Json.JsonDocument.Parse(result.Content);
-                            if (doc.RootElement.TryGetProperty("whoCanInviteMeToPrivateServers", out var prop) &&
-                                prop.ValueKind == System.Text.Json.JsonValueKind.String &&
-                                !string.Equals(prop.GetString(), "AllUsers", StringComparison.OrdinalIgnoreCase))
-                            {
-                                needsPrivacyUpdate = true;
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            AppServices.Logger?.Debug($"Parse private server privacy settings failed: {ex.Message}");
-                        }
-                    }
-
-                    if (needsPrivacyUpdate)
-                    {
-                        bool changePrivacy = TestPrivacyConfirmOverride != null ? TestPrivacyConfirmOverride() : await AppDispatcher.InvokeAsync(() =>
-                            Utilities.YesNoPrompt("Shiro", "Account Manager has detected your account's privacy settings do not allow you to join private servers.", "Would you like to change this setting to Everyone now?")
-                        ).ConfigureAwait(false);
-
-                        if (changePrivacy)
-                        {
-                            var setRequest = account.MakeRequest("user-settings-api/v1/user-settings", Method.Post)
-                                .AddHeader("X-CSRF-TOKEN", token)
-                                .AddHeader("Referer", "https://www.roblox.com/my/account")
-                                .AddJsonBody(new PrivateServerInviteSettingPayload("AllUsers"));
-
-                            var setResponse = await account.ExecuteAccountRestAsync(AppServices.RobloxApi.Api, "https://apis.roblox.com/", setRequest, cancellationToken).ConfigureAwait(false);
-                            if (setResponse == null || !setResponse.IsSuccessful)
-                                return LaunchResult.Fail(LaunchOutcome.Failed, Shiro.Services.LocalizationService.Get("AccountLaunch.PinAuthFailed"));
-                        }
-                    }
+                    bool privacyOk = await RobloxSettingsApiService.Default.EnsurePrivateServerInvitesAllowedAsync(
+                        account,
+                        token,
+                        async () => TestPrivacyConfirmOverride != null
+                            ? TestPrivacyConfirmOverride()
+                            : await AppDispatcher.InvokeAsync(() =>
+                                Utilities.YesNoPrompt("Shiro", "Account Manager has detected your account's privacy settings do not allow you to join private servers.", "Would you like to change this setting to Everyone now?")
+                            ).ConfigureAwait(false),
+                        cancellationToken).ConfigureAwait(false);
+                    if (!privacyOk)
+                        return LaunchResult.Fail(LaunchOutcome.Failed, Shiro.Services.LocalizationService.Get("AccountLaunch.PinAuthFailed"));
                 }
 
                 long launchTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();

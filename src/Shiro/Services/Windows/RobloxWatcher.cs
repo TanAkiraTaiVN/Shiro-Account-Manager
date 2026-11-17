@@ -102,11 +102,13 @@ namespace Shiro.Services
 
         private static ModernPeriodicTask? _watcherLoop;
         private static ModernPeriodicTask? _logReadLoop;
+        internal static DateTime MonitorStartUtc { get; private set; } = DateTime.UtcNow;
 
         public static event EventHandler<EventArgs>? LogFileRead;
 
         public static void Start()
         {
+            MonitorStartUtc = DateTime.UtcNow;
             if (_watcherLoop == null)
             {
                 _watcherLoop = new ModernPeriodicTask(
@@ -119,11 +121,25 @@ namespace Shiro.Services
             {
                 _logReadLoop = new ModernPeriodicTask(
                     TimeSpan.FromSeconds(1),
-                    _ => { LogFileRead?.Invoke(null, EventArgs.Empty); return Task.CompletedTask; },
+                    _ => { RobloxProcess.RaiseLogFileReadSafely(LogFileRead, null, EventArgs.Empty); return Task.CompletedTask; },
                     enabled: true);
             }
 
             StartLogDirectoryWatcher();
+        }
+
+        internal static void ClearAndDisposeTrackedProcesses()
+        {
+            RobloxProcess[] toDispose;
+            lock (InstanceRegistryLock)
+            {
+                toDispose = Instances.ToArray();
+                Instances.Clear();
+                Seen.Clear();
+                _pidMetadataCache.Clear();
+            }
+            for (int i = 0; i < toDispose.Length; i++)
+                SafeExecuteHelper.Try(toDispose[i].Dispose, "RobloxWatcher.DisposeProcess");
         }
 
         public static void Stop()
@@ -137,6 +153,8 @@ namespace Shiro.Services
             _logReadLoop?.Stop();
             _logReadLoop?.Dispose();
             _logReadLoop = null;
+
+            ClearAndDisposeTrackedProcesses();
         }
 
         public static void CheckProcesses()
@@ -144,12 +162,7 @@ namespace Shiro.Services
             var runningPids = RobloxProcessService.GetRunningRobloxPids();
             if (runningPids.Count == 0)
             {
-                lock (InstanceRegistryLock)
-                {
-                    if (Seen.Count > 0) Seen.Clear();
-                    if (Instances.Count > 0) Instances.Clear();
-                    if (_pidMetadataCache.Count > 0) _pidMetadataCache.Clear();
-                }
+                ClearAndDisposeTrackedProcesses();
                 return;
             }
 
@@ -250,9 +263,9 @@ namespace Shiro.Services
                     if (!isFocusedProcess)
                     {
                         long workingSetMb = workingSetBytes / (1024 * 1024);
-                        if (CloseIfMemoryLow && workingSetMb > 0 && workingSetMb < MemoryLowValue)
+                        if (ShouldCloseForMemoryThreshold(CloseIfMemoryLow, workingSetMb, MemoryLowValue))
                         {
-                            KillNative(pid, $"Low Memory ({workingSetMb} < {MemoryLowValue})");
+                            KillNative(pid, $"High Memory ({workingSetMb} > {MemoryLowValue} MB)");
                             continue;
                         }
 
@@ -451,6 +464,9 @@ namespace Shiro.Services
                 CloseHandle(hProcess);
             }
         }
+
+        internal static bool ShouldCloseForMemoryThreshold(bool closeIfEnabled, long workingSetMb, int thresholdMb)
+            => closeIfEnabled && workingSetMb > 0 && thresholdMb > 0 && workingSetMb > thresholdMb;
 
         internal static void RemoveProcessMetadata(int pid)
         {

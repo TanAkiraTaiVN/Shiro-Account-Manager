@@ -100,7 +100,6 @@ namespace Shiro.Services
     [JsonSerializable(typeof(Batch.BatchRequestPayload[]))]
     [JsonSerializable(typeof(EmptyJsonObjectPayload))]
     [JsonSerializable(typeof(UsernamesLookupPayload))]
-    [JsonSerializable(typeof(BloxGenGenerateRequest))]
     [JsonSerializable(typeof(PrivateServerInviteSettingPayload))]
     [JsonSerializable(typeof(CatalogItemDetailsItemPayload))]
     [JsonSerializable(typeof(CatalogItemDetailsBatchRequest))]
@@ -117,6 +116,8 @@ namespace Shiro.Services
     [JsonSerializable(typeof(AvatarV4BodyColors))]
     [JsonSerializable(typeof(AvatarV4Asset))]
     [JsonSerializable(typeof(AvatarV4Asset[]))]
+    [JsonSerializable(typeof(TokenRequest))]
+    [JsonSerializable(typeof(List<TokenRequest>))]
     [JsonSerializable(typeof(string[]))]
     [JsonSerializable(typeof(long[]))]
     internal partial class ShiroAppJson : JsonSerializerContext
@@ -125,11 +126,6 @@ namespace Shiro.Services
 
     internal readonly record struct EmptyJsonObjectPayload();
     internal readonly record struct UsernamesLookupPayload(string[] usernames);
-    internal readonly record struct BloxGenGenerateRequest(
-        [property: JsonPropertyName("apiKey")] string apiKey,
-        [property: JsonPropertyName("type")] string type,
-        [property: JsonPropertyName("continent"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? continent = null,
-        [property: JsonPropertyName("region"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? region = null);
     internal readonly record struct PrivateServerInviteSettingPayload(string whoCanInviteMeToPrivateServers);
     internal readonly record struct CatalogItemDetailsItemPayload(
         [property: JsonPropertyName("itemType")] string itemType,
@@ -158,13 +154,23 @@ namespace Shiro.Services
         [property: JsonPropertyName("client_id")] string client_id);
 
     internal readonly record struct DiscordTimestampsPayload(
-        [property: JsonPropertyName("start")] long? start);
+        [property: JsonPropertyName("start")]
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        long? start);
 
     internal readonly record struct DiscordAssetsPayload(
-        [property: JsonPropertyName("large_image")] string? large_image,
-        [property: JsonPropertyName("large_text")] string? large_text,
-        [property: JsonPropertyName("small_image")] string? small_image,
-        [property: JsonPropertyName("small_text")] string? small_text);
+        [property: JsonPropertyName("large_image")]
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        string? large_image,
+        [property: JsonPropertyName("large_text")]
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        string? large_text,
+        [property: JsonPropertyName("small_image")]
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        string? small_image,
+        [property: JsonPropertyName("small_text")]
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        string? small_text);
 
     internal readonly record struct DiscordButtonPayload(
         [property: JsonPropertyName("label")] string label,

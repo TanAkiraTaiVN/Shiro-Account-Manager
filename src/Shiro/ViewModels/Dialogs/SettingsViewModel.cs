@@ -8,7 +8,7 @@ using Shiro.Services;
 
 namespace Shiro.ViewModels.Dialogs
 {
-    public sealed class SettingsViewModel : DialogViewModelBase
+    public sealed partial class SettingsViewModel : DialogViewModelBase
     {
         private readonly AppSettings _settings;
         private readonly ISettingsService _general;
@@ -66,6 +66,7 @@ namespace Shiro.ViewModels.Dialogs
             CleanTrayCommand = new RelayCommand(CleanTray);
             ClearAvatarCacheCommand = new RelayCommand(ClearAvatarCache);
             ChangeMasterPasswordCommand = TrackCommand(new AsyncRelayCommand(ChangeMasterPasswordAsync, () => !IsBusy));
+            InitializeAdvancedCommands();
         }
 
         public int SelectedLanguageIndex
@@ -240,8 +241,8 @@ namespace Shiro.ViewModels.Dialogs
                 AntiAfk = AntiAfkService.IsEnabled;
                 AutoMute = _general.Exists(AppSettingsKeys.General.AutoMuteBackgroundClients)
                     && _general.Get<bool>(AppSettingsKeys.General.AutoMuteBackgroundClients);
-                AggressiveRamTrim = !_general.Exists(AppSettingsKeys.General.AggressiveRamTrimming)
-                    || _general.Get<bool>(AppSettingsKeys.General.AggressiveRamTrimming);
+                AggressiveRamTrim = _general.Exists(AppSettingsKeys.General.AggressiveRamTrimming)
+                    && _general.Get<bool>(AppSettingsKeys.General.AggressiveRamTrimming);
 
                 int rawCpu = _general.Exists(AppSettingsKeys.General.MaxTotalRobloxCpuPercent)
                     ? _general.Get<int>(AppSettingsKeys.General.MaxTotalRobloxCpuPercent)
@@ -259,6 +260,7 @@ namespace Shiro.ViewModels.Dialogs
 
                 AutoCookieRefresh = _settings.AutoCookieRefresh;
                 SavePasswords = _settings.SavePasswords;
+                LoadAdvanced();
             }
             catch (Exception ex)
             {
@@ -374,6 +376,7 @@ namespace Shiro.ViewModels.Dialogs
                 }
 
                 _settings.SavePasswords = SavePasswords;
+                SaveAdvanced();
                 _effects.QueueDeferredSave();
 
                 _ = ShowSaveFeedbackAsync(LocalizationService.Get("Settings.SaveSuccess"));

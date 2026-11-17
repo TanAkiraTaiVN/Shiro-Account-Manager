@@ -21,9 +21,16 @@ namespace Shiro.Services
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
-        public async Task<(bool IsBanned, string? IssueBadge, string? Reason)> CheckModerationStatusAsync(
+        public Task<(bool IsBanned, string? IssueBadge, string? Reason)> CheckModerationStatusAsync(
             Account account,
             string token,
+            CancellationToken cancellationToken) =>
+            CheckModerationStatusAsync(account, token, null, cancellationToken);
+
+        internal async Task<(bool IsBanned, string? IssueBadge, string? Reason)> CheckModerationStatusAsync(
+            Account account,
+            string token,
+            HttpClient? httpClientOverride,
             CancellationToken cancellationToken)
         {
             if (account == null) return (false, null, null);
@@ -33,7 +40,7 @@ namespace Shiro.Services
                 using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
                 linkedCts.CancelAfter(TimeSpan.FromMilliseconds(2500));
 
-                HttpClient httpClient = account.GetSessionHttpClient(allowAutoRedirect: false);
+                HttpClient httpClient = httpClientOverride ?? account.GetSessionHttpClient(allowAutoRedirect: false);
 
                 // 1. Probe official JSON moderation endpoint (usermoderation.roblox.com/v1/not-approved) first.
                 // Unlike www.roblox.com/home, this API endpoint is not blocked by Vietnam ISP SNI filters and returns
@@ -84,17 +91,23 @@ namespace Shiro.Services
 
                 if (response.StatusCode == System.Net.HttpStatusCode.OK)
                 {
-                    return (false, null, null);
+                    string okUrl = response.RequestMessage?.RequestUri?.AbsoluteUri ?? string.Empty;
+                    string html = await response.Content.ReadAsStringAsync(linkedCts.Token).ConfigureAwait(false);
+                    if (IsUnauthenticatedModerationResponse(html) || IsLoginPageHtml(html))
+                    {
+                        account.AccountStatusIssue = string.Empty;
+                        return (false, null, null);
+                    }
+                    return DispatchModerationAlertIfBanned(account, ParseModerationText(html, okUrl));
                 }
 
                 string redirectLocation = response.Headers.Location?.ToString() ?? string.Empty;
                 if (!string.IsNullOrEmpty(redirectLocation))
                 {
-                    if (redirectLocation.StartsWith("http", StringComparison.OrdinalIgnoreCase) &&
-                        Uri.TryCreate(redirectLocation, UriKind.Absolute, out Uri? redirUri) &&
-                        redirUri != null &&
-                        !redirUri.Host.Equals("roblox.com", StringComparison.OrdinalIgnoreCase) &&
-                        !redirUri.Host.EndsWith(".roblox.com", StringComparison.OrdinalIgnoreCase))
+                    if (!Uri.TryCreate(new Uri("https://www.roblox.com/home"), redirectLocation, out Uri? redirUri) ||
+                        redirUri.Scheme != Uri.UriSchemeHttps ||
+                        (!redirUri.Host.Equals("roblox.com", StringComparison.OrdinalIgnoreCase) &&
+                         !redirUri.Host.EndsWith(".roblox.com", StringComparison.OrdinalIgnoreCase)))
                     {
                         return (false, null, null);
                     }
@@ -122,9 +135,14 @@ namespace Shiro.Services
                     {
                         try
                         {
-                            string targetUrl = redirectLocation.StartsWith("http", StringComparison.OrdinalIgnoreCase)
-                                ? redirectLocation
-                                : $"https://www.roblox.com{redirectLocation}";
+                            if (!Uri.TryCreate(new Uri("https://www.roblox.com/home"), redirectLocation, out Uri? safeModUri) ||
+                                safeModUri.Scheme != Uri.UriSchemeHttps ||
+                                (!safeModUri.Host.Equals("roblox.com", StringComparison.OrdinalIgnoreCase) &&
+                                 !safeModUri.Host.EndsWith(".roblox.com", StringComparison.OrdinalIgnoreCase)))
+                            {
+                                return (false, null, null);
+                            }
+                            string targetUrl = safeModUri.AbsoluteUri;
 
                             using var modReq = account.CreateAuthenticatedGetRequest(targetUrl, "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8", tokenOverride: token);
                             using var modRes = await httpClient.SendAsync(modReq, HttpCompletionOption.ResponseContentRead, linkedCts.Token).ConfigureAwait(false);

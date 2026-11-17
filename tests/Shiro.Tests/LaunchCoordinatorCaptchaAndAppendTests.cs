@@ -347,59 +347,69 @@ namespace Shiro.Tests
         [Fact]
         public async Task TryAppendRequests_WhileQueueRunning_AppendsNewAccountsAndSkipsDuplicatePending()
         {
-            var firstStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-            var releaseFirst = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-            var executionOrder = new List<string>();
-
-            var coordinator = new LaunchCoordinator(async (req, ct) =>
+            var prevUnlockOverride = LaunchCoordinator.TestWaitForClientUnlockedOverride;
+            using var _settingsScope = AppServices.Override(CreateSettingsWithWaitForCaptcha(waitForCaptcha: false));
+            LaunchCoordinator.TestWaitForClientUnlockedOverride = (_, _, _) => Task.FromResult(true);
+            try
             {
-                executionOrder.Add(req.Account.Username);
-                if (req.Account.Username == "A1")
+                var firstStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+                var releaseFirst = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+                var executionOrder = new List<string>();
+
+                var coordinator = new LaunchCoordinator(async (req, ct) =>
                 {
-                    firstStarted.TrySetResult(true);
-                    await releaseFirst.Task.ConfigureAwait(false);
-                }
-                return LaunchResult.Success();
-            });
+                    executionOrder.Add(req.Account.Username);
+                    if (req.Account.Username == "A1")
+                    {
+                        firstStarted.TrySetResult(true);
+                        await releaseFirst.Task.ConfigureAwait(false);
+                    }
+                    return LaunchResult.Success();
+                });
 
-            var a1 = new Account { Username = "A1", Valid = true };
-            var a2 = new Account { Username = "A2", Valid = true };
-            var a3 = new Account { Username = "A3", Valid = true };
-            var a4 = new Account { Username = "A4", Valid = true };
+                var a1 = new Account { Username = "A1", Valid = true };
+                var a2 = new Account { Username = "A2", Valid = true };
+                var a3 = new Account { Username = "A3", Valid = true };
+                var a4 = new Account { Username = "A4", Valid = true };
 
-            Assert.False(coordinator.TryAppendRequests(new[] { new LaunchRequest(a3, 1, "", false, false) }, out int preCount));
-            Assert.Equal(0, preCount);
+                Assert.False(coordinator.TryAppendRequests(new[] { new LaunchRequest(a3, 1, "", false, false) }, out int preCount));
+                Assert.Equal(0, preCount);
 
-            var batchTask = coordinator.EnqueueAsync(
-                new[]
-                {
-                    new LaunchRequest(a1, 100, "", false, false),
-                    new LaunchRequest(a2, 100, "", false, false)
-                },
-                delaySeconds: 0,
-                asyncJoin: false,
-                progress: null);
+                var batchTask = coordinator.EnqueueAsync(
+                    new[]
+                    {
+                        new LaunchRequest(a1, 100, "", false, false),
+                        new LaunchRequest(a2, 100, "", false, false)
+                    },
+                    delaySeconds: 0,
+                    asyncJoin: false,
+                    progress: null);
 
-            await firstStarted.Task;
+                await firstStarted.Task;
 
-            bool accepted = coordinator.TryAppendRequests(
-                new[]
-                {
-                    new LaunchRequest(a2, 100, "", false, false),
-                    new LaunchRequest(a3, 100, "", false, false),
-                    new LaunchRequest(a4, 100, "", false, false)
-                },
-                out int appendedCount);
+                bool accepted = coordinator.TryAppendRequests(
+                    new[]
+                    {
+                        new LaunchRequest(a2, 100, "", false, false),
+                        new LaunchRequest(a3, 100, "", false, false),
+                        new LaunchRequest(a4, 100, "", false, false)
+                    },
+                    out int appendedCount);
 
-            Assert.True(accepted);
-            Assert.Equal(2, appendedCount);
+                Assert.True(accepted);
+                Assert.Equal(2, appendedCount);
 
-            releaseFirst.TrySetResult(true);
-            var batch = await batchTask;
+                releaseFirst.TrySetResult(true);
+                var batch = await batchTask;
 
-            Assert.Equal(new[] { "A1", "A2", "A3", "A4" }, executionOrder);
-            Assert.Equal(4, batch.Results.Count);
-            Assert.All(batch.Results, r => Assert.Equal(LaunchOutcome.Success, r.Status));
+                Assert.Equal(new[] { "A1", "A2", "A3", "A4" }, executionOrder);
+                Assert.Equal(4, batch.Results.Count);
+                Assert.All(batch.Results, r => Assert.Equal(LaunchOutcome.Success, r.Status));
+            }
+            finally
+            {
+                LaunchCoordinator.TestWaitForClientUnlockedOverride = prevUnlockOverride;
+            }
         }
     }
 }

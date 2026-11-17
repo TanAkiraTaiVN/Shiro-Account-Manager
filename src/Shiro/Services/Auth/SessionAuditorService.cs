@@ -88,7 +88,8 @@ namespace Shiro.Services
                    url.Contains("/moderation", StringComparison.OrdinalIgnoreCase) ||
                    url.Contains("/banned", StringComparison.OrdinalIgnoreCase) ||
                    url.Contains("/account-status", StringComparison.OrdinalIgnoreCase) ||
-                   url.Contains("/account-locked", StringComparison.OrdinalIgnoreCase);
+                   url.Contains("/account-locked", StringComparison.OrdinalIgnoreCase) ||
+                   url.Contains("/security-notification", StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>
@@ -123,7 +124,7 @@ namespace Shiro.Services
 
             try
             {
-                HttpClient client = GetHttpClient(account, allowAutoRedirect: true);
+                HttpClient client = GetHttpClient(account, allowAutoRedirect: false);
 
                 // 1. Session health probe via /v1/users/authenticated
                 using var request = account.CreateAuthenticatedGetRequest("https://users.roblox.com/v1/users/authenticated");
@@ -139,6 +140,12 @@ namespace Shiro.Services
                 {
                     status = AccountSessionStatus.Moderated;
                 }
+                else if ((int)response.StatusCode >= 300 && (int)response.StatusCode < 400 &&
+                         (redirectLocation.Contains("/login", StringComparison.OrdinalIgnoreCase) ||
+                          redirectLocation.Contains("NewLogin", StringComparison.OrdinalIgnoreCase)))
+                {
+                    status = AccountSessionStatus.ExpiredCookie;
+                }
 
                 string responseBody = string.Empty;
                 if (status == AccountSessionStatus.VerificationRequired || status == AccountSessionStatus.Valid)
@@ -148,7 +155,29 @@ namespace Shiro.Services
                 }
 
                 bool alertAlreadyDispatched = false;
-                if (status == AccountSessionStatus.VerificationRequired)
+                bool confirmedBySecondary = false;
+                if (status == AccountSessionStatus.ExpiredCookie)
+                {
+                    if (await ValidateSecondaryWithRotationAsync(account, () => client, ct).ConfigureAwait(false))
+                    {
+                        status = AccountSessionStatus.Valid;
+                        confirmedBySecondary = true;
+                    }
+                    else
+                    {
+                        var (probedBan, probedBadge, _) = await RobloxModerationService.Instance
+                            .CheckModerationStatusAsync(account, account.SecurityToken, TestHttpClientFactory != null ? client : null, ct)
+                            .ConfigureAwait(false);
+                        if (probedBan)
+                        {
+                            status = AccountSessionStatus.Moderated;
+                            alertAlreadyDispatched = true;
+                            if (!string.IsNullOrEmpty(probedBadge))
+                                account.AccountStatusIssue = probedBadge;
+                        }
+                    }
+                }
+                else if (status == AccountSessionStatus.VerificationRequired)
                 {
                     string modCode = FastLoginCoordinator.ClassifyAuthOrModerationApiPayload(responseBody, (int)response.StatusCode);
                     if (!string.IsNullOrEmpty(modCode) && modCode != "UNAUTHENTICATED_MODERATION" && modCode != "WRONG_PASSWORD")
@@ -162,7 +191,7 @@ namespace Shiro.Services
                     if (status != AccountSessionStatus.Moderated)
                     {
                         var (probedBan, probedBadge, _) = await RobloxModerationService.Instance
-                            .CheckModerationStatusAsync(account, account.SecurityToken, ct)
+                            .CheckModerationStatusAsync(account, account.SecurityToken, TestHttpClientFactory != null ? client : null, ct)
                             .ConfigureAwait(false);
                         if (probedBan)
                         {
@@ -210,29 +239,44 @@ namespace Shiro.Services
                     };
                 }
 
-                account.Valid = true;
-                account.AccountStatusIssue = string.Empty;
                 string userJson = responseBody;
                 long userId = account.UserID;
-
+                RobloxAuthenticatedUser? authUser = null;
                 if (!string.IsNullOrWhiteSpace(userJson))
                 {
                     try
                     {
-                        var authUser = JsonSerializer.Deserialize(userJson, ShiroAppJson.Default.RobloxAuthenticatedUser);
-                        if (authUser != null && authUser.Id > 0)
-                        {
-                            userId = authUser.Id;
-                            if (account.UserID <= 0) account.UserID = authUser.Id;
-                            if (string.IsNullOrEmpty(account.Username) && !string.IsNullOrEmpty(authUser.Name))
-                                account.Username = authUser.Name;
-                        }
+                        authUser = JsonSerializer.Deserialize(userJson, ShiroAppJson.Default.RobloxAuthenticatedUser);
                     }
                     catch (Exception ex)
                     {
                         _staticLogger.Debug($"[SessionAuditor] Failed to deserialize user info for {account.Username}: {ex.Message}");
                     }
                 }
+
+                if (!confirmedBySecondary && (authUser == null || authUser.Id <= 0))
+                {
+                    account.Valid = false;
+                    return new AccountSessionAuditResult
+                    {
+                        Status = AccountSessionStatus.ExpiredCookie,
+                        RobuxBalance = account.RobuxBalance > 0 ? account.RobuxBalance : 0,
+                        PendingRobux = account.PendingRobux,
+                        AuditedAt = DateTimeOffset.UtcNow,
+                        Message = "Authenticated response was not valid JSON"
+                    };
+                }
+
+                if (authUser != null && authUser.Id > 0)
+                {
+                    userId = authUser.Id;
+                    if (account.UserID <= 0) account.UserID = authUser.Id;
+                    if (string.IsNullOrEmpty(account.Username) && !string.IsNullOrEmpty(authUser.Name))
+                        account.Username = authUser.Name;
+                }
+
+                account.Valid = true;
+                account.AccountStatusIssue = string.Empty;
 
                 long robuxBalance = account.RobuxBalance > 0 ? account.RobuxBalance : 0;
                 long pendingRobux = account.PendingRobux;
@@ -368,6 +412,58 @@ namespace Shiro.Services
 
             await Task.WhenAll(tasks).ConfigureAwait(false);
             return results;
+        }
+
+        internal static async Task<bool> ValidateSecondaryWithRotationAsync(
+            Account account,
+            Func<HttpClient> clientFactory,
+            CancellationToken cancellationToken)
+        {
+            for (int attempt = 0; attempt < 2; attempt++)
+            {
+                try
+                {
+                    int versionBefore = account.CookieRotationVersion;
+                    HttpClient httpClient = clientFactory();
+                    using var request = account.CreateAuthenticatedGetRequest("https://friends.roblox.com/v1/my/friends/count");
+                    using HttpResponseMessage response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+                    account.TryUpdateRotatedCookie(response);
+
+                    if (response.StatusCode == HttpStatusCode.Unauthorized)
+                    {
+                        if (attempt == 0 && account.CookieRotationVersion != versionBefore) continue;
+                        _staticLogger.Warn($"[ValidateViaSecondaryEndpointAsync] {account.Username}: Received 401 on friends.roblox.com. Cookie expired.");
+                        return false;
+                    }
+
+                    if (response.StatusCode == HttpStatusCode.OK)
+                    {
+                        string body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+                        if (!string.IsNullOrWhiteSpace(body))
+                        {
+                            if (FastJson.TryDeserialize<RobloxFriendsCountResponse>(body, out var friendsRsp) && friendsRsp != null)
+                                return true;
+                            try
+                            {
+                                using var cDoc = JsonDocument.Parse(body);
+                                if (cDoc.RootElement.TryGetProperty("count", out _)) return true;
+                            }
+                            catch (Exception ex)
+                            {
+                                _staticLogger.Debug($"Parse friend count JSON failed: {ex.Message}");
+                            }
+                        }
+                    }
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    _staticLogger.Warn($"CheckFriendsCountAsync failed: {ex.Message}");
+                    break;
+                }
+            }
+
+            return false;
         }
     }
 }

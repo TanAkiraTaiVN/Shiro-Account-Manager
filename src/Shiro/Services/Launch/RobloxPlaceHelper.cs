@@ -9,13 +9,16 @@ namespace Shiro.Services
 {
     public static class RobloxPlaceHelper
     {
-        public static double ToRobloxTick(this DateTime date) =>
-            (date <= DateTime.UnixEpoch)
+        public static double ToRobloxTick(this DateTime date)
+        {
+            DateTime utc = date.Kind == DateTimeKind.Unspecified ? DateTime.SpecifyKind(date, DateTimeKind.Utc) : date.ToUniversalTime();
+            return (utc <= DateTime.UnixEpoch)
                 ? 0
-                : (((date - DateTime.UnixEpoch).Ticks / TimeSpan.TicksPerSecond) + ((double)date.Millisecond / 1000));
+                : (((utc - DateTime.UnixEpoch).Ticks / TimeSpan.TicksPerSecond) + ((double)utc.Millisecond / 1000));
+        }
 
         public static double MapValue(double input, double il, double ih, double ol, double oh) =>
-            (input - il) / (ih - il) * (oh - ol) + ol;
+            Math.Abs(ih - il) < 1e-12 ? ol : ((input - il) / (ih - il) * (oh - ol) + ol);
 
         public static async Task<string> GetRandomJobId(
             long placeId,
@@ -86,9 +89,15 @@ namespace Shiro.Services
                     break;
             }
 
-            if (validServers.Count == 0 && AppServices.ServerBrowserState.CachedServers != null && AppServices.ServerBrowserState.CachedServers.Count > 0)
+            if (validServers.Count == 0 && AppServices.ServerBrowserState.CachedServers is { } cachedServers)
             {
-                foreach (var s in AppServices.ServerBrowserState.CachedServers)
+                ServerData[] snapshot;
+                lock (cachedServers)
+                {
+                    snapshot = cachedServers.ToArray();
+                }
+
+                foreach (var s in snapshot)
                 {
                     if (s != null && !string.IsNullOrEmpty(s.id) && s.playing > 0 && s.maxPlayers > 1 && s.playing < s.maxPlayers)
                     {

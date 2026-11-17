@@ -129,7 +129,7 @@ namespace Shiro.Services
         /// <summary>
         /// Attempts to launch RobloxPlayerBeta.exe directly with credentials and server join instructions.
         /// </summary>
-        public static LaunchResult LaunchDirect(string ticket, string joinUrl, string username, string? browserTrackerId = null, string? securityToken = null)
+        public static LaunchResult LaunchDirect(string ticket, string joinUrl, string username, string? browserTrackerId = null)
         {
             if (string.IsNullOrWhiteSpace(ticket) || string.IsNullOrWhiteSpace(joinUrl))
             {

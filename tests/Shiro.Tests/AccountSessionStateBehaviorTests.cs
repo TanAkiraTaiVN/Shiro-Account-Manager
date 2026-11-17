@@ -270,7 +270,8 @@ namespace Shiro.Tests
         {
             var ex = Record.Exception(() =>
             {
-                Account.MarkNativeAuthRateLimited(25, "TestRateLimitUser", "unit-test");
+                try { Account.MarkNativeAuthRateLimited(25, "TestRateLimitUser", "unit-test"); }
+                finally { RobloxRateLimitCoordinator.Instance.ResetBackoff(); }
             });
 
             Assert.Null(ex);

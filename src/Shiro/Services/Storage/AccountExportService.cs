@@ -111,8 +111,8 @@ namespace Shiro.Services
         private static string EscapeCsv(string? val)
         {
             if (string.IsNullOrEmpty(val)) return "";
-            ReadOnlySpan<char> trimmed = val.AsSpan().TrimStart(' ');
-            if (val[0] is '\t' or '\r' || (!trimmed.IsEmpty && trimmed[0] is '=' or '+' or '-' or '@'))
+            ReadOnlySpan<char> trimmed = val.AsSpan().TrimStart();
+            if ((val[0] is '\t' or '\r' or '\n' or '\v' or '\f') || (!trimmed.IsEmpty && trimmed[0] is '=' or '+' or '-' or '@'))
             {
                 string safe = "'" + val;
                 return $"\"{safe.Replace("\"", "\"\"")}\"";

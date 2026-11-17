@@ -32,6 +32,7 @@ namespace Shiro.Services
         private static Thread? _holderThread;
         private static ManualResetEventSlim? _holderStop;
         private static ManualResetEventSlim? _holderReady;
+        private static long _holderGeneration;
         private static volatile bool _handlesHeld;
         private static volatile string _status = "Multi-Instance Ready";
         private static int _totalClosed;
@@ -82,9 +83,36 @@ namespace Shiro.Services
         public static void EnsureMutex(bool enabled)
         {
             ManualResetEventSlim? readyToWait = null;
+            Thread? oldThread = null;
+            ManualResetEventSlim? oldStop = null;
+            ManualResetEventSlim? oldReady = null;
             lock (_gate)
             {
-                if (enabled)
+                if (!enabled || (_holderThread != null && !_holderThread.IsAlive))
+                {
+                    Interlocked.Increment(ref _holderGeneration);
+                    oldThread = _holderThread;
+                    oldStop = _holderStop;
+                    oldReady = _holderReady;
+                    _holderStop?.Set();
+                    _holderThread = null;
+                    _holderStop = null;
+                    _holderReady = null;
+                    if (!enabled) _handlesHeld = false;
+                }
+            }
+
+            if (oldThread != null)
+            {
+                if (oldThread.IsAlive && oldThread != Thread.CurrentThread)
+                    oldThread.Join(TimeSpan.FromSeconds(2));
+                oldStop?.Dispose();
+                oldReady?.Dispose();
+            }
+
+            if (enabled)
+            {
+                lock (_gate)
                 {
                     if (_holderThread != null && _holderThread.IsAlive)
                     {
@@ -94,24 +122,13 @@ namespace Shiro.Services
                     {
                         var stop = new ManualResetEventSlim(false);
                         var ready = new ManualResetEventSlim(false);
+                        long gen = Interlocked.Increment(ref _holderGeneration);
                         _holderStop = stop;
                         _holderReady = ready;
                         readyToWait = ready;
-                        _holderThread = new Thread(() => HoldHandles(stop, ready))
-                        {
-                            IsBackground = true,
-                            Name = "roblox-singleton-guard"
-                        };
+                        _holderThread = new Thread(() => HoldHandles(stop, ready, gen)) { IsBackground = true, Name = "roblox-singleton-guard" };
                         _holderThread.Start();
                     }
-                }
-                else
-                {
-                    _holderStop?.Set();
-                    _holderStop = null;
-                    _holderReady = null;
-                    _holderThread = null;
-                    _handlesHeld = false;
                 }
             }
 
@@ -121,8 +138,9 @@ namespace Shiro.Services
             }
         }
 
-        private static void HoldHandles(ManualResetEventSlim stop, ManualResetEventSlim ready)
+        private static void HoldHandles(ManualResetEventSlim stop, ManualResetEventSlim ready, long generation)
         {
+            bool IsCurrentGen() => Volatile.Read(ref _holderGeneration) == generation;
             IntPtr pSd = IntPtr.Zero;
             bool allocatedWithLocalAlloc = false;
             IntPtr hMutex = IntPtr.Zero;
@@ -206,23 +224,27 @@ namespace Shiro.Services
 
                 if (hMutex != IntPtr.Zero && hEvent != IntPtr.Zero && mutexOwned)
                 {
-                    _handlesHeld = true;
-                    _accessDenied = false;
-                    SetStatus("Mutex Active • Multi-Instance Running");
+                    if (IsCurrentGen())
+                    {
+                        _handlesHeld = true;
+                        _accessDenied = false;
+                        SetStatus("Mutex Active • Multi-Instance Running");
+                    }
                     AppServices.Logger?.Info($"[MultiRoblox] Singleton Guard active (Mutex: 0x{hMutex:X}, Event: 0x{hEvent:X}).");
                 }
                 else if (hMutex != IntPtr.Zero && !mutexOwned)
                 {
-                    _handlesHeld = false;
-                    _accessDenied = false;
-                    SetStatus("Waiting for existing Roblox to release singleton mutex...");
+                    if (IsCurrentGen()) { _handlesHeld = false; _accessDenied = false; SetStatus("Waiting for existing Roblox to release singleton mutex..."); }
                     AppServices.Logger?.Warn("[MultiRoblox] Singleton mutex is currently held by an existing Roblox process.");
                 }
                 else
                 {
-                    _handlesHeld = false;
-                    _accessDenied = (mutexErr == ERROR_ACCESS_DENIED || eventErr == ERROR_ACCESS_DENIED);
-                    SetStatus($"Singleton Guard Warning: MutexErr={mutexErr}, EventErr={eventErr}");
+                    if (IsCurrentGen())
+                    {
+                        _handlesHeld = false;
+                        _accessDenied = (mutexErr == ERROR_ACCESS_DENIED || eventErr == ERROR_ACCESS_DENIED);
+                        SetStatus($"Singleton Guard Warning: MutexErr={mutexErr}, EventErr={eventErr}");
+                    }
                     AppServices.Logger?.Warn($"[MultiRoblox] Guard handle warning: MutexErr={mutexErr}, EventErr={eventErr}");
                 }
 
@@ -235,9 +257,12 @@ namespace Shiro.Services
                     if (wait == WAIT_OBJECT_0 || wait == WAIT_ABANDONED)
                     {
                         mutexOwned = true;
-                        _handlesHeld = hEvent != IntPtr.Zero;
-                        _accessDenied = false;
-                        SetStatus("Mutex Active • Multi-Instance Running");
+                        if (IsCurrentGen())
+                        {
+                            _handlesHeld = hEvent != IntPtr.Zero;
+                            _accessDenied = false;
+                            SetStatus("Mutex Active • Multi-Instance Running");
+                        }
                         AppServices.Logger?.Info("[MultiRoblox] Claimed singleton mutex after existing Roblox process exited.");
                         break;
                     }
@@ -247,14 +272,18 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                _handlesHeld = false;
+                if (IsCurrentGen())
+                {
+                    _handlesHeld = false;
+                    SetStatus($"Singleton Guard Error: {ex.Message}");
+                }
                 ready?.Set();
-                SetStatus($"Singleton Guard Error: {ex.Message}");
                 AppServices.Logger?.Error($"[MultiRoblox] Exception in singleton guard thread: {ex.Message}");
             }
             finally
             {
-                _handlesHeld = false;
+                if (IsCurrentGen())
+                    _handlesHeld = false;
                 ready?.Set();
                 if (hMutex != IntPtr.Zero)
                 {
@@ -311,12 +340,7 @@ namespace Shiro.Services
         {
             _ = abnormal;
             if (!_isEnabled || pid <= 0) return;
-
-            lock (_gate)
-            {
-                _lastObservedPids.Remove(pid);
-            }
-
+            lock (_gate) { _lastObservedPids.Remove(pid); }
             ThreadPool.QueueUserWorkItem(static _ =>
             {
                 try { Sweep(force: true); }
@@ -327,10 +351,7 @@ namespace Shiro.Services
         internal static bool NotifyProcessExitedFromJobForTest(int pid)
         {
             if (pid <= 0) return false;
-            lock (_gate)
-            {
-                return _lastObservedPids.Remove(pid);
-            }
+            lock (_gate) { return _lastObservedPids.Remove(pid); }
         }
 
         public static int SweepNow(out string message)
@@ -338,22 +359,12 @@ namespace Shiro.Services
             EnsureMutex(true);
             int purged = Sweep(force: true);
             var pids = ClientPids();
-
             if (_handlesHeld)
-            {
-                message = pids.Count > 0
-                    ? $"Multi-Instance active. {pids.Count} client(s) running safely with persistent Singleton Guard."
-                    : "Multi-Instance active and ready. Singleton Guard is holding all mutex and event locks.";
-            }
+                message = pids.Count > 0 ? $"Multi-Instance active. {pids.Count} client(s) running safely with persistent Singleton Guard." : "Multi-Instance active and ready. Singleton Guard is holding all mutex and event locks.";
             else if (_accessDenied)
-            {
                 message = "Access denied: Run as Administrator to grant full access.";
-            }
             else
-            {
                 message = "Multi-Instance guard is active.";
-            }
-
             return purged;
         }
 
@@ -434,40 +445,22 @@ namespace Shiro.Services
                     SetStatus(_handlesHeld ? "Multi-Instance Ready" : "Ready (Guard Offline)");
                     return purged;
                 }
-
-                SetStatus(_handlesHeld
-                    ? $"Multi-Instance Active ({pids.Count} clients running)"
-                    : $"Multi-Instance Active ({pids.Count} clients running • Guard Starting)");
-
+                SetStatus(_handlesHeld ? $"Multi-Instance Active ({pids.Count} clients running)" : $"Multi-Instance Active ({pids.Count} clients running • Guard Starting)");
                 return purged;
             }
-            finally
-            {
-                Volatile.Write(ref _sweeping, 0);
-            }
+            finally { Volatile.Write(ref _sweeping, 0); }
         }
 
-        private static List<int> ClientPids()
-        {
-            return RobloxProcessService.GetRunningRobloxPids();
-        }
+        private static List<int> ClientPids() => RobloxProcessService.GetRunningRobloxPids();
 
-        public static (int closed, bool accessDenied, bool isPending) CloseEventsInPid(int pid)
-        {
-            // Intrusive handle destruction has been eliminated to prevent Byfron/WndProcessCheck
-            // from throwing "Failure waiting on named event: Access is denied" and terminating all tabs.
-            return (0, false, false);
-        }
+        public static (int closed, bool accessDenied, bool isPending) CloseEventsInPid(int pid) => (0, false, false);
 
         private static void SetStatus(string text)
         {
             if (_status == text) return;
             _status = text;
             try { StatusChanged?.Invoke(); }
-            catch (Exception ex)
-            {
-                AppServices.Logger?.Debug($"[RobloxSingletonService.StatusChanged] {ex.Message}");
-            }
+            catch (Exception ex) { AppServices.Logger?.Debug($"[RobloxSingletonService.StatusChanged] {ex.Message}"); }
         }
     }
 }

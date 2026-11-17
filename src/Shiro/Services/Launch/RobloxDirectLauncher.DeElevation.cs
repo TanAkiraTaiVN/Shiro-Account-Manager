@@ -119,10 +119,12 @@ namespace Shiro.Services
             if (deElevateEnabled && IsCurrentProcessElevated())
             {
                 AppServices.Logger?.Info($"[RobloxDirectLauncher] Shiro is running elevated; de-elevating Roblox launch for {username}...");
-                if (TrySpawnDeElevated(playerPath, args, out Process? deElevated) && deElevated != null)
+                if (TrySpawnDeElevated(playerPath, args, out Process? deElevated, out bool spawnedConfirmed))
                 {
                     return deElevated;
                 }
+                if (spawnedConfirmed)
+                    return null;
                 AppServices.Logger?.Warn($"[RobloxDirectLauncher] De-elevated launch failed; falling back to standard Process.Start.");
             }
 
@@ -134,9 +136,27 @@ namespace Shiro.Services
             return Process.Start(startInfo);
         }
 
-        internal static bool TrySpawnDeElevated(string playerPath, string args, out Process? process)
+        internal static int SelectExplorerPidForCurrentSession(Process[] explorers, int currentSessionId)
+        {
+            var matched = explorers.FirstOrDefault(p =>
+            {
+                try { return p.SessionId == currentSessionId; }
+                catch (Exception ex)
+                {
+                    AppServices.Logger?.Debug($"SelectExplorerPid session check failed: {ex.Message}");
+                    return false;
+                }
+            }) ?? explorers.FirstOrDefault();
+            return matched?.Id ?? 0;
+        }
+
+        internal static bool TrySpawnDeElevated(string playerPath, string args, out Process? process) =>
+            TrySpawnDeElevated(playerPath, args, out process, out _);
+
+        internal static bool TrySpawnDeElevated(string playerPath, string args, out Process? process, out bool spawnedConfirmed)
         {
             process = null;
+            spawnedConfirmed = false;
             try
             {
                 int explorerPid = 0;
@@ -151,11 +171,8 @@ namespace Shiro.Services
                     var explorers = Process.GetProcessesByName("explorer");
                     try
                     {
-                        var exp = explorers.FirstOrDefault();
-                        if (exp != null)
-                        {
-                            explorerPid = exp.Id;
-                        }
+                        using var self = Process.GetCurrentProcess();
+                        explorerPid = SelectExplorerPidForCurrentSession(explorers, self.SessionId);
                     }
                     finally
                     {
@@ -214,11 +231,17 @@ namespace Shiro.Services
                                 ref si,
                                 out PROCESS_INFORMATION pi))
                             {
+                                spawnedConfirmed = true;
                                 try
                                 {
                                     process = Process.GetProcessById((int)pi.dwProcessId);
                                     AppServices.Logger?.Info($"[RobloxDirectLauncher] Successfully spawned de-elevated Roblox process (PID: {pi.dwProcessId}).");
                                     return true;
+                                }
+                                catch (ArgumentException)
+                                {
+                                    AppServices.Logger?.Debug($"[RobloxDirectLauncher] De-elevated child PID {pi.dwProcessId} already exited before handle attach.");
+                                    return false;
                                 }
                                 finally
                                 {

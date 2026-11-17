@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Globalization;
 using Shiro.Services;
 
 namespace Shiro.ViewModels
@@ -70,13 +71,13 @@ namespace Shiro.ViewModels
         public decimal MemoryThresholdMb
         {
             get => _memoryThresholdMb;
-            set { if (SetProperty(ref _memoryThresholdMb, value)) { SaveWatcherSetting("MemoryLowValue", value.ToString()); RobloxWatcher.MemoryLowValue = (int)value; } }
+            set { if (SetProperty(ref _memoryThresholdMb, value)) { SaveWatcherSetting("MemoryLowValue", value.ToString(CultureInfo.InvariantCulture)); RobloxWatcher.MemoryLowValue = (int)value; } }
         }
 
         public decimal ConnectionTimeoutSec
         {
             get => _connectionTimeoutSec;
-            set { if (SetProperty(ref _connectionTimeoutSec, value)) SaveWatcherSetting("NoConnectionTimeout", value.ToString()); }
+            set { if (SetProperty(ref _connectionTimeoutSec, value)) SaveWatcherSetting("NoConnectionTimeout", value.ToString(CultureInfo.InvariantCulture)); }
         }
 
         public string ExpectedWindowTitle

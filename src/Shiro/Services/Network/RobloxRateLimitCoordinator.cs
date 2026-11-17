@@ -205,6 +205,8 @@ namespace Shiro.Services
             }
         }
 
+        private static readonly AsyncLocal<int> ActiveReentrancyDepth = new();
+
         /// <summary>
         /// Executes an API action with category-specific concurrency control, delay pacing, and automatic rate-limit backoff.
         /// </summary>
@@ -214,26 +216,31 @@ namespace Shiro.Services
             int minIntervalMs = 150,
             CancellationToken cancellationToken = default)
         {
-            var sem = _categorySemaphores.GetOrAdd(category, _ => new SemaphoreSlim(2, 2));
+            // Prevent nested/re-entrant ExecuteWithPacingAsync calls on the same async flow from starving permits.
+            if (ActiveReentrancyDepth.Value > 0)
+            {
+                return await action().ConfigureAwait(false);
+            }
 
+            // Wait for any active backoff & staggered slot BEFORE claiming a concurrency permit.
+            await WaitForBackoffAsync(cancellationToken).ConfigureAwait(false);
+            TimeSpan slotDelay = ReserveNextSlotDelay(category, minIntervalMs, DateTime.UtcNow);
+            if (slotDelay > TimeSpan.Zero)
+            {
+                await Task.Delay(slotDelay, cancellationToken).ConfigureAwait(false);
+            }
+
+            var sem = _categorySemaphores.GetOrAdd(category, _ => new SemaphoreSlim(2, 2));
             await sem.WaitAsync(cancellationToken).ConfigureAwait(false);
+            int prevDepth = ActiveReentrancyDepth.Value;
+            ActiveReentrancyDepth.Value = prevDepth + 1;
             try
             {
-                // 1. Backoff if global rate limit is currently active
-                await WaitForBackoffAsync(cancellationToken).ConfigureAwait(false);
-
-                // 2. Atomically reserve staggered pacing slot to avoid rapid bursts across concurrent callers
-                TimeSpan slotDelay = ReserveNextSlotDelay(category, minIntervalMs, DateTime.UtcNow);
-                if (slotDelay > TimeSpan.Zero)
-                {
-                    await Task.Delay(slotDelay, cancellationToken).ConfigureAwait(false);
-                }
-
-                // 3. Execute the operation
                 return await action().ConfigureAwait(false);
             }
             finally
             {
+                ActiveReentrancyDepth.Value = prevDepth;
                 sem.Release();
             }
         }

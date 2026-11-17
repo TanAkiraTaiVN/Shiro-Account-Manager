@@ -32,6 +32,10 @@
                     <StackPanel Orientation="Horizontal" Spacing="6"><lucide:Lucide Icon="Lock" Width="14" Height="14" StrokeBrush="#A1A1AA" VerticalAlignment="Center" /><TextBlock
                         Text="{DynamicResource Set_TabSecurity}" VerticalAlignment="Center" /></StackPanel>
                 </RadioButton>
+                <RadioButton x:Name="TabRadioAlerts" Classes="SettingsTabPill" GroupName="SettingsCat">
+                    <StackPanel Orientation="Horizontal" Spacing="6"><lucide:Lucide Icon="Bell" Width="14" Height="14" StrokeBrush="#A1A1AA" VerticalAlignment="Center" /><TextBlock
+                        Text="{DynamicResource Set_TabAlerts}" VerticalAlignment="Center" /></StackPanel>
+                </RadioButton>
             </StackPanel>
         </Border>
         <ScrollViewer Grid.Row="2" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
@@ -99,7 +103,7 @@
                         <TextBlock Text="{DynamicResource Set_SectionPerf}" FontWeight="Bold" FontSize="15" Foreground="#FFFFFF" />
                         <Grid ColumnDefinitions="*,Auto">
                             <StackPanel Grid.Column="0" Spacing="2" Margin="0,0,16,0">
-                                <TextBlock Text="{DynamicResource Set_UnlockFps}" Foreground="#FFFFFF" FontSize="13" TextWrapping="Wrap" />
+                                <TextBlock Text="{DynamicResource Set_UnlockFPS}" Foreground="#FFFFFF" FontSize="13" TextWrapping="Wrap" />
                                 <TextBlock Text="{DynamicResource Set_UnlockFpsTip}" FontSize="11" Foreground="#A1A1AA" TextWrapping="Wrap" />
                             </StackPanel>
                             <ToggleSwitch Grid.Column="1" x:Name="SwUnlockFps" IsChecked="{Binding UnlockFps}"
@@ -107,7 +111,7 @@
                         </Grid>
                         <Grid ColumnDefinitions="*,Auto">
                             <StackPanel Grid.Column="0" Spacing="2" Margin="0,0,16,0">
-                                <TextBlock Text="{DynamicResource Set_TargetFps}" Foreground="#FFFFFF" FontSize="13" TextWrapping="Wrap" />
+                                <TextBlock Text="{DynamicResource Set_TargetFPS}" Foreground="#FFFFFF" FontSize="13" TextWrapping="Wrap" />
                                 <TextBlock Text="{DynamicResource Set_TargetFpsTip}" FontSize="11" Foreground="#A1A1AA" TextWrapping="Wrap" />
                             </StackPanel>
                             <NumericUpDown Grid.Column="1" x:Name="NumTargetFps" Minimum="30" Maximum="240" Value="{Binding TargetFps}" Width="120"
@@ -253,11 +257,17 @@
                                 <TextBlock Text="{DynamicResource Set_MasterPassword}" Foreground="#FFFFFF" FontSize="13" TextWrapping="Wrap" />
                                 <TextBlock Text="{DynamicResource Set_MasterPasswordTip}" FontSize="11" Foreground="#A1A1AA" TextWrapping="Wrap" />
                             </StackPanel>
-                            <Button Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center" Command="{Binding ChangeMasterPasswordCommand}"
-                                Background="#18181F" Foreground="#FFFFFF" BorderBrush="#2E2E38" BorderThickness="1" CornerRadius="6" Padding="14,8" Cursor="Hand">
-                                <StackPanel Orientation="Horizontal" Spacing="6"><lucide:Lucide Icon="Key" Width="13" Height="13" StrokeBrush="#F59E0B" VerticalAlignment="Center" /><TextBlock
-                                    Text="{DynamicResource Set_ChangeMasterPassBtn}" VerticalAlignment="Center" /></StackPanel>
-                            </Button>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                <Button Command="{Binding ExportVaultCommand}" Background="#18181F" Foreground="#FFFFFF" BorderBrush="#2E2E38" BorderThickness="1" CornerRadius="6"
+                                    Padding="12,8" Cursor="Hand"><TextBlock Text="{DynamicResource Settings.ExportVaultBtn}" /></Button>
+                                <Button Command="{Binding ImportVaultCommand}" Background="#18181F" Foreground="#FFFFFF" BorderBrush="#2E2E38" BorderThickness="1" CornerRadius="6"
+                                    Padding="12,8" Cursor="Hand"><TextBlock Text="{DynamicResource Settings.ImportVaultBtn}" /></Button>
+                                <Button HorizontalAlignment="Right" VerticalAlignment="Center" Command="{Binding ChangeMasterPasswordCommand}"
+                                    Background="#18181F" Foreground="#FFFFFF" BorderBrush="#2E2E38" BorderThickness="1" CornerRadius="6" Padding="14,8" Cursor="Hand">
+                                    <StackPanel Orientation="Horizontal" Spacing="6"><lucide:Lucide Icon="Key" Width="13" Height="13" StrokeBrush="#F59E0B" VerticalAlignment="Center" /><TextBlock
+                                        Text="{DynamicResource Set_ChangeMasterPassBtn}" VerticalAlignment="Center" /></StackPanel>
+                                </Button>
+                            </StackPanel>
                         </Grid>
                         <Separator Background="#24242C" Height="1" />
                         <Grid ColumnDefinitions="*,Auto">
@@ -280,6 +290,7 @@
                         </Grid>
                     </StackPanel>
                 </Border>
+                <panels:SettingsAdvancedPanel IsVisible="{Binding #TabRadioAlerts.IsChecked}" />
             </StackPanel>
         </ScrollViewer>
         <Border Grid.Row="3" Background="#111115" BorderBrush="#24242C" BorderThickness="1" CornerRadius="8" Padding="16,10" Margin="0,16,0,0">

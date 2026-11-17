@@ -70,6 +70,8 @@ namespace Shiro.Tests.Dialogs
             public void CleanNotificationArea() { }
             public int ClearAvatarCache() => 0;
             public Task ResetEncryptionAsync() => Task.CompletedTask;
+            public Task<bool> ExportVaultAsync() => Task.FromResult(false);
+            public Task<bool> ImportVaultAsync() => Task.FromResult(false);
         }
 
         private static (AppSettings Settings, IniFile? PrevIni, string TempPath) CreateIsolatedAppSettings()
@@ -117,7 +119,7 @@ namespace Shiro.Tests.Dialogs
                 vm.LoadCommand.Execute(null);
 
                 Assert.False(vm.AutoMute);
-                Assert.True(vm.AggressiveRamTrim);
+                Assert.False(vm.AggressiveRamTrim);
                 Assert.True(vm.SmartFastLaunch);
                 Assert.Equal(144m, vm.TargetFps);
                 Assert.Equal(0m, vm.JobCpuCap);

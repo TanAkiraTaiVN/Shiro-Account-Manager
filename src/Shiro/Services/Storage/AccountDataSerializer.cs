@@ -100,7 +100,7 @@ namespace Shiro.Services
                         }
                         else if (string.Equals(prop.Name, nameof(Account.Fields), StringComparison.OrdinalIgnoreCase))
                         {
-                            prop.Get = static obj => ((Account)obj).GetFieldsSnapshot();
+                            prop.Get = static obj => ((Account)obj).GetSerializedFieldsSnapshot();
                         }
                     }
                 })

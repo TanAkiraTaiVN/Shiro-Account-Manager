@@ -11,7 +11,7 @@ namespace Shiro.Services
     /// </summary>
     internal static partial class StoragePaths
     {
-        private static IAppLogger? _logger = AppServices.Logger;
+        private static IAppLogger? _logger;
         public static IAppLogger? Logger
         {
             get => _logger ?? AppServices.Logger;

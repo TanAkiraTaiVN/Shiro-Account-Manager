@@ -94,7 +94,11 @@ namespace Shiro.Services
         public static Task<bool> InstallVCRedistAsync(CancellationToken cancellationToken = default)
         {
             return InstallVCRedistCoreAsync(
-                ct => SharedHttpClient.GetByteArrayAsync(VcRedistUrl, retryTransient: true, cancellationToken: ct),
+                async ct =>
+                {
+                    using var client = SharedHttpClient.CreateDedicatedClient(TimeSpan.FromMinutes(3));
+                    return await client.GetByteArrayAsync(VcRedistUrl, ct).ConfigureAwait(false);
+                },
                 RunSilentInstallerAsync,
                 cancellationToken);
         }
@@ -102,7 +106,8 @@ namespace Shiro.Services
         internal static async Task<bool> InstallVCRedistCoreAsync(
             Func<CancellationToken, Task<byte[]>> downloadInstallerAsync,
             Func<string, CancellationToken, Task<int>> runInstallerAsync,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default,
+            Func<string, bool>? verifyAuthenticodeOverride = null)
         {
             string installerPath = Path.Combine(Path.GetTempPath(), "Shiro-vcredist-" + Guid.NewGuid().ToString("N") + ".exe");
             try
@@ -112,14 +117,24 @@ namespace Shiro.Services
                 cancellationToken.ThrowIfCancellationRequested();
                 await File.WriteAllBytesAsync(installerPath, installerBytes, cancellationToken).ConfigureAwait(false);
 
-                if (!VerifyMicrosoftAuthenticode(installerPath))
+                bool authenticodeValid = verifyAuthenticodeOverride != null
+                    ? verifyAuthenticodeOverride(installerPath)
+                    : VerifyMicrosoftAuthenticode(installerPath);
+                if (!authenticodeValid)
                 {
                     AppServices.Logger.Warn("[PrerequisiteService] Aborting VCRedist install: Microsoft Authenticode verification failed.");
                     return false;
                 }
 
                 int exitCode = await runInstallerAsync(installerPath, cancellationToken).ConfigureAwait(false);
-                return exitCode == 0;
+                if (exitCode == 0 || exitCode == 3010)
+                {
+                    if (exitCode == 3010)
+                        AppServices.Logger.Info("[PrerequisiteService] VCRedist installed; system restart recommended (exit code 3010).");
+                    return true;
+                }
+
+                return false;
             }
             catch (OperationCanceledException)
             {
@@ -155,13 +170,16 @@ namespace Shiro.Services
 
         private static async Task<int> RunSilentInstallerAsync(string installerPath, CancellationToken cancellationToken)
         {
-            using var installer = Process.Start(new ProcessStartInfo(installerPath)
+            var startInfo = new ProcessStartInfo(installerPath)
             {
-                UseShellExecute = false,
+                UseShellExecute = true,
                 Arguments = "/q /norestart",
-                CreateNoWindow = true
-            });
+                WindowStyle = ProcessWindowStyle.Hidden
+            };
+            if (!RobloxDirectLauncher.IsCurrentProcessElevated())
+                startInfo.Verb = "runas";
 
+            using var installer = Process.Start(startInfo);
             if (installer == null)
                 return -1;
 

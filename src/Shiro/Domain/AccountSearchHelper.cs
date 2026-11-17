@@ -22,10 +22,10 @@ namespace Shiro
         public string Digits { get; private init; } = string.Empty;
         public string QueryText { get; private init; } = string.Empty;
 
-        [GeneratedRegex(@"^(?:([a-zA-Z0-9_\s]+?)\s+)?#?(\d+)\s*(?:-|–|\.\.)\s*#?(\d+)$")]
+        [GeneratedRegex(@"^(?:([\p{L}\p{N}_\-\s]+?)\s+)?#?(\d+)\s*(?:-|–|\.\.)\s*#?(\d+)$")]
         private static partial Regex RangeRegex();
 
-        [GeneratedRegex(@"^(?:([a-zA-Z0-9_\s]+?)\s+)?#?(\d+)$")]
+        [GeneratedRegex(@"^(?:([\p{L}\p{N}_\-\s]+?)\s+)?#?(\d+)$")]
         private static partial Regex SingleNumRegex();
 
         public static AccountSearchQuery Create(string? query)
@@ -149,8 +149,8 @@ namespace Shiro
                     return true;
                 }
 
-                // If pure short digits (e.g. "7"): only match if username/alias exactly equals digits or ends with it
-                if (string.IsNullOrEmpty(Prefix))
+                // Only enforce exact/suffix match when short (< 4 digits) so 4+ digit UserID/Group queries still reach below
+                if (string.IsNullOrEmpty(Prefix) && Digits.Length < 4)
                 {
                     return user.Equals(Digits, StringComparison.OrdinalIgnoreCase) ||
                            al.Equals(Digits, StringComparison.OrdinalIgnoreCase);

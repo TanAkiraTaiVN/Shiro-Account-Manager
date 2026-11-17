@@ -5,7 +5,7 @@
 **Shiro Account Manager** is a high-performance, enterprise-grade account manager and multi-instance orchestration platform built specifically for Roblox players, developers, and power users on Windows.
 
 ### Core Architecture Principles:
-- **Framework & Runtime**: Pure modern .NET 10 (win-x64), C# 13, Avalonia UI 11.
+- **Framework & Runtime**: Pure modern .NET 10 (win-x64), C# 14, Avalonia UI 11.
 - **Zero Native DLL Drop**: Direct usage of `System.Security.Cryptography` (AES-256-GCM, PBKDF2-SHA256, DPAPI).
 - **Clean Architecture & Strict MVVM**: ViewModels never touch Windows API or UI Window instances directly. Verified automatically by `NetArchTest`.
 - **High-Performance Memory & IO**: `ArrayPool<byte>`, `FrozenDictionary<string, string>` for O(1) localized string lookups, and Channels for non-blocking logging.
@@ -72,12 +72,12 @@ sequenceDiagram
     VM->>Coord: Enqueue(LaunchRequest)
     Coord->>Coord: Throttle / Rate-Limit Gate (ProtonVPN / Local IP)
     
-    alt Direct DPAPI Injection (Preferred)
-        Coord->>Direct: Inject LocalStorage auth token
-        Direct->>Proc: Start RobloxPlayerBeta.exe
-    else Web Authentication Ticket Flow
-        Coord->>Coord: Request Auth Ticket from Roblox API
-        Coord->>Proc: Launch via roblox-player protocol
+    alt Protocol Handler Launch (Default)
+        Coord->>Coord: Request Auth Ticket & Launch via roblox-player URI
+        Coord->>Proc: Track Spawned RobloxPlayerBeta.exe PID
+    else Direct Binary Launch (When PreferDirectLaunch=true)
+        Coord->>Direct: Prepare isolated session & launch args
+        Direct->>Proc: Start RobloxPlayerBeta.exe Directly
     end
 
     Proc->>Client: Spawn Process & Assign to JobObject
@@ -122,7 +122,7 @@ To ensure 100% testability and prevent UI thread deadlocks, all dialogs in Shiro
 - **`DialogViewModelBase`**: Unified base class for dialog ViewModels, managing title, status text, reactive `StatusKind` (Idle, Busy, Success, Error), and standard confirmation/cancellation request events (`RequestClose`).
 - **`IUserPrompt` Abstraction**: Replaces intrusive synchronous or asynchronous `MessageBox` calls with an injectable interface. In headless unit tests, mock implementations (`Substitute.For<IUserPrompt>()`) supply deterministic user responses (Accept, Decline, Retry) without showing UI dialogs.
 - **`FastLoginCoordinator` & `FastLoginQueue`**: Separates WebView2 DOM injection, URL inspection, and batch queue state from the Avalonia code-behind.
-- **Headless Test Coverage**: All dialog ViewModels (`FastLoginDialogViewModel`, `CookieImportViewModel`, `AltGenViewModel`, `SettingsViewModel`) are exercised by headless xUnit suites without Avalonia windowing dependencies.
+- **Headless Test Coverage**: All dialog ViewModels (`FastLoginDialogViewModel`, `CookieImportViewModel`, `SettingsViewModel`) are exercised by headless xUnit suites without Avalonia windowing dependencies.
 
 ---
 
@@ -147,7 +147,7 @@ src/Shiro/
 ├── Domain/              # Core domain models: Account, Avatar, GameClass, Server, NaturalStringComparer
 ├── Http/                # HTTP client infrastructure (RestClient)
 ├── Services/            # Business logic, orchestration, and infrastructure services
-│   ├── Auth/            # Authentication, session auditing, HBA crypto, BloxGen
+│   ├── Auth/            # Authentication, session auditing, HBA crypto
 │   ├── Launch/          # Roblox launch orchestration, batch operations, client patchers
 │   ├── Network/         # External API dispatching, Kestrel gateway, RPC, presence monitoring
 │   ├── Storage/         # Atomic file storage, account persistence (AccountPersistenceService, AccountRegistrationService), serializers, vault encryption

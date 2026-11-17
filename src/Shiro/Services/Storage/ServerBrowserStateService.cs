@@ -53,24 +53,15 @@ namespace Shiro.Services
 
         public string CurrentJobId
         {
-            get
-            {
-                if (!string.IsNullOrEmpty(_currentJobId))
-                    return _currentJobId;
-
-                var general = _settings;
-                if (general != null && general.Exists("SavedJobId"))
-                    return general.Get("SavedJobId") ?? string.Empty;
-
-                return string.Empty;
-            }
+            get => _currentJobId;
             set
             {
                 _currentJobId = value ?? string.Empty;
                 var general = _settings;
-                if (general != null)
+                if (general != null && general.Exists("SavedJobId"))
                 {
-                    general.Set("SavedJobId", _currentJobId);
+                    // Clear legacy persisted server GUIDs so expired jobs cannot hijack future launches.
+                    general.RemoveProperty("SavedJobId");
                     AppServices.HostUiBridge.QueueDeferredSaveSettings();
                 }
             }

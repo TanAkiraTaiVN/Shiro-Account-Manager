@@ -128,68 +128,87 @@ namespace Shiro.Services
 
         private static void EvaluateSmartMuteForForegroundPidCore(uint fgPid, List<int> runningPids)
         {
-            if (!_smartMuteEnabled) return;
+            EvaluateSmartMuteWithHook(
+                fgPid,
+                runningPids,
+                Environment.TickCount64,
+                (activePid, pids) =>
+                {
+                    bool ok = TryApplyFocusAudioState(activePid, pids, out int muted, out int unmuted, out int totalSessions);
+                    return (ok, muted, unmuted, totalSessions);
+                });
+        }
+
+        internal static void EvaluateSmartMuteWithHook(
+            uint fgPid,
+            List<int> runningPids,
+            long nowTick,
+            Func<int, IReadOnlyList<int>, (bool Success, int Muted, int Unmuted, int TotalSessions)> applyFocus)
+        {
+            if (!_smartMuteEnabled || runningPids == null) return;
 
             try
             {
                 int runningRobloxCount = runningPids.Count;
-                if (runningRobloxCount <= 0)
+                int activePid;
+                lock (_gate)
                 {
-                    _lastActiveRobloxPid = 0;
-                    _lastRunningRobloxCount = 0;
+                    if (!_smartMuteEnabled) return;
+                    if (runningRobloxCount <= 0)
+                    {
+                        _lastActiveRobloxPid = 0;
+                        _lastRunningRobloxCount = 0;
+                        return;
+                    }
+
+                    bool isRobloxActive = fgPid > 0 && ContainsPid(runningPids, (int)fgPid);
+                    activePid = isRobloxActive ? (int)fgPid : 0;
+
+                    if (!ShouldApplySmartMuteState(
+                            activePid,
+                            _lastActiveRobloxPid,
+                            runningRobloxCount,
+                            _lastRunningRobloxCount,
+                            nowTick,
+                            Interlocked.Read(ref _lastComFailureTick)))
+                    {
+                        return;
+                    }
+                }
+
+                // Invoke WASAPI / COM outside _gate so worker-thread dispatches cannot deadlock against _gate.
+                var result = applyFocus(activePid, runningPids);
+                if (!result.Success)
+                {
+                    Interlocked.Exchange(ref _lastComFailureTick, nowTick);
                     return;
                 }
 
-                bool isRobloxActive = fgPid > 0 && ContainsPid(runningPids, (int)fgPid);
-                int activePid = isRobloxActive ? (int)fgPid : 0;
-                long nowTick = Environment.TickCount64;
-
-                if (!ShouldApplySmartMuteState(
-                        activePid,
-                        _lastActiveRobloxPid,
-                        runningRobloxCount,
-                        _lastRunningRobloxCount,
-                        nowTick,
-                        Interlocked.Read(ref _lastComFailureTick)))
+                lock (_gate)
                 {
-                    return;
-                }
+                    Interlocked.Exchange(ref _lastComFailureTick, 0);
+                    _lastActiveRobloxPid = activePid;
 
-                _lastActiveRobloxPid = activePid;
-
-                bool succeeded = TryApplyFocusAudioState(activePid, runningPids, out _, out _, out int totalSessions);
-                if (!succeeded)
-                {
-                    Interlocked.Exchange(ref _lastComFailureTick, Environment.TickCount64);
-                    return;
-                }
-
-                Interlocked.Exchange(ref _lastComFailureTick, 0);
-
-                // If not all running processes have registered audio sessions yet (e.g. game still launching),
-                // do not lock _lastRunningRobloxCount so next tick will re-check and mute the new client.
-                if (totalSessions < runningRobloxCount)
-                {
-                    _lastRunningRobloxCount = -1;
-                }
-                else
-                {
-                    _lastRunningRobloxCount = runningRobloxCount;
+                    // If not all running processes have registered audio sessions yet (e.g. game still launching),
+                    // do not lock _lastRunningRobloxCount so next tick will re-check and mute the new client.
+                    _lastRunningRobloxCount = result.TotalSessions < runningRobloxCount
+                        ? -1
+                        : runningRobloxCount;
                 }
             }
             catch (Exception ex)
             {
-                Interlocked.Exchange(ref _lastComFailureTick, Environment.TickCount64);
+                Interlocked.Exchange(ref _lastComFailureTick, nowTick);
                 AppServices.Logger?.Debug($"[RobloxAudioService.SmartMute] {ex.Message}");
             }
         }
 
         /// <summary>
         /// Enumerates all active Windows Core Audio sessions belonging to running Roblox processes using
-        /// raw unmanaged COM pointers (zero CLR RCW apartment marshaling).
+        /// a dedicated persistent MTA worker thread and raw unmanaged COM pointers.
         /// Returning false from <paramref name="onSession"/> stops enumeration early.
         /// </summary>
-        private static unsafe bool ForEachRobloxAudioSession(
+        private static bool ForEachRobloxAudioSession(
             Func<uint, NativeSimpleAudioVolume, bool> onSession,
             IReadOnlyList<int>? preloadedPids = null)
         {
@@ -202,111 +221,104 @@ namespace Shiro.Services
                 return true;
             }
 
-            lock (_gate)
+            return RunOnWasapiMtaThread(() => ForEachRobloxAudioSessionOnMta(robloxPids, onSession));
+        }
+
+        private static unsafe bool ForEachRobloxAudioSessionOnMta(
+            IReadOnlyList<int> robloxPids,
+            Func<uint, NativeSimpleAudioVolume, bool> onSession)
+        {
+            if (TryForEachCachedAudioSessionOnMta(robloxPids, onSession))
             {
-                if (TryForEachCachedAudioSession(robloxPids, onSession))
-                {
-                    return true;
-                }
+                return true;
+            }
 
-                PruneExitedCachedAudioSessions(robloxPids);
+            PruneExitedCachedAudioSessionsOnMta(robloxPids);
 
-                int hrCoInit = CoInitializeEx(IntPtr.Zero, COINIT_MULTITHREADED);
-                bool shouldUninit = hrCoInit >= 0; // S_OK (0) or S_FALSE (1)
-                if (hrCoInit < 0 && hrCoInit != RPC_E_CHANGED_MODE)
+            IntPtr pEnumerator = IntPtr.Zero;
+            IntPtr pDevice = IntPtr.Zero;
+            IntPtr pSessionManager2 = IntPtr.Zero;
+            IntPtr pSessionEnum = IntPtr.Zero;
+
+            try
+            {
+                Guid clsid = CLSID_MMDeviceEnumerator;
+                Guid iidEnum = IID_IMMDeviceEnumerator;
+                IntPtr createdEnumerator = IntPtr.Zero;
+                int hr = CoCreateInstance(&clsid, IntPtr.Zero, CLSCTX_ALL, &iidEnum, &createdEnumerator);
+                if (hr < 0 || createdEnumerator == IntPtr.Zero)
+                    return false;
+
+                pEnumerator = createdEnumerator;
+
+                // eRender = 0, eMultimedia = 1
+                if (DeviceEnumeratorGetDefaultEndpoint(pEnumerator, 0, 1, out pDevice) < 0 || pDevice == IntPtr.Zero)
                 {
+                    // No default audio render device attached (e.g. headless/unplugged speakers) -> treat as non-fatal
                     return false;
                 }
 
-                IntPtr pEnumerator = IntPtr.Zero;
-                IntPtr pDevice = IntPtr.Zero;
-                IntPtr pSessionManager2 = IntPtr.Zero;
-                IntPtr pSessionEnum = IntPtr.Zero;
+                if (DeviceActivateSessionManager2(pDevice, out pSessionManager2) < 0 || pSessionManager2 == IntPtr.Zero)
+                    return false;
 
-                try
-                {
-                    Guid clsid = CLSID_MMDeviceEnumerator;
-                    Guid iidEnum = IID_IMMDeviceEnumerator;
-                    IntPtr createdEnumerator = IntPtr.Zero;
-                    int hr = CoCreateInstance(&clsid, IntPtr.Zero, CLSCTX_ALL, &iidEnum, &createdEnumerator);
-                    if (hr < 0 || createdEnumerator == IntPtr.Zero)
-                        return false;
+                if (SessionManager2GetEnumerator(pSessionManager2, out pSessionEnum) < 0 || pSessionEnum == IntPtr.Zero)
+                    return false;
 
-                    pEnumerator = createdEnumerator;
-
-                    // eRender = 0, eMultimedia = 1
-                    if (DeviceEnumeratorGetDefaultEndpoint(pEnumerator, 0, 1, out pDevice) < 0 || pDevice == IntPtr.Zero)
-                    {
-                        // No default audio render device attached (e.g. headless/unplugged speakers) -> treat as non-fatal
-                        return false;
-                    }
-
-                    if (DeviceActivateSessionManager2(pDevice, out pSessionManager2) < 0 || pSessionManager2 == IntPtr.Zero)
-                        return false;
-
-                    if (SessionManager2GetEnumerator(pSessionManager2, out pSessionEnum) < 0 || pSessionEnum == IntPtr.Zero)
-                        return false;
-
-                    if (SessionEnumeratorGetCount(pSessionEnum, out int count) < 0 || count <= 0)
-                        return true;
-
-                    for (int i = 0; i < count; i++)
-                    {
-                        IntPtr pSession = IntPtr.Zero;
-                        IntPtr pSession2 = IntPtr.Zero;
-                        IntPtr pVolume = IntPtr.Zero;
-
-                        try
-                        {
-                            if (SessionEnumeratorGetSession(pSessionEnum, i, out pSession) < 0 || pSession == IntPtr.Zero)
-                                continue;
-
-                            if (ComQueryInterface(pSession, in IID_IAudioSessionControl2, out pSession2) < 0 || pSession2 == IntPtr.Zero)
-                                continue;
-
-                            if (SessionControl2GetProcessId(pSession2, out uint pid) < 0 || pid == 0 || !ContainsPid(robloxPids, (int)pid))
-                                continue;
-
-                            if (ComQueryInterface(pSession, in IID_ISimpleAudioVolume, out pVolume) < 0 || pVolume == IntPtr.Zero)
-                                continue;
-
-                            var nativeVolume = new NativeSimpleAudioVolume(pVolume);
-                            if (_cachedVolumePointers.TryRemove((int)pid, out IntPtr oldPtr) && oldPtr != IntPtr.Zero)
-                            {
-                                ComRelease(ref oldPtr);
-                            }
-                            _cachedVolumePointers[(int)pid] = pVolume;
-                            // Ownership of pVolume reference transferred to _cachedVolumePointers
-                            pVolume = IntPtr.Zero;
-
-                            if (!onSession(pid, nativeVolume))
-                                break;
-                        }
-                        catch (Exception ex)
-                        {
-                            AppServices.Logger?.Debug($"Failed inspecting audio session: {ex.Message}");
-                        }
-                        finally
-                        {
-                            ComRelease(ref pVolume);
-                            ComRelease(ref pSession2);
-                            ComRelease(ref pSession);
-                        }
-                    }
-
+                if (SessionEnumeratorGetCount(pSessionEnum, out int count) < 0 || count <= 0)
                     return true;
-                }
-                finally
+
+                for (int i = 0; i < count; i++)
                 {
-                    ComRelease(ref pSessionEnum);
-                    ComRelease(ref pSessionManager2);
-                    ComRelease(ref pDevice);
-                    ComRelease(ref pEnumerator);
-                    if (shouldUninit)
+                    IntPtr pSession = IntPtr.Zero;
+                    IntPtr pSession2 = IntPtr.Zero;
+                    IntPtr pVolume = IntPtr.Zero;
+
+                    try
                     {
-                        CoUninitialize();
+                        if (SessionEnumeratorGetSession(pSessionEnum, i, out pSession) < 0 || pSession == IntPtr.Zero)
+                            continue;
+
+                        if (ComQueryInterface(pSession, in IID_IAudioSessionControl2, out pSession2) < 0 || pSession2 == IntPtr.Zero)
+                            continue;
+
+                        if (SessionControl2GetProcessId(pSession2, out uint pid) < 0 || pid == 0 || !ContainsPid(robloxPids, (int)pid))
+                            continue;
+
+                        if (ComQueryInterface(pSession, in IID_ISimpleAudioVolume, out pVolume) < 0 || pVolume == IntPtr.Zero)
+                            continue;
+
+                        var nativeVolume = new NativeSimpleAudioVolume(pVolume);
+                        if (_cachedVolumePointers.TryRemove((int)pid, out IntPtr oldPtr) && oldPtr != IntPtr.Zero)
+                        {
+                            ComRelease(ref oldPtr);
+                        }
+                        _cachedVolumePointers[(int)pid] = pVolume;
+                        // Ownership of pVolume reference transferred to _cachedVolumePointers
+                        pVolume = IntPtr.Zero;
+
+                        if (!onSession(pid, nativeVolume))
+                            break;
+                    }
+                    catch (Exception ex)
+                    {
+                        AppServices.Logger?.Debug($"Failed inspecting audio session: {ex.Message}");
+                    }
+                    finally
+                    {
+                        ComRelease(ref pVolume);
+                        ComRelease(ref pSession2);
+                        ComRelease(ref pSession);
                     }
                 }
+
+                return true;
+            }
+            finally
+            {
+                ComRelease(ref pSessionEnum);
+                ComRelease(ref pSessionManager2);
+                ComRelease(ref pDevice);
+                ComRelease(ref pEnumerator);
             }
         }
 

@@ -18,7 +18,8 @@ namespace Shiro.Services
     {
         private static Timer? _autoTrimTimer;
         private static readonly System.Threading.Lock _gate = new();
-        private static bool _autoTrimEnabled = false;
+        private static volatile bool _autoTrimEnabled = false;
+        private static int _periodicCheckRunning;
         private static int _trimIntervalMinutes = 3;
         private static bool _dynamicThresholdEnabled = true;
         private static long _maxMemoryThresholdBytes = 350L * 1024 * 1024; // 350 MB threshold for background clients
@@ -37,8 +38,7 @@ namespace Shiro.Services
         public static bool IsAutoLowerPriorityActive()
         {
             if (!OperatingSystem.IsWindows()) return false;
-            return !AppServices.GeneralSettings.Exists("AutoLowerProcessPriority") ||
-                   AppServices.GeneralSettings.Get<bool>("AutoLowerProcessPriority");
+            return AppServices.GeneralSettings?.Get<bool>(AppSettingsKeys.General.AutoLowerProcessPriority, false) ?? false;
         }
 
         public static void EvaluateWithPids(uint foregroundPid, List<int> runningPids)
@@ -50,6 +50,18 @@ namespace Shiro.Services
                 if (runningPids == null || runningPids.Count == 0)
                 {
                     Interlocked.Exchange(ref _lastForegroundRobloxPid, 0);
+                    return;
+                }
+
+                // Never downgrade CPU priority, EcoQoS, or working set when only 1 Roblox client is running.
+                if (!ShouldApplyBackgroundFocusThrottle(runningPids.Count))
+                {
+                    int soloPid = runningPids[0];
+                    int prevSolo = Interlocked.Exchange(ref _lastForegroundRobloxPid, soloPid);
+                    if (prevSolo != soloPid || foregroundPid == (uint)soloPid)
+                    {
+                        ApplyProcessFocusProfile(soloPid, isForeground: true);
+                    }
                     return;
                 }
 
@@ -155,34 +167,31 @@ namespace Shiro.Services
 
         private static void OnPeriodicCheck(object? state)
         {
+            if (!_autoTrimEnabled || Interlocked.CompareExchange(ref _periodicCheckRunning, 1, 0) != 0)
+                return;
             try
             {
                 if (!RobloxProcessService.IsAnyRobloxRunning())
                     return;
 
-                bool lowerPriority = !AppServices.GeneralSettings.Exists("AutoLowerProcessPriority") || AppServices.GeneralSettings.Get<bool>("AutoLowerProcessPriority");
+                bool lowerPriority = IsAutoLowerPriorityActive();
                 bool aggressiveTrim = IsAggressiveWorkingSetTrimEnabled();
                 
                 // If enough time has passed for full interval trim, or if any client exceeds 350MB, optimize!
                 bool fullIntervalDue = (DateTime.UtcNow - _lastFullTrim).TotalMinutes >= _trimIntervalMinutes;
                 bool needsThresholdTrim = false;
+                var pids = RobloxProcessService.GetRunningRobloxPids();
+                bool effectiveLowerPriority = lowerPriority && ShouldApplyBackgroundFocusThrottle(pids.Count);
 
                 if (!fullIntervalDue && _dynamicThresholdEnabled)
                 {
-                    var pids = RobloxProcessService.GetRunningRobloxPids();
                     if (pids.Count > 0)
                     {
-                        uint fgPid = 0;
-                        try
+                        uint fgPid = TryGetForegroundWindowPid(GetForegroundWindow, hwnd =>
                         {
-                            IntPtr hForeground = GetForegroundWindow();
-                            if (hForeground != IntPtr.Zero)
-                                GetWindowThreadProcessId(hForeground, out fgPid);
-                        }
-                        catch (Exception ex)
-                        {
-                            AppServices.Logger?.Debug($"GetForegroundWindow thread pid lookup threw: {ex.Message}");
-                        }
+                            GetWindowThreadProcessId(hwnd, out uint procId);
+                            return procId;
+                        });
 
                         foreach (int pid in pids)
                         {
@@ -193,7 +202,7 @@ namespace Shiro.Services
                                 long ws = GetWorkingSetBytesNative(hProcess);
                                 ProcessPriorityClass prio = GetProcessPriorityClassNative(hProcess);
                                 bool isFg = fgPid > 0 && pid == (int)fgPid;
-                                if (ShouldTriggerPeriodicTrim(ws, prio, isFg, lowerPriority, _maxMemoryThresholdBytes, aggressiveTrim))
+                                if (ShouldTriggerPeriodicTrim(ws, prio, isFg, effectiveLowerPriority, _maxMemoryThresholdBytes, aggressiveTrim))
                                 {
                                     needsThresholdTrim = true;
                                     break;
@@ -210,13 +219,23 @@ namespace Shiro.Services
                 if (fullIntervalDue || needsThresholdTrim)
                 {
                     _lastFullTrim = DateTime.UtcNow;
-                    OptimizeRobloxClients(lowerPriority);
+                    OptimizeRobloxClients(effectiveLowerPriority);
                 }
             }
             catch (Exception ex)
             {
                 AppServices.Logger?.Debug($"[MemoryOptimizer.Check] {ex.Message}");
             }
+            finally
+            {
+                Volatile.Write(ref _periodicCheckRunning, 0);
+            }
+        }
+
+        internal static uint ResolveTrimTargetPriorityClass(bool isForeground)
+        {
+            var throttler = RobloxBackgroundThrottlerService.Instance;
+            return ComputeTargetPriorityClass(isForeground, throttler.IsEnabled, throttler.TargetBackgroundFps);
         }
 
         /// <summary>
@@ -247,21 +266,16 @@ namespace Shiro.Services
             int count = 0;
             int prioCount = 0;
 
-            uint fgPid = 0;
-            try
+            uint fgPid = TryGetForegroundWindowPid(GetForegroundWindow, hwnd =>
             {
-                IntPtr hForeground = GetForegroundWindow();
-                if (hForeground != IntPtr.Zero)
-                {
-                    GetWindowThreadProcessId(hForeground, out fgPid);
-                }
-            }
-            catch (Exception ex)
-            {
-                AppServices.Logger?.Debug($"GetForegroundWindow thread pid lookup threw: {ex.Message}");
-            }
+                GetWindowThreadProcessId(hwnd, out uint procId);
+                return procId;
+            });
 
             bool allowEmptyWorkingSet = forceWorkingSetTrim || IsAggressiveWorkingSetTrimEnabled();
+            bool effectiveLowerPriority = lowerPriority
+                && IsAutoLowerPriorityActive()
+                && ShouldApplyBackgroundFocusThrottle(pids.Count);
             foreach (int pid in pids)
             {
                 IntPtr hProcess = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_SET_QUOTA | PROCESS_SET_INFORMATION, false, pid);
@@ -271,9 +285,9 @@ namespace Shiro.Services
                 {
                     bool isForeground = fgPid > 0 && pid == (int)fgPid;
 
-                    if (lowerPriority)
+                    if (effectiveLowerPriority)
                     {
-                        uint targetRawPrio = isForeground ? RobloxProcessOptimizer.NORMAL_PRIORITY_CLASS : RobloxProcessOptimizer.BELOW_NORMAL_PRIORITY_CLASS;
+                        uint targetRawPrio = ResolveTrimTargetPriorityClass(isForeground);
                         uint currentRawPrio = GetPriorityClass(hProcess);
                         if (currentRawPrio != 0 && currentRawPrio != targetRawPrio)
                         {
@@ -283,14 +297,13 @@ namespace Shiro.Services
                     }
 
                     long before = GetWorkingSetBytesNative(hProcess);
-                    beforeTotal += before;
 
                     // Avoid forcing the working set to disk with EmptyWorkingSet unless specifically opted into,
                     // preventing page-fault micro-stutters and unnecessary paging overhead.
                     if (allowEmptyWorkingSet && (!isForeground || before > ForegroundMaxMemoryThresholdBytes))
                     {
-                        EmptyWorkingSet(hProcess);
-                        count++;
+                        if (EmptyWorkingSet(hProcess) != 0)
+                            count++;
                     }
                     else if (!isForeground)
                     {
@@ -298,7 +311,7 @@ namespace Shiro.Services
                         if (SoftRelaxWorkingSetNative(hProcess)) count++;
                     }
 
-                    if (lowerPriority)
+                    if (effectiveLowerPriority)
                     {
                         if (isForeground)
                         {
@@ -311,7 +324,11 @@ namespace Shiro.Services
                     }
 
                     long after = GetWorkingSetBytesNative(hProcess);
-                    afterTotal += after;
+                    if (before > 0 && after > 0)
+                    {
+                        beforeTotal += before;
+                        afterTotal += after;
+                    }
                 }
                 catch (Exception ex)
                 {

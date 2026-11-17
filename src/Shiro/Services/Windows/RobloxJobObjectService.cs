@@ -19,6 +19,16 @@ namespace Shiro.Services
         private static Thread? _iocpThread;
         private static int _cpuRatePercent = 0;
 
+        internal static bool IsIocpThreadAliveForTest
+        {
+            get
+            {
+                Thread? t;
+                lock (_gate) t = _iocpThread;
+                return t != null && t.IsAlive;
+            }
+        }
+
         private const int JobObjectAssociateCompletionPortInformation = 7;
         private const int JobObjectCpuRateControlInformation = 15;
 
@@ -136,10 +146,13 @@ namespace Shiro.Services
             if (!OperatingSystem.IsWindows() || hProcess == IntPtr.Zero) return false;
             try
             {
-                IntPtr hJob = EnsureJobHandle();
-                if (hJob != IntPtr.Zero && hJob != (IntPtr)(-1))
+                lock (_gate)
                 {
-                    return AssignProcessToJobObject(hJob, hProcess);
+                    IntPtr hJob = EnsureJobHandle();
+                    if (hJob != IntPtr.Zero && hJob != (IntPtr)(-1))
+                    {
+                        return AssignProcessToJobObject(hJob, hProcess);
+                    }
                 }
             }
             catch (Exception ex)
@@ -343,26 +356,36 @@ namespace Shiro.Services
 
         public static void Close()
         {
+            IntPtr hIocp;
+            IntPtr hJob;
+            Thread? threadToJoin;
             lock (_gate)
             {
                 _cpuRatePercent = 0;
-                if (_hIocp != IntPtr.Zero)
-                {
-                    try { PostQueuedCompletionStatus(_hIocp, IOCP_QUIT_MESSAGE, 0, IntPtr.Zero); }
-                    catch (Exception ex) { AppServices.Logger.Debug($"Failed posting quit to job IOCP: {ex.Message}"); }
+                hIocp = _hIocp;
+                hJob = _hJob;
+                threadToJoin = _iocpThread;
+                _hIocp = IntPtr.Zero;
+                _hJob = IntPtr.Zero;
+                _iocpThread = null;
+            }
 
-                    try { CloseHandle(_hIocp); }
-                    catch (Exception ex) { AppServices.Logger.Debug($"Failed closing job IOCP handle: {ex.Message}"); }
-                    _hIocp = IntPtr.Zero;
-                    _iocpThread = null;
-                }
+            if (hIocp != IntPtr.Zero)
+            {
+                try { PostQueuedCompletionStatus(hIocp, IOCP_QUIT_MESSAGE, 0, IntPtr.Zero); }
+                catch (Exception ex) { AppServices.Logger.Debug($"Failed posting quit to job IOCP: {ex.Message}"); }
 
-                if (_hJob != IntPtr.Zero && _hJob != (IntPtr)(-1))
-                {
-                    try { CloseHandle(_hJob); }
-                    catch (Exception ex) { AppServices.Logger?.Debug($"Failed closing job object handle: {ex.Message}"); }
-                    _hJob = IntPtr.Zero;
-                }
+                if (threadToJoin != null && threadToJoin.IsAlive && threadToJoin != Thread.CurrentThread)
+                    threadToJoin.Join(TimeSpan.FromSeconds(2));
+
+                try { CloseHandle(hIocp); }
+                catch (Exception ex) { AppServices.Logger.Debug($"Failed closing job IOCP handle: {ex.Message}"); }
+            }
+
+            if (hJob != IntPtr.Zero && hJob != (IntPtr)(-1))
+            {
+                try { CloseHandle(hJob); }
+                catch (Exception ex) { AppServices.Logger?.Debug($"Failed closing job object handle: {ex.Message}"); }
             }
         }
     }

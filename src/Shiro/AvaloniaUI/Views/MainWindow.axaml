@@ -135,8 +135,6 @@
                                         <MenuItem Header="{DynamicResource Tool_CleanTray}" Click="OnToolCleanTrayClicked"><MenuItem.Icon><lucide:Lucide Icon="Trash2" Width="14" Height="14"
                         StrokeBrush="#A1A1AA" /></MenuItem.Icon></MenuItem>
                                         <Separator />
-                                        <MenuItem Header="{DynamicResource Tool_AltGen}" Click="OnToolAltGenClicked"><MenuItem.Icon><lucide:Lucide Icon="UserPlus" Width="14" Height="14"
-                        StrokeBrush="#818CF8" /></MenuItem.Icon></MenuItem>
                                     </MenuFlyout>
                                 </Button.Flyout>
                                 <Grid ColumnDefinitions="*,Auto,Auto">

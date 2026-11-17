@@ -205,6 +205,18 @@ namespace Shiro.Services
             }
         }
 
+        /// <summary>Removes exited PIDs from throttle tracking.</summary>
+        public void PruneExitedProcesses(IReadOnlyCollection<int>? runningPids)
+        {
+            if (_throttledPids.IsEmpty) return;
+            var live = runningPids is null ? null : new HashSet<int>(runningPids);
+            foreach (int pid in _throttledPids.Keys)
+            {
+                if (live == null || !live.Contains(pid))
+                    _throttledPids.TryRemove(pid, out _);
+            }
+        }
+
         /// <summary>
         /// Restores normal priority to all currently throttled processes.
         /// </summary>

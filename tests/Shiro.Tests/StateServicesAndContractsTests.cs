@@ -42,13 +42,19 @@ namespace Shiro.Tests
         }
 
         [Fact]
-        public void ShiroAssembly_ContainsAtLeast25Interfaces()
+        public void ShiroAssembly_ContainsActiveServiceInterfaces()
         {
-            var interfaceCount = typeof(AccountManager).Assembly
+            var interfaces = typeof(AccountManager).Assembly
                 .GetTypes()
-                .Count(t => t.IsInterface);
+                .Where(t => t.IsInterface)
+                .ToList();
 
-            Assert.True(interfaceCount >= 25, $"Expected >= 25 interfaces, found {interfaceCount}");
+            Assert.True(interfaces.Count >= 18, $"Expected >= 18 active service interfaces, found {interfaces.Count}");
+            Assert.Contains(interfaces, t => t == typeof(ISettingsService));
+            Assert.Contains(interfaces, t => t == typeof(IAccountRepository));
+            Assert.Contains(interfaces, t => t == typeof(IRobloxApiClient));
+            Assert.Contains(interfaces, t => t == typeof(IDialogService));
+            Assert.Contains(interfaces, t => t == typeof(ISettingsSideEffects));
         }
     }
 }

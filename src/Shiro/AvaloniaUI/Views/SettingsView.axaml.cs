@@ -21,6 +21,16 @@ namespace Shiro.AvaloniaUI.Views
             InitializeComponent();
             Loaded += (_, _) => ViewModel.Load();
             Unloaded += (_, _) => ViewModel.OnClosing();
+            PropertyChanged += (_, e) =>
+            {
+                if (e.Property == IsVisibleProperty)
+                {
+                    if (IsVisible)
+                        ViewModel.Load();
+                    else
+                        ViewModel.OnClosing();
+                }
+            };
         }
     }
 }

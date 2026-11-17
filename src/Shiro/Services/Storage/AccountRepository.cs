@@ -46,6 +46,18 @@ namespace Shiro.Services
         private List<Account> _accounts = new();
         private Account[] _cachedSnapshot = Array.Empty<Account>();
         private volatile SnapshotIndex? _cachedIndex;
+        private AccountPersistenceService? _localPersistence;
+        private AccountRegistrationService? _localRegistration;
+
+        private AccountPersistenceService PersistenceInstance =>
+            _defaultInstance.IsValueCreated && ReferenceEquals(this, _defaultInstance.Value)
+                ? AccountPersistenceService.Default
+                : (_localPersistence ??= new AccountPersistenceService(this));
+
+        private AccountRegistrationService RegistrationInstance =>
+            _defaultInstance.IsValueCreated && ReferenceEquals(this, _defaultInstance.Value)
+                ? AccountRegistrationService.Default
+                : (_localRegistration ??= new AccountRegistrationService(this, PersistenceInstance));
 
         internal System.Threading.Lock SyncRoot => _syncRoot;
 
@@ -169,22 +181,22 @@ namespace Shiro.Services
 
         public Account? AddOrUpdate(string securityToken, string password = "", string? accountJson = null)
         {
-            return AccountRegistrationService.Default.AddAccount(securityToken, password, accountJson!);
+            return RegistrationInstance.AddAccount(securityToken, password, accountJson!);
         }
 
         public Task<Account?> AddOrUpdateAsync(string securityToken, string password = "", string? accountJson = null, bool saveImmediate = true, CancellationToken cancellationToken = default)
         {
-            return AccountRegistrationService.Default.AddAccountAsync(securityToken, password, accountJson!, saveImmediate, cancellationToken);
+            return RegistrationInstance.AddAccountAsync(securityToken, password, accountJson!, saveImmediate, cancellationToken);
         }
 
         public Task<Account?> AddOrUpdateWithHbaAsync(string securityToken, string password = "", string? accountJson = null, bool saveImmediate = true, RobloxHbaService.CaptureSnapshot? hbaCapture = null, CancellationToken cancellationToken = default)
         {
-            return AccountRegistrationService.Default.AddAccountAsync(securityToken, password, accountJson!, saveImmediate, cancellationToken, hbaCapture);
+            return RegistrationInstance.AddAccountAsync(securityToken, password, accountJson!, saveImmediate, cancellationToken, hbaCapture);
         }
 
         public Account? RegisterValidated(Account validatedAccount, string securityToken, string password = "", bool saveImmediate = true)
         {
-            return AccountRegistrationService.Default.RegisterValidatedAccount(validatedAccount, securityToken, password, saveImmediate);
+            return RegistrationInstance.RegisterValidatedAccount(validatedAccount, securityToken, password, saveImmediate);
         }
 
         public void AddThreadSafe(Account account)
@@ -266,53 +278,53 @@ namespace Shiro.Services
         public bool Remove(Account account)
         {
             if (account == null) return false;
-            return AccountRegistrationService.Default.RemoveAccount(account);
+            return RegistrationInstance.RemoveAccount(account);
         }
 
         public int RemoveRange(IEnumerable<Account> accounts)
         {
             if (accounts == null) return 0;
-            return AccountRegistrationService.Default.RemoveAccountsFromDatabase(accounts);
+            return RegistrationInstance.RemoveAccountsFromDatabase(accounts);
         }
 
         public void Save(bool force = false)
         {
-            AccountPersistenceService.Default.SaveAccounts(bypassRateLimit: force, bypassCountCheck: force);
+            PersistenceInstance.SaveAccounts(bypassRateLimit: force, bypassCountCheck: force);
         }
 
         public Task SaveAsync(bool force = false)
         {
-            return AccountPersistenceService.Default.SaveAccountsAsync(bypassRateLimit: force, bypassCountCheck: force);
+            return PersistenceInstance.SaveAccountsAsync(bypassRateLimit: force, bypassCountCheck: force);
         }
 
         public void QueueDeferredSave()
         {
-            AccountPersistenceService.Default.QueueDeferredSave();
+            PersistenceInstance.QueueDeferredSave();
         }
 
         public void Load(byte[]? masterPasswordHash = null)
         {
-            AccountPersistenceService.Default.LoadAccounts(masterPasswordHash);
+            PersistenceInstance.LoadAccounts(masterPasswordHash);
         }
 
         public bool LoadFromStore(byte[]? masterPasswordHash = null)
         {
-            return AccountPersistenceService.Default.LoadAccountsFromStore(masterPasswordHash);
+            return PersistenceInstance.LoadAccountsFromStore(masterPasswordHash);
         }
 
         public bool TryRecoverOrRestore(out string statusMessage)
         {
-            return AccountPersistenceService.Default.TryRecoverOrRestoreAccounts(out statusMessage);
+            return PersistenceInstance.TryRecoverOrRestoreAccounts(out statusMessage);
         }
 
         public bool IsPasswordEncrypted()
         {
-            return AccountPersistenceService.Default.IsDatabasePasswordEncrypted();
+            return PersistenceInstance.IsDatabasePasswordEncrypted();
         }
 
         public Task<(bool Success, long UserId, RestResponse? Response)> LookupUserIdAsync(string username, CancellationToken cancellationToken = default)
         {
-            return AccountRegistrationService.Default.GetUserIdAsync(username, cancellationToken);
+            return RegistrationInstance.GetUserIdAsync(username, cancellationToken);
         }
 
         public void EnsureBackendInitialized()

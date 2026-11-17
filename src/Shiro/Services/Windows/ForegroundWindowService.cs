@@ -14,7 +14,7 @@ namespace Shiro.Services
     {
         private const uint EVENT_SYSTEM_FOREGROUND = 0x0003;
         private const uint WINEVENT_OUTOFCONTEXT = 0x0000;
-        private const uint WINEVENT_SKIPOWNPROCESS = 0x0002;
+        internal const uint WinEventHookFlags = WINEVENT_OUTOFCONTEXT;
 
         private delegate void WinEventDelegate(
             IntPtr hWinEventHook,
@@ -75,7 +75,7 @@ namespace Shiro.Services
                         _winEventProc,
                         0,
                         0,
-                        WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS);
+                        WinEventHookFlags);
 
                     if (_hookHandle != IntPtr.Zero)
                     {

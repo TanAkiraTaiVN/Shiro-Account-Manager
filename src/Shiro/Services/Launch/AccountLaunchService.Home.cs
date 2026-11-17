@@ -40,7 +40,7 @@ namespace Shiro.Services
                     AppServices.Logger.Info($"[StartNativeHomeAsync] Direct binary launch unavailable ({directResult.ErrorMessage}); falling back to URI protocol.");
                 }
 
-                if (HasRobloxPlayerProtocolHandler() || !preferDirect)
+                if (HasRobloxPlayerProtocolHandler())
                 {
                     try
                     {
@@ -51,36 +51,19 @@ namespace Shiro.Services
                             UseShellExecute = true
                         });
 
-                        if (launcher == null)
-                            throw new InvalidOperationException("Windows did not start the Roblox protocol handler.");
-
+                        if (launcher == null) throw new InvalidOperationException("Windows did not start the Roblox protocol handler.");
                         int launcherPid = launcher.Id;
-
-                        if (!await WaitForExitAsync(launcher, 1500, cancellationToken).ConfigureAwait(false))
-                        {
-                            AppServices.Logger.Info($"Roblox client for {username} is running; released handoff gate.");
-                        }
-                        else
-                        {
-                            AppServices.Logger.Info($"Launching Roblox Home through the registered protocol for {username}.");
-                        }
-
+                        bool timedOut = !await WaitForExitAsync(launcher, 1500, cancellationToken).ConfigureAwait(false);
+                        AppServices.Logger.Info(timedOut
+                            ? $"Roblox client for {username} is running; released handoff gate."
+                            : $"Launching Roblox Home through the registered protocol for {username}.");
                         await Task.Delay(250, cancellationToken).ConfigureAwait(false);
                         await WaitForInstallerAsync(cancellationToken).ConfigureAwait(false);
-
-                        int resolvedHomePid = await ResolveNewClientPidAsync(
-                            existingClientPids,
-                            launcherPid,
-                            TimeSpan.FromSeconds(10),
-                            cancellationToken).ConfigureAwait(false);
-
+                        int resolvedHomePid = await ResolveNewClientPidAsync(existingClientPids, launcherPid, TimeSpan.FromSeconds(10), cancellationToken).ConfigureAwait(false);
                         SchedulePostLaunchSingletonSweep(500);
                         return resolvedHomePid;
                     }
-                    catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-                    {
-                        throw;
-                    }
+                    catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
                     catch (Exception protocolError)
                     {
                         AppServices.Logger.Warn($"Roblox Home protocol launch failed for {username}; using the executable fallback.", protocolError);
@@ -88,26 +71,20 @@ namespace Shiro.Services
                 }
 
                 cancellationToken.ThrowIfCancellationRequested();
-                string? playerPath = FindRobloxPlayerExecutable();
-                if (string.IsNullOrWhiteSpace(playerPath))
-                    throw new FileNotFoundException("RobloxPlayerBeta.exe was not found.");
-
-                ProcessStartInfo directLaunch = new ProcessStartInfo(playerPath)
+                string playerPath = FindRobloxPlayerExecutable() ?? throw new FileNotFoundException("RobloxPlayerBeta.exe was not found.");
+                ProcessStartInfo directLaunch = new(playerPath)
                 {
                     UseShellExecute = false,
                     WorkingDirectory = Path.GetDirectoryName(playerPath) ?? Environment.CurrentDirectory
                 };
                 directLaunch.ArgumentList.Add("--app");
-                directLaunch.ArgumentList.Add(nativeHomeUri);
+                if (!string.IsNullOrWhiteSpace(ticket)) { directLaunch.ArgumentList.Add("-t"); directLaunch.ArgumentList.Add(ticket); }
+                if (!string.IsNullOrWhiteSpace(browserTrackerId)) { directLaunch.ArgumentList.Add("-b"); directLaunch.ArgumentList.Add(browserTrackerId.Trim()); }
                 cancellationToken.ThrowIfCancellationRequested();
-                using Process? fallbackProc = Process.Start(directLaunch);
-                if (fallbackProc == null)
-                    throw new InvalidOperationException("Windows did not start RobloxPlayerBeta.exe.");
+                using Process fallbackProc = Process.Start(directLaunch) ?? throw new InvalidOperationException("Windows did not start RobloxPlayerBeta.exe.");
                 int fallbackPid = fallbackProc.Id;
-
                 await Task.Delay(1000, cancellationToken).ConfigureAwait(false);
                 await WaitForInstallerAsync(cancellationToken).ConfigureAwait(false);
-
                 AppServices.Logger.Info($"Launching Roblox Home through RobloxPlayerBeta.exe directly for {username} because the Roblox protocol is unavailable.");
                 SchedulePostLaunchSingletonSweep(1500);
                 return fallbackPid;
@@ -184,8 +161,6 @@ namespace Shiro.Services
                         MonitorNativeAuthRateLimitAsync(launchStartedUtc, account, cancellationToken),
                         "native auth rate-limit monitor");
                     AppServices.HostUiBridge.SchedulePresenceRefresh(account);
-
-                    AppServices.HostUiBridge.SignalNextLaunchAccount();
                     ObserveBackgroundTask(AdjustWindowPositionAsync(account, homePid, cancellationToken), "Roblox window positioning");
                 }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -196,6 +171,10 @@ namespace Shiro.Services
                 {
                     launchException = x;
                     AppServices.Logger?.Error($"Failed to launch Roblox Home for {account.Username}: {x}");
+                }
+                finally
+                {
+                    AppServices.HostUiBridge.SignalNextLaunchAccount();
                 }
 
                 if (launchException != null)

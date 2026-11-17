@@ -53,6 +53,20 @@ namespace Shiro.Services
         [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvStdcall) })]
         private static unsafe int EnumTopWindowsCallback(IntPtr hWnd, IntPtr lParam)
         {
+            try
+            {
+                return EnumTopWindowsCallbackCore(hWnd, lParam);
+            }
+            catch (Exception ex)
+            {
+                AppServices.Logger?.Debug($"EnumTopWindowsCallback failed: {ex.Message}");
+                return 1;
+            }
+        }
+
+        internal static unsafe int EnumTopWindowsCallbackCore(IntPtr hWnd, IntPtr lParam)
+        {
+            if (lParam == IntPtr.Zero) return 1;
             Span<char> buffer = stackalloc char[128];
             int length;
             fixed (char* ptr = buffer)
@@ -78,6 +92,20 @@ namespace Shiro.Services
         [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvStdcall) })]
         private static unsafe int EnumChildWindowsCallback(IntPtr child, IntPtr lParam)
         {
+            try
+            {
+                return EnumChildWindowsCallbackCore(child, lParam);
+            }
+            catch (Exception ex)
+            {
+                AppServices.Logger?.Debug($"EnumChildWindowsCallback failed: {ex.Message}");
+                return 1;
+            }
+        }
+
+        internal static unsafe int EnumChildWindowsCallbackCore(IntPtr child, IntPtr lParam)
+        {
+            if (lParam == IntPtr.Zero) return 1;
             Span<char> buffer = stackalloc char[128];
             int length;
             fixed (char* ptr = buffer)
@@ -128,7 +156,7 @@ namespace Shiro.Services
                 {
                     try
                     {
-                        await Task.Delay(delayMs, token).ConfigureAwait(false);
+                        await Task.Delay(Math.Max(0, delayMs), token).ConfigureAwait(false);
                         RefreshNotificationArea();
 
                         // Optional second pass after 1.5s to ensure Explorer finished deregistering dead PIDs

@@ -12,6 +12,8 @@ namespace Shiro.Services
     /// </summary>
     internal static class LaunchQueuePacingHelper
     {
+        internal static TimeSpan? TestAsyncJoinTimeoutOverride;
+
         public static void ApplyAuthFailureStatus(
             LaunchRequest request,
             LaunchProgress state,
@@ -114,9 +116,10 @@ namespace Shiro.Services
 
             if (asyncJoin)
             {
+                TimeSpan handoffTimeout = TestAsyncJoinTimeoutOverride ?? TimeSpan.FromSeconds(20);
                 using (CancellationTokenSource timeoutCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
                 {
-                    Task timeout = Task.Delay(TimeSpan.FromSeconds(20), timeoutCancellation.Token);
+                    Task timeout = Task.Delay(handoffTimeout, timeoutCancellation.Token);
                     try
                     {
                         await Task.WhenAny(signal.Task, timeout).ConfigureAwait(false);
@@ -129,14 +132,17 @@ namespace Shiro.Services
 
                 if (!signal.Task.IsCompleted && !cancellationToken.IsCancellationRequested)
                 {
-                    state.Status = LaunchOutcome.Timeout;
+                    // Preserve LaunchOutcome.Success when the process itself launched so post-launch Captcha checks still run.
+                    LaunchOutcome handoffStatus = state.Status == LaunchOutcome.Success ? LaunchOutcome.Success : LaunchOutcome.Timeout;
+                    if (state.Status != LaunchOutcome.Success)
+                        state.Status = LaunchOutcome.Timeout;
                     state.Message = $"Timeout ({request.Account.Username}): Roblox handoff did not respond; continuing with the next account.";
                     LaunchCoordinator.Report(progress, new LaunchProgress
                     {
                         Index = displayIndex,
                         Total = displayTotal,
                         Account = request.Account,
-                        Status = LaunchOutcome.Timeout,
+                        Status = handoffStatus,
                         Result = state.Result,
                         Completed = true,
                         Message = $"Roblox handoff for {request.Account.Username} timed out; continuing with the next account."

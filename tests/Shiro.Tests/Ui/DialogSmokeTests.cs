@@ -127,30 +127,6 @@ namespace Shiro.Tests.Ui
         }
 
         [AvaloniaFact]
-        public void AltGenDialog_Opens_WithViewModelDataContext()
-        {
-            var sink = new BindingErrorSink();
-            var prevSink = Logger.Sink;
-            var prevLang = LocalizationService.CurrentLanguage;
-            AltGenDialog? dlg = null;
-            Logger.Sink = sink;
-            try
-            {
-                dlg = new AltGenDialog();
-                dlg.Show();
-                Assert.IsType<AltGenViewModel>(dlg.DataContext);
-                Assert.Empty(sink.Errors);
-            }
-            finally
-            {
-                dlg?.Close();
-                LocalizationService.SetLanguage(prevLang, saveSetting: false);
-                Avalonia.Application.Current?.Resources.MergedDictionaries.Clear();
-                Logger.Sink = prevSink;
-            }
-        }
-
-        [AvaloniaFact]
         public void MissingAssetsDialog_Opens_WithViewModelDataContext()
         {
             var sink = new BindingErrorSink();

@@ -22,9 +22,6 @@ namespace Shiro.Services
         {
             try
             {
-                if (!string.IsNullOrWhiteSpace(TryResolveSystemProxySignature(logger)))
-                    return true;
-
                 foreach (NetworkInterface nic in NetworkInterface.GetAllNetworkInterfaces())
                 {
                     if (nic.OperationalStatus != OperationalStatus.Up ||
@@ -44,6 +41,19 @@ namespace Shiro.Services
                         desc.Contains("OpenVPN", StringComparison.OrdinalIgnoreCase) ||
                         desc.Contains("NordLynx", StringComparison.OrdinalIgnoreCase) ||
                         desc.Contains("TAP-Windows", StringComparison.OrdinalIgnoreCase) ||
+                        name.Contains("Tailscale", StringComparison.OrdinalIgnoreCase) ||
+                        desc.Contains("Tailscale", StringComparison.OrdinalIgnoreCase) ||
+                        name.Contains("Mullvad", StringComparison.OrdinalIgnoreCase) ||
+                        desc.Contains("Mullvad", StringComparison.OrdinalIgnoreCase) ||
+                        name.Contains("ZeroTier", StringComparison.OrdinalIgnoreCase) ||
+                        desc.Contains("ZeroTier", StringComparison.OrdinalIgnoreCase) ||
+                        desc.Contains("Cisco", StringComparison.OrdinalIgnoreCase) ||
+                        desc.Contains("AnyConnect", StringComparison.OrdinalIgnoreCase) ||
+                        desc.Contains("GlobalProtect", StringComparison.OrdinalIgnoreCase) ||
+                        desc.Contains("Fortinet", StringComparison.OrdinalIgnoreCase) ||
+                        desc.Contains("SoftEther", StringComparison.OrdinalIgnoreCase) ||
+                        desc.Contains("Radmin", StringComparison.OrdinalIgnoreCase) ||
+                        desc.Contains("Hamachi", StringComparison.OrdinalIgnoreCase) ||
                         name.Contains("WARP", StringComparison.OrdinalIgnoreCase) ||
                         desc.Contains("Cloudflare WARP", StringComparison.OrdinalIgnoreCase);
 
@@ -56,12 +66,21 @@ namespace Shiro.Services
                     foreach (UnicastIPAddressInformation uni in props.UnicastAddresses)
                     {
                         IPAddress? addr = uni?.Address;
-                        if (addr != null && !IPAddress.IsLoopback(addr) &&
-                            addr.AddressFamily == AddressFamily.InterNetwork)
+                        if (addr == null || IPAddress.IsLoopback(addr))
+                            continue;
+
+                        if (addr.AddressFamily == AddressFamily.InterNetwork)
                         {
                             byte[] b = addr.GetAddressBytes();
                             if (!(b[0] == 169 && b[1] == 254) && !(b[0] == 0 && b[1] == 0 && b[2] == 0 && b[3] == 0))
                                 return true;
+                        }
+                        else if (addr.AddressFamily == AddressFamily.InterNetworkV6 &&
+                                 !addr.IsIPv6LinkLocal &&
+                                 !addr.IsIPv6Multicast &&
+                                 !addr.Equals(IPAddress.IPv6None))
+                        {
+                            return true;
                         }
                     }
                 }
@@ -261,71 +280,12 @@ namespace Shiro.Services
 
         internal static string? NormalizeAccountProxyEndpoint(string? rawProxy)
         {
-            if (string.IsNullOrWhiteSpace(rawProxy))
+            ProxyItem? parsed = ProxyManagerService.ParseProxy(rawProxy);
+            if (parsed == null)
                 return null;
 
-            ReadOnlySpan<char> working = rawProxy.AsSpan().Trim().TrimEnd('/');
-            if (working.IsEmpty || working[0] == '#')
-                return null;
-
-            int schemeIdx = working.IndexOf("://".AsSpan(), StringComparison.Ordinal);
-            if (schemeIdx > 0 &&
-                Uri.TryCreate(working.ToString(), UriKind.Absolute, out Uri? parsedUri) &&
-                !string.IsNullOrWhiteSpace(parsedUri.Host) &&
-                parsedUri.Port is > 0 and <= 65535)
-            {
-                return $"{parsedUri.Scheme.ToLowerInvariant()}://{parsedUri.Host.ToLowerInvariant()}:{parsedUri.Port}";
-            }
-
-            string scheme = "http";
-            if (schemeIdx > 0)
-            {
-                scheme = working[..schemeIdx].Trim().ToString().ToLowerInvariant();
-                working = working[(schemeIdx + 3)..];
-            }
-
-            int slashIdx = working.IndexOf('/');
-            if (slashIdx >= 0)
-                working = working[..slashIdx];
-
-            Span<Range> colonRanges = stackalloc Range[5];
-            int colonCount = working.Split(colonRanges, ':');
-            if (colonCount >= 4 &&
-                working[colonRanges[0]].IndexOf('@') < 0 &&
-                int.TryParse(working[colonRanges[1]].Trim(), out int colonPort) &&
-                colonPort is > 0 and <= 65535)
-            {
-                ReadOnlySpan<char> hostOnly = working[colonRanges[0]].Trim();
-                if (hostOnly.IsEmpty || hostOnly.IsWhiteSpace())
-                    return null;
-                return $"{scheme}://{hostOnly.ToString().ToLowerInvariant()}:{colonPort}";
-            }
-
-            ReadOnlySpan<char> hostPortSpan = working;
-            int atIdx = working.LastIndexOf('@');
-            if (atIdx >= 0)
-            {
-                ReadOnlySpan<char> part1 = working[..atIdx];
-                ReadOnlySpan<char> part2 = working[(atIdx + 1)..];
-                int part2LastColon = part2.LastIndexOf(':');
-                hostPortSpan = (part2LastColon > 0 && int.TryParse(part2[(part2LastColon + 1)..].Trim(), out _))
-                    ? part2
-                    : part1;
-            }
-
-            int portSep = hostPortSpan.LastIndexOf(':');
-            if (portSep <= 0 ||
-                !int.TryParse(hostPortSpan[(portSep + 1)..].Trim(), out int port) ||
-                port is <= 0 or > 65535)
-            {
-                return null;
-            }
-
-            ReadOnlySpan<char> hostSpan = hostPortSpan[..portSep].Trim();
-            if (hostSpan.IsEmpty || hostSpan.IsWhiteSpace())
-                return null;
-
-            return $"{scheme}://{hostSpan.ToString().ToLowerInvariant()}:{port}";
+            string host = ProxyManagerService.FormatHostForUri(parsed.Host).ToLowerInvariant();
+            return $"{parsed.Protocol.ToLowerInvariant()}://{host}:{parsed.Port}";
         }
 
         private static string? TryResolveSystemProxySignature(IAppLogger? logger)

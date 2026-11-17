@@ -27,6 +27,15 @@ namespace Shiro
         [System.Text.Json.Serialization.JsonIgnore]
         internal int CookieRotationVersion => Volatile.Read(ref _cookieRotationVersion);
 
+        internal void SetCsrfToken(string? token)
+        {
+            lock (CookieSyncRoot)
+            {
+                CSRFToken = token;
+                TokenSet = string.IsNullOrWhiteSpace(token) ? DateTime.MinValue : DateTime.Now;
+            }
+        }
+
         internal string GetCurrentSecurityToken()
         {
             lock (CookieSyncRoot)
@@ -48,6 +57,14 @@ namespace Shiro
 
         public async Task<bool> ValidateSessionAsync(CancellationToken cancellationToken = default)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+            await _sessionGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try { return await ValidateSessionCoreAsync(cancellationToken).ConfigureAwait(false); }
+            finally { _sessionGate.Release(); }
+        }
+
+        private async Task<bool> ValidateSessionCoreAsync(CancellationToken cancellationToken)
+        {
             string initialToken = GetCurrentSecurityToken();
             if (string.IsNullOrWhiteSpace(initialToken))
             {
@@ -59,8 +76,7 @@ namespace Shiro
 
             for (int attempt = 0; attempt < 2; attempt++)
             {
-                if (cancellationToken.IsCancellationRequested)
-                    return Valid;
+                cancellationToken.ThrowIfCancellationRequested();
 
                 try
                 {
@@ -248,7 +264,9 @@ namespace Shiro
                         bool secondaryRateOk = await ValidateViaSecondaryEndpointAsync(cancellationToken).ConfigureAwait(false);
                         if (secondaryRateOk)
                         {
+                            AccountStatusIssue = string.Empty;
                             Valid = true;
+                            IsDirty = true;
                             return true;
                         }
                         AppServices.Logger?.Warn($"[ValidateSessionAsync] {Username}: Rate limited (HTTP 429). Preserving existing session validity: {Valid}");
@@ -298,7 +316,9 @@ namespace Shiro
                         bool secondaryOk = await ValidateViaSecondaryEndpointAsync(cancellationToken).ConfigureAwait(false);
                         if (secondaryOk)
                         {
+                            AccountStatusIssue = string.Empty;
                             Valid = true;
+                            IsDirty = true;
                             return true;
                         }
                         AppServices.Logger?.Warn($"[ValidateSessionAsync] {Username}: HTTP 403 Forbidden received. Preserving session validity: {Valid}");
@@ -315,6 +335,10 @@ namespace Shiro
                         AccountStatusIssue = string.Empty;
                     Valid = false;
                     return false;
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
                 }
                 catch (OperationCanceledException)
                 {
@@ -357,79 +381,19 @@ namespace Shiro
 
                     if (response.StatusCode == HttpStatusCode.Unauthorized)
                     {
-                        if (attempt == 0 && CookieRotationVersion != versionBefore)
-                            continue;
+                        if (attempt == 0 && CookieRotationVersion != versionBefore) continue;
                         return false;
                     }
-
                     return true;
                 }
-                catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
-                {
-                    // Timeout on secondary store: treat as valid to prevent false positive expiration
-                    return true;
-                }
-                catch (Exception ex)
-                {
-                    AppServices.Logger.Debug("[Account] VerifyLiveSessionStore failed", ex);
-                    return true;
-                }
+                catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested) { return true; }
+                catch (Exception ex) { AppServices.Logger.Debug("[Account] VerifyLiveSessionStore failed", ex); return true; }
             }
             return false;
         }
 
-        private async Task<bool> ValidateViaSecondaryEndpointAsync(CancellationToken cancellationToken)
-        {
-            for (int attempt = 0; attempt < 2; attempt++)
-            {
-                try
-                {
-                    int versionBefore = CookieRotationVersion;
-                    HttpClient httpClient = GetSessionHttpClient();
-                    using var request = CreateAuthenticatedGetRequest("https://friends.roblox.com/v1/my/friends/count");
-
-                    using HttpResponseMessage response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
-                    TryUpdateRotatedCookie(response);
-                    if (response.StatusCode == HttpStatusCode.Unauthorized)
-                    {
-                        if (attempt == 0 && CookieRotationVersion != versionBefore)
-                            continue;
-                        AppServices.Logger?.Warn($"[ValidateViaSecondaryEndpointAsync] {Username}: Received 401 on friends.roblox.com. Cookie expired.");
-                        return false;
-                    }
-
-                    if (response.StatusCode == HttpStatusCode.OK)
-                    {
-                        string body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-                        if (!string.IsNullOrWhiteSpace(body))
-                        {
-                            if (FastJson.TryDeserialize<RobloxFriendsCountResponse>(body, out var friendsRsp) && friendsRsp != null)
-                            {
-                                return true;
-                            }
-                            try
-                            {
-                                using var cDoc = JsonDocument.Parse(body);
-                                if (cDoc.RootElement.TryGetProperty("count", out _))
-                                    return true;
-                            }
-                            catch (Exception ex)
-                            {
-                                AppServices.Logger?.Debug($"Parse friend count JSON failed: {ex.Message}");
-                            }
-                        }
-                    }
-                    break;
-                }
-                catch (Exception ex)
-                {
-                    AppServices.Logger?.Warn($"CheckFriendsCountAsync failed: {ex.Message}");
-                    break;
-                }
-            }
-
-            return false;
-        }
+        private Task<bool> ValidateViaSecondaryEndpointAsync(CancellationToken cancellationToken) =>
+            SessionAuditorService.ValidateSecondaryWithRotationAsync(this, () => GetSessionHttpClient(), cancellationToken);
 
         public RestRequest MakeRequest(string url, Method method = Method.Get)
         {

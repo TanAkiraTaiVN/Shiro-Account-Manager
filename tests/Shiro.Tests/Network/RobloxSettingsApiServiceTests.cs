@@ -177,22 +177,25 @@ namespace Shiro.Tests.Network
         {
             Assert.False(await RobloxSettingsApiService.Instance.ChangePasswordAsync(null!, "old", "new"));
 
-            // Success without rotated cookie
+            // HTTP 200 without rotated cookie must fail closed (HIGH-F4) and preserve original password
             var okHandler = new FakeHttpHandler()
                 .Enqueue(HttpStatusCode.Forbidden, "{}", ("x-csrf-token", "pw-csrf"))
                 .Enqueue(HttpStatusCode.OK, "{}");
             Account.TestHttpClientFactory = _ => new HttpClient(okHandler);
             var acc1 = CreateUnlockedAccount("PwUser1");
-            Assert.True(await RobloxSettingsApiService.Instance.ChangePasswordAsync(acc1, "old", "newPass1"));
-            Assert.Equal("newPass1", acc1.Password);
+            acc1.Password = "old";
+            Assert.False(await RobloxSettingsApiService.Instance.ChangePasswordAsync(acc1, "old", "newPass1"));
+            Assert.Equal("old", acc1.Password);
 
             // Success with rotated cookie
+            string validRotatedCookie = "_|WARNING:-DO-NOT-SHARE-THIS.--Sharing-this-will-allow-someone-to-log-in-as-you-and-to-steal-your-ROBUX-and-items.|_" + new string('A', 120);
             var rotHandler = new FakeHttpHandler()
                 .Enqueue(HttpStatusCode.Forbidden, "{}", ("x-csrf-token", "pw-csrf"))
-                .Enqueue(HttpStatusCode.OK, "{}", ("Set-Cookie", ".ROBLOSECURITY=_|WARNING:-DO-NOT-SHARE-THIS.--RotatedTokenValue1234567890; path=/; domain=.roblox.com; HttpOnly"));
+                .Enqueue(HttpStatusCode.OK, "{}", ("Set-Cookie", $".ROBLOSECURITY={validRotatedCookie}; path=/; domain=.roblox.com; HttpOnly"));
             Account.TestHttpClientFactory = _ => new HttpClient(rotHandler);
             var acc2 = CreateUnlockedAccount("PwUser2");
             Assert.True(await RobloxSettingsApiService.Instance.ChangePasswordAsync(acc2, "old", "newPass2"));
+            Assert.Equal("newPass2", acc2.Password);
 
             // Failure status code
             var failHandler = new FakeHttpHandler()

@@ -51,33 +51,29 @@ namespace Shiro.Tests
         public void Override_Nested_RestoresInLifoOrder()
         {
             var originalToast = AppServices.Toasts;
-            var originalBloxGen = AppServices.BloxGen;
             var fakeToast = Substitute.For<IToastNotifier>();
-            var fakeBloxGen = Substitute.For<IBloxGenService>();
+            var fakeLogger = Substitute.For<IAppLogger>();
 
             var outer = AppServices.Override<IToastNotifier>(fakeToast);
-            var inner = AppServices.Override<IBloxGenService>(fakeBloxGen);
+            var inner = AppServices.Override<IAppLogger>(fakeLogger);
 
             Assert.Same(fakeToast, AppServices.Toasts);
-            Assert.Same(fakeBloxGen, AppServices.BloxGen);
 
             inner.Dispose();
             Assert.Same(fakeToast, AppServices.Toasts);
-            Assert.Same(originalBloxGen, AppServices.BloxGen);
 
             outer.Dispose();
             Assert.Same(originalToast, AppServices.Toasts);
-            Assert.Same(originalBloxGen, AppServices.BloxGen);
         }
 
         [Fact]
         public void Override_DisposedOutOfOrder_Throws()
         {
             var fakeToast = Substitute.For<IToastNotifier>();
-            var fakeBloxGen = Substitute.For<IBloxGenService>();
+            var fakeLogger = Substitute.For<IAppLogger>();
 
             var outer = AppServices.Override<IToastNotifier>(fakeToast);
-            var inner = AppServices.Override<IBloxGenService>(fakeBloxGen);
+            var inner = AppServices.Override<IAppLogger>(fakeLogger);
 
             try
             {

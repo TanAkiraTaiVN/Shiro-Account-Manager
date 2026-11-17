@@ -134,6 +134,7 @@ namespace Shiro.ViewModels
             new("tile.cascade", "Main.ArrangeCascadeTitle", "Main.ArrangeCascadeDescription", "Main.WindowsCategory", "Layers", "#60A5FA", false, new[] { "cascade", "xep tang", "so le" }, vm => vm.ArrangeRobloxWindowsCommand.Execute("Cascade")),
             new("system.killall", "Main.KillAllRobloxTitle", "Main.KillAllRobloxDescription", "Main.SystemCategory", "Power", "#EF4444", true, new[] { "close", "kill", "dong", "tat", "exit", "thoat" }, vm => vm.KillAllClientsCommand.Execute(null)),
             new("accounts.checksession", "Main.CheckAllSessionsTitle", "Main.CheckAllSessionsDescription", "Nav_Accounts", "RefreshCw", "#38BDF8", false, new[] { "session", "phien", "kiem tra", "check", "het han" }, vm => vm.CheckSessionsCommand.Execute(null)),
+            new("accounts.audit", "Main.AuditAllSessionsTitle", "Main.AuditAllSessionsDescription", "Nav_Accounts", "ShieldCheck", "#34D399", false, new[] { "audit", "session", "quet phien", "kiem tra phien" }, vm => vm.AuditAllAccountsCommand.Execute(null)),
             new("accounts.relogin", "Main.ReloginExpiredTitle", "Main.ReloginExpiredDescription", "Nav_Accounts", "Key", "#F59E0B", false, new[] { "relogin", "dang nhap lai", "het han", "cookie" }, vm => vm.ReLoginAllExpiredCommand.Execute(null)),
             new("accounts.robux", "Main.RefreshRobuxTitle", "Main.RefreshRobuxDescription", "Nav_Accounts", "Coins", "#EAB308", false, new[] { "robux", "so du", "tien", "balance" }, vm => vm.RefreshAllRobuxCommand.Execute(null)),
             new("select.all", "Bar_SelectAllTooltip", "Main.SelectAllAccountsDescription", "Palette.Category.Selection", "CheckCheck", "#4ADE80", false, new[] { "select all", "chon tat ca", "chon het" }, vm => vm.SelectAllCommand.Execute(null)),
@@ -148,7 +149,6 @@ namespace Shiro.ViewModels
             new("nav.settings", "Main.OpenSettingsTitle", "Main.OpenSettingsDescription", "Main.NavigationCategory", "Settings", "#9CA3AF", false, new[] { "setting", "cai dat", "config", "ngon ngu" }, vm => vm.NavigateToSettingsCommand.Execute(null)),
             new("nav.accounts", "Main.OpenAccountsTitle", "Main.OpenAccountsDescription", "Main.NavigationCategory", "User", "#38BDF8", false, new[] { "tai khoan", "account", "home", "dashboard" }, vm => vm.NavigateToAccountsCommand.Execute(null)),
             new("dialog.proxy", "Main.OpenProxyManagerTitle", "Main.OpenProxyManagerDescription", "Main.ToolsCategory", "Network", "#34D399", false, new[] { "proxy", "ip", "socks" }, vm => vm.OpenProxyManagerCommand.Execute(null)),
-            new("dialog.altgen", "Main.OpenAltGenTitle", "Main.OpenAltGenDescription", "Main.ToolsCategory", "UserPlus", "#38BDF8", false, new[] { "alt", "tao acc", "generator" }, _ => AppServices.Dialogs.OpenAltGenDialog())
         };
     }
 }

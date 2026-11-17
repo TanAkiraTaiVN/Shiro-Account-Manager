@@ -13,21 +13,24 @@ namespace Shiro.Services
     public sealed class ModernPeriodicTask : IDisposable
     {
         private readonly Func<CancellationToken, Task> _action;
-        private readonly CancellationTokenSource _lifecycleCts = new CancellationTokenSource();
         private CancellationTokenSource? _loopCts;
         private TimeSpan _interval;
         private bool _enabled;
+        private bool _disposed;
         private readonly System.Threading.Lock _gate = new();
 
         public ModernPeriodicTask(TimeSpan interval, Func<CancellationToken, Task> action, bool enabled = true)
         {
-            _interval = interval > TimeSpan.Zero ? interval : TimeSpan.FromSeconds(5);
+            _interval = NormalizeInterval(interval);
             _action = action ?? throw new ArgumentNullException(nameof(action));
             if (enabled)
             {
                 Enabled = true;
             }
         }
+
+        private static TimeSpan NormalizeInterval(TimeSpan value)
+            => value > TimeSpan.Zero ? value : TimeSpan.FromSeconds(5);
 
         public bool Enabled
         {
@@ -39,7 +42,7 @@ namespace Shiro.Services
             {
                 lock (_gate)
                 {
-                    if (_enabled == value) return;
+                    if (_disposed || _enabled == value) return;
                     _enabled = value;
                     if (_enabled)
                         StartLoop();
@@ -59,7 +62,8 @@ namespace Shiro.Services
             {
                 lock (_gate)
                 {
-                    _interval = value > TimeSpan.Zero ? value : TimeSpan.FromSeconds(5);
+                    if (_disposed) return;
+                    _interval = NormalizeInterval(value);
                     if (_enabled)
                     {
                         StopLoop();
@@ -73,7 +77,8 @@ namespace Shiro.Services
         {
             lock (_gate)
             {
-                _interval = newInterval > TimeSpan.Zero ? newInterval : TimeSpan.FromSeconds(5);
+                if (_disposed) return;
+                _interval = NormalizeInterval(newInterval);
                 StopLoop();
                 if (_enabled)
                     StartLoop();
@@ -82,47 +87,68 @@ namespace Shiro.Services
 
         private void StartLoop()
         {
-            if (_lifecycleCts.IsCancellationRequested) return;
+            if (_disposed || !_enabled) return;
 
             StopLoop();
-            _loopCts = CancellationTokenSource.CreateLinkedTokenSource(_lifecycleCts.Token);
-            var token = _loopCts.Token;
+            var loopCts = new CancellationTokenSource();
+            _loopCts = loopCts;
+            var token = loopCts.Token;
             var currentInterval = _interval;
 
             _ = Task.Run(async () =>
             {
                 try
                 {
-                    using var timer = new PeriodicTimer(currentInterval);
-                    while (!token.IsCancellationRequested && await timer.WaitForNextTickAsync(token).ConfigureAwait(false))
+                    using (loopCts)
+                    using (var timer = new PeriodicTimer(currentInterval))
                     {
-                        try
+                        while (!token.IsCancellationRequested && await timer.WaitForNextTickAsync(token).ConfigureAwait(false))
                         {
-                            await _action(token).ConfigureAwait(false);
-                        }
-                        catch (OperationCanceledException) when (token.IsCancellationRequested)
-                        {
-                            break;
-                        }
-                        catch (Exception ex)
-                        {
-                            AppServices.Logger?.Error($"PeriodicTask error: {ex.Message}");
+                            try
+                            {
+                                await _action(token).ConfigureAwait(false);
+                            }
+                            catch (OperationCanceledException) when (token.IsCancellationRequested)
+                            {
+                                break;
+                            }
+                            catch (Exception ex)
+                            {
+                                AppServices.Logger?.Error($"PeriodicTask error: {ex.Message}");
+                            }
                         }
                     }
                 }
                 catch (OperationCanceledException) { /* periodic loop stopped */ }
-            }, token);
+                finally
+                {
+                    lock (_gate)
+                    {
+                        if (ReferenceEquals(_loopCts, loopCts))
+                            _loopCts = null;
+                    }
+                }
+            });
         }
 
         private void StopLoop()
         {
+            CancellationTokenSource? ctsToCancel = _loopCts;
+            _loopCts = null;
+            if (ctsToCancel == null) return;
+
             try
             {
-                _loopCts?.Cancel();
-                _loopCts?.Dispose();
+                ctsToCancel.Cancel();
             }
-            catch (Exception ex) { AppServices.Logger?.Debug($"ModernPeriodicTask.StopLoop: {ex.Message}"); }
-            _loopCts = null;
+            catch (ObjectDisposedException)
+            {
+                // Worker already exited and disposed its own CancellationTokenSource.
+            }
+            catch (Exception ex)
+            {
+                AppServices.Logger?.Debug($"ModernPeriodicTask.StopLoop: {ex.Message}");
+            }
         }
 
         public void Stop() => Enabled = false;
@@ -132,14 +158,10 @@ namespace Shiro.Services
         {
             lock (_gate)
             {
+                if (_disposed) return;
+                _disposed = true;
                 _enabled = false;
                 StopLoop();
-                try
-                {
-                    _lifecycleCts.Cancel();
-                    _lifecycleCts.Dispose();
-                }
-                catch (Exception ex) { AppServices.Logger?.Debug($"ModernPeriodicTask.StopLoop: {ex.Message}"); }
             }
         }
     }

@@ -144,6 +144,7 @@ namespace Shiro.Services
 
                 string previousToken = acc.Model.SecurityToken;
                 bool wasValid = acc.Model.Valid;
+                string previousIssue = acc.Model.AccountStatusIssue;
 
                 acc.Model.SecurityToken = token;
                 statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("AccountWorkflow.ValidatingNewSession", acc.Username));
@@ -165,6 +166,7 @@ namespace Shiro.Services
                     {
                         acc.Model.SecurityToken = previousToken;
                         acc.Model.Valid = true;
+                        acc.Model.AccountStatusIssue = previousIssue;
                         viewModel?.UpdateAccountValidity(acc.Model, true);
                         statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("AccountWorkflow.InvalidCookieRetainedOld", acc.Username));
                     }
@@ -189,10 +191,10 @@ namespace Shiro.Services
 
             if (input != null && input != "/UC")
             {
-                acc.Model.Alias = string.IsNullOrWhiteSpace(input) ? string.Empty : input.Trim();
-                acc.Alias = acc.Model.Alias;
+                string nextAlias = string.IsNullOrWhiteSpace(input) ? string.Empty : input.Trim();
+                acc.Alias = nextAlias;
                 AppServices.AccountRepository.QueueDeferredSave();
-                statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("AccountWorkflow.AliasChanged", acc.Username, acc.Model.Alias));
+                statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("AccountWorkflow.AliasChanged", acc.Username, acc.Alias));
             }
         }
 
@@ -208,7 +210,6 @@ namespace Shiro.Services
             if (groupName != null && groupName != "/UC")
             {
                 groupName = string.IsNullOrWhiteSpace(groupName) ? "Default" : groupName.Trim();
-                acc.Model.Group = groupName;
                 acc.Group = groupName;
                 AppServices.AccountRepository.QueueDeferredSave();
                 viewModel?.RebuildGroupList();
@@ -228,7 +229,6 @@ namespace Shiro.Services
 
             if (newDesc != null && newDesc != "/UC")
             {
-                acc.Model.Description = newDesc;
                 acc.Description = newDesc;
                 AppServices.AccountRepository.QueueDeferredSave();
                 statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("AccountWorkflow.NotesUpdated", acc.Username));
@@ -238,9 +238,9 @@ namespace Shiro.Services
         public void TogglePin(AccountViewModel acc, MainViewModel viewModel, Action<string> statusCallback)
         {
             if (acc?.Model == null) return;
-            acc.Model.Pinned = !acc.Model.Pinned;
-            acc.Pinned = acc.Model.Pinned;
+            acc.Pinned = !acc.Pinned;
             AppServices.AccountRepository.QueueDeferredSave();
+            viewModel?.NotifyCounts();
             viewModel?.ApplyFilter();
             statusCallback?.Invoke(acc.Pinned ? Shiro.Services.LocalizationService.Format("AccountWorkflow.PinnedAccount", acc.Username) : Shiro.Services.LocalizationService.Format("AccountWorkflow.UnpinnedAccount", acc.Username));
         }

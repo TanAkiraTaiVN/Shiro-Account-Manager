@@ -53,6 +53,8 @@ namespace Shiro.AvaloniaUI.Views
 
         public static Window? GetActiveWindow()
         {
+            if (Dispatcher.UIThread != null && !Dispatcher.UIThread.CheckAccess())
+                return null;
             if (Avalonia.Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
             {
                 foreach (var win in desktop.Windows)
@@ -190,9 +192,14 @@ namespace Shiro.AvaloniaUI.Views
             MessageBoxIcon icon = MessageBoxIcon.Information,
             Window? owner = null)
         {
-            if (!IsAvaloniaUiReady())
+            if (!IsAvaloniaUiReady() && !IsValidDialogOwner(owner))
             {
                 return ShowNativeFallback(message, title, buttons, icon);
+            }
+
+            if (!Dispatcher.UIThread.CheckAccess())
+            {
+                return await Dispatcher.UIThread.InvokeAsync(() => ShowAsync(message, title, buttons, icon, owner));
             }
 
             if (!IsValidDialogOwner(owner))
@@ -222,7 +229,7 @@ namespace Shiro.AvaloniaUI.Views
             MessageBoxIcon icon = MessageBoxIcon.Information,
             Window? owner = null)
         {
-            if (!IsAvaloniaUiReady())
+            if (!IsAvaloniaUiReady() && !IsValidDialogOwner(owner))
             {
                 return ShowNativeFallback(message, title, buttons, icon);
             }
@@ -243,9 +250,11 @@ namespace Shiro.AvaloniaUI.Views
                         t =>
                         {
                             if (t.IsFaulted || t.IsCanceled)
-                                frame.Continue = false;
+                                Dispatcher.UIThread.Post(() => frame.Continue = false);
                         },
-                        TaskScheduler.FromCurrentSynchronizationContext());
+                        System.Threading.CancellationToken.None,
+                        TaskContinuationOptions.ExecuteSynchronously,
+                        TaskScheduler.Default);
                 }
                 else
                 {

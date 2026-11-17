@@ -55,14 +55,14 @@ namespace Shiro.Services
                 if (parsed == null)
                     return null;
 
-                var proxyUri = new Uri($"{parsed.Protocol}://{parsed.Host}:{parsed.Port}");
+                var proxyUri = new Uri($"{parsed.Protocol}://{ProxyManagerService.FormatHostForUri(parsed.Host)}:{parsed.Port}");
                 var proxy = new WebProxy(proxyUri, false);
 
                 if (!string.IsNullOrEmpty(parsed.Username))
                 {
-                    string user = Uri.UnescapeDataString(parsed.Username);
+                    string user = parsed.IsUriEncoded ? TrySafeUnescape(parsed.Username) : parsed.Username;
                     string pass = !string.IsNullOrEmpty(parsed.Password)
-                        ? Uri.UnescapeDataString(parsed.Password)
+                        ? (parsed.IsUriEncoded ? TrySafeUnescape(parsed.Password) : parsed.Password)
                         : string.Empty;
                     proxy.Credentials = new NetworkCredential(user, pass);
                 }
@@ -71,9 +71,15 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                _logger.Warn($"[ProxyBindingService] Failed to parse proxy '{proxyString}': {ex.Message}");
+                _logger.Warn($"[ProxyBindingService] Failed to parse proxy '{ProxyManagerService.RedactProxy(proxyString)}': {LogRedactor.Redact(ex.Message)}");
                 return null;
             }
+        }
+
+        private static string TrySafeUnescape(string value)
+        {
+            try { return Uri.UnescapeDataString(value); }
+            catch (UriFormatException) { return value; }
         }
 
         /// <summary>
@@ -147,8 +153,9 @@ namespace Shiro.Services
                 IWebProxy? webProxy = ParseWebProxy(normalized);
                 if (webProxy == null)
                 {
-                    _logger.Error($"[ProxyBindingService] Proxy '{normalized}' is invalid. Fail-Closed enforced to prevent IP leak.");
-                    throw new InvalidOperationException($"Proxy '{normalized}' failed to parse. Fallback to direct IP blocked to prevent IP leak.");
+                    string safeProxy = ProxyManagerService.RedactProxy(normalized);
+                    _logger.Error($"[ProxyBindingService] Proxy '{safeProxy}' is invalid. Fail-Closed enforced to prevent IP leak.");
+                    throw new InvalidOperationException($"Proxy '{safeProxy}' failed to parse. Fallback to direct IP blocked to prevent IP leak.");
                 }
 
                 var handler = new SocketsHttpHandler
@@ -190,8 +197,9 @@ namespace Shiro.Services
                 IWebProxy? webProxy = ParseWebProxy(key);
                 if (webProxy == null)
                 {
-                    _logger.Error($"[ProxyBindingService] Proxy '{key}' is invalid. Fail-Closed enforced to prevent IP leak.");
-                    throw new InvalidOperationException($"Proxy '{key}' failed to parse. Fallback to direct IP blocked to prevent IP leak.");
+                    string safeProxy = ProxyManagerService.RedactProxy(key);
+                    _logger.Error($"[ProxyBindingService] Proxy '{safeProxy}' is invalid. Fail-Closed enforced to prevent IP leak.");
+                    throw new InvalidOperationException($"Proxy '{safeProxy}' failed to parse. Fallback to direct IP blocked to prevent IP leak.");
                 }
 
                 var handler = new SocketsHttpHandler
@@ -276,9 +284,10 @@ namespace Shiro.Services
             foreach (var acc in accounts)
             {
                 if (acc == null) continue;
-                if (!string.IsNullOrWhiteSpace(acc.Proxy) && proxyUsage.TryGetValue(acc.Proxy, out var current))
+                if (!string.IsNullOrWhiteSpace(acc.Proxy))
                 {
-                    proxyUsage[acc.Proxy] = (current.Usage + 1, current.Order);
+                    if (proxyUsage.TryGetValue(acc.Proxy, out var current))
+                        proxyUsage[acc.Proxy] = (current.Usage + 1, current.Order);
                 }
                 else
                 {
@@ -372,20 +381,30 @@ namespace Shiro.Services
 
                 if (!activeSet.Contains(rawProxyKey) && _proxyClients.TryRemove(entry.Key, out var removed))
                 {
-                    if (removed.IsValueCreated)
-                    {
-                        try
-                        {
-                            var client = removed.Value;
-                            if (client != null && !ReferenceEquals(client, sharedClient) && !ReferenceEquals(client, sharedNoRedirect))
-                                client.Dispose();
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.Debug($"Error disposing proxy client: {ex.Message}");
-                        }
-                    }
+                    RetireClient(removed, sharedClient, sharedNoRedirect);
                 }
+            }
+        }
+
+        private static void RetireClient(Lazy<HttpClient> removed, HttpClient sharedClient, HttpClient sharedNoRedirect)
+        {
+            if (!removed.IsValueCreated)
+                return;
+
+            try
+            {
+                var client = removed.Value;
+                if (client != null && !ReferenceEquals(client, sharedClient) && !ReferenceEquals(client, sharedNoRedirect))
+                {
+                    _ = Task.Delay(TimeSpan.FromSeconds(15)).ContinueWith(_ =>
+                    {
+                        SafeExecuteHelper.Try(client.Dispose);
+                    }, TaskScheduler.Default);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Debug($"Error retiring proxy client: {LogRedactor.Redact(ex.Message)}");
             }
         }
 
@@ -398,18 +417,9 @@ namespace Shiro.Services
             var sharedNoRedirect = SharedHttpClient.GetNoRedirect();
             foreach (var entry in _proxyClients)
             {
-                if (_proxyClients.TryRemove(entry.Key, out var removed) && removed.IsValueCreated)
+                if (_proxyClients.TryRemove(entry.Key, out var removed))
                 {
-                    try
-                    {
-                        var client = removed.Value;
-                        if (client != null && !ReferenceEquals(client, sharedClient) && !ReferenceEquals(client, sharedNoRedirect))
-                            client.Dispose();
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.Debug($"Error disposing proxy client: {ex.Message}");
-                    }
+                    RetireClient(removed, sharedClient, sharedNoRedirect);
                 }
             }
             _proxyClients.Clear();

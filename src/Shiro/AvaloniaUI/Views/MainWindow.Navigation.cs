@@ -245,13 +245,10 @@ namespace Shiro.AvaloniaUI.Views
             else
                 StreamerModeService.IsEnabled = !StreamerModeService.IsEnabled;
 
-            ToastService.ShowInfo("Streamer Mode", StreamerModeService.IsActive
+            ToastService.ShowInfo(Shiro.Services.LocalizationService.Get("Main.ToggleStreamerModeTitle"), StreamerModeService.IsActive
                 ? Shiro.Services.LocalizationService.Get("MainWindow.StreamerModeEnabled")
                 : Shiro.Services.LocalizationService.Get("MainWindow.StreamerModeDisabled"));
         }
-
-        private void OnToolAltGenClicked(object sender, RoutedEventArgs e)
-            => AppServices.Dialogs.OpenAltGenDialog();
 
         private void OnCommandPaletteBarPressed(object sender, PointerPressedEventArgs e)
         {

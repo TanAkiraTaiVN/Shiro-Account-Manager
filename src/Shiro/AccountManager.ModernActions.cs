@@ -84,15 +84,10 @@ namespace Shiro
                 return;
             }
 
-            string cleanJobId = !string.IsNullOrWhiteSpace(jobId)
-                ? jobId
-                : AppServices.HostUiBridge.TryGetDashboardJobId() is string vmJid && !string.IsNullOrWhiteSpace(vmJid)
-                    ? vmJid
-                    : !string.IsNullOrWhiteSpace(AppServices.ServerBrowserState.CurrentJobId)
-                        ? AppServices.ServerBrowserState.CurrentJobId
-                        : targetAccounts.FirstOrDefault(a => !string.IsNullOrEmpty(a.GetField("SavedJobId")))?.GetField("SavedJobId") ?? string.Empty;
+            string? dashboardJobId = AppServices.HostUiBridge.TryGetDashboardJobId();
+            string cleanJobId = ResolveJoinJobId(jobId, dashboardJobId, placeId, targetAccounts, AppServices.ServerBrowserState.CurrentJobId);
 
-            cleanJobId = cleanJobId?.Trim() ?? string.Empty;
+            cleanJobId = cleanJobId.Trim();
             bool isVip = cleanJobId.StartsWith("VIP:", StringComparison.OrdinalIgnoreCase);
             if (isVip) cleanJobId = cleanJobId.Substring(4).Trim();
 
@@ -152,6 +147,42 @@ namespace Shiro
                 SetDashboardStatus(Shiro.Services.LocalizationService.Get("AccountManager.KilledAndActivatedMulti"));
 
             ModernRefreshPresence();
+        }
+
+        internal static string ResolveJoinJobId(
+            string? explicitJobId,
+            string? dashboardJobId,
+            long placeId,
+            IReadOnlyList<Account>? targetAccounts,
+            string? sessionCurrentJobId)
+        {
+            if (!string.IsNullOrWhiteSpace(explicitJobId))
+                return explicitJobId.Trim();
+
+            // When Dashboard UI is attached, honor the visible Job Id box directly so leaving it blank joins public servers.
+            if (dashboardJobId != null)
+                return string.IsNullOrWhiteSpace(dashboardJobId) ? string.Empty : dashboardJobId.Trim();
+
+            if (!string.IsNullOrWhiteSpace(sessionCurrentJobId))
+                return sessionCurrentJobId.Trim();
+
+            if (targetAccounts == null)
+                return string.Empty;
+
+            foreach (var account in targetAccounts)
+            {
+                if (account == null) continue;
+                string savedJob = account.GetField("SavedJobId");
+                if (string.IsNullOrEmpty(savedJob)) continue;
+
+                if (placeId <= 0 ||
+                    (long.TryParse(account.GetField("SavedPlaceId"), out long savedPid) && savedPid == placeId))
+                {
+                    return savedJob.Trim();
+                }
+            }
+
+            return string.Empty;
         }
 
         internal static string? ResolveEffectivePlaceIdSource(string? viewModelPlaceId, IEnumerable<Account>? targetAccounts, string? fallbackCurrentPlaceId)

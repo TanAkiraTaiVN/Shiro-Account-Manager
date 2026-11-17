@@ -183,7 +183,7 @@ namespace Shiro.Services
                             !string.IsNullOrWhiteSpace(c.Value) &&
                             c.Value.StartsWith("_|", StringComparison.Ordinal))
                         {
-                            if (!Account.IsShortLivedCookie(c.Value) || Account.IsShortLivedCookie(cookieValue))
+                            if (ShouldReplaceSettledCookie(cookieValue, c.Value))
                             {
                                 cookieValue = c.Value;
                             }
@@ -198,6 +198,18 @@ namespace Shiro.Services
             }
 
             return cookieValue;
+        }
+
+        internal static bool ShouldReplaceSettledCookie(string currentCookie, string candidateCookie)
+        {
+            if (string.IsNullOrWhiteSpace(candidateCookie))
+                return false;
+            if (string.IsNullOrWhiteSpace(currentCookie))
+                return true;
+
+            int candidateLen = Account.GetSessionTokenPayloadLength(candidateCookie);
+            int currentLen = Account.GetSessionTokenPayloadLength(currentCookie);
+            return candidateLen >= 850 || (currentLen < 850 && candidateLen > currentLen);
         }
 
         public static async Task<string?> TryExtractDomPasswordAsync(CoreWebView2 core)

@@ -79,8 +79,7 @@ namespace Shiro.Services
                 Account? target = (!string.IsNullOrWhiteSpace(username) || !string.IsNullOrWhiteSpace(password))
                     ? new Account { Username = username ?? string.Empty, Password = password ?? string.Empty }
                     : null;
-                AppDispatcher.Post(() => AppServices.Dialogs.OpenFastLoginDialog(target));
-                return null;
+                return await AppServices.Dialogs.SignInFastLoginAsync(target, cancellationToken).ConfigureAwait(false);
             }
             finally
             {

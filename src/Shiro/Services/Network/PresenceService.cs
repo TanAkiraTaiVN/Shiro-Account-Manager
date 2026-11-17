@@ -17,6 +17,9 @@ namespace Shiro.Services
         private bool _launchedPresenceBatchScheduled;
         private bool disposed;
 
+        private int _activeGateUsers;
+        private int _gateDisposed;
+
         // A timer tick, a manual refresh and the post-launch refresh can land
         // within the same second.  Presence is not latency critical enough to
         // send the same user IDs repeatedly, especially when several accounts
@@ -25,13 +28,22 @@ namespace Shiro.Services
 
         public async Task RefreshAsync(long[] userIds, CancellationToken cancellationToken = default(CancellationToken))
         {
-            if (disposed || cancellationToken.IsCancellationRequested || userIds == null || userIds.Length == 0)
+            if (Volatile.Read(ref disposed) || cancellationToken.IsCancellationRequested || userIds == null || userIds.Length == 0)
                 return;
 
-            await refreshGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            Interlocked.Increment(ref _activeGateUsers);
+            bool acquired = false;
             try
             {
+                if (Volatile.Read(ref disposed))
+                    return;
+
+                await refreshGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+                acquired = true;
+
                 cancellationToken.ThrowIfCancellationRequested();
+                if (Volatile.Read(ref disposed))
+                    return;
 
                 DateTime now = DateTime.UtcNow;
                 long[] pendingIds;
@@ -63,9 +75,29 @@ namespace Shiro.Services
                     foreach (long userId in pendingIds)
                         recentRefreshes[userId] = DateTime.UtcNow;
             }
+            catch (ObjectDisposedException) when (Volatile.Read(ref disposed))
+            {
+                /* disposed concurrently during shutdown */
+            }
             finally
             {
-                refreshGate.Release();
+                if (acquired)
+                {
+                    try { refreshGate.Release(); }
+                    catch (ObjectDisposedException) { /* disposed concurrently */ }
+                }
+
+                if (Interlocked.Decrement(ref _activeGateUsers) == 0 && Volatile.Read(ref disposed))
+                    TryDisposeGate();
+            }
+        }
+
+        private void TryDisposeGate()
+        {
+            if (Interlocked.Exchange(ref _gateDisposed, 1) == 0)
+            {
+                try { refreshGate.Dispose(); }
+                catch (ObjectDisposedException) { /* already disposed */ }
             }
         }
 
@@ -90,7 +122,7 @@ namespace Shiro.Services
             Func<Task, string, Task>? observeTask = null,
             CancellationToken lifetimeToken = default)
         {
-            if (account == null || account.UserID <= 0 || !AppServices.GeneralSettings.GetBool("ShowPresence"))
+            if (account == null || account.UserID <= 0 || !AppServices.GeneralSettings.Get<bool>("ShowPresence", true))
                 return;
 
             lock (_pendingLaunchedPresenceLock)
@@ -167,7 +199,7 @@ namespace Shiro.Services
 
         public async Task UpdatePresenceCoreAsync(CancellationToken cancellationToken = default)
         {
-            if (!AppServices.GeneralSettings.GetBool("ShowPresence"))
+            if (!AppServices.GeneralSettings.Get<bool>("ShowPresence", true))
                 return;
 
             var snapshot = AppServices.AccountRepository.GetAll();
@@ -283,10 +315,10 @@ namespace Shiro.Services
         {
             lock (recentRefreshLock)
             {
-                if (disposed)
+                if (Volatile.Read(ref disposed))
                     return;
 
-                disposed = true;
+                Volatile.Write(ref disposed, true);
                 recentRefreshes.Clear();
             }
 
@@ -295,7 +327,8 @@ namespace Shiro.Services
                 _pendingLaunchedPresenceIds.Clear();
             }
 
-            refreshGate.Dispose();
+            if (Volatile.Read(ref _activeGateUsers) == 0)
+                TryDisposeGate();
         }
     }
 }

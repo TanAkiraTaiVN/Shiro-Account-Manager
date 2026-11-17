@@ -22,32 +22,12 @@ namespace Shiro.AvaloniaUI
                 LocalizationService.Initialize(this);
                 LocalizationService.SetLanguage(LocalizationService.CurrentLanguage, false);
                 AccentThemeService.Initialize();
+                StreamerModeService.Initialize();
 
                 desktop.MainWindow = new Views.MainWindow();
                 ForegroundWindowService.Start();
                 UpdateCheckService.StartBackgroundCheck();
-                desktop.Exit += (s, e) =>
-                {
-                    Program.Closed = true;
-                    ForegroundWindowService.Stop();
-                    SafeExecuteHelper.Try(() => AccountRuntimeStateStore.Flush(), "App.Exit.FlushRuntimeState");
-                    try
-                    {
-                        if (desktop.MainWindow is Views.MainWindow mw && mw.ViewModel != null && !string.IsNullOrWhiteSpace(mw.ViewModel.PlaceId))
-                        {
-                            string pid = mw.ViewModel.PlaceId.Trim();
-                            AppSettings.CurrentPlaceId = pid;
-                            AppSettings.General?.Set("SavedPlaceId", pid);
-                            AppSettings.Save();
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Program.Logger?.Debug($"Saving PlaceId on exit threw: {ex.Message}");
-                    }
-                    try { RobloxWindowService.ShowAllWindows(); }
-                    catch (Exception ex) { Program.Logger?.Debug($"ShowAllWindows on exit threw: {ex.Message}"); }
-                };
+                desktop.Exit += (s, e) => ExecuteDesktopExitCleanup(desktop);
 
                 _ = System.Threading.Tasks.Task.Run(async () =>
                 {
@@ -64,6 +44,31 @@ namespace Shiro.AvaloniaUI
             }
 
             base.OnFrameworkInitializationCompleted();
+        }
+
+        internal static void ExecuteDesktopExitCleanup(IClassicDesktopStyleApplicationLifetime? desktop)
+        {
+            Program.Closed = true;
+            ForegroundWindowService.Stop();
+            SafeExecuteHelper.Try(() => AccountRuntimeStateStore.Flush(), "App.Exit.FlushRuntimeState");
+            try
+            {
+                if (desktop?.MainWindow is Views.MainWindow mw && mw.ViewModel != null && !string.IsNullOrWhiteSpace(mw.ViewModel.PlaceId))
+                {
+                    string pid = mw.ViewModel.PlaceId.Trim();
+                    AppSettings.CurrentPlaceId = pid;
+                    AppSettings.General?.Set("SavedPlaceId", pid);
+                    AppSettings.Save();
+                }
+            }
+            catch (Exception ex)
+            {
+                Program.Logger?.Debug($"Saving PlaceId on exit threw: {ex.Message}");
+            }
+
+            SafeExecuteHelper.Try(() => AppServices.HostUiBridge.ShutdownBackend(), "App.Exit.ShutdownBackend");
+            try { RobloxWindowService.ShowAllWindows(); }
+            catch (Exception ex) { Program.Logger?.Debug($"ShowAllWindows on exit threw: {ex.Message}"); }
         }
     }
 }

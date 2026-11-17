@@ -25,6 +25,7 @@ namespace Shiro.AvaloniaUI.Views
             if (AppServices.HostUiBridge is HostUiBridgeService bridge)
             {
                 bridge.RefreshAccountsOnUiHandler = RefreshAccounts;
+                bridge.RefreshSingleAccountOnUiHandler = acc => ViewDashboard?.ViewModel?.RefreshAccount(acc);
                 bridge.NotifyAccountValidityOnUiHandler = UpdateAccountValidity;
                 bridge.RefreshLiveProcessStatusOnUiHandler = RefreshLiveProcessStatus;
                 bridge.UpdateWindowStatusOnUiHandler = SetStatus;
@@ -113,107 +114,103 @@ namespace Shiro.AvaloniaUI.Views
 
             Opened += async (s, e) =>
             {
-                try
-                {
-                    if (AppServices.GeneralSettings != null && !AppServices.GeneralSettings.Get<bool>(AppSettingsKeys.General.HasAcceptedRiskDisclaimer))
+                await RunStartupPromptsSequentiallyAsync(
+                    async () =>
                     {
-                        string title = Loc.Get("tos_disclaimer_title");
-                        string msg = Loc.Get("tos_disclaimer_message");
-                        if (string.IsNullOrWhiteSpace(title) || title == "tos_disclaimer_title")
-                            title = Shiro.Services.LocalizationService.Get("tos_disclaimer_title");
-                        if (string.IsNullOrWhiteSpace(msg) || msg == "tos_disclaimer_message")
-                            msg = Shiro.Services.LocalizationService.Get("tos_disclaimer_message");
-
-                        await MessageBoxDialog.ShowAsync(msg, title, MessageBoxButtons.OK, MessageBoxIcon.Information, this);
-                        AppServices.GeneralSettings.Set(AppSettingsKeys.General.HasAcceptedRiskDisclaimer, "true");
-                        AppServices.SaveSettings();
-                    }
-                }
-                catch (Exception ex)
-                {
-                    AppServices.Logger?.Debug($"Disclaimer dialog error: {ex.Message}");
-                }
-            };
-
-            if (AppServices.AccountRepository.IsPasswordEncrypted())
-            {
-                Opened += async (s, e) =>
-                {
-                    try
-                    {
-                        bool vaultKeyNewerThanData = false;
                         try
                         {
-                            if (System.IO.File.Exists(StoragePaths.VaultKeyFile) && System.IO.File.Exists(StoragePaths.AccountDataFile))
+                            if (AppServices.GeneralSettings != null && !AppServices.GeneralSettings.Get<bool>(AppSettingsKeys.General.HasAcceptedRiskDisclaimer))
                             {
-                                vaultKeyNewerThanData = System.IO.File.GetLastWriteTimeUtc(StoragePaths.VaultKeyFile) >
-                                                        System.IO.File.GetLastWriteTimeUtc(StoragePaths.AccountDataFile).AddSeconds(2);
+                                string title = Loc.Get("tos_disclaimer_title");
+                                string msg = Loc.Get("tos_disclaimer_message");
+                                if (string.IsNullOrWhiteSpace(title) || title == "tos_disclaimer_title")
+                                    title = Shiro.Services.LocalizationService.Get("tos_disclaimer_title");
+                                if (string.IsNullOrWhiteSpace(msg) || msg == "tos_disclaimer_message")
+                                    msg = Shiro.Services.LocalizationService.Get("tos_disclaimer_message");
+
+                                await MessageBoxDialog.ShowAsync(msg, title, MessageBoxButtons.OK, MessageBoxIcon.Information, this);
+                                AppServices.GeneralSettings.Set(AppSettingsKeys.General.HasAcceptedRiskDisclaimer, "true");
+                                AppServices.SaveSettings();
                             }
                         }
-                        catch (Exception ex)
+                        catch (Exception ex) { AppServices.Logger?.Debug($"Disclaimer dialog error: {ex.Message}"); }
+                    },
+                    async () =>
+                    {
+                        if (!AppServices.AccountRepository.IsPasswordEncrypted()) return;
+                        try
                         {
-                            AppServices.Logger?.Debug($"VaultKey vs AccountData file time check threw: {ex.Message}");
-                        }
-
-                        if (vaultKeyNewerThanData)
-                        {
-                            var recoverRes = await MessageBoxDialog.ShowAsync(
-                                Shiro.Services.LocalizationService.Get("MainWindow.VaultKeyChangedPrompt"),
-                                Shiro.Services.LocalizationService.Get("MainWindow.RecoverShiroDataTitle"),
-                                MessageBoxButtons.YesNo,
-                                MessageBoxIcon.Question,
-                                this);
-
-                            if (recoverRes == MessageBoxResult.Yes)
+                            bool vaultKeyNewerThanData = false;
+                            try
                             {
-                                if (AppServices.AccountRepository.TryRecoverOrRestore(out string statusMsg))
+                                if (System.IO.File.Exists(StoragePaths.VaultKeyFile) && System.IO.File.Exists(StoragePaths.AccountDataFile))
+                                    vaultKeyNewerThanData = System.IO.File.GetLastWriteTimeUtc(StoragePaths.VaultKeyFile) > System.IO.File.GetLastWriteTimeUtc(StoragePaths.AccountDataFile).AddSeconds(2);
+                            }
+                            catch (Exception ex) { AppServices.Logger?.Debug($"VaultKey vs AccountData file time check threw: {ex.Message}"); }
+
+                            if (vaultKeyNewerThanData)
+                            {
+                                var recoverRes = await MessageBoxDialog.ShowAsync(
+                                    Shiro.Services.LocalizationService.Get("MainWindow.VaultKeyChangedPrompt"),
+                                    Shiro.Services.LocalizationService.Get("MainWindow.RecoverShiroDataTitle"),
+                                    MessageBoxButtons.YesNo,
+                                    MessageBoxIcon.Question,
+                                    this);
+
+                                if (recoverRes == MessageBoxResult.Yes && AppServices.AccountRepository.TryRecoverOrRestore(out string statusMsg))
                                 {
                                     RefreshAccounts(AppServices.AccountRepository.GetAll());
                                     ToastService.ShowSuccess(Shiro.Services.LocalizationService.Get("MainWindow.RecoverySuccessTitle"), statusMsg);
                                     return;
                                 }
                             }
-                        }
 
-                        string pass = await InputDialog.PromptAsync(
-                            Shiro.Services.LocalizationService.Get("MainWindow.EnterMasterPasswordPrompt"),
-                            Shiro.Services.LocalizationService.Get("MainWindow.UnlockShiroTitle"),
-                            "",
-                            false,
-                            this);
+                            string pass = await InputDialog.PromptAsync(
+                                Shiro.Services.LocalizationService.Get("MainWindow.EnterMasterPasswordPrompt"),
+                                Shiro.Services.LocalizationService.Get("MainWindow.UnlockShiroTitle"),
+                                "",
+                                false,
+                                this);
 
-                        if (!string.IsNullOrWhiteSpace(pass) && pass != "/UC")
-                        {
-                            byte[] hash = System.Security.Cryptography.SHA512.HashData(System.Text.Encoding.UTF8.GetBytes(pass));
-                            if (AppServices.AccountRepository.LoadFromStore(hash))
+                            if (!string.IsNullOrWhiteSpace(pass) && pass != "/UC")
                             {
-                                RefreshAccounts(AppServices.AccountRepository.GetAll());
-                                ToastService.ShowSuccess(Shiro.Services.LocalizationService.Get("MainWindow.UnlockedTitle"), Shiro.Services.LocalizationService.Format("MainWindow.AccountsLoadedCount", AppServices.AccountRepository.Count));
-                                return;
+                                byte[] hash = System.Security.Cryptography.SHA512.HashData(System.Text.Encoding.UTF8.GetBytes(pass));
+                                if (AppServices.AccountRepository.LoadFromStore(hash))
+                                {
+                                    RefreshAccounts(AppServices.AccountRepository.GetAll());
+                                    ToastService.ShowSuccess(Shiro.Services.LocalizationService.Get("MainWindow.UnlockedTitle"), Shiro.Services.LocalizationService.Format("MainWindow.AccountsLoadedCount", AppServices.AccountRepository.Count));
+                                    return;
+                                }
+
+                                ToastService.ShowWarning(Shiro.Services.LocalizationService.Get("MainWindow.WrongPasswordTitle"), Shiro.Services.LocalizationService.Get("MainWindow.IncorrectMasterPassword"));
                             }
 
-                            ToastService.ShowWarning(Shiro.Services.LocalizationService.Get("MainWindow.WrongPasswordTitle"), Shiro.Services.LocalizationService.Get("MainWindow.IncorrectMasterPassword"));
-                        }
+                            var fallbackRes = await MessageBoxDialog.ShowAsync(
+                                Shiro.Services.LocalizationService.Get("MainWindow.CannotDecryptAccountDataPrompt"),
+                                Shiro.Services.LocalizationService.Get("MainWindow.RecoverDataTitle"),
+                                MessageBoxButtons.YesNo,
+                                MessageBoxIcon.Question,
+                                this);
 
-                        var fallbackRes = await MessageBoxDialog.ShowAsync(
-                            Shiro.Services.LocalizationService.Get("MainWindow.CannotDecryptAccountDataPrompt"),
-                            Shiro.Services.LocalizationService.Get("MainWindow.RecoverDataTitle"),
-                            MessageBoxButtons.YesNo,
-                            MessageBoxIcon.Question,
-                            this);
-
-                        if (fallbackRes == MessageBoxResult.Yes && AppServices.AccountRepository.TryRecoverOrRestore(out string fallbackMsg))
-                        {
-                            RefreshAccounts(AppServices.AccountRepository.GetAll());
-                            ToastService.ShowSuccess(Shiro.Services.LocalizationService.Get("MainWindow.RecoverySuccessTitle"), fallbackMsg);
+                            if (fallbackRes == MessageBoxResult.Yes && AppServices.AccountRepository.TryRecoverOrRestore(out string fallbackMsg))
+                            {
+                                RefreshAccounts(AppServices.AccountRepository.GetAll());
+                                ToastService.ShowSuccess(Shiro.Services.LocalizationService.Get("MainWindow.RecoverySuccessTitle"), fallbackMsg);
+                            }
                         }
-                    }
-                    catch (Exception ex)
-                    {
-                        AppServices.Logger?.Error($"[MainWindow] Unlock flow error: {ex.Message}");
-                    }
-                };
-            }
+                        catch (Exception ex) { AppServices.Logger?.Error($"[MainWindow] Unlock flow error: {ex.Message}"); }
+                    });
+            };
+        }
+
+        internal static async System.Threading.Tasks.Task RunStartupPromptsSequentiallyAsync(
+            Func<System.Threading.Tasks.Task> runDisclaimer,
+            Func<System.Threading.Tasks.Task> runUnlock)
+        {
+            if (runDisclaimer != null)
+                await runDisclaimer();
+            if (runUnlock != null)
+                await runUnlock();
         }
 
         protected override void OnClosed(EventArgs e)
@@ -223,6 +220,7 @@ namespace Shiro.AvaloniaUI.Views
             if (AppServices.HostUiBridge is HostUiBridgeService bridge)
             {
                 bridge.RefreshAccountsOnUiHandler = null;
+                bridge.RefreshSingleAccountOnUiHandler = null;
                 bridge.NotifyAccountValidityOnUiHandler = null;
                 bridge.RefreshLiveProcessStatusOnUiHandler = null;
                 bridge.UpdateWindowStatusOnUiHandler = null;

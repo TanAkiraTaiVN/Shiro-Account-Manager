@@ -28,6 +28,11 @@ namespace Shiro
             }
         }
 
+        internal static void CancelDeferredSaveSettings()
+        {
+            SafeExecuteHelper.Try(() => _deferredSettingsSaveTimer.Change(Timeout.Infinite, Timeout.Infinite));
+        }
+
         internal static void SaveSettings()
         {
             AccountManager? instance = Instance;
@@ -86,6 +91,7 @@ namespace Shiro
                 bridge.QueueDeferredSaveSettingsHandler = () => QueueDeferredSaveSettings();
                 bridge.SetDashboardStatusHandler = SetDashboardStatus;
                 bridge.EnsureBackendInitializedHandler = EnsureBackendInitialized;
+                bridge.ShutdownBackendHandler = ShutdownBackend;
                 bridge.InitializePostStartupHandler = InitializePostStartup;
                 bridge.RestartWebServerHandler = RestartWebServerAsync;
                 bridge.StopWebServerHandler = StopWebServerAsync;

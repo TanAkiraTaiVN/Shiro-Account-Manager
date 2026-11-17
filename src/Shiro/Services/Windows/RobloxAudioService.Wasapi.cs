@@ -2,7 +2,9 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices;
+using System.Threading;
 
 namespace Shiro.Services
 {
@@ -13,6 +15,10 @@ namespace Shiro.Services
         private const int RPC_E_CHANGED_MODE = unchecked((int)0x80010106);
 
         private static readonly ConcurrentDictionary<int, IntPtr> _cachedVolumePointers = new();
+        private static readonly BlockingCollection<Action> _wasapiQueue = new();
+        private static readonly Lock _wasapiWorkerInitLock = new();
+        private static Thread? _wasapiWorkerThread;
+        private static int _wasapiWorkerThreadId = -1;
 
         static RobloxAudioService()
         {
@@ -20,6 +26,101 @@ namespace Shiro.Services
         }
 
         internal static int CachedAudioSessionCount => _cachedVolumePointers.Count;
+
+        private static void EnsureWasapiMtaWorkerStarted()
+        {
+            if (_wasapiWorkerThread != null)
+                return;
+
+            lock (_wasapiWorkerInitLock)
+            {
+                if (_wasapiWorkerThread != null)
+                    return;
+
+                var started = new ManualResetEventSlim(false);
+                var thread = new Thread(() =>
+                {
+                    _wasapiWorkerThreadId = Environment.CurrentManagedThreadId;
+                    if (OperatingSystem.IsWindows())
+                    {
+                        int hr = CoInitializeEx(IntPtr.Zero, COINIT_MULTITHREADED);
+                        if (hr < 0 && hr != RPC_E_CHANGED_MODE)
+                        {
+                            AppServices.Logger?.Warn($"[RobloxAudioService] CoInitializeEx(COINIT_MULTITHREADED) failed: 0x{hr:X8}");
+                        }
+                    }
+                    started.Set();
+
+                    foreach (Action work in _wasapiQueue.GetConsumingEnumerable())
+                    {
+                        try
+                        {
+                            work();
+                        }
+                        catch (Exception ex)
+                        {
+                            AppServices.Logger?.Debug($"[RobloxAudioService.WasapiWorker] Unhandled work item error: {ex.Message}");
+                        }
+                    }
+                })
+                {
+                    IsBackground = true,
+                    Name = "Shiro.WasapiMtaWorker"
+                };
+
+                if (OperatingSystem.IsWindows())
+                {
+                    thread.SetApartmentState(ApartmentState.MTA);
+                }
+
+                thread.Start();
+                started.Wait();
+                _wasapiWorkerThread = thread;
+            }
+        }
+
+        internal static T RunOnWasapiMtaThread<T>(Func<T> work)
+        {
+            if (work == null) throw new ArgumentNullException(nameof(work));
+
+            int currentTid = Environment.CurrentManagedThreadId;
+            if (_wasapiWorkerThreadId > 0 && currentTid == _wasapiWorkerThreadId)
+                return work();
+
+            EnsureWasapiMtaWorkerStarted();
+
+            if (Environment.CurrentManagedThreadId == _wasapiWorkerThreadId)
+                return work();
+
+            T result = default!;
+            Exception? captured = null;
+            using var done = new ManualResetEventSlim(false);
+
+            _wasapiQueue.Add(() =>
+            {
+                try
+                {
+                    result = work();
+                }
+                catch (Exception ex)
+                {
+                    captured = ex;
+                }
+                finally
+                {
+                    done.Set();
+                }
+            });
+
+            done.Wait();
+            if (captured != null)
+                ExceptionDispatchInfo.Throw(captured);
+
+            return result;
+        }
+
+        internal static (ApartmentState Apartment, int ThreadId) ProbeWasapiExecutionContext()
+            => RunOnWasapiMtaThread(() => (Thread.CurrentThread.GetApartmentState(), Environment.CurrentManagedThreadId));
 
         internal static bool AreAllPidsCached(IReadOnlyList<int> runningPids, IReadOnlyDictionary<int, IntPtr> cache)
         {
@@ -38,44 +139,60 @@ namespace Shiro.Services
 
         internal static bool InvalidateCachedAudioSession(int pid)
         {
-            if (pid <= 0) return false;
-            lock (_gate)
+            if (pid <= 0 || !_cachedVolumePointers.ContainsKey(pid)) return false;
+            return RunOnWasapiMtaThread(() => InvalidateCachedAudioSessionOnMta(pid));
+        }
+
+        private static bool InvalidateCachedAudioSessionOnMta(int pid)
+        {
+            if (_cachedVolumePointers.TryRemove(pid, out IntPtr ptr) && ptr != IntPtr.Zero)
             {
-                if (_cachedVolumePointers.TryRemove(pid, out IntPtr ptr) && ptr != IntPtr.Zero)
-                {
-                    ComRelease(ref ptr);
-                    return true;
-                }
-                return false;
+                ComRelease(ref ptr);
+                return true;
             }
+            return false;
         }
 
         internal static void ClearAudioSessionCache()
         {
-            lock (_gate)
+            if (_cachedVolumePointers.IsEmpty) return;
+            RunOnWasapiMtaThread(() =>
             {
-                foreach (var kvp in _cachedVolumePointers)
+                ClearAudioSessionCacheOnMta();
+                return true;
+            });
+        }
+
+        private static void ClearAudioSessionCacheOnMta()
+        {
+            foreach (var kvp in _cachedVolumePointers)
+            {
+                if (_cachedVolumePointers.TryRemove(kvp.Key, out IntPtr ptr) && ptr != IntPtr.Zero)
                 {
-                    if (_cachedVolumePointers.TryRemove(kvp.Key, out IntPtr ptr) && ptr != IntPtr.Zero)
-                    {
-                        ComRelease(ref ptr);
-                    }
+                    ComRelease(ref ptr);
                 }
             }
         }
 
         internal static void PruneExitedCachedAudioSessions(IReadOnlyList<int> runningPids)
         {
-            lock (_gate)
+            if (_cachedVolumePointers.IsEmpty) return;
+            RunOnWasapiMtaThread(() =>
             {
-                if (_cachedVolumePointers.IsEmpty) return;
+                PruneExitedCachedAudioSessionsOnMta(runningPids);
+                return true;
+            });
+        }
 
-                foreach (var kvp in _cachedVolumePointers)
+        private static void PruneExitedCachedAudioSessionsOnMta(IReadOnlyList<int> runningPids)
+        {
+            if (_cachedVolumePointers.IsEmpty) return;
+
+            foreach (var kvp in _cachedVolumePointers)
+            {
+                if (!ContainsPid(runningPids, kvp.Key))
                 {
-                    if (!ContainsPid(runningPids, kvp.Key))
-                    {
-                        InvalidateCachedAudioSession(kvp.Key);
-                    }
+                    InvalidateCachedAudioSessionOnMta(kvp.Key);
                 }
             }
         }
@@ -84,48 +201,40 @@ namespace Shiro.Services
             IReadOnlyList<int> robloxPids,
             Func<uint, NativeSimpleAudioVolume, bool> onSession)
         {
-            lock (_gate)
+            if (!AreAllPidsCached(robloxPids, _cachedVolumePointers))
+                return false;
+
+            return RunOnWasapiMtaThread(() => TryForEachCachedAudioSessionOnMta(robloxPids, onSession));
+        }
+
+        private static bool TryForEachCachedAudioSessionOnMta(
+            IReadOnlyList<int> robloxPids,
+            Func<uint, NativeSimpleAudioVolume, bool> onSession)
+        {
+            if (!AreAllPidsCached(robloxPids, _cachedVolumePointers))
+                return false;
+
+            PruneExitedCachedAudioSessionsOnMta(robloxPids);
+
+            for (int i = 0; i < robloxPids.Count; i++)
             {
-                if (!AreAllPidsCached(robloxPids, _cachedVolumePointers))
+                int pid = robloxPids[i];
+                if (!_cachedVolumePointers.TryGetValue(pid, out IntPtr pVolume) || pVolume == IntPtr.Zero)
                     return false;
 
-                PruneExitedCachedAudioSessions(robloxPids);
-
-                int hrCoInit = CoInitializeEx(IntPtr.Zero, COINIT_MULTITHREADED);
-                bool shouldUninit = hrCoInit >= 0;
-                if (hrCoInit < 0 && hrCoInit != RPC_E_CHANGED_MODE)
+                var nativeVolume = new NativeSimpleAudioVolume(pVolume);
+                // Probe vtable validity first (detects AUDCLNT_E_DEVICE_INVALIDATED when audio endpoint changes)
+                if (!nativeVolume.TryGetMute(out _))
+                {
+                    ClearAudioSessionCacheOnMta();
                     return false;
-
-                try
-                {
-                    for (int i = 0; i < robloxPids.Count; i++)
-                    {
-                        int pid = robloxPids[i];
-                        if (!_cachedVolumePointers.TryGetValue(pid, out IntPtr pVolume) || pVolume == IntPtr.Zero)
-                            return false;
-
-                        var nativeVolume = new NativeSimpleAudioVolume(pVolume);
-                        // Probe vtable validity first (detects AUDCLNT_E_DEVICE_INVALIDATED when audio endpoint changes)
-                        if (!nativeVolume.TryGetMute(out _))
-                        {
-                            ClearAudioSessionCache();
-                            return false;
-                        }
-
-                        if (!onSession((uint)pid, nativeVolume))
-                            break;
-                    }
-
-                    return true;
                 }
-                finally
-                {
-                    if (shouldUninit)
-                    {
-                        CoUninitialize();
-                    }
-                }
+
+                if (!onSession((uint)pid, nativeVolume))
+                    break;
             }
+
+            return true;
         }
 
         private static readonly Guid CLSID_MMDeviceEnumerator = new("BCDE0395-E52F-467C-8E3D-C4579291692E");
@@ -142,9 +251,6 @@ namespace Shiro.Services
 
         [LibraryImport("ole32.dll")]
         private static partial int CoInitializeEx(IntPtr pvReserved, uint dwCoInit);
-
-        [LibraryImport("ole32.dll")]
-        private static partial void CoUninitialize();
 
         [LibraryImport("ole32.dll")]
         private static unsafe partial int CoCreateInstance(

@@ -1,10 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using Shiro;
 using Shiro.Services;
+using Shiro.Tests.TestInfrastructure;
 using Shiro.ViewModels;
 using Xunit;
 
@@ -192,41 +194,58 @@ namespace Shiro.Tests
                 }
                 AppServices.AccountRepository.AddThreadSafe(testAcc);
 
-                int userIdCallCount = 0;
                 var q = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                 {
                     ["Account"] = "ThrowingEndpointUser",
                     ["Password"] = pass
                 };
 
-                int statusCode = 0;
-                var req = new AccountManager.ApiRequestContext
+                var prevFactory = Account.TestHttpClientFactory;
+                try
                 {
-                    AbsolutePath = "/BlockUser",
-                    IsV2 = true,
-                    IsLocal = true,
-                    Host = "localhost",
-                    Origin = "",
-                    Body = "",
-                    GetHeader = _ => null,
-                    SetStatusCode = code => statusCode = code,
-                    GetQuery = key =>
+                    Account.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler(req =>
                     {
-                        if (key == "UserId")
+                        string url = req.RequestUri?.ToString() ?? string.Empty;
+                        if (url.Contains("auth.roblox.com", StringComparison.OrdinalIgnoreCase))
                         {
-                            if (++userIdCallCount > 1)
-                                throw new InvalidOperationException("leak-https://x/?cookie=ABC");
-                            return "12345";
+                            var csrf = new HttpResponseMessage(System.Net.HttpStatusCode.Forbidden)
+                            {
+                                Content = new StringContent("{}")
+                            };
+                            csrf.Headers.TryAddWithoutValidation("x-csrf-token", "csrf-throw");
+                            return csrf;
                         }
-                        return q.TryGetValue(key, out var val) ? val : null;
-                    }
-                };
+                        throw new InvalidOperationException("leak-https://x/?cookie=ABC");
+                    }));
 
-                string responseBody = await mgr.ProcessApiRequestAsync(req);
+                    int statusCode = 0;
+                    var req = new AccountManager.ApiRequestContext
+                    {
+                        AbsolutePath = "/BlockUser",
+                        IsV2 = true,
+                        IsLocal = true,
+                        Host = "localhost",
+                        Origin = "",
+                        Body = "",
+                        GetHeader = _ => null,
+                        SetStatusCode = code => statusCode = code,
+                        GetQuery = key =>
+                        {
+                            if (key == "UserId") return "12345";
+                            return q.TryGetValue(key, out var val) ? val : null;
+                        }
+                    };
 
-                Assert.Equal(500, statusCode);
-                Assert.DoesNotContain("leak-", responseBody);
-                Assert.Contains(AccountApiDispatcher.InternalErrorMessage, responseBody);
+                    string responseBody = await mgr.ProcessApiRequestAsync(req);
+
+                    Assert.Equal(502, statusCode);
+                    Assert.DoesNotContain("leak-", responseBody);
+                    Assert.Contains("Upstream transport failure", responseBody);
+                }
+                finally
+                {
+                    Account.TestHttpClientFactory = prevFactory;
+                }
             }
             finally
             {

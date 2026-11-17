@@ -129,16 +129,20 @@ namespace Shiro
                 !string.IsNullOrEmpty(LastBoundIpSignature) &&
                 string.Equals(LastBoundIpSignature, currentSigAtStart, StringComparison.Ordinal);
 
+            bool useHba = HasHbaBinding;
             if (allowIpSyncRetry)
             {
                 if (string.IsNullOrEmpty(LastBoundIpSignature) &&
                     currentSigAtStart is not ("offline" or "unknown"))
                 {
-                    LastBoundIpSignature = currentSigAtStart;
-                    AppServices.AccountRepository.QueueDeferredSave();
-                    wasSameNetworkAtStart = true;
+                    if (!useHba)
+                    {
+                        LastBoundIpSignature = currentSigAtStart;
+                        AppServices.AccountRepository.QueueDeferredSave();
+                        wasSameNetworkAtStart = true;
+                    }
                 }
-                else if (HasHbaBinding &&
+                else if (useHba &&
                     !string.IsNullOrEmpty(LastBoundIpSignature) &&
                     !wasSameNetworkAtStart &&
                     currentSigAtStart is not ("offline" or "unknown"))
@@ -155,8 +159,6 @@ namespace Shiro
                     ? CSRFToken
                     : string.Empty;
             }
-
-            bool useHba = HasHbaBinding;
             for (int attempt = 0; attempt < AuthTicketMaxAttempts; attempt++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -170,12 +172,14 @@ namespace Shiro
                     if (response == null) return (false, string.Empty);
 
                     bool rotatedOnTicketCall = TryUpdateRotatedCookie(response) || CookieRotationVersion != rotationBefore;
+                    bool updatedCsrfFromHeader = false;
 
                     if (response.Headers.TryGetValues("x-csrf-token", out var csrfVals))
                     {
                         string? freshCsrf = csrfVals.FirstOrDefault();
                         if (!string.IsNullOrWhiteSpace(freshCsrf))
                         {
+                            updatedCsrfFromHeader = true;
                             currentCsrf = freshCsrf;
                             DateTime now = DateTime.Now;
                             lock (CookieSyncRoot)
@@ -191,8 +195,14 @@ namespace Shiro
 
                     if (response.StatusCode == HttpStatusCode.Forbidden)
                     {
-                        if (string.IsNullOrEmpty(currentCsrf))
+                        if (!updatedCsrfFromHeader)
                         {
+                            currentCsrf = string.Empty;
+                            lock (CookieSyncRoot)
+                            {
+                                CSRFToken = null;
+                                TokenSet = DateTime.MinValue;
+                            }
                             var fallbackCsrf = await GetCSRFTokenAsync(cancellationToken).ConfigureAwait(false);
                             if (fallbackCsrf.Success)
                                 currentCsrf = fallbackCsrf.Token;

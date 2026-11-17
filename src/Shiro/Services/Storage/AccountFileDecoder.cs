@@ -48,12 +48,20 @@ namespace Shiro.Services
                     try
                     {
                         decrypted = Cryptography.Decrypt(data, masterPassword);
+                    }
+                    catch (Exception ex)
+                    {
+                        return new AccountDecodeResult(AccountDecodeStatus.NeedsMasterPassword, new List<Account>(), false, false, ex);
+                    }
+
+                    try
+                    {
                         var accounts = AccountDataSerializer.Deserialize(decrypted, out bool needsMigration);
                         return new AccountDecodeResult(AccountDecodeStatus.Loaded, accounts, needsMigration || legacyCryptoHeader, false, null);
                     }
                     catch (Exception ex)
                     {
-                        return new AccountDecodeResult(AccountDecodeStatus.NeedsMasterPassword, new List<Account>(), false, false, ex);
+                        return new AccountDecodeResult(AccountDecodeStatus.Corrupt, new List<Account>(), false, false, ex);
                     }
                     finally
                     {
@@ -143,7 +151,9 @@ namespace Shiro.Services
                     }
                 }
 
-                return new AccountDecodeResult(AccountDecodeStatus.NeedsMasterPassword, new List<Account>(), false, false, failureEx);
+                return failureEx is InvalidDataException
+                    ? new AccountDecodeResult(AccountDecodeStatus.Corrupt, new List<Account>(), false, false, failureEx)
+                    : new AccountDecodeResult(AccountDecodeStatus.NeedsMasterPassword, new List<Account>(), false, false, failureEx);
             }
 
             // Unencrypted / DPAPI / Plaintext branch
@@ -151,16 +161,20 @@ namespace Shiro.Services
             if (keys.UnprotectDpapi != null)
             {
                 byte[]? plain = null;
+                bool unprotected = false;
                 try
                 {
                     bool legacyScope;
                     (plain, legacyScope) = keys.UnprotectDpapi(data);
-                    var accounts = AccountDataSerializer.Deserialize(plain, out bool dpapiNeedsMigration);
+                    unprotected = plain != null;
+                    var accounts = AccountDataSerializer.Deserialize(plain!, out bool dpapiNeedsMigration);
                     bool needsMigration = dpapiNeedsMigration || legacyScope;
                     return new AccountDecodeResult(AccountDecodeStatus.Loaded, accounts, needsMigration, false, null);
                 }
                 catch (Exception ex)
                 {
+                    if (unprotected)
+                        return new AccountDecodeResult(AccountDecodeStatus.Corrupt, new List<Account>(), false, false, ex);
                     dpapiEx = ex;
                 }
                 finally

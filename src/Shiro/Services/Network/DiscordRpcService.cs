@@ -1,10 +1,7 @@
 #nullable enable
 using System;
-using System.Buffers.Binary;
 using System.Collections.Generic;
-using System.IO;
 using System.IO.Pipes;
-using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -33,7 +30,7 @@ namespace Shiro.Services
     /// Native Discord Rich Presence service communicating directly via Windows Named Pipes (\\.\pipe\discord-ipc-0..9).
     /// Features one-click "Join Current Server" button integration, streamer mode awareness, and zero external dependencies.
     /// </summary>
-    public sealed class DiscordRpcService : IDisposable
+    public sealed partial class DiscordRpcService : IDisposable
     {
         private static readonly Lazy<DiscordRpcService> _instance = new(() => new DiscordRpcService(AppServices.Logger, AppServices.GeneralSettings));
         public static DiscordRpcService Default => _instance.Value;
@@ -52,6 +49,9 @@ namespace Shiro.Services
         // Shiro's registered Discord Client Application ID (or generic fallback)
         public const string DefaultClientId = "1301012345678901234";
 
+        public string GetConfiguredClientId() =>
+            _settings.Get<string>(AppSettingsKeys.General.DiscordRpcClientId, DefaultClientId) ?? DefaultClientId;
+
         public static string ClientId =>
             AppServices.GeneralSettings.Get<string>(AppSettingsKeys.General.DiscordRpcClientId, DefaultClientId) ?? DefaultClientId;
 
@@ -59,8 +59,10 @@ namespace Shiro.Services
         private readonly SemaphoreSlim _pipeGate = new(1, 1);
         private NamedPipeClientStream? _pipeStream;
         private CancellationTokenSource? _cts;
+        private Task? _drainTask;
         private bool _isConnected;
         private bool _isDisposed;
+        private bool _loggedNoPipeFound;
         private DiscordActivityItem? _lastActivity;
         private byte[]? _lastActivityFrame;
         private readonly long _sessionStartTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
@@ -88,62 +90,134 @@ namespace Shiro.Services
 
         public void Start()
         {
-            if (!IsEnabled || _isConnected || _cts != null) return;
-
-            _cts = new CancellationTokenSource();
-            _ = Task.Run(() => WorkerLoopAsync(_cts.Token));
+            lock (_pipeLock)
+            {
+                if (_isDisposed || !IsEnabled || _isConnected || _cts != null) return;
+                var loopCts = new CancellationTokenSource();
+                _cts = loopCts;
+                _ = Task.Run(() => WorkerLoopAsync(loopCts));
+            }
         }
 
         public void Stop()
         {
-            _cts?.Cancel();
-            _cts?.Dispose();
-            _cts = null;
+            CancellationTokenSource? ctsToStop;
+            lock (_pipeLock)
+            {
+                ctsToStop = _cts;
+                _cts = null;
+            }
+            SafeExecuteHelper.Try(() => ctsToStop?.Cancel());
             Disconnect();
         }
 
-        private async Task WorkerLoopAsync(CancellationToken ct)
+        public void ApplyConfigurationChanged(bool enabled, bool reconnect = false)
         {
-            while (!ct.IsCancellationRequested && !_isDisposed)
-            {
-                if (!_isConnected)
-                {
-                    await TryConnectAsync(ct).ConfigureAwait(false);
-                }
+            if (_isDisposed) return;
 
-                try
+            _settings.Set(AppSettingsKeys.General.DiscordRpcEnabled, enabled ? "true" : "false");
+            if (!enabled)
+            {
+                ClearPresence();
+                Stop();
+                return;
+            }
+
+            if (reconnect)
+            {
+                ClearPresence();
+                Stop();
+            }
+
+            Start();
+            UpdateCurrentPresence();
+        }
+
+        private async Task WorkerLoopAsync(CancellationTokenSource loopCts)
+        {
+            CancellationToken ct = loopCts.Token;
+            int reconnectDelayMs = BaseReconnectDelayMs;
+            try
+            {
+                while (!ct.IsCancellationRequested && !_isDisposed)
                 {
-                    await Task.Delay(15000, ct).ConfigureAwait(false);
-                    if (_isConnected)
+                    if (!_isConnected)
                     {
-                        byte[]? cachedFrame = Volatile.Read(ref _lastActivityFrame);
-                        if (cachedFrame != null)
+                        bool connected = await TryConnectAsync(ct).ConfigureAwait(false);
+                        reconnectDelayMs = connected
+                            ? BaseReconnectDelayMs
+                            : ComputeNextReconnectDelayMs(reconnectDelayMs);
+                    }
+                    else
+                    {
+                        reconnectDelayMs = BaseReconnectDelayMs;
+                    }
+
+                    try
+                    {
+                        await Task.Delay(_isConnected ? BaseReconnectDelayMs : reconnectDelayMs, ct).ConfigureAwait(false);
+                        if (_isConnected)
                         {
-                            await WriteFrameBytesAsync(cachedFrame, ct).ConfigureAwait(false);
-                        }
-                        else if (_lastActivity != null)
-                        {
-                            await SendActivityAsync(_lastActivity, ct).ConfigureAwait(false);
+                            byte[]? cachedFrame = Volatile.Read(ref _lastActivityFrame);
+                            if (cachedFrame != null)
+                            {
+                                await WriteFrameBytesAsync(cachedFrame, ct).ConfigureAwait(false);
+                            }
+                            else if (_lastActivity != null)
+                            {
+                                await SendActivityAsync(_lastActivity, ct).ConfigureAwait(false);
+                            }
                         }
                     }
+                    catch (OperationCanceledException)
+                    {
+                        break;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Debug($"[DiscordRpcService] Loop tick exception: {ex.Message}");
+                        Disconnect();
+                    }
                 }
-                catch (OperationCanceledException)
+            }
+            finally
+            {
+                lock (_pipeLock)
                 {
-                    break;
+                    if (ReferenceEquals(_cts, loopCts))
+                        _cts = null;
                 }
-                catch (Exception ex)
+                Disconnect();
+                Task? drainToAwait;
+                lock (_pipeLock)
                 {
-                    _logger.Debug($"[DiscordRpcService] Loop tick exception: {ex.Message}");
-                    Disconnect();
+                    drainToAwait = _drainTask;
+                    _drainTask = null;
                 }
+                if (drainToAwait != null)
+                    await drainToAwait.ConfigureAwait(false);
+                SafeExecuteHelper.Try(loopCts.Dispose);
             }
         }
 
-        private async Task TryConnectAsync(CancellationToken ct)
+        private async Task<bool> TryConnectAsync(CancellationToken ct)
         {
-            for (int i = 0; i < 10; i++)
+            IReadOnlyList<int> pipeIndices = FindAvailableDiscordIpcIndices();
+            if (pipeIndices.Count == 0)
             {
-                if (ct.IsCancellationRequested) return;
+                if (!_loggedNoPipeFound)
+                {
+                    _loggedNoPipeFound = true;
+                    _logger.Debug("[DiscordRpcService] No active Discord IPC pipe found; waiting before retry.");
+                }
+                return false;
+            }
+
+            _loggedNoPipeFound = false;
+            for (int k = 0; k < pipeIndices.Count; k++)
+            {
+                int i = pipeIndices[k];
+                if (ct.IsCancellationRequested) return false;
                 NamedPipeClientStream? pipe = null;
                 try
                 {
@@ -157,7 +231,7 @@ namespace Shiro.Services
 
                     // Send Handshake (Opcode 0) via source-generated DTO
                     byte[] handshakeUtf8 = JsonSerializer.SerializeToUtf8Bytes(
-                        new DiscordHandshakePayload(1, ClientId),
+                        new DiscordHandshakePayload(1, GetConfiguredClientId()),
                         ShiroAppJson.Default.DiscordHandshakePayload);
                     await WriteFrameBytesAsync(BuildFrame(0, handshakeUtf8), ct).ConfigureAwait(false);
 
@@ -166,16 +240,21 @@ namespace Shiro.Services
 
                     _isConnected = true;
                     _logger.Info($"[DiscordRpcService] Connected to Discord IPC via pipe discord-ipc-{i}.");
+                    Task drainTask = DrainPipeLoopAsync(pipe, ct);
+                    lock (_pipeLock)
+                    {
+                        _drainTask = drainTask;
+                    }
 
                     if (_lastActivity != null)
                     {
                         await SendActivityAsync(_lastActivity, ct).ConfigureAwait(false);
                     }
-                    return;
+                    return true;
                 }
                 catch (Exception ex)
                 {
-                    _logger.Debug($"[DiscordRpcService] Connect pipe discord-ipc-{i} failed", ex);
+                    _logger.Debug($"[DiscordRpcService] Connect pipe discord-ipc-{i} failed: {ex.Message}");
                     lock (_pipeLock)
                     {
                         if (ReferenceEquals(_pipeStream, pipe))
@@ -185,6 +264,8 @@ namespace Shiro.Services
                     catch (Exception disposeEx) { _logger.Debug($"[DiscordRpcService.ConnectPipeAsync] Pipe dispose: {disposeEx.Message}"); }
                 }
             }
+
+            return false;
         }
 
         private void Disconnect()
@@ -253,7 +334,7 @@ namespace Shiro.Services
                 {
                     new DiscordButtonItem
                     {
-                        Label = "Tham gia Server",
+                        Label = LocalizationService.Get("DiscordRpc.JoinServer"),
                         Url = joinUrl
                     }
                 };
@@ -286,7 +367,9 @@ namespace Shiro.Services
                 _logger.Debug($"[DiscordRpcService.UpdatePresence] {ex.Message}");
             }
 
-            string currentPlace = AppServices.ServerBrowserState.CurrentPlaceId;
+            string currentPlace = (AppServices.ServerBrowserState as ServerBrowserStateService)?.IsPlaceIdExplicitlyCleared == true
+                ? string.Empty
+                : AppServices.ServerBrowserState.CurrentPlaceId;
             long.TryParse(currentPlace, out long placeId);
 
             UpdatePresence(null, placeId, AppServices.ServerBrowserState.CurrentJobId, total, active);
@@ -351,15 +434,6 @@ namespace Shiro.Services
             return JsonSerializer.SerializeToUtf8Bytes(command, ShiroAppJson.Default.DiscordSetActivityCommand);
         }
 
-        internal static byte[] BuildFrame(int opcode, ReadOnlySpan<byte> payloadUtf8)
-        {
-            byte[] frame = new byte[8 + payloadUtf8.Length];
-            BinaryPrimitives.WriteInt32LittleEndian(frame.AsSpan(0, 4), opcode);
-            BinaryPrimitives.WriteInt32LittleEndian(frame.AsSpan(4, 4), payloadUtf8.Length);
-            payloadUtf8.CopyTo(frame.AsSpan(8));
-            return frame;
-        }
-
         private async Task SendActivityAsync(DiscordActivityItem activity, CancellationToken ct)
         {
             byte[] frame = Volatile.Read(ref _lastActivityFrame) ?? BuildFrame(1, BuildSetActivityPayload(activity));
@@ -380,69 +454,15 @@ namespace Shiro.Services
             }
         }
 
-        private async Task WriteFrameBytesAsync(byte[] frameBytes, CancellationToken ct)
-        {
-            await _pipeGate.WaitAsync(ct).ConfigureAwait(false);
-            try
-            {
-                NamedPipeClientStream? stream;
-                lock (_pipeLock)
-                {
-                    stream = _pipeStream;
-                }
-
-                if (stream == null || !stream.IsConnected)
-                    throw new IOException("Discord NamedPipe is not connected.");
-
-                await stream.WriteAsync(frameBytes, ct).ConfigureAwait(false);
-                await stream.FlushAsync(ct).ConfigureAwait(false);
-            }
-            finally
-            {
-                _pipeGate.Release();
-            }
-        }
-
-        private Task<(int Opcode, string Payload)> ReadFrameAsync(CancellationToken ct)
-        {
-            NamedPipeClientStream? stream;
-            lock (_pipeLock)
-            {
-                stream = _pipeStream;
-            }
-
-            if (stream == null || !stream.IsConnected)
-                throw new IOException("Discord NamedPipe is not connected.");
-
-            return ReadFrameFromStreamAsync(stream, ct);
-        }
-
-        internal static async Task<(int Opcode, string Payload)> ReadFrameFromStreamAsync(Stream stream, CancellationToken ct = default)
-        {
-            byte[] header = new byte[8];
-            await stream.ReadExactlyAsync(header, ct).ConfigureAwait(false);
-
-            int opcode = BinaryPrimitives.ReadInt32LittleEndian(header.AsSpan(0, 4));
-            int length = BinaryPrimitives.ReadInt32LittleEndian(header.AsSpan(4, 4));
-
-            if (length < 0 || length > 64 * 1024)
-                throw new IOException($"Invalid Discord frame length: {length}");
-
-            if (length == 0)
-                return (opcode, string.Empty);
-
-            byte[] buffer = new byte[length];
-            await stream.ReadExactlyAsync(buffer, ct).ConfigureAwait(false);
-            string payload = Encoding.UTF8.GetString(buffer);
-            return (opcode, payload);
-        }
-
         public void Dispose()
         {
-            if (_isDisposed) return;
-            _isDisposed = true;
+            lock (_pipeLock)
+            {
+                if (_isDisposed) return;
+                _isDisposed = true;
+            }
             Stop();
-            _pipeGate.Dispose();
+            WebSocketGateHelper.RetireAndDispose(_pipeGate);
         }
     }
 }

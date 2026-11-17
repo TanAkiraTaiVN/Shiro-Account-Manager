@@ -296,7 +296,8 @@ public sealed class MissingAssetsViewModel : DialogViewModelBase
         }
         catch (OperationCanceledException)
         {
-            // Cancelled
+            item.CanBuy = true;
+            item.BuyButtonText = LocalizationService.Get("MissingAssets.BuyAction");
         }
         catch (Exception ex)
         {

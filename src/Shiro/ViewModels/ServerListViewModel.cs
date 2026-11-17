@@ -219,6 +219,7 @@ namespace Shiro.ViewModels
             ServerListOperationHelper.ReplaceCts(ref _serversCts, createNew: false, "ServerListViewModel.ServersCts");
             ServerListOperationHelper.ReplaceCts(ref _regionsCts, createNew: false, "ServerListViewModel.RegionsCts");
             ServerListOperationHelper.ReplaceCts(ref _playerSearchCts, createNew: false, "ServerListViewModel.PlayerSearchCts");
+            ServerListOperationHelper.ReplaceCts(ref _gamesSearchCts, createNew: false, "ServerListViewModel.GamesSearchCts");
         }
 
         public void CancelOperation()

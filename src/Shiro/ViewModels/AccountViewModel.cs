@@ -35,11 +35,8 @@ namespace Shiro.ViewModels
         public void UpdateModel(Account model)
         {
             if (model == null) return;
-            if (!ReferenceEquals(_model, model))
-            {
-                _model = model;
-                NotifyAllPropertiesChanged();
-            }
+            _model = model;
+            NotifyAllPropertiesChanged();
         }
 
         public void NotifyLanguageChanged()

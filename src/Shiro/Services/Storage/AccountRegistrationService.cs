@@ -126,7 +126,12 @@ namespace Shiro.Services
         internal Account? RegisterValidatedAccount(Account account, string securityToken, string password = "", bool saveImmediate = true)
         {
             AppServices.Logger.Info($"[RegisterAccount] user='{account?.Username}' id={account?.UserID} valid={account?.Valid} payloadLen={Account.GetSessionTokenPayloadLength(securityToken)} shortLived={Account.IsShortLivedCookie(securityToken)}.");
-            if (account != null && account.Valid)
+            if (account == null || !account.Valid)
+                return null;
+
+            Account? registered;
+            bool isExisting = false;
+            lock (_repository.SyncRoot)
             {
                 account.Password = password;
 
@@ -136,6 +141,7 @@ namespace Shiro.Services
 
                 if (exists != null)
                 {
+                    isExisting = true;
                     exists.SecurityToken = securityToken;
                     account.CopyHbaAndFingerprintTo(exists);
                     if (!string.IsNullOrWhiteSpace(password))
@@ -152,33 +158,25 @@ namespace Shiro.Services
                     exists.Valid = true;
                     exists.AccountStatusIssue = string.Empty;
                     exists.LastAuthTicketRateLimited = false;
-
-                    account = exists;
-
-                    if (saveImmediate)
-                    {
-                        NotifyAccountValidity(exists, true);
-                    }
+                    registered = exists;
                 }
                 else
                 {
                     account.LastAttemptedRefresh = DateTime.Now;
                     _repository.AddThreadSafe(account);
-
-                    if (saveImmediate)
-                    {
-                        AppServices.HostUiBridge.NotifyAccountsReplaced(_repository.GetAll());
-                        NotifyAccountValidity(account, true);
-                    }
+                    registered = account;
                 }
-
-                if (saveImmediate)
-                    _persistence.SaveAccounts(bypassRateLimit: true);
-
-                return account;
             }
 
-            return null;
+            if (saveImmediate)
+            {
+                if (!isExisting)
+                    AppServices.HostUiBridge.NotifyAccountsReplaced(_repository.GetAll());
+                NotifyAccountValidity(registered, true);
+                _persistence.SaveAccounts(bypassRateLimit: true);
+            }
+
+            return registered;
         }
 
         public bool RemoveAccount(Account account) =>

@@ -284,7 +284,10 @@ namespace Shiro.Http
                 }
                 else if (request.StringBody != null)
                 {
-                    message.Content = new StringContent(request.StringBody, Encoding.UTF8, request.ContentType ?? specifiedContentType ?? "application/json");
+                    string mediaType = request.ContentType ?? specifiedContentType ?? "application/json";
+                    int semi = mediaType.IndexOf(';');
+                    if (semi > 0) mediaType = mediaType.Substring(0, semi).Trim();
+                    message.Content = new StringContent(request.StringBody, Encoding.UTF8, mediaType);
                 }
                 else if (request.Parameters.Count > 0)
                 {
@@ -293,6 +296,29 @@ namespace Shiro.Http
             }
 
             return message;
+        }
+
+        internal static string? SerializeRequestBodyForSigning(RestRequest request)
+        {
+            if (request == null) return null;
+            if (request.JsonBody != null)
+            {
+                if (request.JsonBody is string rawJson) return rawJson;
+                if (request.JsonBody is JsonElement je) return je.GetRawText();
+                return FastJson.Serialize(request.JsonBody);
+            }
+
+            bool isForm = request.Headers.TryGetValue("Content-Type", out var ct) &&
+                          ct.Contains("x-www-form-urlencoded", StringComparison.OrdinalIgnoreCase);
+            if (!isForm && request.StringBody != null)
+                return request.StringBody;
+
+            if (request.Parameters.Count > 0)
+            {
+                return string.Join("&", request.Parameters.Select(p =>
+                    $"{Uri.EscapeDataString(p.Key).Replace("%20", "+")}={Uri.EscapeDataString(p.Value).Replace("%20", "+")}"));
+            }
+            return null;
         }
 
         public Task<RestResponse> ExecuteAsync(RestRequest request, CancellationToken cancellationToken = default) =>

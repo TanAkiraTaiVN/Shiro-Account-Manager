@@ -200,22 +200,17 @@ namespace Shiro.Services
 
         private static async Task ProcessBatchAsync(BatchWork work)
         {
+            var lookupResult = new BatchLookupResult();
+            bool hasSucceededAnyChunk = false;
             try
             {
-                // Keep the original 50 ms coalescing window while ensuring
-                // every queue operation is serialized.
                 await Task.Delay(50).ConfigureAwait(false);
-                var lookupResult = new BatchLookupResult();
 
                 while (true)
                 {
                     BatchRequestPayload[] pending;
                     lock (BatchTaskLock)
                     {
-                        // Clearing the work item under the same lock used by
-                        // GetImage makes the handoff atomic. A request arriving
-                        // after this point starts a new batch instead of being
-                        // attached to a completed task.
                         if (PendingBatch.Count == 0)
                         {
                             PendingBatchIds.Clear();
@@ -239,25 +234,32 @@ namespace Shiro.Services
                     RestResponse response = await ThumbnailAPI.ExecuteAsync(request).ConfigureAwait(false);
 
                     if (response == null || !response.IsSuccessful)
-                        throw new HttpRequestException($"{response?.StatusCode} Batch request failed\nError: {response?.ErrorMessage}");
+                    {
+                        AppServices.Logger?.Warn($"[Batch] Chunk failed: {response?.StatusCode} {response?.ErrorMessage}");
+                        if (!hasSucceededAnyChunk)
+                            throw new HttpRequestException($"{response?.StatusCode} Batch request failed\nError: {response?.ErrorMessage}");
+                        continue;
+                    }
 
                     ThumbnailBatchResponse? data = FastJson.TryDeserialize<ThumbnailBatchResponse>(response.Content ?? "{}", out var b) ? b : null;
                     lookupResult.AddItems(data?.Data);
+                    hasSucceededAnyChunk = true;
                 }
             }
             catch (Exception exception)
             {
                 lock (BatchTaskLock)
                 {
+                    PendingBatch.Clear();
                     PendingBatchIds.Clear();
                     if (ReferenceEquals(CurrentBatchWork, work))
                         CurrentBatchWork = null;
                 }
 
-                // ProcessBatchAsync handles its own failures and delivers the
-                // exception to each caller, so no fire-and-forget task remains
-                // unobserved.
-                work.Completion.TrySetException(exception);
+                if (hasSucceededAnyChunk)
+                    work.Completion.TrySetResult(lookupResult);
+                else
+                    work.Completion.TrySetException(exception);
             }
         }
 
@@ -341,8 +343,12 @@ namespace Shiro.Services
             catch (Exception exception)
             {
                 lock (PlaceTaskLock)
+                {
+                    PendingPlace.Clear();
+                    PendingPlaceIds.Clear();
                     if (ReferenceEquals(CurrentPlaceWork, work))
                         CurrentPlaceWork = null;
+                }
 
                 work.Completion.TrySetException(exception);
             }

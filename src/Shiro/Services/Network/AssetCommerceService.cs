@@ -40,7 +40,7 @@ public sealed class AssetCommerceService : IAssetCommerce
             string? newCsrf = TryGetCsrfHeader(response);
             if (!string.IsNullOrWhiteSpace(newCsrf))
             {
-                a.CSRFToken = newCsrf;
+                a.SetCsrfToken(newCsrf);
                 var retryReq = a.MakeRequest("v1/catalog/items/details", Method.Post);
                 retryReq.AddHeader("X-CSRF-TOKEN", newCsrf);
                 retryReq.AddStringBody(json, "application/json");
@@ -95,7 +95,7 @@ public sealed class AssetCommerceService : IAssetCommerce
                 if (!string.IsNullOrWhiteSpace(newCsrf))
                 {
                     currentCsrf = newCsrf;
-                    a.CSRFToken = newCsrf;
+                    a.SetCsrfToken(newCsrf);
                     resolveReq = a.MakeRequest("marketplace-items/v1/items/details", Method.Post);
                     resolveReq.AddHeader("X-CSRF-TOKEN", newCsrf);
                     resolveReq.AddStringBody(resolveJson, "application/json");
@@ -123,13 +123,20 @@ public sealed class AssetCommerceService : IAssetCommerce
                         collectibleProductId = cpProp.GetString();
                     }
 
+                    bool usingResale = false;
                     if (target.TryGetProperty("hasResellers", out var hrProp) && hrProp.ValueKind == JsonValueKind.True &&
-                        target.TryGetProperty("lowestAvailableResaleProductId", out var larpProp) && larpProp.ValueKind == JsonValueKind.String)
+                        target.TryGetProperty("lowestAvailableResaleProductId", out var larpProp) && larpProp.ValueKind == JsonValueKind.String &&
+                        !string.IsNullOrWhiteSpace(larpProp.GetString()))
                     {
                         collectibleProductId = larpProp.GetString();
+                        usingResale = true;
+                        if (target.TryGetProperty("lowestAvailableResaleSellerId", out var lrSeller) && lrSeller.TryGetInt64(out long parsedReseller) && parsedReseller > 0)
+                            sellerId = parsedReseller;
+                        else if (target.TryGetProperty("resellerSellerId", out var rsProp) && rsProp.TryGetInt64(out long parsedRs) && parsedRs > 0)
+                            sellerId = parsedRs;
                     }
 
-                    if (sellerId <= 0 && target.TryGetProperty("creatorId", out var cIdProp) && cIdProp.TryGetInt64(out long parsedCId))
+                    if (!usingResale && sellerId <= 0 && target.TryGetProperty("creatorId", out var cIdProp) && cIdProp.TryGetInt64(out long parsedCId))
                     {
                         sellerId = parsedCId;
                     }
@@ -169,7 +176,7 @@ public sealed class AssetCommerceService : IAssetCommerce
             if (!string.IsNullOrWhiteSpace(newCsrf))
             {
                 currentCsrf = newCsrf;
-                a.CSRFToken = newCsrf;
+                a.SetCsrfToken(newCsrf);
                 var retryBuyReq = a.MakeRequest($"marketplace-sales/v1/item/{collectibleItemId}/purchase-item", Method.Post);
                 retryBuyReq.AddHeader("X-CSRF-TOKEN", newCsrf);
                 retryBuyReq.AddStringBody(purchaseJson, "application/json");
@@ -188,25 +195,28 @@ public sealed class AssetCommerceService : IAssetCommerce
             return (false, err ?? buyResp.ErrorMessage ?? buyResp.Content);
         }
 
-        if (!string.IsNullOrWhiteSpace(buyResp.Content))
+        if (string.IsNullOrWhiteSpace(buyResp.Content))
         {
-            try
-            {
-                using var buyDoc = JsonDocument.Parse(buyResp.Content);
-                var root = buyDoc.RootElement;
-                if (root.TryGetProperty("purchased", out var pElem) && pElem.ValueKind == JsonValueKind.False)
-                {
-                    string? err = TryExtractErrorMessage(buyResp.Content) ?? "Purchase was not completed.";
-                    return (false, err);
-                }
-            }
-            catch (JsonException ex)
-            {
-                AppServices.Logger.Debug($"[AssetCommerceService] Failed to parse purchase response JSON: {ex.Message}");
-            }
+            return (false, "Empty purchase response from server.");
         }
 
-        return (true, null);
+        try
+        {
+            using var buyDoc = JsonDocument.Parse(buyResp.Content);
+            var root = buyDoc.RootElement;
+            if (root.TryGetProperty("purchased", out var pElem) && pElem.ValueKind == JsonValueKind.True)
+            {
+                return (true, null);
+            }
+
+            string? err = TryExtractErrorMessage(buyResp.Content) ?? "Purchase was not completed.";
+            return (false, err);
+        }
+        catch (JsonException ex)
+        {
+            AppServices.Logger.Debug($"[AssetCommerceService] Failed to parse purchase response JSON: {ex.Message}");
+            return (false, "Invalid purchase response format.");
+        }
     }
 
     private static string? TryGetCsrfHeader(RestResponse resp)
@@ -228,9 +238,11 @@ public sealed class AssetCommerceService : IAssetCommerce
         {
             using var doc = JsonDocument.Parse(json);
             var root = doc.RootElement;
-            if (root.TryGetProperty("errorMessage", out var em) && em.ValueKind == JsonValueKind.String)
+            if (root.TryGetProperty("errorMessage", out var em) && em.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(em.GetString()))
                 return em.GetString();
-            if (root.TryGetProperty("purchaseResult", out var pr) && pr.ValueKind == JsonValueKind.String)
+            if (root.TryGetProperty("reason", out var rs) && rs.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(rs.GetString()))
+                return rs.GetString();
+            if (root.TryGetProperty("purchaseResult", out var pr) && pr.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(pr.GetString()))
                 return pr.GetString();
             if (root.TryGetProperty("errors", out var errArr) && errArr.ValueKind == JsonValueKind.Array && errArr.GetArrayLength() > 0)
             {

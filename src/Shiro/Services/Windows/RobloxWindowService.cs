@@ -66,6 +66,10 @@ namespace Shiro.Services
         [return: MarshalAs(UnmanagedType.Bool)]
         private static partial bool IsWindow(IntPtr hWnd);
 
+        [LibraryImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static partial bool IsWindowVisible(IntPtr hWnd);
+
         [LibraryImport("user32.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
         private static partial bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
@@ -91,24 +95,25 @@ namespace Shiro.Services
 
         private static readonly ConcurrentDictionary<IntPtr, bool> _hiddenWindows = new ConcurrentDictionary<IntPtr, bool>();
 
-        public static bool AreWindowsHidden
+        internal static bool ShouldTrimOnHide() => MemoryOptimizer.IsAggressiveWorkingSetTrimEnabled();
+
+        public static bool AreWindowsHidden => AreWindowsHiddenCore(IsWindow);
+
+        internal static bool AreWindowsHiddenCore(Func<IntPtr, bool> isWindow)
         {
-            get
+            if (_hiddenWindows.IsEmpty) return false;
+            bool anyHidden = false;
+            foreach (var kvp in _hiddenWindows)
             {
-                if (_hiddenWindows.IsEmpty) return false;
-                bool anyHidden = false;
-                foreach (var kvp in _hiddenWindows)
+                if (!isWindow(kvp.Key))
                 {
-                    if (!IsWindow(kvp.Key))
-                    {
-                        _hiddenWindows.TryRemove(kvp.Key, out _);
-                        continue;
-                    }
-                    if (kvp.Value)
-                        anyHidden = true;
+                    _hiddenWindows.TryRemove(kvp.Key, out _);
+                    continue;
                 }
-                return anyHidden;
+                if (kvp.Value)
+                    anyHidden = true;
             }
+            return anyHidden;
         }
 
         public enum WindowMatchQuality
@@ -276,25 +281,19 @@ namespace Shiro.Services
             if (pids.Count == 0) return (0, 0);
 
             var windows = FindWindowsForPids(pids);
-            int hidden = 0;
-
-            foreach (var hWnd in windows)
-            {
-                if (ShowWindow(hWnd, SW_HIDE))
-                {
-                    _hiddenWindows[hWnd] = true;
-                    hidden++;
-                }
-            }
+            int hidden = HideWindowsCore(windows, IsWindowVisible, ShowWindow);
 
             AppServices.Logger.Info($"[RobloxWindowService] Hidden {hidden} window(s) across {pids.Count} Roblox client(s).");
 
             // Automatically optimize background processes (lower scheduler priority and trim working set)
             try
             {
-                if (AppServices.GeneralSettings.Get<bool>(AppSettingsKeys.General.AutoLowerProcessPriority, true))
+                if (AppServices.GeneralSettings.Get<bool>(AppSettingsKeys.General.AutoLowerProcessPriority, false))
                 {
                     RobloxProcessOptimizer.LowerPriorityForPids(pids.Select(p => (int)p));
+                }
+                if (ShouldTrimOnHide())
+                {
                     MemoryOptimizer.TrimRobloxClients(lowerPriority: false);
                 }
             }
@@ -318,22 +317,14 @@ namespace Shiro.Services
             foreach (var w in FindWindowsForPids(pids))
                 windows.Add(w);
 
-            int shown = 0;
-            foreach (var hWnd in windows)
-            {
-                if (ShowWindow(hWnd, SW_RESTORE))
-                {
-                    shown++;
-                }
-            }
-            _hiddenWindows.Clear();
+            int shown = ShowWindowsCore(windows, IsWindowVisible, ShowWindow);
 
             AppServices.Logger.Info($"[RobloxWindowService] Restored {shown} Roblox window(s).");
 
             // Restore normal priority for unhidden clients
             try
             {
-                if (AppServices.GeneralSettings.Get<bool>(AppSettingsKeys.General.AutoLowerProcessPriority, true))
+                if (AppServices.GeneralSettings.Get<bool>(AppSettingsKeys.General.AutoLowerProcessPriority, false))
                 {
                     RobloxProcessOptimizer.RestorePriorityForPids(pids.Select(p => (int)p));
                 }
@@ -362,6 +353,48 @@ namespace Shiro.Services
                 var (hidden, _) = HideAllWindows();
                 return (hidden > 0 && AreWindowsHidden, hidden);
             }
+        }
+
+        internal static int HideWindowsCore(
+            IEnumerable<IntPtr> windows,
+            Func<IntPtr, bool> isVisible,
+            Func<IntPtr, int, bool> showWindow)
+        {
+            int hidden = 0;
+            foreach (var hWnd in windows)
+            {
+                bool wasVisible = isVisible(hWnd);
+                bool priorResult = showWindow(hWnd, SW_HIDE);
+                bool nowHidden = !isVisible(hWnd);
+                if (wasVisible || priorResult || nowHidden)
+                {
+                    _hiddenWindows[hWnd] = true;
+                    if (wasVisible || priorResult)
+                        hidden++;
+                }
+            }
+            return hidden;
+        }
+
+        internal static int ShowWindowsCore(
+            IEnumerable<IntPtr> windows,
+            Func<IntPtr, bool> isVisible,
+            Func<IntPtr, int, bool> showWindow)
+        {
+            int shown = 0;
+            foreach (var hWnd in windows)
+            {
+                bool wasTrackedHidden = _hiddenWindows.ContainsKey(hWnd);
+                bool wasVisible = isVisible(hWnd);
+                bool priorResult = showWindow(hWnd, SW_RESTORE);
+                bool nowVisible = isVisible(hWnd);
+                if ((!wasVisible && nowVisible) || priorResult || (wasTrackedHidden && nowVisible))
+                {
+                    shown++;
+                }
+            }
+            _hiddenWindows.Clear();
+            return shown;
         }
     }
 }

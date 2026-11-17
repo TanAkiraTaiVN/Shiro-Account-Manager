@@ -30,6 +30,7 @@ namespace Shiro.Services
         }
 
         private WebApplication? _app;
+        private readonly ConcurrentDictionary<WebSocket, SemaphoreSlim> _instanceSockets = new();
         private readonly int _port;
         private bool _allowExternal;
         private readonly Func<HttpContext, Task<string>> _handler;
@@ -55,7 +56,7 @@ namespace Shiro.Services
             _port = port > 0 ? port : 7963;
             _allowExternal = allowExternal;
             _handler = handler ?? throw new ArgumentNullException(nameof(handler));
-            _authValidator = authValidator;
+            _authValidator = authValidator ?? (_allowExternal ? _ => false : null);
             _logger = logger ?? AppServices.Logger;
         }
 
@@ -77,17 +78,15 @@ namespace Shiro.Services
 
             _app.Use(async (context, next) =>
             {
-                if (!_allowExternal)
+                string origin = context.Request.Headers["Origin"].ToString();
+                if (!string.IsNullOrEmpty(origin) &&
+                    WebAuthPolicy.IsOriginAllowed(origin, context.Request.Host.Value, _allowExternal))
                 {
-                    // Only reflect loopback origins; other browser origins get no CORS grant.
-                    string origin = context.Request.Headers["Origin"].ToString();
-                    if (!string.IsNullOrEmpty(origin) && WebAuthPolicy.IsTrustedLocalOrigin(origin))
-                    {
-                        context.Response.Headers.Append("Access-Control-Allow-Origin", origin);
-                        context.Response.Headers.Append("Vary", "Origin");
-                    }
+                    context.Response.Headers.Append("Access-Control-Allow-Origin", origin);
+                    context.Response.Headers.Append("Vary", "Origin");
                 }
                 context.Response.Headers.Append("Access-Control-Allow-Methods", "POST, GET, OPTIONS");
+                context.Response.Headers.Append("Access-Control-Allow-Headers", "Content-Type, X-Shiro-Auth, X-RAM-Auth, Authorization");
                 context.Response.Headers.Append("X-Content-Type-Options", "nosniff");
                 context.Response.Headers.Append("X-Frame-Options", "DENY");
 
@@ -115,27 +114,44 @@ namespace Shiro.Services
                     string result = await _handler(context);
                     if (!context.Response.HasStarted)
                     {
-                        if (result != null && (result.StartsWith("{") || result.StartsWith("[")))
-                            context.Response.ContentType = "application/json; charset=utf-8";
-                        else
-                            context.Response.ContentType = "text/plain; charset=utf-8";
+                        if (string.IsNullOrEmpty(context.Response.ContentType))
+                        {
+                            if (result != null && (result.StartsWith("{") || result.StartsWith("[")))
+                                context.Response.ContentType = "application/json; charset=utf-8";
+                            else
+                                context.Response.ContentType = "text/plain; charset=utf-8";
+                        }
 
                         await context.Response.WriteAsync(result ?? string.Empty);
                     }
                 }
                 catch (Exception ex)
                 {
-                    context.Response.StatusCode = StatusCodes.Status500InternalServerError;
-                    await context.Response.WriteAsync(JsonSerializer.Serialize(new ApiErrorResponse(false, ex.Message), ShiroAppJson.Default.ApiErrorResponse));
+                    _logger.Warn($"[KestrelWebServer] Unhandled request exception on {context.Request.Path}: {LogRedactor.Redact(ex.Message)}");
+                    if (!context.Response.HasStarted)
+                    {
+                        bool hideDetails = _allowExternal ||
+                                           context.Connection.RemoteIpAddress == null ||
+                                           !IPAddress.IsLoopback(context.Connection.RemoteIpAddress);
+                        string clientError = hideDetails
+                            ? AccountApiDispatcher.InternalErrorMessage
+                            : LogRedactor.Redact(ex.Message);
+                        context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+                        context.Response.ContentType = "application/json; charset=utf-8";
+                        await context.Response.WriteAsync(JsonSerializer.Serialize(
+                            new ApiErrorResponse(false, clientError),
+                            ShiroAppJson.Default.ApiErrorResponse));
+                    }
                 }
             });
 
-            // Hook domain event publishers to broadcast automatically
+            await _app.StartAsync(_cts.Token);
+
+            // Hook domain event publishers only after Kestrel binds cleanly
             AntiAfkService.StatusChanged += OnAntiAfkStatusChanged;
             RobloxSingletonService.StatusChanged += OnMultiRobloxStatusChanged;
             LaunchCoordinator.LaunchProgressChanged += OnLaunchProgressChanged;
 
-            await _app.StartAsync(_cts.Token);
             IsRunning = true;
             _logger.Info($"[KestrelWebServer] ASP.NET Core Kestrel HTTP/WebSocket Gateway started on port {_port} (AllowExternal: {_allowExternal})");
         }
@@ -150,9 +166,18 @@ namespace Shiro.Services
                 return;
             }
 
+            string? clientKey = context.Connection.RemoteIpAddress?.ToString();
+            if (!string.IsNullOrEmpty(clientKey) && WebAuthPolicy.IsClientLockedOut(clientKey))
+            {
+                context.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+                return;
+            }
+
             if (_authValidator != null && !_authValidator(context))
             {
-                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                context.Response.StatusCode = !string.IsNullOrEmpty(clientKey) && WebAuthPolicy.IsClientLockedOut(clientKey)
+                    ? StatusCodes.Status429TooManyRequests
+                    : StatusCodes.Status401Unauthorized;
                 return;
             }
 
@@ -162,6 +187,7 @@ namespace Shiro.Services
             {
                 socket = await context.WebSockets.AcceptWebSocketAsync();
                 gate = new SemaphoreSlim(1, 1);
+                _instanceSockets.TryAdd(socket, gate);
                 _activeSockets.TryAdd(socket, gate);
 
                 // Initial welcome handshake frame
@@ -176,8 +202,9 @@ namespace Shiro.Services
                 byte[] welcomeBytes = JsonSerializer.SerializeToUtf8Bytes(welcome, ShiroAppJson.Default.GatewayWelcomeMessage);
                 await SendSafeAsync(socket, gate, new ArraySegment<byte>(welcomeBytes), CancellationToken.None).ConfigureAwait(false);
 
-                // Inbound message listening loop (pings, heartbeats, RPC)
+                // Inbound message listening loop (handles fragmented frames up to 16 KB)
                 byte[] buffer = System.Buffers.ArrayPool<byte>.Shared.Rent(2048);
+                using var frameStream = new MemoryStream();
                 try
                 {
                     while (socket.State == WebSocketState.Open && !_cts.IsCancellationRequested)
@@ -188,40 +215,34 @@ namespace Shiro.Services
                             await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", CancellationToken.None);
                             break;
                         }
+                        if (result.MessageType != WebSocketMessageType.Text) continue;
 
-                        if (result.MessageType == WebSocketMessageType.Text && result.Count > 0)
+                        if (frameStream.Length + result.Count <= 16384 && result.Count > 0)
+                            frameStream.Write(buffer, 0, result.Count);
+                        if (!result.EndOfMessage) continue;
+
+                        if (frameStream.Length > 0 && IsPingPayload(frameStream.GetBuffer().AsSpan(0, (int)frameStream.Length)))
                         {
-                            ReadOnlySpan<byte> msgSpan = buffer.AsSpan(0, result.Count);
-                            if (IsPingPayload(msgSpan))
-                            {
-                                var pong = new GatewayPongMessage(
-                                    "pong",
-                                    DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
-                                byte[] pongBytes = JsonSerializer.SerializeToUtf8Bytes(pong, ShiroAppJson.Default.GatewayPongMessage);
-                                await SendSafeAsync(socket, gate, new ArraySegment<byte>(pongBytes), CancellationToken.None).ConfigureAwait(false);
-                            }
+                            byte[] pongBytes = JsonSerializer.SerializeToUtf8Bytes(
+                                new GatewayPongMessage("pong", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()),
+                                ShiroAppJson.Default.GatewayPongMessage);
+                            await SendSafeAsync(socket, gate, new ArraySegment<byte>(pongBytes), CancellationToken.None).ConfigureAwait(false);
                         }
+                        frameStream.SetLength(0);
                     }
                 }
-                finally
-                {
-                    System.Buffers.ArrayPool<byte>.Shared.Return(buffer);
-                }
+                finally { System.Buffers.ArrayPool<byte>.Shared.Return(buffer); }
             }
             catch (OperationCanceledException) { /* canceled */ }
             catch (WebSocketException ex) { _logger.Debug($"[KestrelWebServer] WebSocket closed: {ex.Message}"); }
-            catch (Exception ex)
-            {
-                _logger.Warn($"[KestrelWebServer] WebSocket client error: {ex.Message}");
-            }
+            catch (Exception ex) { _logger.Warn($"[KestrelWebServer] WebSocket client error: {ex.Message}"); }
             finally
             {
                 if (socket != null)
                 {
+                    _instanceSockets.TryRemove(socket, out _);
                     if (_activeSockets.TryRemove(socket, out var removedGate))
-                    {
-                        SafeExecuteHelper.Try(removedGate.Dispose);
-                    }
+                        WebSocketGateHelper.RetireAndDispose(removedGate);
                     SafeExecuteHelper.Try(socket.Dispose);
                 }
             }
@@ -229,35 +250,36 @@ namespace Shiro.Services
 
         private static bool IsPingPayload(ReadOnlySpan<byte> utf8Span)
         {
-            while (!utf8Span.IsEmpty && utf8Span[0] <= (byte)' ')
-                utf8Span = utf8Span.Slice(1);
-            while (!utf8Span.IsEmpty && utf8Span[utf8Span.Length - 1] <= (byte)' ')
-                utf8Span = utf8Span.Slice(0, utf8Span.Length - 1);
+            while (!utf8Span.IsEmpty && utf8Span[0] <= (byte)' ') utf8Span = utf8Span.Slice(1);
+            while (!utf8Span.IsEmpty && utf8Span[^1] <= (byte)' ') utf8Span = utf8Span.Slice(0, utf8Span.Length - 1);
 
             if (utf8Span.Length == 4 &&
-                (utf8Span[0] | 0x20) == (byte)'p' &&
-                (utf8Span[1] | 0x20) == (byte)'i' &&
-                (utf8Span[2] | 0x20) == (byte)'n' &&
-                (utf8Span[3] | 0x20) == (byte)'g')
-            {
+                (utf8Span[0] | 0x20) == (byte)'p' && (utf8Span[1] | 0x20) == (byte)'i' &&
+                (utf8Span[2] | 0x20) == (byte)'n' && (utf8Span[3] | 0x20) == (byte)'g')
                 return true;
-            }
 
-            return utf8Span.IndexOf("\"ping\""u8) >= 0;
+            return utf8Span.SequenceEqual("\"ping\""u8) ||
+                   utf8Span.IndexOf("\"type\":\"ping\""u8) >= 0 ||
+                   utf8Span.IndexOf("\"type\": \"ping\""u8) >= 0;
         }
 
         private static async Task SendSafeAsync(WebSocket socket, SemaphoreSlim gate, ArraySegment<byte> segment, CancellationToken ct = default)
         {
             if (socket.State != WebSocketState.Open || gate == null) return;
+            if (!WebSocketGateHelper.TryEnterUse(gate)) return;
             bool acquired = false;
             try
             {
                 await gate.WaitAsync(ct).ConfigureAwait(false);
                 acquired = true;
-                if (socket.State == WebSocketState.Open)
+                if (socket.State == WebSocketState.Open && !WebSocketGateHelper.IsRetired(gate))
                 {
                     await socket.SendAsync(segment, WebSocketMessageType.Text, true, ct).ConfigureAwait(false);
                 }
+            }
+            catch (ObjectDisposedException)
+            {
+                // Gate was retired concurrently during socket shutdown
             }
             finally
             {
@@ -265,6 +287,7 @@ namespace Shiro.Services
                 {
                     SafeExecuteHelper.Try(() => gate.Release(), "KestrelWebServer.SendSafeAsync.ReleaseGate");
                 }
+                WebSocketGateHelper.ExitUse(gate);
             }
         }
 
@@ -314,7 +337,7 @@ namespace Shiro.Services
                 }
                 else if (sockets.TryRemove(socket, out var removedGate))
                 {
-                    SafeExecuteHelper.Try(removedGate.Dispose);
+                    WebSocketGateHelper.RetireAndDispose(removedGate);
                 }
             }
 
@@ -341,7 +364,7 @@ namespace Shiro.Services
                 _staticLogger.Debug($"WebSocket broadcast to client failed or timed out: {ex.Message}");
                 if (sockets.TryRemove(socket, out var removedGate))
                 {
-                    SafeExecuteHelper.Try(removedGate.Dispose);
+                    WebSocketGateHelper.RetireAndDispose(removedGate);
                 }
                 SafeExecuteHelper.Try(socket.Abort);
             }
@@ -403,25 +426,32 @@ namespace Shiro.Services
             RobloxSingletonService.StatusChanged -= OnMultiRobloxStatusChanged;
             LaunchCoordinator.LaunchProgressChanged -= OnLaunchProgressChanged;
 
-            // Gracefully close any active WebSockets
-            foreach (var kvp in _activeSockets)
+            SafeExecuteHelper.Try(() => _cts.Cancel());
+
+            // Gracefully close sockets owned by this instance before disposing their gates
+            foreach (var kvp in _instanceSockets)
             {
+                _instanceSockets.TryRemove(kvp.Key, out _);
+                _activeSockets.TryRemove(kvp.Key, out _);
                 try
                 {
                     if (kvp.Key.State == WebSocketState.Open)
-                        await kvp.Key.CloseAsync(WebSocketCloseStatus.NormalClosure, "Server stopping", CancellationToken.None);
+                    {
+                        using var closeCts = new CancellationTokenSource(TimeSpan.FromMilliseconds(1500));
+                        await kvp.Key.CloseAsync(WebSocketCloseStatus.NormalClosure, "Server stopping", closeCts.Token).ConfigureAwait(false);
+                    }
                 }
                 catch (Exception ex)
                 {
                     _logger.Debug($"Closing active socket failed: {ex.Message}");
+                    SafeExecuteHelper.Try(kvp.Key.Abort);
                 }
-                SafeExecuteHelper.Try(kvp.Value.Dispose);
+                WebSocketGateHelper.RetireAndDispose(kvp.Value);
+                SafeExecuteHelper.Try(kvp.Key.Dispose);
             }
-            _activeSockets.Clear();
 
             try
             {
-                _cts.Cancel();
                 if (_app != null)
                 {
                     await _app.StopAsync().ConfigureAwait(false);

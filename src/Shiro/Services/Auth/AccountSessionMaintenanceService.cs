@@ -62,12 +62,13 @@ namespace Shiro.Services
 
                         try
                         {
+                            bool wasValid = account.Valid;
                             bool valid = await RobloxRateLimitCoordinator.Instance.ExecuteWithPacingAsync(
                                 RateLimitCategory.SessionCheck,
                                 () => account.ValidateSessionAsync(cancellationToken),
                                 minIntervalMs: 350,
                                 cancellationToken: cancellationToken).ConfigureAwait(false);
-                            if (valid && !account.Valid)
+                            if (valid && !wasValid)
                             {
                                 account.Valid = true;
                                 anyChanged = true;
@@ -132,15 +133,7 @@ namespace Shiro.Services
                 string combo = comboList[i].Trim();
                 if (string.IsNullOrWhiteSpace(combo)) continue;
 
-                int separator = combo.IndexOf(':');
-                if (separator <= 0) separator = combo.IndexOf('|');
-                if (separator <= 0) separator = combo.IndexOf('\t');
-
-                if (separator <= 0 || separator >= combo.Length - 1)
-                    continue;
-
-                string username = combo.Substring(0, separator).Trim();
-                string password = combo.Substring(separator + 1).Trim();
+                var (username, password) = ParseUserPassCombo(combo);
                 if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
                     continue;
 
@@ -210,12 +203,14 @@ namespace Shiro.Services
             try
             {
                 using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(lifetimeToken, cancellationToken);
-                await browserService.SignInAsync(
+                Account? signedIn = await browserService.SignInAsync(
                     username,
                     password,
                     windowSlot,
                     submitCredentials: true,
                     cancellationToken: linkedCts.Token);
+                if (signedIn == null || !signedIn.Valid)
+                    return (false, username, LocalizationService.Get("AccountManager.CancelledByUser"), windowSlot);
                 return (true, username, string.Empty, windowSlot);
             }
             catch (OperationCanceledException)
@@ -227,6 +222,20 @@ namespace Shiro.Services
                 AppServices.Logger.Error($"Bulk user:pass login failed for {username}: {exception.Message}");
                 return (false, username, exception.Message, windowSlot);
             }
+        }
+
+        internal static (string Username, string Password) ParseUserPassCombo(string combo)
+        {
+            if (string.IsNullOrWhiteSpace(combo))
+                return (string.Empty, string.Empty);
+
+            int separator = combo.IndexOf('|');
+            if (separator <= 0) separator = combo.IndexOf('\t');
+            if (separator <= 0) separator = combo.IndexOf(':');
+            if (separator <= 0 || separator >= combo.Length - 1)
+                return (string.Empty, string.Empty);
+
+            return (combo.Substring(0, separator).Trim(), combo.Substring(separator + 1).Trim());
         }
 
         internal static string MakeSafeFileName(string value, string fallback)

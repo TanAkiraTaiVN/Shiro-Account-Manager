@@ -57,6 +57,27 @@ namespace Shiro.Services
 
             bool isLocal = context.Connection.RemoteIpAddress != null &&
                            IPAddress.IsLoopback(context.Connection.RemoteIpAddress);
+            string? clientKey = context.Connection.RemoteIpAddress?.ToString();
+            string host = req.Host.Value ?? string.Empty;
+            string origin = req.Headers["Origin"].ToString();
+            string? headerPass = WebAuthPolicy.ExtractHeaderPassword(k => req.Headers.TryGetValue(k, out var val) ? val.ToString() : null);
+            string? queryPass = WebAuthPolicy.ExtractQueryPassword(k => req.Query.TryGetValue(k, out var val) ? val.ToString() : null);
+
+            string? authError = EvaluateGatewayAuth(
+                absolutePath,
+                absolutePath.Length > 1 ? absolutePath.Substring(1) : string.Empty,
+                isLocal,
+                clientKey,
+                host,
+                origin,
+                headerPass,
+                queryPass,
+                isV2,
+                code => context.Response.StatusCode = code);
+            if (authError != null)
+            {
+                return authError;
+            }
 
             string body = string.Empty;
             if (req.ContentLength > 0 || req.Body.CanRead)
@@ -90,9 +111,9 @@ namespace Shiro.Services
                 AbsolutePath = absolutePath,
                 IsV2 = isV2,
                 IsLocal = isLocal,
-                ClientKey = context.Connection.RemoteIpAddress?.ToString(),
-                Host = req.Host.Host,
-                Origin = req.Headers["Origin"].ToString(),
+                ClientKey = clientKey,
+                Host = host,
+                Origin = origin,
                 Body = body,
                 GetQuery = key => req.Query.TryGetValue(key, out var val) ? val.ToString() : null,
                 GetHeader = key => req.Headers.TryGetValue(key, out var val) ? val.ToString() : null,
@@ -100,7 +121,68 @@ namespace Shiro.Services
                 SetContentType = type => context.Response.ContentType = type
             };
 
-            return await ProcessApiRequestAsync(apiCtx).ConfigureAwait(false);
+            return await ProcessAuthenticatedRequestAsync(apiCtx, headerPass, queryPass).ConfigureAwait(false);
+        }
+
+        private static string? EvaluateGatewayAuth(
+            string absolutePath,
+            string method,
+            bool isLocal,
+            string? clientKey,
+            string host,
+            string origin,
+            string? headerPass,
+            string? queryPass,
+            bool isV2,
+            Action<int> setStatusCode)
+        {
+            string AuthReply(string message, int code, string raw)
+            {
+                setStatusCode(code);
+                return isV2 ? WebServerResponse(message, false) : raw;
+            }
+
+            bool isPublicTelemetryMethod =
+                method.Equals("GetWebSocketStats", StringComparison.OrdinalIgnoreCase) ||
+                method.Equals("WebSocketStats", StringComparison.OrdinalIgnoreCase) ||
+                absolutePath.Equals("/favicon.ico", StringComparison.OrdinalIgnoreCase);
+
+            bool isSpecialDocOrHealth =
+                absolutePath.Equals("/Running", StringComparison.OrdinalIgnoreCase) ||
+                absolutePath.Equals("/swagger.json", StringComparison.OrdinalIgnoreCase) ||
+                absolutePath.Equals("/openapi.json", StringComparison.OrdinalIgnoreCase) ||
+                absolutePath.Equals("/api/docs", StringComparison.OrdinalIgnoreCase) ||
+                absolutePath.Equals("/docs", StringComparison.OrdinalIgnoreCase);
+
+            var scope = (isPublicTelemetryMethod || isSpecialDocOrHealth)
+                ? AuthScope.PublicTelemetry
+                : AuthScope.Api;
+
+            var webServer = AppServices.Settings.GetSection("WebServer");
+            bool allowExternal = webServer != null && webServer.Get<bool>("AllowExternalConnections");
+            bool everyReq = webServer != null && webServer.Get<bool>("EveryRequestRequiresPassword");
+
+            if (!string.IsNullOrEmpty(clientKey) && WebAuthPolicy.IsClientLockedOut(clientKey))
+            {
+                return AuthReply("Too many failed authentication attempts. Please try again later.", StatusCodes.Status429TooManyRequests, "Too Many Requests");
+            }
+
+            var authSettings = new AuthSettings(allowExternal, everyReq, AppServices.ServerBrowserState.WebSocketPassword);
+            var authReq = new AuthRequest(scope, isLocal, host, origin, headerPass, queryPass);
+            var decision = WebAuthPolicy.Evaluate(authReq, authSettings);
+            WebAuthPolicy.RecordAuthResult(clientKey, decision);
+            if (decision == AuthDecision.Allow)
+                return null;
+
+            int statusCode = WebAuthPolicy.ToStatusCode(decision);
+            return decision switch
+            {
+                AuthDecision.ForbiddenExternal => AuthReply("External connections are not allowed", statusCode, string.Empty),
+                AuthDecision.ForbiddenHost => AuthReply("Invalid host header", statusCode, "Forbidden"),
+                AuthDecision.ForbiddenOrigin => AuthReply("Cross-origin requests from external web pages are forbidden", statusCode, "Forbidden"),
+                AuthDecision.PasswordNotConfigured => AuthReply("WebServer password must be configured with 6 or more characters before accessing protected endpoints", statusCode, "Password Not Configured"),
+                _ => AuthReply("Invalid Password, make sure your password contains 6 or more characters", statusCode, "Invalid Password")
+            };
         }
 
         public bool ValidateWebSocketAuth(HttpContext context)
@@ -133,6 +215,30 @@ namespace Shiro.Services
 
         public async Task<string> ProcessApiRequestAsync(ApiRequestContext req)
         {
+            string absolutePath = req.AbsolutePath;
+            string method = absolutePath.Length > 1 ? absolutePath.Substring(1) : string.Empty;
+            string? headerPass = WebAuthPolicy.ExtractHeaderPassword(req.GetHeader);
+            string? queryPass = WebAuthPolicy.ExtractQueryPassword(req.GetQuery);
+
+            string? authError = EvaluateGatewayAuth(
+                absolutePath,
+                method,
+                req.IsLocal,
+                req.ClientKey,
+                req.Host,
+                req.Origin,
+                headerPass,
+                queryPass,
+                req.IsV2,
+                req.SetStatusCode);
+            if (authError != null)
+                return authError;
+
+            return await ProcessAuthenticatedRequestAsync(req, headerPass, queryPass).ConfigureAwait(false);
+        }
+
+        private async Task<string> ProcessAuthenticatedRequestAsync(ApiRequestContext req, string? headerPass, string? queryPass)
+        {
             bool v2 = req.IsV2;
             string absolutePath = req.AbsolutePath;
 
@@ -142,62 +248,15 @@ namespace Shiro.Services
                 return v2 ? WebServerResponse(response, success) : (raw ?? response);
             }
 
-            if (absolutePath == "/favicon.ico") return "";
+            if (absolutePath.Equals("/favicon.ico", StringComparison.OrdinalIgnoreCase))
+            {
+                req.SetStatusCode(StatusCodes.Status204NoContent);
+                return string.Empty;
+            }
 
             string body = req.Body;
             string method = absolutePath.Length > 1 ? absolutePath.Substring(1) : string.Empty;
             string? account = req.GetQuery("Account");
-
-            bool isPublicTelemetryMethod =
-                method.Equals("GetWebSocketStats", StringComparison.OrdinalIgnoreCase) ||
-                method.Equals("WebSocketStats", StringComparison.OrdinalIgnoreCase);
-
-            bool isSpecialDocOrHealth =
-                absolutePath.Equals("/Running", StringComparison.OrdinalIgnoreCase) ||
-                absolutePath.Equals("/swagger.json", StringComparison.OrdinalIgnoreCase) ||
-                absolutePath.Equals("/openapi.json", StringComparison.OrdinalIgnoreCase) ||
-                absolutePath.Equals("/api/docs", StringComparison.OrdinalIgnoreCase) ||
-                absolutePath.Equals("/docs", StringComparison.OrdinalIgnoreCase);
-
-            var scope = (isPublicTelemetryMethod || isSpecialDocOrHealth)
-                ? AuthScope.PublicTelemetry
-                : AuthScope.Api;
-
-            var webServer = AppServices.Settings.GetSection("WebServer");
-            bool allowExternal = webServer != null && webServer.Get<bool>("AllowExternalConnections");
-            bool everyReq = webServer != null && webServer.Get<bool>("EveryRequestRequiresPassword");
-
-            string? headerPass = WebAuthPolicy.ExtractHeaderPassword(req.GetHeader);
-            string? queryPass = WebAuthPolicy.ExtractQueryPassword(req.GetQuery);
-
-            var authSettings = new AuthSettings(allowExternal, everyReq, AppServices.ServerBrowserState.WebSocketPassword);
-            var authReq = new AuthRequest(
-                scope,
-                req.IsLocal,
-                req.Host,
-                req.Origin,
-                headerPass,
-                queryPass);
-
-            if (!string.IsNullOrEmpty(req.ClientKey) && WebAuthPolicy.IsClientLockedOut(req.ClientKey))
-            {
-                return Reply("Too many failed authentication attempts. Please try again later.", false, StatusCodes.Status429TooManyRequests, "Too Many Requests");
-            }
-
-            var decision = WebAuthPolicy.Evaluate(authReq, authSettings);
-            WebAuthPolicy.RecordAuthResult(req.ClientKey, decision);
-            if (decision != AuthDecision.Allow)
-            {
-                int statusCode = WebAuthPolicy.ToStatusCode(decision);
-                return decision switch
-                {
-                    AuthDecision.ForbiddenExternal => Reply("External connections are not allowed", false, statusCode, string.Empty),
-                    AuthDecision.ForbiddenHost => Reply("Invalid host header", false, statusCode, "Forbidden"),
-                    AuthDecision.ForbiddenOrigin => Reply("Cross-origin requests from external web pages are forbidden", false, statusCode, "Forbidden"),
-                    AuthDecision.PasswordNotConfigured => Reply("WebServer password must be configured with 6 or more characters before accessing protected endpoints", false, statusCode, "Password Not Configured"),
-                    _ => Reply("Invalid Password, make sure your password contains 6 or more characters", false, statusCode, "Invalid Password")
-                };
-            }
 
             if (absolutePath.Equals("/Running", StringComparison.OrdinalIgnoreCase)) return Reply("Shiro is running", true, raw: "true");
 
@@ -216,6 +275,121 @@ namespace Shiro.Services
             string password = headerPass ?? (req.IsLocal ? queryPass : null) ?? string.Empty;
 
             return await HandleApiEndpointAsync(req, method, account, password, body, Reply).ConfigureAwait(false);
+        }
+
+        private static bool TryParsePositiveUserId(string? raw, out long userId) =>
+            long.TryParse(raw, out userId) && userId > 0;
+
+        private static async Task<string?> TryEnsureCsrfAsync(Account account, Func<string, bool, int, string?, string> reply)
+        {
+            var csrfResult = await account.GetCSRFTokenAsync().ConfigureAwait(false);
+            if (!csrfResult.Success)
+                return reply("Invalid Account, the account's cookie may have expired and resulted in the account being logged out", false, -1, "Invalid Account");
+            return null;
+        }
+
+        private static string ReplyUpstreamResult(RestResponse? res, Func<string, bool, int, string?, string> reply)
+        {
+            if (res == null || (int)res.StatusCode <= 0)
+                return reply("Upstream transport failure", false, StatusCodes.Status502BadGateway, null);
+
+            int status = (int)res.StatusCode;
+            string content = status >= 500 ? InternalErrorMessage : (res.Content ?? string.Empty);
+            return reply(content, res.IsSuccessful, status, null);
+        }
+
+        private static string? TryHandleGlobalSystemCommand(
+            string method,
+            ISettingsService general,
+            Func<string, bool, int, string?, string> reply)
+        {
+            if (method.Equals("AntiAfk/Status", StringComparison.OrdinalIgnoreCase) || method.Equals("AntiAfkStatus", StringComparison.OrdinalIgnoreCase))
+                return reply(JsonSerializer.Serialize(new AntiAfkStatusPayload(AntiAfkService.IsEnabled, AntiAfkService.TapsSent, AntiAfkService.StatusText), ShiroAppJson.Default.AntiAfkStatusPayload), true, -1, null);
+
+            if (method.Equals("AntiAfk/Toggle", StringComparison.OrdinalIgnoreCase) || method.Equals("ToggleAntiAfk", StringComparison.OrdinalIgnoreCase))
+            {
+                AntiAfkService.Toggle();
+                return reply(JsonSerializer.Serialize(new AntiAfkTogglePayload(AntiAfkService.IsEnabled, AntiAfkService.StatusText), ShiroAppJson.Default.AntiAfkTogglePayload), true, -1, null);
+            }
+
+            if (method.Equals("AntiAfk/Enable", StringComparison.OrdinalIgnoreCase))
+            {
+                AntiAfkService.Start();
+                return reply(JsonSerializer.Serialize(new AntiAfkTogglePayload(AntiAfkService.IsEnabled, AntiAfkService.StatusText), ShiroAppJson.Default.AntiAfkTogglePayload), true, -1, null);
+            }
+
+            if (method.Equals("AntiAfk/Disable", StringComparison.OrdinalIgnoreCase))
+            {
+                AntiAfkService.Stop();
+                return reply(JsonSerializer.Serialize(new AntiAfkTogglePayload(AntiAfkService.IsEnabled, AntiAfkService.StatusText), ShiroAppJson.Default.AntiAfkTogglePayload), true, -1, null);
+            }
+
+            if (method.Equals("Memory/Trim", StringComparison.OrdinalIgnoreCase) || method.Equals("TrimMemory", StringComparison.OrdinalIgnoreCase) || method.Equals("CleanRAM", StringComparison.OrdinalIgnoreCase))
+            {
+                var (bytesSaved, count) = MemoryOptimizer.TrimRobloxClients();
+                return reply(JsonSerializer.Serialize(new MemoryTrimPayload(bytesSaved, count), ShiroAppJson.Default.MemoryTrimPayload), true, -1, null);
+            }
+
+            if (method.Equals("MultiRoblox/Status", StringComparison.OrdinalIgnoreCase))
+            {
+                var payload = new MultiRobloxStatusPayload(general.Get<bool>("EnableMultiRbx"), RobloxSingletonService.StatusText, RobloxSingletonService.TotalClosed, RobloxSingletonService.MutexHeld);
+                return reply(JsonSerializer.Serialize(payload, ShiroAppJson.Default.MultiRobloxStatusPayload), true, -1, null);
+            }
+
+            if (method.Equals("MultiRoblox/Toggle", StringComparison.OrdinalIgnoreCase))
+            {
+                bool next = !general.Get<bool>("EnableMultiRbx");
+                general.Set("EnableMultiRbx", next ? "true" : "false");
+                AppServices.HostUiBridge.UpdateMultiRoblox();
+                return reply(JsonSerializer.Serialize(new MultiRobloxTogglePayload(next, RobloxSingletonService.StatusText), ShiroAppJson.Default.MultiRobloxTogglePayload), true, -1, null);
+            }
+
+            if (method.Equals("Roblox/HideWindows", StringComparison.OrdinalIgnoreCase) || method.Equals("HideWindows", StringComparison.OrdinalIgnoreCase))
+            {
+                var (hidden, total) = RobloxWindowService.HideAllWindows();
+                return reply(JsonSerializer.Serialize(new HideWindowsPayload(hidden, total, true), ShiroAppJson.Default.HideWindowsPayload), true, -1, null);
+            }
+
+            if (method.Equals("Roblox/ShowWindows", StringComparison.OrdinalIgnoreCase) || method.Equals("ShowWindows", StringComparison.OrdinalIgnoreCase))
+            {
+                var (shown, total) = RobloxWindowService.ShowAllWindows();
+                return reply(JsonSerializer.Serialize(new ShowWindowsPayload(shown, total, false), ShiroAppJson.Default.ShowWindowsPayload), true, -1, null);
+            }
+
+            if (method.Equals("Roblox/ToggleWindows", StringComparison.OrdinalIgnoreCase) || method.Equals("ToggleWindows", StringComparison.OrdinalIgnoreCase))
+            {
+                var (nowHidden, affected) = RobloxWindowService.ToggleVisibility();
+                return reply(JsonSerializer.Serialize(new ToggleWindowsPayload(nowHidden, affected), ShiroAppJson.Default.ToggleWindowsPayload), true, -1, null);
+            }
+
+            if (method.Equals("PotatoMode/Toggle", StringComparison.OrdinalIgnoreCase))
+            {
+                bool next = !general.Get<bool>("EnablePotatoMode");
+                general.Set("EnablePotatoMode", next ? "true" : "false");
+                ClientSettingsPatcher.PatchSettings();
+                return reply(JsonSerializer.Serialize(new PotatoModeTogglePayload(next), ShiroAppJson.Default.PotatoModeTogglePayload), true, -1, null);
+            }
+
+            if (method.Equals("KillRoblox", StringComparison.OrdinalIgnoreCase) || method.Equals("KillAllRoblox", StringComparison.OrdinalIgnoreCase))
+            {
+                AppServices.HostUiBridge.CloseAllRobloxFromUi();
+                return reply("Closed all Roblox processes", true, -1, null);
+            }
+
+            if (method.Equals("AutoReconnect/Status", StringComparison.OrdinalIgnoreCase))
+            {
+                var payload = new AutoReconnectStatusPayload(AutoReconnectService.Instance.IsEnabled, AutoReconnectService.Instance.ActiveSessionsCount, AutoReconnectService.Instance.TotalReconnections);
+                return reply(JsonSerializer.Serialize(payload, ShiroAppJson.Default.AutoReconnectStatusPayload), true, -1, null);
+            }
+
+            if (method.Equals("AutoReconnect/Toggle", StringComparison.OrdinalIgnoreCase))
+            {
+                AutoReconnectService.Instance.IsEnabled = !AutoReconnectService.Instance.IsEnabled;
+                var payload = new AutoReconnectTogglePayload(AutoReconnectService.Instance.IsEnabled, AutoReconnectService.Instance.ActiveSessionsCount);
+                return reply(JsonSerializer.Serialize(payload, ShiroAppJson.Default.AutoReconnectTogglePayload), true, -1, null);
+            }
+
+            return null;
         }
     }
 }

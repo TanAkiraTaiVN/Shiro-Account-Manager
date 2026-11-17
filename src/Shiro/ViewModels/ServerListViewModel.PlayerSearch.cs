@@ -46,7 +46,8 @@ namespace Shiro.ViewModels
                 return;
             }
 
-            if (!long.TryParse(PlaceIdInput, out long placeId) || placeId <= 0)
+            long placeId = AccountLauncherService.ParsePlaceId(PlaceIdInput);
+            if (placeId <= 0)
             {
                 PlayerSearchStatus = Shiro.Services.LocalizationService.Get("ServerList.EnterPlaceIdFirst");
                 LoadingStatus = PlayerSearchStatus;

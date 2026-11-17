@@ -96,9 +96,9 @@ namespace Shiro
                     if (shutdownRequested || token.IsCancellationRequested || Shiro.Services.RobloxHbaService.IsInteractiveLoginActive) return;
                     await UpdatePresence().ConfigureAwait(false);
                 },
-                enabled: AppSettings.General.Get<bool>("ShowPresence"));
+                enabled: AppSettings.General.Get<bool>("ShowPresence", true));
 
-            if (AppSettings.General.Get<bool>("ShowPresence"))
+            if (AppSettings.General.Get<bool>("ShowPresence", true))
                 _ = ObserveBackgroundTaskAsync(UpdatePresence(), "initial presence refresh");
         }
 
@@ -215,9 +215,10 @@ namespace Shiro
             SafeExecuteHelper.Try(() => MemoryOptimizer.ConfigureAutoTrim(false));
             SafeExecuteHelper.Try(RobloxJobObjectService.Close);
             SafeExecuteHelper.Try(RobloxWindowService.ShowAllWindows);
-            SafeExecuteHelper.Try(() => { if (AltManagerWS != null) _ = AltManagerWS.StopAsync(); });
+            SafeExecuteHelper.Try(() => { if (AltManagerWS != null) Task.Run(() => AltManagerWS.StopAsync()).Wait(TimeSpan.FromSeconds(2)); });
             SafeExecuteHelper.Try(() => RobloxDirectLauncher.RestoreOriginalCookies());
             SafeExecuteHelper.Try(() => AccountRuntimeStateStore.Flush());
+            SafeExecuteHelper.Try(() => presenceService?.Dispose());
             SafeExecuteHelper.Try(DiscordRpcService.Default.Dispose);
 
             try
@@ -231,6 +232,7 @@ namespace Shiro
 
             try
             {
+                CancelDeferredSaveSettings();
                 if (!string.IsNullOrEmpty(AppServices.ServerBrowserState.CurrentPlaceId))
                 {
                     AppSettings.General.Set("SavedPlaceId", AppServices.ServerBrowserState.CurrentPlaceId);
@@ -249,7 +251,7 @@ namespace Shiro
 
             try
             {
-                if (!SuppressExitOnShutdown && Avalonia.Application.Current == null)
+                if (!SuppressExitOnShutdown && !Program.Closed && Avalonia.Application.Current == null)
                 {
                     Environment.Exit(0);
                 }

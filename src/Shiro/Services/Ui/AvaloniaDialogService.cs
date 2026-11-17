@@ -80,15 +80,13 @@ namespace Shiro.Services
 
         public bool ShowConfirmation(string message, string title = "Shiro")
         {
-            var owner = GetActiveOwner();
-            var res = MessageBoxDialog.Show(message, title, MessageBoxButtons.YesNo, MessageBoxIcon.Question, owner);
+            var res = MessageBoxDialog.Show(message, title, MessageBoxButtons.YesNo, MessageBoxIcon.Question, null);
             return res == MessageBoxResult.Yes;
         }
 
         public bool? ShowYesNoCancel(string message, string title = "Shiro")
         {
-            var owner = GetActiveOwner();
-            var res = MessageBoxDialog.Show(message, title, MessageBoxButtons.YesNoCancel, MessageBoxIcon.Information, owner);
+            var res = MessageBoxDialog.Show(message, title, MessageBoxButtons.YesNoCancel, MessageBoxIcon.Information, null);
             return res switch
             {
                 MessageBoxResult.Yes => true,
@@ -98,15 +96,37 @@ namespace Shiro.Services
         }
 
         public string ShowInputPrompt(string message, string title, string defaultValue = "")
-        {
-            var owner = GetActiveOwner();
-            return InputDialog.Prompt(message, title, defaultValue, false, owner);
-        }
+            => InputDialog.Prompt(message, title, defaultValue, false, null);
 
         public Task<string> ShowInputPromptAsync(string message, string title, string defaultValue = "")
+            => InputDialog.PromptAsync(message, title, defaultValue, false, null);
+
+        public Task<Account?> SignInFastLoginAsync(Account? account, System.Threading.CancellationToken cancellationToken = default)
         {
-            var owner = GetActiveOwner();
-            return InputDialog.PromptAsync(message, title, defaultValue, false, owner);
+            if (Avalonia.Application.Current?.ApplicationLifetime == null)
+            {
+                OpenFastLoginDialog(account);
+                return Task.FromResult<Account?>(null);
+            }
+
+            var tcs = new TaskCompletionSource<Account?>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var reg = cancellationToken.Register(() => tcs.TrySetCanceled(cancellationToken));
+            AppDispatcher.Post(async () =>
+            {
+                try
+                {
+                    var dialog = new FastLoginDialog(account);
+                    dialog.Closed += (_, _) => tcs.TrySetResult(dialog.CreatedAccount);
+                    await ShowModalOrTopLevelAsync(dialog);
+                }
+                catch (Exception ex)
+                {
+                    AppServices.Logger.Error($"[AvaloniaDialogService.SignInFastLoginAsync] {ex}");
+                    tcs.TrySetException(ex);
+                }
+            });
+            _ = tcs.Task.ContinueWith(_ => reg.Dispose(), System.Threading.Tasks.TaskScheduler.Default);
+            return tcs.Task;
         }
 
         public void OpenFastLoginDialog(Account? account = null)
@@ -169,22 +189,6 @@ namespace Shiro.Services
                 catch (Exception ex)
                 {
                     AppServices.Logger.Error($"[AvaloniaDialogService.OpenBulkImportDialog] {ex}");
-                }
-            });
-        }
-
-        public void OpenAltGenDialog()
-        {
-            AppDispatcher.Post(async () =>
-            {
-                try
-                {
-                    var dialog = new AltGenDialog();
-                    await ShowModalOrTopLevelAsync(dialog);
-                }
-                catch (Exception ex)
-                {
-                    AppServices.Logger.Error($"[AvaloniaDialogService.OpenAltGenDialog] {ex}");
                 }
             });
         }

@@ -13,8 +13,13 @@ namespace Shiro
             Registration.NotifyAccountValidity(account, isValid);
         }
 
-        public void UpdateAccountView(Account? account = null) =>
+        public void UpdateAccountView(Account? account = null)
+        {
+            if (account != null)
+                AppServices.HostUiBridge.NotifyAccountUpdated(account);
+
             AppServices.HostUiBridge.NotifyLiveProcessStatusChanged();
+        }
 
         internal Task RefreshStaleCookiesAsync(CancellationToken cancellationToken) =>
             AppServices.AccountSessionMaintenance.RefreshStaleCookiesAsync(cookieRefreshGate, cancellationToken);

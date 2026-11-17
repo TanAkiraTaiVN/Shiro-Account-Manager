@@ -38,8 +38,8 @@ namespace Shiro
 
     public class ServersInfo
     {
-        public string? previousPageCursor { get; set; } = "_";
-        public string? nextPageCursor { get; set; } = "_";
+        public string? previousPageCursor { get; set; }
+        public string? nextPageCursor { get; set; }
         public List<ServerData> data { get; set; } = [];
 
         public ServersInfo()

@@ -34,6 +34,23 @@ namespace Shiro.Services
             ref MEMORY_PRIORITY_INFORMATION processInformation,
             uint processInformationSize);
 
+        internal static bool ShouldApplyBackgroundFocusThrottle(int runningClientCount)
+            => runningClientCount > 1;
+
+        internal static uint TryGetForegroundWindowPid(Func<IntPtr> getForegroundWindow, Func<IntPtr, uint> getWindowPid)
+        {
+            try
+            {
+                IntPtr hForeground = getForegroundWindow();
+                return hForeground != IntPtr.Zero ? getWindowPid(hForeground) : 0;
+            }
+            catch (Exception ex)
+            {
+                AppServices.Logger?.Debug($"GetForegroundWindow thread pid lookup threw: {ex.Message}");
+                return 0;
+            }
+        }
+
         internal static uint ComputeTargetPriorityClass(bool isForeground, bool throttlerEnabled, int targetBackgroundFps)
         {
             if (isForeground)

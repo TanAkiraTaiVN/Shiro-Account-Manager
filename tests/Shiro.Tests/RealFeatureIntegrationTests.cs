@@ -115,50 +115,6 @@ namespace Shiro.Tests
         }
 
         [Fact]
-        public async Task BloxGenService_GeneratesAccountSuccessfully()
-        {
-            var mockResponseJson = JsonSerializer.Serialize(new
-            {
-                success = true,
-                remaining_balance = 49.5,
-                data = new
-                {
-                    user_id = 123456789,
-                    username = "BloxAltUser",
-                    password = "SafeAltPassword123!",
-                    cookie = "_|WARNING:-DO-NOT-SHARE-THIS.--Sharing-this-will-allow-someone-to-log-in-to-your-account-and-to-steal-your-ROBUX-and-all-of-your-items.|_SAMPLECOOKIE123"
-                }
-            });
-
-            var handler = new FakeHttpHandler().Enqueue(HttpStatusCode.OK, mockResponseJson);
-
-            using var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://core.bloxgen.net/api/") };
-            var service = new BloxGenService(httpClient);
-
-            var result = await service.GenerateAccountAsync("BLOX-TEST-API-KEY", "unverified", "AS");
-
-            Assert.True(result.Success);
-            Assert.NotNull(result.Account);
-            Assert.Equal("BloxAltUser", result.Account.Username);
-            Assert.Equal(123456789, result.Account.UserId);
-            Assert.Equal("SafeAltPassword123!", result.Account.Password);
-            Assert.StartsWith("_|WARNING", result.Account.Cookie);
-            Assert.Equal("AS", result.Account.Region);
-            Assert.Equal(49.5, result.RemainingBalance);
-        }
-
-        [Fact]
-        public async Task BloxGenService_FailsGracefullyOnMissingKey()
-        {
-            using var httpClient = new HttpClient { BaseAddress = new Uri("https://core.bloxgen.net/api/") };
-            var service = new BloxGenService(httpClient);
-
-            var result = await service.GenerateAccountAsync(string.Empty);
-            Assert.False(result.Success);
-            Assert.Contains("API Key", result.ErrorMessage);
-        }
-
-        [Fact]
         public void DiscordRpcService_InitializesCleanly()
         {
             var service = DiscordRpcService.Default;

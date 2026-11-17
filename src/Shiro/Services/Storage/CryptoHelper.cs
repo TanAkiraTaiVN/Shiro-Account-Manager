@@ -99,7 +99,6 @@ namespace Shiro.Services
         public static string ProtectSecretString(string plainText)
         {
             if (string.IsNullOrEmpty(plainText)) return string.Empty;
-            if (plainText.StartsWith("dpapi:", StringComparison.Ordinal)) return plainText;
 
             byte[] plainBytes = Encoding.UTF8.GetBytes(plainText);
             try

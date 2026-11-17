@@ -125,6 +125,9 @@ namespace Shiro.Services
             CancellationToken cancellationToken = default)
         {
             string username = account?.Username ?? "account";
+            int targetPid = account?.LastLaunchedProcessId ?? 0;
+            string? browserTrackerId = account?.BrowserTrackerID;
+            string? targetedLogPath = null;
             string logDirectory = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "Roblox", "logs");
@@ -138,23 +141,25 @@ namespace Shiro.Services
                 cancellationToken.ThrowIfCancellationRequested();
                 try
                 {
-                    if (Directory.Exists(logDirectory))
-                    {
-                        foreach (string logPath in Directory.EnumerateFiles(logDirectory, "*_Player_*_last.log"))
-                        {
-                            if (await RobloxProcess.ContainsRecentNativeAuthRateLimitInLogAsync(logPath, minimumTimestampUtc, cancellationToken).ConfigureAwait(false))
-                            {
-                                if (account != null)
-                                    account.LastNativeLaunchRateLimited = true;
+                    if (targetPid > 0 && string.IsNullOrEmpty(targetedLogPath))
+                        targetedLogPath = LaunchCoordinator.TryFindProcessPlayerLogPath(targetPid, browserTrackerId);
 
-                                Account.MarkNativeAuthRateLimited(
-                                    Account.NativeAuthRecoverySeconds,
-                                    username,
-                                    "native authentication redeem");
-                                return;
-                            }
+                    IEnumerable<string> candidateLogs = !string.IsNullOrEmpty(targetedLogPath) && File.Exists(targetedLogPath)
+                        ? new[] { targetedLogPath }
+                        : (targetPid <= 0 && Directory.Exists(logDirectory) ? Directory.EnumerateFiles(logDirectory, "*_Player_*_last.log") : Array.Empty<string>());
+                    foreach (string logPath in candidateLogs)
+                    {
+                        if (await RobloxProcess.ContainsRecentNativeAuthRateLimitInLogAsync(logPath, minimumTimestampUtc, cancellationToken).ConfigureAwait(false))
+                        {
+                            if (account != null) account.LastNativeLaunchRateLimited = true;
+                            Account.MarkNativeAuthRateLimited(Account.NativeAuthRecoverySeconds, username, "native authentication redeem");
+                            return;
                         }
                     }
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
                 }
                 catch (Exception exception)
                 {

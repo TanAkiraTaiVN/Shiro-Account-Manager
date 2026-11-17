@@ -26,6 +26,8 @@ namespace Shiro.AvaloniaUI.Views
 
         public static Window? GetActiveWindow()
         {
+            if (Dispatcher.UIThread != null && !Dispatcher.UIThread.CheckAccess())
+                return null;
             if (Avalonia.Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
             {
                 foreach (var win in desktop.Windows)
@@ -62,6 +64,12 @@ namespace Shiro.AvaloniaUI.Views
 
         public static async Task<string> PromptAsync(string text, string caption = "Shiro", string defaultText = "", bool big = false, Window? owner = null)
         {
+            if (!MessageBoxDialog.IsAvaloniaUiReady())
+                return "/UC";
+
+            if (!Dispatcher.UIThread.CheckAccess())
+                return await Dispatcher.UIThread.InvokeAsync(() => PromptAsync(text, caption, defaultText, big, owner));
+
             if (!IsValidDialogOwner(owner))
                 owner = GetActiveWindow();
 
@@ -103,9 +111,11 @@ namespace Shiro.AvaloniaUI.Views
                         t =>
                         {
                             if (t.IsFaulted || t.IsCanceled)
-                                frame.Continue = false;
+                                Dispatcher.UIThread.Post(() => frame.Continue = false);
                         },
-                        TaskScheduler.FromCurrentSynchronizationContext());
+                        System.Threading.CancellationToken.None,
+                        TaskContinuationOptions.ExecuteSynchronously,
+                        TaskScheduler.Default);
                 }
                 else
                 {

@@ -93,48 +93,86 @@ namespace Shiro.Services
         /// Terminates the Roblox client process associated with a specific account.
         /// Matches by LastLaunchedProcessId or BrowserTrackerID.
         /// </summary>
+        private static bool IsAliveRobloxClientPid(int pid)
+        {
+            try
+            {
+                using var proc = Process.GetProcessById(pid);
+                return !proc.HasExited && proc.ProcessName.Contains("RobloxPlayerBeta", StringComparison.OrdinalIgnoreCase);
+            }
+            catch (Exception ex)
+            {
+                AppServices.Logger?.Debug($"PID {pid} lookup failed: {ex.Message}");
+                return false;
+            }
+        }
+
+        private static void TerminateProcessGracefully(int pid)
+        {
+            using var proc = Process.GetProcessById(pid);
+            proc.CloseMainWindow();
+            if (!proc.WaitForExit(600))
+                proc.Kill();
+        }
+
         public static bool CloseAccountRobloxProcess(Account account)
+        {
+            bool closed = CloseAccountRobloxProcessCore(
+                account,
+                IsAliveRobloxClientPid,
+                ProcessExtensions.GetCommandLineByPid,
+                () => GetRunningRobloxPids(),
+                TerminateProcessGracefully);
+
+            if (closed)
+            {
+                InvalidateSnapshotCache();
+                AutoReconnectService.Instance.SuppressReconnectForAccount(account);
+                Utilities.QueueRefreshNotificationArea(300);
+            }
+            return closed;
+        }
+
+        internal static bool CloseAccountRobloxProcessCore(
+            Account? account,
+            Func<int, bool> isPidAlive,
+            Func<int, string?> getCommandLineByPid,
+            Func<List<int>> getRunningPids,
+            Action<int> killPid)
         {
             if (account == null) return false;
             bool closed = false;
 
-            // 1. Try closing by LastLaunchedProcessId if valid
             if (account.LastLaunchedProcessId > 0)
             {
                 try
                 {
-                    using var proc = Process.GetProcessById(account.LastLaunchedProcessId);
-                    if (proc != null && !proc.HasExited && proc.ProcessName.Contains("RobloxPlayerBeta", StringComparison.OrdinalIgnoreCase))
+                    if (isPidAlive(account.LastLaunchedProcessId))
                     {
-                        bool isMatchingProcess = true;
-                        if (!string.IsNullOrWhiteSpace(account.BrowserTrackerID))
+                        bool isMatchingProcess = string.IsNullOrWhiteSpace(account.BrowserTrackerID);
+                        if (!isMatchingProcess)
                         {
-                            string? cmdLine = proc.GetCommandLine();
+                            string? cmdLine = getCommandLineByPid(account.LastLaunchedProcessId);
                             if (!string.IsNullOrEmpty(cmdLine))
                             {
                                 var match = TrackerRegex().Match(cmdLine);
-                                if (match.Success && match.Groups[1].Value != account.BrowserTrackerID)
-                                {
-                                    // PID was recycled by Windows and belongs to another Roblox instance
-                                    isMatchingProcess = false;
-                                }
+                                isMatchingProcess = match.Success && match.Groups[1].Value == account.BrowserTrackerID;
                             }
                         }
 
                         if (isMatchingProcess)
                         {
-                            proc.CloseMainWindow();
-                            if (!proc.WaitForExit(600))
-                            {
-                                proc.Kill();
-                            }
+                            killPid(account.LastLaunchedProcessId);
                             account.LastLaunchedProcessId = 0;
                             closed = true;
+                        }
+                        else
+                        {
+                            account.LastLaunchedProcessId = 0;
                         }
                     }
                     else
                     {
-                        // Process is already gone
                         account.LastLaunchedProcessId = 0;
                     }
                 }
@@ -145,28 +183,20 @@ namespace Shiro.Services
                 }
             }
 
-            // 2. If not closed, find by matching BrowserTrackerID in command line via zero-allocation PID snapshot
             if (!closed && !string.IsNullOrWhiteSpace(account.BrowserTrackerID))
             {
                 try
                 {
-                    foreach (int pid in GetRunningRobloxPids())
+                    foreach (int pid in getRunningPids())
                     {
                         try
                         {
-                            string? cmdLine = ProcessExtensions.GetCommandLineByPid(pid);
+                            string? cmdLine = getCommandLineByPid(pid);
                             if (string.IsNullOrEmpty(cmdLine)) continue;
-
                             var match = TrackerRegex().Match(cmdLine);
-                            string tracker = match.Success ? match.Groups[1].Value : string.Empty;
-                            if (tracker == account.BrowserTrackerID)
+                            if (match.Success && match.Groups[1].Value == account.BrowserTrackerID)
                             {
-                                using var proc = Process.GetProcessById(pid);
-                                proc.CloseMainWindow();
-                                if (!proc.WaitForExit(600))
-                                {
-                                    proc.Kill();
-                                }
+                                killPid(pid);
                                 account.LastLaunchedProcessId = 0;
                                 closed = true;
                                 break;
@@ -184,15 +214,6 @@ namespace Shiro.Services
                 }
             }
 
-            if (closed)
-            {
-                InvalidateSnapshotCache();
-                if (!string.IsNullOrWhiteSpace(account.Username))
-                {
-                    AutoReconnectService.Instance.SuppressReconnect(account.Username);
-                }
-                Utilities.QueueRefreshNotificationArea(300);
-            }
             return closed;
         }
 
@@ -219,15 +240,14 @@ namespace Shiro.Services
                         var proc = Process.GetProcessById(account.LastLaunchedProcessId);
                         if (proc != null && !proc.HasExited && proc.ProcessName.Contains("RobloxPlayerBeta", StringComparison.OrdinalIgnoreCase))
                         {
-                            bool matches = true;
-                            if (!string.IsNullOrWhiteSpace(account.BrowserTrackerID))
+                            bool matches = string.IsNullOrWhiteSpace(account.BrowserTrackerID);
+                            if (!matches)
                             {
                                 string? cmdLine = proc.GetCommandLine();
                                 if (!string.IsNullOrEmpty(cmdLine))
                                 {
                                     var match = TrackerRegex().Match(cmdLine);
-                                    if (match.Success && match.Groups[1].Value != account.BrowserTrackerID)
-                                        matches = false;
+                                    matches = match.Success && match.Groups[1].Value == account.BrowserTrackerID;
                                 }
                             }
 
@@ -241,6 +261,7 @@ namespace Shiro.Services
                             }
                             else
                             {
+                                account.LastLaunchedProcessId = 0;
                                 proc.Dispose();
                             }
                         }

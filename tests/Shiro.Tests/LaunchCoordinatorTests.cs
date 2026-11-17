@@ -3,9 +3,11 @@ using Xunit;
 
 namespace Shiro.Tests
 {
-    [Collection("CookieGuardSerial")]
-    public class LaunchCoordinatorTests
+    [Collection("SerialGlobalState")]
+    public class LaunchCoordinatorTests : System.IDisposable
     {
+        public LaunchCoordinatorTests() => RobloxRateLimitCoordinator.Instance.ResetBackoff();
+        public void Dispose() => RobloxRateLimitCoordinator.Instance.ResetBackoff();
         [Fact]
         public void LaunchRequest_InitializesPropertiesCorrectly()
         {

@@ -14,10 +14,14 @@ namespace Shiro.Services
         System.Threading.Tasks.Task<string> ShowInputPromptAsync(string message, string title, string defaultValue = "")
             => System.Threading.Tasks.Task.FromResult(ShowInputPrompt(message, title, defaultValue));
         void OpenFastLoginDialog(Account? account = null);
+        System.Threading.Tasks.Task<Account?> SignInFastLoginAsync(Account? account, System.Threading.CancellationToken cancellationToken = default)
+        {
+            OpenFastLoginDialog(account);
+            return System.Threading.Tasks.Task.FromResult<Account?>(null);
+        }
         void OpenCookieImportDialog(Account? account = null) => OpenFastLoginDialog(account);
         void OpenFastLoginDialogBatch(System.Collections.Generic.IReadOnlyList<Account> accounts);
         void OpenBulkImportDialog();
-        void OpenAltGenDialog();
         void OpenProxyManagerDialog();
         void OpenAboutDialog();
         void OpenAccountFieldsDialog(Account account);

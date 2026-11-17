@@ -17,9 +17,9 @@
                 <!-- Titles -->
                 <StackPanel Spacing="4" HorizontalAlignment="Center">
                     <TextBlock Text="Shiro Account Manager" FontSize="18" FontWeight="Bold" Foreground="#FFFFFF" HorizontalAlignment="Center" />
-                    <TextBlock Text="Next-Gen Roblox Account Manager" FontSize="12" Foreground="#A1A1AA" HorizontalAlignment="Center" />
+                    <TextBlock Text="{DynamicResource About_Subtitle}" FontSize="12" Foreground="#A1A1AA" HorizontalAlignment="Center" />
                     <Border Background="#1CFFFFFF" CornerRadius="4" Padding="8,3" HorizontalAlignment="Center" Margin="0,6,0,0">
-                        <TextBlock Text="v5.0.0 • Avalonia UI 11.2 • .NET 10 (win-x64)" FontSize="10" FontWeight="SemiBold" Foreground="#FFFFFF" />
+                        <TextBlock Text="v5.0.0 • Avalonia UI 11 • .NET 10 (win-x64)" FontSize="10" FontWeight="SemiBold" Foreground="#FFFFFF" />
                     </Border>
                 </StackPanel>
 
@@ -29,15 +29,15 @@
                 <StackPanel Spacing="8" HorizontalAlignment="Center">
                     <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
                         <lucide:Lucide Icon="Zap" Width="13" Height="13" StrokeBrush="#A1A1AA" VerticalAlignment="Center" />
-                        <TextBlock Text="Powered by .NET 10 C# 13 &amp; Avalonia UI 11" FontSize="11" Foreground="#A1A1AA" VerticalAlignment="Center" />
+                        <TextBlock Text="{DynamicResource About_Runtime}" FontSize="11" Foreground="#A1A1AA" VerticalAlignment="Center" />
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
                         <lucide:Lucide Icon="Lock" Width="13" Height="13" StrokeBrush="#A1A1AA" VerticalAlignment="Center" />
-                        <TextBlock Text="Authenticated AES-256-GCM / PBKDF2 (SHA-256)" FontSize="11" Foreground="#A1A1AA" VerticalAlignment="Center" />
+                        <TextBlock Text="{DynamicResource About_OptimizationValue}" FontSize="11" Foreground="#A1A1AA" VerticalAlignment="Center" />
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
                         <lucide:Lucide Icon="Globe" Width="13" Height="13" StrokeBrush="#A1A1AA" VerticalAlignment="Center" />
-                        <TextBlock Text="Cloud-Native ASP.NET Core Kestrel Integration" FontSize="11" Foreground="#A1A1AA" VerticalAlignment="Center" />
+                        <TextBlock Text="{DynamicResource About_Credits}" FontSize="11" Foreground="#A1A1AA" VerticalAlignment="Center" />
                     </StackPanel>
                 </StackPanel>
 
@@ -45,10 +45,8 @@
 
                 <!-- Copyright -->
                 <StackPanel Spacing="2" HorizontalAlignment="Center">
-                    <TextBlock Text="Copyright © 2026 Shiro Project. Released under GPL-3.0."
-                               FontSize="10" Foreground="#63636E" HorizontalAlignment="Center" />
-                    <TextBlock Text="Modernized fork based on RBX Alt Manager by ic3w0lf22."
-                               FontSize="9.5" Foreground="#52525B" HorizontalAlignment="Center" />
+                    <TextBlock Text="{DynamicResource About_Project}" FontSize="10" Foreground="#63636E" HorizontalAlignment="Center" />
+                    <TextBlock Text="{DynamicResource About_LicenseCredits}" FontSize="9.5" Foreground="#52525B" HorizontalAlignment="Center" />
                 </StackPanel>
             </StackPanel>
         </Border>

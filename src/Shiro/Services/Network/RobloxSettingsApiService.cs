@@ -37,7 +37,7 @@ namespace Shiro.Services
         [GeneratedRegex(@"""(?:accessCode|gameInstanceId)""\s*:\s*""([a-zA-Z0-9\-]{20,})""", RegexOptions.IgnoreCase)]
         private static partial Regex ModernAccessCodeRegex();
 
-        [GeneratedRegex(@"""joinScriptUrl"":[%s+]?null")]
+        [GeneratedRegex(@"""joinScriptUrl"":\s*null")]
         private static partial Regex JoinScriptNullRegex();
 
         private bool HasValidSession(Account? account, [CallerMemberName] string caller = "")
@@ -68,40 +68,45 @@ namespace Shiro.Services
                 _ => "NoOne"
             };
 
-            RestRequest modernRequest = account.MakeRequest("user-settings-api/v1/user-settings", Method.Post)
-                .AddHeader("Referer", "https://www.roblox.com/")
-                .AddHeader("X-CSRF-TOKEN", csrf.Token)
-                .AddJsonBody(new FollowPrivacySettingPayload(modernSetting));
-
-            RestResponse? modernResponse = await account.ExecuteAccountRestAsync(AppServices.RobloxApi.Api, "https://apis.roblox.com/", modernRequest, cancellationToken).ConfigureAwait(false);
+            RestResponse? modernResponse = await RobloxCsrfRetryHelper.ExecuteWithCsrfRetryAsync(
+                account,
+                AppServices.RobloxApi.Api,
+                "https://apis.roblox.com/",
+                csrf.Token,
+                tok => account.MakeRequest("user-settings-api/v1/user-settings", Method.Post)
+                    .AddHeader("Referer", "https://www.roblox.com/")
+                    .AddHeader("X-CSRF-TOKEN", tok)
+                    .AddJsonBody(new FollowPrivacySettingPayload(modernSetting)),
+                cancellationToken).ConfigureAwait(false);
             if (modernResponse != null && modernResponse.IsSuccessful)
                 return true;
 
-            RestRequest request = account.MakeRequest("account/settings/follow-me-privacy", Method.Post)
-                .AddHeader("Referer", "https://www.roblox.com/my/account")
-                .AddHeader("X-CSRF-TOKEN", csrf.Token)
-                .AddHeader("Content-Type", "application/x-www-form-urlencoded");
-
-            switch (privacy)
+            string legacyFollowValue = privacy switch
             {
-                case 0:
-                    request.AddParameter("FollowMePrivacy", "All");
-                    break;
-                case 1:
-                    request.AddParameter("FollowMePrivacy", "Followers");
-                    break;
-                case 2:
-                    request.AddParameter("FollowMePrivacy", "Following");
-                    break;
-                case 3:
-                    request.AddParameter("FollowMePrivacy", "Friends");
-                    break;
-                case 4:
-                    request.AddParameter("FollowMePrivacy", "NoOne");
-                    break;
-            }
+                0 => "All",
+                1 => "Followers",
+                2 => "Following",
+                3 => "Friends",
+                4 => "NoOne",
+                _ => string.Empty
+            };
 
-            RestResponse? response = await account.ExecuteAccountRestAsync(AppServices.RobloxApi.Main, "https://www.roblox.com/", request, cancellationToken).ConfigureAwait(false);
+            RestResponse? response = await RobloxCsrfRetryHelper.ExecuteWithCsrfRetryAsync(
+                account,
+                AppServices.RobloxApi.Main,
+                "https://www.roblox.com/",
+                initialCsrfToken: null,
+                tok =>
+                {
+                    RestRequest req = account.MakeRequest("account/settings/follow-me-privacy", Method.Post)
+                        .AddHeader("Referer", "https://www.roblox.com/my/account")
+                        .AddHeader("X-CSRF-TOKEN", tok)
+                        .AddHeader("Content-Type", "application/x-www-form-urlencoded");
+                    if (!string.IsNullOrEmpty(legacyFollowValue))
+                        req.AddParameter("FollowMePrivacy", legacyFollowValue);
+                    return req;
+                },
+                cancellationToken).ConfigureAwait(false);
             if (response == null || !response.IsSuccessful || response.StatusCode != HttpStatusCode.OK)
             {
                 _logger.Warn($"[SetFollowPrivacyAsync] {account.Username}: Failed to set follow privacy ({response?.StatusCode}).");
@@ -116,32 +121,33 @@ namespace Shiro.Services
             var csrf = await account.GetCSRFTokenAsync(cancellationToken).ConfigureAwait(false);
             if (!csrf.Success) return false;
 
-            RestRequest request = account.MakeRequest("v2/user/passwords/change", Method.Post)
-                .AddHeader("Referer", "https://www.roblox.com/")
-                .AddHeader("X-CSRF-TOKEN", csrf.Token)
-                .AddHeader("Content-Type", "application/x-www-form-urlencoded")
-                .AddParameter("currentPassword", currentPassword)
-                .AddParameter("newPassword", newPassword);
-
             int rotationBefore = account.CookieRotationVersion;
-            RestResponse? response = await account.ExecuteAccountRestAsync(AppServices.RobloxApi.Auth, "https://auth.roblox.com/", request, cancellationToken).ConfigureAwait(false);
+            RestResponse? response = await RobloxCsrfRetryHelper.ExecuteWithCsrfRetryAsync(
+                account,
+                AppServices.RobloxApi.Auth,
+                "https://auth.roblox.com/",
+                csrf.Token,
+                tok => account.MakeRequest("v2/user/passwords/change", Method.Post)
+                    .AddHeader("Referer", "https://www.roblox.com/")
+                    .AddHeader("X-CSRF-TOKEN", tok)
+                    .AddHeader("Content-Type", "application/x-www-form-urlencoded")
+                    .AddParameter("currentPassword", currentPassword)
+                    .AddParameter("newPassword", newPassword),
+                cancellationToken).ConfigureAwait(false);
 
             if (response != null && response.IsSuccessful && response.StatusCode == HttpStatusCode.OK)
             {
-                account.Password = newPassword;
-
                 bool rotated = account.CookieRotationVersion != rotationBefore || account.TryUpdateRotatedCookie(response);
                 if (rotated)
                 {
+                    account.Password = newPassword;
                     await AppServices.AccountRepository.SaveAsync(true).ConfigureAwait(false);
-                }
-                else
-                {
-                    _logger.Warn($"[ChangePasswordAsync] {account.Username}: Password changed, but no new .ROBLOSECURITY was captured.");
+                    _logger.Info($"[ChangePasswordAsync] {account.Username}: Password changed successfully.");
+                    return true;
                 }
 
-                _logger.Info($"[ChangePasswordAsync] {account.Username}: Password changed successfully.");
-                return true;
+                _logger.Warn($"[ChangePasswordAsync] {account.Username}: Password change skipped/failed because no replacement .ROBLOSECURITY cookie was captured.");
+                return false;
             }
 
             _logger.Warn($"[ChangePasswordAsync] {account.Username}: Failed to change password ({response?.StatusCode}).");
@@ -154,14 +160,18 @@ namespace Shiro.Services
             var csrf = await account.GetCSRFTokenAsync(cancellationToken).ConfigureAwait(false);
             if (!csrf.Success) return false;
 
-            RestRequest request = account.MakeRequest("v1/email", Method.Post)
-                .AddHeader("Referer", "https://www.roblox.com/")
-                .AddHeader("X-CSRF-TOKEN", csrf.Token)
-                .AddHeader("Content-Type", "application/x-www-form-urlencoded")
-                .AddParameter("password", password)
-                .AddParameter("emailAddress", newEmail);
-
-            RestResponse? response = await account.ExecuteAccountRestAsync(AppServices.RobloxApi.Account, "https://accountsettings.roblox.com/", request, cancellationToken).ConfigureAwait(false);
+            RestResponse? response = await RobloxCsrfRetryHelper.ExecuteWithCsrfRetryAsync(
+                account,
+                AppServices.RobloxApi.Account,
+                "https://accountsettings.roblox.com/",
+                csrf.Token,
+                tok => account.MakeRequest("v1/email", Method.Post)
+                    .AddHeader("Referer", "https://www.roblox.com/")
+                    .AddHeader("X-CSRF-TOKEN", tok)
+                    .AddHeader("Content-Type", "application/x-www-form-urlencoded")
+                    .AddParameter("password", password)
+                    .AddParameter("emailAddress", newEmail),
+                cancellationToken).ConfigureAwait(false);
 
             if (response != null && response.IsSuccessful && response.StatusCode == HttpStatusCode.OK)
             {
@@ -180,21 +190,29 @@ namespace Shiro.Services
             if (!csrf.Success) return false;
 
             int rotationBefore = account.CookieRotationVersion;
-            RestRequest request = account.MakeRequest("v1/logoutfromallsessionsandreauthenticate", Method.Post)
-                .AddHeader("Referer", "https://www.roblox.com/")
-                .AddHeader("X-CSRF-TOKEN", csrf.Token)
-                .AddJsonBody(new EmptyJsonObjectPayload());
-
-            RestResponse? response = await account.ExecuteAccountRestAsync(AppServices.RobloxApi.Auth, "https://auth.roblox.com/", request, cancellationToken).ConfigureAwait(false);
+            RestResponse? response = await RobloxCsrfRetryHelper.ExecuteWithCsrfRetryAsync(
+                account,
+                AppServices.RobloxApi.Auth,
+                "https://auth.roblox.com/",
+                csrf.Token,
+                tok => account.MakeRequest("v1/logoutfromallsessionsandreauthenticate", Method.Post)
+                    .AddHeader("Referer", "https://www.roblox.com/")
+                    .AddHeader("X-CSRF-TOKEN", tok)
+                    .AddJsonBody(new EmptyJsonObjectPayload()),
+                cancellationToken).ConfigureAwait(false);
 
             if (response == null || !response.IsSuccessful)
             {
-                RestRequest fallbackReq = account.MakeRequest("authentication/signoutfromallsessionsandreauthenticate", Method.Post)
-                    .AddHeader("Referer", "https://www.roblox.com/")
-                    .AddHeader("X-CSRF-TOKEN", csrf.Token)
-                    .AddHeader("Content-Type", "application/x-www-form-urlencoded");
-
-                response = await account.ExecuteAccountRestAsync(AppServices.RobloxApi.Main, "https://www.roblox.com/", fallbackReq, cancellationToken).ConfigureAwait(false);
+                response = await RobloxCsrfRetryHelper.ExecuteWithCsrfRetryAsync(
+                    account,
+                    AppServices.RobloxApi.Main,
+                    "https://www.roblox.com/",
+                    initialCsrfToken: null,
+                    tok => account.MakeRequest("authentication/signoutfromallsessionsandreauthenticate", Method.Post)
+                        .AddHeader("Referer", "https://www.roblox.com/")
+                        .AddHeader("X-CSRF-TOKEN", tok)
+                        .AddHeader("Content-Type", "application/x-www-form-urlencoded"),
+                    cancellationToken).ConfigureAwait(false);
             }
 
             if (response != null && response.IsSuccessful && response.StatusCode == HttpStatusCode.OK)
@@ -246,8 +264,16 @@ namespace Shiro.Services
             if (!csrf.Success || string.IsNullOrEmpty(csrf.Token))
                 return (false, $"ERROR: Account Session Expired, re-add the account or try again. (Invalid X-CSRF-Token)\n{csrf.Error}");
 
-            RestRequest request = account.MakeRequest("v1/join-game-instance", Method.Post).AddHeader("Content-Type", "application/json").AddJsonBody(new JoinGameInstancePayload(jobId, placeId));
-            RestResponse? response = await account.ExecuteAccountRestAsync(AppServices.RobloxApi.GameJoin, "https://gamejoin.roblox.com/", request, cancellationToken).ConfigureAwait(false);
+            RestResponse? response = await RobloxCsrfRetryHelper.ExecuteWithCsrfRetryAsync(
+                account,
+                AppServices.RobloxApi.GameJoin,
+                "https://gamejoin.roblox.com/",
+                csrf.Token,
+                tok => account.MakeRequest("v1/join-game-instance", Method.Post)
+                    .AddHeader("Content-Type", "application/json")
+                    .AddHeader("X-CSRF-TOKEN", tok)
+                    .AddJsonBody(new JoinGameInstancePayload(jobId, placeId)),
+                cancellationToken).ConfigureAwait(false);
 
             if (response != null && response.StatusCode == HttpStatusCode.OK)
             {
@@ -264,8 +290,15 @@ namespace Shiro.Services
             var csrf = await account.GetCSRFTokenAsync(cancellationToken).ConfigureAwait(false);
             if (!csrf.Success) throw new InvalidOperationException(csrf.Error ?? "Failed to acquire CSRF token");
 
-            RestRequest dpRequest = account.MakeRequest($"/v1/users/{account.UserID}/display-names", Method.Patch).AddHeader("X-CSRF-TOKEN", csrf.Token).AddJsonBody(new SetDisplayNamePayload(displayName));
-            RestResponse? dpResponse = await account.ExecuteAccountRestAsync(AppServices.RobloxApi.Users, "https://users.roblox.com/", dpRequest, cancellationToken).ConfigureAwait(false);
+            RestResponse? dpResponse = await RobloxCsrfRetryHelper.ExecuteWithCsrfRetryAsync(
+                account,
+                AppServices.RobloxApi.Users,
+                "https://users.roblox.com/",
+                csrf.Token,
+                tok => account.MakeRequest($"/v1/users/{account.UserID}/display-names", Method.Patch)
+                    .AddHeader("X-CSRF-TOKEN", tok)
+                    .AddJsonBody(new SetDisplayNamePayload(displayName)),
+                cancellationToken).ConfigureAwait(false);
 
             if (dpResponse == null || dpResponse.StatusCode != HttpStatusCode.OK)
             {
@@ -286,7 +319,7 @@ namespace Shiro.Services
 
         public async Task SetAvatarAsync(Account account, string avatarJsonData, CancellationToken cancellationToken = default)
         {
-            if (account == null || string.IsNullOrWhiteSpace(avatarJsonData)) return;
+            if (!HasValidSession(account) || string.IsNullOrWhiteSpace(avatarJsonData)) return;
 
             if (!AvatarV4PayloadMapper.TryMapPayload(avatarJsonData, out AvatarV4PatchRequest patchRequest, out string? parseError))
             {
@@ -305,31 +338,91 @@ namespace Shiro.Services
             }
 
             string requestJson = JsonSerializer.Serialize(patchRequest, ShiroAppJson.Default.AvatarV4PatchRequest);
-            RestRequest request = account.MakeRequest("v4/avatar", Method.Patch)
-                .AddHeader("X-CSRF-TOKEN", csrf.Token)
-                .AddStringBody(requestJson, "application/json");
+            RestResponse? response = await RobloxCsrfRetryHelper.ExecuteWithCsrfRetryAsync(
+                account,
+                AppServices.RobloxApi.Avatar,
+                "https://avatar.roblox.com/",
+                csrf.Token,
+                tok => account.MakeRequest("v4/avatar", Method.Patch)
+                    .AddHeader("X-CSRF-TOKEN", tok)
+                    .AddStringBody(requestJson, "application/json"),
+                cancellationToken).ConfigureAwait(false);
+            if (response != null)
+                account.TryUpdateRotatedCookie(response);
 
-            RestResponse? response = await account.ExecuteAccountRestAsync(AppServices.RobloxApi.Avatar, "https://avatar.roblox.com/", request, cancellationToken).ConfigureAwait(false);
-
-            if (response != null && response.StatusCode == HttpStatusCode.Forbidden)
-            {
-                string? refreshedToken = response.Headers
-                    .FirstOrDefault(h => string.Equals(h.Name, "x-csrf-token", StringComparison.OrdinalIgnoreCase))?.Value?.ToString();
-
-                if (!string.IsNullOrEmpty(refreshedToken))
-                {
-                    RestRequest retryRequest = account.MakeRequest("v4/avatar", Method.Patch)
-                        .AddHeader("X-CSRF-TOKEN", refreshedToken)
-                        .AddStringBody(requestJson, "application/json");
-
-                    response = await account.ExecuteAccountRestAsync(AppServices.RobloxApi.Avatar, "https://avatar.roblox.com/", retryRequest, cancellationToken).ConfigureAwait(false);
-                }
-            }
+            if (response == null || !response.IsSuccessful)
+                _logger.Warn($"[SetAvatarAsync] {account.Username}: Avatar update failed ({response?.StatusCode}).");
 
             long[] missingIds = AvatarV4PayloadMapper.ExtractInvalidAssetIds(response?.Content);
             if (missingIds.Length > 0)
             {
                 AppServices.Dialogs.OpenMissingAssetsDialog(account, missingIds);
+            }
+        }
+
+        internal async Task<bool> EnsurePrivateServerInvitesAllowedAsync(
+            Account account,
+            string csrfToken,
+            Func<Task<bool>> confirmPrivacyUpdateAsync,
+            CancellationToken cancellationToken = default)
+        {
+            var request = account.MakeRequest("user-settings-api/v1/user-settings", Method.Get)
+                .AddHeader("X-CSRF-TOKEN", csrfToken)
+                .AddHeader("Referer", "https://www.roblox.com/my/account");
+
+            RestResponse? result = await account.ExecuteAccountRestAsync(AppServices.RobloxApi.Api, "https://apis.roblox.com/", request, cancellationToken).ConfigureAwait(false);
+            if (!NeedsPrivateServerInviteUpdate(result))
+                return true;
+
+            if (!await confirmPrivacyUpdateAsync().ConfigureAwait(false))
+                return true;
+
+            RestResponse? setResponse = null;
+            string privacyCsrf = csrfToken;
+            for (int attempt = 0; attempt < 2; attempt++)
+            {
+                var setRequest = account.MakeRequest("user-settings-api/v1/user-settings", Method.Post)
+                    .AddHeader("X-CSRF-TOKEN", privacyCsrf)
+                    .AddHeader("Referer", "https://www.roblox.com/my/account")
+                    .AddJsonBody(new PrivateServerInviteSettingPayload("AllUsers"));
+
+                setResponse = await account.ExecuteAccountRestAsync(AppServices.RobloxApi.Api, "https://apis.roblox.com/", setRequest, cancellationToken).ConfigureAwait(false);
+                if (setResponse == null || setResponse.IsSuccessful)
+                    break;
+
+                if (attempt == 0 && setResponse.StatusCode == HttpStatusCode.Forbidden)
+                {
+                    string? freshCsrf = setResponse.Headers?
+                        .FirstOrDefault(h => string.Equals(h.Name, "x-csrf-token", StringComparison.OrdinalIgnoreCase))
+                        ?.Value?.ToString();
+                    if (!string.IsNullOrWhiteSpace(freshCsrf))
+                    {
+                        privacyCsrf = freshCsrf;
+                        account.SetCsrfToken(freshCsrf);
+                        continue;
+                    }
+                }
+                break;
+            }
+            return setResponse != null && setResponse.IsSuccessful;
+        }
+
+        private bool NeedsPrivateServerInviteUpdate(RestResponse? result)
+        {
+            if (result == null || !result.IsSuccessful || string.IsNullOrEmpty(result.Content))
+                return false;
+
+            try
+            {
+                using var doc = JsonDocument.Parse(result.Content);
+                return doc.RootElement.TryGetProperty("whoCanInviteMeToPrivateServers", out var prop)
+                    && prop.ValueKind == JsonValueKind.String
+                    && !string.Equals(prop.GetString(), "AllUsers", StringComparison.OrdinalIgnoreCase);
+            }
+            catch (Exception ex)
+            {
+                _logger.Debug($"Parse private server privacy settings failed: {ex.Message}");
+                return false;
             }
         }
     }

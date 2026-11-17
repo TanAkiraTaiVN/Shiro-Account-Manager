@@ -54,9 +54,6 @@ namespace Shiro.Services
             public const string StreamerModeAutoDetect = "StreamerModeAutoDetect";
             public const string StreamerModeHideRobux = "StreamerModeHideRobux";
             public const string StreamerModeHideUsernames = "StreamerModeHideUsernames";
-            public const string BloxGenApiKey = "BloxGenApiKey";
-            public const string BloxGenContinent = "BloxGenContinent";
-            public const string BloxGenGenType = "BloxGenGenType";
             public const string DiscordRpcEnabled = "DiscordRpcEnabled";
             public const string DiscordRpcClientId = "DiscordRpcClientId";
             public const string DiscordRpcShowGame = "DiscordRpcShowGame";
@@ -79,6 +76,8 @@ namespace Shiro.Services
             public const string TelegramChatId = "TelegramChatId";
             public const string NotifyOnDisconnect = "NotifyOnDisconnect";
             public const string NotifyOnModeration = "NotifyOnModeration";
+            public const string AutoReconnect = "AutoReconnect";
+            public const string AntiAfkForegroundFallback = "AntiAfkForegroundFallback";
 
             // Potato Mode Fast Flags
             public const string FastFlag_DisableShadows = "FastFlag_DisableShadows";
@@ -98,8 +97,12 @@ namespace Shiro.Services
         public static class WebServer
         {
             public const string WebServerPort = "WebServerPort";
-            public const string AllowRemoteAccess = "AllowRemoteAccess";
             public const string AllowExternalConnections = "AllowExternalConnections";
+            public const string EveryRequestRequiresPassword = "EveryRequestRequiresPassword";
+            public const string AllowGetAccounts = "AllowGetAccounts";
+            public const string AllowGetCookie = "AllowGetCookie";
+            public const string AllowAccountEditing = "AllowAccountEditing";
+            public const string AllowLaunchAccount = "AllowLaunchAccount";
             public const string Password = "Password";
         }
 
@@ -108,25 +111,17 @@ namespace Shiro.Services
             public const string Enabled = "Enabled";
             public const string ExitOnBeta = "ExitOnBeta";
             public const string ExitIfNoConnection = "ExitIfNoConnection";
+            public const string NoConnectionTimeout = "NoConnectionTimeout";
             public const string SaveWindowPositions = "SaveWindowPositions";
             public const string VerifyDataModel = "VerifyDataModel";
             public const string IgnoreExistingProcesses = "IgnoreExistingProcesses";
-            public const string CloseRbxWindowTitle = "CloseRbxWindowTitle";
+            public const string CloseIfWindowTitle = "CloseIfWindowTitle";
             public const string CloseRbxMemory = "CloseRbxMemory";
             public const string ExpectedWindowTitle = "ExpectedWindowTitle";
         }
 
         public static class AccountControl
         {
-            public const string StartOnLaunch = "StartOnLaunch";
-            public const string AutoMinimizeEnabled = "AutoMinimizeEnabled";
-            public const string AutoCloseEnabled = "AutoCloseEnabled";
-            public const string InternetCheck = "InternetCheck";
-            public const string UsePresence = "UsePresence";
-            public const string AutoMinimizeInterval = "AutoMinimizeInterval";
-            public const string AutoCloseInterval = "AutoCloseInterval";
-            public const string MaxInstances = "MaxInstances";
-            public const string SaveOutput = "SaveOutput";
             public const string RelaunchDelay = "RelaunchDelay";
             public const string LauncherDelayNumber = "LauncherDelayNumber";
         }

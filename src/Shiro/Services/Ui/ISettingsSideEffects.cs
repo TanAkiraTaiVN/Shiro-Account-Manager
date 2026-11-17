@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using Shiro.ViewModels;
 
@@ -32,6 +33,9 @@ namespace Shiro.Services
         void CleanNotificationArea();
         int ClearAvatarCache();
         Task ResetEncryptionAsync();
+        Task<bool> ExportVaultAsync();
+        Task<bool> ImportVaultAsync();
+        void ApplyDiscordRpcSettings(bool enabled, bool clientIdChanged) { }
     }
 
     public sealed class SettingsSideEffectsService : ISettingsSideEffects
@@ -98,6 +102,9 @@ namespace Shiro.Services
 
         public void QueueDeferredSave() => AppServices.HostUiBridge.QueueDeferredSaveSettings();
 
+        public void ApplyDiscordRpcSettings(bool enabled, bool clientIdChanged) =>
+            DiscordRpcService.Default.ApplyConfigurationChanged(enabled, reconnect: clientIdChanged);
+
         public void CleanNotificationArea()
         {
             _ = Task.Run(() => Utilities.ThoroughCleanNotificationArea());
@@ -137,5 +144,73 @@ namespace Shiro.Services
         }
 
         public Task ResetEncryptionAsync() => AppServices.HostUiBridge.ResetEncryptionAsync(true);
+
+        public async Task<bool> ExportVaultAsync()
+        {
+            string pass = await AppServices.Dialogs.ShowInputPromptAsync(
+                LocalizationService.Get("Settings.VaultPassphrasePrompt"),
+                LocalizationService.Get("Settings.ExportVaultBtn"));
+            if (string.IsNullOrWhiteSpace(pass) || pass == "/UC") return false;
+
+            string? path = null;
+            if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop && desktop.MainWindow?.StorageProvider != null)
+            {
+                var file = await desktop.MainWindow.StorageProvider.SaveFilePickerAsync(new Avalonia.Platform.Storage.FilePickerSaveOptions
+                {
+                    Title = LocalizationService.Get("Settings.ExportVaultBtn"),
+                    SuggestedFileName = $"shiro-vault-{DateTime.UtcNow:yyyyMMdd}.shirovault"
+                });
+                path = file?.Path.LocalPath;
+            }
+            path ??= Path.Combine(StoragePaths.BackupsDirectory, $"shiro-vault-{DateTime.UtcNow:yyyyMMddHHmmss}.shirovault");
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            await using var fs = File.Create(path);
+            VaultExportService.ExportVault(AppServices.AccountRepository.GetAll(), pass, fs);
+            ToastService.ShowSuccess(LocalizationService.Get("Settings.ExportVaultBtn"), path);
+            return true;
+        }
+
+        public async Task<bool> ImportVaultAsync()
+        {
+            string? path = null;
+            if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop && desktop.MainWindow?.StorageProvider != null)
+            {
+                var files = await desktop.MainWindow.StorageProvider.OpenFilePickerAsync(new Avalonia.Platform.Storage.FilePickerOpenOptions
+                {
+                    Title = LocalizationService.Get("Settings.ImportVaultBtn"),
+                    AllowMultiple = false
+                });
+                path = files.Count > 0 ? files[0].Path.LocalPath : null;
+            }
+            if (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) return false;
+            return await ImportVaultFromPathAsync(path);
+        }
+
+        internal async Task<bool> ImportVaultFromPathAsync(string? path)
+        {
+            if (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) return false;
+
+            string pass = await AppServices.Dialogs.ShowInputPromptAsync(
+                LocalizationService.Get("Settings.VaultPassphrasePrompt"),
+                LocalizationService.Get("Settings.ImportVaultBtn"));
+            if (string.IsNullOrWhiteSpace(pass) || pass == "/UC") return false;
+
+            await using var fs = File.OpenRead(path);
+            var imported = VaultExportService.ImportVault(fs, pass);
+            int added = 0;
+            foreach (var acc in imported)
+            {
+                if (!AppServices.AccountRepository.GetAll().Any(e => string.Equals(e.Username, acc.Username, StringComparison.OrdinalIgnoreCase)))
+                {
+                    AppServices.AccountRepository.AddThreadSafe(acc);
+                    added++;
+                }
+            }
+            await AppServices.AccountRepository.SaveAsync(true);
+            if (added > 0)
+                AppServices.HostUiBridge.NotifyAccountsReplaced(AppServices.AccountRepository.GetAll());
+            ToastService.ShowSuccess(LocalizationService.Get("Settings.ImportVaultBtn"), LocalizationService.Format("Settings.ImportVaultSuccess", added));
+            return added > 0;
+        }
     }
 }

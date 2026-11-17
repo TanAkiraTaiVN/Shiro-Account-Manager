@@ -22,9 +22,13 @@ namespace Shiro.Services
         {
             get
             {
-                if (_serviceProvider == null)
+                var current = System.Threading.Volatile.Read(ref _serviceProvider);
+                if (current == null)
+                {
                     EnsureInitialized();
-                return _serviceProvider!;
+                    current = System.Threading.Volatile.Read(ref _serviceProvider);
+                }
+                return current!;
             }
         }
 
@@ -56,14 +60,13 @@ namespace Shiro.Services
                 services.AddSingleton<ISelectionStateService>(SelectionStateService.Default);
                 services.AddSingleton<IServerBrowserStateService>(ServerBrowserStateService.Default);
                 services.AddSingleton<IHostUiBridgeService>(HostUiBridgeService.Default);
-                services.AddSingleton<IBloxGenService>(BloxGenService.Default);
                 services.AddSingleton<IToastNotifier>(ToastNotifierService.Default);
                 services.AddSingleton<AppSettings>(AppSettings.Current);
 
                 configureExtra?.Invoke(services);
 
                 _currentServices = services;
-                _serviceProvider = services.BuildServiceProvider();
+                System.Threading.Volatile.Write(ref _serviceProvider, services.BuildServiceProvider());
                 OnInitialized?.Invoke();
             }
         }
@@ -95,7 +98,7 @@ namespace Shiro.Services
                 _overrideStack.Push(scope);
 
                 _currentServices = newServices;
-                _serviceProvider = newProvider;
+                System.Threading.Volatile.Write(ref _serviceProvider, newProvider);
 
                 return scope;
             }
@@ -179,7 +182,7 @@ namespace Shiro.Services
                     }
 
                     _overrideStack.Pop();
-                    _serviceProvider = _previousProvider;
+                    System.Threading.Volatile.Write(ref _serviceProvider, _previousProvider);
                     _currentServices = _previousServices;
                     _disposed = true;
                 }
@@ -188,9 +191,19 @@ namespace Shiro.Services
             }
         }
 
-        public static T? GetService<T>() where T : class => ServiceProvider.GetService<T>();
+        public static T? GetService<T>() where T : class
+        {
+            var sp = ServiceProvider;
+            try { return sp.GetService<T>(); }
+            catch (ObjectDisposedException) { return ServiceProvider.GetService<T>(); }
+        }
 
-        public static T GetRequiredService<T>() where T : class => ServiceProvider.GetRequiredService<T>();
+        public static T GetRequiredService<T>() where T : class
+        {
+            var sp = ServiceProvider;
+            try { return sp.GetRequiredService<T>(); }
+            catch (ObjectDisposedException) { return ServiceProvider.GetRequiredService<T>(); }
+        }
 
         // Strongly-typed static convenience accessors resolving directly from DI
         public static AccountPersistenceService AccountPersistence => GetRequiredService<AccountPersistenceService>();
@@ -208,11 +221,24 @@ namespace Shiro.Services
         public static ISelectionStateService SelectionState => GetRequiredService<ISelectionStateService>();
         public static IServerBrowserStateService ServerBrowserState => GetRequiredService<IServerBrowserStateService>();
         public static IHostUiBridgeService HostUiBridge => GetRequiredService<IHostUiBridgeService>();
-        public static IBloxGenService BloxGen => GetRequiredService<IBloxGenService>();
         public static IToastNotifier Toasts => GetRequiredService<IToastNotifier>();
         public static AccountSessionMaintenanceService AccountSessionMaintenance => GetRequiredService<AccountSessionMaintenanceService>();
-        public static IAppLogger Logger => _serviceProvider?.GetService<IAppLogger>() ?? Program.Logger;
-        public static ISettingsService GeneralSettings => _serviceProvider?.GetService<ISettingsService>() ?? _defaultGeneralSettings;
+        public static IAppLogger Logger
+        {
+            get
+            {
+                try { return System.Threading.Volatile.Read(ref _serviceProvider)?.GetService<IAppLogger>() ?? Program.Logger; }
+                catch (ObjectDisposedException) { return System.Threading.Volatile.Read(ref _serviceProvider)?.GetService<IAppLogger>() ?? Program.Logger; }
+            }
+        }
+        public static ISettingsService GeneralSettings
+        {
+            get
+            {
+                try { return System.Threading.Volatile.Read(ref _serviceProvider)?.GetService<ISettingsService>() ?? _defaultGeneralSettings; }
+                catch (ObjectDisposedException) { return System.Threading.Volatile.Read(ref _serviceProvider)?.GetService<ISettingsService>() ?? _defaultGeneralSettings; }
+            }
+        }
         public static ISettingsService? WatcherSettings => AppSettings.Watcher;
         public static ISettingsService PromptsSettings => new DelegatingSectionSettingsService(() => AppSettings.Prompts);
         public static ISettingsService DeveloperSettings => new DelegatingSectionSettingsService(() => AppSettings.Developer);

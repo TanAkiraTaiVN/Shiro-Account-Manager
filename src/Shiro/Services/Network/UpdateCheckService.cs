@@ -67,7 +67,7 @@ namespace Shiro.Services
             request.Headers.Add("User-Agent", "Shiro-Account-Manager");
             request.Headers.Add("Accept", "application/vnd.github.v3+json");
 
-            var response = await SharedHttpClient.Get().SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cts.Token).ConfigureAwait(false);
+            using var response = await SharedHttpClient.Get().SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cts.Token).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
                 return false;
 
@@ -114,24 +114,16 @@ namespace Shiro.Services
 
         private static bool TryParseNormalizedVersion(string input, out Version version)
         {
-            string[] parts = input.Split('.');
-            if (parts.Length == 1 && int.TryParse(parts[0], out int major))
-            {
-                version = new Version(major, 0);
-                return true;
-            }
-            if (parts.Length == 2 && int.TryParse(parts[0], out major) && int.TryParse(parts[1], out int minor))
-            {
-                version = new Version(major, minor);
-                return true;
-            }
-            if (parts.Length == 3 && int.TryParse(parts[0], out major) && int.TryParse(parts[1], out minor) && int.TryParse(parts[2], out int build))
-            {
-                version = new Version(major, minor, build);
-                return true;
-            }
+            version = new Version(0, 0, 0, 0);
+            if (!Version.TryParse(input, out var parsed) || parsed == null)
+                return false;
 
-            return Version.TryParse(input, out version!);
+            version = new Version(
+                parsed.Major,
+                parsed.Minor,
+                parsed.Build < 0 ? 0 : parsed.Build,
+                parsed.Revision < 0 ? 0 : parsed.Revision);
+            return true;
         }
     }
 }

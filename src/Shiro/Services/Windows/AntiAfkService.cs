@@ -62,10 +62,55 @@ namespace Shiro.Services
             return false;
         }
 
-        private static bool _enabled = false;
+        private static volatile bool _enabled = false;
         private static int _intervalMinutes = 8;
         private static int _tapsSent = 0;
         private static volatile string _status = "Anti-AFK Inactive";
+
+        internal readonly record struct ClientPulseOutcome(bool Succeeded, int Failures, DateTime NextDueUtc);
+
+        internal static DateTime ComputeFailureBackoffUtc(DateTime nowUtc, int failures)
+            => nowUtc.AddSeconds(Math.Clamp(120 * (1 << Math.Min(Math.Max(0, failures - 1), 3)), 120, 600));
+
+        internal static ClientPulseOutcome ProcessClientPulseForTest(
+            IntPtr hWnd,
+            bool isHidden,
+            bool isForegroundWindow,
+            bool allowFocusSteal,
+            DateTime nowUtc,
+            int intervalMinutes,
+            Func<IntPtr, bool> postPulse,
+            Func<IntPtr, bool> sendForegroundSpace,
+            int previousFailures)
+        {
+            int jitterSec = Random.Shared.Next(-60, 120);
+            if (isHidden)
+            {
+                MaybeLogFocuslessAdvisory(false);
+                if (postPulse(hWnd))
+                    return new(true, 0, ComputeNextDueUtc(nowUtc, intervalMinutes, jitterSec));
+
+                int nextFail = previousFailures + 1;
+                return new(false, nextFail, ComputeFailureBackoffUtc(nowUtc, nextFail));
+            }
+
+            if (!isForegroundWindow)
+            {
+                MaybeLogFocuslessAdvisory(allowFocusSteal);
+                bool ok = allowFocusSteal ? sendForegroundSpace(hWnd) : postPulse(hWnd);
+                if (ok)
+                    return new(true, 0, ComputeNextDueUtc(nowUtc, intervalMinutes, jitterSec));
+
+                int nextFail = previousFailures + 1;
+                return new(false, nextFail, ComputeFailureBackoffUtc(nowUtc, nextFail));
+            }
+
+            if (postPulse(hWnd) || (allowFocusSteal && sendForegroundSpace(hWnd)))
+                return new(true, 0, ComputeNextDueUtc(nowUtc, intervalMinutes, jitterSec));
+
+            int failCount = previousFailures + 1;
+            return new(false, failCount, ComputeFailureBackoffUtc(nowUtc, failCount));
+        }
 
         public static event Action? StatusChanged;
 
@@ -222,89 +267,72 @@ namespace Shiro.Services
                         continue;
                     }
 
+                    if (!_enabled) break;
                     bool isHidden = RobloxWindowService.AreWindowsHidden || !IsWindowVisible(hWnd);
                     bool isForegroundWindow = hWnd == GetForegroundWindow();
-                    if (isHidden || !isForegroundWindow)
+                    bool allowFocusSteal = AppServices.GeneralSettings.Get<bool>("AntiAfkForegroundFallback", false);
+
+                    bool PulseViaPost(IntPtr target)
                     {
-                        bool allowFocusSteal = AppServices.GeneralSettings.Get<bool>("AntiAfkForegroundFallback", false);
-                        MaybeLogFocuslessAdvisory(allowFocusSteal);
+                        bool ok = PostMessage(target, WM_KEYDOWN, (IntPtr)VK_F15, lParamDown) &&
+                                  PostMessage(target, WM_KEYUP, (IntPtr)VK_F15, lParamUp);
+                        PostMessage(target, WM_MOUSEMOVE, IntPtr.Zero, (IntPtr)((10 << 16) | 10));
+                        PostMessage(target, WM_NULL, IntPtr.Zero, IntPtr.Zero);
+                        return ok;
+                    }
 
-                        // Silent non-disruptive pulse for hidden or background windows
-                        bool bgPosted = PostMessage(hWnd, WM_KEYDOWN, (IntPtr)VK_F15, lParamDown) &&
-                                        PostMessage(hWnd, WM_KEYUP, (IntPtr)VK_F15, lParamUp);
-                        PostMessage(hWnd, WM_MOUSEMOVE, IntPtr.Zero, (IntPtr)((10 << 16) | 10));
-                        PostMessage(hWnd, WM_NULL, IntPtr.Zero, IntPtr.Zero);
-
-                        if (bgPosted || isHidden)
+                    if (isHidden || (!isForegroundWindow && !allowFocusSteal) || isForegroundWindow)
+                    {
+                        var outcome = ProcessClientPulseForTest(hWnd, isHidden, isForegroundWindow, allowFocusSteal, DateTime.UtcNow, _intervalMinutes, PulseViaPost, _ => false, st.Failures);
+                        if (outcome.Succeeded)
                         {
                             st.LastSentUtc = DateTime.UtcNow;
                             st.Failures = 0;
-                            int jitterSec = rand.Next(-60, 120);
-                            st.NextDueUtc = ComputeNextDueUtc(DateTime.UtcNow, _intervalMinutes, jitterSec);
+                            st.NextDueUtc = outcome.NextDueUtc;
                             sent++;
                             Interlocked.Increment(ref _tapsSent);
                             continue;
                         }
-                    }
-
-                    bool posted = PostMessage(hWnd, WM_KEYDOWN, (IntPtr)VK_F15, lParamDown) &&
-                                  PostMessage(hWnd, WM_KEYUP, (IntPtr)VK_F15, lParamUp);
-                    PostMessage(hWnd, WM_MOUSEMOVE, IntPtr.Zero, (IntPtr)((10 << 16) | 10));
-
-                    if (posted)
-                    {
-                        st.LastSentUtc = DateTime.UtcNow;
-                        st.Failures = 0;
-                        int jitterSec = rand.Next(-60, 120);
-                        st.NextDueUtc = ComputeNextDueUtc(DateTime.UtcNow, _intervalMinutes, jitterSec);
-                        sent++;
-                        Interlocked.Increment(ref _tapsSent);
+                        if (isHidden || !allowFocusSteal)
+                        {
+                            st.Failures = outcome.Failures;
+                            st.NextDueUtc = outcome.NextDueUtc;
+                            continue;
+                        }
                     }
                     else
                     {
-                        // Fallback: gentle foreground pulse only if PostMessage failed, window is visible, and explicit permission is given
-                        bool allowFocusSteal = AppServices.GeneralSettings.Get<bool>("AntiAfkForegroundFallback", false);
-                        if (!allowFocusSteal)
-                        {
-                            st.Failures++;
-                            continue;
-                        }
+                        MaybeLogFocuslessAdvisory(true);
+                    }
 
+                    {
                         IntPtr userWindow = GetForegroundWindow();
                         bool wasMinimized = IsIconic(hWnd);
-                        if (wasMinimized)
-                            ShowWindow(hWnd, SW_RESTORE);
-
+                        if (wasMinimized) ShowWindow(hWnd, SW_RESTORE);
                         SetForegroundWindow(hWnd);
                         await Task.Delay(80).ConfigureAwait(false);
-
                         if (GetForegroundWindow() == hWnd)
                         {
                             SendKey(VK_SPACE, keyUp: false);
                             await Task.Delay(40).ConfigureAwait(false);
                             SendKey(VK_SPACE, keyUp: true);
-
                             st.LastSentUtc = DateTime.UtcNow;
                             st.Failures = 0;
-                            int jitterSec = rand.Next(-60, 120);
-                            st.NextDueUtc = ComputeNextDueUtc(DateTime.UtcNow, _intervalMinutes, jitterSec);
+                            st.NextDueUtc = ComputeNextDueUtc(DateTime.UtcNow, _intervalMinutes, rand.Next(-60, 120));
                             sent++;
                             Interlocked.Increment(ref _tapsSent);
                         }
                         else
                         {
-                            st.NextDueUtc = DateTime.UtcNow.AddMinutes(2);
+                            st.Failures++;
+                            st.NextDueUtc = ComputeFailureBackoffUtc(DateTime.UtcNow, st.Failures);
                         }
-
-                        if (wasMinimized)
-                            ShowWindow(hWnd, SW_MINIMIZE);
-
-                        if (userWindow != IntPtr.Zero && userWindow != GetForegroundWindow())
-                            SetForegroundWindow(userWindow);
+                        if (wasMinimized) ShowWindow(hWnd, SW_MINIMIZE);
+                        if (userWindow != IntPtr.Zero && userWindow != GetForegroundWindow()) SetForegroundWindow(userWindow);
                     }
                 }
 
-                if (sent > 0)
+                if (sent > 0 && _enabled)
                 {
                     AppServices.Logger?.Info($"[AntiAfk] Kept alive {sent} Roblox client(s) via silent background pulse. Total keepalives: {_tapsSent}.");
                     SetStatus($"Anti-AFK Active ({pids.Count} clients - {_tapsSent} keepalives sent)");

@@ -376,10 +376,7 @@ namespace Shiro.Services
             string line, ref RobloxLogSessionState state, bool verifyDataModel, bool exitOnBeta)
         {
             if (string.IsNullOrEmpty(line))
-            {
-                state.LastLine = line;
                 return RobloxLogLineOutcome.None;
-            }
 
             if (IsJoiningGameLogLine(line))
             {

@@ -232,11 +232,14 @@ namespace Shiro.Services
 
             AppDomain.CurrentDomain.ProcessExit -= OnProcessExit;
             _channel.Writer.TryComplete();
-            _cts.Cancel();
 
             try
             {
-                _writerTask.Wait(TimeSpan.FromSeconds(2));
+                if (!_writerTask.Wait(TimeSpan.FromSeconds(2)))
+                {
+                    _cts.Cancel();
+                    _writerTask.Wait(TimeSpan.FromMilliseconds(500));
+                }
             }
             catch (OperationCanceledException) { /* canceled on dispose */ }
             catch (AggregateException) { /* writer task canceled */ }

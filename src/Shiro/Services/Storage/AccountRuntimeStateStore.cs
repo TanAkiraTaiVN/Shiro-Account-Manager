@@ -43,7 +43,9 @@ namespace Shiro.Services
 
         private static readonly System.Threading.Lock _sync = new();
         private static RuntimeStateDocument? _document;
+        private static string? _loadedFilePath;
         private static bool _dirty;
+        private static long _mutationVersion;
         private static Timer? _debounceTimer;
 
         public static string BuildAccountKey(long userId, string? username)
@@ -184,6 +186,7 @@ namespace Shiro.Services
         {
             byte[]? payloadToWrite = null;
             string targetPath;
+            long snapshotVersion = 0;
 
             lock (_sync)
             {
@@ -194,13 +197,23 @@ namespace Shiro.Services
                 var doc = EnsureLoadedUnderLock(filePathOverride);
                 targetPath = filePathOverride ?? StoragePaths.AccountRuntimeStateFile;
                 payloadToWrite = JsonSerializer.SerializeToUtf8Bytes(doc, ShiroAppJson.Default.RuntimeStateDocument);
-                if (filePathOverride == null)
-                    _dirty = false;
+                snapshotVersion = _mutationVersion;
             }
 
             try
             {
                 StoragePaths.AtomicWriteBytes(targetPath, payloadToWrite, durable: false);
+                if (filePathOverride == null)
+                {
+                    lock (_sync)
+                    {
+                        if (string.Equals(_loadedFilePath, targetPath, StringComparison.OrdinalIgnoreCase) &&
+                            _mutationVersion == snapshotVersion)
+                        {
+                            _dirty = false;
+                        }
+                    }
+                }
                 return true;
             }
             catch (Exception ex)
@@ -217,18 +230,21 @@ namespace Shiro.Services
                 _debounceTimer?.Dispose();
                 _debounceTimer = null;
                 _document = null;
+                _loadedFilePath = null;
                 _dirty = false;
+                _mutationVersion = 0;
             }
         }
 
         private static RuntimeStateDocument EnsureLoadedUnderLock(string? filePathOverride)
         {
-            if (filePathOverride != null)
-            {
-                return _document ??= LoadDocumentFromDisk(filePathOverride);
-            }
+            string resolvedPath = filePathOverride ?? StoragePaths.AccountRuntimeStateFile;
+            if (_document != null && string.Equals(_loadedFilePath, resolvedPath, StringComparison.OrdinalIgnoreCase))
+                return _document;
 
-            return _document ??= LoadDocumentFromDisk(StoragePaths.AccountRuntimeStateFile);
+            _loadedFilePath = resolvedPath;
+            _document = LoadDocumentFromDisk(resolvedPath);
+            return _document;
         }
 
         private static RuntimeStateDocument LoadDocumentFromDisk(string path)
@@ -269,6 +285,7 @@ namespace Shiro.Services
             }
 
             _dirty = true;
+            _mutationVersion++;
             if (_debounceTimer == null)
             {
                 _debounceTimer = new Timer(_ => Flush(), null, DebounceSaveDelayMs, Timeout.Infinite);

@@ -55,7 +55,7 @@ Checklist kiểm thử thủ công runtime trên máy Windows thực tế:
   - Kỳ vọng: Hàng đợi Fast Login mở với 3 tài khoản, tuần tự đăng nhập từng tài khoản.
 - [ ] **4. Nexus Game Telemetry & Controller**:
   - Khởi động Kestrel WebSocket server trong tab Nexus.
-  - Inject `src/Shiro/Nexus/RAMAccount.lua` vào client Roblox in-game.
+  - Inject `RAMAccount.lua` vào client Roblox in-game.
   - Kỳ vọng: Tài khoản hiển thị trạng thái "Online" trên dashboard Nexus; tính năng "Execute All" gửi script và in ra console của client; Anti-AFK kích hoạt thành công.
 - [ ] **5. Settings & Localization**:
   - Thay đổi ngôn ngữ hiển thị (Tiếng Việt <-> English) trong Settings.

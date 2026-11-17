@@ -210,15 +210,27 @@ namespace Shiro.Services
 
                 PlayNotificationSound(type);
 
-                if (durationSeconds > 0)
+                TimeSpan? autoDismissDelay = ResolveAutoDismissDelay(durationSeconds);
+                if (autoDismissDelay is TimeSpan delay)
                 {
                     _ = Task.Run(async () =>
                     {
-                        await Task.Delay(TimeSpan.FromSeconds(durationSeconds)).ConfigureAwait(false);
+                        await Task.Delay(delay).ConfigureAwait(false);
                         AppDispatcher.Post(() => Dismiss(toast));
                     });
                 }
             });
+        }
+
+        private const double MaxAutoDismissSeconds = 86_400.0;
+
+        internal static TimeSpan? ResolveAutoDismissDelay(double durationSeconds)
+        {
+            if (!double.IsFinite(durationSeconds) || durationSeconds <= 0)
+                return null;
+
+            double clampedSeconds = Math.Min(durationSeconds, MaxAutoDismissSeconds);
+            return TimeSpan.FromSeconds(clampedSeconds);
         }
 
         public static void Dismiss(ToastItem? toast)

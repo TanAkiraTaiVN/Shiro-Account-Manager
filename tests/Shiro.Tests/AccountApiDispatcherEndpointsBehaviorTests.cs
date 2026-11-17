@@ -109,6 +109,7 @@ namespace Shiro.Tests
 
             AppSettings.WebServer.Set("AllowGetAccounts", "true");
             AppSettings.WebServer.Set("AllowGetCookie", "true");
+            AppSettings.WebServer.Set("AllowAccountEditing", "true");
 
             string groupAccounts = await mgr.ProcessApiRequestAsync(CreateRequest(
                 "/GetAccounts",
@@ -169,6 +170,7 @@ namespace Shiro.Tests
             AppSettings.WebSocketPassword = AdminPassword;
             AppSettings.WebServer.Set("AllowGetAccounts", "true");
             AppSettings.WebServer.Set("AllowGetCookie", "true");
+            AppSettings.WebServer.Set("AllowAccountEditing", "true");
 
             string badPassResp = await mgr.ProcessApiRequestAsync(CreateRequest("/Accounts/Export", password: "wrong"));
             Assert.Contains("Invalid Password", badPassResp);
@@ -191,6 +193,7 @@ namespace Shiro.Tests
             AppSettings.WebSocketPassword = AdminPassword;
             AppSettings.WebServer.Set("AllowGetAccounts", "true");
             AppSettings.WebServer.Set("AllowGetCookie", "true");
+            AppSettings.WebServer.Set("AllowAccountEditing", "true");
             AppSettings.WebServer.Set("AllowAccountEditing", "true");
             AppSettings.WebServer.Set("AllowLaunchAccount", "true");
 
@@ -310,6 +313,7 @@ namespace Shiro.Tests
             AppSettings.WebServer.Set("AllowGetAccounts", "true");
             AppSettings.WebServer.Set("AllowGetCookie", "true");
             AppSettings.WebServer.Set("AllowAccountEditing", "true");
+            AppSettings.WebServer.Set("AllowAccountEditing", "true");
 
             var testAcc = new Account
             {
@@ -321,6 +325,7 @@ namespace Shiro.Tests
             AccountManager.ResetAccountsForTests(Array.Empty<Account>());
             AppServices.AccountRepository.AddThreadSafe(testAcc);
 
+            AppSettings.WebServer.Set("AllowAccountEditing", "true");
             string setProxyResp = await mgr.ProcessApiRequestAsync(CreateRequest(
                 "/SetProxy",
                 query: new Dictionary<string, string> { ["Account"] = "DispatcherEndpointUser", ["Proxy"] = "http://127.0.0.1:8888" }));
@@ -394,7 +399,7 @@ namespace Shiro.Tests
 
             var acc = new Account { Username = "HbaGuardUser", UserID = 777, Valid = true };
             acc.HbaPrivateKey = "MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgSecretKeyMaterial";
-            acc.SetField("LastBoundIpSig", "sig-secret-123");
+            acc.LastBoundIpSignature = "sig-secret-123";
             acc.SetField("Note", "SafeVal");
             AccountManager.ResetAccountsForTests(new[] { acc });
 
@@ -417,7 +422,7 @@ namespace Shiro.Tests
             reqRem.SetStatusCode = s => statusRem = s;
             _ = await mgr.ProcessApiRequestAsync(reqRem);
             Assert.Equal(403, statusRem);
-            Assert.Equal("sig-secret-123", acc.GetField("LastBoundIpSig"));
+            Assert.Equal("sig-secret-123", acc.LastBoundIpSignature);
 
             string safeField = await mgr.ProcessApiRequestAsync(CreateRequest("/GetField", query: new(StringComparer.OrdinalIgnoreCase) { ["Account"] = "HbaGuardUser", ["Field"] = "Note" }));
             Assert.Contains("SafeVal", safeField, StringComparison.Ordinal);
@@ -442,7 +447,7 @@ namespace Shiro.Tests
             acc.HbaPublicKey = "PubKeySpkiSecret";
             acc.HbaTemplate = "v1|{0}";
             acc.SessionUserAgent = "Mozilla/5.0 SecretFingerprintUA";
-            acc.SetField("HbaCustomFuture", "FutureSecret");
+            acc.Fields["HbaCustomFuture"] = "FutureSecret";
             acc.SetField("PublicTag", "VisibleTag");
             AccountManager.ResetAccountsForTests(new[] { acc });
 

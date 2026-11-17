@@ -63,11 +63,14 @@ namespace Shiro.Services
             IntPtr hwnd = window.TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
             if (hwnd == IntPtr.Zero)
             {
-                window.Opened += (s, e) =>
+                EventHandler? onOpened = null;
+                onOpened = (s, e) =>
                 {
+                    window.Opened -= onOpened;
                     IntPtr openedHwnd = window.TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
                     ApplyToHwnd(openedHwnd, backdrop);
                 };
+                window.Opened += onOpened;
                 return;
             }
 
@@ -93,7 +96,7 @@ namespace Shiro.Services
                         s_hIconSmall = LoadImage(hModule, (IntPtr)1, 1 /* IMAGE_ICON */, 16, 16, LR_SHARED);
 
                         if (s_hIconBig == IntPtr.Zero)
-                            s_hIconBig = LoadIcon(hModule, (IntPtr)1);
+                            s_hIconBig = LoadIcon(IntPtr.Zero, (IntPtr)32512); // IDI_APPLICATION
                         if (s_hIconSmall == IntPtr.Zero)
                             s_hIconSmall = s_hIconBig;
                     }
@@ -121,21 +124,19 @@ namespace Shiro.Services
                 int darkMode = 1;
                 DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, ref darkMode, sizeof(int));
 
-                // Enable Native Windows 11 Rounded Corners (Build 22000+)
-                if (Environment.OSVersion.Version.Major >= 10 && Environment.OSVersion.Version.Build >= 22000)
+                int build = Environment.OSVersion.Version.Build;
+                if (Environment.OSVersion.Version.Major >= 10 && build >= 22000)
                 {
                     int roundPreference = (int)WindowCornerPreference.Round;
                     DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, ref roundPreference, sizeof(int));
                 }
 
-                // Windows 11 Build 22621+ (22H2+) supports DWMWA_SYSTEMBACKDROP_TYPE
-                if (Environment.OSVersion.Version.Major >= 10 && Environment.OSVersion.Version.Build >= 22621)
+                if (Environment.OSVersion.Version.Major >= 10 && build >= 22621)
                 {
                     int backdropValue = (int)backdrop;
                     DwmSetWindowAttribute(hwnd, DWMWA_SYSTEMBACKDROP_TYPE, ref backdropValue, sizeof(int));
                 }
-                // Windows 11 Build 22000 (21H2) supports DWMWA_MICA_EFFECT
-                else if (Environment.OSVersion.Version.Major >= 10 && Environment.OSVersion.Version.Build >= 22000)
+                else if (ShouldApplyLegacyMica(backdrop, build))
                 {
                     int micaTrue = 1;
                     DwmSetWindowAttribute(hwnd, DWMWA_MICA_EFFECT, ref micaTrue, sizeof(int));
@@ -146,5 +147,8 @@ namespace Shiro.Services
                 AppServices.Logger?.Debug($"DwmSetWindowAttribute backdrop threw: {ex.Message}");
             }
         }
+
+        internal static bool ShouldApplyLegacyMica(BackdropType backdrop, int osBuild)
+            => backdrop != BackdropType.None && osBuild >= 22000 && osBuild < 22621;
     }
 }

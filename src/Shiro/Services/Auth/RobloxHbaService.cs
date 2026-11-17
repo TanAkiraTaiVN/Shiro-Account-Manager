@@ -140,10 +140,10 @@ namespace Shiro.Services
                                 (root.TryGetProperty("authoritativeKey", out JsonElement authEl) && authEl.ValueKind == JsonValueKind.True);
 
             bool updatedPrivateKey = false;
-            if (root.TryGetProperty("privateKeyPkcs8", out JsonElement privEl))
+            if (root.TryGetProperty("privateKeyPkcs8", out JsonElement privEl) && privEl.ValueKind == JsonValueKind.String)
             {
                 string? priv = privEl.GetString();
-                if (!string.IsNullOrWhiteSpace(priv))
+                if (!string.IsNullOrWhiteSpace(priv) && IsValidPkcs8EcdsaKey(priv))
                 {
                     bool canReplace = !snapshot.HasPrivateKey ||
                                       incomingSaiBound ||
@@ -159,28 +159,53 @@ namespace Shiro.Services
                 }
             }
 
-            if (root.TryGetProperty("publicKeySpki", out JsonElement pubEl))
+            if (root.TryGetProperty("publicKeySpki", out JsonElement pubEl) && pubEl.ValueKind == JsonValueKind.String)
             {
                 string? pub = pubEl.GetString();
                 if (!string.IsNullOrWhiteSpace(pub) &&
-                    (updatedPrivateKey || string.IsNullOrWhiteSpace(snapshot.PublicKeySpkiBase64)))
+                    (updatedPrivateKey || string.IsNullOrWhiteSpace(snapshot.PublicKeySpkiBase64)) &&
+                    (string.IsNullOrWhiteSpace(snapshot.PrivateKeyPkcs8Base64) || DoPublicAndPrivateKeysMatch(snapshot.PrivateKeyPkcs8Base64, pub)))
                 {
                     snapshot.PublicKeySpkiBase64 = pub;
                 }
             }
 
-            if (root.TryGetProperty("tokenTemplate", out JsonElement tplEl))
+            if (root.TryGetProperty("tokenTemplate", out JsonElement tplEl) && tplEl.ValueKind == JsonValueKind.String)
             {
                 string? tpl = tplEl.GetString();
                 if (!string.IsNullOrWhiteSpace(tpl))
                     snapshot.TokenTemplate = NormalizeTemplate(tpl);
             }
 
-            if (root.TryGetProperty("userAgent", out JsonElement uaEl))
+            if (root.TryGetProperty("userAgent", out JsonElement uaEl) && uaEl.ValueKind == JsonValueKind.String)
             {
                 string? ua = uaEl.GetString();
                 if (!string.IsNullOrWhiteSpace(ua))
                     snapshot.UserAgent = ua;
+            }
+        }
+
+        private static bool DoPublicAndPrivateKeysMatch(string pkcs8Base64, string spkiBase64)
+        {
+            byte[]? privBytes = null;
+            byte[]? expectedSpki = null;
+            byte[]? providedSpki = null;
+            try
+            {
+                privBytes = Convert.FromBase64String(pkcs8Base64.Trim());
+                providedSpki = Convert.FromBase64String(spkiBase64.Trim());
+                using ECDsa ecdsa = ECDsa.Create();
+                ecdsa.ImportPkcs8PrivateKey(privBytes, out _);
+                expectedSpki = ecdsa.ExportSubjectPublicKeyInfo();
+                return CryptographicOperations.FixedTimeEquals(expectedSpki, providedSpki);
+            }
+            catch (Exception ex) when (ex is FormatException or CryptographicException)
+            {
+                return false;
+            }
+            finally
+            {
+                if (privBytes != null) CryptographicOperations.ZeroMemory(privBytes);
             }
         }
 
@@ -318,7 +343,7 @@ namespace Shiro.Services
                         CryptographicOperations.ZeroMemory(keyBytes);
                     }
 
-                    if (CachedEcParameters.Count > 512)
+                    if (CachedEcParameters.Count >= 64)
                         ClearKeyCache();
 
                     CachedEcParameters[trimmedKey] = ecParams;

@@ -121,7 +121,7 @@ namespace Shiro.Services
 
                 if (string.IsNullOrWhiteSpace(newPass))
                 {
-                    PasswordHash = Array.Empty<byte>();
+                    ClearPasswordHash();
                     SaveAccounts(true, true);
                     AppServices.Dialogs.ShowInfo(LocalizationService.Get("AccountManager.SwitchedToDefaultVault"));
                 }
@@ -134,7 +134,7 @@ namespace Shiro.Services
                     }
                     byte[] passBytes = Encoding.UTF8.GetBytes(newPass);
                     byte[] hash = SHA512.HashData(passBytes);
-                    try { PasswordHash = new ReadOnlyMemory<byte>(ProtectedData.Protect(hash, Array.Empty<byte>(), DataProtectionScope.CurrentUser)); }
+                    try { SetProtectedPasswordHash(hash); }
                     finally { CryptographicOperations.ZeroMemory(passBytes); CryptographicOperations.ZeroMemory(hash); }
                     SaveAccounts(true, true);
                     AppServices.Dialogs.ShowInfo(LocalizationService.Get("AccountManager.NewPasswordSet"));
@@ -180,17 +180,23 @@ namespace Shiro.Services
 
                             if (Hash != null)
                             {
-                                PasswordHash = new ReadOnlyMemory<byte>(ProtectedData.Protect(Hash, Array.Empty<byte>(), DataProtectionScope.CurrentUser));
+                                SetProtectedPasswordHash(Hash);
                                 AppServices.Logger?.Info($"[LoadAccounts] Loaded {_repository.Count} accounts via Master Password.");
                             }
                             else
                             {
+                                ClearPasswordHash();
                                 AppServices.Logger?.Info($"[LoadAccounts] Loaded {_repository.Count} accounts via vault key.");
                             }
+                        }
+                        else
+                        {
+                            ClearPasswordHash();
                         }
                         break;
 
                     case AccountDecodeStatus.NeedsMasterPassword:
+                        ClearPasswordHash();
                         IsVaultLockedPendingMasterPassword = true;
                         if (Hash != null)
                             AppServices.Logger?.Warn($"[LoadAccounts] Master Password decryption failed: {decodeResult.Error?.Message}");
@@ -274,6 +280,7 @@ namespace Shiro.Services
                 var vaultResult = AccountFileDecoder.Decode(backupData, null, CreateDecodeKeys(allowRecovery: false));
                 if (vaultResult.Status == AccountDecodeStatus.Loaded)
                 {
+                    ClearPasswordHash();
                     ReplaceAccountsList(vaultResult.Accounts);
                     accountDataNeedsMigration |= vaultResult.NeedsMigration;
                     AppServices.Logger?.Info($"[LoadAccounts] Restored {_repository.Count} accounts from backup via vault key.");
@@ -306,6 +313,7 @@ namespace Shiro.Services
                 var unencResult = AccountFileDecoder.Decode(backupData, null, CreateDecodeKeys(allowRecovery: false));
                 if (unencResult.Status == AccountDecodeStatus.Loaded)
                 {
+                    ClearPasswordHash();
                     ReplaceAccountsList(unencResult.Accounts);
                     accountDataNeedsMigration |= unencResult.NeedsMigration;
                     legacyPlaintextLoaded = unencResult.LegacyPlaintext;

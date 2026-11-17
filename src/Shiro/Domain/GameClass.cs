@@ -19,9 +19,9 @@ namespace Shiro
 
         public Game(long PlaceId, string Name)
         {
-            if (Batch.PlaceDetails.TryGetValue(PlaceId, out GameDetails? ExistingDetails) && !string.IsNullOrEmpty(ImageUrl))
+            if (Batch.PlaceDetails.TryGetValue(PlaceId, out GameDetails? ExistingDetails) && ExistingDetails != null)
                 Details = ExistingDetails;
-            else
+            else if (PlaceId > 0)
                 _ = LoadDetailsAsync(PlaceId, Name);
         }
 

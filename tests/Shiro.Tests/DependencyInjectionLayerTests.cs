@@ -24,24 +24,6 @@ namespace Shiro.Tests
             mockLogger.Received().Warn(Arg.Is<object>(o => o.ToString()!.Contains("Invalid Account Session")));
         }
 
-        [Fact]
-        public async Task Auth_BloxGenService_OnGenerationException_LogsErrorToInjectedLogger()
-        {
-            var mockLogger = Substitute.For<IAppLogger>();
-            var mockSettings = Substitute.For<ISettingsService>();
-            var handler = new FaultingHttpMessageHandler();
-            using var httpClient = new System.Net.Http.HttpClient(handler)
-            {
-                BaseAddress = new Uri("https://bloxgen.net/api/")
-            };
-            var service = new BloxGenService(httpClient, mockLogger, mockSettings);
-
-            var result = await service.GenerateAccountAsync("test-api-key");
-
-            Assert.False(result.Success);
-            mockLogger.Received().Error(Arg.Is<object>(o => o.ToString()!.Contains("[BloxGenService] Generation failed")));
-        }
-
         private sealed class FaultingHttpMessageHandler : System.Net.Http.HttpMessageHandler
         {
             protected override Task<System.Net.Http.HttpResponseMessage> SendAsync(

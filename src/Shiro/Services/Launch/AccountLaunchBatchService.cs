@@ -28,10 +28,16 @@ namespace Shiro.Services
 
                 if (!followUser)
                 {
-                    if (targetPlaceId <= 0 && long.TryParse(account.GetField("SavedPlaceId"), out long savedPlaceId))
+                    bool hasSavedPlace = long.TryParse(account.GetField("SavedPlaceId"), out long savedPlaceId) && savedPlaceId > 0;
+                    if (targetPlaceId <= 0 && hasSavedPlace)
                         targetPlaceId = savedPlaceId;
-                    if (string.IsNullOrEmpty(targetJobId) && !string.IsNullOrEmpty(account.GetField("SavedJobId")))
+
+                    if (string.IsNullOrEmpty(targetJobId) &&
+                        !string.IsNullOrEmpty(account.GetField("SavedJobId")) &&
+                        (placeId <= 0 || (hasSavedPlace && targetPlaceId == savedPlaceId)))
+                    {
                         targetJobId = account.GetField("SavedJobId");
+                    }
                 }
 
                 requests.Add(new LaunchRequest(account, targetPlaceId, targetJobId, followUser, vipServer));
@@ -82,6 +88,10 @@ namespace Shiro.Services
 
                 ReportGameBatchSummary(batch, requests.Count, SetStatus);
             }
+            catch (OperationCanceledException)
+            {
+                SetStatus(LocalizationService.Get("Launch_QueueCancelled"));
+            }
             catch (InvalidOperationException exception)
             {
                 SetStatus(exception.Message);
@@ -130,7 +140,7 @@ namespace Shiro.Services
             var expiredSet = new HashSet<string>(expiredAccounts, StringComparer.Ordinal);
 
             var otherFailedAccounts = batch.Results
-                .Where(r => (r.Status == LaunchOutcome.Failed || r.Status == LaunchOutcome.Timeout) &&
+                .Where(r => r.Status is LaunchOutcome.Failed or LaunchOutcome.Timeout or LaunchOutcome.RateLimited or LaunchOutcome.Cancelled &&
                             !captchaSet.Contains(r.Account?.Username ?? string.Empty) &&
                             !expiredSet.Contains(r.Account?.Username ?? string.Empty))
                 .Select(r => r.Account?.Username ?? "Unknown")
@@ -305,7 +315,7 @@ namespace Shiro.Services
                     .ToList();
 
                 var otherFailedAccounts = batch.Results
-                    .Where(r => (r.Status == LaunchOutcome.Failed || r.Status == LaunchOutcome.Timeout) &&
+                    .Where(r => r.Status is LaunchOutcome.Failed or LaunchOutcome.Timeout or LaunchOutcome.RateLimited or LaunchOutcome.Cancelled &&
                                 !expiredAccounts.Contains(r.Account?.Username ?? ""))
                     .Select(r => r.Account?.Username ?? "Unknown")
                     .Distinct(StringComparer.Ordinal)

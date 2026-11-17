@@ -5,6 +5,41 @@ namespace Shiro.Services
 {
     public sealed partial class AutoReconnectService
     {
+        private int _activeGateUsers;
+        private int _gateDisposed;
+
+        private bool TryEnterReconnectGate()
+        {
+            System.Threading.Interlocked.Increment(ref _activeGateUsers);
+            if (_disposed)
+            {
+                ExitReconnectGate(acquired: false);
+                return false;
+            }
+            return true;
+        }
+
+        private void ExitReconnectGate(bool acquired)
+        {
+            if (acquired)
+            {
+                try { _reconnectGate.Release(); }
+                catch (ObjectDisposedException) { /* disposed concurrently */ }
+            }
+
+            if (System.Threading.Interlocked.Decrement(ref _activeGateUsers) == 0 && _disposed)
+                TryDisposeReconnectGate();
+        }
+
+        private void TryDisposeReconnectGate()
+        {
+            if (System.Threading.Interlocked.Exchange(ref _gateDisposed, 1) == 0)
+            {
+                try { _reconnectGate.Dispose(); }
+                catch (ObjectDisposedException) { /* already disposed */ }
+            }
+        }
+
         public enum ReconnectDecision
         {
             None,
@@ -32,6 +67,29 @@ namespace Shiro.Services
             public bool ObservedProcessExited { get; set; }
             public bool IsActive { get; set; } = true;
             public bool IsSuppressed { get; set; }
+            internal bool NeedsRetry { get; set; }
+            internal System.Threading.CancellationTokenSource? ReconnectCts { get; set; }
+
+            internal void CancelPendingReconnect()
+            {
+                var cts = System.Threading.Interlocked.Exchange(ref _ctsBacking, null);
+                if (cts != null)
+                {
+                    try { cts.Cancel(); }
+                    catch (ObjectDisposedException) { /* already disposed */ }
+                    cts.Dispose();
+                }
+            }
+
+            internal System.Threading.CancellationToken ResetReconnectToken(System.Threading.CancellationToken outerToken)
+            {
+                CancelPendingReconnect();
+                var linked = System.Threading.CancellationTokenSource.CreateLinkedTokenSource(outerToken);
+                _ctsBacking = linked;
+                ReconnectCts = linked;
+                return linked.Token;
+            }
+            private System.Threading.CancellationTokenSource? _ctsBacking;
         }
 
         /// <summary>
@@ -79,11 +137,26 @@ namespace Shiro.Services
         /// <summary>
         /// Removes an account session from monitoring (e.g. account removed or gracefully finished).
         /// </summary>
+        public void UnregisterAccountSession(Account? account)
+        {
+            string key = GetSessionKey(account);
+            if (!string.IsNullOrEmpty(key)) UnregisterSession(key);
+        }
+
         public void UnregisterSession(string username)
         {
             if (string.IsNullOrWhiteSpace(username)) return;
-            if (_sessions.TryRemove(username, out _))
+            if (_sessions.TryRemove(username, out var removed))
+            {
+                removed?.CancelPendingReconnect();
                 AppServices.Logger.Debug($"[AutoReconnect] Unregistered session for '{username}'.");
+            }
+        }
+
+        public void SuppressReconnectForAccount(Account? account)
+        {
+            string key = GetSessionKey(account);
+            if (!string.IsNullOrEmpty(key)) SuppressReconnect(key);
         }
 
         /// <summary>
@@ -96,6 +169,7 @@ namespace Shiro.Services
             {
                 session.IsSuppressed = true;
                 session.IsActive = false;
+                session.CancelPendingReconnect();
                 AppServices.Logger?.Debug($"[AutoReconnect] Reconnection suppressed for '{username}'.");
             }
         }
@@ -109,6 +183,7 @@ namespace Shiro.Services
             {
                 session.IsSuppressed = true;
                 session.IsActive = false;
+                session.CancelPendingReconnect();
             }
             AppServices.Logger.Info("[AutoReconnect] Suppressed reconnect for all active sessions.");
         }
@@ -116,7 +191,15 @@ namespace Shiro.Services
         /// <summary>
         /// Clears all tracked sessions.
         /// </summary>
-        public void Clear() => _sessions.Clear();
+        public void Clear()
+        {
+            foreach (var s in _sessions.Values)
+                s?.CancelPendingReconnect();
+            _sessions.Clear();
+        }
+
+        public bool TryGetAccountSession(Account? account, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out ReconnectSession? session) =>
+            TryGetSession(GetSessionKey(account), out session);
 
         /// <summary>
         /// Retrieves the session for a given account username, if registered.
@@ -162,18 +245,32 @@ namespace Shiro.Services
                 if (session != null && session.ProcessId == processId && session.IsActive && !session.IsSuppressed)
                 {
                     session.ObservedProcessExited = true;
-                    if (abnormalExit && !session.ObservedExitCode.HasValue)
+                    if (!session.ObservedExitCode.HasValue)
                     {
-                        session.ObservedExitCode = -1;
+                        if (abnormalExit)
+                        {
+                            session.ObservedExitCode = -1;
+                        }
+                        else
+                        {
+                            try
+                            {
+                                using var p = System.Diagnostics.Process.GetProcessById(processId);
+                                session.ObservedExitCode = p.HasExited ? p.ExitCode : 0;
+                            }
+                            catch (Exception ex)
+                            {
+                                AppServices.Logger?.Debug($"[AutoReconnect] ExitCode fallback to 0 on clean job exit: {ex.Message}");
+                                session.ObservedExitCode = 0;
+                            }
+                        }
                     }
                     matchedAny = true;
                 }
             }
 
             if (matchedAny)
-            {
-                CheckSessionsCallback(null);
-            }
+                _ = System.Threading.Tasks.Task.Run(() => CheckSessionsCallback(null));
         }
     }
 }

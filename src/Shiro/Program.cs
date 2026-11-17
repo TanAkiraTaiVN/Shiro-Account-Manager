@@ -25,7 +25,19 @@ namespace Shiro
         /// <summary>
         /// The main entry point for the application.
         /// </summary>
-        public static readonly IAppLogger Logger = CreateLogger();
+        private static IAppLogger? _logger;
+        private static readonly Lock _loggerLock = new();
+
+        public static IAppLogger Logger
+        {
+            get
+            {
+                lock (_loggerLock)
+                {
+                    return _logger ??= CreateLogger();
+                }
+            }
+        }
 
         private static IAppLogger CreateLogger()
         {
@@ -42,7 +54,6 @@ namespace Shiro
             }
         }
         public static bool Closed = false; // RobloxProcess.cs would cause the program to chill in the background as long roblox was also running
-        public static bool Elevated;
 
 #if !DEBUG
         private static readonly Mutex mutex = new Mutex(false, "{93b3858f-3dac-4dc0-99cb-0476efc5adce}");
@@ -60,66 +71,8 @@ namespace Shiro
             }
             catch (Exception ex)
             {
-                Logger?.Debug($"SetCurrentProcessExplicitAppUserModelID failed: {ex.Message}");
+                Trace.WriteLine($"SetCurrentProcessExplicitAppUserModelID failed: {ex.Message}");
             }
-
-            int Stupid = 1337;
-
-            try
-            {
-                StoragePaths.EnsureInitialized();
-                Environment.CurrentDirectory = StoragePaths.BaseDirectory;
-                _ = Task.Run(() =>
-                {
-                    try
-                    {
-                        int staleArtifacts = StoragePaths.CleanupStaleRuntimeArtifacts(TimeSpan.FromDays(7));
-                        if (staleArtifacts > 0)
-                            Logger?.Info($"Removed {staleArtifacts} stale runtime artifact(s) from the previous session.");
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger?.Warn($"CleanupStaleRuntimeArtifacts error: {ex.Message}");
-                    }
-                });
-            }
-            catch (Exception ex)
-            {
-                Logger?.Error($"Startup storage initialization error: {ex.Message}");
-            }
-
-            try
-            {
-                DirectoryInfo applicationDirectory = new DirectoryInfo(StoragePaths.BaseDirectory);
-                string temporaryRoot = Path.GetTempPath().TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-                if (applicationDirectory.Parent != null &&
-                    applicationDirectory.Parent.FullName.Contains(temporaryRoot, StringComparison.OrdinalIgnoreCase))
-                {
-                    if (OperatingSystem.IsWindows())
-                        MessageBox(IntPtr.Zero, "Shiro must be extracted in order to function correctly!", "Shiro", 0x10);
-                    Environment.Exit(Stupid);
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger?.Debug($"Temp path extraction check failed: {ex.Message}");
-            }
-
-            try
-            {
-                if (new WindowsPrincipal(WindowsIdentity.GetCurrent()).IsInRole(WindowsBuiltInRole.Administrator))
-                    Elevated = true;
-
-                // MessageBox.Show("Some features may not work properly if you ran the account manager as admin!", "Roblox Account Manager", MessageBoxButtons.OK, MessageBoxIcon.Error); // I don't think this is an issue anymore
-            }
-            catch (Exception ex)
-            {
-                Logger?.Debug($"Administrator role check failed: {ex.Message}");
-            }
-
-            ConfigureUnhandledExceptionRouting();
-
-
 
             // Modernization: Encryption uses pure .NET System.Security.Cryptography (AES-256-GCM + PBKDF2-SHA256). Zero native DLL drop on startup.
 
@@ -139,6 +92,49 @@ namespace Shiro
 #endif
                 try
                 {
+                    try
+                    {
+                        StoragePaths.EnsureInitialized();
+                        Environment.CurrentDirectory = StoragePaths.BaseDirectory;
+                        _ = Task.Run(() =>
+                        {
+                            try
+                            {
+                                int staleArtifacts = StoragePaths.CleanupStaleRuntimeArtifacts(TimeSpan.FromDays(7));
+                                if (staleArtifacts > 0)
+                                    Logger?.Info($"Removed {staleArtifacts} stale runtime artifact(s) from the previous session.");
+                            }
+                            catch (Exception ex)
+                            {
+                                Logger?.Warn($"CleanupStaleRuntimeArtifacts error: {ex.Message}");
+                            }
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger?.Error($"Startup storage initialization error: {ex.Message}");
+                    }
+
+                    try
+                    {
+                        string baseFull = Path.GetFullPath(StoragePaths.BaseDirectory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                        string tempFull = Path.GetFullPath(Path.GetTempPath()).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                        if (baseFull.StartsWith(tempFull + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+                        {
+                            if (OperatingSystem.IsWindows())
+                                MessageBox(IntPtr.Zero, "Shiro must be extracted in order to function correctly!", "Shiro", 0x10);
+                            Environment.Exit(1);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger?.Debug($"Temp path extraction check failed: {ex.Message}");
+                    }
+
+                    // Note: Elevation state is checked dynamically per launch by RobloxDirectLauncher.DeElevation.
+
+                    ConfigureUnhandledExceptionRouting();
+
                     AccountManager.EnsureBackendInitialized();
 
                     Logger?.Info("Launching Shiro Account Manager with Pure Avalonia UI 11 engine...");
@@ -153,12 +149,13 @@ namespace Shiro
                     }
                 }
 #if DEBUG
-            finally { }
+                finally { }
 #else
                 finally
                 {
                     try { mutex.ReleaseMutex(); }
                     catch (Exception ex) { Logger?.Debug($"ReleaseMutex failed: {ex.Message}"); }
+                    finally { SafeExecuteHelper.Try(() => mutex.Dispose(), "Program.DisposeMutex"); }
                 }
             }
             else
@@ -169,21 +166,22 @@ namespace Shiro
 #endif
         }
 
+        internal static Win32PlatformOptions CreateWin32PlatformOptions() => new()
+        {
+            RenderingMode = new[] { Win32RenderingMode.AngleEgl, Win32RenderingMode.Software },
+            CompositionMode = new[]
+            {
+                Win32CompositionMode.RedirectionSurface,
+                Win32CompositionMode.LowLatencyDxgiSwapChain,
+                Win32CompositionMode.DirectComposition
+            }
+        };
+
         public static Avalonia.AppBuilder BuildAvaloniaApp()
         {
             var builder = Avalonia.AppBuilder.Configure<Shiro.AvaloniaUI.App>()
                 .UsePlatformDetect()
-                .With(new Win32PlatformOptions
-                {
-                    RenderingMode = new[] { Win32RenderingMode.AngleEgl, Win32RenderingMode.Software },
-                    CompositionMode = new[]
-                    {
-                        Win32CompositionMode.WinUIComposition,
-                        Win32CompositionMode.DirectComposition,
-                        Win32CompositionMode.LowLatencyDxgiSwapChain,
-                        Win32CompositionMode.RedirectionSurface
-                    }
-                })
+                .With(CreateWin32PlatformOptions())
                 .WithInterFont();
 #if DEBUG
             builder = builder.LogToTrace();
@@ -218,11 +216,11 @@ namespace Shiro
 
                 // Do not serialize exception objects or request bodies here;
                 // browser/API exceptions can include sensitive cookie or token
-                // values. The type and first-line message are enough to find
+                // values. The type, redacted message and stack trace are enough to find
                 // the failing boundary in the normal application log.
-                string message = (exception.Message ?? string.Empty)
+                string message = LogRedactor.Redact((exception.Message ?? string.Empty)
                     .Replace("\r", " ")
-                    .Replace("\n", " ");
+                    .Replace("\n", " "));
 
                 // Filter out benign transient WebView2 / DevTools browser lifecycle events (navigation redirects, detached targets, tab closing)
                 if (IsBenignTransientException(exception, message))
@@ -232,7 +230,7 @@ namespace Shiro
                 }
 
                 Logger.Error($"Unhandled {source} exception: {exception.GetType().Name}: {message}");
-                Logger.Error($"Unhandled {source} stack trace: {exception}");
+                Logger.Error($"Unhandled {source} stack trace:\n{LogRedactor.Redact(exception.StackTrace)}");
             }
             catch (Exception ex)
             {

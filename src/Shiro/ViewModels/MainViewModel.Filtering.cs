@@ -169,5 +169,34 @@ namespace Shiro.ViewModels
         {
             _filteredAccountRows.Sync(AccountListFilterController.BuildAccountRows(_filteredAccounts, _cardColumns));
         }
+
+        public void RefreshAccount(Account? account)
+        {
+            if (account == null || Volatile.Read(ref _disposed) != 0)
+                return;
+
+            if (Avalonia.Application.Current != null && Dispatcher.UIThread != null && !Dispatcher.UIThread.CheckAccess())
+            {
+                AppDispatcher.Post(() => RefreshAccount(account));
+                return;
+            }
+
+            AccountViewModel? vm = null;
+            if (!_vmByModel.TryGetValue(account, out vm))
+            {
+                if (account.UserID > 0)
+                    _vmByUserId.TryGetValue(account.UserID, out vm);
+                if (vm == null && !string.IsNullOrEmpty(account.Username))
+                    _vmByUsername.TryGetValue(account.Username, out vm);
+            }
+
+            if (vm != null)
+            {
+                vm.UpdateModel(account);
+                RebuildGroupList(applyFilterOnReset: false);
+                ApplyFilter();
+                NotifyCounts();
+            }
+        }
     }
 }

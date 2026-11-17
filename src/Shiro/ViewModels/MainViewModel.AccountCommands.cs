@@ -50,7 +50,6 @@ namespace Shiro.ViewModels
         public ICommand AddAccountFastLoginCommand { get; private set; } = null!;
         public ICommand AddAccountCookieCommand { get; private set; } = null!;
         public ICommand BulkImportCommand { get; private set; } = null!;
-        public ICommand AltGenCommand { get; private set; } = null!;
 
         // Card Level Commands
         public ICommand FastReLoginAccountCommand { get; private set; } = null!;
@@ -106,10 +105,6 @@ namespace Shiro.ViewModels
             {
                 if (OnBulkImportRequested != null) OnBulkImportRequested.Invoke();
                 else AppServices.Dialogs.OpenBulkImportDialog();
-            });
-            AltGenCommand = new RelayCommand(() =>
-            {
-                AppServices.Dialogs.OpenAltGenDialog();
             });
 
             // Card Commands
@@ -237,7 +232,21 @@ namespace Shiro.ViewModels
                     else AppServices.AccountWorkflowService.CopySecurityToken(a, msg => StatusMessage = msg);
                 }
             });
-            SavePlaceIdToAccountCommand = new RelayCommand(p => { if (p is AccountViewModel a) OnSavePlaceIdToAccountRequested?.Invoke(a); });
+            SavePlaceIdToAccountCommand = new RelayCommand(p =>
+            {
+                if (p is AccountViewModel a)
+                {
+                    if (OnSavePlaceIdToAccountRequested != null)
+                        OnSavePlaceIdToAccountRequested.Invoke(a);
+                    else if (a.Model != null && long.TryParse(PlaceId?.Trim(), out long pid) && pid > 0)
+                    {
+                        a.Model.SetField("SavedPlaceId", pid.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                        if (!string.IsNullOrWhiteSpace(JobId))
+                            a.Model.SetField("SavedJobId", JobId.Trim());
+                        AppServices.AccountRepository.SaveAsync().Forget();
+                    }
+                }
+            });
             ViewFieldsCommand = new RelayCommand(p =>
             {
                 if (p is AccountViewModel a)

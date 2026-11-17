@@ -110,7 +110,7 @@ namespace Shiro.Services
 
                 bool updated = false;
                 string? serialized = null;
-                lock (recentGames)
+                lock (_recentGamesLock)
                 {
                     foreach (var rg in recentGames)
                     {
@@ -172,7 +172,7 @@ namespace Shiro.Services
             var recentGames = AppServices.ServerBrowserState.RecentGames;
             if (recentGames != null)
             {
-                lock (recentGames)
+                lock (_recentGamesLock)
                 {
                     for (int i = recentGames.Count - 1; i >= 0; i--)
                     {
@@ -222,8 +222,12 @@ namespace Shiro.Services
             }
             finally
             {
-                if (queryTask.IsCompleted)
-                    _inFlightNameQueries.TryRemove(placeId, out _);
+                _ = queryTask.ContinueWith(
+                    static (t, state) => _inFlightNameQueries.TryRemove(new KeyValuePair<long, Task<string?>>((long)state!, t)),
+                    placeId,
+                    CancellationToken.None,
+                    TaskContinuationOptions.ExecuteSynchronously,
+                    TaskScheduler.Default);
             }
 
             return null;
@@ -418,12 +422,13 @@ namespace Shiro.Services
                 if (!loading)
                 {
                     serialized = FastJson.Serialize(AppServices.ServerBrowserState.RecentGames, indented: true);
-                    StoragePaths.AtomicWriteText(recentGamesFilePath, serialized);
                 }
             }
 
             if (!loading)
             {
+                if (!string.IsNullOrEmpty(serialized))
+                    StoragePaths.AtomicWriteText(recentGamesFilePath, serialized);
                 onGameAdded?.Invoke(rg);
             }
         }

@@ -141,7 +141,7 @@ namespace Shiro.ViewModels.Dialogs
 
             try
             {
-                await _store.TestAllAsync(Proxies, token).ConfigureAwait(false);
+                await _store.TestAllAsync(Proxies, token);
                 if (!token.IsCancellationRequested)
                 {
                     int online = Proxies.Count(p => p.IsOnline);

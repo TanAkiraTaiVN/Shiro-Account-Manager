@@ -209,29 +209,9 @@ namespace Shiro.Services
                 int pid = runningPids[i];
                 if (pid <= 0) continue;
 
-                string tracker = _pidTrackerCache.GetOrAdd(pid, static p =>
-                {
-                    try
-                    {
-                        string? cmd = ProcessExtensions.GetCommandLineByPid(p);
-                        if (!string.IsNullOrEmpty(cmd))
-                        {
-                            var m = BrowserTrackerRegex().Match(cmd);
-                            if (m.Success)
-                                return m.Groups[1].Value;
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        AppServices.Logger.Debug("[RobloxWindowArrangerService] Resolve process tracker failed", ex);
-                    }
-                    return string.Empty;
-                });
-
+                string tracker = ResolveTrackerForPidWithCacheForTest(pid, ProcessExtensions.GetCommandLineByPid);
                 if (!string.IsNullOrEmpty(tracker))
-                {
-                    trackerToPid[tracker] = pid;
-                }
+                    trackerToPid.TryAdd(tracker, pid);
             }
 
             foreach (var acc in accounts)
@@ -264,6 +244,28 @@ namespace Shiro.Services
             }
 
             return result;
+        }
+
+        internal static string ResolveTrackerForPidWithCacheForTest(int pid, Func<int, string?> getCommandLineByPid)
+        {
+            if (pid <= 0) return string.Empty;
+            if (_pidTrackerCache.TryGetValue(pid, out string? cached) && !string.IsNullOrEmpty(cached))
+                return cached;
+            try
+            {
+                string? cmd = getCommandLineByPid(pid);
+                if (!string.IsNullOrEmpty(cmd))
+                {
+                    var m = BrowserTrackerRegex().Match(cmd);
+                    if (m.Success && !string.IsNullOrEmpty(m.Groups[1].Value))
+                    {
+                        _pidTrackerCache[pid] = m.Groups[1].Value;
+                        return m.Groups[1].Value;
+                    }
+                }
+            }
+            catch (Exception ex) { AppServices.Logger.Debug("[RobloxWindowArrangerService] Resolve process tracker failed", ex); }
+            return string.Empty;
         }
 
         /// <summary>

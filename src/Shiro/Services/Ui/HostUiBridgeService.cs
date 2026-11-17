@@ -24,12 +24,14 @@ namespace Shiro.Services
         public Action? QueueDeferredSaveSettingsHandler { get; set; }
         public Action<string>? SetDashboardStatusHandler { get; set; }
         public Action? EnsureBackendInitializedHandler { get; set; }
+        public Action? ShutdownBackendHandler { get; set; }
         public Action? InitializePostStartupHandler { get; set; }
         public Func<int, bool, Task>? RestartWebServerHandler { get; set; }
         public Func<Task>? StopWebServerHandler { get; set; }
         public Action<bool>? SetAutoCookieRefreshEnabledHandler { get; set; }
         public Func<bool, Task>? ResetEncryptionHandler { get; set; }
         public Action<IReadOnlyList<Account>>? RefreshAccountsOnUiHandler { get; set; }
+        public Action<Account>? RefreshSingleAccountOnUiHandler { get; set; }
         public Action<Account, bool>? NotifyAccountValidityOnUiHandler { get; set; }
         public Action? RefreshLiveProcessStatusOnUiHandler { get; set; }
         public Action<string>? UpdateWindowStatusOnUiHandler { get; set; }
@@ -46,6 +48,7 @@ namespace Shiro.Services
         public void UpdateMultiRoblox() => UpdateMultiRobloxHandler?.Invoke();
         public void CloseAllRobloxFromUi() => CloseAllRobloxFromUiHandler?.Invoke();
         public void NotifyAccountsReplaced(IReadOnlyList<Account> accounts) => RefreshAccountsOnUiHandler?.Invoke(accounts);
+        public void NotifyAccountUpdated(Account account) => RefreshSingleAccountOnUiHandler?.Invoke(account);
         public void NotifyAccountValidityChanged(Account account, bool isValid) => NotifyAccountValidityOnUiHandler?.Invoke(account, isValid);
         public void NotifyLiveProcessStatusChanged() => RefreshLiveProcessStatusOnUiHandler?.Invoke();
         public void NotifyWindowStatus(string message) => UpdateWindowStatusOnUiHandler?.Invoke(message);
@@ -130,6 +133,8 @@ namespace Shiro.Services
                 // Backend not yet wired; no-op rather than recurse into AccountRepository
             }
         }
+
+        public void ShutdownBackend() => ShutdownBackendHandler?.Invoke();
 
         public void InitializePostStartup()
         {

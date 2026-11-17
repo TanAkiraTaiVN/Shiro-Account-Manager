@@ -5,6 +5,7 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using Shiro.Services;
 
@@ -16,6 +17,7 @@ namespace Shiro.ViewModels
         private readonly ObservableCollection<FavoriteGameItemViewModel> _favorites = new ObservableCollection<FavoriteGameItemViewModel>();
         private string _gameSearchTerm = string.Empty;
         private bool _isSearchingGames;
+        private CancellationTokenSource? _gamesSearchCts;
 
         public bool IsSearchGamesEmpty => !IsSearchingGames && _searchGames.Count == 0;
         public bool IsFavoritesEmpty => _favorites.Count == 0;
@@ -40,8 +42,10 @@ namespace Shiro.ViewModels
             }
         }
 
-        private async Task SearchGamesAsync()
+        internal async Task SearchGamesAsync()
         {
+            var cts = ServerListOperationHelper.ReplaceCts(ref _gamesSearchCts, createNew: true, "ServerListViewModel.GamesSearchCts")!;
+            CancellationToken ct = cts.Token;
             IsSearchingGames = true;
             _searchGames.Clear();
 
@@ -54,9 +58,9 @@ namespace Shiro.ViewModels
                 string url = $"https://apis.roblox.com/search-api/omni-search?searchQuery={Uri.EscapeDataString(query)}&sessionId={sessionId}&pageType=all";
                 using var searchReq = new System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Get, url);
                 searchReq.Headers.AcceptLanguage.ParseAdd("en-US,en;q=0.9");
-                using var searchResp = await SharedHttpClient.SendAsync(searchReq, retryTransient: true).ConfigureAwait(false);
+                using var searchResp = await SharedHttpClient.SendAsync(searchReq, retryTransient: true, ct).ConfigureAwait(false);
                 string content = searchResp.IsSuccessStatusCode
-                    ? await searchResp.Content.ReadAsStringAsync().ConfigureAwait(false)
+                    ? await searchResp.Content.ReadAsStringAsync(ct).ConfigureAwait(false)
                     : string.Empty;
 
                 if (!string.IsNullOrWhiteSpace(content))
@@ -103,7 +107,7 @@ namespace Shiro.ViewModels
                         _logger.Debug($"[ParseGamesBatch] {ex.Message}");
                     }
 
-                    if (gamesList.Count > 0)
+                    if (gamesList.Count > 0 && !ct.IsCancellationRequested)
                     {
                         var thumbDict = await FetchPlaceIconsBatchAsync(gamesList.Select(x => x.PlaceId)).ConfigureAwait(false);
                         if (thumbDict.Count > 0)
@@ -118,10 +122,18 @@ namespace Shiro.ViewModels
 
                     AppDispatcher.Post(() =>
                     {
+                        if (ct.IsCancellationRequested || !ReferenceEquals(Volatile.Read(ref _gamesSearchCts), cts))
+                            return;
+
+                        _searchGames.Clear();
                         foreach (var g in gamesList)
                             _searchGames.Add(g);
                     });
                 }
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                // Superseded by a newer game search or disposal
             }
             catch (Exception ex)
             {
@@ -131,7 +143,11 @@ namespace Shiro.ViewModels
             {
                 AppDispatcher.Post(() =>
                 {
+                    if (!ReferenceEquals(Volatile.Read(ref _gamesSearchCts), cts))
+                        return;
+
                     IsSearchingGames = false;
+                    ServerListOperationHelper.ReleaseFinishedCts(ref _gamesSearchCts, cts, "ServerListViewModel.GamesSearchCts");
                 });
             }
         }

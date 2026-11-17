@@ -102,7 +102,8 @@ namespace Shiro.Services
                 return;
 
             var backupFiles = dirInfo.EnumerateFiles("AccountData_*.json.bak")
-                .OrderByDescending(f => f.CreationTimeUtc)
+                .OrderByDescending(f => f.LastWriteTimeUtc)
+                .ThenByDescending(f => f.CreationTimeUtc)
                 .ToList();
 
             if (backupFiles.Count > MaxHistoricalBackups)
@@ -146,7 +147,9 @@ namespace Shiro.Services
                 var info = new FileInfo(primaryPath);
                 if (info.Exists && info.Length > 0)
                 {
-                    File.Copy(primaryPath, BackupFile, overwrite: true);
+                    string tmpBackup = BackupFile + ".tmp";
+                    File.Copy(primaryPath, tmpBackup, overwrite: true);
+                    File.Move(tmpBackup, BackupFile, overwrite: true);
 
                     DateTime nowUtc = DateTime.UtcNow;
                     if (forceHistoricalBackup || (nowUtc - _lastHistoricalBackupUtc) >= HistoricalBackupInterval)
@@ -155,7 +158,11 @@ namespace Shiro.Services
                         Directory.CreateDirectory(dir);
                         string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
                         string backupPath = Path.Combine(dir, $"AccountData_{timestamp}.json.bak");
-                        File.Copy(primaryPath, backupPath, overwrite: true);
+                        if (File.Exists(backupPath))
+                            backupPath = Path.Combine(dir, $"AccountData_{timestamp}_{Environment.TickCount64:x}.json.bak");
+                        string tmpHist = backupPath + ".tmp";
+                        File.Copy(primaryPath, tmpHist, overwrite: true);
+                        File.Move(tmpHist, backupPath, overwrite: true);
                         _lastHistoricalBackupUtc = nowUtc;
                         PruneHistoricalBackups(dir);
                     }
@@ -178,7 +185,8 @@ namespace Shiro.Services
                     return Array.Empty<string>();
 
                 return dirInfo.EnumerateFiles("AccountData_*.json.bak")
-                    .OrderByDescending(f => f.CreationTimeUtc)
+                    .OrderByDescending(f => f.LastWriteTimeUtc)
+                    .ThenByDescending(f => f.CreationTimeUtc)
                     .Select(f => f.FullName)
                     .ToList();
             }

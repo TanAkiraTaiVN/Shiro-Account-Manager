@@ -108,6 +108,7 @@ namespace Shiro.AvaloniaUI.Views
                         oldCore.NavigationCompleted -= OnNavigationCompleted;
                         oldCore.SourceChanged -= OnSourceChanged;
                         oldCore.WebResourceRequested -= OnWebResourceRequested;
+                        oldCore.WebMessageReceived -= OnWebMessageReceived;
                     }
 
                     LoadAccountAtIndex(_queue.Index + 1);
@@ -352,20 +353,20 @@ namespace Shiro.AvaloniaUI.Views
                     var hbaSnapshot = await CollectFinalHbaAndFingerprintAsync(core);
                     string cookieValue = await CaptureSettledCookieAndDomPasswordAsync(core, secCookie.Value);
 
-                    Account? acc = await AppServices.AccountRepository.AddOrUpdateWithHbaAsync(cookieValue, _password ?? "", accountJson: inPageAccountJson, hbaCapture: hbaSnapshot);
-                    pendingCapturedFp = null;
-                    AppServices.Logger?.Info($"[FastLogin] Captured session for '{_username}': payloadLen={Account.GetSessionTokenPayloadLength(cookieValue)}, hba={hbaSnapshot.HasPrivateKey}, registeredValid={acc?.Valid}, resolvedUser={acc?.Username}.");
-
-                    var captureOutcome = await FastLoginCoordinator.ProcessCapturedSessionAsync(
-                        acc,
+                    var captureOutcome = await FastLoginCoordinator.ResolveAndCommitCapturedSessionAsync(
                         cookieValue,
                         _username,
                         _password,
                         CookieViewModel.Alias?.Trim(),
                         CookieViewModel.Group?.Trim(),
+                        inPageAccountJson,
+                        hbaSnapshot,
                         _queue.Count,
                         GetCurrentQueueAccount(),
                         () => DetectDomAccountIssueAsync(core));
+                    pendingCapturedFp = null;
+                    Account? acc = captureOutcome.Account;
+                    AppServices.Logger?.Info($"[FastLogin] Captured session for '{_username}': status={captureOutcome.Status}, payloadLen={Account.GetSessionTokenPayloadLength(cookieValue)}, hba={hbaSnapshot.HasPrivateKey}, registeredValid={acc?.Valid}, resolvedUser={acc?.Username}.");
 
                     switch (captureOutcome.Status)
                     {
@@ -387,6 +388,13 @@ namespace Shiro.AvaloniaUI.Views
                             core.NavigationStarting -= OnNavigationStarting;
                             core.NavigationCompleted -= OnNavigationCompleted;
                             core.SourceChanged -= OnSourceChanged;
+                            core.WebResourceRequested -= OnWebResourceRequested;
+                            core.WebMessageReceived -= OnWebMessageReceived;
+                            string wrongUser = captureOutcome.Account?.Username ?? "Unknown";
+                            string mismatchMsg = Shiro.Services.LocalizationService.Format("FastLogin.UsernameMismatchReset", wrongUser, _username ?? string.Empty);
+                            TxtInAppStatus.Text = mismatchMsg;
+                            TxtInAppStatus.Foreground = Brushes.Orange;
+                            AppServices.HostUiBridge.NotifyWindowStatus(mismatchMsg);
                             ResetHbaSnapshot();
                             var freshCore = WvBrowser != null ? await WvBrowser.ResetToFreshProfileAsync() : null;
                             if (freshCore != null)

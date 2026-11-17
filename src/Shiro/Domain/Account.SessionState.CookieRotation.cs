@@ -255,6 +255,17 @@ namespace Shiro
             }
         }
 
+        private sealed class SuppressDeferredSaveScope : IDisposable
+        {
+            private bool _disposed;
+            public void Dispose()
+            {
+                if (_disposed) return;
+                _disposed = true;
+                if (_suppressDeferredSaveDepth > 0) _suppressDeferredSaveDepth--;
+            }
+        }
+
         public void ClearSensitiveMemory()
         {
             lock (CookieSyncRoot)
@@ -263,9 +274,18 @@ namespace Shiro
                 _hasSecurityToken = false;
                 _securityTokenPayloadLength = 0;
                 InMemorySecretProtector.ZeroAndClear(ref _protectedPassword);
+                InMemorySecretProtector.ZeroAndClear(ref _protectedHbaPrivateKey);
                 CSRFToken = null;
                 TokenSet = DateTime.MinValue;
                 System.Threading.Interlocked.Increment(ref _cookieRotationVersion);
+            }
+            lock (FieldsSyncRoot)
+            {
+                if (Fields != null)
+                {
+                    foreach (string k in Fields.Keys.Where(IsProtectedInternalField).ToList())
+                        Fields.Remove(k);
+                }
             }
         }
     }

@@ -109,7 +109,17 @@ namespace Shiro.Services
             finally
             {
                 if (downloadTask.IsCompleted)
+                {
                     _inFlightDownloads.TryRemove(new KeyValuePair<long, Task<Bitmap?>>(placeId, downloadTask));
+                }
+                else
+                {
+                    _ = downloadTask.ContinueWith(
+                        completed => _inFlightDownloads.TryRemove(new KeyValuePair<long, Task<Bitmap?>>(placeId, completed)),
+                        CancellationToken.None,
+                        TaskContinuationOptions.ExecuteSynchronously,
+                        TaskScheduler.Default);
+                }
             }
         }
 
@@ -193,14 +203,11 @@ namespace Shiro.Services
                         }
                     }
                 }
+                return null;
             }
             catch (Exception ex)
             {
                 _logger.Debug($"[GameThumbnailService] Failed fetching thumbnail for {placeId}: {ex.Message}");
-            }
-            finally
-            {
-                _inFlightDownloads.TryRemove(placeId, out _);
             }
 
             return null;

@@ -285,7 +285,57 @@ namespace Shiro.Services
             }
         }
 
-        public static async Task<FastLoginCaptureResult> ProcessCapturedSessionAsync(
+        public static async Task<FastLoginCaptureResult> ResolveAndCommitCapturedSessionAsync(
+            string cookieValue,
+            string? expectedUsername,
+            string? password,
+            string? alias,
+            string? group,
+            string? accountJson,
+            RobloxHbaService.CaptureSnapshot? hbaCapture,
+            int queueCount,
+            Account? currentQueueAccount,
+            Func<Task<(string? IssueBadge, string? Reason)>>? detectDomIssueAsync = null,
+            IAccountRepository? repository = null,
+            Func<string, string?, CancellationToken, RobloxHbaService.CaptureSnapshot?, Task<Account>>? createAccountAsync = null,
+            CancellationToken cancellationToken = default)
+        {
+            var resolveAsync = createAccountAsync ?? Account.CreateAsync;
+            Account candidate = await resolveAsync(cookieValue, accountJson, cancellationToken, hbaCapture).ConfigureAwait(false);
+
+            if (candidate != null && candidate.Valid &&
+                !string.IsNullOrEmpty(expectedUsername) &&
+                !string.Equals(candidate.Username, expectedUsername, StringComparison.OrdinalIgnoreCase))
+            {
+                return new FastLoginCaptureResult(FastLoginCaptureStatus.UsernameMismatch, candidate);
+            }
+
+            IAccountRepository repo = repository ?? AppServices.AccountRepository;
+            Account? targetAccount = candidate;
+            if (candidate != null && candidate.Valid)
+            {
+                if (!string.IsNullOrEmpty(alias))
+                    candidate.Alias = alias;
+                if (!string.IsNullOrEmpty(group))
+                    candidate.Group = group;
+
+                targetAccount = repo.RegisterValidated(candidate, cookieValue, password ?? string.Empty, saveImmediate: false) ?? candidate;
+            }
+
+            return await ProcessCapturedSessionAsync(
+                targetAccount,
+                cookieValue,
+                expectedUsername,
+                password,
+                alias,
+                group,
+                queueCount,
+                currentQueueAccount,
+                detectDomIssueAsync,
+                repo).ConfigureAwait(false);
+        }
+
+        public static Task<FastLoginCaptureResult> ProcessCapturedSessionAsync(
             Account? capturedAccount,
             string cookieValue,
             string? expectedUsername,
@@ -294,18 +344,41 @@ namespace Shiro.Services
             string? group,
             int queueCount,
             Account? currentQueueAccount,
-            Func<Task<(string? IssueBadge, string? Reason)>>? detectDomIssueAsync = null)
+            Func<Task<(string? IssueBadge, string? Reason)>>? detectDomIssueAsync = null) =>
+            ProcessCapturedSessionAsync(
+                capturedAccount,
+                cookieValue,
+                expectedUsername,
+                password,
+                alias,
+                group,
+                queueCount,
+                currentQueueAccount,
+                detectDomIssueAsync,
+                null);
+
+        internal static async Task<FastLoginCaptureResult> ProcessCapturedSessionAsync(
+            Account? capturedAccount,
+            string cookieValue,
+            string? expectedUsername,
+            string? password,
+            string? alias,
+            string? group,
+            int queueCount,
+            Account? currentQueueAccount,
+            Func<Task<(string? IssueBadge, string? Reason)>>? detectDomIssueAsync,
+            IAccountRepository? repository)
         {
             if (capturedAccount != null && capturedAccount.Valid)
             {
-                if (!string.IsNullOrEmpty(password))
-                    capturedAccount.Password = password;
-
                 if (!string.IsNullOrEmpty(expectedUsername) &&
                     !string.Equals(capturedAccount.Username, expectedUsername, StringComparison.OrdinalIgnoreCase))
                 {
                     return new FastLoginCaptureResult(FastLoginCaptureStatus.UsernameMismatch, capturedAccount);
                 }
+
+                if (!string.IsNullOrEmpty(password))
+                    capturedAccount.Password = password;
 
                 capturedAccount.AccountStatusIssue = string.Empty;
                 if (!string.IsNullOrEmpty(alias))
@@ -313,7 +386,7 @@ namespace Shiro.Services
                 if (!string.IsNullOrEmpty(group))
                     capturedAccount.Group = group;
 
-                try { await AppServices.AccountRepository.SaveAsync(true).ConfigureAwait(false); }
+                try { await (repository ?? AppServices.AccountRepository).SaveAsync(true).ConfigureAwait(false); }
                 catch (Exception ex) { _logger.Warn($"SaveAccountsAsync after fast login failed: {ex.Message}"); }
 
                 return new FastLoginCaptureResult(FastLoginCaptureStatus.Success, capturedAccount);

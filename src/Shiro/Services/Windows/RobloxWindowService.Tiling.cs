@@ -137,6 +137,20 @@ namespace Shiro.Services
         [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvStdcall) })]
         private static int FindWindowForPidCallback(IntPtr hWnd, IntPtr lParam)
         {
+            try
+            {
+                return FindWindowForPidCallbackCore(hWnd, lParam);
+            }
+            catch (Exception ex)
+            {
+                AppServices.Logger?.Debug($"FindWindowForPidCallback failed: {ex.Message}");
+                return 1;
+            }
+        }
+
+        internal static int FindWindowForPidCallbackCore(IntPtr hWnd, IntPtr lParam)
+        {
+            if (lParam == IntPtr.Zero) return 1;
             var ctx = (SinglePidContext)GCHandle.FromIntPtr(lParam).Target!;
             GetWindowThreadProcessId(hWnd, out uint windowPid);
             if (windowPid != ctx.TargetPid)
@@ -194,6 +208,20 @@ namespace Shiro.Services
         [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvStdcall) })]
         private static int FindWindowsForPidsCallback(IntPtr hWnd, IntPtr lParam)
         {
+            try
+            {
+                return FindWindowsForPidsCallbackCore(hWnd, lParam);
+            }
+            catch (Exception ex)
+            {
+                AppServices.Logger?.Debug($"FindWindowsForPidsCallback failed: {ex.Message}");
+                return 1;
+            }
+        }
+
+        internal static int FindWindowsForPidsCallbackCore(IntPtr hWnd, IntPtr lParam)
+        {
+            if (lParam == IntPtr.Zero) return 1;
             var ctx = (MultiPidContext)GCHandle.FromIntPtr(lParam).Target!;
             GetWindowThreadProcessId(hWnd, out uint pid);
             if (!ctx.Pids.Contains(pid))

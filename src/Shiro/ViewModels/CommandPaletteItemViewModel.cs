@@ -53,7 +53,7 @@ namespace Shiro.ViewModels
         }
 
         public string IconColorHex { get; set; } = "#38BDF8";
-        public IBrush IconBrush => SolidColorBrush.Parse(string.IsNullOrWhiteSpace(IconColorHex) ? "#38BDF8" : IconColorHex);
+        public IBrush IconBrush => new Avalonia.Media.Immutable.ImmutableSolidColorBrush(Color.Parse(string.IsNullOrWhiteSpace(IconColorHex) ? "#38BDF8" : IconColorHex));
 
         public Geometry? IconGeometry => TryParseGeometry(GetCommandIconPath(_iconName));
 

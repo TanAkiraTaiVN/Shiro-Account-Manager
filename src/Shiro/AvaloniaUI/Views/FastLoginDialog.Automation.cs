@@ -21,10 +21,7 @@ namespace Shiro.AvaloniaUI.Views
 
         private void OnNavigationStarting(object? sender, CoreWebView2NavigationStartingEventArgs e)
         {
-            if (e != null && !e.IsRedirected)
-                _isDocumentNavigating = true;
-            else
-                _isDocumentNavigating = true;
+            _isDocumentNavigating = true;
         }
 
         private async Task ConfigureCoreWebViewAsync(CoreWebView2 core)
@@ -66,11 +63,18 @@ namespace Shiro.AvaloniaUI.Views
                 if (acc == null || !acc.HasHbaBinding || e?.Request == null)
                     return;
 
-                if (e.Request.Headers.Contains(RobloxHbaService.BoundAuthHeaderName))
-                    return;
-
                 string uri = e.Request.Uri ?? string.Empty;
                 if (!WebAuthPolicy.IsTrustedRobloxOrigin(uri))
+                    return;
+
+                if (!FastLoginCoordinator.ShouldSignWebViewResourceContext(e.ResourceContext))
+                {
+                    if (e.Request.Headers.Contains(RobloxHbaService.BoundAuthHeaderName))
+                        e.Request.Headers.RemoveHeader(RobloxHbaService.BoundAuthHeaderName);
+                    return;
+                }
+
+                if (e.Request.Headers.Contains(RobloxHbaService.BoundAuthHeaderName))
                     return;
 
                 string method = string.IsNullOrWhiteSpace(e.Request.Method) ? "GET" : e.Request.Method;
@@ -122,18 +126,16 @@ namespace Shiro.AvaloniaUI.Views
                         return;
 
                     if (doc.RootElement.TryGetProperty("type", out var typeEl) &&
+                        typeEl.ValueKind == JsonValueKind.String &&
                         typeEl.GetString() == "shiro_password_captured" &&
-                        doc.RootElement.TryGetProperty("password", out var passEl))
+                        doc.RootElement.TryGetProperty("password", out var passEl) &&
+                        passEl.ValueKind == JsonValueKind.String)
                     {
                         string? pass = passEl.GetString();
                         if (!string.IsNullOrEmpty(pass))
                         {
+                            // Store locally on the dialog until captured session passes username verification.
                             _password = pass;
-                            var acc = GetCurrentQueueAccount();
-                            if (acc != null)
-                            {
-                                acc.Password = pass;
-                            }
                         }
                     }
                 }
@@ -156,8 +158,6 @@ namespace Shiro.AvaloniaUI.Views
                 if (!string.IsNullOrEmpty(extracted))
                 {
                     _password = extracted;
-                    var currAcc = GetCurrentQueueAccount();
-                    if (currAcc != null) currAcc.Password = extracted;
                 }
             }
             return cookieValue;

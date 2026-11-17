@@ -47,51 +47,34 @@ namespace Shiro
             return new SuppressDeferredSaveScope();
         }
 
-        private sealed class SuppressDeferredSaveScope : IDisposable
-        {
-            private bool _disposed;
-            public void Dispose()
-            {
-                if (_disposed) return;
-                _disposed = true;
-                if (_suppressDeferredSaveDepth > 0) _suppressDeferredSaveDepth--;
-            }
-        }
-
         internal Dictionary<string, string> GetFieldsSnapshot()
         {
+            MigrateProtectedFieldsFromDictionary();
             lock (FieldsSyncRoot)
                 return Fields != null ? new Dictionary<string, string>(Fields) : new Dictionary<string, string>();
+        }
+
+        internal Dictionary<string, string> GetSerializedFieldsSnapshot()
+        {
+            var snapshot = GetFieldsSnapshot();
+            string priv = HbaPrivateKey;
+            if (!string.IsNullOrEmpty(priv))
+                snapshot["HbaPrivateKey"] = priv;
+            return snapshot;
         }
 
         [JsonIgnore]
         public string AccountStatusIssue
         {
-            get
-            {
-                lock (FieldsSyncRoot)
-                    return Fields != null && Fields.TryGetValue("AccountStatusIssue", out var v) ? v : string.Empty;
-            }
-            set
-            {
-                string current = AccountStatusIssue;
-                string normalized = value?.Trim() ?? string.Empty;
-                if (!string.Equals(current, normalized, StringComparison.Ordinal))
-                {
-                    lock (FieldsSyncRoot)
-                    {
-                        Fields ??= new Dictionary<string, string>();
-                        if (string.IsNullOrEmpty(normalized)) Fields.Remove("AccountStatusIssue");
-                        else Fields["AccountStatusIssue"] = normalized;
-                    }
-                    IsDirty = true;
-                }
-            }
+            get => GetProtectedField("AccountStatusIssue");
+            set => SetProtectedField("AccountStatusIssue", value, ignoreSuppress: true);
         }
 
         [JsonIgnore]
         public bool IsBannedOrLocked => !Valid && !string.IsNullOrEmpty(AccountStatusIssue);
         private byte[]? _protectedSecurityToken;
+        private byte[]? _protectedHbaPrivateKey;
+        private readonly SemaphoreSlim _sessionGate = new(1, 1);
         private bool _hasSecurityToken;
         private int _securityTokenPayloadLength;
         public string SecurityToken
@@ -165,7 +148,12 @@ namespace Shiro
         public long PendingRobux = 0;
         [JsonIgnore] public DateTime LastEconomyCheck;
 
-        public int CompareTo(Account? compareTo) => compareTo == null ? 1 : Group.CompareTo(compareTo.Group);
+        public int CompareTo(Account? compareTo)
+        {
+            if (compareTo == null) return 1;
+            int grpCmp = string.Compare(Group, compareTo.Group, StringComparison.OrdinalIgnoreCase);
+            return grpCmp != 0 ? grpCmp : string.Compare(Username, compareTo.Username, StringComparison.OrdinalIgnoreCase);
+        }
 
         // Retry up to 4 attempts on transient network glitches, stale CSRF (403), or short burst 429s
         // with backoff to guarantee high-concurrency multi-launch reliability.
@@ -408,12 +396,16 @@ namespace Shiro
 
         public string GetField(string Name)
         {
+            if (IsProtectedInternalField(Name))
+                return string.Empty;
             lock (FieldsSyncRoot)
                 return Fields != null && Fields.TryGetValue(Name, out string? value) ? value : string.Empty;
         }
 
         public void SetField(string Name, string Value)
         {
+            if (string.IsNullOrWhiteSpace(Name) || IsProtectedInternalField(Name))
+                return;
             lock (FieldsSyncRoot)
             {
                 Fields ??= new Dictionary<string, string>();
@@ -443,12 +435,17 @@ namespace Shiro
 
         internal void RecordVolatileLastUse(DateTime timestamp)
         {
-            LastUse = timestamp;
+            lock (CookieSyncRoot)
+            {
+                LastUse = timestamp;
+            }
             AccountRuntimeStateStore.RecordLastUse(this, timestamp);
         }
 
         public void RemoveField(string Name)
         {
+            if (IsProtectedInternalField(Name))
+                return;
             bool removed;
             lock (FieldsSyncRoot)
                 removed = Fields != null && Fields.Remove(Name);
