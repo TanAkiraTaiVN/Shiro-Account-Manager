@@ -151,8 +151,9 @@ namespace Shiro.Tests
                     {
                         StoragePaths.SaveRecoveredVaultKey(RandomNumberGenerator.GetBytes(32));
                         StoragePaths.ClearCachedVaultKey();
-                        byte[] fallbackKey = StoragePaths.GetOrCreateVaultKey();
-                        Assert.Equal(32, fallbackKey.Length);
+                        Exception? lockedEx = Record.Exception(() => StoragePaths.GetOrCreateVaultKey());
+                        Assert.NotNull(lockedEx);
+                        Assert.True(lockedEx is IOException or UnauthorizedAccessException);
                     }
                 }
             }

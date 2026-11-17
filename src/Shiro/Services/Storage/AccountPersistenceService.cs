@@ -99,54 +99,6 @@ namespace Shiro.Services
             }
         }
 
-        public async Task ResetEncryptionAsync(bool manualReset = false)
-        {
-            if (IsVaultLockedPendingMasterPassword)
-            {
-                AppServices.Dialogs.ShowWarning("Cannot change or reset database encryption while the vault is locked with a Master Password.");
-                return;
-            }
-
-            if (manualReset)
-            {
-                string? newPass = TestPasswordPromptAsync != null
-                    ? await TestPasswordPromptAsync(
-                        LocalizationService.Get("AccountManager.EnterNewPasswordPrompt"),
-                        LocalizationService.Get("AccountManager.ChangeDatabasePassword")).ConfigureAwait(false)
-                    : await AppServices.Dialogs.ShowInputPromptAsync(
-                        LocalizationService.Get("AccountManager.EnterNewPasswordPrompt"),
-                        LocalizationService.Get("AccountManager.ChangeDatabasePassword"));
-
-                if (newPass == "/UC" || newPass == null) return;
-
-                if (string.IsNullOrWhiteSpace(newPass))
-                {
-                    ClearPasswordHash();
-                    SaveAccounts(true, true);
-                    AppServices.Dialogs.ShowInfo(LocalizationService.Get("AccountManager.SwitchedToDefaultVault"));
-                }
-                else
-                {
-                    if (newPass.Length < 8)
-                    {
-                        AppServices.Dialogs.ShowWarning(LocalizationService.Get("AccountManager.MasterPasswordMinLength"));
-                        return;
-                    }
-                    byte[] passBytes = Encoding.UTF8.GetBytes(newPass);
-                    byte[] hash = SHA512.HashData(passBytes);
-                    try { SetProtectedPasswordHash(hash); }
-                    finally { CryptographicOperations.ZeroMemory(passBytes); CryptographicOperations.ZeroMemory(hash); }
-                    SaveAccounts(true, true);
-                    AppServices.Dialogs.ShowInfo(LocalizationService.Get("AccountManager.NewPasswordSet"));
-                }
-            }
-        }
-
-        public void ResetEncryption(bool manualReset = false)
-        {
-            _ = ResetEncryptionAsync(manualReset);
-        }
-
         public bool LoadAccountsFromStore(byte[]? Hash = null)
         {
             LoadAccounts(Hash, out bool unlocked);

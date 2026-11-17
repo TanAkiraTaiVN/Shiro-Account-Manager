@@ -159,21 +159,30 @@ namespace Shiro.Services
             }
 
             byte[] newKey = RandomNumberGenerator.GetBytes(32);
+            byte[]? keyPayload = null;
             try
             {
-                byte[] payload = IsPortable ? newKey : WrapVaultKey(newKey);
-                AtomicWriteBytes(keyFile, payload, durable: true);
-                if (!File.Exists(bakFile) && !hasExistingEncryptedVault)
+                keyPayload = IsPortable ? newKey : WrapVaultKey(newKey);
+                AtomicWriteBytes(keyFile, keyPayload, durable: true);
+                if (!File.Exists(bakFile))
                 {
-                    AtomicWriteBytes(bakFile, payload, durable: true);
+                    AtomicWriteBytes(bakFile, keyPayload, durable: true);
                 }
+                return newKey;
             }
             catch (Exception ex)
             {
+                CryptographicOperations.ZeroMemory(newKey);
                 _logger?.Error($"Failed to persist newly generated vault key to {keyFile}: {ex.Message}");
+                throw;
             }
-
-            return newKey;
+            finally
+            {
+                if (keyPayload != null && !ReferenceEquals(keyPayload, newKey))
+                {
+                    CryptographicOperations.ZeroMemory(keyPayload);
+                }
+            }
         }
 
         public static void ReloadVaultKeyCache()
@@ -204,9 +213,10 @@ namespace Shiro.Services
                 string keyFile = VaultKeyFile;
                 byte[] copy = key.AsSpan().ToArray();
 
+                byte[]? payload = null;
                 try
                 {
-                    byte[] payload = IsPortable ? copy : WrapVaultKey(copy);
+                    payload = IsPortable ? copy : WrapVaultKey(copy);
                     AtomicWriteBytes(keyFile, payload, durable: true);
                     AtomicWriteBytes(keyFile + ".bak", payload, durable: true);
                 }
@@ -214,8 +224,52 @@ namespace Shiro.Services
                 {
                     _logger?.Warn($"Failed to save recovered vault key: {ex.Message}");
                 }
+                finally
+                {
+                    if (payload != null && !ReferenceEquals(payload, copy))
+                    {
+                        CryptographicOperations.ZeroMemory(payload);
+                    }
+                }
 
+                if (_cachedVaultKey != null && !ReferenceEquals(_cachedVaultKey, copy))
+                {
+                    CryptographicOperations.ZeroMemory(_cachedVaultKey);
+                }
                 _cachedVaultKey = copy;
+            }
+        }
+
+        /// <summary>
+        /// Provisions or loads the DPAPI-wrapped vault key for an authenticated, unlocked session
+        /// transitioning from Master Password encryption back to default vault-key encryption.
+        /// Fails closed if the key file cannot be persisted to disk.
+        /// </summary>
+        internal static byte[] EnsureVaultKeyForUnlockedVaultCopy(string? customDataDir = null)
+        {
+            lock (_vaultKeyLock)
+            {
+                EnsureInitialized();
+                bool useActiveDirectory = string.IsNullOrWhiteSpace(customDataDir) ||
+                                          PathEquals(customDataDir, DataDirectory);
+
+                if (useActiveDirectory)
+                {
+                    string keyFile = VaultKeyFile;
+                    if (_cachedVaultKey != null && File.Exists(keyFile))
+                        return _cachedVaultKey.AsSpan().ToArray();
+
+                    byte[] resolvedKey = LoadOrCreateVaultKeyAtPath(keyFile, hasExistingEncryptedVault: false);
+                    if (_cachedVaultKey != null && !ReferenceEquals(_cachedVaultKey, resolvedKey))
+                    {
+                        CryptographicOperations.ZeroMemory(_cachedVaultKey);
+                    }
+                    _cachedVaultKey = resolvedKey;
+                    return resolvedKey.AsSpan().ToArray();
+                }
+
+                string customKeyFile = Path.Combine(customDataDir!, "vault.key");
+                return LoadOrCreateVaultKeyAtPath(customKeyFile, hasExistingEncryptedVault: false);
             }
         }
 
