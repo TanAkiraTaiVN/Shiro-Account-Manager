@@ -67,7 +67,7 @@ namespace Shiro.Tests
         {
             var ini = new IniFile();
             var general = ini["General"];
-            general.Set("EnableAutoReconnect", "true");
+            general.Set(AppSettingsKeys.General.AutoReconnect, "true");
             using var settingsScope = AppServices.Override<ISettingsService>(general);
 
             using var svc = new AutoReconnectService(TimeSpan.FromMilliseconds(20))
@@ -104,7 +104,7 @@ namespace Shiro.Tests
         {
             var ini = new IniFile();
             var general = ini["General"];
-            general.Set("EnableAutoReconnect", "true");
+            general.Set(AppSettingsKeys.General.AutoReconnect, "true");
             using var settingsScope = AppServices.Override<ISettingsService>(general);
 
             using var svc = new AutoReconnectService(TimeSpan.FromMilliseconds(20))

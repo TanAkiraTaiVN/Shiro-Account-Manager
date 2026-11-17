@@ -1,9 +1,6 @@
 #nullable enable
 using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -34,13 +31,25 @@ namespace Shiro.Services
             return account.UserID > 0 ? $"uid:{account.UserID}" : string.Empty;
         }
 
+        private const string LegacyAutoReconnectKey = "EnableAutoReconnect";
+
+        private static bool ReadAutoReconnectSetting()
+        {
+            var settings = AppServices.GeneralSettings;
+            if (settings.Exists(AppSettingsKeys.General.AutoReconnect))
+                return settings.Get<bool>(AppSettingsKeys.General.AutoReconnect, false);
+
+            return settings.Exists(LegacyAutoReconnectKey)
+                && settings.Get<bool>(LegacyAutoReconnectKey, false);
+        }
+
         public bool IsEnabled
         {
-            get => _isEnabled && AppServices.GeneralSettings.Get<bool>("EnableAutoReconnect", false);
+            get => _isEnabled && ReadAutoReconnectSetting();
             set
             {
                 _isEnabled = value;
-                AppServices.GeneralSettings.Set("EnableAutoReconnect", value ? "true" : "false");
+                AppServices.GeneralSettings.Set(AppSettingsKeys.General.AutoReconnect, value ? "true" : "false");
                 if (!value)
                 {
                     foreach (var s in _sessions.Values) s?.CancelPendingReconnect();
@@ -206,151 +215,6 @@ namespace Shiro.Services
             }
         }
 
-        private async Task ObserveProcessExitImmediateAsync(ReconnectSession session)
-        {
-            if (session == null || session.ProcessId <= 0)
-                return;
-
-            try
-            {
-                using var proc = Process.GetProcessById(session.ProcessId);
-                await proc.WaitForExitAsync().ConfigureAwait(false);
-                session.ObservedProcessExited = true;
-                try { session.ObservedExitCode = proc.ExitCode; }
-                catch (Exception ex) { AppServices.Logger?.Debug($"Get ExitCode for pid {session.ProcessId} failed: {ex.Message}"); }
-
-                if (!IsEnabled || _disposed || !session.IsActive || session.IsSuppressed)
-                    return;
-
-                DateTime now = DateTime.UtcNow;
-                var decision = Evaluate(
-                    session,
-                    processExited: true,
-                    exitCode: session.ObservedExitCode,
-                    nowUtc: now,
-                    maxRetries: MaxRetries,
-                    gracePeriod: LaunchGracePeriod,
-                    disconnectTimeout: DisconnectTimeout);
-
-                if (decision == ReconnectDecision.CloseCleanly)
-                {
-                    session.IsSuppressed = true;
-                    session.IsActive = false;
-                    _sessions.TryRemove(GetSessionKey(session.Account), out _);
-                    AppServices.Logger?.Info($"[AutoReconnect] '{session.Account.Username}' exited gracefully by user (ExitCode 0). Session closed.");
-                }
-                else if (decision == ReconnectDecision.Reconnect || decision == ReconnectDecision.GiveUp)
-                {
-                    HandleProcessExit(session);
-                }
-            }
-            catch (Exception ex)
-            {
-                AppServices.Logger.Debug("[AutoReconnectService] Process observation failed", ex);
-                // Fallback timer will handle any edge case
-            }
-        }
-
-        internal void CheckSessionsCallback(object? state)
-        {
-            if (!IsEnabled || _disposed || _sessions.IsEmpty)
-                return;
-
-            DateTime now = DateTime.UtcNow;
-            HashSet<int>? runningPids = null;
-
-            foreach (var kvp in _sessions)
-            {
-                var session = kvp.Value;
-                if (!session.IsActive || session.IsSuppressed)
-                    continue;
-
-                // Reset retry counter after continuous stable play
-                if (session.RetryCount > 0 && !session.LastDisconnectUtc.HasValue && (now - session.LaunchTimeUtc) >= StableResetWindow)
-                {
-                    session.RetryCount = 0;
-                }
-
-                if (session.ProcessId <= 0)
-                {
-                    if (session.NeedsRetry)
-                        HandleProcessExit(session);
-                    continue;
-                }
-
-                bool processExited = session.ObservedProcessExited;
-                int? exitCode = session.ObservedExitCode;
-                if (!processExited)
-                {
-                    runningPids ??= new HashSet<int>(RobloxProcessService.GetRunningRobloxPids());
-                    if (!runningPids.Contains(session.ProcessId))
-                    {
-                        try
-                        {
-                            using var proc = Process.GetProcessById(session.ProcessId);
-                            if (proc.HasExited)
-                            {
-                                processExited = true;
-                                try { exitCode = proc.ExitCode; }
-                                catch (Exception ex) { AppServices.Logger?.Debug($"Get ExitCode failed: {ex.Message}"); }
-                            }
-                        }
-                        catch (ArgumentException)
-                        {
-                            // Process ID no longer exists
-                            processExited = true;
-                        }
-                        catch (Exception ex)
-                        {
-                            AppServices.Logger?.Debug($"[AutoReconnect] Error checking PID {session.ProcessId}: {ex.Message}");
-                        }
-                    }
-                }
-
-                ReconnectDecision decision = Evaluate(
-                    session,
-                    processExited,
-                    exitCode,
-                    now,
-                    MaxRetries,
-                    LaunchGracePeriod,
-                    DisconnectTimeout);
-
-                switch (decision)
-                {
-                    case ReconnectDecision.CloseCleanly:
-                        session.IsSuppressed = true;
-                        session.IsActive = false;
-                        _sessions.TryRemove(GetSessionKey(session.Account), out _);
-                        AppServices.Logger?.Info($"[AutoReconnect] '{session.Account.Username}' exited gracefully by user (ExitCode 0). Session closed.");
-                        break;
-
-                    case ReconnectDecision.KillAndReconnect:
-                        try
-                        {
-                            using var staleProc = Process.GetProcessById(session.ProcessId);
-                            if (!staleProc.HasExited)
-                            {
-                                AppServices.Logger?.Warn($"[AutoReconnect] Terminating disconnected Roblox client PID {session.ProcessId} for '{session.Account.Username}' before reconnecting...");
-                                staleProc.Kill();
-                                staleProc.WaitForExit(1000);
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            AppServices.Logger?.Debug($"Kill stale disconnected client PID {session.ProcessId} failed: {ex.Message}");
-                        }
-                        HandleProcessExit(session);
-                        break;
-
-                    case ReconnectDecision.Reconnect:
-                    case ReconnectDecision.GiveUp:
-                        HandleProcessExit(session);
-                        break;
-                }
-            }
-        }
-
         internal void HandleProcessExit(ReconnectSession session)
         {
             if (_disposed || !IsEnabled)
@@ -365,6 +229,7 @@ namespace Shiro.Services
                 session.NeedsRetry = false;
                 session.ProcessId = 0;
                 session.ObservedProcessExited = false;
+                session.ObservedExitCode = null;
             }
 
             string sessionKey = GetSessionKey(session.Account);
@@ -420,11 +285,14 @@ namespace Shiro.Services
                         if (result == "Success")
                         {
                             Interlocked.Increment(ref _totalReconnections);
-                            session.LaunchTimeUtc = DateTime.UtcNow;
-                            session.ObservedProcessExited = false;
-                            session.ObservedExitCode = null;
-                            session.NeedsRetry = false;
-                            session.IsActive = true;
+                            lock (_lock)
+                            {
+                                session.LaunchTimeUtc = DateTime.UtcNow;
+                                session.ObservedProcessExited = false;
+                                session.ObservedExitCode = null;
+                                session.NeedsRetry = false;
+                                session.IsActive = true;
+                            }
                             AppServices.Logger?.Info($"[AutoReconnect] Successfully reconnected '{session.Account.Username}'.");
                         }
                         else

@@ -19,13 +19,13 @@ namespace Shiro.Tests
         public AccountHbaAndAutoReconnectExtendedTests()
         {
             _prevUseProxies = AppSettings.General.Get<bool>("UseProxies");
-            _prevEnableAutoReconnect = AppSettings.General.Get<bool>("EnableAutoReconnect");
+            _prevEnableAutoReconnect = AppSettings.General.Get<bool>(AppSettingsKeys.General.AutoReconnect);
         }
 
         public void Dispose()
         {
             AppSettings.General.Set("UseProxies", _prevUseProxies ? "true" : "false");
-            AppSettings.General.Set("EnableAutoReconnect", _prevEnableAutoReconnect ? "true" : "false");
+            AppSettings.General.Set(AppSettingsKeys.General.AutoReconnect, _prevEnableAutoReconnect ? "true" : "false");
             var service = AutoReconnectService.Instance;
             service.MaxRetries = 5;
             service.InitialBackoff = TimeSpan.FromSeconds(10);
@@ -163,10 +163,11 @@ namespace Shiro.Tests
         {
             var service = AutoReconnectService.Instance;
             service.IsEnabled = true;
-            Assert.Equal(service.IsEnabled, AppSettings.General.Get<bool>("EnableAutoReconnect"));
+            Assert.Equal(service.IsEnabled, AppSettings.General.Get<bool>(AppSettingsKeys.General.AutoReconnect));
 
             service.IsEnabled = false;
             Assert.False(service.IsEnabled);
+            Assert.False(AppSettings.General.Get<bool>(AppSettingsKeys.General.AutoReconnect));
 
             service.MaxRetries = 4;
             Assert.Equal(4, service.MaxRetries);

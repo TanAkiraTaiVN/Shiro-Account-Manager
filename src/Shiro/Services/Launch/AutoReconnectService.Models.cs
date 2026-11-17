@@ -234,7 +234,7 @@ namespace Shiro.Services
             }
         }
 
-        private void OnJobProcessExited(int processId, bool abnormalExit)
+        internal void OnJobProcessExited(int processId, bool abnormalExit)
         {
             if (processId <= 0 || _disposed) return;
 
@@ -244,33 +244,30 @@ namespace Shiro.Services
                 var session = kvp.Value;
                 if (session != null && session.ProcessId == processId && session.IsActive && !session.IsSuppressed)
                 {
-                    session.ObservedProcessExited = true;
-                    if (!session.ObservedExitCode.HasValue)
-                    {
-                        if (abnormalExit)
-                        {
-                            session.ObservedExitCode = -1;
-                        }
-                        else
-                        {
-                            try
-                            {
-                                using var p = System.Diagnostics.Process.GetProcessById(processId);
-                                session.ObservedExitCode = p.HasExited ? p.ExitCode : 0;
-                            }
-                            catch (Exception ex)
-                            {
-                                AppServices.Logger?.Debug($"[AutoReconnect] ExitCode fallback to 0 on clean job exit: {ex.Message}");
-                                session.ObservedExitCode = 0;
-                            }
-                        }
-                    }
+                    RecordObservedProcessExit(session, () => ResolveJobExitCode(processId, abnormalExit));
                     matchedAny = true;
                 }
             }
 
             if (matchedAny)
                 _ = System.Threading.Tasks.Task.Run(() => CheckSessionsCallback(null));
+        }
+
+        private static int? ResolveJobExitCode(int processId, bool abnormalExit)
+        {
+            if (abnormalExit)
+                return -1;
+
+            try
+            {
+                using var p = System.Diagnostics.Process.GetProcessById(processId);
+                return p.HasExited ? p.ExitCode : 0;
+            }
+            catch (Exception ex)
+            {
+                AppServices.Logger?.Debug($"[AutoReconnect] ExitCode fallback to 0 on clean job exit: {ex.Message}");
+                return 0;
+            }
         }
     }
 }

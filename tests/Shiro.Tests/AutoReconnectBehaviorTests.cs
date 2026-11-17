@@ -316,14 +316,28 @@ namespace Shiro.Tests
                     _service.MaxRetriesExceeded -= onMax;
                 }
 
-                var accStable = new Account { Username = "StableUser", UserID = 202 };
-                _service.RegisterSession(accStable, 189707, "j2", false, false, 999998, nowUtcOverride: DateTime.UtcNow.AddMinutes(-20));
-                Assert.True(_service.TryGetSession("StableUser", out var sStable));
-                sStable!.RetryCount = 2;
-                sStable.ObservedProcessExited = true;
-                sStable.ObservedExitCode = 0;
-                _service.CheckSessionsCallback(null);
-                Assert.Equal(0, sStable.RetryCount);
+                var prevPidsOverride = RobloxProcessService.TestGetRunningRobloxPidsOverride;
+                try
+                {
+                    RobloxProcessService.TestGetRunningRobloxPidsOverride = () => new[] { 999998 };
+                    var accStable = new Account { Username = "StableUser", UserID = 202 };
+                    _service.RegisterSession(accStable, 189707, "j2", false, false, 999998, nowUtcOverride: DateTime.UtcNow.AddMinutes(-20));
+                    Assert.True(_service.TryGetSession("StableUser", out var sStable));
+                    sStable!.RetryCount = 2;
+                    _service.CheckSessionsCallback(null);
+                    Assert.Equal(0, sStable.RetryCount);
+
+                    sStable.RetryCount = 2;
+                    sStable.ObservedProcessExited = true;
+                    sStable.ObservedExitCode = 0;
+                    _service.CheckSessionsCallback(null);
+                    Assert.Equal(2, sStable.RetryCount);
+                    Assert.False(_service.TryGetSession("StableUser", out _));
+                }
+                finally
+                {
+                    RobloxProcessService.TestGetRunningRobloxPidsOverride = prevPidsOverride;
+                }
             }
             finally
             {
