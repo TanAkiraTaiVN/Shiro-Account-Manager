@@ -2,9 +2,6 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
-using System.Linq;
-using System.Runtime.InteropServices;
 using System.Security.Principal;
 using System.Threading;
 using System.Threading.Tasks;
@@ -30,8 +27,7 @@ namespace Shiro.Services
         private static int _sweeping;
         private static HashSet<int> _lastObservedPids = new();
         private static Thread? _holderThread;
-        private static ManualResetEventSlim? _holderStop;
-        private static ManualResetEventSlim? _holderReady;
+        private static HolderHandle? _activeHolder;
         private static long _holderGeneration;
         private static volatile bool _handlesHeld;
         private static volatile string _status = "Multi-Instance Ready";
@@ -81,231 +77,7 @@ namespace Shiro.Services
         }
 
         public static void EnsureMutex(bool enabled)
-        {
-            ManualResetEventSlim? readyToWait = null;
-            Thread? oldThread = null;
-            ManualResetEventSlim? oldStop = null;
-            ManualResetEventSlim? oldReady = null;
-            lock (_gate)
-            {
-                if (!enabled || (_holderThread != null && !_holderThread.IsAlive))
-                {
-                    Interlocked.Increment(ref _holderGeneration);
-                    oldThread = _holderThread;
-                    oldStop = _holderStop;
-                    oldReady = _holderReady;
-                    _holderStop?.Set();
-                    _holderThread = null;
-                    _holderStop = null;
-                    _holderReady = null;
-                    if (!enabled) _handlesHeld = false;
-                }
-            }
-
-            if (oldThread != null)
-            {
-                if (oldThread.IsAlive && oldThread != Thread.CurrentThread)
-                    oldThread.Join(TimeSpan.FromSeconds(2));
-                oldStop?.Dispose();
-                oldReady?.Dispose();
-            }
-
-            if (enabled)
-            {
-                lock (_gate)
-                {
-                    if (_holderThread != null && _holderThread.IsAlive)
-                    {
-                        readyToWait = _holderReady;
-                    }
-                    else
-                    {
-                        var stop = new ManualResetEventSlim(false);
-                        var ready = new ManualResetEventSlim(false);
-                        long gen = Interlocked.Increment(ref _holderGeneration);
-                        _holderStop = stop;
-                        _holderReady = ready;
-                        readyToWait = ready;
-                        _holderThread = new Thread(() => HoldHandles(stop, ready, gen)) { IsBackground = true, Name = "roblox-singleton-guard" };
-                        _holderThread.Start();
-                    }
-                }
-            }
-
-            if (enabled && readyToWait != null)
-            {
-                SafeExecuteHelper.Try(() => readyToWait.Wait(500), "RobloxSingletonService.ReadyWait");
-            }
-        }
-
-        private static void HoldHandles(ManualResetEventSlim stop, ManualResetEventSlim ready, long generation)
-        {
-            bool IsCurrentGen() => Volatile.Read(ref _holderGeneration) == generation;
-            IntPtr pSd = IntPtr.Zero;
-            bool allocatedWithLocalAlloc = false;
-            IntPtr hMutex = IntPtr.Zero;
-            IntPtr hEvent = IntPtr.Zero;
-            bool mutexOwned = false;
-
-            try
-            {
-                // Create a Security Descriptor with an explicit DACL restricting access to SYSTEM (SY),
-                // Built-in Administrators (BA), and Interactive Users (IU). This prevents untrusted or
-                // anonymous contexts from tampering with the singleton handles while still allowing
-                // non-elevated interactive Roblox client processes full access even when Shiro is elevated.
-                const string RestrictedInteractiveSddl = "D:P(A;;GA;;;SY)(A;;GA;;;BA)(A;;GA;;;IU)";
-                if (ConvertStringSecurityDescriptorToSecurityDescriptorW(
-                        RestrictedInteractiveSddl,
-                        SECURITY_DESCRIPTOR_REVISION,
-                        out pSd,
-                        IntPtr.Zero))
-                {
-                    allocatedWithLocalAlloc = true;
-                }
-                else
-                {
-                    pSd = Marshal.AllocHGlobal(64);
-                    if (!InitializeSecurityDescriptor(pSd, SECURITY_DESCRIPTOR_REVISION) ||
-                        !SetSecurityDescriptorDacl(pSd, true, IntPtr.Zero, false))
-                    {
-                        Marshal.FreeHGlobal(pSd);
-                        pSd = IntPtr.Zero;
-                    }
-                }
-
-                var sa = new SECURITY_ATTRIBUTES
-                {
-                    nLength = Marshal.SizeOf<SECURITY_ATTRIBUTES>(),
-                    lpSecurityDescriptor = pSd,
-                    bInheritHandle = 0
-                };
-
-                // Create and claim initial ownership of ROBLOX_singletonMutex
-                unsafe
-                {
-                    IntPtr pSa = pSd != IntPtr.Zero ? (IntPtr)(&sa) : IntPtr.Zero;
-                    hMutex = CreateMutexW(pSa, true, MutexName);
-                }
-
-                int mutexErr = Marshal.GetLastWin32Error();
-
-                if (hMutex != IntPtr.Zero)
-                {
-                    if (mutexErr == 0)
-                    {
-                        mutexOwned = true;
-                    }
-                    else
-                    {
-                        try
-                        {
-                            uint wait = WaitForSingleObject(hMutex, 0);
-                            if (wait == WAIT_OBJECT_0 || wait == WAIT_ABANDONED)
-                            {
-                                mutexOwned = true;
-                                AppServices.Logger?.Info("[MultiRoblox] Claimed active singleton mutex ownership.");
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            AppServices.Logger?.Debug($"WaitForSingleObject on hMutex threw: {ex.Message}");
-                        }
-                    }
-                }
-
-                // Create persistent ROBLOX_singletonEvent (manual-reset, initially non-signaled)
-                unsafe
-                {
-                    IntPtr pSa = pSd != IntPtr.Zero ? (IntPtr)(&sa) : IntPtr.Zero;
-                    hEvent = CreateEventW(pSa, true, false, EventName);
-                }
-
-                int eventErr = Marshal.GetLastWin32Error();
-
-                if (hMutex != IntPtr.Zero && hEvent != IntPtr.Zero && mutexOwned)
-                {
-                    if (IsCurrentGen())
-                    {
-                        _handlesHeld = true;
-                        _accessDenied = false;
-                        SetStatus("Mutex Active • Multi-Instance Running");
-                    }
-                    AppServices.Logger?.Info($"[MultiRoblox] Singleton Guard active (Mutex: 0x{hMutex:X}, Event: 0x{hEvent:X}).");
-                }
-                else if (hMutex != IntPtr.Zero && !mutexOwned)
-                {
-                    if (IsCurrentGen()) { _handlesHeld = false; _accessDenied = false; SetStatus("Waiting for existing Roblox to release singleton mutex..."); }
-                    AppServices.Logger?.Warn("[MultiRoblox] Singleton mutex is currently held by an existing Roblox process.");
-                }
-                else
-                {
-                    if (IsCurrentGen())
-                    {
-                        _handlesHeld = false;
-                        _accessDenied = (mutexErr == ERROR_ACCESS_DENIED || eventErr == ERROR_ACCESS_DENIED);
-                        SetStatus($"Singleton Guard Warning: MutexErr={mutexErr}, EventErr={eventErr}");
-                    }
-                    AppServices.Logger?.Warn($"[MultiRoblox] Guard handle warning: MutexErr={mutexErr}, EventErr={eventErr}");
-                }
-
-                ready?.Set();
-
-                // If an existing Roblox process held the mutex when we started, wait until it closes and claim ownership immediately
-                while (!stop.IsSet && hMutex != IntPtr.Zero && !mutexOwned)
-                {
-                    uint wait = WaitForSingleObject(hMutex, 250);
-                    if (wait == WAIT_OBJECT_0 || wait == WAIT_ABANDONED)
-                    {
-                        mutexOwned = true;
-                        if (IsCurrentGen())
-                        {
-                            _handlesHeld = hEvent != IntPtr.Zero;
-                            _accessDenied = false;
-                            SetStatus("Mutex Active • Multi-Instance Running");
-                        }
-                        AppServices.Logger?.Info("[MultiRoblox] Claimed singleton mutex after existing Roblox process exited.");
-                        break;
-                    }
-                }
-
-                stop.Wait();
-            }
-            catch (Exception ex)
-            {
-                if (IsCurrentGen())
-                {
-                    _handlesHeld = false;
-                    SetStatus($"Singleton Guard Error: {ex.Message}");
-                }
-                ready?.Set();
-                AppServices.Logger?.Error($"[MultiRoblox] Exception in singleton guard thread: {ex.Message}");
-            }
-            finally
-            {
-                if (IsCurrentGen())
-                    _handlesHeld = false;
-                ready?.Set();
-                if (hMutex != IntPtr.Zero)
-                {
-                    if (mutexOwned)
-                    {
-                        SafeExecuteHelper.Try(() => ReleaseMutex(hMutex));
-                    }
-                    SafeExecuteHelper.Try(() => CloseHandle(hMutex));
-                }
-                if (hEvent != IntPtr.Zero)
-                {
-                    SafeExecuteHelper.Try(() => CloseHandle(hEvent));
-                }
-                if (pSd != IntPtr.Zero)
-                {
-                    if (allocatedWithLocalAlloc)
-                        LocalFree(pSd);
-                    else
-                        Marshal.FreeHGlobal(pSd);
-                }
-            }
-        }
+            => EnsureMutexCore(enabled, TimeSpan.FromSeconds(2), startHolderOverride: null);
 
         private static bool StartWatcher(int seconds)
         {
@@ -457,8 +229,20 @@ namespace Shiro.Services
 
         private static void SetStatus(string text)
         {
-            if (_status == text) return;
-            _status = text;
+            bool changed;
+            lock (_gate)
+            {
+                if (_status == text) return;
+                _status = text;
+                changed = true;
+            }
+
+            if (changed)
+                RaiseStatusChanged();
+        }
+
+        private static void RaiseStatusChanged()
+        {
             try { StatusChanged?.Invoke(); }
             catch (Exception ex) { AppServices.Logger?.Debug($"[RobloxSingletonService.StatusChanged] {ex.Message}"); }
         }

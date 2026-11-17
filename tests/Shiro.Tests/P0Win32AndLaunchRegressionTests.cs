@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
@@ -255,6 +256,237 @@ namespace Shiro.Tests
             bool drained = SpinWait.SpinUntil(() => !RobloxAudioService.HasCachedAudioSessionForTest(testPid), TimeSpan.FromSeconds(2));
             Assert.True(drained);
             RobloxAudioService.ClearAudioSessionCache();
+        }
+
+        [Fact]
+        public void RobloxSingletonService_RestrictedInteractiveSddl_IncludesLowIntegritySacl_AndCompilesOnWindows()
+        {
+            Assert.Contains("D:P(A;;GA;;;SY)(A;;GA;;;BA)(A;;GA;;;IU)", RobloxSingletonService.RestrictedInteractiveSddl, StringComparison.Ordinal);
+            Assert.Contains("S:(ML;;NW;;;LW)", RobloxSingletonService.RestrictedInteractiveSddl, StringComparison.Ordinal);
+            Assert.Equal("D:P(A;;GA;;;SY)(A;;GA;;;BA)(A;;GA;;;IU)S:(ML;;NW;;;LW)", RobloxSingletonService.RestrictedInteractiveSddl);
+
+            if (!OperatingSystem.IsWindows())
+                return;
+
+            IntPtr pSd = IntPtr.Zero;
+            bool allocatedWithLocalAlloc = false;
+            try
+            {
+                pSd = RobloxSingletonService.BuildSecurityDescriptor(
+                    RobloxSingletonService.RestrictedInteractiveSddl,
+                    out allocatedWithLocalAlloc);
+                Assert.NotEqual(IntPtr.Zero, pSd);
+                Assert.True(allocatedWithLocalAlloc);
+
+                RobloxSingletonService.EnsureMutex(true);
+                Assert.False(RobloxSingletonService.AccessDenied);
+                Assert.DoesNotContain("Warning", RobloxSingletonService.StatusText, StringComparison.Ordinal);
+                Assert.DoesNotContain("Error", RobloxSingletonService.StatusText, StringComparison.Ordinal);
+                if (Process.GetProcessesByName("RobloxPlayerBeta").Length == 0)
+                {
+                    Assert.True(RobloxSingletonService.MutexHeld);
+                }
+            }
+            finally
+            {
+                RobloxSingletonService.FreeSecurityDescriptor(pSd, allocatedWithLocalAlloc);
+                RobloxSingletonService.Stop();
+            }
+
+            Assert.False(RobloxSingletonService.MutexHeld);
+        }
+
+        [Fact]
+        public void RobloxSingletonService_EnsureMutex_JoinTimeoutRace_DoesNotDisposeHandlesWhileHolderActive()
+        {
+            using var holderEntered = new ManualResetEventSlim(false);
+            using var allowHolderExit = new ManualResetEventSlim(false);
+            RobloxSingletonService.HolderHandle? capturedHolder = null;
+            Exception? holderException = null;
+            bool observedStopSet = false;
+
+            try
+            {
+                RobloxSingletonService.EnsureMutexCore(
+                    enabled: true,
+                    joinTimeout: TimeSpan.FromMilliseconds(20),
+                    startHolderOverride: (holder, _) =>
+                    {
+                        try
+                        {
+                            capturedHolder = holder;
+                            holderEntered.Set();
+                            allowHolderExit.Wait(TimeSpan.FromSeconds(5));
+                            observedStopSet = holder.Stop.IsSet;
+                            holder.Ready.Set();
+                            holder.Stop.Wait(10);
+                        }
+                        catch (Exception ex)
+                        {
+                            holderException = ex;
+                        }
+                        finally
+                        {
+                            holder.Release();
+                        }
+                    });
+
+                Assert.True(holderEntered.Wait(TimeSpan.FromSeconds(5)));
+                Assert.NotNull(capturedHolder);
+
+                // Teardown times out waiting on the holder thread (20ms), yet must not dispose active handles.
+                RobloxSingletonService.EnsureMutexCore(
+                    enabled: false,
+                    joinTimeout: TimeSpan.FromMilliseconds(20),
+                    startHolderOverride: null);
+
+                Assert.False(capturedHolder!.IsDisposed);
+                Assert.False(RobloxSingletonService.MutexHeld);
+
+                allowHolderExit.Set();
+                bool disposedAfterExit = SpinWait.SpinUntil(() => capturedHolder.IsDisposed, TimeSpan.FromSeconds(2));
+                Assert.True(disposedAfterExit);
+                Assert.True(observedStopSet);
+                Assert.Null(holderException);
+            }
+            finally
+            {
+                allowHolderExit.Set();
+                RobloxSingletonService.Stop();
+            }
+        }
+
+        [Fact]
+        public async Task RobloxSingletonService_EnsureMutex_ConcurrentRapidAlternation_HasZeroObjectDisposedExceptions()
+        {
+            var exceptions = new ConcurrentQueue<Exception>();
+            try
+            {
+                Task workerA = Task.Run(() =>
+                {
+                    for (int i = 0; i < 20; i++)
+                    {
+                        try
+                        {
+                            RobloxSingletonService.EnsureMutex(true);
+                            RobloxSingletonService.EnsureMutex(false);
+                        }
+                        catch (Exception ex)
+                        {
+                            exceptions.Enqueue(ex);
+                        }
+                    }
+                });
+
+                Task workerB = Task.Run(() =>
+                {
+                    for (int i = 0; i < 20; i++)
+                    {
+                        try
+                        {
+                            RobloxSingletonService.EnsureMutex(false);
+                            RobloxSingletonService.EnsureMutex(true);
+                        }
+                        catch (Exception ex)
+                        {
+                            exceptions.Enqueue(ex);
+                        }
+                    }
+                });
+
+                await Task.WhenAll(workerA, workerB);
+                Assert.Empty(exceptions);
+            }
+            finally
+            {
+                RobloxSingletonService.Stop();
+            }
+
+            Assert.False(RobloxSingletonService.MutexHeld);
+        }
+
+        [Fact]
+        public async Task RobloxSingletonService_HoldHandles_ZeroEvent_ReleasesMutexAndExitsWithoutWaiting()
+        {
+            Assert.True(RobloxSingletonService.ShouldAbortHoldOnZeroEvent(IntPtr.Zero));
+            Assert.False(RobloxSingletonService.ShouldAbortHoldOnZeroEvent(new IntPtr(1)));
+
+            try
+            {
+                // Case 1: mutex created and owned, but CreateEventW fails (IntPtr.Zero) with ERROR_ACCESS_DENIED (5).
+                var releaseCalls = new List<IntPtr>();
+                var closeCalls = new List<IntPtr>();
+                var ownedHolder = new RobloxSingletonService.HolderHandle(initialRefs: 2);
+                try
+                {
+                    long gen1 = RobloxSingletonService.ReserveGenerationForTest();
+                    var ownedOps = new RobloxSingletonService.HolderNativeOps(
+                        CreateMutex: (_, _, _) => (new IntPtr(0x1234), 0),
+                        CreateEvent: (_, _, _, _) => (IntPtr.Zero, 5),
+                        WaitForSingleObject: (_, _) => 0u,
+                        ReleaseMutex: h => releaseCalls.Add(h),
+                        CloseHandle: h => closeCalls.Add(h));
+
+                    await Task.Run(() => RobloxSingletonService.HoldHandlesCore(
+                        ownedHolder,
+                        gen1,
+                        ownedOps,
+                        buildSecurityDescriptor: false)).WaitAsync(TimeSpan.FromSeconds(2));
+
+                    Assert.True(ownedHolder.Ready.IsSet);
+                    Assert.False(RobloxSingletonService.MutexHeld);
+                    Assert.True(RobloxSingletonService.AccessDenied);
+                    Assert.Equal(new[] { new IntPtr(0x1234) }, releaseCalls);
+                    Assert.Equal(new[] { new IntPtr(0x1234) }, closeCalls);
+                }
+                finally
+                {
+                    ownedHolder.Release();
+                }
+                Assert.True(ownedHolder.IsDisposed);
+
+                // Case 2: mutex already exists (not owned yet) and CreateEventW fails (IntPtr.Zero) with err 87.
+                releaseCalls.Clear();
+                closeCalls.Clear();
+                int waitCalls = 0;
+                var unownedHolder = new RobloxSingletonService.HolderHandle(initialRefs: 2);
+                try
+                {
+                    long gen2 = RobloxSingletonService.ReserveGenerationForTest();
+                    var unownedOps = new RobloxSingletonService.HolderNativeOps(
+                        CreateMutex: (_, _, _) => (new IntPtr(0x5678), 183),
+                        CreateEvent: (_, _, _, _) => (IntPtr.Zero, 87),
+                        WaitForSingleObject: (_, _) =>
+                        {
+                            waitCalls++;
+                            return 0x00000102u;
+                        },
+                        ReleaseMutex: h => releaseCalls.Add(h),
+                        CloseHandle: h => closeCalls.Add(h));
+
+                    await Task.Run(() => RobloxSingletonService.HoldHandlesCore(
+                        unownedHolder,
+                        gen2,
+                        unownedOps,
+                        buildSecurityDescriptor: false)).WaitAsync(TimeSpan.FromSeconds(2));
+
+                    Assert.True(unownedHolder.Ready.IsSet);
+                    Assert.False(RobloxSingletonService.MutexHeld);
+                    Assert.False(RobloxSingletonService.AccessDenied);
+                    Assert.Equal(1, waitCalls);
+                    Assert.Empty(releaseCalls);
+                    Assert.Equal(new[] { new IntPtr(0x5678) }, closeCalls);
+                }
+                finally
+                {
+                    unownedHolder.Release();
+                }
+                Assert.True(unownedHolder.IsDisposed);
+            }
+            finally
+            {
+                RobloxSingletonService.Stop();
+            }
         }
     }
 }
