@@ -7,8 +7,9 @@ namespace Shiro.Services
 {
     public static partial class MemoryOptimizer
     {
+        private const uint QUOTA_LIMITS_HARDWS_MIN_ENABLE = 0x00000001;
         private const uint QUOTA_LIMITS_HARDWS_MIN_DISABLE = 0x00000002;
-        private const int ProcessMemoryPriority = 39;
+        internal const int ProcessMemoryPriorityInfoClass = 0;
         private const uint MEMORY_PRIORITY_LOW = 2;
         private const uint MEMORY_PRIORITY_NORMAL = 5;
 
@@ -17,6 +18,14 @@ namespace Shiro.Services
         {
             public uint MemoryPriority;
         }
+
+        [LibraryImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static partial bool GetProcessWorkingSetSizeEx(
+            IntPtr hProcess,
+            out nuint lpMinimumWorkingSetSize,
+            out nuint lpMaximumWorkingSetSize,
+            out uint Flags);
 
         [LibraryImport("kernel32.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
@@ -72,26 +81,58 @@ namespace Shiro.Services
                 };
                 return SetProcessInformation(
                     hProcess,
-                    ProcessMemoryPriority,
+                    ProcessMemoryPriorityInfoClass,
                     ref info,
                     (uint)Marshal.SizeOf<MEMORY_PRIORITY_INFORMATION>());
             }
             catch (Exception ex)
             {
-                AppServices.Logger.Debug($"[MemoryOptimizer] SetProcessMemoryPriorityNative failed: {ex.Message}");
+                AppServices.Logger?.Debug($"[MemoryOptimizer] SetProcessMemoryPriorityNative failed: {ex.Message}");
                 return false;
             }
+        }
+
+        internal static bool ShouldTrimWorkingSetOnSoftRelax(bool aggressiveEnabled)
+            => aggressiveEnabled;
+
+        internal static bool SoftRelaxWorkingSetCore(
+            IntPtr hProcess,
+            bool aggressiveTrimEnabled,
+            Func<IntPtr, (bool ok, nint min, nint max, uint flags)> getWorkingSetLimits,
+            Func<IntPtr, nint, nint, uint, bool> setWorkingSetLimits)
+        {
+            if (ShouldTrimWorkingSetOnSoftRelax(aggressiveTrimEnabled))
+                return setWorkingSetLimits(hProcess, -1, -1, QUOTA_LIMITS_HARDWS_MIN_DISABLE);
+
+            var (ok, minWs, maxWs, currentFlags) = getWorkingSetLimits(hProcess);
+            if (!ok || minWs <= 0 || maxWs < minWs)
+                return false;
+
+            uint relaxedFlags = (currentFlags & ~QUOTA_LIMITS_HARDWS_MIN_ENABLE) | QUOTA_LIMITS_HARDWS_MIN_DISABLE;
+            return setWorkingSetLimits(hProcess, minWs, maxWs, relaxedFlags);
+        }
+
+        private static (bool ok, nint min, nint max, uint flags) TryGetWorkingSetLimitsNative(IntPtr hProcess)
+        {
+            if (!GetProcessWorkingSetSizeEx(hProcess, out nuint minWs, out nuint maxWs, out uint flags))
+                return (false, 0, 0, 0);
+
+            return (true, unchecked((nint)minWs), unchecked((nint)maxWs), flags);
         }
 
         internal static bool SoftRelaxWorkingSetNative(IntPtr hProcess)
         {
             try
             {
-                return SetProcessWorkingSetSizeEx(hProcess, -1, -1, QUOTA_LIMITS_HARDWS_MIN_DISABLE);
+                return SoftRelaxWorkingSetCore(
+                    hProcess,
+                    IsAggressiveWorkingSetTrimEnabled(),
+                    TryGetWorkingSetLimitsNative,
+                    static (proc, min, max, flags) => SetProcessWorkingSetSizeEx(proc, min, max, flags));
             }
             catch (Exception ex)
             {
-                AppServices.Logger.Debug($"[MemoryOptimizer] SoftRelaxWorkingSetNative failed: {ex.Message}");
+                AppServices.Logger?.Debug($"[MemoryOptimizer] SoftRelaxWorkingSetNative failed: {ex.Message}");
                 return false;
             }
         }

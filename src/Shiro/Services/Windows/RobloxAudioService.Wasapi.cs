@@ -22,10 +22,33 @@ namespace Shiro.Services
 
         static RobloxAudioService()
         {
-            RobloxJobObjectService.ProcessExitedFromJob += static (pid, _) => InvalidateCachedAudioSession(pid);
+            RobloxJobObjectService.ProcessExitedFromJob += OnJobProcessExited;
         }
 
         internal static int CachedAudioSessionCount => _cachedVolumePointers.Count;
+
+        internal static void SeedDummyCachedAudioSessionForTest(int pid)
+            => _cachedVolumePointers[pid] = IntPtr.Zero;
+
+        internal static bool HasCachedAudioSessionForTest(int pid)
+            => _cachedVolumePointers.ContainsKey(pid);
+
+        private static void OnJobProcessExited(int pid, bool abnormal)
+        {
+            _ = abnormal;
+            if (pid <= 0 || !_cachedVolumePointers.ContainsKey(pid)) return;
+            ThreadPool.QueueUserWorkItem(static exitedPid =>
+            {
+                try
+                {
+                    InvalidateCachedAudioSession(exitedPid);
+                }
+                catch (Exception ex)
+                {
+                    AppServices.Logger?.Debug($"[RobloxAudioService] Job-exit cache invalidation failed for PID {exitedPid}: {ex.Message}");
+                }
+            }, pid, preferLocal: false);
+        }
 
         private static void EnsureWasapiMtaWorkerStarted()
         {

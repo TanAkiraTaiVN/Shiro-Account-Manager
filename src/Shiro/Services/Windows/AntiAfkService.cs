@@ -253,8 +253,8 @@ namespace Shiro.Services
                 // Silent non-disruptive background message injection:
                 // Computes the hardware scan code once per pass so DirectInput and Win32 message loops recognize the pulse.
                 uint scanCode = MapVirtualKey((uint)VK_F15, 0);
-                IntPtr lParamDown = (IntPtr)(1 | (scanCode << 16));
-                IntPtr lParamUp = (IntPtr)(1 | (scanCode << 16) | (1 << 30) | (1 << 31));
+                IntPtr lParamDown = unchecked((IntPtr)(nint)(nuint)(1u | (scanCode << 16)));
+                IntPtr lParamUp = unchecked((IntPtr)(nint)BuildKeyUpLParam(scanCode));
 
                 foreach (int pid in pids)
                 {
@@ -283,7 +283,7 @@ namespace Shiro.Services
 
                     if (isHidden || (!isForegroundWindow && !allowFocusSteal) || isForegroundWindow)
                     {
-                        var outcome = ProcessClientPulseForTest(hWnd, isHidden, isForegroundWindow, allowFocusSteal, DateTime.UtcNow, _intervalMinutes, PulseViaPost, _ => false, st.Failures);
+                        var outcome = EvaluateSilentFirstPulse(hWnd, isHidden, isForegroundWindow, allowFocusSteal, DateTime.UtcNow, _intervalMinutes, PulseViaPost, st.Failures);
                         if (outcome.Succeeded)
                         {
                             st.LastSentUtc = DateTime.UtcNow;
@@ -376,67 +376,6 @@ namespace Shiro.Services
         private const uint KEYEVENTF_KEYUP = 0x0002;
         private const int SW_RESTORE = 9;
         private const int SW_MINIMIZE = 6;
-
-        [StructLayout(LayoutKind.Sequential)]
-        private struct MOUSEINPUT
-        {
-            public int dx;
-            public int dy;
-            public uint mouseData;
-            public uint dwFlags;
-            public uint time;
-            public UIntPtr dwExtraInfo;
-        }
-
-        [StructLayout(LayoutKind.Sequential)]
-        private struct KEYBDINPUT
-        {
-            public ushort wVk;
-            public ushort wScan;
-            public uint dwFlags;
-            public uint time;
-            public UIntPtr dwExtraInfo;
-        }
-
-        [StructLayout(LayoutKind.Sequential)]
-        private struct HARDWAREINPUT
-        {
-            public uint uMsg;
-            public ushort wParamL;
-            public ushort wParamH;
-        }
-
-        [StructLayout(LayoutKind.Explicit)]
-        private struct INPUT
-        {
-            [FieldOffset(0)]
-            public uint type;
-            [FieldOffset(8)]
-            public MOUSEINPUT mi;
-            [FieldOffset(8)]
-            public KEYBDINPUT ki;
-            [FieldOffset(8)]
-            public HARDWAREINPUT hi;
-        }
-
-        [LibraryImport("user32.dll", SetLastError = true)]
-        private static unsafe partial uint SendInput(uint cInputs, INPUT* pInputs, int cbSize);
-
-        private static unsafe void SendKey(ushort virtualKey, bool keyUp)
-        {
-            if (!OperatingSystem.IsWindows()) return;
-
-            ushort scanCode = (ushort)MapVirtualKey(virtualKey, 0);
-            INPUT input = default;
-            input.type = INPUT_KEYBOARD;
-            input.ki.wVk = virtualKey;
-            input.ki.wScan = scanCode;
-            input.ki.dwFlags = keyUp ? KEYEVENTF_KEYUP : KEYEVENTF_KEYDOWN;
-            input.ki.time = 0;
-            input.ki.dwExtraInfo = UIntPtr.Zero;
-
-            SendInput(1, &input, sizeof(INPUT));
-        }
 
         [LibraryImport("user32.dll", EntryPoint = "PostMessageW", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]

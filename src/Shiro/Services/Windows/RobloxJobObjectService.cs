@@ -32,7 +32,7 @@ namespace Shiro.Services
         private const int JobObjectAssociateCompletionPortInformation = 7;
         private const int JobObjectCpuRateControlInformation = 15;
 
-        private const uint JOB_OBJECT_MSG_EXIT_PROCESS = 4;
+        private const uint JOB_OBJECT_MSG_EXIT_PROCESS = 7;
         private const uint JOB_OBJECT_MSG_NEW_PROCESS = 6;
         private const uint JOB_OBJECT_MSG_ABNORMAL_EXIT_PROCESS = 8;
         private const uint IOCP_QUIT_MESSAGE = 0;

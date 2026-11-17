@@ -23,8 +23,8 @@ namespace Shiro.Tests
             RobloxJobObjectService.ProcessExitedFromJob += Handler;
             try
             {
-                // JOB_OBJECT_MSG_EXIT_PROCESS = 4
-                bool handledExit = RobloxJobObjectService.DispatchCompletionMessage(4, 12345);
+                // JOB_OBJECT_MSG_EXIT_PROCESS = 7
+                bool handledExit = RobloxJobObjectService.DispatchCompletionMessage(7, 12345);
                 Assert.True(handledExit);
                 Assert.Equal(1, callCount);
                 Assert.Equal(12345, observedPid);
@@ -36,6 +36,10 @@ namespace Shiro.Tests
                 Assert.Equal(2, callCount);
                 Assert.Equal(67890, observedPid);
                 Assert.True(observedAbnormal);
+
+                // JOB_OBJECT_MSG_ACTIVE_PROCESS_ZERO = 4 must not raise ProcessExitedFromJob
+                Assert.False(RobloxJobObjectService.DispatchCompletionMessage(4, 54321));
+                Assert.Equal(2, callCount);
 
                 // Unrelated message = 99
                 Assert.False(RobloxJobObjectService.DispatchCompletionMessage(99, 111));

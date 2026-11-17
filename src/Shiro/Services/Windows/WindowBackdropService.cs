@@ -16,6 +16,8 @@ namespace Shiro.Services
         private const int DWMWA_SYSTEMBACKDROP_TYPE = 38;
         private const int DWMWA_MICA_EFFECT = 1029;
         private const uint LR_SHARED = 0x00008000;
+        private const int IDI_APPLICATION_RESOURCE_ID = 32512;
+        private const int FALLBACK_APP_ICON_RESOURCE_ID = 1;
 
         private static readonly System.Threading.Lock IconCacheLock = new();
         private static bool s_iconsResolved;
@@ -92,11 +94,13 @@ namespace Shiro.Services
                     {
                         s_iconsResolved = true;
                         IntPtr hModule = GetModuleHandle(null);
-                        s_hIconBig = LoadImage(hModule, (IntPtr)1, 1 /* IMAGE_ICON */, 32, 32, LR_SHARED);
-                        s_hIconSmall = LoadImage(hModule, (IntPtr)1, 1 /* IMAGE_ICON */, 16, 16, LR_SHARED);
+                        s_hIconBig = ResolvePreferredIconResourceId(
+                            resId => LoadImage(hModule, resId, 1 /* IMAGE_ICON */, 32, 32, LR_SHARED));
+                        s_hIconSmall = ResolvePreferredIconResourceId(
+                            resId => LoadImage(hModule, resId, 1 /* IMAGE_ICON */, 16, 16, LR_SHARED));
 
                         if (s_hIconBig == IntPtr.Zero)
-                            s_hIconBig = LoadIcon(IntPtr.Zero, (IntPtr)32512); // IDI_APPLICATION
+                            s_hIconBig = LoadIcon(IntPtr.Zero, (IntPtr)IDI_APPLICATION_RESOURCE_ID); // IDI_APPLICATION
                         if (s_hIconSmall == IntPtr.Zero)
                             s_hIconSmall = s_hIconBig;
                     }
@@ -146,6 +150,17 @@ namespace Shiro.Services
             {
                 AppServices.Logger?.Debug($"DwmSetWindowAttribute backdrop threw: {ex.Message}");
             }
+        }
+
+        internal static IntPtr ResolvePreferredIconResourceId(Func<IntPtr, IntPtr> loader)
+        {
+            if (loader == null) return IntPtr.Zero;
+
+            IntPtr primary = loader((IntPtr)IDI_APPLICATION_RESOURCE_ID);
+            if (primary != IntPtr.Zero)
+                return primary;
+
+            return loader((IntPtr)FALLBACK_APP_ICON_RESOURCE_ID);
         }
 
         internal static bool ShouldApplyLegacyMica(BackdropType backdrop, int osBuild)
