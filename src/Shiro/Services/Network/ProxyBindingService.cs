@@ -95,14 +95,10 @@ namespace Shiro.Services
             return true;
         }
 
-        /// <summary>
-        /// Retrieves the configured HttpClient for an account, routing through its dedicated proxy if present.
-        /// If no proxy is assigned (or global proxy support is disabled), falls back cleanly to the global shared client.
-        /// </summary>
-        public static HttpClient GetClient(Account account)
+        private static string? ResolveEffectiveProxy(Account? account)
         {
             if (account == null || !IsProxyRoutingAllowed())
-                return SharedHttpClient.Get();
+                return null;
 
             if (string.IsNullOrWhiteSpace(account.Proxy) &&
                 _settings.Exists(AppSettingsKeys.General.UseProxies) &&
@@ -132,10 +128,20 @@ namespace Shiro.Services
                 }
             }
 
-            if (string.IsNullOrWhiteSpace(account.Proxy))
+            return string.IsNullOrWhiteSpace(account.Proxy) ? null : account.Proxy.Trim();
+        }
+
+        /// <summary>
+        /// Retrieves the configured HttpClient for an account, routing through its dedicated proxy if present.
+        /// If no proxy is assigned (or global proxy support is disabled), falls back cleanly to the global shared client.
+        /// </summary>
+        public static HttpClient GetClient(Account account)
+        {
+            string? effectiveProxy = ResolveEffectiveProxy(account);
+            if (string.IsNullOrWhiteSpace(effectiveProxy))
                 return SharedHttpClient.Get();
 
-            return GetClient(account.Proxy);
+            return GetClient(effectiveProxy);
         }
 
         /// <summary>
@@ -143,17 +149,17 @@ namespace Shiro.Services
         /// </summary>
         public static HttpClient GetNoRedirectClient(Account? account)
         {
-            if (account == null || !IsProxyRoutingAllowed() || string.IsNullOrWhiteSpace(account.Proxy))
+            string? effectiveProxy = ResolveEffectiveProxy(account);
+            if (string.IsNullOrWhiteSpace(effectiveProxy))
                 return SharedHttpClient.GetNoRedirect();
 
-            string normalized = account.Proxy.Trim();
-            string key = $"{NoRedirectKeyPrefix}{normalized}";
+            string key = $"{NoRedirectKeyPrefix}{effectiveProxy}";
             return _proxyClients.GetOrAdd(key, k => new Lazy<HttpClient>(() =>
             {
-                IWebProxy? webProxy = ParseWebProxy(normalized);
+                IWebProxy? webProxy = ParseWebProxy(effectiveProxy);
                 if (webProxy == null)
                 {
-                    string safeProxy = ProxyManagerService.RedactProxy(normalized);
+                    string safeProxy = ProxyManagerService.RedactProxy(effectiveProxy);
                     _logger.Error($"[ProxyBindingService] Proxy '{safeProxy}' is invalid. Fail-Closed enforced to prevent IP leak.");
                     throw new InvalidOperationException($"Proxy '{safeProxy}' failed to parse. Fallback to direct IP blocked to prevent IP leak.");
                 }

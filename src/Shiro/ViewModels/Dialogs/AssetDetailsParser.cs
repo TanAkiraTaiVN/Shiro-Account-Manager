@@ -75,6 +75,13 @@ public static class AssetDetailsParser
             else if (larpElem.ValueKind == JsonValueKind.Number && larpElem.TryGetInt64(out long larpNum)) lowestResaleProductId = larpNum.ToString();
         }
 
+        long lowestResaleSellerId = 0;
+        if (target.TryGetProperty("lowestAvailableResaleSellerId", out var larsElem) &&
+            TryReadInt64(larsElem, out long parsedResaleSellerId))
+        {
+            lowestResaleSellerId = parsedResaleSellerId;
+        }
+
         string? collectibleItemId = null;
         if (target.TryGetProperty("collectibleItemId", out var ciElem) && ciElem.ValueKind == JsonValueKind.String)
         {
@@ -89,6 +96,7 @@ public static class AssetDetailsParser
 
         bool isForSale;
         long finalPrice = -1;
+        bool usedResaleListing = false;
 
         if (isOffSale && hasResellers && lowestPrice.HasValue && lowestPrice.Value > 0)
         {
@@ -97,6 +105,7 @@ public static class AssetDetailsParser
             if (!string.IsNullOrWhiteSpace(lowestResaleProductId))
             {
                 collectibleProductId = lowestResaleProductId;
+                usedResaleListing = true;
             }
         }
         else if (isOffSale || legacyIsOffSale || string.Equals(priceStatus, "Off Sale", System.StringComparison.OrdinalIgnoreCase) || (isPurchasable == false && !hasResellers))
@@ -149,6 +158,11 @@ public static class AssetDetailsParser
             else if (creatorIdElem.ValueKind == JsonValueKind.String && long.TryParse(creatorIdElem.GetString(), out long sStr)) sellerId = sStr;
         }
 
+        if (usedResaleListing && lowestResaleSellerId > 0)
+        {
+            sellerId = lowestResaleSellerId;
+        }
+
         string sellerType = "User";
         if (target.TryGetProperty("creatorType", out var ctElem))
         {
@@ -165,4 +179,14 @@ public static class AssetDetailsParser
 
     public static long ComputeCost(AssetDetails details) =>
         details.IsForSale ? details.Price : -1;
+
+    private static bool TryReadInt64(JsonElement elem, out long value)
+    {
+        if (elem.ValueKind == JsonValueKind.Number && elem.TryGetInt64(out value))
+            return true;
+        if (elem.ValueKind == JsonValueKind.String && long.TryParse(elem.GetString(), out value))
+            return true;
+        value = 0;
+        return false;
+    }
 }

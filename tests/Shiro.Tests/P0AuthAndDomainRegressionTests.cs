@@ -382,5 +382,47 @@ namespace Shiro.Tests
             Assert.False(restAcc.TryUpdateRotatedCookie(restResponse));
             Assert.Equal(originalToken, restAcc.SecurityToken);
         }
+
+        [Fact]
+        public void WebAuthPolicy_RecordAuthResult_EvictsStaleAndExcessNonLockedClientFailures()
+        {
+            WebAuthPolicy.ResetLockoutsForTesting();
+            try
+            {
+                FieldInfo? clientFailuresField = typeof(WebAuthPolicy).GetField(
+                    "ClientFailures",
+                    BindingFlags.NonPublic | BindingFlags.Static);
+                Assert.NotNull(clientFailuresField);
+                var clientFailures = (System.Collections.ICollection)clientFailuresField!.GetValue(null)!;
+
+                DateTimeOffset t0 = DateTimeOffset.UtcNow;
+
+                for (int i = 0; i < WebAuthPolicy.MaxFailedAttempts - 1; i++)
+                {
+                    Assert.False(WebAuthPolicy.RecordAuthResult("stale-client", AuthDecision.InvalidPassword, t0));
+                }
+
+                DateTimeOffset t1 = t0.AddMinutes(30);
+                for (int i = 0; i < WebAuthPolicy.MaxFailedAttempts; i++)
+                {
+                    WebAuthPolicy.RecordAuthResult("locked-client", AuthDecision.InvalidPassword, t1);
+                }
+                Assert.True(WebAuthPolicy.IsClientLockedOut("locked-client", t1));
+
+                for (int i = 0; i < 525; i++)
+                {
+                    bool locked = WebAuthPolicy.RecordAuthResult($"burst-client-{i}", AuthDecision.InvalidPassword, t1.AddMilliseconds(i));
+                    Assert.False(locked);
+                }
+
+                Assert.True(clientFailures.Count <= 512, $"Expected bounded ClientFailures count <= 512, actual {clientFailures.Count}");
+                Assert.True(WebAuthPolicy.IsClientLockedOut("locked-client", t1));
+                Assert.False(WebAuthPolicy.RecordAuthResult("stale-client", AuthDecision.InvalidPassword, t1.AddSeconds(1)));
+            }
+            finally
+            {
+                WebAuthPolicy.ResetLockoutsForTesting();
+            }
+        }
     }
 }

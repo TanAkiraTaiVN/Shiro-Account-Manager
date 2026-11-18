@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Net;
 using Shiro.Services;
 using Xunit;
@@ -207,6 +208,43 @@ namespace Shiro.Tests
 
             var accNoProxy = new Account { Username = "NoProxy", Proxy = null };
             Assert.Same(shared, ProxyBindingService.GetNoRedirectClient(accNoProxy));
+        }
+
+        [Fact]
+        public void GetNoRedirectClient_EmptyAccountProxyWithDistributeProxiesEnabled_UsesStickyPoolProxy()
+        {
+            string tempDir = Path.Combine(Path.GetTempPath(), "ShiroNoRedirectProxy_" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                using (StoragePaths.OverrideDataDirectoryForTesting(tempDir))
+                {
+                    ProxyManagerService.InvalidateCache();
+                    ProxyManagerService.SaveProxies(new[]
+                    {
+                        new ProxyItem { RawEntry = "10.0.0.77:8080", Host = "10.0.0.77", Port = 8080 }
+                    });
+
+                    var ini = new IniFile();
+                    var settings = ini.Section("General");
+                    settings.Set(AppSettingsKeys.General.UseProxies, "true");
+                    ProxyBindingService.Settings = settings;
+
+                    var acc = new Account { Username = "NoRedirectPoolUser", Proxy = null };
+                    var noRedirectClient = ProxyBindingService.GetNoRedirectClient(acc);
+                    var expectedPooledClient = ProxyBindingService.GetNoRedirectClient(
+                        new Account { Username = "ExplicitProxyUser", Proxy = "10.0.0.77:8080" });
+
+                    Assert.NotSame(SharedHttpClient.GetNoRedirect(), noRedirectClient);
+                    Assert.Equal("10.0.0.77:8080", acc.Proxy);
+                    Assert.Same(expectedPooledClient, noRedirectClient);
+                }
+            }
+            finally
+            {
+                ProxyManagerService.InvalidateCache();
+                if (Directory.Exists(tempDir))
+                    Directory.Delete(tempDir, true);
+            }
         }
 
         [Fact]

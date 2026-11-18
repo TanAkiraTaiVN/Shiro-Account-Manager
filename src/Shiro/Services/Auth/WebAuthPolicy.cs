@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using System.Linq;
 
 namespace Shiro.Services
 {
@@ -38,8 +39,10 @@ namespace Shiro.Services
         public const int RecommendedExternalPasswordLength = 12;
         public const int MaxFailedAttempts = 5;
         public static readonly TimeSpan LockoutDuration = TimeSpan.FromSeconds(30);
+        public static readonly TimeSpan AttemptWindow = TimeSpan.FromMinutes(15);
+        private const int MaxTrackedClientFailures = 512;
 
-        private static readonly ConcurrentDictionary<string, (int Failures, DateTimeOffset LockedUntilUtc)> ClientFailures =
+        private static readonly ConcurrentDictionary<string, (int Failures, DateTimeOffset LockedUntilUtc, DateTimeOffset LastFailureUtc)> ClientFailures =
             new(StringComparer.OrdinalIgnoreCase);
 
         public static void ResetLockoutsForTesting() => ClientFailures.Clear();
@@ -55,11 +58,47 @@ namespace Shiro.Services
                 if (state.LockedUntilUtc > now)
                     return true;
 
-                if (state.LockedUntilUtc != DateTimeOffset.MinValue)
+                if (state.LockedUntilUtc != DateTimeOffset.MinValue || (now - state.LastFailureUtc) > AttemptWindow)
                     ClientFailures.TryRemove(clientKey, out _);
             }
 
             return false;
+        }
+
+        private static void EvictClientFailuresIfNeeded(string incomingKey, DateTimeOffset now)
+        {
+            if (ClientFailures.Count < MaxTrackedClientFailures)
+                return;
+
+            foreach (var entry in ClientFailures)
+            {
+                bool expiredLockout = entry.Value.LockedUntilUtc != DateTimeOffset.MinValue && entry.Value.LockedUntilUtc <= now;
+                bool staleNonLocked = entry.Value.LockedUntilUtc == DateTimeOffset.MinValue && (now - entry.Value.LastFailureUtc) > AttemptWindow;
+                if (expiredLockout || staleNonLocked)
+                {
+                    ClientFailures.TryRemove(entry.Key, out _);
+                }
+            }
+
+            int targetMax = ClientFailures.ContainsKey(incomingKey)
+                ? MaxTrackedClientFailures
+                : MaxTrackedClientFailures - 1;
+            if (ClientFailures.Count <= targetMax)
+                return;
+
+            int excess = ClientFailures.Count - targetMax;
+            var oldestNonLocked = ClientFailures
+                .Where(kvp => kvp.Value.LockedUntilUtc == DateTimeOffset.MinValue &&
+                              !string.Equals(kvp.Key, incomingKey, StringComparison.OrdinalIgnoreCase))
+                .OrderBy(kvp => kvp.Value.LastFailureUtc)
+                .Take(excess)
+                .Select(kvp => kvp.Key)
+                .ToList();
+
+            foreach (string key in oldestNonLocked)
+            {
+                ClientFailures.TryRemove(key, out _);
+            }
         }
 
         public static bool RecordAuthResult(string? clientKey, AuthDecision decision, DateTimeOffset? nowUtc = null)
@@ -77,25 +116,21 @@ namespace Shiro.Services
                 return IsClientLockedOut(clientKey, nowUtc);
 
             DateTimeOffset now = nowUtc ?? DateTimeOffset.UtcNow;
-            if (ClientFailures.Count > 512)
-            {
-                foreach (var entry in ClientFailures)
-                {
-                    if (entry.Value.LockedUntilUtc != DateTimeOffset.MinValue && entry.Value.LockedUntilUtc <= now)
-                        ClientFailures.TryRemove(entry.Key, out _);
-                }
-            }
+            EvictClientFailuresIfNeeded(clientKey, now);
+
             var updated = ClientFailures.AddOrUpdate(
                 clientKey,
-                _ => (1, 1 >= MaxFailedAttempts ? now.Add(LockoutDuration) : DateTimeOffset.MinValue),
+                _ => (1, 1 >= MaxFailedAttempts ? now.Add(LockoutDuration) : DateTimeOffset.MinValue, now),
                 (_, prev) =>
                 {
-                    int baseFailures = (prev.LockedUntilUtc != DateTimeOffset.MinValue && prev.LockedUntilUtc <= now) ? 0 : prev.Failures;
+                    bool expiredLockout = prev.LockedUntilUtc != DateTimeOffset.MinValue && prev.LockedUntilUtc <= now;
+                    bool staleAttempts = prev.LockedUntilUtc == DateTimeOffset.MinValue && (now - prev.LastFailureUtc) > AttemptWindow;
+                    int baseFailures = (expiredLockout || staleAttempts) ? 0 : prev.Failures;
                     int nextFailures = baseFailures + 1;
                     DateTimeOffset lockedUntil = nextFailures >= MaxFailedAttempts
                         ? now.Add(LockoutDuration)
                         : DateTimeOffset.MinValue;
-                    return (nextFailures, lockedUntil);
+                    return (nextFailures, lockedUntil, now);
                 });
 
             return updated.LockedUntilUtc > now;

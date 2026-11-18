@@ -7,6 +7,24 @@ namespace Shiro.Tests.Dialogs;
 
 public sealed class AssetDetailsParserTests
 {
+    private const string ResaleListingWithSellerIdJson = """
+        {
+          "data": [
+            {
+              "id": 1007,
+              "name": "Resale Fedora",
+              "isOffSale": true,
+              "hasResellers": true,
+              "lowestPrice": 350,
+              "lowestAvailableResaleProductId": "resale-prod-1",
+              "lowestAvailableResaleSellerId": 77777,
+              "creatorId": 99999,
+              "creatorType": "User"
+            }
+          ]
+        }
+        """;
+
     [Fact]
     public void Parse_ValidJson_ExtractsNumericAndStringFields()
     {
@@ -144,5 +162,16 @@ public sealed class AssetDetailsParserTests
         Assert.True(details.IsForSale);
         Assert.Equal(0, details.Price);
         Assert.Equal(0, AssetDetailsParser.ComputeCost(details));
+    }
+
+    [Fact]
+    public void Parse_ModernResaleListingWithResaleSellerId_UsesResaleSellerIdInsteadOfCreatorId()
+    {
+        AssetDetails details = AssetDetailsParser.Parse(ResaleListingWithSellerIdJson, 1007);
+
+        Assert.True(details.IsForSale);
+        Assert.Equal(350, details.Price);
+        Assert.Equal("resale-prod-1", details.CollectibleProductId);
+        Assert.Equal(77777, details.SellerId);
     }
 }
