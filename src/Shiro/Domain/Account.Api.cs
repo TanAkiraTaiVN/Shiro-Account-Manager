@@ -73,9 +73,8 @@ namespace Shiro
 
                     if ((int)response.StatusCode == 429)
                     {
-                        RobloxRateLimitCoordinator.Instance.RecordRateLimitHit(RateLimitCategory.Authentication, response);
                         LastAuthTicketRateLimited = true;
-                        MarkNativeAuthRateLimited(60, Username, "CSRF token");
+                        MarkNativeAuthRateLimited(60, Username, "CSRF token", response: response);
                         return (false, string.Empty, Shiro.Services.LocalizationService.Get("Account.RateLimited"));
                     }
 
@@ -212,17 +211,17 @@ namespace Shiro
 
                     if ((int)response.StatusCode == 429)
                     {
-                        RobloxRateLimitCoordinator.Instance.RecordRateLimitHit(RateLimitCategory.Authentication, response, defaultBackoffSeconds: 3);
                         LastAuthTicketRateLimited = true;
 
                         if (attempt + 1 < AuthTicketMaxAttempts)
                         {
+                            RobloxRateLimitCoordinator.Instance.RecordRateLimitHit(RateLimitCategory.Authentication, response, defaultBackoffSeconds: 3);
                             var backoff = RobloxRateLimitCoordinator.Instance.RemainingBackoff;
                             AppServices.Logger?.Warn($"Roblox authentication-ticket request was rate limited (HTTP 429) for {Username}. Backing off for {backoff.TotalSeconds:F1}s before retry (attempt {attempt + 1}/{AuthTicketMaxAttempts})...");
                             continue;
                         }
 
-                        MarkNativeAuthRateLimited(30, Username, "authentication-ticket");
+                        MarkNativeAuthRateLimited(30, Username, "authentication-ticket", response: response);
                         AppServices.Logger?.Warn($"Roblox authentication-ticket request was rate limited (HTTP 429) for {Username}; exhausted all {AuthTicketMaxAttempts} attempts.");
                         return (false, string.Empty);
                     }

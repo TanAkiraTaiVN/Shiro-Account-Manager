@@ -52,25 +52,31 @@ namespace Shiro
             if (response == null) return false;
             try
             {
-                if (response.Cookies != null)
+                bool sawRoblosecuritySetCookie = false;
+                if (response.Headers != null)
+                {
+                    foreach (var h in response.Headers)
+                    {
+                        if (!string.Equals(h.Name, "Set-Cookie", StringComparison.OrdinalIgnoreCase))
+                            continue;
+
+                        string? str = Convert.ToString(h.Value);
+                        if (RobloxCookieHeaderParser.HasRoblosecurityCookiePair(str))
+                            sawRoblosecuritySetCookie = true;
+
+                        string? newCookie = ExtractRoblosecurityFromSetCookie(str);
+                        if (!string.IsNullOrEmpty(newCookie) && ApplyRotatedSecurityToken(newCookie, "RestResponse headers"))
+                            return true;
+                    }
+                }
+
+                if (!sawRoblosecuritySetCookie && response.Cookies != null)
                 {
                     var cookie = response.Cookies.FirstOrDefault(c => string.Equals(c.Name, ".ROBLOSECURITY", StringComparison.OrdinalIgnoreCase));
                     if (cookie != null && !string.IsNullOrWhiteSpace(cookie.Value))
                     {
                         string? sanitized = ExtractRoblosecurityFromSetCookie($".ROBLOSECURITY={cookie.Value}");
                         if (!string.IsNullOrEmpty(sanitized) && ApplyRotatedSecurityToken(sanitized, "RestResponse cookies"))
-                            return true;
-                    }
-                }
-
-                if (response.Headers != null)
-                {
-                    var setCookieHeaders = response.Headers.Where(h => string.Equals(h.Name, "Set-Cookie", StringComparison.OrdinalIgnoreCase));
-                    foreach (var h in setCookieHeaders)
-                    {
-                        string? str = Convert.ToString(h.Value);
-                        string? newCookie = ExtractRoblosecurityFromSetCookie(str);
-                        if (!string.IsNullOrEmpty(newCookie) && ApplyRotatedSecurityToken(newCookie, "RestResponse headers"))
                             return true;
                     }
                 }
@@ -88,27 +94,8 @@ namespace Shiro
         public bool TryAttachCookieRotationHbaHeader(HttpRequestMessage request, string? bodyContent = null) =>
             RobloxHbaService.TryAttachHbaHeader(request, this, bodyContent);
 
-        public static string? ExtractRoblosecurityFromSetCookie(string? header)
-        {
-            if (string.IsNullOrWhiteSpace(header)) return null;
-            if (header.IndexOf("expires=Thu, 01 Jan 1970", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                header.IndexOf("max-age=0", StringComparison.OrdinalIgnoreCase) >= 0)
-                return null;
-
-            ReadOnlySpan<char> span = header.AsSpan();
-            int idx = span.IndexOf(".ROBLOSECURITY=", StringComparison.OrdinalIgnoreCase);
-            if (idx < 0) return null;
-            span = span.Slice(idx + ".ROBLOSECURITY=".Length);
-            int end = span.IndexOf(';');
-            if (end >= 0)
-                span = span.Slice(0, end);
-
-            span = span.Trim().Trim('"').Trim();
-            if (span.Length < 100 || !span.Contains("_|WARNING:-DO-NOT-SHARE-THIS".AsSpan(), StringComparison.Ordinal))
-                return null;
-
-            return span.ToString();
-        }
+        public static string? ExtractRoblosecurityFromSetCookie(string? header) =>
+            RobloxCookieHeaderParser.ExtractRoblosecurityFromSetCookie(header);
 
         internal bool ApplyRotatedSecurityToken(string newCookie, string source)
         {
@@ -186,14 +173,20 @@ namespace Shiro
             return NativeAuthRecoverySeconds;
         }
 
-        internal static void MarkNativeAuthRateLimited(int seconds, string username, string source)
+        internal static void MarkNativeAuthRateLimited(
+            int seconds,
+            string username,
+            string source,
+            HttpResponseMessage? response = null,
+            bool recordCoordinatorHit = true)
         {
             seconds = Math.Max(1, Math.Min(180, seconds));
 
             AppServices.Logger?.Warn($"Roblox {source} returned HTTP 429 for {username}. The current launch was stopped; retry after about {seconds} seconds or change network before starting another batch.");
             AppServices.HostUiBridge.NotifyWindowStatus(
                 Shiro.Services.LocalizationService.Format("Account.RateLimitCooldown", username, seconds));
-            RobloxRateLimitCoordinator.Instance.RecordRateLimitHit(RateLimitCategory.Authentication, defaultBackoffSeconds: seconds);
+            if (recordCoordinatorHit)
+                RobloxRateLimitCoordinator.Instance.RecordRateLimitHit(RateLimitCategory.Authentication, response, defaultBackoffSeconds: seconds);
         }
 
         private RestRequest CreateAuthTicketRequest(string token)

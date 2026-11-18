@@ -4,11 +4,13 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using NSubstitute;
+using Shiro.Http;
 using Shiro.Services;
 using Shiro.Tests.TestInfrastructure;
 using Xunit;
@@ -31,6 +33,7 @@ namespace Shiro.Tests
             _previousLastValidAccount = AppServices.SelectionState.LastValidAccount;
             _previousHttpClientFactory = Account.TestHttpClientFactory;
             RobloxHbaService.ClearKeyCache();
+            RobloxRateLimitCoordinator.Instance.ResetBackoff();
         }
 
         public void Dispose()
@@ -38,6 +41,7 @@ namespace Shiro.Tests
             Account.TestHttpClientFactory = _previousHttpClientFactory;
             AppServices.SelectionState.LastValidAccount = _previousLastValidAccount;
             RobloxHbaService.ClearKeyCache();
+            RobloxRateLimitCoordinator.Instance.ResetBackoff();
         }
 
         private static string CreateValidPkcs8Key()
@@ -265,6 +269,118 @@ namespace Shiro.Tests
             Assert.Equal(string.Empty, accA.AccountStatusIssue);
             Assert.False(RobloxHbaService.ClearCachedKey(keyA));
             Assert.False(RobloxHbaService.ClearCachedKey(null));
+        }
+
+        [Fact]
+        public async Task AccountApi_WhenHttp429Returned_IncrementsRateLimitCoordinatorOncePerResponse()
+        {
+            RobloxRateLimitCoordinator.Instance.ResetBackoff();
+            string token = MakeToken('G', 920);
+
+            var csrfHandler = new FakeHttpHandler(_ => new HttpResponseMessage((HttpStatusCode)429));
+            Account.TestHttpClientFactory = _ => new HttpClient(csrfHandler);
+
+            var csrfAcc = new Account
+            {
+                Username = "Csrf429User",
+                UserID = 7001,
+                SecurityToken = token
+            };
+
+            var (csrfOk, _, _) = await csrfAcc.GetCSRFTokenAsync();
+
+            Assert.False(csrfOk);
+            Assert.True(csrfAcc.LastAuthTicketRateLimited);
+            Assert.Equal(1, csrfHandler.Calls);
+            Assert.Equal(1, RobloxRateLimitCoordinator.Instance.ConsecutiveRateLimitHits);
+
+            RobloxRateLimitCoordinator.Instance.ResetBackoff();
+
+            int ticketCalls = 0;
+            var ticketHandler = new FakeHttpHandler(req =>
+            {
+                if (req.RequestUri != null &&
+                    req.RequestUri.AbsolutePath.Contains("client-assertion", StringComparison.OrdinalIgnoreCase))
+                {
+                    return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(EmptyJsonObject) };
+                }
+
+                Interlocked.Increment(ref ticketCalls);
+                var resp = new HttpResponseMessage((HttpStatusCode)429);
+                resp.Headers.RetryAfter = new RetryConditionHeaderValue(TimeSpan.FromSeconds(1));
+                return resp;
+            });
+            Account.TestHttpClientFactory = _ => new HttpClient(ticketHandler);
+
+            var ticketAcc = new Account
+            {
+                Username = "Ticket429User",
+                UserID = 7002,
+                SecurityToken = token
+            };
+
+            var (ticketOk, ticket) = await ticketAcc.GetAuthTicketAsync();
+
+            Assert.False(ticketOk);
+            Assert.Empty(ticket);
+            Assert.True(ticketAcc.LastAuthTicketRateLimited);
+            Assert.Equal(4, ticketCalls);
+            Assert.Equal(4, RobloxRateLimitCoordinator.Instance.ConsecutiveRateLimitHits);
+        }
+
+        [Fact]
+        public async Task CookieRotation_MaxAgeZeroPastExpiresAndBogusPrefix_DoNotOverwriteOrMatch()
+        {
+            string originalToken = MakeToken('H', 160);
+            string deletedLikeLongToken = MakeToken('X', 160);
+            string evilToken = MakeToken('Y', 160);
+
+            Assert.Null(Account.ExtractRoblosecurityFromSetCookie($".ROBLOSECURITY={deletedLikeLongToken}; max-age=0; Path=/"));
+            Assert.Null(Account.ExtractRoblosecurityFromSetCookie($".ROBLOSECURITY={deletedLikeLongToken}; Max-Age = 0; Path=/"));
+            Assert.Null(Account.ExtractRoblosecurityFromSetCookie($".ROBLOSECURITY={deletedLikeLongToken}; max-age=-10; Path=/"));
+            Assert.Null(Account.ExtractRoblosecurityFromSetCookie($".ROBLOSECURITY={deletedLikeLongToken}; expires=Mon, 01 Jan 2024 00:00:00 GMT; Path=/"));
+            Assert.Null(Account.ExtractRoblosecurityFromSetCookie($"FAKE.ROBLOSECURITY={evilToken}; Path=/"));
+            Assert.Null(Account.ExtractRoblosecurityFromSetCookie($"OTHER=abc .ROBLOSECURITY={evilToken}; Path=/"));
+            Assert.Null(Account.ExtractRoblosecurityFromSetCookie($"foo=.ROBLOSECURITY={evilToken}; Path=/"));
+
+            var httpAcc = new Account
+            {
+                Username = "HttpRotateGuardUser",
+                SecurityToken = originalToken
+            };
+
+            using var httpResp = new HttpResponseMessage(HttpStatusCode.OK);
+            httpResp.Headers.TryAddWithoutValidation("Set-Cookie", ".ROBLOSECURITY=deleted; max-age=0; Path=/");
+            httpResp.Headers.TryAddWithoutValidation("Set-Cookie", $".ROBLOSECURITY={deletedLikeLongToken}; max-age=-5; Path=/");
+            httpResp.Headers.TryAddWithoutValidation("Set-Cookie", $"FAKE.ROBLOSECURITY={evilToken}; Path=/");
+
+            Assert.False(httpAcc.TryUpdateRotatedCookie(httpResp));
+            Assert.Equal(originalToken, httpAcc.SecurityToken);
+
+            var restAcc = new Account
+            {
+                Username = "RestRotateGuardUser",
+                SecurityToken = originalToken
+            };
+
+            var fakeRestHandler = new FakeHttpHandler(_ =>
+            {
+                var resp = new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(EmptyJsonObject)
+                };
+                resp.Headers.TryAddWithoutValidation("Set-Cookie", $".ROBLOSECURITY={deletedLikeLongToken}; max-age=0; Path=/");
+                resp.Headers.TryAddWithoutValidation("Set-Cookie", $"FAKE.ROBLOSECURITY={evilToken}; Path=/");
+                return resp;
+            });
+
+            using var httpClient = new HttpClient(fakeRestHandler);
+            using var restClient = new RestClient(httpClient, "https://users.roblox.com/");
+            RestResponse restResponse = await restClient.ExecuteAsync(new RestRequest("v1/users/authenticated", Method.Get));
+
+            Assert.NotNull(restResponse.Cookies[".ROBLOSECURITY"]);
+            Assert.False(restAcc.TryUpdateRotatedCookie(restResponse));
+            Assert.Equal(originalToken, restAcc.SecurityToken);
         }
     }
 }

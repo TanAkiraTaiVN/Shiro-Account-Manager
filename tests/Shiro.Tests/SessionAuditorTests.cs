@@ -191,10 +191,10 @@ namespace Shiro.Tests
 
             var accounts = new List<Account>
             {
-                new Account { Username = "User1", SecurityToken = TestToken, UserID = 1 },
-                new Account { Username = "User2", SecurityToken = TestToken, UserID = 2 },
-                new Account { Username = "User3", SecurityToken = TestToken, UserID = 3 },
-                new Account { Username = "User4", SecurityToken = TestToken, UserID = 4 }
+                new Account { Username = "User1", SecurityToken = TestToken, UserID = 999 },
+                new Account { Username = "User2", SecurityToken = TestToken, UserID = 999 },
+                new Account { Username = "User3", SecurityToken = TestToken, UserID = 999 },
+                new Account { Username = "User4", SecurityToken = TestToken, UserID = 999 }
             };
 
             var reportedProgress = new List<AuditProgress>();

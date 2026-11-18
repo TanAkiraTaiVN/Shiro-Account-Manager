@@ -42,7 +42,7 @@ namespace Shiro.Services
     /// Background health scanner and balance auditor for Roblox account sessions.
     /// Manages concurrency pacing, proxy-aware client resolution, and Robux balance inspection.
     /// </summary>
-    public sealed class SessionAuditorService
+    public sealed partial class SessionAuditorService
     {
         private static readonly Lazy<SessionAuditorService> _defaultInstance = new(() => new SessionAuditorService());
         public static SessionAuditorService Default => _defaultInstance.Value;
@@ -82,16 +82,6 @@ namespace Shiro.Services
             };
         }
 
-        private static bool IsModerationUrl(string url)
-        {
-            return url.Contains("/not-approved", StringComparison.OrdinalIgnoreCase) ||
-                   url.Contains("/moderation", StringComparison.OrdinalIgnoreCase) ||
-                   url.Contains("/banned", StringComparison.OrdinalIgnoreCase) ||
-                   url.Contains("/account-status", StringComparison.OrdinalIgnoreCase) ||
-                   url.Contains("/account-locked", StringComparison.OrdinalIgnoreCase) ||
-                   url.Contains("/security-notification", StringComparison.OrdinalIgnoreCase);
-        }
-
         /// <summary>
         /// Audits a single account's session health and current Robux balance.
         /// </summary>
@@ -112,14 +102,7 @@ namespace Shiro.Services
             if (string.IsNullOrWhiteSpace(account.SecurityToken))
             {
                 account.Valid = false;
-                return new AccountSessionAuditResult
-                {
-                    Status = AccountSessionStatus.ExpiredCookie,
-                    RobuxBalance = account.RobuxBalance > 0 ? account.RobuxBalance : 0,
-                    PendingRobux = account.PendingRobux,
-                    AuditedAt = DateTimeOffset.UtcNow,
-                    Message = "Missing security token"
-                };
+                return BuildAuditResult(account, AccountSessionStatus.ExpiredCookie, "Missing security token");
             }
 
             try
@@ -151,6 +134,7 @@ namespace Shiro.Services
                 if (status == AccountSessionStatus.VerificationRequired || status == AccountSessionStatus.Valid)
                 {
                     try { responseBody = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false); }
+                    catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
                     catch (Exception ex) { _staticLogger.Debug($"[SessionAuditor] Read response body failed: {ex.Message}"); }
                 }
 
@@ -168,6 +152,7 @@ namespace Shiro.Services
                         var (probedBan, probedBadge, _) = await RobloxModerationService.Instance
                             .CheckModerationStatusAsync(account, account.SecurityToken, TestHttpClientFactory != null ? client : null, ct)
                             .ConfigureAwait(false);
+                        ct.ThrowIfCancellationRequested();
                         if (probedBan)
                         {
                             status = AccountSessionStatus.Moderated;
@@ -193,6 +178,7 @@ namespace Shiro.Services
                         var (probedBan, probedBadge, _) = await RobloxModerationService.Instance
                             .CheckModerationStatusAsync(account, account.SecurityToken, TestHttpClientFactory != null ? client : null, ct)
                             .ConfigureAwait(false);
+                        ct.ThrowIfCancellationRequested();
                         if (probedBan)
                         {
                             status = AccountSessionStatus.Moderated;
@@ -229,42 +215,50 @@ namespace Shiro.Services
                         }
                     }
 
-                    return new AccountSessionAuditResult
-                    {
-                        Status = status,
-                        RobuxBalance = account.RobuxBalance > 0 ? account.RobuxBalance : 0,
-                        PendingRobux = account.PendingRobux,
-                        AuditedAt = DateTimeOffset.UtcNow,
-                        Message = auditMessage
-                    };
+                    return BuildAuditResult(account, status, auditMessage);
                 }
 
-                string userJson = responseBody;
                 long userId = account.UserID;
                 RobloxAuthenticatedUser? authUser = null;
-                if (!string.IsNullOrWhiteSpace(userJson))
+                if (!confirmedBySecondary)
                 {
-                    try
+                    if (IsHtmlResponse(responseBody))
                     {
-                        authUser = JsonSerializer.Deserialize(userJson, ShiroAppJson.Default.RobloxAuthenticatedUser);
-                    }
-                    catch (Exception ex)
-                    {
-                        _staticLogger.Debug($"[SessionAuditor] Failed to deserialize user info for {account.Username}: {ex.Message}");
-                    }
-                }
+                        if (RobloxModerationService.IsLoginPageHtml(responseBody))
+                        {
+                            _staticLogger.Warn($"[SessionAuditor] {account.Username}: Authenticated response returned login page HTML. Marking expired.");
+                            account.Valid = false;
+                            return BuildAuditResult(account, AccountSessionStatus.ExpiredCookie, "Authenticated response returned login page HTML");
+                        }
 
-                if (!confirmedBySecondary && (authUser == null || authUser.Id <= 0))
-                {
-                    account.Valid = false;
-                    return new AccountSessionAuditResult
+                        _staticLogger.Warn($"[SessionAuditor] {account.Username}: Received HTML block/captive page instead of JSON for 200 OK. Preserving validity: {account.Valid}");
+                        return BuildAuditResult(account, AccountSessionStatus.Unknown, "Received HTML block or captive page instead of JSON");
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(responseBody))
                     {
-                        Status = AccountSessionStatus.ExpiredCookie,
-                        RobuxBalance = account.RobuxBalance > 0 ? account.RobuxBalance : 0,
-                        PendingRobux = account.PendingRobux,
-                        AuditedAt = DateTimeOffset.UtcNow,
-                        Message = "Authenticated response was not valid JSON"
-                    };
+                        try
+                        {
+                            authUser = JsonSerializer.Deserialize(responseBody, ShiroAppJson.Default.RobloxAuthenticatedUser);
+                        }
+                        catch (Exception ex)
+                        {
+                            _staticLogger.Debug($"[SessionAuditor] Failed to deserialize user info for {account.Username}: {ex.Message}");
+                        }
+                    }
+
+                    if (authUser == null || authUser.Id <= 0)
+                    {
+                        account.Valid = false;
+                        return BuildAuditResult(account, AccountSessionStatus.ExpiredCookie, "Authenticated response was not valid JSON");
+                    }
+
+                    if (account.UserID > 0 && authUser.Id != account.UserID)
+                    {
+                        _staticLogger.Warn($"[SessionAuditor] {account.Username}: UserID mismatch (Expected: {account.UserID}, Got: {authUser.Id}). Marking invalid.");
+                        account.Valid = false;
+                        return BuildAuditResult(account, AccountSessionStatus.ExpiredCookie, $"UserID mismatch (expected {account.UserID}, got {authUser.Id})");
+                    }
                 }
 
                 if (authUser != null && authUser.Id > 0)
@@ -284,64 +278,8 @@ namespace Shiro.Services
                 // 2. Fetch Robux Currency and Pending Robux concurrently
                 if (userId > 0)
                 {
-                    async Task FetchCurrencyAsync()
-                    {
-                        try
-                        {
-                            using var ecoReq = account.CreateAuthenticatedGetRequest($"https://economy.roblox.com/v1/users/{userId}/currency");
-                            using var ecoResp = await client.SendAsync(ecoReq, HttpCompletionOption.ResponseContentRead, ct).ConfigureAwait(false);
-                            account.TryUpdateRotatedCookie(ecoResp);
-
-                            if (ecoResp.IsSuccessStatusCode)
-                            {
-                                string ecoJson = await ecoResp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
-                                if (!string.IsNullOrWhiteSpace(ecoJson))
-                                {
-                                    var currency = JsonSerializer.Deserialize(ecoJson, ShiroAppJson.Default.RobloxCurrencyResponse);
-                                    if (currency != null)
-                                    {
-                                        robuxBalance = currency.Robux;
-                                        account.RobuxBalance = currency.Robux;
-                                        account.LastEconomyCheck = DateTime.UtcNow;
-                                    }
-                                }
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            _staticLogger.Debug($"[SessionAuditor] Economy currency query error for {account.Username}: {ex.Message}");
-                        }
-                    }
-
-                    async Task FetchPendingRobuxAsync()
-                    {
-                        try
-                        {
-                            using var pendReq = account.CreateAuthenticatedGetRequest($"https://economy.roblox.com/v2/users/{userId}/transaction-totals?timeFrame=Month&transactionType=summary");
-                            using var pendResp = await client.SendAsync(pendReq, HttpCompletionOption.ResponseContentRead, ct).ConfigureAwait(false);
-                            account.TryUpdateRotatedCookie(pendResp);
-
-                            if (pendResp.IsSuccessStatusCode)
-                            {
-                                string pendJson = await pendResp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
-                                if (!string.IsNullOrWhiteSpace(pendJson))
-                                {
-                                    using var doc = JsonDocument.Parse(pendJson);
-                                    if (doc.RootElement.TryGetProperty("pendingRobuxTotal", out var prtProp) && prtProp.TryGetInt64(out long prt))
-                                    {
-                                        pendingRobux = prt;
-                                        account.PendingRobux = prt;
-                                    }
-                                }
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            _staticLogger.Debug($"[SessionAuditor] Pending Robux query error for {account.Username}: {ex.Message}");
-                        }
-                    }
-
-                    await Task.WhenAll(FetchCurrencyAsync(), FetchPendingRobuxAsync()).ConfigureAwait(false);
+                    (robuxBalance, pendingRobux) = await FetchEconomyBalancesAsync(
+                        account, client, userId, robuxBalance, pendingRobux, ct).ConfigureAwait(false);
                 }
 
                 return new AccountSessionAuditResult
@@ -360,14 +298,7 @@ namespace Shiro.Services
             catch (Exception ex)
             {
                 _staticLogger.Warn($"[SessionAuditor] Audit exception for {account.Username}: {ex.Message}");
-                return new AccountSessionAuditResult
-                {
-                    Status = AccountSessionStatus.Unknown,
-                    RobuxBalance = account.RobuxBalance > 0 ? account.RobuxBalance : 0,
-                    PendingRobux = account.PendingRobux,
-                    AuditedAt = DateTimeOffset.UtcNow,
-                    Message = ex.Message
-                };
+                return BuildAuditResult(account, AccountSessionStatus.Unknown, ex.Message);
             }
         }
 
@@ -412,58 +343,6 @@ namespace Shiro.Services
 
             await Task.WhenAll(tasks).ConfigureAwait(false);
             return results;
-        }
-
-        internal static async Task<bool> ValidateSecondaryWithRotationAsync(
-            Account account,
-            Func<HttpClient> clientFactory,
-            CancellationToken cancellationToken)
-        {
-            for (int attempt = 0; attempt < 2; attempt++)
-            {
-                try
-                {
-                    int versionBefore = account.CookieRotationVersion;
-                    HttpClient httpClient = clientFactory();
-                    using var request = account.CreateAuthenticatedGetRequest("https://friends.roblox.com/v1/my/friends/count");
-                    using HttpResponseMessage response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
-                    account.TryUpdateRotatedCookie(response);
-
-                    if (response.StatusCode == HttpStatusCode.Unauthorized)
-                    {
-                        if (attempt == 0 && account.CookieRotationVersion != versionBefore) continue;
-                        _staticLogger.Warn($"[ValidateViaSecondaryEndpointAsync] {account.Username}: Received 401 on friends.roblox.com. Cookie expired.");
-                        return false;
-                    }
-
-                    if (response.StatusCode == HttpStatusCode.OK)
-                    {
-                        string body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-                        if (!string.IsNullOrWhiteSpace(body))
-                        {
-                            if (FastJson.TryDeserialize<RobloxFriendsCountResponse>(body, out var friendsRsp) && friendsRsp != null)
-                                return true;
-                            try
-                            {
-                                using var cDoc = JsonDocument.Parse(body);
-                                if (cDoc.RootElement.TryGetProperty("count", out _)) return true;
-                            }
-                            catch (Exception ex)
-                            {
-                                _staticLogger.Debug($"Parse friend count JSON failed: {ex.Message}");
-                            }
-                        }
-                    }
-                    break;
-                }
-                catch (Exception ex)
-                {
-                    _staticLogger.Warn($"CheckFriendsCountAsync failed: {ex.Message}");
-                    break;
-                }
-            }
-
-            return false;
         }
     }
 }
