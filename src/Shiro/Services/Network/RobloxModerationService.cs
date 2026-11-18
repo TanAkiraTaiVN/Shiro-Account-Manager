@@ -270,7 +270,7 @@ namespace Shiro.Services
                 {
                     string lowUrl = url.ToLowerInvariant();
                     if (lowUrl.Contains("/security-notification") || lowUrl.Contains("/account-locked"))
-                        return (true, Shiro.Services.LocalizationService.Get("FastLogin.SecurityLockoutShort"), Shiro.Services.LocalizationService.Get("Moderation.CannotGetSessionInfo"));
+                        return (true, Shiro.Services.LocalizationService.Get("FastLogin.SecurityLockoutShort"), Shiro.Services.LocalizationService.Get("Moderation.AccountLockedReason"));
                     if (lowUrl.Contains("/not-approved") || lowUrl.Contains("/banned") || lowUrl.Contains("/account-status") || lowUrl.Contains("/moderation"))
                         return (true, Shiro.Services.LocalizationService.Get("FastLogin.LockedOrBannedBadge"), Shiro.Services.LocalizationService.Get("FastLogin.AccountLockedOrModerated"));
                 }
@@ -296,35 +296,36 @@ namespace Shiro.Services
             string text = content.ToLowerInvariant();
 
             bool hasModerationMarker =
-                text.Contains("reviewed:") ||
-                text.Contains("moderator note") ||
-                text.Contains("terms of use violation") ||
-                text.Contains("your account has been") ||
-                text.Contains("punishment:") ||
-                text.Contains("reactivate my account") ||
-                text.Contains(Shiro.Services.LocalizationService.Get("Moderation.ReactivatedSuccess")) ||
-                text.Contains(Shiro.Services.LocalizationService.Get("Moderation.ReactivateFailed")) ||
-                text.Contains("i agree");
+                text.Contains("reviewed:", StringComparison.Ordinal) ||
+                text.Contains("moderator note", StringComparison.Ordinal) ||
+                text.Contains("terms of use violation", StringComparison.Ordinal) ||
+                text.Contains("your account has been", StringComparison.Ordinal) ||
+                text.Contains("punishment:", StringComparison.Ordinal) ||
+                text.Contains("reactivate my account", StringComparison.Ordinal) ||
+                text.Contains("community standards", StringComparison.Ordinal) ||
+                text.Contains("reason:", StringComparison.Ordinal) ||
+                text.Contains("account locked", StringComparison.Ordinal) ||
+                text.Contains("i agree", StringComparison.Ordinal);
 
-            if (!hasModerationMarker && !text.Contains("banned") && !text.Contains("warning"))
+            if (!hasModerationMarker && !text.Contains("banned", StringComparison.Ordinal))
             {
                 return (false, null, null);
             }
 
-            if (text.Contains("7 day") || text.Contains("7-day") || text.Contains(Shiro.Services.LocalizationService.Get("FastLogin.SevenDaysKeyword")))
-                return (true, Shiro.Services.LocalizationService.Get("FastLogin.BanSevenDaysShort"), Shiro.Services.LocalizationService.Get("Moderation.ConnectionError"));
-            if (text.Contains("3 day") || text.Contains("3-day") || text.Contains(Shiro.Services.LocalizationService.Get("FastLogin.ThreeDaysKeyword")))
-                return (true, Shiro.Services.LocalizationService.Get("FastLogin.BanThreeDaysShort"), Shiro.Services.LocalizationService.Get("Moderation.CannotGetSessionForNotice"));
-            if (text.Contains("1 day") || text.Contains("1-day") || text.Contains(Shiro.Services.LocalizationService.Get("FastLogin.OneDayKeyword")))
-                return (true, Shiro.Services.LocalizationService.Get("FastLogin.BanOneDayShort"), Shiro.Services.LocalizationService.Get("Moderation.WarningReceived"));
-            if (text.Contains("14 day") || text.Contains("14-day") || text.Contains(Shiro.Services.LocalizationService.Get("FastLogin.FourteenDaysKeyword")))
-                return (true, Shiro.Services.LocalizationService.Get("FastLogin.BanFourteenDaysShort"), Shiro.Services.LocalizationService.Get("Moderation.AccountBannedWithDuration"));
-            if (text.Contains("deleted") || text.Contains("terminated") || text.Contains(Shiro.Services.LocalizationService.Get("FastLogin.DeletedKeyword")) || text.Contains(Shiro.Services.LocalizationService.Get("FastLogin.PermanentKeyword")))
-                return (true, Shiro.Services.LocalizationService.Get("FastLogin.BanPermanentShort"), Shiro.Services.LocalizationService.Get("Moderation.AccountBannedGeneric"));
-            if (text.Contains("warning") || text.Contains(Shiro.Services.LocalizationService.Get("FastLogin.WarningKeyword")))
-                return (true, Shiro.Services.LocalizationService.Get("Msg_WarningTitle"), Shiro.Services.LocalizationService.Get("Moderation.NoSpecificViolationFound"));
-            if (text.Contains("locked") || text.Contains(Shiro.Services.LocalizationService.Get("Moderation.LoadNoticeError")) || text.Contains("security notification") || text.Contains("reset your password"))
-                return (true, Shiro.Services.LocalizationService.Get("FastLogin.SecurityLockoutShort"), Shiro.Services.LocalizationService.Get("Moderation.CannotGetSessionInfo"));
+            if (text.Contains("7 day", StringComparison.Ordinal) || text.Contains("7-day", StringComparison.Ordinal))
+                return (true, Shiro.Services.LocalizationService.Get("FastLogin.BanSevenDaysShort"), Shiro.Services.LocalizationService.Get("Moderation.BanSevenDaysReason"));
+            if (text.Contains("3 day", StringComparison.Ordinal) || text.Contains("3-day", StringComparison.Ordinal))
+                return (true, Shiro.Services.LocalizationService.Get("FastLogin.BanThreeDaysShort"), Shiro.Services.LocalizationService.Get("Moderation.BanThreeDaysReason"));
+            if (text.Contains("1 day", StringComparison.Ordinal) || text.Contains("1-day", StringComparison.Ordinal))
+                return (true, Shiro.Services.LocalizationService.Get("FastLogin.BanOneDayShort"), Shiro.Services.LocalizationService.Get("Moderation.BanOneDayReason"));
+            if (text.Contains("14 day", StringComparison.Ordinal) || text.Contains("14-day", StringComparison.Ordinal))
+                return (true, Shiro.Services.LocalizationService.Get("FastLogin.BanFourteenDaysShort"), Shiro.Services.LocalizationService.Get("Moderation.BanFourteenDaysReason"));
+            if (text.Contains("deleted", StringComparison.Ordinal) || text.Contains("terminated", StringComparison.Ordinal) || text.Contains("permanently", StringComparison.Ordinal))
+                return (true, Shiro.Services.LocalizationService.Get("FastLogin.BanPermanentShort"), Shiro.Services.LocalizationService.Get("Moderation.BanPermanentReason"));
+            if (hasModerationMarker && text.Contains("warning", StringComparison.Ordinal))
+                return (true, Shiro.Services.LocalizationService.Get("Msg_WarningTitle"), Shiro.Services.LocalizationService.Get("Moderation.WarningNoticeReason"));
+            if (text.Contains("locked", StringComparison.Ordinal) || text.Contains("security notification", StringComparison.Ordinal) || text.Contains("reset your password", StringComparison.Ordinal))
+                return (true, Shiro.Services.LocalizationService.Get("FastLogin.SecurityLockoutShort"), Shiro.Services.LocalizationService.Get("Moderation.AccountLockedReason"));
 
             if (hasModerationMarker)
                 return (true, Shiro.Services.LocalizationService.Get("FastLogin.LockedOrBannedBadge"), Shiro.Services.LocalizationService.Get("FastLogin.AccountLockedOrModerated"));

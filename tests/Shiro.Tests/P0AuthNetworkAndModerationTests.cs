@@ -27,11 +27,13 @@ namespace Shiro.Tests
 
         private readonly Func<Account, HttpClient>? _previousAuditorClientFactory;
         private readonly Func<Account, HttpClient>? _previousAccountClientFactory;
+        private readonly AppLanguage _previousLanguage;
 
         public P0AuthNetworkAndModerationTests()
         {
             _previousAuditorClientFactory = SessionAuditorService.TestHttpClientFactory;
             _previousAccountClientFactory = Account.TestHttpClientFactory;
+            _previousLanguage = LocalizationService.CurrentLanguage;
             RobloxRateLimitCoordinator.Instance.ResetBackoff();
         }
 
@@ -39,6 +41,7 @@ namespace Shiro.Tests
         {
             SessionAuditorService.TestHttpClientFactory = _previousAuditorClientFactory;
             Account.TestHttpClientFactory = _previousAccountClientFactory;
+            LocalizationService.SetLanguage(_previousLanguage, saveSetting: false);
             RobloxRateLimitCoordinator.Instance.ResetBackoff();
         }
 
@@ -234,6 +237,98 @@ namespace Shiro.Tests
 
             await Assert.ThrowsAnyAsync<OperationCanceledException>(
                 () => SessionAuditorService.AuditAccountAsync(account2, economyCts.Token));
+        }
+
+        [Fact]
+        public void ParseModerationText_WhenUiLanguageIsVietnamese_StillDetectsCanonicalEnglishHtml()
+        {
+            LocalizationService.SetLanguage(AppLanguage.Vietnamese, saveSetting: false);
+
+            var communityStandards = RobloxModerationService.ParseModerationText("<div>Community Standards violation</div>");
+            Assert.True(communityStandards.IsBanned);
+            Assert.Equal(LocalizationService.Get("FastLogin.LockedOrBannedBadge"), communityStandards.IssueBadge);
+            Assert.Equal(LocalizationService.Get("FastLogin.AccountLockedOrModerated"), communityStandards.Reason);
+
+            var accountLocked = RobloxModerationService.ParseModerationText("<div>Account Locked - Reset your password</div>");
+            Assert.True(accountLocked.IsBanned);
+            Assert.Equal(LocalizationService.Get("FastLogin.SecurityLockoutShort"), accountLocked.IssueBadge);
+            Assert.Equal(LocalizationService.Get("Moderation.AccountLockedReason"), accountLocked.Reason);
+
+            var sevenDayBan = RobloxModerationService.ParseModerationText("<div>Moderator Note: Ban 7 Days</div>");
+            Assert.True(sevenDayBan.IsBanned);
+            Assert.Equal(LocalizationService.Get("FastLogin.BanSevenDaysShort"), sevenDayBan.IssueBadge);
+            Assert.Equal(LocalizationService.Get("Moderation.BanSevenDaysReason"), sevenDayBan.Reason);
+        }
+
+        [Fact]
+        public void ParseModerationText_WhenWarningAppearsWithoutModerationMarker_ReturnsNotBanned()
+        {
+            var benignBanner = RobloxModerationService.ParseModerationText(
+                "<div class='banner'>Warning: browser extension detected</div>");
+
+            Assert.False(benignBanner.IsBanned);
+            Assert.Null(benignBanner.IssueBadge);
+            Assert.Null(benignBanner.Reason);
+
+            var genuineWarning = RobloxModerationService.ParseModerationText(
+                "<div class='not-approved'><h2>Warning</h2><p>Moderator Note: Please review Community Standards</p><button>I Agree</button></div>");
+
+            Assert.True(genuineWarning.IsBanned);
+            Assert.Equal(LocalizationService.Get("Msg_WarningTitle"), genuineWarning.IssueBadge);
+            Assert.Equal(LocalizationService.Get("Moderation.WarningNoticeReason"), genuineWarning.Reason);
+        }
+
+        [Fact]
+        public void ModerationLocalizationKeys_AreUnscrambledAndMatchParsedReasons()
+        {
+            foreach (AppLanguage lang in new[] { AppLanguage.English, AppLanguage.Vietnamese })
+            {
+                LocalizationService.SetLanguage(lang, saveSetting: false);
+
+                string connectionError = LocalizationService.Get("Moderation.ConnectionError");
+                Assert.NotEqual("Moderation.ConnectionError", connectionError);
+                Assert.DoesNotContain("banned for 7 days", connectionError, StringComparison.OrdinalIgnoreCase);
+                Assert.DoesNotContain("7", connectionError, StringComparison.Ordinal);
+
+                string cannotGetSession = LocalizationService.Get("Moderation.CannotGetSessionForNotice");
+                Assert.NotEqual("Moderation.CannotGetSessionForNotice", cannotGetSession);
+                Assert.DoesNotContain("banned for 3 days", cannotGetSession, StringComparison.OrdinalIgnoreCase);
+                Assert.DoesNotContain("3", cannotGetSession, StringComparison.Ordinal);
+
+                string loadNoticeError = LocalizationService.Get("Moderation.LoadNoticeError");
+                Assert.NotEqual("account locked", loadNoticeError, StringComparer.OrdinalIgnoreCase);
+                Assert.NotEqual("Moderation.LoadNoticeError", loadNoticeError);
+
+                string reactivateFailed = LocalizationService.Get("Moderation.ReactivateFailed");
+                Assert.NotEqual("reason:", reactivateFailed, StringComparer.OrdinalIgnoreCase);
+                Assert.NotEqual("Moderation.ReactivateFailed", reactivateFailed);
+
+                string reactivatedSuccess = LocalizationService.Get("Moderation.ReactivatedSuccess");
+                Assert.NotEqual("community standards", reactivatedSuccess, StringComparer.OrdinalIgnoreCase);
+                Assert.NotEqual("Moderation.ReactivatedSuccess", reactivatedSuccess);
+
+                Assert.Equal(
+                    LocalizationService.Get("Moderation.BanOneDayReason"),
+                    RobloxModerationService.ParseModerationText("Reviewed: today. Ban 1 day").Reason);
+                Assert.Equal(
+                    LocalizationService.Get("Moderation.BanThreeDaysReason"),
+                    RobloxModerationService.ParseModerationText("Reviewed: today. Ban 3 days").Reason);
+                Assert.Equal(
+                    LocalizationService.Get("Moderation.BanSevenDaysReason"),
+                    RobloxModerationService.ParseModerationText("Reviewed: today. Ban 7 days").Reason);
+                Assert.Equal(
+                    LocalizationService.Get("Moderation.BanFourteenDaysReason"),
+                    RobloxModerationService.ParseModerationText("Reviewed: today. Ban 14 days").Reason);
+                Assert.Equal(
+                    LocalizationService.Get("Moderation.BanPermanentReason"),
+                    RobloxModerationService.ParseModerationText("Reviewed: today. Account terminated").Reason);
+                Assert.Equal(
+                    LocalizationService.Get("Moderation.WarningNoticeReason"),
+                    RobloxModerationService.ParseModerationText("Reviewed: today. Warning issued").Reason);
+                Assert.Equal(
+                    LocalizationService.Get("Moderation.AccountLockedReason"),
+                    RobloxModerationService.ParseModerationText("Reviewed: today. Account locked").Reason);
+            }
         }
     }
 }
