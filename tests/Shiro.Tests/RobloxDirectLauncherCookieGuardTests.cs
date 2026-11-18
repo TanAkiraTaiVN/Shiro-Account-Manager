@@ -14,6 +14,50 @@ namespace Shiro.Tests
     {
         private const string TestToken = "_|WARNING:-DO-NOT-SHARE-THIS.--test-guard-cookie-payload-with-over-100-characters-for-validation-purposes-1234567890";
 
+        private static void WithIsolatedLocalStorage(string prefix, Action<string> testBody, Action? extraCleanup = null)
+        {
+            string isolated = Path.Combine(Path.GetTempPath(), prefix + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(isolated);
+            RobloxDirectLauncher.ResetCookieGuardStateForTest();
+            RobloxDirectLauncher.TestDefaultLocalStorageDirOverride = isolated;
+            try
+            {
+                testBody(isolated);
+            }
+            finally
+            {
+                RobloxDirectLauncher.ResetCookieGuardStateForTest();
+                extraCleanup?.Invoke();
+                if (Directory.Exists(isolated))
+                {
+                    try { Directory.Delete(isolated, true); }
+                    catch (IOException) { }
+                }
+            }
+        }
+
+        private static async Task WithIsolatedLocalStorageAsync(string prefix, Func<string, Task> testBody, Action? extraCleanup = null)
+        {
+            string isolated = Path.Combine(Path.GetTempPath(), prefix + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(isolated);
+            RobloxDirectLauncher.ResetCookieGuardStateForTest();
+            RobloxDirectLauncher.TestDefaultLocalStorageDirOverride = isolated;
+            try
+            {
+                await testBody(isolated);
+            }
+            finally
+            {
+                RobloxDirectLauncher.ResetCookieGuardStateForTest();
+                extraCleanup?.Invoke();
+                if (Directory.Exists(isolated))
+                {
+                    try { Directory.Delete(isolated, true); }
+                    catch (IOException) { }
+                }
+            }
+        }
+
         [Fact]
         public void CookieGuardScope_ManagesActiveScopeCount()
         {
@@ -246,11 +290,10 @@ namespace Shiro.Tests
         [Fact]
         public void RestoreOriginalCookies_WithIsolatedDirectory_RestoresAndCleansBackup()
         {
-            string isolated = Path.Combine(Path.GetTempPath(), "Shiro-RestoreTest-" + Guid.NewGuid().ToString("N"));
-            Directory.CreateDirectory(isolated);
-
-            try
+            WithIsolatedLocalStorage("Shiro-RestoreTest-", isolated =>
             {
+                RobloxDirectLauncher.TestIsAnyRobloxRunningOverride = () => false;
+
                 // 1. When no backup exists
                 bool restoredNoBackup = RobloxDirectLauncher.RestoreOriginalCookies(isolated);
                 Assert.False(restoredNoBackup);
@@ -265,7 +308,7 @@ namespace Shiro.Tests
                 Assert.True(File.Exists(cookiesDat));
                 Assert.False(File.Exists(backup));
 
-                // 3. Schedule methods execute cleanly
+                // 3. Schedule methods execute cleanly within isolated temp directory
                 var ex = Record.Exception(() =>
                 {
                     RobloxDirectLauncher.ScheduleOriginalCookieRestore(10);
@@ -273,15 +316,7 @@ namespace Shiro.Tests
                     RobloxDirectLauncher.SchedulePostSpawnCookieRestore(0);
                 });
                 Assert.Null(ex);
-            }
-            finally
-            {
-                if (Directory.Exists(isolated))
-                {
-                    try { Directory.Delete(isolated, true); }
-                    catch (IOException) { }
-                }
-            }
+            });
         }
 
         [Fact]
@@ -290,10 +325,11 @@ namespace Shiro.Tests
             var restoreCtsField = typeof(RobloxDirectLauncher).GetField("_restoreCts", BindingFlags.NonPublic | BindingFlags.Static);
             Assert.NotNull(restoreCtsField);
 
-            // Ensure clean cookie guard state without pending backup/injection
-            RobloxDirectLauncher.RestoreOriginalCookies();
-            try
+            WithIsolatedLocalStorage("Shiro-NoBackupSchedule-", _ =>
             {
+                RobloxDirectLauncher.TestIsAnyRobloxRunningOverride = () => false;
+                RobloxDirectLauncher.RestoreOriginalCookies();
+
                 RobloxDirectLauncher.ScheduleOriginalCookieRestore(60_000);
                 var initialCts = restoreCtsField!.GetValue(null) as CancellationTokenSource;
                 Assert.NotNull(initialCts);
@@ -304,11 +340,7 @@ namespace Shiro.Tests
                 var afterCts = restoreCtsField.GetValue(null) as CancellationTokenSource;
                 Assert.Same(initialCts, afterCts);
                 Assert.False(initialCts.IsCancellationRequested);
-            }
-            finally
-            {
-                using var clearScope = RobloxDirectLauncher.BeginCookieGuardScope(0);
-            }
+            });
         }
 
         [Fact]
@@ -318,39 +350,35 @@ namespace Shiro.Tests
             Assert.NotNull(restoreCtsField);
 
             var prevPidOverride = RobloxProcessService.TestGetRunningRobloxPidsOverride;
-            try
-            {
-                RobloxProcessService.TestGetRunningRobloxPidsOverride = () => new[] { Environment.ProcessId };
-                RobloxDirectLauncher.ScheduleOriginalCookieRestore(25);
+            await WithIsolatedLocalStorageAsync(
+                "Shiro-DeferSchedule-",
+                async _ =>
+                {
+                    RobloxProcessService.TestGetRunningRobloxPidsOverride = () => new[] { Environment.ProcessId };
+                    RobloxDirectLauncher.ScheduleOriginalCookieRestore(25);
 
-                var initialCts = restoreCtsField!.GetValue(null) as CancellationTokenSource;
-                Assert.NotNull(initialCts);
+                    var initialCts = restoreCtsField!.GetValue(null) as CancellationTokenSource;
+                    Assert.NotNull(initialCts);
 
-                await Task.Delay(120);
+                    await Task.Delay(120);
 
-                var afterDelayCts = restoreCtsField.GetValue(null) as CancellationTokenSource;
-                Assert.False(initialCts!.IsCancellationRequested);
-                Assert.Same(initialCts, afterDelayCts);
-            }
-            finally
-            {
-                RobloxProcessService.TestGetRunningRobloxPidsOverride = prevPidOverride;
-                using var clearScope = RobloxDirectLauncher.BeginCookieGuardScope(0);
-            }
+                    var afterDelayCts = restoreCtsField.GetValue(null) as CancellationTokenSource;
+                    Assert.False(initialCts!.IsCancellationRequested);
+                    Assert.Same(initialCts, afterDelayCts);
+                },
+                extraCleanup: () => RobloxProcessService.TestGetRunningRobloxPidsOverride = prevPidOverride);
         }
 
         [Fact]
         public void RestoreOriginalCookies_WhenCookiesDatLocked_KeepsNoOrigSentinelIntact()
         {
-            string isolated = Path.Combine(Path.GetTempPath(), "Shiro-LockedRestore-" + Guid.NewGuid().ToString("N"));
-            Directory.CreateDirectory(isolated);
-            string cookiesDat = Path.Combine(isolated, "RobloxCookies.dat");
-            string sentinel = Path.Combine(isolated, "RobloxCookies.dat.shiro-none");
-            File.WriteAllText(cookiesDat, "dummy-cookie-json");
-            File.WriteAllText(sentinel, "1");
-
-            try
+            WithIsolatedLocalStorage("Shiro-LockedRestore-", isolated =>
             {
+                string cookiesDat = Path.Combine(isolated, "RobloxCookies.dat");
+                string sentinel = Path.Combine(isolated, "RobloxCookies.dat.shiro-none");
+                File.WriteAllText(cookiesDat, "dummy-cookie-json");
+                File.WriteAllText(sentinel, "1");
+
                 using (new FileStream(cookiesDat, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
                 {
                     bool restored = RobloxDirectLauncher.RestoreOriginalCookies(isolated);
@@ -363,15 +391,7 @@ namespace Shiro.Tests
                 Assert.True(restoredAfterUnlock);
                 Assert.False(File.Exists(cookiesDat));
                 Assert.False(File.Exists(sentinel));
-            }
-            finally
-            {
-                if (Directory.Exists(isolated))
-                {
-                    try { Directory.Delete(isolated, true); }
-                    catch (IOException) { }
-                }
-            }
+            });
         }
 
         [Fact]
@@ -419,13 +439,8 @@ namespace Shiro.Tests
         [Fact]
         public async Task SchedulePostSpawnCookieRestore_WithInjectedCookie_DefersWhileRobloxRunningAndRestoresOnExit()
         {
-            string isolated = Path.Combine(Path.GetTempPath(), "Shiro-PostSpawnRestore-" + Guid.NewGuid().ToString("N"));
-            Directory.CreateDirectory(isolated);
-            RobloxDirectLauncher.ResetCookieGuardStateForTest();
-
-            try
+            await WithIsolatedLocalStorageAsync("Shiro-PostSpawnRestore-", async isolated =>
             {
-                RobloxDirectLauncher.TestDefaultLocalStorageDirOverride = isolated;
                 bool robloxRunning = true;
                 int runningChecks = 0;
                 RobloxDirectLauncher.TestIsAnyRobloxRunningOverride = () =>
@@ -438,10 +453,7 @@ namespace Shiro.Tests
                 RobloxDirectLauncher.TestCookieRestoreRetryDelayMsOverride = 15;
 
                 bool injected = RobloxDirectLauncher.InjectAccountCookieToLocalStorage(
-                    TestToken,
-                    browserTrackerId: "123456789012",
-                    localStorageDirectoryOverride: null,
-                    username: "PostSpawnUser");
+                    TestToken, browserTrackerId: "123456789012", localStorageDirectoryOverride: null, username: "PostSpawnUser");
                 Assert.True(injected);
                 Assert.True(RobloxDirectLauncher.HasPendingCookieBackup);
 
@@ -452,43 +464,27 @@ namespace Shiro.Tests
                 var activeCts = restoreCtsField!.GetValue(null) as CancellationTokenSource;
                 Assert.NotNull(activeCts);
 
-                bool checkedWhileRunning = SpinWait.SpinUntil(() => Volatile.Read(ref runningChecks) >= 2, TimeSpan.FromSeconds(3));
-                Assert.True(checkedWhileRunning);
+                Assert.True(SpinWait.SpinUntil(() => Volatile.Read(ref runningChecks) >= 2, TimeSpan.FromSeconds(3)));
                 Assert.False(activeCts!.IsCancellationRequested);
                 Assert.Same(activeCts, restoreCtsField.GetValue(null));
 
                 Volatile.Write(ref robloxRunning, false);
-                bool restored = SpinWait.SpinUntil(() => !RobloxDirectLauncher.HasPendingCookieBackup, TimeSpan.FromSeconds(3));
-                Assert.True(restored);
+                Assert.True(SpinWait.SpinUntil(() => !RobloxDirectLauncher.HasPendingCookieBackup, TimeSpan.FromSeconds(3)));
                 Assert.False(File.Exists(Path.Combine(isolated, "RobloxCookies.dat")));
                 Assert.False(File.Exists(Path.Combine(isolated, "RobloxCookies.dat.shiro-none")));
-            }
-            finally
-            {
-                RobloxDirectLauncher.ResetCookieGuardStateForTest();
-                if (Directory.Exists(isolated))
-                {
-                    try { Directory.Delete(isolated, true); }
-                    catch (IOException) { }
-                }
-            }
+                await Task.CompletedTask;
+            });
         }
 
         [Fact]
         public void RestoreOriginalCookiesCore_DeleteFailureMock_PreservesSentinelAndPendingState()
         {
-            string isolated = Path.Combine(Path.GetTempPath(), "Shiro-MockDeleteFail-" + Guid.NewGuid().ToString("N"));
-            Directory.CreateDirectory(isolated);
-            RobloxDirectLauncher.ResetCookieGuardStateForTest();
-
-            try
+            WithIsolatedLocalStorage("Shiro-MockDeleteFail-", isolated =>
             {
-                RobloxDirectLauncher.TestDefaultLocalStorageDirOverride = isolated;
                 string cookiesDat = Path.Combine(isolated, "RobloxCookies.dat");
                 string sentinel = Path.Combine(isolated, "RobloxCookies.dat.shiro-none");
                 File.WriteAllText(cookiesDat, "cookie-temp");
                 File.WriteAllText(sentinel, "1");
-
                 Assert.True(RobloxDirectLauncher.HasPendingCookieBackup);
 
                 bool failedRestore = RobloxDirectLauncher.RestoreOriginalCookiesCore(
@@ -505,21 +501,11 @@ namespace Shiro.Tests
                 Assert.True(File.Exists(sentinel));
                 Assert.True(RobloxDirectLauncher.HasPendingCookieBackup);
 
-                bool okRestore = RobloxDirectLauncher.RestoreOriginalCookiesCore(localStorageDirectoryOverride: null);
-                Assert.True(okRestore);
+                Assert.True(RobloxDirectLauncher.RestoreOriginalCookiesCore(localStorageDirectoryOverride: null));
                 Assert.False(File.Exists(cookiesDat));
                 Assert.False(File.Exists(sentinel));
                 Assert.False(RobloxDirectLauncher.HasPendingCookieBackup);
-            }
-            finally
-            {
-                RobloxDirectLauncher.ResetCookieGuardStateForTest();
-                if (Directory.Exists(isolated))
-                {
-                    try { Directory.Delete(isolated, true); }
-                    catch (IOException) { }
-                }
-            }
+            });
         }
     }
 }

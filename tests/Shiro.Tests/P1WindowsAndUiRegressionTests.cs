@@ -185,13 +185,21 @@ namespace Shiro.Tests
             RobloxJobObjectService.Close();
             Assert.False(RobloxJobObjectService.IsIocpThreadAliveForTest);
 
-            RobloxSingletonService.Apply(true);
-            RobloxSingletonService.Apply(false);
-            RobloxSingletonService.Apply(true);
-            bool heldAfterReenable = RobloxSingletonService.MutexHeld;
-            RobloxSingletonService.Apply(false);
-            Assert.True(heldAfterReenable || RobloxSingletonService.AccessDenied);
-            Assert.False(RobloxSingletonService.MutexHeld);
+            try
+            {
+                RobloxSingletonService.Apply(true);
+                RobloxSingletonService.Apply(false);
+                RobloxSingletonService.Apply(true);
+                bool heldAfterReenable = RobloxSingletonService.MutexHeld;
+                bool accessDeniedAfterReenable = RobloxSingletonService.AccessDenied;
+                RobloxSingletonService.Apply(false);
+                Assert.True(heldAfterReenable || accessDeniedAfterReenable);
+                Assert.False(RobloxSingletonService.MutexHeld);
+            }
+            finally
+            {
+                RobloxSingletonService.Apply(true);
+            }
         }
 
         [Fact]

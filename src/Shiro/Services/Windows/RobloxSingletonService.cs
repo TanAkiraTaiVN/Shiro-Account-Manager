@@ -74,6 +74,11 @@ namespace Shiro.Services
         {
             StopWatcher();
             EnsureMutex(false);
+            lock (_gate)
+            {
+                _accessDenied = false;
+            }
+            SetStatus("Multi-Instance Ready");
         }
 
         public static void EnsureMutex(bool enabled)

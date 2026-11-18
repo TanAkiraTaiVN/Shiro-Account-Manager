@@ -272,6 +272,7 @@ namespace Shiro.Tests
             bool allocatedWithLocalAlloc = false;
             try
             {
+                RobloxSingletonService.Stop();
                 pSd = RobloxSingletonService.BuildSecurityDescriptor(
                     RobloxSingletonService.RestrictedInteractiveSddl,
                     out allocatedWithLocalAlloc);
@@ -411,6 +412,7 @@ namespace Shiro.Tests
             Assert.True(RobloxSingletonService.ShouldAbortHoldOnZeroEvent(IntPtr.Zero));
             Assert.False(RobloxSingletonService.ShouldAbortHoldOnZeroEvent(new IntPtr(1)));
 
+            RobloxSingletonService.Stop();
             try
             {
                 // Case 1: mutex created and owned, but CreateEventW fails (IntPtr.Zero) with ERROR_ACCESS_DENIED (5).
@@ -487,6 +489,11 @@ namespace Shiro.Tests
             {
                 RobloxSingletonService.Stop();
             }
+
+            Assert.False(RobloxSingletonService.MutexHeld);
+            Assert.False(RobloxSingletonService.AccessDenied);
+            Assert.DoesNotContain("Warning", RobloxSingletonService.StatusText, StringComparison.Ordinal);
+            Assert.DoesNotContain("Error", RobloxSingletonService.StatusText, StringComparison.Ordinal);
         }
     }
 }

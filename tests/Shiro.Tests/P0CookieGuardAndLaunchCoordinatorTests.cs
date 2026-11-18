@@ -15,6 +15,12 @@ namespace Shiro.Tests
     {
         private readonly bool _origRememberWindow = RobloxWatcher.RememberWindowPositions;
 
+        public P0CookieGuardAndLaunchCoordinatorTests()
+        {
+            AccountLaunchService.TestAdjustWindowPositionOverride = (_, _, _) => Task.CompletedTask;
+            AccountLaunchService.TestMonitorNativeAuthRateLimitOverride = (_, _, _) => Task.CompletedTask;
+        }
+
         public void Dispose()
         {
             RobloxWatcher.RememberWindowPositions = _origRememberWindow;
@@ -56,9 +62,23 @@ namespace Shiro.Tests
             using var bridgeScope = AppServices.Override(bridge);
 
             RobloxWatcher.RememberWindowPositions = true;
+            var batchCancelledGate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            int completedMonitors = 0;
             AccountLaunchService.TestGetAuthTicketOverride = (_, _) => Task.FromResult((true, "ticket-mon-1"));
             AccountLaunchService.TestStartNativeGameOverride = (_, _, _, _, _, _, _) => Task.FromResult(999991);
             LaunchCoordinator.TestWaitForClientUnlockedOverride = (_, _, _) => Task.FromResult(true);
+            AccountLaunchService.TestMonitorNativeAuthRateLimitOverride = async (_, _, ct) =>
+            {
+                await batchCancelledGate.Task.ConfigureAwait(false);
+                await Task.Delay(25, ct).ConfigureAwait(false);
+                Interlocked.Increment(ref completedMonitors);
+            };
+            AccountLaunchService.TestAdjustWindowPositionOverride = async (_, _, ct) =>
+            {
+                await batchCancelledGate.Task.ConfigureAwait(false);
+                await Task.Delay(25, ct).ConfigureAwait(false);
+                Interlocked.Increment(ref completedMonitors);
+            };
 
             var account1 = new Account
             {
@@ -91,29 +111,36 @@ namespace Shiro.Tests
                 return AccountLaunchService.Instance.JoinServerResultAsync(req.Account, req.PlaceId, cancellationToken: ct);
             });
 
-            var batch = await coordinator.EnqueueAsync(
-                new[]
-                {
-                    new LaunchRequest(account1, 1818, string.Empty, false, false),
-                    new LaunchRequest(account2, 1818, string.Empty, false, false)
-                },
-                delaySeconds: 1,
-                asyncJoin: false,
-                progress: null,
-                cancellationToken: batchCts.Token);
-
-            Assert.True(batch.Cancelled);
-            Assert.Equal(LaunchOutcome.Success, batch.Results[0].Status);
-
-            // Allow background monitors to process cancellation if mistakenly linked to batch token.
-            await Task.Delay(350);
-
-            lock (monitorEvents)
+            try
             {
-                Assert.DoesNotContain(monitorEvents, m => m.Contains("Roblox window positioning cancelled", StringComparison.OrdinalIgnoreCase));
-                Assert.DoesNotContain(monitorEvents, m => m.Contains("native auth rate-limit monitor cancelled", StringComparison.OrdinalIgnoreCase));
-                Assert.DoesNotContain(monitorEvents, m => m.Contains("Roblox window positioning failed", StringComparison.OrdinalIgnoreCase));
-                Assert.DoesNotContain(monitorEvents, m => m.Contains("native auth rate-limit monitor failed", StringComparison.OrdinalIgnoreCase));
+                var batch = await coordinator.EnqueueAsync(
+                    new[]
+                    {
+                        new LaunchRequest(account1, 1818, string.Empty, false, false),
+                        new LaunchRequest(account2, 1818, string.Empty, false, false)
+                    },
+                    delaySeconds: 1,
+                    asyncJoin: false,
+                    progress: null,
+                    cancellationToken: batchCts.Token);
+
+                Assert.True(batch.Cancelled);
+                Assert.Equal(LaunchOutcome.Success, batch.Results[0].Status);
+
+                batchCancelledGate.TrySetResult();
+                Assert.True(SpinWait.SpinUntil(() => Volatile.Read(ref completedMonitors) == 2, TimeSpan.FromSeconds(3)));
+
+                lock (monitorEvents)
+                {
+                    Assert.DoesNotContain(monitorEvents, m => m.Contains("Roblox window positioning cancelled", StringComparison.OrdinalIgnoreCase));
+                    Assert.DoesNotContain(monitorEvents, m => m.Contains("native auth rate-limit monitor cancelled", StringComparison.OrdinalIgnoreCase));
+                    Assert.DoesNotContain(monitorEvents, m => m.Contains("Roblox window positioning failed", StringComparison.OrdinalIgnoreCase));
+                    Assert.DoesNotContain(monitorEvents, m => m.Contains("native auth rate-limit monitor failed", StringComparison.OrdinalIgnoreCase));
+                }
+            }
+            finally
+            {
+                batchCancelledGate.TrySetResult();
             }
         }
 
@@ -207,6 +234,10 @@ namespace Shiro.Tests
             var restoreCtsField = typeof(RobloxDirectLauncher).GetField("_restoreCts", BindingFlags.NonPublic | BindingFlags.Static);
             Assert.NotNull(restoreCtsField);
 
+            string isolated = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "Shiro-NoCookie-" + Guid.NewGuid().ToString("N"));
+            System.IO.Directory.CreateDirectory(isolated);
+            RobloxDirectLauncher.ResetCookieGuardStateForTest();
+            RobloxDirectLauncher.TestDefaultLocalStorageDirOverride = isolated;
             RobloxDirectLauncher.RestoreOriginalCookies();
             var bridge = Substitute.For<IHostUiBridgeService>();
             using var bridgeScope = AppServices.Override(bridge);
@@ -234,7 +265,12 @@ namespace Shiro.Tests
             }
             finally
             {
-                using var clearScope = RobloxDirectLauncher.BeginCookieGuardScope(0);
+                RobloxDirectLauncher.ResetCookieGuardStateForTest();
+                if (System.IO.Directory.Exists(isolated))
+                {
+                    try { System.IO.Directory.Delete(isolated, true); }
+                    catch (System.IO.IOException) { }
+                }
             }
         }
 

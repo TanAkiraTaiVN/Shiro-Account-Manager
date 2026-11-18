@@ -122,6 +122,8 @@ namespace Shiro.Services
 
                         var holder = new HolderHandle(initialRefs: 2);
                         long gen = Interlocked.Increment(ref _holderGeneration);
+                        _handlesHeld = false;
+                        _accessDenied = false;
                         if (holder.TryAcquire())
                             waitHolder = holder;
 
@@ -163,7 +165,8 @@ namespace Shiro.Services
             {
                 try
                 {
-                    waitHolder.Ready.Wait(500);
+                    int readyTimeoutMs = startHolderOverride == null ? 2000 : 500;
+                    waitHolder.Ready.Wait(readyTimeoutMs);
                 }
                 finally
                 {
