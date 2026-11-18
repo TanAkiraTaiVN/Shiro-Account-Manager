@@ -44,8 +44,8 @@ namespace Shiro.Services
         private static readonly System.Threading.Lock _sync = new();
         private static RuntimeStateDocument? _document;
         private static string? _loadedFilePath;
+        private static readonly Dictionary<string, RuntimeStateDocument> _overrideDocuments = new(StringComparer.OrdinalIgnoreCase);
         private static bool _dirty;
-        private static long _mutationVersion;
         private static Timer? _debounceTimer;
 
         public static string BuildAccountKey(long userId, string? username)
@@ -71,15 +71,7 @@ namespace Shiro.Services
 
             lock (_sync)
             {
-                var doc = EnsureLoadedUnderLock(filePathOverride);
-                if (!doc.Accounts.TryGetValue(key, out var entry))
-                {
-                    entry = new RuntimeStateEntry();
-                    doc.Accounts[key] = entry;
-                }
-
-                entry.UserId = account.UserID;
-                entry.Username = account.Username ?? string.Empty;
+                var entry = GetOrCreateEntryUnderLock(account, key, filePathOverride, out var doc);
                 if (account.LastUse > entry.LastUse)
                     entry.LastUse = account.LastUse;
                 entry.WindowX = x;
@@ -87,7 +79,7 @@ namespace Shiro.Services
                 entry.WindowWidth = width;
                 entry.WindowHeight = height;
 
-                MarkDirtyUnderLock(filePathOverride);
+                MarkDirtyUnderLock(filePathOverride, doc);
             }
         }
 
@@ -99,19 +91,11 @@ namespace Shiro.Services
 
             lock (_sync)
             {
-                var doc = EnsureLoadedUnderLock(filePathOverride);
-                if (!doc.Accounts.TryGetValue(key, out var entry))
-                {
-                    entry = new RuntimeStateEntry();
-                    doc.Accounts[key] = entry;
-                }
-
-                entry.UserId = account.UserID;
-                entry.Username = account.Username ?? string.Empty;
+                var entry = GetOrCreateEntryUnderLock(account, key, filePathOverride, out var doc);
                 if (lastUse > entry.LastUse)
                     entry.LastUse = lastUse;
 
-                MarkDirtyUnderLock(filePathOverride);
+                MarkDirtyUnderLock(filePathOverride, doc);
             }
         }
 
@@ -123,52 +107,57 @@ namespace Shiro.Services
         {
             if (accounts == null) return 0;
 
-            RuntimeStateDocument doc;
+            var snapshots = new List<(Account Account, DateTime LastUse, int? WindowX, int? WindowY, int? WindowWidth, int? WindowHeight)>();
             lock (_sync)
             {
-                doc = filePathOverride != null
+                RuntimeStateDocument doc = filePathOverride != null
                     ? LoadDocumentFromDisk(filePathOverride)
                     : EnsureLoadedUnderLock(null);
+
+                if (doc.Accounts.Count == 0)
+                    return 0;
+
+                foreach (var account in accounts)
+                {
+                    if (account == null) continue;
+
+                    RuntimeStateEntry? entry = null;
+                    if (account.UserID > 0)
+                    {
+                        doc.Accounts.TryGetValue($"uid:{account.UserID}", out entry);
+                    }
+                    if (entry == null && !string.IsNullOrWhiteSpace(account.Username))
+                    {
+                        doc.Accounts.TryGetValue($"usr:{account.Username.Trim().ToLowerInvariant()}", out entry);
+                    }
+
+                    if (entry == null)
+                        continue;
+
+                    snapshots.Add((account, entry.LastUse, entry.WindowX, entry.WindowY, entry.WindowWidth, entry.WindowHeight));
+                }
             }
 
-            if (doc.Accounts.Count == 0)
-                return 0;
-
             int hydratedCount = 0;
-            foreach (var account in accounts)
+            foreach (var item in snapshots)
             {
-                if (account == null) continue;
-
-                RuntimeStateEntry? entry = null;
-                if (account.UserID > 0)
-                {
-                    doc.Accounts.TryGetValue($"uid:{account.UserID}", out entry);
-                }
-                if (entry == null && !string.IsNullOrWhiteSpace(account.Username))
-                {
-                    doc.Accounts.TryGetValue($"usr:{account.Username.Trim().ToLowerInvariant()}", out entry);
-                }
-
-                if (entry == null)
-                    continue;
-
                 bool changed = false;
-                if (entry.LastUse > account.LastUse)
+                if (item.LastUse > item.Account.LastUse)
                 {
-                    account.LastUse = entry.LastUse;
+                    item.Account.LastUse = item.LastUse;
                     changed = true;
                 }
 
-                if (entry.WindowX.HasValue &&
-                    entry.WindowY.HasValue &&
-                    entry.WindowWidth.HasValue &&
-                    entry.WindowHeight.HasValue)
+                if (item.WindowX.HasValue &&
+                    item.WindowY.HasValue &&
+                    item.WindowWidth.HasValue &&
+                    item.WindowHeight.HasValue)
                 {
-                    account.ApplyWindowBoundsInMemory(
-                        entry.WindowX.Value,
-                        entry.WindowY.Value,
-                        entry.WindowWidth.Value,
-                        entry.WindowHeight.Value);
+                    item.Account.ApplyWindowBoundsInMemory(
+                        item.WindowX.Value,
+                        item.WindowY.Value,
+                        item.WindowWidth.Value,
+                        item.WindowHeight.Value);
                     changed = true;
                 }
 
@@ -184,42 +173,33 @@ namespace Shiro.Services
         /// </summary>
         public static bool Flush(string? filePathOverride = null)
         {
-            byte[]? payloadToWrite = null;
-            string targetPath;
-            long snapshotVersion = 0;
-
             lock (_sync)
             {
-                _debounceTimer?.Change(Timeout.Infinite, Timeout.Infinite);
-                if (!_dirty && filePathOverride == null)
-                    return false;
-
-                var doc = EnsureLoadedUnderLock(filePathOverride);
-                targetPath = filePathOverride ?? StoragePaths.AccountRuntimeStateFile;
-                payloadToWrite = JsonSerializer.SerializeToUtf8Bytes(doc, ShiroAppJson.Default.RuntimeStateDocument);
-                snapshotVersion = _mutationVersion;
-            }
-
-            try
-            {
-                StoragePaths.AtomicWriteBytes(targetPath, payloadToWrite, durable: false);
                 if (filePathOverride == null)
                 {
-                    lock (_sync)
-                    {
-                        if (string.Equals(_loadedFilePath, targetPath, StringComparison.OrdinalIgnoreCase) &&
-                            _mutationVersion == snapshotVersion)
-                        {
-                            _dirty = false;
-                        }
-                    }
+                    _debounceTimer?.Change(Timeout.Infinite, Timeout.Infinite);
+                    if (!_dirty)
+                        return false;
                 }
-                return true;
-            }
-            catch (Exception ex)
-            {
-                _logger.Debug($"[AccountRuntimeStateStore.Flush] Failed writing runtime state: {ex.Message}");
-                return false;
+
+                RuntimeStateDocument doc = EnsureLoadedUnderLock(filePathOverride);
+                string targetPath = filePathOverride ?? StoragePaths.AccountRuntimeStateFile;
+                byte[] payloadToWrite = JsonSerializer.SerializeToUtf8Bytes(doc, ShiroAppJson.Default.RuntimeStateDocument);
+
+                try
+                {
+                    StoragePaths.AtomicWriteBytes(targetPath, payloadToWrite, durable: false);
+                    if (filePathOverride == null)
+                    {
+                        _dirty = false;
+                    }
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    _logger.Debug($"[AccountRuntimeStateStore.Flush] Failed writing runtime state: {ex.Message}");
+                    return false;
+                }
             }
         }
 
@@ -231,20 +211,64 @@ namespace Shiro.Services
                 _debounceTimer = null;
                 _document = null;
                 _loadedFilePath = null;
+                _overrideDocuments.Clear();
                 _dirty = false;
-                _mutationVersion = 0;
             }
+        }
+
+        private static RuntimeStateEntry GetOrCreateEntryUnderLock(
+            Account account,
+            string key,
+            string? filePathOverride,
+            out RuntimeStateDocument doc)
+        {
+            doc = EnsureLoadedUnderLock(filePathOverride);
+            if (!doc.Accounts.TryGetValue(key, out var entry))
+            {
+                entry = new RuntimeStateEntry();
+                doc.Accounts[key] = entry;
+            }
+
+            entry.UserId = account.UserID;
+            entry.Username = account.Username ?? string.Empty;
+            return entry;
         }
 
         private static RuntimeStateDocument EnsureLoadedUnderLock(string? filePathOverride)
         {
-            string resolvedPath = filePathOverride ?? StoragePaths.AccountRuntimeStateFile;
+            if (filePathOverride != null)
+            {
+                string overrideKey = NormalizeOverrideKey(filePathOverride);
+                if (!_overrideDocuments.TryGetValue(overrideKey, out var overrideDoc))
+                {
+                    overrideDoc = LoadDocumentFromDisk(filePathOverride);
+                    _overrideDocuments[overrideKey] = overrideDoc;
+                }
+                return overrideDoc;
+            }
+
+            string resolvedPath = StoragePaths.AccountRuntimeStateFile;
             if (_document != null && string.Equals(_loadedFilePath, resolvedPath, StringComparison.OrdinalIgnoreCase))
                 return _document;
 
             _loadedFilePath = resolvedPath;
             _document = LoadDocumentFromDisk(resolvedPath);
             return _document;
+        }
+
+        private static string NormalizeOverrideKey(string filePathOverride)
+        {
+            if (string.IsNullOrWhiteSpace(filePathOverride))
+                return filePathOverride;
+
+            try
+            {
+                return Path.GetFullPath(filePathOverride);
+            }
+            catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+            {
+                return filePathOverride;
+            }
         }
 
         private static RuntimeStateDocument LoadDocumentFromDisk(string path)
@@ -275,17 +299,16 @@ namespace Shiro.Services
             return new RuntimeStateDocument();
         }
 
-        private static void MarkDirtyUnderLock(string? filePathOverride)
+        private static void MarkDirtyUnderLock(string? filePathOverride, RuntimeStateDocument doc)
         {
             if (filePathOverride != null)
             {
-                byte[] payload = JsonSerializer.SerializeToUtf8Bytes(_document!, ShiroAppJson.Default.RuntimeStateDocument);
+                byte[] payload = JsonSerializer.SerializeToUtf8Bytes(doc, ShiroAppJson.Default.RuntimeStateDocument);
                 StoragePaths.AtomicWriteBytes(filePathOverride, payload, durable: false);
                 return;
             }
 
             _dirty = true;
-            _mutationVersion++;
             if (_debounceTimer == null)
             {
                 _debounceTimer = new Timer(_ => Flush(), null, DebounceSaveDelayMs, Timeout.Infinite);
