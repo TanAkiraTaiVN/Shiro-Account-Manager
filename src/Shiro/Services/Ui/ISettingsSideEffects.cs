@@ -44,6 +44,9 @@ namespace Shiro.Services
 
         public static Func<IEnumerable<AccountViewModel>?>? AccountViewModelsProvider { get; set; }
 
+        // Test seam for headless verification of Save vs Cancel export picker outcomes.
+        internal static Func<string, Task<(bool Confirmed, string? Path)>>? TestPickExportPathOverride { get; set; }
+
         public void ApplyTheme(AccentTheme theme, bool save)
         {
             AccentThemeService.ApplyTheme(theme, save: save);
@@ -147,27 +150,45 @@ namespace Shiro.Services
 
         public async Task<bool> ExportVaultAsync()
         {
-            string pass = await AppServices.Dialogs.ShowInputPromptAsync(
+            string pass = await AppServices.Dialogs.ShowSecretPromptAsync(
                 LocalizationService.Get("Settings.VaultPassphrasePrompt"),
                 LocalizationService.Get("Settings.ExportVaultBtn"));
             if (string.IsNullOrWhiteSpace(pass) || pass == "/UC") return false;
 
-            string? path = null;
-            if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop && desktop.MainWindow?.StorageProvider != null)
-            {
-                var file = await desktop.MainWindow.StorageProvider.SaveFilePickerAsync(new Avalonia.Platform.Storage.FilePickerSaveOptions
-                {
-                    Title = LocalizationService.Get("Settings.ExportVaultBtn"),
-                    SuggestedFileName = $"shiro-vault-{DateTime.UtcNow:yyyyMMdd}.shirovault"
-                });
-                path = file?.Path.LocalPath;
-            }
-            path ??= Path.Combine(StoragePaths.BackupsDirectory, $"shiro-vault-{DateTime.UtcNow:yyyyMMddHHmmss}.shirovault");
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            string? path = await ResolveExportDestinationAsync();
+            if (string.IsNullOrWhiteSpace(path)) return false;
+
+            string? dir = Path.GetDirectoryName(path);
+            if (!string.IsNullOrEmpty(dir))
+                Directory.CreateDirectory(dir);
             await using var fs = File.Create(path);
             VaultExportService.ExportVault(AppServices.AccountRepository.GetAll(), pass, fs);
             ToastService.ShowSuccess(LocalizationService.Get("Settings.ExportVaultBtn"), path);
             return true;
+        }
+
+        internal static async Task<string?> ResolveExportDestinationAsync()
+        {
+            string suggestedFileName = $"shiro-vault-{DateTime.UtcNow:yyyyMMdd}.shirovault";
+            if (TestPickExportPathOverride != null)
+            {
+                var (confirmed, pickedPath) = await TestPickExportPathOverride(suggestedFileName);
+                return confirmed && !string.IsNullOrWhiteSpace(pickedPath) ? pickedPath : null;
+            }
+
+            if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
+                && desktop.MainWindow?.StorageProvider is { CanSave: true } storageProvider)
+            {
+                var file = await storageProvider.SaveFilePickerAsync(new Avalonia.Platform.Storage.FilePickerSaveOptions
+                {
+                    Title = LocalizationService.Get("Settings.ExportVaultBtn"),
+                    SuggestedFileName = suggestedFileName
+                });
+                string? localPath = file?.Path.LocalPath;
+                return string.IsNullOrWhiteSpace(localPath) ? null : localPath;
+            }
+
+            return Path.Combine(StoragePaths.BackupsDirectory, $"shiro-vault-{DateTime.UtcNow:yyyyMMddHHmmss}.shirovault");
         }
 
         public async Task<bool> ImportVaultAsync()
@@ -190,7 +211,7 @@ namespace Shiro.Services
         {
             if (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) return false;
 
-            string pass = await AppServices.Dialogs.ShowInputPromptAsync(
+            string pass = await AppServices.Dialogs.ShowSecretPromptAsync(
                 LocalizationService.Get("Settings.VaultPassphrasePrompt"),
                 LocalizationService.Get("Settings.ImportVaultBtn"));
             if (string.IsNullOrWhiteSpace(pass) || pass == "/UC") return false;

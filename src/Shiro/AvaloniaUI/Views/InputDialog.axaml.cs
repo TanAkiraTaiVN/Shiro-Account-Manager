@@ -39,7 +39,20 @@ namespace Shiro.AvaloniaUI.Views
             return null;
         }
 
-        private static InputDialog CreateDialogInstance(string text, string caption, string defaultText, bool big)
+        internal static bool ShouldMaskInput(string? caption, bool isSecret)
+        {
+            if (isSecret)
+                return true;
+
+            if (string.IsNullOrEmpty(caption))
+                return false;
+
+            string localizedKeyword = LocalizationService.Get("InputDialog.PasswordKeyword");
+            return (!string.IsNullOrEmpty(localizedKeyword) && caption.Contains(localizedKeyword, StringComparison.OrdinalIgnoreCase))
+                || caption.Contains("password", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static InputDialog CreateDialogInstance(string text, string caption, string defaultText, bool big, bool isSecret = false)
         {
             var dialog = new InputDialog();
             dialog.Title = caption ?? "Shiro";
@@ -47,9 +60,9 @@ namespace Shiro.AvaloniaUI.Views
             dialog.TxtPrompt.Text = text ?? string.Empty;
             dialog.TxtInput.Text = defaultText ?? string.Empty;
 
-            if (caption != null && (caption.Contains(Shiro.Services.LocalizationService.Get("InputDialog.PasswordKeyword"), StringComparison.OrdinalIgnoreCase) || caption.Contains("password", StringComparison.OrdinalIgnoreCase)))
+            if (ShouldMaskInput(caption, isSecret))
             {
-                dialog.TxtInput.PasswordChar = '•';
+                dialog.TxtInput.PasswordChar = '*';
             }
 
             if (big)
@@ -62,18 +75,18 @@ namespace Shiro.AvaloniaUI.Views
             return dialog;
         }
 
-        public static async Task<string> PromptAsync(string text, string caption = "Shiro", string defaultText = "", bool big = false, Window? owner = null)
+        public static async Task<string> PromptAsync(string text, string caption = "Shiro", string defaultText = "", bool big = false, Window? owner = null, bool isSecret = false)
         {
             if (!MessageBoxDialog.IsAvaloniaUiReady())
                 return "/UC";
 
             if (!Dispatcher.UIThread.CheckAccess())
-                return await Dispatcher.UIThread.InvokeAsync(() => PromptAsync(text, caption, defaultText, big, owner));
+                return await Dispatcher.UIThread.InvokeAsync(() => PromptAsync(text, caption, defaultText, big, owner, isSecret));
 
             if (!IsValidDialogOwner(owner))
                 owner = GetActiveWindow();
 
-            var dialog = CreateDialogInstance(text, caption, defaultText, big);
+            var dialog = CreateDialogInstance(text, caption, defaultText, big, isSecret);
 
             if (IsValidDialogOwner(owner))
             {
@@ -93,14 +106,14 @@ namespace Shiro.AvaloniaUI.Views
         /// <summary>
         /// Synchronous prompt dialog. Prefer <see cref="PromptAsync"/> to prevent nested message pump reentrancy.
         /// </summary>
-        public static string Prompt(string text, string caption = "Shiro", string defaultText = "", bool big = false, Window? owner = null)
+        public static string Prompt(string text, string caption = "Shiro", string defaultText = "", bool big = false, Window? owner = null, bool isSecret = false)
         {
             if (Dispatcher.UIThread.CheckAccess())
             {
                 if (!IsValidDialogOwner(owner))
                     owner = GetActiveWindow();
 
-                var dialog = CreateDialogInstance(text, caption, defaultText, big);
+                var dialog = CreateDialogInstance(text, caption, defaultText, big, isSecret);
 
                 var frame = new DispatcherFrame();
                 dialog.Closed += (s, e) => frame.Continue = false;
@@ -133,7 +146,7 @@ namespace Shiro.AvaloniaUI.Views
                 {
                     try
                     {
-                        result = await PromptAsync(text, caption, defaultText, big, owner);
+                        result = await PromptAsync(text, caption, defaultText, big, owner, isSecret);
                     }
                     catch (Exception ex)
                     {

@@ -101,6 +101,9 @@ namespace Shiro.Services
         public Task<string> ShowInputPromptAsync(string message, string title, string defaultValue = "")
             => InputDialog.PromptAsync(message, title, defaultValue, false, null);
 
+        public Task<string> ShowSecretPromptAsync(string message, string title, string defaultValue = "")
+            => InputDialog.PromptAsync(message, title, defaultValue, false, null, isSecret: true);
+
         public Task<Account?> SignInFastLoginAsync(Account? account, System.Threading.CancellationToken cancellationToken = default)
         {
             if (Avalonia.Application.Current?.ApplicationLifetime == null)

@@ -251,6 +251,8 @@ namespace Shiro.Tests
                 var dialogs = Substitute.For<IDialogService>();
                 dialogs.ShowInputPromptAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>())
                     .Returns(Task.FromResult("Passphrase#123"));
+                dialogs.ShowSecretPromptAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>())
+                    .Returns(Task.FromResult("Passphrase#123"));
 
                 var host = Substitute.For<IHostUiBridgeService>();
 

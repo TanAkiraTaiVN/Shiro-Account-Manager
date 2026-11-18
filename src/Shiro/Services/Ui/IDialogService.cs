@@ -13,6 +13,8 @@ namespace Shiro.Services
         string ShowInputPrompt(string message, string title, string defaultValue = "");
         System.Threading.Tasks.Task<string> ShowInputPromptAsync(string message, string title, string defaultValue = "")
             => System.Threading.Tasks.Task.FromResult(ShowInputPrompt(message, title, defaultValue));
+        System.Threading.Tasks.Task<string> ShowSecretPromptAsync(string message, string title, string defaultValue = "")
+            => ShowInputPromptAsync(message, title, defaultValue);
         void OpenFastLoginDialog(Account? account = null);
         System.Threading.Tasks.Task<Account?> SignInFastLoginAsync(Account? account, System.Threading.CancellationToken cancellationToken = default)
         {
