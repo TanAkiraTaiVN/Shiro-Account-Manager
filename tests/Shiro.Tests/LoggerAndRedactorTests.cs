@@ -46,6 +46,46 @@ namespace Shiro.Tests
             Assert.Contains("BLOX-[REDACTED_KEY]", LogRedactor.Redact(bloxKey));
         }
 
+        [Theory]
+        [InlineData("Webhook failed at https://discord.com/api/webhooks/1234567890/AbCdEfGh_1234-xyz", "AbCdEfGh_1234-xyz", "[REDACTED_WEBHOOK]")]
+        [InlineData("Posted to https://discordapp.com/api/webhooks/9876543210/ZyXwVu_9876-abc", "ZyXwVu_9876-abc", "[REDACTED_WEBHOOK]")]
+        public void Redact_DiscordWebhookUrls_RedactsTokenSegment(string input, string secretToken, string expectedMarker)
+        {
+            Assert.True(LogRedactor.MayContainSensitiveData(input.AsSpan()));
+            string redacted = LogRedactor.Redact(input);
+            Assert.Contains(expectedMarker, redacted, StringComparison.Ordinal);
+            Assert.DoesNotContain(secretToken, redacted, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void Redact_QuotedRoblosecurityCookies_RedactsCleanly()
+        {
+            string quotedWarningCookie = "Cookie: .ROBLOSECURITY=\"_|WARNING:-DO-NOT-SHARE-THIS.--Abc123\"; path=/";
+            Assert.True(LogRedactor.MayContainSensitiveData(quotedWarningCookie.AsSpan()));
+            string redactedWarning = LogRedactor.Redact(quotedWarningCookie);
+            Assert.Contains("[REDACTED_COOKIE]", redactedWarning, StringComparison.Ordinal);
+            Assert.DoesNotContain("WARNING:-DO-NOT-SHARE-THIS", redactedWarning, StringComparison.Ordinal);
+            Assert.DoesNotContain("Abc123", redactedWarning, StringComparison.Ordinal);
+
+            string quotedRawCookie = ".ROBLOSECURITY=\"rawSecretValue\"";
+            Assert.True(LogRedactor.MayContainSensitiveData(quotedRawCookie.AsSpan()));
+            string redactedRaw = LogRedactor.Redact(quotedRawCookie);
+            Assert.Contains("[REDACTED_COOKIE]", redactedRaw, StringComparison.Ordinal);
+            Assert.DoesNotContain("rawSecretValue", redactedRaw, StringComparison.Ordinal);
+        }
+
+        [Theory]
+        [InlineData("token=mySecret123&grant_type=client_credentials", "mySecret123", "token=[REDACTED]&grant_type=client_credentials")]
+        [InlineData("password=Pass123!", "Pass123!", "password=[REDACTED]")]
+        [InlineData("secret=TopSecret99&mode=test", "TopSecret99", "secret=[REDACTED]&mode=test")]
+        public void Redact_IndexZeroFormSecrets_RedactsCleanly(string input, string secretValue, string expectedOutput)
+        {
+            Assert.True(LogRedactor.MayContainSensitiveData(input.AsSpan()));
+            string redacted = LogRedactor.Redact(input);
+            Assert.Equal(expectedOutput, redacted);
+            Assert.DoesNotContain(secretValue, redacted, StringComparison.Ordinal);
+        }
+
         [Fact]
         public void AppLogger_FormatLogLine_FormatsAndRedactsOnConsumerThread()
         {

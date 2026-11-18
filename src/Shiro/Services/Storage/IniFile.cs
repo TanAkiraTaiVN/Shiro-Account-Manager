@@ -211,7 +211,7 @@ namespace Shiro
 
             lock (_sync)
             {
-                if (string.IsNullOrWhiteSpace(value))
+                if (value is null)
                 {
                     _properties.Remove(name);
                     return;
@@ -294,23 +294,33 @@ namespace Shiro
             string trimmed = content.Trim();
 
             // 1. Primary path: Pure JSON parsing via System.Text.Json
-            if (trimmed.StartsWith("{"))
+            if (trimmed.StartsWith("{", StringComparison.Ordinal) ||
+                trimmed.StartsWith("//", StringComparison.Ordinal) ||
+                trimmed.StartsWith("/*", StringComparison.Ordinal))
             {
                 try
                 {
-                    using var doc = JsonDocument.Parse(trimmed);
-                    foreach (var sectionProp in doc.RootElement.EnumerateObject())
+                    var jsonOptions = new JsonDocumentOptions
                     {
-                        var section = Section(sectionProp.Name);
-                        if (sectionProp.Value.ValueKind == JsonValueKind.Object)
+                        CommentHandling = JsonCommentHandling.Skip,
+                        AllowTrailingCommas = true
+                    };
+                    using var doc = JsonDocument.Parse(trimmed, jsonOptions);
+                    if (doc.RootElement.ValueKind == JsonValueKind.Object)
+                    {
+                        foreach (var sectionProp in doc.RootElement.EnumerateObject())
                         {
-                            foreach (var prop in sectionProp.Value.EnumerateObject())
+                            var section = Section(sectionProp.Name);
+                            if (sectionProp.Value.ValueKind == JsonValueKind.Object)
                             {
-                                section.Set(prop.Name, prop.Value.ToString());
+                                foreach (var prop in sectionProp.Value.EnumerateObject())
+                                {
+                                    section.Set(prop.Name, prop.Value.ToString());
+                                }
                             }
                         }
+                        return;
                     }
-                    return;
                 }
                 catch (Exception ex)
                 {

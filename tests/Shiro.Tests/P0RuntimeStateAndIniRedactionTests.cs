@@ -221,5 +221,77 @@ namespace Shiro.Tests
                 CleanupTempDir(tempDir);
             }
         }
+
+        private static readonly string JsonWithCommentsAndTrailingCommas = """
+        // Leading JSONC comment
+        {
+          /* Block comment before General */
+          "General": {
+            "AccentTheme": "Monochrome", // inline comment
+            "SavedPlaceId": "",
+          },
+          "WebServer": {
+            "WebServerPort": "7963",
+            "Password": "", // trailing comma follows
+          },
+        }
+        """;
+
+        [Fact]
+        public void IniFile_SetEmptyString_PreservesKeyAcrossSaveAndLoad()
+        {
+            string tempDir = Path.Combine(Path.GetTempPath(), "Shiro-P0-IniEmpty-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(tempDir);
+
+            try
+            {
+                string settingsPath = Path.Combine(tempDir, "Settings.json");
+                var ini = new IniFile();
+                var webServer = ini.Section("WebServer");
+
+                // Setting an empty string on a new key must preserve existence.
+                webServer.Set("Password", "");
+                Assert.True(webServer.Exists("Password"));
+                Assert.Equal(string.Empty, webServer.Get("Password"));
+                Assert.Equal(string.Empty, webServer.Get("Password", "fallback"));
+
+                // Clearing a previously non-empty key to "" must preserve existence instead of deleting it.
+                webServer.Set("Password", "InitialSecret123");
+                Assert.Equal("InitialSecret123", webServer.Get("Password"));
+                webServer.Set("Password", "");
+                Assert.True(webServer.Exists("Password"));
+                Assert.Equal(string.Empty, webServer.Get("Password"));
+
+                ini.Save(settingsPath);
+                var reloaded = new IniFile(settingsPath);
+                Assert.True(reloaded.Section("WebServer").Exists("Password"));
+                Assert.Equal(string.Empty, reloaded.Section("WebServer").Get("Password"));
+                Assert.Equal(string.Empty, reloaded.Section("WebServer").Get("Password", "fallback"));
+
+                // Legacy INI format Key= must also preserve empty value.
+                var legacyIni = new IniFile();
+                legacyIni.LoadFromString("[WebServer]\r\nPassword=\r\n");
+                Assert.True(legacyIni.Section("WebServer").Exists("Password"));
+                Assert.Equal(string.Empty, legacyIni.Section("WebServer").Get("Password"));
+            }
+            finally
+            {
+                CleanupTempDir(tempDir);
+            }
+        }
+
+        [Fact]
+        public void IniFile_LoadFromString_JsonWithCommentsAndTrailingCommas_ParsesCleanly()
+        {
+            var ini = new IniFile();
+            ini.LoadFromString(JsonWithCommentsAndTrailingCommas);
+
+            Assert.Equal("Monochrome", ini.Section("General").Get("AccentTheme"));
+            Assert.True(ini.Section("General").Exists("SavedPlaceId"));
+            Assert.Equal(string.Empty, ini.Section("General").Get("SavedPlaceId"));
+            Assert.Equal(7963, ini.Section("WebServer").GetInt("WebServerPort"));
+            Assert.True(ini.Section("WebServer").Exists("Password"));
+            Assert.Equal(string.Empty, ini.Section("WebServer").Get("Password"));
+        }
     }
 }
