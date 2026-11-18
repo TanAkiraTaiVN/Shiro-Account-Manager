@@ -84,7 +84,9 @@ namespace Shiro.ViewModels.Dialogs
             DiscordRpcShowGame = !_general.Exists(AppSettingsKeys.General.DiscordRpcShowGame) || _general.Get<bool>(AppSettingsKeys.General.DiscordRpcShowGame, true);
             DiscordRpcJoinCurrentServer = !_general.Exists(AppSettingsKeys.General.DiscordRpcJoinCurrentServer) || _general.Get<bool>(AppSettingsKeys.General.DiscordRpcJoinCurrentServer, true);
 
-            EnableAutoReconnect = _general.Get<bool>(AppSettingsKeys.General.AutoReconnect, false);
+            EnableAutoReconnect = _general.Exists(AppSettingsKeys.General.AutoReconnect)
+                ? _general.Get<bool>(AppSettingsKeys.General.AutoReconnect, false)
+                : _general.Get<bool>("EnableAutoReconnect", false);
             EnableTokenDeElevation = _general.Get<bool>(AppSettingsKeys.General.EnableTokenDeElevation, false);
             StreamerModeAutoDetect = _general.Get<bool>(AppSettingsKeys.General.StreamerModeAutoDetect, false);
             AntiAfkForegroundFallback = _general.Get<bool>(AppSettingsKeys.General.AntiAfkForegroundFallback, false);

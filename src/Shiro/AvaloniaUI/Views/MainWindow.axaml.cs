@@ -172,7 +172,8 @@ namespace Shiro.AvaloniaUI.Views
                                 Shiro.Services.LocalizationService.Get("MainWindow.UnlockShiroTitle"),
                                 "",
                                 false,
-                                this);
+                                this,
+                                isSecret: true);
 
                             if (!string.IsNullOrWhiteSpace(pass) && pass != "/UC")
                             {
@@ -215,8 +216,11 @@ namespace Shiro.AvaloniaUI.Views
                 await runUnlock();
         }
 
+        private volatile bool _isClosed;
+
         protected override void OnClosed(EventArgs e)
         {
+            _isClosed = true;
             if (ViewDashboard?.ViewModel != null)
             {
                 ViewDashboard.ViewModel.OnPageNavigated = null;

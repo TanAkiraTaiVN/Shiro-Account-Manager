@@ -23,7 +23,7 @@ namespace Shiro.Services
                 ? await TestPasswordPromptAsync(
                     LocalizationService.Get("AccountManager.EnterNewPasswordPrompt"),
                     LocalizationService.Get("AccountManager.ChangeDatabasePassword")).ConfigureAwait(false)
-                : await AppServices.Dialogs.ShowInputPromptAsync(
+                : await AppServices.Dialogs.ShowSecretPromptAsync(
                     LocalizationService.Get("AccountManager.EnterNewPasswordPrompt"),
                     LocalizationService.Get("AccountManager.ChangeDatabasePassword"));
 

@@ -143,11 +143,18 @@ namespace Shiro.AvaloniaUI.Views
 
         internal void ApplyNavigationPage(NavigationPage page)
         {
+            if (_isClosed)
+                return;
+
             if (Avalonia.Application.Current != null &&
                 Avalonia.Threading.Dispatcher.UIThread != null &&
                 !Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
             {
-                AppDispatcher.Post(() => ApplyNavigationPage(page));
+                Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                {
+                    if (!_isClosed)
+                        ApplyNavigationPage(page);
+                });
                 return;
             }
 

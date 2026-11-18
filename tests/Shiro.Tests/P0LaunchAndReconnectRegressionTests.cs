@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
@@ -361,6 +362,178 @@ namespace Shiro.Tests
                     // Process already exited before cleanup.
                 }
             }
+        }
+
+        [Fact]
+        public void CloseAccountRobloxProcessCore_InvokesBeforeTerminateStrictlyBeforeKill()
+        {
+            var events = new List<string>();
+            var pidAcc = new Account { Username = "PidPathUser", LastLaunchedProcessId = 1001, BrowserTrackerID = "111" };
+            bool pidClosed = RobloxProcessService.CloseAccountRobloxProcessCore(
+                pidAcc,
+                pid => pid == 1001,
+                _ => "RobloxPlayerBeta.exe -b 111",
+                () => new List<int>(),
+                pid => events.Add($"kill:{pid}"),
+                acc => events.Add($"before:{acc.Username}"));
+            Assert.True(pidClosed);
+            Assert.Equal(0, pidAcc.LastLaunchedProcessId);
+            Assert.Equal(new[] { "before:PidPathUser", "kill:1001" }, events);
+
+            events.Clear();
+            var trackerAcc = new Account { Username = "TrackerPathUser", LastLaunchedProcessId = 0, BrowserTrackerID = "222" };
+            bool trackerClosed = RobloxProcessService.CloseAccountRobloxProcessCore(
+                trackerAcc,
+                _ => false,
+                pid => pid == 2002 ? "RobloxPlayerBeta.exe -b 222" : null,
+                () => new List<int> { 2002 },
+                pid => events.Add($"kill:{pid}"),
+                acc => events.Add($"before:{acc.Username}"));
+            Assert.True(trackerClosed);
+            Assert.Equal(new[] { "before:TrackerPathUser", "kill:2002" }, events);
+
+            events.Clear();
+            var missAcc = new Account { Username = "MissUser", LastLaunchedProcessId = 9999, BrowserTrackerID = "333" };
+            bool missClosed = RobloxProcessService.CloseAccountRobloxProcessCore(
+                missAcc,
+                _ => false,
+                _ => null,
+                () => new List<int> { 3003 },
+                pid => events.Add($"kill:{pid}"),
+                acc => events.Add($"before:{acc.Username}"));
+            Assert.False(missClosed);
+            Assert.Empty(events);
+        }
+
+        [Fact]
+        public async Task CloseAccountRobloxProcesses_SuppressesAutoReconnectBeforeKillingProcesses()
+        {
+            var ini = new IniFile();
+            var general = ini["General"];
+            general.Set(AppSettingsKeys.General.AutoReconnect, "true");
+            using var settingsScope = AppServices.Override<ISettingsService>(general);
+
+            var svc = AutoReconnectService.Instance;
+            bool prevEnabled = svc.IsEnabled;
+            var prevLaunchGrace = svc.LaunchGracePeriod;
+            var prevDelayOverride = svc.TestReconnectDelayMsOverride;
+            var prevJoinOverride = svc.TestJoinServerOverride;
+            var prevPidsOverride = RobloxProcessService.TestGetRunningRobloxPidsOverride;
+            var prevCmdOverride = ProcessExtensions.TestCommandLineOverride;
+
+            int reconnectAttempts = 0;
+            Action<AutoReconnectService.ReconnectSession, int> onAttempt = (_, _) => Interlocked.Increment(ref reconnectAttempts);
+
+            string cmdPath = Environment.GetEnvironmentVariable("ComSpec") ?? "cmd.exe";
+            static Process StartHoldProcess(string exe) => Process.Start(new ProcessStartInfo
+            { FileName = exe, Arguments = "/c \"more >nul\"", RedirectStandardInput = true, CreateNoWindow = true, UseShellExecute = false })!;
+
+            using var proc1 = StartHoldProcess(cmdPath);
+            using var proc2 = StartHoldProcess(cmdPath);
+
+            try
+            {
+                svc.Clear();
+                svc.IsEnabled = true;
+                svc.LaunchGracePeriod = TimeSpan.Zero;
+                svc.TestReconnectDelayMsOverride = 10;
+                svc.TestJoinServerOverride = _ => Task.FromResult("Success");
+                svc.ReconnectAttempted += onAttempt;
+
+                var acc1 = new Account { Username = "BatchSuppress1", UserID = 7101, BrowserTrackerID = "777001" };
+                var acc2 = new Account { Username = "BatchSuppress2", UserID = 7102, BrowserTrackerID = "777002" };
+                DateTime pastGrace = DateTime.UtcNow.AddMinutes(-2);
+                svc.RegisterSession(acc1, 1818, processId: proc1.Id, nowUtcOverride: pastGrace);
+                svc.RegisterSession(acc2, 1818, processId: proc2.Id, nowUtcOverride: pastGrace);
+
+                RobloxProcessService.TestGetRunningRobloxPidsOverride = () => new[] { proc1.Id, proc2.Id };
+                ProcessExtensions.TestCommandLineOverride = pid =>
+                    pid == proc1.Id ? "RobloxPlayerBeta.exe -b 777001" :
+                    pid == proc2.Id ? "RobloxPlayerBeta.exe -b 777002" : null;
+
+                int closed = RobloxProcessService.CloseAccountRobloxProcesses(new[] { acc1, acc2 });
+                await Task.Delay(120);
+
+                Assert.Equal(2, closed);
+                Assert.True(svc.TryGetAccountSession(acc1, out var s1) && s1!.IsSuppressed && !s1.IsActive);
+                Assert.True(svc.TryGetAccountSession(acc2, out var s2) && s2!.IsSuppressed && !s2.IsActive);
+                Assert.Equal(0, reconnectAttempts);
+            }
+            finally
+            {
+                svc.ReconnectAttempted -= onAttempt;
+                svc.Clear();
+                svc.LaunchGracePeriod = prevLaunchGrace;
+                svc.TestReconnectDelayMsOverride = prevDelayOverride;
+                svc.TestJoinServerOverride = prevJoinOverride;
+                svc.IsEnabled = prevEnabled;
+                RobloxProcessService.TestGetRunningRobloxPidsOverride = prevPidsOverride;
+                ProcessExtensions.TestCommandLineOverride = prevCmdOverride;
+                try { if (!proc1.HasExited) proc1.Kill(entireProcessTree: true); } catch (InvalidOperationException) { }
+                try { if (!proc2.HasExited) proc2.Kill(entireProcessTree: true); } catch (InvalidOperationException) { }
+            }
+        }
+
+        [Fact]
+        public void SettingsViewModel_Load_FallsBackToLegacyEnableAutoReconnect_AndPrefersCanonicalAutoReconnect()
+        {
+            var ini = new IniFile();
+            var general = ini["General"];
+            var vm = new SettingsViewModel(
+                new AppSettings(),
+                general,
+                Substitute.For<ISettingsSideEffects>(),
+                Substitute.For<IDialogService>(),
+                TimeSpan.FromMilliseconds(10),
+                Substitute.For<IAppLogger>());
+
+            vm.Load();
+            Assert.False(vm.EnableAutoReconnect);
+
+            general.Set("EnableAutoReconnect", "true");
+            vm.Load();
+            Assert.True(vm.EnableAutoReconnect);
+
+            general.Set(AppSettingsKeys.General.AutoReconnect, "false");
+            vm.Load();
+            Assert.False(vm.EnableAutoReconnect);
+
+            general.Set(AppSettingsKeys.General.AutoReconnect, "true");
+            general.Set("EnableAutoReconnect", "false");
+            vm.Load();
+            Assert.True(vm.EnableAutoReconnect);
+        }
+
+        [Fact]
+        public void AutoReconnectService_HandleProcessExit_WhenJoinFailsOrThrows_SetsNeedsRetryAndIsActive()
+        {
+            var ini = new IniFile();
+            var general = ini["General"];
+            general.Set(AppSettingsKeys.General.AutoReconnect, "true");
+            using var settingsScope = AppServices.Override<ISettingsService>(general);
+
+            int callCount = 0;
+            using var svc = new AutoReconnectService(TimeSpan.FromHours(1))
+            {
+                MaxRetries = 5,
+                TestReconnectDelayMsOverride = 10,
+                TestJoinServerOverride = _ => Interlocked.Increment(ref callCount) == 1
+                    ? Task.FromResult("Failed")
+                    : Task.FromException<string>(new InvalidOperationException("sim join failure"))
+            };
+
+            var accFail = new Account { Username = "RetryFailUser", UserID = 7201 };
+            svc.RegisterSession(accFail, 1818, processId: 0, nowUtcOverride: DateTime.UtcNow.AddMinutes(-1));
+            Assert.True(svc.TryGetSession("RetryFailUser", out var sFail));
+            svc.HandleProcessExit(sFail!);
+            Assert.True(SpinWait.SpinUntil(() => sFail!.NeedsRetry && sFail.IsActive, TimeSpan.FromSeconds(3)));
+
+            var accThrow = new Account { Username = "RetryThrowUser", UserID = 7202 };
+            svc.RegisterSession(accThrow, 1818, processId: 0, nowUtcOverride: DateTime.UtcNow.AddMinutes(-1));
+            Assert.True(svc.TryGetSession("RetryThrowUser", out var sThrow));
+            svc.HandleProcessExit(sThrow!);
+            Assert.True(SpinWait.SpinUntil(() => sThrow!.NeedsRetry && sThrow.IsActive, TimeSpan.FromSeconds(3)));
+            Assert.Equal(2, Volatile.Read(ref callCount));
         }
     }
 }

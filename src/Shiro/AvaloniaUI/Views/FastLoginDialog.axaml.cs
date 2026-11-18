@@ -95,6 +95,7 @@ namespace Shiro.AvaloniaUI.Views
             _restoredModerationCookieFp = null;
             _restoredModerationAccount = null;
             _hasSeenModerationPage = false;
+            _pendingCapturedFp = null;
 
             if (!string.IsNullOrEmpty(_username))
             {

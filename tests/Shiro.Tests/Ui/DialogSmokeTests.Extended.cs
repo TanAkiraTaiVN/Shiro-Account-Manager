@@ -407,5 +407,41 @@ namespace Shiro.Tests.Ui
                 Logger.Sink = prevSink;
             }
         }
+
+        [AvaloniaFact]
+        public void FastLoginDialog_LoadAccountAtIndex_ResetsPendingCapturedFp()
+        {
+            FastLoginDialog? dlg = null;
+            try
+            {
+                var accounts = new[]
+                {
+                    new Account { Username = "FastUserA", UserID = 801 },
+                    new Account { Username = "FastUserB", UserID = 802 }
+                };
+                dlg = new FastLoginDialog(accounts);
+                var flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+                var pendingField = typeof(FastLoginDialog).GetField("_pendingCapturedFp", flags);
+                var capturedField = typeof(FastLoginDialog).GetField("_captured", flags);
+                var modFpField = typeof(FastLoginDialog).GetField("_restoredModerationCookieFp", flags);
+                var loadMethod = typeof(FastLoginDialog).GetMethod("LoadAccountAtIndex", flags);
+                Assert.NotNull(pendingField);
+                Assert.NotNull(loadMethod);
+
+                pendingField!.SetValue(dlg, "stale-fp-from-user-a");
+                capturedField!.SetValue(dlg, true);
+                modFpField!.SetValue(dlg, "stale-mod-fp");
+
+                loadMethod!.Invoke(dlg, new object[] { 1 });
+
+                Assert.Null(pendingField.GetValue(dlg));
+                Assert.False((bool)capturedField.GetValue(dlg)!);
+                Assert.Null(modFpField.GetValue(dlg));
+            }
+            finally
+            {
+                dlg?.Close();
+            }
+        }
     }
 }

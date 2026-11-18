@@ -87,6 +87,8 @@ namespace Shiro.Services
         /// </summary>
         public static async Task<AccountSessionAuditResult> AuditAccountAsync(Account account, CancellationToken ct = default)
         {
+            ct.ThrowIfCancellationRequested();
+
             if (account == null)
             {
                 return new AccountSessionAuditResult

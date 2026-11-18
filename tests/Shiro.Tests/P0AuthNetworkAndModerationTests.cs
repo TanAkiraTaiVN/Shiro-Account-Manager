@@ -330,5 +330,36 @@ namespace Shiro.Tests
                     RobloxModerationService.ParseModerationText("Reviewed: today. Account locked").Reason);
             }
         }
+
+        [Fact]
+        public async Task SessionAuditor_AuditAccountAsync_WithPreCanceledToken_ThrowsWithoutMutatingValid()
+        {
+            using var cts = new CancellationTokenSource();
+            cts.Cancel();
+
+            var emptyTokenAccount = new Account
+            {
+                Username = "PreCanceledEmptyToken",
+                UserID = 9001,
+                SecurityToken = string.Empty,
+                Valid = true
+            };
+
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(
+                () => SessionAuditorService.AuditAccountAsync(emptyTokenAccount, cts.Token));
+            Assert.True(emptyTokenAccount.Valid);
+
+            var tokenAccount = new Account
+            {
+                Username = "PreCanceledValidToken",
+                UserID = 9002,
+                SecurityToken = ValidToken,
+                Valid = true
+            };
+
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(
+                () => SessionAuditorService.AuditAccountAsync(tokenAccount, cts.Token));
+            Assert.True(tokenAccount.Valid);
+        }
     }
 }

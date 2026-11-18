@@ -501,5 +501,38 @@ namespace Shiro.Tests
                 CleanupTempDir(tempDir);
             }
         }
+
+        [Fact]
+        public async Task ResetEncryptionAsync_WhenTestPasswordPromptNull_InvokesShowSecretPromptAsync()
+        {
+            string tempDir = Path.Combine(Path.GetTempPath(), "Shiro-P0-SecretReset-" + Guid.NewGuid().ToString("N"));
+            var dialogSub = Substitute.For<IDialogService>();
+            dialogSub.ShowSecretPromptAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>())
+                .Returns(Task.FromResult("/UC"));
+            try
+            {
+                using var dirScope = StoragePaths.OverrideDataDirectoryForTesting(tempDir);
+                using var dialogScope = AppServices.Override<IDialogService>(dialogSub);
+                StoragePaths.ReloadVaultKeyCache();
+
+                var svc = new AccountPersistenceService(new AccountRepository())
+                {
+                    TestPasswordPromptAsync = null
+                };
+                await svc.ResetEncryptionAsync(manualReset: true);
+
+                Assert.False(svc.IsDatabasePasswordEncrypted());
+                await dialogSub.Received(1).ShowSecretPromptAsync(
+                    LocalizationService.Get("AccountManager.EnterNewPasswordPrompt"),
+                    LocalizationService.Get("AccountManager.ChangeDatabasePassword"),
+                    Arg.Any<string>());
+                await dialogSub.DidNotReceiveWithAnyArgs().ShowInputPromptAsync(default!, default!, default!);
+            }
+            finally
+            {
+                StoragePaths.ReloadVaultKeyCache();
+                CleanupTempDir(tempDir);
+            }
+        }
     }
 }

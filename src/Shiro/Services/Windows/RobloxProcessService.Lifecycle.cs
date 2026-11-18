@@ -122,12 +122,12 @@ namespace Shiro.Services
                 IsAliveRobloxClientPid,
                 ProcessExtensions.GetCommandLineByPid,
                 () => GetRunningRobloxPids(),
-                TerminateProcessGracefully);
+                TerminateProcessGracefully,
+                AutoReconnectService.Instance.SuppressReconnectForAccount);
 
             if (closed)
             {
                 InvalidateSnapshotCache();
-                AutoReconnectService.Instance.SuppressReconnectForAccount(account);
                 Utilities.QueueRefreshNotificationArea(300);
             }
             return closed;
@@ -138,7 +138,8 @@ namespace Shiro.Services
             Func<int, bool> isPidAlive,
             Func<int, string?> getCommandLineByPid,
             Func<List<int>> getRunningPids,
-            Action<int> killPid)
+            Action<int> killPid,
+            Action<Account>? beforeTerminate = null)
         {
             if (account == null) return false;
             bool closed = false;
@@ -162,6 +163,7 @@ namespace Shiro.Services
 
                         if (isMatchingProcess)
                         {
+                            beforeTerminate?.Invoke(account);
                             killPid(account.LastLaunchedProcessId);
                             account.LastLaunchedProcessId = 0;
                             closed = true;
@@ -196,6 +198,7 @@ namespace Shiro.Services
                             var match = TrackerRegex().Match(cmdLine);
                             if (match.Success && match.Groups[1].Value == account.BrowserTrackerID)
                             {
+                                beforeTerminate?.Invoke(account);
                                 killPid(pid);
                                 account.LastLaunchedProcessId = 0;
                                 closed = true;
@@ -319,6 +322,9 @@ namespace Shiro.Services
                 return 0;
 
             foreach (var item in processesToTerminate)
+                AutoReconnectService.Instance.SuppressReconnectForAccount(item.Account);
+
+            foreach (var item in processesToTerminate)
             {
                 try { item.Process.CloseMainWindow(); }
                 catch (Exception ex) { AppServices.Logger?.Debug($"CloseMainWindow failed: {ex.Message}"); }
@@ -336,8 +342,6 @@ namespace Shiro.Services
                         proc.Kill();
                     }
                     account.LastLaunchedProcessId = 0;
-                    if (!string.IsNullOrWhiteSpace(account.Username))
-                        AutoReconnectService.Instance.SuppressReconnect(account.Username);
                     closed++;
                 }
                 catch (Exception ex)

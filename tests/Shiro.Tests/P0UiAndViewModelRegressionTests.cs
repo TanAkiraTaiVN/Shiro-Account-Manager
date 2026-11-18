@@ -312,11 +312,41 @@ namespace Shiro.Tests
         [Fact]
         public void InputDialog_ShouldMaskInput_ReturnsTrueForAnyLocalizedCaptionWhenIsSecretTrue()
         {
-            Assert.True(InputDialog.ShouldMaskInput("Nhập mật khẩu kho...", isSecret: true));
-            Assert.True(InputDialog.ShouldMaskInput("Export Vault", isSecret: true));
-            Assert.True(InputDialog.ShouldMaskInput(null, isSecret: true));
-            Assert.True(InputDialog.ShouldMaskInput("Enter Password", isSecret: false));
-            Assert.False(InputDialog.ShouldMaskInput("Group Name", isSecret: false));
+            var prevLang = LocalizationService.CurrentLanguage;
+            try
+            {
+                LocalizationService.SetLanguage(AppLanguage.English, saveSetting: false);
+                Assert.False(InputDialog.ShouldMaskInput(LocalizationService.Get("MainWindow.UnlockShiroTitle"), isSecret: false));
+                Assert.True(InputDialog.ShouldMaskInput(LocalizationService.Get("MainWindow.UnlockShiroTitle"), isSecret: true));
+
+                LocalizationService.SetLanguage(AppLanguage.Vietnamese, saveSetting: false);
+                Assert.False(InputDialog.ShouldMaskInput("M\u1edf kh\u00f3a Shiro", isSecret: false));
+                Assert.True(InputDialog.ShouldMaskInput("M\u1edf kh\u00f3a Shiro", isSecret: true));
+                Assert.False(InputDialog.ShouldMaskInput(LocalizationService.Get("MainWindow.UnlockShiroTitle"), isSecret: false));
+                Assert.True(InputDialog.ShouldMaskInput(LocalizationService.Get("MainWindow.UnlockShiroTitle"), isSecret: true));
+
+                Assert.True(InputDialog.ShouldMaskInput("Nh\u1eadp m\u1eadt kh\u1ea9u kho...", isSecret: true));
+                Assert.True(InputDialog.ShouldMaskInput("Export Vault", isSecret: true));
+                Assert.True(InputDialog.ShouldMaskInput(null, isSecret: true));
+                Assert.True(InputDialog.ShouldMaskInput("Enter Password", isSecret: false));
+                Assert.False(InputDialog.ShouldMaskInput("Group Name", isSecret: false));
+
+                var rootDir = new DirectoryInfo(AppContext.BaseDirectory);
+                while (rootDir != null && !File.Exists(Path.Combine(rootDir.FullName, "Shiro.sln")))
+                    rootDir = rootDir.Parent;
+                Assert.NotNull(rootDir);
+                string mainWindowSource = File.ReadAllText(Path.Combine(rootDir!.FullName, "src", "Shiro", "AvaloniaUI", "Views", "MainWindow.axaml.cs"));
+                int unlockIdx = mainWindowSource.IndexOf("MainWindow.UnlockShiroTitle", StringComparison.Ordinal);
+                Assert.True(unlockIdx > 0);
+                int callEnd = mainWindowSource.IndexOf(");", unlockIdx, StringComparison.Ordinal);
+                Assert.True(callEnd > unlockIdx);
+                string unlockCallSlice = mainWindowSource.Substring(unlockIdx, callEnd - unlockIdx);
+                Assert.Contains("isSecret: true", unlockCallSlice, StringComparison.Ordinal);
+            }
+            finally
+            {
+                LocalizationService.SetLanguage(prevLang, saveSetting: false);
+            }
         }
 
         [Theory]
@@ -342,7 +372,7 @@ namespace Shiro.Tests
         }
 
         [AvaloniaFact]
-        public void MainWindow_BidirectionalNavigation_SyncsViewsNavPillsAndCurrentPage_AndDetachesOnClose()
+        public async Task MainWindow_BidirectionalNavigation_SyncsViewsNavPillsAndCurrentPage_AndDetachesOnClose()
         {
             string tempDir = Path.Combine(Path.GetTempPath(), "shiro-nav-test-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(tempDir);
@@ -478,6 +508,14 @@ namespace Shiro.Tests
 
                 Assert.Null(vm.OnPageNavigated);
                 Assert.Null(MainWindow.Instance);
+
+                window.ApplyNavigationPage(NavigationPage.Settings);
+                await Task.Run(() => window.ApplyNavigationPage(NavigationPage.About));
+                Dispatcher.UIThread.RunJobs();
+                Assert.True(viewDashboard!.IsVisible);
+                Assert.False(viewSettings!.IsVisible);
+                Assert.False(viewAbout!.IsVisible);
+
                 Assert.Empty(sink.Errors);
             }
             finally

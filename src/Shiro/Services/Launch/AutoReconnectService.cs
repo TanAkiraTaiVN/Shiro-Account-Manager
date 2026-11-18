@@ -298,8 +298,11 @@ namespace Shiro.Services
                         else
                         {
                             AppServices.Logger?.Warn($"[AutoReconnect] Reconnect for '{session.Account.Username}' failed: {result}");
-                            session.NeedsRetry = true;
-                            session.IsActive = true;
+                            lock (_lock)
+                            {
+                                session.NeedsRetry = true;
+                                session.IsActive = true;
+                            }
                         }
                     }
                     catch (ObjectDisposedException) when (_disposed)
@@ -313,8 +316,11 @@ namespace Shiro.Services
                     catch (Exception ex)
                     {
                         AppServices.Logger?.Error($"[AutoReconnect] Reconnect task error for '{session.Account.Username}': {ex.Message}");
-                        session.NeedsRetry = true;
-                        session.IsActive = true;
+                        lock (_lock)
+                        {
+                            session.NeedsRetry = true;
+                            session.IsActive = true;
+                        }
                     }
                     finally
                     {
