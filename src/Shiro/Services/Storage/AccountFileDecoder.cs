@@ -49,6 +49,10 @@ namespace Shiro.Services
                     {
                         decrypted = Cryptography.Decrypt(data, masterPassword);
                     }
+                    catch (InvalidDataException ex)
+                    {
+                        return new AccountDecodeResult(AccountDecodeStatus.Corrupt, new List<Account>(), false, false, ex);
+                    }
                     catch (Exception ex)
                     {
                         return new AccountDecodeResult(AccountDecodeStatus.NeedsMasterPassword, new List<Account>(), false, false, ex);

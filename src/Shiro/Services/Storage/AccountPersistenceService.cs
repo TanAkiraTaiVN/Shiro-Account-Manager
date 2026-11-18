@@ -109,103 +109,114 @@ namespace Shiro.Services
 
         public void LoadAccounts(byte[]? Hash, out bool unlocked)
         {
-            unlocked = false;
-            legacyPlaintextLoaded = false;
-            IsVaultLockedPendingMasterPassword = false;
-            bool EnteredPassword = false;
-            byte[] Data = Store.Read();
-
-            if (Data.Length > 0)
+            lock (saveLock)
             {
-                var decodeResult = AccountFileDecoder.Decode(Data, Hash, CreateDecodeKeys(allowRecovery: true));
-                switch (decodeResult.Status)
+                unlocked = false;
+                legacyPlaintextLoaded = false;
+                bool EnteredPassword = false;
+                Store ??= new AccountStore();
+                byte[] Data = Store.Read();
+
+                if (Data.Length > 0)
                 {
-                    case AccountDecodeStatus.Loaded:
-                        ReplaceAccountsList(decodeResult.Accounts);
-                        accountDataNeedsMigration |= decodeResult.NeedsMigration;
-                        legacyPlaintextLoaded = decodeResult.LegacyPlaintext;
+                    var decodeResult = AccountFileDecoder.Decode(Data, Hash, CreateDecodeKeys(allowRecovery: true));
+                    switch (decodeResult.Status)
+                    {
+                        case AccountDecodeStatus.Loaded:
+                            IsVaultLockedPendingMasterPassword = false;
+                            ReplaceAccountsList(decodeResult.Accounts);
+                            accountDataNeedsMigration |= decodeResult.NeedsMigration;
+                            legacyPlaintextLoaded = decodeResult.LegacyPlaintext;
 
-                        if (Cryptography.IsEncrypted(Data))
-                        {
-                            EnteredPassword = true;
-                            unlocked = true;
-
-                            if (Hash != null)
+                            if (Cryptography.IsEncrypted(Data))
                             {
-                                SetProtectedPasswordHash(Hash);
-                                AppServices.Logger?.Info($"[LoadAccounts] Loaded {_repository.Count} accounts via Master Password.");
+                                EnteredPassword = true;
+                                unlocked = true;
+
+                                if (Hash != null)
+                                {
+                                    SetProtectedPasswordHash(Hash);
+                                    AppServices.Logger?.Info($"[LoadAccounts] Loaded {_repository.Count} accounts via Master Password.");
+                                }
+                                else
+                                {
+                                    ClearPasswordHash();
+                                    AppServices.Logger?.Info($"[LoadAccounts] Loaded {_repository.Count} accounts via vault key.");
+                                }
                             }
                             else
                             {
                                 ClearPasswordHash();
-                                AppServices.Logger?.Info($"[LoadAccounts] Loaded {_repository.Count} accounts via vault key.");
                             }
-                        }
-                        else
-                        {
+                            break;
+
+                        case AccountDecodeStatus.NeedsMasterPassword:
                             ClearPasswordHash();
-                        }
-                        break;
+                            IsVaultLockedPendingMasterPassword = true;
+                            if (Hash != null)
+                                AppServices.Logger?.Warn($"[LoadAccounts] Master Password decryption failed: {decodeResult.Error?.Message}");
+                            else
+                                AppServices.Logger?.Warn($"[LoadAccounts] Vault-key decryption failed: {decodeResult.Error?.Message}");
 
-                    case AccountDecodeStatus.NeedsMasterPassword:
-                        ClearPasswordHash();
+                            EnableModernDashboard();
+                            return;
+
+                        case AccountDecodeStatus.Corrupt:
+                            IsVaultLockedPendingMasterPassword = false;
+                            string quarantinePath = $"{SaveFilePath}.corrupt-{DateTime.UtcNow:yyyyMMdd_HHmmss}.bak";
+                            StoragePaths.AtomicWriteBytes(quarantinePath, Data, durable: true);
+                            AppServices.Dialogs.ShowError($"Failed to load accounts!\nA backup file was created in case the data can be recovered.\n\n{decodeResult.Error?.Message}");
+                            break;
+
+                        case AccountDecodeStatus.Empty:
+                            IsVaultLockedPendingMasterPassword = false;
+                            break;
+                    }
+                }
+                else
+                {
+                    IsVaultLockedPendingMasterPassword = false;
+                }
+
+                if (!EnteredPassword && _repository.Count == 0 && File.Exists($"{SaveFilePath}.backup") && File.ReadAllBytes($"{SaveFilePath}.backup") is byte[] BackupData && BackupData.Length > 0)
+                {
+                    var backupResult = TryLoadFromBackup(BackupData);
+                    if (backupResult == BackupLoadResult.PromotedNeedsPassword)
+                    {
                         IsVaultLockedPendingMasterPassword = true;
-                        if (Hash != null)
-                            AppServices.Logger?.Warn($"[LoadAccounts] Master Password decryption failed: {decodeResult.Error?.Message}");
-                        else
-                            AppServices.Logger?.Warn($"[LoadAccounts] Vault-key decryption failed: {decodeResult.Error?.Message}");
-
                         EnableModernDashboard();
                         return;
-
-                    case AccountDecodeStatus.Corrupt:
-                        StoragePaths.AtomicWriteBytes(SaveFilePath + ".bak", Data, durable: true);
-                        AppServices.Dialogs.ShowError($"Failed to load accounts!\nA backup file was created in case the data can be recovered.\n\n{decodeResult.Error?.Message}");
-                        break;
-
-                    case AccountDecodeStatus.Empty:
-                        break;
+                    }
                 }
-            }
 
-            if (!EnteredPassword && _repository.Count == 0 && File.Exists($"{SaveFilePath}.backup") && File.ReadAllBytes($"{SaveFilePath}.backup") is byte[] BackupData && BackupData.Length > 0)
-            {
-                var backupResult = TryLoadFromBackup(BackupData);
-                if (backupResult == BackupLoadResult.PromotedNeedsPassword)
+                try { AccountRuntimeStateStore.HydrateAccounts(_repository.GetAll()); }
+                catch (Exception ex) { AppServices.Logger?.Debug($"[LoadAccounts] Runtime state hydration skipped: {ex.Message}"); }
+
+                RefreshView();
+
+                IReadOnlyList<Account> loadedAccounts = _repository.GetAll();
+                if (loadedAccounts.Count > 0)
                 {
-                    IsVaultLockedPendingMasterPassword = true;
-                    EnableModernDashboard();
-                    return;
+                    AppServices.SelectionState.LastValidAccount = loadedAccounts[0];
+                    foreach (Account account in loadedAccounts)
+                    {
+                        if (account.LastUse > AppServices.SelectionState.LastValidAccount.LastUse)
+                            AppServices.SelectionState.LastValidAccount = account;
+                    }
                 }
-            }
 
-            try { AccountRuntimeStateStore.HydrateAccounts(_repository.GetAll()); }
-            catch (Exception ex) { AppServices.Logger?.Debug($"[LoadAccounts] Runtime state hydration skipped: {ex.Message}"); }
+                EnableModernDashboard();
 
-            RefreshView();
-
-            IReadOnlyList<Account> loadedAccounts = _repository.GetAll();
-            if (loadedAccounts.Count > 0)
-            {
-                AppServices.SelectionState.LastValidAccount = loadedAccounts[0];
-                foreach (Account account in loadedAccounts)
+                if (accountDataNeedsMigration)
                 {
-                    if (account.LastUse > AppServices.SelectionState.LastValidAccount.LastUse)
-                        AppServices.SelectionState.LastValidAccount = account;
+                    try
+                    {
+                        SaveAccounts(true, true);
+                        accountDataNeedsMigration = false;
+                        AppServices.Logger?.Info($"Migrated account data to schema {AccountDataSerializer.CurrentSchemaVersion}.");
+                    }
+                    catch (Exception exception) { AppServices.Logger?.Warn($"Account data migration will be retried after the next successful save: {exception.Message}"); }
                 }
-            }
-
-            EnableModernDashboard();
-
-            if (accountDataNeedsMigration)
-            {
-                try
-                {
-                    SaveAccounts(true, true);
-                    accountDataNeedsMigration = false;
-                    AppServices.Logger?.Info($"Migrated account data to schema {AccountDataSerializer.CurrentSchemaVersion}.");
-                }
-                catch (Exception exception) { AppServices.Logger?.Warn($"Account data migration will be retried after the next successful save: {exception.Message}"); }
             }
         }
 
@@ -232,6 +243,7 @@ namespace Shiro.Services
                 var vaultResult = AccountFileDecoder.Decode(backupData, null, CreateDecodeKeys(allowRecovery: false));
                 if (vaultResult.Status == AccountDecodeStatus.Loaded)
                 {
+                    IsVaultLockedPendingMasterPassword = false;
                     ClearPasswordHash();
                     ReplaceAccountsList(vaultResult.Accounts);
                     accountDataNeedsMigration |= vaultResult.NeedsMigration;
@@ -265,6 +277,7 @@ namespace Shiro.Services
                 var unencResult = AccountFileDecoder.Decode(backupData, null, CreateDecodeKeys(allowRecovery: false));
                 if (unencResult.Status == AccountDecodeStatus.Loaded)
                 {
+                    IsVaultLockedPendingMasterPassword = false;
                     ClearPasswordHash();
                     ReplaceAccountsList(unencResult.Accounts);
                     accountDataNeedsMigration |= unencResult.NeedsMigration;
@@ -321,6 +334,12 @@ namespace Shiro.Services
                 if (acc != null) acc.IsDirty = true;
         }
 
+        private static void ClearDirtyAccounts(List<Account> accounts)
+        {
+            for (int i = 0; i < accounts.Count; i++)
+                accounts[i].IsDirty = false;
+        }
+
         public Task SaveAccountsAsync(bool bypassRateLimit = false, bool bypassCountCheck = false)
             => Task.Run(() => SaveAccounts(bypassRateLimit, bypassCountCheck));
 
@@ -341,8 +360,7 @@ namespace Shiro.Services
                 if (gate == SaveGate.Defer) { QueueDeferredSave(); return; }
                 if (gate == SaveGate.Skip) return;
 
-                LastSaveTime = DateTime.Now;
-                var taken = TakeDirtyAccounts(accountsSnapshot);
+                var dirtyAccounts = accountsSnapshot.Where(a => a.IsDirty).ToList();
 
                 try
                 {
@@ -353,7 +371,6 @@ namespace Shiro.Services
                     if (SaveData == null || SaveData.Length < 2)
                     {
                         AppServices.Logger?.Error("[AccountPersistenceService.SaveAccounts] Serialization produced empty or corrupted payload. Save aborted to protect data integrity.");
-                        RestoreDirty(taken);
                         return;
                     }
 
@@ -365,6 +382,8 @@ namespace Shiro.Services
                             currentHash.AsSpan().SequenceEqual(_lastSavedPlaintextHash) &&
                             File.Exists(Store.AccountFile))
                         {
+                            ClearDirtyAccounts(dirtyAccounts);
+                            LastSaveTime = DateTime.Now;
                             return;
                         }
 
@@ -410,6 +429,8 @@ namespace Shiro.Services
                         }
 
                         _lastSavedPlaintextHash = currentHash;
+                        LastSaveTime = DateTime.Now;
+                        ClearDirtyAccounts(dirtyAccounts);
                     }
                     finally
                     {
@@ -418,8 +439,7 @@ namespace Shiro.Services
                 }
                 catch (Exception ex)
                 {
-                    AppServices.Logger.Debug("[AccountPersistenceService] SaveAccountsAsync failed, restoring dirty state", ex);
-                    RestoreDirty(taken);
+                    AppServices.Logger.Debug("[AccountPersistenceService] SaveAccounts failed, dirty state preserved", ex);
                     throw;
                 }
             }

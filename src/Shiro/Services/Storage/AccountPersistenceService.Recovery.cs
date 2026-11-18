@@ -45,113 +45,151 @@ namespace Shiro.Services
 
         public bool TryRestoreReadableBackup()
         {
-            var candidates = new List<string>
+            lock (saveLock)
             {
-                $"{SaveFilePath}.backup",
-                $"{SaveFilePath}.previous",
-                $"{SaveFilePath}.backup.previous",
-                $"{SaveFilePath}.bak"
-            };
+                var seenPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                var candidates = new List<(string Path, int Priority, DateTime LastWriteUtc)>();
 
-            try
-            {
-                string backupsDir = Store?.BackupsDirectory ?? StoragePaths.BackupsDirectory;
-                if (Directory.Exists(backupsDir))
+                void AddCandidate(string path, int priority)
                 {
-                    candidates.AddRange(Directory.GetFiles(backupsDir, "AccountData_*.json.bak"));
+                    if (!string.IsNullOrWhiteSpace(path) && File.Exists(path) && seenPaths.Add(path))
+                    {
+                        DateTime lastWriteUtc = DateTime.MinValue;
+                        try { lastWriteUtc = File.GetLastWriteTimeUtc(path); }
+                        catch (IOException ex) { AppServices.Logger?.Debug($"Could not stat backup candidate '{path}': {ex.Message}"); }
+                        catch (UnauthorizedAccessException ex) { AppServices.Logger?.Debug($"Could not stat backup candidate '{path}': {ex.Message}"); }
+                        candidates.Add((path, priority, lastWriteUtc));
+                    }
                 }
-            }
-            catch (Exception ex)
-            {
-                AppServices.Logger?.Debug($"Could not enumerate historical backups: {ex.Message}");
-            }
 
-            List<Account>? bestRestored = null;
-            bool bestNeedsMigration = false;
-            string bestPath = string.Empty;
-
-            foreach (string path in candidates)
-            {
-                if (!File.Exists(path))
-                    continue;
+                AddCandidate($"{SaveFilePath}.backup", 0);
+                AddCandidate($"{SaveFilePath}.previous", 1);
+                AddCandidate($"{SaveFilePath}.backup.previous", 2);
+                AddCandidate($"{SaveFilePath}.bak", 3);
 
                 try
                 {
-                    byte[] raw = File.ReadAllBytes(path);
-                    if (raw.Length == 0)
-                        continue;
+                    string backupsDir = Store?.BackupsDirectory ?? StoragePaths.BackupsDirectory;
+                    if (Directory.Exists(backupsDir))
+                    {
+                        foreach (string histPath in Directory.GetFiles(backupsDir, "AccountData_*.json.bak"))
+                        {
+                            AddCandidate(histPath, 4);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    AppServices.Logger?.Debug($"Could not enumerate historical backups: {ex.Message}");
+                }
 
-                    byte[]? decoded = null;
+                candidates.Sort((a, b) =>
+                {
+                    int timeCmp = b.LastWriteUtc.CompareTo(a.LastWriteUtc);
+                    if (timeCmp != 0) return timeCmp;
+                    int prioCmp = a.Priority.CompareTo(b.Priority);
+                    if (prioCmp != 0) return prioCmp;
+                    return StringComparer.OrdinalIgnoreCase.Compare(b.Path, a.Path);
+                });
+
+                List<Account>? bestRestored = null;
+                bool bestNeedsMigration = false;
+                string bestPath = string.Empty;
+                DateTime bestWriteUtc = DateTime.MinValue;
+                int bestPriority = int.MaxValue;
+
+                foreach (var candidate in candidates)
+                {
+                    if (bestRestored != null)
+                    {
+                        if (candidate.LastWriteUtc < bestWriteUtc)
+                            break;
+                        if (candidate.LastWriteUtc == bestWriteUtc && candidate.Priority > bestPriority)
+                            break;
+                    }
+
+                    string path = candidate.Path;
                     try
                     {
-                        if (Cryptography.IsEncrypted(raw))
-                        {
-                            byte[] keyCopy = StoragePaths.GetOrCreateVaultKeyCopy();
-                            try
-                            {
-                                decoded = Cryptography.Decrypt(raw, keyCopy);
-                            }
-                            finally
-                            {
-                                CryptographicOperations.ZeroMemory(keyCopy);
-                            }
-                        }
-                        else
-                        {
-                            decoded = TryUnprotectAccountData(raw, out _);
-                        }
+                        byte[] raw = File.ReadAllBytes(path);
+                        if (raw.Length == 0)
+                            continue;
 
-                        if (decoded != null && decoded.Length > 2)
+                        byte[]? decoded = null;
+                        try
                         {
-                            var restored = AccountDataSerializer.Deserialize(decoded, out bool needsMigration);
-                            if (restored != null && restored.Count > (bestRestored?.Count ?? 0))
+                            if (Cryptography.IsEncrypted(raw))
                             {
-                                bestRestored = restored;
-                                bestNeedsMigration = needsMigration;
-                                bestPath = path;
+                                byte[] keyCopy = StoragePaths.GetOrCreateVaultKeyCopy();
+                                try
+                                {
+                                    decoded = Cryptography.Decrypt(raw, keyCopy);
+                                }
+                                finally
+                                {
+                                    CryptographicOperations.ZeroMemory(keyCopy);
+                                }
+                            }
+                            else
+                            {
+                                decoded = TryUnprotectAccountData(raw, out _);
+                            }
+
+                            if (decoded != null && decoded.Length > 2)
+                            {
+                                var restored = AccountDataSerializer.Deserialize(decoded, out bool needsMigration);
+                                if (restored != null && restored.Count > 0 &&
+                                    (bestRestored == null || restored.Count > bestRestored.Count))
+                                {
+                                    bestRestored = restored;
+                                    bestNeedsMigration = needsMigration;
+                                    bestPath = path;
+                                    bestWriteUtc = candidate.LastWriteUtc;
+                                    bestPriority = candidate.Priority;
+                                }
+                            }
+                        }
+                        finally
+                        {
+                            if (decoded != null)
+                            {
+                                CryptographicOperations.ZeroMemory(decoded);
                             }
                         }
                     }
-                    finally
+                    catch (Exception ex)
                     {
-                        if (decoded != null)
-                        {
-                            CryptographicOperations.ZeroMemory(decoded);
-                        }
+                        AppServices.Logger?.Debug($"Candidate backup '{path}' could not be loaded: {ex.Message}");
                     }
                 }
-                catch (Exception ex)
+
+                if (bestRestored != null && bestRestored.Count > 0)
                 {
-                    AppServices.Logger?.Debug($"Candidate backup '{path}' could not be loaded: {ex.Message}");
+                    // Move the locked/corrupt primary file out of SaveFilePath before SaveAccounts
+                    // so AccountStore.WriteWithBackup does not copy the locked/corrupt file over AccountData.json.backup.
+                    try
+                    {
+                        if (File.Exists(SaveFilePath))
+                            File.Move(SaveFilePath, $"{SaveFilePath}.locked-{DateTime.Now:yyyyMMdd_HHmmss}.bak", overwrite: true);
+                    }
+                    catch (Exception ex)
+                    {
+                        AppServices.Logger?.Warn($"Could not move locked primary account data: {ex.Message}");
+                    }
+
+                    IsVaultLockedPendingMasterPassword = false;
+                    ReplaceAccountsList(bestRestored);
+                    accountDataNeedsMigration |= bestNeedsMigration;
+                    ClearPasswordHash();
+                    SaveAccounts(true, true);
+                    RefreshView();
+                    EnableModernDashboard();
+                    AppServices.Logger?.Info($"[LoadAccounts] Restored {bestRestored.Count} accounts from '{bestPath}'.");
+                    return true;
                 }
+
+                return false;
             }
-
-            if (bestRestored != null && bestRestored.Count > 0)
-            {
-                // Move the locked/corrupt primary file out of SaveFilePath before SaveAccounts
-                // so AccountStore.WriteWithBackup does not copy the locked/corrupt file over AccountData.json.backup.
-                try
-                {
-                    if (File.Exists(SaveFilePath))
-                        File.Move(SaveFilePath, $"{SaveFilePath}.locked-{DateTime.Now:yyyyMMdd_HHmmss}.bak", overwrite: true);
-                }
-                catch (Exception ex)
-                {
-                    AppServices.Logger?.Warn($"Could not move locked primary account data: {ex.Message}");
-                }
-
-                IsVaultLockedPendingMasterPassword = false;
-                ReplaceAccountsList(bestRestored);
-                accountDataNeedsMigration |= bestNeedsMigration;
-                ClearPasswordHash();
-                SaveAccounts(true, true);
-                RefreshView();
-                EnableModernDashboard();
-                AppServices.Logger?.Info($"[LoadAccounts] Restored {bestRestored.Count} accounts from '{bestPath}'.");
-                return true;
-            }
-
-            return false;
         }
 
         internal void SetProtectedPasswordHash(byte[] hash)

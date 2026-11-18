@@ -98,7 +98,8 @@ namespace Shiro.Tests
                 AccountManager.ReplaceAccountsList(new List<Account>());
                 mgr.LoadAccounts(null, out bool corruptUnlocked);
                 Assert.False(corruptUnlocked);
-                Assert.True(File.Exists(tempAccFile + ".bak"));
+                Assert.False(File.Exists(tempAccFile + ".bak"));
+                Assert.NotEmpty(Directory.GetFiles(tempDir, Path.GetFileName(tempAccFile) + ".corrupt-*.bak"));
 
                 AccountManager.ReplaceAccountsList(new List<Account> { acc });
                 await mgr.ResetEncryptionAsync(manualReset: false);
