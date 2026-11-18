@@ -4,9 +4,16 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using Avalonia.Controls;
+using Avalonia.Headless.XUnit;
+using Avalonia.Interactivity;
+using Avalonia.Logging;
+using Avalonia.Threading;
 using NSubstitute;
 using Shiro.AvaloniaUI.Views;
 using Shiro.Services;
+using Shiro.Tests.Ui;
+using Shiro.ViewModels;
 using Xunit;
 
 namespace Shiro.Tests
@@ -310,6 +317,180 @@ namespace Shiro.Tests
             Assert.True(InputDialog.ShouldMaskInput(null, isSecret: true));
             Assert.True(InputDialog.ShouldMaskInput("Enter Password", isSecret: false));
             Assert.False(InputDialog.ShouldMaskInput("Group Name", isSecret: false));
+        }
+
+        [Theory]
+        [InlineData(NavigationPage.Accounts, "ViewDashboard", "BtnNavDashboard", null, false, false)]
+        [InlineData(NavigationPage.ServerList, "ViewServerList", "BtnNavServerList", 0, false, true)]
+        [InlineData(NavigationPage.RecentGames, "ViewServerList", "BtnNavRecentGames", 2, true, false)]
+        [InlineData(NavigationPage.Settings, "ViewSettings", "BtnNavSettings", null, false, false)]
+        [InlineData(NavigationPage.About, "ViewAbout", "BtnNavAbout", null, false, false)]
+        public void MainWindow_ResolveNavigationTarget_MapsEveryPageToExpectedViewAndNavButton(
+            NavigationPage page,
+            string expectedViewName,
+            string expectedButtonName,
+            int? expectedSubTabIndex,
+            bool expectedReloadRecentGames,
+            bool expectedEnsureServersLoaded)
+        {
+            var spec = MainWindow.ResolveNavigationTarget(page);
+            Assert.Equal(expectedViewName, spec.ViewName);
+            Assert.Equal(expectedButtonName, spec.NavButtonName);
+            Assert.Equal(expectedSubTabIndex, spec.ServerListSubTabIndex);
+            Assert.Equal(expectedReloadRecentGames, spec.ReloadRecentGames);
+            Assert.Equal(expectedEnsureServersLoaded, spec.EnsureServersLoaded);
+        }
+
+        [AvaloniaFact]
+        public void MainWindow_BidirectionalNavigation_SyncsViewsNavPillsAndCurrentPage_AndDetachesOnClose()
+        {
+            string tempDir = Path.Combine(Path.GetTempPath(), "shiro-nav-test-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(tempDir);
+            var sink = new BindingErrorSink();
+            var prevSink = Logger.Sink;
+            var prevLang = LocalizationService.CurrentLanguage;
+            var prevPlaceId = AppServices.ServerBrowserState.CurrentPlaceId;
+            MainWindow? window = null;
+            MainViewModel? vm = null;
+            Logger.Sink = sink;
+            try
+            {
+                using var dataDirScope = StoragePaths.OverrideDataDirectoryForTesting(tempDir);
+                AppServices.ServerBrowserState.CurrentPlaceId = string.Empty;
+
+                var settings = Substitute.For<ISettingsService>();
+                settings.Get(AppSettingsKeys.General.HasAcceptedRiskDisclaimer).Returns("true");
+                settings.Get<bool>(AppSettingsKeys.General.HasAcceptedRiskDisclaimer).Returns(true);
+                settings.Get("SavedPlaceId").Returns((string?)null);
+
+                var repo = Substitute.For<IAccountRepository>();
+                repo.GetAll().Returns(new List<Account>());
+                repo.IsPasswordEncrypted().Returns(false);
+
+                using var settingsScope = AppServices.Override<ISettingsService>(settings);
+                using var repoScope = AppServices.Override<IAccountRepository>(repo);
+
+                window = new MainWindow();
+                window.Show();
+                Dispatcher.UIThread.RunJobs();
+
+                vm = window.ViewModel;
+                Assert.NotNull(vm);
+                Assert.NotNull(vm!.OnPageNavigated);
+
+                var viewDashboard = window.FindControl<Control>("ViewDashboard");
+                var viewServerList = window.FindControl<Control>("ViewServerList");
+                var viewSettings = window.FindControl<Control>("ViewSettings");
+                var viewAbout = window.FindControl<Control>("ViewAbout");
+                var btnDashboard = window.FindControl<Button>("BtnNavDashboard");
+                var btnServerList = window.FindControl<Button>("BtnNavServerList");
+                var btnRecentGames = window.FindControl<Button>("BtnNavRecentGames");
+                var btnSettings = window.FindControl<Button>("BtnNavSettings");
+                var btnAbout = window.FindControl<Button>("BtnNavAbout");
+
+                Assert.NotNull(viewDashboard);
+                Assert.NotNull(viewServerList);
+                Assert.NotNull(viewSettings);
+                Assert.NotNull(viewAbout);
+                Assert.NotNull(btnDashboard);
+                Assert.NotNull(btnServerList);
+                Assert.NotNull(btnRecentGames);
+                Assert.NotNull(btnSettings);
+                Assert.NotNull(btnAbout);
+
+                void AssertActive(Control? expectedView, Button? expectedButton)
+                {
+                    Assert.Equal(ReferenceEquals(viewDashboard, expectedView), viewDashboard!.IsVisible);
+                    Assert.Equal(ReferenceEquals(viewServerList, expectedView), viewServerList!.IsVisible);
+                    Assert.Equal(ReferenceEquals(viewSettings, expectedView), viewSettings!.IsVisible);
+                    Assert.Equal(ReferenceEquals(viewAbout, expectedView), viewAbout!.IsVisible);
+
+                    Assert.Equal(ReferenceEquals(btnDashboard, expectedButton), btnDashboard!.Classes.Contains("active"));
+                    Assert.Equal(ReferenceEquals(btnServerList, expectedButton), btnServerList!.Classes.Contains("active"));
+                    Assert.Equal(ReferenceEquals(btnRecentGames, expectedButton), btnRecentGames!.Classes.Contains("active"));
+                    Assert.Equal(ReferenceEquals(btnSettings, expectedButton), btnSettings!.Classes.Contains("active"));
+                    Assert.Equal(ReferenceEquals(btnAbout, expectedButton), btnAbout!.Classes.Contains("active"));
+                }
+
+                // Initial page is Accounts
+                Assert.Equal(NavigationPage.Accounts, vm.CurrentPage);
+                AssertActive(viewDashboard, btnDashboard);
+
+                // Programmatic ViewModel -> MainWindow transitions
+                vm.CurrentPage = NavigationPage.Settings;
+                AssertActive(viewSettings, btnSettings);
+
+                vm.NavigateToRecentGamesCommand.Execute(null);
+                Assert.Equal(NavigationPage.RecentGames, vm.CurrentPage);
+                Assert.Equal(2, vm.ServerListViewModel.SelectedSubTabIndex);
+                AssertActive(viewServerList, btnRecentGames);
+
+                vm.CurrentPage = NavigationPage.About;
+                Assert.True(vm.IsAboutActive);
+                AssertActive(viewAbout, btnAbout);
+
+                vm.OpenServerListCommand.Execute(null);
+                Assert.Equal(NavigationPage.ServerList, vm.CurrentPage);
+                Assert.Equal(0, vm.ServerListViewModel.SelectedSubTabIndex);
+                AssertActive(viewServerList, btnServerList);
+
+                vm.CurrentPage = NavigationPage.Accounts;
+                AssertActive(viewDashboard, btnDashboard);
+
+                // Sidebar button click -> ViewModel.CurrentPage + no recursion loop
+                int currentPageChangeCount = 0;
+                vm.PropertyChanged += (_, e) =>
+                {
+                    if (e.PropertyName == nameof(MainViewModel.CurrentPage))
+                        currentPageChangeCount++;
+                };
+
+                btnSettings!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                Assert.Equal(NavigationPage.Settings, vm.CurrentPage);
+                Assert.Equal(1, currentPageChangeCount);
+                AssertActive(viewSettings, btnSettings);
+
+                // Re-clicking active sidebar pill does not re-fire CurrentPage change
+                btnSettings.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                Assert.Equal(1, currentPageChangeCount);
+                AssertActive(viewSettings, btnSettings);
+
+                btnAbout!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                Assert.Equal(NavigationPage.About, vm.CurrentPage);
+                AssertActive(viewAbout, btnAbout);
+
+                btnRecentGames!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                Assert.Equal(NavigationPage.RecentGames, vm.CurrentPage);
+                Assert.Equal(2, vm.ServerListViewModel.SelectedSubTabIndex);
+                AssertActive(viewServerList, btnRecentGames);
+
+                btnServerList!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                Assert.Equal(NavigationPage.ServerList, vm.CurrentPage);
+                Assert.Equal(0, vm.ServerListViewModel.SelectedSubTabIndex);
+                AssertActive(viewServerList, btnServerList);
+
+                btnDashboard!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                Assert.Equal(NavigationPage.Accounts, vm.CurrentPage);
+                AssertActive(viewDashboard, btnDashboard);
+
+                window.Close();
+                Dispatcher.UIThread.RunJobs();
+
+                Assert.Null(vm.OnPageNavigated);
+                Assert.Null(MainWindow.Instance);
+                Assert.Empty(sink.Errors);
+            }
+            finally
+            {
+                window?.Close();
+                Dispatcher.UIThread.RunJobs();
+                AppServices.ServerBrowserState.CurrentPlaceId = prevPlaceId;
+                LocalizationService.SetLanguage(prevLang, saveSetting: false);
+                Avalonia.Application.Current?.Resources.MergedDictionaries.Clear();
+                Logger.Sink = prevSink;
+                if (Directory.Exists(tempDir))
+                    Directory.Delete(tempDir, recursive: true);
+            }
         }
     }
 }

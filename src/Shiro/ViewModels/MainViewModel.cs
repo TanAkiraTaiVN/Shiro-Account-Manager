@@ -16,7 +16,8 @@ namespace Shiro.ViewModels
         Accounts,
         ServerList,
         RecentGames,
-        Settings
+        Settings,
+        About
     }
 
     public partial class MainViewModel : ObservableObject, IDisposable
@@ -52,6 +53,7 @@ namespace Shiro.ViewModels
                     OnPropertyChanged(nameof(IsServerListActive));
                     OnPropertyChanged(nameof(IsRecentGamesActive));
                     OnPropertyChanged(nameof(IsSettingsActive));
+                    OnPropertyChanged(nameof(IsAboutActive));
                     OnPageNavigated?.Invoke(value);
                 }
             }
@@ -61,6 +63,7 @@ namespace Shiro.ViewModels
         public bool IsServerListActive => CurrentPage == NavigationPage.ServerList;
         public bool IsRecentGamesActive => CurrentPage == NavigationPage.RecentGames;
         public bool IsSettingsActive => CurrentPage == NavigationPage.Settings;
+        public bool IsAboutActive => CurrentPage == NavigationPage.About;
 
         // Callback when navigation page changes
         public Action<NavigationPage>? OnPageNavigated { get; set; }
@@ -201,6 +204,7 @@ namespace Shiro.ViewModels
             AccentThemeService.ThemeChanged -= OnAccentThemeChanged;
             LaunchCoordinator.LaunchProgressChanged -= OnLaunchProgressChanged;
             StreamerModeService.StateChanged -= OnStreamerModeStateChanged;
+            OnPageNavigated = null;
 
             var searchCts = System.Threading.Interlocked.Exchange(ref _searchCts, null);
             SafeExecuteHelper.Try(() => searchCts?.Cancel(), "MainViewModel.Dispose.SearchCtsCancel");

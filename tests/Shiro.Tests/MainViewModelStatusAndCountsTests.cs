@@ -201,5 +201,44 @@ namespace Shiro.Tests
             Assert.Null(vm.TryGetAccountViewModel(null));
             Assert.Null(vm.TryGetAccountViewModel(new Account { Username = "NoSuchUser" }));
         }
+
+        [Fact]
+        public void MainViewModel_CurrentPage_SupportsAbout_GuardsDuplicates_AndDisposeClearsOnPageNavigated()
+        {
+            var vm = new MainViewModel();
+            var navigated = new List<NavigationPage>();
+            var changedProperties = new List<string>();
+            vm.OnPageNavigated = page => navigated.Add(page);
+            vm.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName != null)
+                    changedProperties.Add(e.PropertyName);
+            };
+
+            Assert.Equal(NavigationPage.Accounts, vm.CurrentPage);
+            Assert.True(vm.IsAccountsActive);
+            Assert.False(vm.IsAboutActive);
+
+            // Setting the same page must not re-fire OnPageNavigated
+            vm.CurrentPage = NavigationPage.Accounts;
+            Assert.Empty(navigated);
+
+            vm.CurrentPage = NavigationPage.About;
+            Assert.Equal(NavigationPage.About, vm.CurrentPage);
+            Assert.True(vm.IsAboutActive);
+            Assert.False(vm.IsAccountsActive);
+            Assert.False(vm.IsServerListActive);
+            Assert.False(vm.IsRecentGamesActive);
+            Assert.False(vm.IsSettingsActive);
+            Assert.Contains(nameof(MainViewModel.CurrentPage), changedProperties);
+            Assert.Contains(nameof(MainViewModel.IsAboutActive), changedProperties);
+            Assert.Equal(new[] { NavigationPage.About }, navigated);
+
+            vm.Dispose();
+            Assert.Null(vm.OnPageNavigated);
+
+            vm.CurrentPage = NavigationPage.Settings;
+            Assert.Single(navigated);
+        }
     }
 }

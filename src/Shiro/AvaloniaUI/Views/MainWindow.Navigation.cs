@@ -15,6 +15,15 @@ namespace Shiro.AvaloniaUI.Views
     /// </summary>
     public partial class MainWindow
     {
+        private bool _isApplyingNavigationPage;
+
+        internal readonly record struct NavigationTargetSpec(
+            string ViewName,
+            string NavButtonName,
+            int? ServerListSubTabIndex,
+            bool ReloadRecentGames,
+            bool EnsureServersLoaded);
+
         protected override void OnKeyDown(KeyEventArgs e)
         {
             base.OnKeyDown(e);
@@ -123,37 +132,98 @@ namespace Shiro.AvaloniaUI.Views
             BtnNavAbout?.Classes.Remove("active");
         }
 
+        internal static NavigationTargetSpec ResolveNavigationTarget(NavigationPage page) => page switch
+        {
+            NavigationPage.ServerList => new(nameof(ViewServerList), nameof(BtnNavServerList), 0, ReloadRecentGames: false, EnsureServersLoaded: true),
+            NavigationPage.RecentGames => new(nameof(ViewServerList), nameof(BtnNavRecentGames), 2, ReloadRecentGames: true, EnsureServersLoaded: false),
+            NavigationPage.Settings => new(nameof(ViewSettings), nameof(BtnNavSettings), null, ReloadRecentGames: false, EnsureServersLoaded: false),
+            NavigationPage.About => new(nameof(ViewAbout), nameof(BtnNavAbout), null, ReloadRecentGames: false, EnsureServersLoaded: false),
+            _ => new(nameof(ViewDashboard), nameof(BtnNavDashboard), null, ReloadRecentGames: false, EnsureServersLoaded: false)
+        };
+
+        internal void ApplyNavigationPage(NavigationPage page)
+        {
+            if (Avalonia.Application.Current != null &&
+                Avalonia.Threading.Dispatcher.UIThread != null &&
+                !Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
+            {
+                AppDispatcher.Post(() => ApplyNavigationPage(page));
+                return;
+            }
+
+            if (_isApplyingNavigationPage)
+                return;
+
+            _isApplyingNavigationPage = true;
+            try
+            {
+                var spec = ResolveNavigationTarget(page);
+                if (spec.ReloadRecentGames)
+                {
+                    ViewDashboard?.ViewModel?.ReloadRecentGames();
+                }
+
+                if (spec.ServerListSubTabIndex is int subTabIndex &&
+                    ViewServerList != null &&
+                    ViewDashboard?.ViewModel?.ServerListViewModel is { } slvm)
+                {
+                    ViewServerList.DataContext = slvm;
+                    slvm.SelectedSubTabIndex = subTabIndex;
+                    if (spec.EnsureServersLoaded)
+                        slvm.EnsureServersLoadedForCurrentPlaceId();
+                    if (spec.ReloadRecentGames)
+                        slvm.NotifyRecentGamesChanged();
+                }
+
+                var targetView = spec.ViewName switch
+                {
+                    nameof(ViewServerList) => (Control?)ViewServerList,
+                    nameof(ViewSettings) => ViewSettings,
+                    nameof(ViewAbout) => ViewAbout,
+                    _ => ViewDashboard
+                };
+                var targetButton = spec.NavButtonName switch
+                {
+                    nameof(BtnNavServerList) => BtnNavServerList,
+                    nameof(BtnNavRecentGames) => BtnNavRecentGames,
+                    nameof(BtnNavSettings) => BtnNavSettings,
+                    nameof(BtnNavAbout) => BtnNavAbout,
+                    _ => BtnNavDashboard
+                };
+
+                SetActiveView(targetView, targetButton);
+            }
+            finally
+            {
+                _isApplyingNavigationPage = false;
+            }
+        }
+
+        private void NavigateFromSidebar(NavigationPage page)
+        {
+            if (ViewModel != null && ViewModel.CurrentPage != page)
+            {
+                ViewModel.CurrentPage = page;
+                return;
+            }
+
+            ApplyNavigationPage(page);
+        }
+
         private void OnNavDashboardClicked(object sender, RoutedEventArgs e)
-            => SetActiveView(ViewDashboard, BtnNavDashboard);
+            => NavigateFromSidebar(NavigationPage.Accounts);
 
         private void OnNavServerListClicked(object sender, RoutedEventArgs e)
-        {
-            if (ViewServerList != null && ViewDashboard?.ViewModel?.ServerListViewModel is { } slvm)
-            {
-                ViewServerList.DataContext = slvm;
-                slvm.SelectedSubTabIndex = 0;
-                slvm.EnsureServersLoadedForCurrentPlaceId();
-            }
-            SetActiveView(ViewServerList, BtnNavServerList);
-        }
+            => NavigateFromSidebar(NavigationPage.ServerList);
 
         private void OnNavRecentGamesClicked(object sender, RoutedEventArgs e)
-        {
-            ViewDashboard?.ViewModel?.ReloadRecentGames();
-            if (ViewServerList != null && ViewDashboard?.ViewModel?.ServerListViewModel is { } slvm)
-            {
-                ViewServerList.DataContext = slvm;
-                slvm.SelectedSubTabIndex = 2;
-                slvm.NotifyRecentGamesChanged();
-            }
-            SetActiveView(ViewServerList, BtnNavRecentGames);
-        }
+            => NavigateFromSidebar(NavigationPage.RecentGames);
 
         private void OnNavSettingsClicked(object sender, RoutedEventArgs e)
-            => SetActiveView(ViewSettings, BtnNavSettings);
+            => NavigateFromSidebar(NavigationPage.Settings);
 
         private void OnNavAboutClicked(object sender, RoutedEventArgs e)
-            => SetActiveView(ViewAbout, BtnNavAbout);
+            => NavigateFromSidebar(NavigationPage.About);
 
         private void OnSidebarCloseRobloxClicked(object sender, RoutedEventArgs e)
         {

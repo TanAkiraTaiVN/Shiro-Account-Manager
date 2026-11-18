@@ -37,6 +37,11 @@ namespace Shiro.AvaloniaUI.Views
 
             if (ViewDashboard?.ViewModel != null)
             {
+                if (ViewServerList != null && ViewDashboard.ViewModel.ServerListViewModel != null)
+                {
+                    ViewServerList.DataContext = ViewDashboard.ViewModel.ServerListViewModel;
+                }
+
                 DataContext = ViewDashboard.ViewModel;
                 ViewDashboard.ViewModel.PropertyChanged += (_, e) =>
                 {
@@ -46,6 +51,8 @@ namespace Shiro.AvaloniaUI.Views
                         FocusCommandPaletteInput();
                     }
                 };
+                ViewDashboard.ViewModel.OnPageNavigated = ApplyNavigationPage;
+                ApplyNavigationPage(ViewDashboard.ViewModel.CurrentPage);
             }
 
             if (TxtCommandPalette != null)
@@ -104,11 +111,6 @@ namespace Shiro.AvaloniaUI.Views
                     UpdateMaximizeIcon();
                 }
             };
-
-            if (ViewServerList != null && ViewDashboard?.ViewModel?.ServerListViewModel != null)
-            {
-                ViewServerList.DataContext = ViewDashboard.ViewModel.ServerListViewModel;
-            }
 
             RefreshAccounts(AppServices.AccountRepository.GetAll());
 
@@ -215,7 +217,11 @@ namespace Shiro.AvaloniaUI.Views
 
         protected override void OnClosed(EventArgs e)
         {
-            ViewDashboard?.ViewModel?.Dispose();
+            if (ViewDashboard?.ViewModel != null)
+            {
+                ViewDashboard.ViewModel.OnPageNavigated = null;
+                ViewDashboard.ViewModel.Dispose();
+            }
 
             if (AppServices.HostUiBridge is HostUiBridgeService bridge)
             {
