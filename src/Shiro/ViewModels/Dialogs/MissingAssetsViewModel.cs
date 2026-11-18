@@ -23,6 +23,8 @@ public sealed class MissingAssetsViewModel : DialogViewModelBase
     private string _title = LocalizationService.Get("MissingAssets.DefaultTitle");
     private string _subtitle = LocalizationService.Get("MissingAssets.DefaultSubtitle");
     private string _totalPriceText = LocalizationService.Format("MissingAssets.TotalRobux", 0);
+    private CancellationTokenSource? _loadCts;
+    private CancellationTokenSource? _purchaseCts;
 
     public MissingAssetsViewModel(
         Account? account = null,
@@ -78,6 +80,40 @@ public sealed class MissingAssetsViewModel : DialogViewModelBase
     public ICommand ViewOnRobloxCommand { get; }
     public ICommand CloseCommand { get; }
 
+    public override void OnClosing()
+    {
+        CancelSlot(ref _loadCts);
+        CancelSlot(ref _purchaseCts);
+        base.OnClosing();
+    }
+
+    private CancellationToken BeginLoadOperation() => ReplaceOperationCts(ref _loadCts);
+
+    private CancellationToken BeginPurchaseOperation() => ReplaceOperationCts(ref _purchaseCts);
+
+    private static CancellationToken ReplaceOperationCts(ref CancellationTokenSource? slot)
+    {
+        var next = new CancellationTokenSource();
+        var prev = Interlocked.Exchange(ref slot, next);
+        CancelAndDisposeCts(prev);
+        return next.Token;
+    }
+
+    private static void CancelSlot(ref CancellationTokenSource? slot)
+    {
+        var prev = Interlocked.Exchange(ref slot, null);
+        CancelAndDisposeCts(prev);
+    }
+
+    private static void CancelAndDisposeCts(CancellationTokenSource? cts)
+    {
+        if (cts != null)
+        {
+            SafeExecuteHelper.Try(() => cts.Cancel());
+            SafeExecuteHelper.Try(() => cts.Dispose());
+        }
+    }
+
     private async Task LoadAsync()
     {
         if (_account == null)
@@ -86,7 +122,7 @@ public sealed class MissingAssetsViewModel : DialogViewModelBase
             return;
         }
 
-        CancellationToken token = BeginOperation();
+        CancellationToken token = BeginLoadOperation();
         try
         {
             Items.Clear();
@@ -260,7 +296,7 @@ public sealed class MissingAssetsViewModel : DialogViewModelBase
             return;
 
         IsBusy = true;
-        CancellationToken ct = BeginOperation();
+        CancellationToken ct = BeginPurchaseOperation();
         item.CanBuy = false;
         item.BuyButtonText = LocalizationService.Get("MissingAssets.PurchasingText");
 

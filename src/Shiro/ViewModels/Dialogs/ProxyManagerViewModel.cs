@@ -28,11 +28,11 @@ namespace Shiro.ViewModels.Dialogs
                 Proxies.Add(item);
             }
 
-            AddProxyCommand = new RelayCommand(AddProxy);
-            DeleteProxyCommand = new RelayCommand<ProxyItem>(DeleteProxy);
+            AddProxyCommand = TrackCommand(new RelayCommand(AddProxy, () => !IsBusy));
+            DeleteProxyCommand = TrackCommand(new RelayCommand<ProxyItem>(DeleteProxy, _ => !IsBusy));
             TestAllCommand = TrackCommand(new AsyncRelayCommand(TestAllAsync, () => !IsBusy));
-            RemoveDeadCommand = new RelayCommand(RemoveDead);
-            SaveCommand = new RelayCommand(Save);
+            RemoveDeadCommand = TrackCommand(new RelayCommand(RemoveDead, () => !IsBusy));
+            SaveCommand = TrackCommand(new RelayCommand(Save, () => !IsBusy));
         }
 
         public ObservableCollection<ProxyItem> Proxies { get; } = new();
@@ -51,6 +51,9 @@ namespace Shiro.ViewModels.Dialogs
 
         public (int Added, int Duplicates, int Invalid) AddEntries(string? raw)
         {
+            if (IsBusy)
+                return (0, 0, 0);
+
             string? rawInput = raw?.Trim();
             if (string.IsNullOrEmpty(rawInput))
                 return (0, 0, 0);
@@ -94,6 +97,9 @@ namespace Shiro.ViewModels.Dialogs
 
         private void AddProxy()
         {
+            if (IsBusy)
+                return;
+
             var (added, skippedDuplicate, invalid) = AddEntries(NewProxyText);
             if (added == 0 && skippedDuplicate == 0 && invalid == 0)
                 return;
@@ -118,6 +124,9 @@ namespace Shiro.ViewModels.Dialogs
 
         private void DeleteProxy(ProxyItem? item)
         {
+            if (IsBusy)
+                return;
+
             if (item != null && Proxies.Remove(item))
             {
                 SetStatus(LocalizationService.Format("ProxyManager.TotalProxiesCount", Proxies.Count), StatusKind.Neutral);
@@ -135,19 +144,20 @@ namespace Shiro.ViewModels.Dialogs
                 return;
             }
 
+            var snapshot = Proxies.ToArray();
             IsBusy = true;
             CancellationToken token = BeginOperation();
-            SetStatus(LocalizationService.Format("ProxyManager.CheckingProxiesProgress", Proxies.Count), StatusKind.Info);
+            SetStatus(LocalizationService.Format("ProxyManager.CheckingProxiesProgress", snapshot.Length), StatusKind.Info);
 
             try
             {
-                await _store.TestAllAsync(Proxies, token);
+                await _store.TestAllAsync(snapshot, token);
                 if (!token.IsCancellationRequested)
                 {
-                    int online = Proxies.Count(p => p.IsOnline);
-                    int dead = Proxies.Count(p => p.LatencyMs == -2);
+                    int online = snapshot.Count(p => p.IsOnline);
+                    int dead = snapshot.Count(p => p.LatencyMs == -2);
                     SetStatus(
-                        LocalizationService.Format("ProxyManager.CheckSummaryResult", online, Proxies.Count, dead),
+                        LocalizationService.Format("ProxyManager.CheckSummaryResult", online, snapshot.Length, dead),
                         online > 0 ? StatusKind.Success : StatusKind.Warning);
                 }
             }
@@ -167,6 +177,9 @@ namespace Shiro.ViewModels.Dialogs
 
         private void RemoveDead()
         {
+            if (IsBusy)
+                return;
+
             int removedCount = 0;
             for (int i = Proxies.Count - 1; i >= 0; i--)
             {
@@ -185,6 +198,9 @@ namespace Shiro.ViewModels.Dialogs
 
         private void Save()
         {
+            if (IsBusy)
+                return;
+
             _store.Save(Proxies);
             RequestClose(true);
         }

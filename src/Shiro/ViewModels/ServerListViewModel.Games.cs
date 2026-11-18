@@ -143,11 +143,12 @@ namespace Shiro.ViewModels
             {
                 AppDispatcher.Post(() =>
                 {
-                    if (!ReferenceEquals(Volatile.Read(ref _gamesSearchCts), cts))
-                        return;
+                    var current = Volatile.Read(ref _gamesSearchCts);
+                    if (current == null || ReferenceEquals(current, cts))
+                        IsSearchingGames = false;
 
-                    IsSearchingGames = false;
-                    ServerListOperationHelper.ReleaseFinishedCts(ref _gamesSearchCts, cts, "ServerListViewModel.GamesSearchCts");
+                    if (ReferenceEquals(current, cts))
+                        ServerListOperationHelper.ReleaseFinishedCts(ref _gamesSearchCts, cts, "ServerListViewModel.GamesSearchCts");
                 });
             }
         }
