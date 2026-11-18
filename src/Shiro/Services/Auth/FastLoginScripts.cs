@@ -158,12 +158,17 @@ namespace Shiro.Services
             }})();";
         }
 
+        internal sealed record ResolveSettledCookieResult(
+            string CookieValue,
+            IReadOnlyList<string> CandidateFingerprints,
+            string? PendingCapturedFp);
+
         public static async Task<string> ResolveSettledCookieAsync(
             CoreWebView2 core,
             string initialCookieValue,
             ISet<string> ignoredCookieValues)
         {
-            string cookieValue = initialCookieValue;
+            var observed = new List<string>();
             try
             {
                 string[] checkUrls =
@@ -183,11 +188,7 @@ namespace Shiro.Services
                             !string.IsNullOrWhiteSpace(c.Value) &&
                             c.Value.StartsWith("_|", StringComparison.Ordinal))
                         {
-                            if (ShouldReplaceSettledCookie(cookieValue, c.Value))
-                            {
-                                cookieValue = c.Value;
-                            }
-                            ignoredCookieValues.Add(FastLoginCoordinator.FingerprintCookie(c.Value));
+                            observed.Add(c.Value);
                         }
                     }
                 }
@@ -197,8 +198,89 @@ namespace Shiro.Services
                 AppServices.Logger.Debug($"Reading settled cookies threw: {ex.Message}");
             }
 
-            return cookieValue;
+            return ResolveSettledCookieCandidates(initialCookieValue, observed, ignoredCookieValues).CookieValue;
         }
+
+        internal static ResolveSettledCookieResult ResolveSettledCookieCandidates(
+            string initialCookieValue,
+            IEnumerable<string> settledCookies,
+            ISet<string>? ignoredCookieValues = null)
+        {
+            string cookieValue = initialCookieValue;
+            string initialFp = !string.IsNullOrWhiteSpace(initialCookieValue)
+                ? FastLoginCoordinator.FingerprintCookie(initialCookieValue)
+                : string.Empty;
+            var candidates = new List<string>();
+            if (!string.IsNullOrEmpty(initialFp))
+                candidates.Add(initialFp);
+
+            foreach (string raw in settledCookies)
+            {
+                if (string.IsNullOrWhiteSpace(raw) || !raw.StartsWith("_|", StringComparison.Ordinal))
+                    continue;
+
+                string fp = FastLoginCoordinator.FingerprintCookie(raw);
+                if (!candidates.Contains(fp))
+                    candidates.Add(fp);
+
+                if (ignoredCookieValues != null &&
+                    !string.Equals(fp, initialFp, StringComparison.Ordinal) &&
+                    ignoredCookieValues.Contains(fp))
+                {
+                    continue;
+                }
+
+                if (ShouldReplaceSettledCookie(cookieValue, raw))
+                {
+                    cookieValue = raw;
+                }
+            }
+
+            return new ResolveSettledCookieResult(
+                cookieValue,
+                candidates,
+                string.IsNullOrEmpty(initialFp) ? null : initialFp);
+        }
+
+        internal static bool ApplySettlementOutcome(
+            FastLoginCaptureStatus status,
+            ISet<string> ignoredCookieValues,
+            ref string? pendingCapturedFp,
+            params string?[] candidateFingerprints)
+        {
+            if (status == FastLoginCaptureStatus.RetryPolling)
+            {
+                foreach (string? fp in candidateFingerprints)
+                {
+                    if (!string.IsNullOrEmpty(fp))
+                    {
+                        ignoredCookieValues.Remove(fp);
+                        pendingCapturedFp ??= fp;
+                    }
+                }
+                if (!string.IsNullOrEmpty(pendingCapturedFp))
+                    ignoredCookieValues.Remove(pendingCapturedFp);
+                return true;
+            }
+
+            if (!string.IsNullOrEmpty(pendingCapturedFp))
+                ignoredCookieValues.Add(pendingCapturedFp);
+            foreach (string? fp in candidateFingerprints)
+            {
+                if (!string.IsNullOrEmpty(fp))
+                    ignoredCookieValues.Add(fp);
+            }
+            pendingCapturedFp = null;
+            return false;
+        }
+
+        internal static bool ShouldDeleteIgnoredCookie(
+            IgnoredCookieAction action,
+            string cookieFingerprint,
+            string? pendingCapturedFp) =>
+            action == IgnoredCookieAction.DeleteCookie &&
+            (string.IsNullOrEmpty(pendingCapturedFp) ||
+             !string.Equals(cookieFingerprint, pendingCapturedFp, StringComparison.Ordinal));
 
         internal static bool ShouldReplaceSettledCookie(string currentCookie, string candidateCookie)
         {

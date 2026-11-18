@@ -268,6 +268,7 @@ namespace Shiro
 
         public void ClearSensitiveMemory()
         {
+            string hbaKey = HbaPrivateKey;
             lock (CookieSyncRoot)
             {
                 InMemorySecretProtector.ZeroAndClear(ref _protectedSecurityToken);
@@ -287,6 +288,7 @@ namespace Shiro
                         Fields.Remove(k);
                 }
             }
+            RobloxHbaService.ClearCachedKey(hbaKey);
         }
     }
 }

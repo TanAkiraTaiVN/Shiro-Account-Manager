@@ -22,6 +22,7 @@ namespace Shiro
         private const string FieldHbaTemplate = "HbaTemplate";
         private const string FieldSessionUserAgent = "SessionUserAgent";
         private const string FieldLastBoundIpSig = "LastBoundIpSig";
+        private const string FieldAccountStatusIssue = "AccountStatusIssue";
 
         internal static bool IsProtectedInternalField(string? fieldName)
         {
@@ -34,6 +35,7 @@ namespace Shiro
                    name.Equals(FieldHbaTemplate, StringComparison.OrdinalIgnoreCase) ||
                    name.Equals(FieldSessionUserAgent, StringComparison.OrdinalIgnoreCase) ||
                    name.Equals(FieldLastBoundIpSig, StringComparison.OrdinalIgnoreCase) ||
+                   name.Equals(FieldAccountStatusIssue, StringComparison.OrdinalIgnoreCase) ||
                    name.StartsWith("Hba", StringComparison.OrdinalIgnoreCase);
         }
 

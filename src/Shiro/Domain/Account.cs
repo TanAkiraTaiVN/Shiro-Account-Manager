@@ -342,11 +342,19 @@ namespace Shiro
 
         public Account() { }
 
-        public static async Task<Account> CreateAsync(
+        public static Task<Account> CreateAsync(
             string cookie,
             string? accountJson = null,
             CancellationToken cancellationToken = default,
-            RobloxHbaService.CaptureSnapshot? hbaCapture = null)
+            RobloxHbaService.CaptureSnapshot? hbaCapture = null) =>
+            CreateAsync(cookie, accountJson, cancellationToken, hbaCapture, expectedUsername: null);
+
+        public static async Task<Account> CreateAsync(
+            string cookie,
+            string? accountJson,
+            CancellationToken cancellationToken,
+            RobloxHbaService.CaptureSnapshot? hbaCapture,
+            string? expectedUsername)
         {
             var account = new Account { SecurityToken = cookie, Valid = false, LastUse = DateTime.Now };
             account.ApplyHbaCapture(hbaCapture);
@@ -357,13 +365,16 @@ namespace Shiro
                 account.UserID = data.UserId;
                 account.Valid = true;
                 account.LastUse = DateTime.Now;
-                AppServices.SelectionState.LastValidAccount = account;
-                return account;
             }
-
-            if (await account.ValidateSessionAsync(cancellationToken).ConfigureAwait(false) && account.UserID > 0)
+            else if (await account.ValidateSessionAsync(cancellationToken).ConfigureAwait(false) && account.UserID > 0)
             {
                 account.LastUse = DateTime.Now;
+            }
+
+            if (account.Valid &&
+                (string.IsNullOrEmpty(expectedUsername) ||
+                 string.Equals(account.Username, expectedUsername, StringComparison.OrdinalIgnoreCase)))
+            {
                 AppServices.SelectionState.LastValidAccount = account;
             }
             return account;

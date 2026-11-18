@@ -300,8 +300,9 @@ namespace Shiro.Services
             Func<string, string?, CancellationToken, RobloxHbaService.CaptureSnapshot?, Task<Account>>? createAccountAsync = null,
             CancellationToken cancellationToken = default)
         {
-            var resolveAsync = createAccountAsync ?? Account.CreateAsync;
-            Account candidate = await resolveAsync(cookieValue, accountJson, cancellationToken, hbaCapture).ConfigureAwait(false);
+            Account candidate = createAccountAsync != null
+                ? await createAccountAsync(cookieValue, accountJson, cancellationToken, hbaCapture).ConfigureAwait(false)
+                : await Account.CreateAsync(cookieValue, accountJson, cancellationToken, hbaCapture, expectedUsername).ConfigureAwait(false);
 
             if (candidate != null && candidate.Valid &&
                 !string.IsNullOrEmpty(expectedUsername) &&

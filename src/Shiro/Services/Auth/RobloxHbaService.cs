@@ -47,6 +47,18 @@ namespace Shiro.Services
             }
         }
 
+        internal static bool ClearCachedKey(string? hbaPrivateKey)
+        {
+            if (string.IsNullOrWhiteSpace(hbaPrivateKey)) return false;
+            lock (KeyCacheLock)
+            {
+                if (!CachedEcParameters.TryRemove(hbaPrivateKey.Trim(), out ECParameters ecParams))
+                    return false;
+                if (ecParams.D != null) CryptographicOperations.ZeroMemory(ecParams.D);
+                return true;
+            }
+        }
+
         public static bool IsInteractiveLoginActive => Volatile.Read(ref _activeInteractiveLoginCount) > 0;
 
         public static bool IsWithinPostInteractiveLoginGracePeriod(TimeSpan graceWindow)

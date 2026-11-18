@@ -17,6 +17,7 @@ namespace Shiro.AvaloniaUI.Views
         private string? _restoredModerationCookieFp;
         private Account? _restoredModerationAccount;
         private bool _hasSeenModerationPage;
+        private string? _pendingCapturedFp;
 
         private async Task RedirectUnauthenticatedModerationToLoginAsync(CoreWebView2 core)
         {
@@ -48,6 +49,7 @@ namespace Shiro.AvaloniaUI.Views
                 _restoredModerationAccount = null;
                 _restoredModerationCookieFp = null;
                 _hasSeenModerationPage = false;
+                _pendingCapturedFp = null;
 
                 ResetHbaSnapshot();
                 await ClearAuthCookiesAsync();
@@ -118,6 +120,7 @@ namespace Shiro.AvaloniaUI.Views
 
                     if (WvBrowser != null && !_isClosed)
                     {
+                        _pendingCapturedFp = null;
                         ResetHbaSnapshot();
                         var freshCore = await WvBrowser.ResetToFreshProfileAsync();
                         if (_isClosed) return;
@@ -152,6 +155,31 @@ namespace Shiro.AvaloniaUI.Views
             }
         }
 
+        private async Task HandleCapturedModerationPageAsync(CoreWebView2 core, string cookieValue, string fp, int delayMs)
+        {
+            var qAcc = GetCurrentQueueAccount();
+            if (qAcc != null)
+            {
+                qAcc.SecurityToken = cookieValue;
+                var modHba = await CollectFinalHbaAndFingerprintAsync(core);
+                qAcc.ApplyHbaCapture(modHba);
+                if (_queue.Count == 1)
+                {
+                    _ignoredCookieValues.Add(fp);
+                    _restoredModerationCookieFp = fp;
+                    _restoredModerationAccount = qAcc;
+                    _hasSeenModerationPage = true;
+                    _captured = false;
+                    _pollTimer?.Start();
+                }
+            }
+            _pendingCapturedFp = null;
+            if (delayMs > 0) await Task.Delay(delayMs);
+            var (b, r) = await DetectDomAccountIssueAsync(core);
+            if (b == "UNAUTHENTICATED_MODERATION") { await RedirectUnauthenticatedModerationToLoginAsync(core); return; }
+            await MarkCurrentAccountIssueAndSkipAsync(b ?? Shiro.Services.LocalizationService.Get("FastLogin.LockedOrBannedBadge"), r ?? Shiro.Services.LocalizationService.Get("FastLogin.AccountLockedOrModerated"));
+        }
+
         private async Task CheckAndCaptureSessionAsync()
         {
             if (_isClosed || _captured || _isCheckingSession) return;
@@ -160,7 +188,6 @@ namespace Shiro.AvaloniaUI.Views
             if (core == null) return;
 
             _isCheckingSession = true;
-            string? pendingCapturedFp = null;
             try
             {
                 string currentUrl = core.Source ?? string.Empty;
@@ -220,15 +247,15 @@ namespace Shiro.AvaloniaUI.Views
 
                             case IgnoredCookieAction.DeleteCookie:
                             default:
-                                SafeExecuteHelper.Try(() => core.CookieManager.DeleteCookie(secCookie), "FastLoginDialog.DeleteIgnoredCookie");
+                                if (FastLoginScripts.ShouldDeleteIgnoredCookie(ignoredAction, fp, _pendingCapturedFp))
+                                    SafeExecuteHelper.Try(() => core.CookieManager.DeleteCookie(secCookie), "FastLoginDialog.DeleteIgnoredCookie");
                                 return;
                         }
                     }
 
                     _captured = true;
                     _pollTimer?.Stop();
-                    _ignoredCookieValues.Add(fp);
-                    pendingCapturedFp = fp;
+                    _pendingCapturedFp = fp;
                     AppServices.Logger.Info($"[FastLogin] .ROBLOSECURITY detected for '{_username}' (len={secCookie.Value.Length}, url={core.Source}). Waiting for settle...");
 
                     TxtInAppStatus.Text = Shiro.Services.LocalizationService.Format("FastLogin.SessionCapturedRotating", _username ?? Shiro.Services.LocalizationService.Get("Dash_AccountsUnit"));
@@ -239,25 +266,7 @@ namespace Shiro.AvaloniaUI.Views
                         string navUrl = core.Source ?? string.Empty;
                         if (_queue.Count > 0 && IsModerationOrLockedUrl(navUrl))
                         {
-                            var qAcc = GetCurrentQueueAccount();
-                            if (qAcc != null)
-                            {
-                                qAcc.SecurityToken = secCookie.Value;
-                                var modHba = await CollectFinalHbaAndFingerprintAsync(core);
-                                qAcc.ApplyHbaCapture(modHba);
-                                if (_queue.Count == 1)
-                                {
-                                    _restoredModerationCookieFp = fp;
-                                    _restoredModerationAccount = qAcc;
-                                    _hasSeenModerationPage = true;
-                                    _captured = false;
-                                    _pollTimer?.Start();
-                                }
-                            }
-                            await Task.Delay(700);
-                            var (b, r) = await DetectDomAccountIssueAsync(core);
-                            if (b == "UNAUTHENTICATED_MODERATION") { await RedirectUnauthenticatedModerationToLoginAsync(core); return; }
-                            await MarkCurrentAccountIssueAndSkipAsync(b ?? Shiro.Services.LocalizationService.Get("FastLogin.LockedOrBannedBadge"), r ?? Shiro.Services.LocalizationService.Get("FastLogin.AccountLockedOrModerated"));
+                            await HandleCapturedModerationPageAsync(core, secCookie.Value, fp, delayMs: 700);
                             return;
                         }
                         if (!string.IsNullOrEmpty(navUrl) && !navUrl.Contains("/login", StringComparison.OrdinalIgnoreCase)) break;
@@ -313,24 +322,7 @@ namespace Shiro.AvaloniaUI.Views
                     string postRedirectUrl = core.Source ?? string.Empty;
                     if (_queue.Count > 0 && IsModerationOrLockedUrl(postRedirectUrl))
                     {
-                        var qAcc = GetCurrentQueueAccount();
-                        if (qAcc != null)
-                        {
-                            qAcc.SecurityToken = secCookie.Value;
-                            var modHba = await CollectFinalHbaAndFingerprintAsync(core);
-                            qAcc.ApplyHbaCapture(modHba);
-                            if (_queue.Count == 1)
-                            {
-                                _restoredModerationCookieFp = fp;
-                                _restoredModerationAccount = qAcc;
-                                _hasSeenModerationPage = true;
-                                _captured = false;
-                                _pollTimer?.Start();
-                            }
-                        }
-                        var (b, r) = await DetectDomAccountIssueAsync(core);
-                        if (b == "UNAUTHENTICATED_MODERATION") { await RedirectUnauthenticatedModerationToLoginAsync(core); return; }
-                        await MarkCurrentAccountIssueAndSkipAsync(b ?? Shiro.Services.LocalizationService.Get("FastLogin.LockedOrBannedBadge"), r ?? Shiro.Services.LocalizationService.Get("FastLogin.AccountLockedOrModerated"));
+                        await HandleCapturedModerationPageAsync(core, secCookie.Value, fp, delayMs: 0);
                         return;
                     }
 
@@ -364,7 +356,12 @@ namespace Shiro.AvaloniaUI.Views
                         _queue.Count,
                         GetCurrentQueueAccount(),
                         () => DetectDomAccountIssueAsync(core));
-                    pendingCapturedFp = null;
+                    FastLoginScripts.ApplySettlementOutcome(
+                        captureOutcome.Status,
+                        _ignoredCookieValues,
+                        ref _pendingCapturedFp,
+                        fp,
+                        Fingerprint(cookieValue));
                     Account? acc = captureOutcome.Account;
                     AppServices.Logger?.Info($"[FastLogin] Captured session for '{_username}': status={captureOutcome.Status}, payloadLen={Account.GetSessionTokenPayloadLength(cookieValue)}, hba={hbaSnapshot.HasPrivateKey}, registeredValid={acc?.Valid}, resolvedUser={acc?.Username}.");
 
@@ -436,9 +433,9 @@ namespace Shiro.AvaloniaUI.Views
             catch (Exception captureEx)
             {
                 AppServices.Logger.Warn($"[FastLogin] Capture error for '{_username}': {captureEx}");
-                if (!_isClosed && pendingCapturedFp != null)
+                if (!_isClosed && _pendingCapturedFp != null)
                 {
-                    _ignoredCookieValues.Remove(pendingCapturedFp);
+                    _ignoredCookieValues.Remove(_pendingCapturedFp);
                     _captured = false;
                     _pollTimer?.Start();
                 }
