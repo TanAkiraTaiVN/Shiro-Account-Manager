@@ -33,31 +33,17 @@ namespace Shiro.Services
                 return;
             }
 
-            try
-            {
-                // Guard: Do not touch Dispatcher.UIThread if Avalonia Application is not initialized.
-                // Touching Dispatcher.UIThread before Application startup binds a null controlled implementation,
-                // causing Dispatcher.MainLoop to fail with PlatformNotSupportedException.
-                if (Avalonia.Application.Current != null)
+            bool hasActiveDispatcher = TryGetActiveDispatcher(out var avaloniaDispatcher);
+            DispatchOrFallback(
+                hasActiveDispatcher,
+                dispatch: () =>
                 {
-                    var avaloniaDispatcher = Dispatcher.UIThread;
-                    if (avaloniaDispatcher != null)
-                    {
-                        if (priority == DispatcherPriority.Normal && avaloniaDispatcher.CheckAccess())
-                            action();
-                        else
-                            avaloniaDispatcher.Post(action, priority);
-                        return;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                AppServices.Logger?.Debug($"AppDispatcher.UIThreadPost dispatch failed: {ex.Message}");
-            }
-
-            // Direct invocation if no UI dispatcher is active (e.g. headless tests)
-            action();
+                    if (priority == DispatcherPriority.Normal && avaloniaDispatcher!.CheckAccess())
+                        action();
+                    else
+                        avaloniaDispatcher!.Post(action, priority);
+                },
+                fallback: action);
         }
 
         /// <summary>
@@ -67,26 +53,17 @@ namespace Shiro.Services
         {
             if (func == null) return default;
 
-            try
-            {
-                if (Avalonia.Application.Current != null)
+            bool hasActiveDispatcher = TryGetActiveDispatcher(out var avaloniaDispatcher);
+            return await DispatchOrFallbackAsync(
+                hasActiveDispatcher,
+                dispatch: async () =>
                 {
-                    var avaloniaDispatcher = Dispatcher.UIThread;
-                    if (avaloniaDispatcher != null)
-                    {
-                        if (avaloniaDispatcher.CheckAccess())
-                            return func();
-                        else
-                            return await avaloniaDispatcher.InvokeAsync(func);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                AppServices.Logger?.Debug($"AppDispatcher.UIThreadPost dispatch failed: {ex.Message}");
-            }
+                    if (avaloniaDispatcher!.CheckAccess())
+                        return func();
 
-            return func();
+                    return await avaloniaDispatcher.InvokeAsync(func);
+                },
+                fallback: () => Task.FromResult<T?>(func()));
         }
 
         /// <summary>
@@ -96,27 +73,77 @@ namespace Shiro.Services
         {
             if (action == null) return;
 
+            bool hasActiveDispatcher = TryGetActiveDispatcher(out var avaloniaDispatcher);
+            await DispatchOrFallbackAsync(
+                hasActiveDispatcher,
+                dispatch: async () =>
+                {
+                    if (avaloniaDispatcher!.CheckAccess())
+                        action();
+                    else
+                        await avaloniaDispatcher.InvokeAsync(action);
+                },
+                fallback: () =>
+                {
+                    action();
+                    return Task.CompletedTask;
+                });
+        }
+
+        private static bool TryGetActiveDispatcher(out Dispatcher? dispatcher)
+        {
+            dispatcher = null;
+            // Guard: Do not touch Dispatcher.UIThread if Avalonia Application is not initialized.
+            // Touching Dispatcher.UIThread before Application startup binds a null controlled implementation,
+            // causing Dispatcher.MainLoop to fail with PlatformNotSupportedException.
+            if (Avalonia.Application.Current == null)
+                return false;
+
             try
             {
-                if (Avalonia.Application.Current != null)
-                {
-                    var avaloniaDispatcher = Dispatcher.UIThread;
-                    if (avaloniaDispatcher != null)
-                    {
-                        if (avaloniaDispatcher.CheckAccess())
-                            action();
-                        else
-                            await avaloniaDispatcher.InvokeAsync(action);
-                        return;
-                    }
-                }
+                dispatcher = Dispatcher.UIThread;
+                return dispatcher != null;
             }
-            catch (Exception ex)
+            catch (PlatformNotSupportedException ex)
             {
-                AppServices.Logger?.Debug($"AppDispatcher.UIThreadPost dispatch failed: {ex.Message}");
+                AppServices.Logger?.Debug($"AppDispatcher.TryGetActiveDispatcher failed: {ex.Message}");
+                dispatcher = null;
+                return false;
+            }
+        }
+
+        internal static void DispatchOrFallback(bool hasActiveDispatcher, Action dispatch, Action fallback)
+        {
+            if (hasActiveDispatcher)
+            {
+                try
+                {
+                    dispatch();
+                }
+                catch (Exception ex)
+                {
+                    AppServices.Logger?.Debug($"AppDispatcher.UIThreadPost dispatch failed: {ex.Message}");
+                }
+                return;
             }
 
-            action();
+            fallback();
+        }
+
+        internal static Task DispatchOrFallbackAsync(
+            bool hasActiveDispatcher,
+            Func<Task> dispatch,
+            Func<Task> fallback)
+        {
+            return hasActiveDispatcher ? dispatch() : fallback();
+        }
+
+        internal static Task<T?> DispatchOrFallbackAsync<T>(
+            bool hasActiveDispatcher,
+            Func<Task<T?>> dispatch,
+            Func<Task<T?>> fallback)
+        {
+            return hasActiveDispatcher ? dispatch() : fallback();
         }
     }
 }
