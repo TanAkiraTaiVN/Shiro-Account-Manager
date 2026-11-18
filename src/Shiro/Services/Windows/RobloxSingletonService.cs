@@ -60,8 +60,7 @@ namespace Shiro.Services
             _isEnabled = enabled;
             if (!enabled)
             {
-                Stop();
-                SetStatus("Multi-Instance Disabled");
+                StopCore("Multi-Instance Disabled");
                 return;
             }
 
@@ -70,7 +69,15 @@ namespace Shiro.Services
             Task.Run(() => { try { Sweep(force: true); } catch (Exception ex) { AppServices.Logger?.Debug($"Initial sweep threw: {ex.Message}"); } });
         }
 
-        public static void Stop()
+        public static void Stop() => StopCore("Multi-Instance Ready");
+
+        internal static void ResetForTest(bool isEnabled = true)
+        {
+            StopCore("Multi-Instance Ready");
+            _isEnabled = isEnabled;
+        }
+
+        private static void StopCore(string status)
         {
             StopWatcher();
             EnsureMutex(false);
@@ -78,7 +85,7 @@ namespace Shiro.Services
             {
                 _accessDenied = false;
             }
-            SetStatus("Multi-Instance Ready");
+            SetStatus(status);
         }
 
         public static void EnsureMutex(bool enabled)

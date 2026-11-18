@@ -308,6 +308,7 @@ namespace Shiro.Tests
 
             try
             {
+                RobloxSingletonService.Stop();
                 RobloxSingletonService.EnsureMutexCore(
                     enabled: true,
                     joinTimeout: TimeSpan.FromMilliseconds(20),
@@ -363,6 +364,7 @@ namespace Shiro.Tests
             var exceptions = new ConcurrentQueue<Exception>();
             try
             {
+                RobloxSingletonService.Stop();
                 Task workerA = Task.Run(() =>
                 {
                     for (int i = 0; i < 20; i++)

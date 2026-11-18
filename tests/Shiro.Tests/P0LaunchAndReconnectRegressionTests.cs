@@ -469,8 +469,8 @@ namespace Shiro.Tests
                 svc.IsEnabled = prevEnabled;
                 RobloxProcessService.TestGetRunningRobloxPidsOverride = prevPidsOverride;
                 ProcessExtensions.TestCommandLineOverride = prevCmdOverride;
-                try { if (!proc1.HasExited) proc1.Kill(entireProcessTree: true); } catch (InvalidOperationException) { }
-                try { if (!proc2.HasExited) proc2.Kill(entireProcessTree: true); } catch (InvalidOperationException) { }
+                try { if (!proc1.HasExited) proc1.Kill(entireProcessTree: true); } catch (InvalidOperationException) { /* Process already exited before cleanup. */ }
+                try { if (!proc2.HasExited) proc2.Kill(entireProcessTree: true); } catch (InvalidOperationException) { /* Process already exited before cleanup. */ }
             }
         }
 

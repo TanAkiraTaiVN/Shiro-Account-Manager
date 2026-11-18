@@ -18,6 +18,7 @@ namespace Shiro.Tests
     {
         private readonly bool _origStreamerEnabled = StreamerModeService.IsEnabled;
         private readonly bool _origStreamerAutoDetect = StreamerModeService.AutoDetectEnabled;
+        private readonly bool _origSingletonEnabled = RobloxSingletonService.IsEnabled;
 
         public void Dispose()
         {
@@ -26,6 +27,7 @@ namespace Shiro.Tests
             AntiAfkService.Stop();
             MemoryOptimizer.ConfigureAutoTrim(false, 3);
             RobloxBackgroundThrottlerService.Instance.IsEnabled = false;
+            RobloxSingletonService.ResetForTest(_origSingletonEnabled);
             RobloxJobObjectService.Close();
         }
 
@@ -185,6 +187,10 @@ namespace Shiro.Tests
             RobloxJobObjectService.Close();
             Assert.False(RobloxJobObjectService.IsIocpThreadAliveForTest);
 
+            bool origSingletonEnabled = RobloxSingletonService.IsEnabled;
+            int disableStatusEvents = 0;
+            Action countStatus = () => disableStatusEvents++;
+            RobloxSingletonService.Stop();
             try
             {
                 RobloxSingletonService.Apply(true);
@@ -192,13 +198,24 @@ namespace Shiro.Tests
                 RobloxSingletonService.Apply(true);
                 bool heldAfterReenable = RobloxSingletonService.MutexHeld;
                 bool accessDeniedAfterReenable = RobloxSingletonService.AccessDenied;
-                RobloxSingletonService.Apply(false);
+                disableStatusEvents = 0;
+                RobloxSingletonService.StatusChanged += countStatus;
+                try
+                {
+                    RobloxSingletonService.Apply(false);
+                }
+                finally
+                {
+                    RobloxSingletonService.StatusChanged -= countStatus;
+                }
                 Assert.True(heldAfterReenable || accessDeniedAfterReenable);
                 Assert.False(RobloxSingletonService.MutexHeld);
+                Assert.Equal(1, disableStatusEvents);
+                Assert.Equal("Multi-Instance Disabled", RobloxSingletonService.StatusText);
             }
             finally
             {
-                RobloxSingletonService.Apply(true);
+                RobloxSingletonService.ResetForTest(origSingletonEnabled);
             }
         }
 
