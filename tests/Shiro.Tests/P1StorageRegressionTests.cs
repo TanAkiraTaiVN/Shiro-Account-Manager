@@ -340,36 +340,20 @@ namespace Shiro.Tests
             fakeLogger.Received().Debug(Arg.Is<string>(s => s.Contains("CustomOversized", StringComparison.Ordinal)));
         }
 
-        [Fact]
-        public void Task2_CryptoHelper_PortableMode_UsesVaultAesGcmEnvelope_AndBackwardCompatDpapi()
+        private static void RunInIsolatedPortableMode(Action<string> action)
         {
-            string tempDir = CreateTempDir("ShiroT2Portable_");
+            string tempDir = CreateTempDir("ShiroPortable_");
             string portableMarker = Path.Combine(AppContext.BaseDirectory, "portable.mode");
             bool hadMarkerBefore = File.Exists(portableMarker);
             try
             {
-                string legacyDpapi = CryptoHelper.ProtectSecretString("legacy-dpapi-secret");
-                Assert.StartsWith("dpapi:", legacyDpapi, StringComparison.Ordinal);
-
                 using var dirScope = StoragePaths.OverrideDataDirectoryForTesting(tempDir);
                 File.WriteAllText(portableMarker, "portable");
                 StoragePaths.ResetInitializedForTesting();
                 StoragePaths.EnsureInitialized();
                 StoragePaths.ReloadVaultKeyCache();
                 Assert.True(StoragePaths.IsPortable);
-
-                string encrypted = CryptoHelper.ProtectSecretString("portable-secret-123");
-                Assert.StartsWith("vault:", encrypted, StringComparison.Ordinal);
-                Assert.DoesNotContain("portable-secret-123", encrypted, StringComparison.Ordinal);
-                Assert.Equal("portable-secret-123", CryptoHelper.UnprotectSecretString(encrypted));
-                Assert.Equal("legacy-dpapi-secret", CryptoHelper.UnprotectSecretString(legacyDpapi));
-
-                byte[] rawPayload = Convert.FromBase64String(encrypted.Substring("vault:".Length));
-                rawPayload[^1] ^= 0xFF;
-                string tampered = "vault:" + Convert.ToBase64String(rawPayload);
-                Assert.Equal(string.Empty, CryptoHelper.UnprotectSecretString(tampered));
-                Assert.Equal(string.Empty, CryptoHelper.UnprotectSecretString("vault:not-valid-base64!!!"));
-                Assert.Equal(string.Empty, CryptoHelper.UnprotectSecretString("vault:AAAA"));
+                action(tempDir);
             }
             finally
             {
@@ -383,6 +367,90 @@ namespace Shiro.Tests
                 StoragePaths.ReloadVaultKeyCache();
                 SafeDeleteDir(tempDir);
             }
+        }
+
+        [Fact]
+        public void Task2_CryptoHelper_PortableMode_UsesVaultAesGcmEnvelope_AndBackwardCompatDpapi()
+        {
+            string legacyDpapi = CryptoHelper.ProtectSecretString("legacy-dpapi-secret");
+            Assert.StartsWith("dpapi:", legacyDpapi, StringComparison.Ordinal);
+
+            RunInIsolatedPortableMode(_ =>
+            {
+                string encrypted = CryptoHelper.ProtectSecretString("portable-secret-123");
+                Assert.StartsWith("vault:", encrypted, StringComparison.Ordinal);
+                Assert.DoesNotContain("portable-secret-123", encrypted, StringComparison.Ordinal);
+                Assert.Equal("portable-secret-123", CryptoHelper.UnprotectSecretString(encrypted));
+                Assert.Equal("legacy-dpapi-secret", CryptoHelper.UnprotectSecretString(legacyDpapi));
+
+                byte[] rawPayload = Convert.FromBase64String(encrypted.Substring("vault:".Length));
+                rawPayload[^1] ^= 0xFF;
+                string tampered = "vault:" + Convert.ToBase64String(rawPayload);
+                Assert.Equal(string.Empty, CryptoHelper.UnprotectSecretString(tampered));
+                Assert.Equal(string.Empty, CryptoHelper.UnprotectSecretString("vault:not-valid-base64!!!"));
+                Assert.Equal(string.Empty, CryptoHelper.UnprotectSecretString("vault:AAAA"));
+            });
+        }
+
+        [Fact]
+        public void FinalFix_PortableMode_V3MasterPasswordVaultWithoutKey_AllowsSecretProtectionAndSaveProxies()
+        {
+            RunInIsolatedPortableMode(_ =>
+            {
+                byte[] masterPass = Encoding.UTF8.GetBytes("PortableMasterPass123!");
+                File.WriteAllBytes(StoragePaths.AccountDataFile, Cryptography.Encrypt(Encoding.UTF8.GetBytes(OkJsonLiteral), masterPass));
+                Assert.False(File.Exists(StoragePaths.VaultKeyFile));
+
+                string encrypted = CryptoHelper.ProtectSecretString("portable-v3-secret");
+                Assert.StartsWith("vault:", encrypted, StringComparison.Ordinal);
+                Assert.True(File.Exists(StoragePaths.VaultKeyFile));
+                Assert.Equal("portable-v3-secret", CryptoHelper.UnprotectSecretString(encrypted));
+                Assert.Equal("cached-v3", CryptoHelper.UnprotectSecretString(CryptoHelper.ProtectSecretString("cached-v3")));
+
+                File.Delete(StoragePaths.VaultKeyFile);
+                if (File.Exists(StoragePaths.VaultKeyFile + ".bak"))
+                    File.Delete(StoragePaths.VaultKeyFile + ".bak");
+                StoragePaths.ReloadVaultKeyCache();
+
+                var repo = Substitute.For<IAccountRepository>();
+                repo.GetAll().Returns(Array.Empty<Account>());
+                using var repoScope = AppServices.Override<IAccountRepository>(repo);
+                try
+                {
+                    ProxyManagerService.InvalidateCache();
+                    ProxyManagerService.SaveProxies(new[] { new ProxyItem { RawEntry = "10.1.2.3:8080", Host = "10.1.2.3", Port = 8080 } });
+                    Assert.True(File.Exists(ProxyManagerService.ProxiesFilePath));
+                    Assert.StartsWith("vault:", File.ReadAllText(ProxyManagerService.ProxiesFilePath), StringComparison.Ordinal);
+                    StoragePaths.ReloadVaultKeyCache();
+                    var loaded = ProxyManagerService.LoadProxies();
+                    Assert.Single(loaded);
+                    Assert.Equal("10.1.2.3:8080", loaded[0].RawEntry);
+                }
+                finally
+                {
+                    ProxyManagerService.InvalidateCache();
+                }
+            });
+        }
+
+        [Fact]
+        public void FinalFix_PortableMode_V4VaultMissingKey_FailsClosedWithoutOrphanKey()
+        {
+            RunInIsolatedPortableMode(_ =>
+            {
+                string dummyVaultSecret = "vault:" + Convert.ToBase64String(new byte[40]);
+                Assert.Equal(string.Empty, CryptoHelper.UnprotectSecretString(dummyVaultSecret));
+                Assert.False(File.Exists(StoragePaths.VaultKeyFile));
+
+                byte[] v4Payload = Cryptography.EncryptWithRandomKey(Encoding.UTF8.GetBytes(OkJsonLiteral), RandomNumberGenerator.GetBytes(32));
+                File.WriteAllBytes(StoragePaths.AccountDataFile, v4Payload);
+                Assert.False(File.Exists(StoragePaths.VaultKeyFile));
+
+                Assert.Throws<CryptographicException>(() => CryptoHelper.ProtectSecretString("must-fail-closed"));
+                Assert.False(File.Exists(StoragePaths.VaultKeyFile));
+                Assert.Equal(string.Empty, CryptoHelper.UnprotectSecretString(dummyVaultSecret));
+                Assert.False(File.Exists(StoragePaths.VaultKeyFile));
+            });
         }
 
         [Fact]

@@ -18,6 +18,7 @@ namespace Shiro.Services
         private static ResourceDictionary _enResourceDict = null!;
         private static ResourceDictionary _viResourceDict = null!;
         private static ResourceDictionary? _activeResourceDict;
+        private static IList<IResourceProvider>? _attachedMergedDictionaries;
 
         static LocalizationService()
         {

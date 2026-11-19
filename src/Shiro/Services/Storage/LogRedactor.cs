@@ -42,7 +42,7 @@ namespace Shiro.Services
         [GeneratedRegex(@"(/bot)\d+:[A-Za-z0-9_\-]+(/|$|\s)", RegexOptions.IgnoreCase)]
         private static partial Regex TelegramBotUrlRegex();
 
-        [GeneratedRegex(@"\b\d{8,12}:[A-Za-z0-9_-]{35}\b")]
+        [GeneratedRegex(@"(?<![A-Za-z0-9_-])\d{8,12}:[A-Za-z0-9_-]{35}(?![A-Za-z0-9_-])")]
         private static partial Regex TelegramBotTokenRegex();
 
         [GeneratedRegex(@"(https?://(?:(?:ptb|canary)\.)?(?:discord|discordapp)\.com/api/(?:v\d+/)?webhooks/\d+/)[A-Za-z0-9_\-]+", RegexOptions.IgnoreCase)]

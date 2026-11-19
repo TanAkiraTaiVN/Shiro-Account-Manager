@@ -1,11 +1,15 @@
 #nullable enable
 using System;
 using System.Diagnostics;
+using System.IO;
 using System.Net;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Threading;
 using System.Threading.Tasks;
+using NSubstitute;
 using Shiro.Services;
+using Shiro.Tests.TestInfrastructure;
 using Xunit;
 
 namespace Shiro.Tests
@@ -184,6 +188,131 @@ namespace Shiro.Tests
             finally
             {
                 WebhookNotificationService.AlertDispatched -= OnAlert;
+            }
+        }
+
+        [Fact]
+        public async Task SessionAuditor_UnassignedAccountWithUseProxiesEnabled_TriggersStickyProxyScopeForRateLimitBackoff()
+        {
+            string tempDir = Path.Combine(Path.GetTempPath(), "ShiroStickyScope_" + Guid.NewGuid().ToString("N"));
+            var prevProxySettings = ProxyBindingService.Settings;
+            var prevFactory = SessionAuditorService.TestHttpClientFactory;
+            var coordinator = RobloxRateLimitCoordinator.Instance;
+            coordinator.ResetBackoff();
+            try
+            {
+                using var dirScope = StoragePaths.OverrideDataDirectoryForTesting(tempDir);
+                var acc = new Account
+                {
+                    Username = "StickyScopeUser",
+                    UserID = 8812,
+                    SecurityToken = "_|WARNING:STICKY_TEST",
+                    Proxy = string.Empty,
+                    Valid = true
+                };
+                var repo = Substitute.For<IAccountRepository>();
+                repo.GetAll().Returns(new[] { acc });
+                using var repoScope = AppServices.Override<IAccountRepository>(repo);
+
+                ProxyManagerService.InvalidateCache();
+                ProxyManagerService.SaveProxies(new[]
+                {
+                    new ProxyItem { RawEntry = "10.9.8.7:8080", Host = "10.9.8.7", Port = 8080 }
+                });
+
+                var ini = new IniFile();
+                var settings = ini.Section("General");
+                settings.Set(AppSettingsKeys.General.UseProxies, "true");
+                ProxyBindingService.Settings = settings;
+
+                var handler = new FakeHttpHandler(_ =>
+                {
+                    var resp = new HttpResponseMessage(HttpStatusCode.TooManyRequests);
+                    resp.Headers.RetryAfter = new RetryConditionHeaderValue(TimeSpan.FromSeconds(5));
+                    return resp;
+                });
+                using var client = new HttpClient(handler);
+                SessionAuditorService.TestHttpClientFactory = _ => client;
+
+                var result = await SessionAuditorService.AuditAccountAsync(acc);
+
+                Assert.Equal(AccountSessionStatus.RateLimited, result.Status);
+                Assert.Equal("10.9.8.7:8080", acc.Proxy);
+                Assert.True(coordinator.IsBackingOffCategory(RateLimitCategory.SessionCheck, "10.9.8.7:8080"));
+                Assert.False(coordinator.IsBackingOffCategory(RateLimitCategory.SessionCheck));
+            }
+            finally
+            {
+                SessionAuditorService.TestHttpClientFactory = prevFactory;
+                ProxyBindingService.Settings = prevProxySettings;
+                ProxyManagerService.InvalidateCache();
+                coordinator.ResetBackoff();
+                if (Directory.Exists(tempDir))
+                {
+                    try { Directory.Delete(tempDir, recursive: true); }
+                    catch (IOException) { }
+                }
+            }
+        }
+
+        [Fact]
+        public async Task SharedHttpClient_NonRobloxHosts_DoNotTriggerOrResetRateLimitBackoff()
+        {
+            var coordinator = RobloxRateLimitCoordinator.Instance;
+            coordinator.ResetBackoff();
+            try
+            {
+                var handler = new FakeHttpHandler(req =>
+                {
+                    string host = req.RequestUri?.Host ?? string.Empty;
+                    if (host.Equals("ipwho.is", StringComparison.OrdinalIgnoreCase) ||
+                        host.Equals("evilroblox.com", StringComparison.OrdinalIgnoreCase) ||
+                        host.Equals("games.roblox.com", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var resp = new HttpResponseMessage(HttpStatusCode.TooManyRequests);
+                        resp.Headers.RetryAfter = new RetryConditionHeaderValue(TimeSpan.FromSeconds(5));
+                        return resp;
+                    }
+                    return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("ok") };
+                });
+                SharedHttpClient.SetTestClient("default", new HttpClient(handler));
+
+                using (var extReq = new HttpRequestMessage(HttpMethod.Get, "https://ipwho.is/1.1.1.1"))
+                using (var extResp = await SharedHttpClient.SendAsync(extReq, retryTransient: false))
+                {
+                    Assert.Equal(HttpStatusCode.TooManyRequests, extResp.StatusCode);
+                }
+                using (var lookalikeReq = new HttpRequestMessage(HttpMethod.Get, "https://evilroblox.com/api"))
+                using (var lookalikeResp = await SharedHttpClient.SendAsync(lookalikeReq, retryTransient: false))
+                {
+                    Assert.Equal(HttpStatusCode.TooManyRequests, lookalikeResp.StatusCode);
+                }
+
+                Assert.False(coordinator.IsBackingOffCategory(RateLimitCategory.General));
+                Assert.Equal(0, coordinator.ConsecutiveRateLimitHits);
+
+                using (var rbxReq = new HttpRequestMessage(HttpMethod.Get, "https://games.roblox.com/v1/games?universeIds=9"))
+                using (var rbxResp = await SharedHttpClient.SendAsync(rbxReq, retryTransient: false))
+                {
+                    Assert.Equal(HttpStatusCode.TooManyRequests, rbxResp.StatusCode);
+                }
+
+                Assert.True(coordinator.IsBackingOffCategory(RateLimitCategory.General));
+                Assert.Equal(1, coordinator.ConsecutiveRateLimitHits);
+
+                using (var ghReq = new HttpRequestMessage(HttpMethod.Get, "https://api.github.com/repos/x/y"))
+                using (var ghResp = await SharedHttpClient.SendAsync(ghReq, retryTransient: false))
+                {
+                    Assert.Equal(HttpStatusCode.OK, ghResp.StatusCode);
+                }
+
+                Assert.True(coordinator.IsBackingOffCategory(RateLimitCategory.General));
+                Assert.Equal(1, coordinator.ConsecutiveRateLimitHits);
+            }
+            finally
+            {
+                SharedHttpClient.ResetTestClient("default");
+                coordinator.ResetBackoff();
             }
         }
     }

@@ -61,17 +61,15 @@ namespace Shiro.Services
                 try
                 {
                     var contentStream = request.Content.ReadAsStream(CancellationToken.None);
-                    if (!contentStream.CanRead)
+                    if (!contentStream.CanRead || !contentStream.CanSeek)
                         return false;
 
-                    if (contentStream.CanSeek)
-                        contentStream.Position = 0;
+                    contentStream.Position = 0;
 
                     using var ms = new System.IO.MemoryStream();
                     contentStream.CopyTo(ms);
 
-                    if (contentStream.CanSeek)
-                        contentStream.Position = 0;
+                    contentStream.Position = 0;
 
                     bodyContent = System.Text.Encoding.UTF8.GetString(ms.GetBuffer(), 0, (int)ms.Length);
                 }

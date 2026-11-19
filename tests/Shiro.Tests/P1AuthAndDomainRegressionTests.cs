@@ -411,6 +411,7 @@ namespace Shiro.Tests
             int active = 0, maxActive = 0;
             var firstEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             var releaseFirst = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            Task? t1 = null, t2 = null;
             try
             {
                 BrowserService.TestSignInOverride = async (user, _, _, _, _) =>
@@ -421,9 +422,9 @@ namespace Shiro.Tests
                     Interlocked.Decrement(ref active);
                     return MakeAccount(user ?? string.Empty, string.Empty);
                 };
-                var t1 = BrowserService.Default.SignInAsync("user1", "p1", 0);
+                t1 = BrowserService.Default.SignInAsync("user1", "p1", 0);
                 await firstEntered.Task;
-                var t2 = BrowserService.Default.SignInAsync("user2", "p2", 1);
+                t2 = BrowserService.Default.SignInAsync("user2", "p2", 1);
                 await Task.Delay(40);
                 Assert.Equal(1, Volatile.Read(ref active));
                 releaseFirst.TrySetResult();
@@ -433,6 +434,7 @@ namespace Shiro.Tests
             finally
             {
                 releaseFirst.TrySetResult();
+                await Task.WhenAny(Task.WhenAll(t1 ?? Task.CompletedTask, t2 ?? Task.CompletedTask), Task.Delay(500));
                 BrowserService.TestSignInOverride = prevOverride;
             }
         }

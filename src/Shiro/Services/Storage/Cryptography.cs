@@ -38,11 +38,18 @@ namespace Shiro.Services
         public const int LegacyPbkdf2Iterations = 210_000;
 
         /// <summary>
+        /// Checks whether the given byte stream begins with the random-key V4 vault encryption header.
+        /// </summary>
+        public static bool IsVaultKeyEncrypted(ReadOnlySpan<byte> data) =>
+            data.Length >= ShiroVaultHeaderV4.Length &&
+            data.Slice(0, ShiroVaultHeaderV4.Length).SequenceEqual(ShiroVaultHeaderV4);
+
+        /// <summary>
         /// Checks whether the given byte stream begins with any known authenticated Shiro/RAM encryption header.
         /// </summary>
         public static bool IsEncrypted(ReadOnlySpan<byte> data)
         {
-            if (data.Length >= ShiroVaultHeaderV4.Length && data.Slice(0, ShiroVaultHeaderV4.Length).SequenceEqual(ShiroVaultHeaderV4))
+            if (IsVaultKeyEncrypted(data))
                 return true;
 
             if (data.Length >= ShiroVaultHeaderV3.Length && data.Slice(0, ShiroVaultHeaderV3.Length).SequenceEqual(ShiroVaultHeaderV3))

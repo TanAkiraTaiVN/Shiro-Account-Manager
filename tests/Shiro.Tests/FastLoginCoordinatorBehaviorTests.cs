@@ -218,7 +218,6 @@ namespace Shiro.Tests
             finally
             {
                 LocalizationService.SetLanguage(prevLang, saveSetting: false);
-                Avalonia.Application.Current?.Resources.MergedDictionaries.Clear();
             }
         }
 

@@ -94,10 +94,10 @@ namespace Shiro.Services
 
         internal static string ResolveProxyScope(Account? account)
         {
-            if (account == null || !ProxyBindingService.IsProxyRoutingAllowed() || string.IsNullOrWhiteSpace(account.Proxy))
-                return DirectProxyScope;
-
-            return NormalizeProxyScope(account.Proxy);
+            string? effectiveProxy = ProxyBindingService.GetEffectiveProxyForAccount(account);
+            return string.IsNullOrWhiteSpace(effectiveProxy)
+                ? DirectProxyScope
+                : NormalizeProxyScope(effectiveProxy);
         }
 
         private static int GetDefaultSemaphoreLimit(RateLimitCategory category) => category switch

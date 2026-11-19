@@ -289,7 +289,7 @@ namespace Shiro.Services
         /// mode the raw 32-byte key is kept so the folder can be moved between machines.
         /// Legacy raw keys are transparently upgraded when not portable.
         /// </summary>
-        internal static bool HasExistingEncryptedVaultFile(string accountDataFile)
+        private static bool HasExistingVaultFileHeader(string accountDataFile, bool v4KeyOnly)
         {
             try
             {
@@ -299,11 +299,67 @@ namespace Shiro.Services
                 Span<byte> header = stackalloc byte[96];
                 using var fs = new FileStream(accountDataFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
                 int read = fs.Read(header);
-                return read > 0 && Cryptography.IsEncrypted(header.Slice(0, read));
+                if (read <= 0)
+                    return false;
+
+                ReadOnlySpan<byte> slice = header.Slice(0, read);
+                return v4KeyOnly ? Cryptography.IsVaultKeyEncrypted(slice) : Cryptography.IsEncrypted(slice);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
                 return File.Exists(accountDataFile);
+            }
+        }
+
+        internal static bool HasExistingEncryptedVaultFile(string accountDataFile) =>
+            HasExistingVaultFileHeader(accountDataFile, v4KeyOnly: false);
+
+        internal static bool HasExistingVaultKeyEncryptedFile(string accountDataFile) =>
+            HasExistingVaultFileHeader(accountDataFile, v4KeyOnly: true);
+
+        /// <summary>
+        /// Resolves or creates the 256-bit vault key for Portable Mode secret protection.
+        /// Allows Master-Password (V3/V1/V2) portable vaults to provision a key while still failing closed
+        /// if an existing V4 vault-key-encrypted vault file is missing its key.
+        /// </summary>
+        internal static byte[] GetOrCreatePortableSecretKeyCopy()
+        {
+            lock (_vaultKeyLock)
+            {
+                if (_cachedVaultKey != null)
+                    return _cachedVaultKey.AsSpan().ToArray();
+
+                EnsureInitialized();
+                bool hasExistingV4Vault = HasExistingVaultKeyEncryptedFile(AccountDataFile);
+                byte[] resolvedKey = LoadOrCreateVaultKeyAtPath(VaultKeyFile, hasExistingV4Vault);
+                _cachedVaultKey = resolvedKey;
+                return resolvedKey.AsSpan().ToArray();
+            }
+        }
+
+        /// <summary>
+        /// Attempts to load an existing 256-bit vault key without creating an orphan key file when missing.
+        /// Returns <c>null</c> when no readable primary or backup vault key exists.
+        /// </summary>
+        internal static byte[]? TryGetExistingVaultKeyCopy()
+        {
+            lock (_vaultKeyLock)
+            {
+                if (_cachedVaultKey != null)
+                    return _cachedVaultKey.AsSpan().ToArray();
+
+                EnsureInitialized();
+                try
+                {
+                    byte[] resolvedKey = LoadOrCreateVaultKeyAtPath(VaultKeyFile, hasExistingEncryptedVault: true);
+                    _cachedVaultKey = resolvedKey;
+                    return resolvedKey.AsSpan().ToArray();
+                }
+                catch (CryptographicException ex)
+                {
+                    _logger?.Debug($"Existing vault key unavailable at '{VaultKeyFile}': {ex.Message}");
+                    return null;
+                }
             }
         }
 

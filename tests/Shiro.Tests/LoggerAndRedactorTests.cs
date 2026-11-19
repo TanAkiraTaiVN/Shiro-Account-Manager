@@ -110,6 +110,8 @@ namespace Shiro.Tests
         [InlineData("bot_auth=123456789012:ZzYyXxWwVvUuTtSsRrQqPpOoNnMmLlKk_12", "ZzYyXxWwVvUuTtSsRrQqPpOoNnMmLlKk_12", "[REDACTED_TELEGRAM_TOKEN]")]
         [InlineData("token=123456789:AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw!", "AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw", "[REDACTED]")]
         [InlineData("https://api.telegram.org/bot123456789:AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsawX/getMe", "AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsawX", "[REDACTED_TELEGRAM_TOKEN]")]
+        [InlineData("bot failed 123456789:AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw- done", "AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw-", "[REDACTED_TELEGRAM_TOKEN]")]
+        [InlineData("123456789:AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw-", "AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw-", "[REDACTED_TELEGRAM_TOKEN]")]
         public void LogRedactor_StandaloneTelegramTokenWithoutBotPrefix_IsRedacted(string raw, string secretPart, string expectedMarker)
         {
             Assert.True(LogRedactor.MayContainSensitiveData(raw.AsSpan()));

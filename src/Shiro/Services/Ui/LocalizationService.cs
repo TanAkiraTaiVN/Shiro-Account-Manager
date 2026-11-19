@@ -202,16 +202,33 @@ namespace Shiro.Services
             EnsureCoreKeys();
             var targetDict = CurrentLanguage == AppLanguage.English ? _enResourceDict : _viResourceDict;
             var merged = app.Resources.MergedDictionaries;
-            if (ReferenceEquals(_activeResourceDict, targetDict) && merged.Contains(targetDict))
+            if (ReferenceEquals(_activeResourceDict, targetDict) &&
+                ReferenceEquals(_attachedMergedDictionaries, merged) &&
+                merged.Contains(targetDict))
+            {
                 return;
+            }
+
+            if (_attachedMergedDictionaries != null && !ReferenceEquals(_attachedMergedDictionaries, merged))
+            {
+                _attachedMergedDictionaries.Remove(_enResourceDict);
+                _attachedMergedDictionaries.Remove(_viResourceDict);
+                _activeResourceDict = null;
+                _attachedMergedDictionaries = null;
+            }
 
             if (_activeResourceDict != null)
             {
                 merged.Remove(_activeResourceDict);
             }
 
-            merged.Add(targetDict);
+            if (!merged.Contains(targetDict))
+            {
+                merged.Add(targetDict);
+            }
+
             _activeResourceDict = targetDict;
+            _attachedMergedDictionaries = merged;
         }
     }
 

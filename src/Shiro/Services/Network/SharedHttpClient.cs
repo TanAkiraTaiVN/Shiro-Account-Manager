@@ -133,7 +133,7 @@ namespace Shiro.Services
 
             bool shouldRetry = retryTransient && IsSafeToRetry(request.Method);
             string? proxyScope = ExtractProxyScope(request);
-            RateLimitCategory category = ClassifyRateLimitCategory(request.RequestUri);
+            RateLimitCategory? category = ClassifyRateLimitCategory(request.RequestUri);
 
             // A non-retried request can be sent as-is. Cloning and buffering
             // request content is only needed when a second attempt may be
@@ -180,9 +180,15 @@ namespace Shiro.Services
             throw new InvalidOperationException("HTTP request failed without a response.");
         }
 
-        private static RateLimitCategory ClassifyRateLimitCategory(Uri? requestUri)
+        private static RateLimitCategory? ClassifyRateLimitCategory(Uri? requestUri)
         {
             string host = requestUri?.Host ?? string.Empty;
+            if (!host.Equals("roblox.com", StringComparison.OrdinalIgnoreCase) &&
+                !host.EndsWith(".roblox.com", StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+
             if (host.Equals("presence.roblox.com", StringComparison.OrdinalIgnoreCase))
                 return RateLimitCategory.Presence;
             if (host.Equals("auth.roblox.com", StringComparison.OrdinalIgnoreCase))
@@ -201,15 +207,18 @@ namespace Shiro.Services
                 ? proxyScope
                 : null;
 
-        private static void ReportRateLimitOutcome(RateLimitCategory category, string? proxyScope, HttpResponseMessage response)
+        private static void ReportRateLimitOutcome(RateLimitCategory? category, string? proxyScope, HttpResponseMessage response)
         {
+            if (category == null)
+                return;
+
             if (response.StatusCode == HttpStatusCode.TooManyRequests)
             {
-                RobloxRateLimitCoordinator.Instance.RecordRateLimitHit(category, response, proxyScope: proxyScope);
+                RobloxRateLimitCoordinator.Instance.RecordRateLimitHit(category.Value, response, proxyScope: proxyScope);
             }
             else if (response.IsSuccessStatusCode)
             {
-                RobloxRateLimitCoordinator.Instance.RecordSuccess(category, proxyScope);
+                RobloxRateLimitCoordinator.Instance.RecordSuccess(category.Value, proxyScope);
             }
         }
 

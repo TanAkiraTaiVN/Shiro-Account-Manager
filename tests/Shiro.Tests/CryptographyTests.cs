@@ -52,6 +52,19 @@ namespace Shiro.Tests
         }
 
         [Fact]
+        public void IsVaultKeyEncrypted_ReturnsTrueOnlyForV4Header()
+        {
+            byte[] key = RandomNumberGenerator.GetBytes(32);
+            byte[] payload = Encoding.UTF8.GetBytes("SampleContent");
+
+            Assert.True(Cryptography.IsVaultKeyEncrypted(Cryptography.EncryptWithRandomKey(payload, key)));
+            Assert.False(Cryptography.IsVaultKeyEncrypted(Cryptography.Encrypt(payload, key)));
+            Assert.False(Cryptography.IsVaultKeyEncrypted(Cryptography.ShiroVaultHeaderV1));
+            Assert.False(Cryptography.IsVaultKeyEncrypted(Cryptography.RAMHeaderV2));
+            Assert.False(Cryptography.IsVaultKeyEncrypted(payload));
+        }
+
+        [Fact]
         public void Decrypt_WithWrongPassword_ThrowsCryptographicException()
         {
             // Arrange

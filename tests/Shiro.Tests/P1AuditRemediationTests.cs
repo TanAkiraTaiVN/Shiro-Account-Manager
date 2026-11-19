@@ -1,10 +1,12 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
@@ -448,6 +450,56 @@ namespace Shiro.Tests
             {
                 SharedHttpClient.ResetTestClient("default");
                 RobloxRateLimitCoordinator.Instance.ResetBackoff();
+            }
+        }
+
+        private const string NonSeekableHbaBodyJson = "{\"nonce\":1}";
+
+        [Fact]
+        public void TryAttachHbaHeader_ReadableNonSeekableStream_FailsClosedWithoutDraining()
+        {
+            using var ecdsa = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+            var acc = new Account
+            {
+                Username = "NonSeekableHbaUser",
+                HbaPrivateKey = Convert.ToBase64String(ecdsa.ExportPkcs8PrivateKey())
+            };
+            byte[] payload = Encoding.UTF8.GetBytes(NonSeekableHbaBodyJson);
+            using var stream = new NonSeekableReadableStream(payload);
+            using var req = new HttpRequestMessage(HttpMethod.Post, "https://apis.roblox.com/v1/test")
+            {
+                Content = new StreamContent(stream)
+            };
+
+            Assert.False(RobloxHbaService.TryAttachHbaHeader(req, acc));
+            Assert.False(req.Headers.Contains(RobloxHbaService.BoundAuthHeaderName));
+            Assert.Equal(0, stream.BytesRead);
+            Assert.Equal(payload.Length, stream.RemainingBytes);
+        }
+
+        private sealed class NonSeekableReadableStream(byte[] data) : Stream
+        {
+            private int _offset;
+            public int BytesRead { get; private set; }
+            public int RemainingBytes => data.Length - _offset;
+            public override bool CanRead => true;
+            public override bool CanSeek => false;
+            public override bool CanWrite => false;
+            public override long Length => throw new NotSupportedException();
+            public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+            public override void Flush() { }
+            public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+            public override void SetLength(long value) => throw new NotSupportedException();
+            public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+
+            public override int Read(byte[] buffer, int offset, int count)
+            {
+                int toCopy = Math.Min(count, data.Length - _offset);
+                if (toCopy <= 0) return 0;
+                Array.Copy(data, _offset, buffer, offset, toCopy);
+                _offset += toCopy;
+                BytesRead += toCopy;
+                return toCopy;
             }
         }
     }

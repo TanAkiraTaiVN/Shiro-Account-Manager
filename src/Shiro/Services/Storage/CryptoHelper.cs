@@ -141,7 +141,7 @@ namespace Shiro.Services
                 StoragePaths.EnsureInitialized();
                 if (StoragePaths.IsPortable)
                 {
-                    vaultKey = StoragePaths.GetOrCreateVaultKeyCopy();
+                    vaultKey = StoragePaths.GetOrCreatePortableSecretKeyCopy();
                     enc = new byte[VaultNonceSize + VaultTagSize + plainBytes.Length];
                     Span<byte> encSpan = enc;
                     Span<byte> nonce = encSpan.Slice(0, VaultNonceSize);
@@ -216,7 +216,10 @@ namespace Shiro.Services
             bool decrypted = false;
             try
             {
-                vaultKey = StoragePaths.GetOrCreateVaultKeyCopy();
+                vaultKey = StoragePaths.TryGetExistingVaultKeyCopy();
+                if (vaultKey == null)
+                    return null;
+
                 using var aesGcm = new AesGcm(vaultKey, VaultTagSize);
                 aesGcm.Decrypt(nonce, ciphertext, tag, plain);
                 decrypted = true;
