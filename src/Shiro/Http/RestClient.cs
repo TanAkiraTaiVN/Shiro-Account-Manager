@@ -14,145 +14,6 @@ using Shiro.Services;
 
 namespace Shiro.Http
 {
-    public enum Method
-    {
-        Get,
-        Post,
-        Put,
-        Delete,
-        Head,
-        Options,
-        Patch
-    }
-
-    public sealed class HeaderParameter
-    {
-        public string Name { get; set; }
-        public object? Value { get; set; }
-
-        public HeaderParameter(string name, object? value)
-        {
-            Name = name;
-            Value = value;
-        }
-
-        public override string ToString() => $"{Name}: {Value}";
-    }
-
-    public sealed class RestResponseCookie
-    {
-        public string Name { get; set; }
-        public string Value { get; set; }
-
-        public RestResponseCookie(string name, string value)
-        {
-            Name = name;
-            Value = value;
-        }
-
-        public override string ToString() => $"{Name}={Value}";
-    }
-
-    public sealed class RestResponseCookies : IReadOnlyList<RestResponseCookie>
-    {
-        private readonly List<RestResponseCookie> _cookies = new();
-
-        public int Count => _cookies.Count;
-
-        public RestResponseCookie this[int index] => _cookies[index];
-
-        public RestResponseCookie? this[string name]
-        {
-            get
-            {
-                if (string.IsNullOrWhiteSpace(name)) return null;
-                return _cookies.FirstOrDefault(c => string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase));
-            }
-        }
-
-        internal void Add(string name, string value)
-        {
-            _cookies.Add(new RestResponseCookie(name, value));
-        }
-
-        public IEnumerator<RestResponseCookie> GetEnumerator() => _cookies.GetEnumerator();
-        IEnumerator IEnumerable.GetEnumerator() => _cookies.GetEnumerator();
-    }
-
-    public sealed class RestRequest
-    {
-        public string Resource { get; set; }
-        public Method Method { get; set; }
-        public Dictionary<string, string> Headers { get; } = new(StringComparer.OrdinalIgnoreCase);
-        public List<KeyValuePair<string, string>> Parameters { get; } = new();
-        public object? JsonBody { get; private set; }
-        public string? StringBody { get; private set; }
-        public string? ContentType { get; set; }
-
-        public RestRequest(string resource = "", Method method = Method.Get)
-        {
-            Resource = resource ?? string.Empty;
-            Method = method;
-        }
-
-        public RestRequest AddHeader(string name, string value)
-        {
-            if (!string.IsNullOrWhiteSpace(name))
-                Headers[name] = value ?? string.Empty;
-            return this;
-        }
-
-        public RestRequest AddCookie(string name, string value, string path = "/", string domain = ".roblox.com")
-        {
-            if (string.IsNullOrWhiteSpace(name)) return this;
-            string cookieStr = $"{name}={value}";
-            if (Headers.TryGetValue("Cookie", out string? existing))
-                Headers["Cookie"] = $"{existing}; {cookieStr}";
-            else
-                Headers["Cookie"] = cookieStr;
-            return this;
-        }
-
-        public RestRequest AddQueryParameter(string name, string value)
-        {
-            if (!string.IsNullOrWhiteSpace(name))
-                Parameters.Add(new KeyValuePair<string, string>(name, value ?? string.Empty));
-            return this;
-        }
-
-        public RestRequest AddParameter(string name, string value)
-        {
-            if (!string.IsNullOrWhiteSpace(name))
-                Parameters.Add(new KeyValuePair<string, string>(name, value ?? string.Empty));
-            return this;
-        }
-
-        public RestRequest AddJsonBody(object obj)
-        {
-            JsonBody = obj;
-            return this;
-        }
-
-        public RestRequest AddStringBody(string body, string contentType = "application/json")
-        {
-            StringBody = body;
-            ContentType = contentType;
-            return this;
-        }
-    }
-
-    public sealed class RestResponse
-    {
-        public HttpStatusCode StatusCode { get; set; }
-        public string? StatusDescription { get; set; }
-        public string? Content { get; set; }
-        public bool IsSuccessful => (int)StatusCode >= 200 && (int)StatusCode <= 299;
-        public string? ErrorMessage { get; set; }
-        public Exception? ErrorException { get; set; }
-        public List<HeaderParameter> Headers { get; } = new();
-        public RestResponseCookies Cookies { get; } = new();
-    }
-
     /// <summary>
     /// Modern zero-dependency HTTP client layer replacing legacy RestSharp.
     /// Built on high-performance .NET 10 SocketsHttpHandler with native Brotli/GZip compression.
@@ -184,7 +45,22 @@ namespace Shiro.Http
             _ownsClient = false;
         }
 
-        private HttpRequestMessage CreateHttpRequestMessage(RestRequest request)
+        internal static bool IsBodyMethod(Method method) =>
+            method is Method.Post or Method.Put or Method.Patch;
+
+        private static void AppendQueryList(StringBuilder sb, List<KeyValuePair<string, string>> parameters)
+        {
+            foreach (var param in parameters)
+            {
+                if (sb.Length > 0)
+                    sb.Append('&');
+                sb.Append(Uri.EscapeDataString(param.Key))
+                  .Append('=')
+                  .Append(Uri.EscapeDataString(param.Value));
+            }
+        }
+
+        internal static Uri BuildRequestUri(RestRequest request, string? baseUrl)
         {
             string requestUri = request.Resource ?? string.Empty;
             Uri finalUri;
@@ -195,30 +71,37 @@ namespace Shiro.Http
             }
             else
             {
-                string baseStr = BaseUrl ?? "https://www.roblox.com/";
+                string baseStr = string.IsNullOrWhiteSpace(baseUrl)
+                    ? "https://www.roblox.com/"
+                    : baseUrl.TrimEnd('/') + "/";
                 requestUri = requestUri.TrimStart('/');
                 finalUri = new Uri(new Uri(baseStr), requestUri);
             }
 
-            bool isBodyMethod = request.Method is Method.Post or Method.Put or Method.Patch;
-            if (!isBodyMethod && request.Parameters.Count > 0)
+            bool includeLegacyGetParams = !IsBodyMethod(request.Method) && request.Parameters.Count > 0;
+            if (request.QueryParameters.Count > 0 || includeLegacyGetParams)
             {
                 var ub = new UriBuilder(finalUri);
                 var sb = new StringBuilder();
                 if (!string.IsNullOrEmpty(ub.Query))
                     sb.Append(ub.Query.AsSpan().TrimStart('?'));
 
-                foreach (var param in request.Parameters)
-                {
-                    if (sb.Length > 0)
-                        sb.Append('&');
-                    sb.Append(Uri.EscapeDataString(param.Key))
-                      .Append('=')
-                      .Append(Uri.EscapeDataString(param.Value));
-                }
+                if (request.QueryParameters.Count > 0)
+                    AppendQueryList(sb, request.QueryParameters);
+                if (includeLegacyGetParams)
+                    AppendQueryList(sb, request.Parameters);
+
                 ub.Query = sb.ToString();
                 finalUri = ub.Uri;
             }
+
+            return finalUri;
+        }
+
+        internal HttpRequestMessage CreateHttpRequestMessage(RestRequest request)
+        {
+            Uri finalUri = BuildRequestUri(request, BaseUrl);
+            bool isBodyMethod = IsBodyMethod(request.Method);
 
             HttpMethod httpMethod = request.Method switch
             {
@@ -408,18 +291,26 @@ namespace Shiro.Http
         /// Streams the HTTP response body directly into <see cref="JsonSerializer.DeserializeAsync{TValue}(System.IO.Stream,JsonTypeInfo{TValue},CancellationToken)"/>
         /// using source-generated metadata, eliminating intermediate UTF-16 string allocations on hot polling paths.
         /// </summary>
+        public Task<(bool Success, T? Data, HttpStatusCode StatusCode, string? ErrorMessage)> ExecuteJsonAsync<T>(
+            RestRequest request,
+            JsonTypeInfo<T> jsonTypeInfo,
+            CancellationToken cancellationToken = default) =>
+            ExecuteJsonAsync(request, jsonTypeInfo, null, cancellationToken);
+
         public async Task<(bool Success, T? Data, HttpStatusCode StatusCode, string? ErrorMessage)> ExecuteJsonAsync<T>(
             RestRequest request,
             JsonTypeInfo<T> jsonTypeInfo,
+            HttpClient? clientOverride,
             CancellationToken cancellationToken = default)
         {
             if (request == null) throw new ArgumentNullException(nameof(request));
             if (jsonTypeInfo == null) throw new ArgumentNullException(nameof(jsonTypeInfo));
 
+            HttpClient activeClient = clientOverride ?? _httpClient;
             using var message = CreateHttpRequestMessage(request);
             try
             {
-                using var httpResponse = await _httpClient.SendAsync(message, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+                using var httpResponse = await activeClient.SendAsync(message, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
                 if (!httpResponse.IsSuccessStatusCode)
                 {
                     return (false, default, httpResponse.StatusCode, httpResponse.ReasonPhrase);

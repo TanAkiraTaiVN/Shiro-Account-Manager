@@ -3,8 +3,10 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Threading;
 using System.Threading.Tasks;
+using NSubstitute;
 using Shiro;
 using Shiro.Services;
 using Shiro.Tests.TestInfrastructure;
@@ -231,6 +233,181 @@ namespace Shiro.Tests
             var results = await SessionAuditorService.AuditAllAccountsAsync(duplicates);
             Assert.Single(results);
             Assert.True(results.ContainsKey(acc));
+        }
+
+        private const string AuditorValidUserJson = "{\"id\":5150,\"name\":\"AuditorUser\"}";
+        private const string AuditorRobuxJson = "{\"robux\":250}";
+        private const string AuditorPendingJson = "{\"pendingRobuxTotal\":40}";
+        private const string AuditorEmptyJson = "{}";
+
+        [Fact]
+        public async Task AuditAccountAsync_SerializesWithAccountSessionGate_AcrossConcurrentValidateAndAudit()
+        {
+            var prevAccFactory = Account.TestHttpClientFactory;
+            var validateEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var releaseValidate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            int auditProbeCalls = 0;
+
+            try
+            {
+                Account.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler(async (req, ct) =>
+                {
+                    if (req.RequestUri!.AbsoluteUri.Contains("users.roblox.com/v1/users/authenticated", StringComparison.OrdinalIgnoreCase))
+                    {
+                        validateEntered.TrySetResult();
+                        await releaseValidate.Task.WaitAsync(ct);
+                        return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(AuditorValidUserJson) };
+                    }
+                    return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(AuditorEmptyJson) };
+                }));
+
+                SessionAuditorService.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler(req =>
+                {
+                    if (req.RequestUri!.AbsoluteUri.Contains("users.roblox.com/v1/users/authenticated", StringComparison.OrdinalIgnoreCase))
+                    {
+                        Interlocked.Increment(ref auditProbeCalls);
+                        return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(AuditorValidUserJson) };
+                    }
+                    return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(AuditorEmptyJson) };
+                }));
+
+                var acc = new Account { Username = "AuditorUser", UserID = 5150, SecurityToken = TestToken, Valid = true };
+                Task<bool> validateTask = acc.ValidateSessionAsync();
+                await validateEntered.Task.WaitAsync(TimeSpan.FromSeconds(3));
+
+                Task<AccountSessionAuditResult> auditTask = SessionAuditorService.AuditAccountAsync(acc);
+                await Task.Delay(80);
+                Assert.Equal(0, Volatile.Read(ref auditProbeCalls));
+
+                releaseValidate.TrySetResult();
+                Assert.True(await validateTask);
+                AccountSessionAuditResult auditRes = await auditTask;
+                Assert.Equal(AccountSessionStatus.Valid, auditRes.Status);
+                Assert.Equal(1, auditProbeCalls);
+            }
+            finally
+            {
+                releaseValidate.TrySetResult();
+                Account.TestHttpClientFactory = prevAccFactory;
+                RobloxRateLimitCoordinator.Instance.ResetBackoff();
+            }
+        }
+
+        [Fact]
+        public async Task AuditAccountAsync_On429_NotifiesRateLimitCoordinatorScopedByProxy_AndEnforcesBackoff()
+        {
+            RobloxRateLimitCoordinator.Instance.ResetBackoff();
+            var prevSettings = ProxyBindingService.Settings;
+            var proxySettings = Substitute.For<ISettingsService>();
+            proxySettings.Exists(AppSettingsKeys.General.UseProxies).Returns(true);
+            proxySettings.Get<bool>(AppSettingsKeys.General.UseProxies, false).Returns(true);
+            ProxyBindingService.Settings = proxySettings;
+            try
+            {
+                int probeCalls = 0;
+                SessionAuditorService.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler(req =>
+                {
+                    if (req.RequestUri!.AbsoluteUri.Contains("users/authenticated", StringComparison.OrdinalIgnoreCase))
+                    {
+                        int callNum = Interlocked.Increment(ref probeCalls);
+                        if (callNum == 1)
+                        {
+                            var resp = new HttpResponseMessage(HttpStatusCode.TooManyRequests);
+                            resp.Headers.RetryAfter = new RetryConditionHeaderValue(TimeSpan.FromSeconds(4));
+                            return resp;
+                        }
+                        return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(AuditorValidUserJson) };
+                    }
+                    return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(AuditorEmptyJson) };
+                }));
+
+                var accProxy1 = new Account
+                {
+                    Username = "AuditorUser",
+                    UserID = 5150,
+                    SecurityToken = TestToken,
+                    Proxy = "http://10.0.0.1:8080",
+                    Valid = true
+                };
+                var accProxy2 = new Account
+                {
+                    Username = "AuditorUser",
+                    UserID = 5150,
+                    SecurityToken = TestToken,
+                    Proxy = "http://10.0.0.2:8080",
+                    Valid = true
+                };
+
+                var first = await SessionAuditorService.AuditAccountAsync(accProxy1);
+                Assert.Equal(AccountSessionStatus.RateLimited, first.Status);
+                Assert.True(accProxy1.Valid);
+                Assert.True(RobloxRateLimitCoordinator.Instance.IsBackingOffCategory(RateLimitCategory.SessionCheck, "10.0.0.1:8080"));
+                Assert.False(RobloxRateLimitCoordinator.Instance.IsBackingOffCategory(RateLimitCategory.SessionCheck));
+
+                using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(80));
+                await Assert.ThrowsAnyAsync<OperationCanceledException>(
+                    () => SessionAuditorService.AuditAccountAsync(accProxy1, cts.Token));
+                Assert.Equal(1, probeCalls);
+
+                var otherRes = await SessionAuditorService.AuditAccountAsync(accProxy2);
+                Assert.Equal(AccountSessionStatus.Valid, otherRes.Status);
+                Assert.Equal(2, probeCalls);
+            }
+            finally
+            {
+                ProxyBindingService.Settings = prevSettings;
+                RobloxRateLimitCoordinator.Instance.ResetBackoff();
+            }
+        }
+
+        [Fact]
+        public async Task AuditAccountAsync_WhenValidityOrRobuxChanges_MarksDirtyAndQueuesDeferredSave()
+        {
+            RobloxRateLimitCoordinator.Instance.ResetBackoff();
+            var repo = Substitute.For<IAccountRepository>();
+            try
+            {
+                SessionAuditorService.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler(req =>
+                {
+                    string url = req.RequestUri!.AbsoluteUri;
+                    if (url.Contains("users/authenticated", StringComparison.OrdinalIgnoreCase))
+                        return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(AuditorValidUserJson) };
+                    if (url.Contains("/currency", StringComparison.OrdinalIgnoreCase))
+                        return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(AuditorRobuxJson) };
+                    if (url.Contains("/transaction-totals", StringComparison.OrdinalIgnoreCase))
+                        return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(AuditorPendingJson) };
+                    return new HttpResponseMessage(HttpStatusCode.NotFound);
+                }));
+
+                using var _ = AppServices.Override<IAccountRepository>(repo);
+                var acc = new Account
+                {
+                    Username = "AuditorUser",
+                    UserID = 5150,
+                    SecurityToken = TestToken,
+                    Valid = false,
+                    RobuxBalance = 0,
+                    PendingRobux = 0,
+                    IsDirty = false
+                };
+
+                var first = await SessionAuditorService.AuditAccountAsync(acc);
+                Assert.Equal(AccountSessionStatus.Valid, first.Status);
+                Assert.True(acc.IsDirty);
+                repo.Received(1).QueueDeferredSave();
+
+                acc.IsDirty = false;
+                repo.ClearReceivedCalls();
+
+                var second = await SessionAuditorService.AuditAccountAsync(acc);
+                Assert.Equal(AccountSessionStatus.Valid, second.Status);
+                Assert.False(acc.IsDirty);
+                repo.DidNotReceive().QueueDeferredSave();
+            }
+            finally
+            {
+                RobloxRateLimitCoordinator.Instance.ResetBackoff();
+            }
         }
     }
 }

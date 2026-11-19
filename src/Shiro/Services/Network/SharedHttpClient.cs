@@ -122,6 +122,8 @@ namespace Shiro.Services
             Clients.Clear();
         }
 
+        private static readonly HttpRequestOptionsKey<string> ProxyScopeOptionKey = new("ShiroProxyScope");
+
         public static async Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request,
             bool retryTransient = false,
@@ -130,13 +132,19 @@ namespace Shiro.Services
             if (request == null) throw new ArgumentNullException(nameof(request));
 
             bool shouldRetry = retryTransient && IsSafeToRetry(request.Method);
+            string? proxyScope = ExtractProxyScope(request);
+            RateLimitCategory category = ClassifyRateLimitCategory(request.RequestUri);
 
             // A non-retried request can be sent as-is. Cloning and buffering
             // request content is only needed when a second attempt may be
             // created, so this fast path avoids an allocation for the common
             // avatar/metadata calls.
             if (!shouldRetry)
-                return await Get().SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+            {
+                HttpResponseMessage response = await Get().SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+                ReportRateLimitOutcome(category, proxyScope, response);
+                return response;
+            }
 
             // HttpRequestMessage instances are single-use. Buffer optional
             // content once and clone the request for each safe retry so a
@@ -154,12 +162,14 @@ namespace Shiro.Services
                 {
                     using HttpRequestMessage attemptRequest = CloneRequest(request, requestContent);
                     response = await Get().SendAsync(attemptRequest, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+                    ReportRateLimitOutcome(category, proxyScope, response);
                     if (!IsTransient(response.StatusCode) || attempt == attempts)
                         return response;
 
                     TimeSpan delay = GetRetryDelay(response, attempt);
                     response.Dispose();
-                    await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
+                    if (delay > TimeSpan.Zero)
+                        await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
                 }
                 catch (Exception ex) when (attempt < attempts && (ex is HttpRequestException || (ex is OperationCanceledException && !cancellationToken.IsCancellationRequested)))
                 {
@@ -168,6 +178,39 @@ namespace Shiro.Services
             }
 
             throw new InvalidOperationException("HTTP request failed without a response.");
+        }
+
+        private static RateLimitCategory ClassifyRateLimitCategory(Uri? requestUri)
+        {
+            string host = requestUri?.Host ?? string.Empty;
+            if (host.Equals("presence.roblox.com", StringComparison.OrdinalIgnoreCase))
+                return RateLimitCategory.Presence;
+            if (host.Equals("auth.roblox.com", StringComparison.OrdinalIgnoreCase))
+                return RateLimitCategory.Authentication;
+            if (host.Equals("users.roblox.com", StringComparison.OrdinalIgnoreCase) ||
+                host.Equals("friends.roblox.com", StringComparison.OrdinalIgnoreCase) ||
+                host.Equals("accountsettings.roblox.com", StringComparison.OrdinalIgnoreCase))
+            {
+                return RateLimitCategory.SessionCheck;
+            }
+            return RateLimitCategory.General;
+        }
+
+        private static string? ExtractProxyScope(HttpRequestMessage request) =>
+            request.Options.TryGetValue(ProxyScopeOptionKey, out string? proxyScope) && !string.IsNullOrWhiteSpace(proxyScope)
+                ? proxyScope
+                : null;
+
+        private static void ReportRateLimitOutcome(RateLimitCategory category, string? proxyScope, HttpResponseMessage response)
+        {
+            if (response.StatusCode == HttpStatusCode.TooManyRequests)
+            {
+                RobloxRateLimitCoordinator.Instance.RecordRateLimitHit(category, response, proxyScope: proxyScope);
+            }
+            else if (response.IsSuccessStatusCode)
+            {
+                RobloxRateLimitCoordinator.Instance.RecordSuccess(category, proxyScope);
+            }
         }
 
         public static async Task<string> GetStringAsync(

@@ -33,11 +33,12 @@ namespace Shiro.Tests
             req.AddQueryParameter("keyword", "bloxfruits");
             req.AddParameter("limit", "100");
 
-            Assert.Equal(2, req.Parameters.Count);
-            Assert.Equal("keyword", req.Parameters[0].Key);
-            Assert.Equal("bloxfruits", req.Parameters[0].Value);
-            Assert.Equal("limit", req.Parameters[1].Key);
-            Assert.Equal("100", req.Parameters[1].Value);
+            Assert.Single(req.QueryParameters);
+            Assert.Equal("keyword", req.QueryParameters[0].Key);
+            Assert.Equal("bloxfruits", req.QueryParameters[0].Value);
+            Assert.Single(req.Parameters);
+            Assert.Equal("limit", req.Parameters[0].Key);
+            Assert.Equal("100", req.Parameters[0].Value);
         }
 
         [Fact]

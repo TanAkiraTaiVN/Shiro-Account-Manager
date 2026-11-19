@@ -2,12 +2,20 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Text;
+using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using NSubstitute;
 using Shiro.AvaloniaUI.Views;
 using Shiro.Services;
+using Shiro.Tests.TestInfrastructure;
 using Shiro.ViewModels;
 using Xunit;
 
@@ -212,6 +220,180 @@ namespace Shiro.Tests
             });
             Assert.Null(ex);
             Assert.False(StreamerModeService.IsStreamingAppDetected);
+        }
+
+        private static string BuildPresenceEnvelopeJson(params (long UserId, long UniverseId)[] entries)
+        {
+            var list = entries.Select(e => new
+            {
+                userPresenceType = (int)UserPresenceType.InGame,
+                universeId = e.UniverseId,
+                userId = e.UserId
+            }).ToList();
+            return JsonSerializer.Serialize(new Dictionary<string, object> { ["userPresences"] = list });
+        }
+
+        private static string BuildGamesEnvelopeJson(long universeId, string name) =>
+            JsonSerializer.Serialize(new Dictionary<string, object>
+            {
+                ["data"] = new[] { new { id = universeId, name } }
+            });
+
+        [Fact]
+        public async Task Task4_Presence_PartitionsUpdatePresenceGetPresenceAndPopulateGameNamesByEffectiveProxy()
+        {
+            var prevAccounts = AppServices.AccountRepository.GetAll().ToList();
+            var prevProxyFactory = Presence.TestProxyHttpClientFactory;
+            var prevProxySettings = ProxyBindingService.Settings;
+
+            var directRequests = new List<(string Url, string? Body)>();
+            var proxy1Requests = new List<(string Url, string? Body)>();
+            var proxy2Requests = new List<(string Url, string? Body)>();
+
+            HttpResponseMessage HandleMock(string url, string? body, List<(string Url, string? Body)> sink)
+            {
+                sink.Add((url, body));
+                if (url.Contains("presence/users", StringComparison.OrdinalIgnoreCase))
+                {
+                    using var doc = JsonDocument.Parse(body!);
+                    var ids = doc.RootElement.GetProperty("userIds").EnumerateArray().Select(x => x.GetInt64()).ToArray();
+                    var entries = ids.Select(id => (id, id switch { 101 or 102 => 901L, 103 => 903L, _ => 904L })).ToArray();
+                    return new HttpResponseMessage(HttpStatusCode.OK)
+                    {
+                        Content = new StringContent(BuildPresenceEnvelopeJson(entries), Encoding.UTF8, "application/json")
+                    };
+                }
+
+                if (url.Contains("v1/games", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (url.Contains("901", StringComparison.Ordinal))
+                        return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(BuildGamesEnvelopeJson(901, "Proxy1 Game"), Encoding.UTF8, "application/json") };
+                    if (url.Contains("903", StringComparison.Ordinal))
+                        return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(BuildGamesEnvelopeJson(903, "Proxy2 Game"), Encoding.UTF8, "application/json") };
+                    return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(BuildGamesEnvelopeJson(904, "Direct Game"), Encoding.UTF8, "application/json") };
+                }
+
+                return new HttpResponseMessage(HttpStatusCode.NotFound);
+            }
+
+            var directHandler = new FakeHttpHandler(async (req, _) =>
+            {
+                string? body = req.Content != null ? await req.Content.ReadAsStringAsync() : null;
+                return HandleMock(req.RequestUri!.ToString(), body, directRequests);
+            });
+            var proxy1Handler = new FakeHttpHandler(async (req, _) =>
+            {
+                string? body = req.Content != null ? await req.Content.ReadAsStringAsync() : null;
+                return HandleMock(req.RequestUri!.ToString(), body, proxy1Requests);
+            });
+            var proxy2Handler = new FakeHttpHandler(async (req, _) =>
+            {
+                string? body = req.Content != null ? await req.Content.ReadAsStringAsync() : null;
+                return HandleMock(req.RequestUri!.ToString(), body, proxy2Requests);
+            });
+
+            using var directClient = new HttpClient(directHandler);
+            using var proxy1Client = new HttpClient(proxy1Handler);
+            using var proxy2Client = new HttpClient(proxy2Handler);
+
+            var accA1 = new Account { Username = "PA1", UserID = 101, Proxy = "http://10.0.0.1:8080", Valid = true };
+            var accA2 = new Account { Username = "PA2", UserID = 102, Proxy = "10.0.0.1:8080", Valid = true };
+            var accB = new Account { Username = "PB1", UserID = 103, Proxy = "http://10.0.0.2:8080", Valid = true };
+            var accDirect = new Account { Username = "PD1", UserID = 104, Proxy = null, Valid = true };
+
+            var ini = new IniFile();
+            var settings = ini.Section("General");
+            settings.Set(AppSettingsKeys.General.UseProxies, "true");
+            ProxyBindingService.Settings = settings;
+
+            try
+            {
+                RobloxRateLimitCoordinator.Instance.ResetBackoff();
+                using var apiScope = AppServices.Override<IRobloxApiClient>(new RobloxApiClient(directHandler));
+                Presence.TestProxyHttpClientFactory = scope => scope switch
+                {
+                    "http://10.0.0.1:8080" => proxy1Client,
+                    "http://10.0.0.2:8080" => proxy2Client,
+                    _ => throw new InvalidOperationException($"Unexpected proxy scope: {scope}")
+                };
+                AccountManager.ResetAccountsForTests(new[] { accA1, accA2, accB, accDirect });
+
+                await Presence.UpdatePresence(101, 102, 103, 104);
+
+                Assert.Contains(proxy1Requests, r => r.Url.Contains("presence/users") && r.Body!.Contains("101") && r.Body.Contains("102") && !r.Body.Contains("103") && !r.Body.Contains("104"));
+                Assert.Contains(proxy1Requests, r => r.Url.Contains("v1/games") && r.Url.Contains("901") && !r.Url.Contains("903") && !r.Url.Contains("904"));
+                Assert.Contains(proxy2Requests, r => r.Url.Contains("presence/users") && r.Body!.Contains("103") && !r.Body.Contains("101") && !r.Body.Contains("104"));
+                Assert.Contains(proxy2Requests, r => r.Url.Contains("v1/games") && r.Url.Contains("903") && !r.Url.Contains("901") && !r.Url.Contains("904"));
+                Assert.Contains(directRequests, r => r.Url.Contains("presence/users") && r.Body!.Contains("104") && !r.Body.Contains("101") && !r.Body.Contains("103"));
+                Assert.Contains(directRequests, r => r.Url.Contains("v1/games") && r.Url.Contains("904") && !r.Url.Contains("901") && !r.Url.Contains("903"));
+
+                Assert.Equal("Proxy1 Game", accA1.Presence?.gameName);
+                Assert.Equal("Proxy2 Game", accB.Presence?.gameName);
+                Assert.Equal("Direct Game", accDirect.Presence?.gameName);
+
+                directRequests.Clear();
+                proxy1Requests.Clear();
+                proxy2Requests.Clear();
+
+                var fetched = await Presence.GetPresence(101, 103, 104);
+                Assert.NotNull(fetched);
+                Assert.Equal(3, fetched!.Count);
+                Assert.Single(proxy1Requests);
+                Assert.Single(proxy2Requests);
+                Assert.Single(directRequests);
+            }
+            finally
+            {
+                Presence.TestProxyHttpClientFactory = prevProxyFactory;
+                ProxyBindingService.Settings = prevProxySettings;
+                AccountManager.ResetAccountsForTests(prevAccounts);
+                RobloxRateLimitCoordinator.Instance.ResetBackoff();
+            }
+        }
+
+        [Fact]
+        public async Task Task4_SharedHttpClient_SendAsync_Reports429ToRateLimitCoordinator()
+        {
+            RobloxRateLimitCoordinator.Instance.ResetBackoff();
+            try
+            {
+                var fastHandler = new FakeHttpHandler(_ =>
+                {
+                    var resp = new HttpResponseMessage(HttpStatusCode.TooManyRequests);
+                    resp.Headers.RetryAfter = new RetryConditionHeaderValue(TimeSpan.FromSeconds(5));
+                    return resp;
+                });
+                SharedHttpClient.SetTestClient("default", new HttpClient(fastHandler));
+
+                using var req1 = new HttpRequestMessage(HttpMethod.Get, "https://games.roblox.com/v1/games?universeIds=1");
+                using var resp1 = await SharedHttpClient.SendAsync(req1, retryTransient: false);
+                Assert.Equal(HttpStatusCode.TooManyRequests, resp1.StatusCode);
+                Assert.True(RobloxRateLimitCoordinator.Instance.IsBackingOffCategory(RateLimitCategory.General));
+                Assert.False(RobloxRateLimitCoordinator.Instance.IsBackingOffCategory(RateLimitCategory.Presence));
+                Assert.InRange(RobloxRateLimitCoordinator.Instance.GetRemainingBackoff(RateLimitCategory.General).TotalSeconds, 4.0, 7.0);
+
+                RobloxRateLimitCoordinator.Instance.ResetBackoff();
+
+                var retryHandler = new FakeHttpHandler(_ =>
+                {
+                    var resp = new HttpResponseMessage(HttpStatusCode.TooManyRequests);
+                    resp.Headers.RetryAfter = new RetryConditionHeaderValue(TimeSpan.Zero);
+                    return resp;
+                });
+                SharedHttpClient.SetTestClient("default", new HttpClient(retryHandler));
+
+                using var req2 = new HttpRequestMessage(HttpMethod.Get, "https://presence.roblox.com/v1/presence/users");
+                using var resp2 = await SharedHttpClient.SendAsync(req2, retryTransient: true);
+                Assert.Equal(HttpStatusCode.TooManyRequests, resp2.StatusCode);
+                Assert.Equal(3, retryHandler.Calls);
+                Assert.True(RobloxRateLimitCoordinator.Instance.IsBackingOffCategory(RateLimitCategory.Presence));
+                Assert.Equal(3, RobloxRateLimitCoordinator.Instance.ConsecutiveRateLimitHits);
+            }
+            finally
+            {
+                SharedHttpClient.ResetTestClient("default");
+                RobloxRateLimitCoordinator.Instance.ResetBackoff();
+            }
         }
     }
 }

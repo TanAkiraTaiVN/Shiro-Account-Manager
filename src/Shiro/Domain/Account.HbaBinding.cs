@@ -290,6 +290,19 @@ namespace Shiro
                 RobloxHbaService.TryAttachHbaHeader(request, this, bodyContent);
         }
 
+        internal async Task<T> RunWithSessionGateAsync<T>(Func<Task<T>> action, CancellationToken cancellationToken = default)
+        {
+            await _sessionGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                return await action().ConfigureAwait(false);
+            }
+            finally
+            {
+                _sessionGate.Release();
+            }
+        }
+
         internal void ApplySessionFingerprintAndHbaToRestRequest(RestRequest request, string baseUrl)
         {
             if (request == null)
@@ -314,42 +327,8 @@ namespace Shiro
             if (string.IsNullOrWhiteSpace(privKey))
                 return;
 
-            string resource = request.Resource ?? string.Empty;
-            Uri finalUri;
-            if (!Uri.TryCreate(resource, UriKind.Absolute, out Uri? abs) || abs == null)
-            {
-                string normalizedBase = string.IsNullOrWhiteSpace(baseUrl)
-                    ? "https://www.roblox.com/"
-                    : (baseUrl.EndsWith('/') ? baseUrl : baseUrl + "/");
-                finalUri = new Uri(new Uri(normalizedBase), resource.TrimStart('/'));
-            }
-            else
-            {
-                finalUri = abs;
-            }
-
-            bool isBodyMethod = request.Method is Method.Post or Method.Put or Method.Patch;
-
-            // Include query parameters for non-body methods so the signed URL matches what RestClient actually sends
-            if (!isBodyMethod && request.Parameters.Count > 0)
-            {
-                var ub = new UriBuilder(finalUri);
-                var sb = new StringBuilder();
-                if (!string.IsNullOrEmpty(ub.Query))
-                    sb.Append(ub.Query.AsSpan().TrimStart('?'));
-
-                foreach (var param in request.Parameters)
-                {
-                    if (sb.Length > 0)
-                        sb.Append('&');
-                    sb.Append(Uri.EscapeDataString(param.Key))
-                      .Append('=')
-                      .Append(Uri.EscapeDataString(param.Value));
-                }
-                ub.Query = sb.ToString();
-                finalUri = ub.Uri;
-            }
-
+            Uri finalUri = RestClient.BuildRequestUri(request, baseUrl);
+            bool isBodyMethod = RestClient.IsBodyMethod(request.Method);
             string? bodyStr = isBodyMethod ? RestClient.SerializeRequestBodyForSigning(request) : null;
 
             if (RobloxHbaService.TryBuildBoundAuthToken(

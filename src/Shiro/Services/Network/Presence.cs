@@ -3,6 +3,7 @@ using Shiro.Http;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Http;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
@@ -27,9 +28,184 @@ namespace Shiro.Services
         private static readonly System.Threading.Lock GameNameCacheLock = new();
         private static readonly SemaphoreSlim UpdateLock = new SemaphoreSlim(1, 1);
 
+        internal static Func<string?, HttpClient?>? TestProxyHttpClientFactory;
+
+        private sealed record ProxyGroup<TItem>(
+            string ProxyKey,
+            string? ProxyScope,
+            Account? Representative,
+            List<TItem> Items);
+
         public static Task UpdatePresence(params long[] UserIds)
         {
             return UpdatePresence(CancellationToken.None, UserIds);
+        }
+
+        private static Dictionary<long, Account> BuildAccountsById(IReadOnlyList<Account> accountsSnapshot)
+        {
+            var accountsById = new Dictionary<long, Account>(accountsSnapshot.Count);
+            foreach (Account account in accountsSnapshot)
+            {
+                if (account != null && account.UserID > 0)
+                    accountsById[account.UserID] = account;
+            }
+            return accountsById;
+        }
+
+        private static (string ProxyKey, string? ProxyScope, Account? Representative) ResolveProxyIdentity(
+            long userId,
+            IReadOnlyDictionary<long, Account> accountsById)
+        {
+            if (!accountsById.TryGetValue(userId, out Account? account) || account == null)
+                return (string.Empty, null, null);
+
+            string? effectiveProxy = ProxyBindingService.GetEffectiveProxyForAccount(account);
+            if (string.IsNullOrWhiteSpace(effectiveProxy))
+                return (string.Empty, null, account);
+
+            string normalizedEndpoint = NetworkSignatureHelper.NormalizeAccountProxyEndpoint(effectiveProxy) ?? effectiveProxy.Trim();
+            ProxyItem? parsed = ProxyManagerService.ParseProxy(effectiveProxy);
+            string groupKey = parsed != null && !string.IsNullOrEmpty(parsed.Username)
+                ? $"{parsed.Username}@{normalizedEndpoint}"
+                : normalizedEndpoint;
+            return (groupKey, normalizedEndpoint, account);
+        }
+
+        private static List<ProxyGroup<TItem>> GroupByEffectiveProxy<TItem>(
+            IEnumerable<TItem> items,
+            Func<TItem, long> userIdSelector,
+            IReadOnlyDictionary<long, Account> accountsById)
+        {
+            var groups = new List<ProxyGroup<TItem>>();
+            var indexByKey = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (TItem item in items)
+            {
+                long userId = userIdSelector(item);
+                var (proxyKey, proxyScope, rep) = ResolveProxyIdentity(userId, accountsById);
+                if (!indexByKey.TryGetValue(proxyKey, out int idx))
+                {
+                    idx = groups.Count;
+                    indexByKey[proxyKey] = idx;
+                    groups.Add(new ProxyGroup<TItem>(proxyKey, proxyScope, rep, new List<TItem>()));
+                }
+                groups[idx].Items.Add(item);
+            }
+
+            return groups;
+        }
+
+        private static HttpClient? ResolveBatchHttpClient<TItem>(ProxyGroup<TItem> group)
+        {
+            if (string.IsNullOrEmpty(group.ProxyKey))
+                return null;
+
+            if (TestProxyHttpClientFactory != null)
+                return TestProxyHttpClientFactory(group.ProxyScope);
+
+            return group.Representative != null
+                ? ProxyBindingService.GetClient(group.Representative)
+                : ProxyBindingService.GetClient(group.ProxyKey);
+        }
+
+        private static async Task<bool> ExecutePresenceBatchesAsync(
+            long[] uniqueUserIds,
+            IReadOnlyDictionary<long, Account> accountsById,
+            bool attachSessionAuth,
+            Func<List<UserPresence>, Task> onPresencesReceived,
+            CancellationToken cancellationToken)
+        {
+            bool receivedAny = false;
+            var groups = GroupByEffectiveProxy(uniqueUserIds, static id => id, accountsById);
+
+            foreach (var group in groups)
+            {
+                HttpClient? clientOverride;
+                try
+                {
+                    clientOverride = ResolveBatchHttpClient(group);
+                }
+                catch (Exception ex)
+                {
+                    AppServices.Logger.Warn($"Presence proxy resolution failed: {LogRedactor.Redact(ex.Message)}");
+                    continue;
+                }
+
+                // Roblox accepts up to 50 user IDs per Presence request.
+                for (int offset = 0; offset < group.Items.Count; offset += 50)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    await RobloxRateLimitCoordinator.Instance.WaitForBackoffAsync(
+                        RateLimitCategory.Presence,
+                        group.ProxyScope,
+                        cancellationToken).ConfigureAwait(false);
+
+                    int count = Math.Min(50, group.Items.Count - offset);
+                    long[] batch = group.Items.GetRange(offset, count).ToArray();
+                    (bool Success, RobloxPresenceEnvelope? Data, System.Net.HttpStatusCode StatusCode, string? ErrorMessage) result;
+                    try
+                    {
+                        var req = new RestRequest("v1/presence/users", Method.Post)
+                            .AddJsonBody(new RobloxPresenceUsersRequest(batch));
+                        if (attachSessionAuth && group.Representative != null && !string.IsNullOrWhiteSpace(group.Representative.SecurityToken))
+                        {
+                            string cookie = group.Representative.BuildCookieHeaderValue();
+                            if (!string.IsNullOrEmpty(cookie))
+                                req.AddHeader("Cookie", cookie);
+                            group.Representative.ApplySessionFingerprintAndHbaToRestRequest(
+                                req,
+                                PresenceClient.BaseUrl ?? "https://presence.roblox.com/");
+                        }
+
+                        result = await PresenceClient.ExecuteJsonAsync(
+                            req,
+                            ShiroAppJson.Default.RobloxPresenceEnvelope,
+                            clientOverride,
+                            cancellationToken).ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                    {
+                        throw;
+                    }
+                    catch (Exception exception)
+                    {
+                        AppServices.Logger.Warn($"Presence request failed: {LogRedactor.Redact(exception.Message)}");
+                        continue;
+                    }
+
+                    if (!result.Success)
+                    {
+                        AppServices.Logger.Warn($"Presence request returned HTTP {(int)result.StatusCode} {result.StatusCode}: {result.ErrorMessage}");
+                        if ((int)result.StatusCode == 429)
+                        {
+                            RobloxRateLimitCoordinator.Instance.RecordRateLimitHit(
+                                RateLimitCategory.Presence,
+                                defaultBackoffSeconds: 6,
+                                proxyScope: group.ProxyScope);
+                            AppServices.Logger.Warn("Roblox presence API rate limit (429) hit, aborting remaining presence batches for proxy group.");
+                            break;
+                        }
+                        continue;
+                    }
+
+                    RobloxRateLimitCoordinator.Instance.RecordSuccess(RateLimitCategory.Presence, group.ProxyScope);
+
+                    List<UserPresence>? presences = result.Data?.userPresences;
+                    if (presences == null)
+                    {
+                        AppServices.Logger.Warn("Presence response did not contain userPresences.");
+                        continue;
+                    }
+
+                    receivedAny = true;
+                    await onPresencesReceived(presences).ConfigureAwait(false);
+
+                    if (offset + 50 < group.Items.Count)
+                        await Task.Delay(200, cancellationToken).ConfigureAwait(false);
+                }
+            }
+
+            return receivedAny;
         }
 
         /// <summary>
@@ -41,110 +217,40 @@ namespace Shiro.Services
         {
             if (cancellationToken.IsCancellationRequested || UserIds == null) return;
 
-            long[] UniqueUserIds = UserIds.Where(id => id > 0).Distinct().ToArray();
-            if (UniqueUserIds.Length == 0) return;
-
-            // Wait for any active Presence rate-limit backoff before acquiring the update lock
-            await RobloxRateLimitCoordinator.Instance.WaitForBackoffAsync(RateLimitCategory.Presence, cancellationToken).ConfigureAwait(false);
+            long[] uniqueUserIds = UserIds.Where(id => id > 0).Distinct().ToArray();
+            if (uniqueUserIds.Length == 0) return;
 
             await UpdateLock.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                HashSet<Account> Updated = new HashSet<Account>();
+                var updated = new HashSet<Account>();
                 var accountsSnapshot = AppServices.AccountRepository.GetAll();
-                var AccountsById = new Dictionary<long, Account>(accountsSnapshot.Count);
-                foreach (Account account in accountsSnapshot)
-                {
-                    if (account != null && account.UserID > 0)
-                        AccountsById.TryAdd(account.UserID, account);
-                }
+                var accountsById = BuildAccountsById(accountsSnapshot);
 
-                // Roblox accepts up to 50 user IDs per Presence request.
-                for (int offset = 0; offset < UniqueUserIds.Length; offset += 50)
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-
-                    await RobloxRateLimitCoordinator.Instance.WaitForBackoffAsync(RateLimitCategory.Presence, cancellationToken).ConfigureAwait(false);
-
-                    int batchEnd = Math.Min(offset + 50, UniqueUserIds.Length);
-                    long[] batch = UniqueUserIds[offset..batchEnd];
-                    (bool Success, RobloxPresenceEnvelope? Data, System.Net.HttpStatusCode StatusCode, string? ErrorMessage) result;
-                    try
+                await ExecutePresenceBatchesAsync(
+                    uniqueUserIds,
+                    accountsById,
+                    attachSessionAuth: true,
+                    async presences =>
                     {
-                        Account? proxiedRep = batch
-                            .Select(id => AccountsById.TryGetValue(id, out var a) ? a : null)
-                            .FirstOrDefault(a => a != null && ProxyBindingService.IsProxyRoutingAllowed() && !string.IsNullOrWhiteSpace(a.Proxy));
-                        var req = new RestRequest("v1/presence/users", Method.Post).AddJsonBody(new RobloxPresenceUsersRequest(batch));
-                        if (proxiedRep != null)
+                        await PopulateGameNames(presences, accountsById, cancellationToken).ConfigureAwait(false);
+                        foreach (UserPresence presence in presences)
                         {
-                            string cookie = proxiedRep.BuildCookieHeaderValue();
-                            if (!string.IsNullOrEmpty(cookie))
-                                req.AddHeader("Cookie", cookie);
-                            var rawResp = await PresenceClient.ExecuteAsync(
-                                req,
-                                ProxyBindingService.GetClient(proxiedRep),
-                                cancellationToken).ConfigureAwait(false);
-                            var parsed = rawResp.IsSuccessful && !string.IsNullOrWhiteSpace(rawResp.Content)
-                                ? System.Text.Json.JsonSerializer.Deserialize(rawResp.Content, ShiroAppJson.Default.RobloxPresenceEnvelope)
-                                : null;
-                            result = (rawResp.IsSuccessful && parsed != null, parsed, rawResp.StatusCode, rawResp.ErrorMessage);
+                            if (presence == null) continue;
+                            foreach (Account account in accountsSnapshot)
+                            {
+                                if (account != null && account.UserID == presence.userId)
+                                {
+                                    account.Presence = presence;
+                                    updated.Add(account);
+                                }
+                            }
                         }
-                        else
-                        {
-                            result = await PresenceClient.ExecuteJsonAsync(
-                                req,
-                                ShiroAppJson.Default.RobloxPresenceEnvelope,
-                                cancellationToken).ConfigureAwait(false);
-                        }
-                    }
-                    catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-                    {
-                        throw;
-                    }
-                    catch (Exception exception)
-                    {
-                        AppServices.Logger.Warn($"Presence request failed: {exception.Message}");
-                        continue;
-                    }
+                    },
+                    cancellationToken).ConfigureAwait(false);
 
-                    if (!result.Success)
-                    {
-                        AppServices.Logger.Warn($"Presence request returned HTTP {(int)result.StatusCode} {result.StatusCode}: {result.ErrorMessage}");
-                        if ((int)result.StatusCode == 429)
-                        {
-                            RobloxRateLimitCoordinator.Instance.RecordRateLimitHit(RateLimitCategory.Presence, defaultBackoffSeconds: 6);
-                            AppServices.Logger.Warn("Roblox presence API rate limit (429) hit, aborting remaining presence batches to protect IP.");
-                            break;
-                        }
-                        continue;
-                    }
-
-                    RobloxRateLimitCoordinator.Instance.RecordSuccess(RateLimitCategory.Presence);
-
-                    List<UserPresence>? Presences = result.Data?.userPresences;
-                    if (Presences == null)
-                    {
-                        AppServices.Logger.Warn("Presence response did not contain userPresences.");
-                        continue;
-                    }
-
-                    await PopulateGameNames(Presences, cancellationToken).ConfigureAwait(false);
-
-                    foreach (UserPresence presence in Presences)
-                        if (AccountsById.TryGetValue(presence.userId, out Account? account) && account != null)
-                        {
-                            account.Presence = presence;
-                            Updated.Add(account);
-                        }
-
-                    if (offset + 50 < UniqueUserIds.Length)
-                    {
-                        await Task.Delay(200, cancellationToken).ConfigureAwait(false);
-                    }
-                }
-
-                if (Updated.Count > 0)
+                if (updated.Count > 0)
                 {
                     AppServices.HostUiBridge.RefreshAccountView();
                 }
@@ -155,90 +261,115 @@ namespace Shiro.Services
             }
         }
 
-        private static async Task PopulateGameNames(IEnumerable<UserPresence> presences, CancellationToken cancellationToken)
+        private static async Task PopulateGameNames(
+            IEnumerable<UserPresence> presences,
+            IReadOnlyDictionary<long, Account> accountsById,
+            CancellationToken cancellationToken)
         {
-            List<UserPresence> InGame = presences?
+            List<UserPresence> inGame = presences?
                 .Where(presence => presence != null && presence.userPresenceType == UserPresenceType.InGame && presence.universeId.HasValue && presence.universeId.Value > 0)
                 .ToList() ?? new List<UserPresence>();
 
-            if (InGame.Count == 0) return;
+            if (inGame.Count == 0) return;
 
-            long[] MissingUniverseIds;
-            lock (GameNameCacheLock)
+            var groups = GroupByEffectiveProxy(inGame, static p => p.userId, accountsById);
+            foreach (var group in groups)
             {
-                MissingUniverseIds = InGame
-                .Select(presence => presence.universeId!.Value)
-                .Distinct()
-                .Where(universeId => !GameNameCache.ContainsKey(universeId))
-                .ToArray();
-            }
+                long[] missingUniverseIds;
+                lock (GameNameCacheLock)
+                {
+                    missingUniverseIds = group.Items
+                        .Select(presence => presence.universeId!.Value)
+                        .Distinct()
+                        .Where(universeId => !GameNameCache.ContainsKey(universeId))
+                        .ToArray();
+                }
 
-            // The games endpoint accepts up to 50 universe IDs per request.
-            for (int offset = 0; offset < MissingUniverseIds.Length; offset += 50)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                await RobloxRateLimitCoordinator.Instance.WaitForBackoffAsync(RateLimitCategory.General, cancellationToken).ConfigureAwait(false);
-                int batchEnd = Math.Min(offset + 50, MissingUniverseIds.Length);
-                long[] batch = MissingUniverseIds[offset..batchEnd];
+                if (missingUniverseIds.Length == 0)
+                    continue;
+
+                HttpClient? clientOverride;
                 try
                 {
-                    var gamesResult = await GamesClient.ExecuteJsonAsync(
-                        new RestRequest($"v1/games?universeIds={string.Join(",", batch)}", Method.Get),
-                        ShiroAppJson.Default.RobloxGamesEnvelope,
-                        cancellationToken).ConfigureAwait(false);
-                    if (!gamesResult.Success)
-                    {
-                        if ((int)gamesResult.StatusCode == 429)
-                        {
-                            RobloxRateLimitCoordinator.Instance.RecordRateLimitHit(RateLimitCategory.General, defaultBackoffSeconds: 5);
-                            AppServices.Logger.Warn("Roblox games API rate limit (429) hit, aborting remaining game-name batches.");
-                            break;
-                        }
-                        continue;
-                    }
-
-                    RobloxRateLimitCoordinator.Instance.RecordSuccess(RateLimitCategory.General);
-                    if (gamesResult.Data?.data != null)
-                    {
-                        lock (GameNameCacheLock)
-                        {
-                            if (GameNameCache.Count > 1000)
-                            {
-                                foreach (long staleKey in GameNameCache.Keys.Take(500).ToList())
-                                {
-                                    GameNameCache.Remove(staleKey);
-                                }
-                            }
-
-                            foreach (var game in gamesResult.Data.data)
-                            {
-                                if (game.id <= 0 || string.IsNullOrWhiteSpace(game.name)) continue;
-                                string cleanName = GameInfoService.SanitizeDisplayTitle(game.name);
-                                if (!string.IsNullOrWhiteSpace(cleanName))
-                                    GameNameCache[game.id] = cleanName;
-                            }
-                        }
-                    }
-
-                    if (offset + 50 < MissingUniverseIds.Length)
-                    {
-                        await Task.Delay(200, cancellationToken).ConfigureAwait(false);
-                    }
-                }
-                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-                {
-                    throw;
+                    clientOverride = ResolveBatchHttpClient(group);
                 }
                 catch (Exception ex)
                 {
-                    // Presence should continue to work if the optional game-name request fails.
-                    AppServices.Logger.Debug("[Presence] Optional game-name request failed", ex);
+                    AppServices.Logger.Debug($"[Presence] Game-name proxy resolution failed: {LogRedactor.Redact(ex.Message)}");
+                    continue;
+                }
+
+                // The games endpoint accepts up to 50 universe IDs per request.
+                for (int offset = 0; offset < missingUniverseIds.Length; offset += 50)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    await RobloxRateLimitCoordinator.Instance.WaitForBackoffAsync(
+                        RateLimitCategory.General,
+                        group.ProxyScope,
+                        cancellationToken).ConfigureAwait(false);
+
+                    int batchEnd = Math.Min(offset + 50, missingUniverseIds.Length);
+                    long[] batch = missingUniverseIds[offset..batchEnd];
+                    try
+                    {
+                        var gamesResult = await GamesClient.ExecuteJsonAsync(
+                            new RestRequest($"v1/games?universeIds={string.Join(",", batch)}", Method.Get),
+                            ShiroAppJson.Default.RobloxGamesEnvelope,
+                            clientOverride,
+                            cancellationToken).ConfigureAwait(false);
+                        if (!gamesResult.Success)
+                        {
+                            if ((int)gamesResult.StatusCode == 429)
+                            {
+                                RobloxRateLimitCoordinator.Instance.RecordRateLimitHit(
+                                    RateLimitCategory.General,
+                                    defaultBackoffSeconds: 5,
+                                    proxyScope: group.ProxyScope);
+                                AppServices.Logger.Warn("Roblox games API rate limit (429) hit, aborting remaining game-name batches for proxy group.");
+                                break;
+                            }
+                            continue;
+                        }
+
+                        RobloxRateLimitCoordinator.Instance.RecordSuccess(RateLimitCategory.General, group.ProxyScope);
+                        if (gamesResult.Data?.data != null)
+                        {
+                            lock (GameNameCacheLock)
+                            {
+                                if (GameNameCache.Count > 1000)
+                                {
+                                    foreach (long staleKey in GameNameCache.Keys.Take(500).ToList())
+                                        GameNameCache.Remove(staleKey);
+                                }
+
+                                foreach (var game in gamesResult.Data.data)
+                                {
+                                    if (game.id <= 0 || string.IsNullOrWhiteSpace(game.name)) continue;
+                                    string cleanName = GameInfoService.SanitizeDisplayTitle(game.name);
+                                    if (!string.IsNullOrWhiteSpace(cleanName))
+                                        GameNameCache[game.id] = cleanName;
+                                }
+                            }
+                        }
+
+                        if (offset + 50 < missingUniverseIds.Length)
+                            await Task.Delay(200, cancellationToken).ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                    {
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        // Presence should continue to work if the optional game-name request fails.
+                        AppServices.Logger.Debug("[Presence] Optional game-name request failed", ex);
+                    }
                 }
             }
 
             lock (GameNameCacheLock)
             {
-                foreach (UserPresence presence in InGame)
+                foreach (UserPresence presence in inGame)
                 {
                     if (presence.universeId.HasValue && GameNameCache.TryGetValue(presence.universeId.Value, out string? gameName))
                         presence.gameName = gameName;
@@ -294,131 +425,26 @@ namespace Shiro.Services
             if (uniqueIds.Length == 0)
                 return new Dictionary<long, UserPresence>();
 
-            Dictionary<long, UserPresence> result = new Dictionary<long, UserPresence>();
-            bool receivedSuccessfulResponse = false;
-
-            for (int offset = 0; offset < uniqueIds.Length; offset += 50)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-
-                await RobloxRateLimitCoordinator.Instance.WaitForBackoffAsync(RateLimitCategory.General, cancellationToken).ConfigureAwait(false);
-
-                int batchEnd = Math.Min(offset + 50, uniqueIds.Length);
-                long[] batch = uniqueIds[offset..batchEnd];
-                (bool Success, RobloxPresenceEnvelope? Data, System.Net.HttpStatusCode StatusCode, string? ErrorMessage) batchResult;
-                try
+            var result = new Dictionary<long, UserPresence>();
+            var accountsById = BuildAccountsById(AppServices.AccountRepository.GetAll());
+            bool receivedSuccessfulResponse = await ExecutePresenceBatchesAsync(
+                uniqueIds,
+                accountsById,
+                attachSessionAuth: false,
+                presences =>
                 {
-                    batchResult = await PresenceClient.ExecuteJsonAsync(
-                        new RestRequest("v1/presence/users", Method.Post).AddJsonBody(new RobloxPresenceUsersRequest(batch)),
-                        ShiroAppJson.Default.RobloxPresenceEnvelope,
-                        cancellationToken).ConfigureAwait(false);
-                }
-                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-                {
-                    throw;
-                }
-                catch (Exception exception)
-                {
-                    AppServices.Logger.Warn($"Presence request failed: {exception.Message}");
-                    continue;
-                }
-
-                if (!batchResult.Success)
-                {
-                    AppServices.Logger.Warn($"Presence request returned HTTP {(int)batchResult.StatusCode} {batchResult.StatusCode}: {batchResult.ErrorMessage}");
-                    if ((int)batchResult.StatusCode == 429)
+                    foreach (UserPresence presence in presences)
                     {
-                        RobloxRateLimitCoordinator.Instance.RecordRateLimitHit(RateLimitCategory.Presence, defaultBackoffSeconds: 6);
-                        AppServices.Logger.Warn("Roblox presence API rate limit (429) hit, aborting remaining presence batches to protect IP.");
-                        break;
+                        if (presence != null)
+                            result[presence.userId] = presence;
                     }
-                    continue;
-                }
-
-                RobloxRateLimitCoordinator.Instance.RecordSuccess(RateLimitCategory.Presence);
-
-                List<UserPresence>? presences = batchResult.Data?.userPresences;
-                if (presences == null)
-                {
-                    AppServices.Logger.Warn("Presence response did not contain userPresences.");
-                    continue;
-                }
-
-                receivedSuccessfulResponse = true;
-                foreach (UserPresence presence in presences)
-                    if (presence != null)
-                        result[presence.userId] = presence;
-
-                if (offset + 50 < uniqueIds.Length)
-                {
-                    await Task.Delay(200, cancellationToken).ConfigureAwait(false);
-                }
-            }
+                    return Task.CompletedTask;
+                },
+                cancellationToken).ConfigureAwait(false);
 
             return receivedSuccessfulResponse ? result : null;
         }
 
         public static async Task<UserPresence?> GetPresenceSingular(long UserId) => ((await GetPresence(UserId)) is Dictionary<long, UserPresence> Dict && Dict.ContainsKey(UserId)) ? Dict[UserId] : null;
-    }
-
-    public sealed record RobloxPresenceUsersRequest(long[] userIds);
-
-    public sealed class RobloxPresenceEnvelope
-    {
-        [JsonPropertyName("userPresences")]
-        public List<UserPresence> userPresences { get; set; } = new List<UserPresence>();
-    }
-
-    public sealed class RobloxGamesEnvelope
-    {
-        [JsonPropertyName("data")]
-        public List<RobloxGameDataEntry> data { get; set; } = new List<RobloxGameDataEntry>();
-    }
-
-    public sealed class RobloxGameDataEntry
-    {
-        [JsonPropertyName("id")]
-        public long id { get; set; }
-
-        [JsonPropertyName("name")]
-        public string name { get; set; } = string.Empty;
-    }
-
-    public class UserPresence
-    {
-        [JsonPropertyName("userPresenceType")]
-        public UserPresenceType userPresenceType { get; set; }
-
-        [JsonPropertyName("lastLocation")]
-        public string? lastLocation { get; set; }
-
-        [JsonPropertyName("placeId")]
-        public long? placeId { get; set; }
-
-        [JsonPropertyName("rootPlaceId")]
-        public long? rootPlaceId { get; set; }
-
-        [JsonPropertyName("gameId")]
-        public string? gameId { get; set; }
-
-        [JsonPropertyName("universeId")]
-        public long? universeId { get; set; }
-
-        [JsonPropertyName("userId")]
-        public long userId { get; set; }
-
-        [JsonPropertyName("lastOnline")]
-        public DateTime lastOnline { get; set; }
-
-        [System.Text.Json.Serialization.JsonIgnore]
-        public string? gameName { get; set; }
-    }
-
-    public enum UserPresenceType
-    {
-        Offline,
-        Online,
-        InGame,
-        InStudio
     }
 }

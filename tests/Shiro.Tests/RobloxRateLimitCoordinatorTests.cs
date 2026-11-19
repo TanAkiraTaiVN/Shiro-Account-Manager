@@ -1,4 +1,9 @@
+#nullable enable
 using System;
+using System.Diagnostics;
+using System.Net;
+using System.Net.Http;
+using System.Threading;
 using System.Threading.Tasks;
 using Shiro.Services;
 using Xunit;
@@ -119,6 +124,66 @@ namespace Shiro.Tests
             finally
             {
                 coordinator.ResetBackoff();
+            }
+        }
+
+        [Fact]
+        public async Task RecordRateLimitHit_ScopesBackoffByProxyEndpoint_WithoutBlockingOtherProxiesOrDirect()
+        {
+            var coordinator = new RobloxRateLimitCoordinator();
+            coordinator.RecordRateLimitHit(RateLimitCategory.General, null, defaultBackoffSeconds: 10, proxyScope: "http://10.0.0.1:8080");
+
+            Assert.True(coordinator.IsBackingOffCategory(RateLimitCategory.General, "10.0.0.1:8080"));
+            Assert.False(coordinator.IsBackingOffCategory(RateLimitCategory.General, "10.0.0.2:8080"));
+            Assert.False(coordinator.IsBackingOffCategory(RateLimitCategory.General));
+
+            var sw = Stopwatch.StartNew();
+            int res = await coordinator.ExecuteWithPacingAsync(
+                RateLimitCategory.General,
+                () => Task.FromResult(99),
+                proxyScope: "10.0.0.2:8080",
+                minIntervalMs: 0);
+            sw.Stop();
+
+            Assert.Equal(99, res);
+            Assert.True(sw.ElapsedMilliseconds < 1000, $"Unrelated proxy waited {sw.ElapsedMilliseconds}ms.");
+
+            coordinator.RecordRateLimitHit(RateLimitCategory.General, null, defaultBackoffSeconds: 10, proxyScope: "10.0.0.2:8080");
+            Assert.Equal(2, coordinator.ConsecutiveRateLimitHits);
+
+            coordinator.RecordSuccess(RateLimitCategory.General, "http://10.0.0.1:8080");
+            Assert.Equal(1, coordinator.ConsecutiveRateLimitHits);
+        }
+
+        [Fact]
+        public void RecordRateLimitHit_EnqueuesWebhookAlertOutsideBackoffLock_NoCrossThreadDeadlock()
+        {
+            var coordinator = new RobloxRateLimitCoordinator();
+            bool probeCompleted = false;
+            bool observedBackingOff = false;
+
+            void OnAlert(WebhookAlert alert)
+            {
+                var probeTask = Task.Run(() =>
+                {
+                    observedBackingOff = coordinator.IsBackingOffCategory(RateLimitCategory.SessionCheck, "10.0.0.5:8080");
+                    var remaining = coordinator.GetRemainingBackoff(RateLimitCategory.SessionCheck, "10.0.0.5:8080");
+                    if (remaining < TimeSpan.Zero)
+                        observedBackingOff = false;
+                });
+                probeCompleted = probeTask.Wait(TimeSpan.FromSeconds(2));
+            }
+
+            WebhookNotificationService.AlertDispatched += OnAlert;
+            try
+            {
+                coordinator.RecordRateLimitHit(RateLimitCategory.SessionCheck, null, defaultBackoffSeconds: 5, proxyScope: "10.0.0.5:8080");
+                Assert.True(probeCompleted, "AlertDispatched subscriber deadlocked on _backoffLock while querying coordinator.");
+                Assert.True(observedBackingOff);
+            }
+            finally
+            {
+                WebhookNotificationService.AlertDispatched -= OnAlert;
             }
         }
     }

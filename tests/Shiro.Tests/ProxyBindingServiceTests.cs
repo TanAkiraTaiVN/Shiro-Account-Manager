@@ -2,7 +2,9 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net;
+using NSubstitute;
 using Shiro.Services;
 using Xunit;
 
@@ -287,6 +289,100 @@ namespace Shiro.Tests
             var (success2, _, err2) = await ProxyBindingService.TestProxyAsync("invalid-proxy");
             Assert.False(success2);
             Assert.Equal("Invalid proxy format.", err2);
+        }
+
+        [Fact]
+        public void RebalanceRemovedPoolProxies_ReassignsRemovedPoolDeterministically_PreservingManualAndSurviving()
+        {
+            var manual = new Account { Username = "Manual", Proxy = "127.0.0.99:9999" };
+            var surviving = new Account { Username = "Surviving", Proxy = "10.0.0.2:8080" };
+            var removed1 = new Account { Username = "PoolOld1", Proxy = "10.0.0.1:8080" };
+            var removed2 = new Account { Username = "PoolOld2", Proxy = "10.0.0.1:8080" };
+            var empty = new Account { Username = "Empty", Proxy = null };
+
+            int changed = ProxyBindingService.RebalanceRemovedPoolProxies(
+                new[] { manual, surviving, removed1, removed2, empty },
+                new[] { "10.0.0.1:8080", "10.0.0.2:8080" },
+                new[] { "10.0.0.2:8080", "10.0.0.3:8080" });
+
+            Assert.Equal(2, changed);
+            Assert.Equal("127.0.0.99:9999", manual.Proxy);
+            Assert.Equal("10.0.0.2:8080", surviving.Proxy);
+            Assert.Null(empty.Proxy);
+            Assert.Equal("10.0.0.3:8080", removed1.Proxy);
+            Assert.Equal("10.0.0.2:8080", removed2.Proxy);
+        }
+
+        [Fact]
+        public void RebalanceRemovedPoolProxies_WhenNoActiveProxiesRemain_ClearsRemovedAccountsOnly()
+        {
+            var manual = new Account { Username = "Manual", Proxy = "127.0.0.99:9999" };
+            var removed = new Account { Username = "PoolOld", Proxy = "10.0.0.1:8080" };
+            var empty = new Account { Username = "Empty", Proxy = null };
+
+            int changed = ProxyBindingService.RebalanceRemovedPoolProxies(
+                new[] { manual, removed, empty },
+                new[] { "10.0.0.1:8080" },
+                Array.Empty<string>());
+
+            Assert.Equal(1, changed);
+            Assert.Equal("127.0.0.99:9999", manual.Proxy);
+            Assert.Equal(string.Empty, removed.Proxy);
+            Assert.Null(empty.Proxy);
+        }
+
+        [Fact]
+        public void SaveProxies_WhenPoolProxiesRemoved_RebalancesAccountsAndPreservesManualProxy()
+        {
+            string tempDir = Path.Combine(Path.GetTempPath(), "ShiroProxyRebalance_" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                var manual = new Account { Username = "Manual", Proxy = "127.0.0.99:9999" };
+                var pool1 = new Account { Username = "Pool1", Proxy = "10.0.0.1:8080" };
+                var pool2 = new Account { Username = "Pool2", Proxy = "10.0.0.2:8080" };
+
+                var repo = Substitute.For<IAccountRepository>();
+                repo.GetAll().Returns(new[] { manual, pool1, pool2 });
+
+                var ini = new IniFile();
+                var settings = ini.Section("General");
+                settings.Set(AppSettingsKeys.General.UseProxies, "true");
+
+                using (StoragePaths.OverrideDataDirectoryForTesting(tempDir))
+                using (AppServices.Override<IAccountRepository>(repo))
+                using (AppServices.Override<ISettingsService>(settings))
+                {
+                    ProxyManagerService.InvalidateCache();
+                    ProxyManagerService.SaveProxies(new[]
+                    {
+                        new ProxyItem { RawEntry = "10.0.0.1:8080", Host = "10.0.0.1", Port = 8080 },
+                        new ProxyItem { RawEntry = "10.0.0.2:8080", Host = "10.0.0.2", Port = 8080 }
+                    });
+
+                    Assert.Equal("10.0.0.1:8080", pool1.Proxy);
+
+                    ProxyManagerService.SaveProxies(new[]
+                    {
+                        new ProxyItem { RawEntry = "10.0.0.2:8080", Host = "10.0.0.2", Port = 8080 }
+                    });
+
+                    Assert.Equal("127.0.0.99:9999", manual.Proxy);
+                    Assert.Equal("10.0.0.2:8080", pool1.Proxy);
+                    Assert.Equal("10.0.0.2:8080", pool2.Proxy);
+
+                    ProxyManagerService.SaveProxies(Array.Empty<ProxyItem>());
+
+                    Assert.Equal("127.0.0.99:9999", manual.Proxy);
+                    Assert.Equal(string.Empty, pool1.Proxy);
+                    Assert.Equal(string.Empty, pool2.Proxy);
+                }
+            }
+            finally
+            {
+                ProxyManagerService.InvalidateCache();
+                if (Directory.Exists(tempDir))
+                    Directory.Delete(tempDir, true);
+            }
         }
     }
 }

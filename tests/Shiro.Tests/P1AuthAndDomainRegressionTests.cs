@@ -436,5 +436,76 @@ namespace Shiro.Tests
                 BrowserService.TestSignInOverride = prevOverride;
             }
         }
+        private const string Task4ExpectedBodyJson = "{\"ok\":true}";
+        private const string Task4CurrencyRobux777Json = "{\"robux\":777}";
+        private sealed record Task4PostPayload(bool ok);
+
+        [Fact]
+        public void Task4_RestClient_PostWithQueryAndJsonBody_PreservesQueryStringAndMatchesHbaUri()
+        {
+            string privKey = CreateValidTestPkcs8();
+            var acc = MakeAccount("HbaQueryUser", string.Empty);
+            acc.HbaPrivateKeyPkcs8 = privKey;
+
+            var req = new RestRequest("v1/items?existing=1", Method.Post)
+                .AddQueryParameter("cursor", "a b")
+                .AddJsonBody(new Task4PostPayload(true));
+
+            Assert.Single(req.QueryParameters);
+            Assert.Empty(req.Parameters);
+
+            using var msg = new RestClient("https://apis.roblox.com/").CreateHttpRequestMessage(req);
+            Assert.NotNull(msg.RequestUri);
+            Assert.Equal("https://apis.roblox.com/v1/items?existing=1&cursor=a%20b", msg.RequestUri!.AbsoluteUri);
+            Assert.NotNull(msg.Content);
+
+            acc.ApplySessionFingerprintAndHbaToRestRequest(req, "https://apis.roblox.com/");
+            Assert.True(req.Headers.TryGetValue(RobloxHbaService.BoundAuthHeaderName, out string? batHeader));
+            string[] parts = batHeader!.Split('|');
+            Assert.Equal(5, parts.Length);
+
+            using var ec = ECDsa.Create();
+            ec.ImportPkcs8PrivateKey(Convert.FromBase64String(privKey), out _);
+            string expectedHash = Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(Task4ExpectedBodyJson)));
+            string signedPayload1 = $"{expectedHash}|{parts[2]}|{msg.RequestUri.AbsoluteUri}|POST";
+            Assert.True(ec.VerifyData(
+                Encoding.UTF8.GetBytes(signedPayload1),
+                Convert.FromBase64String(parts[3]),
+                HashAlgorithmName.SHA256,
+                DSASignatureFormat.IeeeP1363FixedFieldConcatenation));
+
+            var formReq = new RestRequest("v1/submit", Method.Post)
+                .AddQueryParameter("step", "2")
+                .AddParameter("answer", "yes");
+            using var formMsg = new RestClient("https://apis.roblox.com/").CreateHttpRequestMessage(formReq);
+            Assert.Equal("?step=2", formMsg.RequestUri!.Query);
+            Assert.IsType<FormUrlEncodedContent>(formMsg.Content);
+        }
+
+        [Fact]
+        public async Task Task4_RestClient_ExecuteJsonAsync_WithClientOverride_RoutesThroughOverrideClient()
+        {
+            var defaultHandler = new FakeHttpHandler(_ =>
+                new HttpResponseMessage(HttpStatusCode.InternalServerError));
+            var overrideHandler = new FakeHttpHandler(_ =>
+                new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(Task4CurrencyRobux777Json, Encoding.UTF8, "application/json")
+                });
+
+            using var defaultHttp = new HttpClient(defaultHandler);
+            using var overrideHttp = new HttpClient(overrideHandler);
+            using var rc = new RestClient(defaultHttp, "https://economy.roblox.com/");
+
+            var req = new RestRequest("v1/users/1/currency", Method.Get);
+            var result = await rc.ExecuteJsonAsync(req, ShiroAppJson.Default.RobloxCurrencyResponse, overrideHttp, CancellationToken.None);
+
+            Assert.True(result.Success);
+            Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+            Assert.NotNull(result.Data);
+            Assert.Equal(777, result.Data!.Robux);
+            Assert.Equal(0, defaultHandler.Calls);
+            Assert.Equal(1, overrideHandler.Calls);
+        }
     }
 }

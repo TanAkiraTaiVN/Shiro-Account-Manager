@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -103,9 +104,55 @@ namespace Shiro.Services
 
             if (string.IsNullOrWhiteSpace(account.SecurityToken))
             {
-                account.Valid = false;
-                return BuildAuditResult(account, AccountSessionStatus.ExpiredCookie, "Missing security token");
+                bool validityChanged = false;
+                AccountSessionAuditResult missingResult = await account.RunWithSessionGateAsync(() =>
+                {
+                    if (account.Valid)
+                    {
+                        account.Valid = false;
+                        if (!Account.IsSuppressingDeferredSave)
+                            account.IsDirty = true;
+                        validityChanged = true;
+                    }
+                    return Task.FromResult(BuildAuditResult(account, AccountSessionStatus.ExpiredCookie, "Missing security token"));
+                }, ct).ConfigureAwait(false);
+
+                if (validityChanged && !Account.IsSuppressingDeferredSave)
+                {
+                    AppServices.AccountRepository.QueueDeferredSave();
+                    AppServices.HostUiBridge.UpdateAccountValidityOnUi(account, false);
+                }
+                return missingResult;
             }
+
+            string proxyScope = RobloxRateLimitCoordinator.ResolveProxyScope(account);
+            return await RobloxRateLimitCoordinator.Instance.ExecuteWithPacingAsync(
+                RateLimitCategory.SessionCheck,
+                async () =>
+                {
+                    var sideEffects = new AuditSideEffects();
+                    AccountSessionAuditResult result = await account.RunWithSessionGateAsync(
+                        () => AuditAccountUnderGateAsync(account, sideEffects, ct),
+                        ct).ConfigureAwait(false);
+                    DispatchAuditSideEffects(account, proxyScope, sideEffects);
+                    return result;
+                },
+                proxyScope,
+                minIntervalMs: 100,
+                cancellationToken: ct).ConfigureAwait(false);
+        }
+
+        private static async Task<AccountSessionAuditResult> AuditAccountUnderGateAsync(
+            Account account,
+            AuditSideEffects sideEffects,
+            CancellationToken ct)
+        {
+            bool prevValid = account.Valid;
+            string prevIssue = account.AccountStatusIssue;
+            long prevUserId = account.UserID;
+            string prevUsername = account.Username;
+            long prevRobux = account.RobuxBalance;
+            long prevPending = account.PendingRobux;
 
             try
             {
@@ -117,6 +164,8 @@ namespace Shiro.Services
 
                 account.TryUpdateRotatedCookie(response);
                 var status = MapStatusCodeToSessionStatus(response.StatusCode);
+                if (status == AccountSessionStatus.RateLimited)
+                    sideEffects.RecordPrimaryRateLimit(response.Headers.RetryAfter);
 
                 string redirectLocation = response.Headers.Location?.ToString() ?? string.Empty;
                 string requestUri = response.RequestMessage?.RequestUri?.AbsoluteUri ?? string.Empty;
@@ -144,7 +193,7 @@ namespace Shiro.Services
                 bool confirmedBySecondary = false;
                 if (status == AccountSessionStatus.ExpiredCookie)
                 {
-                    if (await ValidateSecondaryWithRotationAsync(account, () => client, ct).ConfigureAwait(false))
+                    if (await ValidateSecondaryWithRotationAsync(account, () => client, ct, sideEffects.RecordSecondaryRateLimit).ConfigureAwait(false))
                     {
                         status = AccountSessionStatus.Valid;
                         confirmedBySecondary = true;
@@ -207,13 +256,13 @@ namespace Shiro.Services
                         auditMessage = $"Account {account.Username} received moderation notice: {modDetails}";
                         if (!alertAlreadyDispatched)
                         {
-                            WebhookNotificationService.EnqueueAlert(new WebhookAlert
+                            sideEffects.PendingModerationAlert = new WebhookAlert
                             {
                                 EventType = WebhookEventType.ModerationWarning,
                                 AccountUsername = account.Username,
                                 Description = $"Account {account.Username} received moderation notice: {modDetails}",
                                 Timestamp = DateTimeOffset.UtcNow
-                            });
+                            };
                         }
                     }
 
@@ -273,6 +322,7 @@ namespace Shiro.Services
 
                 account.Valid = true;
                 account.AccountStatusIssue = string.Empty;
+                sideEffects.SessionCheckSuccess = true;
 
                 long robuxBalance = account.RobuxBalance > 0 ? account.RobuxBalance : 0;
                 long pendingRobux = account.PendingRobux;
@@ -281,7 +331,7 @@ namespace Shiro.Services
                 if (userId > 0)
                 {
                     (robuxBalance, pendingRobux) = await FetchEconomyBalancesAsync(
-                        account, client, userId, robuxBalance, pendingRobux, ct).ConfigureAwait(false);
+                        account, client, userId, robuxBalance, pendingRobux, sideEffects, ct).ConfigureAwait(false);
                 }
 
                 return new AccountSessionAuditResult
@@ -301,6 +351,10 @@ namespace Shiro.Services
             {
                 _staticLogger.Warn($"[SessionAuditor] Audit exception for {account.Username}: {ex.Message}");
                 return BuildAuditResult(account, AccountSessionStatus.Unknown, ex.Message);
+            }
+            finally
+            {
+                CaptureAuditMutations(account, prevValid, prevIssue, prevUserId, prevUsername, prevRobux, prevPending, sideEffects);
             }
         }
 

@@ -131,6 +131,8 @@ namespace Shiro.Services
             return string.IsNullOrWhiteSpace(account.Proxy) ? null : account.Proxy.Trim();
         }
 
+        internal static string? GetEffectiveProxyForAccount(Account? account) => ResolveEffectiveProxy(account);
+
         /// <summary>
         /// Retrieves the configured HttpClient for an account, routing through its dedicated proxy if present.
         /// If no proxy is assigned (or global proxy support is disabled), falls back cleanly to the global shared client.
@@ -245,6 +247,23 @@ namespace Shiro.Services
             }
         }
 
+        private static List<string> NormalizeDistinctProxies(IEnumerable<string>? proxies) =>
+            proxies == null
+                ? new List<string>()
+                : proxies
+                    .Where(p => !string.IsNullOrWhiteSpace(p))
+                    .Select(p => p.Trim())
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+        private static Dictionary<string, (int Usage, int Order)> CreateUsageMap(List<string> proxyList)
+        {
+            var usage = new Dictionary<string, (int Usage, int Order)>(proxyList.Count, StringComparer.OrdinalIgnoreCase);
+            for (int i = 0; i < proxyList.Count; i++)
+                usage[proxyList[i]] = (0, i);
+            return usage;
+        }
+
         /// <summary>
         /// Distributes proxies stickily: keeps valid current assignments, assigns least-used proxies to unassigned accounts.
         /// </summary>
@@ -252,18 +271,10 @@ namespace Shiro.Services
         {
             if (accounts == null || proxies == null) return;
 
-            var proxyList = proxies
-                .Where(p => !string.IsNullOrWhiteSpace(p))
-                .Select(p => p.Trim())
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToList();
+            var proxyList = NormalizeDistinctProxies(proxies);
             if (proxyList.Count == 0) return;
 
-            var proxyUsage = new Dictionary<string, (int Usage, int Order)>(proxyList.Count, StringComparer.OrdinalIgnoreCase);
-            for (int i = 0; i < proxyList.Count; i++)
-            {
-                proxyUsage[proxyList[i]] = (0, i);
-            }
+            var proxyUsage = CreateUsageMap(proxyList);
 
             // First pass: tally accounts that already use one of the supplied proxies
             var needsAssignment = new List<Account>();
@@ -272,8 +283,8 @@ namespace Shiro.Services
                 if (acc == null) continue;
                 if (!string.IsNullOrWhiteSpace(acc.Proxy))
                 {
-                    if (proxyUsage.TryGetValue(acc.Proxy, out var current))
-                        proxyUsage[acc.Proxy] = (current.Usage + 1, current.Order);
+                    if (proxyUsage.TryGetValue(acc.Proxy.Trim(), out var current))
+                        proxyUsage[acc.Proxy.Trim()] = (current.Usage + 1, current.Order);
                 }
                 else
                 {
@@ -281,17 +292,69 @@ namespace Shiro.Services
                 }
             }
 
-            if (needsAssignment.Count == 0)
-                return;
+            if (needsAssignment.Count > 0)
+                AssignLeastUsedFromHeap(needsAssignment, proxyList, proxyUsage);
+        }
 
-            // Second pass: O((M + N) log M) min-heap assignment with deterministic tie-breaking by original proxy order
-            var minHeap = new PriorityQueue<string, (int Usage, int Order)>(proxyList.Count);
-            foreach (string proxy in proxyList)
+        /// <summary>
+        /// Rebalances accounts that were assigned to proxies removed from the active proxy pool,
+        /// leaving unassigned, manual, and surviving pool accounts untouched.
+        /// </summary>
+        public static int RebalanceRemovedPoolProxies(
+            IEnumerable<Account> accounts,
+            IReadOnlyCollection<string> removedProxies,
+            IEnumerable<string> activeProxies)
+        {
+            if (accounts == null || removedProxies == null || removedProxies.Count == 0)
+                return 0;
+
+            var activeList = NormalizeDistinctProxies(activeProxies);
+            var activeSet = new HashSet<string>(activeList, StringComparer.OrdinalIgnoreCase);
+            var removedSet = new HashSet<string>(
+                NormalizeDistinctProxies(removedProxies).Where(p => !activeSet.Contains(p)),
+                StringComparer.OrdinalIgnoreCase);
+            if (removedSet.Count == 0)
+                return 0;
+
+            var proxyUsage = CreateUsageMap(activeList);
+            var toRebalance = new List<Account>();
+            foreach (var acc in accounts)
             {
-                minHeap.Enqueue(proxy, proxyUsage[proxy]);
+                if (acc == null || string.IsNullOrWhiteSpace(acc.Proxy))
+                    continue;
+
+                string current = acc.Proxy.Trim();
+                if (removedSet.Contains(current))
+                    toRebalance.Add(acc);
+                else if (proxyUsage.TryGetValue(current, out var usage))
+                    proxyUsage[current] = (usage.Usage + 1, usage.Order);
             }
 
-            foreach (var acc in needsAssignment)
+            if (toRebalance.Count == 0)
+                return 0;
+
+            if (activeList.Count == 0)
+            {
+                foreach (var acc in toRebalance)
+                    acc.Proxy = string.Empty;
+                return toRebalance.Count;
+            }
+
+            AssignLeastUsedFromHeap(toRebalance, activeList, proxyUsage);
+            return toRebalance.Count;
+        }
+
+        private static void AssignLeastUsedFromHeap(
+            List<Account> targets,
+            List<string> proxyList,
+            Dictionary<string, (int Usage, int Order)> proxyUsage)
+        {
+            // O((M + N) log M) min-heap assignment with deterministic tie-breaking by original proxy order
+            var minHeap = new PriorityQueue<string, (int Usage, int Order)>(proxyList.Count);
+            foreach (string proxy in proxyList)
+                minHeap.Enqueue(proxy, proxyUsage[proxy]);
+
+            foreach (var acc in targets)
             {
                 if (minHeap.TryDequeue(out string? leastUsedProxy, out var priority))
                 {
@@ -355,11 +418,7 @@ namespace Shiro.Services
         /// </summary>
         public static void PruneClients(IEnumerable<string> activeProxies)
         {
-            var activeSet = activeProxies != null
-                ? new HashSet<string>(
-                    activeProxies.Where(p => !string.IsNullOrWhiteSpace(p)).Select(p => p.Trim()),
-                    StringComparer.OrdinalIgnoreCase)
-                : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var activeSet = new HashSet<string>(NormalizeDistinctProxies(activeProxies), StringComparer.OrdinalIgnoreCase);
 
             foreach (var entry in _proxyClients)
             {
@@ -368,9 +427,7 @@ namespace Shiro.Services
                     : entry.Key;
 
                 if (!activeSet.Contains(rawProxyKey) && _proxyClients.TryRemove(entry.Key, out var removed))
-                {
                     RetireClient(removed);
-                }
             }
         }
 

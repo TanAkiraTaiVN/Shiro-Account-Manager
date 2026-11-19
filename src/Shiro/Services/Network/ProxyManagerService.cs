@@ -249,6 +249,7 @@ namespace Shiro.Services
             try
             {
                 string path = ProxiesFilePath;
+                var previousProxies = GetCachedProxyStrings();
                 var lines = (proxies ?? Enumerable.Empty<ProxyItem>())
                     .Where(p => p != null && !string.IsNullOrWhiteSpace(p.RawEntry))
                     .Select(p => p.RawEntry.Trim())
@@ -266,18 +267,37 @@ namespace Shiro.Services
                     _lastCacheTicks = Environment.TickCount64;
                 }
 
+                var activeSet = new HashSet<string>(lines, StringComparer.OrdinalIgnoreCase);
+                var removedProxies = previousProxies
+                    .Where(p => !string.IsNullOrWhiteSpace(p))
+                    .Select(p => p.Trim())
+                    .Where(p => !activeSet.Contains(p))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
                 var accounts = AppServices.AccountRepository.GetAll();
                 bool useProxies = AppServices.GeneralSettings.Get<bool>(AppSettingsKeys.General.UseProxies, false);
-                if (accounts.Count > 0 && lines.Count > 0 && useProxies)
+                if (accounts.Count > 0)
                 {
-                    ProxyBindingService.DistributeProxiesSticky(accounts, lines);
+                    if (removedProxies.Count > 0)
+                    {
+                        ProxyBindingService.RebalanceRemovedPoolProxies(
+                            accounts,
+                            removedProxies,
+                            useProxies ? lines : Array.Empty<string>());
+                    }
+
+                    if (lines.Count > 0 && useProxies)
+                    {
+                        ProxyBindingService.DistributeProxiesSticky(accounts, lines);
+                    }
                 }
 
                 ProxyBindingService.PruneClients(lines);
             }
             catch (Exception ex)
             {
-                _logger.Error($"[ProxyManagerService] Failed to save proxies: {ex.Message}");
+                _logger.Error($"[ProxyManagerService] Failed to save proxies: {LogRedactor.Redact(ex.Message)}");
             }
         }
 

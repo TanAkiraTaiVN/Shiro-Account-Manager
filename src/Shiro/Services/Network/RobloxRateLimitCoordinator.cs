@@ -1,8 +1,10 @@
 #nullable enable
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -28,6 +30,8 @@ namespace Shiro.Services
         public static RobloxRateLimitCoordinator Default => _instance.Value;
         public static RobloxRateLimitCoordinator Instance => _instance.Value;
 
+        internal const string DirectProxyScope = "direct";
+
         private sealed class CategoryBackoffState
         {
             public DateTime BackoffUntilUtc = DateTime.MinValue;
@@ -35,9 +39,9 @@ namespace Shiro.Services
         }
 
         private readonly IAppLogger _logger;
-        private readonly ConcurrentDictionary<RateLimitCategory, SemaphoreSlim> _categorySemaphores;
-        private readonly System.Collections.Generic.Dictionary<RateLimitCategory, DateTime> _nextAllowedSlotUtc;
-        private readonly System.Collections.Generic.Dictionary<RateLimitCategory, CategoryBackoffState> _categoryBackoffs;
+        private readonly ConcurrentDictionary<(RateLimitCategory Category, string ProxyScope), SemaphoreSlim> _categorySemaphores;
+        private readonly Dictionary<(RateLimitCategory Category, string ProxyScope), DateTime> _nextAllowedSlotUtc;
+        private readonly Dictionary<(RateLimitCategory Category, string ProxyScope), CategoryBackoffState> _categoryBackoffs;
         private readonly System.Threading.Lock _backoffLock = new();
         private readonly System.Threading.Lock _pacingLock = new();
 
@@ -63,24 +67,55 @@ namespace Shiro.Services
         public RobloxRateLimitCoordinator(IAppLogger logger)
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            _categorySemaphores = new ConcurrentDictionary<RateLimitCategory, SemaphoreSlim>
+            _categorySemaphores = new ConcurrentDictionary<(RateLimitCategory Category, string ProxyScope), SemaphoreSlim>
             {
-                [RateLimitCategory.SessionCheck] = new SemaphoreSlim(12, 12),
-                [RateLimitCategory.Authentication] = new SemaphoreSlim(2, 2),
-                [RateLimitCategory.Presence] = new SemaphoreSlim(2, 2),
-                [RateLimitCategory.General] = new SemaphoreSlim(6, 6)
+                [(RateLimitCategory.SessionCheck, DirectProxyScope)] = new SemaphoreSlim(12, 12),
+                [(RateLimitCategory.Authentication, DirectProxyScope)] = new SemaphoreSlim(2, 2),
+                [(RateLimitCategory.Presence, DirectProxyScope)] = new SemaphoreSlim(2, 2),
+                [(RateLimitCategory.General, DirectProxyScope)] = new SemaphoreSlim(6, 6)
             };
 
-            _nextAllowedSlotUtc = new System.Collections.Generic.Dictionary<RateLimitCategory, DateTime>();
-            _categoryBackoffs = new System.Collections.Generic.Dictionary<RateLimitCategory, CategoryBackoffState>();
+            _nextAllowedSlotUtc = new Dictionary<(RateLimitCategory Category, string ProxyScope), DateTime>();
+            _categoryBackoffs = new Dictionary<(RateLimitCategory Category, string ProxyScope), CategoryBackoffState>();
         }
 
-        private CategoryBackoffState GetOrCreateBackoffStateUnderLock(RateLimitCategory category)
+        internal static string NormalizeProxyScope(string? proxyScope)
         {
-            if (!_categoryBackoffs.TryGetValue(category, out var state))
+            if (string.IsNullOrWhiteSpace(proxyScope))
+                return DirectProxyScope;
+
+            string trimmed = proxyScope.Trim();
+            if (string.Equals(trimmed, DirectProxyScope, StringComparison.OrdinalIgnoreCase))
+                return DirectProxyScope;
+
+            string? endpoint = NetworkSignatureHelper.NormalizeAccountProxyEndpoint(trimmed);
+            return endpoint ?? trimmed.ToLowerInvariant();
+        }
+
+        internal static string ResolveProxyScope(Account? account)
+        {
+            if (account == null || !ProxyBindingService.IsProxyRoutingAllowed() || string.IsNullOrWhiteSpace(account.Proxy))
+                return DirectProxyScope;
+
+            return NormalizeProxyScope(account.Proxy);
+        }
+
+        private static int GetDefaultSemaphoreLimit(RateLimitCategory category) => category switch
+        {
+            RateLimitCategory.SessionCheck => 12,
+            RateLimitCategory.Authentication => 2,
+            RateLimitCategory.Presence => 2,
+            RateLimitCategory.General => 6,
+            _ => 2
+        };
+
+        private CategoryBackoffState GetOrCreateBackoffStateUnderLock(RateLimitCategory category, string normalizedScope)
+        {
+            var key = (category, normalizedScope);
+            if (!_categoryBackoffs.TryGetValue(key, out var state))
             {
                 state = new CategoryBackoffState();
-                _categoryBackoffs[category] = state;
+                _categoryBackoffs[key] = state;
             }
             return state;
         }
@@ -102,12 +137,16 @@ namespace Shiro.Services
             }
         }
 
-        public bool IsBackingOffCategory(RateLimitCategory category)
+        public bool IsBackingOffCategory(RateLimitCategory category) =>
+            IsBackingOffCategory(category, proxyScope: null);
+
+        public bool IsBackingOffCategory(RateLimitCategory category, string? proxyScope)
         {
             DateTime now = DateTime.UtcNow;
+            var key = (category, NormalizeProxyScope(proxyScope));
             lock (_backoffLock)
             {
-                return _categoryBackoffs.TryGetValue(category, out var state) && now < state.BackoffUntilUtc;
+                return _categoryBackoffs.TryGetValue(key, out var state) && now < state.BackoffUntilUtc;
             }
         }
 
@@ -130,37 +169,56 @@ namespace Shiro.Services
             }
         }
 
-        public TimeSpan GetRemainingBackoff(RateLimitCategory category)
+        public TimeSpan GetRemainingBackoff(RateLimitCategory category) =>
+            GetRemainingBackoff(category, proxyScope: null);
+
+        public TimeSpan GetRemainingBackoff(RateLimitCategory category, string? proxyScope)
         {
             DateTime now = DateTime.UtcNow;
+            var key = (category, NormalizeProxyScope(proxyScope));
             lock (_backoffLock)
             {
-                if (!_categoryBackoffs.TryGetValue(category, out var state))
+                if (!_categoryBackoffs.TryGetValue(key, out var state))
                     return TimeSpan.Zero;
                 var rem = state.BackoffUntilUtc - now;
                 return rem > TimeSpan.Zero ? rem : TimeSpan.Zero;
             }
         }
 
-        public void RecordRateLimitHit(RateLimitCategory category, HttpResponseMessage? response = null, int defaultBackoffSeconds = 4)
+        public void RecordRateLimitHit(
+            RateLimitCategory category,
+            HttpResponseMessage? response = null,
+            int defaultBackoffSeconds = 4,
+            string? proxyScope = null) =>
+            RecordRateLimitHitWithRetryAfter(category, response?.Headers?.RetryAfter, defaultBackoffSeconds, proxyScope);
+
+        internal void RecordRateLimitHitWithRetryAfter(
+            RateLimitCategory category,
+            RetryConditionHeaderValue? retryAfter,
+            int defaultBackoffSeconds = 4,
+            string? proxyScope = null)
         {
+            string normalizedScope = NormalizeProxyScope(proxyScope);
+            WebhookAlert? alertToEnqueue = null;
+            string? warnMessage = null;
+
             lock (_backoffLock)
             {
-                var state = GetOrCreateBackoffStateUnderLock(category);
+                var state = GetOrCreateBackoffStateUnderLock(category, normalizedScope);
                 state.Consecutive429Count++;
 
                 double backoffSeconds = -1;
 
                 // Try parse Retry-After header if present
-                if (response?.Headers?.RetryAfter != null)
+                if (retryAfter != null)
                 {
-                    if (response.Headers.RetryAfter.Delta.HasValue)
+                    if (retryAfter.Delta.HasValue)
                     {
-                        backoffSeconds = response.Headers.RetryAfter.Delta.Value.TotalSeconds;
+                        backoffSeconds = retryAfter.Delta.Value.TotalSeconds;
                     }
-                    else if (response.Headers.RetryAfter.Date.HasValue)
+                    else if (retryAfter.Date.HasValue)
                     {
-                        var diff = response.Headers.RetryAfter.Date.Value - DateTimeOffset.UtcNow;
+                        var diff = retryAfter.Date.Value - DateTimeOffset.UtcNow;
                         if (diff.TotalSeconds > 0)
                             backoffSeconds = diff.TotalSeconds;
                     }
@@ -180,23 +238,33 @@ namespace Shiro.Services
                 if (proposedExpiry > state.BackoffUntilUtc)
                 {
                     state.BackoffUntilUtc = proposedExpiry;
-                    _logger.Warn($"[RateLimitCoordinator] HTTP 429 Rate-Limit hit #{state.Consecutive429Count} for {category}. Backing off {category} for {backoffSeconds:0.#}s (+{jitterMs}ms jitter).");
-
-                    WebhookNotificationService.EnqueueAlert(new WebhookAlert
+                    string safeScope = normalizedScope == DirectProxyScope ? DirectProxyScope : LogRedactor.Redact(normalizedScope);
+                    warnMessage = $"[RateLimitCoordinator] HTTP 429 Rate-Limit hit #{state.Consecutive429Count} for {category} ({safeScope}). Backing off {category} for {backoffSeconds:0.#}s (+{jitterMs}ms jitter).";
+                    alertToEnqueue = new WebhookAlert
                     {
                         EventType = WebhookEventType.RateLimited,
-                        Description = $"HTTP 429 Rate-Limit hit #{state.Consecutive429Count} for {category}. Backing off for {backoffSeconds:0.#}s.",
+                        Description = $"HTTP 429 Rate-Limit hit #{state.Consecutive429Count} for {category} ({safeScope}). Backing off for {backoffSeconds:0.#}s.",
                         Timestamp = DateTimeOffset.UtcNow
-                    });
+                    };
                 }
             }
+
+            if (warnMessage != null)
+                _logger.Warn(warnMessage);
+
+            if (alertToEnqueue != null)
+                WebhookNotificationService.EnqueueAlert(alertToEnqueue);
         }
 
-        public void RecordSuccess(RateLimitCategory category)
+        public void RecordSuccess(RateLimitCategory category) =>
+            RecordSuccess(category, proxyScope: null);
+
+        public void RecordSuccess(RateLimitCategory category, string? proxyScope)
         {
+            var key = (category, NormalizeProxyScope(proxyScope));
             lock (_backoffLock)
             {
-                if (_categoryBackoffs.TryGetValue(category, out var state) && state.Consecutive429Count > 0)
+                if (_categoryBackoffs.TryGetValue(key, out var state) && state.Consecutive429Count > 0)
                 {
                     state.Consecutive429Count = 0;
                 }
@@ -224,18 +292,19 @@ namespace Shiro.Services
         /// Atomically reserves the next available execution time slot for <paramref name="category"/>,
         /// ensuring concurrent callers stagger smoothly by <paramref name="minIntervalMs"/> instead of bursting together.
         /// </summary>
-        internal TimeSpan ReserveNextSlotDelay(RateLimitCategory category, int minIntervalMs, DateTime utcNow)
+        internal TimeSpan ReserveNextSlotDelay(RateLimitCategory category, int minIntervalMs, DateTime utcNow, string? proxyScope = null)
         {
             if (minIntervalMs <= 0)
                 return TimeSpan.Zero;
 
+            var key = (category, NormalizeProxyScope(proxyScope));
             lock (_pacingLock)
             {
-                DateTime nextSlot = _nextAllowedSlotUtc.TryGetValue(category, out DateTime existing) && existing > utcNow
+                DateTime nextSlot = _nextAllowedSlotUtc.TryGetValue(key, out DateTime existing) && existing > utcNow
                     ? existing
                     : utcNow;
 
-                _nextAllowedSlotUtc[category] = nextSlot.AddMilliseconds(minIntervalMs);
+                _nextAllowedSlotUtc[key] = nextSlot.AddMilliseconds(minIntervalMs);
                 return nextSlot > utcNow ? nextSlot - utcNow : TimeSpan.Zero;
             }
         }
@@ -258,11 +327,14 @@ namespace Shiro.Services
         /// <summary>
         /// Waits for active rate-limit backoff on a specific category before allowing requests to proceed.
         /// </summary>
-        public async Task WaitForBackoffAsync(RateLimitCategory category, CancellationToken cancellationToken = default)
+        public Task WaitForBackoffAsync(RateLimitCategory category, CancellationToken cancellationToken = default) =>
+            WaitForBackoffAsync(category, proxyScope: null, cancellationToken);
+
+        public async Task WaitForBackoffAsync(RateLimitCategory category, string? proxyScope, CancellationToken cancellationToken = default)
         {
             while (true)
             {
-                TimeSpan delay = GetRemainingBackoff(category);
+                TimeSpan delay = GetRemainingBackoff(category, proxyScope);
                 if (delay <= TimeSpan.Zero)
                     return;
 
@@ -275,9 +347,17 @@ namespace Shiro.Services
         /// <summary>
         /// Executes an API action with category-specific concurrency control, delay pacing, and automatic rate-limit backoff.
         /// </summary>
+        public Task<T> ExecuteWithPacingAsync<T>(
+            RateLimitCategory category,
+            Func<Task<T>> action,
+            int minIntervalMs = 150,
+            CancellationToken cancellationToken = default) =>
+            ExecuteWithPacingAsync(category, action, proxyScope: null, minIntervalMs, cancellationToken);
+
         public async Task<T> ExecuteWithPacingAsync<T>(
             RateLimitCategory category,
             Func<Task<T>> action,
+            string? proxyScope,
             int minIntervalMs = 150,
             CancellationToken cancellationToken = default)
         {
@@ -287,17 +367,23 @@ namespace Shiro.Services
                 return await action().ConfigureAwait(false);
             }
 
+            string normalizedScope = NormalizeProxyScope(proxyScope);
+
             // Wait for category backoff & staggered slot BEFORE claiming a concurrency permit.
-            await WaitForBackoffAsync(category, cancellationToken).ConfigureAwait(false);
-            TimeSpan slotDelay = ReserveNextSlotDelay(category, minIntervalMs, DateTime.UtcNow);
+            await WaitForBackoffAsync(category, normalizedScope, cancellationToken).ConfigureAwait(false);
+            TimeSpan slotDelay = ReserveNextSlotDelay(category, minIntervalMs, DateTime.UtcNow, normalizedScope);
             if (slotDelay > TimeSpan.Zero)
             {
                 await Task.Delay(slotDelay, cancellationToken).ConfigureAwait(false);
                 // Re-check backoff in case another request triggered 429 during the slot wait.
-                await WaitForBackoffAsync(category, cancellationToken).ConfigureAwait(false);
+                await WaitForBackoffAsync(category, normalizedScope, cancellationToken).ConfigureAwait(false);
             }
 
-            var sem = _categorySemaphores.GetOrAdd(category, _ => new SemaphoreSlim(2, 2));
+            var sem = _categorySemaphores.GetOrAdd((category, normalizedScope), k =>
+            {
+                int limit = GetDefaultSemaphoreLimit(k.Category);
+                return new SemaphoreSlim(limit, limit);
+            });
             await sem.WaitAsync(cancellationToken).ConfigureAwait(false);
             int prevDepth = ActiveReentrancyDepth.Value;
             ActiveReentrancyDepth.Value = prevDepth + 1;
