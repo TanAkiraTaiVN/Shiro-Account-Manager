@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using NSubstitute;
@@ -406,6 +407,95 @@ namespace Shiro.Tests
             }
             finally
             {
+                RobloxRateLimitCoordinator.Instance.ResetBackoff();
+            }
+        }
+
+        [Theory]
+        [InlineData(HttpStatusCode.Unauthorized)]
+        [InlineData(HttpStatusCode.Forbidden)]
+        public async Task AuditAccountAsync_On401Or403ModerationProbe_DispatchesAlertOutsideSessionGate(HttpStatusCode initialStatus)
+        {
+            RobloxRateLimitCoordinator.Instance.ResetBackoff();
+            string moderationJson = JsonSerializer.Serialize(new Dictionary<string, object>
+            {
+                ["punishedUserId"] = 7701,
+                ["punishmentType"] = "Banned for 7 Days",
+                ["messageToUser"] = "Violation"
+            });
+
+            var acc = new Account
+            {
+                Username = "GateCheckUser",
+                UserID = 7701,
+                SecurityToken = TestToken,
+                Valid = true
+            };
+
+            int alertCount = 0;
+            bool gateAcquiredInAlert = false;
+            bool observedValidInAlert = true;
+            string observedIssueInAlert = string.Empty;
+            WebhookAlert? capturedAlert = null;
+
+            void OnAlert(WebhookAlert alert)
+            {
+                if (!string.Equals(alert.AccountUsername, acc.Username, StringComparison.Ordinal))
+                    return;
+
+                alertCount++;
+                capturedAlert = alert;
+                using var gateCts = new CancellationTokenSource(TimeSpan.FromMilliseconds(500));
+                Task<bool> gateTask = Task.Run(async () =>
+                {
+                    try
+                    {
+                        return await acc.RunWithSessionGateAsync(() =>
+                        {
+                            observedValidInAlert = acc.Valid;
+                            observedIssueInAlert = acc.AccountStatusIssue;
+                            return Task.FromResult(true);
+                        }, gateCts.Token);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        return false;
+                    }
+                });
+                gateAcquiredInAlert = gateTask.Wait(TimeSpan.FromSeconds(2)) && gateTask.Result;
+            }
+
+            WebhookNotificationService.AlertDispatched += OnAlert;
+            try
+            {
+                var handler = new FakeHttpHandler(req =>
+                {
+                    string url = req.RequestUri!.AbsoluteUri;
+                    if (url.Contains("users.roblox.com/v1/users/authenticated", StringComparison.OrdinalIgnoreCase))
+                        return new HttpResponseMessage(initialStatus);
+                    if (url.Contains("friends.roblox.com/v1/my/friends/count", StringComparison.OrdinalIgnoreCase))
+                        return new HttpResponseMessage(HttpStatusCode.Unauthorized);
+                    if (url.Contains("usermoderation.roblox.com/v1/not-approved", StringComparison.OrdinalIgnoreCase))
+                        return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(moderationJson) };
+                    return new HttpResponseMessage(HttpStatusCode.Unauthorized);
+                });
+
+                SessionAuditorService.TestHttpClientFactory = _ => new HttpClient(handler);
+
+                AccountSessionAuditResult result = await SessionAuditorService.AuditAccountAsync(acc);
+
+                Assert.Equal(AccountSessionStatus.Moderated, result.Status);
+                Assert.False(acc.Valid);
+                Assert.Equal(1, alertCount);
+                Assert.NotNull(capturedAlert);
+                Assert.Equal(WebhookEventType.ModerationWarning, capturedAlert!.EventType);
+                Assert.True(gateAcquiredInAlert, "Webhook AlertDispatched fired while account._sessionGate was still held.");
+                Assert.False(observedValidInAlert);
+                Assert.False(string.IsNullOrWhiteSpace(observedIssueInAlert));
+            }
+            finally
+            {
+                WebhookNotificationService.AlertDispatched -= OnAlert;
                 RobloxRateLimitCoordinator.Instance.ResetBackoff();
             }
         }

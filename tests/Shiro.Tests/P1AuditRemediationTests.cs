@@ -357,37 +357,92 @@ namespace Shiro.Tests
             RobloxRateLimitCoordinator.Instance.ResetBackoff();
             try
             {
-                var fastHandler = new FakeHttpHandler(_ =>
+                int fastCalls = 0;
+                var fastHandler = new FakeHttpHandler(req =>
                 {
-                    var resp = new HttpResponseMessage(HttpStatusCode.TooManyRequests);
-                    resp.Headers.RetryAfter = new RetryConditionHeaderValue(TimeSpan.FromSeconds(5));
-                    return resp;
+                    if (req.RequestUri?.AbsoluteUri.Contains("universeIds=1", StringComparison.Ordinal) == true)
+                    {
+                        Interlocked.Increment(ref fastCalls);
+                        var resp = new HttpResponseMessage(HttpStatusCode.TooManyRequests);
+                        resp.Headers.RetryAfter = new RetryConditionHeaderValue(TimeSpan.FromSeconds(5));
+                        return resp;
+                    }
+                    return new HttpResponseMessage(HttpStatusCode.NotFound);
                 });
                 SharedHttpClient.SetTestClient("default", new HttpClient(fastHandler));
 
                 using var req1 = new HttpRequestMessage(HttpMethod.Get, "https://games.roblox.com/v1/games?universeIds=1");
                 using var resp1 = await SharedHttpClient.SendAsync(req1, retryTransient: false);
                 Assert.Equal(HttpStatusCode.TooManyRequests, resp1.StatusCode);
+                Assert.Equal(1, fastCalls);
                 Assert.True(RobloxRateLimitCoordinator.Instance.IsBackingOffCategory(RateLimitCategory.General));
                 Assert.False(RobloxRateLimitCoordinator.Instance.IsBackingOffCategory(RateLimitCategory.Presence));
                 Assert.InRange(RobloxRateLimitCoordinator.Instance.GetRemainingBackoff(RateLimitCategory.General).TotalSeconds, 4.0, 7.0);
 
                 RobloxRateLimitCoordinator.Instance.ResetBackoff();
 
-                var retryHandler = new FakeHttpHandler(_ =>
+                int rateLimitAlerts = 0;
+                void OnRateLimitAlert(WebhookAlert alert)
                 {
-                    var resp = new HttpResponseMessage(HttpStatusCode.TooManyRequests);
-                    resp.Headers.RetryAfter = new RetryConditionHeaderValue(TimeSpan.Zero);
-                    return resp;
-                });
-                SharedHttpClient.SetTestClient("default", new HttpClient(retryHandler));
+                    if (alert.EventType == WebhookEventType.RateLimited &&
+                        (alert.Description?.Contains("Presence", StringComparison.Ordinal) ?? false))
+                    {
+                        Interlocked.Increment(ref rateLimitAlerts);
+                    }
+                }
 
-                using var req2 = new HttpRequestMessage(HttpMethod.Get, "https://presence.roblox.com/v1/presence/users");
-                using var resp2 = await SharedHttpClient.SendAsync(req2, retryTransient: true);
-                Assert.Equal(HttpStatusCode.TooManyRequests, resp2.StatusCode);
-                Assert.Equal(3, retryHandler.Calls);
-                Assert.True(RobloxRateLimitCoordinator.Instance.IsBackingOffCategory(RateLimitCategory.Presence));
-                Assert.Equal(3, RobloxRateLimitCoordinator.Instance.ConsecutiveRateLimitHits);
+                WebhookNotificationService.AlertDispatched += OnRateLimitAlert;
+                try
+                {
+                    int retryCalls = 0;
+                    var retryHandler = new FakeHttpHandler(req =>
+                    {
+                        if (req.RequestUri?.AbsoluteUri.Contains("presence/users", StringComparison.Ordinal) == true)
+                        {
+                            Interlocked.Increment(ref retryCalls);
+                            var resp = new HttpResponseMessage(HttpStatusCode.TooManyRequests);
+                            resp.Headers.RetryAfter = new RetryConditionHeaderValue(TimeSpan.Zero);
+                            return resp;
+                        }
+                        return new HttpResponseMessage(HttpStatusCode.NotFound);
+                    });
+                    SharedHttpClient.SetTestClient("default", new HttpClient(retryHandler));
+
+                    using var req2 = new HttpRequestMessage(HttpMethod.Get, "https://presence.roblox.com/v1/presence/users");
+                    using var resp2 = await SharedHttpClient.SendAsync(req2, retryTransient: true);
+                    Assert.Equal(HttpStatusCode.TooManyRequests, resp2.StatusCode);
+                    Assert.Equal(1, retryCalls);
+                    Assert.True(RobloxRateLimitCoordinator.Instance.IsBackingOffCategory(RateLimitCategory.Presence));
+                    Assert.Equal(1, RobloxRateLimitCoordinator.Instance.ConsecutiveRateLimitHits);
+                    Assert.Equal(1, rateLimitAlerts);
+                }
+                finally
+                {
+                    WebhookNotificationService.AlertDispatched -= OnRateLimitAlert;
+                }
+
+                RobloxRateLimitCoordinator.Instance.ResetBackoff();
+
+                int transientCalls = 0;
+                var transientHandler = new FakeHttpHandler(req =>
+                {
+                    if (req.RequestUri?.AbsoluteUri.Contains("universeIds=2", StringComparison.Ordinal) == true)
+                    {
+                        int callNum = Interlocked.Increment(ref transientCalls);
+                        return callNum == 1
+                            ? new HttpResponseMessage(HttpStatusCode.ServiceUnavailable) { Content = new StringContent("retry later") }
+                            : new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("ok") };
+                    }
+                    return new HttpResponseMessage(HttpStatusCode.NotFound);
+                });
+                SharedHttpClient.SetTestClient("default", new HttpClient(transientHandler));
+
+                using var req3 = new HttpRequestMessage(HttpMethod.Get, "https://games.roblox.com/v1/games?universeIds=2");
+                using var resp3 = await SharedHttpClient.SendAsync(req3, retryTransient: true);
+                Assert.Equal(HttpStatusCode.OK, resp3.StatusCode);
+                Assert.Equal(2, transientCalls);
+                Assert.False(RobloxRateLimitCoordinator.Instance.IsBackingOffCategory(RateLimitCategory.General));
+                Assert.Equal(0, RobloxRateLimitCoordinator.Instance.ConsecutiveRateLimitHits);
             }
             finally
             {

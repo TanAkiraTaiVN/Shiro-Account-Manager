@@ -25,13 +25,14 @@ namespace Shiro.Services
             Account account,
             string token,
             CancellationToken cancellationToken) =>
-            CheckModerationStatusAsync(account, token, null, cancellationToken);
+            CheckModerationStatusAsync(account, token, null, cancellationToken, dispatchAlert: true);
 
         internal async Task<(bool IsBanned, string? IssueBadge, string? Reason)> CheckModerationStatusAsync(
             Account account,
             string token,
             HttpClient? httpClientOverride,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            bool dispatchAlert = true)
         {
             if (account == null) return (false, null, null);
 
@@ -66,7 +67,7 @@ namespace Shiro.Services
                                     var (badge, reason) = FastLoginCoordinator.MapDomIssueCode(apiCode);
                                     if (!string.IsNullOrEmpty(badge))
                                     {
-                                        return DispatchModerationAlertIfBanned(account, (true, badge, reason));
+                                        return FinalizeModerationResult(account, (true, badge, reason), dispatchAlert);
                                     }
                                 }
                             }
@@ -98,7 +99,7 @@ namespace Shiro.Services
                         account.AccountStatusIssue = string.Empty;
                         return (false, null, null);
                     }
-                    return DispatchModerationAlertIfBanned(account, ParseModerationText(html, okUrl));
+                    return FinalizeModerationResult(account, ParseModerationText(html, okUrl), dispatchAlert);
                 }
 
                 string redirectLocation = response.Headers.Location?.ToString() ?? string.Empty;
@@ -174,7 +175,7 @@ namespace Shiro.Services
                                 {
                                     var parsed = ParseModerationText(modHtml, redirectLocation);
                                     if (parsed.IsBanned)
-                                        return DispatchModerationAlertIfBanned(account, parsed);
+                                        return FinalizeModerationResult(account, parsed, dispatchAlert);
                                 }
                             }
                         }
@@ -182,7 +183,7 @@ namespace Shiro.Services
                         {
                             _logger.Debug($"[CheckModerationStatusAsync] Moderation target fetch failed: {ex.Message}");
                         }
-                        return DispatchModerationAlertIfBanned(account, ParseModerationText(string.Empty, redirectLocation));
+                        return FinalizeModerationResult(account, ParseModerationText(string.Empty, redirectLocation), dispatchAlert);
                     }
                 }
 
@@ -207,7 +208,7 @@ namespace Shiro.Services
                         account.AccountStatusIssue = string.Empty;
                         return (false, null, null);
                     }
-                    return DispatchModerationAlertIfBanned(account, ParseModerationText(html, finalUrl));
+                    return FinalizeModerationResult(account, ParseModerationText(html, finalUrl), dispatchAlert);
                 }
 
                 return (false, null, null);
@@ -224,20 +225,31 @@ namespace Shiro.Services
             }
         }
 
+        private (bool IsBanned, string? IssueBadge, string? Reason) FinalizeModerationResult(
+            Account account,
+            (bool IsBanned, string? IssueBadge, string? Reason) result,
+            bool dispatchAlert) =>
+            dispatchAlert ? DispatchModerationAlertIfBanned(account, result) : result;
+
+        internal static WebhookAlert BuildModerationAlert(Account account, string? issueBadge, string? reason)
+        {
+            string message = reason ?? issueBadge ?? Shiro.Services.LocalizationService.Get("FastLogin.AccountLockedOrModerated");
+            return new WebhookAlert
+            {
+                EventType = WebhookEventType.ModerationWarning,
+                AccountUsername = account.Username,
+                Description = $"Account {account.Username} received moderation notice: {message}",
+                Timestamp = DateTimeOffset.UtcNow
+            };
+        }
+
         public (bool IsBanned, string? IssueBadge, string? Reason) DispatchModerationAlertIfBanned(
             Account account,
             (bool IsBanned, string? IssueBadge, string? Reason) result)
         {
             if (result.IsBanned)
             {
-                string message = result.Reason ?? result.IssueBadge ?? Shiro.Services.LocalizationService.Get("FastLogin.AccountLockedOrModerated");
-                WebhookNotificationService.EnqueueAlert(new WebhookAlert
-                {
-                    EventType = WebhookEventType.ModerationWarning,
-                    AccountUsername = account.Username,
-                    Description = $"Account {account.Username} received moderation notice: {message}",
-                    Timestamp = DateTimeOffset.UtcNow
-                });
+                WebhookNotificationService.EnqueueAlert(BuildModerationAlert(account, result.IssueBadge, result.Reason));
             }
             return result;
         }

@@ -148,7 +148,7 @@ namespace Shiro.Services
 
             // HttpRequestMessage instances are single-use. Buffer optional
             // content once and clone the request for each safe retry so a
-            // transient 429/5xx does not turn the second attempt into a local
+            // transient 408/5xx does not turn the second attempt into a local
             // InvalidOperationException.
             byte[]? requestContent = request.Content == null
                 ? null
@@ -320,8 +320,9 @@ namespace Shiro.Services
 
         private static bool IsTransient(HttpStatusCode statusCode)
         {
+            // HTTP 429 is intentionally excluded: RobloxRateLimitCoordinator backoff governs
+            // retry timing, so local retries must not multiply 429 hits during active backoff.
             return statusCode == HttpStatusCode.RequestTimeout ||
-                statusCode == HttpStatusCode.TooManyRequests ||
                 (int)statusCode >= 500;
         }
 

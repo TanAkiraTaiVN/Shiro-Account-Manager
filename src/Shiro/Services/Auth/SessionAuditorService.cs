@@ -189,7 +189,7 @@ namespace Shiro.Services
                     catch (Exception ex) { _staticLogger.Debug($"[SessionAuditor] Read response body failed: {ex.Message}"); }
                 }
 
-                bool alertAlreadyDispatched = false;
+                string? moderationReason = null;
                 bool confirmedBySecondary = false;
                 if (status == AccountSessionStatus.ExpiredCookie)
                 {
@@ -200,17 +200,7 @@ namespace Shiro.Services
                     }
                     else
                     {
-                        var (probedBan, probedBadge, _) = await RobloxModerationService.Instance
-                            .CheckModerationStatusAsync(account, account.SecurityToken, TestHttpClientFactory != null ? client : null, ct)
-                            .ConfigureAwait(false);
-                        ct.ThrowIfCancellationRequested();
-                        if (probedBan)
-                        {
-                            status = AccountSessionStatus.Moderated;
-                            alertAlreadyDispatched = true;
-                            if (!string.IsNullOrEmpty(probedBadge))
-                                account.AccountStatusIssue = probedBadge;
-                        }
+                        (status, moderationReason) = await ProbeModerationStatusAsync(account, client, status, ct).ConfigureAwait(false);
                     }
                 }
                 else if (status == AccountSessionStatus.VerificationRequired)
@@ -219,24 +209,15 @@ namespace Shiro.Services
                     if (!string.IsNullOrEmpty(modCode) && modCode != "UNAUTHENTICATED_MODERATION" && modCode != "WRONG_PASSWORD")
                     {
                         status = AccountSessionStatus.Moderated;
-                        var (modBadge, _) = FastLoginCoordinator.MapDomIssueCode(modCode);
+                        var (modBadge, modReason) = FastLoginCoordinator.MapDomIssueCode(modCode);
                         if (!string.IsNullOrEmpty(modBadge) && string.IsNullOrEmpty(account.AccountStatusIssue))
                             account.AccountStatusIssue = modBadge;
+                        moderationReason = modReason;
                     }
 
                     if (status != AccountSessionStatus.Moderated)
                     {
-                        var (probedBan, probedBadge, _) = await RobloxModerationService.Instance
-                            .CheckModerationStatusAsync(account, account.SecurityToken, TestHttpClientFactory != null ? client : null, ct)
-                            .ConfigureAwait(false);
-                        ct.ThrowIfCancellationRequested();
-                        if (probedBan)
-                        {
-                            status = AccountSessionStatus.Moderated;
-                            alertAlreadyDispatched = true;
-                            if (!string.IsNullOrEmpty(probedBadge))
-                                account.AccountStatusIssue = probedBadge;
-                        }
+                        (status, moderationReason) = await ProbeModerationStatusAsync(account, client, status, ct).ConfigureAwait(false);
                     }
                 }
 
@@ -254,16 +235,10 @@ namespace Shiro.Services
                             account.AccountStatusIssue = Shiro.Services.LocalizationService.Get("FastLogin.LockedOrBannedBadge");
                         string modDetails = account.AccountStatusIssue;
                         auditMessage = $"Account {account.Username} received moderation notice: {modDetails}";
-                        if (!alertAlreadyDispatched)
-                        {
-                            sideEffects.PendingModerationAlert = new WebhookAlert
-                            {
-                                EventType = WebhookEventType.ModerationWarning,
-                                AccountUsername = account.Username,
-                                Description = $"Account {account.Username} received moderation notice: {modDetails}",
-                                Timestamp = DateTimeOffset.UtcNow
-                            };
-                        }
+                        sideEffects.PendingModerationAlert = RobloxModerationService.BuildModerationAlert(
+                            account,
+                            modDetails,
+                            moderationReason);
                     }
 
                     return BuildAuditResult(account, status, auditMessage);
@@ -356,6 +331,31 @@ namespace Shiro.Services
             {
                 CaptureAuditMutations(account, prevValid, prevIssue, prevUserId, prevUsername, prevRobux, prevPending, sideEffects);
             }
+        }
+
+        private static async Task<(AccountSessionStatus Status, string? ModerationReason)> ProbeModerationStatusAsync(
+            Account account,
+            HttpClient client,
+            AccountSessionStatus currentStatus,
+            CancellationToken ct)
+        {
+            // Suppress immediate webhook dispatch while account._sessionGate is held;
+            // AuditAccountAsync enqueues sideEffects.PendingModerationAlert after releasing the gate.
+            var (probedBan, probedBadge, probedReason) = await RobloxModerationService.Instance
+                .CheckModerationStatusAsync(
+                    account,
+                    account.SecurityToken,
+                    TestHttpClientFactory != null ? client : null,
+                    ct,
+                    dispatchAlert: false)
+                .ConfigureAwait(false);
+            ct.ThrowIfCancellationRequested();
+            if (!probedBan)
+                return (currentStatus, null);
+
+            if (!string.IsNullOrEmpty(probedBadge))
+                account.AccountStatusIssue = probedBadge;
+            return (AccountSessionStatus.Moderated, probedReason);
         }
 
         /// <summary>
