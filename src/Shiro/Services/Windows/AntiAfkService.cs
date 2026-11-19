@@ -28,7 +28,10 @@ namespace Shiro.Services
             public DateTime NextDueUtc;
             public DateTime? LastSentUtc;
             public int Failures;
+            public long ProcessCreationTicks;
         }
+
+        private const uint PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
 
         private static readonly ConcurrentDictionary<int, ClientState> _clients = new ConcurrentDictionary<int, ClientState>();
 
@@ -172,8 +175,59 @@ namespace Shiro.Services
         internal static DateTime ComputeNextDueUtc(DateTime nowUtc, int intervalMinutes, int jitterSeconds)
         {
             int clampedMinutes = Math.Clamp(intervalMinutes, 1, 18);
-            int totalSeconds = Math.Max(30, (clampedMinutes * 60) + jitterSeconds);
+            int totalSeconds = Math.Clamp((clampedMinutes * 60) + jitterSeconds, 30, 1140);
             return nowUtc.AddSeconds(totalSeconds);
+        }
+
+        internal static long TryGetProcessCreationTicks(int pid)
+        {
+            if (!OperatingSystem.IsWindows() || pid <= 0)
+                return 0;
+
+            IntPtr hProcess = Win32NativeHelper.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
+            if (hProcess == IntPtr.Zero)
+                return 0;
+
+            try
+            {
+                return Win32NativeHelper.GetProcessTimes(hProcess, out long creationTime, out _, out _, out _) && creationTime > 0
+                    ? creationTime
+                    : 0;
+            }
+            catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException or ArgumentException)
+            {
+                return 0;
+            }
+            finally
+            {
+                Win32NativeHelper.CloseHandle(hProcess);
+            }
+        }
+
+        private static (ClientState State, bool WasRecycled) GetOrRefreshClientState(int pid)
+        {
+            long creationTicks = TryGetProcessCreationTicks(pid);
+            var st = _clients.GetOrAdd(pid, _ => new ClientState
+            {
+                NextDueUtc = DateTime.MinValue,
+                ProcessCreationTicks = creationTicks
+            });
+
+            if (creationTicks > 0 && st.ProcessCreationTicks != 0 && st.ProcessCreationTicks != creationTicks)
+            {
+                var fresh = new ClientState
+                {
+                    NextDueUtc = DateTime.MinValue,
+                    ProcessCreationTicks = creationTicks
+                };
+                _clients[pid] = fresh;
+                return (fresh, true);
+            }
+
+            if (st.ProcessCreationTicks == 0 && creationTicks > 0)
+                st.ProcessCreationTicks = creationTicks;
+
+            return (st, false);
         }
 
         private static void Tick()
@@ -198,10 +252,10 @@ namespace Shiro.Services
 
                 foreach (int pid in pids)
                 {
-                    var st = _clients.GetOrAdd(pid, _ => new ClientState { NextDueUtc = DateTime.MinValue });
+                    var (st, _) = GetOrRefreshClientState(pid);
                     if (st.NextDueUtc == DateTime.MinValue)
                     {
-                        // Jitter: interval with -1 to +2 minutes randomness, minimum 30s floor
+                        // Jitter: interval with -1 to +2 minutes randomness, clamped to [30s, 1140s]
                         int jitterSec = rand.Next(-60, 120);
                         st.NextDueUtc = ComputeNextDueUtc(now, _intervalMinutes, jitterSec);
                     }
@@ -258,7 +312,12 @@ namespace Shiro.Services
 
                 foreach (int pid in pids)
                 {
-                    var st = _clients.GetOrAdd(pid, _ => new ClientState());
+                    var (st, wasRecycled) = GetOrRefreshClientState(pid);
+                    if (wasRecycled)
+                    {
+                        st.NextDueUtc = ComputeNextDueUtc(DateTime.UtcNow, _intervalMinutes, rand.Next(-60, 120));
+                        continue;
+                    }
                     windowMap.TryGetValue((uint)pid, out IntPtr hWnd);
 
                     if (hWnd == IntPtr.Zero)

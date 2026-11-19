@@ -11,7 +11,7 @@ namespace Shiro
 {
     public static class Utilities
     {
-        public static bool PostMessage(IntPtr hWnd, uint msg, int wParam, int lParam) =>
+        public static bool PostMessage(IntPtr hWnd, uint msg, nuint wParam, nint lParam) =>
             Win32TrayHelper.PostMessage(hWnd, msg, wParam, lParam);
 
         public static void QueueRefreshNotificationArea(int delayMs = 350) =>

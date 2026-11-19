@@ -132,8 +132,15 @@ namespace Shiro.Tests
                 Assert.Equal(0, trimSaved0);
                 Assert.Equal(0, trimCount0);
 
-                // 2. When process is running (pointing to current test process PID)
+                // 2. When solo process is running => skips soft trim / throttling (restores full performance)
                 RobloxProcessService.TestGetRunningRobloxPidsOverride = () => new[] { Environment.ProcessId };
+                var (soloSaved, soloCount, soloPrio) = MemoryOptimizer.OptimizeRobloxClients(lowerPriority: true);
+                Assert.InRange(soloSaved, 0, long.MaxValue);
+                Assert.Equal(0, soloCount);
+                Assert.Equal(0, soloPrio);
+
+                // 3. When multiple processes are running => exercises SoftRelaxWorkingSetNative on background client
+                RobloxProcessService.TestGetRunningRobloxPidsOverride = () => new[] { Environment.ProcessId, 999999 };
                 var (saved1, count1, prio1) = MemoryOptimizer.OptimizeRobloxClients(lowerPriority: false);
                 Assert.InRange(saved1, 0, long.MaxValue);
                 Assert.Equal(1, count1);

@@ -101,40 +101,70 @@ namespace Shiro.Services
             return commandLine;
         }
 
+        internal static bool TryValidateUnicodeStringSlice(
+            nint baseAddress,
+            int bufferBytes,
+            ushort lengthBytes,
+            nint stringBufferPtr)
+        {
+            if (baseAddress == 0 || stringBufferPtr == 0 || bufferBytes <= 0 || lengthBytes == 0 || (lengthBytes & 1) != 0)
+                return false;
+
+            ulong start = unchecked((ulong)(nuint)baseAddress);
+            ulong end = start + (uint)bufferBytes;
+            if (end < start)
+                return false;
+
+            ulong strStart = unchecked((ulong)(nuint)stringBufferPtr);
+            ulong strEnd = strStart + lengthBytes;
+            if (strEnd < strStart)
+                return false;
+
+            return strStart >= start && strEnd <= end;
+        }
+
+        private static unsafe string? TryExtractCommandLine(nint bufPtr, int allocatedBytes, int returnLength)
+        {
+            if (returnLength < Marshal.SizeOf<UNICODE_STRING>())
+                return null;
+
+            UNICODE_STRING uStr = *(UNICODE_STRING*)bufPtr;
+            if (!TryValidateUnicodeStringSlice(bufPtr, allocatedBytes, uStr.Length, uStr.Buffer))
+                return null;
+
+            return Marshal.PtrToStringUni(uStr.Buffer, uStr.Length / 2);
+        }
+
         private static unsafe string? QueryCommandLineCore(IntPtr handle)
         {
             const int StackBufferSize = 4096;
-            byte* stackBuffer = stackalloc byte[StackBufferSize];
+            const int MaxHeapBufferSize = 1024 * 1024;
+            ulong* stackWords = stackalloc ulong[StackBufferSize / 8];
+            IntPtr stackBuffer = (IntPtr)stackWords;
 
             try
             {
-                int status = NtQueryInformationProcess(handle, ProcessCommandLineInformation, (IntPtr)stackBuffer, StackBufferSize, out int returnLength);
+                int status = NtQueryInformationProcess(handle, ProcessCommandLineInformation, stackBuffer, StackBufferSize, out int returnLength);
                 if (status == 0)
                 {
-                    UNICODE_STRING uStr = *(UNICODE_STRING*)stackBuffer;
-                    if (uStr.Length > 0 && uStr.Buffer != IntPtr.Zero)
-                    {
-                        return Marshal.PtrToStringUni(uStr.Buffer, uStr.Length / 2);
-                    }
+                    return TryExtractCommandLine(stackBuffer, StackBufferSize, returnLength);
                 }
-                else if (returnLength > StackBufferSize)
+
+                if (returnLength > StackBufferSize && returnLength <= MaxHeapBufferSize)
                 {
-                    IntPtr heapBuffer = Marshal.AllocHGlobal(returnLength);
+                    int allocBytes = returnLength;
+                    void* heapBuffer = NativeMemory.AlignedAlloc((nuint)allocBytes, 8);
                     try
                     {
-                        status = NtQueryInformationProcess(handle, ProcessCommandLineInformation, heapBuffer, returnLength, out returnLength);
+                        status = NtQueryInformationProcess(handle, ProcessCommandLineInformation, (IntPtr)heapBuffer, allocBytes, out int heapReturnLength);
                         if (status == 0)
                         {
-                            UNICODE_STRING uStr = Marshal.PtrToStructure<UNICODE_STRING>(heapBuffer);
-                            if (uStr.Length > 0 && uStr.Buffer != IntPtr.Zero)
-                            {
-                                return Marshal.PtrToStringUni(uStr.Buffer, uStr.Length / 2);
-                            }
+                            return TryExtractCommandLine((nint)heapBuffer, allocBytes, heapReturnLength);
                         }
                     }
                     finally
                     {
-                        Marshal.FreeHGlobal(heapBuffer);
+                        NativeMemory.AlignedFree(heapBuffer);
                     }
                 }
             }

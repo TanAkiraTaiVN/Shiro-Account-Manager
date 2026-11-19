@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -10,8 +11,15 @@ namespace Shiro.Services
 {
     public static partial class Win32TrayHelper
     {
-        public static bool PostMessage(IntPtr hWnd, uint Msg, int wParam, int lParam) =>
-            Win32NativeHelper.PostMessageW(hWnd, Msg, (IntPtr)wParam, (IntPtr)lParam);
+        private sealed class TrayEnumState
+        {
+            public required HashSet<IntPtr> Targets;
+            public required HashSet<uint> ExplorerPids;
+            public required bool IncludeHiddenOverflow;
+        }
+
+        public static bool PostMessage(IntPtr hWnd, uint Msg, nuint wParam, nint lParam) =>
+            Win32NativeHelper.PostMessageW(hWnd, Msg, unchecked((IntPtr)(nint)wParam), lParam);
 
         [LibraryImport("user32.dll", EntryPoint = "FindWindowW", StringMarshalling = StringMarshalling.Utf16, SetLastError = true)]
         private static partial IntPtr FindWindow(string? lpClassName, string? lpWindowName);
@@ -52,6 +60,53 @@ namespace Shiro.Services
             }
         }
 
+        internal static bool IsAllowedTrayClass(ReadOnlySpan<char> className)
+        {
+            if (className.IsEmpty) return false;
+
+            return className.Equals("Shell_TrayWnd".AsSpan(), StringComparison.OrdinalIgnoreCase) ||
+                   className.Equals("Shell_SecondaryTrayWnd".AsSpan(), StringComparison.OrdinalIgnoreCase) ||
+                   className.Equals("NotifyIconOverflowWindow".AsSpan(), StringComparison.OrdinalIgnoreCase) ||
+                   className.Equals("TopLevelWindowForOverflowXamlIsland".AsSpan(), StringComparison.OrdinalIgnoreCase) ||
+                   className.Equals("ToolbarWindow32".AsSpan(), StringComparison.OrdinalIgnoreCase) ||
+                   className.Equals("Windows.UI.Composition.DesktopWindowContentBridge".AsSpan(), StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsOverflowTrayClass(ReadOnlySpan<char> className) =>
+            className.Equals("NotifyIconOverflowWindow".AsSpan(), StringComparison.OrdinalIgnoreCase) ||
+            className.Equals("TopLevelWindowForOverflowXamlIsland".AsSpan(), StringComparison.OrdinalIgnoreCase);
+
+        private static bool IsExplorerWindow(IntPtr hWnd, HashSet<uint> explorerPids)
+        {
+            if (hWnd == IntPtr.Zero || explorerPids.Count == 0) return false;
+            Win32NativeHelper.GetWindowThreadProcessId(hWnd, out uint pid);
+            return pid != 0 && explorerPids.Contains(pid);
+        }
+
+        private static HashSet<uint> GetExplorerPids()
+        {
+            var result = new HashSet<uint>();
+            if (!OperatingSystem.IsWindows()) return result;
+
+            try
+            {
+                foreach (var proc in Process.GetProcessesByName("explorer"))
+                {
+                    using (proc)
+                    {
+                        if (proc.Id > 0)
+                            result.Add((uint)proc.Id);
+                    }
+                }
+            }
+            catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception or PlatformNotSupportedException)
+            {
+                AppServices.Logger?.Debug($"GetExplorerPids failed: {ex.Message}");
+            }
+
+            return result;
+        }
+
         internal static unsafe int EnumTopWindowsCallbackCore(IntPtr hWnd, IntPtr lParam)
         {
             if (lParam == IntPtr.Zero) return 1;
@@ -64,15 +119,18 @@ namespace Shiro.Services
             if (length <= 0) return 1;
 
             ReadOnlySpan<char> cName = buffer.Slice(0, length);
-            if (cName.Contains("Tray".AsSpan(), StringComparison.OrdinalIgnoreCase) ||
-                cName.Contains("Overflow".AsSpan(), StringComparison.OrdinalIgnoreCase) ||
-                cName.Contains("XamlIsland".AsSpan(), StringComparison.OrdinalIgnoreCase))
+            if (!IsAllowedTrayClass(cName))
+                return 1;
+
+            if (GCHandle.FromIntPtr(lParam).Target is TrayEnumState state)
             {
-                if (GCHandle.FromIntPtr(lParam).Target is HashSet<IntPtr> targets)
-                {
-                    targets.Add(hWnd);
-                    CollectToolbars(hWnd, targets);
-                }
+                if (!IsExplorerWindow(hWnd, state.ExplorerPids))
+                    return 1;
+                if (!Win32NativeHelper.IsWindowVisible(hWnd) && !(state.IncludeHiddenOverflow && IsOverflowTrayClass(cName)))
+                    return 1;
+
+                state.Targets.Add(hWnd);
+                CollectToolbars(hWnd, state.Targets);
             }
             return 1;
         }
@@ -175,6 +233,10 @@ namespace Shiro.Services
         {
             try
             {
+                var explorerPids = GetExplorerPids();
+                if (explorerPids.Count == 0)
+                    return;
+
                 var targets = new HashSet<IntPtr>();
 
                 // 1. Known top-level window classes that hold notification icons
@@ -189,10 +251,9 @@ namespace Shiro.Services
                 foreach (var cls in topLevelClasses)
                 {
                     IntPtr hTop = FindWindow(cls, null);
-                    if (hTop != IntPtr.Zero)
+                    if (hTop != IntPtr.Zero && IsExplorerWindow(hTop, explorerPids))
                     {
-                        bool isOverflow = string.Equals(cls, "TopLevelWindowForOverflowXamlIsland", StringComparison.OrdinalIgnoreCase) ||
-                                          string.Equals(cls, "NotifyIconOverflowWindow", StringComparison.OrdinalIgnoreCase);
+                        bool isOverflow = IsOverflowTrayClass(cls.AsSpan());
 
                         if (Win32NativeHelper.IsWindowVisible(hTop) || (includeHiddenOverflow && isOverflow))
                         {
@@ -205,7 +266,13 @@ namespace Shiro.Services
                 // 2. Global enumeration fallback to discover any additional secondary tray or overflow containers
                 try
                 {
-                    GCHandle handle = GCHandle.Alloc(targets);
+                    var state = new TrayEnumState
+                    {
+                        Targets = targets,
+                        ExplorerPids = explorerPids,
+                        IncludeHiddenOverflow = includeHiddenOverflow
+                    };
+                    GCHandle handle = GCHandle.Alloc(state);
                     try
                     {
                         unsafe { Win32NativeHelper.EnumWindows(&EnumTopWindowsCallback, GCHandle.ToIntPtr(handle)); }
@@ -273,7 +340,7 @@ namespace Shiro.Services
                 {
                     for (int x = 4; x < width; x += step)
                     {
-                        int lParam = (y << 16) | (x & 0xFFFF);
+                        nint lParam = (nint)(((uint)y << 16) | ((uint)x & 0xFFFFu));
                         PostMessage(hWnd, WM_MOUSEMOVE, 0, lParam);
                     }
                 }

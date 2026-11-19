@@ -273,6 +273,7 @@ namespace Shiro.Services
             });
 
             bool allowEmptyWorkingSet = forceWorkingSetTrim || IsAggressiveWorkingSetTrimEnabled();
+            bool isSoloRestore = ShouldRestoreFullPerformanceOnSolo(pids.Count);
             bool effectiveLowerPriority = lowerPriority
                 && IsAutoLowerPriorityActive()
                 && ShouldApplyBackgroundFocusThrottle(pids.Count);
@@ -284,10 +285,11 @@ namespace Shiro.Services
                 try
                 {
                     bool isForeground = fgPid > 0 && pid == (int)fgPid;
+                    bool treatAsForeground = isForeground || isSoloRestore;
 
-                    if (effectiveLowerPriority)
+                    if (effectiveLowerPriority || isSoloRestore)
                     {
-                        uint targetRawPrio = ResolveTrimTargetPriorityClass(isForeground);
+                        uint targetRawPrio = ResolveTrimTargetPriorityClass(treatAsForeground);
                         uint currentRawPrio = Win32NativeHelper.GetPriorityClass(hProcess);
                         if (currentRawPrio != 0 && currentRawPrio != targetRawPrio)
                         {
@@ -300,21 +302,27 @@ namespace Shiro.Services
 
                     // Avoid forcing the working set to disk with EmptyWorkingSet unless specifically opted into,
                     // preventing page-fault micro-stutters and unnecessary paging overhead.
-                    if (allowEmptyWorkingSet && (!isForeground || before > ForegroundMaxMemoryThresholdBytes))
+                    if (allowEmptyWorkingSet && (!treatAsForeground || before > ForegroundMaxMemoryThresholdBytes))
                     {
                         if (Win32NativeHelper.EmptyWorkingSet(hProcess))
                             count++;
                     }
-                    else if (!isForeground)
+                    else if (!treatAsForeground)
                     {
                         SetProcessMemoryPriorityNative(hProcess, isForeground: false);
                         if (SoftRelaxWorkingSetNative(hProcess)) count++;
                     }
 
-                    if (effectiveLowerPriority)
+                    if (isSoloRestore)
+                    {
+                        SetProcessMemoryPriorityNative(hProcess, isForeground: true);
+                        DisableEcoQoS(hProcess);
+                    }
+                    else if (effectiveLowerPriority)
                     {
                         if (isForeground)
                         {
+                            SetProcessMemoryPriorityNative(hProcess, isForeground: true);
                             DisableEcoQoS(hProcess);
                         }
                         else

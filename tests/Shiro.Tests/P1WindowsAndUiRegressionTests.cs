@@ -280,5 +280,43 @@ namespace Shiro.Tests
             vm.SavePlaceIdToAccountCommand.Execute(accVm);
             Assert.Equal("1818", acc.GetField("SavedPlaceId"));
         }
+
+        [Fact]
+        public void MemoryOptimizer_SoloClient_RestoresFullPerformanceEvenWhenUnfocused()
+        {
+            Assert.True(MemoryOptimizer.ShouldRestoreFullPerformanceOnSolo(1));
+            Assert.False(MemoryOptimizer.ShouldRestoreFullPerformanceOnSolo(2));
+        }
+
+        [Fact]
+        public void AntiAfkService_Interval18WithMaxJitter_CapsDueAt1140Seconds()
+        {
+            var now = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+            Assert.Equal(now.AddSeconds(1140), AntiAfkService.ComputeNextDueUtc(now, 18, 120));
+            Assert.Equal(now.AddSeconds(1080), AntiAfkService.ComputeNextDueUtc(now, 50, 0));
+        }
+
+        [Fact]
+        public void Win32TrayHelper_IsAllowedTrayClass_RejectsArbitrarySubstringClasses()
+        {
+            Assert.True(Win32TrayHelper.IsAllowedTrayClass("Shell_TrayWnd"));
+            Assert.True(Win32TrayHelper.IsAllowedTrayClass("NotifyIconOverflowWindow"));
+            Assert.False(Win32TrayHelper.IsAllowedTrayClass("RobloxAppTrayPreview"));
+        }
+
+        [Fact]
+        public void ProcessExtensions_TryValidateUnicodeStringSlice_RejectsOddOrOutOfBoundsPointers()
+        {
+            Assert.False(ProcessExtensions.TryValidateUnicodeStringSlice(0x1000, 64, 5, 0x1010));
+            Assert.False(ProcessExtensions.TryValidateUnicodeStringSlice(0x1000, 64, 32, 0x1030));
+            Assert.True(ProcessExtensions.TryValidateUnicodeStringSlice(0x1000, 64, 16, 0x1010));
+        }
+
+        [Fact]
+        public void ForegroundWindowService_StaleSequence_IsRejected()
+        {
+            Assert.False(ForegroundWindowService.ShouldCommitForegroundSequence(4, 5));
+            Assert.True(ForegroundWindowService.ShouldCommitForegroundSequence(5, 5));
+        }
     }
 }

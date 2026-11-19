@@ -30,6 +30,7 @@ namespace Shiro.Services
         private static readonly System.Threading.Lock _sync = new();
         private static IntPtr _hookHandle = IntPtr.Zero;
         private static uint _lastForegroundPid;
+        private static long _transitionSequence;
 
         public static bool IsHookActive => Volatile.Read(ref _hookHandle) != IntPtr.Zero;
 
@@ -117,6 +118,9 @@ namespace Shiro.Services
             }
         }
 
+        internal static bool ShouldCommitForegroundSequence(long capturedSequence, long currentSequence)
+            => capturedSequence == currentSequence;
+
         internal static bool ShouldDispatchProcessChange(uint newPid, ref uint lastPid)
         {
             if (newPid == 0 || newPid == lastPid)
@@ -148,13 +152,14 @@ namespace Shiro.Services
                     return;
 
                 Volatile.Write(ref _lastForegroundPid, pid);
+                long seq = Interlocked.Increment(ref _transitionSequence);
 
                 // Single coalesced background worker avoiding duplicate Toolhelp32 process snapshotting
                 ThreadPool.QueueUserWorkItem(_ =>
                 {
                     try
                     {
-                        if (Volatile.Read(ref _lastForegroundPid) != pid)
+                        if (!ShouldCommitForegroundSequence(seq, Volatile.Read(ref _transitionSequence)))
                             return;
 
                         bool needAudio = RobloxAudioService.IsSmartMuteEnabled;
@@ -165,7 +170,7 @@ namespace Shiro.Services
 
                         var runningPids = RobloxProcessService.GetRunningRobloxPids();
 
-                        if (Volatile.Read(ref _lastForegroundPid) != pid)
+                        if (!ShouldCommitForegroundSequence(seq, Volatile.Read(ref _transitionSequence)))
                             return;
 
                         if (needAudio)
