@@ -99,13 +99,16 @@ namespace Shiro.Services
             }
         }
 
+        internal static bool IsTokenDeElevationEnabled() =>
+            AppServices.GeneralSettings.Get<bool>(AppSettingsKeys.General.EnableTokenDeElevation, false);
+
         /// <summary>
         /// Spawns a Roblox client process, automatically de-elevating to Medium Integrity (Standard User)
         /// via explorer.exe token duplication if Shiro is running with Administrator privileges.
         /// </summary>
         public static Process? SpawnRobloxProcess(string playerPath, string args, string username)
         {
-            bool deElevateEnabled = AppServices.GeneralSettings.Get<bool>(AppSettingsKeys.General.EnableTokenDeElevation, true);
+            bool deElevateEnabled = IsTokenDeElevationEnabled();
             if (deElevateEnabled && IsCurrentProcessElevated())
             {
                 AppServices.Logger?.Info($"[RobloxDirectLauncher] Shiro is running elevated; de-elevating Roblox launch for {username}...");
@@ -136,7 +139,7 @@ namespace Shiro.Services
                     AppServices.Logger?.Debug($"SelectExplorerPid session check failed: {ex.Message}");
                     return false;
                 }
-            }) ?? explorers.FirstOrDefault();
+            });
             return matched?.Id ?? 0;
         }
 

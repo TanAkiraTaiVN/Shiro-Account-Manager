@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -374,6 +375,119 @@ namespace Shiro.Tests
             {
                 RobloxProcessService.TestGetRunningRobloxPidsOverride = prevPidsOverride;
                 try { if (!proc!.HasExited) proc.Kill(entireProcessTree: true); } catch (InvalidOperationException) { /* already exited */ }
+            }
+        }
+
+        [Fact]
+        public async Task AutoReconnectService_ReconnectJoin_EntersCookieGuardScope()
+        {
+            var ini = new IniFile();
+            var general = ini["General"];
+            general.Set(AppSettingsKeys.General.AutoReconnect, "true");
+            using var settingsScope = AppServices.Override<ISettingsService>(general);
+            RobloxDirectLauncher.ResetCookieGuardStateForTest();
+
+            var joinObserved = new TaskCompletionSource<(bool Held, int Count)>(TaskCreationOptions.RunContinuationsAsynchronously);
+            using var svc = new AutoReconnectService(TimeSpan.FromHours(1))
+            {
+                MaxRetries = 3,
+                TestReconnectDelayMsOverride = 10,
+                TestJoinServerOverride = _ =>
+                {
+                    joinObserved.TrySetResult((RobloxDirectLauncher.IsCookieGuardHeld, RobloxDirectLauncher.ActiveCookieGuardCount));
+                    return Task.FromResult("Success");
+                }
+            };
+
+            try
+            {
+                var acc = new Account { Username = "GuardReconnectUser", UserID = 90022 };
+                svc.RegisterSession(acc, 1818, processId: 0);
+                Assert.True(svc.TryGetAccountSession(acc, out var session));
+
+                svc.HandleProcessExit(session!);
+                var (heldDuringJoin, countDuringJoin) = await joinObserved.Task.WaitAsync(TimeSpan.FromSeconds(5));
+                Assert.True(heldDuringJoin);
+                Assert.True(countDuringJoin >= 1);
+
+                Assert.True(SpinWait.SpinUntil(() => !RobloxDirectLauncher.IsCookieGuardHeld, TimeSpan.FromSeconds(3)));
+            }
+            finally
+            {
+                RobloxDirectLauncher.ResetCookieGuardStateForTest();
+            }
+        }
+
+        [Fact]
+        public async Task RobloxLaunchExecutorHelper_ExecuteNativeLaunchAsync_RoutesProtocolAndFallbackThroughSpawnRobloxProcess()
+        {
+            string tempDir = Path.Combine(Path.GetTempPath(), "ShiroExecHelper_" + Guid.NewGuid().ToString("N"));
+            string versionDir = Path.Combine(tempDir, "version-exec1");
+            Directory.CreateDirectory(versionDir);
+            string fakeExe = Path.Combine(versionDir, "RobloxPlayerBeta.exe");
+            File.WriteAllText(fakeExe, "MZ");
+
+            var prevVersionRoots = AccountLaunchService.TestVersionRootsOverride;
+            var prevProtocol = AccountLaunchService.TestProtocolCommandOverride;
+            var prevDefaultIcon = AccountLaunchService.TestDefaultIconOverride;
+            var prevRunningPids = RobloxProcessService.TestGetRunningRobloxPidsOverride;
+            var spawnedCalls = new List<(string Path, string Args, string User)>();
+            var spawnedPids = new List<int>();
+            var spawnedProcs = new List<Process>();
+
+            try
+            {
+                AccountLaunchService.TestVersionRootsOverride = new[] { tempDir };
+                AccountLaunchService.TestDefaultIconOverride = "invalid";
+                AccountLaunchService.InvalidateExecutableCache();
+                RobloxLaunchExecutorHelper.TestPostSpawnDelayMsOverride = 1;
+                RobloxLaunchExecutorHelper.TestSpawnRobloxProcessOverride = (path, args, user) =>
+                {
+                    spawnedCalls.Add((path, args, user));
+                    var proc = Process.Start(new ProcessStartInfo
+                    {
+                        FileName = Environment.GetEnvironmentVariable("ComSpec") ?? "cmd.exe",
+                        Arguments = "/c exit 0",
+                        CreateNoWindow = true,
+                        UseShellExecute = false
+                    })!;
+                    spawnedPids.Add(proc.Id);
+                    spawnedProcs.Add(proc);
+                    return proc;
+                };
+
+                // 1. Protocol path spawns protocol executable via SpawnRobloxProcess
+                AccountLaunchService.TestProtocolCommandOverride = $"\"{fakeExe}\" %1";
+                RobloxProcessService.TestGetRunningRobloxPidsOverride = () =>
+                    spawnedPids.Count > 0 ? new[] { spawnedPids[^1] } : Array.Empty<int>();
+                int protoPid = await RobloxLaunchExecutorHelper.ExecuteNativeLaunchAsync(
+                    "roblox-player:1+launchmode:play", "--app -t \"t1\" -j \"u1\"", "t1", "ExecUser", "111", CancellationToken.None);
+                Assert.True(protoPid > 0);
+                Assert.Single(spawnedCalls);
+                Assert.Equal(fakeExe, spawnedCalls[0].Path);
+                Assert.Contains("roblox-player:1+launchmode:play", spawnedCalls[0].Args);
+
+                // 2. Fallback exe path spawns via SpawnRobloxProcess when protocol unavailable
+                AccountLaunchService.TestProtocolCommandOverride = "invalid";
+                int fallbackPid = await RobloxLaunchExecutorHelper.ExecuteNativeLaunchAsync(
+                    "roblox-player:1+launchmode:app", "--app -t \"t2\" -b 222", "t2", "ExecUser", "222", CancellationToken.None);
+                Assert.Equal(spawnedPids[^1], fallbackPid);
+                Assert.Equal(2, spawnedCalls.Count);
+                Assert.Equal(fakeExe, spawnedCalls[1].Path);
+                Assert.Equal("--app -t \"t2\" -b 222", spawnedCalls[1].Args);
+            }
+            finally
+            {
+                RobloxLaunchExecutorHelper.TestSpawnRobloxProcessOverride = null;
+                RobloxLaunchExecutorHelper.TestPostSpawnDelayMsOverride = null;
+                AccountLaunchService.TestVersionRootsOverride = prevVersionRoots;
+                AccountLaunchService.TestProtocolCommandOverride = prevProtocol;
+                AccountLaunchService.TestDefaultIconOverride = prevDefaultIcon;
+                RobloxProcessService.TestGetRunningRobloxPidsOverride = prevRunningPids;
+                AccountLaunchService.InvalidateExecutableCache();
+                foreach (var p in spawnedProcs) { try { p.WaitForExit(1000); p.Dispose(); } catch (InvalidOperationException) { /* exited */ } }
+                RobloxJobObjectService.Close();
+                if (Directory.Exists(tempDir)) Directory.Delete(tempDir, recursive: true);
             }
         }
 

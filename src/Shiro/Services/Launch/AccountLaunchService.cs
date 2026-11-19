@@ -158,96 +158,34 @@ namespace Shiro.Services
             string? securityToken = null,
             CancellationToken cancellationToken = default)
         {
-            await NativeLaunchGate.WaitAsync(cancellationToken).ConfigureAwait(false);
-            try
+            _ = securityToken;
+            string playerExeArgs = RobloxDirectLauncher.BuildGameLaunchArguments(ticket, joinUrl, browserTrackerId);
+            return await RobloxLaunchExecutorHelper.ExecuteWithGateAndDirectPreferenceAsync(
+                NativeLaunchGate,
+                "StartNativeGameAsync",
+                () => RobloxDirectLauncher.LaunchDirect(ticket, joinUrl, username, browserTrackerId),
+                nativeLaunchUri,
+                playerExeArgs,
+                ticket,
+                username,
+                browserTrackerId,
+                cancellationToken).ConfigureAwait(false);
+        }
+
+        internal static void CompleteNativeLaunchObservation(Account account, int launchedPid, DateTime launchStartedUtc)
+        {
+            account.LastLaunchedProcessId = launchedPid;
+            if (LaunchTimingService.CurrentAttempt != null)
             {
-                await PrepareNativeLaunchEnvironmentAsync(cancellationToken).ConfigureAwait(false);
-
-                bool preferDirect = AppServices.GeneralSettings.Get<bool>(AppSettingsKeys.General.PreferDirectLaunch, false);
-                if (preferDirect)
-                {
-                    var directResult = RobloxDirectLauncher.LaunchDirect(ticket, joinUrl, username, browserTrackerId); directResult.Process?.Dispose();
-                    if (directResult.Success)
-                    {
-                        await Task.Delay(250, cancellationToken).ConfigureAwait(false);
-                        await WaitForInstallerAsync(cancellationToken).ConfigureAwait(false);
-                        SchedulePostLaunchSingletonSweep(500);
-                        return directResult.ProcessId;
-                    }
-
-                    AppServices.Logger.Info($"[StartNativeGameAsync] Direct binary launch unavailable ({directResult.ErrorMessage}); falling back to URI protocol.");
-                }
-
-                if (HasRobloxPlayerProtocolHandler())
-                {
-                    try
-                    {
-                        var existingClientPids = new HashSet<int>(RobloxProcessService.GetRunningRobloxPids());
-                        using Process? launcher = Process.Start(new ProcessStartInfo
-                        {
-                            FileName = nativeLaunchUri,
-                            UseShellExecute = true
-                        });
-
-                        if (launcher == null)
-                            throw new InvalidOperationException("Windows did not start the Roblox protocol handler.");
-
-                        int launcherPid = launcher.Id;
-
-                        if (!await WaitForExitAsync(launcher, 1500, cancellationToken).ConfigureAwait(false))
-                            AppServices.Logger.Info($"Roblox client for {username} is running; released handoff gate.");
-
-                        await Task.Delay(250, cancellationToken).ConfigureAwait(false);
-                        await WaitForInstallerAsync(cancellationToken).ConfigureAwait(false);
-
-                        int resolvedGamePid = await ResolveNewClientPidAsync(
-                            existingClientPids,
-                            launcherPid,
-                            TimeSpan.FromSeconds(10),
-                            cancellationToken).ConfigureAwait(false);
-
-                        AppServices.Logger.Info($"Launching Roblox through the registered protocol for {username} (Game PID: {resolvedGamePid}).");
-                        SchedulePostLaunchSingletonSweep(500);
-                        return resolvedGamePid;
-                    }
-                    catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-                    {
-                        throw;
-                    }
-                    catch (Exception protocolError)
-                    {
-                        AppServices.Logger.Warn($"Roblox protocol launch failed for {username}; using the executable fallback.", protocolError);
-                    }
-                }
-
-                cancellationToken.ThrowIfCancellationRequested();
-                string? playerPath = FindRobloxPlayerExecutable();
-                if (string.IsNullOrWhiteSpace(playerPath))
-                    throw new FileNotFoundException("RobloxPlayerBeta.exe was not found.");
-
-                ProcessStartInfo directLaunch = new ProcessStartInfo(playerPath)
-                {
-                    UseShellExecute = false,
-                    WorkingDirectory = Path.GetDirectoryName(playerPath) ?? Environment.CurrentDirectory
-                };
-                AddDirectGameArguments(directLaunch, ticket, joinUrl, browserTrackerId);
-                cancellationToken.ThrowIfCancellationRequested();
-                using Process? fallbackProc = Process.Start(directLaunch);
-                if (fallbackProc == null)
-                    throw new InvalidOperationException("Windows did not start RobloxPlayerBeta.exe.");
-                int fallbackPid = fallbackProc.Id;
-
-                await Task.Delay(1000, cancellationToken).ConfigureAwait(false);
-                await WaitForInstallerAsync(cancellationToken).ConfigureAwait(false);
-
-                AppServices.Logger.Info($"Launching RobloxPlayerBeta.exe directly for {username} because the Roblox protocol is unavailable.");
-                SchedulePostLaunchSingletonSweep(1500);
-                return fallbackPid;
+                LaunchTimingService.CurrentAttempt.ProcessId = launchedPid;
+                LaunchTimingService.CurrentAttempt.SpawnMs = (long)Stopwatch.GetElapsedTime(LaunchTimingService.CurrentAttempt.AttemptStartTicks).TotalMilliseconds;
             }
-            finally
-            {
-                NativeLaunchGate.Release();
-            }
+
+            ObserveBackgroundTask(
+                MonitorNativeAuthRateLimitAsync(launchStartedUtc, account, CancellationToken.None),
+                "native auth rate-limit monitor");
+            AppServices.HostUiBridge.SchedulePresenceRefresh(account);
+            ObserveBackgroundTask(AdjustWindowPositionAsync(account, launchedPid, CancellationToken.None), "Roblox window positioning");
         }
 
         public async Task<string> JoinServerAsync(
@@ -372,18 +310,7 @@ namespace Shiro.Services
                     nativePid = TestStartNativeGameOverride != null
                         ? await TestStartNativeGameOverride(nativeLaunchUri, ticket, joinUrl, account.Username, account.BrowserTrackerID, account.SecurityToken, cancellationToken).ConfigureAwait(false)
                         : await StartNativeGameAsync(nativeLaunchUri, ticket, joinUrl, account.Username, account.BrowserTrackerID, account.SecurityToken, cancellationToken).ConfigureAwait(false);
-                    account.LastLaunchedProcessId = nativePid;
-                    if (LaunchTimingService.CurrentAttempt != null)
-                    {
-                        LaunchTimingService.CurrentAttempt.ProcessId = nativePid;
-                        LaunchTimingService.CurrentAttempt.SpawnMs = (long)Stopwatch.GetElapsedTime(LaunchTimingService.CurrentAttempt.AttemptStartTicks).TotalMilliseconds;
-                    }
-
-                    ObserveBackgroundTask(
-                        MonitorNativeAuthRateLimitAsync(launchStartedUtc, account, CancellationToken.None),
-                        "native auth rate-limit monitor");
-                    AppServices.HostUiBridge.SchedulePresenceRefresh(account);
-                    ObserveBackgroundTask(AdjustWindowPositionAsync(account, nativePid, CancellationToken.None), "Roblox window positioning");
+                    CompleteNativeLaunchObservation(account, nativePid, launchStartedUtc);
                 }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                 {

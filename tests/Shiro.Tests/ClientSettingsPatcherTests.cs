@@ -1,6 +1,8 @@
 #nullable enable
 using System;
 using System.IO;
+using System.Linq;
+using System.Xml.Linq;
 using Shiro.Services;
 using Xunit;
 
@@ -201,6 +203,68 @@ namespace Shiro.Tests
                 AppSettings.General.Set("EnablePotatoMode", "false");
                 AppSettings.General.Set("UnlockFPS", "false");
                 AppSettings.General.Set("MaxFPSValue", "144");
+                if (File.Exists(tempXml))
+                    File.Delete(tempXml);
+            }
+        }
+
+        [Fact]
+        public void ClientSettingsPatcher_SelfClosingPropertiesAndNegativeGraphics_InsertsAndReplacesWithoutScanningHost()
+        {
+            string selfClosingXml = @"<roblox><Item class=""UserGameSettings"" referent=""RBX0""><Properties /></Item></roblox>";
+            string expanded = ClientSettingsPatcher.UpdateBasicSettingsXmlContent(
+                selfClosingXml,
+                graphicsQualityLevel: 1,
+                fullscreen: false,
+                out bool modifiedSelfClosing,
+                framerateCap: 144);
+
+            Assert.True(modifiedSelfClosing);
+            var parsedDoc = XDocument.Parse(expanded);
+            var props = parsedDoc.Descendants("Properties").Single();
+            Assert.Equal("1", props.Elements("int").Single(e => (string?)e.Attribute("name") == "GraphicsQualityLevel").Value);
+            Assert.Equal("false", props.Elements("bool").Single(e => (string?)e.Attribute("name") == "Fullscreen").Value);
+            Assert.Equal("144", props.Elements("int").Single(e => (string?)e.Attribute("name") == "FramerateCap").Value);
+
+            string negativeGraphicsXml = @"<roblox><Item class=""UserGameSettings""><Properties><int name=""GraphicsQualityLevel"">-1</int></Properties></Item></roblox>";
+            string replacedNegative = ClientSettingsPatcher.UpdateBasicSettingsXmlContent(
+                negativeGraphicsXml,
+                graphicsQualityLevel: 1,
+                fullscreen: null,
+                out bool modifiedNegative,
+                framerateCap: null);
+
+            Assert.True(modifiedNegative);
+            Assert.Contains(@"<int name=""GraphicsQualityLevel"">1</int>", replacedNegative);
+
+            string tempXml = Path.Combine(Path.GetTempPath(), $"Shiro_GBS_Batch_{Guid.NewGuid():N}.xml");
+            var ini = new IniFile();
+            var general = ini["General"];
+            general.Set("EnablePotatoMode", "true");
+            general.Set("UnlockFPS", "true");
+            general.Set("MaxFPSValue", "165");
+            general.Set("PurgeClientSettings", "false");
+            int hostScans = 0;
+
+            using var settingsScope = AppServices.Override<ISettingsService>(general);
+            var prevScanHook = ClientSettingsPatcher.TestOnFindRobloxVersionFoldersCalled;
+            try
+            {
+                File.WriteAllText(tempXml, selfClosingXml);
+                ClientSettingsPatcher.TestOnFindRobloxVersionFoldersCalled = () => hostScans++;
+
+                ClientSettingsPatcher.PatchSettings(settingsPathOverride: tempXml);
+                ClientSettingsPatcher.ApplyFpsLimit(unlockFps: true, targetFps: 165, xmlPathOverride: tempXml);
+
+                Assert.Equal(0, hostScans);
+                var patchedDoc = XDocument.Parse(File.ReadAllText(tempXml));
+                var patchedProps = patchedDoc.Descendants("Properties").Single();
+                Assert.Equal("1", patchedProps.Elements("int").Single(e => (string?)e.Attribute("name") == "GraphicsQualityLevel").Value);
+                Assert.Equal("165", patchedProps.Elements("int").Single(e => (string?)e.Attribute("name") == "FramerateCap").Value);
+            }
+            finally
+            {
+                ClientSettingsPatcher.TestOnFindRobloxVersionFoldersCalled = prevScanHook;
                 if (File.Exists(tempXml))
                     File.Delete(tempXml);
             }

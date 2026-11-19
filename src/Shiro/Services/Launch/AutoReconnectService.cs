@@ -284,9 +284,13 @@ namespace Shiro.Services
                         await RobloxRateLimitCoordinator.Instance.WaitForBackoffAsync(reconnectToken).ConfigureAwait(false);
 
                         AppServices.Logger?.Info($"[AutoReconnect] Reconnecting '{session.Account.Username}' to PlaceId: {session.PlaceId}...");
-                        string result = TestJoinServerOverride != null
-                            ? await TestJoinServerOverride(session).ConfigureAwait(false)
-                            : await session.Account.JoinServer(session.PlaceId, session.JobId, session.FollowUser, session.JoinVip).ConfigureAwait(false);
+                        string result;
+                        using (RobloxDirectLauncher.BeginCookieGuardScope())
+                        {
+                            result = TestJoinServerOverride != null
+                                ? await TestJoinServerOverride(session).ConfigureAwait(false)
+                                : await session.Account.JoinServer(session.PlaceId, session.JobId, session.FollowUser, session.JoinVip).ConfigureAwait(false);
+                        }
 
                         if (result == "Success")
                         {

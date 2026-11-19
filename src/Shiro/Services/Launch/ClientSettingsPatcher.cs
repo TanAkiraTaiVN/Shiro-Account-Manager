@@ -20,8 +20,9 @@ namespace Shiro.Services
     public static partial class ClientSettingsPatcher
     {
         private static readonly System.Threading.Lock PatchLock = new();
+        internal static Action? TestOnFindRobloxVersionFoldersCalled;
 
-        [GeneratedRegex(@"<int name=""GraphicsQualityLevel"">\d+</int>")]
+        [GeneratedRegex(@"<int name=""GraphicsQualityLevel"">-?\d+</int>")]
         private static partial Regex GraphicsQualityXmlRegex();
 
         [GeneratedRegex(@"<bool name=""Fullscreen"">(true|false)</bool>")]
@@ -30,7 +31,7 @@ namespace Shiro.Services
         [GeneratedRegex(@"<int name=""FramerateCap"">-?\d+</int>")]
         private static partial Regex FramerateCapXmlRegex();
 
-        [GeneratedRegex(@"<Item class=""UserGameSettings""[^>]*>\s*<Properties>", RegexOptions.Singleline)]
+        [GeneratedRegex(@"<Item class=""UserGameSettings""[^>]*>\s*<Properties\s*/?>", RegexOptions.Singleline)]
         private static partial Regex UserGameSettingsPropertiesRegex();
 
         public static void PatchSettings()
@@ -43,27 +44,31 @@ namespace Shiro.Services
             lock (PatchLock)
             {
                 bool potatoMode = AppServices.GeneralSettings?.Get<bool>("EnablePotatoMode", false) ?? false;
-                if (potatoMode)
+                bool unlockFps = AppServices.GeneralSettings?.Get<bool>("UnlockFPS", false) ?? false;
+                int? graphicsQuality = potatoMode ? 1 : null;
+                int? framerateCap = unlockFps
+                    ? Math.Clamp(AppServices.GeneralSettings?.Get<int>("MaxFPSValue", 144) ?? 144, 30, 240)
+                    : null;
+
+                if (graphicsQuality.HasValue || framerateCap.HasValue)
                 {
-                    ConfigureGlobalBasicSettings(graphicsQualityLevel: 1, fullscreen: null, framerateCap: null, settingsPathOverride: settingsPathOverride);
+                    ConfigureGlobalBasicSettings(
+                        graphicsQualityLevel: graphicsQuality,
+                        fullscreen: null,
+                        framerateCap: framerateCap,
+                        settingsPathOverride: settingsPathOverride);
                 }
 
-                bool unlockFps = AppServices.GeneralSettings?.Get<bool>("UnlockFPS", false) ?? false;
-                if (unlockFps)
-                {
-                    int targetFps = AppServices.GeneralSettings?.Get<int>("MaxFPSValue", 144) ?? 144;
-                    ApplyFpsLimit(true, targetFps, settingsPathOverride);
-                }
-                else
+                if (string.IsNullOrEmpty(settingsPathOverride))
                 {
                     // Do not overwrite user's in-game Roblox FPS setting when UnlockFPS is off; only scrub legacy FastFlags.
                     foreach (var folder in FindRobloxVersionFolders())
                     {
                         ScrubLegacyFpsFastFlag(folder.FullName);
                     }
-                }
 
-                PurgeSettings();
+                    PurgeSettings();
+                }
             }
         }
 
@@ -83,10 +88,13 @@ namespace Shiro.Services
             int cap = unlockFps ? Math.Clamp(targetFps, 30, 240) : -1;
             ConfigureGlobalBasicSettings(graphicsQualityLevel: null, fullscreen: null, framerateCap: cap, settingsPathOverride: xmlPathOverride);
 
-            var folders = FindRobloxVersionFolders();
-            foreach (var folder in folders)
+            if (string.IsNullOrEmpty(xmlPathOverride))
             {
-                ApplyFpsLimitToDirectory(folder.FullName, unlockFps, targetFps);
+                var folders = FindRobloxVersionFolders();
+                foreach (var folder in folders)
+                {
+                    ApplyFpsLimitToDirectory(folder.FullName, unlockFps, targetFps);
+                }
             }
         }
 
@@ -197,50 +205,74 @@ namespace Shiro.Services
             if (graphicsQualityLevel.HasValue)
             {
                 int lvl = Math.Clamp(graphicsQualityLevel.Value, 1, 10);
-                string next = GraphicsQualityXmlRegex().Replace(current, $"<int name=\"GraphicsQualityLevel\">{lvl}</int>");
-                if (!ReferenceEquals(next, current) && !string.Equals(next, current, StringComparison.Ordinal))
-                {
-                    current = next;
-                    modified = true;
-                }
+                modified |= UpsertXmlProperty(
+                    ref current,
+                    GraphicsQualityXmlRegex(),
+                    $"<int name=\"GraphicsQualityLevel\">{lvl}</int>",
+                    insertIfMissing: true);
             }
 
             if (fullscreen.HasValue)
             {
                 string fsVal = fullscreen.Value ? "true" : "false";
-                string next = FullscreenXmlRegex().Replace(current, $"<bool name=\"Fullscreen\">{fsVal}</bool>");
-                if (!ReferenceEquals(next, current) && !string.Equals(next, current, StringComparison.Ordinal))
-                {
-                    current = next;
-                    modified = true;
-                }
+                modified |= UpsertXmlProperty(
+                    ref current,
+                    FullscreenXmlRegex(),
+                    $"<bool name=\"Fullscreen\">{fsVal}</bool>",
+                    insertIfMissing: true);
             }
 
             if (framerateCap.HasValue)
             {
                 int cap = framerateCap.Value <= 0 ? -1 : Math.Clamp(framerateCap.Value, 30, 240);
-                if (FramerateCapXmlRegex().IsMatch(current))
-                {
-                    string next = FramerateCapXmlRegex().Replace(current, $"<int name=\"FramerateCap\">{cap}</int>");
-                    if (!ReferenceEquals(next, current) && !string.Equals(next, current, StringComparison.Ordinal))
-                    {
-                        current = next;
-                        modified = true;
-                    }
-                }
-                else if (cap > 0)
-                {
-                    var match = UserGameSettingsPropertiesRegex().Match(current);
-                    if (match.Success)
-                    {
-                        int insertIndex = match.Index + match.Length;
-                        current = current.Insert(insertIndex, $"<int name=\"FramerateCap\">{cap}</int>");
-                        modified = true;
-                    }
-                }
+                modified |= UpsertXmlProperty(
+                    ref current,
+                    FramerateCapXmlRegex(),
+                    $"<int name=\"FramerateCap\">{cap}</int>",
+                    insertIfMissing: cap > 0);
             }
 
             return current;
+        }
+
+        private static bool UpsertXmlProperty(
+            ref string xml,
+            Regex existingRegex,
+            string replacementNode,
+            bool insertIfMissing)
+        {
+            if (existingRegex.IsMatch(xml))
+            {
+                string next = existingRegex.Replace(xml, replacementNode);
+                if (!ReferenceEquals(next, xml) && !string.Equals(next, xml, StringComparison.Ordinal))
+                {
+                    xml = next;
+                    return true;
+                }
+                return false;
+            }
+
+            if (!insertIfMissing)
+                return false;
+
+            var match = UserGameSettingsPropertiesRegex().Match(xml);
+            if (!match.Success)
+                return false;
+
+            if (match.Value.EndsWith("/>", StringComparison.Ordinal))
+            {
+                int slashIndex = match.Index + match.Value.LastIndexOf("/>", StringComparison.Ordinal);
+                int openTagEnd = slashIndex;
+                while (openTagEnd > match.Index && char.IsWhiteSpace(xml[openTagEnd - 1]))
+                    openTagEnd--;
+
+                xml = $"{xml[..openTagEnd]}>{replacementNode}</Properties>{xml[(slashIndex + 2)..]}";
+                return true;
+            }
+
+            int insertIndex = match.Index + match.Length;
+            xml = xml.Insert(insertIndex, replacementNode);
+            return true;
         }
 
         /// <summary>
@@ -285,6 +317,7 @@ namespace Shiro.Services
 
         public static List<DirectoryInfo> FindRobloxVersionFolders()
         {
+            TestOnFindRobloxVersionFoldersCalled?.Invoke();
             var folders = new List<DirectoryInfo>();
             var seenFullNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 

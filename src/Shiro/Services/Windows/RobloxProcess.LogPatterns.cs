@@ -154,8 +154,7 @@ namespace Shiro.Services
             return line.Contains("challengedByGcs", StringComparison.OrdinalIgnoreCase) ||
                    line.Contains("\"feature\":\"challengeDisplayed\"", StringComparison.OrdinalIgnoreCase) ||
                    line.Contains("\"feature\":\"challengeInitialized\"", StringComparison.OrdinalIgnoreCase) ||
-                   line.Contains("\"feature\":\"challengePageLoaded\"", StringComparison.OrdinalIgnoreCase) ||
-                   line.Contains("[FLog::NewWebView2Browser] WebView2 browser is successfully launched", StringComparison.OrdinalIgnoreCase);
+                   line.Contains("\"feature\":\"challengePageLoaded\"", StringComparison.OrdinalIgnoreCase);
         }
 
         internal static bool IsChallengeCompletedLogLine(string line) =>

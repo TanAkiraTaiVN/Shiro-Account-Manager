@@ -50,6 +50,25 @@ namespace Shiro.Services
             return resolved;
         }
 
+        internal static string? ReadProtocolOpenCommand()
+        {
+            try
+            {
+                string? command = TestProtocolCommandOverride;
+                if (command == null)
+                {
+                    using RegistryKey? commandKey = Registry.ClassesRoot.OpenSubKey(@"roblox-player\shell\open\command");
+                    command = commandKey?.GetValue("") as string;
+                }
+                return command;
+            }
+            catch (Exception ex)
+            {
+                AppServices.Logger?.Debug($"[AccountLaunchService] Registry protocol read failed: {ex.Message}");
+                return null;
+            }
+        }
+
         internal static string? FindRobloxPlayerExecutableCore()
         {
             string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
@@ -62,24 +81,12 @@ namespace Shiro.Services
                 string.IsNullOrWhiteSpace(programFiles) ? string.Empty : Path.Combine(programFiles, "Roblox", "Versions")
             };
 
-            try
+            string? command = ReadProtocolOpenCommand();
+            if (!string.IsNullOrWhiteSpace(command))
             {
-                string? command = TestProtocolCommandOverride;
-                if (command == null)
-                {
-                    using RegistryKey? commandKey = Registry.ClassesRoot.OpenSubKey(@"roblox-player\shell\open\command");
-                    command = commandKey?.GetValue("") as string;
-                }
-                if (!string.IsNullOrWhiteSpace(command))
-                {
-                    var match = RobloxExeRegex().Match(command);
-                    if (match.Success && File.Exists(match.Groups[1].Value))
-                        return match.Groups[1].Value;
-                }
-            }
-            catch (Exception ex)
-            {
-                AppServices.Logger?.Debug($"[FindRobloxPlayerExecutable] Registry protocol read failed: {ex.Message}");
+                var match = RobloxExeRegex().Match(command);
+                if (match.Success && File.Exists(match.Groups[1].Value))
+                    return match.Groups[1].Value;
             }
 
             if (!string.IsNullOrWhiteSpace(AppServices.ServerBrowserState.CurrentClientVersion))
@@ -175,31 +182,17 @@ namespace Shiro.Services
 
         public static bool HasRobloxPlayerProtocolHandler()
         {
-            try
-            {
-                string? command = TestProtocolCommandOverride;
-                if (command == null)
-                {
-                    using RegistryKey? commandKey = Registry.ClassesRoot.OpenSubKey(@"roblox-player\shell\open\command");
-                    command = commandKey?.GetValue("") as string;
-                }
-
-                if (string.IsNullOrWhiteSpace(command))
-                    return false;
-
-                string normalized = command.ToLowerInvariant();
-                if (normalized.Contains("chrome.exe") ||
-                    normalized.Contains("msedge.exe") ||
-                    normalized.Contains("firefox.exe"))
-                    return false;
-
-                return normalized.Contains("roblox");
-            }
-            catch (Exception ex)
-            {
-                AppServices.Logger?.Debug($"ResolveRobloxProtocolExecutable failed: {ex.Message}");
+            string? command = ReadProtocolOpenCommand();
+            if (string.IsNullOrWhiteSpace(command))
                 return false;
-            }
+
+            string normalized = command.ToLowerInvariant();
+            if (normalized.Contains("chrome.exe") ||
+                normalized.Contains("msedge.exe") ||
+                normalized.Contains("firefox.exe"))
+                return false;
+
+            return normalized.Contains("roblox");
         }
 
         public static async Task WaitForInstallerAsync(CancellationToken cancellationToken)

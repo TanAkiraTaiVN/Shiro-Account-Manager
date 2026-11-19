@@ -158,9 +158,8 @@ namespace Shiro.Services
                 else if (RobloxProcess.IsChallengeInvalidatedOrAbandonedLogLine(line) ||
                          RobloxProcess.IsReturnToLuaAppLine(line, hasGameDataModel))
                 {
-                    if (hasChallenge || !joinedGame)
+                    if (hasChallenge)
                     {
-                        hasChallenge = true;
                         challengeFailed = true;
                         joinedGame = false;
                     }

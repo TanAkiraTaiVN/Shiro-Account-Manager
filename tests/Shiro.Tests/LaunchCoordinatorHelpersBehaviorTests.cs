@@ -10,6 +10,7 @@ namespace Shiro.Tests
     [Collection("SerialGlobalState")]
     public class LaunchCoordinatorHelpersBehaviorTests
     {
+        private const string ChallengeInvalidatedLine = "{\"feature\":\"challengeInvalidated\"}";
         [Fact]
         public void GetSmartLaunchMinDelayMs_NoJitter_CalculatesExactMilliseconds()
         {
@@ -187,7 +188,7 @@ namespace Shiro.Tests
             {
                 "[FLog::SingleSurfaceApp] returnToLuaApp: (stage:UGCGame)"
             };
-            Assert.Equal(ClientGameJoinState.ChallengeFailedToLuaApp, LaunchCoordinator.AnalyzeClientLogLines(luaAppLines));
+            Assert.Equal(ClientGameJoinState.Pending, LaunchCoordinator.AnalyzeClientLogLines(luaAppLines));
 
             int currentPid = System.Diagnostics.Process.GetCurrentProcess().Id;
             string tempDir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"shiro_logs_{Guid.NewGuid():N}");
@@ -292,12 +293,21 @@ namespace Shiro.Tests
                 Assert.Equal(LaunchOutcome.Failed, state.Status);
 
                 // Branch: AnalyzeClientLogLines with additional regex lines
+                var webView2OnlyLines = new[]
+                {
+                    "[FLog::DataModelStarterModule] Launching experience at 123",
+                    "[FLog::UgcExperienceController] UgcExperienceController: join: initialized dm 0x12345",
+                    "[FLog::NewWebView2Browser] WebView2 browser is successfully launched"
+                };
+                Assert.Equal(ClientGameJoinState.Pending, LaunchCoordinator.AnalyzeClientLogLines(webView2OnlyLines));
+
                 var mixedLines = new[]
                 {
                     "[FLog::DataModelStarterModule] Launching experience at 123",
                     "[FLog::UgcExperienceController] UgcExperienceController: join: initialized dm 0x12345",
+                    "challengedByGcs detected",
                     "[FLog::NewWebView2Browser] WebView2 browser is successfully launched",
-                    "{\"feature\":\"challengeInvalidated\"}"
+                    ChallengeInvalidatedLine
                 };
                 Assert.Equal(ClientGameJoinState.ChallengeFailedToLuaApp, LaunchCoordinator.AnalyzeClientLogLines(mixedLines));
 
