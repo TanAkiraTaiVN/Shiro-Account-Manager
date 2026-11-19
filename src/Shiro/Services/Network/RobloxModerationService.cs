@@ -38,54 +38,62 @@ namespace Shiro.Services
 
             try
             {
-                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-                linkedCts.CancelAfter(TimeSpan.FromMilliseconds(2500));
-
                 HttpClient httpClient = httpClientOverride ?? account.GetSessionHttpClient(allowAutoRedirect: false);
 
                 // 1. Probe official JSON moderation endpoint (usermoderation.roblox.com/v1/not-approved) first.
                 // Unlike www.roblox.com/home, this API endpoint is not blocked by Vietnam ISP SNI filters and returns
                 // structured punishment details (punishedUserId, beginDate, endDate, messageToUser) in ~250ms.
-                try
+                using (var apiCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
                 {
-                    using var apiReq = account.CreateAuthenticatedGetRequest(
-                        "https://usermoderation.roblox.com/v1/not-approved",
-                        "application/json",
-                        token);
-                    using HttpResponseMessage apiRes = await httpClient.SendAsync(apiReq, HttpCompletionOption.ResponseContentRead, linkedCts.Token).ConfigureAwait(false);
-                    if (apiRes != null)
+                    apiCts.CancelAfter(TimeSpan.FromMilliseconds(2500));
+                    try
                     {
-                        account.TryUpdateRotatedCookie(apiRes);
-                        if (apiRes.IsSuccessStatusCode)
+                        using var apiReq = account.CreateAuthenticatedGetRequest(
+                            "https://usermoderation.roblox.com/v1/not-approved",
+                            "application/json",
+                            token);
+                        using HttpResponseMessage apiRes = await httpClient.SendAsync(apiReq, HttpCompletionOption.ResponseContentRead, apiCts.Token).ConfigureAwait(false);
+                        if (apiRes != null)
                         {
-                            string apiBody = await apiRes.Content.ReadAsStringAsync(linkedCts.Token).ConfigureAwait(false);
-                            if (!string.IsNullOrWhiteSpace(apiBody) && apiBody.Contains('{', StringComparison.Ordinal))
+                            account.TryUpdateRotatedCookie(apiRes);
+                            if (apiRes.IsSuccessStatusCode)
                             {
-                                string apiCode = FastLoginCoordinator.ClassifyAuthOrModerationApiPayload(apiBody, (int)apiRes.StatusCode);
-                                if (!string.IsNullOrEmpty(apiCode) && apiCode != "UNAUTHENTICATED_MODERATION" && apiCode != "WRONG_PASSWORD")
+                                string apiBody = await apiRes.Content.ReadAsStringAsync(apiCts.Token).ConfigureAwait(false);
+                                if (!string.IsNullOrWhiteSpace(apiBody) && apiBody.Contains('{', StringComparison.Ordinal))
                                 {
-                                    var (badge, reason) = FastLoginCoordinator.MapDomIssueCode(apiCode);
-                                    if (!string.IsNullOrEmpty(badge))
+                                    string apiCode = FastLoginCoordinator.ClassifyAuthOrModerationApiPayload(apiBody, (int)apiRes.StatusCode);
+                                    if (!string.IsNullOrEmpty(apiCode) && apiCode != "UNAUTHENTICATED_MODERATION" && apiCode != "WRONG_PASSWORD")
                                     {
-                                        return FinalizeModerationResult(account, (true, badge, reason), dispatchAlert);
+                                        var (badge, reason) = FastLoginCoordinator.MapDomIssueCode(apiCode);
+                                        if (!string.IsNullOrEmpty(badge))
+                                        {
+                                            return FinalizeModerationResult(account, (true, badge, reason), dispatchAlert);
+                                        }
                                     }
                                 }
                             }
                         }
                     }
-                }
-                catch (Exception ex)
-                {
-                    _logger.Debug($"[CheckModerationStatusAsync] usermoderation API probe skipped: {ex.Message}");
+                    catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                    {
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Debug($"[CheckModerationStatusAsync] usermoderation API probe skipped: {ex.Message}");
+                    }
                 }
 
-                // 2. Fallback / secondary check via www.roblox.com/home redirect inspection
+                // 2. Fallback / secondary check via www.roblox.com/home redirect inspection with its own timeout budget
+                using var webCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                webCts.CancelAfter(TimeSpan.FromMilliseconds(2500));
+
                 using var request = account.CreateAuthenticatedGetRequest(
                     "https://www.roblox.com/home",
                     "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
                     token);
 
-                using HttpResponseMessage response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, linkedCts.Token).ConfigureAwait(false);
+                using HttpResponseMessage response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, webCts.Token).ConfigureAwait(false);
                 if (response == null) return (false, null, null);
 
                 account.TryUpdateRotatedCookie(response);
@@ -93,7 +101,7 @@ namespace Shiro.Services
                 if (response.StatusCode == System.Net.HttpStatusCode.OK)
                 {
                     string okUrl = response.RequestMessage?.RequestUri?.AbsoluteUri ?? string.Empty;
-                    string html = await response.Content.ReadAsStringAsync(linkedCts.Token).ConfigureAwait(false);
+                    string html = await response.Content.ReadAsStringAsync(webCts.Token).ConfigureAwait(false);
                     if (IsUnauthenticatedModerationResponse(html) || IsLoginPageHtml(html))
                     {
                         account.AccountStatusIssue = string.Empty;
@@ -146,7 +154,7 @@ namespace Shiro.Services
                             string targetUrl = safeModUri.AbsoluteUri;
 
                             using var modReq = account.CreateAuthenticatedGetRequest(targetUrl, "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8", tokenOverride: token);
-                            using var modRes = await httpClient.SendAsync(modReq, HttpCompletionOption.ResponseContentRead, linkedCts.Token).ConfigureAwait(false);
+                            using var modRes = await httpClient.SendAsync(modReq, HttpCompletionOption.ResponseContentRead, webCts.Token).ConfigureAwait(false);
                             if (modRes != null)
                             {
                                 account.TryUpdateRotatedCookie(modRes);
@@ -164,7 +172,7 @@ namespace Shiro.Services
                                     return (false, null, null);
                                 }
 
-                                string modHtml = await modRes.Content.ReadAsStringAsync(linkedCts.Token).ConfigureAwait(false);
+                                string modHtml = await modRes.Content.ReadAsStringAsync(webCts.Token).ConfigureAwait(false);
                                 if (IsUnauthenticatedModerationResponse(modHtml) || IsLoginPageHtml(modHtml))
                                 {
                                     account.AccountStatusIssue = string.Empty;
@@ -202,7 +210,7 @@ namespace Shiro.Services
 
                 if (response.StatusCode == System.Net.HttpStatusCode.OK)
                 {
-                    string html = await response.Content.ReadAsStringAsync(linkedCts.Token).ConfigureAwait(false);
+                    string html = await response.Content.ReadAsStringAsync(webCts.Token).ConfigureAwait(false);
                     if (IsUnauthenticatedModerationResponse(html) || IsLoginPageHtml(html))
                     {
                         account.AccountStatusIssue = string.Empty;

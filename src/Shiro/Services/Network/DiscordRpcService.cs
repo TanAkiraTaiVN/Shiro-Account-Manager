@@ -46,14 +46,14 @@ namespace Shiro.Services
             _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         }
 
-        // Shiro's registered Discord Client Application ID (or generic fallback)
-        public const string DefaultClientId = "1301012345678901234";
+        // Requires explicit user-configured Discord Client Application ID
+        public const string DefaultClientId = "";
 
         public string GetConfiguredClientId() =>
-            _settings.Get<string>(AppSettingsKeys.General.DiscordRpcClientId, DefaultClientId) ?? DefaultClientId;
+            (_settings.Get<string>(AppSettingsKeys.General.DiscordRpcClientId, DefaultClientId) ?? DefaultClientId).Trim();
 
         public static string ClientId =>
-            AppServices.GeneralSettings.Get<string>(AppSettingsKeys.General.DiscordRpcClientId, DefaultClientId) ?? DefaultClientId;
+            (AppServices.GeneralSettings.Get<string>(AppSettingsKeys.General.DiscordRpcClientId, DefaultClientId) ?? DefaultClientId).Trim();
 
         private readonly System.Threading.Lock _pipeLock = new();
         private readonly SemaphoreSlim _pipeGate = new(1, 1);
@@ -202,7 +202,7 @@ namespace Shiro.Services
             }
         }
 
-        private async Task<bool> TryConnectAsync(CancellationToken ct)
+        private async Task<bool> TryConnectAsync(CancellationToken ct, string? pipeNamePrefix = null)
         {
             IReadOnlyList<int> pipeIndices = FindAvailableDiscordIpcIndices();
             if (pipeIndices.Count == 0)
@@ -216,6 +216,9 @@ namespace Shiro.Services
             }
 
             _loggedNoPipeFound = false;
+            if (!TryGetValidClientId(out string clientId))
+                return false;
+
             for (int k = 0; k < pipeIndices.Count; k++)
             {
                 int i = pipeIndices[k];
@@ -223,7 +226,7 @@ namespace Shiro.Services
                 NamedPipeClientStream? pipe = null;
                 try
                 {
-                    pipe = new NamedPipeClientStream(".", $"discord-ipc-{i}", PipeDirection.InOut, PipeOptions.Asynchronous);
+                    pipe = new NamedPipeClientStream(".", BuildPipeName(pipeNamePrefix, i), PipeDirection.InOut, PipeOptions.Asynchronous);
                     await pipe.ConnectAsync(1000, ct).ConfigureAwait(false);
 
                     lock (_pipeLock)
@@ -233,12 +236,12 @@ namespace Shiro.Services
 
                     // Send Handshake (Opcode 0) via source-generated DTO
                     byte[] handshakeUtf8 = JsonSerializer.SerializeToUtf8Bytes(
-                        new DiscordHandshakePayload(1, GetConfiguredClientId()),
+                        new DiscordHandshakePayload(OpcodeHandshake, clientId),
                         ShiroAppJson.Default.DiscordHandshakePayload);
-                    await WriteFrameBytesAsync(BuildFrame(0, handshakeUtf8), ct).ConfigureAwait(false);
+                    await WriteFrameBytesAsync(BuildFrame(OpcodeHandshake, handshakeUtf8), ct).ConfigureAwait(false);
 
-                    // Read Handshake response
-                    var (_, _) = await ReadFrameAsync(ct).ConfigureAwait(false);
+                    // Read Handshake response (3000ms linked timeout + CLOSE frame rejection)
+                    await ReadHandshakeFrameAsync(ct).ConfigureAwait(false);
 
                     _isConnected = true;
                     _logger.Info($"[DiscordRpcService] Connected to Discord IPC via pipe discord-ipc-{i}.");
@@ -373,8 +376,9 @@ namespace Shiro.Services
                 ? string.Empty
                 : AppServices.ServerBrowserState.CurrentPlaceId;
             long.TryParse(currentPlace, out long placeId);
+            string? activeTitle = ResolveActiveGameTitle(placeId);
 
-            UpdatePresence(null, placeId, AppServices.ServerBrowserState.CurrentJobId, total, active);
+            UpdatePresence(activeTitle, placeId, AppServices.ServerBrowserState.CurrentJobId, total, active);
         }
 
         public void ClearPresence()

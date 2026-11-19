@@ -14,8 +14,15 @@ namespace Shiro.Services
     {
         private const int BaseReconnectDelayMs = 15000;
         private const int MaxReconnectDelayMs = 60000;
+        internal const int DefaultHandshakeTimeoutMs = 3000;
+        internal const int OpcodeHandshake = 0;
+        internal const int OpcodeFrame = 1;
+        internal const int OpcodeClose = 2;
+        private const string DefaultPipeNamePrefix = "discord-ipc-";
+        private bool _loggedMissingClientId;
 
         internal static Func<IReadOnlyList<int>>? TestAvailablePipesOverride { get; set; }
+        internal DiscordActivityItem? LastActivityForTest => _lastActivity;
 
         internal static IReadOnlyList<int> FindAvailableDiscordIpcIndices()
         {
@@ -58,7 +65,60 @@ namespace Shiro.Services
         internal static int ComputeNextReconnectDelayMs(int currentDelayMs)
             => Math.Min(MaxReconnectDelayMs, Math.Max(BaseReconnectDelayMs, currentDelayMs * 2));
 
-        internal Task<bool> TryConnectForTestAsync(CancellationToken ct) => TryConnectAsync(ct);
+        internal Task<bool> TryConnectForTestAsync(CancellationToken ct, string? pipeNamePrefix = null)
+            => TryConnectAsync(ct, pipeNamePrefix);
+
+        private static string BuildPipeName(string? pipeNamePrefix, int index)
+            => $"{(string.IsNullOrWhiteSpace(pipeNamePrefix) ? DefaultPipeNamePrefix : pipeNamePrefix)}{index}";
+
+        private bool TryGetValidClientId(out string clientId)
+        {
+            clientId = GetConfiguredClientId();
+            if (!string.IsNullOrWhiteSpace(clientId))
+            {
+                _loggedMissingClientId = false;
+                return true;
+            }
+
+            if (!_loggedMissingClientId)
+            {
+                _loggedMissingClientId = true;
+                _logger.Debug("[DiscordRpcService] Discord Client ID is not configured; skipping IPC handshake.");
+            }
+            return false;
+        }
+
+        internal static string? ResolveActiveGameTitle(long placeId)
+        {
+            if (placeId <= 0)
+                return null;
+
+            if (GameInfoService.TryGetCachedName(placeId, out string cachedTitle) &&
+                !string.IsNullOrWhiteSpace(cachedTitle))
+            {
+                return cachedTitle;
+            }
+
+            var accounts = AppServices.AccountRepository.GetAll();
+            for (int i = 0; i < accounts.Count; i++)
+            {
+                UserPresence? presence = accounts[i]?.Presence;
+                if (presence == null || presence.userPresenceType != UserPresenceType.InGame)
+                    continue;
+
+                if (presence.placeId != placeId && presence.rootPlaceId != placeId)
+                    continue;
+
+                string sanitized = GameInfoService.SanitizeDisplayTitle(presence.gameName);
+                if (!string.IsNullOrWhiteSpace(sanitized) &&
+                    !GameInfoService.IsGenericPlaceholderName(placeId, sanitized))
+                {
+                    return sanitized;
+                }
+            }
+
+            return null;
+        }
 
         internal static byte[] BuildFrame(int opcode, ReadOnlySpan<byte> payloadUtf8)
         {
@@ -102,7 +162,7 @@ namespace Shiro.Services
             }
         }
 
-        private Task<(int Opcode, string Payload)> ReadFrameAsync(CancellationToken ct)
+        private Task<(int Opcode, string Payload)> ReadHandshakeFrameAsync(CancellationToken ct)
         {
             NamedPipeClientStream? stream;
             lock (_pipeLock)
@@ -113,7 +173,22 @@ namespace Shiro.Services
             if (stream == null || !stream.IsConnected)
                 throw new IOException("Discord NamedPipe is not connected.");
 
-            return ReadFrameFromStreamAsync(stream, ct);
+            return ReadHandshakeResponseFromStreamAsync(stream, ct);
+        }
+
+        internal static async Task<(int Opcode, string Payload)> ReadHandshakeResponseFromStreamAsync(
+            Stream stream,
+            CancellationToken ct = default,
+            int timeoutMs = DefaultHandshakeTimeoutMs)
+        {
+            using var handshakeTimeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            handshakeTimeoutCts.CancelAfter(timeoutMs);
+
+            var (opcode, payload) = await ReadFrameFromStreamAsync(stream, handshakeTimeoutCts.Token).ConfigureAwait(false);
+            if (opcode == OpcodeClose)
+                throw new IOException($"Discord IPC rejected handshake with CLOSE frame: {payload}");
+
+            return (opcode, payload);
         }
 
         internal static async Task<(int Opcode, string Payload)> ReadFrameFromStreamAsync(Stream stream, CancellationToken ct = default)
@@ -142,7 +217,13 @@ namespace Shiro.Services
             {
                 while (!ct.IsCancellationRequested && pipe.IsConnected)
                 {
-                    await ReadFrameFromStreamAsync(pipe, ct).ConfigureAwait(false);
+                    var (opcode, _) = await ReadFrameFromStreamAsync(pipe, ct).ConfigureAwait(false);
+                    if (opcode == OpcodeClose)
+                    {
+                        _logger.Debug("[DiscordRpcService.DrainPipeLoop] Received CLOSE frame from Discord IPC.");
+                        Disconnect();
+                        break;
+                    }
                 }
             }
             catch (OperationCanceledException) { /* stopped */ }

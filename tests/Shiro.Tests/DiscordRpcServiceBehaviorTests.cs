@@ -1,6 +1,12 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
+using System.IO.Pipes;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 using NSubstitute;
 using Shiro.Services;
 using Xunit;
@@ -10,10 +16,13 @@ namespace Shiro.Tests
     [Collection("StaticSeams")]
     public class DiscordRpcServiceBehaviorTests
     {
+        private const string ReadyHandshakeJson = "{\"cmd\":\"DISPATCH\",\"evt\":\"READY\"}";
+        private const string CloseHandshakeJson = "{\"code\":4000,\"message\":\"Invalid Client ID\"}";
+
         [Fact]
-        public void DefaultClientId_IsConstant()
+        public void DefaultClientId_IsEmptyByDefault()
         {
-            Assert.Equal("1301012345678901234", DiscordRpcService.DefaultClientId);
+            Assert.Equal("", DiscordRpcService.DefaultClientId);
         }
 
         [Fact]
@@ -138,6 +147,214 @@ namespace Shiro.Tests
             });
 
             Assert.Null(ex);
+        }
+
+        [Fact]
+        public async Task TryConnectForTestAsync_WhenClientIdEmpty_SkipsConnectionEvenIfPipeExists()
+        {
+            var logger = Substitute.For<IAppLogger>();
+            var settings = Substitute.For<ISettingsService>();
+            settings.Get<string>(AppSettingsKeys.General.DiscordRpcClientId, Arg.Any<string>()).Returns(string.Empty);
+
+            string pipePrefix = $"shiro-test-empty-{Guid.NewGuid():N}-";
+            using var server = new NamedPipeServerStream(pipePrefix + "0", PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
+            Task waitConn = server.WaitForConnectionAsync();
+
+            var prevOverride = DiscordRpcService.TestAvailablePipesOverride;
+            DiscordRpcService.TestAvailablePipesOverride = () => new[] { 0 };
+            try
+            {
+                using var rpc = new DiscordRpcService(logger, settings);
+                bool connected = await rpc.TryConnectForTestAsync(CancellationToken.None, pipePrefix);
+
+                Assert.False(connected);
+                Assert.False(rpc.IsConnected);
+                Assert.False(waitConn.IsCompleted);
+                logger.Received(1).Debug(Arg.Is<string>(s => s.Contains("Client ID", StringComparison.OrdinalIgnoreCase)));
+            }
+            finally
+            {
+                DiscordRpcService.TestAvailablePipesOverride = prevOverride;
+            }
+        }
+
+        [Fact]
+        public async Task TryConnectForTestAsync_WhenOpcodeIsClose_RejectsHandshake()
+        {
+            byte[] closeFrame = DiscordRpcService.BuildFrame(2, Encoding.UTF8.GetBytes(CloseHandshakeJson));
+            await using (var ms = new MemoryStream(closeFrame))
+            {
+                await Assert.ThrowsAsync<IOException>(() =>
+                    DiscordRpcService.ReadHandshakeResponseFromStreamAsync(ms, CancellationToken.None));
+            }
+
+            var logger = Substitute.For<IAppLogger>();
+            var settings = Substitute.For<ISettingsService>();
+            settings.Get<string>(AppSettingsKeys.General.DiscordRpcClientId, Arg.Any<string>()).Returns("123456789012345678");
+
+            string pipePrefix = $"shiro-test-close-{Guid.NewGuid():N}-";
+            using var server = new NamedPipeServerStream(pipePrefix + "0", PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
+            Task serverTask = Task.Run(async () =>
+            {
+                await server.WaitForConnectionAsync();
+                await DiscordRpcService.ReadFrameFromStreamAsync(server);
+                await server.WriteAsync(closeFrame);
+                await server.FlushAsync();
+            });
+
+            var prevOverride = DiscordRpcService.TestAvailablePipesOverride;
+            DiscordRpcService.TestAvailablePipesOverride = () => new[] { 0 };
+            try
+            {
+                using var rpc = new DiscordRpcService(logger, settings);
+                bool connected = await rpc.TryConnectForTestAsync(CancellationToken.None, pipePrefix);
+                await serverTask.WaitAsync(TimeSpan.FromSeconds(2));
+
+                Assert.False(connected);
+                Assert.False(rpc.IsConnected);
+            }
+            finally
+            {
+                DiscordRpcService.TestAvailablePipesOverride = prevOverride;
+            }
+        }
+
+        [Fact]
+        public async Task TryConnectForTestAsync_WhenHandshakeTimesOut_AbortsCleanlyWithin3000ms()
+        {
+            Assert.Equal(3000, DiscordRpcService.DefaultHandshakeTimeoutMs);
+
+            var logger = Substitute.For<IAppLogger>();
+            var settings = Substitute.For<ISettingsService>();
+            settings.Get<string>(AppSettingsKeys.General.DiscordRpcClientId, Arg.Any<string>()).Returns("123456789012345678");
+
+            string pipePrefix = $"shiro-test-timeout-{Guid.NewGuid():N}-";
+            using var releaseServer = new ManualResetEventSlim(false);
+            using var server = new NamedPipeServerStream(pipePrefix + "0", PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
+            Task serverTask = Task.Run(async () =>
+            {
+                await server.WaitForConnectionAsync();
+                await DiscordRpcService.ReadFrameFromStreamAsync(server);
+                releaseServer.Wait(TimeSpan.FromSeconds(6));
+            });
+
+            var prevOverride = DiscordRpcService.TestAvailablePipesOverride;
+            DiscordRpcService.TestAvailablePipesOverride = () => new[] { 0 };
+            try
+            {
+                using var rpc = new DiscordRpcService(logger, settings);
+                var sw = Stopwatch.StartNew();
+                bool connected = await rpc.TryConnectForTestAsync(CancellationToken.None, pipePrefix)
+                    .WaitAsync(TimeSpan.FromMilliseconds(4500));
+                sw.Stop();
+
+                Assert.False(connected);
+                Assert.False(rpc.IsConnected);
+                Assert.InRange(sw.ElapsedMilliseconds, 2500, 4400);
+            }
+            finally
+            {
+                releaseServer.Set();
+                DiscordRpcService.TestAvailablePipesOverride = prevOverride;
+                await serverTask.WaitAsync(TimeSpan.FromSeconds(2));
+            }
+        }
+
+        [Fact]
+        public async Task TryConnectForTestAsync_WhenValidHandshakeResponse_ConnectsAndStopsCleanly()
+        {
+            var logger = Substitute.For<IAppLogger>();
+            var settings = Substitute.For<ISettingsService>();
+            settings.Get<string>(AppSettingsKeys.General.DiscordRpcClientId, Arg.Any<string>()).Returns("123456789012345678");
+
+            byte[] readyFrame = DiscordRpcService.BuildFrame(1, Encoding.UTF8.GetBytes(ReadyHandshakeJson));
+            string pipePrefix = $"shiro-test-ready-{Guid.NewGuid():N}-";
+            using var server = new NamedPipeServerStream(pipePrefix + "0", PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
+            Task serverTask = Task.Run(async () =>
+            {
+                await server.WaitForConnectionAsync();
+                await DiscordRpcService.ReadFrameFromStreamAsync(server);
+                await server.WriteAsync(readyFrame);
+                await server.FlushAsync();
+            });
+
+            var prevOverride = DiscordRpcService.TestAvailablePipesOverride;
+            DiscordRpcService.TestAvailablePipesOverride = () => new[] { 0 };
+            try
+            {
+                using var rpc = new DiscordRpcService(logger, settings);
+                bool connected = await rpc.TryConnectForTestAsync(CancellationToken.None, pipePrefix);
+                await serverTask.WaitAsync(TimeSpan.FromSeconds(2));
+
+                Assert.True(connected);
+                Assert.True(rpc.IsConnected);
+
+                rpc.Stop();
+                Assert.False(rpc.IsConnected);
+            }
+            finally
+            {
+                DiscordRpcService.TestAvailablePipesOverride = prevOverride;
+            }
+        }
+
+        [Fact]
+        public void UpdateCurrentPresence_WhenPlaceIdPositive_UsesCachedOrActiveGameTitle()
+        {
+            var logger = Substitute.For<IAppLogger>();
+            var settings = Substitute.For<ISettingsService>();
+            settings.Get<bool>(AppSettingsKeys.General.DiscordRpcEnabled, true).Returns(true);
+            settings.Get<bool>(AppSettingsKeys.General.DiscordRpcShowGame, true).Returns(true);
+            settings.Get<bool>(AppSettingsKeys.General.DiscordRpcJoinCurrentServer, true).Returns(true);
+
+            var prevOverride = DiscordRpcService.TestAvailablePipesOverride;
+            var prevAccounts = AppServices.AccountRepository.GetAll();
+            DiscordRpcService.TestAvailablePipesOverride = () => Array.Empty<int>();
+            try
+            {
+                var browserState = new ServerBrowserStateService(settings);
+                using var browserScope = AppServices.Override<IServerBrowserStateService>(browserState);
+                using var rpc = new DiscordRpcService(logger, settings);
+
+                const long cachedPlaceId = 9927539155L;
+                GameInfoService.CachePlaceName(cachedPlaceId, "Blox Fruits Cached");
+                browserState.CurrentPlaceId = cachedPlaceId.ToString();
+                browserState.CurrentJobId = "job-rpc-cached";
+
+                rpc.UpdateCurrentPresence();
+                Assert.NotNull(rpc.LastActivityForTest);
+                Assert.Equal(
+                    LocalizationService.Format("DiscordRpc.PlayingGame", "Blox Fruits Cached"),
+                    rpc.LastActivityForTest!.Details);
+
+                const long activePresencePlaceId = 9988776655L;
+                var activeAccount = new Account
+                {
+                    Username = "RpcPresenceAcc",
+                    UserID = 554433,
+                    Presence = new UserPresence
+                    {
+                        userPresenceType = UserPresenceType.InGame,
+                        placeId = activePresencePlaceId,
+                        gameName = "Active Presence Arena"
+                    }
+                };
+                AccountManager.ResetAccountsForTests(new[] { activeAccount });
+                browserState.CurrentPlaceId = activePresencePlaceId.ToString();
+
+                rpc.UpdateCurrentPresence();
+                Assert.NotNull(rpc.LastActivityForTest);
+                Assert.Equal(
+                    LocalizationService.Format("DiscordRpc.PlayingGame", "Active Presence Arena"),
+                    rpc.LastActivityForTest!.Details);
+
+                rpc.Stop();
+            }
+            finally
+            {
+                AccountManager.ResetAccountsForTests(prevAccounts);
+                DiscordRpcService.TestAvailablePipesOverride = prevOverride;
+            }
         }
     }
 }

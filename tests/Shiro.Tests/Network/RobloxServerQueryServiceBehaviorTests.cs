@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
@@ -12,6 +13,13 @@ namespace Shiro.Tests.Network
     [Collection("StaticSeams")]
     public class RobloxServerQueryServiceBehaviorTests : IDisposable
     {
+        private const string PrivateLoopbackMachineJson = "{\"joinScript\":{\"MachineAddress\":\"127.0.0.1\"}}";
+        private const string PrivateRfc1918MachineJson = "{\"joinScript\":{\"MachineAddress\":\"10.0.0.1\"}}";
+        private const string PrivateLinkLocalMachineJson = "{\"joinScript\":{\"MachineAddress\":\"169.254.169.254\"}}";
+        private const string InvalidIpMachineJson = "{\"joinScript\":{\"MachineAddress\":\"not-an-ip\"}}";
+        private const string PublicGeoHostTestIpJson = "{\"joinScript\":{\"MachineAddress\":\"198.51.103.22\",\"DataCenterId\":999999}}";
+        private const string PublicCsrfRetryIpJson = "{\"joinScript\":{\"MachineAddress\":\"198.51.104.77\",\"DataCenterId\":999999}}";
+        private const string OsakaGeoJson = "{\"success\":true,\"city\":\"Osaka\",\"country_code\":\"JP\"}";
         public RobloxServerQueryServiceBehaviorTests()
         {
             RobloxServerQueryService.TestHttpClientFactory = null;
@@ -137,8 +145,8 @@ namespace Shiro.Tests.Network
                 .Enqueue(HttpStatusCode.OK, "{\"joinScript\":{\"MachineAddress\":\"203.0.113.55\"},\"dataCenterId\":295}")
                 // 2. GeoIP countryCode only (no city)
                 .Enqueue(HttpStatusCode.OK, "{\"joinScript\":{\"MachineAddress\":\"198.51.101.10\"}}")
-                // 3. GeoIP country property + real localhost ping
-                .Enqueue(HttpStatusCode.OK, "{\"joinScript\":{\"MachineAddress\":\"127.0.0.1\"}}");
+                // 3. GeoIP country property + unmocked ping path on public IP
+                .Enqueue(HttpStatusCode.OK, "{\"joinScript\":{\"MachineAddress\":\"192.0.2.10\"}}");
 
             Account.TestHttpClientFactory = _ => new HttpClient(handler);
             RobloxServerQueryService.TestPingProbe = ip =>
@@ -257,6 +265,168 @@ namespace Shiro.Tests.Network
 
             Assert.False(result.Success);
             Assert.Empty(result.Servers);
+        }
+
+        [Fact]
+        public async Task QueryServerRegionAndPingAsync_WhenServerReturnsPrivateOrInvalidIp_BlocksPingAndGeoFetch()
+        {
+            var handler = new FakeHttpHandler()
+                .Enqueue(HttpStatusCode.OK, PrivateLoopbackMachineJson)
+                .Enqueue(HttpStatusCode.OK, PrivateRfc1918MachineJson)
+                .Enqueue(HttpStatusCode.OK, PrivateLinkLocalMachineJson)
+                .Enqueue(HttpStatusCode.OK, InvalidIpMachineJson);
+            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+
+            int pingCalls = 0;
+            int geoCalls = 0;
+            RobloxServerQueryService.TestPingProbe = _ =>
+            {
+                pingCalls++;
+                return Task.FromResult<int?>(15);
+            };
+            RobloxServerQueryService.TestGeoHttpGetString = (_, _) =>
+            {
+                geoCalls++;
+                return Task.FromResult(OsakaGeoJson);
+            };
+
+            var account = new Account
+            {
+                Username = "SsrfGuardUser",
+                SecurityToken = "_|WARNING:-DO-NOT-SHARE-THIS.--SsrfCookie12345"
+            };
+            string unknownRegion = LocalizationService.Get("ServerQuery.UnknownRegion");
+
+            for (int i = 0; i < 4; i++)
+            {
+                var res = await RobloxServerQueryService.Default.QueryServerRegionAndPingAsync(account, 1818, $"job-ssrf-{i}");
+                Assert.False(res.Success);
+                Assert.Null(res.PingMs);
+                Assert.Equal(unknownRegion, res.Region);
+            }
+
+            Assert.Equal(0, pingCalls);
+            Assert.Equal(0, geoCalls);
+        }
+
+        [Fact]
+        public async Task QueryServerRegionAndPingAsync_WhenGeoTemplateNotHttps_SkipsInsecurePrimaryUrl()
+        {
+            var handler = new FakeHttpHandler()
+                .Enqueue(HttpStatusCode.OK, PublicGeoHostTestIpJson);
+            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+            RobloxServerQueryService.TestPingProbe = _ => Task.FromResult<int?>(31);
+
+            var requestedUrls = new List<string>();
+            RobloxServerQueryService.TestGeoHttpGetString = (url, _) =>
+            {
+                requestedUrls.Add(url);
+                return Task.FromResult(OsakaGeoJson);
+            };
+
+            var account = new Account
+            {
+                Username = "HttpsGeoUser",
+                SecurityToken = "_|WARNING:-DO-NOT-SHARE-THIS.--HttpsGeo12345"
+            };
+
+            var res = await RobloxServerQueryService.Default.QueryServerRegionAndPingAsync(
+                account,
+                1818,
+                "job-https-only",
+                ipApiTemplate: "http://insecure.geo/<ip>");
+
+            Assert.DoesNotContain(requestedUrls, u => u.StartsWith("http://", StringComparison.OrdinalIgnoreCase));
+            Assert.Contains("https://ipwho.is/198.51.103.22", requestedUrls);
+            Assert.True(res.Success);
+            Assert.Equal("Osaka, JP", res.Region);
+        }
+
+        [Fact]
+        public async Task QueryServerRegionAndPingAsync_When403CsrfChallenge_RetriesWithRefreshedToken()
+        {
+            int calls = 0;
+            var seenTokens = new List<string?>();
+            var handler = new FakeHttpHandler(req =>
+            {
+                calls++;
+                string? token = req.Headers.TryGetValues("X-CSRF-TOKEN", out var values)
+                    ? string.Join(",", values)
+                    : null;
+                seenTokens.Add(token);
+
+                if (calls == 1)
+                {
+                    var challenge = new HttpResponseMessage(HttpStatusCode.Forbidden);
+                    challenge.Headers.TryAddWithoutValidation("x-csrf-token", "refreshed-csrf-789");
+                    return challenge;
+                }
+
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(PublicCsrfRetryIpJson)
+                };
+            });
+
+            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+            RobloxServerQueryService.TestPingProbe = _ => Task.FromResult<int?>(25);
+            RobloxServerQueryService.TestGeoHttpGetString = (_, _) => Task.FromResult(OsakaGeoJson);
+
+            var account = new Account
+            {
+                Username = "CsrfQueryUser",
+                SecurityToken = "_|WARNING:-DO-NOT-SHARE-THIS.--CsrfCookie12345"
+            };
+
+            var res = await RobloxServerQueryService.Default.QueryServerRegionAndPingAsync(account, 1818, "job-csrf-1");
+
+            Assert.Equal(2, calls);
+            Assert.Equal(new string?[] { null, "refreshed-csrf-789" }, seenTokens.ToArray());
+            Assert.Equal("refreshed-csrf-789", account.CSRFToken);
+            Assert.True(res.Success);
+            Assert.Equal("198.51.104.77", res.Ip);
+            Assert.Equal("Osaka, JP", res.Region);
+        }
+
+        [Theory]
+        [InlineData("127.0.0.1", "https://ipwho.is/127.0.0.1", false)]
+        [InlineData("127.255.0.1", "https://ipwho.is/127.255.0.1", false)]
+        [InlineData("::1", "https://ipwho.is/::1", false)]
+        [InlineData("10.0.0.1", "https://ipwho.is/10.0.0.1", false)]
+        [InlineData("172.16.0.1", "https://ipwho.is/172.16.0.1", false)]
+        [InlineData("172.31.255.254", "https://ipwho.is/172.31.255.254", false)]
+        [InlineData("192.168.1.1", "https://ipwho.is/192.168.1.1", false)]
+        [InlineData("169.254.169.254", "https://ipwho.is/169.254.169.254", false)]
+        [InlineData("100.64.0.1", "https://ipwho.is/100.64.0.1", false)]
+        [InlineData("100.127.255.254", "https://ipwho.is/100.127.255.254", false)]
+        [InlineData("0.0.0.0", "https://ipwho.is/0.0.0.0", false)]
+        [InlineData("224.0.0.1", "https://ipwho.is/224.0.0.1", false)]
+        [InlineData("::", "https://ipwho.is/::", false)]
+        [InlineData("fe80::1", "https://ipwho.is/fe80::1", false)]
+        [InlineData("fc00::1", "https://ipwho.is/fc00::1", false)]
+        [InlineData("fd12:3456:789a::1", "https://ipwho.is/fd12:3456:789a::1", false)]
+        [InlineData("ff02::1", "https://ipwho.is/ff02::1", false)]
+        [InlineData("::ffff:127.0.0.1", "https://ipwho.is/127.0.0.1", false)]
+        [InlineData("::ffff:10.0.0.1", "https://ipwho.is/10.0.0.1", false)]
+        [InlineData("not-an-ip", "https://ipwho.is/not-an-ip", false)]
+        [InlineData("", "https://ipwho.is/1.1.1.1", false)]
+        [InlineData("1.1.1.1", "http://ipwho.is/1.1.1.1", false)]
+        [InlineData("1.1.1.1", "file:///etc/passwd", false)]
+        [InlineData("1.1.1.1", "https://127.0.0.1/1.1.1.1", false)]
+        [InlineData("1.1.1.1", "https://localhost/1.1.1.1", false)]
+        [InlineData("1.1.1.1", "", false)]
+        [InlineData("1.1.1.1", "https://ipwho.is/1.1.1.1", true)]
+        [InlineData("172.32.0.1", "https://ipwho.is/172.32.0.1", true)]
+        [InlineData("100.128.0.1", "https://ipwho.is/100.128.0.1", true)]
+        [InlineData("2606:4700:4700::1111", "https://ipwho.is/2606:4700:4700::1111", true)]
+        public void ServerQuery_TryValidatePublicTargetIpAndGeoUrl_BlocksSsrf(string ip, string url, bool expected)
+        {
+            bool actual = RobloxServerQueryService.TryValidatePublicTargetIpAndGeoUrl(ip, url, out IPAddress? parsedIp);
+            Assert.Equal(expected, actual);
+            if (expected)
+                Assert.NotNull(parsedIp);
+            else
+                Assert.Null(parsedIp);
         }
     }
 }

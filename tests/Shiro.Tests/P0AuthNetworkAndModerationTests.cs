@@ -24,6 +24,7 @@ namespace Shiro.Tests
         private const string ErrorJsonPayload = "{\"errors\":[{\"code\":0,\"message\":\"Unknown error\"}]}";
         private const string CaptivePortalHtml = "<!DOCTYPE html><html><head><title>Wi-Fi</title></head><body>Captive Portal</body></html>";
         private const string LoginChallengeHtml = "<!DOCTYPE html><html><body><div class=\"login-base-container\"><input id=\"login-username\" /></div></body></html>";
+        private const string ModerationSevenDayBanHtml = "<div>Reviewed: today. Ban 7 days</div>";
 
         private readonly Func<Account, HttpClient>? _previousAuditorClientFactory;
         private readonly Func<Account, HttpClient>? _previousAccountClientFactory;
@@ -360,6 +361,113 @@ namespace Shiro.Tests
             await Assert.ThrowsAnyAsync<OperationCanceledException>(
                 () => SessionAuditorService.AuditAccountAsync(tokenAccount, cts.Token));
             Assert.True(tokenAccount.Valid);
+        }
+
+        [Fact]
+        public async Task RobloxModerationService_WhenApiProbeTimesOut_FallbackWebProbeGetsFreshTimeoutAndDetectsBan()
+        {
+            bool apiProbeTimedOut = false;
+            int webProbeCalls = 0;
+
+            var handler = new FakeHttpHandler(async (req, ct) =>
+            {
+                string url = req.RequestUri!.AbsoluteUri;
+                if (url.Contains("usermoderation.roblox.com/v1/not-approved", StringComparison.OrdinalIgnoreCase))
+                {
+                    try
+                    {
+                        await Task.Delay(Timeout.InfiniteTimeSpan, ct);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        apiProbeTimedOut = true;
+                        throw;
+                    }
+                }
+
+                if (url.Contains("www.roblox.com/home", StringComparison.OrdinalIgnoreCase))
+                {
+                    Interlocked.Increment(ref webProbeCalls);
+                    Assert.False(ct.IsCancellationRequested);
+                    var redirect = new HttpResponseMessage(HttpStatusCode.Found);
+                    redirect.Headers.Location = new Uri("/not-approved", UriKind.Relative);
+                    return redirect;
+                }
+
+                if (url.Contains("www.roblox.com/not-approved", StringComparison.OrdinalIgnoreCase))
+                {
+                    Interlocked.Increment(ref webProbeCalls);
+                    Assert.False(ct.IsCancellationRequested);
+                    return new HttpResponseMessage(HttpStatusCode.OK)
+                    {
+                        Content = new StringContent(ModerationSevenDayBanHtml)
+                    };
+                }
+
+                return new HttpResponseMessage(HttpStatusCode.NotFound);
+            });
+
+            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+
+            var account = new Account
+            {
+                Username = "SplitTimeoutModUser",
+                UserID = 7788,
+                SecurityToken = ValidToken
+            };
+
+            var svc = new RobloxModerationService();
+            var result = await svc.CheckModerationStatusAsync(
+                account,
+                ValidToken,
+                httpClientOverride: null,
+                CancellationToken.None,
+                dispatchAlert: false);
+
+            Assert.True(apiProbeTimedOut);
+            Assert.Equal(2, webProbeCalls);
+            Assert.True(result.IsBanned);
+            Assert.Equal(LocalizationService.Get("FastLogin.BanSevenDaysShort"), result.IssueBadge);
+        }
+
+        [Fact]
+        public async Task RobloxModerationService_WhenCallerCancelsDuringApiProbe_DoesNotInvokeWebFallback()
+        {
+            using var callerCts = new CancellationTokenSource();
+            int webCalls = 0;
+
+            var handler = new FakeHttpHandler((req, _) =>
+            {
+                string url = req.RequestUri!.AbsoluteUri;
+                if (url.Contains("usermoderation.roblox.com/v1/not-approved", StringComparison.OrdinalIgnoreCase))
+                {
+                    callerCts.Cancel();
+                    throw new OperationCanceledException(callerCts.Token);
+                }
+
+                Interlocked.Increment(ref webCalls);
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK));
+            });
+
+            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+
+            var account = new Account
+            {
+                Username = "CallerCancelModUser",
+                UserID = 7789,
+                SecurityToken = ValidToken
+            };
+
+            var svc = new RobloxModerationService();
+            var result = await svc.CheckModerationStatusAsync(
+                account,
+                ValidToken,
+                httpClientOverride: null,
+                callerCts.Token,
+                dispatchAlert: false);
+
+            Assert.False(result.IsBanned);
+            Assert.Equal(0, webCalls);
         }
     }
 }

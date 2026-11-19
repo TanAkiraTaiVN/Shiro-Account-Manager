@@ -3,6 +3,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Text.Json;
@@ -69,6 +70,67 @@ namespace Shiro.Services
             return !string.IsNullOrWhiteSpace(region);
         }
 
+        internal static bool TryValidatePublicTargetIpAndGeoUrl(string ip, string url, out IPAddress? parsedIp)
+        {
+            parsedIp = null;
+            if (string.IsNullOrWhiteSpace(ip) ||
+                !IPAddress.TryParse(ip.Trim(), out IPAddress? candidate) ||
+                !IsPublicIpAddress(candidate))
+            {
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(url) ||
+                !Uri.TryCreate(url.Trim(), UriKind.Absolute, out Uri? uri) ||
+                !string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase) ||
+                string.IsNullOrWhiteSpace(uri.Host) ||
+                string.Equals(uri.Host, "localhost", StringComparison.OrdinalIgnoreCase) ||
+                uri.Host.EndsWith(".localhost", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            if (IPAddress.TryParse(uri.DnsSafeHost, out IPAddress? hostIp) && !IsPublicIpAddress(hostIp))
+                return false;
+
+            parsedIp = candidate.IsIPv4MappedToIPv6 ? candidate.MapToIPv4() : candidate;
+            return true;
+        }
+
+        private static bool IsPublicIpAddress(IPAddress address)
+        {
+            if (address.IsIPv4MappedToIPv6)
+                address = address.MapToIPv4();
+
+            if (IPAddress.IsLoopback(address))
+                return false;
+
+            if (address.AddressFamily == AddressFamily.InterNetwork)
+            {
+                Span<byte> b = stackalloc byte[4];
+                address.TryWriteBytes(b, out _);
+                return b[0] != 0 &&
+                       b[0] != 10 &&
+                       b[0] != 127 &&
+                       !(b[0] == 100 && b[1] >= 64 && b[1] <= 127) &&
+                       !(b[0] == 169 && b[1] == 254) &&
+                       !(b[0] == 172 && b[1] >= 16 && b[1] <= 31) &&
+                       !(b[0] == 192 && b[1] == 168) &&
+                       b[0] < 224;
+            }
+
+            if (address.AddressFamily == AddressFamily.InterNetworkV6)
+            {
+                return !address.Equals(IPAddress.IPv6Any) &&
+                       !address.IsIPv6LinkLocal &&
+                       !address.IsIPv6Multicast &&
+                       !address.IsIPv6SiteLocal &&
+                       !address.IsIPv6UniqueLocal;
+            }
+
+            return false;
+        }
+
         public async Task<ServerRegionPingResult> QueryServerRegionAndPingAsync(
             Account account,
             long placeId,
@@ -86,11 +148,21 @@ namespace Shiro.Services
             try
             {
                 var client = AppServices.RobloxApi.GameJoin;
-                var request = account.MakeRequest("v1/join-game-instance", Method.Post)
-                    .AddHeader("Content-Type", "application/json")
-                    .AddJsonBody(new JoinGameInstancePayload(serverId, placeId));
-
-                RestResponse? response = await account.ExecuteAccountRestAsync(client, "https://gamejoin.roblox.com/", request, cancellationToken).ConfigureAwait(false);
+                RestResponse? response = await RobloxCsrfRetryHelper.ExecuteWithCsrfRetryAsync(
+                    account,
+                    client,
+                    "https://gamejoin.roblox.com/",
+                    initialCsrfToken: null,
+                    tok =>
+                    {
+                        var req = account.MakeRequest("v1/join-game-instance", Method.Post)
+                            .AddHeader("Content-Type", "application/json")
+                            .AddJsonBody(new JoinGameInstancePayload(serverId, placeId));
+                        if (!string.IsNullOrEmpty(tok))
+                            req.AddHeader("X-CSRF-TOKEN", tok);
+                        return req;
+                    },
+                    cancellationToken).ConfigureAwait(false);
                 if (response != null && response.IsSuccessful && !string.IsNullOrEmpty(response.Content))
                 {
                     using var jsDoc = JsonDocument.Parse(response.Content);
@@ -99,7 +171,8 @@ namespace Shiro.Services
                         ? ma.GetString()
                         : null;
 
-                    if (!string.IsNullOrEmpty(ip))
+                    if (!string.IsNullOrEmpty(ip) &&
+                        TryValidatePublicTargetIpAndGeoUrl(ip, "https://ipwho.is/", out _))
                     {
                         result.Ip = ip;
                         result.Success = true;
@@ -203,7 +276,11 @@ namespace Shiro.Services
 
         private async Task<int?> MeasurePingMsAsync(string ip, CancellationToken cancellationToken = default)
         {
-            if (string.IsNullOrWhiteSpace(ip)) return null;
+            if (string.IsNullOrWhiteSpace(ip) ||
+                !TryValidatePublicTargetIpAndGeoUrl(ip, "https://ipwho.is/", out _))
+            {
+                return null;
+            }
             if (TestPingProbe != null) return await TestPingProbe(ip).ConfigureAwait(false);
 
             return await RacePingProbesAsync(
@@ -261,29 +338,39 @@ namespace Shiro.Services
             try
             {
                 string geoJson = string.Empty;
-                try
+                string primaryUrl = ipLink.Replace("<ip>", ip);
+                if (TryValidatePublicTargetIpAndGeoUrl(ip, primaryUrl, out _))
                 {
-                    string primaryUrl = ipLink.Replace("<ip>", ip);
-                    geoJson = TestGeoHttpGetString != null
-                        ? await TestGeoHttpGetString(primaryUrl, cancellationToken).ConfigureAwait(false)
-                        : await SharedHttpClient.GetStringAsync(primaryUrl, retryTransient: false, cancellationToken: cancellationToken).ConfigureAwait(false);
+                    try
+                    {
+                        geoJson = TestGeoHttpGetString != null
+                            ? await TestGeoHttpGetString(primaryUrl, cancellationToken).ConfigureAwait(false)
+                            : await SharedHttpClient.GetStringAsync(primaryUrl, retryTransient: false, cancellationToken: cancellationToken).ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                    {
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Debug($"[GeoIP primary] {ip}: {ex.Message}");
+                    }
                 }
-                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                else
                 {
-                    throw;
-                }
-                catch (Exception ex)
-                {
-                    _logger.Debug($"[GeoIP primary] {ip}: {ex.Message}");
+                    _logger.Debug($"[GeoIP primary] Blocked invalid/non-HTTPS target: {ip}");
                 }
 
                 if (!TryParseRegionFromJson(geoJson, out string resolvedRegion) && !ipLink.Contains("ipwho.is", StringComparison.OrdinalIgnoreCase))
                 {
                     string fbUrl = $"https://ipwho.is/{ip}";
-                    string fallbackJson = TestGeoHttpGetString != null
-                        ? await TestGeoHttpGetString(fbUrl, cancellationToken).ConfigureAwait(false)
-                        : await SharedHttpClient.GetStringAsync(fbUrl, retryTransient: false, cancellationToken: cancellationToken).ConfigureAwait(false);
-                    TryParseRegionFromJson(fallbackJson, out resolvedRegion);
+                    if (TryValidatePublicTargetIpAndGeoUrl(ip, fbUrl, out _))
+                    {
+                        string fallbackJson = TestGeoHttpGetString != null
+                            ? await TestGeoHttpGetString(fbUrl, cancellationToken).ConfigureAwait(false)
+                            : await SharedHttpClient.GetStringAsync(fbUrl, retryTransient: false, cancellationToken: cancellationToken).ConfigureAwait(false);
+                        TryParseRegionFromJson(fallbackJson, out resolvedRegion);
+                    }
                 }
 
                 if (!string.IsNullOrWhiteSpace(resolvedRegion))
