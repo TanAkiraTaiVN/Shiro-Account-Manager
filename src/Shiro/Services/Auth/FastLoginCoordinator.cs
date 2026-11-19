@@ -106,38 +106,50 @@ namespace Shiro.Services
 
             if (combined.Contains("incorrect username or password", StringComparison.Ordinal) ||
                 combined.Contains("invalid username or password", StringComparison.Ordinal) ||
-                combined.Contains(Shiro.Services.LocalizationService.Get("FastLogin.WrongPasswordKeyword"), StringComparison.Ordinal) ||
-                combined.Contains(Shiro.Services.LocalizationService.Get("FastLogin.InvalidCredentialsKeyword"), StringComparison.Ordinal))
+                combined.Contains("wrong password", StringComparison.Ordinal))
             {
                 return "WRONG_PASSWORD";
             }
 
             if (isModUrl)
             {
-                if (combined.Contains("14 day", StringComparison.Ordinal) || combined.Contains("14-day", StringComparison.Ordinal) || combined.Contains(Shiro.Services.LocalizationService.Get("FastLogin.FourteenDaysKeyword"), StringComparison.Ordinal))
+                if (ContainsBanDays(combined, "14"))
                     return "BAN_14_DAYS";
-                if (combined.Contains("7 day", StringComparison.Ordinal) || combined.Contains("7-day", StringComparison.Ordinal) || combined.Contains(Shiro.Services.LocalizationService.Get("FastLogin.SevenDaysKeyword"), StringComparison.Ordinal))
+                if (ContainsBanDays(combined, "7"))
                     return "BAN_7_DAYS";
-                if (combined.Contains("3 day", StringComparison.Ordinal) || combined.Contains("3-day", StringComparison.Ordinal) || combined.Contains(Shiro.Services.LocalizationService.Get("FastLogin.ThreeDaysKeyword"), StringComparison.Ordinal))
+                if (ContainsBanDays(combined, "3"))
                     return "BAN_3_DAYS";
-                if (combined.Contains("1 day", StringComparison.Ordinal) || combined.Contains("1-day", StringComparison.Ordinal) || combined.Contains(Shiro.Services.LocalizationService.Get("FastLogin.OneDayKeyword"), StringComparison.Ordinal))
+                if (ContainsBanDays(combined, "1"))
                     return "BAN_1_DAY";
-                if (combined.Contains("deleted", StringComparison.Ordinal) || combined.Contains("terminated", StringComparison.Ordinal) || combined.Contains(Shiro.Services.LocalizationService.Get("FastLogin.DeletedKeyword"), StringComparison.Ordinal) || combined.Contains(Shiro.Services.LocalizationService.Get("FastLogin.PermanentKeyword"), StringComparison.Ordinal))
+                if (combined.Contains("deleted", StringComparison.Ordinal) ||
+                    combined.Contains("terminated", StringComparison.Ordinal) ||
+                    combined.Contains("permanently", StringComparison.Ordinal))
                     return "TERMINATED";
-                if (combined.Contains("warning", StringComparison.Ordinal) || combined.Contains(Shiro.Services.LocalizationService.Get("FastLogin.WarningKeyword"), StringComparison.Ordinal))
+                if (combined.Contains("warning", StringComparison.Ordinal))
                     return "WARNING";
-                if (combined.Contains("locked", StringComparison.Ordinal) || combined.Contains(Shiro.Services.LocalizationService.Get("FastLogin.LockedKeyword"), StringComparison.Ordinal) || combined.Contains("reset your password", StringComparison.Ordinal) || combined.Contains("security notification", StringComparison.Ordinal))
+                if (combined.Contains("locked", StringComparison.Ordinal) ||
+                    combined.Contains("reset your password", StringComparison.Ordinal) ||
+                    combined.Contains("security notification", StringComparison.Ordinal))
                     return "ACCOUNT_LOCKED";
-                if (combined.Contains("not approved", StringComparison.Ordinal) || combined.Contains("banned", StringComparison.Ordinal) || combined.Contains("moderated", StringComparison.Ordinal) || combined.Contains("suspended", StringComparison.Ordinal))
+                if (combined.Contains("not approved", StringComparison.Ordinal) ||
+                    combined.Contains("banned", StringComparison.Ordinal) ||
+                    combined.Contains("moderated", StringComparison.Ordinal) ||
+                    combined.Contains("suspended", StringComparison.Ordinal))
                     return "ACCOUNT_BANNED";
                 return "LOCKED_OR_BANNED";
             }
 
-            if (combined.Contains("locked", StringComparison.Ordinal) || combined.Contains(Shiro.Services.LocalizationService.Get("FastLogin.LockedKeyword"), StringComparison.Ordinal) || combined.Contains("reset your password", StringComparison.Ordinal) || combined.Contains("security notification", StringComparison.Ordinal))
+            if (combined.Contains("locked", StringComparison.Ordinal) ||
+                combined.Contains("reset your password", StringComparison.Ordinal) ||
+                combined.Contains("security notification", StringComparison.Ordinal))
                 return "ACCOUNT_LOCKED";
 
             return string.Empty;
         }
+
+        private static bool ContainsBanDays(string combined, string daysToken) =>
+            ContainsExactNumber(combined, daysToken + " day") ||
+            ContainsExactNumber(combined, daysToken + "-day");
 
         public static (string? IssueBadge, string? Reason) MapDomIssueCode(string? code)
         {

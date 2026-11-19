@@ -25,6 +25,7 @@ namespace Shiro.AvaloniaUI.Views
         private readonly HashSet<string> _ignoredCookieValues = new HashSet<string>(StringComparer.Ordinal);
         private string _username = string.Empty;
         private string _password = string.Empty;
+        private string? _pendingCapturedPassword;
         private bool _captured;
         private bool _isCheckingSession;
 
@@ -89,6 +90,7 @@ namespace Shiro.AvaloniaUI.Views
             var account = _queue.Current;
             _username = account.Username;
             _password = account.Password;
+            _pendingCapturedPassword = null;
             _captured = false;
             _redirectedFromUnauthenticatedModeration = false;
             _restoredHbaScriptId = null;
@@ -138,8 +140,22 @@ namespace Shiro.AvaloniaUI.Views
 
         private void OnWebViewInitialized(object sender, WebView2InitializedEventArgs e) => _ = HandleWebViewInitializedAsync(e);
 
+        private void StartPollTimer()
+        {
+            if (_isClosed) return;
+            if (_pollTimer != null)
+            {
+                _pollTimer.Stop();
+                _pollTimer.Tick -= OnPollTimerTick;
+            }
+            _pollTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
+            _pollTimer.Tick += OnPollTimerTick;
+            _pollTimer.Start();
+        }
+
         private async Task HandleWebViewInitializedAsync(WebView2InitializedEventArgs e)
         {
+            if (_isClosed) return;
             if (!e.IsSuccess)
             {
                 TxtInAppStatus.Text = Shiro.Services.LocalizationService.Format("FastLogin.WebViewInitFailed", e.Error?.Message);
@@ -155,60 +171,74 @@ namespace Shiro.AvaloniaUI.Views
 
             try
             {
-                await ConfigureCoreWebViewAsync(core);
-
-                var singleAcc = _queue.Count == 1 ? _queue.Current : null;
-                if (singleAcc != null && singleAcc.IsBannedOrLocked && !string.IsNullOrWhiteSpace(singleAcc.SecurityToken))
-                {
-                    _restoredModerationAccount = singleAcc;
-                    _restoredModerationCookieFp = Fingerprint(singleAcc.SecurityToken);
-                    _hasSeenModerationPage = false;
-                    _restoredHbaScriptId = await RobloxHbaService.RestoreWebViewModerationSessionAsync(core, singleAcc, _currentHbaSnapshot);
-                    _ignoredCookieValues.Add(_restoredModerationCookieFp);
-                    TxtInAppStatus.Text = Shiro.Services.LocalizationService.Format("FastLogin.OpeningModerationPage", singleAcc.Username, singleAcc.AccountStatusIssue);
-                    core.Navigate("https://www.roblox.com/home");
-                }
-                else
-                {
-                    core.Navigate("https://www.roblox.com/login");
-                }
-
-                // Start fast poll timer to capture .ROBLOSECURITY session
-                if (_pollTimer != null)
-                {
-                    _pollTimer.Stop();
-                    _pollTimer.Tick -= OnPollTimerTick;
-                }
-                _pollTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
-                _pollTimer.Tick += OnPollTimerTick;
-                _pollTimer.Start();
+                await InitializeCoreSessionAsync(
+                    () => ConfigureCoreWebViewAsync(core),
+                    acc => RobloxHbaService.RestoreWebViewModerationSessionAsync(core, acc, _currentHbaSnapshot),
+                    url => core.Navigate(url));
             }
             catch (Exception ex)
             {
-                TxtInAppStatus.Text = Shiro.Services.LocalizationService.Format("Common.ErrorFormat", ex.Message);
-                TxtInAppStatus.Foreground = Brushes.OrangeRed;
+                if (!_isClosed)
+                {
+                    TxtInAppStatus.Text = Shiro.Services.LocalizationService.Format("Common.ErrorFormat", ex.Message);
+                    TxtInAppStatus.Foreground = Brushes.OrangeRed;
+                }
             }
         }
 
+        internal async Task InitializeCoreSessionAsync(
+            Func<Task> configureCoreAsync,
+            Func<Account, Task<string?>> restoreModerationSessionAsync,
+            Action<string> navigate)
+        {
+            if (_isClosed) return;
+            await configureCoreAsync();
+            if (_isClosed) return;
+
+            var singleAcc = _queue.Count == 1 ? _queue.Current : null;
+            if (singleAcc != null && singleAcc.IsBannedOrLocked && !string.IsNullOrWhiteSpace(singleAcc.SecurityToken))
+            {
+                _restoredModerationAccount = singleAcc;
+                _restoredModerationCookieFp = Fingerprint(singleAcc.SecurityToken);
+                _hasSeenModerationPage = false;
+                _restoredHbaScriptId = await restoreModerationSessionAsync(singleAcc);
+                if (_isClosed) return;
+                _ignoredCookieValues.Add(_restoredModerationCookieFp);
+                TxtInAppStatus.Text = Shiro.Services.LocalizationService.Format("FastLogin.OpeningModerationPage", singleAcc.Username, singleAcc.AccountStatusIssue);
+                navigate("https://www.roblox.com/home");
+            }
+            else
+            {
+                navigate("https://www.roblox.com/login");
+            }
+
+            StartPollTimer();
+        }
+
         private int _isPollTickBusy;
+
+        private async Task ShowLoginFillStatusAndFillAsync()
+        {
+            TxtInAppStatus.Text = !string.IsNullOrEmpty(_password)
+                ? Shiro.Services.LocalizationService.Format("FastLogin.AutoFillingAndLoggingIn", _username)
+                : Shiro.Services.LocalizationService.Format("FastLogin.AutoFillingUsername", _username);
+            TxtInAppStatus.Foreground = Brushes.LightGreen;
+            await TryFillCredentialsAsync(forceClick: false);
+        }
 
         private void OnSourceChanged(object? sender, CoreWebView2SourceChangedEventArgs e) => _ = HandleSourceChangedAsync();
 
         private async Task HandleSourceChangedAsync()
         {
+            if (_isClosed) return;
             try
             {
                 string currentUrl = WvBrowser?.CoreWebView2?.Source ?? string.Empty;
                 if (!string.IsNullOrEmpty(_username) && currentUrl.Contains("/login", StringComparison.OrdinalIgnoreCase))
-                {
-                    TxtInAppStatus.Text = !string.IsNullOrEmpty(_password)
-                        ? Shiro.Services.LocalizationService.Format("FastLogin.AutoFillingAndLoggingIn", _username)
-                        : Shiro.Services.LocalizationService.Format("FastLogin.AutoFillingUsername", _username);
-                    TxtInAppStatus.Foreground = Brushes.LightGreen;
-                    await TryFillCredentialsAsync(forceClick: false);
-                }
+                    await ShowLoginFillStatusAndFillAsync();
 
-                await CheckAndCaptureSessionAsync();
+                if (!_isClosed)
+                    await CheckAndCaptureSessionAsync();
             }
             catch (Exception ex)
             {
@@ -221,6 +251,7 @@ namespace Shiro.AvaloniaUI.Views
         private async Task HandleNavigationCompletedAsync(CoreWebView2NavigationCompletedEventArgs e)
         {
             _isDocumentNavigating = false;
+            if (_isClosed) return;
             try
             {
                 if (!e.IsSuccess)
@@ -234,6 +265,7 @@ namespace Shiro.AvaloniaUI.Views
                     var core = WvBrowser?.CoreWebView2;
                     AppServices.Logger?.Warn($"[FastLoginDialog] Navigation failed: url={WebAuthPolicy.RedactSensitiveQuery(core?.Source ?? string.Empty)}, http={e.HttpStatusCode}, webError={e.WebErrorStatus}");
                     var action = await FastLoginCoordinator.ClassifyNavigationFailureAsync(core, e.HttpStatusCode, _restoredModerationAccount != null, _redirectedFromUnauthenticatedModeration);
+                    if (_isClosed) return;
                     if (action == WebViewNavigationFailureAction.FallbackModerationToLogin && core != null)
                     {
                         await RedirectUnauthenticatedModerationToLoginAsync(core);
@@ -252,11 +284,7 @@ namespace Shiro.AvaloniaUI.Views
 
                 if (!string.IsNullOrEmpty(_username) && isLoginPage)
                 {
-                    TxtInAppStatus.Text = !string.IsNullOrEmpty(_password)
-                        ? Shiro.Services.LocalizationService.Format("FastLogin.AutoFillingAndLoggingIn", _username)
-                        : Shiro.Services.LocalizationService.Format("FastLogin.AutoFillingUsername", _username);
-                    TxtInAppStatus.Foreground = Brushes.LightGreen;
-                    await TryFillCredentialsAsync(forceClick: false);
+                    await ShowLoginFillStatusAndFillAsync();
                 }
                 else if (isLoginPage)
                 {
@@ -264,7 +292,8 @@ namespace Shiro.AvaloniaUI.Views
                     TxtInAppStatus.Foreground = Brushes.LightGreen;
                 }
 
-                await CheckAndCaptureSessionAsync();
+                if (!_isClosed)
+                    await CheckAndCaptureSessionAsync();
             }
             catch (Exception ex)
             {

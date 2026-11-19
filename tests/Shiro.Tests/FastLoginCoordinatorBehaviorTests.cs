@@ -1,8 +1,12 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Reflection;
 using System.Threading.Tasks;
+using Avalonia.Headless.XUnit;
 using NSubstitute;
+using Shiro.AvaloniaUI.Views;
 using Shiro.Services;
 using Xunit;
 
@@ -180,6 +184,127 @@ namespace Shiro.Tests
                 currentQueueAccount: null);
 
             Assert.Equal(FastLoginCaptureStatus.RetryPolling, retryResult.Status);
+        }
+
+        [Fact]
+        public void ClassifyDomIssueCode_WhenUiIsVietnamese_MatchesEnglishDomWithoutSubstringCollisions()
+        {
+            var prevLang = LocalizationService.CurrentLanguage;
+            try
+            {
+                LocalizationService.SetLanguage(AppLanguage.Vietnamese, saveSetting: false);
+
+                Assert.Equal("BAN_1_DAY", FastLoginCoordinator.ClassifyDomIssueCode("Banned for 1 day", isModUrl: true));
+                Assert.NotEqual("BAN_1_DAY", FastLoginCoordinator.ClassifyDomIssueCode("Banned for 21 days", isModUrl: true));
+                Assert.Equal("ACCOUNT_BANNED", FastLoginCoordinator.ClassifyDomIssueCode("Banned for 21 days", isModUrl: true));
+                Assert.Equal("ACCOUNT_BANNED", FastLoginCoordinator.ClassifyDomIssueCode("Banned for 17 days", isModUrl: true));
+                Assert.Equal("ACCOUNT_BANNED", FastLoginCoordinator.ClassifyDomIssueCode("Banned for 13 days", isModUrl: true));
+                Assert.Equal("BAN_14_DAYS", FastLoginCoordinator.ClassifyDomIssueCode("Banned for 14 days", isModUrl: true));
+                Assert.Equal("BAN_7_DAYS", FastLoginCoordinator.ClassifyDomIssueCode("7-day suspension", isModUrl: true));
+                Assert.Equal("BAN_3_DAYS", FastLoginCoordinator.ClassifyDomIssueCode("Banned for 3 days", isModUrl: true));
+                Assert.Equal("WRONG_PASSWORD", FastLoginCoordinator.ClassifyDomIssueCode("Incorrect username or password.", isModUrl: false));
+                Assert.Equal("WRONG_PASSWORD", FastLoginCoordinator.ClassifyDomIssueCode("Wrong password", isModUrl: false));
+                Assert.Equal("TERMINATED", FastLoginCoordinator.ClassifyDomIssueCode("Account deleted permanently", isModUrl: true));
+                Assert.Equal("WARNING", FastLoginCoordinator.ClassifyDomIssueCode("Moderation warning", isModUrl: true));
+                Assert.Equal("ACCOUNT_LOCKED", FastLoginCoordinator.ClassifyDomIssueCode("Account locked", isModUrl: false));
+
+                // MapDomIssueCode remains localized for UI display
+                var (badge, _) = FastLoginCoordinator.ClassifyDomIssueText("Banned for 1 day", isModUrl: true);
+                Assert.Equal("Ban 1 ngày", badge);
+
+                // Policy 1: ClassifyDomIssueCode must NOT match localized Vietnamese keywords
+                Assert.Equal(string.Empty, FastLoginCoordinator.ClassifyDomIssueCode("sai mật khẩu", isModUrl: false));
+            }
+            finally
+            {
+                LocalizationService.SetLanguage(prevLang, saveSetting: false);
+                Avalonia.Application.Current?.Resources.MergedDictionaries.Clear();
+            }
+        }
+
+        private const string CapturedWrongPassJson = "{\"type\":\"shiro_password_captured\",\"password\":\"WrongUserPass!\"}";
+
+        private static Account MakeAcc(string username, string password) =>
+            new Account { Username = username, Password = password };
+
+        [AvaloniaFact]
+        public async Task Task3_FastLoginDialog_HandleWebViewInitializedAsync_AbortsPostAwaitWhenClosed()
+        {
+            string viewsDir = Path.Combine(ArchitectureTests.RepoRoot, "src", "Shiro", "AvaloniaUI", "Views");
+            string axamlCs = File.ReadAllText(Path.Combine(viewsDir, "FastLoginDialog.axaml.cs"));
+            int initIdx = axamlCs.IndexOf("private async Task HandleWebViewInitializedAsync", StringComparison.Ordinal);
+            Assert.True(initIdx >= 0);
+            int nextIdx = axamlCs.IndexOf("private int _isPollTickBusy", initIdx, StringComparison.Ordinal);
+            string initSlice = nextIdx > initIdx ? axamlCs.Substring(initIdx, nextIdx - initIdx) : axamlCs.Substring(initIdx);
+            Assert.Contains("_isClosed", initSlice, StringComparison.Ordinal);
+            Assert.Contains("InitializeCoreSessionAsync", initSlice, StringComparison.Ordinal);
+
+            var flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            var initSessionMethod = typeof(FastLoginDialog).GetMethod("InitializeCoreSessionAsync", flags);
+            Assert.NotNull(initSessionMethod);
+
+            FastLoginDialog? dlg = null;
+            try
+            {
+                dlg = new FastLoginDialog();
+                var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                bool navigated = false;
+                Func<Task> configure = () => gate.Task;
+                Func<Account, Task<string?>> restore = _ => Task.FromResult<string?>(null);
+                Action<string> nav = _ => navigated = true;
+
+                Task run = (Task)initSessionMethod!.Invoke(dlg, new object[] { configure, restore, nav })!;
+                dlg.Close();
+                gate.SetResult();
+                await run;
+
+                Assert.False(navigated);
+                Assert.Null(typeof(FastLoginDialog).GetField("_pollTimer", flags)!.GetValue(dlg));
+            }
+            finally
+            {
+                dlg?.Close();
+                Avalonia.Application.Current?.Resources.MergedDictionaries.Clear();
+            }
+        }
+
+        [AvaloniaFact]
+        public void Task3_FastLoginDialog_PreservesPasswordAcrossMismatchReset()
+        {
+            var flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            var handleMsgMethod = typeof(FastLoginDialog).GetMethod("HandleWebMessageJson", flags);
+            var resetMethod = typeof(FastLoginDialog).GetMethod("ResetMismatchState", flags);
+            var effectivePassMethod = typeof(FastLoginDialog).GetMethod("GetEffectivePasswordForCommit", flags);
+            var passField = typeof(FastLoginDialog).GetField("_password", flags);
+            Assert.NotNull(handleMsgMethod);
+            Assert.NotNull(resetMethod);
+            Assert.NotNull(effectivePassMethod);
+            Assert.NotNull(passField);
+
+            FastLoginDialog? dlgSaved = null;
+            FastLoginDialog? dlgEmpty = null;
+            try
+            {
+                dlgSaved = new FastLoginDialog(MakeAcc("ExpectedUser", "SavedPass1!"));
+                handleMsgMethod!.Invoke(dlgSaved, new object?[] { CapturedWrongPassJson });
+                Assert.Equal("SavedPass1!", passField!.GetValue(dlgSaved));
+                Assert.Equal("WrongUserPass!", effectivePassMethod!.Invoke(dlgSaved, null));
+                resetMethod!.Invoke(dlgSaved, null);
+                Assert.Equal("SavedPass1!", passField.GetValue(dlgSaved));
+                Assert.Equal("SavedPass1!", effectivePassMethod.Invoke(dlgSaved, null));
+
+                dlgEmpty = new FastLoginDialog(MakeAcc("NoPassUser", string.Empty));
+                handleMsgMethod.Invoke(dlgEmpty, new object?[] { CapturedWrongPassJson });
+                Assert.Equal(string.Empty, passField.GetValue(dlgEmpty));
+                resetMethod.Invoke(dlgEmpty, null);
+                Assert.Equal(string.Empty, effectivePassMethod.Invoke(dlgEmpty, null));
+            }
+            finally
+            {
+                dlgSaved?.Close();
+                dlgEmpty?.Close();
+                Avalonia.Application.Current?.Resources.MergedDictionaries.Clear();
+            }
         }
     }
 }

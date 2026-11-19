@@ -60,13 +60,25 @@ namespace Shiro.Services
             {
                 try
                 {
+                    var contentStream = request.Content.ReadAsStream(CancellationToken.None);
+                    if (!contentStream.CanRead)
+                        return false;
+
+                    if (contentStream.CanSeek)
+                        contentStream.Position = 0;
+
                     using var ms = new System.IO.MemoryStream();
-                    request.Content.CopyTo(ms, context: null, CancellationToken.None);
+                    contentStream.CopyTo(ms);
+
+                    if (contentStream.CanSeek)
+                        contentStream.Position = 0;
+
                     bodyContent = System.Text.Encoding.UTF8.GetString(ms.GetBuffer(), 0, (int)ms.Length);
                 }
                 catch (Exception ex)
                 {
                     _logger.Debug($"[RobloxHbaService] Sync body read failed: {ex.Message}");
+                    return false;
                 }
             }
 

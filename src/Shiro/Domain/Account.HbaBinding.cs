@@ -118,7 +118,17 @@ namespace Shiro
                     }
                 }
                 lock (FieldsSyncRoot)
+                {
                     Fields?.Remove(FieldHbaPrivateKey);
+                    if (changed &&
+                        Fields != null &&
+                        Fields.TryGetValue(FieldHbaPublicKey, out string? existingPub) &&
+                        !string.IsNullOrEmpty(existingPub) &&
+                        (string.IsNullOrEmpty(normalized) || !RobloxHbaService.DoPublicAndPrivateKeysMatch(normalized, existingPub)))
+                    {
+                        Fields.Remove(FieldHbaPublicKey);
+                    }
+                }
                 if (changed && !IsSuppressingDeferredSave)
                     IsDirty = true;
             }
@@ -205,8 +215,16 @@ namespace Shiro
                 RobloxHbaService.IsValidPkcs8EcdsaKey(snapshot.PrivateKeyPkcs8Base64))
             {
                 HbaPrivateKey = snapshot.PrivateKeyPkcs8Base64;
-                if (!string.IsNullOrWhiteSpace(snapshot.PublicKeySpkiBase64))
+                if (!string.IsNullOrWhiteSpace(snapshot.PublicKeySpkiBase64) &&
+                    RobloxHbaService.DoPublicAndPrivateKeysMatch(snapshot.PrivateKeyPkcs8Base64, snapshot.PublicKeySpkiBase64))
+                {
                     HbaPublicKey = snapshot.PublicKeySpkiBase64;
+                }
+                else if (!string.IsNullOrWhiteSpace(HbaPublicKey) &&
+                         !RobloxHbaService.DoPublicAndPrivateKeysMatch(snapshot.PrivateKeyPkcs8Base64, HbaPublicKey))
+                {
+                    HbaPublicKey = string.Empty;
+                }
             }
 
             if (!string.IsNullOrWhiteSpace(snapshot.TokenTemplate))

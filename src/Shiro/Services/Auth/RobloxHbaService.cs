@@ -167,6 +167,11 @@ namespace Shiro.Services
                         if (incomingAuth) snapshot.IsAuthoritativeKey = true;
                         if (incomingSaiBound) snapshot.IsSaiBound = true;
                         updatedPrivateKey = true;
+                        if (!string.IsNullOrEmpty(snapshot.PublicKeySpkiBase64) &&
+                            !DoPublicAndPrivateKeysMatch(priv, snapshot.PublicKeySpkiBase64))
+                        {
+                            snapshot.PublicKeySpkiBase64 = string.Empty;
+                        }
                     }
                 }
             }
@@ -197,7 +202,7 @@ namespace Shiro.Services
             }
         }
 
-        private static bool DoPublicAndPrivateKeysMatch(string pkcs8Base64, string spkiBase64)
+        internal static bool DoPublicAndPrivateKeysMatch(string pkcs8Base64, string spkiBase64)
         {
             byte[]? privBytes = null;
             byte[]? expectedSpki = null;

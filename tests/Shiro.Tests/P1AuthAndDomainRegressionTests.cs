@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -307,6 +308,133 @@ namespace Shiro.Tests
             using var docBadKey = JsonDocument.Parse("{\"privateKeyPkcs8\":\"not_valid_base64_key\",\"publicKeySpki\":\"bad_spki\"}");
             RobloxHbaService.MergeCapturePayloadIntoSnapshot(snap, docBadKey.RootElement);
             Assert.False(snap.HasPrivateKey);
+        }
+
+        private const string HbaBodyJson = "{\"k\":1}";
+
+        private static string BuildHbaRotateJson(string privKey) =>
+            JsonSerializer.Serialize(new Dictionary<string, object>
+            {
+                ["privateKeyPkcs8"] = privKey,
+                ["saiBound"] = true
+            });
+
+        private static Account MakeAccount(string username, string password) =>
+            new Account { Username = username, Password = password };
+
+        private sealed class UnreadableTestStream : Stream
+        {
+            public override bool CanRead => false;
+            public override bool CanSeek => false;
+            public override bool CanWrite => false;
+            public override long Length => throw new NotSupportedException();
+            public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+            public override void Flush() { }
+            public override int Read(byte[] buffer, int offset, int count) => throw new IOException("Unreadable");
+            public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+            public override void SetLength(long value) => throw new NotSupportedException();
+            public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+        }
+
+        [Fact]
+        public void Task3_HbaService_RewindsSeekableStream_FailsClosedOnUnreadable_AndClearsStaleSpkiOnKeyRotation()
+        {
+            string oldPrivKey = CreateValidTestPkcs8();
+            string newPrivKey = CreateValidTestPkcs8();
+            using var oldEc = ECDsa.Create();
+            oldEc.ImportPkcs8PrivateKey(Convert.FromBase64String(oldPrivKey), out _);
+            string oldPubKey = Convert.ToBase64String(oldEc.ExportSubjectPublicKeyInfo());
+
+            var acc = MakeAccount("HbaT3User", string.Empty);
+            acc.ApplyHbaCapture(new RobloxHbaService.CaptureSnapshot
+            {
+                PrivateKeyPkcs8Base64 = oldPrivKey,
+                PublicKeySpkiBase64 = oldPubKey
+            });
+            Assert.Equal(oldPubKey, acc.HbaPublicKey);
+
+            using var ms = new MemoryStream(Encoding.UTF8.GetBytes(HbaBodyJson));
+            ms.Position = ms.Length;
+            using var req = new HttpRequestMessage(HttpMethod.Post, "https://apis.roblox.com/v1/test") { Content = new StreamContent(ms) };
+            Assert.True(RobloxHbaService.TryAttachHbaHeader(req, acc));
+            Assert.Equal(0, ms.Position);
+            string batHeader = req.Headers.GetValues(RobloxHbaService.BoundAuthHeaderName).Single();
+            string expectedHash = Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(HbaBodyJson)));
+            Assert.Equal(expectedHash, batHeader.Split('|')[1]);
+
+            using var badReq = new HttpRequestMessage(HttpMethod.Post, "https://apis.roblox.com/v1/test") { Content = new StreamContent(new UnreadableTestStream()) };
+            Assert.False(RobloxHbaService.TryAttachHbaHeader(badReq, acc));
+            Assert.False(badReq.Headers.Contains(RobloxHbaService.BoundAuthHeaderName));
+
+            var snap = new RobloxHbaService.CaptureSnapshot
+            {
+                PrivateKeyPkcs8Base64 = oldPrivKey,
+                PublicKeySpkiBase64 = oldPubKey,
+                IsAuthoritativeKey = true
+            };
+            using (var doc = JsonDocument.Parse(BuildHbaRotateJson(newPrivKey)))
+            {
+                RobloxHbaService.MergeCapturePayloadIntoSnapshot(snap, doc.RootElement);
+            }
+            Assert.Equal(newPrivKey, snap.PrivateKeyPkcs8Base64);
+            Assert.True(string.IsNullOrEmpty(snap.PublicKeySpkiBase64));
+
+            // Mismatched or empty SPKI on rotation must clear stale HbaPublicKey
+            acc.ApplyHbaCapture(new RobloxHbaService.CaptureSnapshot
+            {
+                PrivateKeyPkcs8Base64 = newPrivKey,
+                PublicKeySpkiBase64 = oldPubKey
+            });
+            Assert.Equal(newPrivKey, acc.HbaPrivateKey);
+            Assert.Equal(string.Empty, acc.HbaPublicKey);
+
+            // Direct key rotation via property setter also clears stale SPKI
+            acc.ApplyHbaCapture(new RobloxHbaService.CaptureSnapshot
+            {
+                PrivateKeyPkcs8Base64 = oldPrivKey,
+                PublicKeySpkiBase64 = oldPubKey
+            });
+            Assert.Equal(oldPubKey, acc.HbaPublicKey);
+            acc.HbaPrivateKey = newPrivKey;
+            Assert.Equal(string.Empty, acc.HbaPublicKey);
+        }
+
+        [Fact]
+        public async Task Task3_BrowserService_SignInGate_SerializesConcurrentSignIns()
+        {
+            var gateField = typeof(BrowserService).GetField("SignInGate", BindingFlags.Static | BindingFlags.NonPublic);
+            Assert.NotNull(gateField);
+            var gate = Assert.IsType<SemaphoreSlim>(gateField!.GetValue(null));
+            Assert.True(gate.CurrentCount <= 1, "Expected SignInGate CurrentCount <= 1, got " + gate.CurrentCount);
+
+            var prevOverride = BrowserService.TestSignInOverride;
+            int active = 0, maxActive = 0;
+            var firstEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var releaseFirst = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            try
+            {
+                BrowserService.TestSignInOverride = async (user, _, _, _, _) =>
+                {
+                    int cur = Interlocked.Increment(ref active);
+                    if (cur > maxActive) maxActive = cur;
+                    if (user == "user1") { firstEntered.TrySetResult(); await releaseFirst.Task; }
+                    Interlocked.Decrement(ref active);
+                    return MakeAccount(user ?? string.Empty, string.Empty);
+                };
+                var t1 = BrowserService.Default.SignInAsync("user1", "p1", 0);
+                await firstEntered.Task;
+                var t2 = BrowserService.Default.SignInAsync("user2", "p2", 1);
+                await Task.Delay(40);
+                Assert.Equal(1, Volatile.Read(ref active));
+                releaseFirst.TrySetResult();
+                await Task.WhenAll(t1, t2);
+                Assert.Equal(1, maxActive);
+            }
+            finally
+            {
+                releaseFirst.TrySetResult();
+                BrowserService.TestSignInOverride = prevOverride;
+            }
         }
     }
 }

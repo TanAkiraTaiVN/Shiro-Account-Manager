@@ -324,5 +324,133 @@ namespace Shiro.Services
 
             return null;
         }
+
+        public static async Task<string?> EvaluateAsyncJsStringAsync(CoreWebView2? core, string asyncJsExpression)
+        {
+            if (core == null || string.IsNullOrWhiteSpace(asyncJsExpression))
+                return null;
+
+            try
+            {
+                string escapedExpr = JsonSerializer.Serialize(asyncJsExpression, ShiroAppJson.Default.String);
+                string cdpParams = $"{{\"expression\":{escapedExpr},\"awaitPromise\":true,\"returnByValue\":true}}";
+                string cdpResponse = await core.CallDevToolsProtocolMethodAsync("Runtime.evaluate", cdpParams);
+                if (!string.IsNullOrWhiteSpace(cdpResponse))
+                {
+                    using var doc = JsonDocument.Parse(cdpResponse);
+                    if (doc.RootElement.TryGetProperty("result", out var resEl) &&
+                        resEl.TryGetProperty("value", out var valEl) &&
+                        valEl.ValueKind == JsonValueKind.String)
+                    {
+                        return valEl.GetString();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                AppServices.Logger?.Debug($"[FastLogin] CDP Runtime.evaluate awaitPromise threw: {ex.Message}");
+            }
+
+            return null;
+        }
+
+        public static async Task<string?> FetchAuthenticatedUserJsonAsync(CoreWebView2 core)
+        {
+            try
+            {
+                string? resolvedAuthJson = await EvaluateAsyncJsStringAsync(core, @"
+                    (async () => {
+                        try {
+                            const res = await fetch('https://users.roblox.com/v1/users/authenticated', { method: 'GET', credentials: 'include', headers: { 'Accept': 'application/json' } });
+                            if (res.ok) { const d = await res.json(); if (d && d.id) return JSON.stringify({ UserId: d.id, Name: d.name, DisplayName: d.displayName }); }
+                        } catch (_) { /* ignore fetch error */ }
+                        return '';
+                    })()");
+                if (!string.IsNullOrWhiteSpace(resolvedAuthJson) && resolvedAuthJson.StartsWith('{'))
+                    return resolvedAuthJson;
+            }
+            catch (Exception ex)
+            {
+                AppServices.Logger?.Debug($"Trigger in-page auth request threw: {ex.Message}");
+            }
+
+            return null;
+        }
+
+        public static async Task<RobloxHbaService.CaptureSnapshot> CollectHbaAndTrackerSnapshotAsync(
+            CoreWebView2? core,
+            RobloxHbaService.CaptureSnapshot snapshot,
+            string username)
+        {
+            if (core != null)
+            {
+                try
+                {
+                    string? syncedJson = await EvaluateAsyncJsStringAsync(core, @"
+                        (async () => {
+                            try {
+                                if (typeof window.__shiroSyncHbaFromIndexedDb === 'function') {
+                                    return await window.__shiroSyncHbaFromIndexedDb();
+                                }
+                                const s = window.__shiroHbaState || {};
+                                return JSON.stringify({
+                                    privateKeyPkcs8: s.privateKeyPkcs8 || '',
+                                    publicKeySpki: s.publicKeySpki || '',
+                                    tokenTemplate: s.tokenTemplate || '',
+                                    userAgent: s.userAgent || navigator.userAgent || '',
+                                    authoritativeKey: !!s.authoritativeKey,
+                                    saiBound: !!s.saiBound
+                                });
+                            } catch (_) { return ''; }
+                        })()");
+
+                    if (!string.IsNullOrWhiteSpace(syncedJson) && syncedJson.StartsWith('{'))
+                    {
+                        using JsonDocument doc = JsonDocument.Parse(syncedJson);
+                        RobloxHbaService.MergeCapturePayloadIntoSnapshot(snapshot, doc.RootElement);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    AppServices.Logger?.Debug($"[FastLogin] Reading final HBA state from IndexedDB/DOM threw: {ex.Message}");
+                }
+
+                try
+                {
+                    string[] trackerOrigins = { "https://www.roblox.com", "https://roblox.com" };
+                    foreach (string origin in trackerOrigins)
+                    {
+                        var cookies = await core.CookieManager.GetCookiesAsync(origin);
+                        foreach (var c in cookies)
+                        {
+                            if (c.Name.Equals("RBXEventTrackerV2", StringComparison.OrdinalIgnoreCase))
+                            {
+                                string? btid = RobloxHbaService.ExtractBrowserTrackerIdFromCookie(c.Value);
+                                if (!string.IsNullOrWhiteSpace(btid))
+                                {
+                                    snapshot.BrowserTrackerId = btid;
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (!string.IsNullOrWhiteSpace(snapshot.BrowserTrackerId))
+                            break;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    AppServices.Logger?.Debug($"[FastLogin] Reading RBXEventTrackerV2 cookie threw: {ex.Message}");
+                }
+            }
+
+            if (snapshot.HasPrivateKey)
+            {
+                snapshot.TokenTemplate = RobloxHbaService.NormalizeTemplate(snapshot.TokenTemplate);
+                AppServices.Logger?.Info($"[FastLogin] Captured HBA ECDSA device-binding key for '{username}' (template='{snapshot.TokenTemplate}', trackerId={!string.IsNullOrEmpty(snapshot.BrowserTrackerId)}).");
+            }
+
+            return snapshot;
+        }
     }
 }

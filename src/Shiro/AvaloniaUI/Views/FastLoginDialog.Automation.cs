@@ -121,23 +121,7 @@ namespace Shiro.AvaloniaUI.Views
 
                 if (!string.IsNullOrEmpty(raw))
                 {
-                    using var doc = JsonDocument.Parse(raw);
-                    if (TryHandleHbaWebMessage(doc.RootElement))
-                        return;
-
-                    if (doc.RootElement.TryGetProperty("type", out var typeEl) &&
-                        typeEl.ValueKind == JsonValueKind.String &&
-                        typeEl.GetString() == "shiro_password_captured" &&
-                        doc.RootElement.TryGetProperty("password", out var passEl) &&
-                        passEl.ValueKind == JsonValueKind.String)
-                    {
-                        string? pass = passEl.GetString();
-                        if (!string.IsNullOrEmpty(pass))
-                        {
-                            // Store locally on the dialog until captured session passes username verification.
-                            _password = pass;
-                        }
-                    }
+                    HandleWebMessageJson(raw);
                 }
             }
             catch (Exception ex)
@@ -146,18 +130,52 @@ namespace Shiro.AvaloniaUI.Views
             }
         }
 
+        internal void HandleWebMessageJson(string? raw)
+        {
+            if (string.IsNullOrEmpty(raw))
+                return;
+
+            using var doc = JsonDocument.Parse(raw);
+            if (TryHandleHbaWebMessage(doc.RootElement))
+                return;
+
+            if (doc.RootElement.TryGetProperty("type", out var typeEl) &&
+                typeEl.ValueKind == JsonValueKind.String &&
+                typeEl.GetString() == "shiro_password_captured" &&
+                doc.RootElement.TryGetProperty("password", out var passEl) &&
+                passEl.ValueKind == JsonValueKind.String)
+            {
+                string? pass = passEl.GetString();
+                if (!string.IsNullOrEmpty(pass))
+                {
+                    // Hold DOM-captured password separately until username verification passes.
+                    _pendingCapturedPassword = pass;
+                }
+            }
+        }
+
+        internal string GetEffectivePasswordForCommit() =>
+            !string.IsNullOrEmpty(_pendingCapturedPassword) ? _pendingCapturedPassword : _password;
+
+        internal void ResetMismatchState()
+        {
+            _pendingCapturedPassword = null;
+            _pendingCapturedFp = null;
+            ResetHbaSnapshot();
+        }
+
         private Task ClearAuthCookiesAsync() =>
             FastLoginCoordinator.ClearWebViewAuthCookiesAsync(WvBrowser?.CoreWebView2, _ignoredCookieValues);
 
         private async Task<string> CaptureSettledCookieAndDomPasswordAsync(CoreWebView2 core, string initialCookieValue)
         {
             string cookieValue = await FastLoginScripts.ResolveSettledCookieAsync(core, initialCookieValue, _ignoredCookieValues);
-            if (string.IsNullOrEmpty(_password))
+            if (string.IsNullOrEmpty(_pendingCapturedPassword))
             {
                 string? extracted = await FastLoginScripts.TryExtractDomPasswordAsync(core);
                 if (!string.IsNullOrEmpty(extracted))
                 {
-                    _password = extracted;
+                    _pendingCapturedPassword = extracted;
                 }
             }
             return cookieValue;

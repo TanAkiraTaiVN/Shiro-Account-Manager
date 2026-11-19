@@ -50,18 +50,21 @@ namespace Shiro.AvaloniaUI.Views
                 _restoredModerationCookieFp = null;
                 _hasSeenModerationPage = false;
                 _pendingCapturedFp = null;
+                _pendingCapturedPassword = null;
 
                 ResetHbaSnapshot();
                 await ClearAuthCookiesAsync();
+                if (_isClosed) return;
 
                 _captured = false;
                 _pollTimer?.Start();
 
                 core.Navigate("https://www.roblox.com/login");
                 await AsyncWaitHelper.WaitUntilAsync(
-                    () => (core.Source ?? string.Empty).Contains("/login", StringComparison.OrdinalIgnoreCase),
+                    () => _isClosed || (core.Source ?? string.Empty).Contains("/login", StringComparison.OrdinalIgnoreCase),
                     TimeSpan.FromMilliseconds(1200),
                     TimeSpan.FromMilliseconds(50));
+                if (_isClosed) return;
                 await TryFillCredentialsAsync(forceClick: true);
             }
             catch (Exception ex) { AppServices.Logger?.Debug($"RedirectUnauthenticatedModerationToLoginAsync threw: {ex.Message}"); }
@@ -89,8 +92,40 @@ namespace Shiro.AvaloniaUI.Views
                 _captured = true;
                 _pollTimer?.Stop();
                 await Task.Delay(500);
+                if (_isClosed) return;
                 await AdvanceToNextAccountOrCloseAsync();
             }
+        }
+
+        private async Task ResetToFreshLoginProfileAsync(bool waitForLoginUrl)
+        {
+            if (_isClosed) return;
+            ResetMismatchState();
+            var freshCore = WvBrowser != null ? await WvBrowser.ResetToFreshProfileAsync() : null;
+            if (_isClosed) return;
+            if (freshCore != null)
+            {
+                await ConfigureCoreWebViewAsync(freshCore);
+                if (_isClosed) return;
+                freshCore.Navigate("https://www.roblox.com/login");
+            }
+
+            if (waitForLoginUrl)
+            {
+                await AsyncWaitHelper.WaitUntilAsync(
+                    () => _isClosed || (WvBrowser?.CoreWebView2?.Source ?? string.Empty).Contains("/login", StringComparison.OrdinalIgnoreCase),
+                    TimeSpan.FromMilliseconds(350),
+                    TimeSpan.FromMilliseconds(50));
+            }
+            else
+            {
+                await Task.Delay(350);
+            }
+
+            if (_isClosed) return;
+            _captured = false;
+            _pollTimer?.Start();
+            await TryFillCredentialsAsync(forceClick: true);
         }
 
         private async Task AdvanceToNextAccountOrCloseAsync()
@@ -118,28 +153,7 @@ namespace Shiro.AvaloniaUI.Views
                     TxtInAppStatus.Text = Shiro.Services.LocalizationService.Format("FastLogin.TransitioningToNext", _username, _queue.Index + 1, _queue.Count);
                     TxtInAppStatus.Foreground = Brushes.DeepSkyBlue;
 
-                    if (WvBrowser != null && !_isClosed)
-                    {
-                        _pendingCapturedFp = null;
-                        ResetHbaSnapshot();
-                        var freshCore = await WvBrowser.ResetToFreshProfileAsync();
-                        if (_isClosed) return;
-                        if (freshCore != null)
-                        {
-                            await ConfigureCoreWebViewAsync(freshCore);
-                            if (_isClosed) return;
-                            freshCore.Navigate("https://www.roblox.com/login");
-                        }
-                    }
-
-                    await AsyncWaitHelper.WaitUntilAsync(
-                        () => _isClosed || (WvBrowser?.CoreWebView2?.Source ?? string.Empty).Contains("/login", StringComparison.OrdinalIgnoreCase),
-                        TimeSpan.FromMilliseconds(350),
-                        TimeSpan.FromMilliseconds(50));
-                    if (_isClosed) return;
-                    _captured = false;
-                    _pollTimer?.Start();
-                    await TryFillCredentialsAsync(forceClick: true);
+                    await ResetToFreshLoginProfileAsync(waitForLoginUrl: true);
                 }
                 else
                 {
@@ -162,6 +176,7 @@ namespace Shiro.AvaloniaUI.Views
             {
                 qAcc.SecurityToken = cookieValue;
                 var modHba = await CollectFinalHbaAndFingerprintAsync(core);
+                if (_isClosed) return;
                 qAcc.ApplyHbaCapture(modHba);
                 if (_queue.Count == 1)
                 {
@@ -175,7 +190,9 @@ namespace Shiro.AvaloniaUI.Views
             }
             _pendingCapturedFp = null;
             if (delayMs > 0) await Task.Delay(delayMs);
+            if (_isClosed) return;
             var (b, r) = await DetectDomAccountIssueAsync(core);
+            if (_isClosed) return;
             if (b == "UNAUTHENTICATED_MODERATION") { await RedirectUnauthenticatedModerationToLoginAsync(core); return; }
             await MarkCurrentAccountIssueAndSkipAsync(b ?? Shiro.Services.LocalizationService.Get("FastLogin.LockedOrBannedBadge"), r ?? Shiro.Services.LocalizationService.Get("FastLogin.AccountLockedOrModerated"));
         }
@@ -326,29 +343,18 @@ namespace Shiro.AvaloniaUI.Views
                         return;
                     }
 
-                    string? inPageAccountJson = null;
-                    try
-                    {
-                        string? resolvedAuthJson = await EvaluateAsyncJsStringAsync(core, @"
-                            (async () => {
-                                try {
-                                    const res = await fetch('https://users.roblox.com/v1/users/authenticated', { method: 'GET', credentials: 'include', headers: { 'Accept': 'application/json' } });
-                                    if (res.ok) { const d = await res.json(); if (d && d.id) return JSON.stringify({ UserId: d.id, Name: d.name, DisplayName: d.displayName }); }
-                                } catch (_) { /* ignore fetch error */ }
-                                return '';
-                            })()");
-                        if (!string.IsNullOrWhiteSpace(resolvedAuthJson) && resolvedAuthJson.StartsWith('{'))
-                            inPageAccountJson = resolvedAuthJson;
-                    }
-                    catch (Exception ex) { AppServices.Logger?.Debug($"Trigger in-page auth request threw: {ex.Message}"); }
+                    string? inPageAccountJson = await FastLoginScripts.FetchAuthenticatedUserJsonAsync(core);
+                    if (_isClosed) return;
 
                     var hbaSnapshot = await CollectFinalHbaAndFingerprintAsync(core);
+                    if (_isClosed) return;
                     string cookieValue = await CaptureSettledCookieAndDomPasswordAsync(core, secCookie.Value);
+                    if (_isClosed) return;
 
                     var captureOutcome = await FastLoginCoordinator.ResolveAndCommitCapturedSessionAsync(
                         cookieValue,
                         _username,
-                        _password,
+                        GetEffectivePasswordForCommit(),
                         CookieViewModel.Alias?.Trim(),
                         CookieViewModel.Group?.Trim(),
                         inPageAccountJson,
@@ -356,6 +362,7 @@ namespace Shiro.AvaloniaUI.Views
                         _queue.Count,
                         GetCurrentQueueAccount(),
                         () => DetectDomAccountIssueAsync(core));
+                    if (_isClosed) return;
                     FastLoginScripts.ApplySettlementOutcome(
                         captureOutcome.Status,
                         _ignoredCookieValues,
@@ -368,6 +375,7 @@ namespace Shiro.AvaloniaUI.Views
                     switch (captureOutcome.Status)
                     {
                         case FastLoginCaptureStatus.Success:
+                            _pendingCapturedPassword = null;
                             CreatedAccount = captureOutcome.Account;
                             if (_queue.Count > 0 && captureOutcome.Account != null)
                                 MainWindow.Instance?.ViewModel?.UpdateAccountValidity(captureOutcome.Account, true);
@@ -392,33 +400,23 @@ namespace Shiro.AvaloniaUI.Views
                             TxtInAppStatus.Text = mismatchMsg;
                             TxtInAppStatus.Foreground = Brushes.Orange;
                             AppServices.HostUiBridge.NotifyWindowStatus(mismatchMsg);
-                            ResetHbaSnapshot();
-                            var freshCore = WvBrowser != null ? await WvBrowser.ResetToFreshProfileAsync() : null;
-                            if (_isClosed) return;
-                            if (freshCore != null)
-                            {
-                                await ConfigureCoreWebViewAsync(freshCore);
-                                if (_isClosed) return;
-                                freshCore.Navigate("https://www.roblox.com/login");
-                            }
-                            await Task.Delay(350);
-                            if (_isClosed) return;
-                            _captured = false;
-                            _pollTimer?.Start();
-                            await TryFillCredentialsAsync(forceClick: true);
+                            await ResetToFreshLoginProfileAsync(waitForLoginUrl: false);
                             return;
 
                         case FastLoginCaptureStatus.UnauthenticatedModeration:
+                            _pendingCapturedPassword = null;
                             await RedirectUnauthenticatedModerationToLoginAsync(core);
                             return;
 
                         case FastLoginCaptureStatus.AccountIssue:
+                            _pendingCapturedPassword = null;
                             await MarkCurrentAccountIssueAndSkipAsync(
                                 captureOutcome.IssueBadge ?? Shiro.Services.LocalizationService.Get("FastLogin.LockedOrBannedBadge"),
                                 captureOutcome.Reason ?? Shiro.Services.LocalizationService.Get("FastLogin.SessionLockedOrModerated"));
                             return;
 
                         default:
+                            if (_isClosed) return;
                             _captured = false;
                             _pollTimer?.Start();
                             return;
