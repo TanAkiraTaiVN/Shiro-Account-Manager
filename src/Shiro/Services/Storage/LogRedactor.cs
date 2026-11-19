@@ -42,6 +42,9 @@ namespace Shiro.Services
         [GeneratedRegex(@"(/bot)\d+:[A-Za-z0-9_\-]+(/|$|\s)", RegexOptions.IgnoreCase)]
         private static partial Regex TelegramBotUrlRegex();
 
+        [GeneratedRegex(@"\b\d{8,12}:[A-Za-z0-9_-]{35}\b")]
+        private static partial Regex TelegramBotTokenRegex();
+
         [GeneratedRegex(@"(https?://(?:(?:ptb|canary)\.)?(?:discord|discordapp)\.com/api/(?:v\d+/)?webhooks/\d+/)[A-Za-z0-9_\-]+", RegexOptions.IgnoreCase)]
         private static partial Regex DiscordWebhookUrlRegex();
 
@@ -56,6 +59,47 @@ namespace Shiro.Services
             span.IndexOf("access_token=", StringComparison.OrdinalIgnoreCase) >= 0 ||
             span.IndexOf("refresh_token=", StringComparison.OrdinalIgnoreCase) >= 0 ||
             span.IndexOf("client_secret=", StringComparison.OrdinalIgnoreCase) >= 0;
+
+        private static bool ContainsTelegramTokenCandidate(ReadOnlySpan<char> span)
+        {
+            int offset = 0;
+            while (offset < span.Length)
+            {
+                int relColon = span.Slice(offset).IndexOf(':');
+                if (relColon < 0)
+                    return false;
+
+                int colon = offset + relColon;
+                if (colon >= 8 && span.Length - colon > 35 &&
+                    HasTrailingDigits(span, colon, 8) &&
+                    HasTelegramTokenCharsAfter(span, colon, 35))
+                    return true;
+
+                offset = colon + 1;
+            }
+            return false;
+        }
+
+        private static bool HasTrailingDigits(ReadOnlySpan<char> span, int colonIndex, int count)
+        {
+            for (int i = 1; i <= count; i++)
+            {
+                if (!char.IsAsciiDigit(span[colonIndex - i]))
+                    return false;
+            }
+            return true;
+        }
+
+        private static bool HasTelegramTokenCharsAfter(ReadOnlySpan<char> span, int colonIndex, int count)
+        {
+            for (int i = 1; i <= count; i++)
+            {
+                char c = span[colonIndex + i];
+                if (!char.IsAsciiLetterOrDigit(c) && c != '_' && c != '-')
+                    return false;
+            }
+            return true;
+        }
 
         internal static bool MayContainSensitiveData(ReadOnlySpan<char> span)
         {
@@ -77,6 +121,9 @@ namespace Shiro.Services
             }
 
             if (span.IndexOf('"') >= 0 && span.IndexOf(':') >= 0)
+                return true;
+
+            if (span.IndexOf(':') >= 0 && ContainsTelegramTokenCandidate(span))
                 return true;
 
             if (span.IndexOf('=') >= 0 && ContainsFormSecretKey(span))
@@ -132,6 +179,9 @@ namespace Shiro.Services
 
             if (redacted.Contains("/bot", StringComparison.OrdinalIgnoreCase))
                 redacted = TelegramBotUrlRegex().Replace(redacted, "$1[REDACTED_TELEGRAM_TOKEN]$2");
+
+            if (redacted.Contains(':') && ContainsTelegramTokenCandidate(redacted.AsSpan()))
+                redacted = TelegramBotTokenRegex().Replace(redacted, "[REDACTED_TELEGRAM_TOKEN]");
 
             if (redacted.Contains("webhooks/", StringComparison.OrdinalIgnoreCase))
                 redacted = DiscordWebhookUrlRegex().Replace(redacted, "$1[REDACTED_WEBHOOK]");

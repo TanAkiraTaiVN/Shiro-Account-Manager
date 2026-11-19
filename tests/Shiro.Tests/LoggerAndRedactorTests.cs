@@ -103,6 +103,32 @@ namespace Shiro.Tests
             Assert.Contains("Bearer [REDACTED_TOKEN]", formatted);
             Assert.DoesNotContain("super_secret_jwt_token_value", formatted);
         }
+
+        [Theory]
+        [InlineData("Telegram API call failed for 123456789:AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsawX!", "AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsawX", "[REDACTED_TELEGRAM_TOKEN]")]
+        [InlineData("1234567890:AbCdEfGhIjKlMnOpQrStUvWxYz012345678", "AbCdEfGhIjKlMnOpQrStUvWxYz012345678", "[REDACTED_TELEGRAM_TOKEN]")]
+        [InlineData("bot_auth=123456789012:ZzYyXxWwVvUuTtSsRrQqPpOoNnMmLlKk_12", "ZzYyXxWwVvUuTtSsRrQqPpOoNnMmLlKk_12", "[REDACTED_TELEGRAM_TOKEN]")]
+        [InlineData("token=123456789:AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw!", "AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw", "[REDACTED]")]
+        [InlineData("https://api.telegram.org/bot123456789:AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsawX/getMe", "AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsawX", "[REDACTED_TELEGRAM_TOKEN]")]
+        public void LogRedactor_StandaloneTelegramTokenWithoutBotPrefix_IsRedacted(string raw, string secretPart, string expectedMarker)
+        {
+            Assert.True(LogRedactor.MayContainSensitiveData(raw.AsSpan()));
+            string redacted = LogRedactor.Redact(raw);
+            Assert.DoesNotContain(secretPart, redacted, StringComparison.Ordinal);
+            Assert.Contains(expectedMarker, redacted, StringComparison.Ordinal);
+        }
+
+        [Theory]
+        [InlineData("2026-11-04 19:30:15,250 [42] INFO  Account Manager - Multi-Instance Ready")]
+        [InlineData("Server endpoint: 127.0.0.1:7963")]
+        [InlineData("Account 123456789: short status message with enough length")]
+        [InlineData("Trailing colon 123456789:")]
+        public void LogRedactor_BenignColonMessages_ShortCircuitWithoutRedaction(string message)
+        {
+            Assert.False(LogRedactor.MayContainSensitiveData(message.AsSpan()));
+            string redacted = LogRedactor.Redact(message);
+            Assert.Same(message, redacted);
+        }
     }
 }
 

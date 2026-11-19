@@ -158,11 +158,15 @@ namespace Shiro.Services
             string? path = await ResolveExportDestinationAsync();
             if (string.IsNullOrWhiteSpace(path)) return false;
 
-            string? dir = Path.GetDirectoryName(path);
-            if (!string.IsNullOrEmpty(dir))
-                Directory.CreateDirectory(dir);
-            await using var fs = File.Create(path);
-            VaultExportService.ExportVault(AppServices.AccountRepository.GetAll(), pass, fs);
+            var accounts = AppServices.AccountRepository.GetAll();
+            await Task.Run(() =>
+            {
+                string? dir = Path.GetDirectoryName(path);
+                if (!string.IsNullOrEmpty(dir))
+                    Directory.CreateDirectory(dir);
+                using var fs = File.Create(path);
+                VaultExportService.ExportVault(accounts, pass, fs);
+            });
             ToastService.ShowSuccess(LocalizationService.Get("Settings.ExportVaultBtn"), path);
             return true;
         }
@@ -216,8 +220,11 @@ namespace Shiro.Services
                 LocalizationService.Get("Settings.ImportVaultBtn"));
             if (string.IsNullOrWhiteSpace(pass) || pass == "/UC") return false;
 
-            await using var fs = File.OpenRead(path);
-            var imported = VaultExportService.ImportVault(fs, pass);
+            var imported = await Task.Run(() =>
+            {
+                using var fs = File.OpenRead(path);
+                return VaultExportService.ImportVault(fs, pass);
+            });
             int added = 0;
             foreach (var acc in imported)
             {

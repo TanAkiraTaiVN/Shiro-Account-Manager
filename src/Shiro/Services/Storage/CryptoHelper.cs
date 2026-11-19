@@ -70,78 +70,162 @@ namespace Shiro.Services
             {
                 Span<byte> bufA = stackalloc byte[maxByteA];
                 Span<byte> bufB = stackalloc byte[maxByteB];
-                int lenA = Encoding.UTF8.GetBytes(provided.AsSpan(), bufA);
-                int lenB = Encoding.UTF8.GetBytes(expected.AsSpan(), bufB);
                 Span<byte> digestA = stackalloc byte[32];
                 Span<byte> digestB = stackalloc byte[32];
-                System.Security.Cryptography.SHA256.HashData(bufA[..lenA], digestA);
-                System.Security.Cryptography.SHA256.HashData(bufB[..lenB], digestB);
-                bool digestsMatch = CryptographicOperations.FixedTimeEquals(digestA, digestB);
-                return digestsMatch & (lenA == lenB);
+                try
+                {
+                    int lenA = Encoding.UTF8.GetBytes(provided.AsSpan(), bufA);
+                    int lenB = Encoding.UTF8.GetBytes(expected.AsSpan(), bufB);
+                    System.Security.Cryptography.SHA256.HashData(bufA[..lenA], digestA);
+                    System.Security.Cryptography.SHA256.HashData(bufB[..lenB], digestB);
+                    bool digestsMatch = CryptographicOperations.FixedTimeEquals(digestA, digestB);
+                    return digestsMatch & (lenA == lenB);
+                }
+                finally
+                {
+                    CryptographicOperations.ZeroMemory(bufA);
+                    CryptographicOperations.ZeroMemory(bufB);
+                    CryptographicOperations.ZeroMemory(digestA);
+                    CryptographicOperations.ZeroMemory(digestB);
+                }
             }
 
-            byte[] a = Encoding.UTF8.GetBytes(provided);
-            byte[] b = Encoding.UTF8.GetBytes(expected);
+            byte[]? a = null;
+            byte[]? b = null;
             Span<byte> hashA = stackalloc byte[32];
             Span<byte> hashB = stackalloc byte[32];
-            System.Security.Cryptography.SHA256.HashData(a, hashA);
-            System.Security.Cryptography.SHA256.HashData(b, hashB);
-            bool match = CryptographicOperations.FixedTimeEquals(hashA, hashB);
-            return match & (a.Length == b.Length);
+            try
+            {
+                a = Encoding.UTF8.GetBytes(provided);
+                b = Encoding.UTF8.GetBytes(expected);
+                System.Security.Cryptography.SHA256.HashData(a, hashA);
+                System.Security.Cryptography.SHA256.HashData(b, hashB);
+                bool match = CryptographicOperations.FixedTimeEquals(hashA, hashB);
+                return match & (a.Length == b.Length);
+            }
+            finally
+            {
+                if (a != null) CryptographicOperations.ZeroMemory(a);
+                if (b != null) CryptographicOperations.ZeroMemory(b);
+                CryptographicOperations.ZeroMemory(hashA);
+                CryptographicOperations.ZeroMemory(hashB);
+            }
         }
+
+        private const string DpapiPrefix = "dpapi:";
+        private const string VaultPrefix = "vault:";
+        private const int VaultNonceSize = 12;
+        private const int VaultTagSize = 16;
 
         internal static Func<byte[], byte[]>? TestProtectBytesOverride;
 
         /// <summary>
-        /// Encrypts a sensitive string bound to the current Windows user profile using DPAPI.
-        /// Prepends a "dpapi:" prefix to differentiate protected secrets from legacy plaintext.
+        /// Encrypts a sensitive string using the portable AES-256-GCM vault key ("vault:") when
+        /// running in portable mode, or Windows DPAPI ("dpapi:") otherwise.
         /// </summary>
         public static string ProtectSecretString(string plainText)
         {
             if (string.IsNullOrEmpty(plainText)) return string.Empty;
 
             byte[] plainBytes = Encoding.UTF8.GetBytes(plainText);
+            byte[]? enc = null;
+            byte[]? vaultKey = null;
             try
             {
-                byte[] enc = TestProtectBytesOverride != null
-                    ? TestProtectBytesOverride(plainBytes)
-                    : ProtectedData.Protect(plainBytes, null, DataProtectionScope.CurrentUser);
-                return "dpapi:" + Convert.ToBase64String(enc);
+                if (TestProtectBytesOverride != null)
+                {
+                    enc = TestProtectBytesOverride(plainBytes);
+                    return DpapiPrefix + Convert.ToBase64String(enc);
+                }
+
+                StoragePaths.EnsureInitialized();
+                if (StoragePaths.IsPortable)
+                {
+                    vaultKey = StoragePaths.GetOrCreateVaultKeyCopy();
+                    enc = new byte[VaultNonceSize + VaultTagSize + plainBytes.Length];
+                    Span<byte> encSpan = enc;
+                    Span<byte> nonce = encSpan.Slice(0, VaultNonceSize);
+                    Span<byte> tag = encSpan.Slice(VaultNonceSize, VaultTagSize);
+                    Span<byte> ciphertext = encSpan.Slice(VaultNonceSize + VaultTagSize);
+                    RandomNumberGenerator.Fill(nonce);
+                    using var aesGcm = new AesGcm(vaultKey, VaultTagSize);
+                    aesGcm.Encrypt(nonce, plainBytes, ciphertext, tag);
+                    return VaultPrefix + Convert.ToBase64String(enc);
+                }
+
+                enc = ProtectedData.Protect(plainBytes, null, DataProtectionScope.CurrentUser);
+                return DpapiPrefix + Convert.ToBase64String(enc);
             }
             finally
             {
                 CryptographicOperations.ZeroMemory(plainBytes);
+                if (vaultKey != null) CryptographicOperations.ZeroMemory(vaultKey);
+                if (enc != null) CryptographicOperations.ZeroMemory(enc);
             }
         }
 
         /// <summary>
-        /// Decrypts a DPAPI-protected secret string. Falls back to plaintext for legacy unprefixed values,
-        /// and fails closed to <see cref="string.Empty"/> when a "dpapi:" payload cannot be unprotected.
+        /// Decrypts a protected secret string ("vault:" AES-256-GCM or legacy "dpapi:"). Falls back to
+        /// plaintext for legacy unprefixed values, and fails closed to <see cref="string.Empty"/> on error.
         /// </summary>
         public static string UnprotectSecretString(string cipherText)
         {
             if (string.IsNullOrEmpty(cipherText)) return string.Empty;
-            if (!cipherText.StartsWith("dpapi:", StringComparison.Ordinal)) return cipherText;
+            if (cipherText.StartsWith(VaultPrefix, StringComparison.Ordinal))
+                return UnprotectPrefixedPayload(cipherText.Substring(VaultPrefix.Length), "vault", DecryptVaultPayload);
+            if (cipherText.StartsWith(DpapiPrefix, StringComparison.Ordinal))
+                return UnprotectPrefixedPayload(cipherText.Substring(DpapiPrefix.Length), "DPAPI", enc => ProtectedData.Unprotect(enc, null, DataProtectionScope.CurrentUser));
+            return cipherText;
+        }
 
+        private static string UnprotectPrefixedPayload(string payloadBase64, string kindLabel, Func<byte[], byte[]?> decryptor)
+        {
+            byte[]? enc = null;
             byte[]? plain = null;
             try
             {
-                string b64 = cipherText.Substring("dpapi:".Length);
-                byte[] enc = Convert.FromBase64String(b64);
-                plain = ProtectedData.Unprotect(enc, null, DataProtectionScope.CurrentUser);
-                return Encoding.UTF8.GetString(plain);
+                enc = Convert.FromBase64String(payloadBase64);
+                plain = decryptor(enc);
+                return plain == null ? string.Empty : Encoding.UTF8.GetString(plain);
             }
             catch (Exception ex) when (ex is FormatException or CryptographicException)
             {
-                AppServices.Logger.Debug($"[CryptoHelper] Failed to unprotect DPAPI secret: {ex.Message}");
+                AppServices.Logger.Debug($"[CryptoHelper] Failed to unprotect {kindLabel} secret: {ex.Message}");
                 return string.Empty;
             }
             finally
             {
-                if (plain != null)
-                {
-                    CryptographicOperations.ZeroMemory(plain);
-                }
+                if (enc != null) CryptographicOperations.ZeroMemory(enc);
+                if (plain != null) CryptographicOperations.ZeroMemory(plain);
+            }
+        }
+
+        private static byte[]? DecryptVaultPayload(byte[] enc)
+        {
+            if (enc.Length < VaultNonceSize + VaultTagSize)
+                return null;
+
+            int cipherLen = enc.Length - VaultNonceSize - VaultTagSize;
+            ReadOnlySpan<byte> encSpan = enc;
+            ReadOnlySpan<byte> nonce = encSpan.Slice(0, VaultNonceSize);
+            ReadOnlySpan<byte> tag = encSpan.Slice(VaultNonceSize, VaultTagSize);
+            ReadOnlySpan<byte> ciphertext = encSpan.Slice(VaultNonceSize + VaultTagSize, cipherLen);
+
+            byte[] plain = new byte[cipherLen];
+            byte[]? vaultKey = null;
+            bool decrypted = false;
+            try
+            {
+                vaultKey = StoragePaths.GetOrCreateVaultKeyCopy();
+                using var aesGcm = new AesGcm(vaultKey, VaultTagSize);
+                aesGcm.Decrypt(nonce, ciphertext, tag, plain);
+                decrypted = true;
+                return plain;
+            }
+            finally
+            {
+                if (!decrypted) CryptographicOperations.ZeroMemory(plain);
+                if (vaultKey != null) CryptographicOperations.ZeroMemory(vaultKey);
             }
         }
     }

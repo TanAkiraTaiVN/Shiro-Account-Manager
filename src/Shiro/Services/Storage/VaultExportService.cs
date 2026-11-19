@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.IO;
 using System.Security.Cryptography;
@@ -22,6 +23,7 @@ namespace Shiro.Services
         private const int KeySizeBytes = 32;
         public const int Pbkdf2Iterations = 600_000;
         public const int LegacyV1Pbkdf2Iterations = 300_000;
+        public const int MaxEncryptedVaultBytes = 32 * 1024 * 1024;
         private const int HeaderPrefixSizeBytes = 14 + SaltSizeBytes + NonceSizeBytes + TagSizeBytes; // 58 bytes
 
         /// <summary>
@@ -121,16 +123,14 @@ namespace Shiro.Services
             if (source.CanSeek)
             {
                 long remaining = source.Length - source.Position;
-                if (remaining < 0 || remaining > int.MaxValue)
-                    throw new InvalidDataException("Invalid ciphertext length in vault stream.");
+                if (remaining < 0 || remaining > MaxEncryptedVaultBytes)
+                    throw new InvalidDataException($"Encrypted vault payload exceeds maximum allowed size of {MaxEncryptedVaultBytes} bytes.");
                 ciphertext = new byte[(int)remaining];
                 source.ReadExactly(ciphertext);
             }
             else
             {
-                using var ms = new MemoryStream();
-                source.CopyTo(ms);
-                ciphertext = ms.ToArray();
+                ciphertext = ReadBoundedNonSeekablePayload(source);
             }
 
             byte[] plaintext = new byte[ciphertext.Length];
@@ -160,6 +160,36 @@ namespace Shiro.Services
             finally
             {
                 CryptographicOperations.ZeroMemory(plaintext);
+            }
+        }
+
+        private static byte[] ReadBoundedNonSeekablePayload(Stream source)
+        {
+            using var ms = new MemoryStream();
+            byte[] buffer = ArrayPool<byte>.Shared.Rent(64 * 1024);
+            try
+            {
+                long totalRead = 0;
+                while (true)
+                {
+                    int toRead = (int)Math.Min(buffer.Length, (MaxEncryptedVaultBytes - totalRead) + 1);
+                    int read = source.Read(buffer, 0, toRead);
+                    if (read == 0)
+                        break;
+
+                    totalRead += read;
+                    if (totalRead > MaxEncryptedVaultBytes)
+                        throw new InvalidDataException($"Encrypted vault payload exceeds maximum allowed size of {MaxEncryptedVaultBytes} bytes.");
+
+                    ms.Write(buffer, 0, read);
+                }
+
+                return ms.ToArray();
+            }
+            finally
+            {
+                CryptographicOperations.ZeroMemory(buffer);
+                ArrayPool<byte>.Shared.Return(buffer);
             }
         }
     }

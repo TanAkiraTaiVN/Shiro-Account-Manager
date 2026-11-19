@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using NSubstitute;
 using Shiro.Services;
@@ -337,6 +338,142 @@ namespace Shiro.Tests
             fakeLogger.Received().Debug(Arg.Is<string>(s => s.Contains("Description", StringComparison.Ordinal)));
             fakeLogger.Received().Debug(Arg.Is<string>(s => s.Contains("Password", StringComparison.Ordinal) && !s.Contains("PPPP", StringComparison.Ordinal)));
             fakeLogger.Received().Debug(Arg.Is<string>(s => s.Contains("CustomOversized", StringComparison.Ordinal)));
+        }
+
+        [Fact]
+        public void Task2_CryptoHelper_PortableMode_UsesVaultAesGcmEnvelope_AndBackwardCompatDpapi()
+        {
+            string tempDir = CreateTempDir("ShiroT2Portable_");
+            string portableMarker = Path.Combine(AppContext.BaseDirectory, "portable.mode");
+            bool hadMarkerBefore = File.Exists(portableMarker);
+            try
+            {
+                string legacyDpapi = CryptoHelper.ProtectSecretString("legacy-dpapi-secret");
+                Assert.StartsWith("dpapi:", legacyDpapi, StringComparison.Ordinal);
+
+                using var dirScope = StoragePaths.OverrideDataDirectoryForTesting(tempDir);
+                File.WriteAllText(portableMarker, "portable");
+                StoragePaths.ResetInitializedForTesting();
+                StoragePaths.EnsureInitialized();
+                StoragePaths.ReloadVaultKeyCache();
+                Assert.True(StoragePaths.IsPortable);
+
+                string encrypted = CryptoHelper.ProtectSecretString("portable-secret-123");
+                Assert.StartsWith("vault:", encrypted, StringComparison.Ordinal);
+                Assert.DoesNotContain("portable-secret-123", encrypted, StringComparison.Ordinal);
+                Assert.Equal("portable-secret-123", CryptoHelper.UnprotectSecretString(encrypted));
+                Assert.Equal("legacy-dpapi-secret", CryptoHelper.UnprotectSecretString(legacyDpapi));
+
+                byte[] rawPayload = Convert.FromBase64String(encrypted.Substring("vault:".Length));
+                rawPayload[^1] ^= 0xFF;
+                string tampered = "vault:" + Convert.ToBase64String(rawPayload);
+                Assert.Equal(string.Empty, CryptoHelper.UnprotectSecretString(tampered));
+                Assert.Equal(string.Empty, CryptoHelper.UnprotectSecretString("vault:not-valid-base64!!!"));
+                Assert.Equal(string.Empty, CryptoHelper.UnprotectSecretString("vault:AAAA"));
+            }
+            finally
+            {
+                if (!hadMarkerBefore && File.Exists(portableMarker))
+                {
+                    try { File.Delete(portableMarker); }
+                    catch (IOException) { }
+                }
+                StoragePaths.ResetInitializedForTesting();
+                StoragePaths.EnsureInitialized();
+                StoragePaths.ReloadVaultKeyCache();
+                SafeDeleteDir(tempDir);
+            }
+        }
+
+        [Fact]
+        public void Task2_CryptoHelper_FixedTimeEqualsSecret_MatchesAndRejectsShortAndLongSecrets()
+        {
+            Assert.True(CryptoHelper.FixedTimeEqualsSecret("short-secret", "short-secret"));
+            Assert.False(CryptoHelper.FixedTimeEqualsSecret("short-secret", "short-secrex"));
+            Assert.False(CryptoHelper.FixedTimeEqualsSecret("short-secret", "short-secret-2"));
+            Assert.False(CryptoHelper.FixedTimeEqualsSecret(null!, "short-secret"));
+            Assert.False(CryptoHelper.FixedTimeEqualsSecret("short-secret", null!));
+
+            string longA = new string('K', 400);
+            string longB = new string('K', 399) + "X";
+            Assert.True(CryptoHelper.FixedTimeEqualsSecret(longA, new string('K', 400)));
+            Assert.False(CryptoHelper.FixedTimeEqualsSecret(longA, longB));
+        }
+
+        [Fact]
+        public async Task Task2_SettingsSideEffectsService_ExportAndImportVaultAsync_OffloadPbkdf2Work()
+        {
+            string tempDir = CreateTempDir("ShiroT2AsyncVault_");
+            string exportPath = Path.Combine(tempDir, "nested", "offloaded.shirovault");
+            var prevPicker = SettingsSideEffectsService.TestPickExportPathOverride;
+            var prevCtx = SynchronizationContext.Current;
+            var syncCtx = new TrackingSyncContext();
+            SynchronizationContext.SetSynchronizationContext(syncCtx);
+            ToastService.ClearAll();
+            try
+            {
+                using var dirScope = StoragePaths.OverrideDataDirectoryForTesting(tempDir);
+                var stored = new List<Account>
+                {
+                    new() { Username = "OffloadVaultUser", UserID = 7007, SecurityToken = "tok-offload", Valid = true }
+                };
+                var repo = Substitute.For<IAccountRepository>();
+                repo.GetAll().Returns(_ => stored.ToList());
+                repo.When(r => r.AddThreadSafe(Arg.Any<Account>())).Do(ci => stored.Add(ci.Arg<Account>()));
+                repo.SaveAsync(Arg.Any<bool>()).Returns(Task.CompletedTask);
+
+                var dialogs = Substitute.For<IDialogService>();
+                dialogs.ShowSecretPromptAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>())
+                    .Returns(Task.FromResult("OffloadPass#123"));
+                var host = Substitute.For<IHostUiBridgeService>();
+
+                using var repoScope = AppServices.Override<IAccountRepository>(repo);
+                using var dialogScope = AppServices.Override<IDialogService>(dialogs);
+                using var hostScope = AppServices.Override<IHostUiBridgeService>(host);
+
+                SettingsSideEffectsService.TestPickExportPathOverride =
+                    _ => Task.FromResult<(bool Confirmed, string? Path)>((true, exportPath));
+
+                bool exported = await SettingsSideEffectsService.Default.ExportVaultAsync();
+                Assert.True(exported);
+                Assert.True(File.Exists(exportPath));
+                Assert.True(syncCtx.PostCount >= 1);
+
+                syncCtx.Reset();
+                stored.Clear();
+
+                bool imported = await SettingsSideEffectsService.Default.ImportVaultFromPathAsync(exportPath);
+                Assert.True(imported);
+                Assert.True(syncCtx.PostCount >= 1);
+                Assert.Single(stored);
+                Assert.Equal("OffloadVaultUser", stored[0].Username);
+            }
+            finally
+            {
+                SynchronizationContext.SetSynchronizationContext(prevCtx);
+                SettingsSideEffectsService.TestPickExportPathOverride = prevPicker;
+                ToastService.ClearAll();
+                SafeDeleteDir(tempDir);
+            }
+        }
+
+        private sealed class TrackingSyncContext : SynchronizationContext
+        {
+            private int _postCount;
+            public int PostCount => Volatile.Read(ref _postCount);
+            public void Reset() => Interlocked.Exchange(ref _postCount, 0);
+
+            public override void Post(SendOrPostCallback d, object? state)
+            {
+                Interlocked.Increment(ref _postCount);
+                ThreadPool.QueueUserWorkItem(_ =>
+                {
+                    var prev = Current;
+                    SetSynchronizationContext(this);
+                    try { d(state); }
+                    finally { SetSynchronizationContext(prev); }
+                });
+            }
         }
     }
 }
