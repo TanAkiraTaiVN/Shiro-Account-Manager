@@ -108,8 +108,8 @@ namespace Shiro.Services
 
             if (backupFiles.Count > MaxHistoricalBackups)
             {
-                // Always preserve the largest historical snapshot so a series of
-                // smaller saves can never rotate out the full vault backup.
+                // Preserve newest backups first while keeping the single largest
+                // historical snapshot so smaller saves cannot rotate it out.
                 var largestFile = backupFiles.OrderByDescending(f => f.Length).FirstOrDefault();
                 var toKeep = new HashSet<string>(
                     backupFiles.Take(MaxHistoricalBackups).Select(f => f.FullName),
@@ -117,12 +117,8 @@ namespace Shiro.Services
 
                 if (largestFile != null && !toKeep.Contains(largestFile.FullName))
                 {
-                    var smallestKept = backupFiles
-                        .Take(MaxHistoricalBackups)
-                        .OrderBy(f => f.Length)
-                        .ThenBy(f => f.CreationTimeUtc)
-                        .First();
-                    toKeep.Remove(smallestKept.FullName);
+                    var oldestKept = backupFiles[MaxHistoricalBackups - 1];
+                    toKeep.Remove(oldestKept.FullName);
                     toKeep.Add(largestFile.FullName);
                 }
 

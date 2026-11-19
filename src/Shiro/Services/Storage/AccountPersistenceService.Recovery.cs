@@ -120,14 +120,33 @@ namespace Shiro.Services
                         {
                             if (Cryptography.IsEncrypted(raw))
                             {
-                                byte[] keyCopy = StoragePaths.GetOrCreateVaultKeyCopy();
                                 try
                                 {
-                                    decoded = Cryptography.Decrypt(raw, keyCopy);
+                                    byte[] keyCopy = StoragePaths.GetOrCreateVaultKeyCopy();
+                                    try
+                                    {
+                                        decoded = Cryptography.Decrypt(raw, keyCopy);
+                                    }
+                                    finally
+                                    {
+                                        CryptographicOperations.ZeroMemory(keyCopy);
+                                    }
                                 }
-                                finally
+                                catch (Exception decryptEx)
                                 {
-                                    CryptographicOperations.ZeroMemory(keyCopy);
+                                    AppServices.Logger?.Debug($"Primary vault key could not decrypt backup '{path}': {decryptEx.Message}");
+                                    byte[]? recoveredKey = VaultKeyRecoveryService.TryRecoverInProcess(raw);
+                                    if (recoveredKey == null)
+                                        throw;
+
+                                    try
+                                    {
+                                        decoded = Cryptography.Decrypt(raw, recoveredKey);
+                                    }
+                                    finally
+                                    {
+                                        CryptographicOperations.ZeroMemory(recoveredKey);
+                                    }
                                 }
                             }
                             else
@@ -179,6 +198,8 @@ namespace Shiro.Services
 
                     IsVaultLockedPendingMasterPassword = false;
                     ReplaceAccountsList(bestRestored);
+                    try { AccountRuntimeStateStore.HydrateAccounts(_repository.GetAll()); }
+                    catch (Exception ex) { AppServices.Logger?.Debug($"[TryRestoreReadableBackup] Runtime state hydration skipped: {ex.Message}"); }
                     accountDataNeedsMigration |= bestNeedsMigration;
                     ClearPasswordHash();
                     SaveAccounts(true, true);
@@ -211,6 +232,10 @@ namespace Shiro.Services
 
         internal string PromoteBackupToPrimary(string saveFilePath, DateTime now)
         {
+            string backupPath = $"{saveFilePath}.backup";
+            if (!File.Exists(backupPath))
+                return string.Empty;
+
             string preservedPrimaryPath = string.Empty;
             if (File.Exists(saveFilePath))
             {
@@ -225,20 +250,16 @@ namespace Shiro.Services
                 File.Move(saveFilePath, preservedPrimaryPath);
             }
 
-            string backupPath = $"{saveFilePath}.backup";
-            if (File.Exists(backupPath))
+            try { File.Move(backupPath, saveFilePath, overwrite: true); }
+            catch (Exception moveEx)
             {
-                try { File.Move(backupPath, saveFilePath, overwrite: true); }
-                catch (Exception moveEx)
+                AppServices.Logger?.Error($"[PromoteBackupToPrimary] Failed to move backup to primary: {moveEx.Message}. Rolling back preserved primary...");
+                if (!string.IsNullOrEmpty(preservedPrimaryPath) && File.Exists(preservedPrimaryPath))
                 {
-                    AppServices.Logger?.Error($"[PromoteBackupToPrimary] Failed to move backup to primary: {moveEx.Message}. Rolling back preserved primary...");
-                    if (!string.IsNullOrEmpty(preservedPrimaryPath) && File.Exists(preservedPrimaryPath))
-                    {
-                        try { File.Move(preservedPrimaryPath, saveFilePath, overwrite: true); }
-                        catch (Exception rollbackEx) { AppServices.Logger?.Error($"[PromoteBackupToPrimary] Rollback failed: {rollbackEx.Message}"); }
-                    }
-                    throw;
+                    try { File.Move(preservedPrimaryPath, saveFilePath, overwrite: true); }
+                    catch (Exception rollbackEx) { AppServices.Logger?.Error($"[PromoteBackupToPrimary] Rollback failed: {rollbackEx.Message}"); }
                 }
+                throw;
             }
 
             return preservedPrimaryPath;

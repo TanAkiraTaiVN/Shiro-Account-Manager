@@ -222,7 +222,9 @@ namespace Shiro.Services
                 }
                 catch (Exception ex)
                 {
+                    CryptographicOperations.ZeroMemory(copy);
                     _logger?.Warn($"Failed to save recovered vault key: {ex.Message}");
+                    throw;
                 }
                 finally
                 {

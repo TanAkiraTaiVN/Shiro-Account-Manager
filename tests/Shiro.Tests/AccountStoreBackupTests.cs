@@ -154,5 +154,32 @@ namespace Shiro.Tests
             var remaining = store.GetHistoricalBackups();
             Assert.True(remaining.Count <= 10);
         }
+
+        private static readonly byte[] SmallNewestPayload = Encoding.UTF8.GetBytes("{\"s\":1}");
+
+        [Fact]
+        public void AccountStore_PruneHistoricalBackups_PreservesNewestSmallerSnapshotOverOlderLargerOnes()
+        {
+            var store = new AccountStore(_testAccountFile, _testBackupsDir);
+            DateTime baseUtc = DateTime.UtcNow.AddMinutes(-30);
+
+            for (int i = 0; i < 11; i++)
+            {
+                string path = Path.Combine(_testBackupsDir, $"AccountData_20260101_1200{i:D2}.json.bak");
+                byte[] payload = new byte[i == 0 ? 4096 : 256];
+                Array.Fill(payload, (byte)(0x41 + i));
+                File.WriteAllBytes(path, payload);
+                File.SetCreationTimeUtc(path, baseUtc.AddMinutes(i));
+                File.SetLastWriteTimeUtc(path, baseUtc.AddMinutes(i));
+            }
+
+            store.CreateHistoricalBackup(SmallNewestPayload);
+
+            var remaining = store.GetHistoricalBackups();
+            Assert.Equal(AccountStore.MaxHistoricalBackups, remaining.Count);
+            Assert.Equal(SmallNewestPayload, File.ReadAllBytes(remaining[0]));
+            Assert.Contains(remaining, p => p.EndsWith("AccountData_20260101_120000.json.bak", StringComparison.OrdinalIgnoreCase));
+            Assert.DoesNotContain(remaining, p => p.EndsWith("AccountData_20260101_120002.json.bak", StringComparison.OrdinalIgnoreCase));
+        }
     }
 }

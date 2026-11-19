@@ -57,6 +57,7 @@ namespace Shiro
         internal Dictionary<string, string> GetSerializedFieldsSnapshot()
         {
             var snapshot = GetFieldsSnapshot();
+            StripTransientWindowFields(snapshot);
             string priv = HbaPrivateKey;
             if (!string.IsNullOrEmpty(priv))
                 snapshot["HbaPrivateKey"] = priv;
@@ -105,9 +106,10 @@ namespace Shiro
             get => _Group;
             set
             {
-                if (!string.Equals(_Group, value, StringComparison.Ordinal))
+                string nextGroup = value ?? "Default";
+                if (!string.Equals(_Group, nextGroup, StringComparison.Ordinal))
                 {
-                    _Group = value ?? "Default";
+                    _Group = nextGroup;
                     if (!IsSuppressingDeferredSave)
                     {
                         IsDirty = true;
@@ -182,7 +184,7 @@ namespace Shiro
             get => _Alias;
             set
             {
-                if (value == null || value.Length > 50)
+                if (ExceedsMaxLength(nameof(Alias), value, 50))
                     return;
 
                 if (_Alias != value)
@@ -201,7 +203,7 @@ namespace Shiro
             get => _Description;
             set
             {
-                if (value == null || value.Length > 5000)
+                if (ExceedsMaxLength(nameof(Description), value, 5000))
                     return;
 
                 if (_Description != value)
@@ -220,7 +222,7 @@ namespace Shiro
             get => GetCurrentPassword();
             set
             {
-                if (value == null || value.Length > 5000)
+                if (ExceedsMaxLength(nameof(Password), value, 5000))
                     return;
 
                 if (TryReplaceProtectedPassword(value) && !IsSuppressingDeferredSave)
@@ -415,7 +417,7 @@ namespace Shiro
 
         public void SetField(string Name, string Value)
         {
-            if (string.IsNullOrWhiteSpace(Name) || IsProtectedInternalField(Name))
+            if (!CanSetPublicField(Name, Value))
                 return;
             lock (FieldsSyncRoot)
             {

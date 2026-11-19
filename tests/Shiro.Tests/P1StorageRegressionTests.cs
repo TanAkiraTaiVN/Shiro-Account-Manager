@@ -15,6 +15,21 @@ namespace Shiro.Tests
     [Collection("SerialGlobalState")]
     public class P1StorageRegressionTests
     {
+        private const string OkJsonLiteral = "{\"ok\":1}";
+
+        private static string CreateTempDir(string prefix)
+        {
+            string dir = Path.Combine(Path.GetTempPath(), prefix + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(dir);
+            return dir;
+        }
+
+        private static void SafeDeleteDir(string dir)
+        {
+            try { if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true); }
+            catch (IOException) { }
+        }
+
         private static string FindRepoRoot()
         {
             var dir = new DirectoryInfo(AppContext.BaseDirectory);
@@ -179,6 +194,149 @@ namespace Shiro.Tests
                 try { if (Directory.Exists(logDir)) Directory.Delete(logDir, recursive: true); }
                 catch (IOException) { }
             }
+        }
+
+        [Fact]
+        public void Task1_SaveRecoveredVaultKey_WhenWriteFails_DoesNotUpdateInMemoryCache()
+        {
+            string tempDir = CreateTempDir("ShiroT1KeyFail_");
+            try
+            {
+                using var dirScope = StoragePaths.OverrideDataDirectoryForTesting(tempDir);
+                StoragePaths.ReloadVaultKeyCache();
+                byte[] originalKey = StoragePaths.GetOrCreateVaultKeyCopy();
+                byte[] replacement = new byte[32];
+                Array.Fill(replacement, (byte)0x5A);
+
+                using (var lockHandle = new FileStream(StoragePaths.VaultKeyFile, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+                {
+                    Exception? ex = Record.Exception(() => StoragePaths.SaveRecoveredVaultKey(replacement));
+                    Assert.NotNull(ex);
+                    Assert.True(ex is IOException or UnauthorizedAccessException);
+                }
+
+                Assert.Equal(originalKey, StoragePaths.GetOrCreateVaultKeyCopy());
+                StoragePaths.ReloadVaultKeyCache();
+                Assert.Equal(originalKey, StoragePaths.GetOrCreateVaultKeyCopy());
+            }
+            finally
+            {
+                StoragePaths.ReloadVaultKeyCache();
+                SafeDeleteDir(tempDir);
+            }
+        }
+
+        [Fact]
+        public void Task1_PromoteBackupToPrimary_WhenBackupMissing_LeavesPrimaryIntact()
+        {
+            string tempDir = CreateTempDir("ShiroT1Promote_");
+            try
+            {
+                string primary = Path.Combine(tempDir, "AccountData.json");
+                File.WriteAllText(primary, OkJsonLiteral);
+                var svc = new AccountPersistenceService(new AccountRepository());
+
+                string preserved = svc.PromoteBackupToPrimary(primary, DateTime.UtcNow);
+                Assert.Equal(string.Empty, preserved);
+                Assert.True(File.Exists(primary));
+                Assert.Equal(OkJsonLiteral, File.ReadAllText(primary));
+            }
+            finally
+            {
+                SafeDeleteDir(tempDir);
+            }
+        }
+
+        [Fact]
+        public void Task1_TryRestoreReadableBackup_RecoversKeyAndHydratesRuntimeState()
+        {
+            string tempDir = CreateTempDir("ShiroT1Restore_");
+            try
+            {
+                using var dirScope = StoragePaths.OverrideDataDirectoryForTesting(tempDir);
+                StoragePaths.ReloadVaultKeyCache();
+                AccountRuntimeStateStore.ResetInMemoryCacheForTests();
+
+                byte[] realKey = RandomNumberGenerator.GetBytes(32);
+                StoragePaths.SaveRecoveredVaultKey(realKey);
+                byte[] wrongKey = RandomNumberGenerator.GetBytes(32);
+
+                var srcAcc = new Account { Username = "RecoveredBackupUser", UserID = 4242, Valid = true, LastUse = DateTime.MinValue };
+                byte[] encryptedBackup = Cryptography.Encrypt(AccountDataSerializer.Serialize(new[] { srcAcc }, true), realKey);
+                File.WriteAllBytes(StoragePaths.AccountDataFile + ".backup", encryptedBackup);
+                File.WriteAllText(StoragePaths.AccountDataFile, "corrupt-primary");
+
+                DateTime expectedLastUse = new DateTime(2026, 5, 6, 7, 8, 9, DateTimeKind.Utc);
+                AccountRuntimeStateStore.RecordLastUse(srcAcc, expectedLastUse);
+                AccountRuntimeStateStore.RecordWindowBounds(srcAcc, 100, 120, 900, 700);
+                AccountRuntimeStateStore.Flush();
+
+                StoragePaths.SaveRecoveredVaultKey(wrongKey);
+                // Re-write realKey into .bak only so primary vault.key has wrongKey and .bak has realKey
+                File.WriteAllBytes(StoragePaths.VaultKeyFile + ".bak", realKey);
+                StoragePaths.ReloadVaultKeyCache();
+
+                var repo = new AccountRepository();
+                var svc = new AccountPersistenceService(repo) { Store = new AccountStore(StoragePaths.AccountDataFile, StoragePaths.BackupsDirectory) };
+                Assert.True(svc.TryRestoreReadableBackup());
+
+                var restored = Assert.Single(repo.GetAll());
+                Assert.Equal("RecoveredBackupUser", restored.Username);
+                Assert.Equal(expectedLastUse, restored.LastUse);
+                Assert.Equal("900", restored.GetField("Window_Width"));
+            }
+            finally
+            {
+                AccountRuntimeStateStore.ResetInMemoryCacheForTests();
+                StoragePaths.ReloadVaultKeyCache();
+                SafeDeleteDir(tempDir);
+            }
+        }
+
+        [Fact]
+        public void Task1_AccountFileDecoder_CurrentUserDpapi_SetsNeedsMigrationTrue()
+        {
+            byte[] plain = AccountDataSerializer.Serialize(new[] { new Account { Username = "DpapiUser", UserID = 1001 } }, true);
+            var keys = new AccountDecodeKeys(() => Array.Empty<byte>(), null, _ => (plain, false), PlaintextOptIn: false);
+
+            var result = AccountFileDecoder.Decode(Encoding.UTF8.GetBytes("dpapi-blob"), null, keys);
+            Assert.Equal(AccountDecodeStatus.Loaded, result.Status);
+            Assert.True(result.NeedsMigration);
+            Assert.False(result.LegacyPlaintext);
+            Assert.Single(result.Accounts);
+        }
+
+        [Fact]
+        public void Task1_Account_WindowFieldsExcluded_NullGroupNotDirty_AndOversizedDebugLogged()
+        {
+            var fakeLogger = Substitute.For<IAppLogger>();
+            using var logScope = AppServices.Override<IAppLogger>(fakeLogger);
+
+            var acc = new Account { Username = "u", Group = "Default" };
+            acc.IsDirty = false;
+            acc.Group = null!;
+            Assert.Equal("Default", acc.Group);
+            Assert.False(acc.IsDirty);
+
+            acc.SetWindowBounds(10, 20, 800, 600);
+            var snapshot = acc.GetSerializedFieldsSnapshot();
+            Assert.DoesNotContain("Window_Position_X", snapshot.Keys);
+            Assert.DoesNotContain("Window_Position_Y", snapshot.Keys);
+            Assert.DoesNotContain("Window_Width", snapshot.Keys);
+            Assert.DoesNotContain("Window_Height", snapshot.Keys);
+
+            acc.Alias = new string('A', 51);
+            acc.Description = new string('D', 5001);
+            acc.Password = new string('P', 5001);
+            acc.SetField("CustomOversized", new string('F', 5001));
+            Assert.Equal(string.Empty, acc.Alias);
+            Assert.Equal(string.Empty, acc.Description);
+            Assert.Equal(string.Empty, acc.Password);
+            Assert.Equal(string.Empty, acc.GetField("CustomOversized"));
+            fakeLogger.Received().Debug(Arg.Is<string>(s => s.Contains("Alias", StringComparison.Ordinal)));
+            fakeLogger.Received().Debug(Arg.Is<string>(s => s.Contains("Description", StringComparison.Ordinal)));
+            fakeLogger.Received().Debug(Arg.Is<string>(s => s.Contains("Password", StringComparison.Ordinal) && !s.Contains("PPPP", StringComparison.Ordinal)));
+            fakeLogger.Received().Debug(Arg.Is<string>(s => s.Contains("CustomOversized", StringComparison.Ordinal)));
         }
     }
 }

@@ -149,7 +149,9 @@ namespace Shiro.Tests
                     StoragePaths.ClearCachedVaultKey();
                     using (var keyLock = new FileStream(StoragePaths.VaultKeyFile, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None))
                     {
-                        StoragePaths.SaveRecoveredVaultKey(RandomNumberGenerator.GetBytes(32));
+                        Exception? saveLockedEx = Record.Exception(() => StoragePaths.SaveRecoveredVaultKey(RandomNumberGenerator.GetBytes(32)));
+                        Assert.NotNull(saveLockedEx);
+                        Assert.True(saveLockedEx is IOException or UnauthorizedAccessException);
                         StoragePaths.ClearCachedVaultKey();
                         Exception? lockedEx = Record.Exception(() => StoragePaths.GetOrCreateVaultKey());
                         Assert.NotNull(lockedEx);

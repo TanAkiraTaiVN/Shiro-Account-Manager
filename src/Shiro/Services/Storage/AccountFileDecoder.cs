@@ -168,11 +168,10 @@ namespace Shiro.Services
                 bool unprotected = false;
                 try
                 {
-                    bool legacyScope;
-                    (plain, legacyScope) = keys.UnprotectDpapi(data);
+                    (plain, _) = keys.UnprotectDpapi(data);
                     unprotected = plain != null;
-                    var accounts = AccountDataSerializer.Deserialize(plain!, out bool dpapiNeedsMigration);
-                    bool needsMigration = dpapiNeedsMigration || legacyScope;
+                    var accounts = AccountDataSerializer.Deserialize(plain!, out _);
+                    bool needsMigration = true;
                     return new AccountDecodeResult(AccountDecodeStatus.Loaded, accounts, needsMigration, false, null);
                 }
                 catch (Exception ex)

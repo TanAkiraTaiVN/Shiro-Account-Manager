@@ -56,6 +56,37 @@ namespace Shiro
             }
         }
 
+        internal static void StripTransientWindowFields(Dictionary<string, string> snapshot)
+        {
+            snapshot.Remove("Window_Position_X");
+            snapshot.Remove("Window_Position_Y");
+            snapshot.Remove("Window_Width");
+            snapshot.Remove("Window_Height");
+        }
+
+        internal static bool ExceedsMaxLength(string fieldName, string? value, int maxLength)
+        {
+            if (value == null)
+                return true;
+            if (value.Length <= maxLength)
+                return false;
+
+            AppServices.Logger?.Debug($"[Account] Ignored oversized {fieldName} value ({value.Length} > {maxLength} chars).");
+            return true;
+        }
+
+        internal static bool CanSetPublicField(string name, string? value)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+                return false;
+            if (IsProtectedInternalField(name))
+            {
+                AppServices.Logger?.Debug($"[Account] Ignored write to protected field '{name}'.");
+                return false;
+            }
+            return value == null || !ExceedsMaxLength(name, value, 5000);
+        }
+
         public Account(string username, string password, string alias)
         {
             Username = username;
