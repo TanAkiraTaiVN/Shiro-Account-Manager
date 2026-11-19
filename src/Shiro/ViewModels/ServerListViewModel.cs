@@ -261,6 +261,7 @@ namespace Shiro.ViewModels
             IsLoadingServers = true;
             LoadingStatus = LocalizationService.Format("ServerList.FindingServersForPlace", placeId);
             ClearRawServers();
+            ServerListOperationHelper.ResetCachedServers();
 
             try
             {
@@ -309,6 +310,7 @@ namespace Shiro.ViewModels
                             batch.Add(ServerListOperationHelper.CreatePublicServerItem(s));
                             totalLoaded++;
                         }
+                        ServerListOperationHelper.AppendCachedServers(placeId, serverInfo.data);
 
                         cursor = serverInfo.nextPageCursor ?? string.Empty;
                         int currentCount = totalLoaded;

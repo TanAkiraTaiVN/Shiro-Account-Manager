@@ -131,5 +131,41 @@ namespace Shiro.ViewModels
 
             return null;
         }
+
+        public static void ResetCachedServers()
+        {
+            var state = AppServices.ServerBrowserState;
+            var cached = state.CachedServers;
+            if (cached != null)
+            {
+                lock (cached)
+                {
+                    cached.Clear();
+                    state.CachedServersPlaceId = 0;
+                }
+            }
+            else
+            {
+                state.CachedServersPlaceId = 0;
+            }
+        }
+
+        public static void AppendCachedServers(long placeId, IEnumerable<ServerData>? servers)
+        {
+            if (placeId <= 0 || servers == null) return;
+            var state = AppServices.ServerBrowserState;
+            var cached = state.CachedServers;
+            if (cached == null) return;
+
+            lock (cached)
+            {
+                if (state.CachedServersPlaceId != placeId)
+                {
+                    cached.Clear();
+                    state.CachedServersPlaceId = placeId;
+                }
+                cached.AddRange(servers);
+            }
+        }
     }
 }

@@ -330,12 +330,12 @@ namespace Shiro.Tests.Network
         [Fact]
         public async Task SetAvatarAsync_AppliesAttributesAndHandlesMissingAssets()
         {
-            await RobloxSettingsApiService.Instance.SetAvatarAsync(null!, "{}");
+            Assert.False(await RobloxSettingsApiService.Instance.SetAvatarAsync(null!, "{}"));
             var acc = CreateUnlockedAccount("AvatarUser");
-            await RobloxSettingsApiService.Instance.SetAvatarAsync(acc, "");
-            await RobloxSettingsApiService.Instance.SetAvatarAsync(acc, "not-valid-json");
-            await RobloxSettingsApiService.Instance.SetAvatarAsync(acc, "[1, 2, 3]");
-            await RobloxSettingsApiService.Instance.SetAvatarAsync(acc, "{}");
+            Assert.False(await RobloxSettingsApiService.Instance.SetAvatarAsync(acc, ""));
+            Assert.False(await RobloxSettingsApiService.Instance.SetAvatarAsync(acc, "not-valid-json"));
+            Assert.False(await RobloxSettingsApiService.Instance.SetAvatarAsync(acc, "[1, 2, 3]"));
+            Assert.False(await RobloxSettingsApiService.Instance.SetAvatarAsync(acc, "{}"));
 
             var fakeDialogs = Substitute.For<IDialogService>();
             using var _ = AppServices.Override<IDialogService>(fakeDialogs);
@@ -352,7 +352,7 @@ namespace Shiro.Tests.Network
                 ""assets"": [ { ""id"": 111 }, { ""id"": 222 } ]
             }";
 
-            await RobloxSettingsApiService.Instance.SetAvatarAsync(acc, avatarPayload);
+            Assert.True(await RobloxSettingsApiService.Instance.SetAvatarAsync(acc, avatarPayload));
 
             Assert.Equal(2, handler.Requests.Count);
             var patchRequest = handler.Requests[1];
@@ -434,7 +434,7 @@ namespace Shiro.Tests.Network
             Account.TestHttpClientFactory = _ => new HttpClient(handler);
             string avatarPayload = "{\"playerAvatarType\": \"R6\"}";
 
-            await RobloxSettingsApiService.Instance.SetAvatarAsync(acc, avatarPayload);
+            Assert.False(await RobloxSettingsApiService.Instance.SetAvatarAsync(acc, avatarPayload));
             Assert.Equal(2, handler.Requests.Count);
             fakeDialogs.DidNotReceiveWithAnyArgs().OpenMissingAssetsDialog(default!, default!);
 
@@ -443,7 +443,7 @@ namespace Shiro.Tests.Network
                 .Enqueue((HttpRequestMessage _) => (HttpResponseMessage)null!);
             Account.TestHttpClientFactory = _ => new HttpClient(nullHandler);
 
-            await RobloxSettingsApiService.Instance.SetAvatarAsync(acc, avatarPayload);
+            Assert.False(await RobloxSettingsApiService.Instance.SetAvatarAsync(acc, avatarPayload));
             Assert.Equal(2, nullHandler.Requests.Count);
         }
 
@@ -470,7 +470,7 @@ namespace Shiro.Tests.Network
             Assert.False(await RobloxSettingsApiService.Instance.LogOutOfOtherSessionsAsync(acc));
             Assert.False((await RobloxSettingsApiService.Instance.SetServerAsync(acc, 1818, "job")).Successful);
             await Assert.ThrowsAsync<InvalidOperationException>(() => RobloxSettingsApiService.Instance.SetDisplayNameAsync(acc, "name"));
-            await RobloxSettingsApiService.Instance.SetAvatarAsync(acc, "{\"playerAvatarType\":\"R15\"}");
+            Assert.False(await RobloxSettingsApiService.Instance.SetAvatarAsync(acc, "{\"playerAvatarType\":\"R15\"}"));
         }
     }
 }

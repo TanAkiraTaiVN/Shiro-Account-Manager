@@ -67,6 +67,8 @@ namespace Shiro.Services
     [JsonSerializable(typeof(BroadcastEnvelope<LaunchProgressBroadcastPayload>))]
     [JsonSerializable(typeof(BroadcastEnvelope<PulseBroadcastPayload>))]
     [JsonSerializable(typeof(BroadcastEnvelope<string?>))]
+    [JsonSerializable(typeof(BroadcastEnvelope<JsonElement>))]
+    [JsonSerializable(typeof(WebSocketUpgradeExpectedResponse))]
     [JsonSerializable(typeof(LaunchProgress))]
     [JsonSerializable(typeof(Dictionary<string, JsonElement>))]
     [JsonSerializable(typeof(JsonElement))]
@@ -211,6 +213,7 @@ namespace Shiro.Services
     internal readonly record struct AuthenticationTicketPayload(string authenticationTicket);
     internal readonly record struct RobloxCookiesDatEnvelope(string CookiesVersion, string CookiesData);
     internal readonly record struct ApiErrorResponse(bool success, string error);
+    internal readonly record struct WebSocketUpgradeExpectedResponse(bool success, string error, string[] endpoints);
     internal readonly record struct GatewayWelcomeData(string server, string version, int activeClients);
     internal readonly record struct GatewayWelcomeMessage(
         [property: JsonPropertyName("event")] string EventName,

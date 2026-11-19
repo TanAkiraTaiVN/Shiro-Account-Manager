@@ -11,6 +11,12 @@ namespace Shiro.Services
     {
         private static readonly string[] DefaultWebSocketEndpoints = new[] { "/ws", "/events", "/v2/events" };
 
+        private static bool IsRoute(string method, string target) =>
+            string.Equals(method, target, StringComparison.OrdinalIgnoreCase);
+
+        private static bool IsConfiguredPasswordValid(bool isLocal, string wsPassword) =>
+            isLocal ? WebAuthPolicy.IsPasswordConfigured(wsPassword) : WebAuthPolicy.IsStrongExternalPassword(wsPassword);
+
         internal static Account? ResolveTargetAccount(string? accountParam)
         {
             if (string.IsNullOrEmpty(accountParam))
@@ -39,7 +45,7 @@ namespace Shiro.Services
             var general = AppServices.GeneralSettings;
             string wsPassword = AppServices.ServerBrowserState.WebSocketPassword ?? string.Empty;
 
-            if (method == "GetWebSocketStats" || method == "WebSocketStats")
+            if (IsRoute(method, "GetWebSocketStats") || IsRoute(method, "WebSocketStats"))
             {
                 var payload = new WebSocketStatsPayload(
                     KestrelWebServer.ActiveWebSocketCount,
@@ -48,7 +54,7 @@ namespace Shiro.Services
                 return reply(JsonSerializer.Serialize(payload, ShiroAppJson.Default.WebSocketStatsPayload), true, -1, null);
             }
 
-            if (method == "GetAccounts")
+            if (IsRoute(method, "GetAccounts"))
             {
                 if (webServer == null || !webServer.Get<bool>("AllowGetAccounts"))
                     return reply("Method `GetAccounts` not allowed", false, 401, "Method not allowed");
@@ -62,15 +68,16 @@ namespace Shiro.Services
                 return reply(result, true, -1, result);
             }
 
-            if (method == "GetAccountsJson")
+            if (IsRoute(method, "GetAccountsJson"))
             {
                 if (webServer == null || !webServer.Get<bool>("AllowGetAccounts"))
                     return reply("Method `GetAccountsJson` not allowed", false, 401, "Method not allowed");
 
                 string? groupFilter = req.GetQuery("Group");
-                bool showCookies = !string.IsNullOrEmpty(wsPassword) && wsPassword.Length >= 6 &&
+                bool showCookies = IsConfiguredPasswordValid(req.IsLocal, wsPassword) &&
                                    CryptoHelper.FixedTimeEqualsSecret(password ?? string.Empty, wsPassword) &&
-                                   req.GetQuery("IncludeCookies") == "true" && webServer.Get<bool>("AllowGetCookie");
+                                   string.Equals(req.GetQuery("IncludeCookies"), "true", StringComparison.OrdinalIgnoreCase) &&
+                                   webServer.Get<bool>("AllowGetCookie");
 
                 var allAccounts = AppServices.AccountRepository.GetAll();
                 List<ApiAccountJsonItem> objects = new(allAccounts.Count);
@@ -95,7 +102,7 @@ namespace Shiro.Services
                 return reply(FastJson.Serialize(objects), true, -1, null);
             }
 
-            if (method == "ImportCookie")
+            if (IsRoute(method, "ImportCookie"))
             {
                 if (webServer == null || !webServer.Get<bool>("AllowAccountEditing"))
                     return reply("Method `ImportCookie` not allowed", false, 401, "Method not allowed");
@@ -123,12 +130,12 @@ namespace Shiro.Services
             if (TryHandleGlobalSystemCommand(method, general, reply) is string globalResult)
                 return globalResult;
 
-            if (method.Equals("Accounts/Export", StringComparison.OrdinalIgnoreCase) || method.Equals("ExportAccounts", StringComparison.OrdinalIgnoreCase))
+            if (IsRoute(method, "Accounts/Export") || IsRoute(method, "ExportAccounts"))
             {
                 if (webServer == null || !webServer.Get<bool>("AllowGetAccounts") || !webServer.Get<bool>("AllowGetCookie"))
                     return reply("Method `Accounts/Export` not allowed", false, 401, "Method not allowed");
 
-                if (string.IsNullOrEmpty(wsPassword) || wsPassword.Length < 6 || !CryptoHelper.FixedTimeEqualsSecret(password ?? string.Empty, wsPassword))
+                if (!IsConfiguredPasswordValid(req.IsLocal, wsPassword) || !CryptoHelper.FixedTimeEqualsSecret(password ?? string.Empty, wsPassword))
                     return reply("Invalid Password, make sure your password contains 6 or more characters", false, 401, "Invalid Password");
 
                 string formatStr = req.GetQuery("Format") ?? "Json";
@@ -151,12 +158,16 @@ namespace Shiro.Services
             if (account == null)
                 return reply("Invalid Account, the account's cookie may have expired and resulted in the account being logged out", false, -1, "Invalid Account");
 
-            if (method == "SetProxy")
+            if (IsRoute(method, "SetProxy"))
             {
                 if (webServer == null || !webServer.Get<bool>("AllowAccountEditing"))
                     return reply("Method `SetProxy` not allowed", false, 401, "Method not allowed");
 
-                string proxy = req.GetQuery("Proxy") ?? req.Body;
+                string? queryProxy = req.GetQuery("Proxy");
+                if (!req.IsLocal && !string.IsNullOrWhiteSpace(queryProxy))
+                    return reply("Remote SetProxy requests must send the proxy in the POST body", false, 400, "Use POST body");
+
+                string proxy = !string.IsNullOrWhiteSpace(body) ? body.Trim() : (queryProxy ?? string.Empty);
                 if (!string.IsNullOrWhiteSpace(proxy) && ProxyBindingService.ParseWebProxy(proxy) == null)
                     return reply("Invalid proxy format", false, 400, "Invalid proxy");
 
@@ -165,9 +176,9 @@ namespace Shiro.Services
                 return reply($"Proxy updated for {account.Username}", true, -1, null);
             }
 
-            if (method == "GetProxy") return reply(account.Proxy ?? string.Empty, true, -1, null);
+            if (IsRoute(method, "GetProxy")) return reply(account.Proxy ?? string.Empty, true, -1, null);
 
-            if (method == "GetCookie")
+            if (IsRoute(method, "GetCookie"))
             {
                 if (webServer == null || !webServer.Get<bool>("AllowGetCookie"))
                     return reply("Method `GetCookie` not allowed", false, 401, "Method not allowed");
@@ -175,39 +186,46 @@ namespace Shiro.Services
                 return reply(account.SecurityToken, true, -1, null);
             }
 
-            if (method == "GetAlias") return reply(account.Alias, true, -1, null);
-            if (method == "GetDescription") return reply(account.Description, true, -1, null);
+            if (IsRoute(method, "GetAlias")) return reply(account.Alias, true, -1, null);
+            if (IsRoute(method, "GetDescription")) return reply(account.Description, true, -1, null);
 
             string? fieldName = req.GetQuery("Field");
-            if ((method is "GetField" or "SetField" or "RemoveField") && Account.IsProtectedInternalField(fieldName))
+            if ((IsRoute(method, "GetField") || IsRoute(method, "SetField") || IsRoute(method, "RemoveField")) && Account.IsProtectedInternalField(fieldName))
                 return reply("Protected internal field", false, 403, "Forbidden field");
-            if (method == "GetField" && !string.IsNullOrEmpty(fieldName)) return reply(account.GetField(fieldName), true, -1, null);
+            if (IsRoute(method, "GetField"))
+                return string.IsNullOrEmpty(fieldName) ? reply("Field parameter required", false, 400, "Missing Field") : reply(account.GetField(fieldName), true, -1, null);
 
             string? fieldValue = req.GetQuery("Value");
-            if (method == "SetField" && !string.IsNullOrEmpty(fieldName) && !string.IsNullOrEmpty(fieldValue))
+            if (IsRoute(method, "SetField"))
             {
                 if (webServer == null || !webServer.Get<bool>("AllowAccountEditing"))
                     return reply("Method `SetField` not allowed", false, 401, "Method not allowed");
+                if (string.IsNullOrEmpty(fieldName) || string.IsNullOrEmpty(fieldValue))
+                    return reply("Field and Value parameters required", false, 400, "Missing Field or Value");
 
                 account.SetField(fieldName, fieldValue);
                 AppServices.AccountRepository.QueueDeferredSave();
                 return reply($"Set Field {fieldName} to {fieldValue} for {account.Username}", true, -1, null);
             }
 
-            if (method == "RemoveField" && !string.IsNullOrEmpty(fieldName))
+            if (IsRoute(method, "RemoveField"))
             {
                 if (webServer == null || !webServer.Get<bool>("AllowAccountEditing"))
                     return reply("Method `RemoveField` not allowed", false, 401, "Method not allowed");
+                if (string.IsNullOrEmpty(fieldName))
+                    return reply("Field parameter required", false, 400, "Missing Field");
 
                 account.RemoveField(fieldName);
                 AppServices.AccountRepository.QueueDeferredSave();
                 return reply($"Removed Field {fieldName} from {account.Username}", true, -1, null);
             }
 
-            if (method == "SetAlias" && !string.IsNullOrEmpty(body))
+            if (IsRoute(method, "SetAlias"))
             {
                 if (webServer == null || !webServer.Get<bool>("AllowAccountEditing"))
-                    return reply("Method `SetAlias` not allowed", false, -1, "Method not allowed");
+                    return reply("Method `SetAlias` not allowed", false, 401, "Method not allowed");
+                if (string.IsNullOrEmpty(body))
+                    return reply("Alias body required", false, 400, "Missing Alias");
 
                 account.Alias = body;
                 AppServices.HostUiBridge.RefreshAccountView(account);
@@ -215,10 +233,12 @@ namespace Shiro.Services
                 return reply($"Set Alias of {account.Username} to {body}", true, -1, null);
             }
 
-            if (method == "SetDescription" && !string.IsNullOrEmpty(body))
+            if (IsRoute(method, "SetDescription"))
             {
                 if (webServer == null || !webServer.Get<bool>("AllowAccountEditing"))
-                    return reply("Method `SetDescription` not allowed", false, -1, "Method not allowed");
+                    return reply("Method `SetDescription` not allowed", false, 401, "Method not allowed");
+                if (string.IsNullOrEmpty(body))
+                    return reply("Description body required", false, 400, "Missing Description");
 
                 account.Description = body;
                 AppServices.HostUiBridge.RefreshAccountView(account);
@@ -226,10 +246,12 @@ namespace Shiro.Services
                 return reply($"Set Description of {account.Username} to {body}", true, -1, null);
             }
 
-            if (method == "AppendDescription" && !string.IsNullOrEmpty(body))
+            if (IsRoute(method, "AppendDescription"))
             {
                 if (webServer == null || !webServer.Get<bool>("AllowAccountEditing"))
                     return reply("Method `AppendDescription` not allowed", false, 401, "Method not allowed");
+                if (string.IsNullOrEmpty(body))
+                    return reply("Description body required", false, 400, "Missing Description");
 
                 account.Description += body;
                 AppServices.HostUiBridge.RefreshAccountView(account);
@@ -237,19 +259,20 @@ namespace Shiro.Services
                 return reply($"Appended Description of {account.Username} with {body}", true, -1, null);
             }
 
-            if (method == "LaunchAccount")
+            if (IsRoute(method, "LaunchAccount"))
             {
                 if (webServer == null || !webServer.Get<bool>("AllowLaunchAccount"))
                     return reply("Method `LaunchAccount` not allowed", false, 401, "Method not allowed");
 
-                bool validPlaceId = long.TryParse(req.GetQuery("PlaceId"), out long placeId);
-                if (!validPlaceId) return reply("Invalid PlaceId provided", false, -1, "Invalid PlaceId");
+                if (!long.TryParse(req.GetQuery("PlaceId"), out long placeId))
+                    return reply("Invalid PlaceId provided", false, -1, "Invalid PlaceId");
 
                 string jobId = req.GetQuery("JobId") ?? string.Empty;
-                string? followUser = req.GetQuery("FollowUser");
-                string? joinVip = req.GetQuery("JoinVIP");
+                bool followFlag = string.Equals(req.GetQuery("FollowUser"), "true", StringComparison.OrdinalIgnoreCase);
+                bool joinVipFlag = string.Equals(req.GetQuery("JoinVIP"), "true", StringComparison.OrdinalIgnoreCase);
 
-                var launchResult = await account.JoinServerResult(placeId, jobId, followUser == "true", joinVip == "true").ConfigureAwait(false);
+                var launchResult = await AppServices.HostUiBridge.ExecuteSingleLaunchFromApiAsync(
+                    account, placeId, jobId, followFlag, joinVipFlag).ConfigureAwait(false);
                 if (launchResult.Outcome == LaunchOutcome.Success)
                     return reply($"Launched {accountParam} to {placeId}", true, -1, null);
 
@@ -259,7 +282,7 @@ namespace Shiro.Services
                 return reply(launchErr, false, -1, launchErr);
             }
 
-            if (method == "FollowUser")
+            if (IsRoute(method, "FollowUser"))
             {
                 if (webServer == null || !webServer.Get<bool>("AllowLaunchAccount"))
                     return reply("Method `FollowUser` not allowed", false, 401, "Method not allowed");
@@ -274,7 +297,8 @@ namespace Shiro.Services
                     return reply($"[{response?.StatusCode} {response?.StatusDescription}] Failed to get UserId: {response?.Content}", false, -1, null);
                 }
 
-                var followResult = await account.JoinServerResult(userLookup.UserId, "", true).ConfigureAwait(false);
+                var followResult = await AppServices.HostUiBridge.ExecuteSingleLaunchFromApiAsync(
+                    account, userLookup.UserId, string.Empty, true, false).ConfigureAwait(false);
                 if (followResult.Outcome == LaunchOutcome.Success)
                     return reply($"Joining {user}'s game on {accountParam}", true, -1, null);
 
@@ -285,7 +309,7 @@ namespace Shiro.Services
             }
 
             // Endpoints below validate route & inputs before touching live Roblox CSRF endpoints
-            if (method == "GetCSRFToken")
+            if (IsRoute(method, "GetCSRFToken"))
             {
                 var csrfRes = await account.GetCSRFTokenAsync().ConfigureAwait(false);
                 return csrfRes.Success
@@ -293,7 +317,7 @@ namespace Shiro.Services
                     : reply("Invalid Account, the account's cookie may have expired and resulted in the account being logged out", false, -1, "Invalid Account");
             }
 
-            if (method == "BlockUser")
+            if (IsRoute(method, "BlockUser"))
             {
                 string? rawUserId = req.GetQuery("UserId");
                 if (!TryParsePositiveUserId(rawUserId, out long targetUserId))
@@ -311,7 +335,7 @@ namespace Shiro.Services
                 }
             }
 
-            if (method == "UnblockUser")
+            if (IsRoute(method, "UnblockUser"))
             {
                 string? rawUserId = req.GetQuery("UserId");
                 if (!TryParsePositiveUserId(rawUserId, out long targetUserId))
@@ -329,7 +353,7 @@ namespace Shiro.Services
                 }
             }
 
-            if (method == "GetBlockedList")
+            if (IsRoute(method, "GetBlockedList"))
             {
                 if (await TryEnsureCsrfAsync(account, reply).ConfigureAwait(false) is string csrfErr) return csrfErr;
                 try
@@ -344,14 +368,14 @@ namespace Shiro.Services
                 }
             }
 
-            if (method == "UnblockEveryone")
+            if (IsRoute(method, "UnblockEveryone"))
             {
                 if (await TryEnsureCsrfAsync(account, reply).ConfigureAwait(false) is string csrfErr) return csrfErr;
                 (bool success, string message) unblockResult = await account.UnblockEveryoneAsync().ConfigureAwait(false);
                 return reply(unblockResult.message, unblockResult.success, -1, null);
             }
 
-            if (method == "SetServer")
+            if (IsRoute(method, "SetServer"))
             {
                 if (!long.TryParse(req.GetQuery("PlaceId"), out long setServerPlaceId) || setServerPlaceId <= 0)
                     return reply("Invalid PlaceId provided", false, 400, null);
@@ -363,7 +387,7 @@ namespace Shiro.Services
                 return reply(message, success, -1, null);
             }
 
-            if (method == "SetRecommendedServer")
+            if (IsRoute(method, "SetRecommendedServer"))
             {
                 string? rawPlaceId = req.GetQuery("PlaceId");
                 long targetPlaceId;
@@ -384,22 +408,22 @@ namespace Shiro.Services
                 if (targetPlaceId <= 0)
                     return reply("Invalid PlaceId provided", false, 400, null);
 
-                if (await TryEnsureCsrfAsync(account, reply).ConfigureAwait(false) is string csrfErr) return csrfErr;
-                int attempts = 0;
-                var cachedServers = AppServices.ServerBrowserState.CachedServers;
-                ServerData[] serversSnapshot;
+                var browserState = AppServices.ServerBrowserState;
+                if (browserState.CachedServersPlaceId != targetPlaceId)
+                    return reply("Cached servers do not match the requested PlaceId", false, 400, null);
+
+                var cachedServers = browserState.CachedServers;
                 if (cachedServers == null)
+                    return reply("Failed to find a recommended server", false, 400, null);
+
+                ServerData[] serversSnapshot;
+                lock (cachedServers)
                 {
-                    serversSnapshot = Array.Empty<ServerData>();
-                }
-                else
-                {
-                    lock (cachedServers)
-                    {
-                        serversSnapshot = cachedServers.ToArray();
-                    }
+                    serversSnapshot = cachedServers.ToArray();
                 }
 
+                if (await TryEnsureCsrfAsync(account, reply).ConfigureAwait(false) is string csrfErr) return csrfErr;
+                int attempts = 0;
                 for (int i = serversSnapshot.Length - 1; i >= 0; i--)
                 {
                     if (attempts > 10) return reply("Too many failed attempts", false, -1, null);
@@ -422,11 +446,15 @@ namespace Shiro.Services
                 return reply("Failed to find a recommended server", false, -1, null);
             }
 
-            if (method == "SetAvatar" && !string.IsNullOrWhiteSpace(body))
+            if (IsRoute(method, "SetAvatar"))
             {
-                if (await TryEnsureCsrfAsync(account, reply).ConfigureAwait(false) is string csrfErr) return csrfErr;
-                await account.SetAvatarAsync(body).ConfigureAwait(false);
-                return reply($"Attempting to set avatar of {account.Username} to {body}", true, -1, null);
+                if (string.IsNullOrWhiteSpace(body))
+                    return reply("Avatar JSON body required", false, 400, "Missing Avatar JSON");
+
+                bool updated = await account.SetAvatarAsync(body).ConfigureAwait(false);
+                return updated
+                    ? reply($"Updated avatar for {account.Username}", true, 200, null)
+                    : reply($"Failed to set avatar for {account.Username}", false, 400, null);
             }
 
             return reply("404 not found", false, 404, null);

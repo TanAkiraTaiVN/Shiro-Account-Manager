@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Shiro.Services
@@ -39,6 +40,7 @@ namespace Shiro.Services
         public Func<List<Account>?>? GetDashboardSelectedAccountsHandler { get; set; }
         public Func<string?>? GetDashboardPlaceIdHandler { get; set; }
         public Func<string?>? GetDashboardJobIdHandler { get; set; }
+        public Func<Account, long, string, bool, bool, CancellationToken, Task<LaunchResult>>? ExecuteApiLaunchHandler { get; set; }
 
         public void RefreshAccountView(Account? account = null) => RefreshAccountViewHandler?.Invoke(account);
         public void UpdateAccountValidityOnUi(Account account, bool valid) => UpdateAccountValidityOnUiHandler?.Invoke(account, valid);
@@ -156,5 +158,23 @@ namespace Shiro.Services
 
         public Task ResetEncryptionAsync(bool prompt) =>
             ResetEncryptionHandler != null ? ResetEncryptionHandler(prompt) : Task.CompletedTask;
+
+        public async Task<LaunchResult> ExecuteSingleLaunchFromApiAsync(
+            Account account,
+            long placeId,
+            string jobId,
+            bool followUser,
+            bool joinVip,
+            CancellationToken cancellationToken = default)
+        {
+            if (ExecuteApiLaunchHandler == null)
+                EnsureBackendInitialized();
+
+            if (ExecuteApiLaunchHandler != null)
+                return await ExecuteApiLaunchHandler(account, placeId, jobId, followUser, joinVip, cancellationToken).ConfigureAwait(false);
+
+            using var cookieGuard = RobloxDirectLauncher.BeginCookieGuardScope(restoreDelayOnDisposeMs: 12_000);
+            return await account.JoinServerResult(placeId, jobId, followUser, joinVip, cancellationToken: cancellationToken).ConfigureAwait(false);
+        }
     }
 }

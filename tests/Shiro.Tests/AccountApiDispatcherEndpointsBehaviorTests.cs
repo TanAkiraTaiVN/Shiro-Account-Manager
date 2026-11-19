@@ -14,6 +14,7 @@ namespace Shiro.Tests
     public class AccountApiDispatcherEndpointsBehaviorTests : IDisposable
     {
         private const string AdminPassword = "StrongAdminPass123";
+        private const string ValidAvatarJson = "{\"playerAvatarType\":\"R15\"}";
 
         public AccountApiDispatcherEndpointsBehaviorTests()
         {
@@ -295,11 +296,13 @@ namespace Shiro.Tests
 
             AppServices.ServerBrowserState.CachedServers.Clear();
             AppServices.ServerBrowserState.CachedServers.Add(new ServerData { id = "rec-srv-1" });
+            AppServices.ServerBrowserState.CachedServersPlaceId = 1818;
             string recServer = await mgr.ProcessApiRequestAsync(CreateRequest("/SetRecommendedServer", query: new Dictionary<string, string> { ["Account"] = "DispatcherEndpointUser", ["PlaceId"] = "1818" }));
             Assert.Contains("Success", recServer);
 
-            string setAvatarResp = await mgr.ProcessApiRequestAsync(CreateRequest("/SetAvatar", query: new Dictionary<string, string> { ["Account"] = "DispatcherEndpointUser" }, body: "{}"));
-            Assert.Contains("Attempting to set avatar", setAvatarResp);
+            string setAvatarResp = await mgr.ProcessApiRequestAsync(CreateRequest("/SetAvatar", query: new Dictionary<string, string> { ["Account"] = "DispatcherEndpointUser" }, body: ValidAvatarJson));
+            Assert.Contains("Updated avatar", setAvatarResp);
+            Assert.Contains("\"Success\":true", setAvatarResp);
 
             string unknownResp = await mgr.ProcessApiRequestAsync(CreateRequest("/NonExistentEndpoint", query: new Dictionary<string, string> { ["Account"] = "DispatcherEndpointUser" }));
             Assert.Contains("404 not found", unknownResp);

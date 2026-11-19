@@ -32,6 +32,34 @@ namespace Shiro.Services
 
         public static AccountApiDispatcher Instance { get; } = new();
         internal const string InternalErrorMessage = "Internal server error";
+        internal const string WsAuthRecordedItemKey = "Shiro.WsAuthRecorded";
+
+        internal static (bool IsV2, string NormalizedPath, string Method) NormalizeRoute(string? rawPath, bool initialIsV2 = false)
+        {
+            string path = string.IsNullOrWhiteSpace(rawPath) ? "/" : rawPath.Trim();
+            if (!path.StartsWith('/'))
+                path = "/" + path;
+
+            bool isV2 = initialIsV2;
+            if (path.Equals("/v2", StringComparison.OrdinalIgnoreCase))
+            {
+                isV2 = true;
+                path = "/";
+            }
+            else if (path.StartsWith("/v2/", StringComparison.OrdinalIgnoreCase))
+            {
+                isV2 = true;
+                path = path.Substring(3);
+            }
+
+            if (path.Length > 1)
+                path = path.TrimEnd('/');
+            if (string.IsNullOrEmpty(path))
+                path = "/";
+
+            string method = path.Length > 1 ? path.Substring(1) : string.Empty;
+            return (isV2, path, method);
+        }
 
         private const int MaxRequestBodySizeBytes = 256 * 1024; // 256 KB max payload
         private readonly System.Collections.Generic.HashSet<string> AttemptedJoins = new(StringComparer.Ordinal);
@@ -51,9 +79,7 @@ namespace Shiro.Services
                 return WebServerResponse("Payload too large (max 256 KB)", false);
             }
 
-            string path = req.Path.Value ?? "/";
-            bool isV2 = path.StartsWith("/v2/", StringComparison.OrdinalIgnoreCase);
-            string absolutePath = isV2 ? path.Substring(3) : path;
+            var (isV2, absolutePath, method) = NormalizeRoute(req.Path.Value);
 
             bool isLocal = context.Connection.RemoteIpAddress != null &&
                            IPAddress.IsLoopback(context.Connection.RemoteIpAddress);
@@ -65,7 +91,7 @@ namespace Shiro.Services
 
             string? authError = EvaluateGatewayAuth(
                 absolutePath,
-                absolutePath.Length > 1 ? absolutePath.Substring(1) : string.Empty,
+                method,
                 isLocal,
                 clientKey,
                 host,
@@ -180,8 +206,18 @@ namespace Shiro.Services
                 AuthDecision.ForbiddenExternal => AuthReply("External connections are not allowed", statusCode, string.Empty),
                 AuthDecision.ForbiddenHost => AuthReply("Invalid host header", statusCode, "Forbidden"),
                 AuthDecision.ForbiddenOrigin => AuthReply("Cross-origin requests from external web pages are forbidden", statusCode, "Forbidden"),
-                AuthDecision.PasswordNotConfigured => AuthReply("WebServer password must be configured with 6 or more characters before accessing protected endpoints", statusCode, "Password Not Configured"),
-                _ => AuthReply("Invalid Password, make sure your password contains 6 or more characters", statusCode, "Invalid Password")
+                AuthDecision.PasswordNotConfigured => AuthReply(
+                    isLocal
+                        ? "WebServer password must be configured with 6 or more characters before accessing protected endpoints"
+                        : $"WebServer password must be configured with {WebAuthPolicy.MinExternalPasswordLength} or more characters for external connections",
+                    statusCode,
+                    "Password Not Configured"),
+                _ => AuthReply(
+                    isLocal
+                        ? "Invalid Password, make sure your password contains 6 or more characters"
+                        : $"Invalid Password, make sure your password contains {WebAuthPolicy.MinExternalPasswordLength} or more characters",
+                    statusCode,
+                    "Invalid Password")
             };
         }
 
@@ -201,22 +237,24 @@ namespace Shiro.Services
 
             var settings = new AuthSettings(allowExternal, everyReq, AppServices.ServerBrowserState.WebSocketPassword);
             var request = new AuthRequest(
-                AuthScope.Api,
+                AuthScope.WebSocket,
                 isLocal,
-                context.Request.Host.Host,
+                context.Request.Host.Value,
                 context.Request.Headers["Origin"].ToString(),
                 WebAuthPolicy.ExtractHeaderPassword(k => context.Request.Headers.TryGetValue(k, out var hVal) ? hVal.ToString() : null),
                 WebAuthPolicy.ExtractQueryPassword(k => context.Request.Query.TryGetValue(k, out var qVal) ? qVal.ToString() : null));
 
             var decision = WebAuthPolicy.Evaluate(request, settings);
             WebAuthPolicy.RecordAuthResult(clientKey, decision);
+            context.Items[WsAuthRecordedItemKey] = true;
             return decision == AuthDecision.Allow;
         }
 
         public async Task<string> ProcessApiRequestAsync(ApiRequestContext req)
         {
-            string absolutePath = req.AbsolutePath;
-            string method = absolutePath.Length > 1 ? absolutePath.Substring(1) : string.Empty;
+            var (isV2, absolutePath, method) = NormalizeRoute(req.AbsolutePath, req.IsV2);
+            req.IsV2 = isV2;
+            req.AbsolutePath = absolutePath;
             string? headerPass = WebAuthPolicy.ExtractHeaderPassword(req.GetHeader);
             string? queryPass = WebAuthPolicy.ExtractQueryPassword(req.GetQuery);
 
@@ -229,7 +267,7 @@ namespace Shiro.Services
                 req.Origin,
                 headerPass,
                 queryPass,
-                req.IsV2,
+                isV2,
                 req.SetStatusCode);
             if (authError != null)
                 return authError;

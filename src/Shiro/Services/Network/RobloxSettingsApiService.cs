@@ -317,9 +317,9 @@ namespace Shiro.Services
             }
         }
 
-        public async Task SetAvatarAsync(Account account, string avatarJsonData, CancellationToken cancellationToken = default)
+        public async Task<bool> SetAvatarAsync(Account account, string avatarJsonData, CancellationToken cancellationToken = default)
         {
-            if (!HasValidSession(account) || string.IsNullOrWhiteSpace(avatarJsonData)) return;
+            if (!HasValidSession(account) || string.IsNullOrWhiteSpace(avatarJsonData)) return false;
 
             if (!AvatarV4PayloadMapper.TryMapPayload(avatarJsonData, out AvatarV4PatchRequest patchRequest, out string? parseError))
             {
@@ -327,14 +327,14 @@ namespace Shiro.Services
                 {
                     _logger.Warn($"SetAvatarAsync: invalid JSON payload: {parseError}");
                 }
-                return;
+                return false;
             }
 
             var csrf = await account.GetCSRFTokenAsync(cancellationToken).ConfigureAwait(false);
             if (!csrf.Success)
             {
                 _logger.Warn($"[SetAvatarAsync] {account.Username}: Failed to acquire CSRF token: {csrf.Error}");
-                return;
+                return false;
             }
 
             string requestJson = JsonSerializer.Serialize(patchRequest, ShiroAppJson.Default.AvatarV4PatchRequest);
@@ -347,17 +347,21 @@ namespace Shiro.Services
                     .AddHeader("X-CSRF-TOKEN", tok)
                     .AddStringBody(requestJson, "application/json"),
                 cancellationToken).ConfigureAwait(false);
+            bool succeeded = response is { IsSuccessful: true };
             if (response != null)
+            {
                 account.TryUpdateRotatedCookie(response);
+                long[] missingIds = AvatarV4PayloadMapper.ExtractInvalidAssetIds(response.Content);
+                if (missingIds.Length > 0)
+                {
+                    AppServices.Dialogs.OpenMissingAssetsDialog(account, missingIds);
+                }
+            }
 
-            if (response == null || !response.IsSuccessful)
+            if (!succeeded)
                 _logger.Warn($"[SetAvatarAsync] {account.Username}: Avatar update failed ({response?.StatusCode}).");
 
-            long[] missingIds = AvatarV4PayloadMapper.ExtractInvalidAssetIds(response?.Content);
-            if (missingIds.Length > 0)
-            {
-                AppServices.Dialogs.OpenMissingAssetsDialog(account, missingIds);
-            }
+            return succeeded;
         }
 
         internal async Task<bool> EnsurePrivateServerInvitesAllowedAsync(

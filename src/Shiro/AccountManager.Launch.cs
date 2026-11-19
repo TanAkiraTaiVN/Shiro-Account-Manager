@@ -61,5 +61,23 @@ namespace Shiro
 
         public void NextAccount() => launchCoordinator.SignalNext();
         public void CancelLaunching() => launchCoordinator.Cancel();
+
+        private Task<LaunchResult> ExecuteApiLaunchViaCoordinatorAsync(
+            Account account,
+            long placeId,
+            string jobId,
+            bool followUser,
+            bool joinVip,
+            CancellationToken cancellationToken) =>
+            AccountLaunchBatchService.ExecuteSingleLaunchAsync(
+                launchCoordinator,
+                account,
+                placeId,
+                jobId,
+                followUser,
+                joinVip,
+                GetConfiguredAccountJoinDelaySeconds(),
+                SetDashboardStatus,
+                cancellationToken);
     }
 }

@@ -40,7 +40,8 @@ namespace Shiro.Services
                 cancellationToken.IsCancellationRequested ||
                 !request.Account.Valid ||
                 request.Account.IsBannedOrLocked ||
-                string.IsNullOrWhiteSpace(request.Account.SecurityToken))
+                string.IsNullOrWhiteSpace(request.Account.SecurityToken) ||
+                (AccountLaunchService.TestGetAuthTicketOverride != null && Account.TestHttpClientFactory == null))
             {
                 return (initialResult, false);
             }

@@ -12,6 +12,7 @@ namespace Shiro.Services
         bool ShuffleJobId { get; set; }
         string? CurrentClientVersion { get; set; }
         string? WebSocketPassword { get; set; }
+        long CachedServersPlaceId { get; set; }
         List<ServerData> CachedServers { get; set; }
         List<Shiro.Game> RecentGames { get; set; }
         Task LoadClientVersionAsync(CancellationToken cancellationToken = default);

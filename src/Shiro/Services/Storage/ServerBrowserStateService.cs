@@ -70,6 +70,7 @@ namespace Shiro.Services
         public bool ShuffleJobId { get; set; }
         public string? CurrentClientVersion { get; set; }
         public string? WebSocketPassword { get; set; }
+        public long CachedServersPlaceId { get; set; }
         public List<ServerData> CachedServers { get; set; } = new();
         public List<Shiro.Game> RecentGames { get; set; } = new();
 

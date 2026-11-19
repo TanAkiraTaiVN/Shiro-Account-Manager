@@ -97,6 +97,7 @@ namespace Shiro
                 bridge.StopWebServerHandler = StopWebServerAsync;
                 bridge.SetAutoCookieRefreshEnabledHandler = SetAutoCookieRefreshEnabled;
                 bridge.ResetEncryptionHandler = Persistence.ResetEncryptionAsync;
+                bridge.ExecuteApiLaunchHandler = ExecuteApiLaunchViaCoordinatorAsync;
             }
         }
 

@@ -216,7 +216,11 @@ namespace Shiro
             SafeExecuteHelper.Try(() => MemoryOptimizer.ConfigureAutoTrim(false));
             SafeExecuteHelper.Try(RobloxJobObjectService.Close);
             SafeExecuteHelper.Try(RobloxWindowService.ShowAllWindows);
-            SafeExecuteHelper.Try(() => { if (AltManagerWS != null) Task.Run(() => AltManagerWS.StopAsync()).Wait(TimeSpan.FromSeconds(2)); });
+            SafeExecuteHelper.Try(() =>
+            {
+                KestrelWebServer? ws = Interlocked.Exchange(ref AltManagerWS, null);
+                if (ws != null) Task.Run(async () => await ws.DisposeAsync().ConfigureAwait(false)).Wait(TimeSpan.FromSeconds(2));
+            });
             SafeExecuteHelper.Try(() => RobloxDirectLauncher.RestoreOriginalCookies());
             SafeExecuteHelper.Try(() => AccountRuntimeStateStore.Flush());
             SafeExecuteHelper.Try(() => presenceService?.Dispose());
@@ -303,20 +307,16 @@ namespace Shiro
 
         public async Task StopWebServerAsync()
         {
-            if (AltManagerWS != null)
+            KestrelWebServer? ws = Interlocked.Exchange(ref AltManagerWS, null);
+            if (ws != null)
             {
                 try
                 {
-                    await AltManagerWS.StopAsync().ConfigureAwait(false);
-                    await AltManagerWS.DisposeAsync().ConfigureAwait(false);
+                    await ws.DisposeAsync().ConfigureAwait(false);
                 }
                 catch (Exception ex)
                 {
                     Program.Logger?.Debug($"[AccountManager] StopWebServerAsync error: {ex.Message}");
-                }
-                finally
-                {
-                    AltManagerWS = null;
                 }
             }
         }

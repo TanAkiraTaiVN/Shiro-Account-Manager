@@ -377,5 +377,49 @@ namespace Shiro.Services
                 SetStatus(LocalizationService.Get("Launch_QueueCancelled"));
             }
         }
+
+        public static async Task<LaunchResult> ExecuteSingleLaunchAsync(
+            ILaunchCoordinator? launchCoordinator,
+            Account account,
+            long placeId,
+            string jobId,
+            bool followUser,
+            bool joinVip,
+            int accountJoinDelaySeconds,
+            Action<string>? statusCallback,
+            CancellationToken cancellationToken = default)
+        {
+            if (launchCoordinator != null && !launchCoordinator.IsRunning)
+            {
+                try
+                {
+                    var batch = await launchCoordinator.EnqueueAsync(
+                        new[] { new LaunchRequest(account, placeId, jobId ?? string.Empty, followUser, joinVip) },
+                        accountJoinDelaySeconds,
+                        asyncJoin: false,
+                        progress =>
+                        {
+                            if (!string.IsNullOrWhiteSpace(progress?.Message))
+                                statusCallback?.Invoke(progress.Message);
+                        },
+                        cancellationToken).ConfigureAwait(false);
+
+                    if (batch.Results.Count > 0)
+                    {
+                        var first = batch.Results[0];
+                        return first.Status == LaunchOutcome.Success
+                            ? LaunchResult.Success()
+                            : LaunchResult.Fail(first.Status, first.Result ?? "Failed to launch Roblox");
+                    }
+                }
+                catch (InvalidOperationException ex)
+                {
+                    AppServices.Logger.Debug($"[AccountLaunchBatchService] Coordinator busy, falling back to CookieGuard scope: {ex.Message}");
+                }
+            }
+
+            using var cookieGuard = RobloxDirectLauncher.BeginCookieGuardScope(restoreDelayOnDisposeMs: 12_000);
+            return await account.JoinServerResult(placeId, jobId ?? string.Empty, followUser, joinVip, cancellationToken: cancellationToken).ConfigureAwait(false);
+        }
     }
 }

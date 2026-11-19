@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Shiro.Services
@@ -41,5 +42,16 @@ namespace Shiro.Services
         List<Account>? TryGetDashboardSelectedAccounts() => null;
         string? TryGetDashboardPlaceId() => null;
         string? TryGetDashboardJobId() => null;
+        async Task<LaunchResult> ExecuteSingleLaunchFromApiAsync(
+            Account account,
+            long placeId,
+            string jobId,
+            bool followUser,
+            bool joinVip,
+            CancellationToken cancellationToken = default)
+        {
+            using var cookieGuard = RobloxDirectLauncher.BeginCookieGuardScope(restoreDelayOnDisposeMs: 12_000);
+            return await account.JoinServerResult(placeId, jobId, followUser, joinVip, cancellationToken: cancellationToken).ConfigureAwait(false);
+        }
     }
 }

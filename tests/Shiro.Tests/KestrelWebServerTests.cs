@@ -146,11 +146,19 @@ namespace Shiro.Tests
             Assert.Contains("\"data\":\"custom message\"", strJson);
 
             // 4. Null payload
-            byte[]? nullBytes = method.Invoke(null, new object[] { "null_evt", new object() }) as byte[];
+            byte[]? nullBytes = method.Invoke(null, new object?[] { "null_evt", null }) as byte[];
             Assert.NotNull(nullBytes);
             string nullJson = System.Text.Encoding.UTF8.GetString(nullBytes!);
             Assert.Contains("\"event\":\"null_evt\"", nullJson);
             Assert.Contains("\"data\":null", nullJson);
+
+            // 5. Unknown object payload preserves serialized properties
+            byte[]? customBytes = method.Invoke(null, new object[] { "custom_evt", new { msg = "hello", code = 7 } }) as byte[];
+            Assert.NotNull(customBytes);
+            string customJson = System.Text.Encoding.UTF8.GetString(customBytes!);
+            Assert.Contains("\"event\":\"custom_evt\"", customJson);
+            Assert.Contains("\"msg\":\"hello\"", customJson);
+            Assert.Contains("\"code\":7", customJson);
         }
 
         [Fact]
@@ -189,7 +197,7 @@ namespace Shiro.Tests
         public async Task KestrelWebServer_WebSocketLifecycleAndBroadcast_WorksCorrectly()
         {
             int testPort = 19888;
-            await using var server = new KestrelWebServer(testPort, false, ctx => Task.FromResult("ok"));
+            await using var server = new KestrelWebServer(testPort, false, ctx => Task.FromResult("ok"), _ => true);
             await server.StartAsync();
 
             try
@@ -246,6 +254,53 @@ namespace Shiro.Tests
             finally
             {
                 KestrelWebServer.Logger = origLogger;
+            }
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task Constructor_DefaultAuthValidator_FailsClosedForWebSockets(bool allowExternal)
+        {
+            string oldPass = AppSettings.WebSocketPassword ?? string.Empty;
+            WebAuthPolicy.ResetLockoutsForTesting();
+            try
+            {
+                AppSettings.WebSocketPassword = "StrongExternalPassword12";
+                int port = allowExternal ? 19893 : 19894;
+                await using var server = new KestrelWebServer(port, allowExternal, _ => Task.FromResult("ok"));
+                await server.StartAsync();
+
+                using var ws = new System.Net.WebSockets.ClientWebSocket();
+                using var cts = new System.Threading.CancellationTokenSource(TimeSpan.FromSeconds(5));
+                var ex = await Assert.ThrowsAsync<System.Net.WebSockets.WebSocketException>(
+                    () => ws.ConnectAsync(new Uri($"ws://127.0.0.1:{port}/ws"), cts.Token));
+                Assert.Contains("401", ex.Message, StringComparison.OrdinalIgnoreCase);
+
+                await server.StopAsync();
+            }
+            finally
+            {
+                WebAuthPolicy.ResetLockoutsForTesting();
+                AppSettings.WebSocketPassword = oldPass;
+            }
+        }
+
+        [Fact]
+        public async Task StartAsync_AllowExternalWith11CharPassword_FallsBackToLocalhost()
+        {
+            string oldPass = AppSettings.WebSocketPassword ?? string.Empty;
+            try
+            {
+                AppSettings.WebSocketPassword = "12345678901";
+                await using var server = new KestrelWebServer(19895, allowExternal: true, _ => Task.FromResult("ok"));
+                await server.StartAsync();
+                Assert.False(server.IsListeningExternally);
+                await server.StopAsync();
+            }
+            finally
+            {
+                AppSettings.WebSocketPassword = oldPass;
             }
         }
     }

@@ -30,7 +30,7 @@ namespace Shiro
         public Task SetDisplayNameAsync(string displayName, CancellationToken cancellationToken = default) =>
             RobloxSettingsApiService.Instance.SetDisplayNameAsync(this, displayName, cancellationToken);
 
-        public Task SetAvatarAsync(string avatarJsonData, CancellationToken cancellationToken = default) =>
+        public Task<bool> SetAvatarAsync(string avatarJsonData, CancellationToken cancellationToken = default) =>
             RobloxSettingsApiService.Instance.SetAvatarAsync(this, avatarJsonData, cancellationToken);
     }
 }

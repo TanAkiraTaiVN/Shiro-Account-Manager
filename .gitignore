@@ -336,7 +336,6 @@ __pycache__/
 .superpowers/
 scratch/
 RAMSettings.json
-/RAMAccount.lua
 *.backup
 coverage/
 TestResults/

@@ -14,14 +14,14 @@ namespace Shiro.Tests
         // (scope, loopback, allowExt, everyReq, configured, header, query, expected)
         [InlineData(AuthScope.Api, true, false, false, null, null, null, AuthDecision.PasswordNotConfigured)]
         [InlineData(AuthScope.Api, true, false, false, "secret1", null, "secret1", AuthDecision.Allow)] // local query password allowed
-        [InlineData(AuthScope.Api, false, true, false, "secret1", null, "secret1", AuthDecision.InvalidPassword)] // external query password rejected
-        [InlineData(AuthScope.Api, false, true, false, "secret1", "secret1", null, AuthDecision.Allow)]
+        [InlineData(AuthScope.Api, false, true, false, "secret123456", null, "secret123456", AuthDecision.InvalidPassword)] // external API query password rejected
+        [InlineData(AuthScope.Api, false, true, false, "secret123456", "secret123456", null, AuthDecision.Allow)]
         [InlineData(AuthScope.Api, false, false, false, "secret1", "secret1", null, AuthDecision.ForbiddenExternal)]
         [InlineData(AuthScope.PublicTelemetry, true, false, false, null, null, null, AuthDecision.Allow)]
         [InlineData(AuthScope.PublicTelemetry, true, false, true, "secret1", null, null, AuthDecision.InvalidPassword)]
         [InlineData(AuthScope.PublicTelemetry, false, true, false, null, null, null, AuthDecision.PasswordNotConfigured)]
-        [InlineData(AuthScope.PublicTelemetry, false, true, false, "secret1", null, "wrong!", AuthDecision.InvalidPassword)]
-        [InlineData(AuthScope.PublicTelemetry, false, true, false, "secret1", null, null, AuthDecision.InvalidPassword)]
+        [InlineData(AuthScope.PublicTelemetry, false, true, false, "secret123456", null, "wrong!", AuthDecision.InvalidPassword)]
+        [InlineData(AuthScope.PublicTelemetry, false, true, false, "secret123456", null, null, AuthDecision.InvalidPassword)]
         public void Evaluate_DecisionMatrix_MatchesExpected(
             AuthScope scope,
             bool loopback,
@@ -84,8 +84,43 @@ namespace Shiro.Tests
         {
             Assert.False(WebAuthPolicy.CanListenExternally(new AuthSettings(true, false, null)));
             Assert.False(WebAuthPolicy.CanListenExternally(new AuthSettings(true, false, "12345")));
-            Assert.True(WebAuthPolicy.CanListenExternally(new AuthSettings(true, false, "123456")));
-            Assert.False(WebAuthPolicy.CanListenExternally(new AuthSettings(false, false, "123456")));
+            Assert.False(WebAuthPolicy.CanListenExternally(new AuthSettings(true, false, "123456")));
+            Assert.True(WebAuthPolicy.CanListenExternally(new AuthSettings(true, false, "123456789012")));
+            Assert.False(WebAuthPolicy.CanListenExternally(new AuthSettings(false, false, "123456789012")));
+        }
+
+        [Theory]
+        [InlineData("12345678901", false)]
+        [InlineData("123456789012", true)]
+        public void CanListenExternally_Enforces12CharMinimum(string pass, bool expected)
+            => Assert.Equal(expected, WebAuthPolicy.CanListenExternally(new AuthSettings(true, false, pass)));
+
+        [Theory]
+        [InlineData("123456")]
+        [InlineData("12345678901")]
+        public void Evaluate_ExternalWithUnder12CharPassword_IsRejected(string shortPass)
+        {
+            Assert.Equal(12, WebAuthPolicy.MinExternalPasswordLength);
+            var settings = new AuthSettings(AllowExternal: true, EveryRequestRequiresPassword: false, ConfiguredPassword: shortPass);
+            var req = new AuthRequest(AuthScope.Api, IsLoopbackRemote: false, Host: "192.168.1.5:7963", Origin: null, HeaderPassword: shortPass, QueryPassword: null);
+            var decision = WebAuthPolicy.Evaluate(req, settings);
+            Assert.NotEqual(AuthDecision.Allow, decision);
+            Assert.Equal(401, WebAuthPolicy.ToStatusCode(decision));
+        }
+
+        [Fact]
+        public void Evaluate_RemoteQueryToken_AllowedOnlyForWebSocketScope_With12CharCheck()
+        {
+            var settings = new AuthSettings(AllowExternal: true, EveryRequestRequiresPassword: false, ConfiguredPassword: "secret123456");
+
+            var wsAllowReq = new AuthRequest(AuthScope.WebSocket, IsLoopbackRemote: false, Host: "192.168.1.5:7963", Origin: null, HeaderPassword: null, QueryPassword: "secret123456");
+            Assert.Equal(AuthDecision.Allow, WebAuthPolicy.Evaluate(wsAllowReq, settings));
+
+            var apiRejectReq = new AuthRequest(AuthScope.Api, IsLoopbackRemote: false, Host: "192.168.1.5:7963", Origin: null, HeaderPassword: null, QueryPassword: "secret123456");
+            Assert.Equal(AuthDecision.InvalidPassword, WebAuthPolicy.Evaluate(apiRejectReq, settings));
+
+            var wsWrongTokenReq = new AuthRequest(AuthScope.WebSocket, IsLoopbackRemote: false, Host: "192.168.1.5:7963", Origin: null, HeaderPassword: null, QueryPassword: "wrong1234567");
+            Assert.Equal(AuthDecision.InvalidPassword, WebAuthPolicy.Evaluate(wsWrongTokenReq, settings));
         }
 
         [Fact]

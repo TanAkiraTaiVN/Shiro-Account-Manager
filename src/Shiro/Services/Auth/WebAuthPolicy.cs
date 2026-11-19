@@ -7,7 +7,8 @@ namespace Shiro.Services
     public enum AuthScope
     {
         PublicTelemetry,
-        Api
+        Api,
+        WebSocket
     }
 
     public enum AuthDecision
@@ -36,7 +37,8 @@ namespace Shiro.Services
     public static class WebAuthPolicy
     {
         public const int MinPasswordLength = 6;
-        public const int RecommendedExternalPasswordLength = 12;
+        public const int MinExternalPasswordLength = 12;
+        public const int RecommendedExternalPasswordLength = MinExternalPasswordLength;
         public const int MaxFailedAttempts = 5;
         public static readonly TimeSpan LockoutDuration = TimeSpan.FromSeconds(30);
         public static readonly TimeSpan AttemptWindow = TimeSpan.FromMinutes(15);
@@ -140,10 +142,10 @@ namespace Shiro.Services
             !string.IsNullOrEmpty(configured) && configured.Length >= MinPasswordLength;
 
         public static bool IsStrongExternalPassword(string? configured) =>
-            !string.IsNullOrEmpty(configured) && configured.Length >= RecommendedExternalPasswordLength;
+            !string.IsNullOrEmpty(configured) && configured.Length >= MinExternalPasswordLength;
 
         public static bool CanListenExternally(in AuthSettings settings) =>
-            settings.AllowExternal && IsPasswordConfigured(settings.ConfiguredPassword);
+            settings.AllowExternal && IsStrongExternalPassword(settings.ConfiguredPassword);
 
         /// <summary>
         /// Redacts sensitive query parameters (Password, password, token, Cookie, cookie)
@@ -294,23 +296,30 @@ namespace Shiro.Services
                 return AuthDecision.ForbiddenOrigin;
             }
 
-            // 3. Effective password = HeaderPassword; if empty, QueryPassword is used only when IsLoopbackRemote is true.
+            // 3. Effective password = HeaderPassword; QueryPassword is allowed on loopback,
+            //    or remotely ONLY for AuthScope.WebSocket (e.g., RAMAccount.lua ?token=).
             string? effectivePassword = request.HeaderPassword;
-            if (string.IsNullOrEmpty(effectivePassword) && request.IsLoopbackRemote)
+            if (string.IsNullOrEmpty(effectivePassword) &&
+                (request.IsLoopbackRemote || request.Scope == AuthScope.WebSocket))
             {
                 effectivePassword = request.QueryPassword;
             }
 
-            // 4. Password required when: Scope == Api, or EveryRequestRequiresPassword, or !IsLoopbackRemote.
+            // 4. Password required when: Scope == Api, Scope == WebSocket, EveryRequestRequiresPassword, or !IsLoopbackRemote.
             bool passwordRequired =
                 request.Scope == AuthScope.Api ||
+                request.Scope == AuthScope.WebSocket ||
                 settings.EveryRequestRequiresPassword ||
                 !request.IsLoopbackRemote;
 
-            // 5. If required: not configured -> PasswordNotConfigured; effective password empty or incorrect (CryptoHelper.FixedTimeEqualsSecret) -> InvalidPassword.
+            // 5. If required: external requests require >= MinExternalPasswordLength (12);
+            //    localhost requests require >= MinPasswordLength (6).
             if (passwordRequired)
             {
-                if (!IsPasswordConfigured(settings.ConfiguredPassword))
+                bool passwordConfigured = request.IsLoopbackRemote
+                    ? IsPasswordConfigured(settings.ConfiguredPassword)
+                    : IsStrongExternalPassword(settings.ConfiguredPassword);
+                if (!passwordConfigured)
                 {
                     return AuthDecision.PasswordNotConfigured;
                 }
