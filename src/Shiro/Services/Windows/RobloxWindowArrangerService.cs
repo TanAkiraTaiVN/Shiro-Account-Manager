@@ -228,6 +228,9 @@ namespace Shiro.Services
 
         internal static void ClearTrackerCacheForTest() => _pidTrackerCache.Clear();
 
+        internal static bool TryEvictStaleTrackerEntry(int pid, (string TrackerId, long CreationTicks) cached)
+            => _pidTrackerCache.TryRemove(KeyValuePair.Create(pid, cached));
+
         internal static string ResolveTrackerForPidWithCacheForTest(int pid, Func<int, string?> getCommandLineByPid)
             => ResolveTrackerForPidWithCacheForTest(pid, getCommandLineByPid, null);
 
@@ -250,7 +253,7 @@ namespace Shiro.Services
                     return cached.TrackerId;
                 }
 
-                _pidTrackerCache.TryRemove(pid, out _);
+                TryEvictStaleTrackerEntry(pid, cached);
             }
 
             try

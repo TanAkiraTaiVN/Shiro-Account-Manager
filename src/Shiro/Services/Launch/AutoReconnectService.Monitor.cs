@@ -216,23 +216,30 @@ namespace Shiro.Services
             }
         }
 
-        private static void TryKillStaleProcess(ReconnectSession session)
+        internal static void TryKillStaleProcess(ReconnectSession session)
         {
+            if (session.ProcessId <= 0)
+                return;
+
             try
             {
-                if (session.ProcessCreationTicks > 0 &&
-                    !RobloxProcessIdentityHelper.IsSameProcessInstance(session.ProcessId, session.ProcessCreationTicks, out _))
-                {
-                    return;
-                }
-
                 using var staleProc = Process.GetProcessById(session.ProcessId);
-                if (!staleProc.HasExited)
+                if (!staleProc.HasExited &&
+                    (session.ProcessCreationTicks <= 0 ||
+                     RobloxProcessIdentityHelper.IsSameProcessInstance(session.ProcessId, session.ProcessCreationTicks, out _)))
                 {
                     AppServices.Logger?.Warn($"[AutoReconnect] Terminating disconnected Roblox client PID {session.ProcessId} for '{session.Account?.Username}' before reconnecting...");
                     staleProc.Kill();
                     staleProc.WaitForExit(1000);
                 }
+            }
+            catch (ArgumentException)
+            {
+                // Process already exited before handle acquisition
+            }
+            catch (InvalidOperationException)
+            {
+                // Process exited before HasExited or Kill completed
             }
             catch (Exception ex)
             {

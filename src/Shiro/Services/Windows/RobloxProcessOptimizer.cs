@@ -110,6 +110,8 @@ namespace Shiro.Services
             return pid > 0;
         }
 
+        internal static Action<int>? TestOptimizeLaunchedProcessHook;
+
         /// <summary>
         /// Applies baseline launch optimization to a newly spawned Roblox process.
         /// Always enrolls the process into RobloxJobObjectService so kernel IOCP exit telemetry works even when CPU rate-limiting is 0%.
@@ -117,6 +119,7 @@ namespace Shiro.Services
         public static void OptimizeLaunchedProcess(int pid)
         {
             if (pid <= 0) return;
+            TestOptimizeLaunchedProcessHook?.Invoke(pid);
             try
             {
                 if (AppServices.GeneralSettings.Get<bool>(AppSettingsKeys.General.AutoLowerProcessPriority, false))

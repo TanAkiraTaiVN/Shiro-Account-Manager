@@ -491,6 +491,49 @@ namespace Shiro.Tests
             }
         }
 
+        [Fact]
+        public async Task RobloxLaunchExecutorHelper_ProtocolPath_InvokesOptimizeLaunchedProcessWithResolvedPid()
+        {
+            var prevProtocol = AccountLaunchService.TestProtocolCommandOverride;
+            var prevRunningPids = RobloxProcessService.TestGetRunningRobloxPidsOverride;
+            var prevShellOverride = RobloxLaunchExecutorHelper.TestProtocolShellStartOverride;
+            var prevDelayOverride = RobloxLaunchExecutorHelper.TestPostSpawnDelayMsOverride;
+            var prevOptimizeHook = RobloxProcessOptimizer.TestOptimizeLaunchedProcessHook;
+            using var proc = Process.Start(new ProcessStartInfo
+            {
+                FileName = Environment.GetEnvironmentVariable("ComSpec") ?? "cmd.exe",
+                Arguments = "/c \"more >nul\"",
+                RedirectStandardInput = true,
+                CreateNoWindow = true,
+                UseShellExecute = false
+            })!;
+            var optimizedPids = new List<int>();
+            try
+            {
+                AccountLaunchService.TestProtocolCommandOverride = "\"C:\\NonExistent\\RobloxPlayerBeta.exe\" %1";
+                RobloxLaunchExecutorHelper.TestPostSpawnDelayMsOverride = 1;
+                RobloxLaunchExecutorHelper.TestProtocolShellStartOverride = _ => Process.GetProcessById(proc.Id);
+                RobloxProcessService.TestGetRunningRobloxPidsOverride = () => new[] { proc.Id };
+                RobloxProcessOptimizer.TestOptimizeLaunchedProcessHook = pid => optimizedPids.Add(pid);
+
+                int resolvedPid = await RobloxLaunchExecutorHelper.ExecuteNativeLaunchAsync(
+                    "roblox-player:1+launchmode:play", "--app", "t1", "ProtoOptUser", "111", CancellationToken.None);
+
+                Assert.Equal(proc.Id, resolvedPid);
+                Assert.Equal(new[] { proc.Id }, optimizedPids);
+            }
+            finally
+            {
+                RobloxProcessOptimizer.TestOptimizeLaunchedProcessHook = prevOptimizeHook;
+                RobloxLaunchExecutorHelper.TestProtocolShellStartOverride = prevShellOverride;
+                RobloxLaunchExecutorHelper.TestPostSpawnDelayMsOverride = prevDelayOverride;
+                AccountLaunchService.TestProtocolCommandOverride = prevProtocol;
+                RobloxProcessService.TestGetRunningRobloxPidsOverride = prevRunningPids;
+                RobloxJobObjectService.Close();
+                try { if (!proc.HasExited) proc.Kill(entireProcessTree: true); } catch (InvalidOperationException) { /* exited */ }
+            }
+        }
+
         private sealed class DelegateHandler(Func<HttpRequestMessage, HttpResponseMessage> fn) : HttpMessageHandler
         {
             private readonly Func<HttpRequestMessage, Task<HttpResponseMessage>> _asyncFn = req => Task.FromResult(fn(req));

@@ -273,49 +273,7 @@ namespace Shiro.Services
                         continue;
                 }
 
-                Process? process = null;
-                bool retained = false;
-                try
-                {
-                    process = Process.GetProcessById(pid);
-                    if (process.HasExited ||
-                        (currentCreationTicks > 0 && !RobloxProcessIdentityHelper.IsSameProcessInstance(pid, currentCreationTicks, out _)))
-                        continue;
-
-                    lock (InstanceRegistryLock)
-                    {
-                        if (IsSeenWithSameCreationUnderLock(pid, currentCreationTicks))
-                            continue;
-
-                        Instances.Add(new RobloxProcess(process, trackerId));
-                        Seen.Add(pid);
-                        if (currentCreationTicks > 0)
-                            _seenCreationTicks[pid] = currentCreationTicks;
-                        retained = true;
-                    }
-
-                    RobloxJobObjectService.AssignProcessByPid(pid);
-                }
-                catch (ArgumentException)
-                {
-                    // Process exited between snapshot and GetProcessById
-                }
-                catch (Exception x)
-                {
-                    lock (InstanceRegistryLock)
-                    {
-                        _pidMetadataCache.Remove(pid);
-                        _seenCreationTicks.Remove(pid);
-                    }
-                    AppServices.Logger?.Debug($"Access to Process {pid} denied: {x.Message}");
-                }
-                finally
-                {
-                    if (!retained && process != null)
-                    {
-                        SafeExecuteHelper.Try(() => process.Dispose(), "RobloxWatcher.DisposeProcess");
-                    }
-                }
+                TryRegisterSeenProcess(pid, trackerId, currentCreationTicks);
             }
 
             lock (InstanceRegistryLock)
@@ -324,38 +282,97 @@ namespace Shiro.Services
             }
         }
 
-        private static void PruneExitedMetadataUnderLock(IReadOnlyList<int> activePids)
+        internal static bool TryRegisterSeenProcess(
+            int pid,
+            string trackerId,
+            long currentCreationTicks,
+            Func<int, long>? resolveCreationTicksOverride = null)
         {
-            if (_pidMetadataCache.Count == 0 && Seen.Count == 0)
-                return;
-
-            List<int>? exitedPids = null;
-            foreach (int cachedPid in _pidMetadataCache.Keys)
+            Process? process = null;
+            bool retained = false;
+            try
             {
-                bool stillRunning = false;
-                for (int i = 0; i < activePids.Count; i++)
+                process = Process.GetProcessById(pid);
+                if (process.HasExited)
+                    return false;
+
+                if (currentCreationTicks <= 0)
                 {
-                    if (activePids[i] == cachedPid)
-                    {
-                        stillRunning = true;
-                        break;
-                    }
+                    currentCreationTicks = resolveCreationTicksOverride != null
+                        ? resolveCreationTicksOverride(pid)
+                        : (RobloxProcessIdentityHelper.TryGetProcessCreationTicks(pid, out long ct) ? ct : 0);
+                    if (currentCreationTicks <= 0 || process.HasExited)
+                        return false;
+                }
+                else if (!RobloxProcessIdentityHelper.IsSameProcessInstance(pid, currentCreationTicks, out _))
+                {
+                    return false;
                 }
 
-                if (!stillRunning)
+                lock (InstanceRegistryLock)
                 {
-                    exitedPids ??= new List<int>(4);
-                    exitedPids.Add(cachedPid);
+                    if (IsSeenWithSameCreationUnderLock(pid, currentCreationTicks))
+                        return false;
+
+                    Instances.Add(new RobloxProcess(process, trackerId));
+                    Seen.Add(pid);
+                    _seenCreationTicks[pid] = currentCreationTicks;
+                    retained = true;
+                }
+
+                RobloxJobObjectService.AssignProcessByPid(pid);
+                return true;
+            }
+            catch (ArgumentException)
+            {
+                // Process exited between snapshot and GetProcessById
+                return false;
+            }
+            catch (Exception x)
+            {
+                lock (InstanceRegistryLock)
+                {
+                    _pidMetadataCache.Remove(pid);
+                    _seenCreationTicks.Remove(pid);
+                }
+                AppServices.Logger?.Debug($"Access to Process {pid} denied: {x.Message}");
+                return false;
+            }
+            finally
+            {
+                if (!retained && process != null)
+                {
+                    SafeExecuteHelper.Try(() => process.Dispose(), "RobloxWatcher.DisposeProcess");
                 }
             }
+        }
 
-            if (exitedPids != null)
+        internal static void PruneExitedMetadataUnderLock(IReadOnlyList<int> activePids)
+        {
+            if (_pidMetadataCache.Count == 0 && Seen.Count == 0 && _seenCreationTicks.Count == 0)
+                return;
+
+            var activeSet = new HashSet<int>(activePids);
+            HashSet<int>? exitedPids = null;
+            CollectExited(_pidMetadataCache.Keys);
+            CollectExited(Seen);
+            CollectExited(_seenCreationTicks.Keys);
+            if (exitedPids == null)
+                return;
+
+            foreach (int exitedPid in exitedPids)
             {
-                foreach (int exitedPid in exitedPids)
+                _pidMetadataCache.Remove(exitedPid);
+                Seen.Remove(exitedPid);
+                _seenCreationTicks.Remove(exitedPid);
+            }
+
+            void CollectExited(IEnumerable<int> pids)
+            {
+                foreach (int pid in pids)
                 {
-                    _pidMetadataCache.Remove(exitedPid);
-                    Seen.Remove(exitedPid);
-                    _seenCreationTicks.Remove(exitedPid);
+                    if (!activeSet.Contains(pid))
+                        (exitedPids ??= new HashSet<int>()).Add(pid);
                 }
             }
         }

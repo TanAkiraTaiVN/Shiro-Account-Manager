@@ -255,13 +255,18 @@ namespace Shiro.Tests
                 ClientSettingsPatcher.TestOnFindRobloxVersionFoldersCalled = () => hostScans++;
 
                 ClientSettingsPatcher.PatchSettings(settingsPathOverride: tempXml);
-                ClientSettingsPatcher.ApplyFpsLimit(unlockFps: true, targetFps: 165, xmlPathOverride: tempXml);
 
-                Assert.Equal(0, hostScans);
                 var patchedDoc = XDocument.Parse(File.ReadAllText(tempXml));
                 var patchedProps = patchedDoc.Descendants("Properties").Single();
                 Assert.Equal("1", patchedProps.Elements("int").Single(e => (string?)e.Attribute("name") == "GraphicsQualityLevel").Value);
                 Assert.Equal("165", patchedProps.Elements("int").Single(e => (string?)e.Attribute("name") == "FramerateCap").Value);
+
+                ClientSettingsPatcher.ApplyFpsLimit(unlockFps: false, targetFps: 60, xmlPathOverride: tempXml);
+
+                var revertedDoc = XDocument.Parse(File.ReadAllText(tempXml));
+                var revertedProps = revertedDoc.Descendants("Properties").Single();
+                Assert.Equal("-1", revertedProps.Elements("int").Single(e => (string?)e.Attribute("name") == "FramerateCap").Value);
+                Assert.Equal(0, hostScans);
             }
             finally
             {

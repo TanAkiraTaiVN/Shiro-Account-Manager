@@ -100,6 +100,9 @@ namespace Shiro.Services
                         TimeSpan.FromSeconds(10),
                         ct).ConfigureAwait(false);
 
+                    if (resolvedPid > 0)
+                        RobloxProcessOptimizer.OptimizeLaunchedProcess(resolvedPid);
+
                     AppServices.Logger.Info($"Launching Roblox through the registered protocol for {username} (Game PID: {resolvedPid}).");
                     AccountLaunchService.SchedulePostLaunchSingletonSweep(500);
                     return resolvedPid;

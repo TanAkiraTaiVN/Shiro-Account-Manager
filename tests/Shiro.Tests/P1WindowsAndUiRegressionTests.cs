@@ -415,5 +415,77 @@ namespace Shiro.Tests
                 try { if (!proc!.HasExited) proc.Kill(entireProcessTree: true); } catch (InvalidOperationException) { /* already exited */ }
             }
         }
+
+        [Fact]
+        public void RobloxWatcher_ZeroTickRace_ReQueriesAndAbortsIfZero_AndPruneCleansSeenAndCreationTicks()
+        {
+            RobloxWatcher.ClearAndDisposeTrackedProcesses();
+            using var proc = Process.Start(new ProcessStartInfo
+            {
+                FileName = Environment.GetEnvironmentVariable("ComSpec") ?? "cmd.exe",
+                Arguments = "/c \"more >nul\"",
+                RedirectStandardInput = true,
+                CreateNoWindow = true,
+                UseShellExecute = false
+            })!;
+            try
+            {
+                Assert.False(RobloxWatcher.TryRegisterSeenProcess(proc.Id, "trk0", currentCreationTicks: 0, _ => 0));
+                Assert.DoesNotContain(proc.Id, RobloxWatcher.Seen);
+                Assert.False(RobloxWatcher.HasSeenCreationTicksForTest(proc.Id));
+                Assert.Empty(RobloxWatcher.Instances);
+
+                Assert.True(RobloxWatcher.TryRegisterSeenProcess(proc.Id, "trk1", currentCreationTicks: 0));
+                Assert.Contains(proc.Id, RobloxWatcher.Seen);
+                Assert.True(RobloxWatcher.HasSeenCreationTicksForTest(proc.Id));
+
+                RobloxWatcher.ClearAndDisposeTrackedProcesses();
+                RobloxWatcher.SeedSeenWithoutMetadataForTest(999901, 12345L);
+                RobloxWatcher.SeedSeenWithoutMetadataForTest(999902, null);
+                RobloxWatcher.SeedProcessCacheForTest(999903, "live", isGameClient: true, creationTicks: 54321L);
+
+                lock (RobloxWatcher.InstanceRegistryLock)
+                {
+                    RobloxWatcher.PruneExitedMetadataUnderLock(new[] { 999903 });
+                }
+
+                Assert.DoesNotContain(999901, RobloxWatcher.Seen);
+                Assert.DoesNotContain(999902, RobloxWatcher.Seen);
+                Assert.False(RobloxWatcher.HasSeenCreationTicksForTest(999901));
+                Assert.Contains(999903, RobloxWatcher.Seen);
+                Assert.True(RobloxWatcher.HasSeenCreationTicksForTest(999903));
+            }
+            finally
+            {
+                RobloxWatcher.ClearAndDisposeTrackedProcesses();
+                RobloxJobObjectService.Close();
+                try { if (!proc.HasExited) proc.Kill(entireProcessTree: true); } catch (InvalidOperationException) { /* already exited */ }
+            }
+        }
+
+        [Fact]
+        public void RobloxWindowArrangerService_TryEvictStaleTrackerEntry_PreservesConcurrentUpdate()
+        {
+            RobloxWindowArrangerService.ClearTrackerCacheForTest();
+            try
+            {
+                int cliCalls = 0;
+                Assert.Equal("111", RobloxWindowArrangerService.ResolveTrackerForPidWithCacheForTest(
+                    88702, _ => "\"RobloxPlayerBeta.exe\" -b 111", _ => 1000L));
+                Assert.Equal("222", RobloxWindowArrangerService.ResolveTrackerForPidWithCacheForTest(
+                    88702, _ => "\"RobloxPlayerBeta.exe\" -b 222", _ => 2000L));
+
+                Assert.False(RobloxWindowArrangerService.TryEvictStaleTrackerEntry(88702, ("111", 1000L)));
+                string hit = RobloxWindowArrangerService.ResolveTrackerForPidWithCacheForTest(
+                    88702, _ => { cliCalls++; return "\"RobloxPlayerBeta.exe\" -b 999"; }, _ => 2000L);
+                Assert.Equal("222", hit);
+                Assert.Equal(0, cliCalls);
+                Assert.True(RobloxWindowArrangerService.TryEvictStaleTrackerEntry(88702, ("222", 2000L)));
+            }
+            finally
+            {
+                RobloxWindowArrangerService.ClearTrackerCacheForTest();
+            }
+        }
     }
 }

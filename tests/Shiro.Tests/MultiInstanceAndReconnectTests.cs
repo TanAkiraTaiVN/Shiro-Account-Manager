@@ -461,5 +461,45 @@ namespace Shiro.Tests
                 trackerBrowserId: "999999999999",
                 expectedBrowserId: "175658845055"));
         }
+
+        [Fact]
+        public void AutoReconnect_TryKillStaleProcess_SkipsRecycledPidAndKillsMatchingProcess()
+        {
+            using var proc = Process.Start(new ProcessStartInfo
+            {
+                FileName = Environment.GetEnvironmentVariable("ComSpec") ?? "cmd.exe",
+                Arguments = "/c \"more >nul\"",
+                RedirectStandardInput = true,
+                CreateNoWindow = true,
+                UseShellExecute = false
+            })!;
+            try
+            {
+                Assert.True(RobloxProcessIdentityHelper.TryGetProcessCreationTicks(proc.Id, out long realTicks));
+                var session = new AutoReconnectService.ReconnectSession
+                {
+                    Account = new Account { Username = "TryKillStaleUser", UserID = 90099 },
+                    ProcessId = proc.Id,
+                    ProcessCreationTicks = realTicks - 10_000_000L
+                };
+
+                AutoReconnectService.TryKillStaleProcess(session);
+                Assert.False(proc.HasExited);
+
+                session.ProcessCreationTicks = realTicks;
+                AutoReconnectService.TryKillStaleProcess(session);
+                Assert.True(proc.WaitForExit(3000));
+
+                var exitedEx = Record.Exception(() => AutoReconnectService.TryKillStaleProcess(session));
+                Assert.Null(exitedEx);
+
+                session.ProcessId = 0;
+                Assert.Null(Record.Exception(() => AutoReconnectService.TryKillStaleProcess(session)));
+            }
+            finally
+            {
+                try { if (!proc.HasExited) proc.Kill(entireProcessTree: true); } catch (InvalidOperationException) { /* exited */ }
+            }
+        }
     }
 }

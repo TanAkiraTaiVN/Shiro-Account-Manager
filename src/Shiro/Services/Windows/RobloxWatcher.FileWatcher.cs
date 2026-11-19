@@ -85,6 +85,26 @@ namespace Shiro.Services
             }
         }
 
+        internal static void SeedSeenWithoutMetadataForTest(int pid, long? creationTicks)
+        {
+            lock (InstanceRegistryLock)
+            {
+                Seen.Add(pid);
+                if (creationTicks.HasValue)
+                    _seenCreationTicks[pid] = creationTicks.Value;
+                else
+                    _seenCreationTicks.Remove(pid);
+            }
+        }
+
+        internal static bool HasSeenCreationTicksForTest(int pid)
+        {
+            lock (InstanceRegistryLock)
+            {
+                return _seenCreationTicks.ContainsKey(pid);
+            }
+        }
+
         internal static bool TryGetValidatedMetadataForTest(int pid, long currentCreationTicks, out string trackerId)
         {
             lock (InstanceRegistryLock)
