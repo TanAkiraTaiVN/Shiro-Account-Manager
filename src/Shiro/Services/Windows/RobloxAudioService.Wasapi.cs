@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -14,7 +15,7 @@ namespace Shiro.Services
         private const uint CLSCTX_ALL = 0x17;
         private const int RPC_E_CHANGED_MODE = unchecked((int)0x80010106);
 
-        private static readonly ConcurrentDictionary<int, IntPtr> _cachedVolumePointers = new();
+        private static readonly ConcurrentDictionary<int, ImmutableArray<IntPtr>> _cachedVolumePointers = new();
         private static readonly BlockingCollection<Action> _wasapiQueue = new();
         private static readonly Lock _wasapiWorkerInitLock = new();
         private static Thread? _wasapiWorkerThread;
@@ -28,10 +29,24 @@ namespace Shiro.Services
         internal static int CachedAudioSessionCount => _cachedVolumePointers.Count;
 
         internal static void SeedDummyCachedAudioSessionForTest(int pid)
-            => _cachedVolumePointers[pid] = IntPtr.Zero;
+            => _cachedVolumePointers[pid] = ImmutableArray.Create(IntPtr.Zero);
+
+        internal static void SeedCachedAudioSessionsForTest(int pid, params IntPtr[] pointers)
+            => _cachedVolumePointers[pid] = pointers.Length == 0
+                ? ImmutableArray<IntPtr>.Empty
+                : ImmutableArray.CreateRange(pointers);
 
         internal static bool HasCachedAudioSessionForTest(int pid)
             => _cachedVolumePointers.ContainsKey(pid);
+
+        private static void RecordSmartMuteFailureIfCurrent(long configVersion, long nowTick)
+        {
+            lock (_gate)
+            {
+                if (configVersion >= 0 && _smartMuteEnabled && configVersion == _smartMuteConfigVersion)
+                    Interlocked.Exchange(ref _lastComFailureTick, nowTick);
+            }
+        }
 
         private static void OnJobProcessExited(int pid, bool abnormal)
         {
@@ -102,9 +117,10 @@ namespace Shiro.Services
             }
         }
 
-        internal static T RunOnWasapiMtaThread<T>(Func<T> work)
+        internal static T RunOnWasapiMtaThread<T>(Func<T> work, int timeoutMs = 1500)
         {
             if (work == null) throw new ArgumentNullException(nameof(work));
+            if (timeoutMs < -1) throw new ArgumentOutOfRangeException(nameof(timeoutMs));
 
             int currentTid = Environment.CurrentManagedThreadId;
             if (_wasapiWorkerThreadId > 0 && currentTid == _wasapiWorkerThreadId)
@@ -115,31 +131,48 @@ namespace Shiro.Services
             if (Environment.CurrentManagedThreadId == _wasapiWorkerThreadId)
                 return work();
 
-            T result = default!;
-            Exception? captured = null;
-            using var done = new ManualResetEventSlim(false);
+            var item = new MtaWorkItem<T>(work);
+            try { _wasapiQueue.Add(item.Execute); }
+            catch (Exception ex) { _ = ex; item.AbortBeforeExecute(); throw; }
+            return item.WaitResult(timeoutMs);
+        }
 
-            _wasapiQueue.Add(() =>
+        private sealed class MtaWorkItem<T>
+        {
+            private readonly Func<T> _work;
+            private readonly ManualResetEventSlim _done = new(false);
+            private int pendingOwners = 2;
+            private T _result = default!;
+            private Exception? _captured;
+
+            public MtaWorkItem(Func<T> work) => _work = work;
+
+            public void Execute()
+            {
+                try { _result = _work(); }
+                catch (Exception ex) { _captured = ex; }
+                finally { _done.Set(); ReleaseOwner(); }
+            }
+
+            public T WaitResult(int timeoutMs)
             {
                 try
                 {
-                    result = work();
+                    if (!_done.Wait(timeoutMs))
+                        throw new TimeoutException($"WASAPI MTA operation timed out after {timeoutMs} ms.");
+                    if (_captured != null)
+                        ExceptionDispatchInfo.Throw(_captured);
+                    return _result;
                 }
-                catch (Exception ex)
-                {
-                    captured = ex;
-                }
-                finally
-                {
-                    done.Set();
-                }
-            });
+                finally { ReleaseOwner(); }
+            }
 
-            done.Wait();
-            if (captured != null)
-                ExceptionDispatchInfo.Throw(captured);
+            public void AbortBeforeExecute() { ReleaseOwner(); ReleaseOwner(); }
 
-            return result;
+            private void ReleaseOwner()
+            {
+                if (Interlocked.Decrement(ref pendingOwners) == 0) _done.Dispose();
+            }
         }
 
         internal static (ApartmentState Apartment, int ThreadId) ProbeWasapiExecutionContext()
@@ -147,16 +180,35 @@ namespace Shiro.Services
 
         internal static bool AreAllPidsCached(IReadOnlyList<int> runningPids, IReadOnlyDictionary<int, IntPtr> cache)
         {
-            if (runningPids == null || cache == null || runningPids.Count == 0)
-                return false;
-
+            if (runningPids == null || cache == null || runningPids.Count == 0) return false;
             for (int i = 0; i < runningPids.Count; i++)
             {
                 int pid = runningPids[i];
-                if (pid <= 0 || !cache.TryGetValue(pid, out IntPtr ptr) || ptr == IntPtr.Zero)
-                    return false;
+                if (pid <= 0 || !cache.TryGetValue(pid, out IntPtr ptr) || ptr == IntPtr.Zero) return false;
             }
+            return true;
+        }
 
+        internal static bool AreAllPidsCached<TPointers>(IReadOnlyList<int> runningPids, IReadOnlyDictionary<int, TPointers> cache)
+            where TPointers : IReadOnlyList<IntPtr>
+        {
+            if (runningPids == null || cache == null || runningPids.Count == 0) return false;
+            for (int i = 0; i < runningPids.Count; i++)
+            {
+                int pid = runningPids[i];
+                if (pid <= 0 || !cache.TryGetValue(pid, out var ptrs) || !HasValidPointers(ptrs)) return false;
+            }
+            return true;
+        }
+
+        private static bool HasValidPointers<TPointers>(TPointers? ptrs) where TPointers : IReadOnlyList<IntPtr>
+        {
+            if (ptrs is null) return false;
+            if (typeof(TPointers) == typeof(ImmutableArray<IntPtr>) && ((ImmutableArray<IntPtr>)(object)ptrs).IsDefault)
+                return false;
+            if (ptrs.Count == 0) return false;
+            for (int i = 0; i < ptrs.Count; i++)
+                if (ptrs[i] == IntPtr.Zero) return false;
             return true;
         }
 
@@ -168,56 +220,62 @@ namespace Shiro.Services
 
         private static bool InvalidateCachedAudioSessionOnMta(int pid)
         {
-            if (_cachedVolumePointers.TryRemove(pid, out IntPtr ptr) && ptr != IntPtr.Zero)
-            {
-                ComRelease(ref ptr);
-                return true;
-            }
-            return false;
+            if (!_cachedVolumePointers.TryRemove(pid, out ImmutableArray<IntPtr> ptrs)) return false;
+            if (!ptrs.IsDefaultOrEmpty) ReleasePointers(ptrs);
+            return true;
         }
 
         internal static void ClearAudioSessionCache()
         {
             if (_cachedVolumePointers.IsEmpty) return;
-            RunOnWasapiMtaThread(() =>
-            {
-                ClearAudioSessionCacheOnMta();
-                return true;
-            });
+            RunOnWasapiMtaThread(() => { ClearAudioSessionCacheOnMta(); return true; });
         }
 
         private static void ClearAudioSessionCacheOnMta()
         {
             foreach (var kvp in _cachedVolumePointers)
-            {
-                if (_cachedVolumePointers.TryRemove(kvp.Key, out IntPtr ptr) && ptr != IntPtr.Zero)
-                {
-                    ComRelease(ref ptr);
-                }
-            }
+                if (_cachedVolumePointers.TryRemove(kvp.Key, out var ptrs) && !ptrs.IsDefaultOrEmpty) ReleasePointers(ptrs);
         }
 
         internal static void PruneExitedCachedAudioSessions(IReadOnlyList<int> runningPids)
         {
             if (_cachedVolumePointers.IsEmpty) return;
-            RunOnWasapiMtaThread(() =>
-            {
-                PruneExitedCachedAudioSessionsOnMta(runningPids);
-                return true;
-            });
+            RunOnWasapiMtaThread(() => { PruneExitedCachedAudioSessionsOnMta(runningPids); return true; });
         }
 
         private static void PruneExitedCachedAudioSessionsOnMta(IReadOnlyList<int> runningPids)
         {
-            if (_cachedVolumePointers.IsEmpty) return;
-
             foreach (var kvp in _cachedVolumePointers)
+                if (!ContainsPid(runningPids, kvp.Key)) InvalidateCachedAudioSessionOnMta(kvp.Key);
+        }
+
+        private static void ReleasePointers(IReadOnlyList<IntPtr> ptrs)
+        {
+            for (int i = 0; i < ptrs.Count; i++)
             {
-                if (!ContainsPid(runningPids, kvp.Key))
-                {
-                    InvalidateCachedAudioSessionOnMta(kvp.Key);
-                }
+                IntPtr ptr = ptrs[i];
+                ComRelease(ref ptr);
             }
+        }
+
+        private static void AddDiscoveredAudioPointer(Dictionary<int, List<IntPtr>> discovered, int pid, IntPtr pVolume)
+        {
+            if (!discovered.TryGetValue(pid, out var list)) discovered[pid] = list = new List<IntPtr>(2);
+            list.Add(pVolume);
+        }
+
+        private static void CommitDiscoveredAudioSessionsOnMta(Dictionary<int, List<IntPtr>> discovered)
+        {
+            ClearAudioSessionCacheOnMta();
+            foreach (var kvp in discovered)
+                _cachedVolumePointers[kvp.Key] = ImmutableArray.CreateRange(kvp.Value);
+            discovered.Clear();
+        }
+
+        private static void ReleaseDiscoveredAudioPointersOnMta(Dictionary<int, List<IntPtr>> discovered)
+        {
+            foreach (var list in discovered.Values) ReleasePointers(list);
+            discovered.Clear();
         }
 
         internal static bool TryForEachCachedAudioSession(
@@ -242,19 +300,25 @@ namespace Shiro.Services
             for (int i = 0; i < robloxPids.Count; i++)
             {
                 int pid = robloxPids[i];
-                if (!_cachedVolumePointers.TryGetValue(pid, out IntPtr pVolume) || pVolume == IntPtr.Zero)
+                if (!_cachedVolumePointers.TryGetValue(pid, out ImmutableArray<IntPtr> ptrs) || ptrs.IsDefaultOrEmpty)
                     return false;
 
-                var nativeVolume = new NativeSimpleAudioVolume(pVolume);
-                // Probe vtable validity first (detects AUDCLNT_E_DEVICE_INVALIDATED when audio endpoint changes)
-                if (!nativeVolume.TryGetMute(out _))
+                for (int j = 0; j < ptrs.Length; j++)
                 {
-                    ClearAudioSessionCacheOnMta();
-                    return false;
-                }
+                    IntPtr pVolume = ptrs[j];
+                    if (pVolume == IntPtr.Zero) return false;
 
-                if (!onSession((uint)pid, nativeVolume))
-                    break;
+                    var nativeVolume = new NativeSimpleAudioVolume(pVolume);
+                    // Probe vtable validity first (detects AUDCLNT_E_DEVICE_INVALIDATED when audio endpoint changes)
+                    if (!nativeVolume.TryGetMute(out _))
+                    {
+                        ClearAudioSessionCacheOnMta();
+                        return false;
+                    }
+
+                    if (!onSession((uint)pid, nativeVolume))
+                        return true;
+                }
             }
 
             return true;
@@ -270,12 +334,7 @@ namespace Shiro.Services
         private static partial int CoInitializeEx(IntPtr pvReserved, uint dwCoInit);
 
         [LibraryImport("ole32.dll")]
-        private static unsafe partial int CoCreateInstance(
-            Guid* rclsid,
-            IntPtr pUnkOuter,
-            uint dwClsContext,
-            Guid* riid,
-            IntPtr* ppv);
+        private static unsafe partial int CoCreateInstance(Guid* rclsid, IntPtr pUnkOuter, uint dwClsContext, Guid* riid, IntPtr* ppv);
 
         /// <summary>
         /// Direct unmanaged vtable wrapper for ISimpleAudioVolume ({87CE5498-68D6-44E5-9215-6DA47EF883D8}).

@@ -17,7 +17,8 @@ namespace Shiro.Services
 
         private static readonly System.Threading.Lock _gate = new();
         private static Timer? _smartMuteTimer;
-        private static bool _smartMuteEnabled = false;
+        private static volatile bool _smartMuteEnabled = false;
+        private static long _smartMuteConfigVersion = 0;
         private static int _lastActiveRobloxPid = -1;
         private static int _lastRunningRobloxCount = -1;
         private static long _lastComFailureTick = 0;
@@ -35,11 +36,12 @@ namespace Shiro.Services
             {
                 bool wasEnabled = _smartMuteEnabled || _smartMuteTimer != null;
                 _smartMuteEnabled = enabled;
+                _smartMuteConfigVersion++;
                 if (_smartMuteEnabled)
                 {
                     _lastActiveRobloxPid = -1;
                     _lastRunningRobloxCount = -1;
-                    _lastComFailureTick = 0;
+                    Interlocked.Exchange(ref _lastComFailureTick, 0);
                     TimeSpan pollInterval = ForegroundWindowService.IsHookActive
                         ? TimeSpan.FromMilliseconds(4000)
                         : TimeSpan.FromMilliseconds(1500);
@@ -60,7 +62,7 @@ namespace Shiro.Services
                     _smartMuteTimer = null;
                     _lastActiveRobloxPid = -1;
                     _lastRunningRobloxCount = -1;
-                    _lastComFailureTick = 0;
+                    Interlocked.Exchange(ref _lastComFailureTick, 0);
                     shouldUnmuteAll = wasEnabled;
                     SetStatus("Audio Manager Ready");
                 }
@@ -68,9 +70,8 @@ namespace Shiro.Services
 
             if (shouldUnmuteAll)
             {
-                try { MuteAllRoblox(false, updateStatus: false); }
+                try { MuteAllRoblox(false, updateStatus: false); ClearAudioSessionCache(); }
                 catch (Exception ex) { AppServices.Logger?.Debug($"Failed to unmute all Roblox sessions: {ex.Message}"); }
-                ClearAudioSessionCache();
             }
         }
 
@@ -147,6 +148,7 @@ namespace Shiro.Services
         {
             if (!_smartMuteEnabled || runningPids == null) return;
 
+            long configVersion = -1;
             try
             {
                 int runningRobloxCount = runningPids.Count;
@@ -154,6 +156,7 @@ namespace Shiro.Services
                 lock (_gate)
                 {
                     if (!_smartMuteEnabled) return;
+                    configVersion = _smartMuteConfigVersion;
                     if (runningRobloxCount <= 0)
                     {
                         _lastActiveRobloxPid = 0;
@@ -180,12 +183,15 @@ namespace Shiro.Services
                 var result = applyFocus(activePid, runningPids);
                 if (!result.Success)
                 {
-                    Interlocked.Exchange(ref _lastComFailureTick, nowTick);
+                    RecordSmartMuteFailureIfCurrent(configVersion, nowTick);
                     return;
                 }
 
                 lock (_gate)
                 {
+                    if (!_smartMuteEnabled || configVersion != _smartMuteConfigVersion)
+                        return;
+
                     Interlocked.Exchange(ref _lastComFailureTick, 0);
                     _lastActiveRobloxPid = activePid;
 
@@ -198,7 +204,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                Interlocked.Exchange(ref _lastComFailureTick, nowTick);
+                RecordSmartMuteFailureIfCurrent(configVersion, nowTick);
                 AppServices.Logger?.Debug($"[RobloxAudioService.SmartMute] {ex.Message}");
             }
         }
@@ -239,6 +245,8 @@ namespace Shiro.Services
             IntPtr pDevice = IntPtr.Zero;
             IntPtr pSessionManager2 = IntPtr.Zero;
             IntPtr pSessionEnum = IntPtr.Zero;
+            var discovered = new Dictionary<int, List<IntPtr>>();
+            bool stoppedEarly = false;
 
             try
             {
@@ -288,16 +296,11 @@ namespace Shiro.Services
                             continue;
 
                         var nativeVolume = new NativeSimpleAudioVolume(pVolume);
-                        if (_cachedVolumePointers.TryRemove((int)pid, out IntPtr oldPtr) && oldPtr != IntPtr.Zero)
-                        {
-                            ComRelease(ref oldPtr);
-                        }
-                        _cachedVolumePointers[(int)pid] = pVolume;
-                        // Ownership of pVolume reference transferred to _cachedVolumePointers
+                        AddDiscoveredAudioPointer(discovered, (int)pid, pVolume);
+                        // Ownership of pVolume reference transferred to discovered
                         pVolume = IntPtr.Zero;
 
-                        if (!onSession(pid, nativeVolume))
-                            break;
+                        if (!onSession(pid, nativeVolume)) { stoppedEarly = true; break; }
                     }
                     catch (Exception ex)
                     {
@@ -311,10 +314,13 @@ namespace Shiro.Services
                     }
                 }
 
+                if (!stoppedEarly) CommitDiscoveredAudioSessionsOnMta(discovered);
+
                 return true;
             }
             finally
             {
+                ReleaseDiscoveredAudioPointersOnMta(discovered);
                 ComRelease(ref pSessionEnum);
                 ComRelease(ref pSessionManager2);
                 ComRelease(ref pDevice);
