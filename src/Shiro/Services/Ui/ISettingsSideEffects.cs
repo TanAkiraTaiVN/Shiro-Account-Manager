@@ -22,6 +22,8 @@ namespace Shiro.Services
         void SetLanguage(AppLanguage lang);
         void PatchClientSettings();
         void SetAntiAfk(bool on);
+        void UpdateMultiRoblox();
+        void ConfigureBackgroundThrottling(bool enabled, int targetFps);
         void ConfigureSmartMute(bool on);
         void ConfigureAutoTrim(bool on);
         void SetCpuRateLimit(int percent);
@@ -76,7 +78,29 @@ namespace Shiro.Services
             _ = Task.Run(ClientSettingsPatcher.PatchSettings);
         }
 
-        public void SetAntiAfk(bool on) => AntiAfkService.SetConfig(on);
+        public void SetAntiAfk(bool on)
+        {
+            AntiAfkService.SetConfig(on);
+            AppServices.GeneralSettings.Set("EnableAntiAfk", on ? "true" : "false");
+        }
+
+        public void UpdateMultiRoblox()
+        {
+            if (AppServices.HostUiBridge is HostUiBridgeService bridge && bridge.UpdateMultiRobloxHandler == null)
+            {
+                bool enabled = AppServices.GeneralSettings.Get<bool>(AppSettingsKeys.General.EnableMultiRbx, true);
+                RobloxSingletonService.Apply(enabled);
+                return;
+            }
+            AppServices.HostUiBridge.UpdateMultiRoblox();
+        }
+
+        public void ConfigureBackgroundThrottling(bool enabled, int targetFps)
+        {
+            var throttler = RobloxBackgroundThrottlerService.Instance;
+            throttler.TargetBackgroundFps = targetFps;
+            throttler.IsEnabled = enabled;
+        }
 
         public void ConfigureSmartMute(bool on) => RobloxAudioService.ConfigureSmartMute(on);
 

@@ -30,6 +30,8 @@ namespace Shiro.ViewModels.Dialogs
         private bool _closeIfWindowTitle;
         private string _expectedWindowTitle = "Roblox";
         private decimal? _noConnectionTimeout = 20m;
+        private bool _enableBackgroundThrottling;
+        private decimal? _backgroundTargetFps = 10m;
 
         public bool AllowExternalConnections { get => _allowExternalConnections; set => SetProperty(ref _allowExternalConnections, value); }
         public bool EveryRequestRequiresPassword { get => _everyRequestRequiresPassword; set => SetProperty(ref _everyRequestRequiresPassword, value); }
@@ -53,6 +55,8 @@ namespace Shiro.ViewModels.Dialogs
         public bool CloseIfWindowTitle { get => _closeIfWindowTitle; set => SetProperty(ref _closeIfWindowTitle, value); }
         public string ExpectedWindowTitle { get => _expectedWindowTitle; set => SetProperty(ref _expectedWindowTitle, value ?? string.Empty); }
         public decimal? NoConnectionTimeout { get => _noConnectionTimeout; set => SetProperty(ref _noConnectionTimeout, value); }
+        public bool EnableBackgroundThrottling { get => _enableBackgroundThrottling; set => SetProperty(ref _enableBackgroundThrottling, value); }
+        public decimal? BackgroundTargetFps { get => _backgroundTargetFps; set => SetProperty(ref _backgroundTargetFps, value); }
 
         public IAsyncRelayCommand ExportVaultCommand { get; private set; } = null!;
         public IAsyncRelayCommand ImportVaultCommand { get; private set; } = null!;
@@ -112,6 +116,12 @@ namespace Shiro.ViewModels.Dialogs
                 : "Roblox";
             int timeoutSec = watcher.Exists(AppSettingsKeys.Watcher.NoConnectionTimeout) ? watcher.Get<int>(AppSettingsKeys.Watcher.NoConnectionTimeout) : 20;
             NoConnectionTimeout = Math.Clamp(timeoutSec, 0, 600);
+
+            EnableBackgroundThrottling = _general.Get<bool>(AppSettingsKeys.General.EnableBackgroundThrottling, false);
+            int bgFps = _general.Exists(AppSettingsKeys.General.BackgroundTargetFps)
+                ? _general.Get<int>(AppSettingsKeys.General.BackgroundTargetFps, 10)
+                : 10;
+            BackgroundTargetFps = Math.Clamp(bgFps, 1, 60);
         }
 
         private void SaveAdvanced()
@@ -159,6 +169,12 @@ namespace Shiro.ViewModels.Dialogs
                 watcher.Set(AppSettingsKeys.Watcher.NoConnectionTimeout, ((int)NoConnectionTimeout.Value).ToString(CultureInfo.InvariantCulture));
             RobloxWatcher.CloseIfWindowTitle = CloseIfWindowTitle;
             RobloxWatcher.ExpectedWindowTitle = ExpectedWindowTitle.Trim();
+
+            _general.Set("EnableAntiAfk", AntiAfk ? "true" : "false");
+            int clampedBgFps = BackgroundTargetFps.HasValue ? Math.Clamp((int)BackgroundTargetFps.Value, 1, 60) : 10;
+            _general.Set(AppSettingsKeys.General.EnableBackgroundThrottling, EnableBackgroundThrottling ? "true" : "false");
+            _general.Set(AppSettingsKeys.General.BackgroundTargetFps, clampedBgFps.ToString(CultureInfo.InvariantCulture));
+            _effects.ConfigureBackgroundThrottling(EnableBackgroundThrottling, clampedBgFps);
         }
 
         private async Task ExportVaultAsync()

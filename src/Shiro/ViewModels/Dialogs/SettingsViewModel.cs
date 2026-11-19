@@ -233,7 +233,7 @@ namespace Shiro.ViewModels.Dialogs
                 TargetFps = _settings.MaxFPSValue > 0 ? _settings.MaxFPSValue : 144m;
                 PotatoMode = _settings.EnablePotatoMode;
                 MultiRbx = _settings.EnableMultiRbx;
-                AntiAfk = AntiAfkService.IsEnabled;
+                AntiAfk = _general.Exists("EnableAntiAfk") ? _general.Get<bool>("EnableAntiAfk") : AntiAfkService.IsEnabled;
                 AutoMute = _general.Exists(AppSettingsKeys.General.AutoMuteBackgroundClients)
                     && _general.Get<bool>(AppSettingsKeys.General.AutoMuteBackgroundClients);
                 AggressiveRamTrim = _general.Exists(AppSettingsKeys.General.AggressiveRamTrimming)
@@ -322,6 +322,7 @@ namespace Shiro.ViewModels.Dialogs
                 }
 
                 _settings.EnableMultiRbx = MultiRbx;
+                _effects.UpdateMultiRoblox();
                 _effects.SetAntiAfk(AntiAfk);
 
                 _general.Set(AppSettingsKeys.General.AutoMuteBackgroundClients, AutoMute ? "true" : "false");

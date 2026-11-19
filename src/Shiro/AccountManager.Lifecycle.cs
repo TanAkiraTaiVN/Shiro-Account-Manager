@@ -112,6 +112,8 @@ namespace Shiro
 
             if (AppSettings.General.Get<bool>("EnableMultiRbx"))
                 TryEnableMultiRoblox(promptIfRobloxRunning: false, notify: false);
+            else
+                UpdateMultiRoblox();
 
             if (AppSettings.General.Exists("EnableAntiAfk") && AppSettings.General.Get<bool>("EnableAntiAfk"))
                 AntiAfkService.SetConfig(true, AppSettings.General.Exists("AntiAfkIntervalMinutes") ? AppSettings.General.Get<int>("AntiAfkIntervalMinutes") : 8);
@@ -129,6 +131,10 @@ namespace Shiro
                 if (cpuCap > 0)
                     RobloxJobObjectService.SetCpuRateLimit(cpuCap);
             }
+
+            SettingsSideEffectsService.Default.ConfigureBackgroundThrottling(
+                AppSettings.General.Get<bool>(AppSettingsKeys.General.EnableBackgroundThrottling, false),
+                AppSettings.General.Get<int>(AppSettingsKeys.General.BackgroundTargetFps, 10));
 
             StreamerModeService.Initialize();
             DiscordRpcService.Default.Start();
@@ -213,6 +219,7 @@ namespace Shiro
             SafeExecuteHelper.Try(AntiAfkService.Stop);
             SafeExecuteHelper.Try(() => RobloxAudioService.ConfigureSmartMute(false));
             SafeExecuteHelper.Try(RobloxWatcher.Stop);
+            SafeExecuteHelper.Try(() => RobloxBackgroundThrottlerService.Instance.IsEnabled = false);
             SafeExecuteHelper.Try(() => MemoryOptimizer.ConfigureAutoTrim(false));
             SafeExecuteHelper.Try(RobloxJobObjectService.Close);
             SafeExecuteHelper.Try(RobloxWindowService.ShowAllWindows);

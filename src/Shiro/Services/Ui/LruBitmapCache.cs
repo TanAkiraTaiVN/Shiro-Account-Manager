@@ -189,6 +189,21 @@ namespace Shiro.Services
             }
         }
 
+        internal List<TValue> ClearAndDrain()
+        {
+            var drained = new List<TValue>();
+            lock (_writeLock)
+            {
+                foreach (var kvp in _entries)
+                {
+                    if (kvp.Value.Value != null)
+                        drained.Add(kvp.Value.Value);
+                }
+                _entries.Clear();
+            }
+            return drained;
+        }
+
         public void Dispose()
         {
             if (_disposed) return;

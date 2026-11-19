@@ -295,15 +295,23 @@ namespace Shiro.Tests
         [InlineData("Set_UnlockFpsTip")]
         public void SettingsStrings_ContainCpuCapAndGraphicsTips(string key)
         {
-            LocalizationService.SetLanguage(AppLanguage.Vietnamese, saveSetting: false);
-            string viStr = Loc.Get(key);
-            Assert.False(string.IsNullOrWhiteSpace(viStr));
-            Assert.NotEqual(key, viStr);
+            var prevLang = LocalizationService.CurrentLanguage;
+            try
+            {
+                LocalizationService.SetLanguage(AppLanguage.Vietnamese, saveSetting: false);
+                string viStr = Loc.Get(key);
+                Assert.False(string.IsNullOrWhiteSpace(viStr));
+                Assert.NotEqual(key, viStr);
 
-            LocalizationService.SetLanguage(AppLanguage.English, saveSetting: false);
-            string enStr = Loc.Get(key);
-            Assert.False(string.IsNullOrWhiteSpace(enStr));
-            Assert.NotEqual(key, enStr);
+                LocalizationService.SetLanguage(AppLanguage.English, saveSetting: false);
+                string enStr = Loc.Get(key);
+                Assert.False(string.IsNullOrWhiteSpace(enStr));
+                Assert.NotEqual(key, enStr);
+            }
+            finally
+            {
+                LocalizationService.SetLanguage(prevLang, saveSetting: false);
+            }
         }
 
         [Fact]

@@ -25,6 +25,7 @@ namespace Shiro.ViewModels
         private string _currentGameName = string.Empty;
         private Bitmap? _currentGameThumbnail;
         private CancellationTokenSource? _gameLookupCts;
+        private long _gameLookupGeneration;
 
         private bool _isBatchLaunching;
         private string _batchLaunchTitleText = string.Empty;
@@ -106,12 +107,10 @@ namespace Shiro.ViewModels
 
         public void ScheduleCurrentGameLookup(string? rawPlaceId)
         {
-            var prev = Interlocked.Exchange(ref _gameLookupCts, null);
-            if (prev != null)
-            {
-                SafeExecuteHelper.Try(() => prev.Cancel(), "MainViewModel.ScheduleCurrentGameLookup.Cancel");
-                SafeExecuteHelper.Try(() => prev.Dispose(), "MainViewModel.ScheduleCurrentGameLookup.Dispose");
-            }
+            long gen = Interlocked.Increment(ref _gameLookupGeneration);
+            ServerListOperationHelper.ReplaceCts(ref _gameLookupCts, createNew: false, "MainViewModel.ScheduleCurrentGameLookup");
+            if (Volatile.Read(ref _disposed) != 0)
+                return;
 
             long placeId = AccountLauncherService.ParsePlaceId(rawPlaceId ?? string.Empty);
             if (placeId <= 0)
@@ -121,31 +120,12 @@ namespace Shiro.ViewModels
                 return;
             }
 
-            string instantName = string.Empty;
-            if (!GameInfoService.TryGetCachedName(placeId, out instantName))
-            {
-                RecentGameItemViewModel? recent = null; try { var rl = RecentGamesList; if (rl != null) { for (int i = 0; i < rl.Count; i++) { var r = i < rl.Count ? rl[i] : null; if (r != null && r.PlaceId == placeId && !GameInfoService.IsGenericPlaceholderName(placeId, r.Name)) { recent = r; break; } } } } catch (Exception ex) { AppServices.Logger.Debug("Lookup error: " + ex.Message); }
-                if (recent != null)
-                {
-                    instantName = recent.Name;
-                    GameInfoService.CachePlaceName(placeId, instantName);
-                }
-                else
-                {
-                    FavoriteGameItemViewModel? fav = null; try { var fl = ServerListViewModel?.Favorites; if (fl != null) { for (int i = 0; i < fl.Count; i++) { var f = i < fl.Count ? fl[i] : null; if (f != null && f.PlaceId == placeId && !GameInfoService.IsGenericPlaceholderName(placeId, f.Name)) { fav = f; break; } } } } catch (Exception ex) { AppServices.Logger.Debug("Lookup error: " + ex.Message); }
-                    if (fav != null)
-                    {
-                        instantName = fav.Name;
-                        GameInfoService.CachePlaceName(placeId, instantName);
-                    }
-                }
-            }
+            if (!GameInfoService.TryGetCachedName(placeId, out string instantName))
+                instantName = ServerListOperationHelper.TryFindLocalGameName(placeId, RecentGamesList, ServerListViewModel?.Favorites);
 
             Bitmap? instantThumb = null;
             if (Avalonia.Application.Current != null)
-            {
                 GameThumbnailService.TryGetCachedBitmap(placeId, out instantThumb);
-            }
 
             CurrentGameName = instantName;
             CurrentGameThumbnail = instantThumb;
@@ -153,9 +133,8 @@ namespace Shiro.ViewModels
             if (Avalonia.Application.Current == null || (!string.IsNullOrWhiteSpace(instantName) && instantThumb != null))
                 return;
 
-            var cts = new CancellationTokenSource();
+            var cts = ServerListOperationHelper.ReplaceCts(ref _gameLookupCts, createNew: true, "MainViewModel.ScheduleCurrentGameLookup")!;
             var ct = cts.Token;
-            _gameLookupCts = cts;
 
             _ = Task.Run(async () =>
             {
@@ -163,12 +142,12 @@ namespace Shiro.ViewModels
                 {
                     await Task.Delay(220, ct).ConfigureAwait(false);
                     var (resolvedName, resolvedThumb) = await GameInfoService.ResolveGameInfoAsync(placeId, ct).ConfigureAwait(false);
-                    if (ct.IsCancellationRequested)
+                    if (ct.IsCancellationRequested || Volatile.Read(ref _gameLookupGeneration) != gen)
                         return;
 
                     AppDispatcher.Post(() =>
                     {
-                        if (System.Threading.Volatile.Read(ref _disposed) != 0 || ct.IsCancellationRequested || AccountLauncherService.ParsePlaceId(PlaceId) != placeId)
+                        if (Volatile.Read(ref _disposed) != 0 || Volatile.Read(ref _gameLookupGeneration) != gen || ct.IsCancellationRequested || AccountLauncherService.ParsePlaceId(PlaceId) != placeId)
                             return;
 
                         if (!string.IsNullOrWhiteSpace(resolvedName))
@@ -181,6 +160,10 @@ namespace Shiro.ViewModels
                 catch (Exception ex)
                 {
                     _logger.Debug($"[ScheduleCurrentGameLookup] {ex.Message}");
+                }
+                finally
+                {
+                    ServerListOperationHelper.ReleaseFinishedCts(ref _gameLookupCts, cts, "MainViewModel.ScheduleCurrentGameLookup");
                 }
             }, ct);
         }

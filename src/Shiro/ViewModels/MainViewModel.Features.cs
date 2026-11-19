@@ -52,6 +52,8 @@ namespace Shiro.ViewModels
                 if (SetProperty(ref _isAntiAfk, value))
                 {
                     AntiAfkService.SetConfig(value);
+                    _settings?.Set("EnableAntiAfk", value ? "true" : "false");
+                    AppServices.HostUiBridge.QueueDeferredSaveSettings();
                     StatusMessage = value
                         ? Shiro.Services.LocalizationService.Get("Main.AntiAfkActivated")
                         : Shiro.Services.LocalizationService.Get("Main.AntiAfkDeactivated");

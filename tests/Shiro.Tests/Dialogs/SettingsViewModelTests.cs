@@ -18,6 +18,9 @@ namespace Shiro.Tests.Dialogs
             public int SetLanguageCount { get; private set; }
             public AppLanguage LastLanguage { get; private set; }
             public int PatchClientSettingsCount { get; private set; }
+            public int UpdateMultiRobloxCount { get; private set; }
+            public bool LastBgThrottlingEnabled { get; private set; }
+            public int LastBgTargetFps { get; private set; }
             public bool LastAntiAfk { get; private set; }
             public bool LastSmartMute { get; private set; }
             public bool LastAutoTrim { get; private set; }
@@ -42,6 +45,12 @@ namespace Shiro.Tests.Dialogs
 
             public void PatchClientSettings() => PatchClientSettingsCount++;
             public void SetAntiAfk(bool on) => LastAntiAfk = on;
+            public void UpdateMultiRoblox() => UpdateMultiRobloxCount++;
+            public void ConfigureBackgroundThrottling(bool enabled, int targetFps)
+            {
+                LastBgThrottlingEnabled = enabled;
+                LastBgTargetFps = targetFps;
+            }
             public void ConfigureSmartMute(bool on) => LastSmartMute = on;
             public void ConfigureAutoTrim(bool on) => LastAutoTrim = on;
             public void SetCpuRateLimit(int percent) => LastCpuRateLimit = percent;

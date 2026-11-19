@@ -240,5 +240,65 @@ namespace Shiro.Tests
             vm.CurrentPage = NavigationPage.Settings;
             Assert.Single(navigated);
         }
+
+        [Fact]
+        public void AccountListFilterController_MatchesGroupCaseInsensitively_AndSortsByUnmaskedUsernameUnderStreamerMode()
+        {
+            bool prevStreamer = StreamerModeService.IsEnabled;
+            bool prevAutoDetect = StreamerModeService.AutoDetectEnabled;
+            try
+            {
+                StreamerModeService.AutoDetectEnabled = false;
+                StreamerModeService.IsEnabled = true;
+
+                var zAcc = new AccountViewModel(new Account { Username = "ZebraFarmer", Group = "Farm", Valid = true });
+                var aAcc = new AccountViewModel(new Account { Username = "AlphaFarmer", Group = "farm", Valid = true });
+                var otherAcc = new AccountViewModel(new Account { Username = "MiddleOther", Group = "Other", Valid = true });
+
+                var filtered = AccountListFilterController.FilterAndSortAccounts(
+                    new[] { zAcc, aAcc, otherAcc },
+                    string.Empty,
+                    "farm",
+                    AccountFilterTab.All,
+                    AccountSortMode.NaturalAscending);
+
+                Assert.Equal(2, filtered.Count);
+                Assert.Equal("AlphaFarmer", filtered[0].Username);
+                Assert.Equal("ZebraFarmer", filtered[1].Username);
+            }
+            finally
+            {
+                StreamerModeService.AutoDetectEnabled = prevAutoDetect;
+                StreamerModeService.IsEnabled = prevStreamer;
+            }
+        }
+
+        [Fact]
+        public void MainViewModel_LoadAccountsClearAndDispose_DetachesPropertyChangedHandlers()
+        {
+            var vm = new MainViewModel();
+            var acc = new Account { Username = "DetachUser", UserID = 9001, Valid = true };
+            vm.LoadAccounts(new[] { acc });
+            var firstVm = vm.Accounts[0];
+
+            int selectedCountNotified = 0;
+            vm.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName == nameof(MainViewModel.SelectedCount))
+                {
+                    selectedCountNotified++;
+                }
+            };
+
+            vm.LoadAccounts(null!);
+            Assert.Equal(0, vm.TotalCount);
+            Assert.Null(vm.TryGetAccountViewModel(acc));
+
+            // Toggling selection on detached VM must not fire NotifyCounts on MainViewModel
+            firstVm.IsSelected = true;
+            Assert.Equal(0, selectedCountNotified);
+
+            vm.Dispose();
+        }
     }
 }

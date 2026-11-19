@@ -167,5 +167,39 @@ namespace Shiro.ViewModels
                 cached.AddRange(servers);
             }
         }
+
+        public static string TryFindLocalGameName(
+            long placeId,
+            IReadOnlyList<RecentGameItemViewModel>? recentGames,
+            IReadOnlyList<FavoriteGameItemViewModel>? favorites)
+        {
+            if (recentGames != null)
+            {
+                for (int i = 0; i < recentGames.Count; i++)
+                {
+                    var r = recentGames[i];
+                    if (r != null && r.PlaceId == placeId && !GameInfoService.IsGenericPlaceholderName(placeId, r.Name))
+                    {
+                        GameInfoService.CachePlaceName(placeId, r.Name);
+                        return r.Name;
+                    }
+                }
+            }
+
+            if (favorites != null)
+            {
+                for (int i = 0; i < favorites.Count; i++)
+                {
+                    var f = favorites[i];
+                    if (f != null && f.PlaceId == placeId && !GameInfoService.IsGenericPlaceholderName(placeId, f.Name))
+                    {
+                        GameInfoService.CachePlaceName(placeId, f.Name);
+                        return f.Name;
+                    }
+                }
+            }
+
+            return string.Empty;
+        }
     }
 }

@@ -407,5 +407,92 @@ namespace Shiro.Tests
             var def = AccountWorkflowService.Default;
             Assert.Same(def, AccountWorkflowService.Default);
         }
+
+        private static System.Net.Http.HttpResponseMessage CreateWorkflowJsonResponse(System.Net.HttpStatusCode code, string json) =>
+            new(code) { Content = new System.Net.Http.StringContent(json) };
+
+        private const string EmptyObjectJson = "{}";
+        private const string HydratedAuthJson = "{\"id\":888999,\"name\":\"HydratedUser\"}";
+
+        [Fact]
+        public async System.Threading.Tasks.Task ReLoginWithCookieAsync_WhenPreviouslyInvalidAndRejected_RestoresPreviousTokenAndNeverSaves()
+        {
+            var origClientFactory = Account.TestHttpClientFactory;
+            try
+            {
+                Account.TestHttpClientFactory = _ => new System.Net.Http.HttpClient(
+                    new Shiro.Tests.TestInfrastructure.FakeHttpHandler(_ =>
+                        CreateWorkflowJsonResponse(System.Net.HttpStatusCode.Unauthorized, EmptyObjectJson)));
+
+                var mockRepo = Substitute.For<IAccountRepository>();
+                using var repoScope = AppServices.Override<IAccountRepository>(mockRepo);
+                var mainVm = new MainViewModel();
+
+                string previousToken = "_|WARNING:-DO-NOT-SHARE-THIS.--old-expired-token";
+                var acc = new Account
+                {
+                    Username = "FailClosedUser",
+                    UserID = 777123,
+                    SecurityToken = previousToken,
+                    Valid = false,
+                    AccountStatusIssue = ""
+                };
+                var vm = new AccountViewModel(acc);
+                _fakeDialogs.InputPromptResult = "_|WARNING:-DO-NOT-SHARE-THIS.--unverified-bad-cookie";
+
+                string status = "";
+                await _workflow.ReLoginWithCookieAsync(vm, mainVm, s => status = s);
+
+                Assert.Equal(previousToken, acc.SecurityToken);
+                Assert.False(acc.Valid);
+                await mockRepo.DidNotReceive().SaveAsync(Arg.Any<bool>());
+            }
+            finally
+            {
+                Account.TestHttpClientFactory = origClientFactory;
+            }
+        }
+
+        [Fact]
+        public async System.Threading.Tasks.Task RemoveAccount_And_ReLoginHydratingIdentity_KeepMainViewModelLookupIndexSynced()
+        {
+            var origClientFactory = Account.TestHttpClientFactory;
+            try
+            {
+                Account.TestHttpClientFactory = _ => new System.Net.Http.HttpClient(
+                    new Shiro.Tests.TestInfrastructure.FakeHttpHandler(_ =>
+                        CreateWorkflowJsonResponse(System.Net.HttpStatusCode.OK, HydratedAuthJson)));
+
+                var mockRepo = Substitute.For<IAccountRepository>();
+                using var repoScope = AppServices.Override<IAccountRepository>(mockRepo);
+                var mainVm = new MainViewModel();
+
+                var acc = new Account
+                {
+                    Username = string.Empty,
+                    UserID = 0,
+                    SecurityToken = "_|WARNING:-DO-NOT-SHARE-THIS.--old",
+                    Valid = false
+                };
+                mainVm.LoadAccounts(new[] { acc });
+                var vm = mainVm.Accounts[0];
+
+                _fakeDialogs.InputPromptResult = "_|WARNING:-DO-NOT-SHARE-THIS.--" + new string('G', 100);
+                await _workflow.ReLoginWithCookieAsync(vm, mainVm, _ => { });
+
+                Assert.NotNull(mainVm.TryGetAccountViewModel(new Account { UserID = 888999 }));
+                Assert.NotNull(mainVm.TryGetAccountViewModel(new Account { Username = "HydratedUser" }));
+
+                _fakeDialogs.ConfirmationResult = true;
+                _workflow.RemoveAccount(vm, mainVm, _ => { });
+                Assert.Null(mainVm.TryGetAccountViewModel(acc));
+                Assert.Null(mainVm.TryGetAccountViewModel(new Account { UserID = 888999 }));
+                Assert.Null(mainVm.TryGetAccountViewModel(new Account { Username = "HydratedUser" }));
+            }
+            finally
+            {
+                Account.TestHttpClientFactory = origClientFactory;
+            }
+        }
     }
 }

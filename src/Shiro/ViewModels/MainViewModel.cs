@@ -211,6 +211,9 @@ namespace Shiro.ViewModels
             LaunchCoordinator.LaunchProgressChanged -= OnLaunchProgressChanged;
             StreamerModeService.StateChanged -= OnStreamerModeStateChanged;
             OnPageNavigated = null;
+            System.Threading.Interlocked.Increment(ref _searchGeneration);
+            System.Threading.Interlocked.Increment(ref _gameLookupGeneration);
+            AccountListFilterController.DetachPropertyChanged(_accounts, OnAccountViewModelPropertyChanged);
 
             var searchCts = System.Threading.Interlocked.Exchange(ref _searchCts, null);
             SafeExecuteHelper.Try(() => searchCts?.Cancel(), "MainViewModel.Dispose.SearchCtsCancel");
@@ -320,22 +323,32 @@ namespace Shiro.ViewModels
             return null;
         }
 
-        private void RebuildLookupIndex()
+        internal void RebuildLookupIndex()
         {
-            _vmByModel.Clear();
-            _vmByUserId.Clear();
-            _vmByUsername.Clear();
-
-            for (int i = 0; i < _accounts.Count; i++)
+            if (Avalonia.Application.Current != null && Dispatcher.UIThread != null && !Dispatcher.UIThread.CheckAccess())
             {
-                var vm = _accounts[i];
-                if (vm.Model != null)
-                    _vmByModel.TryAdd(vm.Model, vm);
-                if (vm.UserId > 0)
-                    _vmByUserId.TryAdd(vm.UserId, vm);
-                if (!string.IsNullOrEmpty(vm.Username))
-                    _vmByUsername.TryAdd(vm.Username, vm);
+                AppDispatcher.Post(RebuildLookupIndex);
+                return;
             }
+            AccountListFilterController.RebuildLookupIndex(_accounts, _vmByModel, _vmByUserId, _vmByUsername);
+        }
+
+        internal void RemoveAccountViewModels(params AccountViewModel[] toRemove)
+        {
+            foreach (var vm in toRemove)
+            {
+                if (vm == null) continue;
+                vm.PropertyChanged -= OnAccountViewModelPropertyChanged;
+                if (ReferenceEquals(_lastClickedAccount, vm)) _lastClickedAccount = null;
+                _accounts.Remove(vm);
+            }
+            RebuildLookupIndex();
+        }
+
+        private void OnAccountViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(AccountViewModel.IsSelected) && System.Threading.Volatile.Read(ref _disposed) == 0)
+                NotifyCounts();
         }
 
         public void LoadAccounts(IEnumerable<Account> sourceAccounts)
@@ -348,10 +361,13 @@ namespace Shiro.ViewModels
 
             if (sourceAccounts == null)
             {
+                AccountListFilterController.DetachPropertyChanged(_accounts, OnAccountViewModelPropertyChanged);
                 _accounts.Clear();
+                _lastClickedAccount = null;
                 RebuildLookupIndex();
-                RebuildGroupList();
+                RebuildGroupList(applyFilterOnReset: false);
                 ApplyFilter();
+                NotifyCounts();
                 RefreshLiveProcessStatus();
                 return;
             }
@@ -398,16 +414,14 @@ namespace Shiro.ViewModels
                 else
                 {
                     vm = new AccountViewModel(acc);
-                    vm.PropertyChanged += (s, e) =>
-                    {
-                        if (e.PropertyName == nameof(AccountViewModel.IsSelected))
-                            NotifyCounts();
-                    };
+                    vm.PropertyChanged += OnAccountViewModelPropertyChanged;
                 }
 
                 list.Add(vm);
             }
 
+            AccountListFilterController.DetachPropertyChanged(_accounts, OnAccountViewModelPropertyChanged, claimed);
+            if (_lastClickedAccount != null && !claimed.Contains(_lastClickedAccount)) _lastClickedAccount = null;
             _accounts.ReplaceAll(list);
             RebuildLookupIndex();
 

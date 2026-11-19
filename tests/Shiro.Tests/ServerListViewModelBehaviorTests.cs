@@ -440,5 +440,25 @@ namespace Shiro.Tests
             await ((AsyncRelayCommand)vm.LoadAllRegionsCommand).ExecuteAsync(null);
             Assert.Equal(LocalizationService.Get("ServerList.RegionsLoadedComplete"), vm.LoadingStatus);
         }
+
+        [Fact]
+        public void WatcherDefaultTimeout_Is20Seconds_AndCancelOperationClearsIsSearchingGames()
+        {
+            var prevIni = AppSettings.ActiveIniFile;
+            AppSettings.ActiveIniFile = new IniFile();
+            try
+            {
+                using var vm = new ServerListViewModel();
+                Assert.Equal(20m, vm.ConnectionTimeoutSec);
+
+                vm.IsSearchingGames = true;
+                vm.CancelOperation();
+                Assert.False(vm.IsSearchingGames);
+            }
+            finally
+            {
+                AppSettings.ActiveIniFile = prevIni;
+            }
+        }
     }
 }

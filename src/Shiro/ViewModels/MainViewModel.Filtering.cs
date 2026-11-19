@@ -15,6 +15,7 @@ namespace Shiro.ViewModels
         private AccountFilterTab _activeTab = AccountFilterTab.All;
         private AccountSortMode _sortMode = AccountSortMode.NaturalAscending;
         private CancellationTokenSource? _searchCts;
+        private long _searchGeneration;
 
         public string SearchText
         {
@@ -23,12 +24,10 @@ namespace Shiro.ViewModels
             {
                 if (SetProperty(ref _searchText, value))
                 {
-                    var previousCts = Interlocked.Exchange(ref _searchCts, null);
-                    if (previousCts != null)
-                    {
-                        SafeExecuteHelper.Try(previousCts.Cancel);
-                        SafeExecuteHelper.Try(previousCts.Dispose);
-                    }
+                    long gen = Interlocked.Increment(ref _searchGeneration);
+                    ServerListOperationHelper.ReplaceCts(ref _searchCts, createNew: false, "MainViewModel.SearchCts");
+                    if (Volatile.Read(ref _disposed) != 0)
+                        return;
 
                     if (string.IsNullOrEmpty(value))
                     {
@@ -36,21 +35,28 @@ namespace Shiro.ViewModels
                     }
                     else
                     {
-                        var cts = new CancellationTokenSource();
+                        var cts = ServerListOperationHelper.ReplaceCts(ref _searchCts, createNew: true, "MainViewModel.SearchCts")!;
                         var token = cts.Token;
-                        _searchCts = cts;
                         _ = Task.Run(async () =>
                         {
                             try
                             {
                                 await Task.Delay(120, token).ConfigureAwait(false);
-                                if (!token.IsCancellationRequested)
+                                if (!token.IsCancellationRequested && Volatile.Read(ref _disposed) == 0 && Volatile.Read(ref _searchGeneration) == gen)
                                 {
-                                    AppDispatcher.Post(() => ApplyFilter());
+                                    AppDispatcher.Post(() =>
+                                    {
+                                        if (Volatile.Read(ref _disposed) == 0 && Volatile.Read(ref _searchGeneration) == gen && !token.IsCancellationRequested)
+                                            ApplyFilter();
+                                    });
                                 }
                             }
                             catch (OperationCanceledException) { /* debounce canceled */ }
                             catch (ObjectDisposedException) { /* cts disposed */ }
+                            finally
+                            {
+                                ServerListOperationHelper.ReleaseFinishedCts(ref _searchCts, cts, "MainViewModel.SearchCts");
+                            }
                         });
                     }
                 }
@@ -193,6 +199,7 @@ namespace Shiro.ViewModels
             if (vm != null)
             {
                 vm.UpdateModel(account);
+                RebuildLookupIndex();
                 RebuildGroupList(applyFilterOnReset: false);
                 ApplyFilter();
                 NotifyCounts();

@@ -15,7 +15,7 @@ namespace Shiro.ViewModels
         private bool _ignoreExistingProcesses;
         private bool _closeRbxMemory;
         private decimal _memoryThresholdMb = 200;
-        private decimal _connectionTimeoutSec = 60;
+        private decimal _connectionTimeoutSec = 20;
         private string _expectedWindowTitle = "Roblox";
 
         public bool WatcherEnabled
@@ -101,7 +101,7 @@ namespace Shiro.ViewModels
                     _ignoreExistingProcesses = watcher.Exists("IgnoreExistingProcesses") ? watcher.Get<bool>("IgnoreExistingProcesses") : true;
                     _closeRbxMemory = watcher.Get<bool>("CloseRbxMemory");
                     _memoryThresholdMb = watcher.Exists("MemoryLowValue") ? watcher.Get<decimal>("MemoryLowValue") : 200;
-                    _connectionTimeoutSec = watcher.Exists("NoConnectionTimeout") ? watcher.Get<decimal>("NoConnectionTimeout") : 60;
+                    _connectionTimeoutSec = watcher.Exists("NoConnectionTimeout") ? watcher.Get<decimal>("NoConnectionTimeout") : 20;
                     _expectedWindowTitle = (watcher.Exists("ExpectedWindowTitle") ? watcher.Get<string>("ExpectedWindowTitle") : "Roblox") ?? "Roblox";
 
                     RobloxWatcher.VerifyDataModel = _verifyDataModel;

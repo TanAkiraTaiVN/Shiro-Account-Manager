@@ -149,7 +149,9 @@ namespace Shiro.AvaloniaUI.Views
             ViewModel.HandleAccountClickSelection(avm, e.KeyModifiers.HasFlag(KeyModifiers.Shift));
         }
 
-        private static bool IsInsideInteractiveControl(Visual visual)
+        private long _lastRowDoubleTapTimestamp;
+
+        internal static bool IsInsideInteractiveControl(Visual? visual)
         {
             if (visual == null) return false;
             if (visual is Button || visual is CheckBox || visual is TextBox || visual is ComboBox)
@@ -160,8 +162,33 @@ namespace Shiro.AvaloniaUI.Views
                 || visual.FindAncestorOfType<ComboBox>() != null;
         }
 
+        internal static bool ShouldTriggerDoubleTap(object? source, ref long lastTimestamp, long debounceMs = 500)
+        {
+            if (source is Visual visual && IsInsideInteractiveControl(visual))
+                return false;
+
+            long now = System.Diagnostics.Stopwatch.GetTimestamp();
+            long prev = lastTimestamp;
+            long minTicks = (System.Diagnostics.Stopwatch.Frequency * debounceMs) / 1000L;
+            if (prev != 0 && (now - prev) < minTicks)
+                return false;
+
+            lastTimestamp = now;
+            return true;
+        }
+
         private void OnCardDoubleTapped(object sender, TappedEventArgs e)
-            => ExecuteMenuCommand(sender, ViewModel.LaunchAccountCommand);
+        {
+            if (!ShouldTriggerDoubleTap(e.Source, ref _lastRowDoubleTapTimestamp))
+            {
+                if (e.Source is not Visual v || !IsInsideInteractiveControl(v))
+                    e.Handled = true;
+                return;
+            }
+
+            e.Handled = true;
+            ExecuteMenuCommand(sender, ViewModel.LaunchAccountCommand);
+        }
 
         private void OnCardLaunchClicked(object sender, RoutedEventArgs e)
             => ExecuteMenuCommand(sender, ViewModel.PrimaryCardActionCommand);

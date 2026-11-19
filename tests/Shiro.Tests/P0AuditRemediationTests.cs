@@ -52,6 +52,8 @@ public sealed class P0AuditRemediationTests : IDisposable
         public void SetLanguage(AppLanguage lang) { }
         public void PatchClientSettings() { }
         public void SetAntiAfk(bool on) { }
+        public void UpdateMultiRoblox() { }
+        public void ConfigureBackgroundThrottling(bool enabled, int targetFps) { }
         public void ConfigureSmartMute(bool on) { }
         public void ConfigureAutoTrim(bool on) { }
         public void SetCpuRateLimit(int percent) { }

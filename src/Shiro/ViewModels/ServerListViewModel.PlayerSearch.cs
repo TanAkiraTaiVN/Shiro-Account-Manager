@@ -37,6 +37,15 @@ namespace Shiro.ViewModels
             set => SetProperty(ref _playerSearchStatus, value);
         }
 
+        private void PostPlayerSearchStatus(CancellationTokenSource cts, CancellationToken ct, string status) => AppDispatcher.Post(() =>
+        {
+            if (!ct.IsCancellationRequested && ReferenceEquals(Volatile.Read(ref _playerSearchCts), cts))
+            {
+                PlayerSearchStatus = status;
+                LoadingStatus = status;
+            }
+        });
+
         private async Task SearchPlayerAsync()
         {
             if (string.IsNullOrWhiteSpace(SearchPlayerUsername))
@@ -68,8 +77,7 @@ namespace Shiro.ViewModels
 
                 if (!userFound)
                 {
-                    PlayerSearchStatus = Shiro.Services.LocalizationService.Format("ServerList.PlayerUserIdNotFound", SearchPlayerUsername);
-                    LoadingStatus = PlayerSearchStatus;
+                    PostPlayerSearchStatus(cts, ct, LocalizationService.Format("ServerList.PlayerUserIdNotFound", SearchPlayerUsername));
                     return;
                 }
 
@@ -80,8 +88,7 @@ namespace Shiro.ViewModels
 
                 if (!avResp.IsSuccessful || string.IsNullOrEmpty(avResp.Content))
                 {
-                    PlayerSearchStatus = Shiro.Services.LocalizationService.Get("ServerList.CannotGetPlayerAvatar");
-                    LoadingStatus = PlayerSearchStatus;
+                    PostPlayerSearchStatus(cts, ct, LocalizationService.Get("ServerList.CannotGetPlayerAvatar"));
                     return;
                 }
 
@@ -90,8 +97,7 @@ namespace Shiro.ViewModels
 
                 if (string.IsNullOrEmpty(targetAvatarUrl))
                 {
-                    PlayerSearchStatus = Shiro.Services.LocalizationService.Get("ServerList.PlayerAvatarNotExist");
-                    LoadingStatus = PlayerSearchStatus;
+                    PostPlayerSearchStatus(cts, ct, LocalizationService.Get("ServerList.PlayerAvatarNotExist"));
                     return;
                 }
 
@@ -173,8 +179,7 @@ namespace Shiro.ViewModels
                                     lastServerInBatch = s;
                                 }
 
-                                PlayerSearchStatus = LocalizationService.Format("ServerList.ScanningServersForPlayer", totalScanned, SearchPlayerUsername);
-                                LoadingStatus = PlayerSearchStatus;
+                                PostPlayerSearchStatus(cts, ct, LocalizationService.Format("ServerList.ScanningServersForPlayer", totalScanned, SearchPlayerUsername));
                             }
 
                             if (currentRequests.Count > 0 && Volatile.Read(ref matchedServer) == null)
@@ -257,32 +262,35 @@ namespace Shiro.ViewModels
                 };
                 await Task.WhenAll(pipelineTasks);
 
-                if (matchedServer != null)
+                AppDispatcher.Post(() =>
                 {
-                    var matchVm = _allServers.FirstOrDefault(x => x.JobId == matchedServer.id) ?? new ServerItemViewModel
+                    if (ct.IsCancellationRequested || !ReferenceEquals(Volatile.Read(ref _playerSearchCts), cts)) return;
+                    if (matchedServer != null)
                     {
-                        JobId = matchedServer.id,
-                        Type = "Public",
-                        MaxPlayers = matchedServer.maxPlayers,
-                        Playing = matchedServer.playing,
-                        RawData = matchedServer
-                    };
+                        var matchVm = _allServers.FirstOrDefault(x => x.JobId == matchedServer.id) ?? new ServerItemViewModel
+                        {
+                            JobId = matchedServer.id,
+                            Type = "Public",
+                            MaxPlayers = matchedServer.maxPlayers,
+                            Playing = matchedServer.playing,
+                            RawData = matchedServer
+                        };
 
-                    if (!_allServers.Contains(matchVm))
-                        PrependRawServers(new[] { matchVm });
-                    else if (!_servers.Contains(matchVm))
-                        _servers.Insert(0, matchVm);
+                        if (!_allServers.Contains(matchVm))
+                            PrependRawServers(new[] { matchVm });
+                        else if (!_servers.Contains(matchVm))
+                            _servers.Insert(0, matchVm);
 
-                    SelectedServer = matchVm;
-                    SelectServerJobId(matchVm);
-                    PlayerSearchStatus = Shiro.Services.LocalizationService.Format("ServerList.PlayerFoundInServer", SearchPlayerUsername, matchedServer.id);
+                        SelectedServer = matchVm;
+                        SelectServerJobId(matchVm);
+                        PlayerSearchStatus = LocalizationService.Format("ServerList.PlayerFoundInServer", SearchPlayerUsername, matchedServer.id);
+                    }
+                    else
+                    {
+                        PlayerSearchStatus = LocalizationService.Format("ServerList.PlayerNotFound", SearchPlayerUsername);
+                    }
                     LoadingStatus = PlayerSearchStatus;
-                }
-                else
-                {
-                    PlayerSearchStatus = Shiro.Services.LocalizationService.Format("ServerList.PlayerNotFound", SearchPlayerUsername);
-                    LoadingStatus = PlayerSearchStatus;
-                }
+                });
             }
             catch (OperationCanceledException)
             {

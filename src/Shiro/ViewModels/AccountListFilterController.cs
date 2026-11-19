@@ -101,7 +101,7 @@ namespace Shiro.ViewModels
             for (int i = 0; i < accounts.Count; i++)
             {
                 var a = accounts[i];
-                if (filterByGroup && a.Group != selectedGroup)
+                if (filterByGroup && !string.Equals(a.Group, selectedGroup, StringComparison.OrdinalIgnoreCase))
                     continue;
 
                 switch (activeTab)
@@ -132,7 +132,7 @@ namespace Shiro.ViewModels
             for (int i = 0; i < resultList.Count; i++)
             {
                 var item = resultList[i];
-                item.SortTitle = item.PrimaryTitle ?? item.Username ?? string.Empty;
+                item.SortTitle = !string.IsNullOrWhiteSpace(item.Alias) ? item.Alias : (item.Username ?? string.Empty);
             }
 
             resultList.Sort((x, y) => CompareAccounts(x, y, sortMode));
@@ -248,6 +248,36 @@ namespace Shiro.ViewModels
                 }
             }
             return stateChanged;
+        }
+
+        public static void RebuildLookupIndex(
+            IReadOnlyList<AccountViewModel> accounts,
+            Dictionary<Account, AccountViewModel> vmByModel,
+            Dictionary<long, AccountViewModel> vmByUserId,
+            Dictionary<string, AccountViewModel> vmByUsername)
+        {
+            vmByModel.Clear();
+            vmByUserId.Clear();
+            vmByUsername.Clear();
+            for (int i = 0; i < accounts.Count; i++)
+            {
+                var vm = accounts[i];
+                if (vm.Model != null) vmByModel.TryAdd(vm.Model, vm);
+                if (vm.UserId > 0) vmByUserId.TryAdd(vm.UserId, vm);
+                if (!string.IsNullOrEmpty(vm.Username)) vmByUsername.TryAdd(vm.Username, vm);
+            }
+        }
+
+        public static void DetachPropertyChanged(
+            IEnumerable<AccountViewModel> accounts,
+            System.ComponentModel.PropertyChangedEventHandler handler,
+            HashSet<AccountViewModel>? keepSet = null)
+        {
+            foreach (var vm in accounts)
+            {
+                if (vm != null && (keepSet == null || !keepSet.Contains(vm)))
+                    vm.PropertyChanged -= handler;
+            }
         }
     }
 }

@@ -16,6 +16,7 @@ namespace Shiro.AvaloniaUI.Views
     public partial class AccountCardView : UserControl
     {
         private DashboardView? _ownerDashboard;
+        private long _lastDoubleTapTimestamp;
 
         public AccountCardView()
         {
@@ -35,7 +36,14 @@ namespace Shiro.AvaloniaUI.Views
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
         {
             _ownerDashboard = null;
+            _lastDoubleTapTimestamp = 0;
             base.OnDetachedFromVisualTree(e);
+        }
+
+        protected override void OnDataContextChanged(System.EventArgs e)
+        {
+            _lastDoubleTapTimestamp = 0;
+            base.OnDataContextChanged(e);
         }
 
         private DashboardView? ResolveOwner()
@@ -59,7 +67,15 @@ namespace Shiro.AvaloniaUI.Views
 
         private void OnRootDoubleTapped(object? sender, TappedEventArgs e)
         {
-            if (DataContext is AccountViewModel avm)
+            if (!DashboardView.ShouldTriggerDoubleTap(e.Source, ref _lastDoubleTapTimestamp))
+            {
+                if (e.Source is not Visual v || !DashboardView.IsInsideInteractiveControl(v))
+                    e.Handled = true;
+                return;
+            }
+
+            e.Handled = true;
+            if (DataContext is AccountViewModel avm && !avm.IsLaunching)
                 ResolveOwner()?.ViewModel.LaunchAccountCommand.Execute(avm);
         }
 

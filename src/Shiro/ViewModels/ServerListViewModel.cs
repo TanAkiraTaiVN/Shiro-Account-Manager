@@ -235,6 +235,7 @@ namespace Shiro.ViewModels
             IsLoadingServers = false;
             IsLoadingRegions = false;
             IsSearchingPlayer = false;
+            IsSearchingGames = false;
             if (_allServers.Count == 0) _lastLoadedPlaceId = 0;
             LoadingStatus = Shiro.Services.LocalizationService.Get("ServerList.OperationCancelled");
             NotifyServerCounts();
@@ -370,6 +371,7 @@ namespace Shiro.ViewModels
                     AppDispatcher.Post(() =>
                     {
                         if (!ReferenceEquals(Volatile.Read(ref _serversCts), cts)) return;
+                        _lastLoadedPlaceId = 0;
                         LoadingStatus = Shiro.Services.LocalizationService.Format("Common.ErrorFormat", ex.Message);
                         NotifyServerCounts();
                     });

@@ -69,15 +69,17 @@ namespace Shiro.ViewModels.Dialogs
         public IAsyncRelayCommand VerifyCommand { get; }
         public IAsyncRelayCommand AddCommand { get; }
 
-        public void LoadFromAccount(Account account)
+        public void LoadFromAccount(Account? account)
         {
-            _password = account.Password ?? string.Empty;
-            Alias = account.Alias ?? string.Empty;
-            Group = account.Group ?? string.Empty;
-            if (!string.IsNullOrEmpty(account.SecurityToken))
-            {
-                Cookie = account.SecurityToken;
-            }
+            _password = account?.Password ?? string.Empty;
+            Alias = account?.Alias ?? string.Empty;
+            Group = account?.Group ?? string.Empty;
+            Cookie = account?.SecurityToken ?? string.Empty;
+            PreviewUsername = string.Empty;
+            _lastVerifiedCookie = string.Empty;
+            _lastVerifiedAccount = null;
+            CreatedAccount = null;
+            SetStatus(LocalizationService.Get("FastLogin.PasteCookiePrompt"), StatusKind.Neutral);
         }
 
         public async Task VerifyAsync()

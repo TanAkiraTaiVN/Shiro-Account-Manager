@@ -82,6 +82,7 @@ namespace Shiro.Services
 
             AppDispatcher.Post(() =>
             {
+                viewModel?.RebuildLookupIndex();
                 viewModel?.NotifyCounts();
                 viewModel?.ApplyFilter();
             });
@@ -142,6 +143,8 @@ namespace Shiro.Services
                 string previousToken = acc.Model.SecurityToken;
                 bool wasValid = acc.Model.Valid;
                 string previousIssue = acc.Model.AccountStatusIssue;
+                long previousUserId = acc.Model.UserID;
+                string previousUsername = acc.Model.Username;
 
                 acc.Model.SecurityToken = token;
                 statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("AccountWorkflow.ValidatingNewSession", acc.Username));
@@ -154,22 +157,27 @@ namespace Shiro.Services
                     acc.Model.TokenSet = DateTime.MinValue;
                     acc.Model.LastAuthTicketRateLimited = false;
                     await AppServices.AccountRepository.SaveAsync(true).ConfigureAwait(false);
+                    viewModel?.RebuildLookupIndex();
                     viewModel?.UpdateAccountValidity(acc.Model, true);
+                    AppDispatcher.Post(() => acc.NotifyAllPropertiesChanged());
                     statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("AccountWorkflow.UpdateCookieSuccess", acc.Username));
                 }
                 else
                 {
+                    acc.Model.SecurityToken = previousToken;
+                    acc.Model.UserID = previousUserId;
+                    acc.Model.Username = previousUsername;
+                    acc.Model.AccountStatusIssue = previousIssue;
+
                     if (wasValid && !string.IsNullOrWhiteSpace(previousToken))
                     {
-                        acc.Model.SecurityToken = previousToken;
                         acc.Model.Valid = true;
-                        acc.Model.AccountStatusIssue = previousIssue;
                         viewModel?.UpdateAccountValidity(acc.Model, true);
                         statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("AccountWorkflow.InvalidCookieRetainedOld", acc.Username));
                     }
                     else
                     {
-                        await AppServices.AccountRepository.SaveAsync(true).ConfigureAwait(false);
+                        acc.Model.Valid = false;
                         viewModel?.UpdateAccountValidity(acc.Model, false);
                         statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("AccountWorkflow.InvalidOrExpiredCookie", acc.Username));
                     }
@@ -289,7 +297,7 @@ namespace Shiro.Services
             if (confirmed)
             {
                 AppServices.AccountRepository.RemoveRange(new[] { acc.Model });
-                viewModel?.Accounts.Remove(acc);
+                viewModel?.RemoveAccountViewModels(acc);
                 viewModel?.NotifyCounts();
                 viewModel?.RebuildGroupList();
                 viewModel?.ApplyFilter();
@@ -384,10 +392,7 @@ namespace Shiro.Services
             {
                 var models = selectedVms.Where(v => v.Model != null).Select(v => v.Model).ToList();
                 int count = AppServices.AccountRepository.RemoveRange(models!);
-                foreach (var vm in selectedVms)
-                {
-                    viewModel.Accounts.Remove(vm);
-                }
+                viewModel.RemoveAccountViewModels(selectedVms.ToArray());
                 viewModel.NotifyCounts();
                 viewModel.RebuildGroupList();
                 viewModel.ApplyFilter();
@@ -441,6 +446,7 @@ namespace Shiro.Services
                     await AppServices.AccountRepository.SaveAsync(true).ConfigureAwait(false);
                     AppDispatcher.Post(() =>
                     {
+                        viewModel?.RebuildLookupIndex();
                         viewModel?.NotifyCounts();
                         viewModel?.ApplyFilter();
                     });

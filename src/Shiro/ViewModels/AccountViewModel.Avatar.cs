@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -12,24 +13,51 @@ namespace Shiro.ViewModels
     public partial class AccountViewModel
     {
         private const int MaxAvatarBitmapCacheEntries = 2048;
-        private static readonly ConcurrentDictionary<long, Task<(string Path, Bitmap? Bitmap)>> _inFlightAvatarLoads = new();
+        private static readonly ConcurrentDictionary<(long UserId, int Generation), Task<(string Path, Bitmap? Bitmap)>> _inFlightAvatarLoads = new();
         private static readonly LruCache<long, Bitmap> _avatarBitmapCache = new(MaxAvatarBitmapCacheEntries, disposeOnEvict: false);
         private static readonly SemaphoreSlim _diskDecodeGate = new(6, 6);
+        private static readonly System.Threading.Lock _avatarCacheLock = new();
         private static int _avatarCacheGeneration = 1;
 
         internal static int InFlightAvatarLoadCountForTesting => _inFlightAvatarLoads.Count;
 
+        private readonly System.Threading.Lock _avatarStateLock = new();
         private string? _avatarUrl;
         private Bitmap? _cachedAvatarBitmap;
         private long _cachedAvatarUserId;
         private int _cachedAvatarGeneration;
         private int _avatarLoadState; // 0 = Unchecked, 1 = Loading, 2 = Resolved
 
+        private static void ScheduleBitmapDisposal(IEnumerable<Bitmap?>? bitmaps)
+        {
+            if (bitmaps == null) return;
+            var distinct = new List<Bitmap>();
+            foreach (var bmp in bitmaps)
+            {
+                if (bmp != null && !distinct.Contains(bmp))
+                    distinct.Add(bmp);
+            }
+            if (distinct.Count == 0) return;
+
+            AppDispatcher.Post(() => AppDispatcher.PostBackground(() =>
+            {
+                foreach (var bmp in distinct)
+                {
+                    SafeExecuteHelper.Try(() => bmp.Dispose(), "AccountViewModel.DisposeBitmap");
+                }
+            }));
+        }
+
         public static void ClearAvatarMemoryCache()
         {
             Interlocked.Increment(ref _avatarCacheGeneration);
-            _avatarBitmapCache.Clear();
-            _inFlightAvatarLoads.Clear();
+            List<Bitmap> drained;
+            lock (_avatarCacheLock)
+            {
+                drained = _avatarBitmapCache.ClearAndDrain();
+                _inFlightAvatarLoads.Clear();
+            }
+            ScheduleBitmapDisposal(drained);
         }
 
         /// <summary>
@@ -45,27 +73,31 @@ namespace Shiro.ViewModels
                     return null;
 
                 int gen = Volatile.Read(ref _avatarCacheGeneration);
-                if (_cachedAvatarUserId == userId && _cachedAvatarGeneration == gen)
+                lock (_avatarStateLock)
                 {
-                    if (_cachedAvatarBitmap != null)
-                        return _cachedAvatarBitmap;
-                    if (_avatarLoadState != 0)
-                        return null;
-                }
+                    if (_cachedAvatarUserId == userId && _cachedAvatarGeneration == gen)
+                    {
+                        if (_cachedAvatarBitmap != null)
+                            return _cachedAvatarBitmap;
+                        if (_avatarLoadState != 0)
+                            return null;
+                    }
 
-                if (_avatarBitmapCache.TryGetValue(userId, out var cached) && cached != null)
-                {
+                    if (_avatarBitmapCache.TryGetValue(userId, out var cached) && cached != null && Volatile.Read(ref _avatarCacheGeneration) == gen)
+                    {
+                        _cachedAvatarUserId = userId;
+                        _cachedAvatarGeneration = gen;
+                        _cachedAvatarBitmap = cached;
+                        _avatarLoadState = 2;
+                        return cached;
+                    }
+
                     _cachedAvatarUserId = userId;
                     _cachedAvatarGeneration = gen;
-                    _cachedAvatarBitmap = cached;
-                    _avatarLoadState = 2;
-                    return cached;
+                    _cachedAvatarBitmap = null;
+                    _avatarLoadState = 1;
                 }
 
-                _cachedAvatarUserId = userId;
-                _cachedAvatarGeneration = gen;
-                _cachedAvatarBitmap = null;
-                _avatarLoadState = 1;
                 _ = LoadOrFetchAvatarInBackgroundAsync(userId, gen);
                 return null;
             }
@@ -75,8 +107,11 @@ namespace Shiro.ViewModels
         {
             get
             {
-                if (_avatarUrl != null)
-                    return _avatarUrl;
+                lock (_avatarStateLock)
+                {
+                    if (_avatarUrl != null)
+                        return _avatarUrl;
+                }
                 if (UserId <= 0)
                     return string.Empty;
 
@@ -85,8 +120,8 @@ namespace Shiro.ViewModels
                     string diskPath = Path.Combine(StoragePaths.CacheDirectory, "Avatars", $"{UserId}.png");
                     if (File.Exists(diskPath))
                     {
-                        _avatarUrl = diskPath;
-                        return _avatarUrl;
+                        lock (_avatarStateLock) { _avatarUrl = diskPath; }
+                        return diskPath;
                     }
                 }
                 catch (Exception ex)
@@ -99,18 +134,23 @@ namespace Shiro.ViewModels
             }
         }
 
-        private static Task<(string Path, Bitmap? Bitmap)> GetOrStartAvatarLoadAsync(long userId)
+        private static Task<(string Path, Bitmap? Bitmap)> GetOrStartAvatarLoadAsync(long userId, int expectedGeneration)
         {
-            return _inFlightAvatarLoads.GetOrAdd(userId, static id => LoadAndDecodeAvatarCoreAsync(id));
+            return _inFlightAvatarLoads.GetOrAdd((userId, expectedGeneration), static k => LoadAndDecodeAvatarCoreAsync(k.UserId, k.Generation));
         }
 
-        private static async Task<(string Path, Bitmap? Bitmap)> LoadAndDecodeAvatarCoreAsync(long userId)
+        private static async Task<(string Path, Bitmap? Bitmap)> LoadAndDecodeAvatarCoreAsync(long userId, int expectedGeneration)
         {
             await Task.Yield();
             try
             {
+                if (Volatile.Read(ref _avatarCacheGeneration) != expectedGeneration)
+                    return (string.Empty, null);
+
                 if (_avatarBitmapCache.TryGetValue(userId, out var alreadyCached) && alreadyCached != null)
                 {
+                    if (Volatile.Read(ref _avatarCacheGeneration) != expectedGeneration)
+                        return (string.Empty, null);
                     string diskCandidate = Path.Combine(StoragePaths.CacheDirectory, "Avatars", $"{userId}.png");
                     return (File.Exists(diskCandidate) ? diskCandidate : string.Empty, alreadyCached);
                 }
@@ -121,17 +161,45 @@ namespace Shiro.ViewModels
                     resolvedPath = await AvatarService.EnsureAvatarAsync(userId).ConfigureAwait(false);
                 }
 
+                if (Volatile.Read(ref _avatarCacheGeneration) != expectedGeneration)
+                    return (string.Empty, null);
+
                 if (!string.IsNullOrEmpty(resolvedPath) && File.Exists(resolvedPath))
                 {
-                    Bitmap? decoded = null;
+                    Bitmap? resultBitmap = null;
                     await _diskDecodeGate.WaitAsync().ConfigureAwait(false);
                     try
                     {
-                        if (!_avatarBitmapCache.TryGetValue(userId, out decoded) || decoded == null)
+                        if (Volatile.Read(ref _avatarCacheGeneration) != expectedGeneration)
+                            return (string.Empty, null);
+
+                        if (!_avatarBitmapCache.TryGetValue(userId, out var existing) || existing == null)
                         {
                             using var stream = File.OpenRead(resolvedPath);
-                            decoded = Bitmap.DecodeToWidth(stream, 72);
-                            _avatarBitmapCache[userId] = decoded;
+                            var fresh = Bitmap.DecodeToWidth(stream, 72);
+                            lock (_avatarCacheLock)
+                            {
+                                if (Volatile.Read(ref _avatarCacheGeneration) != expectedGeneration)
+                                {
+                                    SafeExecuteHelper.Try(() => fresh.Dispose(), "LoadAndDecodeAvatarCoreAsync.StaleDispose");
+                                    return (string.Empty, null);
+                                }
+
+                                if (_avatarBitmapCache.TryGetValue(userId, out var raceExisting) && raceExisting != null)
+                                {
+                                    SafeExecuteHelper.Try(() => fresh.Dispose(), "LoadAndDecodeAvatarCoreAsync.DuplicateDispose");
+                                    resultBitmap = raceExisting;
+                                }
+                                else
+                                {
+                                    _avatarBitmapCache[userId] = fresh;
+                                    resultBitmap = fresh;
+                                }
+                            }
+                        }
+                        else
+                        {
+                            resultBitmap = existing;
                         }
                     }
                     catch (Exception decodeEx)
@@ -143,7 +211,9 @@ namespace Shiro.ViewModels
                         _diskDecodeGate.Release();
                     }
 
-                    return (resolvedPath, decoded);
+                    return Volatile.Read(ref _avatarCacheGeneration) == expectedGeneration
+                        ? (resolvedPath, resultBitmap)
+                        : (string.Empty, null);
                 }
             }
             catch (Exception ex)
@@ -152,7 +222,7 @@ namespace Shiro.ViewModels
             }
             finally
             {
-                _inFlightAvatarLoads.TryRemove(userId, out _);
+                _inFlightAvatarLoads.TryRemove((userId, expectedGeneration), out _);
             }
 
             return (string.Empty, null);
@@ -163,24 +233,27 @@ namespace Shiro.ViewModels
             await Task.Yield();
             try
             {
-                var (path, decoded) = await GetOrStartAvatarLoadAsync(userId).ConfigureAwait(false);
-                if (!string.IsNullOrEmpty(path))
-                {
-                    _avatarUrl = path;
-                }
-
+                var (path, decoded) = await GetOrStartAvatarLoadAsync(userId, expectedGeneration).ConfigureAwait(false);
                 if (decoded != null)
                 {
-                    ApplyResolvedAvatar(userId, expectedGeneration, decoded);
+                    ApplyResolvedAvatar(userId, expectedGeneration, path, decoded);
                 }
                 else
                 {
-                    _avatarLoadState = 2;
+                    lock (_avatarStateLock)
+                    {
+                        if (Volatile.Read(ref _avatarCacheGeneration) == expectedGeneration && _cachedAvatarUserId == userId)
+                            _avatarLoadState = 2;
+                    }
                 }
             }
             catch (Exception ex)
             {
-                _avatarLoadState = 2;
+                lock (_avatarStateLock)
+                {
+                    if (Volatile.Read(ref _avatarCacheGeneration) == expectedGeneration && _cachedAvatarUserId == userId)
+                        _avatarLoadState = 2;
+                }
                 _logger.Debug($"[LoadOrFetchAvatar] Error loading avatar for {userId}: {ex.Message}");
             }
         }
@@ -194,11 +267,10 @@ namespace Shiro.ViewModels
             int gen = Volatile.Read(ref _avatarCacheGeneration);
             try
             {
-                var (path, decoded) = await GetOrStartAvatarLoadAsync(userId).ConfigureAwait(false);
-                if (!string.IsNullOrEmpty(path))
+                var (path, decoded) = await GetOrStartAvatarLoadAsync(userId, gen).ConfigureAwait(false);
+                if (!string.IsNullOrEmpty(path) && Volatile.Read(ref _avatarCacheGeneration) == gen && UserId == userId)
                 {
-                    _avatarUrl = path;
-                    ApplyResolvedAvatar(userId, gen, decoded);
+                    ApplyResolvedAvatar(userId, gen, path, decoded);
                     return path;
                 }
             }
@@ -208,28 +280,37 @@ namespace Shiro.ViewModels
             }
             finally
             {
-                if (string.IsNullOrEmpty(_avatarUrl))
+                lock (_avatarStateLock)
                 {
-                    _avatarLoadState = 2;
+                    if (string.IsNullOrEmpty(_avatarUrl) && Volatile.Read(ref _avatarCacheGeneration) == gen && _cachedAvatarUserId == userId)
+                        _avatarLoadState = 2;
                 }
             }
             return string.Empty;
         }
 
-        private void ApplyResolvedAvatar(long userId, int expectedGeneration, Bitmap? bitmap)
+        private void ApplyResolvedAvatar(long userId, int expectedGeneration, string? path, Bitmap? bitmap)
         {
-            if (Volatile.Read(ref _avatarCacheGeneration) != expectedGeneration || UserId != userId)
-                return;
+            lock (_avatarStateLock)
+            {
+                if (Volatile.Read(ref _avatarCacheGeneration) != expectedGeneration || UserId != userId)
+                    return;
 
-            _cachedAvatarUserId = userId;
-            _cachedAvatarGeneration = expectedGeneration;
-            _cachedAvatarBitmap = bitmap;
-            _avatarLoadState = 2;
+                if (!string.IsNullOrEmpty(path))
+                    _avatarUrl = path;
 
-            if (bitmap != null)
+                _cachedAvatarUserId = userId;
+                _cachedAvatarGeneration = expectedGeneration;
+                _cachedAvatarBitmap = bitmap;
+                _avatarLoadState = 2;
+            }
+
+            if (bitmap != null || !string.IsNullOrEmpty(path))
             {
                 AppDispatcher.PostBackground(() =>
                 {
+                    if (Volatile.Read(ref _avatarCacheGeneration) != expectedGeneration || UserId != userId)
+                        return;
                     OnPropertyChanged(nameof(AvatarUrl));
                     OnPropertyChanged(nameof(AvatarImage));
                 });
@@ -238,13 +319,25 @@ namespace Shiro.ViewModels
 
         public void InvalidateAvatar()
         {
-            _avatarUrl = null;
-            _cachedAvatarBitmap = null;
-            _avatarLoadState = 0;
-            _avatarBitmapCache.TryRemove(UserId, out _);
-            _inFlightAvatarLoads.TryRemove(UserId, out _);
-            OnPropertyChanged(nameof(AvatarUrl));
-            OnPropertyChanged(nameof(AvatarImage));
+            Interlocked.Increment(ref _avatarCacheGeneration);
+            Bitmap? prevInstanceBmp;
+            lock (_avatarStateLock)
+            {
+                prevInstanceBmp = _cachedAvatarBitmap;
+                _avatarUrl = null;
+                _cachedAvatarBitmap = null;
+                _cachedAvatarUserId = 0;
+                _cachedAvatarGeneration = 0;
+                _avatarLoadState = 0;
+            }
+
+            _avatarBitmapCache.TryRemove(UserId, out var prevCacheBmp);
+            AppDispatcher.Post(() =>
+            {
+                OnPropertyChanged(nameof(AvatarUrl));
+                OnPropertyChanged(nameof(AvatarImage));
+                ScheduleBitmapDisposal(new[] { prevInstanceBmp, prevCacheBmp });
+            });
         }
     }
 }
