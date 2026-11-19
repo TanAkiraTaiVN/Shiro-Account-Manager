@@ -37,27 +37,7 @@ namespace Shiro.Services
 
         [LibraryImport("user32.dll")]
         [return: MarshalAs(UnmanagedType.Bool)]
-        private static partial bool ShowWindow(IntPtr hWnd, int nCmdShow);
-
-        [LibraryImport("user32.dll")]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static partial bool IsIconic(IntPtr hWnd);
-
-        [LibraryImport("user32.dll")]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static partial bool IsWindow(IntPtr hWnd);
-
-        [LibraryImport("user32.dll")]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static partial bool SetForegroundWindow(IntPtr hWnd);
-
-        [LibraryImport("user32.dll")]
-        [return: MarshalAs(UnmanagedType.Bool)]
         private static partial bool BringWindowToTop(IntPtr hWnd);
-
-        [LibraryImport("user32.dll", SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static partial bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
 
         public readonly record struct WindowPlacementSlot(int X, int Y, int Width, int Height);
 
@@ -154,7 +134,7 @@ namespace Shiro.Services
             }
 
             var pidSet = new HashSet<uint>(runningPids.Where(p => p > 0).Select(p => (uint)p));
-            var windows = RobloxWindowService.FindWindowsForPids(pidSet).Where(IsWindow).Distinct().ToList();
+            var windows = RobloxWindowService.FindWindowsForPids(pidSet).Where(Win32NativeHelper.IsWindow).Distinct().ToList();
             if (windows.Count == 0)
             {
                 return (0, LocalizationService.Get("WindowArranger.NoWindowsFound"));
@@ -168,8 +148,8 @@ namespace Shiro.Services
             {
                 IntPtr hWnd = windows[i];
                 var slot = placements[i];
-                ShowWindow(hWnd, SW_RESTORE);
-                if (SetWindowPos(hWnd, IntPtr.Zero, slot.X, slot.Y, slot.Width, slot.Height, SWP_NOZORDER | SWP_NOACTIVATE | SWP_SHOWWINDOW))
+                Win32NativeHelper.ShowWindow(hWnd, SW_RESTORE);
+                if (Win32NativeHelper.SetWindowPos(hWnd, IntPtr.Zero, slot.X, slot.Y, slot.Width, slot.Height, SWP_NOZORDER | SWP_NOACTIVATE | SWP_SHOWWINDOW))
                 {
                     arranged++;
                 }
@@ -281,20 +261,20 @@ namespace Shiro.Services
                 return false;
 
             IntPtr hWnd = RobloxWindowService.FindWindowForPid((uint)pid);
-            if (hWnd == IntPtr.Zero || !IsWindow(hWnd))
+            if (hWnd == IntPtr.Zero || !Win32NativeHelper.IsWindow(hWnd))
                 return false;
 
-            if (IsIconic(hWnd) || RobloxWindowService.AreWindowsHidden)
+            if (Win32NativeHelper.IsIconic(hWnd) || RobloxWindowService.AreWindowsHidden)
             {
-                ShowWindow(hWnd, SW_RESTORE);
+                Win32NativeHelper.ShowWindow(hWnd, SW_RESTORE);
             }
             else
             {
-                ShowWindow(hWnd, SW_SHOW);
+                Win32NativeHelper.ShowWindow(hWnd, SW_SHOW);
             }
 
             BringWindowToTop(hWnd);
-            SetForegroundWindow(hWnd);
+            Win32NativeHelper.SetForegroundWindow(hWnd);
             return true;
         }
     }

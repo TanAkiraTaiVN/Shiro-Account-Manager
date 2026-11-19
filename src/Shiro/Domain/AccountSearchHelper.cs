@@ -134,11 +134,14 @@ namespace Shiro
                     }
                 }
 
-                // Check exact suffix number (e.g. AD_Jackpot7 ends with "7")
-                if (AccountSearchHelper.EndsWithDigits(user, Digits))
+                // Check exact suffix number (e.g. AD_Jackpot7 ends with "7") or zero-padded numeric equivalence ("Bot07" <-> "7")
+                long? querySuffixNum = long.TryParse(Digits, out long parsedSuffixNum) ? parsedSuffixNum : null;
+                if (AccountSearchHelper.EndsWithDigits(user, Digits) ||
+                    (querySuffixNum.HasValue && AccountSearchHelper.GetSuffixNumberSpan(user) == querySuffixNum.Value))
                     return true;
 
-                if (AccountSearchHelper.EndsWithDigits(al, Digits))
+                if (AccountSearchHelper.EndsWithDigits(al, Digits) ||
+                    (querySuffixNum.HasValue && AccountSearchHelper.GetSuffixNumberSpan(al) == querySuffixNum.Value))
                     return true;
 
                 // If prefix was explicitly specified (e.g. "jackpot 7"), also check substring
@@ -149,11 +152,12 @@ namespace Shiro
                     return true;
                 }
 
-                // Only enforce exact/suffix match when short (< 4 digits) so 4+ digit UserID/Group queries still reach below
+                // Match exact name/alias or Group substring for short (< 4 digit) queries while avoiding partial UserID/Username matches
                 if (string.IsNullOrEmpty(Prefix) && Digits.Length < 4)
                 {
                     return user.Equals(Digits, StringComparison.OrdinalIgnoreCase) ||
-                           al.Equals(Digits, StringComparison.OrdinalIgnoreCase);
+                           al.Equals(Digits, StringComparison.OrdinalIgnoreCase) ||
+                           grp.Contains(QueryText, StringComparison.OrdinalIgnoreCase);
                 }
             }
 

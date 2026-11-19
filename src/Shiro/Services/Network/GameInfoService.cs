@@ -281,9 +281,10 @@ namespace Shiro.Services
 
         private static async Task<string?> FetchPlaceNameFromRobloxAsync(long placeId)
         {
+            long universeId = 0;
             try
             {
-                // 1. Public unauthenticated 2-step lookup: PlaceId -> UniverseId -> Original Game Name (sourceName)
+                // 1. Resolve PlaceId -> UniverseId once, then query games.roblox.com
                 string uniUrl = $"https://apis.roblox.com/universes/v1/places/{placeId}/universe";
                 using var uniReq = new HttpRequestMessage(HttpMethod.Get, uniUrl);
                 using var uniResp = await SendHttpAsync(uniReq).ConfigureAwait(false);
@@ -291,9 +292,10 @@ namespace Shiro.Services
                 {
                     using var uniDoc = await JsonDocument.ParseAsync(await uniResp.Content.ReadAsStreamAsync().ConfigureAwait(false)).ConfigureAwait(false);
                     if (uniDoc.RootElement.TryGetProperty("universeId", out var uniProp) &&
-                        uniProp.TryGetInt64(out long universeId) &&
-                        universeId > 0)
+                        uniProp.TryGetInt64(out long resolvedUniId) &&
+                        resolvedUniId > 0)
                     {
+                        universeId = resolvedUniId;
                         string gameUrl = $"https://games.roblox.com/v1/games?universeIds={universeId}";
                         using var gameReq = new HttpRequestMessage(HttpMethod.Get, gameUrl);
                         gameReq.Headers.AcceptLanguage.ParseAdd("en-US,en;q=0.9");
@@ -318,33 +320,24 @@ namespace Shiro.Services
                 _logger.Debug($"[GameInfoService] Public universe lookup for {placeId} failed: {ex.Message}");
             }
 
-            // 2. Fallback to unauthenticated 2-step develop universe lookup when games.roblox.com details are unavailable
+            if (universeId <= 0)
+                return null;
+
+            // 2. Fallback to unauthenticated develop universe lookup reusing resolved universeId
             try
             {
-                string uniUrl = $"https://apis.roblox.com/universes/v1/places/{placeId}/universe";
-                using var uniReq = new HttpRequestMessage(HttpMethod.Get, uniUrl);
-                using var uniResp = await SendHttpAsync(uniReq).ConfigureAwait(false);
-                if (uniResp.IsSuccessStatusCode)
+                string devUrl = $"https://develop.roblox.com/v1/universes/{universeId}";
+                using var devReq = new HttpRequestMessage(HttpMethod.Get, devUrl);
+                using var devResp = await SendHttpAsync(devReq).ConfigureAwait(false);
+                if (devResp.IsSuccessStatusCode)
                 {
-                    using var uniDoc = await JsonDocument.ParseAsync(await uniResp.Content.ReadAsStreamAsync().ConfigureAwait(false)).ConfigureAwait(false);
-                    if (uniDoc.RootElement.TryGetProperty("universeId", out var uniProp) &&
-                        uniProp.TryGetInt64(out long universeId) &&
-                        universeId > 0)
+                    using var devDoc = await JsonDocument.ParseAsync(await devResp.Content.ReadAsStreamAsync().ConfigureAwait(false)).ConfigureAwait(false);
+                    if (devDoc.RootElement.TryGetProperty("name", out var nameProp) &&
+                        nameProp.ValueKind == JsonValueKind.String)
                     {
-                        string devUrl = $"https://develop.roblox.com/v1/universes/{universeId}";
-                        using var devReq = new HttpRequestMessage(HttpMethod.Get, devUrl);
-                        using var devResp = await SendHttpAsync(devReq).ConfigureAwait(false);
-                        if (devResp.IsSuccessStatusCode)
-                        {
-                            using var devDoc = await JsonDocument.ParseAsync(await devResp.Content.ReadAsStreamAsync().ConfigureAwait(false)).ConfigureAwait(false);
-                            if (devDoc.RootElement.TryGetProperty("name", out var nameProp) &&
-                                nameProp.ValueKind == JsonValueKind.String)
-                            {
-                                string? devTitle = nameProp.GetString();
-                                if (!string.IsNullOrWhiteSpace(devTitle) && !IsGenericPlaceholderName(placeId, devTitle))
-                                    return devTitle;
-                            }
-                        }
+                        string? devTitle = SanitizeDisplayTitle(nameProp.GetString());
+                        if (!string.IsNullOrWhiteSpace(devTitle) && !IsGenericPlaceholderName(placeId, devTitle))
+                            return devTitle;
                     }
                 }
             }
@@ -412,7 +405,8 @@ namespace Shiro.Services
                 AppServices.ServerBrowserState.RecentGames ??= new List<Game>();
                 AppServices.ServerBrowserState.RecentGames.RemoveAll(g => g?.Details?.placeId == rg.Details?.placeId);
 
-                while (AppServices.ServerBrowserState.RecentGames.Count > maxRecentGames && AppServices.ServerBrowserState.RecentGames.Count > 0)
+                int effectiveMax = Math.Max(1, maxRecentGames);
+                while (AppServices.ServerBrowserState.RecentGames.Count >= effectiveMax && AppServices.ServerBrowserState.RecentGames.Count > 0)
                 {
                     AppServices.ServerBrowserState.RecentGames.RemoveAt(0);
                 }
@@ -422,13 +416,13 @@ namespace Shiro.Services
                 if (!loading)
                 {
                     serialized = FastJson.Serialize(AppServices.ServerBrowserState.RecentGames, indented: true);
+                    if (!string.IsNullOrEmpty(serialized))
+                        StoragePaths.AtomicWriteText(recentGamesFilePath, serialized);
                 }
             }
 
             if (!loading)
             {
-                if (!string.IsNullOrEmpty(serialized))
-                    StoragePaths.AtomicWriteText(recentGamesFilePath, serialized);
                 onGameAdded?.Invoke(rg);
             }
         }

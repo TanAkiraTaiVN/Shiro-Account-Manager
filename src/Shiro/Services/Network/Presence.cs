@@ -44,8 +44,8 @@ namespace Shiro.Services
             long[] UniqueUserIds = UserIds.Where(id => id > 0).Distinct().ToArray();
             if (UniqueUserIds.Length == 0) return;
 
-            // Wait for any active rate-limit backoff before acquiring the update lock
-            await RobloxRateLimitCoordinator.Instance.WaitForBackoffAsync(cancellationToken).ConfigureAwait(false);
+            // Wait for any active Presence rate-limit backoff before acquiring the update lock
+            await RobloxRateLimitCoordinator.Instance.WaitForBackoffAsync(RateLimitCategory.Presence, cancellationToken).ConfigureAwait(false);
 
             await UpdateLock.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
@@ -65,7 +65,7 @@ namespace Shiro.Services
                 {
                     cancellationToken.ThrowIfCancellationRequested();
 
-                    await RobloxRateLimitCoordinator.Instance.WaitForBackoffAsync(cancellationToken).ConfigureAwait(false);
+                    await RobloxRateLimitCoordinator.Instance.WaitForBackoffAsync(RateLimitCategory.Presence, cancellationToken).ConfigureAwait(false);
 
                     int batchEnd = Math.Min(offset + 50, UniqueUserIds.Length);
                     long[] batch = UniqueUserIds[offset..batchEnd];
@@ -177,7 +177,7 @@ namespace Shiro.Services
             for (int offset = 0; offset < MissingUniverseIds.Length; offset += 50)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                await RobloxRateLimitCoordinator.Instance.WaitForBackoffAsync(cancellationToken).ConfigureAwait(false);
+                await RobloxRateLimitCoordinator.Instance.WaitForBackoffAsync(RateLimitCategory.General, cancellationToken).ConfigureAwait(false);
                 int batchEnd = Math.Min(offset + 50, MissingUniverseIds.Length);
                 long[] batch = MissingUniverseIds[offset..batchEnd];
                 try
@@ -301,7 +301,7 @@ namespace Shiro.Services
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                await RobloxRateLimitCoordinator.Instance.WaitForBackoffAsync(cancellationToken).ConfigureAwait(false);
+                await RobloxRateLimitCoordinator.Instance.WaitForBackoffAsync(RateLimitCategory.General, cancellationToken).ConfigureAwait(false);
 
                 int batchEnd = Math.Min(offset + 50, uniqueIds.Length);
                 long[] batch = uniqueIds[offset..batchEnd];

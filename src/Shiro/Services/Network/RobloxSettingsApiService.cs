@@ -377,33 +377,16 @@ namespace Shiro.Services
             if (!await confirmPrivacyUpdateAsync().ConfigureAwait(false))
                 return true;
 
-            RestResponse? setResponse = null;
-            string privacyCsrf = csrfToken;
-            for (int attempt = 0; attempt < 2; attempt++)
-            {
-                var setRequest = account.MakeRequest("user-settings-api/v1/user-settings", Method.Post)
-                    .AddHeader("X-CSRF-TOKEN", privacyCsrf)
+            RestResponse? setResponse = await RobloxCsrfRetryHelper.ExecuteWithCsrfRetryAsync(
+                account,
+                AppServices.RobloxApi.Api,
+                "https://apis.roblox.com/",
+                csrfToken,
+                tok => account.MakeRequest("user-settings-api/v1/user-settings", Method.Post)
+                    .AddHeader("X-CSRF-TOKEN", tok)
                     .AddHeader("Referer", "https://www.roblox.com/my/account")
-                    .AddJsonBody(new PrivateServerInviteSettingPayload("AllUsers"));
-
-                setResponse = await account.ExecuteAccountRestAsync(AppServices.RobloxApi.Api, "https://apis.roblox.com/", setRequest, cancellationToken).ConfigureAwait(false);
-                if (setResponse == null || setResponse.IsSuccessful)
-                    break;
-
-                if (attempt == 0 && setResponse.StatusCode == HttpStatusCode.Forbidden)
-                {
-                    string? freshCsrf = setResponse.Headers?
-                        .FirstOrDefault(h => string.Equals(h.Name, "x-csrf-token", StringComparison.OrdinalIgnoreCase))
-                        ?.Value?.ToString();
-                    if (!string.IsNullOrWhiteSpace(freshCsrf))
-                    {
-                        privacyCsrf = freshCsrf;
-                        account.SetCsrfToken(freshCsrf);
-                        continue;
-                    }
-                }
-                break;
-            }
+                    .AddJsonBody(new PrivateServerInviteSettingPayload("AllUsers")),
+                cancellationToken).ConfigureAwait(false);
             return setResponse != null && setResponse.IsSuccessful;
         }
 

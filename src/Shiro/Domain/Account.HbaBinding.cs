@@ -122,14 +122,6 @@ namespace Shiro
         [JsonIgnore] public string LastBoundIpSignature { get => GetProtectedField(FieldLastBoundIpSig); set => SetProtectedField(FieldLastBoundIpSig, value); }
         [JsonIgnore] public bool HasHbaBinding => !string.IsNullOrWhiteSpace(HbaPrivateKey);
 
-        public void ClearHbaBinding()
-        {
-            HbaPrivateKey = string.Empty;
-            HbaPublicKey = string.Empty;
-            HbaTemplate = string.Empty;
-            LastBoundIpSignature = string.Empty;
-        }
-
         private string GetProtectedField(string key)
         {
             lock (FieldsSyncRoot)

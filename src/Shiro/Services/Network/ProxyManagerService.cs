@@ -300,9 +300,9 @@ namespace Shiro.Services
 
                 long tcpMs = sw.ElapsedMilliseconds;
 
-                if (!string.IsNullOrEmpty(proxy.Username) &&
-                    (string.Equals(proxy.Protocol, "http", StringComparison.OrdinalIgnoreCase) ||
-                     string.Equals(proxy.Protocol, "https", StringComparison.OrdinalIgnoreCase)))
+                if (string.Equals(proxy.Protocol, "http", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(proxy.Protocol, "https", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(proxy.Protocol, "socks5", StringComparison.OrdinalIgnoreCase))
                 {
                     var (success, httpLatency, _) = await ProxyBindingService.TestProxyAsync(proxy.RawEntry, cts.Token).ConfigureAwait(false);
                     measuredLatency = success ? Math.Max(tcpMs, (long)httpLatency.TotalMilliseconds) : -2;

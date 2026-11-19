@@ -31,7 +31,7 @@ namespace Shiro.ViewModels
             AccountViewModel? item3 = null,
             AccountViewModel? item4 = null)
         {
-            ColumnCount = Math.Clamp(columnCount, 1, 6);
+            ColumnCount = Math.Clamp(columnCount, 1, 4);
             Item1 = item1;
             Item2 = item2;
             Item3 = item3;

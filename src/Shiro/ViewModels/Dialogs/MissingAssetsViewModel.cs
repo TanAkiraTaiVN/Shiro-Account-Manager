@@ -2,7 +2,6 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
@@ -39,7 +38,7 @@ public sealed class MissingAssetsViewModel : DialogViewModelBase
         _assetIds = assetIds ?? Array.Empty<long>();
         _commerce = commerce ?? AssetCommerceService.Default;
         _prompt = prompt ?? AppServices.Prompt;
-        _openUrl = openUrl ?? DefaultOpenUrl;
+        _openUrl = openUrl ?? Utilities.OpenUrl;
         _concurrency = Math.Max(1, concurrency);
         _logger = logger ?? AppServices.Logger;
 
@@ -361,10 +360,5 @@ public sealed class MissingAssetsViewModel : DialogViewModelBase
         {
             _logger.Debug($"Open catalog URL in browser failed: {ex.Message}");
         }
-    }
-
-    private static void DefaultOpenUrl(string url)
-    {
-        Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
     }
 }

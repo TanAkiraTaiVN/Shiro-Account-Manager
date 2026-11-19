@@ -239,7 +239,7 @@ namespace Shiro.ViewModels
 
                 bool hasActivePresence = acc.Model?.Presence != null
                     ? acc.Model.Presence.userPresenceType == UserPresenceType.InGame
-                    : (acc.IsInGame || isRunningLocally);
+                    : isRunningLocally;
 
                 if (acc.IsInGame != hasActivePresence)
                 {

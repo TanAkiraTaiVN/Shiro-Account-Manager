@@ -113,7 +113,7 @@ namespace Shiro.ViewModels
 
         public static string NormalizeSearchText(string? input) => CommandPaletteCoordinator.NormalizeSearchText(input);
 
-        private static List<CommandPaletteCatalog.BuiltinCommandDef> GetBuiltinCommands() =>
+        private static IReadOnlyList<CommandPaletteCatalog.BuiltinCommandDef> GetBuiltinCommands() =>
             CommandPaletteCatalog.GetBuiltinCommands();
     }
 }

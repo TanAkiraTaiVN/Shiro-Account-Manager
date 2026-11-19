@@ -13,7 +13,7 @@ This document outlines the security architecture, trust boundaries, threat vecto
 | Vault Encryption Key (`VaultKey`) | **Critical** | Protected via Windows DPAPI (`DataProtectionScope.CurrentUser`) using Dual-KDF: **HKDF-SHA256 (V4)** for 256-bit machine keys and **PBKDF2-SHA256 (600,000 iterations, V3)** for user passwords with AES-256-GCM encryption. |
 | HBA (Hardware-Backed Auth) ECDSA P-256 Private Keys | **High** | Bound per-account to sign `x-bound-auth-token` headers for Roblox API requests; protected by WebView2 `https://*.roblox.com` origin lock and Kestrel `Hba*` field access block. |
 | Local Kestrel HTTP & WebSocket Gateway | **High** | Local Kestrel HTTP/WebSocket gateway (`127.0.0.1:7963`) providing REST & real-time WS events (`/ws`, `/events`, `/v2/events`). |
-| Discord Webhook URLs & Third-Party API Keys | **High** | Encrypted at rest in `Settings.ini` via Windows DPAPI (`CryptoHelper.ProtectSecretString`). |
+| Discord Webhook URLs & Third-Party API Keys | **High** | Encrypted at rest in `RAMSettings.json` via Windows DPAPI (`CryptoHelper.ProtectSecretString`). |
 
 ---
 
@@ -61,7 +61,7 @@ This document outlines the security architecture, trust boundaries, threat vecto
 - **Threat**: Plaintext key material or decrypted backup payloads lingering in process memory or leaked via configuration files / exports.
 - **Mitigation** ([`VaultKeyRecoveryService.cs`](../src/Shiro/Services/Storage/VaultKeyRecoveryService.cs), [`AccountPersistenceService.Recovery.cs`](../src/Shiro/Services/Storage/AccountPersistenceService.Recovery.cs)):
   - Master key buffers and temporary decrypted backup buffers are wiped via `CryptographicOperations.ZeroMemory` when unloaded, rotated, or after recovery parsing.
-  - Discord monitoring webhook URLs are encrypted with DPAPI via `CryptoHelper.ProtectSecretString` before saving to `Settings.ini`.
+  - Discord monitoring webhook URLs are encrypted with DPAPI via `CryptoHelper.ProtectSecretString` before saving to `RAMSettings.json`.
 
 ### D — Denial of Service
 - **Threat**: Resource exhaustion via oversized local HTTP requests, runaway Roblox child processes, or Roblox API rate-limiting (`429 Too Many Requests`).

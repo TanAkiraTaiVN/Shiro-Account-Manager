@@ -22,27 +22,12 @@ namespace Shiro.Services
         private const uint TH32CS_SNAPPROCESS = 0x00000002;
         private static readonly IntPtr INVALID_HANDLE_VALUE = new(-1);
 
-        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
-        private unsafe struct PROCESSENTRY32W
-        {
-            public uint dwSize;
-            public uint cntUsage;
-            public uint th32ProcessID;
-            public nuint th32DefaultHeapID;
-            public uint th32ModuleID;
-            public uint cntThreads;
-            public uint th32ParentProcessID;
-            public int pcPriClassBase;
-            public uint dwFlags;
-            public fixed char szExeFile[260];
-        }
-
         private static readonly System.Threading.Lock _lock = new();
         private static readonly List<WeakReference<Window>> _registeredWindows = new();
         private static Timer? _detectionTimer;
-        private static bool _isEnabled;
-        private static bool _autoDetectEnabled = false;
-        private static bool _isStreamingAppDetected;
+        private static volatile bool _isEnabled;
+        private static volatile bool _autoDetectEnabled = false;
+        private static volatile bool _isStreamingAppDetected;
         private static bool _initialized;
 
         private static readonly string[] StreamingProcessNames =
@@ -115,21 +100,6 @@ namespace Shiro.Services
         [return: MarshalAs(UnmanagedType.Bool)]
         private static partial bool SetWindowDisplayAffinity(IntPtr hWnd, uint dwAffinity);
 
-        [LibraryImport("kernel32.dll", SetLastError = true)]
-        private static partial IntPtr CreateToolhelp32Snapshot(uint dwFlags, uint th32ProcessID);
-
-        [LibraryImport("kernel32.dll", EntryPoint = "Process32FirstW", SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static unsafe partial bool Process32FirstW(IntPtr hSnapshot, PROCESSENTRY32W* lppe);
-
-        [LibraryImport("kernel32.dll", EntryPoint = "Process32NextW", SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static unsafe partial bool Process32NextW(IntPtr hSnapshot, PROCESSENTRY32W* lppe);
-
-        [LibraryImport("kernel32.dll", SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static partial bool CloseHandle(IntPtr hObject);
-
         internal static void InitializeForTest()
         {
             lock (_lock)
@@ -168,8 +138,17 @@ namespace Shiro.Services
 
             lock (_lock)
             {
-                _registeredWindows.RemoveAll(wr => !wr.TryGetTarget(out _));
-                _registeredWindows.Add(new WeakReference<Window>(window));
+                bool alreadyRegistered = false;
+                for (int i = _registeredWindows.Count - 1; i >= 0; i--)
+                {
+                    if (!_registeredWindows[i].TryGetTarget(out Window? existing))
+                        _registeredWindows.RemoveAt(i);
+                    else if (ReferenceEquals(existing, window))
+                        alreadyRegistered = true;
+                }
+
+                if (!alreadyRegistered)
+                    _registeredWindows.Add(new WeakReference<Window>(window));
             }
 
             ApplyAffinityToWindow(window, IsActive);
@@ -201,16 +180,16 @@ namespace Shiro.Services
             if (!OperatingSystem.IsWindows())
                 return false;
 
-            IntPtr snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+            IntPtr snapshot = Win32NativeHelper.CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
             if (snapshot == IntPtr.Zero || snapshot == INVALID_HANDLE_VALUE)
                 return false;
 
             try
             {
-                PROCESSENTRY32W entry = default;
-                entry.dwSize = (uint)sizeof(PROCESSENTRY32W);
+                Win32NativeHelper.PROCESSENTRY32W entry = default;
+                entry.dwSize = (uint)sizeof(Win32NativeHelper.PROCESSENTRY32W);
 
-                if (!Process32FirstW(snapshot, &entry))
+                if (!Win32NativeHelper.Process32FirstW(snapshot, &entry))
                     return false;
 
                 do
@@ -219,13 +198,13 @@ namespace Shiro.Services
                     if (MatchesStreamingProcessName(exeSpan))
                         return true;
                 }
-                while (Process32NextW(snapshot, &entry));
+                while (Win32NativeHelper.Process32NextW(snapshot, &entry));
 
                 return false;
             }
             finally
             {
-                CloseHandle(snapshot);
+                Win32NativeHelper.CloseHandle(snapshot);
             }
         }
 
@@ -350,5 +329,19 @@ namespace Shiro.Services
         /// Masks a Roblox Game Job ID.
         /// </summary>
         public static string MaskJobId(string? jobId) => "***-***";
+
+        /// <summary>
+        /// Stops background streaming-app detection and releases timer resources during shutdown.
+        /// </summary>
+        public static void Shutdown()
+        {
+            lock (_lock)
+            {
+                _detectionTimer?.Dispose();
+                _detectionTimer = null;
+                _initialized = false;
+                _isStreamingAppDetected = false;
+            }
+        }
     }
 }

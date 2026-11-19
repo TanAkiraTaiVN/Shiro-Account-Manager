@@ -53,13 +53,12 @@ Checklist kiểm thử thủ công runtime trên máy Windows thực tế:
 - [ ] **3. Bulk Import Format**:
   - Dán danh sách 3 dòng định dạng `username:password` vào Cookie / Batch Import.
   - Kỳ vọng: Hàng đợi Fast Login mở với 3 tài khoản, tuần tự đăng nhập từng tài khoản.
-- [ ] **4. Nexus Game Telemetry & Controller**:
-  - Khởi động Kestrel WebSocket server trong tab Nexus.
-  - Inject `RAMAccount.lua` vào client Roblox in-game.
-  - Kỳ vọng: Tài khoản hiển thị trạng thái "Online" trên dashboard Nexus; tính năng "Execute All" gửi script và in ra console của client; Anti-AFK kích hoạt thành công.
+- [ ] **4. Local HTTP & WebSocket Gateway (Kestrel API)**:
+  - Bật Local Web Server trong Settings và truy cập `/docs` trên `localhost`.
+  - Kỳ vọng: Tài liệu OpenAPI hiển thị đầy đủ; endpoint `/v2/accounts` và WebSocket `/ws` thực thi đúng chính sách xác thực mật khẩu / `Origin` và không rò rỉ các field `Hba*`.
 - [ ] **5. Settings & Localization**:
   - Thay đổi ngôn ngữ hiển thị (Tiếng Việt <-> English) trong Settings.
   - Kỳ vọng: Toàn bộ giao diện chính và các hộp thoại mở cập nhật tức thì (FrozenDictionary lookups); nút Save hiển thị phản hồi và tự ẩn sau 3 giây.
-- [ ] **6. Updater Resiliency**:
-  - Tắt tạm thời kết nối mạng và bấm "Check for Updates".
-  - Kỳ vọng: Ứng dụng hiển thị thông báo lỗi thân thiện kèm nút Retry (không bị treo hay tắt đột ngột).
+- [ ] **6. Startup Update Detector Resiliency**:
+  - Tắt tạm thời kết nối mạng khi khởi động ứng dụng với tùy chọn `CheckForUpdates` đang bật.
+  - Kỳ vọng: `UpdateCheckService` timeout an toàn sau 5 giây ở chế độ nền, ghi log debug gọn và không làm treo hay sập giao diện khởi động.

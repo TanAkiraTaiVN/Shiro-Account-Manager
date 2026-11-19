@@ -31,16 +31,15 @@ namespace Shiro.Tests.Network
                 .Enqueue(HttpStatusCode.OK, """{"universeId":554433}""")
                 // 2. Initial games.roblox.com call fails or returns empty/placeholder
                 .Enqueue(HttpStatusCode.NotFound, "{}")
-                // 3. Fallback step 1: apis.roblox.com/universes/v1/places/{placeId}/universe
-                .Enqueue(HttpStatusCode.OK, """{"universeId":554433}""")
-                // 4. Fallback step 2: develop.roblox.com/v1/universes/554433
-                .Enqueue(HttpStatusCode.OK, """{"name":"Fallback Modern Place"}""");
+                // 3. Fallback step reuses resolved universeId -> develop.roblox.com/v1/universes/554433
+                .Enqueue(HttpStatusCode.OK, """{"name":"Fallback Modern Place \uD83D\uDD25"}""");
 
             GameInfoService.HttpClientFactoryForTests = () => new HttpClient(handler);
 
             string? title = await GameInfoService.ResolvePlaceNameAsync(placeId);
 
             Assert.Equal("Fallback Modern Place", title);
+            Assert.Equal(3, handler.Requests.Count);
         }
 
         [Fact]

@@ -134,7 +134,6 @@
                         StrokeBrush="#38BDF8" /></MenuItem.Icon></MenuItem>
                                         <MenuItem Header="{DynamicResource Tool_CleanTray}" Click="OnToolCleanTrayClicked"><MenuItem.Icon><lucide:Lucide Icon="Trash2" Width="14" Height="14"
                         StrokeBrush="#A1A1AA" /></MenuItem.Icon></MenuItem>
-                                        <Separator />
                                     </MenuFlyout>
                                 </Button.Flyout>
                                 <Grid ColumnDefinitions="*,Auto,Auto">

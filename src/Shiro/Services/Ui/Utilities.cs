@@ -49,16 +49,39 @@ namespace Shiro
             AppDispatcher.Post(action);
         }
 
+        public static bool TryValidateWebUrl(string? url, [NotNullWhen(true)] out Uri? uri)
+        {
+            uri = null;
+            if (string.IsNullOrWhiteSpace(url))
+                return false;
+
+            if (!Uri.TryCreate(url.Trim(), UriKind.Absolute, out Uri? parsed))
+                return false;
+
+            if (!string.Equals(parsed.Scheme, Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(parsed.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            uri = parsed;
+            return true;
+        }
+
         public static void OpenUrl(string? url)
         {
-            if (string.IsNullOrWhiteSpace(url)) return;
+            if (!TryValidateWebUrl(url, out Uri? uri))
+            {
+                if (!string.IsNullOrWhiteSpace(url))
+                    AppServices.Logger.Warn($"Blocked unsafe URL scheme in OpenUrl: '{LogRedactor.Redact(url)}'");
+                return;
+            }
+
             try
             {
-                Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+                Process.Start(new ProcessStartInfo(uri.AbsoluteUri) { UseShellExecute = true });
             }
             catch (Exception ex)
             {
-                AppServices.Logger.Warn($"Failed to open URL '{url}': {ex.Message}");
+                AppServices.Logger.Warn($"Failed to open URL '{LogRedactor.Redact(uri.AbsoluteUri)}': {ex.Message}");
             }
         }
 

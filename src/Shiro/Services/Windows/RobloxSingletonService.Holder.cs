@@ -64,9 +64,9 @@ namespace Shiro.Services
         private static readonly HolderNativeOps DefaultNativeOps = new(
             CreateMutexNative,
             CreateEventNative,
-            static (h, ms) => WaitForSingleObject(h, ms),
+            static (h, ms) => Win32NativeHelper.WaitForSingleObject(h, ms),
             static h => SafeExecuteHelper.Try(() => ReleaseMutex(h)),
-            static h => SafeExecuteHelper.Try(() => CloseHandle(h)));
+            static h => SafeExecuteHelper.Try(() => Win32NativeHelper.CloseHandle(h)));
 
         internal static bool ShouldAbortHoldOnZeroEvent(IntPtr hEvent) => hEvent == IntPtr.Zero;
 

@@ -341,6 +341,7 @@ namespace Shiro.Services
                 bool next = !general.Get<bool>("EnableMultiRbx");
                 general.Set("EnableMultiRbx", next ? "true" : "false");
                 AppServices.HostUiBridge.UpdateMultiRoblox();
+                AppServices.HostUiBridge.QueueDeferredSaveSettings();
                 return reply(JsonSerializer.Serialize(new MultiRobloxTogglePayload(next, RobloxSingletonService.StatusText), ShiroAppJson.Default.MultiRobloxTogglePayload), true, -1, null);
             }
 
@@ -367,6 +368,7 @@ namespace Shiro.Services
                 bool next = !general.Get<bool>("EnablePotatoMode");
                 general.Set("EnablePotatoMode", next ? "true" : "false");
                 ClientSettingsPatcher.PatchSettings();
+                AppServices.HostUiBridge.QueueDeferredSaveSettings();
                 return reply(JsonSerializer.Serialize(new PotatoModeTogglePayload(next), ShiroAppJson.Default.PotatoModeTogglePayload), true, -1, null);
             }
 

@@ -124,7 +124,7 @@ namespace Shiro.Services
                 }
                 catch (Exception ex)
                 {
-                    _logger.Warn($"Failed to distribute sticky proxies for account {account.Username}: {ex.Message}");
+                    _logger.Warn($"Failed to distribute sticky proxies for account {account.Username}: {LogRedactor.Redact(ex.Message)}");
                 }
             }
 
@@ -153,40 +153,10 @@ namespace Shiro.Services
             if (string.IsNullOrWhiteSpace(effectiveProxy))
                 return SharedHttpClient.GetNoRedirect();
 
-            string key = $"{NoRedirectKeyPrefix}{effectiveProxy}";
-            return _proxyClients.GetOrAdd(key, k => new Lazy<HttpClient>(() =>
-            {
-                IWebProxy? webProxy = ParseWebProxy(effectiveProxy);
-                if (webProxy == null)
-                {
-                    string safeProxy = ProxyManagerService.RedactProxy(effectiveProxy);
-                    _logger.Error($"[ProxyBindingService] Proxy '{safeProxy}' is invalid. Fail-Closed enforced to prevent IP leak.");
-                    throw new InvalidOperationException($"Proxy '{safeProxy}' failed to parse. Fallback to direct IP blocked to prevent IP leak.");
-                }
-
-                var handler = new SocketsHttpHandler
-                {
-                    Proxy = webProxy,
-                    UseProxy = true,
-                    UseCookies = false,
-                    AllowAutoRedirect = false,
-                    AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate | DecompressionMethods.Brotli,
-                    ConnectTimeout = TimeSpan.FromSeconds(5),
-                    PooledConnectionLifetime = TimeSpan.FromMinutes(10),
-                    PooledConnectionIdleTimeout = TimeSpan.FromMinutes(2),
-                    EnableMultipleHttp2Connections = true
-                };
-
-                var client = new HttpClient(handler, disposeHandler: true)
-                {
-                    Timeout = TimeSpan.FromSeconds(5),
-                    DefaultRequestVersion = HttpVersion.Version20,
-                    DefaultVersionPolicy = HttpVersionPolicy.RequestVersionOrLower
-                };
-
-                client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36");
-                return client;
-            }, LazyThreadSafetyMode.ExecutionAndPublication)).Value;
+            return GetOrCreatePooledProxyClient(
+                $"{NoRedirectKeyPrefix}{effectiveProxy}",
+                effectiveProxy,
+                allowAutoRedirect: false);
         }
 
         /// <summary>
@@ -198,43 +168,53 @@ namespace Shiro.Services
                 return SharedHttpClient.Get();
 
             string normalized = proxyString.Trim();
-            return _proxyClients.GetOrAdd(normalized, key => new Lazy<HttpClient>(() =>
+            return GetOrCreatePooledProxyClient(normalized, normalized, allowAutoRedirect: true);
+        }
+
+        private static HttpClient GetOrCreatePooledProxyClient(string cacheKey, string proxyString, bool allowAutoRedirect)
+        {
+            if (_proxyClients.TryGetValue(cacheKey, out var cached))
+                return cached.Value;
+
+            // Validate before inserting so an invalid proxy string is never cached as a faulted Lazy<HttpClient>.
+            IWebProxy? webProxy = ParseWebProxy(proxyString);
+            if (webProxy == null)
             {
-                IWebProxy? webProxy = ParseWebProxy(key);
-                if (webProxy == null)
-                {
-                    string safeProxy = ProxyManagerService.RedactProxy(key);
-                    _logger.Error($"[ProxyBindingService] Proxy '{safeProxy}' is invalid. Fail-Closed enforced to prevent IP leak.");
-                    throw new InvalidOperationException($"Proxy '{safeProxy}' failed to parse. Fallback to direct IP blocked to prevent IP leak.");
-                }
+                string safeProxy = ProxyManagerService.RedactProxy(proxyString);
+                _logger.Error($"[ProxyBindingService] Proxy '{safeProxy}' is invalid. Fail-Closed enforced to prevent IP leak.");
+                throw new InvalidOperationException($"Proxy '{safeProxy}' failed to parse. Fallback to direct IP blocked to prevent IP leak.");
+            }
 
-                var handler = new SocketsHttpHandler
-                {
-                    Proxy = webProxy,
-                    UseProxy = true,
-                    UseCookies = false,
-                    AllowAutoRedirect = true,
-                    AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate | DecompressionMethods.Brotli,
-                    ConnectTimeout = TimeSpan.FromSeconds(15),
-                    PooledConnectionLifetime = TimeSpan.FromMinutes(10),
-                    PooledConnectionIdleTimeout = TimeSpan.FromMinutes(2),
-                    EnableMultipleHttp2Connections = true
-                };
+            return _proxyClients.GetOrAdd(cacheKey, _ => new Lazy<HttpClient>(
+                () => CreateProxyHttpClient(webProxy, allowAutoRedirect),
+                LazyThreadSafetyMode.ExecutionAndPublication)).Value;
+        }
 
-                var client = new HttpClient(handler, disposeHandler: true)
-                {
-                    Timeout = TimeSpan.FromSeconds(30),
-                    DefaultRequestVersion = HttpVersion.Version20,
-                    DefaultVersionPolicy = HttpVersionPolicy.RequestVersionOrLower
-                };
+        private static HttpClient CreateProxyHttpClient(IWebProxy webProxy, bool allowAutoRedirect)
+        {
+            var handler = RobloxHttpHandlerHelper.CreateDefaultHandler(
+                allowAutoRedirect: allowAutoRedirect,
+                proxy: webProxy,
+                useProxy: true,
+                connectTimeout: allowAutoRedirect ? TimeSpan.FromSeconds(15) : TimeSpan.FromSeconds(5),
+                useConnectionPoolSettings: true);
 
-                client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36");
+            var client = new HttpClient(handler, disposeHandler: true)
+            {
+                Timeout = allowAutoRedirect ? TimeSpan.FromSeconds(30) : TimeSpan.FromSeconds(5),
+                DefaultRequestVersion = HttpVersion.Version20,
+                DefaultVersionPolicy = HttpVersionPolicy.RequestVersionOrLower
+            };
+
+            client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", RobloxHttpHandlerHelper.ChromeUserAgent);
+            if (allowAutoRedirect)
+            {
                 client.DefaultRequestHeaders.AcceptEncoding.Add(new StringWithQualityHeaderValue("gzip"));
                 client.DefaultRequestHeaders.AcceptEncoding.Add(new StringWithQualityHeaderValue("deflate"));
                 client.DefaultRequestHeaders.AcceptEncoding.Add(new StringWithQualityHeaderValue("br"));
+            }
 
-                return client;
-            }, LazyThreadSafetyMode.ExecutionAndPublication)).Value;
+            return client;
         }
 
         /// <summary>
@@ -324,6 +304,12 @@ namespace Shiro.Services
         /// <summary>
         /// Tests connectivity and latency of a proxy against Roblox services.
         /// </summary>
+        internal static bool IsProbeHttpSuccess(HttpStatusCode statusCode)
+        {
+            int code = (int)statusCode;
+            return (code >= 200 && code <= 299) || statusCode == HttpStatusCode.Unauthorized;
+        }
+
         public static async Task<(bool Success, TimeSpan Latency, string? Error)> TestProxyAsync(string proxyString, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(proxyString))
@@ -333,28 +319,26 @@ namespace Shiro.Services
             if (webProxy == null)
                 return (false, TimeSpan.Zero, "Invalid proxy format.");
 
-            using var handler = new SocketsHttpHandler
-            {
-                Proxy = webProxy,
-                UseProxy = true,
-                UseCookies = false,
-                ConnectTimeout = TimeSpan.FromSeconds(10)
-            };
+            using var handler = RobloxHttpHandlerHelper.CreateDefaultHandler(
+                allowAutoRedirect: true,
+                proxy: webProxy,
+                useProxy: true,
+                connectTimeout: TimeSpan.FromSeconds(10),
+                useConnectionPoolSettings: false);
 
             using var client = new HttpClient(handler, disposeHandler: true)
             {
                 Timeout = TimeSpan.FromSeconds(10)
             };
-            client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko)");
+            client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", RobloxHttpHandlerHelper.ChromeUserAgent);
 
             var sw = Stopwatch.StartNew();
             try
             {
                 using var response = await client.GetAsync("https://users.roblox.com/v1/users/authenticated", HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
                 sw.Stop();
-                // 401 Unauthorized is expected because we haven't sent a cookie, which proves proxy connection and TLS reached Roblox successfully!
-                bool reachesRoblox = response.IsSuccessStatusCode || response.StatusCode == HttpStatusCode.Unauthorized || response.StatusCode == HttpStatusCode.Forbidden;
-                if (reachesRoblox)
+                // 401 Unauthorized is expected without a cookie; 403 indicates blocked/WAF traffic rather than a usable proxy.
+                if (IsProbeHttpSuccess(response.StatusCode))
                     return (true, sw.Elapsed, null);
 
                 return (false, sw.Elapsed, $"HTTP {(int)response.StatusCode} {response.ReasonPhrase}");
@@ -362,7 +346,7 @@ namespace Shiro.Services
             catch (Exception ex)
             {
                 sw.Stop();
-                return (false, sw.Elapsed, ex.Message);
+                return (false, sw.Elapsed, LogRedactor.Redact(ex.Message));
             }
         }
 
@@ -377,8 +361,6 @@ namespace Shiro.Services
                     StringComparer.OrdinalIgnoreCase)
                 : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-            var sharedClient = SharedHttpClient.Get();
-            var sharedNoRedirect = SharedHttpClient.GetNoRedirect();
             foreach (var entry in _proxyClients)
             {
                 string rawProxyKey = entry.Key.StartsWith(NoRedirectKeyPrefix, StringComparison.OrdinalIgnoreCase)
@@ -387,12 +369,12 @@ namespace Shiro.Services
 
                 if (!activeSet.Contains(rawProxyKey) && _proxyClients.TryRemove(entry.Key, out var removed))
                 {
-                    RetireClient(removed, sharedClient, sharedNoRedirect);
+                    RetireClient(removed);
                 }
             }
         }
 
-        private static void RetireClient(Lazy<HttpClient> removed, HttpClient sharedClient, HttpClient sharedNoRedirect)
+        private static void RetireClient(Lazy<HttpClient> removed)
         {
             if (!removed.IsValueCreated)
                 return;
@@ -400,7 +382,7 @@ namespace Shiro.Services
             try
             {
                 var client = removed.Value;
-                if (client != null && !ReferenceEquals(client, sharedClient) && !ReferenceEquals(client, sharedNoRedirect))
+                if (client != null && !SharedHttpClient.IsSharedInstance(client))
                 {
                     _ = Task.Delay(TimeSpan.FromSeconds(15)).ContinueWith(_ =>
                     {
@@ -419,13 +401,11 @@ namespace Shiro.Services
         /// </summary>
         public static void ClearClients()
         {
-            var sharedClient = SharedHttpClient.Get();
-            var sharedNoRedirect = SharedHttpClient.GetNoRedirect();
             foreach (var entry in _proxyClients)
             {
                 if (_proxyClients.TryRemove(entry.Key, out var removed))
                 {
-                    RetireClient(removed, sharedClient, sharedNoRedirect);
+                    RetireClient(removed);
                 }
             }
             _proxyClients.Clear();

@@ -2,9 +2,9 @@
 
 ## Enforced Coverage Gates (Task 19 - 10/10 Overhaul)
 
-- **Overall Line Coverage**: 79.82% (Gate: >= 75.0%)
-- **Overall Branch Coverage**: 69.32% (Gate: >= 60.0%)
-- **Core Security/Persistence Coverage**: 92.83% (Gate: >= 92.0%)
+- **Overall Line Coverage**: 82.10% (Gate: >= 75.0%)
+- **Overall Branch Coverage**: 71.51% (Gate: >= 60.0%)
+- **Core Security/Persistence Coverage**: 93.88% (Gate: >= 92.0%)
 
 Enforced by `scripts/Check-Coverage.ps1 -MinOverall 75.0 -MinBranch 60.0 -MinCore 92.0`, GitHub Actions workflows (`.github/workflows/build.yml` and `.github/workflows/release.yml`), and validated by `ArchitectureTests.cs`.
 

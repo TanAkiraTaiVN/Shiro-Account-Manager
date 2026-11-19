@@ -35,6 +35,7 @@ namespace Shiro.ViewModels
                 {
                     _settings.Set("EnablePotatoMode", value ? "true" : "false");
                     ClientSettingsPatcher.PatchSettings();
+                    AppServices.HostUiBridge.QueueDeferredSaveSettings();
                     StatusMessage = value
                         ? Shiro.Services.LocalizationService.Get("Main.PotatoModeActivated")
                         : Shiro.Services.LocalizationService.Get("Main.PotatoModeDeactivated");
@@ -112,11 +113,12 @@ namespace Shiro.ViewModels
 
         public void RefreshStateFromSettings()
         {
-            IsAntiAfk = AntiAfkService.IsEnabled;
-            AreWindowsHidden = RobloxWindowService.AreWindowsHidden;
-            IsPotatoMode = _settings != null &&
-                           _settings.Exists("EnablePotatoMode") &&
-                           _settings.Get<bool>("EnablePotatoMode");
+            SetProperty(ref _isAntiAfk, AntiAfkService.IsEnabled, nameof(IsAntiAfk));
+            SetProperty(ref _areWindowsHidden, RobloxWindowService.AreWindowsHidden, nameof(AreWindowsHidden));
+            bool potatoEnabled = _settings != null &&
+                                 _settings.Exists("EnablePotatoMode") &&
+                                 _settings.Get<bool>("EnablePotatoMode");
+            SetProperty(ref _isPotatoMode, potatoEnabled, nameof(IsPotatoMode));
             NotifyToolStatesChanged();
         }
 

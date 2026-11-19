@@ -15,7 +15,7 @@ namespace Shiro.AvaloniaUI.Controls
             AvaloniaProperty.Register<UniformRowPanel, int>(
                 nameof(Columns),
                 defaultValue: 3,
-                coerce: (_, val) => Math.Clamp(val, 1, 6));
+                coerce: (_, val) => Math.Clamp(val, 1, 4));
 
         public int Columns
         {
@@ -31,7 +31,7 @@ namespace Shiro.AvaloniaUI.Controls
 
         protected override Size MeasureOverride(Size availableSize)
         {
-            int cols = Math.Clamp(Columns, 1, 6);
+            int cols = Math.Clamp(Columns, 1, 4);
             double totalWidth = double.IsInfinity(availableSize.Width) ? 900.0 : Math.Max(0.0, availableSize.Width);
             double slotWidth = totalWidth / cols;
             double maxHeight = 0.0;
@@ -60,7 +60,7 @@ namespace Shiro.AvaloniaUI.Controls
 
         protected override Size ArrangeOverride(Size finalSize)
         {
-            int cols = Math.Clamp(Columns, 1, 6);
+            int cols = Math.Clamp(Columns, 1, 4);
             double slotWidth = Math.Max(0.0, finalSize.Width) / cols;
             double rowHeight = finalSize.Height;
 

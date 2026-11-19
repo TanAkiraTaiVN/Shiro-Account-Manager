@@ -60,6 +60,7 @@ namespace Shiro.Services
         private NamedPipeClientStream? _pipeStream;
         private CancellationTokenSource? _cts;
         private Task? _drainTask;
+        private long _workerGeneration;
         private bool _isConnected;
         private bool _isDisposed;
         private bool _loggedNoPipeFound;
@@ -88,14 +89,20 @@ namespace Shiro.Services
             }
         }
 
+        internal static bool ShouldCleanupWorkerSession(long workerGeneration, long activeGeneration) =>
+            workerGeneration == activeGeneration;
+
+        internal long WorkerGenerationForTest => Interlocked.Read(ref _workerGeneration);
+
         public void Start()
         {
             lock (_pipeLock)
             {
                 if (_isDisposed || !IsEnabled || _isConnected || _cts != null) return;
+                long generation = ++_workerGeneration;
                 var loopCts = new CancellationTokenSource();
                 _cts = loopCts;
-                _ = Task.Run(() => WorkerLoopAsync(loopCts));
+                _ = Task.Run(() => WorkerLoopAsync(loopCts, generation));
             }
         }
 
@@ -104,6 +111,7 @@ namespace Shiro.Services
             CancellationTokenSource? ctsToStop;
             lock (_pipeLock)
             {
+                ++_workerGeneration;
                 ctsToStop = _cts;
                 _cts = null;
             }
@@ -133,7 +141,7 @@ namespace Shiro.Services
             UpdateCurrentPresence();
         }
 
-        private async Task WorkerLoopAsync(CancellationTokenSource loopCts)
+        private async Task WorkerLoopAsync(CancellationTokenSource loopCts, long generation)
         {
             CancellationToken ct = loopCts.Token;
             int reconnectDelayMs = BaseReconnectDelayMs;
@@ -156,18 +164,6 @@ namespace Shiro.Services
                     try
                     {
                         await Task.Delay(_isConnected ? BaseReconnectDelayMs : reconnectDelayMs, ct).ConfigureAwait(false);
-                        if (_isConnected)
-                        {
-                            byte[]? cachedFrame = Volatile.Read(ref _lastActivityFrame);
-                            if (cachedFrame != null)
-                            {
-                                await WriteFrameBytesAsync(cachedFrame, ct).ConfigureAwait(false);
-                            }
-                            else if (_lastActivity != null)
-                            {
-                                await SendActivityAsync(_lastActivity, ct).ConfigureAwait(false);
-                            }
-                        }
                     }
                     catch (OperationCanceledException)
                     {
@@ -182,20 +178,26 @@ namespace Shiro.Services
             }
             finally
             {
+                bool isCurrentWorker;
+                Task? drainToAwait = null;
                 lock (_pipeLock)
                 {
+                    isCurrentWorker = ShouldCleanupWorkerSession(generation, _workerGeneration);
                     if (ReferenceEquals(_cts, loopCts))
                         _cts = null;
+                    if (isCurrentWorker)
+                    {
+                        drainToAwait = _drainTask;
+                        _drainTask = null;
+                    }
                 }
-                Disconnect();
-                Task? drainToAwait;
-                lock (_pipeLock)
+
+                if (isCurrentWorker)
                 {
-                    drainToAwait = _drainTask;
-                    _drainTask = null;
+                    Disconnect();
+                    if (drainToAwait != null)
+                        await drainToAwait.ConfigureAwait(false);
                 }
-                if (drainToAwait != null)
-                    await drainToAwait.ConfigureAwait(false);
                 SafeExecuteHelper.Try(loopCts.Dispose);
             }
         }

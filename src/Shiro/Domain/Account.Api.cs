@@ -161,7 +161,7 @@ namespace Shiro
             for (int attempt = 0; attempt < AuthTicketMaxAttempts; attempt++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                await RobloxRateLimitCoordinator.Instance.WaitForBackoffAsync(cancellationToken).ConfigureAwait(false);
+                await RobloxRateLimitCoordinator.Instance.WaitForBackoffAsync(RateLimitCategory.Authentication, cancellationToken).ConfigureAwait(false);
                 string ticketBody = await AccountLaunchService.FetchClientAssertionBodyAsync(this, httpClient, includeHba: useHba, cancellationToken).ConfigureAwait(false);
                 int rotationBefore = CookieRotationVersion;
                 using var request = AccountLaunchService.CreateTicketRequest(this, currentCsrf, body: ticketBody, includeHba: useHba);
@@ -216,7 +216,7 @@ namespace Shiro
                         if (attempt + 1 < AuthTicketMaxAttempts)
                         {
                             RobloxRateLimitCoordinator.Instance.RecordRateLimitHit(RateLimitCategory.Authentication, response, defaultBackoffSeconds: 3);
-                            var backoff = RobloxRateLimitCoordinator.Instance.RemainingBackoff;
+                            var backoff = RobloxRateLimitCoordinator.Instance.GetRemainingBackoff(RateLimitCategory.Authentication);
                             AppServices.Logger?.Warn($"Roblox authentication-ticket request was rate limited (HTTP 429) for {Username}. Backing off for {backoff.TotalSeconds:F1}s before retry (attempt {attempt + 1}/{AuthTicketMaxAttempts})...");
                             continue;
                         }
@@ -296,39 +296,6 @@ namespace Shiro
             }
 
             return (false, string.Empty);
-        }
-
-        public async Task<string?> GetEmailJSON(CancellationToken cancellationToken = default)
-        {
-            RestRequest DataRequest = MakeRequest("v1/email", Method.Get);
-
-            RestResponse? response = await ExecuteAccountRestAsync(AppServices.RobloxApi.Account, "https://accountsettings.roblox.com/", DataRequest, cancellationToken).ConfigureAwait(false);
-
-            return response?.Content;
-        }
-
-        public async Task<JsonNode?> GetUserInfo(CancellationToken cancellationToken = default)
-        {
-            RestRequest DataRequest = MakeRequest($"v1/users/{UserID}", Method.Get);
-
-            RestResponse? response = await ExecuteAccountRestAsync(AppServices.RobloxApi.Users, "https://users.roblox.com/", DataRequest, cancellationToken).ConfigureAwait(false);
-
-            if (response != null && response.StatusCode == HttpStatusCode.OK && !string.IsNullOrWhiteSpace(response.Content))
-            {
-                try { return JsonNode.Parse(response.Content); }
-                catch (Exception ex)
-                {
-                    AppServices.Logger?.Debug($"Parse GetUserInfo JSON failed: {ex.Message}");
-                }
-            }
-
-            return null;
-        }
-
-        public async Task<long> GetRobux(CancellationToken cancellationToken = default)
-        {
-            long bal = await FetchRobuxBalanceAsync(cancellationToken).ConfigureAwait(false);
-            return bal >= 0 ? bal : 0;
         }
 
         // Social, Blocking, UnblockEveryone, and QuickLogIn extracted to Account.SocialAndFriendsApi.cs

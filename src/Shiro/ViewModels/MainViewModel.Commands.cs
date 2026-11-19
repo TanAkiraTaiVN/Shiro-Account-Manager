@@ -124,22 +124,16 @@ namespace Shiro.ViewModels
 
             ToggleAntiAfkCommand = new RelayCommand(() =>
             {
-                AntiAfkService.Toggle();
-                IsAntiAfk = AntiAfkService.IsEnabled;
-                StatusMessage = IsAntiAfk
-                    ? Shiro.Services.LocalizationService.Get("Main.AntiAfkActivated")
-                    : Shiro.Services.LocalizationService.Get("Main.AntiAfkDeactivated");
+                bool next = !AntiAfkService.IsEnabled;
+                if (IsAntiAfk != next)
+                    IsAntiAfk = next;
+                else
+                    AntiAfkService.SetConfig(next);
             });
 
             TogglePotatoModeCommand = new RelayCommand(() =>
             {
-                bool next = !IsPotatoMode;
-                IsPotatoMode = next;
-                _settings.Set("EnablePotatoMode", next ? "true" : "false");
-                ClientSettingsPatcher.PatchSettings();
-                StatusMessage = next
-                    ? Shiro.Services.LocalizationService.Get("Main.PotatoModeActivated")
-                    : Shiro.Services.LocalizationService.Get("Main.PotatoModeDeactivated");
+                IsPotatoMode = !IsPotatoMode;
             });
 
             ToggleStreamerModeCommand = new RelayCommand(() =>

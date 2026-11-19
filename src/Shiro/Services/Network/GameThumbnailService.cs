@@ -178,28 +178,23 @@ namespace Shiro.Services
 
                 if (!string.IsNullOrWhiteSpace(imageUrl))
                 {
-                    using var imgReq = new HttpRequestMessage(HttpMethod.Get, imageUrl);
-                    using var imgResp = await SharedHttpClient.SendAsync(imgReq, true).ConfigureAwait(false);
-                    if (imgResp.IsSuccessStatusCode)
+                    byte[]? bytes = await ThumbnailBatchHelper.DownloadValidatedImageAsync(imageUrl, CancellationToken.None).ConfigureAwait(false);
+                    if (bytes != null && !string.IsNullOrEmpty(diskPath))
                     {
-                        byte[] bytes = await imgResp.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
-                        if (bytes != null && bytes.Length > 0 && !string.IsNullOrEmpty(diskPath))
-                        {
-                            EnsureThumbnailDirectory();
-                            StoragePaths.AtomicWriteBytes(diskPath, bytes);
+                        EnsureThumbnailDirectory();
+                        StoragePaths.AtomicWriteBytes(diskPath, bytes);
 
-                            await _diskDecodeGate.WaitAsync().ConfigureAwait(false);
-                            try
-                            {
-                                using var memStream = new MemoryStream(bytes);
-                                var bmp = Bitmap.DecodeToWidth(memStream, 96);
-                                _bitmapCache.Set(placeId, bmp);
-                                return bmp;
-                            }
-                            finally
-                            {
-                                _diskDecodeGate.Release();
-                            }
+                        await _diskDecodeGate.WaitAsync().ConfigureAwait(false);
+                        try
+                        {
+                            using var memStream = new MemoryStream(bytes);
+                            var bmp = Bitmap.DecodeToWidth(memStream, 96);
+                            _bitmapCache.Set(placeId, bmp);
+                            return bmp;
+                        }
+                        finally
+                        {
+                            _diskDecodeGate.Release();
                         }
                     }
                 }
@@ -213,80 +208,18 @@ namespace Shiro.Services
             return null;
         }
 
-        public static async Task BatchEnsureThumbnailsAsync(IEnumerable<long> placeIds, CancellationToken cancellationToken = default)
+        public static Task BatchEnsureThumbnailsAsync(IEnumerable<long> placeIds, CancellationToken cancellationToken = default)
         {
-            if (placeIds == null) return;
-            var list = placeIds.Where(id => id > 0 && !HasDiskCache(id)).Distinct().ToList();
-            if (list.Count == 0) return;
-
             EnsureThumbnailDirectory();
 
-            for (int i = 0; i < list.Count; i += 100)
-            {
-                int batchSize = Math.Min(100, list.Count - i);
-                var chunk = list.GetRange(i, batchSize);
-                try
-                {
-                    string ids = string.Join(",", chunk);
-                    string apiUrl = $"https://thumbnails.roblox.com/v1/places/gameicons?placeIds={ids}&returnPolicy=PlaceHolder&size=150x150&format=Png&isCircular=false";
-                    using var req = new HttpRequestMessage(HttpMethod.Get, apiUrl);
-                    using var resp = await SharedHttpClient.SendAsync(req, true, cancellationToken).ConfigureAwait(false);
-                    if (!resp.IsSuccessStatusCode) continue;
-
-                    using var doc = await JsonDocument.ParseAsync(await resp.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false), cancellationToken: cancellationToken).ConfigureAwait(false);
-                    if (doc.RootElement.TryGetProperty("data", out var dataElem) && dataElem.ValueKind == JsonValueKind.Array)
-                    {
-                        var entries = new List<(long TargetId, string ImageUrl)>();
-                        foreach (var item in dataElem.EnumerateArray())
-                        {
-                            long targetId = item.TryGetProperty("targetId", out var idProp) && idProp.TryGetInt64(out long tid) ? tid : 0;
-                            string? imageUrl = item.TryGetProperty("imageUrl", out var imgProp) ? imgProp.GetString() : null;
-
-                            if (targetId > 0 && !string.IsNullOrWhiteSpace(imageUrl))
-                            {
-                                entries.Add((targetId, imageUrl));
-                            }
-                        }
-
-                        if (entries.Count > 0)
-                        {
-                            await Parallel.ForEachAsync(
-                                entries,
-                                new ParallelOptions { MaxDegreeOfParallelism = 8, CancellationToken = cancellationToken },
-                                async (entry, ct) =>
-                                {
-                                    await DownloadBatchThumbnailItemAsync(entry.TargetId, entry.ImageUrl, ct).ConfigureAwait(false);
-                                }).ConfigureAwait(false);
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.Debug($"Batch game thumbnail chunk failed: {ex.Message}");
-                }
-            }
-        }
-
-        private static async Task DownloadBatchThumbnailItemAsync(long targetId, string imageUrl, CancellationToken cancellationToken)
-        {
-            try
-            {
-                using var imgReq = new HttpRequestMessage(HttpMethod.Get, imageUrl);
-                using var imgResp = await SharedHttpClient.SendAsync(imgReq, true, cancellationToken).ConfigureAwait(false);
-                if (imgResp.IsSuccessStatusCode)
-                {
-                    byte[] bytes = await imgResp.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
-                    string? diskPath = GetDiskCachePath(targetId);
-                    if (bytes != null && bytes.Length > 0 && !string.IsNullOrEmpty(diskPath))
-                    {
-                        StoragePaths.AtomicWriteBytes(diskPath, bytes);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.Debug($"Download game thumbnail item {targetId} failed: {ex.Message}");
-            }
+            return ThumbnailBatchHelper.BatchFetchAndSaveAsync(
+                placeIds,
+                HasDiskCache,
+                GetDiskCachePath,
+                static ids => $"https://thumbnails.roblox.com/v1/places/gameicons?placeIds={ids}&returnPolicy=PlaceHolder&size=150x150&format=Png&isCircular=false",
+                _logger,
+                nameof(GameThumbnailService),
+                cancellationToken);
         }
     }
 }

@@ -88,12 +88,6 @@ namespace Shiro
             return false;
         }
 
-        /// <summary>
-        /// Signs and attaches the HBA token header to a cookie rotation or session re-binding request.
-        /// </summary>
-        public bool TryAttachCookieRotationHbaHeader(HttpRequestMessage request, string? bodyContent = null) =>
-            RobloxHbaService.TryAttachHbaHeader(request, this, bodyContent);
-
         public static string? ExtractRoblosecurityFromSetCookie(string? header) =>
             RobloxCookieHeaderParser.ExtractRoblosecurityFromSetCookie(header);
 
@@ -187,21 +181,6 @@ namespace Shiro
                 Shiro.Services.LocalizationService.Format("Account.RateLimitCooldown", username, seconds));
             if (recordCoordinatorHit)
                 RobloxRateLimitCoordinator.Instance.RecordRateLimitHit(RateLimitCategory.Authentication, response, defaultBackoffSeconds: seconds);
-        }
-
-        private RestRequest CreateAuthTicketRequest(string token)
-        {
-            return MakeRequest("/v1/authentication-ticket/", Method.Post)
-                .AddHeader("X-CSRF-TOKEN", token)
-                .AddHeader("Content-Type", "application/json")
-                .AddHeader("Origin", "https://www.roblox.com")
-                .AddHeader("Referer", "https://www.roblox.com/games/4924922222/Brookhaven-RP")
-                .AddHeader("rbxauthenticationnegotiation", "1")
-                .AddHeader("Accept", "application/json, text/plain, */*")
-                .AddHeader("Sec-Fetch-Dest", "empty")
-                .AddHeader("Sec-Fetch-Mode", "cors")
-                .AddHeader("Sec-Fetch-Site", "same-site")
-                .AddJsonBody(new EmptyJsonObjectPayload());
         }
 
         internal string GetCurrentPassword()

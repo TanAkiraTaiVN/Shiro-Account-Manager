@@ -24,21 +24,7 @@ namespace Shiro.Services
 
         [LibraryImport("kernel32.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
-        private static partial bool SetPriorityClass(IntPtr hProcess, uint dwPriorityClass);
-
-        [LibraryImport("kernel32.dll", SetLastError = true)]
-        private static partial uint GetPriorityClass(IntPtr hProcess);
-
-        [LibraryImport("kernel32.dll", SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
         private static partial bool SetProcessAffinityMask(IntPtr hProcess, UIntPtr dwProcessAffinityMask);
-
-        [LibraryImport("kernel32.dll", SetLastError = true)]
-        private static partial IntPtr OpenProcess(uint dwDesiredAccess, [MarshalAs(UnmanagedType.Bool)] bool bInheritHandle, int dwProcessId);
-
-        [LibraryImport("kernel32.dll", SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static partial bool CloseHandle(IntPtr hObject);
 
         /// <summary>
         /// Adjusts the Windows scheduler execution priority class for a target Roblox process ID.
@@ -46,12 +32,12 @@ namespace Shiro.Services
         public static bool SetProcessPriority(int pid, uint priorityClass)
         {
             if (pid <= 0) return false;
-            IntPtr hProcess = OpenProcess(PROCESS_SET_INFORMATION, false, pid);
+            IntPtr hProcess = Win32NativeHelper.OpenProcess(PROCESS_SET_INFORMATION, false, pid);
             if (hProcess == IntPtr.Zero) return false;
 
             try
             {
-                return SetPriorityClass(hProcess, priorityClass);
+                return Win32NativeHelper.SetPriorityClass(hProcess, priorityClass);
             }
             catch (Exception ex)
             {
@@ -60,7 +46,7 @@ namespace Shiro.Services
             }
             finally
             {
-                CloseHandle(hProcess);
+                Win32NativeHelper.CloseHandle(hProcess);
             }
         }
 
@@ -70,7 +56,7 @@ namespace Shiro.Services
         public static bool SetProcessAffinity(int pid, ulong affinityMask)
         {
             if (pid <= 0 || affinityMask == 0) return false;
-            IntPtr hProcess = OpenProcess(PROCESS_SET_INFORMATION, false, pid);
+            IntPtr hProcess = Win32NativeHelper.OpenProcess(PROCESS_SET_INFORMATION, false, pid);
             if (hProcess == IntPtr.Zero) return false;
 
             try
@@ -84,7 +70,7 @@ namespace Shiro.Services
             }
             finally
             {
-                CloseHandle(hProcess);
+                Win32NativeHelper.CloseHandle(hProcess);
             }
         }
 

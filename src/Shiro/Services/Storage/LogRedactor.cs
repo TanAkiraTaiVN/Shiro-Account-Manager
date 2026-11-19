@@ -15,17 +15,26 @@ namespace Shiro.Services
         [GeneratedRegex(@"\.ROBLOSECURITY=(?:([""'])([^;\r\n""']+)\1|[""']?([^;\r\n\s""']+))", RegexOptions.IgnoreCase)]
         private static partial Regex CookieHeaderRegex();
 
-        [GeneratedRegex(@"(\\?""(?:password|token|SecurityToken|secret|HbaPrivateKey|privateKeyPkcs8|x-bound-auth-token|authenticationTicket|CSRFToken|DiscordWebhookUrl|TelegramBotToken)\\?"")\s*:\s*(\\?"")([^""\\]*(?:\\.[^""\\]*)*)\2", RegexOptions.IgnoreCase)]
+        [GeneratedRegex(@"(\\?""(?:password|token|SecurityToken|secret|HbaPrivateKey|privateKeyPkcs8|x-bound-auth-token|x-csrf-token|rbx-authentication-ticket|authenticationTicket|CSRFToken|access_token|refresh_token|client_secret|DiscordWebhookUrl|TelegramBotToken)\\?"")\s*:\s*(\\?"")([^""\\]*(?:\\.[^""\\]*)*)\2", RegexOptions.IgnoreCase)]
         private static partial Regex JsonSecretRegex();
 
         [GeneratedRegex(@"x-bound-auth-token\s*[:=]\s*([^\r\n\s""',;]+)", RegexOptions.IgnoreCase)]
         private static partial Regex BoundAuthHeaderRegex();
 
-        [GeneratedRegex(@"(^|[?&])(password|token|secret|cookie)=([^&\s""']+)", RegexOptions.IgnoreCase)]
+        [GeneratedRegex(@"x-csrf-token\s*[:=]\s*([^\r\n\s""',;]+)", RegexOptions.IgnoreCase)]
+        private static partial Regex CsrfHeaderRegex();
+
+        [GeneratedRegex(@"rbx-authentication-ticket\s*[:=]\s*([^\r\n\s""',;]+)", RegexOptions.IgnoreCase)]
+        private static partial Regex AuthTicketHeaderRegex();
+
+        [GeneratedRegex(@"(^|[?&\s])(password|token|secret|cookie|access_token|refresh_token|client_secret)=([^&\s""']+)", RegexOptions.IgnoreCase)]
         private static partial Regex QueryParamSecretRegex();
 
         [GeneratedRegex(@"Bearer\s+[a-zA-Z0-9_\-\.+/=]+", RegexOptions.IgnoreCase)]
         private static partial Regex BearerTokenRegex();
+
+        [GeneratedRegex(@"(Authorization\s*:\s*)Basic\s+[a-zA-Z0-9_\-\.+/=]+", RegexOptions.IgnoreCase)]
+        private static partial Regex BasicAuthHeaderRegex();
 
         [GeneratedRegex(@"((?:https?|socks4a?|socks5h?)://)([^/\s:@]+):([^/\s@]+)@", RegexOptions.IgnoreCase)]
         private static partial Regex ProxyAuthUrlRegex();
@@ -33,17 +42,20 @@ namespace Shiro.Services
         [GeneratedRegex(@"(/bot)\d+:[A-Za-z0-9_\-]+(/|$|\s)", RegexOptions.IgnoreCase)]
         private static partial Regex TelegramBotUrlRegex();
 
-        [GeneratedRegex(@"(https?://(?:(?:ptb|canary)\.)?(?:discord|discordapp)\.com/api/webhooks/\d+/)[A-Za-z0-9_\-]+", RegexOptions.IgnoreCase)]
+        [GeneratedRegex(@"(https?://(?:(?:ptb|canary)\.)?(?:discord|discordapp)\.com/api/(?:v\d+/)?webhooks/\d+/)[A-Za-z0-9_\-]+", RegexOptions.IgnoreCase)]
         private static partial Regex DiscordWebhookUrlRegex();
 
         [GeneratedRegex(@"BLOX-[A-Za-z0-9_\-]{8,}", RegexOptions.IgnoreCase)]
         private static partial Regex BloxApiKeyRegex();
 
-        private static bool StartsWithFormSecretKey(ReadOnlySpan<char> span) =>
-            span.StartsWith("password=", StringComparison.OrdinalIgnoreCase) ||
-            span.StartsWith("token=", StringComparison.OrdinalIgnoreCase) ||
-            span.StartsWith("secret=", StringComparison.OrdinalIgnoreCase) ||
-            span.StartsWith("cookie=", StringComparison.OrdinalIgnoreCase);
+        private static bool ContainsFormSecretKey(ReadOnlySpan<char> span) =>
+            span.IndexOf("password=", StringComparison.OrdinalIgnoreCase) >= 0 ||
+            span.IndexOf("token=", StringComparison.OrdinalIgnoreCase) >= 0 ||
+            span.IndexOf("secret=", StringComparison.OrdinalIgnoreCase) >= 0 ||
+            span.IndexOf("cookie=", StringComparison.OrdinalIgnoreCase) >= 0 ||
+            span.IndexOf("access_token=", StringComparison.OrdinalIgnoreCase) >= 0 ||
+            span.IndexOf("refresh_token=", StringComparison.OrdinalIgnoreCase) >= 0 ||
+            span.IndexOf("client_secret=", StringComparison.OrdinalIgnoreCase) >= 0;
 
         internal static bool MayContainSensitiveData(ReadOnlySpan<char> span)
         {
@@ -53,7 +65,10 @@ namespace Shiro.Services
             if (span.IndexOf("WARNING:-DO-NOT-SHARE-THIS", StringComparison.OrdinalIgnoreCase) >= 0 ||
                 span.IndexOf(".ROBLOSECURITY=", StringComparison.OrdinalIgnoreCase) >= 0 ||
                 span.IndexOf("x-bound-auth-token", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                span.IndexOf("x-csrf-token", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                span.IndexOf("rbx-authentication-ticket", StringComparison.OrdinalIgnoreCase) >= 0 ||
                 span.IndexOf("Bearer", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                (span.IndexOf("Authorization", StringComparison.OrdinalIgnoreCase) >= 0 && span.IndexOf("Basic", StringComparison.OrdinalIgnoreCase) >= 0) ||
                 span.IndexOf("/bot", StringComparison.OrdinalIgnoreCase) >= 0 ||
                 span.IndexOf("webhooks/", StringComparison.OrdinalIgnoreCase) >= 0 ||
                 span.IndexOf("BLOX-", StringComparison.OrdinalIgnoreCase) >= 0)
@@ -64,7 +79,7 @@ namespace Shiro.Services
             if (span.IndexOf('"') >= 0 && span.IndexOf(':') >= 0)
                 return true;
 
-            if (span.IndexOf('=') >= 0 && (span.IndexOfAny('?', '&') >= 0 || StartsWithFormSecretKey(span)))
+            if (span.IndexOf('=') >= 0 && ContainsFormSecretKey(span))
                 return true;
 
             if (span.IndexOf('@') >= 0 && span.IndexOf("://", StringComparison.Ordinal) >= 0)
@@ -96,11 +111,21 @@ namespace Shiro.Services
             if (redacted.Contains("x-bound-auth-token", StringComparison.OrdinalIgnoreCase))
                 redacted = BoundAuthHeaderRegex().Replace(redacted, "x-bound-auth-token:[REDACTED_BAT]");
 
-            if (redacted.Contains('=') && (redacted.AsSpan().IndexOfAny('?', '&') >= 0 || StartsWithFormSecretKey(redacted.AsSpan())))
+            if (redacted.Contains("x-csrf-token", StringComparison.OrdinalIgnoreCase))
+                redacted = CsrfHeaderRegex().Replace(redacted, "x-csrf-token:[REDACTED_CSRF]");
+
+            if (redacted.Contains("rbx-authentication-ticket", StringComparison.OrdinalIgnoreCase))
+                redacted = AuthTicketHeaderRegex().Replace(redacted, "rbx-authentication-ticket:[REDACTED_TICKET]");
+
+            if (redacted.Contains('=') && ContainsFormSecretKey(redacted.AsSpan()))
                 redacted = QueryParamSecretRegex().Replace(redacted, "$1$2=[REDACTED]");
 
             if (redacted.Contains("Bearer", StringComparison.OrdinalIgnoreCase))
                 redacted = BearerTokenRegex().Replace(redacted, "Bearer [REDACTED_TOKEN]");
+
+            if (redacted.Contains("Authorization", StringComparison.OrdinalIgnoreCase) &&
+                redacted.Contains("Basic", StringComparison.OrdinalIgnoreCase))
+                redacted = BasicAuthHeaderRegex().Replace(redacted, "$1Basic [REDACTED_TOKEN]");
 
             if (redacted.Contains('@') && redacted.Contains("://", StringComparison.Ordinal))
                 redacted = ProxyAuthUrlRegex().Replace(redacted, "$1[REDACTED_PROXY_AUTH]@");

@@ -185,19 +185,19 @@ namespace Shiro.Services
             var fields = new List<DiscordWebhookField>();
             if (!string.IsNullOrWhiteSpace(alert.AccountUsername))
             {
-                fields.Add(new DiscordWebhookField("Account", alert.AccountUsername, true));
+                fields.Add(new DiscordWebhookField("Account", TruncateText(alert.AccountUsername, 1024), true));
             }
 
             fields.Add(new DiscordWebhookField("Event", alert.EventType.ToString(), true));
 
             if (!string.IsNullOrWhiteSpace(alert.Description))
             {
-                fields.Add(new DiscordWebhookField("Details", alert.Description, false));
+                fields.Add(new DiscordWebhookField("Details", TruncateText(alert.Description, 1024), false));
             }
 
             var embed = new DiscordWebhookEmbed(
                 title,
-                alert.Description,
+                string.IsNullOrWhiteSpace(alert.Description) ? null : TruncateText(alert.Description, 4096),
                 color,
                 fields,
                 alert.Timestamp.ToString("o"));
@@ -205,6 +205,17 @@ namespace Shiro.Services
             var payload = new DiscordWebhookPayload(new List<DiscordWebhookEmbed> { embed });
 
             return JsonSerializer.Serialize(payload, ShiroAppJson.Default.DiscordWebhookPayload);
+        }
+
+        private static string TruncateText(string value, int maxLength)
+        {
+            if (string.IsNullOrEmpty(value) || value.Length <= maxLength)
+                return value;
+
+            if (maxLength <= 3)
+                return value[..maxLength];
+
+            return value[..(maxLength - 3)] + "...";
         }
 
         public static string FormatTelegramMessage(WebhookAlert alert)
@@ -400,17 +411,48 @@ namespace Shiro.Services
             try
             {
                 string json = FormatDiscordPayload(alert);
-                using var content = new StringContent(json, Encoding.UTF8, "application/json");
-                using var response = await client.PostAsync(webhookUrl, content, ct).ConfigureAwait(false);
-                if (!response.IsSuccessStatusCode)
+                for (int attempt = 0; attempt < 2; attempt++)
                 {
+                    using var content = new StringContent(json, Encoding.UTF8, "application/json");
+                    using var response = await client.PostAsync(webhookUrl, content, ct).ConfigureAwait(false);
+                    if (response.IsSuccessStatusCode)
+                        return;
+
+                    if (attempt == 0 && (int)response.StatusCode == 429)
+                    {
+                        TimeSpan delay = ResolveRetryAfterDelay(response);
+                        await Task.Delay(delay, ct).ConfigureAwait(false);
+                        continue;
+                    }
+
                     _logger.Warn($"[Webhook] Discord returned {(int)response.StatusCode} {response.ReasonPhrase}");
+                    return;
                 }
             }
             catch (Exception ex)
             {
                 _logger.Warn($"[Webhook] Discord send failed: {LogRedactor.Redact(ex.Message)}");
             }
+        }
+
+        internal static TimeSpan ResolveRetryAfterDelay(HttpResponseMessage response)
+        {
+            TimeSpan? delta = response.Headers.RetryAfter?.Delta;
+            if (!delta.HasValue &&
+                response.Headers.TryGetValues("X-RateLimit-Reset-After", out var values))
+            {
+                foreach (string raw in values)
+                {
+                    if (double.TryParse(raw, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double secs) && secs > 0)
+                    {
+                        delta = TimeSpan.FromSeconds(secs);
+                        break;
+                    }
+                }
+            }
+
+            double clampedMs = Math.Clamp(delta?.TotalMilliseconds ?? 1000.0, 250.0, 5000.0);
+            return TimeSpan.FromMilliseconds(clampedMs);
         }
 
         private static async Task DispatchTelegramAsync(HttpClient client, string token, string chatId, WebhookAlert alert, CancellationToken ct)

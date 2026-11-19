@@ -137,9 +137,6 @@ namespace Shiro.AvaloniaUI.Views
             return dialog;
         }
 
-        [LibraryImport("user32.dll", EntryPoint = "MessageBoxW", StringMarshalling = StringMarshalling.Utf16)]
-        private static partial int Win32MessageBox(IntPtr hWnd, string text, string caption, uint type);
-
         public static bool IsAvaloniaUiReady()
         {
             try
@@ -172,7 +169,7 @@ namespace Shiro.AvaloniaUI.Views
                 else if (icon == MessageBoxIcon.Question) uType |= 0x00000020;
                 else if (icon == MessageBoxIcon.Information) uType |= 0x00000040;
 
-                int res = Win32MessageBox(IntPtr.Zero, message ?? string.Empty, title ?? "Shiro", uType);
+                int res = Win32NativeHelper.MessageBoxW(IntPtr.Zero, message ?? string.Empty, title ?? "Shiro", uType);
                 return res switch
                 {
                     6 => MessageBoxResult.Yes,

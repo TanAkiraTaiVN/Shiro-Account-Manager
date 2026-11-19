@@ -63,6 +63,20 @@ namespace Shiro.ViewModels.Dialogs
             ImportVaultCommand = TrackCommand(new AsyncRelayCommand(ImportVaultAsync, () => !IsBusy));
         }
 
+        public static WebServerAction ComputeWebServerAction(
+            bool wasOn,
+            int oldPort,
+            bool oldAllowExternal,
+            bool isOn,
+            int newPort,
+            bool newAllowExternal)
+        {
+            if (!wasOn && isOn) return WebServerAction.Start;
+            if (wasOn && !isOn) return WebServerAction.Stop;
+            if (wasOn && isOn && (oldPort != newPort || oldAllowExternal != newAllowExternal)) return WebServerAction.Restart;
+            return WebServerAction.None;
+        }
+
         private void LoadAdvanced()
         {
             IniSection ws = _settings.GetSection(AppSettingsKeys.Sections.WebServer) ?? _settings.IniFile.Section(AppSettingsKeys.Sections.WebServer);

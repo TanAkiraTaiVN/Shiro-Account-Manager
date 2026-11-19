@@ -37,6 +37,20 @@ namespace Shiro.Services
         internal static void ResetTestClient(string name) =>
             Clients.TryRemove(name ?? "default", out _);
 
+        internal static bool IsSharedInstance(HttpClient? client)
+        {
+            if (client == null)
+                return false;
+
+            foreach (var entry in Clients)
+            {
+                if (entry.Value.IsValueCreated && ReferenceEquals(entry.Value.Value, client))
+                    return true;
+            }
+
+            return false;
+        }
+
         /// <summary>
         /// Creates a short-lived client for an explicitly selected proxy.
         /// Proxy candidates are intentionally not pooled together: a proxy
@@ -50,17 +64,12 @@ namespace Shiro.Services
             if (timeout <= TimeSpan.Zero)
                 timeout = TimeSpan.FromSeconds(5);
 
-            SocketsHttpHandler handler = new SocketsHttpHandler
-            {
-                Proxy = proxy,
-                UseProxy = proxy != null,
-                AllowAutoRedirect = true,
-                AutomaticDecompression = DecompressionMethods.GZip |
-                    DecompressionMethods.Deflate |
-                    DecompressionMethods.Brotli,
-                UseCookies = false,
-                ConnectTimeout = timeout
-            };
+            SocketsHttpHandler handler = RobloxHttpHandlerHelper.CreateDefaultHandler(
+                allowAutoRedirect: true,
+                proxy: proxy,
+                useProxy: proxy != null,
+                connectTimeout: timeout,
+                useConnectionPoolSettings: false);
 
             HttpClient client = new HttpClient(handler, true)
             {
@@ -82,21 +91,11 @@ namespace Shiro.Services
             if (timeout <= TimeSpan.Zero)
                 timeout = TimeSpan.FromSeconds(30);
 
-            SocketsHttpHandler handler = new SocketsHttpHandler
-            {
-                AutomaticDecompression = DecompressionMethods.GZip |
-                    DecompressionMethods.Deflate |
-                    DecompressionMethods.Brotli,
-                AllowAutoRedirect = true,
-                PooledConnectionLifetime = TimeSpan.FromMinutes(10),
-                PooledConnectionIdleTimeout = TimeSpan.FromMinutes(2),
-                KeepAlivePingDelay = TimeSpan.FromSeconds(30),
-                KeepAlivePingTimeout = TimeSpan.FromSeconds(10),
-                EnableMultipleHttp2Connections = true,
-                ConnectTimeout = TimeSpan.FromSeconds(10),
-                UseCookies = false,
-                UseProxy = true
-            };
+            SocketsHttpHandler handler = RobloxHttpHandlerHelper.CreateDefaultHandler(
+                allowAutoRedirect: true,
+                useProxy: true,
+                connectTimeout: TimeSpan.FromSeconds(10),
+                useConnectionPoolSettings: true);
 
             HttpClient client = new HttpClient(handler, true)
             {
@@ -234,22 +233,11 @@ namespace Shiro.Services
                     : TimeSpan.FromMilliseconds(750))
                 : (isNoRedirect ? TimeSpan.FromSeconds(5) : TimeSpan.FromSeconds(30));
 
-            SocketsHttpHandler handler = new SocketsHttpHandler
-            {
-                AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate | DecompressionMethods.Brotli,
-                AllowAutoRedirect = !isNoRedirect,
-                PooledConnectionLifetime = TimeSpan.FromMinutes(10),
-                PooledConnectionIdleTimeout = TimeSpan.FromMinutes(2),
-                KeepAlivePingDelay = TimeSpan.FromSeconds(30),
-                KeepAlivePingTimeout = TimeSpan.FromSeconds(10),
-                EnableMultipleHttp2Connections = true,
-                ConnectTimeout = isNoRedirect ? TimeSpan.FromSeconds(5) : TimeSpan.FromSeconds(10),
-                UseCookies = false,
-                UseProxy = !isCdpProbe
-            };
-
-            if (isCdpProbe)
-                handler.ConnectTimeout = TimeSpan.FromSeconds(1);
+            SocketsHttpHandler handler = RobloxHttpHandlerHelper.CreateDefaultHandler(
+                allowAutoRedirect: !isNoRedirect,
+                useProxy: !isCdpProbe,
+                connectTimeout: isCdpProbe ? TimeSpan.FromSeconds(1) : (isNoRedirect ? TimeSpan.FromSeconds(5) : TimeSpan.FromSeconds(10)),
+                useConnectionPoolSettings: true);
 
             HttpClient client = new HttpClient(handler, true)
             {

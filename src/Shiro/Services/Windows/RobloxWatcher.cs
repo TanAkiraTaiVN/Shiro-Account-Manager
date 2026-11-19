@@ -17,52 +17,16 @@ namespace Shiro.Services
         private const int GW_OWNER = 4;
 
         [LibraryImport("user32.dll")]
-        private static partial IntPtr GetForegroundWindow();
-
-        [LibraryImport("user32.dll")]
-        private static partial uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
-
-        [LibraryImport("user32.dll")]
         [return: MarshalAs(UnmanagedType.Bool)]
         private static partial bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
-
-        [LibraryImport("user32.dll")]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static partial bool IsWindowVisible(IntPtr hWnd);
-
-        [LibraryImport("user32.dll")]
-        private static partial IntPtr GetWindow(IntPtr hWnd, uint uCmd);
 
         [LibraryImport("user32.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
         private static partial bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
 
-        [LibraryImport("user32.dll", EntryPoint = "GetWindowTextW")]
-        private static unsafe partial int GetWindowTextW(IntPtr hWnd, char* lpString, int nMaxCount);
-
-        [LibraryImport("kernel32.dll", SetLastError = true)]
-        private static partial IntPtr OpenProcess(uint dwDesiredAccess, [MarshalAs(UnmanagedType.Bool)] bool bInheritHandle, int dwProcessId);
-
         [LibraryImport("kernel32.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
         private static partial bool TerminateProcess(IntPtr hProcess, uint uExitCode);
-
-        [LibraryImport("kernel32.dll", SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static partial bool GetProcessTimes(
-            IntPtr hProcess,
-            out long lpCreationTime,
-            out long lpExitTime,
-            out long lpKernelTime,
-            out long lpUserTime);
-
-        [LibraryImport("kernel32.dll", SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static partial bool K32GetProcessMemoryInfo(IntPtr process, out PROCESS_MEMORY_COUNTERS ppsmemCounters, uint cb);
-
-        [LibraryImport("kernel32.dll", SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static partial bool CloseHandle(IntPtr hObject);
 
         [StructLayout(LayoutKind.Sequential)]
         public struct RECT
@@ -71,21 +35,6 @@ namespace Shiro.Services
             public int Top;
             public int Right;
             public int Bottom;
-        }
-
-        [StructLayout(LayoutKind.Sequential)]
-        private struct PROCESS_MEMORY_COUNTERS
-        {
-            public uint cb;
-            public uint PageFaultCount;
-            public nuint PeakWorkingSetSize;
-            public nuint WorkingSetSize;
-            public nuint QuotaPeakPagedPoolUsage;
-            public nuint QuotaPagedPoolUsage;
-            public nuint QuotaPeakNonPagedPoolUsage;
-            public nuint QuotaNonPagedPoolUsage;
-            public nuint PagefileUsage;
-            public nuint PeakPagefileUsage;
         }
 
         public static HashSet<int> Seen = [];
@@ -188,11 +137,11 @@ namespace Shiro.Services
                 }
             }
 
-            IntPtr focusedHwnd = GetForegroundWindow();
+            IntPtr focusedHwnd = Win32NativeHelper.GetForegroundWindow();
             uint focusedPid = 0;
             if (focusedHwnd != IntPtr.Zero)
             {
-                GetWindowThreadProcessId(focusedHwnd, out focusedPid);
+                Win32NativeHelper.GetWindowThreadProcessId(focusedHwnd, out focusedPid);
             }
 
             Dictionary<string, Account>? accountByTracker = null;
@@ -331,6 +280,10 @@ namespace Shiro.Services
                 }
                 catch (Exception x)
                 {
+                    lock (InstanceRegistryLock)
+                    {
+                        _pidMetadataCache.Remove(pid);
+                    }
                     AppServices.Logger?.Debug($"Access to Process {pid} denied: {x.Message}");
                 }
                 finally
@@ -391,10 +344,10 @@ namespace Shiro.Services
 
             EnumWindows((hWnd, _) =>
             {
-                if (!IsWindowVisible(hWnd) || GetWindow(hWnd, GW_OWNER) != IntPtr.Zero)
+                if (!Win32NativeHelper.IsWindowVisible(hWnd) || Win32NativeHelper.GetWindow(hWnd, GW_OWNER) != IntPtr.Zero)
                     return true;
 
-                GetWindowThreadProcessId(hWnd, out uint wndPid);
+                Win32NativeHelper.GetWindowThreadProcessId(hWnd, out uint wndPid);
                 int pid = (int)wndPid;
                 if (pid > 0 && targetPids.Contains(pid) && !map.ContainsKey(pid))
                 {
@@ -410,22 +363,22 @@ namespace Shiro.Services
         {
             ageSeconds = 0;
             workingSetBytes = 0;
-            IntPtr hProcess = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
+            IntPtr hProcess = Win32NativeHelper.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
             if (hProcess == IntPtr.Zero)
                 return false;
 
             try
             {
-                if (GetProcessTimes(hProcess, out long creationFileTime, out _, out _, out _) && creationFileTime > 0)
+                if (Win32NativeHelper.GetProcessTimes(hProcess, out long creationFileTime, out _, out _, out _) && creationFileTime > 0)
                 {
                     ageSeconds = Math.Max(0, (nowFileTimeUtc - creationFileTime) / 10_000_000.0);
                 }
 
                 if (CloseIfMemoryLow)
                 {
-                    PROCESS_MEMORY_COUNTERS counters = default;
-                    counters.cb = (uint)sizeof(PROCESS_MEMORY_COUNTERS);
-                    if (K32GetProcessMemoryInfo(hProcess, out counters, counters.cb))
+                    Win32NativeHelper.PROCESS_MEMORY_COUNTERS counters = default;
+                    counters.cb = (uint)sizeof(Win32NativeHelper.PROCESS_MEMORY_COUNTERS);
+                    if (Win32NativeHelper.K32GetProcessMemoryInfo(hProcess, out counters, counters.cb))
                     {
                         workingSetBytes = (long)counters.WorkingSetSize;
                     }
@@ -435,21 +388,21 @@ namespace Shiro.Services
             }
             finally
             {
-                CloseHandle(hProcess);
+                Win32NativeHelper.CloseHandle(hProcess);
             }
         }
 
         private static unsafe string GetWindowTitleNative(IntPtr hWnd)
         {
             char* buf = stackalloc char[256];
-            int len = GetWindowTextW(hWnd, buf, 256);
+            int len = Win32NativeHelper.GetWindowTextW(hWnd, buf, 256);
             return len > 0 ? new string(buf, 0, len) : string.Empty;
         }
 
         private static void KillNative(int pid, string reason)
         {
             AppServices.Logger?.Info($"Attempting to kill process {pid}, reason: {reason}");
-            IntPtr hProcess = OpenProcess(PROCESS_TERMINATE, false, pid);
+            IntPtr hProcess = Win32NativeHelper.OpenProcess(PROCESS_TERMINATE, false, pid);
             if (hProcess == IntPtr.Zero) return;
             try
             {
@@ -461,7 +414,7 @@ namespace Shiro.Services
             }
             finally
             {
-                CloseHandle(hProcess);
+                Win32NativeHelper.CloseHandle(hProcess);
             }
         }
 

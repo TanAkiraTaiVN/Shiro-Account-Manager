@@ -6,7 +6,6 @@
     <Application.Resources>
         <conv:InverseBooleanConverter x:Key="InverseBoolConverter" />
         <conv:StringNotNullOrEmptyConverter x:Key="StringNotNullOrEmpty" />
-        <conv:CountToVisibilityConverter x:Key="CountToVisibility" />
         <conv:EqualityToBooleanConverter x:Key="EqualityToBoolean" />
         <conv:GroupNameDisplayConverter x:Key="GroupNameDisplay" />
         <conv:StatusKindToBrushConverter x:Key="StatusKindToBrush" />

@@ -118,7 +118,9 @@ namespace Shiro.ViewModels
             }
         }
 
-        internal static List<BuiltinCommandDef> GetBuiltinCommands() => new()
+        internal static IReadOnlyList<BuiltinCommandDef> GetBuiltinCommands() => CachedBuiltinCommands;
+
+        private static readonly IReadOnlyList<BuiltinCommandDef> CachedBuiltinCommands = new BuiltinCommandDef[]
         {
             new("tool.antiafk", "Main.ToggleAntiAfkTitle", "Main.AntiAfkDescription", "Nav_Tools", "Shield", "#38BDF8", true, new[] { "anti", "afk", "kick", "bao ve" }, vm => vm.ToggleAntiAfkCommand.Execute(null)),
             new("tool.zerogpu", "Main.ToggleZeroGpuTitle", "Main.ZeroGpuDescription", "Nav_Tools", "EyeOff", "#4ADE80", true, new[] { "zero", "gpu", "an cua so", "hide", "power" }, vm => vm.ToggleWindowsCommand.Execute(null)),

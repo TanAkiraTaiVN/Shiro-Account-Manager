@@ -28,14 +28,18 @@ namespace Shiro.Services
         public static RobloxRateLimitCoordinator Default => _instance.Value;
         public static RobloxRateLimitCoordinator Instance => _instance.Value;
 
+        private sealed class CategoryBackoffState
+        {
+            public DateTime BackoffUntilUtc = DateTime.MinValue;
+            public int Consecutive429Count;
+        }
+
         private readonly IAppLogger _logger;
         private readonly ConcurrentDictionary<RateLimitCategory, SemaphoreSlim> _categorySemaphores;
         private readonly System.Collections.Generic.Dictionary<RateLimitCategory, DateTime> _nextAllowedSlotUtc;
+        private readonly System.Collections.Generic.Dictionary<RateLimitCategory, CategoryBackoffState> _categoryBackoffs;
         private readonly System.Threading.Lock _backoffLock = new();
         private readonly System.Threading.Lock _pacingLock = new();
-
-        private DateTime _backoffUntilUtc = DateTime.MinValue;
-        private int _consecutive429Count = 0;
 
         public const int MaxBackoffSeconds = 30;
         public const int MaxRetryAfterSeconds = 120;
@@ -46,7 +50,10 @@ namespace Shiro.Services
             {
                 lock (_backoffLock)
                 {
-                    return _consecutive429Count;
+                    int total = 0;
+                    foreach (var state in _categoryBackoffs.Values)
+                        total += state.Consecutive429Count;
+                    return total;
                 }
             }
         }
@@ -65,16 +72,42 @@ namespace Shiro.Services
             };
 
             _nextAllowedSlotUtc = new System.Collections.Generic.Dictionary<RateLimitCategory, DateTime>();
+            _categoryBackoffs = new System.Collections.Generic.Dictionary<RateLimitCategory, CategoryBackoffState>();
+        }
+
+        private CategoryBackoffState GetOrCreateBackoffStateUnderLock(RateLimitCategory category)
+        {
+            if (!_categoryBackoffs.TryGetValue(category, out var state))
+            {
+                state = new CategoryBackoffState();
+                _categoryBackoffs[category] = state;
+            }
+            return state;
         }
 
         public bool IsBackingOff
         {
             get
             {
+                DateTime now = DateTime.UtcNow;
                 lock (_backoffLock)
                 {
-                    return DateTime.UtcNow < _backoffUntilUtc;
+                    foreach (var state in _categoryBackoffs.Values)
+                    {
+                        if (now < state.BackoffUntilUtc)
+                            return true;
+                    }
+                    return false;
                 }
+            }
+        }
+
+        public bool IsBackingOffCategory(RateLimitCategory category)
+        {
+            DateTime now = DateTime.UtcNow;
+            lock (_backoffLock)
+            {
+                return _categoryBackoffs.TryGetValue(category, out var state) && now < state.BackoffUntilUtc;
             }
         }
 
@@ -82,11 +115,30 @@ namespace Shiro.Services
         {
             get
             {
+                DateTime now = DateTime.UtcNow;
+                TimeSpan max = TimeSpan.Zero;
                 lock (_backoffLock)
                 {
-                    var rem = _backoffUntilUtc - DateTime.UtcNow;
-                    return rem > TimeSpan.Zero ? rem : TimeSpan.Zero;
+                    foreach (var state in _categoryBackoffs.Values)
+                    {
+                        var rem = state.BackoffUntilUtc - now;
+                        if (rem > max)
+                            max = rem;
+                    }
                 }
+                return max;
+            }
+        }
+
+        public TimeSpan GetRemainingBackoff(RateLimitCategory category)
+        {
+            DateTime now = DateTime.UtcNow;
+            lock (_backoffLock)
+            {
+                if (!_categoryBackoffs.TryGetValue(category, out var state))
+                    return TimeSpan.Zero;
+                var rem = state.BackoffUntilUtc - now;
+                return rem > TimeSpan.Zero ? rem : TimeSpan.Zero;
             }
         }
 
@@ -94,7 +146,8 @@ namespace Shiro.Services
         {
             lock (_backoffLock)
             {
-                _consecutive429Count++;
+                var state = GetOrCreateBackoffStateUnderLock(category);
+                state.Consecutive429Count++;
 
                 double backoffSeconds = -1;
 
@@ -116,7 +169,7 @@ namespace Shiro.Services
                 if (backoffSeconds <= 0)
                 {
                     // Exponential backoff: 3s, 6s, 12s, 24s, 30s (capped at MaxBackoffSeconds)
-                    double exponential = Math.Min(MaxBackoffSeconds, 3 * Math.Pow(2, Math.Min(_consecutive429Count - 1, 4)));
+                    double exponential = Math.Min(MaxBackoffSeconds, 3 * Math.Pow(2, Math.Min(state.Consecutive429Count - 1, 4)));
                     backoffSeconds = Math.Max(defaultBackoffSeconds, exponential);
                 }
 
@@ -124,15 +177,15 @@ namespace Shiro.Services
                 int jitterMs = Random.Shared.Next(200, 1000);
 
                 DateTime proposedExpiry = DateTime.UtcNow.AddSeconds(backoffSeconds).AddMilliseconds(jitterMs);
-                if (proposedExpiry > _backoffUntilUtc)
+                if (proposedExpiry > state.BackoffUntilUtc)
                 {
-                    _backoffUntilUtc = proposedExpiry;
-                    _logger.Warn($"[RateLimitCoordinator] HTTP 429 Rate-Limit hit #{_consecutive429Count} for {category}. Backing off for {backoffSeconds:0.#}s (+{jitterMs}ms jitter) across application.");
+                    state.BackoffUntilUtc = proposedExpiry;
+                    _logger.Warn($"[RateLimitCoordinator] HTTP 429 Rate-Limit hit #{state.Consecutive429Count} for {category}. Backing off {category} for {backoffSeconds:0.#}s (+{jitterMs}ms jitter).");
 
                     WebhookNotificationService.EnqueueAlert(new WebhookAlert
                     {
                         EventType = WebhookEventType.RateLimited,
-                        Description = $"HTTP 429 Rate-Limit hit #{_consecutive429Count} for {category}. Backing off for {backoffSeconds:0.#}s.",
+                        Description = $"HTTP 429 Rate-Limit hit #{state.Consecutive429Count} for {category}. Backing off for {backoffSeconds:0.#}s.",
                         Timestamp = DateTimeOffset.UtcNow
                     });
                 }
@@ -143,9 +196,9 @@ namespace Shiro.Services
         {
             lock (_backoffLock)
             {
-                if (_consecutive429Count > 0)
+                if (_categoryBackoffs.TryGetValue(category, out var state) && state.Consecutive429Count > 0)
                 {
-                    _consecutive429Count = 0;
+                    state.Consecutive429Count = 0;
                 }
             }
         }
@@ -158,8 +211,7 @@ namespace Shiro.Services
         {
             lock (_backoffLock)
             {
-                _consecutive429Count = 0;
-                _backoffUntilUtc = DateTime.MinValue;
+                _categoryBackoffs.Clear();
             }
 
             lock (_pacingLock)
@@ -193,14 +245,27 @@ namespace Shiro.Services
         /// </summary>
         public async Task WaitForBackoffAsync(CancellationToken cancellationToken = default)
         {
-            TimeSpan delay;
-            lock (_backoffLock)
+            while (true)
             {
-                delay = _backoffUntilUtc - DateTime.UtcNow;
-            }
+                TimeSpan delay = RemainingBackoff;
+                if (delay <= TimeSpan.Zero)
+                    return;
 
-            if (delay > TimeSpan.Zero)
+                await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
+            }
+        }
+
+        /// <summary>
+        /// Waits for active rate-limit backoff on a specific category before allowing requests to proceed.
+        /// </summary>
+        public async Task WaitForBackoffAsync(RateLimitCategory category, CancellationToken cancellationToken = default)
+        {
+            while (true)
             {
+                TimeSpan delay = GetRemainingBackoff(category);
+                if (delay <= TimeSpan.Zero)
+                    return;
+
                 await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
             }
         }
@@ -222,12 +287,14 @@ namespace Shiro.Services
                 return await action().ConfigureAwait(false);
             }
 
-            // Wait for any active backoff & staggered slot BEFORE claiming a concurrency permit.
-            await WaitForBackoffAsync(cancellationToken).ConfigureAwait(false);
+            // Wait for category backoff & staggered slot BEFORE claiming a concurrency permit.
+            await WaitForBackoffAsync(category, cancellationToken).ConfigureAwait(false);
             TimeSpan slotDelay = ReserveNextSlotDelay(category, minIntervalMs, DateTime.UtcNow);
             if (slotDelay > TimeSpan.Zero)
             {
                 await Task.Delay(slotDelay, cancellationToken).ConfigureAwait(false);
+                // Re-check backoff in case another request triggered 429 during the slot wait.
+                await WaitForBackoffAsync(category, cancellationToken).ConfigureAwait(false);
             }
 
             var sem = _categorySemaphores.GetOrAdd(category, _ => new SemaphoreSlim(2, 2));

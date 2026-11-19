@@ -266,12 +266,6 @@ namespace Shiro.Services
         private static readonly Guid IID_IAudioSessionControl2 = new("BFB7FF88-7239-4FC9-8FA2-07C950BE9C32");
         private static readonly Guid IID_ISimpleAudioVolume = new("87CE5498-68D6-44E5-9215-6DA47EF883D8");
 
-        [LibraryImport("user32.dll")]
-        private static partial IntPtr GetForegroundWindow();
-
-        [LibraryImport("user32.dll")]
-        private static partial uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
-
         [LibraryImport("ole32.dll")]
         private static partial int CoInitializeEx(IntPtr pvReserved, uint dwCoInit);
 

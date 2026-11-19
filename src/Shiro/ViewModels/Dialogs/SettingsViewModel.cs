@@ -217,12 +217,7 @@ namespace Shiro.ViewModels.Dialogs
         public IAsyncRelayCommand ChangeMasterPasswordCommand { get; }
 
         public static WebServerAction ComputeWebServerAction(bool wasOn, int oldPort, bool isOn, int newPort)
-        {
-            if (!wasOn && isOn) return WebServerAction.Start;
-            if (wasOn && !isOn) return WebServerAction.Stop;
-            if (wasOn && isOn && oldPort != newPort) return WebServerAction.Restart;
-            return WebServerAction.None;
-        }
+            => ComputeWebServerAction(wasOn, oldPort, false, isOn, newPort, false);
 
         public void Load()
         {
@@ -350,23 +345,14 @@ namespace Shiro.ViewModels.Dialogs
 
                 bool prevServer = _settings.EnableWebServer;
                 int prevPort = _settings.WebServerPort;
+                bool prevAllowExternal = _settings.GetSection(AppSettingsKeys.Sections.WebServer)
+                    ?.Get<bool>(AppSettingsKeys.WebServer.AllowExternalConnections) ?? false;
                 int targetPort = WebServerPort.HasValue ? (int)WebServerPort.Value : prevPort;
                 bool newServer = EnableWebServer;
 
                 _settings.EnableWebServer = newServer;
                 if (WebServerPort.HasValue)
                     _settings.WebServerPort = targetPort;
-
-                var wsAction = ComputeWebServerAction(prevServer, prevPort, newServer, targetPort);
-                if (wsAction is WebServerAction.Start or WebServerAction.Restart)
-                {
-                    bool allowExternal = _settings.GetSection("WebServer")?.Get<bool>("AllowExternalConnections") ?? false;
-                    _ = _effects.RestartWebServerAsync(targetPort, allowExternal);
-                }
-                else if (wsAction == WebServerAction.Stop)
-                {
-                    _ = _effects.StopWebServerAsync();
-                }
 
                 bool prevAutoCookie = _settings.AutoCookieRefresh;
                 _settings.AutoCookieRefresh = AutoCookieRefresh;
@@ -377,6 +363,20 @@ namespace Shiro.ViewModels.Dialogs
 
                 _settings.SavePasswords = SavePasswords;
                 SaveAdvanced();
+
+                // Evaluate WebServer restart after SaveAdvanced persists AllowExternalConnections
+                var wsAction = ComputeWebServerAction(
+                    prevServer, prevPort, prevAllowExternal,
+                    newServer, targetPort, AllowExternalConnections);
+                if (wsAction is WebServerAction.Start or WebServerAction.Restart)
+                {
+                    _ = _effects.RestartWebServerAsync(targetPort, AllowExternalConnections);
+                }
+                else if (wsAction == WebServerAction.Stop)
+                {
+                    _ = _effects.StopWebServerAsync();
+                }
+
                 _effects.QueueDeferredSave();
 
                 _ = ShowSaveFeedbackAsync(LocalizationService.Get("Settings.SaveSuccess"));

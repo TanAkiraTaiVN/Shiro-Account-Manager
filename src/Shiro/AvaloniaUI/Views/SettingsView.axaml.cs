@@ -19,16 +19,32 @@ namespace Shiro.AvaloniaUI.Views
             ViewModel = viewModel;
             DataContext = ViewModel;
             InitializeComponent();
-            Loaded += (_, _) => ViewModel.Load();
-            Unloaded += (_, _) => ViewModel.OnClosing();
+            bool hasLoadedForCurrentSession = false;
+            void EnsureSessionLoaded()
+            {
+                if (hasLoadedForCurrentSession || !IsVisible)
+                    return;
+                hasLoadedForCurrentSession = true;
+                ViewModel.Load();
+            }
+            void EndSession()
+            {
+                if (!hasLoadedForCurrentSession)
+                    return;
+                hasLoadedForCurrentSession = false;
+                ViewModel.OnClosing();
+            }
+
+            Loaded += (_, _) => EnsureSessionLoaded();
+            Unloaded += (_, _) => EndSession();
             PropertyChanged += (_, e) =>
             {
                 if (e.Property == IsVisibleProperty)
                 {
                     if (IsVisible)
-                        ViewModel.Load();
+                        EnsureSessionLoaded();
                     else
-                        ViewModel.OnClosing();
+                        EndSession();
                 }
             };
         }

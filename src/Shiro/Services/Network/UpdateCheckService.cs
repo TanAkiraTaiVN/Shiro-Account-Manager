@@ -103,19 +103,45 @@ namespace Shiro.Services
             string cleanedRemote = remoteTagStr.TrimStart('v', 'V').Trim();
             string cleanedCurrent = currentVerStr.TrimStart('v', 'V').Trim();
 
-            if (!TryParseNormalizedVersion(cleanedCurrent, out var currentVer) ||
-                !TryParseNormalizedVersion(cleanedRemote, out var remoteVer))
+            if (!TryParseNormalizedVersion(cleanedCurrent, out var currentVer, out string? currentPre) ||
+                !TryParseNormalizedVersion(cleanedRemote, out var remoteVer, out string? remotePre))
             {
                 return false;
             }
 
-            return remoteVer > currentVer;
+            int numericCompare = remoteVer.CompareTo(currentVer);
+            if (numericCompare != 0)
+                return numericCompare > 0;
+
+            if (string.IsNullOrEmpty(currentPre) != string.IsNullOrEmpty(remotePre))
+                return string.IsNullOrEmpty(remotePre);
+
+            if (!string.IsNullOrEmpty(remotePre) && !string.IsNullOrEmpty(currentPre))
+                return string.Compare(remotePre, currentPre, StringComparison.OrdinalIgnoreCase) > 0;
+
+            return false;
         }
 
-        private static bool TryParseNormalizedVersion(string input, out Version version)
+        private static bool TryParseNormalizedVersion(string input, out Version version, out string? prerelease)
         {
             version = new Version(0, 0, 0, 0);
-            if (!Version.TryParse(input, out var parsed) || parsed == null)
+            prerelease = null;
+            if (string.IsNullOrWhiteSpace(input))
+                return false;
+
+            string trimmed = input.Trim();
+            int plusIdx = trimmed.IndexOf('+');
+            if (plusIdx >= 0)
+                trimmed = trimmed[..plusIdx];
+
+            int dashIdx = trimmed.IndexOf('-');
+            if (dashIdx >= 0)
+            {
+                prerelease = trimmed[(dashIdx + 1)..];
+                trimmed = trimmed[..dashIdx];
+            }
+
+            if (!Version.TryParse(trimmed, out var parsed) || parsed == null)
                 return false;
 
             version = new Version(

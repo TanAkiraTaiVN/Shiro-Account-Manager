@@ -23,15 +23,6 @@ namespace Shiro.Services
             [MarshalAs(UnmanagedType.Bool)] bool bInheritHandle,
             int dwProcessId);
 
-        [LibraryImport("kernel32.dll", SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static partial bool GetProcessTimes(
-            IntPtr hProcess,
-            out long lpCreationTime,
-            out long lpExitTime,
-            out long lpKernelTime,
-            out long lpUserTime);
-
         [LibraryImport("ntdll.dll")]
         private static partial int NtQueryInformationProcess(
             IntPtr processHandle,
@@ -88,7 +79,7 @@ namespace Shiro.Services
             }
 
             IntPtr handle = hProcess.DangerousGetHandle();
-            bool hasCreationTime = GetProcessTimes(handle, out long creationTime, out _, out _, out _) && creationTime > 0;
+            bool hasCreationTime = Win32NativeHelper.GetProcessTimes(handle, out long creationTime, out _, out _, out _) && creationTime > 0;
 
             if (hasCreationTime &&
                 _commandLineCache.TryGetValue(pid, out var cached) &&

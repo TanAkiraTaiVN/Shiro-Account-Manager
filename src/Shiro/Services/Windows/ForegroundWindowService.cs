@@ -51,12 +51,6 @@ namespace Shiro.Services
         [return: MarshalAs(UnmanagedType.Bool)]
         private static partial bool UnhookWinEvent(IntPtr hWinEventHook);
 
-        [LibraryImport("user32.dll")]
-        private static partial IntPtr GetForegroundWindow();
-
-        [LibraryImport("user32.dll")]
-        private static partial uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
-
         public static bool Start()
         {
             if (!OperatingSystem.IsWindows()) return false;
@@ -79,10 +73,10 @@ namespace Shiro.Services
 
                     if (_hookHandle != IntPtr.Zero)
                     {
-                        IntPtr currentFg = GetForegroundWindow();
+                        IntPtr currentFg = Win32NativeHelper.GetForegroundWindow();
                         if (currentFg != IntPtr.Zero)
                         {
-                            GetWindowThreadProcessId(currentFg, out uint pid);
+                            Win32NativeHelper.GetWindowThreadProcessId(currentFg, out uint pid);
                             Volatile.Write(ref _lastForegroundPid, pid);
                         }
 
@@ -146,7 +140,7 @@ namespace Shiro.Services
 
             try
             {
-                GetWindowThreadProcessId(hwnd, out uint pid);
+                Win32NativeHelper.GetWindowThreadProcessId(hwnd, out uint pid);
                 if (pid == 0) return;
 
                 uint previous = Volatile.Read(ref _lastForegroundPid);

@@ -104,13 +104,6 @@ namespace Shiro.Services
         [return: MarshalAs(UnmanagedType.Bool)]
         private static partial bool SetInformationJobObject(IntPtr hJob, int JobObjectInformationClass, IntPtr lpJobObjectInformation, uint cbJobObjectInformationLength);
 
-        [LibraryImport("kernel32.dll", SetLastError = true)]
-        private static partial IntPtr OpenProcess(uint dwDesiredAccess, [MarshalAs(UnmanagedType.Bool)] bool bInheritHandle, int dwProcessId);
-
-        [LibraryImport("kernel32.dll", SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static partial bool CloseHandle(IntPtr hObject);
-
         public static IntPtr EnsureJobHandle()
         {
             if (!OperatingSystem.IsWindows()) return IntPtr.Zero;
@@ -166,7 +159,7 @@ namespace Shiro.Services
         {
             if (!OperatingSystem.IsWindows() || pid <= 0) return false;
 
-            IntPtr hProcess = OpenProcess(PROCESS_SET_QUOTA | PROCESS_TERMINATE, false, pid);
+            IntPtr hProcess = Win32NativeHelper.OpenProcess(PROCESS_SET_QUOTA | PROCESS_TERMINATE, false, pid);
             if (hProcess == IntPtr.Zero) return false;
 
             try
@@ -175,7 +168,7 @@ namespace Shiro.Services
             }
             finally
             {
-                CloseHandle(hProcess);
+                Win32NativeHelper.CloseHandle(hProcess);
             }
         }
 
@@ -318,7 +311,7 @@ namespace Shiro.Services
                         (IntPtr)(&assoc),
                         (uint)sizeof(JOBOBJECT_ASSOCIATE_COMPLETION_PORT)))
                 {
-                    CloseHandle(iocp);
+                    Win32NativeHelper.CloseHandle(iocp);
                     return;
                 }
 
@@ -378,13 +371,13 @@ namespace Shiro.Services
                 if (threadToJoin != null && threadToJoin.IsAlive && threadToJoin != Thread.CurrentThread)
                     threadToJoin.Join(TimeSpan.FromSeconds(2));
 
-                try { CloseHandle(hIocp); }
+                try { Win32NativeHelper.CloseHandle(hIocp); }
                 catch (Exception ex) { AppServices.Logger.Debug($"Failed closing job IOCP handle: {ex.Message}"); }
             }
 
             if (hJob != IntPtr.Zero && hJob != (IntPtr)(-1))
             {
-                try { CloseHandle(hJob); }
+                try { Win32NativeHelper.CloseHandle(hJob); }
                 catch (Exception ex) { AppServices.Logger?.Debug($"Failed closing job object handle: {ex.Message}"); }
             }
         }

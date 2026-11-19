@@ -56,7 +56,7 @@ namespace Shiro.Services
                 string? groupFilter = req.GetQuery("Group");
                 var filteredAccounts = AppServices.AccountRepository.GetAll();
                 if (!string.IsNullOrEmpty(groupFilter))
-                    filteredAccounts = filteredAccounts.Where(acc => acc.Group == groupFilter).ToArray();
+                    filteredAccounts = filteredAccounts.Where(acc => string.Equals(acc.Group, groupFilter, StringComparison.OrdinalIgnoreCase)).ToArray();
 
                 string result = string.Join(",", filteredAccounts.Select(acc => acc.Username));
                 return reply(result, true, -1, result);
@@ -76,7 +76,7 @@ namespace Shiro.Services
                 List<ApiAccountJsonItem> objects = new(allAccounts.Count);
                 foreach (Account acc in allAccounts)
                 {
-                    if (!string.IsNullOrEmpty(groupFilter) && acc.Group != groupFilter) continue;
+                    if (!string.IsNullOrEmpty(groupFilter) && !string.Equals(acc.Group, groupFilter, StringComparison.OrdinalIgnoreCase)) continue;
 
                     var accountObject = new ApiAccountJsonItem(
                         acc.Username,

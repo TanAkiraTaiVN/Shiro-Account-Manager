@@ -69,12 +69,12 @@ Sau khi hoàn tất, file thực thi phát hành chuẩn sẽ được tạo t�
 
 ## 📋 Kiểm thử tự động & Coverage Gates (Unit Tests)
 
-Dự án sở hữu bộ test suite tự động với 1,968 unit tests bao phủ toàn diện tính toàn vẹn của mã hóa AES-256-GCM / Dual-KDF (PBKDF2-SHA256 600,000 vòng V3 & HKDF-SHA256 V4), bảo mật DPAPI, quản lý hàng đợi mở game, kiến trúc MVVM strongly-typed, engine đồ họa Avalonia UI 11 và cấu hình JSON.
+Dự án sở hữu bộ test suite tự động với 2,189 unit tests bao phủ toàn diện tính toàn vẹn của mã hóa AES-256-GCM / Dual-KDF (PBKDF2-SHA256 600,000 vòng V3 & HKDF-SHA256 V4), bảo mật DPAPI, quản lý hàng đợi mở game, kiến trúc MVVM strongly-typed, engine đồ họa Avalonia UI 11 và cấu hình JSON.
 
 Các cổng chất lượng kiểm thử (Coverage Gates) được kiểm tra tự động trong CI/CD pipeline và `ArchitectureTests`:
-- **Overall Line Coverage**: **79.82%** (Ngưỡng yêu cầu: >= 75.0%)
-- **Overall Branch Coverage**: **69.32%** (Ngưỡng yêu cầu: >= 60.0%)
-- **Core Security/Persistence Coverage**: **92.83%** (Ngưỡng yêu cầu: >= 92.0%)
+- **Overall Line Coverage**: **82.10%** (Ngưỡng yêu cầu: >= 75.0%)
+- **Overall Branch Coverage**: **71.51%** (Ngưỡng yêu cầu: >= 60.0%)
+- **Core Security/Persistence Coverage**: **93.88%** (Ngưỡng yêu cầu: >= 92.0%)
 
 Chạy toàn bộ unit test suite:
 ```powershell
@@ -90,7 +90,7 @@ powershell -File .\scripts\Check-Coverage.ps1 -CoverageDir "coverage"
 
 ## ⚠️ Lưu ý Sử dụng & Miễn trừ Trách nhiệm (Disclaimer)
 
-- Một số tính năng tự động hóa tùy chọn (như **Multi-Roblox**, **Anti-AFK**) có thể không tương thích với Điều khoản Dịch vụ (Terms of Service) của Roblox. Các tính năng này mặc định được kiểm soát qua hộp thoại xác nhận rủi ro (`RiskDisclaimerService`). Người dùng tự chịu hoàn toàn trách nhiệm khi kích hoạt và sử dụng các tính năng này trên tài khoản của mình.
+- Một số tính năng tự động hóa tùy chọn (như **Multi-Roblox**, **Anti-AFK**) có thể không tương thích với Điều khoản Dịch vụ (Terms of Service) của Roblox. Các tính năng này mặc định được hiển thị thông báo xác nhận rủi ro khi khởi động (`MainWindow`, khóa cấu hình `HasAcceptedRiskDisclaimer`). Người dùng tự chịu hoàn toàn trách nhiệm khi kích hoạt và sử dụng các tính năng này trên tài khoản của mình.
 - **Shiro Account Manager** không liên kết, tài trợ hay được ủy quyền bởi Roblox Corporation.
 
 ---

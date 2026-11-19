@@ -208,6 +208,7 @@ namespace Shiro
             SafeExecuteHelper.Try(() => PresenceTimer?.Stop());
             SafeExecuteHelper.Try(() => AutoCookieRefresh?.Dispose());
             SafeExecuteHelper.Try(() => PresenceTimer?.Dispose());
+            SafeExecuteHelper.Try(StreamerModeService.Shutdown);
             SafeExecuteHelper.Try(RobloxSingletonService.Stop);
             SafeExecuteHelper.Try(AntiAfkService.Stop);
             SafeExecuteHelper.Try(() => RobloxAudioService.ConfigureSmartMute(false));

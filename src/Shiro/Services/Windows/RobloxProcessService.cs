@@ -20,48 +20,12 @@ namespace Shiro.Services
             "RobloxPlayerLauncher"
         };
 
-        [StructLayout(LayoutKind.Sequential)]
-        private unsafe struct PROCESSENTRY32W
-        {
-            public uint dwSize;
-            public uint cntUsage;
-            public uint th32ProcessID;
-            public nuint th32DefaultHeapID;
-            public uint th32ModuleID;
-            public uint cntThreads;
-            public uint th32ParentProcessID;
-            public int pcPriClassBase;
-            public uint dwFlags;
-            public fixed char szExeFile[260];
-        }
-
         private const uint TH32CS_SNAPPROCESS = 0x00000002;
         private static readonly IntPtr INVALID_HANDLE_VALUE = new IntPtr(-1);
-
-        [LibraryImport("kernel32.dll", SetLastError = true)]
-        private static partial IntPtr CreateToolhelp32Snapshot(uint dwFlags, uint th32ProcessID);
-
-        [LibraryImport("kernel32.dll", SetLastError = true, EntryPoint = "Process32FirstW")]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static unsafe partial bool Process32FirstW(IntPtr hSnapshot, PROCESSENTRY32W* lppe);
-
-        [LibraryImport("kernel32.dll", SetLastError = true, EntryPoint = "Process32NextW")]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static unsafe partial bool Process32NextW(IntPtr hSnapshot, PROCESSENTRY32W* lppe);
-
-        [LibraryImport("kernel32.dll", SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static partial bool CloseHandle(IntPtr hObject);
 
         private const uint PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
         private const uint SYNCHRONIZE = 0x00100000;
         private const uint WAIT_TIMEOUT = 0x00000102;
-
-        [LibraryImport("kernel32.dll", SetLastError = true)]
-        private static partial IntPtr OpenProcess(uint dwDesiredAccess, [MarshalAs(UnmanagedType.Bool)] bool bInheritHandle, uint dwProcessId);
-
-        [LibraryImport("kernel32.dll", SetLastError = true)]
-        private static partial uint WaitForSingleObject(IntPtr hHandle, uint dwMilliseconds);
 
         /// <summary>
         /// Checks whether a process is currently alive using zero-allocation Win32 kernel handle probing.
@@ -84,16 +48,16 @@ namespace Shiro.Services
                 }
             }
 
-            IntPtr hProcess = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE, false, (uint)pid);
+            IntPtr hProcess = Win32NativeHelper.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE, false, pid);
             if (hProcess != IntPtr.Zero)
             {
                 try
                 {
-                    return WaitForSingleObject(hProcess, 0) == WAIT_TIMEOUT;
+                    return Win32NativeHelper.WaitForSingleObject(hProcess, 0) == WAIT_TIMEOUT;
                 }
                 finally
                 {
-                    CloseHandle(hProcess);
+                    Win32NativeHelper.CloseHandle(hProcess);
                 }
             }
 
@@ -187,16 +151,16 @@ namespace Shiro.Services
             clientCount = 0;
             installerRunning = false;
 
-            IntPtr hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+            IntPtr hSnapshot = Win32NativeHelper.CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
             if (hSnapshot == INVALID_HANDLE_VALUE || hSnapshot == IntPtr.Zero)
                 return false;
 
             try
             {
-                PROCESSENTRY32W entry = default;
-                entry.dwSize = (uint)sizeof(PROCESSENTRY32W);
+                Win32NativeHelper.PROCESSENTRY32W entry = default;
+                entry.dwSize = (uint)sizeof(Win32NativeHelper.PROCESSENTRY32W);
 
-                if (!Process32FirstW(hSnapshot, &entry))
+                if (!Win32NativeHelper.Process32FirstW(hSnapshot, &entry))
                     return false;
 
                 do
@@ -218,7 +182,7 @@ namespace Shiro.Services
                     {
                         totalCount++;
                     }
-                } while (Process32NextW(hSnapshot, &entry));
+                } while (Win32NativeHelper.Process32NextW(hSnapshot, &entry));
 
                 return true;
             }
@@ -229,7 +193,7 @@ namespace Shiro.Services
             }
             finally
             {
-                CloseHandle(hSnapshot);
+                Win32NativeHelper.CloseHandle(hSnapshot);
             }
         }
 
@@ -238,16 +202,16 @@ namespace Shiro.Services
             if (!OperatingSystem.IsWindows())
                 return false;
 
-            IntPtr hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+            IntPtr hSnapshot = Win32NativeHelper.CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
             if (hSnapshot == INVALID_HANDLE_VALUE || hSnapshot == IntPtr.Zero)
                 return false;
 
             try
             {
-                PROCESSENTRY32W entry = default;
-                entry.dwSize = (uint)sizeof(PROCESSENTRY32W);
+                Win32NativeHelper.PROCESSENTRY32W entry = default;
+                entry.dwSize = (uint)sizeof(Win32NativeHelper.PROCESSENTRY32W);
 
-                if (!Process32FirstW(hSnapshot, &entry))
+                if (!Win32NativeHelper.Process32FirstW(hSnapshot, &entry))
                     return false;
 
                 do
@@ -264,7 +228,7 @@ namespace Shiro.Services
                             break;
                         }
                     }
-                } while (Process32NextW(hSnapshot, &entry));
+                } while (Win32NativeHelper.Process32NextW(hSnapshot, &entry));
 
                 return true;
             }
@@ -275,7 +239,7 @@ namespace Shiro.Services
             }
             finally
             {
-                CloseHandle(hSnapshot);
+                Win32NativeHelper.CloseHandle(hSnapshot);
             }
         }
 

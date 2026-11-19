@@ -10,9 +10,8 @@ namespace Shiro.Services
 {
     public static partial class Win32TrayHelper
     {
-        [LibraryImport("user32.dll", EntryPoint = "PostMessageW", SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        public static partial bool PostMessage(IntPtr hWnd, uint Msg, int wParam, int lParam);
+        public static bool PostMessage(IntPtr hWnd, uint Msg, int wParam, int lParam) =>
+            Win32NativeHelper.PostMessageW(hWnd, Msg, (IntPtr)wParam, (IntPtr)lParam);
 
         [LibraryImport("user32.dll", EntryPoint = "FindWindowW", StringMarshalling = StringMarshalling.Utf16, SetLastError = true)]
         private static partial IntPtr FindWindow(string? lpClassName, string? lpWindowName);
@@ -31,24 +30,13 @@ namespace Shiro.Services
 
         [LibraryImport("user32.dll")]
         [return: MarshalAs(UnmanagedType.Bool)]
-        private static partial bool IsWindowVisible(IntPtr hWnd);
-
-        [LibraryImport("user32.dll")]
-        [return: MarshalAs(UnmanagedType.Bool)]
         private static partial bool GetClientRect(IntPtr hWnd, out RECT lpRect);
 
         private const uint WM_MOUSEMOVE = 0x0200;
 
         [LibraryImport("user32.dll")]
         [return: MarshalAs(UnmanagedType.Bool)]
-        private static unsafe partial bool EnumWindows(delegate* unmanaged[Stdcall]<IntPtr, IntPtr, int> lpEnumFunc, IntPtr lParam);
-
-        [LibraryImport("user32.dll")]
-        [return: MarshalAs(UnmanagedType.Bool)]
         private static unsafe partial bool EnumChildWindows(IntPtr hWndParent, delegate* unmanaged[Stdcall]<IntPtr, IntPtr, int> lpEnumFunc, IntPtr lParam);
-
-        [LibraryImport("user32.dll", EntryPoint = "GetClassNameW", SetLastError = true)]
-        private static unsafe partial int GetClassNameW(IntPtr hWnd, char* lpClassName, int nMaxCount);
 
         [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvStdcall) })]
         private static unsafe int EnumTopWindowsCallback(IntPtr hWnd, IntPtr lParam)
@@ -71,7 +59,7 @@ namespace Shiro.Services
             int length;
             fixed (char* ptr = buffer)
             {
-                length = GetClassNameW(hWnd, ptr, buffer.Length);
+                length = Win32NativeHelper.GetClassNameW(hWnd, ptr, buffer.Length);
             }
             if (length <= 0) return 1;
 
@@ -110,7 +98,7 @@ namespace Shiro.Services
             int length;
             fixed (char* ptr = buffer)
             {
-                length = GetClassNameW(child, ptr, buffer.Length);
+                length = Win32NativeHelper.GetClassNameW(child, ptr, buffer.Length);
             }
             if (length <= 0) return 1;
 
@@ -206,7 +194,7 @@ namespace Shiro.Services
                         bool isOverflow = string.Equals(cls, "TopLevelWindowForOverflowXamlIsland", StringComparison.OrdinalIgnoreCase) ||
                                           string.Equals(cls, "NotifyIconOverflowWindow", StringComparison.OrdinalIgnoreCase);
 
-                        if (IsWindowVisible(hTop) || (includeHiddenOverflow && isOverflow))
+                        if (Win32NativeHelper.IsWindowVisible(hTop) || (includeHiddenOverflow && isOverflow))
                         {
                             targets.Add(hTop);
                             CollectToolbars(hTop, targets);
@@ -220,7 +208,7 @@ namespace Shiro.Services
                     GCHandle handle = GCHandle.Alloc(targets);
                     try
                     {
-                        unsafe { EnumWindows(&EnumTopWindowsCallback, GCHandle.ToIntPtr(handle)); }
+                        unsafe { Win32NativeHelper.EnumWindows(&EnumTopWindowsCallback, GCHandle.ToIntPtr(handle)); }
                     }
                     finally
                     {
@@ -268,7 +256,7 @@ namespace Shiro.Services
         private static void SweepWindowForDeadIcons(IntPtr hWnd, bool allowHidden = false)
         {
             if (hWnd == IntPtr.Zero) return;
-            if (!allowHidden && !IsWindowVisible(hWnd)) return;
+            if (!allowHidden && !Win32NativeHelper.IsWindowVisible(hWnd)) return;
 
             try
             {

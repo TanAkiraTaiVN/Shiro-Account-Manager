@@ -138,7 +138,6 @@ namespace Shiro
             Persistence.Store = new AccountStore();
             Persistence.IsShutdownRequested = false;
             presenceService = new PresenceService();
-            browserService = new BrowserService();
 
             WireStateAndHostBridgeServices();
 
@@ -193,9 +192,6 @@ namespace Shiro
             if (!AppSettings.WebServer.Exists("Password")) AppSettings.WebServer.Set("Password", ""); else AppSettings.WebSocketPassword = CryptoHelper.UnprotectSecretString(AppSettings.WebServer.Get("Password") ?? string.Empty);
             if (!AppSettings.WebServer.Exists("EveryRequestRequiresPassword")) AppSettings.WebServer.Set("EveryRequestRequiresPassword", "false");
             if (!AppSettings.WebServer.Exists("AllowExternalConnections")) AppSettings.WebServer.Set("AllowExternalConnections", "false");
-
-            if (!AppSettings.AccountControl.Exists("RelaunchDelay")) AppSettings.AccountControl.Set("RelaunchDelay", "60");
-            if (!AppSettings.AccountControl.Exists("LauncherDelayNumber")) AppSettings.AccountControl.Set("LauncherDelayNumber", "9");
 
             ReplaceAccountsList(new List<Account>());
             AppServices.SelectionState.SelectedAccounts = new List<Account>();

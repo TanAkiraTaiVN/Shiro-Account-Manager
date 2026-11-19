@@ -69,7 +69,7 @@ namespace Shiro.Services
             if (pids.Count == 0)
                 return (0, Shiro.Services.LocalizationService.Get("WindowArranger.NoClientsRunning"));
 
-            var windows = FindWindowsForPids(pids).Where(IsWindow).Distinct().ToList();
+            var windows = FindWindowsForPids(pids).Where(Win32NativeHelper.IsWindow).Distinct().ToList();
             if (windows.Count == 0)
                 return (0, Shiro.Services.LocalizationService.Get("WindowArranger.NoWindowsFound"));
 
@@ -78,7 +78,7 @@ namespace Shiro.Services
 
             for (int i = 0; i < placements.Count; i++)
             {
-                ShowWindow(placements[i].Hwnd, SW_RESTORE);
+                Win32NativeHelper.ShowWindow(placements[i].Hwnd, SW_RESTORE);
             }
 
             const uint flags = SWP_NOZORDER | SWP_NOACTIVATE | SWP_SHOWWINDOW;
@@ -115,7 +115,7 @@ namespace Shiro.Services
                 for (int i = 0; i < placements.Count; i++)
                 {
                     var p = placements[i];
-                    if (SetWindowPos(p.Hwnd, IntPtr.Zero, p.X, p.Y, p.Width, p.Height, flags))
+                    if (Win32NativeHelper.SetWindowPos(p.Hwnd, IntPtr.Zero, p.X, p.Y, p.Width, p.Height, flags))
                     {
                         tiled++;
                     }
@@ -152,7 +152,7 @@ namespace Shiro.Services
         {
             if (lParam == IntPtr.Zero) return 1;
             var ctx = (SinglePidContext)GCHandle.FromIntPtr(lParam).Target!;
-            GetWindowThreadProcessId(hWnd, out uint windowPid);
+            Win32NativeHelper.GetWindowThreadProcessId(hWnd, out uint windowPid);
             if (windowPid != ctx.TargetPid)
                 return 1;
 
@@ -179,7 +179,7 @@ namespace Shiro.Services
             GCHandle handle = GCHandle.Alloc(ctx);
             try
             {
-                EnumWindows(&FindWindowForPidCallback, GCHandle.ToIntPtr(handle));
+                Win32NativeHelper.EnumWindows(&FindWindowForPidCallback, GCHandle.ToIntPtr(handle));
                 return ctx.FoundHwnd;
             }
             finally
@@ -223,7 +223,7 @@ namespace Shiro.Services
         {
             if (lParam == IntPtr.Zero) return 1;
             var ctx = (MultiPidContext)GCHandle.FromIntPtr(lParam).Target!;
-            GetWindowThreadProcessId(hWnd, out uint pid);
+            Win32NativeHelper.GetWindowThreadProcessId(hWnd, out uint pid);
             if (!ctx.Pids.Contains(pid))
                 return 1;
 
@@ -263,7 +263,7 @@ namespace Shiro.Services
             GCHandle handle = GCHandle.Alloc(ctx);
             try
             {
-                EnumWindows(&FindWindowsForPidsCallback, GCHandle.ToIntPtr(handle));
+                Win32NativeHelper.EnumWindows(&FindWindowsForPidsCallback, GCHandle.ToIntPtr(handle));
                 foreach (var kvp in windowMap)
                 {
                     result[kvp.Key] = kvp.Value.Hwnd;

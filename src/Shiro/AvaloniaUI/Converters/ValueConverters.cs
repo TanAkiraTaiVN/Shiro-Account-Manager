@@ -41,23 +41,6 @@ namespace Shiro.AvaloniaUI.Converters
         }
     }
 
-    public class CountToVisibilityConverter : IValueConverter
-    {
-        public static readonly CountToVisibilityConverter Instance = new();
-
-        public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
-        {
-            if (value is int count) return count > 0;
-            if (value is long l) return l > 0;
-            return false;
-        }
-
-        public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
-        {
-            throw new NotSupportedException();
-        }
-    }
-
     public class EqualityToBooleanConverter : IValueConverter
     {
         public static readonly EqualityToBooleanConverter Instance = new();

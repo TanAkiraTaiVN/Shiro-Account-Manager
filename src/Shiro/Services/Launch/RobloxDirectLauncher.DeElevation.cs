@@ -69,18 +69,8 @@ namespace Shiro.Services
             ref STARTUPINFO lpStartupInfo,
             out PROCESS_INFORMATION lpProcessInformation);
 
-        [LibraryImport("kernel32.dll", SetLastError = true)]
-        private static partial IntPtr OpenProcess(uint dwDesiredAccess, [MarshalAs(UnmanagedType.Bool)] bool bInheritHandle, int dwProcessId);
-
-        [LibraryImport("kernel32.dll", SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static partial bool CloseHandle(IntPtr hObject);
-
         [LibraryImport("user32.dll")]
         private static partial IntPtr GetShellWindow();
-
-        [LibraryImport("user32.dll", SetLastError = true)]
-        private static partial uint GetWindowThreadProcessId(IntPtr hWnd, out int lpdwProcessId);
 
         private const uint TOKEN_DUPLICATE = 0x0002;
         private const uint TOKEN_ASSIGN_PRIMARY = 0x0001;
@@ -163,7 +153,8 @@ namespace Shiro.Services
                 IntPtr hShell = GetShellWindow();
                 if (hShell != IntPtr.Zero)
                 {
-                    GetWindowThreadProcessId(hShell, out explorerPid);
+                    Win32NativeHelper.GetWindowThreadProcessId(hShell, out uint shellPid);
+                    explorerPid = (int)shellPid;
                 }
 
                 if (explorerPid <= 0)
@@ -187,7 +178,7 @@ namespace Shiro.Services
                     return false;
                 }
 
-                IntPtr hProcess = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, explorerPid);
+                IntPtr hProcess = Win32NativeHelper.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, explorerPid);
                 if (hProcess == IntPtr.Zero)
                 {
                     AppServices.Logger?.Debug($"[RobloxDirectLauncher] OpenProcess(explorer) failed (err: {Marshal.GetLastWin32Error()}).");
@@ -245,8 +236,8 @@ namespace Shiro.Services
                                 }
                                 finally
                                 {
-                                    if (pi.hThread != IntPtr.Zero) CloseHandle(pi.hThread);
-                                    if (pi.hProcess != IntPtr.Zero) CloseHandle(pi.hProcess);
+                                    if (pi.hThread != IntPtr.Zero) Win32NativeHelper.CloseHandle(pi.hThread);
+                                    if (pi.hProcess != IntPtr.Zero) Win32NativeHelper.CloseHandle(pi.hProcess);
                                 }
                             }
                             else
@@ -264,17 +255,17 @@ namespace Shiro.Services
                         }
                         finally
                         {
-                            CloseHandle(hNewToken);
+                            Win32NativeHelper.CloseHandle(hNewToken);
                         }
                     }
                     finally
                     {
-                        CloseHandle(hToken);
+                        Win32NativeHelper.CloseHandle(hToken);
                     }
                 }
                 finally
                 {
-                    CloseHandle(hProcess);
+                    Win32NativeHelper.CloseHandle(hProcess);
                 }
             }
             catch (Exception ex)

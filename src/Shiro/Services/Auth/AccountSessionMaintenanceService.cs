@@ -68,11 +68,11 @@ namespace Shiro.Services
                                 () => account.ValidateSessionAsync(cancellationToken),
                                 minIntervalMs: 350,
                                 cancellationToken: cancellationToken).ConfigureAwait(false);
-                            if (valid && !wasValid)
+                            if (valid != wasValid)
                             {
-                                account.Valid = true;
+                                account.Valid = valid;
                                 anyChanged = true;
-                                AppServices.AccountRegistration.NotifyAccountValidity(account, true);
+                                AppServices.AccountRegistration.NotifyAccountValidity(account, valid);
                             }
                         }
                         catch (Exception ex)

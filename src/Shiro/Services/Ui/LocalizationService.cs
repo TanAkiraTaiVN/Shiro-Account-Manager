@@ -138,16 +138,25 @@ namespace Shiro.Services
             SetLanguage(CurrentLanguage == AppLanguage.English ? AppLanguage.Vietnamese : AppLanguage.English);
         }
 
+        internal static string GetWithDictionaries(
+            string key,
+            string? fallback,
+            IReadOnlyDictionary<string, string> primary,
+            IReadOnlyDictionary<string, string> englishFallback)
+        {
+            if (primary.TryGetValue(key, out string? value))
+                return value;
+
+            if (!ReferenceEquals(primary, englishFallback) && englishFallback.TryGetValue(key, out string? enValue))
+                return enValue;
+
+            return fallback ?? key;
+        }
+
         public static string Get(string key, string? fallback = null)
         {
             var dict = CurrentLanguage == AppLanguage.English ? _frozenEnStrings : _frozenViStrings;
-            if (dict.TryGetValue(key, out string? value))
-                return value;
-
-            if (_frozenViStrings.TryGetValue(key, out string? viValue))
-                return viValue;
-
-            return fallback ?? key;
+            return GetWithDictionaries(key, fallback, dict, _frozenEnStrings);
         }
 
         public static string Format(string key, params object?[] args)

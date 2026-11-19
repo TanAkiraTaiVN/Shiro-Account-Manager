@@ -25,9 +25,9 @@ namespace Shiro.Services
             TaskCompletionSource<bool> signal,
             CancellationToken cancellationToken)
         {
-            if (RobloxRateLimitCoordinator.Instance.IsBackingOff)
+            if (RobloxRateLimitCoordinator.Instance.IsBackingOffCategory(RateLimitCategory.Authentication))
             {
-                double backoffSecs = Math.Max(1.0, RobloxRateLimitCoordinator.Instance.RemainingBackoff.TotalSeconds);
+                double backoffSecs = Math.Max(1.0, RobloxRateLimitCoordinator.Instance.GetRemainingBackoff(RateLimitCategory.Authentication).TotalSeconds);
                 Report(progress, new LaunchProgress
                 {
                     Index = displayIndex,
@@ -36,7 +36,7 @@ namespace Shiro.Services
                     Status = LaunchOutcome.RateLimited,
                     Message = LocalizationService.Format("Launch.RateLimitedIpWaiting", displayIndex, displayTotal, backoffSecs, request.Account.Username)
                 });
-                await RobloxRateLimitCoordinator.Instance.WaitForBackoffAsync(cancellationToken).ConfigureAwait(false);
+                await RobloxRateLimitCoordinator.Instance.WaitForBackoffAsync(RateLimitCategory.Authentication, cancellationToken).ConfigureAwait(false);
             }
 
             LaunchProgress state = new LaunchProgress
@@ -81,7 +81,7 @@ namespace Shiro.Services
                      retry++)
                 {
                     RobloxRateLimitCoordinator.Instance.RecordRateLimitHit(RateLimitCategory.Authentication);
-                    double waitSecs = Math.Max(1.0, RobloxRateLimitCoordinator.Instance.RemainingBackoff.TotalSeconds);
+                    double waitSecs = Math.Max(1.0, RobloxRateLimitCoordinator.Instance.GetRemainingBackoff(RateLimitCategory.Authentication).TotalSeconds);
                     AppServices.Logger?.Warn($"[LaunchCoordinator] Account {request.Account.Username} was rate limited during launch. Waiting {waitSecs:0.0}s before retry {retry}/{MaxRateLimitRetries}...");
 
                     Report(progress, new LaunchProgress
@@ -93,7 +93,7 @@ namespace Shiro.Services
                         Message = LocalizationService.Format("Launch.RateLimitedRetryWaiting", displayIndex, displayTotal, request.Account.Username, waitSecs, retry, MaxRateLimitRetries)
                     });
 
-                    await RobloxRateLimitCoordinator.Instance.WaitForBackoffAsync(cancellationToken).ConfigureAwait(false);
+                    await RobloxRateLimitCoordinator.Instance.WaitForBackoffAsync(RateLimitCategory.Authentication, cancellationToken).ConfigureAwait(false);
                     try
                     {
                         try { RobloxProcessService.CloseAccountRobloxProcess(request.Account); }

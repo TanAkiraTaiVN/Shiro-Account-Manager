@@ -28,6 +28,7 @@ namespace Shiro.ViewModels
         private bool _isLoadingServers;
         private bool _isLoadingRegions;
         private string _loadingStatus = Shiro.Services.LocalizationService.Get("Status_Ready");
+        private string _lastDefaultReadyStatus = Shiro.Services.LocalizationService.Get("Status_Ready");
         private ServerItemViewModel? _selectedServer;
         private int _selectedSubTabIndex = 0; // 0: Servers, 1: Games, 2: Recent & Favorites, 3: Watcher
         private int _disposed;
@@ -189,8 +190,14 @@ namespace Shiro.ViewModels
             AppDispatcher.Post(() =>
             {
                 if (Volatile.Read(ref _disposed) != 0) return;
-                if (_loadingStatus == Shiro.Services.LocalizationService.Get("Status_Ready") || _loadingStatus == "Ready")
-                    LoadingStatus = Shiro.Services.LocalizationService.Get("Status_Ready");
+                string localizedReady = Shiro.Services.LocalizationService.Get("Status_Ready");
+                if (string.IsNullOrWhiteSpace(_loadingStatus)
+                    || string.Equals(_loadingStatus, _lastDefaultReadyStatus, StringComparison.Ordinal)
+                    || string.Equals(_loadingStatus, localizedReady, StringComparison.Ordinal))
+                {
+                    _lastDefaultReadyStatus = localizedReady;
+                    LoadingStatus = localizedReady;
+                }
                 foreach (var s in _allServers)
                     s.NotifyLanguageChanged();
             });

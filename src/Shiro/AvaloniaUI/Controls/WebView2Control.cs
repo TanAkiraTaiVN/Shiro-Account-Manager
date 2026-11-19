@@ -44,10 +44,6 @@ namespace Shiro.AvaloniaUI.Controls
         [return: MarshalAs(UnmanagedType.Bool)]
         private static partial bool DestroyWindow(IntPtr hwnd);
 
-        [LibraryImport("user32.dll", SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static partial bool MoveWindow(IntPtr hWnd, int X, int Y, int nWidth, int nHeight, [MarshalAs(UnmanagedType.Bool)] bool bRepaint);
-
         private const int WS_CHILD = 0x40000000;
         private const int WS_VISIBLE = 0x10000000;
         private const int WS_CLIPSIBLINGS = 0x04000000;
@@ -102,9 +98,16 @@ namespace Shiro.AvaloniaUI.Controls
             base.DestroyNativeControlCore(control);
         }
 
+        internal static string GetEmbeddedBrowserDataFolder()
+        {
+            string dataFolder = Path.Combine(StoragePaths.BrowserSessionsDirectory, "EmbeddedBrowser");
+            Directory.CreateDirectory(dataFolder);
+            return dataFolder;
+        }
+
         // Removes isolated per-account profiles (EBWebView\Shiro_<guid>) left behind by a crash.
         // Runs before the environment exists, so no live browser can be using them.
-        private static void CleanupOrphanedProfiles(string dataFolder)
+        internal static void CleanupOrphanedProfiles(string dataFolder)
         {
             try
             {
@@ -114,6 +117,9 @@ namespace Shiro.AvaloniaUI.Controls
                 DateTime cutoffUtc = DateTime.UtcNow.AddHours(-1);
                 foreach (string dir in Directory.EnumerateDirectories(profilesRoot, "Shiro_*"))
                 {
+                    if (!StoragePaths.IsWithinDirectory(dir, profilesRoot))
+                        continue;
+
                     try
                     {
                         if (Directory.GetLastWriteTimeUtc(dir) < cutoffUtc)
@@ -138,10 +144,7 @@ namespace Shiro.AvaloniaUI.Controls
                 if (SharedEnvironmentTask != null && !SharedEnvironmentTask.IsFaulted && !SharedEnvironmentTask.IsCanceled)
                     return SharedEnvironmentTask;
 
-                string dataFolder = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                    "Shiro", "EmbeddedBrowser");
-                Directory.CreateDirectory(dataFolder);
+                string dataFolder = GetEmbeddedBrowserDataFolder();
                 CleanupOrphanedProfiles(dataFolder);
 
                 var options = new CoreWebView2EnvironmentOptions
@@ -259,7 +262,7 @@ namespace Shiro.AvaloniaUI.Controls
                 {
                     _lastWidth = w;
                     _lastHeight = h;
-                    MoveWindow(_childHwnd, 0, 0, w, h, true);
+                    Win32NativeHelper.MoveWindow(_childHwnd, 0, 0, w, h, true);
                     _controller.Bounds = new System.Drawing.Rectangle(0, 0, w, h);
                 }
             }

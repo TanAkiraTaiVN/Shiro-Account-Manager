@@ -29,14 +29,13 @@ Shiro Account Manager handles sensitive user credentials, including Roblox secur
    - The application logger automatically sanitizes sensitive fields, cookies, and tokens using high-performance Source-Generated Regular Expressions.
 5. **WebView2 & HBA Origin Lock**:
    - Embedded WebView2 HBA (`x-bound-auth-token`) fetch bridges and credential autofill scripts enforce strict `https://*.roblox.com` origin validation before executing or returning sensitive tokens.
-6. **Local Web Server & Nexus Hardening**:
+6. **Local Web Server & HTTP/WebSocket Gateway Hardening**:
    - Loopback verification, DNS rebinding protection, and Origin checking prevent Cross-Site Scripting (XSS) and Cross-Site WebSocket Hijacking (CSWSH) from malicious browser tabs.
    - Constant-time comparison (`CryptographicOperations.FixedTimeEquals`) is enforced for all password verifications, with a 12-character minimum password requirement for external listening.
-   - Kestrel `SetField`/`GetField` APIs block internal `Hba*` security fields, and Nexus WebSocket registration verifies `UserID` ownership against the authenticated account record.
-   - Request bodies are strictly capped at 256 KB to prevent memory exhaustion denial of service.
-7. **Supply-Chain & Auto-Updater Integrity**:
-   - The auto-updater enforces fail-closed **SHA-256** digest verification (`SHA256SUMS.txt` / GitHub release asset digest) before staging updates and rejects PowerShell single-quote injection in paths.
-   - Prerequisite installers (`vc_redist.x64.exe`) are verified via Windows **Authenticode** (`X509Chain` + Microsoft subject verification) prior to execution.
+   - Kestrel `SetField`/`GetField` APIs block internal `Hba*` security fields, and request bodies are strictly capped at 256 KB to prevent memory exhaustion denial of service.
+7. **Supply-Chain & Prerequisite Integrity**:
+   - Update checks are performed read-only over HTTPS against GitHub Releases (`UpdateCheckService`) without background binary staging or self-modifying PowerShell scripts.
+   - Prerequisite installers (`vc_redist.x64.exe`) are verified via Windows **Authenticode** (`WinVerifyTrust` full-chain revocation check + Microsoft signer validation in `PrerequisiteService`) prior to execution.
 
 ---
 

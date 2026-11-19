@@ -84,7 +84,7 @@ namespace Shiro
                     HttpClient httpClient = GetSessionHttpClient();
                     using var request = CreateAuthenticatedGetRequest("https://users.roblox.com/v1/users/authenticated");
 
-                    await RobloxRateLimitCoordinator.Instance.WaitForBackoffAsync(cancellationToken).ConfigureAwait(false);
+                    await RobloxRateLimitCoordinator.Instance.WaitForBackoffAsync(RateLimitCategory.SessionCheck, cancellationToken).ConfigureAwait(false);
 
                     using HttpResponseMessage response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
                     if (response == null)
@@ -258,7 +258,7 @@ namespace Shiro
                         RobloxRateLimitCoordinator.Instance.RecordRateLimitHit(RateLimitCategory.SessionCheck, response);
                         if (attempt == 0)
                         {
-                            await RobloxRateLimitCoordinator.Instance.WaitForBackoffAsync(cancellationToken).ConfigureAwait(false);
+                            await RobloxRateLimitCoordinator.Instance.WaitForBackoffAsync(RateLimitCategory.SessionCheck, cancellationToken).ConfigureAwait(false);
                             continue;
                         }
                         bool secondaryRateOk = await ValidateViaSecondaryEndpointAsync(cancellationToken).ConfigureAwait(false);

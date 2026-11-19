@@ -45,18 +45,8 @@ namespace Shiro.Services
         public static string FingerprintCookie(string? value) =>
             Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value ?? string.Empty)));
 
-        public static bool IsModerationOrLockedUrl(string? url)
-        {
-            if (string.IsNullOrEmpty(url))
-                return false;
-
-            return url.Contains("/not-approved", StringComparison.OrdinalIgnoreCase) ||
-                   url.Contains("/account-status", StringComparison.OrdinalIgnoreCase) ||
-                   url.Contains("/banned", StringComparison.OrdinalIgnoreCase) ||
-                   url.Contains("/moderation", StringComparison.OrdinalIgnoreCase) ||
-                   url.Contains("/account-locked", StringComparison.OrdinalIgnoreCase) ||
-                   url.Contains("/security-notification", StringComparison.OrdinalIgnoreCase);
-        }
+        public static bool IsModerationOrLockedUrl(string? url) =>
+            RobloxModerationHelper.IsModerationOrLockedUrl(url);
 
         public static IgnoredCookieAction EvaluateIgnoredCookieAction(
             string? currentUrl,

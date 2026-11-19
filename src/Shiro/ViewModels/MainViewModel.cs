@@ -34,6 +34,7 @@ namespace Shiro.ViewModels
 
         private NavigationPage _currentPage = NavigationPage.Accounts;
         private string _statusMessage = string.Empty;
+        private string _lastDefaultReadyStatus = string.Empty;
         private string _placeId = string.Empty;
         private string _jobId = string.Empty;
         private bool _isPotatoMode;
@@ -96,7 +97,8 @@ namespace Shiro.ViewModels
             {
                 _placeId = string.Empty;
             }
-            _statusMessage = Loc.Get("Status_ReadyDefault");
+            _lastDefaultReadyStatus = Loc.Get("Status_ReadyDefault");
+            _statusMessage = _lastDefaultReadyStatus;
             LocalizationService.LanguageChanged += OnLanguageChanged;
 
             ServerListViewModel = new ServerListViewModel(this, _logger, _settings);
@@ -116,9 +118,13 @@ namespace Shiro.ViewModels
                 OnPropertyChanged(nameof(CloseRobloxButtonText));
                 OnPropertyChanged(nameof(CurrentSortLabel));
                 NotifyLocalizedLabelsChanged();
-                if (string.IsNullOrWhiteSpace(_statusMessage) || _statusMessage.Contains("Double-click"))
+                string localizedReady = Loc.Get("Status_ReadyDefault");
+                if (string.IsNullOrWhiteSpace(_statusMessage)
+                    || string.Equals(_statusMessage, _lastDefaultReadyStatus, StringComparison.Ordinal)
+                    || string.Equals(_statusMessage, localizedReady, StringComparison.Ordinal))
                 {
-                    StatusMessage = Loc.Get("Status_ReadyDefault");
+                    _lastDefaultReadyStatus = localizedReady;
+                    StatusMessage = localizedReady;
                 }
                 if (Accounts != null)
                 {

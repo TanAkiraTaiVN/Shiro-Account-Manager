@@ -10,15 +10,8 @@ namespace Shiro.Services
 {
     public sealed partial class SessionAuditorService
     {
-        private static bool IsModerationUrl(string url)
-        {
-            return url.Contains("/not-approved", StringComparison.OrdinalIgnoreCase) ||
-                   url.Contains("/moderation", StringComparison.OrdinalIgnoreCase) ||
-                   url.Contains("/banned", StringComparison.OrdinalIgnoreCase) ||
-                   url.Contains("/account-status", StringComparison.OrdinalIgnoreCase) ||
-                   url.Contains("/account-locked", StringComparison.OrdinalIgnoreCase) ||
-                   url.Contains("/security-notification", StringComparison.OrdinalIgnoreCase);
-        }
+        private static bool IsModerationUrl(string url) =>
+            RobloxModerationHelper.IsModerationOrLockedUrl(url);
 
         private static bool IsHtmlResponse(string? content)
         {

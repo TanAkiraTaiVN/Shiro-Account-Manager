@@ -36,14 +36,7 @@ namespace Shiro.Services
         private static partial IntPtr CreateEventW(IntPtr lpEventAttributes, [MarshalAs(UnmanagedType.Bool)] bool bManualReset, [MarshalAs(UnmanagedType.Bool)] bool bInitialState, string lpName);
 
         [LibraryImport("kernel32.dll", SetLastError = true)]
-        private static partial uint WaitForSingleObject(IntPtr hHandle, uint dwMilliseconds);
-
-        [LibraryImport("kernel32.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
         private static partial bool ReleaseMutex(IntPtr hMutex);
-
-        [LibraryImport("kernel32.dll", SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static partial bool CloseHandle(IntPtr handle);
     }
 }

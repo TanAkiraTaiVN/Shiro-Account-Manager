@@ -70,11 +70,17 @@ namespace Shiro.Services
                 }
             }
 
+            int atIdx = working.LastIndexOf('@');
+            bool looksLikeUserInfoAtHostPort = atIdx >= 0 && TryExtractHostPort(working[(atIdx + 1)..], out _, out _);
+
             if (working.IndexOf('[') < 0)
             {
                 Span<Range> colonRanges = stackalloc Range[5];
                 int colonCount = working.Split(colonRanges, ':');
-                if (colonCount >= 4 &&
+                bool preferAtUri = looksLikeUserInfoAtHostPort &&
+                    (hadScheme || (colonCount >= 4 && atIdx < colonRanges[3].Start.GetOffset(working.Length)));
+                if (!preferAtUri &&
+                    colonCount >= 4 &&
                     working[colonRanges[0]].IndexOf('@') < 0 &&
                     int.TryParse(working[colonRanges[1]].Trim(), out int colonPort) &&
                     colonPort is > 0 and <= 65535)
@@ -99,7 +105,6 @@ namespace Shiro.Services
                 }
             }
 
-            int atIdx = working.LastIndexOf('@');
             if (atIdx >= 0)
             {
                 ReadOnlySpan<char> part1 = working[..atIdx];

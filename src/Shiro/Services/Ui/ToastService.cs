@@ -2,6 +2,7 @@
 using System;
 using System.Collections.ObjectModel;
 using System.Runtime.InteropServices;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using Avalonia.Media;
@@ -50,6 +51,7 @@ namespace Shiro.Services
         public ICommand DismissCommand { get; }
         public string ActionText { get; set; } = string.Empty;
         public ICommand? ActionCommand { get; set; }
+        internal CancellationTokenSource? AutoDismissCts { get; set; }
 
         public ToastItem()
         {
@@ -156,13 +158,16 @@ namespace Shiro.Services
             AppDispatcher.Post(() =>
             {
                 ToastItem toast;
+                TimeSpan? autoDismissDelay = ResolveAutoDismissDelay(durationSeconds);
+                ToastItem? coalescedToast = null;
+
                 lock (_toastLock)
                 {
                     string cleanTitle = title ?? string.Empty;
                     string cleanMessage = message ?? string.Empty;
                     string cleanAction = actionText ?? string.Empty;
 
-                    // Coalesce identical consecutive toasts or replace same-title progress toast
+                    // Coalesce identical consecutive toasts and extend their auto-dismiss timer cleanly.
                     for (int i = ActiveToasts.Count - 1; i >= 0; i--)
                     {
                         var existing = ActiveToasts[i];
@@ -171,53 +176,103 @@ namespace Shiro.Services
                             string.Equals(existing.Message, cleanMessage, StringComparison.Ordinal) &&
                             string.Equals(existing.ActionText, cleanAction, StringComparison.Ordinal))
                         {
-                            return;
+                            coalescedToast = existing;
+                            break;
                         }
                     }
 
-                    toast = new ToastItem
+                    if (coalescedToast == null)
                     {
-                        Title = cleanTitle,
-                        Message = cleanMessage,
-                        Type = type,
-                        ActionText = cleanAction
-                    };
-
-                    if (onAction != null && !string.IsNullOrWhiteSpace(cleanAction))
-                    {
-                        toast.ActionCommand = new RelayCommand(() =>
+                        toast = new ToastItem
                         {
-                            try
-                            {
-                                onAction();
-                            }
-                            finally
-                            {
-                                Dismiss(toast);
-                            }
-                        });
-                    }
+                            Title = cleanTitle,
+                            Message = cleanMessage,
+                            Type = type,
+                            ActionText = cleanAction
+                        };
 
-                    // Limit active toasts to 2 to keep the viewport clean and unobstructed
-                    while (ActiveToasts.Count >= 2)
+                        if (onAction != null && !string.IsNullOrWhiteSpace(cleanAction))
+                        {
+                            toast.ActionCommand = new RelayCommand(() =>
+                            {
+                                try
+                                {
+                                    onAction();
+                                }
+                                finally
+                                {
+                                    Dismiss(toast);
+                                }
+                            });
+                        }
+
+                        // Limit active toasts to 2 to keep the viewport clean and unobstructed
+                        while (ActiveToasts.Count >= 2)
+                        {
+                            if (ActiveToasts.Count > 0)
+                            {
+                                CancelAndDisposeToastTimer(ActiveToasts[0]);
+                                ActiveToasts.RemoveAt(0);
+                            }
+                        }
+
+                        ActiveToasts.Add(toast);
+                    }
+                    else
                     {
-                        if (ActiveToasts.Count > 0)
-                            ActiveToasts.RemoveAt(0);
+                        toast = coalescedToast;
                     }
-
-                    ActiveToasts.Add(toast);
                 }
 
-                PlayNotificationSound(type);
+                if (coalescedToast == null)
+                {
+                    PlayNotificationSound(type);
+                }
 
-                TimeSpan? autoDismissDelay = ResolveAutoDismissDelay(durationSeconds);
                 if (autoDismissDelay is TimeSpan delay)
                 {
-                    _ = Task.Run(async () =>
-                    {
-                        await Task.Delay(delay).ConfigureAwait(false);
+                    ScheduleAutoDismiss(toast, delay);
+                }
+                else
+                {
+                    lock (_toastLock) { CancelAndDisposeToastTimer(toast); }
+                }
+            });
+        }
+
+        private static void CancelAndDisposeToastTimer(ToastItem toast)
+        {
+            var old = toast.AutoDismissCts;
+            toast.AutoDismissCts = null;
+            if (old != null)
+            {
+                SafeExecuteHelper.Try(old.Cancel);
+                SafeExecuteHelper.Try(old.Dispose);
+            }
+        }
+
+        private static void ScheduleAutoDismiss(ToastItem toast, TimeSpan delay)
+        {
+            CancellationToken token;
+            lock (_toastLock)
+            {
+                CancelAndDisposeToastTimer(toast);
+                var cts = new CancellationTokenSource();
+                toast.AutoDismissCts = cts;
+                token = cts.Token;
+            }
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await Task.Delay(delay, token).ConfigureAwait(false);
+                    if (!token.IsCancellationRequested)
                         AppDispatcher.Post(() => Dismiss(toast));
-                    });
+                }
+                catch (OperationCanceledException)
+                {
+                    // Coalesced toast timer was superseded or toast dismissed manually.
                 }
             });
         }
@@ -241,6 +296,7 @@ namespace Shiro.Services
             {
                 lock (_toastLock)
                 {
+                    CancelAndDisposeToastTimer(toast);
                     ActiveToasts.Remove(toast);
                 }
             });
@@ -252,6 +308,8 @@ namespace Shiro.Services
             {
                 lock (_toastLock)
                 {
+                    foreach (var active in ActiveToasts)
+                        CancelAndDisposeToastTimer(active);
                     ActiveToasts.Clear();
                 }
             });

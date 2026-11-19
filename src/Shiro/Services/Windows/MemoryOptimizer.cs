@@ -100,13 +100,13 @@ namespace Shiro.Services
 
         internal static void ApplyProcessFocusProfile(int pid, bool isForeground)
         {
-            IntPtr hProcess = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_SET_INFORMATION | PROCESS_SET_QUOTA, false, pid);
+            IntPtr hProcess = Win32NativeHelper.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_SET_INFORMATION | PROCESS_SET_QUOTA, false, pid);
             if (hProcess == IntPtr.Zero) return;
             try
             {
                 var throttler = RobloxBackgroundThrottlerService.Instance;
                 uint targetPrio = ComputeTargetPriorityClass(isForeground, throttler.IsEnabled, throttler.TargetBackgroundFps);
-                SetPriorityClass(hProcess, targetPrio);
+                Win32NativeHelper.SetPriorityClass(hProcess, targetPrio);
 
                 if (isForeground)
                 {
@@ -122,7 +122,7 @@ namespace Shiro.Services
             }
             finally
             {
-                CloseHandle(hProcess);
+                Win32NativeHelper.CloseHandle(hProcess);
             }
         }
 
@@ -187,15 +187,15 @@ namespace Shiro.Services
                 {
                     if (pids.Count > 0)
                     {
-                        uint fgPid = TryGetForegroundWindowPid(GetForegroundWindow, hwnd =>
+                        uint fgPid = TryGetForegroundWindowPid(Win32NativeHelper.GetForegroundWindow, hwnd =>
                         {
-                            GetWindowThreadProcessId(hwnd, out uint procId);
+                            Win32NativeHelper.GetWindowThreadProcessId(hwnd, out uint procId);
                             return procId;
                         });
 
                         foreach (int pid in pids)
                         {
-                            IntPtr hProcess = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
+                            IntPtr hProcess = Win32NativeHelper.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
                             if (hProcess == IntPtr.Zero) continue;
                             try
                             {
@@ -210,7 +210,7 @@ namespace Shiro.Services
                             }
                             finally
                             {
-                                CloseHandle(hProcess);
+                                Win32NativeHelper.CloseHandle(hProcess);
                             }
                         }
                     }
@@ -266,9 +266,9 @@ namespace Shiro.Services
             int count = 0;
             int prioCount = 0;
 
-            uint fgPid = TryGetForegroundWindowPid(GetForegroundWindow, hwnd =>
+            uint fgPid = TryGetForegroundWindowPid(Win32NativeHelper.GetForegroundWindow, hwnd =>
             {
-                GetWindowThreadProcessId(hwnd, out uint procId);
+                Win32NativeHelper.GetWindowThreadProcessId(hwnd, out uint procId);
                 return procId;
             });
 
@@ -278,7 +278,7 @@ namespace Shiro.Services
                 && ShouldApplyBackgroundFocusThrottle(pids.Count);
             foreach (int pid in pids)
             {
-                IntPtr hProcess = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_SET_QUOTA | PROCESS_SET_INFORMATION, false, pid);
+                IntPtr hProcess = Win32NativeHelper.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_SET_QUOTA | PROCESS_SET_INFORMATION, false, pid);
                 if (hProcess == IntPtr.Zero) continue;
 
                 try
@@ -288,10 +288,10 @@ namespace Shiro.Services
                     if (effectiveLowerPriority)
                     {
                         uint targetRawPrio = ResolveTrimTargetPriorityClass(isForeground);
-                        uint currentRawPrio = GetPriorityClass(hProcess);
+                        uint currentRawPrio = Win32NativeHelper.GetPriorityClass(hProcess);
                         if (currentRawPrio != 0 && currentRawPrio != targetRawPrio)
                         {
-                            if (SetPriorityClass(hProcess, targetRawPrio))
+                            if (Win32NativeHelper.SetPriorityClass(hProcess, targetRawPrio))
                                 prioCount++;
                         }
                     }
@@ -302,7 +302,7 @@ namespace Shiro.Services
                     // preventing page-fault micro-stutters and unnecessary paging overhead.
                     if (allowEmptyWorkingSet && (!isForeground || before > ForegroundMaxMemoryThresholdBytes))
                     {
-                        if (EmptyWorkingSet(hProcess) != 0)
+                        if (Win32NativeHelper.EmptyWorkingSet(hProcess))
                             count++;
                     }
                     else if (!isForeground)
@@ -336,7 +336,7 @@ namespace Shiro.Services
                 }
                 finally
                 {
-                    CloseHandle(hProcess);
+                    Win32NativeHelper.CloseHandle(hProcess);
                 }
             }
 
@@ -357,33 +357,18 @@ namespace Shiro.Services
         private const uint PROCESS_SET_QUOTA = 0x0100;
         private const uint PROCESS_SET_INFORMATION = 0x0200;
 
-        [StructLayout(LayoutKind.Sequential)]
-        private struct PROCESS_MEMORY_COUNTERS
-        {
-            public uint cb;
-            public uint PageFaultCount;
-            public nuint PeakWorkingSetSize;
-            public nuint WorkingSetSize;
-            public nuint QuotaPeakPagedPoolUsage;
-            public nuint QuotaPagedPoolUsage;
-            public nuint QuotaPeakNonPagedPoolUsage;
-            public nuint QuotaNonPagedPoolUsage;
-            public nuint PagefileUsage;
-            public nuint PeakPagefileUsage;
-        }
-
         private static unsafe long GetWorkingSetBytesNative(IntPtr hProcess)
         {
-            PROCESS_MEMORY_COUNTERS counters = default;
-            counters.cb = (uint)sizeof(PROCESS_MEMORY_COUNTERS);
-            if (K32GetProcessMemoryInfo(hProcess, out counters, counters.cb))
+            Win32NativeHelper.PROCESS_MEMORY_COUNTERS counters = default;
+            counters.cb = (uint)sizeof(Win32NativeHelper.PROCESS_MEMORY_COUNTERS);
+            if (Win32NativeHelper.K32GetProcessMemoryInfo(hProcess, out counters, counters.cb))
                 return (long)counters.WorkingSetSize;
             return 0;
         }
 
         private static ProcessPriorityClass GetProcessPriorityClassNative(IntPtr hProcess)
         {
-            uint raw = GetPriorityClass(hProcess);
+            uint raw = Win32NativeHelper.GetPriorityClass(hProcess);
             return raw switch
             {
                 RobloxProcessOptimizer.IDLE_PRIORITY_CLASS => ProcessPriorityClass.Idle,
@@ -394,17 +379,6 @@ namespace Shiro.Services
                 _ => ProcessPriorityClass.Normal
             };
         }
-
-        [LibraryImport("kernel32.dll", SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static partial bool K32GetProcessMemoryInfo(IntPtr process, out PROCESS_MEMORY_COUNTERS ppsmemCounters, uint cb);
-
-        [LibraryImport("kernel32.dll", SetLastError = true)]
-        private static partial uint GetPriorityClass(IntPtr hProcess);
-
-        [LibraryImport("kernel32.dll", SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static partial bool SetPriorityClass(IntPtr hProcess, uint dwPriorityClass);
 
         [StructLayout(LayoutKind.Sequential)]
         private struct PROCESS_POWER_THROTTLING_STATE
@@ -457,21 +431,5 @@ namespace Shiro.Services
                 return false;
             }
         }
-
-        [LibraryImport("user32.dll")]
-        private static partial IntPtr GetForegroundWindow();
-
-        [LibraryImport("user32.dll")]
-        private static partial uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
-
-        [LibraryImport("psapi.dll")]
-        private static partial int EmptyWorkingSet(IntPtr hwProc);
-
-        [LibraryImport("kernel32.dll", SetLastError = true)]
-        private static partial IntPtr OpenProcess(uint dwDesiredAccess, [MarshalAs(UnmanagedType.Bool)] bool bInheritHandle, int dwProcessId);
-
-        [LibraryImport("kernel32.dll", SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static partial bool CloseHandle(IntPtr hObject);
     }
 }

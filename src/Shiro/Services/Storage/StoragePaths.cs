@@ -75,7 +75,6 @@ namespace Shiro.Services
                 {
                     string name = asm.GetName().Name ?? string.Empty;
                     if (name.Equals("Shiro.Tests", StringComparison.OrdinalIgnoreCase) ||
-                        name.Equals("Shiro.Tests", StringComparison.OrdinalIgnoreCase) ||
                         name.StartsWith("xunit.", StringComparison.OrdinalIgnoreCase))
                         return true;
                 }

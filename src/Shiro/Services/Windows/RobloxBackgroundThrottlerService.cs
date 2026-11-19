@@ -81,21 +81,6 @@ namespace Shiro.Services
         {
         }
 
-        [LibraryImport("kernel32.dll", SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static partial bool SetPriorityClass(IntPtr hProcess, uint dwPriorityClass);
-
-        [LibraryImport("psapi.dll", SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static partial bool EmptyWorkingSet(IntPtr hProcess);
-
-        [LibraryImport("kernel32.dll", SetLastError = true)]
-        private static partial IntPtr OpenProcess(uint dwDesiredAccess, [MarshalAs(UnmanagedType.Bool)] bool bInheritHandle, int dwProcessId);
-
-        [LibraryImport("kernel32.dll", SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static partial bool CloseHandle(IntPtr hObject);
-
         /// <summary>
         /// Returns whether a given process ID is currently tracked as throttled.
         /// </summary>
@@ -122,13 +107,13 @@ namespace Shiro.Services
 
             if (!OperatingSystem.IsWindows()) return;
 
-            IntPtr hProcess = OpenProcess(PROCESS_SET_INFORMATION, false, processId);
+            IntPtr hProcess = Win32NativeHelper.OpenProcess(PROCESS_SET_INFORMATION, false, processId);
             if (hProcess == IntPtr.Zero) return;
 
             try
             {
                 uint priority = MemoryOptimizer.ComputeTargetPriorityClass(isForeground, throttlerEnabled: true, backgroundFps);
-                SetPriorityClass(hProcess, priority);
+                Win32NativeHelper.SetPriorityClass(hProcess, priority);
                 if (isForeground)
                 {
                     MemoryOptimizer.DisableEcoQoS(hProcess);
@@ -146,7 +131,7 @@ namespace Shiro.Services
             }
             finally
             {
-                CloseHandle(hProcess);
+                Win32NativeHelper.CloseHandle(hProcess);
             }
         }
 
@@ -157,12 +142,12 @@ namespace Shiro.Services
         {
             if (processId <= 0 || !OperatingSystem.IsWindows()) return false;
 
-            IntPtr hProcess = OpenProcess(PROCESS_SET_QUOTA | PROCESS_QUERY_LIMITED_INFORMATION, false, processId);
+            IntPtr hProcess = Win32NativeHelper.OpenProcess(PROCESS_SET_QUOTA | PROCESS_QUERY_LIMITED_INFORMATION, false, processId);
             if (hProcess == IntPtr.Zero) return false;
 
             try
             {
-                return EmptyWorkingSet(hProcess);
+                return Win32NativeHelper.EmptyWorkingSet(hProcess);
             }
             catch (Exception ex)
             {
@@ -171,7 +156,7 @@ namespace Shiro.Services
             }
             finally
             {
-                CloseHandle(hProcess);
+                Win32NativeHelper.CloseHandle(hProcess);
             }
         }
 

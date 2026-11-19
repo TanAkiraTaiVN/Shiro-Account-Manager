@@ -268,16 +268,16 @@ namespace Shiro.Services
                     }
 
                     if (!_enabled) break;
-                    bool isHidden = RobloxWindowService.AreWindowsHidden || !IsWindowVisible(hWnd);
-                    bool isForegroundWindow = hWnd == GetForegroundWindow();
+                    bool isHidden = RobloxWindowService.AreWindowsHidden || !Win32NativeHelper.IsWindowVisible(hWnd);
+                    bool isForegroundWindow = hWnd == Win32NativeHelper.GetForegroundWindow();
                     bool allowFocusSteal = AppServices.GeneralSettings.Get<bool>("AntiAfkForegroundFallback", false);
 
                     bool PulseViaPost(IntPtr target)
                     {
-                        bool ok = PostMessage(target, WM_KEYDOWN, (IntPtr)VK_F15, lParamDown) &&
-                                  PostMessage(target, WM_KEYUP, (IntPtr)VK_F15, lParamUp);
-                        PostMessage(target, WM_MOUSEMOVE, IntPtr.Zero, (IntPtr)((10 << 16) | 10));
-                        PostMessage(target, WM_NULL, IntPtr.Zero, IntPtr.Zero);
+                        bool ok = Win32NativeHelper.PostMessageW(target, WM_KEYDOWN, (IntPtr)VK_F15, lParamDown) &&
+                                  Win32NativeHelper.PostMessageW(target, WM_KEYUP, (IntPtr)VK_F15, lParamUp);
+                        Win32NativeHelper.PostMessageW(target, WM_MOUSEMOVE, IntPtr.Zero, (IntPtr)((10 << 16) | 10));
+                        Win32NativeHelper.PostMessageW(target, WM_NULL, IntPtr.Zero, IntPtr.Zero);
                         return ok;
                     }
 
@@ -306,12 +306,12 @@ namespace Shiro.Services
                     }
 
                     {
-                        IntPtr userWindow = GetForegroundWindow();
-                        bool wasMinimized = IsIconic(hWnd);
-                        if (wasMinimized) ShowWindow(hWnd, SW_RESTORE);
-                        SetForegroundWindow(hWnd);
+                        IntPtr userWindow = Win32NativeHelper.GetForegroundWindow();
+                        bool wasMinimized = Win32NativeHelper.IsIconic(hWnd);
+                        if (wasMinimized) Win32NativeHelper.ShowWindow(hWnd, SW_RESTORE);
+                        Win32NativeHelper.SetForegroundWindow(hWnd);
                         await Task.Delay(80).ConfigureAwait(false);
-                        if (GetForegroundWindow() == hWnd)
+                        if (Win32NativeHelper.GetForegroundWindow() == hWnd)
                         {
                             SendKey(VK_SPACE, keyUp: false);
                             await Task.Delay(40).ConfigureAwait(false);
@@ -327,8 +327,8 @@ namespace Shiro.Services
                             st.Failures++;
                             st.NextDueUtc = ComputeFailureBackoffUtc(DateTime.UtcNow, st.Failures);
                         }
-                        if (wasMinimized) ShowWindow(hWnd, SW_MINIMIZE);
-                        if (userWindow != IntPtr.Zero && userWindow != GetForegroundWindow()) SetForegroundWindow(userWindow);
+                        if (wasMinimized) Win32NativeHelper.ShowWindow(hWnd, SW_MINIMIZE);
+                        if (userWindow != IntPtr.Zero && userWindow != Win32NativeHelper.GetForegroundWindow()) Win32NativeHelper.SetForegroundWindow(userWindow);
                     }
                 }
 
@@ -377,30 +377,7 @@ namespace Shiro.Services
         private const int SW_RESTORE = 9;
         private const int SW_MINIMIZE = 6;
 
-        [LibraryImport("user32.dll", EntryPoint = "PostMessageW", SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static partial bool PostMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
-
-        [LibraryImport("user32.dll")]
-        private static partial IntPtr GetForegroundWindow();
-
-        [LibraryImport("user32.dll")]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static partial bool SetForegroundWindow(IntPtr hWnd);
-
-        [LibraryImport("user32.dll")]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static partial bool IsIconic(IntPtr hWnd);
-
-        [LibraryImport("user32.dll")]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static partial bool ShowWindow(IntPtr hWnd, int nCmdShow);
-
         private const uint WM_NULL = 0x0000;
-
-        [LibraryImport("user32.dll")]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static partial bool IsWindowVisible(IntPtr hWnd);
 
         [LibraryImport("user32.dll", EntryPoint = "MapVirtualKeyW")]
         private static partial uint MapVirtualKey(uint uCode, uint uMapType);

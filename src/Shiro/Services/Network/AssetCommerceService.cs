@@ -27,26 +27,20 @@ public sealed class AssetCommerceService : IAssetCommerce
         });
         string json = JsonSerializer.Serialize(payload, ShiroAppJson.Default.CatalogItemDetailsBatchRequest);
 
-        var request = a.MakeRequest("v1/catalog/items/details", Method.Post);
-        if (!string.IsNullOrWhiteSpace(a.CSRFToken))
-        {
-            request.AddHeader("X-CSRF-TOKEN", a.CSRFToken);
-        }
-        request.AddStringBody(json, "application/json");
-
-        var response = await a.ExecuteAccountRestAsync(AppServices.RobloxApi.Catalog, "https://catalog.roblox.com/", request, ct).ConfigureAwait(false);
-        if (response != null && response.StatusCode == HttpStatusCode.Forbidden)
-        {
-            string? newCsrf = TryGetCsrfHeader(response);
-            if (!string.IsNullOrWhiteSpace(newCsrf))
+        var response = await RobloxCsrfRetryHelper.ExecuteWithCsrfRetryAsync(
+            a,
+            AppServices.RobloxApi.Catalog,
+            "https://catalog.roblox.com/",
+            a.CSRFToken,
+            csrf =>
             {
-                a.SetCsrfToken(newCsrf);
-                var retryReq = a.MakeRequest("v1/catalog/items/details", Method.Post);
-                retryReq.AddHeader("X-CSRF-TOKEN", newCsrf);
-                retryReq.AddStringBody(json, "application/json");
-                response = await a.ExecuteAccountRestAsync(AppServices.RobloxApi.Catalog, "https://catalog.roblox.com/", retryReq, ct).ConfigureAwait(false);
-            }
-        }
+                var req = a.MakeRequest("v1/catalog/items/details", Method.Post);
+                if (!string.IsNullOrWhiteSpace(csrf))
+                    req.AddHeader("X-CSRF-TOKEN", csrf);
+                req.AddStringBody(json, "application/json");
+                return req;
+            },
+            ct).ConfigureAwait(false);
 
         if (response != null && response.IsSuccessful && !string.IsNullOrWhiteSpace(response.Content))
         {
@@ -84,24 +78,21 @@ public sealed class AssetCommerceService : IAssetCommerce
         {
             var resolvePayload = new MarketplaceItemsDetailsRequest(new[] { collectibleItemId });
             string resolveJson = JsonSerializer.Serialize(resolvePayload, ShiroAppJson.Default.MarketplaceItemsDetailsRequest);
-            var resolveReq = a.MakeRequest("marketplace-items/v1/items/details", Method.Post);
-            resolveReq.AddHeader("X-CSRF-TOKEN", currentCsrf);
-            resolveReq.AddStringBody(resolveJson, "application/json");
-
-            var resolveResp = await a.ExecuteAccountRestAsync(AppServices.RobloxApi.Api, "https://apis.roblox.com/", resolveReq, ct).ConfigureAwait(false);
-            if (resolveResp != null && resolveResp.StatusCode == HttpStatusCode.Forbidden)
-            {
-                string? newCsrf = TryGetCsrfHeader(resolveResp);
-                if (!string.IsNullOrWhiteSpace(newCsrf))
+            var resolveResp = await RobloxCsrfRetryHelper.ExecuteWithCsrfRetryAsync(
+                a,
+                AppServices.RobloxApi.Api,
+                "https://apis.roblox.com/",
+                currentCsrf,
+                csrf =>
                 {
-                    currentCsrf = newCsrf;
-                    a.SetCsrfToken(newCsrf);
-                    resolveReq = a.MakeRequest("marketplace-items/v1/items/details", Method.Post);
-                    resolveReq.AddHeader("X-CSRF-TOKEN", newCsrf);
-                    resolveReq.AddStringBody(resolveJson, "application/json");
-                    resolveResp = await a.ExecuteAccountRestAsync(AppServices.RobloxApi.Api, "https://apis.roblox.com/", resolveReq, ct).ConfigureAwait(false);
-                }
-            }
+                    var req = a.MakeRequest("marketplace-items/v1/items/details", Method.Post);
+                    req.AddHeader("X-CSRF-TOKEN", csrf);
+                    req.AddStringBody(resolveJson, "application/json");
+                    return req;
+                },
+                ct).ConfigureAwait(false);
+            if (!string.IsNullOrWhiteSpace(a.CSRFToken))
+                currentCsrf = a.CSRFToken;
 
             if (resolveResp != null && resolveResp.IsSuccessful && !string.IsNullOrWhiteSpace(resolveResp.Content))
             {
@@ -165,24 +156,19 @@ public sealed class AssetCommerceService : IAssetCommerce
             idempotencyKey: Guid.NewGuid().ToString());
 
         string purchaseJson = JsonSerializer.Serialize(purchasePayload, ShiroAppJson.Default.MarketplacePurchasePayload);
-        var buyRequest = a.MakeRequest($"marketplace-sales/v1/item/{collectibleItemId}/purchase-item", Method.Post);
-        buyRequest.AddHeader("X-CSRF-TOKEN", currentCsrf);
-        buyRequest.AddStringBody(purchaseJson, "application/json");
-
-        var buyResp = await a.ExecuteAccountRestAsync(AppServices.RobloxApi.Api, "https://apis.roblox.com/", buyRequest, ct).ConfigureAwait(false);
-        if (buyResp != null && buyResp.StatusCode == HttpStatusCode.Forbidden)
-        {
-            string? newCsrf = TryGetCsrfHeader(buyResp);
-            if (!string.IsNullOrWhiteSpace(newCsrf))
+        var buyResp = await RobloxCsrfRetryHelper.ExecuteWithCsrfRetryAsync(
+            a,
+            AppServices.RobloxApi.Api,
+            "https://apis.roblox.com/",
+            currentCsrf,
+            csrf =>
             {
-                currentCsrf = newCsrf;
-                a.SetCsrfToken(newCsrf);
-                var retryBuyReq = a.MakeRequest($"marketplace-sales/v1/item/{collectibleItemId}/purchase-item", Method.Post);
-                retryBuyReq.AddHeader("X-CSRF-TOKEN", newCsrf);
-                retryBuyReq.AddStringBody(purchaseJson, "application/json");
-                buyResp = await a.ExecuteAccountRestAsync(AppServices.RobloxApi.Api, "https://apis.roblox.com/", retryBuyReq, ct).ConfigureAwait(false);
-            }
-        }
+                var req = a.MakeRequest($"marketplace-sales/v1/item/{collectibleItemId}/purchase-item", Method.Post);
+                req.AddHeader("X-CSRF-TOKEN", csrf);
+                req.AddStringBody(purchaseJson, "application/json");
+                return req;
+            },
+            ct).ConfigureAwait(false);
 
         if (buyResp == null)
         {
@@ -217,18 +203,6 @@ public sealed class AssetCommerceService : IAssetCommerce
             AppServices.Logger.Debug($"[AssetCommerceService] Failed to parse purchase response JSON: {ex.Message}");
             return (false, "Invalid purchase response format.");
         }
-    }
-
-    private static string? TryGetCsrfHeader(RestResponse resp)
-    {
-        foreach (var header in resp.Headers)
-        {
-            if (string.Equals(header.Name, "x-csrf-token", StringComparison.OrdinalIgnoreCase))
-            {
-                return header.Value?.ToString();
-            }
-        }
-        return null;
     }
 
     private static string? TryExtractErrorMessage(string? json)

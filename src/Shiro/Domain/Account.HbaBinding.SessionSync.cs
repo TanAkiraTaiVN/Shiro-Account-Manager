@@ -136,7 +136,7 @@ namespace Shiro
             for (int attempt = 0; attempt < 2; attempt++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                await RobloxRateLimitCoordinator.Instance.WaitForBackoffAsync(cancellationToken).ConfigureAwait(false);
+                await RobloxRateLimitCoordinator.Instance.WaitForBackoffAsync(RateLimitCategory.SessionCheck, cancellationToken).ConfigureAwait(false);
 
                 int versionBefore = CookieRotationVersion;
                 using var request = CreateAuthenticatedGetRequest("https://users.roblox.com/v1/users/authenticated");

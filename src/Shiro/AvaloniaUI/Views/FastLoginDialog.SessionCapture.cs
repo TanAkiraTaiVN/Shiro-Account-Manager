@@ -394,12 +394,15 @@ namespace Shiro.AvaloniaUI.Views
                             AppServices.HostUiBridge.NotifyWindowStatus(mismatchMsg);
                             ResetHbaSnapshot();
                             var freshCore = WvBrowser != null ? await WvBrowser.ResetToFreshProfileAsync() : null;
+                            if (_isClosed) return;
                             if (freshCore != null)
                             {
                                 await ConfigureCoreWebViewAsync(freshCore);
+                                if (_isClosed) return;
                                 freshCore.Navigate("https://www.roblox.com/login");
                             }
                             await Task.Delay(350);
+                            if (_isClosed) return;
                             _captured = false;
                             _pollTimer?.Start();
                             await TryFillCredentialsAsync(forceClick: true);

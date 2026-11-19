@@ -54,7 +54,7 @@ Every pull request is automatically validated against `tests/Shiro.Tests/Archite
    - All files in `src/Shiro/Services` must be placed in a domain subfolder (`Auth`, `Launch`, `Network`, `Storage`, `Ui`, `Windows`) and end with an approved domain suffix (`Service`, `Helper`, `Client`, `Coordinator`, `Repository`, `Policy`, `Store`, etc.).
 6. **Zero Sync-over-Async & Exception Hygiene**:
    - Never use `.GetAwaiter().GetResult()` in `src/Shiro`. Use `async`/`await` end-to-end.
-   - Do not add empty `catch {}` blocks. Log exceptions via `Program.Logger?.Debug(...)` or use `SafeExecuteHelper.Try(...)` for best-effort cleanup.
+   - Do not add empty `catch {}` blocks. Log exceptions via `AppServices.Logger?.Debug(...)` or use `SafeExecuteHelper.Try(...)` for best-effort cleanup.
 7. **Localization & UTF-8 Hygiene**:
    - Save all source files as UTF-8.
    - Every `{DynamicResource Loc_*}` key used in `.axaml` must be registered in `src/Shiro/Resources/Strings/vi.json` and `en.json`.

@@ -103,11 +103,11 @@ namespace Shiro.Services
         {
             if (!_smartMuteEnabled) return;
 
-            IntPtr hForeground = GetForegroundWindow();
+            IntPtr hForeground = Win32NativeHelper.GetForegroundWindow();
             uint fgPid = 0;
             if (hForeground != IntPtr.Zero)
             {
-                GetWindowThreadProcessId(hForeground, out fgPid);
+                Win32NativeHelper.GetWindowThreadProcessId(hForeground, out fgPid);
             }
 
             EvaluateSmartMuteForForegroundPid(fgPid);

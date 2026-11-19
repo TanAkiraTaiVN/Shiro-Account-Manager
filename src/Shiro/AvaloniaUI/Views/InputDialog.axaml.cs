@@ -108,6 +108,9 @@ namespace Shiro.AvaloniaUI.Views
         /// </summary>
         public static string Prompt(string text, string caption = "Shiro", string defaultText = "", bool big = false, Window? owner = null, bool isSecret = false)
         {
+            if (!MessageBoxDialog.IsAvaloniaUiReady() && !IsValidDialogOwner(owner))
+                return "/UC";
+
             if (Dispatcher.UIThread.CheckAccess())
             {
                 if (!IsValidDialogOwner(owner))

@@ -248,7 +248,9 @@ namespace Shiro.Services
                 AppServices.RobloxApi.Friends,
                 "https://friends.roblox.com/",
                 csrf.Token,
-                tok => account.MakeRequest($"/v1/users/{userRes.UserId}/request-friendship", Method.Post).AddHeader("X-CSRF-TOKEN", tok),
+                tok => account.MakeRequest($"/v1/users/{userRes.UserId}/request-friendship", Method.Post)
+                    .AddHeader("X-CSRF-TOKEN", tok)
+                    .AddJsonBody(new EmptyJsonObjectPayload()),
                 cancellationToken).ConfigureAwait(false);
 
             return response != null && response.IsSuccessful && response.StatusCode == System.Net.HttpStatusCode.OK;

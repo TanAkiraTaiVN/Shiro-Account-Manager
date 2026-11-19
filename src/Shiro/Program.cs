@@ -16,9 +16,6 @@ namespace Shiro
 {
     internal static partial class Program
     {
-        [LibraryImport("user32.dll", EntryPoint = "MessageBoxW", StringMarshalling = StringMarshalling.Utf16)]
-        private static partial int MessageBox(IntPtr hWnd, string text, string caption, uint type);
-
         [LibraryImport("shell32.dll", EntryPoint = "SetCurrentProcessExplicitAppUserModelID", StringMarshalling = StringMarshalling.Utf16)]
         private static partial int SetCurrentProcessExplicitAppUserModelID(string AppID);
 
@@ -122,7 +119,7 @@ namespace Shiro
                         if (baseFull.StartsWith(tempFull + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
                         {
                             if (OperatingSystem.IsWindows())
-                                MessageBox(IntPtr.Zero, "Shiro must be extracted in order to function correctly!", "Shiro", 0x10);
+                                Win32NativeHelper.MessageBoxW(IntPtr.Zero, "Shiro must be extracted in order to function correctly!", "Shiro", 0x10);
                             Environment.Exit(1);
                         }
                     }
@@ -161,7 +158,7 @@ namespace Shiro
             else
             {
                 if (OperatingSystem.IsWindows())
-                    MessageBox(IntPtr.Zero, "Shiro is already running!", "Shiro", 0x10);
+                    Win32NativeHelper.MessageBoxW(IntPtr.Zero, "Shiro is already running!", "Shiro", 0x10);
             }
 #endif
         }

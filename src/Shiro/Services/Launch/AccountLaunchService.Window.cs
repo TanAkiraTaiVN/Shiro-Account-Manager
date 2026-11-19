@@ -11,10 +11,6 @@ namespace Shiro.Services
 {
     public sealed partial class AccountLaunchService
     {
-        [LibraryImport("user32.dll", SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static partial bool MoveWindow(IntPtr hWnd, int X, int Y, int nWidth, int nHeight, [MarshalAs(UnmanagedType.Bool)] bool bRepaint);
-
         public static void ObserveBackgroundTask(Task task, string operation)
         {
             if (task == null) return;
@@ -71,7 +67,7 @@ namespace Shiro.Services
                     IntPtr hWnd = RobloxWindowService.FindWindowForPid((uint)targetPid);
                     if (hWnd != IntPtr.Zero)
                     {
-                        MoveWindow(hWnd, PosX, PosY, Width, Height, true);
+                        Win32NativeHelper.MoveWindow(hWnd, PosX, PosY, Width, Height, true);
                         AppServices.Logger?.Info($"[AdjustWindowPosition] Fast-repositioned window for PID {targetPid} to ({PosX},{PosY} {Width}x{Height}).");
                         return;
                     }
@@ -114,7 +110,7 @@ namespace Shiro.Services
                         }
 
                         found = true;
-                        MoveWindow(hWnd, PosX, PosY, Width, Height, true);
+                        Win32NativeHelper.MoveWindow(hWnd, PosX, PosY, Width, Height, true);
                         break;
                     }
                     catch (Exception ex)

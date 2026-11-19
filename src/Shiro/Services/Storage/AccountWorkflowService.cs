@@ -11,9 +11,6 @@ namespace Shiro.Services
 {
     public partial class AccountWorkflowService
     {
-        [GeneratedRegex(@"_\|WARNING:-[^\r\n""]+")]
-        private static partial Regex CookieRegex();
-
         [GeneratedRegex(@"_\|WARNING:-[^;\r\n""]+")]
         private static partial Regex CookieCleanRegex();
 

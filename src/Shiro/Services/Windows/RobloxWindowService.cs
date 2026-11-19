@@ -51,40 +51,8 @@ namespace Shiro.Services
             public uint dwFlags;
         }
 
-        [LibraryImport("user32.dll")]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static unsafe partial bool EnumWindows(delegate* unmanaged[Stdcall]<IntPtr, IntPtr, int> lpEnumFunc, IntPtr lParam);
-
-        [LibraryImport("user32.dll")]
-        private static partial uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
-
-        [LibraryImport("user32.dll")]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static partial bool ShowWindow(IntPtr hWnd, int nCmdShow);
-
-        [LibraryImport("user32.dll")]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static partial bool IsWindow(IntPtr hWnd);
-
-        [LibraryImport("user32.dll")]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static partial bool IsWindowVisible(IntPtr hWnd);
-
-        [LibraryImport("user32.dll", SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static partial bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
-
-        [LibraryImport("user32.dll")]
-        private static partial IntPtr GetWindow(IntPtr hWnd, uint uCmd);
-
         [LibraryImport("user32.dll", EntryPoint = "GetWindowLongPtrW")]
         private static partial nint GetWindowLongPtr(IntPtr hWnd, int nIndex);
-
-        [LibraryImport("user32.dll", EntryPoint = "GetClassNameW", SetLastError = true)]
-        private static unsafe partial int GetClassNameW(IntPtr hWnd, char* lpClassName, int nMaxCount);
-
-        [LibraryImport("user32.dll", EntryPoint = "GetWindowTextW", SetLastError = true)]
-        private static unsafe partial int GetWindowTextW(IntPtr hWnd, char* lpString, int nMaxCount);
 
         [LibraryImport("user32.dll")]
         private static partial IntPtr MonitorFromWindow(IntPtr hWnd, uint dwFlags);
@@ -97,7 +65,7 @@ namespace Shiro.Services
 
         internal static bool ShouldTrimOnHide() => MemoryOptimizer.IsAggressiveWorkingSetTrimEnabled();
 
-        public static bool AreWindowsHidden => AreWindowsHiddenCore(IsWindow);
+        public static bool AreWindowsHidden => AreWindowsHiddenCore(Win32NativeHelper.IsWindow);
 
         internal static bool AreWindowsHiddenCore(Func<IntPtr, bool> isWindow)
         {
@@ -128,7 +96,7 @@ namespace Shiro.Services
             Span<char> buffer = stackalloc char[256];
             fixed (char* ptr = buffer)
             {
-                int length = GetClassNameW(hWnd, ptr, buffer.Length);
+                int length = Win32NativeHelper.GetClassNameW(hWnd, ptr, buffer.Length);
                 return length > 0 ? new string(buffer.Slice(0, length)) : string.Empty;
             }
         }
@@ -138,7 +106,7 @@ namespace Shiro.Services
             Span<char> buffer = stackalloc char[256];
             fixed (char* ptr = buffer)
             {
-                int length = GetWindowTextW(hWnd, ptr, buffer.Length);
+                int length = Win32NativeHelper.GetWindowTextW(hWnd, ptr, buffer.Length);
                 return length > 0 ? new string(buffer.Slice(0, length)) : string.Empty;
             }
         }
@@ -156,10 +124,10 @@ namespace Shiro.Services
 
         public static WindowMatchQuality EvaluateRobloxWindow(IntPtr hWnd)
         {
-            if (!IsWindow(hWnd)) return WindowMatchQuality.None;
+            if (!Win32NativeHelper.IsWindow(hWnd)) return WindowMatchQuality.None;
 
             // Must not be owned by another window (popups/dialogs/tooltips have owners)
-            if (GetWindow(hWnd, GW_OWNER) != IntPtr.Zero)
+            if (Win32NativeHelper.GetWindow(hWnd, GW_OWNER) != IntPtr.Zero)
                 return WindowMatchQuality.None;
 
             // Must not be a child window
@@ -281,7 +249,7 @@ namespace Shiro.Services
             if (pids.Count == 0) return (0, 0);
 
             var windows = FindWindowsForPids(pids);
-            int hidden = HideWindowsCore(windows, IsWindowVisible, ShowWindow);
+            int hidden = HideWindowsCore(windows, Win32NativeHelper.IsWindowVisible, Win32NativeHelper.ShowWindow);
 
             AppServices.Logger.Info($"[RobloxWindowService] Hidden {hidden} window(s) across {pids.Count} Roblox client(s).");
 
@@ -311,13 +279,13 @@ namespace Shiro.Services
         public static (int shownCount, int totalClients) ShowAllWindows()
         {
             var pids = GetRobloxPids();
-            var windows = new HashSet<IntPtr>(_hiddenWindows.Keys.Where(IsWindow));
+            var windows = new HashSet<IntPtr>(_hiddenWindows.Keys.Where(Win32NativeHelper.IsWindow));
 
             // Also probe any active windows in case new ones appeared
             foreach (var w in FindWindowsForPids(pids))
                 windows.Add(w);
 
-            int shown = ShowWindowsCore(windows, IsWindowVisible, ShowWindow);
+            int shown = ShowWindowsCore(windows, Win32NativeHelper.IsWindowVisible, Win32NativeHelper.ShowWindow);
 
             AppServices.Logger.Info($"[RobloxWindowService] Restored {shown} Roblox window(s).");
 
