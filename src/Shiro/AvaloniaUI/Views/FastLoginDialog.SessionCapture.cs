@@ -21,7 +21,7 @@ namespace Shiro.AvaloniaUI.Views
 
         private async Task RedirectUnauthenticatedModerationToLoginAsync(CoreWebView2 core)
         {
-            if (_redirectedFromUnauthenticatedModeration) return;
+            if (_isClosed || _redirectedFromUnauthenticatedModeration) return;
             _redirectedFromUnauthenticatedModeration = true;
 
             var currentAcc = GetCurrentQueueAccount();
@@ -72,6 +72,7 @@ namespace Shiro.AvaloniaUI.Views
 
         private async Task MarkCurrentAccountIssueAndSkipAsync(string issueBadge, string statusReason)
         {
+            if (_isClosed) return;
             var currentAcc = GetCurrentQueueAccount();
             string accName = currentAcc?.Username ?? _username ?? Shiro.Services.LocalizationService.Get("Nav_Accounts");
             if (currentAcc != null)
@@ -171,6 +172,7 @@ namespace Shiro.AvaloniaUI.Views
 
         private async Task HandleCapturedModerationPageAsync(CoreWebView2 core, string cookieValue, string fp, int delayMs)
         {
+            if (_isClosed) return;
             var qAcc = GetCurrentQueueAccount();
             if (qAcc != null)
             {
@@ -211,12 +213,14 @@ namespace Shiro.AvaloniaUI.Views
                 if (_queue.Count > 1 && IsModerationOrLockedUrl(currentUrl))
                 {
                     var (b, r) = await DetectDomAccountIssueAsync(core);
+                    if (_isClosed) return;
                     if (b == "UNAUTHENTICATED_MODERATION") { await RedirectUnauthenticatedModerationToLoginAsync(core); return; }
                     await MarkCurrentAccountIssueAndSkipAsync(b ?? Shiro.Services.LocalizationService.Get("FastLogin.LockedOrBannedBadge"), r ?? Shiro.Services.LocalizationService.Get("FastLogin.AccountLockedOrModerated"));
                     return;
                 }
 
                 var cookies = await core.CookieManager.GetCookiesAsync("https://www.roblox.com");
+                if (_isClosed) return;
                 CoreWebView2Cookie? secCookie = null;
                 foreach (var c in cookies)
                 {
@@ -243,6 +247,7 @@ namespace Shiro.AvaloniaUI.Views
                             {
                                 _hasSeenModerationPage = true;
                                 var (domBadge, domReason) = await DetectDomAccountIssueAsync(core);
+                                if (_isClosed) return;
                                 if (domBadge == "UNAUTHENTICATED_MODERATION") { await RedirectUnauthenticatedModerationToLoginAsync(core); return; }
                                 if (!string.IsNullOrEmpty(domBadge)) await MarkCurrentAccountIssueAndSkipAsync(domBadge, domReason ?? domBadge);
                                 return;
@@ -288,6 +293,7 @@ namespace Shiro.AvaloniaUI.Views
                         }
                         if (!string.IsNullOrEmpty(navUrl) && !navUrl.Contains("/login", StringComparison.OrdinalIgnoreCase)) break;
                         await Task.Delay(250);
+                        if (_isClosed) return;
                     }
 
                     // Wait for post-login navigation to reach /home (or other target) AND for Roblox to upgrade
@@ -303,6 +309,7 @@ namespace Shiro.AvaloniaUI.Views
                             try
                             {
                                 var currentCookies = await core.CookieManager.GetCookiesAsync("https://www.roblox.com");
+                                if (_isClosed) return true;
                                 var currentSec = currentCookies.FirstOrDefault(c =>
                                     c.Name.Equals(".ROBLOSECURITY", StringComparison.OrdinalIgnoreCase) &&
                                     !string.IsNullOrWhiteSpace(c.Value) &&
@@ -327,14 +334,16 @@ namespace Shiro.AvaloniaUI.Views
                         },
                         TimeSpan.FromSeconds(10),
                         TimeSpan.FromMilliseconds(250));
+                    if (_isClosed) return;
 
                     // Also wait for the post-login document navigation (/home) to commit its HTTP response headers
                     await AsyncWaitHelper.WaitUntilAsync(
                         () => _isClosed || !_isDocumentNavigating || IsModerationOrLockedUrl(core.Source ?? string.Empty),
                         TimeSpan.FromSeconds(4),
                         TimeSpan.FromMilliseconds(150));
-                    if (!_isClosed)
-                        await Task.Delay(300);
+                    if (_isClosed) return;
+                    await Task.Delay(300);
+                    if (_isClosed) return;
 
                     string postRedirectUrl = core.Source ?? string.Empty;
                     if (_queue.Count > 0 && IsModerationOrLockedUrl(postRedirectUrl))
@@ -425,6 +434,7 @@ namespace Shiro.AvaloniaUI.Views
                 else if (_queue.Count > 0)
                 {
                     var (issueBadge, reason) = await DetectDomAccountIssueAsync(core);
+                    if (_isClosed) return;
                     if (issueBadge == "UNAUTHENTICATED_MODERATION")
                         await RedirectUnauthenticatedModerationToLoginAsync(core);
                     else if (!string.IsNullOrEmpty(issueBadge))

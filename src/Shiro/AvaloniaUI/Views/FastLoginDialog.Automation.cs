@@ -24,15 +24,40 @@ namespace Shiro.AvaloniaUI.Views
             _isDocumentNavigating = true;
         }
 
-        private async Task ConfigureCoreWebViewAsync(CoreWebView2 core)
+        private Task ConfigureCoreWebViewAsync(CoreWebView2 core)
         {
-            if (core == null) return;
+            if (_isClosed || core == null) return Task.CompletedTask;
 
+            return ConfigureCoreWebViewCoreAsync(
+                ClearAuthCookiesAsync,
+                () => InstallHbaCaptureHookAsync(core),
+                () => core.AddScriptToExecuteOnDocumentCreatedAsync(FastLoginCoordinator.GetLoginPageEnhancementScript()),
+                () => AttachCoreWebViewHandlers(core));
+        }
+
+        internal async Task ConfigureCoreWebViewCoreAsync(
+            Func<Task> clearCookiesAsync,
+            Func<Task> installHbaHookAsync,
+            Func<Task> addEnhancementScriptAsync,
+            Action attachHandlers)
+        {
+            if (_isClosed) return;
             _isDocumentNavigating = false;
-            await ClearAuthCookiesAsync();
-            await InstallHbaCaptureHookAsync(core);
-            await core.AddScriptToExecuteOnDocumentCreatedAsync(FastLoginCoordinator.GetLoginPageEnhancementScript());
 
+            await clearCookiesAsync();
+            if (_isClosed) return;
+
+            await installHbaHookAsync();
+            if (_isClosed) return;
+
+            await addEnhancementScriptAsync();
+            if (_isClosed) return;
+
+            attachHandlers();
+        }
+
+        private void AttachCoreWebViewHandlers(CoreWebView2 core)
+        {
             try
             {
                 core.AddWebResourceRequestedFilter("https://*.roblox.com/*", CoreWebView2WebResourceContext.All);
