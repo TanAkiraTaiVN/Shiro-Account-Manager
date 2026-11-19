@@ -318,5 +318,102 @@ namespace Shiro.Tests
             Assert.False(ForegroundWindowService.ShouldCommitForegroundSequence(4, 5));
             Assert.True(ForegroundWindowService.ShouldCommitForegroundSequence(5, 5));
         }
+
+        [Fact]
+        public void ProcessIdentity_WhenCreationTicksDiffer_DetectsPidReuseAcrossCaches()
+        {
+            Assert.False(RobloxProcessIdentityHelper.IsCreationMatch(expectedTicks: 1000L, actualTicks: 2000L));
+            Assert.True(RobloxProcessIdentityHelper.IsCreationMatch(expectedTicks: 1000L, actualTicks: 1000L));
+            Assert.False(RobloxProcessIdentityHelper.IsCreationMatch(expectedTicks: 0L, actualTicks: 0L));
+
+            RobloxWindowArrangerService.ClearTrackerCacheForTest();
+            try
+            {
+                int cliReads = 0;
+                string first = RobloxWindowArrangerService.ResolveTrackerForPidWithCacheForTest(
+                    88701,
+                    _ => { cliReads++; return "\"RobloxPlayerBeta.exe\" -b 111"; },
+                    _ => 1000L);
+                string hit = RobloxWindowArrangerService.ResolveTrackerForPidWithCacheForTest(
+                    88701,
+                    _ => { cliReads++; return "\"RobloxPlayerBeta.exe\" -b 999"; },
+                    _ => 1000L);
+                string recycled = RobloxWindowArrangerService.ResolveTrackerForPidWithCacheForTest(
+                    88701,
+                    _ => { cliReads++; return "\"RobloxPlayerBeta.exe\" -b 222"; },
+                    _ => 2000L);
+
+                Assert.Equal("111", first);
+                Assert.Equal("111", hit);
+                Assert.Equal("222", recycled);
+                Assert.Equal(2, cliReads);
+            }
+            finally
+            {
+                RobloxWindowArrangerService.ClearTrackerCacheForTest();
+            }
+        }
+
+        [Fact]
+        public void BuildMainWindowFilter_RejectsToolWindowAndImeUtilityClasses()
+        {
+            Assert.False(RobloxProcessIdentityHelper.ShouldSelectAsMainWindow(0, 0x00000080u, "WINDOWSCLIENT".AsSpan()));
+            Assert.False(RobloxProcessIdentityHelper.ShouldSelectAsMainWindow(0x40000000u, 0, "WINDOWSCLIENT".AsSpan()));
+            Assert.False(RobloxProcessIdentityHelper.ShouldSelectAsMainWindow(0, 0, "IME".AsSpan()));
+            Assert.False(RobloxProcessIdentityHelper.ShouldSelectAsMainWindow(0, 0, "MSCTFIME UI".AsSpan()));
+            Assert.False(RobloxProcessIdentityHelper.ShouldSelectAsMainWindow(0, 0, "Default IME".AsSpan()));
+            Assert.False(RobloxProcessIdentityHelper.ShouldSelectAsMainWindow(0, 0, "Chrome_WidgetWin_0".AsSpan()));
+            Assert.True(RobloxProcessIdentityHelper.ShouldSelectAsMainWindow(0, 0, "WINDOWSCLIENT".AsSpan()));
+        }
+
+        [Fact]
+        public void RobloxWatcher_RecycledPid_EvictsSeenAndMetadataCache_AndKillNativeSuppressesReconnect()
+        {
+            RobloxWatcher.ClearAndDisposeTrackedProcesses();
+            var prevPidsOverride = RobloxProcessService.TestGetRunningRobloxPidsOverride;
+            var svc = AutoReconnectService.Instance;
+            bool prevEnabled = svc.IsEnabled;
+            svc.Clear();
+
+            using var proc = Process.Start(new ProcessStartInfo
+            {
+                FileName = Environment.GetEnvironmentVariable("ComSpec") ?? "cmd.exe",
+                Arguments = "/c \"more >nul\"",
+                RedirectStandardInput = true,
+                CreateNoWindow = true,
+                UseShellExecute = false
+            });
+            Assert.NotNull(proc);
+
+            try
+            {
+                RobloxWatcher.SeedProcessCacheForTest(88101, "old-trk", isGameClient: true, creationTicks: 1000L);
+                Assert.True(RobloxWatcher.TryGetValidatedMetadataForTest(88101, 1000L, out string sameTracker));
+                Assert.Equal("old-trk", sameTracker);
+                Assert.False(RobloxWatcher.TryGetValidatedMetadataForTest(88101, 2000L, out _));
+                lock (RobloxWatcher.InstanceRegistryLock)
+                {
+                    Assert.DoesNotContain(88101, RobloxWatcher.Seen);
+                }
+
+                svc.IsEnabled = true;
+                var acc = new Account { Username = "KillNativeSuppressUser", UserID = 88102 };
+                svc.RegisterSession(acc, 1818, processId: proc!.Id, nowUtcOverride: DateTime.UtcNow.AddMinutes(-1));
+
+                RobloxWatcher.KillNative(proc.Id, "test memory kill");
+                Assert.True(proc.WaitForExit(3000));
+                Assert.True(svc.TryGetAccountSession(acc, out var session));
+                Assert.True(session!.IsSuppressed);
+                Assert.False(session.IsActive);
+            }
+            finally
+            {
+                RobloxProcessService.TestGetRunningRobloxPidsOverride = prevPidsOverride;
+                svc.Clear();
+                svc.IsEnabled = prevEnabled;
+                RobloxWatcher.ClearAndDisposeTrackedProcesses();
+                try { if (!proc!.HasExited) proc.Kill(entireProcessTree: true); } catch (InvalidOperationException) { /* already exited */ }
+            }
+        }
     }
 }

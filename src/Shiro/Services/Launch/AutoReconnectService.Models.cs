@@ -57,6 +57,7 @@ namespace Shiro.Services
             public bool FollowUser { get; set; }
             public bool JoinVip { get; set; }
             public int ProcessId { get; set; }
+            public long ProcessCreationTicks { get; set; }
             public int RetryCount { get; set; }
             public DateTime LaunchTimeUtc { get; set; }
             public DateTime LastCheckUtc { get; set; }
@@ -229,6 +230,7 @@ namespace Shiro.Services
                 {
                     session.IsSuppressed = true;
                     session.IsActive = false;
+                    session.CancelPendingReconnect();
                     AppServices.Logger?.Debug($"[AutoReconnect] Reconnection suppressed for PID {processId} ('{session.Account?.Username}').");
                 }
             }

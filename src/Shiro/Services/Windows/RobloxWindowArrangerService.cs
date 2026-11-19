@@ -32,8 +32,8 @@ namespace Shiro.Services
         [GeneratedRegex(@"\-b (\d+)")]
         private static partial Regex BrowserTrackerRegex();
 
-        // Amortized O(1) cache of live PID -> BrowserTrackerID so status ticks never re-read process PEB command lines.
-        private static readonly ConcurrentDictionary<int, string> _pidTrackerCache = new();
+        // Amortized O(1) cache of live (PID, CreationTicks) -> BrowserTrackerID so status ticks never re-read process PEB command lines.
+        private static readonly ConcurrentDictionary<int, (string TrackerId, long CreationTicks)> _pidTrackerCache = new();
 
         [LibraryImport("user32.dll")]
         [return: MarshalAs(UnmanagedType.Bool)]
@@ -208,10 +208,10 @@ namespace Shiro.Services
                 else if (acc.LastLaunchedProcessId > 0 && liveSet.Contains(acc.LastLaunchedProcessId))
                 {
                     // Ensure this PID wasn't claimed by a different BrowserTrackerID
-                    if (!_pidTrackerCache.TryGetValue(acc.LastLaunchedProcessId, out string? pidTracker) ||
-                        string.IsNullOrEmpty(pidTracker) ||
+                    if (!_pidTrackerCache.TryGetValue(acc.LastLaunchedProcessId, out var pidEntry) ||
+                        string.IsNullOrEmpty(pidEntry.TrackerId) ||
                         string.IsNullOrWhiteSpace(acc.BrowserTrackerID) ||
-                        string.Equals(pidTracker, acc.BrowserTrackerID, StringComparison.Ordinal))
+                        string.Equals(pidEntry.TrackerId, acc.BrowserTrackerID, StringComparison.Ordinal))
                     {
                         matchedPid = acc.LastLaunchedProcessId;
                     }
@@ -226,11 +226,33 @@ namespace Shiro.Services
             return result;
         }
 
+        internal static void ClearTrackerCacheForTest() => _pidTrackerCache.Clear();
+
         internal static string ResolveTrackerForPidWithCacheForTest(int pid, Func<int, string?> getCommandLineByPid)
+            => ResolveTrackerForPidWithCacheForTest(pid, getCommandLineByPid, null);
+
+        internal static string ResolveTrackerForPidWithCacheForTest(
+            int pid,
+            Func<int, string?> getCommandLineByPid,
+            Func<int, long>? getCreationTicks)
         {
             if (pid <= 0) return string.Empty;
-            if (_pidTrackerCache.TryGetValue(pid, out string? cached) && !string.IsNullOrEmpty(cached))
-                return cached;
+
+            long creationTicks = getCreationTicks != null
+                ? getCreationTicks(pid)
+                : (RobloxProcessIdentityHelper.TryGetProcessCreationTicks(pid, out long ct) ? ct : 0);
+
+            if (_pidTrackerCache.TryGetValue(pid, out var cached))
+            {
+                if (RobloxProcessIdentityHelper.IsCreationMatch(cached.CreationTicks, creationTicks) &&
+                    !string.IsNullOrEmpty(cached.TrackerId))
+                {
+                    return cached.TrackerId;
+                }
+
+                _pidTrackerCache.TryRemove(pid, out _);
+            }
+
             try
             {
                 string? cmd = getCommandLineByPid(pid);
@@ -239,7 +261,8 @@ namespace Shiro.Services
                     var m = BrowserTrackerRegex().Match(cmd);
                     if (m.Success && !string.IsNullOrEmpty(m.Groups[1].Value))
                     {
-                        _pidTrackerCache[pid] = m.Groups[1].Value;
+                        if (creationTicks > 0)
+                            _pidTrackerCache[pid] = (m.Groups[1].Value, creationTicks);
                         return m.Groups[1].Value;
                     }
                 }

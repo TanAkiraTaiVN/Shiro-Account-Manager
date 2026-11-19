@@ -169,6 +169,10 @@ namespace Shiro.Services
                 return;
 
             DateTime now = nowUtcOverride ?? DateTime.UtcNow;
+            long processCreationTicks = 0;
+            if (processId > 0)
+                RobloxProcessIdentityHelper.TryGetProcessCreationTicks(processId, out processCreationTicks);
+
             ReconnectSession session;
             int preservedRetries = 0;
             lock (_lock)
@@ -195,6 +199,7 @@ namespace Shiro.Services
                     FollowUser = followUser,
                     JoinVip = joinVip,
                     ProcessId = processId,
+                    ProcessCreationTicks = processCreationTicks,
                     RetryCount = preservedRetries,
                     LaunchTimeUtc = now,
                     LastCheckUtc = now,
@@ -228,6 +233,7 @@ namespace Shiro.Services
                 session.IsActive = false;
                 session.NeedsRetry = false;
                 session.ProcessId = 0;
+                session.ProcessCreationTicks = 0;
                 session.ObservedProcessExited = false;
                 session.ObservedExitCode = null;
             }

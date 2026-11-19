@@ -323,6 +323,60 @@ namespace Shiro.Tests
             Assert.Equal("https://img/100.png", await tasks[99]);
         }
 
+        [Fact]
+        public void AutoReconnectMonitor_WhenPidRecycled_MarksSessionExitedAndTriggersReconnect()
+        {
+            var ini = new IniFile();
+            var general = ini["General"];
+            general.Set(AppSettingsKeys.General.AutoReconnect, "true");
+            using var settingsScope = AppServices.Override<ISettingsService>(general);
+
+            var prevPidsOverride = RobloxProcessService.TestGetRunningRobloxPidsOverride;
+            using var svc = new AutoReconnectService(TimeSpan.FromHours(1))
+            {
+                MaxRetries = 5,
+                LaunchGracePeriod = TimeSpan.Zero,
+                TestReconnectDelayMsOverride = 60_000,
+                TestJoinServerOverride = _ => Task.FromResult("Failed")
+            };
+
+            using var proc = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = Environment.GetEnvironmentVariable("ComSpec") ?? "cmd.exe",
+                Arguments = "/c \"more >nul\"",
+                RedirectStandardInput = true,
+                CreateNoWindow = true,
+                UseShellExecute = false
+            });
+            Assert.NotNull(proc);
+
+            try
+            {
+                RobloxProcessService.TestGetRunningRobloxPidsOverride = () => new[] { proc!.Id };
+                var acc = new Account { Username = "RecycledPidUser", UserID = 90011 };
+                svc.RegisterSession(acc, 1818, processId: proc!.Id, nowUtcOverride: DateTime.UtcNow.AddMinutes(-2));
+
+                Assert.True(svc.TryGetSession("RecycledPidUser", out var session));
+                Assert.True(session!.ProcessCreationTicks > 0);
+
+                // Simulate OS PID recycling to a newer process with different creation ticks
+                session.ProcessCreationTicks -= 10_000_000L;
+
+                int attempts = 0;
+                svc.ReconnectAttempted += (_, _) => Interlocked.Increment(ref attempts);
+                svc.CheckSessionsCallback(null);
+
+                Assert.Equal(1, attempts);
+                Assert.Equal(1, session.RetryCount);
+                Assert.False(session.IsActive);
+            }
+            finally
+            {
+                RobloxProcessService.TestGetRunningRobloxPidsOverride = prevPidsOverride;
+                try { if (!proc!.HasExited) proc.Kill(entireProcessTree: true); } catch (InvalidOperationException) { /* already exited */ }
+            }
+        }
+
         private sealed class DelegateHandler(Func<HttpRequestMessage, HttpResponseMessage> fn) : HttpMessageHandler
         {
             private readonly Func<HttpRequestMessage, Task<HttpResponseMessage>> _asyncFn = req => Task.FromResult(fn(req));

@@ -125,6 +125,9 @@ namespace Shiro.Services
         [LibraryImport("user32.dll")]
         internal static partial IntPtr GetWindow(IntPtr hWnd, uint uCmd);
 
+        [LibraryImport("user32.dll", EntryPoint = "GetWindowLongPtrW")]
+        internal static partial nint GetWindowLongPtrW(IntPtr hWnd, int nIndex);
+
         [LibraryImport("user32.dll", EntryPoint = "GetWindowTextW", SetLastError = true)]
         internal static partial int GetWindowTextW(IntPtr hWnd, char* lpString, int nMaxCount);
 

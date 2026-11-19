@@ -39,7 +39,8 @@ namespace Shiro.Services
 
         public static HashSet<int> Seen = [];
         public static List<RobloxProcess> Instances = [];
-        private static readonly Dictionary<int, (string TrackerId, bool IsGameClient, RECT LastSavedRect)> _pidMetadataCache = new();
+        private static readonly Dictionary<int, (string TrackerId, bool IsGameClient, RECT LastSavedRect, long CreationTicks)> _pidMetadataCache = new();
+        private static readonly Dictionary<int, long> _seenCreationTicks = new();
         internal static readonly System.Threading.Lock InstanceRegistryLock = new();
         public static bool VerifyDataModel = true;
         public static bool IgnoreExistingProcesses = true;
@@ -86,6 +87,7 @@ namespace Shiro.Services
                 Instances.Clear();
                 Seen.Clear();
                 _pidMetadataCache.Clear();
+                _seenCreationTicks.Clear();
             }
             for (int i = 0; i < toDispose.Length; i++)
                 SafeExecuteHelper.Try(toDispose[i].Dispose, "RobloxWatcher.DisposeProcess");
@@ -115,6 +117,14 @@ namespace Shiro.Services
                 return;
             }
 
+            var creationTicksByPid = new Dictionary<int, long>(runningPids.Count);
+            for (int i = 0; i < runningPids.Count; i++)
+            {
+                int pid = runningPids[i];
+                if (pid > 0 && !creationTicksByPid.ContainsKey(pid))
+                    creationTicksByPid[pid] = RobloxProcessIdentityHelper.TryGetProcessCreationTicks(pid, out long ct) ? ct : 0;
+            }
+
             if (!CloseIfMemoryLow && !CloseIfWindowTitle && !RememberWindowPositions)
             {
                 bool allKnown = true;
@@ -122,7 +132,8 @@ namespace Shiro.Services
                 {
                     for (int i = 0; i < runningPids.Count; i++)
                     {
-                        if (!_pidMetadataCache.ContainsKey(runningPids[i]))
+                        int pid = runningPids[i];
+                        if (!TryValidateCachedProcessUnderLock(pid, creationTicksByPid.GetValueOrDefault(pid), out _))
                         {
                             allKnown = false;
                             break;
@@ -170,6 +181,7 @@ namespace Shiro.Services
             for (int idx = 0; idx < runningPids.Count; idx++)
             {
                 int pid = runningPids[idx];
+                long currentCreationTicks = creationTicksByPid.GetValueOrDefault(pid);
                 bool isFocusedProcess = focusedPid > 0 && pid == (int)focusedPid;
 
                 string trackerId = string.Empty;
@@ -179,7 +191,7 @@ namespace Shiro.Services
 
                 lock (InstanceRegistryLock)
                 {
-                    hasCachedMeta = _pidMetadataCache.TryGetValue(pid, out var cachedMeta);
+                    hasCachedMeta = TryValidateCachedProcessUnderLock(pid, currentCreationTicks, out var cachedMeta);
                     if (hasCachedMeta)
                     {
                         trackerId = cachedMeta.TrackerId;
@@ -195,9 +207,12 @@ namespace Shiro.Services
                     {
                         isGameClient = TryClassifyClientCommandLine(commandLine, out trackerId);
 
-                        lock (InstanceRegistryLock)
+                        if (currentCreationTicks > 0)
                         {
-                            _pidMetadataCache[pid] = (trackerId, isGameClient, default);
+                            lock (InstanceRegistryLock)
+                            {
+                                _pidMetadataCache[pid] = (trackerId, isGameClient, default, currentCreationTicks);
+                            }
                         }
                     }
                 }
@@ -242,16 +257,19 @@ namespace Shiro.Services
                     {
                         account.SetWindowBounds(rect.Left, rect.Top, width, height);
 
-                        lock (InstanceRegistryLock)
+                        if (currentCreationTicks > 0)
                         {
-                            _pidMetadataCache[pid] = (trackerId, isGameClient, rect);
+                            lock (InstanceRegistryLock)
+                            {
+                                _pidMetadataCache[pid] = (trackerId, isGameClient, rect, currentCreationTicks);
+                            }
                         }
                     }
                 }
 
                 lock (InstanceRegistryLock)
                 {
-                    if (Seen.Contains(pid))
+                    if (IsSeenWithSameCreationUnderLock(pid, currentCreationTicks))
                         continue;
                 }
 
@@ -260,15 +278,19 @@ namespace Shiro.Services
                 try
                 {
                     process = Process.GetProcessById(pid);
-                    if (process.HasExited) continue;
+                    if (process.HasExited ||
+                        (currentCreationTicks > 0 && !RobloxProcessIdentityHelper.IsSameProcessInstance(pid, currentCreationTicks, out _)))
+                        continue;
 
                     lock (InstanceRegistryLock)
                     {
-                        if (Seen.Contains(pid))
+                        if (IsSeenWithSameCreationUnderLock(pid, currentCreationTicks))
                             continue;
 
                         Instances.Add(new RobloxProcess(process, trackerId));
                         Seen.Add(pid);
+                        if (currentCreationTicks > 0)
+                            _seenCreationTicks[pid] = currentCreationTicks;
                         retained = true;
                     }
 
@@ -283,6 +305,7 @@ namespace Shiro.Services
                     lock (InstanceRegistryLock)
                     {
                         _pidMetadataCache.Remove(pid);
+                        _seenCreationTicks.Remove(pid);
                     }
                     AppServices.Logger?.Debug($"Access to Process {pid} denied: {x.Message}");
                 }
@@ -332,6 +355,7 @@ namespace Shiro.Services
                 {
                     _pidMetadataCache.Remove(exitedPid);
                     Seen.Remove(exitedPid);
+                    _seenCreationTicks.Remove(exitedPid);
                 }
             }
         }
@@ -349,7 +373,8 @@ namespace Shiro.Services
 
                 Win32NativeHelper.GetWindowThreadProcessId(hWnd, out uint wndPid);
                 int pid = (int)wndPid;
-                if (pid > 0 && targetPids.Contains(pid) && !map.ContainsKey(pid))
+                if (pid > 0 && targetPids.Contains(pid) && !map.ContainsKey(pid) &&
+                    RobloxProcessIdentityHelper.IsSelectableMainWindow(hWnd))
                 {
                     map[pid] = hWnd;
                 }
@@ -399,9 +424,13 @@ namespace Shiro.Services
             return len > 0 ? new string(buf, 0, len) : string.Empty;
         }
 
-        private static void KillNative(int pid, string reason)
+        internal static void KillNative(int pid, string reason)
         {
+            if (pid <= 0)
+                return;
+
             AppServices.Logger?.Info($"Attempting to kill process {pid}, reason: {reason}");
+            AutoReconnectService.Instance.SuppressReconnectByPid(pid);
             IntPtr hProcess = Win32NativeHelper.OpenProcess(PROCESS_TERMINATE, false, pid);
             if (hProcess == IntPtr.Zero) return;
             try
@@ -427,6 +456,7 @@ namespace Shiro.Services
             {
                 Seen.Remove(pid);
                 _pidMetadataCache.Remove(pid);
+                _seenCreationTicks.Remove(pid);
             }
         }
     }

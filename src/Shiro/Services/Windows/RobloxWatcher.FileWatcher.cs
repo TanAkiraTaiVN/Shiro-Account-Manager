@@ -35,6 +35,71 @@ namespace Shiro.Services
             return true;
         }
 
+        internal static bool TryValidateCachedProcessUnderLock(
+            int pid,
+            long currentCreationTicks,
+            out (string TrackerId, bool IsGameClient, RECT LastSavedRect, long CreationTicks) cachedMeta)
+        {
+            if (_pidMetadataCache.TryGetValue(pid, out cachedMeta) &&
+                RobloxProcessIdentityHelper.IsCreationMatch(cachedMeta.CreationTicks, currentCreationTicks))
+            {
+                return true;
+            }
+
+            if (_pidMetadataCache.ContainsKey(pid) ||
+                (_seenCreationTicks.TryGetValue(pid, out long seenTicks) &&
+                 !RobloxProcessIdentityHelper.IsCreationMatch(seenTicks, currentCreationTicks)))
+            {
+                _pidMetadataCache.Remove(pid);
+                Seen.Remove(pid);
+                _seenCreationTicks.Remove(pid);
+            }
+
+            cachedMeta = default;
+            return false;
+        }
+
+        internal static bool IsSeenWithSameCreationUnderLock(int pid, long currentCreationTicks)
+        {
+            if (!Seen.Contains(pid))
+                return false;
+
+            if (_seenCreationTicks.TryGetValue(pid, out long seenTicks) &&
+                RobloxProcessIdentityHelper.IsCreationMatch(seenTicks, currentCreationTicks))
+            {
+                return true;
+            }
+
+            Seen.Remove(pid);
+            _seenCreationTicks.Remove(pid);
+            return false;
+        }
+
+        internal static void SeedProcessCacheForTest(int pid, string trackerId, bool isGameClient, long creationTicks)
+        {
+            lock (InstanceRegistryLock)
+            {
+                _pidMetadataCache[pid] = (trackerId, isGameClient, default, creationTicks);
+                Seen.Add(pid);
+                _seenCreationTicks[pid] = creationTicks;
+            }
+        }
+
+        internal static bool TryGetValidatedMetadataForTest(int pid, long currentCreationTicks, out string trackerId)
+        {
+            lock (InstanceRegistryLock)
+            {
+                if (TryValidateCachedProcessUnderLock(pid, currentCreationTicks, out var meta))
+                {
+                    trackerId = meta.TrackerId;
+                    return true;
+                }
+            }
+
+            trackerId = string.Empty;
+            return false;
+        }
+
         internal static bool TryValidateWindowBoundsChange(RECT rect, RECT lastRect, out int width, out int height)
         {
             width = rect.Right - rect.Left;

@@ -89,6 +89,13 @@ namespace Shiro.Services
             try
             {
                 using var proc = Process.GetProcessById(session.ProcessId);
+                if (session.ProcessCreationTicks > 0 &&
+                    !RobloxProcessIdentityHelper.IsSameProcessInstance(session.ProcessId, session.ProcessCreationTicks, out _))
+                {
+                    CompleteObservedProcessExit(session, () => null);
+                    return;
+                }
+
                 await proc.WaitForExitAsync().ConfigureAwait(false);
                 CompleteObservedProcessExit(session, () => TryGetProcessExitCode(proc, session.ProcessId));
             }
@@ -148,6 +155,11 @@ namespace Shiro.Services
                 }
 
                 (bool processExited, int? exitCode) = ReadObservedProcessExitState(session);
+                if (!processExited && session.ProcessCreationTicks > 0 &&
+                    !RobloxProcessIdentityHelper.IsSameProcessInstance(session.ProcessId, session.ProcessCreationTicks, out _))
+                {
+                    processExited = true;
+                }
                 if (!processExited)
                 {
                     runningPids ??= new HashSet<int>(RobloxProcessService.GetRunningRobloxPids());
@@ -208,6 +220,12 @@ namespace Shiro.Services
         {
             try
             {
+                if (session.ProcessCreationTicks > 0 &&
+                    !RobloxProcessIdentityHelper.IsSameProcessInstance(session.ProcessId, session.ProcessCreationTicks, out _))
+                {
+                    return;
+                }
+
                 using var staleProc = Process.GetProcessById(session.ProcessId);
                 if (!staleProc.HasExited)
                 {
