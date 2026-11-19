@@ -15,6 +15,7 @@ namespace Shiro.Services
         private const int BaseReconnectDelayMs = 15000;
         private const int MaxReconnectDelayMs = 60000;
         internal const int DefaultHandshakeTimeoutMs = 3000;
+        internal const int HandshakeProtocolVersion = 1;
         internal const int OpcodeHandshake = 0;
         internal const int OpcodeFrame = 1;
         internal const int OpcodeClose = 2;

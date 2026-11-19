@@ -74,7 +74,9 @@ namespace Shiro.Services
         {
             parsedIp = null;
             if (string.IsNullOrWhiteSpace(ip) ||
+                ip.Contains('%', StringComparison.Ordinal) ||
                 !IPAddress.TryParse(ip.Trim(), out IPAddress? candidate) ||
+                (candidate.AddressFamily == AddressFamily.InterNetworkV6 && candidate.ScopeId != 0) ||
                 !IsPublicIpAddress(candidate))
             {
                 return false;
@@ -83,9 +85,17 @@ namespace Shiro.Services
             if (string.IsNullOrWhiteSpace(url) ||
                 !Uri.TryCreate(url.Trim(), UriKind.Absolute, out Uri? uri) ||
                 !string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase) ||
-                string.IsNullOrWhiteSpace(uri.Host) ||
-                string.Equals(uri.Host, "localhost", StringComparison.OrdinalIgnoreCase) ||
-                uri.Host.EndsWith(".localhost", StringComparison.OrdinalIgnoreCase))
+                !string.IsNullOrEmpty(uri.UserInfo) ||
+                string.IsNullOrWhiteSpace(uri.Host))
+            {
+                return false;
+            }
+
+            string host = uri.Host.TrimEnd('.');
+            if (uri.IsLoopback ||
+                string.IsNullOrWhiteSpace(host) ||
+                string.Equals(host, "localhost", StringComparison.OrdinalIgnoreCase) ||
+                host.EndsWith(".localhost", StringComparison.OrdinalIgnoreCase))
             {
                 return false;
             }
@@ -172,9 +182,10 @@ namespace Shiro.Services
                         : null;
 
                     if (!string.IsNullOrEmpty(ip) &&
-                        TryValidatePublicTargetIpAndGeoUrl(ip, "https://ipwho.is/", out _))
+                        TryValidatePublicTargetIpAndGeoUrl(ip, "https://ipwho.is/", out IPAddress? parsedIp))
                     {
-                        result.Ip = ip;
+                        string normalizedIp = parsedIp!.ToString();
+                        result.Ip = normalizedIp;
                         result.Success = true;
 
                         int? dcId = null;
@@ -183,10 +194,10 @@ namespace Shiro.Services
                         else if (js.TryGetProperty("dataCenterId", out var dcVal2) && dcVal2.TryGetInt32(out int id2))
                             dcId = id2;
 
-                        Task<int?> pingTask = MeasurePingMsAsync(ip, cancellationToken);
+                        Task<int?> pingTask = MeasurePingMsAsync(normalizedIp, cancellationToken);
 
                         // Check offline datacenter resolution first to avoid rate-limiting
-                        if (RobloxDatacenterService.Default.TryResolve(ip, dcId, out var dcResolution) && dcResolution != null)
+                        if (RobloxDatacenterService.Default.TryResolve(normalizedIp, dcId, out var dcResolution) && dcResolution != null)
                         {
                             result.Region = dcResolution.FormattedRegion;
                             result.CountryCode = dcResolution.CountryCode;
@@ -194,14 +205,14 @@ namespace Shiro.Services
 
                             result.PingMs = await pingTask.ConfigureAwait(false);
                             // If direct ping failed, try fallback sample ping IP from datacenter
-                            if (!result.PingMs.HasValue && !string.IsNullOrWhiteSpace(dcResolution.SamplePingIp) && !string.Equals(dcResolution.SamplePingIp, ip, StringComparison.OrdinalIgnoreCase))
+                            if (!result.PingMs.HasValue && !string.IsNullOrWhiteSpace(dcResolution.SamplePingIp) && !string.Equals(dcResolution.SamplePingIp, normalizedIp, StringComparison.OrdinalIgnoreCase))
                             {
                                 result.PingMs = await MeasurePingMsAsync(dcResolution.SamplePingIp, cancellationToken).ConfigureAwait(false);
                             }
                         }
                         else
                         {
-                            Task<string> geoTask = ResolveGeoIpRegionAsync(ip, ipApiTemplate, cancellationToken);
+                            Task<string> geoTask = ResolveGeoIpRegionAsync(normalizedIp, ipApiTemplate, cancellationToken);
                             await Task.WhenAll(pingTask, geoTask).ConfigureAwait(false);
 
                             result.PingMs = await pingTask.ConfigureAwait(false);
@@ -277,11 +288,12 @@ namespace Shiro.Services
         private async Task<int?> MeasurePingMsAsync(string ip, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(ip) ||
-                !TryValidatePublicTargetIpAndGeoUrl(ip, "https://ipwho.is/", out _))
+                !TryValidatePublicTargetIpAndGeoUrl(ip, "https://ipwho.is/", out IPAddress? parsedIp))
             {
                 return null;
             }
-            if (TestPingProbe != null) return await TestPingProbe(ip).ConfigureAwait(false);
+            string normalizedIp = parsedIp!.ToString();
+            if (TestPingProbe != null) return await TestPingProbe(normalizedIp).ConfigureAwait(false);
 
             return await RacePingProbesAsync(
                 icmpProbe: async ct =>
@@ -289,14 +301,14 @@ namespace Shiro.Services
                     try
                     {
                         using var pinger = new Ping();
-                        var reply = await pinger.SendPingAsync(ip, TimeSpan.FromMilliseconds(250), cancellationToken: ct).ConfigureAwait(false);
+                        var reply = await pinger.SendPingAsync(normalizedIp, TimeSpan.FromMilliseconds(250), cancellationToken: ct).ConfigureAwait(false);
                         if (reply.Status == IPStatus.Success)
                             return (int)reply.RoundtripTime;
                     }
                     catch (OperationCanceledException) { /* canceled by winning probe */ }
                     catch (Exception ex)
                     {
-                        _logger.Debug($"[PingServer ICMP] {ip}: {ex.Message}");
+                        _logger.Debug($"[PingServer ICMP] {normalizedIp}: {ex.Message}");
                     }
                     return null;
                 },
@@ -308,14 +320,14 @@ namespace Shiro.Services
                         using var tcp = new TcpClient();
                         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
                         timeoutCts.CancelAfter(400);
-                        await tcp.ConnectAsync(ip, 443, timeoutCts.Token).ConfigureAwait(false);
+                        await tcp.ConnectAsync(normalizedIp, 443, timeoutCts.Token).ConfigureAwait(false);
                         sw.Stop();
                         return (int)sw.ElapsedMilliseconds;
                     }
                     catch (OperationCanceledException) { /* canceled by winning probe or timeout */ }
                     catch (Exception ex)
                     {
-                        _logger.Debug($"[PingServer TCP] {ip}: {ex.Message}");
+                        _logger.Debug($"[PingServer TCP] {normalizedIp}: {ex.Message}");
                     }
                     return null;
                 },
@@ -324,8 +336,12 @@ namespace Shiro.Services
 
         private async Task<string> ResolveGeoIpRegionAsync(string ip, string? ipApiTemplate, CancellationToken cancellationToken)
         {
-            string subnetKey = GetIpv4SubnetPrefix(ip);
-            if (_geoIpCache.TryGetValue(ip, out string? cachedRegion) ||
+            if (!TryValidatePublicTargetIpAndGeoUrl(ip, "https://ipwho.is/", out IPAddress? targetIp))
+                return string.Empty;
+
+            string normalizedIp = targetIp!.ToString();
+            string subnetKey = GetIpv4SubnetPrefix(normalizedIp);
+            if (_geoIpCache.TryGetValue(normalizedIp, out string? cachedRegion) ||
                 (!string.IsNullOrEmpty(subnetKey) && _geoIpCache.TryGetValue(subnetKey, out cachedRegion) && cachedRegion != null))
             {
                 return cachedRegion;
@@ -338,14 +354,15 @@ namespace Shiro.Services
             try
             {
                 string geoJson = string.Empty;
-                string primaryUrl = ipLink.Replace("<ip>", ip);
-                if (TryValidatePublicTargetIpAndGeoUrl(ip, primaryUrl, out _))
+                string primaryUrl = ipLink.Replace("<ip>", normalizedIp);
+                if (TryValidatePublicTargetIpAndGeoUrl(normalizedIp, primaryUrl, out IPAddress? primaryParsedIp))
                 {
+                    string safePrimaryUrl = ipLink.Replace("<ip>", primaryParsedIp!.ToString());
                     try
                     {
                         geoJson = TestGeoHttpGetString != null
-                            ? await TestGeoHttpGetString(primaryUrl, cancellationToken).ConfigureAwait(false)
-                            : await SharedHttpClient.GetStringAsync(primaryUrl, retryTransient: false, cancellationToken: cancellationToken).ConfigureAwait(false);
+                            ? await TestGeoHttpGetString(safePrimaryUrl, cancellationToken).ConfigureAwait(false)
+                            : await SharedHttpClient.GetStringAsync(safePrimaryUrl, retryTransient: false, cancellationToken: cancellationToken).ConfigureAwait(false);
                     }
                     catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                     {
@@ -353,22 +370,23 @@ namespace Shiro.Services
                     }
                     catch (Exception ex)
                     {
-                        _logger.Debug($"[GeoIP primary] {ip}: {ex.Message}");
+                        _logger.Debug($"[GeoIP primary] {normalizedIp}: {ex.Message}");
                     }
                 }
                 else
                 {
-                    _logger.Debug($"[GeoIP primary] Blocked invalid/non-HTTPS target: {ip}");
+                    _logger.Debug($"[GeoIP primary] Blocked invalid/non-HTTPS target: {normalizedIp}");
                 }
 
                 if (!TryParseRegionFromJson(geoJson, out string resolvedRegion) && !ipLink.Contains("ipwho.is", StringComparison.OrdinalIgnoreCase))
                 {
-                    string fbUrl = $"https://ipwho.is/{ip}";
-                    if (TryValidatePublicTargetIpAndGeoUrl(ip, fbUrl, out _))
+                    string fbUrl = $"https://ipwho.is/{normalizedIp}";
+                    if (TryValidatePublicTargetIpAndGeoUrl(normalizedIp, fbUrl, out IPAddress? fbParsedIp))
                     {
+                        string safeFbUrl = $"https://ipwho.is/{fbParsedIp!.ToString()}";
                         string fallbackJson = TestGeoHttpGetString != null
-                            ? await TestGeoHttpGetString(fbUrl, cancellationToken).ConfigureAwait(false)
-                            : await SharedHttpClient.GetStringAsync(fbUrl, retryTransient: false, cancellationToken: cancellationToken).ConfigureAwait(false);
+                            ? await TestGeoHttpGetString(safeFbUrl, cancellationToken).ConfigureAwait(false)
+                            : await SharedHttpClient.GetStringAsync(safeFbUrl, retryTransient: false, cancellationToken: cancellationToken).ConfigureAwait(false);
                         TryParseRegionFromJson(fallbackJson, out resolvedRegion);
                     }
                 }
@@ -384,7 +402,7 @@ namespace Shiro.Services
                                 break;
                         }
                     }
-                    _geoIpCache[ip] = resolvedRegion;
+                    _geoIpCache[normalizedIp] = resolvedRegion;
                     if (!string.IsNullOrEmpty(subnetKey))
                         _geoIpCache[subnetKey] = resolvedRegion;
                     return resolvedRegion;
@@ -392,7 +410,7 @@ namespace Shiro.Services
             }
             catch (Exception ex)
             {
-                _logger.Debug($"[GeoIP] {ip}: {ex.Message}");
+                _logger.Debug($"[GeoIP] {normalizedIp}: {ex.Message}");
             }
 
             return string.Empty;

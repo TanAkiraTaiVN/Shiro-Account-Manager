@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.IO;
 using System.IO.Pipes;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using NSubstitute;
@@ -269,11 +270,13 @@ namespace Shiro.Tests
 
             byte[] readyFrame = DiscordRpcService.BuildFrame(1, Encoding.UTF8.GetBytes(ReadyHandshakeJson));
             string pipePrefix = $"shiro-test-ready-{Guid.NewGuid():N}-";
+            int op = -1;
+            string hsPayload = string.Empty;
             using var server = new NamedPipeServerStream(pipePrefix + "0", PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
             Task serverTask = Task.Run(async () =>
             {
                 await server.WaitForConnectionAsync();
-                await DiscordRpcService.ReadFrameFromStreamAsync(server);
+                (op, hsPayload) = await DiscordRpcService.ReadFrameFromStreamAsync(server);
                 await server.WriteAsync(readyFrame);
                 await server.FlushAsync();
             });
@@ -288,6 +291,10 @@ namespace Shiro.Tests
 
                 Assert.True(connected);
                 Assert.True(rpc.IsConnected);
+                Assert.Equal(DiscordRpcService.OpcodeHandshake, op);
+                using var hsDoc = JsonDocument.Parse(hsPayload);
+                Assert.Equal(1, hsDoc.RootElement.GetProperty("v").GetInt32());
+                Assert.Equal("123456789012345678", hsDoc.RootElement.GetProperty("client_id").GetString());
 
                 rpc.Stop();
                 Assert.False(rpc.IsConnected);

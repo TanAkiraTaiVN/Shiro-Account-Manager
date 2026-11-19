@@ -469,5 +469,64 @@ namespace Shiro.Tests
             Assert.False(result.IsBanned);
             Assert.Equal(0, webCalls);
         }
+
+        [Fact]
+        public async Task RobloxModerationService_WhenCallerCancelsDuringRedirectFollowUp_DoesNotReportBanOrEnqueueAlert()
+        {
+            using var callerCts = new CancellationTokenSource();
+            int followUpCalls = 0;
+            int alertCount = 0;
+            bool prevNotifyModeration = WebhookNotificationService.NotifyOnModeration;
+            WebhookNotificationService.NotifyOnModeration = true;
+            void OnAlert(WebhookAlert alert) => Interlocked.Increment(ref alertCount);
+            WebhookNotificationService.AlertDispatched += OnAlert;
+
+            try
+            {
+                var handler = new FakeHttpHandler((req, _) =>
+                {
+                    string url = req.RequestUri!.AbsoluteUri;
+                    if (url.Contains("usermoderation.roblox.com/v1/not-approved", StringComparison.OrdinalIgnoreCase))
+                        return Task.FromResult(new HttpResponseMessage(HttpStatusCode.InternalServerError));
+
+                    if (url.Contains("www.roblox.com/home", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var redirect = new HttpResponseMessage(HttpStatusCode.Found);
+                        redirect.Headers.Location = new Uri("/not-approved", UriKind.Relative);
+                        return Task.FromResult(redirect);
+                    }
+
+                    if (url.Contains("www.roblox.com/not-approved", StringComparison.OrdinalIgnoreCase))
+                    {
+                        Interlocked.Increment(ref followUpCalls);
+                        callerCts.Cancel();
+                        throw new OperationCanceledException(callerCts.Token);
+                    }
+
+                    return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound));
+                });
+
+                Account.TestHttpClientFactory = _ => new HttpClient(handler);
+
+                var account = new Account
+                {
+                    Username = "RedirectCancelModUser",
+                    UserID = 7790,
+                    SecurityToken = ValidToken
+                };
+
+                var svc = new RobloxModerationService();
+                var result = await svc.CheckModerationStatusAsync(account, ValidToken, callerCts.Token);
+
+                Assert.Equal(1, followUpCalls);
+                Assert.False(result.IsBanned);
+                Assert.Equal(0, alertCount);
+            }
+            finally
+            {
+                WebhookNotificationService.AlertDispatched -= OnAlert;
+                WebhookNotificationService.NotifyOnModeration = prevNotifyModeration;
+            }
+        }
     }
 }

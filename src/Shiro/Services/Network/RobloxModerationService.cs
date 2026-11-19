@@ -187,6 +187,10 @@ namespace Shiro.Services
                                 }
                             }
                         }
+                        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                        {
+                            throw;
+                        }
                         catch (Exception ex)
                         {
                             _logger.Debug($"[CheckModerationStatusAsync] Moderation target fetch failed: {ex.Message}");

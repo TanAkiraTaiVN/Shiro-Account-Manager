@@ -236,7 +236,7 @@ namespace Shiro.Services
 
                     // Send Handshake (Opcode 0) via source-generated DTO
                     byte[] handshakeUtf8 = JsonSerializer.SerializeToUtf8Bytes(
-                        new DiscordHandshakePayload(OpcodeHandshake, clientId),
+                        new DiscordHandshakePayload(HandshakeProtocolVersion, clientId),
                         ShiroAppJson.Default.DiscordHandshakePayload);
                     await WriteFrameBytesAsync(BuildFrame(OpcodeHandshake, handshakeUtf8), ct).ConfigureAwait(false);
 

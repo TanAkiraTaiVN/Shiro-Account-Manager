@@ -19,6 +19,8 @@ namespace Shiro.Tests.Network
         private const string InvalidIpMachineJson = "{\"joinScript\":{\"MachineAddress\":\"not-an-ip\"}}";
         private const string PublicGeoHostTestIpJson = "{\"joinScript\":{\"MachineAddress\":\"198.51.103.22\",\"DataCenterId\":999999}}";
         private const string PublicCsrfRetryIpJson = "{\"joinScript\":{\"MachineAddress\":\"198.51.104.77\",\"DataCenterId\":999999}}";
+        private const string PublicWhitespaceIpJson = "{\"joinScript\":{\"MachineAddress\":\" 198.51.105.11 \",\"DataCenterId\":999999}}";
+        private const string PublicMappedIpv6Json = "{\"joinScript\":{\"MachineAddress\":\"::ffff:198.51.106.12\",\"DataCenterId\":999999}}";
         private const string OsakaGeoJson = "{\"success\":true,\"city\":\"Osaka\",\"country_code\":\"JP\"}";
         public RobloxServerQueryServiceBehaviorTests()
         {
@@ -408,14 +410,23 @@ namespace Shiro.Tests.Network
         [InlineData("ff02::1", "https://ipwho.is/ff02::1", false)]
         [InlineData("::ffff:127.0.0.1", "https://ipwho.is/127.0.0.1", false)]
         [InlineData("::ffff:10.0.0.1", "https://ipwho.is/10.0.0.1", false)]
+        [InlineData("fe80::1%eth0", "https://ipwho.is/1.1.1.1", false)]
+        [InlineData("2001:4860:4860::8888%1", "https://ipwho.is/1.1.1.1", false)]
+        [InlineData("2001:4860:4860::8888%eth0", "https://ipwho.is/1.1.1.1", false)]
         [InlineData("not-an-ip", "https://ipwho.is/not-an-ip", false)]
         [InlineData("", "https://ipwho.is/1.1.1.1", false)]
         [InlineData("1.1.1.1", "http://ipwho.is/1.1.1.1", false)]
         [InlineData("1.1.1.1", "file:///etc/passwd", false)]
         [InlineData("1.1.1.1", "https://127.0.0.1/1.1.1.1", false)]
         [InlineData("1.1.1.1", "https://localhost/1.1.1.1", false)]
+        [InlineData("1.1.1.1", "https://localhost./1.1.1.1", false)]
+        [InlineData("1.1.1.1", "https://foo.localhost./1.1.1.1", false)]
+        [InlineData("1.1.1.1", "https://user:pass@ipwho.is/1.1.1.1", false)]
+        [InlineData("1.1.1.1", "https://user@ipwho.is/1.1.1.1", false)]
         [InlineData("1.1.1.1", "", false)]
         [InlineData("1.1.1.1", "https://ipwho.is/1.1.1.1", true)]
+        [InlineData(" 1.1.1.1 ", "https://ipwho.is/1.1.1.1", true)]
+        [InlineData("::ffff:1.1.1.1", "https://ipwho.is/1.1.1.1", true)]
         [InlineData("172.32.0.1", "https://ipwho.is/172.32.0.1", true)]
         [InlineData("100.128.0.1", "https://ipwho.is/100.128.0.1", true)]
         [InlineData("2606:4700:4700::1111", "https://ipwho.is/2606:4700:4700::1111", true)]
@@ -427,6 +438,56 @@ namespace Shiro.Tests.Network
                 Assert.NotNull(parsedIp);
             else
                 Assert.Null(parsedIp);
+        }
+
+        [Fact]
+        public void ServerQuery_TryValidatePublicTargetIpAndGeoUrl_NormalizesWhitespaceAndIpv4MappedIp()
+        {
+            Assert.True(RobloxServerQueryService.TryValidatePublicTargetIpAndGeoUrl(" 1.1.1.1 ", "https://ipwho.is/1.1.1.1", out IPAddress? trimmed));
+            Assert.Equal("1.1.1.1", trimmed!.ToString());
+
+            Assert.True(RobloxServerQueryService.TryValidatePublicTargetIpAndGeoUrl("::ffff:198.51.105.9", "https://ipwho.is/198.51.105.9", out IPAddress? mapped));
+            Assert.Equal("198.51.105.9", mapped!.ToString());
+        }
+
+        [Fact]
+        public async Task QueryServerRegionAndPingAsync_WhenMachineAddressHasWhitespaceOrMappedIpv6_ConsumesNormalizedIp()
+        {
+            var handler = new FakeHttpHandler()
+                .Enqueue(HttpStatusCode.OK, PublicWhitespaceIpJson)
+                .Enqueue(HttpStatusCode.OK, PublicMappedIpv6Json);
+            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+
+            var pingTargets = new List<string>();
+            var geoUrls = new List<string>();
+            RobloxServerQueryService.TestPingProbe = target =>
+            {
+                pingTargets.Add(target);
+                return Task.FromResult<int?>(19);
+            };
+            RobloxServerQueryService.TestGeoHttpGetString = (url, _) =>
+            {
+                geoUrls.Add(url);
+                return Task.FromResult(OsakaGeoJson);
+            };
+
+            var account = new Account
+            {
+                Username = "NormalizedIpUser",
+                SecurityToken = "_|WARNING:-DO-NOT-SHARE-THIS.--NormCookie12345"
+            };
+
+            var wsResult = await RobloxServerQueryService.Default.QueryServerRegionAndPingAsync(
+                account, 1818, "job-ws-1", ipApiTemplate: "https://custom.geo/<ip>");
+            var mappedResult = await RobloxServerQueryService.Default.QueryServerRegionAndPingAsync(
+                account, 1818, "job-mapped-1", ipApiTemplate: "https://custom.geo/<ip>");
+
+            Assert.True(wsResult.Success);
+            Assert.Equal("198.51.105.11", wsResult.Ip);
+            Assert.True(mappedResult.Success);
+            Assert.Equal("198.51.106.12", mappedResult.Ip);
+            Assert.Equal(new[] { "198.51.105.11", "198.51.106.12" }, pingTargets.ToArray());
+            Assert.Equal(new[] { "https://custom.geo/198.51.105.11", "https://custom.geo/198.51.106.12" }, geoUrls.ToArray());
         }
     }
 }
