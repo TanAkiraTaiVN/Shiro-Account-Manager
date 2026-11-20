@@ -9,7 +9,7 @@
 - **Zero Native DLL Drop**: Direct usage of `System.Security.Cryptography` (AES-256-GCM, PBKDF2-SHA256, DPAPI).
 - **Clean Architecture & Strict MVVM**: ViewModels never touch Windows API or UI Window instances directly. Verified automatically by `NetArchTest`.
 - **High-Performance Memory & IO**: `ArrayPool<byte>`, `FrozenDictionary<string, string>` for O(1) localized string lookups, and Channels for non-blocking logging.
-- **Micro-File Modularization**: 100% of source files strictly budgeted under 500 lines of code.
+- **Micro-File Modularization**: 100% of `.cs` source files in `src/Shiro/` are strictly budgeted at `<= 485` lines (`<= 400` lines and `<= 200` chars/line for `.axaml`).
 
 ---
 
@@ -91,7 +91,7 @@ sequenceDiagram
 ## 4. Security Hardening Specifications
 
 1. **Zero-Memory Key Clearing (`ZeroMemory`)**:
-   - Master encryption key references in `StoragePaths.VaultKey` are explicitly wiped using `CryptographicOperations.ZeroMemory` upon shutdown or credential erasure.
+   - Master encryption key references in `StoragePaths`, `VaultKeyRecoveryService`, and `CryptoHelper` are explicitly wiped using `CryptographicOperations.ZeroMemory` upon shutdown, rotation, or credential erasure.
 2. **Log Redaction (`LogRedactor`)**:
    - `AppLogger` intercepts and redacts `.ROBLOSECURITY` tokens, cookie values, passwords, query credentials, and bearer tokens before file and console write.
 3. **Web Server & WebSocket Protection**:
@@ -106,12 +106,12 @@ sequenceDiagram
 
 ## 5. Architectural Quality Enforcement
 
-Architecture rules are permanently verified on every build via `NetArchTest.eNhancedEdition` in `tests/Shiro.Tests/ArchitectureTests.cs`:
-- **MVVM Separation**: `Types.InAssembly(CoreAssembly).That().ResideInNamespace("Shiro.ViewModels").ShouldNot().HaveDependencyOnAny("Shiro.AvaloniaUI.Views")`.
-- **Service Decoupling & DI (`AppServices`)**: Services in `Shiro.Services` resolve dependencies via `AppServices` (`IAccountRepository`, `IRobloxApiClient`, `IRobloxSessionService`, `IRobloxLauncherService`, `IDialogService`, `AppSettings`) rather than static `AccountManager.*` state.
-- **Zero Sync-over-Async**: Automated checks verify zero `.GetAwaiter().GetResult()` blocking calls across `src/Shiro`.
-- **Encoding & Localization Integrity**: Automated checks enforce zero `U+FFFD` replacement characters across `.cs`, `.axaml`, and `.json` files, and verify 100% of AXAML `{DynamicResource}` localization keys exist in `LocalizationService`.
-- **Micro-File & Partial Class Budgets**: Automated tests enforce <= 500 lines per `.cs` file and strict line budgets across `partial class` definitions.
+Architecture rules are permanently verified on every build via `NetArchTest.eNhancedEdition` and source ratchets across `tests/Shiro.Tests/ArchitectureTests*.cs` (`ArchitectureTests.cs`, `ArchitectureTests.Budgets.cs`, `ArchitectureTests.Hygiene.cs`, `ArchitectureTests.Layering.cs`, `ArchitectureTests.Ratchets.cs`, `ArchitectureTests.SourceInvariants.cs`, `ArchitectureTests.StaticState.cs`):
+- **MVVM & Layer Separation**: `ViewModels_ShouldNotDependOn_Views`, `Services_And_Classes_ShouldNotDependOn_Views`, `Services_ShouldNotDependOn_ViewModels` (allowlisting only 3 legacy files until decoupled), and `DomainFolder_ShouldNotDependOn_ViewModelsOrAvaloniaOrWin32Registry`.
+- **Service Decoupling & DI (`AppServices`)**: Services in `Shiro.Services` resolve dependencies via `AppServices` (`IAccountRepository`, `IRobloxApiClient`, `ISettingsService`, `IAppLogger`, `IDialogService`, `IUserPrompt`, `IHostUiBridgeService`, `ISelectionStateService`, `IServerBrowserStateService`, `IToastNotifier`, `IRobloxServerQueryService`) rather than static `AccountManager.*`, `AppSettings.*`, or `Program.Logger` state (`AmbientStaticAccess_ShouldNotExceedPerFolderBaseline`).
+- **Zero Sync-over-Async**: Automated checks verify zero `.GetAwaiter().GetResult()` / `httpClient.Send` blocking calls and enforce strict allowlists on `DispatcherFrame`/`PushFrame`, `.Wait(TimeSpan...)`, and `Thread.Sleep` across `src/Shiro/`.
+- **Encoding & Localization Integrity**: Automated checks enforce zero `U+FFFD` replacement characters across `.cs`, `.axaml`, and `.json` files, ban Vietnamese diacritics outside `LocalizationService*`, and verify 100% of AXAML `{DynamicResource ([A-Za-z0-9_.]+)}` localization keys exist in `LocalizationService` (`DynamicResourcePattern()`).
+- **Micro-File & Partial Class Budgets**: Automated tests enforce `<= 485` lines per `.cs` file in `src/Shiro/`, `<= 1,150` default lines across `partial class` definitions (with explicit baselines for `Account`, `MainViewModel`, `ServerListViewModel`), `<= 550` lines per test file, and `<= 400` lines (`<= 200` chars/line) per `.axaml`.
 - **Naming Conventions**: Strict adherence to domain suffixes across the entire `Shiro.Services` namespace.
 
 ---
@@ -122,7 +122,7 @@ To ensure 100% testability and prevent UI thread deadlocks, all dialogs in Shiro
 - **`DialogViewModelBase`**: Unified base class for dialog ViewModels, managing title, status text, reactive `StatusKind` (Idle, Busy, Success, Error), and standard confirmation/cancellation request events (`RequestClose`).
 - **`IUserPrompt` Abstraction**: Replaces intrusive synchronous or asynchronous `MessageBox` calls with an injectable interface. In headless unit tests, mock implementations (`Substitute.For<IUserPrompt>()`) supply deterministic user responses (Accept, Decline, Retry) without showing UI dialogs.
 - **`FastLoginCoordinator` & `FastLoginQueue`**: Separates WebView2 DOM injection, URL inspection, and batch queue state from the Avalonia code-behind.
-- **Headless Test Coverage**: All dialog ViewModels (`FastLoginDialogViewModel`, `CookieImportViewModel`, `SettingsViewModel`) are exercised by headless xUnit suites without Avalonia windowing dependencies.
+- **Headless Test Coverage**: All dialog ViewModels (`CookieImportViewModel`, `BulkImportViewModel`, `ProxyManagerViewModel`, `MissingAssetsViewModel`, `AccountUtilsViewModel`, `SettingsViewModel`) are exercised by headless xUnit suites without Avalonia windowing dependencies.
 
 ---
 
@@ -131,9 +131,9 @@ To ensure 100% testability and prevent UI thread deadlocks, all dialogs in Shiro
 The local automation gateway provides REST endpoints and real-time WebSocket event streaming between Shiro and external tooling:
 - **`KestrelWebServer`**: Hosts ASP.NET Core Kestrel endpoints (`LocalKestrelWebServer`) with WebSocket streaming on `/ws`, `/events`, and `/v2/events`, plus legacy and v2 REST routing.
 - **`AccountApiDispatcher`**: Handles request routing, 256 KB payload size limits, account operations, and sanitized HTTP 500 error responses (`InternalErrorMessage`).
-- **`ApiDocumentationService`**: Serves OpenAPI 3.0 JSON (`/openapi.json`) and interactive API documentation (`/docs`).
+- **`ApiDocumentationService`**: Serves OpenAPI 3.0 JSON (`/swagger.json`, alias `/openapi.json`) and interactive API documentation (`/docs`, alias `/api/docs`).
 - **`WebAuthPolicy`**:
-  - Enforces loopback restriction unless external access is explicitly enabled with a configured password.
+  - Enforces loopback restriction unless external access is explicitly enabled with a configured password (`>= 12` chars via `MinExternalPasswordLength`).
   - Validates `Origin` headers to prevent Cross-Site WebSocket Hijacking (CSWSH).
   - Constant-time password comparison protects against side-channel analysis.
 
@@ -143,19 +143,24 @@ The local automation gateway provides REST endpoints and real-time WebSocket eve
 
 ```
 src/Shiro/
-├── AvaloniaUI/          # Presentation layer: Views, Controls, Converters, Assets
-├── Domain/              # Core domain models: Account, Avatar, GameClass, Server, NaturalStringComparer
-├── Http/                # HTTP client infrastructure (RestClient)
-├── Services/            # Business logic, orchestration, and infrastructure services
-│   ├── Auth/            # Authentication, session auditing, HBA crypto
-│   ├── Launch/          # Roblox launch orchestration, batch operations, client patchers
-│   ├── Network/         # External API dispatching, Kestrel gateway, RPC, presence monitoring
-│   ├── Storage/         # Atomic file storage, account persistence (AccountPersistenceService, AccountRegistrationService), serializers, vault encryption
-│   ├── Ui/              # Theme, dialogs, localization, toasts
-│   └── Windows/         # Windows process monitoring (RobloxProcess, RobloxWatcher), window arrangement
-├── ViewModels/          # Strict MVVM ViewModels, dialog ViewModels, command palette
-├── Program.cs           # Application entry point, single-instance mutex, crash handler
-└── Shiro.csproj         # .NET 10 project definition
+├── AvaloniaUI/               # Presentation layer: Views, Controls, Converters, Styles, Assets
+├── Domain/                   # Core domain models: Account, Avatar, GameClass, Server, NaturalStringComparer
+├── Http/                     # HTTP client infrastructure (RestClient)
+├── Resources/                # Icons, embedded localization JSON (Strings/*.json), datacenters & SVG flags
+├── Services/                 # Business logic, orchestration, and infrastructure services
+│   ├── Auth/                 # Authentication, session auditing, HBA crypto, WebAuthPolicy
+│   ├── Launch/               # Roblox launch orchestration, batch operations, client patchers
+│   ├── Network/              # External API dispatching, Kestrel gateway, RPC, presence monitoring
+│   ├── Storage/              # Atomic file storage, account persistence, runtime store, serializers, vault encryption
+│   ├── Ui/                   # Theme, dialogs, localization, toasts
+│   └── Windows/              # Windows process monitoring (RobloxProcess*.cs, RobloxWatcher), window arrangement
+├── ViewModels/               # Strict MVVM ViewModels, dialog ViewModels, command palette
+├── AccountManager*.cs        # Application coordinator partial classes (Accounts, Launch, Lifecycle, ModernActions, Presence, RecentGamesAndSettings, WebServer)
+├── GlobalUsings.cs           # Project-wide global usings
+├── Program.cs                # Application entry point, single-instance mutex, crash handler
+├── app1.manifest             # Windows application compatibility & DPI manifest
+├── packages.lock.json        # Locked NuGet restore graph (win-x64)
+└── Shiro.csproj              # .NET 10 project definition
 ```
 
 

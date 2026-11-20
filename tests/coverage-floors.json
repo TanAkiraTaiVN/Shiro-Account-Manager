@@ -16,5 +16,9 @@
   "ViewModels/ServerListViewModel.ServerOperations.cs": { "branch": 80 },
   "Services/Launch/AutoReconnectService.cs": { "branch": 70 },
   "Services/Network/RobloxModerationService.cs": { "branch": 67 },
-  "Services/Launch/RobloxPlaceHelper.cs": { "branch": 86 }
+  "Services/Launch/RobloxPlaceHelper.cs": { "branch": 86 },
+  "Services/Auth/WebAuthPolicy.cs": { "branch": 90 },
+  "Services/Network/KestrelWebServer.cs": { "branch": 92 },
+  "Services/Storage/AccountRuntimeStateStore.cs": { "branch": 83 },
+  "Services/Auth/SessionAuditorService.cs": { "branch": 85 }
 }

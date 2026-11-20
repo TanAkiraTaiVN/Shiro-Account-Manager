@@ -23,6 +23,16 @@ namespace Shiro.Tests
             return LiteralRegex.Replace(source, m => m.Groups["comment"].Success ? m.Value : "\"\"");
         }
 
+        public static string StripCommentsAndStringLiterals(string source)
+        {
+            if (string.IsNullOrEmpty(source))
+            {
+                return source;
+            }
+
+            return LiteralRegex.Replace(source, m => m.Groups["comment"].Success ? " " : "\"\"");
+        }
+
         public static IEnumerable<string> AppSourceFiles(string repoRoot)
         {
             var appDir = Path.Combine(repoRoot, "src", "Shiro");

@@ -17,7 +17,7 @@
 
 ### 1.1. Cơ Chế Hoạt Động Của HBA
 1. **Trích xuất khóa phần cứng (HBA ECDSA Key Capture)**:
-   - Khi đăng nhập qua WebView2 (`FastLoginDialog`) hoặc Chromium (`RobloxBrowserLogin`), hook JavaScript can thiệp vào `SubtleCrypto.prototype.generateKey` và đồng bộ khóa từ `IndexedDB` (`hbaDB` -> `hbaObjectStore` -> `hba_keys`).
+   - Khi đăng nhập qua WebView2 (`FastLoginDialog` & `FastLoginCoordinator`), hook JavaScript can thiệp vào `SubtleCrypto.prototype.generateKey` và đồng bộ khóa từ `IndexedDB` (`hbaDB` -> `hbaObjectStore` -> `hba_keys`).
    - Khóa ECDSA P-256 (PKCS#8 Base64) cùng với `BrowserTrackerId` (từ cookie `RBXEventTrackerV2`) được lưu trữ bảo mật trong Shiro vault cùng tài khoản (`HbaPrivateKey`, `HbaPublicKey`, `HbaTemplate`).
 
 2. **Gắn Chữ Ký BAT (`x-bound-auth-token`)**:
@@ -25,10 +25,10 @@
    - Header `x-bound-auth-token` chứng minh với máy chủ Roblox rằng yêu cầu này đến từ **chính thiết bị vật lý đã đăng nhập**, chứ không phải cookie bị đánh cắp mang sang máy khác.
 
 3. **Chủ Động Re-bind Session Khi Chuyển Mạng (`TryRebindSessionToCurrentNetworkAsync`)**:
-   - `GetAuthTicketCoreAsync` và `AccountLaunchService` so sánh `LastBoundIpSignature` với `RobloxHbaService.GetLocalNetworkSignature()`.
-   - Nếu phát hiện người dùng vừa tắt VPN và quay về IP mạng Việt Nam, hệ thống chủ động gọi `TryRebindSessionToCurrentNetworkAsync(force: true)`.
-   - Gửi request `v1/users/authenticated` có kèm chữ ký HBA BAT. Roblox xác nhận khóa thiết bị hợp lệ và xoay cookie `.ROBLOSECURITY` sang gắn với IP Việt Nam mới thông qua `Set-Cookie`.
-   - Lấy auth ticket qua `v1/authentication-ticket` với chữ ký BAT và khởi chạy client `RobloxPlayerBeta.exe` trực tiếp.
+   - `Account.GetAuthTicketCoreAsync` và `AccountLaunchService` (`LaunchAccount` / `LaunchAccountHome`) so sánh `LastBoundIpSignature` với `RobloxHbaService.GetNetworkSignatureForAccount(account)` (kết hợp `RobloxHbaService.GetLocalNetworkSignature()` và endpoint proxy riêng của tài khoản nếu có).
+   - Nếu phát hiện người dùng vừa tắt VPN, đổi mạng, hoặc đổi proxy trên tài khoản (`LastBoundIpSignature != currentNetSig`), hệ thống chủ động gọi `TryRebindSessionToCurrentNetworkAsync(force: true)`.
+   - Gửi request `v1/users/authenticated` có kèm chữ ký HBA BAT. Roblox xác nhận khóa thiết bị hợp lệ và xoay cookie `.ROBLOSECURITY` sang gắn với mạng/IP mới thông qua `Set-Cookie`.
+   - Lấy auth ticket qua `v1/authentication-ticket` với chữ ký BAT và khởi chạy client thông qua `RobloxLaunchExecutorHelper.ExecuteWithGateAndDirectPreferenceAsync` (mặc định dùng URI protocol handler `roblox-player` và fallback sang `RobloxPlayerBeta.exe`; nếu bật `PreferDirectLaunch`, `RobloxDirectLauncher` khởi chạy trực tiếp `RobloxPlayerBeta.exe` trước và fallback về URI protocol nếu không khả dụng).
 
 ---
 

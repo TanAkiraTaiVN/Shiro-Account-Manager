@@ -22,21 +22,21 @@
 
 ---
 
-# Milestone 10/10 Baseline (2026-11-04)
+# Current Verified Baseline (2026-11-20 — Plans 1–4)
 
 | Chỉ số | Giá trị | Trạng thái |
 |---|---|---|
-| Build Release | 0 Warnings / 0 Errors | Hoàn hảo |
-| Unit Tests | 1,555 / 1,555 Pass (0 Failed, 0 Skipped) | 100% Xanh |
-| Overall Line Coverage | 75.47% (Gate >= 75.0%) | Vượt ngưỡng |
-| Overall Branch Coverage | 63.93% (Gate >= 60.0%) | Vượt ngưỡng |
-| Core Security / Persistence | 92.83% (Gate >= 92.0%) | Vượt ngưỡng |
-| File .cs > 500 dòng | 0 | Tuân thủ 100% |
-| `catch {` trống | 0 | Đã bọc logging/handled |
-| Unhandled `async void` | 0 (Chỉ giữ 5 WebView2 UI events) | Đã cô lập |
-| `.Result` / `.Wait()` blocking | 0 | Không còn sync-over-async |
+| Build Release (`-warnaserror`) | 0 Warnings / 0 Errors | Hoàn hảo |
+| Unit Tests (`Shiro.Tests`) | 2,416 / 2,416 test cases Pass (1,819 methods, 0 Failed, 0 Skipped) | 100% Xanh |
+| Overall Line Coverage | ~83.7% (Gate >= 75.0%) | Vượt ngưỡng |
+| Overall Branch Coverage | ~73.7% (Gate >= 60.0%) | Vượt ngưỡng |
+| Core Security / Persistence | 94.09% (955/1015 lines, Gate >= 92.0%) | Vượt ngưỡng |
+| File .cs > 485 dòng | 0 | Tuân thủ 100% |
+| `catch {` trống / untyped | 0 (chỉ giữ allowlist `AppLogger.cs`) | Đã bọc logging/handled |
+| `async void` trong `AvaloniaUI/` | 0 (chỉ giữ 2 `ICommand.Execute` ở `RelayCommand.cs`) | Đã cô lập |
+| Sync-over-async blocking | 0 `.GetAwaiter().GetResult()` / `httpClient.Send` | Không còn blocking mới |
 | Dialog ViewModels | 100% Decoupled (DialogViewModelBase + IUserPrompt) | Kiểm thử headless độc lập |
-| Single-File Publish | `build/Release/Shiro.exe` (~123 MB) | Sẵn sàng triển khai |
+| Single-File Publish | `build/Release/Shiro.exe` (~66.7 MiB / 69,929,550 bytes) | Sẵn sàng triển khai |
 
 ---
 
@@ -54,8 +54,8 @@ Checklist kiểm thử thủ công runtime trên máy Windows thực tế:
   - Dán danh sách 3 dòng định dạng `username:password` vào Cookie / Batch Import.
   - Kỳ vọng: Hàng đợi Fast Login mở với 3 tài khoản, tuần tự đăng nhập từng tài khoản.
 - [ ] **4. Local HTTP & WebSocket Gateway (Kestrel API)**:
-  - Bật Local Web Server trong Settings và truy cập `/docs` trên `localhost`.
-  - Kỳ vọng: Tài liệu OpenAPI hiển thị đầy đủ; endpoint `/v2/accounts` và WebSocket `/ws` thực thi đúng chính sách xác thực mật khẩu / `Origin` và không rò rỉ các field `Hba*`.
+  - Bật Local Web Server trong Settings và truy cập `/docs` hoặc `/swagger.json` (alias `/openapi.json`) trên `localhost`.
+  - Kỳ vọng: Tài liệu OpenAPI 3.0 hiển thị đầy đủ; các endpoint `/v2/*` (ví dụ `/v2/GetAccountsJson`, `/v2/GetAccounts`) và WebSocket `/ws`, `/events`, `/v2/events` (`/ws?token=` hoặc header) thực thi đúng chính sách xác thực mật khẩu (`>= 12` ký tự khi mở external) / `Origin` và chặn đọc/ghi các field `Hba*`.
 - [ ] **5. Settings & Localization**:
   - Thay đổi ngôn ngữ hiển thị (Tiếng Việt <-> English) trong Settings.
   - Kỳ vọng: Toàn bộ giao diện chính và các hộp thoại mở cập nhật tức thì (FrozenDictionary lookups); nút Save hiển thị phản hồi và tự ẩn sau 3 giây.

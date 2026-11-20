@@ -1,12 +1,12 @@
 # Coverage Exclusions & Baseline
 
-## Enforced Coverage Gates (Task 19 - 10/10 Overhaul)
+## Enforced Coverage Gates (Plans 1–4 Current Verified Baseline)
 
-- **Overall Line Coverage**: 82.10% (Gate: >= 75.0%)
-- **Overall Branch Coverage**: 71.51% (Gate: >= 60.0%)
-- **Core Security/Persistence Coverage**: 93.88% (Gate: >= 92.0%)
+- **Overall Line Coverage**: ~83.7% (Gate: >= 75.0%)
+- **Overall Branch Coverage**: ~73.7% (Gate: >= 60.0%)
+- **Core Security/Persistence Coverage**: 94.09% (Gate: >= 92.0%)
 
-Enforced by `scripts/Check-Coverage.ps1 -MinOverall 75.0 -MinBranch 60.0 -MinCore 92.0`, GitHub Actions workflows (`.github/workflows/build.yml` and `.github/workflows/release.yml`), and validated by `ArchitectureTests.cs`.
+Enforced by `scripts/Check-Coverage.ps1 -MinOverall 75.0 -MinBranch 60.0 -MinCore 92.0`, per-file hotspot branch floors in `tests/coverage-floors.json`, GitHub Actions workflows (`.github/workflows/build.yml` and `.github/workflows/release.yml`), and validated by `ArchitectureTests.cs` and `ArchitectureTests.Ratchets.cs`.
 
 ## Measured Honest Baseline (Task 1)
 
@@ -27,15 +27,15 @@ Only files falling strictly into the categories of generated code, desktop UI pr
 | `**/App.axaml.cs` | UI Framework | Avalonia application entrypoint and framework lifecycle requiring desktop runtime bootstrap. |
 | `**/AvaloniaUI/**` | UI Presentation | Avalonia visual tree, windowing, and XAML views requiring desktop GUI display context. |
 | `**/tests/**` | Test Harness | Test project source files and mock fixtures excluded from production coverage metrics. |
-| `**/RobloxProcess.cs` | Native Interop | Win32 process interop, memory inspection, and OS handle manipulation requiring a live Roblox game process. |
+| `**/RobloxProcess.cs` | Native Interop | Win32 process interop, memory inspection, and OS handle manipulation requiring a live Roblox game process (pure log parsing and log-reading helpers are extracted into `RobloxProcess.LogPatterns.cs` and `RobloxProcess.LogReader.cs` so Coverlet tracks them). |
 | `**/RobloxWatcher.cs` | Native Interop | Background Win32 process watcher thread polling OS process lifecycle events. |
 
 ## Removed Artificial Exclusions
 
-The 17 extra exclusions artificially added in commit `ccb4f6b` have been removed:
+The 19 extra exclusions artificially added in commit `ccb4f6b` have been removed:
 `AccountBrowser*.cs`, `RobloxProcess*.cs`, `ChromeLaunchHelper*.cs`, `AvaloniaDialogService.cs`, `AccountLaunchService*.cs`, `RobloxDirectLauncher*.cs`, `RobloxSingletonService.cs`, `AntiAfkService.cs`, `DiscordRpcService.cs`, `Program.cs`, `AccountManager*.cs`, `MemoryOptimizer.cs`, `Presence.cs`, `RobloxWindow*.cs`, `RobloxAudioService.cs`, `SystemTrayService.cs`, `UpdaterService.cs`, `PrerequisiteService.cs`, `RobloxLauncherService.cs`.
 
-These files contain testable business logic and their coverage will be increased honestly through behavioral unit tests in subsequent tasks.
+These files contain testable business logic (with pure log helpers now isolated in `RobloxProcess.LogPatterns.cs` and `RobloxProcess.LogReader.cs`) and their coverage is enforced by `ArchitectureTests.Ratchets.cs` and `tests/coverage-floors.json`.
 
 ## Accepted async void (`ICommand.Execute`)
 

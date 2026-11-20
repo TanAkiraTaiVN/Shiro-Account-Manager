@@ -15,6 +15,9 @@ namespace Shiro.Tests
     {
         internal static readonly Assembly CoreAssembly = typeof(AccountViewModel).Assembly;
 
+        [GeneratedRegex(@"\{DynamicResource\s+([A-Za-z0-9_.]+)\}")]
+        internal static partial Regex DynamicResourcePattern();
+
         [Fact]
         public void AccountManager_AccountsList_ShouldNotBePubliclyExposed()
         {
@@ -74,7 +77,7 @@ namespace Shiro.Tests
                 .ToList();
 
             Shiro.Services.LocalizationService.EnsureCoreKeys();
-            var regex = new System.Text.RegularExpressions.Regex(@"\{DynamicResource\s+([A-Za-z0-9_]+)\}");
+            var regex = DynamicResourcePattern();
 
             foreach (var file in axamlFiles)
             {

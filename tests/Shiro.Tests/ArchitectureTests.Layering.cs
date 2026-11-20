@@ -305,5 +305,45 @@ namespace Shiro.Tests
             Assert.True(violations.Count == 0,
                 $"Ambient static access exceeded baseline:\n{string.Join("\n", violations)}");
         }
+
+        [Fact]
+        public void Services_ShouldNotDependOn_ViewModels()
+        {
+            var allowFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                "AccountWorkflowService.cs",
+                "ISettingsSideEffects.cs",
+                "ToastService.cs"
+            };
+            var servicesDir = Path.Combine(RepoRoot, "src", "Shiro", "Services");
+            var sourceOffenders = Directory.GetFiles(servicesDir, "*.cs", SearchOption.AllDirectories)
+                .Where(f => !allowFiles.Contains(Path.GetFileName(f)))
+                .Where(f => Regex.IsMatch(
+                    SourceScan.StripCommentsAndStringLiterals(File.ReadAllText(f)),
+                    @"\bShiro\.ViewModels\b"))
+                .Select(Path.GetFileName)
+                .ToList();
+
+            Assert.Empty(sourceOffenders);
+
+            var allowTypePrefixes = new HashSet<string>(StringComparer.Ordinal)
+            {
+                "Shiro.Services.AccountWorkflowService",
+                "Shiro.Services.SettingsSideEffectsService",
+                "Shiro.Services.ToastItem",
+                "Shiro.Services.ToastService"
+            };
+            var archResult = Types.InAssembly(CoreAssembly)
+                .That()
+                .ResideInNamespace("Shiro.Services")
+                .ShouldNot()
+                .HaveDependencyOnAny("Shiro.ViewModels")
+                .GetResult();
+            var ilOffenders = (archResult.FailingTypes?.Select(t => t.FullName ?? t.Name) ?? Enumerable.Empty<string>())
+                .Where(name => !allowTypePrefixes.Contains(name.Split('+', '/')[0]))
+                .ToList();
+
+            Assert.Empty(ilOffenders);
+        }
     }
 }

@@ -74,7 +74,11 @@ namespace Shiro.Tests
                 "ViewModels/ServerListViewModel.ServerOperations.cs",
                 "Services/Launch/AutoReconnectService.cs",
                 "Services/Network/RobloxModerationService.cs",
-                "Services/Launch/RobloxPlaceHelper.cs"
+                "Services/Launch/RobloxPlaceHelper.cs",
+                "Services/Auth/WebAuthPolicy.cs",
+                "Services/Network/KestrelWebServer.cs",
+                "Services/Storage/AccountRuntimeStateStore.cs",
+                "Services/Auth/SessionAuditorService.cs"
             };
 
             foreach (var hotspot in requiredHotspots)
@@ -84,6 +88,111 @@ namespace Shiro.Tests
                 double floorVal = branchProp.GetDouble();
                 Assert.InRange(floorVal, 0.0, 100.0);
             }
+        }
+
+        [GeneratedRegex(@"\b(DispatcherFrame|PushFrame)\b")]
+        private static partial Regex DispatcherFramePattern();
+
+        [GeneratedRegex(@"\.Wait\s*\(\s*TimeSpan\b")]
+        private static partial Regex WaitWithTimeSpanPattern();
+
+        [GeneratedRegex(@"\bThread\.Sleep\b")]
+        private static partial Regex ThreadSleepPattern();
+
+        private static List<string> FindSourcePatternOffenders(Regex pattern, HashSet<string> allowFiles)
+        {
+            return SourceScan.AppSourceFiles(RepoRoot)
+                .Where(f => !allowFiles.Contains(Path.GetFileName(f)))
+                .Where(f => pattern.IsMatch(SourceScan.StripCommentsAndStringLiterals(File.ReadAllText(f))))
+                .Select(Path.GetFileName)
+                .OfType<string>()
+                .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        [Theory]
+        [InlineData("{DynamicResource Theme.AccentBrush}", "Theme.AccentBrush")]
+        [InlineData("{DynamicResource Settings.ExportVaultBtn}", "Settings.ExportVaultBtn")]
+        public void ArchitectureTests_DynamicResourceRegex_CapturesDottedKeysAndBansDispatcherFrame(string sample, string expectedKey)
+        {
+            var match = DynamicResourcePattern().Match(sample);
+            Assert.True(match.Success);
+            Assert.Equal(expectedKey, match.Groups[1].Value);
+
+            var allow = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                "InputDialog.axaml.cs",
+                "MessageBoxDialog.axaml.cs"
+            };
+            var offenders = FindSourcePatternOffenders(DispatcherFramePattern(), allow);
+            Assert.Empty(offenders);
+        }
+
+        [Fact]
+        public void WaitWithTimeSpan_ShouldNotExceedAllowList()
+        {
+            var allow = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                "AccountManager.Lifecycle.cs",
+                "InputDialog.axaml.cs",
+                "MessageBoxDialog.axaml.cs",
+                "AppLogger.cs"
+            };
+            var offenders = FindSourcePatternOffenders(WaitWithTimeSpanPattern(), allow);
+            Assert.Empty(offenders);
+        }
+
+        [Fact]
+        public void ThreadSleep_ShouldNotExceedAllowList()
+        {
+            var allow = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                "StoragePaths.VaultKey.cs"
+            };
+            var offenders = FindSourcePatternOffenders(ThreadSleepPattern(), allow);
+            Assert.Empty(offenders);
+        }
+
+        [Fact]
+        public void RobloxProcessLogReader_ShouldBeExtractedFromRobloxProcess()
+        {
+            string windowsDir = Path.Combine(RepoRoot, "src", "Shiro", "Services", "Windows");
+            string logReaderPath = Path.Combine(windowsDir, "RobloxProcess.LogReader.cs");
+            string processPath = Path.Combine(windowsDir, "RobloxProcess.cs");
+
+            Assert.True(File.Exists(logReaderPath), "Expected RobloxProcess.LogReader.cs to exist.");
+            string logReader = File.ReadAllText(logReaderPath);
+            string process = File.ReadAllText(processPath);
+
+            Assert.Contains("internal static string[] ReadAppendedLines", logReader, StringComparison.Ordinal);
+            Assert.Contains("internal static string[] SplitCompletedLogLines", logReader, StringComparison.Ordinal);
+            Assert.Contains("internal static void RaiseLogFileReadSafely", logReader, StringComparison.Ordinal);
+            Assert.Contains("internal static bool ShouldAllowKill", logReader, StringComparison.Ordinal);
+            Assert.DoesNotContain("internal static string[] ReadAppendedLines", process, StringComparison.Ordinal);
+            Assert.DoesNotContain("internal static string[] SplitCompletedLogLines", process, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void Workflows_And_TestLockfile_ShouldEnforceHardenedCiGates()
+        {
+            string testCsproj = File.ReadAllText(Path.Combine(RepoRoot, "tests", "Shiro.Tests", "Shiro.Tests.csproj"));
+            Assert.Contains("<RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>", testCsproj, StringComparison.Ordinal);
+            Assert.True(File.Exists(Path.Combine(RepoRoot, "tests", "Shiro.Tests", "packages.lock.json")),
+                "Expected tests/Shiro.Tests/packages.lock.json to exist.");
+
+            string buildYml = File.ReadAllText(Path.Combine(RepoRoot, ".github", "workflows", "build.yml"));
+            Assert.Contains("--runtime win-x64 /p:SelfContained=true --locked-mode", buildYml, StringComparison.Ordinal);
+            Assert.Contains("-warnaserror", buildYml, StringComparison.Ordinal);
+            Assert.Contains("--no-restore", buildYml, StringComparison.Ordinal);
+            Assert.Contains("if: failure()", buildYml, StringComparison.Ordinal);
+            Assert.Contains("path: coverage/", buildYml, StringComparison.Ordinal);
+
+            string releaseYml = File.ReadAllText(Path.Combine(RepoRoot, ".github", "workflows", "release.yml"));
+            Assert.Contains("--runtime win-x64 /p:SelfContained=true --locked-mode", releaseYml, StringComparison.Ordinal);
+            Assert.Contains("-warnaserror", releaseYml, StringComparison.Ordinal);
+            Assert.Contains("--no-restore", releaseYml, StringComparison.Ordinal);
+            Assert.Contains("if: failure()", releaseYml, StringComparison.Ordinal);
+            Assert.Contains("path: coverage/", releaseYml, StringComparison.Ordinal);
         }
     }
 }

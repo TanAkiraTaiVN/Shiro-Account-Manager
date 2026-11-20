@@ -27,13 +27,25 @@ jobs:
 
       - name: Restore dependencies (locked)
         shell: pwsh
-        run: dotnet restore "Shiro.sln" --runtime win-x64 --locked-mode
+        run: dotnet restore "Shiro.sln" --runtime win-x64 /p:SelfContained=true --locked-mode
+
+      - name: Build
+        shell: pwsh
+        run: dotnet build "Shiro.sln" --configuration Release --no-restore --nologo -warnaserror
 
       - name: Run Unit Tests & Coverage Gate
         shell: pwsh
         run: |
           dotnet test "tests/Shiro.Tests/Shiro.Tests.csproj" --configuration Release --no-restore --collect:"XPlat Code Coverage" --settings "tests/coverage.runsettings" --results-directory "coverage" --logger "console;verbosity=normal"
           ./scripts/Check-Coverage.ps1 -CoverageDir "coverage" -MinOverall 75.0 -MinBranch 60.0 -MinCore 92.0
+
+      - name: Upload coverage on failure
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: coverage-failure-logs
+          path: coverage/
+          if-no-files-found: ignore
 
       - name: Publish single-file win-x64
         shell: pwsh
@@ -42,6 +54,7 @@ jobs:
           --configuration Release
           --runtime win-x64
           --self-contained true
+          --no-restore
           --output "build/Release"
           /p:PublishSingleFile=true
           /p:IncludeNativeLibrariesForSelfExtract=true

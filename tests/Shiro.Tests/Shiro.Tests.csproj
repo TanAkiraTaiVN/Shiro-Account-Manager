@@ -10,6 +10,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
     <NoWarn>$(NoWarn);MSB3277</NoWarn>
   </PropertyGroup>
 

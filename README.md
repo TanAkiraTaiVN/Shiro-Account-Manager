@@ -17,7 +17,7 @@
 - **Bảo mật dữ liệu đa lớp**: Dữ liệu tài khoản được mã hóa bằng **AES-256-GCM** kết hợp kiến trúc **Dual-KDF (PBKDF2-SHA256 600.000 vòng lặp chuẩn OWASP V3 cho mật khẩu người dùng + HKDF-SHA256 V4 tốc độ cao cho khóa máy 256-bit)**, khóa Vault mặc định được bảo vệ bằng Windows DPAPI `CurrentUser` (chế độ Portable giữ khóa thô để di chuyển), hỗ trợ mật khẩu tùy chọn, ghi đĩa nguyên tử (`atomic replacement`) kèm bản sao lưu an toàn (`.backup`).
 - **Trình theo dõi Roblox Watcher & Tối ưu Bộ nhớ**:
   - Tự động phát hiện lỗi mất kết nối, lỗi mã 429 và thông báo rate limit.
-  - Quản lý bộ nhớ thông minh (`MemoryOptimizer`): ưu tiên hạ mức ưu tiên tiến trình nền (`BelowNormal`) và thu gọn heap .NET, trong khi tùy chọn `EmptyWorkingSet` (ép giải phóng Working Set vật lý xuống pagefile, đưa Working Set hiển thị về ~17 MB) được tắt mặc định để tránh hiện tượng hard page-fault gây giật khung hình khi chuyển cửa sổ game.
+  - Quản lý bộ nhớ thông minh (`MemoryOptimizer`): ưu tiên hạ mức ưu tiên tiến trình nền (`BelowNormal`) và thu gọn heap .NET, trong khi tùy chọn `EmptyWorkingSet` (ép giải phóng Working Set vật lý của các tiến trình Roblox xuống pagefile) được tắt mặc định để tránh hiện tượng hard page-fault gây giật khung hình khi chuyển cửa sổ game.
   - Tự động dọn sạch biểu tượng khay hệ thống (Ghost Tray Icons) khi game thoát.
 - **Server List & Khám phá Server**:
   - Tra cứu danh sách server theo Place ID, hiển thị độ trễ ping và vị trí địa lý của server (Server Region).
@@ -56,25 +56,25 @@ Dự án được xây dựng trên **.NET 10 SDK** (x64):
 
 ```powershell
 # 1. Khôi phục packages ở chế độ locked
-dotnet restore "Shiro.sln" --runtime win-x64 --locked-mode
+dotnet restore "Shiro.sln" --runtime win-x64 /p:SelfContained=true --locked-mode
 
 # 2. Chạy script đóng gói tự động thành single-file
 powershell -ExecutionPolicy Bypass -File .\scripts\Publish.ps1
 ```
 
 Sau khi hoàn tất, file thực thi phát hành chuẩn sẽ được tạo tại:
-`build\Release\Shiro.exe`
+`build\Release\Shiro.exe` (~66.7 MiB / 69.9 MB single-file win-x64).
 
 ---
 
 ## 📋 Kiểm thử tự động & Coverage Gates (Unit Tests)
 
-Dự án sở hữu bộ test suite tự động với 2,189 unit tests bao phủ toàn diện tính toàn vẹn của mã hóa AES-256-GCM / Dual-KDF (PBKDF2-SHA256 600,000 vòng V3 & HKDF-SHA256 V4), bảo mật DPAPI, quản lý hàng đợi mở game, kiến trúc MVVM strongly-typed, engine đồ họa Avalonia UI 11 và cấu hình JSON.
+Dự án sở hữu bộ test suite tự động với **2,416 test cases** (trên **1,819 test methods**, bao gồm các parameterized `[Theory]` / `[AvaloniaTheory]` cases) bao phủ toàn diện tính toàn vẹn của mã hóa AES-256-GCM / Dual-KDF (PBKDF2-SHA256 600,000 vòng V3 & HKDF-SHA256 V4), bảo mật DPAPI, quản lý hàng đợi mở game, kiến trúc MVVM strongly-typed, engine đồ họa Avalonia UI 11 và cấu hình JSON.
 
 Các cổng chất lượng kiểm thử (Coverage Gates) được kiểm tra tự động trong CI/CD pipeline và `ArchitectureTests`:
-- **Overall Line Coverage**: **82.10%** (Ngưỡng yêu cầu: >= 75.0%)
-- **Overall Branch Coverage**: **71.51%** (Ngưỡng yêu cầu: >= 60.0%)
-- **Core Security/Persistence Coverage**: **93.88%** (Ngưỡng yêu cầu: >= 92.0%)
+- **Overall Line Coverage**: **~83.7%** (Ngưỡng yêu cầu: >= 75.0%)
+- **Overall Branch Coverage**: **~73.7%** (Ngưỡng yêu cầu: >= 60.0%)
+- **Core Security/Persistence Coverage**: **94.09%** (Ngưỡng yêu cầu: >= 92.0%)
 
 Chạy toàn bộ unit test suite:
 ```powershell
