@@ -342,6 +342,7 @@ namespace Shiro.Services
             services.AddSingleton<IHostUiBridgeService>(HostUiBridgeService.Default);
             services.AddSingleton<IToastNotifier>(ToastNotifierService.Default);
             services.AddSingleton<ISettingsSideEffects>(SettingsSideEffectsService.Default);
+            services.AddSingleton<ServerWatcherConfigService>();
             services.AddSingleton<AppSettings>(AppSettings.Current);
 
             configureExtra?.Invoke(services);

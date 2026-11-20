@@ -1,17 +1,9 @@
 #nullable enable
 using System;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.IO;
-using System.Linq;
-using System.Net;
-using System.Net.NetworkInformation;
-using System.Text.RegularExpressions;
+using System.ComponentModel;
 using System.Threading;
-using System.Threading.Tasks;
 using System.Windows.Input;
-using System.Text.Json;
-using Shiro.Http;
+using Avalonia.Media.Imaging;
 using Shiro.Services;
 
 namespace Shiro.ViewModels
@@ -21,85 +13,81 @@ namespace Shiro.ViewModels
         private readonly MainViewModel? _mainViewModel;
         private readonly IAppLogger _logger;
         private readonly ISettingsService _settings;
-        private readonly BulkObservableCollection<ServerItemViewModel> _servers = new BulkObservableCollection<ServerItemViewModel>();
+        private readonly ServerWatcherConfigService _watcherConfigService;
 
         private string _placeIdInput = string.Empty;
-        private long _lastLoadedPlaceId;
-        private bool _isLoadingServers;
-        private bool _isLoadingRegions;
-        private string _loadingStatus = Shiro.Services.LocalizationService.Get("Status_Ready");
-        private string _lastDefaultReadyStatus = Shiro.Services.LocalizationService.Get("Status_Ready");
-        private ServerItemViewModel? _selectedServer;
-        private int _selectedSubTabIndex = 0; // 0: Servers, 1: Games, 2: Recent & Favorites, 3: Watcher
+        private string _loadingStatus = LocalizationService.Get("Status_Ready");
+        private string _lastDefaultReadyStatus = LocalizationService.Get("Status_Ready");
+        private int _selectedSubTabIndex;
         private int _disposed;
+        private Action<AppLanguage>? _languageChangedHandler;
+        private Action<ServerWatcherConfig>? _watcherConfigChangedHandler;
+        private PropertyChangedEventHandler? _browserPropHandler;
+        private PropertyChangedEventHandler? _explorerPropHandler;
+        private PropertyChangedEventHandler? _libraryPropHandler;
 
-        private CancellationTokenSource? _serversCts;
-        private CancellationTokenSource? _regionsCts;
-        private CancellationTokenSource? _playerSearchCts;
+        public ServerListViewModel(MainViewModel? mainViewModel = null, IAppLogger? logger = null, ISettingsService? settings = null)
+        {
+            _mainViewModel = mainViewModel;
+            _logger = logger ?? AppServices.Logger;
+            _settings = settings ?? AppServices.GeneralSettings;
+            _watcherConfigService = AppServices.ServerWatcherConfig;
+            _placeIdInput = mainViewModel?.PlaceId ?? string.Empty;
 
-        public BulkObservableCollection<ServerItemViewModel> Servers => _servers;
-        public int TotalServersCount => _servers.Count;
-        public bool HasServers => _servers.Count > 0;
-        public bool IsServersEmpty => !IsLoadingServers && _servers.Count == 0;
+            BrowserTab = new ServerBrowserTabViewModel(
+                _mainViewModel,
+                _logger,
+                getPlaceIdInput: () => PlaceIdInput,
+                syncPlaceIdInput: SyncPlaceId,
+                setLoadingStatus: s => LoadingStatus = s,
+                notifyCancelState: () => OnPropertyChanged(nameof(CanCancelOperation)));
+
+            ExplorerTab = new GameExplorerTabViewModel(
+                _mainViewModel,
+                _logger,
+                setPlaceIdInput: pid => PlaceIdInput = pid,
+                setLoadingStatus: s => LoadingStatus = s,
+                setSelectedSubTabIndex: idx => SelectedSubTabIndex = idx,
+                refreshServersAsync: () => BrowserTab.RefreshServersAsync());
+
+            LibraryTab = new GameLibraryTabViewModel(this, _mainViewModel, _logger);
+
+            CancelOperationCommand = new RelayCommand(CancelOperation);
+
+            AttachChildPropertyForwarding();
+            LoadWatcherSettings();
+
+            _languageChangedHandler = WeakEventSubscription.CreateAction<ServerListViewModel, AppLanguage>(
+                this,
+                static (vm, lang) => vm.OnLanguageChanged(lang),
+                static h => LocalizationService.LanguageChanged -= h);
+            LocalizationService.LanguageChanged += _languageChangedHandler;
+        }
+
+        public ServerBrowserTabViewModel BrowserTab { get; }
+        public GameExplorerTabViewModel ExplorerTab { get; }
+        public GameLibraryTabViewModel LibraryTab { get; }
+        public ICommand CancelOperationCommand { get; }
 
         public string PlaceIdInput
         {
             get => _placeIdInput;
             set
             {
-                if (SetProperty(ref _placeIdInput, value))
+                if (SetProperty(ref _placeIdInput, value) &&
+                    _mainViewModel != null &&
+                    !string.IsNullOrWhiteSpace(value) &&
+                    _mainViewModel.PlaceId != value)
                 {
-                    if (_mainViewModel != null && !string.IsNullOrWhiteSpace(value) && _mainViewModel.PlaceId != value)
-                        _mainViewModel.PlaceId = value;
+                    _mainViewModel.PlaceId = value;
                 }
             }
         }
-
-        public bool IsLoadingServers
-        {
-            get => _isLoadingServers;
-            set
-            {
-                if (SetProperty(ref _isLoadingServers, value))
-                {
-                    OnPropertyChanged(nameof(CanRefreshServers));
-                    OnPropertyChanged(nameof(CanCancelOperation));
-                    NotifyServerCounts();
-                }
-            }
-        }
-
-        public bool IsLoadingRegions
-        {
-            get => _isLoadingRegions;
-            set
-            {
-                if (SetProperty(ref _isLoadingRegions, value))
-                    OnPropertyChanged(nameof(CanCancelOperation));
-            }
-        }
-
-        public bool CanCancelOperation => IsLoadingServers || IsLoadingRegions || IsSearchingPlayer;
-
-        public void NotifyServerCounts()
-        {
-            OnPropertyChanged(nameof(TotalServersCount));
-            OnPropertyChanged(nameof(HasServers));
-            OnPropertyChanged(nameof(IsServersEmpty));
-        }
-
-        public bool CanRefreshServers => !IsLoadingServers;
 
         public string LoadingStatus
         {
             get => _loadingStatus;
             set => SetProperty(ref _loadingStatus, value);
-        }
-
-        public ServerItemViewModel? SelectedServer
-        {
-            get => _selectedServer;
-            set => SetProperty(ref _selectedServer, value);
         }
 
         public int SelectedSubTabIndex
@@ -109,110 +97,22 @@ namespace Shiro.ViewModels
             {
                 if (SetProperty(ref _selectedSubTabIndex, value))
                 {
-                    if (value == 0)
-                        EnsureServersLoadedForCurrentPlaceId();
-                    else if (value == 1 && _searchGames.Count == 0 && !IsSearchingGames)
-                        _ = SearchGamesAsync();
+                    if (value == 0) BrowserTab.EnsureServersLoadedForCurrentPlaceId();
+                    else if (value == 1 && ExplorerTab.SearchGames.Count == 0 && !ExplorerTab.IsSearchingGames)
+                        _ = ExplorerTab.SearchGamesAsync();
                     else if (value == 2)
                     {
                         _mainViewModel?.ReloadRecentGames();
-                        NotifyRecentGamesChanged();
+                        LibraryTab.NotifyRecentGamesChanged();
                     }
                 }
             }
         }
 
-        public void EnsureServersLoadedForCurrentPlaceId()
-        {
-            if (IsLoadingServers)
-                return;
-
-            string rawPid = !string.IsNullOrWhiteSpace(PlaceIdInput)
-                ? PlaceIdInput
-                : (!string.IsNullOrWhiteSpace(_mainViewModel?.PlaceId) ? _mainViewModel!.PlaceId : (AppServices.ServerBrowserState.CurrentPlaceId ?? string.Empty));
-
-            if (string.IsNullOrWhiteSpace(PlaceIdInput) && !string.IsNullOrWhiteSpace(rawPid))
-                SyncPlaceId(rawPid);
-
-            long placeId = AccountLauncherService.ParsePlaceId(rawPid);
-            if (placeId > 0 && (_allServers.Count == 0 || _lastLoadedPlaceId != placeId))
-                _ = RefreshServersAsync();
-        }
-
-        public ICommand RefreshServersCommand { get; }
-        public ICommand CancelOperationCommand { get; }
-        public ICommand JoinServerCommand { get; }
-        public ICommand SelectServerJobIdCommand { get; }
-        public ICommand CopyJobIdCommand { get; }
-        public ICommand LoadRegionCommand { get; }
-        public ICommand LoadAllRegionsCommand { get; }
-        public ICommand SearchPlayerCommand { get; }
-        public ICommand SearchGamesCommand { get; }
-        public ICommand SelectGameCommand { get; }
-        public ICommand LaunchGameCommand { get; }
-        public ICommand AddFavoriteCommand { get; }
-        public ICommand RemoveFavoriteCommand { get; }
-        public ICommand SelectFavoriteCommand { get; }
-        public ICommand LaunchFavoriteCommand { get; }
-
-        public ServerListViewModel(MainViewModel? mainViewModel = null, IAppLogger? logger = null, ISettingsService? settings = null)
-        {
-            _mainViewModel = mainViewModel;
-            _logger = logger ?? AppServices.Logger;
-            _settings = settings ?? AppServices.GeneralSettings;
-            _placeIdInput = mainViewModel?.PlaceId ?? string.Empty;
-
-            RefreshServersCommand = new AsyncRelayCommand(RefreshServersAsync);
-            CancelOperationCommand = new RelayCommand(CancelOperation);
-            JoinServerCommand = new AsyncRelayCommand(JoinServerAsync);
-            SelectServerJobIdCommand = new RelayCommand(SelectServerJobId);
-            CopyJobIdCommand = new RelayCommand(CopyJobId);
-            LoadRegionCommand = new AsyncRelayCommand(LoadRegionAsync);
-            LoadAllRegionsCommand = new AsyncRelayCommand(LoadAllRegionsAsync);
-            SearchPlayerCommand = new AsyncRelayCommand(SearchPlayerAsync);
-            SearchGamesCommand = new AsyncRelayCommand(SearchGamesAsync);
-            SelectGameCommand = new RelayCommand(SelectGame);
-            LaunchGameCommand = new AsyncRelayCommand(LaunchGameAsync);
-            AddFavoriteCommand = new RelayCommand(AddFavorite);
-            RemoveFavoriteCommand = new RelayCommand(RemoveFavorite);
-            SelectFavoriteCommand = new RelayCommand(SelectFavorite);
-            LaunchFavoriteCommand = new AsyncRelayCommand(LaunchFavoriteAsync);
-
-            InitializeSortingAndLibraryCommands();
-            LoadWatcherSettings();
-            LoadFavorites();
-
-            _languageChangedHandler = WeakEventSubscription.CreateAction<ServerListViewModel, AppLanguage>(this, static (vm, lang) => vm.OnLanguageChanged(lang), static h => LocalizationService.LanguageChanged -= h);
-            LocalizationService.LanguageChanged += _languageChangedHandler;
-        }
-        private Action<AppLanguage>? _languageChangedHandler;
-
-        private void OnLanguageChanged(AppLanguage lang)
-        {
-            AppDispatcher.Post(() =>
-            {
-                if (Volatile.Read(ref _disposed) != 0) return;
-                string localizedReady = Shiro.Services.LocalizationService.Get("Status_Ready");
-                if (string.IsNullOrWhiteSpace(_loadingStatus)
-                    || string.Equals(_loadingStatus, _lastDefaultReadyStatus, StringComparison.Ordinal)
-                    || string.Equals(_loadingStatus, localizedReady, StringComparison.Ordinal))
-                {
-                    _lastDefaultReadyStatus = localizedReady;
-                    LoadingStatus = localizedReady;
-                }
-                foreach (var s in _allServers)
-                    s.NotifyLanguageChanged();
-            });
-        }
-
-        public void Dispose()
-        {
-            if (Interlocked.Exchange(ref _disposed, 1) != 0)
-                return;
-            if (_languageChangedHandler != null) LocalizationService.LanguageChanged -= _languageChangedHandler;
-            CancelAllOperations();
-            GC.SuppressFinalize(this);
-        }
+        public bool CanCancelOperation => BrowserTab.IsLoadingServers || BrowserTab.IsLoadingRegions || BrowserTab.IsSearchingPlayer;
+        public string CurrentGameName => _mainViewModel?.CurrentGameName ?? string.Empty;
+        public Bitmap? CurrentGameThumbnail => _mainViewModel?.CurrentGameThumbnail;
+        public bool HasCurrentGameInfo => _mainViewModel?.HasCurrentGameInfo == true;
 
         public void SyncPlaceId(string pid)
         {
@@ -223,182 +123,72 @@ namespace Shiro.ViewModels
             }
         }
 
-        private void CancelAllOperations()
+        public void NotifyCurrentGameChanged()
         {
-            ServerListOperationHelper.ReplaceCts(ref _serversCts, createNew: false, "ServerListViewModel.ServersCts");
-            ServerListOperationHelper.ReplaceCts(ref _regionsCts, createNew: false, "ServerListViewModel.RegionsCts");
-            ServerListOperationHelper.ReplaceCts(ref _playerSearchCts, createNew: false, "ServerListViewModel.PlayerSearchCts");
-            ServerListOperationHelper.ReplaceCts(ref _gamesSearchCts, createNew: false, "ServerListViewModel.GamesSearchCts");
+            OnPropertyChanged(nameof(CurrentGameName));
+            OnPropertyChanged(nameof(CurrentGameThumbnail));
+            OnPropertyChanged(nameof(HasCurrentGameInfo));
         }
 
         public void CancelOperation()
         {
-            CancelAllOperations();
-            IsLoadingServers = false;
-            IsLoadingRegions = false;
-            IsSearchingPlayer = false;
-            IsSearchingGames = false;
-            if (_allServers.Count == 0) _lastLoadedPlaceId = 0;
-            LoadingStatus = Shiro.Services.LocalizationService.Get("ServerList.OperationCancelled");
-            NotifyServerCounts();
+            BrowserTab.CancelOperations();
+            ExplorerTab.CancelSearch();
+            LoadingStatus = LocalizationService.Get("ServerList.OperationCancelled");
+            OnPropertyChanged(nameof(CanCancelOperation));
         }
 
-        public async Task RefreshServersAsync()
+        private void AttachChildPropertyForwarding()
         {
-            string rawPid = !string.IsNullOrWhiteSpace(PlaceIdInput) ? PlaceIdInput : (_mainViewModel?.PlaceId ?? string.Empty);
-            long placeId = AccountLauncherService.ParsePlaceId(rawPid);
-            if (placeId <= 0)
+            _browserPropHandler = (_, e) => { if (Volatile.Read(ref _disposed) == 0 && !string.IsNullOrEmpty(e.PropertyName)) OnPropertyChanged(e.PropertyName); };
+            _explorerPropHandler = (_, e) => { if (Volatile.Read(ref _disposed) == 0 && !string.IsNullOrEmpty(e.PropertyName)) OnPropertyChanged(e.PropertyName); };
+            _libraryPropHandler = (_, e) => { if (Volatile.Read(ref _disposed) == 0 && !string.IsNullOrEmpty(e.PropertyName)) OnPropertyChanged(e.PropertyName); };
+
+            BrowserTab.PropertyChanged += _browserPropHandler;
+            ExplorerTab.PropertyChanged += _explorerPropHandler;
+            LibraryTab.PropertyChanged += _libraryPropHandler;
+        }
+
+        private void DetachChildPropertyForwarding()
+        {
+            if (_browserPropHandler != null) BrowserTab.PropertyChanged -= _browserPropHandler;
+            if (_explorerPropHandler != null) ExplorerTab.PropertyChanged -= _explorerPropHandler;
+            if (_libraryPropHandler != null) LibraryTab.PropertyChanged -= _libraryPropHandler;
+            _browserPropHandler = null;
+            _explorerPropHandler = null;
+            _libraryPropHandler = null;
+        }
+
+        private void OnLanguageChanged(AppLanguage lang)
+        {
+            AppDispatcher.Post(() =>
             {
-                LoadingStatus = LocalizationService.Get("ServerList.EnterValidPlaceBeforeLoad");
+                if (Volatile.Read(ref _disposed) != 0) return;
+                string localizedReady = LocalizationService.Get("Status_Ready");
+                if (string.IsNullOrWhiteSpace(_loadingStatus)
+                    || string.Equals(_loadingStatus, _lastDefaultReadyStatus, StringComparison.Ordinal)
+                    || string.Equals(_loadingStatus, localizedReady, StringComparison.Ordinal))
+                {
+                    _lastDefaultReadyStatus = localizedReady;
+                    LoadingStatus = localizedReady;
+                }
+                BrowserTab.NotifyLanguageChanged();
+            });
+        }
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) != 0)
                 return;
-            }
 
-            var cts = ServerListOperationHelper.ReplaceCts(ref _serversCts, createNew: true, "ServerListViewModel.ServersCts")!;
-            ServerListOperationHelper.ReplaceCts(ref _regionsCts, createNew: false, "ServerListViewModel.RegionsCts");
-            ServerListOperationHelper.ReplaceCts(ref _playerSearchCts, createNew: false, "ServerListViewModel.PlayerSearchCts");
-            IsLoadingRegions = false;
-            IsSearchingPlayer = false;
-            CancellationToken ct = cts.Token;
-
-            _lastLoadedPlaceId = placeId;
-            IsLoadingServers = true;
-            LoadingStatus = LocalizationService.Format("ServerList.FindingServersForPlace", placeId);
-            ClearRawServers();
-            ServerListOperationHelper.ResetCachedServers();
-
-            try
-            {
-                await Task.Run(async () =>
-            {
-                try
-                {
-                    var gamesClient = AppServices.RobloxApi.Games;
-                    var vipAuthAccount = ResolveAuthAccount();
-                    Task<List<ServerItemViewModel>?> vipTask = vipAuthAccount != null
-                        ? ServerListOperationHelper.FetchVipServersAsync(gamesClient, vipAuthAccount, placeId, ct)
-                        : Task.FromResult<List<ServerItemViewModel>?>(null);
-
-                    string cursor = "_";
-                    int totalLoaded = 0;
-
-                    while (!string.IsNullOrEmpty(cursor) && !ct.IsCancellationRequested)
-                    {
-                        string url = $"v1/games/{placeId}/servers/public?sortOrder=Asc&limit=100" + (cursor == "_" ? "" : $"&cursor={Uri.EscapeDataString(cursor)}");
-                        RestRequest request = new RestRequest(url, Method.Get);
-                        RestResponse response = await gamesClient.ExecuteAsync(request, ct).ConfigureAwait(false);
-
-                        if (ct.IsCancellationRequested) break;
-
-                        if (!response.IsSuccessful || response.StatusCode != HttpStatusCode.OK || string.IsNullOrEmpty(response.Content))
-                        {
-                            if (totalLoaded == 0)
-                            {
-                                AppDispatcher.Post(() =>
-                                {
-                                    if (!ct.IsCancellationRequested) _lastLoadedPlaceId = 0;
-                                    if (!ct.IsCancellationRequested)
-                                        LoadingStatus = LocalizationService.Format("ServerList.LoadServersFailed", response.StatusCode);
-                                });
-                            }
-                            break;
-                        }
-
-                        var serverInfo = FastJson.TryDeserialize<ServersInfo>(response.Content, out var sInfo) ? sInfo : null;
-                        if (serverInfo?.data == null || serverInfo.data.Count == 0)
-                            break;
-
-                        var batch = new List<ServerItemViewModel>(serverInfo.data.Count);
-                        foreach (var s in serverInfo.data)
-                        {
-                            batch.Add(ServerListOperationHelper.CreatePublicServerItem(s));
-                            totalLoaded++;
-                        }
-                        ServerListOperationHelper.AppendCachedServers(placeId, serverInfo.data);
-
-                        cursor = serverInfo.nextPageCursor ?? string.Empty;
-                        int currentCount = totalLoaded;
-
-                        AppDispatcher.Post(() =>
-                        {
-                            if (ct.IsCancellationRequested) return;
-                            AppendRawServers(batch);
-                            LoadingStatus = LocalizationService.Format("ServerList.LoadedServersCount", currentCount);
-                        });
-
-                        if (totalLoaded >= 200) break;
-                    }
-
-                    // Await VIP servers that were started in parallel, keeping only genuine VIP entries
-                    var vipList = await vipTask.ConfigureAwait(false);
-                    if (!ct.IsCancellationRequested && vipList != null && vipList.Count > 0)
-                    {
-                        var realVipList = vipList
-                            .Where(v => v.RawData != null && (!string.IsNullOrEmpty(v.RawData.accessCode) || v.RawData.vipServerId > 0 || !string.IsNullOrEmpty(v.RawData.name)))
-                            .ToList();
-                        if (realVipList.Count > 0)
-                        {
-                            totalLoaded += realVipList.Count;
-                            AppDispatcher.Post(() =>
-                            {
-                                if (ct.IsCancellationRequested) return;
-                                PrependRawServers(realVipList);
-                            });
-                        }
-                    }
-
-                    AppDispatcher.Post(() =>
-                    {
-                        if (ct.IsCancellationRequested || !ReferenceEquals(Volatile.Read(ref _serversCts), cts)) return;
-                        LoadingStatus = totalLoaded > 0
-                            ? Shiro.Services.LocalizationService.Format("ServerList.LoadedServersSuccess", totalLoaded)
-                            : Shiro.Services.LocalizationService.Get("ServerList.NoServersFoundForPlace");
-                        NotifyServerCounts();
-                        if (totalLoaded > 0)
-                            _ = LoadAllRegionsAsync();
-                    });
-                }
-                catch (OperationCanceledException)
-                {
-                    AppDispatcher.Post(() =>
-                    {
-                        if (!ReferenceEquals(Volatile.Read(ref _serversCts), cts)) return;
-                        LoadingStatus = Shiro.Services.LocalizationService.Get("ServerList.LoadingServersCancelled");
-                        _lastLoadedPlaceId = 0;
-                        NotifyServerCounts();
-                    });
-                }
-                catch (Exception ex)
-                {
-                    _logger.Error($"[RefreshServersAsync] {ex}");
-                    AppDispatcher.Post(() =>
-                    {
-                        if (!ReferenceEquals(Volatile.Read(ref _serversCts), cts)) return;
-                        _lastLoadedPlaceId = 0;
-                        LoadingStatus = Shiro.Services.LocalizationService.Format("Common.ErrorFormat", ex.Message);
-                        NotifyServerCounts();
-                    });
-                }
-                }, ct);
-            }
-            catch (OperationCanceledException) when (ct.IsCancellationRequested)
-            {
-                AppDispatcher.Post(() =>
-                {
-                    if (!ReferenceEquals(Volatile.Read(ref _serversCts), cts)) return;
-                    LoadingStatus = Shiro.Services.LocalizationService.Get("ServerList.LoadingServersCancelled");
-                    _lastLoadedPlaceId = 0;
-                });
-            }
-            finally
-            {
-                AppDispatcher.Post(() =>
-                {
-                    if (!ReferenceEquals(Volatile.Read(ref _serversCts), cts)) return;
-                    IsLoadingServers = false;
-                    NotifyServerCounts();
-                    ServerListOperationHelper.ReleaseFinishedCts(ref _serversCts, cts, "ServerListViewModel.ServersCts");
-                });
-            }
+            if (_languageChangedHandler != null)
+                LocalizationService.LanguageChanged -= _languageChangedHandler;
+            if (_watcherConfigChangedHandler != null)
+                _watcherConfigService.ConfigChanged -= _watcherConfigChangedHandler;
+            DetachChildPropertyForwarding();
+            BrowserTab.Dispose();
+            ExplorerTab.Dispose();
+            GC.SuppressFinalize(this);
         }
     }
 }

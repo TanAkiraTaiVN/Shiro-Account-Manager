@@ -58,6 +58,8 @@ namespace Shiro.ViewModels.Dialogs
         public bool EnableBackgroundThrottling { get => _enableBackgroundThrottling; set => SetProperty(ref _enableBackgroundThrottling, value); }
         public decimal? BackgroundTargetFps { get => _backgroundTargetFps; set => SetProperty(ref _backgroundTargetFps, value); }
 
+        private readonly ServerWatcherConfigService _watcherConfig = AppServices.ServerWatcherConfig;
+
         public IAsyncRelayCommand ExportVaultCommand { get; private set; } = null!;
         public IAsyncRelayCommand ImportVaultCommand { get; private set; } = null!;
 
@@ -112,13 +114,11 @@ namespace Shiro.ViewModels.Dialogs
             StreamerModeAutoDetect = _general.Get<bool>(AppSettingsKeys.General.StreamerModeAutoDetect, false);
             AntiAfkForegroundFallback = _general.Get<bool>(AppSettingsKeys.General.AntiAfkForegroundFallback, false);
 
-            IniSection watcher = _settings.GetSection(AppSettingsKeys.Sections.Watcher) ?? _settings.IniFile.Section(AppSettingsKeys.Sections.Watcher);
-            CloseIfWindowTitle = watcher.Get<bool>(AppSettingsKeys.Watcher.CloseIfWindowTitle);
-            ExpectedWindowTitle = watcher.Exists(AppSettingsKeys.Watcher.ExpectedWindowTitle)
-                ? (watcher.Get<string>(AppSettingsKeys.Watcher.ExpectedWindowTitle, "Roblox") ?? "Roblox")
-                : "Roblox";
-            int timeoutSec = watcher.Exists(AppSettingsKeys.Watcher.NoConnectionTimeout) ? watcher.Get<int>(AppSettingsKeys.Watcher.NoConnectionTimeout) : 20;
-            NoConnectionTimeout = Math.Clamp(timeoutSec, 0, 600);
+            ISettingsService? watcher = _settings.GetSection(AppSettingsKeys.Sections.Watcher) ?? _settings.IniFile.Section(AppSettingsKeys.Sections.Watcher);
+            ServerWatcherConfig watcherCfg = _watcherConfig.Load(watcher, syncRuntime: false);
+            CloseIfWindowTitle = watcherCfg.CloseIfWindowTitle;
+            ExpectedWindowTitle = watcherCfg.ExpectedWindowTitle;
+            NoConnectionTimeout = Math.Clamp((int)watcherCfg.ConnectionTimeoutSec, 0, 600);
 
             EnableBackgroundThrottling = _general.Get<bool>(AppSettingsKeys.General.EnableBackgroundThrottling, false);
             int bgFps = _general.Exists(AppSettingsKeys.General.BackgroundTargetFps)
@@ -165,13 +165,8 @@ namespace Shiro.ViewModels.Dialogs
             AutoReconnectService.Instance.IsEnabled = EnableAutoReconnect;
             StreamerModeService.AutoDetectEnabled = StreamerModeAutoDetect;
 
-            IniSection watcher = _settings.GetSection(AppSettingsKeys.Sections.Watcher) ?? _settings.IniFile.Section(AppSettingsKeys.Sections.Watcher);
-            watcher.Set(AppSettingsKeys.Watcher.CloseIfWindowTitle, CloseIfWindowTitle ? "true" : "false");
-            watcher.Set(AppSettingsKeys.Watcher.ExpectedWindowTitle, ExpectedWindowTitle.Trim());
-            if (NoConnectionTimeout.HasValue)
-                watcher.Set(AppSettingsKeys.Watcher.NoConnectionTimeout, ((int)NoConnectionTimeout.Value).ToString(CultureInfo.InvariantCulture));
-            RobloxWatcher.CloseIfWindowTitle = CloseIfWindowTitle;
-            RobloxWatcher.ExpectedWindowTitle = ExpectedWindowTitle.Trim();
+            ISettingsService? watcher = _settings.GetSection(AppSettingsKeys.Sections.Watcher) ?? _settings.IniFile.Section(AppSettingsKeys.Sections.Watcher);
+            _watcherConfig.SaveAdvancedSettings(CloseIfWindowTitle, ExpectedWindowTitle, NoConnectionTimeout, watcher);
 
             _general.Set("EnableAntiAfk", AntiAfk ? "true" : "false");
             int clampedBgFps = BackgroundTargetFps.HasValue ? Math.Clamp((int)BackgroundTargetFps.Value, 1, 60) : 10;

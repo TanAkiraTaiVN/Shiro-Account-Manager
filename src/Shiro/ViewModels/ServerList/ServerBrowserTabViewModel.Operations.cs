@@ -1,8 +1,6 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using Shiro.Http;
@@ -10,7 +8,7 @@ using Shiro.Services;
 
 namespace Shiro.ViewModels
 {
-    public partial class ServerListViewModel
+    public sealed partial class ServerBrowserTabViewModel
     {
         internal static Task<List<ServerItemViewModel>?> TestFetchVipServersAsync(
             RestClient gamesClient,
@@ -22,15 +20,16 @@ namespace Shiro.ViewModels
         {
             if (param is not ServerItemViewModel server) return;
             string targetId = ServerListOperationHelper.ResolveTargetServerId(server);
+            string currentInput = _getPlaceIdInput();
             if (_mainViewModel != null)
             {
-                if (!string.IsNullOrWhiteSpace(PlaceIdInput))
-                    _mainViewModel.PlaceId = PlaceIdInput;
+                if (!string.IsNullOrWhiteSpace(currentInput))
+                    _mainViewModel.PlaceId = currentInput;
                 _mainViewModel.JobId = targetId;
                 _mainViewModel.StatusMessage = LocalizationService.Format("ServerList.ServerSelected", targetId);
             }
             ClipboardHelper.SetText(targetId);
-            LoadingStatus = LocalizationService.Format("ServerList.JobIdSelectedAndCopied", targetId);
+            _setLoadingStatus(LocalizationService.Format("ServerList.JobIdSelectedAndCopied", targetId));
         }
 
         private void CopyJobId(object? param)
@@ -38,7 +37,7 @@ namespace Shiro.ViewModels
             if (param is not ServerItemViewModel server) return;
             string targetId = ServerListOperationHelper.ResolveTargetServerId(server);
             ClipboardHelper.SetText(targetId);
-            LoadingStatus = LocalizationService.Format("ServerList.JobIdCopied", targetId);
+            _setLoadingStatus(LocalizationService.Format("ServerList.JobIdCopied", targetId));
         }
 
         private async Task JoinServerAsync(object? param)
@@ -46,12 +45,12 @@ namespace Shiro.ViewModels
             if (param is not ServerItemViewModel server) return;
 
             string targetServer = ServerListOperationHelper.ResolveTargetServerId(server);
-
-            string pidText = !string.IsNullOrWhiteSpace(PlaceIdInput) ? PlaceIdInput : (_mainViewModel?.PlaceId ?? string.Empty);
+            string currentInput = _getPlaceIdInput();
+            string pidText = !string.IsNullOrWhiteSpace(currentInput) ? currentInput : (_mainViewModel?.PlaceId ?? string.Empty);
             long placeId = AccountLauncherService.ParsePlaceId(pidText);
             if (placeId <= 0)
             {
-                LoadingStatus = Shiro.Services.LocalizationService.Get("ServerList.InvalidPlaceId");
+                _setLoadingStatus(LocalizationService.Get("ServerList.InvalidPlaceId"));
                 return;
             }
 
@@ -64,17 +63,17 @@ namespace Shiro.ViewModels
             var selectedAccounts = _mainViewModel?.GetSelectedAccounts();
             if (selectedAccounts == null || selectedAccounts.Count == 0)
             {
-                string warnTitle = Shiro.Services.LocalizationService.Get("Main.NoAccountSelectedTitle");
-                string warnMsg = Shiro.Services.LocalizationService.Get("ServerList.SelectAccountBeforeJoinServer");
-                LoadingStatus = warnMsg;
+                string warnTitle = LocalizationService.Get("Main.NoAccountSelectedTitle");
+                string warnMsg = LocalizationService.Get("ServerList.SelectAccountBeforeJoinServer");
+                _setLoadingStatus(warnMsg);
                 if (_mainViewModel != null)
                     _mainViewModel.StatusMessage = warnMsg;
                 ToastService.ShowWarning(warnTitle, warnMsg);
                 return;
             }
 
-            string serverDesc = string.IsNullOrEmpty(targetServer) ? Shiro.Services.LocalizationService.Get("ServerList.RandomServerKeyword") : targetServer;
-            LoadingStatus = Shiro.Services.LocalizationService.Format("ServerList.JoiningServerWithAccounts", serverDesc, selectedAccounts.Count);
+            string serverDesc = string.IsNullOrEmpty(targetServer) ? LocalizationService.Get("ServerList.RandomServerKeyword") : targetServer;
+            _setLoadingStatus(LocalizationService.Format("ServerList.JoiningServerWithAccounts", serverDesc, selectedAccounts.Count));
 
             await AppServices.HostUiBridge.JoinServerFromHostAsync(selectedAccounts, placeId, targetServer).ConfigureAwait(true);
         }
@@ -85,9 +84,7 @@ namespace Shiro.ViewModels
         {
             await LoadRegionCoreAsync(param as ServerItemViewModel, CancellationToken.None);
             if (SortMode is ServerSortMode.PingAsc or ServerSortMode.PingDesc)
-            {
                 ApplyServerSortAndFilter();
-            }
         }
 
         private async Task LoadRegionCoreAsync(ServerItemViewModel? server, CancellationToken ct)
@@ -100,11 +97,12 @@ namespace Shiro.ViewModels
                 var acc = ResolveAuthAccount();
                 if (acc == null)
                 {
-                    AppDispatcher.Post(() => server.Region = Shiro.Services.LocalizationService.Get("ServerQuery.FetchingRegion"));
+                    AppDispatcher.Post(() => server.Region = LocalizationService.Get("ServerQuery.FetchingRegion"));
                     return;
                 }
 
-                string rawPid = !string.IsNullOrWhiteSpace(PlaceIdInput) ? PlaceIdInput : (_mainViewModel?.PlaceId ?? string.Empty);
+                string currentInput = _getPlaceIdInput();
+                string rawPid = !string.IsNullOrWhiteSpace(currentInput) ? currentInput : (_mainViewModel?.PlaceId ?? string.Empty);
                 long placeId = AccountLauncherService.ParsePlaceId(rawPid);
                 if (placeId <= 0) return;
 
@@ -121,16 +119,17 @@ namespace Shiro.ViewModels
                     }
                     else
                     {
-                        server.Region = !string.IsNullOrEmpty(result.Region) ? result.Region : Shiro.Services.LocalizationService.Get("ServerQuery.UnknownRegion");
+                        server.Region = !string.IsNullOrEmpty(result.Region) ? result.Region : LocalizationService.Get("ServerQuery.UnknownRegion");
                     }
                 });
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
+                // Operation cancelled
             }
             catch (Exception ex)
             {
-                AppDispatcher.Post(() => server.Region = Shiro.Services.LocalizationService.Get("MissingAssets.PriceLoadError"));
+                AppDispatcher.Post(() => server.Region = LocalizationService.Get("MissingAssets.PriceLoadError"));
                 _logger.Warn($"[LoadRegionAsync] {ex.Message}");
             }
             finally
@@ -146,7 +145,7 @@ namespace Shiro.ViewModels
             var pendingServers = ServerListOperationHelper.CollectPendingRegionServers(_servers);
             if (pendingServers.Count == 0)
             {
-                LoadingStatus = LocalizationService.Get("ServerList.RegionsLoadedComplete");
+                _setLoadingStatus(LocalizationService.Get("ServerList.RegionsLoadedComplete"));
                 return;
             }
 
@@ -154,7 +153,7 @@ namespace Shiro.ViewModels
             var ct = cts.Token;
 
             IsLoadingRegions = true;
-            LoadingStatus = LocalizationService.Format("ServerList.LoadingRegionsAndPinging", pendingServers.Count);
+            _setLoadingStatus(LocalizationService.Format("ServerList.LoadingRegionsAndPinging", pendingServers.Count));
 
             try
             {
@@ -175,7 +174,7 @@ namespace Shiro.ViewModels
                     if (!ReferenceEquals(Volatile.Read(ref _regionsCts), cts)) return;
                     if (SortMode is ServerSortMode.PingAsc or ServerSortMode.PingDesc)
                         ApplyServerSortAndFilter();
-                    LoadingStatus = LocalizationService.Get("ServerList.RegionsLoadedComplete");
+                    _setLoadingStatus(LocalizationService.Get("ServerList.RegionsLoadedComplete"));
                 });
             }
             catch (OperationCanceledException)
@@ -183,7 +182,7 @@ namespace Shiro.ViewModels
                 AppDispatcher.Post(() =>
                 {
                     if (!ReferenceEquals(Volatile.Read(ref _regionsCts), cts)) return;
-                    LoadingStatus = LocalizationService.Get("ServerList.LoadingRegionsCancelled");
+                    _setLoadingStatus(LocalizationService.Get("ServerList.LoadingRegionsCancelled"));
                 });
             }
             finally

@@ -66,8 +66,8 @@
                                             <MenuItem.Header>
                                                 <Grid ColumnDefinitions="*,16,Auto">
                                                     <TextBlock Grid.Column="0" Text="{DynamicResource Tool_AntiAfk}" VerticalAlignment="Center" />
-                                                    <Border Grid.Column="2" IsVisible="{Binding IsAntiAfk}" Background="#133120" BorderBrush="#22C55E" BorderThickness="1" CornerRadius="8"
-                        Padding="6,1" VerticalAlignment="Center"><TextBlock Text="ON" FontSize="9" FontWeight="Bold" Foreground="#4ADE80" /></Border>
+                                                    <Border Grid.Column="2" IsVisible="{Binding ToolsStatus.IsAntiAfk}" Background="#133120" BorderBrush="#22C55E" BorderThickness="1"
+                        CornerRadius="8" Padding="6,1" VerticalAlignment="Center"><TextBlock Text="ON" FontSize="9" FontWeight="Bold" Foreground="#4ADE80" /></Border>
                                                 </Grid>
                                             </MenuItem.Header>
                                         </MenuItem>
@@ -76,8 +76,8 @@
                                             <MenuItem.Header>
                                                 <Grid ColumnDefinitions="*,16,Auto">
                                                     <TextBlock Grid.Column="0" Text="{DynamicResource Tool_Potato}" VerticalAlignment="Center" />
-                                                    <Border Grid.Column="2" IsVisible="{Binding IsPotatoMode}" Background="#133120" BorderBrush="#22C55E" BorderThickness="1" CornerRadius="8"
-                        Padding="6,1" VerticalAlignment="Center"><TextBlock Text="ON" FontSize="9" FontWeight="Bold" Foreground="#4ADE80" /></Border>
+                                                    <Border Grid.Column="2" IsVisible="{Binding ToolsStatus.IsPotatoMode}" Background="#133120" BorderBrush="#22C55E" BorderThickness="1"
+                        CornerRadius="8" Padding="6,1" VerticalAlignment="Center"><TextBlock Text="ON" FontSize="9" FontWeight="Bold" Foreground="#4ADE80" /></Border>
                                                 </Grid>
                                             </MenuItem.Header>
                                         </MenuItem>
@@ -86,8 +86,8 @@
                                             <MenuItem.Header>
                                                 <Grid ColumnDefinitions="*,16,Auto">
                                                     <TextBlock Grid.Column="0" Text="{DynamicResource Tool_ZeroGpu}" VerticalAlignment="Center" />
-                                                    <Border Grid.Column="2" IsVisible="{Binding AreWindowsHidden}" Background="#133120" BorderBrush="#22C55E" BorderThickness="1" CornerRadius="8"
-                        Padding="6,1" VerticalAlignment="Center"><TextBlock Text="ON" FontSize="9" FontWeight="Bold" Foreground="#4ADE80" /></Border>
+                                                    <Border Grid.Column="2" IsVisible="{Binding ToolsStatus.AreWindowsHidden}" Background="#133120" BorderBrush="#22C55E" BorderThickness="1"
+                        CornerRadius="8" Padding="6,1" VerticalAlignment="Center"><TextBlock Text="ON" FontSize="9" FontWeight="Bold" Foreground="#4ADE80" /></Border>
                                                 </Grid>
                                             </MenuItem.Header>
                                         </MenuItem>
@@ -96,8 +96,8 @@
                                             <MenuItem.Header>
                                                 <Grid ColumnDefinitions="*,16,Auto">
                                                     <TextBlock Grid.Column="0" Text="{DynamicResource Tool_SmartMute}" VerticalAlignment="Center" />
-                                                    <Border Grid.Column="2" IsVisible="{Binding IsSmartMuteActive}" Background="#133120" BorderBrush="#22C55E" BorderThickness="1"
-                        CornerRadius="8" Padding="6,1" VerticalAlignment="Center"><TextBlock Text="ON" FontSize="9" FontWeight="Bold" Foreground="#4ADE80" /></Border>
+                                                    <Border Grid.Column="2" IsVisible="{Binding ToolsStatus.IsSmartMuteActive}" Background="#133120" BorderBrush="#22C55E"
+                        BorderThickness="1" CornerRadius="8" Padding="6,1" VerticalAlignment="Center"><TextBlock Text="ON" FontSize="9" FontWeight="Bold" Foreground="#4ADE80" /></Border>
                                                 </Grid>
                                             </MenuItem.Header>
                                         </MenuItem>
@@ -106,8 +106,8 @@
                                             <MenuItem.Header>
                                                 <Grid ColumnDefinitions="*,16,Auto">
                                                     <TextBlock Grid.Column="0" Text="{DynamicResource Tool_StreamerMode}" VerticalAlignment="Center" />
-                                                    <Border Grid.Column="2" IsVisible="{Binding IsStreamerModeActive}" Background="#133120" BorderBrush="#22C55E" BorderThickness="1"
-                        CornerRadius="8" Padding="6,1" VerticalAlignment="Center"><TextBlock Text="ON" FontSize="9" FontWeight="Bold" Foreground="#4ADE80" /></Border>
+                                                    <Border Grid.Column="2" IsVisible="{Binding ToolsStatus.IsStreamerModeActive}" Background="#133120" BorderBrush="#22C55E"
+                        BorderThickness="1" CornerRadius="8" Padding="6,1" VerticalAlignment="Center"><TextBlock Text="ON" FontSize="9" FontWeight="Bold" Foreground="#4ADE80" /></Border>
                                                 </Grid>
                                             </MenuItem.Header>
                                         </MenuItem>
@@ -139,8 +139,9 @@
                                 <Grid ColumnDefinitions="*,Auto,Auto">
                                     <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10"><lucide:Lucide Icon="Zap" Width="16" Height="16" StrokeBrush="#A1A1AA"
                         VerticalAlignment="Center" /><TextBlock Text="{DynamicResource Nav_Tools}" FontSize="13" VerticalAlignment="Center" /></StackPanel>
-                                    <Border Grid.Column="1" IsVisible="{Binding HasActiveTools}" Background="#133120" BorderBrush="#22C55E" BorderThickness="1" CornerRadius="8" Padding="6,1"
-                        Margin="0,0,6,0" VerticalAlignment="Center"><TextBlock Text="{Binding ActiveToolsCount}" FontSize="10" FontWeight="Bold" Foreground="#4ADE80" /></Border>
+                                    <Border Grid.Column="1" IsVisible="{Binding ToolsStatus.HasActiveTools}" Background="#133120" BorderBrush="#22C55E" BorderThickness="1"
+                        CornerRadius="8" Padding="6,1" Margin="0,0,6,0" VerticalAlignment="Center"><TextBlock Text="{Binding ToolsStatus.ActiveToolsCount}" FontSize="10"
+                        FontWeight="Bold" Foreground="#4ADE80" /></Border>
                                     <lucide:Lucide Grid.Column="2" Icon="ChevronDown" Width="12" Height="12" StrokeBrush="#71717A" VerticalAlignment="Center" />
                                 </Grid>
                             </Button>
@@ -157,7 +158,7 @@
                             <Button Click="OnSidebarCloseRobloxClicked" Background="#181215" Foreground="#F87171" BorderBrush="#361A20" BorderThickness="1" FontWeight="SemiBold" FontSize="12"
                         CornerRadius="7" Padding="12,9" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Cursor="Hand" ToolTip.Tip="{DynamicResource Nav_Tip_CloseRoblox}">
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="7"><lucide:Lucide Icon="Power" Width="13" Height="13" StrokeBrush="#F87171"
-                        VerticalAlignment="Center" /><TextBlock Text="{Binding CloseRobloxButtonText}" VerticalAlignment="Center" /></StackPanel>
+                        VerticalAlignment="Center" /><TextBlock Text="{Binding ToolsStatus.CloseRobloxButtonText}" VerticalAlignment="Center" /></StackPanel>
                             </Button>
                         </Border>
                     </Grid>
@@ -172,20 +173,22 @@
             <Border Grid.Row="2" Height="30" />
         </Grid>
         <panels:MainWindowOverlaysPanel />
-        <Border IsVisible="{Binding IsCommandPaletteOpen}" Background="#B0000000" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" PointerPressed="OnCommandPaletteBackdropPressed">
+        <Border IsVisible="{Binding CommandPalette.IsCommandPaletteOpen}" Background="#B0000000" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+            PointerPressed="OnCommandPaletteBackdropPressed">
             <Border Width="600" MaxHeight="520" Background="#14141C" BorderBrush="#2E2E3C" BorderThickness="1" CornerRadius="10" Padding="16" HorizontalAlignment="Center"
                 VerticalAlignment="Center">
                 <Grid RowDefinitions="Auto,Auto,*">
                     <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,12">
                         <lucide:Lucide Grid.Column="0" Icon="Search" Width="16" Height="16" StrokeBrush="#71717A" VerticalAlignment="Center" Margin="0,0,8,0" />
-                        <TextBox Grid.Column="1" x:Name="TxtCommandPalette" Text="{Binding CommandPaletteSearchText, Mode=TwoWay}" Watermark="{DynamicResource Cmd_InputPlaceholder}"
-                        Background="#1A1A26" Foreground="#FFFFFF" BorderBrush="#353545" CornerRadius="6" Padding="10,8" VerticalContentAlignment="Center" FontSize="13" />
+                        <TextBox Grid.Column="1" x:Name="TxtCommandPalette" Text="{Binding CommandPalette.CommandPaletteSearchText, Mode=TwoWay}"
+                        Watermark="{DynamicResource Cmd_InputPlaceholder}" Background="#1A1A26" Foreground="#FFFFFF" BorderBrush="#353545" CornerRadius="6" Padding="10,8"
+                        VerticalContentAlignment="Center" FontSize="13" />
                         <Button Grid.Column="2" Click="OnCloseCommandPaletteClicked" Background="Transparent" Foreground="#71717A" Margin="6,0,0,0" Padding="4" Cursor="Hand"><lucide:Lucide
                         Icon="X" Width="14" Height="14" StrokeBrush="#71717A" /></Button>
                     </Grid>
                     <Separator Grid.Row="1" Background="#24242C" Height="1" Margin="0,0,0,10" />
                     <ScrollViewer Grid.Row="2" MaxHeight="380">
-                        <ItemsControl ItemsSource="{Binding CommandPaletteItems}">
+                        <ItemsControl ItemsSource="{Binding CommandPalette.CommandPaletteItems}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="vm:CommandPaletteItemViewModel">
                                     <Border Height="48" Background="{Binding RowBackground}" BorderBrush="{Binding RowBorder}" BorderThickness="1" CornerRadius="6" Margin="0,2" Padding="10,6"

@@ -39,7 +39,8 @@ namespace Shiro.AvaloniaUI.Views
             {
                 return cavm;
             }
-            return ViewModel?.FilteredAccounts?.FirstOrDefault(a => a.IsSelected) ?? ViewModel?.FilteredAccounts?.FirstOrDefault();
+            return ViewModel?.AccountsVm.FilteredAccounts?.FirstOrDefault(a => a.IsSelected)
+                ?? ViewModel?.AccountsVm.FilteredAccounts?.FirstOrDefault();
         }
 
         private void ExecuteMenuCommand(object? sender, ICommand? command)
@@ -50,13 +51,13 @@ namespace Shiro.AvaloniaUI.Views
         }
 
         private void OnMenuLaunchHome(object sender, RoutedEventArgs e)
-            => ExecuteMenuCommand(sender, ViewModel.LaunchAccountCommand);
+            => ExecuteMenuCommand(sender, ViewModel.LaunchBar.LaunchAccountCommand);
 
         private void OnMenuJoinServer(object sender, RoutedEventArgs e)
-            => ExecuteMenuCommand(sender, ViewModel.JoinServerAccountCommand);
+            => ExecuteMenuCommand(sender, ViewModel.LaunchBar.JoinServerAccountCommand);
 
         private void OnMenuFocusAccountWindow(object sender, RoutedEventArgs e)
-            => ExecuteMenuCommand(sender, ViewModel.FocusAccountWindowCommand);
+            => ExecuteMenuCommand(sender, ViewModel.ToolsStatus.FocusAccountWindowCommand);
 
         private void OnMenuReLoginFast(object sender, RoutedEventArgs e)
         {
@@ -66,48 +67,48 @@ namespace Shiro.AvaloniaUI.Views
         }
 
         private void OnMenuValidateSession(object sender, RoutedEventArgs e)
-            => ExecuteMenuCommand(sender, ViewModel.ValidateSessionCommand);
+            => ExecuteMenuCommand(sender, ViewModel.AccountsVm.ValidateSessionCommand);
 
         private void OnMenuOpenModerationPage(object sender, RoutedEventArgs e)
             => OnCardViewBanClicked(sender, e);
 
         private void OnMenuCheckRobux(object sender, RoutedEventArgs e)
-            => ExecuteMenuCommand(sender, ViewModel.CheckRobuxAccountCommand);
+            => ExecuteMenuCommand(sender, ViewModel.AccountsVm.CheckRobuxAccountCommand);
 
         private void OnMenuChangeGroup(object sender, RoutedEventArgs e)
-            => ExecuteMenuCommand(sender, ViewModel.SetGroupCommand);
+            => ExecuteMenuCommand(sender, ViewModel.AccountsVm.SetGroupCommand);
 
         private void OnMenuChangeAlias(object sender, RoutedEventArgs e)
-            => ExecuteMenuCommand(sender, ViewModel.SetAliasCommand);
+            => ExecuteMenuCommand(sender, ViewModel.AccountsVm.SetAliasCommand);
 
         private void OnMenuChangeDescription(object sender, RoutedEventArgs e)
-            => ExecuteMenuCommand(sender, ViewModel.SetDescriptionCommand);
+            => ExecuteMenuCommand(sender, ViewModel.AccountsVm.SetDescriptionCommand);
 
         private void OnMenuCopyCookie(object sender, RoutedEventArgs e)
-            => ExecuteMenuCommand(sender, ViewModel.CopySecurityTokenCommand);
+            => ExecuteMenuCommand(sender, ViewModel.AccountsVm.CopySecurityTokenCommand);
 
         private void OnMenuCopyUserPass(object sender, RoutedEventArgs e)
-            => ExecuteMenuCommand(sender, ViewModel.CopyUserPassCommand);
+            => ExecuteMenuCommand(sender, ViewModel.AccountsVm.CopyUserPassCommand);
 
         private void OnMenuCopyUserId(object sender, RoutedEventArgs e)
-            => ExecuteMenuCommand(sender, ViewModel.CopyUserIdCommand);
+            => ExecuteMenuCommand(sender, ViewModel.AccountsVm.CopyUserIdCommand);
 
         private void OnMenuCopyUsername(object sender, RoutedEventArgs e)
-            => ExecuteMenuCommand(sender, ViewModel.CopyUsernameCommand);
+            => ExecuteMenuCommand(sender, ViewModel.AccountsVm.CopyUsernameCommand);
 
         private void OnMenuCopyProfileUrl(object sender, RoutedEventArgs e)
-            => ExecuteMenuCommand(sender, ViewModel.CopyProfileUrlCommand);
+            => ExecuteMenuCommand(sender, ViewModel.AccountsVm.CopyProfileUrlCommand);
 
         private void OnMenuAccountFields(object sender, RoutedEventArgs e)
-            => ExecuteMenuCommand(sender, ViewModel.ViewFieldsCommand);
+            => ExecuteMenuCommand(sender, ViewModel.AccountsVm.ViewFieldsCommand);
 
         private void OnMenuAccountUtils(object sender, RoutedEventArgs e)
-            => ExecuteMenuCommand(sender, ViewModel.OpenUtilsCommand);
+            => ExecuteMenuCommand(sender, ViewModel.AccountsVm.OpenUtilsCommand);
 
         private void OnMenuCloseAccountRoblox(object sender, RoutedEventArgs e)
-            => ExecuteMenuCommand(sender, ViewModel.CloseAccountRobloxCommand);
+            => ExecuteMenuCommand(sender, ViewModel.LaunchBar.CloseAccountRobloxCommand);
 
         private void OnMenuDeleteAccount(object sender, RoutedEventArgs e)
-            => ExecuteMenuCommand(sender, ViewModel.RemoveAccountCommand);
+            => ExecuteMenuCommand(sender, ViewModel.AccountsVm.RemoveAccountCommand);
     }
 }

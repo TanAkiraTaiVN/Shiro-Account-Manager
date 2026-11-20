@@ -67,9 +67,7 @@ namespace Shiro.Tests
             const int DefaultBudget = 1150;
             var baselines = new System.Collections.Generic.Dictionary<string, int>(StringComparer.Ordinal)
             {
-                ["Account"] = 2300,
-                ["MainViewModel"] = 3050,
-                ["ServerListViewModel"] = 1640
+                ["Account"] = 2300
             };
 
             var classLines = new System.Collections.Generic.Dictionary<string, int>(StringComparer.Ordinal);

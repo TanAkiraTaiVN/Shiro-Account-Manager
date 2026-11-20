@@ -25,14 +25,14 @@ namespace Shiro.AvaloniaUI.Views
             if (AppServices.HostUiBridge is HostUiBridgeService bridge)
             {
                 bridge.RefreshAccountsOnUiHandler = RefreshAccounts;
-                bridge.RefreshSingleAccountOnUiHandler = acc => ViewDashboard?.ViewModel?.RefreshAccount(acc);
+                bridge.RefreshSingleAccountOnUiHandler = acc => ViewDashboard?.ViewModel?.AccountsVm.RefreshAccount(acc);
                 bridge.NotifyAccountValidityOnUiHandler = UpdateAccountValidity;
                 bridge.RefreshLiveProcessStatusOnUiHandler = RefreshLiveProcessStatus;
                 bridge.UpdateWindowStatusOnUiHandler = SetStatus;
                 bridge.NotifyRobloxProcessesClosedOnUiHandler = OnRobloxProcessesClosed;
-                bridge.GetDashboardSelectedAccountsHandler = () => ViewDashboard?.ViewModel?.GetSelectedAccounts();
-                bridge.GetDashboardPlaceIdHandler = () => ViewDashboard?.ViewModel?.PlaceId;
-                bridge.GetDashboardJobIdHandler = () => ViewDashboard?.ViewModel?.JobId;
+                bridge.GetDashboardSelectedAccountsHandler = () => ViewDashboard?.ViewModel?.AccountsVm.GetSelectedAccounts();
+                bridge.GetDashboardPlaceIdHandler = () => ViewDashboard?.ViewModel?.LaunchBar.PlaceId;
+                bridge.GetDashboardJobIdHandler = () => ViewDashboard?.ViewModel?.LaunchBar.JobId;
             }
 
             if (ViewDashboard?.ViewModel != null)
@@ -43,10 +43,10 @@ namespace Shiro.AvaloniaUI.Views
                 }
 
                 DataContext = ViewDashboard.ViewModel;
-                ViewDashboard.ViewModel.PropertyChanged += (_, e) =>
+                ViewDashboard.ViewModel.CommandPalette.PropertyChanged += (_, e) =>
                 {
-                    if (e.PropertyName == nameof(MainViewModel.IsCommandPaletteOpen) &&
-                        ViewDashboard.ViewModel.IsCommandPaletteOpen)
+                    if (e.PropertyName == nameof(CommandPaletteViewModel.IsCommandPaletteOpen) &&
+                        ViewDashboard.ViewModel.CommandPalette.IsCommandPaletteOpen)
                     {
                         FocusCommandPaletteInput();
                     }
@@ -255,7 +255,7 @@ namespace Shiro.AvaloniaUI.Views
             {
                 if (ViewDashboard?.ViewModel != null)
                 {
-                    ViewDashboard.ViewModel.StatusMessage = message;
+                    ViewDashboard.ViewModel.ToolsStatus.StatusMessage = message;
                 }
             });
         }
@@ -272,7 +272,7 @@ namespace Shiro.AvaloniaUI.Views
         {
             AppDispatcher.Post(() =>
             {
-                ViewDashboard?.ViewModel?.UpdateAccountValidity(account, isValid);
+                ViewDashboard?.ViewModel?.AccountsVm.UpdateAccountValidity(account, isValid);
             });
         }
 
@@ -280,7 +280,7 @@ namespace Shiro.AvaloniaUI.Views
         {
             AppDispatcher.Post(() =>
             {
-                ViewDashboard?.ViewModel?.RefreshLiveProcessStatus();
+                ViewDashboard?.ViewModel?.ToolsStatus.RefreshLiveProcessStatus();
             });
         }
 
@@ -292,12 +292,12 @@ namespace Shiro.AvaloniaUI.Views
                 {
                     if (notify)
                     {
-                        mainVm.StatusMessage = totalKilled > 0
+                        mainVm.ToolsStatus.StatusMessage = totalKilled > 0
                             ? Shiro.Services.LocalizationService.Format("AccountManager.KilledRobloxProcessesExclamation", totalKilled)
                             : Shiro.Services.LocalizationService.Get("AccountManager.NoRobloxProcessesRunning");
                     }
-                    foreach (var acc in mainVm.Accounts) acc.IsInGame = false;
-                    mainVm.NotifyCounts();
+                    foreach (var acc in mainVm.AccountsVm.Accounts) acc.IsInGame = false;
+                    mainVm.AccountsVm.NotifyCounts();
                 }
             });
         }

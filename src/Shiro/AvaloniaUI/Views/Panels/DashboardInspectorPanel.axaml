@@ -6,7 +6,7 @@
              xmlns:lucide="clr-namespace:LucideAvalonia;assembly=LucideAvalonia"
              mc:Ignorable="d"
              x:Class="Shiro.AvaloniaUI.Views.Panels.DashboardInspectorPanel"
-             x:DataType="vm:MainViewModel"
+             x:DataType="vm:AccountCollectionViewModel"
              x:CompileBindings="True">
     <Grid ColumnDefinitions="*,*,*,*" Margin="0,0,0,14">
         <Button Grid.Column="0" Classes="MetricCardBtn" Classes.active="{Binding IsFilterInGame}"

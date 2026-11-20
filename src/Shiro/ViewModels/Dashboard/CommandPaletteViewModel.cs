@@ -1,4 +1,5 @@
 #nullable enable
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -6,19 +7,27 @@ using Shiro.Services;
 
 namespace Shiro.ViewModels
 {
-    public partial class MainViewModel
+    /// <summary>
+    /// Manages Ctrl+K Command Palette search, keyboard selection, and command/account execution.
+    /// </summary>
+    public sealed class CommandPaletteViewModel : ObservableObject
     {
+        private readonly MainViewModel _host;
+        private readonly ObservableCollection<CommandPaletteItemViewModel> _commandPaletteItems = new();
+        private readonly ObservableCollection<AccountViewModel> _commandPaletteResults = new();
+
         private bool _isCommandPaletteOpen;
         private string _commandPaletteSearchText = string.Empty;
         private int _selectedCommandPaletteIndex = -1;
         private CommandPaletteItemViewModel? _selectedCommandPaletteItem;
 
-        private readonly ObservableCollection<CommandPaletteItemViewModel> _commandPaletteItems = new();
+        public CommandPaletteViewModel(MainViewModel host)
+        {
+            _host = host ?? throw new ArgumentNullException(nameof(host));
+        }
+
         public ObservableCollection<CommandPaletteItemViewModel> CommandPaletteItems => _commandPaletteItems;
-
-        private readonly ObservableCollection<AccountViewModel> _commandPaletteResults = new();
         public ObservableCollection<AccountViewModel> CommandPaletteResults => _commandPaletteResults;
-
         public CommandPaletteItemViewModel? SelectedCommandPaletteItem => _selectedCommandPaletteItem;
         public AccountViewModel? SelectedCommandPaletteAccount => _selectedCommandPaletteItem?.Account;
 
@@ -48,9 +57,9 @@ namespace Shiro.ViewModels
         public void UpdateCommandPaletteResults()
         {
             CommandPaletteCatalog.PopulateResults(
-                this,
+                _host,
                 _commandPaletteSearchText.Trim(),
-                _accounts,
+                _host.AccountsVm.Accounts,
                 _commandPaletteItems,
                 _commandPaletteResults);
             SetSelectedCommandPaletteIndex(0);
@@ -104,7 +113,7 @@ namespace Shiro.ViewModels
 
             if (target.CommandAction != null)
             {
-                target.CommandAction.Invoke(this);
+                target.CommandAction.Invoke(_host);
                 return true;
             }
 
@@ -112,8 +121,7 @@ namespace Shiro.ViewModels
         }
 
         public static string NormalizeSearchText(string? input) => CommandPaletteCoordinator.NormalizeSearchText(input);
-
-        private static IReadOnlyList<CommandPaletteCatalog.BuiltinCommandDef> GetBuiltinCommands() =>
+        internal static IReadOnlyList<CommandPaletteCatalog.BuiltinCommandDef> GetBuiltinCommands() =>
             CommandPaletteCatalog.GetBuiltinCommands();
     }
 }

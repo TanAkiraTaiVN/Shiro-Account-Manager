@@ -31,8 +31,8 @@ namespace Shiro.AvaloniaUI.Views
             {
                 if (ViewModel != null)
                 {
-                    bool next = !ViewModel.IsCommandPaletteOpen;
-                    ViewModel.IsCommandPaletteOpen = next;
+                    bool next = !ViewModel.CommandPalette.IsCommandPaletteOpen;
+                    ViewModel.CommandPalette.IsCommandPaletteOpen = next;
                     if (next)
                         FocusCommandPaletteInput();
                     e.Handled = true;
@@ -40,9 +40,9 @@ namespace Shiro.AvaloniaUI.Views
             }
             else if (e.Key == Key.Escape)
             {
-                if (ViewModel != null && ViewModel.IsCommandPaletteOpen)
+                if (ViewModel != null && ViewModel.CommandPalette.IsCommandPaletteOpen)
                 {
-                    ViewModel.IsCommandPaletteOpen = false;
+                    ViewModel.CommandPalette.IsCommandPaletteOpen = false;
                     e.Handled = true;
                 }
             }
@@ -52,7 +52,7 @@ namespace Shiro.AvaloniaUI.Views
         {
             Avalonia.Threading.Dispatcher.UIThread.Post(() =>
             {
-                if (ViewModel?.IsCommandPaletteOpen == true && TxtCommandPalette != null)
+                if (ViewModel?.CommandPalette.IsCommandPaletteOpen == true && TxtCommandPalette != null)
                 {
                     TxtCommandPalette.Focus();
                     TxtCommandPalette.SelectAll();
@@ -62,29 +62,29 @@ namespace Shiro.AvaloniaUI.Views
 
         private void OnCommandPaletteKeyDown(object? sender, KeyEventArgs e)
         {
-            if (ViewModel == null || !ViewModel.IsCommandPaletteOpen)
+            if (ViewModel == null || !ViewModel.CommandPalette.IsCommandPaletteOpen)
                 return;
 
             switch (e.Key)
             {
                 case Key.Down:
-                    ViewModel.MoveCommandPaletteSelection(1);
+                    ViewModel.CommandPalette.MoveCommandPaletteSelection(1);
                     e.Handled = true;
                     break;
                 case Key.Up:
-                    ViewModel.MoveCommandPaletteSelection(-1);
+                    ViewModel.CommandPalette.MoveCommandPaletteSelection(-1);
                     e.Handled = true;
                     break;
                 case Key.Enter:
                     bool joinServer = e.KeyModifiers.HasFlag(KeyModifiers.Shift) ||
                                       e.KeyModifiers.HasFlag(KeyModifiers.Control);
-                    if (ViewModel.ExecuteCommandPaletteSelection(joinServer))
+                    if (ViewModel.CommandPalette.ExecuteCommandPaletteSelection(joinServer))
                     {
                         e.Handled = true;
                     }
                     break;
                 case Key.Escape:
-                    ViewModel.IsCommandPaletteOpen = false;
+                    ViewModel.CommandPalette.IsCommandPaletteOpen = false;
                     e.Handled = true;
                     break;
             }
@@ -97,15 +97,15 @@ namespace Shiro.AvaloniaUI.Views
 
             if (sender is Control ctrl && ctrl.DataContext is CommandPaletteItemViewModel item && ViewModel != null)
             {
-                int idx = ViewModel.CommandPaletteItems.IndexOf(item);
+                int idx = ViewModel.CommandPalette.CommandPaletteItems.IndexOf(item);
                 if (idx >= 0)
-                    ViewModel.SetSelectedCommandPaletteIndex(idx);
+                    ViewModel.CommandPalette.SetSelectedCommandPaletteIndex(idx);
 
                 if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
                 {
                     bool joinServer = e.KeyModifiers.HasFlag(KeyModifiers.Shift) ||
                                       e.KeyModifiers.HasFlag(KeyModifiers.Control);
-                    ViewModel.ExecuteCommandPaletteSelection(joinServer);
+                    ViewModel.CommandPalette.ExecuteCommandPaletteSelection(joinServer);
                     e.Handled = true;
                 }
             }
@@ -167,7 +167,7 @@ namespace Shiro.AvaloniaUI.Views
                 var spec = ResolveNavigationTarget(page);
                 if (spec.ReloadRecentGames)
                 {
-                    ViewDashboard?.ViewModel?.ReloadRecentGames();
+                    ViewDashboard?.ViewModel?.LaunchBar.ReloadRecentGames();
                 }
 
                 if (spec.ServerListSubTabIndex is int subTabIndex &&
@@ -177,9 +177,9 @@ namespace Shiro.AvaloniaUI.Views
                     ViewServerList.DataContext = slvm;
                     slvm.SelectedSubTabIndex = subTabIndex;
                     if (spec.EnsureServersLoaded)
-                        slvm.EnsureServersLoadedForCurrentPlaceId();
+                        slvm.BrowserTab.EnsureServersLoadedForCurrentPlaceId();
                     if (spec.ReloadRecentGames)
-                        slvm.NotifyRecentGamesChanged();
+                        slvm.LibraryTab.NotifyRecentGamesChanged();
                 }
 
                 var targetView = spec.ViewName switch
@@ -254,7 +254,7 @@ namespace Shiro.AvaloniaUI.Views
                             ToastService.ShowSuccess(Shiro.Services.LocalizationService.Format("MainWindow.ClosedRobloxForSelected", closed));
                         else
                             ToastService.ShowInfo(Shiro.Services.LocalizationService.Get("MainWindow.NoRobloxRunningForSelected"));
-                        ViewModel?.RefreshLiveProcessStatus();
+                        ViewModel?.ToolsStatus.RefreshLiveProcessStatus();
                     });
                 });
             }
@@ -265,22 +265,22 @@ namespace Shiro.AvaloniaUI.Views
                     Shiro.Services.LocalizationService.Get("MainWindow.ConfirmKillAllRobloxTitle"));
                 if (confirm)
                 {
-                    ViewModel?.KillAllClientsCommand.Execute(null);
+                    ViewModel?.ToolsStatus.KillAllClientsCommand.Execute(null);
                 }
             }
         }
 
         private void OnToolAntiAfkClicked(object sender, RoutedEventArgs e)
-            => ViewModel?.ToggleAntiAfkCommand.Execute(null);
+            => ViewModel?.ToolsStatus.ToggleAntiAfkCommand.Execute(null);
 
         private void OnToolPotatoClicked(object sender, RoutedEventArgs e)
-            => ViewModel?.TogglePotatoModeCommand.Execute(null);
+            => ViewModel?.ToolsStatus.TogglePotatoModeCommand.Execute(null);
 
         private void OnToolZeroGpuClicked(object sender, RoutedEventArgs e)
-            => ViewModel?.ToggleWindowsCommand.Execute(null);
+            => ViewModel?.ToolsStatus.ToggleWindowsCommand.Execute(null);
 
         private void OnToolOptimizeRamClicked(object sender, RoutedEventArgs e)
-            => ViewModel?.AntiLagBoosterCommand.Execute(null);
+            => ViewModel?.ToolsStatus.AntiLagBoosterCommand.Execute(null);
 
         private void OnToolMuteAllClicked(object sender, RoutedEventArgs e)
         {
@@ -292,33 +292,33 @@ namespace Shiro.AvaloniaUI.Views
         }
 
         private void OnToolSmartMuteClicked(object sender, RoutedEventArgs e)
-            => ViewModel?.ToggleSmartMuteCommand.Execute(null);
+            => ViewModel?.ToolsStatus.ToggleSmartMuteCommand.Execute(null);
 
         private void OnArrangeAutoClicked(object sender, RoutedEventArgs e)
-            => ViewModel?.ArrangeRobloxWindowsCommand.Execute("Auto");
+            => ViewModel?.ToolsStatus.ArrangeRobloxWindowsCommand.Execute("Auto");
 
         private void OnArrange2x2Clicked(object sender, RoutedEventArgs e)
-            => ViewModel?.ArrangeRobloxWindowsCommand.Execute("2x2");
+            => ViewModel?.ToolsStatus.ArrangeRobloxWindowsCommand.Execute("2x2");
 
         private void OnArrange3x2Clicked(object sender, RoutedEventArgs e)
-            => ViewModel?.ArrangeRobloxWindowsCommand.Execute("3x2");
+            => ViewModel?.ToolsStatus.ArrangeRobloxWindowsCommand.Execute("3x2");
 
         private void OnArrange4x3Clicked(object sender, RoutedEventArgs e)
-            => ViewModel?.ArrangeRobloxWindowsCommand.Execute("4x3");
+            => ViewModel?.ToolsStatus.ArrangeRobloxWindowsCommand.Execute("4x3");
 
         private void OnArrangeCascadeClicked(object sender, RoutedEventArgs e)
-            => ViewModel?.ArrangeRobloxWindowsCommand.Execute("Cascade");
+            => ViewModel?.ToolsStatus.ArrangeRobloxWindowsCommand.Execute("Cascade");
 
         private void OnToolProxyClicked(object sender, RoutedEventArgs e)
             => AppServices.Dialogs.OpenProxyManagerDialog();
 
         private void OnToolCleanTrayClicked(object sender, RoutedEventArgs e)
-            => ViewModel?.CleanSystemTrayCommand.Execute(null);
+            => ViewModel?.ToolsStatus.CleanSystemTrayCommand.Execute(null);
 
         private void OnToolStreamerModeClicked(object sender, RoutedEventArgs e)
         {
             if (ViewModel != null)
-                ViewModel.IsStreamerModeEnabled = !ViewModel.IsStreamerModeEnabled;
+                ViewModel.ToolsStatus.IsStreamerModeEnabled = !ViewModel.ToolsStatus.IsStreamerModeEnabled;
             else
                 StreamerModeService.IsEnabled = !StreamerModeService.IsEnabled;
 
@@ -331,7 +331,7 @@ namespace Shiro.AvaloniaUI.Views
         {
             if (ViewModel != null)
             {
-                ViewModel.IsCommandPaletteOpen = true;
+                ViewModel.CommandPalette.IsCommandPaletteOpen = true;
                 FocusCommandPaletteInput();
             }
         }
@@ -339,14 +339,14 @@ namespace Shiro.AvaloniaUI.Views
         private void OnCloseCommandPaletteClicked(object sender, RoutedEventArgs e)
         {
             if (ViewModel != null)
-                ViewModel.IsCommandPaletteOpen = false;
+                ViewModel.CommandPalette.IsCommandPaletteOpen = false;
         }
 
         private void OnCommandPaletteBackdropPressed(object sender, PointerPressedEventArgs e)
         {
             if (ReferenceEquals(e.Source, sender) && ViewModel != null)
             {
-                ViewModel.IsCommandPaletteOpen = false;
+                ViewModel.CommandPalette.IsCommandPaletteOpen = false;
             }
         }
     }

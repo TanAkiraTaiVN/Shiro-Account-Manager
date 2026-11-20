@@ -9,7 +9,7 @@ using Shiro.Services;
 
 namespace Shiro.ViewModels
 {
-    public partial class ServerListViewModel
+    public sealed partial class ServerBrowserTabViewModel
     {
         private string _searchPlayerUsername = string.Empty;
         private bool _isSearchingPlayer;
@@ -27,7 +27,7 @@ namespace Shiro.ViewModels
             set
             {
                 if (SetProperty(ref _isSearchingPlayer, value))
-                    OnPropertyChanged(nameof(CanCancelOperation));
+                    _notifyCancelState();
             }
         }
 
@@ -42,7 +42,7 @@ namespace Shiro.ViewModels
             if (!ct.IsCancellationRequested && ReferenceEquals(Volatile.Read(ref _playerSearchCts), cts))
             {
                 PlayerSearchStatus = status;
-                LoadingStatus = status;
+                _setLoadingStatus(status);
             }
         });
 
@@ -50,16 +50,16 @@ namespace Shiro.ViewModels
         {
             if (string.IsNullOrWhiteSpace(SearchPlayerUsername))
             {
-                PlayerSearchStatus = Shiro.Services.LocalizationService.Get("ServerList.EnterPlayerUsername");
-                LoadingStatus = PlayerSearchStatus;
+                PlayerSearchStatus = LocalizationService.Get("ServerList.EnterPlayerUsername");
+                _setLoadingStatus(PlayerSearchStatus);
                 return;
             }
 
-            long placeId = AccountLauncherService.ParsePlaceId(PlaceIdInput);
+            long placeId = AccountLauncherService.ParsePlaceId(_getPlaceIdInput());
             if (placeId <= 0)
             {
-                PlayerSearchStatus = Shiro.Services.LocalizationService.Get("ServerList.EnterPlaceIdFirst");
-                LoadingStatus = PlayerSearchStatus;
+                PlayerSearchStatus = LocalizationService.Get("ServerList.EnterPlaceIdFirst");
+                _setLoadingStatus(PlayerSearchStatus);
                 return;
             }
 
@@ -67,8 +67,8 @@ namespace Shiro.ViewModels
             var ct = cts.Token;
 
             IsSearchingPlayer = true;
-            PlayerSearchStatus = Shiro.Services.LocalizationService.Format("ServerList.SearchingPlayer", SearchPlayerUsername);
-            LoadingStatus = PlayerSearchStatus;
+            PlayerSearchStatus = LocalizationService.Format("ServerList.SearchingPlayer", SearchPlayerUsername);
+            _setLoadingStatus(PlayerSearchStatus);
 
             try
             {
@@ -94,7 +94,6 @@ namespace Shiro.ViewModels
 
                 var avatarData = FastJson.TryDeserialize<AvatarRoot>(avResp.Content, out var ad) ? ad : null;
                 string? targetAvatarUrl = avatarData?.data?.FirstOrDefault()?.imageUrl;
-
                 if (string.IsNullOrEmpty(targetAvatarUrl))
                 {
                     PostPlayerSearchStatus(cts, ct, LocalizationService.Get("ServerList.PlayerAvatarNotExist"));
@@ -133,24 +132,11 @@ namespace Shiro.ViewModels
                             if (populateInitialServers)
                             {
                                 populateInitialServers = false;
-                                var initialBatch = sInfo.data.Select(s => new ServerItemViewModel
-                                {
-                                    JobId = s.id,
-                                    Type = "Public",
-                                    MaxPlayers = s.maxPlayers,
-                                    Playing = s.playing,
-                                    Ping = s.ping ?? -1,
-                                    Region = string.IsNullOrEmpty(s.region) ? string.Empty : s.region,
-                                    Ip = s.ip ?? string.Empty,
-                                    RawData = s
-                                }).ToList();
-
+                                var initialBatch = sInfo.data.Select(ServerListOperationHelper.CreatePublicServerItem).ToList();
                                 AppDispatcher.Post(() =>
                                 {
                                     if (!ct.IsCancellationRequested && _allServers.Count == 0)
-                                    {
                                         AppendRawServers(initialBatch);
-                                    }
                                 });
                             }
 
@@ -183,9 +169,7 @@ namespace Shiro.ViewModels
                             }
 
                             if (currentRequests.Count > 0 && Volatile.Read(ref matchedServer) == null)
-                            {
                                 await channel.Writer.WriteAsync((currentRequests, currentMap, lastServerInBatch), searchToken);
-                            }
 
                             cursor = sInfo.nextPageCursor ?? string.Empty;
                         }
@@ -194,10 +178,7 @@ namespace Shiro.ViewModels
                     {
                         // Stopped early because a consumer matched targetAvatarUrl
                     }
-                    finally
-                    {
-                        channel.Writer.TryComplete();
-                    }
+                    finally { channel.Writer.TryComplete(); }
                 }
 
                 async Task ConsumeBatchesAsync()
@@ -206,42 +187,25 @@ namespace Shiro.ViewModels
                     {
                         await foreach (var batch in channel.Reader.ReadAllAsync(searchToken))
                         {
-                            if (Volatile.Read(ref matchedServer) != null || searchToken.IsCancellationRequested)
-                                break;
+                            if (Volatile.Read(ref matchedServer) != null || searchToken.IsCancellationRequested) break;
 
                             var batchReq = new RestRequest("v1/batch", Method.Post);
                             batchReq.AddJsonBody(batch.Requests);
                             var batchResp = await thumbClient.ExecuteAsync(batchReq, searchToken);
-                            if (!batchResp.IsSuccessful || string.IsNullOrEmpty(batchResp.Content))
-                                continue;
+                            if (!batchResp.IsSuccessful || string.IsNullOrEmpty(batchResp.Content)) continue;
 
                             var avatars = FastJson.TryDeserialize<TokenAvatarRoot>(batchResp.Content, out var ta) ? ta : null;
-                            TokenAvatar? hit = null;
-                            if (avatars?.data != null)
-                            {
-                                foreach (var a in avatars.data)
-                                {
-                                    if (a != null && a.imageUrl == targetAvatarUrl)
-                                    {
-                                        hit = a;
-                                        break;
-                                    }
-                                }
-                            }
+                            TokenAvatar? hit = avatars?.data?.FirstOrDefault(a => a != null && a.imageUrl == targetAvatarUrl);
                             if (hit != null)
                             {
                                 ServerData? serverHit = null;
                                 if (hit.requestId == null || !batch.RequestMap.TryGetValue(hit.requestId, out serverHit))
-                                {
                                     serverHit = batch.FallbackServer;
-                                }
-                                if (serverHit != null)
+
+                                if (serverHit != null && Interlocked.CompareExchange(ref matchedServer, serverHit, null) == null)
                                 {
-                                    if (Interlocked.CompareExchange(ref matchedServer, serverHit, null) == null)
-                                    {
-                                        try { searchLinkedCts.Cancel(); }
-                                        catch (ObjectDisposedException) { /* already disposed */ }
-                                    }
+                                    try { searchLinkedCts.Cancel(); }
+                                    catch (ObjectDisposedException) { /* already disposed */ }
                                     break;
                                 }
                             }
@@ -253,14 +217,7 @@ namespace Shiro.ViewModels
                     }
                 }
 
-                var pipelineTasks = new Task[]
-                {
-                    ProduceServerBatchesAsync(),
-                    ConsumeBatchesAsync(),
-                    ConsumeBatchesAsync(),
-                    ConsumeBatchesAsync()
-                };
-                await Task.WhenAll(pipelineTasks);
+                await Task.WhenAll(ProduceServerBatchesAsync(), ConsumeBatchesAsync(), ConsumeBatchesAsync(), ConsumeBatchesAsync());
 
                 AppDispatcher.Post(() =>
                 {
@@ -276,20 +233,21 @@ namespace Shiro.ViewModels
                             RawData = matchedServer
                         };
 
-                        if (!_allServers.Contains(matchVm))
-                            PrependRawServers(new[] { matchVm });
-                        else if (!_servers.Contains(matchVm))
-                            _servers.Insert(0, matchVm);
+                        if (!_allServers.Contains(matchVm)) PrependRawServers(new[] { matchVm });
+                        else if (!_servers.Contains(matchVm)) _servers.Insert(0, matchVm);
 
                         SelectedServer = matchVm;
                         SelectServerJobId(matchVm);
-                        PlayerSearchStatus = LocalizationService.Format("ServerList.PlayerFoundInServer", SearchPlayerUsername, (StreamerModeService.IsActive ? StreamerModeService.MaskJobId(matchedServer.id) : matchedServer.id));
+                        PlayerSearchStatus = LocalizationService.Format(
+                            "ServerList.PlayerFoundInServer",
+                            SearchPlayerUsername,
+                            StreamerModeService.IsActive ? StreamerModeService.MaskJobId(matchedServer.id) : matchedServer.id);
                     }
                     else
                     {
                         PlayerSearchStatus = LocalizationService.Format("ServerList.PlayerNotFound", SearchPlayerUsername);
                     }
-                    LoadingStatus = PlayerSearchStatus;
+                    _setLoadingStatus(PlayerSearchStatus);
                 });
             }
             catch (OperationCanceledException)
@@ -297,8 +255,8 @@ namespace Shiro.ViewModels
                 AppDispatcher.Post(() =>
                 {
                     if (!ReferenceEquals(Volatile.Read(ref _playerSearchCts), cts)) return;
-                    PlayerSearchStatus = Shiro.Services.LocalizationService.Get("ServerList.PlayerSearchCancelled");
-                    LoadingStatus = PlayerSearchStatus;
+                    PlayerSearchStatus = LocalizationService.Get("ServerList.PlayerSearchCancelled");
+                    _setLoadingStatus(PlayerSearchStatus);
                 });
             }
             catch (Exception ex)
@@ -306,8 +264,8 @@ namespace Shiro.ViewModels
                 AppDispatcher.Post(() =>
                 {
                     if (!ReferenceEquals(Volatile.Read(ref _playerSearchCts), cts)) return;
-                    PlayerSearchStatus = Shiro.Services.LocalizationService.Format("ServerList.PlayerSearchError", ex.Message);
-                    LoadingStatus = PlayerSearchStatus;
+                    PlayerSearchStatus = LocalizationService.Format("ServerList.PlayerSearchError", ex.Message);
+                    _setLoadingStatus(PlayerSearchStatus);
                 });
             }
             finally

@@ -102,16 +102,16 @@ namespace Shiro.ViewModels
                     Account = acc,
                     AccountAction = joinServer =>
                     {
-                        vm.IsCommandPaletteOpen = false;
-                        if (joinServer && AccountLauncherService.ParsePlaceId(vm.PlaceId) > 0)
+                        vm.CommandPalette.IsCommandPaletteOpen = false;
+                        if (joinServer && AccountLauncherService.ParsePlaceId(vm.LaunchBar.PlaceId) > 0)
                         {
-                            vm.JoinServerAccountCommand.Execute(acc);
+                            vm.LaunchBar.JoinServerAccountCommand.Execute(acc);
                         }
                         else
                         {
                             acc.IsSelected = true;
                             vm.CurrentPage = NavigationPage.Accounts;
-                            vm.StatusMessage = LocalizationService.Format("Main.AccountSelected", acc.ShownUsername);
+                            vm.ToolsStatus.StatusMessage = LocalizationService.Format("Main.AccountSelected", acc.ShownUsername);
                         }
                     }
                 });
@@ -122,35 +122,35 @@ namespace Shiro.ViewModels
 
         private static readonly IReadOnlyList<BuiltinCommandDef> CachedBuiltinCommands = new BuiltinCommandDef[]
         {
-            new("tool.antiafk", "Main.ToggleAntiAfkTitle", "Main.AntiAfkDescription", "Nav_Tools", "Shield", "#38BDF8", true, new[] { "anti", "afk", "kick", "bao ve" }, vm => vm.ToggleAntiAfkCommand.Execute(null)),
-            new("tool.zerogpu", "Main.ToggleZeroGpuTitle", "Main.ZeroGpuDescription", "Nav_Tools", "EyeOff", "#4ADE80", true, new[] { "zero", "gpu", "an cua so", "hide", "power" }, vm => vm.ToggleWindowsCommand.Execute(null)),
-            new("tool.potato", "Main.TogglePotatoModeTitle", "Main.PotatoModeDescription", "Nav_Tools", "Zap", "#F59E0B", true, new[] { "potato", "khoai tay", "fps", "lag", "fastflag" }, vm => vm.TogglePotatoModeCommand.Execute(null)),
-            new("tool.smartmute", "Main.ToggleSmartAutoMuteTitle", "Main.SmartAutoMuteDescription", "Main.AudioCategory", "Volume2", "#38BDF8", false, new[] { "mute", "smart", "tat tieng", "sound" }, vm => vm.ToggleSmartMuteCommand.Execute(null)),
+            new("tool.antiafk", "Main.ToggleAntiAfkTitle", "Main.AntiAfkDescription", "Nav_Tools", "Shield", "#38BDF8", true, new[] { "anti", "afk", "kick", "bao ve" }, vm => vm.ToolsStatus.ToggleAntiAfkCommand.Execute(null)),
+            new("tool.zerogpu", "Main.ToggleZeroGpuTitle", "Main.ZeroGpuDescription", "Nav_Tools", "EyeOff", "#4ADE80", true, new[] { "zero", "gpu", "an cua so", "hide", "power" }, vm => vm.ToolsStatus.ToggleWindowsCommand.Execute(null)),
+            new("tool.potato", "Main.TogglePotatoModeTitle", "Main.PotatoModeDescription", "Nav_Tools", "Zap", "#F59E0B", true, new[] { "potato", "khoai tay", "fps", "lag", "fastflag" }, vm => vm.ToolsStatus.TogglePotatoModeCommand.Execute(null)),
+            new("tool.smartmute", "Main.ToggleSmartAutoMuteTitle", "Main.SmartAutoMuteDescription", "Main.AudioCategory", "Volume2", "#38BDF8", false, new[] { "mute", "smart", "tat tieng", "sound" }, vm => vm.ToolsStatus.ToggleSmartMuteCommand.Execute(null)),
             new("tool.muteall", "Main.ToggleMuteAllTitle", "Main.ToggleMuteAllDescription", "Main.AudioCategory", "VolumeX", "#F87171", false, new[] { "mute all", "tat am thanh", "tat tieng", "silence" }, _ => { bool wasUnmuted = RobloxAudioService.ToggleMuteAll(); ToastService.ShowSuccess(wasUnmuted ? LocalizationService.Get("Main.RobloxAudioMuted") : LocalizationService.Get("Main.RobloxAudioUnmuted")); }),
-            new("tool.streamer", "Main.ToggleStreamerModeTitle", "Main.StreamerModeDescription", "Main.SecurityCategory", "ShieldCheck", "#A855F7", false, new[] { "stream", "streamer", "che ten", "an danh" }, vm => vm.ToggleStreamerModeCommand.Execute(null)),
-            new("tool.ram", "Main.OptimizeRamTitle", "Main.OptimizeRamDescription", "Main.PerformanceCategory", "Cpu", "#22C55E", true, new[] { "ram", "lag", "toi uu", "clean", "boost" }, vm => vm.AntiLagBoosterCommand.Execute(null)),
-            new("tool.tray", "Main.CleanTrayTitle", "Main.CleanTrayDescription", "Main.SystemCategory", "Brush", "#EAB308", false, new[] { "tray", "khay", "icon", "ma", "ghost" }, vm => vm.CleanSystemTrayCommand.Execute(null)),
-            new("tile.auto", "Main.ArrangeAutoTitle", "Main.ArrangeAutoDescription", "Main.WindowsCategory", "LayoutGrid", "#60A5FA", true, new[] { "tile", "sap xep", "auto", "grid", "luoi" }, vm => vm.ArrangeRobloxWindowsCommand.Execute("Auto")),
-            new("tile.2x2", "Main.ArrangeGrid2x2Title", "Main.ArrangeGrid2x2Description", "Main.WindowsCategory", "LayoutGrid", "#60A5FA", false, new[] { "2x2", "chia 4", "grid" }, vm => vm.ArrangeRobloxWindowsCommand.Execute("2x2")),
-            new("tile.3x2", "Main.ArrangeGrid3x2Title", "Main.ArrangeGrid3x2Description", "Main.WindowsCategory", "LayoutGrid", "#60A5FA", false, new[] { "3x2", "chia 6" }, vm => vm.ArrangeRobloxWindowsCommand.Execute("3x2")),
-            new("tile.cascade", "Main.ArrangeCascadeTitle", "Main.ArrangeCascadeDescription", "Main.WindowsCategory", "Layers", "#60A5FA", false, new[] { "cascade", "xep tang", "so le" }, vm => vm.ArrangeRobloxWindowsCommand.Execute("Cascade")),
-            new("system.killall", "Main.KillAllRobloxTitle", "Main.KillAllRobloxDescription", "Main.SystemCategory", "Power", "#EF4444", true, new[] { "close", "kill", "dong", "tat", "exit", "thoat" }, vm => vm.KillAllClientsCommand.Execute(null)),
-            new("accounts.checksession", "Main.CheckAllSessionsTitle", "Main.CheckAllSessionsDescription", "Nav_Accounts", "RefreshCw", "#38BDF8", false, new[] { "session", "phien", "kiem tra", "check", "het han" }, vm => vm.CheckSessionsCommand.Execute(null)),
-            new("accounts.audit", "Main.AuditAllSessionsTitle", "Main.AuditAllSessionsDescription", "Nav_Accounts", "ShieldCheck", "#34D399", false, new[] { "audit", "session", "quet phien", "kiem tra phien" }, vm => vm.AuditAllAccountsCommand.Execute(null)),
-            new("accounts.relogin", "Main.ReloginExpiredTitle", "Main.ReloginExpiredDescription", "Nav_Accounts", "Key", "#F59E0B", false, new[] { "relogin", "dang nhap lai", "het han", "cookie" }, vm => vm.ReLoginAllExpiredCommand.Execute(null)),
-            new("accounts.robux", "Main.RefreshRobuxTitle", "Main.RefreshRobuxDescription", "Nav_Accounts", "Coins", "#EAB308", false, new[] { "robux", "so du", "tien", "balance" }, vm => vm.RefreshAllRobuxCommand.Execute(null)),
-            new("select.all", "Bar_SelectAllTooltip", "Main.SelectAllAccountsDescription", "Palette.Category.Selection", "CheckCheck", "#4ADE80", false, new[] { "select all", "chon tat ca", "chon het" }, vm => vm.SelectAllCommand.Execute(null)),
-            new("select.clear", "Main.DeselectAllAccountsTitle", "Main.DeselectAllAccountsDescription", "Palette.Category.Selection", "Square", "#9CA3AF", false, new[] { "clear", "bo chon", "deselect" }, vm => vm.ClearSelectionCommand.Execute(null)),
-            new("select.invert", "Main.InvertSelectionTitle", "Main.InvertSelectionDescription", "Palette.Category.Selection", "ArrowUpDown", "#A855F7", false, new[] { "invert", "dao nguoc" }, vm => vm.InvertSelectionCommand.Execute(null)),
-            new("select.quick5", "Main.QuickSelect5Title", "Main.QuickSelect5Description", "Palette.Category.Selection", "ListChecks", "#4ADE80", false, new[] { "chon 5", "select 5", "5 acc" }, vm => vm.SelectReadyBatchCommand.Execute(5)),
-            new("select.quick10", "Main.QuickSelect10Title", "Main.QuickSelect10Description", "Palette.Category.Selection", "ListChecks", "#4ADE80", false, new[] { "chon 10", "select 10", "10 acc" }, vm => vm.SelectReadyBatchCommand.Execute(10)),
-            new("select.quick20", "Main.QuickSelect20Title", "Main.QuickSelect20Description", "Palette.Category.Selection", "ListChecks", "#4ADE80", false, new[] { "chon 20", "select 20", "20 acc" }, vm => vm.SelectReadyBatchCommand.Execute(20)),
-            new("select.range", "Main.SelectRangeTitle", "Main.SelectRangeDescription", "Palette.Category.Selection", "Hash", "#38BDF8", false, new[] { "dai", "range", "1-10", "1-20" }, vm => vm.SelectByRangePromptCommand.Execute(null)),
+            new("tool.streamer", "Main.ToggleStreamerModeTitle", "Main.StreamerModeDescription", "Main.SecurityCategory", "ShieldCheck", "#A855F7", false, new[] { "stream", "streamer", "che ten", "an danh" }, vm => vm.ToolsStatus.ToggleStreamerModeCommand.Execute(null)),
+            new("tool.ram", "Main.OptimizeRamTitle", "Main.OptimizeRamDescription", "Main.PerformanceCategory", "Cpu", "#22C55E", true, new[] { "ram", "lag", "toi uu", "clean", "boost" }, vm => vm.ToolsStatus.AntiLagBoosterCommand.Execute(null)),
+            new("tool.tray", "Main.CleanTrayTitle", "Main.CleanTrayDescription", "Main.SystemCategory", "Brush", "#EAB308", false, new[] { "tray", "khay", "icon", "ma", "ghost" }, vm => vm.ToolsStatus.CleanSystemTrayCommand.Execute(null)),
+            new("tile.auto", "Main.ArrangeAutoTitle", "Main.ArrangeAutoDescription", "Main.WindowsCategory", "LayoutGrid", "#60A5FA", true, new[] { "tile", "sap xep", "auto", "grid", "luoi" }, vm => vm.ToolsStatus.ArrangeRobloxWindowsCommand.Execute("Auto")),
+            new("tile.2x2", "Main.ArrangeGrid2x2Title", "Main.ArrangeGrid2x2Description", "Main.WindowsCategory", "LayoutGrid", "#60A5FA", false, new[] { "2x2", "chia 4", "grid" }, vm => vm.ToolsStatus.ArrangeRobloxWindowsCommand.Execute("2x2")),
+            new("tile.3x2", "Main.ArrangeGrid3x2Title", "Main.ArrangeGrid3x2Description", "Main.WindowsCategory", "LayoutGrid", "#60A5FA", false, new[] { "3x2", "chia 6" }, vm => vm.ToolsStatus.ArrangeRobloxWindowsCommand.Execute("3x2")),
+            new("tile.cascade", "Main.ArrangeCascadeTitle", "Main.ArrangeCascadeDescription", "Main.WindowsCategory", "Layers", "#60A5FA", false, new[] { "cascade", "xep tang", "so le" }, vm => vm.ToolsStatus.ArrangeRobloxWindowsCommand.Execute("Cascade")),
+            new("system.killall", "Main.KillAllRobloxTitle", "Main.KillAllRobloxDescription", "Main.SystemCategory", "Power", "#EF4444", true, new[] { "close", "kill", "dong", "tat", "exit", "thoat" }, vm => vm.ToolsStatus.KillAllClientsCommand.Execute(null)),
+            new("accounts.checksession", "Main.CheckAllSessionsTitle", "Main.CheckAllSessionsDescription", "Nav_Accounts", "RefreshCw", "#38BDF8", false, new[] { "session", "phien", "kiem tra", "check", "het han" }, vm => vm.AccountsVm.CheckSessionsCommand.Execute(null)),
+            new("accounts.audit", "Main.AuditAllSessionsTitle", "Main.AuditAllSessionsDescription", "Nav_Accounts", "ShieldCheck", "#34D399", false, new[] { "audit", "session", "quet phien", "kiem tra phien" }, vm => vm.AccountsVm.AuditAllAccountsCommand.Execute(null)),
+            new("accounts.relogin", "Main.ReloginExpiredTitle", "Main.ReloginExpiredDescription", "Nav_Accounts", "Key", "#F59E0B", false, new[] { "relogin", "dang nhap lai", "het han", "cookie" }, vm => vm.AccountsVm.ReLoginAllExpiredCommand.Execute(null)),
+            new("accounts.robux", "Main.RefreshRobuxTitle", "Main.RefreshRobuxDescription", "Nav_Accounts", "Coins", "#EAB308", false, new[] { "robux", "so du", "tien", "balance" }, vm => vm.AccountsVm.RefreshAllRobuxCommand.Execute(null)),
+            new("select.all", "Bar_SelectAllTooltip", "Main.SelectAllAccountsDescription", "Palette.Category.Selection", "CheckCheck", "#4ADE80", false, new[] { "select all", "chon tat ca", "chon het" }, vm => vm.AccountsVm.SelectAllCommand.Execute(null)),
+            new("select.clear", "Main.DeselectAllAccountsTitle", "Main.DeselectAllAccountsDescription", "Palette.Category.Selection", "Square", "#9CA3AF", false, new[] { "clear", "bo chon", "deselect" }, vm => vm.AccountsVm.ClearSelectionCommand.Execute(null)),
+            new("select.invert", "Main.InvertSelectionTitle", "Main.InvertSelectionDescription", "Palette.Category.Selection", "ArrowUpDown", "#A855F7", false, new[] { "invert", "dao nguoc" }, vm => vm.AccountsVm.InvertSelectionCommand.Execute(null)),
+            new("select.quick5", "Main.QuickSelect5Title", "Main.QuickSelect5Description", "Palette.Category.Selection", "ListChecks", "#4ADE80", false, new[] { "chon 5", "select 5", "5 acc" }, vm => vm.AccountsVm.SelectReadyBatchCommand.Execute(5)),
+            new("select.quick10", "Main.QuickSelect10Title", "Main.QuickSelect10Description", "Palette.Category.Selection", "ListChecks", "#4ADE80", false, new[] { "chon 10", "select 10", "10 acc" }, vm => vm.AccountsVm.SelectReadyBatchCommand.Execute(10)),
+            new("select.quick20", "Main.QuickSelect20Title", "Main.QuickSelect20Description", "Palette.Category.Selection", "ListChecks", "#4ADE80", false, new[] { "chon 20", "select 20", "20 acc" }, vm => vm.AccountsVm.SelectReadyBatchCommand.Execute(20)),
+            new("select.range", "Main.SelectRangeTitle", "Main.SelectRangeDescription", "Palette.Category.Selection", "Hash", "#38BDF8", false, new[] { "dai", "range", "1-10", "1-20" }, vm => vm.AccountsVm.SelectByRangePromptCommand.Execute(null)),
             new("nav.serverlist", "Main.OpenServerListTitle", "Main.OpenServerListDescription", "Main.NavigationCategory", "Globe", "#60A5FA", false, new[] { "server", "may chu", "tim server", "ping" }, vm => vm.NavigateToServerListCommand.Execute(null)),
             new("nav.recentgames", "Main.OpenRecentGamesTitle", "Main.OpenRecentGamesDescription", "Main.NavigationCategory", "Gamepad2", "#F472B6", false, new[] { "game", "gan day", "recent", "yeu thich" }, vm => vm.NavigateToRecentGamesCommand.Execute(null)),
             new("nav.settings", "Main.OpenSettingsTitle", "Main.OpenSettingsDescription", "Main.NavigationCategory", "Settings", "#9CA3AF", false, new[] { "setting", "cai dat", "config", "ngon ngu" }, vm => vm.NavigateToSettingsCommand.Execute(null)),
             new("nav.accounts", "Main.OpenAccountsTitle", "Main.OpenAccountsDescription", "Main.NavigationCategory", "User", "#38BDF8", false, new[] { "tai khoan", "account", "home", "dashboard" }, vm => vm.NavigateToAccountsCommand.Execute(null)),
-            new("dialog.proxy", "Main.OpenProxyManagerTitle", "Main.OpenProxyManagerDescription", "Main.ToolsCategory", "Network", "#34D399", false, new[] { "proxy", "ip", "socks" }, vm => vm.OpenProxyManagerCommand.Execute(null)),
+            new("dialog.proxy", "Main.OpenProxyManagerTitle", "Main.OpenProxyManagerDescription", "Main.ToolsCategory", "Network", "#34D399", false, new[] { "proxy", "ip", "socks" }, vm => vm.ToolsStatus.OpenProxyManagerCommand.Execute(null)),
         };
     }
 }

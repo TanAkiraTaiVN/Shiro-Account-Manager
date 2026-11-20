@@ -9,7 +9,7 @@
                     <TextBox x:Name="TxtPlaceId" Text="{Binding PlaceIdInput, Mode=TwoWay}" Width="155" Margin="0,2,8,2" Watermark="{DynamicResource Srv_PlaceIdPlaceholder}" Background="#18181F"
                         Foreground="#FFFFFF" BorderBrush="#2E2E38" CornerRadius="6" Padding="10,7" VerticalContentAlignment="Center">
                         <TextBox.KeyBindings>
-                            <KeyBinding Gesture="Enter" Command="{Binding RefreshServersCommand}" />
+                            <KeyBinding Gesture="Enter" Command="{Binding BrowserTab.RefreshServersCommand}" />
                         </TextBox.KeyBindings>
                     </TextBox>
                     <Border IsVisible="{Binding HasCurrentGameInfo}" Margin="0,2,8,2" Background="#141925" BorderBrush="#27344E" BorderThickness="1" CornerRadius="6" Padding="6,5" MaxWidth="180"
@@ -27,7 +27,7 @@
                         TextTrimming="CharacterEllipsis" />
                         </Grid>
                     </Border>
-                    <Button Classes="FastPillBtn" Command="{Binding RefreshServersCommand}" Margin="0,2,8,2"
+                    <Button Classes="FastPillBtn" Command="{Binding BrowserTab.RefreshServersCommand}" Margin="0,2,8,2"
                         Background="{DynamicResource AccentBrush}" Foreground="{DynamicResource AccentForegroundBrush}"
                         FontWeight="Bold" CornerRadius="6" Padding="14,8" Cursor="Hand">
                         <StackPanel Orientation="Horizontal" Spacing="6">
@@ -42,21 +42,21 @@
                         <StackPanel Orientation="Horizontal" Spacing="6"><lucide:Lucide Icon="Square" Width="12" Height="12" StrokeBrush="#EF4444" VerticalAlignment="Center" /><TextBlock
                         Text="{DynamicResource Srv_Cancel}" VerticalAlignment="Center" /></StackPanel>
                     </Button>
-                    <Button Command="{Binding LoadAllRegionsCommand}" IsVisible="{Binding HasServers}" Margin="0,2,0,2" Background="#18181F" Foreground="#A1A1AA" BorderBrush="#2E2E38"
-                        BorderThickness="1" CornerRadius="6" Padding="12,8" Cursor="Hand">
+                    <Button Command="{Binding BrowserTab.LoadAllRegionsCommand}" IsVisible="{Binding BrowserTab.HasServers}" Margin="0,2,0,2" Background="#18181F" Foreground="#A1A1AA"
+                        BorderBrush="#2E2E38" BorderThickness="1" CornerRadius="6" Padding="12,8" Cursor="Hand">
                         <StackPanel Orientation="Horizontal" Spacing="6"><lucide:Lucide Icon="Globe" Width="13" Height="13" StrokeBrush="#A1A1AA" VerticalAlignment="Center" /><TextBlock
                         Text="{DynamicResource Srv_LoadAllRegions}" VerticalAlignment="Center" /></StackPanel>
                     </Button>
                 </WrapPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="10,0,0,0">
-                    <TextBox Text="{Binding SearchPlayerUsername, Mode=TwoWay}" Width="165" Watermark="{DynamicResource Srv_SearchPlayerPlaceholder}" Background="#18181F" Foreground="#FFFFFF"
-                        BorderBrush="#2E2E38" CornerRadius="6" Padding="10,7" VerticalContentAlignment="Center">
+                    <TextBox Text="{Binding BrowserTab.SearchPlayerUsername, Mode=TwoWay}" Width="165" Watermark="{DynamicResource Srv_SearchPlayerPlaceholder}" Background="#18181F"
+                        Foreground="#FFFFFF" BorderBrush="#2E2E38" CornerRadius="6" Padding="10,7" VerticalContentAlignment="Center">
                         <TextBox.KeyBindings>
-                            <KeyBinding Gesture="Enter" Command="{Binding SearchPlayerCommand}" />
+                            <KeyBinding Gesture="Enter" Command="{Binding BrowserTab.SearchPlayerCommand}" />
                         </TextBox.KeyBindings>
                     </TextBox>
-                    <Button Command="{Binding SearchPlayerCommand}" Background="#1E1E26" Foreground="#FFFFFF" BorderBrush="#2E2E38" BorderThickness="1" FontWeight="SemiBold" CornerRadius="6"
-                        Padding="12,8" Cursor="Hand">
+                    <Button Command="{Binding BrowserTab.SearchPlayerCommand}" Background="#1E1E26" Foreground="#FFFFFF" BorderBrush="#2E2E38" BorderThickness="1" FontWeight="SemiBold"
+                        CornerRadius="6" Padding="12,8" Cursor="Hand">
                         <StackPanel Orientation="Horizontal" Spacing="6"><lucide:Lucide Icon="Search" Width="13" Height="13" StrokeBrush="#FFFFFF" VerticalAlignment="Center" /><TextBlock
                         Text="{DynamicResource Srv_Find}" VerticalAlignment="Center" /></StackPanel>
                     </Button>
@@ -71,9 +71,9 @@
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <lucide:Lucide Icon="Globe" Width="14" Height="14" StrokeBrush="#A1A1AA" VerticalAlignment="Center" />
                             <TextBlock Text="{DynamicResource Srv_TabServers}" FontSize="12" VerticalAlignment="Center" />
-                            <Border Background="#252532" CornerRadius="8" MinWidth="20" Padding="5,1" VerticalAlignment="Center" IsVisible="{Binding HasServers}"><TextBlock
-                        Text="{Binding TotalServersCount}" FontSize="10" FontWeight="Bold" Foreground="#38BDF8" TextAlignment="Center" HorizontalAlignment="Center" VerticalAlignment="Center"
-                        Padding="2,0" /></Border>
+                            <Border Background="#252532" CornerRadius="8" MinWidth="20" Padding="5,1" VerticalAlignment="Center" IsVisible="{Binding BrowserTab.HasServers}"><TextBlock
+                        Text="{Binding BrowserTab.TotalServersCount}" FontSize="10" FontWeight="Bold" Foreground="#38BDF8" TextAlignment="Center" HorizontalAlignment="Center"
+                        VerticalAlignment="Center" Padding="2,0" /></Border>
                         </StackPanel>
                     </RadioButton>
                     <RadioButton Classes="SubTabPill" GroupName="ServerSubTabs"
@@ -94,10 +94,10 @@
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" Margin="10,0,0,0" VerticalAlignment="Center"
                     IsVisible="{Binding SelectedSubTabIndex, Converter={StaticResource EqualityToBoolean}, ConverterParameter='0'}">
-                    <ToggleButton Classes="ServerFilterPill" IsChecked="{Binding HideFullServers, Mode=TwoWay}" ToolTip.Tip="{DynamicResource Srv_HideFullTip}">
+                    <ToggleButton Classes="ServerFilterPill" IsChecked="{Binding BrowserTab.HideFullServers, Mode=TwoWay}" ToolTip.Tip="{DynamicResource Srv_HideFullTip}">
                         <TextBlock Text="{DynamicResource Srv_HideFull}" />
                     </ToggleButton>
-                    <ToggleButton Classes="ServerFilterPill" IsChecked="{Binding HideVipServers, Mode=TwoWay}" ToolTip.Tip="{DynamicResource Srv_HideVipTip}">
+                    <ToggleButton Classes="ServerFilterPill" IsChecked="{Binding BrowserTab.HideVipServers, Mode=TwoWay}" ToolTip.Tip="{DynamicResource Srv_HideVipTip}">
                         <TextBlock Text="{DynamicResource Srv_HideVip}" />
                     </ToggleButton>
                 </StackPanel>
@@ -112,8 +112,8 @@
             <Border Background="Transparent" Padding="12" IsHitTestVisible="True" IsVisible="{Binding SelectedSubTabIndex, Converter={StaticResource EqualityToBoolean}, ConverterParameter='2'}">
                 <Grid RowDefinitions="Auto,*">
                     <Border Grid.Row="0" Margin="0,0,0,12">
-                        <Button Command="{Binding AddFavoriteCommand}" Background="#18181F" Foreground="#F59E0B" BorderBrush="#2E2E38" BorderThickness="1" FontWeight="SemiBold" CornerRadius="6"
-                        Padding="14,8" Cursor="Hand">
+                        <Button Command="{Binding LibraryTab.AddFavoriteCommand}" Background="#18181F" Foreground="#F59E0B" BorderBrush="#2E2E38" BorderThickness="1" FontWeight="SemiBold"
+                        CornerRadius="6" Padding="14,8" Cursor="Hand">
                             <StackPanel Orientation="Horizontal" Spacing="6"><lucide:Lucide Icon="Star" Width="14" Height="14" StrokeBrush="#F59E0B" VerticalAlignment="Center" /><TextBlock
                         Text="{DynamicResource Srv_AddFavorite}" VerticalAlignment="Center" /></StackPanel>
                         </Button>
@@ -122,8 +122,8 @@
                         <StackPanel Spacing="18">
                             <StackPanel Spacing="8">
                                 <TextBlock Text="{DynamicResource Srv_RecentSectionTitle}" FontSize="11" FontWeight="Bold" Foreground="#93C5FD" LetterSpacing="0.5" Margin="6,0" />
-                                <TextBlock Text="{DynamicResource Srv_RecentEmptyHint}" IsVisible="{Binding IsRecentGamesEmpty}" FontSize="12" Foreground="#71717A" Margin="6,4" />
-                                <ItemsControl ItemsSource="{Binding RecentGames}" IsVisible="{Binding HasRecentGames}">
+                                <TextBlock Text="{DynamicResource Srv_RecentEmptyHint}" IsVisible="{Binding LibraryTab.IsRecentGamesEmpty}" FontSize="12" Foreground="#71717A" Margin="6,4" />
+                                <ItemsControl ItemsSource="{Binding LibraryTab.RecentGames}" IsVisible="{Binding LibraryTab.HasRecentGames}">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate><WrapPanel Orientation="Horizontal" /></ItemsPanelTemplate>
                                     </ItemsControl.ItemsPanel>
@@ -144,11 +144,13 @@
                         FontSize="13" Foreground="#FFFFFF" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name}" /><TextBlock Text="{Binding PlaceId, StringFormat='ID: {0}'}"
                         FontSize="11" Foreground="#71717A" /></StackPanel>
                                                     <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                                                        <Button Content="{DynamicResource Srv_Select}" Command="{Binding #RootServerListView.ViewModel.SelectRecentGameInLibraryCommand}"
+                                                        <Button Content="{DynamicResource Srv_Select}"
+                        Command="{Binding #RootServerListView.ViewModel.LibraryTab.SelectRecentGameInLibraryCommand}"
                         CommandParameter="{Binding}" Background="#22222E" Foreground="#FFFFFF" CornerRadius="6" Padding="10,6" FontSize="11" Cursor="Hand"
                         ToolTip.Tip="{DynamicResource Srv_TipSelectPlace}" />
-                                                        <Button Command="{Binding #RootServerListView.ViewModel.LaunchRecentGameInLibraryCommand}" CommandParameter="{Binding}"
-                        Background="#22C55E" Foreground="#09090B" FontWeight="Bold" CornerRadius="6" Padding="10,6" FontSize="11" Cursor="Hand" ToolTip.Tip="{DynamicResource Srv_TipPlayGame}">
+                                                        <Button Command="{Binding #RootServerListView.ViewModel.LibraryTab.LaunchRecentGameInLibraryCommand}"
+                        CommandParameter="{Binding}" Background="#22C55E" Foreground="#09090B" FontWeight="Bold" CornerRadius="6" Padding="10,6" FontSize="11" Cursor="Hand"
+                        ToolTip.Tip="{DynamicResource Srv_TipPlayGame}">
                                                             <StackPanel Orientation="Horizontal" Spacing="4"><lucide:Lucide Icon="Play" Width="10" Height="10" StrokeBrush="#09090B"
                         StrokeThickness="2.5" VerticalAlignment="Center" /><TextBlock Text="{DynamicResource Srv_Play}" VerticalAlignment="Center" /></StackPanel>
                                                         </Button>
@@ -162,8 +164,8 @@
                             <Separator Background="#22222C" Height="1" Margin="6,0" />
                             <StackPanel Spacing="8">
                                 <TextBlock Text="{DynamicResource Srv_FavSectionTitle}" FontSize="11" FontWeight="Bold" Foreground="#FBBF24" LetterSpacing="0.5" Margin="6,0" />
-                                <TextBlock Text="{DynamicResource Srv_FavEmptyHint}" IsVisible="{Binding IsFavoritesEmpty}" FontSize="12" Foreground="#71717A" Margin="6,4" />
-                                <ItemsControl ItemsSource="{Binding Favorites}">
+                                <TextBlock Text="{DynamicResource Srv_FavEmptyHint}" IsVisible="{Binding LibraryTab.IsFavoritesEmpty}" FontSize="12" Foreground="#71717A" Margin="6,4" />
+                                <ItemsControl ItemsSource="{Binding LibraryTab.Favorites}">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate><WrapPanel Orientation="Horizontal" /></ItemsPanelTemplate>
                                     </ItemsControl.ItemsPanel>
@@ -184,17 +186,18 @@
                         FontSize="13" Foreground="#FFFFFF" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name}" /><TextBlock Text="{Binding PlaceId, StringFormat='ID: {0}'}"
                         FontSize="11" Foreground="#71717A" /></StackPanel>
                                                     <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                                                        <Button Content="{DynamicResource Srv_Select}" Command="{Binding #RootServerListView.ViewModel.SelectFavoriteCommand}"
+                                                        <Button Content="{DynamicResource Srv_Select}" Command="{Binding #RootServerListView.ViewModel.LibraryTab.SelectFavoriteCommand}"
                         CommandParameter="{Binding}" Background="#22222E" Foreground="#FFFFFF" CornerRadius="6" Padding="10,6" FontSize="11" Cursor="Hand"
                         ToolTip.Tip="{DynamicResource Srv_TipSelectPlace}" />
-                                                        <Button Command="{Binding #RootServerListView.ViewModel.LaunchFavoriteCommand}" CommandParameter="{Binding}" Background="#22C55E"
-                        Foreground="#09090B" FontWeight="Bold" CornerRadius="6" Padding="10,6" FontSize="11" Cursor="Hand" ToolTip.Tip="{DynamicResource Srv_TipPlayGame}">
+                                                        <Button Command="{Binding #RootServerListView.ViewModel.LibraryTab.LaunchFavoriteCommand}" CommandParameter="{Binding}"
+                        Background="#22C55E" Foreground="#09090B" FontWeight="Bold" CornerRadius="6" Padding="10,6" FontSize="11" Cursor="Hand"
+                        ToolTip.Tip="{DynamicResource Srv_TipPlayGame}">
                                                             <StackPanel Orientation="Horizontal" Spacing="4"><lucide:Lucide Icon="Play" Width="10" Height="10" StrokeBrush="#09090B"
                         StrokeThickness="2.5" VerticalAlignment="Center" /><TextBlock Text="{DynamicResource Srv_Play}" VerticalAlignment="Center" /></StackPanel>
                                                         </Button>
-                                                        <Button Command="{Binding #RootServerListView.ViewModel.RemoveFavoriteCommand}" CommandParameter="{Binding}" Background="#2B1518"
-                        CornerRadius="6" Padding="8,6" Cursor="Hand" ToolTip.Tip="{DynamicResource Srv_TipRemoveFav}"><lucide:Lucide Icon="Trash2" Width="12" Height="12" StrokeBrush="#EF4444"
-                        /></Button>
+                                                        <Button Command="{Binding #RootServerListView.ViewModel.LibraryTab.RemoveFavoriteCommand}" CommandParameter="{Binding}"
+                        Background="#2B1518" CornerRadius="6" Padding="8,6" Cursor="Hand" ToolTip.Tip="{DynamicResource Srv_TipRemoveFav}"><lucide:Lucide Icon="Trash2" Width="12"
+                        Height="12" StrokeBrush="#EF4444" /></Button>
                                                     </StackPanel>
                                                 </Grid>
                                             </Border>

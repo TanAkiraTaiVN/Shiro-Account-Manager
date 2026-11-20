@@ -36,7 +36,7 @@ namespace Shiro.AvaloniaUI.Views
             {
                 if (e.NewSize.Width > 0)
                 {
-                    ViewModel.CardColumns = MainViewModel.CalculateResponsiveCardColumns(e.NewSize.Width);
+                    ViewModel.AccountsVm.CardColumns = AccountCollectionViewModel.CalculateResponsiveCardColumns(e.NewSize.Width);
                 }
             };
 
@@ -44,22 +44,22 @@ namespace Shiro.AvaloniaUI.Views
             {
                 if (Bounds.Width > 0)
                 {
-                    ViewModel.CardColumns = MainViewModel.CalculateResponsiveCardColumns(Bounds.Width);
+                    ViewModel.AccountsVm.CardColumns = AccountCollectionViewModel.CalculateResponsiveCardColumns(Bounds.Width);
                 }
                 LoadDashboardData();
                 if (!_placeIdHooked && TxtPlaceId != null)
                 {
                     _placeIdHooked = true;
-                    TxtPlaceId.LostFocus += (_, _) => ViewModel.NormalizePlaceIdInput(TxtPlaceId.Text);
+                    TxtPlaceId.LostFocus += (_, _) => ViewModel.LaunchBar.NormalizePlaceIdInput(TxtPlaceId.Text);
                 }
             };
         }
 
         private void WireViewModelCallbacks()
         {
-            ViewModel.PropertyChanged += (s, e) =>
+            ViewModel.AccountsVm.PropertyChanged += (s, e) =>
             {
-                if (e.PropertyName == nameof(MainViewModel.ActiveTab) || e.PropertyName == nameof(MainViewModel.SearchText))
+                if (e.PropertyName == nameof(AccountCollectionViewModel.ActiveTab) || e.PropertyName == nameof(AccountCollectionViewModel.SearchText))
                 {
                     AppDispatcher.Post(() =>
                     {
@@ -87,7 +87,7 @@ namespace Shiro.AvaloniaUI.Views
                 var checkBox = v as CheckBox ?? v.FindAncestorOfType<CheckBox>();
                 if (checkBox?.DataContext is AccountViewModel avm)
                 {
-                    ViewModel.HandleAccountClickSelection(avm, e.KeyModifiers.HasFlag(KeyModifiers.Shift));
+                    ViewModel.AccountsVm.HandleAccountClickSelection(avm, e.KeyModifiers.HasFlag(KeyModifiers.Shift));
                     e.Handled = true;
                 }
             }
@@ -95,24 +95,24 @@ namespace Shiro.AvaloniaUI.Views
 
         public List<Account> GetSelectedAccounts()
         {
-            return ViewModel?.GetSelectedAccounts() ?? new List<Account>();
+            return ViewModel?.AccountsVm.GetSelectedAccounts() ?? new List<Account>();
         }
 
         public void LoadDashboardData(IReadOnlyList<Account>? accountsSnapshot = null)
         {
             try
             {
-                if (ViewModel != null && string.IsNullOrWhiteSpace(ViewModel.PlaceId) && !string.IsNullOrWhiteSpace(AppServices.ServerBrowserState.CurrentPlaceId))
+                if (ViewModel != null && string.IsNullOrWhiteSpace(ViewModel.LaunchBar.PlaceId) && !string.IsNullOrWhiteSpace(AppServices.ServerBrowserState.CurrentPlaceId))
                 {
-                    ViewModel.PlaceId = AppServices.ServerBrowserState.CurrentPlaceId;
+                    ViewModel.LaunchBar.PlaceId = AppServices.ServerBrowserState.CurrentPlaceId;
                 }
 
                 var accounts = accountsSnapshot ?? AppServices.AccountRepository.GetAll();
-                ViewModel?.LoadAccounts(accounts);
+                ViewModel?.AccountsVm.LoadAccounts(accounts);
 
-                if (CmbGroups != null && ViewModel != null && CmbGroups.SelectedItem == null && ViewModel.AvailableGroups.Count > 0)
+                if (CmbGroups != null && ViewModel != null && CmbGroups.SelectedItem == null && ViewModel.AccountsVm.AvailableGroups.Count > 0)
                 {
-                    CmbGroups.SelectedItem = ViewModel.SelectedGroup;
+                    CmbGroups.SelectedItem = ViewModel.AccountsVm.SelectedGroup;
                 }
             }
             catch (Exception ex)
@@ -146,7 +146,7 @@ namespace Shiro.AvaloniaUI.Views
             if (e.Source is Visual visual && IsInsideInteractiveControl(visual))
                 return;
 
-            ViewModel.HandleAccountClickSelection(avm, e.KeyModifiers.HasFlag(KeyModifiers.Shift));
+            ViewModel.AccountsVm.HandleAccountClickSelection(avm, e.KeyModifiers.HasFlag(KeyModifiers.Shift));
         }
 
         private long _lastRowDoubleTapTimestamp;
@@ -187,23 +187,23 @@ namespace Shiro.AvaloniaUI.Views
             }
 
             e.Handled = true;
-            ExecuteMenuCommand(sender, ViewModel.LaunchAccountCommand);
+            ExecuteMenuCommand(sender, ViewModel.LaunchBar.LaunchAccountCommand);
         }
 
         private void OnCardLaunchClicked(object sender, RoutedEventArgs e)
-            => ExecuteMenuCommand(sender, ViewModel.PrimaryCardActionCommand);
+            => ExecuteMenuCommand(sender, ViewModel.LaunchBar.PrimaryCardActionCommand);
 
         private void OnCardFocusWindowClicked(object sender, RoutedEventArgs e)
-            => ExecuteMenuCommand(sender, ViewModel.FocusAccountWindowCommand);
+            => ExecuteMenuCommand(sender, ViewModel.ToolsStatus.FocusAccountWindowCommand);
 
         private void OnCardCloseClientClicked(object sender, RoutedEventArgs e)
-            => ExecuteMenuCommand(sender, ViewModel.CloseAccountRobloxCommand);
+            => ExecuteMenuCommand(sender, ViewModel.LaunchBar.CloseAccountRobloxCommand);
 
         private void OnCardViewBanClicked(object sender, RoutedEventArgs e)
-            => ExecuteMenuCommand(sender, ViewModel.ViewBanAccountCommand);
+            => ExecuteMenuCommand(sender, ViewModel.LaunchBar.ViewBanAccountCommand);
 
         private void OnTableRowJoinClicked(object sender, RoutedEventArgs e)
-            => ExecuteMenuCommand(sender, ViewModel.JoinServerAccountCommand);
+            => ExecuteMenuCommand(sender, ViewModel.LaunchBar.JoinServerAccountCommand);
 
         internal void ShowAccountContextMenu(Control anchor, AccountViewModel avm)
         {
