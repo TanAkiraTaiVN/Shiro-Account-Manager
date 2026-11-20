@@ -87,21 +87,9 @@ namespace Shiro.ViewModels
 
         public string Username => _model.Username ?? "Unknown";
 
-        public string ShownUsername
-        {
-            get
-            {
-                if (StreamerModeService.ShouldMaskUsernames(_settings))
-                {
-                    return StreamerModeService.MaskUsername(Username);
-                }
-
-                bool hideUsernames = _settings != null &&
-                                     _settings.Exists("HideUsernames") &&
-                                     _settings.Get<bool>("HideUsernames");
-                return hideUsernames ? "Hidden Account" : Username;
-            }
-        }
+        public string ShownUsername => ShouldMaskIdentity
+            ? StreamerModeService.MaskUsername(Username)
+            : Username;
 
         public long UserId => _model.UserID;
 

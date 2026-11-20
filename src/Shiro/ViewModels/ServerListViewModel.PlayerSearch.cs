@@ -283,7 +283,7 @@ namespace Shiro.ViewModels
 
                         SelectedServer = matchVm;
                         SelectServerJobId(matchVm);
-                        PlayerSearchStatus = LocalizationService.Format("ServerList.PlayerFoundInServer", SearchPlayerUsername, matchedServer.id);
+                        PlayerSearchStatus = LocalizationService.Format("ServerList.PlayerFoundInServer", SearchPlayerUsername, (StreamerModeService.IsActive ? StreamerModeService.MaskJobId(matchedServer.id) : matchedServer.id));
                     }
                     else
                     {

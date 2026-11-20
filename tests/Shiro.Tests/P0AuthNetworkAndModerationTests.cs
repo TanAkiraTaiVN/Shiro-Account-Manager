@@ -459,14 +459,13 @@ namespace Shiro.Tests
             };
 
             var svc = new RobloxModerationService();
-            var result = await svc.CheckModerationStatusAsync(
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => svc.CheckModerationStatusAsync(
                 account,
                 ValidToken,
                 httpClientOverride: null,
                 callerCts.Token,
-                dispatchAlert: false);
+                dispatchAlert: false));
 
-            Assert.False(result.IsBanned);
             Assert.Equal(0, webCalls);
         }
 
@@ -516,10 +515,10 @@ namespace Shiro.Tests
                 };
 
                 var svc = new RobloxModerationService();
-                var result = await svc.CheckModerationStatusAsync(account, ValidToken, callerCts.Token);
+                await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+                    svc.CheckModerationStatusAsync(account, ValidToken, callerCts.Token));
 
                 Assert.Equal(1, followUpCalls);
-                Assert.False(result.IsBanned);
                 Assert.Equal(0, alertCount);
             }
             finally

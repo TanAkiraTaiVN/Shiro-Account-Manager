@@ -225,6 +225,10 @@ namespace Shiro.Services
 
                 return (false, null, null);
             }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
             catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
             {
                 _logger.Debug($"[CheckModerationStatusAsync] {account.Username}: Moderation probe timed out (presumed normal).");

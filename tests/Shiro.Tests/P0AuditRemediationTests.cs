@@ -208,8 +208,8 @@ public sealed class P0AuditRemediationTests : IDisposable
             Assert.True(Directory.Exists(actual));
 
             string ebRoot = Path.Combine(actual, "EBWebView");
-            string oldProfile = Path.Combine(ebRoot, "Shiro_oldtest");
-            string freshProfile = Path.Combine(ebRoot, "Shiro_freshtest");
+            string oldProfile = Path.Combine(ebRoot, "Shiro_" + Guid.NewGuid().ToString("N"));
+            string freshProfile = Path.Combine(ebRoot, "Shiro_" + Guid.NewGuid().ToString("N"));
             string nonShiroDir = Path.Combine(ebRoot, "Cache");
             Directory.CreateDirectory(oldProfile);
             Directory.CreateDirectory(freshProfile);

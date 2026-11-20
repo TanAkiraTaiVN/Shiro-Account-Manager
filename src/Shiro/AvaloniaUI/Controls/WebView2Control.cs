@@ -182,7 +182,7 @@ namespace Shiro.AvaloniaUI.Controls
                 DateTime cutoffUtc = DateTime.UtcNow.AddHours(-1);
                 foreach (string dir in Directory.EnumerateDirectories(profilesRoot, "Shiro_*"))
                 {
-                    if (!StoragePaths.IsWithinDirectory(dir, profilesRoot))
+                    if (!StoragePaths.IsWithinDirectory(dir, profilesRoot) || !IsOwnedProfileDirectoryName(Path.GetFileName(dir)))
                     {
                         continue;
                     }

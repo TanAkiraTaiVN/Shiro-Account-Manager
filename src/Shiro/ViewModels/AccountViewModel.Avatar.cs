@@ -50,10 +50,10 @@ namespace Shiro.ViewModels
 
         public static void ClearAvatarMemoryCache()
         {
-            Interlocked.Increment(ref _avatarCacheGeneration);
             List<Bitmap> drained;
             lock (_avatarCacheLock)
             {
+                Interlocked.Increment(ref _avatarCacheGeneration);
                 drained = _avatarBitmapCache.ClearAndDrain();
                 _inFlightAvatarLoads.Clear();
             }
@@ -319,7 +319,12 @@ namespace Shiro.ViewModels
 
         public void InvalidateAvatar()
         {
-            Interlocked.Increment(ref _avatarCacheGeneration);
+            Bitmap? prevCacheBmp;
+            lock (_avatarCacheLock)
+            {
+                Interlocked.Increment(ref _avatarCacheGeneration);
+                _avatarBitmapCache.TryRemove(UserId, out prevCacheBmp);
+            }
             Bitmap? prevInstanceBmp;
             lock (_avatarStateLock)
             {
@@ -331,7 +336,6 @@ namespace Shiro.ViewModels
                 _avatarLoadState = 0;
             }
 
-            _avatarBitmapCache.TryRemove(UserId, out var prevCacheBmp);
             AppDispatcher.Post(() =>
             {
                 OnPropertyChanged(nameof(AvatarUrl));

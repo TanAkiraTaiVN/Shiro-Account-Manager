@@ -29,19 +29,20 @@
                             Padding="{TemplateBinding Padding}">
                         <ContentPresenter Content="{TemplateBinding Content}"
                                           ContentTemplate="{TemplateBinding ContentTemplate}"
+                                          Foreground="{TemplateBinding Foreground}"
                                           VerticalAlignment="Center" HorizontalAlignment="Center" />
                     </Border>
                 </ControlTemplate>
             </Setter>
         </Style>
+        <Style Selector="RadioButton.ModeTabPill:pointerover">
+            <Setter Property="Background" Value="#161622" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
+        </Style>
         <Style Selector="RadioButton.ModeTabPill:checked">
             <Setter Property="Background" Value="#1E1E2C" />
             <Setter Property="Foreground" Value="#FFFFFF" />
             <Setter Property="FontWeight" Value="SemiBold" />
-        </Style>
-        <Style Selector="RadioButton.ModeTabPill:pointerover">
-            <Setter Property="Background" Value="#161622" />
-            <Setter Property="Foreground" Value="#FFFFFF" />
         </Style>
     </Window.Styles>
 

@@ -224,11 +224,11 @@ namespace Shiro.Tests.Ui
         {
             var general = new IniSection("General");
             using var settingsScope = AppServices.Override<ISettingsService>(general);
+            var vm = new SettingsViewModel(new AppSettings(), general, SettingsSideEffectsService.Default);
             try
             {
                 StreamerModeService.AutoDetectEnabled = false;
                 StreamerModeService.IsEnabled = false;
-                var vm = new SettingsViewModel(new AppSettings(), general, SettingsSideEffectsService.Default);
                 vm.LoadCommand.Execute(null);
 
                 vm.HideUsernames = true;
@@ -241,6 +241,7 @@ namespace Shiro.Tests.Ui
             }
             finally
             {
+                vm.OnClosing();
                 StreamerModeService.IsEnabled = _origStreamerEnabled;
             }
         }
@@ -464,6 +465,7 @@ namespace Shiro.Tests.Ui
                 finally
                 {
                     win.Close();
+                    view.ViewModel.Dispose();
                 }
             }
             finally

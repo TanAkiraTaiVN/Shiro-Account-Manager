@@ -306,6 +306,7 @@ namespace Shiro.Tests.Ui
             {
                 hostPanel.Children.Remove(card);
                 window.Close();
+                dashboard.ViewModel.Dispose();
             }
         }
 

@@ -377,7 +377,7 @@ namespace Shiro.ViewModels
 
                 IsBatchLaunching = true;
                 BatchLaunchProgressPercent = Math.Clamp((units / total) * 100.0, 5.0, 100.0);
-                string accName = progress.Account?.Username ?? string.Empty;
+                string accName = StreamerModeService.GetDisplayUsername(progress.Account?.Username);
                 BatchLaunchTitleText = Shiro.Services.LocalizationService.Format("Main.LaunchQueueProgress", index, total, accName);
                 BatchLaunchDetailText = !string.IsNullOrWhiteSpace(progress.Message)
                     ? progress.Message!

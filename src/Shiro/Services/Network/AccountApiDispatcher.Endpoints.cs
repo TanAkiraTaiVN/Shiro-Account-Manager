@@ -419,6 +419,8 @@ namespace Shiro.Services
                 ServerData[] serversSnapshot;
                 lock (cachedServers)
                 {
+                    if (browserState.CachedServersPlaceId != targetPlaceId)
+                        return reply("Cached servers do not match the requested PlaceId", false, 400, null);
                     serversSnapshot = cachedServers.ToArray();
                 }
 

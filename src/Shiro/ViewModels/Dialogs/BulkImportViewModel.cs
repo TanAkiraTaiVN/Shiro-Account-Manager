@@ -214,7 +214,7 @@ namespace Shiro.ViewModels.Dialogs
                         if (token.IsCancellationRequested) break;
                         upIndex++;
 
-                        SetStatus(LocalizationService.Format("BulkImport.SavingAccount", up.User, upIndex, classification.UserPass.Count), StatusKind.Info);
+                        SetStatus(LocalizationService.Format("BulkImport.SavingAccount", StreamerModeService.GetDisplayUsername(up.User), upIndex, classification.UserPass.Count), StatusKind.Info);
 
                         if (!existingByUsername.TryGetValue(up.User, out Account? targetAcc))
                         {

@@ -83,6 +83,9 @@ namespace Shiro.ViewModels.Dialogs
 
         private void LoadAdvanced()
         {
+            StreamerModeService.StateChanged -= OnStreamerModeStateChanged;
+            StreamerModeService.StateChanged += OnStreamerModeStateChanged;
+
             IniSection ws = _settings.GetSection(AppSettingsKeys.Sections.WebServer) ?? _settings.IniFile.Section(AppSettingsKeys.Sections.WebServer);
             AllowExternalConnections = ws.Get<bool>(AppSettingsKeys.WebServer.AllowExternalConnections);
             EveryRequestRequiresPassword = ws.Get<bool>(AppSettingsKeys.WebServer.EveryRequestRequiresPassword);
@@ -193,6 +196,21 @@ namespace Shiro.ViewModels.Dialogs
             try { await _effects.ImportVaultAsync(); }
             catch (Exception ex) { _dialogs.ShowError(ex.Message, LocalizationService.Get("Status_Error")); }
             finally { IsBusy = false; }
+        }
+
+        private void OnStreamerModeStateChanged(bool _)
+        {
+            bool enabled = StreamerModeService.IsEnabled;
+            if (_hideUsernames != enabled)
+                SetProperty(ref _hideUsernames, enabled, nameof(HideUsernames));
+        }
+
+        private void CleanupAdvanced()
+        {
+            StreamerModeService.StateChanged -= OnStreamerModeStateChanged;
+            _feedbackCts?.Cancel();
+            _feedbackCts?.Dispose();
+            _feedbackCts = null;
         }
     }
 }

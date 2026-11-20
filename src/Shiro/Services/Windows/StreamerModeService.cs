@@ -122,7 +122,8 @@ namespace Shiro.Services
                 if (_initialized) return;
                 _initialized = true;
 
-                _isEnabled = AppServices.GeneralSettings.Get<bool>(AppSettingsKeys.General.StreamerModeEnabled, false);
+                _isEnabled = AppServices.GeneralSettings.Get<bool>(AppSettingsKeys.General.StreamerModeEnabled, false)
+                    || AppServices.GeneralSettings.Get<bool>(AppSettingsKeys.General.HideUsernames, false);
                 _autoDetectEnabled = AppServices.GeneralSettings.Get<bool>(AppSettingsKeys.General.StreamerModeAutoDetect, false);
                 shouldUpdateAffinity = _isEnabled || _autoDetectEnabled;
 

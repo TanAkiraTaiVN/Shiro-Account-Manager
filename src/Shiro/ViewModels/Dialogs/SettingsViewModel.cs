@@ -476,9 +476,7 @@ namespace Shiro.ViewModels.Dialogs
 
         public override void OnClosing()
         {
-            _feedbackCts?.Cancel();
-            _feedbackCts?.Dispose();
-            _feedbackCts = null;
+            CleanupAdvanced();
             base.OnClosing();
         }
     }

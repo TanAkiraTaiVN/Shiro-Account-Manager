@@ -50,6 +50,7 @@ namespace Shiro.AvaloniaUI.Views
             CookieViewModel.CloseRequested += (_, r) => Close(r);
             InitializeComponent();
             WindowBackdropService.ApplyDarkAndBackdrop(this);
+            StreamerModeService.StateChanged += OnStreamerModeStateChanged;
             if (BtnSkipNext != null)
             {
                 BtnSkipNext.Command = new AsyncRelayCommand(AdvanceToNextAccountOrCloseAsync);
@@ -357,9 +358,16 @@ namespace Shiro.AvaloniaUI.Views
 
         private bool _isClosed;
 
+        private void OnStreamerModeStateChanged(bool _)
+        {
+            if (!_isClosed && !string.IsNullOrEmpty(_username) && TxtDialogTitle != null)
+                TxtDialogTitle.Text = _queue.Title;
+        }
+
         protected override void OnClosing(WindowClosingEventArgs e)
         {
             _isClosed = true;
+            StreamerModeService.StateChanged -= OnStreamerModeStateChanged;
             CookieViewModel.OnClosing();
             DisposeInteractiveLoginScope();
             try
