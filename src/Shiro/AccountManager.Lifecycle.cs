@@ -24,6 +24,7 @@ namespace Shiro
                 }
                 if (Instance != null)
                 {
+                    WireHostServices();
                     Instance.WireStateAndHostBridgeServices();
                     Instance.InitializeBackendServices();
                     if (!_accountsInitialLoaded)
@@ -132,7 +133,7 @@ namespace Shiro
                     RobloxJobObjectService.SetCpuRateLimit(cpuCap);
             }
 
-            SettingsSideEffectsService.Default.ConfigureBackgroundThrottling(
+            AppServices.SettingsSideEffects.ConfigureBackgroundThrottling(
                 AppSettings.General.Get<bool>(AppSettingsKeys.General.EnableBackgroundThrottling, false),
                 AppSettings.General.Get<int>(AppSettingsKeys.General.BackgroundTargetFps, 10));
 

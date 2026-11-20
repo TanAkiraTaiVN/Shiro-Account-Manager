@@ -83,10 +83,7 @@ namespace Shiro.Tests
         [Fact]
         public void StateServiceDefaults_ShouldOnlyBeReferenced_ByCompositionRoot()
         {
-            var allow = new HashSet<string>(StringComparer.OrdinalIgnoreCase) {
-                "AppServices.cs", "SelectionStateService.cs", "ServerBrowserStateService.cs", "AccountWorkflowService.cs",
-                "HostUiBridgeService.cs", "AccountRepository.cs", "AccountPersistenceService.cs",
-                "AccountPersistenceService.Recovery.cs", "AccountRegistrationService.cs", "AccountSessionMaintenanceService.cs" };
+            var allow = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "AppBootstrap.cs" };
             var offenders = SourceScan.AppSourceFiles(RepoRoot)
                 .Where(f => !allow.Contains(Path.GetFileName(f)))
                 .Where(f => Regex.IsMatch(SourceScan.StripStringLiterals(File.ReadAllText(f)),

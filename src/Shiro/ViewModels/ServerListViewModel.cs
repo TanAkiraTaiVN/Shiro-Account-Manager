@@ -182,8 +182,10 @@ namespace Shiro.ViewModels
             LoadWatcherSettings();
             LoadFavorites();
 
-            LocalizationService.LanguageChanged += OnLanguageChanged;
+            _languageChangedHandler = WeakEventSubscription.CreateAction<ServerListViewModel, AppLanguage>(this, static (vm, lang) => vm.OnLanguageChanged(lang), static h => LocalizationService.LanguageChanged -= h);
+            LocalizationService.LanguageChanged += _languageChangedHandler;
         }
+        private Action<AppLanguage>? _languageChangedHandler;
 
         private void OnLanguageChanged(AppLanguage lang)
         {
@@ -207,7 +209,7 @@ namespace Shiro.ViewModels
         {
             if (Interlocked.Exchange(ref _disposed, 1) != 0)
                 return;
-            LocalizationService.LanguageChanged -= OnLanguageChanged;
+            if (_languageChangedHandler != null) LocalizationService.LanguageChanged -= _languageChangedHandler;
             CancelAllOperations();
             GC.SuppressFinalize(this);
         }

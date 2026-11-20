@@ -20,8 +20,7 @@ namespace Shiro.Services
 
     public sealed partial class AccountPersistenceService
     {
-        private static readonly Lazy<AccountPersistenceService> _defaultInstance = new(() => new AccountPersistenceService());
-        public static AccountPersistenceService Default => _defaultInstance.Value;
+        public static AccountPersistenceService Default => AppServices.AccountPersistence;
 
         private readonly AccountRepository _repository;
         private readonly Timer _deferredSaveTimer;
@@ -55,7 +54,8 @@ namespace Shiro.Services
 
         internal AccountPersistenceService(AccountRepository? repository = null)
         {
-            _repository = repository ?? AccountRepository.Default;
+            _repository = repository ?? (AppServices.AccountRepository as AccountRepository)
+                ?? throw new InvalidOperationException("AccountRepository is not registered.");
             Store = new AccountStore();
             _deferredSaveTimer = new Timer(_ =>
             {

@@ -51,4 +51,61 @@ namespace Shiro.ViewModels
             return true;
         }
     }
+
+    internal static class WeakEventSubscription
+    {
+        public static EventHandler<TArgs> Create<TTarget, TArgs>(
+            TTarget target,
+            Action<TTarget, object?, TArgs> onEvent,
+            Action<EventHandler<TArgs>> detach)
+            where TTarget : class
+        {
+            var weakRef = new WeakReference<TTarget>(target);
+            EventHandler<TArgs>? handler = null;
+            handler = (sender, args) =>
+            {
+                if (weakRef.TryGetTarget(out var live))
+                    onEvent(live, sender, args);
+                else if (handler != null)
+                    detach(handler);
+            };
+            return handler;
+        }
+
+        public static Action<TArg> CreateAction<TTarget, TArg>(
+            TTarget target,
+            Action<TTarget, TArg> onEvent,
+            Action<Action<TArg>> detach)
+            where TTarget : class
+        {
+            var weakRef = new WeakReference<TTarget>(target);
+            Action<TArg>? handler = null;
+            handler = arg =>
+            {
+                if (weakRef.TryGetTarget(out var live))
+                    onEvent(live, arg);
+                else if (handler != null)
+                    detach(handler);
+            };
+            return handler;
+        }
+
+        public static Action CreateAction<TTarget>(
+            TTarget target,
+            Action<TTarget> onEvent,
+            Action<Action> detach)
+            where TTarget : class
+        {
+            var weakRef = new WeakReference<TTarget>(target);
+            Action? handler = null;
+            handler = () =>
+            {
+                if (weakRef.TryGetTarget(out var live))
+                    onEvent(live);
+                else if (handler != null)
+                    detach(handler);
+            };
+            return handler;
+        }
+    }
 }

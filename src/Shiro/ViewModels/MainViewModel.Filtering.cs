@@ -151,24 +151,27 @@ namespace Shiro.ViewModels
                 return;
             }
 
-            var resultList = AccountListFilterController.FilterAndSortAccounts(
-                _accounts, SearchText, SelectedGroup, ActiveTab, SortMode);
-
-            if (AccountListFilterController.IsSameSequence(_filteredAccounts, resultList))
+            lock (_accountsUiLock)
             {
-                int cols = Math.Clamp(_cardColumns, 2, 4);
-                int expectedRows = (resultList.Count + cols - 1) / cols;
-                if (_filteredAccountRows.Count != expectedRows ||
-                    (_filteredAccountRows.Count > 0 && _filteredAccountRows[0].ColumnCount != cols))
-                {
-                    RebuildAccountRows();
-                }
-                return;
-            }
+                var resultList = AccountListFilterController.FilterAndSortAccounts(
+                    _accounts, SearchText, SelectedGroup, ActiveTab, SortMode);
 
-            _filteredAccounts.Sync(resultList);
-            RebuildAccountRows();
-            OnPropertyChanged(nameof(IsAllSelected));
+                if (AccountListFilterController.IsSameSequence(_filteredAccounts, resultList))
+                {
+                    int cols = Math.Clamp(_cardColumns, 2, 4);
+                    int expectedRows = (resultList.Count + cols - 1) / cols;
+                    if (_filteredAccountRows.Count != expectedRows ||
+                        (_filteredAccountRows.Count > 0 && _filteredAccountRows[0].ColumnCount != cols))
+                    {
+                        RebuildAccountRows();
+                    }
+                    return;
+                }
+
+                _filteredAccounts.Sync(resultList);
+                RebuildAccountRows();
+                OnPropertyChanged(nameof(IsAllSelected));
+            }
         }
 
         private void RebuildAccountRows()

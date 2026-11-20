@@ -143,6 +143,10 @@ namespace Shiro.Tests
                 .Or()
                 .HaveName("AppServices")
                 .Or()
+                .HaveName("AppBootstrap")
+                .Or()
+                .HaveNameEndingWith("EventArgs")
+                .Or()
                 .HaveNameEndingWith("Browser")
                 .Or()
                 .HaveNameEndingWith("Config")
@@ -309,12 +313,7 @@ namespace Shiro.Tests
         [Fact]
         public void Services_ShouldNotDependOn_ViewModels()
         {
-            var allowFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-            {
-                "AccountWorkflowService.cs",
-                "ISettingsSideEffects.cs",
-                "ToastService.cs"
-            };
+            var allowFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var servicesDir = Path.Combine(RepoRoot, "src", "Shiro", "Services");
             var sourceOffenders = Directory.GetFiles(servicesDir, "*.cs", SearchOption.AllDirectories)
                 .Where(f => !allowFiles.Contains(Path.GetFileName(f)))
@@ -326,13 +325,7 @@ namespace Shiro.Tests
 
             Assert.Empty(sourceOffenders);
 
-            var allowTypePrefixes = new HashSet<string>(StringComparer.Ordinal)
-            {
-                "Shiro.Services.AccountWorkflowService",
-                "Shiro.Services.SettingsSideEffectsService",
-                "Shiro.Services.ToastItem",
-                "Shiro.Services.ToastService"
-            };
+            var allowTypePrefixes = new HashSet<string>(StringComparer.Ordinal);
             var archResult = Types.InAssembly(CoreAssembly)
                 .That()
                 .ResideInNamespace("Shiro.Services")

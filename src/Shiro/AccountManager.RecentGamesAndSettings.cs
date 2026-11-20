@@ -9,28 +9,18 @@ namespace Shiro
 {
     public partial class AccountManager
     {
-        private static readonly Timer _deferredSettingsSaveTimer = new Timer(_ =>
-        {
-            try { SaveSettings(); }
-            catch (Exception ex) { AppServices.Logger.Error($"[DeferredSettingsSave] Error saving settings: {ex.Message}"); }
-        }, null, Timeout.Infinite, Timeout.Infinite);
-
         internal static void QueueDeferredSaveSettings(int delayMs = 500)
         {
-            try
-            {
-                _deferredSettingsSaveTimer.Change(Math.Max(50, delayMs), Timeout.Infinite);
-            }
-            catch (ObjectDisposedException) { /* timer disposed during shutdown */ }
-            catch (Exception ex)
-            {
-                AppServices.Logger.Warn($"Failed to schedule deferred settings save: {ex.Message}");
-            }
+            if (Instance?.shutdownRequested == true)
+                return;
+
+            AppServices.EnsureInitialized();
+            AppServices.CurrentBootstrap?.QueueDeferredSettingsSave(SaveSettings, delayMs);
         }
 
         internal static void CancelDeferredSaveSettings()
         {
-            SafeExecuteHelper.Try(() => _deferredSettingsSaveTimer.Change(Timeout.Infinite, Timeout.Infinite));
+            AppServices.CurrentBootstrap?.CancelDeferredSettingsSave();
         }
 
         internal static void SaveSettings()
@@ -53,7 +43,6 @@ namespace Shiro
 
         private void WireStateAndHostBridgeServices()
         {
-            // AppSettings.ActiveIniFile already configured
             if (AppServices.ServerBrowserState is ServerBrowserStateService sbState)
                 sbState.LoadClientVersionDelegate = LoadClientVersionAsync;
 
@@ -101,18 +90,21 @@ namespace Shiro
             }
         }
 
-        [System.Runtime.CompilerServices.ModuleInitializer]
-        internal static void RegisterModuleHooks()
+        internal static void WireHostServices(IServiceProvider? services = null)
         {
-            AppServices.OnInitialized = WireStaticBridgeDelegates;
-        }
+            var bridge = services?.GetService(typeof(IHostUiBridgeService)) as IHostUiBridgeService ?? AppServices.HostUiBridge;
+            if (bridge is HostUiBridgeService hostBridge)
+            {
+                hostBridge.EnsureBackendInitializedHandler = EnsureBackendInitialized;
+                hostBridge.SaveSettingsHandler = SaveSettings;
+                hostBridge.QueueDeferredSaveSettingsHandler = () => QueueDeferredSaveSettings();
+            }
 
-        static AccountManager() => WireStaticBridgeDelegates();
-
-        private static void WireStaticBridgeDelegates()
-        {
-            if (AppServices.HostUiBridge is HostUiBridgeService hostBridge) hostBridge.EnsureBackendInitializedHandler = EnsureBackendInitialized;
-            if (AppServices.ServerBrowserState is ServerBrowserStateService sbState) sbState.LoadClientVersionDelegate = LoadClientVersionAsync;
+            var sbState = services?.GetService(typeof(IServerBrowserStateService)) as IServerBrowserStateService ?? AppServices.ServerBrowserState;
+            if (sbState is ServerBrowserStateService serverBrowserState)
+            {
+                serverBrowserState.LoadClientVersionDelegate = LoadClientVersionAsync;
+            }
         }
 
         public static Task LoadClientVersionAsync(CancellationToken cancellationToken = default) =>

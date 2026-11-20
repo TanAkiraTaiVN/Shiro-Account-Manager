@@ -1,7 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
-using System.Linq;
+using System.Collections.ObjectModel;
 using System.Threading;
 using System.Threading.Tasks;
 using Shiro.Http;
@@ -42,24 +42,22 @@ namespace Shiro.Services
         private static readonly Lazy<AccountRepository> _defaultInstance = new(() => new AccountRepository());
         public static AccountRepository Default => _defaultInstance.Value;
 
-        private readonly System.Threading.Lock _syncRoot = new();
+        private readonly Lock _syncRoot = new();
         private List<Account> _accounts = new();
-        private Account[] _cachedSnapshot = Array.Empty<Account>();
+        private ReadOnlyCollection<Account> _cachedSnapshot = ReadOnlyCollection<Account>.Empty;
         private volatile SnapshotIndex? _cachedIndex;
         private AccountPersistenceService? _localPersistence;
         private AccountRegistrationService? _localRegistration;
 
-        private AccountPersistenceService PersistenceInstance =>
-            _defaultInstance.IsValueCreated && ReferenceEquals(this, _defaultInstance.Value)
-                ? AccountPersistenceService.Default
-                : (_localPersistence ??= new AccountPersistenceService(this));
+        public event EventHandler<AccountsChangedEventArgs>? AccountsChanged;
 
-        private AccountRegistrationService RegistrationInstance =>
-            _defaultInstance.IsValueCreated && ReferenceEquals(this, _defaultInstance.Value)
-                ? AccountRegistrationService.Default
-                : (_localRegistration ??= new AccountRegistrationService(this, PersistenceInstance));
+        internal AccountPersistenceService PersistenceInstance =>
+            _localPersistence ??= new AccountPersistenceService(this);
 
-        internal System.Threading.Lock SyncRoot => _syncRoot;
+        internal AccountRegistrationService RegistrationInstance =>
+            _localRegistration ??= new AccountRegistrationService(this, PersistenceInstance);
+
+        internal Lock SyncRoot => _syncRoot;
 
         public int Count
         {
@@ -73,50 +71,55 @@ namespace Shiro.Services
         {
             lock (_syncRoot)
             {
-                if (_accounts == null || _accounts.Count == 0)
-                    return Array.Empty<Account>();
-
-                Account[] cached = _cachedSnapshot;
-                if (cached != null && cached.Length == _accounts.Count)
-                {
-                    bool same = true;
-                    for (int i = 0; i < cached.Length; i++)
-                    {
-                        if (!ReferenceEquals(cached[i], _accounts[i]))
-                        {
-                            same = false;
-                            break;
-                        }
-                    }
-                    if (same)
-                        return cached;
-                }
-
-                int nonNullCount = 0;
-                for (int i = 0; i < _accounts.Count; i++)
-                {
-                    if (_accounts[i] != null)
-                        nonNullCount++;
-                }
-
-                if (nonNullCount == 0)
-                {
-                    _cachedSnapshot = Array.Empty<Account>();
-                    return _cachedSnapshot;
-                }
-
-                var result = new Account[nonNullCount];
-                int idx = 0;
-                for (int i = 0; i < _accounts.Count; i++)
-                {
-                    var acc = _accounts[i];
-                    if (acc != null)
-                        result[idx++] = acc;
-                }
-
-                _cachedSnapshot = result;
-                return result;
+                return GetSnapshotCoreUnsafe();
             }
+        }
+
+        private ReadOnlyCollection<Account> GetSnapshotCoreUnsafe()
+        {
+            if (_accounts == null || _accounts.Count == 0)
+                return ReadOnlyCollection<Account>.Empty;
+
+            ReadOnlyCollection<Account> cached = _cachedSnapshot;
+            if (cached != null && cached.Count == _accounts.Count)
+            {
+                bool same = true;
+                for (int i = 0; i < cached.Count; i++)
+                {
+                    if (!ReferenceEquals(cached[i], _accounts[i]))
+                    {
+                        same = false;
+                        break;
+                    }
+                }
+                if (same)
+                    return cached;
+            }
+
+            int nonNullCount = 0;
+            for (int i = 0; i < _accounts.Count; i++)
+            {
+                if (_accounts[i] != null)
+                    nonNullCount++;
+            }
+
+            if (nonNullCount == 0)
+            {
+                _cachedSnapshot = ReadOnlyCollection<Account>.Empty;
+                return _cachedSnapshot;
+            }
+
+            var result = new Account[nonNullCount];
+            int idx = 0;
+            for (int i = 0; i < _accounts.Count; i++)
+            {
+                var acc = _accounts[i];
+                if (acc != null)
+                    result[idx++] = acc;
+            }
+
+            _cachedSnapshot = Array.AsReadOnly(result);
+            return _cachedSnapshot;
         }
 
         private SnapshotIndex GetOrBuildIndex(IReadOnlyList<Account> currentSnapshot)
@@ -199,16 +202,30 @@ namespace Shiro.Services
             return RegistrationInstance.RegisterValidatedAccount(validatedAccount, securityToken, password, saveImmediate);
         }
 
+        internal IReadOnlyList<Account> AddWithoutNotifyUnsafe(Account account)
+        {
+            _accounts ??= new List<Account>();
+            _accounts.Add(account);
+            _cachedSnapshot = ReadOnlyCollection<Account>.Empty;
+            _cachedIndex = null;
+            return GetSnapshotCoreUnsafe();
+        }
+
+        internal void RaiseAccountsChanged(IReadOnlyList<Account> snapshot)
+        {
+            AccountsChanged?.Invoke(this, new AccountsChangedEventArgs(snapshot));
+        }
+
         public void AddThreadSafe(Account account)
         {
             if (account == null) return;
+            IReadOnlyList<Account> snapshot;
             lock (_syncRoot)
             {
-                _accounts ??= new List<Account>();
-                _accounts.Add(account);
-                _cachedSnapshot = Array.Empty<Account>();
-                _cachedIndex = null;
+                snapshot = AddWithoutNotifyUnsafe(account);
             }
+
+            RaiseAccountsChanged(snapshot);
         }
 
         internal IReadOnlyList<Account> ReplaceAll(IEnumerable<Account>? accounts)
@@ -230,13 +247,17 @@ namespace Shiro.Services
                 }
             }
 
+            IReadOnlyList<Account> snapshot;
             lock (_syncRoot)
             {
                 _accounts = nextList;
-                _cachedSnapshot = Array.Empty<Account>();
+                _cachedSnapshot = ReadOnlyCollection<Account>.Empty;
                 _cachedIndex = null;
-                return GetAll();
+                snapshot = GetSnapshotCoreUnsafe();
             }
+
+            RaiseAccountsChanged(snapshot);
+            return snapshot;
         }
 
         internal Account? FindFirst(Func<Account, bool> predicate)
@@ -260,19 +281,30 @@ namespace Shiro.Services
             if (toRemove == null || toRemove.Count == 0)
                 return (0, Count == 0);
 
+            int removed;
+            bool isNowEmpty;
+            IReadOnlyList<Account>? snapshot = null;
             lock (_syncRoot)
             {
                 if (_accounts == null)
                     return (0, true);
 
-                int removed = _accounts.RemoveAll(a => a != null && toRemove.Contains(a));
+                removed = _accounts.RemoveAll(a => a != null && toRemove.Contains(a));
                 if (removed > 0)
                 {
-                    _cachedSnapshot = Array.Empty<Account>();
+                    _cachedSnapshot = ReadOnlyCollection<Account>.Empty;
                     _cachedIndex = null;
+                    snapshot = GetSnapshotCoreUnsafe();
                 }
-                return (removed, _accounts.Count == 0);
+                isNowEmpty = _accounts.Count == 0;
             }
+
+            if (snapshot != null)
+            {
+                RaiseAccountsChanged(snapshot);
+            }
+
+            return (removed, isNowEmpty);
         }
 
         public bool Remove(Account account)
@@ -325,11 +357,6 @@ namespace Shiro.Services
         public Task<(bool Success, long UserId, RestResponse? Response)> LookupUserIdAsync(string username, CancellationToken cancellationToken = default)
         {
             return RegistrationInstance.GetUserIdAsync(username, cancellationToken);
-        }
-
-        public void EnsureBackendInitialized()
-        {
-            AppServices.HostUiBridge.EnsureBackendInitialized();
         }
     }
 }

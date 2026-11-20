@@ -196,7 +196,7 @@ namespace Shiro
             ReplaceAccountsList(new List<Account>());
             AppServices.SelectionState.SelectedAccounts = new List<Account>();
             launchCoordinator = new LaunchCoordinator(ExecuteLaunchRequestAsync);
-            browserService = BrowserService.Default;
+            browserService = AppServices.BrowserService;
 
             if (!AppSettings.Prompts.Exists("VCPrompted") && PrerequisiteService.NeedsVCRedist())
             {

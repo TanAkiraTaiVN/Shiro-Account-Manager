@@ -7,7 +7,6 @@ using System.Threading.Tasks;
 using System.Windows.Input;
 using Avalonia.Media;
 using LucideAvalonia.Enum;
-using Shiro.ViewModels;
 
 namespace Shiro.Services
 {
@@ -53,9 +52,29 @@ namespace Shiro.Services
         public ICommand? ActionCommand { get; set; }
         internal CancellationTokenSource? AutoDismissCts { get; set; }
 
+        internal sealed class ToastActionCommand : ICommand
+        {
+            private readonly Action _execute;
+
+            public ToastActionCommand(Action execute)
+            {
+                _execute = execute ?? throw new ArgumentNullException(nameof(execute));
+            }
+
+            public event EventHandler? CanExecuteChanged
+            {
+                add { }
+                remove { }
+            }
+
+            public bool CanExecute(object? parameter) => true;
+
+            public void Execute(object? parameter) => _execute();
+        }
+
         public ToastItem()
         {
-            DismissCommand = new RelayCommand(() => ToastService.Dismiss(this));
+            DismissCommand = new ToastActionCommand(() => ToastService.Dismiss(this));
         }
 
         public bool HasMessage => !string.IsNullOrWhiteSpace(Message);
@@ -193,7 +212,7 @@ namespace Shiro.Services
 
                         if (onAction != null && !string.IsNullOrWhiteSpace(cleanAction))
                         {
-                            toast.ActionCommand = new RelayCommand(() =>
+                            toast.ActionCommand = new ToastItem.ToastActionCommand(() =>
                             {
                                 try
                                 {

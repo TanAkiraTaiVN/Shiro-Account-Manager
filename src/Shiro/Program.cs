@@ -87,6 +87,7 @@ namespace Shiro
             if (hasHandle)
             {
 #endif
+                AppBootstrap? bootstrap = null;
                 try
                 {
                     try
@@ -132,7 +133,13 @@ namespace Shiro
 
                     ConfigureUnhandledExceptionRouting();
 
-                    AccountManager.EnsureBackendInitialized();
+                    bootstrap = AppServices.InitializeWithBootstrap(
+                        initializeHost: sp =>
+                        {
+                            AccountManager.WireHostServices(sp);
+                            AccountManager.EnsureBackendInitialized();
+                        },
+                        shutdownHost: () => AppServices.HostUiBridge.ShutdownBackend());
 
                     Logger?.Info("Launching Shiro Account Manager with Pure Avalonia UI 11 engine...");
                     try
@@ -146,10 +153,14 @@ namespace Shiro
                     }
                 }
 #if DEBUG
-                finally { }
+                finally
+                {
+                    bootstrap?.DisposeSynchronously();
+                }
 #else
                 finally
                 {
+                    bootstrap?.DisposeSynchronously();
                     try { mutex.ReleaseMutex(); }
                     catch (Exception ex) { Logger?.Debug($"ReleaseMutex failed: {ex.Message}"); }
                     finally { SafeExecuteHelper.Try(() => mutex.Dispose(), "Program.DisposeMutex"); }

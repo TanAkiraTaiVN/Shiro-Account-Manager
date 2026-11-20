@@ -1,6 +1,7 @@
 #nullable enable
 using Avalonia.Controls;
 using Shiro.Services;
+using Shiro.ViewModels;
 using Shiro.ViewModels.Dialogs;
 
 namespace Shiro.AvaloniaUI.Views
@@ -15,7 +16,21 @@ namespace Shiro.AvaloniaUI.Views
 
         public SettingsView(SettingsViewModel viewModel)
         {
-            SettingsSideEffectsService.AccountViewModelsProvider ??= () => MainWindow.Instance?.ViewModel?.Accounts;
+            SettingsSideEffectsService.NotifyDisplayNamesChangedCallback ??= () =>
+            {
+                var accountVms = MainWindow.Instance?.ViewModel?.Accounts;
+                if (accountVms == null) return;
+                foreach (var vm in accountVms)
+                    vm?.NotifyDisplayNameChanged();
+            };
+            SettingsSideEffectsService.ClearAvatarCacheCallback ??= () =>
+            {
+                AccountViewModel.ClearAvatarMemoryCache();
+                var accountVms = MainWindow.Instance?.ViewModel?.Accounts;
+                if (accountVms == null) return;
+                foreach (var accVm in accountVms)
+                    accVm?.InvalidateAvatar();
+            };
             ViewModel = viewModel;
             DataContext = ViewModel;
             InitializeComponent();

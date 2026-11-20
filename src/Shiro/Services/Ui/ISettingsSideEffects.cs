@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using Shiro.ViewModels;
 
 namespace Shiro.Services
 {
@@ -45,7 +44,8 @@ namespace Shiro.Services
     {
         public static SettingsSideEffectsService Default { get; } = new();
 
-        public static Func<IEnumerable<AccountViewModel>?>? AccountViewModelsProvider { get; set; }
+        public static Action? NotifyDisplayNamesChangedCallback { get; set; }
+        public static Action? ClearAvatarCacheCallback { get; set; }
 
         // Test seam for headless verification of Save vs Cancel export picker outcomes.
         internal static Func<string, Task<(bool Confirmed, string? Path)>>? TestPickExportPathOverride { get; set; }
@@ -123,12 +123,7 @@ namespace Shiro.Services
 
         public void NotifyDisplayNamesChanged()
         {
-            var accountVms = AccountViewModelsProvider?.Invoke();
-            if (accountVms == null) return;
-            foreach (var vm in accountVms)
-            {
-                vm?.NotifyDisplayNameChanged();
-            }
+            NotifyDisplayNamesChangedCallback?.Invoke();
         }
 
         public void QueueDeferredSave() => AppServices.HostUiBridge.QueueDeferredSaveSettings();
@@ -161,15 +156,7 @@ namespace Shiro.Services
                 }
             }
 
-            AccountViewModel.ClearAvatarMemoryCache();
-            var accountVms = AccountViewModelsProvider?.Invoke();
-            if (accountVms != null)
-            {
-                foreach (var accVm in accountVms)
-                {
-                    accVm?.InvalidateAvatar();
-                }
-            }
+            ClearAvatarCacheCallback?.Invoke();
 
             return deletedCount;
         }

@@ -55,7 +55,7 @@ namespace Shiro.ViewModels.Dialogs
         {
             _settings = settings ?? AppServices.Settings;
             _general = general ?? AppServices.GeneralSettings;
-            _effects = effects ?? SettingsSideEffectsService.Default;
+            _effects = effects ?? AppServices.SettingsSideEffects;
             _dialogs = dialogs ?? AppServices.Dialogs;
             _feedbackDuration = feedbackDuration ?? TimeSpan.FromMilliseconds(3000);
             _logger = logger ?? AppServices.Logger;

@@ -187,5 +187,17 @@ namespace Shiro.ViewModels
                 AppServices.AccountWorkflowService.ValidateSessionSelected(selected, this, PostStatusMessage);
             });
         }
+
+        IReadOnlyList<IAccountWorkflowItem> IAccountWorkflowHost.GetSelectedWorkflowItems() => GetSelectedAccountViewModels();
+
+        IReadOnlyList<Account> IAccountWorkflowHost.GetSelectedAccounts() => GetSelectedAccounts();
+
+        void IAccountWorkflowHost.RebuildLookupIndex() => RebuildLookupIndex();
+
+        void IAccountWorkflowHost.RemoveWorkflowItems(params IAccountWorkflowItem[] toRemove)
+        {
+            if (toRemove == null || toRemove.Length == 0) return;
+            RemoveAccountViewModels(toRemove.OfType<AccountViewModel>().ToArray());
+        }
     }
 }

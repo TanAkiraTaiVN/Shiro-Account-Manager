@@ -119,8 +119,6 @@ namespace Shiro.ViewModels
                 IsStreamerModeEnabled = !IsStreamerModeEnabled;
             });
 
-            StreamerModeService.StateChanged += OnStreamerModeStateChanged;
-
             OpenProxyManagerCommand = new RelayCommand(() => AppServices.Dialogs.OpenProxyManagerDialog());
 
             AuditAllAccountsCommand = new AsyncRelayCommand(async () =>

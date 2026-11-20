@@ -9,7 +9,7 @@ using Shiro.Services;
 
 namespace Shiro.ViewModels
 {
-    public partial class AccountViewModel : ObservableObject
+    public partial class AccountViewModel : ObservableObject, IAccountWorkflowItem
     {
         private Account _model;
         private readonly IAppLogger _logger;

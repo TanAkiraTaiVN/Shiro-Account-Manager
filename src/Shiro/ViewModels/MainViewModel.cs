@@ -20,10 +20,11 @@ namespace Shiro.ViewModels
         About
     }
 
-    public partial class MainViewModel : ObservableObject, IDisposable
+    public partial class MainViewModel : ObservableObject, IDisposable, IAccountWorkflowHost
     {
         private readonly IAppLogger _logger;
         private readonly ISettingsService _settings = null!;
+        private readonly IAccountRepository _accountRepository;
         private readonly BulkObservableCollection<AccountViewModel> _accounts = new BulkObservableCollection<AccountViewModel>();
         private readonly BulkObservableCollection<AccountViewModel> _filteredAccounts = new BulkObservableCollection<AccountViewModel>();
         private readonly BulkObservableCollection<AccountRowViewModel> _filteredAccountRows = new BulkObservableCollection<AccountRowViewModel>();
@@ -42,6 +43,14 @@ namespace Shiro.ViewModels
         private bool _areWindowsHidden;
         private int _lastRobloxProcessCount = -1;
         private int _disposed;
+        private long _repoSnapshotSeq;
+        private readonly System.Threading.Lock _accountsUiLock = new();
+        private EventHandler<AccountsChangedEventArgs>? _accountsChangedHandler;
+        private Action<AppLanguage>? _languageChangedHandler;
+        private Action? _audioStatusChangedHandler;
+        private Action<AccentTheme>? _themeChangedHandler;
+        private Action<LaunchProgress>? _launchProgressChangedHandler;
+        private Action<bool>? _streamerModeChangedHandler;
 
         public NavigationPage CurrentPage
         {
@@ -76,12 +85,13 @@ namespace Shiro.ViewModels
 
         public ServerListViewModel ServerListViewModel { get; private set; }
 
-        public MainViewModel() : this(null, null) { }
+        public MainViewModel() : this(null, null, null) { }
 
-        public MainViewModel(IAppLogger? logger = null, ISettingsService? settings = null)
+        public MainViewModel(IAppLogger? logger = null, ISettingsService? settings = null, IAccountRepository? accountRepository = null)
         {
             _logger = logger ?? AppServices.Logger;
             _settings = settings ?? AppServices.GeneralSettings!;
+            _accountRepository = accountRepository ?? AppServices.AccountRepository;
 
             string? savedPid = _settings?.Get("SavedPlaceId");
             if (!string.IsNullOrWhiteSpace(savedPid))
@@ -99,105 +109,12 @@ namespace Shiro.ViewModels
             }
             _lastDefaultReadyStatus = Loc.Get("Status_ReadyDefault");
             _statusMessage = _lastDefaultReadyStatus;
-            LocalizationService.LanguageChanged += OnLanguageChanged;
 
             ServerListViewModel = new ServerListViewModel(this, _logger, _settings);
             InitializeCommands();
             RefreshStateFromSettings();
             ScheduleCurrentGameLookup(_placeId);
-            RobloxAudioService.StatusChanged += OnAudioStatusChanged;
-            AccentThemeService.ThemeChanged += OnAccentThemeChanged;
-            LaunchCoordinator.LaunchProgressChanged += OnLaunchProgressChanged;
-        }
-
-        private void OnLanguageChanged(AppLanguage lang)
-        {
-            AppDispatcher.Post(() =>
-            {
-                if (System.Threading.Volatile.Read(ref _disposed) != 0) return;
-                OnPropertyChanged(nameof(CloseRobloxButtonText));
-                OnPropertyChanged(nameof(CurrentSortLabel));
-                NotifyLocalizedLabelsChanged();
-                string localizedReady = Loc.Get("Status_ReadyDefault");
-                if (string.IsNullOrWhiteSpace(_statusMessage)
-                    || string.Equals(_statusMessage, _lastDefaultReadyStatus, StringComparison.Ordinal)
-                    || string.Equals(_statusMessage, localizedReady, StringComparison.Ordinal))
-                {
-                    _lastDefaultReadyStatus = localizedReady;
-                    StatusMessage = localizedReady;
-                }
-                if (Accounts != null)
-                {
-                    foreach (var acc in Accounts.ToArray())
-                        acc.NotifyLanguageChanged();
-                }
-            });
-        }
-
-        private void OnAudioStatusChanged()
-        {
-            AppDispatcher.Post(() => { if (System.Threading.Volatile.Read(ref _disposed) == 0) NotifyToolStatesChanged(); });
-        }
-
-        private void OnLaunchProgressChanged(LaunchProgress progress)
-        {
-            if (progress == null) return;
-            AppDispatcher.Post(() =>
-            {
-                try
-                {
-                    if (System.Threading.Volatile.Read(ref _disposed) != 0) return;
-                    UpdateBatchLaunchBanner(progress);
-                    if (!string.IsNullOrWhiteSpace(progress.Message))
-                    {
-                        StatusMessage = progress.Message;
-                    }
-
-                    if (progress.Account != null)
-                    {
-                        var vm = TryGetAccountViewModel(progress.Account);
-                        if (vm != null)
-                        {
-                            bool isActivelyLaunching = !progress.Completed &&
-                                progress.Status != LaunchOutcome.Cancelled &&
-                                progress.Status != LaunchOutcome.Failed &&
-                                progress.Status != LaunchOutcome.TicketError;
-
-                            vm.IsLaunching = isActivelyLaunching;
-                        }
-                    }
-                    else if (progress.Completed)
-                    {
-                        foreach (var acc in _accounts)
-                        {
-                            acc.IsLaunching = false;
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.Debug($"Clearing launching state on queue empty threw: {ex.Message}");
-                }
-            });
-        }
-
-        private void OnAccentThemeChanged(AccentTheme theme)
-        {
-            AppDispatcher.Post(() =>
-            {
-                try
-                {
-                    foreach (var acc in _accounts)
-                    {
-                        if (System.Threading.Volatile.Read(ref _disposed) != 0) return;
-                        acc.NotifyThemeChanged();
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.Debug($"NotifyThemeChanged loop threw: {ex.Message}");
-                }
-            });
+            SubscribeWeakEvents();
         }
 
         public void Dispose()
@@ -205,11 +122,7 @@ namespace Shiro.ViewModels
             if (System.Threading.Interlocked.Exchange(ref _disposed, 1) != 0)
                 return;
 
-            LocalizationService.LanguageChanged -= OnLanguageChanged;
-            RobloxAudioService.StatusChanged -= OnAudioStatusChanged;
-            AccentThemeService.ThemeChanged -= OnAccentThemeChanged;
-            LaunchCoordinator.LaunchProgressChanged -= OnLaunchProgressChanged;
-            StreamerModeService.StateChanged -= OnStreamerModeStateChanged;
+            UnsubscribeWeakEvents();
             OnPageNavigated = null;
             System.Threading.Interlocked.Increment(ref _searchGeneration);
             System.Threading.Interlocked.Increment(ref _gameLookupGeneration);
@@ -359,110 +272,117 @@ namespace Shiro.ViewModels
                 return;
             }
 
-            if (sourceAccounts == null)
+            lock (_accountsUiLock)
             {
-                AccountListFilterController.DetachPropertyChanged(_accounts, OnAccountViewModelPropertyChanged);
-                _accounts.Clear();
-                _lastClickedAccount = null;
+                if (System.Threading.Volatile.Read(ref _disposed) != 0)
+                    return;
+
+                if (sourceAccounts == null)
+                {
+                    AccountListFilterController.DetachPropertyChanged(_accounts, OnAccountViewModelPropertyChanged);
+                    _accounts.Clear();
+                    _lastClickedAccount = null;
+                    RebuildLookupIndex();
+                    RebuildGroupList(applyFilterOnReset: false);
+                    ApplyFilter();
+                    NotifyCounts();
+                    RefreshLiveProcessStatus();
+                    return;
+                }
+
+                var existingByRef = new Dictionary<Account, AccountViewModel>();
+                var existingById = new Dictionary<long, AccountViewModel>();
+                var existingByName = new Dictionary<string, AccountViewModel>(StringComparer.OrdinalIgnoreCase);
+
+                foreach (var existing in _accounts)
+                {
+                    if (existing.Model != null && !existingByRef.ContainsKey(existing.Model))
+                        existingByRef[existing.Model] = existing;
+                    if (existing.UserId > 0 && !existingById.ContainsKey(existing.UserId))
+                        existingById[existing.UserId] = existing;
+                    if (!string.IsNullOrEmpty(existing.Username) && !existingByName.ContainsKey(existing.Username))
+                        existingByName[existing.Username] = existing;
+                }
+
+                var claimed = new HashSet<AccountViewModel>();
+                var list = new List<AccountViewModel>();
+
+                foreach (var acc in sourceAccounts)
+                {
+                    if (acc == null) continue;
+
+                    AccountViewModel? vm = null;
+                    if (existingByRef.TryGetValue(acc, out var byRef) && claimed.Add(byRef))
+                    {
+                        vm = byRef;
+                    }
+                    else if (acc.UserID > 0 && existingById.TryGetValue(acc.UserID, out var byId) && claimed.Add(byId))
+                    {
+                        vm = byId;
+                    }
+                    else if (!string.IsNullOrEmpty(acc.Username) && existingByName.TryGetValue(acc.Username, out var byName) && claimed.Add(byName))
+                    {
+                        vm = byName;
+                    }
+
+                    if (vm != null)
+                    {
+                        vm.UpdateModel(acc);
+                    }
+                    else
+                    {
+                        vm = new AccountViewModel(acc);
+                        vm.PropertyChanged += OnAccountViewModelPropertyChanged;
+                    }
+
+                    list.Add(vm);
+                }
+
+                AccountListFilterController.DetachPropertyChanged(_accounts, OnAccountViewModelPropertyChanged, claimed);
+                if (_lastClickedAccount != null && !claimed.Contains(_lastClickedAccount)) _lastClickedAccount = null;
+                _accounts.ReplaceAll(list);
                 RebuildLookupIndex();
+
+                // Warm up avatar cache for any accounts that don't have local disk cache (only when UI app is active)
+                if (Avalonia.Application.Current != null)
+                {
+                    var missingIds = list.Where(a => a.UserId > 0 && !Services.AvatarService.HasDiskCache(a.UserId)).Select(a => a.UserId).ToList();
+                    if (missingIds.Count > 0)
+                    {
+                        _ = Task.Run(async () =>
+                        {
+                            try
+                            {
+                                var updatedIds = await Services.AvatarService.BatchEnsureAvatarsAsync(missingIds).ConfigureAwait(false);
+                                if (updatedIds != null && updatedIds.Count > 0)
+                                {
+                                    var updatedSet = new HashSet<long>(updatedIds);
+                                    AppDispatcher.Post(() =>
+                                    {
+                                        foreach (var acc in _accounts)
+                                        {
+                                            if (System.Threading.Volatile.Read(ref _disposed) != 0) return;
+                                            if (updatedSet.Contains(acc.UserId))
+                                            {
+                                                acc.InvalidateAvatar();
+                                            }
+                                        }
+                                    });
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.Debug($"[LoadAccounts] Avatar warmup error: {ex.Message}");
+                            }
+                        });
+                    }
+                }
+
                 RebuildGroupList(applyFilterOnReset: false);
                 ApplyFilter();
                 NotifyCounts();
                 RefreshLiveProcessStatus();
-                return;
             }
-
-            var existingByRef = new Dictionary<Account, AccountViewModel>();
-            var existingById = new Dictionary<long, AccountViewModel>();
-            var existingByName = new Dictionary<string, AccountViewModel>(StringComparer.OrdinalIgnoreCase);
-
-            foreach (var existing in _accounts)
-            {
-                if (existing.Model != null && !existingByRef.ContainsKey(existing.Model))
-                    existingByRef[existing.Model] = existing;
-                if (existing.UserId > 0 && !existingById.ContainsKey(existing.UserId))
-                    existingById[existing.UserId] = existing;
-                if (!string.IsNullOrEmpty(existing.Username) && !existingByName.ContainsKey(existing.Username))
-                    existingByName[existing.Username] = existing;
-            }
-
-            var claimed = new HashSet<AccountViewModel>();
-            var list = new List<AccountViewModel>();
-
-            foreach (var acc in sourceAccounts)
-            {
-                if (acc == null) continue;
-
-                AccountViewModel? vm = null;
-                if (existingByRef.TryGetValue(acc, out var byRef) && claimed.Add(byRef))
-                {
-                    vm = byRef;
-                }
-                else if (acc.UserID > 0 && existingById.TryGetValue(acc.UserID, out var byId) && claimed.Add(byId))
-                {
-                    vm = byId;
-                }
-                else if (!string.IsNullOrEmpty(acc.Username) && existingByName.TryGetValue(acc.Username, out var byName) && claimed.Add(byName))
-                {
-                    vm = byName;
-                }
-
-                if (vm != null)
-                {
-                    vm.UpdateModel(acc);
-                }
-                else
-                {
-                    vm = new AccountViewModel(acc);
-                    vm.PropertyChanged += OnAccountViewModelPropertyChanged;
-                }
-
-                list.Add(vm);
-            }
-
-            AccountListFilterController.DetachPropertyChanged(_accounts, OnAccountViewModelPropertyChanged, claimed);
-            if (_lastClickedAccount != null && !claimed.Contains(_lastClickedAccount)) _lastClickedAccount = null;
-            _accounts.ReplaceAll(list);
-            RebuildLookupIndex();
-
-            // Warm up avatar cache for any accounts that don't have local disk cache (only when UI app is active)
-            if (Avalonia.Application.Current != null)
-            {
-                var missingIds = list.Where(a => a.UserId > 0 && !Services.AvatarService.HasDiskCache(a.UserId)).Select(a => a.UserId).ToList();
-                if (missingIds.Count > 0)
-                {
-                    _ = Task.Run(async () =>
-                    {
-                        try
-                        {
-                            var updatedIds = await Services.AvatarService.BatchEnsureAvatarsAsync(missingIds).ConfigureAwait(false);
-                            if (updatedIds != null && updatedIds.Count > 0)
-                            {
-                                var updatedSet = new HashSet<long>(updatedIds);
-                                AppDispatcher.Post(() =>
-                                {
-                                    foreach (var acc in _accounts)
-                                    {
-                                        if (System.Threading.Volatile.Read(ref _disposed) != 0) return;
-                                        if (updatedSet.Contains(acc.UserId))
-                                        {
-                                            acc.InvalidateAvatar();
-                                        }
-                                    }
-                                });
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.Debug($"[LoadAccounts] Avatar warmup error: {ex.Message}");
-                        }
-                    });
-                }
-            }
-
-            RebuildGroupList(applyFilterOnReset: false);
-            ApplyFilter();
-            RefreshLiveProcessStatus();
         }
     }
 }

@@ -23,6 +23,7 @@ namespace Shiro.AvaloniaUI
 
             if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
             {
+                AppServices.EnsureInitialized();
                 LocalizationService.Initialize(this);
                 LocalizationService.SetLanguage(LocalizationService.CurrentLanguage, false);
                 AccentThemeService.Initialize();
@@ -71,6 +72,7 @@ namespace Shiro.AvaloniaUI
             }
 
             SafeExecuteHelper.Try(() => AppServices.HostUiBridge.ShutdownBackend(), "App.Exit.ShutdownBackend");
+            SafeExecuteHelper.Try(() => AppServices.CurrentBootstrap?.CancelDeferredSettingsSave(), "App.Exit.CancelDeferredSave");
             try { RobloxWindowService.ShowAllWindows(); }
             catch (Exception ex) { Program.Logger?.Debug($"ShowAllWindows on exit threw: {ex.Message}"); }
         }

@@ -7,8 +7,19 @@ using Shiro.Http;
 
 namespace Shiro.Services
 {
+    public sealed class AccountsChangedEventArgs : EventArgs
+    {
+        public AccountsChangedEventArgs(IReadOnlyList<Account> accounts)
+        {
+            Accounts = accounts ?? Array.Empty<Account>();
+        }
+
+        public IReadOnlyList<Account> Accounts { get; }
+    }
+
     public interface IAccountRepository
     {
+        event EventHandler<AccountsChangedEventArgs>? AccountsChanged;
         int Count { get; }
         IReadOnlyList<Account> GetAll();
         Account? GetById(long userId);
@@ -28,6 +39,5 @@ namespace Shiro.Services
         bool TryRecoverOrRestore(out string statusMessage);
         bool IsPasswordEncrypted();
         Task<(bool Success, long UserId, RestResponse? Response)> LookupUserIdAsync(string username, CancellationToken cancellationToken = default);
-        void EnsureBackendInitialized();
     }
 }

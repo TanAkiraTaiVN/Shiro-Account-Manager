@@ -203,7 +203,11 @@ namespace Shiro.ViewModels
             if (_suppressCountNotifications)
                 return;
 
-            var c = AccountListFilterController.ComputeAccountCounts(_accounts);
+            AccountCountsSummary c;
+            lock (_accountsUiLock)
+            {
+                c = AccountListFilterController.ComputeAccountCounts(_accounts);
+            }
 
             if (_totalCount != c.Total) { _totalCount = c.Total; OnPropertyChanged(nameof(TotalCount)); }
             if (_inGameCount != c.InGame) { _inGameCount = c.InGame; OnPropertyChanged(nameof(InGameCount)); }
@@ -241,6 +245,157 @@ namespace Shiro.ViewModels
             }
 
             NotifyLocalizedLabelsChanged();
+        }
+
+        private void SubscribeWeakEvents()
+        {
+            _accountsChangedHandler = WeakEventSubscription.Create<MainViewModel, AccountsChangedEventArgs>(
+                this,
+                static (vm, sender, e) => vm.OnRepositoryAccountsChanged(sender, e),
+                h => _accountRepository.AccountsChanged -= h);
+            _accountRepository.AccountsChanged += _accountsChangedHandler;
+
+            _languageChangedHandler = WeakEventSubscription.CreateAction<MainViewModel, AppLanguage>(
+                this,
+                static (vm, lang) => vm.OnLanguageChanged(lang),
+                static h => LocalizationService.LanguageChanged -= h);
+            LocalizationService.LanguageChanged += _languageChangedHandler;
+
+            _audioStatusChangedHandler = WeakEventSubscription.CreateAction<MainViewModel>(
+                this,
+                static vm => vm.OnAudioStatusChanged(),
+                static h => RobloxAudioService.StatusChanged -= h);
+            RobloxAudioService.StatusChanged += _audioStatusChangedHandler;
+
+            _themeChangedHandler = WeakEventSubscription.CreateAction<MainViewModel, AccentTheme>(
+                this,
+                static (vm, theme) => vm.OnAccentThemeChanged(theme),
+                static h => AccentThemeService.ThemeChanged -= h);
+            AccentThemeService.ThemeChanged += _themeChangedHandler;
+
+            _launchProgressChangedHandler = WeakEventSubscription.CreateAction<MainViewModel, LaunchProgress>(
+                this,
+                static (vm, p) => vm.OnLaunchProgressChanged(p),
+                static h => LaunchCoordinator.LaunchProgressChanged -= h);
+            LaunchCoordinator.LaunchProgressChanged += _launchProgressChangedHandler;
+
+            _streamerModeChangedHandler = WeakEventSubscription.CreateAction<MainViewModel, bool>(
+                this,
+                static (vm, active) => vm.OnStreamerModeStateChanged(active),
+                static h => StreamerModeService.StateChanged -= h);
+            StreamerModeService.StateChanged += _streamerModeChangedHandler;
+        }
+
+        private void UnsubscribeWeakEvents()
+        {
+            if (_accountsChangedHandler != null) _accountRepository.AccountsChanged -= _accountsChangedHandler;
+            if (_languageChangedHandler != null) LocalizationService.LanguageChanged -= _languageChangedHandler;
+            if (_audioStatusChangedHandler != null) RobloxAudioService.StatusChanged -= _audioStatusChangedHandler;
+            if (_themeChangedHandler != null) AccentThemeService.ThemeChanged -= _themeChangedHandler;
+            if (_launchProgressChangedHandler != null) LaunchCoordinator.LaunchProgressChanged -= _launchProgressChangedHandler;
+            if (_streamerModeChangedHandler != null) StreamerModeService.StateChanged -= _streamerModeChangedHandler;
+        }
+
+        private void OnRepositoryAccountsChanged(object? sender, AccountsChangedEventArgs e)
+        {
+            if (System.Threading.Volatile.Read(ref _disposed) != 0 || e == null) return;
+            long seq = System.Threading.Interlocked.Increment(ref _repoSnapshotSeq);
+            AppDispatcher.Post(() =>
+            {
+                if (System.Threading.Volatile.Read(ref _disposed) != 0) return;
+                if (seq != System.Threading.Volatile.Read(ref _repoSnapshotSeq)) return;
+                LoadAccounts(e.Accounts);
+            });
+        }
+
+        private void OnLanguageChanged(AppLanguage lang)
+        {
+            AppDispatcher.Post(() =>
+            {
+                if (System.Threading.Volatile.Read(ref _disposed) != 0) return;
+                OnPropertyChanged(nameof(CloseRobloxButtonText));
+                OnPropertyChanged(nameof(CurrentSortLabel));
+                NotifyLocalizedLabelsChanged();
+                string localizedReady = Loc.Get("Status_ReadyDefault");
+                if (string.IsNullOrWhiteSpace(_statusMessage)
+                    || string.Equals(_statusMessage, _lastDefaultReadyStatus, StringComparison.Ordinal)
+                    || string.Equals(_statusMessage, localizedReady, StringComparison.Ordinal))
+                {
+                    _lastDefaultReadyStatus = localizedReady;
+                    StatusMessage = localizedReady;
+                }
+                if (Accounts != null)
+                {
+                    foreach (var acc in Accounts.ToArray())
+                        acc.NotifyLanguageChanged();
+                }
+            });
+        }
+
+        private void OnAudioStatusChanged()
+        {
+            AppDispatcher.Post(() => { if (System.Threading.Volatile.Read(ref _disposed) == 0) NotifyToolStatesChanged(); });
+        }
+
+        private void OnLaunchProgressChanged(LaunchProgress progress)
+        {
+            if (progress == null) return;
+            AppDispatcher.Post(() =>
+            {
+                try
+                {
+                    if (System.Threading.Volatile.Read(ref _disposed) != 0) return;
+                    UpdateBatchLaunchBanner(progress);
+                    if (!string.IsNullOrWhiteSpace(progress.Message))
+                    {
+                        StatusMessage = progress.Message;
+                    }
+
+                    if (progress.Account != null)
+                    {
+                        var vm = TryGetAccountViewModel(progress.Account);
+                        if (vm != null)
+                        {
+                            bool isActivelyLaunching = !progress.Completed &&
+                                progress.Status != LaunchOutcome.Cancelled &&
+                                progress.Status != LaunchOutcome.Failed &&
+                                progress.Status != LaunchOutcome.TicketError;
+
+                            vm.IsLaunching = isActivelyLaunching;
+                        }
+                    }
+                    else if (progress.Completed)
+                    {
+                        foreach (var acc in _accounts)
+                        {
+                            acc.IsLaunching = false;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.Debug($"Clearing launching state on queue empty threw: {ex.Message}");
+                }
+            });
+        }
+
+        private void OnAccentThemeChanged(AccentTheme theme)
+        {
+            AppDispatcher.Post(() =>
+            {
+                try
+                {
+                    foreach (var acc in _accounts)
+                    {
+                        if (System.Threading.Volatile.Read(ref _disposed) != 0) return;
+                        acc.NotifyThemeChanged();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.Debug($"NotifyThemeChanged loop threw: {ex.Message}");
+                }
+            });
         }
     }
 }

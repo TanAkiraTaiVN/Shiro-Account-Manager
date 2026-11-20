@@ -13,8 +13,7 @@ namespace Shiro.Services
 {
     public sealed class AccountRegistrationService
     {
-        private static readonly Lazy<AccountRegistrationService> _defaultInstance = new(() => new AccountRegistrationService());
-        public static AccountRegistrationService Default => _defaultInstance.Value;
+        public static AccountRegistrationService Default => AppServices.AccountRegistration;
 
         private readonly AccountRepository _repository;
         private readonly AccountPersistenceService _persistence;
@@ -22,8 +21,9 @@ namespace Shiro.Services
 
         internal AccountRegistrationService(AccountRepository? repository = null, AccountPersistenceService? persistence = null)
         {
-            _repository = repository ?? AccountRepository.Default;
-            _persistence = persistence ?? AccountPersistenceService.Default;
+            _repository = repository ?? (AppServices.AccountRepository as AccountRepository)
+                ?? throw new InvalidOperationException("AccountRepository is not registered.");
+            _persistence = persistence ?? AppServices.AccountPersistence;
         }
 
         public void NotifyAccountValidity(Account account, bool isValid)
@@ -131,6 +131,7 @@ namespace Shiro.Services
 
             Account? registered;
             bool isExisting = false;
+            IReadOnlyList<Account>? addedSnapshot = null;
             lock (_repository.SyncRoot)
             {
                 account.Password = password;
@@ -163,9 +164,14 @@ namespace Shiro.Services
                 else
                 {
                     account.LastAttemptedRefresh = DateTime.Now;
-                    _repository.AddThreadSafe(account);
+                    addedSnapshot = _repository.AddWithoutNotifyUnsafe(account);
                     registered = account;
                 }
+            }
+
+            if (addedSnapshot != null)
+            {
+                _repository.RaiseAccountsChanged(addedSnapshot);
             }
 
             if (saveImmediate)
