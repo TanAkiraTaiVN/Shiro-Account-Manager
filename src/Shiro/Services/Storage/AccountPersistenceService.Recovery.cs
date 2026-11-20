@@ -203,7 +203,6 @@ namespace Shiro.Services
                     accountDataNeedsMigration |= bestNeedsMigration;
                     ClearPasswordHash();
                     SaveAccounts(true, true);
-                    RefreshView();
                     EnableModernDashboard();
                     AppServices.Logger?.Info($"[LoadAccounts] Restored {bestRestored.Count} accounts from '{bestPath}'.");
                     return true;

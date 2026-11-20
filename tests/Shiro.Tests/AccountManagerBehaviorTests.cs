@@ -483,18 +483,23 @@ namespace Shiro.Tests
             var prevClosedHandler = bridge.NotifyRobloxProcessesClosedOnUiHandler;
 
             var acc = new Account { Username = "BridgeUser", UserID = 7788, Valid = true, SecurityToken = "tok" };
+            int repoChangedCount = -1;
             int refreshedCount = -1;
             bool? validityNotified = null;
             bool liveStatusRefreshed = false;
             string? lastStatus = null;
             (int Killed, bool Notify)? closedNotification = null;
+            EventHandler<AccountsChangedEventArgs> repoChangedHandler = (_, e) => repoChangedCount = e.Accounts.Count;
 
             try
             {
+                AppServices.AccountRepository.AccountsChanged += repoChangedHandler;
                 bridge.RefreshAccountsOnUiHandler = list => refreshedCount = list.Count;
                 bridge.NotifyAccountValidityOnUiHandler = (_, valid) => validityNotified = valid;
                 bridge.RefreshLiveProcessStatusOnUiHandler = () => liveStatusRefreshed = true;
                 AccountManager.ReplaceAccountsList(new List<Account> { acc });
+                Assert.Equal(1, repoChangedCount);
+                mgr.RefreshView();
                 Assert.Equal(1, refreshedCount);
                 mgr.UpdateAccountValidity(acc, true);
                 Assert.Equal(true, validityNotified);
@@ -519,6 +524,7 @@ namespace Shiro.Tests
             }
             finally
             {
+                AppServices.AccountRepository.AccountsChanged -= repoChangedHandler;
                 bridge.RefreshAccountsOnUiHandler = prevAccountsHandler;
                 bridge.NotifyAccountValidityOnUiHandler = prevValidityHandler;
                 bridge.RefreshLiveProcessStatusOnUiHandler = prevLiveStatusHandler;

@@ -249,11 +249,12 @@ namespace Shiro.ViewModels
 
         private void SubscribeWeakEvents()
         {
+            IAccountRepository repo = _accountRepository;
             _accountsChangedHandler = WeakEventSubscription.Create<MainViewModel, AccountsChangedEventArgs>(
                 this,
                 static (vm, sender, e) => vm.OnRepositoryAccountsChanged(sender, e),
-                h => _accountRepository.AccountsChanged -= h);
-            _accountRepository.AccountsChanged += _accountsChangedHandler;
+                h => repo.AccountsChanged -= h);
+            repo.AccountsChanged += _accountsChangedHandler;
 
             _languageChangedHandler = WeakEventSubscription.CreateAction<MainViewModel, AppLanguage>(
                 this,
@@ -299,13 +300,62 @@ namespace Shiro.ViewModels
         private void OnRepositoryAccountsChanged(object? sender, AccountsChangedEventArgs e)
         {
             if (System.Threading.Volatile.Read(ref _disposed) != 0 || e == null) return;
+
+            long version = e.Version;
+            if (version > 0)
+            {
+                long observed = System.Threading.Volatile.Read(ref _highestObservedRepoVersion);
+                while (version > observed)
+                {
+                    long prev = System.Threading.Interlocked.CompareExchange(ref _highestObservedRepoVersion, version, observed);
+                    if (prev == observed)
+                        break;
+                    observed = prev;
+                }
+
+                if (version < System.Threading.Volatile.Read(ref _highestObservedRepoVersion))
+                    return;
+            }
+
             long seq = System.Threading.Interlocked.Increment(ref _repoSnapshotSeq);
             AppDispatcher.Post(() =>
             {
                 if (System.Threading.Volatile.Read(ref _disposed) != 0) return;
-                if (seq != System.Threading.Volatile.Read(ref _repoSnapshotSeq)) return;
-                LoadAccounts(e.Accounts);
+                if (version > 0)
+                {
+                    if (version < System.Threading.Volatile.Read(ref _highestObservedRepoVersion)) return;
+                }
+                else if (seq != System.Threading.Volatile.Read(ref _repoSnapshotSeq))
+                {
+                    return;
+                }
+
+                ApplyRepositorySnapshot(e.Accounts, version);
             });
+        }
+
+        private void ApplyRepositorySnapshot(IReadOnlyList<Account> accounts, long version)
+        {
+            if (Avalonia.Application.Current != null && Dispatcher.UIThread != null && !Dispatcher.UIThread.CheckAccess())
+            {
+                AppDispatcher.Post(() => ApplyRepositorySnapshot(accounts, version));
+                return;
+            }
+
+            lock (_accountsUiLock)
+            {
+                if (System.Threading.Volatile.Read(ref _disposed) != 0) return;
+                if (version > 0 &&
+                    (version < System.Threading.Volatile.Read(ref _highestObservedRepoVersion) ||
+                     version <= _lastAppliedRepoVersion))
+                {
+                    return;
+                }
+
+                LoadAccounts(accounts);
+                if (version > _lastAppliedRepoVersion)
+                    _lastAppliedRepoVersion = version;
+            }
         }
 
         private void OnLanguageChanged(AppLanguage lang)

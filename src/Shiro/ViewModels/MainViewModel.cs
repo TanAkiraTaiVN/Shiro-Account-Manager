@@ -44,6 +44,8 @@ namespace Shiro.ViewModels
         private int _lastRobloxProcessCount = -1;
         private int _disposed;
         private long _repoSnapshotSeq;
+        private long _highestObservedRepoVersion;
+        private long _lastAppliedRepoVersion;
         private readonly System.Threading.Lock _accountsUiLock = new();
         private EventHandler<AccountsChangedEventArgs>? _accountsChangedHandler;
         private Action<AppLanguage>? _languageChangedHandler;

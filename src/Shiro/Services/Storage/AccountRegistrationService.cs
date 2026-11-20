@@ -130,8 +130,7 @@ namespace Shiro.Services
                 return null;
 
             Account? registered;
-            bool isExisting = false;
-            IReadOnlyList<Account>? addedSnapshot = null;
+            (IReadOnlyList<Account> Snapshot, long Version)? addedChange = null;
             lock (_repository.SyncRoot)
             {
                 account.Password = password;
@@ -142,7 +141,6 @@ namespace Shiro.Services
 
                 if (exists != null)
                 {
-                    isExisting = true;
                     exists.SecurityToken = securityToken;
                     account.CopyHbaAndFingerprintTo(exists);
                     if (!string.IsNullOrWhiteSpace(password))
@@ -164,20 +162,18 @@ namespace Shiro.Services
                 else
                 {
                     account.LastAttemptedRefresh = DateTime.Now;
-                    addedSnapshot = _repository.AddWithoutNotifyUnsafe(account);
+                    addedChange = _repository.AddWithoutNotifyUnsafe(account);
                     registered = account;
                 }
             }
 
-            if (addedSnapshot != null)
+            if (addedChange is { } change)
             {
-                _repository.RaiseAccountsChanged(addedSnapshot);
+                _repository.RaiseAccountsChanged(change.Snapshot, change.Version);
             }
 
             if (saveImmediate)
             {
-                if (!isExisting)
-                    AppServices.HostUiBridge.NotifyAccountsReplaced(_repository.GetAll());
                 NotifyAccountValidity(registered, true);
                 _persistence.SaveAccounts(bypassRateLimit: true);
             }

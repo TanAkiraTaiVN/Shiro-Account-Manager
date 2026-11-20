@@ -66,16 +66,11 @@ namespace Shiro.Services
 
         internal void ReplaceAccountsList(List<Account> accounts)
         {
-            IReadOnlyList<Account> snapshot = _repository.ReplaceAll(accounts);
-            AppServices.HostUiBridge.NotifyAccountsReplaced(snapshot);
+            _ = _repository.ReplaceAll(accounts);
         }
-
-        private void RefreshView() =>
-            AppServices.HostUiBridge.NotifyAccountsReplaced(_repository.GetAll());
 
         private void EnableModernDashboard()
         {
-            RefreshView();
             if (AppServices.GeneralSettings.Get<bool>("ShowPresence"))
                 AppServices.HostUiBridge.SchedulePresenceRefresh(null);
         }
@@ -191,8 +186,6 @@ namespace Shiro.Services
 
                 try { AccountRuntimeStateStore.HydrateAccounts(_repository.GetAll()); }
                 catch (Exception ex) { AppServices.Logger?.Debug($"[LoadAccounts] Runtime state hydration skipped: {ex.Message}"); }
-
-                RefreshView();
 
                 IReadOnlyList<Account> loadedAccounts = _repository.GetAll();
                 if (loadedAccounts.Count > 0)

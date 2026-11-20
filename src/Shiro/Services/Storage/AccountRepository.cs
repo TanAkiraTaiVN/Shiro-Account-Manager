@@ -48,6 +48,7 @@ namespace Shiro.Services
         private volatile SnapshotIndex? _cachedIndex;
         private AccountPersistenceService? _localPersistence;
         private AccountRegistrationService? _localRegistration;
+        private long _snapshotVersion;
 
         public event EventHandler<AccountsChangedEventArgs>? AccountsChanged;
 
@@ -202,30 +203,31 @@ namespace Shiro.Services
             return RegistrationInstance.RegisterValidatedAccount(validatedAccount, securityToken, password, saveImmediate);
         }
 
-        internal IReadOnlyList<Account> AddWithoutNotifyUnsafe(Account account)
+        internal (IReadOnlyList<Account> Snapshot, long Version) AddWithoutNotifyUnsafe(Account account)
         {
             _accounts ??= new List<Account>();
             _accounts.Add(account);
             _cachedSnapshot = ReadOnlyCollection<Account>.Empty;
             _cachedIndex = null;
-            return GetSnapshotCoreUnsafe();
+            return (GetSnapshotCoreUnsafe(), ++_snapshotVersion);
         }
 
-        internal void RaiseAccountsChanged(IReadOnlyList<Account> snapshot)
+        internal void RaiseAccountsChanged(IReadOnlyList<Account> snapshot, long version)
         {
-            AccountsChanged?.Invoke(this, new AccountsChangedEventArgs(snapshot));
+            AccountsChanged?.Invoke(this, new AccountsChangedEventArgs(snapshot, version));
         }
 
         public void AddThreadSafe(Account account)
         {
             if (account == null) return;
             IReadOnlyList<Account> snapshot;
+            long version;
             lock (_syncRoot)
             {
-                snapshot = AddWithoutNotifyUnsafe(account);
+                (snapshot, version) = AddWithoutNotifyUnsafe(account);
             }
 
-            RaiseAccountsChanged(snapshot);
+            RaiseAccountsChanged(snapshot, version);
         }
 
         internal IReadOnlyList<Account> ReplaceAll(IEnumerable<Account>? accounts)
@@ -248,15 +250,17 @@ namespace Shiro.Services
             }
 
             IReadOnlyList<Account> snapshot;
+            long version;
             lock (_syncRoot)
             {
                 _accounts = nextList;
                 _cachedSnapshot = ReadOnlyCollection<Account>.Empty;
                 _cachedIndex = null;
                 snapshot = GetSnapshotCoreUnsafe();
+                version = ++_snapshotVersion;
             }
 
-            RaiseAccountsChanged(snapshot);
+            RaiseAccountsChanged(snapshot, version);
             return snapshot;
         }
 
@@ -284,6 +288,7 @@ namespace Shiro.Services
             int removed;
             bool isNowEmpty;
             IReadOnlyList<Account>? snapshot = null;
+            long version = 0;
             lock (_syncRoot)
             {
                 if (_accounts == null)
@@ -295,13 +300,14 @@ namespace Shiro.Services
                     _cachedSnapshot = ReadOnlyCollection<Account>.Empty;
                     _cachedIndex = null;
                     snapshot = GetSnapshotCoreUnsafe();
+                    version = ++_snapshotVersion;
                 }
                 isNowEmpty = _accounts.Count == 0;
             }
 
             if (snapshot != null)
             {
-                RaiseAccountsChanged(snapshot);
+                RaiseAccountsChanged(snapshot, version);
             }
 
             return (removed, isNowEmpty);

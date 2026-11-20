@@ -9,12 +9,14 @@ namespace Shiro.Services
 {
     public sealed class AccountsChangedEventArgs : EventArgs
     {
-        public AccountsChangedEventArgs(IReadOnlyList<Account> accounts)
+        public AccountsChangedEventArgs(IReadOnlyList<Account> accounts, long version = 0)
         {
             Accounts = accounts ?? Array.Empty<Account>();
+            Version = version;
         }
 
         public IReadOnlyList<Account> Accounts { get; }
+        public long Version { get; }
     }
 
     public interface IAccountRepository

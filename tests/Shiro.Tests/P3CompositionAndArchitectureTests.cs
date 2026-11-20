@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -298,6 +299,130 @@ namespace Shiro.Tests
                 ToastService.ClearAll();
                 SettingsSideEffectsService.NotifyDisplayNamesChangedCallback = prevNotifyCb;
                 SettingsSideEffectsService.ClearAvatarCacheCallback = prevClearCb;
+                AppDispatcher.CustomDispatcher = prevDispatcher;
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static WeakReference<MainViewModel> CreateUndisposedMainViewModelWeak(IAccountRepository repo)
+        {
+            var vm = new MainViewModel(Substitute.For<IAppLogger>(), new IniFile()["General"], repo);
+            return new WeakReference<MainViewModel>(vm);
+        }
+
+        [Fact]
+        public void MainViewModel_UndisposedInstance_IsReclaimedByGcWhileSubscribedToRepository()
+        {
+            var repo = new AccountRepository();
+            WeakReference<MainViewModel> weakVm = CreateUndisposedMainViewModelWeak(repo);
+
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
+
+            repo.AddThreadSafe(new Account { Username = "TriggerDetach", UserID = 9001, Valid = true });
+
+            Assert.False(weakVm.TryGetTarget(out _));
+        }
+
+        [Fact]
+        public void AccountPersistenceAndRegistration_DoNotDispatchRedundantNotifyAccountsReplaced()
+        {
+            string tempDir = Path.Combine(Path.GetTempPath(), "ShiroNoRedundantNotify_" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(tempDir);
+            var bridge = Substitute.For<IHostUiBridgeService>();
+            using var bridgeScope = AppServices.Override<IHostUiBridgeService>(bridge);
+
+            try
+            {
+                var repo = new AccountRepository();
+                int changedCount = 0;
+                repo.AccountsChanged += (_, _) => changedCount++;
+
+                var persistence = new AccountPersistenceService(repo)
+                {
+                    Store = new AccountStore(Path.Combine(tempDir, "AccountData.json"), Path.Combine(tempDir, "Backups")),
+                    StartTime = DateTime.Now.AddMinutes(-5)
+                };
+                var registration = new AccountRegistrationService(repo, persistence);
+
+                var initial = new Account { Username = "InitialPersistUser", UserID = 4101, Valid = true, SecurityToken = "tok-1" };
+                persistence.ReplaceAccountsList(new List<Account> { initial });
+                persistence.SaveAccounts(bypassRateLimit: true, bypassCountCheck: true);
+                persistence.LoadAccounts();
+
+                var added = new Account { Username = "RegisteredPersistUser", UserID = 4102, Valid = true, SecurityToken = "tok-2" };
+                registration.RegisterValidatedAccount(added, "tok-2", saveImmediate: true);
+
+                Assert.Equal(3, changedCount);
+                bridge.DidNotReceive().NotifyAccountsReplaced(Arg.Any<IReadOnlyList<Account>>());
+            }
+            finally
+            {
+                if (Directory.Exists(tempDir))
+                {
+                    try { Directory.Delete(tempDir, recursive: true); }
+                    catch (IOException) { }
+                }
+            }
+        }
+
+        [Fact]
+        public void MainViewModel_OutOfOrderAccountsChanged_IgnoresStaleLowerVersion()
+        {
+            var prevDispatcher = AppDispatcher.CustomDispatcher;
+            var queuedActions = new Queue<Action>();
+            AppDispatcher.CustomDispatcher = action => queuedActions.Enqueue(action);
+
+            try
+            {
+                // 1. Real AccountRepository emits strictly monotonic versions inside _syncRoot
+                var realRepo = new AccountRepository();
+                var realVersions = new List<long>();
+                realRepo.AccountsChanged += (_, e) => realVersions.Add(e.Version);
+                var realAcc = new Account { Username = "MonoUser", UserID = 5001, Valid = true };
+                realRepo.ReplaceAll(new[] { realAcc });
+                realRepo.AddThreadSafe(new Account { Username = "MonoUser2", UserID = 5002, Valid = true });
+                realRepo.RemoveMatching(new HashSet<Account> { realAcc });
+                Assert.Equal(new long[] { 1L, 2L, 3L }, realVersions);
+
+                // 2. Out-of-order arrival: Version 2 arrives before Version 1 -> Version 1 must not overwrite Version 2
+                var mockRepo = Substitute.For<IAccountRepository>();
+                using var mainVm = new MainViewModel(Substitute.For<IAppLogger>(), new IniFile()["General"], mockRepo);
+                var newerAcc = new Account { Username = "NewerUser", UserID = 5102, Valid = true };
+                var staleAcc = new Account { Username = "StaleUser", UserID = 5101, Valid = true };
+
+                mockRepo.AccountsChanged += Raise.Event<EventHandler<AccountsChangedEventArgs>>(
+                    mockRepo,
+                    new AccountsChangedEventArgs(new[] { newerAcc }, version: 2));
+                mockRepo.AccountsChanged += Raise.Event<EventHandler<AccountsChangedEventArgs>>(
+                    mockRepo,
+                    new AccountsChangedEventArgs(new[] { staleAcc }, version: 1));
+
+                while (queuedActions.Count > 0)
+                    queuedActions.Dequeue().Invoke();
+
+                Assert.Single(mainVm.Accounts);
+                Assert.Equal("NewerUser", mainVm.Accounts[0].Username);
+
+                // 3. Queued stale event (Version 3) superseded by newer event (Version 4) before UI drain
+                var midAcc = new Account { Username = "MidUser", UserID = 5103, Valid = true };
+                var latestAcc = new Account { Username = "LatestUser", UserID = 5104, Valid = true };
+                mockRepo.AccountsChanged += Raise.Event<EventHandler<AccountsChangedEventArgs>>(
+                    mockRepo,
+                    new AccountsChangedEventArgs(new[] { midAcc }, version: 3));
+                mockRepo.AccountsChanged += Raise.Event<EventHandler<AccountsChangedEventArgs>>(
+                    mockRepo,
+                    new AccountsChangedEventArgs(new[] { latestAcc }, version: 4));
+
+                while (queuedActions.Count > 0)
+                    queuedActions.Dequeue().Invoke();
+
+                Assert.Single(mainVm.Accounts);
+                Assert.Equal("LatestUser", mainVm.Accounts[0].Username);
+            }
+            finally
+            {
                 AppDispatcher.CustomDispatcher = prevDispatcher;
             }
         }
