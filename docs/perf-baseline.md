@@ -6,7 +6,7 @@ Tài liệu này ghi nhận trạng thái baseline trước khi thực hiện c�
 - **Nền tảng**: .NET 10 (Windows x64, Release build, `-warnaserror`)
 - **Tổng số bài test (`Shiro.Tests`)**: Baseline ban đầu `1,559` tests -> Hiện tại (`v5.0.0`): **`2,416` test cases** (`1,819` test methods)
 - **Kết quả**: `100% Passed`, `0 Failed`, `0 Skipped`
-- **Coverage Gates (`v5.0.0`)**: Overall Line `~83.7%` (Gate `>= 75.0%`), Branch `~73.7%` (Gate `>= 60.0%`), Core Security/Persistence `94.09%` (Gate `>= 92.0%`)
+- **Coverage Gates (`v5.0.0`)**: Overall Line `83.80%` (Gate `>= 75.0%`), Branch `73.89%` (Gate `>= 60.0%`), Core Security/Persistence `94.09%` (Gate `>= 92.0%`)
 
 ## 2. Hiệu năng dẫn xuất khóa (KDF - PBKDF2-SHA256 & HKDF-SHA256 trên .NET 10 Windows CNG)
 Đo đạc thực tế thông qua `Rfc2898DeriveBytes.Pbkdf2` và `HKDF.DeriveKey` (SHA-256, 32-byte key) trên .NET 10:

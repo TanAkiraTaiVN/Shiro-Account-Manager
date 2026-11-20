@@ -28,12 +28,12 @@
 |---|---|---|
 | Build Release (`-warnaserror`) | 0 Warnings / 0 Errors | Hoàn hảo |
 | Unit Tests (`Shiro.Tests`) | 2,416 / 2,416 test cases Pass (1,819 methods, 0 Failed, 0 Skipped) | 100% Xanh |
-| Overall Line Coverage | ~83.7% (Gate >= 75.0%) | Vượt ngưỡng |
-| Overall Branch Coverage | ~73.7% (Gate >= 60.0%) | Vượt ngưỡng |
+| Overall Line Coverage | 83.80% (Gate >= 75.0%) | Vượt ngưỡng |
+| Overall Branch Coverage | 73.89% (Gate >= 60.0%) | Vượt ngưỡng |
 | Core Security / Persistence | 94.09% (955/1015 lines, Gate >= 92.0%) | Vượt ngưỡng |
 | File .cs > 485 dòng | 0 | Tuân thủ 100% |
 | `catch {` trống / untyped | 0 (chỉ giữ allowlist `AppLogger.cs`) | Đã bọc logging/handled |
-| `async void` trong `AvaloniaUI/` | 0 (chỉ giữ 2 `ICommand.Execute` ở `RelayCommand.cs`) | Đã cô lập |
+| `async void` | 0 trong `AvaloniaUI/` (toàn app chỉ còn 2 `ICommand.Execute` ở `ViewModels/RelayCommand.cs`) | Đã cô lập |
 | Sync-over-async blocking | 0 `.GetAwaiter().GetResult()` / `httpClient.Send` | Không còn blocking mới |
 | Dialog ViewModels | 100% Decoupled (DialogViewModelBase + IUserPrompt) | Kiểm thử headless độc lập |
 | Single-File Publish | `build/Release/Shiro.exe` (~66.7 MiB / 69,929,550 bytes) | Sẵn sàng triển khai |

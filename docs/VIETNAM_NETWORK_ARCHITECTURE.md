@@ -43,8 +43,8 @@
    - Các cookie thu được từ Quick Sign In (QR/mã số) hoặc Web login ban đầu thường có độ dài payload ~790 ký tự. Chúng **vẫn sở hữu khóa HBA hợp lệ** trong `hbaDB`. Nếu tắt HBA đối với các cookie này, Roblox sẽ coi việc đổi IP là đánh cắp phiên và lập tức thu hồi cookie.
 
 2. **Bảo Tồn Khóa HBA (`CopyHbaAndFingerprintTo`)**:
-   - Khi cập nhật phiên tài khoản, **tuyệt đối không** gọi `ClearHbaBinding()` nếu tài khoản đã có sẵn khóa.
+   - Khi cập nhật phiên tài khoản, **tuyệt đối không** xóa trắng `HbaPrivateKey` / `HbaPublicKey` nếu tài khoản đã có sẵn khóa.
    - Khi đối tượng mới có khóa, sao chép khóa sang đối tượng đích. Nếu đối tượng mới không có khóa, giữ nguyên khóa cũ của đối tượng đích.
 
 3. **Không Xóa Khóa Khi Gặp 401 Tạm Thời**:
-   - Khi một request lấy ticket bị 401 và cần thử lại không có HBA, **tuyệt đối không** gọi `ClearHbaBinding()` xóa vĩnh viễn khóa trên ổ đĩa. Khóa phải được giữ nguyên để phục vụ cho các lần đồng bộ mạng tiếp theo.
+   - Khi một request lấy ticket bị 401 và cần thử lại không có HBA, **tuyệt đối không** xóa trắng `HbaPrivateKey` / `HbaPublicKey` khỏi tài khoản hoặc ghi đè xóa vĩnh viễn khóa trên ổ đĩa. Khóa phải được giữ nguyên để phục vụ cho các lần đồng bộ mạng tiếp theo.

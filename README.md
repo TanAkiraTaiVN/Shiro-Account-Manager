@@ -72,8 +72,8 @@ Sau khi hoàn tất, file thực thi phát hành chuẩn sẽ được tạo t�
 Dự án sở hữu bộ test suite tự động với **2,416 test cases** (trên **1,819 test methods**, bao gồm các parameterized `[Theory]` / `[AvaloniaTheory]` cases) bao phủ toàn diện tính toàn vẹn của mã hóa AES-256-GCM / Dual-KDF (PBKDF2-SHA256 600,000 vòng V3 & HKDF-SHA256 V4), bảo mật DPAPI, quản lý hàng đợi mở game, kiến trúc MVVM strongly-typed, engine đồ họa Avalonia UI 11 và cấu hình JSON.
 
 Các cổng chất lượng kiểm thử (Coverage Gates) được kiểm tra tự động trong CI/CD pipeline và `ArchitectureTests`:
-- **Overall Line Coverage**: **~83.7%** (Ngưỡng yêu cầu: >= 75.0%)
-- **Overall Branch Coverage**: **~73.7%** (Ngưỡng yêu cầu: >= 60.0%)
+- **Overall Line Coverage**: **83.80%** (Ngưỡng yêu cầu: >= 75.0%)
+- **Overall Branch Coverage**: **73.89%** (Ngưỡng yêu cầu: >= 60.0%)
 - **Core Security/Persistence Coverage**: **94.09%** (Ngưỡng yêu cầu: >= 92.0%)
 
 Chạy toàn bộ unit test suite:

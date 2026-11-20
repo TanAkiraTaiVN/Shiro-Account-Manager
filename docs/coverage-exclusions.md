@@ -2,8 +2,8 @@
 
 ## Enforced Coverage Gates (Plans 1–4 Current Verified Baseline)
 
-- **Overall Line Coverage**: ~83.7% (Gate: >= 75.0%)
-- **Overall Branch Coverage**: ~73.7% (Gate: >= 60.0%)
+- **Overall Line Coverage**: 83.80% (Gate: >= 75.0%)
+- **Overall Branch Coverage**: 73.89% (Gate: >= 60.0%)
 - **Core Security/Persistence Coverage**: 94.09% (Gate: >= 92.0%)
 
 Enforced by `scripts/Check-Coverage.ps1 -MinOverall 75.0 -MinBranch 60.0 -MinCore 92.0`, per-file hotspot branch floors in `tests/coverage-floors.json`, GitHub Actions workflows (`.github/workflows/build.yml` and `.github/workflows/release.yml`), and validated by `ArchitectureTests.cs` and `ArchitectureTests.Ratchets.cs`.
