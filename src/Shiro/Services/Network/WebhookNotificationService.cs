@@ -190,11 +190,6 @@ namespace Shiro.Services
 
             fields.Add(new DiscordWebhookField("Event", alert.EventType.ToString(), true));
 
-            if (!string.IsNullOrWhiteSpace(alert.Description))
-            {
-                fields.Add(new DiscordWebhookField("Details", TruncateText(alert.Description, 1024), false));
-            }
-
             var embed = new DiscordWebhookEmbed(
                 title,
                 string.IsNullOrWhiteSpace(alert.Description) ? null : TruncateText(alert.Description, 4096),

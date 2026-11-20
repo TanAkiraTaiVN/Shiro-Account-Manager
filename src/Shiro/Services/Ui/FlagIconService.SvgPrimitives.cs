@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
@@ -78,35 +79,45 @@ namespace Shiro.Services
             }
         }
 
-        private static IBrush? CreateBrush(string? fill, double opacity)
+        private static IBrush? CreateBrush(
+            string? fill,
+            double opacity,
+            IReadOnlyDictionary<string, XElement>? idMap = null)
         {
             if (string.IsNullOrWhiteSpace(fill))
                 fill = "#000000";
 
             string trimmed = fill.Trim();
-            if (string.Equals(trimmed, "none", StringComparison.OrdinalIgnoreCase) ||
-                trimmed.StartsWith("url(", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(trimmed, "none", StringComparison.OrdinalIgnoreCase))
+                return null;
+
+            if (TryExtractUrlId(trimmed, out string refId))
             {
+                if (idMap != null && idMap.TryGetValue(refId, out XElement? gradEl))
+                    return CreateGradientBrush(gradEl, opacity, idMap);
                 return null;
             }
 
             if (Color.TryParse(trimmed, out Color color))
-            {
                 return new SolidColorBrush(color, opacity);
-            }
 
             return null;
         }
 
-        private static IPen? CreatePen(string? stroke, string? strokeWidth, double opacity)
+        private static IPen? CreatePen(
+            string? stroke,
+            string? strokeWidth,
+            double opacity,
+            IReadOnlyDictionary<string, XElement>? idMap = null)
         {
             if (string.IsNullOrWhiteSpace(stroke) ||
-                string.Equals(stroke, "none", StringComparison.OrdinalIgnoreCase))
+                string.Equals(stroke.Trim(), "none", StringComparison.OrdinalIgnoreCase))
             {
                 return null;
             }
 
-            if (!Color.TryParse(stroke.Trim(), out Color strokeColor))
+            IBrush? strokeBrush = CreateBrush(stroke, opacity, idMap);
+            if (strokeBrush == null)
                 return null;
 
             double thickness = 1.0;
@@ -117,7 +128,128 @@ namespace Shiro.Services
                     thickness = parsedSw;
             }
 
-            return new Pen(new SolidColorBrush(strokeColor, opacity), thickness);
+            return new Pen(strokeBrush, thickness);
+        }
+
+        private static bool TryExtractUrlId(string? value, out string id)
+        {
+            id = string.Empty;
+            if (string.IsNullOrWhiteSpace(value))
+                return false;
+
+            string trimmed = value.Trim();
+            if (!trimmed.StartsWith("url(", StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            int closeIdx = trimmed.IndexOf(')');
+            if (closeIdx <= 4)
+                return false;
+
+            string inner = trimmed[4..closeIdx].Trim();
+            if (inner.Length >= 2 &&
+                ((inner[0] == '\'' && inner[^1] == '\'') ||
+                 (inner[0] == '"' && inner[^1] == '"')))
+            {
+                inner = inner[1..^1].Trim();
+            }
+
+            if (!inner.StartsWith('#'))
+                return false;
+
+            id = inner[1..].Trim();
+            return !string.IsNullOrEmpty(id);
+        }
+
+        private static Geometry? ResolveClipGeometry(string? clipPathAttr, IReadOnlyDictionary<string, XElement>? idMap)
+        {
+            if (idMap == null || !TryExtractUrlId(clipPathAttr, out string clipId))
+                return null;
+
+            if (!idMap.TryGetValue(clipId, out XElement? clipEl) ||
+                !string.Equals(clipEl.Name.LocalName, "clipPath", StringComparison.Ordinal))
+            {
+                return null;
+            }
+
+            var geometries = new List<Geometry>();
+            CollectClipGeometries(clipEl, Matrix.Identity, idMap, geometries, depth: 0);
+            if (geometries.Count == 0)
+                return null;
+
+            if (geometries.Count == 1)
+                return geometries[0];
+
+            string? clipRule = clipEl.Attribute("clip-rule")?.Value ?? GetStyleValue(clipEl, "clip-rule");
+            var group = new GeometryGroup
+            {
+                FillRule = string.Equals(clipRule, "evenodd", StringComparison.OrdinalIgnoreCase)
+                    ? FillRule.EvenOdd
+                    : FillRule.NonZero
+            };
+            foreach (Geometry g in geometries)
+                group.Children.Add(g);
+            return group;
+        }
+
+        private static void CollectClipGeometries(
+            XElement parent,
+            Matrix currentTransform,
+            IReadOnlyDictionary<string, XElement> idMap,
+            List<Geometry> output,
+            int depth)
+        {
+            foreach (XElement el in parent.Elements())
+            {
+                string localName = el.Name.LocalName;
+                Matrix elTransform = currentTransform;
+                if (localName == "use")
+                {
+                    TryParseDouble(el.Attribute("x")?.Value, out double ux);
+                    TryParseDouble(el.Attribute("y")?.Value, out double uy);
+                    if (ux != 0 || uy != 0)
+                        elTransform = Matrix.CreateTranslation(ux, uy) * elTransform;
+                }
+
+                string? transformAttr = el.Attribute("transform")?.Value;
+                if (!string.IsNullOrWhiteSpace(transformAttr))
+                    elTransform = ParseTransform(transformAttr) * elTransform;
+
+                if (localName == "g")
+                {
+                    CollectClipGeometries(el, elTransform, idMap, output, depth);
+                    continue;
+                }
+
+                Geometry? geom = null;
+                if (localName == "use")
+                {
+                    if (depth >= MaxUseDepth)
+                        continue;
+
+                    string? href = el.Attribute("href")?.Value ?? el.Attribute(XlinkNs + "href")?.Value;
+                    if (string.IsNullOrWhiteSpace(href))
+                        continue;
+
+                    string targetId = href.TrimStart('#').Trim();
+                    if (!string.IsNullOrEmpty(targetId) &&
+                        idMap.TryGetValue(targetId, out XElement? targetEl) &&
+                        !ReferenceEquals(targetEl, el))
+                    {
+                        geom = CreateGeometry(targetEl, targetEl.Name.LocalName);
+                    }
+                }
+                else
+                {
+                    geom = CreateGeometry(el, localName);
+                }
+
+                if (geom != null)
+                {
+                    if (elTransform != Matrix.Identity)
+                        geom.Transform = new MatrixTransform(elTransform);
+                    output.Add(geom);
+                }
+            }
         }
 
         private static string? GetStyleValue(XElement el, string propName)

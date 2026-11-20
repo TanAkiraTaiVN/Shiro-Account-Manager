@@ -74,5 +74,44 @@ namespace Shiro.Tests
         {
             Assert.Equal(expected, AccentThemeService.ParseTheme(input));
         }
+
+        [Theory]
+        [InlineData("99", AccentTheme.Monochrome)]
+        [InlineData("-1", AccentTheme.Monochrome)]
+        [InlineData("255", AccentTheme.Monochrome)]
+        [InlineData("Cyan", AccentTheme.Cyan)]
+        [InlineData("Violet", AccentTheme.Violet)]
+        public void AccentThemeService_ParseTheme_RejectsUndefinedNumericStrings(string input, AccentTheme expected)
+        {
+            Assert.Equal(expected, AccentThemeService.ParseTheme(input));
+        }
+
+        [Theory]
+        [InlineData("trắng", AccentTheme.Monochrome)]
+        [InlineData("Trắng", AccentTheme.Monochrome)]
+        [InlineData("tím", AccentTheme.Violet)]
+        [InlineData("Tím", AccentTheme.Violet)]
+        [InlineData("xanh lá", AccentTheme.Emerald)]
+        [InlineData("Xanh Lá", AccentTheme.Emerald)]
+        [InlineData("hồng", AccentTheme.Pink)]
+        [InlineData("Hồng", AccentTheme.Pink)]
+        [InlineData("xanh lam", AccentTheme.Cyan)]
+        [InlineData("Xanh Lam", AccentTheme.Cyan)]
+        public void AccentThemeService_ParseTheme_HandlesAccentedStringsRegardlessOfLanguage(string input, AccentTheme expected)
+        {
+            var prev = LocalizationService.CurrentLanguage;
+            try
+            {
+                LocalizationService.SetLanguage(AppLanguage.English, saveSetting: false);
+                Assert.Equal(expected, AccentThemeService.ParseTheme(input));
+
+                LocalizationService.SetLanguage(AppLanguage.Vietnamese, saveSetting: false);
+                Assert.Equal(expected, AccentThemeService.ParseTheme(input));
+            }
+            finally
+            {
+                LocalizationService.SetLanguage(prev, saveSetting: false);
+            }
+        }
     }
 }

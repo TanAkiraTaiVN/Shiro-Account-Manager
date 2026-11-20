@@ -354,5 +354,47 @@ namespace Shiro.Tests
             Assert.Equal("OK", parsed!["Btn_OK"]);
             Assert.Equal("42", parsed["Count"]);
         }
+
+        [Fact]
+        public void Localization_LaunchToastFooter_HasNoLeadingSpaceInsideQuotes()
+        {
+            var prev = LocalizationService.CurrentLanguage;
+            try
+            {
+                LocalizationService.SetLanguage(AppLanguage.English, saveSetting: false);
+                string enText = LocalizationService.Get("Launch_Toast_CheckExpiredFooter");
+                Assert.DoesNotContain("' E", enText, StringComparison.Ordinal);
+                Assert.Equal("Please check the 'Expired' tab to re-login!", enText);
+
+                LocalizationService.SetLanguage(AppLanguage.Vietnamese, saveSetting: false);
+                string viText = LocalizationService.Get("Launch_Toast_CheckExpiredFooter");
+                Assert.DoesNotContain("' H", viText, StringComparison.Ordinal);
+                Assert.Equal("Vui lòng kiểm tra tab 'Hết hạn' để Re-login!", viText);
+            }
+            finally
+            {
+                LocalizationService.SetLanguage(prev, saveSetting: false);
+            }
+        }
+
+        [Fact]
+        public void Localization_BarBatchActions_HasNoTrailingOpenParen()
+        {
+            var prev = LocalizationService.CurrentLanguage;
+            try
+            {
+                LocalizationService.SetLanguage(AppLanguage.English, saveSetting: false);
+                string enText = LocalizationService.Get("Bar_BatchActions");
+                Assert.Equal("Actions", enText);
+
+                LocalizationService.SetLanguage(AppLanguage.Vietnamese, saveSetting: false);
+                string viText = LocalizationService.Get("Bar_BatchActions");
+                Assert.Equal("Thao tác", viText);
+            }
+            finally
+            {
+                LocalizationService.SetLanguage(prev, saveSetting: false);
+            }
+        }
     }
 }

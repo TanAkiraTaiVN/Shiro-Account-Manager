@@ -1,5 +1,7 @@
 #nullable enable
 using System;
+using System.Globalization;
+using System.Text;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Media;
@@ -63,25 +65,43 @@ namespace Shiro.Services
             if (string.IsNullOrWhiteSpace(value))
                 return AccentTheme.Monochrome;
 
-            string clean = value.Trim().ToLowerInvariant();
-            if (string.Equals(clean, Shiro.Services.LocalizationService.Get("AccentTheme.White"), StringComparison.OrdinalIgnoreCase))
+            string trimmed = value.Trim();
+            if (string.Equals(trimmed, Shiro.Services.LocalizationService.Get("AccentTheme.White"), StringComparison.OrdinalIgnoreCase))
                 return AccentTheme.Monochrome;
-            if (string.Equals(clean, Shiro.Services.LocalizationService.Get("AccentTheme.Purple"), StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(trimmed, Shiro.Services.LocalizationService.Get("AccentTheme.Purple"), StringComparison.OrdinalIgnoreCase))
                 return AccentTheme.Violet;
-            if (string.Equals(clean, Shiro.Services.LocalizationService.Get("AccentTheme.Green"), StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(trimmed, Shiro.Services.LocalizationService.Get("AccentTheme.Green"), StringComparison.OrdinalIgnoreCase))
                 return AccentTheme.Emerald;
-            if (string.Equals(clean, Shiro.Services.LocalizationService.Get("AccentTheme.Pink"), StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(trimmed, Shiro.Services.LocalizationService.Get("AccentTheme.Pink"), StringComparison.OrdinalIgnoreCase))
                 return AccentTheme.Pink;
 
-            return clean switch
+            string folded = FoldThemeToken(trimmed);
+            return folded switch
             {
                 "monochrome" or "trang" or "white" or "default" => AccentTheme.Monochrome,
                 "violet" or "purple" or "tim" => AccentTheme.Violet,
                 "cyan" or "blue" or "xanh lam" or "xanh" => AccentTheme.Cyan,
                 "emerald" or "green" or "xanh la" => AccentTheme.Emerald,
                 "pink" or "hong" => AccentTheme.Pink,
-                _ => Enum.TryParse<AccentTheme>(value, true, out var parsed) ? parsed : AccentTheme.Monochrome
+                _ => Enum.TryParse<AccentTheme>(trimmed, true, out var parsed) && Enum.IsDefined(parsed)
+                    ? parsed
+                    : AccentTheme.Monochrome
             };
+        }
+
+        private static string FoldThemeToken(string input)
+        {
+            string normalized = input.Trim().Normalize(NormalizationForm.FormD);
+            var sb = new StringBuilder(normalized.Length);
+            foreach (char c in normalized)
+            {
+                if (CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)
+                {
+                    char lower = char.ToLowerInvariant(c);
+                    sb.Append(lower == '\u0111' ? 'd' : lower);
+                }
+            }
+            return sb.ToString().Normalize(NormalizationForm.FormC);
         }
 
         public static (Color primary, Color hover, Color textOnAccent, Color subtle, Color borderCol, Color glow) GetThemeColors(AccentTheme theme)

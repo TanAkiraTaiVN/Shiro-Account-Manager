@@ -1,8 +1,8 @@
 #nullable enable
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading;
 using System.Xml.Linq;
 using Avalonia;
 using Avalonia.Media;
@@ -16,7 +16,8 @@ namespace Shiro.Services
     /// </summary>
     public static partial class FlagIconService
     {
-        private static readonly ConcurrentDictionary<string, IImage?> Cache = new(StringComparer.OrdinalIgnoreCase);
+        internal const int MaxFlagCacheEntries = 64;
+        private static readonly BoundedFlagCache Cache = new(MaxFlagCacheEntries);
         private static readonly XNamespace XlinkNs = "http://www.w3.org/1999/xlink";
         private const int MaxUseDepth = 8;
 
@@ -31,9 +32,29 @@ namespace Shiro.Services
 
             var (image, cacheable) = LoadFlagDrawingImage(normalized);
             if (cacheable)
-                Cache.TryAdd(normalized, image);
+                Cache.Set(normalized, image);
 
             return image;
+        }
+
+        internal static void ClearCacheForTest() => Cache.Clear();
+
+        internal static int CachedCountForTest => Cache.Count;
+
+        internal static bool IsCachedForTest(string? countryCode)
+        {
+            string? normalized = NormalizeCountryCode(countryCode);
+            return !string.IsNullOrEmpty(normalized) && Cache.ContainsKeyNoPromote(normalized);
+        }
+
+        internal static DrawingImage? ParseSvgForTesting(string svgXml)
+        {
+            if (string.IsNullOrWhiteSpace(svgXml))
+                return null;
+
+            XDocument doc = XDocument.Parse(svgXml);
+            var (image, _) = BuildDrawingImageFromSvg(doc.Root);
+            return image as DrawingImage;
         }
 
         public static string? InferCountryCode(string? countryCode, string? region)
@@ -90,43 +111,47 @@ namespace Shiro.Services
                     return (null, true);
 
                 XDocument doc = XDocument.Load(stream);
-                XElement? svgRoot = doc.Root;
-                if (svgRoot == null)
-                    return (null, true);
-
-                Rect viewBox = ParseViewBox(svgRoot.Attribute("viewBox")?.Value);
-                var rootGroup = new DrawingGroup
-                {
-                    ClipGeometry = new RectangleGeometry(viewBox)
-                };
-
-                // Invisible bounding rect so DrawingImage preserves exact aspect ratio even when clipped
-                rootGroup.Children.Add(new GeometryDrawing
-                {
-                    Geometry = new RectangleGeometry(viewBox),
-                    Brush = Brushes.Transparent
-                });
-
-                var idMap = CollectIdElements(svgRoot);
-                ParseElementChildren(
-                    svgRoot,
-                    rootGroup,
-                    Matrix.Identity,
-                    "#000000",
-                    1.0,
-                    inheritedStroke: null,
-                    inheritedStrokeWidth: null,
-                    idMap,
-                    depth: 0);
-                // Avoid caching degraded aspect-only images if StreamGeometry ran before platform initialization.
-                bool hasVectorShapes = rootGroup.Children.Count > 1;
-                return (new DrawingImage { Drawing = rootGroup }, hasVectorShapes);
+                return BuildDrawingImageFromSvg(doc.Root);
             }
             catch (Exception ex)
             {
                 AppServices.Logger?.Debug($"[FlagIconService] Failed to parse flag '{code}.svg': {ex.Message}");
                 return (null, false);
             }
+        }
+
+        private static (IImage? Image, bool Cacheable) BuildDrawingImageFromSvg(XElement? svgRoot)
+        {
+            if (svgRoot == null)
+                return (null, true);
+
+            Rect viewBox = ParseViewBox(svgRoot.Attribute("viewBox")?.Value);
+            var rootGroup = new DrawingGroup
+            {
+                ClipGeometry = new RectangleGeometry(viewBox)
+            };
+
+            // Invisible bounding rect so DrawingImage preserves exact aspect ratio even when clipped
+            rootGroup.Children.Add(new GeometryDrawing
+            {
+                Geometry = new RectangleGeometry(viewBox),
+                Brush = Brushes.Transparent
+            });
+
+            var idMap = CollectIdElements(svgRoot);
+            ParseElementChildren(
+                svgRoot,
+                rootGroup,
+                Matrix.Identity,
+                "#000000",
+                1.0,
+                inheritedStroke: null,
+                inheritedStrokeWidth: null,
+                idMap,
+                depth: 0);
+            // Avoid caching degraded aspect-only images if StreamGeometry ran before platform initialization.
+            bool hasVectorShapes = rootGroup.Children.Count > 1;
+            return (new DrawingImage { Drawing = rootGroup }, hasVectorShapes);
         }
 
         private static Stream? OpenFlagSvgStream(string code)
@@ -252,6 +277,8 @@ namespace Shiro.Services
             string? fillAttr = el.Attribute("fill")?.Value ?? GetStyleValue(el, "fill") ?? inheritedFill;
             string? strokeAttr = el.Attribute("stroke")?.Value ?? GetStyleValue(el, "stroke") ?? inheritedStroke;
             string? strokeWidthAttr = el.Attribute("stroke-width")?.Value ?? GetStyleValue(el, "stroke-width") ?? inheritedStrokeWidth;
+            string? clipPathAttr = el.Attribute("clip-path")?.Value ?? GetStyleValue(el, "clip-path");
+            Geometry? clipGeom = ResolveClipGeometry(clipPathAttr, idMap);
 
             double opacity = inheritedOpacity;
             if (TryParseDouble(el.Attribute("opacity")?.Value ?? GetStyleValue(el, "opacity"), out double op))
@@ -259,18 +286,16 @@ namespace Shiro.Services
             if (TryParseDouble(el.Attribute("fill-opacity")?.Value ?? GetStyleValue(el, "fill-opacity"), out double fop))
                 opacity *= Math.Clamp(fop, 0.0, 1.0);
 
+            DrawingGroup renderTarget = clipGeom != null ? new DrawingGroup { ClipGeometry = clipGeom } : targetGroup;
+            Matrix childTransform = clipGeom != null ? Matrix.Identity : elTransform;
+
             if (localName is "g" or "svg" or "symbol")
             {
                 ParseElementChildren(
-                    el,
-                    targetGroup,
-                    elTransform,
-                    fillAttr,
-                    opacity,
-                    strokeAttr,
-                    strokeWidthAttr,
-                    idMap,
-                    depth);
+                    el, renderTarget, childTransform, fillAttr, opacity,
+                    strokeAttr, strokeWidthAttr, idMap, depth);
+                if (clipGeom != null && renderTarget.Children.Count > 0)
+                    AddDrawingToGroup(targetGroup, renderTarget, elTransform);
                 return;
             }
 
@@ -289,15 +314,10 @@ namespace Shiro.Services
                     !ReferenceEquals(targetEl, el))
                 {
                     ParseSingleElement(
-                        targetEl,
-                        targetGroup,
-                        elTransform,
-                        fillAttr,
-                        opacity,
-                        strokeAttr,
-                        strokeWidthAttr,
-                        idMap,
-                        depth + 1);
+                        targetEl, renderTarget, childTransform, fillAttr, opacity,
+                        strokeAttr, strokeWidthAttr, idMap, depth + 1);
+                    if (clipGeom != null && renderTarget.Children.Count > 0)
+                        AddDrawingToGroup(targetGroup, renderTarget, elTransform);
                 }
 
                 return;
@@ -307,24 +327,31 @@ namespace Shiro.Services
             if (geometry == null)
                 return;
 
-            IBrush? brush = CreateBrush(fillAttr, opacity);
-            IPen? pen = CreatePen(strokeAttr, strokeWidthAttr, opacity);
+            IBrush? brush = CreateBrush(fillAttr, opacity, idMap);
+            IPen? pen = CreatePen(strokeAttr, strokeWidthAttr, opacity, idMap);
 
             if (brush == null && pen == null)
                 return;
 
-            var drawing = new GeometryDrawing
+            var drawing = new GeometryDrawing { Geometry = geometry, Brush = brush, Pen = pen };
+            if (clipGeom != null)
             {
-                Geometry = geometry,
-                Brush = brush,
-                Pen = pen
-            };
+                renderTarget.Children.Add(drawing);
+                AddDrawingToGroup(targetGroup, renderTarget, elTransform);
+            }
+            else
+            {
+                AddDrawingToGroup(targetGroup, drawing, elTransform);
+            }
+        }
 
-            if (elTransform != Matrix.Identity)
+        private static void AddDrawingToGroup(DrawingGroup targetGroup, Drawing drawing, Matrix transform)
+        {
+            if (transform != Matrix.Identity)
             {
                 var transformedGroup = new DrawingGroup
                 {
-                    Transform = new MatrixTransform(elTransform)
+                    Transform = new MatrixTransform(transform)
                 };
                 transformedGroup.Children.Add(drawing);
                 targetGroup.Children.Add(transformedGroup);
@@ -332,6 +359,87 @@ namespace Shiro.Services
             else
             {
                 targetGroup.Children.Add(drawing);
+            }
+        }
+
+        internal sealed class BoundedFlagCache
+        {
+            private readonly int _capacity;
+            private readonly Lock _lock = new();
+            private readonly Dictionary<string, LinkedListNode<(string Key, IImage? Value)>> _map = new(StringComparer.OrdinalIgnoreCase);
+            private readonly LinkedList<(string Key, IImage? Value)> _order = new();
+
+            public BoundedFlagCache(int capacity)
+            {
+                if (capacity <= 0)
+                    throw new ArgumentOutOfRangeException(nameof(capacity));
+                _capacity = capacity;
+            }
+
+            public int Count
+            {
+                get
+                {
+                    lock (_lock)
+                        return _map.Count;
+                }
+            }
+
+            public bool TryGetValue(string key, out IImage? value)
+            {
+                lock (_lock)
+                {
+                    if (_map.TryGetValue(key, out var node))
+                    {
+                        _order.Remove(node);
+                        _order.AddFirst(node);
+                        value = node.Value.Value;
+                        return true;
+                    }
+
+                    value = null;
+                    return false;
+                }
+            }
+
+            public void Set(string key, IImage? value)
+            {
+                lock (_lock)
+                {
+                    if (_map.TryGetValue(key, out var existing))
+                    {
+                        existing.Value = (existing.Value.Key, value);
+                        _order.Remove(existing);
+                        _order.AddFirst(existing);
+                        return;
+                    }
+
+                    while (_map.Count >= _capacity && _order.Last != null)
+                    {
+                        var lru = _order.Last;
+                        _order.RemoveLast();
+                        _map.Remove(lru.Value.Key);
+                    }
+
+                    var node = new LinkedListNode<(string Key, IImage? Value)>((key, value));
+                    _order.AddFirst(node);
+                    _map[key] = node;
+                }
+            }
+
+            public bool ContainsKeyNoPromote(string key)
+            {
+                lock (_lock)
+                    return _map.ContainsKey(key);
+            }
+
+            public void Clear()
+            {
+                lock (_lock)
+                {
+                    _map.Clear();
+                    _order.Clear();
+                }
             }
         }
     }

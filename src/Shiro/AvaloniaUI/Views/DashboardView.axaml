@@ -176,10 +176,10 @@
                         Width="14" Height="14" StrokeBrush="#EF4444" /></MenuItem.Icon></MenuItem>
                         </MenuFlyout>
                     </Button.Flyout>
-                    <StackPanel Orientation="Horizontal" Spacing="6"><lucide:Lucide Icon="Zap" Width="13" Height="13" StrokeBrush="#FBBF24" VerticalAlignment="Center" /><StackPanel
-                        Orientation="Horizontal" VerticalAlignment="Center"><TextBlock Text="{DynamicResource Bar_BatchActions}" /><TextBlock Text="{Binding SelectedCount}" />
-                        <TextBlock Text=")" /></StackPanel><lucide:Lucide Icon="ChevronDown" Width="12" Height="12" StrokeBrush="#71717A"
-                        VerticalAlignment="Center" /></StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="6"><lucide:Lucide Icon="Zap" Width="13" Height="13" StrokeBrush="#FBBF24" VerticalAlignment="Center" />
+                        <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center"><TextBlock Text="{DynamicResource Bar_BatchActions}" />
+                            <TextBlock Text="{Binding SelectedCount, StringFormat='({0})'}" /></StackPanel><lucide:Lucide Icon="ChevronDown" Width="12" Height="12"
+                        StrokeBrush="#71717A" VerticalAlignment="Center" /></StackPanel>
                 </Button>
             </WrapPanel>
             <Button Grid.Column="1" VerticalAlignment="Center" Margin="10,0,0,0" Background="{DynamicResource AccentBrush}" Foreground="{DynamicResource AccentForegroundBrush}" FontWeight="Bold"

@@ -7,10 +7,13 @@ using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Headless.XUnit;
 using Avalonia.Media;
+using Avalonia.Threading;
+using NSubstitute;
 using Shiro.AvaloniaUI.Controls;
 using Shiro.Http;
 using Shiro.Services;
@@ -299,6 +302,78 @@ namespace Shiro.Tests
         public void RobloxModerationHelper_IsModerationOrLockedUrl_ClassifiesExpectedPaths(string? url, bool expected)
         {
             Assert.Equal(expected, RobloxModerationHelper.IsModerationOrLockedUrl(url));
+        }
+
+        private const string QuickLoginEnterCodeTemplate = "{\"deviceInfo\":\"{0}\",\"location\":\"VN\"}";
+        private const string EmptyJsonObjectResponse = "{}";
+
+        [Fact]
+        public void WebhookNotificationService_FormatDiscordPayload_DoesNotDuplicateDetailsFieldAndDescription()
+        {
+            string json = WebhookNotificationService.FormatDiscordPayload(new WebhookAlert
+            {
+                AccountUsername = "AlertUser",
+                EventType = WebhookEventType.RateLimited,
+                Description = "HTTP 429 hit",
+                Timestamp = DateTimeOffset.UtcNow
+            });
+
+            Assert.Single(Regex.Matches(json, "HTTP 429 hit"));
+            using var doc = JsonDocument.Parse(json);
+            var embed = doc.RootElement.GetProperty("embeds")[0];
+            Assert.Equal("HTTP 429 hit", embed.GetProperty("description").GetString());
+            foreach (var field in embed.GetProperty("fields").EnumerateArray())
+            {
+                Assert.NotEqual("Details", field.GetProperty("name").GetString());
+            }
+        }
+
+        [AvaloniaFact]
+        public async Task RobloxSocialApiService_QuickLogInAsync_MarshalsPromptViaDispatcher()
+        {
+            string uniqueDevice = "TestDevice-" + Guid.NewGuid().ToString("N")[..8];
+            string enterBody = QuickLoginEnterCodeTemplate.Replace("{0}", uniqueDevice, StringComparison.Ordinal);
+            string promptKey = $"Quick Log In.Please confirm you are logging in with this device.Device: {uniqueDevice}\nLocation: VN";
+            string promptHash = CryptoHelper.SHA256(promptKey);
+
+            var handler = new FakeHttpHandler()
+                .Enqueue(HttpStatusCode.OK, enterBody)
+                .Enqueue(HttpStatusCode.OK, EmptyJsonObjectResponse);
+
+            AppServices.Override<IRobloxApiClient>(new RobloxApiClient(handler));
+            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+
+            bool? promptOnUiThread = null;
+            var fakeDialogs = Substitute.For<IDialogService>();
+            fakeDialogs.ShowConfirmation(Arg.Any<string>(), Arg.Any<string>())
+                .Returns(_ =>
+                {
+                    promptOnUiThread = Dispatcher.UIThread.CheckAccess();
+                    return true;
+                });
+            using var dialogScope = AppServices.Override<IDialogService>(fakeDialogs);
+
+            var account = new Account
+            {
+                Username = "QuickLoginUiUser",
+                UserID = 4321,
+                SecurityToken = "_|WARNING:-DO-NOT-SHARE-THIS.--" + new string('B', 80),
+                CSRFToken = "csrf-qli",
+                TokenSet = DateTime.Now
+            };
+
+            try
+            {
+                bool ok = await Task.Run(() =>
+                    RobloxSocialApiService.Instance.QuickLogInAsync(account, "123456", CancellationToken.None));
+
+                Assert.True(ok);
+                Assert.True(promptOnUiThread);
+            }
+            finally
+            {
+                AppServices.PromptsSettings.RemoveProperty(promptHash);
+            }
         }
 
         [AvaloniaFact]
