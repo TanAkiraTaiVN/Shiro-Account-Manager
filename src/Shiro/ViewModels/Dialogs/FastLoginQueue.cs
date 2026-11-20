@@ -46,7 +46,7 @@ namespace Shiro.ViewModels.Dialogs
             get
             {
                 var current = Current;
-                string user = current?.Username ?? string.Empty;
+                string user = StreamerModeService.GetDisplayUsername(current?.Username);
                 return Count > 1
                     ? LocalizationService.Format("FastLogin.DialogProgressTitle", user, _index + 1, Count)
                     : LocalizationService.Format("FastLogin.DialogSingleTitle", user);

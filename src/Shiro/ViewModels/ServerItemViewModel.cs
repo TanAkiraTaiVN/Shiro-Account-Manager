@@ -21,8 +21,16 @@ namespace Shiro.ViewModels
         public string JobId
         {
             get => _jobId;
-            set => SetProperty(ref _jobId, value ?? string.Empty);
+            set
+            {
+                if (SetProperty(ref _jobId, value ?? string.Empty))
+                    OnPropertyChanged(nameof(ShownJobId));
+            }
         }
+
+        public string ShownJobId => StreamerModeService.IsActive ? StreamerModeService.MaskJobId(_jobId) : _jobId;
+
+        public void NotifyStreamerModeChanged() => OnPropertyChanged(nameof(ShownJobId));
 
         public string Type
         {

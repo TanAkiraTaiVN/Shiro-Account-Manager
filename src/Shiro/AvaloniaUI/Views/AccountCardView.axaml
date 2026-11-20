@@ -57,12 +57,16 @@
                     <Button Classes="FastPillBtn"
                             IsVisible="{Binding ShowPlayButton}"
                             Click="OnLaunchOrReloginClicked"
-                            Background="#FFFFFF" Foreground="#09090B" FontWeight="Bold" FontSize="11"
+                            Background="{DynamicResource AccentBrush}"
+                            Foreground="{DynamicResource AccentForegroundBrush}"
+                            FontWeight="Bold" FontSize="11"
                             CornerRadius="6" Padding="8,4" ToolTip.Tip="{DynamicResource Card_TipLaunch}">
                         <StackPanel Orientation="Horizontal" Spacing="4">
                             <Path Data="{StaticResource GeoPlay}" Width="9" Height="9" Stretch="Uniform"
-                                  Fill="#09090B" VerticalAlignment="Center" />
-                            <TextBlock Text="{Binding LaunchButtonText}" Foreground="#09090B" VerticalAlignment="Center" />
+                                  Fill="{DynamicResource AccentForegroundBrush}" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding LaunchButtonText}"
+                                       Foreground="{DynamicResource AccentForegroundBrush}"
+                                       VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
 

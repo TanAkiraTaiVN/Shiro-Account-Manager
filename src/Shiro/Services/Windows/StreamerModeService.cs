@@ -24,6 +24,8 @@ namespace Shiro.Services
 
         private static readonly System.Threading.Lock _lock = new();
         private static readonly List<WeakReference<Window>> _registeredWindows = new();
+        private static readonly EventHandler s_onWindowOpened = OnRegisteredWindowOpened;
+        private static readonly EventHandler s_onWindowClosed = OnRegisteredWindowClosed;
         private static Timer? _detectionTimer;
         private static volatile bool _isEnabled;
         private static volatile bool _autoDetectEnabled = false;
@@ -54,6 +56,7 @@ namespace Shiro.Services
                     if (_isEnabled == value) return;
                     _isEnabled = value;
                     AppServices.GeneralSettings.Set(AppSettingsKeys.General.StreamerModeEnabled, value ? "true" : "false");
+                    AppServices.GeneralSettings.Set(AppSettingsKeys.General.HideUsernames, value ? "true" : "false");
                 }
                 UpdateAffinityState();
             }
@@ -151,7 +154,44 @@ namespace Shiro.Services
                     _registeredWindows.Add(new WeakReference<Window>(window));
             }
 
+            window.Closed -= s_onWindowClosed;
+            window.Closed += s_onWindowClosed;
             ApplyAffinityToWindow(window, IsActive);
+        }
+
+        public static void UnregisterWindow(Window? window)
+        {
+            if (window is null) return;
+
+            window.Opened -= s_onWindowOpened;
+            window.Closed -= s_onWindowClosed;
+
+            lock (_lock)
+            {
+                for (int i = _registeredWindows.Count - 1; i >= 0; i--)
+                {
+                    if (!_registeredWindows[i].TryGetTarget(out Window? existing) || ReferenceEquals(existing, window))
+                        _registeredWindows.RemoveAt(i);
+                }
+            }
+        }
+
+        private static void OnRegisteredWindowOpened(object? sender, EventArgs e)
+        {
+            if (sender is Window window)
+            {
+                window.Opened -= s_onWindowOpened;
+                IntPtr openedHwnd = window.TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
+                ApplyToHwnd(openedHwnd, ShouldApplyActiveOnOpened(IsActive));
+            }
+        }
+
+        private static void OnRegisteredWindowClosed(object? sender, EventArgs e)
+        {
+            if (sender is Window window)
+            {
+                UnregisterWindow(window);
+            }
         }
 
         internal static bool MatchesStreamingProcessName(ReadOnlySpan<char> exeFileOrProcessName)
@@ -272,14 +312,8 @@ namespace Shiro.Services
             IntPtr hwnd = window.TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
             if (hwnd == IntPtr.Zero)
             {
-                EventHandler? openedHandler = null;
-                openedHandler = (s, e) =>
-                {
-                    window.Opened -= openedHandler;
-                    IntPtr openedHwnd = window.TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
-                    ApplyToHwnd(openedHwnd, ShouldApplyActiveOnOpened(active));
-                };
-                window.Opened += openedHandler;
+                window.Opened -= s_onWindowOpened;
+                window.Opened += s_onWindowOpened;
                 return;
             }
 
@@ -329,6 +363,31 @@ namespace Shiro.Services
         /// Masks a Roblox Game Job ID.
         /// </summary>
         public static string MaskJobId(string? jobId) => "***-***";
+
+        /// <summary>
+        /// Masks a Roblox numeric User ID when Streamer Mode is active.
+        /// </summary>
+        public static string MaskUserId(long userId) => userId > 0 ? "***" : "0";
+
+        public static bool ShouldMaskUsernames(ISettingsService? settings = null)
+            => IsActive && ((settings ?? AppServices.GeneralSettings)?.Get<bool>(AppSettingsKeys.General.StreamerModeHideUsernames, true) ?? true);
+
+        public static bool ShouldMaskRobux(ISettingsService? settings = null)
+            => IsActive && ((settings ?? AppServices.GeneralSettings)?.Get<bool>(AppSettingsKeys.General.StreamerModeHideRobux, true) ?? true);
+
+        public static string GetDisplayUsername(string? username, ISettingsService? settings = null)
+            => ShouldMaskUsernames(settings) ? MaskUsername(username) : (username ?? string.Empty);
+
+        public static string GetDisplayAlias(string? alias, ISettingsService? settings = null)
+        {
+            if (string.IsNullOrWhiteSpace(alias)) return string.Empty;
+            return ShouldMaskUsernames(settings) ? MaskUsername(alias) : alias;
+        }
+
+        public static string GetDisplayUserId(long userId, ISettingsService? settings = null)
+            => userId > 0 && ShouldMaskUsernames(settings)
+                ? MaskUserId(userId)
+                : userId.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
         /// <summary>
         /// Stops background streaming-app detection and releases timer resources during shutdown.

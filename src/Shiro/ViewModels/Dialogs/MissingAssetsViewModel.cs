@@ -24,6 +24,7 @@ public sealed class MissingAssetsViewModel : DialogViewModelBase
     private string _totalPriceText = LocalizationService.Format("MissingAssets.TotalRobux", 0);
     private CancellationTokenSource? _loadCts;
     private CancellationTokenSource? _purchaseCts;
+    private readonly Action<bool> _onStreamerModeChanged;
 
     public MissingAssetsViewModel(
         Account? account = null,
@@ -42,9 +43,12 @@ public sealed class MissingAssetsViewModel : DialogViewModelBase
         _concurrency = Math.Max(1, concurrency);
         _logger = logger ?? AppServices.Logger;
 
+        _onStreamerModeChanged = _ => RefreshTitle();
+        StreamerModeService.StateChanged += _onStreamerModeChanged;
+
         if (_account != null)
         {
-            _title = LocalizationService.Format("MissingAssets.TitleFormat", _account.Username);
+            _title = LocalizationService.Format("MissingAssets.TitleFormat", StreamerModeService.GetDisplayUsername(_account.Username));
             _subtitle = LocalizationService.Format("MissingAssets.UnownedAssetsDetected", _assetIds.Length);
         }
 
@@ -81,9 +85,17 @@ public sealed class MissingAssetsViewModel : DialogViewModelBase
 
     public override void OnClosing()
     {
+        StreamerModeService.StateChanged -= _onStreamerModeChanged;
         CancelSlot(ref _loadCts);
         CancelSlot(ref _purchaseCts);
         base.OnClosing();
+    }
+
+    private void RefreshTitle()
+    {
+        if (_account == null) return;
+        AppDispatcher.Post(() =>
+            Title = LocalizationService.Format("MissingAssets.TitleFormat", StreamerModeService.GetDisplayUsername(_account.Username)));
     }
 
     private CancellationToken BeginLoadOperation() => ReplaceOperationCts(ref _loadCts);
@@ -288,7 +300,7 @@ public sealed class MissingAssetsViewModel : DialogViewModelBase
         }
 
         bool confirmed = await _prompt.ConfirmAsync(
-            LocalizationService.Format("MissingAssets.ConfirmPurchasePrompt", item.Name, item.PriceText, _account.Username),
+            LocalizationService.Format("MissingAssets.ConfirmPurchasePrompt", item.Name, item.PriceText, StreamerModeService.GetDisplayUsername(_account.Username)),
             LocalizationService.Get("MissingAssets.ConfirmPurchaseTitle")).ConfigureAwait(true);
 
         if (!confirmed)

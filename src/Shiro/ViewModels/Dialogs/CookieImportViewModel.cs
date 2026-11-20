@@ -19,6 +19,7 @@ namespace Shiro.ViewModels.Dialogs
         private string _previewUsername = string.Empty;
         private string _lastVerifiedCookie = string.Empty;
         private Account? _lastVerifiedAccount;
+        private readonly Action<bool> _onStreamerModeChanged;
 
         public CookieImportViewModel(
             IAccountRepository? repo = null,
@@ -33,9 +34,28 @@ namespace Shiro.ViewModels.Dialogs
             _password = password ?? string.Empty;
             _logger = logger ?? AppServices.Logger;
 
+            _onStreamerModeChanged = _ => AppDispatcher.Post(() =>
+            {
+                OnPropertyChanged(nameof(CookieMaskChar));
+                if (_lastVerifiedAccount != null && _lastVerifiedAccount.Valid)
+                    PreviewUsername = FormatPreview(_lastVerifiedAccount);
+            });
+            StreamerModeService.StateChanged += _onStreamerModeChanged;
+
             SetStatus(LocalizationService.Get("FastLogin.PasteCookiePrompt"), StatusKind.Neutral);
             VerifyCommand = TrackCommand(new AsyncRelayCommand(VerifyAsync, () => !IsBusy));
             AddCommand = TrackCommand(new AsyncRelayCommand(AddAsync, () => !IsBusy));
+        }
+
+        public char CookieMaskChar => StreamerModeService.IsActive ? '*' : '\0';
+
+        private static string FormatPreview(Account account)
+            => $"{StreamerModeService.GetDisplayUsername(account.Username)} (ID: {StreamerModeService.GetDisplayUserId(account.UserID)})";
+
+        public override void OnClosing()
+        {
+            StreamerModeService.StateChanged -= _onStreamerModeChanged;
+            base.OnClosing();
         }
 
         public string Cookie
@@ -101,7 +121,7 @@ namespace Shiro.ViewModels.Dialogs
                 {
                     _lastVerifiedCookie = cookie;
                     _lastVerifiedAccount = account;
-                    PreviewUsername = $"{account.Username} (ID: {account.UserID})";
+                    PreviewUsername = FormatPreview(account);
                     SetStatus(LocalizationService.Get("FastLogin.CookieValidAndVerified"), StatusKind.Success);
                 }
                 else
@@ -184,7 +204,7 @@ namespace Shiro.ViewModels.Dialogs
 
                     CreatedAccount = newAcc;
                     OnAccountCreated?.Invoke();
-                    _host.SetDashboardStatus(LocalizationService.Format("FastLogin.AccountAddedSuccess", newAcc.Username));
+                    _host.SetDashboardStatus(LocalizationService.Format("FastLogin.AccountAddedSuccess", StreamerModeService.GetDisplayUsername(newAcc.Username)));
                     RequestClose(true);
                 }
                 else

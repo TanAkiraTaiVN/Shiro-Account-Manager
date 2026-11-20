@@ -50,7 +50,7 @@ namespace Shiro.ViewModels
             }
         }
         public long TotalRobuxCount => _totalRobuxCount;
-        public string TotalRobuxText => _totalRobuxText;
+        public string TotalRobuxText => StreamerModeService.ShouldMaskRobux(_settings) ? "R$ ***" : _totalRobuxText;
 
         public List<Account> GetSelectedAccounts() => _accounts.Where(a => a.IsSelected && a.Model != null).Select(a => a.Model!).ToList();
         public List<AccountViewModel> GetSelectedAccountViewModels() => _accounts.Where(a => a.IsSelected).ToList();

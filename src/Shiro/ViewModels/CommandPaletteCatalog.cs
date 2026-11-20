@@ -94,7 +94,7 @@ namespace Shiro.ViewModels
                 {
                     ItemType = CommandPaletteItemType.Account,
                     Title = acc.ShownUsername,
-                    Description = LocalizationService.Format("Main.AccountBadgeFormat", acc.StatusText, acc.UserId),
+                    Description = LocalizationService.Format("Main.AccountBadgeFormat", acc.StatusText, acc.ShownUserId),
                     Category = LocalizationService.Get("Nav_Accounts"),
                     ActionBadge = LocalizationService.Get("Main.SelectEnterKey"),
                     IconName = "User",

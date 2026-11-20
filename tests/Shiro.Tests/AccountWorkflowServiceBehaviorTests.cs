@@ -494,5 +494,51 @@ namespace Shiro.Tests
                 Account.TestHttpClientFactory = origClientFactory;
             }
         }
+
+        [Fact]
+        public async System.Threading.Tasks.Task AccountWorkflowService_EdgeBranches_CoverBannedTruncationCancelAndDefaults()
+        {
+            var origClientFactory = Account.TestHttpClientFactory;
+            try
+            {
+                Account.TestHttpClientFactory = _ => new System.Net.Http.HttpClient(
+                    new Shiro.Tests.TestInfrastructure.FakeHttpHandler(_ =>
+                        CreateWorkflowJsonResponse(System.Net.HttpStatusCode.Unauthorized, EmptyObjectJson)));
+
+                var mockRepo = Substitute.For<IAccountRepository>();
+                using var repoScope = AppServices.Override<IAccountRepository>(mockRepo);
+                var mainVm = new MainViewModel();
+                var bannedList = new List<Account>();
+                for (int i = 0; i < 6; i++)
+                    bannedList.Add(new Account { Username = "Ban" + i, UserID = 100 + i, AccountStatusIssue = "Banned" });
+                mockRepo.GetAll().Returns(bannedList);
+                await _workflow.CheckAllSessionsAsync(mainVm, _ => { });
+
+                var expAcc = new Account { Username = "AllExp", UserID = 200, Valid = true, SecurityToken = "tok" };
+                mockRepo.GetAll().Returns(new List<Account> { expAcc });
+                await _workflow.CheckAllSessionsAsync(mainVm, _ => { });
+
+                var vm = new AccountViewModel(expAcc) { IsSelected = true };
+                mainVm.Accounts.Add(vm);
+                _fakeDialogs.InputPromptResult = "   ";
+                _workflow.SetGroup(vm, mainVm, _ => { });
+                _workflow.SetGroupSelected(mainVm, _ => { });
+                Assert.Equal("Default", expAcc.Group);
+
+                _fakeDialogs.InputPromptResult = "/UC";
+                _workflow.SetDescription(vm, _ => { });
+                _workflow.SetGroupSelected(mainVm, _ => { });
+                _fakeDialogs.InputPromptResult = "AliasX";
+                _workflow.SetAlias(vm, null!);
+                _fakeDialogs.ConfirmationResult = false;
+                _workflow.RemoveAccount(vm, mainVm, _ => { });
+                _workflow.RemoveSelectedAccounts(mainVm, _ => { });
+                Assert.Single(mainVm.Accounts);
+            }
+            finally
+            {
+                Account.TestHttpClientFactory = origClientFactory;
+            }
+        }
     }
 }

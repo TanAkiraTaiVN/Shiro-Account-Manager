@@ -105,7 +105,7 @@ namespace Shiro.ViewModels
         public Bitmap? AvatarImage => Account?.AvatarImage;
         public string Initials => Account?.Initials ?? "?";
         public string ShownUsername => Account?.ShownUsername ?? Title;
-        public string Alias => Account?.Alias ?? string.Empty;
+        public string Alias => Account?.ShownAlias ?? string.Empty;
         public string StatusText => Account?.StatusText ?? string.Empty;
         public IBrush? StatusBadgeForeground => Account?.StatusBadgeForeground;
 

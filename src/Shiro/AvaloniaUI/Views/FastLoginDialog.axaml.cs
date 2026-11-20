@@ -48,8 +48,8 @@ namespace Shiro.AvaloniaUI.Views
                 MainWindow.Instance?.DashboardView?.LoadDashboardData();
             };
             CookieViewModel.CloseRequested += (_, r) => Close(r);
-
             InitializeComponent();
+            WindowBackdropService.ApplyDarkAndBackdrop(this);
             if (BtnSkipNext != null)
             {
                 BtnSkipNext.Command = new AsyncRelayCommand(AdvanceToNextAccountOrCloseAsync);
@@ -204,7 +204,7 @@ namespace Shiro.AvaloniaUI.Views
                 _restoredHbaScriptId = await restoreModerationSessionAsync(singleAcc);
                 if (_isClosed) return;
                 _ignoredCookieValues.Add(_restoredModerationCookieFp);
-                TxtInAppStatus.Text = Shiro.Services.LocalizationService.Format("FastLogin.OpeningModerationPage", singleAcc.Username, singleAcc.AccountStatusIssue);
+                TxtInAppStatus.Text = Shiro.Services.LocalizationService.Format("FastLogin.OpeningModerationPage", StreamerModeService.GetDisplayUsername(singleAcc.Username), singleAcc.AccountStatusIssue);
                 navigate("https://www.roblox.com/home");
             }
             else
@@ -219,9 +219,10 @@ namespace Shiro.AvaloniaUI.Views
 
         private async Task ShowLoginFillStatusAndFillAsync()
         {
+            string shownUser = StreamerModeService.GetDisplayUsername(_username);
             TxtInAppStatus.Text = !string.IsNullOrEmpty(_password)
-                ? Shiro.Services.LocalizationService.Format("FastLogin.AutoFillingAndLoggingIn", _username)
-                : Shiro.Services.LocalizationService.Format("FastLogin.AutoFillingUsername", _username);
+                ? Shiro.Services.LocalizationService.Format("FastLogin.AutoFillingAndLoggingIn", shownUser)
+                : Shiro.Services.LocalizationService.Format("FastLogin.AutoFillingUsername", shownUser);
             TxtInAppStatus.Foreground = Brushes.LightGreen;
             await TryFillCredentialsAsync(forceClick: false);
         }

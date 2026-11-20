@@ -14,6 +14,7 @@ namespace Shiro.ViewModels.Dialogs
         private readonly Func<Account, Task<bool>> _logoutOthers;
 
         private string _password;
+        private readonly Action<bool> _onStreamerModeChanged;
 
         public AccountUtilsViewModel(
             Account account,
@@ -26,17 +27,27 @@ namespace Shiro.ViewModels.Dialogs
             _prompt = prompt ?? AppServices.Prompt;
             _logoutOthers = logoutOthers ?? (a => a.LogOutOfOtherSessionsAsync());
 
-            Title = LocalizationService.Format("AccountUtils.TitleFormat", account.Username);
-            DisplayName = account.Username;
             _password = account.Password ?? string.Empty;
+            _onStreamerModeChanged = _ => AppDispatcher.Post(() =>
+            {
+                OnPropertyChanged(nameof(Title));
+                OnPropertyChanged(nameof(DisplayName));
+            });
+            StreamerModeService.StateChanged += _onStreamerModeChanged;
 
             LogOutOtherSessionsCommand = TrackCommand(new AsyncRelayCommand(LogOutOtherSessionsAsync, () => !IsBusy));
             SavePasswordCommand = new RelayCommand(SavePassword);
             CloseCommand = new RelayCommand(() => RequestClose(true));
         }
 
-        public string Title { get; }
-        public string DisplayName { get; }
+        public string Title => LocalizationService.Format("AccountUtils.TitleFormat", StreamerModeService.GetDisplayUsername(_account.Username));
+        public string DisplayName => StreamerModeService.GetDisplayUsername(_account.Username);
+
+        public override void OnClosing()
+        {
+            StreamerModeService.StateChanged -= _onStreamerModeChanged;
+            base.OnClosing();
+        }
 
         public string Password
         {
@@ -56,7 +67,7 @@ namespace Shiro.ViewModels.Dialogs
             try
             {
                 bool confirmed = await _prompt.ConfirmAsync(
-                    LocalizationService.Format("AccountUtils.LogoutOtherSessionsPrompt", _account.Username),
+                    LocalizationService.Format("AccountUtils.LogoutOtherSessionsPrompt", StreamerModeService.GetDisplayUsername(_account.Username)),
                     LocalizationService.Get("AccountUtils.ConfirmTitle"));
 
                 if (!confirmed)

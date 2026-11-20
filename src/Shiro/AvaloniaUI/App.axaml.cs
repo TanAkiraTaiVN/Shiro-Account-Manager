@@ -5,6 +5,7 @@ using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Shiro.Services;
+using Shiro.ViewModels;
 
 namespace Shiro.AvaloniaUI
 {
@@ -12,11 +13,14 @@ namespace Shiro.AvaloniaUI
     {
         public override void Initialize()
         {
+            AppDispatcher.RegisterUiThread();
             AvaloniaXamlLoader.Load(this);
         }
 
         public override void OnFrameworkInitializationCompleted()
         {
+            AsyncRelayCommand.DefaultUnhandledErrorHandler ??= HandleUnhandledAsyncCommandError;
+
             if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
             {
                 LocalizationService.Initialize(this);
@@ -69,6 +73,24 @@ namespace Shiro.AvaloniaUI
             SafeExecuteHelper.Try(() => AppServices.HostUiBridge.ShutdownBackend(), "App.Exit.ShutdownBackend");
             try { RobloxWindowService.ShowAllWindows(); }
             catch (Exception ex) { Program.Logger?.Debug($"ShowAllWindows on exit threw: {ex.Message}"); }
+        }
+
+        internal static void HandleUnhandledAsyncCommandError(Exception ex)
+        {
+            if (ex == null) return;
+            try
+            {
+                AppServices.Logger?.Error($"[UI.AsyncCommand] Unhandled error: {ex.GetType().Name}: {ex.Message}", ex);
+                string title = LocalizationService.Get("Status_Error", "Error");
+                string message = string.IsNullOrWhiteSpace(ex.Message)
+                    ? LocalizationService.Get("Status_Error", "Unexpected error")
+                    : LocalizationService.Format("Common.ErrorFormat", ex.Message);
+                ToastService.ShowError(title, message);
+            }
+            catch (Exception toastEx)
+            {
+                AppServices.Logger?.Debug($"[App] HandleUnhandledAsyncCommandError failed: {toastEx.Message}");
+            }
         }
     }
 }

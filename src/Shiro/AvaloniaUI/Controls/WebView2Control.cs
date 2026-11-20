@@ -19,6 +19,7 @@ namespace Shiro.AvaloniaUI.Controls
         private IntPtr _childHwnd;
         private CoreWebView2Controller? _controller;
         private CoreWebView2Environment? _environment;
+        private string? _currentProfileName;
         private bool _isInitialized;
         private int _lastWidth = -1;
         private int _lastHeight = -1;
@@ -78,6 +79,9 @@ namespace Shiro.AvaloniaUI.Controls
         {
             if (OperatingSystem.IsWindows())
             {
+                string? oldProfile = _currentProfileName;
+                _currentProfileName = null;
+
                 try
                 {
                     _controller?.Close();
@@ -93,6 +97,8 @@ namespace Shiro.AvaloniaUI.Controls
                     SafeExecuteHelper.Try(() => DestroyWindow(_childHwnd), "WebView2Control.DestroyWindow");
                     _childHwnd = IntPtr.Zero;
                 }
+
+                ScheduleOwnedProfileCleanup(oldProfile);
             }
 
             base.DestroyNativeControlCore(control);
@@ -103,6 +109,65 @@ namespace Shiro.AvaloniaUI.Controls
             string dataFolder = Path.Combine(StoragePaths.BrowserSessionsDirectory, "EmbeddedBrowser");
             Directory.CreateDirectory(dataFolder);
             return dataFolder;
+        }
+
+        internal static bool IsOwnedProfileDirectoryName(string? profileName)
+        {
+            if (string.IsNullOrEmpty(profileName))
+                return false;
+
+            const string Prefix = "Shiro_";
+            if (!profileName.StartsWith(Prefix, StringComparison.Ordinal) || profileName.Length != Prefix.Length + 32)
+                return false;
+
+            return Guid.TryParseExact(profileName.AsSpan(Prefix.Length), "N", out _);
+        }
+
+        internal static bool TryDeleteOwnedProfileDirectory(string dataFolder, string? profileName)
+        {
+            if (string.IsNullOrWhiteSpace(dataFolder) || !IsOwnedProfileDirectoryName(profileName))
+                return false;
+
+            try
+            {
+                string profilesRoot = Path.Combine(dataFolder, "EBWebView");
+                string targetDir = Path.Combine(profilesRoot, profileName!);
+                if (!StoragePaths.IsWithinDirectory(targetDir, profilesRoot) || !Directory.Exists(targetDir))
+                    return false;
+
+                Directory.Delete(targetDir, true);
+                return true;
+            }
+            catch (IOException ex)
+            {
+                Program.Logger?.Debug($"[WebView2Control] Profile directory delete skipped (IO): {ex.Message}");
+                return false;
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                Program.Logger?.Debug($"[WebView2Control] Profile directory delete skipped (Access): {ex.Message}");
+                return false;
+            }
+        }
+
+        private static void ScheduleOwnedProfileCleanup(string? profileName)
+        {
+            if (!IsOwnedProfileDirectoryName(profileName))
+                return;
+
+            string dataFolder = GetEmbeddedBrowserDataFolder();
+            _ = Task.Run(async () =>
+            {
+                if (TryDeleteOwnedProfileDirectory(dataFolder, profileName))
+                    return;
+
+                await Task.Delay(350).ConfigureAwait(false);
+                if (TryDeleteOwnedProfileDirectory(dataFolder, profileName))
+                    return;
+
+                await Task.Delay(1000).ConfigureAwait(false);
+                TryDeleteOwnedProfileDirectory(dataFolder, profileName);
+            });
         }
 
         // Removes isolated per-account profiles (EBWebView\Shiro_<guid>) left behind by a crash.
@@ -118,7 +183,9 @@ namespace Shiro.AvaloniaUI.Controls
                 foreach (string dir in Directory.EnumerateDirectories(profilesRoot, "Shiro_*"))
                 {
                     if (!StoragePaths.IsWithinDirectory(dir, profilesRoot))
+                    {
                         continue;
+                    }
 
                     try
                     {
@@ -157,17 +224,18 @@ namespace Shiro.AvaloniaUI.Controls
             }
         }
 
-        private async Task<CoreWebView2Controller> CreateIsolatedControllerCoreAsync()
+        private async Task<(CoreWebView2Controller Controller, string ProfileName)> CreateIsolatedControllerCoreAsync()
         {
             _environment ??= await GetOrCreateSharedEnvironmentAsync();
             var controllerOptions = _environment.CreateCoreWebView2ControllerOptions();
-            controllerOptions.ProfileName = $"Shiro_{Guid.NewGuid():N}";
+            string profileName = $"Shiro_{Guid.NewGuid():N}";
+            controllerOptions.ProfileName = profileName;
             controllerOptions.IsInPrivateModeEnabled = false;
 
             var controller = await _environment.CreateCoreWebView2ControllerAsync(_childHwnd, controllerOptions);
             try { controller.DefaultBackgroundColor = System.Drawing.Color.FromArgb(255, 13, 13, 17); }
             catch (Exception ex) { Program.Logger?.Debug($"Set DefaultBackgroundColor threw: {ex.Message}"); }
-            return controller;
+            return (controller, profileName);
         }
 
         public async Task<CoreWebView2?> ResetToFreshProfileAsync()
@@ -176,7 +244,9 @@ namespace Shiro.AvaloniaUI.Controls
                 return CoreWebView2;
 
             var oldController = _controller;
+            string? oldProfile = _currentProfileName;
             _controller = null;
+            _currentProfileName = null;
 
             if (oldController != null)
             {
@@ -196,14 +266,18 @@ namespace Shiro.AvaloniaUI.Controls
                 SafeExecuteHelper.Try(() => oldController.Close(), "WebView2Control.CloseOldController");
             }
 
-            var controller = await CreateIsolatedControllerCoreAsync();
+            ScheduleOwnedProfileCleanup(oldProfile);
+
+            var (controller, newProfileName) = await CreateIsolatedControllerCoreAsync();
             if (_childHwnd == IntPtr.Zero)
             {
                 SafeExecuteHelper.Try(() => controller.Close(), "WebView2Control.CloseDisposedResetController");
+                ScheduleOwnedProfileCleanup(newProfileName);
                 return null;
             }
 
             _controller = controller;
+            _currentProfileName = newProfileName;
             _lastWidth = -1;
             _lastHeight = -1;
             UpdateBounds();
@@ -219,14 +293,16 @@ namespace Shiro.AvaloniaUI.Controls
 
             try
             {
-                var controller = await CreateIsolatedControllerCoreAsync();
+                var (controller, profileName) = await CreateIsolatedControllerCoreAsync();
                 if (_childHwnd == IntPtr.Zero)
                 {
                     SafeExecuteHelper.Try(() => controller.Close(), "WebView2Control.CloseDisposedInitController");
+                    ScheduleOwnedProfileCleanup(profileName);
                     return;
                 }
 
                 _controller = controller;
+                _currentProfileName = profileName;
                 UpdateBounds();
                 _controller.IsVisible = true;
                 _isInitialized = true;

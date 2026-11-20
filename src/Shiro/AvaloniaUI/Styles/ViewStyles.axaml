@@ -84,11 +84,23 @@
         <Setter Property="FontSize" Value="12" />
         <Setter Property="Template">
             <ControlTemplate>
-                <Border Background="{TemplateBinding Background}" CornerRadius="{TemplateBinding CornerRadius}" Padding="{TemplateBinding Padding}">
-                    <ContentPresenter Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                <Border Background="{TemplateBinding Background}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        CornerRadius="{TemplateBinding CornerRadius}"
+                        Padding="{TemplateBinding Padding}">
+                    <ContentPresenter Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}"
+                                      Foreground="{TemplateBinding Foreground}"
+                                      VerticalAlignment="Center"
+                                      HorizontalAlignment="Center" />
                 </Border>
             </ControlTemplate>
         </Setter>
+    </Style>
+    <Style Selector="RadioButton.FilterTabPill:pointerover">
+        <Setter Property="Background" Value="#161622" />
+        <Setter Property="Foreground" Value="#FFFFFF" />
     </Style>
     <Style Selector="RadioButton.FilterTabPill:checked">
         <Setter Property="Background" Value="{DynamicResource AccentSubtleBrush}" />
@@ -96,10 +108,6 @@
         <Setter Property="BorderBrush" Value="{DynamicResource AccentBorderBrush}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="FontWeight" Value="Bold" />
-    </Style>
-    <Style Selector="RadioButton.FilterTabPill:pointerover">
-        <Setter Property="Background" Value="#161622" />
-        <Setter Property="Foreground" Value="#FFFFFF" />
     </Style>
 
     <Style Selector="Button.MetricCardBtn">
@@ -156,20 +164,30 @@
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="Template">
             <ControlTemplate>
-                <Border Background="{TemplateBinding Background}" CornerRadius="{TemplateBinding CornerRadius}" Padding="{TemplateBinding Padding}">
-                    <ContentPresenter Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                <Border Background="{TemplateBinding Background}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        CornerRadius="{TemplateBinding CornerRadius}"
+                        Padding="{TemplateBinding Padding}">
+                    <ContentPresenter Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}"
+                                      Foreground="{TemplateBinding Foreground}"
+                                      VerticalAlignment="Center"
+                                      HorizontalAlignment="Center" />
                 </Border>
             </ControlTemplate>
         </Setter>
     </Style>
-    <Style Selector="RadioButton.SubTabPill:checked">
-        <Setter Property="Background" Value="#22222E" />
-        <Setter Property="Foreground" Value="#FFFFFF" />
-        <Setter Property="FontWeight" Value="SemiBold" />
-    </Style>
     <Style Selector="RadioButton.SubTabPill:pointerover">
         <Setter Property="Background" Value="#1A1A24" />
         <Setter Property="Foreground" Value="#FFFFFF" />
+    </Style>
+    <Style Selector="RadioButton.SubTabPill:checked">
+        <Setter Property="Background" Value="#22222E" />
+        <Setter Property="Foreground" Value="#FFFFFF" />
+        <Setter Property="BorderBrush" Value="#323244" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
 
     <Style Selector="Button.SortHeaderBtn">
@@ -235,19 +253,29 @@
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="Template">
             <ControlTemplate>
-                <Border Background="{TemplateBinding Background}" CornerRadius="{TemplateBinding CornerRadius}" Padding="{TemplateBinding Padding}">
-                    <ContentPresenter Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                <Border Background="{TemplateBinding Background}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        CornerRadius="{TemplateBinding CornerRadius}"
+                        Padding="{TemplateBinding Padding}">
+                    <ContentPresenter Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}"
+                                      Foreground="{TemplateBinding Foreground}"
+                                      VerticalAlignment="Center"
+                                      HorizontalAlignment="Center" />
                 </Border>
             </ControlTemplate>
         </Setter>
     </Style>
-    <Style Selector="RadioButton.SettingsTabPill:checked">
-        <Setter Property="Background" Value="#22222E" />
-        <Setter Property="Foreground" Value="#FFFFFF" />
-        <Setter Property="FontWeight" Value="SemiBold" />
-    </Style>
     <Style Selector="RadioButton.SettingsTabPill:pointerover">
         <Setter Property="Background" Value="#1A1A24" />
         <Setter Property="Foreground" Value="#FFFFFF" />
+    </Style>
+    <Style Selector="RadioButton.SettingsTabPill:checked">
+        <Setter Property="Background" Value="#22222E" />
+        <Setter Property="Foreground" Value="#FFFFFF" />
+        <Setter Property="BorderBrush" Value="#323244" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
 </Styles>

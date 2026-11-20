@@ -77,12 +77,15 @@
                             <TextBlock Text="{DynamicResource Loc_Btn_Close}" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
-                    <Button x:Name="BtnStartImport"
+                    <Button x:Name="BtnStartImport" Classes="FastPillBtn"
                             Command="{Binding StartImportCommand}"
-                            Background="#FFFFFF" Foreground="#09090B" FontWeight="Bold"
+                            Background="{DynamicResource AccentBrush}"
+                            Foreground="{DynamicResource AccentForegroundBrush}" FontWeight="Bold"
                             CornerRadius="6" Padding="20,8" Cursor="Hand">
                         <StackPanel Orientation="Horizontal" Spacing="6">
-                            <lucide:Lucide Icon="Check" Width="13" Height="13" StrokeBrush="#09090B" StrokeThickness="2.5" VerticalAlignment="Center" />
+                            <lucide:Lucide Icon="Check" Width="13" Height="13"
+                                           StrokeBrush="{DynamicResource AccentForegroundBrush}"
+                                           StrokeThickness="2.5" VerticalAlignment="Center" />
                             <TextBlock Text="{DynamicResource Loc_Bulk_BtnStart}" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>

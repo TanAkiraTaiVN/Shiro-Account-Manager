@@ -10,6 +10,7 @@ using Xunit;
 
 namespace Shiro.Tests
 {
+    [Collection("SerialGlobalState")]
     public partial class ArchitectureTests
     {
         internal static readonly Assembly CoreAssembly = typeof(AccountViewModel).Assembly;

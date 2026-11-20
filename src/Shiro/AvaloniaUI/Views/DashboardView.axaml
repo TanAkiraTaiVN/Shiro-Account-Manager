@@ -225,8 +225,9 @@
                 </Border>
                 <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" Margin="0,2,8,2">
                     <TextBlock Text="{DynamicResource Dash_JobIdLabel}" FontSize="12" Foreground="#9CA3AF" VerticalAlignment="Center" />
-                    <TextBox x:Name="TxtJobId" Text="{Binding JobId, Mode=TwoWay}" Width="122" Watermark="{DynamicResource Dash_JobIdPlaceholder}" ToolTip.Tip="{DynamicResource Bar_TipJobId}"
-                        Background="#14141C" Foreground="#FFFFFF" BorderBrush="#242432" CornerRadius="6" Padding="8,6" VerticalContentAlignment="Center" FontSize="12" />
+                    <TextBox x:Name="TxtJobId" Text="{Binding JobId, Mode=TwoWay}" PasswordChar="{Binding JobIdMaskChar}" Width="122" Watermark="{DynamicResource Dash_JobIdPlaceholder}"
+                        ToolTip.Tip="{DynamicResource Bar_TipJobId}" Background="#14141C" Foreground="#FFFFFF" BorderBrush="#242432" CornerRadius="6" Padding="8,6"
+                        VerticalContentAlignment="Center" FontSize="12" />
                 </StackPanel>
                 <Button Margin="0,2,0,2" Background="#161620" Foreground="#E4E4E7" BorderBrush="#262634" BorderThickness="1" CornerRadius="6" Padding="9,6" FontSize="12" FontWeight="SemiBold"
                     Cursor="Hand" ToolTip.Tip="{DynamicResource Bar_TipRecent}">
@@ -347,9 +348,9 @@
                                         </Border>
                                         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"><Path Data="{StaticResource GeoPin}" Width="11" Height="11"
                         Stretch="Uniform" Stroke="#FBBF24" StrokeThickness="1.8" IsVisible="{Binding Pinned}" VerticalAlignment="Center" /><TextBlock Text="{Binding ShownUsername}"
-                        FontWeight="SemiBold" FontSize="12" Foreground="#FFFFFF" VerticalAlignment="Center" /><TextBlock Text="{Binding Alias, StringFormat='({0})'}"
-                        IsVisible="{Binding Alias, Converter={StaticResource StringNotNullOrEmpty}}" FontSize="11" Foreground="#A1A1AA" VerticalAlignment="Center" /></StackPanel>
-                                        <TextBlock Grid.Column="3" Text="{Binding UserId}" FontSize="11" Foreground="#71717A" VerticalAlignment="Center" />
+                        FontWeight="SemiBold" FontSize="12" Foreground="#FFFFFF" VerticalAlignment="Center" /><TextBlock Text="{Binding ShownAlias, StringFormat='({0})'}"
+                        IsVisible="{Binding ShownAlias, Converter={StaticResource StringNotNullOrEmpty}}" FontSize="11" Foreground="#A1A1AA" VerticalAlignment="Center" /></StackPanel>
+                                        <TextBlock Grid.Column="3" Text="{Binding ShownUserId}" FontSize="11" Foreground="#71717A" VerticalAlignment="Center" />
                                         <Border Grid.Column="4" Background="#1C1C26" CornerRadius="4" Padding="6,2" HorizontalAlignment="Left" VerticalAlignment="Center"><TextBlock
                         Text="{Binding Group, Converter={StaticResource GroupNameDisplay}}" FontSize="10" Foreground="#A1A1AA" /></Border>
                                         <StackPanel Grid.Column="5" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"><Ellipse Width="6" Height="6"

@@ -278,5 +278,113 @@ namespace Shiro.Tests
                 AccentThemeService.ApplyTheme(prevTheme);
             }
         }
+
+        [Fact]
+        public void Commands_RaiseCanExecuteChanged_MarshalsViaAppDispatcherPost()
+        {
+            var prevDispatcher = AppDispatcher.CustomDispatcher;
+            int postedCount = 0;
+            int invokedCount = 0;
+            AppDispatcher.CustomDispatcher = action =>
+            {
+                postedCount++;
+                action();
+            };
+
+            try
+            {
+                var syncCmd = new RelayCommand(() => { });
+                var genericSyncCmd = new RelayCommand<string>(_ => { });
+                var asyncCmd = new AsyncRelayCommand(() => Task.CompletedTask);
+                var genericAsyncCmd = new AsyncRelayCommand<int>(_ => Task.CompletedTask);
+
+                syncCmd.CanExecuteChanged += (_, _) => invokedCount++;
+                genericSyncCmd.CanExecuteChanged += (_, _) => invokedCount++;
+                asyncCmd.CanExecuteChanged += (_, _) => invokedCount++;
+                genericAsyncCmd.CanExecuteChanged += (_, _) => invokedCount++;
+
+                syncCmd.RaiseCanExecuteChanged();
+                genericSyncCmd.RaiseCanExecuteChanged();
+                asyncCmd.RaiseCanExecuteChanged();
+                genericAsyncCmd.RaiseCanExecuteChanged();
+
+                Assert.Equal(4, postedCount);
+                Assert.Equal(4, invokedCount);
+            }
+            finally
+            {
+                AppDispatcher.CustomDispatcher = prevDispatcher;
+            }
+        }
+
+        [Fact]
+        public async Task AsyncRelayCommand_UnhandledException_InvokesDefaultUnhandledErrorHandlerOnce()
+        {
+            int defaultCount = 0;
+            Exception? captured = null;
+            var prev = AsyncRelayCommand.DefaultUnhandledErrorHandler;
+            AsyncRelayCommand.DefaultUnhandledErrorHandler = ex =>
+            {
+                Interlocked.Increment(ref defaultCount);
+                captured = ex;
+            };
+            try
+            {
+                var cmd = new AsyncRelayCommand(() => Task.FromException(new InvalidOperationException("boom")));
+                cmd.Execute(null);
+                await Task.Delay(50);
+
+                Assert.Equal(1, defaultCount);
+                Assert.IsType<InvalidOperationException>(captured);
+
+                var genericCmd = new AsyncRelayCommand<int>(_ => Task.FromException(new InvalidOperationException("boom-generic")));
+                genericCmd.Execute(7);
+                await Task.Delay(50);
+
+                Assert.Equal(2, defaultCount);
+                Assert.Equal("boom-generic", captured?.Message);
+            }
+            finally
+            {
+                AsyncRelayCommand.DefaultUnhandledErrorHandler = prev;
+            }
+        }
+
+        [Fact]
+        public async Task AsyncRelayCommand_LocalCatchOrInstanceOnError_DoesNotInvokeDefaultHandler()
+        {
+            int defaultCount = 0;
+            int instanceCount = 0;
+            var prev = AsyncRelayCommand.DefaultUnhandledErrorHandler;
+            AsyncRelayCommand.DefaultUnhandledErrorHandler = _ => Interlocked.Increment(ref defaultCount);
+            try
+            {
+                var instanceCmd = new AsyncRelayCommand(
+                    () => Task.FromException(new InvalidOperationException("handled-by-instance")),
+                    canExecute: null,
+                    onError: _ => Interlocked.Increment(ref instanceCount));
+                await instanceCmd.ExecuteAsync();
+
+                var localCatchCmd = new AsyncRelayCommand(async () =>
+                {
+                    try
+                    {
+                        await Task.FromException(new InvalidOperationException("caught-locally"));
+                    }
+                    catch (InvalidOperationException)
+                    {
+                        // Handled locally by command body
+                    }
+                });
+                await localCatchCmd.ExecuteAsync();
+
+                Assert.Equal(1, instanceCount);
+                Assert.Equal(0, defaultCount);
+            }
+            finally
+            {
+                AsyncRelayCommand.DefaultUnhandledErrorHandler = prev;
+            }
+        }
     }
 }

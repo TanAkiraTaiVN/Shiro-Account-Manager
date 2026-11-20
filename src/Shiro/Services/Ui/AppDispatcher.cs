@@ -11,7 +11,46 @@ namespace Shiro.Services
     /// </summary>
     public static class AppDispatcher
     {
+        private static volatile int _uiThreadId;
+        private static volatile bool _isUiShuttingDown;
+        private static readonly EventHandler s_onDispatcherShutdown = OnDispatcherShutdown;
+
         public static Action<Action>? CustomDispatcher { get; set; }
+
+        internal static void RegisterUiThread()
+        {
+            _uiThreadId = Environment.CurrentManagedThreadId;
+            _isUiShuttingDown = false;
+            var dispatcher = Dispatcher.UIThread;
+            dispatcher.ShutdownStarted -= s_onDispatcherShutdown;
+            dispatcher.ShutdownStarted += s_onDispatcherShutdown;
+            dispatcher.ShutdownFinished -= s_onDispatcherShutdown;
+            dispatcher.ShutdownFinished += s_onDispatcherShutdown;
+        }
+
+        private static void OnDispatcherShutdown(object? sender, EventArgs e)
+            => _isUiShuttingDown = true;
+
+        internal static bool HasUiThreadAccess()
+        {
+            if (CustomDispatcher != null || Avalonia.Application.Current == null || _isUiShuttingDown)
+                return false;
+
+            int uiThreadId = _uiThreadId;
+            if (uiThreadId != 0 && uiThreadId != Environment.CurrentManagedThreadId)
+                return false;
+
+            return Dispatcher.UIThread.CheckAccess();
+        }
+
+        internal static bool CanMutateUiResources()
+        {
+            if (Avalonia.Application.Current == null || _isUiShuttingDown)
+                return false;
+
+            int uiThreadId = _uiThreadId;
+            return uiThreadId == 0 || uiThreadId == Environment.CurrentManagedThreadId;
+        }
 
         /// <summary>
         /// Executes an action safely on the Avalonia UI Thread.
@@ -38,10 +77,16 @@ namespace Shiro.Services
                 hasActiveDispatcher,
                 dispatch: () =>
                 {
-                    if (priority == DispatcherPriority.Normal && avaloniaDispatcher!.CheckAccess())
+                    if (priority == DispatcherPriority.Normal &&
+                        (_uiThreadId == 0 || _uiThreadId == Environment.CurrentManagedThreadId) &&
+                        avaloniaDispatcher!.CheckAccess())
+                    {
                         action();
+                    }
                     else
+                    {
                         avaloniaDispatcher!.Post(action, priority);
+                    }
                 },
                 fallback: action);
         }
@@ -93,16 +138,16 @@ namespace Shiro.Services
         private static bool TryGetActiveDispatcher(out Dispatcher? dispatcher)
         {
             dispatcher = null;
-            // Guard: Do not touch Dispatcher.UIThread if Avalonia Application is not initialized.
+            // Guard: Do not touch Dispatcher.UIThread if Avalonia Application is not initialized or shutting down.
             // Touching Dispatcher.UIThread before Application startup binds a null controlled implementation,
             // causing Dispatcher.MainLoop to fail with PlatformNotSupportedException.
-            if (Avalonia.Application.Current == null)
+            if (Avalonia.Application.Current == null || _isUiShuttingDown)
                 return false;
 
             try
             {
                 dispatcher = Dispatcher.UIThread;
-                return dispatcher != null;
+                return dispatcher != null && !_isUiShuttingDown;
             }
             catch (PlatformNotSupportedException ex)
             {

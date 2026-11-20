@@ -25,7 +25,8 @@ namespace Shiro.AvaloniaUI.Views
             _redirectedFromUnauthenticatedModeration = true;
 
             var currentAcc = GetCurrentQueueAccount();
-            string accName = currentAcc?.Username ?? _username ?? Shiro.Services.LocalizationService.Get("Nav_Accounts");
+            string rawName = currentAcc?.Username ?? _username;
+            string accName = !string.IsNullOrEmpty(rawName) ? StreamerModeService.GetDisplayUsername(rawName) : Shiro.Services.LocalizationService.Get("Nav_Accounts");
             if (currentAcc != null)
             {
                 currentAcc.Valid = false;
@@ -74,7 +75,8 @@ namespace Shiro.AvaloniaUI.Views
         {
             if (_isClosed) return;
             var currentAcc = GetCurrentQueueAccount();
-            string accName = currentAcc?.Username ?? _username ?? Shiro.Services.LocalizationService.Get("Nav_Accounts");
+            string rawName = currentAcc?.Username ?? _username;
+            string accName = !string.IsNullOrEmpty(rawName) ? StreamerModeService.GetDisplayUsername(rawName) : Shiro.Services.LocalizationService.Get("Nav_Accounts");
             if (currentAcc != null)
             {
                 currentAcc.Valid = false;
@@ -151,7 +153,7 @@ namespace Shiro.AvaloniaUI.Views
 
                     LoadAccountAtIndex(_queue.Index + 1);
                     _captured = true;
-                    TxtInAppStatus.Text = Shiro.Services.LocalizationService.Format("FastLogin.TransitioningToNext", _username, _queue.Index + 1, _queue.Count);
+                    TxtInAppStatus.Text = Shiro.Services.LocalizationService.Format("FastLogin.TransitioningToNext", StreamerModeService.GetDisplayUsername(_username), _queue.Index + 1, _queue.Count);
                     TxtInAppStatus.Foreground = Brushes.DeepSkyBlue;
 
                     await ResetToFreshLoginProfileAsync(waitForLoginUrl: true);
@@ -280,7 +282,7 @@ namespace Shiro.AvaloniaUI.Views
                     _pendingCapturedFp = fp;
                     AppServices.Logger.Info($"[FastLogin] .ROBLOSECURITY detected for '{_username}' (len={secCookie.Value.Length}, url={core.Source}). Waiting for settle...");
 
-                    TxtInAppStatus.Text = Shiro.Services.LocalizationService.Format("FastLogin.SessionCapturedRotating", _username ?? Shiro.Services.LocalizationService.Get("Dash_AccountsUnit"));
+                    TxtInAppStatus.Text = Shiro.Services.LocalizationService.Format("FastLogin.SessionCapturedRotating", string.IsNullOrEmpty(_username) ? Shiro.Services.LocalizationService.Get("Dash_AccountsUnit") : StreamerModeService.GetDisplayUsername(_username));
                     TxtInAppStatus.Foreground = Brushes.LightGreen;
 
                     for (int w = 0; w < 24; w++)
@@ -393,7 +395,7 @@ namespace Shiro.AvaloniaUI.Views
 
                             string progressTag = _queue.Count > 1 ? $" ({_queue.Index + 1}/{_queue.Count})" : "";
                             if (captureOutcome.Account != null && !Account.IsShortLivedCookie(captureOutcome.Account.SecurityToken))
-                                AppServices.HostUiBridge.NotifyWindowStatus(Shiro.Services.LocalizationService.Format("FastLogin.InAppLoginSuccess", progressTag, captureOutcome.Account.Username));
+                                AppServices.HostUiBridge.NotifyWindowStatus(Shiro.Services.LocalizationService.Format("FastLogin.InAppLoginSuccess", progressTag, StreamerModeService.GetDisplayUsername(captureOutcome.Account.Username)));
 
                             await AdvanceToNextAccountOrCloseAsync();
                             return;
@@ -404,8 +406,8 @@ namespace Shiro.AvaloniaUI.Views
                             core.SourceChanged -= OnSourceChanged;
                             core.WebResourceRequested -= OnWebResourceRequested;
                             core.WebMessageReceived -= OnWebMessageReceived;
-                            string wrongUser = captureOutcome.Account?.Username ?? "Unknown";
-                            string mismatchMsg = Shiro.Services.LocalizationService.Format("FastLogin.UsernameMismatchReset", wrongUser, _username ?? string.Empty);
+                            string wrongUser = captureOutcome.Account != null ? StreamerModeService.GetDisplayUsername(captureOutcome.Account.Username) : "Unknown";
+                            string mismatchMsg = Shiro.Services.LocalizationService.Format("FastLogin.UsernameMismatchReset", wrongUser, StreamerModeService.GetDisplayUsername(_username));
                             TxtInAppStatus.Text = mismatchMsg;
                             TxtInAppStatus.Foreground = Brushes.Orange;
                             AppServices.HostUiBridge.NotifyWindowStatus(mismatchMsg);

@@ -17,6 +17,7 @@ namespace Shiro.AvaloniaUI.Views
         public InputDialog()
         {
             InitializeComponent();
+            WindowBackdropService.ApplyDarkAndBackdrop(this);
         }
 
         internal static bool IsValidDialogOwner(Window? window)

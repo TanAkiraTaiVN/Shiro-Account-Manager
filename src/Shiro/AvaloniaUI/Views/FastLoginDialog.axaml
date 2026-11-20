@@ -141,7 +141,9 @@
                     <!-- Cookie input -->
                     <StackPanel Spacing="5">
                         <TextBlock Text="{DynamicResource Loc_FastLogin_CookieInputLabel}" FontSize="11" FontWeight="SemiBold" Foreground="#D4D4D8" />
-                        <TextBox x:Name="TxtCookie" Text="{Binding Cookie}" Watermark="_|WARNING:-DO-NOT-SHARE-THIS..."
+                        <TextBox x:Name="TxtCookie" Text="{Binding Cookie}"
+                                 PasswordChar="{Binding CookieMaskChar}"
+                                 Watermark="_|WARNING:-DO-NOT-SHARE-THIS..."
                                  Height="80" AcceptsReturn="True" TextWrapping="Wrap"
                                  Background="#14141C" Foreground="#FFFFFF" BorderBrush="#272733"
                                  CornerRadius="6" Padding="8" FontSize="11" />
@@ -206,12 +208,16 @@
                     </StackPanel>
                 </Button>
 
-                <Button x:Name="BtnAddCookie" Command="{Binding AddCommand}"
-                        Background="#FFFFFF" Foreground="#09090B" FontWeight="Bold"
+                <Button x:Name="BtnAddCookie" Classes="FastPillBtn" Command="{Binding AddCommand}"
+                        Background="{DynamicResource AccentBrush}"
+                        Foreground="{DynamicResource AccentForegroundBrush}" FontWeight="Bold"
                         CornerRadius="6" Padding="14,6" FontSize="11" Cursor="Hand" IsVisible="False">
                     <StackPanel Orientation="Horizontal" Spacing="5">
-                        <lucide:Lucide Icon="Plus" Width="12" Height="12" StrokeBrush="#09090B" StrokeThickness="2.5" VerticalAlignment="Center" />
-                        <TextBlock Text="{DynamicResource Loc_FastLogin_AddAccountBtn}" VerticalAlignment="Center" />
+                        <lucide:Lucide Icon="Plus" Width="12" Height="12"
+                                       StrokeBrush="{DynamicResource AccentForegroundBrush}"
+                                       StrokeThickness="2.5" VerticalAlignment="Center" />
+                        <TextBlock Text="{DynamicResource Loc_FastLogin_AddAccountBtn}"
+                                   VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
 

@@ -70,24 +70,8 @@ namespace Shiro.Services
 
         public static bool TryGetCachedBitmap(long placeId, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out Bitmap? bitmap)
         {
-            if (_bitmapCache.TryGetValue(placeId, out bitmap) && bitmap != null)
+            if (placeId > 0 && _bitmapCache.TryGetValue(placeId, out bitmap) && bitmap != null)
                 return true;
-
-            string? diskPath = GetDiskCachePath(placeId);
-            if (!string.IsNullOrEmpty(diskPath) && File.Exists(diskPath))
-            {
-                try
-                {
-                    using var stream = File.OpenRead(diskPath);
-                    bitmap = Bitmap.DecodeToWidth(stream, 96);
-                    _bitmapCache.Set(placeId, bitmap);
-                    return true;
-                }
-                catch (Exception ex)
-                {
-                    _logger.Debug($"[GameThumbnailService] Error decoding cache for {placeId}: {ex.Message}");
-                }
-            }
 
             bitmap = null;
             return false;
@@ -96,12 +80,15 @@ namespace Shiro.Services
         public static async Task<Bitmap?> GetThumbnailBitmapAsync(long placeId, string? cdnUrl = null, CancellationToken cancellationToken = default)
         {
             if (placeId <= 0) return null;
+            cancellationToken.ThrowIfCancellationRequested();
 
             // Fast O(1) memory-only check on caller thread so UI thread never blocks on disk I/O
             if (_bitmapCache.TryGetValue(placeId, out var memCached) && memCached != null)
                 return memCached;
 
-            var downloadTask = _inFlightDownloads.GetOrAdd(placeId, id => DownloadAndCacheThumbnailCoreAsync(id, cdnUrl));
+            var downloadTask = _inFlightDownloads.GetOrAdd(
+                placeId,
+                id => Task.Run(() => DownloadAndCacheThumbnailCoreAsync(id, cdnUrl)));
             try
             {
                 return await downloadTask.WaitAsync(cancellationToken).ConfigureAwait(false);
@@ -125,7 +112,6 @@ namespace Shiro.Services
 
         private static async Task<Bitmap?> DownloadAndCacheThumbnailCoreAsync(long placeId, string? cdnUrl)
         {
-            await Task.Yield();
             try
             {
                 if (_bitmapCache.TryGetValue(placeId, out var memCached) && memCached != null)

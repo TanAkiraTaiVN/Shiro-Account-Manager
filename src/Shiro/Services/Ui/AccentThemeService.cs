@@ -22,6 +22,7 @@ namespace Shiro.Services
 
         private static readonly ResourceDictionary[] _themeResourceDicts = BuildThemeResourceDictionaries();
         private static ResourceDictionary? _activeThemeDict;
+        private static System.Collections.Generic.IList<IResourceProvider>? _attachedMergedDictionaries;
 
         public static event Action<AccentTheme>? ThemeChanged;
 
@@ -89,8 +90,8 @@ namespace Shiro.Services
             {
                 AccentTheme.Cyan => (Color.FromRgb(6, 182, 212), Color.FromRgb(34, 211, 238), Color.FromRgb(9, 9, 11)),
                 AccentTheme.Emerald => (Color.FromRgb(16, 185, 129), Color.FromRgb(52, 211, 153), Color.FromRgb(9, 9, 11)),
-                AccentTheme.Pink => (Color.FromRgb(236, 72, 153), Color.FromRgb(244, 114, 182), Color.FromRgb(255, 255, 255)),
-                AccentTheme.Violet => (Color.FromRgb(139, 92, 246), Color.FromRgb(167, 139, 250), Color.FromRgb(255, 255, 255)),
+                AccentTheme.Pink => (Color.FromRgb(219, 39, 119), Color.FromRgb(236, 72, 153), Color.FromRgb(255, 255, 255)),
+                AccentTheme.Violet => (Color.FromRgb(124, 58, 237), Color.FromRgb(139, 92, 246), Color.FromRgb(255, 255, 255)),
                 _ => (Color.FromRgb(255, 255, 255), Color.FromRgb(228, 228, 231), Color.FromRgb(9, 9, 11)) // Monochrome (Default)
             };
 
@@ -134,37 +135,6 @@ namespace Shiro.Services
             bool changed = _currentTheme != theme;
             _currentTheme = theme;
 
-            static void ApplyToAppResources(AccentTheme targetTheme)
-            {
-                var app = Avalonia.Application.Current;
-                if (app?.Resources == null) return;
-
-                int idx = (int)targetTheme;
-                if ((uint)idx >= (uint)_themeResourceDicts.Length) idx = 0;
-                var targetDict = _themeResourceDicts[idx];
-
-                var merged = app.Resources.MergedDictionaries;
-                if (ReferenceEquals(_activeThemeDict, targetDict) && merged.Contains(targetDict))
-                    return;
-
-                if (_activeThemeDict != null)
-                {
-                    merged.Remove(_activeThemeDict);
-                }
-
-                merged.Add(targetDict);
-                _activeThemeDict = targetDict;
-            }
-
-            if (Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
-            {
-                ApplyToAppResources(theme);
-            }
-            else
-            {
-                AppDispatcher.Post(() => ApplyToAppResources(theme));
-            }
-
             if (save)
             {
                 try
@@ -181,9 +151,62 @@ namespace Shiro.Services
                 }
             }
 
-            if (changed || !save)
+            static void ApplyToAppResources(Avalonia.Application? app, AccentTheme targetTheme)
             {
-                ThemeChanged?.Invoke(theme);
+                if (app?.Resources == null) return;
+
+                int idx = (int)targetTheme;
+                if ((uint)idx >= (uint)_themeResourceDicts.Length) idx = 0;
+                var targetDict = _themeResourceDicts[idx];
+
+                var merged = app.Resources.MergedDictionaries;
+                if (ReferenceEquals(_activeThemeDict, targetDict) &&
+                    ReferenceEquals(_attachedMergedDictionaries, merged) &&
+                    merged.Contains(targetDict))
+                {
+                    return;
+                }
+
+                if (_attachedMergedDictionaries != null && !ReferenceEquals(_attachedMergedDictionaries, merged))
+                {
+                    foreach (var d in _themeResourceDicts)
+                        _attachedMergedDictionaries.Remove(d);
+                    _activeThemeDict = null;
+                    _attachedMergedDictionaries = null;
+                }
+
+                if (_activeThemeDict != null)
+                {
+                    merged.Remove(_activeThemeDict);
+                }
+
+                _activeThemeDict = targetDict;
+                _attachedMergedDictionaries = merged;
+                if (!merged.Contains(targetDict))
+                {
+                    merged.Add(targetDict);
+                }
+            }
+
+            void SwapAndNotify()
+            {
+                if (AppDispatcher.CanMutateUiResources())
+                {
+                    ApplyToAppResources(Avalonia.Application.Current, theme);
+                }
+                if (changed || !save)
+                {
+                    ThemeChanged?.Invoke(theme);
+                }
+            }
+
+            if (Avalonia.Application.Current == null || AppDispatcher.HasUiThreadAccess())
+            {
+                SwapAndNotify();
+            }
+            else
+            {
+                AppDispatcher.Post(SwapAndNotify);
             }
         }
     }

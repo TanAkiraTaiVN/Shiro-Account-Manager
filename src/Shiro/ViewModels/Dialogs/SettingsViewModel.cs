@@ -107,7 +107,11 @@ namespace Shiro.ViewModels.Dialogs
         public bool HideUsernames
         {
             get => _hideUsernames;
-            set => SetProperty(ref _hideUsernames, value);
+            set
+            {
+                if (SetProperty(ref _hideUsernames, value) && !_isLoading)
+                    _effects.SetStreamerMode(value);
+            }
         }
 
         public bool CheckForUpdates
@@ -226,7 +230,9 @@ namespace Shiro.ViewModels.Dialogs
             {
                 SelectedLanguageIndex = LocalizationService.CurrentLanguage == AppLanguage.Vietnamese ? 0 : 1;
                 SelectedTheme = AccentThemeService.CurrentTheme;
-                HideUsernames = _general.Exists("HideUsernames") && _general.Get<bool>("HideUsernames");
+                bool hideUsers = _general.Exists("HideUsernames") && _general.Get<bool>("HideUsernames");
+                bool streamerOn = _general.Exists(AppSettingsKeys.General.StreamerModeEnabled) ? _general.Get<bool>(AppSettingsKeys.General.StreamerModeEnabled) : StreamerModeService.IsEnabled;
+                HideUsernames = hideUsers || streamerOn;
                 CheckForUpdates = _settings.CheckForUpdates;
 
                 UnlockFps = _settings.UnlockFPS;
@@ -288,6 +294,8 @@ namespace Shiro.ViewModels.Dialogs
                 }
 
                 _general.Set("HideUsernames", HideUsernames ? "true" : "false");
+                _general.Set(AppSettingsKeys.General.StreamerModeEnabled, HideUsernames ? "true" : "false");
+                _effects.SetStreamerMode(HideUsernames);
                 _effects.NotifyDisplayNamesChanged();
 
                 _settings.CheckForUpdates = CheckForUpdates;

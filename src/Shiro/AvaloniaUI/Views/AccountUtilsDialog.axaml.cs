@@ -22,6 +22,7 @@ namespace Shiro.AvaloniaUI.Views
         public AccountUtilsDialog(AccountUtilsViewModel viewModel)
         {
             InitializeComponent();
+            WindowBackdropService.ApplyDarkAndBackdrop(this);
             _viewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
             DataContext = _viewModel;
             _viewModel.CloseRequested += (_, _) => Close();

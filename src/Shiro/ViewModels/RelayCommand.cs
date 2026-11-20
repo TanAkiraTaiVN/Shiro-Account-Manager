@@ -49,25 +49,39 @@ namespace Shiro.ViewModels
             }
         }
 
-        public void RaiseCanExecuteChanged() => CanExecuteChanged?.Invoke(this, EventArgs.Empty);
+        public void RaiseCanExecuteChanged()
+            => AsyncRelayCommand.PostCanExecuteChanged(() => CanExecuteChanged, this);
     }
 
     public class AsyncRelayCommand : IAsyncRelayCommand
     {
+        public static Action<Exception>? DefaultUnhandledErrorHandler { get; set; }
+
         private readonly Func<object?, Task> _executeAsync;
         private readonly Predicate<object?>? _canExecute;
+        private readonly Action<Exception>? _onError;
         private int _isExecuting;
 
         public event EventHandler? CanExecuteChanged;
 
-        public AsyncRelayCommand(Func<Task> executeAsync) : this(_ => executeAsync(), null) { }
-        public AsyncRelayCommand(Func<Task> executeAsync, Func<bool>? canExecute) : this(_ => executeAsync(), canExecute == null ? null : _ => canExecute()) { }
+        public AsyncRelayCommand(Func<Task> executeAsync)
+            : this(_ => executeAsync(), null, null) { }
 
-        public AsyncRelayCommand(Func<object?, Task> executeAsync, Predicate<object?>? canExecute = null)
+        public AsyncRelayCommand(Func<Task> executeAsync, Func<bool>? canExecute)
+            : this(_ => executeAsync(), canExecute == null ? null : _ => canExecute(), null) { }
+
+        public AsyncRelayCommand(Func<Task> executeAsync, Func<bool>? canExecute, Action<Exception>? onError)
+            : this(_ => executeAsync(), canExecute == null ? null : _ => canExecute(), onError) { }
+
+        public AsyncRelayCommand(
+            Func<object?, Task> executeAsync,
+            Predicate<object?>? canExecute = null,
+            Action<Exception>? onError = null)
         {
             ArgumentNullException.ThrowIfNull(executeAsync);
             _executeAsync = executeAsync;
             _canExecute = canExecute;
+            _onError = onError;
         }
 
         public bool CanExecute(object? parameter) => Volatile.Read(ref _isExecuting) == 0 && (_canExecute == null || _canExecute(parameter));
@@ -90,7 +104,7 @@ namespace Shiro.ViewModels
             }
             catch (Exception ex)
             {
-                AppServices.Logger.Error($"[AsyncRelayCommand] Execution error: {ex.Message}", ex);
+                HandleUnhandledCommandError(ex, _onError, nameof(AsyncRelayCommand));
             }
             finally
             {
@@ -99,7 +113,44 @@ namespace Shiro.ViewModels
             }
         }
 
-        public void RaiseCanExecuteChanged() => CanExecuteChanged?.Invoke(this, EventArgs.Empty);
+        public void RaiseCanExecuteChanged()
+            => PostCanExecuteChanged(() => CanExecuteChanged, this);
+
+        internal static void PostCanExecuteChanged(Func<EventHandler?> handlerAccessor, object sender)
+        {
+            if (handlerAccessor() == null) return;
+            AppDispatcher.Post(() => handlerAccessor()?.Invoke(sender, EventArgs.Empty));
+        }
+
+        internal static void HandleUnhandledCommandError(Exception ex, Action<Exception>? onError, string scope)
+        {
+            AppServices.Logger.Error($"[{scope}] Execution error: {ex.Message}", ex);
+            if (onError != null)
+            {
+                try
+                {
+                    onError(ex);
+                }
+                catch (Exception handlerEx)
+                {
+                    AppServices.Logger.Error($"[{scope}] onError handler failed: {handlerEx.Message}", handlerEx);
+                }
+                return;
+            }
+
+            var defaultHandler = DefaultUnhandledErrorHandler;
+            if (defaultHandler != null)
+            {
+                try
+                {
+                    defaultHandler(ex);
+                }
+                catch (Exception handlerEx)
+                {
+                    AppServices.Logger.Error($"[{scope}] DefaultUnhandledErrorHandler failed: {handlerEx.Message}", handlerEx);
+                }
+            }
+        }
     }
 
     /// <summary>
@@ -143,7 +194,8 @@ namespace Shiro.ViewModels
             }
         }
 
-        public void RaiseCanExecuteChanged() => CanExecuteChanged?.Invoke(this, EventArgs.Empty);
+        public void RaiseCanExecuteChanged()
+            => AsyncRelayCommand.PostCanExecuteChanged(() => CanExecuteChanged, this);
     }
 
     /// <summary>
@@ -153,15 +205,20 @@ namespace Shiro.ViewModels
     {
         private readonly Func<T, Task> _executeAsync;
         private readonly Predicate<T>? _canExecute;
+        private readonly Action<Exception>? _onError;
         private int _isExecuting;
 
         public event EventHandler? CanExecuteChanged;
 
-        public AsyncRelayCommand(Func<T, Task> executeAsync, Predicate<T>? canExecute = null)
+        public AsyncRelayCommand(
+            Func<T, Task> executeAsync,
+            Predicate<T>? canExecute = null,
+            Action<Exception>? onError = null)
         {
             ArgumentNullException.ThrowIfNull(executeAsync);
             _executeAsync = executeAsync;
             _canExecute = canExecute;
+            _onError = onError;
         }
 
         public bool CanExecute(object? parameter)
@@ -194,7 +251,7 @@ namespace Shiro.ViewModels
             }
             catch (Exception ex)
             {
-                AppServices.Logger.Error($"[AsyncRelayCommand<{typeof(T).Name}>] Execution error: {ex.Message}", ex);
+                AsyncRelayCommand.HandleUnhandledCommandError(ex, _onError, $"AsyncRelayCommand<{typeof(T).Name}>");
             }
             finally
             {
@@ -203,6 +260,7 @@ namespace Shiro.ViewModels
             }
         }
 
-        public void RaiseCanExecuteChanged() => CanExecuteChanged?.Invoke(this, EventArgs.Empty);
+        public void RaiseCanExecuteChanged()
+            => AsyncRelayCommand.PostCanExecuteChanged(() => CanExecuteChanged, this);
     }
 }

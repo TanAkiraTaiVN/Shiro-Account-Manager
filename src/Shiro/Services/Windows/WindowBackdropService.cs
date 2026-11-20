@@ -58,9 +58,10 @@ namespace Shiro.Services
 
         public static void ApplyDarkAndBackdrop(Window window, BackdropType backdrop = BackdropType.None)
         {
-            if (window is null || !OperatingSystem.IsWindows()) return;
+            if (window is null) return;
 
             StreamerModeService.RegisterWindow(window);
+            if (!OperatingSystem.IsWindows()) return;
 
             IntPtr hwnd = window.TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
             if (hwnd == IntPtr.Zero)

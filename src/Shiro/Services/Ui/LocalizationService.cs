@@ -125,11 +125,26 @@ namespace Shiro.Services
                 }
             }
 
-            ApplyResources(Application.Current);
-
-            if (changed || !saveSetting)
+            void SwapAndNotify()
             {
-                LanguageChanged?.Invoke(language);
+                if (AppDispatcher.CanMutateUiResources())
+                {
+                    ApplyResources(Application.Current);
+                }
+
+                if (changed || !saveSetting)
+                {
+                    LanguageChanged?.Invoke(language);
+                }
+            }
+
+            if (Application.Current == null || AppDispatcher.HasUiThreadAccess())
+            {
+                SwapAndNotify();
+            }
+            else
+            {
+                AppDispatcher.Post(SwapAndNotify);
             }
         }
 
@@ -222,13 +237,12 @@ namespace Shiro.Services
                 merged.Remove(_activeResourceDict);
             }
 
+            _activeResourceDict = targetDict;
+            _attachedMergedDictionaries = merged;
             if (!merged.Contains(targetDict))
             {
                 merged.Add(targetDict);
             }
-
-            _activeResourceDict = targetDict;
-            _attachedMergedDictionaries = merged;
         }
     }
 

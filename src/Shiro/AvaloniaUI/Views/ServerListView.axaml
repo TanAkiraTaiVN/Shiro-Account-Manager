@@ -27,9 +27,15 @@
                         TextTrimming="CharacterEllipsis" />
                         </Grid>
                     </Border>
-                    <Button Command="{Binding RefreshServersCommand}" Margin="0,2,8,2" Background="#FFFFFF" Foreground="#09090B" FontWeight="Bold" CornerRadius="6" Padding="14,8" Cursor="Hand">
-                        <StackPanel Orientation="Horizontal" Spacing="6"><lucide:Lucide Icon="Search" Width="13" Height="13" StrokeBrush="#09090B" StrokeThickness="2.5"
-                        VerticalAlignment="Center" /><TextBlock Text="{DynamicResource Srv_SearchServers}" VerticalAlignment="Center" /></StackPanel>
+                    <Button Classes="FastPillBtn" Command="{Binding RefreshServersCommand}" Margin="0,2,8,2"
+                        Background="{DynamicResource AccentBrush}" Foreground="{DynamicResource AccentForegroundBrush}"
+                        FontWeight="Bold" CornerRadius="6" Padding="14,8" Cursor="Hand">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <lucide:Lucide Icon="Search" Width="13" Height="13"
+                                StrokeBrush="{DynamicResource AccentForegroundBrush}" StrokeThickness="2.5"
+                                VerticalAlignment="Center" />
+                            <TextBlock Text="{DynamicResource Srv_SearchServers}" VerticalAlignment="Center" />
+                        </StackPanel>
                     </Button>
                     <Button Command="{Binding CancelOperationCommand}" IsVisible="{Binding CanCancelOperation}" Margin="0,2,8,2" Background="#2B1518" Foreground="#EF4444" BorderBrush="#4A1E24"
                         BorderThickness="1" CornerRadius="6" Padding="12,8" Cursor="Hand">

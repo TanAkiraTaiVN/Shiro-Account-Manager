@@ -34,6 +34,7 @@ namespace Shiro.ViewModels
 
         #region Item 2: Live Tool ON/OFF Indicators & Footer Chips
         public bool IsSmartMuteActive => RobloxAudioService.IsSmartMuteEnabled;
+        public char JobIdMaskChar => IsStreamerModeActive ? '*' : '\0';
 
         public int ActiveToolsCount
         {
@@ -59,6 +60,7 @@ namespace Shiro.ViewModels
             OnPropertyChanged(nameof(IsSmartMuteActive));
             OnPropertyChanged(nameof(IsStreamerModeEnabled));
             OnPropertyChanged(nameof(IsStreamerModeActive));
+            OnPropertyChanged(nameof(JobIdMaskChar));
             OnPropertyChanged(nameof(ActiveToolsCount));
             OnPropertyChanged(nameof(HasActiveTools));
         }

@@ -44,6 +44,7 @@ namespace Shiro.AvaloniaUI.Views
         public MessageBoxDialog()
         {
             InitializeComponent();
+            WindowBackdropService.ApplyDarkAndBackdrop(this);
         }
 
         internal static bool IsValidDialogOwner(Window? window)

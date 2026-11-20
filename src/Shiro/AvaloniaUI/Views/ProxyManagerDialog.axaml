@@ -36,12 +36,15 @@
                          Background="#1A1A24" Foreground="#FFFFFF" BorderBrush="#2E2E3E"
                          CornerRadius="6" Padding="10,8" Margin="0,0,10,0" />
 
-                <Button Grid.Column="1" x:Name="BtnAddProxy"
+                <Button Grid.Column="1" x:Name="BtnAddProxy" Classes="FastPillBtn"
                         Command="{Binding AddProxyCommand}"
-                        Background="#FFFFFF" Foreground="#09090B" FontWeight="Bold"
+                        Background="{DynamicResource AccentBrush}"
+                        Foreground="{DynamicResource AccentForegroundBrush}" FontWeight="Bold"
                         CornerRadius="6" Padding="16,8" Cursor="Hand">
                     <StackPanel Orientation="Horizontal" Spacing="6">
-                        <lucide:Lucide Icon="Plus" Width="13" Height="13" StrokeBrush="#09090B" StrokeThickness="2.5" VerticalAlignment="Center" />
+                        <lucide:Lucide Icon="Plus" Width="13" Height="13"
+                                       StrokeBrush="{DynamicResource AccentForegroundBrush}"
+                                       StrokeThickness="2.5" VerticalAlignment="Center" />
                         <TextBlock Text="{DynamicResource Loc_Proxy_BtnAdd}" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
@@ -117,12 +120,15 @@
                            HorizontalAlignment="Center" FontSize="12" Margin="12,0" />
 
                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
-                    <Button x:Name="BtnSaveClose"
+                    <Button x:Name="BtnSaveClose" Classes="FastPillBtn"
                             Command="{Binding SaveCommand}"
-                            Background="#FFFFFF" Foreground="#09090B" FontWeight="Bold"
+                            Background="{DynamicResource AccentBrush}"
+                            Foreground="{DynamicResource AccentForegroundBrush}" FontWeight="Bold"
                             CornerRadius="6" Padding="18,8" Cursor="Hand">
                         <StackPanel Orientation="Horizontal" Spacing="6">
-                            <lucide:Lucide Icon="Check" Width="13" Height="13" StrokeBrush="#09090B" StrokeThickness="2.5" VerticalAlignment="Center" />
+                            <lucide:Lucide Icon="Check" Width="13" Height="13"
+                                           StrokeBrush="{DynamicResource AccentForegroundBrush}"
+                                           StrokeThickness="2.5" VerticalAlignment="Center" />
                             <TextBlock Text="{DynamicResource Loc_Proxy_BtnSaveClose}" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>

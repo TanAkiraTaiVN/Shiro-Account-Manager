@@ -127,8 +127,11 @@ namespace Shiro.Tests.Ui
 
             try
             {
-                SharedHttpClient.SetTestClient("default", new HttpClient(new BlockingHttpHandler(async (_, _) =>
+                SharedHttpClient.SetTestClient("default", new HttpClient(new BlockingHttpHandler(async (req, _) =>
                 {
+                    if (!string.Equals(req.RequestUri?.Host, "cdn.example", StringComparison.OrdinalIgnoreCase))
+                        return new HttpResponseMessage(HttpStatusCode.NotFound);
+
                     int attempt = Interlocked.Increment(ref callCount);
                     if (attempt == 1)
                     {

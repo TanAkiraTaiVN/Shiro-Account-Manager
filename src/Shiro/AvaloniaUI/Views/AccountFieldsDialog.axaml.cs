@@ -37,16 +37,20 @@ namespace Shiro.AvaloniaUI.Views
     {
         private readonly Account? _account;
         private readonly ObservableCollection<AccountFieldItem> _fieldItems = new();
+        private readonly Action<bool> _onStreamerModeChanged;
 
         public AccountFieldsDialog()
         {
             InitializeComponent();
+            WindowBackdropService.ApplyDarkAndBackdrop(this);
+            _onStreamerModeChanged = _ => UpdateHeaderTitle();
+            StreamerModeService.StateChanged += _onStreamerModeChanged;
         }
 
         public AccountFieldsDialog(Account account) : this()
         {
             _account = account ?? throw new ArgumentNullException(nameof(account));
-            TxtHeaderTitle.Text = Shiro.Services.LocalizationService.Format("AccountFields.TitleFormat", account.Username);
+            UpdateHeaderTitle();
 
             foreach (var kvp in _account.GetPublicFieldsSnapshot())
             {
@@ -54,6 +58,20 @@ namespace Shiro.AvaloniaUI.Views
             }
 
             FieldsListBox.ItemsSource = _fieldItems;
+        }
+
+        private void UpdateHeaderTitle()
+        {
+            if (_account == null) return;
+            TxtHeaderTitle.Text = LocalizationService.Format(
+                "AccountFields.TitleFormat",
+                StreamerModeService.GetDisplayUsername(_account.Username));
+        }
+
+        protected override void OnClosing(WindowClosingEventArgs e)
+        {
+            StreamerModeService.StateChanged -= _onStreamerModeChanged;
+            base.OnClosing(e);
         }
 
         private void BtnAddField_Click(object sender, RoutedEventArgs e)

@@ -12,6 +12,7 @@ namespace Shiro.AvaloniaUI.Views
         public AboutDialog()
         {
             InitializeComponent();
+            WindowBackdropService.ApplyDarkAndBackdrop(this);
             LoadMetrics();
         }
 

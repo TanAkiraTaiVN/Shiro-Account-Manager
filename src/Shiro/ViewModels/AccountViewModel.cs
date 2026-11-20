@@ -74,10 +74,16 @@ namespace Shiro.ViewModels
         public void NotifyDisplayNameChanged()
         {
             OnPropertyChanged(nameof(ShownUsername));
+            OnPropertyChanged(nameof(ShownAlias));
+            OnPropertyChanged(nameof(ShownUserId));
             OnPropertyChanged(nameof(PrimaryTitle));
             OnPropertyChanged(nameof(SecondaryTitle));
             OnPropertyChanged(nameof(DisplayTitle));
         }
+
+        private bool ShouldMaskIdentity =>
+            StreamerModeService.ShouldMaskUsernames(_settings) ||
+            (_settings != null && _settings.Exists(AppSettingsKeys.General.HideUsernames) && _settings.Get<bool>(AppSettingsKeys.General.HideUsernames));
 
         public string Username => _model.Username ?? "Unknown";
 
@@ -85,7 +91,7 @@ namespace Shiro.ViewModels
         {
             get
             {
-                if (StreamerModeService.IsActive && (_settings?.Get<bool>(AppSettingsKeys.General.StreamerModeHideUsernames, true) ?? true))
+                if (StreamerModeService.ShouldMaskUsernames(_settings))
                 {
                     return StreamerModeService.MaskUsername(Username);
                 }
@@ -99,6 +105,10 @@ namespace Shiro.ViewModels
 
         public long UserId => _model.UserID;
 
+        public string ShownUserId => UserId > 0 && ShouldMaskIdentity
+            ? StreamerModeService.MaskUserId(UserId)
+            : UserId.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
         public string Alias
         {
             get => _model.Alias;
@@ -109,6 +119,7 @@ namespace Shiro.ViewModels
                 {
                     _model.Alias = val;
                     OnPropertyChanged();
+                    OnPropertyChanged(nameof(ShownAlias));
                     OnPropertyChanged(nameof(PrimaryTitle));
                     OnPropertyChanged(nameof(SecondaryTitle));
                     OnPropertyChanged(nameof(DisplayTitle));
@@ -116,19 +127,25 @@ namespace Shiro.ViewModels
             }
         }
 
-        public string PrimaryTitle => !string.IsNullOrWhiteSpace(Alias) ? Alias : ShownUsername;
+        public string ShownAlias => string.IsNullOrWhiteSpace(Alias)
+            ? string.Empty
+            : (ShouldMaskIdentity ? StreamerModeService.MaskUsername(Alias) : Alias);
+
+        public string PrimaryTitle => !string.IsNullOrWhiteSpace(Alias) ? ShownAlias : ShownUsername;
 
         public string SecondaryTitle
         {
             get
             {
                 if (!string.IsNullOrWhiteSpace(Alias))
-                    return UserId > 0 ? $"@{ShownUsername}  •  ID: {UserId}" : $"@{ShownUsername}";
-                return UserId > 0 ? $"ID: {UserId}" : "Roblox Player";
+                    return UserId > 0 ? $"@{ShownUsername}  •  ID: {ShownUserId}" : $"@{ShownUsername}";
+                return UserId > 0 ? $"ID: {ShownUserId}" : "Roblox Player";
             }
         }
 
-        public string DisplayTitle => string.IsNullOrWhiteSpace(Alias) ? (UserId > 0 ? $"{ShownUsername} ({UserId})" : ShownUsername) : $"{Alias} ({ShownUsername})";
+        public string DisplayTitle => string.IsNullOrWhiteSpace(Alias)
+            ? (UserId > 0 ? $"{ShownUsername} ({ShownUserId})" : ShownUsername)
+            : $"{ShownAlias} ({ShownUsername})";
 
         public string Group
         {
@@ -328,7 +345,7 @@ namespace Shiro.ViewModels
         {
             get
             {
-                if (StreamerModeService.IsActive && (_settings?.Get<bool>(AppSettingsKeys.General.StreamerModeHideRobux, true) ?? true))
+                if (StreamerModeService.ShouldMaskRobux(_settings))
                     return "***";
                 return RobuxBalance >= 0 ? $"{RobuxBalance:N0}" : string.Empty;
             }
@@ -338,12 +355,16 @@ namespace Shiro.ViewModels
         {
             get
             {
-                if (StreamerModeService.IsActive && (_settings?.Get<bool>(AppSettingsKeys.General.StreamerModeHideRobux, true) ?? true))
+                if (StreamerModeService.ShouldMaskRobux(_settings))
                     return "R$ ***";
                 return RobuxBalance >= 0 ? $"R$ {RobuxBalance:N0}" : string.Empty;
             }
         }
-        public string RobuxTooltip => RobuxBalance >= 0 ? Shiro.Services.LocalizationService.Format("Account.RobuxBalance", RobuxBalance) : Shiro.Services.LocalizationService.Get("Account.RobuxNotUpdated");
+        public string RobuxTooltip => RobuxBalance >= 0
+            ? (StreamerModeService.ShouldMaskRobux(_settings)
+                ? StreamerModeService.MaskRobux(RobuxBalance)
+                : Shiro.Services.LocalizationService.Format("Account.RobuxBalance", RobuxBalance))
+            : Shiro.Services.LocalizationService.Get("Account.RobuxNotUpdated");
 
         public void NotifyThemeChanged()
         {

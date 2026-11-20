@@ -30,6 +30,7 @@ namespace Shiro.Services
         Task RestartWebServerAsync(int port, bool allowExternal);
         Task StopWebServerAsync();
         void SetAutoCookieRefresh(bool on);
+        void SetStreamerMode(bool enabled) { }
         void NotifyDisplayNamesChanged();
         void QueueDeferredSave();
         void CleanNotificationArea();
@@ -116,6 +117,9 @@ namespace Shiro.Services
 
         public void SetAutoCookieRefresh(bool on) =>
             AppServices.HostUiBridge.SetAutoCookieRefreshEnabled(on);
+
+        public void SetStreamerMode(bool enabled) =>
+            StreamerModeService.IsEnabled = enabled;
 
         public void NotifyDisplayNamesChanged()
         {

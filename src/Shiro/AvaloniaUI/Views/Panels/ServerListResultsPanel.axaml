@@ -103,7 +103,7 @@
                                                   StrokeThickness="1.8" StrokeLineCap="Round"
                                                   StrokeJoin="Round" />
                                         </Button>
-                                        <TextBlock Grid.Column="1" Text="{Binding JobId}"
+                                        <TextBlock Grid.Column="1" Text="{Binding ShownJobId}"
                                                    FontSize="11"
                                                    FontFamily="Consolas, Cascadia Code, monospace"
                                                    Foreground="#FFFFFF"
@@ -190,13 +190,17 @@
                                 <KeyBinding Gesture="Enter" Command="{Binding SearchGamesCommand}" />
                             </TextBox.KeyBindings>
                         </TextBox>
-                        <Button Grid.Column="1" Command="{Binding SearchGamesCommand}"
-                                IsEnabled="{Binding !IsSearchingGames}" Background="#FFFFFF"
-                                Foreground="#09090B" FontWeight="Bold" CornerRadius="6"
+                        <Button Grid.Column="1" Classes="FastPillBtn"
+                                Command="{Binding SearchGamesCommand}"
+                                IsEnabled="{Binding !IsSearchingGames}"
+                                Background="{DynamicResource AccentBrush}"
+                                Foreground="{DynamicResource AccentForegroundBrush}"
+                                FontWeight="Bold" CornerRadius="6"
                                 Padding="16,8" Cursor="Hand">
                             <StackPanel Orientation="Horizontal" Spacing="6">
                                 <lucide:Lucide Icon="Search" Width="13" Height="13"
-                                               StrokeBrush="#09090B" StrokeThickness="2.5"
+                                               StrokeBrush="{DynamicResource AccentForegroundBrush}"
+                                               StrokeThickness="2.5"
                                                VerticalAlignment="Center" />
                                 <TextBlock Text="{DynamicResource Srv_SearchGames}"
                                            VerticalAlignment="Center" />

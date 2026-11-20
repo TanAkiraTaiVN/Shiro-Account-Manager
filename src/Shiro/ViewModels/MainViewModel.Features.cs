@@ -72,6 +72,7 @@ namespace Shiro.ViewModels
                 if (StreamerModeService.IsEnabled != value)
                 {
                     StreamerModeService.IsEnabled = value;
+                    _settings?.Set(AppSettingsKeys.General.HideUsernames, value ? "true" : "false");
                     NotifyToolStatesChanged();
                     StatusMessage = value
                         ? Shiro.Services.LocalizationService.Get("Main.StreamerModeActivated")
@@ -83,6 +84,9 @@ namespace Shiro.ViewModels
 
         public void RefreshAllAccountDisplays()
         {
+            OnPropertyChanged(nameof(TotalRobuxText));
+            if (ServerListViewModel != null)
+                foreach (var s in ServerListViewModel.Servers) s.NotifyStreamerModeChanged();
             if (Accounts == null) return;
             foreach (var acc in Accounts)
             {

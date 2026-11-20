@@ -24,6 +24,7 @@ namespace Shiro.AvaloniaUI.Views
         public MissingAssetsDialog(MissingAssetsViewModel viewModel)
         {
             InitializeComponent();
+            WindowBackdropService.ApplyDarkAndBackdrop(this);
             _vm = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
             DataContext = _vm;
             _vm.CloseRequested += OnCloseRequested;
