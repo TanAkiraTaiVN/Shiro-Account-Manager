@@ -3,15 +3,11 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Text.RegularExpressions;
 
 namespace Shiro.Services
 {
     public static partial class RobloxProcessService
     {
-        [GeneratedRegex(@"\-b (\d+)")]
-        private static partial Regex TrackerRegex();
-
         /// <summary>
         /// Forcibly terminates all running Roblox client, launcher, and crash handler processes.
         /// Refreshes the Windows notification area to clean up ghost tray icons left behind.
@@ -156,7 +152,7 @@ namespace Shiro.Services
                             string? cmdLine = getCommandLineByPid(account.LastLaunchedProcessId);
                             if (!string.IsNullOrEmpty(cmdLine))
                             {
-                                var match = TrackerRegex().Match(cmdLine);
+                                var match = RobloxProcessIdentityHelper.BrowserTrackerArgRegex().Match(cmdLine);
                                 isMatchingProcess = match.Success && match.Groups[1].Value == account.BrowserTrackerID;
                             }
                         }
@@ -195,7 +191,7 @@ namespace Shiro.Services
                         {
                             string? cmdLine = getCommandLineByPid(pid);
                             if (string.IsNullOrEmpty(cmdLine)) continue;
-                            var match = TrackerRegex().Match(cmdLine);
+                            var match = RobloxProcessIdentityHelper.BrowserTrackerArgRegex().Match(cmdLine);
                             if (match.Success && match.Groups[1].Value == account.BrowserTrackerID)
                             {
                                 beforeTerminate?.Invoke(account);
@@ -249,7 +245,7 @@ namespace Shiro.Services
                                 string? cmdLine = proc.GetCommandLine();
                                 if (!string.IsNullOrEmpty(cmdLine))
                                 {
-                                    var match = TrackerRegex().Match(cmdLine);
+                                    var match = RobloxProcessIdentityHelper.BrowserTrackerArgRegex().Match(cmdLine);
                                     matches = match.Success && match.Groups[1].Value == account.BrowserTrackerID;
                                 }
                             }
@@ -292,7 +288,7 @@ namespace Shiro.Services
                             {
                                 string? cmdLine = ProcessExtensions.GetCommandLineByPid(pid);
                                 if (string.IsNullOrEmpty(cmdLine)) continue;
-                                var match = TrackerRegex().Match(cmdLine);
+                                var match = RobloxProcessIdentityHelper.BrowserTrackerArgRegex().Match(cmdLine);
                                 if (match.Success && !string.IsNullOrEmpty(match.Groups[1].Value))
                                     trackerToPid[match.Groups[1].Value] = pid;
                             }

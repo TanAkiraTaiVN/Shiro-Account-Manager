@@ -100,7 +100,7 @@ namespace Shiro.Services
                         string? commandLine = ProcessExtensions.GetCommandLineByPid(pid);
                         if (string.IsNullOrEmpty(commandLine)) continue;
 
-                        var match = TrackerRegex().Match(commandLine);
+                        var match = RobloxProcessIdentityHelper.BrowserTrackerArgRegex().Match(commandLine);
                         string trackerId = match.Success ? match.Groups[1].Value : string.Empty;
 
                         if (trackerId != account.BrowserTrackerID)

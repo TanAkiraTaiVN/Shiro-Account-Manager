@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Runtime.InteropServices;
+using Microsoft.Win32.SafeHandles;
 
 namespace Shiro.Services
 {
@@ -41,6 +42,15 @@ namespace Shiro.Services
 
         [LibraryImport("kernel32.dll", SetLastError = true)]
         internal static partial IntPtr OpenProcess(uint dwDesiredAccess, [MarshalAs(UnmanagedType.Bool)] bool bInheritHandle, int dwProcessId);
+
+        [LibraryImport("kernel32.dll", EntryPoint = "OpenProcess", SetLastError = true)]
+        private static partial SafeProcessHandle OpenProcessSafeNative(
+            uint dwDesiredAccess,
+            [MarshalAs(UnmanagedType.Bool)] bool bInheritHandle,
+            int dwProcessId);
+
+        internal static SafeProcessHandle OpenSafeProcess(uint desiredAccess, int processId)
+            => OpenProcessSafeNative(desiredAccess, false, processId);
 
         [LibraryImport("kernel32.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]

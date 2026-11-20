@@ -22,18 +22,8 @@ namespace Shiro.Services
 
         private static readonly ConcurrentDictionary<long, Task<string?>> InFlightDownloads = new();
 
-        public async Task<byte[]?> DownloadAsync(string? imageUrl, CancellationToken cancellationToken = default(CancellationToken))
-        {
-            if (string.IsNullOrWhiteSpace(imageUrl))
-                return null;
-
-            using HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, imageUrl);
-            using HttpResponseMessage response = await SharedHttpClient.SendAsync(request, true, cancellationToken).ConfigureAwait(false);
-            if (!response.IsSuccessStatusCode)
-                return null;
-
-            return await response.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
-        }
+        public Task<byte[]?> DownloadAsync(string? imageUrl, CancellationToken cancellationToken = default(CancellationToken)) =>
+            ThumbnailBatchHelper.DownloadValidatedImageAsync(imageUrl, cancellationToken);
 
         private static string EnsureAvatarDirectory()
         {

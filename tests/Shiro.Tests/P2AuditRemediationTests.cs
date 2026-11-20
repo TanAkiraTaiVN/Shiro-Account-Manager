@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -194,12 +195,79 @@ namespace Shiro.Tests
             Assert.Equal(expected, ThumbnailBatchHelper.IsPlausibleImageBytes(bytes, contentType));
         }
 
+        private const string ValidCurrencyJson = "{\"robux\":12345}";
+        private const string ZeroCurrencyJson = "{\"robux\":0}";
+
         [Fact]
-        public void ThumbnailBatchHelper_IsPlausibleImageBytes_AllowsBinaryImagePayloads()
+        public void ThumbnailBatchHelper_IsPlausibleImageBytes_RequiresRealImageMagicHeaders()
         {
-            Assert.True(ThumbnailBatchHelper.IsPlausibleImageBytes(new byte[] { 0x89, 0x50, 0x4E, 0x47 }, "image/png"));
+            Assert.True(ThumbnailBatchHelper.IsPlausibleImageBytes(
+                new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A }, "image/png"));
             Assert.True(ThumbnailBatchHelper.IsPlausibleImageBytes(new byte[] { 0xFF, 0xD8, 0xFF, 0xE0 }, "image/jpeg"));
-            Assert.True(ThumbnailBatchHelper.IsPlausibleImageBytes(new byte[] { 1, 2, 3, 4 }, "application/octet-stream"));
+            Assert.True(ThumbnailBatchHelper.IsPlausibleImageBytes(Encoding.ASCII.GetBytes("GIF89a\x01\x00"), "image/gif"));
+            Assert.True(ThumbnailBatchHelper.IsPlausibleImageBytes(Encoding.ASCII.GetBytes("GIF87a\x01\x00"), "image/gif"));
+            Assert.True(ThumbnailBatchHelper.IsPlausibleImageBytes(Encoding.ASCII.GetBytes("RIFF\x00\x00\x00\x00WEBP"), "image/webp"));
+
+            Assert.False(ThumbnailBatchHelper.IsPlausibleImageBytes(new byte[] { 1, 2, 3, 4 }, "application/octet-stream"));
+            Assert.False(ThumbnailBatchHelper.IsPlausibleImageBytes(new byte[] { 0x89, 0x50, 0x4E, 0x47 }, "image/png"));
+            Assert.False(ThumbnailBatchHelper.IsPlausibleImageBytes(new byte[] { 0xFF, 0xD8 }, "image/jpeg"));
+            Assert.False(ThumbnailBatchHelper.IsPlausibleImageBytes(Encoding.ASCII.GetBytes("GIF89"), "image/gif"));
+            Assert.False(ThumbnailBatchHelper.IsPlausibleImageBytes(Encoding.ASCII.GetBytes("RIFF\x00\x00\x00\x00WEB"), "image/webp"));
+            Assert.False(ThumbnailBatchHelper.IsPlausibleImageBytes(
+                new byte[] { (byte)' ', 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A }, "image/png"));
+        }
+
+        [Fact]
+        public void Win32NativeHelper_OpenSafeProcess_InvalidPidReturnsInvalidHandleAndDisposesSafely()
+        {
+            using var handle = Win32NativeHelper.OpenSafeProcess(0x1000, 0);
+            Assert.NotNull(handle);
+            Assert.True(handle.IsInvalid);
+            Assert.False(handle.IsClosed);
+            handle.Dispose();
+            Assert.True(handle.IsClosed);
+        }
+
+        [Fact]
+        public void RobloxEconomyService_TryParseCurrencyBalance_ParsesValidJsonAndRejectsInvalidOrHtml()
+        {
+            Assert.True(RobloxEconomyService.TryParseCurrencyBalance(ValidCurrencyJson, out long robux));
+            Assert.Equal(12345, robux);
+
+            Assert.True(RobloxEconomyService.TryParseCurrencyBalance(ZeroCurrencyJson, out long zeroRobux));
+            Assert.Equal(0, zeroRobux);
+
+            Assert.False(RobloxEconomyService.TryParseCurrencyBalance(null, out long nullRobux));
+            Assert.Equal(0, nullRobux);
+            Assert.False(RobloxEconomyService.TryParseCurrencyBalance("   ", out _));
+            Assert.False(RobloxEconomyService.TryParseCurrencyBalance("<html><body>Login</body></html>", out _));
+            Assert.False(RobloxEconomyService.TryParseCurrencyBalance("not-json", out _));
+        }
+
+        [Fact]
+        public void RobloxProcessIdentityHelper_BrowserTrackerArgRegex_ExtractsTrackerId()
+        {
+            var match = RobloxProcessIdentityHelper.BrowserTrackerArgRegex().Match("RobloxPlayerBeta.exe -t ticket -b 123456789 -j url");
+            Assert.True(match.Success);
+            Assert.Equal("123456789", match.Groups[1].Value);
+
+            var noMatch = RobloxProcessIdentityHelper.BrowserTrackerArgRegex().Match("RobloxPlayerBeta.exe --app");
+            Assert.False(noMatch.Success);
+        }
+
+        [Fact]
+        public void ClientSettingsPatcher_GetDefaultRobloxVersionRootsAndNormalizePath_ReturnExpectedValues()
+        {
+            string[] roots = ClientSettingsPatcher.GetDefaultRobloxVersionRoots();
+            Assert.NotEmpty(roots);
+            Assert.Contains(roots, r => r.EndsWith(Path.Combine("Roblox", "Versions"), StringComparison.OrdinalIgnoreCase));
+
+            Assert.Equal(
+                @"C:\Roblox\Versions\version-123\RobloxPlayerBeta.exe",
+                ClientSettingsPatcher.NormalizeRegistryExecutablePath("  \"C:\\Roblox\\Versions\\version-123\\RobloxPlayerBeta.exe\",0  "));
+            Assert.Equal(
+                string.Empty,
+                ClientSettingsPatcher.NormalizeRegistryExecutablePath("   "));
         }
 
         [Fact]

@@ -170,16 +170,12 @@ namespace Shiro.Services
                     if (ecoResp.IsSuccessStatusCode)
                     {
                         string ecoJson = await ecoResp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
-                        if (!string.IsNullOrWhiteSpace(ecoJson) && !IsHtmlResponse(ecoJson))
+                        if (RobloxEconomyService.TryParseCurrencyBalance(ecoJson, out long parsedRobux))
                         {
-                            var currency = JsonSerializer.Deserialize(ecoJson, ShiroAppJson.Default.RobloxCurrencyResponse);
-                            if (currency != null)
-                            {
-                                robuxBalance = currency.Robux;
-                                account.RobuxBalance = currency.Robux;
-                                account.LastEconomyCheck = DateTime.UtcNow;
-                                sideEffects.EconomySuccess = true;
-                            }
+                            robuxBalance = parsedRobux;
+                            account.RobuxBalance = parsedRobux;
+                            account.LastEconomyCheck = DateTime.UtcNow;
+                            sideEffects.EconomySuccess = true;
                         }
                     }
                 }

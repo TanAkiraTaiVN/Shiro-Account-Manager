@@ -91,7 +91,7 @@ namespace Shiro.Tests
                     // Image payload
                     return new HttpResponseMessage(HttpStatusCode.OK)
                     {
-                        Content = new ByteArrayContent(new byte[] { 1, 2, 3, 4 })
+                        Content = new ByteArrayContent(new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A })
                     };
                 }
 
@@ -108,13 +108,13 @@ namespace Shiro.Tests
                 // 1. DownloadAsync valid URL
                 byte[]? downloaded = await service.DownloadAsync("https://fake.rbxcdn.com/avatar.png");
                 Assert.NotNull(downloaded);
-                Assert.Equal(4, downloaded.Length);
+                Assert.Equal(8, downloaded.Length);
 
                 // 2. EnsureAvatarAsync non-cached user
                 string? avatarPath = await AvatarService.EnsureAvatarAsync(99901);
                 Assert.False(string.IsNullOrEmpty(avatarPath));
                 Assert.True(File.Exists(avatarPath));
-                Assert.Equal(new byte[] { 1, 2, 3, 4 }, File.ReadAllBytes(avatarPath));
+                Assert.Equal(new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A }, File.ReadAllBytes(avatarPath));
 
                 // 3. BatchEnsureAvatarsAsync
                 var batchRes = await AvatarService.BatchEnsureAvatarsAsync(new long[] { 99901, 99902 });

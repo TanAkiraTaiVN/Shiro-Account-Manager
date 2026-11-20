@@ -315,6 +315,27 @@ namespace Shiro.Services
             return false;
         }
 
+        internal static string[] GetDefaultRobloxVersionRoots()
+        {
+            var scanRoots = new List<string>(3);
+            string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            if (!string.IsNullOrWhiteSpace(localAppData))
+                scanRoots.Add(Path.Combine(localAppData, "Roblox", "Versions"));
+
+            string programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+            if (!string.IsNullOrWhiteSpace(programFiles))
+                scanRoots.Add(Path.Combine(programFiles, "Roblox", "Versions"));
+
+            string programFilesX86 = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
+            if (!string.IsNullOrWhiteSpace(programFilesX86) &&
+                !string.Equals(programFilesX86, programFiles, StringComparison.OrdinalIgnoreCase))
+            {
+                scanRoots.Add(Path.Combine(programFilesX86, "Roblox", "Versions"));
+            }
+
+            return scanRoots.ToArray();
+        }
+
         public static List<DirectoryInfo> FindRobloxVersionFolders()
         {
             TestOnFindRobloxVersionFoldersCalled?.Invoke();
@@ -322,20 +343,7 @@ namespace Shiro.Services
             var seenFullNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             // 1. Scan standard %LOCALAPPDATA%\Roblox\Versions, Program Files, and Program Files (x86)
-            var scanRoots = new List<string>(3)
-            {
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Roblox", "Versions")
-            };
-
-            string programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
-            if (!string.IsNullOrEmpty(programFiles))
-                scanRoots.Add(Path.Combine(programFiles, "Roblox", "Versions"));
-
-            string programFilesX86 = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
-            if (!string.IsNullOrEmpty(programFilesX86) && !string.Equals(programFilesX86, programFiles, StringComparison.OrdinalIgnoreCase))
-                scanRoots.Add(Path.Combine(programFilesX86, "Roblox", "Versions"));
-
-            foreach (string versionsRoot in scanRoots)
+            foreach (string versionsRoot in GetDefaultRobloxVersionRoots())
             {
                 try
                 {

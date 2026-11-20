@@ -4,7 +4,6 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
-using System.Text.RegularExpressions;
 
 namespace Shiro.Services
 {
@@ -28,9 +27,6 @@ namespace Shiro.Services
         private const uint SWP_NOZORDER = 0x0004;
         private const uint SWP_NOACTIVATE = 0x0010;
         private const uint SWP_SHOWWINDOW = 0x0040;
-
-        [GeneratedRegex(@"\-b (\d+)")]
-        private static partial Regex BrowserTrackerRegex();
 
         // Amortized O(1) cache of live (PID, CreationTicks) -> BrowserTrackerID so status ticks never re-read process PEB command lines.
         private static readonly ConcurrentDictionary<int, (string TrackerId, long CreationTicks)> _pidTrackerCache = new();
@@ -261,7 +257,7 @@ namespace Shiro.Services
                 string? cmd = getCommandLineByPid(pid);
                 if (!string.IsNullOrEmpty(cmd))
                 {
-                    var m = BrowserTrackerRegex().Match(cmd);
+                    var m = RobloxProcessIdentityHelper.BrowserTrackerArgRegex().Match(cmd);
                     if (m.Success && !string.IsNullOrEmpty(m.Groups[1].Value))
                     {
                         if (creationTicks > 0)

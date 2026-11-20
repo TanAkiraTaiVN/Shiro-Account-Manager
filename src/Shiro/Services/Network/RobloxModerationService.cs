@@ -135,12 +135,7 @@ namespace Shiro.Services
                         return (false, null, null);
                     }
 
-                    if (redirectLocation.Contains("/not-approved", StringComparison.OrdinalIgnoreCase) ||
-                        redirectLocation.Contains("/moderation", StringComparison.OrdinalIgnoreCase) ||
-                        redirectLocation.Contains("/banned", StringComparison.OrdinalIgnoreCase) ||
-                        redirectLocation.Contains("/account-status", StringComparison.OrdinalIgnoreCase) ||
-                        redirectLocation.Contains("/account-locked", StringComparison.OrdinalIgnoreCase) ||
-                        redirectLocation.Contains("/security-notification", StringComparison.OrdinalIgnoreCase))
+                    if (RobloxModerationHelper.IsModerationOrLockedUrl(redirectLocation))
                     {
                         try
                         {
@@ -201,13 +196,7 @@ namespace Shiro.Services
 
                 string finalUrl = response.RequestMessage?.RequestUri?.AbsoluteUri ?? string.Empty;
 
-                if (!string.IsNullOrEmpty(finalUrl) &&
-                    !finalUrl.Contains("/not-approved", StringComparison.OrdinalIgnoreCase) &&
-                    !finalUrl.Contains("/moderation", StringComparison.OrdinalIgnoreCase) &&
-                    !finalUrl.Contains("/banned", StringComparison.OrdinalIgnoreCase) &&
-                    !finalUrl.Contains("/account-status", StringComparison.OrdinalIgnoreCase) &&
-                    !finalUrl.Contains("/account-locked", StringComparison.OrdinalIgnoreCase) &&
-                    !finalUrl.Contains("/security-notification", StringComparison.OrdinalIgnoreCase))
+                if (!string.IsNullOrEmpty(finalUrl) && !RobloxModerationHelper.IsModerationOrLockedUrl(finalUrl))
                 {
                     return (false, null, null);
                 }

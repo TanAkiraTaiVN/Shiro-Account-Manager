@@ -17,9 +17,6 @@ namespace Shiro.Services
         [GeneratedRegex("\"([^\"]+RobloxPlayerBeta\\.exe)\"", RegexOptions.IgnoreCase)]
         private static partial Regex RobloxExeRegex();
 
-        [GeneratedRegex(@"\-b (\d+)")]
-        private static partial Regex TrackerRegex();
-
         private static string? _cachedRobloxExecutablePath;
         private static long _cachedRobloxExecutableTick = -60000;
         private const long ExecutableCacheTtlMs = 30000;
@@ -71,15 +68,7 @@ namespace Shiro.Services
 
         internal static string? FindRobloxPlayerExecutableCore()
         {
-            string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            string? programFilesX86 = Environment.GetEnvironmentVariable("ProgramFiles(x86)");
-            string programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
-            string[] roots = TestVersionRootsOverride ?? new[]
-            {
-                Path.Combine(localAppData, "Roblox", "Versions"),
-                string.IsNullOrWhiteSpace(programFilesX86) ? string.Empty : Path.Combine(programFilesX86, "Roblox", "Versions"),
-                string.IsNullOrWhiteSpace(programFiles) ? string.Empty : Path.Combine(programFiles, "Roblox", "Versions")
-            };
+            string[] roots = TestVersionRootsOverride ?? ClientSettingsPatcher.GetDefaultRobloxVersionRoots();
 
             string? command = ReadProtocolOpenCommand();
             if (!string.IsNullOrWhiteSpace(command))
@@ -110,13 +99,9 @@ namespace Shiro.Services
                     using RegistryKey? iconKey = Registry.ClassesRoot.OpenSubKey(@"roblox\DefaultIcon");
                     registered = iconKey?.GetValue("") as string;
                 }
-                if (!string.IsNullOrWhiteSpace(registered))
-                {
-                    string path = registered.Trim().Trim('"');
-                    int comma = path.IndexOf(',');
-                    if (comma > 0) path = path.Substring(0, comma).Trim().Trim('"');
-                    if (File.Exists(path)) candidates.Add(path);
-                }
+                string path = ClientSettingsPatcher.NormalizeRegistryExecutablePath(registered);
+                if (!string.IsNullOrWhiteSpace(path) && File.Exists(path))
+                    candidates.Add(path);
             }
             catch (Exception ex)
             {

@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using Microsoft.Win32.SafeHandles;
 
 namespace Shiro.Services
 {
@@ -32,21 +33,17 @@ namespace Shiro.Services
         public static bool SetProcessPriority(int pid, uint priorityClass)
         {
             if (pid <= 0) return false;
-            IntPtr hProcess = Win32NativeHelper.OpenProcess(PROCESS_SET_INFORMATION, false, pid);
-            if (hProcess == IntPtr.Zero) return false;
+            using SafeProcessHandle hProcess = Win32NativeHelper.OpenSafeProcess(PROCESS_SET_INFORMATION, pid);
+            if (hProcess.IsInvalid) return false;
 
             try
             {
-                return Win32NativeHelper.SetPriorityClass(hProcess, priorityClass);
+                return Win32NativeHelper.SetPriorityClass(hProcess.DangerousGetHandle(), priorityClass);
             }
             catch (Exception ex)
             {
                 AppServices.Logger?.Debug($"[RobloxProcessOptimizer] Failed to set priority for PID {pid}: {ex.Message}");
                 return false;
-            }
-            finally
-            {
-                Win32NativeHelper.CloseHandle(hProcess);
             }
         }
 
@@ -56,21 +53,17 @@ namespace Shiro.Services
         public static bool SetProcessAffinity(int pid, ulong affinityMask)
         {
             if (pid <= 0 || affinityMask == 0) return false;
-            IntPtr hProcess = Win32NativeHelper.OpenProcess(PROCESS_SET_INFORMATION, false, pid);
-            if (hProcess == IntPtr.Zero) return false;
+            using SafeProcessHandle hProcess = Win32NativeHelper.OpenSafeProcess(PROCESS_SET_INFORMATION, pid);
+            if (hProcess.IsInvalid) return false;
 
             try
             {
-                return SetProcessAffinityMask(hProcess, new UIntPtr(affinityMask));
+                return SetProcessAffinityMask(hProcess.DangerousGetHandle(), new UIntPtr(affinityMask));
             }
             catch (Exception ex)
             {
                 AppServices.Logger?.Debug($"[RobloxProcessOptimizer] Failed to set affinity for PID {pid}: {ex.Message}");
                 return false;
-            }
-            finally
-            {
-                Win32NativeHelper.CloseHandle(hProcess);
             }
         }
 

@@ -17,12 +17,6 @@ namespace Shiro.Services
         // Keyed by PID and verified against Kernel CreationTime (FILETIME) to be 100% immune to OS PID recycling.
         private static readonly ConcurrentDictionary<int, (long CreationTime, string CommandLine)> _commandLineCache = new();
 
-        [LibraryImport("kernel32.dll", SetLastError = true)]
-        private static partial SafeProcessHandle OpenProcess(
-            uint dwDesiredAccess,
-            [MarshalAs(UnmanagedType.Bool)] bool bInheritHandle,
-            int dwProcessId);
-
         [LibraryImport("ntdll.dll")]
         private static partial int NtQueryInformationProcess(
             IntPtr processHandle,
@@ -71,8 +65,8 @@ namespace Shiro.Services
             if (pid <= 0)
                 return null;
 
-            using SafeProcessHandle hProcess = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
-            if (hProcess == null || hProcess.IsInvalid)
+            using SafeProcessHandle hProcess = Win32NativeHelper.OpenSafeProcess(PROCESS_QUERY_LIMITED_INFORMATION, pid);
+            if (hProcess.IsInvalid)
             {
                 _commandLineCache.TryRemove(pid, out _);
                 return null;

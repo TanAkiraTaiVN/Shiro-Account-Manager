@@ -1,5 +1,7 @@
 #nullable enable
 using System;
+using System.Text.RegularExpressions;
+using Microsoft.Win32.SafeHandles;
 
 namespace Shiro.Services
 {
@@ -7,8 +9,11 @@ namespace Shiro.Services
     /// Shared Win32 process creation-time identity and main-window eligibility helpers
     /// used to guard process caches and window lookups against OS PID recycling.
     /// </summary>
-    internal static class RobloxProcessIdentityHelper
+    internal static partial class RobloxProcessIdentityHelper
     {
+        [GeneratedRegex(@"\-b (\d+)")]
+        internal static partial Regex BrowserTrackerArgRegex();
+
         private const uint PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
         private const int GWL_STYLE = -16;
         private const int GWL_EXSTYLE = -20;
@@ -24,24 +29,17 @@ namespace Shiro.Services
             if (pid <= 0 || !OperatingSystem.IsWindows())
                 return false;
 
-            IntPtr hProcess = Win32NativeHelper.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
-            if (hProcess == IntPtr.Zero)
+            using SafeProcessHandle hProcess = Win32NativeHelper.OpenSafeProcess(PROCESS_QUERY_LIMITED_INFORMATION, pid);
+            if (hProcess.IsInvalid)
                 return false;
 
-            try
+            if (Win32NativeHelper.GetProcessTimes(hProcess.DangerousGetHandle(), out long created, out _, out _, out _) && created > 0)
             {
-                if (Win32NativeHelper.GetProcessTimes(hProcess, out long created, out _, out _, out _) && created > 0)
-                {
-                    creationTicks = created;
-                    return true;
-                }
+                creationTicks = created;
+                return true;
+            }
 
-                return false;
-            }
-            finally
-            {
-                Win32NativeHelper.CloseHandle(hProcess);
-            }
+            return false;
         }
 
         internal static bool IsSameProcessInstance(int pid, long expectedCreationTicks, out long currentTicks)

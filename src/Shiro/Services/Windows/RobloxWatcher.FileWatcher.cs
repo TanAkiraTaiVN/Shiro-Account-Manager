@@ -9,9 +9,6 @@ namespace Shiro.Services
 {
     internal partial class RobloxWatcher
     {
-        [GeneratedRegex(@"\-b (\d+)")]
-        private static partial Regex TrackerRegex();
-
         private static FileSystemWatcher? _logDirWatcher;
         private static long _lastFsNotifyTick;
 
@@ -28,7 +25,7 @@ namespace Shiro.Services
                 return false;
             }
 
-            Match trackerMatch = TrackerRegex().Match(commandLine);
+            Match trackerMatch = RobloxProcessIdentityHelper.BrowserTrackerArgRegex().Match(commandLine);
             if (trackerMatch.Success)
                 trackerId = trackerMatch.Groups[1].Value;
 

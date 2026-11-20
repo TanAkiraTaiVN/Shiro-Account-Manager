@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Runtime.InteropServices;
+using Microsoft.Win32.SafeHandles;
 
 namespace Shiro.Services
 {
@@ -48,17 +49,10 @@ namespace Shiro.Services
                 }
             }
 
-            IntPtr hProcess = Win32NativeHelper.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE, false, pid);
-            if (hProcess != IntPtr.Zero)
+            using SafeProcessHandle hProcess = Win32NativeHelper.OpenSafeProcess(PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE, pid);
+            if (!hProcess.IsInvalid)
             {
-                try
-                {
-                    return Win32NativeHelper.WaitForSingleObject(hProcess, 0) == WAIT_TIMEOUT;
-                }
-                finally
-                {
-                    Win32NativeHelper.CloseHandle(hProcess);
-                }
+                return Win32NativeHelper.WaitForSingleObject(hProcess.DangerousGetHandle(), 0) == WAIT_TIMEOUT;
             }
 
             if (Marshal.GetLastWin32Error() != 5) // ERROR_ACCESS_DENIED

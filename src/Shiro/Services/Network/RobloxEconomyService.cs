@@ -21,6 +21,21 @@ namespace Shiro.Services
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
+        internal static bool TryParseCurrencyBalance(string? json, out long robux)
+        {
+            robux = 0;
+            if (string.IsNullOrWhiteSpace(json) || json.AsSpan().TrimStart().StartsWith("<".AsSpan(), StringComparison.Ordinal))
+                return false;
+
+            if (FastJson.TryDeserialize<RobloxCurrencyResponse>(json, out var res) && res != null)
+            {
+                robux = res.Robux;
+                return true;
+            }
+
+            return false;
+        }
+
         public async Task<long> FetchRobuxBalanceAsync(Account account, CancellationToken cancellationToken = default)
         {
             if (account == null || account.UserID <= 0 || string.IsNullOrWhiteSpace(account.SecurityToken) || !account.Valid)
@@ -42,9 +57,9 @@ namespace Shiro.Services
                         if (response.IsSuccessStatusCode)
                         {
                             string json = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-                            if (FastJson.TryDeserialize<RobloxCurrencyResponse>(json, out var res) && res != null)
+                            if (TryParseCurrencyBalance(json, out long robux))
                             {
-                                account.RobuxBalance = res.Robux;
+                                account.RobuxBalance = robux;
                                 account.LastEconomyCheck = DateTime.UtcNow;
                                 RobloxRateLimitCoordinator.Instance.RecordSuccess(RateLimitCategory.General);
                                 return account.RobuxBalance;
