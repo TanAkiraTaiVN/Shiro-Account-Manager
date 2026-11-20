@@ -131,7 +131,7 @@ namespace Shiro.Tests
             };
 
             using var req = new HttpRequestMessage(HttpMethod.Get, "https://www.roblox.com/home");
-            account.ApplySessionFingerprintAndHba(req);
+            AppServices.AccountApiService.ApplySessionFingerprintAndHba(account, req);
 
             Assert.True(req.Headers.Contains("Cookie"));
             Assert.True(req.Headers.Contains("User-Agent"));
@@ -151,7 +151,7 @@ namespace Shiro.Tests
             var restReq = new RestRequest("my/settings", Method.Get);
             restReq.AddHeader("Cookie", ".ROBLOSECURITY=SampleTok");
 
-            account.ApplySessionFingerprintAndHbaToRestRequest(restReq, "https://www.roblox.com/");
+            AppServices.AccountApiService.ApplySessionFingerprintAndHbaToRestRequest(account, restReq, "https://www.roblox.com/");
 
             Assert.True(restReq.Headers.ContainsKey("User-Agent"));
             Assert.True(restReq.Headers.ContainsKey("Cookie"));

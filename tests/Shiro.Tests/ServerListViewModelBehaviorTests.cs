@@ -356,8 +356,8 @@ namespace Shiro.Tests
                 return new System.Net.Http.HttpResponseMessage(System.Net.HttpStatusCode.BadRequest) { Content = new System.Net.Http.StringContent("{}") };
             });
 
-            var prevFactory = Account.TestHttpClientFactory;
-            Account.TestHttpClientFactory = _ => new System.Net.Http.HttpClient(handler);
+            var prevFactory = RobloxAccountSessionClient.TestHttpClientFactory;
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new System.Net.Http.HttpClient(handler);
             var restClient = new Shiro.Http.RestClient(new System.Net.Http.HttpClient(handler), "https://games.roblox.com/");
             var acc = new Account { Username = "VipUser", SecurityToken = "_|WARNING:-test" };
 
@@ -380,11 +380,11 @@ namespace Shiro.Tests
             Assert.Null(canceledVips);
 
             // 3. Exception in client
-            Account.TestHttpClientFactory = _ => throw new InvalidOperationException("boom");
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => throw new InvalidOperationException("boom");
             var throwingClient = new Shiro.Http.RestClient(new System.Net.Http.HttpClient(new Shiro.Tests.TestInfrastructure.FakeHttpHandler(_ => throw new InvalidOperationException("boom"))), "https://games.roblox.com/");
             var throwVips = await ServerListViewModel.TestFetchVipServersAsync(throwingClient, acc, 189707, CancellationToken.None);
             Assert.Null(throwVips);
-            Account.TestHttpClientFactory = prevFactory;
+            RobloxAccountSessionClient.TestHttpClientFactory = prevFactory;
         }
 
         [Fact]

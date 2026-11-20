@@ -57,18 +57,18 @@ namespace Shiro.Tests
             var acc = new Account { Username = "HttpUser" };
 
             // Null response
-            Assert.False(acc.TryUpdateRotatedCookie((HttpResponseMessage)null!));
+            Assert.False(AppServices.AccountSessionClient.TryUpdateRotatedCookie(acc, (HttpResponseMessage)null!));
 
             // Response without Set-Cookie
             using var emptyResp = new HttpResponseMessage(HttpStatusCode.OK);
-            Assert.False(acc.TryUpdateRotatedCookie(emptyResp));
+            Assert.False(AppServices.AccountSessionClient.TryUpdateRotatedCookie(acc, emptyResp));
 
             // Response with valid Set-Cookie
             string validCookie = CreateValidRoblosecurity("httpRot");
             using var validResp = new HttpResponseMessage(HttpStatusCode.OK);
             validResp.Headers.Add("Set-Cookie", $".ROBLOSECURITY={validCookie}; path=/");
 
-            bool updated = acc.TryUpdateRotatedCookie(validResp);
+            bool updated = AppServices.AccountSessionClient.TryUpdateRotatedCookie(acc, validResp);
             Assert.True(updated);
             Assert.Equal(validCookie, acc.SecurityToken);
         }
@@ -79,7 +79,7 @@ namespace Shiro.Tests
             var acc = new Account { Username = "RestUser" };
 
             // Null response
-            Assert.False(acc.TryUpdateRotatedCookie((RestResponse)null!));
+            Assert.False(AppServices.AccountApiService.TryUpdateRotatedCookie(acc, (RestResponse)null!));
 
             // Valid RestResponse with Set-Cookie header
             string validCookie = CreateValidRoblosecurity("restRot");
@@ -89,7 +89,7 @@ namespace Shiro.Tests
             };
             restResp.Headers.Add(new HeaderParameter("Set-Cookie", $".ROBLOSECURITY={validCookie}; path=/"));
 
-            bool updated = acc.TryUpdateRotatedCookie(restResp);
+            bool updated = AppServices.AccountApiService.TryUpdateRotatedCookie(acc, restResp);
             Assert.True(updated);
             Assert.Equal(validCookie, acc.SecurityToken);
         }

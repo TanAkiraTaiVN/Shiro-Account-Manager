@@ -33,7 +33,7 @@ namespace Shiro.Tests
             using var restClient = new RestClient("https://games.roblox.com");
             var acc = new Account { Username = "VipUser", SecurityToken = "valid-tok", Valid = true };
 
-            var origFactory = Account.TestHttpClientFactory;
+            var origFactory = RobloxAccountSessionClient.TestHttpClientFactory;
             try
             {
                 // 1. Response with variety of VIP server fallback fields (accessCode, id, name, empty)
@@ -46,7 +46,7 @@ namespace Shiro.Tests
                     ]
                 }";
 
-                Account.TestHttpClientFactory = _ => new HttpClient(new TestHttpHandler(req =>
+                RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(new TestHttpHandler(req =>
                 {
                     return new HttpResponseMessage(HttpStatusCode.OK)
                     {
@@ -73,7 +73,7 @@ namespace Shiro.Tests
                 Assert.Equal(20, list[3].Ping);
 
                 // 2. Empty content / unsuccessful response => returns null
-                Account.TestHttpClientFactory = _ => new HttpClient(new TestHttpHandler(req =>
+                RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(new TestHttpHandler(req =>
                 {
                     return new HttpResponseMessage(HttpStatusCode.NotFound) { Content = new StringContent("") };
                 }));
@@ -82,13 +82,13 @@ namespace Shiro.Tests
                 Assert.Null(listEmpty);
 
                 // 3. Throws exception in execution => caught and returns null
-                Account.TestHttpClientFactory = _ => throw new InvalidOperationException("Simulated Rest failure");
+                RobloxAccountSessionClient.TestHttpClientFactory = _ => throw new InvalidOperationException("Simulated Rest failure");
                 var listException = await ServerListViewModel.TestFetchVipServersAsync(restClient, acc, 12345, CancellationToken.None);
                 Assert.Null(listException);
             }
             finally
             {
-                Account.TestHttpClientFactory = origFactory;
+                RobloxAccountSessionClient.TestHttpClientFactory = origFactory;
             }
         }
 

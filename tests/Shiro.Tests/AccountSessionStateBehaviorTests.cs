@@ -24,7 +24,7 @@ namespace Shiro.Tests
 
         public void Dispose()
         {
-            Account.TestHttpClientFactory = null;
+            RobloxAccountSessionClient.TestHttpClientFactory = null;
             RobloxRateLimitCoordinator.Instance.ResetBackoff();
         }
 
@@ -39,7 +39,7 @@ namespace Shiro.Tests
             };
 
             // Network should not be hit at all
-            Account.TestHttpClientFactory = _ => throw new InvalidOperationException("Network should not be called");
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => throw new InvalidOperationException("Network should not be called");
 
             var (success, token, err) = await acc.GetCSRFTokenAsync();
 
@@ -65,7 +65,7 @@ namespace Shiro.Tests
                 resp.Headers.TryAddWithoutValidation("x-csrf-token", "newly-issued-token-99");
                 return resp;
             });
-            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(handler);
 
             var (success, token, err) = await acc.GetCSRFTokenAsync();
 
@@ -86,7 +86,7 @@ namespace Shiro.Tests
             };
 
             var handler = new FakeHttpHandler(_ => new HttpResponseMessage(HttpStatusCode.InternalServerError));
-            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(handler);
 
             var (success, token, err) = await acc.GetCSRFTokenAsync();
 
@@ -110,7 +110,7 @@ namespace Shiro.Tests
                 resp.Headers.TryAddWithoutValidation("rbx-authentication-ticket", "sample-ticket-value-12345");
                 return resp;
             });
-            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(handler);
 
             var (success, ticket) = await acc.GetAuthTicketAsync();
 
@@ -142,7 +142,7 @@ namespace Shiro.Tests
                 successResp.Headers.TryAddWithoutValidation("rbx-authentication-ticket", "ticket-after-retry");
                 return successResp;
             });
-            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(handler);
 
             var (success, ticket) = await acc.GetAuthTicketAsync();
 
@@ -181,7 +181,7 @@ namespace Shiro.Tests
             {
                 Content = new StringContent("<!DOCTYPE html><html><body>Captive Wi-Fi Login</body></html>")
             });
-            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(handler);
 
             bool isValid = await acc.ValidateSessionAsync();
 
@@ -204,7 +204,7 @@ namespace Shiro.Tests
             {
                 Content = new StringContent("{\"id\":99999,\"name\":\"DifferentUser\"}")
             });
-            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(handler);
 
             bool isValid = await acc.ValidateSessionAsync();
 
@@ -228,7 +228,7 @@ namespace Shiro.Tests
             using var resp = new HttpResponseMessage(HttpStatusCode.OK);
             resp.Headers.TryAddWithoutValidation("Set-Cookie", $".ROBLOSECURITY={longRotatedCookie}; path=/; domain=.roblox.com; HttpOnly");
 
-            bool updated = acc.TryUpdateRotatedCookie(resp);
+            bool updated = AppServices.AccountSessionClient.TryUpdateRotatedCookie(acc, resp);
 
             Assert.True(updated);
             Assert.Contains(longRotatedCookie, acc.SecurityToken);
@@ -238,7 +238,7 @@ namespace Shiro.Tests
         [Fact]
         public void GetRateLimitRecoverySeconds_ParsesHeadersCorrectly()
         {
-            var method = typeof(Account).GetMethod("GetRateLimitRecoverySeconds", BindingFlags.NonPublic | BindingFlags.Static);
+            var method = typeof(RobloxAccountApiService).GetMethod("GetRateLimitRecoverySeconds", BindingFlags.NonPublic | BindingFlags.Static);
             Assert.NotNull(method);
 
             // Null response returns default (90)
@@ -270,7 +270,7 @@ namespace Shiro.Tests
         {
             var ex = Record.Exception(() =>
             {
-                try { Account.MarkNativeAuthRateLimited(25, "TestRateLimitUser", "unit-test"); }
+                try { RobloxAccountSessionClient.MarkNativeAuthRateLimited(25, "TestRateLimitUser", "unit-test"); }
                 finally { RobloxRateLimitCoordinator.Instance.ResetBackoff(); }
             });
 

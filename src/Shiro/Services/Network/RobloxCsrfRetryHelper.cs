@@ -43,7 +43,7 @@ namespace Shiro.Services
             for (int attempt = 0; attempt < 2; attempt++)
             {
                 RestRequest request = buildRequest(csrf);
-                response = await account.ExecuteAccountRestAsync(client, fallbackBaseUrl, request, cancellationToken)
+                response = await AppServices.AccountApiService.ExecuteAccountRestAsync(account, client, fallbackBaseUrl, request, cancellationToken)
                     .ConfigureAwait(false);
 
                 if (response == null || response.StatusCode != HttpStatusCode.Forbidden || attempt > 0)

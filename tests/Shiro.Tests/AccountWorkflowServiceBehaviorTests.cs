@@ -235,14 +235,14 @@ namespace Shiro.Tests
         [Fact]
         public async Task CheckAllSessionsAsync_WithAccounts_ScansAndReportsResults()
         {
-            var origClientFactory = Account.TestHttpClientFactory;
+            var origClientFactory = RobloxAccountSessionClient.TestHttpClientFactory;
 
             try
             {
                 var handler = new Shiro.Tests.TestInfrastructure.FakeHttpHandler(req => new System.Net.Http.HttpResponseMessage(System.Net.HttpStatusCode.Unauthorized))
                     .Enqueue(System.Net.HttpStatusCode.OK, "{\"id\":111,\"name\":\"HealthyUser\"}")
                     .Enqueue(System.Net.HttpStatusCode.Unauthorized, "{}");
-                Account.TestHttpClientFactory = _ => new System.Net.Http.HttpClient(handler);
+                RobloxAccountSessionClient.TestHttpClientFactory = _ => new System.Net.Http.HttpClient(handler);
 
                 var mockRepo = NSubstitute.Substitute.For<IAccountRepository>();
                 var healthyAcc = new Account { Username = "HealthyUser", UserID = 111, SecurityToken = "_|WARNING:-token-healthy", Valid = true };
@@ -261,7 +261,7 @@ namespace Shiro.Tests
             }
             finally
             {
-                Account.TestHttpClientFactory = origClientFactory;
+                RobloxAccountSessionClient.TestHttpClientFactory = origClientFactory;
             }
         }
 
@@ -301,7 +301,7 @@ namespace Shiro.Tests
         [Fact]
         public async Task ReLoginWithCookieAsync_ValidateSessionSelected_And_CheckAllSessions_AllBranches_Work()
         {
-            var origClientFactory = Account.TestHttpClientFactory;
+            var origClientFactory = RobloxAccountSessionClient.TestHttpClientFactory;
 
             try
             {
@@ -315,7 +315,7 @@ namespace Shiro.Tests
                     {
                         Content = new System.Net.Http.StringContent("{\"id\":555,\"name\":\"RelogUser\"}")
                     });
-                Account.TestHttpClientFactory = _ => new System.Net.Http.HttpClient(handler);
+                RobloxAccountSessionClient.TestHttpClientFactory = _ => new System.Net.Http.HttpClient(handler);
 
                 var acc = new Account
                 {
@@ -333,7 +333,7 @@ namespace Shiro.Tests
                 Assert.NotEmpty(status);
 
                 // 2. ReLoginWithCookieAsync: invalid new cookie when previously valid retains old cookie
-                Account.TestHttpClientFactory = _ => new System.Net.Http.HttpClient(
+                RobloxAccountSessionClient.TestHttpClientFactory = _ => new System.Net.Http.HttpClient(
                     new Shiro.Tests.TestInfrastructure.FakeHttpHandler(_ =>
                         new System.Net.Http.HttpResponseMessage(System.Net.HttpStatusCode.Unauthorized)
                         {
@@ -361,7 +361,7 @@ namespace Shiro.Tests
                 Assert.NotEmpty(completedMsg);
 
                 // 5. CheckAllSessionsAsync when all healthy & when >5 banned accounts
-                Account.TestHttpClientFactory = _ => new System.Net.Http.HttpClient(
+                RobloxAccountSessionClient.TestHttpClientFactory = _ => new System.Net.Http.HttpClient(
                     new Shiro.Tests.TestInfrastructure.FakeHttpHandler(_ =>
                         new System.Net.Http.HttpResponseMessage(System.Net.HttpStatusCode.OK)
                         {
@@ -396,7 +396,7 @@ namespace Shiro.Tests
             }
             finally
             {
-                Account.TestHttpClientFactory = origClientFactory;
+                RobloxAccountSessionClient.TestHttpClientFactory = origClientFactory;
             }
         }
 
@@ -416,10 +416,10 @@ namespace Shiro.Tests
         [Fact]
         public async System.Threading.Tasks.Task ReLoginWithCookieAsync_WhenPreviouslyInvalidAndRejected_RestoresPreviousTokenAndNeverSaves()
         {
-            var origClientFactory = Account.TestHttpClientFactory;
+            var origClientFactory = RobloxAccountSessionClient.TestHttpClientFactory;
             try
             {
-                Account.TestHttpClientFactory = _ => new System.Net.Http.HttpClient(
+                RobloxAccountSessionClient.TestHttpClientFactory = _ => new System.Net.Http.HttpClient(
                     new Shiro.Tests.TestInfrastructure.FakeHttpHandler(_ =>
                         CreateWorkflowJsonResponse(System.Net.HttpStatusCode.Unauthorized, EmptyObjectJson)));
 
@@ -448,17 +448,17 @@ namespace Shiro.Tests
             }
             finally
             {
-                Account.TestHttpClientFactory = origClientFactory;
+                RobloxAccountSessionClient.TestHttpClientFactory = origClientFactory;
             }
         }
 
         [Fact]
         public async System.Threading.Tasks.Task RemoveAccount_And_ReLoginHydratingIdentity_KeepMainViewModelLookupIndexSynced()
         {
-            var origClientFactory = Account.TestHttpClientFactory;
+            var origClientFactory = RobloxAccountSessionClient.TestHttpClientFactory;
             try
             {
-                Account.TestHttpClientFactory = _ => new System.Net.Http.HttpClient(
+                RobloxAccountSessionClient.TestHttpClientFactory = _ => new System.Net.Http.HttpClient(
                     new Shiro.Tests.TestInfrastructure.FakeHttpHandler(_ =>
                         CreateWorkflowJsonResponse(System.Net.HttpStatusCode.OK, HydratedAuthJson)));
 
@@ -490,17 +490,17 @@ namespace Shiro.Tests
             }
             finally
             {
-                Account.TestHttpClientFactory = origClientFactory;
+                RobloxAccountSessionClient.TestHttpClientFactory = origClientFactory;
             }
         }
 
         [Fact]
         public async System.Threading.Tasks.Task AccountWorkflowService_EdgeBranches_CoverBannedTruncationCancelAndDefaults()
         {
-            var origClientFactory = Account.TestHttpClientFactory;
+            var origClientFactory = RobloxAccountSessionClient.TestHttpClientFactory;
             try
             {
-                Account.TestHttpClientFactory = _ => new System.Net.Http.HttpClient(
+                RobloxAccountSessionClient.TestHttpClientFactory = _ => new System.Net.Http.HttpClient(
                     new Shiro.Tests.TestInfrastructure.FakeHttpHandler(_ =>
                         CreateWorkflowJsonResponse(System.Net.HttpStatusCode.Unauthorized, EmptyObjectJson)));
 
@@ -536,7 +536,7 @@ namespace Shiro.Tests
             }
             finally
             {
-                Account.TestHttpClientFactory = origClientFactory;
+                RobloxAccountSessionClient.TestHttpClientFactory = origClientFactory;
             }
         }
     }

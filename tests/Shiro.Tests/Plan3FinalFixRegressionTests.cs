@@ -38,14 +38,14 @@ namespace Shiro.Tests
         private readonly string? _origStreamerSetting = AppServices.GeneralSettings.Get<string>(AppSettingsKeys.General.StreamerModeEnabled);
         private readonly string? _origHideSetting = AppServices.GeneralSettings.Get<string>(AppSettingsKeys.General.HideUsernames);
         private readonly Action<Action>? _origDispatcher = AppDispatcher.CustomDispatcher;
-        private readonly Func<Account, HttpClient>? _origHttpFactory = Account.TestHttpClientFactory;
+        private readonly Func<Account, HttpClient>? _origHttpFactory = RobloxAccountSessionClient.TestHttpClientFactory;
         private readonly long _origCachedPlaceId = AppServices.ServerBrowserState.CachedServersPlaceId;
 
         public void Dispose()
         {
             AccountManager.ResetAccountsForTests(Array.Empty<Account>());
             AppDispatcher.CustomDispatcher = _origDispatcher;
-            Account.TestHttpClientFactory = _origHttpFactory;
+            RobloxAccountSessionClient.TestHttpClientFactory = _origHttpFactory;
             StreamerModeService.AutoDetectEnabled = _origAutoDetect;
             StreamerModeService.IsEnabled = _origStreamerEnabled;
             RestoreGeneralSetting(AppSettingsKeys.General.StreamerModeEnabled, _origStreamerSetting);
@@ -318,7 +318,7 @@ namespace Shiro.Tests
                 return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound));
             });
 
-            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(handler);
             var account = new Account { Username = "HomeCancelUser", UserID = 7791, SecurityToken = ValidModCookie };
             await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
                 new RobloxModerationService().CheckModerationStatusAsync(account, ValidModCookie, httpClientOverride: null, callerCts.Token, dispatchAlert: false));
@@ -362,7 +362,7 @@ namespace Shiro.Tests
             AccountManager.ResetAccountsForTests(new[] { acc });
 
             int csrfCalls = 0;
-            Account.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler(_ =>
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler(_ =>
             {
                 Interlocked.Increment(ref csrfCalls);
                 return new HttpResponseMessage(HttpStatusCode.OK);

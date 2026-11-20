@@ -1,15 +1,6 @@
-using Shiro.Http;
-
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Globalization;
-using System.IO;
-using System.Linq;
-using System.Net;
-using System.Net.Http;
-using System.Runtime.InteropServices;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Text.Json.Serialization;
@@ -156,19 +147,6 @@ namespace Shiro
             return grpCmp != 0 ? grpCmp : string.Compare(Username, compareTo.Username, StringComparison.OrdinalIgnoreCase);
         }
 
-        // Retry up to 4 attempts on transient network glitches, stale CSRF (403), or short burst 429s
-        // with backoff to guarantee high-concurrency multi-launch reliability.
-        private const int AuthTicketMaxAttempts = 4;
-        // The native client redeems the ticket after RAM has started it. That
-        // second request can be rate-limited even when ticket creation worked,
-        // so keep a separate adaptive recovery window for confirmed 429s.
-        internal const int NativeAuthRecoverySeconds = 90;
-        // Roblox accepts the roblox-player URI asynchronously.  On a busy
-        // machine the protocol handler can take longer than five seconds to
-        // hand the ticket to RobloxPlayerBeta.exe.  Moving the next account
-        // before that handoff is complete is what caused intermittent
-        // account-2/account-3 failures in multi-launch.
-        private const int NativeHandoffTimeoutMilliseconds = 15000;
         public const string BrowserHomeResult = "BROWSER_HOME_STARTED";
         public string BrowserTrackerID = string.Empty;
 
@@ -234,58 +212,16 @@ namespace Shiro
 
         /// <summary>
         /// Sanitizes and extracts the pure .ROBLOSECURITY token from raw strings,
-        /// handling leading prefixes (".ROBLOSECURITY=", "ROBLOSECURITY="),
-        /// wrapping quotes, trailing cookie attributes (path, domain, semicolons), and whitespace.
+        /// handling leading prefixes, wrapping quotes, trailing cookie attributes, and whitespace.
         /// </summary>
-        public static string SanitizeCookie(string raw)
-        {
-            if (string.IsNullOrWhiteSpace(raw)) return string.Empty;
-            ReadOnlySpan<char> span = raw.AsSpan().Trim().Trim("'\"").Trim();
-
-            while (span.StartsWith(".ROBLOSECURITY=", StringComparison.OrdinalIgnoreCase) ||
-                   span.StartsWith("ROBLOSECURITY=", StringComparison.OrdinalIgnoreCase))
-            {
-                int eq = span.IndexOf('=');
-                span = span.Slice(eq + 1).Trim().Trim("'\"").Trim();
-            }
-
-            int semiIndex = span.IndexOf(';');
-            if (semiIndex >= 0)
-            {
-                span = span.Slice(0, semiIndex).Trim();
-            }
-
-            span = span.Trim("'\"").Trim();
-            if (span.IsEmpty) return string.Empty;
-            return span.Length == raw.Length ? raw : span.ToString();
-        }
+        public static string SanitizeCookie(string raw) =>
+            RobloxCookieHeaderParser.SanitizeCookie(raw);
 
         /// <summary>
         /// Returns the base64 character length of the middle payload segment (Dot[1]) of a .ROBLOSECURITY token.
-        /// Full long-lived sessions issued with secureAuthenticationIntent have a 939-char (704-byte) payload,
-        /// whereas downgraded fallback sessions have a 790-char (592-byte) payload.
         /// </summary>
-        public static int GetSessionTokenPayloadLength(string cookie)
-        {
-            if (string.IsNullOrWhiteSpace(cookie))
-                return 0;
-
-            ReadOnlySpan<char> span = cookie.AsSpan().Trim();
-            int prefixIdx = span.LastIndexOf("|_");
-            if (prefixIdx >= 0 && prefixIdx + 2 < span.Length)
-                span = span.Slice(prefixIdx + 2);
-
-            int firstDot = span.IndexOf('.');
-            if (firstDot <= 0 || firstDot + 1 >= span.Length)
-                return 0;
-
-            ReadOnlySpan<char> rest = span.Slice(firstDot + 1);
-            int secondDot = rest.IndexOf('.');
-            if (secondDot <= 0)
-                return 0;
-
-            return secondDot;
-        }
+        public static int GetSessionTokenPayloadLength(string cookie) =>
+            RobloxCookieHeaderParser.GetSessionTokenPayloadLength(cookie);
 
         /// <summary>
         /// Returns true if the given .ROBLOSECURITY token is a downgraded 592-byte (790-char)
@@ -350,36 +286,18 @@ namespace Shiro
             RobloxHbaService.CaptureSnapshot? hbaCapture = null) =>
             CreateAsync(cookie, accountJson, cancellationToken, hbaCapture, expectedUsername: null);
 
-        public static async Task<Account> CreateAsync(
+        public static Task<Account> CreateAsync(
             string cookie,
             string? accountJson,
             CancellationToken cancellationToken,
             RobloxHbaService.CaptureSnapshot? hbaCapture,
-            string? expectedUsername)
-        {
-            var account = new Account { SecurityToken = cookie, Valid = false, LastUse = DateTime.Now };
-            account.ApplyHbaCapture(hbaCapture);
-
-            if (!string.IsNullOrEmpty(accountJson) && Utilities.TryParseJson(accountJson, out AccountJson? data) && data != null && data.UserId > 0)
-            {
-                account.Username = data.Name;
-                account.UserID = data.UserId;
-                account.Valid = true;
-                account.LastUse = DateTime.Now;
-            }
-            else if (await account.ValidateSessionAsync(cancellationToken).ConfigureAwait(false) && account.UserID > 0)
-            {
-                account.LastUse = DateTime.Now;
-            }
-
-            if (account.Valid &&
-                (string.IsNullOrEmpty(expectedUsername) ||
-                 string.Equals(account.Username, expectedUsername, StringComparison.OrdinalIgnoreCase)))
-            {
-                AppServices.SelectionState.LastValidAccount = account;
-            }
-            return account;
-        }
+            string? expectedUsername) =>
+            AppServices.AccountSessionClient.CreateValidatedAccountAsync(
+                cookie,
+                accountJson,
+                cancellationToken,
+                hbaCapture,
+                expectedUsername);
 
         /// <summary>
         /// Synchronous account constructor. Prefer <see cref="CreateAsync(string, string?, CancellationToken, RobloxHbaService.CaptureSnapshot?)"/> to avoid blocking threads.
@@ -400,11 +318,6 @@ namespace Shiro
 
             Valid = false;
         }
-
-        // Session state, cookie rotation, and request execution extracted to Account.SessionState.cs
-        // GetCSRFTokenAsync and GetAuthTicketAsync extracted to Account.Api.cs
-        // Account settings, PIN, blocklist, friend/avatar APIs extracted to Account.SettingsApi.cs
-        // Process launching, window positioning, and native/browser home methods extracted to Account.Launcher.cs & Account.Launcher.Diagnostics.cs
 
         public string GetField(string Name)
         {

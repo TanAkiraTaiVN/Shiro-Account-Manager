@@ -27,7 +27,7 @@ namespace Shiro.Tests.Network
             RobloxServerQueryService.TestHttpClientFactory = null;
             RobloxServerQueryService.TestPingProbe = null;
             RobloxServerQueryService.TestGeoHttpGetString = null;
-            Account.TestHttpClientFactory = null;
+            RobloxAccountSessionClient.TestHttpClientFactory = null;
         }
 
         public void Dispose()
@@ -35,7 +35,7 @@ namespace Shiro.Tests.Network
             RobloxServerQueryService.TestHttpClientFactory = null;
             RobloxServerQueryService.TestPingProbe = null;
             RobloxServerQueryService.TestGeoHttpGetString = null;
-            Account.TestHttpClientFactory = null;
+            RobloxAccountSessionClient.TestHttpClientFactory = null;
         }
 
         [Fact]
@@ -81,7 +81,7 @@ namespace Shiro.Tests.Network
             var handler = new FakeHttpHandler()
                 .Enqueue(HttpStatusCode.OK, "{\"joinScript\":{\"MachineAddress\":\"198.51.100.42\",\"DataCenterId\":999999}}")
                 .Enqueue(HttpStatusCode.OK, "{\"joinScript\":{\"MachineAddress\":\"198.51.100.43\",\"DataCenterId\":999999}}");
-            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(handler);
             RobloxServerQueryService.TestPingProbe = _ => Task.FromResult<int?>(42);
             RobloxServerQueryService.TestGeoHttpGetString = (url, _) =>
             {
@@ -122,7 +122,7 @@ namespace Shiro.Tests.Network
             var handler = new FakeHttpHandler()
                 .Enqueue(HttpStatusCode.OK, "{\"status\":\"GameFull\"}")
                 .Enqueue(HttpStatusCode.OK, "{}");
-            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(handler);
 
             var account = new Account
             {
@@ -150,7 +150,7 @@ namespace Shiro.Tests.Network
                 // 3. GeoIP country property + unmocked ping path on public IP
                 .Enqueue(HttpStatusCode.OK, "{\"joinScript\":{\"MachineAddress\":\"192.0.2.10\"}}");
 
-            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(handler);
             RobloxServerQueryService.TestPingProbe = ip =>
                 Task.FromResult<int?>(ip == "203.0.113.55" ? null : 19);
 
@@ -277,7 +277,7 @@ namespace Shiro.Tests.Network
                 .Enqueue(HttpStatusCode.OK, PrivateRfc1918MachineJson)
                 .Enqueue(HttpStatusCode.OK, PrivateLinkLocalMachineJson)
                 .Enqueue(HttpStatusCode.OK, InvalidIpMachineJson);
-            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(handler);
 
             int pingCalls = 0;
             int geoCalls = 0;
@@ -316,7 +316,7 @@ namespace Shiro.Tests.Network
         {
             var handler = new FakeHttpHandler()
                 .Enqueue(HttpStatusCode.OK, PublicGeoHostTestIpJson);
-            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(handler);
             RobloxServerQueryService.TestPingProbe = _ => Task.FromResult<int?>(31);
 
             var requestedUrls = new List<string>();
@@ -370,7 +370,7 @@ namespace Shiro.Tests.Network
                 };
             });
 
-            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(handler);
             RobloxServerQueryService.TestPingProbe = _ => Task.FromResult<int?>(25);
             RobloxServerQueryService.TestGeoHttpGetString = (_, _) => Task.FromResult(OsakaGeoJson);
 
@@ -456,7 +456,7 @@ namespace Shiro.Tests.Network
             var handler = new FakeHttpHandler()
                 .Enqueue(HttpStatusCode.OK, PublicWhitespaceIpJson)
                 .Enqueue(HttpStatusCode.OK, PublicMappedIpv6Json);
-            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(handler);
 
             var pingTargets = new List<string>();
             var geoUrls = new List<string>();

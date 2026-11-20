@@ -30,13 +30,13 @@ namespace Shiro.Tests
             _oldAllowExt = AppSettings.WebServer.Get("AllowExternalConnections");
             _oldAccounts = AppServices.AccountRepository.GetAll().ToList();
             _oldLastValid = AppServices.SelectionState.LastValidAccount;
-            Account.TestHttpClientFactory = null;
+            RobloxAccountSessionClient.TestHttpClientFactory = null;
             WebAuthPolicy.ResetLockoutsForTesting();
         }
 
         public void Dispose()
         {
-            Account.TestHttpClientFactory = null;
+            RobloxAccountSessionClient.TestHttpClientFactory = null;
             WebAuthPolicy.ResetLockoutsForTesting();
             AccountManager.ResetAccountsForTests(_oldAccounts);
             AppServices.SelectionState.LastValidAccount = _oldLastValid;
@@ -177,7 +177,7 @@ namespace Shiro.Tests
             AccountManager.ResetAccountsForTests(new[] { acc });
 
             int httpCalls = 0;
-            Account.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler(_ =>
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler(_ =>
             {
                 httpCalls++;
                 return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("{}") };
@@ -320,7 +320,7 @@ namespace Shiro.Tests
             AccountManager.ResetAccountsForTests(new[] { acc });
 
             int authCalls = 0;
-            Account.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler(req =>
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler(req =>
             {
                 if ((req.RequestUri?.Host ?? "").Contains("auth.roblox.com", StringComparison.OrdinalIgnoreCase))
                     authCalls++;

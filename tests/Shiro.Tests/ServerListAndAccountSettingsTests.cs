@@ -228,7 +228,7 @@ namespace Shiro.Tests
                 StatusCode = HttpStatusCode.OK,
                 Content = "Roblox.GameLauncher.joinPrivateGame(1818, '11111111-2222-3333-4444-555555555555', false)"
             };
-            Assert.True(acc.ParseAccessCode(legacyResp, out string code1));
+            Assert.True(RobloxSettingsApiService.ParseAccessCode(legacyResp, out string code1));
             Assert.Equal("11111111-2222-3333-4444-555555555555", code1);
 
             var modernResp = new RestResponse
@@ -236,11 +236,11 @@ namespace Shiro.Tests
                 StatusCode = HttpStatusCode.OK,
                 Content = "{\"accessCode\": \"aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee\"}"
             };
-            Assert.True(acc.ParseAccessCode(modernResp, out string code2));
+            Assert.True(RobloxSettingsApiService.ParseAccessCode(modernResp, out string code2));
             Assert.Equal("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", code2);
 
             var emptyResp = new RestResponse { StatusCode = HttpStatusCode.OK, Content = "{}" };
-            Assert.False(acc.ParseAccessCode(emptyResp, out _));
+            Assert.False(RobloxSettingsApiService.ParseAccessCode(emptyResp, out _));
 
             // 5. SetAvatarAsync handles empty or invalid JSON gracefully without throwing
             await acc.SetAvatarAsync("");

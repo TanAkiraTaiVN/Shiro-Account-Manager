@@ -15,12 +15,12 @@ namespace Shiro.Tests.Network
     {
         public RobloxSocialApiServiceTests()
         {
-            Account.TestHttpClientFactory = null;
+            RobloxAccountSessionClient.TestHttpClientFactory = null;
         }
 
         public void Dispose()
         {
-            Account.TestHttpClientFactory = null;
+            RobloxAccountSessionClient.TestHttpClientFactory = null;
         }
 
         [Fact]
@@ -52,7 +52,7 @@ namespace Shiro.Tests.Network
                 .Enqueue(HttpStatusCode.OK, "{}")
                 .Enqueue(HttpStatusCode.OK, "{}");
 
-            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(handler);
             var account = new Account
             {
                 Username = "Unblocker",

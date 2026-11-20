@@ -200,10 +200,10 @@ namespace Shiro.Tests
                     ["Password"] = pass
                 };
 
-                var prevFactory = Account.TestHttpClientFactory;
+                var prevFactory = RobloxAccountSessionClient.TestHttpClientFactory;
                 try
                 {
-                    Account.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler(req =>
+                    RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler(req =>
                     {
                         string url = req.RequestUri?.ToString() ?? string.Empty;
                         if (url.Contains("auth.roblox.com", StringComparison.OrdinalIgnoreCase))
@@ -244,7 +244,7 @@ namespace Shiro.Tests
                 }
                 finally
                 {
-                    Account.TestHttpClientFactory = prevFactory;
+                    RobloxAccountSessionClient.TestHttpClientFactory = prevFactory;
                 }
             }
             finally

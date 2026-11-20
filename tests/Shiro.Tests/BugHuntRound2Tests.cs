@@ -37,12 +37,12 @@ namespace Shiro.Tests
 
         public BugHuntRound2Tests()
         {
-            _origAccountClientFactory = Account.TestHttpClientFactory;
+            _origAccountClientFactory = RobloxAccountSessionClient.TestHttpClientFactory;
         }
 
         public void Dispose()
         {
-            Account.TestHttpClientFactory = _origAccountClientFactory;
+            RobloxAccountSessionClient.TestHttpClientFactory = _origAccountClientFactory;
             SharedHttpClient.ResetTestClient("default");
         }
 
@@ -175,7 +175,7 @@ namespace Shiro.Tests
             AccountManager.ResetAccountsForTests(new[] { acc });
 
             int csrfCalls = 0;
-            Account.TestHttpClientFactory = _ => new HttpClient(new DelegateHttpHandler((_, _) =>
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(new DelegateHttpHandler((_, _) =>
             {
                 csrfCalls++;
                 return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK));

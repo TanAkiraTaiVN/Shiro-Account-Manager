@@ -227,7 +227,7 @@ namespace Shiro.Tests
         {
             bool origShuffle = AppSettings.ShuffleJobId;
             var prevApi = AppServices.RobloxApi;
-            var prevHttpFactory = Account.TestHttpClientFactory;
+            var prevHttpFactory = RobloxAccountSessionClient.TestHttpClientFactory;
 
             try
             {
@@ -271,7 +271,7 @@ namespace Shiro.Tests
                         return new HttpResponseMessage(HttpStatusCode.Forbidden) { Content = new StringContent("{}") };
                     return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("{}") };
                 });
-                Account.TestHttpClientFactory = _ => new HttpClient(vipHandler);
+                RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(vipHandler);
 
                 var vipAcc = new Account
                 {
@@ -303,7 +303,7 @@ namespace Shiro.Tests
             finally
             {
                 AppSettings.ShuffleJobId = origShuffle;
-                Account.TestHttpClientFactory = prevHttpFactory;
+                RobloxAccountSessionClient.TestHttpClientFactory = prevHttpFactory;
                 AutoReconnectService.Instance.Clear();
                 ResetOverrides();
             }

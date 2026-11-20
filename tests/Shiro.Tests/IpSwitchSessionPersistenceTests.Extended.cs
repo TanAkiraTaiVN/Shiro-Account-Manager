@@ -19,7 +19,7 @@ namespace Shiro.Tests
         [Fact]
         public async Task CreateAsync_WhenUsersEndpointReturns403WithRotatedSetCookie_RetriesWithRotatedCookieAndResolvesAccount()
         {
-            Account.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler((req, _) =>
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler((req, _) =>
             {
                 string uri = req.RequestUri!.AbsoluteUri;
                 string cookie = GetCookieHeader(req);
@@ -58,7 +58,7 @@ namespace Shiro.Tests
         [Fact]
         public async Task LaunchCoordinator_WhenTicketFailsOnceButValidationRotatesCookie_RetriesLaunchAndSucceeds()
         {
-            Account.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler((req, _) =>
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler((req, _) =>
             {
                 string uri = req.RequestUri!.AbsoluteUri;
                 if (uri.Contains("users.roblox.com/v1/users/authenticated", StringComparison.OrdinalIgnoreCase))
@@ -109,7 +109,7 @@ namespace Shiro.Tests
         [Fact]
         public async Task LaunchCoordinator_WhenTicketFailsTemporarilyWhileSessionStillValid_PreservesAccountValidState()
         {
-            Account.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler((req, _) =>
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler((req, _) =>
             {
                 if (req.RequestUri!.Host.Equals("users.roblox.com", StringComparison.OrdinalIgnoreCase))
                 {
@@ -231,7 +231,7 @@ namespace Shiro.Tests
             AccountLaunchService.TestGetAuthTicketOverride = null;
             AccountLaunchService.TestStartNativeGameOverride = (_, _, _, _, _, _, _) => Task.FromResult(4242);
 
-            Account.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler((req, _) =>
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler((req, _) =>
             {
                 string uri = req.RequestUri!.AbsoluteUri;
                 if (uri.Contains("users.roblox.com/v1/users/authenticated", StringComparison.OrdinalIgnoreCase))

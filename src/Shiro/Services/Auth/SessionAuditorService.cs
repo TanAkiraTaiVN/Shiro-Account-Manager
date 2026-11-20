@@ -65,7 +65,7 @@ namespace Shiro.Services
             if (TestHttpClientFactory != null)
                 return TestHttpClientFactory(account);
 
-            return account.GetSessionHttpClient(allowAutoRedirect);
+            return AppServices.AccountSessionClient.GetSessionHttpClient(account, allowAutoRedirect);
         }
 
         /// <summary>
@@ -159,10 +159,10 @@ namespace Shiro.Services
                 HttpClient client = GetHttpClient(account, allowAutoRedirect: false);
 
                 // 1. Session health probe via /v1/users/authenticated
-                using var request = account.CreateAuthenticatedGetRequest("https://users.roblox.com/v1/users/authenticated");
+                using var request = AppServices.AccountSessionClient.CreateAuthenticatedGetRequest(account, "https://users.roblox.com/v1/users/authenticated");
                 using HttpResponseMessage response = await client.SendAsync(request, HttpCompletionOption.ResponseContentRead, ct).ConfigureAwait(false);
 
-                account.TryUpdateRotatedCookie(response);
+                AppServices.AccountSessionClient.TryUpdateRotatedCookie(account, response);
                 var status = MapStatusCodeToSessionStatus(response.StatusCode);
                 if (status == AccountSessionStatus.RateLimited)
                     sideEffects.RecordPrimaryRateLimit(response.Headers.RetryAfter);

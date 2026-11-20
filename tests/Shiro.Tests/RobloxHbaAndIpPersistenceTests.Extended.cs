@@ -89,7 +89,7 @@ namespace Shiro.Tests
             req.Headers["Cookie"] = ".ROBLOSECURITY=test";
             req.AddParameter("note", "hello world");
 
-            acc.ApplySessionFingerprintAndHbaToRestRequest(req, "https://www.roblox.com/");
+            AppServices.AccountApiService.ApplySessionFingerprintAndHbaToRestRequest(acc, req, "https://www.roblox.com/");
 
             Assert.True(req.Headers.TryGetValue(RobloxHbaService.BoundAuthHeaderName, out string? batHeader));
             Assert.NotNull(batHeader);
@@ -189,7 +189,7 @@ namespace Shiro.Tests
         {
             var mgr = AccountManager.Instance ?? new AccountManager();
             int httpCalls = 0;
-            Account.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler((_, _) =>
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler((_, _) =>
             {
                 Interlocked.Increment(ref httpCalls);
                 return Task.FromResult(new HttpResponseMessage(HttpStatusCode.Unauthorized));
@@ -321,7 +321,7 @@ namespace Shiro.Tests
         {
             var mgr = AccountManager.Instance ?? new AccountManager();
             int httpCalls = 0;
-            Account.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler((_, _) =>
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler((_, _) =>
             {
                 Interlocked.Increment(ref httpCalls);
                 return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
@@ -447,8 +447,8 @@ namespace Shiro.Tests
             bool fetchedAssertionBeforeTicket = false;
             bool sawAssertionRequest = false;
 
-            var prevFactory = Account.TestHttpClientFactory;
-            Account.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler(async (req, _) =>
+            var prevFactory = RobloxAccountSessionClient.TestHttpClientFactory;
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler(async (req, _) =>
             {
                 string uri = req.RequestUri?.AbsoluteUri ?? string.Empty;
                 if (req.Method == HttpMethod.Get && uri.Contains("/v1/client-assertion", StringComparison.OrdinalIgnoreCase))
@@ -500,7 +500,7 @@ namespace Shiro.Tests
             }
             finally
             {
-                Account.TestHttpClientFactory = prevFactory;
+                RobloxAccountSessionClient.TestHttpClientFactory = prevFactory;
             }
         }
     }

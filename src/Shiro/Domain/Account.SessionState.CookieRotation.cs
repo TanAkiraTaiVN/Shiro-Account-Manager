@@ -1,186 +1,33 @@
 #nullable enable
 using System;
-using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
-using System.Net.Http;
-using Shiro.Http;
+using System.Threading;
 using Shiro.Services;
 
 namespace Shiro
 {
     public partial class Account
     {
-        public bool TryUpdateRotatedCookie(HttpResponseMessage response)
-        {
-            if (response == null) return false;
-            try
-            {
-                IEnumerable<string>? setCookieHeaders = null;
-                if (!response.Headers.TryGetValues("Set-Cookie", out setCookieHeaders))
-                {
-                    try
-                    {
-                        if (response.Headers.NonValidated.TryGetValues("Set-Cookie", out var nonValidated))
-                            setCookieHeaders = nonValidated;
-                    }
-                    catch (Exception ex)
-                    {
-                        AppServices.Logger?.Debug($"NonValidated Set-Cookie header extraction error: {ex.Message}");
-                    }
-                }
-
-                if (setCookieHeaders != null)
-                {
-                    foreach (string header in setCookieHeaders)
-                    {
-                        string? newCookie = ExtractRoblosecurityFromSetCookie(header);
-                        if (!string.IsNullOrWhiteSpace(newCookie) && ApplyRotatedSecurityToken(newCookie, "HttpResponseMessage Set-Cookie"))
-                            return true;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                AppServices.Logger?.Warn($"[CookieRotation] Error inspecting Set-Cookie header for {Username ?? "account"}: {ex.Message}");
-            }
-            return false;
-        }
-
-        public bool TryUpdateRotatedCookie(RestResponse response)
-        {
-            if (response == null) return false;
-            try
-            {
-                bool sawRoblosecuritySetCookie = false;
-                if (response.Headers != null)
-                {
-                    foreach (var h in response.Headers)
-                    {
-                        if (!string.Equals(h.Name, "Set-Cookie", StringComparison.OrdinalIgnoreCase))
-                            continue;
-
-                        string? str = Convert.ToString(h.Value);
-                        if (RobloxCookieHeaderParser.HasRoblosecurityCookiePair(str))
-                            sawRoblosecuritySetCookie = true;
-
-                        string? newCookie = ExtractRoblosecurityFromSetCookie(str);
-                        if (!string.IsNullOrEmpty(newCookie) && ApplyRotatedSecurityToken(newCookie, "RestResponse headers"))
-                            return true;
-                    }
-                }
-
-                if (!sawRoblosecuritySetCookie && response.Cookies != null)
-                {
-                    var cookie = response.Cookies.FirstOrDefault(c => string.Equals(c.Name, ".ROBLOSECURITY", StringComparison.OrdinalIgnoreCase));
-                    if (cookie != null && !string.IsNullOrWhiteSpace(cookie.Value))
-                    {
-                        string? sanitized = ExtractRoblosecurityFromSetCookie($".ROBLOSECURITY={cookie.Value}");
-                        if (!string.IsNullOrEmpty(sanitized) && ApplyRotatedSecurityToken(sanitized, "RestResponse cookies"))
-                            return true;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                AppServices.Logger?.Warn($"[CookieRotation] Error inspecting RestResponse cookies for {Username ?? "account"}: {ex.Message}");
-            }
-            return false;
-        }
-
         public static string? ExtractRoblosecurityFromSetCookie(string? header) =>
             RobloxCookieHeaderParser.ExtractRoblosecurityFromSetCookie(header);
 
-        internal bool ApplyRotatedSecurityToken(string newCookie, string source)
-        {
-            string sanitized = SanitizeCookie(newCookie);
-            if (string.IsNullOrWhiteSpace(sanitized) || !sanitized.Contains("_|WARNING:-DO-NOT-SHARE-THIS", StringComparison.Ordinal))
-                return false;
+        internal bool ApplyRotatedSecurityToken(string newCookie, string source) =>
+            AppServices.AccountSessionClient.ApplyRotatedSecurityToken(this, newCookie, source);
 
+        internal bool TryCommitRotatedSecurityToken(string sanitized)
+        {
             lock (CookieSyncRoot)
             {
                 if (!TryReplaceProtectedSecurityTokenLocked(sanitized))
                     return false;
+
                 IsDirty = true;
                 TokenSet = DateTime.MinValue;
                 CSRFToken = null;
                 LastUse = DateTime.Now;
-                System.Threading.Interlocked.Increment(ref _cookieRotationVersion);
+                Interlocked.Increment(ref _cookieRotationVersion);
+                return true;
             }
-
-            AppServices.Logger?.Info($"[CookieRotation] Captured rotated .ROBLOSECURITY from {source} for {Username ?? "account"}. Updating stored session.");
-            string netSig = RobloxHbaService.GetNetworkSignatureForAccount(this);
-            if (netSig is not ("offline" or "unknown"))
-                LastBoundIpSignature = netSig;
-            try
-            {
-                AppServices.AccountRepository.QueueDeferredSave();
-                if (!string.IsNullOrEmpty(Username) || UserID > 0)
-                {
-                    AppDispatcher.Post(() =>
-                    {
-                        AppServices.HostUiBridge.RefreshAccountView(this);
-                    });
-                }
-            }
-            catch (Exception ex)
-            {
-                AppServices.Logger?.Debug($"UI notification update error: {ex.Message}");
-            }
-            return true;
-        }
-
-        private static int GetRateLimitRecoverySeconds(RestResponse? response)
-        {
-            string? retryAfter = response?.Headers?
-                .FirstOrDefault(x => string.Equals(x.Name, "Retry-After", StringComparison.OrdinalIgnoreCase))?
-                .Value?.ToString()?.Trim();
-
-            if (int.TryParse(retryAfter, out int serverDelay) && serverDelay > 0)
-                return Math.Min(serverDelay, 180);
-
-            if (DateTimeOffset.TryParse(
-                retryAfter,
-                CultureInfo.InvariantCulture,
-                DateTimeStyles.AllowWhiteSpaces | DateTimeStyles.AssumeUniversal,
-                out DateTimeOffset retryAt))
-            {
-                double dateDelay = (retryAt.ToUniversalTime() - DateTimeOffset.UtcNow).TotalSeconds;
-                if (dateDelay > 0)
-                    return Math.Min(180, Math.Max(1, (int)Math.Ceiling(dateDelay)));
-            }
-
-            string? reset = response?.Headers?
-                .FirstOrDefault(x => string.Equals(x.Name, "X-RateLimit-Reset", StringComparison.OrdinalIgnoreCase))?
-                .Value?.ToString()?.Trim();
-            if (long.TryParse(reset, NumberStyles.Integer, CultureInfo.InvariantCulture, out long resetUnix))
-            {
-                try
-                {
-                    double resetDelay = (DateTimeOffset.FromUnixTimeSeconds(resetUnix) - DateTimeOffset.UtcNow).TotalSeconds;
-                    if (resetDelay > 0)
-                        return Math.Min(180, Math.Max(1, (int)Math.Ceiling(resetDelay)));
-                }
-                catch (ArgumentOutOfRangeException) { /* invalid unix timestamp */ }
-            }
-
-            return NativeAuthRecoverySeconds;
-        }
-
-        internal static void MarkNativeAuthRateLimited(
-            int seconds,
-            string username,
-            string source,
-            HttpResponseMessage? response = null,
-            bool recordCoordinatorHit = true)
-        {
-            seconds = Math.Max(1, Math.Min(180, seconds));
-
-            AppServices.Logger?.Warn($"Roblox {source} returned HTTP 429 for {username}. The current launch was stopped; retry after about {seconds} seconds or change network before starting another batch.");
-            AppServices.HostUiBridge.NotifyWindowStatus(
-                Shiro.Services.LocalizationService.Format("Account.RateLimitCooldown", username, seconds));
-            if (recordCoordinatorHit)
-                RobloxRateLimitCoordinator.Instance.RecordRateLimitHit(RateLimitCategory.Authentication, response, defaultBackoffSeconds: seconds);
         }
 
         internal string GetCurrentPassword()
@@ -250,7 +97,7 @@ namespace Shiro
                 InMemorySecretProtector.ZeroAndClear(ref _protectedHbaPrivateKey);
                 CSRFToken = null;
                 TokenSet = DateTime.MinValue;
-                System.Threading.Interlocked.Increment(ref _cookieRotationVersion);
+                Interlocked.Increment(ref _cookieRotationVersion);
             }
             lock (FieldsSyncRoot)
             {

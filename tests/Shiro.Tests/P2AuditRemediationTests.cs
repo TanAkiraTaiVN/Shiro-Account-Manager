@@ -30,7 +30,7 @@ namespace Shiro.Tests
 
         public void Dispose()
         {
-            Account.TestHttpClientFactory = null;
+            RobloxAccountSessionClient.TestHttpClientFactory = null;
             GameInfoService.HttpClientFactoryForTests = null;
             AppServices.Override<IRobloxApiClient>(_originalClient);
         }
@@ -127,7 +127,7 @@ namespace Shiro.Tests
                 .Enqueue(HttpStatusCode.OK, """{"success":true}""");
 
             AppServices.Override<IRobloxApiClient>(new RobloxApiClient(handler));
-            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(handler);
 
             var account = new Account
             {
@@ -341,7 +341,7 @@ namespace Shiro.Tests
                 .Enqueue(HttpStatusCode.OK, EmptyJsonObjectResponse);
 
             AppServices.Override<IRobloxApiClient>(new RobloxApiClient(handler));
-            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(handler);
 
             bool? promptOnUiThread = null;
             var fakeDialogs = Substitute.For<IDialogService>();

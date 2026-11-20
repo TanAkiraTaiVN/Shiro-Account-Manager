@@ -21,12 +21,12 @@ namespace Shiro.Tests.Network
         public AssetCommerceServiceTests()
         {
             _originalClient = AppServices.RobloxApi;
-            Account.TestHttpClientFactory = null;
+            RobloxAccountSessionClient.TestHttpClientFactory = null;
         }
 
         public void Dispose()
         {
-            Account.TestHttpClientFactory = null;
+            RobloxAccountSessionClient.TestHttpClientFactory = null;
             AppServices.Override<IRobloxApiClient>(_originalClient);
         }
 
@@ -46,7 +46,7 @@ namespace Shiro.Tests.Network
                 .Enqueue(HttpStatusCode.OK, """{"data":[{"id":1001,"name":"Cool Hat"}]}""");
 
             AppServices.Override<IRobloxApiClient>(new RobloxApiClient(handler));
-            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(handler);
             var account = CreateTestAccount();
 
             var (ok, content) = await AssetCommerceService.Default.GetAssetDetailsAsync(account, 1001, CancellationToken.None);
@@ -69,7 +69,7 @@ namespace Shiro.Tests.Network
                 .Enqueue(HttpStatusCode.OK, """{"data":[{"id":1002,"name":"Awesome Cap"}]}""");
 
             AppServices.Override<IRobloxApiClient>(new RobloxApiClient(handler));
-            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(handler);
             var account = CreateTestAccount();
 
             var (ok, content) = await AssetCommerceService.Default.GetAssetDetailsAsync(account, 1002, CancellationToken.None);
@@ -111,7 +111,7 @@ namespace Shiro.Tests.Network
                 .Enqueue(HttpStatusCode.OK, """{"purchased":true,"purchaseResult":"Success"}""");
 
             AppServices.Override<IRobloxApiClient>(new RobloxApiClient(handler));
-            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(handler);
             var account = CreateTestAccount();
 
             var (ok, error) = await AssetCommerceService.Default.PurchaseAsync(

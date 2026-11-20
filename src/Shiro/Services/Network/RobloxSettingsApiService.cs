@@ -73,7 +73,7 @@ namespace Shiro.Services
                 AppServices.RobloxApi.Api,
                 "https://apis.roblox.com/",
                 csrf.Token,
-                tok => account.MakeRequest("user-settings-api/v1/user-settings", Method.Post)
+                tok => AppServices.AccountApiService.MakeRequest(account, "user-settings-api/v1/user-settings", Method.Post)
                     .AddHeader("Referer", "https://www.roblox.com/")
                     .AddHeader("X-CSRF-TOKEN", tok)
                     .AddJsonBody(new FollowPrivacySettingPayload(modernSetting)),
@@ -98,7 +98,7 @@ namespace Shiro.Services
                 initialCsrfToken: null,
                 tok =>
                 {
-                    RestRequest req = account.MakeRequest("account/settings/follow-me-privacy", Method.Post)
+                    RestRequest req = AppServices.AccountApiService.MakeRequest(account, "account/settings/follow-me-privacy", Method.Post)
                         .AddHeader("Referer", "https://www.roblox.com/my/account")
                         .AddHeader("X-CSRF-TOKEN", tok)
                         .AddHeader("Content-Type", "application/x-www-form-urlencoded");
@@ -127,7 +127,7 @@ namespace Shiro.Services
                 AppServices.RobloxApi.Auth,
                 "https://auth.roblox.com/",
                 csrf.Token,
-                tok => account.MakeRequest("v2/user/passwords/change", Method.Post)
+                tok => AppServices.AccountApiService.MakeRequest(account, "v2/user/passwords/change", Method.Post)
                     .AddHeader("Referer", "https://www.roblox.com/")
                     .AddHeader("X-CSRF-TOKEN", tok)
                     .AddHeader("Content-Type", "application/x-www-form-urlencoded")
@@ -137,7 +137,7 @@ namespace Shiro.Services
 
             if (response != null && response.IsSuccessful && response.StatusCode == HttpStatusCode.OK)
             {
-                bool rotated = account.CookieRotationVersion != rotationBefore || account.TryUpdateRotatedCookie(response);
+                bool rotated = account.CookieRotationVersion != rotationBefore || AppServices.AccountApiService.TryUpdateRotatedCookie(account, response);
                 if (rotated)
                 {
                     account.Password = newPassword;
@@ -165,7 +165,7 @@ namespace Shiro.Services
                 AppServices.RobloxApi.Account,
                 "https://accountsettings.roblox.com/",
                 csrf.Token,
-                tok => account.MakeRequest("v1/email", Method.Post)
+                tok => AppServices.AccountApiService.MakeRequest(account, "v1/email", Method.Post)
                     .AddHeader("Referer", "https://www.roblox.com/")
                     .AddHeader("X-CSRF-TOKEN", tok)
                     .AddHeader("Content-Type", "application/x-www-form-urlencoded")
@@ -195,7 +195,7 @@ namespace Shiro.Services
                 AppServices.RobloxApi.Auth,
                 "https://auth.roblox.com/",
                 csrf.Token,
-                tok => account.MakeRequest("v1/logoutfromallsessionsandreauthenticate", Method.Post)
+                tok => AppServices.AccountApiService.MakeRequest(account, "v1/logoutfromallsessionsandreauthenticate", Method.Post)
                     .AddHeader("Referer", "https://www.roblox.com/")
                     .AddHeader("X-CSRF-TOKEN", tok)
                     .AddJsonBody(new EmptyJsonObjectPayload()),
@@ -208,7 +208,7 @@ namespace Shiro.Services
                     AppServices.RobloxApi.Main,
                     "https://www.roblox.com/",
                     initialCsrfToken: null,
-                    tok => account.MakeRequest("authentication/signoutfromallsessionsandreauthenticate", Method.Post)
+                    tok => AppServices.AccountApiService.MakeRequest(account, "authentication/signoutfromallsessionsandreauthenticate", Method.Post)
                         .AddHeader("Referer", "https://www.roblox.com/")
                         .AddHeader("X-CSRF-TOKEN", tok)
                         .AddHeader("Content-Type", "application/x-www-form-urlencoded"),
@@ -217,7 +217,7 @@ namespace Shiro.Services
 
             if (response != null && response.IsSuccessful && response.StatusCode == HttpStatusCode.OK)
             {
-                bool rotated = account.CookieRotationVersion != rotationBefore || account.TryUpdateRotatedCookie(response);
+                bool rotated = account.CookieRotationVersion != rotationBefore || AppServices.AccountApiService.TryUpdateRotatedCookie(account, response);
                 if (rotated)
                 {
                     await AppServices.AccountRepository.SaveAsync(true).ConfigureAwait(false);
@@ -269,7 +269,7 @@ namespace Shiro.Services
                 AppServices.RobloxApi.GameJoin,
                 "https://gamejoin.roblox.com/",
                 csrf.Token,
-                tok => account.MakeRequest("v1/join-game-instance", Method.Post)
+                tok => AppServices.AccountApiService.MakeRequest(account, "v1/join-game-instance", Method.Post)
                     .AddHeader("Content-Type", "application/json")
                     .AddHeader("X-CSRF-TOKEN", tok)
                     .AddJsonBody(new JoinGameInstancePayload(jobId, placeId)),
@@ -295,7 +295,7 @@ namespace Shiro.Services
                 AppServices.RobloxApi.Users,
                 "https://users.roblox.com/",
                 csrf.Token,
-                tok => account.MakeRequest($"/v1/users/{account.UserID}/display-names", Method.Patch)
+                tok => AppServices.AccountApiService.MakeRequest(account, $"/v1/users/{account.UserID}/display-names", Method.Patch)
                     .AddHeader("X-CSRF-TOKEN", tok)
                     .AddJsonBody(new SetDisplayNamePayload(displayName)),
                 cancellationToken).ConfigureAwait(false);
@@ -343,14 +343,14 @@ namespace Shiro.Services
                 AppServices.RobloxApi.Avatar,
                 "https://avatar.roblox.com/",
                 csrf.Token,
-                tok => account.MakeRequest("v4/avatar", Method.Patch)
+                tok => AppServices.AccountApiService.MakeRequest(account, "v4/avatar", Method.Patch)
                     .AddHeader("X-CSRF-TOKEN", tok)
                     .AddStringBody(requestJson, "application/json"),
                 cancellationToken).ConfigureAwait(false);
             bool succeeded = response is { IsSuccessful: true };
             if (response != null)
             {
-                account.TryUpdateRotatedCookie(response);
+                AppServices.AccountApiService.TryUpdateRotatedCookie(account, response);
                 long[] missingIds = AvatarV4PayloadMapper.ExtractInvalidAssetIds(response.Content);
                 if (missingIds.Length > 0)
                 {
@@ -370,11 +370,11 @@ namespace Shiro.Services
             Func<Task<bool>> confirmPrivacyUpdateAsync,
             CancellationToken cancellationToken = default)
         {
-            var request = account.MakeRequest("user-settings-api/v1/user-settings", Method.Get)
+            var request = AppServices.AccountApiService.MakeRequest(account, "user-settings-api/v1/user-settings", Method.Get)
                 .AddHeader("X-CSRF-TOKEN", csrfToken)
                 .AddHeader("Referer", "https://www.roblox.com/my/account");
 
-            RestResponse? result = await account.ExecuteAccountRestAsync(AppServices.RobloxApi.Api, "https://apis.roblox.com/", request, cancellationToken).ConfigureAwait(false);
+            RestResponse? result = await AppServices.AccountApiService.ExecuteAccountRestAsync(account, AppServices.RobloxApi.Api, "https://apis.roblox.com/", request, cancellationToken).ConfigureAwait(false);
             if (!NeedsPrivateServerInviteUpdate(result))
                 return true;
 
@@ -386,7 +386,7 @@ namespace Shiro.Services
                 AppServices.RobloxApi.Api,
                 "https://apis.roblox.com/",
                 csrfToken,
-                tok => account.MakeRequest("user-settings-api/v1/user-settings", Method.Post)
+                tok => AppServices.AccountApiService.MakeRequest(account, "user-settings-api/v1/user-settings", Method.Post)
                     .AddHeader("X-CSRF-TOKEN", tok)
                     .AddHeader("Referer", "https://www.roblox.com/my/account")
                     .AddJsonBody(new PrivateServerInviteSettingPayload("AllUsers")),

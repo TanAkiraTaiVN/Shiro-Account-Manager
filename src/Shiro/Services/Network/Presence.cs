@@ -152,7 +152,8 @@ namespace Shiro.Services
                             string cookie = group.Representative.BuildCookieHeaderValue();
                             if (!string.IsNullOrEmpty(cookie))
                                 req.AddHeader("Cookie", cookie);
-                            group.Representative.ApplySessionFingerprintAndHbaToRestRequest(
+                            AppServices.AccountApiService.ApplySessionFingerprintAndHbaToRestRequest(
+                                group.Representative,
                                 req,
                                 PresenceClient.BaseUrl ?? "https://presence.roblox.com/");
                         }

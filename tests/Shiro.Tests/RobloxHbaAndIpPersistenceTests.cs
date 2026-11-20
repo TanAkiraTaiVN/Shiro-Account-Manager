@@ -26,7 +26,7 @@ namespace Shiro.Tests
 
         public void Dispose()
         {
-            Account.TestHttpClientFactory = null;
+            RobloxAccountSessionClient.TestHttpClientFactory = null;
             RobloxHbaService.TestIsVpnTunnelActiveOverride = null;
             RobloxRateLimitCoordinator.Instance.ResetBackoff();
         }
@@ -129,7 +129,7 @@ namespace Shiro.Tests
             string? capturedUa = null;
             string? capturedCookie = null;
 
-            Account.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler((req, _) =>
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler((req, _) =>
             {
                 if (req.RequestUri!.AbsoluteUri.Contains("authentication-ticket"))
                 {
@@ -182,7 +182,7 @@ namespace Shiro.Tests
                 "H." + new string('V', 939) + ".S";
 
             bool redeemCalledWithHba = false;
-            Account.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler(async (req, ct) =>
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler(async (req, ct) =>
             {
                 string uri = req.RequestUri!.AbsoluteUri;
                 if (uri.Contains("/v1/authentication-ticket", StringComparison.OrdinalIgnoreCase) &&
@@ -228,7 +228,7 @@ namespace Shiro.Tests
         public async Task ValidateSessionAsync_WhenIspRedirectsToNonRobloxOrReturnsHtmlBlock_PreservesValidSession()
         {
             // Case 1: ISP returns 200 OK HTML block page on users.roblox.com
-            Account.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler((_, _) =>
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler((_, _) =>
                 Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
                 {
                     Content = new StringContent("<html><body>ISP Access Restricted</body></html>")
@@ -240,7 +240,7 @@ namespace Shiro.Tests
             Assert.True(acc.Valid);
 
             // Case 2: ISP redirects users.roblox.com to external VNG/ISP sinkhole domain
-            Account.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler((_, _) =>
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler((_, _) =>
             {
                 var redirectedReq = new HttpRequestMessage(HttpMethod.Get, "https://roblox.vnggames.com/redirect");
                 return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
@@ -255,7 +255,7 @@ namespace Shiro.Tests
             Assert.True(acc.Valid);
 
             // Case 3: Genuine Roblox redirect to www.roblox.com/NewLogin MUST still mark expired
-            Account.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler((_, _) =>
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler((_, _) =>
             {
                 var loginRedirect = new HttpRequestMessage(HttpMethod.Get, "https://www.roblox.com/NewLogin?ReturnUrl=%2f");
                 return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
@@ -405,8 +405,8 @@ namespace Shiro.Tests
             int assertionAttempts = 0;
             string? capturedTicketBody = null;
 
-            var prevFactory = Account.TestHttpClientFactory;
-            Account.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler(async (req, _) =>
+            var prevFactory = RobloxAccountSessionClient.TestHttpClientFactory;
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler(async (req, _) =>
             {
                 string uri = req.RequestUri?.AbsoluteUri ?? string.Empty;
                 if (req.Method == HttpMethod.Get && uri.Contains("/v1/client-assertion", StringComparison.OrdinalIgnoreCase))
@@ -443,7 +443,7 @@ namespace Shiro.Tests
             }
             finally
             {
-                Account.TestHttpClientFactory = prevFactory;
+                RobloxAccountSessionClient.TestHttpClientFactory = prevFactory;
             }
         }
     }

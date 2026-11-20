@@ -137,10 +137,9 @@ namespace Shiro.Tests
         [Fact]
         public void ParseAccessCode_ClassicHtml_ExtractsGuidCorrectly()
         {
-            var acc = new Account();
             string html = "<html><script>Roblox.GameLauncher.joinPrivateGame(189707, 'a1b2c3d4-e5f6-7890-abcd-ef1234567890');</script></html>";
             var response = new RestResponse { Content = html, StatusCode = System.Net.HttpStatusCode.OK };
-            bool parsed = acc.ParseAccessCode(response, out string code);
+            bool parsed = RobloxSettingsApiService.ParseAccessCode(response, out string code);
 
             Assert.True(parsed);
             Assert.Equal("a1b2c3d4-e5f6-7890-abcd-ef1234567890", code);
@@ -149,10 +148,9 @@ namespace Shiro.Tests
         [Fact]
         public void ParseAccessCode_ModernJson_ExtractsAccessCodeCorrectly()
         {
-            var acc = new Account();
             string json = "{\"data\":{\"accessCode\":\"f8e7d6c5-b4a3-2109-8765-4321fedcba09\"}}";
             var response = new RestResponse { Content = json, StatusCode = System.Net.HttpStatusCode.OK };
-            bool parsed = acc.ParseAccessCode(response, out string code);
+            bool parsed = RobloxSettingsApiService.ParseAccessCode(response, out string code);
 
             Assert.True(parsed);
             Assert.Equal("f8e7d6c5-b4a3-2109-8765-4321fedcba09", code);

@@ -34,7 +34,7 @@ public sealed class AssetCommerceService : IAssetCommerce
             a.CSRFToken,
             csrf =>
             {
-                var req = a.MakeRequest("v1/catalog/items/details", Method.Post);
+                var req = AppServices.AccountApiService.MakeRequest(a, "v1/catalog/items/details", Method.Post);
                 if (!string.IsNullOrWhiteSpace(csrf))
                     req.AddHeader("X-CSRF-TOKEN", csrf);
                 req.AddStringBody(json, "application/json");
@@ -85,7 +85,7 @@ public sealed class AssetCommerceService : IAssetCommerce
                 currentCsrf,
                 csrf =>
                 {
-                    var req = a.MakeRequest("marketplace-items/v1/items/details", Method.Post);
+                    var req = AppServices.AccountApiService.MakeRequest(a, "marketplace-items/v1/items/details", Method.Post);
                     req.AddHeader("X-CSRF-TOKEN", csrf);
                     req.AddStringBody(resolveJson, "application/json");
                     return req;
@@ -163,7 +163,7 @@ public sealed class AssetCommerceService : IAssetCommerce
             currentCsrf,
             csrf =>
             {
-                var req = a.MakeRequest($"marketplace-sales/v1/item/{collectibleItemId}/purchase-item", Method.Post);
+                var req = AppServices.AccountApiService.MakeRequest(a, $"marketplace-sales/v1/item/{collectibleItemId}/purchase-item", Method.Post);
                 req.AddHeader("X-CSRF-TOKEN", csrf);
                 req.AddStringBody(purchaseJson, "application/json");
                 return req;

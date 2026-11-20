@@ -332,6 +332,8 @@ namespace Shiro.Services
             services.AddSingleton(accountRepository.RegistrationInstance);
             services.AddSingleton(AccountSessionMaintenanceService.Default);
             services.AddSingleton<IRobloxApiClient>(RobloxApiClient.Default);
+            services.AddSingleton<RobloxAccountApiService>(RobloxAccountApiService.Default);
+            services.AddSingleton<RobloxAccountSessionClient>(RobloxAccountSessionClient.Default);
             services.AddSingleton<IDialogService>(AvaloniaDialogService.Default);
             services.AddSingleton<IUserPrompt>(AvaloniaDialogService.Default);
             services.AddSingleton<AccountWorkflowService>(AccountWorkflowService.Default);

@@ -17,7 +17,7 @@ namespace Shiro.Tests
         public void Dispose()
         {
             SessionAuditorService.TestHttpClientFactory = null;
-            Account.TestHttpClientFactory = null;
+            RobloxAccountSessionClient.TestHttpClientFactory = null;
         }
 
         [Fact]

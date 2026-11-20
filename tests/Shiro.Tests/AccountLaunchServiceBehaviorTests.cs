@@ -303,7 +303,7 @@ namespace Shiro.Tests
             var prevTicketOverride = AccountLaunchService.TestGetAuthTicketOverride;
             var prevNativeOverride = AccountLaunchService.TestStartNativeGameOverride;
             var prevPrivacyOverride = AccountLaunchService.TestPrivacyConfirmOverride;
-            var prevHttpFactory = Account.TestHttpClientFactory;
+            var prevHttpFactory = RobloxAccountSessionClient.TestHttpClientFactory;
 
             string tempDir = Path.Combine(Path.GetTempPath(), "ShiroLaunchDiag_" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(tempDir);
@@ -319,7 +319,7 @@ namespace Shiro.Tests
                         return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("{\"whoCanInviteMeToPrivateServers\":\"Friends\"}") };
                     return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("{}") };
                 });
-                Account.TestHttpClientFactory = _ => new HttpClient(handler);
+                RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(handler);
                 AccountLaunchService.TestGetAuthTicketOverride = (_, _) => Task.FromResult((true, "ticket-abc"));
                 AccountLaunchService.TestStartNativeGameOverride = (_, _, _, _, _, _, _) => Task.FromResult(43210);
                 AccountLaunchService.TestPrivacyConfirmOverride = () => true;
@@ -410,7 +410,7 @@ namespace Shiro.Tests
                 AccountLaunchService.TestVersionRootsOverride = null;
                 AccountLaunchService.TestProtocolCommandOverride = null;
                 AccountLaunchService.TestDefaultIconOverride = null;
-                Account.TestHttpClientFactory = prevHttpFactory;
+                RobloxAccountSessionClient.TestHttpClientFactory = prevHttpFactory;
                 AutoReconnectService.Instance.Clear();
                 try { Directory.Delete(tempDir, recursive: true); } catch { /* ignore */ }
             }

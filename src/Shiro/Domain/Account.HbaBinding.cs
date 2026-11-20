@@ -2,15 +2,9 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
-using System.Net;
-using System.Net.Http;
-using System.Text;
-using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
-using Shiro.Http;
 using Shiro.Services;
 
 namespace Shiro
@@ -206,89 +200,11 @@ namespace Shiro
             return $".ROBLOSECURITY={token}; RBXEventTrackerV2=CreateDate={nowUtc}&rbxid={uidPart}&browserid={btid}";
         }
 
-        public void ApplyHbaCapture(RobloxHbaService.CaptureSnapshot? snapshot)
-        {
-            if (snapshot == null)
-                return;
+        public void ApplyHbaCapture(RobloxHbaService.CaptureSnapshot? snapshot) =>
+            RobloxHbaService.ApplyCaptureToAccount(this, snapshot);
 
-            if (!string.IsNullOrWhiteSpace(snapshot.PrivateKeyPkcs8Base64) &&
-                RobloxHbaService.IsValidPkcs8EcdsaKey(snapshot.PrivateKeyPkcs8Base64))
-            {
-                HbaPrivateKey = snapshot.PrivateKeyPkcs8Base64;
-                if (!string.IsNullOrWhiteSpace(snapshot.PublicKeySpkiBase64) &&
-                    RobloxHbaService.DoPublicAndPrivateKeysMatch(snapshot.PrivateKeyPkcs8Base64, snapshot.PublicKeySpkiBase64))
-                {
-                    HbaPublicKey = snapshot.PublicKeySpkiBase64;
-                }
-                else if (!string.IsNullOrWhiteSpace(HbaPublicKey) &&
-                         !RobloxHbaService.DoPublicAndPrivateKeysMatch(snapshot.PrivateKeyPkcs8Base64, HbaPublicKey))
-                {
-                    HbaPublicKey = string.Empty;
-                }
-            }
-
-            if (!string.IsNullOrWhiteSpace(snapshot.TokenTemplate))
-                HbaTemplate = RobloxHbaService.NormalizeTemplate(snapshot.TokenTemplate);
-            else if (HasHbaBinding)
-                HbaTemplate = RobloxHbaService.NormalizeTemplate(HbaTemplate);
-
-            if (!string.IsNullOrWhiteSpace(snapshot.UserAgent))
-                SessionUserAgent = snapshot.UserAgent;
-
-            if (!string.IsNullOrWhiteSpace(snapshot.BrowserTrackerId))
-            {
-                BrowserTrackerID = snapshot.BrowserTrackerId.Trim();
-                IsDirty = true;
-            }
-
-            string netSig = RobloxHbaService.GetNetworkSignatureForAccount(this);
-            if (netSig is not ("offline" or "unknown"))
-                LastBoundIpSignature = netSig;
-        }
-
-        internal void CopyHbaAndFingerprintTo(Account target)
-        {
-            if (target == null || ReferenceEquals(this, target))
-                return;
-
-            if (!string.IsNullOrWhiteSpace(HbaPrivateKey))
-            {
-                target.HbaPrivateKey = HbaPrivateKey;
-                target.HbaPublicKey = HbaPublicKey;
-                target.HbaTemplate = !string.IsNullOrWhiteSpace(HbaTemplate) ? HbaTemplate : RobloxHbaService.DefaultTemplate;
-            }
-
-            if (!string.IsNullOrWhiteSpace(SessionUserAgent))
-                target.SessionUserAgent = SessionUserAgent;
-            if (!string.IsNullOrWhiteSpace(LastBoundIpSignature))
-                target.LastBoundIpSignature = LastBoundIpSignature;
-            if (!string.IsNullOrWhiteSpace(BrowserTrackerID))
-            {
-                target.BrowserTrackerID = BrowserTrackerID;
-                target.IsDirty = true;
-            }
-        }
-
-        internal void ApplySessionFingerprintAndHba(
-            HttpRequestMessage request,
-            string? bodyContent = null,
-            string? tokenOverride = null,
-            bool includeHba = true)
-        {
-            if (request == null)
-                return;
-
-            string cookieHeader = BuildCookieHeaderValue(tokenOverride);
-            request.Headers.Remove("Cookie");
-            if (!string.IsNullOrEmpty(cookieHeader))
-                request.Headers.TryAddWithoutValidation("Cookie", cookieHeader);
-
-            request.Headers.Remove("User-Agent");
-            request.Headers.TryAddWithoutValidation("User-Agent", GetEffectiveUserAgent());
-
-            if (includeHba)
-                RobloxHbaService.TryAttachHbaHeader(request, this, bodyContent);
-        }
+        internal void CopyHbaAndFingerprintTo(Account target) =>
+            RobloxHbaService.CopyHbaAndFingerprint(this, target);
 
         internal async Task<T> RunWithSessionGateAsync<T>(Func<Task<T>> action, CancellationToken cancellationToken = default)
         {
@@ -300,47 +216,6 @@ namespace Shiro
             finally
             {
                 _sessionGate.Release();
-            }
-        }
-
-        internal void ApplySessionFingerprintAndHbaToRestRequest(RestRequest request, string baseUrl)
-        {
-            if (request == null)
-                return;
-
-            if (!request.Headers.TryGetValue("User-Agent", out var reqUa) || string.IsNullOrEmpty(reqUa))
-            {
-                request.Headers["User-Agent"] = GetEffectiveUserAgent();
-            }
-
-            if (!string.IsNullOrWhiteSpace(BrowserTrackerID) &&
-                request.Headers.TryGetValue("Cookie", out string? existingCookie) &&
-                existingCookie != null &&
-                !existingCookie.Contains("RBXEventTrackerV2=", StringComparison.OrdinalIgnoreCase))
-            {
-                string uidPart = UserID > 0 ? UserID.ToString(CultureInfo.InvariantCulture) : string.Empty;
-                string nowUtc = DateTime.UtcNow.ToString("MM/dd/yyyy HH:mm:ss", CultureInfo.InvariantCulture);
-                request.Headers["Cookie"] = $"{existingCookie}; RBXEventTrackerV2=CreateDate={nowUtc}&rbxid={uidPart}&browserid={BrowserTrackerID}";
-            }
-
-            string privKey = HbaPrivateKey;
-            if (string.IsNullOrWhiteSpace(privKey))
-                return;
-
-            Uri finalUri = RestClient.BuildRequestUri(request, baseUrl);
-            bool isBodyMethod = RestClient.IsBodyMethod(request.Method);
-            string? bodyStr = isBodyMethod ? RestClient.SerializeRequestBodyForSigning(request) : null;
-
-            if (RobloxHbaService.TryBuildBoundAuthToken(
-                privKey,
-                finalUri.AbsoluteUri,
-                request.Method.ToString().ToUpperInvariant(),
-                bodyStr,
-                HbaTemplate,
-                unixTimestampOverride: null,
-                out string batToken))
-            {
-                request.Headers[RobloxHbaService.BoundAuthHeaderName] = batToken;
             }
         }
     }

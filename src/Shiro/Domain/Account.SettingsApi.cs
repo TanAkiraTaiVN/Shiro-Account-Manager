@@ -2,7 +2,6 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using Shiro.Http;
 using Shiro.Services;
 
 namespace Shiro
@@ -20,9 +19,6 @@ namespace Shiro
 
         public Task<bool> LogOutOfOtherSessionsAsync(bool Internal = false, CancellationToken cancellationToken = default) =>
             RobloxSettingsApiService.Instance.LogOutOfOtherSessionsAsync(this, Internal, cancellationToken);
-
-        public bool ParseAccessCode(RestResponse response, out string code) =>
-            RobloxSettingsApiService.ParseAccessCode(response, out code);
 
         public Task<(bool Successful, string Message)> SetServerAsync(long placeId, string jobId, CancellationToken cancellationToken = default) =>
             RobloxSettingsApiService.Instance.SetServerAsync(this, placeId, jobId, cancellationToken);

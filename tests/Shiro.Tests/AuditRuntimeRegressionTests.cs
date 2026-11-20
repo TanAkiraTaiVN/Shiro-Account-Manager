@@ -27,7 +27,7 @@ namespace Shiro.Tests
 
         public void Dispose()
         {
-            Account.TestHttpClientFactory = null;
+            RobloxAccountSessionClient.TestHttpClientFactory = null;
             AccountLaunchService.TestGetAuthTicketOverride = null;
             RobloxProcessService.TestGetRunningRobloxPidsOverride = null;
             AppSettings.WebServer.Set("AllowLaunchAccount", _prevAllowLaunch ? "true" : "false");
@@ -246,7 +246,7 @@ namespace Shiro.Tests
             {
                 Content = new StringContent("{\"data\":[{\"requestedUsername\":\"TargetUser\",\"id\":999888,\"name\":\"TargetUser\",\"displayName\":\"TargetUser\"}]}")
             });
-            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(handler);
 
             string followResp = await mgr.ProcessApiRequestAsync(new AccountManager.ApiRequestContext
             {
@@ -295,7 +295,7 @@ namespace Shiro.Tests
                 }
                 return new HttpResponseMessage(HttpStatusCode.Unauthorized);
             });
-            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(handler);
 
             string oldToken = "_|WARNING:-DO-NOT-SHARE-THIS.--" + new string('O', 80);
             var acc = new Account

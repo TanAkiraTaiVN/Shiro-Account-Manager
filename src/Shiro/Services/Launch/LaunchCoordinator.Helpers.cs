@@ -41,7 +41,7 @@ namespace Shiro.Services
                 !request.Account.Valid ||
                 request.Account.IsBannedOrLocked ||
                 string.IsNullOrWhiteSpace(request.Account.SecurityToken) ||
-                (AccountLaunchService.TestGetAuthTicketOverride != null && Account.TestHttpClientFactory == null))
+                (AccountLaunchService.TestGetAuthTicketOverride != null && RobloxAccountSessionClient.TestHttpClientFactory == null))
             {
                 return (initialResult, false);
             }

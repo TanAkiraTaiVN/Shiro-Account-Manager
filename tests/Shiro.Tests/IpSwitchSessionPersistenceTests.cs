@@ -29,7 +29,7 @@ namespace Shiro.Tests
 
         public void Dispose()
         {
-            Account.TestHttpClientFactory = null;
+            RobloxAccountSessionClient.TestHttpClientFactory = null;
             AccountLaunchService.TestGetAuthTicketOverride = null;
             AccountLaunchService.TestStartNativeGameOverride = null;
             RobloxRateLimitCoordinator.Instance.ResetBackoff();
@@ -51,7 +51,7 @@ namespace Shiro.Tests
         {
             var (privB64, pubB64) = GenerateP256KeyPair();
 
-            Account.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler((req, _) =>
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler((req, _) =>
             {
                 string uri = req.RequestUri!.AbsoluteUri;
                 string cookie = GetCookieHeader(req);
@@ -125,7 +125,7 @@ namespace Shiro.Tests
             var (privB64, pubB64) = GenerateP256KeyPair();
             bool redeemCalled = false;
 
-            Account.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler(async (req, ct) =>
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler(async (req, ct) =>
             {
                 string uri = req.RequestUri!.AbsoluteUri;
                 string cookie = GetCookieHeader(req);
@@ -198,7 +198,7 @@ namespace Shiro.Tests
             var (privB64, pubB64) = GenerateP256KeyPair();
             int ticketCalls = 0;
 
-            Account.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler((req, _) =>
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler((req, _) =>
             {
                 string uri = req.RequestUri!.AbsoluteUri;
                 string cookie = GetCookieHeader(req);
@@ -265,7 +265,7 @@ namespace Shiro.Tests
             bool hbaAttemptSeen = false;
             bool noHbaAttemptSeen = false;
 
-            Account.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler((req, _) =>
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler((req, _) =>
             {
                 string uri = req.RequestUri!.AbsoluteUri;
                 if (uri.Contains("auth.roblox.com/v1/authentication-ticket", StringComparison.OrdinalIgnoreCase))

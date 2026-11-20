@@ -17,13 +17,13 @@ namespace Shiro.Tests
     [Collection("SerialGlobalState")]
     public sealed class P1NetworkRegressionTests : IDisposable
     {
-        private readonly Func<Account, HttpClient>? _origAccHttp = Account.TestHttpClientFactory;
+        private readonly Func<Account, HttpClient>? _origAccHttp = RobloxAccountSessionClient.TestHttpClientFactory;
         private readonly Func<HttpClient>? _origGameInfoHttp = GameInfoService.HttpClientFactoryForTests;
         private readonly ISettingsService _origProxySettings = ProxyBindingService.Settings;
 
         public void Dispose()
         {
-            Account.TestHttpClientFactory = _origAccHttp;
+            RobloxAccountSessionClient.TestHttpClientFactory = _origAccHttp;
             GameInfoService.HttpClientFactoryForTests = _origGameInfoHttp;
             ProxyBindingService.Settings = _origProxySettings;
             SharedHttpClient.ResetTestClient("default");
@@ -54,7 +54,7 @@ namespace Shiro.Tests
         public async Task HighF1_HighF2_ModerationService_Inspects200Html_AndRejectsHttpRedirect()
         {
             var requestedUrls = new List<string>();
-            Account.TestHttpClientFactory = _ => new HttpClient(new DelegateHandler((req, _) =>
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(new DelegateHandler((req, _) =>
             {
                 string url = req.RequestUri!.ToString();
                 requestedUrls.Add(url);
@@ -74,7 +74,7 @@ namespace Shiro.Tests
             Assert.False(string.IsNullOrEmpty(badge));
 
             requestedUrls.Clear();
-            Account.TestHttpClientFactory = _ => new HttpClient(new DelegateHandler((req, _) =>
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(new DelegateHandler((req, _) =>
             {
                 string url = req.RequestUri!.ToString();
                 requestedUrls.Add(url);
@@ -132,7 +132,7 @@ namespace Shiro.Tests
             });
 
             using var apiScope = AppServices.Override<IRobloxApiClient>(new RobloxApiClient(handler));
-            Account.TestHttpClientFactory = _ => new HttpClient(handler, disposeHandler: false);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(handler, disposeHandler: false);
 
             var acc = new Account { Username = "SetTester", UserID = 202, Valid = true, Password = "OldPass", SecurityToken = "_|WARNING:-DO-NOT-SHARE-THIS.--orig" };
             var srvRes = await RobloxSettingsApiService.Default.SetServerAsync(acc, 1818, "job-1", CancellationToken.None);
@@ -182,7 +182,7 @@ namespace Shiro.Tests
             });
 
             using var apiScope = AppServices.Override<IRobloxApiClient>(new RobloxApiClient(handler));
-            Account.TestHttpClientFactory = _ => new HttpClient(handler, disposeHandler: false);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(handler, disposeHandler: false);
             var acc = new Account { Username = "SocTester", UserID = 303, Valid = true, SecurityToken = "_|WARNING:-DO-NOT-SHARE-THIS.--tok" };
 
             Assert.Null(await RobloxSocialApiService.Default.BlockUserIdAsync(acc, "../admin"));
@@ -232,7 +232,7 @@ namespace Shiro.Tests
             });
 
             using var apiScope = AppServices.Override<IRobloxApiClient>(new RobloxApiClient(handler));
-            Account.TestHttpClientFactory = _ => new HttpClient(handler, disposeHandler: false);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(handler, disposeHandler: false);
             var acc = new Account { Username = "Buyer", UserID = 404, Valid = true, SecurityToken = "_|WARNING:-DO-NOT-SHARE-THIS.--tok" };
 
             var (ok1, err1) = await AssetCommerceService.Default.PurchaseAsync(acc, 1, 2, 100, 0, "citem-1", null);
@@ -431,7 +431,7 @@ namespace Shiro.Tests
                 Content = new StringContent("{\"status\":22}", Encoding.UTF8, "application/json")
             }));
             using var apiScope = AppServices.Override<IRobloxApiClient>(new RobloxApiClient(handler));
-            Account.TestHttpClientFactory = _ => new HttpClient(handler, disposeHandler: false);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(handler, disposeHandler: false);
 
             var acc = new Account { Username = "QueryUser", UserID = 606, Valid = true, SecurityToken = "_|WARNING:-DO-NOT-SHARE-THIS.--tok" };
             var res = await RobloxServerQueryService.Default.QueryServerRegionAndPingAsync(acc, 1818, "job-id-1");

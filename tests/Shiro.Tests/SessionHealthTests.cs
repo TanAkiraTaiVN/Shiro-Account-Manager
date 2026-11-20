@@ -1,5 +1,6 @@
 using System;
 using Shiro;
+using Shiro.Services;
 using Xunit;
 
 namespace Shiro.Tests
@@ -82,7 +83,7 @@ namespace Shiro.Tests
             using var msg = new System.Net.Http.HttpResponseMessage(System.Net.HttpStatusCode.OK);
             msg.Headers.TryAddWithoutValidation("Set-Cookie", $".ROBLOSECURITY={rotatedToken}; Path=/; Domain=.roblox.com; HttpOnly");
 
-            bool updated = acc.TryUpdateRotatedCookie(msg);
+            bool updated = AppServices.AccountSessionClient.TryUpdateRotatedCookie(acc, msg);
             Assert.True(updated);
             Assert.Equal(rotatedToken, acc.SecurityToken);
         }
@@ -97,7 +98,7 @@ namespace Shiro.Tests
             using var msg = new System.Net.Http.HttpResponseMessage(System.Net.HttpStatusCode.Unauthorized);
             msg.Headers.TryAddWithoutValidation("Set-Cookie", $".ROBLOSECURITY={rotatedToken}; Path=/; Domain=.roblox.com; HttpOnly");
 
-            bool updated = acc.TryUpdateRotatedCookie(msg);
+            bool updated = AppServices.AccountSessionClient.TryUpdateRotatedCookie(acc, msg);
             Assert.True(updated);
             Assert.Equal(rotatedToken, acc.SecurityToken);
             Assert.False(acc.Valid);
@@ -128,7 +129,7 @@ namespace Shiro.Tests
                 {
                     using var msg = new System.Net.Http.HttpResponseMessage(System.Net.HttpStatusCode.OK);
                     msg.Headers.TryAddWithoutValidation("Set-Cookie", $".ROBLOSECURITY={nextToken}; Path=/");
-                    acc.TryUpdateRotatedCookie(msg);
+                    AppServices.AccountSessionClient.TryUpdateRotatedCookie(acc, msg);
                 });
             }
 

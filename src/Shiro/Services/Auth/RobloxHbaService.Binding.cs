@@ -223,111 +223,67 @@ namespace Shiro.Services
             }
         }
 
-        public static string GetPersistedKeyInjectionScript(
-            string? privateKeyPkcs8Base64,
-            string? publicKeySpkiBase64,
-            string? tokenTemplate)
+        internal static void ApplyCaptureToAccount(Account account, CaptureSnapshot? snapshot)
         {
-            if (string.IsNullOrWhiteSpace(privateKeyPkcs8Base64))
-                return string.Empty;
+            if (account == null || snapshot == null)
+                return;
 
-            if (string.IsNullOrWhiteSpace(publicKeySpkiBase64) &&
-                TryDeriveSpkiPublicKeyBase64(privateKeyPkcs8Base64, out string derivedSpki))
+            if (!string.IsNullOrWhiteSpace(snapshot.PrivateKeyPkcs8Base64) &&
+                IsValidPkcs8EcdsaKey(snapshot.PrivateKeyPkcs8Base64))
             {
-                publicKeySpkiBase64 = derivedSpki;
+                account.HbaPrivateKey = snapshot.PrivateKeyPkcs8Base64;
+                if (!string.IsNullOrWhiteSpace(snapshot.PublicKeySpkiBase64) &&
+                    DoPublicAndPrivateKeysMatch(snapshot.PrivateKeyPkcs8Base64, snapshot.PublicKeySpkiBase64))
+                {
+                    account.HbaPublicKey = snapshot.PublicKeySpkiBase64;
+                }
+                else if (!string.IsNullOrWhiteSpace(account.HbaPublicKey) &&
+                         !DoPublicAndPrivateKeysMatch(snapshot.PrivateKeyPkcs8Base64, account.HbaPublicKey))
+                {
+                    account.HbaPublicKey = string.Empty;
+                }
             }
 
-            static string EscapeJsSingleQuoted(string value) =>
-                value.Replace("\\", "\\\\")
-                     .Replace("'", "\\'")
-                     .Replace("\r", "\\r")
-                     .Replace("\n", "\\n")
-                     .Replace("\u2028", "\\u2028")
-                     .Replace("\u2029", "\\u2029");
+            if (!string.IsNullOrWhiteSpace(snapshot.TokenTemplate))
+                account.HbaTemplate = NormalizeTemplate(snapshot.TokenTemplate);
+            else if (account.HasHbaBinding)
+                account.HbaTemplate = NormalizeTemplate(account.HbaTemplate);
 
-            string privEscaped = EscapeJsSingleQuoted(privateKeyPkcs8Base64.Trim());
-            string pubEscaped = EscapeJsSingleQuoted((publicKeySpkiBase64 ?? string.Empty).Trim());
-            string tplEscaped = EscapeJsSingleQuoted(NormalizeTemplate(tokenTemplate));
+            if (!string.IsNullOrWhiteSpace(snapshot.UserAgent))
+                account.SessionUserAgent = snapshot.UserAgent;
 
-            return $@"
-(() => {{
-    try {{
-        const h = (window.location && window.location.hostname ? window.location.hostname : '').toLowerCase();
-        if (!window.location || window.location.protocol !== 'https:' || (h !== 'roblox.com' && !h.endsWith('.roblox.com'))) return;
+            if (!string.IsNullOrWhiteSpace(snapshot.BrowserTrackerId))
+            {
+                account.BrowserTrackerID = snapshot.BrowserTrackerId.Trim();
+                account.IsDirty = true;
+            }
 
-        const privB64 = '{privEscaped}';
-        const pubB64 = '{pubEscaped}';
-        const tpl = '{tplEscaped}';
-        if (!privB64 || !window.SubtleCrypto || !SubtleCrypto.prototype) return;
+            string netSig = GetNetworkSignatureForAccount(account);
+            if (netSig is not ("offline" or "unknown"))
+                account.LastBoundIpSignature = netSig;
+        }
 
-        window.__shiroHbaState = window.__shiroHbaState || {{}};
-        window.__shiroHbaState.authoritativeKey = true;
-        if (pubB64) window.__shiroHbaState.publicKeySpki = pubB64;
-        if (tpl) window.__shiroHbaState.tokenTemplate = tpl;
+        internal static void CopyHbaAndFingerprint(Account source, Account target)
+        {
+            if (source == null || target == null || ReferenceEquals(source, target))
+                return;
 
-        const fromB64 = (b64) => {{
-            const bin = atob(b64);
-            const buf = new Uint8Array(bin.length);
-            for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
-            return buf.buffer;
-        }};
+            if (!string.IsNullOrWhiteSpace(source.HbaPrivateKey))
+            {
+                target.HbaPrivateKey = source.HbaPrivateKey;
+                target.HbaPublicKey = source.HbaPublicKey;
+                target.HbaTemplate = !string.IsNullOrWhiteSpace(source.HbaTemplate) ? source.HbaTemplate : DefaultTemplate;
+            }
 
-        let cachedPairPromise = null;
-        const getImportedPair = (subtle) => {{
-            if (!cachedPairPromise) {{
-                cachedPairPromise = (async () => {{
-                    const alg = {{ name: 'ECDSA', namedCurve: 'P-256' }};
-                    const privKey = await subtle.importKey('pkcs8', fromB64(privB64), alg, false, ['sign']);
-                    let pubKey = null;
-                    if (pubB64) {{
-                        try {{ pubKey = await subtle.importKey('spki', fromB64(pubB64), alg, true, ['verify']); }} catch (_) {{ /* ignore */ }}
-                    }}
-                    return {{ privateKey: privKey, publicKey: pubKey }};
-                }})();
-            }}
-            return cachedPairPromise;
-        }};
-
-        try {{
-            if (window.indexedDB) {{
-                getImportedPair(window.crypto && window.crypto.subtle).then((pair) => {{
-                    if (!pair || !pair.privateKey) return;
-                    try {{
-                        const openReq = indexedDB.open('hbaDB', 1);
-                        openReq.onupgradeneeded = () => {{
-                            const db = openReq.result;
-                            if (!db.objectStoreNames.contains('hbaObjectStore')) db.createObjectStore('hbaObjectStore');
-                        }};
-                        openReq.onsuccess = () => {{
-                            try {{
-                                const db = openReq.result;
-                                if (db.objectStoreNames.contains('hbaObjectStore')) {{
-                                    const tx = db.transaction('hbaObjectStore', 'readwrite');
-                                    tx.objectStore('hbaObjectStore').put(pair, 'hba_keys');
-                                }}
-                                db.close();
-                            }} catch (_) {{ /* ignore */ }}
-                        }};
-                    }} catch (_) {{ /* ignore */ }}
-                }}).catch(() => {{}});
-            }}
-        }} catch (_) {{ /* ignore */ }}
-
-        const origGen = SubtleCrypto.prototype.generateKey;
-        SubtleCrypto.prototype.generateKey = async function(algorithm, extractable, keyUsages) {{
-            try {{
-                const algName = typeof algorithm === 'string' ? algorithm : (algorithm && algorithm.name ? algorithm.name : '');
-                if (String(algName).toUpperCase() === 'ECDSA') {{
-                    const imported = await getImportedPair(this);
-                    if (imported && imported.privateKey) {{
-                        return imported;
-                    }}
-                }}
-            }} catch (_) {{ /* ignore */ }}
-            return origGen.call(this, algorithm, extractable, keyUsages);
-        }};
-    }} catch (_) {{ /* ignore */ }}
-}})();";
+            if (!string.IsNullOrWhiteSpace(source.SessionUserAgent))
+                target.SessionUserAgent = source.SessionUserAgent;
+            if (!string.IsNullOrWhiteSpace(source.LastBoundIpSignature))
+                target.LastBoundIpSignature = source.LastBoundIpSignature;
+            if (!string.IsNullOrWhiteSpace(source.BrowserTrackerID))
+            {
+                target.BrowserTrackerID = source.BrowserTrackerID;
+                target.IsDirty = true;
+            }
         }
     }
 }

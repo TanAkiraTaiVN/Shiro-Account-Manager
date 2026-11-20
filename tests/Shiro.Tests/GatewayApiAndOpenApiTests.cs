@@ -42,7 +42,7 @@ namespace Shiro.Tests
             _oldAllowLaunch = AppSettings.WebServer.Get("AllowLaunchAccount");
             _oldCachedPlaceId = AppServices.ServerBrowserState.CachedServersPlaceId;
             _oldAccounts = AppServices.AccountRepository.GetAll().ToList();
-            Account.TestHttpClientFactory = null;
+            RobloxAccountSessionClient.TestHttpClientFactory = null;
             AccountLaunchService.TestGetAuthTicketOverride = null;
             RobloxDirectLauncher.ResetCookieGuardStateForTest();
             WebAuthPolicy.ResetLockoutsForTesting();
@@ -50,7 +50,7 @@ namespace Shiro.Tests
 
         public void Dispose()
         {
-            Account.TestHttpClientFactory = null;
+            RobloxAccountSessionClient.TestHttpClientFactory = null;
             AccountLaunchService.TestGetAuthTicketOverride = null;
             AccountLaunchService.TestStartNativeGameOverride = null;
             RobloxDirectLauncher.ResetCookieGuardStateForTest();
@@ -176,7 +176,7 @@ namespace Shiro.Tests
             AccountManager.ResetAccountsForTests(new[] { acc });
 
             int csrfCalls = 0;
-            Account.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler(req =>
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler(req =>
             {
                 string url = req.RequestUri?.ToString() ?? string.Empty;
                 if (url.Contains("auth.roblox.com", StringComparison.OrdinalIgnoreCase))
@@ -298,7 +298,7 @@ namespace Shiro.Tests
             AccountManager.ResetAccountsForTests(new[] { acc });
 
             bool returnAvatarSuccess = false;
-            Account.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler(req =>
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler(req =>
             {
                 string url = req.RequestUri?.ToString() ?? string.Empty;
                 if (url.Contains("auth.roblox.com", StringComparison.OrdinalIgnoreCase))
@@ -374,7 +374,7 @@ namespace Shiro.Tests
             AppSettings.WebServer.Set("AllowAccountEditing", "true");
             var acc = new Account { Username = "DocParityUser", UserID = 6001 };
             AccountManager.ResetAccountsForTests(new[] { acc });
-            Account.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler(_ =>
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler(_ =>
                 new HttpResponseMessage(HttpStatusCode.Unauthorized) { Content = new StringContent(EmptyJsonObject) }));
 
             bool prevMultiRbx = AppSettings.General.Get<bool>("EnableMultiRbx");

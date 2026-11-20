@@ -1,23 +1,13 @@
 #nullable enable
 using System;
-using System.Collections.Generic;
-using System.Globalization;
-using System.Linq;
-using System.Net;
-using System.Net.Http;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using Shiro.Http;
 using Shiro.Services;
 
 namespace Shiro
 {
     public partial class Account
     {
-        // Test seam: lets unit tests supply a fake HttpMessageHandler-backed client.
-        internal static Func<Account, HttpClient>? TestHttpClientFactory;
-
         internal const string DefaultBrowserUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
         private object? _cookieLock;
@@ -36,6 +26,27 @@ namespace Shiro
             }
         }
 
+        internal string GetFreshCsrfToken(TimeSpan maxAge)
+        {
+            lock (CookieSyncRoot)
+            {
+                return !string.IsNullOrEmpty(CSRFToken) && (DateTime.Now - TokenSet) < maxAge
+                    ? CSRFToken
+                    : string.Empty;
+            }
+        }
+
+        internal void RecordCsrfTokenAndLastUse(string token, DateTime timestamp)
+        {
+            lock (CookieSyncRoot)
+            {
+                CSRFToken = token;
+                TokenSet = timestamp;
+                LastUse = timestamp;
+            }
+            RecordVolatileLastUse(timestamp);
+        }
+
         internal string GetCurrentSecurityToken()
         {
             lock (CookieSyncRoot)
@@ -44,395 +55,7 @@ namespace Shiro
             }
         }
 
-        internal HttpRequestMessage CreateAuthenticatedGetRequest(string url, string accept = "application/json, text/plain, */*", string? tokenOverride = null)
-        {
-            var request = new HttpRequestMessage(HttpMethod.Get, url);
-            ApplySessionFingerprintAndHba(request, bodyContent: null, tokenOverride: tokenOverride);
-            request.Headers.TryAddWithoutValidation("Accept", accept);
-            return request;
-        }
-
-        internal HttpClient GetSessionHttpClient(bool allowAutoRedirect = true) =>
-            TestHttpClientFactory?.Invoke(this) ?? (allowAutoRedirect ? ProxyBindingService.GetClient(this) : ProxyBindingService.GetNoRedirectClient(this));
-
-        public async Task<bool> ValidateSessionAsync(CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            await _sessionGate.WaitAsync(cancellationToken).ConfigureAwait(false);
-            try { return await ValidateSessionCoreAsync(cancellationToken).ConfigureAwait(false); }
-            finally { _sessionGate.Release(); }
-        }
-
-        private async Task<bool> ValidateSessionCoreAsync(CancellationToken cancellationToken)
-        {
-            string initialToken = GetCurrentSecurityToken();
-            if (string.IsNullOrWhiteSpace(initialToken))
-            {
-                if (!IsBannedOrLocked)
-                    AccountStatusIssue = string.Empty;
-                Valid = false;
-                return false;
-            }
-
-            for (int attempt = 0; attempt < 2; attempt++)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-
-                try
-                {
-                    int versionBefore = CookieRotationVersion;
-                    HttpClient httpClient = GetSessionHttpClient();
-                    using var request = CreateAuthenticatedGetRequest("https://users.roblox.com/v1/users/authenticated");
-
-                    await RobloxRateLimitCoordinator.Instance.WaitForBackoffAsync(RateLimitCategory.SessionCheck, cancellationToken).ConfigureAwait(false);
-
-                    using HttpResponseMessage response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
-                    if (response == null)
-                        return Valid;
-
-                    bool rotatedOnPrimary = TryUpdateRotatedCookie(response) || CookieRotationVersion != versionBefore;
-                    if (attempt == 0 && rotatedOnPrimary &&
-                        (response.StatusCode == HttpStatusCode.Unauthorized || response.StatusCode == HttpStatusCode.Forbidden))
-                    {
-                        continue;
-                    }
-
-                    if (response.RequestMessage?.RequestUri != null)
-                    {
-                        string absUri = response.RequestMessage.RequestUri.AbsoluteUri;
-                        string host = response.RequestMessage.RequestUri.Host;
-                        bool isRobloxHost = host.Equals("roblox.com", StringComparison.OrdinalIgnoreCase) ||
-                                            host.EndsWith(".roblox.com", StringComparison.OrdinalIgnoreCase);
-                        if (!isRobloxHost)
-                        {
-                            AppServices.Logger?.Warn($"[ValidateSessionAsync] {Username}: ISP redirected API to external host ({absUri}). Preserving session validity: {Valid}");
-                            return Valid;
-                        }
-
-                        if (absUri.IndexOf("/login", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                            absUri.IndexOf("NewLogin", StringComparison.OrdinalIgnoreCase) >= 0)
-                        {
-                            AppServices.Logger?.Warn($"[ValidateSessionAsync] {Username}: Redirected to login ({absUri}). Cookie expired.");
-                            if (!IsBannedOrLocked)
-                                AccountStatusIssue = string.Empty;
-                            Valid = false;
-                            return false;
-                        }
-                    }
-
-                    if (response.StatusCode == HttpStatusCode.Unauthorized)
-                    {
-                        // Transient 401s from users.roblox.com have been observed on cookies that
-                        // validate fine minutes later. Cross-check before discarding the session.
-                        if (await ValidateViaSecondaryEndpointAsync(cancellationToken).ConfigureAwait(false))
-                        {
-                            AppServices.Logger?.Debug($"[ValidateSessionAsync] {Username}: users/authenticated returned 401 but secondary endpoint confirmed the session. Keeping it valid.");
-                            AccountStatusIssue = string.Empty;
-                            Valid = true;
-                            return true;
-                        }
-
-                        var (modBanned, modBadge, _) = await CheckModerationStatusAsync(GetCurrentSecurityToken(), cancellationToken).ConfigureAwait(false);
-                        if (modBanned)
-                        {
-                            AccountStatusIssue = modBadge ?? Shiro.Services.LocalizationService.Get("FastLogin.LockedOrBannedBadge");
-                            Valid = false;
-                            return false;
-                        }
-
-                        AppServices.Logger?.Warn($"[ValidateSessionAsync] {Username}: Received 401 Unauthorized. Cookie expired.");
-                        if (!IsBannedOrLocked)
-                            AccountStatusIssue = string.Empty;
-                        Valid = false;
-                        return false;
-                    }
-
-                    if (response.StatusCode == HttpStatusCode.OK)
-                    {
-                        string body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-                        string trimmedBody = body?.TrimStart() ?? string.Empty;
-                        if (trimmedBody.StartsWith("<", StringComparison.Ordinal))
-                        {
-                            AppServices.Logger?.Warn($"[ValidateSessionAsync] {Username}: Received HTML block/captive page instead of JSON for 200 OK. Preserving validity: {Valid}");
-                            return Valid;
-                        }
-                        if (string.IsNullOrWhiteSpace(trimmedBody))
-                        {
-                            if (!IsBannedOrLocked)
-                                AccountStatusIssue = string.Empty;
-                            Valid = false;
-                            return false;
-                        }
-
-                        RobloxAuthenticatedUser? authUser = null;
-                        if (FastJson.TryDeserialize<RobloxAuthenticatedUser>(trimmedBody, out var parsedUser) && parsedUser?.Id > 0)
-                        {
-                            authUser = parsedUser;
-                        }
-                        else if (!string.IsNullOrWhiteSpace(trimmedBody))
-                        {
-                            try
-                            {
-                                using var uDoc = JsonDocument.Parse(trimmedBody);
-                                if (uDoc.RootElement.TryGetProperty("id", out var idProp))
-                                {
-                                    authUser = new RobloxAuthenticatedUser
-                                    {
-                                        Id = idProp.GetInt64(),
-                                        Name = (uDoc.RootElement.TryGetProperty("name", out var nProp) ? nProp.GetString() : null) ?? string.Empty
-                                    };
-                                }
-                            }
-                            catch (Exception ex)
-                            {
-                                AppServices.Logger?.Debug($"Parse authenticated user JSON failed: {ex.Message}");
-                            }
-                        }
-
-                        if (authUser != null && authUser.Id > 0)
-                        {
-                            long authId = authUser.Id;
-                            if (UserID > 0 && authId != UserID)
-                            {
-                                AppServices.Logger?.Warn($"[ValidateSessionAsync] {Username}: UserID mismatch (Expected: {UserID}, Got: {authId}). Cookie expired or belongs to different user.");
-                                AccountStatusIssue = string.Empty;
-                                Valid = false;
-                                return false;
-                            }
-
-                            if (UserID <= 0)
-                                UserID = authId;
-
-                            if (!string.IsNullOrEmpty(authUser.Name) && string.IsNullOrEmpty(Username))
-                                Username = authUser.Name;
-
-                            // Verify live session store and moderation status concurrently (cuts latency in half)
-                            var liveSessionTask = VerifyLiveSessionStoreAsync(cancellationToken);
-                            var moderationTask = CheckModerationStatusAsync(GetCurrentSecurityToken(), cancellationToken);
-                            await Task.WhenAll(liveSessionTask, moderationTask).ConfigureAwait(false);
-
-                            var (isBanned, issueBadge, reason) = await moderationTask.ConfigureAwait(false);
-                            if (isBanned)
-                            {
-                                string badge = issueBadge ?? Shiro.Services.LocalizationService.Get("FastLogin.LockedOrBannedBadge");
-                                AppServices.Logger?.Warn($"[ValidateSessionAsync] {Username}: Active moderation detected: {badge} ({reason}). Marking invalid.");
-                                AccountStatusIssue = badge;
-                                Valid = false;
-                                return false;
-                            }
-
-                            bool liveSessionOk = await liveSessionTask.ConfigureAwait(false);
-                            if (!liveSessionOk)
-                            {
-                                // accountsettings.roblox.com can return 401 for sessions that are
-                                // still fully usable (users/authenticated already returned 200 with
-                                // the right UserID and launches succeed). Never expire on that single
-                                // signal: confirm with an independent authenticated endpoint first.
-                                liveSessionOk = await ValidateViaSecondaryEndpointAsync(cancellationToken).ConfigureAwait(false);
-                                if (liveSessionOk)
-                                    AppServices.Logger?.Debug($"[ValidateSessionAsync] {Username}: accountsettings returned 401 but secondary endpoint confirmed the session. Keeping it valid.");
-                            }
-                            if (!liveSessionOk)
-                            {
-                                AppServices.Logger?.Warn($"[ValidateSessionAsync] {Username}: Live session store and secondary endpoint both returned 401. Session expired or IP-locked.");
-                                if (!IsBannedOrLocked)
-                                    AccountStatusIssue = string.Empty;
-                                Valid = false;
-                                return false;
-                            }
-
-                            AccountStatusIssue = string.Empty;
-                            Valid = true;
-                            RobloxRateLimitCoordinator.Instance.RecordSuccess(RateLimitCategory.SessionCheck);
-                            return true;
-                        }
-
-                        if (!IsBannedOrLocked)
-                            AccountStatusIssue = string.Empty;
-                        Valid = false;
-                        return false;
-                    }
-
-                    if ((int)response.StatusCode == 429)
-                    {
-                        RobloxRateLimitCoordinator.Instance.RecordRateLimitHit(RateLimitCategory.SessionCheck, response);
-                        if (attempt == 0)
-                        {
-                            await RobloxRateLimitCoordinator.Instance.WaitForBackoffAsync(RateLimitCategory.SessionCheck, cancellationToken).ConfigureAwait(false);
-                            continue;
-                        }
-                        bool secondaryRateOk = await ValidateViaSecondaryEndpointAsync(cancellationToken).ConfigureAwait(false);
-                        if (secondaryRateOk)
-                        {
-                            AccountStatusIssue = string.Empty;
-                            Valid = true;
-                            IsDirty = true;
-                            return true;
-                        }
-                        AppServices.Logger?.Warn($"[ValidateSessionAsync] {Username}: Rate limited (HTTP 429). Preserving existing session validity: {Valid}");
-                        return Valid;
-                    }
-
-                    if (response.StatusCode == HttpStatusCode.Forbidden)
-                    {
-                        string forbiddenBody = string.Empty;
-                        try
-                        {
-                            forbiddenBody = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-                        }
-                        catch (Exception ex)
-                        {
-                            AppServices.Logger?.Debug($"[ValidateSessionAsync] Reading 403 body failed: {ex.Message}");
-                        }
-
-                        var (modBanned, modBadge, modReason) = await CheckModerationStatusAsync(GetCurrentSecurityToken(), cancellationToken).ConfigureAwait(false);
-                        if (modBanned)
-                        {
-                            string badge = modBadge ?? Shiro.Services.LocalizationService.Get("FastLogin.LockedOrBannedBadge");
-                            AppServices.Logger?.Warn($"[ValidateSessionAsync] {Username}: Active moderation detected on 403: {badge} ({modReason}). Marking invalid.");
-                            AccountStatusIssue = badge;
-                            Valid = false;
-                            return false;
-                        }
-
-                        if (!string.IsNullOrWhiteSpace(forbiddenBody))
-                        {
-                            string forbiddenCode = FastLoginCoordinator.ClassifyAuthOrModerationApiPayload(forbiddenBody, 403);
-                            if (!string.IsNullOrEmpty(forbiddenCode) &&
-                                forbiddenCode != "UNAUTHENTICATED_MODERATION" &&
-                                forbiddenCode != "WRONG_PASSWORD")
-                            {
-                                var (fbBadge, fbReason) = FastLoginCoordinator.MapDomIssueCode(forbiddenCode);
-                                string resolvedBadge = !string.IsNullOrEmpty(AccountStatusIssue)
-                                    ? AccountStatusIssue
-                                    : (fbBadge ?? Shiro.Services.LocalizationService.Get("FastLogin.LockedOrBannedBadge"));
-                                AppServices.Logger?.Warn($"[ValidateSessionAsync] {Username}: 403 payload indicates moderation ({resolvedBadge}: {fbReason}). Marking invalid.");
-                                AccountStatusIssue = resolvedBadge;
-                                Valid = false;
-                                return false;
-                            }
-                        }
-
-                        bool secondaryOk = await ValidateViaSecondaryEndpointAsync(cancellationToken).ConfigureAwait(false);
-                        if (secondaryOk)
-                        {
-                            AccountStatusIssue = string.Empty;
-                            Valid = true;
-                            IsDirty = true;
-                            return true;
-                        }
-                        AppServices.Logger?.Warn($"[ValidateSessionAsync] {Username}: HTTP 403 Forbidden received. Preserving session validity: {Valid}");
-                        return Valid;
-                    }
-
-                    if ((int)response.StatusCode >= 500)
-                    {
-                        AppServices.Logger?.Warn($"[ValidateSessionAsync] {Username}: Server returned HTTP {(int)response.StatusCode} {response.StatusCode}. Roblox service is temporarily degraded. Preserving session validity: {Valid}");
-                        return Valid;
-                    }
-
-                    if (!IsBannedOrLocked)
-                        AccountStatusIssue = string.Empty;
-                    Valid = false;
-                    return false;
-                }
-                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-                {
-                    throw;
-                }
-                catch (OperationCanceledException)
-                {
-                    return Valid;
-                }
-                catch (Exception ex)
-                {
-                    AppServices.Logger?.Warn($"[ValidateSessionAsync] {Username}: Network/connection error: {ex.Message}");
-                    if (attempt == 0)
-                    {
-                        await Task.Delay(500, cancellationToken).ConfigureAwait(false);
-                        continue;
-                    }
-                    AppServices.Logger?.Warn($"[ValidateSessionAsync] {Username}: Network unreachable after retries. Preserving session validity: {Valid}");
-                    return Valid;
-                }
-            }
-
-            return Valid;
-        }
-
-        private async Task<bool> VerifyLiveSessionStoreAsync(CancellationToken cancellationToken)
-        {
-            for (int attempt = 0; attempt < 2; attempt++)
-            {
-                try
-                {
-                    using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-                    linkedCts.CancelAfter(TimeSpan.FromSeconds(5));
-
-                    int versionBefore = CookieRotationVersion;
-                    HttpClient httpClient = GetSessionHttpClient();
-                    using var request = CreateAuthenticatedGetRequest("https://accountsettings.roblox.com/v1/email");
-
-                    using HttpResponseMessage response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, linkedCts.Token).ConfigureAwait(false);
-                    if (response == null)
-                        return true;
-
-                    TryUpdateRotatedCookie(response);
-
-                    if (response.StatusCode == HttpStatusCode.Unauthorized)
-                    {
-                        if (attempt == 0 && CookieRotationVersion != versionBefore) continue;
-                        return false;
-                    }
-                    return true;
-                }
-                catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested) { return true; }
-                catch (Exception ex) { AppServices.Logger.Debug("[Account] VerifyLiveSessionStore failed", ex); return true; }
-            }
-            return false;
-        }
-
-        private Task<bool> ValidateViaSecondaryEndpointAsync(CancellationToken cancellationToken) =>
-            SessionAuditorService.ValidateSecondaryWithRotationAsync(this, () => GetSessionHttpClient(), cancellationToken);
-
-        public RestRequest MakeRequest(string url, Method method = Method.Get)
-        {
-            var req = new RestRequest(url, method);
-            string token = GetCurrentSecurityToken();
-            if (!string.IsNullOrWhiteSpace(token))
-            {
-                req.AddCookie(".ROBLOSECURITY", token, "/", ".roblox.com");
-            }
-            return req;
-        }
-
-        /// <summary>
-        /// Executes a RestRequest using this account's dedicated proxy HttpClient (when configured and enabled)
-        /// while preserving the endpoint BaseUrl of the target <see cref="RestClient"/>.
-        /// </summary>
-        internal async Task<RestResponse?> ExecuteAccountRestAsync(
-            RestClient? client,
-            string fallbackBaseUrl,
-            RestRequest request,
-            CancellationToken cancellationToken = default)
-        {
-            ApplySessionFingerprintAndHbaToRestRequest(request, client?.BaseUrl ?? fallbackBaseUrl);
-            HttpClient accountHttpClient = TestHttpClientFactory?.Invoke(this) ?? ProxyBindingService.GetClient(this);
-            RestResponse? response;
-            if (client != null)
-                response = await client.ExecuteAsync(request, accountHttpClient, cancellationToken).ConfigureAwait(false);
-            else
-            {
-                using var fallbackClient = new RestClient(accountHttpClient, fallbackBaseUrl);
-                response = await fallbackClient.ExecuteAsync(request, accountHttpClient, cancellationToken).ConfigureAwait(false);
-            }
-
-            if (response != null)
-            {
-                TryUpdateRotatedCookie(response);
-            }
-
-            return response;
-        }
+        public Task<bool> ValidateSessionAsync(CancellationToken cancellationToken = default) =>
+            AppServices.AccountSessionClient.ValidateSessionAsync(this, cancellationToken);
     }
 }

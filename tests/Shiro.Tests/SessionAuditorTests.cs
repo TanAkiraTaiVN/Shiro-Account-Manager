@@ -244,14 +244,14 @@ namespace Shiro.Tests
         [Fact]
         public async Task AuditAccountAsync_SerializesWithAccountSessionGate_AcrossConcurrentValidateAndAudit()
         {
-            var prevAccFactory = Account.TestHttpClientFactory;
+            var prevAccFactory = RobloxAccountSessionClient.TestHttpClientFactory;
             var validateEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             var releaseValidate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             int auditProbeCalls = 0;
 
             try
             {
-                Account.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler(async (req, ct) =>
+                RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler(async (req, ct) =>
                 {
                     if (req.RequestUri!.AbsoluteUri.Contains("users.roblox.com/v1/users/authenticated", StringComparison.OrdinalIgnoreCase))
                     {
@@ -289,7 +289,7 @@ namespace Shiro.Tests
             finally
             {
                 releaseValidate.TrySetResult();
-                Account.TestHttpClientFactory = prevAccFactory;
+                RobloxAccountSessionClient.TestHttpClientFactory = prevAccFactory;
                 RobloxRateLimitCoordinator.Instance.ResetBackoff();
             }
         }

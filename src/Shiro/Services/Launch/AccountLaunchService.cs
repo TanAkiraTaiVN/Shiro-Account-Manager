@@ -44,7 +44,7 @@ namespace Shiro.Services
         public static HttpRequestMessage CreateClientAssertionRequest(Account account, bool includeHba = true)
         {
             var request = new HttpRequestMessage(HttpMethod.Get, "https://auth.roblox.com/v1/client-assertion/");
-            account.ApplySessionFingerprintAndHba(request, string.Empty, includeHba: includeHba);
+            AppServices.AccountApiService.ApplySessionFingerprintAndHba(account, request, string.Empty, includeHba: includeHba);
             ApplyBrowserOriginHeaders(request);
             return request;
         }
@@ -68,7 +68,7 @@ namespace Shiro.Services
                     if (response == null)
                         return "{}";
 
-                    account.TryUpdateRotatedCookie(response);
+                    AppServices.AccountSessionClient.TryUpdateRotatedCookie(account, response);
                     if (!response.IsSuccessStatusCode)
                         return "{}";
 
@@ -104,7 +104,7 @@ namespace Shiro.Services
         public static HttpRequestMessage CreateTicketRequest(Account account, string? csrfToken = null, string body = "{}", bool includeHba = true)
         {
             var request = new HttpRequestMessage(HttpMethod.Post, "https://auth.roblox.com/v1/authentication-ticket");
-            account.ApplySessionFingerprintAndHba(request, body, includeHba: includeHba);
+            AppServices.AccountApiService.ApplySessionFingerprintAndHba(account, request, body, includeHba: includeHba);
             if (!string.IsNullOrEmpty(csrfToken))
                 request.Headers.TryAddWithoutValidation("X-CSRF-TOKEN", csrfToken);
             ApplyBrowserOriginHeaders(request);
@@ -258,13 +258,13 @@ namespace Shiro.Services
                     joinVip = true;
                     accessCode = string.Empty;
 
-                    RestRequest request = account.MakeRequest(string.Format("/games/{0}?privateServerLinkCode={1}", placeId, linkCode), Method.Get)
+                    RestRequest request = AppServices.AccountApiService.MakeRequest(account, string.Format("/games/{0}?privateServerLinkCode={1}", placeId, linkCode), Method.Get)
                         .AddHeader("X-CSRF-TOKEN", token)
                         .AddHeader("Referer", $"https://www.roblox.com/games/{placeId}/");
 
-                    RestResponse? response = await account.ExecuteAccountRestAsync(AppServices.RobloxApi.Main, "https://www.roblox.com/", request, cancellationToken).ConfigureAwait(false);
+                    RestResponse? response = await AppServices.AccountApiService.ExecuteAccountRestAsync(account, AppServices.RobloxApi.Main, "https://www.roblox.com/", request, cancellationToken).ConfigureAwait(false);
 
-                    if (response != null && response.StatusCode == HttpStatusCode.OK && account.ParseAccessCode(response, out string code))
+                    if (response != null && response.StatusCode == HttpStatusCode.OK && RobloxSettingsApiService.ParseAccessCode(response, out string code))
                     {
                         accessCode = code;
                     }

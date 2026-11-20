@@ -33,7 +33,7 @@ namespace Shiro.Tests
         public P0AuthNetworkAndModerationTests()
         {
             _previousAuditorClientFactory = SessionAuditorService.TestHttpClientFactory;
-            _previousAccountClientFactory = Account.TestHttpClientFactory;
+            _previousAccountClientFactory = RobloxAccountSessionClient.TestHttpClientFactory;
             _previousLanguage = LocalizationService.CurrentLanguage;
             RobloxRateLimitCoordinator.Instance.ResetBackoff();
         }
@@ -41,7 +41,7 @@ namespace Shiro.Tests
         public void Dispose()
         {
             SessionAuditorService.TestHttpClientFactory = _previousAuditorClientFactory;
-            Account.TestHttpClientFactory = _previousAccountClientFactory;
+            RobloxAccountSessionClient.TestHttpClientFactory = _previousAccountClientFactory;
             LocalizationService.SetLanguage(_previousLanguage, saveSetting: false);
             RobloxRateLimitCoordinator.Instance.ResetBackoff();
         }
@@ -385,7 +385,7 @@ namespace Shiro.Tests
                 return new HttpResponseMessage(HttpStatusCode.NotFound);
             });
 
-            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(handler);
 
             var account = new Account
             {
@@ -427,7 +427,7 @@ namespace Shiro.Tests
                 return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK));
             });
 
-            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(handler);
 
             var account = new Account
             {
@@ -483,7 +483,7 @@ namespace Shiro.Tests
                     return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound));
                 });
 
-                Account.TestHttpClientFactory = _ => new HttpClient(handler);
+                RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(handler);
 
                 var account = new Account
                 {

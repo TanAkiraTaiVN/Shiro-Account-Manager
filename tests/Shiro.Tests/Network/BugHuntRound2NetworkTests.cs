@@ -34,13 +34,13 @@ namespace Shiro.Tests.Network
         public BugHuntRound2NetworkTests()
         {
             _origGameInfoClientFactory = GameInfoService.HttpClientFactoryForTests;
-            _origAccountClientFactory = Account.TestHttpClientFactory;
+            _origAccountClientFactory = RobloxAccountSessionClient.TestHttpClientFactory;
         }
 
         public void Dispose()
         {
             GameInfoService.HttpClientFactoryForTests = _origGameInfoClientFactory;
-            Account.TestHttpClientFactory = _origAccountClientFactory;
+            RobloxAccountSessionClient.TestHttpClientFactory = _origAccountClientFactory;
         }
 
         private static Account CreateAccountWithCachedCsrf(string username, string csrfToken) => new()
@@ -110,7 +110,7 @@ namespace Shiro.Tests.Network
             // 1. SetFollowPrivacyAsync (403 -> retry -> 200)
             var followAcc = CreateAccountWithCachedCsrf("FollowRetryUser", "stale-1");
             int followCalls = 0;
-            Account.TestHttpClientFactory = _ => new HttpClient(new DelegateHttpHandler((req, _) =>
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(new DelegateHttpHandler((req, _) =>
             {
                 followCalls++;
                 string csrf = req.Headers.TryGetValues("X-CSRF-TOKEN", out var vals) ? vals.FirstOrDefault() ?? "" : "";
@@ -130,7 +130,7 @@ namespace Shiro.Tests.Network
             // 1b. SetFollowPrivacyAsync fallback path with out-of-range privacy and 403 challenge
             var followFbAcc = CreateAccountWithCachedCsrf("FollowFbRetryUser", "stale-fb");
             int followFbCalls = 0;
-            Account.TestHttpClientFactory = _ => new HttpClient(new DelegateHttpHandler((req, _) =>
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(new DelegateHttpHandler((req, _) =>
             {
                 followFbCalls++;
                 string url = req.RequestUri?.ToString() ?? string.Empty;
@@ -153,7 +153,7 @@ namespace Shiro.Tests.Network
             // 2. ChangePasswordAsync (403 -> retry -> 200 with rotated cookie)
             var pwAcc = CreateAccountWithCachedCsrf("PwRetryUser", "stale-pw");
             int pwCalls = 0;
-            Account.TestHttpClientFactory = _ => new HttpClient(new DelegateHttpHandler((req, _) =>
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(new DelegateHttpHandler((req, _) =>
             {
                 pwCalls++;
                 string csrf = req.Headers.TryGetValues("X-CSRF-TOKEN", out var vals) ? vals.FirstOrDefault() ?? "" : "";
@@ -174,7 +174,7 @@ namespace Shiro.Tests.Network
             // 3. ChangeEmailAsync
             var emailAcc = CreateAccountWithCachedCsrf("EmailRetryUser", "stale-em");
             int emailCalls = 0;
-            Account.TestHttpClientFactory = _ => new HttpClient(new DelegateHttpHandler((req, _) =>
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(new DelegateHttpHandler((req, _) =>
             {
                 emailCalls++;
                 string csrf = req.Headers.TryGetValues("X-CSRF-TOKEN", out var vals) ? vals.FirstOrDefault() ?? "" : "";
@@ -192,7 +192,7 @@ namespace Shiro.Tests.Network
             // 4. LogOutOfOtherSessionsAsync
             var logoutAcc = CreateAccountWithCachedCsrf("LogoutRetryUser", "stale-lo");
             int logoutCalls = 0;
-            Account.TestHttpClientFactory = _ => new HttpClient(new DelegateHttpHandler((req, _) =>
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(new DelegateHttpHandler((req, _) =>
             {
                 logoutCalls++;
                 string csrf = req.Headers.TryGetValues("X-CSRF-TOKEN", out var vals) ? vals.FirstOrDefault() ?? "" : "";
@@ -212,7 +212,7 @@ namespace Shiro.Tests.Network
             // 5. SetServerAsync
             var srvAcc = CreateAccountWithCachedCsrf("SrvRetryUser", "stale-srv");
             int srvCalls = 0;
-            Account.TestHttpClientFactory = _ => new HttpClient(new DelegateHttpHandler((req, _) =>
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(new DelegateHttpHandler((req, _) =>
             {
                 srvCalls++;
                 string csrf = req.Headers.TryGetValues("X-CSRF-TOKEN", out var vals) ? vals.FirstOrDefault() ?? "" : "";
@@ -234,7 +234,7 @@ namespace Shiro.Tests.Network
             // 6. SetDisplayNameAsync
             var dpAcc = CreateAccountWithCachedCsrf("DpRetryUser", "stale-dp");
             int dpCalls = 0;
-            Account.TestHttpClientFactory = _ => new HttpClient(new DelegateHttpHandler((req, _) =>
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(new DelegateHttpHandler((req, _) =>
             {
                 dpCalls++;
                 string csrf = req.Headers.TryGetValues("X-CSRF-TOKEN", out var vals) ? vals.FirstOrDefault() ?? "" : "";
@@ -258,7 +258,7 @@ namespace Shiro.Tests.Network
             // 1. BlockUserIdAsync
             var blockAcc = CreateAccountWithCachedCsrf("BlockRetryUser", "stale-blk");
             int blockCalls = 0;
-            Account.TestHttpClientFactory = _ => new HttpClient(new DelegateHttpHandler((req, _) =>
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(new DelegateHttpHandler((req, _) =>
             {
                 blockCalls++;
                 string csrf = req.Headers.TryGetValues("X-CSRF-TOKEN", out var vals) ? vals.FirstOrDefault() ?? "" : "";
@@ -278,7 +278,7 @@ namespace Shiro.Tests.Network
             // 2. SendFriendRequestAsync
             var friendAcc = CreateAccountWithCachedCsrf("FriendRetryUser", "stale-fr");
             int friendCalls = 0;
-            Account.TestHttpClientFactory = _ => new HttpClient(new DelegateHttpHandler((req, _) =>
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(new DelegateHttpHandler((req, _) =>
             {
                 string url = req.RequestUri?.ToString() ?? string.Empty;
                 if (url.Contains("usernames/users", StringComparison.OrdinalIgnoreCase))
@@ -309,7 +309,7 @@ namespace Shiro.Tests.Network
 
             var qliAcc = CreateAccountWithCachedCsrf("QuickLoginRetryUser", "stale-qli");
             int qliPostCalls = 0;
-            Account.TestHttpClientFactory = _ => new HttpClient(new DelegateHttpHandler((req, _) =>
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(new DelegateHttpHandler((req, _) =>
             {
                 qliPostCalls++;
                 string csrf = req.Headers.TryGetValues("X-CSRF-TOKEN", out var vals) ? vals.FirstOrDefault() ?? "" : "";

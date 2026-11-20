@@ -28,14 +28,14 @@ public sealed class P0AuditRemediationTests : IDisposable
     {
         AppSettings.ActiveIniFile ??= new IniFile();
         _origProxySettings = ProxyBindingService.Settings;
-        Account.TestHttpClientFactory = null;
+        RobloxAccountSessionClient.TestHttpClientFactory = null;
         ProxyBindingService.ClearClients();
         RobloxRateLimitCoordinator.Instance.ResetBackoff();
     }
 
     public void Dispose()
     {
-        Account.TestHttpClientFactory = null;
+        RobloxAccountSessionClient.TestHttpClientFactory = null;
         ProxyBindingService.Settings = _origProxySettings;
         ProxyBindingService.ClearClients();
         RobloxRateLimitCoordinator.Instance.ResetBackoff();
@@ -298,7 +298,7 @@ public sealed class P0AuditRemediationTests : IDisposable
             StoragePaths.ReloadVaultKeyCache();
             StoragePaths.GetOrCreateVaultKey();
 
-            Account.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler(_ =>
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler(_ =>
                 new HttpResponseMessage(HttpStatusCode.Unauthorized)));
 
             var acc = new Account
@@ -325,7 +325,7 @@ public sealed class P0AuditRemediationTests : IDisposable
         }
         finally
         {
-            Account.TestHttpClientFactory = null;
+            RobloxAccountSessionClient.TestHttpClientFactory = null;
             AccountPersistenceService.Default.Store = prevStore;
             AccountPersistenceService.Default.StartTime = prevStart;
             AccountManager.ResetAccountsForTests(oldAccounts);

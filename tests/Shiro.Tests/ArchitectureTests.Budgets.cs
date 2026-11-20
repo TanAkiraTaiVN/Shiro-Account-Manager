@@ -65,10 +65,7 @@ namespace Shiro.Tests
                 .ToList();
 
             const int DefaultBudget = 1150;
-            var baselines = new System.Collections.Generic.Dictionary<string, int>(StringComparer.Ordinal)
-            {
-                ["Account"] = 2300
-            };
+            var baselines = new System.Collections.Generic.Dictionary<string, int>(StringComparer.Ordinal);
 
             var classLines = new System.Collections.Generic.Dictionary<string, int>(StringComparer.Ordinal);
             var classRegex = new System.Text.RegularExpressions.Regex(

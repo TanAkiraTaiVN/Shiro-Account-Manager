@@ -65,6 +65,51 @@ namespace Shiro.Services
             return tokenSpan.ToString();
         }
 
+        internal static string SanitizeCookie(string? raw)
+        {
+            if (string.IsNullOrWhiteSpace(raw)) return string.Empty;
+            ReadOnlySpan<char> span = raw.AsSpan().Trim().Trim("'\"").Trim();
+
+            while (span.StartsWith(".ROBLOSECURITY=", StringComparison.OrdinalIgnoreCase) ||
+                   span.StartsWith("ROBLOSECURITY=", StringComparison.OrdinalIgnoreCase))
+            {
+                int eq = span.IndexOf('=');
+                span = span.Slice(eq + 1).Trim().Trim("'\"").Trim();
+            }
+
+            int semiIndex = span.IndexOf(';');
+            if (semiIndex >= 0)
+            {
+                span = span.Slice(0, semiIndex).Trim();
+            }
+
+            span = span.Trim("'\"").Trim();
+            if (span.IsEmpty) return string.Empty;
+            return span.Length == raw.Length ? raw : span.ToString();
+        }
+
+        internal static int GetSessionTokenPayloadLength(string? cookie)
+        {
+            if (string.IsNullOrWhiteSpace(cookie))
+                return 0;
+
+            ReadOnlySpan<char> span = cookie.AsSpan().Trim();
+            int prefixIdx = span.LastIndexOf("|_");
+            if (prefixIdx >= 0 && prefixIdx + 2 < span.Length)
+                span = span.Slice(prefixIdx + 2);
+
+            int firstDot = span.IndexOf('.');
+            if (firstDot <= 0 || firstDot + 1 >= span.Length)
+                return 0;
+
+            ReadOnlySpan<char> rest = span.Slice(firstDot + 1);
+            int secondDot = rest.IndexOf('.');
+            if (secondDot <= 0)
+                return 0;
+
+            return secondDot;
+        }
+
         private static int FindRoblosecurityAssignmentIndex(ReadOnlySpan<char> span)
         {
             int searchStart = 0;

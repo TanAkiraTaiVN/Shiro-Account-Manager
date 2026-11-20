@@ -325,7 +325,7 @@ namespace Shiro.Services
                 if (await TryEnsureCsrfAsync(account, reply).ConfigureAwait(false) is string csrfErr) return csrfErr;
                 try
                 {
-                    var res = await account.BlockUserIdAsync(targetUserId.ToString(System.Globalization.CultureInfo.InvariantCulture)).ConfigureAwait(false);
+                    var res = await RobloxSocialApiService.Instance.BlockUserIdAsync(account, targetUserId.ToString(System.Globalization.CultureInfo.InvariantCulture)).ConfigureAwait(false);
                     return ReplyUpstreamResult(res, reply);
                 }
                 catch (Exception x)
@@ -343,7 +343,7 @@ namespace Shiro.Services
                 if (await TryEnsureCsrfAsync(account, reply).ConfigureAwait(false) is string csrfErr) return csrfErr;
                 try
                 {
-                    var res = await account.UnblockUserIdAsync(targetUserId.ToString(System.Globalization.CultureInfo.InvariantCulture)).ConfigureAwait(false);
+                    var res = await RobloxSocialApiService.Instance.UnblockUserIdAsync(account, targetUserId.ToString(System.Globalization.CultureInfo.InvariantCulture)).ConfigureAwait(false);
                     return ReplyUpstreamResult(res, reply);
                 }
                 catch (Exception x)
@@ -358,7 +358,7 @@ namespace Shiro.Services
                 if (await TryEnsureCsrfAsync(account, reply).ConfigureAwait(false) is string csrfErr) return csrfErr;
                 try
                 {
-                    var res = await account.GetBlockedListAsync().ConfigureAwait(false);
+                    var res = await RobloxSocialApiService.Instance.GetBlockedListAsync(account).ConfigureAwait(false);
                     return ReplyUpstreamResult(res, reply);
                 }
                 catch (Exception x)

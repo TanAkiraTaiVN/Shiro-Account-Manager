@@ -15,12 +15,12 @@ namespace Shiro.Tests.Network
     {
         public RobloxModerationServiceBehaviorTests()
         {
-            Account.TestHttpClientFactory = null;
+            RobloxAccountSessionClient.TestHttpClientFactory = null;
         }
 
         public void Dispose()
         {
-            Account.TestHttpClientFactory = null;
+            RobloxAccountSessionClient.TestHttpClientFactory = null;
         }
 
         [Fact]
@@ -83,14 +83,14 @@ namespace Shiro.Tests.Network
             var extHandler = new FakeHttpHandler()
                 .Enqueue(HttpStatusCode.OK, "{}")
                 .Enqueue(HttpStatusCode.Found, "", ("Location", "https://example.com/other"));
-            Account.TestHttpClientFactory = _ => new HttpClient(extHandler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(extHandler);
             Assert.False((await svc.CheckModerationStatusAsync(acc, acc.SecurityToken, CancellationToken.None)).IsBanned);
 
             // 2. Redirect to /discover -> false
             var discHandler = new FakeHttpHandler()
                 .Enqueue(HttpStatusCode.OK, "{}")
                 .Enqueue(HttpStatusCode.Found, "", ("Location", "https://www.roblox.com/discover"));
-            Account.TestHttpClientFactory = _ => new HttpClient(discHandler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(discHandler);
             Assert.False((await svc.CheckModerationStatusAsync(acc, acc.SecurityToken, CancellationToken.None)).IsBanned);
 
             // 3. Redirect to /not-approved, second request returns 401 -> false & clears AccountStatusIssue
@@ -99,7 +99,7 @@ namespace Shiro.Tests.Network
                 .Enqueue(HttpStatusCode.OK, "{}")
                 .Enqueue(HttpStatusCode.Found, "", ("Location", "/not-approved"))
                 .Enqueue(HttpStatusCode.Unauthorized, "");
-            Account.TestHttpClientFactory = _ => new HttpClient(unauthHandler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(unauthHandler);
             Assert.False((await svc.CheckModerationStatusAsync(acc, acc.SecurityToken, CancellationToken.None)).IsBanned);
             Assert.Equal(string.Empty, acc.AccountStatusIssue);
 
@@ -108,7 +108,7 @@ namespace Shiro.Tests.Network
                 .Enqueue(HttpStatusCode.OK, "{}")
                 .Enqueue(HttpStatusCode.Found, "", ("Location", "/not-approved"))
                 .Enqueue(HttpStatusCode.Found, "", ("Location", "/NewLogin"));
-            Account.TestHttpClientFactory = _ => new HttpClient(loginRedirHandler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(loginRedirHandler);
             Assert.False((await svc.CheckModerationStatusAsync(acc, acc.SecurityToken, CancellationToken.None)).IsBanned);
 
             // 5. Redirect to /not-approved, second request returns login HTML -> false
@@ -116,13 +116,13 @@ namespace Shiro.Tests.Network
                 .Enqueue(HttpStatusCode.OK, "{}")
                 .Enqueue(HttpStatusCode.Found, "", ("Location", "/not-approved"))
                 .Enqueue(HttpStatusCode.OK, "<input id=\"login-username\" />");
-            Account.TestHttpClientFactory = _ => new HttpClient(loginHtmlHandler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(loginHtmlHandler);
             Assert.False((await svc.CheckModerationStatusAsync(acc, acc.SecurityToken, CancellationToken.None)).IsBanned);
 
             // 6. usermoderation.roblox.com/v1/not-approved returns structured 7-day ban JSON -> detects ban directly without www.roblox.com/home
             var apiBanHandler = new FakeHttpHandler()
                 .Enqueue(HttpStatusCode.OK, "{\"punishedUserId\":10911124164,\"interventionId\":\"f9f89b0e\",\"punishmentId\":0,\"messageToUser\":\"Modified client\",\"beginDate\":\"2026-11-01T00:00:00Z\",\"endDate\":\"2026-11-08T00:00:00Z\"}");
-            Account.TestHttpClientFactory = _ => new HttpClient(apiBanHandler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(apiBanHandler);
             var apiBanResult = await svc.CheckModerationStatusAsync(acc, acc.SecurityToken, CancellationToken.None);
             Assert.True(apiBanResult.IsBanned);
             Assert.Equal(LocalizationService.Get("FastLogin.BanSevenDaysShort"), apiBanResult.IssueBadge);
@@ -143,7 +143,7 @@ namespace Shiro.Tests.Network
         public async Task AuditAccountAsync_WhenModeratedOn403_DoesNotDuplicateModerationCheckOrWebhook()
         {
             int notApprovedCalls = 0;
-            Account.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler((req, _) =>
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler((req, _) =>
             {
                 string uri = req.RequestUri!.AbsoluteUri;
                 if (uri.Contains("users.roblox.com/v1/users/authenticated", StringComparison.OrdinalIgnoreCase))

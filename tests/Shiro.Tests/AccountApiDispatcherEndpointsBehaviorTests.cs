@@ -18,12 +18,12 @@ namespace Shiro.Tests
 
         public AccountApiDispatcherEndpointsBehaviorTests()
         {
-            Account.TestHttpClientFactory = null;
+            RobloxAccountSessionClient.TestHttpClientFactory = null;
         }
 
         public void Dispose()
         {
-            Account.TestHttpClientFactory = null;
+            RobloxAccountSessionClient.TestHttpClientFactory = null;
         }
 
         private static AccountManager.ApiRequestContext CreateRequest(
@@ -271,7 +271,7 @@ namespace Shiro.Tests
                 };
             });
 
-            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(handler);
 
             string csrfResp = await mgr.ProcessApiRequestAsync(CreateRequest("/GetCSRFToken", query: new Dictionary<string, string> { ["Account"] = "DispatcherEndpointUser" }));
             Assert.Contains("csrf-1", csrfResp);

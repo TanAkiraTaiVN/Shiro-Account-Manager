@@ -156,9 +156,9 @@ namespace Shiro.Services
             {
                 try
                 {
-                    using var ecoReq = account.CreateAuthenticatedGetRequest($"https://economy.roblox.com/v1/users/{userId}/currency");
+                    using var ecoReq = AppServices.AccountSessionClient.CreateAuthenticatedGetRequest(account, $"https://economy.roblox.com/v1/users/{userId}/currency");
                     using var ecoResp = await client.SendAsync(ecoReq, HttpCompletionOption.ResponseContentRead, ct).ConfigureAwait(false);
-                    account.TryUpdateRotatedCookie(ecoResp);
+                    AppServices.AccountSessionClient.TryUpdateRotatedCookie(account, ecoResp);
 
                     if ((int)ecoResp.StatusCode == 429)
                     {
@@ -193,9 +193,9 @@ namespace Shiro.Services
             {
                 try
                 {
-                    using var pendReq = account.CreateAuthenticatedGetRequest($"https://economy.roblox.com/v2/users/{userId}/transaction-totals?timeFrame=Month&transactionType=summary");
+                    using var pendReq = AppServices.AccountSessionClient.CreateAuthenticatedGetRequest(account, $"https://economy.roblox.com/v2/users/{userId}/transaction-totals?timeFrame=Month&transactionType=summary");
                     using var pendResp = await client.SendAsync(pendReq, HttpCompletionOption.ResponseContentRead, ct).ConfigureAwait(false);
-                    account.TryUpdateRotatedCookie(pendResp);
+                    AppServices.AccountSessionClient.TryUpdateRotatedCookie(account, pendResp);
 
                     if ((int)pendResp.StatusCode == 429)
                     {
@@ -246,9 +246,9 @@ namespace Shiro.Services
                 {
                     int versionBefore = account.CookieRotationVersion;
                     HttpClient httpClient = clientFactory();
-                    using var request = account.CreateAuthenticatedGetRequest("https://friends.roblox.com/v1/my/friends/count");
+                    using var request = AppServices.AccountSessionClient.CreateAuthenticatedGetRequest(account, "https://friends.roblox.com/v1/my/friends/count");
                     using HttpResponseMessage response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
-                    account.TryUpdateRotatedCookie(response);
+                    AppServices.AccountSessionClient.TryUpdateRotatedCookie(account, response);
 
                     if ((int)response.StatusCode == 429)
                     {

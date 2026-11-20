@@ -161,7 +161,7 @@ namespace Shiro.Services
                         if (await RobloxProcess.ContainsRecentNativeAuthRateLimitInLogAsync(logPath, minimumTimestampUtc, cancellationToken).ConfigureAwait(false))
                         {
                             if (account != null) account.LastNativeLaunchRateLimited = true;
-                            Account.MarkNativeAuthRateLimited(Account.NativeAuthRecoverySeconds, username, "native authentication redeem");
+                            RobloxAccountSessionClient.MarkNativeAuthRateLimited(RobloxAccountSessionClient.NativeAuthRecoverySeconds, username, "native authentication redeem");
                             return;
                         }
                     }

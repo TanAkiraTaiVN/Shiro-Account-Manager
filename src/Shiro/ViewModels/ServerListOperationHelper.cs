@@ -92,8 +92,8 @@ namespace Shiro.ViewModels
         {
             try
             {
-                var vipReq = vipAuthAccount.MakeRequest($"v1/games/{placeId}/servers/VIP?sortOrder=Asc&limit=25", Method.Get);
-                var vipResp = await vipAuthAccount.ExecuteAccountRestAsync(gamesClient, "https://games.roblox.com/", vipReq, ct).ConfigureAwait(false);
+                var vipReq = AppServices.AccountApiService.MakeRequest(vipAuthAccount, $"v1/games/{placeId}/servers/VIP?sortOrder=Asc&limit=25", Method.Get);
+                var vipResp = await AppServices.AccountApiService.ExecuteAccountRestAsync(vipAuthAccount, gamesClient, "https://games.roblox.com/", vipReq, ct).ConfigureAwait(false);
                 if (vipResp != null && vipResp.IsSuccessful && !string.IsNullOrEmpty(vipResp.Content) && !ct.IsCancellationRequested)
                 {
                     var vipInfo = FastJson.TryDeserialize<ServersInfo>(vipResp.Content, out var vInfo) ? vInfo : null;

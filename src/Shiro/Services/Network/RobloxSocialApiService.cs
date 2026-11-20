@@ -168,7 +168,7 @@ namespace Shiro.Services
                 AppServices.RobloxApi.Api,
                 "https://apis.roblox.com/",
                 token,
-                tok => account.MakeRequest($"user-blocking-api/v1/users/{safeUserId}/{action}", Method.Post)
+                tok => AppServices.AccountApiService.MakeRequest(account, $"user-blocking-api/v1/users/{safeUserId}/{action}", Method.Post)
                     .AddHeader("X-CSRF-TOKEN", tok)
                     .AddJsonBody(new EmptyJsonObjectPayload()),
                 cancellationToken).ConfigureAwait(false);
@@ -186,8 +186,8 @@ namespace Shiro.Services
             if (account == null || string.IsNullOrWhiteSpace(account.SecurityToken))
                 return null;
 
-            RestRequest request = account.MakeRequest("user-blocking-api/v1/users/get-blocked-users", Method.Get);
-            RestResponse? response = await account.ExecuteAccountRestAsync(AppServices.RobloxApi.Api, "https://apis.roblox.com/", request, cancellationToken).ConfigureAwait(false);
+            RestRequest request = AppServices.AccountApiService.MakeRequest(account, "user-blocking-api/v1/users/get-blocked-users", Method.Get);
+            RestResponse? response = await AppServices.AccountApiService.ExecuteAccountRestAsync(account, AppServices.RobloxApi.Api, "https://apis.roblox.com/", request, cancellationToken).ConfigureAwait(false);
 
             return response;
         }
@@ -248,7 +248,7 @@ namespace Shiro.Services
                 AppServices.RobloxApi.Friends,
                 "https://friends.roblox.com/",
                 csrf.Token,
-                tok => account.MakeRequest($"/v1/users/{userRes.UserId}/request-friendship", Method.Post)
+                tok => AppServices.AccountApiService.MakeRequest(account, $"/v1/users/{userRes.UserId}/request-friendship", Method.Post)
                     .AddHeader("X-CSRF-TOKEN", tok)
                     .AddJsonBody(new EmptyJsonObjectPayload()),
                 cancellationToken).ConfigureAwait(false);
@@ -268,7 +268,7 @@ namespace Shiro.Services
                 AppServices.RobloxApi.Api,
                 "https://apis.roblox.com/",
                 token,
-                tok => account.MakeRequest("auth-token-service/v1/login/enterCode", Method.Post)
+                tok => AppServices.AccountApiService.MakeRequest(account, "auth-token-service/v1/login/enterCode", Method.Post)
                     .AddHeader("X-CSRF-TOKEN", tok)
                     .AddJsonBody(new QuickLoginCodePayload(code)),
                 cancellationToken).ConfigureAwait(false);
@@ -300,7 +300,7 @@ namespace Shiro.Services
                         AppServices.RobloxApi.Api,
                         "https://apis.roblox.com/",
                         validateCsrf,
-                        tok => account.MakeRequest("auth-token-service/v1/login/validateCode", Method.Post)
+                        tok => AppServices.AccountApiService.MakeRequest(account, "auth-token-service/v1/login/validateCode", Method.Post)
                             .AddHeader("X-CSRF-TOKEN", tok)
                             .AddJsonBody(new QuickLoginCodePayload(code)),
                         cancellationToken).ConfigureAwait(false);

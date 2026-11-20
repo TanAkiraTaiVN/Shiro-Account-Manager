@@ -47,13 +47,14 @@ namespace Shiro.Services
                     RateLimitCategory.General,
                     async () =>
                     {
-                        HttpClient httpClient = account.GetSessionHttpClient();
-                        using var request = account.CreateAuthenticatedGetRequest(
+                        HttpClient httpClient = AppServices.AccountSessionClient.GetSessionHttpClient(account);
+                        using var request = AppServices.AccountSessionClient.CreateAuthenticatedGetRequest(
+                            account,
                             $"https://economy.roblox.com/v1/users/{account.UserID}/currency",
                             "application/json");
 
                         using var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseContentRead, cancellationToken).ConfigureAwait(false);
-                        account.TryUpdateRotatedCookie(response);
+                        AppServices.AccountSessionClient.TryUpdateRotatedCookie(account, response);
                         if (response.IsSuccessStatusCode)
                         {
                             string json = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);

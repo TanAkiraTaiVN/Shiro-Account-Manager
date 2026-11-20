@@ -17,12 +17,12 @@ namespace Shiro.Tests.Network
     {
         public RobloxSettingsApiServiceTests()
         {
-            Account.TestHttpClientFactory = null;
+            RobloxAccountSessionClient.TestHttpClientFactory = null;
         }
 
         public void Dispose()
         {
-            Account.TestHttpClientFactory = null;
+            RobloxAccountSessionClient.TestHttpClientFactory = null;
         }
 
         private static Account CreateUnlockedAccount(string name = "TestUser") => new()
@@ -39,7 +39,7 @@ namespace Shiro.Tests.Network
                 .Enqueue(HttpStatusCode.Forbidden, "{}", ("x-csrf-token", "abc"))
                 .Enqueue(HttpStatusCode.OK, "{}");
 
-            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(handler);
             var account = CreateUnlockedAccount("PrivacyUser");
 
             bool result = await RobloxSettingsApiService.Instance.SetFollowPrivacyAsync(account, 0);
@@ -63,7 +63,7 @@ namespace Shiro.Tests.Network
                 .Enqueue(HttpStatusCode.BadRequest, "{}")
                 .Enqueue(HttpStatusCode.OK, "{}");
 
-            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(handler);
             var account = CreateUnlockedAccount($"PrivacyFallback_{privacy}");
 
             bool result = await RobloxSettingsApiService.Instance.SetFollowPrivacyAsync(account, privacy);
@@ -79,7 +79,7 @@ namespace Shiro.Tests.Network
                 .Enqueue(HttpStatusCode.BadRequest, "{}")
                 .Enqueue(HttpStatusCode.InternalServerError, "{}");
 
-            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(handler);
             var account = CreateUnlockedAccount("PrivacyBothFail");
 
             bool result = await RobloxSettingsApiService.Instance.SetFollowPrivacyAsync(account, 4);
@@ -94,7 +94,7 @@ namespace Shiro.Tests.Network
                 .Enqueue(HttpStatusCode.Unauthorized, "{}")
                 .Enqueue(HttpStatusCode.Unauthorized, "{}");
 
-            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(handler);
             var account = new Account
             {
                 Username = "PrivacyUser401",
@@ -114,7 +114,7 @@ namespace Shiro.Tests.Network
         public async Task SetFollowPrivacy_EmptySecurityToken_ReturnsFalseWithoutHttpRequest()
         {
             var handler = new FakeHttpHandler();
-            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(handler);
             var account = new Account { Username = "NoTokenPrivacyUser", SecurityToken = "" };
 
             bool result = await RobloxSettingsApiService.Instance.SetFollowPrivacyAsync(account, 0);
@@ -127,7 +127,7 @@ namespace Shiro.Tests.Network
         public async Task LogOutOfOtherSessions_EmptySecurityToken_ReturnsFalseWithoutHttpRequest()
         {
             var handler = new FakeHttpHandler();
-            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(handler);
             var account = new Account { Username = "NoTokenLogoutUser", SecurityToken = "" };
 
             bool result = await RobloxSettingsApiService.Instance.LogOutOfOtherSessionsAsync(account);
@@ -181,7 +181,7 @@ namespace Shiro.Tests.Network
             var okHandler = new FakeHttpHandler()
                 .Enqueue(HttpStatusCode.Forbidden, "{}", ("x-csrf-token", "pw-csrf"))
                 .Enqueue(HttpStatusCode.OK, "{}");
-            Account.TestHttpClientFactory = _ => new HttpClient(okHandler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(okHandler);
             var acc1 = CreateUnlockedAccount("PwUser1");
             acc1.Password = "old";
             Assert.False(await RobloxSettingsApiService.Instance.ChangePasswordAsync(acc1, "old", "newPass1"));
@@ -192,7 +192,7 @@ namespace Shiro.Tests.Network
             var rotHandler = new FakeHttpHandler()
                 .Enqueue(HttpStatusCode.Forbidden, "{}", ("x-csrf-token", "pw-csrf"))
                 .Enqueue(HttpStatusCode.OK, "{}", ("Set-Cookie", $".ROBLOSECURITY={validRotatedCookie}; path=/; domain=.roblox.com; HttpOnly"));
-            Account.TestHttpClientFactory = _ => new HttpClient(rotHandler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(rotHandler);
             var acc2 = CreateUnlockedAccount("PwUser2");
             Assert.True(await RobloxSettingsApiService.Instance.ChangePasswordAsync(acc2, "old", "newPass2"));
             Assert.Equal("newPass2", acc2.Password);
@@ -201,7 +201,7 @@ namespace Shiro.Tests.Network
             var failHandler = new FakeHttpHandler()
                 .Enqueue(HttpStatusCode.Forbidden, "{}", ("x-csrf-token", "pw-csrf"))
                 .Enqueue(HttpStatusCode.BadRequest, "{}");
-            Account.TestHttpClientFactory = _ => new HttpClient(failHandler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(failHandler);
             var acc3 = CreateUnlockedAccount("PwUser3");
             Assert.False(await RobloxSettingsApiService.Instance.ChangePasswordAsync(acc3, "old", "newPass3"));
         }
@@ -214,14 +214,14 @@ namespace Shiro.Tests.Network
             var handler = new FakeHttpHandler()
                 .Enqueue(HttpStatusCode.Forbidden, "{}", ("x-csrf-token", "email-csrf-token"))
                 .Enqueue(HttpStatusCode.OK, "{}");
-            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(handler);
             var account = CreateUnlockedAccount("EmailChangeUser");
             Assert.True(await RobloxSettingsApiService.Instance.ChangeEmailAsync(account, "CurrentPassword", "new@example.com"));
 
             var failHandler = new FakeHttpHandler()
                 .Enqueue(HttpStatusCode.Forbidden, "{}", ("x-csrf-token", "email-csrf-token"))
                 .Enqueue(HttpStatusCode.BadRequest, "{}");
-            Account.TestHttpClientFactory = _ => new HttpClient(failHandler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(failHandler);
             var failAccount = CreateUnlockedAccount("EmailFailUser");
             Assert.False(await RobloxSettingsApiService.Instance.ChangeEmailAsync(failAccount, "CurrentPassword", "new@example.com"));
         }
@@ -236,7 +236,7 @@ namespace Shiro.Tests.Network
             var rotHandler = new FakeHttpHandler()
                 .Enqueue(HttpStatusCode.Forbidden, "{}", ("x-csrf-token", "lo-csrf"))
                 .Enqueue(HttpStatusCode.OK, "{}", ("Set-Cookie", $".ROBLOSECURITY={validRotatedCookie}; path=/; domain=.roblox.com"));
-            Account.TestHttpClientFactory = _ => new HttpClient(rotHandler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(rotHandler);
             var acc1 = CreateUnlockedAccount("LogoutUser1");
             Assert.True(await RobloxSettingsApiService.Instance.LogOutOfOtherSessionsAsync(acc1));
 
@@ -245,7 +245,7 @@ namespace Shiro.Tests.Network
                 .Enqueue(HttpStatusCode.Forbidden, "{}", ("x-csrf-token", "lo-csrf"))
                 .Enqueue(HttpStatusCode.InternalServerError, "{}")
                 .Enqueue(HttpStatusCode.OK, "{}");
-            Account.TestHttpClientFactory = _ => new HttpClient(fbNoRotHandler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(fbNoRotHandler);
             var acc2 = CreateUnlockedAccount("LogoutUser2");
             Assert.False(await RobloxSettingsApiService.Instance.LogOutOfOtherSessionsAsync(acc2));
 
@@ -254,7 +254,7 @@ namespace Shiro.Tests.Network
                 .Enqueue(HttpStatusCode.Forbidden, "{}", ("x-csrf-token", "lo-csrf"))
                 .Enqueue(HttpStatusCode.InternalServerError, "{}")
                 .Enqueue(HttpStatusCode.BadRequest, "{}");
-            Account.TestHttpClientFactory = _ => new HttpClient(bothFailHandler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(bothFailHandler);
             var acc3 = CreateUnlockedAccount("LogoutUser3");
             Assert.False(await RobloxSettingsApiService.Instance.LogOutOfOtherSessionsAsync(acc3));
         }
@@ -270,7 +270,7 @@ namespace Shiro.Tests.Network
             var okHandler = new FakeHttpHandler()
                 .Enqueue(HttpStatusCode.Forbidden, "{}", ("x-csrf-token", "srv-csrf"))
                 .Enqueue(HttpStatusCode.OK, "{\"joinScriptUrl\":\"https://gamejoin.roblox.com/join\"}");
-            Account.TestHttpClientFactory = _ => new HttpClient(okHandler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(okHandler);
             var acc1 = CreateUnlockedAccount("SrvUser1");
             var (s1, m1) = await RobloxSettingsApiService.Instance.SetServerAsync(acc1, 1818, "job-1");
             Assert.True(s1);
@@ -280,7 +280,7 @@ namespace Shiro.Tests.Network
             var nullScriptHandler = new FakeHttpHandler()
                 .Enqueue(HttpStatusCode.Forbidden, "{}", ("x-csrf-token", "srv-csrf"))
                 .Enqueue(HttpStatusCode.OK, "{\"joinScriptUrl\":null,\"status\":12}");
-            Account.TestHttpClientFactory = _ => new HttpClient(nullScriptHandler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(nullScriptHandler);
             var acc2 = CreateUnlockedAccount("SrvUser2");
             var (s2, m2) = await RobloxSettingsApiService.Instance.SetServerAsync(acc2, 1818, "job-2");
             Assert.True(s2);
@@ -290,7 +290,7 @@ namespace Shiro.Tests.Network
             var failHandler = new FakeHttpHandler()
                 .Enqueue(HttpStatusCode.Forbidden, "{}", ("x-csrf-token", "srv-csrf"))
                 .Enqueue(HttpStatusCode.BadRequest, "bad request");
-            Account.TestHttpClientFactory = _ => new HttpClient(failHandler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(failHandler);
             var acc3 = CreateUnlockedAccount("SrvUser3");
             var (s3, m3) = await RobloxSettingsApiService.Instance.SetServerAsync(acc3, 1818, "job-3");
             Assert.False(s3);
@@ -305,7 +305,7 @@ namespace Shiro.Tests.Network
             var okHandler = new FakeHttpHandler()
                 .Enqueue(HttpStatusCode.Forbidden, "{}", ("x-csrf-token", "dp-csrf"))
                 .Enqueue(HttpStatusCode.OK, "{}");
-            Account.TestHttpClientFactory = _ => new HttpClient(okHandler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(okHandler);
             var acc1 = CreateUnlockedAccount("DpUser1");
             await RobloxSettingsApiService.Instance.SetDisplayNameAsync(acc1, "CoolName");
             Assert.Equal(2, okHandler.Requests.Count);
@@ -313,7 +313,7 @@ namespace Shiro.Tests.Network
             var errJsonHandler = new FakeHttpHandler()
                 .Enqueue(HttpStatusCode.Forbidden, "{}", ("x-csrf-token", "dp-csrf"))
                 .Enqueue(HttpStatusCode.BadRequest, "{\"errors\":[{\"message\":\"Display name is too short\"}]}");
-            Account.TestHttpClientFactory = _ => new HttpClient(errJsonHandler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(errJsonHandler);
             var acc2 = CreateUnlockedAccount("DpUser2");
             var ex = await Assert.ThrowsAsync<Exception>(() => RobloxSettingsApiService.Instance.SetDisplayNameAsync(acc2, "A"));
             Assert.Equal("Display name is too short", ex.Message);
@@ -321,7 +321,7 @@ namespace Shiro.Tests.Network
             var badJsonHandler = new FakeHttpHandler()
                 .Enqueue(HttpStatusCode.Forbidden, "{}", ("x-csrf-token", "dp-csrf"))
                 .Enqueue(HttpStatusCode.BadRequest, "not-json");
-            Account.TestHttpClientFactory = _ => new HttpClient(badJsonHandler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(badJsonHandler);
             var acc3 = CreateUnlockedAccount("DpUser3");
             var ex2 = await Assert.ThrowsAsync<Exception>(() => RobloxSettingsApiService.Instance.SetDisplayNameAsync(acc3, "B"));
             Assert.Contains("Something went wrong", ex2.Message);
@@ -344,7 +344,7 @@ namespace Shiro.Tests.Network
                 .Enqueue(HttpStatusCode.Forbidden, "{}", ("x-csrf-token", "av-csrf"))
                 .Enqueue(HttpStatusCode.OK, "{\"validation\":{\"invalidAssets\":[{\"id\":111},{\"id\":222}]}}");
 
-            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(handler);
             string avatarPayload = @"{
                 ""playerAvatarType"": ""R15"",
                 ""scales"": { ""height"": 1.0 },
@@ -382,7 +382,7 @@ namespace Shiro.Tests.Network
                 .Enqueue(HttpStatusCode.Forbidden, "{}", ("x-csrf-token", "csrf-2"))
                 .Enqueue(HttpStatusCode.OK, "{\"invalidAssets\":[{\"id\":555}]}");
 
-            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(handler);
             string avatarPayload = "{\"playerAvatarType\": \"R6\", \"assets\": [{\"id\": 555}]}";
 
             await RobloxSettingsApiService.Instance.SetAvatarAsync(acc, avatarPayload);
@@ -409,7 +409,7 @@ namespace Shiro.Tests.Network
                 .Enqueue(HttpStatusCode.Forbidden, "{}", ("x-csrf-token", "csrf-1"))
                 .Enqueue(HttpStatusCode.BadRequest, "{\"errors\":[{\"message\":\"Unknown error\"}]}");
 
-            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(handler);
             string avatarPayload = "{\"playerAvatarType\": \"R15\"}";
 
             await RobloxSettingsApiService.Instance.SetAvatarAsync(acc, avatarPayload);
@@ -431,7 +431,7 @@ namespace Shiro.Tests.Network
                 .Enqueue(HttpStatusCode.Forbidden, "{}", ("x-csrf-token", "csrf-1"))
                 .Enqueue(HttpStatusCode.Forbidden, "{}");
 
-            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(handler);
             string avatarPayload = "{\"playerAvatarType\": \"R6\"}";
 
             Assert.False(await RobloxSettingsApiService.Instance.SetAvatarAsync(acc, avatarPayload));
@@ -441,7 +441,7 @@ namespace Shiro.Tests.Network
             var nullHandler = new FakeHttpHandler()
                 .Enqueue(HttpStatusCode.Forbidden, "{}", ("x-csrf-token", "csrf-1"))
                 .Enqueue((HttpRequestMessage _) => (HttpResponseMessage)null!);
-            Account.TestHttpClientFactory = _ => new HttpClient(nullHandler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(nullHandler);
 
             Assert.False(await RobloxSettingsApiService.Instance.SetAvatarAsync(acc, avatarPayload));
             Assert.Equal(2, nullHandler.Requests.Count);
@@ -461,7 +461,7 @@ namespace Shiro.Tests.Network
             var failCsrfHandler = new FakeHttpHandler()
                 .Enqueue(HttpStatusCode.Unauthorized, "{}")
                 .Enqueue(HttpStatusCode.Unauthorized, "{}");
-            Account.TestHttpClientFactory = _ => new HttpClient(failCsrfHandler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(failCsrfHandler);
 
             var acc = CreateUnlockedAccount("NoCsrfUser");
             Assert.False(await RobloxSettingsApiService.Instance.SetFollowPrivacyAsync(acc, 0));

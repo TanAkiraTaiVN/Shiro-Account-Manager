@@ -31,14 +31,14 @@ namespace Shiro.Tests
         public P0AuthAndDomainRegressionTests()
         {
             _previousLastValidAccount = AppServices.SelectionState.LastValidAccount;
-            _previousHttpClientFactory = Account.TestHttpClientFactory;
+            _previousHttpClientFactory = RobloxAccountSessionClient.TestHttpClientFactory;
             RobloxHbaService.ClearKeyCache();
             RobloxRateLimitCoordinator.Instance.ResetBackoff();
         }
 
         public void Dispose()
         {
-            Account.TestHttpClientFactory = _previousHttpClientFactory;
+            RobloxAccountSessionClient.TestHttpClientFactory = _previousHttpClientFactory;
             AppServices.SelectionState.LastValidAccount = _previousLastValidAccount;
             RobloxHbaService.ClearKeyCache();
             RobloxRateLimitCoordinator.Instance.ResetBackoff();
@@ -130,7 +130,7 @@ namespace Shiro.Tests
             Assert.Equal("ActualWrongUserB", mismatchedFromJson.Username);
             Assert.Same(previousValid, AppServices.SelectionState.LastValidAccount);
 
-            Account.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler(req =>
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler(req =>
             {
                 string url = req.RequestUri?.ToString() ?? string.Empty;
                 if (url.Contains("users/authenticated", StringComparison.OrdinalIgnoreCase))
@@ -278,7 +278,7 @@ namespace Shiro.Tests
             string token = MakeToken('G', 920);
 
             var csrfHandler = new FakeHttpHandler(_ => new HttpResponseMessage((HttpStatusCode)429));
-            Account.TestHttpClientFactory = _ => new HttpClient(csrfHandler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(csrfHandler);
 
             var csrfAcc = new Account
             {
@@ -310,7 +310,7 @@ namespace Shiro.Tests
                 resp.Headers.RetryAfter = new RetryConditionHeaderValue(TimeSpan.FromSeconds(1));
                 return resp;
             });
-            Account.TestHttpClientFactory = _ => new HttpClient(ticketHandler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(ticketHandler);
 
             var ticketAcc = new Account
             {
@@ -354,7 +354,7 @@ namespace Shiro.Tests
             httpResp.Headers.TryAddWithoutValidation("Set-Cookie", $".ROBLOSECURITY={deletedLikeLongToken}; max-age=-5; Path=/");
             httpResp.Headers.TryAddWithoutValidation("Set-Cookie", $"FAKE.ROBLOSECURITY={evilToken}; Path=/");
 
-            Assert.False(httpAcc.TryUpdateRotatedCookie(httpResp));
+            Assert.False(AppServices.AccountSessionClient.TryUpdateRotatedCookie(httpAcc, httpResp));
             Assert.Equal(originalToken, httpAcc.SecurityToken);
 
             var restAcc = new Account
@@ -379,7 +379,7 @@ namespace Shiro.Tests
             RestResponse restResponse = await restClient.ExecuteAsync(new RestRequest("v1/users/authenticated", Method.Get));
 
             Assert.NotNull(restResponse.Cookies[".ROBLOSECURITY"]);
-            Assert.False(restAcc.TryUpdateRotatedCookie(restResponse));
+            Assert.False(AppServices.AccountApiService.TryUpdateRotatedCookie(restAcc, restResponse));
             Assert.Equal(originalToken, restAcc.SecurityToken);
         }
 

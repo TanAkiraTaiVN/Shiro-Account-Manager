@@ -37,7 +37,7 @@ namespace Shiro.Tests
 
         public BugHuntNetworkRegressionTests()
         {
-            _origAccountHttpFactory = Account.TestHttpClientFactory;
+            _origAccountHttpFactory = RobloxAccountSessionClient.TestHttpClientFactory;
             _origLaunchOverride = AccountLaunchService.TestStartNativeGameOverride;
             _origTicketOverride = AccountLaunchService.TestGetAuthTicketOverride;
             _origPrivacyConfirmOverride = AccountLaunchService.TestPrivacyConfirmOverride;
@@ -47,7 +47,7 @@ namespace Shiro.Tests
 
         public void Dispose()
         {
-            Account.TestHttpClientFactory = _origAccountHttpFactory;
+            RobloxAccountSessionClient.TestHttpClientFactory = _origAccountHttpFactory;
             AccountLaunchService.TestStartNativeGameOverride = _origLaunchOverride;
             AccountLaunchService.TestGetAuthTicketOverride = _origTicketOverride;
             AccountLaunchService.TestPrivacyConfirmOverride = _origPrivacyConfirmOverride;
@@ -69,7 +69,7 @@ namespace Shiro.Tests
             };
 
             var sentCsrfs = new List<string>();
-            Account.TestHttpClientFactory = _ => new HttpClient(new DelegateHttpHandler((req, _) =>
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(new DelegateHttpHandler((req, _) =>
             {
                 string path = req.RequestUri?.AbsolutePath ?? string.Empty;
                 if (path.EndsWith("/user-settings", StringComparison.OrdinalIgnoreCase) && req.Method == HttpMethod.Get)
@@ -123,7 +123,7 @@ namespace Shiro.Tests
             Assert.False(RobloxDatacenterService.Default.TryResolve(testIp, null, out _));
 
             var account = new Account { Username = "GeoFallbackUser", SecurityToken = "geo_tok", Valid = true };
-            Account.TestHttpClientFactory = _ => new HttpClient(new DelegateHttpHandler((_, _) =>
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(new DelegateHttpHandler((_, _) =>
                 Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
                 {
                     Content = new StringContent($"{{\"joinScript\":{{\"MachineAddress\":\"{testIp}\"}}}}")
@@ -167,7 +167,7 @@ namespace Shiro.Tests
             account.TokenSet = DateTime.Now;
 
             var ticketRequestCsrfs = new List<string>();
-            Account.TestHttpClientFactory = _ => new HttpClient(new DelegateHttpHandler((req, _) =>
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(new DelegateHttpHandler((req, _) =>
             {
                 string url = req.RequestUri?.AbsoluteUri ?? string.Empty;
                 if (url.Contains("/v1/client-assertion/", StringComparison.OrdinalIgnoreCase))

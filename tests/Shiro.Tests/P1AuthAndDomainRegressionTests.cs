@@ -27,7 +27,7 @@ namespace Shiro.Tests
 
         public P1AuthAndDomainRegressionTests()
         {
-            Account.TestHttpClientFactory = null;
+            RobloxAccountSessionClient.TestHttpClientFactory = null;
             RobloxRateLimitCoordinator.Instance.ResetBackoff();
             _oldHbaKey = string.Empty;
             _oldAccounts = AppServices.AccountRepository.GetAll().ToList();
@@ -37,7 +37,7 @@ namespace Shiro.Tests
         public void Dispose()
         {
             RobloxRateLimitCoordinator.Instance.ResetBackoff();
-            Account.TestHttpClientFactory = null;
+            RobloxAccountSessionClient.TestHttpClientFactory = null;
             AccountManager.ResetAccountsForTests(_oldAccounts);
             AppServices.SelectionState.LastValidAccount = _oldLastValid;
             _ = _oldHbaKey;
@@ -87,7 +87,7 @@ namespace Shiro.Tests
             };
 
             var observedHasBat = new List<bool>();
-            Account.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler(req =>
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler(req =>
             {
                 string url = req.RequestUri?.ToString() ?? "";
                 if (url.Contains("v1/authentication-ticket", StringComparison.OrdinalIgnoreCase))
@@ -113,7 +113,7 @@ namespace Shiro.Tests
             req.AddParameter("a", "1");
             req.AddStringBody("{\"raw\":true}", "application/json");
 
-            acc.ApplySessionFingerprintAndHbaToRestRequest(req, "https://apis.roblox.com/");
+            AppServices.AccountApiService.ApplySessionFingerprintAndHbaToRestRequest(acc, req, "https://apis.roblox.com/");
             Assert.True(req.Headers.TryGetValue("x-bound-auth-token", out string? signedHeader));
 
             string? sentBody = null;
@@ -168,7 +168,7 @@ namespace Shiro.Tests
                 LastAttemptedRefresh = DateTime.MinValue
             };
 
-            Account.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler(req =>
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler(req =>
             {
                 string url = req.RequestUri?.ToString() ?? "";
                 if (url.Contains("users/authenticated", StringComparison.OrdinalIgnoreCase))
@@ -461,7 +461,7 @@ namespace Shiro.Tests
             Assert.Equal("https://apis.roblox.com/v1/items?existing=1&cursor=a%20b", msg.RequestUri!.AbsoluteUri);
             Assert.NotNull(msg.Content);
 
-            acc.ApplySessionFingerprintAndHbaToRestRequest(req, "https://apis.roblox.com/");
+            AppServices.AccountApiService.ApplySessionFingerprintAndHbaToRestRequest(acc, req, "https://apis.roblox.com/");
             Assert.True(req.Headers.TryGetValue(RobloxHbaService.BoundAuthHeaderName, out string? batHeader));
             string[] parts = batHeader!.Split('|');
             Assert.Equal(5, parts.Length);

@@ -165,7 +165,7 @@ namespace Shiro.Services
                     initialCsrfToken: null,
                     tok =>
                     {
-                        var req = account.MakeRequest("v1/join-game-instance", Method.Post)
+                        var req = AppServices.AccountApiService.MakeRequest(account, "v1/join-game-instance", Method.Post)
                             .AddHeader("Content-Type", "application/json")
                             .AddJsonBody(new JoinGameInstancePayload(serverId, placeId));
                         if (!string.IsNullOrEmpty(tok))

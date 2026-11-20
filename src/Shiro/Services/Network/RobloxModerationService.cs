@@ -38,7 +38,7 @@ namespace Shiro.Services
 
             try
             {
-                HttpClient httpClient = httpClientOverride ?? account.GetSessionHttpClient(allowAutoRedirect: false);
+                HttpClient httpClient = httpClientOverride ?? AppServices.AccountSessionClient.GetSessionHttpClient(account, allowAutoRedirect: false);
 
                 // 1. Probe official JSON moderation endpoint (usermoderation.roblox.com/v1/not-approved) first.
                 // Unlike www.roblox.com/home, this API endpoint is not blocked by Vietnam ISP SNI filters and returns
@@ -48,14 +48,15 @@ namespace Shiro.Services
                     apiCts.CancelAfter(TimeSpan.FromMilliseconds(2500));
                     try
                     {
-                        using var apiReq = account.CreateAuthenticatedGetRequest(
+                        using var apiReq = AppServices.AccountSessionClient.CreateAuthenticatedGetRequest(
+                            account,
                             "https://usermoderation.roblox.com/v1/not-approved",
                             "application/json",
                             token);
                         using HttpResponseMessage apiRes = await httpClient.SendAsync(apiReq, HttpCompletionOption.ResponseContentRead, apiCts.Token).ConfigureAwait(false);
                         if (apiRes != null)
                         {
-                            account.TryUpdateRotatedCookie(apiRes);
+                            AppServices.AccountSessionClient.TryUpdateRotatedCookie(account, apiRes);
                             if (apiRes.IsSuccessStatusCode)
                             {
                                 string apiBody = await apiRes.Content.ReadAsStringAsync(apiCts.Token).ConfigureAwait(false);
@@ -88,7 +89,8 @@ namespace Shiro.Services
                 using var webCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
                 webCts.CancelAfter(TimeSpan.FromMilliseconds(2500));
 
-                using var request = account.CreateAuthenticatedGetRequest(
+                using var request = AppServices.AccountSessionClient.CreateAuthenticatedGetRequest(
+                    account,
                     "https://www.roblox.com/home",
                     "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
                     token);
@@ -96,7 +98,7 @@ namespace Shiro.Services
                 using HttpResponseMessage response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, webCts.Token).ConfigureAwait(false);
                 if (response == null) return (false, null, null);
 
-                account.TryUpdateRotatedCookie(response);
+                AppServices.AccountSessionClient.TryUpdateRotatedCookie(account, response);
 
                 if (response.StatusCode == System.Net.HttpStatusCode.OK)
                 {
@@ -148,11 +150,11 @@ namespace Shiro.Services
                             }
                             string targetUrl = safeModUri.AbsoluteUri;
 
-                            using var modReq = account.CreateAuthenticatedGetRequest(targetUrl, "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8", tokenOverride: token);
+                            using var modReq = AppServices.AccountSessionClient.CreateAuthenticatedGetRequest(account, targetUrl, "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8", tokenOverride: token);
                             using var modRes = await httpClient.SendAsync(modReq, HttpCompletionOption.ResponseContentRead, webCts.Token).ConfigureAwait(false);
                             if (modRes != null)
                             {
-                                account.TryUpdateRotatedCookie(modRes);
+                                AppServices.AccountSessionClient.TryUpdateRotatedCookie(account, modRes);
                                 if (modRes.StatusCode == System.Net.HttpStatusCode.Unauthorized)
                                 {
                                     account.AccountStatusIssue = string.Empty;

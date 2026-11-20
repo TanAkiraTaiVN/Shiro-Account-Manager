@@ -220,6 +220,8 @@ namespace Shiro.Services
         public static IToastNotifier Toasts => GetRequiredService<IToastNotifier>();
         public static ISettingsSideEffects SettingsSideEffects => GetRequiredService<ISettingsSideEffects>();
         public static AccountSessionMaintenanceService AccountSessionMaintenance => GetRequiredService<AccountSessionMaintenanceService>();
+        public static RobloxAccountSessionClient AccountSessionClient => GetRequiredService<RobloxAccountSessionClient>();
+        public static RobloxAccountApiService AccountApiService => GetRequiredService<RobloxAccountApiService>();
         public static ServerWatcherConfigService ServerWatcherConfig => GetRequiredService<ServerWatcherConfigService>();
 
         public static IAppLogger Logger

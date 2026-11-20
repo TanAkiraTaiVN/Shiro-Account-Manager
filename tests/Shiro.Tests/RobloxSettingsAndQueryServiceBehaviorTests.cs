@@ -25,7 +25,7 @@ namespace Shiro.Tests
 
         public void Dispose()
         {
-            Account.TestHttpClientFactory = null;
+            RobloxAccountSessionClient.TestHttpClientFactory = null;
             RobloxServerQueryService.TestHttpClientFactory = null;
         }
 

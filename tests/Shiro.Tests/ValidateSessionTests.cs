@@ -25,7 +25,7 @@ namespace Shiro.Tests
 
         public void Dispose()
         {
-            Account.TestHttpClientFactory = null;
+            RobloxAccountSessionClient.TestHttpClientFactory = null;
             RobloxRateLimitCoordinator.Instance.ResetBackoff();
         }
 
@@ -37,7 +37,7 @@ namespace Shiro.Tests
             var handler = new FakeHttpHandler(req => req.RequestUri!.Host == "users.roblox.com"
                 ? Json(HttpStatusCode.OK, "{\"id\":42,\"name\":\"Tester\"}")
                 : Json(HttpStatusCode.OK));
-            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(handler);
 
             var acc = NewAccount();
             Assert.True(await acc.ValidateSessionAsync());
@@ -50,7 +50,7 @@ namespace Shiro.Tests
             var handler = new FakeHttpHandler(req => req.RequestUri!.Host == "users.roblox.com"
                 ? Json(HttpStatusCode.OK, "{\"id\":42,\"name\":\"Tester\"}")
                 : Json(HttpStatusCode.Unauthorized));
-            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(handler);
 
             var acc = NewAccount();
             Assert.False(await acc.ValidateSessionAsync());
@@ -67,7 +67,7 @@ namespace Shiro.Tests
                 "accountsettings.roblox.com" => Json(HttpStatusCode.Unauthorized),
                 _ => Json(HttpStatusCode.OK)
             });
-            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(handler);
 
             var acc = NewAccount();
             Assert.True(await acc.ValidateSessionAsync());
@@ -80,7 +80,7 @@ namespace Shiro.Tests
             var handler = new FakeHttpHandler(req => req.RequestUri!.Host == "friends.roblox.com"
                 ? Json(HttpStatusCode.OK, "{\"count\":3}")
                 : Json(HttpStatusCode.Unauthorized));
-            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(handler);
 
             var acc = NewAccount();
             Assert.True(await acc.ValidateSessionAsync());
@@ -90,7 +90,7 @@ namespace Shiro.Tests
         [Fact]
         public async Task Validate_Users401_IsExpired()
         {
-            Account.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler(_ => Json(HttpStatusCode.Unauthorized)));
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler(_ => Json(HttpStatusCode.Unauthorized)));
 
             var acc = NewAccount();
             Assert.False(await acc.ValidateSessionAsync());
@@ -100,7 +100,7 @@ namespace Shiro.Tests
         [Fact]
         public async Task Validate_UserIdMismatch_IsExpired()
         {
-            Account.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler(_ =>
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler(_ =>
                 Json(HttpStatusCode.OK, "{\"id\":999,\"name\":\"Other\"}")));
 
             var acc = NewAccount();
@@ -111,7 +111,7 @@ namespace Shiro.Tests
         [Fact]
         public async Task Validate_ServerError_PreservesExistingValidity()
         {
-            Account.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler(_ => Json(HttpStatusCode.ServiceUnavailable)));
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler(_ => Json(HttpStatusCode.ServiceUnavailable)));
 
             var acc = NewAccount();
             Assert.True(await acc.ValidateSessionAsync());
@@ -122,7 +122,7 @@ namespace Shiro.Tests
         public async Task Validate_OldShortLivedCookie_StillValidatedAgainstServer()
         {
             var handler = new FakeHttpHandler(_ => Json(HttpStatusCode.OK));
-            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(handler);
 
             string shortToken = "_|WARNING:-DO-NOT-SHARE-THIS.--Sharing-this-will-allow-someone-to-log-in-as-you-and-to-steal-your-ROBUX-and-items.|_H." + new string('A', 790) + ".S";
             var acc = new Account { Username = "Old", UserID = 1, SecurityToken = shortToken, Valid = true, LastUse = DateTime.Now.AddHours(-2) };
@@ -172,7 +172,7 @@ namespace Shiro.Tests
                 }
                 return resp;
             });
-            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(handler);
 
             var acc = NewAccount();
             acc.CSRFToken = "csrf-123";
@@ -207,7 +207,7 @@ namespace Shiro.Tests
 
                 return Json(HttpStatusCode.OK);
             });
-            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(handler);
 
             var acc = NewAccount();
             Assert.True(await acc.ValidateSessionAsync());
@@ -244,7 +244,7 @@ namespace Shiro.Tests
 
                 return Json(HttpStatusCode.OK);
             });
-            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(handler);
 
             var acc = NewAccount();
             bool valid = await acc.ValidateSessionAsync();
@@ -277,7 +277,7 @@ namespace Shiro.Tests
 
                 return Json(HttpStatusCode.Unauthorized);
             });
-            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(handler);
 
             var acc = NewAccount();
             bool valid = await acc.ValidateSessionAsync();
@@ -291,7 +291,7 @@ namespace Shiro.Tests
         [Fact]
         public async Task Validate_WhenAlreadyBannedAndCookieUnauthorized_PreservesBanBadge()
         {
-            Account.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler(_ => Json(HttpStatusCode.Unauthorized)));
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(new FakeHttpHandler(_ => Json(HttpStatusCode.Unauthorized)));
 
             var acc = NewAccount();
             acc.Valid = false;
@@ -345,7 +345,7 @@ namespace Shiro.Tests
 
                 return Json(HttpStatusCode.Unauthorized);
             });
-            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(handler);
 
             var acc = NewAccount();
             acc.Valid = false;
@@ -380,7 +380,7 @@ namespace Shiro.Tests
 
                 return Json(HttpStatusCode.Unauthorized);
             });
-            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(handler);
 
             var acc = NewAccount();
             acc.Valid = false;
@@ -398,7 +398,7 @@ namespace Shiro.Tests
         public async Task CreateAsync_WhenNetworkFailsToVerify_DoesNotMarkAccountAsBanned()
         {
             var handler = new FakeHttpHandler(_ => throw new HttpRequestException("An error occurred while sending the request."));
-            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(handler);
 
             var acc = await Account.CreateAsync(FullToken);
 
@@ -425,7 +425,7 @@ namespace Shiro.Tests
 
                 return Json(HttpStatusCode.Unauthorized);
             });
-            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(handler);
 
             var acc = NewAccount();
             acc.Valid = true;
@@ -449,7 +449,7 @@ namespace Shiro.Tests
 
                 throw new TaskCanceledException("Timed out");
             });
-            Account.TestHttpClientFactory = _ => new HttpClient(handler);
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(handler);
 
             var acc = NewAccount();
             acc.Valid = true;
