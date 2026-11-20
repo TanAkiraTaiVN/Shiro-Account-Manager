@@ -17,7 +17,6 @@ namespace Shiro.Services
         RestClient GameJoin { get; }
         RestClient Thumbnails { get; }
         RestClient Games { get; }
-        RestClient Develop { get; }
         RestClient Presence { get; }
         RestClient Api { get; }
         RestClient Catalog { get; }
@@ -41,7 +40,6 @@ namespace Shiro.Services
         public RestClient GameJoin => _gameJoin;
         public RestClient Thumbnails => _thumbnails;
         public RestClient Games => _games;
-        public RestClient Develop => _develop;
         public RestClient Presence => _presence;
         public RestClient Api => _api;
         public RestClient Catalog => _catalog;
@@ -55,7 +53,6 @@ namespace Shiro.Services
         private readonly RestClient _gameJoin;
         private readonly RestClient _thumbnails;
         private readonly RestClient _games;
-        private readonly RestClient _develop;
         private readonly RestClient _presence;
         private readonly RestClient _api;
         private readonly RestClient _catalog;
@@ -71,7 +68,6 @@ namespace Shiro.Services
             _friends = Create("https://friends.roblox.com");
             _thumbnails = Create("https://thumbnails.roblox.com/");
             _games = Create("https://games.roblox.com/");
-            _develop = Create("https://develop.roblox.com/");
             _presence = Create("https://presence.roblox.com/");
             _api = Create("https://apis.roblox.com/");
             _catalog = Create("https://catalog.roblox.com/");
@@ -89,7 +85,6 @@ namespace Shiro.Services
             _friends = new RestClient(httpClient, "https://friends.roblox.com");
             _thumbnails = new RestClient(httpClient, "https://thumbnails.roblox.com/");
             _games = new RestClient(httpClient, "https://games.roblox.com/");
-            _develop = new RestClient(httpClient, "https://develop.roblox.com/");
             _presence = new RestClient(httpClient, "https://presence.roblox.com/");
             _api = new RestClient(httpClient, "https://apis.roblox.com/");
             _catalog = new RestClient(httpClient, "https://catalog.roblox.com/");
@@ -111,7 +106,6 @@ namespace Shiro.Services
             _gameJoin?.Dispose();
             _thumbnails?.Dispose();
             _games?.Dispose();
-            _develop?.Dispose();
             _presence?.Dispose();
             _api?.Dispose();
             _catalog?.Dispose();

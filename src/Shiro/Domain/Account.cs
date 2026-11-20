@@ -22,8 +22,7 @@ namespace Shiro
         Healthy,
         ShortLived,
         Expired,
-        Locked,
-        Unknown
+        Locked
     }
 
     public partial class Account : IComparable<Account>

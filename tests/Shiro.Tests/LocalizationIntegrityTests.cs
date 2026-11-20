@@ -172,7 +172,6 @@ namespace Shiro.Tests
         // Intentional bilingual UI labels plus the U+0111 ('đ') Unicode folding constant used by CommandPaletteCoordinator.NormalizeSearchText.
         private static readonly HashSet<string> AllowedBilingualKeysInEnJson = new(StringComparer.OrdinalIgnoreCase)
         {
-            "Cap_Language",
             "Set_Language_EN",
             "Set_Language_VN",
             "CommandPalette.CharDWithStroke"

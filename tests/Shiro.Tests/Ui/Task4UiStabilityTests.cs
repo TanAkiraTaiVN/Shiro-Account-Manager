@@ -70,7 +70,7 @@ namespace Shiro.Tests.Ui
         }
 
         [AvaloniaFact]
-        public void AllNineDialogs_RegisterWithStreamerModeService_OnOpen_AndUnregisterOnClose()
+        public void AllEightDialogs_RegisterWithStreamerModeService_OnOpen_AndUnregisterOnClose()
         {
             var repo = Substitute.For<IAccountRepository>();
             repo.Count.Returns(1);
@@ -79,7 +79,6 @@ namespace Shiro.Tests.Ui
             var account = new Account { Username = "StreamerDlgUser", UserID = 12345 };
             var dialogs = new Window[]
             {
-                new AboutDialog(),
                 new AccountFieldsDialog(account),
                 new AccountUtilsDialog(account),
                 new BulkImportDialog(),

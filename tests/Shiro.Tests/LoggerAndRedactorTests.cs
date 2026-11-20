@@ -42,8 +42,8 @@ namespace Shiro.Tests
             string proxyUrl = "Connected via socks5://admin:hunter2@127.0.0.1:1080";
             Assert.Contains("socks5://[REDACTED_PROXY_AUTH]@127.0.0.1:1080", LogRedactor.Redact(proxyUrl));
 
-            string bloxKey = "Using key BLOX-1234567890ABCDEF";
-            Assert.Contains("BLOX-[REDACTED_KEY]", LogRedactor.Redact(bloxKey));
+            string legacyBloxKey = "Using key BLOX-1234567890ABCDEF";
+            Assert.Equal(legacyBloxKey, LogRedactor.Redact(legacyBloxKey));
         }
 
         [Theory]

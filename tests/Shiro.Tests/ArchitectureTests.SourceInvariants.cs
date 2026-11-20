@@ -214,10 +214,50 @@ namespace Shiro.Tests
                 var generalKeys = typeof(AppSettingsKeys.General).GetFields(BindingFlags.Public | BindingFlags.Static).Select(f => f.Name).ToArray();
                 Assert.DoesNotContain("WindowScale", generalKeys);
                 Assert.DoesNotContain("ScaleFonts", generalKeys);
+                foreach (string removedGeneralKey in new[]
+                {
+                    "SavedFollowUser", "UseEmbeddedBrowser", "FastFlagProfile", "DynamicHardwareThrottling", "SettingsPreset",
+                    "FastFlag_DisableShadows", "FastFlag_DisableParticles", "FastFlag_DisablePostFx",
+                    "FastFlag_DisableGrass", "FastFlag_LowResTextures", "FastFlag_DisableLightGrid"
+                })
+                {
+                    Assert.DoesNotContain(removedGeneralKey, generalKeys);
+                }
+                Assert.Contains("EnableBackgroundThrottling", generalKeys);
+                Assert.Contains("BackgroundTargetFps", generalKeys);
 
-                var accountControlKeys = typeof(AppSettingsKeys.AccountControl).GetFields(BindingFlags.Public | BindingFlags.Static).Select(f => f.Name).ToArray();
-                Assert.DoesNotContain("NexusPort", accountControlKeys);
-                Assert.DoesNotContain("AllowExternalConnections", accountControlKeys);
+                Assert.Null(typeof(AppSettingsKeys).GetNestedType("AccountControl"));
+                Assert.Null(typeof(AppSettingsKeys.Sections).GetField("AccountControl", BindingFlags.Public | BindingFlags.Static));
+                Assert.Null(typeof(AppSettings).GetProperty("AccountControl", BindingFlags.Public | BindingFlags.Static));
+                Assert.Null(typeof(AppServices).GetProperty("AccountControlSettings", BindingFlags.Public | BindingFlags.Static));
+                Assert.Null(typeof(AppServices).GetProperty("RobloxSessionService", BindingFlags.Public | BindingFlags.Static));
+                Assert.Null(typeof(AppServices).GetProperty("RobloxLauncherService", BindingFlags.Public | BindingFlags.Static));
+
+                Assert.Null(typeof(IRobloxApiClient).GetProperty("Develop", BindingFlags.Public | BindingFlags.Instance));
+                Assert.Null(typeof(RobloxApiClient).GetProperty("Develop", BindingFlags.Public | BindingFlags.Instance));
+                Assert.Null(typeof(Presence).GetMethod("GetPresenceSingular", BindingFlags.Public | BindingFlags.Static));
+                Assert.Null(typeof(ProxyBindingService).GetMethod("ClearClients", BindingFlags.Public | BindingFlags.Static));
+                Assert.NotNull(typeof(ProxyBindingService).GetMethod("ClearClients", BindingFlags.NonPublic | BindingFlags.Static));
+                Assert.Null(typeof(IDialogService).GetMethod("OpenAboutDialog", BindingFlags.Public | BindingFlags.Instance));
+                Assert.False(Enum.IsDefined(typeof(SessionHealth), "Unknown"));
+
+                foreach (var deadRelPath in new[]
+                {
+                    Path.Combine("src", "Shiro", "AvaloniaUI", "Views", "AboutDialog.axaml"),
+                    Path.Combine("src", "Shiro", "AvaloniaUI", "Views", "AboutDialog.axaml.cs"),
+                    Path.Combine("src", "Shiro", "Services", "Launch", "IRobloxLauncherService.cs"),
+                    Path.Combine("src", "Shiro", "Services", "Launch", "RobloxLauncherService.cs"),
+                    Path.Combine("src", "Shiro", "Services", "Auth", "IRobloxSessionService.cs"),
+                    Path.Combine("src", "Shiro", "Services", "Auth", "RobloxSessionService.cs")
+                })
+                {
+                    Assert.False(File.Exists(Path.Combine(RepoRoot, deadRelPath)), $"Dead file should be deleted: {deadRelPath}");
+                }
+
+                string publishPs1 = File.ReadAllText(Path.Combine(RepoRoot, "scripts", "Publish.ps1"));
+                Assert.DoesNotContain("'Nexus'", publishPs1, StringComparison.Ordinal);
+                Assert.DoesNotContain("'Nexus.lua'", publishPs1, StringComparison.Ordinal);
+                Assert.DoesNotContain("'NexusOutput'", publishPs1, StringComparison.Ordinal);
             }
         }
     }

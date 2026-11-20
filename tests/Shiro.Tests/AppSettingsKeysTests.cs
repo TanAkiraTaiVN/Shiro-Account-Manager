@@ -14,9 +14,10 @@ namespace Shiro.Tests
             Assert.Equal("General", AppSettingsKeys.Sections.General);
             Assert.Equal("Developer", AppSettingsKeys.Sections.Developer);
             Assert.Equal("WebServer", AppSettingsKeys.Sections.WebServer);
-            Assert.Equal("AccountControl", AppSettingsKeys.Sections.AccountControl);
             Assert.Equal("Watcher", AppSettingsKeys.Sections.Watcher);
             Assert.Equal("Prompts", AppSettingsKeys.Sections.Prompts);
+            Assert.Null(typeof(AppSettingsKeys.Sections).GetField("AccountControl", BindingFlags.Public | BindingFlags.Static));
+            Assert.Null(typeof(AppSettingsKeys).GetNestedType("AccountControl"));
         }
 
         [Fact]
@@ -34,14 +35,20 @@ namespace Shiro.Tests
         }
 
         [Fact]
-        public void FastFlagKeys_FollowStandardNamingPrefix()
+        public void RemovedFastFlagKeys_AreAbsent()
         {
-            Assert.StartsWith("FastFlag_", AppSettingsKeys.General.FastFlag_DisableShadows);
-            Assert.StartsWith("FastFlag_", AppSettingsKeys.General.FastFlag_DisableParticles);
-            Assert.StartsWith("FastFlag_", AppSettingsKeys.General.FastFlag_DisablePostFx);
-            Assert.StartsWith("FastFlag_", AppSettingsKeys.General.FastFlag_DisableGrass);
-            Assert.StartsWith("FastFlag_", AppSettingsKeys.General.FastFlag_LowResTextures);
-            Assert.StartsWith("FastFlag_", AppSettingsKeys.General.FastFlag_DisableLightGrid);
+            foreach (string key in new[]
+            {
+                "FastFlag_DisableShadows",
+                "FastFlag_DisableParticles",
+                "FastFlag_DisablePostFx",
+                "FastFlag_DisableGrass",
+                "FastFlag_LowResTextures",
+                "FastFlag_DisableLightGrid"
+            })
+            {
+                Assert.Null(typeof(AppSettingsKeys.General).GetField(key, BindingFlags.Public | BindingFlags.Static));
+            }
         }
 
         [Fact]

@@ -63,7 +63,6 @@ namespace Shiro.ViewModels
             OnPropertyChanged(nameof(IsShortLivedSession));
             OnPropertyChanged(nameof(SessionHealth));
             OnPropertyChanged(nameof(StatusTooltip));
-            OnPropertyChanged(nameof(StatusColorBrushName));
             OnPropertyChanged(nameof(StatusText));
             OnPropertyChanged(nameof(StatusBadgeBackground));
             OnPropertyChanged(nameof(StatusBadgeBorder));
@@ -209,7 +208,6 @@ namespace Shiro.ViewModels
                     OnPropertyChanged(nameof(IsExpiredAndNotBanned));
                     OnPropertyChanged(nameof(IsBannedOrLocked));
                     OnPropertyChanged(nameof(BanNoticeText));
-                    OnPropertyChanged(nameof(StatusColorBrushName));
                     OnPropertyChanged(nameof(StatusText));
                     OnPropertyChanged(nameof(StatusBadgeBackground));
                     OnPropertyChanged(nameof(StatusBadgeBorder));
@@ -252,7 +250,6 @@ namespace Shiro.ViewModels
             {
                 if (SetProperty(ref _isLaunching, value))
                 {
-                    OnPropertyChanged(nameof(StatusColorBrushName));
                     OnPropertyChanged(nameof(StatusText));
                     OnPropertyChanged(nameof(StatusBadgeBackground));
                     OnPropertyChanged(nameof(StatusBadgeBorder));
@@ -268,7 +265,6 @@ namespace Shiro.ViewModels
             {
                 if (SetProperty(ref _isInGame, value))
                 {
-                    OnPropertyChanged(nameof(StatusColorBrushName));
                     OnPropertyChanged(nameof(StatusText));
                     OnPropertyChanged(nameof(StatusBadgeBackground));
                     OnPropertyChanged(nameof(StatusBadgeBorder));
@@ -287,7 +283,6 @@ namespace Shiro.ViewModels
                 {
                     OnPropertyChanged(nameof(ShowPlayButton));
                     OnPropertyChanged(nameof(ShowRunningClientControls));
-                    OnPropertyChanged(nameof(StatusColorBrushName));
                     OnPropertyChanged(nameof(StatusText));
                     OnPropertyChanged(nameof(StatusBadgeBackground));
                     OnPropertyChanged(nameof(StatusBadgeBorder));
@@ -372,7 +367,6 @@ namespace Shiro.ViewModels
             OnPropertyChanged(nameof(IsShortLivedSession));
             OnPropertyChanged(nameof(SessionHealth));
             OnPropertyChanged(nameof(StatusTooltip));
-            OnPropertyChanged(nameof(StatusColorBrushName));
             OnPropertyChanged(nameof(StatusText));
             OnPropertyChanged(nameof(StatusBadgeBackground));
             OnPropertyChanged(nameof(StatusBadgeBorder));

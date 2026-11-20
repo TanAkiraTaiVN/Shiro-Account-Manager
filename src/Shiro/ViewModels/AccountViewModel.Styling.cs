@@ -25,19 +25,6 @@ namespace Shiro.ViewModels
             }
         }
 
-        public string StatusColorBrushName
-        {
-            get
-            {
-                if (IsExpired) return "RedBrush";
-                if (IsLaunching) return "AmberBrush";
-                if (IsInGame || IsLocalClientRunning) return "GreenBrush";
-                if (IsInStudio) return "AccentBrush";
-                if (IsOnline) return "BlueBrush";
-                return "MutedTextBrush";
-            }
-        }
-
         public string StatusText
         {
             get

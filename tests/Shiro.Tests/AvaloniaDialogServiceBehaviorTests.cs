@@ -65,12 +65,11 @@ namespace Shiro.Tests
             service.OpenFastLoginDialogBatch(new[] { account });
             service.OpenBulkImportDialog();
             service.OpenProxyManagerDialog();
-            service.OpenAboutDialog();
             service.OpenAccountFieldsDialog(account);
             service.OpenAccountUtilsDialog(account);
             service.OpenMissingAssetsDialog(account, new long[] { 101, 102 });
 
-            Assert.Equal(11, postedActions.Count);
+            Assert.Equal(10, postedActions.Count);
         }
 
         [Fact]

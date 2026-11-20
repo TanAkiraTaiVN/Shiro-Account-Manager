@@ -10,50 +10,15 @@ namespace Shiro.ViewModels
 {
     public partial class MainViewModel
     {
-        // Add callbacks
-        public Action? OnAddAccountRequested { get; set; }
-        public Action? OnAddAccountFastLoginRequested { get; set; }
-        public Action? OnAddAccountCookieRequested { get; set; }
-        public Action? OnBulkImportRequested { get; set; }
-
-        // Card Level Callbacks
+        // Card Level Callback (used by test hooks)
         public Action<AccountViewModel>? OnFastReLoginRequested { get; set; }
-        public Action<AccountViewModel>? OnReLoginRequested { get; set; }
-        public Action<AccountViewModel>? OnReLoginWithCookieRequested { get; set; }
-        public Action<AccountViewModel>? OnValidateSessionRequested { get; set; }
-        public Action<AccountViewModel>? OnOpenProfileRequested { get; set; }
-        public Action<AccountViewModel>? OnSetAliasRequested { get; set; }
-        public Action<AccountViewModel>? OnSetGroupRequested { get; set; }
-        public Action<AccountViewModel>? OnSetDescriptionRequested { get; set; }
-        public Action<AccountViewModel>? OnTogglePinRequested { get; set; }
-        public Action<AccountViewModel>? OnCopyUsernameRequested { get; set; }
-        public Action<AccountViewModel>? OnCopyUserPassRequested { get; set; }
-        public Action<AccountViewModel>? OnCopyUserIdRequested { get; set; }
-        public Action<AccountViewModel>? OnCopyProfileUrlRequested { get; set; }
-        public Action<AccountViewModel>? OnCopySecurityTokenRequested { get; set; }
-        public Action<AccountViewModel>? OnSavePlaceIdToAccountRequested { get; set; }
-        public Action<AccountViewModel>? OnViewFieldsRequested { get; set; }
-        public Action<AccountViewModel>? OnOpenUtilsRequested { get; set; }
-        public Action? OnOpenAboutRequested { get; set; }
-        public Action<AccountViewModel>? OnRemoveAccountRequested { get; set; }
-
-        // Batch Level Callbacks
-        public Action<IList<AccountViewModel>>? OnReLoginSelectedRequested { get; set; }
-        public Action<IList<AccountViewModel>>? OnValidateSessionSelectedRequested { get; set; }
-        public Action? OnSetGroupSelectedRequested { get; set; }
-        public Action? OnSavePlaceIdSelectedRequested { get; set; }
-        public Action? OnCopyUserPassSelectedRequested { get; set; }
-        public Action? OnRemoveSelectedRequested { get; set; }
 
         // Add Commands
-        public ICommand AddAccountCommand { get; private set; } = null!;
         public ICommand AddAccountFastLoginCommand { get; private set; } = null!;
         public ICommand AddAccountCookieCommand { get; private set; } = null!;
         public ICommand BulkImportCommand { get; private set; } = null!;
 
         // Card Level Commands
-        public ICommand FastReLoginAccountCommand { get; private set; } = null!;
-        public ICommand ReLoginAccountCommand { get; private set; } = null!;
         public ICommand ReLoginWithCookieCommand { get; private set; } = null!;
         public ICommand ValidateSessionCommand { get; private set; } = null!;
         public ICommand OpenProfileCommand { get; private set; } = null!;
@@ -69,7 +34,6 @@ namespace Shiro.ViewModels
         public ICommand SavePlaceIdToAccountCommand { get; private set; } = null!;
         public ICommand ViewFieldsCommand { get; private set; } = null!;
         public ICommand OpenUtilsCommand { get; private set; } = null!;
-        public ICommand OpenAboutDialogCommand { get; private set; } = null!;
         public ICommand RemoveAccountCommand { get; private set; } = null!;
 
         // Batch Level Commands
@@ -83,17 +47,8 @@ namespace Shiro.ViewModels
 
         private void InitializeAccountCommands()
         {
-            AddAccountCommand = new RelayCommand(() =>
-            {
-                if (OnAddAccountFastLoginRequested != null) OnAddAccountFastLoginRequested.Invoke();
-                else AppServices.Dialogs.OpenFastLoginDialog(null);
-            });
-            AddAccountFastLoginCommand = AddAccountCommand;
-            AddAccountCookieCommand = new RelayCommand(() =>
-            {
-                if (OnAddAccountCookieRequested != null) OnAddAccountCookieRequested.Invoke();
-                else AppServices.Dialogs.OpenCookieImportDialog(null);
-            });
+            AddAccountFastLoginCommand = new RelayCommand(() => AppServices.Dialogs.OpenFastLoginDialog(null));
+            AddAccountCookieCommand = new RelayCommand(() => AppServices.Dialogs.OpenCookieImportDialog(null));
             ClearRobloxClientSessionCommand = new RelayCommand(() =>
             {
                 bool ok = RobloxProcessService.ClearRobloxClientSession();
@@ -101,48 +56,18 @@ namespace Shiro.ViewModels
                     ? Shiro.Services.LocalizationService.Get("Main.ClientSessionCleared")
                     : Shiro.Services.LocalizationService.Get("Main.CannotClearClientSession");
             });
-            BulkImportCommand = new RelayCommand(() =>
-            {
-                if (OnBulkImportRequested != null) OnBulkImportRequested.Invoke();
-                else AppServices.Dialogs.OpenBulkImportDialog();
-            });
+            BulkImportCommand = new RelayCommand(() => AppServices.Dialogs.OpenBulkImportDialog());
 
             // Card Commands
-            FastReLoginAccountCommand = new RelayCommand(p =>
-            {
-                if (p is AccountViewModel a)
-                {
-                    if (OnFastReLoginRequested != null) OnFastReLoginRequested.Invoke(a);
-                    else if (a.Model != null) AppServices.Dialogs.OpenFastLoginDialog(a.Model);
-                }
-            });
-            ReLoginAccountCommand = new RelayCommand(p =>
-            {
-                if (p is AccountViewModel a)
-                {
-                    if (OnReLoginRequested != null) OnReLoginRequested.Invoke(a);
-                    else if (OnFastReLoginRequested != null) OnFastReLoginRequested.Invoke(a);
-                    else if (a.Model != null) AppServices.Dialogs.OpenFastLoginDialog(a.Model);
-                }
-            });
             ReLoginWithCookieCommand = new RelayCommand(p =>
             {
-                if (p is AccountViewModel a)
-                {
-                    if (OnReLoginWithCookieRequested != null) OnReLoginWithCookieRequested.Invoke(a);
-                    else if (a.Model != null) AppServices.Dialogs.OpenCookieImportDialog(a.Model);
-                }
+                if (p is AccountViewModel a && a.Model != null)
+                    AppServices.Dialogs.OpenCookieImportDialog(a.Model);
             });
             ValidateSessionCommand = new RelayCommand(p =>
             {
-                if (p is AccountViewModel a)
+                if (p is AccountViewModel a && a.Model != null)
                 {
-                    if (OnValidateSessionRequested != null)
-                    {
-                        OnValidateSessionRequested.Invoke(a);
-                        return;
-                    }
-                    if (a.Model == null) return;
                     _ = Task.Run(async () =>
                     {
                         bool ok = await a.Model.ValidateSessionAsync().ConfigureAwait(false);
@@ -154,161 +79,95 @@ namespace Shiro.ViewModels
             });
             OpenProfileCommand = new RelayCommand(p =>
             {
-                if (p is AccountViewModel a)
-                {
-                    if (OnOpenProfileRequested != null) OnOpenProfileRequested.Invoke(a);
-                    else if (a.Model != null && a.UserId > 0) Utilities.OpenUrl($"https://www.roblox.com/users/{a.UserId}/profile");
-                }
+                if (p is AccountViewModel a && a.Model != null && a.UserId > 0)
+                    Utilities.OpenUrl($"https://www.roblox.com/users/{a.UserId}/profile");
             });
             SetAliasCommand = new RelayCommand(p =>
             {
                 if (p is AccountViewModel a)
-                {
-                    if (OnSetAliasRequested != null) OnSetAliasRequested.Invoke(a);
-                    else AppServices.AccountWorkflowService.SetAlias(a, msg => StatusMessage = msg);
-                }
+                    AppServices.AccountWorkflowService.SetAlias(a, msg => StatusMessage = msg);
             });
             SetGroupCommand = new RelayCommand(p =>
             {
                 if (p is AccountViewModel a)
-                {
-                    if (OnSetGroupRequested != null) OnSetGroupRequested.Invoke(a);
-                    else AppServices.AccountWorkflowService.SetGroup(a, this, msg => StatusMessage = msg);
-                }
+                    AppServices.AccountWorkflowService.SetGroup(a, this, msg => StatusMessage = msg);
             });
             SetDescriptionCommand = new RelayCommand(p =>
             {
                 if (p is AccountViewModel a)
-                {
-                    if (OnSetDescriptionRequested != null) OnSetDescriptionRequested.Invoke(a);
-                    else AppServices.AccountWorkflowService.SetDescription(a, msg => StatusMessage = msg);
-                }
+                    AppServices.AccountWorkflowService.SetDescription(a, msg => StatusMessage = msg);
             });
             TogglePinCommand = new RelayCommand(p =>
             {
                 if (p is AccountViewModel a)
-                {
-                    if (OnTogglePinRequested != null) OnTogglePinRequested.Invoke(a);
-                    else AppServices.AccountWorkflowService.TogglePin(a, this, msg => StatusMessage = msg);
-                }
+                    AppServices.AccountWorkflowService.TogglePin(a, this, msg => StatusMessage = msg);
             });
             CopyUsernameCommand = new RelayCommand(p =>
             {
                 if (p is AccountViewModel a)
-                {
-                    if (OnCopyUsernameRequested != null) OnCopyUsernameRequested.Invoke(a);
-                    else AppServices.AccountWorkflowService.CopyUsername(a, msg => StatusMessage = msg);
-                }
+                    AppServices.AccountWorkflowService.CopyUsername(a, msg => StatusMessage = msg);
             });
             CopyUserPassCommand = new RelayCommand(p =>
             {
                 if (p is AccountViewModel a)
-                {
-                    if (OnCopyUserPassRequested != null) OnCopyUserPassRequested.Invoke(a);
-                    else AppServices.AccountWorkflowService.CopyUserPass(a, msg => StatusMessage = msg);
-                }
+                    AppServices.AccountWorkflowService.CopyUserPass(a, msg => StatusMessage = msg);
             });
             CopyUserIdCommand = new RelayCommand(p =>
             {
                 if (p is AccountViewModel a)
-                {
-                    if (OnCopyUserIdRequested != null) OnCopyUserIdRequested.Invoke(a);
-                    else AppServices.AccountWorkflowService.CopyUserId(a, msg => StatusMessage = msg);
-                }
+                    AppServices.AccountWorkflowService.CopyUserId(a, msg => StatusMessage = msg);
             });
             CopyProfileUrlCommand = new RelayCommand(p =>
             {
                 if (p is AccountViewModel a)
-                {
-                    if (OnCopyProfileUrlRequested != null) OnCopyProfileUrlRequested.Invoke(a);
-                    else AppServices.AccountWorkflowService.CopyProfileUrl(a, msg => StatusMessage = msg);
-                }
+                    AppServices.AccountWorkflowService.CopyProfileUrl(a, msg => StatusMessage = msg);
             });
             CopySecurityTokenCommand = new RelayCommand(p =>
             {
                 if (p is AccountViewModel a)
-                {
-                    if (OnCopySecurityTokenRequested != null) OnCopySecurityTokenRequested.Invoke(a);
-                    else AppServices.AccountWorkflowService.CopySecurityToken(a, msg => StatusMessage = msg);
-                }
+                    AppServices.AccountWorkflowService.CopySecurityToken(a, msg => StatusMessage = msg);
             });
             SavePlaceIdToAccountCommand = new RelayCommand(p =>
             {
-                if (p is AccountViewModel a)
+                if (p is AccountViewModel a && a.Model != null && long.TryParse(PlaceId?.Trim(), out long pid) && pid > 0)
                 {
-                    if (OnSavePlaceIdToAccountRequested != null)
-                        OnSavePlaceIdToAccountRequested.Invoke(a);
-                    else if (a.Model != null && long.TryParse(PlaceId?.Trim(), out long pid) && pid > 0)
-                    {
-                        a.Model.SetField("SavedPlaceId", pid.ToString(System.Globalization.CultureInfo.InvariantCulture));
-                        if (!string.IsNullOrWhiteSpace(JobId))
-                            a.Model.SetField("SavedJobId", JobId.Trim());
-                        AppServices.AccountRepository.SaveAsync().Forget();
-                    }
+                    a.Model.SetField("SavedPlaceId", pid.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                    if (!string.IsNullOrWhiteSpace(JobId))
+                        a.Model.SetField("SavedJobId", JobId.Trim());
+                    AppServices.AccountRepository.SaveAsync().Forget();
                 }
             });
             ViewFieldsCommand = new RelayCommand(p =>
             {
-                if (p is AccountViewModel a)
-                {
-                    if (OnViewFieldsRequested != null) OnViewFieldsRequested.Invoke(a);
-                    else if (a.Model != null) AppServices.Dialogs.OpenAccountFieldsDialog(a.Model);
-                }
+                if (p is AccountViewModel a && a.Model != null)
+                    AppServices.Dialogs.OpenAccountFieldsDialog(a.Model);
             });
             OpenUtilsCommand = new RelayCommand(p =>
             {
-                if (p is AccountViewModel a)
-                {
-                    if (OnOpenUtilsRequested != null) OnOpenUtilsRequested.Invoke(a);
-                    else if (a.Model != null) AppServices.Dialogs.OpenAccountUtilsDialog(a.Model);
-                }
-            });
-            OpenAboutDialogCommand = new RelayCommand(() =>
-            {
-                if (OnOpenAboutRequested != null) OnOpenAboutRequested.Invoke();
-                else AppServices.Dialogs.OpenAboutDialog();
+                if (p is AccountViewModel a && a.Model != null)
+                    AppServices.Dialogs.OpenAccountUtilsDialog(a.Model);
             });
             RemoveAccountCommand = new RelayCommand(p =>
             {
                 if (p is AccountViewModel a)
-                {
-                    if (OnRemoveAccountRequested != null) OnRemoveAccountRequested.Invoke(a);
-                    else AppServices.AccountWorkflowService.RemoveAccount(a, this, msg => StatusMessage = msg);
-                }
+                    AppServices.AccountWorkflowService.RemoveAccount(a, this, msg => StatusMessage = msg);
             });
 
             // Batch Commands
             SetGroupSelectedCommand = new RelayCommand(() =>
-            {
-                if (OnSetGroupSelectedRequested != null) OnSetGroupSelectedRequested.Invoke();
-                else AppServices.AccountWorkflowService.SetGroupSelected(this, PostStatusMessage);
-            });
+                AppServices.AccountWorkflowService.SetGroupSelected(this, PostStatusMessage));
             SavePlaceIdSelectedCommand = new RelayCommand(() =>
-            {
-                if (OnSavePlaceIdSelectedRequested != null) OnSavePlaceIdSelectedRequested.Invoke();
-                else AppServices.AccountWorkflowService.SavePlaceIdSelected(this, PostStatusMessage);
-            });
+                AppServices.AccountWorkflowService.SavePlaceIdSelected(this, PostStatusMessage));
             CopyUserPassSelectedCommand = new RelayCommand(() =>
-            {
-                if (OnCopyUserPassSelectedRequested != null) OnCopyUserPassSelectedRequested.Invoke();
-                else AppServices.AccountWorkflowService.CopyUserPassSelected(this, PostStatusMessage);
-            });
+                AppServices.AccountWorkflowService.CopyUserPassSelected(this, PostStatusMessage));
             RemoveSelectedCommand = new RelayCommand(() =>
-            {
-                if (OnRemoveSelectedRequested != null) OnRemoveSelectedRequested.Invoke();
-                else AppServices.AccountWorkflowService.RemoveSelectedAccounts(this, PostStatusMessage);
-            });
+                AppServices.AccountWorkflowService.RemoveSelectedAccounts(this, PostStatusMessage));
             ReLoginSelectedCommand = new RelayCommand(() =>
             {
                 var selected = _accounts.Where(a => a.IsSelected).ToList();
                 if (selected.Count == 0)
                 {
                     StatusMessage = Shiro.Services.LocalizationService.Get("Main.SelectAccountBeforeRelogin");
-                    return;
-                }
-                if (OnReLoginSelectedRequested != null)
-                {
-                    OnReLoginSelectedRequested.Invoke(selected);
                     return;
                 }
                 var models = selected.Where(a => a.Model != null).Select(a => a.Model).ToList();
@@ -325,8 +184,7 @@ namespace Shiro.ViewModels
                     StatusMessage = Shiro.Services.LocalizationService.Get("Main.SelectAccountBeforeCheckSession");
                     return;
                 }
-                if (OnValidateSessionSelectedRequested != null) OnValidateSessionSelectedRequested.Invoke(selected);
-                else AppServices.AccountWorkflowService.ValidateSessionSelected(selected, this, PostStatusMessage);
+                AppServices.AccountWorkflowService.ValidateSessionSelected(selected, this, PostStatusMessage);
             });
         }
     }

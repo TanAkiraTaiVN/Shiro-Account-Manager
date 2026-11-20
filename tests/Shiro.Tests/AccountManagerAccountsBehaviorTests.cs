@@ -195,8 +195,6 @@ namespace Shiro.Tests
                 AppSettings.General.Set("EnableMultiRbx", "false");
                 AppSettings.General.Set("EnableAntiAfk", "false");
                 AppSettings.General.Set("AutoTrimMemory", "false");
-                AppSettings.General.Set("UseEmbeddedBrowser", "true");
-                AppSettings.AccountControl.Set("StartOnLaunch", "false");
                 mgr.InitializePostStartup();
 
                 // Exercise true branches of InitializePostStartup + EnsureBackendInitialized
@@ -208,7 +206,6 @@ namespace Shiro.Tests
                 AppSettings.General.Set("AutoTrimIntervalMinutes", "2");
                 AppSettings.General.Set(AppSettingsKeys.General.AutoMuteBackgroundClients, "true");
                 AppSettings.General.Set(AppSettingsKeys.General.MaxTotalRobloxCpuPercent, "50");
-                AppSettings.AccountControl.Set("StartOnLaunch", "true");
                 mgr.InitializePostStartup();
 
                 AntiAfkService.Stop();
@@ -218,7 +215,6 @@ namespace Shiro.Tests
                 AppSettings.General.Set("AutoTrimMemory", "false");
                 AppSettings.General.Set(AppSettingsKeys.General.AutoMuteBackgroundClients, "false");
                 AppSettings.General.Set(AppSettingsKeys.General.MaxTotalRobloxCpuPercent, "0");
-                AppSettings.AccountControl.Set("StartOnLaunch", "false");
 
                 AccountManager.SuppressExitOnShutdown = true;
                 string prevPlaceId = AppServices.ServerBrowserState.CurrentPlaceId;
@@ -249,10 +245,9 @@ namespace Shiro.Tests
                 AppSettings.Developer.Set("EnableWebServer", "false");
                 AppSettings.WebServer.Set("AllowExternalConnections", "false");
 
-                // Also cover InitializePostStartup with AutoCloseRobloxOnLaunch=true, EnableMultiRbx=true, UseEmbeddedBrowser=false
+                // Also cover InitializePostStartup with AutoCloseRobloxOnLaunch=true, EnableMultiRbx=true
                 AppSettings.General.Set("AutoCloseRobloxOnLaunch", "true");
                 AppSettings.General.Set("EnableMultiRbx", "true");
-                AppSettings.General.Set("UseEmbeddedBrowser", "false");
                 tempMgr2.InitializePostStartup();
                 AppSettings.General.Set("AutoCloseRobloxOnLaunch", "false");
                 tempMgr2.Dispose();

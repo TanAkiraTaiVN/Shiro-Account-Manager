@@ -459,7 +459,7 @@ namespace Shiro.Tests
                 Assert.True(vm.IsAboutActive);
                 AssertActive(viewAbout, btnAbout);
 
-                vm.OpenServerListCommand.Execute(null);
+                vm.CurrentPage = NavigationPage.ServerList;
                 Assert.Equal(NavigationPage.ServerList, vm.CurrentPage);
                 Assert.Equal(0, vm.ServerListViewModel.SelectedSubTabIndex);
                 AssertActive(viewServerList, btnServerList);

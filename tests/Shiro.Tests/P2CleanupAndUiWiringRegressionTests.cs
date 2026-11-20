@@ -34,25 +34,21 @@ namespace Shiro.Tests
             Assert.False(File.Exists(Path.Combine(root, "src", "Shiro", "Services", "Ui", "DomainServiceContracts.cs")));
 
             string appAxaml = File.ReadAllText(Path.Combine(root, "src", "Shiro", "AvaloniaUI", "App.axaml"));
-            foreach (string deadKey in new[] { "PurpleBrush", "SubtleBorderBrush", "CardBackgroundBrush", "SurfaceBackgroundBrush", "GeoCheck", "GeoInfo" })
+            foreach (string deadKey in new[]
+            {
+                "PurpleBrush", "SubtleBorderBrush", "CardBackgroundBrush", "SurfaceBackgroundBrush", "GeoCheck", "GeoInfo",
+                "GreenBrush", "RedBrush", "AmberBrush", "BlueBrush", "MutedTextBrush"
+            })
                 Assert.DoesNotContain(deadKey, appAxaml, StringComparison.Ordinal);
 
             var removedFields = new[]
             {
                 (typeof(AppSettingsKeys.WebServer), "AllowRemoteAccess"),
                 (typeof(AppSettingsKeys.Watcher), "CloseRbxWindowTitle"),
-                (typeof(AppSettingsKeys.AccountControl), "StartOnLaunch"),
-                (typeof(AppSettingsKeys.AccountControl), "AutoMinimizeEnabled"),
-                (typeof(AppSettingsKeys.AccountControl), "AutoCloseEnabled"),
-                (typeof(AppSettingsKeys.AccountControl), "InternetCheck"),
-                (typeof(AppSettingsKeys.AccountControl), "UsePresence"),
-                (typeof(AppSettingsKeys.AccountControl), "AutoMinimizeInterval"),
-                (typeof(AppSettingsKeys.AccountControl), "AutoCloseInterval"),
-                (typeof(AppSettingsKeys.AccountControl), "MaxInstances"),
-                (typeof(AppSettingsKeys.AccountControl), "SaveOutput"),
             };
             foreach (var (t, field) in removedFields)
                 Assert.Null(t.GetField(field, BindingFlags.Public | BindingFlags.Static));
+            Assert.Null(typeof(AppSettingsKeys).GetNestedType("AccountControl"));
 
             var progType = typeof(AccountManager).Assembly.GetType("Shiro.Program");
             Assert.Null(progType?.GetField("Elevated", BindingFlags.Public | BindingFlags.Static));

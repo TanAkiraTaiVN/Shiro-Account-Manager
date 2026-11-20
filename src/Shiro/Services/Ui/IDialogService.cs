@@ -25,7 +25,6 @@ namespace Shiro.Services
         void OpenFastLoginDialogBatch(System.Collections.Generic.IReadOnlyList<Account> accounts);
         void OpenBulkImportDialog();
         void OpenProxyManagerDialog();
-        void OpenAboutDialog();
         void OpenAccountFieldsDialog(Account account);
         void OpenAccountUtilsDialog(Account account);
         void OpenMissingAssetsDialog(Account account, long[] assetIds);

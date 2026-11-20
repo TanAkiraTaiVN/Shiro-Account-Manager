@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Media;
@@ -15,11 +16,11 @@ using Xunit;
 namespace Shiro.Tests
 {
     [Collection("SerialGlobalState")]
-    public class PresenceAndNexusBehaviorTests : IDisposable
+    public class PresenceBehaviorTests : IDisposable
     {
         private readonly string? _originalShowPresence;
 
-        public PresenceAndNexusBehaviorTests()
+        public PresenceBehaviorTests()
         {
             AppSettings.ActiveIniFile ??= new IniFile();
             _originalShowPresence = AppSettings.General.Get("ShowPresence");
@@ -185,10 +186,8 @@ namespace Shiro.Tests
                 Assert.True(dict!.ContainsKey(998877));
                 Assert.Equal(UserPresenceType.InGame, dict[998877].userPresenceType);
 
-                // 3. GetPresenceSingular
-                var singular = await Presence.GetPresenceSingular(998877);
-                Assert.NotNull(singular);
-                Assert.Equal(998877, singular!.userId);
+                // 3. GetPresenceSingular removed
+                Assert.Null(typeof(Presence).GetMethod("GetPresenceSingular", BindingFlags.Public | BindingFlags.Static));
 
                 // 4. Invalid User IDs return empty dictionary or early return
                 var empty = await Presence.GetPresence(0, -1);

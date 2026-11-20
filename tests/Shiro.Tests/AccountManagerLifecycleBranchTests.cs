@@ -145,8 +145,6 @@ namespace Shiro.Tests
                 AppSettings.General.Set(AppSettingsKeys.General.AggressiveRamTrimming, "false");
                 AppSettings.General.RemoveProperty(AppSettingsKeys.General.AutoMuteBackgroundClients);
                 AppSettings.General.RemoveProperty(AppSettingsKeys.General.MaxTotalRobloxCpuPercent);
-                AppSettings.General.Set("UseEmbeddedBrowser", "true");
-                AppSettings.AccountControl.Set("StartOnLaunch", "false");
 
                 tempMgr.InitializePostStartup();
                 Assert.False(AppSettings.General.Exists("AutoCloseRobloxOnLaunch"));

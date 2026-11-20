@@ -50,8 +50,6 @@ namespace Shiro.Services
                 services.AddSingleton(AccountSessionMaintenanceService.Default);
                 services.AddSingleton<IAccountRepository>(Services.AccountRepository.Default);
                 services.AddSingleton<IRobloxApiClient>(Services.RobloxApiClient.Default);
-                services.AddSingleton<IRobloxSessionService>(Services.RobloxSessionService.Default);
-                services.AddSingleton<IRobloxLauncherService>(Services.RobloxLauncherService.Default);
                 services.AddSingleton<IDialogService>(AvaloniaDialogService.Default);
                 services.AddSingleton<IUserPrompt>(AvaloniaDialogService.Default);
                 services.AddSingleton<AccountWorkflowService>(Services.AccountWorkflowService.Default);
@@ -210,8 +208,6 @@ namespace Shiro.Services
         public static AccountRegistrationService AccountRegistration => GetRequiredService<AccountRegistrationService>();
         public static IAccountRepository AccountRepository => GetRequiredService<IAccountRepository>();
         public static IRobloxApiClient RobloxApi => GetRequiredService<IRobloxApiClient>();
-        public static IRobloxSessionService RobloxSessionService => GetRequiredService<IRobloxSessionService>();
-        public static IRobloxLauncherService RobloxLauncherService => GetRequiredService<IRobloxLauncherService>();
         public static IDialogService DialogService => GetRequiredService<IDialogService>();
         public static IDialogService Dialogs => DialogService;
         public static IUserPrompt Prompt => GetRequiredService<IUserPrompt>();
@@ -243,7 +239,6 @@ namespace Shiro.Services
         public static ISettingsService PromptsSettings => new DelegatingSectionSettingsService(() => AppSettings.Prompts);
         public static ISettingsService DeveloperSettings => new DelegatingSectionSettingsService(() => AppSettings.Developer);
         public static ISettingsService WebServerSettings => new DelegatingSectionSettingsService(() => AppSettings.WebServer);
-        public static ISettingsService AccountControlSettings => new DelegatingSectionSettingsService(() => AppSettings.AccountControl);
         public static void SaveSettings() => AppSettings.Save();
         public static void QueueDeferredSaveSettings() => AppSettings.QueueDeferredSave();
         public static AppSettings Settings => GetRequiredService<AppSettings>();

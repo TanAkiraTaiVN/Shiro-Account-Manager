@@ -456,7 +456,7 @@ namespace Shiro.Services
         /// <summary>
         /// Disposes all cached proxy HttpClients.
         /// </summary>
-        public static void ClearClients()
+        internal static void ClearClients()
         {
             foreach (var entry in _proxyClients)
             {

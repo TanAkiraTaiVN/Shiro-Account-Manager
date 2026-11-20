@@ -223,13 +223,5 @@ namespace Shiro.AvaloniaUI.Views
                 AppServices.Logger?.Error($"[ShowAccountContextMenu] {ex}");
             }
         }
-
-        private void OnMoreButtonClicked(object sender, RoutedEventArgs e)
-        {
-            if (sender is Control control && control.DataContext is AccountViewModel avm)
-            {
-                ShowAccountContextMenu(control, avm);
-            }
-        }
     }
 }

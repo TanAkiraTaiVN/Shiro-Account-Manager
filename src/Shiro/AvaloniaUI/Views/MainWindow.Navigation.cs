@@ -327,16 +327,6 @@ namespace Shiro.AvaloniaUI.Views
                 : Shiro.Services.LocalizationService.Get("MainWindow.StreamerModeDisabled"));
         }
 
-        private void OnCommandPaletteBarPressed(object sender, PointerPressedEventArgs e)
-        {
-            e.Handled = true;
-            if (ViewModel != null)
-            {
-                ViewModel.IsCommandPaletteOpen = true;
-                FocusCommandPaletteInput();
-            }
-        }
-
         private void OnCommandPaletteBarClicked(object? sender, RoutedEventArgs e)
         {
             if (ViewModel != null)

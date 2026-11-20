@@ -222,58 +222,6 @@ namespace Shiro.Tests.Ui
         }
 
         [AvaloniaFact]
-        public void AboutDialog_Opens_WithPopulatedRuntimeAndMemoryMetrics_AndZeroBindingErrors()
-        {
-            var sink = new BindingErrorSink();
-            var prevSink = Logger.Sink;
-            var prevLang = LocalizationService.CurrentLanguage;
-            AboutDialog? dlg = null;
-            Logger.Sink = sink;
-            try
-            {
-                var repo = Substitute.For<IAccountRepository>();
-                repo.Count.Returns(5);
-                using var repoScope = AppServices.Override<IAccountRepository>(repo);
-
-                LocalizationService.SetLanguage(AppLanguage.English, saveSetting: false);
-                dlg = new AboutDialog();
-                dlg.Show();
-                Dispatcher.UIThread.RunJobs();
-
-                string enTitle = LocalizationService.Get("About_WindowTitle");
-                Assert.Equal(enTitle, dlg.Title);
-
-                var txtRuntime = dlg.FindControl<TextBlock>("TxtRuntime");
-                var txtMemory = dlg.FindControl<TextBlock>("TxtMemory");
-                var txtAccountCount = dlg.FindControl<TextBlock>("TxtAccountCount");
-                Assert.NotNull(txtRuntime);
-                Assert.NotNull(txtMemory);
-                Assert.NotNull(txtAccountCount);
-
-                string expectedRuntime = string.Concat(".NET ", Environment.Version.Major.ToString(), ".0 (x64)");
-                Assert.Equal(expectedRuntime, txtRuntime.Text);
-                Assert.EndsWith(" MB (Working Set)", txtMemory.Text, StringComparison.Ordinal);
-                Assert.DoesNotContain("--", txtMemory.Text, StringComparison.Ordinal);
-                Assert.Equal(LocalizationService.Format("About.AccountsCount", 5), txtAccountCount.Text);
-
-                LocalizationService.SetLanguage(AppLanguage.Vietnamese, saveSetting: false);
-                Dispatcher.UIThread.RunJobs();
-
-                string viTitle = LocalizationService.Get("About_WindowTitle");
-                Assert.NotEqual(enTitle, viTitle);
-                Assert.Equal(viTitle, dlg.Title);
-                Assert.Empty(sink.Errors);
-            }
-            finally
-            {
-                dlg?.Close();
-                LocalizationService.SetLanguage(prevLang, saveSetting: false);
-                Avalonia.Application.Current?.Resources.MergedDictionaries.Clear();
-                Logger.Sink = prevSink;
-            }
-        }
-
-        [AvaloniaFact]
         public void AboutView_Loads_InBothLanguages_WithZeroBindingErrors()
         {
             var sink = new BindingErrorSink();

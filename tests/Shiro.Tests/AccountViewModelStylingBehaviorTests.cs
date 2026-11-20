@@ -42,55 +42,6 @@ namespace Shiro.Tests
         }
 
         [Fact]
-        public void StatusColorBrushName_ReturnsExpectedBrushesForStates()
-        {
-            // Expired
-            var expired = new AccountViewModel(new Account { Valid = false });
-            Assert.Equal("RedBrush", expired.StatusColorBrushName);
-
-            // Launching
-            var launching = new AccountViewModel(new Account { Valid = true, SecurityToken = SampleValidLongToken });
-            launching.IsLaunching = true;
-            Assert.Equal("AmberBrush", launching.StatusColorBrushName);
-
-            // InGame
-            var inGame = new AccountViewModel(new Account
-            {
-                Valid = true,
-                SecurityToken = SampleValidLongToken,
-                Presence = new UserPresence { userPresenceType = UserPresenceType.InGame }
-            }) { IsInGame = true };
-            Assert.Equal("GreenBrush", inGame.StatusColorBrushName);
-
-            // Studio
-            var inStudio = new AccountViewModel(new Account
-            {
-                Valid = true,
-                SecurityToken = SampleValidLongToken,
-                Presence = new UserPresence { userPresenceType = UserPresenceType.InStudio }
-            });
-            Assert.Equal("AccentBrush", inStudio.StatusColorBrushName);
-
-            // Online
-            var online = new AccountViewModel(new Account
-            {
-                Valid = true,
-                SecurityToken = SampleValidLongToken,
-                Presence = new UserPresence { userPresenceType = UserPresenceType.Online }
-            });
-            Assert.Equal("BlueBrush", online.StatusColorBrushName);
-
-            // Default ready
-            var ready = new AccountViewModel(new Account
-            {
-                Valid = true,
-                SecurityToken = SampleValidLongToken,
-                Presence = new UserPresence { userPresenceType = UserPresenceType.Offline }
-            });
-            Assert.Equal("MutedTextBrush", ready.StatusColorBrushName);
-        }
-
-        [Fact]
         public void StatusText_ReflectsAllStatusVariants()
         {
             // Banned

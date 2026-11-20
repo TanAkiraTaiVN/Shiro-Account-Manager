@@ -46,7 +46,6 @@ namespace Shiro.Services
 
         public static IniSection WebServer => ActiveIniFile.Section("WebServer");
         public static IniSection Developer => ActiveIniFile.Section("Developer");
-        public static IniSection AccountControl => ActiveIniFile.Section("AccountControl");
         public static IniSection Watcher => ActiveIniFile.Section("Watcher");
         public static IniSection Prompts => ActiveIniFile.Section("Prompts");
 

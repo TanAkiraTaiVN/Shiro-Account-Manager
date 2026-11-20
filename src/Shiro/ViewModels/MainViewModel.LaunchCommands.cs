@@ -14,7 +14,6 @@ namespace Shiro.ViewModels
         public Action<AccountViewModel>? OnOpenHomeRequested { get; set; }
         public Action<IList<AccountViewModel>>? OnMultiLaunchRequested { get; set; }
         public Action<IList<AccountViewModel>>? OnJoinServerSelectedRequested { get; set; }
-        public Action<AccountViewModel>? OnJoinServerSingleRequested { get; set; }
 
         public ICommand LaunchAccountCommand { get; private set; } = null!;
         public ICommand OpenHomeCommand { get; private set; } = null!;
@@ -62,8 +61,6 @@ namespace Shiro.ViewModels
 
             if (OnFastReLoginRequested != null)
                 OnFastReLoginRequested.Invoke(avm);
-            else if (OnReLoginRequested != null)
-                OnReLoginRequested.Invoke(avm);
             else
                 AppServices.Dialogs.OpenFastLoginDialog(avm.Model);
         }
@@ -165,10 +162,7 @@ namespace Shiro.ViewModels
             JoinServerAccountCommand = new RelayCommand(param =>
             {
                 if (param is AccountViewModel acc)
-                {
-                    if (OnJoinServerSingleRequested != null) OnJoinServerSingleRequested.Invoke(acc);
-                    else ExecuteJoinServerForAccounts(new[] { acc });
-                }
+                    ExecuteJoinServerForAccounts(new[] { acc });
             });
 
             LaunchSelectedCommand = new RelayCommand(() =>

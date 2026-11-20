@@ -49,7 +49,7 @@ namespace Shiro.Tests
                 .Where(t => t.IsInterface)
                 .ToList();
 
-            Assert.True(interfaces.Count >= 18, $"Expected >= 18 active service interfaces, found {interfaces.Count}");
+            Assert.True(interfaces.Count >= 17, $"Expected >= 17 active service interfaces, found {interfaces.Count}");
             Assert.Contains(interfaces, t => t == typeof(ISettingsService));
             Assert.Contains(interfaces, t => t == typeof(IAccountRepository));
             Assert.Contains(interfaces, t => t == typeof(IRobloxApiClient));

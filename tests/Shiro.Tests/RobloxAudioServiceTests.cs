@@ -30,7 +30,7 @@ namespace Shiro.Tests
             Assert.Equal("AutoMuteBackgroundClients", AppSettingsKeys.General.AutoMuteBackgroundClients);
             Assert.Equal("SmartFastLaunch", AppSettingsKeys.General.SmartFastLaunch);
             Assert.Equal("AggressiveRamTrimming", AppSettingsKeys.General.AggressiveRamTrimming);
-            Assert.Equal("DynamicHardwareThrottling", AppSettingsKeys.General.DynamicHardwareThrottling);
+            Assert.Null(typeof(AppSettingsKeys.General).GetField("DynamicHardwareThrottling"));
         }
 
         [Fact]

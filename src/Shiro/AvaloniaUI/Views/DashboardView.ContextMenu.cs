@@ -65,26 +65,14 @@ namespace Shiro.AvaloniaUI.Views
                 AppServices.Dialogs.OpenFastLoginDialog(avm.Model);
         }
 
-        private void OnMenuReLoginCookie(object sender, RoutedEventArgs e)
-            => ExecuteMenuCommand(sender, ViewModel.ReLoginWithCookieCommand);
-
         private void OnMenuValidateSession(object sender, RoutedEventArgs e)
             => ExecuteMenuCommand(sender, ViewModel.ValidateSessionCommand);
 
         private void OnMenuOpenModerationPage(object sender, RoutedEventArgs e)
             => OnCardViewBanClicked(sender, e);
 
-        private void OnMenuOpenModerationBrowser(object sender, RoutedEventArgs e)
-            => OnCardViewBanClicked(sender, e);
-
         private void OnMenuCheckRobux(object sender, RoutedEventArgs e)
             => ExecuteMenuCommand(sender, ViewModel.CheckRobuxAccountCommand);
-
-        private void OnMenuOpenProfile(object sender, RoutedEventArgs e)
-            => ExecuteMenuCommand(sender, ViewModel.OpenProfileCommand);
-
-        private void OnMenuTogglePin(object sender, RoutedEventArgs e)
-            => ExecuteMenuCommand(sender, ViewModel.TogglePinCommand);
 
         private void OnMenuChangeGroup(object sender, RoutedEventArgs e)
             => ExecuteMenuCommand(sender, ViewModel.SetGroupCommand);
@@ -115,13 +103,6 @@ namespace Shiro.AvaloniaUI.Views
 
         private void OnMenuAccountUtils(object sender, RoutedEventArgs e)
             => ExecuteMenuCommand(sender, ViewModel.OpenUtilsCommand);
-
-        private void OnMenuMissingAssets(object sender, RoutedEventArgs e)
-        {
-            var avm = GetItemFromMenu(sender);
-            if (avm?.Model != null)
-                AppServices.Dialogs.OpenMissingAssetsDialog(avm.Model, Array.Empty<long>());
-        }
 
         private void OnMenuCloseAccountRoblox(object sender, RoutedEventArgs e)
             => ExecuteMenuCommand(sender, ViewModel.CloseAccountRobloxCommand);

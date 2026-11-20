@@ -286,28 +286,6 @@ namespace Shiro.Tests
             {
                 LocalizationService.SetLanguage(lang, saveSetting: false);
 
-                string connectionError = LocalizationService.Get("Moderation.ConnectionError");
-                Assert.NotEqual("Moderation.ConnectionError", connectionError);
-                Assert.DoesNotContain("banned for 7 days", connectionError, StringComparison.OrdinalIgnoreCase);
-                Assert.DoesNotContain("7", connectionError, StringComparison.Ordinal);
-
-                string cannotGetSession = LocalizationService.Get("Moderation.CannotGetSessionForNotice");
-                Assert.NotEqual("Moderation.CannotGetSessionForNotice", cannotGetSession);
-                Assert.DoesNotContain("banned for 3 days", cannotGetSession, StringComparison.OrdinalIgnoreCase);
-                Assert.DoesNotContain("3", cannotGetSession, StringComparison.Ordinal);
-
-                string loadNoticeError = LocalizationService.Get("Moderation.LoadNoticeError");
-                Assert.NotEqual("account locked", loadNoticeError, StringComparer.OrdinalIgnoreCase);
-                Assert.NotEqual("Moderation.LoadNoticeError", loadNoticeError);
-
-                string reactivateFailed = LocalizationService.Get("Moderation.ReactivateFailed");
-                Assert.NotEqual("reason:", reactivateFailed, StringComparer.OrdinalIgnoreCase);
-                Assert.NotEqual("Moderation.ReactivateFailed", reactivateFailed);
-
-                string reactivatedSuccess = LocalizationService.Get("Moderation.ReactivatedSuccess");
-                Assert.NotEqual("community standards", reactivatedSuccess, StringComparer.OrdinalIgnoreCase);
-                Assert.NotEqual("Moderation.ReactivatedSuccess", reactivatedSuccess);
-
                 Assert.Equal(
                     LocalizationService.Get("Moderation.BanOneDayReason"),
                     RobloxModerationService.ParseModerationText("Reviewed: today. Ban 1 day").Reason);

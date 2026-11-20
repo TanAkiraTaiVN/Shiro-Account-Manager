@@ -27,19 +27,23 @@ namespace Shiro.Tests
         }
 
         [Fact]
-        public void ProxyDeadKey_ShouldOnlyBeUsedInProxyCode()
+        public void ProxyDeadKey_ShouldBeRemovedFromSourceAndStrings()
         {
             var appDir = Path.Combine(RepoRoot, "src", "Shiro");
             var files = Directory.GetFiles(appDir, "*.cs", SearchOption.AllDirectories)
                 .Where(f => !f.Replace('\\', '/').Contains("/bin/") && !f.Replace('\\', '/').Contains("/obj/") && !f.EndsWith(".g.cs"));
 
             var offenders = files
-                .Where(f => !Path.GetFileName(f).Contains("Proxy", StringComparison.OrdinalIgnoreCase) &&
-                            File.ReadAllText(f).Contains("\"Proxy_Dead\"", StringComparison.Ordinal))
+                .Where(f => File.ReadAllText(f).Contains("\"Proxy_Dead\"", StringComparison.Ordinal))
                 .Select(Path.GetFileName)
                 .ToList();
 
             Assert.Empty(offenders);
+
+            string enJson = File.ReadAllText(Path.Combine(appDir, "Resources", "Strings", "en.json"));
+            string viJson = File.ReadAllText(Path.Combine(appDir, "Resources", "Strings", "vi.json"));
+            Assert.DoesNotContain("\"Proxy_Dead\"", enJson, StringComparison.Ordinal);
+            Assert.DoesNotContain("\"Proxy_Dead\"", viJson, StringComparison.Ordinal);
         }
 
         [Fact]

@@ -10,21 +10,7 @@ namespace Shiro.ViewModels
 {
     public partial class MainViewModel
     {
-        // Reference to optional host callbacks for modal popups and launches (used by tests or custom overrides)
-        public Action? OnSettingsRequested { get; set; }
-        public Action? OnServerListRequested { get; set; }
-        public Action? OnRecentGamesRequested { get; set; }
-        public Action? OnCheckSessionsRequested { get; set; }
-        public Action? OnReLoginAllExpiredRequested { get; set; }
-        public Action? OnKillAllRequested { get; set; }
-        public Action? OnProxyManagerRequested { get; set; }
-
         #region Commands
-        public ICommand ToggleViewModeCommand { get; private set; } = null!;
-        public ICommand ToggleCommandPaletteCommand { get; private set; } = null!;
-        public ICommand OpenCommandPaletteCommand { get; private set; } = null!;
-        public ICommand CloseCommandPaletteCommand { get; private set; } = null!;
-        public ICommand ChangeAccentThemeCommand { get; private set; } = null!;
         public ICommand AntiLagBoosterCommand { get; private set; } = null!;
         public ICommand ToggleWindowsCommand { get; private set; } = null!;
         public ICommand ToggleAntiAfkCommand { get; private set; } = null!;
@@ -36,21 +22,13 @@ namespace Shiro.ViewModels
         public ICommand RefreshPresenceCommand { get; private set; } = null!;
         public ICommand CheckSessionsCommand { get; private set; } = null!;
         public ICommand ReLoginAllExpiredCommand { get; private set; } = null!;
-        public ICommand OpenSettingsCommand { get; private set; } = null!;
-        public ICommand OpenServerListCommand { get; private set; } = null!;
-        public ICommand OpenRecentGamesCommand { get; private set; } = null!;
         public ICommand NavigateToAccountsCommand { get; private set; } = null!;
         public ICommand NavigateToServerListCommand { get; private set; } = null!;
         public ICommand NavigateToRecentGamesCommand { get; private set; } = null!;
         public ICommand NavigateToSettingsCommand { get; private set; } = null!;
-        public ICommand ToggleShuffleCommand { get; private set; } = null!;
         public ICommand KillAllClientsCommand { get; private set; } = null!;
-        public ICommand SetFilterTabCommand { get; private set; } = null!;
         public ICommand SetSortModeCommand { get; private set; } = null!;
         public ICommand SelectRecentGameCommand { get; private set; } = null!;
-        public ICommand LaunchRecentGameCommand { get; private set; } = null!;
-        public ICommand RefreshRecentGamesCommand { get; private set; } = null!;
-        public ICommand TileWindowsCommand { get; private set; } = null!;
         public ICommand RefreshAllRobuxCommand { get; private set; } = null!;
         public ICommand CheckRobuxAccountCommand { get; private set; } = null!;
         public ICommand OpenProxyManagerCommand { get; private set; } = null!;
@@ -143,29 +121,7 @@ namespace Shiro.ViewModels
 
             StreamerModeService.StateChanged += OnStreamerModeStateChanged;
 
-            TileWindowsCommand = new RelayCommand(param =>
-            {
-                int cols = 0, rows = 0;
-                if (param is string s && s.Contains('x'))
-                {
-                    var parts = s.Split('x');
-                    if (parts.Length == 2 && int.TryParse(parts[0], out int c) && int.TryParse(parts[1], out int r))
-                    {
-                        cols = c;
-                        rows = r;
-                    }
-                }
-                var (tiled, desc) = RobloxWindowService.TileWindows(cols, rows);
-                StatusMessage = tiled > 0
-                    ? Shiro.Services.LocalizationService.Format("Main.WindowsArrangedSuccess", tiled, desc)
-                    : $"{desc}";
-            });
-
-            OpenProxyManagerCommand = new RelayCommand(() =>
-            {
-                if (OnProxyManagerRequested != null) OnProxyManagerRequested.Invoke();
-                else AppServices.Dialogs.OpenProxyManagerDialog();
-            });
+            OpenProxyManagerCommand = new RelayCommand(() => AppServices.Dialogs.OpenProxyManagerDialog());
 
             AuditAllAccountsCommand = new AsyncRelayCommand(async () =>
             {
@@ -280,11 +236,6 @@ namespace Shiro.ViewModels
             {
                 try
                 {
-                    if (OnCheckSessionsRequested != null)
-                    {
-                        OnCheckSessionsRequested.Invoke();
-                        return;
-                    }
                     _ = Task.Run(async () =>
                     {
                         await AppServices.AccountWorkflowService.CheckAllSessionsAsync(this, PostStatusMessage).ConfigureAwait(false);
@@ -300,11 +251,6 @@ namespace Shiro.ViewModels
             {
                 try
                 {
-                    if (OnReLoginAllExpiredRequested != null)
-                    {
-                        OnReLoginAllExpiredRequested.Invoke();
-                        return;
-                    }
                     int skippedLocked = 0;
                     var expired = new List<Account>();
                     for (int i = 0; i < _accounts.Count; i++)
@@ -345,17 +291,8 @@ namespace Shiro.ViewModels
             NavigateToServerListCommand = new RelayCommand(() => CurrentPage = NavigationPage.ServerList);
             NavigateToRecentGamesCommand = new RelayCommand(() => { CurrentPage = NavigationPage.RecentGames; ReloadRecentGames(); });
             NavigateToSettingsCommand = new RelayCommand(() => CurrentPage = NavigationPage.Settings);
-            OpenSettingsCommand = new RelayCommand(() => CurrentPage = NavigationPage.Settings);
-            OpenServerListCommand = new RelayCommand(() => CurrentPage = NavigationPage.ServerList);
-            OpenRecentGamesCommand = new RelayCommand(() => { CurrentPage = NavigationPage.RecentGames; ReloadRecentGames(); });
-            ToggleShuffleCommand = new RelayCommand(() => IsShuffleJobId = !IsShuffleJobId);
             KillAllClientsCommand = new RelayCommand(() =>
             {
-                if (OnKillAllRequested != null)
-                {
-                    OnKillAllRequested.Invoke();
-                    return;
-                }
                 _ = Task.Run(() =>
                 {
                     int killed = RobloxProcessService.KillAllRobloxProcesses();
@@ -385,44 +322,6 @@ namespace Shiro.ViewModels
                     StatusMessage = Shiro.Services.LocalizationService.Format("Main.GameSelected", item.Name, item.PlaceId);
                 }
             });
-            LaunchRecentGameCommand = new RelayCommand(p =>
-            {
-                if (p is RecentGameItemViewModel item)
-                {
-                    SetKnownGameTitle(item.PlaceId, item.Name);
-                    PlaceId = item.PlaceId.ToString();
-                    CurrentPage = NavigationPage.Accounts;
-                    var selected = Accounts.Where(a => a.IsSelected && a.Model != null).ToList();
-                    if (selected.Count > 0)
-                    {
-                        if (selected.Count == 1)
-                        {
-                            if (OnJoinServerSingleRequested != null) OnJoinServerSingleRequested.Invoke(selected[0]);
-                            else ExecuteJoinServerForAccounts(new[] { selected[0] });
-                        }
-                        else
-                        {
-                            if (OnJoinServerSelectedRequested != null) OnJoinServerSelectedRequested.Invoke(selected);
-                            else ExecuteJoinServerForAccounts(selected);
-                        }
-                    }
-                    else
-                    {
-                        string warnMsg = LocalizationService.Format("Main.GameSelectedWithJoinPrompt", item.Name, item.PlaceId);
-                        StatusMessage = warnMsg;
-                        ToastService.ShowInfo(item.Name, warnMsg);
-                    }
-                }
-            });
-            RefreshRecentGamesCommand = new RelayCommand(() => ReloadRecentGames());
-
-            SetFilterTabCommand = new RelayCommand(param =>
-            {
-                if (param is AccountFilterTab tabEnum)
-                    ActiveTab = tabEnum;
-                else if (param is string tabStr && Enum.TryParse<AccountFilterTab>(tabStr, out var tab))
-                    ActiveTab = tab;
-            });
 
             SetSortModeCommand = new RelayCommand(param =>
             {
@@ -430,18 +329,6 @@ namespace Shiro.ViewModels
                     SortMode = mode;
                 else if (param is string modeStr && Enum.TryParse<AccountSortMode>(modeStr, out var m))
                     SortMode = m;
-            });
-
-            ToggleViewModeCommand = new RelayCommand(() => IsCompactView = !IsCompactView);
-            ToggleCommandPaletteCommand = new RelayCommand(() => IsCommandPaletteOpen = !IsCommandPaletteOpen);
-            OpenCommandPaletteCommand = new RelayCommand(() => IsCommandPaletteOpen = true);
-            CloseCommandPaletteCommand = new RelayCommand(() => IsCommandPaletteOpen = false);
-            ChangeAccentThemeCommand = new RelayCommand(param =>
-            {
-                if (param is AccentTheme theme)
-                    AccentThemeService.ApplyTheme(theme);
-                else if (param is string s && Enum.TryParse<AccentTheme>(s, true, out var t))
-                    AccentThemeService.ApplyTheme(t);
             });
 
             // Populate recent games immediately on boot

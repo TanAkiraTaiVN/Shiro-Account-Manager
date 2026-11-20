@@ -117,12 +117,6 @@ namespace Shiro.Tests
             var repo = AppServices.GetRequiredService<IAccountRepository>();
             Assert.Same(AppServices.AccountRepository, repo);
 
-            var launcher = AppServices.GetRequiredService<IRobloxLauncherService>();
-            Assert.Same(AppServices.RobloxLauncherService, launcher);
-
-            var session = AppServices.GetRequiredService<IRobloxSessionService>();
-            Assert.Same(AppServices.RobloxSessionService, session);
-
             var browser = AppServices.GetRequiredService<BrowserService>();
             Assert.IsType<BrowserService>(browser);
         }

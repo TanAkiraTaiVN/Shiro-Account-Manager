@@ -82,15 +82,18 @@ namespace Shiro.Tests
         }
 
         [Fact]
-        public void LogRedactor_RedactsProxyCredentialsAndBloxApiKey()
+        public void LogRedactor_RedactsProxyCredentials()
         {
-            string raw = "Proxy error on http://admin:superSecret123@192.168.1.50:8080 and api key BLOX-abcdef1234567890-xyz";
+            string raw = "Proxy error on http://admin:superSecret123@192.168.1.50:8080";
             string redacted = LogRedactor.Redact(raw);
 
             Assert.DoesNotContain("superSecret123", redacted);
-            Assert.DoesNotContain("abcdef1234567890", redacted);
             Assert.Contains("[REDACTED_PROXY_AUTH]", redacted);
-            Assert.Contains("BLOX-[REDACTED_KEY]", redacted);
+
+            string legacyBlox = "api key BLOX-abcdef1234567890-xyz";
+            string legacyRedacted = LogRedactor.Redact(legacyBlox);
+            Assert.DoesNotContain("BLOX-[REDACTED_KEY]", legacyRedacted);
+            Assert.Contains("BLOX-abcdef1234567890-xyz", legacyRedacted);
         }
 
         [Fact]

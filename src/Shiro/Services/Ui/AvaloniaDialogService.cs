@@ -212,22 +212,6 @@ namespace Shiro.Services
             });
         }
 
-        public void OpenAboutDialog()
-        {
-            AppDispatcher.Post(async () =>
-            {
-                try
-                {
-                    var dialog = new AboutDialog();
-                    await ShowModalOrTopLevelAsync(dialog);
-                }
-                catch (Exception ex)
-                {
-                    AppServices.Logger.Error($"[AvaloniaDialogService.OpenAboutDialog] {ex}");
-                }
-            });
-        }
-
         public void OpenAccountFieldsDialog(Account account)
         {
             if (account == null) return;

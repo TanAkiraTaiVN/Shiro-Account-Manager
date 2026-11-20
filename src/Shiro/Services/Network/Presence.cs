@@ -444,7 +444,5 @@ namespace Shiro.Services
 
             return receivedSuccessfulResponse ? result : null;
         }
-
-        public static async Task<UserPresence?> GetPresenceSingular(long UserId) => ((await GetPresence(UserId)) is Dictionary<long, UserPresence> Dict && Dict.ContainsKey(UserId)) ? Dict[UserId] : null;
     }
 }

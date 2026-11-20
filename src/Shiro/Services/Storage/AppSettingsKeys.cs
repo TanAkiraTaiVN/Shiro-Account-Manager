@@ -14,7 +14,6 @@ namespace Shiro.Services
             public const string General = "General";
             public const string Developer = "Developer";
             public const string WebServer = "WebServer";
-            public const string AccountControl = "AccountControl";
             public const string Watcher = "Watcher";
             public const string Prompts = "Prompts";
         }
@@ -41,12 +40,10 @@ namespace Shiro.Services
             public const string EnableBackgroundThrottling = "EnableBackgroundThrottling";
             public const string BackgroundTargetFps = "BackgroundTargetFps";
             public const string SavedPlaceId = "SavedPlaceId";
-            public const string SavedFollowUser = "SavedFollowUser";
             public const string AccentTheme = "AccentTheme";
             public const string HideUsernames = "HideUsernames";
             public const string UseProxies = "UseProxies";
             public const string AutoLowerProcessPriority = "AutoLowerProcessPriority";
-            public const string UseEmbeddedBrowser = "UseEmbeddedBrowser";
             public const string AutoCleanZombiesOnLaunch = "AutoCleanZombiesOnLaunch";
             public const string PreferDirectLaunch = "PreferDirectLaunch";
             public const string EnableTokenDeElevation = "EnableTokenDeElevation";
@@ -58,16 +55,13 @@ namespace Shiro.Services
             public const string DiscordRpcClientId = "DiscordRpcClientId";
             public const string DiscordRpcShowGame = "DiscordRpcShowGame";
             public const string DiscordRpcJoinCurrentServer = "DiscordRpcJoinCurrentServer";
-            public const string FastFlagProfile = "FastFlagProfile";
             public const string AutoMuteBackgroundClients = "AutoMuteBackgroundClients";
             public const string SmartFastLaunch = "SmartFastLaunch";
             public const string SmartLaunchMinDelaySeconds = "SmartLaunchMinDelaySeconds";
             public const string WaitForCaptchaInQueue = "WaitForCaptchaInQueue";
             public const string AggressiveRamTrimming = "AggressiveRamTrimming";
-            public const string DynamicHardwareThrottling = "DynamicHardwareThrottling";
             public const string MaxTotalRobloxCpuPercent = "MaxTotalRobloxCpuPercent";
             public const string Language = "Language";
-            public const string SettingsPreset = "SettingsPreset";
             public const string HasAcceptedRiskDisclaimer = "HasAcceptedRiskDisclaimer";
 
             // Remote Alerts / Webhooks
@@ -78,14 +72,6 @@ namespace Shiro.Services
             public const string NotifyOnModeration = "NotifyOnModeration";
             public const string AutoReconnect = "AutoReconnect";
             public const string AntiAfkForegroundFallback = "AntiAfkForegroundFallback";
-
-            // Potato Mode Fast Flags
-            public const string FastFlag_DisableShadows = "FastFlag_DisableShadows";
-            public const string FastFlag_DisableParticles = "FastFlag_DisableParticles";
-            public const string FastFlag_DisablePostFx = "FastFlag_DisablePostFx";
-            public const string FastFlag_DisableGrass = "FastFlag_DisableGrass";
-            public const string FastFlag_LowResTextures = "FastFlag_LowResTextures";
-            public const string FastFlag_DisableLightGrid = "FastFlag_DisableLightGrid";
         }
 
         public static class Developer
@@ -118,12 +104,6 @@ namespace Shiro.Services
             public const string CloseIfWindowTitle = "CloseIfWindowTitle";
             public const string CloseRbxMemory = "CloseRbxMemory";
             public const string ExpectedWindowTitle = "ExpectedWindowTitle";
-        }
-
-        public static class AccountControl
-        {
-            public const string RelaunchDelay = "RelaunchDelay";
-            public const string LauncherDelayNumber = "LauncherDelayNumber";
         }
     }
 }

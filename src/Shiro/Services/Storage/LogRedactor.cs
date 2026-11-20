@@ -48,9 +48,6 @@ namespace Shiro.Services
         [GeneratedRegex(@"(https?://(?:(?:ptb|canary)\.)?(?:discord|discordapp)\.com/api/(?:v\d+/)?webhooks/\d+/)[A-Za-z0-9_\-]+", RegexOptions.IgnoreCase)]
         private static partial Regex DiscordWebhookUrlRegex();
 
-        [GeneratedRegex(@"BLOX-[A-Za-z0-9_\-]{8,}", RegexOptions.IgnoreCase)]
-        private static partial Regex BloxApiKeyRegex();
-
         private static bool ContainsFormSecretKey(ReadOnlySpan<char> span) =>
             span.IndexOf("password=", StringComparison.OrdinalIgnoreCase) >= 0 ||
             span.IndexOf("token=", StringComparison.OrdinalIgnoreCase) >= 0 ||
@@ -114,8 +111,7 @@ namespace Shiro.Services
                 span.IndexOf("Bearer", StringComparison.OrdinalIgnoreCase) >= 0 ||
                 (span.IndexOf("Authorization", StringComparison.OrdinalIgnoreCase) >= 0 && span.IndexOf("Basic", StringComparison.OrdinalIgnoreCase) >= 0) ||
                 span.IndexOf("/bot", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                span.IndexOf("webhooks/", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                span.IndexOf("BLOX-", StringComparison.OrdinalIgnoreCase) >= 0)
+                span.IndexOf("webhooks/", StringComparison.OrdinalIgnoreCase) >= 0)
             {
                 return true;
             }
@@ -185,9 +181,6 @@ namespace Shiro.Services
 
             if (redacted.Contains("webhooks/", StringComparison.OrdinalIgnoreCase))
                 redacted = DiscordWebhookUrlRegex().Replace(redacted, "$1[REDACTED_WEBHOOK]");
-
-            if (redacted.Contains("BLOX-", StringComparison.OrdinalIgnoreCase))
-                redacted = BloxApiKeyRegex().Replace(redacted, "BLOX-[REDACTED_KEY]");
 
             return redacted;
         }

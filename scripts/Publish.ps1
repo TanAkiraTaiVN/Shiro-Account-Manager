@@ -83,7 +83,7 @@ Assert-ExitCode 'dotnet publish'
 Get-ChildItem -LiteralPath $output -File -Filter '*.xml' | Remove-Item -Force -ErrorAction SilentlyContinue
 Get-ChildItem -LiteralPath $output -File -Filter '*.manifest' | Remove-Item -Force -ErrorAction SilentlyContinue
 Get-ChildItem -LiteralPath $output -File -Filter '*.pdb' | Remove-Item -Force -ErrorAction SilentlyContinue
-foreach ($subDir in @('Nexus', 'Resources')) {
+foreach ($subDir in @('Resources')) {
     $dirPath = Join-Path $output $subDir
     if (Test-Path -LiteralPath $dirPath) {
         Remove-Item -LiteralPath $dirPath -Recurse -Force -ErrorAction SilentlyContinue
@@ -112,11 +112,11 @@ if ($executables.Count -ne 1) {
 
 $mutableNames = @(
     'AccountData.json', 'AccountData.json.backup', 'AccountRuntimeState.json', 'RecentGames.json',
-    'FavoriteGames.json', 'AccountControlData.json', 'Nexus.lua',
+    'FavoriteGames.json', 'AccountControlData.json',
     'RAMSettings.json', 'RAMSettings.ini', 'RAMTheme.ini', 'proxies.txt', 'BrowserConfig.json',
     'CustomClientAppSettings.json', 'no773fix.txt',
     'NoEncryption.IUnderstandTheRisks.iautamor', 'log.txt', 'Cache', 'Logs',
-    'AccountDumps', 'NexusOutput', 'BrowserSessions', 'portable.mode', 'vault.key'
+    'AccountDumps', 'BrowserSessions', 'portable.mode', 'vault.key'
 )
 $unexpected = foreach ($name in $mutableNames) {
     $candidate = Join-Path $output $name

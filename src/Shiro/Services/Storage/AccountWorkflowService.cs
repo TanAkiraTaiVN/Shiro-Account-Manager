@@ -439,7 +439,7 @@ namespace Shiro.Services
                         }
                         catch (Exception ex)
                         {
-                            _logger.Warn($"[OnValidateSessionSelectedRequested] {item.Username}: {ex.Message}");
+                            _logger.Warn($"[ValidateSessionSelected] {item.Username}: {ex.Message}");
                             int c = Interlocked.Increment(ref checkedCount);
                         }
                     }).ConfigureAwait(false);
@@ -454,7 +454,7 @@ namespace Shiro.Services
                 }
                 catch (Exception ex)
                 {
-                    _logger.Error($"[OnValidateSessionSelectedRequested] {ex.Message}");
+                    _logger.Error($"[ValidateSessionSelected] {ex.Message}");
                     statusCallback?.Invoke(Shiro.Services.LocalizationService.Format("AccountWorkflow.SessionCheckError", ex.Message));
                 }
             });

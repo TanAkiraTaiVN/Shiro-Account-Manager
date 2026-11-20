@@ -75,8 +75,8 @@ namespace Shiro.Tests
         public void AppServices_Defaults_AreNotNull()
         {
             Assert.Same(AccountRepository.Default, AppServices.AccountRepository);
-            Assert.Same(RobloxSessionService.Default, AppServices.RobloxSessionService);
-            Assert.Same(RobloxLauncherService.Default, AppServices.RobloxLauncherService);
+            Assert.Null(typeof(AppServices).GetProperty("RobloxSessionService"));
+            Assert.Null(typeof(AppServices).GetProperty("RobloxLauncherService"));
             Assert.Same(AccountWorkflowService.Default, AppServices.AccountWorkflowService);
             Assert.Same(RobloxServerQueryService.Default, AppServices.RobloxServerQueryService);
             Assert.Same(AppSettings.Current, AppServices.Settings);

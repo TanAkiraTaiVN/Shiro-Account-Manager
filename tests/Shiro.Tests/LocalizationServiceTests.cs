@@ -25,8 +25,8 @@ namespace Shiro.Tests
             Assert.Equal("en", LocalizationService.CurrentLanguageCode);
 
             Assert.Equal("OK", Loc.Get("Btn_OK"));
-            Assert.Equal("Cancel", Loc.Get("Btn_Cancel"));
-            Assert.Equal("Accounts", Loc.Get("Dash_AccountsTitle"));
+            Assert.Equal("Close", Loc.Get("Btn_Close"));
+            Assert.Equal("Accounts", Loc.Get("Dash_Title"));
             Assert.Equal("In Game", Loc.Get("Status_InGame"));
         }
 
@@ -41,8 +41,8 @@ namespace Shiro.Tests
             Assert.Equal("vi", LocalizationService.CurrentLanguageCode);
 
             Assert.Equal("Đồng ý", Loc.Get("Btn_OK"));
-            Assert.Equal("Hủy bỏ", Loc.Get("Btn_Cancel"));
-            Assert.Equal("Tài khoản", Loc.Get("Dash_AccountsTitle"));
+            Assert.Equal("Đóng", Loc.Get("Btn_Close"));
+            Assert.Equal("Tài khoản", Loc.Get("Dash_Title"));
             Assert.Equal("Đang trong Game", Loc.Get("Status_InGame"));
         }
 

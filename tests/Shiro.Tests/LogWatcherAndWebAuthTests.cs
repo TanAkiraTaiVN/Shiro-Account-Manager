@@ -6,7 +6,7 @@ using Xunit;
 
 namespace Shiro.Tests
 {
-    public class LogWatcherNexusAndWebAuthTests
+    public class LogWatcherAndWebAuthTests
     {
         [Fact]
         public void ReadAppendedLines_FileStreamWithHalfWrittenLineWithoutNewline_WaitsUntilNewlineFlushed()
