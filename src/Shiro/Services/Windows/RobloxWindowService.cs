@@ -51,9 +51,6 @@ namespace Shiro.Services
             public uint dwFlags;
         }
 
-        [LibraryImport("user32.dll", EntryPoint = "GetWindowLongPtrW")]
-        private static partial nint GetWindowLongPtr(IntPtr hWnd, int nIndex);
-
         [LibraryImport("user32.dll")]
         private static partial IntPtr MonitorFromWindow(IntPtr hWnd, uint dwFlags);
 
@@ -131,12 +128,12 @@ namespace Shiro.Services
                 return WindowMatchQuality.None;
 
             // Must not be a child window
-            nint style = GetWindowLongPtr(hWnd, GWL_STYLE);
+            nint style = Win32NativeHelper.GetWindowLongPtrW(hWnd, GWL_STYLE);
             if ((style & WS_CHILD) != 0)
                 return WindowMatchQuality.None;
 
             // Must not be a tool window
-            nint exStyle = GetWindowLongPtr(hWnd, GWL_EXSTYLE);
+            nint exStyle = Win32NativeHelper.GetWindowLongPtrW(hWnd, GWL_EXSTYLE);
             if ((exStyle & WS_EX_TOOLWINDOW) != 0)
                 return WindowMatchQuality.None;
 

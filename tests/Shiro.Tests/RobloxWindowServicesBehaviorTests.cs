@@ -139,9 +139,6 @@ namespace Shiro.Tests
             bool prio = RobloxProcessOptimizer.SetProcessPriority(-1, RobloxProcessOptimizer.NORMAL_PRIORITY_CLASS);
             Assert.False(prio);
 
-            bool aff = RobloxProcessOptimizer.SetProcessAffinity(-1, 0);
-            Assert.False(aff);
-
             int lowered = RobloxProcessOptimizer.LowerPriorityForPids(null!);
             Assert.Equal(0, lowered);
 

@@ -44,8 +44,6 @@ namespace Shiro
             }
         }
 
-        public string? Comment { get; set; }
-
         internal bool? CachedBool => _cachedBool;
         internal int? CachedInt => _cachedInt;
         internal decimal? CachedDecimal => _cachedDecimal;
@@ -61,7 +59,6 @@ namespace Shiro
         private readonly System.Threading.Lock _sync = new();
 
         public string Name { get; set; }
-        public string? Comment { get; set; }
         internal Action? OnModified { get; set; }
 
         public IniProperty[] Properties
@@ -71,7 +68,7 @@ namespace Shiro
                 lock (_sync)
                 {
                     return _properties.Values
-                        .Select(p => new IniProperty { Name = p.Name, Value = p.Value, Comment = p.Comment })
+                        .Select(p => new IniProperty { Name = p.Name, Value = p.Value })
                         .ToArray();
                 }
             }
@@ -219,15 +216,13 @@ namespace Shiro
                 }
                 else if (!_properties.TryGetValue(name, out IniProperty? property))
                 {
-                    _properties.Add(name, new IniProperty { Name = name, Value = value, Comment = comment });
+                    _properties.Add(name, new IniProperty { Name = name, Value = value });
                     changed = true;
                 }
                 else
                 {
-                    changed = !string.Equals(property.Value, value, StringComparison.Ordinal) ||
-                              (comment != null && !string.Equals(property.Comment, comment, StringComparison.Ordinal));
+                    changed = !string.Equals(property.Value, value, StringComparison.Ordinal);
                     property.Value = value;
-                    if (comment != null) property.Comment = comment;
                 }
             }
             if (changed)
@@ -256,8 +251,6 @@ namespace Shiro
         private readonly System.Threading.Lock _saveLock = new();
         private readonly IDictionary<string, IniSection> _sections;
 
-        public bool WriteSpacingBetweenNameAndValue { get; set; } = true;
-        public char CommentChar { get; set; } = '#';
         internal Action? OnAtomicWrite { get; set; }
         private Action? _onModified;
         internal Action? OnModified

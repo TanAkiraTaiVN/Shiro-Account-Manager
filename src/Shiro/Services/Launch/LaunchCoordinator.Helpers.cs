@@ -420,8 +420,8 @@ namespace Shiro.Services
                         AppServices.Logger?.Info($"[LaunchCoordinator] Challenged client for '{request.Account.Username}' (PID {targetPid}) was closed by user. Resuming batch.");
                         AutoReconnectService.Instance.SuppressReconnect(request.Account.Username);
                         state.Status = LaunchOutcome.Failed;
-                        state.Result = Loc.Get("Launch_CaptchaClosedError", Shiro.Services.LocalizationService.Get("Launch_CaptchaClosedError"));
-                        state.Message = Shiro.Services.LocalizationService.Format("Launch.CaptchaIncompleteWarning", request.Account.Username);
+                        state.Result = LocalizationService.Get("Launch_CaptchaClosedError");
+                        state.Message = LocalizationService.Format("Launch.CaptchaIncompleteWarning", request.Account.Username);
                         Report(progress, state);
                         return;
                     }
@@ -440,8 +440,8 @@ namespace Shiro.Services
                 LaunchCaptchaHelper.CloseChallengedClient(request.Account, targetPid);
 
                 state.Status = LaunchOutcome.Failed;
-                state.Result = Loc.Get("Launch_CaptchaRequiredError", Shiro.Services.LocalizationService.Get("Launch_CaptchaRequiredError"));
-                state.Message = Shiro.Services.LocalizationService.Format("Launch.CaptchaTabClosedWarning", request.Account.Username);
+                state.Result = LocalizationService.Get("Launch_CaptchaRequiredError");
+                state.Message = LocalizationService.Format("Launch.CaptchaTabClosedWarning", request.Account.Username);
                 Report(progress, state);
             }
         }

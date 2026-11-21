@@ -148,28 +148,6 @@ namespace Shiro.Tests
         }
 
         [Fact]
-        public void BrowserService_SuppressPasswordManager_WritesPreferencesFile()
-        {
-            string isolated = Path.Combine(Path.GetTempPath(), "Shiro-BrowserPrefs-" + Guid.NewGuid().ToString("N"));
-            try
-            {
-                BrowserService.SuppressPasswordManager(isolated);
-                string prefsPath = Path.Combine(isolated, "Default", "Preferences");
-                Assert.True(File.Exists(prefsPath));
-                string content = File.ReadAllText(prefsPath);
-                Assert.Contains("password_manager_enabled", content);
-            }
-            finally
-            {
-                if (Directory.Exists(isolated))
-                {
-                    try { Directory.Delete(isolated, true); }
-                    catch (IOException) { }
-                }
-            }
-        }
-
-        [Fact]
         public async Task BrowserService_OpenHomeAsync_WithNullAccount_ReturnsError()
         {
             string result = await BrowserService.Default.OpenHomeAsync(null!, preferChrome: false);

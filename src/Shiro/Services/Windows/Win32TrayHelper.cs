@@ -24,9 +24,6 @@ namespace Shiro.Services
         [LibraryImport("user32.dll", EntryPoint = "FindWindowW", StringMarshalling = StringMarshalling.Utf16, SetLastError = true)]
         private static partial IntPtr FindWindow(string? lpClassName, string? lpWindowName);
 
-        [LibraryImport("user32.dll", EntryPoint = "FindWindowExW", StringMarshalling = StringMarshalling.Utf16, SetLastError = true)]
-        private static partial IntPtr FindWindowEx(IntPtr parentHandle, IntPtr childAfter, string? className, string? windowTitle);
-
         [StructLayout(LayoutKind.Sequential)]
         private struct RECT
         {

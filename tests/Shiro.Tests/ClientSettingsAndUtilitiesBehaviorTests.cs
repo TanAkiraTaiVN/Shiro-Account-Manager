@@ -119,7 +119,6 @@ namespace Shiro.Tests
         {
             var ini = new IniFile();
             var sec = ini.Section("General");
-            sec.Comment = "General settings";
             sec.Set("Port", "8080", "Listening port");
             sec.Set("Enabled", "true");
             sec.Set("Rate", "3.14");

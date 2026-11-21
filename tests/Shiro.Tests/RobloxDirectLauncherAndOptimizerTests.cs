@@ -35,7 +35,6 @@ namespace Shiro.Tests
         public void RobloxProcessOptimizer_InvalidPid_ReturnsGracefully()
         {
             Assert.False(RobloxProcessOptimizer.SetProcessPriority(-1, RobloxProcessOptimizer.IDLE_PRIORITY_CLASS));
-            Assert.False(RobloxProcessOptimizer.SetProcessAffinity(-1, 0x1));
             Assert.Equal(0, RobloxProcessOptimizer.LowerPriorityForPids(new[] { -1, 0 }));
             Assert.Equal(0, RobloxProcessOptimizer.RestorePriorityForPids(new[] { -1, 0 }));
         }

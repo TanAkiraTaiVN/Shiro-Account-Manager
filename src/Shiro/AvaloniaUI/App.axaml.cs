@@ -25,7 +25,6 @@ namespace Shiro.AvaloniaUI
             {
                 AppServices.EnsureInitialized();
                 LocalizationService.Initialize(this);
-                LocalizationService.SetLanguage(LocalizationService.CurrentLanguage, false);
                 AccentThemeService.Initialize();
                 StreamerModeService.Initialize();
 

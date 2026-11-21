@@ -181,42 +181,5 @@ namespace Shiro.Services
             }
             return false;
         }
-
-        private static int GetRateLimitRecoverySeconds(RestResponse? response)
-        {
-            string? retryAfter = response?.Headers?
-                .FirstOrDefault(x => string.Equals(x.Name, "Retry-After", StringComparison.OrdinalIgnoreCase))?
-                .Value?.ToString()?.Trim();
-
-            if (int.TryParse(retryAfter, out int serverDelay) && serverDelay > 0)
-                return Math.Min(serverDelay, 180);
-
-            if (DateTimeOffset.TryParse(
-                retryAfter,
-                CultureInfo.InvariantCulture,
-                DateTimeStyles.AllowWhiteSpaces | DateTimeStyles.AssumeUniversal,
-                out DateTimeOffset retryAt))
-            {
-                double dateDelay = (retryAt.ToUniversalTime() - DateTimeOffset.UtcNow).TotalSeconds;
-                if (dateDelay > 0)
-                    return Math.Min(180, Math.Max(1, (int)Math.Ceiling(dateDelay)));
-            }
-
-            string? reset = response?.Headers?
-                .FirstOrDefault(x => string.Equals(x.Name, "X-RateLimit-Reset", StringComparison.OrdinalIgnoreCase))?
-                .Value?.ToString()?.Trim();
-            if (long.TryParse(reset, NumberStyles.Integer, CultureInfo.InvariantCulture, out long resetUnix))
-            {
-                try
-                {
-                    double resetDelay = (DateTimeOffset.FromUnixTimeSeconds(resetUnix) - DateTimeOffset.UtcNow).TotalSeconds;
-                    if (resetDelay > 0)
-                        return Math.Min(180, Math.Max(1, (int)Math.Ceiling(resetDelay)));
-                }
-                catch (ArgumentOutOfRangeException) { /* invalid unix timestamp */ }
-            }
-
-            return RobloxAccountSessionClient.NativeAuthRecoverySeconds;
-        }
     }
 }

@@ -364,7 +364,6 @@ namespace Shiro.Services
             return (saved, count, prioCount);
         }
 
-        private const uint PROCESS_QUERY_INFORMATION = 0x0400;
         private const uint PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
         private const uint PROCESS_SET_QUOTA = 0x0100;
         private const uint PROCESS_SET_INFORMATION = 0x0200;

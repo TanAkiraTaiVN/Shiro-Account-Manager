@@ -43,12 +43,6 @@ namespace Shiro
         public static bool TryParseFast<T>(this string @this, [NotNullWhen(true)] out T? result) =>
             JsonExtensions.TryParseFast(@this, out result);
 
-        public static void InvokeIfRequired(this Avalonia.Threading.Dispatcher dispatcher, Action? action)
-        {
-            if (action == null) return;
-            AppDispatcher.Post(action);
-        }
-
         public static bool TryValidateWebUrl(string? url, [NotNullWhen(true)] out Uri? uri)
         {
             uri = null;

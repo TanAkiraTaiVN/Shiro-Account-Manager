@@ -15,7 +15,6 @@ namespace Shiro.Services
     public static partial class RobloxProcessOptimizer
     {
         private const uint PROCESS_SET_INFORMATION = 0x0200;
-        private const uint PROCESS_QUERY_INFORMATION = 0x0400;
 
         // Process Priority Classes
         public const uint IDLE_PRIORITY_CLASS = 0x00000040;
@@ -23,10 +22,6 @@ namespace Shiro.Services
         public const uint NORMAL_PRIORITY_CLASS = 0x00000020;
         public const uint ABOVE_NORMAL_PRIORITY_CLASS = 0x00008000;
         public const uint HIGH_PRIORITY_CLASS = 0x00000080;
-
-        [LibraryImport("kernel32.dll", SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static partial bool SetProcessAffinityMask(IntPtr hProcess, UIntPtr dwProcessAffinityMask);
 
         /// <summary>
         /// Adjusts the Windows scheduler execution priority class for a target Roblox process ID.
@@ -44,26 +39,6 @@ namespace Shiro.Services
             catch (Exception ex)
             {
                 AppServices.Logger?.Debug($"[RobloxProcessOptimizer] Failed to set priority for PID {pid}: {ex.Message}");
-                return false;
-            }
-        }
-
-        /// <summary>
-        /// Restricts the CPU core affinity mask of a process to specified logical CPU cores.
-        /// </summary>
-        public static bool SetProcessAffinity(int pid, ulong affinityMask)
-        {
-            if (pid <= 0 || affinityMask == 0) return false;
-            using SafeProcessHandle hProcess = Win32NativeHelper.OpenSafeProcess(PROCESS_SET_INFORMATION, pid);
-            if (hProcess.IsInvalid) return false;
-
-            try
-            {
-                return SetProcessAffinityMask(hProcess.DangerousGetHandle(), new UIntPtr(affinityMask));
-            }
-            catch (Exception ex)
-            {
-                AppServices.Logger?.Debug($"[RobloxProcessOptimizer] Failed to set affinity for PID {pid}: {ex.Message}");
                 return false;
             }
         }

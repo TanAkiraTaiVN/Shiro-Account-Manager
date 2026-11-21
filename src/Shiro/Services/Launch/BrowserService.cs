@@ -10,24 +10,6 @@ namespace Shiro.Services
     {
         public static BrowserService Default { get; } = new BrowserService();
 
-        private static ReadOnlySpan<byte> SuppressedPasswordPrefsUtf8 =>
-            """
-            {
-              "credentials_enable_service": false,
-              "profile": {
-                "password_manager_enabled": false
-              },
-              "autofill": {
-                "profile_enabled": false,
-                "credit_card_enabled": false,
-                "address_enabled": false
-              },
-              "password_manager": {
-                "enabled": false
-              }
-            }
-            """u8;
-
         public static readonly string[] NoPasswordManagerSwitches = new[]
         {
             "--disable-save-password-bubble",
@@ -38,25 +20,6 @@ namespace Shiro.Services
             "--password-store=basic",
             "--disable-features=AutofillServerCommunication,PasswordManager,SavePasswordBubble,PasswordLeakDetection,msImplicitSignin,msEdgeSidebarV2"
         };
-
-        public static void SuppressPasswordManager(string profilePath)
-        {
-            if (string.IsNullOrWhiteSpace(profilePath))
-                return;
-
-            try
-            {
-                string defaultDir = Path.Combine(profilePath, "Default");
-                Directory.CreateDirectory(defaultDir);
-                string prefsPath = Path.Combine(defaultDir, "Preferences");
-                using var fs = new FileStream(prefsPath, FileMode.Create, FileAccess.Write, FileShare.Read);
-                fs.Write(SuppressedPasswordPrefsUtf8);
-            }
-            catch (Exception ex)
-            {
-                AppServices.Logger?.Debug($"SuppressPasswordManager failed: {ex.Message}");
-            }
-        }
 
         private static readonly SemaphoreSlim SignInGate = new SemaphoreSlim(1, 1);
         private static readonly AsyncLocal<Func<string?, string?, int, bool, CancellationToken, Task<Account?>>?> _testSignInOverride = new();

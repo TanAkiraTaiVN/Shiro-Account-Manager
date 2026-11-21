@@ -196,24 +196,6 @@ namespace Shiro.Services
                     }
                 }
 
-                string finalUrl = response.RequestMessage?.RequestUri?.AbsoluteUri ?? string.Empty;
-
-                if (string.IsNullOrEmpty(finalUrl) || !RobloxModerationHelper.IsModerationOrLockedUrl(finalUrl))
-                {
-                    return (false, null, null);
-                }
-
-                if (response.StatusCode == System.Net.HttpStatusCode.OK)
-                {
-                    string html = await response.Content.ReadAsStringAsync(webCts.Token).ConfigureAwait(false);
-                    if (IsUnauthenticatedModerationResponse(html) || IsLoginPageHtml(html))
-                    {
-                        account.AccountStatusIssue = string.Empty;
-                        return (false, null, null);
-                    }
-                    return FinalizeModerationResult(account, ParseModerationText(html, finalUrl), dispatchAlert);
-                }
-
                 return (false, null, null);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

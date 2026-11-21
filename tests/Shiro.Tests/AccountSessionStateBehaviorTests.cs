@@ -236,36 +236,6 @@ namespace Shiro.Tests
         }
 
         [Fact]
-        public void GetRateLimitRecoverySeconds_ParsesHeadersCorrectly()
-        {
-            var method = typeof(RobloxAccountApiService).GetMethod("GetRateLimitRecoverySeconds", BindingFlags.NonPublic | BindingFlags.Static);
-            Assert.NotNull(method);
-
-            // Null response returns default (90)
-            int dflt = (int)method!.Invoke(null, new object?[] { null })!;
-            Assert.Equal(90, dflt);
-
-            // Response with numeric Retry-After
-            var resp1 = new RestResponse { StatusCode = HttpStatusCode.TooManyRequests };
-            resp1.Headers.Add(new HeaderParameter("Retry-After", "45"));
-            int delay1 = (int)method.Invoke(null, new object?[] { resp1 })!;
-            Assert.Equal(45, delay1);
-
-            // Response with oversized Retry-After is clamped to 180
-            var resp2 = new RestResponse { StatusCode = HttpStatusCode.TooManyRequests };
-            resp2.Headers.Add(new HeaderParameter("Retry-After", "999"));
-            int delay2 = (int)method.Invoke(null, new object?[] { resp2 })!;
-            Assert.Equal(180, delay2);
-
-            // Response with X-RateLimit-Reset unix timestamp
-            long futureUnix = DateTimeOffset.UtcNow.AddSeconds(20).ToUnixTimeSeconds();
-            var resp3 = new RestResponse { StatusCode = HttpStatusCode.TooManyRequests };
-            resp3.Headers.Add(new HeaderParameter("X-RateLimit-Reset", futureUnix.ToString()));
-            int delay3 = (int)method.Invoke(null, new object?[] { resp3 })!;
-            Assert.InRange(delay3, 10, 30);
-        }
-
-        [Fact]
         public void MarkNativeAuthRateLimited_DoesNotThrowAndCoordinatesRateLimit()
         {
             var ex = Record.Exception(() =>

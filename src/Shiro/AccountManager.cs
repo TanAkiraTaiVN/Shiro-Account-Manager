@@ -85,7 +85,6 @@ namespace Shiro
             ReplaceAccountsList(accounts.ToList());
         }
 
-        private static readonly System.Threading.Lock rgSaveLock = new();
         public event EventHandler<GameArgs>? RecentGameAdded;
 
         internal ILaunchCoordinator launchCoordinator;
