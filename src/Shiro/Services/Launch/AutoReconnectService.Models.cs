@@ -70,37 +70,92 @@ namespace Shiro.Services
             public bool IsSuppressed { get; set; }
             internal bool NeedsRetry { get; set; }
             internal System.Threading.CancellationTokenSource? ReconnectCts { get; set; }
+            internal System.Threading.Tasks.Task? ObserveExitTask { get; set; }
 
             internal void CancelPendingReconnect()
             {
-                var cts = System.Threading.Interlocked.Exchange(ref _ctsBacking, null);
-                if (cts != null)
+                System.Threading.CancellationTokenSource? cts;
+                System.Threading.CancellationTokenSource? observeCts;
+                lock (_tokenLock)
                 {
-                    try { cts.Cancel(); }
+                    cts = System.Threading.Interlocked.Exchange(ref _ctsBacking, null);
+                    observeCts = System.Threading.Interlocked.Exchange(ref _observeCts, null);
+                }
+
+                CancelAndDisposeCts(cts);
+                CancelAndDisposeCts(observeCts);
+            }
+
+            internal void ReleaseObserveToken()
+            {
+                System.Threading.CancellationTokenSource? observeCts;
+                lock (_tokenLock)
+                {
+                    observeCts = System.Threading.Interlocked.Exchange(ref _observeCts, null);
+                }
+
+                if (observeCts != null)
+                {
+                    try { observeCts.Dispose(); }
                     catch (ObjectDisposedException) { /* already disposed */ }
-                    cts.Dispose();
                 }
             }
 
             internal System.Threading.CancellationToken ResetReconnectToken(System.Threading.CancellationToken outerToken)
             {
                 CancelPendingReconnect();
-                System.Threading.CancellationTokenSource linked;
+                var linked = CreateLinkedOrCanceledSource(outerToken);
+                lock (_tokenLock)
+                {
+                    _ctsBacking = linked;
+                    ReconnectCts = linked;
+                }
+                return linked.Token;
+            }
+
+            internal System.Threading.CancellationToken GetOrCreateObserveToken(System.Threading.CancellationToken serviceToken)
+            {
+                lock (_tokenLock)
+                {
+                    if (IsSuppressed || !IsActive)
+                        return new System.Threading.CancellationToken(canceled: true);
+
+                    if (_observeCts != null)
+                        return _observeCts.Token;
+
+                    _observeCts = CreateLinkedOrCanceledSource(serviceToken);
+                    return _observeCts.Token;
+                }
+            }
+
+            private static System.Threading.CancellationTokenSource CreateLinkedOrCanceledSource(System.Threading.CancellationToken outerToken)
+            {
                 try
                 {
-                    linked = System.Threading.CancellationTokenSource.CreateLinkedTokenSource(outerToken);
+                    return System.Threading.CancellationTokenSource.CreateLinkedTokenSource(outerToken);
                 }
                 catch (ObjectDisposedException)
                 {
-                    linked = new System.Threading.CancellationTokenSource();
-                    linked.Cancel();
+                    var fallback = new System.Threading.CancellationTokenSource();
+                    fallback.Cancel();
+                    return fallback;
                 }
-
-                _ctsBacking = linked;
-                ReconnectCts = linked;
-                return linked.Token;
             }
+
+            private static void CancelAndDisposeCts(System.Threading.CancellationTokenSource? cts)
+            {
+                if (cts == null)
+                    return;
+
+                try { cts.Cancel(); }
+                catch (ObjectDisposedException) { /* already disposed */ }
+                try { cts.Dispose(); }
+                catch (ObjectDisposedException) { /* already disposed */ }
+            }
+
+            private readonly System.Threading.Lock _tokenLock = new();
             private System.Threading.CancellationTokenSource? _ctsBacking;
+            private System.Threading.CancellationTokenSource? _observeCts;
         }
 
         /// <summary>
@@ -159,7 +214,11 @@ namespace Shiro.Services
             if (string.IsNullOrWhiteSpace(username)) return;
             if (_sessions.TryRemove(username, out var removed))
             {
-                removed?.CancelPendingReconnect();
+                if (removed != null)
+                {
+                    removed.IsActive = false;
+                    removed.CancelPendingReconnect();
+                }
                 AppServices.Logger.Debug($"[AutoReconnect] Unregistered session for '{username}'.");
             }
         }
@@ -205,8 +264,42 @@ namespace Shiro.Services
         public void Clear()
         {
             foreach (var s in _sessions.Values)
-                s?.CancelPendingReconnect();
+            {
+                if (s != null)
+                {
+                    s.IsActive = false;
+                    s.CancelPendingReconnect();
+                }
+            }
             _sessions.Clear();
+        }
+
+        private void SuppressAndRemoveIneligibleSession(ReconnectSession session, string sessionKey)
+        {
+            lock (_lock)
+            {
+                session.IsSuppressed = true;
+                session.IsActive = false;
+            }
+            session.CancelPendingReconnect();
+            if (!string.IsNullOrEmpty(sessionKey))
+                _sessions.TryRemove(new System.Collections.Generic.KeyValuePair<string, ReconnectSession>(sessionKey, session));
+            AppServices.Logger?.Warn($"[AutoReconnect] Skipping reconnect for ineligible account '{session.Account?.Username}'.");
+        }
+
+        private bool ShouldAbortReconnectTask(ReconnectSession session, string sessionKey)
+        {
+            if (_disposed || !IsEnabled || session.IsSuppressed ||
+                !_sessions.TryGetValue(sessionKey, out var activeSession) || !ReferenceEquals(activeSession, session))
+                return true;
+
+            if (!IsAccountEligibleForReconnect(session.Account))
+            {
+                SuppressAndRemoveIneligibleSession(session, sessionKey);
+                return true;
+            }
+
+            return false;
         }
 
         public bool TryGetAccountSession(Account? account, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out ReconnectSession? session) =>

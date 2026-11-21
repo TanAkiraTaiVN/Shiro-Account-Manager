@@ -71,10 +71,15 @@ namespace Shiro.Services
         private bool _isEnabled = true;
         public int MaxRetries { get; set; } = 5;
         public TimeSpan InitialBackoff { get; set; } = TimeSpan.FromSeconds(10);
+        internal static bool IsAccountEligibleForReconnect(Account? account) =>
+            account != null && account.Valid && !account.IsBannedOrLocked && string.IsNullOrWhiteSpace(account.AccountStatusIssue);
+
         private static readonly AsyncLocal<int?> _singletonTestReconnectDelayMsOverride = new();
         private static readonly AsyncLocal<Func<ReconnectSession, Task<string>>?> _singletonTestJoinServerOverride = new();
+        private static readonly AsyncLocal<Func<ReconnectSession, CancellationToken, Task<string>>?> _singletonTestJoinServerWithTokenOverride = new();
         private int? _instanceTestReconnectDelayMsOverride;
         private Func<ReconnectSession, Task<string>>? _instanceTestJoinServerOverride;
+        private Func<ReconnectSession, CancellationToken, Task<string>>? _instanceTestJoinServerWithTokenOverride;
 
         internal int? TestReconnectDelayMsOverride
         {
@@ -97,6 +102,18 @@ namespace Shiro.Services
                     _singletonTestJoinServerOverride.Value = value;
                 else
                     _instanceTestJoinServerOverride = value;
+            }
+        }
+
+        internal Func<ReconnectSession, CancellationToken, Task<string>>? TestJoinServerWithTokenOverride
+        {
+            get => ReferenceEquals(this, Instance) ? _singletonTestJoinServerWithTokenOverride.Value : _instanceTestJoinServerWithTokenOverride;
+            set
+            {
+                if (ReferenceEquals(this, Instance))
+                    _singletonTestJoinServerWithTokenOverride.Value = value;
+                else
+                    _instanceTestJoinServerWithTokenOverride = value;
             }
         }
         public TimeSpan LaunchGracePeriod { get; set; } = TimeSpan.FromSeconds(15);
@@ -274,6 +291,8 @@ namespace Shiro.Services
                     IsSuppressed = false
                 };
 
+                if (processId > 0)
+                    session.GetOrCreateObserveToken(_disposed ? new CancellationToken(canceled: true) : _lifecycleCts.Token);
                 _sessions[sessionKey] = session;
                 if (_monitorStopped && !_disposed)
                 {
@@ -286,14 +305,21 @@ namespace Shiro.Services
 
             if (processId > 0)
             {
-                _ = ObserveProcessExitImmediateAsync(session);
+                session.ObserveExitTask = ObserveProcessExitImmediateAsync(session);
             }
         }
 
         internal void HandleProcessExit(ReconnectSession session)
         {
-            if (_disposed || !IsEnabled)
+            if (session == null || _disposed || !IsEnabled)
                 return;
+
+            string sessionKey = GetSessionKey(session.Account);
+            if (!IsAccountEligibleForReconnect(session.Account))
+            {
+                SuppressAndRemoveIneligibleSession(session, sessionKey);
+                return;
+            }
 
             lock (_lock)
             {
@@ -308,7 +334,6 @@ namespace Shiro.Services
                 session.ObservedExitCode = null;
             }
 
-            string sessionKey = GetSessionKey(session.Account);
             if (session.RetryCount >= MaxRetries)
             {
                 AppServices.Logger?.Warn($"[AutoReconnect] '{session.Account.Username}' exceeded max reconnect attempts ({MaxRetries}). Aborting.");
@@ -322,7 +347,7 @@ namespace Shiro.Services
             session.LastDisconnectUtc = null;
             int delaySeconds = (int)(InitialBackoff.TotalSeconds * Math.Pow(1.5, session.RetryCount - 1));
             delaySeconds = Math.Clamp(delaySeconds, 5, 60);
-            CancellationToken reconnectToken = session.ResetReconnectToken(CancellationToken.None);
+            CancellationToken reconnectToken = session.ResetReconnectToken(LifecycleToken);
 
             AppServices.Logger?.Warn($"[AutoReconnect] Roblox client for '{session.Account.Username}' terminated/disconnected. Scheduling reconnect attempt #{session.RetryCount}/{MaxRetries} in {delaySeconds}s...");
             ReconnectAttempted?.Invoke(session, session.RetryCount);
@@ -334,8 +359,7 @@ namespace Shiro.Services
                     int waitMs = TestReconnectDelayMsOverride ?? (delaySeconds * 1000);
                     await Task.Delay(waitMs, reconnectToken).ConfigureAwait(false);
 
-                    if (_disposed || !IsEnabled || session.IsSuppressed ||
-                        !_sessions.TryGetValue(sessionKey, out var activeSession) || !ReferenceEquals(activeSession, session))
+                    if (ShouldAbortReconnectTask(session, sessionKey))
                         return;
 
                     if (!TryEnterReconnectGate())
@@ -347,19 +371,23 @@ namespace Shiro.Services
                         await _reconnectGate.WaitAsync(reconnectToken).ConfigureAwait(false);
                         gateAcquired = true;
 
-                        if (_disposed || !IsEnabled || session.IsSuppressed ||
-                            !_sessions.TryGetValue(sessionKey, out activeSession) || !ReferenceEquals(activeSession, session))
+                        if (ShouldAbortReconnectTask(session, sessionKey))
                             return;
 
                         await RobloxRateLimitCoordinator.Instance.WaitForBackoffAsync(reconnectToken).ConfigureAwait(false);
+
+                        if (ShouldAbortReconnectTask(session, sessionKey))
+                            return;
 
                         AppServices.Logger?.Info($"[AutoReconnect] Reconnecting '{session.Account.Username}' to PlaceId: {session.PlaceId}...");
                         string result;
                         using (RobloxDirectLauncher.BeginCookieGuardScope())
                         {
-                            result = TestJoinServerOverride != null
-                                ? await TestJoinServerOverride(session).ConfigureAwait(false)
-                                : await session.Account.JoinServer(session.PlaceId, session.JobId, session.FollowUser, session.JoinVip).ConfigureAwait(false);
+                            result = TestJoinServerWithTokenOverride != null
+                                ? await TestJoinServerWithTokenOverride(session, reconnectToken).ConfigureAwait(false)
+                                : (TestJoinServerOverride != null
+                                    ? await TestJoinServerOverride(session).ConfigureAwait(false)
+                                    : await session.Account.JoinServer(session.PlaceId, session.JobId, session.FollowUser, session.JoinVip, cancellationToken: reconnectToken).ConfigureAwait(false));
                         }
 
                         if (result == "Success")
@@ -438,7 +466,13 @@ namespace Shiro.Services
             MaxRetriesExceeded -= OnMaxRetriesExceeded;
             _monitorTimer?.Dispose();
             foreach (var session in _sessions.Values)
-                session?.CancelPendingReconnect();
+            {
+                if (session != null)
+                {
+                    session.IsActive = false;
+                    session.CancelPendingReconnect();
+                }
+            }
             _sessions.Clear();
             if (Volatile.Read(ref _activeGateUsers) == 0)
                 TryDisposeReconnectGate();

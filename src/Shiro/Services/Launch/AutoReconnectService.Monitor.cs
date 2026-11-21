@@ -88,6 +88,9 @@ namespace Shiro.Services
 
             try
             {
+                if (_disposed || session.IsSuppressed || !session.IsActive)
+                    return;
+
                 using var proc = Process.GetProcessById(session.ProcessId);
                 if (session.ProcessCreationTicks > 0 &&
                     !RobloxProcessIdentityHelper.IsSameProcessInstance(session.ProcessId, session.ProcessCreationTicks, out _))
@@ -96,12 +99,28 @@ namespace Shiro.Services
                     return;
                 }
 
-                await proc.WaitForExitAsync().ConfigureAwait(false);
+                CancellationToken observeToken = session.GetOrCreateObserveToken(LifecycleToken);
+                if (observeToken.IsCancellationRequested || _disposed || session.IsSuppressed || !session.IsActive)
+                    return;
+
+                await proc.WaitForExitAsync(observeToken).ConfigureAwait(false);
                 CompleteObservedProcessExit(session, () => TryGetProcessExitCode(proc, session.ProcessId));
+            }
+            catch (OperationCanceledException)
+            {
+                // Suppressed, unregistered, cleared, or service stopped/disposed; dispose proc cleanly.
+            }
+            catch (ObjectDisposedException)
+            {
+                // Observation token or process handle disposed concurrently during suppress/shutdown.
             }
             catch (Exception ex)
             {
                 AppServices.Logger?.Debug("[AutoReconnectService] Process observation failed", ex);
+            }
+            finally
+            {
+                session.ReleaseObserveToken();
             }
         }
 
@@ -124,6 +143,7 @@ namespace Shiro.Services
             {
                 session.IsSuppressed = true;
                 session.IsActive = false;
+                session.CancelPendingReconnect();
                 _sessions.TryRemove(GetSessionKey(session.Account), out _);
                 AppServices.Logger?.Info($"[AutoReconnect] '{session.Account?.Username}' exited gracefully by user (ExitCode 0). Session closed.");
             }
@@ -146,6 +166,12 @@ namespace Shiro.Services
                 var session = kvp.Value;
                 if (!session.IsActive || session.IsSuppressed)
                     continue;
+
+                if (!IsAccountEligibleForReconnect(session.Account))
+                {
+                    SuppressAndRemoveIneligibleSession(session, kvp.Key);
+                    continue;
+                }
 
                 if (session.ProcessId <= 0)
                 {
