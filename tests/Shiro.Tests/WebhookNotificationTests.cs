@@ -65,6 +65,8 @@ namespace Shiro.Tests
         [Fact]
         public async Task SendAlertAsync_WithNullOrEmptyConfig_CompletesGracefully()
         {
+            using var settingsScope = AppServices.Override<ISettingsService>(new IniSection("General"));
+
             // Null alert should be a no-op
             await WebhookNotificationService.SendAlertAsync(null!);
 
@@ -94,6 +96,10 @@ namespace Shiro.Tests
         [Fact]
         public void AutoReconnectService_NotifyDisconnected_DispatchesWebhookAlert()
         {
+            var isolatedSettings = new IniSection("General");
+            isolatedSettings.Set(AppSettingsKeys.General.NotifyOnDisconnect, "true");
+            using var settingsScope = AppServices.Override<ISettingsService>(isolatedSettings);
+
             var dispatchedAlerts = new List<WebhookAlert>();
             void OnAlert(WebhookAlert a) => dispatchedAlerts.Add(a);
 
