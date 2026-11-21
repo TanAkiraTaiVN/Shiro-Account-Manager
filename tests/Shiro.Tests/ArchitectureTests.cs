@@ -335,8 +335,7 @@ namespace Shiro.Tests
 
         public static readonly string[] ApprovedCoverageExclusions =
         {
-            "**/*.g.cs", "**/*.Designer.cs", "**/App.axaml.cs", "**/AvaloniaUI/**", "**/tests/**",
-            "**/RobloxProcess.cs", "**/RobloxWatcher.cs"
+            "**/*.g.cs", "**/*.Designer.cs", "**/App.axaml.cs", "**/AvaloniaUI/**", "**/tests/**"
         };
 
         [Fact]

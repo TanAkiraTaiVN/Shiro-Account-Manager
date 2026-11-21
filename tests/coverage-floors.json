@@ -21,5 +21,7 @@
   "Services/Auth/WebAuthPolicy.cs": { "branch": 90 },
   "Services/Network/KestrelWebServer.cs": { "branch": 92 },
   "Services/Storage/AccountRuntimeStateStore.cs": { "branch": 83 },
-  "Services/Auth/SessionAuditorService.cs": { "branch": 85 }
+  "Services/Auth/SessionAuditorService.cs": { "branch": 85 },
+  "Services/Windows/RobloxProcess.cs": { "branch": 48 },
+  "Services/Windows/RobloxWatcher.cs": { "branch": 20 }
 }

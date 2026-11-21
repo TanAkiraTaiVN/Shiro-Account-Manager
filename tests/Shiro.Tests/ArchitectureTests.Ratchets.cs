@@ -79,7 +79,9 @@ namespace Shiro.Tests
                 "Services/Auth/WebAuthPolicy.cs",
                 "Services/Network/KestrelWebServer.cs",
                 "Services/Storage/AccountRuntimeStateStore.cs",
-                "Services/Auth/SessionAuditorService.cs"
+                "Services/Auth/SessionAuditorService.cs",
+                "Services/Windows/RobloxProcess.cs",
+                "Services/Windows/RobloxWatcher.cs"
             };
 
             foreach (var hotspot in requiredHotspots)

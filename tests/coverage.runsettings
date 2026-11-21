@@ -7,7 +7,7 @@
           <Format>cobertura</Format>
           <Exclude>[*]*.Generated*,[*]*.g,[Shiro.Tests]*,*.xaml,*.axaml</Exclude>
           <ExcludeByAttribute>GeneratedCodeAttribute,CompilerGeneratedAttribute,ExcludeFromCodeCoverageAttribute</ExcludeByAttribute>
-          <ExcludeByFile>**/*.g.cs,**/*.Designer.cs,**/App.axaml.cs,**/AvaloniaUI/**,**/tests/**,**/RobloxProcess.cs,**/RobloxWatcher.cs</ExcludeByFile>
+          <ExcludeByFile>**/*.g.cs,**/*.Designer.cs,**/App.axaml.cs,**/AvaloniaUI/**,**/tests/**</ExcludeByFile>
         </Configuration>
       </DataCollector>
     </DataCollectors>

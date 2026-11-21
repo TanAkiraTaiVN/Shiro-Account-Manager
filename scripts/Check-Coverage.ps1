@@ -24,10 +24,10 @@ $branchRate = [double]$doc.coverage.'branch-rate' * 100.0
 Write-Host "Overall Line Coverage:   $("{0:N2}" -f $overallRate)%" -ForegroundColor Yellow
 Write-Host "Overall Branch Coverage: $("{0:N2}" -f $branchRate)%" -ForegroundColor Yellow
 
-# Calculate Core package/classes coverage (Cryptography, VaultKey, AccountDataSerializer, AccountStore, StoragePaths)
+# Calculate Core package/classes coverage (19 security, persistence, HBA, launch-guard & shutdown files)
 $classes = $doc.coverage.packages.package.classes.class
 $coreClasses = $classes | Where-Object {
-    $_.filename -match 'Cryptography\.cs|VaultKey\.cs|AccountDataSerializer\.cs|AccountStore\.cs|StoragePaths\.cs|WebAuthPolicy\.cs|LogRedactor\.cs|AccountFileDecoder\.cs'
+    $_.filename -match '(?:^|[\\/\.])(Cryptography\.cs|VaultKey\.cs|AccountDataSerializer\.cs|AccountStore\.cs|StoragePaths\.cs|WebAuthPolicy\.cs|LogRedactor\.cs|AccountFileDecoder\.cs|CryptoHelper\.cs|VaultExportService\.cs|VaultKeyRecoveryService\.cs|InMemorySecretProtector\.cs|RobloxHbaService\.cs|RobloxHbaService\.Binding\.cs|RobloxHbaService\.Network\.cs|RobloxHbaService\.BrowserHooks\.cs|RobloxDirectLauncher\.CookieGuard\.cs|RobloxDirectLauncher\.DeElevation\.cs|ShutdownCoordinator\.cs)$'
 }
 
 $coreTotalLines = 0
