@@ -9,8 +9,31 @@ using Xunit;
 
 namespace Shiro.Tests
 {
+    [Collection("SerialGlobalState")]
     public class AccountRegistrationServiceTests
     {
+        private static void WithIsolatedDataDir(string prefix, Action action)
+        {
+            string tempDir = Path.Combine(Path.GetTempPath(), prefix + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(tempDir);
+            try
+            {
+                using (StoragePaths.OverrideDataDirectoryForTesting(tempDir))
+                {
+                    action();
+                }
+            }
+            finally
+            {
+                try
+                {
+                    if (Directory.Exists(tempDir))
+                        Directory.Delete(tempDir, recursive: true);
+                }
+                catch { }
+            }
+        }
+
         [Fact]
         public void NotifyAccountValidity_NullAndEdgeCases()
         {
@@ -31,7 +54,7 @@ namespace Shiro.Tests
         public void AddAccount_Synchronous_CreatesAndRegisters()
         {
             var repo = new AccountRepository();
-            var service = new AccountRegistrationService(repo, AccountPersistenceService.Default);
+            var service = new AccountRegistrationService(repo, new AccountPersistenceService(repo));
 
             var acc = service.AddAccount("token_test_sync", "pass123", saveImmediate: false);
             Assert.Null(acc); // default token is invalid without valid format
@@ -41,7 +64,7 @@ namespace Shiro.Tests
         public async Task AddAccountAsync_Overloads_ExecuteSafely()
         {
             var repo = new AccountRepository();
-            var service = new AccountRegistrationService(repo, AccountPersistenceService.Default);
+            var service = new AccountRegistrationService(repo, new AccountPersistenceService(repo));
 
             using var cts = new CancellationTokenSource();
             var acc1 = await service.AddAccountAsync("invalid_token_1", "pass", null, false, cts.Token);
@@ -54,87 +77,86 @@ namespace Shiro.Tests
         [Fact]
         public void RegisterValidatedAccount_SaveImmediate_And_FieldMerging_Branches()
         {
-            var repo = new AccountRepository();
-            var service = new AccountRegistrationService(repo, AccountPersistenceService.Default);
-
-            // 1. Initial valid account added with saveImmediate = true
-            var initial = new Account
+            WithIsolatedDataDir("ShiroAccRegMerge_", () =>
             {
-                Username = "MergeBranchUser",
-                UserID = 0,
-                Valid = true,
-                SecurityToken = "Tok1"
-            };
-            var registered1 = service.RegisterValidatedAccount(initial, "Tok1", "InitialPass", saveImmediate: true);
-            Assert.NotNull(registered1);
-            Assert.Same(initial, registered1);
+                var repo = new AccountRepository();
+                var service = new AccountRegistrationService(repo, new AccountPersistenceService(repo));
 
-            // 2. Updated account where existing has UserID <= 0 and incoming has UserID > 0
-            var updated = new Account
-            {
-                Username = "MergeBranchUser",
-                UserID = 556677,
-                Valid = true,
-                SecurityToken = "Tok2"
-            };
-            var registered2 = service.RegisterValidatedAccount(updated, "Tok2", "UpdatedPass", saveImmediate: true);
-            Assert.NotNull(registered2);
-            Assert.Same(initial, registered2);
-            Assert.Equal(556677, initial.UserID);
-            Assert.Equal("UpdatedPass", initial.Password);
+                // 1. Initial valid account added with saveImmediate = true
+                var initial = new Account
+                {
+                    Username = "MergeBranchUser",
+                    UserID = 0,
+                    Valid = true,
+                    SecurityToken = "Tok1"
+                };
+                var registered1 = service.RegisterValidatedAccount(initial, "Tok1", "InitialPass", saveImmediate: true);
+                Assert.NotNull(registered1);
+                Assert.Same(initial, registered1);
 
-            // 3. Existing account with empty username updated by incoming with username
-            var anonRepo = new AccountRepository();
-            var anonService = new AccountRegistrationService(anonRepo, AccountPersistenceService.Default);
-            var anonAcc = new Account
-            {
-                Username = "",
-                UserID = 998811,
-                Valid = true,
-                SecurityToken = "AnonTok"
-            };
-            anonService.RegisterValidatedAccount(anonAcc, "AnonTok", "AnonPass", saveImmediate: false);
+                // 2. Updated account where existing has UserID <= 0 and incoming has UserID > 0
+                var updated = new Account
+                {
+                    Username = "MergeBranchUser",
+                    UserID = 556677,
+                    Valid = true,
+                    SecurityToken = "Tok2"
+                };
+                var registered2 = service.RegisterValidatedAccount(updated, "Tok2", "UpdatedPass", saveImmediate: true);
+                Assert.NotNull(registered2);
+                Assert.Same(initial, registered2);
+                Assert.Equal(556677, initial.UserID);
+                Assert.Equal("UpdatedPass", initial.Password);
 
-            var nameUpdate = new Account
-            {
-                Username = "ResolvedAnonName",
-                UserID = 998811,
-                Valid = true,
-                SecurityToken = "AnonTok2"
-            };
-            var mergedAnon = anonService.RegisterValidatedAccount(nameUpdate, "AnonTok2", "NewPass", saveImmediate: true);
-            Assert.NotNull(mergedAnon);
-            Assert.Equal("ResolvedAnonName", anonAcc.Username);
+                // 3. Existing account with empty username updated by incoming with username
+                var anonRepo = new AccountRepository();
+                var anonService = new AccountRegistrationService(anonRepo, new AccountPersistenceService(anonRepo));
+                var anonAcc = new Account
+                {
+                    Username = "",
+                    UserID = 998811,
+                    Valid = true,
+                    SecurityToken = "AnonTok"
+                };
+                anonService.RegisterValidatedAccount(anonAcc, "AnonTok", "AnonPass", saveImmediate: false);
+
+                var nameUpdate = new Account
+                {
+                    Username = "ResolvedAnonName",
+                    UserID = 998811,
+                    Valid = true,
+                    SecurityToken = "AnonTok2"
+                };
+                var mergedAnon = anonService.RegisterValidatedAccount(nameUpdate, "AnonTok2", "NewPass", saveImmediate: true);
+                Assert.NotNull(mergedAnon);
+                Assert.Equal("ResolvedAnonName", anonAcc.Username);
+            });
         }
 
         [Fact]
         public void RemoveAccountsFromDatabase_WhenEmpty_DeletesEmptyBackupFile()
         {
-            var repo = new AccountRepository();
-            var service = new AccountRegistrationService(repo, AccountPersistenceService.Default);
-
-            var acc = new Account { Username = "TempEmptyUser", Valid = true };
-            repo.AddThreadSafe(acc);
-
-            string backupFile = StoragePaths.AccountDataFile + ".backup";
-            try
+            WithIsolatedDataDir("ShiroAccRegEmpty_", () =>
             {
+                var repo = new AccountRepository();
+                var service = new AccountRegistrationService(repo, new AccountPersistenceService(repo));
+
+                var acc = new Account { Username = "TempEmptyUser", Valid = true };
+                repo.AddThreadSafe(acc);
+
+                string backupFile = StoragePaths.AccountDataFile + ".backup";
                 File.WriteAllText(backupFile, "dummy-backup");
                 int removed = service.RemoveAccountsFromDatabase(new[] { acc });
                 Assert.Equal(1, removed);
                 Assert.False(File.Exists(backupFile));
-            }
-            finally
-            {
-                if (File.Exists(backupFile)) File.Delete(backupFile);
-            }
+            });
         }
 
         [Fact]
         public void RegisterValidatedAccount_SetsLastAttemptedRefresh_ForNewAndUpdatedAccounts()
         {
             var repo = new AccountRepository();
-            var service = new AccountRegistrationService(repo, AccountPersistenceService.Default);
+            var service = new AccountRegistrationService(repo, new AccountPersistenceService(repo));
 
             var initial = new Account
             {
