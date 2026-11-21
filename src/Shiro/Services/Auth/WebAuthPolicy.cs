@@ -101,6 +101,23 @@ namespace Shiro.Services
             {
                 ClientFailures.TryRemove(key, out _);
             }
+
+            if (ClientFailures.Count > targetMax)
+            {
+                int stillExcess = ClientFailures.Count - targetMax;
+                var soonestExpiringLocked = ClientFailures
+                    .Where(kvp => !string.Equals(kvp.Key, incomingKey, StringComparison.OrdinalIgnoreCase))
+                    .OrderBy(kvp => kvp.Value.LockedUntilUtc)
+                    .ThenBy(kvp => kvp.Value.LastFailureUtc)
+                    .Take(stillExcess)
+                    .Select(kvp => kvp.Key)
+                    .ToList();
+
+                foreach (string key in soonestExpiringLocked)
+                {
+                    ClientFailures.TryRemove(key, out _);
+                }
+            }
         }
 
         public static bool RecordAuthResult(string? clientKey, AuthDecision decision, DateTimeOffset? nowUtc = null)
@@ -158,7 +175,7 @@ namespace Shiro.Services
 
             return System.Text.RegularExpressions.Regex.Replace(
                 urlOrQuery,
-                @"([?&](?:Password|token|Cookie)=)[^&\s#]*",
+                @"([?&](?:Password|token|Cookie|Proxy)=)[^&\s#]*",
                 "$1[REDACTED]",
                 System.Text.RegularExpressions.RegexOptions.CultureInvariant | System.Text.RegularExpressions.RegexOptions.IgnoreCase);
         }

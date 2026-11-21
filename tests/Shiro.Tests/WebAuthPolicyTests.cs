@@ -358,5 +358,42 @@ namespace Shiro.Tests
                 WebAuthPolicy.ResetLockoutsForTesting();
             }
         }
+
+        [Fact]
+        public void RecordAuthResult_AllLockedOutClients_StillBoundsTrackedClientMap()
+        {
+            WebAuthPolicy.ResetLockoutsForTesting();
+            try
+            {
+                var field = typeof(WebAuthPolicy).GetField(
+                    "ClientFailures",
+                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+                var dict = Assert.IsAssignableFrom<System.Collections.ICollection>(field!.GetValue(null));
+
+                var t0 = DateTimeOffset.UtcNow;
+                for (int i = 0; i < 562; i++)
+                {
+                    string ip = $"10.0.{i / 256}.{i % 256}";
+                    for (int attempt = 0; attempt < WebAuthPolicy.MaxFailedAttempts; attempt++)
+                    {
+                        WebAuthPolicy.RecordAuthResult(ip, AuthDecision.InvalidPassword, t0);
+                    }
+                }
+
+                Assert.True(dict.Count <= 512, $"Expected ClientFailures.Count <= 512, actual {dict.Count}.");
+            }
+            finally
+            {
+                WebAuthPolicy.ResetLockoutsForTesting();
+            }
+        }
+
+        [Fact]
+        public void RedactSensitiveQuery_RedactsProxyParameter()
+        {
+            string redacted = WebAuthPolicy.RedactSensitiveQuery(
+                "/SetProxy?Account=u&Proxy=http://user:pass@1.2.3.4:8080&Password=abc");
+            Assert.Equal("/SetProxy?Account=u&Proxy=[REDACTED]&Password=[REDACTED]", redacted);
+        }
     }
 }

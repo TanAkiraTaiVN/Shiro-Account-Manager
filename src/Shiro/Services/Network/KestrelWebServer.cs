@@ -19,6 +19,8 @@ namespace Shiro.Services
     {
         private static readonly ConcurrentDictionary<WebSocket, SemaphoreSlim> _activeSockets = new();
         private static readonly AsyncLocal<IAppLogger?> _staticLoggerOverride = new();
+        private static readonly System.Threading.Lock _eventHookLock = new();
+        private static int _eventHookRefCount;
         private static IAppLogger _staticLogger => Logger;
         public static IAppLogger Logger
         {
@@ -27,6 +29,7 @@ namespace Shiro.Services
         }
 
         private WebApplication? _app;
+        private bool _hasEventHook;
         private readonly ConcurrentDictionary<WebSocket, SemaphoreSlim> _instanceSockets = new();
         private readonly int _port;
         private bool _allowExternal;
@@ -142,12 +145,40 @@ namespace Shiro.Services
             await _app.StartAsync(_cts.Token);
 
             // Hook domain event publishers only after Kestrel binds cleanly
-            AntiAfkService.StatusChanged += OnAntiAfkStatusChanged;
-            RobloxSingletonService.StatusChanged += OnMultiRobloxStatusChanged;
-            LaunchCoordinator.LaunchProgressChanged += OnLaunchProgressChanged;
+            AcquireDomainEventHooks();
 
             IsRunning = true;
             _logger.Info($"[KestrelWebServer] ASP.NET Core Kestrel HTTP/WebSocket Gateway started on port {_port} (AllowExternal: {_allowExternal})");
+        }
+
+        private void AcquireDomainEventHooks()
+        {
+            lock (_eventHookLock)
+            {
+                if (_hasEventHook) return;
+                _hasEventHook = true;
+                if (++_eventHookRefCount == 1)
+                {
+                    AntiAfkService.StatusChanged += OnAntiAfkStatusChanged;
+                    RobloxSingletonService.StatusChanged += OnMultiRobloxStatusChanged;
+                    LaunchCoordinator.LaunchProgressChanged += OnLaunchProgressChanged;
+                }
+            }
+        }
+
+        private void ReleaseDomainEventHooks()
+        {
+            lock (_eventHookLock)
+            {
+                if (!_hasEventHook) return;
+                _hasEventHook = false;
+                if (_eventHookRefCount > 0 && --_eventHookRefCount == 0)
+                {
+                    AntiAfkService.StatusChanged -= OnAntiAfkStatusChanged;
+                    RobloxSingletonService.StatusChanged -= OnMultiRobloxStatusChanged;
+                    LaunchCoordinator.LaunchProgressChanged -= OnLaunchProgressChanged;
+                }
+            }
         }
 
         private static void OnAntiAfkStatusChanged()
@@ -178,9 +209,7 @@ namespace Shiro.Services
         {
             if (!IsRunning || _app == null) return;
 
-            AntiAfkService.StatusChanged -= OnAntiAfkStatusChanged;
-            RobloxSingletonService.StatusChanged -= OnMultiRobloxStatusChanged;
-            LaunchCoordinator.LaunchProgressChanged -= OnLaunchProgressChanged;
+            ReleaseDomainEventHooks();
 
             SafeExecuteHelper.Try(() => _cts.Cancel());
             await CloseOwnedSocketsAsync().ConfigureAwait(false);

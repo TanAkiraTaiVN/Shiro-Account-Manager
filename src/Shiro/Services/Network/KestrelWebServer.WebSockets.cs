@@ -16,7 +16,22 @@ namespace Shiro.Services
     {
         private const int DefaultBroadcastSendTimeoutMs = 2000;
         private const int DefaultCloseTimeoutMs = 1500;
+        private const int MaxActiveWebSockets = 32;
+        private const int MaxIncomingWebSocketMessageBytes = 16384;
+        private static int _reservedWebSocketSlots;
         private static readonly string[] SupportedWebSocketEndpoints = new[] { "/ws", "/events", "/v2/events" };
+
+        private static bool TryReserveWebSocketSlot(int maxSockets)
+        {
+            while (true)
+            {
+                int current = Volatile.Read(ref _reservedWebSocketSlots);
+                if (current >= maxSockets)
+                    return false;
+                if (Interlocked.CompareExchange(ref _reservedWebSocketSlots, current + 1, current) == current)
+                    return true;
+            }
+        }
 
         private static async Task WriteWebSocketErrorAsync(
             HttpContext context,
@@ -92,6 +107,17 @@ namespace Shiro.Services
                 return;
             }
 
+            bool slotReserved = TryReserveWebSocketSlot(MaxActiveWebSockets);
+            if (!slotReserved)
+            {
+                await WriteWebSocketErrorAsync(
+                    context,
+                    StatusCodes.Status503ServiceUnavailable,
+                    "Too many active WebSocket connections.",
+                    isV2).ConfigureAwait(false);
+                return;
+            }
+
             WebSocket? socket = null;
             SemaphoreSlim? gate = null;
             try
@@ -126,7 +152,16 @@ namespace Shiro.Services
                         }
                         if (result.MessageType != WebSocketMessageType.Text) continue;
 
-                        if (frameStream.Length + result.Count <= 16384 && result.Count > 0)
+                        if (frameStream.Length + result.Count > MaxIncomingWebSocketMessageBytes)
+                        {
+                            await CloseSafeAsync(
+                                socket,
+                                gate,
+                                WebSocketCloseStatus.MessageTooBig,
+                                "Message exceeds 16 KB limit").ConfigureAwait(false);
+                            break;
+                        }
+                        if (result.Count > 0)
                             frameStream.Write(buffer, 0, result.Count);
                         if (!result.EndOfMessage) continue;
 
@@ -154,6 +189,8 @@ namespace Shiro.Services
                         WebSocketGateHelper.RetireAndDispose(removedGate);
                     SafeExecuteHelper.Try(socket.Dispose);
                 }
+                if (slotReserved)
+                    Interlocked.Decrement(ref _reservedWebSocketSlots);
             }
         }
 
