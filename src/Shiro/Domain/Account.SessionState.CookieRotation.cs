@@ -74,6 +74,9 @@ namespace Shiro
             }
         }
 
+        internal bool HasSecurityToken => GetCachedTokenMetadata().HasToken;
+        internal int SecurityTokenPayloadLength => GetCachedTokenMetadata().PayloadLength;
+
         private sealed class SuppressDeferredSaveScope : IDisposable
         {
             private bool _disposed;
@@ -95,6 +98,7 @@ namespace Shiro
                 _securityTokenPayloadLength = 0;
                 InMemorySecretProtector.ZeroAndClear(ref _protectedPassword);
                 InMemorySecretProtector.ZeroAndClear(ref _protectedHbaPrivateKey);
+                _hasHbaPrivateKey = false;
                 CSRFToken = null;
                 TokenSet = DateTime.MinValue;
                 Interlocked.Increment(ref _cookieRotationVersion);

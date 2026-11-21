@@ -67,6 +67,7 @@ namespace Shiro
         private byte[]? _protectedHbaPrivateKey;
         private readonly SemaphoreSlim _sessionGate = new(1, 1);
         private bool _hasSecurityToken;
+        private bool _hasHbaPrivateKey;
         private int _securityTokenPayloadLength;
         public string SecurityToken
         {

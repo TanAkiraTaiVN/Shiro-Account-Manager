@@ -38,14 +38,14 @@ namespace Shiro.Services
                     string localNetSig = protectCrossNetwork ? RobloxHbaService.GetLocalNetworkSignature() : string.Empty;
 
                     var candidates = snapshot
-                        .Where(a => a != null && !string.IsNullOrWhiteSpace(a.SecurityToken))
+                        .Where(a => a != null && a.HasSecurityToken)
+                        .Where(a => (DateTime.Now - a.LastAttemptedRefresh).TotalHours >= 24 || a.LastAttemptedRefresh == DateTime.MinValue)
                         .Where(a => a.GetField("NoCookieRefresh") != "true")
                         .Where(a => !protectCrossNetwork ||
                                     string.IsNullOrWhiteSpace(a.LastBoundIpSignature) ||
                                     localNetSig is "offline" or "unknown" ||
                                     string.Equals(a.LastBoundIpSignature, RobloxHbaService.GetNetworkSignatureForAccount(a, localNetSig),
                                         StringComparison.Ordinal))
-                        .Where(a => (DateTime.Now - a.LastAttemptedRefresh).TotalHours >= 24 || a.LastAttemptedRefresh == DateTime.MinValue)
                         .OrderByDescending(a => a.Valid)
                         .ThenBy(a => a.LastAttemptedRefresh)
                         .Take(4)

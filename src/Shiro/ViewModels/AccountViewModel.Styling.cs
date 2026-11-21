@@ -15,7 +15,7 @@ namespace Shiro.ViewModels
                     return Shiro.Services.LocalizationService.Format("Account.StatusIssue", _model.AccountStatusIssue);
                 if (IsExpired)
                     return Shiro.Services.LocalizationService.Get("Account.SessionExpiredTip");
-                int payloadLen = Account.GetSessionTokenPayloadLength(_model.SecurityToken);
+                int payloadLen = _model.SecurityTokenPayloadLength;
                 string lastUseStr = _model.LastUse != DateTime.MinValue ? _model.LastUse.ToString("dd/MM/yyyy HH:mm") : Shiro.Services.LocalizationService.Get("Account.SessionUnknown");
                 if (IsShortLivedSession)
                     return Shiro.Services.LocalizationService.Format("Account.ShortSessionTip", payloadLen, lastUseStr);

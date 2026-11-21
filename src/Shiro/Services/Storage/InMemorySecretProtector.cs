@@ -18,6 +18,9 @@ namespace Shiro.Services
         private const int TagSize = 16;
 
         private static readonly byte[] ProcessKey = RandomNumberGenerator.GetBytes(KeySize);
+        private static long _unprotectCallCount;
+
+        internal static long UnprotectCallCount => Volatile.Read(ref _unprotectCallCount);
 
         public static byte[]? Protect(string? plaintext)
         {
@@ -50,6 +53,8 @@ namespace Shiro.Services
         {
             if (protectedBlob.IsEmpty)
                 return string.Empty;
+
+            Interlocked.Increment(ref _unprotectCallCount);
 
             if (protectedBlob.Length < NonceSize + TagSize)
                 throw new CryptographicException("Protected secret blob is truncated.");

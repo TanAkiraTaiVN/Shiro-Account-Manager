@@ -108,7 +108,9 @@ namespace Shiro
                     if (changed)
                     {
                         InMemorySecretProtector.ZeroAndClear(ref _protectedHbaPrivateKey);
-                        _protectedHbaPrivateKey = string.IsNullOrEmpty(normalized) ? null : InMemorySecretProtector.Protect(normalized);
+                        bool hasKey = !string.IsNullOrEmpty(normalized);
+                        _protectedHbaPrivateKey = hasKey ? InMemorySecretProtector.Protect(normalized) : null;
+                        _hasHbaPrivateKey = hasKey;
                     }
                 }
                 lock (FieldsSyncRoot)
@@ -145,6 +147,7 @@ namespace Shiro
                 {
                     if (_protectedHbaPrivateKey == null)
                         _protectedHbaPrivateKey = InMemorySecretProtector.Protect(legacyPriv);
+                    _hasHbaPrivateKey = _protectedHbaPrivateKey != null;
                 }
             }
         }
@@ -155,7 +158,20 @@ namespace Shiro
         [JsonIgnore] public string HbaTemplate { get => GetProtectedField(FieldHbaTemplate); set => SetProtectedField(FieldHbaTemplate, value); }
         [JsonIgnore] public string SessionUserAgent { get => GetProtectedField(FieldSessionUserAgent); set => SetProtectedField(FieldSessionUserAgent, value); }
         [JsonIgnore] public string LastBoundIpSignature { get => GetProtectedField(FieldLastBoundIpSig); set => SetProtectedField(FieldLastBoundIpSig, value); }
-        [JsonIgnore] public bool HasHbaBinding => !string.IsNullOrWhiteSpace(HbaPrivateKey);
+        [JsonIgnore]
+        public bool HasHbaBinding
+        {
+            get
+            {
+                bool hasLegacy;
+                lock (FieldsSyncRoot)
+                    hasLegacy = Fields != null && Fields.ContainsKey(FieldHbaPrivateKey);
+                if (hasLegacy)
+                    MigrateProtectedFieldsFromDictionary();
+                lock (CookieSyncRoot)
+                    return _hasHbaPrivateKey;
+            }
+        }
 
         private string GetProtectedField(string key)
         {

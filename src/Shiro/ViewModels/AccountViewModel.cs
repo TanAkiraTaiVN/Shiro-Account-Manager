@@ -194,7 +194,7 @@ namespace Shiro.ViewModels
 
         public bool Valid
         {
-            get => !string.IsNullOrWhiteSpace(_model.SecurityToken) && _model.Valid;
+            get => _model.HasSecurityToken && _model.Valid;
             set
             {
                 if (_model.Valid != value)
