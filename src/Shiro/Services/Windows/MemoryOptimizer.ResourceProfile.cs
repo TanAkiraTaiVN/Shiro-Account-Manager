@@ -49,6 +49,9 @@ namespace Shiro.Services
         internal static bool ShouldRestoreFullPerformanceOnSolo(int runningClientCount)
             => runningClientCount == 1;
 
+        internal static bool ShouldRestoreFullPerformanceOnSolo(int runningClientCount, bool backgroundThrottlerEnabled)
+            => !backgroundThrottlerEnabled && ShouldRestoreFullPerformanceOnSolo(runningClientCount);
+
         internal static uint TryGetForegroundWindowPid(Func<IntPtr> getForegroundWindow, Func<IntPtr, uint> getWindowPid)
         {
             try

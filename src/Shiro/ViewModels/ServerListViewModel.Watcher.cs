@@ -13,7 +13,7 @@ namespace Shiro.ViewModels
         private bool _verifyDataModel = true;
         private bool _ignoreExistingProcesses = true;
         private bool _closeRbxMemory;
-        private decimal _memoryThresholdMb = 200;
+        private decimal _memoryThresholdMb = RobloxWatcher.DefaultMemoryThresholdMb;
         private decimal _connectionTimeoutSec = 20;
         private string _expectedWindowTitle = "Roblox";
 

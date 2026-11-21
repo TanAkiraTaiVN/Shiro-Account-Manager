@@ -61,7 +61,7 @@ namespace Shiro.Services
                 IgnoreExistingProcesses: true,
                 CloseIfWindowTitle: false,
                 CloseRbxMemory: false,
-                MemoryThresholdMb: 200m,
+                MemoryThresholdMb: (decimal)RobloxWatcher.DefaultMemoryThresholdMb,
                 ConnectionTimeoutSec: 20m,
                 ExpectedWindowTitle: "Roblox");
 
@@ -84,7 +84,7 @@ namespace Shiro.Services
                 bool closeRbxMemory = watcher.Get<bool>(AppSettingsKeys.Watcher.CloseRbxMemory);
                 decimal memoryThresholdMb = watcher.Exists("MemoryLowValue")
                     ? watcher.Get<decimal>("MemoryLowValue")
-                    : 200m;
+                    : (decimal)RobloxWatcher.DefaultMemoryThresholdMb;
                 decimal connectionTimeoutSec = watcher.Exists(AppSettingsKeys.Watcher.NoConnectionTimeout)
                     ? watcher.Get<decimal>(AppSettingsKeys.Watcher.NoConnectionTimeout)
                     : 20m;

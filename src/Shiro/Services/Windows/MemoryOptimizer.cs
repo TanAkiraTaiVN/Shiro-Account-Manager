@@ -181,7 +181,10 @@ namespace Shiro.Services
                 bool fullIntervalDue = (DateTime.UtcNow - _lastFullTrim).TotalMinutes >= _trimIntervalMinutes;
                 bool needsThresholdTrim = false;
                 var pids = RobloxProcessService.GetRunningRobloxPids();
-                bool effectiveLowerPriority = lowerPriority && ShouldApplyBackgroundFocusThrottle(pids.Count);
+                bool throttlerEnabled = RobloxBackgroundThrottlerService.Instance.IsEnabled;
+                bool effectiveLowerPriority = !(pids.Count == 1 && throttlerEnabled)
+                    && lowerPriority
+                    && ShouldApplyBackgroundFocusThrottle(pids.Count);
 
                 if (!fullIntervalDue && _dynamicThresholdEnabled)
                 {
@@ -273,7 +276,8 @@ namespace Shiro.Services
             });
 
             bool allowEmptyWorkingSet = forceWorkingSetTrim || IsAggressiveWorkingSetTrimEnabled();
-            bool isSoloRestore = ShouldRestoreFullPerformanceOnSolo(pids.Count);
+            bool throttlerEnabled = RobloxBackgroundThrottlerService.Instance.IsEnabled;
+            bool isSoloRestore = ShouldRestoreFullPerformanceOnSolo(pids.Count, throttlerEnabled);
             bool effectiveLowerPriority = lowerPriority
                 && IsAutoLowerPriorityActive()
                 && ShouldApplyBackgroundFocusThrottle(pids.Count);

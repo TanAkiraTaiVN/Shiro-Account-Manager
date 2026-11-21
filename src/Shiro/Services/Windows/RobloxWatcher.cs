@@ -47,7 +47,8 @@ namespace Shiro.Services
         public static bool CloseIfMemoryLow = false;
         public static bool CloseIfWindowTitle = false;
         public static bool RememberWindowPositions = false;
-        public static int MemoryLowValue = 200;
+        internal const int DefaultMemoryThresholdMb = 2048;
+        public static int MemoryLowValue = DefaultMemoryThresholdMb;
         public static string? ExpectedWindowTitle = "Roblox";
 
         private static ModernPeriodicTask? _watcherLoop;

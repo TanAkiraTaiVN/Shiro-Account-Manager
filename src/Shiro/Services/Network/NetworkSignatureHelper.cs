@@ -17,6 +17,40 @@ namespace Shiro.Services
     internal static class NetworkSignatureHelper
     {
         private static readonly Uri ProxyProbeUri = new("https://auth.roblox.com/");
+        private static readonly string[] VpnAdapterMarkers =
+        [
+            "Proton", "WireGuard", "Wintun", "OpenVPN", "NordLynx", "TAP-Windows",
+            "Tailscale", "Mullvad", "ZeroTier", "Cisco", "AnyConnect", "GlobalProtect",
+            "Fortinet", "SoftEther", "Radmin", "Hamachi", "WARP", "Cloudflare WARP",
+            "VPN", "L2TP", "PPTP", "SSTP", "IKEv2"
+        ];
+
+        /// <summary>
+        /// Classifies whether an adapter is a VPN or tunnel interface while ignoring loopback,
+        /// Windows IPv6 transition pseudo-interfaces, and plain residential PPPoE broadband links.
+        /// </summary>
+        internal static bool IsVpnOrTunnelAdapter(string? name, string? description, NetworkInterfaceType interfaceType)
+        {
+            if (interfaceType == NetworkInterfaceType.Loopback ||
+                IsTransitionPseudoInterface(name, description, interfaceType))
+            {
+                return false;
+            }
+
+            if (interfaceType == NetworkInterfaceType.Tunnel)
+                return true;
+
+            foreach (string marker in VpnAdapterMarkers)
+            {
+                if ((!string.IsNullOrEmpty(name) && name.Contains(marker, StringComparison.OrdinalIgnoreCase)) ||
+                    (!string.IsNullOrEmpty(description) && description.Contains(marker, StringComparison.OrdinalIgnoreCase)))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
 
         public static bool IsVpnOrTunnelInterfaceActive(IAppLogger? logger)
         {
@@ -25,42 +59,10 @@ namespace Shiro.Services
                 foreach (NetworkInterface nic in NetworkInterface.GetAllNetworkInterfaces())
                 {
                     if (nic.OperationalStatus != OperationalStatus.Up ||
-                        nic.NetworkInterfaceType == NetworkInterfaceType.Loopback ||
-                        IsTransitionPseudoInterface(nic.Name, nic.Description, nic.NetworkInterfaceType))
+                        !IsVpnOrTunnelAdapter(nic.Name, nic.Description, nic.NetworkInterfaceType))
                     {
                         continue;
                     }
-
-                    string name = nic.Name ?? string.Empty;
-                    string desc = nic.Description ?? string.Empty;
-                    bool isKnownVpnAdapter =
-                        name.Contains("Proton", StringComparison.OrdinalIgnoreCase) ||
-                        desc.Contains("Proton", StringComparison.OrdinalIgnoreCase) ||
-                        desc.Contains("WireGuard", StringComparison.OrdinalIgnoreCase) ||
-                        desc.Contains("Wintun", StringComparison.OrdinalIgnoreCase) ||
-                        desc.Contains("OpenVPN", StringComparison.OrdinalIgnoreCase) ||
-                        desc.Contains("NordLynx", StringComparison.OrdinalIgnoreCase) ||
-                        desc.Contains("TAP-Windows", StringComparison.OrdinalIgnoreCase) ||
-                        name.Contains("Tailscale", StringComparison.OrdinalIgnoreCase) ||
-                        desc.Contains("Tailscale", StringComparison.OrdinalIgnoreCase) ||
-                        name.Contains("Mullvad", StringComparison.OrdinalIgnoreCase) ||
-                        desc.Contains("Mullvad", StringComparison.OrdinalIgnoreCase) ||
-                        name.Contains("ZeroTier", StringComparison.OrdinalIgnoreCase) ||
-                        desc.Contains("ZeroTier", StringComparison.OrdinalIgnoreCase) ||
-                        desc.Contains("Cisco", StringComparison.OrdinalIgnoreCase) ||
-                        desc.Contains("AnyConnect", StringComparison.OrdinalIgnoreCase) ||
-                        desc.Contains("GlobalProtect", StringComparison.OrdinalIgnoreCase) ||
-                        desc.Contains("Fortinet", StringComparison.OrdinalIgnoreCase) ||
-                        desc.Contains("SoftEther", StringComparison.OrdinalIgnoreCase) ||
-                        desc.Contains("Radmin", StringComparison.OrdinalIgnoreCase) ||
-                        desc.Contains("Hamachi", StringComparison.OrdinalIgnoreCase) ||
-                        name.Contains("WARP", StringComparison.OrdinalIgnoreCase) ||
-                        desc.Contains("Cloudflare WARP", StringComparison.OrdinalIgnoreCase);
-
-                    bool isTunnelOrPpp = nic.NetworkInterfaceType is NetworkInterfaceType.Ppp or NetworkInterfaceType.Tunnel;
-
-                    if (!isKnownVpnAdapter && !isTunnelOrPpp)
-                        continue;
 
                     IPInterfaceProperties props = nic.GetIPProperties();
                     foreach (UnicastIPAddressInformation uni in props.UnicastAddresses)
