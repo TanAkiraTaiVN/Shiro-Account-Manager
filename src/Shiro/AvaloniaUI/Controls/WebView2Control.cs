@@ -172,17 +172,14 @@ namespace Shiro.AvaloniaUI.Controls
             if (string.IsNullOrWhiteSpace(proxyServerArg))
                 return BaseBrowserArguments;
 
-            string sanitized = proxyServerArg.Trim();
-            if (sanitized.Contains('@') || sanitized.Any(char.IsWhiteSpace) || sanitized.Contains('"'))
+            if (!TryParseProxyForWebView(proxyServerArg, out string? sanitized, out _, out _, out _) ||
+                string.IsNullOrWhiteSpace(sanitized) ||
+                sanitized.Contains('@') ||
+                sanitized.Any(char.IsWhiteSpace) ||
+                sanitized.Contains('"'))
             {
-                if (TryParseProxyForWebView(sanitized, out string? stripped, out _, out _, out _) && !string.IsNullOrWhiteSpace(stripped))
-                    sanitized = stripped;
-                else
-                    return BaseBrowserArguments;
-            }
-
-            if (sanitized.Contains('@') || sanitized.Any(char.IsWhiteSpace) || sanitized.Contains('"'))
                 return BaseBrowserArguments;
+            }
 
             return $"{BaseBrowserArguments} --proxy-server={sanitized}";
         }

@@ -295,7 +295,7 @@ namespace Shiro.Services
         /// </summary>
         public static byte[] GetOrCreateVaultKeyCopy()
         {
-            return GetOrCreateVaultKey().AsSpan().ToArray();
+            return GetOrCreateVaultKey();
         }
 
         /// <summary>

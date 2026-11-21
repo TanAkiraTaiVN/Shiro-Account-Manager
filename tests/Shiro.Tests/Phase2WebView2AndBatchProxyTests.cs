@@ -129,6 +129,14 @@ namespace Shiro.Tests
             Assert.DoesNotContain("--no-sandbox", injectedArgs, StringComparison.Ordinal);
             Assert.DoesNotContain("--proxy-server", injectedArgs, StringComparison.Ordinal);
 
+            string colonCredsArgs = WebView2Control.BuildAdditionalBrowserArguments("10.20.30.40:8080:bob:pass");
+            Assert.Contains("--proxy-server=http://10.20.30.40:8080", colonCredsArgs, StringComparison.Ordinal);
+            Assert.DoesNotContain("bob", colonCredsArgs, StringComparison.Ordinal);
+            Assert.DoesNotContain("pass", colonCredsArgs, StringComparison.Ordinal);
+
+            string invalidTokenArgs = WebView2Control.BuildAdditionalBrowserArguments("invalid-proxy-token");
+            Assert.DoesNotContain("--proxy-server", invalidTokenArgs, StringComparison.Ordinal);
+
             string tempDir = Path.Combine(Path.GetTempPath(), $"Shiro-Phase2-Wv2-{Guid.NewGuid():N}");
             try
             {

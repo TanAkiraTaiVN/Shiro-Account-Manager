@@ -72,7 +72,7 @@ namespace Shiro
             catch (Exception x) { Program.Logger?.Error($"Failed to start webserver: {x}"); }
 
             clientVersionTask = ObserveBackgroundTaskAsync(
-                LoadClientVersionAsync(lifetimeCancellation.Token),
+                LoadClientVersionAsync(SafeLifetimeToken),
                 "Roblox client version probe");
 
             settingsService.Save();
@@ -147,7 +147,7 @@ namespace Shiro
             OfferResumeReloginQueue();
 
             if (Avalonia.Application.Current != null && !AppSettings.Prompts.Exists("VCPrompted"))
-                vcredistInstallTask = ObserveBackgroundTaskAsync(PrerequisiteService.PromptAndInstallVCRedistAsync(AppSettings.Prompts, (msg, title) => AppDispatcher.InvokeTaskAsync(() => AppServices.Dialogs.ShowConfirmationAsync(msg, title)), cancellationToken: lifetimeCancellation.Token), "VCRedist prerequisite prompt");
+                vcredistInstallTask = ObserveBackgroundTaskAsync(PrerequisiteService.PromptAndInstallVCRedistAsync(AppSettings.Prompts, (msg, title) => AppDispatcher.InvokeTaskAsync(() => AppServices.Dialogs.ShowConfirmationAsync(msg, title)), cancellationToken: SafeLifetimeToken), "VCRedist prerequisite prompt");
         }
 
         // Offers to continue a batch re-login that was interrupted (dialog or app closed mid-way).
@@ -160,7 +160,7 @@ namespace Shiro
                 try
                 {
                     // Wait for startup validation so already-recovered accounts are skipped.
-                    await Task.Delay(OfferResumeDelayMilliseconds, lifetimeCancellation.Token).ConfigureAwait(false);
+                    await Task.Delay(OfferResumeDelayMilliseconds, SafeLifetimeToken).ConfigureAwait(false);
                     var pendingIds = ReloginQueueStore.Load();
                     if (pendingIds.Count == 0) return;
 

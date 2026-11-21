@@ -209,9 +209,9 @@ namespace Shiro.Services
         /// </summary>
         public static bool Shutdown()
         {
-            bool flushed = Flush();
             lock (_sync)
             {
+                bool flushed = Flush();
                 if (_debounceTimer != null)
                 {
                     try { _debounceTimer.Change(Timeout.Infinite, Timeout.Infinite); }
@@ -222,8 +222,8 @@ namespace Shiro.Services
 
                     _debounceTimer = null;
                 }
+                return flushed;
             }
-            return flushed;
         }
 
         internal static void ResetInMemoryCacheForTests()

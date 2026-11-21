@@ -39,7 +39,7 @@ namespace Shiro
         private Task? recentGamesTask;
         private readonly System.Threading.Lock _shutdownLock = new();
         private int _shutdownStarted;
-        private bool shutdownRequested;
+        private volatile bool shutdownRequested;
         private volatile bool shutdownFinalized;
         private CancellationToken SafeLifetimeToken => (shutdownRequested || shutdownFinalized) ? new CancellationToken(true) : TryReadLifetimeToken();
         private CancellationToken TryReadLifetimeToken() { try { return lifetimeCancellation.Token; } catch (ObjectDisposedException) { return new CancellationToken(true); } }
