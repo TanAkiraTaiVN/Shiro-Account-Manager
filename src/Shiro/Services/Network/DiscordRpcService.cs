@@ -98,7 +98,7 @@ namespace Shiro.Services
         {
             lock (_pipeLock)
             {
-                if (_isDisposed || !IsEnabled || _isConnected || _cts != null) return;
+                if (_isDisposed || !IsEnabled || string.IsNullOrWhiteSpace(GetConfiguredClientId()) || _isConnected || _cts != null) return;
                 long generation = ++_workerGeneration;
                 var loopCts = new CancellationTokenSource();
                 _cts = loopCts;

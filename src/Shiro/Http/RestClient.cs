@@ -31,8 +31,7 @@ namespace Shiro.Http
                 BaseUrl = baseUrl.TrimEnd('/') + "/";
 
             UserAgent = userAgent;
-            string clientPoolName = string.IsNullOrEmpty(userAgent) ? "default" : $"ua_{userAgent}";
-            _httpClient = Services.SharedHttpClient.Get(clientPoolName);
+            _httpClient = Services.SharedHttpClient.Get();
             _ownsClient = false;
         }
 
@@ -46,7 +45,7 @@ namespace Shiro.Http
         }
 
         internal static bool IsBodyMethod(Method method) =>
-            method is Method.Post or Method.Put or Method.Patch;
+            method is Method.Post or Method.Put or Method.Patch or Method.Delete;
 
         private static void AppendQueryList(StringBuilder sb, List<KeyValuePair<string, string>> parameters)
         {
@@ -117,10 +116,13 @@ namespace Shiro.Http
 
             var message = new HttpRequestMessage(httpMethod, finalUri);
 
-            if (!string.IsNullOrEmpty(UserAgent))
+            string? effectiveUserAgent = request.Headers.TryGetValue("User-Agent", out string? reqUa) && !string.IsNullOrWhiteSpace(reqUa)
+                ? reqUa
+                : UserAgent;
+            if (!string.IsNullOrEmpty(effectiveUserAgent))
             {
                 message.Headers.Remove("User-Agent");
-                message.Headers.TryAddWithoutValidation("User-Agent", UserAgent);
+                message.Headers.TryAddWithoutValidation("User-Agent", effectiveUserAgent);
             }
 
             string? specifiedContentType = null;
@@ -131,7 +133,7 @@ namespace Shiro.Http
                     specifiedContentType = kvp.Value;
                     continue;
                 }
-                if (kvp.Key.Equals("User-Agent", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(UserAgent))
+                if (kvp.Key.Equals("User-Agent", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(effectiveUserAgent))
                 {
                     continue;
                 }
@@ -140,6 +142,9 @@ namespace Shiro.Http
 
             if (isBodyMethod)
             {
+                string? contentType = ResolveEffectiveContentType(request, specifiedContentType);
+                bool isForm = IsFormContentType(contentType);
+
                 if (request.JsonBody != null)
                 {
                     if (request.JsonBody is string rawJson)
@@ -161,18 +166,18 @@ namespace Shiro.Http
                         message.Content = byteContent;
                     }
                 }
-                else if (specifiedContentType != null && specifiedContentType.Contains("x-www-form-urlencoded", StringComparison.OrdinalIgnoreCase))
+                else if (isForm && request.Parameters.Count > 0)
                 {
                     message.Content = new FormUrlEncodedContent(request.Parameters);
                 }
                 else if (request.StringBody != null)
                 {
-                    string mediaType = request.ContentType ?? specifiedContentType ?? "application/json";
+                    string mediaType = contentType ?? "application/json";
                     int semi = mediaType.IndexOf(';');
                     if (semi > 0) mediaType = mediaType.Substring(0, semi).Trim();
                     message.Content = new StringContent(request.StringBody, Encoding.UTF8, mediaType);
                 }
-                else if (request.Parameters.Count > 0)
+                else if (request.Parameters.Count > 0 || isForm)
                 {
                     message.Content = new FormUrlEncodedContent(request.Parameters);
                 }
@@ -180,6 +185,22 @@ namespace Shiro.Http
 
             return message;
         }
+
+        private static string? ResolveEffectiveContentType(RestRequest request, string? headerContentType = null)
+        {
+            if (!string.IsNullOrWhiteSpace(request.ContentType))
+                return request.ContentType;
+            if (!string.IsNullOrWhiteSpace(headerContentType))
+                return headerContentType;
+            return request.Headers.TryGetValue("Content-Type", out var ct) && !string.IsNullOrWhiteSpace(ct) ? ct : null;
+        }
+
+        private static bool IsFormContentType(string? contentType) =>
+            contentType != null && contentType.Contains("x-www-form-urlencoded", StringComparison.OrdinalIgnoreCase);
+
+        private static string FormatFormParameters(List<KeyValuePair<string, string>> parameters) =>
+            string.Join("&", parameters.Select(p =>
+                $"{Uri.EscapeDataString(p.Key).Replace("%20", "+")}={Uri.EscapeDataString(p.Value).Replace("%20", "+")}"));
 
         internal static string? SerializeRequestBodyForSigning(RestRequest request)
         {
@@ -191,16 +212,16 @@ namespace Shiro.Http
                 return FastJson.Serialize(request.JsonBody);
             }
 
-            bool isForm = request.Headers.TryGetValue("Content-Type", out var ct) &&
-                          ct.Contains("x-www-form-urlencoded", StringComparison.OrdinalIgnoreCase);
-            if (!isForm && request.StringBody != null)
+            bool isForm = IsFormContentType(ResolveEffectiveContentType(request));
+            if (isForm && request.Parameters.Count > 0)
+                return FormatFormParameters(request.Parameters);
+
+            if (request.StringBody != null)
                 return request.StringBody;
 
-            if (request.Parameters.Count > 0)
-            {
-                return string.Join("&", request.Parameters.Select(p =>
-                    $"{Uri.EscapeDataString(p.Key).Replace("%20", "+")}={Uri.EscapeDataString(p.Value).Replace("%20", "+")}"));
-            }
+            if (request.Parameters.Count > 0 && (IsBodyMethod(request.Method) || isForm))
+                return FormatFormParameters(request.Parameters);
+
             return null;
         }
 

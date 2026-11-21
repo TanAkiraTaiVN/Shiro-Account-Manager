@@ -122,7 +122,7 @@ namespace Shiro.Services
                 {
                     int totalRead = 0;
                     int read;
-                    while ((read = await req.Body.ReadAsync(buffer, 0, buffer.Length).ConfigureAwait(false)) > 0)
+                    while ((read = await req.Body.ReadAsync(buffer.AsMemory(), context.RequestAborted).ConfigureAwait(false)) > 0)
                     {
                         totalRead += read;
                         if (totalRead > MaxRequestBodySizeBytes)
@@ -132,11 +132,16 @@ namespace Shiro.Services
                         }
                         ms.Write(buffer, 0, read);
                     }
-                    body = Encoding.UTF8.GetString(ms.ToArray());
+                    body = ms.TryGetBuffer(out ArraySegment<byte> seg) && seg.Array != null
+                        ? Encoding.UTF8.GetString(seg.Array, seg.Offset, seg.Count)
+                        : Encoding.UTF8.GetString(ms.ToArray());
                 }
                 finally
                 {
+                    Array.Clear(buffer, 0, buffer.Length);
                     System.Buffers.ArrayPool<byte>.Shared.Return(buffer);
+                    if (ms.TryGetBuffer(out ArraySegment<byte> msSeg) && msSeg.Array != null)
+                        Array.Clear(msSeg.Array, msSeg.Offset, msSeg.Count);
                 }
             }
 
@@ -309,18 +314,34 @@ namespace Shiro.Services
             if (absolutePath.Equals("/swagger.json", StringComparison.OrdinalIgnoreCase) || absolutePath.Equals("/openapi.json", StringComparison.OrdinalIgnoreCase))
             {
                 req.SetContentType?.Invoke("application/json; charset=utf-8");
-                return ApiDocumentationService.GetOpenApiJson();
+                return ApiDocumentationService.GetOpenApiJson(ResolveDocsPort(req.Host));
             }
 
             if (absolutePath.Equals("/api/docs", StringComparison.OrdinalIgnoreCase) || absolutePath.Equals("/docs", StringComparison.OrdinalIgnoreCase))
             {
                 req.SetContentType?.Invoke("text/html; charset=utf-8");
-                return ApiDocumentationService.GetDocsHtml();
+                return ApiDocumentationService.GetDocsHtml(ResolveDocsPort(req.Host));
             }
 
             string password = headerPass ?? (req.IsLocal ? queryPass : null) ?? string.Empty;
 
             return await HandleApiEndpointAsync(req, method, account, password, body, Reply).ConfigureAwait(false);
+        }
+
+        private static int ResolveDocsPort(string? host)
+        {
+            if (!string.IsNullOrWhiteSpace(host))
+            {
+                var hs = new HostString(host.Trim());
+                if (hs.Port is int hostPort and > 0 and <= 65535)
+                    return hostPort;
+            }
+
+            var webServer = AppServices.Settings.GetSection(AppSettingsKeys.Sections.WebServer);
+            int configuredPort = webServer != null && webServer.Exists(AppSettingsKeys.WebServer.WebServerPort)
+                ? webServer.GetInt(AppSettingsKeys.WebServer.WebServerPort, 7963)
+                : (AppServices.GeneralSettings?.GetInt(AppSettingsKeys.WebServer.WebServerPort, 7963) ?? 7963);
+            return configuredPort is > 0 and <= 65535 ? configuredPort : 7963;
         }
 
         private static bool TryParsePositiveUserId(string? raw, out long userId) =>
