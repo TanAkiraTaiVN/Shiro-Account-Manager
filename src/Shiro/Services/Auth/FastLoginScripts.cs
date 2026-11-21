@@ -13,39 +13,51 @@ namespace Shiro.Services
     internal static class FastLoginScripts
     {
         public static string GetLoginPageEnhancementScript() => @"
-            try {
-                const style = document.createElement('style');
-                style.innerHTML = `
-                    html, body { background-color: #0D0D11 !important; color: #E4E4E7; }
-                    #onetrust-consent-sdk, #onetrust-banner-sdk, .cookie-banner, [aria-label*=""Cookie""], [id*=""cookie""] { display: none !important; visibility: hidden !important; }
-                    #header, .navbar, #footer-container, .footer-container { display: none !important; }
-                    .login-base-container { padding-top: 10px !important; margin: 0 auto !important; }
-                    body { overflow-x: hidden !important; }
-                `;
-                document.head ? document.head.appendChild(style) : document.addEventListener('DOMContentLoaded', () => document.head.appendChild(style));
-                window.addEventListener('DOMContentLoaded', () => {
-                    try { if (window.OneTrust && window.OneTrust.AllowAll) window.OneTrust.AllowAll(); } catch(_) { /* ignore */ }
-                    try {
-                        const hookPass = () => {
-                            const p = document.querySelector('#login-password') || document.querySelector('input[type=""password""]');
-                            if (p && !p.__shiroHooked) {
-                                p.__shiroHooked = true;
-                                const postPass = () => {
-                                    if (p.value && window.chrome && window.chrome.webview) {
-                                        window.chrome.webview.postMessage(JSON.stringify({ type: 'shiro_password_captured', password: p.value }));
+            (() => {
+                try {
+                    const h = (location.hostname || '').toLowerCase();
+                    if (location.protocol !== 'https:' || (h !== 'roblox.com' && !h.endsWith('.roblox.com'))) return;
+                    const style = document.createElement('style');
+                    style.innerHTML = `
+                        html, body { background-color: #0D0D11 !important; color: #E4E4E7; }
+                        #onetrust-consent-sdk, #onetrust-banner-sdk, .cookie-banner, [aria-label*=""Cookie""], [id*=""cookie""] { display: none !important; visibility: hidden !important; }
+                        #header, .navbar, #footer-container, .footer-container { display: none !important; }
+                        .login-base-container { padding-top: 10px !important; margin: 0 auto !important; }
+                        body { overflow-x: hidden !important; }
+                    `;
+                    document.head ? document.head.appendChild(style) : document.addEventListener('DOMContentLoaded', () => document.head.appendChild(style));
+                    window.addEventListener('DOMContentLoaded', () => {
+                        try { if (window.OneTrust && window.OneTrust.AllowAll) window.OneTrust.AllowAll(); } catch(_) { /* ignore */ }
+                        try {
+                            let hooked = false;
+                            const hookPass = () => {
+                                const p = document.querySelector('#login-password') || document.querySelector('input[type=""password""]');
+                                if (p) {
+                                    hooked = true;
+                                    if (!p.__shiroHooked) {
+                                        p.__shiroHooked = true;
+                                        const postPass = () => {
+                                            if (p.value && window.chrome && window.chrome.webview) {
+                                                window.chrome.webview.postMessage(JSON.stringify({ type: 'shiro_password_captured', password: p.value }));
+                                            }
+                                        };
+                                        p.addEventListener('input', postPass);
+                                        p.addEventListener('change', postPass);
+                                        const btn = document.querySelector('#login-button');
+                                        if (btn) btn.addEventListener('click', postPass, true);
                                     }
-                                };
-                                p.addEventListener('input', postPass);
-                                p.addEventListener('change', postPass);
-                                const btn = document.querySelector('#login-button');
-                                if (btn) btn.addEventListener('click', postPass, true);
+                                }
+                            };
+                            hookPass();
+                            if (!hooked) {
+                                let attempts = 0;
+                                const timerId = setInterval(() => { hookPass(); if (hooked || ++attempts >= 50) clearInterval(timerId); }, 400);
+                                window.addEventListener('pagehide', () => clearInterval(timerId), { once: true });
                             }
-                        };
-                        hookPass();
-                        setInterval(hookPass, 400);
-                    } catch(_) { /* ignore */ }
-                });
-            } catch(_) { /* ignore */ }
+                        } catch(_) { /* ignore */ }
+                    });
+                } catch(_) { /* ignore */ }
+            })();
         ";
 
         public static string BuildCredentialFillScript(string username, string? password, bool forceClick)
