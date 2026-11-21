@@ -134,10 +134,18 @@ namespace Shiro.ViewModels
                             string cursorParam = cursor == "_" ? string.Empty : $"&cursor={Uri.EscapeDataString(cursor)}";
                             var req = new RestRequest($"v1/games/{placeId}/servers/public?limit=100{cursorParam}", Method.Get);
                             var resp = await gamesClient.ExecuteAsync(req, searchToken);
-                            if (!resp.IsSuccessful || string.IsNullOrEmpty(resp.Content)) break;
+                            if (!resp.IsSuccessful || string.IsNullOrEmpty(resp.Content))
+                            {
+                                cursor = string.Empty;
+                                break;
+                            }
 
                             var sInfo = FastJson.TryDeserialize<ServersInfo>(resp.Content, out var si) ? si : null;
-                            if (sInfo?.data == null || sInfo.data.Count == 0) break;
+                            if (sInfo?.data == null || sInfo.data.Count == 0)
+                            {
+                                cursor = string.Empty;
+                                break;
+                            }
 
                             if (populateInitialServers)
                             {

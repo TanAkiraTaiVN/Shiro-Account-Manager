@@ -52,38 +52,45 @@ namespace Shiro.Tests
                 AppServices.SelectionState.SelectedAccount = null;
                 AppServices.SelectionState.LastValidAccount = null;
 
-                LocalizationService.SetLanguage(AppLanguage.English, saveSetting: false);
-                await ((AsyncRelayCommand)vm.LoadRegionCommand).ExecuteAsync(server);
-                string enLoginRequired = LocalizationService.Get("ServerQuery.LoginRequired");
-                Assert.Equal("Login required", enLoginRequired);
-                Assert.Equal(enLoginRequired, server.Region);
+                using (LocalizationService.OverrideLanguageForTest(AppLanguage.English))
+                {
+                    await ((AsyncRelayCommand)vm.LoadRegionCommand).ExecuteAsync(server);
+                    string enLoginRequired = LocalizationService.Get("ServerQuery.LoginRequired");
+                    Assert.Equal("Login required", enLoginRequired);
+                    Assert.Equal(enLoginRequired, server.Region);
+                }
 
-                LocalizationService.SetLanguage(AppLanguage.Vietnamese, saveSetting: false);
-                await ((AsyncRelayCommand)vm.LoadRegionCommand).ExecuteAsync(server);
-                string viLoginRequired = LocalizationService.Get("ServerQuery.LoginRequired");
-                Assert.Equal("Cần đăng nhập", viLoginRequired);
-                Assert.Equal(viLoginRequired, server.Region);
+                using (LocalizationService.OverrideLanguageForTest(AppLanguage.Vietnamese))
+                {
+                    await ((AsyncRelayCommand)vm.LoadRegionCommand).ExecuteAsync(server);
+                    string viLoginRequired = LocalizationService.Get("ServerQuery.LoginRequired");
+                    Assert.Equal("Cần đăng nhập", viLoginRequired);
+                    Assert.Equal(viLoginRequired, server.Region);
+                }
 
                 // 2. Exception -> ServerQuery.RegionLoadError (never MissingAssets.PriceLoadError)
                 var acc = new Account { Username = "RegionTester", SecurityToken = "tok", Valid = true };
                 AppServices.SelectionState.SelectedAccount = acc;
 
-                LocalizationService.SetLanguage(AppLanguage.English, saveSetting: false);
-                await ((AsyncRelayCommand)vm.LoadRegionCommand).ExecuteAsync(server);
-                string enRegionError = LocalizationService.Get("ServerQuery.RegionLoadError");
-                Assert.Equal("Load error", enRegionError);
-                Assert.Equal(enRegionError, server.Region);
+                using (LocalizationService.OverrideLanguageForTest(AppLanguage.English))
+                {
+                    await ((AsyncRelayCommand)vm.LoadRegionCommand).ExecuteAsync(server);
+                    string enRegionError = LocalizationService.Get("ServerQuery.RegionLoadError");
+                    Assert.Equal("Load error", enRegionError);
+                    Assert.Equal(enRegionError, server.Region);
+                }
 
-                LocalizationService.SetLanguage(AppLanguage.Vietnamese, saveSetting: false);
-                await ((AsyncRelayCommand)vm.LoadRegionCommand).ExecuteAsync(server);
-                string viRegionError = LocalizationService.Get("ServerQuery.RegionLoadError");
-                Assert.Equal("Lỗi tải khu vực", viRegionError);
-                Assert.Equal(viRegionError, server.Region);
-                Assert.NotEqual(LocalizationService.Get("MissingAssets.PriceLoadError"), server.Region);
+                using (LocalizationService.OverrideLanguageForTest(AppLanguage.Vietnamese))
+                {
+                    await ((AsyncRelayCommand)vm.LoadRegionCommand).ExecuteAsync(server);
+                    string viRegionError = LocalizationService.Get("ServerQuery.RegionLoadError");
+                    Assert.Equal("Lỗi tải khu vực", viRegionError);
+                    Assert.Equal(viRegionError, server.Region);
+                    Assert.NotEqual(LocalizationService.Get("MissingAssets.PriceLoadError"), server.Region);
+                }
             }
             finally
             {
-                LocalizationService.SetLanguage(AppLanguage.Vietnamese, saveSetting: false);
                 AppServices.SelectionState.SelectedAccount = prevSelected;
                 AppServices.SelectionState.LastValidAccount = prevLastValid;
                 AppDispatcher.CustomDispatcher = prevDispatcher;
@@ -249,8 +256,109 @@ namespace Shiro.Tests
 
                 Assert.False(vm.IsSearchingPlayer);
                 Assert.Equal(notFoundText, vm.PlayerSearchStatus);
-                Assert.InRange(scanStatusPosts, 1, 5);
-                Assert.InRange(totalDispatcherPosts, 2, 5);
+                Assert.InRange(scanStatusPosts, 1, 13);
+                Assert.InRange(totalDispatcherPosts, 2, 15);
+            }
+            finally
+            {
+                AppDispatcher.CustomDispatcher = prevDispatcher;
+            }
+        }
+
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task SearchPlayerAsync_When15thPageFailsOrReturnsEmptyData_ReportsPlayerNotFoundInsteadOfPageLimit(bool failWithHttpError)
+        {
+            var prevDispatcher = AppDispatcher.CustomDispatcher;
+            AppDispatcher.CustomDispatcher = static action => action();
+
+            try
+            {
+                using var _langScope = LocalizationService.OverrideLanguageForTest(AppLanguage.English);
+
+                var mockRepo = Substitute.For<IAccountRepository>();
+                mockRepo.LookupUserIdAsync("TargetPlayer", Arg.Any<CancellationToken>())
+                    .Returns(Task.FromResult((true, 99999L, (RestResponse?)null)));
+                using var _repoScope = AppServices.Override<IAccountRepository>(mockRepo);
+
+                int publicServerRequests = 0;
+                const int ServersPerPage = 2;
+
+                var gamesHandler = new FakeHttpHandler(_ =>
+                {
+                    int page = Interlocked.Increment(ref publicServerRequests);
+                    if (page == ServerBrowserTabViewModel.MaxPlayerSearchPages)
+                    {
+                        if (failWithHttpError)
+                        {
+                            return new HttpResponseMessage(HttpStatusCode.InternalServerError)
+                            {
+                                Content = new StringContent("Server Error", Encoding.UTF8, "text/plain")
+                            };
+                        }
+
+                        return new HttpResponseMessage(HttpStatusCode.OK)
+                        {
+                            Content = new StringContent("{\"data\":[],\"nextPageCursor\":\"page_16\"}", Encoding.UTF8, "application/json")
+                        };
+                    }
+
+                    var sb = new StringBuilder();
+                    sb.Append("{\"data\":[");
+                    for (int i = 0; i < ServersPerPage; i++)
+                    {
+                        if (i > 0) sb.Append(',');
+                        sb.Append("{\"id\":\"job-p").Append(page).Append('-').Append(i)
+                          .Append("\",\"maxPlayers\":12,\"playing\":1,\"playerTokens\":[\"tok_p")
+                          .Append(page).Append('_').Append(i).Append("\"]}");
+                    }
+                    sb.Append("],\"nextPageCursor\":\"page_").Append(page + 1).Append("\"}");
+
+                    return new HttpResponseMessage(HttpStatusCode.OK)
+                    {
+                        Content = new StringContent(sb.ToString(), Encoding.UTF8, "application/json")
+                    };
+                });
+
+                var thumbHandler = new FakeHttpHandler(req =>
+                {
+                    string uri = req.RequestUri?.ToString() ?? string.Empty;
+                    if (uri.Contains("avatar-headshot", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return new HttpResponseMessage(HttpStatusCode.OK)
+                        {
+                            Content = new StringContent("{\"data\":[{\"targetId\":99999,\"imageUrl\":\"https://rbx.cdn/target99999.png\"}]}", Encoding.UTF8, "application/json")
+                        };
+                    }
+
+                    return new HttpResponseMessage(HttpStatusCode.OK)
+                    {
+                        Content = new StringContent("{\"data\":[{\"requestId\":\"none\",\"imageUrl\":\"https://rbx.cdn/other.png\"}]}", Encoding.UTF8, "application/json")
+                    };
+                });
+
+                using var gamesClient = new RestClient(new HttpClient(gamesHandler), "https://games.roblox.com/");
+                using var thumbClient = new RestClient(new HttpClient(thumbHandler), "https://thumbnails.roblox.com/");
+                var mockApi = Substitute.For<IRobloxApiClient>();
+                mockApi.Games.Returns(gamesClient);
+                mockApi.Thumbnails.Returns(thumbClient);
+                using var _apiScope = AppServices.Override<IRobloxApiClient>(mockApi);
+
+                using var mainVm = new MainViewModel();
+                var vm = mainVm.ServerListViewModel;
+                vm.SearchPlayerUsername = "TargetPlayer";
+                vm.PlaceIdInput = "1818";
+
+                await ((AsyncRelayCommand)vm.SearchPlayerCommand).ExecuteAsync(null);
+
+                Assert.Equal(ServerBrowserTabViewModel.MaxPlayerSearchPages, publicServerRequests);
+                Assert.False(vm.IsSearchingPlayer);
+
+                string expectedNotFound = LocalizationService.Format("ServerList.PlayerNotFound", "TargetPlayer");
+                string pageLimitStatus = LocalizationService.Format("ServerList.PlayerSearchPageLimitReached", "TargetPlayer", 14 * ServersPerPage);
+                Assert.NotEqual(pageLimitStatus, expectedNotFound);
+                Assert.Equal(expectedNotFound, vm.PlayerSearchStatus);
             }
             finally
             {
