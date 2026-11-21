@@ -20,6 +20,7 @@ namespace Shiro.AvaloniaUI.Views
         {
             Instance = this;
             InitializeComponent();
+            UpdateMaximizeIcon();
             WindowBackdropService.ApplyDarkAndBackdrop(this);
 
             if (AppServices.HostUiBridge is HostUiBridgeService bridge)
@@ -339,12 +340,11 @@ namespace Shiro.AvaloniaUI.Views
 
         private void UpdateMaximizeIcon()
         {
+            bool isMaximized = WindowState == WindowState.Maximized;
             if (IconMaximize != null)
-            {
-                IconMaximize.Icon = WindowState == WindowState.Maximized
-                    ? LucideAvalonia.Enum.LucideIconNames.Copy
-                    : LucideAvalonia.Enum.LucideIconNames.Square;
-            }
+                IconMaximize.IsVisible = !isMaximized;
+            if (IconRestore != null)
+                IconRestore.IsVisible = isMaximized;
         }
 
         private void OnTitleBarPointerPressed(object sender, PointerPressedEventArgs e)

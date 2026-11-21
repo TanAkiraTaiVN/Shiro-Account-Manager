@@ -96,16 +96,25 @@ namespace Shiro.Services
                 if (shutdownHostAsync != null)
                     _asyncShutdownCallbacks.Add(shutdownHostAsync);
 
-                if (!_hostInitialized)
+                if (initializeHostAsync != null && !_hostInitialized)
                 {
                     _hostInitialized = true;
                     shouldInitializeHost = true;
                 }
             }
 
-            if (shouldInitializeHost && initializeHostAsync != null)
+            if (shouldInitializeHost)
             {
-                await initializeHostAsync(provider, cancellationToken).ConfigureAwait(false);
+                bool hostInitSucceeded = false;
+                try
+                {
+                    await initializeHostAsync!(provider, cancellationToken).ConfigureAwait(false);
+                    hostInitSucceeded = true;
+                }
+                finally
+                {
+                    ResetHostInitializedIfFailed(hostInitSucceeded);
+                }
             }
         }
 
@@ -135,7 +144,7 @@ namespace Shiro.Services
                 if (shutdownHost != null)
                     _shutdownCallbacks.Add(shutdownHost);
 
-                if (!_hostInitialized)
+                if (initializeHost != null && !_hostInitialized)
                 {
                     _hostInitialized = true;
                     shouldInitializeHost = true;
@@ -144,7 +153,26 @@ namespace Shiro.Services
 
             if (shouldInitializeHost)
             {
-                initializeHost?.Invoke(provider);
+                bool hostInitSucceeded = false;
+                try
+                {
+                    initializeHost!(provider);
+                    hostInitSucceeded = true;
+                }
+                finally
+                {
+                    ResetHostInitializedIfFailed(hostInitSucceeded);
+                }
+            }
+        }
+
+        private void ResetHostInitializedIfFailed(bool succeeded)
+        {
+            if (succeeded)
+                return;
+            lock (_gate)
+            {
+                _hostInitialized = false;
             }
         }
 

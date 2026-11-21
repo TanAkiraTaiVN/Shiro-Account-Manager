@@ -328,5 +328,114 @@ namespace Shiro.Tests.Ui
                 Logger.Sink = prevSink;
             }
         }
+
+        [AvaloniaFact]
+        public void AboutView_WrapsLongVietnameseText_InsideCardBounds()
+        {
+            var prevLang = LocalizationService.CurrentLanguage;
+            Window? window = null;
+            try
+            {
+                LocalizationService.SetLanguage(AppLanguage.Vietnamese, saveSetting: false);
+                var view = new AboutView();
+                window = new Window { Width = 620, Height = 520, Content = view };
+                window.Show();
+                Dispatcher.UIThread.RunJobs();
+
+                Border? cardBorder = view.GetVisualDescendants()
+                    .OfType<Border>()
+                    .FirstOrDefault(b => b.MaxWidth > 0);
+                Assert.NotNull(cardBorder);
+                double innerWidth = cardBorder!.Bounds.Width - cardBorder.Padding.Left - cardBorder.Padding.Right;
+                Assert.True(innerWidth >= 380, $"Unexpected innerWidth={innerWidth}");
+
+                var textBlocks = view.GetVisualDescendants().OfType<TextBlock>().ToList();
+                Assert.True(textBlocks.Count >= 8);
+                Assert.Contains(textBlocks, tb => tb.TextWrapping == TextWrapping.Wrap);
+
+                foreach (TextBlock tb in textBlocks)
+                {
+                    Assert.True(
+                        tb.Bounds.Width <= innerWidth + 1.0,
+                        $"TextBlock '{tb.Text}' width {tb.Bounds.Width} exceeded inner card width {innerWidth}");
+                }
+            }
+            finally
+            {
+                window?.Close();
+                LocalizationService.SetLanguage(prevLang, saveSetting: false);
+                Avalonia.Application.Current?.Resources.MergedDictionaries.Clear();
+            }
+        }
+
+        [AvaloniaFact]
+        public void MainWindow_MaximizeRestoreIcons_ToggleVisibility_WithLightStrokeBrush()
+        {
+            MainWindow? prevWindow = MainWindow.Instance;
+            var bridge = AppServices.HostUiBridge as HostUiBridgeService;
+            var prevRefreshAccounts = bridge?.RefreshAccountsOnUiHandler;
+            var prevRefreshSingle = bridge?.RefreshSingleAccountOnUiHandler;
+            var prevNotifyValidity = bridge?.NotifyAccountValidityOnUiHandler;
+            var prevRefreshLive = bridge?.RefreshLiveProcessStatusOnUiHandler;
+            var prevUpdateStatus = bridge?.UpdateWindowStatusOnUiHandler;
+            var prevNotifyClosed = bridge?.NotifyRobloxProcessesClosedOnUiHandler;
+            var prevGetSelected = bridge?.GetDashboardSelectedAccountsHandler;
+            var prevGetPlace = bridge?.GetDashboardPlaceIdHandler;
+            var prevGetJob = bridge?.GetDashboardJobIdHandler;
+
+            var mw = new MainWindow();
+            try
+            {
+                var iconMax = mw.FindControl<LucideAvalonia.Lucide>("IconMaximize");
+                var iconRestore = mw.FindControl<LucideAvalonia.Lucide>("IconRestore");
+                Assert.NotNull(iconMax);
+                Assert.NotNull(iconRestore);
+                Assert.True(iconMax!.IsVisible);
+                Assert.False(iconRestore!.IsVisible);
+
+                Color expectedStroke = Color.Parse("#A1A1AA");
+                AssertLucideStrokeColor(iconMax, expectedStroke);
+                AssertLucideStrokeColor(iconRestore, expectedStroke);
+
+                mw.WindowState = WindowState.Maximized;
+                Assert.False(iconMax.IsVisible);
+                Assert.True(iconRestore.IsVisible);
+                AssertLucideStrokeColor(iconRestore, expectedStroke);
+
+                mw.WindowState = WindowState.Normal;
+                Assert.True(iconMax.IsVisible);
+                Assert.False(iconRestore.IsVisible);
+            }
+            finally
+            {
+                (mw.ViewModel as IDisposable)?.Dispose();
+                mw.Close();
+                typeof(MainWindow).GetProperty(nameof(MainWindow.Instance))?.SetValue(null, prevWindow);
+                if (bridge != null)
+                {
+                    bridge.RefreshAccountsOnUiHandler = prevRefreshAccounts;
+                    bridge.RefreshSingleAccountOnUiHandler = prevRefreshSingle;
+                    bridge.NotifyAccountValidityOnUiHandler = prevNotifyValidity;
+                    bridge.RefreshLiveProcessStatusOnUiHandler = prevRefreshLive;
+                    bridge.UpdateWindowStatusOnUiHandler = prevUpdateStatus;
+                    bridge.NotifyRobloxProcessesClosedOnUiHandler = prevNotifyClosed;
+                    bridge.GetDashboardSelectedAccountsHandler = prevGetSelected;
+                    bridge.GetDashboardPlaceIdHandler = prevGetPlace;
+                    bridge.GetDashboardJobIdHandler = prevGetJob;
+                }
+            }
+        }
+
+        private static void AssertLucideStrokeColor(LucideAvalonia.Lucide icon, Color expectedColor)
+        {
+            var drawingImage = Assert.IsType<DrawingImage>(icon.IconSource);
+            var group = Assert.IsType<DrawingGroup>(drawingImage.Drawing);
+            var strokes = group.Children.OfType<GeometryDrawing>()
+                .Select(g => g.Pen?.Brush as ISolidColorBrush)
+                .Where(b => b != null)
+                .ToList();
+            Assert.NotEmpty(strokes);
+            Assert.All(strokes, b => Assert.Equal(expectedColor, b!.Color));
+        }
     }
 }

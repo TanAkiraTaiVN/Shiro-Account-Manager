@@ -255,5 +255,55 @@ namespace Shiro.Tests
                 }
             }
         }
+
+        [Fact]
+        public async Task AppBootstrap_TwoPhaseInit_InvokesHostInitializerOnce_AndAllowsRetryAfterFailure()
+        {
+            await using var syncBootstrap = new AppBootstrap();
+            int syncCalls = 0;
+
+            syncBootstrap.InitializeSync(configureServices: null);
+            syncBootstrap.InitializeSync(
+                configureServices: null,
+                initializeHost: sp =>
+                {
+                    syncCalls++;
+                    Assert.Same(syncBootstrap.Services, sp);
+                });
+            syncBootstrap.InitializeSync(
+                configureServices: null,
+                initializeHost: _ => syncCalls++);
+
+            Assert.Equal(1, syncCalls);
+
+            await using var asyncBootstrap = new AppBootstrap();
+            int asyncCalls = 0;
+
+            await asyncBootstrap.InitializeAsync();
+            await asyncBootstrap.InitializeAsync(
+                initializeHostAsync: (sp, _) =>
+                {
+                    asyncCalls++;
+                    Assert.Same(asyncBootstrap.Services, sp);
+                    return Task.CompletedTask;
+                });
+            await asyncBootstrap.InitializeAsync(
+                initializeHostAsync: (_, _) =>
+                {
+                    asyncCalls++;
+                    return Task.CompletedTask;
+                });
+
+            Assert.Equal(1, asyncCalls);
+
+            await using var retryBootstrap = new AppBootstrap();
+            int retryCalls = 0;
+            Assert.Throws<InvalidOperationException>(() =>
+                retryBootstrap.InitializeSync(initializeHost: _ => throw new InvalidOperationException("transient")));
+
+            retryBootstrap.InitializeSync(initializeHost: _ => retryCalls++);
+            retryBootstrap.InitializeSync(initializeHost: _ => retryCalls++);
+            Assert.Equal(1, retryCalls);
+        }
     }
 }
