@@ -47,12 +47,16 @@ namespace Shiro.Services
             }
         }
 
+        private static string ComputeKeyCacheId(string trimmedKey) =>
+            Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(trimmedKey)));
+
         internal static bool ClearCachedKey(string? hbaPrivateKey)
         {
             if (string.IsNullOrWhiteSpace(hbaPrivateKey)) return false;
+            string cacheId = ComputeKeyCacheId(hbaPrivateKey.Trim());
             lock (KeyCacheLock)
             {
-                if (!CachedEcParameters.TryRemove(hbaPrivateKey.Trim(), out ECParameters ecParams))
+                if (!CachedEcParameters.TryRemove(cacheId, out ECParameters ecParams))
                     return false;
                 if (ecParams.D != null) CryptographicOperations.ZeroMemory(ecParams.D);
                 return true;
@@ -344,9 +348,10 @@ namespace Shiro.Services
 
         private static ECDsa AcquireCachedEcdsa(string trimmedKey)
         {
+            string cacheId = ComputeKeyCacheId(trimmedKey);
             lock (KeyCacheLock)
             {
-                if (!CachedEcParameters.TryGetValue(trimmedKey, out ECParameters ecParams))
+                if (!CachedEcParameters.TryGetValue(cacheId, out ECParameters ecParams))
                 {
                     byte[] keyBytes = Convert.FromBase64String(trimmedKey);
                     try
@@ -363,7 +368,7 @@ namespace Shiro.Services
                     if (CachedEcParameters.Count >= 64)
                         ClearKeyCache();
 
-                    CachedEcParameters[trimmedKey] = ecParams;
+                    CachedEcParameters[cacheId] = ecParams;
                 }
 
                 return ECDsa.Create(ecParams);

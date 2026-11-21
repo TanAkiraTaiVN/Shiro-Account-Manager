@@ -13,7 +13,7 @@ namespace Shiro.Services
         private static readonly System.Threading.Lock _cookieLock = new();
         private static CancellationTokenSource? _restoreCts;
         private static string? _lastInjectedUsername;
-        private static string? _lastInjectedToken;
+        private static byte[]? _protectedLastInjectedToken;
         private static string? _lastInjectedTrackerId;
         private static int _activeGuardScopes;
         private static bool _hasPendingBackupRestore;
@@ -84,7 +84,7 @@ namespace Shiro.Services
                 _hasPendingBackupRestore = false;
                 _hasPendingInjectionRestore = false;
                 _lastInjectedUsername = null;
-                _lastInjectedToken = null;
+                InMemorySecretProtector.ZeroAndClear(ref _protectedLastInjectedToken);
                 _lastInjectedTrackerId = null;
             }
 
@@ -233,7 +233,8 @@ namespace Shiro.Services
                     if (localStorageDirectoryOverride == null)
                     {
                         _lastInjectedUsername = username;
-                        _lastInjectedToken = token;
+                        InMemorySecretProtector.ZeroAndClear(ref _protectedLastInjectedToken);
+                        _protectedLastInjectedToken = InMemorySecretProtector.Protect(token);
                         _lastInjectedTrackerId = btid;
                         _hasPendingBackupRestore = true;
                         _hasPendingInjectionRestore = true;
@@ -397,10 +398,10 @@ namespace Shiro.Services
             lock (_cookieLock)
             {
                 expectedUser = _lastInjectedUsername;
-                injectedToken = _lastInjectedToken;
+                injectedToken = _protectedLastInjectedToken != null ? InMemorySecretProtector.Unprotect(_protectedLastInjectedToken) : null;
                 expectedTrackerId = _lastInjectedTrackerId;
                 _lastInjectedUsername = null;
-                _lastInjectedToken = null;
+                InMemorySecretProtector.ZeroAndClear(ref _protectedLastInjectedToken);
                 _lastInjectedTrackerId = null;
             }
 

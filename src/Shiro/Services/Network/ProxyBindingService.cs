@@ -7,6 +7,8 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Security.Cryptography;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -30,6 +32,12 @@ namespace Shiro.Services
             new ConcurrentDictionary<string, Lazy<HttpClient>>(StringComparer.OrdinalIgnoreCase);
         private static readonly System.Threading.Lock _distributionLock = new();
         private const string NoRedirectKeyPrefix = "no-redirect_";
+
+        private static string ComputeProxyCacheKey(string normalizedProxy, bool allowAutoRedirect)
+        {
+            string hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(normalizedProxy.Trim())));
+            return allowAutoRedirect ? hash : $"{NoRedirectKeyPrefix}{hash}";
+        }
 
         /// <summary>
         /// Parses a proxy string into an <see cref="IWebProxy"/> instance.
@@ -150,7 +158,7 @@ namespace Shiro.Services
                 return SharedHttpClient.GetNoRedirect();
 
             return GetOrCreatePooledProxyClient(
-                $"{NoRedirectKeyPrefix}{effectiveProxy}",
+                ComputeProxyCacheKey(effectiveProxy, allowAutoRedirect: false),
                 effectiveProxy,
                 allowAutoRedirect: false);
         }
@@ -164,7 +172,10 @@ namespace Shiro.Services
                 return SharedHttpClient.Get();
 
             string normalized = proxyString.Trim();
-            return GetOrCreatePooledProxyClient(normalized, normalized, allowAutoRedirect: true);
+            return GetOrCreatePooledProxyClient(
+                ComputeProxyCacheKey(normalized, allowAutoRedirect: true),
+                normalized,
+                allowAutoRedirect: true);
         }
 
         private static HttpClient GetOrCreatePooledProxyClient(string cacheKey, string proxyString, bool allowAutoRedirect)
@@ -412,15 +423,15 @@ namespace Shiro.Services
         /// </summary>
         public static void PruneClients(IEnumerable<string> activeProxies)
         {
-            var activeSet = new HashSet<string>(NormalizeDistinctProxies(activeProxies), StringComparer.OrdinalIgnoreCase);
-
+            var activeKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (string proxy in NormalizeDistinctProxies(activeProxies))
+            {
+                activeKeys.Add(ComputeProxyCacheKey(proxy, allowAutoRedirect: true));
+                activeKeys.Add(ComputeProxyCacheKey(proxy, allowAutoRedirect: false));
+            }
             foreach (var entry in _proxyClients)
             {
-                string rawProxyKey = entry.Key.StartsWith(NoRedirectKeyPrefix, StringComparison.OrdinalIgnoreCase)
-                    ? entry.Key.Substring(NoRedirectKeyPrefix.Length)
-                    : entry.Key;
-
-                if (!activeSet.Contains(rawProxyKey) && _proxyClients.TryRemove(entry.Key, out var removed))
+                if (!activeKeys.Contains(entry.Key) && _proxyClients.TryRemove(entry.Key, out var removed))
                     RetireClient(removed);
             }
         }

@@ -18,8 +18,8 @@ namespace Shiro.Services
         if (window.__shiroHbaHookInstalled) return;
         window.__shiroHbaHookInstalled = true;
 
+        let closurePrivateKeyPkcs8 = '';
         const state = window.__shiroHbaState = window.__shiroHbaState || {
-            privateKeyPkcs8: '',
             publicKeySpki: '',
             tokenTemplate: '',
             userAgent: navigator.userAgent || '',
@@ -37,10 +37,10 @@ namespace Shiro.Services
 
         const notifyHost = () => {
             try {
-                if (window.chrome && window.chrome.webview && (state.privateKeyPkcs8 || state.tokenTemplate)) {
+                if (window.chrome && window.chrome.webview && (closurePrivateKeyPkcs8 || state.tokenTemplate)) {
                     window.chrome.webview.postMessage(JSON.stringify({
                         type: 'shiro_hba_captured',
-                        privateKeyPkcs8: state.privateKeyPkcs8,
+                        privateKeyPkcs8: closurePrivateKeyPkcs8,
                         publicKeySpki: state.publicKeySpki,
                         tokenTemplate: state.tokenTemplate,
                         userAgent: state.userAgent,
@@ -77,13 +77,13 @@ namespace Shiro.Services
             try {
                 const sc = subtle || getSubtle();
                 if (!sc || !origExport) return false;
-                if (!saiBound && state.saiBound && state.privateKeyPkcs8) return true;
-                if (!authoritative && state.authoritativeKey && state.privateKeyPkcs8) return true;
+                if (!saiBound && state.saiBound && closurePrivateKeyPkcs8) return true;
+                if (!authoritative && state.authoritativeKey && closurePrivateKeyPkcs8) return true;
 
                 let exportedPriv = false;
                 if (privKey && privKey.extractable) {
                     const pkcs8 = await origExport.call(sc, 'pkcs8', privKey);
-                    state.privateKeyPkcs8 = toBase64(pkcs8);
+                    closurePrivateKeyPkcs8 = toBase64(pkcs8);
                     exportedPriv = true;
                     if (authoritative || saiBound) state.authoritativeKey = true;
                     if (saiBound) state.saiBound = true;
@@ -92,7 +92,7 @@ namespace Shiro.Services
                     const spki = await origExport.call(sc, 'spki', pubKey);
                     state.publicKeySpki = toBase64(spki);
                 }
-                if (state.privateKeyPkcs8) notifyHost();
+                if (closurePrivateKeyPkcs8) notifyHost();
                 return exportedPriv;
             } catch (_) {
                 return false;
@@ -175,7 +175,7 @@ namespace Shiro.Services
         window.__shiroSyncHbaFromIndexedDb = async () => {
             await syncFromHbaIndexedDb(false);
             return JSON.stringify({
-                privateKeyPkcs8: state.privateKeyPkcs8 || '',
+                privateKeyPkcs8: closurePrivateKeyPkcs8 || '',
                 publicKeySpki: state.publicKeySpki || '',
                 tokenTemplate: state.tokenTemplate || '',
                 userAgent: state.userAgent || navigator.userAgent || '',
@@ -230,7 +230,7 @@ namespace Shiro.Services
                         const pipeParts = decoded ? decoded.split('|') : [];
                         const isSaiPayload = pipeParts.length === 3 && pipeParts[0].length >= 60 && /^\d{9,12}$/.test(pipeParts[1]);
                         const isBatPayload = pipeParts.length === 4;
-                        if (key && key.extractable && (isSaiPayload || isBatPayload || !state.privateKeyPkcs8)) {
+                        if (key && key.extractable && (isSaiPayload || isBatPayload || !closurePrivateKeyPkcs8)) {
                             await tryExportPair(this, key, null, isSaiPayload || isBatPayload, isSaiPayload);
                         }
                         if (isBatPayload) {

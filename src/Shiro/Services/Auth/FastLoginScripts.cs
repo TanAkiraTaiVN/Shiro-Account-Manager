@@ -394,7 +394,6 @@ namespace Shiro.Services
                                 }
                                 const s = window.__shiroHbaState || {};
                                 return JSON.stringify({
-                                    privateKeyPkcs8: s.privateKeyPkcs8 || '',
                                     publicKeySpki: s.publicKeySpki || '',
                                     tokenTemplate: s.tokenTemplate || '',
                                     userAgent: s.userAgent || navigator.userAgent || '',
