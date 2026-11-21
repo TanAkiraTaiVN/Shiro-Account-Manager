@@ -305,5 +305,84 @@ namespace Shiro.Tests
             retryBootstrap.InitializeSync(initializeHost: _ => retryCalls++);
             Assert.Equal(1, retryCalls);
         }
+
+        [Fact]
+        public void WindowBackdropService_FirstFrameUncloakCoordinator_UncloaksOnceAfterTwoFrames()
+        {
+            var pendingFrames = new Queue<Action<TimeSpan>>();
+            int startTimerCalls = 0;
+            int stopTimerCalls = 0;
+            int uncloakCalls = 0;
+
+            var coordinator = new WindowBackdropService.FirstFrameUncloakCoordinator(
+                requestFrame: cb => pendingFrames.Enqueue(cb),
+                startFailsafeTimer: () => startTimerCalls++,
+                stopFailsafeTimer: () => stopTimerCalls++,
+                uncloakAction: () => uncloakCalls++);
+
+            coordinator.OnOpened();
+            Assert.Equal(1, startTimerCalls);
+            Assert.Equal(0, uncloakCalls);
+            Assert.Single(pendingFrames);
+
+            // Frame 1 schedules Frame 2 without uncloaking prematurely.
+            pendingFrames.Dequeue().Invoke(TimeSpan.FromMilliseconds(16));
+            Assert.Equal(0, uncloakCalls);
+            Assert.Equal(0, stopTimerCalls);
+            Assert.Single(pendingFrames);
+
+            // Frame 2 completes presentation and uncloaks exactly once.
+            pendingFrames.Dequeue().Invoke(TimeSpan.FromMilliseconds(32));
+            Assert.Equal(1, uncloakCalls);
+            Assert.Equal(1, stopTimerCalls);
+
+            // Later failsafe or close events must be idempotent no-ops.
+            coordinator.OnFailsafeElapsed();
+            coordinator.OnClosed();
+            Assert.Equal(1, uncloakCalls);
+            Assert.Equal(1, stopTimerCalls);
+        }
+
+        [Fact]
+        public void WindowBackdropService_FirstFrameUncloakCoordinator_FailsafeAndClose_NeverLeaveWindowCloaked()
+        {
+            int failsafeStarts = 0;
+            int failsafeStops = 0;
+            int failsafeUncloaks = 0;
+            var failsafeCoordinator = new WindowBackdropService.FirstFrameUncloakCoordinator(
+                requestFrame: _ => { },
+                startFailsafeTimer: () => failsafeStarts++,
+                stopFailsafeTimer: () => failsafeStops++,
+                uncloakAction: () => failsafeUncloaks++);
+
+            failsafeCoordinator.OnOpened();
+            failsafeCoordinator.OnFailsafeElapsed();
+            failsafeCoordinator.OnClosed();
+            Assert.Equal(1, failsafeStarts);
+            Assert.Equal(1, failsafeStops);
+            Assert.Equal(1, failsafeUncloaks);
+
+            int closeStops = 0;
+            int closeUncloaks = 0;
+            var earlyCloseCoordinator = new WindowBackdropService.FirstFrameUncloakCoordinator(
+                requestFrame: _ => { },
+                startFailsafeTimer: () => { },
+                stopFailsafeTimer: () => closeStops++,
+                uncloakAction: () => closeUncloaks++);
+
+            earlyCloseCoordinator.OnClosed();
+            earlyCloseCoordinator.OnOpened();
+            Assert.Equal(1, closeStops);
+            Assert.Equal(1, closeUncloaks);
+        }
+
+        [Fact]
+        public void WindowBackdropService_DarkCaptionColor_MatchesBackgroundAndWindows11Threshold()
+        {
+            Assert.Equal(0x000F0B0B, WindowBackdropService.DarkWindowColorRef);
+            Assert.False(WindowBackdropService.ShouldApplyDarkCaptionColor(19045));
+            Assert.True(WindowBackdropService.ShouldApplyDarkCaptionColor(22000));
+            Assert.True(WindowBackdropService.ShouldApplyDarkCaptionColor(22621));
+        }
     }
 }

@@ -21,7 +21,7 @@ namespace Shiro.AvaloniaUI.Views
             Instance = this;
             InitializeComponent();
             UpdateMaximizeIcon();
-            WindowBackdropService.ApplyDarkAndBackdrop(this);
+            WindowBackdropService.ApplyDarkAndBackdrop(this, cloakUntilFirstFrame: true);
 
             if (AppServices.HostUiBridge is HostUiBridgeService bridge)
             {
@@ -61,48 +61,11 @@ namespace Shiro.AvaloniaUI.Views
                 TxtCommandPalette.AddHandler(KeyDownEvent, OnCommandPaletteKeyDown, RoutingStrategies.Tunnel);
             }
 
-            Loaded += (s, e) =>
+            bool boundsApplied = TryApplyInitialWindowBounds();
+            Loaded += (_, _) =>
             {
-                try
-                {
-                    var screen = Screens.ScreenFromVisual(this) ?? Screens.Primary;
-                    if (screen != null)
-                    {
-                        double scaling = screen.Scaling;
-                        if (scaling <= 0) scaling = 1.0;
-
-                        var workArea = screen.WorkingArea;
-                        double workAreaDipWidth = workArea.Width / scaling;
-                        double workAreaDipHeight = workArea.Height / scaling;
-
-                        double maxDipWidth = workAreaDipWidth * 0.94;
-                        double maxDipHeight = workAreaDipHeight * 0.88;
-
-                        double currentWidth = (!double.IsNaN(Width) && Width > 0) ? Width : 1260;
-                        double currentHeight = (!double.IsNaN(Height) && Height > 0) ? Height : 680;
-
-                        if (currentWidth > maxDipWidth) currentWidth = Math.Max(MinWidth, maxDipWidth);
-                        if (currentHeight > maxDipHeight) currentHeight = Math.Max(MinHeight, maxDipHeight);
-
-                        Width = currentWidth;
-                        Height = currentHeight;
-
-                        int pixelWidth = (int)Math.Round(currentWidth * scaling);
-                        int pixelHeight = (int)Math.Round(currentHeight * scaling);
-
-                        int centerX = workArea.X + (workArea.Width - pixelWidth) / 2;
-                        int centerY = workArea.Y + (workArea.Height - pixelHeight) / 2;
-
-                        Position = new Avalonia.PixelPoint(
-                            Math.Max(workArea.X, centerX),
-                            Math.Max(workArea.Y, centerY)
-                        );
-                    }
-                }
-                catch (Exception ex)
-                {
-                    AppServices.Logger?.Debug($"Center window position calculation threw: {ex.Message}");
-                }
+                if (!boundsApplied)
+                    boundsApplied = TryApplyInitialWindowBounds();
             };
 
             PropertyChanged += (s, e) =>
@@ -325,6 +288,53 @@ namespace Shiro.AvaloniaUI.Views
 
         public void OpenProxyManagerDialog()
             => AppServices.Dialogs.OpenProxyManagerDialog();
+
+        private bool TryApplyInitialWindowBounds()
+        {
+            try
+            {
+                var screen = Screens.ScreenFromVisual(this) ?? Screens.Primary;
+                if (screen == null)
+                    return false;
+
+                double scaling = screen.Scaling;
+                if (scaling <= 0) scaling = 1.0;
+
+                var workArea = screen.WorkingArea;
+                double workAreaDipWidth = workArea.Width / scaling;
+                double workAreaDipHeight = workArea.Height / scaling;
+
+                double maxDipWidth = workAreaDipWidth * 0.94;
+                double maxDipHeight = workAreaDipHeight * 0.88;
+
+                double currentWidth = (!double.IsNaN(Width) && Width > 0) ? Width : 1260;
+                double currentHeight = (!double.IsNaN(Height) && Height > 0) ? Height : 680;
+
+                if (currentWidth > maxDipWidth) currentWidth = Math.Max(MinWidth, maxDipWidth);
+                if (currentHeight > maxDipHeight) currentHeight = Math.Max(MinHeight, maxDipHeight);
+
+                Width = currentWidth;
+                Height = currentHeight;
+
+                int pixelWidth = (int)Math.Round(currentWidth * scaling);
+                int pixelHeight = (int)Math.Round(currentHeight * scaling);
+
+                int centerX = workArea.X + (workArea.Width - pixelWidth) / 2;
+                int centerY = workArea.Y + (workArea.Height - pixelHeight) / 2;
+
+                WindowStartupLocation = WindowStartupLocation.Manual;
+                Position = new Avalonia.PixelPoint(
+                    Math.Max(workArea.X, centerX),
+                    Math.Max(workArea.Y, centerY)
+                );
+                return true;
+            }
+            catch (Exception ex)
+            {
+                AppServices.Logger?.Debug($"Center window position calculation threw: {ex.Message}");
+                return false;
+            }
+        }
 
         private void OnMinimizeClicked(object sender, RoutedEventArgs e)
             => WindowState = WindowState.Minimized;
