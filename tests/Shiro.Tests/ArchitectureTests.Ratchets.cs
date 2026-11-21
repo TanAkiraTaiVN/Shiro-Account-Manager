@@ -194,5 +194,20 @@ namespace Shiro.Tests
             Assert.Contains("if: failure()", releaseYml, StringComparison.Ordinal);
             Assert.Contains("path: coverage/", releaseYml, StringComparison.Ordinal);
         }
+
+        [Fact]
+        public void ReleaseWorkflow_UnitTestsAndCoverageGate_MustFailOnNonZeroTestExitCode()
+        {
+            string workflowPath = Path.Combine(RepoRoot, ".github", "workflows", "release.yml");
+            string content = File.ReadAllText(workflowPath);
+
+            bool hasExplicitExitGuard =
+                content.Contains("$LASTEXITCODE -ne 0", StringComparison.Ordinal) &&
+                content.Contains("exit $LASTEXITCODE", StringComparison.Ordinal);
+
+            Assert.True(
+                hasExplicitExitGuard,
+                "release.yml must explicitly fail when dotnet test exits non-zero before running Check-Coverage.ps1.");
+        }
     }
 }

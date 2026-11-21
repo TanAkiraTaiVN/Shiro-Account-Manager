@@ -36,8 +36,17 @@ jobs:
       - name: Run Unit Tests & Coverage Gate
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'
           dotnet test "tests/Shiro.Tests/Shiro.Tests.csproj" --configuration Release --no-restore --collect:"XPlat Code Coverage" --settings "tests/coverage.runsettings" --results-directory "coverage" --logger "console;verbosity=normal"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Unit tests failed with exit code $LASTEXITCODE"
+            exit $LASTEXITCODE
+          }
           ./scripts/Check-Coverage.ps1 -CoverageDir "coverage" -MinOverall 75.0 -MinBranch 60.0 -MinCore 92.0
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Coverage gate failed with exit code $LASTEXITCODE"
+            exit $LASTEXITCODE
+          }
 
       - name: Upload coverage on failure
         if: failure()
