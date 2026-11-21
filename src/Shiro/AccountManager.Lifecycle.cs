@@ -145,6 +145,9 @@ namespace Shiro
             catch (Exception ex) { Program.Logger?.Warn($"PatchSettings failed: {ex.Message}"); }
 
             OfferResumeReloginQueue();
+
+            if (Avalonia.Application.Current != null && !AppSettings.Prompts.Exists("VCPrompted"))
+                vcredistInstallTask = ObserveBackgroundTaskAsync(PrerequisiteService.PromptAndInstallVCRedistAsync(AppSettings.Prompts, (msg, title) => AppDispatcher.InvokeTaskAsync(() => AppServices.Dialogs.ShowConfirmationAsync(msg, title)), cancellationToken: lifetimeCancellation.Token), "VCRedist prerequisite prompt");
         }
 
         // Offers to continue a batch re-login that was interrupted (dialog or app closed mid-way).

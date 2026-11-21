@@ -201,12 +201,6 @@ namespace Shiro
             AppServices.SelectionState.SelectedAccounts = new List<Account>();
             launchCoordinator = new LaunchCoordinator(ExecuteLaunchRequestAsync);
             browserService = AppServices.BrowserService;
-
-            if (!AppSettings.Prompts.Exists("VCPrompted") && PrerequisiteService.NeedsVCRedist())
-            {
-                AppSettings.Prompts.Set("VCPrompted", "true");
-                vcredistInstallTask = PrerequisiteService.InstallVCRedistAsync(lifetimeCancellation.Token);
-            }
         }
 
         internal static void EnsureModernGeoIpLink(Shiro.Services.ISettingsService generalSettings)

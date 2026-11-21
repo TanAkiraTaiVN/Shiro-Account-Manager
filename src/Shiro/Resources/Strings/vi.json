@@ -622,6 +622,8 @@
   "Nav_Workspace": "KHÔNG GIAN LÀM VIỆC",
   "Palette.Category.Selection": "Thao tác",
   "Prerequisite.VcRedistInstallError": "[PrerequisiteService] Lỗi cài đặt VCRedist: {0}",
+  "Prerequisite.VcRedistPromptMessage": "Hệ thống đang thiếu Visual C++ Redistributable (x64) cần thiết cho Roblox và trình duyệt nhúng.\n\nBạn có muốn tải xuống và cài đặt gói chính thức từ Microsoft ngay bây giờ không? (Sẽ yêu cầu quyền Quản trị viên)",
+  "Prerequisite.VcRedistPromptTitle": "Cài đặt Visual C++ Redistributable?",
   "Presence.SessionExpiredBadge": "● Hết hạn phiên (Re-login)",
   "ProxyManager.AddedProxiesCount": "Đã thêm {0} proxy{1}",
   "ProxyManager.CheckSummaryResult": "Hoạt động: {0}/{1} • Lỗi: {2}",

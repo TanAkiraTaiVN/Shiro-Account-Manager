@@ -91,6 +91,35 @@ namespace Shiro.Services
             }
         }
 
+        public static async Task<bool> PromptAndInstallVCRedistAsync(
+            ISettingsService promptsSettings,
+            Func<string, string, Task<bool>> confirmAsync,
+            Func<bool>? needsVcRedistOverride = null,
+            Func<CancellationToken, Task<bool>>? installOverride = null,
+            CancellationToken cancellationToken = default)
+        {
+            ArgumentNullException.ThrowIfNull(promptsSettings);
+            ArgumentNullException.ThrowIfNull(confirmAsync);
+
+            if (cancellationToken.IsCancellationRequested || promptsSettings.Exists("VCPrompted"))
+                return false;
+
+            Func<bool> needsVcRedist = needsVcRedistOverride ?? NeedsVCRedist;
+            if (!needsVcRedist())
+                return false;
+
+            bool confirmed = await confirmAsync(
+                LocalizationService.Get("Prerequisite.VcRedistPromptMessage"),
+                LocalizationService.Get("Prerequisite.VcRedistPromptTitle")).ConfigureAwait(false);
+
+            promptsSettings.Set("VCPrompted", "true");
+            if (!confirmed)
+                return false;
+
+            Func<CancellationToken, Task<bool>> install = installOverride ?? InstallVCRedistAsync;
+            return await install(cancellationToken).ConfigureAwait(false);
+        }
+
         public static Task<bool> InstallVCRedistAsync(CancellationToken cancellationToken = default)
         {
             return InstallVCRedistCoreAsync(

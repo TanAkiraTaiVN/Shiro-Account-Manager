@@ -622,6 +622,8 @@
   "Nav_Workspace": "WORKSPACE",
   "Palette.Category.Selection": "Selection",
   "Prerequisite.VcRedistInstallError": "[PrerequisiteService] VCRedist installation error: {0}",
+  "Prerequisite.VcRedistPromptMessage": "Visual C++ Redistributable (x64) is missing on this system and is required by Roblox and embedded browser components.\n\nDownload and install the official Microsoft VC++ Redistributable now? (Requires administrator approval)",
+  "Prerequisite.VcRedistPromptTitle": "Install Visual C++ Redistributable?",
   "Presence.SessionExpiredBadge": "● Session Expired (Re-login)",
   "ProxyManager.AddedProxiesCount": "Added {0} proxies{1}",
   "ProxyManager.CheckSummaryResult": "Live: {0}/{1} • Failed: {2}",

@@ -117,6 +117,8 @@ namespace Shiro.Services
                     if (cols.Length >= 7 && string.Equals(cols[5], "RBXEventTrackerV2", StringComparison.OrdinalIgnoreCase))
                     {
                         string val = cols[6].Trim().TrimEnd(';');
+                        long rbxuidVal = 0;
+                        long rbxidVal = 0;
                         foreach (string kv in val.Split('&', StringSplitOptions.RemoveEmptyEntries))
                         {
                             int eq = kv.IndexOf('=');
@@ -125,13 +127,18 @@ namespace Shiro.Services
                             string v = kv.Substring(eq + 1).Trim();
                             if (string.Equals(key, "rbxuid", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(v))
                             {
-                                long.TryParse(v, NumberStyles.Integer, CultureInfo.InvariantCulture, out userId);
+                                long.TryParse(v, NumberStyles.Integer, CultureInfo.InvariantCulture, out rbxuidVal);
+                            }
+                            else if (string.Equals(key, "rbxid", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(v))
+                            {
+                                long.TryParse(v, NumberStyles.Integer, CultureInfo.InvariantCulture, out rbxidVal);
                             }
                             else if (string.Equals(key, "browserid", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(v))
                             {
                                 browserTrackerId = v;
                             }
                         }
+                        userId = rbxuidVal > 0 ? rbxuidVal : rbxidVal;
                         return userId > 0 || !string.IsNullOrEmpty(browserTrackerId);
                     }
                 }

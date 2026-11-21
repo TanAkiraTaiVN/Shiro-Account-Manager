@@ -72,6 +72,17 @@ namespace Shiro.Services
         [LibraryImport("user32.dll")]
         private static partial IntPtr GetShellWindow();
 
+        [LibraryImport("userenv.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static partial bool CreateEnvironmentBlock(
+            out IntPtr lpEnvironment,
+            IntPtr hToken,
+            [MarshalAs(UnmanagedType.Bool)] bool bInherit);
+
+        [LibraryImport("userenv.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static partial bool DestroyEnvironmentBlock(IntPtr lpEnvironment);
+
         private const uint TOKEN_DUPLICATE = 0x0002;
         private const uint TOKEN_ASSIGN_PRIMARY = 0x0001;
         private const uint TOKEN_QUERY = 0x0008;
@@ -80,6 +91,10 @@ namespace Shiro.Services
         private const int SecurityImpersonation = 2;
         private const int TokenPrimary = 1;
         private const uint LOGON_WITH_PROFILE = 1;
+        private const uint CREATE_UNICODE_ENVIRONMENT = 0x00000400;
+
+        internal static (uint CreationFlags, IntPtr Environment) ResolveDeElevationEnvironmentArgs(IntPtr envBlock) =>
+            envBlock != IntPtr.Zero ? (CREATE_UNICODE_ENVIRONMENT, envBlock) : (0u, IntPtr.Zero);
 
         /// <summary>
         /// Checks whether Shiro is currently executing with elevated Administrator privileges.
@@ -204,8 +219,16 @@ namespace Shiro.Services
                             return false;
                         }
 
+                        IntPtr lpEnv = IntPtr.Zero;
                         try
                         {
+                            if (!CreateEnvironmentBlock(out lpEnv, hNewToken, bInherit: false))
+                            {
+                                AppServices.Logger?.Debug($"[RobloxDirectLauncher] CreateEnvironmentBlock failed (err: {Marshal.GetLastWin32Error()}).");
+                                lpEnv = IntPtr.Zero;
+                            }
+
+                            var (creationFlags, envPtr) = ResolveDeElevationEnvironmentArgs(lpEnv);
                             var si = new STARTUPINFO
                             {
                                 cb = Marshal.SizeOf<STARTUPINFO>()
@@ -219,8 +242,8 @@ namespace Shiro.Services
                                 LOGON_WITH_PROFILE,
                                 lpApplicationName: playerPath,
                                 lpCommandLine: cmdBuffer,
-                                0,
-                                IntPtr.Zero,
+                                creationFlags,
+                                envPtr,
                                 workDir,
                                 ref si,
                                 out PROCESS_INFORMATION pi))
@@ -258,6 +281,8 @@ namespace Shiro.Services
                         }
                         finally
                         {
+                            if (lpEnv != IntPtr.Zero)
+                                _ = DestroyEnvironmentBlock(lpEnv);
                             Win32NativeHelper.CloseHandle(hNewToken);
                         }
                     }
