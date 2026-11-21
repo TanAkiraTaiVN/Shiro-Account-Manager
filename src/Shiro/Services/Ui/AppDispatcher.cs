@@ -68,6 +68,32 @@ namespace Shiro.Services
         /// </summary>
         public static void PostBackground(Action action) => PostWithPriority(action, DispatcherPriority.Background);
 
+        /// <summary>
+        /// Posts an asynchronous delegate to the UI dispatcher and observes any fault via AppServices.Logger
+        /// without using an unobserved async void lambda.
+        /// </summary>
+        public static void PostTask(Func<Task> action, string? callerName = null)
+        {
+            if (action == null) return;
+            PostWithPriority(() => _ = RunObservedPostTaskAsync(action, callerName), DispatcherPriority.Normal);
+        }
+
+        private static async Task RunObservedPostTaskAsync(Func<Task> action, string? callerName)
+        {
+            try
+            {
+                await action().ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                // Expected on cancellation
+            }
+            catch (Exception ex)
+            {
+                AppServices.Logger?.Error($"[{callerName ?? nameof(PostTask)}] {ex}");
+            }
+        }
+
         private static void PostWithPriority(Action action, DispatcherPriority priority)
         {
             if (action == null) return;

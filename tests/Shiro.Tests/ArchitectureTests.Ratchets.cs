@@ -100,6 +100,61 @@ namespace Shiro.Tests
         [GeneratedRegex(@"\bThread\.Sleep\b")]
         private static partial Regex ThreadSleepPattern();
 
+        [GeneratedRegex(@"\basync\s+void\b")]
+        private static partial Regex AsyncVoidMethodPattern();
+
+        [GeneratedRegex(@"\+=\s*async\b")]
+        private static partial Regex EventSubscribeAsyncLambdaPattern();
+
+        [GeneratedRegex(@"\b(?:AppDispatcher|Dispatcher\.UIThread)\.Post(?:Background)?\s*\(\s*async\b")]
+        private static partial Regex DispatcherPostAsyncLambdaPattern();
+
+        [GeneratedRegex(@"\bnew\s+Action(?:<[^>]+>)?\s*\(\s*async\b")]
+        private static partial Regex NewActionAsyncLambdaPattern();
+
+        [GeneratedRegex(@"\.Register\s*\(\s*async\b")]
+        private static partial Regex CancellationRegisterAsyncLambdaPattern();
+
+        [Fact]
+        public void HiddenAsyncVoidLambdas_ShouldBeZero()
+        {
+            var allow = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var patterns = new (string Name, Regex Pattern)[]
+            {
+                ("+= async", EventSubscribeAsyncLambdaPattern()),
+                ("Post(async ...)", DispatcherPostAsyncLambdaPattern()),
+                ("new Action(async ...)", NewActionAsyncLambdaPattern()),
+                (".Register(async ...)", CancellationRegisterAsyncLambdaPattern())
+            };
+
+            var offenders = new List<string>();
+            foreach (var (name, pattern) in patterns)
+            {
+                foreach (var file in FindSourcePatternOffenders(pattern, allow))
+                {
+                    offenders.Add($"{file} [{name}]");
+                }
+            }
+
+            Assert.Empty(offenders);
+        }
+
+        [Fact]
+        public void ExplicitAsyncVoid_AcrossAllSourceFiles_ShouldOnlyExistInRelayCommand()
+        {
+            var allow = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                "ViewModels/RelayCommand.cs"
+            };
+            var offenders = FindSourcePatternOffenders(AsyncVoidMethodPattern(), allow);
+            Assert.Empty(offenders);
+
+            string relayPath = Path.Combine(RepoRoot, "src", "Shiro", "ViewModels", "RelayCommand.cs");
+            string stripped = SourceScan.StripCommentsAndStringLiterals(File.ReadAllText(relayPath));
+            int relayCount = AsyncVoidMethodPattern().Matches(stripped).Count;
+            Assert.Equal(2, relayCount);
+        }
+
         private static List<string> FindSourcePatternOffenders(Regex pattern, HashSet<string> allowRelativePaths)
         {
             string appRoot = Path.Combine(RepoRoot, "src", "Shiro");
