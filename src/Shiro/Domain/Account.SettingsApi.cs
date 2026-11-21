@@ -28,5 +28,8 @@ namespace Shiro
 
         public Task<bool> SetAvatarAsync(string avatarJsonData, CancellationToken cancellationToken = default) =>
             RobloxSettingsApiService.Instance.SetAvatarAsync(this, avatarJsonData, cancellationToken);
+
+        internal Task<bool> SetAvatarAsync(string avatarJsonData, bool suppressMissingAssetsDialog, CancellationToken cancellationToken = default) =>
+            RobloxSettingsApiService.Instance.SetAvatarAsync(this, avatarJsonData, suppressMissingAssetsDialog, cancellationToken);
     }
 }

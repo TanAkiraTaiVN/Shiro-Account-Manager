@@ -121,15 +121,26 @@ public sealed class AssetCommerceService : IAssetCommerce
                     {
                         collectibleProductId = larpProp.GetString();
                         usingResale = true;
-                        if (target.TryGetProperty("lowestAvailableResaleSellerId", out var lrSeller) && lrSeller.TryGetInt64(out long parsedReseller) && parsedReseller > 0)
+                        if (target.TryGetProperty("lowestAvailableResaleSellerId", out var lrSeller) && TryReadInt64(lrSeller, out long parsedReseller) && parsedReseller > 0)
                             sellerId = parsedReseller;
-                        else if (target.TryGetProperty("resellerSellerId", out var rsProp) && rsProp.TryGetInt64(out long parsedRs) && parsedRs > 0)
+                        else if (target.TryGetProperty("resellerSellerId", out var rsProp) && TryReadInt64(rsProp, out long parsedRs) && parsedRs > 0)
                             sellerId = parsedRs;
+
+                        if (TryReadResalePrice(target, out long resalePrice))
+                            expectedPrice = resalePrice;
+
+                        if ((target.TryGetProperty("lowestAvailableResaleSellerType", out var lrTypeProp) && TryParseSellerType(lrTypeProp, out string parsedLrType)) ||
+                            (target.TryGetProperty("resellerSellerType", out var rsTypeProp) && TryParseSellerType(rsTypeProp, out parsedLrType)))
+                        {
+                            sellerType = parsedLrType;
+                        }
                     }
 
-                    if (!usingResale && sellerId <= 0 && target.TryGetProperty("creatorId", out var cIdProp) && cIdProp.TryGetInt64(out long parsedCId))
+                    if (!usingResale && sellerId <= 0 && target.TryGetProperty("creatorId", out var cIdProp) && TryReadInt64(cIdProp, out long parsedCId))
                     {
                         sellerId = parsedCId;
+                        if (target.TryGetProperty("creatorType", out var ctProp) && TryParseSellerType(ctProp, out string parsedCreatorType))
+                            sellerType = parsedCreatorType;
                     }
                 }
                 catch (JsonException ex)
@@ -230,5 +241,68 @@ public sealed class AssetCommerceService : IAssetCommerce
             AppServices.Logger.Debug($"[AssetCommerceService] Failed to parse error response JSON: {ex.Message}");
         }
         return null;
+    }
+
+    private static bool TryReadResalePrice(JsonElement target, out long price)
+    {
+        if (target.TryGetProperty("lowestAvailableResalePrice", out var larp) && TryReadInt64(larp, out price) && price >= 0)
+            return true;
+        if (target.TryGetProperty("lowestResalePrice", out var lrp) && TryReadInt64(lrp, out price) && price >= 0)
+            return true;
+        if (target.TryGetProperty("lowestPrice", out var lp) && TryReadInt64(lp, out price) && price >= 0)
+            return true;
+
+        price = 0;
+        return false;
+    }
+
+    private static bool TryReadInt64(JsonElement prop, out long value)
+    {
+        if (prop.ValueKind == JsonValueKind.Number && prop.TryGetInt64(out value))
+            return true;
+        if (prop.ValueKind == JsonValueKind.String && long.TryParse(prop.GetString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out value))
+            return true;
+
+        value = 0;
+        return false;
+    }
+
+    private static bool TryParseSellerType(JsonElement prop, out string sellerType)
+    {
+        if (prop.ValueKind == JsonValueKind.String)
+        {
+            string? raw = prop.GetString()?.Trim();
+            if (string.Equals(raw, "Group", StringComparison.OrdinalIgnoreCase) || raw == "2")
+            {
+                sellerType = "Group";
+                return true;
+            }
+            if (string.Equals(raw, "User", StringComparison.OrdinalIgnoreCase) || raw == "1")
+            {
+                sellerType = "User";
+                return true;
+            }
+            if (!string.IsNullOrEmpty(raw))
+            {
+                sellerType = raw;
+                return true;
+            }
+        }
+        else if (prop.ValueKind == JsonValueKind.Number && prop.TryGetInt32(out int num))
+        {
+            if (num == 2)
+            {
+                sellerType = "Group";
+                return true;
+            }
+            if (num == 1)
+            {
+                sellerType = "User";
+                return true;
+            }
+        }
+
+        sellerType = string.Empty;
+        return false;
     }
 }

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -221,7 +222,28 @@ namespace Shiro.Services
             }
 
             sb.Append("*Time:* ").Append(EscapeTelegramMarkdown(alert.Timestamp.ToString("yyyy-MM-dd HH:mm:ss UTC")));
-            return sb.ToString();
+            return TruncateTelegramMarkdownSafe(sb.ToString(), 4096);
+        }
+
+        internal static string TruncateTelegramMarkdownSafe(string text, int maxLength = 4096)
+        {
+            if (string.IsNullOrEmpty(text) || text.Length <= maxLength)
+                return text;
+
+            if (maxLength <= 0)
+                return string.Empty;
+
+            int cut = maxLength <= 3 ? maxLength : maxLength - 3;
+            if (cut > 0 && cut < text.Length && char.IsLowSurrogate(text[cut]) && char.IsHighSurrogate(text[cut - 1]))
+                cut--;
+
+            int backslashes = 0;
+            for (int i = cut - 1; i >= 0 && text[i] == '\\'; i--)
+                backslashes++;
+            if ((backslashes & 1) == 1)
+                cut--;
+
+            return maxLength <= 3 ? text[..cut] : text[..cut] + "...";
         }
 
         private static bool ShouldSend(WebhookAlert alert)
@@ -316,13 +338,16 @@ namespace Shiro.Services
             }
         }
 
+        [GeneratedRegex(@"^/api/(?:v\d+/)?webhooks/[^/]+", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+        private static partial Regex DiscordWebhookPathRegex();
+
         public static bool IsAllowedDiscordWebhookUrl(string? url)
         {
             if (string.IsNullOrWhiteSpace(url) ||
                 !Uri.TryCreate(url, UriKind.Absolute, out Uri? uri) ||
                 uri.Scheme != Uri.UriSchemeHttps ||
                 !string.IsNullOrEmpty(uri.UserInfo) ||
-                !uri.AbsolutePath.StartsWith("/api/webhooks/", StringComparison.OrdinalIgnoreCase))
+                !DiscordWebhookPathRegex().IsMatch(uri.AbsolutePath))
             {
                 return false;
             }

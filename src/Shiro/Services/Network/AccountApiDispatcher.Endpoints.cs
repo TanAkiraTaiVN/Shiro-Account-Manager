@@ -465,7 +465,7 @@ namespace Shiro.Services
                 if (string.IsNullOrWhiteSpace(body))
                     return reply("Avatar JSON body required", false, 400, "Missing Avatar JSON");
 
-                bool updated = await account.SetAvatarAsync(body).ConfigureAwait(false);
+                bool updated = await account.SetAvatarAsync(body, suppressMissingAssetsDialog: true).ConfigureAwait(false);
                 return updated
                     ? reply($"Updated avatar for {account.Username}", true, 200, null)
                     : reply($"Failed to set avatar for {account.Username}", false, 400, null);

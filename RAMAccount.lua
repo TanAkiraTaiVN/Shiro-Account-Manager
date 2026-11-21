@@ -19,10 +19,26 @@ function WebserverSettings:SetPassword(Password) self.Password = Password or '' 
 local HttpService = game:GetService'HttpService'
 local Request = request or http_request or (http and http.request) or (fluxus and fluxus.request) or (getgenv and getgenv().request)
 
+local function TrimHost(host)
+    if type(host) ~= 'string' then return '' end
+    return string.match(host, '^%s*(.-)%s*$') or ''
+end
+
 local function IsLoopbackHost(host)
-    if type(host) ~= 'string' then return false end
-    local h = string.lower(host)
-    return h == 'localhost' or h == '127.0.0.1' or h == '::1' or h == '[::1]'
+    local h = string.lower(TrimHost(host))
+    return h == 'localhost'
+        or h == '127.0.0.1'
+        or string.match(h, '^127%.%d+%.%d+%.%d+$') ~= nil
+        or h == '::1'
+        or h == '[::1]'
+end
+
+local function FormatHostForUrl(host)
+    local h = TrimHost(host)
+    if string.find(h, ':', 1, true) and string.sub(h, 1, 1) ~= '[' and string.sub(h, -1) ~= ']' then
+        return '[' .. h .. ']'
+    end
+    return h
 end
 
 -- Localhost connections require >= 6 chars; external (non-loopback) connections require >= 12 chars.
@@ -42,7 +58,7 @@ end
 
 local function BuildUrl(Method, AccountName, ...)
     local Arguments = {...}
-    local Url = 'http://' .. WebserverSettings.Host .. ':' .. WebserverSettings.Port .. '/' .. Method .. '?Account=' .. HttpService:UrlEncode(tostring(AccountName or ''))
+    local Url = 'http://' .. FormatHostForUrl(WebserverSettings.Host) .. ':' .. WebserverSettings.Port .. '/' .. Method .. '?Account=' .. HttpService:UrlEncode(tostring(AccountName or ''))
 
     for _, Parameter in pairs(Arguments) do
         if typeof(Parameter) ~= 'boolean' and Parameter ~= nil then
@@ -195,7 +211,7 @@ function Account.ConnectEvents(Callback)
         return false, 'External WebSocket connections require a password of at least 12 characters'
     end
 
-    local wsUrl = 'ws://' .. WebserverSettings.Host .. ':' .. WebserverSettings.Port .. '/ws'
+    local wsUrl = 'ws://' .. FormatHostForUrl(WebserverSettings.Host) .. ':' .. WebserverSettings.Port .. '/ws'
     if WebserverSettings.Password and #WebserverSettings.Password >= GetMinPasswordLength() then
         wsUrl = wsUrl .. '?token=' .. HttpService:UrlEncode(WebserverSettings.Password)
     end

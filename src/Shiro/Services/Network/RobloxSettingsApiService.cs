@@ -317,7 +317,14 @@ namespace Shiro.Services
             }
         }
 
-        public async Task<bool> SetAvatarAsync(Account account, string avatarJsonData, CancellationToken cancellationToken = default)
+        public Task<bool> SetAvatarAsync(Account account, string avatarJsonData, CancellationToken cancellationToken = default) =>
+            SetAvatarAsync(account, avatarJsonData, suppressMissingAssetsDialog: false, cancellationToken);
+
+        internal async Task<bool> SetAvatarAsync(
+            Account account,
+            string avatarJsonData,
+            bool suppressMissingAssetsDialog,
+            CancellationToken cancellationToken = default)
         {
             if (!HasValidSession(account) || string.IsNullOrWhiteSpace(avatarJsonData)) return false;
 
@@ -352,7 +359,7 @@ namespace Shiro.Services
             {
                 AppServices.AccountApiService.TryUpdateRotatedCookie(account, response);
                 long[] missingIds = AvatarV4PayloadMapper.ExtractInvalidAssetIds(response.Content);
-                if (missingIds.Length > 0)
+                if (!suppressMissingAssetsDialog && missingIds.Length > 0)
                 {
                     AppServices.Dialogs.OpenMissingAssetsDialog(account, missingIds);
                 }
