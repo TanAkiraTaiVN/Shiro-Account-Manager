@@ -68,6 +68,14 @@ namespace Shiro.Services
             static h => SafeExecuteHelper.Try(() => ReleaseMutex(h)),
             static h => SafeExecuteHelper.Try(() => Win32NativeHelper.CloseHandle(h)));
 
+        internal static HolderNativeOps? NativeOpsOverrideForTest { get; set; }
+
+        internal static HolderNativeOps CreateSuffixedNativeOpsForTest(string suffix) => DefaultNativeOps with
+        {
+            CreateMutex = (pSd, init, name) => CreateMutexNative(pSd, init, name + suffix),
+            CreateEvent = (pSd, manual, initState, name) => CreateEventNative(pSd, manual, initState, name + suffix)
+        };
+
         internal static bool ShouldAbortHoldOnZeroEvent(IntPtr hEvent) => hEvent == IntPtr.Zero;
 
         internal static long ReserveGenerationForTest() => Interlocked.Increment(ref _holderGeneration);
@@ -238,7 +246,7 @@ namespace Shiro.Services
         }
 
         private static void HoldHandles(HolderHandle holder, long generation)
-            => HoldHandlesCore(holder, generation, DefaultNativeOps, buildSecurityDescriptor: true);
+            => HoldHandlesCore(holder, generation, NativeOpsOverrideForTest ?? DefaultNativeOps, buildSecurityDescriptor: true);
 
         internal static void HoldHandlesCore(
             HolderHandle holder,

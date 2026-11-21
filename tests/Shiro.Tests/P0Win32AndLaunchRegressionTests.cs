@@ -279,17 +279,17 @@ namespace Shiro.Tests
                 Assert.NotEqual(IntPtr.Zero, pSd);
                 Assert.True(allocatedWithLocalAlloc);
 
+                RobloxSingletonService.NativeOpsOverrideForTest =
+                    RobloxSingletonService.CreateSuffixedNativeOpsForTest("_" + Guid.NewGuid().ToString("N"));
                 RobloxSingletonService.EnsureMutex(true);
                 Assert.False(RobloxSingletonService.AccessDenied);
                 Assert.DoesNotContain("Warning", RobloxSingletonService.StatusText, StringComparison.Ordinal);
                 Assert.DoesNotContain("Error", RobloxSingletonService.StatusText, StringComparison.Ordinal);
-                if (Process.GetProcessesByName("RobloxPlayerBeta").Length == 0)
-                {
-                    Assert.True(RobloxSingletonService.MutexHeld);
-                }
+                Assert.True(RobloxSingletonService.MutexHeld);
             }
             finally
             {
+                RobloxSingletonService.NativeOpsOverrideForTest = null;
                 RobloxSingletonService.FreeSecurityDescriptor(pSd, allocatedWithLocalAlloc);
                 RobloxSingletonService.Stop();
             }

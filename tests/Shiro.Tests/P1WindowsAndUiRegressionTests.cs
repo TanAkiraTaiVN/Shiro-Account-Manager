@@ -193,6 +193,8 @@ namespace Shiro.Tests
             RobloxSingletonService.Stop();
             try
             {
+                RobloxSingletonService.NativeOpsOverrideForTest =
+                    RobloxSingletonService.CreateSuffixedNativeOpsForTest("_" + Guid.NewGuid().ToString("N"));
                 RobloxSingletonService.Apply(true);
                 RobloxSingletonService.Apply(false);
                 RobloxSingletonService.Apply(true);
@@ -208,13 +210,15 @@ namespace Shiro.Tests
                 {
                     RobloxSingletonService.StatusChanged -= countStatus;
                 }
-                Assert.True(heldAfterReenable || accessDeniedAfterReenable);
+                Assert.True(heldAfterReenable);
+                Assert.False(accessDeniedAfterReenable);
                 Assert.False(RobloxSingletonService.MutexHeld);
                 Assert.Equal(1, disableStatusEvents);
                 Assert.Equal("Multi-Instance Disabled", RobloxSingletonService.StatusText);
             }
             finally
             {
+                RobloxSingletonService.NativeOpsOverrideForTest = null;
                 RobloxSingletonService.ResetForTest(origSingletonEnabled);
             }
         }

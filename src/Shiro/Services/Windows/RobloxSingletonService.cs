@@ -73,6 +73,7 @@ namespace Shiro.Services
 
         internal static void ResetForTest(bool isEnabled = true)
         {
+            NativeOpsOverrideForTest = null;
             StopCore("Multi-Instance Ready");
             _isEnabled = isEnabled;
         }
