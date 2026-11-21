@@ -109,6 +109,7 @@ namespace Shiro.AvaloniaUI.Views
 
             if (BtnSkipNext != null) BtnSkipNext.IsVisible = _queue.HasNext;
             CookieViewModel.LoadFromAccount(account);
+            WvBrowser?.ConfigureProxy(ProxyBindingService.GetEffectiveProxyForAccount(account));
         }
 
         public void SelectLoginMode(bool isCookieMode)

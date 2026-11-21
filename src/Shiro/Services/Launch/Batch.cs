@@ -320,12 +320,37 @@ namespace Shiro.Services
                     if (pending.Count == 0)
                         continue;
 
-                    RestRequest request = new RestRequest($"v1/games/multiget-place-details?placeIds={string.Join("&placeIds=", pending)}");
-                    string? placeCookie = AppServices.SelectionState.LastValidAccount?.SecurityToken;
-                    if (!string.IsNullOrWhiteSpace(placeCookie))
-                        request.AddCookie(".ROBLOSECURITY", placeCookie, "/", ".roblox.com");
+                    string resource = $"v1/games/multiget-place-details?placeIds={string.Join("&placeIds=", pending)}";
+                    Account? authAccount = AppServices.SelectionState.LastValidAccount;
+                    RestRequest request = authAccount != null
+                        ? AppServices.AccountApiService.MakeRequest(authAccount, resource)
+                        : new RestRequest(resource);
 
-                    RestResponse response = await GamesAPI.ExecuteAsync(request).ConfigureAwait(false);
+                    RestResponse? response;
+                    if (authAccount != null &&
+                        (RobloxAccountSessionClient.TestHttpClientFactory != null ||
+                         !string.IsNullOrWhiteSpace(ProxyBindingService.GetEffectiveProxyForAccount(authAccount))))
+                    {
+                        response = await AppServices.AccountApiService
+                            .ExecuteAccountRestAsync(authAccount, AppServices.RobloxApi.Games, "https://games.roblox.com/", request)
+                            .ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        RestClient gamesClient = GamesAPI;
+                        if (authAccount != null)
+                        {
+                            AppServices.AccountApiService.ApplySessionFingerprintAndHbaToRestRequest(
+                                authAccount,
+                                request,
+                                gamesClient.BaseUrl ?? "https://games.roblox.com/");
+                        }
+
+                        response = await gamesClient.ExecuteAsync(request).ConfigureAwait(false);
+                        if (authAccount != null)
+                            AppServices.AccountApiService.TryUpdateRotatedCookie(authAccount, response);
+                    }
+
                     if (response == null || !response.IsSuccessful)
                         continue;
 
@@ -354,15 +379,12 @@ namespace Shiro.Services
             }
         }
 
-        private static async Task<string> GetAssetImage(long assetId)
+        internal static async Task<string> GetAssetImage(long assetId)
         {
             if (AppServices.GeneralSettings?.Get<bool>("DisableImages") == true)
                 return string.Empty;
 
             RestRequest request = new RestRequest($"v1/assets?assetIds={assetId}&returnPolicy=PlaceHolder&size=150x150&format=Png&isCircular=false");
-            string? assetCookie = AppServices.SelectionState.LastValidAccount?.SecurityToken;
-            if (!string.IsNullOrWhiteSpace(assetCookie))
-                request.AddCookie(".ROBLOSECURITY", assetCookie, "/", ".roblox.com");
 
             RestResponse response = await ThumbnailAPI.ExecuteAsync(request).ConfigureAwait(false);
             if (response == null || !response.IsSuccessful)
