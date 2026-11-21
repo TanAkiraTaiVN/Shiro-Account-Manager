@@ -174,12 +174,14 @@ namespace Shiro.Tests
             EnsureWebServerSettings();
             var mgr = AccountManager.Instance ?? new AccountManager();
             string oldPass = AppSettings.WebSocketPassword ?? string.Empty;
+            bool oldAllowEdit = AppSettings.WebServer.Get<bool>("AllowAccountEditing");
             var oldAccounts = AppServices.AccountRepository.GetAll().ToList();
 
             try
             {
                 const string pass = "TestSecretPass99";
                 AppSettings.WebSocketPassword = pass;
+                AppSettings.WebServer.Set("AllowAccountEditing", "true");
 
                 var testAcc = new Account
                 {
@@ -250,6 +252,7 @@ namespace Shiro.Tests
             finally
             {
                 AppSettings.WebSocketPassword = oldPass;
+                AppSettings.WebServer.Set("AllowAccountEditing", oldAllowEdit ? "true" : "false");
                 lock (AccountManager.AccountListLock)
                 {
                     AccountManager.ResetAccountsForTests(Array.Empty<Account>());

@@ -276,6 +276,7 @@ namespace Shiro.Tests
             string csrfResp = await mgr.ProcessApiRequestAsync(CreateRequest("/GetCSRFToken", query: new Dictionary<string, string> { ["Account"] = "DispatcherEndpointUser" }));
             Assert.Contains("csrf-1", csrfResp);
 
+            AppSettings.WebServer.Set("AllowAccountEditing", "true");
             string blockResp = await mgr.ProcessApiRequestAsync(CreateRequest("/BlockUser", query: new Dictionary<string, string> { ["Account"] = "DispatcherEndpointUser", ["UserId"] = "12345" }));
             Assert.Contains("success", blockResp);
 

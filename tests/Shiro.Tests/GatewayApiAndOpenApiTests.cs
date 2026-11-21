@@ -165,6 +165,8 @@ namespace Shiro.Tests
         {
             var mgr = AccountManager.Instance ?? new AccountManager();
             AppSettings.WebSocketPassword = StrongExternalPass;
+            bool prevAllowEdit = AppSettings.WebServer.Get<bool>("AllowAccountEditing");
+            AppSettings.WebServer.Set("AllowAccountEditing", "true");
 
             var acc = new Account
             {
@@ -189,31 +191,38 @@ namespace Shiro.Tests
                 return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(EmptyJsonObject) };
             }));
 
-            AppServices.ServerBrowserState.CachedServers.Clear();
-            AppServices.ServerBrowserState.CachedServers.Add(new ServerData { id = "srv-other-game" });
-            AppServices.ServerBrowserState.CachedServersPlaceId = 9999;
+            try
+            {
+                AppServices.ServerBrowserState.CachedServers.Clear();
+                AppServices.ServerBrowserState.CachedServers.Add(new ServerData { id = "srv-other-game" });
+                AppServices.ServerBrowserState.CachedServersPlaceId = 9999;
 
-            int mismatchStatus = 200;
-            string mismatchResp = await mgr.ProcessApiRequestAsync(MakeReq(
-                "/SetRecommendedServer",
-                StrongExternalPass,
-                new Dictionary<string, string> { ["Account"] = "RecPlaceUser", ["PlaceId"] = "1818" },
-                isV2: true,
-                setStatus: s => mismatchStatus = s));
-            Assert.Equal(400, mismatchStatus);
-            Assert.Equal(0, csrfCalls);
-            Assert.Contains("\"Success\":false", mismatchResp, StringComparison.Ordinal);
+                int mismatchStatus = 200;
+                string mismatchResp = await mgr.ProcessApiRequestAsync(MakeReq(
+                    "/SetRecommendedServer",
+                    StrongExternalPass,
+                    new Dictionary<string, string> { ["Account"] = "RecPlaceUser", ["PlaceId"] = "1818" },
+                    isV2: true,
+                    setStatus: s => mismatchStatus = s));
+                Assert.Equal(400, mismatchStatus);
+                Assert.Equal(0, csrfCalls);
+                Assert.Contains("\"Success\":false", mismatchResp, StringComparison.Ordinal);
 
-            AppServices.ServerBrowserState.CachedServersPlaceId = 1818;
-            int matchStatus = 0;
-            string matchResp = await mgr.ProcessApiRequestAsync(MakeReq(
-                "/SetRecommendedServer",
-                StrongExternalPass,
-                new Dictionary<string, string> { ["Account"] = "RecPlaceUser", ["PlaceId"] = "1818" },
-                isV2: true,
-                setStatus: s => matchStatus = s));
-            Assert.Equal(200, matchStatus);
-            Assert.Contains("Success", matchResp, StringComparison.Ordinal);
+                AppServices.ServerBrowserState.CachedServersPlaceId = 1818;
+                int matchStatus = 0;
+                string matchResp = await mgr.ProcessApiRequestAsync(MakeReq(
+                    "/SetRecommendedServer",
+                    StrongExternalPass,
+                    new Dictionary<string, string> { ["Account"] = "RecPlaceUser", ["PlaceId"] = "1818" },
+                    isV2: true,
+                    setStatus: s => matchStatus = s));
+                Assert.Equal(200, matchStatus);
+                Assert.Contains("Success", matchResp, StringComparison.Ordinal);
+            }
+            finally
+            {
+                AppSettings.WebServer.Set("AllowAccountEditing", prevAllowEdit ? "true" : "false");
+            }
         }
 
         [Fact]
@@ -287,6 +296,8 @@ namespace Shiro.Tests
         {
             var mgr = AccountManager.Instance ?? new AccountManager();
             AppSettings.WebSocketPassword = StrongExternalPass;
+            bool prevAllowEdit = AppSettings.WebServer.Get<bool>("AllowAccountEditing");
+            AppSettings.WebServer.Set("AllowAccountEditing", "true");
 
             var acc = new Account
             {
@@ -313,41 +324,48 @@ namespace Shiro.Tests
                 };
             }));
 
-            Assert.False(await RobloxSettingsApiService.Instance.SetAvatarAsync(acc, EmptyJsonObject));
+            try
+            {
+                Assert.False(await RobloxSettingsApiService.Instance.SetAvatarAsync(acc, EmptyJsonObject));
 
-            int emptyPayloadStatus = 200;
-            string emptyPayloadResp = await mgr.ProcessApiRequestAsync(MakeReq(
-                "/SetAvatar",
-                StrongExternalPass,
-                new Dictionary<string, string> { ["Account"] = "AvatarResultUser" },
-                body: EmptyJsonObject,
-                isV2: true,
-                setStatus: s => emptyPayloadStatus = s));
-            Assert.Equal(400, emptyPayloadStatus);
-            Assert.Contains("\"Success\":false", emptyPayloadResp);
+                int emptyPayloadStatus = 200;
+                string emptyPayloadResp = await mgr.ProcessApiRequestAsync(MakeReq(
+                    "/SetAvatar",
+                    StrongExternalPass,
+                    new Dictionary<string, string> { ["Account"] = "AvatarResultUser" },
+                    body: EmptyJsonObject,
+                    isV2: true,
+                    setStatus: s => emptyPayloadStatus = s));
+                Assert.Equal(400, emptyPayloadStatus);
+                Assert.Contains("\"Success\":false", emptyPayloadResp);
 
-            int upstreamFailStatus = 200;
-            string upstreamFailResp = await mgr.ProcessApiRequestAsync(MakeReq(
-                "/SetAvatar",
-                StrongExternalPass,
-                new Dictionary<string, string> { ["Account"] = "AvatarResultUser" },
-                body: ValidAvatarJson,
-                isV2: true,
-                setStatus: s => upstreamFailStatus = s));
-            Assert.Equal(400, upstreamFailStatus);
-            Assert.Contains("\"Success\":false", upstreamFailResp);
+                int upstreamFailStatus = 200;
+                string upstreamFailResp = await mgr.ProcessApiRequestAsync(MakeReq(
+                    "/SetAvatar",
+                    StrongExternalPass,
+                    new Dictionary<string, string> { ["Account"] = "AvatarResultUser" },
+                    body: ValidAvatarJson,
+                    isV2: true,
+                    setStatus: s => upstreamFailStatus = s));
+                Assert.Equal(400, upstreamFailStatus);
+                Assert.Contains("\"Success\":false", upstreamFailResp);
 
-            returnAvatarSuccess = true;
-            int okStatus = 0;
-            string okResp = await mgr.ProcessApiRequestAsync(MakeReq(
-                "/SetAvatar",
-                StrongExternalPass,
-                new Dictionary<string, string> { ["Account"] = "AvatarResultUser" },
-                body: ValidAvatarJson,
-                isV2: true,
-                setStatus: s => okStatus = s));
-            Assert.Equal(200, okStatus);
-            Assert.Contains("\"Success\":true", okResp);
+                returnAvatarSuccess = true;
+                int okStatus = 0;
+                string okResp = await mgr.ProcessApiRequestAsync(MakeReq(
+                    "/SetAvatar",
+                    StrongExternalPass,
+                    new Dictionary<string, string> { ["Account"] = "AvatarResultUser" },
+                    body: ValidAvatarJson,
+                    isV2: true,
+                    setStatus: s => okStatus = s));
+                Assert.Equal(200, okStatus);
+                Assert.Contains("\"Success\":true", okResp);
+            }
+            finally
+            {
+                AppSettings.WebServer.Set("AllowAccountEditing", prevAllowEdit ? "true" : "false");
+            }
         }
 
         [Fact]

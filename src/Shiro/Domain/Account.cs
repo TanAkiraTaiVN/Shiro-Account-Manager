@@ -156,12 +156,15 @@ namespace Shiro
                 BrowserTrackerID = $"{Random.Shared.Next(100000, 175000)}{Random.Shared.Next(100000, 900000)}";
         }
 
+        internal const int MaxAliasLength = 50;
+        internal const int MaxDescriptionLength = 5000;
+
         public string Alias
         {
             get => _Alias;
             set
             {
-                if (ExceedsMaxLength(nameof(Alias), value, 50))
+                if (ExceedsMaxLength(nameof(Alias), value, MaxAliasLength))
                     return;
 
                 if (_Alias != value)
@@ -180,7 +183,7 @@ namespace Shiro
             get => _Description;
             set
             {
-                if (ExceedsMaxLength(nameof(Description), value, 5000))
+                if (ExceedsMaxLength(nameof(Description), value, MaxDescriptionLength))
                     return;
 
                 if (_Description != value)

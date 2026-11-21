@@ -69,6 +69,14 @@ namespace Shiro.Services
                 new WebServerV2Response(success, message?.ToString() ?? string.Empty),
                 ShiroAppJson.Default.WebServerV2Response);
 
+        internal static string? CheckAccountEditingDenied(
+            ISettingsService? webServer,
+            string method,
+            Func<string, bool, int, string?, string> reply) =>
+            webServer != null && webServer.Get<bool>("AllowAccountEditing")
+                ? null
+                : reply($"Method `{method}` not allowed", false, 401, "Method not allowed");
+
         public async Task<string> SendKestrelResponseAsync(HttpContext context)
         {
             var req = context.Request;

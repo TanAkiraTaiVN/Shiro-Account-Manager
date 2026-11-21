@@ -165,6 +165,7 @@ namespace Shiro.Tests
             string? prevPlaceId = AppServices.ServerBrowserState.CurrentPlaceId;
             var prevAccounts = AppServices.AccountRepository.GetAll();
             bool prevAllowLaunch = AppSettings.WebServer.Get<bool>("AllowLaunchAccount");
+            bool prevAllowEdit = AppSettings.WebServer.Get<bool>("AllowAccountEditing");
             var acc = new Account
             {
                 Username = "RecServerInvalidPlaceUser",
@@ -185,6 +186,7 @@ namespace Shiro.Tests
             {
                 AppSettings.WebSocketPassword = adminPass;
                 AppSettings.WebServer.Set("AllowLaunchAccount", "true");
+                AppSettings.WebServer.Set("AllowAccountEditing", "true");
                 AppServices.ServerBrowserState.CurrentPlaceId = string.Empty;
                 AppServices.ServerBrowserState.CachedServers.Clear();
                 AppServices.ServerBrowserState.CachedServers.Add(new ServerData { id = "rec-srv-invalid" });
@@ -217,6 +219,7 @@ namespace Shiro.Tests
             {
                 AppSettings.WebSocketPassword = prevPw ?? string.Empty;
                 AppSettings.WebServer.Set("AllowLaunchAccount", prevAllowLaunch ? "true" : "false");
+                AppSettings.WebServer.Set("AllowAccountEditing", prevAllowEdit ? "true" : "false");
                 AppServices.ServerBrowserState.CurrentPlaceId = prevPlaceId ?? string.Empty;
                 AppServices.ServerBrowserState.CachedServers.Clear();
                 AccountManager.ResetAccountsForTests(prevAccounts);

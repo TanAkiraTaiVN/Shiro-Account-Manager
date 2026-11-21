@@ -176,7 +176,12 @@ namespace Shiro.Services
                 return reply($"Proxy updated for {account.Username}", true, -1, null);
             }
 
-            if (IsRoute(method, "GetProxy")) return reply(account.Proxy ?? string.Empty, true, -1, null);
+            if (IsRoute(method, "GetProxy"))
+            {
+                string rawProxy = account.Proxy ?? string.Empty;
+                bool allowRaw = webServer != null && webServer.Get<bool>("AllowGetCookie");
+                return reply(allowRaw ? rawProxy : ProxyManagerService.RedactProxy(rawProxy), true, -1, null);
+            }
 
             if (IsRoute(method, "GetCookie"))
             {
@@ -198,8 +203,7 @@ namespace Shiro.Services
             string? fieldValue = req.GetQuery("Value");
             if (IsRoute(method, "SetField"))
             {
-                if (webServer == null || !webServer.Get<bool>("AllowAccountEditing"))
-                    return reply("Method `SetField` not allowed", false, 401, "Method not allowed");
+                if (CheckAccountEditingDenied(webServer, method, reply) is string editErr) return editErr;
                 if (string.IsNullOrEmpty(fieldName) || string.IsNullOrEmpty(fieldValue))
                     return reply("Field and Value parameters required", false, 400, "Missing Field or Value");
 
@@ -210,8 +214,7 @@ namespace Shiro.Services
 
             if (IsRoute(method, "RemoveField"))
             {
-                if (webServer == null || !webServer.Get<bool>("AllowAccountEditing"))
-                    return reply("Method `RemoveField` not allowed", false, 401, "Method not allowed");
+                if (CheckAccountEditingDenied(webServer, method, reply) is string editErr) return editErr;
                 if (string.IsNullOrEmpty(fieldName))
                     return reply("Field parameter required", false, 400, "Missing Field");
 
@@ -222,10 +225,11 @@ namespace Shiro.Services
 
             if (IsRoute(method, "SetAlias"))
             {
-                if (webServer == null || !webServer.Get<bool>("AllowAccountEditing"))
-                    return reply("Method `SetAlias` not allowed", false, 401, "Method not allowed");
+                if (CheckAccountEditingDenied(webServer, method, reply) is string editErr) return editErr;
                 if (string.IsNullOrEmpty(body))
                     return reply("Alias body required", false, 400, "Missing Alias");
+                if (body.Length > Account.MaxAliasLength)
+                    return reply($"Alias exceeds maximum length ({Account.MaxAliasLength} chars)", false, 400, "Alias too long");
 
                 account.Alias = body;
                 AppServices.HostUiBridge.RefreshAccountView(account);
@@ -235,10 +239,11 @@ namespace Shiro.Services
 
             if (IsRoute(method, "SetDescription"))
             {
-                if (webServer == null || !webServer.Get<bool>("AllowAccountEditing"))
-                    return reply("Method `SetDescription` not allowed", false, 401, "Method not allowed");
+                if (CheckAccountEditingDenied(webServer, method, reply) is string editErr) return editErr;
                 if (string.IsNullOrEmpty(body))
                     return reply("Description body required", false, 400, "Missing Description");
+                if (body.Length > Account.MaxDescriptionLength)
+                    return reply($"Description exceeds maximum length ({Account.MaxDescriptionLength} chars)", false, 400, "Description too long");
 
                 account.Description = body;
                 AppServices.HostUiBridge.RefreshAccountView(account);
@@ -248,10 +253,11 @@ namespace Shiro.Services
 
             if (IsRoute(method, "AppendDescription"))
             {
-                if (webServer == null || !webServer.Get<bool>("AllowAccountEditing"))
-                    return reply("Method `AppendDescription` not allowed", false, 401, "Method not allowed");
+                if (CheckAccountEditingDenied(webServer, method, reply) is string editErr) return editErr;
                 if (string.IsNullOrEmpty(body))
                     return reply("Description body required", false, 400, "Missing Description");
+                if ((account.Description?.Length ?? 0) + body.Length > Account.MaxDescriptionLength)
+                    return reply($"Description exceeds maximum length ({Account.MaxDescriptionLength} chars)", false, 400, "Description too long");
 
                 account.Description += body;
                 AppServices.HostUiBridge.RefreshAccountView(account);
@@ -319,6 +325,7 @@ namespace Shiro.Services
 
             if (IsRoute(method, "BlockUser"))
             {
+                if (CheckAccountEditingDenied(webServer, method, reply) is string editErr) return editErr;
                 string? rawUserId = req.GetQuery("UserId");
                 if (!TryParsePositiveUserId(rawUserId, out long targetUserId))
                     return reply("Invalid UserId parameter", false, 400, "Invalid UserId");
@@ -337,6 +344,7 @@ namespace Shiro.Services
 
             if (IsRoute(method, "UnblockUser"))
             {
+                if (CheckAccountEditingDenied(webServer, method, reply) is string editErr) return editErr;
                 string? rawUserId = req.GetQuery("UserId");
                 if (!TryParsePositiveUserId(rawUserId, out long targetUserId))
                     return reply("Invalid UserId parameter", false, 400, "Invalid UserId");
@@ -370,6 +378,7 @@ namespace Shiro.Services
 
             if (IsRoute(method, "UnblockEveryone"))
             {
+                if (CheckAccountEditingDenied(webServer, method, reply) is string editErr) return editErr;
                 if (await TryEnsureCsrfAsync(account, reply).ConfigureAwait(false) is string csrfErr) return csrfErr;
                 (bool success, string message) unblockResult = await account.UnblockEveryoneAsync().ConfigureAwait(false);
                 return reply(unblockResult.message, unblockResult.success, -1, null);
@@ -377,6 +386,7 @@ namespace Shiro.Services
 
             if (IsRoute(method, "SetServer"))
             {
+                if (CheckAccountEditingDenied(webServer, method, reply) is string editErr) return editErr;
                 if (!long.TryParse(req.GetQuery("PlaceId"), out long setServerPlaceId) || setServerPlaceId <= 0)
                     return reply("Invalid PlaceId provided", false, 400, null);
 
@@ -389,6 +399,7 @@ namespace Shiro.Services
 
             if (IsRoute(method, "SetRecommendedServer"))
             {
+                if (CheckAccountEditingDenied(webServer, method, reply) is string editErr) return editErr;
                 string? rawPlaceId = req.GetQuery("PlaceId");
                 long targetPlaceId;
                 if (!string.IsNullOrEmpty(rawPlaceId))
@@ -450,6 +461,7 @@ namespace Shiro.Services
 
             if (IsRoute(method, "SetAvatar"))
             {
+                if (CheckAccountEditingDenied(webServer, method, reply) is string editErr) return editErr;
                 if (string.IsNullOrWhiteSpace(body))
                     return reply("Avatar JSON body required", false, 400, "Missing Avatar JSON");
 

@@ -369,30 +369,39 @@ namespace Shiro.Tests
             }));
 
             using var stateScope = AppServices.Override<IServerBrowserStateService>(new TogglePlaceServerBrowserState());
-            int status = 200;
-            var q = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            bool prevAllowEdit = AppSettings.WebServer.Get<bool>("AllowAccountEditing");
+            AppSettings.WebServer.Set("AllowAccountEditing", "true");
+            try
             {
-                ["Password"] = "StrongAdminPass123",
-                ["Account"] = "RecToctouUser",
-                ["PlaceId"] = "1818"
-            };
-            var req = new AccountManager.ApiRequestContext
-            {
-                AbsolutePath = "/SetRecommendedServer",
-                IsV2 = true,
-                IsLocal = true,
-                Host = "localhost",
-                Origin = "",
-                Body = string.Empty,
-                GetQuery = k => q.TryGetValue(k, out var val) ? val : null,
-                GetHeader = _ => null,
-                SetStatusCode = s => status = s
-            };
+                int status = 200;
+                var q = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["Password"] = "StrongAdminPass123",
+                    ["Account"] = "RecToctouUser",
+                    ["PlaceId"] = "1818"
+                };
+                var req = new AccountManager.ApiRequestContext
+                {
+                    AbsolutePath = "/SetRecommendedServer",
+                    IsV2 = true,
+                    IsLocal = true,
+                    Host = "localhost",
+                    Origin = "",
+                    Body = string.Empty,
+                    GetQuery = k => q.TryGetValue(k, out var val) ? val : null,
+                    GetHeader = _ => null,
+                    SetStatusCode = s => status = s
+                };
 
-            string resp = await mgr.ProcessApiRequestAsync(req);
-            Assert.Equal(400, status);
-            Assert.Equal(0, csrfCalls);
-            Assert.Contains("Cached servers do not match", resp, StringComparison.Ordinal);
+                string resp = await mgr.ProcessApiRequestAsync(req);
+                Assert.Equal(400, status);
+                Assert.Equal(0, csrfCalls);
+                Assert.Contains("Cached servers do not match", resp, StringComparison.Ordinal);
+            }
+            finally
+            {
+                AppSettings.WebServer.Set("AllowAccountEditing", prevAllowEdit ? "true" : "false");
+            }
         }
     }
 }

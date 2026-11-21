@@ -167,6 +167,7 @@ namespace Shiro.Tests
             var mgr = AccountManager.Instance ?? new AccountManager();
             const string pass = "GatewaySecret99";
             AppSettings.WebSocketPassword = pass;
+            AppSettings.WebServer.Set("AllowAccountEditing", "true");
 
             var acc = new Account
             {
@@ -310,6 +311,7 @@ namespace Shiro.Tests
             var mgr = AccountManager.Instance ?? new AccountManager();
             const string pass = "GatewaySecret99";
             AppSettings.WebSocketPassword = pass;
+            AppSettings.WebServer.Set("AllowAccountEditing", "true");
 
             var acc = new Account
             {
@@ -370,6 +372,7 @@ namespace Shiro.Tests
             var mgr = AccountManager.Instance ?? new AccountManager();
             const string pass = "GatewaySecret99";
             AppSettings.WebSocketPassword = pass;
+            AppSettings.WebServer.Set("AllowAccountEditing", "true");
             AppSettings.WebServer.Set("AllowGetAccounts", "true");
             AppSettings.WebServer.Set("AllowGetCookie", "true");
 
