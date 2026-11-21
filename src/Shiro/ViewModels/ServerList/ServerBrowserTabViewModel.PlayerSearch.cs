@@ -11,6 +11,9 @@ namespace Shiro.ViewModels
 {
     public sealed partial class ServerBrowserTabViewModel
     {
+        internal const int MaxPlayerSearchPages = 15;
+        internal const int PlayerSearchStatusThrottleMs = 100;
+
         private string _searchPlayerUsername = string.Empty;
         private bool _isSearchingPlayer;
         private string _playerSearchStatus = string.Empty;
@@ -104,6 +107,7 @@ namespace Shiro.ViewModels
                 var gamesClient = AppServices.RobloxApi.Games;
                 ServerData? matchedServer = null;
                 int scannedServers = 0;
+                bool hitPageLimit = false;
 
                 using var searchLinkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
                 var searchToken = searchLinkedCts.Token;
@@ -119,8 +123,14 @@ namespace Shiro.ViewModels
                     try
                     {
                         string cursor = "_";
-                        while (!string.IsNullOrEmpty(cursor) && Volatile.Read(ref matchedServer) == null && !searchToken.IsCancellationRequested)
+                        int pagesFetched = 0;
+                        long lastStatusPostTicks = 0;
+                        while (!string.IsNullOrEmpty(cursor)
+                               && pagesFetched < MaxPlayerSearchPages
+                               && Volatile.Read(ref matchedServer) == null
+                               && !searchToken.IsCancellationRequested)
                         {
+                            pagesFetched++;
                             string cursorParam = cursor == "_" ? string.Empty : $"&cursor={Uri.EscapeDataString(cursor)}";
                             var req = new RestRequest($"v1/games/{placeId}/servers/public?limit=100{cursorParam}", Method.Get);
                             var resp = await gamesClient.ExecuteAsync(req, searchToken);
@@ -165,7 +175,12 @@ namespace Shiro.ViewModels
                                     lastServerInBatch = s;
                                 }
 
-                                PostPlayerSearchStatus(cts, ct, LocalizationService.Format("ServerList.ScanningServersForPlayer", totalScanned, SearchPlayerUsername));
+                                long nowTicks = Environment.TickCount64;
+                                if (lastStatusPostTicks == 0 || (nowTicks - lastStatusPostTicks) >= PlayerSearchStatusThrottleMs)
+                                {
+                                    lastStatusPostTicks = nowTicks;
+                                    PostPlayerSearchStatus(cts, ct, LocalizationService.Format("ServerList.ScanningServersForPlayer", totalScanned, SearchPlayerUsername));
+                                }
                             }
 
                             if (currentRequests.Count > 0 && Volatile.Read(ref matchedServer) == null)
@@ -173,6 +188,10 @@ namespace Shiro.ViewModels
 
                             cursor = sInfo.nextPageCursor ?? string.Empty;
                         }
+
+                        hitPageLimit = !string.IsNullOrEmpty(cursor)
+                            && Volatile.Read(ref matchedServer) == null
+                            && pagesFetched >= MaxPlayerSearchPages;
                     }
                     catch (OperationCanceledException) when (!ct.IsCancellationRequested)
                     {
@@ -242,6 +261,13 @@ namespace Shiro.ViewModels
                             "ServerList.PlayerFoundInServer",
                             SearchPlayerUsername,
                             StreamerModeService.IsActive ? StreamerModeService.MaskJobId(matchedServer.id) : matchedServer.id);
+                    }
+                    else if (hitPageLimit)
+                    {
+                        PlayerSearchStatus = LocalizationService.Format(
+                            "ServerList.PlayerSearchPageLimitReached",
+                            SearchPlayerUsername,
+                            Volatile.Read(ref scannedServers));
                     }
                     else
                     {

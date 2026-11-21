@@ -162,7 +162,7 @@ namespace Shiro.Tests
                     .Returns<Task<ServerRegionPingResult>>(_ => throw new HttpRequestException("Server region lookup failed"));
 
                 await ((AsyncRelayCommand)vm.LoadRegionCommand).ExecuteAsync(server);
-                Assert.Equal(LocalizationService.Get("MissingAssets.PriceLoadError"), server.Region);
+                Assert.Equal(LocalizationService.Get("ServerQuery.RegionLoadError"), server.Region);
 
                 // 5. LoadRegion with PingAsc / PingDesc sort mode to trigger ApplyServerSortAndFilter
                 vm.SortMode = ServerSortMode.PingAsc;
@@ -194,7 +194,7 @@ namespace Shiro.Tests
                 AppServices.SelectionState.SelectedAccount = null;
                 AppServices.SelectionState.LastValidAccount = null;
                 await ((AsyncRelayCommand)vm.LoadRegionCommand).ExecuteAsync(server);
-                Assert.Equal(LocalizationService.Get("ServerQuery.FetchingRegion"), server.Region);
+                Assert.Equal(LocalizationService.Get("ServerQuery.LoginRequired"), server.Region);
 
                 // 9. LoadAllRegionsAsync with 0 pending servers
                 vm.SetRawServers(new[]

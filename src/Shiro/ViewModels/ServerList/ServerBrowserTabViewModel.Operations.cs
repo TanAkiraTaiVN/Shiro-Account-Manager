@@ -101,7 +101,7 @@ namespace Shiro.ViewModels
                 var acc = ResolveAuthAccount();
                 if (acc == null)
                 {
-                    AppDispatcher.Post(() => server.Region = LocalizationService.Get("ServerQuery.FetchingRegion"));
+                    AppDispatcher.Post(() => server.Region = LocalizationService.Get("ServerQuery.LoginRequired"));
                     return;
                 }
 
@@ -133,7 +133,7 @@ namespace Shiro.ViewModels
             }
             catch (Exception ex)
             {
-                AppDispatcher.Post(() => server.Region = LocalizationService.Get("MissingAssets.PriceLoadError"));
+                AppDispatcher.Post(() => server.Region = LocalizationService.Get("ServerQuery.RegionLoadError"));
                 _logger.Warn($"[LoadRegionAsync] {ex.Message}");
             }
             finally
