@@ -18,9 +18,24 @@ namespace Shiro.Services
         private const int TagSize = 16;
 
         private static readonly byte[] ProcessKey = RandomNumberGenerator.GetBytes(KeySize);
+        private static readonly AsyncLocal<long[]?> ScopedUnprotectCounter = new();
         private static long _unprotectCallCount;
 
         internal static long UnprotectCallCount => Volatile.Read(ref _unprotectCallCount);
+
+        internal static IDisposable BeginScopedUnprotectCount(out Func<long> getCount)
+        {
+            long[]? previous = ScopedUnprotectCounter.Value;
+            long[] counter = new long[1];
+            ScopedUnprotectCounter.Value = counter;
+            getCount = () => Volatile.Read(ref counter[0]);
+            return new UnprotectCountScope(previous);
+        }
+
+        private sealed class UnprotectCountScope(long[]? previous) : IDisposable
+        {
+            public void Dispose() => ScopedUnprotectCounter.Value = previous;
+        }
 
         public static byte[]? Protect(string? plaintext)
         {
@@ -55,6 +70,9 @@ namespace Shiro.Services
                 return string.Empty;
 
             Interlocked.Increment(ref _unprotectCallCount);
+            long[]? scopedCounter = ScopedUnprotectCounter.Value;
+            if (scopedCounter != null)
+                Interlocked.Increment(ref scopedCounter[0]);
 
             if (protectedBlob.Length < NonceSize + TagSize)
                 throw new CryptographicException("Protected secret blob is truncated.");

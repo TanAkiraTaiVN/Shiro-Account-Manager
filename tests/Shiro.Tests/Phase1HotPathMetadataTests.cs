@@ -44,7 +44,7 @@ namespace Shiro.Tests
             };
             var vm = new AccountViewModel(acc);
 
-            long before = InMemorySecretProtector.UnprotectCallCount;
+            using var _ = InMemorySecretProtector.BeginScopedUnprotectCount(out Func<long> getDecryptions);
             bool valid = false;
             SessionHealth health = SessionHealth.Expired;
             bool shortLived = false;
@@ -62,8 +62,7 @@ namespace Shiro.Tests
                 hasHba = acc.HasHbaBinding;
             }
 
-            long decryptions = InMemorySecretProtector.UnprotectCallCount - before;
-            Assert.Equal(0, decryptions);
+            Assert.Equal(0, getDecryptions());
             Assert.True(valid);
             Assert.Equal(SessionHealth.Healthy, health);
             Assert.False(shortLived);
@@ -78,18 +77,18 @@ namespace Shiro.Tests
             var acc = new Account { Username = "LegacyHbaUser", UserID = 7002 };
             acc.Fields["HbaPrivateKey"] = "legacy-pkcs8-placeholder";
 
-            long beforeFirst = InMemorySecretProtector.UnprotectCallCount;
+            using var _ = InMemorySecretProtector.BeginScopedUnprotectCount(out Func<long> getDecryptions);
             Assert.True(acc.HasHbaBinding);
             Assert.False(acc.Fields.ContainsKey("HbaPrivateKey"));
+            Assert.Equal(0, getDecryptions());
 
-            long beforeLoop = InMemorySecretProtector.UnprotectCallCount;
+            long beforeLoop = getDecryptions();
             for (int i = 0; i < 20; i++)
             {
                 Assert.True(acc.HasHbaBinding);
             }
 
-            Assert.Equal(0, InMemorySecretProtector.UnprotectCallCount - beforeFirst);
-            Assert.Equal(0, InMemorySecretProtector.UnprotectCallCount - beforeLoop);
+            Assert.Equal(0, getDecryptions() - beforeLoop);
 
             acc.ClearSensitiveMemory();
             Assert.False(acc.HasHbaBinding);
@@ -114,11 +113,15 @@ namespace Shiro.Tests
             AccountManager.ResetAccountsForTests(accounts);
 
             using var gate = new SemaphoreSlim(1, 1);
-            long before = InMemorySecretProtector.UnprotectCallCount;
+            using var _ = InMemorySecretProtector.BeginScopedUnprotectCount(out Func<long> getDecryptions);
             await AccountSessionMaintenanceService.Default.RefreshStaleCookiesAsync(gate, CancellationToken.None);
-            long decryptions = InMemorySecretProtector.UnprotectCallCount - before;
 
-            Assert.Equal(0, decryptions);
+            Assert.Equal(0, getDecryptions());
+
+            long globalBefore = InMemorySecretProtector.UnprotectCallCount;
+            Assert.Equal(token, accounts[0].SecurityToken);
+            Assert.Equal(1, getDecryptions());
+            Assert.True(InMemorySecretProtector.UnprotectCallCount > globalBefore);
         }
     }
 }
