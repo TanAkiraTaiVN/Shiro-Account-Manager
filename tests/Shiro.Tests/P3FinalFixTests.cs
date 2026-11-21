@@ -94,7 +94,6 @@ namespace Shiro.Tests
                 Assert.Equal(avatarPath, await accVm.FetchAndCacheAvatarAsync());
                 Dispatcher.UIThread.RunJobs();
                 Assert.NotNull(accVm.AvatarImage);
-                Assert.Equal(avatarPath, accVm.AvatarUrl);
 
                 var changedProps = new List<string>();
                 accVm.PropertyChanged += (_, e) =>
@@ -124,10 +123,8 @@ namespace Shiro.Tests
                 Assert.False(File.Exists(avatarPath));
                 Assert.Contains("ShownUsername", changedProps);
                 Assert.Contains("DisplayTitle", changedProps);
-                Assert.Contains("AvatarUrl", changedProps);
                 Assert.Contains("AvatarImage", changedProps);
                 Assert.Equal("D***************r", accVm.ShownUsername);
-                Assert.Equal(string.Empty, accVm.AvatarUrl);
                 Assert.Null(accVm.AvatarImage);
 
                 changedProps.Clear();

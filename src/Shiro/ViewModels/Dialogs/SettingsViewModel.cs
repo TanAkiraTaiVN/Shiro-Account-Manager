@@ -257,7 +257,7 @@ namespace Shiro.ViewModels.Dialogs
                 JoinDelay = _settings.AccountJoinDelay;
                 UseProxies = _settings.UseProxies;
                 EnableWebServer = _settings.EnableWebServer;
-                WebServerPort = _settings.WebServerPort;
+                WebServerPort = Math.Clamp(_settings.WebServerPort, 1, 65535);
 
                 AutoCookieRefresh = _settings.AutoCookieRefresh;
                 SavePasswords = _settings.SavePasswords;
@@ -356,7 +356,7 @@ namespace Shiro.ViewModels.Dialogs
                 int prevPort = _settings.WebServerPort;
                 bool prevAllowExternal = _settings.GetSection(AppSettingsKeys.Sections.WebServer)
                     ?.Get<bool>(AppSettingsKeys.WebServer.AllowExternalConnections) ?? false;
-                int targetPort = WebServerPort.HasValue ? (int)WebServerPort.Value : prevPort;
+                int targetPort = WebServerPort.HasValue ? (int)Math.Clamp(WebServerPort.Value, 1m, 65535m) : Math.Clamp(prevPort, 1, 65535);
                 bool newServer = EnableWebServer;
 
                 _settings.EnableWebServer = newServer;

@@ -1,12 +1,12 @@
 #nullable enable
 using System;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using Avalonia.Media;
-using LucideAvalonia.Enum;
 
 namespace Shiro.Services
 {
@@ -18,7 +18,7 @@ namespace Shiro.Services
         Error
     }
 
-    public class ToastItem
+    public class ToastItem : INotifyPropertyChanged
     {
         private static readonly IBrush SuccessAccentBrush = new SolidColorBrush(Color.FromRgb(34, 197, 94));
         private static readonly IBrush WarningAccentBrush = new SolidColorBrush(Color.FromRgb(245, 158, 11));
@@ -42,6 +42,10 @@ namespace Shiro.Services
         private static Geometry? _errorIconGeometry;
         private static Geometry? _infoIconGeometry;
 
+        private ICommand? _actionCommand;
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+
         public string Id { get; } = Guid.NewGuid().ToString("N");
         public string Title { get; set; } = string.Empty;
         public string Message { get; set; } = string.Empty;
@@ -49,7 +53,19 @@ namespace Shiro.Services
         public DateTime CreatedAt { get; } = DateTime.UtcNow;
         public ICommand DismissCommand { get; }
         public string ActionText { get; set; } = string.Empty;
-        public ICommand? ActionCommand { get; set; }
+        public ICommand? ActionCommand
+        {
+            get => _actionCommand;
+            set
+            {
+                if (!ReferenceEquals(_actionCommand, value))
+                {
+                    _actionCommand = value;
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ActionCommand)));
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(HasAction)));
+                }
+            }
+        }
         internal CancellationTokenSource? AutoDismissCts { get; set; }
 
         internal sealed class ToastActionCommand : ICommand
@@ -101,22 +117,6 @@ namespace Shiro.Services
             }
         }
 
-        public LucideIconNames IconKind => Type switch
-        {
-            ToastType.Success => LucideIconNames.Check,
-            ToastType.Warning => LucideIconNames.ShieldAlert,
-            ToastType.Error => LucideIconNames.X,
-            _ => LucideIconNames.Info
-        };
-
-        public string Glyph => Type switch
-        {
-            ToastType.Success => "✓",
-            ToastType.Warning => "⚠",
-            ToastType.Error => "✕",
-            _ => "ℹ"
-        };
-
         public IBrush AccentBrush => Type switch
         {
             ToastType.Success => SuccessAccentBrush,
@@ -166,6 +166,24 @@ namespace Shiro.Services
         public static void Show(string title, string message, ToastType type, double durationSeconds = 3.0)
             => ShowInternal(title, message, type, durationSeconds, null, null);
 
+        private static ICommand? BuildActionCommand(ToastItem toast, string cleanAction, Action? onAction)
+        {
+            if (onAction == null || string.IsNullOrWhiteSpace(cleanAction))
+                return null;
+
+            return new ToastItem.ToastActionCommand(() =>
+            {
+                try
+                {
+                    onAction();
+                }
+                finally
+                {
+                    Dismiss(toast);
+                }
+            });
+        }
+
         private static void ShowInternal(
             string title,
             string message,
@@ -179,13 +197,12 @@ namespace Shiro.Services
                 ToastItem toast;
                 TimeSpan? autoDismissDelay = ResolveAutoDismissDelay(durationSeconds);
                 ToastItem? coalescedToast = null;
+                string cleanTitle = title ?? string.Empty;
+                string cleanMessage = message ?? string.Empty;
+                string cleanAction = actionText ?? string.Empty;
 
                 lock (_toastLock)
                 {
-                    string cleanTitle = title ?? string.Empty;
-                    string cleanMessage = message ?? string.Empty;
-                    string cleanAction = actionText ?? string.Empty;
-
                     // Coalesce identical consecutive toasts and extend their auto-dismiss timer cleanly.
                     for (int i = ActiveToasts.Count - 1; i >= 0; i--)
                     {
@@ -210,20 +227,7 @@ namespace Shiro.Services
                             ActionText = cleanAction
                         };
 
-                        if (onAction != null && !string.IsNullOrWhiteSpace(cleanAction))
-                        {
-                            toast.ActionCommand = new ToastItem.ToastActionCommand(() =>
-                            {
-                                try
-                                {
-                                    onAction();
-                                }
-                                finally
-                                {
-                                    Dismiss(toast);
-                                }
-                            });
-                        }
+                        toast.ActionCommand = BuildActionCommand(toast, cleanAction, onAction);
 
                         // Limit active toasts to 2 to keep the viewport clean and unobstructed
                         while (ActiveToasts.Count >= 2)
@@ -243,7 +247,11 @@ namespace Shiro.Services
                     }
                 }
 
-                if (coalescedToast == null)
+                if (coalescedToast != null)
+                {
+                    toast.ActionCommand = BuildActionCommand(toast, cleanAction, onAction);
+                }
+                else
                 {
                     PlayNotificationSound(type);
                 }

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Text.Json;
+using Avalonia.Headless.XUnit;
 using Shiro.AvaloniaUI.Converters;
 using Shiro.Services;
 using Shiro.ViewModels;
@@ -14,7 +15,7 @@ namespace Shiro.Tests
     [Collection("SerialGlobalState")]
     public class UiUxUpgradeTests
     {
-        [Fact]
+        [AvaloniaFact]
         public void Item1_ToastService_VisualOverlayLifecycle_CappedAtFourAndDismissible()
         {
             var prevDispatcher = AppDispatcher.CustomDispatcher;
@@ -44,8 +45,8 @@ namespace Shiro.Tests
 
                 var warnToast = ToastService.ActiveToasts.First(t => t.Title == "Warn 3");
                 Assert.False(warnToast.HasMessage);
-                Assert.Equal("⚠", warnToast.Glyph);
-                Assert.Equal(LucideAvalonia.Enum.LucideIconNames.ShieldAlert, warnToast.IconKind);
+                Assert.Equal(ToastType.Warning, warnToast.Type);
+                Assert.NotNull(warnToast.IconGeometry);
                 Assert.NotNull(warnToast.AccentBrush);
                 Assert.NotNull(warnToast.BackgroundBrush);
                 Assert.NotNull(warnToast.BorderBrush);
@@ -53,8 +54,9 @@ namespace Shiro.Tests
 
                 var errToast = ToastService.ActiveToasts.First(t => t.Title == "Err 4");
                 Assert.True(errToast.HasMessage);
-                Assert.Equal("✕", errToast.Glyph);
-                Assert.Equal(LucideAvalonia.Enum.LucideIconNames.X, errToast.IconKind);
+                Assert.Equal(ToastType.Error, errToast.Type);
+                Assert.NotNull(errToast.IconGeometry);
+                Assert.NotSame(warnToast.IconGeometry, errToast.IconGeometry);
 
                 // Dismiss via ToastItem.DismissCommand
                 warnToast.DismissCommand.Execute(null);

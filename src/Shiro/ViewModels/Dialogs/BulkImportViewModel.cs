@@ -163,13 +163,14 @@ namespace Shiro.ViewModels.Dialogs
                 }
 
                 var queuedForFastLogin = new List<Account>();
+                var queuedSet = new HashSet<Account>();
                 if (classification.UserPass.Count > 0 && !token.IsCancellationRequested)
                 {
                     var existingByUsername = new Dictionary<string, Account>(StringComparer.OrdinalIgnoreCase);
                     foreach (var acc in _repo.GetAll())
                     {
-                        if (acc != null && !string.IsNullOrEmpty(acc.Username))
-                            existingByUsername.TryAdd(acc.Username, acc);
+                        if (acc != null && !string.IsNullOrWhiteSpace(acc.Username))
+                            existingByUsername.TryAdd(acc.Username.Trim(), acc);
                     }
 
                     var unknownUsernames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -238,7 +239,7 @@ namespace Shiro.ViewModels.Dialogs
                             targetAcc.Password = up.Pass;
                         }
 
-                        if (!targetAcc.Valid || string.IsNullOrWhiteSpace(targetAcc.SecurityToken))
+                        if ((!targetAcc.Valid || string.IsNullOrWhiteSpace(targetAcc.SecurityToken)) && queuedSet.Add(targetAcc))
                         {
                             queuedForFastLogin.Add(targetAcc);
                         }
