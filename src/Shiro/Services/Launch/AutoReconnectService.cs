@@ -151,9 +151,10 @@ namespace Shiro.Services
 
             if (oldCts != null)
             {
+                // Leave oldCts canceled without disposing: timerless CTS holds no unmanaged resources,
+                // so concurrent callers holding LifecycleToken will not hit ObjectDisposedException when linking.
                 try { oldCts.Cancel(); }
                 catch (ObjectDisposedException) { /* already disposed */ }
-                oldCts.Dispose();
             }
 
             SuppressAll();
@@ -429,7 +430,6 @@ namespace Shiro.Services
             {
                 try { ctsToDispose.Cancel(); }
                 catch (ObjectDisposedException) { /* already disposed */ }
-                ctsToDispose.Dispose();
             }
 
             RobloxProcess.Disconnected -= NotifyDisconnected;

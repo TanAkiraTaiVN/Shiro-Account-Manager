@@ -85,7 +85,17 @@ namespace Shiro.Services
             internal System.Threading.CancellationToken ResetReconnectToken(System.Threading.CancellationToken outerToken)
             {
                 CancelPendingReconnect();
-                var linked = System.Threading.CancellationTokenSource.CreateLinkedTokenSource(outerToken);
+                System.Threading.CancellationTokenSource linked;
+                try
+                {
+                    linked = System.Threading.CancellationTokenSource.CreateLinkedTokenSource(outerToken);
+                }
+                catch (ObjectDisposedException)
+                {
+                    linked = new System.Threading.CancellationTokenSource();
+                    linked.Cancel();
+                }
+
                 _ctsBacking = linked;
                 ReconnectCts = linked;
                 return linked.Token;

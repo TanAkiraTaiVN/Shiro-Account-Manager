@@ -310,5 +310,54 @@ namespace Shiro.Tests
                 }
             }
         }
+
+        [Fact]
+        public void AutoReconnectService_LifecycleToken_RemainsLinkableAfterStopForShutdownAndDispose()
+        {
+            using var service = new AutoReconnectService(TimeSpan.FromSeconds(30));
+            CancellationToken tokenBeforeStop = service.LifecycleToken;
+            Assert.False(tokenBeforeStop.IsCancellationRequested);
+
+            service.StopForShutdown();
+            Assert.True(tokenBeforeStop.IsCancellationRequested);
+
+            using (var linkedAfterStop = CancellationTokenSource.CreateLinkedTokenSource(tokenBeforeStop))
+            {
+                Assert.True(linkedAfterStop.IsCancellationRequested);
+            }
+
+            bool callbackRan = false;
+            using (tokenBeforeStop.Register(() => callbackRan = true))
+            {
+                Assert.True(callbackRan);
+            }
+
+            CancellationToken tokenBeforeDispose = service.LifecycleToken;
+            Assert.False(tokenBeforeDispose.IsCancellationRequested);
+
+            service.Dispose();
+            Assert.True(tokenBeforeDispose.IsCancellationRequested);
+
+            using (var linkedAfterDispose = CancellationTokenSource.CreateLinkedTokenSource(tokenBeforeDispose))
+            {
+                Assert.True(linkedAfterDispose.IsCancellationRequested);
+            }
+
+            var session = new AutoReconnectService.ReconnectSession
+            {
+                Account = new Account { UserID = 771005, Username = "LinkTokenUser" }
+            };
+            CancellationToken linkedSessionToken = session.ResetReconnectToken(tokenBeforeDispose);
+            Assert.True(linkedSessionToken.IsCancellationRequested);
+            session.CancelPendingReconnect();
+
+            var disposedExternalCts = new CancellationTokenSource();
+            CancellationToken disposedExternalToken = disposedExternalCts.Token;
+            disposedExternalCts.Cancel();
+            disposedExternalCts.Dispose();
+            CancellationToken fallbackToken = session.ResetReconnectToken(disposedExternalToken);
+            Assert.True(fallbackToken.IsCancellationRequested);
+            session.CancelPendingReconnect();
+        }
     }
 }
