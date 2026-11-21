@@ -1,0 +1,259 @@
+#nullable enable
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Reflection;
+using System.Runtime.CompilerServices;
+using System.Threading;
+using System.Threading.Tasks;
+using Avalonia.Headless.XUnit;
+using Avalonia.Threading;
+using NSubstitute;
+using Shiro.AvaloniaUI.Views;
+using Shiro.Services;
+using Shiro.ViewModels;
+using Shiro.ViewModels.Dialogs;
+using Xunit;
+
+namespace Shiro.Tests
+{
+    [Collection("SerialGlobalState")]
+    public sealed class P3FinalFixTests
+    {
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static WeakReference<AccountCollectionViewModel> CreateUndisposedAccountsVmWithSideEffectsWeak(
+            IAccountRepository repo,
+            ISettingsSideEffects sideEffects)
+        {
+            var vm = new AccountCollectionViewModel(
+                Substitute.For<IAppLogger>(),
+                new IniFile()["General"],
+                repo,
+                settingsSideEffects: sideEffects);
+            return new WeakReference<AccountCollectionViewModel>(vm);
+        }
+
+        [AvaloniaFact]
+        public async Task SettingsSideEffects_NotifyAcrossSuppressedExecutionContext_ReachesAccountCollectionViewModel_AndReclaimsUndisposedOnGc()
+        {
+            Assert.Null(typeof(SettingsSideEffectsService).GetProperty(
+                "NotifyDisplayNamesChangedCallback",
+                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static));
+            Assert.Null(typeof(SettingsSideEffectsService).GetProperty(
+                "ClearAvatarCacheCallback",
+                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static));
+            Assert.NotNull(typeof(SettingsSideEffectsService).GetProperty(
+                "TestPickExportPathOverride",
+                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static));
+
+            string tempDir = Path.Combine(Path.GetTempPath(), "ShiroSideEffectsEc_" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(tempDir);
+
+            IniFile ini = new IniFile();
+            IniSection general = ini["General"];
+            general.Set("HideUsernames", "false");
+
+            bool prevStreamerEnabled = StreamerModeService.IsEnabled;
+            bool prevStreamerAuto = StreamerModeService.AutoDetectEnabled;
+            StreamerModeService.AutoDetectEnabled = false;
+            StreamerModeService.IsEnabled = false;
+
+            var sideEffects = new SettingsSideEffectsService();
+            var repo = new AccountRepository();
+            using var settingsScope = AppServices.Override<ISettingsService>(general);
+            using var effectsScope = AppServices.Override<ISettingsSideEffects>(sideEffects);
+            using var dirScope = StoragePaths.OverrideDataDirectoryForTesting(tempDir);
+
+            try
+            {
+                string settingsViewCodeBehind = File.ReadAllText(Path.Combine(
+                    ArchitectureTests.RepoRoot, "src", "Shiro", "AvaloniaUI", "Views", "SettingsView.axaml.cs"));
+                Assert.DoesNotContain("MainWindow", settingsViewCodeBehind, StringComparison.Ordinal);
+                Assert.DoesNotContain("NotifyDisplayNamesChangedCallback", settingsViewCodeBehind, StringComparison.Ordinal);
+                Assert.DoesNotContain("ClearAvatarCacheCallback", settingsViewCodeBehind, StringComparison.Ordinal);
+
+                _ = new SettingsView(new SettingsViewModel(new AppSettings(), general, sideEffects));
+
+                using var accountsVm = new AccountCollectionViewModel(
+                    Substitute.For<IAppLogger>(),
+                    general,
+                    repo);
+
+                var account = new Account { Username = "DisplaySecretUser", UserID = 778899, Valid = true };
+                accountsVm.LoadAccounts(new[] { account });
+                AccountViewModel accVm = Assert.Single(accountsVm.Accounts);
+
+                string avatarsDir = Path.Combine(tempDir, "Cache", "Avatars");
+                Directory.CreateDirectory(avatarsDir);
+                string avatarPath = Path.Combine(avatarsDir, account.UserID + ".png");
+                byte[] pngBytes = Convert.FromBase64String(
+                    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==");
+                await File.WriteAllBytesAsync(avatarPath, pngBytes);
+
+                Assert.Equal("DisplaySecretUser", accVm.ShownUsername);
+                Assert.Equal(avatarPath, await accVm.FetchAndCacheAvatarAsync());
+                Dispatcher.UIThread.RunJobs();
+                Assert.NotNull(accVm.AvatarImage);
+                Assert.Equal(avatarPath, accVm.AvatarUrl);
+
+                var changedProps = new List<string>();
+                accVm.PropertyChanged += (_, e) =>
+                {
+                    if (!string.IsNullOrEmpty(e.PropertyName))
+                        changedProps.Add(e.PropertyName);
+                };
+
+                general.Set("HideUsernames", "true");
+                Assert.Empty(changedProps);
+
+                Task<int> bgTask;
+                using (ExecutionContext.SuppressFlow())
+                {
+                    bgTask = Task.Run(() =>
+                    {
+                        using var bgDirScope = StoragePaths.OverrideDataDirectoryForTesting(tempDir);
+                        sideEffects.NotifyDisplayNamesChanged();
+                        return sideEffects.ClearAvatarCache();
+                    });
+                }
+
+                int deletedCount = await bgTask;
+                Dispatcher.UIThread.RunJobs();
+
+                Assert.Equal(1, deletedCount);
+                Assert.False(File.Exists(avatarPath));
+                Assert.Contains("ShownUsername", changedProps);
+                Assert.Contains("DisplayTitle", changedProps);
+                Assert.Contains("AvatarUrl", changedProps);
+                Assert.Contains("AvatarImage", changedProps);
+                Assert.Equal("D***************r", accVm.ShownUsername);
+                Assert.Equal(string.Empty, accVm.AvatarUrl);
+                Assert.Null(accVm.AvatarImage);
+
+                changedProps.Clear();
+                accountsVm.Dispose();
+                general.Set("HideUsernames", "false");
+                sideEffects.NotifyDisplayNamesChanged();
+                _ = sideEffects.ClearAvatarCache();
+                Dispatcher.UIThread.RunJobs();
+                Assert.Empty(changedProps);
+
+                WeakReference<AccountCollectionViewModel> weakVm =
+                    CreateUndisposedAccountsVmWithSideEffectsWeak(repo, sideEffects);
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
+                GC.Collect();
+
+                sideEffects.NotifyDisplayNamesChanged();
+                _ = sideEffects.ClearAvatarCache();
+                Dispatcher.UIThread.RunJobs();
+
+                Assert.False(weakVm.TryGetTarget(out _));
+            }
+            finally
+            {
+                StreamerModeService.IsEnabled = prevStreamerEnabled;
+                StreamerModeService.AutoDetectEnabled = prevStreamerAuto;
+                if (Directory.Exists(tempDir))
+                {
+                    try { Directory.Delete(tempDir, recursive: true); }
+                    catch (IOException) { }
+                }
+            }
+        }
+
+        [Fact]
+        public async Task SettingsService_And_AccountManagerSaveSettings_ResolveOverrideDirectoryDynamicallyAtSaveTime()
+        {
+            string tempRoot = Path.Combine(Path.GetTempPath(), "ShiroSettingsIso_" + Guid.NewGuid().ToString("N"));
+            string initialDir = Path.Combine(tempRoot, "initial");
+            string overrideDir = Path.Combine(tempRoot, "override");
+            string flushDir = Path.Combine(tempRoot, "flush");
+            string managerDir = Path.Combine(tempRoot, "manager");
+            Directory.CreateDirectory(initialDir);
+            Directory.CreateDirectory(overrideDir);
+            Directory.CreateDirectory(flushDir);
+            Directory.CreateDirectory(managerDir);
+
+            IniFile prevIni = AppSettings.ActiveIniFile;
+            AccountManager? prevInstance = AccountManager.Instance;
+            AccountStore prevStore = AccountPersistenceService.Default.Store;
+            var prevAccounts = AccountManager.Instance != null
+                ? AppServices.AccountRepository.GetAll()
+                : Array.Empty<Account>();
+
+            try
+            {
+                SettingsService settingsService;
+                SettingsService customRootedService;
+                string customRootedPath = Path.Combine(initialDir, "explicit-rooted-settings.json");
+
+                using (StoragePaths.OverrideDataDirectoryForTesting(initialDir))
+                {
+                    var ini = new IniFile();
+                    settingsService = new SettingsService(ini);
+
+                    var customDoc = new SettingsDocument(customRootedPath);
+                    customRootedService = new SettingsService(customDoc);
+
+                    // Construct AccountManager while initialDir is active (before overrideDir is active).
+                    _ = new AccountManager();
+                }
+
+                string initialSettingsPath = Path.Combine(initialDir, "RAMSettings.json");
+                string overrideSettingsPath = Path.Combine(overrideDir, "RAMSettings.json");
+                string flushSettingsPath = Path.Combine(flushDir, "RAMSettings.json");
+                string managerSettingsPath = Path.Combine(managerDir, "RAMSettings.json");
+
+                using (StoragePaths.OverrideDataDirectoryForTesting(overrideDir))
+                {
+                    settingsService.Set("General", "DynamicKey", "OverrideValue");
+                    settingsService.Save();
+
+                    Assert.True(File.Exists(overrideSettingsPath));
+                    Assert.False(File.Exists(initialSettingsPath));
+                    var reloaded = new SettingsDocument(overrideSettingsPath);
+                    Assert.Equal("OverrideValue", reloaded.Get("General", "DynamicKey"));
+
+                    customRootedService.Set("General", "ExplicitKey", "ExplicitValue");
+                    customRootedService.Save();
+                    Assert.True(File.Exists(customRootedPath));
+                    Assert.Equal("ExplicitValue", new SettingsDocument(customRootedPath).Get("General", "ExplicitKey"));
+                }
+
+                using (StoragePaths.OverrideDataDirectoryForTesting(flushDir))
+                {
+                    settingsService.Set("General", "FlushKey", "FlushValue");
+                    await settingsService.Document.FlushAsync();
+
+                    Assert.True(File.Exists(flushSettingsPath));
+                    Assert.False(File.Exists(initialSettingsPath));
+                    Assert.Equal("FlushValue", new SettingsDocument(flushSettingsPath).Get("General", "FlushKey"));
+                }
+
+                using (StoragePaths.OverrideDataDirectoryForTesting(managerDir))
+                {
+                    AppSettings.General.Set("ManagerDynamicKey", "ManagerOverrideValue");
+                    AccountManager.SaveSettings();
+
+                    Assert.True(File.Exists(managerSettingsPath));
+                    Assert.False(File.Exists(initialSettingsPath));
+                    Assert.Equal("ManagerOverrideValue", new SettingsDocument(managerSettingsPath).Get("General", "ManagerDynamicKey"));
+                }
+            }
+            finally
+            {
+                AccountManager.ReplaceAccountsList(new List<Account>(prevAccounts));
+                AccountPersistenceService.Default.Store = prevStore;
+                AppSettings.ActiveIniFile = prevIni;
+                AccountManager.Instance = prevInstance;
+                AccountManager.WireHostServices();
+                if (Directory.Exists(tempRoot))
+                {
+                    try { Directory.Delete(tempRoot, recursive: true); }
+                    catch (IOException) { }
+                }
+            }
+        }
+    }
+}

@@ -31,6 +31,8 @@ namespace Shiro.Services
         Task StopWebServerAsync();
         void SetAutoCookieRefresh(bool on);
         void SetStreamerMode(bool enabled) { }
+        event EventHandler? DisplayNamesChanged;
+        event EventHandler? AvatarCacheCleared;
         void NotifyDisplayNamesChanged();
         void QueueDeferredSave();
         void CleanNotificationArea();
@@ -45,21 +47,10 @@ namespace Shiro.Services
     {
         public static SettingsSideEffectsService Default { get; } = new();
 
-        private static readonly AsyncLocal<Action?> _notifyDisplayNamesChangedCallback = new();
-        private static readonly AsyncLocal<Action?> _clearAvatarCacheCallback = new();
         private static readonly AsyncLocal<Func<string, Task<(bool Confirmed, string? Path)>>?> _testPickExportPathOverride = new();
 
-        public static Action? NotifyDisplayNamesChangedCallback
-        {
-            get => _notifyDisplayNamesChangedCallback.Value;
-            set => _notifyDisplayNamesChangedCallback.Value = value;
-        }
-
-        public static Action? ClearAvatarCacheCallback
-        {
-            get => _clearAvatarCacheCallback.Value;
-            set => _clearAvatarCacheCallback.Value = value;
-        }
+        public event EventHandler? DisplayNamesChanged;
+        public event EventHandler? AvatarCacheCleared;
 
         // Test seam for headless verification of Save vs Cancel export picker outcomes.
         internal static Func<string, Task<(bool Confirmed, string? Path)>>? TestPickExportPathOverride
@@ -141,7 +132,7 @@ namespace Shiro.Services
 
         public void NotifyDisplayNamesChanged()
         {
-            NotifyDisplayNamesChangedCallback?.Invoke();
+            DisplayNamesChanged?.Invoke(this, EventArgs.Empty);
         }
 
         public void QueueDeferredSave() => AppServices.HostUiBridge.QueueDeferredSaveSettings();
@@ -174,7 +165,7 @@ namespace Shiro.Services
                 }
             }
 
-            ClearAvatarCacheCallback?.Invoke();
+            AvatarCacheCleared?.Invoke(this, EventArgs.Empty);
 
             return deletedCount;
         }

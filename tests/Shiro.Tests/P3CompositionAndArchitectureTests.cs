@@ -267,9 +267,9 @@ namespace Shiro.Tests
         public void ToastAndSettingsSideEffects_OperateWithoutViewModelDependencies()
         {
             var prevDispatcher = AppDispatcher.CustomDispatcher;
-            var prevNotifyCb = SettingsSideEffectsService.NotifyDisplayNamesChangedCallback;
-            var prevClearCb = SettingsSideEffectsService.ClearAvatarCacheCallback;
             AppDispatcher.CustomDispatcher = a => a();
+            string tempDir = Path.Combine(Path.GetTempPath(), "ShiroSideEffectsIso_" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(tempDir);
 
             try
             {
@@ -283,23 +283,29 @@ namespace Shiro.Tests
                 Assert.True(actionRan);
                 Assert.Empty(ToastService.ActiveToasts);
 
+                using var dirScope = StoragePaths.OverrideDataDirectoryForTesting(tempDir);
+                var effects = new SettingsSideEffectsService();
                 int displayNotifyCount = 0;
                 int clearAvatarCount = 0;
-                SettingsSideEffectsService.NotifyDisplayNamesChangedCallback = () => displayNotifyCount++;
-                SettingsSideEffectsService.ClearAvatarCacheCallback = () => clearAvatarCount++;
+                effects.DisplayNamesChanged += (_, _) => displayNotifyCount++;
+                effects.AvatarCacheCleared += (_, _) => clearAvatarCount++;
 
-                SettingsSideEffectsService.Default.NotifyDisplayNamesChanged();
-                _ = SettingsSideEffectsService.Default.ClearAvatarCache();
+                effects.NotifyDisplayNamesChanged();
+                int deleted = effects.ClearAvatarCache();
 
                 Assert.Equal(1, displayNotifyCount);
                 Assert.Equal(1, clearAvatarCount);
+                Assert.Equal(0, deleted);
             }
             finally
             {
                 ToastService.ClearAll();
-                SettingsSideEffectsService.NotifyDisplayNamesChangedCallback = prevNotifyCb;
-                SettingsSideEffectsService.ClearAvatarCacheCallback = prevClearCb;
                 AppDispatcher.CustomDispatcher = prevDispatcher;
+                if (Directory.Exists(tempDir))
+                {
+                    try { Directory.Delete(tempDir, recursive: true); }
+                    catch (IOException) { }
+                }
             }
         }
 

@@ -22,6 +22,48 @@ namespace Shiro.ViewModels
                 static (vm, sender, e) => vm.OnRepositoryAccountsChanged(sender, e),
                 h => repo.AccountsChanged -= h);
             repo.AccountsChanged += _accountsChangedHandler;
+
+            ISettingsSideEffects sideEffects = _settingsSideEffects;
+            _displayNamesChangedHandler = WeakEventSubscription.Create<AccountCollectionViewModel>(
+                this,
+                static (vm, _, _) => vm.OnDisplayNamesChanged(),
+                h => sideEffects.DisplayNamesChanged -= h);
+            sideEffects.DisplayNamesChanged += _displayNamesChangedHandler;
+
+            _avatarCacheClearedHandler = WeakEventSubscription.Create<AccountCollectionViewModel>(
+                this,
+                static (vm, _, _) => vm.OnAvatarCacheCleared(),
+                h => sideEffects.AvatarCacheCleared -= h);
+            sideEffects.AvatarCacheCleared += _avatarCacheClearedHandler;
+        }
+
+        private void OnDisplayNamesChanged()
+        {
+            if (Volatile.Read(ref _disposed) != 0) return;
+            AppDispatcher.Post(() =>
+            {
+                if (Volatile.Read(ref _disposed) != 0) return;
+                AccountViewModel[] snapshot;
+                lock (_accountsUiLock)
+                    snapshot = _accounts.ToArray();
+                foreach (var vm in snapshot)
+                    vm.NotifyDisplayNameChanged();
+            });
+        }
+
+        private void OnAvatarCacheCleared()
+        {
+            if (Volatile.Read(ref _disposed) != 0) return;
+            AppDispatcher.Post(() =>
+            {
+                if (Volatile.Read(ref _disposed) != 0) return;
+                AccountViewModel.ClearAvatarMemoryCache();
+                AccountViewModel[] snapshot;
+                lock (_accountsUiLock)
+                    snapshot = _accounts.ToArray();
+                foreach (var accVm in snapshot)
+                    accVm.InvalidateAvatar();
+            });
         }
 
         private void OnAccountViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)

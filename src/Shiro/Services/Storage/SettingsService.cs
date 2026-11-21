@@ -11,7 +11,7 @@ namespace Shiro.Services
         public IniFile File => Document.BackingIni;
 
         public SettingsService(IniFile file, IAppLogger? logger = null)
-            : this(new SettingsDocument(file ?? throw new ArgumentNullException(nameof(file)), StoragePaths.SettingsFile), logger)
+            : this(new SettingsDocument(file ?? throw new ArgumentNullException(nameof(file)), "RAMSettings.json"), logger)
         {
         }
 

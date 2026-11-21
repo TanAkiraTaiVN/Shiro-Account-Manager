@@ -35,6 +35,7 @@ namespace Shiro.ViewModels
         private readonly IAppLogger _logger;
         private readonly ISettingsService _settings;
         private readonly IAccountRepository _accountRepository;
+        private readonly ISettingsSideEffects _settingsSideEffects;
         private readonly Action<string> _setStatus;
         private readonly Func<string> _getPlaceId;
         private readonly Func<string> _getJobId;
@@ -51,6 +52,8 @@ namespace Shiro.ViewModels
         private readonly Lock _accountsUiLock = new();
 
         private EventHandler<AccountsChangedEventArgs>? _accountsChangedHandler;
+        private EventHandler? _displayNamesChangedHandler;
+        private EventHandler? _avatarCacheClearedHandler;
         private CancellationTokenSource? _searchCts;
         private AccountViewModel? _lastClickedAccount;
         private string _searchText = string.Empty;
@@ -83,11 +86,13 @@ namespace Shiro.ViewModels
             Func<string>? getPlaceId = null,
             Func<string>? getJobId = null,
             Action? onSelectionChanged = null,
-            Action? onAccountsLoaded = null)
+            Action? onAccountsLoaded = null,
+            ISettingsSideEffects? settingsSideEffects = null)
         {
             _logger = logger ?? AppServices.Logger;
             _settings = settings ?? AppServices.GeneralSettings;
             _accountRepository = accountRepository ?? AppServices.AccountRepository;
+            _settingsSideEffects = settingsSideEffects ?? AppServices.GetService<ISettingsSideEffects>() ?? SettingsSideEffectsService.Default;
             _setStatus = setStatus ?? (_ => { });
             _getPlaceId = getPlaceId ?? (() => string.Empty);
             _getJobId = getJobId ?? (() => string.Empty);
@@ -409,7 +414,20 @@ namespace Shiro.ViewModels
             if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
 
             if (_accountsChangedHandler != null)
+            {
                 _accountRepository.AccountsChanged -= _accountsChangedHandler;
+                _accountsChangedHandler = null;
+            }
+            if (_displayNamesChangedHandler != null)
+            {
+                _settingsSideEffects.DisplayNamesChanged -= _displayNamesChangedHandler;
+                _displayNamesChangedHandler = null;
+            }
+            if (_avatarCacheClearedHandler != null)
+            {
+                _settingsSideEffects.AvatarCacheCleared -= _avatarCacheClearedHandler;
+                _avatarCacheClearedHandler = null;
+            }
 
             Interlocked.Increment(ref _searchGeneration);
             AccountListFilterController.DetachPropertyChanged(_accounts, OnAccountViewModelPropertyChanged);

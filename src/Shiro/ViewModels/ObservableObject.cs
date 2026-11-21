@@ -54,6 +54,24 @@ namespace Shiro.ViewModels
 
     internal static class WeakEventSubscription
     {
+        public static EventHandler Create<TTarget>(
+            TTarget target,
+            Action<TTarget, object?, EventArgs> onEvent,
+            Action<EventHandler> detach)
+            where TTarget : class
+        {
+            var weakRef = new WeakReference<TTarget>(target);
+            EventHandler? handler = null;
+            handler = (sender, args) =>
+            {
+                if (weakRef.TryGetTarget(out var live))
+                    onEvent(live, sender, args);
+                else if (handler != null)
+                    detach(handler);
+            };
+            return handler;
+        }
+
         public static EventHandler<TArgs> Create<TTarget, TArgs>(
             TTarget target,
             Action<TTarget, object?, TArgs> onEvent,

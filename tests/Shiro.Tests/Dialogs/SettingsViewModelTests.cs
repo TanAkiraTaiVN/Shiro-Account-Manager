@@ -68,6 +68,8 @@ namespace Shiro.Tests.Dialogs
             }
 
             public void SetAutoCookieRefresh(bool on) { }
+            public event EventHandler? DisplayNamesChanged { add { } remove { } }
+            public event EventHandler? AvatarCacheCleared { add { } remove { } }
             public void NotifyDisplayNamesChanged() => NotifyDisplayNamesChangedCount++;
 
             public void QueueDeferredSave()

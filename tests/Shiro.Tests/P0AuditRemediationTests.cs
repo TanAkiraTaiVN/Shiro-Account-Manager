@@ -58,6 +58,8 @@ public sealed class P0AuditRemediationTests : IDisposable
         public void ConfigureAutoTrim(bool on) { }
         public void SetCpuRateLimit(int percent) { }
         public void SetAutoCookieRefresh(bool on) { }
+        public event EventHandler? DisplayNamesChanged { add { } remove { } }
+        public event EventHandler? AvatarCacheCleared { add { } remove { } }
         public void NotifyDisplayNamesChanged() { }
         public void QueueDeferredSave() { }
         public void CleanNotificationArea() { }
