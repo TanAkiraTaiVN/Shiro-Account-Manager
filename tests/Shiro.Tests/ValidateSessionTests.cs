@@ -462,5 +462,24 @@ namespace Shiro.Tests
             Assert.True(acc.IsBannedOrLocked);
             Assert.False(string.IsNullOrEmpty(acc.AccountStatusIssue));
         }
+
+        [Theory]
+        [InlineData(HttpStatusCode.ProxyAuthenticationRequired)]
+        [InlineData(HttpStatusCode.RequestTimeout)]
+        public async Task Validate_WhenUsersReturnsProxyAuthOrTimeout_PreservesExistingValidity(HttpStatusCode transientCode)
+        {
+            var handler = new FakeHttpHandler(_ => Json(transientCode));
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(handler);
+
+            var acc = NewAccount();
+            acc.Valid = true;
+            acc.AccountStatusIssue = string.Empty;
+
+            bool valid = await acc.ValidateSessionAsync();
+
+            Assert.True(valid);
+            Assert.True(acc.Valid);
+            Assert.False(acc.IsBannedOrLocked);
+        }
     }
 }

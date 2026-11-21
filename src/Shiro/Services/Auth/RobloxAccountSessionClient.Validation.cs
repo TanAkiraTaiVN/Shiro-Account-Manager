@@ -128,7 +128,9 @@ namespace Shiro.Services
                     if (response.StatusCode == HttpStatusCode.Forbidden)
                         return await HandleForbiddenValidationResponseAsync(account, response, ct).ConfigureAwait(false);
 
-                    if ((int)response.StatusCode >= 500)
+                    if ((int)response.StatusCode >= 500 ||
+                        response.StatusCode == HttpStatusCode.ProxyAuthenticationRequired ||
+                        response.StatusCode == HttpStatusCode.RequestTimeout)
                     {
                         Logger?.Warn($"[ValidateSessionAsync] {account.Username}: Server returned HTTP {(int)response.StatusCode} {response.StatusCode}. Roblox service is temporarily degraded. Preserving session validity: {account.Valid}");
                         return account.Valid;

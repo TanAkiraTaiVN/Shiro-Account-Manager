@@ -176,5 +176,48 @@ namespace Shiro.Tests.Network
             Assert.False(acc.Valid);
             Assert.Equal(0, notApprovedCalls);
         }
+
+        [Theory]
+        [InlineData("<footer>Read our Community Standards and Terms of Use</footer>")]
+        [InlineData("<div>Click I Agree to accept analytics cookies</div>")]
+        [InlineData("<div>Reason: scheduled maintenance window</div>")]
+        [InlineData("<div>Roblox home page - check out Community Standards and I Agree</div>")]
+        public void ParseModerationText_BenignFooterOrCookieBannerHtml_DoesNotFalsePositive(string benignHtml)
+        {
+            var result = RobloxModerationService.ParseModerationText(benignHtml, "https://www.roblox.com/home");
+            Assert.False(result.IsBanned);
+            Assert.Null(result.IssueBadge);
+            Assert.Null(result.Reason);
+        }
+
+        [Fact]
+        public void ParseModerationText_MultiDigitBanDays_DoesNotMisclassifyAsShortBan()
+        {
+            Assert.Equal(
+                LocalizationService.Get("FastLogin.LockedOrBannedBadge"),
+                RobloxModerationService.ParseModerationText("Reviewed: today. Ban 21 days").IssueBadge);
+            Assert.Equal(
+                LocalizationService.Get("FastLogin.LockedOrBannedBadge"),
+                RobloxModerationService.ParseModerationText("Reviewed: today. Ban 17 days").IssueBadge);
+            Assert.Equal(
+                LocalizationService.Get("FastLogin.LockedOrBannedBadge"),
+                RobloxModerationService.ParseModerationText("Reviewed: today. Ban 13 days").IssueBadge);
+            Assert.Equal(
+                LocalizationService.Get("FastLogin.BanFourteenDaysShort"),
+                RobloxModerationService.ParseModerationText("Reviewed: today. Ban 14 days").IssueBadge);
+        }
+
+        [Fact]
+        public async Task CheckModerationStatusAsync_Home200WithFooterHtml_ReturnsNotBanned()
+        {
+            var acc = new Account { Username = "Home200User", SecurityToken = "_|WARNING:-DO-NOT-SHARE-THIS.--Home200Tok" };
+            var handler = new FakeHttpHandler()
+                .Enqueue(HttpStatusCode.OK, "{}")
+                .Enqueue(HttpStatusCode.OK, "<html><body>Home</body><footer>Community Standards - I Agree - Reason: cookies</footer></html>");
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(handler);
+
+            var res = await RobloxModerationService.Default.CheckModerationStatusAsync(acc, acc.SecurityToken, CancellationToken.None);
+            Assert.False(res.IsBanned);
+        }
     }
 }

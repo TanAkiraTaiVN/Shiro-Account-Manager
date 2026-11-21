@@ -198,7 +198,7 @@ namespace Shiro.Services
 
                 string finalUrl = response.RequestMessage?.RequestUri?.AbsoluteUri ?? string.Empty;
 
-                if (!string.IsNullOrEmpty(finalUrl) && !RobloxModerationHelper.IsModerationOrLockedUrl(finalUrl))
+                if (string.IsNullOrEmpty(finalUrl) || !RobloxModerationHelper.IsModerationOrLockedUrl(finalUrl))
                 {
                     return (false, null, null);
                 }
@@ -321,24 +321,23 @@ namespace Shiro.Services
                 text.Contains("your account has been", StringComparison.Ordinal) ||
                 text.Contains("punishment:", StringComparison.Ordinal) ||
                 text.Contains("reactivate my account", StringComparison.Ordinal) ||
-                text.Contains("community standards", StringComparison.Ordinal) ||
-                text.Contains("reason:", StringComparison.Ordinal) ||
+                text.Contains("not-approved-page", StringComparison.Ordinal) ||
                 text.Contains("account locked", StringComparison.Ordinal) ||
-                text.Contains("i agree", StringComparison.Ordinal);
+                (text.Contains("i agree", StringComparison.Ordinal) && text.Contains("warning", StringComparison.Ordinal));
 
             if (!hasModerationMarker && !text.Contains("banned", StringComparison.Ordinal))
             {
                 return (false, null, null);
             }
 
-            if (text.Contains("7 day", StringComparison.Ordinal) || text.Contains("7-day", StringComparison.Ordinal))
-                return (true, Shiro.Services.LocalizationService.Get("FastLogin.BanSevenDaysShort"), Shiro.Services.LocalizationService.Get("Moderation.BanSevenDaysReason"));
-            if (text.Contains("3 day", StringComparison.Ordinal) || text.Contains("3-day", StringComparison.Ordinal))
-                return (true, Shiro.Services.LocalizationService.Get("FastLogin.BanThreeDaysShort"), Shiro.Services.LocalizationService.Get("Moderation.BanThreeDaysReason"));
-            if (text.Contains("1 day", StringComparison.Ordinal) || text.Contains("1-day", StringComparison.Ordinal))
-                return (true, Shiro.Services.LocalizationService.Get("FastLogin.BanOneDayShort"), Shiro.Services.LocalizationService.Get("Moderation.BanOneDayReason"));
-            if (text.Contains("14 day", StringComparison.Ordinal) || text.Contains("14-day", StringComparison.Ordinal))
+            if (ContainsExactBanDays(text, 14))
                 return (true, Shiro.Services.LocalizationService.Get("FastLogin.BanFourteenDaysShort"), Shiro.Services.LocalizationService.Get("Moderation.BanFourteenDaysReason"));
+            if (ContainsExactBanDays(text, 7))
+                return (true, Shiro.Services.LocalizationService.Get("FastLogin.BanSevenDaysShort"), Shiro.Services.LocalizationService.Get("Moderation.BanSevenDaysReason"));
+            if (ContainsExactBanDays(text, 3))
+                return (true, Shiro.Services.LocalizationService.Get("FastLogin.BanThreeDaysShort"), Shiro.Services.LocalizationService.Get("Moderation.BanThreeDaysReason"));
+            if (ContainsExactBanDays(text, 1))
+                return (true, Shiro.Services.LocalizationService.Get("FastLogin.BanOneDayShort"), Shiro.Services.LocalizationService.Get("Moderation.BanOneDayReason"));
             if (text.Contains("deleted", StringComparison.Ordinal) || text.Contains("terminated", StringComparison.Ordinal) || text.Contains("permanently", StringComparison.Ordinal))
                 return (true, Shiro.Services.LocalizationService.Get("FastLogin.BanPermanentShort"), Shiro.Services.LocalizationService.Get("Moderation.BanPermanentReason"));
             if (hasModerationMarker && text.Contains("warning", StringComparison.Ordinal))
@@ -350,6 +349,21 @@ namespace Shiro.Services
                 return (true, Shiro.Services.LocalizationService.Get("FastLogin.LockedOrBannedBadge"), Shiro.Services.LocalizationService.Get("FastLogin.AccountLockedOrModerated"));
 
             return (false, null, null);
+        }
+
+        private static bool ContainsExactBanDays(string text, int days) =>
+            ContainsStandaloneToken(text, $"{days} day") || ContainsStandaloneToken(text, $"{days}-day");
+
+        private static bool ContainsStandaloneToken(string text, string token)
+        {
+            int idx = 0;
+            while ((idx = text.IndexOf(token, idx, StringComparison.Ordinal)) >= 0)
+            {
+                if (idx == 0 || !char.IsAsciiDigit(text[idx - 1]))
+                    return true;
+                idx += token.Length;
+            }
+            return false;
         }
     }
 }
