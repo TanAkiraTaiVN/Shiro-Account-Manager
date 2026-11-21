@@ -48,6 +48,7 @@ namespace Shiro.Services
 
         private bool accountDataNeedsMigration;
         private byte[]? _lastSavedPlaintextHash;
+        private byte[]? _pendingBackupRestoreData;
         private readonly System.Threading.Lock saveLock = new();
 
         internal System.Threading.Lock AccountListLock => _repository.SyncRoot;
@@ -108,6 +109,7 @@ namespace Shiro.Services
             {
                 unlocked = false;
                 legacyPlaintextLoaded = false;
+                _pendingBackupRestoreData = null;
                 bool EnteredPassword = false;
                 Store ??= new AccountStore();
                 byte[] Data = Store.Read();
@@ -173,12 +175,13 @@ namespace Shiro.Services
                     IsVaultLockedPendingMasterPassword = false;
                 }
 
+                var backupResult = BackupLoadResult.NotAttempted;
                 if (!EnteredPassword && _repository.Count == 0 && File.Exists($"{SaveFilePath}.backup") && File.ReadAllBytes($"{SaveFilePath}.backup") is byte[] BackupData && BackupData.Length > 0)
                 {
-                    var (backupResult, promptMsg) = TryRestoreBackupWithoutPromptLocked(BackupData);
+                    (backupResult, string? promptMsg) = TryRestoreBackupWithoutPromptLocked(BackupData);
                     if (promptMsg != null)
                     {
-                        _ = OfferPendingBackupRestoreAsync(BackupData);
+                        _pendingBackupRestoreData = BackupData;
                     }
                     else if (backupResult == BackupLoadResult.PromotedNeedsPassword)
                     {
@@ -188,21 +191,8 @@ namespace Shiro.Services
                     }
                 }
 
-                try { AccountRuntimeStateStore.HydrateAccounts(_repository.GetAll()); }
-                catch (Exception ex) { AppServices.Logger?.Debug($"[LoadAccounts] Runtime state hydration skipped: {ex.Message}"); }
-
-                IReadOnlyList<Account> loadedAccounts = _repository.GetAll();
-                if (loadedAccounts.Count > 0)
-                {
-                    AppServices.SelectionState.LastValidAccount = loadedAccounts[0];
-                    foreach (Account account in loadedAccounts)
-                    {
-                        if (account.LastUse > AppServices.SelectionState.LastValidAccount.LastUse)
-                            AppServices.SelectionState.LastValidAccount = account;
-                    }
-                }
-
-                EnableModernDashboard();
+                if (backupResult != BackupLoadResult.Restored)
+                    HydrateRuntimeStateAndSelectionLocked();
 
                 if (accountDataNeedsMigration)
                 {
@@ -245,29 +235,12 @@ namespace Shiro.Services
             if (promptMessage == null)
                 return initialResult;
 
-            if (!await AppServices.Dialogs.ShowConfirmationAsync(promptMessage).ConfigureAwait(false))
+            if (!await AppServices.Dialogs.ShowConfirmationAsync(promptMessage))
                 return BackupLoadResult.NotAttempted;
 
             lock (saveLock)
             {
                 return CompleteConfirmedBackupRestoreLocked(backupData);
-            }
-        }
-
-        private async Task OfferPendingBackupRestoreAsync(byte[] backupData)
-        {
-            try
-            {
-                var res = await TryLoadFromBackupAsync(backupData).ConfigureAwait(false);
-                if (res == BackupLoadResult.PromotedNeedsPassword)
-                {
-                    IsVaultLockedPendingMasterPassword = true;
-                    EnableModernDashboard();
-                }
-            }
-            catch (Exception ex)
-            {
-                AppServices.Logger?.Debug($"[OfferPendingBackupRestoreAsync] {ex.Message}");
             }
         }
 
@@ -296,9 +269,12 @@ namespace Shiro.Services
 
         private BackupLoadResult CompleteConfirmedBackupRestoreLocked(byte[] backupData)
         {
+            _pendingBackupRestoreData = null;
             if (Cryptography.IsEncrypted(backupData))
             {
                 PromoteBackupToPrimary(SaveFilePath, DateTime.Now);
+                IsVaultLockedPendingMasterPassword = true;
+                EnableModernDashboard();
                 return BackupLoadResult.PromotedNeedsPassword;
             }
 
@@ -320,6 +296,7 @@ namespace Shiro.Services
             IsVaultLockedPendingMasterPassword = false;
             ClearPasswordHash();
             ReplaceAccountsList(result.Accounts);
+            HydrateRuntimeStateAndSelectionLocked();
             accountDataNeedsMigration |= result.NeedsMigration;
             AppServices.Logger?.Info($"[LoadAccounts] Restored {_repository.Count} accounts from {logSource}.");
             if (_repository.Count > 0)

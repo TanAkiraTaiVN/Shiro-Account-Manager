@@ -170,22 +170,25 @@ namespace Shiro.ViewModels
         {
             string prompt = LocalizationService.Get("Main.EnterSelectionRangePrompt");
             string title = LocalizationService.Get("Main.SelectByRangeTitle");
-            string input = await AppServices.Dialogs.ShowInputPromptAsync(prompt, title).ConfigureAwait(false);
+            string input = await AppServices.Dialogs.ShowInputPromptAsync(prompt, title);
             if (string.IsNullOrWhiteSpace(input) || input == "/UC") return;
 
-            int picked = selectRange(input);
-            if (picked > 0)
+            await AppDispatcher.InvokeAsync(() =>
             {
-                string msg = LocalizationService.Format("Main.SelectedByRangeResult", picked, input);
-                setStatus(msg);
-                ToastService.ShowSuccess(title, msg);
-            }
-            else
-            {
-                string warn = LocalizationService.Format("Main.NoAccountsMatchedRange", input);
-                setStatus(warn);
-                ToastService.ShowWarning(title, warn);
-            }
+                int picked = selectRange(input);
+                if (picked > 0)
+                {
+                    string msg = LocalizationService.Format("Main.SelectedByRangeResult", picked, input);
+                    setStatus(msg);
+                    ToastService.ShowSuccess(title, msg);
+                }
+                else
+                {
+                    string warn = LocalizationService.Format("Main.NoAccountsMatchedRange", input);
+                    setStatus(warn);
+                    ToastService.ShowWarning(title, warn);
+                }
+            });
         }
 
         internal static List<int> ParseRangeIndices(string? expression, int totalCount)

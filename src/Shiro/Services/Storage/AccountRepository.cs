@@ -350,6 +350,11 @@ namespace Shiro.Services
             return PersistenceInstance.LoadAccountsFromStore(masterPasswordHash);
         }
 
+        public Task<bool> ResolvePendingBackupRestoreAsync()
+        {
+            return PersistenceInstance.ResolvePendingBackupRestoreAsync();
+        }
+
         public bool TryRecoverOrRestore(out string statusMessage)
         {
             return PersistenceInstance.TryRecoverOrRestoreAccounts(out statusMessage);

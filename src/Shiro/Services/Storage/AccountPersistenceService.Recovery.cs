@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Security.Cryptography;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace Shiro.Services
 {
@@ -198,18 +199,51 @@ namespace Shiro.Services
 
                     IsVaultLockedPendingMasterPassword = false;
                     ReplaceAccountsList(bestRestored);
-                    try { AccountRuntimeStateStore.HydrateAccounts(_repository.GetAll()); }
-                    catch (Exception ex) { AppServices.Logger?.Debug($"[TryRestoreReadableBackup] Runtime state hydration skipped: {ex.Message}"); }
+                    HydrateRuntimeStateAndSelectionLocked();
                     accountDataNeedsMigration |= bestNeedsMigration;
                     ClearPasswordHash();
                     SaveAccounts(true, true);
-                    EnableModernDashboard();
                     AppServices.Logger?.Info($"[LoadAccounts] Restored {bestRestored.Count} accounts from '{bestPath}'.");
                     return true;
                 }
 
                 return false;
             }
+        }
+
+        internal void HydrateRuntimeStateAndSelectionLocked()
+        {
+            IReadOnlyList<Account> loadedAccounts = _repository.GetAll();
+            try { AccountRuntimeStateStore.HydrateAccounts(loadedAccounts); }
+            catch (Exception ex) { AppServices.Logger?.Debug($"[LoadAccounts] Runtime state hydration skipped: {ex.Message}"); }
+
+            if (loadedAccounts.Count > 0)
+            {
+                Account best = loadedAccounts[0];
+                for (int i = 1; i < loadedAccounts.Count; i++)
+                {
+                    if (loadedAccounts[i].LastUse > best.LastUse)
+                        best = loadedAccounts[i];
+                }
+                AppServices.SelectionState.LastValidAccount = best;
+            }
+
+            EnableModernDashboard();
+        }
+
+        internal async Task<bool> ResolvePendingBackupRestoreAsync()
+        {
+            byte[]? pending;
+            lock (saveLock)
+            {
+                pending = _pendingBackupRestoreData;
+                _pendingBackupRestoreData = null;
+                if (pending == null || pending.Length == 0 || _repository.Count > 0)
+                    return false;
+            }
+
+            BackupLoadResult result = await TryLoadFromBackupAsync(pending);
+            return result == BackupLoadResult.Restored;
         }
 
         internal void SetProtectedPasswordHash(byte[] hash)

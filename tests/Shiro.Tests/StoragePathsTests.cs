@@ -1,5 +1,7 @@
 using System;
 using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
 using Shiro.Services;
 using Xunit;
 
@@ -265,6 +267,54 @@ namespace Shiro.Tests
                     try { Directory.Delete(isolated, true); }
                     catch (IOException) { }
                 }
+            }
+        }
+
+        [Fact]
+        public async Task OverrideDataDirectoryForTesting_Dispose_DoesNotZeroConcurrentGlobalOrOtherScopeVaultKey()
+        {
+            string dirB = Path.Combine(Path.GetTempPath(), "ShiroVaultIsoB_" + Guid.NewGuid().ToString("N"));
+            string dirC = Path.Combine(Path.GetTempPath(), "ShiroVaultIsoC_" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                byte[] globalKeyRef = StoragePaths.GetOrCreateVaultKey();
+                byte[] expectedGlobal = globalKeyRef.ToArray();
+                Assert.Equal(32, expectedGlobal.Length);
+                Assert.Contains(expectedGlobal, b => b != 0);
+
+                var taskBReady = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+                var taskCDone = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+                var taskB = Task.Run(async () =>
+                {
+                    using var scopeB = StoragePaths.OverrideDataDirectoryForTesting(dirB);
+                    byte[] keyB = StoragePaths.GetOrCreateVaultKey();
+                    byte[] expectedB = keyB.ToArray();
+                    taskBReady.TrySetResult(true);
+                    await taskCDone.Task.WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
+                    Assert.Equal(expectedB, keyB);
+                    Assert.Same(keyB, StoragePaths.GetOrCreateVaultKey());
+                });
+
+                var taskC = Task.Run(async () =>
+                {
+                    await taskBReady.Task.WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
+                    using (StoragePaths.OverrideDataDirectoryForTesting(dirC))
+                    {
+                        byte[] keyC = StoragePaths.GetOrCreateVaultKey();
+                        Assert.Equal(32, keyC.Length);
+                    }
+                    taskCDone.TrySetResult(true);
+                });
+
+                await Task.WhenAll(taskB, taskC);
+                Assert.Equal(expectedGlobal, globalKeyRef);
+                Assert.Same(globalKeyRef, StoragePaths.GetOrCreateVaultKey());
+            }
+            finally
+            {
+                if (Directory.Exists(dirB)) Directory.Delete(dirB, true);
+                if (Directory.Exists(dirC)) Directory.Delete(dirC, true);
             }
         }
     }

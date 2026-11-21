@@ -131,7 +131,7 @@ namespace Shiro.Services
             string? cookie = await AppServices.Dialogs.ShowInputPromptAsync(
                 LocalizationService.Format("AccountWorkflow.EnterNewCookiePrompt", acc.ShownUsername),
                 LocalizationService.Format("AccountWorkflow.UpdateCookieDialogTitle", acc.ShownUsername),
-                string.Empty).ConfigureAwait(false);
+                string.Empty);
 
             if (!string.IsNullOrWhiteSpace(cookie) && cookie != "/UC")
             {
@@ -155,10 +155,13 @@ namespace Shiro.Services
                     acc.Model.TokenSet = DateTime.MinValue;
                     acc.Model.LastAuthTicketRateLimited = false;
                     await AppServices.AccountRepository.SaveAsync(true).ConfigureAwait(false);
-                    viewModel?.RebuildLookupIndex();
-                    viewModel?.UpdateAccountValidity(acc.Model, true);
-                    AppDispatcher.Post(() => acc.NotifyAllPropertiesChanged());
-                    statusCallback?.Invoke(LocalizationService.Format("AccountWorkflow.UpdateCookieSuccess", acc.ShownUsername));
+                    await AppDispatcher.InvokeAsync(() =>
+                    {
+                        viewModel?.RebuildLookupIndex();
+                        viewModel?.UpdateAccountValidity(acc.Model, true);
+                        acc.NotifyAllPropertiesChanged();
+                        statusCallback?.Invoke(LocalizationService.Format("AccountWorkflow.UpdateCookieSuccess", acc.ShownUsername));
+                    });
                 }
                 else
                 {
@@ -167,38 +170,62 @@ namespace Shiro.Services
                     acc.Model.Username = previousUsername;
                     acc.Model.AccountStatusIssue = previousIssue;
 
-                    if (wasValid && !string.IsNullOrWhiteSpace(previousToken))
+                    await AppDispatcher.InvokeAsync(() =>
                     {
-                        acc.Model.Valid = true;
-                        viewModel?.UpdateAccountValidity(acc.Model, true);
-                        statusCallback?.Invoke(LocalizationService.Format("AccountWorkflow.InvalidCookieRetainedOld", acc.ShownUsername));
-                    }
-                    else
-                    {
-                        acc.Model.Valid = false;
-                        viewModel?.UpdateAccountValidity(acc.Model, false);
-                        statusCallback?.Invoke(LocalizationService.Format("AccountWorkflow.InvalidOrExpiredCookie", acc.ShownUsername));
-                    }
+                        if (wasValid && !string.IsNullOrWhiteSpace(previousToken))
+                        {
+                            acc.Model.Valid = true;
+                            viewModel?.UpdateAccountValidity(acc.Model, true);
+                            statusCallback?.Invoke(LocalizationService.Format("AccountWorkflow.InvalidCookieRetainedOld", acc.ShownUsername));
+                        }
+                        else
+                        {
+                            acc.Model.Valid = false;
+                            viewModel?.UpdateAccountValidity(acc.Model, false);
+                            statusCallback?.Invoke(LocalizationService.Format("AccountWorkflow.InvalidOrExpiredCookie", acc.ShownUsername));
+                        }
+                    });
                 }
             }
         }
 
-        public async Task SetAliasAsync(IAccountWorkflowItem? acc, Action<string>? statusCallback)
+        private static async Task PromptAndUpdateFieldOnUiAsync(
+            IAccountWorkflowItem? acc, Func<IAccountWorkflowItem, string> buildPrompt, string title,
+            Func<IAccountWorkflowItem, string> getCurrent, Action<IAccountWorkflowItem, string> applyValue,
+            Action<string>? statusCallback, Func<IAccountWorkflowItem, string> buildStatus)
         {
             if (acc?.Model == null) return;
-            string current = acc.Model.Alias ?? string.Empty;
-            string input = await AppServices.Dialogs.ShowInputPromptAsync(
-                LocalizationService.Format("AccountWorkflow.EnterAliasPrompt", acc.ShownUsername),
-                LocalizationService.Get("AccountWorkflow.ChangeAliasTitle"),
-                current).ConfigureAwait(false);
-
-            if (input != null && input != "/UC")
+            string input = await AppServices.Dialogs.ShowInputPromptAsync(buildPrompt(acc), title, getCurrent(acc));
+            if (input == null || input == "/UC") return;
+            await AppDispatcher.InvokeAsync(() =>
             {
-                string nextAlias = string.IsNullOrWhiteSpace(input) ? string.Empty : input.Trim();
-                acc.Alias = nextAlias;
+                applyValue(acc, input);
                 AppServices.AccountRepository.QueueDeferredSave();
-                statusCallback?.Invoke(LocalizationService.Format("AccountWorkflow.AliasChanged", acc.ShownUsername, acc.ShownAlias));
-            }
+                statusCallback?.Invoke(buildStatus(acc));
+            });
+        }
+
+        public Task SetAliasAsync(IAccountWorkflowItem? acc, Action<string>? statusCallback)
+            => PromptAndUpdateFieldOnUiAsync(
+                acc, a => LocalizationService.Format("AccountWorkflow.EnterAliasPrompt", a.ShownUsername),
+                LocalizationService.Get("AccountWorkflow.ChangeAliasTitle"),
+                a => a.Model.Alias ?? string.Empty,
+                (a, v) => a.Alias = string.IsNullOrWhiteSpace(v) ? string.Empty : v.Trim(),
+                statusCallback, a => LocalizationService.Format("AccountWorkflow.AliasChanged", a.ShownUsername, a.ShownAlias));
+
+        private static Task ApplyGroupAssignmentOnUiAsync(
+            IEnumerable<IAccountWorkflowItem> items, string groupName,
+            IAccountWorkflowHost? viewModel, Action<string>? statusCallback, string statusMessage)
+        {
+            string normalized = string.IsNullOrWhiteSpace(groupName) ? "Default" : groupName.Trim();
+            return AppDispatcher.InvokeAsync(() =>
+            {
+                foreach (var item in items) item.Group = normalized;
+                AppServices.AccountRepository.QueueDeferredSave();
+                viewModel?.RebuildGroupList();
+                viewModel?.ApplyFilter();
+                statusCallback?.Invoke(statusMessage);
+            });
         }
 
         public async Task SetGroupAsync(IAccountWorkflowItem? acc, IAccountWorkflowHost? viewModel, Action<string>? statusCallback)
@@ -208,35 +235,25 @@ namespace Shiro.Services
             string groupName = await AppServices.Dialogs.ShowInputPromptAsync(
                 LocalizationService.Format("AccountWorkflow.EnterGroupPrompt", acc.ShownUsername),
                 LocalizationService.Get("AccountWorkflow.AssignGroupTitle"),
-                currentGroup).ConfigureAwait(false);
+                currentGroup);
 
             if (groupName != null && groupName != "/UC")
             {
-                groupName = string.IsNullOrWhiteSpace(groupName) ? "Default" : groupName.Trim();
-                acc.Group = groupName;
-                AppServices.AccountRepository.QueueDeferredSave();
-                viewModel?.RebuildGroupList();
-                viewModel?.ApplyFilter();
-                statusCallback?.Invoke(LocalizationService.Format("AccountWorkflow.MovedToGroup", acc.ShownUsername, groupName));
+                string trimmed = string.IsNullOrWhiteSpace(groupName) ? "Default" : groupName.Trim();
+                await ApplyGroupAssignmentOnUiAsync(new[] { acc }, trimmed, viewModel, statusCallback,
+                    LocalizationService.Format("AccountWorkflow.MovedToGroup", acc.ShownUsername, trimmed));
             }
         }
 
-        public async Task SetDescriptionAsync(IAccountWorkflowItem? acc, Action<string>? statusCallback)
-        {
-            if (acc?.Model == null) return;
-            string current = acc.Model.Description ?? string.Empty;
-            string newDesc = await AppServices.Dialogs.ShowInputPromptAsync(
-                LocalizationService.Format("AccountWorkflow.EnterNotesPrompt", acc.ShownUsername),
+        public Task SetDescriptionAsync(IAccountWorkflowItem? acc, Action<string>? statusCallback)
+            => PromptAndUpdateFieldOnUiAsync(
+                acc,
+                a => LocalizationService.Format("AccountWorkflow.EnterNotesPrompt", a.ShownUsername),
                 LocalizationService.Get("AccountWorkflow.ChangeNotesTitle"),
-                current).ConfigureAwait(false);
-
-            if (newDesc != null && newDesc != "/UC")
-            {
-                acc.Description = newDesc;
-                AppServices.AccountRepository.QueueDeferredSave();
-                statusCallback?.Invoke(LocalizationService.Format("AccountWorkflow.NotesUpdated", acc.ShownUsername));
-            }
-        }
+                a => a.Model.Description ?? string.Empty,
+                (a, v) => a.Description = v,
+                statusCallback,
+                a => LocalizationService.Format("AccountWorkflow.NotesUpdated", a.ShownUsername));
 
         public void TogglePin(IAccountWorkflowItem? acc, IAccountWorkflowHost? viewModel, Action<string>? statusCallback)
         {
@@ -285,22 +302,29 @@ namespace Shiro.Services
             statusCallback?.Invoke(LocalizationService.Format("AccountWorkflow.CopiedSecurityToken", acc.ShownUsername));
         }
 
+        private static int RemoveAndRefreshUi(IAccountWorkflowHost? viewModel, IEnumerable<Account> models, params IAccountWorkflowItem[] items)
+        {
+            int count = AppServices.AccountRepository.RemoveRange(models);
+            viewModel?.RemoveWorkflowItems(items);
+            viewModel?.NotifyCounts();
+            viewModel?.RebuildGroupList();
+            viewModel?.ApplyFilter();
+            return count;
+        }
+
         public async Task RemoveAccountAsync(IAccountWorkflowItem? acc, IAccountWorkflowHost? viewModel, Action<string>? statusCallback)
         {
             if (acc?.Model == null) return;
-            bool confirmed = await AppServices.Dialogs.ShowConfirmationAsync(
+            if (!await AppServices.Dialogs.ShowConfirmationAsync(
                 LocalizationService.Format("AccountWorkflow.DeleteAccountPrompt", acc.ShownUsername),
-                LocalizationService.Get("AccountWorkflow.ConfirmDeleteTitle")).ConfigureAwait(false);
+                LocalizationService.Get("AccountWorkflow.ConfirmDeleteTitle")))
+                return;
 
-            if (confirmed)
+            await AppDispatcher.InvokeAsync(() =>
             {
-                AppServices.AccountRepository.RemoveRange(new[] { acc.Model });
-                viewModel?.RemoveWorkflowItems(acc);
-                viewModel?.NotifyCounts();
-                viewModel?.RebuildGroupList();
-                viewModel?.ApplyFilter();
+                RemoveAndRefreshUi(viewModel, new[] { acc.Model }, acc);
                 statusCallback?.Invoke(LocalizationService.Format("AccountWorkflow.AccountDeleted", acc.ShownUsername));
-            }
+            });
         }
 
         public async Task SetGroupSelectedAsync(IAccountWorkflowHost? viewModel, Action<string>? statusCallback)
@@ -315,19 +339,13 @@ namespace Shiro.Services
 
             string currentGroup = selectedVms.Count == 1 && !string.IsNullOrWhiteSpace(selectedVms[0].Group) ? selectedVms[0].Group : "Default";
             string prompt = selectedVms.Count == 1 ? LocalizationService.Format("AccountWorkflow.EnterGroupPrompt", selectedVms[0].ShownUsername) : LocalizationService.Format("AccountWorkflow.BatchGroupPrompt", selectedVms.Count);
-            string groupName = await AppServices.Dialogs.ShowInputPromptAsync(prompt, LocalizationService.Get("AccountWorkflow.BatchGroupTitle"), currentGroup).ConfigureAwait(false);
+            string groupName = await AppServices.Dialogs.ShowInputPromptAsync(prompt, LocalizationService.Get("AccountWorkflow.BatchGroupTitle"), currentGroup);
 
             if (groupName != null && groupName != "/UC")
             {
-                groupName = string.IsNullOrWhiteSpace(groupName) ? "Default" : groupName.Trim();
-                foreach (var vm in selectedVms)
-                {
-                    vm.Group = groupName;
-                }
-                AppServices.AccountRepository.QueueDeferredSave();
-                viewModel.RebuildGroupList();
-                viewModel.ApplyFilter();
-                statusCallback?.Invoke(LocalizationService.Format("AccountWorkflow.BatchMovedToGroup", selectedVms.Count, groupName));
+                string trimmed = string.IsNullOrWhiteSpace(groupName) ? "Default" : groupName.Trim();
+                await ApplyGroupAssignmentOnUiAsync(selectedVms, trimmed, viewModel, statusCallback,
+                    LocalizationService.Format("AccountWorkflow.BatchMovedToGroup", selectedVms.Count, trimmed));
             }
         }
 
@@ -384,24 +402,20 @@ namespace Shiro.Services
 
             bool confirmed = await AppServices.Dialogs.ShowConfirmationAsync(
                 LocalizationService.Format("AccountWorkflow.BatchDeletePrompt", selectedVms.Count),
-                LocalizationService.Get("AccountWorkflow.BatchDeleteTitle")).ConfigureAwait(false);
+                LocalizationService.Get("AccountWorkflow.BatchDeleteTitle"));
 
             if (confirmed)
             {
                 var models = selectedVms.Where(v => v.Model != null).Select(v => v.Model).ToList();
-                int count = AppServices.AccountRepository.RemoveRange(models!);
-                viewModel.RemoveWorkflowItems(selectedVms.ToArray());
-                viewModel.NotifyCounts();
-                viewModel.RebuildGroupList();
-                viewModel.ApplyFilter();
-                statusCallback?.Invoke(LocalizationService.Format("AccountWorkflow.BatchAccountsDeleted", count));
+                await AppDispatcher.InvokeAsync(() =>
+                {
+                    int count = RemoveAndRefreshUi(viewModel, models!, selectedVms.ToArray());
+                    statusCallback?.Invoke(LocalizationService.Format("AccountWorkflow.BatchAccountsDeleted", count));
+                });
             }
         }
 
-        public void ValidateSessionSelected(
-            IEnumerable<IAccountWorkflowItem>? list,
-            IAccountWorkflowHost? viewModel,
-            Action<string>? statusCallback)
+        public void ValidateSessionSelected(IEnumerable<IAccountWorkflowItem>? list, IAccountWorkflowHost? viewModel, Action<string>? statusCallback)
         {
             if (list == null) return;
             var snapshot = list.Where(item => item?.Model != null).ToList();

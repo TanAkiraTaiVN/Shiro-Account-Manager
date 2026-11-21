@@ -172,10 +172,14 @@ namespace Shiro.Services
             return new DisposableAction(() =>
             {
                 string? activeDir = _testDataDirectoryOverride.Value;
-                if (activeDir != null)
-                    ReloadVaultKeyCache(activeDir);
                 _testDataDirectoryOverride.Value = previous;
-                ReloadVaultKeyCache();
+                EnsureInitialized();
+                if (activeDir != null &&
+                    !PathEquals(activeDir, dataDirectory) &&
+                    (previous == null || !PathEquals(activeDir, previous)))
+                {
+                    ReloadVaultKeyCache(activeDir);
+                }
             });
         }
 

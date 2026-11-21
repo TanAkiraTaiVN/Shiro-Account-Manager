@@ -38,6 +38,7 @@ namespace Shiro.Services
         void QueueDeferredSave();
         void Load(byte[]? masterPasswordHash = null);
         bool LoadFromStore(byte[]? masterPasswordHash = null);
+        Task<bool> ResolvePendingBackupRestoreAsync() => Task.FromResult(false);
         bool TryRecoverOrRestore(out string statusMessage);
         bool IsPasswordEncrypted();
         Task<(bool Success, long UserId, RestResponse? Response)> LookupUserIdAsync(string username, CancellationToken cancellationToken = default);

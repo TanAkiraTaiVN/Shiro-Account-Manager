@@ -105,6 +105,13 @@ namespace Shiro.Services
         {
             if (func == null) return default;
 
+            if (CustomDispatcher != null)
+            {
+                T result = default!;
+                CustomDispatcher(() => result = func());
+                return result;
+            }
+
             bool hasActiveDispatcher = TryGetActiveDispatcher(out var avaloniaDispatcher);
             Func<T> capturedFunc = CaptureExecutionContext(func);
             return await DispatchOrFallbackAsync(
@@ -125,6 +132,12 @@ namespace Shiro.Services
         public static async Task InvokeAsync(Action action)
         {
             if (action == null) return;
+
+            if (CustomDispatcher != null)
+            {
+                CustomDispatcher(action);
+                return;
+            }
 
             bool hasActiveDispatcher = TryGetActiveDispatcher(out var avaloniaDispatcher);
             Action capturedAction = CaptureExecutionContext(action);

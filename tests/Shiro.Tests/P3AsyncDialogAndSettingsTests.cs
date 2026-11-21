@@ -1,10 +1,13 @@
 #nullable enable
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Reflection;
+using System.Security.Cryptography;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Controls;
@@ -13,6 +16,7 @@ using Avalonia.Threading;
 using NSubstitute;
 using Shiro.AvaloniaUI.Views;
 using Shiro.Services;
+using Shiro.ViewModels;
 using Shiro.ViewModels.Dialogs;
 using Xunit;
 
@@ -371,6 +375,149 @@ namespace Shiro.Tests
             finally
             {
                 AppSettings.ActiveIniFile = prevIni;
+                if (Directory.Exists(tempDir)) Directory.Delete(tempDir, true);
+            }
+        }
+
+        [Fact]
+        public async Task WorkflowDialogsAndSelectByRange_DispatchPostDialogUiUpdatesOnAppDispatcher_EvenWhenDialogCompletesOffThread()
+        {
+            var prevDispatcher = AppDispatcher.CustomDispatcher;
+            int dispatchDepth = 0;
+            AppDispatcher.CustomDispatcher = action =>
+            {
+                Interlocked.Increment(ref dispatchDepth);
+                try { action(); }
+                finally { Interlocked.Decrement(ref dispatchDepth); }
+            };
+
+            var mockDialog = Substitute.For<IDialogService>();
+            mockDialog.ShowInputPromptAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>())
+                .Returns(_ => Task.Run(async () => { await Task.Delay(5); return "OffThreadVal"; }));
+            mockDialog.ShowConfirmationAsync(Arg.Any<string>(), Arg.Any<string>())
+                .Returns(_ => Task.Run(async () => { await Task.Delay(5); return true; }));
+            using var dialogScope = AppServices.Override(mockDialog);
+
+            var acc1 = new Account { Username = "WfUser1", UserID = 101 };
+            var acc2 = new Account { Username = "WfUser2", UserID = 102 };
+            AccountManager.ReplaceAccountsList(new List<Account> { acc1, acc2 });
+            try
+            {
+                using var mainVm = new MainViewModel();
+                mainVm.LoadAccounts(new[] { acc1, acc2 });
+                var vm1 = mainVm.Accounts[0];
+                var vm2 = mainVm.Accounts[1];
+                vm1.IsSelected = true;
+                vm2.IsSelected = true;
+                int outsideDispatch = 0;
+                int insideDispatch = 0;
+                void AssertDispatched()
+                {
+                    if (Volatile.Read(ref dispatchDepth) <= 0) Interlocked.Increment(ref outsideDispatch);
+                    else Interlocked.Increment(ref insideDispatch);
+                }
+                vm1.PropertyChanged += (_, _) => AssertDispatched();
+                vm2.PropertyChanged += (_, _) => AssertDispatched();
+                mainVm.Accounts.CollectionChanged += (_, _) => AssertDispatched();
+                Action<string> statusCb = _ => AssertDispatched();
+
+                await AccountWorkflowService.Default.SetAliasAsync(vm1, statusCb);
+                await AccountWorkflowService.Default.SetGroupAsync(vm1, mainVm, statusCb);
+                await AccountWorkflowService.Default.SetDescriptionAsync(vm1, statusCb);
+                await AccountWorkflowService.Default.SetGroupSelectedAsync(mainVm, statusCb);
+                mockDialog.ShowInputPromptAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>())
+                    .Returns(_ => Task.Run(async () => { await Task.Delay(5); return "1-2"; }));
+                await AccountCollectionCommandActions.SelectByRangePromptAsync(_ => { AssertDispatched(); return 2; }, statusCb);
+                await AccountWorkflowService.Default.RemoveAccountAsync(vm1, mainVm, statusCb);
+                await AccountWorkflowService.Default.RemoveSelectedAccountsAsync(mainVm, statusCb);
+
+                Assert.Equal(0, Volatile.Read(ref outsideDispatch));
+                Assert.True(Volatile.Read(ref insideDispatch) >= 10);
+                Assert.Empty(mainVm.Accounts);
+            }
+            finally
+            {
+                AccountManager.ReplaceAccountsList(new List<Account>());
+                AppDispatcher.CustomDispatcher = prevDispatcher;
+            }
+        }
+
+        [Fact]
+        public async Task LoadAccounts_PendingBackupRestore_HydratesRuntimeState_AndPromotesLockedBackupBeforeUnlock()
+        {
+            string tempDir = Path.Combine(Path.GetTempPath(), "ShiroPendingBackup_" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(tempDir);
+            var prevStore = AccountPersistenceService.Default.Store;
+            var prevLastValid = AppServices.SelectionState.LastValidAccount;
+            var prevShowPresence = AppSettings.General.Get<string>("ShowPresence");
+            try
+            {
+                using var dirScope = StoragePaths.OverrideDataDirectoryForTesting(tempDir);
+                AppSettings.General.Set("ShowPresence", "true");
+                var bridge = Substitute.For<IHostUiBridgeService>();
+                using var bridgeScope = AppServices.Override<IHostUiBridgeService>(bridge);
+                var mockDialog = Substitute.For<IDialogService>();
+                mockDialog.ShowConfirmationAsync(Arg.Any<string>(), Arg.Any<string>()).Returns(Task.FromResult(true));
+                using var dialogScope = AppServices.Override(mockDialog);
+
+                var svc = AccountPersistenceService.Default;
+                svc.Store = new AccountStore(StoragePaths.AccountDataFile, StoragePaths.BackupsDirectory);
+
+                // Case 1: Unencrypted backup pending restore hydrates AccountRuntimeStateStore, LastValidAccount, and dashboard
+                var plainAcc = new Account { Username = "PlainBackupUser", UserID = 5501, LastUse = DateTime.UtcNow };
+                AccountRuntimeStateStore.RecordWindowBounds(plainAcc, 111, 222, 800, 600);
+                AccountRuntimeStateStore.Flush();
+                AccountRuntimeStateStore.ResetInMemoryCacheForTests();
+                File.WriteAllText(StoragePaths.GetUserFile("NoEncryption.IUnderstandTheRisks.iautamor"), "opt-in");
+                File.WriteAllBytes(StoragePaths.AccountDataFile + ".backup", AccountDataSerializer.Serialize(new[] { plainAcc }, includePasswords: true));
+                AppServices.SelectionState.LastValidAccount = null;
+                AccountManager.ReplaceAccountsList(new List<Account>());
+
+                svc.LoadAccounts();
+                await mockDialog.DidNotReceiveWithAnyArgs().ShowConfirmationAsync(default!, default!);
+                Assert.Equal(0, AppServices.AccountRepository.Count);
+                Assert.True(await AppServices.AccountRepository.ResolvePendingBackupRestoreAsync());
+                var hydrated = Assert.Single(AppServices.AccountRepository.GetAll());
+                Assert.Equal("111", hydrated.GetField("Window_Position_X"));
+                Assert.Equal("600", hydrated.GetField("Window_Height"));
+                Assert.Same(hydrated, AppServices.SelectionState.LastValidAccount);
+                bridge.Received().SchedulePresenceRefresh(null);
+
+                // Case 2: Master-password-locked backup promoted sequentially before IsPasswordEncrypted() check
+                File.Delete(StoragePaths.GetUserFile("NoEncryption.IUnderstandTheRisks.iautamor"));
+                if (File.Exists(StoragePaths.AccountDataFile)) File.Delete(StoragePaths.AccountDataFile);
+                byte[] masterHash = SHA512.HashData(Encoding.UTF8.GetBytes("StrongMasterPass123!"));
+                var lockedAcc = new Account { Username = "LockedBackupUser", UserID = 5502 };
+                File.WriteAllBytes(StoragePaths.AccountDataFile + ".backup",
+                    Cryptography.Encrypt(AccountDataSerializer.Serialize(new[] { lockedAcc }, includePasswords: true), masterHash));
+                AccountManager.ReplaceAccountsList(new List<Account>());
+
+                svc.LoadAccounts();
+                Assert.False(AppServices.AccountRepository.IsPasswordEncrypted());
+                bool sawEncryptedAtUnlock = false;
+                bool unlockedAfterPromotion = false;
+                await MainWindow.RunStartupPromptsSequentiallyAsync(
+                    () => Task.CompletedTask,
+                    () =>
+                    {
+                        sawEncryptedAtUnlock = AppServices.AccountRepository.IsPasswordEncrypted();
+                        unlockedAfterPromotion = AppServices.AccountRepository.LoadFromStore(masterHash);
+                        return Task.CompletedTask;
+                    },
+                    () => AppServices.AccountRepository.ResolvePendingBackupRestoreAsync());
+
+                Assert.True(sawEncryptedAtUnlock);
+                Assert.True(unlockedAfterPromotion);
+                Assert.Equal("LockedBackupUser", Assert.Single(AppServices.AccountRepository.GetAll()).Username);
+            }
+            finally
+            {
+                AccountManager.ReplaceAccountsList(new List<Account>());
+                AccountPersistenceService.Default.Store = prevStore;
+                AppServices.SelectionState.LastValidAccount = prevLastValid;
+                if (prevShowPresence == null) AppSettings.General.RemoveProperty("ShowPresence");
+                else AppSettings.General.Set("ShowPresence", prevShowPresence);
+                AccountRuntimeStateStore.ResetInMemoryCacheForTests();
                 if (Directory.Exists(tempDir)) Directory.Delete(tempDir, true);
             }
         }

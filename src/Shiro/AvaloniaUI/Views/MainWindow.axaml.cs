@@ -202,16 +202,30 @@ namespace Shiro.AvaloniaUI.Views
                             }
                         }
                         catch (Exception ex) { AppServices.Logger?.Error($"[MainWindow] Unlock flow error: {ex.Message}"); }
+                    },
+                    async () =>
+                    {
+                        try
+                        {
+                            if (await AppServices.AccountRepository.ResolvePendingBackupRestoreAsync())
+                            {
+                                RefreshAccounts(AppServices.AccountRepository.GetAll());
+                            }
+                        }
+                        catch (Exception ex) { AppServices.Logger?.Debug($"Pending backup restore error: {ex.Message}"); }
                     });
             };
         }
 
         internal static async System.Threading.Tasks.Task RunStartupPromptsSequentiallyAsync(
             Func<System.Threading.Tasks.Task> runDisclaimer,
-            Func<System.Threading.Tasks.Task> runUnlock)
+            Func<System.Threading.Tasks.Task> runUnlock,
+            Func<System.Threading.Tasks.Task>? runPendingBackupRestore = null)
         {
             if (runDisclaimer != null)
                 await runDisclaimer();
+            if (runPendingBackupRestore != null)
+                await runPendingBackupRestore();
             if (runUnlock != null)
                 await runUnlock();
         }
