@@ -90,7 +90,7 @@ foreach ($subDir in @('Resources')) {
     }
 }
 
-$legacyFolders = @('Release-Latest', 'obj', 'artifacts')
+$legacyFolders = @('Release-Latest')
 foreach ($folder in $legacyFolders) {
     $legacyPath = Join-Path $buildRoot $folder
     if (Test-Path -LiteralPath $legacyPath) {

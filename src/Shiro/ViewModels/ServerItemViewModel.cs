@@ -17,6 +17,8 @@ namespace Shiro.ViewModels
         private string _flagEmoji = string.Empty;
         private string _ip = string.Empty;
         private bool _isBusyPinging;
+        private (string CountryCode, string Region)? _cachedFlagKey;
+        private IImage? _cachedFlagImage;
 
         public string JobId
         {
@@ -64,17 +66,9 @@ namespace Shiro.ViewModels
             }
         }
 
-        public string PlayerDisplay
-        {
-            get => $"{Playing} / {MaxPlayers}";
-            set { }
-        }
+        public string PlayerDisplay => $"{Playing} / {MaxPlayers}";
 
-        public double PlayerPercentage
-        {
-            get => MaxPlayers > 0 ? Math.Min(100.0, ((double)Playing / MaxPlayers) * 100.0) : 0;
-            set { }
-        }
+        public double PlayerPercentage => MaxPlayers > 0 ? Math.Min(100.0, ((double)Playing / MaxPlayers) * 100.0) : 0;
 
         public int Ping
         {
@@ -89,11 +83,7 @@ namespace Shiro.ViewModels
             }
         }
 
-        public string PingDisplay
-        {
-            get => Ping >= 0 ? $"{Ping} ms" : "-- ms";
-            set { }
-        }
+        public string PingDisplay => Ping >= 0 ? $"{Ping} ms" : "-- ms";
 
         public string PingColor
         {
@@ -104,7 +94,6 @@ namespace Shiro.ViewModels
                 if (Ping < 160) return "#F59E0B"; // Amber
                 return "#EF4444"; // Red
             }
-            set { }
         }
 
         public string CountryCode
@@ -114,6 +103,8 @@ namespace Shiro.ViewModels
             {
                 if (SetProperty(ref _countryCode, value ?? string.Empty))
                 {
+                    _cachedFlagKey = null;
+                    _cachedFlagImage = null;
                     OnPropertyChanged(nameof(FlagImage));
                     OnPropertyChanged(nameof(HasFlagImage));
                     OnPropertyChanged(nameof(RegionText));
@@ -126,8 +117,14 @@ namespace Shiro.ViewModels
         {
             get
             {
+                var key = (_countryCode, _region);
+                if (_cachedFlagKey == key)
+                    return _cachedFlagImage;
+
                 string? code = FlagIconService.InferCountryCode(_countryCode, _region);
-                return FlagIconService.GetFlagImage(code);
+                _cachedFlagImage = FlagIconService.GetFlagImage(code);
+                _cachedFlagKey = key;
+                return _cachedFlagImage;
             }
         }
 
@@ -152,6 +149,8 @@ namespace Shiro.ViewModels
             {
                 if (SetProperty(ref _region, value ?? string.Empty))
                 {
+                    _cachedFlagKey = null;
+                    _cachedFlagImage = null;
                     OnPropertyChanged(nameof(FlagImage));
                     OnPropertyChanged(nameof(HasFlagImage));
                     OnPropertyChanged(nameof(RegionText));

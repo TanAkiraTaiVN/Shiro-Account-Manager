@@ -28,6 +28,19 @@ if (-not (Test-Path -LiteralPath $targetExe)) {
 # 2. Launch process asynchronously in Release working directory
 Write-Host "[Shiro] Launching Shiro Account Manager..." -ForegroundColor Magenta
 
+function Format-WindowsArgument {
+    param([AllowEmptyString()][string]$Value)
+    if ($null -eq $Value -or $Value.Length -eq 0) {
+        return '""'
+    }
+    if ($Value -notmatch '[\s"]') {
+        return $Value
+    }
+    $escaped = [regex]::Replace($Value, '(\\*)"', '$1$1\"')
+    $escaped = [regex]::Replace($escaped, '(\\+)$', '$1$1')
+    return '"' + $escaped + '"'
+}
+
 $psi = [System.Diagnostics.ProcessStartInfo]::new()
 $psi.FileName = $targetExe
 $psi.WorkingDirectory = $releaseDir
@@ -37,7 +50,8 @@ $launchArgs = [System.Collections.Generic.List[string]]::new()
 if ($Arguments -and $Arguments.Count -gt 0) { $launchArgs.AddRange($Arguments) }
 
 if ($launchArgs.Count -gt 0) {
-    $psi.Arguments = [string]::Join(' ', $launchArgs)
+    $quotedArgs = foreach ($arg in $launchArgs) { Format-WindowsArgument $arg }
+    $psi.Arguments = [string]::Join(' ', $quotedArgs)
 }
 
 try {

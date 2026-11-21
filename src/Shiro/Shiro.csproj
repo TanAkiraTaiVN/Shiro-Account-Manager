@@ -26,7 +26,8 @@
     <LangVersion>latest</LangVersion>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <DebugType>embedded</DebugType>
-    <Optimize>true</Optimize>
+    <Optimize Condition="'$(Configuration)' == 'Release'">true</Optimize>
+    <Optimize Condition="'$(Configuration)' != 'Release'">false</Optimize>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
 
@@ -74,16 +75,19 @@
     <AvaloniaResource Include="Resources\shiro.ico" />
     <EmbeddedResource Include="Resources\Strings\*.json" />
     <EmbeddedResource Include="Resources\Data\*.json" />
-    <AvaloniaResource Include="Resources\Flags\*.svg" />
+    <FlagSvgFile Include="Resources\Flags\*.svg" />
   </ItemGroup>
 
-  <ItemGroup>
-    <None Update="Resources\**\*" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="Never" />
-    <None Include="Resources\shiro.ico">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <CopyToPublishDirectory>Never</CopyToPublishDirectory>
-    </None>
-  </ItemGroup>
+  <Target Name="PackFlagsArchive" BeforeTargets="IncludePackedFlagsArchive" Inputs="@(FlagSvgFile)" Outputs="$(IntermediateOutputPath)Flags.zip">
+    <MakeDir Directories="$(IntermediateOutputPath)" />
+    <ZipDirectory SourceDirectory="Resources\Flags" DestinationFile="$(IntermediateOutputPath)Flags.zip" Overwrite="true" />
+  </Target>
+
+  <Target Name="IncludePackedFlagsArchive" BeforeTargets="AssignTargetPaths" DependsOnTargets="PackFlagsArchive">
+    <ItemGroup>
+      <EmbeddedResource Include="$(IntermediateOutputPath)Flags.zip" LogicalName="Shiro.Resources.Flags.zip" />
+    </ItemGroup>
+  </Target>
 
   <ItemGroup>
     <Compile Remove="bin\**\*;obj\**\*;build\**\*" />
