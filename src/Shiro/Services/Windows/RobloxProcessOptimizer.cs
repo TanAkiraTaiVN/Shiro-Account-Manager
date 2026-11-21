@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Threading;
 using Microsoft.Win32.SafeHandles;
 
 namespace Shiro.Services
@@ -103,7 +104,12 @@ namespace Shiro.Services
             return pid > 0;
         }
 
-        internal static Action<int>? TestOptimizeLaunchedProcessHook;
+        private static readonly AsyncLocal<Action<int>?> _testOptimizeLaunchedProcessHook = new();
+        internal static Action<int>? TestOptimizeLaunchedProcessHook
+        {
+            get => _testOptimizeLaunchedProcessHook.Value;
+            set => _testOptimizeLaunchedProcessHook.Value = value;
+        }
 
         /// <summary>
         /// Applies baseline launch optimization to a newly spawned Roblox process.

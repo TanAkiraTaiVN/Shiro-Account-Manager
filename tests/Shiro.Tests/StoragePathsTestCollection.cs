@@ -1,10 +1,9 @@
 using Xunit;
 
-[assembly: CollectionBehavior(DisableTestParallelization = true)]
+[assembly: CollectionBehavior(DisableTestParallelization = false)]
 
 namespace Shiro.Tests
 {
-    [CollectionDefinition("StoragePathsCollection", DisableParallelization = true)]
     public class StoragePathsTestCollection
     {
     }

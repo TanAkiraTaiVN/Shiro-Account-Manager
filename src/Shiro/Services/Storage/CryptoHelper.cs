@@ -117,7 +117,12 @@ namespace Shiro.Services
         private const int VaultNonceSize = 12;
         private const int VaultTagSize = 16;
 
-        internal static Func<byte[], byte[]>? TestProtectBytesOverride;
+        private static readonly System.Threading.AsyncLocal<Func<byte[], byte[]>?> _testProtectBytesOverride = new();
+        internal static Func<byte[], byte[]>? TestProtectBytesOverride
+        {
+            get => _testProtectBytesOverride.Value;
+            set => _testProtectBytesOverride.Value = value;
+        }
 
         /// <summary>
         /// Encrypts a sensitive string using the portable AES-256-GCM vault key ("vault:") when

@@ -41,7 +41,7 @@ namespace Shiro.Tests
         }
 
         [Fact]
-        public void AccountWorkflowService_PropertyUpdates_RaiseViewModelNotificationsAndUpdatePinnedCount()
+        public async Task AccountWorkflowService_PropertyUpdates_RaiseViewModelNotificationsAndUpdatePinnedCount()
         {
             using var suppressSave = Account.BeginSuppressDeferredSaveScope();
             var dialogs = Substitute.For<IDialogService>();
@@ -68,25 +68,25 @@ namespace Shiro.Tests
                     mainChanged.Add(e.PropertyName);
             };
 
-            dialogs.ShowInputPrompt(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>())
-                .Returns("AliasUpdated");
-            AccountWorkflowService.Default.SetAlias(accVm, static _ => { });
+            dialogs.ShowInputPromptAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>())
+                .Returns(Task.FromResult("AliasUpdated"));
+            await AccountWorkflowService.Default.SetAliasAsync(accVm, static _ => { });
             Assert.Contains(nameof(AccountViewModel.Alias), vmChanged);
             Assert.Contains(nameof(AccountViewModel.PrimaryTitle), vmChanged);
             Assert.Equal("AliasUpdated", accVm.PrimaryTitle);
 
             vmChanged.Clear();
-            dialogs.ShowInputPrompt(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>())
-                .Returns("Farmers");
-            AccountWorkflowService.Default.SetGroup(accVm, mainVm, static _ => { });
+            dialogs.ShowInputPromptAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>())
+                .Returns(Task.FromResult("Farmers"));
+            await AccountWorkflowService.Default.SetGroupAsync(accVm, mainVm, static _ => { });
             Assert.Contains(nameof(AccountViewModel.Group), vmChanged);
             Assert.Contains(nameof(AccountViewModel.GroupDisplay), vmChanged);
             Assert.Contains(nameof(AccountViewModel.GroupTooltip), vmChanged);
 
             vmChanged.Clear();
-            dialogs.ShowInputPrompt(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>())
-                .Returns("Updated notes");
-            AccountWorkflowService.Default.SetDescription(accVm, static _ => { });
+            dialogs.ShowInputPromptAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>())
+                .Returns(Task.FromResult("Updated notes"));
+            await AccountWorkflowService.Default.SetDescriptionAsync(accVm, static _ => { });
             Assert.Contains(nameof(AccountViewModel.Description), vmChanged);
 
             vmChanged.Clear();

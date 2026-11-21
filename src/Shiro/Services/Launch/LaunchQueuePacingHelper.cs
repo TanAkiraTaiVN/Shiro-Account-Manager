@@ -12,7 +12,13 @@ namespace Shiro.Services
     /// </summary>
     internal static class LaunchQueuePacingHelper
     {
-        internal static TimeSpan? TestAsyncJoinTimeoutOverride;
+        private static readonly AsyncLocal<TimeSpan?> _testAsyncJoinTimeoutOverride = new();
+
+        internal static TimeSpan? TestAsyncJoinTimeoutOverride
+        {
+            get => _testAsyncJoinTimeoutOverride.Value;
+            set => _testAsyncJoinTimeoutOverride.Value = value;
+        }
         private static readonly AsyncLocal<CoordinatorSignalScope?> ActiveSignalScope = new();
 
         internal sealed class CoordinatorSignalScope : IDisposable

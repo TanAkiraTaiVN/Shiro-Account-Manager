@@ -18,11 +18,12 @@ namespace Shiro.Services
     public sealed partial class KestrelWebServer : IAsyncDisposable
     {
         private static readonly ConcurrentDictionary<WebSocket, SemaphoreSlim> _activeSockets = new();
-        private static IAppLogger _staticLogger = AppServices.Logger;
+        private static readonly AsyncLocal<IAppLogger?> _staticLoggerOverride = new();
+        private static IAppLogger _staticLogger => Logger;
         public static IAppLogger Logger
         {
-            get => _staticLogger;
-            set => _staticLogger = value ?? throw new ArgumentNullException(nameof(value));
+            get => _staticLoggerOverride.Value ?? AppServices.Logger;
+            set => _staticLoggerOverride.Value = value ?? throw new ArgumentNullException(nameof(value));
         }
 
         private WebApplication? _app;

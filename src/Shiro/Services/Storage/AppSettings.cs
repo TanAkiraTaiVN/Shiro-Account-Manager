@@ -106,7 +106,49 @@ namespace Shiro.Services
         public static int MinimumAccountJoinDelaySeconds => 1;
         public static int MaximumAccountJoinDelaySeconds => 3600;
 
-        public static void Save() => AppServices.HostUiBridge.SaveSettings();
+        private static readonly AsyncLocal<int> _batchDepth = new();
+        private static readonly AsyncLocal<bool> _saveDeferredInBatch = new();
+
+        public static void Save()
+        {
+            if (_batchDepth.Value > 0)
+            {
+                _saveDeferredInBatch.Value = true;
+                return;
+            }
+
+            AppServices.HostUiBridge.SaveSettings();
+        }
+
+        public IDisposable BeginBatch() => BeginBatchScope();
+
+        public static IDisposable BeginBatchScope()
+        {
+            _batchDepth.Value++;
+            return new SettingsBatchScope();
+        }
+
+        private sealed class SettingsBatchScope : IDisposable
+        {
+            private int _disposed;
+
+            public void Dispose()
+            {
+                if (Interlocked.Exchange(ref _disposed, 1) != 0)
+                    return;
+
+                int depth = _batchDepth.Value;
+                if (depth > 0)
+                    _batchDepth.Value = depth - 1;
+
+                if (_batchDepth.Value == 0 && _saveDeferredInBatch.Value)
+                {
+                    _saveDeferredInBatch.Value = false;
+                    Save();
+                }
+            }
+        }
+
         public static void QueueDeferredSave() => AppServices.HostUiBridge.QueueDeferredSaveSettings();
 
         // ================= HOST UI / CONTROLLER BRIDGE =================

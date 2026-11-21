@@ -9,6 +9,7 @@ using Xunit;
 
 namespace Shiro.Tests
 {
+    [Collection("SerialGlobalState")]
     public class RobloxHbaServiceBehaviorTests
     {
         private static string GenerateTestP256Key()

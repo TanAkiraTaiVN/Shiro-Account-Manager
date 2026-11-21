@@ -13,18 +13,20 @@ namespace Shiro.Services
     /// </summary>
     public static class UpdateCheckService
     {
-        private static IAppLogger _logger = AppServices.Logger;
+        private static readonly AsyncLocal<IAppLogger?> _loggerOverride = new();
+        private static IAppLogger _logger => Logger;
         public static IAppLogger Logger
         {
-            get => _logger;
-            set => _logger = value ?? throw new ArgumentNullException(nameof(value));
+            get => _loggerOverride.Value ?? AppServices.Logger;
+            set => _loggerOverride.Value = value ?? throw new ArgumentNullException(nameof(value));
         }
 
-        private static ISettingsService _settings = AppServices.GeneralSettings;
+        private static readonly AsyncLocal<ISettingsService?> _settingsOverride = new();
+        private static ISettingsService _settings => Settings;
         public static ISettingsService Settings
         {
-            get => _settings;
-            set => _settings = value ?? throw new ArgumentNullException(nameof(value));
+            get => _settingsOverride.Value ?? AppServices.GeneralSettings;
+            set => _settingsOverride.Value = value ?? throw new ArgumentNullException(nameof(value));
         }
 
         private const string ReleaseApiUrl = "https://api.github.com/repos/X-Shiro-X/Shiro-Account-Manager/releases/latest";

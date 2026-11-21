@@ -175,6 +175,8 @@ namespace Shiro.Tests
                 .Or()
                 .HaveNameEndingWith("Mapper")
                 .Or()
+                .HaveNameEndingWith("Document")
+                .Or()
                 .HaveName("Utilities")
                 .GetResult();
 

@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Threading;
 
@@ -14,8 +15,13 @@ namespace Shiro.Services
         private static volatile int _uiThreadId;
         private static volatile bool _isUiShuttingDown;
         private static readonly EventHandler s_onDispatcherShutdown = OnDispatcherShutdown;
+        private static readonly AsyncLocal<Action<Action>?> _customDispatcher = new();
 
-        public static Action<Action>? CustomDispatcher { get; set; }
+        public static Action<Action>? CustomDispatcher
+        {
+            get => _customDispatcher.Value;
+            set => _customDispatcher.Value = value;
+        }
 
         internal static void RegisterUiThread()
         {
@@ -73,6 +79,7 @@ namespace Shiro.Services
             }
 
             bool hasActiveDispatcher = TryGetActiveDispatcher(out var avaloniaDispatcher);
+            Action capturedAction = CaptureExecutionContext(action);
             DispatchOrFallback(
                 hasActiveDispatcher,
                 dispatch: () =>
@@ -85,7 +92,7 @@ namespace Shiro.Services
                     }
                     else
                     {
-                        avaloniaDispatcher!.Post(action, priority);
+                        avaloniaDispatcher!.Post(capturedAction, priority);
                     }
                 },
                 fallback: action);
@@ -99,6 +106,7 @@ namespace Shiro.Services
             if (func == null) return default;
 
             bool hasActiveDispatcher = TryGetActiveDispatcher(out var avaloniaDispatcher);
+            Func<T> capturedFunc = CaptureExecutionContext(func);
             return await DispatchOrFallbackAsync(
                 hasActiveDispatcher,
                 dispatch: async () =>
@@ -106,7 +114,7 @@ namespace Shiro.Services
                     if (avaloniaDispatcher!.CheckAccess())
                         return func();
 
-                    return await avaloniaDispatcher.InvokeAsync(func);
+                    return await avaloniaDispatcher.InvokeAsync(capturedFunc);
                 },
                 fallback: () => Task.FromResult<T?>(func()));
         }
@@ -119,6 +127,7 @@ namespace Shiro.Services
             if (action == null) return;
 
             bool hasActiveDispatcher = TryGetActiveDispatcher(out var avaloniaDispatcher);
+            Action capturedAction = CaptureExecutionContext(action);
             await DispatchOrFallbackAsync(
                 hasActiveDispatcher,
                 dispatch: async () =>
@@ -126,13 +135,98 @@ namespace Shiro.Services
                     if (avaloniaDispatcher!.CheckAccess())
                         action();
                     else
-                        await avaloniaDispatcher.InvokeAsync(action);
+                        await avaloniaDispatcher.InvokeAsync(capturedAction);
                 },
                 fallback: () =>
                 {
                     action();
                     return Task.CompletedTask;
                 });
+        }
+
+        /// <summary>
+        /// Asynchronously executes an async task delegate on the Avalonia UI Thread and awaits its result.
+        /// </summary>
+        public static async Task<T> InvokeTaskAsync<T>(Func<Task<T>> func)
+        {
+            ArgumentNullException.ThrowIfNull(func);
+
+            bool hasActiveDispatcher = TryGetActiveDispatcher(out var avaloniaDispatcher);
+            if (!hasActiveDispatcher)
+                return await func().ConfigureAwait(false);
+
+            if (avaloniaDispatcher!.CheckAccess())
+                return await func();
+
+            Func<Task<T>> captured = CaptureExecutionContextTask(func);
+            return await avaloniaDispatcher.InvokeAsync(captured);
+        }
+
+        /// <summary>
+        /// Asynchronously executes an async task delegate on the Avalonia UI Thread and awaits completion.
+        /// </summary>
+        public static async Task InvokeTaskAsync(Func<Task> func)
+        {
+            ArgumentNullException.ThrowIfNull(func);
+
+            bool hasActiveDispatcher = TryGetActiveDispatcher(out var avaloniaDispatcher);
+            if (!hasActiveDispatcher)
+            {
+                await func().ConfigureAwait(false);
+                return;
+            }
+
+            if (avaloniaDispatcher!.CheckAccess())
+            {
+                await func();
+                return;
+            }
+
+            Func<Task> captured = CaptureExecutionContextVoidTask(func);
+            await avaloniaDispatcher.InvokeAsync(captured);
+        }
+
+        private static Action CaptureExecutionContext(Action action)
+        {
+            var ec = ExecutionContext.Capture();
+            if (ec == null) return action;
+            return () => ExecutionContext.Run(ec, static state => ((Action)state!)(), action);
+        }
+
+        private static Func<T> CaptureExecutionContext<T>(Func<T> func)
+        {
+            var ec = ExecutionContext.Capture();
+            if (ec == null) return func;
+            return () =>
+            {
+                T result = default!;
+                ExecutionContext.Run(ec, state => result = ((Func<T>)state!)(), func);
+                return result;
+            };
+        }
+
+        private static Func<Task<T>> CaptureExecutionContextTask<T>(Func<Task<T>> func)
+        {
+            var ec = ExecutionContext.Capture();
+            if (ec == null) return func;
+            return () =>
+            {
+                Task<T>? task = null;
+                ExecutionContext.Run(ec, state => task = ((Func<Task<T>>)state!)(), func);
+                return task!;
+            };
+        }
+
+        private static Func<Task> CaptureExecutionContextVoidTask(Func<Task> func)
+        {
+            var ec = ExecutionContext.Capture();
+            if (ec == null) return func;
+            return () =>
+            {
+                Task? task = null;
+                ExecutionContext.Run(ec, state => task = ((Func<Task>)state!)(), func);
+                return task!;
+            };
         }
 
         private static bool TryGetActiveDispatcher(out Dispatcher? dispatcher)

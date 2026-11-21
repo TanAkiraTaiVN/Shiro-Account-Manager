@@ -170,11 +170,11 @@ namespace Shiro
                         return;
                     }
 
-                    AppDispatcher.Post(() =>
+                    await AppDispatcher.InvokeTaskAsync(async () =>
                     {
                         try
                         {
-                            bool resume = AppServices.Dialogs.ShowConfirmation(
+                            bool resume = await AppServices.Dialogs.ShowConfirmationAsync(
                                 Shiro.Services.LocalizationService.Format("AccountManager.ResumeBulkLoginPrompt", pending.Count),
                                 Shiro.Services.LocalizationService.Get("AccountManager.ResumeBulkLoginTitle"));
                             if (!resume)
@@ -190,7 +190,7 @@ namespace Shiro
                         {
                             Program.Logger?.Debug($"[OfferResumeReloginQueue] {ex.Message}");
                         }
-                    });
+                    }).ConfigureAwait(false);
                 }
                 catch (OperationCanceledException) { /* canceled */ }
                 catch (Exception ex)

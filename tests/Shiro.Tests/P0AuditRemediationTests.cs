@@ -386,14 +386,14 @@ public sealed class P0AuditRemediationTests : IDisposable
     }
 
     [Fact]
-    public void InputDialog_Prompt_WithoutAvaloniaDesktopOrOwner_ReturnsCancelImmediately()
+    public async Task InputDialog_Prompt_WithoutAvaloniaDesktopOrOwner_ReturnsCancelImmediately()
     {
-        // Ensures synchronous InputDialog.Prompt cannot hang or throw when invoked without desktop UI or valid owner
+        // Ensures InputDialog.PromptAsync cannot hang or throw when invoked without desktop UI or valid owner
         var desktopApp = Avalonia.Application.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime;
         if (desktopApp?.MainWindow == null)
         {
             var sw = Stopwatch.StartNew();
-            string res = InputDialog.Prompt("Test prompt", "Test", owner: null);
+            string res = await InputDialog.PromptAsync("Test prompt", "Test", owner: null);
             sw.Stop();
             Assert.Equal("/UC", res);
             Assert.True(sw.ElapsedMilliseconds < 1000, $"Prompt blocked for {sw.ElapsedMilliseconds}ms");

@@ -3,6 +3,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Threading;
 using Microsoft.Win32.SafeHandles;
 
 namespace Shiro.Services
@@ -49,7 +50,12 @@ namespace Shiro.Services
             return GetCommandLineByPid(pid);
         }
 
-        internal static Func<int, string?>? TestCommandLineOverride;
+        private static readonly AsyncLocal<Func<int, string?>?> _testCommandLineOverride = new();
+        internal static Func<int, string?>? TestCommandLineOverride
+        {
+            get => _testCommandLineOverride.Value;
+            set => _testCommandLineOverride.Value = value;
+        }
 
         public static bool IsLaunchToTrayCommandLine(string? commandLine) =>
             !string.IsNullOrEmpty(commandLine) &&

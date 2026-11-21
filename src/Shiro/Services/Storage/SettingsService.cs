@@ -7,11 +7,17 @@ namespace Shiro.Services
     {
         private readonly System.Threading.Lock sync = new();
         private readonly IAppLogger _logger;
-        public IniFile File { get; }
+        public SettingsDocument Document { get; }
+        public IniFile File => Document.BackingIni;
 
         public SettingsService(IniFile file, IAppLogger? logger = null)
+            : this(new SettingsDocument(file ?? throw new ArgumentNullException(nameof(file)), StoragePaths.SettingsFile), logger)
         {
-            File = file ?? throw new ArgumentNullException(nameof(file));
+        }
+
+        public SettingsService(SettingsDocument document, IAppLogger? logger = null)
+        {
+            Document = document ?? throw new ArgumentNullException(nameof(document));
             _logger = logger ?? AppServices.Logger;
         }
 
@@ -35,13 +41,23 @@ namespace Shiro.Services
         public void Set(string section, string key, string value, string? comment = null)
         {
             lock (sync)
-                File.Section(section)?.Set(key, value, comment);
+                Document.Set(section, key, value, comment);
         }
 
         public void Save(string fileName = "RAMSettings.json")
         {
             lock (sync)
-                File.Save(fileName);
+            {
+                if (string.Equals(fileName, Document.FilePath, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(fileName, "RAMSettings.json", StringComparison.OrdinalIgnoreCase))
+                {
+                    Document.Save();
+                }
+                else
+                {
+                    File.Save(fileName);
+                }
+            }
         }
     }
 }

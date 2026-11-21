@@ -29,20 +29,13 @@ namespace Shiro.Services
 
     public static class WebhookNotificationService
     {
-        private static IAppLogger _logger = AppServices.Logger;
-        public static IAppLogger Logger
-        {
-            get => _logger;
-            set => _logger = value ?? throw new ArgumentNullException(nameof(value));
-        }
+        private static readonly AsyncLocal<IAppLogger?> _loggerOverride = new();
+        private static IAppLogger _logger => Logger;
+        public static IAppLogger Logger { get => _loggerOverride.Value ?? AppServices.Logger; set => _loggerOverride.Value = value ?? throw new ArgumentNullException(nameof(value)); }
 
-        private static ISettingsService? _settingsOverride;
-        private static ISettingsService _settings => _settingsOverride ?? AppServices.GeneralSettings;
-        public static ISettingsService Settings
-        {
-            get => _settings;
-            set => _settingsOverride = value ?? throw new ArgumentNullException(nameof(value));
-        }
+        private static readonly AsyncLocal<ISettingsService?> _settingsOverride = new();
+        private static ISettingsService _settings => _settingsOverride.Value ?? AppServices.GeneralSettings;
+        public static ISettingsService Settings { get => _settings; set => _settingsOverride.Value = value ?? throw new ArgumentNullException(nameof(value)); }
 
         private static readonly SemaphoreSlim Gate = new(1, 1);
         private static DateTimeOffset _lastDispatchUtc = DateTimeOffset.MinValue;

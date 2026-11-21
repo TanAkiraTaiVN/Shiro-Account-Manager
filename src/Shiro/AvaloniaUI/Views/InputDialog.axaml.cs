@@ -78,7 +78,7 @@ namespace Shiro.AvaloniaUI.Views
 
         public static async Task<string> PromptAsync(string text, string caption = "Shiro", string defaultText = "", bool big = false, Window? owner = null, bool isSecret = false)
         {
-            if (!MessageBoxDialog.IsAvaloniaUiReady())
+            if (!MessageBoxDialog.IsAvaloniaUiReady() && !IsValidDialogOwner(owner))
                 return "/UC";
 
             if (!Dispatcher.UIThread.CheckAccess())
@@ -102,68 +102,6 @@ namespace Shiro.AvaloniaUI.Views
             }
 
             return dialog._value;
-        }
-
-        /// <summary>
-        /// Synchronous prompt dialog. Prefer <see cref="PromptAsync"/> to prevent nested message pump reentrancy.
-        /// </summary>
-        public static string Prompt(string text, string caption = "Shiro", string defaultText = "", bool big = false, Window? owner = null, bool isSecret = false)
-        {
-            if (!MessageBoxDialog.IsAvaloniaUiReady() && !IsValidDialogOwner(owner))
-                return "/UC";
-
-            if (Dispatcher.UIThread.CheckAccess())
-            {
-                if (!IsValidDialogOwner(owner))
-                    owner = GetActiveWindow();
-
-                var dialog = CreateDialogInstance(text, caption, defaultText, big, isSecret);
-
-                var frame = new DispatcherFrame();
-                dialog.Closed += (s, e) => frame.Continue = false;
-
-                if (IsValidDialogOwner(owner))
-                {
-                    _ = dialog.ShowDialog(owner!).ContinueWith(
-                        t =>
-                        {
-                            if (t.IsFaulted || t.IsCanceled)
-                                Dispatcher.UIThread.Post(() => frame.Continue = false);
-                        },
-                        System.Threading.CancellationToken.None,
-                        TaskContinuationOptions.ExecuteSynchronously,
-                        TaskScheduler.Default);
-                }
-                else
-                {
-                    dialog.Show();
-                }
-
-                Dispatcher.UIThread.PushFrame(frame);
-                return dialog._value;
-            }
-            else
-            {
-                string result = "/UC";
-                using var done = new System.Threading.ManualResetEventSlim(false);
-                Dispatcher.UIThread.Post(async () =>
-                {
-                    try
-                    {
-                        result = await PromptAsync(text, caption, defaultText, big, owner, isSecret);
-                    }
-                    catch (Exception ex)
-                    {
-                        AppServices.Logger?.Debug($"[InputDialog.Prompt] {ex.Message}");
-                    }
-                    finally
-                    {
-                        done.Set();
-                    }
-                });
-                done.Wait(TimeSpan.FromMinutes(10));
-                return result;
-            }
         }
 
         private void BtnOK_Click(object sender, RoutedEventArgs e)

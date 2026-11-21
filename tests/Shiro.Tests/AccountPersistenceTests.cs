@@ -265,11 +265,11 @@ namespace Shiro.Tests
         }
 
         [Fact]
-        public void TryLoadFromBackup_EmptyOrNullData_ReturnsNotAttempted()
+        public async Task TryLoadFromBackup_EmptyOrNullData_ReturnsNotAttempted()
         {
             var mgr = AccountPersistenceService.Default;
-            Assert.Equal(BackupLoadResult.NotAttempted, mgr.TryLoadFromBackup(Array.Empty<byte>()));
-            Assert.Equal(BackupLoadResult.NotAttempted, mgr.TryLoadFromBackup(null!));
+            Assert.Equal(BackupLoadResult.NotAttempted, await mgr.TryLoadFromBackupAsync(Array.Empty<byte>()));
+            Assert.Equal(BackupLoadResult.NotAttempted, await mgr.TryLoadFromBackupAsync(null!));
         }
     }
 }

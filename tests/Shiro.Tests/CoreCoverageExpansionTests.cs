@@ -9,7 +9,7 @@ using Xunit;
 
 namespace Shiro.Tests
 {
-    [Collection("SequentialStateTests")]
+    [Collection("SerialGlobalState")]
     public class CoreCoverageExpansionTests
     {
         [Fact]

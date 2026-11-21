@@ -31,8 +31,11 @@ namespace Shiro
         internal void SchedulePresenceRefresh(Account account) =>
             presenceService.SchedulePresenceRefresh(account, ObserveBackgroundTaskAsync, lifetimeCancellation.Token);
 
-        public bool TryEnableMultiRoblox(bool promptIfRobloxRunning = true, bool notify = true) =>
+        public bool TryEnableMultiRoblox(bool promptIfRobloxRunning = false, bool notify = true) =>
             presenceService.TryEnableMultiRoblox(promptIfRobloxRunning, notify, n => ModernCloseRoblox(n), SetDashboardStatus);
+
+        public Task<bool> TryEnableMultiRobloxAsync(bool promptIfRobloxRunning = true, bool notify = true) =>
+            presenceService.TryEnableMultiRobloxAsync(promptIfRobloxRunning, notify, n => ModernCloseRoblox(n), SetDashboardStatus);
 
         public bool UpdateMultiRoblox() => presenceService.UpdateMultiRoblox();
 

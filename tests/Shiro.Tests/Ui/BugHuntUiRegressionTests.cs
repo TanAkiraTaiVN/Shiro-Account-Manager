@@ -37,7 +37,7 @@ namespace Shiro.Tests.Ui
             "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=");
 
         [AvaloniaFact]
-        public void MessageBoxDialog_Show_WithOwnedWindowAndNullSyncContext_DoesNotThrow()
+        public async Task MessageBoxDialog_Show_WithOwnedWindowAndNullSyncContext_DoesNotThrow()
         {
             var prevCtx = SynchronizationContext.Current;
             var owner = new Window { Width = 300, Height = 200 };
@@ -64,18 +64,21 @@ namespace Shiro.Tests.Ui
                 Dispatcher.UIThread.Post(CloseOwnedSoon, DispatcherPriority.Background);
                 SynchronizationContext.SetSynchronizationContext(null);
 
-                var result = MessageBoxDialog.Show("Null sync context test", "Test", MessageBoxButtons.OK, MessageBoxIcon.Information, owner);
+                var result = await MessageBoxDialog.ShowAsync("Null sync context test", "Test", MessageBoxButtons.OK, MessageBoxIcon.Information, owner);
                 Assert.Equal(MessageBoxResult.None, result);
             }
             finally
             {
                 SynchronizationContext.SetSynchronizationContext(prevCtx);
-                owner.Close();
+                if (Dispatcher.UIThread.CheckAccess())
+                    owner.Close();
+                else
+                    await Dispatcher.UIThread.InvokeAsync(() => owner.Close());
             }
         }
 
         [AvaloniaFact]
-        public void InputDialog_Prompt_WithOwnedWindowAndNullSyncContext_DoesNotThrow()
+        public async Task InputDialog_Prompt_WithOwnedWindowAndNullSyncContext_DoesNotThrow()
         {
             var prevCtx = SynchronizationContext.Current;
             var owner = new Window { Width = 300, Height = 200 };
@@ -102,13 +105,16 @@ namespace Shiro.Tests.Ui
                 Dispatcher.UIThread.Post(CloseOwnedSoon, DispatcherPriority.Background);
                 SynchronizationContext.SetSynchronizationContext(null);
 
-                string value = InputDialog.Prompt("Enter text", "Test", "default", big: false, owner: owner);
+                string value = await InputDialog.PromptAsync("Enter text", "Test", "default", big: false, owner: owner);
                 Assert.Equal("/UC", value);
             }
             finally
             {
                 SynchronizationContext.SetSynchronizationContext(prevCtx);
-                owner.Close();
+                if (Dispatcher.UIThread.CheckAccess())
+                    owner.Close();
+                else
+                    await Dispatcher.UIThread.InvokeAsync(() => owner.Close());
             }
         }
 

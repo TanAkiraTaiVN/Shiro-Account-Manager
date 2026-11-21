@@ -17,8 +17,14 @@ namespace Shiro.Services
         public static RobloxAccountSessionClient Default => _defaultInstance.Value;
         public static RobloxAccountSessionClient Instance => Default;
 
+        private static readonly AsyncLocal<Func<Account, HttpClient>?> _testHttpClientFactory = new();
+
         // Test seam: lets unit tests supply a fake HttpMessageHandler-backed client.
-        internal static Func<Account, HttpClient>? TestHttpClientFactory;
+        internal static Func<Account, HttpClient>? TestHttpClientFactory
+        {
+            get => _testHttpClientFactory.Value;
+            set => _testHttpClientFactory.Value = value;
+        }
 
         // Retry up to 4 attempts on transient network glitches, stale CSRF (403), or short burst 429s
         // with backoff to guarantee high-concurrency multi-launch reliability.

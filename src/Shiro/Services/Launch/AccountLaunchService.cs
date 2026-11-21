@@ -21,9 +21,27 @@ namespace Shiro.Services
         public static AccountLaunchService Instance { get; } = new();
 
         private static readonly SemaphoreSlim NativeLaunchGate = new(1, 1);
-        internal static Func<string, string, string, string, string?, string?, CancellationToken, Task<int>>? TestStartNativeGameOverride;
-        internal static Func<Account, CancellationToken, Task<(bool Success, string Ticket)>>? TestGetAuthTicketOverride;
-        internal static Func<bool>? TestPrivacyConfirmOverride;
+        private static readonly AsyncLocal<Func<string, string, string, string, string?, string?, CancellationToken, Task<int>>?> _testStartNativeGameOverride = new();
+        private static readonly AsyncLocal<Func<Account, CancellationToken, Task<(bool Success, string Ticket)>>?> _testGetAuthTicketOverride = new();
+        private static readonly AsyncLocal<Func<bool>?> _testPrivacyConfirmOverride = new();
+
+        internal static Func<string, string, string, string, string?, string?, CancellationToken, Task<int>>? TestStartNativeGameOverride
+        {
+            get => _testStartNativeGameOverride.Value;
+            set => _testStartNativeGameOverride.Value = value;
+        }
+
+        internal static Func<Account, CancellationToken, Task<(bool Success, string Ticket)>>? TestGetAuthTicketOverride
+        {
+            get => _testGetAuthTicketOverride.Value;
+            set => _testGetAuthTicketOverride.Value = value;
+        }
+
+        internal static Func<bool>? TestPrivacyConfirmOverride
+        {
+            get => _testPrivacyConfirmOverride.Value;
+            set => _testPrivacyConfirmOverride.Value = value;
+        }
 
         [GeneratedRegex(@"(?:privateServerLinkCode|shareCode|code)=([^&\s]+)", RegexOptions.IgnoreCase)]
         private static partial Regex LinkCodeRegex();
@@ -277,9 +295,10 @@ namespace Shiro.Services
                         token,
                         async () => TestPrivacyConfirmOverride != null
                             ? TestPrivacyConfirmOverride()
-                            : await AppDispatcher.InvokeAsync(() =>
-                                Utilities.YesNoPrompt("Shiro", "Account Manager has detected your account's privacy settings do not allow you to join private servers.", "Would you like to change this setting to Everyone now?")
-                            ).ConfigureAwait(false),
+                            : await Utilities.YesNoPromptAsync(
+                                "Shiro",
+                                "Account Manager has detected your account's privacy settings do not allow you to join private servers.",
+                                "Would you like to change this setting to Everyone now?").ConfigureAwait(false),
                         cancellationToken).ConfigureAwait(false);
                     if (!privacyOk)
                         return LaunchResult.Fail(LaunchOutcome.Failed, Shiro.Services.LocalizationService.Get("AccountLaunch.PinAuthFailed"));

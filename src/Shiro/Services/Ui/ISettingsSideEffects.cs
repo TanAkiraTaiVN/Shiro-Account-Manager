@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Shiro.Services
@@ -44,11 +45,28 @@ namespace Shiro.Services
     {
         public static SettingsSideEffectsService Default { get; } = new();
 
-        public static Action? NotifyDisplayNamesChangedCallback { get; set; }
-        public static Action? ClearAvatarCacheCallback { get; set; }
+        private static readonly AsyncLocal<Action?> _notifyDisplayNamesChangedCallback = new();
+        private static readonly AsyncLocal<Action?> _clearAvatarCacheCallback = new();
+        private static readonly AsyncLocal<Func<string, Task<(bool Confirmed, string? Path)>>?> _testPickExportPathOverride = new();
+
+        public static Action? NotifyDisplayNamesChangedCallback
+        {
+            get => _notifyDisplayNamesChangedCallback.Value;
+            set => _notifyDisplayNamesChangedCallback.Value = value;
+        }
+
+        public static Action? ClearAvatarCacheCallback
+        {
+            get => _clearAvatarCacheCallback.Value;
+            set => _clearAvatarCacheCallback.Value = value;
+        }
 
         // Test seam for headless verification of Save vs Cancel export picker outcomes.
-        internal static Func<string, Task<(bool Confirmed, string? Path)>>? TestPickExportPathOverride { get; set; }
+        internal static Func<string, Task<(bool Confirmed, string? Path)>>? TestPickExportPathOverride
+        {
+            get => _testPickExportPathOverride.Value;
+            set => _testPickExportPathOverride.Value = value;
+        }
 
         public void ApplyTheme(AccentTheme theme, bool save)
         {

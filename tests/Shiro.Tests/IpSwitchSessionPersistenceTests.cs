@@ -14,7 +14,7 @@ using Xunit;
 
 namespace Shiro.Tests
 {
-    [Collection("StaticSeams")]
+    [Collection("SerialGlobalState")]
     public partial class IpSwitchSessionPersistenceTests : IDisposable
     {
         private static readonly string VpnInitialCookie =

@@ -58,7 +58,13 @@ namespace Shiro.Services
 
         public SessionAuditorService() { }
 
-        internal static Func<Account, HttpClient>? TestHttpClientFactory;
+        private static readonly AsyncLocal<Func<Account, HttpClient>?> _testHttpClientFactory = new();
+
+        internal static Func<Account, HttpClient>? TestHttpClientFactory
+        {
+            get => _testHttpClientFactory.Value;
+            set => _testHttpClientFactory.Value = value;
+        }
 
         private static HttpClient GetHttpClient(Account account, bool allowAutoRedirect = true)
         {

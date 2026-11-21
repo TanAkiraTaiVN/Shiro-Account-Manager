@@ -5,6 +5,7 @@ using System.IO;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.Threading;
 using Microsoft.Win32;
 using Shiro.Services;
 
@@ -20,7 +21,13 @@ namespace Shiro.Services
     public static partial class ClientSettingsPatcher
     {
         private static readonly System.Threading.Lock PatchLock = new();
-        internal static Action? TestOnFindRobloxVersionFoldersCalled;
+        private static readonly AsyncLocal<Action?> _testOnFindRobloxVersionFoldersCalled = new();
+
+        internal static Action? TestOnFindRobloxVersionFoldersCalled
+        {
+            get => _testOnFindRobloxVersionFoldersCalled.Value;
+            set => _testOnFindRobloxVersionFoldersCalled.Value = value;
+        }
 
         [GeneratedRegex(@"<int name=""GraphicsQualityLevel"">-?\d+</int>")]
         private static partial Regex GraphicsQualityXmlRegex();

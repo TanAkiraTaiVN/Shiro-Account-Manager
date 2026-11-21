@@ -8,7 +8,13 @@ namespace Shiro.Services
 {
     public sealed partial class AccountLaunchService
     {
-        internal static Func<string, string, string, string?, string?, CancellationToken, Task<int>>? TestStartNativeHomeOverride;
+        private static readonly AsyncLocal<Func<string, string, string, string?, string?, CancellationToken, Task<int>>?> _testStartNativeHomeOverride = new();
+
+        internal static Func<string, string, string, string?, string?, CancellationToken, Task<int>>? TestStartNativeHomeOverride
+        {
+            get => _testStartNativeHomeOverride.Value;
+            set => _testStartNativeHomeOverride.Value = value;
+        }
 
         public static async Task<int> StartNativeHomeAsync(
             string nativeHomeUri,

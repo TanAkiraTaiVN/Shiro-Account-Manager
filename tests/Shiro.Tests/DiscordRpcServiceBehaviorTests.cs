@@ -14,7 +14,7 @@ using Xunit;
 
 namespace Shiro.Tests
 {
-    [Collection("StaticSeams")]
+    [Collection("SerialGlobalState")]
     public class DiscordRpcServiceBehaviorTests
     {
         private const string ReadyHandshakeJson = "{\"cmd\":\"DISPATCH\",\"evt\":\"READY\"}";

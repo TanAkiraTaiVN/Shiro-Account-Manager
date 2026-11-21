@@ -166,11 +166,11 @@ namespace Shiro.ViewModels
             }
         }
 
-        internal static void SelectByRangePrompt(Func<string, int> selectRange, Action<string> setStatus)
+        internal static async Task SelectByRangePromptAsync(Func<string, int> selectRange, Action<string> setStatus)
         {
             string prompt = LocalizationService.Get("Main.EnterSelectionRangePrompt");
             string title = LocalizationService.Get("Main.SelectByRangeTitle");
-            string input = AppServices.Dialogs.ShowInputPrompt(prompt, title);
+            string input = await AppServices.Dialogs.ShowInputPromptAsync(prompt, title).ConfigureAwait(false);
             if (string.IsNullOrWhiteSpace(input) || input == "/UC") return;
 
             int picked = selectRange(input);

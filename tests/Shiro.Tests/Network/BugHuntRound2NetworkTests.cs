@@ -304,7 +304,7 @@ namespace Shiro.Tests.Network
 
             // 3. QuickLogInAsync (both enterCode and validateCode retry on 403)
             var fakeDialogs = Substitute.For<IDialogService>();
-            fakeDialogs.ShowConfirmation(Arg.Any<string>(), Arg.Any<string>()).Returns(true);
+            fakeDialogs.ShowConfirmationAsync(Arg.Any<string>(), Arg.Any<string>()).Returns(Task.FromResult(true));
             using var dialogScope = AppServices.Override<IDialogService>(fakeDialogs);
 
             var qliAcc = CreateAccountWithCachedCsrf("QuickLoginRetryUser", "stale-qli");

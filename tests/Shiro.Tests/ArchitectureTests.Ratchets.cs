@@ -100,13 +100,14 @@ namespace Shiro.Tests
         [GeneratedRegex(@"\bThread\.Sleep\b")]
         private static partial Regex ThreadSleepPattern();
 
-        private static List<string> FindSourcePatternOffenders(Regex pattern, HashSet<string> allowFiles)
+        private static List<string> FindSourcePatternOffenders(Regex pattern, HashSet<string> allowRelativePaths)
         {
+            string appRoot = Path.Combine(RepoRoot, "src", "Shiro");
             return SourceScan.AppSourceFiles(RepoRoot)
-                .Where(f => !allowFiles.Contains(Path.GetFileName(f)))
-                .Where(f => pattern.IsMatch(SourceScan.StripCommentsAndStringLiterals(File.ReadAllText(f))))
-                .Select(Path.GetFileName)
-                .OfType<string>()
+                .Select(f => (FullPath: f, RelPath: Path.GetRelativePath(appRoot, f).Replace('\\', '/')))
+                .Where(x => !allowRelativePaths.Contains(x.RelPath))
+                .Where(x => pattern.IsMatch(SourceScan.StripCommentsAndStringLiterals(File.ReadAllText(x.FullPath))))
+                .Select(x => x.RelPath)
                 .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
                 .ToList();
         }
@@ -114,17 +115,17 @@ namespace Shiro.Tests
         [Theory]
         [InlineData("{DynamicResource Theme.AccentBrush}", "Theme.AccentBrush")]
         [InlineData("{DynamicResource Settings.ExportVaultBtn}", "Settings.ExportVaultBtn")]
-        public void ArchitectureTests_DynamicResourceRegex_CapturesDottedKeysAndBansDispatcherFrame(string sample, string expectedKey)
+        public void ArchitectureTests_DynamicResourceRegex_CapturesDottedKeys(string sample, string expectedKey)
         {
             var match = DynamicResourcePattern().Match(sample);
             Assert.True(match.Success);
             Assert.Equal(expectedKey, match.Groups[1].Value);
+        }
 
-            var allow = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-            {
-                "InputDialog.axaml.cs",
-                "MessageBoxDialog.axaml.cs"
-            };
+        [Fact]
+        public void DispatcherFrame_ShouldNotBeUsedInSourceFiles()
+        {
+            var allow = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var offenders = FindSourcePatternOffenders(DispatcherFramePattern(), allow);
             Assert.Empty(offenders);
         }
@@ -135,9 +136,7 @@ namespace Shiro.Tests
             var allow = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
             {
                 "AccountManager.Lifecycle.cs",
-                "InputDialog.axaml.cs",
-                "MessageBoxDialog.axaml.cs",
-                "AppLogger.cs"
+                "Services/Storage/AppLogger.cs"
             };
             var offenders = FindSourcePatternOffenders(WaitWithTimeSpanPattern(), allow);
             Assert.Empty(offenders);
@@ -148,7 +147,7 @@ namespace Shiro.Tests
         {
             var allow = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
             {
-                "StoragePaths.VaultKey.cs"
+                "Services/Storage/StoragePaths.VaultKey.cs"
             };
             var offenders = FindSourcePatternOffenders(ThreadSleepPattern(), allow);
             Assert.Empty(offenders);

@@ -74,9 +74,9 @@ namespace Shiro.ViewModels
             ReLoginWithCookieCommand = new RelayCommand(p => { if (p is AccountViewModel a && a.Model != null) AppServices.Dialogs.OpenCookieImportDialog(a.Model); });
             ValidateSessionCommand = new RelayCommand(p => AccountCollectionCommandActions.ValidateSingleSession(p as AccountViewModel, _accountRepository, UpdateAccountValidity, PostStatusMessage));
             OpenProfileCommand = new RelayCommand(p => { if (p is AccountViewModel a && a.Model != null && a.UserId > 0) Utilities.OpenUrl($"https://www.roblox.com/users/{a.UserId}/profile"); });
-            SetAliasCommand = new RelayCommand(p => { if (p is AccountViewModel a) AppServices.AccountWorkflowService.SetAlias(a, _setStatus); });
-            SetGroupCommand = new RelayCommand(p => { if (p is AccountViewModel a) AppServices.AccountWorkflowService.SetGroup(a, this, _setStatus); });
-            SetDescriptionCommand = new RelayCommand(p => { if (p is AccountViewModel a) AppServices.AccountWorkflowService.SetDescription(a, _setStatus); });
+            SetAliasCommand = new AsyncRelayCommand(p => p is AccountViewModel a ? AppServices.AccountWorkflowService.SetAliasAsync(a, _setStatus) : Task.CompletedTask);
+            SetGroupCommand = new AsyncRelayCommand(p => p is AccountViewModel a ? AppServices.AccountWorkflowService.SetGroupAsync(a, this, _setStatus) : Task.CompletedTask);
+            SetDescriptionCommand = new AsyncRelayCommand(p => p is AccountViewModel a ? AppServices.AccountWorkflowService.SetDescriptionAsync(a, _setStatus) : Task.CompletedTask);
             TogglePinCommand = new RelayCommand(p => { if (p is AccountViewModel a) AppServices.AccountWorkflowService.TogglePin(a, this, _setStatus); });
             CopyUsernameCommand = new RelayCommand(p => { if (p is AccountViewModel a) AppServices.AccountWorkflowService.CopyUsername(a, _setStatus); });
             CopyUserPassCommand = new RelayCommand(p => { if (p is AccountViewModel a) AppServices.AccountWorkflowService.CopyUserPass(a, _setStatus); });
@@ -86,12 +86,12 @@ namespace Shiro.ViewModels
             SavePlaceIdToAccountCommand = new RelayCommand(p => AccountCollectionCommandActions.SavePlaceIdToAccount(p as AccountViewModel, _accountRepository, _getPlaceId(), _getJobId()));
             ViewFieldsCommand = new RelayCommand(p => { if (p is AccountViewModel a && a.Model != null) AppServices.Dialogs.OpenAccountFieldsDialog(a.Model); });
             OpenUtilsCommand = new RelayCommand(p => { if (p is AccountViewModel a && a.Model != null) AppServices.Dialogs.OpenAccountUtilsDialog(a.Model); });
-            RemoveAccountCommand = new RelayCommand(p => { if (p is AccountViewModel a) AppServices.AccountWorkflowService.RemoveAccount(a, this, _setStatus); });
+            RemoveAccountCommand = new AsyncRelayCommand(p => p is AccountViewModel a ? AppServices.AccountWorkflowService.RemoveAccountAsync(a, this, _setStatus) : Task.CompletedTask);
 
-            SetGroupSelectedCommand = new RelayCommand(() => AppServices.AccountWorkflowService.SetGroupSelected(this, PostStatusMessage));
+            SetGroupSelectedCommand = new AsyncRelayCommand(() => AppServices.AccountWorkflowService.SetGroupSelectedAsync(this, PostStatusMessage));
             SavePlaceIdSelectedCommand = new RelayCommand(() => AppServices.AccountWorkflowService.SavePlaceIdSelected(this, PostStatusMessage));
             CopyUserPassSelectedCommand = new RelayCommand(() => AppServices.AccountWorkflowService.CopyUserPassSelected(this, PostStatusMessage));
-            RemoveSelectedCommand = new RelayCommand(() => AppServices.AccountWorkflowService.RemoveSelectedAccounts(this, PostStatusMessage));
+            RemoveSelectedCommand = new AsyncRelayCommand(() => AppServices.AccountWorkflowService.RemoveSelectedAccountsAsync(this, PostStatusMessage));
             ReLoginSelectedCommand = new RelayCommand(() => AccountCollectionCommandActions.ReLoginSelected(_accounts.Where(a => a.IsSelected).ToList(), _setStatus));
             ValidateSessionSelectedCommand = new RelayCommand(() => AccountCollectionCommandActions.ValidateSessionSelected(_accounts.Where(a => a.IsSelected).ToList(), this, _setStatus, PostStatusMessage));
         }
@@ -163,8 +163,8 @@ namespace Shiro.ViewModels
             InvertSelectionCommand = new RelayCommand(() =>
                 _setStatus(LocalizationService.Format("Main.InvertedSelectionResult", InvertFilteredSelection())));
 
-            SelectByRangePromptCommand = new RelayCommand(() =>
-                AccountCollectionCommandActions.SelectByRangePrompt(SelectRangeExpression, _setStatus));
+            SelectByRangePromptCommand = new AsyncRelayCommand(() =>
+                AccountCollectionCommandActions.SelectByRangePromptAsync(SelectRangeExpression, _setStatus));
 
             MetricCardInGameCommand = new RelayCommand(() =>
                 ActiveTab = ActiveTab == AccountFilterTab.InGame ? AccountFilterTab.All : AccountFilterTab.InGame);

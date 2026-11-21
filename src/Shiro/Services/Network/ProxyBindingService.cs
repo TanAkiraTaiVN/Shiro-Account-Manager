@@ -18,19 +18,13 @@ namespace Shiro.Services
     /// </summary>
     public static class ProxyBindingService
     {
-        private static IAppLogger _logger = AppServices.Logger;
-        public static IAppLogger Logger
-        {
-            get => _logger;
-            set => _logger = value ?? throw new ArgumentNullException(nameof(value));
-        }
+        private static readonly AsyncLocal<IAppLogger?> _loggerOverride = new();
+        private static IAppLogger _logger => Logger;
+        public static IAppLogger Logger { get => _loggerOverride.Value ?? AppServices.Logger; set => _loggerOverride.Value = value ?? throw new ArgumentNullException(nameof(value)); }
 
-        private static ISettingsService _settings = AppServices.GeneralSettings;
-        public static ISettingsService Settings
-        {
-            get => _settings;
-            set => _settings = value ?? throw new ArgumentNullException(nameof(value));
-        }
+        private static readonly AsyncLocal<ISettingsService?> _settingsOverride = new();
+        private static ISettingsService _settings => Settings;
+        public static ISettingsService Settings { get => _settingsOverride.Value ?? AppServices.GeneralSettings; set => _settingsOverride.Value = value ?? throw new ArgumentNullException(nameof(value)); }
 
         private static readonly ConcurrentDictionary<string, Lazy<HttpClient>> _proxyClients =
             new ConcurrentDictionary<string, Lazy<HttpClient>>(StringComparer.OrdinalIgnoreCase);

@@ -25,9 +25,11 @@ namespace Shiro.Tests
             public void ShowInfo(string message, string title = "Shiro") => LastInfoMessage = message;
             public void ShowWarning(string message, string title = "Shiro") => LastWarningMessage = message;
             public void ShowError(string message, string title = "Shiro") => LastErrorMessage = message;
-            public bool ShowConfirmation(string message, string title = "Shiro") => ConfirmationResult;
-            public bool? ShowYesNoCancel(string message, string title = "Shiro") => YesNoCancelResult;
-            public string ShowInputPrompt(string message, string title, string defaultValue = "") => InputPromptResult;
+            public Task<MessageBoxResult> ShowMessageBoxAsync(string message, string title = "Shiro", MessageBoxButtons buttons = MessageBoxButtons.OK, MessageBoxIcon icon = MessageBoxIcon.None) => Task.FromResult(ConfirmationResult ? MessageBoxResult.OK : MessageBoxResult.Cancel);
+            public Task<bool> ShowConfirmationAsync(string message, string title = "Shiro") => Task.FromResult(ConfirmationResult);
+            public Task<bool?> ShowYesNoCancelAsync(string message, string title = "Shiro") => Task.FromResult(YesNoCancelResult);
+            public Task<string> ShowInputPromptAsync(string message, string title, string defaultValue = "") => Task.FromResult(InputPromptResult);
+            public Task<string> ShowSecretPromptAsync(string message, string title, string defaultValue = "") => Task.FromResult(InputPromptResult);
             public void OpenFastLoginDialog(Account? account = null) { }
             public void OpenFastLoginDialogBatch(IReadOnlyList<Account> accounts) { }
             public void OpenBulkImportDialog() { }

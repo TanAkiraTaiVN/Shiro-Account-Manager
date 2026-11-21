@@ -149,10 +149,10 @@ namespace Shiro.Tests.Ui
         }
 
         [Fact]
-        public void AccountWorkflowService_RemoveSelectedAccounts_SyncsLookupIndex()
+        public async Task AccountWorkflowService_RemoveSelectedAccounts_SyncsLookupIndex()
         {
             var dlg = Substitute.For<IDialogService>();
-            dlg.ShowConfirmation(Arg.Any<string>(), Arg.Any<string>()).Returns(true);
+            dlg.ShowConfirmationAsync(Arg.Any<string>(), Arg.Any<string>()).Returns(Task.FromResult(true));
             using var dlgScope = AppServices.Override<IDialogService>(dlg);
 
             var mockRepo = Substitute.For<IAccountRepository>();
@@ -164,7 +164,7 @@ namespace Shiro.Tests.Ui
             mainVm.LoadAccounts(new[] { acc });
             mainVm.Accounts[0].IsSelected = true;
 
-            AccountWorkflowService.Default.RemoveSelectedAccounts(mainVm, _ => { });
+            await AccountWorkflowService.Default.RemoveSelectedAccountsAsync(mainVm, _ => { });
 
             Assert.Empty(mainVm.Accounts);
             Assert.Null(mainVm.TryGetAccountViewModel(acc));

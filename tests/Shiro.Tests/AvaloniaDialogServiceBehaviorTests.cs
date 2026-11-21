@@ -73,7 +73,7 @@ namespace Shiro.Tests
         }
 
         [Fact]
-        public void CookieCommands_OnMainViewModel_InvokeOpenCookieImportDialog()
+        public async Task CookieCommands_OnMainViewModel_InvokeOpenCookieImportDialog()
         {
             var dialogSub = Substitute.For<IDialogService>();
             var repoSub = Substitute.For<IAccountRepository>();
@@ -85,7 +85,7 @@ namespace Shiro.Tests
             vm.AddAccountCookieCommand.Execute(null);
 
             dialogSub.Received(1).OpenCookieImportDialog(null);
-            dialogSub.DidNotReceiveWithAnyArgs().ShowInputPrompt(default!, default!, default!);
+            await dialogSub.DidNotReceiveWithAnyArgs().ShowInputPromptAsync(default!, default!, default!);
 
             var account = new Account { Username = "ReloginCookieUser", UserID = 2222 };
             var accountVm = new AccountViewModel(account);

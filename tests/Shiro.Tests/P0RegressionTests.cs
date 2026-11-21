@@ -8,6 +8,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using Shiro.Services;
 using Xunit;
 
@@ -22,9 +23,11 @@ namespace Shiro.Tests
             public void ShowInfo(string message, string title = "Shiro") { }
             public void ShowWarning(string message, string title = "Shiro") { }
             public void ShowError(string message, string title = "Shiro") { }
-            public bool ShowConfirmation(string message, string title = "Shiro") => ConfirmationResult;
-            public bool? ShowYesNoCancel(string message, string title = "Shiro") => ConfirmationResult;
-            public string ShowInputPrompt(string message, string title, string defaultValue = "") => string.Empty;
+            public Task<MessageBoxResult> ShowMessageBoxAsync(string message, string title = "Shiro", MessageBoxButtons buttons = MessageBoxButtons.OK, MessageBoxIcon icon = MessageBoxIcon.None) => Task.FromResult(ConfirmationResult ? MessageBoxResult.OK : MessageBoxResult.Cancel);
+            public Task<bool> ShowConfirmationAsync(string message, string title = "Shiro") => Task.FromResult(ConfirmationResult);
+            public Task<bool?> ShowYesNoCancelAsync(string message, string title = "Shiro") => Task.FromResult<bool?>(ConfirmationResult);
+            public Task<string> ShowInputPromptAsync(string message, string title, string defaultValue = "") => Task.FromResult(string.Empty);
+            public Task<string> ShowSecretPromptAsync(string message, string title, string defaultValue = "") => Task.FromResult(string.Empty);
             public void OpenFastLoginDialog(Account? account = null) { }
             public void OpenFastLoginDialogBatch(IReadOnlyList<Account> accounts) { }
             public void OpenBulkImportDialog() { }

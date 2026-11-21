@@ -220,11 +220,11 @@ namespace Shiro.Services
             }
         }
 
-        public bool TryEnableMultiRoblox(
-            bool promptIfRobloxRunning = true,
-            bool notify = true,
-            Action<bool>? closeRobloxCallback = null,
-            Action<string>? statusCallback = null)
+        private bool TryEnableMultiRobloxCore(
+            bool notify,
+            Action<bool>? closeRobloxCallback,
+            Action<string>? statusCallback,
+            out bool canPrompt)
         {
             void SetStatus(string msg)
             {
@@ -235,6 +235,7 @@ namespace Shiro.Services
                 }
             }
 
+            canPrompt = false;
             if (UpdateMultiRoblox())
             {
                 SetStatus(LocalizationService.Get("AccountManager.MultiRobloxActive"));
@@ -258,18 +259,59 @@ namespace Shiro.Services
                 return false;
             }
 
-            if (promptIfRobloxRunning && !autoClose)
+            canPrompt = !autoClose;
+            return false;
+        }
+
+        public bool TryEnableMultiRoblox(
+            bool promptIfRobloxRunning = false,
+            bool notify = true,
+            Action<bool>? closeRobloxCallback = null,
+            Action<string>? statusCallback = null)
+        {
+            if (TryEnableMultiRobloxCore(notify, closeRobloxCallback, statusCallback, out bool canPrompt))
+                return true;
+
+            if (promptIfRobloxRunning && canPrompt && notify)
+            {
+                string msg = LocalizationService.Get("AccountManager.RobloxRunningMultiInactive");
+                AppServices.HostUiBridge.NotifyWindowStatus(msg);
+                statusCallback?.Invoke(msg);
+            }
+
+            return false;
+        }
+
+        public async Task<bool> TryEnableMultiRobloxAsync(
+            bool promptIfRobloxRunning = true,
+            bool notify = true,
+            Action<bool>? closeRobloxCallback = null,
+            Action<string>? statusCallback = null)
+        {
+            void SetStatus(string msg)
+            {
+                if (notify)
+                {
+                    AppServices.HostUiBridge.NotifyWindowStatus(msg);
+                    statusCallback?.Invoke(msg);
+                }
+            }
+
+            if (TryEnableMultiRobloxCore(notify, closeRobloxCallback, statusCallback, out bool canPrompt))
+                return true;
+
+            if (promptIfRobloxRunning && canPrompt)
             {
                 // Only prompt if Avalonia UI is fully initialized and MainWindow is visible
                 if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop &&
                     desktop.MainWindow != null && desktop.MainWindow.IsVisible)
                 {
-                    bool closeRoblox = Utilities.YesNoPrompt(
+                    bool closeRoblox = await Utilities.YesNoPromptAsync(
                         "Shiro",
                         "Roblox is currently running.",
                         "Multi Roblox cannot be activated while Roblox is open.\n\nWould you like to close running Roblox processes now to enable Multi Roblox?",
                         CanSave: true,
-                        SaveIfNo: true);
+                        SaveIfNo: true).ConfigureAwait(false);
 
                     if (closeRoblox)
                     {

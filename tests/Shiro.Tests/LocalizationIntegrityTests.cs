@@ -11,7 +11,7 @@ using Xunit;
 
 namespace Shiro.Tests
 {
-    [Collection("StaticSeams")]
+    [Collection("SerialGlobalState")]
     public class LocalizationIntegrityTests
     {
         private static string FindRepoRoot()

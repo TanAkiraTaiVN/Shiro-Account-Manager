@@ -20,11 +20,34 @@ namespace Shiro.Services
         private static string? _cachedRobloxExecutablePath;
         private static long _cachedRobloxExecutableTick = -60000;
         private const long ExecutableCacheTtlMs = 30000;
-        internal static string[]? TestVersionRootsOverride;
-        internal static string? TestProtocolCommandOverride;
-        internal static string? TestDefaultIconOverride;
+        private static readonly AsyncLocal<string[]?> _testVersionRootsOverride = new();
+        private static readonly AsyncLocal<string?> _testProtocolCommandOverride = new();
+        private static readonly AsyncLocal<string?> _testDefaultIconOverride = new();
+        private static readonly AsyncLocal<ExecutableCacheEntry?> _testExecutableCache = new();
+
+        private sealed record ExecutableCacheEntry(string Path, long Tick);
+
+        internal static string[]? TestVersionRootsOverride
+        {
+            get => _testVersionRootsOverride.Value;
+            set => _testVersionRootsOverride.Value = value;
+        }
+
+        internal static string? TestProtocolCommandOverride
+        {
+            get => _testProtocolCommandOverride.Value;
+            set => _testProtocolCommandOverride.Value = value;
+        }
+
+        internal static string? TestDefaultIconOverride
+        {
+            get => _testDefaultIconOverride.Value;
+            set => _testDefaultIconOverride.Value = value;
+        }
+
         public static void InvalidateExecutableCache()
         {
+            _testExecutableCache.Value = null;
             _cachedRobloxExecutablePath = null;
             _cachedRobloxExecutableTick = -60000;
         }
@@ -32,6 +55,22 @@ namespace Shiro.Services
         public static string? FindRobloxPlayerExecutable()
         {
             long now = Environment.TickCount64;
+            bool usingTestOverrides = TestVersionRootsOverride != null
+                || TestProtocolCommandOverride != null
+                || TestDefaultIconOverride != null;
+
+            if (usingTestOverrides)
+            {
+                ExecutableCacheEntry? testCached = _testExecutableCache.Value;
+                if (testCached != null && (now - testCached.Tick) < ExecutableCacheTtlMs && File.Exists(testCached.Path))
+                    return testCached.Path;
+
+                string? testResolved = FindRobloxPlayerExecutableCore();
+                if (!string.IsNullOrEmpty(testResolved))
+                    _testExecutableCache.Value = new ExecutableCacheEntry(testResolved, now);
+                return testResolved;
+            }
+
             string? cached = _cachedRobloxExecutablePath;
             if (!string.IsNullOrEmpty(cached) && (now - _cachedRobloxExecutableTick) < ExecutableCacheTtlMs && File.Exists(cached))
             {

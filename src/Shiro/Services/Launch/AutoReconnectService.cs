@@ -59,8 +59,34 @@ namespace Shiro.Services
         private bool _isEnabled = true;
         public int MaxRetries { get; set; } = 5;
         public TimeSpan InitialBackoff { get; set; } = TimeSpan.FromSeconds(10);
-        internal int? TestReconnectDelayMsOverride { get; set; }
-        internal Func<ReconnectSession, Task<string>>? TestJoinServerOverride { get; set; }
+        private static readonly AsyncLocal<int?> _singletonTestReconnectDelayMsOverride = new();
+        private static readonly AsyncLocal<Func<ReconnectSession, Task<string>>?> _singletonTestJoinServerOverride = new();
+        private int? _instanceTestReconnectDelayMsOverride;
+        private Func<ReconnectSession, Task<string>>? _instanceTestJoinServerOverride;
+
+        internal int? TestReconnectDelayMsOverride
+        {
+            get => ReferenceEquals(this, Instance) ? _singletonTestReconnectDelayMsOverride.Value : _instanceTestReconnectDelayMsOverride;
+            set
+            {
+                if (ReferenceEquals(this, Instance))
+                    _singletonTestReconnectDelayMsOverride.Value = value;
+                else
+                    _instanceTestReconnectDelayMsOverride = value;
+            }
+        }
+
+        internal Func<ReconnectSession, Task<string>>? TestJoinServerOverride
+        {
+            get => ReferenceEquals(this, Instance) ? _singletonTestJoinServerOverride.Value : _instanceTestJoinServerOverride;
+            set
+            {
+                if (ReferenceEquals(this, Instance))
+                    _singletonTestJoinServerOverride.Value = value;
+                else
+                    _instanceTestJoinServerOverride = value;
+            }
+        }
         public TimeSpan LaunchGracePeriod { get; set; } = TimeSpan.FromSeconds(15);
         public TimeSpan DisconnectTimeout { get; set; } = TimeSpan.FromSeconds(20);
         public TimeSpan StableResetWindow { get; set; } = TimeSpan.FromMinutes(10);

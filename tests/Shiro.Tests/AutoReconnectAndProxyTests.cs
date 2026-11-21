@@ -7,6 +7,7 @@ using Xunit;
 
 namespace Shiro.Tests
 {
+    [Collection("SerialGlobalState")]
     public class AutoReconnectAndProxyTests
     {
         private sealed class TestDisposable : IDisposable

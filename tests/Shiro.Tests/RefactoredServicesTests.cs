@@ -6,6 +6,7 @@ using Shiro.Services;
 
 namespace Shiro.Tests
 {
+    [Collection("SerialGlobalState")]
     public class RefactoredServicesTests
     {
         [Fact]

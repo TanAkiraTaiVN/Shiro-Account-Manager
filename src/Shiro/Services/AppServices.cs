@@ -16,7 +16,7 @@ namespace Shiro.Services
         private static IServiceProvider? _serviceProvider;
         private static IServiceCollection? _currentServices;
         private static readonly Lock _initLock = new();
-        private static readonly Stack<OverrideScope> _overrideStack = new();
+        private static readonly AsyncLocal<OverrideFrame?> _asyncOverrides = new();
         private static readonly ISettingsService _fallbackGeneralSettings = new FallbackGeneralSettingsService();
 
         internal static AppBootstrap? CurrentBootstrap
@@ -28,15 +28,23 @@ namespace Shiro.Services
             }
         }
 
+        private static IServiceProvider? CurrentProviderOrNull()
+        {
+            var frame = _asyncOverrides.Value;
+            if (frame != null && !frame.IsDisposed)
+                return frame.Provider;
+            return Volatile.Read(ref _serviceProvider);
+        }
+
         public static IServiceProvider ServiceProvider
         {
             get
             {
-                var current = Volatile.Read(ref _serviceProvider);
+                var current = CurrentProviderOrNull();
                 if (current == null)
                 {
                     EnsureInitialized();
-                    current = Volatile.Read(ref _serviceProvider);
+                    current = CurrentProviderOrNull();
                 }
                 return current!;
             }
@@ -90,7 +98,7 @@ namespace Shiro.Services
                 if (!ReferenceEquals(_bootstrap, bootstrap))
                     return;
 
-                _overrideStack.Clear();
+                _asyncOverrides.Value = null;
                 _bootstrap = null;
                 _currentServices = null;
                 Volatile.Write(ref _serviceProvider, null);
@@ -101,33 +109,30 @@ namespace Shiro.Services
         {
             ArgumentNullException.ThrowIfNull(instance);
 
+            IServiceCollection baseServices;
             lock (_initLock)
             {
                 if (_serviceProvider == null)
                     EnsureInitialized();
 
-                var previousProvider = _serviceProvider!;
-                var previousServices = _currentServices ?? new ServiceCollection();
-
-                IServiceCollection newServices = new ServiceCollection();
-                foreach (var descriptor in previousServices)
-                {
-                    if (!descriptor.IsKeyedService && descriptor.ServiceType == typeof(T))
-                        continue;
-                    newServices.Add(descriptor);
-                }
-
-                newServices.AddSingleton<T>(instance);
-
-                ServiceProvider newProvider = newServices.BuildServiceProvider();
-                var scope = new OverrideScope(previousProvider, previousServices, newProvider);
-                _overrideStack.Push(scope);
-
-                _currentServices = newServices;
-                Volatile.Write(ref _serviceProvider, newProvider);
-
-                return scope;
+                baseServices = _asyncOverrides.Value?.Services ?? _currentServices ?? new ServiceCollection();
             }
+
+            IServiceCollection newServices = new ServiceCollection();
+            foreach (var descriptor in baseServices)
+            {
+                if (!descriptor.IsKeyedService && descriptor.ServiceType == typeof(T))
+                    continue;
+                newServices.Add(descriptor);
+            }
+
+            newServices.AddSingleton<T>(instance);
+
+            ServiceProvider newProvider = newServices.BuildServiceProvider();
+            OverrideFrame? previous = _asyncOverrides.Value;
+            var frame = new OverrideFrame(previous, newServices, newProvider);
+            _asyncOverrides.Value = frame;
+            return new OverrideScope(frame);
         }
 
         private sealed class FallbackGeneralSettingsService : ISettingsService
@@ -144,41 +149,35 @@ namespace Shiro.Services
             public void RemoveProperty(string name) => Current.RemoveProperty(name);
         }
 
-        private sealed class OverrideScope : IDisposable
+        private sealed class OverrideFrame(
+            OverrideFrame? previous,
+            IServiceCollection services,
+            ServiceProvider provider)
         {
-            private readonly IServiceProvider _previousProvider;
-            private readonly IServiceCollection _previousServices;
-            private readonly ServiceProvider _ownedProvider;
-            private bool _disposed;
+            public OverrideFrame? Previous { get; } = previous;
+            public IServiceCollection Services { get; } = services;
+            public ServiceProvider Provider { get; } = provider;
+            public bool IsDisposed { get; set; }
+        }
 
-            public OverrideScope(
-                IServiceProvider previousProvider,
-                IServiceCollection previousServices,
-                ServiceProvider ownedProvider)
-            {
-                _previousProvider = previousProvider;
-                _previousServices = previousServices;
-                _ownedProvider = ownedProvider;
-            }
+        private sealed class OverrideScope(OverrideFrame frame) : IDisposable
+        {
+            private bool _disposed;
 
             public void Dispose()
             {
-                lock (_initLock)
+                if (_disposed) return;
+
+                OverrideFrame? current = _asyncOverrides.Value;
+                if (!ReferenceEquals(current, frame))
                 {
-                    if (_disposed) return;
-
-                    if (_overrideStack.Count == 0 || _overrideStack.Peek() != this)
-                    {
-                        throw new InvalidOperationException("Service override scopes must be disposed in reverse order of creation (LIFO).");
-                    }
-
-                    _overrideStack.Pop();
-                    Volatile.Write(ref _serviceProvider, _previousProvider);
-                    _currentServices = _previousServices;
-                    _disposed = true;
+                    throw new InvalidOperationException("Service override scopes must be disposed in reverse order of creation (LIFO).");
                 }
 
-                _ownedProvider.Dispose();
+                _asyncOverrides.Value = frame.Previous;
+                frame.IsDisposed = true;
+                _disposed = true;
+                frame.Provider.Dispose();
             }
         }
 
@@ -228,8 +227,8 @@ namespace Shiro.Services
         {
             get
             {
-                try { return Volatile.Read(ref _serviceProvider)?.GetService<IAppLogger>() ?? Program.Logger; }
-                catch (ObjectDisposedException) { return Volatile.Read(ref _serviceProvider)?.GetService<IAppLogger>() ?? Program.Logger; }
+                try { return CurrentProviderOrNull()?.GetService<IAppLogger>() ?? Program.Logger; }
+                catch (ObjectDisposedException) { return CurrentProviderOrNull()?.GetService<IAppLogger>() ?? Program.Logger; }
             }
         }
 
@@ -237,8 +236,8 @@ namespace Shiro.Services
         {
             get
             {
-                try { return Volatile.Read(ref _serviceProvider)?.GetService<ISettingsService>() ?? _fallbackGeneralSettings; }
-                catch (ObjectDisposedException) { return Volatile.Read(ref _serviceProvider)?.GetService<ISettingsService>() ?? _fallbackGeneralSettings; }
+                try { return CurrentProviderOrNull()?.GetService<ISettingsService>() ?? _fallbackGeneralSettings; }
+                catch (ObjectDisposedException) { return CurrentProviderOrNull()?.GetService<ISettingsService>() ?? _fallbackGeneralSettings; }
             }
         }
 

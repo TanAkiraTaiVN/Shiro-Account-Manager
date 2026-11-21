@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using NSubstitute;
 using Shiro.Services;
 using Shiro.ViewModels;
@@ -20,9 +21,11 @@ namespace Shiro.Tests
             public void ShowInfo(string message, string title = "Shiro") { }
             public void ShowWarning(string message, string title = "Shiro") { }
             public void ShowError(string message, string title = "Shiro") { }
-            public bool ShowConfirmation(string message, string title = "Shiro") => ConfirmationResult;
-            public bool? ShowYesNoCancel(string message, string title = "Shiro") => YesNoCancelResult;
-            public string ShowInputPrompt(string message, string title, string defaultValue = "") => InputPromptResult;
+            public Task<MessageBoxResult> ShowMessageBoxAsync(string message, string title = "Shiro", MessageBoxButtons buttons = MessageBoxButtons.OK, MessageBoxIcon icon = MessageBoxIcon.None) => Task.FromResult(ConfirmationResult ? MessageBoxResult.OK : MessageBoxResult.Cancel);
+            public Task<bool> ShowConfirmationAsync(string message, string title = "Shiro") => Task.FromResult(ConfirmationResult);
+            public Task<bool?> ShowYesNoCancelAsync(string message, string title = "Shiro") => Task.FromResult(YesNoCancelResult);
+            public Task<string> ShowInputPromptAsync(string message, string title, string defaultValue = "") => Task.FromResult(InputPromptResult);
+            public Task<string> ShowSecretPromptAsync(string message, string title, string defaultValue = "") => Task.FromResult(InputPromptResult);
             public void OpenFastLoginDialog(Account? account = null) { }
             public void OpenFastLoginDialogBatch(IReadOnlyList<Account> accounts) { }
             public void OpenBulkImportDialog() { }
@@ -49,14 +52,14 @@ namespace Shiro.Tests
         }
 
         [Fact]
-        public void SetAlias_UserEntersAlias_UpdatesAccountAndInvokesCallback()
+        public async Task SetAlias_UserEntersAlias_UpdatesAccountAndInvokesCallback()
         {
             var acc = new Account { Username = "AliasTestUser" };
             var vm = new AccountViewModel(acc);
             _fakeDialogs.InputPromptResult = "NewAliasName";
 
             string status = "";
-            _workflow.SetAlias(vm, s => status = s);
+            await _workflow.SetAliasAsync(vm, s => status = s);
 
             Assert.Equal("NewAliasName", acc.Alias);
             Assert.Equal("NewAliasName", vm.Alias);
@@ -64,12 +67,12 @@ namespace Shiro.Tests
 
             // If cancelled (/UC), should not update
             _fakeDialogs.InputPromptResult = "/UC";
-            _workflow.SetAlias(vm, s => status = s);
+            await _workflow.SetAliasAsync(vm, s => status = s);
             Assert.Equal("NewAliasName", acc.Alias);
         }
 
         [Fact]
-        public void SetGroup_UserEntersGroup_UpdatesAccountAndRebuildsGroups()
+        public async Task SetGroup_UserEntersGroup_UpdatesAccountAndRebuildsGroups()
         {
             var mainVm = new MainViewModel();
             var acc = new Account { Username = "GroupTestUser" };
@@ -77,7 +80,7 @@ namespace Shiro.Tests
             _fakeDialogs.InputPromptResult = "FarmingGroup";
 
             string status = "";
-            _workflow.SetGroup(vm, mainVm, s => status = s);
+            await _workflow.SetGroupAsync(vm, mainVm, s => status = s);
 
             Assert.Equal("FarmingGroup", acc.Group);
             Assert.Equal("FarmingGroup", vm.Group);
@@ -85,19 +88,19 @@ namespace Shiro.Tests
 
             // Cancelled (/UC)
             _fakeDialogs.InputPromptResult = "/UC";
-            _workflow.SetGroup(vm, mainVm, s => status = s);
+            await _workflow.SetGroupAsync(vm, mainVm, s => status = s);
             Assert.Equal("FarmingGroup", acc.Group);
         }
 
         [Fact]
-        public void SetDescription_UserEntersNotes_UpdatesAccount()
+        public async Task SetDescription_UserEntersNotes_UpdatesAccount()
         {
             var acc = new Account { Username = "NotesTestUser" };
             var vm = new AccountViewModel(acc);
             _fakeDialogs.InputPromptResult = "Important Notes 123";
 
             string status = "";
-            _workflow.SetDescription(vm, s => status = s);
+            await _workflow.SetDescriptionAsync(vm, s => status = s);
 
             Assert.Equal("Important Notes 123", acc.Description);
             Assert.Equal("Important Notes 123", vm.Description);
@@ -152,7 +155,7 @@ namespace Shiro.Tests
         }
 
         [Fact]
-        public void RemoveAccount_Confirmed_RemovesFromCollection()
+        public async Task RemoveAccount_Confirmed_RemovesFromCollection()
         {
             var mainVm = new MainViewModel();
             var acc = new Account { Username = "DeleteUser" };
@@ -161,19 +164,19 @@ namespace Shiro.Tests
 
             _fakeDialogs.ConfirmationResult = true;
             string status = "";
-            _workflow.RemoveAccount(vm, mainVm, s => status = s);
+            await _workflow.RemoveAccountAsync(vm, mainVm, s => status = s);
 
             Assert.DoesNotContain(vm, mainVm.Accounts);
             Assert.Contains("DeleteUser", status);
         }
 
         [Fact]
-        public void BatchOperations_WhenNoAccountsSelected_PromptSelection()
+        public async Task BatchOperations_WhenNoAccountsSelected_PromptSelection()
         {
             var mainVm = new MainViewModel();
             string status = "";
 
-            _workflow.SetGroupSelected(mainVm, s => status = s);
+            await _workflow.SetGroupSelectedAsync(mainVm, s => status = s);
             Assert.Equal(LocalizationService.Get("AccountWorkflow.SelectAccountBeforeGroup"), status);
 
             status = "";
@@ -185,12 +188,12 @@ namespace Shiro.Tests
             Assert.Equal(LocalizationService.Get("AccountWorkflow.SelectAccountBeforeCopyPass"), status);
 
             status = "";
-            _workflow.RemoveSelectedAccounts(mainVm, s => status = s);
+            await _workflow.RemoveSelectedAccountsAsync(mainVm, s => status = s);
             Assert.Equal(LocalizationService.Get("AccountWorkflow.SelectAccountBeforeDelete"), status);
         }
 
         [Fact]
-        public void BatchOperations_WithSelectedAccounts_ExecutesSuccessfully()
+        public async Task BatchOperations_WithSelectedAccounts_ExecutesSuccessfully()
         {
             var mainVm = new MainViewModel();
             var acc1 = new Account { Username = "Batch1", Password = "p1" };
@@ -202,7 +205,7 @@ namespace Shiro.Tests
 
             _fakeDialogs.InputPromptResult = "BatchGroup";
             string status = "";
-            _workflow.SetGroupSelected(mainVm, s => status = s);
+            await _workflow.SetGroupSelectedAsync(mainVm, s => status = s);
 
             Assert.Equal("BatchGroup", vm1.Group);
             Assert.Equal("BatchGroup", vm2.Group);
@@ -219,7 +222,7 @@ namespace Shiro.Tests
 
             // Batch remove
             _fakeDialogs.ConfirmationResult = true;
-            _workflow.RemoveSelectedAccounts(mainVm, s => status = s);
+            await _workflow.RemoveSelectedAccountsAsync(mainVm, s => status = s);
             Assert.Empty(mainVm.Accounts);
         }
 
@@ -379,20 +382,20 @@ namespace Shiro.Tests
                 _workflow.SavePlaceIdSelected(mainVm, s => status = s);
                 Assert.Equal(LocalizationService.Get("AccountWorkflow.EnterValidPlaceBeforeSave"), status);
 
-                _workflow.SetAlias(null!, _ => { });
-                _workflow.SetGroup(null!, mainVm, _ => { });
-                _workflow.SetDescription(null!, _ => { });
+                await _workflow.SetAliasAsync(null!, _ => { });
+                await _workflow.SetGroupAsync(null!, mainVm, _ => { });
+                await _workflow.SetDescriptionAsync(null!, _ => { });
                 _workflow.TogglePin(null!, mainVm, _ => { });
                 _workflow.CopyUsername(null!, _ => { });
                 _workflow.CopyUserPass(null!, _ => { });
                 _workflow.CopyUserId(null!, _ => { });
                 _workflow.CopyProfileUrl(null!, _ => { });
                 _workflow.CopySecurityToken(null!, _ => { });
-                _workflow.RemoveAccount(null!, mainVm, _ => { });
-                _workflow.SetGroupSelected(null!, _ => { });
+                await _workflow.RemoveAccountAsync(null!, mainVm, _ => { });
+                await _workflow.SetGroupSelectedAsync(null!, _ => { });
                 _workflow.SavePlaceIdSelected(null!, _ => { });
                 _workflow.CopyUserPassSelected(null!, _ => { });
-                _workflow.RemoveSelectedAccounts(null!, _ => { });
+                await _workflow.RemoveSelectedAccountsAsync(null!, _ => { });
             }
             finally
             {
@@ -483,7 +486,7 @@ namespace Shiro.Tests
                 Assert.NotNull(mainVm.TryGetAccountViewModel(new Account { Username = "HydratedUser" }));
 
                 _fakeDialogs.ConfirmationResult = true;
-                _workflow.RemoveAccount(vm, mainVm, _ => { });
+                await _workflow.RemoveAccountAsync(vm, mainVm, _ => { });
                 Assert.Null(mainVm.TryGetAccountViewModel(acc));
                 Assert.Null(mainVm.TryGetAccountViewModel(new Account { UserID = 888999 }));
                 Assert.Null(mainVm.TryGetAccountViewModel(new Account { Username = "HydratedUser" }));
@@ -520,18 +523,18 @@ namespace Shiro.Tests
                 var vm = new AccountViewModel(expAcc) { IsSelected = true };
                 mainVm.Accounts.Add(vm);
                 _fakeDialogs.InputPromptResult = "   ";
-                _workflow.SetGroup(vm, mainVm, _ => { });
-                _workflow.SetGroupSelected(mainVm, _ => { });
+                await _workflow.SetGroupAsync(vm, mainVm, _ => { });
+                await _workflow.SetGroupSelectedAsync(mainVm, _ => { });
                 Assert.Equal("Default", expAcc.Group);
 
                 _fakeDialogs.InputPromptResult = "/UC";
-                _workflow.SetDescription(vm, _ => { });
-                _workflow.SetGroupSelected(mainVm, _ => { });
+                await _workflow.SetDescriptionAsync(vm, _ => { });
+                await _workflow.SetGroupSelectedAsync(mainVm, _ => { });
                 _fakeDialogs.InputPromptResult = "AliasX";
-                _workflow.SetAlias(vm, null!);
+                await _workflow.SetAliasAsync(vm, null!);
                 _fakeDialogs.ConfirmationResult = false;
-                _workflow.RemoveAccount(vm, mainVm, _ => { });
-                _workflow.RemoveSelectedAccounts(mainVm, _ => { });
+                await _workflow.RemoveAccountAsync(vm, mainVm, _ => { });
+                await _workflow.RemoveSelectedAccountsAsync(mainVm, _ => { });
                 Assert.Single(mainVm.Accounts);
             }
             finally

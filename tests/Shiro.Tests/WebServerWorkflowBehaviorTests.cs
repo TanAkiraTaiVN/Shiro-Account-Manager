@@ -15,7 +15,7 @@ namespace Shiro.Tests
     public partial class WebServerEndpointsAndWorkflowTests
     {
         [Fact]
-        public void AccountWorkflowService_SynchronousOperations_WorkWithMockDialogs()
+        public async Task AccountWorkflowService_SynchronousOperations_WorkWithMockDialogs()
         {
             var fakeDialog = new FakeDialogService();
             using var _ = AppServices.Override<IDialogService>(fakeDialog);
@@ -61,25 +61,25 @@ namespace Shiro.Tests
 
                 // 1. SetAlias
                 fakeDialog.InputPromptResult = "  NewHeroAlias  ";
-                workflow.SetAlias(vm1, statusCb);
+                await workflow.SetAliasAsync(vm1, statusCb);
                 Assert.Equal("NewHeroAlias", acc1.Alias);
                 Assert.Equal("NewHeroAlias", vm1.Alias);
                 Assert.Contains("NewHeroAlias", lastStatus);
 
                 // Cancel SetAlias ("/UC")
                 fakeDialog.InputPromptResult = "/UC";
-                workflow.SetAlias(vm1, statusCb);
+                await workflow.SetAliasAsync(vm1, statusCb);
                 Assert.Equal("NewHeroAlias", acc1.Alias);
 
                 // 2. SetGroup (single)
                 fakeDialog.InputPromptResult = "Farming";
-                workflow.SetGroup(vm1, mainVm, statusCb);
+                await workflow.SetGroupAsync(vm1, mainVm, statusCb);
                 Assert.Equal("Farming", acc1.Group);
                 Assert.Contains("Farming", lastStatus);
 
                 // 3. SetDescription
                 fakeDialog.InputPromptResult = "Updated Note";
-                workflow.SetDescription(vm1, statusCb);
+                await workflow.SetDescriptionAsync(vm1, statusCb);
                 Assert.Equal("Updated Note", acc1.Description);
                 Assert.Contains("ghi chú", lastStatus);
 
@@ -109,7 +109,7 @@ namespace Shiro.Tests
 
                 // 6. Batch operations when nothing selected
                 foreach (var a in mainVm.Accounts) a.IsSelected = false;
-                workflow.SetGroupSelected(mainVm, statusCb);
+                await workflow.SetGroupSelectedAsync(mainVm, statusCb);
                 Assert.Contains("tick chọn", lastStatus);
 
                 workflow.SavePlaceIdSelected(mainVm, statusCb);
@@ -118,7 +118,7 @@ namespace Shiro.Tests
                 workflow.CopyUserPassSelected(mainVm, statusCb);
                 Assert.Contains("tick chọn", lastStatus);
 
-                workflow.RemoveSelectedAccounts(mainVm, statusCb);
+                await workflow.RemoveSelectedAccountsAsync(mainVm, statusCb);
                 Assert.Contains("tick chọn", lastStatus);
 
                 // 7. Batch operations with selection
@@ -126,7 +126,7 @@ namespace Shiro.Tests
                 vm2.IsSelected = true;
 
                 fakeDialog.InputPromptResult = "BatchGroup";
-                workflow.SetGroupSelected(mainVm, statusCb);
+                await workflow.SetGroupSelectedAsync(mainVm, statusCb);
                 Assert.Equal("BatchGroup", vm1.Group);
                 Assert.Equal("BatchGroup", vm2.Group);
 
@@ -144,15 +144,15 @@ namespace Shiro.Tests
 
                 // 8. RemoveAccount (single) & RemoveSelectedAccounts
                 fakeDialog.ConfirmationResult = false;
-                workflow.RemoveAccount(vm1, mainVm, statusCb);
+                await workflow.RemoveAccountAsync(vm1, mainVm, statusCb);
                 Assert.Equal(2, mainVm.Accounts.Count);
 
                 fakeDialog.ConfirmationResult = true;
-                workflow.RemoveAccount(vm1, mainVm, statusCb);
+                await workflow.RemoveAccountAsync(vm1, mainVm, statusCb);
                 Assert.Single(mainVm.Accounts);
 
                 vm2.IsSelected = true;
-                workflow.RemoveSelectedAccounts(mainVm, statusCb);
+                await workflow.RemoveSelectedAccountsAsync(mainVm, statusCb);
                 Assert.Empty(mainVm.Accounts);
             }
             finally

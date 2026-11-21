@@ -7,7 +7,7 @@ using Xunit;
 
 namespace Shiro.Tests
 {
-    [Collection("StoragePathsCollection")]
+    [Collection("SerialGlobalState")]
     public class ProxyManagerServiceBehaviorTests
     {
         [Fact]

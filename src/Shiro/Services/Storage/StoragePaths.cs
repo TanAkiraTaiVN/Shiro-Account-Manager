@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.IO;
+using System.Threading;
 
 namespace Shiro.Services
 {
@@ -11,19 +12,32 @@ namespace Shiro.Services
     /// </summary>
     internal static partial class StoragePaths
     {
-        private static IAppLogger? _logger;
+        private static readonly AsyncLocal<IAppLogger?> _loggerOverride = new();
+        private static IAppLogger? _logger => _loggerOverride.Value;
         public static IAppLogger? Logger
         {
-            get => _logger ?? AppServices.Logger;
-            set => _logger = value;
+            get => _loggerOverride.Value ?? AppServices.Logger;
+            set => _loggerOverride.Value = value;
         }
 
         private static readonly System.Threading.Lock Sync = new();
         private static bool initialized;
         private static string dataDirectory = string.Empty;
-        private static string? _testDataDirectoryOverride;
-        internal static bool? UnitTestOverride;
-        internal static bool TestForceAssemblyProbe;
+        private static readonly AsyncLocal<string?> _testDataDirectoryOverride = new();
+        private static readonly AsyncLocal<bool?> _unitTestOverride = new();
+        private static readonly AsyncLocal<bool> _testForceAssemblyProbe = new();
+
+        internal static bool? UnitTestOverride
+        {
+            get => _unitTestOverride.Value;
+            set => _unitTestOverride.Value = value;
+        }
+
+        internal static bool TestForceAssemblyProbe
+        {
+            get => _testForceAssemblyProbe.Value;
+            set => _testForceAssemblyProbe.Value = value;
+        }
 
         internal static void ResetInitializedForTesting()
         {
@@ -38,8 +52,9 @@ namespace Shiro.Services
         {
             get
             {
-                if (_testDataDirectoryOverride != null)
-                    return _testDataDirectoryOverride;
+                string? overrideDir = _testDataDirectoryOverride.Value;
+                if (overrideDir != null)
+                    return overrideDir;
 
                 EnsureInitialized();
                 return dataDirectory;
@@ -59,7 +74,7 @@ namespace Shiro.Services
         public static string BackupsDirectory => GetUserDirectory("Backups");
         public static string LogDirectory => GetUserDirectory("Logs");
 
-        private static bool IsRunningUnderUnitTests()
+        internal static bool IsRunningUnderUnitTests()
         {
             if (UnitTestOverride.HasValue)
                 return UnitTestOverride.Value;
@@ -152,11 +167,14 @@ namespace Shiro.Services
         internal static IDisposable OverrideDataDirectoryForTesting(string tempDir)
         {
             Directory.CreateDirectory(tempDir);
-            string? previous = _testDataDirectoryOverride;
-            _testDataDirectoryOverride = tempDir;
+            string? previous = _testDataDirectoryOverride.Value;
+            _testDataDirectoryOverride.Value = tempDir;
             return new DisposableAction(() =>
             {
-                _testDataDirectoryOverride = previous;
+                string? activeDir = _testDataDirectoryOverride.Value;
+                if (activeDir != null)
+                    ReloadVaultKeyCache(activeDir);
+                _testDataDirectoryOverride.Value = previous;
                 ReloadVaultKeyCache();
             });
         }
@@ -315,6 +333,49 @@ namespace Shiro.Services
                 {
                     stream.Write(contents);
                     stream.Flush(durable);
+                }
+                ReplaceFile(temporary, path);
+            }
+            finally
+            {
+                try
+                {
+                    if (File.Exists(temporary)) File.Delete(temporary);
+                }
+                catch (Exception ex)
+                {
+                    _logger?.Debug($"Failed to clean up temporary write file {temporary}: {ex.Message}");
+                }
+            }
+        }
+
+        public static async System.Threading.Tasks.Task AtomicWriteBytesAsync(
+            string path,
+            byte[] contents,
+            bool durable = false,
+            System.Threading.CancellationToken cancellationToken = default)
+        {
+            if (path == null) throw new ArgumentNullException(nameof(path));
+            if (contents == null) throw new ArgumentNullException(nameof(contents));
+
+            string? directory = Path.GetDirectoryName(path);
+            if (!string.IsNullOrEmpty(directory))
+                Directory.CreateDirectory(directory);
+
+            string temporary = path + ".tmp-" + Guid.NewGuid().ToString("N");
+            try
+            {
+                FileOptions options = FileOptions.Asynchronous | (durable ? FileOptions.WriteThrough : FileOptions.None);
+                await using (FileStream stream = new FileStream(
+                    temporary,
+                    FileMode.CreateNew,
+                    FileAccess.Write,
+                    FileShare.None,
+                    bufferSize: 64 * 1024,
+                    options: options))
+                {
+                    await stream.WriteAsync(contents, cancellationToken).ConfigureAwait(false);
+                    await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
                 }
                 ReplaceFile(temporary, path);
             }

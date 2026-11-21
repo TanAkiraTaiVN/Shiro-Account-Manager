@@ -22,7 +22,12 @@ namespace Shiro.Services
         private const string DefaultPipeNamePrefix = "discord-ipc-";
         private bool _loggedMissingClientId;
 
-        internal static Func<IReadOnlyList<int>>? TestAvailablePipesOverride { get; set; }
+        private static readonly AsyncLocal<Func<IReadOnlyList<int>>?> _testAvailablePipesOverride = new();
+        internal static Func<IReadOnlyList<int>>? TestAvailablePipesOverride
+        {
+            get => _testAvailablePipesOverride.Value;
+            set => _testAvailablePipesOverride.Value = value;
+        }
         internal DiscordActivityItem? LastActivityForTest => _lastActivity;
 
         internal static IReadOnlyList<int> FindAvailableDiscordIpcIndices()

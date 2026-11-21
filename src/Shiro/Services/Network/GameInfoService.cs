@@ -29,7 +29,8 @@ namespace Shiro.Services
         private static readonly ConcurrentDictionary<long, string> _placeNameCache = new();
         private static readonly ConcurrentDictionary<long, Task<string?>> _inFlightNameQueries = new();
 
-        internal static Func<HttpClient>? HttpClientFactoryForTests { get; set; }
+        private static readonly AsyncLocal<Func<HttpClient>?> _httpClientFactoryForTests = new();
+        internal static Func<HttpClient>? HttpClientFactoryForTests { get => _httpClientFactoryForTests.Value; set => _httpClientFactoryForTests.Value = value; }
 
         private static async Task<HttpResponseMessage> SendHttpAsync(HttpRequestMessage req, CancellationToken ct = default)
         {

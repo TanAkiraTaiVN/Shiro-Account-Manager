@@ -23,13 +23,55 @@ namespace Shiro.Services
         public static event Action<LaunchProgress>? LaunchProgressChanged;
         public static event Action? GlobalCancelRequested;
         internal delegate ClientGameJoinState InspectGameJoinStateDelegate(int pid, string? browserTrackerId, ref string? cachedLogPath);
-        internal static InspectGameJoinStateDelegate? TestInspectProcessGameJoinStateOverride;
-        internal static string? TestLogsDirectoryOverride;
-        internal static TimeSpan? TestCaptchaRetryCooldownOverride;
-        internal static Action<Account>? TestCloseChallengedProcessOverride;
-        internal static Func<int, TimeSpan, CancellationToken, Task<bool>>? TestWaitForClientUnlockedOverride;
-        internal static int ChallengeProbeDelayMs = 500;
-        internal static double MaxChallengeVerificationWaitSeconds = 90.0;
+        private static readonly AsyncLocal<InspectGameJoinStateDelegate?> _testInspectProcessGameJoinStateOverride = new();
+        private static readonly AsyncLocal<string?> _testLogsDirectoryOverride = new();
+        private static readonly AsyncLocal<TimeSpan?> _testCaptchaRetryCooldownOverride = new();
+        private static readonly AsyncLocal<Action<Account>?> _testCloseChallengedProcessOverride = new();
+        private static readonly AsyncLocal<Func<int, TimeSpan, CancellationToken, Task<bool>>?> _testWaitForClientUnlockedOverride = new();
+        private static readonly AsyncLocal<int?> _challengeProbeDelayMs = new();
+        private static readonly AsyncLocal<double?> _maxChallengeVerificationWaitSeconds = new();
+
+        internal static InspectGameJoinStateDelegate? TestInspectProcessGameJoinStateOverride
+        {
+            get => _testInspectProcessGameJoinStateOverride.Value;
+            set => _testInspectProcessGameJoinStateOverride.Value = value;
+        }
+
+        internal static string? TestLogsDirectoryOverride
+        {
+            get => _testLogsDirectoryOverride.Value;
+            set => _testLogsDirectoryOverride.Value = value;
+        }
+
+        internal static TimeSpan? TestCaptchaRetryCooldownOverride
+        {
+            get => _testCaptchaRetryCooldownOverride.Value;
+            set => _testCaptchaRetryCooldownOverride.Value = value;
+        }
+
+        internal static Action<Account>? TestCloseChallengedProcessOverride
+        {
+            get => _testCloseChallengedProcessOverride.Value;
+            set => _testCloseChallengedProcessOverride.Value = value;
+        }
+
+        internal static Func<int, TimeSpan, CancellationToken, Task<bool>>? TestWaitForClientUnlockedOverride
+        {
+            get => _testWaitForClientUnlockedOverride.Value;
+            set => _testWaitForClientUnlockedOverride.Value = value;
+        }
+
+        internal static int ChallengeProbeDelayMs
+        {
+            get => _challengeProbeDelayMs.Value ?? 500;
+            set => _challengeProbeDelayMs.Value = value;
+        }
+
+        internal static double MaxChallengeVerificationWaitSeconds
+        {
+            get => _maxChallengeVerificationWaitSeconds.Value ?? 90.0;
+            set => _maxChallengeVerificationWaitSeconds.Value = value;
+        }
 
         private async Task<(LaunchResult Result, bool SessionConfirmedValid)> TryRecoverTicketErrorAsync(
             LaunchRequest request,

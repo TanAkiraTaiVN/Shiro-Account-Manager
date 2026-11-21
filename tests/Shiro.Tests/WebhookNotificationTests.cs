@@ -8,7 +8,7 @@ using Xunit;
 
 namespace Shiro.Tests
 {
-    [Collection("StaticSeams")]
+    [Collection("SerialGlobalState")]
     public class WebhookNotificationTests
     {
         [Fact]

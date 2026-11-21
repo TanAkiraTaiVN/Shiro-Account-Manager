@@ -4,12 +4,18 @@ using System.Collections.Generic;
 using System.Net.NetworkInformation;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading;
 
 namespace Shiro.Services
 {
     public static partial class RobloxHbaService
     {
-        internal static Func<bool>? TestIsVpnTunnelActiveOverride;
+        private static readonly AsyncLocal<Func<bool>?> _testIsVpnTunnelActiveOverride = new();
+        internal static Func<bool>? TestIsVpnTunnelActiveOverride
+        {
+            get => _testIsVpnTunnelActiveOverride.Value;
+            set => _testIsVpnTunnelActiveOverride.Value = value;
+        }
 
         internal readonly record struct NetworkAdapterSnapshot(
             string Id,

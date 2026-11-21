@@ -128,7 +128,7 @@ namespace Shiro
             baseDir.Delete(true);
         }
 
-        public static bool YesNoPrompt(string? Caption, string? Instruction, string? Text, bool CanSave = true, bool SaveIfNo = true)
+        public static async Task<bool> YesNoPromptAsync(string? Caption, string? Instruction, string? Text, bool CanSave = true, bool SaveIfNo = true)
         {
             string promptKey = $"{Caption}.{Instruction}.{Text}";
             string sha256Hash = CryptoHelper.SHA256(promptKey);
@@ -141,7 +141,8 @@ namespace Shiro
             }
 
             string promptMessage = string.IsNullOrWhiteSpace(Instruction) ? (Text ?? string.Empty) : $"{Instruction}\n\n{Text}";
-            bool isYes = AppServices.Dialogs.ShowConfirmation(promptMessage, Caption ?? "Shiro");
+            bool isYes = await AppDispatcher.InvokeTaskAsync(() =>
+                AppServices.Dialogs.ShowConfirmationAsync(promptMessage, Caption ?? "Shiro")).ConfigureAwait(false);
             if (CanSave && prompts != null)
             {
                 if (SaveIfNo || isYes)

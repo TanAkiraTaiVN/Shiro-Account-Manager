@@ -233,9 +233,9 @@ namespace Shiro
 
         // Modern dashboard and Avalonia action entry points extracted to AccountManager.ModernActions.cs
 
-        public static string ShowDialog(string text, string caption, string defaultText = "", bool big = false)
+        public static Task<string> ShowDialogAsync(string text, string caption, string defaultText = "", bool big = false)
         {
-            return AppServices.Dialogs.ShowInputPrompt(text, caption, defaultText);
+            return AppServices.Dialogs.ShowInputPromptAsync(text, caption, defaultText);
         }
 
         internal async Task ObserveBackgroundTaskAsync(Task? task, string operation)

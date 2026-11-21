@@ -11,32 +11,6 @@ using Shiro.Services;
 
 namespace Shiro.AvaloniaUI.Views
 {
-    public enum MessageBoxButtons
-    {
-        OK,
-        OKCancel,
-        YesNo,
-        YesNoCancel
-    }
-
-    public enum MessageBoxIcon
-    {
-        None,
-        Information,
-        Warning,
-        Error,
-        Question
-    }
-
-    public enum MessageBoxResult
-    {
-        None,
-        OK,
-        Cancel,
-        Yes,
-        No
-    }
-
     public partial class MessageBoxDialog : Window
     {
         private MessageBoxResult _result = MessageBoxResult.None;
@@ -158,6 +132,9 @@ namespace Shiro.AvaloniaUI.Views
             MessageBoxButtons buttons,
             MessageBoxIcon icon)
         {
+            if (StoragePaths.IsRunningUnderUnitTests())
+                return MessageBoxResult.None;
+
             if (OperatingSystem.IsWindows())
             {
                 uint uType = 0;
@@ -218,72 +195,6 @@ namespace Shiro.AvaloniaUI.Views
             }
 
             return dialog._result;
-        }
-
-        public static MessageBoxResult Show(
-            string message,
-            string title = "Shiro",
-            MessageBoxButtons buttons = MessageBoxButtons.OK,
-            MessageBoxIcon icon = MessageBoxIcon.Information,
-            Window? owner = null)
-        {
-            if (!IsAvaloniaUiReady() && !IsValidDialogOwner(owner))
-            {
-                return ShowNativeFallback(message, title, buttons, icon);
-            }
-
-            if (Dispatcher.UIThread.CheckAccess())
-            {
-                if (!IsValidDialogOwner(owner))
-                    owner = GetActiveWindow();
-
-                var dialog = CreateDialogInstance(message, title, buttons, icon);
-
-                var frame = new DispatcherFrame();
-                dialog.Closed += (s, e) => frame.Continue = false;
-
-                if (IsValidDialogOwner(owner))
-                {
-                    _ = dialog.ShowDialog(owner!).ContinueWith(
-                        t =>
-                        {
-                            if (t.IsFaulted || t.IsCanceled)
-                                Dispatcher.UIThread.Post(() => frame.Continue = false);
-                        },
-                        System.Threading.CancellationToken.None,
-                        TaskContinuationOptions.ExecuteSynchronously,
-                        TaskScheduler.Default);
-                }
-                else
-                {
-                    dialog.Show();
-                }
-
-                Dispatcher.UIThread.PushFrame(frame);
-                return dialog._result;
-            }
-            else
-            {
-                MessageBoxResult result = MessageBoxResult.None;
-                using var done = new System.Threading.ManualResetEventSlim(false);
-                Dispatcher.UIThread.Post(async () =>
-                {
-                    try
-                    {
-                        result = await ShowAsync(message, title, buttons, icon, owner);
-                    }
-                    catch (Exception ex)
-                    {
-                        AppServices.Logger?.Debug($"[MessageBoxDialog.Show] {ex.Message}");
-                    }
-                    finally
-                    {
-                        done.Set();
-                    }
-                });
-                done.Wait(TimeSpan.FromMinutes(10));
-                return result;
-            }
         }
 
         private void BtnOK_Click(object sender, RoutedEventArgs e)

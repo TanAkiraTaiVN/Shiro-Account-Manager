@@ -21,26 +21,43 @@ namespace Shiro.Services
             set => _logger = value ?? throw new ArgumentNullException(nameof(value));
         }
 
+        private static readonly AsyncLocal<ConcurrentDictionary<string, HttpClient>?> _testClients = new();
         private static readonly ConcurrentDictionary<string, Lazy<HttpClient>> Clients =
             new ConcurrentDictionary<string, Lazy<HttpClient>>(StringComparer.OrdinalIgnoreCase);
 
         public static HttpClient Get(string name = "default")
         {
-            return Clients.GetOrAdd(name ?? "default", key => new Lazy<HttpClient>(() => CreateClient(key), LazyThreadSafetyMode.ExecutionAndPublication)).Value;
+            string key = name ?? "default";
+            if (_testClients.Value != null && _testClients.Value.TryGetValue(key, out HttpClient? testClient))
+                return testClient;
+
+            return Clients.GetOrAdd(key, k => new Lazy<HttpClient>(() => CreateClient(k), LazyThreadSafetyMode.ExecutionAndPublication)).Value;
         }
 
         public static HttpClient GetNoRedirect() => Get("no-redirect");
 
-        internal static void SetTestClient(string name, HttpClient client) =>
-            Clients[name ?? "default"] = new Lazy<HttpClient>(() => client);
+        internal static void SetTestClient(string name, HttpClient client)
+        {
+            var map = _testClients.Value ??= new ConcurrentDictionary<string, HttpClient>(StringComparer.OrdinalIgnoreCase);
+            map[name ?? "default"] = client;
+        }
 
         internal static void ResetTestClient(string name) =>
-            Clients.TryRemove(name ?? "default", out _);
+            _testClients.Value?.TryRemove(name ?? "default", out _);
 
         internal static bool IsSharedInstance(HttpClient? client)
         {
             if (client == null)
                 return false;
+
+            if (_testClients.Value != null)
+            {
+                foreach (var kv in _testClients.Value)
+                {
+                    if (ReferenceEquals(kv.Value, client))
+                        return true;
+                }
+            }
 
             foreach (var entry in Clients)
             {

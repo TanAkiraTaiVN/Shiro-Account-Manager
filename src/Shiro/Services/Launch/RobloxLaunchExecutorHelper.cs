@@ -18,9 +18,27 @@ namespace Shiro.Services
         [GeneratedRegex(@"^([^\s""]+\.exe)(?:\s|$)", RegexOptions.IgnoreCase)]
         private static partial Regex UnquotedExecutableRegex();
 
-        internal static Func<string, string, string, Process?>? TestSpawnRobloxProcessOverride;
-        internal static Func<string, Process?>? TestProtocolShellStartOverride;
-        internal static int? TestPostSpawnDelayMsOverride;
+        private static readonly AsyncLocal<Func<string, string, string, Process?>?> _testSpawnRobloxProcessOverride = new();
+        private static readonly AsyncLocal<Func<string, Process?>?> _testProtocolShellStartOverride = new();
+        private static readonly AsyncLocal<int?> _testPostSpawnDelayMsOverride = new();
+
+        internal static Func<string, string, string, Process?>? TestSpawnRobloxProcessOverride
+        {
+            get => _testSpawnRobloxProcessOverride.Value;
+            set => _testSpawnRobloxProcessOverride.Value = value;
+        }
+
+        internal static Func<string, Process?>? TestProtocolShellStartOverride
+        {
+            get => _testProtocolShellStartOverride.Value;
+            set => _testProtocolShellStartOverride.Value = value;
+        }
+
+        internal static int? TestPostSpawnDelayMsOverride
+        {
+            get => _testPostSpawnDelayMsOverride.Value;
+            set => _testPostSpawnDelayMsOverride.Value = value;
+        }
 
         internal static async Task<int> ExecuteWithGateAndDirectPreferenceAsync(
             SemaphoreSlim launchGate,

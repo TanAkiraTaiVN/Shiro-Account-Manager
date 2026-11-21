@@ -233,13 +233,13 @@ namespace Shiro.Tests
         }
 
         [Fact]
-        public void AccountWorkflowService_MasksStatusAndPrompts_WhileClipboardCopyRemainsRaw()
+        public async Task AccountWorkflowService_MasksStatusAndPrompts_WhileClipboardCopyRemainsRaw()
         {
             StreamerModeService.AutoDetectEnabled = false;
             StreamerModeService.IsEnabled = true;
             var promptMsgs = new List<string>();
             var dialogs = Substitute.For<IDialogService>();
-            dialogs.ShowInputPrompt(Arg.Do<string>(m => promptMsgs.Add(m)), Arg.Any<string>(), Arg.Any<string>()).Returns("NewAliasSecret");
+            dialogs.ShowInputPromptAsync(Arg.Do<string>(m => promptMsgs.Add(m)), Arg.Any<string>(), Arg.Any<string>()).Returns(Task.FromResult("NewAliasSecret"));
             using var dialogScope = AppServices.Override<IDialogService>(dialogs);
 
             var acc = new Account { Username = "WorkflowSecretUser", Alias = "OldAlias", UserID = 88776655, Password = "pw", SecurityToken = "tok-raw" };
@@ -247,7 +247,7 @@ namespace Shiro.Tests
             var svc = new AccountWorkflowService(Substitute.For<IAppLogger>());
             var statuses = new List<string>();
 
-            svc.SetAlias(accVm, statuses.Add);
+            await svc.SetAliasAsync(accVm, statuses.Add);
             svc.CopyUsername(accVm, statuses.Add);
             svc.CopyUserPass(accVm, statuses.Add);
             svc.CopyUserId(accVm, statuses.Add);

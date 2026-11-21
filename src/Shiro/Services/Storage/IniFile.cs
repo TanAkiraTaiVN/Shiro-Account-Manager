@@ -62,6 +62,7 @@ namespace Shiro
 
         public string Name { get; set; }
         public string? Comment { get; set; }
+        internal Action? OnModified { get; set; }
 
         public IniProperty[] Properties
         {
@@ -209,32 +210,39 @@ namespace Shiro
         {
             if (string.IsNullOrEmpty(name)) return;
 
+            bool changed = false;
             lock (_sync)
             {
                 if (value is null)
                 {
-                    _properties.Remove(name);
-                    return;
+                    changed = _properties.Remove(name);
                 }
-
-                if (!_properties.TryGetValue(name, out IniProperty? property))
+                else if (!_properties.TryGetValue(name, out IniProperty? property))
                 {
                     _properties.Add(name, new IniProperty { Name = name, Value = value, Comment = comment });
+                    changed = true;
                 }
                 else
                 {
+                    changed = !string.Equals(property.Value, value, StringComparison.Ordinal) ||
+                              (comment != null && !string.Equals(property.Comment, comment, StringComparison.Ordinal));
                     property.Value = value;
                     if (comment != null) property.Comment = comment;
                 }
             }
+            if (changed)
+                OnModified?.Invoke();
         }
 
         public void RemoveProperty(string propertyName)
         {
             if (string.IsNullOrEmpty(propertyName)) return;
 
+            bool removed;
             lock (_sync)
-                _properties.Remove(propertyName);
+                removed = _properties.Remove(propertyName);
+            if (removed)
+                OnModified?.Invoke();
         }
     }
 
@@ -250,6 +258,23 @@ namespace Shiro
 
         public bool WriteSpacingBetweenNameAndValue { get; set; } = true;
         public char CommentChar { get; set; } = '#';
+        internal Action? OnAtomicWrite { get; set; }
+        private Action? _onModified;
+        internal Action? OnModified
+        {
+            get => _onModified;
+            set
+            {
+                _onModified = value;
+                lock (_saveLock)
+                {
+                    foreach (IniSection sec in _sections.Values)
+                        sec.OnModified = NotifySectionModified;
+                }
+            }
+        }
+
+        private void NotifySectionModified() => OnModified?.Invoke();
 
         public IniSection[] Sections
         {
@@ -368,8 +393,12 @@ namespace Shiro
             {
                 if (!_sections.TryGetValue(sectionName, out IniSection? section) || section == null)
                 {
-                    section = new IniSection(sectionName);
+                    section = new IniSection(sectionName) { OnModified = NotifySectionModified };
                     _sections[sectionName] = section;
+                }
+                else if (section.OnModified == null)
+                {
+                    section.OnModified = NotifySectionModified;
                 }
                 return section;
             }
@@ -381,8 +410,11 @@ namespace Shiro
         {
             if (string.IsNullOrEmpty(sectionName)) return;
 
+            bool removed;
             lock (_saveLock)
-                _sections.Remove(sectionName);
+                removed = _sections.Remove(sectionName);
+            if (removed)
+                OnModified?.Invoke();
         }
 
         public byte[] ToUtf8JsonBytes()
@@ -424,6 +456,7 @@ namespace Shiro
             {
                 byte[] bytes = ToUtf8JsonBytes();
                 StoragePaths.AtomicWriteBytes(resolvedPath, bytes, durable: true);
+                OnAtomicWrite?.Invoke();
             }
         }
 

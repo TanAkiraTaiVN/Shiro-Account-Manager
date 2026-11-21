@@ -283,6 +283,7 @@ namespace Shiro.ViewModels.Dialogs
         {
             try
             {
+                using var batch = _settings.BeginBatch();
                 _effects.ApplyTheme(SelectedTheme, save: false);
                 _general.Set(AppSettingsKeys.General.AccentTheme, SelectedTheme.ToString());
 
@@ -299,7 +300,6 @@ namespace Shiro.ViewModels.Dialogs
                 _effects.NotifyDisplayNamesChanged();
 
                 _settings.CheckForUpdates = CheckForUpdates;
-
                 bool patchSettingsNeeded = false;
                 if (_settings.UnlockFPS != UnlockFps)
                 {

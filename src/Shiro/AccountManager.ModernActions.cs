@@ -22,6 +22,11 @@ namespace Shiro
 
         internal void ModernMultiLaunch()
         {
+            _ = ObserveBackgroundTaskAsync(ModernMultiLaunchAsync(), "multi-launch");
+        }
+
+        internal async Task ModernMultiLaunchAsync()
+        {
             if (AppServices.AccountRepository.Count == 0)
             {
                 SetDashboardStatus(Shiro.Services.LocalizationService.Get("AccountManager.AddAccountBeforeLaunch"));
@@ -35,10 +40,10 @@ namespace Shiro
                 return;
             }
 
-            if (multiSel.Count > 1 && AppSettings.General.Get<bool>("EnableMultiRbx") && !RobloxSingletonService.MutexHeld && !TryEnableMultiRoblox(promptIfRobloxRunning: true))
+            if (multiSel.Count > 1 && AppSettings.General.Get<bool>("EnableMultiRbx") && !RobloxSingletonService.MutexHeld && !await TryEnableMultiRobloxAsync(promptIfRobloxRunning: true).ConfigureAwait(false))
                 return;
 
-            _ = LaunchHomeAccountsAsync(multiSel, preferChromeHome: false);
+            await LaunchHomeAccountsAsync(multiSel, preferChromeHome: false).ConfigureAwait(false);
             SetDashboardStatus(Shiro.Services.LocalizationService.Format("AccountManager.OpeningHome", multiSel.Count));
         }
 

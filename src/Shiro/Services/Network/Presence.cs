@@ -28,7 +28,8 @@ namespace Shiro.Services
         private static readonly System.Threading.Lock GameNameCacheLock = new();
         private static readonly SemaphoreSlim UpdateLock = new SemaphoreSlim(1, 1);
 
-        internal static Func<string?, HttpClient?>? TestProxyHttpClientFactory;
+        private static readonly AsyncLocal<Func<string?, HttpClient?>?> _testProxyHttpClientFactory = new();
+        internal static Func<string?, HttpClient?>? TestProxyHttpClientFactory { get => _testProxyHttpClientFactory.Value; set => _testProxyHttpClientFactory.Value = value; }
 
         private sealed record ProxyGroup<TItem>(
             string ProxyKey,

@@ -175,8 +175,12 @@ namespace Shiro.Services
 
                 if (!EnteredPassword && _repository.Count == 0 && File.Exists($"{SaveFilePath}.backup") && File.ReadAllBytes($"{SaveFilePath}.backup") is byte[] BackupData && BackupData.Length > 0)
                 {
-                    var backupResult = TryLoadFromBackup(BackupData);
-                    if (backupResult == BackupLoadResult.PromotedNeedsPassword)
+                    var (backupResult, promptMsg) = TryRestoreBackupWithoutPromptLocked(BackupData);
+                    if (promptMsg != null)
+                    {
+                        _ = OfferPendingBackupRestoreAsync(BackupData);
+                    }
+                    else if (backupResult == BackupLoadResult.PromotedNeedsPassword)
                     {
                         IsVaultLockedPendingMasterPassword = true;
                         EnableModernDashboard();
@@ -226,71 +230,103 @@ namespace Shiro.Services
             catch (Exception ex) { AppServices.Logger?.Warn($"[TryLoadFromBackup] Could not move unreadable primary file before saving backup: {ex.Message}"); }
         }
 
-        internal BackupLoadResult TryLoadFromBackup(byte[] backupData)
+        internal async Task<BackupLoadResult> TryLoadFromBackupAsync(byte[] backupData)
         {
             if (backupData == null || backupData.Length == 0)
                 return BackupLoadResult.NotAttempted;
+
+            BackupLoadResult initialResult;
+            string? promptMessage;
+            lock (saveLock)
+            {
+                (initialResult, promptMessage) = TryRestoreBackupWithoutPromptLocked(backupData);
+            }
+
+            if (promptMessage == null)
+                return initialResult;
+
+            if (!await AppServices.Dialogs.ShowConfirmationAsync(promptMessage).ConfigureAwait(false))
+                return BackupLoadResult.NotAttempted;
+
+            lock (saveLock)
+            {
+                return CompleteConfirmedBackupRestoreLocked(backupData);
+            }
+        }
+
+        private async Task OfferPendingBackupRestoreAsync(byte[] backupData)
+        {
+            try
+            {
+                var res = await TryLoadFromBackupAsync(backupData).ConfigureAwait(false);
+                if (res == BackupLoadResult.PromotedNeedsPassword)
+                {
+                    IsVaultLockedPendingMasterPassword = true;
+                    EnableModernDashboard();
+                }
+            }
+            catch (Exception ex)
+            {
+                AppServices.Logger?.Debug($"[OfferPendingBackupRestoreAsync] {ex.Message}");
+            }
+        }
+
+        private (BackupLoadResult Result, string? PromptMessage) TryRestoreBackupWithoutPromptLocked(byte[] backupData)
+        {
+            if (backupData == null || backupData.Length == 0)
+                return (BackupLoadResult.NotAttempted, null);
 
             if (Cryptography.IsEncrypted(backupData))
             {
                 var vaultResult = AccountFileDecoder.Decode(backupData, null, CreateDecodeKeys(allowRecovery: false));
                 if (vaultResult.Status == AccountDecodeStatus.Loaded)
                 {
-                    IsVaultLockedPendingMasterPassword = false;
-                    ClearPasswordHash();
-                    ReplaceAccountsList(vaultResult.Accounts);
-                    accountDataNeedsMigration |= vaultResult.NeedsMigration;
-                    AppServices.Logger?.Info($"[LoadAccounts] Restored {_repository.Count} accounts from backup via vault key.");
-                    if (_repository.Count > 0)
-                    {
-                        EvictCorruptPrimaryBeforeBackupSave(SaveFilePath);
-                        SaveAccounts(true);
-                    }
-                    return BackupLoadResult.Restored;
+                    RestoreDecodedAccountsLocked(vaultResult, logSource: "backup via vault key");
+                    return (BackupLoadResult.Restored, null);
                 }
 
                 AppServices.Logger?.Debug($"Direct vault key load from backup was not successful: {vaultResult.Error?.Message}");
-
-                if (vaultResult.Status == AccountDecodeStatus.NeedsMasterPassword)
-                {
-                    if (AppServices.Dialogs.ShowConfirmation("The existing backup file is password-locked, would you like to attempt to load it?"))
-                    {
-                        PromoteBackupToPrimary(SaveFilePath, DateTime.Now);
-                        return BackupLoadResult.PromotedNeedsPassword;
-                    }
-
-                    return BackupLoadResult.NotAttempted;
-                }
-
-                return BackupLoadResult.Failed;
+                return vaultResult.Status == AccountDecodeStatus.NeedsMasterPassword
+                    ? (BackupLoadResult.NotAttempted, "The existing backup file is password-locked, would you like to attempt to load it?")
+                    : (BackupLoadResult.Failed, null);
             }
 
-            if (AppServices.Dialogs.ShowConfirmation("No accounts were loaded but there is a backup file, would you like to load the backup file?"))
+            return (BackupLoadResult.NotAttempted, "No accounts were loaded but there is a backup file, would you like to load the backup file?");
+        }
+
+        private BackupLoadResult CompleteConfirmedBackupRestoreLocked(byte[] backupData)
+        {
+            if (Cryptography.IsEncrypted(backupData))
             {
-                var unencResult = AccountFileDecoder.Decode(backupData, null, CreateDecodeKeys(allowRecovery: false));
-                if (unencResult.Status == AccountDecodeStatus.Loaded)
-                {
-                    IsVaultLockedPendingMasterPassword = false;
-                    ClearPasswordHash();
-                    ReplaceAccountsList(unencResult.Accounts);
-                    accountDataNeedsMigration |= unencResult.NeedsMigration;
-                    legacyPlaintextLoaded = unencResult.LegacyPlaintext;
-
-                    if (_repository.Count > 0)
-                    {
-                        AppServices.Logger?.Info($"[AccountPersistenceService] Restored {_repository.Count} accounts from backup. Re-persisting primary vault...");
-                        EvictCorruptPrimaryBeforeBackupSave(SaveFilePath);
-                        SaveAccounts(true);
-                    }
-                    return BackupLoadResult.Restored;
-                }
-
-                AppServices.Logger?.Error($"Failed to load backup file: {unencResult.Error?.Message}");
-                AppServices.Dialogs.ShowError("Failed to load backup file!");
-                return BackupLoadResult.Failed;
+                PromoteBackupToPrimary(SaveFilePath, DateTime.Now);
+                return BackupLoadResult.PromotedNeedsPassword;
             }
 
-            return BackupLoadResult.NotAttempted;
+            var unencResult = AccountFileDecoder.Decode(backupData, null, CreateDecodeKeys(allowRecovery: false));
+            if (unencResult.Status == AccountDecodeStatus.Loaded)
+            {
+                legacyPlaintextLoaded = unencResult.LegacyPlaintext;
+                RestoreDecodedAccountsLocked(unencResult, logSource: "backup");
+                return BackupLoadResult.Restored;
+            }
+
+            AppServices.Logger?.Error($"Failed to load backup file: {unencResult.Error?.Message}");
+            AppServices.Dialogs.ShowError("Failed to load backup file!");
+            return BackupLoadResult.Failed;
+        }
+
+        private void RestoreDecodedAccountsLocked(AccountDecodeResult result, string logSource)
+        {
+            IsVaultLockedPendingMasterPassword = false;
+            ClearPasswordHash();
+            ReplaceAccountsList(result.Accounts);
+            accountDataNeedsMigration |= result.NeedsMigration;
+            AppServices.Logger?.Info($"[LoadAccounts] Restored {_repository.Count} accounts from {logSource}.");
+            if (_repository.Count > 0)
+            {
+                EvictCorruptPrimaryBeforeBackupSave(SaveFilePath);
+                SaveAccounts(true);
+            }
         }
 
         public enum SaveGate { Proceed, Defer, Skip }

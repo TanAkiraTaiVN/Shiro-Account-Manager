@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
@@ -8,8 +9,26 @@ namespace Shiro.Services
 {
     internal static partial class StoragePaths
     {
-        private static byte[]? _cachedVaultKey;
+        private static readonly Dictionary<string, byte[]> _cachedVaultKeysByDir = new(StringComparer.OrdinalIgnoreCase);
         private static readonly System.Threading.Lock _vaultKeyLock = new();
+
+        private static string NormalizeVaultCacheKey(string? dirPath = null)
+        {
+            string raw = string.IsNullOrWhiteSpace(dirPath) ? DataDirectory : dirPath;
+            return Path.GetFullPath(raw).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        }
+
+        private static byte[]? GetCachedVaultKeyLocked(string dirKey) =>
+            _cachedVaultKeysByDir.TryGetValue(dirKey, out byte[]? key) ? key : null;
+
+        private static void SetCachedVaultKeyLocked(string dirKey, byte[] key)
+        {
+            if (_cachedVaultKeysByDir.TryGetValue(dirKey, out byte[]? existing) && !ReferenceEquals(existing, key))
+            {
+                CryptographicOperations.ZeroMemory(existing);
+            }
+            _cachedVaultKeysByDir[dirKey] = key;
+        }
         private static readonly byte[] DpapiKeyHeader = Encoding.ASCII.GetBytes("SHIRO_DPAPI_KEY_V1");
         private static readonly byte[] DpapiKeyEntropy = Encoding.ASCII.GetBytes("Shiro.VaultKey.v1");
 
@@ -185,14 +204,16 @@ namespace Shiro.Services
             }
         }
 
-        public static void ReloadVaultKeyCache()
+        public static void ReloadVaultKeyCache() => ReloadVaultKeyCache(null);
+
+        internal static void ReloadVaultKeyCache(string? dirPath)
         {
             lock (_vaultKeyLock)
             {
-                if (_cachedVaultKey != null)
+                string dirKey = NormalizeVaultCacheKey(dirPath);
+                if (_cachedVaultKeysByDir.Remove(dirKey, out byte[]? existing))
                 {
-                    CryptographicOperations.ZeroMemory(_cachedVaultKey);
-                    _cachedVaultKey = null;
+                    CryptographicOperations.ZeroMemory(existing);
                 }
             }
         }
@@ -234,11 +255,7 @@ namespace Shiro.Services
                     }
                 }
 
-                if (_cachedVaultKey != null && !ReferenceEquals(_cachedVaultKey, copy))
-                {
-                    CryptographicOperations.ZeroMemory(_cachedVaultKey);
-                }
-                _cachedVaultKey = copy;
+                SetCachedVaultKeyLocked(NormalizeVaultCacheKey(), copy);
             }
         }
 
@@ -258,15 +275,13 @@ namespace Shiro.Services
                 if (useActiveDirectory)
                 {
                     string keyFile = VaultKeyFile;
-                    if (_cachedVaultKey != null && File.Exists(keyFile))
-                        return _cachedVaultKey.AsSpan().ToArray();
+                    string dirKey = NormalizeVaultCacheKey();
+                    byte[]? cached = GetCachedVaultKeyLocked(dirKey);
+                    if (cached != null && File.Exists(keyFile))
+                        return cached.AsSpan().ToArray();
 
                     byte[] resolvedKey = LoadOrCreateVaultKeyAtPath(keyFile, hasExistingEncryptedVault: false);
-                    if (_cachedVaultKey != null && !ReferenceEquals(_cachedVaultKey, resolvedKey))
-                    {
-                        CryptographicOperations.ZeroMemory(_cachedVaultKey);
-                    }
-                    _cachedVaultKey = resolvedKey;
+                    SetCachedVaultKeyLocked(dirKey, resolvedKey);
                     return resolvedKey.AsSpan().ToArray();
                 }
 
@@ -326,13 +341,15 @@ namespace Shiro.Services
         {
             lock (_vaultKeyLock)
             {
-                if (_cachedVaultKey != null)
-                    return _cachedVaultKey.AsSpan().ToArray();
-
                 EnsureInitialized();
+                string dirKey = NormalizeVaultCacheKey();
+                byte[]? cached = GetCachedVaultKeyLocked(dirKey);
+                if (cached != null)
+                    return cached.AsSpan().ToArray();
+
                 bool hasExistingV4Vault = HasExistingVaultKeyEncryptedFile(AccountDataFile);
                 byte[] resolvedKey = LoadOrCreateVaultKeyAtPath(VaultKeyFile, hasExistingV4Vault);
-                _cachedVaultKey = resolvedKey;
+                SetCachedVaultKeyLocked(dirKey, resolvedKey);
                 return resolvedKey.AsSpan().ToArray();
             }
         }
@@ -345,14 +362,16 @@ namespace Shiro.Services
         {
             lock (_vaultKeyLock)
             {
-                if (_cachedVaultKey != null)
-                    return _cachedVaultKey.AsSpan().ToArray();
-
                 EnsureInitialized();
+                string dirKey = NormalizeVaultCacheKey();
+                byte[]? cached = GetCachedVaultKeyLocked(dirKey);
+                if (cached != null)
+                    return cached.AsSpan().ToArray();
+
                 try
                 {
                     byte[] resolvedKey = LoadOrCreateVaultKeyAtPath(VaultKeyFile, hasExistingEncryptedVault: true);
-                    _cachedVaultKey = resolvedKey;
+                    SetCachedVaultKeyLocked(dirKey, resolvedKey);
                     return resolvedKey.AsSpan().ToArray();
                 }
                 catch (CryptographicException ex)
@@ -367,14 +386,16 @@ namespace Shiro.Services
         {
             lock (_vaultKeyLock)
             {
-                if (_cachedVaultKey != null)
-                    return _cachedVaultKey;
-
                 EnsureInitialized();
+                string dirKey = NormalizeVaultCacheKey();
+                byte[]? cached = GetCachedVaultKeyLocked(dirKey);
+                if (cached != null)
+                    return cached;
+
                 string keyFile = VaultKeyFile;
                 bool hasExistingEncryptedVault = HasExistingEncryptedVaultFile(AccountDataFile);
                 byte[] resolvedKey = LoadOrCreateVaultKeyAtPath(keyFile, hasExistingEncryptedVault);
-                _cachedVaultKey = resolvedKey;
+                SetCachedVaultKeyLocked(dirKey, resolvedKey);
                 return resolvedKey;
             }
         }

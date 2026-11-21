@@ -8,6 +8,7 @@ using Xunit;
 
 namespace Shiro.Tests
 {
+    [Collection("SerialGlobalState")]
     public class AccountPersistenceServiceTests
     {
         [Fact]

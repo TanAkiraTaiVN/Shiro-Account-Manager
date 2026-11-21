@@ -14,7 +14,7 @@ using Xunit;
 
 namespace Shiro.Tests
 {
-    [Collection("CookieGuardSerial")]
+    [Collection("SerialGlobalState")]
     public class RenovationAndPerformanceTests
     {
         [Fact]

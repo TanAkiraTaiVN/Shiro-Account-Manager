@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Threading;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -16,7 +17,26 @@ namespace Shiro.Services
 
     public static partial class LocalizationService
     {
-        public static AppLanguage CurrentLanguage { get; private set; } = AppLanguage.Vietnamese;
+        private static readonly AsyncLocal<AppLanguage?> _testLanguageOverride = new();
+        private static AppLanguage _currentLanguage = AppLanguage.Vietnamese;
+
+        public static AppLanguage CurrentLanguage
+        {
+            get => _testLanguageOverride.Value ?? _currentLanguage;
+            private set => _currentLanguage = value;
+        }
+
+        internal static IDisposable OverrideLanguageForTest(AppLanguage language)
+        {
+            AppLanguage? previous = _testLanguageOverride.Value;
+            _testLanguageOverride.Value = language;
+            return new LanguageOverrideScope(previous);
+        }
+
+        private sealed class LanguageOverrideScope(AppLanguage? previous) : IDisposable
+        {
+            public void Dispose() => _testLanguageOverride.Value = previous;
+        }
 
         public static string CurrentLanguageCode => CurrentLanguage == AppLanguage.English ? "en" : "vi";
 

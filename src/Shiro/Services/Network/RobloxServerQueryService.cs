@@ -15,9 +15,12 @@ namespace Shiro.Services
 {
     public class RobloxServerQueryService : IRobloxServerQueryService
     {
-        internal static Func<System.Net.Http.HttpClient>? TestHttpClientFactory { get; set; }
-        internal static Func<string, Task<int?>>? TestPingProbe { get; set; }
-        internal static Func<string, CancellationToken, Task<string>>? TestGeoHttpGetString { get; set; }
+        private static readonly AsyncLocal<Func<System.Net.Http.HttpClient>?> _testHttpClientFactory = new();
+        private static readonly AsyncLocal<Func<string, Task<int?>>?> _testPingProbe = new();
+        private static readonly AsyncLocal<Func<string, CancellationToken, Task<string>>?> _testGeoHttpGetString = new();
+        internal static Func<System.Net.Http.HttpClient>? TestHttpClientFactory { get => _testHttpClientFactory.Value; set => _testHttpClientFactory.Value = value; }
+        internal static Func<string, Task<int?>>? TestPingProbe { get => _testPingProbe.Value; set => _testPingProbe.Value = value; }
+        internal static Func<string, CancellationToken, Task<string>>? TestGeoHttpGetString { get => _testGeoHttpGetString.Value; set => _testGeoHttpGetString.Value = value; }
 
         private static readonly Lazy<RobloxServerQueryService> _defaultInstance = new(() => new RobloxServerQueryService(AppServices.Logger, AppServices.GeneralSettings));
         public static RobloxServerQueryService Default => _defaultInstance.Value;

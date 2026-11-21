@@ -78,15 +78,31 @@ namespace Shiro.Services
             });
         }
 
-        public bool ShowConfirmation(string message, string title = "Shiro")
+        public async Task<MessageBoxResult> ShowMessageBoxAsync(
+            string message,
+            string title = "Shiro",
+            MessageBoxButtons buttons = MessageBoxButtons.OK,
+            MessageBoxIcon icon = MessageBoxIcon.Information)
         {
-            var res = MessageBoxDialog.Show(message, title, MessageBoxButtons.YesNo, MessageBoxIcon.Question, null);
+            if (!MessageBoxDialog.IsAvaloniaUiReady())
+                return await MessageBoxDialog.ShowAsync(message, title, buttons, icon, null);
+
+            if (!Dispatcher.UIThread.CheckAccess())
+                return await Dispatcher.UIThread.InvokeAsync(() => ShowMessageBoxAsync(message, title, buttons, icon));
+
+            var owner = GetActiveOwner();
+            return await MessageBoxDialog.ShowAsync(message, title, buttons, icon, owner);
+        }
+
+        public async Task<bool> ShowConfirmationAsync(string message, string title = "Shiro")
+        {
+            var res = await ShowMessageBoxAsync(message, title, MessageBoxButtons.YesNo, MessageBoxIcon.Question);
             return res == MessageBoxResult.Yes;
         }
 
-        public bool? ShowYesNoCancel(string message, string title = "Shiro")
+        public async Task<bool?> ShowYesNoCancelAsync(string message, string title = "Shiro")
         {
-            var res = MessageBoxDialog.Show(message, title, MessageBoxButtons.YesNoCancel, MessageBoxIcon.Information, null);
+            var res = await ShowMessageBoxAsync(message, title, MessageBoxButtons.YesNoCancel, MessageBoxIcon.Information);
             return res switch
             {
                 MessageBoxResult.Yes => true,
@@ -94,9 +110,6 @@ namespace Shiro.Services
                 _ => null
             };
         }
-
-        public string ShowInputPrompt(string message, string title, string defaultValue = "")
-            => InputDialog.Prompt(message, title, defaultValue, false, null);
 
         public Task<string> ShowInputPromptAsync(string message, string title, string defaultValue = "")
             => InputDialog.PromptAsync(message, title, defaultValue, false, null);

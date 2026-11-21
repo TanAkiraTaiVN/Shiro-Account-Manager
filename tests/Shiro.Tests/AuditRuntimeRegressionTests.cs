@@ -277,8 +277,8 @@ namespace Shiro.Tests
             var mockRepo = Substitute.For<IAccountRepository>();
             using var repoScope = AppServices.Override<IAccountRepository>(mockRepo);
             var fakeDialogs = Substitute.For<IDialogService>();
-            fakeDialogs.ShowInputPrompt(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>())
-                .Returns("_|WARNING:-DO-NOT-SHARE-THIS.--" + new string('M', 80));
+            fakeDialogs.ShowInputPromptAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>())
+                .Returns(Task.FromResult("_|WARNING:-DO-NOT-SHARE-THIS.--" + new string('M', 80)));
             using var dialogScope = AppServices.Override<IDialogService>(fakeDialogs);
 
             var handler = new FakeHttpHandler(req =>

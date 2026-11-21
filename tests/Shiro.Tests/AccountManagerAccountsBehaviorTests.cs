@@ -70,29 +70,29 @@ namespace Shiro.Tests
                 Assert.Single(AppServices.AccountRepository.GetAll());
 
                 byte[] encryptedBytes = File.ReadAllBytes(tempAccFile);
-                Assert.Equal(BackupLoadResult.NotAttempted, mgr.TryLoadFromBackup(Array.Empty<byte>()));
-                var backupRestored = mgr.TryLoadFromBackup(encryptedBytes);
+                Assert.Equal(BackupLoadResult.NotAttempted, await mgr.TryLoadFromBackupAsync(Array.Empty<byte>()));
+                var backupRestored = await mgr.TryLoadFromBackupAsync(encryptedBytes);
                 Assert.Equal(BackupLoadResult.Restored, backupRestored);
 
                 byte[] plainSerialized = AccountDataSerializer.Serialize(new[] { acc }, includePasswords: true);
-                dialogSub.ShowConfirmation(Arg.Any<string>(), Arg.Any<string>()).Returns(false);
-                Assert.Equal(BackupLoadResult.NotAttempted, mgr.TryLoadFromBackup(plainSerialized));
+                dialogSub.ShowConfirmationAsync(Arg.Any<string>(), Arg.Any<string>()).Returns(Task.FromResult(false));
+                Assert.Equal(BackupLoadResult.NotAttempted, await mgr.TryLoadFromBackupAsync(plainSerialized));
 
                 // Plaintext opt-in file allows unencrypted backup to decode as Loaded -> Restored
                 string optInFile = StoragePaths.GetUserFile("NoEncryption.IUnderstandTheRisks.iautamor");
                 File.WriteAllText(optInFile, "opt-in");
                 try
                 {
-                    dialogSub.ShowConfirmation(Arg.Any<string>(), Arg.Any<string>()).Returns(true);
-                    Assert.Equal(BackupLoadResult.Restored, mgr.TryLoadFromBackup(plainSerialized));
+                    dialogSub.ShowConfirmationAsync(Arg.Any<string>(), Arg.Any<string>()).Returns(Task.FromResult(true));
+                    Assert.Equal(BackupLoadResult.Restored, await mgr.TryLoadFromBackupAsync(plainSerialized));
                 }
                 finally
                 {
                     if (File.Exists(optInFile)) File.Delete(optInFile);
                 }
 
-                dialogSub.ShowConfirmation(Arg.Any<string>(), Arg.Any<string>()).Returns(true);
-                Assert.Equal(BackupLoadResult.Failed, mgr.TryLoadFromBackup(new byte[] { 1, 2, 3, 4 }));
+                dialogSub.ShowConfirmationAsync(Arg.Any<string>(), Arg.Any<string>()).Returns(Task.FromResult(true));
+                Assert.Equal(BackupLoadResult.Failed, await mgr.TryLoadFromBackupAsync(new byte[] { 1, 2, 3, 4 }));
 
                 File.WriteAllBytes(tempAccFile, new byte[] { 0xFF, 0xFE, 0xFD, 0xFC });
                 AccountManager.ReplaceAccountsList(new List<Account>());
@@ -118,12 +118,12 @@ namespace Shiro.Tests
 
                 // Encrypted backup locked with master password -> NeedsMasterPassword -> PromotedNeedsPassword or NotAttempted
                 byte[] masterEncryptedBytes = File.ReadAllBytes(tempAccFile);
-                dialogSub.ShowConfirmation(Arg.Any<string>(), Arg.Any<string>()).Returns(false);
-                Assert.Equal(BackupLoadResult.NotAttempted, mgr.TryLoadFromBackup(masterEncryptedBytes));
+                dialogSub.ShowConfirmationAsync(Arg.Any<string>(), Arg.Any<string>()).Returns(Task.FromResult(false));
+                Assert.Equal(BackupLoadResult.NotAttempted, await mgr.TryLoadFromBackupAsync(masterEncryptedBytes));
 
                 File.WriteAllBytes(tempAccFile + ".backup", masterEncryptedBytes);
-                dialogSub.ShowConfirmation(Arg.Any<string>(), Arg.Any<string>()).Returns(true);
-                Assert.Equal(BackupLoadResult.PromotedNeedsPassword, mgr.TryLoadFromBackup(masterEncryptedBytes));
+                dialogSub.ShowConfirmationAsync(Arg.Any<string>(), Arg.Any<string>()).Returns(Task.FromResult(true));
+                Assert.Equal(BackupLoadResult.PromotedNeedsPassword, await mgr.TryLoadFromBackupAsync(masterEncryptedBytes));
 
                 byte[] wrongHash = SHA512.HashData(Encoding.UTF8.GetBytes("WrongPassword999!"));
                 mgr.LoadAccounts(wrongHash, out bool wrongUnlocked);
@@ -177,17 +177,17 @@ namespace Shiro.Tests
                 AccountManager.ReplaceAccountsList(new List<Account> { pendingAcc1, pendingAcc2 });
 
                 ReloginQueueStore.Save(new long[] { 701 });
-                dialogSub.ShowConfirmation(Arg.Any<string>(), Arg.Any<string>()).Returns(true);
+                dialogSub.ShowConfirmationAsync(Arg.Any<string>(), Arg.Any<string>()).Returns(Task.FromResult(true));
                 await mgr.OfferResumeReloginQueue();
                 dialogSub.Received(1).OpenFastLoginDialog(pendingAcc1);
 
                 ReloginQueueStore.Save(new long[] { 701, 702 });
-                dialogSub.ShowConfirmation(Arg.Any<string>(), Arg.Any<string>()).Returns(true);
+                dialogSub.ShowConfirmationAsync(Arg.Any<string>(), Arg.Any<string>()).Returns(Task.FromResult(true));
                 await mgr.OfferResumeReloginQueue();
                 dialogSub.Received(1).OpenFastLoginDialogBatch(Arg.Any<IReadOnlyList<Account>>());
 
                 ReloginQueueStore.Save(new long[] { 701 });
-                dialogSub.ShowConfirmation(Arg.Any<string>(), Arg.Any<string>()).Returns(false);
+                dialogSub.ShowConfirmationAsync(Arg.Any<string>(), Arg.Any<string>()).Returns(Task.FromResult(false));
                 await mgr.OfferResumeReloginQueue();
                 Assert.Empty(ReloginQueueStore.Load());
 

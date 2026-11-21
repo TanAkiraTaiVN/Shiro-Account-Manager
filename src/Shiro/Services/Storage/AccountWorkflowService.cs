@@ -128,11 +128,10 @@ namespace Shiro.Services
             if (accountVm?.Model == null) return;
             var acc = accountVm;
 
-            string? cookie = await AppDispatcher.InvokeAsync(() =>
-                AppServices.Dialogs.ShowInputPrompt(
-                    LocalizationService.Format("AccountWorkflow.EnterNewCookiePrompt", acc.ShownUsername),
-                    LocalizationService.Format("AccountWorkflow.UpdateCookieDialogTitle", acc.ShownUsername),
-                    string.Empty)).ConfigureAwait(false);
+            string? cookie = await AppServices.Dialogs.ShowInputPromptAsync(
+                LocalizationService.Format("AccountWorkflow.EnterNewCookiePrompt", acc.ShownUsername),
+                LocalizationService.Format("AccountWorkflow.UpdateCookieDialogTitle", acc.ShownUsername),
+                string.Empty).ConfigureAwait(false);
 
             if (!string.IsNullOrWhiteSpace(cookie) && cookie != "/UC")
             {
@@ -184,14 +183,14 @@ namespace Shiro.Services
             }
         }
 
-        public void SetAlias(IAccountWorkflowItem? acc, Action<string>? statusCallback)
+        public async Task SetAliasAsync(IAccountWorkflowItem? acc, Action<string>? statusCallback)
         {
             if (acc?.Model == null) return;
             string current = acc.Model.Alias ?? string.Empty;
-            string input = AppServices.Dialogs.ShowInputPrompt(
+            string input = await AppServices.Dialogs.ShowInputPromptAsync(
                 LocalizationService.Format("AccountWorkflow.EnterAliasPrompt", acc.ShownUsername),
                 LocalizationService.Get("AccountWorkflow.ChangeAliasTitle"),
-                current);
+                current).ConfigureAwait(false);
 
             if (input != null && input != "/UC")
             {
@@ -202,14 +201,14 @@ namespace Shiro.Services
             }
         }
 
-        public void SetGroup(IAccountWorkflowItem? acc, IAccountWorkflowHost? viewModel, Action<string>? statusCallback)
+        public async Task SetGroupAsync(IAccountWorkflowItem? acc, IAccountWorkflowHost? viewModel, Action<string>? statusCallback)
         {
             if (acc?.Model == null) return;
             string currentGroup = !string.IsNullOrWhiteSpace(acc.Model.Group) ? acc.Model.Group : "Default";
-            string groupName = AppServices.Dialogs.ShowInputPrompt(
+            string groupName = await AppServices.Dialogs.ShowInputPromptAsync(
                 LocalizationService.Format("AccountWorkflow.EnterGroupPrompt", acc.ShownUsername),
                 LocalizationService.Get("AccountWorkflow.AssignGroupTitle"),
-                currentGroup);
+                currentGroup).ConfigureAwait(false);
 
             if (groupName != null && groupName != "/UC")
             {
@@ -222,14 +221,14 @@ namespace Shiro.Services
             }
         }
 
-        public void SetDescription(IAccountWorkflowItem? acc, Action<string>? statusCallback)
+        public async Task SetDescriptionAsync(IAccountWorkflowItem? acc, Action<string>? statusCallback)
         {
             if (acc?.Model == null) return;
             string current = acc.Model.Description ?? string.Empty;
-            string newDesc = AppServices.Dialogs.ShowInputPrompt(
+            string newDesc = await AppServices.Dialogs.ShowInputPromptAsync(
                 LocalizationService.Format("AccountWorkflow.EnterNotesPrompt", acc.ShownUsername),
                 LocalizationService.Get("AccountWorkflow.ChangeNotesTitle"),
-                current);
+                current).ConfigureAwait(false);
 
             if (newDesc != null && newDesc != "/UC")
             {
@@ -286,12 +285,12 @@ namespace Shiro.Services
             statusCallback?.Invoke(LocalizationService.Format("AccountWorkflow.CopiedSecurityToken", acc.ShownUsername));
         }
 
-        public void RemoveAccount(IAccountWorkflowItem? acc, IAccountWorkflowHost? viewModel, Action<string>? statusCallback)
+        public async Task RemoveAccountAsync(IAccountWorkflowItem? acc, IAccountWorkflowHost? viewModel, Action<string>? statusCallback)
         {
             if (acc?.Model == null) return;
-            bool confirmed = AppServices.Dialogs.ShowConfirmation(
+            bool confirmed = await AppServices.Dialogs.ShowConfirmationAsync(
                 LocalizationService.Format("AccountWorkflow.DeleteAccountPrompt", acc.ShownUsername),
-                LocalizationService.Get("AccountWorkflow.ConfirmDeleteTitle"));
+                LocalizationService.Get("AccountWorkflow.ConfirmDeleteTitle")).ConfigureAwait(false);
 
             if (confirmed)
             {
@@ -304,7 +303,7 @@ namespace Shiro.Services
             }
         }
 
-        public void SetGroupSelected(IAccountWorkflowHost? viewModel, Action<string>? statusCallback)
+        public async Task SetGroupSelectedAsync(IAccountWorkflowHost? viewModel, Action<string>? statusCallback)
         {
             if (viewModel == null) return;
             var selectedVms = viewModel.GetSelectedWorkflowItems();
@@ -316,7 +315,7 @@ namespace Shiro.Services
 
             string currentGroup = selectedVms.Count == 1 && !string.IsNullOrWhiteSpace(selectedVms[0].Group) ? selectedVms[0].Group : "Default";
             string prompt = selectedVms.Count == 1 ? LocalizationService.Format("AccountWorkflow.EnterGroupPrompt", selectedVms[0].ShownUsername) : LocalizationService.Format("AccountWorkflow.BatchGroupPrompt", selectedVms.Count);
-            string groupName = AppServices.Dialogs.ShowInputPrompt(prompt, LocalizationService.Get("AccountWorkflow.BatchGroupTitle"), currentGroup);
+            string groupName = await AppServices.Dialogs.ShowInputPromptAsync(prompt, LocalizationService.Get("AccountWorkflow.BatchGroupTitle"), currentGroup).ConfigureAwait(false);
 
             if (groupName != null && groupName != "/UC")
             {
@@ -373,7 +372,7 @@ namespace Shiro.Services
             statusCallback?.Invoke(LocalizationService.Format("AccountWorkflow.BatchCopiedUserPass", lines.Count));
         }
 
-        public void RemoveSelectedAccounts(IAccountWorkflowHost? viewModel, Action<string>? statusCallback)
+        public async Task RemoveSelectedAccountsAsync(IAccountWorkflowHost? viewModel, Action<string>? statusCallback)
         {
             if (viewModel == null) return;
             var selectedVms = viewModel.GetSelectedWorkflowItems();
@@ -383,9 +382,9 @@ namespace Shiro.Services
                 return;
             }
 
-            bool confirmed = AppServices.Dialogs.ShowConfirmation(
+            bool confirmed = await AppServices.Dialogs.ShowConfirmationAsync(
                 LocalizationService.Format("AccountWorkflow.BatchDeletePrompt", selectedVms.Count),
-                LocalizationService.Get("AccountWorkflow.BatchDeleteTitle"));
+                LocalizationService.Get("AccountWorkflow.BatchDeleteTitle")).ConfigureAwait(false);
 
             if (confirmed)
             {

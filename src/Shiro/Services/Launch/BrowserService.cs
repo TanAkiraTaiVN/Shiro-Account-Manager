@@ -59,7 +59,13 @@ namespace Shiro.Services
         }
 
         private static readonly SemaphoreSlim SignInGate = new SemaphoreSlim(1, 1);
-        internal static Func<string?, string?, int, bool, CancellationToken, Task<Account?>>? TestSignInOverride;
+        private static readonly AsyncLocal<Func<string?, string?, int, bool, CancellationToken, Task<Account?>>?> _testSignInOverride = new();
+
+        internal static Func<string?, string?, int, bool, CancellationToken, Task<Account?>>? TestSignInOverride
+        {
+            get => _testSignInOverride.Value;
+            set => _testSignInOverride.Value = value;
+        }
 
         public async Task<Account?> SignInAsync(
             string? username = null,

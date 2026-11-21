@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Threading;
 using Microsoft.Win32.SafeHandles;
 
 namespace Shiro.Services
@@ -316,7 +317,12 @@ namespace Shiro.Services
         /// <summary>
         /// Gets all process IDs of running RobloxPlayerBeta game client instances safely.
         /// </summary>
-        internal static Func<IReadOnlyList<int>>? TestGetRunningRobloxPidsOverride;
+        private static readonly AsyncLocal<Func<IReadOnlyList<int>>?> _testGetRunningRobloxPidsOverride = new();
+        internal static Func<IReadOnlyList<int>>? TestGetRunningRobloxPidsOverride
+        {
+            get => _testGetRunningRobloxPidsOverride.Value;
+            set => _testGetRunningRobloxPidsOverride.Value = value;
+        }
 
         public static List<int> GetRunningRobloxPids(bool includeTrayDaemons = false)
         {

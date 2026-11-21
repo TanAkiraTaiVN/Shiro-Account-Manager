@@ -33,8 +33,20 @@ namespace Shiro.Services
             }
         }
 
-        internal static Func<Account, int, CancellationToken, Task>? TestAdjustWindowPositionOverride;
-        internal static Func<DateTime, Account, CancellationToken, Task>? TestMonitorNativeAuthRateLimitOverride;
+        private static readonly AsyncLocal<Func<Account, int, CancellationToken, Task>?> _testAdjustWindowPositionOverride = new();
+        private static readonly AsyncLocal<Func<DateTime, Account, CancellationToken, Task>?> _testMonitorNativeAuthRateLimitOverride = new();
+
+        internal static Func<Account, int, CancellationToken, Task>? TestAdjustWindowPositionOverride
+        {
+            get => _testAdjustWindowPositionOverride.Value;
+            set => _testAdjustWindowPositionOverride.Value = value;
+        }
+
+        internal static Func<DateTime, Account, CancellationToken, Task>? TestMonitorNativeAuthRateLimitOverride
+        {
+            get => _testMonitorNativeAuthRateLimitOverride.Value;
+            set => _testMonitorNativeAuthRateLimitOverride.Value = value;
+        }
 
         public static async Task AdjustWindowPositionAsync(Account account, int targetPid = 0, CancellationToken cancellationToken = default)
         {

@@ -233,40 +233,45 @@ namespace Shiro.AvaloniaUI.Views
             => NavigateFromSidebar(NavigationPage.About);
 
         private void OnSidebarCloseRobloxClicked(object sender, RoutedEventArgs e)
-        {
-            var selected = ViewDashboard?.GetSelectedAccounts();
-            if (selected != null && selected.Count > 0)
-            {
-                if (selected.Count > 1)
-                {
-                    bool confirm = AppServices.Dialogs.ShowConfirmation(
-                        Shiro.Services.LocalizationService.Format("MainWindow.ConfirmCloseRobloxSelectedPrompt", selected.Count),
-                        Shiro.Services.LocalizationService.Get("MainWindow.ConfirmCloseRobloxBatchTitle"));
-                    if (!confirm) return;
-                }
+            => _ = HandleSidebarCloseRobloxAsync();
 
-                _ = System.Threading.Tasks.Task.Run(() =>
-                {
-                    int closed = RobloxProcessService.CloseAccountRobloxProcesses(selected);
-                    AppDispatcher.Post(() =>
-                    {
-                        if (closed > 0)
-                            ToastService.ShowSuccess(Shiro.Services.LocalizationService.Format("MainWindow.ClosedRobloxForSelected", closed));
-                        else
-                            ToastService.ShowInfo(Shiro.Services.LocalizationService.Get("MainWindow.NoRobloxRunningForSelected"));
-                        ViewModel?.ToolsStatus.RefreshLiveProcessStatus();
-                    });
-                });
-            }
-            else
+        private async System.Threading.Tasks.Task HandleSidebarCloseRobloxAsync()
+        {
+            try
             {
-                bool confirm = AppServices.Dialogs.ShowConfirmation(
-                    Shiro.Services.LocalizationService.Get("MainWindow.ConfirmKillAllRobloxPrompt"),
-                    Shiro.Services.LocalizationService.Get("MainWindow.ConfirmKillAllRobloxTitle"));
-                if (confirm)
+                var selected = ViewDashboard?.GetSelectedAccounts();
+                if (selected != null && selected.Count > 0)
                 {
-                    ViewModel?.ToolsStatus.KillAllClientsCommand.Execute(null);
+                    if (selected.Count > 1)
+                    {
+                        bool confirm = await AppServices.Dialogs.ShowConfirmationAsync(
+                            Shiro.Services.LocalizationService.Format("MainWindow.ConfirmCloseRobloxSelectedPrompt", selected.Count),
+                            Shiro.Services.LocalizationService.Get("MainWindow.ConfirmCloseRobloxBatchTitle"));
+                        if (!confirm) return;
+                    }
+
+                    int closed = await System.Threading.Tasks.Task.Run(() =>
+                        RobloxProcessService.CloseAccountRobloxProcesses(selected));
+                    if (closed > 0)
+                        ToastService.ShowSuccess(Shiro.Services.LocalizationService.Format("MainWindow.ClosedRobloxForSelected", closed));
+                    else
+                        ToastService.ShowInfo(Shiro.Services.LocalizationService.Get("MainWindow.NoRobloxRunningForSelected"));
+                    ViewModel?.ToolsStatus.RefreshLiveProcessStatus();
                 }
+                else
+                {
+                    bool confirm = await AppServices.Dialogs.ShowConfirmationAsync(
+                        Shiro.Services.LocalizationService.Get("MainWindow.ConfirmKillAllRobloxPrompt"),
+                        Shiro.Services.LocalizationService.Get("MainWindow.ConfirmKillAllRobloxTitle"));
+                    if (confirm)
+                    {
+                        ViewModel?.ToolsStatus.KillAllClientsCommand.Execute(null);
+                    }
+                }
+            }
+            catch (System.Exception ex)
+            {
+                AppServices.Logger?.Error($"[MainWindow] Sidebar Close Roblox failed: {ex.Message}", ex);
             }
         }
 

@@ -4,6 +4,7 @@ using Xunit;
 
 namespace Shiro.Tests
 {
+    [Collection("SerialGlobalState")]
     public class SettingsServiceTests
     {
         [Fact]

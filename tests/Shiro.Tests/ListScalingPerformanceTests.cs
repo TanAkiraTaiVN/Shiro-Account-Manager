@@ -12,7 +12,7 @@ namespace Shiro.Tests
     /// Scaling guard for the account list: load / search / group / sort with 1000 accounts.
     /// Budgets are deliberately generous (CI noise tolerant); timings are written to test output.
     /// </summary>
-    [Collection("CookieGuardSerial")]
+    [Collection("SerialGlobalState")]
     public class ListScalingPerformanceTests
     {
         private const int AccountCount = 1000;

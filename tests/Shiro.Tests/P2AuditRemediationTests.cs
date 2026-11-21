@@ -23,7 +23,7 @@ using Xunit;
 
 namespace Shiro.Tests
 {
-    [Collection("StaticSeams")]
+    [Collection("SerialGlobalState")]
     public sealed class P2AuditRemediationTests : IDisposable
     {
         private readonly IRobloxApiClient _originalClient = AppServices.RobloxApi;
@@ -345,11 +345,11 @@ namespace Shiro.Tests
 
             bool? promptOnUiThread = null;
             var fakeDialogs = Substitute.For<IDialogService>();
-            fakeDialogs.ShowConfirmation(Arg.Any<string>(), Arg.Any<string>())
+            fakeDialogs.ShowConfirmationAsync(Arg.Any<string>(), Arg.Any<string>())
                 .Returns(_ =>
                 {
                     promptOnUiThread = Dispatcher.UIThread.CheckAccess();
-                    return true;
+                    return Task.FromResult(true);
                 });
             using var dialogScope = AppServices.Override<IDialogService>(fakeDialogs);
 

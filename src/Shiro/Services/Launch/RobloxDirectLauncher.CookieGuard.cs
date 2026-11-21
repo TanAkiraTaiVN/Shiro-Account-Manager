@@ -19,11 +19,17 @@ namespace Shiro.Services
         private static bool _hasPendingBackupRestore;
         private static bool _hasPendingInjectionRestore;
 
-        internal static Func<bool>? TestIsAnyRobloxRunningOverride;
-        internal static Func<int, TimeSpan, CancellationToken, Task<bool>>? TestCookieGuardWaitForClientUnlockedOverride;
-        internal static int? TestCookieRestoreRetryDelayMsOverride;
-        internal static int? TestPostSpawnSettleDelayMsOverride;
-        internal static string? TestDefaultLocalStorageDirOverride;
+        private static readonly AsyncLocal<Func<bool>?> _testIsAnyRobloxRunningOverride = new();
+        private static readonly AsyncLocal<Func<int, TimeSpan, CancellationToken, Task<bool>>?> _testCookieGuardWaitForClientUnlockedOverride = new();
+        private static readonly AsyncLocal<int?> _testCookieRestoreRetryDelayMsOverride = new();
+        private static readonly AsyncLocal<int?> _testPostSpawnSettleDelayMsOverride = new();
+        private static readonly AsyncLocal<string?> _testDefaultLocalStorageDirOverride = new();
+
+        internal static Func<bool>? TestIsAnyRobloxRunningOverride { get => _testIsAnyRobloxRunningOverride.Value; set => _testIsAnyRobloxRunningOverride.Value = value; }
+        internal static Func<int, TimeSpan, CancellationToken, Task<bool>>? TestCookieGuardWaitForClientUnlockedOverride { get => _testCookieGuardWaitForClientUnlockedOverride.Value; set => _testCookieGuardWaitForClientUnlockedOverride.Value = value; }
+        internal static int? TestCookieRestoreRetryDelayMsOverride { get => _testCookieRestoreRetryDelayMsOverride.Value; set => _testCookieRestoreRetryDelayMsOverride.Value = value; }
+        internal static int? TestPostSpawnSettleDelayMsOverride { get => _testPostSpawnSettleDelayMsOverride.Value; set => _testPostSpawnSettleDelayMsOverride.Value = value; }
+        internal static string? TestDefaultLocalStorageDirOverride { get => _testDefaultLocalStorageDirOverride.Value; set => _testDefaultLocalStorageDirOverride.Value = value; }
 
         /// <summary>
         /// Indicates whether an active batch or launch scope is currently holding the RobloxCookies.dat guard,

@@ -288,11 +288,10 @@ namespace Shiro.Services
                     _logger.Debug($"Parse QuickLogIn deviceInfo failed: {ex.Message}");
                 }
 
-                if (await AppDispatcher.InvokeAsync(() =>
-                        Utilities.YesNoPrompt(
-                            "Quick Log In",
-                            "Please confirm you are logging in with this device",
-                            $"Device: {deviceInfo}\nLocation: {location}")).ConfigureAwait(false))
+                if (await Utilities.YesNoPromptAsync(
+                        "Quick Log In",
+                        "Please confirm you are logging in with this device",
+                        $"Device: {deviceInfo}\nLocation: {location}").ConfigureAwait(false))
                 {
                     string validateCsrf = account.CSRFToken ?? token;
                     var validateResponse = await RobloxCsrfRetryHelper.ExecuteWithCsrfRetryAsync(
