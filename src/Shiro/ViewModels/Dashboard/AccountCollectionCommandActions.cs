@@ -27,11 +27,12 @@ namespace Shiro.ViewModels
                 bool ok = await accountVm.Model.ValidateSessionAsync().ConfigureAwait(false);
                 repository.Save(true);
                 updateValidity(accountVm.Model, ok, true);
+                string shownName = StreamerModeService.GetDisplayUsername(accountVm.Username);
                 postStatus(ok
-                    ? LocalizationService.Format("Main.SessionValidToast", accountVm.Username)
+                    ? LocalizationService.Format("Main.SessionValidToast", shownName)
                     : (accountVm.Model.IsBannedOrLocked
-                        ? $"{accountVm.Username}: {accountVm.Model.AccountStatusIssue}!"
-                        : LocalizationService.Format("Main.SessionExpiredToast", accountVm.Username)));
+                        ? $"{shownName}: {accountVm.Model.AccountStatusIssue}!"
+                        : LocalizationService.Format("Main.SessionExpiredToast", shownName)));
             });
         }
 
@@ -104,7 +105,7 @@ namespace Shiro.ViewModels
                     AppDispatcher.Post(() =>
                     {
                         acc.NotifyRobuxChanged();
-                        setStatus(LocalizationService.Format("Main.RefreshingRobuxProgress", current, total, acc.Username));
+                        setStatus(LocalizationService.Format("Main.RefreshingRobuxProgress", current, total, StreamerModeService.GetDisplayUsername(acc.Username)));
                     });
                 }
                 finally { concurrencyGate.Release(); }
@@ -123,14 +124,15 @@ namespace Shiro.ViewModels
             Action onCompleted)
         {
             if (accountVm?.Model == null) return;
-            setStatus(LocalizationService.Format("Main.CheckingRobuxSingle", accountVm.Username));
+            string shownName = StreamerModeService.GetDisplayUsername(accountVm.Username);
+            setStatus(LocalizationService.Format("Main.CheckingRobuxSingle", shownName));
             long bal = await accountVm.Model.FetchRobuxBalanceAsync();
             accountVm.NotifyRobuxChanged();
             await repository.SaveAsync(true);
             onCompleted();
             setStatus(bal >= 0
-                ? LocalizationService.Format("Main.RobuxBalanceResult", accountVm.Username, bal)
-                : LocalizationService.Format("Main.CannotFetchRobux", accountVm.Username));
+                ? LocalizationService.Format("Main.RobuxBalanceResult", shownName, StreamerModeService.ShouldMaskRobux() ? (object)"***" : bal)
+                : LocalizationService.Format("Main.CannotFetchRobux", shownName));
         }
 
         internal static void ReLoginAllExpired(IReadOnlyList<AccountViewModel> accounts, Action<string> setStatus)

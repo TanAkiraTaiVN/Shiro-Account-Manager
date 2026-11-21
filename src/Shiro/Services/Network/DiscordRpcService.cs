@@ -302,22 +302,20 @@ namespace Shiro.Services
             bool showGame = _settings.Get<bool>(AppSettingsKeys.General.DiscordRpcShowGame, true);
 
             string details;
-            if (!string.IsNullOrWhiteSpace(gameName) && showGame)
+            string state;
+            if (isStreamerMode)
             {
-                details = Shiro.Services.LocalizationService.Format("DiscordRpc.PlayingGame", gameName);
+                details = "Shiro Account Manager";
+                state = Shiro.Services.LocalizationService.Get("DiscordRpc.StreamerMode");
             }
             else
             {
-                details = Shiro.Services.LocalizationService.Format("DiscordRpc.ManagingAccounts", totalAccounts);
-            }
-
-            string state = activeInGameAccounts > 0
-                ? Shiro.Services.LocalizationService.Format("DiscordRpc.ClientsOnline", activeInGameAccounts)
-                : Shiro.Services.LocalizationService.Get("DiscordRpc.ReadyToLaunch");
-
-            if (isStreamerMode)
-            {
-                state = Shiro.Services.LocalizationService.Get("DiscordRpc.StreamerMode");
+                details = !string.IsNullOrWhiteSpace(gameName) && showGame
+                    ? Shiro.Services.LocalizationService.Format("DiscordRpc.PlayingGame", gameName)
+                    : Shiro.Services.LocalizationService.Format("DiscordRpc.ManagingAccounts", totalAccounts);
+                state = activeInGameAccounts > 0
+                    ? Shiro.Services.LocalizationService.Format("DiscordRpc.ClientsOnline", activeInGameAccounts)
+                    : Shiro.Services.LocalizationService.Get("DiscordRpc.ReadyToLaunch");
             }
 
             var activity = new DiscordActivityItem

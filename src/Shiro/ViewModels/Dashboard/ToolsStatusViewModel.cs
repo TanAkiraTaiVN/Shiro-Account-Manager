@@ -421,11 +421,11 @@ namespace Shiro.ViewModels
             {
                 if (param is not AccountViewModel avm || avm.Model == null) return;
                 if (RobloxWindowArrangerService.FocusAccountWindow(avm.Model))
-                    StatusMessage = LocalizationService.Format("Main.BroughtWindowToFront", avm.Username);
+                    StatusMessage = LocalizationService.Format("Main.BroughtWindowToFront", StreamerModeService.GetDisplayUsername(avm.Username));
                 else
                 {
                     RefreshLiveProcessStatus();
-                    ToastService.ShowInfo(avm.Username, LocalizationService.Get("Main.WindowNotFoundForAccount"));
+                    ToastService.ShowInfo(StreamerModeService.GetDisplayUsername(avm.Username), LocalizationService.Get("Main.WindowNotFoundForAccount"));
                 }
             });
             ArrangeRobloxWindowsCommand = new RelayCommand(param =>

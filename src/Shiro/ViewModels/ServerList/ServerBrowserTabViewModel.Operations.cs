@@ -16,20 +16,24 @@ namespace Shiro.ViewModels
             long placeId,
             CancellationToken ct) => ServerListOperationHelper.FetchVipServersAsync(gamesClient, vipAuthAccount, placeId, ct);
 
+        private static string FormatDisplayServerId(string serverId) =>
+            StreamerModeService.IsActive ? StreamerModeService.MaskJobId(serverId) : serverId;
+
         private void SelectServerJobId(object? param)
         {
             if (param is not ServerItemViewModel server) return;
             string targetId = ServerListOperationHelper.ResolveTargetServerId(server);
+            string displayId = FormatDisplayServerId(targetId);
             string currentInput = _getPlaceIdInput();
             if (_mainViewModel != null)
             {
                 if (!string.IsNullOrWhiteSpace(currentInput))
                     _mainViewModel.PlaceId = currentInput;
                 _mainViewModel.JobId = targetId;
-                _mainViewModel.StatusMessage = LocalizationService.Format("ServerList.ServerSelected", targetId);
+                _mainViewModel.StatusMessage = LocalizationService.Format("ServerList.ServerSelected", displayId);
             }
             ClipboardHelper.SetText(targetId);
-            _setLoadingStatus(LocalizationService.Format("ServerList.JobIdSelectedAndCopied", targetId));
+            _setLoadingStatus(LocalizationService.Format("ServerList.JobIdSelectedAndCopied", displayId));
         }
 
         private void CopyJobId(object? param)
@@ -37,7 +41,7 @@ namespace Shiro.ViewModels
             if (param is not ServerItemViewModel server) return;
             string targetId = ServerListOperationHelper.ResolveTargetServerId(server);
             ClipboardHelper.SetText(targetId);
-            _setLoadingStatus(LocalizationService.Format("ServerList.JobIdCopied", targetId));
+            _setLoadingStatus(LocalizationService.Format("ServerList.JobIdCopied", FormatDisplayServerId(targetId)));
         }
 
         private async Task JoinServerAsync(object? param)
@@ -72,7 +76,7 @@ namespace Shiro.ViewModels
                 return;
             }
 
-            string serverDesc = string.IsNullOrEmpty(targetServer) ? LocalizationService.Get("ServerList.RandomServerKeyword") : targetServer;
+            string serverDesc = string.IsNullOrEmpty(targetServer) ? LocalizationService.Get("ServerList.RandomServerKeyword") : FormatDisplayServerId(targetServer);
             _setLoadingStatus(LocalizationService.Format("ServerList.JoiningServerWithAccounts", serverDesc, selectedAccounts.Count));
 
             await AppServices.HostUiBridge.JoinServerFromHostAsync(selectedAccounts, placeId, targetServer).ConfigureAwait(true);
