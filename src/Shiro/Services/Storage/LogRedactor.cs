@@ -7,7 +7,7 @@ namespace Shiro.Services
 {
     public static partial class LogRedactor
     {
-        private static readonly SearchValues<char> FastTriggerChars = SearchValues.Create(":=@\"Bb/");
+        private static readonly SearchValues<char> FastTriggerChars = SearchValues.Create(":=@\"Bb/%");
 
         [GeneratedRegex(@"(?:_|%5F)?(?:\||%7C)?WARNING:-DO-NOT-SHARE-THIS[^;\r\n\s""']+", RegexOptions.IgnoreCase)]
         private static partial Regex RoblosecurityTokenRegex();
@@ -15,8 +15,14 @@ namespace Shiro.Services
         [GeneratedRegex(@"\.ROBLOSECURITY=(?:([""'])([^;\r\n""']+)\1|[""']?([^;\r\n\s""']+))", RegexOptions.IgnoreCase)]
         private static partial Regex CookieHeaderRegex();
 
-        [GeneratedRegex(@"(\\?""(?:password|token|SecurityToken|secret|HbaPrivateKey|privateKeyPkcs8|x-bound-auth-token|x-csrf-token|rbx-authentication-ticket|authenticationTicket|CSRFToken|access_token|refresh_token|client_secret|DiscordWebhookUrl|TelegramBotToken)\\?"")\s*:\s*(\\?"")([^""\\]*(?:\\.[^""\\]*)*)\2", RegexOptions.IgnoreCase)]
+        [GeneratedRegex(@"(\\?""(?:password|token|SecurityToken|secret|HbaPrivateKey|HbaPrivateKeyPkcs8|privateKeyPkcs8|x-bound-auth-token|x-csrf-token|rbx-authentication-ticket|authenticationTicket|CSRFToken|access_token|refresh_token|client_secret|DiscordWebhookUrl|TelegramBotToken)\\?"")\s*:\s*(\\?"")([^""\\]*(?:\\.[^""\\]*)*)\2", RegexOptions.IgnoreCase)]
         private static partial Regex JsonSecretRegex();
+
+        [GeneratedRegex(@"\bgameinfo:[^\s+;&""'<>]+", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+        private static partial Regex GameInfoTicketRegex();
+
+        [GeneratedRegex(@"\b(X-Shiro-Auth|X-RAM-Auth|Proxy-Authorization)\s*[:=]\s*(?:(?:Basic|Bearer)\s+)?[^\s,;""'\r\n]+", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+        private static partial Regex GatewayAuthHeaderRegex();
 
         [GeneratedRegex(@"x-bound-auth-token\s*[:=]\s*([^\r\n\s""',;]+)", RegexOptions.IgnoreCase)]
         private static partial Regex BoundAuthHeaderRegex();
@@ -27,7 +33,7 @@ namespace Shiro.Services
         [GeneratedRegex(@"rbx-authentication-ticket\s*[:=]\s*([^\r\n\s""',;]+)", RegexOptions.IgnoreCase)]
         private static partial Regex AuthTicketHeaderRegex();
 
-        [GeneratedRegex(@"(^|[?&\s])(password|token|secret|cookie|access_token|refresh_token|client_secret)=([^&\s""']+)", RegexOptions.IgnoreCase)]
+        [GeneratedRegex(@"(^|[?&\s])(password|token|secret|cookie|proxy|access_token|refresh_token|client_secret)=([^&\s""']+)", RegexOptions.IgnoreCase)]
         private static partial Regex QueryParamSecretRegex();
 
         [GeneratedRegex(@"Bearer\s+[a-zA-Z0-9_\-\.+/=]+", RegexOptions.IgnoreCase)]
@@ -38,6 +44,12 @@ namespace Shiro.Services
 
         [GeneratedRegex(@"((?:https?|socks4a?|socks5h?)://)([^/\s:@]+):([^/\s@]+)@", RegexOptions.IgnoreCase)]
         private static partial Regex ProxyAuthUrlRegex();
+
+        [GeneratedRegex(@"((?:https?|socks4a?|socks5h?)%3A%2F%2F)(?:(?!%3A)[^\s&""'<>])+%3A(?:(?!%40)[^\s&""'<>])+%40", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+        private static partial Regex EncodedProxyCredsRegex();
+
+        [GeneratedRegex(@"(?<![\w.])(\d{1,3}(?:\.\d{1,3}){3}:\d{2,5}):([^\s:@""'<>]{1,128}):([^\s:@""'<>]{1,128})(?=$|[\s,;""'<>])", RegexOptions.CultureInvariant)]
+        private static partial Regex FourPartProxyRegex();
 
         [GeneratedRegex(@"(/bot)\d+:[A-Za-z0-9_\-]+(/|$|\s)", RegexOptions.IgnoreCase)]
         private static partial Regex TelegramBotUrlRegex();
@@ -53,9 +65,24 @@ namespace Shiro.Services
             span.IndexOf("token=", StringComparison.OrdinalIgnoreCase) >= 0 ||
             span.IndexOf("secret=", StringComparison.OrdinalIgnoreCase) >= 0 ||
             span.IndexOf("cookie=", StringComparison.OrdinalIgnoreCase) >= 0 ||
+            span.IndexOf("proxy=", StringComparison.OrdinalIgnoreCase) >= 0 ||
             span.IndexOf("access_token=", StringComparison.OrdinalIgnoreCase) >= 0 ||
             span.IndexOf("refresh_token=", StringComparison.OrdinalIgnoreCase) >= 0 ||
             span.IndexOf("client_secret=", StringComparison.OrdinalIgnoreCase) >= 0;
+
+        private static bool ContainsFourPartProxyCandidate(ReadOnlySpan<char> span)
+        {
+            int colons = 0;
+            int dots = 0;
+            foreach (char c in span)
+            {
+                if (c == ':') colons++;
+                else if (c == '.') dots++;
+                if (colons >= 3 && dots >= 3)
+                    return true;
+            }
+            return false;
+        }
 
         private static bool ContainsTelegramTokenCandidate(ReadOnlySpan<char> span)
         {
@@ -105,6 +132,10 @@ namespace Shiro.Services
 
             if (span.IndexOf("WARNING:-DO-NOT-SHARE-THIS", StringComparison.OrdinalIgnoreCase) >= 0 ||
                 span.IndexOf(".ROBLOSECURITY=", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                span.IndexOf("gameinfo:", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                span.IndexOf("X-Shiro-Auth", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                span.IndexOf("X-RAM-Auth", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                span.IndexOf("Proxy-Authorization", StringComparison.OrdinalIgnoreCase) >= 0 ||
                 span.IndexOf("x-bound-auth-token", StringComparison.OrdinalIgnoreCase) >= 0 ||
                 span.IndexOf("x-csrf-token", StringComparison.OrdinalIgnoreCase) >= 0 ||
                 span.IndexOf("rbx-authentication-ticket", StringComparison.OrdinalIgnoreCase) >= 0 ||
@@ -119,13 +150,17 @@ namespace Shiro.Services
             if (span.IndexOf('"') >= 0 && span.IndexOf(':') >= 0)
                 return true;
 
-            if (span.IndexOf(':') >= 0 && ContainsTelegramTokenCandidate(span))
+            if (span.IndexOf(':') >= 0 && (ContainsTelegramTokenCandidate(span) || ContainsFourPartProxyCandidate(span)))
                 return true;
 
             if (span.IndexOf('=') >= 0 && ContainsFormSecretKey(span))
                 return true;
 
             if (span.IndexOf('@') >= 0 && span.IndexOf("://", StringComparison.Ordinal) >= 0)
+                return true;
+
+            if (span.IndexOf("%40", StringComparison.OrdinalIgnoreCase) >= 0 &&
+                span.IndexOf("%3A", StringComparison.OrdinalIgnoreCase) >= 0)
                 return true;
 
             return false;
@@ -148,8 +183,16 @@ namespace Shiro.Services
             if (redacted.Contains(".ROBLOSECURITY=", StringComparison.OrdinalIgnoreCase))
                 redacted = CookieHeaderRegex().Replace(redacted, ".ROBLOSECURITY=$1[REDACTED_COOKIE]$1");
 
+            if (redacted.Contains("gameinfo:", StringComparison.OrdinalIgnoreCase))
+                redacted = GameInfoTicketRegex().Replace(redacted, "gameinfo:[REDACTED]");
+
             if (redacted.Contains('"') && redacted.Contains(':'))
                 redacted = JsonSecretRegex().Replace(redacted, "$1:$2[REDACTED]$2");
+
+            if (redacted.Contains("X-Shiro-Auth", StringComparison.OrdinalIgnoreCase) ||
+                redacted.Contains("X-RAM-Auth", StringComparison.OrdinalIgnoreCase) ||
+                redacted.Contains("Proxy-Authorization", StringComparison.OrdinalIgnoreCase))
+                redacted = GatewayAuthHeaderRegex().Replace(redacted, "$1: [REDACTED]");
 
             if (redacted.Contains("x-bound-auth-token", StringComparison.OrdinalIgnoreCase))
                 redacted = BoundAuthHeaderRegex().Replace(redacted, "x-bound-auth-token:[REDACTED_BAT]");
@@ -172,6 +215,13 @@ namespace Shiro.Services
 
             if (redacted.Contains('@') && redacted.Contains("://", StringComparison.Ordinal))
                 redacted = ProxyAuthUrlRegex().Replace(redacted, "$1[REDACTED_PROXY_AUTH]@");
+
+            if (redacted.Contains("%40", StringComparison.OrdinalIgnoreCase) &&
+                redacted.Contains("%3A", StringComparison.OrdinalIgnoreCase))
+                redacted = EncodedProxyCredsRegex().Replace(redacted, "$1[REDACTED_PROXY_AUTH]%40");
+
+            if (ContainsFourPartProxyCandidate(redacted.AsSpan()))
+                redacted = FourPartProxyRegex().Replace(redacted, "$1:[REDACTED]:[REDACTED]");
 
             if (redacted.Contains("/bot", StringComparison.OrdinalIgnoreCase))
                 redacted = TelegramBotUrlRegex().Replace(redacted, "$1[REDACTED_TELEGRAM_TOKEN]$2");
