@@ -112,24 +112,27 @@ namespace Shiro.Services
             {
                 CancellationTokenSource? oldCts;
                 CancellationTokenSource? oldObserveCts;
-                CancellationTokenSource? linked = null;
-                bool suppressed;
+                CancellationToken token;
                 lock (_tokenLock)
                 {
                     oldCts = Interlocked.Exchange(ref _ctsBacking, null);
                     oldObserveCts = Interlocked.Exchange(ref _observeCts, null);
-                    suppressed = _isSuppressed;
-                    if (!suppressed)
+                    if (_isSuppressed)
                     {
-                        linked = CreateLinkedOrCanceledSource(outerToken);
+                        token = new CancellationToken(canceled: true);
+                    }
+                    else
+                    {
+                        var linked = CreateLinkedOrCanceledSource(outerToken);
                         _ctsBacking = linked;
                         ReconnectCts = linked;
+                        token = linked.Token;
                     }
                 }
 
                 CancelAndDisposeCts(oldCts);
                 CancelAndDisposeCts(oldObserveCts);
-                return suppressed ? new CancellationToken(canceled: true) : linked!.Token;
+                return token;
             }
 
             internal CancellationToken GetOrCreateObserveToken(CancellationToken serviceToken)

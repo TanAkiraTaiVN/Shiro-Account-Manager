@@ -357,14 +357,12 @@ namespace Shiro.Tests
             {
                 Account = new Account { Username = "SuppressedResetUser", UserID = 81009 }
             };
-            suppressedSession.IsSuppressed = true;
-            suppressedSession.IsActive = false;
-            suppressedSession.CancelPendingReconnect();
+            suppressedSession.MarkSuppressedAndCancel();
 
             CancellationToken tokenAfterSuppress = suppressedSession.ResetReconnectToken(CancellationToken.None);
             Assert.True(tokenAfterSuppress.IsCancellationRequested);
 
-            for (int i = 0; i < 200; i++)
+            for (int i = 0; i < 400; i++)
             {
                 var raceSession = new AutoReconnectService.ReconnectSession
                 {
@@ -383,13 +381,41 @@ namespace Shiro.Tests
                 var suppressTask = Task.Run(() =>
                 {
                     barrier.SignalAndWait();
-                    raceSession.IsSuppressed = true;
-                    raceSession.IsActive = false;
-                    raceSession.CancelPendingReconnect();
+                    raceSession.MarkSuppressedAndCancel();
                 });
 
                 await Task.WhenAll(resetTask, suppressTask);
                 Assert.True(observedToken.IsCancellationRequested);
+            }
+
+            // Racing ResetReconnectToken against CancelPendingReconnect/DeactivateAndCancel must never throw ObjectDisposedException.
+            for (int i = 0; i < 400; i++)
+            {
+                var raceSession = new AutoReconnectService.ReconnectSession
+                {
+                    Account = new Account { Username = $"RaceCancelUser_{i}", UserID = 83000 + i }
+                };
+
+                using var barrier = new Barrier(2);
+                CancellationToken observedToken = CancellationToken.None;
+
+                var resetTask = Task.Run(() =>
+                {
+                    barrier.SignalAndWait();
+                    observedToken = raceSession.ResetReconnectToken(CancellationToken.None);
+                });
+
+                var cancelTask = Task.Run(() =>
+                {
+                    barrier.SignalAndWait();
+                    if ((i & 1) == 0)
+                        raceSession.CancelPendingReconnect();
+                    else
+                        raceSession.DeactivateAndCancel();
+                });
+
+                await Task.WhenAll(resetTask, cancelTask);
+                Assert.True(observedToken.CanBeCanceled);
             }
         }
     }
