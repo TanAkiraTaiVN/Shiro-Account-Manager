@@ -323,6 +323,7 @@ namespace Shiro.Services
                 text.Contains("reactivate my account", StringComparison.Ordinal) ||
                 text.Contains("not-approved-page", StringComparison.Ordinal) ||
                 text.Contains("account locked", StringComparison.Ordinal) ||
+                (text.Contains("community standards", StringComparison.Ordinal) && text.Contains("violation", StringComparison.Ordinal)) ||
                 (text.Contains("i agree", StringComparison.Ordinal) && text.Contains("warning", StringComparison.Ordinal));
 
             if (!hasModerationMarker && !text.Contains("banned", StringComparison.Ordinal))

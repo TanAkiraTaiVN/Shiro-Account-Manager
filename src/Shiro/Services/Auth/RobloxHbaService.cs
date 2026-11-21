@@ -47,7 +47,7 @@ namespace Shiro.Services
             }
         }
 
-        private static string ComputeKeyCacheId(string trimmedKey) =>
+        internal static string ComputeKeyCacheId(string trimmedKey) =>
             Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(trimmedKey)));
 
         internal static bool ClearCachedKey(string? hbaPrivateKey)

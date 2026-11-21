@@ -252,8 +252,12 @@ namespace Shiro.Tests
             Assert.NotNull(cacheField);
             var cache = (ConcurrentDictionary<string, ECParameters>)cacheField!.GetValue(null)!;
 
-            Assert.True(cache.TryGetValue(keyA, out ECParameters cachedA));
-            Assert.True(cache.TryGetValue(keyB, out ECParameters cachedB));
+            string cacheIdA = RobloxHbaService.ComputeKeyCacheId(keyA);
+            string cacheIdB = RobloxHbaService.ComputeKeyCacheId(keyB);
+            Assert.False(cache.ContainsKey(keyA));
+            Assert.False(cache.ContainsKey(keyB));
+            Assert.True(cache.TryGetValue(cacheIdA, out ECParameters cachedA));
+            Assert.True(cache.TryGetValue(cacheIdB, out ECParameters cachedB));
             byte[] scalarRefA = cachedA.D!;
             byte[] scalarRefB = cachedB.D!;
             Assert.Contains(scalarRefA, b => b != 0);
@@ -261,9 +265,9 @@ namespace Shiro.Tests
 
             accA.ClearSensitiveMemory();
 
-            Assert.False(cache.ContainsKey(keyA));
+            Assert.False(cache.ContainsKey(cacheIdA));
             Assert.All(scalarRefA, b => Assert.Equal(0, b));
-            Assert.True(cache.ContainsKey(keyB));
+            Assert.True(cache.ContainsKey(cacheIdB));
             Assert.Contains(scalarRefB, b => b != 0);
             Assert.Equal(string.Empty, accA.HbaPrivateKey);
             Assert.Equal(string.Empty, accA.AccountStatusIssue);

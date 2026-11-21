@@ -149,7 +149,9 @@ namespace Shiro.Tests
             var cacheField = typeof(RobloxHbaService).GetField("CachedEcParameters", BindingFlags.NonPublic | BindingFlags.Static);
             Assert.NotNull(cacheField);
             var dict = (ConcurrentDictionary<string, ECParameters>)cacheField!.GetValue(null)!;
-            Assert.True(dict.TryGetValue(pkcs8Base64, out ECParameters cachedBefore));
+            string cacheId = RobloxHbaService.ComputeKeyCacheId(pkcs8Base64);
+            Assert.False(dict.ContainsKey(pkcs8Base64));
+            Assert.True(dict.TryGetValue(cacheId, out ECParameters cachedBefore));
             Assert.NotNull(cachedBefore.D);
             byte[] privateScalarRef = cachedBefore.D!;
             Assert.Contains(privateScalarRef, b => b != 0);
@@ -166,7 +168,7 @@ namespace Shiro.Tests
                     tempMgr.ShutdownBackend();
                 }
 
-                Assert.False(dict.ContainsKey(pkcs8Base64));
+                Assert.False(dict.ContainsKey(cacheId));
                 Assert.All(privateScalarRef, b => Assert.Equal(0, b));
             }
             finally
