@@ -106,13 +106,12 @@ namespace Shiro.Services
         {
             try
             {
-                var recentGames = AppServices.ServerBrowserState.RecentGames;
-                if (recentGames == null) return;
-
-                bool updated = false;
-                string? serialized = null;
                 lock (_recentGamesLock)
                 {
+                    var recentGames = AppServices.ServerBrowserState.RecentGames;
+                    if (recentGames == null) return;
+
+                    bool updated = false;
                     foreach (var rg in recentGames)
                     {
                         if (rg?.Details != null && rg.Details.placeId == placeId &&
@@ -126,13 +125,10 @@ namespace Shiro.Services
 
                     if (updated)
                     {
-                        serialized = FastJson.Serialize(recentGames, indented: true);
+                        string serialized = FastJson.Serialize(recentGames, indented: true);
+                        if (!string.IsNullOrEmpty(serialized))
+                            StoragePaths.AtomicWriteText(StoragePaths.RecentGamesFile, serialized);
                     }
-                }
-
-                if (updated && !string.IsNullOrEmpty(serialized))
-                {
-                    StoragePaths.AtomicWriteText(StoragePaths.RecentGamesFile, serialized);
                 }
             }
             catch (Exception ex)
@@ -170,10 +166,10 @@ namespace Shiro.Services
                 return true;
             }
 
-            var recentGames = AppServices.ServerBrowserState.RecentGames;
-            if (recentGames != null)
+            lock (_recentGamesLock)
             {
-                lock (_recentGamesLock)
+                var recentGames = AppServices.ServerBrowserState.RecentGames;
+                if (recentGames != null)
                 {
                     for (int i = recentGames.Count - 1; i >= 0; i--)
                     {
@@ -355,6 +351,15 @@ namespace Shiro.Services
         }
 
         private static readonly System.Threading.Lock _recentGamesLock = new();
+
+        internal static List<Game> GetRecentGamesSnapshot()
+        {
+            lock (_recentGamesLock)
+            {
+                var recentGames = AppServices.ServerBrowserState.RecentGames;
+                return recentGames != null ? new List<Game>(recentGames) : new List<Game>();
+            }
+        }
 
         public static async Task LoadRecentGamesAsync(Action<Game>? onGameAdded = null)
         {

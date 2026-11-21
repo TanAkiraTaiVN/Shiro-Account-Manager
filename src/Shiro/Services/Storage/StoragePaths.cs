@@ -214,15 +214,11 @@ namespace Shiro.Services
                     if (!IsWithinDirectory(directory, browserRoot))
                         continue;
 
-                    DateTime lastWriteUtc;
-                    try { lastWriteUtc = Directory.GetLastWriteTimeUtc(directory); }
-                    catch (Exception ex)
-                    {
-                        _logger?.Debug($"Failed to get last write time for {directory}: {ex.Message}");
+                    string directoryName = Path.GetFileName(directory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+                    if (string.Equals(directoryName, "EmbeddedBrowser", StringComparison.OrdinalIgnoreCase))
                         continue;
-                    }
 
-                    if (lastWriteUtc >= cutoffUtc)
+                    if (!IsDirectoryStale(directory, cutoffUtc))
                         continue;
 
                     try
@@ -276,6 +272,46 @@ namespace Shiro.Services
             }
 
             return removed;
+        }
+
+        /// <summary>
+        /// Returns true only when <paramref name="directory"/> and every accessible
+        /// descendant entry have a <c>LastWriteTimeUtc</c> strictly older than
+        /// <paramref name="cutoffUtc"/>. Fails safe (<c>false</c>) on I/O or permission errors.
+        /// </summary>
+        internal static bool IsDirectoryStale(string directory, DateTime cutoffUtc)
+        {
+            if (string.IsNullOrWhiteSpace(directory))
+                return false;
+
+            try
+            {
+                if (!Directory.Exists(directory))
+                    return false;
+
+                if (Directory.GetLastWriteTimeUtc(directory) >= cutoffUtc)
+                    return false;
+
+                var options = new EnumerationOptions
+                {
+                    RecurseSubdirectories = true,
+                    IgnoreInaccessible = true,
+                    AttributesToSkip = FileAttributes.None
+                };
+
+                foreach (string entry in Directory.EnumerateFileSystemEntries(directory, "*", options))
+                {
+                    if (File.GetLastWriteTimeUtc(entry) >= cutoffUtc)
+                        return false;
+                }
+
+                return true;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                _logger?.Debug($"Failed to inspect directory staleness for {directory}: {ex.Message}");
+                return false;
+            }
         }
 
         /// <summary>

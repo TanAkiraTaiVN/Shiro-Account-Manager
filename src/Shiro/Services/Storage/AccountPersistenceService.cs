@@ -115,6 +115,7 @@ namespace Shiro.Services
 
         public void LoadAccounts(byte[]? Hash, out bool unlocked)
         {
+            string? deferredCorruptError = null;
             lock (saveLock)
             {
                 unlocked = false;
@@ -172,7 +173,7 @@ namespace Shiro.Services
                             IsVaultLockedPendingMasterPassword = false;
                             string quarantinePath = $"{SaveFilePath}.corrupt-{DateTime.UtcNow:yyyyMMdd_HHmmss}.bak";
                             StoragePaths.AtomicWriteBytes(quarantinePath, Data, durable: true);
-                            AppServices.Dialogs.ShowError($"Failed to load accounts!\nA backup file was created in case the data can be recovered.\n\n{decodeResult.Error?.Message}");
+                            deferredCorruptError = $"Failed to load accounts!\nA backup file was created in case the data can be recovered.\n\n{decodeResult.Error?.Message}";
                             break;
 
                         case AccountDecodeStatus.Empty:
@@ -215,6 +216,9 @@ namespace Shiro.Services
                     catch (Exception exception) { AppServices.Logger?.Warn($"Account data migration will be retried after the next successful save: {exception.Message}"); }
                 }
             }
+
+            if (deferredCorruptError != null)
+                AppServices.Dialogs.ShowError(deferredCorruptError);
         }
 
         private AccountDecodeKeys CreateDecodeKeys(bool allowRecovery) => new(
@@ -248,10 +252,17 @@ namespace Shiro.Services
             if (!await AppServices.Dialogs.ShowConfirmationAsync(promptMessage))
                 return BackupLoadResult.NotAttempted;
 
+            BackupLoadResult result;
+            string? errorMessage;
             lock (saveLock)
             {
-                return CompleteConfirmedBackupRestoreLocked(backupData);
+                (result, errorMessage) = CompleteConfirmedBackupRestoreLocked(backupData);
             }
+
+            if (errorMessage != null)
+                AppServices.Dialogs.ShowError(errorMessage);
+
+            return result;
         }
 
         private (BackupLoadResult Result, string? PromptMessage) TryRestoreBackupWithoutPromptLocked(byte[] backupData)
@@ -277,7 +288,7 @@ namespace Shiro.Services
             return (BackupLoadResult.NotAttempted, "No accounts were loaded but there is a backup file, would you like to load the backup file?");
         }
 
-        private BackupLoadResult CompleteConfirmedBackupRestoreLocked(byte[] backupData)
+        private (BackupLoadResult Result, string? ErrorMessage) CompleteConfirmedBackupRestoreLocked(byte[] backupData)
         {
             _pendingBackupRestoreData = null;
             if (Cryptography.IsEncrypted(backupData))
@@ -285,7 +296,7 @@ namespace Shiro.Services
                 PromoteBackupToPrimary(SaveFilePath, DateTime.Now);
                 IsVaultLockedPendingMasterPassword = true;
                 EnableModernDashboard();
-                return BackupLoadResult.PromotedNeedsPassword;
+                return (BackupLoadResult.PromotedNeedsPassword, null);
             }
 
             var unencResult = AccountFileDecoder.Decode(backupData, null, CreateDecodeKeys(allowRecovery: false));
@@ -293,12 +304,11 @@ namespace Shiro.Services
             {
                 legacyPlaintextLoaded = unencResult.LegacyPlaintext;
                 RestoreDecodedAccountsLocked(unencResult, logSource: "backup");
-                return BackupLoadResult.Restored;
+                return (BackupLoadResult.Restored, null);
             }
 
             AppServices.Logger?.Error($"Failed to load backup file: {unencResult.Error?.Message}");
-            AppServices.Dialogs.ShowError("Failed to load backup file!");
-            return BackupLoadResult.Failed;
+            return (BackupLoadResult.Failed, "Failed to load backup file!");
         }
 
         private void RestoreDecodedAccountsLocked(AccountDecodeResult result, string logSource)

@@ -290,24 +290,17 @@ namespace Shiro.ViewModels
                 {
                     if (!weakSelf.TryGetTarget(out var self) || Volatile.Read(ref self._disposed) != 0) return;
                     var list = new List<RecentGameItemViewModel>();
-                    var recent = AppServices.ServerBrowserState.RecentGames;
-                    if (recent != null)
+                    foreach (var g in GameInfoService.GetRecentGamesSnapshot())
                     {
-                        lock (recent)
+                        if (g?.Details?.placeId != null)
                         {
-                            foreach (var g in recent)
+                            string bestName = g.Details.BestDisplayName;
+                            list.Add(new RecentGameItemViewModel
                             {
-                                if (g?.Details?.placeId != null)
-                                {
-                                    string bestName = g.Details.BestDisplayName;
-                                    list.Add(new RecentGameItemViewModel
-                                    {
-                                        PlaceId = g.Details.placeId,
-                                        Name = string.IsNullOrWhiteSpace(bestName) ? $"Place {g.Details.placeId}" : bestName,
-                                        ImageUrl = g.ImageUrl ?? string.Empty
-                                    });
-                                }
-                            }
+                                PlaceId = g.Details.placeId,
+                                Name = string.IsNullOrWhiteSpace(bestName) ? $"Place {g.Details.placeId}" : bestName,
+                                ImageUrl = g.ImageUrl ?? string.Empty
+                            });
                         }
                     }
 

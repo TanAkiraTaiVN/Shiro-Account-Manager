@@ -133,8 +133,9 @@ namespace Shiro.Tests
         [Fact]
         public void StoragePaths_ClearCachedVaultKey_WipesMemoryZero()
         {
-            // Seed a test vault key
-            byte[] key = StoragePaths.GetOrCreateVaultKey();
+            // Seed a test vault key and inspect the cached buffer directly
+            _ = StoragePaths.GetOrCreateVaultKey();
+            byte[] key = StoragePaths.PeekCachedVaultKeyBufferForTesting()!;
             Assert.NotNull(key);
             Assert.Equal(32, key.Length);
 

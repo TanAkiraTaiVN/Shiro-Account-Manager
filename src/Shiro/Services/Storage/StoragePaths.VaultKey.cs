@@ -390,13 +390,22 @@ namespace Shiro.Services
                 string dirKey = NormalizeVaultCacheKey();
                 byte[]? cached = GetCachedVaultKeyLocked(dirKey);
                 if (cached != null)
-                    return cached;
+                    return cached.AsSpan().ToArray();
 
                 string keyFile = VaultKeyFile;
                 bool hasExistingEncryptedVault = HasExistingEncryptedVaultFile(AccountDataFile);
                 byte[] resolvedKey = LoadOrCreateVaultKeyAtPath(keyFile, hasExistingEncryptedVault);
                 SetCachedVaultKeyLocked(dirKey, resolvedKey);
-                return resolvedKey;
+                return resolvedKey.AsSpan().ToArray();
+            }
+        }
+
+        internal static byte[]? PeekCachedVaultKeyBufferForTesting()
+        {
+            lock (_vaultKeyLock)
+            {
+                EnsureInitialized();
+                return GetCachedVaultKeyLocked(NormalizeVaultCacheKey());
             }
         }
     }

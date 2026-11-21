@@ -92,7 +92,8 @@ namespace Shiro.Tests
 
             Assert.NotNull(key1);
             Assert.Equal(32, key1.Length);
-            Assert.Same(key1, key2);
+            Assert.Equal(key1, key2);
+            Assert.NotSame(key1, key2);
             Assert.True(File.Exists(StoragePaths.VaultKeyFile));
         }
 
@@ -293,7 +294,9 @@ namespace Shiro.Tests
                     taskBReady.TrySetResult(true);
                     await taskCDone.Task.WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
                     Assert.Equal(expectedB, keyB);
-                    Assert.Same(keyB, StoragePaths.GetOrCreateVaultKey());
+                    byte[] currentB = StoragePaths.GetOrCreateVaultKey();
+                    Assert.Equal(expectedB, currentB);
+                    Assert.NotSame(keyB, currentB);
                 });
 
                 var taskC = Task.Run(async () =>
@@ -309,7 +312,9 @@ namespace Shiro.Tests
 
                 await Task.WhenAll(taskB, taskC);
                 Assert.Equal(expectedGlobal, globalKeyRef);
-                Assert.Same(globalKeyRef, StoragePaths.GetOrCreateVaultKey());
+                byte[] currentGlobal = StoragePaths.GetOrCreateVaultKey();
+                Assert.Equal(expectedGlobal, currentGlobal);
+                Assert.NotSame(globalKeyRef, currentGlobal);
             }
             finally
             {

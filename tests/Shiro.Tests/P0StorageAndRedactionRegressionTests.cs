@@ -158,8 +158,8 @@ namespace Shiro.Tests
             {
                 using var dirScope = StoragePaths.OverrideDataDirectoryForTesting(tempDir);
                 StoragePaths.ReloadVaultKeyCache();
-
-                byte[] previousRef = StoragePaths.GetOrCreateVaultKey();
+                _ = StoragePaths.GetOrCreateVaultKey();
+                byte[] previousRef = StoragePaths.PeekCachedVaultKeyBufferForTesting()!;
                 Assert.Equal(32, previousRef.Length);
                 Assert.Contains(previousRef, b => b != 0);
 
