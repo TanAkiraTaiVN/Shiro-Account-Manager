@@ -39,9 +39,10 @@ namespace Shiro.AvaloniaUI.Views
             {
                 return cavm;
             }
-            return ViewModel?.AccountsVm.FilteredAccounts?.FirstOrDefault(a => a.IsSelected)
-                ?? ViewModel?.AccountsVm.FilteredAccounts?.FirstOrDefault();
+            return null;
         }
+
+        internal AccountViewModel? ResolveItemFromMenuForTest(object? sender) => GetItemFromMenu(sender);
 
         private void ExecuteMenuCommand(object? sender, ICommand? command)
         {

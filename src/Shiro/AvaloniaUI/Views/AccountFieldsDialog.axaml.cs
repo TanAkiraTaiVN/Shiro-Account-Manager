@@ -38,12 +38,16 @@ namespace Shiro.AvaloniaUI.Views
         private readonly Account? _account;
         private readonly ObservableCollection<AccountFieldItem> _fieldItems = new();
         private readonly Action<bool> _onStreamerModeChanged;
+        private volatile bool _isClosed;
 
         public AccountFieldsDialog()
         {
             InitializeComponent();
             WindowBackdropService.ApplyDarkAndBackdrop(this);
-            _onStreamerModeChanged = _ => UpdateHeaderTitle();
+            _onStreamerModeChanged = _ => AppDispatcher.Post(() =>
+            {
+                if (!_isClosed) UpdateHeaderTitle();
+            });
             StreamerModeService.StateChanged += _onStreamerModeChanged;
         }
 
@@ -68,8 +72,11 @@ namespace Shiro.AvaloniaUI.Views
                 StreamerModeService.GetDisplayUsername(_account.Username));
         }
 
+        internal void InvokeStreamerModeChangedForTest(bool active) => _onStreamerModeChanged(active);
+
         protected override void OnClosing(WindowClosingEventArgs e)
         {
+            _isClosed = true;
             StreamerModeService.StateChanged -= _onStreamerModeChanged;
             base.OnClosing(e);
         }

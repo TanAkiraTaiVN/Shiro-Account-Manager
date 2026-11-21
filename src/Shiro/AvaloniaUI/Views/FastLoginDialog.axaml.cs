@@ -358,11 +358,11 @@ namespace Shiro.AvaloniaUI.Views
 
         private bool _isClosed;
 
-        private void OnStreamerModeStateChanged(bool _)
+        private void OnStreamerModeStateChanged(bool _) => AppDispatcher.Post(() =>
         {
             if (!_isClosed && !string.IsNullOrEmpty(_username) && TxtDialogTitle != null)
                 TxtDialogTitle.Text = _queue.Title;
-        }
+        });
 
         protected override void OnClosing(WindowClosingEventArgs e)
         {
