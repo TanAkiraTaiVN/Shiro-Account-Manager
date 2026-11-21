@@ -250,6 +250,27 @@ namespace Shiro.Services
             return await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
         }
 
+        public static Task<string> GetStringNoRedirectAsync(
+            string url,
+            CancellationToken cancellationToken = default) =>
+            GetStringNoRedirectCoreAsync(GetNoRedirect(), url, cancellationToken);
+
+        internal static async Task<string> GetStringNoRedirectCoreAsync(
+            HttpClient client,
+            string url,
+            CancellationToken cancellationToken = default)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, url);
+            using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+            int statusCode = (int)response.StatusCode;
+            if (statusCode >= 300 && statusCode < 400)
+            {
+                throw new HttpRequestException($"Blocked HTTP {statusCode} redirect while querying external endpoint.");
+            }
+            response.EnsureSuccessStatusCode();
+            return await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        }
+
         public static async Task<byte[]> GetByteArrayAsync(
             string url,
             bool retryTransient = false,

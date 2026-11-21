@@ -365,7 +365,7 @@ namespace Shiro.Services
                     {
                         geoJson = TestGeoHttpGetString != null
                             ? await TestGeoHttpGetString(safePrimaryUrl, cancellationToken).ConfigureAwait(false)
-                            : await SharedHttpClient.GetStringAsync(safePrimaryUrl, retryTransient: false, cancellationToken: cancellationToken).ConfigureAwait(false);
+                            : await SharedHttpClient.GetStringNoRedirectAsync(safePrimaryUrl, cancellationToken).ConfigureAwait(false);
                     }
                     catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                     {
@@ -389,7 +389,7 @@ namespace Shiro.Services
                         string safeFbUrl = $"https://ipwho.is/{fbParsedIp!.ToString()}";
                         string fallbackJson = TestGeoHttpGetString != null
                             ? await TestGeoHttpGetString(safeFbUrl, cancellationToken).ConfigureAwait(false)
-                            : await SharedHttpClient.GetStringAsync(safeFbUrl, retryTransient: false, cancellationToken: cancellationToken).ConfigureAwait(false);
+                            : await SharedHttpClient.GetStringNoRedirectAsync(safeFbUrl, cancellationToken).ConfigureAwait(false);
                         TryParseRegionFromJson(fallbackJson, out resolvedRegion);
                     }
                 }

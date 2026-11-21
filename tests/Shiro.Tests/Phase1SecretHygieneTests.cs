@@ -2,9 +2,14 @@
 using System;
 using System.Collections;
 using System.Linq;
+using System.Net;
+using System.Net.Http;
 using System.Reflection;
 using System.Security.Cryptography;
+using System.Threading;
+using System.Threading.Tasks;
 using Shiro.Services;
+using Shiro.Tests.TestInfrastructure;
 using Xunit;
 
 namespace Shiro.Tests
@@ -151,6 +156,71 @@ namespace Shiro.Tests
             string gameInfo = LogRedactor.Redact("launch gameinfo:SecretTicketXYZ+launchtime:999");
             Assert.Contains("gameinfo:[REDACTED]", gameInfo, StringComparison.Ordinal);
             Assert.Contains("+launchtime:999", gameInfo, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public async Task RobloxServerQueryService_ResolveGeoIpRegionAsync_UsesNoRedirectClientAndBlocks3xxRedirects()
+        {
+            int defaultCalls = 0;
+            int noRedirectCalls = 0;
+            using var defaultClient = new HttpClient(new FakeHttpHandler(_ =>
+            {
+                Interlocked.Increment(ref defaultCalls);
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("{\"city\":\"Leak\",\"countryCode\":\"ZZ\"}")
+                };
+            }));
+            using var noRedirectClient = new HttpClient(new FakeHttpHandler(_ =>
+            {
+                Interlocked.Increment(ref noRedirectCalls);
+                var resp = new HttpResponseMessage(HttpStatusCode.Found);
+                resp.Headers.Location = new Uri("http://169.254.169.254/latest/meta-data/");
+                return resp;
+            }));
+
+            SharedHttpClient.SetTestClient("default", defaultClient);
+            SharedHttpClient.SetTestClient("no-redirect", noRedirectClient);
+            try
+            {
+                var svc = new RobloxServerQueryService();
+                var method = typeof(RobloxServerQueryService).GetMethod(
+                    "ResolveGeoIpRegionAsync",
+                    BindingFlags.NonPublic | BindingFlags.Instance);
+                Assert.NotNull(method);
+
+                string region = await (Task<string>)method!.Invoke(
+                    svc,
+                    new object?[] { "9.9.9.77", "https://geo.example.com/<ip>", CancellationToken.None })!;
+
+                Assert.Equal(string.Empty, region);
+                Assert.Equal(0, defaultCalls);
+                Assert.Equal(2, noRedirectCalls);
+            }
+            finally
+            {
+                SharedHttpClient.ResetTestClient("default");
+                SharedHttpClient.ResetTestClient("no-redirect");
+            }
+        }
+
+        [Fact]
+        public async Task SharedHttpClient_GetStringNoRedirectAsync_ReturnsBodyOn200Ok_AndThrowsOn302()
+        {
+            using var okClient = new HttpClient(new FakeHttpHandler(_ =>
+                new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("{\"city\":\"Tokyo\",\"countryCode\":\"JP\"}") }));
+            string body = await SharedHttpClient.GetStringNoRedirectCoreAsync(okClient, "https://ipwho.is/8.8.4.4");
+            Assert.Contains("\"Tokyo\"", body, StringComparison.Ordinal);
+
+            using var redirectClient = new HttpClient(new FakeHttpHandler(_ =>
+            {
+                var resp = new HttpResponseMessage(HttpStatusCode.MovedPermanently);
+                resp.Headers.Location = new Uri("http://127.0.0.1/admin");
+                return resp;
+            }));
+            var ex = await Assert.ThrowsAsync<HttpRequestException>(() =>
+                SharedHttpClient.GetStringNoRedirectCoreAsync(redirectClient, "https://geo.example.com/8.8.4.4"));
+            Assert.Contains("301", ex.Message, StringComparison.Ordinal);
         }
     }
 }
