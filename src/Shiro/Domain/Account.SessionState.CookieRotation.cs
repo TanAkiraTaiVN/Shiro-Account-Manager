@@ -84,7 +84,8 @@ namespace Shiro
             {
                 if (_disposed) return;
                 _disposed = true;
-                if (_suppressDeferredSaveDepth > 0) _suppressDeferredSaveDepth--;
+                int depth = _suppressDeferredSaveDepth.Value;
+                _suppressDeferredSaveDepth.Value = depth > 0 ? depth - 1 : 0;
             }
         }
 

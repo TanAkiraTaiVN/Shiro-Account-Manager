@@ -17,6 +17,7 @@ namespace Shiro.Services
         public static AccountWorkflowService Default => _defaultInstance.Value;
 
         private readonly IAppLogger _logger;
+        internal Func<Account, Task<bool>>? TestValidateSessionAsync { get; set; }
 
         public AccountWorkflowService() : this(AppServices.Logger) { }
 
@@ -120,10 +121,7 @@ namespace Shiro.Services
                 AppServices.Dialogs.ShowInfo(msg, LocalizationService.Get("AccountWorkflow.SessionCheckDialogTitle"));
         }
 
-        public async Task ReLoginWithCookieAsync(
-            IAccountWorkflowItem? accountVm,
-            IAccountWorkflowHost? viewModel,
-            Action<string>? statusCallback)
+        public async Task ReLoginWithCookieAsync(IAccountWorkflowItem? accountVm, IAccountWorkflowHost? viewModel, Action<string>? statusCallback)
         {
             if (accountVm?.Model == null) return;
             var acc = accountVm;
@@ -143,10 +141,20 @@ namespace Shiro.Services
                 string previousIssue = acc.Model.AccountStatusIssue;
                 long previousUserId = acc.Model.UserID;
                 string previousUsername = acc.Model.Username;
+                string? previousCsrfToken = acc.Model.CSRFToken;
+                DateTime previousTokenSet = acc.Model.TokenSet;
 
                 acc.Model.SecurityToken = token;
                 statusCallback?.Invoke(LocalizationService.Format("AccountWorkflow.ValidatingNewSession", acc.ShownUsername));
-                bool ok = await acc.Model.ValidateSessionAsync().ConfigureAwait(false);
+                bool ok = false;
+                try
+                {
+                    ok = await (TestValidateSessionAsync?.Invoke(acc.Model) ?? acc.Model.ValidateSessionAsync()).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    _logger.Warn($"[ReLoginWithCookieAsync] {acc.ShownUsername}: {ex.Message}");
+                }
 
                 if (ok)
                 {
@@ -169,21 +177,17 @@ namespace Shiro.Services
                     acc.Model.UserID = previousUserId;
                     acc.Model.Username = previousUsername;
                     acc.Model.AccountStatusIssue = previousIssue;
+                    acc.Model.CSRFToken = previousCsrfToken;
+                    acc.Model.TokenSet = previousTokenSet;
 
                     await AppDispatcher.InvokeAsync(() =>
                     {
-                        if (wasValid && !string.IsNullOrWhiteSpace(previousToken))
-                        {
-                            acc.Model.Valid = true;
-                            viewModel?.UpdateAccountValidity(acc.Model, true);
-                            statusCallback?.Invoke(LocalizationService.Format("AccountWorkflow.InvalidCookieRetainedOld", acc.ShownUsername));
-                        }
-                        else
-                        {
-                            acc.Model.Valid = false;
-                            viewModel?.UpdateAccountValidity(acc.Model, false);
-                            statusCallback?.Invoke(LocalizationService.Format("AccountWorkflow.InvalidOrExpiredCookie", acc.ShownUsername));
-                        }
+                        bool restoredValid = wasValid && !string.IsNullOrWhiteSpace(previousToken);
+                        acc.Model.Valid = restoredValid;
+                        viewModel?.UpdateAccountValidity(acc.Model, restoredValid);
+                        statusCallback?.Invoke(LocalizationService.Format(
+                            restoredValid ? "AccountWorkflow.InvalidCookieRetainedOld" : "AccountWorkflow.InvalidOrExpiredCookie",
+                            acc.ShownUsername));
                     });
                 }
             }

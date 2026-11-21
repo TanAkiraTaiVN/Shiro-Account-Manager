@@ -26,14 +26,13 @@ namespace Shiro
         private System.Threading.Lock? _fieldsLock = new();
         internal System.Threading.Lock FieldsSyncRoot => _fieldsLock ?? Interlocked.CompareExchange(ref _fieldsLock, new System.Threading.Lock(), null) ?? _fieldsLock!;
 
-        [ThreadStatic]
-        private static int _suppressDeferredSaveDepth;
+        private static readonly AsyncLocal<int> _suppressDeferredSaveDepth = new();
 
-        internal static bool IsSuppressingDeferredSave => _suppressDeferredSaveDepth > 0;
+        internal static bool IsSuppressingDeferredSave => _suppressDeferredSaveDepth.Value > 0;
 
         internal static IDisposable BeginSuppressDeferredSaveScope()
         {
-            _suppressDeferredSaveDepth++;
+            _suppressDeferredSaveDepth.Value++;
             return new SuppressDeferredSaveScope();
         }
 

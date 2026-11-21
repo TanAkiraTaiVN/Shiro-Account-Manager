@@ -16,6 +16,16 @@ namespace Shiro.Services
         private static readonly SearchValues<char> InvalidFileNameChars =
             SearchValues.Create(Path.GetInvalidFileNameChars());
 
+        private static readonly SearchValues<char> ComboSeparators =
+            SearchValues.Create(":|\t");
+
+        private static readonly HashSet<string> ReservedWindowsDeviceNames = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "CON", "PRN", "AUX", "NUL",
+            "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+            "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"
+        };
+
         internal async Task RefreshStaleCookiesAsync(
             SemaphoreSlim cookieRefreshGate,
             CancellationToken cancellationToken)
@@ -229,9 +239,7 @@ namespace Shiro.Services
             if (string.IsNullOrWhiteSpace(combo))
                 return (string.Empty, string.Empty);
 
-            int separator = combo.IndexOf('|');
-            if (separator <= 0) separator = combo.IndexOf('\t');
-            if (separator <= 0) separator = combo.IndexOf(':');
+            int separator = combo.AsSpan().IndexOfAny(ComboSeparators);
             if (separator <= 0 || separator >= combo.Length - 1)
                 return (string.Empty, string.Empty);
 
@@ -245,12 +253,7 @@ namespace Shiro.Services
 
             ReadOnlySpan<char> trimmed = value.AsSpan().Trim();
             if (trimmed.IndexOfAny(InvalidFileNameChars) < 0)
-            {
-                ReadOnlySpan<char> clean = trimmed.TrimEnd('.');
-                if (clean.IsEmpty || clean.IsWhiteSpace())
-                    return fallback;
-                return clean.Length == value.Length ? value : clean.ToString();
-            }
+                return FinalizeSafeFileName(trimmed, value, fallback);
 
             Span<char> buffer = trimmed.Length <= 256
                 ? stackalloc char[trimmed.Length]
@@ -262,8 +265,23 @@ namespace Shiro.Services
                 buffer[i] = InvalidFileNameChars.Contains(c) ? '_' : c;
             }
 
-            ReadOnlySpan<char> resultSpan = ((ReadOnlySpan<char>)buffer).Trim().TrimEnd('.');
-            return resultSpan.IsEmpty || resultSpan.IsWhiteSpace() ? fallback : resultSpan.ToString();
+            return FinalizeSafeFileName(buffer, null, fallback);
+        }
+
+        private static string FinalizeSafeFileName(ReadOnlySpan<char> candidate, string? unchangedSource, string fallback)
+        {
+            ReadOnlySpan<char> clean = candidate.Trim().TrimEnd(". ");
+            if (clean.IsEmpty || clean.IsWhiteSpace())
+                return fallback;
+
+            int dotIndex = clean.IndexOf('.');
+            ReadOnlySpan<char> stem = (dotIndex >= 0 ? clean[..dotIndex] : clean).TrimEnd(' ');
+            if (ReservedWindowsDeviceNames.GetAlternateLookup<ReadOnlySpan<char>>().Contains(stem))
+                return string.Concat("_".AsSpan(), clean);
+
+            return unchangedSource != null && clean.Length == unchangedSource.Length
+                ? unchangedSource
+                : clean.ToString();
         }
     }
 }

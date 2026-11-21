@@ -49,7 +49,27 @@ namespace Shiro.Services
 
         public void ResetEncryption(bool manualReset = false)
         {
-            _ = ResetEncryptionAsync(manualReset);
+            _ = ObserveResetEncryptionAsync(manualReset);
+        }
+
+        private async Task ObserveResetEncryptionAsync(bool manualReset)
+        {
+            try
+            {
+                await ResetEncryptionAsync(manualReset).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                AppServices.Logger?.Error($"[AccountPersistenceService] ResetEncryption failed: {ex.Message}");
+                try
+                {
+                    AppServices.Dialogs?.ShowError(ex.Message);
+                }
+                catch (Exception dialogEx)
+                {
+                    AppServices.Logger?.Debug($"[AccountPersistenceService] Failed to show ResetEncryption error dialog: {dialogEx.Message}");
+                }
+            }
         }
 
         private void SwitchToDefaultVaultEncryption()

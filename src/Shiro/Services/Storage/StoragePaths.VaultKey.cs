@@ -29,8 +29,8 @@ namespace Shiro.Services
             }
             _cachedVaultKeysByDir[dirKey] = key;
         }
-        private static readonly byte[] DpapiKeyHeader = Encoding.ASCII.GetBytes("SHIRO_DPAPI_KEY_V1");
-        private static readonly byte[] DpapiKeyEntropy = Encoding.ASCII.GetBytes("Shiro.VaultKey.v1");
+        internal static readonly byte[] DpapiKeyHeader = Encoding.ASCII.GetBytes("SHIRO_DPAPI_KEY_V1");
+        internal static readonly byte[] DpapiKeyEntropy = Encoding.ASCII.GetBytes("Shiro.VaultKey.v1");
 
         private static byte[] WrapVaultKey(byte[] key)
         {

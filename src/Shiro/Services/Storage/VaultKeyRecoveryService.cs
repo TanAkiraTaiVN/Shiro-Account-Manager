@@ -9,9 +9,6 @@ namespace Shiro.Services
 {
     internal static class VaultKeyRecoveryService
     {
-        private static readonly byte[] DpapiKeyHeader = Encoding.ASCII.GetBytes("SHIRO_DPAPI_KEY_V1");
-        private static readonly byte[] DpapiKeyEntropy = Encoding.ASCII.GetBytes("Shiro.VaultKey.v1");
-
         private static void TraceLog(string message)
         {
             try
@@ -28,23 +25,34 @@ namespace Shiro.Services
 
             foreach (string candidateFile in GetCandidateKeyFiles())
             {
+                byte[]? raw = null;
+                byte[]? unwrapped = null;
+                bool returned = false;
                 try
                 {
                     if (!File.Exists(candidateFile))
                         continue;
 
-                    byte[] raw = File.ReadAllBytes(candidateFile);
-                    byte[]? unwrapped = TryExtractKeyFromFileBytes(raw);
+                    raw = File.ReadAllBytes(candidateFile);
+                    unwrapped = TryExtractKeyFromFileBytes(raw);
                     if (unwrapped != null && CanDecrypt(encryptedAccountData, unwrapped))
                     {
                         PersistRecoveredVaultKey(unwrapped);
                         TraceLog($"Recovered valid vault key from '{candidateFile}'.");
+                        returned = true;
                         return unwrapped;
                     }
                 }
                 catch (Exception ex)
                 {
                     TraceLog($"Candidate key file '{candidateFile}' check failed: {ex.Message}");
+                }
+                finally
+                {
+                    if (raw != null)
+                        CryptographicOperations.ZeroMemory(raw);
+                    if (!returned && unwrapped != null)
+                        CryptographicOperations.ZeroMemory(unwrapped);
                 }
             }
 
@@ -66,24 +74,38 @@ namespace Shiro.Services
             if (raw == null || raw.Length == 0)
                 return null;
 
-            if (raw.Length > DpapiKeyHeader.Length &&
-                raw.AsSpan(0, DpapiKeyHeader.Length).SequenceEqual(DpapiKeyHeader))
+            byte[] header = StoragePaths.DpapiKeyHeader;
+            if (raw.Length > header.Length &&
+                raw.AsSpan(0, header.Length).SequenceEqual(header))
             {
+                byte[]? blob = null;
+                byte[]? key = null;
+                bool returned = false;
                 try
                 {
-                    byte[] blob = raw.AsSpan(DpapiKeyHeader.Length).ToArray();
-                    byte[] key = ProtectedData.Unprotect(blob, DpapiKeyEntropy, DataProtectionScope.CurrentUser);
+                    blob = raw.AsSpan(header.Length).ToArray();
+                    key = ProtectedData.Unprotect(blob, StoragePaths.DpapiKeyEntropy, DataProtectionScope.CurrentUser);
                     if (key != null && key.Length == 32)
+                    {
+                        returned = true;
                         return key;
+                    }
                 }
                 catch (Exception ex)
                 {
                     TraceLog($"DPAPI unprotect candidate key failed: {ex.Message}");
                 }
+                finally
+                {
+                    if (blob != null)
+                        CryptographicOperations.ZeroMemory(blob);
+                    if (!returned && key != null)
+                        CryptographicOperations.ZeroMemory(key);
+                }
             }
             else if (raw.Length == 32)
             {
-                return raw;
+                return raw.AsSpan().ToArray();
             }
 
             return null;

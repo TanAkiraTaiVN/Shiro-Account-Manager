@@ -449,7 +449,7 @@ namespace Shiro.Services
             }
             finally
             {
-                System.Buffers.ArrayPool<byte>.Shared.Return(rented);
+                System.Buffers.ArrayPool<byte>.Shared.Return(rented, clearArray: true);
             }
         }
 
