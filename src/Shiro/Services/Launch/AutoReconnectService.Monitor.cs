@@ -141,9 +141,7 @@ namespace Shiro.Services
         {
             if (decision == ReconnectDecision.CloseCleanly)
             {
-                session.IsSuppressed = true;
-                session.IsActive = false;
-                session.CancelPendingReconnect();
+                session.MarkSuppressedAndCancel();
                 _sessions.TryRemove(GetSessionKey(session.Account), out _);
                 AppServices.Logger?.Info($"[AutoReconnect] '{session.Account?.Username}' exited gracefully by user (ExitCode 0). Session closed.");
             }

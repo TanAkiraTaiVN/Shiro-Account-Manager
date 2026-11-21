@@ -1,5 +1,8 @@
 #nullable enable
 using System;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Shiro.Services
 {
@@ -10,7 +13,7 @@ namespace Shiro.Services
 
         private bool TryEnterReconnectGate()
         {
-            System.Threading.Interlocked.Increment(ref _activeGateUsers);
+            Interlocked.Increment(ref _activeGateUsers);
             if (_disposed)
             {
                 ExitReconnectGate(acquired: false);
@@ -27,13 +30,13 @@ namespace Shiro.Services
                 catch (ObjectDisposedException) { /* disposed concurrently */ }
             }
 
-            if (System.Threading.Interlocked.Decrement(ref _activeGateUsers) == 0 && _disposed)
+            if (Interlocked.Decrement(ref _activeGateUsers) == 0 && _disposed)
                 TryDisposeReconnectGate();
         }
 
         private void TryDisposeReconnectGate()
         {
-            if (System.Threading.Interlocked.Exchange(ref _gateDisposed, 1) == 0)
+            if (Interlocked.Exchange(ref _gateDisposed, 1) == 0)
             {
                 try { _reconnectGate.Dispose(); }
                 catch (ObjectDisposedException) { /* already disposed */ }
@@ -66,20 +69,26 @@ namespace Shiro.Services
             public int LastDisconnectReason { get; set; }
             public int? ObservedExitCode { get; set; }
             public bool ObservedProcessExited { get; set; }
-            public bool IsActive { get; set; } = true;
-            public bool IsSuppressed { get; set; }
+            public bool IsActive { get => _isActive; set => _isActive = value; }
+            public bool IsSuppressed { get => _isSuppressed; set => _isSuppressed = value; }
             internal bool NeedsRetry { get; set; }
-            internal System.Threading.CancellationTokenSource? ReconnectCts { get; set; }
-            internal System.Threading.Tasks.Task? ObserveExitTask { get; set; }
+            internal CancellationTokenSource? ReconnectCts { get; set; }
+            internal Task? ObserveExitTask { get; set; }
 
-            internal void CancelPendingReconnect()
+            internal void CancelPendingReconnect() => DetachTokensAndCancel(deactivate: false, suppress: false);
+            internal void DeactivateAndCancel() => DetachTokensAndCancel(deactivate: true, suppress: false);
+            internal void MarkSuppressedAndCancel() => DetachTokensAndCancel(deactivate: true, suppress: true);
+
+            private void DetachTokensAndCancel(bool deactivate, bool suppress)
             {
-                System.Threading.CancellationTokenSource? cts;
-                System.Threading.CancellationTokenSource? observeCts;
+                CancellationTokenSource? cts;
+                CancellationTokenSource? observeCts;
                 lock (_tokenLock)
                 {
-                    cts = System.Threading.Interlocked.Exchange(ref _ctsBacking, null);
-                    observeCts = System.Threading.Interlocked.Exchange(ref _observeCts, null);
+                    if (suppress) _isSuppressed = true;
+                    if (deactivate || suppress) _isActive = false;
+                    cts = Interlocked.Exchange(ref _ctsBacking, null);
+                    observeCts = Interlocked.Exchange(ref _observeCts, null);
                 }
 
                 CancelAndDisposeCts(cts);
@@ -88,11 +97,9 @@ namespace Shiro.Services
 
             internal void ReleaseObserveToken()
             {
-                System.Threading.CancellationTokenSource? observeCts;
+                CancellationTokenSource? observeCts;
                 lock (_tokenLock)
-                {
-                    observeCts = System.Threading.Interlocked.Exchange(ref _observeCts, null);
-                }
+                    observeCts = Interlocked.Exchange(ref _observeCts, null);
 
                 if (observeCts != null)
                 {
@@ -101,24 +108,36 @@ namespace Shiro.Services
                 }
             }
 
-            internal System.Threading.CancellationToken ResetReconnectToken(System.Threading.CancellationToken outerToken)
+            internal CancellationToken ResetReconnectToken(CancellationToken outerToken)
             {
-                CancelPendingReconnect();
-                var linked = CreateLinkedOrCanceledSource(outerToken);
+                CancellationTokenSource? oldCts;
+                CancellationTokenSource? oldObserveCts;
+                CancellationTokenSource? linked = null;
+                bool suppressed;
                 lock (_tokenLock)
                 {
-                    _ctsBacking = linked;
-                    ReconnectCts = linked;
+                    oldCts = Interlocked.Exchange(ref _ctsBacking, null);
+                    oldObserveCts = Interlocked.Exchange(ref _observeCts, null);
+                    suppressed = _isSuppressed;
+                    if (!suppressed)
+                    {
+                        linked = CreateLinkedOrCanceledSource(outerToken);
+                        _ctsBacking = linked;
+                        ReconnectCts = linked;
+                    }
                 }
-                return linked.Token;
+
+                CancelAndDisposeCts(oldCts);
+                CancelAndDisposeCts(oldObserveCts);
+                return suppressed ? new CancellationToken(canceled: true) : linked!.Token;
             }
 
-            internal System.Threading.CancellationToken GetOrCreateObserveToken(System.Threading.CancellationToken serviceToken)
+            internal CancellationToken GetOrCreateObserveToken(CancellationToken serviceToken)
             {
                 lock (_tokenLock)
                 {
-                    if (IsSuppressed || !IsActive)
-                        return new System.Threading.CancellationToken(canceled: true);
+                    if (_isSuppressed || !_isActive)
+                        return new CancellationToken(canceled: true);
 
                     if (_observeCts != null)
                         return _observeCts.Token;
@@ -128,25 +147,23 @@ namespace Shiro.Services
                 }
             }
 
-            private static System.Threading.CancellationTokenSource CreateLinkedOrCanceledSource(System.Threading.CancellationToken outerToken)
+            private static CancellationTokenSource CreateLinkedOrCanceledSource(CancellationToken outerToken)
             {
                 try
                 {
-                    return System.Threading.CancellationTokenSource.CreateLinkedTokenSource(outerToken);
+                    return CancellationTokenSource.CreateLinkedTokenSource(outerToken);
                 }
                 catch (ObjectDisposedException)
                 {
-                    var fallback = new System.Threading.CancellationTokenSource();
+                    var fallback = new CancellationTokenSource();
                     fallback.Cancel();
                     return fallback;
                 }
             }
 
-            private static void CancelAndDisposeCts(System.Threading.CancellationTokenSource? cts)
+            private static void CancelAndDisposeCts(CancellationTokenSource? cts)
             {
-                if (cts == null)
-                    return;
-
+                if (cts == null) return;
                 try { cts.Cancel(); }
                 catch (ObjectDisposedException) { /* already disposed */ }
                 try { cts.Dispose(); }
@@ -154,8 +171,10 @@ namespace Shiro.Services
             }
 
             private readonly System.Threading.Lock _tokenLock = new();
-            private System.Threading.CancellationTokenSource? _ctsBacking;
-            private System.Threading.CancellationTokenSource? _observeCts;
+            private volatile bool _isActive = true;
+            private volatile bool _isSuppressed;
+            private CancellationTokenSource? _ctsBacking;
+            private CancellationTokenSource? _observeCts;
         }
 
         /// <summary>
@@ -214,11 +233,7 @@ namespace Shiro.Services
             if (string.IsNullOrWhiteSpace(username)) return;
             if (_sessions.TryRemove(username, out var removed))
             {
-                if (removed != null)
-                {
-                    removed.IsActive = false;
-                    removed.CancelPendingReconnect();
-                }
+                removed?.DeactivateAndCancel();
                 AppServices.Logger.Debug($"[AutoReconnect] Unregistered session for '{username}'.");
             }
         }
@@ -237,9 +252,7 @@ namespace Shiro.Services
             if (string.IsNullOrWhiteSpace(username)) return;
             if (_sessions.TryGetValue(username, out var session))
             {
-                session.IsSuppressed = true;
-                session.IsActive = false;
-                session.CancelPendingReconnect();
+                session.MarkSuppressedAndCancel();
                 AppServices.Logger?.Debug($"[AutoReconnect] Reconnection suppressed for '{username}'.");
             }
         }
@@ -250,11 +263,7 @@ namespace Shiro.Services
         public void SuppressAll()
         {
             foreach (var session in _sessions.Values)
-            {
-                session.IsSuppressed = true;
-                session.IsActive = false;
-                session.CancelPendingReconnect();
-            }
+                session.MarkSuppressedAndCancel();
             AppServices.Logger.Info("[AutoReconnect] Suppressed reconnect for all active sessions.");
         }
 
@@ -264,26 +273,16 @@ namespace Shiro.Services
         public void Clear()
         {
             foreach (var s in _sessions.Values)
-            {
-                if (s != null)
-                {
-                    s.IsActive = false;
-                    s.CancelPendingReconnect();
-                }
-            }
+                s?.DeactivateAndCancel();
             _sessions.Clear();
         }
 
         private void SuppressAndRemoveIneligibleSession(ReconnectSession session, string sessionKey)
         {
             lock (_lock)
-            {
-                session.IsSuppressed = true;
-                session.IsActive = false;
-            }
-            session.CancelPendingReconnect();
+                session.MarkSuppressedAndCancel();
             if (!string.IsNullOrEmpty(sessionKey))
-                _sessions.TryRemove(new System.Collections.Generic.KeyValuePair<string, ReconnectSession>(sessionKey, session));
+                _sessions.TryRemove(new KeyValuePair<string, ReconnectSession>(sessionKey, session));
             AppServices.Logger?.Warn($"[AutoReconnect] Skipping reconnect for ineligible account '{session.Account?.Username}'.");
         }
 
@@ -300,6 +299,24 @@ namespace Shiro.Services
             }
 
             return false;
+        }
+
+        private void ApplyReconnectOutcomeState(ReconnectSession session, CancellationToken reconnectToken, bool succeeded)
+        {
+            lock (_lock)
+            {
+                if (_disposed || session.IsSuppressed || reconnectToken.IsCancellationRequested)
+                    return;
+
+                if (succeeded)
+                {
+                    session.LaunchTimeUtc = DateTime.UtcNow;
+                    session.ObservedProcessExited = false;
+                    session.ObservedExitCode = null;
+                }
+                session.NeedsRetry = !succeeded;
+                session.IsActive = true;
+            }
         }
 
         public bool TryGetAccountSession(Account? account, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out ReconnectSession? session) =>
@@ -331,9 +348,7 @@ namespace Shiro.Services
                 var session = kvp.Value;
                 if (session != null && session.ProcessId == processId)
                 {
-                    session.IsSuppressed = true;
-                    session.IsActive = false;
-                    session.CancelPendingReconnect();
+                    session.MarkSuppressedAndCancel();
                     AppServices.Logger?.Debug($"[AutoReconnect] Reconnection suppressed for PID {processId} ('{session.Account?.Username}').");
                 }
             }

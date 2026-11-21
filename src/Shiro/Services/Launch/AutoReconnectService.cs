@@ -261,9 +261,7 @@ namespace Shiro.Services
                 DateTime? preservedLastReconnect = null;
                 if (_sessions.TryGetValue(sessionKey, out var existing) && existing != null)
                 {
-                    existing.IsSuppressed = true;
-                    existing.IsActive = false;
-                    existing.CancelPendingReconnect();
+                    existing.MarkSuppressedAndCancel();
                     DateTime baseline = existing.LastReconnectUtc ?? existing.LaunchTimeUtc;
                     if (existing.RetryCount > 0 && (now - baseline) < StableResetWindow)
                     {
@@ -342,12 +340,15 @@ namespace Shiro.Services
                 return;
             }
 
+            CancellationToken reconnectToken = session.ResetReconnectToken(LifecycleToken);
+            if (reconnectToken.IsCancellationRequested || ShouldAbortReconnectTask(session, sessionKey))
+                return;
+
             session.RetryCount++;
             session.LastReconnectUtc = DateTime.UtcNow;
             session.LastDisconnectUtc = null;
             int delaySeconds = (int)(InitialBackoff.TotalSeconds * Math.Pow(1.5, session.RetryCount - 1));
             delaySeconds = Math.Clamp(delaySeconds, 5, 60);
-            CancellationToken reconnectToken = session.ResetReconnectToken(LifecycleToken);
 
             AppServices.Logger?.Warn($"[AutoReconnect] Roblox client for '{session.Account.Username}' terminated/disconnected. Scheduling reconnect attempt #{session.RetryCount}/{MaxRetries} in {delaySeconds}s...");
             ReconnectAttempted?.Invoke(session, session.RetryCount);
@@ -392,50 +393,37 @@ namespace Shiro.Services
 
                         if (result == "Success")
                         {
-                            Interlocked.Increment(ref _totalReconnections);
-                            lock (_lock)
-                            {
-                                session.LaunchTimeUtc = DateTime.UtcNow;
-                                session.ObservedProcessExited = false;
-                                session.ObservedExitCode = null;
-                                session.NeedsRetry = false;
-                                session.IsActive = true;
-                            }
+                            if (!_disposed && !session.IsSuppressed && !reconnectToken.IsCancellationRequested)
+                                Interlocked.Increment(ref _totalReconnections);
+                            ApplyReconnectOutcomeState(session, reconnectToken, succeeded: true);
                             AppServices.Logger?.Info($"[AutoReconnect] Successfully reconnected '{session.Account.Username}'.");
                         }
                         else
                         {
                             AppServices.Logger?.Warn($"[AutoReconnect] Reconnect for '{session.Account.Username}' failed: {result}");
-                            lock (_lock)
-                            {
-                                session.NeedsRetry = true;
-                                session.IsActive = true;
-                            }
+                            ApplyReconnectOutcomeState(session, reconnectToken, succeeded: false);
                         }
                     }
-                    catch (ObjectDisposedException) when (_disposed)
+                    catch (ObjectDisposedException) when (_disposed || reconnectToken.IsCancellationRequested || session.IsSuppressed || !IsEnabled)
                     {
-                        /* disposed concurrently during shutdown */
+                        /* canceled or disposed concurrently during suppress/shutdown */
                     }
-                    catch (OperationCanceledException) when (reconnectToken.IsCancellationRequested)
+                    catch (OperationCanceledException) when (reconnectToken.IsCancellationRequested || _disposed || session.IsSuppressed)
                     {
                         throw;
                     }
                     catch (Exception ex)
                     {
                         AppServices.Logger?.Error($"[AutoReconnect] Reconnect task error for '{session.Account.Username}': {ex.Message}");
-                        lock (_lock)
-                        {
-                            session.NeedsRetry = true;
-                            session.IsActive = true;
-                        }
+                        ApplyReconnectOutcomeState(session, reconnectToken, succeeded: false);
                     }
                     finally
                     {
                         ExitReconnectGate(gateAcquired);
                     }
                 }
-                    catch (OperationCanceledException) { /* canceled or disabled during backoff */ }
+                catch (OperationCanceledException) { /* canceled or disabled during backoff */ }
+                catch (ObjectDisposedException) when (_disposed || reconnectToken.IsCancellationRequested || session.IsSuppressed || !IsEnabled) { /* disposed during backoff */ }
                 catch (Exception ex)
                 {
                     AppServices.Logger?.Error($"[AutoReconnect] Unexpected backoff loop error for '{session.Account.Username}': {ex.Message}");
@@ -466,13 +454,7 @@ namespace Shiro.Services
             MaxRetriesExceeded -= OnMaxRetriesExceeded;
             _monitorTimer?.Dispose();
             foreach (var session in _sessions.Values)
-            {
-                if (session != null)
-                {
-                    session.IsActive = false;
-                    session.CancelPendingReconnect();
-                }
-            }
+                session?.DeactivateAndCancel();
             _sessions.Clear();
             if (Volatile.Read(ref _activeGateUsers) == 0)
                 TryDisposeReconnectGate();

@@ -286,5 +286,111 @@ namespace Shiro.Tests
                 }
             }
         }
+
+        [Fact]
+        public async Task HandleProcessExit_WhenTokenDisposedDuringSuppressOrShutdown_DoesNotFlipSessionToNeedsRetry()
+        {
+            foreach (bool useStopForShutdown in new[] { false, true })
+            {
+                var ini = new IniFile();
+                var general = ini["General"];
+                using var settingsScope = AppServices.Override<ISettingsService>(general);
+                using var service = new AutoReconnectService(TimeSpan.FromHours(1))
+                {
+                    IsEnabled = true,
+                    TestReconnectDelayMsOverride = 1
+                };
+
+                var joinEntered = new TaskCompletionSource<CancellationToken>(TaskCreationOptions.RunContinuationsAsynchronously);
+                var cancelCompleted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+                var joinExited = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+                bool odeObserved = false;
+
+                service.TestJoinServerWithTokenOverride = async (s, ct) =>
+                {
+                    joinEntered.TrySetResult(ct);
+                    await cancelCompleted.Task.WaitAsync(TimeSpan.FromSeconds(3)).ConfigureAwait(false);
+                    try
+                    {
+                        var waitHandle = ct.WaitHandle;
+                        GC.KeepAlive(waitHandle);
+                        return "Success";
+                    }
+                    catch (ObjectDisposedException)
+                    {
+                        odeObserved = true;
+                        throw;
+                    }
+                    finally
+                    {
+                        joinExited.TrySetResult(true);
+                    }
+                };
+
+                var acc = new Account { Username = useStopForShutdown ? "OdeShutdownUser" : "OdeSuppressUser", UserID = 81008, Valid = true };
+                service.RegisterSession(acc, 1818, processId: 0, nowUtcOverride: DateTime.UtcNow.AddMinutes(-2));
+                Assert.True(service.TryGetAccountSession(acc, out var session));
+
+                service.HandleProcessExit(session!);
+                await joinEntered.Task.WaitAsync(TimeSpan.FromSeconds(3));
+
+                if (useStopForShutdown)
+                    service.StopForShutdown();
+                else
+                    service.SuppressReconnect(acc.Username);
+
+                cancelCompleted.TrySetResult(true);
+                await joinExited.Task.WaitAsync(TimeSpan.FromSeconds(3));
+                await Task.Delay(50);
+
+                Assert.True(odeObserved);
+                Assert.True(session!.IsSuppressed);
+                Assert.False(session.NeedsRetry);
+                Assert.False(session.IsActive);
+            }
+        }
+
+        [Fact]
+        public async Task ResetReconnectToken_WhenSuppressedSequentiallyOrConcurrently_NeverReturnsUncanceledToken()
+        {
+            var suppressedSession = new AutoReconnectService.ReconnectSession
+            {
+                Account = new Account { Username = "SuppressedResetUser", UserID = 81009 }
+            };
+            suppressedSession.IsSuppressed = true;
+            suppressedSession.IsActive = false;
+            suppressedSession.CancelPendingReconnect();
+
+            CancellationToken tokenAfterSuppress = suppressedSession.ResetReconnectToken(CancellationToken.None);
+            Assert.True(tokenAfterSuppress.IsCancellationRequested);
+
+            for (int i = 0; i < 200; i++)
+            {
+                var raceSession = new AutoReconnectService.ReconnectSession
+                {
+                    Account = new Account { Username = $"RaceResetUser_{i}", UserID = 82000 + i }
+                };
+
+                using var barrier = new Barrier(2);
+                CancellationToken observedToken = CancellationToken.None;
+
+                var resetTask = Task.Run(() =>
+                {
+                    barrier.SignalAndWait();
+                    observedToken = raceSession.ResetReconnectToken(CancellationToken.None);
+                });
+
+                var suppressTask = Task.Run(() =>
+                {
+                    barrier.SignalAndWait();
+                    raceSession.IsSuppressed = true;
+                    raceSession.IsActive = false;
+                    raceSession.CancelPendingReconnect();
+                });
+
+                await Task.WhenAll(resetTask, suppressTask);
+                Assert.True(observedToken.IsCancellationRequested);
+            }
+        }
     }
 }
