@@ -19,7 +19,7 @@ namespace Shiro
                 GetConfiguredAccountJoinDelaySeconds(),
                 AppServices.GeneralSettings.GetBool("AsyncJoin"),
                 SetDashboardStatus,
-                lifetimeCancellation.Token);
+                SafeLifetimeToken);
 
         private Task LaunchHomeAccountsAsync(IReadOnlyList<Account> accounts, bool preferChromeHome) =>
             AccountLaunchBatchService.LaunchHomeAccountsAsync(
@@ -29,7 +29,7 @@ namespace Shiro
                 HomeLaunchStaggerMilliseconds,
                 () => { if (AppServices.GeneralSettings.GetBool("EnableMultiRbx") && !RobloxSingletonService.MutexHeld) TryEnableMultiRoblox(promptIfRobloxRunning: false); },
                 SetDashboardStatus,
-                lifetimeCancellation.Token);
+                SafeLifetimeToken);
 
         private async Task<LaunchResult> ExecuteLaunchRequestAsync(LaunchRequest request, CancellationToken cancellationToken)
         {

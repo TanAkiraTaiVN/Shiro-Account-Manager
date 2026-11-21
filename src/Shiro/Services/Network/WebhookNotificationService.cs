@@ -5,7 +5,6 @@ using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
-using System.Threading.Channels;
 using System.Threading.Tasks;
 
 namespace Shiro.Services
@@ -27,7 +26,7 @@ namespace Shiro.Services
         public DateTimeOffset Timestamp { get; set; } = DateTimeOffset.UtcNow;
     }
 
-    public static class WebhookNotificationService
+    public static partial class WebhookNotificationService
     {
         private static readonly AsyncLocal<IAppLogger?> _loggerOverride = new();
         private static IAppLogger _logger => Logger;
@@ -39,19 +38,6 @@ namespace Shiro.Services
 
         private static readonly SemaphoreSlim Gate = new(1, 1);
         private static DateTimeOffset _lastDispatchUtc = DateTimeOffset.MinValue;
-
-        private static readonly Channel<WebhookAlert> AlertChannel = Channel.CreateBounded<WebhookAlert>(
-            new BoundedChannelOptions(100)
-            {
-                FullMode = BoundedChannelFullMode.DropOldest,
-                SingleReader = true,
-                SingleWriter = false
-            });
-
-        static WebhookNotificationService()
-        {
-            _ = Task.Run(ProcessAlertsLoopAsync);
-        }
 
         public static event Action<WebhookAlert>? AlertDispatched;
 
@@ -265,7 +251,7 @@ namespace Shiro.Services
             if (!ShouldSend(alert)) return;
 
             NotifyDispatched(alert);
-            AlertChannel.Writer.TryWrite(alert);
+            EnsureLoopStartedAndGetWriter().TryWrite(alert);
         }
 
         public static async Task SendAlertAsync(WebhookAlert alert, CancellationToken ct = default)
@@ -275,28 +261,6 @@ namespace Shiro.Services
 
             NotifyDispatched(alert);
             await DispatchSingleAlertAsync(alert, ct).ConfigureAwait(false);
-        }
-
-        private static async Task ProcessAlertsLoopAsync()
-        {
-            var reader = AlertChannel.Reader;
-            try
-            {
-                while (await reader.WaitToReadAsync().ConfigureAwait(false))
-                {
-                    while (reader.TryRead(out var alert))
-                    {
-                        if (alert != null)
-                        {
-                            await DispatchSingleAlertAsync(alert).ConfigureAwait(false);
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.Debug($"[Webhook] Alert processing loop ended: {ex.Message}");
-            }
         }
 
         private static async Task DispatchSingleAlertAsync(WebhookAlert alert, CancellationToken ct = default)

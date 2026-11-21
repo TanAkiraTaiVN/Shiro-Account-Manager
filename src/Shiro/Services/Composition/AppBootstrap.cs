@@ -311,10 +311,12 @@ namespace Shiro.Services
             }
 
             List<Action> syncCallbacks;
+            List<Func<ValueTask>> asyncCallbacks;
             ServiceProvider? provider;
             lock (_gate)
             {
                 syncCallbacks = new List<Action>(_shutdownCallbacks);
+                asyncCallbacks = new List<Func<ValueTask>>(_asyncShutdownCallbacks);
                 _shutdownCallbacks.Clear();
                 _asyncShutdownCallbacks.Clear();
                 provider = _serviceProvider;
@@ -325,6 +327,22 @@ namespace Shiro.Services
             for (int i = syncCallbacks.Count - 1; i >= 0; i--)
             {
                 SafeExecuteHelper.Try(syncCallbacks[i], "AppBootstrap.DisposeSync.Callback");
+            }
+
+            for (int i = asyncCallbacks.Count - 1; i >= 0; i--)
+            {
+                var cb = asyncCallbacks[i];
+                try
+                {
+                    if (!Task.Run(() => cb().AsTask()).Wait(2000))
+                    {
+                        AppServices.Logger?.Debug("[AppBootstrap] Async shutdown callback timed out during DisposeSynchronously.");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    AppServices.Logger?.Debug($"[AppBootstrap] Shutdown callback threw: {ex.Message}");
+                }
             }
 
             provider?.Dispose();

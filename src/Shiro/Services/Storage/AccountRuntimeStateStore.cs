@@ -203,6 +203,29 @@ namespace Shiro.Services
             }
         }
 
+        /// <summary>
+        /// Flushes any pending runtime state changes and disposes the debounce timer.
+        /// Subsequent writes lazily recreate the timer.
+        /// </summary>
+        public static bool Shutdown()
+        {
+            bool flushed = Flush();
+            lock (_sync)
+            {
+                if (_debounceTimer != null)
+                {
+                    try { _debounceTimer.Change(Timeout.Infinite, Timeout.Infinite); }
+                    catch (ObjectDisposedException) { /* already disposed */ }
+
+                    try { _debounceTimer.Dispose(); }
+                    catch (ObjectDisposedException) { /* already disposed */ }
+
+                    _debounceTimer = null;
+                }
+            }
+            return flushed;
+        }
+
         internal static void ResetInMemoryCacheForTests()
         {
             lock (_sync)

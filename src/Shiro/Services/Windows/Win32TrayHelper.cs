@@ -218,6 +218,23 @@ namespace Shiro.Services
             }
         }
 
+        public static void CancelPendingRefresh()
+        {
+            lock (_refreshTrayLock)
+            {
+                if (_refreshTrayCts == null)
+                    return;
+
+                try { _refreshTrayCts.Cancel(); }
+                catch (ObjectDisposedException) { /* already disposed */ }
+
+                try { _refreshTrayCts.Dispose(); }
+                catch (ObjectDisposedException) { /* already disposed */ }
+
+                _refreshTrayCts = null;
+            }
+        }
+
         /// <summary>
         /// Cleans up ghost/dead tray icons left in Windows notification area after processes terminate.
         /// Thoroughly enumerates all ToolbarWindow32 in Shell_TrayWnd, Shell_SecondaryTrayWnd,

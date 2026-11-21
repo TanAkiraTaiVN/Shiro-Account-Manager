@@ -41,7 +41,7 @@ namespace Shiro
         private Task AddRecentGame(Game RG, bool Loading = false) =>
             GameInfoService.AddRecentGameAsync(RG, Loading, rg => AppDispatcher.Post(() => RecentGameAdded?.Invoke(this, new GameArgs(rg))));
 
-        private void WireStateAndHostBridgeServices()
+        internal void WireStateAndHostBridgeServices()
         {
             if (AppServices.ServerBrowserState is ServerBrowserStateService sbState)
                 sbState.LoadClientVersionDelegate = LoadClientVersionAsync;
@@ -88,6 +88,14 @@ namespace Shiro
                 bridge.ResetEncryptionHandler = Persistence.ResetEncryptionAsync;
                 bridge.ExecuteApiLaunchHandler = ExecuteApiLaunchViaCoordinatorAsync;
             }
+        }
+
+        private void ClearHostUiBridgeHandlersIfOwned()
+        {
+            if (AppServices.HostUiBridge is not HostUiBridgeService bridge || !ReferenceEquals(bridge.ShutdownBackendHandler?.Target, this)) return;
+            bridge.SchedulePresenceRefreshHandler = null; bridge.ExecuteApiLaunchHandler = null; bridge.LaunchAppHomeHandler = null;
+            bridge.JoinServerHandler = null; bridge.MultiLaunchHomeHandler = null; bridge.GetCurrentSelectedAccountsHandler = null;
+            bridge.InitializePostStartupHandler = null; bridge.ShutdownBackendHandler = null;
         }
 
         internal static void WireHostServices(IServiceProvider? services = null)

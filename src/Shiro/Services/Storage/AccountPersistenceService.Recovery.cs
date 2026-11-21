@@ -14,9 +14,45 @@ namespace Shiro.Services
 
         public void QueueDeferredSave()
         {
-            try { _deferredSaveTimer.Change(1500, Timeout.Infinite); }
+            try
+            {
+                lock (_deferredTimerLock)
+                {
+                    if (IsShutdownRequested)
+                        return;
+
+                    _deferredSaveTimer ??= new Timer(
+                        OnDeferredSaveTimer,
+                        null,
+                        Timeout.Infinite,
+                        Timeout.Infinite);
+                    _deferredSaveTimer.Change(1500, Timeout.Infinite);
+                }
+            }
             catch (ObjectDisposedException) { /* timer disposed during shutdown */ }
             catch (Exception ex) { AppServices.Logger?.Warn($"Failed to schedule deferred account save: {ex.Message}"); }
+        }
+
+        internal void StopDeferredSave()
+        {
+            Timer? timerToDispose;
+            lock (_deferredTimerLock)
+            {
+                IsShutdownRequested = true;
+                timerToDispose = _deferredSaveTimer;
+                _deferredSaveTimer = null;
+                if (timerToDispose != null)
+                {
+                    try { timerToDispose.Change(Timeout.Infinite, Timeout.Infinite); }
+                    catch (ObjectDisposedException) { /* already disposed */ }
+                }
+            }
+
+            if (timerToDispose != null)
+            {
+                try { timerToDispose.Dispose(); }
+                catch (ObjectDisposedException) { /* already disposed */ }
+            }
         }
 
         private static byte[] TryUnprotectAccountData(byte[] data, out bool usedLegacyScope)

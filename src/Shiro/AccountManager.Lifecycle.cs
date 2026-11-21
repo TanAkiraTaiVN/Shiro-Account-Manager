@@ -202,77 +202,78 @@ namespace Shiro
 
         public void ShutdownBackend()
         {
-            if (shutdownFinalized)
-                return;
-
-            shutdownRequested = true;
-            Persistence.IsShutdownRequested = true;
-
-            SafeExecuteHelper.Try(CancelLaunching);
-            SafeExecuteHelper.Try(() => launchCoordinator?.Dispose());
-            SafeExecuteHelper.Try(() => lifetimeCancellation?.Cancel());
-            SafeExecuteHelper.Try(() => AutoCookieRefresh?.Stop());
-            SafeExecuteHelper.Try(() => PresenceTimer?.Stop());
-            SafeExecuteHelper.Try(() => AutoCookieRefresh?.Dispose());
-            SafeExecuteHelper.Try(() => PresenceTimer?.Dispose());
-            SafeExecuteHelper.Try(StreamerModeService.Shutdown);
-            SafeExecuteHelper.Try(RobloxSingletonService.Stop);
-            SafeExecuteHelper.Try(AntiAfkService.Stop);
-            SafeExecuteHelper.Try(() => RobloxAudioService.ConfigureSmartMute(false));
-            SafeExecuteHelper.Try(RobloxWatcher.Stop);
-            SafeExecuteHelper.Try(() => RobloxBackgroundThrottlerService.Instance.IsEnabled = false);
-            SafeExecuteHelper.Try(() => MemoryOptimizer.ConfigureAutoTrim(false));
-            SafeExecuteHelper.Try(RobloxJobObjectService.Close);
-            SafeExecuteHelper.Try(RobloxWindowService.ShowAllWindows);
-            SafeExecuteHelper.Try(() =>
+            lock (_shutdownLock)
             {
-                KestrelWebServer? ws = Interlocked.Exchange(ref AltManagerWS, null);
-                if (ws != null) Task.Run(async () => await ws.DisposeAsync().ConfigureAwait(false)).Wait(TimeSpan.FromSeconds(2));
+                if (Interlocked.Exchange(ref _shutdownStarted, 1) != 0)
+                    return;
+
+                shutdownRequested = true;
+                Persistence.IsShutdownRequested = true;
+
+                try { BuildShutdownCoordinator().ExecuteAll(); }
+                finally
+                {
+                    shutdownFinalized = true;
+                    ClearHostUiBridgeHandlersIfOwned();
+                }
+            }
+
+            try { if (!SuppressExitOnShutdown && !Program.Closed && Avalonia.Application.Current == null) Environment.Exit(0); }
+            catch (Exception ex) { Program.Logger?.Debug($"Environment.Exit threw: {ex.Message}"); }
+        }
+
+        private ShutdownCoordinator BuildShutdownCoordinator()
+        {
+            var coordinator = new ShutdownCoordinator();
+            coordinator.Register(ShutdownPhase.StopMonitors, "CancelLaunching", CancelLaunching);
+            coordinator.Register(ShutdownPhase.StopMonitors, "LaunchCoordinator.Dispose", () => launchCoordinator?.Dispose());
+            coordinator.Register(ShutdownPhase.StopMonitors, "LifetimeCancellation.Cancel", () => lifetimeCancellation?.Cancel());
+            coordinator.Register(ShutdownPhase.StopMonitors, "AutoCookieRefresh.Stop", () => { SafeExecuteHelper.Try(() => AutoCookieRefresh?.Stop()); SafeExecuteHelper.Try(() => AutoCookieRefresh?.Dispose()); });
+            coordinator.Register(ShutdownPhase.StopMonitors, "PresenceTimer.Stop", () => { SafeExecuteHelper.Try(() => PresenceTimer?.Stop()); SafeExecuteHelper.Try(() => PresenceTimer?.Dispose()); });
+            coordinator.Register(ShutdownPhase.StopMonitors, "AutoReconnectService.StopForShutdown", AutoReconnectService.Instance.StopForShutdown);
+            coordinator.Register(ShutdownPhase.StopMonitors, "StreamerModeService.Shutdown", StreamerModeService.Shutdown);
+            coordinator.Register(ShutdownPhase.StopMonitors, "RobloxSingletonService.Stop", RobloxSingletonService.Stop);
+            coordinator.Register(ShutdownPhase.StopMonitors, "AntiAfkService.Stop", AntiAfkService.Stop);
+            coordinator.Register(ShutdownPhase.StopMonitors, "RobloxAudioService.Shutdown", RobloxAudioService.Shutdown);
+            coordinator.Register(ShutdownPhase.StopMonitors, "RobloxWatcher.Stop", RobloxWatcher.Stop);
+            coordinator.Register(ShutdownPhase.StopMonitors, "RobloxBackgroundThrottler.Disable", () => RobloxBackgroundThrottlerService.Instance.IsEnabled = false);
+            coordinator.Register(ShutdownPhase.StopMonitors, "MemoryOptimizer.DisableAutoTrim", () => MemoryOptimizer.ConfigureAutoTrim(false));
+            coordinator.Register(ShutdownPhase.StopMonitors, "Win32TrayHelper.CancelPendingRefresh", Win32TrayHelper.CancelPendingRefresh);
+            coordinator.Register(ShutdownPhase.StopMonitors, "RobloxJobObjectService.Close", RobloxJobObjectService.Close);
+            coordinator.Register(ShutdownPhase.StopMonitors, "RobloxWindowService.ShowAllWindows", () => RobloxWindowService.ShowAllWindows());
+            coordinator.Register(ShutdownPhase.StopServersAndIntegrations, "KestrelWebServer.Dispose", () =>
+            {
+                if (Interlocked.Exchange(ref AltManagerWS, null) is { } ws)
+                    Task.Run(async () => await ws.DisposeAsync().ConfigureAwait(false)).Wait(TimeSpan.FromSeconds(2));
             });
-            SafeExecuteHelper.Try(() => RobloxDirectLauncher.RestoreOriginalCookies());
-            SafeExecuteHelper.Try(() => AccountRuntimeStateStore.Flush());
-            SafeExecuteHelper.Try(() => presenceService?.Dispose());
-            SafeExecuteHelper.Try(DiscordRpcService.Default.Dispose);
-
-            try
+            coordinator.Register(ShutdownPhase.StopServersAndIntegrations, "WebhookNotificationService.Shutdown", () => WebhookNotificationService.Shutdown(1000));
+            coordinator.Register(ShutdownPhase.StopServersAndIntegrations, "PresenceService.Dispose", () => presenceService?.Dispose());
+            coordinator.Register(ShutdownPhase.StopServersAndIntegrations, "DiscordRpcService.Dispose", DiscordRpcService.Default.Dispose);
+            coordinator.Register(ShutdownPhase.FlushPersistence, "RobloxDirectLauncher.RestoreOriginalCookies", () => RobloxDirectLauncher.RestoreOriginalCookies());
+            coordinator.Register(ShutdownPhase.FlushPersistence, "AccountRuntimeStateStore.Shutdown", () => AccountRuntimeStateStore.Shutdown());
+            coordinator.Register(ShutdownPhase.FlushPersistence, "Persistence.SaveAccounts", () =>
             {
-                Persistence.SaveAccounts(bypassRateLimit: true);
-            }
-            catch (Exception ex)
+                try { Persistence.SaveAccounts(bypassRateLimit: true); }
+                catch (Exception ex) { Program.Logger.Error($"Error saving accounts on close: {ex}"); }
+            });
+            coordinator.Register(ShutdownPhase.FlushPersistence, "Persistence.StopDeferredSave", Persistence.StopDeferredSave);
+            coordinator.Register(ShutdownPhase.FlushPersistence, "SettingsService.Save", () =>
             {
-                Program.Logger.Error($"Error saving accounts on close: {ex}");
-            }
-
-            try
-            {
-                CancelDeferredSaveSettings();
-                if (!string.IsNullOrEmpty(AppServices.ServerBrowserState.CurrentPlaceId))
+                try
                 {
-                    AppSettings.General.Set("SavedPlaceId", AppServices.ServerBrowserState.CurrentPlaceId);
+                    CancelDeferredSaveSettings();
+                    if (!string.IsNullOrEmpty(AppServices.ServerBrowserState.CurrentPlaceId))
+                        AppSettings.General.Set("SavedPlaceId", AppServices.ServerBrowserState.CurrentPlaceId);
+                    settingsService?.Save();
                 }
-                settingsService?.Save();
-            }
-            catch (Exception ex)
-            {
-                Program.Logger?.Warn($"Settings save on shutdown threw: {ex.Message}");
-            }
-
-            SafeExecuteHelper.Try(StoragePaths.ClearCachedVaultKey);
-            SafeExecuteHelper.Try(RobloxHbaService.ClearKeyCache);
-
-            shutdownFinalized = true;
-
-            try
-            {
-                if (!SuppressExitOnShutdown && !Program.Closed && Avalonia.Application.Current == null)
-                {
-                    Environment.Exit(0);
-                }
-            }
-            catch (Exception ex)
-            {
-                Program.Logger?.Debug($"Environment.Exit threw: {ex.Message}");
-            }
+                catch (Exception ex) { Program.Logger?.Warn($"Settings save on shutdown threw: {ex.Message}"); }
+            });
+            coordinator.Register(ShutdownPhase.ClearSecretsAndPools, "StoragePaths.ClearCachedVaultKey", StoragePaths.ClearCachedVaultKey);
+            coordinator.Register(ShutdownPhase.ClearSecretsAndPools, "RobloxHbaService.ClearKeyCache", RobloxHbaService.ClearKeyCache);
+            coordinator.Register(ShutdownPhase.ClearSecretsAndPools, "ProxyBindingService.ClearClients", ProxyBindingService.ClearClients);
+            coordinator.Register(ShutdownPhase.ClearSecretsAndPools, "SharedHttpClient.DisposeAll", SharedHttpClient.DisposeAll);
+            coordinator.Register(ShutdownPhase.ClearSecretsAndPools, "LifetimeSync.Dispose", () => { SafeExecuteHelper.Try(() => lifetimeCancellation?.Dispose()); SafeExecuteHelper.Try(() => cookieRefreshGate?.Dispose()); });
+            return coordinator;
         }
 
         public void SetAutoCookieRefreshEnabled(bool enabled)

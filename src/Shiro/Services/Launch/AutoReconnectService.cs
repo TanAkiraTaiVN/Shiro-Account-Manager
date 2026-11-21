@@ -20,9 +20,21 @@ namespace Shiro.Services
 
         private readonly SemaphoreSlim _reconnectGate = new SemaphoreSlim(1, 1);
         private readonly Timer _monitorTimer;
+        private readonly TimeSpan _monitorInterval;
         private readonly System.Threading.Lock _lock = new();
-        private bool _disposed;
+        private CancellationTokenSource _lifecycleCts = new();
+        private bool _monitorStopped;
+        private volatile bool _disposed;
         private int _totalReconnections;
+
+        internal CancellationToken LifecycleToken
+        {
+            get
+            {
+                lock (_lock)
+                    return _disposed ? new CancellationToken(canceled: true) : _lifecycleCts.Token;
+            }
+        }
 
         private static string GetSessionKey(Account? account)
         {
@@ -118,8 +130,33 @@ namespace Shiro.Services
             RobloxJobObjectService.ProcessExitedFromJob += OnJobProcessExited;
             MaxRetriesExceeded += OnMaxRetriesExceeded;
 
-            TimeSpan interval = monitorInterval ?? TimeSpan.FromSeconds(5);
-            _monitorTimer = new Timer(CheckSessionsCallback, null, interval, interval);
+            _monitorInterval = monitorInterval ?? TimeSpan.FromSeconds(5);
+            _monitorTimer = new Timer(CheckSessionsCallback, null, _monitorInterval, _monitorInterval);
+        }
+
+        public void StopForShutdown()
+        {
+            CancellationTokenSource? oldCts;
+            lock (_lock)
+            {
+                if (_disposed)
+                    return;
+
+                oldCts = _lifecycleCts;
+                _lifecycleCts = new CancellationTokenSource();
+                _monitorStopped = true;
+                try { _monitorTimer.Change(Timeout.Infinite, Timeout.Infinite); }
+                catch (ObjectDisposedException) { /* disposed concurrently */ }
+            }
+
+            if (oldCts != null)
+            {
+                try { oldCts.Cancel(); }
+                catch (ObjectDisposedException) { /* already disposed */ }
+                oldCts.Dispose();
+            }
+
+            SuppressAll();
         }
 
         private static void OnMaxRetriesExceeded(ReconnectSession session)
@@ -237,6 +274,12 @@ namespace Shiro.Services
                 };
 
                 _sessions[sessionKey] = session;
+                if (_monitorStopped && !_disposed)
+                {
+                    _monitorStopped = false;
+                    try { _monitorTimer.Change(_monitorInterval, _monitorInterval); }
+                    catch (ObjectDisposedException) { /* disposed concurrently */ }
+                }
             }
             AppServices.Logger?.Info($"[AutoReconnect] Registered session for '{sessionKey}' (PID: {processId}, PlaceId: {placeId}, RetryCount: {preservedRetries}).");
 
@@ -373,8 +416,22 @@ namespace Shiro.Services
 
         public void Dispose()
         {
-            if (_disposed) return;
-            _disposed = true;
+            CancellationTokenSource? ctsToDispose;
+            lock (_lock)
+            {
+                if (_disposed) return;
+                _disposed = true;
+                _monitorStopped = true;
+                ctsToDispose = _lifecycleCts;
+            }
+
+            if (ctsToDispose != null)
+            {
+                try { ctsToDispose.Cancel(); }
+                catch (ObjectDisposedException) { /* already disposed */ }
+                ctsToDispose.Dispose();
+            }
+
             RobloxProcess.Disconnected -= NotifyDisconnected;
             RobloxProcess.Connected -= NotifyConnected;
             RobloxJobObjectService.ProcessExitedFromJob -= OnJobProcessExited;

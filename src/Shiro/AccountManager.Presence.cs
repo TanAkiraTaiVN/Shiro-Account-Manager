@@ -28,8 +28,11 @@ namespace Shiro
             _ = ObserveBackgroundTaskAsync(UpdatePresence(), "manual presence refresh");
         }
 
-        internal void SchedulePresenceRefresh(Account account) =>
-            presenceService.SchedulePresenceRefresh(account, ObserveBackgroundTaskAsync, lifetimeCancellation.Token);
+        internal void SchedulePresenceRefresh(Account account)
+        {
+            if (shutdownRequested || shutdownFinalized) return;
+            presenceService.SchedulePresenceRefresh(account, ObserveBackgroundTaskAsync, SafeLifetimeToken);
+        }
 
         public bool TryEnableMultiRoblox(bool promptIfRobloxRunning = false, bool notify = true) =>
             presenceService.TryEnableMultiRoblox(promptIfRobloxRunning, notify, n => ModernCloseRoblox(n), SetDashboardStatus);
@@ -55,9 +58,10 @@ namespace Shiro
 
         private async Task UpdatePresenceCoreAsync()
         {
+            if (shutdownRequested || shutdownFinalized) return;
             try
             {
-                await presenceService.UpdatePresenceCoreAsync(lifetimeCancellation.Token).ConfigureAwait(false);
+                await presenceService.UpdatePresenceCoreAsync(SafeLifetimeToken).ConfigureAwait(false);
             }
             finally
             {

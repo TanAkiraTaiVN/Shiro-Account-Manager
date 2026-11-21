@@ -16,10 +16,10 @@ namespace Shiro.Services
         private const int RPC_E_CHANGED_MODE = unchecked((int)0x80010106);
 
         private static readonly ConcurrentDictionary<int, ImmutableArray<IntPtr>> _cachedVolumePointers = new();
-        private static readonly BlockingCollection<Action> _wasapiQueue = new();
+        private static BlockingCollection<Action> _wasapiQueue = new();
         private static readonly Lock _wasapiWorkerInitLock = new();
         private static Thread? _wasapiWorkerThread;
-        private static int _wasapiWorkerThreadId = -1;
+        private static volatile int _wasapiWorkerThreadId = -1;
 
         static RobloxAudioService()
         {
@@ -65,17 +65,15 @@ namespace Shiro.Services
             }, pid, preferLocal: false);
         }
 
-        private static void EnsureWasapiMtaWorkerStarted()
+        private static BlockingCollection<Action> EnsureWasapiMtaWorkerStarted()
         {
-            if (_wasapiWorkerThread != null)
-                return;
-
             lock (_wasapiWorkerInitLock)
             {
                 if (_wasapiWorkerThread != null)
-                    return;
+                    return _wasapiQueue;
 
-                var started = new ManualResetEventSlim(false);
+                var queue = _wasapiQueue;
+                using var started = new ManualResetEventSlim(false);
                 var thread = new Thread(() =>
                 {
                     _wasapiWorkerThreadId = Environment.CurrentManagedThreadId;
@@ -83,38 +81,47 @@ namespace Shiro.Services
                     {
                         int hr = CoInitializeEx(IntPtr.Zero, COINIT_MULTITHREADED);
                         if (hr < 0 && hr != RPC_E_CHANGED_MODE)
-                        {
                             AppServices.Logger?.Warn($"[RobloxAudioService] CoInitializeEx(COINIT_MULTITHREADED) failed: 0x{hr:X8}");
-                        }
                     }
                     started.Set();
 
-                    foreach (Action work in _wasapiQueue.GetConsumingEnumerable())
+                    foreach (Action work in queue.GetConsumingEnumerable())
                     {
-                        try
-                        {
-                            work();
-                        }
-                        catch (Exception ex)
-                        {
-                            AppServices.Logger?.Debug($"[RobloxAudioService.WasapiWorker] Unhandled work item error: {ex.Message}");
-                        }
+                        try { work(); }
+                        catch (Exception ex) { AppServices.Logger?.Debug($"[RobloxAudioService.WasapiWorker] Unhandled work item error: {ex.Message}"); }
                     }
-                })
-                {
-                    IsBackground = true,
-                    Name = "Shiro.WasapiMtaWorker"
-                };
+                }) { IsBackground = true, Name = "Shiro.WasapiMtaWorker" };
 
-                if (OperatingSystem.IsWindows())
-                {
-                    thread.SetApartmentState(ApartmentState.MTA);
-                }
-
+                if (OperatingSystem.IsWindows()) thread.SetApartmentState(ApartmentState.MTA);
                 thread.Start();
                 started.Wait();
                 _wasapiWorkerThread = thread;
+                return queue;
             }
+        }
+
+        public static void Shutdown()
+        {
+            ConfigureSmartMute(false);
+            ClearAudioSessionCache();
+
+            Thread? oldThread;
+            BlockingCollection<Action>? oldQueue = null;
+            lock (_wasapiWorkerInitLock)
+            {
+                oldThread = _wasapiWorkerThread;
+                _wasapiWorkerThread = null;
+                _wasapiWorkerThreadId = -1;
+                if (oldThread != null)
+                {
+                    oldQueue = _wasapiQueue;
+                    _wasapiQueue = new BlockingCollection<Action>();
+                    oldQueue.CompleteAdding();
+                }
+            }
+
+            if (oldThread != null && oldQueue != null && (!oldThread.IsAlive || oldThread == Thread.CurrentThread || oldThread.Join(500)))
+                SafeExecuteHelper.Try(oldQueue.Dispose, "RobloxAudioService.DisposeQueue");
         }
 
         internal static T RunOnWasapiMtaThread<T>(Func<T> work, int timeoutMs = 1500)
@@ -126,13 +133,12 @@ namespace Shiro.Services
             if (_wasapiWorkerThreadId > 0 && currentTid == _wasapiWorkerThreadId)
                 return work();
 
-            EnsureWasapiMtaWorkerStarted();
-
+            var queue = EnsureWasapiMtaWorkerStarted();
             if (Environment.CurrentManagedThreadId == _wasapiWorkerThreadId)
                 return work();
 
             var item = new MtaWorkItem<T>(work);
-            try { _wasapiQueue.Add(item.Execute); }
+            try { queue.Add(item.Execute); }
             catch (Exception ex) { _ = ex; item.AbortBeforeExecute(); throw; }
             return item.WaitResult(timeoutMs);
         }

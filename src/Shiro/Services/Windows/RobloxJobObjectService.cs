@@ -368,11 +368,16 @@ namespace Shiro.Services
                 try { PostQueuedCompletionStatus(hIocp, IOCP_QUIT_MESSAGE, 0, IntPtr.Zero); }
                 catch (Exception ex) { AppServices.Logger.Debug($"Failed posting quit to job IOCP: {ex.Message}"); }
 
-                if (threadToJoin != null && threadToJoin.IsAlive && threadToJoin != Thread.CurrentThread)
-                    threadToJoin.Join(TimeSpan.FromSeconds(2));
-
-                try { Win32NativeHelper.CloseHandle(hIocp); }
-                catch (Exception ex) { AppServices.Logger.Debug($"Failed closing job IOCP handle: {ex.Message}"); }
+                bool joined = threadToJoin == null || !threadToJoin.IsAlive || threadToJoin == Thread.CurrentThread || threadToJoin.Join(TimeSpan.FromSeconds(2));
+                if (joined)
+                {
+                    try { Win32NativeHelper.CloseHandle(hIocp); }
+                    catch (Exception ex) { AppServices.Logger.Debug($"Failed closing job IOCP handle: {ex.Message}"); }
+                }
+                else
+                {
+                    AppServices.Logger?.Debug("[RobloxJobObjectService] Skipping IOCP CloseHandle because completion thread did not exit within 2s.");
+                }
             }
 
             if (hJob != IntPtr.Zero && hJob != (IntPtr)(-1))

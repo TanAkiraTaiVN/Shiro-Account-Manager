@@ -24,7 +24,9 @@ namespace Shiro.Services
         private readonly HashSet<string> _deferredCaptchaUsernames = new(StringComparer.OrdinalIgnoreCase);
         private bool acceptingAppends;
         private int currentPass1Index = -1;
-        private bool disposed;
+        private volatile bool disposed;
+        private int _activeQueueUsers;
+        private int _gateDisposed;
 
         public const int MaxRateLimitRetries = 2;
         public const int DefaultSmartLaunchMinDelaySeconds = 2;
@@ -104,26 +106,42 @@ namespace Shiro.Services
             if (cancellationToken.IsCancellationRequested)
                 return new LaunchBatchResult(Array.Empty<LaunchProgress>(), true);
 
-            if (!await queueGate.WaitAsync(0, cancellationToken).ConfigureAwait(false))
-                throw new InvalidOperationException("A Roblox launch queue is already running.");
+            if (!TryEnterQueueGate())
+                throw new ObjectDisposedException(nameof(LaunchCoordinator));
 
-            CancellationTokenSource linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            lock (stateLock)
+            bool queueGateAcquired = false;
+            bool enteredExecutionTry = false;
+            CancellationTokenSource? linkedCancellation = null;
+            try
             {
-                if (disposed)
+                if (!await queueGate.WaitAsync(0, cancellationToken).ConfigureAwait(false))
+                    throw new InvalidOperationException("A Roblox launch queue is already running.");
+                queueGateAcquired = true;
+
+                linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                lock (stateLock)
                 {
-                    linkedCancellation.Dispose();
-                    queueGate.Release();
-                    throw new ObjectDisposedException(nameof(LaunchCoordinator));
+                    if (disposed)
+                        throw new ObjectDisposedException(nameof(LaunchCoordinator));
+
+                    activeCancellation = linkedCancellation;
+                    activeLaunchList = launchList;
+                    acceptingAppends = true;
+                    currentPass1Index = -1;
+                    nextSignal = null;
+                    idleCompletion = new TaskCompletionSource<bool>(
+                        TaskCreationOptions.RunContinuationsAsynchronously);
                 }
 
-                activeCancellation = linkedCancellation;
-                activeLaunchList = launchList;
-                acceptingAppends = true;
-                currentPass1Index = -1;
-                nextSignal = null;
-                idleCompletion = new TaskCompletionSource<bool>(
-                    TaskCreationOptions.RunContinuationsAsynchronously);
+                enteredExecutionTry = true;
+            }
+            finally
+            {
+                if (!enteredExecutionTry)
+                {
+                    linkedCancellation?.Dispose();
+                    ExitQueueGate(queueGateAcquired);
+                }
             }
 
             List<LaunchProgress> results = new List<LaunchProgress>(launchList.Count);
@@ -252,7 +270,7 @@ namespace Shiro.Services
                 }
 
                 linkedCancellation.Dispose();
-                queueGate.Release();
+                ExitQueueGate(acquired: true);
 
                 if (idleToComplete != null)
                 {
@@ -314,6 +332,38 @@ namespace Shiro.Services
             return true;
         }
 
+        private bool TryEnterQueueGate()
+        {
+            Interlocked.Increment(ref _activeQueueUsers);
+            if (disposed)
+            {
+                ExitQueueGate(acquired: false);
+                return false;
+            }
+            return true;
+        }
+
+        private void ExitQueueGate(bool acquired)
+        {
+            if (acquired)
+            {
+                try { queueGate.Release(); }
+                catch (ObjectDisposedException) { /* disposed concurrently */ }
+            }
+
+            if (Interlocked.Decrement(ref _activeQueueUsers) == 0 && disposed)
+                TryDisposeQueueGate();
+        }
+
+        private void TryDisposeQueueGate()
+        {
+            if (Interlocked.Exchange(ref _gateDisposed, 1) == 0)
+            {
+                try { queueGate.Dispose(); }
+                catch (ObjectDisposedException) { /* already disposed */ }
+            }
+        }
+
         public void Dispose()
         {
             CancellationTokenSource? cancellation;
@@ -329,6 +379,8 @@ namespace Shiro.Services
 
             GlobalCancelRequested -= Cancel;
             SafeExecuteHelper.Try(() => cancellation?.Cancel(), "LaunchCoordinator.Dispose");
+            if (Volatile.Read(ref _activeQueueUsers) == 0)
+                TryDisposeQueueGate();
         }
     }
 }

@@ -23,10 +23,16 @@ namespace Shiro.Services
         public static AccountPersistenceService Default => AppServices.AccountPersistence;
 
         private readonly AccountRepository _repository;
-        private readonly Timer _deferredSaveTimer;
+        private readonly System.Threading.Lock _deferredTimerLock = new();
+        private Timer? _deferredSaveTimer;
+        private volatile bool _isShutdownRequested;
 
         internal AccountStore Store { get; set; }
-        internal bool IsShutdownRequested { get; set; }
+        internal bool IsShutdownRequested
+        {
+            get => _isShutdownRequested;
+            set => _isShutdownRequested = value;
+        }
         internal DateTime StartTime { get; set; } = DateTime.Now;
         internal DateTime LastSaveTime { get; set; } = DateTime.MinValue;
 
@@ -58,11 +64,15 @@ namespace Shiro.Services
             _repository = repository ?? (AppServices.AccountRepository as AccountRepository)
                 ?? throw new InvalidOperationException("AccountRepository is not registered.");
             Store = new AccountStore();
-            _deferredSaveTimer = new Timer(_ =>
-            {
-                try { SaveAccounts(bypassRateLimit: false); }
-                catch (Exception ex) { AppServices.Logger.Error($"[DeferredSave] Error saving accounts: {ex.Message}"); }
-            }, null, Timeout.Infinite, Timeout.Infinite);
+        }
+
+        private void OnDeferredSaveTimer(object? state)
+        {
+            if (IsShutdownRequested)
+                return;
+
+            try { SaveAccounts(bypassRateLimit: false); }
+            catch (Exception ex) { AppServices.Logger.Error($"[DeferredSave] Error saving accounts: {ex.Message}"); }
         }
 
         internal void ReplaceAccountsList(List<Account> accounts)

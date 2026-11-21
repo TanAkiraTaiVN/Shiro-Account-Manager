@@ -25,7 +25,7 @@ namespace Shiro
             AppServices.AccountSessionMaintenance.RefreshStaleCookiesAsync(cookieRefreshGate, cancellationToken);
 
         internal Task ImportBulkUserPassAsync(string combos, Action<string>? statusCallback = null, CancellationToken cancellationToken = default) =>
-            AppServices.AccountSessionMaintenance.ImportBulkUserPassAsync(browserService, combos, statusCallback, lifetimeCancellation.Token, cancellationToken);
+            AppServices.AccountSessionMaintenance.ImportBulkUserPassAsync(browserService, combos, statusCallback, SafeLifetimeToken, cancellationToken);
 
         internal static string MakeSafeFileName(string value, string fallback) =>
             AccountSessionMaintenanceService.MakeSafeFileName(value, fallback);
