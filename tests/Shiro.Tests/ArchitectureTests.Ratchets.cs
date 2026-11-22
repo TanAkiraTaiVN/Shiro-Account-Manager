@@ -20,7 +20,7 @@ namespace Shiro.Tests
             int actual = 0;
             foreach (var file in files)
             {
-                actual += Regex.Matches(File.ReadAllText(file), @"\basync\s+void\b").Count;
+                actual += AsyncVoidMethodPattern().Matches(SourceScan.StripCommentsAndStringLiterals(File.ReadAllText(file))).Count;
             }
 
             Assert.True(actual <= Baseline, $"async void count in AvaloniaUI ({actual}) exceeds baseline ({Baseline}).");
@@ -102,32 +102,50 @@ namespace Shiro.Tests
         [GeneratedRegex(@"\bThread\.Sleep\b")]
         private static partial Regex ThreadSleepPattern();
 
-        [GeneratedRegex(@"\basync\s+void\b")]
-        private static partial Regex AsyncVoidMethodPattern();
+        [GeneratedRegex(@"\basync\s+(?:static\s+)?void\b")]
+        internal static partial Regex AsyncVoidMethodPattern();
 
-        [GeneratedRegex(@"\+=\s*async\b")]
-        private static partial Regex EventSubscribeAsyncLambdaPattern();
+        [GeneratedRegex(@"\+=\s*(?:static\s+)?async\b")]
+        internal static partial Regex EventSubscribeAsyncLambdaPattern();
 
-        [GeneratedRegex(@"\b(?:AppDispatcher|Dispatcher\.UIThread)\.Post(?:Background)?\s*\(\s*async\b")]
-        private static partial Regex DispatcherPostAsyncLambdaPattern();
+        [GeneratedRegex(@"\b(?:AppDispatcher|Dispatcher\.UIThread)\.Post(?:Background)?\s*\(\s*(?:static\s+)?async\b")]
+        internal static partial Regex DispatcherPostAsyncLambdaPattern();
 
-        [GeneratedRegex(@"\bnew\s+Action(?:<[^>]+>)?\s*\(\s*async\b")]
-        private static partial Regex NewActionAsyncLambdaPattern();
+        [GeneratedRegex(@"\bnew\s+Action(?:<[^>]+>)?\s*\(\s*(?:static\s+)?async\b")]
+        internal static partial Regex NewActionAsyncLambdaPattern();
 
-        [GeneratedRegex(@"\.Register\s*\(\s*async\b")]
-        private static partial Regex CancellationRegisterAsyncLambdaPattern();
+        [GeneratedRegex(@"\.Register\s*\(\s*(?:static\s+)?async\b")]
+        internal static partial Regex CancellationRegisterAsyncLambdaPattern();
+
+        internal static (string Name, Regex Pattern)[] GetHiddenAsyncVoidLambdaPatterns() => new[]
+        {
+            ("+= async", EventSubscribeAsyncLambdaPattern()),
+            ("Post(async ...)", DispatcherPostAsyncLambdaPattern()),
+            ("new Action(async ...)", NewActionAsyncLambdaPattern()),
+            (".Register(async ...)", CancellationRegisterAsyncLambdaPattern())
+        };
+
+        internal static IReadOnlyList<string> FindAsyncRatchetViolations(string sourceCode)
+        {
+            string stripped = SourceScan.StripCommentsAndStringLiterals(sourceCode);
+            var violations = new List<string>();
+            if (AsyncVoidMethodPattern().IsMatch(stripped))
+                violations.Add("async void");
+
+            foreach (var (name, pattern) in GetHiddenAsyncVoidLambdaPatterns())
+            {
+                if (pattern.IsMatch(stripped))
+                    violations.Add(name);
+            }
+
+            return violations;
+        }
 
         [Fact]
         public void HiddenAsyncVoidLambdas_ShouldBeZero()
         {
             var allow = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            var patterns = new (string Name, Regex Pattern)[]
-            {
-                ("+= async", EventSubscribeAsyncLambdaPattern()),
-                ("Post(async ...)", DispatcherPostAsyncLambdaPattern()),
-                ("new Action(async ...)", NewActionAsyncLambdaPattern()),
-                (".Register(async ...)", CancellationRegisterAsyncLambdaPattern())
-            };
+            var patterns = GetHiddenAsyncVoidLambdaPatterns();
 
             var offenders = new List<string>();
             foreach (var (name, pattern) in patterns)

@@ -2,7 +2,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.IO.Compression;
 using System.Threading;
 using System.Xml.Linq;
 using Avalonia;
@@ -18,8 +17,6 @@ namespace Shiro.Services
     public static partial class FlagIconService
     {
         internal const int MaxFlagCacheEntries = 64;
-        private const string EmbeddedFlagsArchiveResourceName = "Shiro.Resources.Flags.zip";
-        private static readonly Lazy<byte[]?> EmbeddedFlagsArchiveBytes = new(LoadEmbeddedFlagsArchiveBytes);
         private static readonly BoundedFlagCache Cache = new(MaxFlagCacheEntries);
         private static readonly XNamespace XlinkNs = "http://www.w3.org/1999/xlink";
         private const int MaxUseDepth = 8;
@@ -155,56 +152,6 @@ namespace Shiro.Services
             // Avoid caching degraded aspect-only images if StreamGeometry ran before platform initialization.
             bool hasVectorShapes = rootGroup.Children.Count > 1;
             return (new DrawingImage { Drawing = rootGroup }, hasVectorShapes);
-        }
-
-        internal static Stream? TryOpenFromEmbeddedArchive(string code)
-        {
-            if (string.IsNullOrWhiteSpace(code))
-                return null;
-
-            byte[]? archiveBytes = EmbeddedFlagsArchiveBytes.Value;
-            if (archiveBytes == null || archiveBytes.Length == 0)
-                return null;
-
-            string entryName = $"{code.Trim().ToLowerInvariant()}.svg";
-            try
-            {
-                using var zipStream = new MemoryStream(archiveBytes, writable: false);
-                using var archive = new ZipArchive(zipStream, ZipArchiveMode.Read);
-                ZipArchiveEntry? entry = archive.GetEntry(entryName);
-                if (entry == null)
-                    return null;
-
-                var output = new MemoryStream();
-                using (Stream entryStream = entry.Open())
-                    entryStream.CopyTo(output);
-                output.Position = 0;
-                return output;
-            }
-            catch (Exception ex)
-            {
-                AppServices.Logger?.Debug($"[FlagIconService] Failed reading '{entryName}' from embedded Flags.zip", ex);
-                return null;
-            }
-        }
-
-        private static byte[]? LoadEmbeddedFlagsArchiveBytes()
-        {
-            try
-            {
-                using Stream? stream = typeof(FlagIconService).Assembly.GetManifestResourceStream(EmbeddedFlagsArchiveResourceName);
-                if (stream == null)
-                    return null;
-
-                using var buffer = new MemoryStream();
-                stream.CopyTo(buffer);
-                return buffer.ToArray();
-            }
-            catch (Exception ex)
-            {
-                AppServices.Logger?.Debug("[FlagIconService] Failed to load embedded Flags.zip archive", ex);
-                return null;
-            }
         }
 
         private static Stream? OpenFlagSvgStream(string code)
@@ -409,11 +356,19 @@ namespace Shiro.Services
 
             public BoundedFlagCache(int capacity)
             {
-                if (capacity <= 0) throw new ArgumentOutOfRangeException(nameof(capacity));
+                if (capacity <= 0)
+                    throw new ArgumentOutOfRangeException(nameof(capacity));
                 _capacity = capacity;
             }
 
-            public int Count { get { lock (_lock) return _map.Count; } }
+            public int Count
+            {
+                get
+                {
+                    lock (_lock)
+                        return _map.Count;
+                }
+            }
 
             public bool TryGetValue(string key, out IImage? value)
             {
@@ -426,6 +381,7 @@ namespace Shiro.Services
                         value = node.Value.Value;
                         return true;
                     }
+
                     value = null;
                     return false;
                 }
@@ -442,23 +398,33 @@ namespace Shiro.Services
                         _order.AddFirst(existing);
                         return;
                     }
+
                     while (_map.Count >= _capacity && _order.Last != null)
                     {
                         var lru = _order.Last;
                         _order.RemoveLast();
                         _map.Remove(lru.Value.Key);
                     }
+
                     var node = new LinkedListNode<(string Key, IImage? Value)>((key, value));
                     _order.AddFirst(node);
                     _map[key] = node;
                 }
             }
 
-            public bool ContainsKeyNoPromote(string key) { lock (_lock) return _map.ContainsKey(key); }
+            public bool ContainsKeyNoPromote(string key)
+            {
+                lock (_lock)
+                    return _map.ContainsKey(key);
+            }
 
             public void Clear()
             {
-                lock (_lock) { _map.Clear(); _order.Clear(); }
+                lock (_lock)
+                {
+                    _map.Clear();
+                    _order.Clear();
+                }
             }
         }
     }

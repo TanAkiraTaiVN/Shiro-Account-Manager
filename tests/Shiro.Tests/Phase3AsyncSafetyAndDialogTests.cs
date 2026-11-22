@@ -222,5 +222,34 @@ namespace Shiro.Tests
             Assert.All(thrownPassBytes!, b => Assert.Equal(0, b));
             Assert.All(thrownHashBytes!, b => Assert.Equal(0, b));
         }
+
+        [Theory]
+        [InlineData("Opened += static async (_, _) => await Task.Yield();", "+= async")]
+        [InlineData("Opened += async (_, _) => await Task.Yield();", "+= async")]
+        [InlineData("AppDispatcher.Post(static async () => await Task.Yield());", "Post(async ...)")]
+        [InlineData("Dispatcher.UIThread.PostBackground(static async () => await Task.Yield());", "Post(async ...)")]
+        [InlineData("var cb = new Action(static async () => await Task.Yield());", "new Action(async ...)")]
+        [InlineData("ct.Register(static async () => await Task.Yield());", ".Register(async ...)")]
+        [InlineData("private async static void Foo() { await Task.Yield(); }", "async void")]
+        [InlineData("private static async void Bar() { await Task.Yield(); }", "async void")]
+        public void AsyncRatchets_FlagStaticAsyncVoidLambdasAndAsyncStaticVoidMethods(string sampleCode, string expectedViolation)
+        {
+            IReadOnlyList<string> violations = ArchitectureTests.FindAsyncRatchetViolations(sampleCode);
+            string actual = Assert.Single(violations);
+            Assert.Equal(expectedViolation, actual);
+        }
+
+        [Theory]
+        [InlineData("private async Task ValidTaskAsync() { await Task.Yield(); }")]
+        [InlineData("private static async Task<int> ValidStaticTaskAsync() { await Task.Yield(); return 42; }")]
+        [InlineData("private async static ValueTask ValidValueTaskAsync() { await Task.Yield(); }")]
+        [InlineData("private async static ValueTask<bool> ValidValueTaskBoolAsync() { await Task.Yield(); return true; }")]
+        [InlineData("AppDispatcher.PostTask(static async () => await Task.Yield());")]
+        [InlineData("Func<Task> taskFactory = static async () => await Task.Yield();")]
+        public void AsyncRatchets_AllowTaskAndValueTaskMethodsAndPostTaskLambdas(string sampleCode)
+        {
+            IReadOnlyList<string> violations = ArchitectureTests.FindAsyncRatchetViolations(sampleCode);
+            Assert.Empty(violations);
+        }
     }
 }

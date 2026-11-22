@@ -105,6 +105,8 @@ namespace Shiro.Tests
 
             try
             {
+                using var _langScope = LocalizationService.OverrideLanguageForTest(AppLanguage.English);
+
                 Assert.Equal(15, ServerBrowserTabViewModel.MaxPlayerSearchPages);
 
                 var mockRepo = Substitute.For<IAccountRepository>();
@@ -191,6 +193,8 @@ namespace Shiro.Tests
 
             try
             {
+                using var _langScope = LocalizationService.OverrideLanguageForTest(AppLanguage.English);
+
                 Assert.Equal(100, ServerBrowserTabViewModel.PlayerSearchStatusThrottleMs);
 
                 var mockRepo = Substitute.For<IAccountRepository>();

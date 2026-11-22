@@ -124,7 +124,7 @@ namespace Shiro.ViewModels
                     {
                         string cursor = "_";
                         int pagesFetched = 0;
-                        long lastStatusPostTicks = 0;
+                        long lastStatusPostTicks = long.MinValue;
                         while (!string.IsNullOrEmpty(cursor)
                                && pagesFetched < MaxPlayerSearchPages
                                && Volatile.Read(ref matchedServer) == null
@@ -184,7 +184,7 @@ namespace Shiro.ViewModels
                                 }
 
                                 long nowTicks = Environment.TickCount64;
-                                if (lastStatusPostTicks == 0 || (nowTicks - lastStatusPostTicks) >= PlayerSearchStatusThrottleMs)
+                                if (lastStatusPostTicks == long.MinValue || (nowTicks - lastStatusPostTicks) >= PlayerSearchStatusThrottleMs)
                                 {
                                     lastStatusPostTicks = nowTicks;
                                     PostPlayerSearchStatus(cts, ct, LocalizationService.Format("ServerList.ScanningServersForPlayer", totalScanned, SearchPlayerUsername));

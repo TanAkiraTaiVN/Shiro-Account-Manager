@@ -10,7 +10,7 @@ using Xunit;
 
 namespace Shiro.Tests.Network
 {
-    [Collection("StaticSeams")]
+    [Collection("SerialGlobalState")]
     public class RobloxServerQueryServiceBehaviorTests : IDisposable
     {
         private const string PrivateLoopbackMachineJson = "{\"joinScript\":{\"MachineAddress\":\"127.0.0.1\"}}";

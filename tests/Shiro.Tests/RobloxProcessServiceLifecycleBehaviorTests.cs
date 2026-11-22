@@ -324,10 +324,34 @@ namespace Shiro.Tests
             System.IO.File.Copy(pingPath, betaExe, true);
             System.IO.File.Copy(pingPath, crashExe, true);
 
+            System.Diagnostics.Process? pBeta1 = null;
+            System.Diagnostics.Process? pBeta2 = null;
+            System.Diagnostics.Process? pBeta3 = null;
+            System.Diagnostics.Process? pCrash = null;
+
+            static void SafeKillWaitAndDispose(System.Diagnostics.Process? proc)
+            {
+                if (proc == null) return;
+                try
+                {
+                    if (!proc.HasExited)
+                    {
+                        proc.Kill();
+                    }
+                    proc.WaitForExit(3000);
+                }
+                catch (InvalidOperationException) { }
+                catch (System.ComponentModel.Win32Exception) { }
+                finally
+                {
+                    proc.Dispose();
+                }
+            }
+
             try
             {
                 // 1. Single CloseAccountRobloxProcess with real RobloxPlayerBeta name
-                using var pBeta1 = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                pBeta1 = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
                 {
                     FileName = betaExe,
                     Arguments = "-n 5 127.0.0.1",
@@ -349,7 +373,7 @@ namespace Shiro.Tests
                 Assert.Equal(0, accBeta.LastLaunchedProcessId);
 
                 // 2. Batch CloseAccountRobloxProcesses with real RobloxPlayerBeta name
-                using var pBeta2 = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                pBeta2 = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
                 {
                     FileName = betaExe,
                     Arguments = "-n 5 127.0.0.1",
@@ -373,7 +397,8 @@ namespace Shiro.Tests
                 Assert.True(accBatch2.LastLaunchedProcessId > 0);
 
                 // 3. KillAllRobloxProcesses with real RobloxPlayerBeta running
-                using var pBeta3 = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                ProcessExtensions.TestCommandLineOverride = null;
+                pBeta3 = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
                 {
                     FileName = betaExe,
                     Arguments = "-n 5 127.0.0.1",
@@ -384,9 +409,11 @@ namespace Shiro.Tests
 
                 int killed = RobloxProcessService.KillAllRobloxProcesses();
                 Assert.True(killed >= 1);
+                pBeta3.WaitForExit(3000);
+                RobloxProcessService.InvalidateSnapshotCache();
 
                 // 4. CleanZombieProcesses with real RobloxCrashHandler
-                using var pCrash = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                pCrash = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
                 {
                     FileName = crashExe,
                     Arguments = "-n 5 127.0.0.1",
@@ -395,12 +422,26 @@ namespace Shiro.Tests
                 });
                 Assert.NotNull(pCrash);
 
-                int cleanedCrash = RobloxProcessService.CleanZombieProcesses();
+                int cleanedCrash;
+                RobloxProcessService.TestGetRunningRobloxPidsOverride = Array.Empty<int>;
+                try
+                {
+                    cleanedCrash = RobloxProcessService.CleanZombieProcesses();
+                }
+                finally
+                {
+                    RobloxProcessService.TestGetRunningRobloxPidsOverride = null;
+                }
                 Assert.True(cleanedCrash >= 1);
             }
             finally
             {
                 ProcessExtensions.TestCommandLineOverride = null;
+                RobloxProcessService.TestGetRunningRobloxPidsOverride = null;
+                SafeKillWaitAndDispose(pBeta1);
+                SafeKillWaitAndDispose(pBeta2);
+                SafeKillWaitAndDispose(pBeta3);
+                SafeKillWaitAndDispose(pCrash);
                 try { System.IO.Directory.Delete(tempDir, true); } catch { /* ignore */ }
             }
         }
