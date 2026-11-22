@@ -199,7 +199,8 @@ namespace Shiro.Tests
         {
             string root = FindRepoRoot();
             string aboutAxaml = File.ReadAllText(Path.Combine(root, "src", "Shiro", "AvaloniaUI", "Views", "AboutView.axaml"));
-            Assert.DoesNotContain("Avalonia UI 11.2", aboutAxaml, StringComparison.Ordinal);
+            Assert.Contains("Avalonia UI 12", aboutAxaml, StringComparison.Ordinal);
+            Assert.DoesNotContain("Avalonia UI 11", aboutAxaml, StringComparison.Ordinal);
             Assert.DoesNotContain("C# 13", aboutAxaml, StringComparison.Ordinal);
             Assert.Contains("About_Project", aboutAxaml, StringComparison.Ordinal);
 

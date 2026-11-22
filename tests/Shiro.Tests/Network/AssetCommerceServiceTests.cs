@@ -16,18 +16,17 @@ namespace Shiro.Tests.Network
     [Collection("StaticSeams")]
     public sealed class AssetCommerceServiceTests : IDisposable
     {
-        private readonly IRobloxApiClient _originalClient;
+        private readonly Func<Account, HttpClient>? _previousHttpClientFactory;
 
         public AssetCommerceServiceTests()
         {
-            _originalClient = AppServices.RobloxApi;
+            _previousHttpClientFactory = RobloxAccountSessionClient.TestHttpClientFactory;
             RobloxAccountSessionClient.TestHttpClientFactory = null;
         }
 
         public void Dispose()
         {
-            RobloxAccountSessionClient.TestHttpClientFactory = null;
-            AppServices.Override<IRobloxApiClient>(_originalClient);
+            RobloxAccountSessionClient.TestHttpClientFactory = _previousHttpClientFactory;
         }
 
         private static Account CreateTestAccount(string name = "BuyerUser") => new()
@@ -42,46 +41,64 @@ namespace Shiro.Tests.Network
         [Fact]
         public async Task GetAssetDetailsAsync_PostsToCatalogRobloxCom_WithJsonBody()
         {
-            var handler = new FakeHttpHandler()
+            using var handler = new FakeHttpHandler()
                 .Enqueue(HttpStatusCode.OK, """{"data":[{"id":1001,"name":"Cool Hat"}]}""");
+            using var apiClient = new RobloxApiClient(handler);
+            using var apiScope = AppServices.Override<IRobloxApiClient>(apiClient);
+            using var httpClient = new HttpClient(handler, disposeHandler: false);
 
-            AppServices.Override<IRobloxApiClient>(new RobloxApiClient(handler));
-            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(handler);
-            var account = CreateTestAccount();
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => httpClient;
+            try
+            {
+                var account = CreateTestAccount();
 
-            var (ok, content) = await AssetCommerceService.Default.GetAssetDetailsAsync(account, 1001, CancellationToken.None);
+                var (ok, content) = await AssetCommerceService.Default.GetAssetDetailsAsync(account, 1001, CancellationToken.None);
 
-            Assert.True(ok);
-            Assert.Contains("Cool Hat", content, StringComparison.Ordinal);
-            Assert.Single(handler.Requests);
-            var req = handler.Requests[0];
-            Assert.Equal(HttpMethod.Post, req.Method);
-            Assert.Equal("https://catalog.roblox.com/v1/catalog/items/details", req.RequestUri?.ToString());
-            Assert.NotNull(handler.RequestBodies[0]);
-            Assert.Contains("\"id\":1001", handler.RequestBodies[0], StringComparison.Ordinal);
+                Assert.True(ok);
+                Assert.Contains("Cool Hat", content, StringComparison.Ordinal);
+                Assert.Single(handler.Requests);
+                var req = handler.Requests[0];
+                Assert.Equal(HttpMethod.Post, req.Method);
+                Assert.Equal("https://catalog.roblox.com/v1/catalog/items/details", req.RequestUri?.ToString());
+                Assert.NotNull(handler.RequestBodies[0]);
+                Assert.Contains("\"id\":1001", handler.RequestBodies[0], StringComparison.Ordinal);
+            }
+            finally
+            {
+                RobloxAccountSessionClient.TestHttpClientFactory = null;
+            }
         }
 
         [Fact]
         public async Task GetAssetDetailsAsync_RetriesOnceOn403Csrf()
         {
-            var handler = new FakeHttpHandler()
+            using var handler = new FakeHttpHandler()
                 .Enqueue(HttpStatusCode.Forbidden, "{}", ("x-csrf-token", "fresh-csrf-token"))
                 .Enqueue(HttpStatusCode.OK, """{"data":[{"id":1002,"name":"Awesome Cap"}]}""");
+            using var apiClient = new RobloxApiClient(handler);
+            using var apiScope = AppServices.Override<IRobloxApiClient>(apiClient);
+            using var httpClient = new HttpClient(handler, disposeHandler: false);
 
-            AppServices.Override<IRobloxApiClient>(new RobloxApiClient(handler));
-            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(handler);
-            var account = CreateTestAccount();
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => httpClient;
+            try
+            {
+                var account = CreateTestAccount();
 
-            var (ok, content) = await AssetCommerceService.Default.GetAssetDetailsAsync(account, 1002, CancellationToken.None);
+                var (ok, content) = await AssetCommerceService.Default.GetAssetDetailsAsync(account, 1002, CancellationToken.None);
 
-            Assert.True(ok);
-            Assert.Contains("Awesome Cap", content, StringComparison.Ordinal);
-            Assert.Equal(2, handler.Requests.Count);
-            Assert.Equal("fresh-csrf-token", account.CSRFToken);
+                Assert.True(ok);
+                Assert.Contains("Awesome Cap", content, StringComparison.Ordinal);
+                Assert.Equal(2, handler.Requests.Count);
+                Assert.Equal("fresh-csrf-token", account.CSRFToken);
 
-            var retryReq = handler.Requests[1];
-            Assert.True(retryReq.Headers.TryGetValues("X-CSRF-TOKEN", out var csrfValues));
-            Assert.Equal("fresh-csrf-token", csrfValues.Single());
+                var retryReq = handler.Requests[1];
+                Assert.True(retryReq.Headers.TryGetValues("X-CSRF-TOKEN", out var csrfValues));
+                Assert.Equal("fresh-csrf-token", csrfValues.Single());
+            }
+            finally
+            {
+                RobloxAccountSessionClient.TestHttpClientFactory = null;
+            }
         }
 
         [Fact]
@@ -102,36 +119,45 @@ namespace Shiro.Tests.Network
         [Fact]
         public async Task PurchaseAsync_CollectibleItem_ResolvesProductIdIfMissing_AndPostsMarketplacePurchase()
         {
-            var handler = new FakeHttpHandler()
+            using var handler = new FakeHttpHandler()
                 // Step 1: POST apis.roblox.com/marketplace-items/v1/items/details
                 .Enqueue(HttpStatusCode.OK, """[{"collectibleItemId":"col-item-1","collectibleProductId":"resolved-cp-1","creatorId":888,"creatorType":"User"}]""")
                 // Step 2: POST apis.roblox.com/marketplace-sales/v1/item/col-item-1/purchase-item
                 .Enqueue(HttpStatusCode.OK, """{"purchased":true,"purchaseResult":"Success"}""");
+            using var apiClient = new RobloxApiClient(handler);
+            using var apiScope = AppServices.Override<IRobloxApiClient>(apiClient);
+            using var httpClient = new HttpClient(handler, disposeHandler: false);
 
-            AppServices.Override<IRobloxApiClient>(new RobloxApiClient(handler));
-            RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(handler);
-            var account = CreateTestAccount();
+            RobloxAccountSessionClient.TestHttpClientFactory = _ => httpClient;
+            try
+            {
+                var account = CreateTestAccount();
 
-            var (ok, error) = await AssetCommerceService.Default.PurchaseAsync(
-                account,
-                expectedPrice: 25,
-                sellerId: 888,
-                collectibleItemId: "col-item-1",
-                collectibleProductId: null,
-                sellerType: "User");
+                var (ok, error) = await AssetCommerceService.Default.PurchaseAsync(
+                    account,
+                    expectedPrice: 25,
+                    sellerId: 888,
+                    collectibleItemId: "col-item-1",
+                    collectibleProductId: null,
+                    sellerType: "User");
 
-            Assert.True(ok);
-            Assert.Null(error);
-            Assert.Equal(2, handler.Requests.Count);
+                Assert.True(ok);
+                Assert.Null(error);
+                Assert.Equal(2, handler.Requests.Count);
 
-            var resolveReq = handler.Requests[0];
-            Assert.Equal("https://apis.roblox.com/marketplace-items/v1/items/details", resolveReq.RequestUri?.ToString());
-            Assert.Contains("col-item-1", handler.RequestBodies[0], StringComparison.Ordinal);
+                var resolveReq = handler.Requests[0];
+                Assert.Equal("https://apis.roblox.com/marketplace-items/v1/items/details", resolveReq.RequestUri?.ToString());
+                Assert.Contains("col-item-1", handler.RequestBodies[0], StringComparison.Ordinal);
 
-            var buyReq = handler.Requests[1];
-            Assert.Equal("https://apis.roblox.com/marketplace-sales/v1/item/col-item-1/purchase-item", buyReq.RequestUri?.ToString());
-            Assert.Contains("resolved-cp-1", handler.RequestBodies[1], StringComparison.Ordinal);
-            Assert.Contains("4242", handler.RequestBodies[1], StringComparison.Ordinal);
+                var buyReq = handler.Requests[1];
+                Assert.Equal("https://apis.roblox.com/marketplace-sales/v1/item/col-item-1/purchase-item", buyReq.RequestUri?.ToString());
+                Assert.Contains("resolved-cp-1", handler.RequestBodies[1], StringComparison.Ordinal);
+                Assert.Contains("4242", handler.RequestBodies[1], StringComparison.Ordinal);
+            }
+            finally
+            {
+                RobloxAccountSessionClient.TestHttpClientFactory = null;
+            }
         }
     }
 }

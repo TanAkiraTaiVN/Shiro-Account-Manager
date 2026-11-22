@@ -1,10 +1,10 @@
 {
   "About.AccountsCount": "{0} accounts",
-  "About_Credits": "Created with modern Avalonia UI 11, vector graphics & hardware-accelerated architecture.",
+  "About_Credits": "Created with modern Avalonia UI 12, vector graphics & hardware-accelerated architecture.",
   "About_LicenseCredits": "Licensed under GPL-3.0 • Modernized successor inspired by RBX Alt Manager (ic3w0lf22).",
   "About_OptimizationValue": "Source Generator Regex • Zero-WMI (NT API) • AES-256-GCM Vault • PBKDF2",
   "About_Project": "Shiro Account Manager Project • Version 5.0.0 (64-bit)",
-  "About_Runtime": "Runtime Platform: .NET 10.0 (Pure Avalonia UI 11)",
+  "About_Runtime": "Runtime Platform: .NET 10.0 (Pure Avalonia UI 12)",
   "About_Subtitle": "Next-Generation Roblox Multi-Account Manager (.NET 10)",
   "AccentTheme.Green": "Green",
   "AccentTheme.Pink": "Pink",

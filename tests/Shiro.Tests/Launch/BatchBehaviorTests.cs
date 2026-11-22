@@ -47,7 +47,7 @@ namespace Shiro.Tests
         {
             AppSettings.General.Set("DisableImages", "false");
 
-            var fakeHandler = new StubHttpHandler(req =>
+            using var fakeHandler = new StubHttpHandler(req =>
             {
                 string url = req.RequestUri?.ToString() ?? string.Empty;
                 if (url.Contains("batch"))
@@ -72,22 +72,33 @@ namespace Shiro.Tests
             });
 
             var mockApi = Substitute.For<IRobloxApiClient>();
-            var thumbClient = new RestClient(new HttpClient(fakeHandler), "https://thumbnails.roblox.com/");
-            var gamesClient = new RestClient(new HttpClient(fakeHandler), "https://games.roblox.com/");
+            using var thumbHttp = new HttpClient(fakeHandler, disposeHandler: false);
+            using var gamesHttp = new HttpClient(fakeHandler, disposeHandler: false);
+            using var thumbClient = new RestClient(thumbHttp, "https://thumbnails.roblox.com/");
+            using var gamesClient = new RestClient(gamesHttp, "https://games.roblox.com/");
 
             mockApi.Thumbnails.Returns(thumbClient);
             mockApi.Games.Returns(gamesClient);
-            using var _ = AppServices.Override<IRobloxApiClient>(mockApi);
+            using var apiScope = AppServices.Override<IRobloxApiClient>(mockApi);
 
-            AppSettings.LastValidAccount = new Account { SecurityToken = "dummy_token" };
+            try
+            {
+                AppSettings.LastValidAccount = new Account { SecurityToken = "dummy_token" };
 
-            // 1. GetImage
-            string imgUrl = await Batch.GetImage(9988, "Avatar");
-            Assert.Equal("https://fake.rbx/9988.png", imgUrl);
+                // 1. GetImage
+                string imgUrl = await Batch.GetImage(9988, "Avatar");
+                Assert.Equal("https://fake.rbx/9988.png", imgUrl);
 
-            // 2. GetGameIcon
-            string gameIcon = await Batch.GetGameIcon(1122);
-            Assert.Equal("https://fake.rbx/7766.png", gameIcon);
+                // 2. GetGameIcon
+                string gameIcon = await Batch.GetGameIcon(1122);
+                Assert.Equal("https://fake.rbx/7766.png", gameIcon);
+            }
+            finally
+            {
+                Batch.ResetPendingWorkersForTest();
+                Batch.PlaceDetails.TryRemove(1122, out _);
+                Batch.GameIcons.TryRemove(1122, out _);
+            }
         }
 
         [Fact]

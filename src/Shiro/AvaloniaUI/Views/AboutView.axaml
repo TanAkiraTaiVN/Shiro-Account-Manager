@@ -19,7 +19,7 @@
                     <TextBlock Text="Shiro Account Manager" FontSize="18" FontWeight="Bold" Foreground="#FFFFFF" HorizontalAlignment="Center" />
                     <TextBlock Text="{DynamicResource About_Subtitle}" FontSize="12" Foreground="#A1A1AA" HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" />
                     <Border Background="#1CFFFFFF" CornerRadius="4" Padding="8,3" HorizontalAlignment="Center" Margin="0,6,0,0">
-                        <TextBlock Text="v5.0.0 • Avalonia UI 11 • .NET 10 (win-x64)" FontSize="10" FontWeight="SemiBold" Foreground="#FFFFFF" />
+                        <TextBlock Text="v5.0.0 • Avalonia UI 12 • .NET 10 (win-x64)" FontSize="10" FontWeight="SemiBold" Foreground="#FFFFFF" />
                     </Border>
                 </StackPanel>
 

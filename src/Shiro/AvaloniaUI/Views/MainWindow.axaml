@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:views="clr-namespace:Shiro.AvaloniaUI.Views" xmlns:panels="clr-namespace:Shiro.AvaloniaUI.Views.Panels"
     xmlns:vm="clr-namespace:Shiro.ViewModels" xmlns:services="clr-namespace:Shiro.Services" xmlns:lucide="clr-namespace:LucideAvalonia;assembly=LucideAvalonia" mc:Ignorable="d"
-    x:Class="Shiro.AvaloniaUI.Views.MainWindow" x:DataType="vm:MainViewModel" x:CompileBindings="True" Icon="/Resources/shiro.ico" Title="Shiro • Roblox Account Manager (Pure Avalonia UI 11)"
+    x:Class="Shiro.AvaloniaUI.Views.MainWindow" x:DataType="vm:MainViewModel" x:CompileBindings="True" Icon="/Resources/shiro.ico" Title="Shiro • Roblox Account Manager (Pure Avalonia UI 12)"
     Width="1260" Height="680" MinWidth="960" MinHeight="520" WindowStartupLocation="CenterScreen" ExtendClientAreaToDecorationsHint="True" WindowDecorations="BorderOnly"
     ExtendClientAreaTitleBarHeightHint="-1" Background="#0B0B0F" Foreground="#F4F4F5">
     <Grid>
@@ -11,7 +11,7 @@
                     <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Spacing="8">
                         <Image Source="/Resources/shiro_logo.png" Width="16" Height="16" VerticalAlignment="Center" />
                         <TextBlock Text="{DynamicResource App_Title}" FontSize="12" FontWeight="SemiBold" Foreground="#A1A1AA" VerticalAlignment="Center" />
-                        <Border Background="#1CFFFFFF" CornerRadius="4" Padding="5,1"><TextBlock Text=".NET 10 • Avalonia 11" FontSize="10" Foreground="#71717A" /></Border>
+                        <Border Background="#1CFFFFFF" CornerRadius="4" Padding="5,1"><TextBlock Text=".NET 10 • Avalonia 12" FontSize="10" Foreground="#71717A" /></Border>
                     </StackPanel>
                     <Button Grid.Column="1" Classes="TopCommandBarBtn" HorizontalAlignment="Center" VerticalAlignment="Center" Click="OnCommandPaletteBarClicked"
                         ToolTip.Tip="{DynamicResource Cmd_ToolTip}">

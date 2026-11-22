@@ -7,7 +7,7 @@ using Avalonia.Threading;
 namespace Shiro.Services
 {
     /// <summary>
-    /// Pure Avalonia UI 11 high-performance UI Dispatcher abstraction.
+    /// Pure Avalonia UI 12 high-performance UI Dispatcher abstraction.
     /// Bridges UI thread execution directly to Avalonia Dispatcher.UIThread.
     /// </summary>
     public static class AppDispatcher

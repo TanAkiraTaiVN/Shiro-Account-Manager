@@ -5,7 +5,7 @@
 **Shiro Account Manager** is a high-performance, enterprise-grade account manager and multi-instance orchestration platform built specifically for Roblox players, developers, and power users on Windows.
 
 ### Core Architecture Principles:
-- **Framework & Runtime**: Pure modern .NET 10 (win-x64), C# 14, Avalonia UI 11.
+- **Framework & Runtime**: Pure modern .NET 10 (win-x64), C# 14, Avalonia UI 12.
 - **Zero Native DLL Drop**: Direct usage of `System.Security.Cryptography` (AES-256-GCM, PBKDF2-SHA256, DPAPI).
 - **Clean Architecture & Strict MVVM**: ViewModels never touch Windows API or UI Window instances directly. Verified automatically by `NetArchTest`.
 - **High-Performance Memory & IO**: `ArrayPool<byte>`, `FrozenDictionary<string, string>` for O(1) localized string lookups, and Channels for non-blocking logging.
@@ -17,7 +17,7 @@
 
 ```mermaid
 graph TD
-    subgraph UI_Layer ["Presentation Layer (Avalonia UI 11)"]
+    subgraph UI_Layer ["Presentation Layer (Avalonia UI 12)"]
         MainWindow["MainWindow.axaml"]
         Dashboard["DashboardView.axaml"]
         Dialogs["Dialog Windows & Controls"]

@@ -6,7 +6,7 @@ using Avalonia.Input.Platform;
 namespace Shiro.Services
 {
     /// <summary>
-    /// Universal Clipboard helper supporting Avalonia UI 11 desktop clipboard operations
+    /// Universal Clipboard helper supporting Avalonia UI 12 desktop clipboard operations
     /// with safe UI-thread marshaling.
     /// </summary>
     public static class ClipboardHelper

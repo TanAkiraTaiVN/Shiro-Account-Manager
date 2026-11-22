@@ -141,7 +141,7 @@ namespace Shiro
                         },
                         shutdownHost: () => AppServices.HostUiBridge.ShutdownBackend());
 
-                    Logger?.Info("Launching Shiro Account Manager with Pure Avalonia UI 11 engine...");
+                    Logger?.Info("Launching Shiro Account Manager with Pure Avalonia UI 12 engine...");
                     try
                     {
                         BuildAvaloniaApp().StartWithClassicDesktopLifetime(Arguments);

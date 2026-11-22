@@ -58,7 +58,7 @@ namespace Shiro.Tests.Ui
             }
             catch (NullReferenceException)
             {
-                // Avalonia 11 Bitmap.Dispose() clears its internal PlatformImpl ref, causing PixelSize to throw NullReferenceException.
+                // Avalonia Bitmap.Dispose() clears its internal PlatformImpl ref, causing PixelSize to throw NullReferenceException.
                 return true;
             }
         }
