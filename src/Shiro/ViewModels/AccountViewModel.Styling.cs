@@ -73,7 +73,7 @@ namespace Shiro.ViewModels
         private static readonly ImmutableSolidColorBrush BrushOnlineBorder = CreateFrozenBrush("#1A354A");
         private static readonly ImmutableSolidColorBrush BrushDefaultBorder = CreateFrozenBrush("#272733");
 
-        private static ImmutableSolidColorBrush _brushCardSelected = CreateFrozenBrush("#8B5CF6");
+        private static volatile ImmutableSolidColorBrush _brushCardSelected = CreateFrozenBrush("#8B5CF6");
         public static ISolidColorBrush BrushCardSelected => _brushCardSelected;
 
         private static readonly ImmutableSolidColorBrush BrushCardBanned = CreateFrozenBrush("#5C1829");

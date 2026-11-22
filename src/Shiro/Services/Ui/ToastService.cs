@@ -148,6 +148,7 @@ namespace Shiro.Services
     public static partial class ToastService
     {
         private static readonly System.Threading.Lock _toastLock = new();
+        private static long _clearGeneration;
         public static ObservableCollection<ToastItem> ActiveToasts { get; } = [];
 
         public static void ShowSuccess(string title, string message = "", double durationSeconds = 3.0) => Show(title, message, ToastType.Success, durationSeconds);
@@ -193,6 +194,12 @@ namespace Shiro.Services
             string? actionText,
             Action? onAction)
         {
+            long showClearGen;
+            lock (_toastLock)
+            {
+                showClearGen = _clearGeneration;
+            }
+
             AppDispatcher.Post(() =>
             {
                 ToastItem toast;
@@ -204,6 +211,9 @@ namespace Shiro.Services
 
                 lock (_toastLock)
                 {
+                    if (_clearGeneration != showClearGen)
+                        return;
+
                     // Coalesce identical consecutive toasts and extend their auto-dismiss timer cleanly.
                     for (int i = ActiveToasts.Count - 1; i >= 0; i--)
                     {
@@ -334,6 +344,7 @@ namespace Shiro.Services
         {
             lock (_toastLock)
             {
+                unchecked { _clearGeneration++; }
                 if (ActiveToasts.Count == 0)
                     return;
             }

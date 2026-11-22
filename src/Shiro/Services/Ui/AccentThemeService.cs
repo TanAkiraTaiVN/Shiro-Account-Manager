@@ -2,6 +2,7 @@
 using System;
 using System.Globalization;
 using System.Text;
+using System.Threading;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Media;
@@ -20,8 +21,20 @@ namespace Shiro.Services
 
     public static class AccentThemeService
     {
+        private static readonly Lock _themeLock = new();
         private static AccentTheme _currentTheme = AccentTheme.Monochrome;
-        public static AccentTheme CurrentTheme => _currentTheme;
+        private static long _themeGeneration;
+
+        public static AccentTheme CurrentTheme
+        {
+            get
+            {
+                lock (_themeLock)
+                {
+                    return _currentTheme;
+                }
+            }
+        }
 
         private static ResourceDictionary? _activeThemeDict;
         private static AccentTheme? _activeTheme;
@@ -138,8 +151,14 @@ namespace Shiro.Services
 
         public static void ApplyTheme(AccentTheme theme, bool save = true)
         {
-            bool changed = _currentTheme != theme;
-            _currentTheme = theme;
+            bool changed;
+            long gen;
+            lock (_themeLock)
+            {
+                changed = _currentTheme != theme;
+                _currentTheme = theme;
+                gen = ++_themeGeneration;
+            }
 
             if (save)
             {
@@ -186,10 +205,20 @@ namespace Shiro.Services
 
             void SwapAndNotify()
             {
-                if (AppDispatcher.CanMutateUiResources())
+                lock (_themeLock)
                 {
-                    ApplyToAppResources(Avalonia.Application.Current, theme);
+                    if (_themeGeneration != gen)
+                        return;
+
+                    if (AppDispatcher.CanMutateUiResources())
+                    {
+                        ApplyToAppResources(Avalonia.Application.Current, theme);
+                    }
                 }
+
+                if (Volatile.Read(ref _themeGeneration) != gen)
+                    return;
+
                 if (changed || !save)
                 {
                     ThemeChanged?.Invoke(theme);
