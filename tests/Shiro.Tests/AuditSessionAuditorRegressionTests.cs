@@ -9,7 +9,7 @@ using Xunit;
 
 namespace Shiro.Tests
 {
-    [Collection("StaticSeams")]
+    [Collection("SerialGlobalState")]
     public sealed class AuditSessionAuditorRegressionTests : IDisposable
     {
         private const string TestCookie = "_|WARNING:-DO-NOT-SHARE-THIS.--" + "AUDIT_TEST_TOKEN_12345";
@@ -56,7 +56,7 @@ namespace Shiro.Tests
         public async Task Bug11_SessionAuditor_WhenPrimary401AndModerationDetected_ReturnsModeratedAndSetsBadge()
         {
             WebhookAlert? capturedAlert = null;
-            void OnAlert(WebhookAlert a) => capturedAlert = a;
+            void OnAlert(WebhookAlert a) { if (string.Equals(a.AccountUsername, "Mod401User", StringComparison.Ordinal)) capturedAlert = a; }
             WebhookNotificationService.AlertDispatched += OnAlert;
 
             try
