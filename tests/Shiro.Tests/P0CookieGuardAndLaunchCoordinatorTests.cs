@@ -184,7 +184,7 @@ namespace Shiro.Tests
             var homeCoordinator = new LaunchCoordinator(async (req, ct) =>
             {
                 executeSettled = false;
-                var result = await AccountLaunchService.Instance.LaunchAppHomeResultAsync(req.Account, preferChrome: false, cancellationToken: ct);
+                var result = await AccountLaunchService.Instance.LaunchAppHomeResultAsync(req.Account, cancellationToken: ct);
                 await Task.Delay(25, ct);
                 executeSettled = true;
                 return result;

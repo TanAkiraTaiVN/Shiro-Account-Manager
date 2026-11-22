@@ -74,7 +74,7 @@ namespace Shiro.Tests
             Assert.Contains("RlUser", status!, StringComparison.Ordinal);
 
             ToastService.ClearAll();
-            await AccountLaunchBatchService.LaunchHomeAccountsAsync(coord, new[] { acc }, false, 1000, null, s => status = s, CancellationToken.None);
+            await AccountLaunchBatchService.LaunchHomeAccountsAsync(coord, new[] { acc }, 1000, null, s => status = s, CancellationToken.None);
             Assert.NotNull(status);
             Assert.DoesNotContain("Successfully launched all", status!, StringComparison.OrdinalIgnoreCase);
         }

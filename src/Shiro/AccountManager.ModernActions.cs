@@ -13,7 +13,7 @@ namespace Shiro
         internal async Task ModernLaunchAccountAppHome(Account account)
         {
             if (account != null)
-                await LaunchHomeAccountsAsync(new[] { account }, preferChromeHome: false).ConfigureAwait(true);
+                await LaunchHomeAccountsAsync(new[] { account }).ConfigureAwait(true);
         }
 
         internal List<Account> GetCurrentSelectedAccounts() =>
@@ -43,7 +43,7 @@ namespace Shiro
             if (multiSel.Count > 1 && AppSettings.General.Get<bool>("EnableMultiRbx") && !RobloxSingletonService.MutexHeld && !await TryEnableMultiRobloxAsync(promptIfRobloxRunning: true).ConfigureAwait(false))
                 return;
 
-            await LaunchHomeAccountsAsync(multiSel, preferChromeHome: false).ConfigureAwait(false);
+            await LaunchHomeAccountsAsync(multiSel).ConfigureAwait(false);
             SetDashboardStatus(Shiro.Services.LocalizationService.Format("AccountManager.OpeningHome", multiSel.Count));
         }
 

@@ -183,7 +183,7 @@ namespace Shiro.Services
             return false;
         }
 
-        public async Task<bool> LogOutOfOtherSessionsAsync(Account account, bool Internal = false, CancellationToken cancellationToken = default)
+        public async Task<bool> LogOutOfOtherSessionsAsync(Account account, CancellationToken cancellationToken = default)
         {
             if (!HasValidSession(account)) return false;
             var csrf = await account.GetCSRFTokenAsync(cancellationToken).ConfigureAwait(false);

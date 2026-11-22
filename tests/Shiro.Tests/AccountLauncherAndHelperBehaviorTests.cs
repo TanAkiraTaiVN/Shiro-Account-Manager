@@ -150,14 +150,14 @@ namespace Shiro.Tests
         [Fact]
         public async Task BrowserService_OpenHomeAsync_WithNullAccount_ReturnsError()
         {
-            string result = await BrowserService.Default.OpenHomeAsync(null!, preferChrome: false);
+            string result = await BrowserService.Default.OpenHomeAsync(null!);
             Assert.StartsWith("ERROR", result);
         }
 
         [Fact]
         public async Task BrowserService_OpenHomeResultAsync_WithNullAccount_ReturnsFailedResult()
         {
-            var result = await BrowserService.Default.OpenHomeResultAsync(null!, preferChrome: false);
+            var result = await BrowserService.Default.OpenHomeResultAsync(null!);
             Assert.Equal(LaunchOutcome.Failed, result.Outcome);
             Assert.Contains("ERROR", result.Message);
         }

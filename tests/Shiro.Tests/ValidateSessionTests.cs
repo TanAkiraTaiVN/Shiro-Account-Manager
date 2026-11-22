@@ -178,7 +178,7 @@ namespace Shiro.Tests
             acc.CSRFToken = "csrf-123";
             acc.TokenSet = DateTime.Now;
 
-            bool ok = await acc.LogOutOfOtherSessionsAsync(Internal: true);
+            bool ok = await acc.LogOutOfOtherSessionsAsync();
             Assert.True(ok);
             Assert.Equal(rotatedToken, acc.SecurityToken);
         }

@@ -21,11 +21,10 @@ namespace Shiro
                 SetDashboardStatus,
                 SafeLifetimeToken);
 
-        private Task LaunchHomeAccountsAsync(IReadOnlyList<Account> accounts, bool preferChromeHome) =>
+        private Task LaunchHomeAccountsAsync(IReadOnlyList<Account> accounts) =>
             AccountLaunchBatchService.LaunchHomeAccountsAsync(
                 launchCoordinator,
                 accounts,
-                preferChromeHome,
                 HomeLaunchStaggerMilliseconds,
                 () => { if (AppServices.GeneralSettings.GetBool("EnableMultiRbx") && !RobloxSingletonService.MutexHeld) TryEnableMultiRoblox(promptIfRobloxRunning: false); },
                 SetDashboardStatus,
@@ -37,7 +36,6 @@ namespace Shiro
             if (request.OpenHome)
                 return await browserService.OpenHomeResultAsync(
                     request.Account,
-                    request.PreferChromeHome,
                     cancellationToken).ConfigureAwait(false);
 
             return await request.Account.JoinServerResult(

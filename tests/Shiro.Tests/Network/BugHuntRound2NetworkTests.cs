@@ -270,7 +270,7 @@ namespace Shiro.Tests.Network
                 }
                 return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("{}") });
             }));
-            var blockResp = await RobloxSocialApiService.Instance.BlockUserIdAsync(blockAcc, "555", skipPinCheck: true);
+            var blockResp = await RobloxSocialApiService.Instance.BlockUserIdAsync(blockAcc, "555");
             Assert.NotNull(blockResp);
             Assert.True(blockResp!.IsSuccessful);
             Assert.Equal(2, blockCalls);

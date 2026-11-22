@@ -17,8 +17,8 @@ namespace Shiro
         public Task<bool> ChangeEmailAsync(string password, string newEmail, CancellationToken cancellationToken = default) =>
             RobloxSettingsApiService.Instance.ChangeEmailAsync(this, password, newEmail, cancellationToken);
 
-        public Task<bool> LogOutOfOtherSessionsAsync(bool Internal = false, CancellationToken cancellationToken = default) =>
-            RobloxSettingsApiService.Instance.LogOutOfOtherSessionsAsync(this, Internal, cancellationToken);
+        public Task<bool> LogOutOfOtherSessionsAsync(CancellationToken cancellationToken = default) =>
+            RobloxSettingsApiService.Instance.LogOutOfOtherSessionsAsync(this, cancellationToken);
 
         public Task<(bool Successful, string Message)> SetServerAsync(long placeId, string jobId, CancellationToken cancellationToken = default) =>
             RobloxSettingsApiService.Instance.SetServerAsync(this, placeId, jobId, cancellationToken);

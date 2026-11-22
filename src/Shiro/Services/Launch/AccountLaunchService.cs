@@ -212,7 +212,6 @@ namespace Shiro.Services
             string jobId = "",
             bool followUser = false,
             bool joinVip = false,
-            bool internalCall = false,
             CancellationToken cancellationToken = default)
         {
             var result = await JoinServerResultAsync(
@@ -221,7 +220,6 @@ namespace Shiro.Services
                 jobId,
                 followUser,
                 joinVip,
-                internalCall,
                 cancellationToken).ConfigureAwait(false);
             return result.Message;
         }
@@ -232,7 +230,6 @@ namespace Shiro.Services
             string jobId = "",
             bool followUser = false,
             bool joinVip = false,
-            bool internalCall = false,
             CancellationToken cancellationToken = default)
         {
             if (account == null) return LaunchResult.Fail(LaunchOutcome.Failed, Shiro.Services.LocalizationService.Get("AccountLaunch.InvalidAccount"));

@@ -88,7 +88,7 @@ namespace Shiro.Tests
             cts.Cancel();
 
             await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-                AccountLaunchService.Instance.LaunchAppHomeResultAsync(account, preferChrome: false, cancellationToken: cts.Token));
+                AccountLaunchService.Instance.LaunchAppHomeResultAsync(account, cancellationToken: cts.Token));
         }
 
         [Fact]
@@ -133,7 +133,7 @@ namespace Shiro.Tests
                     BrowserTrackerID = "123456789012"
                 };
 
-                var result = await AccountLaunchService.Instance.LaunchAppHomeResultAsync(account, preferChrome: false);
+                var result = await AccountLaunchService.Instance.LaunchAppHomeResultAsync(account);
                 Assert.Equal(LaunchOutcome.Success, result.Outcome);
                 Assert.Equal("home-auth-ticket-999", capturedTicket);
                 Assert.Equal(account.SecurityToken, capturedCookie);

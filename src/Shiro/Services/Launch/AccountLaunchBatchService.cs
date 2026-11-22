@@ -254,7 +254,6 @@ namespace Shiro.Services
         public static async Task LaunchHomeAccountsAsync(
             ILaunchCoordinator launchCoordinator,
             IReadOnlyList<Account>? accounts,
-            bool preferChromeHome,
             int homeLaunchStaggerMilliseconds,
             Action? ensureMultiRoblox,
             Action<string>? statusCallback,
@@ -276,8 +275,7 @@ namespace Shiro.Services
                     jobId: string.Empty,
                     followUser: false,
                     vipServer: false,
-                    openHome: true,
-                    preferChromeHome: preferChromeHome))
+                    openHome: true))
                 .ToList();
 
             void SetStatus(string message)

@@ -145,7 +145,7 @@ namespace Shiro.Services
             return result;
         }
 
-        public async Task<RestResponse?> BlockUserIdAsync(Account account, string userId, bool skipPinCheck = false, bool unblock = false, CancellationToken cancellationToken = default)
+        public async Task<RestResponse?> BlockUserIdAsync(Account account, string userId, bool unblock = false, CancellationToken cancellationToken = default)
         {
             if (account == null || string.IsNullOrWhiteSpace(account.SecurityToken) ||
                 !long.TryParse(userId?.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out long parsedUserId) || parsedUserId <= 0)
@@ -178,8 +178,8 @@ namespace Shiro.Services
             return blockRes;
         }
 
-        public Task<RestResponse?> UnblockUserIdAsync(Account account, string userId, bool skipPinCheck = false, CancellationToken cancellationToken = default)
-            => BlockUserIdAsync(account, userId, skipPinCheck, unblock: true, cancellationToken);
+        public Task<RestResponse?> UnblockUserIdAsync(Account account, string userId, CancellationToken cancellationToken = default)
+            => BlockUserIdAsync(account, userId, unblock: true, cancellationToken);
 
         public async Task<RestResponse?> GetBlockedListAsync(Account account, CancellationToken cancellationToken = default)
         {
@@ -211,7 +211,7 @@ namespace Shiro.Services
 
                 RestResponse? unblockResponse = await RobloxRateLimitCoordinator.Instance.ExecuteWithPacingAsync(
                     RateLimitCategory.General,
-                    () => UnblockUserIdAsync(account, userId, true, cancellationToken),
+                    () => UnblockUserIdAsync(account, userId, cancellationToken),
                     minIntervalMs: 250,
                     cancellationToken: cancellationToken).ConfigureAwait(false);
                 if (unblockResponse?.IsSuccessful == true)
@@ -222,7 +222,7 @@ namespace Shiro.Services
 
                 var retryResponse = await RobloxRateLimitCoordinator.Instance.ExecuteWithPacingAsync(
                     RateLimitCategory.General,
-                    () => UnblockUserIdAsync(account, userId, true, cancellationToken),
+                    () => UnblockUserIdAsync(account, userId, cancellationToken),
                     minIntervalMs: 500,
                     cancellationToken: cancellationToken).ConfigureAwait(false);
                 if (retryResponse == null || !retryResponse.IsSuccessful)

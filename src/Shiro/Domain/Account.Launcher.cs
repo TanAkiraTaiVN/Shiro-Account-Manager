@@ -9,18 +9,18 @@ namespace Shiro
     public partial class Account : IComparable<Account>
     {
         public Task<string> JoinServer(
-            long PlaceID, string JobID = "", bool FollowUser = false, bool JoinVIP = false, bool Internal = false, CancellationToken cancellationToken = default) =>
-            AccountLaunchService.Instance.JoinServerAsync(this, PlaceID, JobID, FollowUser, JoinVIP, Internal, cancellationToken);
+            long PlaceID, string JobID = "", bool FollowUser = false, bool JoinVIP = false, CancellationToken cancellationToken = default) =>
+            AccountLaunchService.Instance.JoinServerAsync(this, PlaceID, JobID, FollowUser, JoinVIP, cancellationToken);
 
         public Task<LaunchResult> JoinServerResult(
-            long PlaceID, string JobID = "", bool FollowUser = false, bool JoinVIP = false, bool Internal = false, CancellationToken cancellationToken = default) =>
-            AccountLaunchService.Instance.JoinServerResultAsync(this, PlaceID, JobID, FollowUser, JoinVIP, Internal, cancellationToken);
+            long PlaceID, string JobID = "", bool FollowUser = false, bool JoinVIP = false, CancellationToken cancellationToken = default) =>
+            AccountLaunchService.Instance.JoinServerResultAsync(this, PlaceID, JobID, FollowUser, JoinVIP, cancellationToken);
 
-        public Task<string> LaunchAppHome(bool preferChrome = false, CancellationToken cancellationToken = default) =>
-            AccountLaunchService.Instance.LaunchAppHomeAsync(this, preferChrome, cancellationToken);
+        public Task<string> LaunchAppHome(CancellationToken cancellationToken = default) =>
+            AccountLaunchService.Instance.LaunchAppHomeAsync(this, cancellationToken);
 
-        public Task<LaunchResult> LaunchAppHomeResult(bool preferChrome = false, CancellationToken cancellationToken = default) =>
-            AccountLaunchService.Instance.LaunchAppHomeResultAsync(this, preferChrome, cancellationToken);
+        public Task<LaunchResult> LaunchAppHomeResult(CancellationToken cancellationToken = default) =>
+            AccountLaunchService.Instance.LaunchAppHomeResultAsync(this, cancellationToken);
 
         public Task AdjustWindowPosition(int targetPid = 0, CancellationToken cancellationToken = default) =>
             AccountLaunchService.AdjustWindowPositionAsync(this, targetPid, cancellationToken);

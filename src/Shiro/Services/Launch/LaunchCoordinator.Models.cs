@@ -14,7 +14,6 @@ namespace Shiro.Services
         public bool FollowUser { get; }
         public bool VipServer { get; }
         public bool OpenHome { get; }
-        public bool PreferChromeHome { get; }
 
         public LaunchRequest(
             Account account,
@@ -22,8 +21,7 @@ namespace Shiro.Services
             string jobId,
             bool followUser,
             bool vipServer,
-            bool openHome = false,
-            bool preferChromeHome = false)
+            bool openHome = false)
         {
             Account = account;
             PlaceId = placeId;
@@ -31,7 +29,6 @@ namespace Shiro.Services
             FollowUser = followUser;
             VipServer = vipServer;
             OpenHome = openHome;
-            PreferChromeHome = preferChromeHome;
         }
     }
 

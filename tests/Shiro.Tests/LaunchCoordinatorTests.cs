@@ -21,8 +21,7 @@ namespace Shiro.Tests
                 jobId: "job-abc-123",
                 followUser: true,
                 vipServer: false,
-                openHome: false,
-                preferChromeHome: false);
+                openHome: false);
 
             Assert.Same(account, request.Account);
             Assert.Equal(189707, request.PlaceId);
@@ -30,7 +29,6 @@ namespace Shiro.Tests
             Assert.True(request.FollowUser);
             Assert.False(request.VipServer);
             Assert.False(request.OpenHome);
-            Assert.False(request.PreferChromeHome);
         }
 
         [Fact]

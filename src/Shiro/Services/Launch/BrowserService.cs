@@ -58,24 +58,22 @@ namespace Shiro.Services
 
         public Task<string> OpenHomeAsync(
             Account account,
-            bool preferChrome,
             CancellationToken cancellationToken = default(CancellationToken))
         {
             if (account == null)
                 return Task.FromResult("ERROR: Account was not found.");
 
-            return account.LaunchAppHome(preferChrome, cancellationToken);
+            return account.LaunchAppHome(cancellationToken);
         }
 
         public Task<LaunchResult> OpenHomeResultAsync(
             Account account,
-            bool preferChrome,
             CancellationToken cancellationToken = default(CancellationToken))
         {
             if (account == null)
                 return Task.FromResult(LaunchResult.Fail(LaunchOutcome.Failed, "ERROR: Account was not found."));
 
-            return account.LaunchAppHomeResult(preferChrome, cancellationToken);
+            return account.LaunchAppHomeResult(cancellationToken);
         }
     }
 }

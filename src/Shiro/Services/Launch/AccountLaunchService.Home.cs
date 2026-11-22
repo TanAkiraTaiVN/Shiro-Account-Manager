@@ -39,16 +39,14 @@ namespace Shiro.Services
 
         public async Task<string> LaunchAppHomeAsync(
             Account account,
-            bool preferChrome = false,
             CancellationToken cancellationToken = default)
         {
-            var result = await LaunchAppHomeResultAsync(account, preferChrome, cancellationToken).ConfigureAwait(false);
+            var result = await LaunchAppHomeResultAsync(account, cancellationToken).ConfigureAwait(false);
             return result.Message;
         }
 
         public async Task<LaunchResult> LaunchAppHomeResultAsync(
             Account account,
-            bool preferChrome = false,
             CancellationToken cancellationToken = default)
         {
             if (account == null) return LaunchResult.Fail(LaunchOutcome.Failed, Shiro.Services.LocalizationService.Get("AccountLaunch.InvalidAccount"));
