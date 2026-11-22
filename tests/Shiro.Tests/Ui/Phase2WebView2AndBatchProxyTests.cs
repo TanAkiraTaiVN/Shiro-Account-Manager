@@ -30,6 +30,7 @@ namespace Shiro.Tests
 
         public Phase2WebView2AndBatchProxyTests()
         {
+            Batch.ResetPendingWorkersForTest();
             _previousValidAccount = AppSettings.LastValidAccount;
             _hadDisableImages = AppSettings.General.Exists("DisableImages");
             _previousDisableImages = AppSettings.General.Get("DisableImages");
@@ -40,6 +41,7 @@ namespace Shiro.Tests
 
         public void Dispose()
         {
+            Batch.ResetPendingWorkersForTest();
             AppSettings.LastValidAccount = _previousValidAccount;
             if (_hadDisableImages) AppSettings.General.Set("DisableImages", _previousDisableImages);
             else AppSettings.General.RemoveProperty("DisableImages");

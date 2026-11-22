@@ -130,6 +130,23 @@ namespace Shiro.Services
         public static readonly ConcurrentDictionary<long, string> GameIcons =
             new ConcurrentDictionary<long, string>();
 
+        internal static void ResetPendingWorkersForTest()
+        {
+            lock (PlaceTaskLock)
+            {
+                PendingPlace.Clear();
+                PendingPlaceIds.Clear();
+                CurrentPlaceWork = null;
+            }
+
+            lock (BatchTaskLock)
+            {
+                PendingBatch.Clear();
+                PendingBatchIds.Clear();
+                CurrentBatchWork = null;
+            }
+        }
+
         public static async Task<string> GetImage(long assetId, string type, string size = "150x150", string? format = null)
         {
             if (AppServices.GeneralSettings?.Get<bool>("DisableImages") == true)

@@ -353,7 +353,7 @@ namespace Shiro.Tests
         {
             var mgr = AccountManager.Instance ?? new AccountManager();
 
-            AppServices.ServerBrowserState.RecentGames = new List<Game> { new Game(111) };
+            AppServices.ServerBrowserState.RecentGames = new List<Game> { new Game { Details = GameDetails.Unknown(111, "TestGame") } };
             Assert.Single(AppServices.ServerBrowserState.RecentGames);
 
             var acc = new Account { Username = "CorePropUser", UserID = 77, Valid = true, SecurityToken = "_|WARNING:-DO-NOT-SHARE-THIS.--" + new string('A', 120) };

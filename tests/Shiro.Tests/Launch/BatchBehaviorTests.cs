@@ -19,11 +19,13 @@ namespace Shiro.Tests
 
         public BatchBehaviorTests()
         {
+            Batch.ResetPendingWorkersForTest();
             _previousValidAcc = AppSettings.LastValidAccount;
         }
 
         public void Dispose()
         {
+            Batch.ResetPendingWorkersForTest();
             AppSettings.LastValidAccount = _previousValidAcc;
             AppSettings.General.Set("DisableImages", "false");
         }

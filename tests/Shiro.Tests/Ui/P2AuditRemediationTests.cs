@@ -66,6 +66,7 @@ namespace Shiro.Tests
             string prevMax = AppServices.GeneralSettings.Get("MaxRecentGames") ?? string.Empty;
             bool hadKey = AppServices.GeneralSettings.Exists("MaxRecentGames");
             var prevRecent = AppServices.ServerBrowserState.RecentGames?.ToList() ?? new List<Game>();
+            var prevFactory = GameInfoService.HttpClientFactoryForTests;
 
             try
             {
@@ -76,7 +77,7 @@ namespace Shiro.Tests
 
                 for (int i = 1; i <= 4; i++)
                 {
-                    var game = new Game(1000 + i, $"RecentGame{i}");
+                    var game = new Game { Details = GameDetails.Unknown(1000 + i, $"RecentGame{i}") };
                     await GameInfoService.AddRecentGameAsync(game, loading: true);
                 }
 
@@ -86,6 +87,7 @@ namespace Shiro.Tests
             }
             finally
             {
+                GameInfoService.HttpClientFactoryForTests = prevFactory;
                 AppServices.ServerBrowserState.RecentGames = prevRecent;
                 if (hadKey)
                     AppServices.GeneralSettings.Set("MaxRecentGames", prevMax);
