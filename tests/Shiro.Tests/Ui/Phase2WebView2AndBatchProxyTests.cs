@@ -292,6 +292,7 @@ namespace Shiro.Tests
             string? capturedPlaceUrl = null;
             string? capturedHbaHeader = null;
             string? capturedCookieHeader = null;
+            var capturedThumbUrls = new List<string>();
 
             var placeHandler = new StubHttpHandler(req =>
             {
@@ -318,6 +319,7 @@ namespace Shiro.Tests
             var thumbHandler = new StubHttpHandler(req =>
             {
                 string url = req.RequestUri?.AbsoluteUri ?? string.Empty;
+                capturedThumbUrls.Add(url);
                 if (url.Contains("v1/batch", StringComparison.OrdinalIgnoreCase))
                 {
                     string batchJson = $"{{\"data\":[{{\"targetId\":{uniqueUniverseId},\"errorCode\":0,\"imageUrl\":\"https://fake.rbx/icon-{uniqueUniverseId}.png\"}}]}}";
@@ -338,7 +340,10 @@ namespace Shiro.Tests
 
             string iconUrl = await Batch.GetGameIcon(uniquePlaceId);
 
-            Assert.Equal($"https://fake.rbx/icon-{uniqueUniverseId}.png", iconUrl);
+            string expectedIconUrl = $"https://fake.rbx/icon-{uniqueUniverseId}.png";
+            Assert.True(
+                string.Equals(expectedIconUrl, iconUrl, StringComparison.Ordinal),
+                $"Expected '{expectedIconUrl}' but got '{iconUrl}'. factoryCalled={factoryCalled}, capturedPlaceUrl={capturedPlaceUrl ?? "<null>"}, hasPlaceDetails={Batch.PlaceDetails.ContainsKey(uniquePlaceId)}, lastValid={AppServices.SelectionState.LastValidAccount?.Username ?? "<null>"}, thumbUrls=[{string.Join(", ", capturedThumbUrls)}]");
             Assert.True(factoryCalled);
             Assert.Same(account, capturedAccount);
             Assert.Contains("multiget-place-details", capturedPlaceUrl ?? string.Empty, StringComparison.OrdinalIgnoreCase);

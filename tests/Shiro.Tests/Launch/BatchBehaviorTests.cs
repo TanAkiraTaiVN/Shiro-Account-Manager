@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
 using System.Text;
@@ -87,6 +88,124 @@ namespace Shiro.Tests
             // 2. GetGameIcon
             string gameIcon = await Batch.GetGameIcon(1122);
             Assert.Equal("https://fake.rbx/7766.png", gameIcon);
+        }
+
+        [Fact]
+        public async Task Batch_ResetPendingWorkersForTest_FencesSupersededProcessPlaceWorker()
+        {
+            using var suppressSave = Account.BeginSuppressDeferredSaveScope();
+            var prevFactory = RobloxAccountSessionClient.TestHttpClientFactory;
+            var prevValidAcc = AppServices.SelectionState.LastValidAccount;
+            bool hadDisableImages = AppSettings.General.Exists("DisableImages");
+            string? prevDisableImages = AppSettings.General.Get("DisableImages");
+
+            long firstPlaceId = 920_000_000L + Random.Shared.Next(1, 499_999);
+            long secondPlaceId = 920_500_000L + Random.Shared.Next(1, 499_999);
+            long secondUniverseId = 820_500_000L + Random.Shared.Next(1, 499_999);
+
+            try
+            {
+                AppSettings.General.Set("DisableImages", "false");
+                AppServices.SelectionState.LastValidAccount = new Account
+                {
+                    Username = "BatchFenceUser",
+                    UserID = 123456789L,
+                    SecurityToken = "dummy_token"
+                };
+
+                var enteredFirstRequest = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+                var releaseFirstRequest = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+                var secondPlaceUrls = new List<string>();
+
+                var firstPlaceHandler = new AsyncStubHttpHandler(async (_, ct) =>
+                {
+                    enteredFirstRequest.TrySetResult(true);
+                    await releaseFirstRequest.Task.WaitAsync(ct).ConfigureAwait(false);
+                    return new HttpResponseMessage(HttpStatusCode.OK)
+                    {
+                        Content = new StringContent("[]", Encoding.UTF8, "application/json")
+                    };
+                });
+
+                var secondPlaceHandler = new StubHttpHandler(req =>
+                {
+                    string url = req.RequestUri?.AbsoluteUri ?? string.Empty;
+                    secondPlaceUrls.Add(url);
+                    if (url.Contains(secondPlaceId.ToString(), StringComparison.Ordinal))
+                    {
+                        string gamesJson = $"[{{\"placeId\":{secondPlaceId},\"universeId\":{secondUniverseId},\"name\":\"Fenced Second Place\"}}]";
+                        return new HttpResponseMessage(HttpStatusCode.OK)
+                        {
+                            Content = new StringContent(gamesJson, Encoding.UTF8, "application/json")
+                        };
+                    }
+
+                    return new HttpResponseMessage(HttpStatusCode.OK)
+                    {
+                        Content = new StringContent("[]", Encoding.UTF8, "application/json")
+                    };
+                });
+
+                var thumbHandler = new StubHttpHandler(req =>
+                {
+                    string url = req.RequestUri?.AbsoluteUri ?? string.Empty;
+                    if (url.Contains("v1/batch", StringComparison.OrdinalIgnoreCase))
+                    {
+                        string batchJson = $"{{\"data\":[{{\"targetId\":{secondUniverseId},\"errorCode\":0,\"imageUrl\":\"https://fake.rbx/icon-{secondUniverseId}.png\"}}]}}";
+                        return new HttpResponseMessage(HttpStatusCode.OK)
+                        {
+                            Content = new StringContent(batchJson, Encoding.UTF8, "application/json")
+                        };
+                    }
+
+                    return new HttpResponseMessage(HttpStatusCode.NotFound);
+                });
+
+                var mockApi = Substitute.For<IRobloxApiClient>();
+                using var thumbHttp = new HttpClient(thumbHandler);
+                using var thumbClient = new RestClient(thumbHttp, "https://thumbnails.roblox.com/");
+                mockApi.Thumbnails.Returns(thumbClient);
+                using var apiScope = AppServices.Override<IRobloxApiClient>(mockApi);
+
+                RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(firstPlaceHandler, disposeHandler: false);
+                Task<string> firstTask = Batch.GetGameIcon(firstPlaceId);
+                await enteredFirstRequest.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+                Batch.ResetPendingWorkersForTest();
+                RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(secondPlaceHandler, disposeHandler: false);
+                Task<string> secondTask = Batch.GetGameIcon(secondPlaceId);
+
+                releaseFirstRequest.TrySetResult(true);
+
+                string firstIcon = await firstTask;
+                string secondIcon = await secondTask;
+
+                Assert.Equal("UNK", firstIcon);
+                Assert.Equal($"https://fake.rbx/icon-{secondUniverseId}.png", secondIcon);
+                Assert.Single(secondPlaceUrls);
+                Assert.Contains(secondPlaceId.ToString(), secondPlaceUrls[0], StringComparison.Ordinal);
+                Assert.DoesNotContain(firstPlaceId.ToString(), secondPlaceUrls[0], StringComparison.Ordinal);
+            }
+            finally
+            {
+                Batch.ResetPendingWorkersForTest();
+                Batch.PlaceDetails.TryRemove(firstPlaceId, out _);
+                Batch.PlaceDetails.TryRemove(secondPlaceId, out _);
+                Batch.GameIcons.TryRemove(firstPlaceId, out _);
+                Batch.GameIcons.TryRemove(secondPlaceId, out _);
+                RobloxAccountSessionClient.TestHttpClientFactory = prevFactory;
+                AppServices.SelectionState.LastValidAccount = prevValidAcc;
+                if (hadDisableImages) AppSettings.General.Set("DisableImages", prevDisableImages);
+                else AppSettings.General.RemoveProperty("DisableImages");
+            }
+        }
+
+        private sealed class AsyncStubHttpHandler : HttpMessageHandler
+        {
+            private readonly Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> _handler;
+            public AsyncStubHttpHandler(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> handler) => _handler = handler;
+            protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
+                _handler(request, cancellationToken);
         }
 
         private sealed class StubHttpHandler : HttpMessageHandler

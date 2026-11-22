@@ -228,11 +228,16 @@ namespace Shiro.Services
                     BatchRequestPayload[] pending;
                     lock (BatchTaskLock)
                     {
+                        if (!ReferenceEquals(CurrentBatchWork, work))
+                        {
+                            work.Completion.TrySetResult(lookupResult);
+                            return;
+                        }
+
                         if (PendingBatch.Count == 0)
                         {
                             PendingBatchIds.Clear();
-                            if (ReferenceEquals(CurrentBatchWork, work))
-                                CurrentBatchWork = null;
+                            CurrentBatchWork = null;
 
                             work.Completion.TrySetResult(lookupResult);
                             return;
@@ -267,10 +272,12 @@ namespace Shiro.Services
             {
                 lock (BatchTaskLock)
                 {
-                    PendingBatch.Clear();
-                    PendingBatchIds.Clear();
                     if (ReferenceEquals(CurrentBatchWork, work))
+                    {
+                        PendingBatch.Clear();
+                        PendingBatchIds.Clear();
                         CurrentBatchWork = null;
+                    }
                 }
 
                 if (hasSucceededAnyChunk)
@@ -291,17 +298,30 @@ namespace Shiro.Services
                 if (AppServices.AccountRepository.Count > 0)
                 {
                     for (int attempt = 0; attempt < 6 && AppServices.SelectionState.LastValidAccount == null; attempt++)
+                    {
+                        lock (PlaceTaskLock)
+                        {
+                            if (!ReferenceEquals(CurrentPlaceWork, work))
+                            {
+                                work.Completion.TrySetResult(true);
+                                return;
+                            }
+                        }
+
                         await Task.Delay(50).ConfigureAwait(false);
+                    }
                 }
 
                 if (AppServices.SelectionState.LastValidAccount == null)
                 {
                     lock (PlaceTaskLock)
                     {
-                        PendingPlace.Clear();
-                        PendingPlaceIds.Clear();
                         if (ReferenceEquals(CurrentPlaceWork, work))
+                        {
+                            PendingPlace.Clear();
+                            PendingPlaceIds.Clear();
                             CurrentPlaceWork = null;
+                        }
                     }
 
                     work.Completion.TrySetResult(true);
@@ -313,11 +333,16 @@ namespace Shiro.Services
                     List<long> pending = new List<long>();
                     lock (PlaceTaskLock)
                     {
+                        if (!ReferenceEquals(CurrentPlaceWork, work))
+                        {
+                            work.Completion.TrySetResult(true);
+                            return;
+                        }
+
                         if (PendingPlace.Count == 0)
                         {
                             PendingPlaceIds.Clear();
-                            if (ReferenceEquals(CurrentPlaceWork, work))
-                                CurrentPlaceWork = null;
+                            CurrentPlaceWork = null;
 
                             work.Completion.TrySetResult(true);
                             return;
@@ -386,10 +411,12 @@ namespace Shiro.Services
             {
                 lock (PlaceTaskLock)
                 {
-                    PendingPlace.Clear();
-                    PendingPlaceIds.Clear();
                     if (ReferenceEquals(CurrentPlaceWork, work))
+                    {
+                        PendingPlace.Clear();
+                        PendingPlaceIds.Clear();
                         CurrentPlaceWork = null;
+                    }
                 }
 
                 work.Completion.TrySetException(exception);

@@ -131,6 +131,7 @@ public sealed class P0AuditRemediationTests : IDisposable
     [Fact]
     public async Task AccountApiDispatcher_GroupFilterIsCaseInsensitive_AndTogglesQueueSave()
     {
+        var mgr = AccountManager.Instance ?? new AccountManager();
         var oldAccounts = AppServices.AccountRepository.GetAll().ToList();
         var prevIni = AppSettings.ActiveIniFile;
         string prevPass = AppSettings.WebSocketPassword ?? string.Empty;
@@ -152,7 +153,6 @@ public sealed class P0AuditRemediationTests : IDisposable
                 new Account { Username = "BetaOther", UserID = 102, Group = "Farm", SecurityToken = "tok2", Valid = true }
             });
 
-            var mgr = AccountManager.Instance ?? new AccountManager();
             using var bridgeScope = AppServices.Override<IHostUiBridgeService>(hostBridgeSub);
 
             AccountManager.ApiRequestContext MakeReq(string path, Dictionary<string, string>? query = null)
