@@ -84,5 +84,22 @@ namespace Shiro.Tests
                 .ToList();
             Assert.Empty(oversized);
         }
+
+        [Fact]
+        public void TestFiles_ShouldBeOrganizedInSubfolders()
+        {
+            var testsDir = Path.Combine(RepoRoot, "tests", "Shiro.Tests");
+            var rootCsFiles = Directory.EnumerateFiles(testsDir, "*.cs", SearchOption.TopDirectoryOnly)
+                .Select(Path.GetFileName)
+                .OrderBy(n => n, StringComparer.Ordinal)
+                .ToList();
+            var allTestFiles = Directory.EnumerateFiles(testsDir, "*.cs", SearchOption.AllDirectories)
+                .Where(f => !f.Replace('\\', '/').Contains("/bin/") && !f.Replace('\\', '/').Contains("/obj/") && !f.EndsWith(".g.cs", StringComparison.Ordinal))
+                .ToList();
+
+            Assert.True(allTestFiles.Count >= 250, $"Expected at least 250 test files under tests/Shiro.Tests, found {allTestFiles.Count}");
+            Assert.True(rootCsFiles.Count == 0,
+                $"Expected 0 .cs files in tests/Shiro.Tests root, but found {rootCsFiles.Count}: {string.Join(", ", rootCsFiles)}");
+        }
     }
 }
