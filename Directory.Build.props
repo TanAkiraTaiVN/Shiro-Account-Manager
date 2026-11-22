@@ -8,10 +8,4 @@
     <NuGetAuditMode>all</NuGetAuditMode>
     <NuGetAuditLevel>low</NuGetAuditLevel>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(MSBuildProjectName)' != 'Shiro.Tests'">
-    <!-- Keep generated intermediate files with the other build artifacts so
-         the source tree contains only source, resources and project files. -->
-    <BaseIntermediateOutputPath>$(MSBuildThisFileDirectory)build\artifacts\obj\</BaseIntermediateOutputPath>
-    <MSBuildProjectExtensionsPath>$(BaseIntermediateOutputPath)</MSBuildProjectExtensionsPath>
-  </PropertyGroup>
 </Project>

@@ -41,9 +41,6 @@
     <GarbageCollectionAdaptation>1</GarbageCollectionAdaptation>
     <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
 
-    <!-- Regular builds go to a disposable artifacts folder. The distributable
-         is written to build\Release by the publish command in CONTRIBUTING.md. -->
-    <OutputPath>..\..\build\artifacts\$(Configuration)\</OutputPath>
     <PublishDocumentationFiles>false</PublishDocumentationFiles>
     <NoWarn>$(NoWarn);MSB3277</NoWarn>
     <EnableRequestDelegateGenerator Condition="'$(PublishAot)' == 'true'">false</EnableRequestDelegateGenerator>
