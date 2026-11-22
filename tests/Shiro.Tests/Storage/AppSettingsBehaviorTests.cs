@@ -186,9 +186,10 @@ namespace Shiro.Tests
             var acc = new Account { Username = "BridgeAcc", UserID = 445566, Valid = true };
             bool origSingletonEnabled = RobloxSingletonService.IsEnabled;
             string tempDir = Path.Combine(Path.GetTempPath(), $"Shiro_BridgeTest_{Guid.NewGuid():N}");
+            IDisposable? dirScope = null;
             try
             {
-                using var dirScope = StoragePaths.OverrideDataDirectoryForTesting(tempDir);
+                dirScope = StoragePaths.OverrideDataDirectoryForTesting(tempDir);
 
                 var ex = await Record.ExceptionAsync(async () =>
                 {
@@ -220,6 +221,8 @@ namespace Shiro.Tests
             finally
             {
                 RobloxSingletonService.ResetForTest(origSingletonEnabled);
+                AccountManager.CancelDeferredSaveSettings();
+                dirScope?.Dispose();
                 try { if (Directory.Exists(tempDir)) Directory.Delete(tempDir, true); } catch (IOException) { }
             }
         }

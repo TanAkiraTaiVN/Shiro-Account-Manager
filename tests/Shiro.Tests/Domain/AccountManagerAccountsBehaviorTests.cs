@@ -225,38 +225,41 @@ namespace Shiro.Tests
                 AccountManager.SuppressExitOnShutdown = true;
                 string prevPlaceId = AppServices.ServerBrowserState.CurrentPlaceId;
                 AppServices.ServerBrowserState.CurrentPlaceId = string.Empty;
-                var tempMgr = new AccountManager();
-                AppSettings.General.Set("ShuffleJobId", "true");
-                AppSettings.General.Set("AutoCookieRefresh", "true");
-                AppSettings.General.Set("ShowPresence", "false");
-                AppSettings.Developer.Set("EnableWebServer", "false");
-                tempMgr.InitializeBackendServices();
-                tempMgr.Close();
-                tempMgr.Dispose();
-                Assert.True(tempMgr.IsDisposed);
-                tempMgr.ShutdownBackend();
-                AppServices.ServerBrowserState.CurrentPlaceId = prevPlaceId;
+                using (AppServices.Override<IHostUiBridgeService>(new HostUiBridgeService()))
+                {
+                    var tempMgr = new AccountManager();
+                    AppSettings.General.Set("ShuffleJobId", "true");
+                    AppSettings.General.Set("AutoCookieRefresh", "true");
+                    AppSettings.General.Set("ShowPresence", "false");
+                    AppSettings.Developer.Set("EnableWebServer", "false");
+                    tempMgr.InitializeBackendServices();
+                    tempMgr.Close();
+                    tempMgr.Dispose();
+                    Assert.True(tempMgr.IsDisposed);
+                    tempMgr.ShutdownBackend();
+                    AppServices.ServerBrowserState.CurrentPlaceId = prevPlaceId;
 
-                // Second temp instance with AutoCookieRefresh=false, ShowPresence=true, EnableWebServer=true
-                var tempMgr2 = new AccountManager();
-                AppSettings.General.Set("ShuffleJobId", "false");
-                AppSettings.General.Set("AutoCookieRefresh", "false");
-                AppSettings.General.Set("ShowPresence", "true");
-                AppSettings.Developer.Set("EnableWebServer", "true");
-                AppSettings.WebServer.Set("WebServerPort", "invalid_numeric_port");
-                AppSettings.WebServer.Set("AllowExternalConnections", "true");
-                tempMgr2.InitializeBackendServices();
-                Assert.Null(tempMgr2.AutoCookieRefresh);
-                Assert.NotNull(tempMgr2.PresenceTimer);
-                AppSettings.Developer.Set("EnableWebServer", "false");
-                AppSettings.WebServer.Set("AllowExternalConnections", "false");
+                    // Second temp instance with AutoCookieRefresh=false, ShowPresence=true, EnableWebServer=true
+                    var tempMgr2 = new AccountManager();
+                    AppSettings.General.Set("ShuffleJobId", "false");
+                    AppSettings.General.Set("AutoCookieRefresh", "false");
+                    AppSettings.General.Set("ShowPresence", "true");
+                    AppSettings.Developer.Set("EnableWebServer", "true");
+                    AppSettings.WebServer.Set("WebServerPort", "invalid_numeric_port");
+                    AppSettings.WebServer.Set("AllowExternalConnections", "true");
+                    tempMgr2.InitializeBackendServices();
+                    Assert.Null(tempMgr2.AutoCookieRefresh);
+                    Assert.NotNull(tempMgr2.PresenceTimer);
+                    AppSettings.Developer.Set("EnableWebServer", "false");
+                    AppSettings.WebServer.Set("AllowExternalConnections", "false");
 
-                // Also cover InitializePostStartup with AutoCloseRobloxOnLaunch=true, EnableMultiRbx=true
-                AppSettings.General.Set("AutoCloseRobloxOnLaunch", "true");
-                AppSettings.General.Set("EnableMultiRbx", "true");
-                tempMgr2.InitializePostStartup();
-                AppSettings.General.Set("AutoCloseRobloxOnLaunch", "false");
-                tempMgr2.Dispose();
+                    // Also cover InitializePostStartup with AutoCloseRobloxOnLaunch=true, EnableMultiRbx=true
+                    AppSettings.General.Set("AutoCloseRobloxOnLaunch", "true");
+                    AppSettings.General.Set("EnableMultiRbx", "true");
+                    tempMgr2.InitializePostStartup();
+                    AppSettings.General.Set("AutoCloseRobloxOnLaunch", "false");
+                    tempMgr2.Dispose();
+                }
 
                 AccountManager.Instance = mgr;
             }

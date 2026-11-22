@@ -53,8 +53,8 @@ namespace Shiro.Tests
             AppSettings.WebServer.Set("AllowLaunchAccount", _origAllowLaunchAccount);
             AppSettings.General.Set("EnableMultiRbx", _origEnableMultiRbx ?? (_origSingletonEnabled ? "true" : "false"));
             AppSettings.General.Set("EnablePotatoMode", _origEnablePotatoMode);
-            AppSettings.General.Set("AutoReconnect", _origAutoReconnect);
             AutoReconnectService.Instance.IsEnabled = _origAutoReconnectEnabled;
+            AppSettings.General.Set("AutoReconnect", _origAutoReconnect);
             RobloxSingletonService.ResetForTest(_origSingletonEnabled);
         }
 

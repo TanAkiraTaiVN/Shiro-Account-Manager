@@ -4,6 +4,7 @@ using System.Net;
 using System.Threading.Tasks;
 using Shiro;
 using Shiro.Services;
+using Shiro.Tests.TestInfrastructure;
 using Xunit;
 
 namespace Shiro.Tests
@@ -310,10 +311,16 @@ namespace Shiro.Tests
             string tempDir = Path.Combine(Path.GetTempPath(), $"Shiro_WebAuth_{Guid.NewGuid():N}");
             var prevIni = AppSettings.ActiveIniFile;
             var prevMgr = AccountManager.Instance;
+            bool prevSuppress = AccountManager.SuppressExitOnShutdown;
+            IDisposable? dirScope = null;
+            IDisposable? bridgeScope = null;
+            AccountManager? mgr = null;
             try
             {
-                using var dirScope = StoragePaths.OverrideDataDirectoryForTesting(tempDir);
-                var mgr = new AccountManager();
+                AccountManager.SuppressExitOnShutdown = true;
+                dirScope = StoragePaths.OverrideDataDirectoryForTesting(tempDir);
+                bridgeScope = AppServices.Override<IHostUiBridgeService>(new HostUiBridgeService());
+                mgr = new AccountManager();
                 int statusCode = 200;
                 var ctx = new AccountManager.ApiRequestContext
                 {
@@ -333,9 +340,14 @@ namespace Shiro.Tests
             }
             finally
             {
+                AccountManager.CancelDeferredSaveSettings();
+                mgr?.Dispose();
+                bridgeScope?.Dispose();
+                AccountManager.SuppressExitOnShutdown = prevSuppress;
                 AppSettings.ActiveIniFile = prevIni;
                 AccountManager.Instance = prevMgr;
                 if (prevMgr != null) AccountManager.WireHostServices();
+                dirScope?.Dispose();
                 try { if (Directory.Exists(tempDir)) Directory.Delete(tempDir, true); } catch (IOException) { }
             }
         }
