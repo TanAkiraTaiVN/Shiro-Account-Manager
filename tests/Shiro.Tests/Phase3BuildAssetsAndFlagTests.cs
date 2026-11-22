@@ -186,17 +186,31 @@ namespace Shiro.Tests
 
             Assert.DoesNotContain("ArgumentList", startScript);
             Assert.Contains("Format-WindowsArgument", startScript);
+            Assert.Contains("[string[]]$quotedArgs = @(foreach", startScript);
 
-            // Extract Format-WindowsArgument and exercise it in Windows PowerShell 5.1.
+            // Extract Format-WindowsArgument and the exact $quotedArgs line from start.ps1, then exercise both in PowerShell.
             Match fnMatch = Regex.Match(
                 startScript,
                 @"function\s+Format-WindowsArgument\s*\{[\s\S]*?\r?\n\}",
                 RegexOptions.Multiline);
             Assert.True(fnMatch.Success, "Expected Format-WindowsArgument function in start.ps1.");
 
+            Match joinBlockMatch = Regex.Match(
+                startScript,
+                @"if\s*\(\$launchArgs\.Count\s*-gt\s*0\)\s*\{[\s\S]*?\r?\n\}",
+                RegexOptions.Multiline);
+            Assert.True(joinBlockMatch.Success, "Expected $launchArgs quoting block in start.ps1.");
+
             string psCommand = fnMatch.Value + "\n" +
                 "$cases = @('--tray', 'arg with spaces', 'C:\\My Folder\\', 'say \"hi\"', \"tab`targ\", '')\n" +
-                "($cases | ForEach-Object { Format-WindowsArgument $_ }) -join '|'";
+                "$multi = ($cases | ForEach-Object { Format-WindowsArgument $_ }) -join '|'\n" +
+                "$psi = [pscustomobject]@{ Arguments = '' }\n" +
+                "$launchArgs = [System.Collections.Generic.List[string]]::new()\n" +
+                "$launchArgs.Add('C:\\My Folder')\n" +
+                joinBlockMatch.Value + "\n" +
+                "$isStringArray = $quotedArgs -is [string[]]\n" +
+                "$singleJoined = $psi.Arguments\n" +
+                "\"$multi`n$isStringArray`n$singleJoined\"";
 
             var psi = new ProcessStartInfo
             {
@@ -217,7 +231,10 @@ namespace Shiro.Tests
             Assert.Equal(0, proc.ExitCode);
             Assert.Equal(string.Empty, stderr);
 
-            string[] results = stdout.Split('|');
+            string[] lines = stdout.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
+            Assert.Equal(3, lines.Length);
+
+            string[] results = lines[0].Split('|');
             Assert.Equal(
                 new[]
                 {
@@ -229,6 +246,8 @@ namespace Shiro.Tests
                     "\"\""
                 },
                 results);
+            Assert.Equal("True", lines[1]);
+            Assert.Equal("\"C:\\My Folder\"", lines[2]);
         }
     }
 }

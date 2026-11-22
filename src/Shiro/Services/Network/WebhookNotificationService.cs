@@ -227,23 +227,33 @@ namespace Shiro.Services
 
         internal static string TruncateTelegramMarkdownSafe(string text, int maxLength = 4096)
         {
-            if (string.IsNullOrEmpty(text) || text.Length <= maxLength)
-                return text;
+            const string suffix = @"\.\.\.";
 
             if (maxLength <= 0)
                 return string.Empty;
 
-            int cut = maxLength <= 3 ? maxLength : maxLength - 3;
-            if (cut > 0 && cut < text.Length && char.IsLowSurrogate(text[cut]) && char.IsHighSurrogate(text[cut - 1]))
-                cut--;
+            if (string.IsNullOrEmpty(text) || text.Length <= maxLength)
+                return text;
+
+            if (maxLength <= suffix.Length)
+            {
+                int safeSuffixLength = maxLength;
+                if ((safeSuffixLength & 1) == 1)
+                    safeSuffixLength--;
+                return suffix[..safeSuffixLength];
+            }
+
+            int limit = maxLength - suffix.Length;
+            if (limit > 0 && limit < text.Length && char.IsLowSurrogate(text[limit]) && char.IsHighSurrogate(text[limit - 1]))
+                limit--;
 
             int backslashes = 0;
-            for (int i = cut - 1; i >= 0 && text[i] == '\\'; i--)
+            for (int i = limit - 1; i >= 0 && text[i] == '\\'; i--)
                 backslashes++;
             if ((backslashes & 1) == 1)
-                cut--;
+                limit--;
 
-            return maxLength <= 3 ? text[..cut] : text[..cut] + "...";
+            return text[..limit] + suffix;
         }
 
         private static bool ShouldSend(WebhookAlert alert)

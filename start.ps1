@@ -50,7 +50,7 @@ $launchArgs = [System.Collections.Generic.List[string]]::new()
 if ($Arguments -and $Arguments.Count -gt 0) { $launchArgs.AddRange($Arguments) }
 
 if ($launchArgs.Count -gt 0) {
-    $quotedArgs = foreach ($arg in $launchArgs) { Format-WindowsArgument $arg }
+    [string[]]$quotedArgs = @(foreach ($arg in $launchArgs) { Format-WindowsArgument $arg })
     $psi.Arguments = [string]::Join(' ', $quotedArgs)
 }
 

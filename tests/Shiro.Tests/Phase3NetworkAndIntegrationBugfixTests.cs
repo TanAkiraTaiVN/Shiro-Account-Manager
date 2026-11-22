@@ -73,9 +73,9 @@ public sealed class Phase3NetworkAndIntegrationBugfixTests : IDisposable
 
         Assert.InRange(formatted.Length, 1, 4096);
         Assert.Contains("*Event:*", formatted, StringComparison.Ordinal);
-        Assert.EndsWith("...", formatted, StringComparison.Ordinal);
+        Assert.EndsWith(@"\.\.\.", formatted, StringComparison.Ordinal);
 
-        string beforeEllipsis = formatted[..^3];
+        string beforeEllipsis = formatted[..^6];
         int trailingBackslashes = 0;
         for (int i = beforeEllipsis.Length - 1; i >= 0 && beforeEllipsis[i] == '\\'; i--)
             trailingBackslashes++;
@@ -230,17 +230,28 @@ public sealed class Phase3NetworkAndIntegrationBugfixTests : IDisposable
     [Fact]
     public void WebhookNotificationService_TruncateTelegramMarkdownSafe_HandlesOddAndEvenTrailingBackslashes()
     {
-        // 4092 'a' + "\\\\" + '_' -> at cut=4093, 1 trailing '\' (odd) -> trims to 4092 + "..." (length 4095)
-        string oddAtBoundary = new string('a', 4092) + @"\_" + new string('z', 20);
+        // 4089 'a' + "\_" + 'z'*20 -> at limit=4090 (4096 - 6), 1 trailing '\' (odd) -> trims to 4089 + "\.\.\." (length 4095)
+        string oddAtBoundary = new string('a', 4089) + @"\_" + new string('z', 20);
         string truncatedOdd = WebhookNotificationService.TruncateTelegramMarkdownSafe(oddAtBoundary, 4096);
         Assert.Equal(4095, truncatedOdd.Length);
-        Assert.Equal(new string('a', 4092) + "...", truncatedOdd);
+        Assert.Equal(new string('a', 4089) + @"\.\.\.", truncatedOdd);
 
-        // 4091 'a' + "\\\\" + '_' -> at cut=4093, 2 trailing '\' (even, escaped backslash) -> keeps both + "..." (length 4096)
-        string evenAtBoundary = new string('a', 4091) + @"\\" + new string('z', 20);
+        // 4088 'a' + "\\" + 'z'*20 -> at limit=4090 (4096 - 6), 2 trailing '\' (even, escaped backslash) -> keeps both + "\.\.\." (length 4096)
+        string evenAtBoundary = new string('a', 4088) + @"\\" + new string('z', 20);
         string truncatedEven = WebhookNotificationService.TruncateTelegramMarkdownSafe(evenAtBoundary, 4096);
         Assert.Equal(4096, truncatedEven.Length);
-        Assert.Equal(new string('a', 4091) + @"\\" + "...", truncatedEven);
+        Assert.Equal(new string('a', 4088) + @"\\" + @"\.\.\.", truncatedEven);
+
+        // Edge cases for small maxLength <= suffix.Length (6) and UTF-16 surrogate pair
+        Assert.Equal(string.Empty, WebhookNotificationService.TruncateTelegramMarkdownSafe("abcdefgh", 0));
+        Assert.Equal(string.Empty, WebhookNotificationService.TruncateTelegramMarkdownSafe("abcdefgh", 1));
+        Assert.Equal(@"\.\.", WebhookNotificationService.TruncateTelegramMarkdownSafe("abcdefgh", 5));
+        Assert.Equal(@"\.\.\.", WebhookNotificationService.TruncateTelegramMarkdownSafe("abcdefgh", 6));
+
+        string surrogateAtBoundary = new string('a', 3) + "\U0001F600" + "zzzzzzz"; // length 12 > 10; emoji spans indices 3..4; maxLength=10 -> limit=4 splits pair
+        string truncatedSurrogate = WebhookNotificationService.TruncateTelegramMarkdownSafe(surrogateAtBoundary, 10);
+        Assert.Equal(@"aaa\.\.\.", truncatedSurrogate);
+        Assert.InRange(truncatedSurrogate.Length, 1, 10);
     }
 
     [Fact]

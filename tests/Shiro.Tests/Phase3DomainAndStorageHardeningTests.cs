@@ -149,6 +149,10 @@ public sealed class Phase3DomainAndStorageHardeningTests : IDisposable
 
         var dialogs = Substitute.For<IDialogService>();
         var logger = Substitute.For<IAppLogger>();
+        var shownTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        dialogs.When(d => d.ShowError(Arg.Any<string>(), Arg.Any<string>()))
+            .Do(_ => shownTcs.TrySetResult(true));
+
         using var dirScope = StoragePaths.OverrideDataDirectoryForTesting(_tempDir);
         using var dialogsScope = AppServices.Override<IDialogService>(dialogs);
         using var loggerScope = AppServices.Override<IAppLogger>(logger);
@@ -165,7 +169,8 @@ public sealed class Phase3DomainAndStorageHardeningTests : IDisposable
         try
         {
             TriggerResetEncryptionSync(persistence);
-            await Task.Delay(80);
+            await shownTcs.Task.WaitAsync(TimeSpan.FromSeconds(3));
+            await Task.Yield();
             GC.Collect();
             GC.WaitForPendingFinalizers();
             GC.Collect();
