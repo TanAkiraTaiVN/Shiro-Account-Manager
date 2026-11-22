@@ -57,7 +57,7 @@ namespace Shiro.AvaloniaUI.Controls
             if (!OperatingSystem.IsWindows())
                 return base.CreateNativeControlCore(parent);
 
-            double scale = VisualRoot?.RenderScaling ?? 1.0;
+            double scale = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1.0;
             int width = Math.Max(100, (int)Math.Round(Bounds.Width * scale));
             int height = Math.Max(100, (int)Math.Round(Bounds.Height * scale));
 
@@ -417,7 +417,7 @@ namespace Shiro.AvaloniaUI.Controls
 
             try
             {
-                double scale = VisualRoot?.RenderScaling ?? 1.0;
+                double scale = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1.0;
                 int w = (int)Math.Round(Bounds.Width * scale);
                 int h = (int)Math.Round(Bounds.Height * scale);
 

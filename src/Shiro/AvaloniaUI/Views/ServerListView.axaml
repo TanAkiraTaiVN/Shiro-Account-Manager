@@ -6,7 +6,7 @@
         <Border Grid.Row="0" Background="#111115" BorderBrush="#24242C" BorderThickness="1" CornerRadius="8" Padding="14,10" Margin="0,0,0,12">
             <Grid ColumnDefinitions="*,Auto">
                 <WrapPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBox x:Name="TxtPlaceId" Text="{Binding PlaceIdInput, Mode=TwoWay}" Width="155" Margin="0,2,8,2" Watermark="{DynamicResource Srv_PlaceIdPlaceholder}" Background="#18181F"
+                    <TextBox x:Name="TxtPlaceId" Text="{Binding PlaceIdInput, Mode=TwoWay}" Width="155" Margin="0,2,8,2" PlaceholderText="{DynamicResource Srv_PlaceIdPlaceholder}" Background="#18181F"
                         Foreground="#FFFFFF" BorderBrush="#2E2E38" CornerRadius="6" Padding="10,7" VerticalContentAlignment="Center">
                         <TextBox.KeyBindings>
                             <KeyBinding Gesture="Enter" Command="{Binding BrowserTab.RefreshServersCommand}" />
@@ -49,7 +49,7 @@
                     </Button>
                 </WrapPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="10,0,0,0">
-                    <TextBox Text="{Binding BrowserTab.SearchPlayerUsername, Mode=TwoWay}" Width="165" Watermark="{DynamicResource Srv_SearchPlayerPlaceholder}" Background="#18181F"
+                    <TextBox Text="{Binding BrowserTab.SearchPlayerUsername, Mode=TwoWay}" Width="165" PlaceholderText="{DynamicResource Srv_SearchPlayerPlaceholder}" Background="#18181F"
                         Foreground="#FFFFFF" BorderBrush="#2E2E38" CornerRadius="6" Padding="10,7" VerticalContentAlignment="Center">
                         <TextBox.KeyBindings>
                             <KeyBinding Gesture="Enter" Command="{Binding BrowserTab.SearchPlayerCommand}" />

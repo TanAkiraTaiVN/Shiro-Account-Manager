@@ -144,7 +144,7 @@
                         <TextBlock Text="{DynamicResource Loc_FastLogin_CookieInputLabel}" FontSize="11" FontWeight="SemiBold" Foreground="#D4D4D8" />
                         <TextBox x:Name="TxtCookie" Text="{Binding Cookie}"
                                  PasswordChar="{Binding CookieMaskChar}"
-                                 Watermark="_|WARNING:-DO-NOT-SHARE-THIS..."
+                                 PlaceholderText="_|WARNING:-DO-NOT-SHARE-THIS..."
                                  Height="80" AcceptsReturn="True" TextWrapping="Wrap"
                                  Background="#14141C" Foreground="#FFFFFF" BorderBrush="#272733"
                                  CornerRadius="6" Padding="8" FontSize="11" />
@@ -154,13 +154,13 @@
                     <Grid ColumnDefinitions="*,*">
                         <StackPanel Grid.Column="0" Spacing="5" Margin="0,0,4,0">
                             <TextBlock Text="{DynamicResource Loc_FastLogin_AliasOptionalLabel}" FontSize="11" FontWeight="SemiBold" Foreground="#D4D4D8" />
-                            <TextBox x:Name="TxtCookieAlias" Text="{Binding Alias}" Watermark="{DynamicResource Loc_FastLogin_AliasWatermark}"
+                            <TextBox x:Name="TxtCookieAlias" Text="{Binding Alias}" PlaceholderText="{DynamicResource Loc_FastLogin_AliasWatermark}"
                                      Background="#14141C" Foreground="#FFFFFF" BorderBrush="#272733"
                                      CornerRadius="6" Padding="8,6" FontSize="11" />
                         </StackPanel>
                         <StackPanel Grid.Column="1" Spacing="5" Margin="4,0,0,0">
                             <TextBlock Text="{DynamicResource Loc_FastLogin_GroupOptionalLabel}" FontSize="11" FontWeight="SemiBold" Foreground="#D4D4D8" />
-                            <TextBox x:Name="TxtCookieGroup" Text="{Binding Group}" Watermark="{DynamicResource Loc_FastLogin_GroupWatermark}"
+                            <TextBox x:Name="TxtCookieGroup" Text="{Binding Group}" PlaceholderText="{DynamicResource Loc_FastLogin_GroupWatermark}"
                                      Background="#14141C" Foreground="#FFFFFF" BorderBrush="#272733"
                                      CornerRadius="6" Padding="8,6" FontSize="11" />
                         </StackPanel>

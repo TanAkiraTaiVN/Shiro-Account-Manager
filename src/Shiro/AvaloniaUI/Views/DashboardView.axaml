@@ -67,7 +67,7 @@
                 </StackPanel>
             </StackPanel>
             <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                <TextBox x:Name="TxtSearch" Text="{Binding AccountsVm.SearchText, Mode=TwoWay}" Width="240" Watermark="{DynamicResource Dash_SearchPlaceholder}"
+                <TextBox x:Name="TxtSearch" Text="{Binding AccountsVm.SearchText, Mode=TwoWay}" Width="240" PlaceholderText="{DynamicResource Dash_SearchPlaceholder}"
                     ToolTip.Tip="{DynamicResource Dash_SearchTooltip}" Background="#14141C" Foreground="#FFFFFF" BorderBrush="#242432" CornerRadius="16" Padding="10,6"
                     VerticalContentAlignment="Center" FontSize="12">
                     <TextBox.InnerLeftContent><lucide:Lucide Icon="Search" Width="13" Height="13" StrokeBrush="#71717A" Margin="10,0,0,0" VerticalAlignment="Center" /></TextBox.InnerLeftContent>
@@ -205,7 +205,7 @@
             <WrapPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
                 <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" Margin="0,2,8,2">
                     <TextBlock Text="{DynamicResource Bar_PlaceId}" FontSize="12" Foreground="#9CA3AF" VerticalAlignment="Center" />
-                    <TextBox x:Name="TxtPlaceId" Text="{Binding LaunchBar.PlaceId, Mode=TwoWay}" Width="136" Watermark="{DynamicResource Dash_PlaceIdPlaceholder}"
+                    <TextBox x:Name="TxtPlaceId" Text="{Binding LaunchBar.PlaceId, Mode=TwoWay}" Width="136" PlaceholderText="{DynamicResource Dash_PlaceIdPlaceholder}"
                         ToolTip.Tip="{DynamicResource Bar_TipPlaceId}" Background="#14141C" Foreground="#FFFFFF" BorderBrush="#242432" CornerRadius="6" Padding="8,6"
                         VerticalContentAlignment="Center" FontSize="12" />
                 </StackPanel>
@@ -227,7 +227,7 @@
                 <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" Margin="0,2,8,2">
                     <TextBlock Text="{DynamicResource Dash_JobIdLabel}" FontSize="12" Foreground="#9CA3AF" VerticalAlignment="Center" />
                     <TextBox x:Name="TxtJobId" Text="{Binding LaunchBar.JobId, Mode=TwoWay}" PasswordChar="{Binding ToolsStatus.JobIdMaskChar}" Width="122"
-                        Watermark="{DynamicResource Dash_JobIdPlaceholder}" ToolTip.Tip="{DynamicResource Bar_TipJobId}" Background="#14141C" Foreground="#FFFFFF" BorderBrush="#242432"
+                        PlaceholderText="{DynamicResource Dash_JobIdPlaceholder}" ToolTip.Tip="{DynamicResource Bar_TipJobId}" Background="#14141C" Foreground="#FFFFFF" BorderBrush="#242432"
                         CornerRadius="6" Padding="8,6" VerticalContentAlignment="Center" FontSize="12" />
                 </StackPanel>
                 <Button Margin="0,2,0,2" Background="#161620" Foreground="#E4E4E7" BorderBrush="#262634" BorderThickness="1" CornerRadius="6" Padding="9,6" FontSize="12" FontWeight="SemiBold"

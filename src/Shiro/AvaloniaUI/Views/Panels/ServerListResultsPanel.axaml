@@ -183,7 +183,7 @@
                         BorderThickness="1" CornerRadius="6" Padding="10" Margin="0,0,0,12">
                     <Grid ColumnDefinitions="*,Auto">
                         <TextBox Grid.Column="0" Text="{Binding ExplorerTab.GameSearchTerm, Mode=TwoWay}"
-                                 Watermark="{DynamicResource Srv_SearchGamePlaceholder}"
+                                 PlaceholderText="{DynamicResource Srv_SearchGamePlaceholder}"
                                  Background="#18181F" Foreground="#FFFFFF" BorderBrush="#2E2E38"
                                  CornerRadius="6" Padding="10,8" Margin="0,0,8,0">
                             <TextBox.KeyBindings>

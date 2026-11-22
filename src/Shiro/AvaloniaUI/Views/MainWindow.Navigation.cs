@@ -6,6 +6,7 @@ using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 using Shiro.Services;
 using Shiro.ViewModels;
+using NavigationPage = Shiro.ViewModels.NavigationPage;
 
 namespace Shiro.AvaloniaUI.Views
 {

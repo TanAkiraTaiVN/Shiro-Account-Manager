@@ -56,7 +56,7 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Web.WebView2" />
-    <PackageReference Include="LucideAvalonia" />
+    <PackageReference Include="Froststrap.LucideAvalonia" />
     <PackageReference Include="System.Security.Cryptography.ProtectedData" />
     <PackageReference Include="Avalonia" />
     <PackageReference Include="Avalonia.Desktop" />

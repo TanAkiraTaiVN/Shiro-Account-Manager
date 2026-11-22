@@ -30,7 +30,7 @@
             <TextBox x:Name="TxtImportData"
                      Text="{Binding InputText, Mode=TwoWay}"
                      AcceptsReturn="True" TextWrapping="NoWrap"
-                     Watermark="{DynamicResource Loc_BulkImport_InputWatermark}"
+                     PlaceholderText="{DynamicResource Loc_BulkImport_InputWatermark}"
                      Background="#14141C" Foreground="#FFFFFF" BorderBrush="#272733"
                      CornerRadius="8" Padding="12" FontFamily="Consolas, monospace" FontSize="11" />
 
