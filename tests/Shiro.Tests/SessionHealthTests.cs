@@ -35,30 +35,36 @@ namespace Shiro.Tests
         }
 
         [Fact]
-        public void HasExpiredShortLivedCookie_OldShortToken_IsNotLocallyExpired()
+        public void SessionHealthStatus_OldShortToken_IsShortLivedNotLocallyExpired()
         {
-            var acc = new Account { SecurityToken = MakeToken(790), LastUse = DateTime.Now.AddMinutes(-45) };
-            Assert.False(acc.HasExpiredShortLivedCookie());
+            var acc = new Account { SecurityToken = MakeToken(790), Valid = true, LastUse = DateTime.Now.AddMinutes(-45) };
+            Assert.True(acc.IsShortLivedSession);
+            Assert.Equal(SessionHealth.ShortLived, acc.SessionHealthStatus);
         }
 
         [Fact]
-        public void HasExpiredShortLivedCookie_FreshShortToken_IsNotExpired()
+        public void SessionHealthStatus_FreshShortToken_IsShortLived()
         {
-            var acc = new Account { SecurityToken = MakeToken(790), LastUse = DateTime.Now.AddMinutes(-5) };
-            Assert.False(acc.HasExpiredShortLivedCookie());
+            var acc = new Account { SecurityToken = MakeToken(790), Valid = true, LastUse = DateTime.Now.AddMinutes(-5) };
+            Assert.True(acc.IsShortLivedSession);
+            Assert.Equal(SessionHealth.ShortLived, acc.SessionHealthStatus);
         }
 
         [Fact]
-        public void HasExpiredShortLivedCookie_OldFullToken_IsNotExpired()
+        public void SessionHealthStatus_OldFullToken_IsHealthy()
         {
-            var acc = new Account { SecurityToken = MakeToken(939), LastUse = DateTime.Now.AddDays(-5) };
-            Assert.False(acc.HasExpiredShortLivedCookie());
+            var acc = new Account { SecurityToken = MakeToken(939), Valid = true, LastUse = DateTime.Now.AddDays(-5) };
+            Assert.False(acc.IsShortLivedSession);
+            Assert.Equal(SessionHealth.Healthy, acc.SessionHealthStatus);
         }
 
         [Fact]
-        public void HasExpiredShortLivedCookie_EmptyToken_IsExpired()
+        public void SessionHealthStatus_EmptyToken_IsExpired()
         {
-            Assert.True(new Account().HasExpiredShortLivedCookie());
+            var acc = new Account { Valid = true };
+            Assert.False(acc.IsShortLivedSession);
+            Assert.Equal(SessionHealth.Expired, acc.SessionHealthStatus);
+            Assert.Equal(SessionHealth.Expired, new Account().SessionHealthStatus);
         }
 
         [Fact]

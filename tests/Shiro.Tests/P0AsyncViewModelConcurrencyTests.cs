@@ -147,8 +147,6 @@ namespace Shiro.Tests
 
             commerce.PurchaseAsync(
                     account,
-                    2,
-                    77,
                     15,
                     9,
                     "col-1",
@@ -157,7 +155,7 @@ namespace Shiro.Tests
                     Arg.Any<CancellationToken>())
                 .Returns(ci =>
                 {
-                    purchaseToken = ci.ArgAt<CancellationToken>(8);
+                    purchaseToken = ci.ArgAt<CancellationToken>(6);
                     purchaseEntered.TrySetResult();
                     return purchaseGate.Task;
                 });

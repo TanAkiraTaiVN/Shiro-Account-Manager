@@ -61,8 +61,6 @@ public sealed class MissingAssetsViewModelTests
             Arg.Any<Account>(),
             Arg.Any<long>(),
             Arg.Any<long>(),
-            Arg.Any<long>(),
-            Arg.Any<long>(),
             Arg.Any<string?>(),
             Arg.Any<string?>(),
             Arg.Any<string>(),
@@ -93,8 +91,6 @@ public sealed class MissingAssetsViewModelTests
             Arg.Any<Account>(),
             Arg.Any<long>(),
             Arg.Any<long>(),
-            Arg.Any<long>(),
-            Arg.Any<long>(),
             Arg.Any<string?>(),
             Arg.Any<string?>(),
             Arg.Any<string>(),
@@ -106,7 +102,7 @@ public sealed class MissingAssetsViewModelTests
     public async Task Buy_Success_SetsPurchasedBadge_AndCanBuyFalse()
     {
         _prompt.ConfirmAsync(Arg.Any<string>(), Arg.Any<string>()).Returns(true);
-        _commerce.PurchaseAsync(_account, 1, 77, 15, 9, "col-1", "prod-1", "User", Arg.Any<CancellationToken>())
+        _commerce.PurchaseAsync(_account, 15, 9, "col-1", "prod-1", "User", Arg.Any<CancellationToken>())
             .Returns((true, (string?)null));
 
         var vm = new MissingAssetsViewModel(_account, new long[] { 1 }, _commerce, _prompt);
@@ -135,7 +131,7 @@ public sealed class MissingAssetsViewModelTests
     public async Task Buy_Failure_RestoresBuyActionText()
     {
         _prompt.ConfirmAsync(Arg.Any<string>(), Arg.Any<string>()).Returns(true);
-        _commerce.PurchaseAsync(_account, 1, 77, 15, 9, "col-1", "prod-1", "User", Arg.Any<CancellationToken>())
+        _commerce.PurchaseAsync(_account, 15, 9, "col-1", "prod-1", "User", Arg.Any<CancellationToken>())
             .Returns((false, "InsufficientFunds"));
 
         var vm = new MissingAssetsViewModel(_account, new long[] { 1 }, _commerce, _prompt);
@@ -166,7 +162,7 @@ public sealed class MissingAssetsViewModelTests
         _prompt.ConfirmAsync(Arg.Any<string>(), Arg.Any<string>()).Returns(true);
         var tcs = new TaskCompletionSource<(bool Ok, string? Error)>();
         int calls = 0;
-        _commerce.PurchaseAsync(Arg.Any<Account>(), Arg.Any<long>(), Arg.Any<long>(), Arg.Any<long>(), Arg.Any<long>(), Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+        _commerce.PurchaseAsync(Arg.Any<Account>(), Arg.Any<long>(), Arg.Any<long>(), Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(_ =>
             {
                 Interlocked.Increment(ref calls);
@@ -227,8 +223,6 @@ public sealed class MissingAssetsViewModelTests
             Arg.Any<Account>(),
             Arg.Any<long>(),
             Arg.Any<long>(),
-            Arg.Any<long>(),
-            Arg.Any<long>(),
             Arg.Any<string?>(),
             Arg.Any<string?>(),
             Arg.Any<string>(),
@@ -264,8 +258,6 @@ public sealed class MissingAssetsViewModelTests
             Arg.Any<Account>(),
             Arg.Any<long>(),
             Arg.Any<long>(),
-            Arg.Any<long>(),
-            Arg.Any<long>(),
             Arg.Any<string?>(),
             Arg.Any<string?>(),
             Arg.Any<string>(),
@@ -276,7 +268,7 @@ public sealed class MissingAssetsViewModelTests
     public async Task Buy_CollectibleAsset_PassesAllCollectibleDetailsToCommerce()
     {
         _prompt.ConfirmAsync(Arg.Any<string>(), Arg.Any<string>()).Returns(true);
-        _commerce.PurchaseAsync(_account, 101, 77, 15, 9, "col-item-42", "col-prod-42", "Group", Arg.Any<CancellationToken>())
+        _commerce.PurchaseAsync(_account, 15, 9, "col-item-42", "col-prod-42", "Group", Arg.Any<CancellationToken>())
             .Returns((true, (string?)null));
 
         var vm = new MissingAssetsViewModel(_account, new long[] { 101 }, _commerce, _prompt);
@@ -299,7 +291,7 @@ public sealed class MissingAssetsViewModelTests
 
         Assert.False(item.CanBuy);
         Assert.Equal(LocalizationService.Get("MissingAssets.PurchasedBadge"), item.BuyButtonText);
-        await _commerce.Received(1).PurchaseAsync(_account, 101, 77, 15, 9, "col-item-42", "col-prod-42", "Group", Arg.Any<CancellationToken>());
+        await _commerce.Received(1).PurchaseAsync(_account, 15, 9, "col-item-42", "col-prod-42", "Group", Arg.Any<CancellationToken>());
     }
 
     [Fact]

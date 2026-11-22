@@ -235,17 +235,9 @@ namespace Shiro.Services
             var nextList = accounts != null ? new List<Account>(accounts) : new List<Account>();
             foreach (var acc in nextList)
             {
-                if (acc != null)
+                if (acc != null && string.IsNullOrWhiteSpace(acc.SecurityToken))
                 {
-                    if (string.IsNullOrWhiteSpace(acc.SecurityToken))
-                    {
-                        acc.Valid = false;
-                    }
-                    else if (acc.Valid && acc.HasExpiredShortLivedCookie())
-                    {
-                        acc.Valid = false;
-                        acc.IsDirty = true;
-                    }
+                    acc.Valid = false;
                 }
             }
 

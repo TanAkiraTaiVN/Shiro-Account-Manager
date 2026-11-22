@@ -236,24 +236,6 @@ namespace Shiro
             return middleLen >= 500 && middleLen < 850;
         }
 
-        /// <summary>
-        /// Detects whether the stored .ROBLOSECURITY token is a downgraded 592-byte (790-char)
-        /// fallback session (issued when secureAuthenticationIntent was stripped) that has exceeded
-        /// Roblox's ~30-minute server-side TTL on auth.roblox.com / accountsettings.roblox.com.
-        /// Full sessions issued with secureAuthenticationIntent have a 704-byte (939-char) middle payload.
-        /// </summary>
-        public bool HasExpiredShortLivedCookie()
-        {
-            var (hasToken, _) = GetCachedTokenMetadata();
-            if (!hasToken)
-                return true;
-
-            // NOTE: Do NOT invalidate short-lived cookies based on a local clock. LastUse is not refreshed
-            // on every request, so this used to flag freshly re-logged accounts (or any account in a long
-            // relogin queue) as expired. The server-side checks in ValidateSessionAsync are authoritative.
-            return false;
-        }
-
         [JsonIgnore]
         public bool IsShortLivedSession
         {
@@ -261,7 +243,7 @@ namespace Shiro
             {
                 if (!Valid) return false;
                 var (hasToken, payloadLen) = GetCachedTokenMetadata();
-                return hasToken && payloadLen is >= 500 and < 850 && !HasExpiredShortLivedCookie();
+                return hasToken && payloadLen is >= 500 and < 850;
             }
         }
 
@@ -272,7 +254,7 @@ namespace Shiro
             {
                 if (IsBannedOrLocked) return SessionHealth.Locked;
                 var (hasToken, payloadLen) = GetCachedTokenMetadata();
-                if (!Valid || !hasToken || HasExpiredShortLivedCookie())
+                if (!Valid || !hasToken)
                     return SessionHealth.Expired;
                 if (payloadLen is >= 500 and < 850)
                     return SessionHealth.ShortLived;

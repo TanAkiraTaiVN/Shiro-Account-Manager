@@ -315,8 +315,6 @@ public sealed class MissingAssetsViewModel : DialogViewModelBase
         {
             var (ok, error) = await _commerce.PurchaseAsync(
                 _account,
-                item.AssetId,
-                item.ProductId,
                 item.PriceInRobux,
                 item.SellerId,
                 item.CollectibleItemId,

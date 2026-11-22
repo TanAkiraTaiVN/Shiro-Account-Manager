@@ -90,8 +90,6 @@ namespace Shiro.Tests.Network
             var account = CreateTestAccount();
             var (ok, error) = await AssetCommerceService.Default.PurchaseAsync(
                 account,
-                assetId: 501,
-                productId: 601,
                 expectedPrice: 100,
                 sellerId: 701,
                 collectibleItemId: null,
@@ -116,8 +114,6 @@ namespace Shiro.Tests.Network
 
             var (ok, error) = await AssetCommerceService.Default.PurchaseAsync(
                 account,
-                assetId: 502,
-                productId: 602,
                 expectedPrice: 25,
                 sellerId: 888,
                 collectibleItemId: "col-item-1",

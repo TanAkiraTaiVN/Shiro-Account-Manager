@@ -79,11 +79,10 @@ namespace Shiro
 
         private sealed class SuppressDeferredSaveScope : IDisposable
         {
-            private bool _disposed;
+            private int _disposed;
             public void Dispose()
             {
-                if (_disposed) return;
-                _disposed = true;
+                if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
                 int depth = _suppressDeferredSaveDepth.Value;
                 _suppressDeferredSaveDepth.Value = depth > 0 ? depth - 1 : 0;
             }

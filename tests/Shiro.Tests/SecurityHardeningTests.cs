@@ -271,7 +271,6 @@ namespace Shiro.Tests
             Assert.Equal(rawCookie, account.SecurityToken);
             Assert.Equal(rawPassword, account.Password);
             Assert.True(account.IsShortLivedSession);
-            Assert.False(account.HasExpiredShortLivedCookie());
             Assert.Equal(SessionHealth.ShortLived, account.SessionHealthStatus);
 
             FieldInfo[] allFields = typeof(Account).GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
@@ -297,10 +296,9 @@ namespace Shiro.Tests
             Assert.False(initialTokenBlob!.AsSpan().IndexOf(Encoding.UTF8.GetBytes("sig123")) >= 0);
             Assert.False(initialPasswordBlob!.AsSpan().IndexOf(Encoding.UTF8.GetBytes(rawPassword)) >= 0);
 
-            // Prove SessionHealthStatus, IsShortLivedSession, and HasExpiredShortLivedCookie use cached metadata without decrypting
+            // Prove SessionHealthStatus and IsShortLivedSession use cached metadata without decrypting
             initialTokenBlob[initialTokenBlob.Length - 1] ^= 0xFF;
             Assert.True(account.IsShortLivedSession);
-            Assert.False(account.HasExpiredShortLivedCookie());
             Assert.Equal(SessionHealth.ShortLived, account.SessionHealthStatus);
             Assert.ThrowsAny<CryptographicException>(() => _ = account.SecurityToken);
             initialTokenBlob[initialTokenBlob.Length - 1] ^= 0xFF;
@@ -344,7 +342,7 @@ namespace Shiro.Tests
             Assert.All(activePasswordBlob!, b => Assert.Equal(0, b));
             Assert.Equal(string.Empty, account.SecurityToken);
             Assert.Equal(string.Empty, account.Password);
-            Assert.True(account.HasExpiredShortLivedCookie());
+            Assert.False(account.IsShortLivedSession);
             Assert.Equal(SessionHealth.Expired, account.SessionHealthStatus);
         }
 

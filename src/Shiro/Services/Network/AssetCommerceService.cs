@@ -12,7 +12,7 @@ namespace Shiro.Services;
 public interface IAssetCommerce
 {
     Task<(bool Ok, string Content)> GetAssetDetailsAsync(Account a, long assetId, CancellationToken ct);
-    Task<(bool Ok, string? Error)> PurchaseAsync(Account a, long assetId, long productId, long expectedPrice, long sellerId, string? collectibleItemId, string? collectibleProductId, string sellerType = "User", CancellationToken ct = default);
+    Task<(bool Ok, string? Error)> PurchaseAsync(Account a, long expectedPrice, long sellerId, string? collectibleItemId, string? collectibleProductId, string sellerType = "User", CancellationToken ct = default);
 }
 
 public sealed class AssetCommerceService : IAssetCommerce
@@ -52,8 +52,6 @@ public sealed class AssetCommerceService : IAssetCommerce
 
     public async Task<(bool Ok, string? Error)> PurchaseAsync(
         Account a,
-        long assetId,
-        long productId,
         long expectedPrice,
         long sellerId,
         string? collectibleItemId,

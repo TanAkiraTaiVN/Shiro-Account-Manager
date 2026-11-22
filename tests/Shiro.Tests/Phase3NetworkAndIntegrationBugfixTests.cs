@@ -115,8 +115,6 @@ public sealed class Phase3NetworkAndIntegrationBugfixTests : IDisposable
 
         var (ok, error) = await AssetCommerceService.Default.PurchaseAsync(
             account,
-            assetId: 1010,
-            productId: 2020,
             expectedPrice: 100,
             sellerId: 111,
             collectibleItemId: "col-9",
@@ -285,8 +283,6 @@ public sealed class Phase3NetworkAndIntegrationBugfixTests : IDisposable
 
         var (ok, error) = await AssetCommerceService.Default.PurchaseAsync(
             account,
-            assetId: 1020,
-            productId: 2030,
             expectedPrice: 75,
             sellerId: 0,
             collectibleItemId: "col-group-1",

@@ -235,19 +235,19 @@ namespace Shiro.Tests
             RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(handler, disposeHandler: false);
             var acc = new Account { Username = "Buyer", UserID = 404, Valid = true, SecurityToken = "_|WARNING:-DO-NOT-SHARE-THIS.--tok" };
 
-            var (ok1, err1) = await AssetCommerceService.Default.PurchaseAsync(acc, 1, 2, 100, 0, "citem-1", null);
+            var (ok1, err1) = await AssetCommerceService.Default.PurchaseAsync(acc, 100, 0, "citem-1", null);
             Assert.False(ok1);
             Assert.Contains("InsufficientFunds", err1);
             Assert.NotNull(capturedPurchaseBody);
             Assert.Contains("\"expectedSellerId\":77777", capturedPurchaseBody);
 
             purchaseResponseJson = "{\"errorMessage\":\"ItemPriceChanged\"}";
-            var (ok2, err2) = await AssetCommerceService.Default.PurchaseAsync(acc, 1, 2, 100, 77777, "citem-1", "resale-prod");
+            var (ok2, err2) = await AssetCommerceService.Default.PurchaseAsync(acc, 100, 77777, "citem-1", "resale-prod");
             Assert.False(ok2);
             Assert.Contains("ItemPriceChanged", err2);
 
             purchaseResponseJson = "{\"purchased\":true}";
-            var (ok3, _) = await AssetCommerceService.Default.PurchaseAsync(acc, 1, 2, 100, 77777, "citem-1", "resale-prod");
+            var (ok3, _) = await AssetCommerceService.Default.PurchaseAsync(acc, 100, 77777, "citem-1", "resale-prod");
             Assert.True(ok3);
         }
 

@@ -124,6 +124,7 @@ namespace Shiro.Tests
         public void AccountManager_UpdateAccountView_NotifiesSingleAccountAndRefreshesViewModel()
         {
             using var suppressSave = Account.BeginSuppressDeferredSaveScope();
+            var mgr = AccountManager.Instance ?? new AccountManager();
             var acc = new Account { Username = "SingleRefreshUser", UserID = 556611, Alias = "Before", Group = "Alpha", Valid = true };
             using var mvm = new MainViewModel();
             mvm.LoadAccounts(new[] { acc });
@@ -135,7 +136,6 @@ namespace Shiro.Tests
             var bridge = HostUiBridgeService.Default;
             var prevSingle = bridge.RefreshSingleAccountOnUiHandler;
             var prevRefresh = bridge.RefreshAccountViewHandler;
-            var mgr = AccountManager.Instance ?? new AccountManager();
             try
             {
                 bridge.RefreshSingleAccountOnUiHandler = account => mvm.RefreshAccount(account);
@@ -236,10 +236,10 @@ namespace Shiro.Tests
 
             var gate = new TaskCompletionSource<(bool Ok, string? Error)>();
             CancellationToken purchaseToken = default;
-            commerce.PurchaseAsync(acc, 1, 77, 15, 9, "col-1", "prod-1", "User", Arg.Any<CancellationToken>())
+            commerce.PurchaseAsync(acc, 15, 9, "col-1", "prod-1", "User", Arg.Any<CancellationToken>())
                 .Returns(ci =>
                 {
-                    purchaseToken = ci.ArgAt<CancellationToken>(8);
+                    purchaseToken = ci.ArgAt<CancellationToken>(6);
                     return gate.Task;
                 });
 
