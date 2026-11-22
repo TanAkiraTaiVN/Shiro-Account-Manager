@@ -85,6 +85,7 @@ namespace Shiro.Tests
             general.Set(AppSettingsKeys.General.DiscordWebhookUrl, CryptoHelper.ProtectSecretString(initialWebhook));
             general.Set(AppSettingsKeys.General.TelegramBotToken, CryptoHelper.ProtectSecretString(initialBotToken));
 
+            using var bridgeScope = AppServices.Override<IHostUiBridgeService>(new HostUiBridgeService());
             var vm = new SettingsViewModel(
                 new AppSettings(),
                 general,
@@ -120,6 +121,7 @@ namespace Shiro.Tests
             general.Set(AppSettingsKeys.General.DiscordRpcClientId, "1301012345678901234");
 
             var effects = Substitute.For<ISettingsSideEffects>();
+            using var bridgeScope = AppServices.Override<IHostUiBridgeService>(new HostUiBridgeService());
             var vm = new SettingsViewModel(
                 new AppSettings(),
                 general,

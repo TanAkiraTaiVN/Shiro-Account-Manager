@@ -127,10 +127,21 @@ namespace Shiro.Tests
         [Fact]
         public void StreamerModeService_Properties_ReflectState()
         {
-            StreamerModeService.Initialize();
-            Assert.False(StreamerModeService.IsEnabled);
-            Assert.False(StreamerModeService.AutoDetectEnabled);
-            Assert.False(StreamerModeService.IsActive);
+            bool prevEnabled = StreamerModeService.IsEnabled;
+            bool prevAutoDetect = StreamerModeService.AutoDetectEnabled;
+            try
+            {
+                using var genScope = AppServices.Override<ISettingsService>(new IniFile()["General"]);
+                StreamerModeService.InitializeForTest();
+                Assert.False(StreamerModeService.IsEnabled);
+                Assert.False(StreamerModeService.AutoDetectEnabled);
+                Assert.False(StreamerModeService.IsActive);
+            }
+            finally
+            {
+                StreamerModeService.IsEnabled = prevEnabled;
+                StreamerModeService.AutoDetectEnabled = prevAutoDetect;
+            }
         }
 
         [Fact]

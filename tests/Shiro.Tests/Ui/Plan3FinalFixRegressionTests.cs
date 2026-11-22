@@ -111,6 +111,7 @@ namespace Shiro.Tests
             StreamerModeService.IsEnabled = false;
             var gen = new IniFile()["General"];
             using var settingsScope = AppServices.Override<ISettingsService>(gen);
+            using var bridgeScope = AppServices.Override<IHostUiBridgeService>(new HostUiBridgeService());
             var effects = Substitute.For<ISettingsSideEffects>();
             var vm = new SettingsViewModel(new AppSettings(), gen, effects);
             try

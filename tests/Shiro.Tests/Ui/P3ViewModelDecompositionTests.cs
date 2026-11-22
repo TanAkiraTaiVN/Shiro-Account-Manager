@@ -125,6 +125,7 @@ namespace Shiro.Tests
             {
                 var ini = new IniFile();
                 AppSettings.ActiveIniFile = ini;
+                using var bridgeScope = AppServices.Override<IHostUiBridgeService>(new HostUiBridgeService());
 
                 var configSvc = new ServerWatcherConfigService();
                 var settingsVm = new SettingsViewModel(

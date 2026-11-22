@@ -184,33 +184,44 @@ namespace Shiro.Tests
         public async Task AppSettings_HostUiBridges_ExecuteCleanly()
         {
             var acc = new Account { Username = "BridgeAcc", UserID = 445566, Valid = true };
-
-            var ex = await Record.ExceptionAsync(async () =>
+            bool origSingletonEnabled = RobloxSingletonService.IsEnabled;
+            string tempDir = Path.Combine(Path.GetTempPath(), $"Shiro_BridgeTest_{Guid.NewGuid():N}");
+            try
             {
-                AppSettings.Save();
-                AppSettings.QueueDeferredSave();
-                AppSettings.RefreshAccountView(acc);
-                AppSettings.UpdateAccountValidityOnUi(acc, true);
-                AppSettings.SchedulePresenceRefresh(acc);
-                AppSettings.SchedulePresenceRefresh(null);
-                AppSettings.SignalNextLaunchAccount();
-                AppSettings.CancelLaunching();
-                AppSettings.UpdateMultiRoblox();
-                AppSettings.CloseAllRobloxFromUi();
-                AppSettings.SetDashboardStatus("Testing dashboard");
-                AppSettings.EnsureBackendInitialized();
-                AppSettings.InitializePostStartup();
-                AppSettings.SetAutoCookieRefreshEnabled(true);
-                AppSettings.SetAutoCookieRefreshEnabled(false);
-                await AppSettings.RestartWebServerAsync(7991, false);
-                await AppSettings.StopWebServerAsync();
-                await AppSettings.ResetEncryptionAsync(prompt: false);
-                AntiAfkService.Stop();
-                MemoryOptimizer.ConfigureAutoTrim(false);
-                RobloxAudioService.ConfigureSmartMute(false);
-            });
+                using var dirScope = StoragePaths.OverrideDataDirectoryForTesting(tempDir);
 
-            Assert.Null(ex);
+                var ex = await Record.ExceptionAsync(async () =>
+                {
+                    AppSettings.Save();
+                    AppSettings.QueueDeferredSave();
+                    AppSettings.RefreshAccountView(acc);
+                    AppSettings.UpdateAccountValidityOnUi(acc, true);
+                    AppSettings.SchedulePresenceRefresh(acc);
+                    AppSettings.SchedulePresenceRefresh(null);
+                    AppSettings.SignalNextLaunchAccount();
+                    AppSettings.CancelLaunching();
+                    AppSettings.UpdateMultiRoblox();
+                    AppSettings.CloseAllRobloxFromUi();
+                    AppSettings.SetDashboardStatus("Testing dashboard");
+                    AppSettings.EnsureBackendInitialized();
+                    AppSettings.InitializePostStartup();
+                    AppSettings.SetAutoCookieRefreshEnabled(true);
+                    AppSettings.SetAutoCookieRefreshEnabled(false);
+                    await AppSettings.RestartWebServerAsync(7991, false);
+                    await AppSettings.StopWebServerAsync();
+                    await AppSettings.ResetEncryptionAsync(prompt: false);
+                    AntiAfkService.Stop();
+                    MemoryOptimizer.ConfigureAutoTrim(false);
+                    RobloxAudioService.ConfigureSmartMute(false);
+                });
+
+                Assert.Null(ex);
+            }
+            finally
+            {
+                RobloxSingletonService.ResetForTest(origSingletonEnabled);
+                try { if (Directory.Exists(tempDir)) Directory.Delete(tempDir, true); } catch (IOException) { }
+            }
         }
 
         [Fact]

@@ -16,14 +16,46 @@ namespace Shiro.Tests
         private const string AdminPassword = "StrongAdminPass123";
         private const string ValidAvatarJson = "{\"playerAvatarType\":\"R15\"}";
 
+        private readonly string? _origWebSocketPassword;
+        private readonly string? _origAllowGetAccounts;
+        private readonly string? _origAllowGetCookie;
+        private readonly string? _origAllowAccountEditing;
+        private readonly string? _origAllowLaunchAccount;
+        private readonly string? _origEnableMultiRbx;
+        private readonly string? _origEnablePotatoMode;
+        private readonly string? _origAutoReconnect;
+        private readonly bool _origAutoReconnectEnabled;
+        private readonly bool _origSingletonEnabled;
+
         public AccountApiDispatcherEndpointsBehaviorTests()
         {
             RobloxAccountSessionClient.TestHttpClientFactory = null;
+            _origWebSocketPassword = AppSettings.WebSocketPassword;
+            _origAllowGetAccounts = AppSettings.WebServer.Get("AllowGetAccounts");
+            _origAllowGetCookie = AppSettings.WebServer.Get("AllowGetCookie");
+            _origAllowAccountEditing = AppSettings.WebServer.Get("AllowAccountEditing");
+            _origAllowLaunchAccount = AppSettings.WebServer.Get("AllowLaunchAccount");
+            _origEnableMultiRbx = AppSettings.General.Get("EnableMultiRbx");
+            _origEnablePotatoMode = AppSettings.General.Get("EnablePotatoMode");
+            _origAutoReconnect = AppSettings.General.Get("AutoReconnect");
+            _origAutoReconnectEnabled = AutoReconnectService.Instance.IsEnabled;
+            _origSingletonEnabled = RobloxSingletonService.IsEnabled;
         }
 
         public void Dispose()
         {
+            AccountManager.CancelDeferredSaveSettings();
             RobloxAccountSessionClient.TestHttpClientFactory = null;
+            AppSettings.WebSocketPassword = _origWebSocketPassword;
+            AppSettings.WebServer.Set("AllowGetAccounts", _origAllowGetAccounts);
+            AppSettings.WebServer.Set("AllowGetCookie", _origAllowGetCookie);
+            AppSettings.WebServer.Set("AllowAccountEditing", _origAllowAccountEditing);
+            AppSettings.WebServer.Set("AllowLaunchAccount", _origAllowLaunchAccount);
+            AppSettings.General.Set("EnableMultiRbx", _origEnableMultiRbx ?? (_origSingletonEnabled ? "true" : "false"));
+            AppSettings.General.Set("EnablePotatoMode", _origEnablePotatoMode);
+            AppSettings.General.Set("AutoReconnect", _origAutoReconnect);
+            AutoReconnectService.Instance.IsEnabled = _origAutoReconnectEnabled;
+            RobloxSingletonService.ResetForTest(_origSingletonEnabled);
         }
 
         private static AccountManager.ApiRequestContext CreateRequest(

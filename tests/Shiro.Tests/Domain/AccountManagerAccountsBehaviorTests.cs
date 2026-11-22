@@ -151,14 +151,20 @@ namespace Shiro.Tests
         [Fact]
         public async Task Lifecycle_InitializePostStartup_AutoCookieRefresh_WebServer_And_OfferResume_CoverBranches()
         {
-            var mgr = AccountManager.Instance ?? new AccountManager();
+            var prevMgr = AccountManager.Instance;
+            var prevIni = AppSettings.ActiveIniFile;
+            string tempDir = Path.Combine(Path.GetTempPath(), $"Shiro_AccLifecycle_{Guid.NewGuid():N}");
+            IDisposable? dirScope = null;
             var dialogSub = Substitute.For<IDialogService>();
             using var _dialogScope = AppServices.Override<IDialogService>(dialogSub);
             int prevDelay = AccountManager.OfferResumeDelayMilliseconds;
             AccountManager.OfferResumeDelayMilliseconds = 1;
+            bool origSingletonEnabled = RobloxSingletonService.IsEnabled;
 
             try
             {
+                dirScope = StoragePaths.OverrideDataDirectoryForTesting(tempDir);
+                var mgr = AccountManager.Instance ?? new AccountManager();
                 mgr.SetAutoCookieRefreshEnabled(true);
                 mgr.SetAutoCookieRefreshEnabled(true); // already non-null
                 Assert.NotNull(mgr.AutoCookieRefresh);
@@ -256,10 +262,17 @@ namespace Shiro.Tests
             }
             finally
             {
+                RobloxSingletonService.ResetForTest(origSingletonEnabled);
                 AccountManager.SuppressExitOnShutdown = false;
                 AccountManager.OfferResumeDelayMilliseconds = prevDelay;
                 ReloginQueueStore.Clear();
                 AccountManager.ReplaceAccountsList(new List<Account>());
+                AccountManager.CancelDeferredSaveSettings();
+                AppSettings.ActiveIniFile = prevIni;
+                AccountManager.Instance = prevMgr;
+                if (prevMgr != null) AccountManager.WireHostServices();
+                dirScope?.Dispose();
+                try { if (Directory.Exists(tempDir)) Directory.Delete(tempDir, true); } catch (IOException) { }
             }
         }
     }

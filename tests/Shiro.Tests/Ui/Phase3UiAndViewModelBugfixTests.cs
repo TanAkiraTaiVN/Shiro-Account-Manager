@@ -192,6 +192,7 @@ namespace Shiro.Tests
             try
             {
                 AppSettings.ActiveIniFile = new IniFile(tempIni);
+                using var bridgeScope = AppServices.Override<IHostUiBridgeService>(new HostUiBridgeService());
                 var settings = new AppSettings();
                 var general = new IniSection("General");
                 var effects = new StubSettingsSideEffects();

@@ -118,6 +118,7 @@ namespace Shiro.Tests
             AppSettings.ActiveIniFile = ini;
             try
             {
+                using var bridgeScope = AppServices.Override<IHostUiBridgeService>(new HostUiBridgeService());
                 var vm = new SettingsViewModel(
                     new AppSettings(),
                     ini["General"],

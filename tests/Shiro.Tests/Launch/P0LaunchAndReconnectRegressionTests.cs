@@ -61,6 +61,7 @@ namespace Shiro.Tests
 
             try
             {
+                using var bridgeScope = AppServices.Override<IHostUiBridgeService>(new HostUiBridgeService());
                 vm.EnableAutoReconnect = false;
                 vm.Save();
                 Assert.Equal("false", general.Get<string>(AppSettingsKeys.General.AutoReconnect));

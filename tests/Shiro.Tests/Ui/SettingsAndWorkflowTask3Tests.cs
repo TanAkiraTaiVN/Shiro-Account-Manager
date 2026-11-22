@@ -89,9 +89,13 @@ namespace Shiro.Tests.Ui
             var prevMgr = AccountManager.Instance;
             var prevIni = AppSettings.ActiveIniFile;
             bool prevSuppress = AccountManager.SuppressExitOnShutdown;
+            bool origSingletonEnabled = RobloxSingletonService.IsEnabled;
+            string tempDir = Path.Combine(Path.GetTempPath(), $"Shiro_Task3Init_{Guid.NewGuid():N}");
+            IDisposable? dirScope = null;
             AccountManager? tempMgr = null;
             try
             {
+                dirScope = StoragePaths.OverrideDataDirectoryForTesting(tempDir);
                 AccountManager.SuppressExitOnShutdown = true;
                 AppSettings.ActiveIniFile = new IniFile();
                 tempMgr = new AccountManager();
@@ -107,11 +111,15 @@ namespace Shiro.Tests.Ui
             finally
             {
                 RobloxBackgroundThrottlerService.Instance.IsEnabled = false;
+                RobloxSingletonService.ResetForTest(origSingletonEnabled);
                 tempMgr?.Dispose();
                 AppSettings.ActiveIniFile = prevIni;
                 AccountManager.Instance = prevMgr;
                 if (prevMgr != null) AccountManager.EnsureBackendInitialized();
                 AccountManager.SuppressExitOnShutdown = prevSuppress;
+                AccountManager.CancelDeferredSaveSettings();
+                dirScope?.Dispose();
+                try { if (Directory.Exists(tempDir)) Directory.Delete(tempDir, true); } catch (IOException) { }
             }
         }
 

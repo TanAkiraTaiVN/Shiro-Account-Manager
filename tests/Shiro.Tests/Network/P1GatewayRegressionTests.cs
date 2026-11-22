@@ -19,6 +19,7 @@ namespace Shiro.Tests
         private readonly string _oldPassword;
         private readonly string? _oldAllowEdit;
         private readonly string? _oldAllowExt;
+        private readonly string? _oldEveryReq;
         private readonly List<Account> _oldAccounts;
         private readonly Account? _oldLastValid;
 
@@ -28,6 +29,7 @@ namespace Shiro.Tests
             _oldPassword = AppSettings.WebSocketPassword ?? string.Empty;
             _oldAllowEdit = AppSettings.WebServer.Get("AllowAccountEditing");
             _oldAllowExt = AppSettings.WebServer.Get("AllowExternalConnections");
+            _oldEveryReq = AppSettings.WebServer.Get("EveryRequestRequiresPassword");
             _oldAccounts = AppServices.AccountRepository.GetAll().ToList();
             _oldLastValid = AppServices.SelectionState.LastValidAccount;
             RobloxAccountSessionClient.TestHttpClientFactory = null;
@@ -43,6 +45,7 @@ namespace Shiro.Tests
             AppSettings.WebSocketPassword = _oldPassword;
             AppSettings.WebServer.Set("AllowAccountEditing", _oldAllowEdit ?? "false");
             AppSettings.WebServer.Set("AllowExternalConnections", _oldAllowExt ?? "false");
+            AppSettings.WebServer.Set("EveryRequestRequiresPassword", _oldEveryReq ?? "false");
         }
 
         private static string FindRepoRoot()
@@ -203,6 +206,7 @@ namespace Shiro.Tests
             const string pass = "KestrelPass1234";
             AppSettings.WebSocketPassword = pass;
             AppSettings.WebServer.Set("AllowExternalConnections", "false");
+            AppSettings.WebServer.Set("EveryRequestRequiresPassword", "false");
 
             await using var server = new KestrelWebServer(port, false, async ctx =>
             {

@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading.Tasks;
@@ -11,8 +12,23 @@ using Xunit;
 namespace Shiro.Tests
 {
     [Collection("SerialGlobalState")]
-    public class AccountManagerLifecycleBranchTests
+    public class AccountManagerLifecycleBranchTests : IDisposable
     {
+        private readonly string _tempDir;
+        private readonly IDisposable _dirScope;
+
+        public AccountManagerLifecycleBranchTests()
+        {
+            _tempDir = Path.Combine(Path.GetTempPath(), $"Shiro_LifecycleBranch_{Guid.NewGuid():N}");
+            _dirScope = StoragePaths.OverrideDataDirectoryForTesting(_tempDir);
+        }
+
+        public void Dispose()
+        {
+            AccountManager.CancelDeferredSaveSettings();
+            _dirScope.Dispose();
+            try { if (Directory.Exists(_tempDir)) Directory.Delete(_tempDir, true); } catch (IOException) { }
+        }
         private sealed class StaticSettingsSnapshot
         {
             public AccountManager? Instance { get; init; }
@@ -130,6 +146,7 @@ namespace Shiro.Tests
         {
             var snap = StaticSettingsSnapshot.Capture();
             bool prevSuppress = AccountManager.SuppressExitOnShutdown;
+            bool origSingletonEnabled = RobloxSingletonService.IsEnabled;
 
             AccountManager? tempMgr = null;
             try
@@ -165,6 +182,7 @@ namespace Shiro.Tests
                 AntiAfkService.Stop();
                 MemoryOptimizer.ConfigureAutoTrim(false);
                 RobloxAudioService.ConfigureSmartMute(false);
+                RobloxSingletonService.ResetForTest(origSingletonEnabled);
                 tempMgr?.Dispose();
                 snap.Restore();
                 AccountManager.SuppressExitOnShutdown = prevSuppress;

@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Net;
 using System.Threading.Tasks;
 using Shiro;
@@ -306,23 +307,37 @@ namespace Shiro.Tests
         [InlineData("/Running")]
         public async Task ProcessApiRequestAsync_RunningEndpoint_IsCaseInsensitive(string path)
         {
-            var mgr = new AccountManager();
-            int statusCode = 200;
-            var ctx = new AccountManager.ApiRequestContext
+            string tempDir = Path.Combine(Path.GetTempPath(), $"Shiro_WebAuth_{Guid.NewGuid():N}");
+            var prevIni = AppSettings.ActiveIniFile;
+            var prevMgr = AccountManager.Instance;
+            try
             {
-                AbsolutePath = path,
-                IsV2 = true,
-                IsLocal = true,
-                Host = "localhost",
-                Origin = "",
-                GetQuery = _ => null,
-                GetHeader = _ => null,
-                SetStatusCode = c => statusCode = c
-            };
+                using var dirScope = StoragePaths.OverrideDataDirectoryForTesting(tempDir);
+                var mgr = new AccountManager();
+                int statusCode = 200;
+                var ctx = new AccountManager.ApiRequestContext
+                {
+                    AbsolutePath = path,
+                    IsV2 = true,
+                    IsLocal = true,
+                    Host = "localhost",
+                    Origin = "",
+                    GetQuery = _ => null,
+                    GetHeader = _ => null,
+                    SetStatusCode = c => statusCode = c
+                };
 
-            string resp = await mgr.ProcessApiRequestAsync(ctx);
-            Assert.Equal(200, statusCode);
-            Assert.Contains("Shiro is running", resp, StringComparison.OrdinalIgnoreCase);
+                string resp = await mgr.ProcessApiRequestAsync(ctx);
+                Assert.Equal(200, statusCode);
+                Assert.Contains("Shiro is running", resp, StringComparison.OrdinalIgnoreCase);
+            }
+            finally
+            {
+                AppSettings.ActiveIniFile = prevIni;
+                AccountManager.Instance = prevMgr;
+                if (prevMgr != null) AccountManager.WireHostServices();
+                try { if (Directory.Exists(tempDir)) Directory.Delete(tempDir, true); } catch (IOException) { }
+            }
         }
 
         [Fact]

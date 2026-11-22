@@ -92,6 +92,7 @@ public sealed class P0AuditRemediationTests : IDisposable
             settings.GetSection(AppSettingsKeys.Sections.WebServer)
                 ?.Set(AppSettingsKeys.WebServer.AllowExternalConnections, "false");
 
+            using var bridgeScope = AppServices.Override<IHostUiBridgeService>(new HostUiBridgeService());
             var effects = new RecordingSettingsSideEffects(settings);
             var vm = new SettingsViewModel(settings, new IniSection("General"), effects);
             vm.Load();
