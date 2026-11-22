@@ -131,10 +131,10 @@ public sealed class P0AuditRemediationTests : IDisposable
     [Fact]
     public async Task AccountApiDispatcher_GroupFilterIsCaseInsensitive_AndTogglesQueueSave()
     {
-        var mgr = AccountManager.Instance ?? new AccountManager();
         var oldAccounts = AppServices.AccountRepository.GetAll().ToList();
         var prevIni = AppSettings.ActiveIniFile;
         string prevPass = AppSettings.WebSocketPassword ?? string.Empty;
+        var mgr = AccountManager.Instance ?? new AccountManager();
         var hostBridgeSub = Substitute.For<IHostUiBridgeService>();
 
         try

@@ -103,6 +103,42 @@ namespace Shiro.Tests
             long secondPlaceId = 920_500_000L + Random.Shared.Next(1, 499_999);
             long secondUniverseId = 820_500_000L + Random.Shared.Next(1, 499_999);
 
+            var enteredFirstRequest = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var releaseFirstRequest = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var secondPlaceUrls = new List<string>();
+
+            using var firstPlaceHandler = new AsyncStubHttpHandler(async (_, ct) =>
+            {
+                enteredFirstRequest.TrySetResult(true);
+                await releaseFirstRequest.Task.WaitAsync(ct).ConfigureAwait(false);
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("[]", Encoding.UTF8, "application/json")
+                };
+            });
+
+            using var secondPlaceHandler = new StubHttpHandler(req =>
+            {
+                string url = req.RequestUri?.AbsoluteUri ?? string.Empty;
+                secondPlaceUrls.Add(url);
+                if (url.Contains(secondPlaceId.ToString(), StringComparison.Ordinal))
+                {
+                    string gamesJson = $"[{{\"placeId\":{secondPlaceId},\"universeId\":{secondUniverseId},\"name\":\"Fenced Second Place\"}}]";
+                    return new HttpResponseMessage(HttpStatusCode.OK)
+                    {
+                        Content = new StringContent(gamesJson, Encoding.UTF8, "application/json")
+                    };
+                }
+
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("[]", Encoding.UTF8, "application/json")
+                };
+            });
+
+            using var firstHttpClient = new HttpClient(firstPlaceHandler, disposeHandler: false);
+            using var secondHttpClient = new HttpClient(secondPlaceHandler, disposeHandler: false);
+
             try
             {
                 AppSettings.General.Set("DisableImages", "false");
@@ -112,39 +148,6 @@ namespace Shiro.Tests
                     UserID = 123456789L,
                     SecurityToken = "dummy_token"
                 };
-
-                var enteredFirstRequest = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-                var releaseFirstRequest = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-                var secondPlaceUrls = new List<string>();
-
-                var firstPlaceHandler = new AsyncStubHttpHandler(async (_, ct) =>
-                {
-                    enteredFirstRequest.TrySetResult(true);
-                    await releaseFirstRequest.Task.WaitAsync(ct).ConfigureAwait(false);
-                    return new HttpResponseMessage(HttpStatusCode.OK)
-                    {
-                        Content = new StringContent("[]", Encoding.UTF8, "application/json")
-                    };
-                });
-
-                var secondPlaceHandler = new StubHttpHandler(req =>
-                {
-                    string url = req.RequestUri?.AbsoluteUri ?? string.Empty;
-                    secondPlaceUrls.Add(url);
-                    if (url.Contains(secondPlaceId.ToString(), StringComparison.Ordinal))
-                    {
-                        string gamesJson = $"[{{\"placeId\":{secondPlaceId},\"universeId\":{secondUniverseId},\"name\":\"Fenced Second Place\"}}]";
-                        return new HttpResponseMessage(HttpStatusCode.OK)
-                        {
-                            Content = new StringContent(gamesJson, Encoding.UTF8, "application/json")
-                        };
-                    }
-
-                    return new HttpResponseMessage(HttpStatusCode.OK)
-                    {
-                        Content = new StringContent("[]", Encoding.UTF8, "application/json")
-                    };
-                });
 
                 var thumbHandler = new StubHttpHandler(req =>
                 {
@@ -167,12 +170,12 @@ namespace Shiro.Tests
                 mockApi.Thumbnails.Returns(thumbClient);
                 using var apiScope = AppServices.Override<IRobloxApiClient>(mockApi);
 
-                RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(firstPlaceHandler, disposeHandler: false);
+                RobloxAccountSessionClient.TestHttpClientFactory = _ => firstHttpClient;
                 Task<string> firstTask = Batch.GetGameIcon(firstPlaceId);
                 await enteredFirstRequest.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
                 Batch.ResetPendingWorkersForTest();
-                RobloxAccountSessionClient.TestHttpClientFactory = _ => new HttpClient(secondPlaceHandler, disposeHandler: false);
+                RobloxAccountSessionClient.TestHttpClientFactory = _ => secondHttpClient;
                 Task<string> secondTask = Batch.GetGameIcon(secondPlaceId);
 
                 releaseFirstRequest.TrySetResult(true);
@@ -188,6 +191,7 @@ namespace Shiro.Tests
             }
             finally
             {
+                releaseFirstRequest.TrySetResult(true);
                 Batch.ResetPendingWorkersForTest();
                 Batch.PlaceDetails.TryRemove(firstPlaceId, out _);
                 Batch.PlaceDetails.TryRemove(secondPlaceId, out _);
