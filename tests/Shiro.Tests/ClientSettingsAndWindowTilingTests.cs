@@ -24,7 +24,7 @@ namespace Shiro.Tests
         }
 
         [Fact]
-        public void ClientSettingsPatcher_ApplyFpsLimitToDirectory_ScrubsLegacyFlagAndCleansFolder()
+        public void ClientSettingsPatcher_ScrubLegacyFpsFastFlag_ScrubsLegacyFlagAndCleansFolder()
         {
             string versionFolder = Path.Combine(_tempDir, "version-12345");
             string settingsDir = Path.Combine(versionFolder, "ClientSettings");
@@ -33,7 +33,7 @@ namespace Shiro.Tests
 
             // 1. Legacy file with custom key + FPS key -> scrubs FPS, preserves custom key
             File.WriteAllText(jsonPath, "{\"DFIntTaskSchedulerTargetFps\": 144, \"FStringOther\": \"Value\"}");
-            ClientSettingsPatcher.ApplyFpsLimitToDirectory(versionFolder, unlockFps: true, targetFps: 144);
+            ClientSettingsPatcher.ScrubLegacyFpsFastFlag(versionFolder);
             Assert.True(File.Exists(jsonPath));
             string json1 = File.ReadAllText(jsonPath);
             Assert.DoesNotContain(ClientSettingsPatcher.FpsFlagKey, json1);
@@ -41,7 +41,7 @@ namespace Shiro.Tests
 
             // 2. File with only legacy FPS key -> scrubs and deletes file + folder
             File.WriteAllText(jsonPath, "{\"DFIntTaskSchedulerTargetFps\": 240}");
-            ClientSettingsPatcher.ApplyFpsLimitToDirectory(versionFolder, unlockFps: false, targetFps: 144);
+            ClientSettingsPatcher.ScrubLegacyFpsFastFlag(versionFolder);
             Assert.False(File.Exists(jsonPath));
             Assert.False(Directory.Exists(settingsDir));
         }

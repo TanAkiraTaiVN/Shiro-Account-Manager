@@ -38,10 +38,10 @@ namespace Shiro.Services
             }
         }
 
-        public void Set(string section, string key, string value, string? comment = null)
+        public void Set(string section, string key, string value)
         {
             lock (sync)
-                Document.Set(section, key, value, comment);
+                Document.Set(section, key, value);
         }
 
         public void Save(string fileName = "RAMSettings.json")

@@ -100,14 +100,9 @@ namespace Shiro.Services
                 var folders = FindRobloxVersionFolders();
                 foreach (var folder in folders)
                 {
-                    ApplyFpsLimitToDirectory(folder.FullName, unlockFps, targetFps);
+                    ScrubLegacyFpsFastFlag(folder.FullName);
                 }
             }
-        }
-
-        public static void ApplyFpsLimitToDirectory(string versionFolder, bool unlockFps, int targetFps)
-        {
-            ScrubLegacyFpsFastFlag(versionFolder);
         }
 
         public static void ScrubLegacyFpsFastFlag(string versionFolder)

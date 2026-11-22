@@ -65,12 +65,12 @@ namespace Shiro.Services
 
         public bool Exists(string section, string key) => _ini.Section(section).Exists(key);
 
-        public void Set(string section, string key, string? value, string? comment = null)
+        public void Set(string section, string key, string? value)
         {
             if (string.IsNullOrEmpty(key)) return;
             lock (_sync)
             {
-                _ini.Section(section).Set(key, value, comment);
+                _ini.Section(section).Set(key, value);
                 _dirty = true;
                 _mutationVersion++;
             }

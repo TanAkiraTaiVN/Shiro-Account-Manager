@@ -9,13 +9,13 @@ namespace Shiro.Tests
     public class ProcessAndSingletonOptimizationTests
     {
         [Theory]
-        [InlineData(1234, 0, true)]
-        [InlineData(5678, 50, true)]
-        [InlineData(0, 50, false)]
-        [InlineData(-1, 0, false)]
-        public void ShouldAssignToJobObject_AlwaysTrueForPositivePid_RegardlessOfCpuCap(int pid, int cpuCapPercent, bool expected)
+        [InlineData(1234, true)]
+        [InlineData(5678, true)]
+        [InlineData(0, false)]
+        [InlineData(-1, false)]
+        public void ShouldAssignToJobObject_ReturnsTrueOnlyForPositivePid(int pid, bool expected)
         {
-            bool actual = RobloxProcessOptimizer.ShouldAssignToJobObject(pid, cpuCapPercent);
+            bool actual = RobloxProcessOptimizer.ShouldAssignToJobObject(pid);
             Assert.Equal(expected, actual);
         }
 

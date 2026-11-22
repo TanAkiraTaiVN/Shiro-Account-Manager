@@ -203,7 +203,7 @@ namespace Shiro
             return defaultValue;
         }
 
-        public void Set(string name, string? value, string? comment = null)
+        public void Set(string name, string? value)
         {
             if (string.IsNullOrEmpty(name)) return;
 

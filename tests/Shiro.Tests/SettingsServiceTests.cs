@@ -146,7 +146,7 @@ namespace Shiro.Tests
 
             public bool Exists(string name) => _store.ContainsKey(name);
 
-            public void Set(string name, string? value, string? comment = null)
+            public void Set(string name, string? value)
             {
                 if (value == null) _store.Remove(name);
                 else _store[name] = value;

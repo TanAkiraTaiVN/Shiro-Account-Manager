@@ -12,7 +12,7 @@ namespace Shiro.Tests
     public class ClientSettingsPatcherTests
     {
         [Fact]
-        public void ApplyFpsLimitToDirectory_WhenUnlocked_DoesNotWriteFastFlag_AndScrubsLegacyFastFlag()
+        public void ScrubLegacyFpsFastFlag_WhenOtherKeysExist_RemovesFpsKeyPreservingOtherKeys()
         {
             string tempDir = Path.Combine(Path.GetTempPath(), "Shiro_Patcher_Test_" + Guid.NewGuid());
             string settingsDir = Path.Combine(tempDir, "ClientSettings");
@@ -22,7 +22,7 @@ namespace Shiro.Tests
                 string jsonPath = Path.Combine(settingsDir, "ClientAppSettings.json");
                 File.WriteAllText(jsonPath, "{\"DFIntTaskSchedulerTargetFps\": 144, \"FStringCustom\": \"Test\"}");
 
-                ClientSettingsPatcher.ApplyFpsLimitToDirectory(tempDir, unlockFps: true, targetFps: 144);
+                ClientSettingsPatcher.ScrubLegacyFpsFastFlag(tempDir);
 
                 Assert.True(File.Exists(jsonPath));
                 string content = File.ReadAllText(jsonPath);
@@ -37,7 +37,7 @@ namespace Shiro.Tests
         }
 
         [Fact]
-        public void ApplyFpsLimitToDirectory_WhenLocked_RemovesFpsKeyPreservingOtherKeys()
+        public void ScrubLegacyFpsFastFlag_WhenOnlyFpsKeyExists_DeletesFileAndDirectory()
         {
             string tempDir = Path.Combine(Path.GetTempPath(), "Shiro_Patcher_Test_" + Guid.NewGuid());
             string settingsDir = Path.Combine(tempDir, "ClientSettings");
@@ -45,11 +45,10 @@ namespace Shiro.Tests
             try
             {
                 string jsonPath = Path.Combine(settingsDir, "ClientAppSettings.json");
-                File.WriteAllText(jsonPath, "{\"DFIntTaskSchedulerTargetFps\": 144, \"FStringCustom\": \"Test\"}");
-                ClientSettingsPatcher.ApplyFpsLimitToDirectory(tempDir, unlockFps: false, targetFps: 60);
-                string content = File.ReadAllText(jsonPath);
-                Assert.DoesNotContain(ClientSettingsPatcher.FpsFlagKey, content);
-                Assert.Contains("FStringCustom", content);
+                File.WriteAllText(jsonPath, "{\"DFIntTaskSchedulerTargetFps\": 144}");
+                ClientSettingsPatcher.ScrubLegacyFpsFastFlag(tempDir);
+                Assert.False(File.Exists(jsonPath));
+                Assert.False(Directory.Exists(settingsDir));
             }
             finally
             {
@@ -59,13 +58,13 @@ namespace Shiro.Tests
         }
 
         [Fact]
-        public void ApplyFpsLimitToDirectory_WhenNoExistingFile_DoesNotCreateClientAppSettings()
+        public void ScrubLegacyFpsFastFlag_WhenNoExistingFile_DoesNotCreateClientAppSettings()
         {
             string tempDir = Path.Combine(Path.GetTempPath(), "Shiro_Patcher_Test_" + Guid.NewGuid());
             Directory.CreateDirectory(tempDir);
             try
             {
-                ClientSettingsPatcher.ApplyFpsLimitToDirectory(tempDir, unlockFps: true, targetFps: 144);
+                ClientSettingsPatcher.ScrubLegacyFpsFastFlag(tempDir);
                 string jsonPath = Path.Combine(tempDir, "ClientSettings", "ClientAppSettings.json");
                 Assert.False(File.Exists(jsonPath));
             }

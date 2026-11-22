@@ -156,7 +156,7 @@ namespace Shiro
             if (!AppSettings.General.Exists("AsyncJoin")) AppSettings.General.Set("AsyncJoin", "false");
             if (!AppSettings.General.Exists("DisableAgingAlert")) AppSettings.General.Set("DisableAgingAlert", "false");
             if (!AppSettings.General.Exists("SavePasswords")) AppSettings.General.Set("SavePasswords", "true");
-            if (!AppSettings.General.Exists("ServerRegionFormat")) AppSettings.General.Set("ServerRegionFormat", "<city>, <countryCode>", "Visit https://ipwho.is/1.1.1.1 to see available format options");
+            if (!AppSettings.General.Exists("ServerRegionFormat")) AppSettings.General.Set("ServerRegionFormat", "<city>, <countryCode>");
             if (!AppSettings.General.Exists("MaxRecentGames")) AppSettings.General.Set("MaxRecentGames", "8");
             if (!AppSettings.General.Exists("ShuffleChoosesLowestServer")) AppSettings.General.Set("ShuffleChoosesLowestServer", "false");
             if (!AppSettings.General.Exists("ShufflePageCount")) AppSettings.General.Set("ShufflePageCount", "5");

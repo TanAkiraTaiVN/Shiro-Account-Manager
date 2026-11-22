@@ -72,7 +72,7 @@ namespace Shiro.Tests
         }
 
         [Fact]
-        public void ClientSettingsPatcher_ApplyFpsLimitToDirectory_ScrubsLegacyFpsFlag()
+        public void ClientSettingsPatcher_ScrubLegacyFpsFastFlag_ScrubsLegacyFpsFlag()
         {
             string testFolder = Path.Combine(Path.GetTempPath(), "Shiro-Patcher-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(testFolder);
@@ -84,13 +84,13 @@ namespace Shiro.Tests
 
                 // 1. Existing file with only DFIntTaskSchedulerTargetFps is deleted upon scrubbing
                 File.WriteAllText(jsonPath, "{\"DFIntTaskSchedulerTargetFps\": 144}");
-                ClientSettingsPatcher.ApplyFpsLimitToDirectory(testFolder, unlockFps: true, targetFps: 500);
+                ClientSettingsPatcher.ScrubLegacyFpsFastFlag(testFolder);
                 Assert.False(File.Exists(jsonPath));
 
                 // 2. Existing file with other flags preserves them and removes DFIntTaskSchedulerTargetFps
                 Directory.CreateDirectory(settingsDir);
                 File.WriteAllText(jsonPath, "{\"DFIntTaskSchedulerTargetFps\": 144, \"FFlagDebug\": false}");
-                ClientSettingsPatcher.ApplyFpsLimitToDirectory(testFolder, unlockFps: false, targetFps: 144);
+                ClientSettingsPatcher.ScrubLegacyFpsFastFlag(testFolder);
                 Assert.True(File.Exists(jsonPath));
                 string content = File.ReadAllText(jsonPath);
                 Assert.DoesNotContain(ClientSettingsPatcher.FpsFlagKey, content);
@@ -119,7 +119,7 @@ namespace Shiro.Tests
         {
             var ini = new IniFile();
             var sec = ini.Section("General");
-            sec.Set("Port", "8080", "Listening port");
+            sec.Set("Port", "8080");
             sec.Set("Enabled", "true");
             sec.Set("Rate", "3.14");
 

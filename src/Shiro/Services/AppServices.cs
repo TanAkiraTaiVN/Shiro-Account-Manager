@@ -145,7 +145,7 @@ namespace Shiro.Services
             public int GetInt(string name, int defaultValue = 0) => Current.GetInt(name, defaultValue);
             public decimal GetDecimal(string name, decimal defaultValue = 0m) => Current.GetDecimal(name, defaultValue);
             public bool Exists(string name) => Current.Exists(name);
-            public void Set(string name, string? value, string? comment = null) => Current.Set(name, value, comment);
+            public void Set(string name, string? value) => Current.Set(name, value);
             public void RemoveProperty(string name) => Current.RemoveProperty(name);
         }
 

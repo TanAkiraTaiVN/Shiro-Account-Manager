@@ -73,11 +73,7 @@ namespace Shiro.Services
             return count;
         }
 
-        internal static bool ShouldAssignToJobObject(int pid, int cpuCapPercent)
-        {
-            _ = cpuCapPercent;
-            return pid > 0;
-        }
+        internal static bool ShouldAssignToJobObject(int pid) => pid > 0;
 
         private static readonly AsyncLocal<Action<int>?> _testOptimizeLaunchedProcessHook = new();
         internal static Action<int>? TestOptimizeLaunchedProcessHook
@@ -107,7 +103,7 @@ namespace Shiro.Services
                     RobloxJobObjectService.SetCpuRateLimit(cpuCapPercent);
                 }
 
-                if (ShouldAssignToJobObject(pid, cpuCapPercent))
+                if (ShouldAssignToJobObject(pid))
                 {
                     RobloxJobObjectService.AssignProcessByPid(pid);
                 }

@@ -14,7 +14,7 @@ namespace Shiro.Services
         int GetInt(string name, int defaultValue = 0);
         decimal GetDecimal(string name, decimal defaultValue = 0m);
         bool Exists(string name);
-        void Set(string name, string? value, string? comment = null);
+        void Set(string name, string? value);
         void RemoveProperty(string name);
     }
 }

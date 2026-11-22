@@ -28,7 +28,7 @@ namespace Shiro.Tests
         }
 
         [Fact]
-        public void ApplyFpsLimitToDirectory_ScrubsLegacyFpsFlag_WithoutWritingFastFlag()
+        public void ScrubLegacyFpsFastFlag_ScrubsLegacyFpsFlag_WithoutWritingFastFlag()
         {
             string tempDir = Path.Combine(Path.GetTempPath(), "ShiroFpsPatchTest_" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(tempDir);
@@ -39,16 +39,16 @@ namespace Shiro.Tests
                 string jsonPath = Path.Combine(settingsDir, "ClientAppSettings.json");
                 File.WriteAllText(jsonPath, "{\"CustomExistingFlag\":true,\"DFIntTaskSchedulerTargetFps\":144}");
 
-                // 1. Unlock FPS -> scrubs DFIntTaskSchedulerTargetFps and does not write it back
-                ClientSettingsPatcher.ApplyFpsLimitToDirectory(tempDir, unlockFps: true, targetFps: 240);
+                // 1. Scrubs DFIntTaskSchedulerTargetFps and does not write it back
+                ClientSettingsPatcher.ScrubLegacyFpsFastFlag(tempDir);
                 using (var doc = JsonDocument.Parse(File.ReadAllText(jsonPath)))
                 {
                     Assert.True(doc.RootElement.GetProperty("CustomExistingFlag").GetBoolean());
                     Assert.False(doc.RootElement.TryGetProperty(ClientSettingsPatcher.FpsFlagKey, out _));
                 }
 
-                // 2. Disable FPS unlock -> ensures DFIntTaskSchedulerTargetFps remains absent
-                ClientSettingsPatcher.ApplyFpsLimitToDirectory(tempDir, unlockFps: false, targetFps: 144);
+                // 2. Repeated scrub ensures DFIntTaskSchedulerTargetFps remains absent
+                ClientSettingsPatcher.ScrubLegacyFpsFastFlag(tempDir);
                 using (var doc2 = JsonDocument.Parse(File.ReadAllText(jsonPath)))
                 {
                     Assert.True(doc2.RootElement.GetProperty("CustomExistingFlag").GetBoolean());
