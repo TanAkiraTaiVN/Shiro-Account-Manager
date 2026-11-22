@@ -13,7 +13,8 @@
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
-    <NoWarn>$(NoWarn);MSB3277</NoWarn>
+    <!-- xUnit1051: 572 legacy async test call sites predate xUnit v3 TestContext.Current.CancellationToken propagation -->
+    <NoWarn>$(NoWarn);MSB3277;xUnit1051</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

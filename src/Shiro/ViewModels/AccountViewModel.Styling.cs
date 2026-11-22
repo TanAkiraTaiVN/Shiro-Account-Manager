@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using Avalonia.Media;
+using Avalonia.Media.Immutable;
 using Shiro.Services;
 
 namespace Shiro.ViewModels
@@ -48,42 +49,42 @@ namespace Shiro.ViewModels
         }
 
         #region Pre-allocated Frozen Brushes (Zero Allocation & GPU Cached)
-        private static readonly SolidColorBrush BrushBannedFg = CreateFrozenBrush("#FDA4AF");
-        private static readonly SolidColorBrush BrushExpiredFg = CreateFrozenBrush("#F87171");
-        private static readonly SolidColorBrush BrushLaunchingFg = CreateFrozenBrush("#FBBF24");
-        private static readonly SolidColorBrush BrushInGameFg = CreateFrozenBrush("#4ADE80");
-        private static readonly SolidColorBrush BrushInStudioFg = CreateFrozenBrush("#D8B4FE");
-        private static readonly SolidColorBrush BrushOnlineFg = CreateFrozenBrush("#38BDF8");
-        private static readonly SolidColorBrush BrushDefaultFg = CreateFrozenBrush("#A1A1AA");
+        private static readonly ImmutableSolidColorBrush BrushBannedFg = CreateFrozenBrush("#FDA4AF");
+        private static readonly ImmutableSolidColorBrush BrushExpiredFg = CreateFrozenBrush("#F87171");
+        private static readonly ImmutableSolidColorBrush BrushLaunchingFg = CreateFrozenBrush("#FBBF24");
+        private static readonly ImmutableSolidColorBrush BrushInGameFg = CreateFrozenBrush("#4ADE80");
+        private static readonly ImmutableSolidColorBrush BrushInStudioFg = CreateFrozenBrush("#D8B4FE");
+        private static readonly ImmutableSolidColorBrush BrushOnlineFg = CreateFrozenBrush("#38BDF8");
+        private static readonly ImmutableSolidColorBrush BrushDefaultFg = CreateFrozenBrush("#A1A1AA");
 
-        private static readonly SolidColorBrush BrushBannedBg = CreateFrozenBrush("#2D0F18");
-        private static readonly SolidColorBrush BrushExpiredBg = CreateFrozenBrush("#221315");
-        private static readonly SolidColorBrush BrushLaunchingBg = CreateFrozenBrush("#221C11");
-        private static readonly SolidColorBrush BrushInGameBg = CreateFrozenBrush("#122018");
-        private static readonly SolidColorBrush BrushInStudioBg = CreateFrozenBrush("#1A1725");
-        private static readonly SolidColorBrush BrushOnlineBg = CreateFrozenBrush("#111E29");
-        private static readonly SolidColorBrush BrushDefaultBg = CreateFrozenBrush("#16161C");
+        private static readonly ImmutableSolidColorBrush BrushBannedBg = CreateFrozenBrush("#2D0F18");
+        private static readonly ImmutableSolidColorBrush BrushExpiredBg = CreateFrozenBrush("#221315");
+        private static readonly ImmutableSolidColorBrush BrushLaunchingBg = CreateFrozenBrush("#221C11");
+        private static readonly ImmutableSolidColorBrush BrushInGameBg = CreateFrozenBrush("#122018");
+        private static readonly ImmutableSolidColorBrush BrushInStudioBg = CreateFrozenBrush("#1A1725");
+        private static readonly ImmutableSolidColorBrush BrushOnlineBg = CreateFrozenBrush("#111E29");
+        private static readonly ImmutableSolidColorBrush BrushDefaultBg = CreateFrozenBrush("#16161C");
 
-        private static readonly SolidColorBrush BrushBannedBorder = CreateFrozenBrush("#9F1239");
-        private static readonly SolidColorBrush BrushExpiredBorder = CreateFrozenBrush("#4D2125");
-        private static readonly SolidColorBrush BrushLaunchingBorder = CreateFrozenBrush("#4D381B");
-        private static readonly SolidColorBrush BrushInGameBorder = CreateFrozenBrush("#1D3B29");
-        private static readonly SolidColorBrush BrushInStudioBorder = CreateFrozenBrush("#332B4A");
-        private static readonly SolidColorBrush BrushOnlineBorder = CreateFrozenBrush("#1A354A");
-        private static readonly SolidColorBrush BrushDefaultBorder = CreateFrozenBrush("#272733");
+        private static readonly ImmutableSolidColorBrush BrushBannedBorder = CreateFrozenBrush("#9F1239");
+        private static readonly ImmutableSolidColorBrush BrushExpiredBorder = CreateFrozenBrush("#4D2125");
+        private static readonly ImmutableSolidColorBrush BrushLaunchingBorder = CreateFrozenBrush("#4D381B");
+        private static readonly ImmutableSolidColorBrush BrushInGameBorder = CreateFrozenBrush("#1D3B29");
+        private static readonly ImmutableSolidColorBrush BrushInStudioBorder = CreateFrozenBrush("#332B4A");
+        private static readonly ImmutableSolidColorBrush BrushOnlineBorder = CreateFrozenBrush("#1A354A");
+        private static readonly ImmutableSolidColorBrush BrushDefaultBorder = CreateFrozenBrush("#272733");
 
-        private static SolidColorBrush _brushCardSelected = CreateFrozenBrush("#8B5CF6");
-        public static SolidColorBrush BrushCardSelected => _brushCardSelected;
+        private static ImmutableSolidColorBrush _brushCardSelected = CreateFrozenBrush("#8B5CF6");
+        public static ISolidColorBrush BrushCardSelected => _brushCardSelected;
 
-        private static readonly SolidColorBrush BrushCardBanned = CreateFrozenBrush("#5C1829");
-        private static readonly SolidColorBrush BrushCardExpired = CreateFrozenBrush("#3A1D21");
-        private static readonly SolidColorBrush BrushCardInGame = CreateFrozenBrush("#1E4730");
-        private static readonly SolidColorBrush BrushCardDefault = CreateFrozenBrush("#22222C");
+        private static readonly ImmutableSolidColorBrush BrushCardBanned = CreateFrozenBrush("#5C1829");
+        private static readonly ImmutableSolidColorBrush BrushCardExpired = CreateFrozenBrush("#3A1D21");
+        private static readonly ImmutableSolidColorBrush BrushCardInGame = CreateFrozenBrush("#1E4730");
+        private static readonly ImmutableSolidColorBrush BrushCardDefault = CreateFrozenBrush("#22222C");
 
-        private static readonly SolidColorBrush BrushPaletteSelectedBg = CreateFrozenBrush("#252538");
-        private static readonly SolidColorBrush BrushPaletteDefaultBg = CreateFrozenBrush("#181822");
-        private static readonly SolidColorBrush BrushPaletteSelectedBorder = CreateFrozenBrush("#6366F1");
-        private static readonly SolidColorBrush BrushPaletteDefaultBorder = CreateFrozenBrush("#20202C");
+        private static readonly ImmutableSolidColorBrush BrushPaletteSelectedBg = CreateFrozenBrush("#252538");
+        private static readonly ImmutableSolidColorBrush BrushPaletteDefaultBg = CreateFrozenBrush("#181822");
+        private static readonly ImmutableSolidColorBrush BrushPaletteSelectedBorder = CreateFrozenBrush("#6366F1");
+        private static readonly ImmutableSolidColorBrush BrushPaletteDefaultBorder = CreateFrozenBrush("#20202C");
 
         static AccountViewModel()
         {
@@ -103,7 +104,7 @@ namespace Shiro.ViewModels
             try
             {
                 var (primary, _, _, _, _, _) = AccentThemeService.GetThemeColors(theme);
-                _brushCardSelected = new SolidColorBrush(primary);
+                _brushCardSelected = new ImmutableSolidColorBrush(primary);
             }
             catch (Exception ex)
             {
@@ -111,9 +112,9 @@ namespace Shiro.ViewModels
             }
         }
 
-        private static SolidColorBrush CreateFrozenBrush(string hex)
+        private static ImmutableSolidColorBrush CreateFrozenBrush(string hex)
         {
-            return new SolidColorBrush(Color.Parse(hex));
+            return new ImmutableSolidColorBrush(Color.Parse(hex));
         }
         #endregion
 

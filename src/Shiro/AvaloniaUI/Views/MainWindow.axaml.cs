@@ -304,6 +304,7 @@ namespace Shiro.AvaloniaUI.Views
                 Instance = null;
             }
 
+            ViewOverlays?.DetachStaticBindings();
             base.OnClosed(e);
         }
 

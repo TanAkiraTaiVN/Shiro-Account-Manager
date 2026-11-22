@@ -281,38 +281,36 @@ namespace Shiro.ViewModels
         public void ReloadRecentGames()
         {
             if (Volatile.Read(ref _disposed) != 0) return;
-            var weakSelf = new WeakReference<LaunchBarViewModel>(this);
-            IAppLogger logger = _logger;
 
-            Task.Run(() =>
+            try
             {
-                try
+                var list = new List<RecentGameItemViewModel>();
+                foreach (var g in GameInfoService.GetRecentGamesSnapshot())
                 {
-                    if (!weakSelf.TryGetTarget(out var self) || Volatile.Read(ref self._disposed) != 0) return;
-                    var list = new List<RecentGameItemViewModel>();
-                    foreach (var g in GameInfoService.GetRecentGamesSnapshot())
+                    if (g?.Details?.placeId != null)
                     {
-                        if (g?.Details?.placeId != null)
+                        string bestName = g.Details.BestDisplayName;
+                        list.Add(new RecentGameItemViewModel
                         {
-                            string bestName = g.Details.BestDisplayName;
-                            list.Add(new RecentGameItemViewModel
-                            {
-                                PlaceId = g.Details.placeId,
-                                Name = string.IsNullOrWhiteSpace(bestName) ? $"Place {g.Details.placeId}" : bestName,
-                                ImageUrl = g.ImageUrl ?? string.Empty
-                            });
-                        }
+                            PlaceId = g.Details.placeId,
+                            Name = string.IsNullOrWhiteSpace(bestName) ? $"Place {g.Details.placeId}" : bestName,
+                            ImageUrl = g.ImageUrl ?? string.Empty
+                        });
                     }
-
-                    list.Reverse();
-                    AppDispatcher.Post(() =>
-                    {
-                        if (!weakSelf.TryGetTarget(out var vm) || Volatile.Read(ref vm._disposed) != 0) return;
-                        vm.ApplyReloadedRecentGames(list);
-                    });
                 }
-                catch (Exception ex) { logger.Debug($"Failed to reload recent games: {ex.Message}"); }
-            });
+
+                list.Reverse();
+                var weakSelf = new WeakReference<LaunchBarViewModel>(this);
+                AppDispatcher.Post(() =>
+                {
+                    if (!weakSelf.TryGetTarget(out var vm) || Volatile.Read(ref vm._disposed) != 0) return;
+                    vm.ApplyReloadedRecentGames(list);
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.Debug($"Failed to reload recent games: {ex.Message}");
+            }
         }
 
         private void ApplyReloadedRecentGames(List<RecentGameItemViewModel> list)

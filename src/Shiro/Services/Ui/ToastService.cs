@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using Avalonia.Media;
+using Avalonia.Media.Immutable;
 
 namespace Shiro.Services
 {
@@ -20,22 +21,22 @@ namespace Shiro.Services
 
     public class ToastItem : INotifyPropertyChanged
     {
-        private static readonly IBrush SuccessAccentBrush = new SolidColorBrush(Color.FromRgb(34, 197, 94));
-        private static readonly IBrush WarningAccentBrush = new SolidColorBrush(Color.FromRgb(245, 158, 11));
-        private static readonly IBrush ErrorAccentBrush = new SolidColorBrush(Color.FromRgb(239, 68, 68));
-        private static readonly IBrush InfoAccentBrush = new SolidColorBrush(Color.FromRgb(56, 189, 248));
+        private static readonly IBrush SuccessAccentBrush = new ImmutableSolidColorBrush(Color.FromRgb(34, 197, 94));
+        private static readonly IBrush WarningAccentBrush = new ImmutableSolidColorBrush(Color.FromRgb(245, 158, 11));
+        private static readonly IBrush ErrorAccentBrush = new ImmutableSolidColorBrush(Color.FromRgb(239, 68, 68));
+        private static readonly IBrush InfoAccentBrush = new ImmutableSolidColorBrush(Color.FromRgb(56, 189, 248));
 
-        private static readonly IBrush SurfaceBgBrush = new SolidColorBrush(Color.FromArgb(250, 17, 17, 23));
+        private static readonly IBrush SurfaceBgBrush = new ImmutableSolidColorBrush(Color.FromArgb(250, 17, 17, 23));
 
-        private static readonly IBrush SuccessBorderBrush = new SolidColorBrush(Color.FromArgb(95, 34, 197, 94));
-        private static readonly IBrush WarningBorderBrush = new SolidColorBrush(Color.FromArgb(95, 245, 158, 11));
-        private static readonly IBrush ErrorBorderBrush = new SolidColorBrush(Color.FromArgb(95, 239, 68, 68));
-        private static readonly IBrush InfoBorderBrush = new SolidColorBrush(Color.FromArgb(110, 42, 42, 58));
+        private static readonly IBrush SuccessBorderBrush = new ImmutableSolidColorBrush(Color.FromArgb(95, 34, 197, 94));
+        private static readonly IBrush WarningBorderBrush = new ImmutableSolidColorBrush(Color.FromArgb(95, 245, 158, 11));
+        private static readonly IBrush ErrorBorderBrush = new ImmutableSolidColorBrush(Color.FromArgb(95, 239, 68, 68));
+        private static readonly IBrush InfoBorderBrush = new ImmutableSolidColorBrush(Color.FromArgb(110, 42, 42, 58));
 
-        private static readonly IBrush SuccessBadgeBgBrush = new SolidColorBrush(Color.FromArgb(36, 34, 197, 94));
-        private static readonly IBrush WarningBadgeBgBrush = new SolidColorBrush(Color.FromArgb(36, 245, 158, 11));
-        private static readonly IBrush ErrorBadgeBgBrush = new SolidColorBrush(Color.FromArgb(36, 239, 68, 68));
-        private static readonly IBrush InfoBadgeBgBrush = new SolidColorBrush(Color.FromArgb(36, 56, 189, 248));
+        private static readonly IBrush SuccessBadgeBgBrush = new ImmutableSolidColorBrush(Color.FromArgb(36, 34, 197, 94));
+        private static readonly IBrush WarningBadgeBgBrush = new ImmutableSolidColorBrush(Color.FromArgb(36, 245, 158, 11));
+        private static readonly IBrush ErrorBadgeBgBrush = new ImmutableSolidColorBrush(Color.FromArgb(36, 239, 68, 68));
+        private static readonly IBrush InfoBadgeBgBrush = new ImmutableSolidColorBrush(Color.FromArgb(36, 56, 189, 248));
 
         private static Geometry? _successIconGeometry;
         private static Geometry? _warningIconGeometry;
@@ -331,6 +332,12 @@ namespace Shiro.Services
 
         public static void ClearAll()
         {
+            lock (_toastLock)
+            {
+                if (ActiveToasts.Count == 0)
+                    return;
+            }
+
             AppDispatcher.Post(() =>
             {
                 lock (_toastLock)

@@ -1,6 +1,7 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:conv="clr-namespace:Shiro.AvaloniaUI.Converters"
+             xmlns:lucide="clr-namespace:LucideAvalonia;assembly=LucideAvalonia"
              x:Class="Shiro.AvaloniaUI.App"
              RequestedThemeVariant="Dark">
     <Application.Resources>
@@ -49,6 +50,11 @@
     <Application.Styles>
         <FluentTheme />
         <StyleInclude Source="avares://Shiro/AvaloniaUI/Styles/ViewStyles.axaml" />
+
+        <!-- Froststrap.LucideAvalonia 2.0.1 defaults StrokeThickness to 0.0; ensure visible default stroke -->
+        <Style Selector="lucide|Lucide">
+            <Setter Property="StrokeThickness" Value="2" />
+        </Style>
 
         <!-- Allow horizontal ProgressBar to shrink and respect custom width without default Fluent 200px MinWidth -->
         <Style Selector="ProgressBar:horizontal">

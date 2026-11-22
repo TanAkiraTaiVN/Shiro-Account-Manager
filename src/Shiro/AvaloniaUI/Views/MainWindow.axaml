@@ -176,7 +176,7 @@
             </Grid>
             <Border Grid.Row="2" Height="30" />
         </Grid>
-        <panels:MainWindowOverlaysPanel />
+        <panels:MainWindowOverlaysPanel x:Name="ViewOverlays" />
         <Border IsVisible="{Binding CommandPalette.IsCommandPaletteOpen}" Background="#B0000000" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
             PointerPressed="OnCommandPaletteBackdropPressed">
             <Border Width="600" MaxHeight="520" Background="#14141C" BorderBrush="#2E2E3C" BorderThickness="1" CornerRadius="10" Padding="16" HorizontalAlignment="Center"

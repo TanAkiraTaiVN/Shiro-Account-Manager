@@ -68,8 +68,8 @@ namespace Shiro.Tests.Ui
 
                 string enAliasWatermark = LocalizationService.Get("FastLogin_AliasWatermark");
                 string enGroupWatermark = LocalizationService.Get("FastLogin_GroupWatermark");
-                Assert.Equal(enAliasWatermark, txtAlias.Watermark);
-                Assert.Equal(enGroupWatermark, txtGroup.Watermark);
+                Assert.Equal(enAliasWatermark, txtAlias.PlaceholderText);
+                Assert.Equal(enGroupWatermark, txtGroup.PlaceholderText);
 
                 LocalizationService.SetLanguage(AppLanguage.Vietnamese, saveSetting: false);
                 Dispatcher.UIThread.RunJobs();
@@ -78,8 +78,8 @@ namespace Shiro.Tests.Ui
                 string viGroupWatermark = LocalizationService.Get("FastLogin_GroupWatermark");
                 Assert.NotEqual(enAliasWatermark, viAliasWatermark);
                 Assert.NotEqual(enGroupWatermark, viGroupWatermark);
-                Assert.Equal(viAliasWatermark, txtAlias.Watermark);
-                Assert.Equal(viGroupWatermark, txtGroup.Watermark);
+                Assert.Equal(viAliasWatermark, txtAlias.PlaceholderText);
+                Assert.Equal(viGroupWatermark, txtGroup.PlaceholderText);
 
                 dlg.SelectLoginMode(isCookieMode: false);
                 Dispatcher.UIThread.RunJobs();
@@ -147,14 +147,14 @@ namespace Shiro.Tests.Ui
                 Assert.Equal(LocalizationService.Format("AccountFields.TitleFormat", "FieldFilterUser"), txtHeader.Text);
 
                 string enKeyWatermark = LocalizationService.Get("AccountFields_KeyWatermark");
-                Assert.Equal(enKeyWatermark, txtNewKey.Watermark);
+                Assert.Equal(enKeyWatermark, txtNewKey.PlaceholderText);
 
                 LocalizationService.SetLanguage(AppLanguage.Vietnamese, saveSetting: false);
                 Dispatcher.UIThread.RunJobs();
 
                 string viKeyWatermark = LocalizationService.Get("AccountFields_KeyWatermark");
                 Assert.NotEqual(enKeyWatermark, viKeyWatermark);
-                Assert.Equal(viKeyWatermark, txtNewKey.Watermark);
+                Assert.Equal(viKeyWatermark, txtNewKey.PlaceholderText);
                 Assert.Equal(LocalizationService.Get("AccountFields_WindowTitle"), dlg.Title);
                 Assert.Empty(sink.Errors);
             }
@@ -280,7 +280,7 @@ namespace Shiro.Tests.Ui
                 var txtPlaceId = view.FindControl<TextBox>("TxtPlaceId");
                 Assert.NotNull(txtPlaceId);
                 string enPlaceholder = LocalizationService.Get("Srv_PlaceIdPlaceholder");
-                Assert.Equal(enPlaceholder, txtPlaceId.Watermark);
+                Assert.Equal(enPlaceholder, txtPlaceId.PlaceholderText);
 
                 var rowTexts = view.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text ?? string.Empty).ToList();
                 Assert.Contains("job-smoke-01", rowTexts);
@@ -301,7 +301,7 @@ namespace Shiro.Tests.Ui
 
                 string viPlaceholder = LocalizationService.Get("Srv_PlaceIdPlaceholder");
                 Assert.NotEqual(enPlaceholder, viPlaceholder);
-                Assert.Equal(viPlaceholder, txtPlaceId.Watermark);
+                Assert.Equal(viPlaceholder, txtPlaceId.PlaceholderText);
                 Assert.Equal(LocalizationService.Get("Status_Ready"), vm.LoadingStatus);
                 Assert.Empty(sink.Errors);
             }
@@ -370,7 +370,7 @@ namespace Shiro.Tests.Ui
                 var txtSearch = view.FindControl<TextBox>("TxtSearch");
                 Assert.NotNull(txtSearch);
                 string enSearchWatermark = LocalizationService.Get("Dash_SearchPlaceholder");
-                Assert.Equal(enSearchWatermark, txtSearch.Watermark);
+                Assert.Equal(enSearchWatermark, txtSearch.PlaceholderText);
 
                 string enTabAllExpected = LocalizationService.Format("Main.TabAllCount", 2);
                 var enTexts = view.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text ?? string.Empty).ToList();
@@ -381,7 +381,7 @@ namespace Shiro.Tests.Ui
 
                 string viSearchWatermark = LocalizationService.Get("Dash_SearchPlaceholder");
                 Assert.NotEqual(enSearchWatermark, viSearchWatermark);
-                Assert.Equal(viSearchWatermark, txtSearch.Watermark);
+                Assert.Equal(viSearchWatermark, txtSearch.PlaceholderText);
 
                 string viTabAllExpected = LocalizationService.Format("Main.TabAllCount", 2);
                 Assert.NotEqual(enTabAllExpected, viTabAllExpected);

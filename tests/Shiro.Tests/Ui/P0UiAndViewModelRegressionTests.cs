@@ -15,6 +15,7 @@ using Shiro.Services;
 using Shiro.Tests.Ui;
 using Shiro.ViewModels;
 using Xunit;
+using NavigationPage = Shiro.ViewModels.NavigationPage;
 
 namespace Shiro.Tests
 {

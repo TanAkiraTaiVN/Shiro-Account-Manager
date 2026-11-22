@@ -4,6 +4,7 @@ using System.Globalization;
 using Avalonia.Data;
 using Avalonia.Data.Converters;
 using Avalonia.Media;
+using Avalonia.Media.Immutable;
 using Shiro.Services;
 using Shiro.ViewModels.Dialogs;
 
@@ -90,11 +91,11 @@ namespace Shiro.AvaloniaUI.Converters
     public class StatusKindToBrushConverter : IValueConverter
     {
         public static readonly StatusKindToBrushConverter Instance = new();
-        private static readonly IBrush NeutralBrush = new SolidColorBrush(Color.Parse("#94A3B8"));
+        private static readonly IBrush NeutralBrush = new ImmutableSolidColorBrush(Color.Parse("#94A3B8"));
         private static readonly IBrush InfoBrush = Brushes.DeepSkyBlue;
-        private static readonly IBrush SuccessBrush = new SolidColorBrush(Color.Parse("#22C55E"));
+        private static readonly IBrush SuccessBrush = new ImmutableSolidColorBrush(Color.Parse("#22C55E"));
         private static readonly IBrush WarningBrush = Brushes.Orange;
-        private static readonly IBrush ErrorBrush = new SolidColorBrush(Color.Parse("#EF4444"));
+        private static readonly IBrush ErrorBrush = new ImmutableSolidColorBrush(Color.Parse("#EF4444"));
 
         public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
         {

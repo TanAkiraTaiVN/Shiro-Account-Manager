@@ -93,7 +93,7 @@
                 </StackPanel>
             </Grid>
         </Border>
-        <ItemsControl ItemsSource="{x:Static services:ToastService.ActiveToasts}"
+        <ItemsControl x:Name="ToastItemsControl" ItemsSource="{x:Static services:ToastService.ActiveToasts}"
                       HorizontalAlignment="Right" VerticalAlignment="Bottom"
                       Margin="0,0,18,38" Width="320">
             <ItemsControl.ItemTemplate>

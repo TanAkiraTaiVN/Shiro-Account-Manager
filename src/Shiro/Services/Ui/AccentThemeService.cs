@@ -5,6 +5,7 @@ using System.Text;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Media;
+using Avalonia.Media.Immutable;
 
 namespace Shiro.Services
 {
@@ -22,42 +23,27 @@ namespace Shiro.Services
         private static AccentTheme _currentTheme = AccentTheme.Monochrome;
         public static AccentTheme CurrentTheme => _currentTheme;
 
-        private static readonly ResourceDictionary[] _themeResourceDicts = BuildThemeResourceDictionaries();
         private static ResourceDictionary? _activeThemeDict;
+        private static AccentTheme? _activeTheme;
         private static System.Collections.Generic.IList<IResourceProvider>? _attachedMergedDictionaries;
 
         public static event Action<AccentTheme>? ThemeChanged;
 
-        private static ResourceDictionary[] BuildThemeResourceDictionaries()
+        private static ResourceDictionary CreateThemeResourceDictionary(AccentTheme theme)
         {
-            var themes = new[]
+            var (primary, hover, textOnAccent, subtle, borderCol, glow) = GetThemeColors(theme);
+            return new ResourceDictionary
             {
-                AccentTheme.Monochrome,
-                AccentTheme.Violet,
-                AccentTheme.Cyan,
-                AccentTheme.Emerald,
-                AccentTheme.Pink
+                ["AccentColor"] = primary,
+                ["AccentHoverColor"] = hover,
+                ["AccentForegroundColor"] = textOnAccent,
+                ["AccentBrush"] = new ImmutableSolidColorBrush(primary),
+                ["AccentHoverBrush"] = new ImmutableSolidColorBrush(hover),
+                ["AccentForegroundBrush"] = new ImmutableSolidColorBrush(textOnAccent),
+                ["AccentGlowBrush"] = new ImmutableSolidColorBrush(glow),
+                ["AccentSubtleBrush"] = new ImmutableSolidColorBrush(subtle),
+                ["AccentBorderBrush"] = new ImmutableSolidColorBrush(borderCol)
             };
-
-            var dicts = new ResourceDictionary[themes.Length];
-            for (int i = 0; i < themes.Length; i++)
-            {
-                var (primary, hover, textOnAccent, subtle, borderCol, glow) = GetThemeColors(themes[i]);
-                var dict = new ResourceDictionary
-                {
-                    ["AccentColor"] = primary,
-                    ["AccentHoverColor"] = hover,
-                    ["AccentForegroundColor"] = textOnAccent,
-                    ["AccentBrush"] = new SolidColorBrush(primary),
-                    ["AccentHoverBrush"] = new SolidColorBrush(hover),
-                    ["AccentForegroundBrush"] = new SolidColorBrush(textOnAccent),
-                    ["AccentGlowBrush"] = new SolidColorBrush(glow),
-                    ["AccentSubtleBrush"] = new SolidColorBrush(subtle),
-                    ["AccentBorderBrush"] = new SolidColorBrush(borderCol)
-                };
-                dicts[(int)themes[i]] = dict;
-            }
-            return dicts;
         }
 
         public static AccentTheme ParseTheme(string? value)
@@ -174,38 +160,28 @@ namespace Shiro.Services
             static void ApplyToAppResources(Avalonia.Application? app, AccentTheme targetTheme)
             {
                 if (app?.Resources == null) return;
-
-                int idx = (int)targetTheme;
-                if ((uint)idx >= (uint)_themeResourceDicts.Length) idx = 0;
-                var targetDict = _themeResourceDicts[idx];
+                if (!Enum.IsDefined(targetTheme)) targetTheme = AccentTheme.Monochrome;
 
                 var merged = app.Resources.MergedDictionaries;
-                if (ReferenceEquals(_activeThemeDict, targetDict) &&
-                    ReferenceEquals(_attachedMergedDictionaries, merged) &&
-                    merged.Contains(targetDict))
+                bool sameMergedList = ReferenceEquals(_attachedMergedDictionaries, merged);
+                if (sameMergedList &&
+                    _activeTheme == targetTheme &&
+                    _activeThemeDict != null &&
+                    merged.Contains(_activeThemeDict))
                 {
                     return;
                 }
 
-                if (_attachedMergedDictionaries != null && !ReferenceEquals(_attachedMergedDictionaries, merged))
-                {
-                    foreach (var d in _themeResourceDicts)
-                        _attachedMergedDictionaries.Remove(d);
-                    _activeThemeDict = null;
-                    _attachedMergedDictionaries = null;
-                }
-
-                if (_activeThemeDict != null)
+                if (sameMergedList && _activeThemeDict != null)
                 {
                     merged.Remove(_activeThemeDict);
                 }
 
+                var targetDict = CreateThemeResourceDictionary(targetTheme);
                 _activeThemeDict = targetDict;
+                _activeTheme = targetTheme;
                 _attachedMergedDictionaries = merged;
-                if (!merged.Contains(targetDict))
-                {
-                    merged.Add(targetDict);
-                }
+                merged.Add(targetDict);
             }
 
             void SwapAndNotify()

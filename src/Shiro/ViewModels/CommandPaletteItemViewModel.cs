@@ -2,6 +2,7 @@
 using System;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using Avalonia.Media.Immutable;
 using LucideAvalonia.Enum;
 using Shiro.Services;
 
@@ -129,26 +130,35 @@ namespace Shiro.ViewModels
             }
         }
 
-        public IBrush RowBackground => IsSelected
-            ? SolidColorBrush.Parse("#252538")
-            : SolidColorBrush.Parse("#14141E");
+        private static readonly IBrush RowBackgroundSelectedBrush = new ImmutableSolidColorBrush(Color.Parse("#252538"));
+        private static readonly IBrush RowBackgroundDefaultBrush = new ImmutableSolidColorBrush(Color.Parse("#14141E"));
+        private static readonly IBrush RowBorderSelectedBrush = new ImmutableSolidColorBrush(Color.Parse("#6366F1"));
+        private static readonly IBrush RowBorderDefaultBrush = new ImmutableSolidColorBrush(Color.Parse("#20202E"));
 
-        public IBrush RowBorder => IsSelected
-            ? SolidColorBrush.Parse("#6366F1")
-            : SolidColorBrush.Parse("#20202E");
+        private static readonly IBrush CategoryBgCommandBrush = new ImmutableSolidColorBrush(Color.Parse("#1A2436"));
+        private static readonly IBrush CategoryBgNavigationBrush = new ImmutableSolidColorBrush(Color.Parse("#231E38"));
+        private static readonly IBrush CategoryBgAccountBrush = new ImmutableSolidColorBrush(Color.Parse("#192920"));
+
+        private static readonly IBrush CategoryFgCommandBrush = new ImmutableSolidColorBrush(Color.Parse("#38BDF8"));
+        private static readonly IBrush CategoryFgNavigationBrush = new ImmutableSolidColorBrush(Color.Parse("#C084FC"));
+        private static readonly IBrush CategoryFgAccountBrush = new ImmutableSolidColorBrush(Color.Parse("#4ADE80"));
+
+        public IBrush RowBackground => IsSelected ? RowBackgroundSelectedBrush : RowBackgroundDefaultBrush;
+
+        public IBrush RowBorder => IsSelected ? RowBorderSelectedBrush : RowBorderDefaultBrush;
 
         public IBrush CategoryBackground => ItemType switch
         {
-            CommandPaletteItemType.Command => SolidColorBrush.Parse("#1A2436"),
-            CommandPaletteItemType.Navigation => SolidColorBrush.Parse("#231E38"),
-            _ => SolidColorBrush.Parse("#192920")
+            CommandPaletteItemType.Command => CategoryBgCommandBrush,
+            CommandPaletteItemType.Navigation => CategoryBgNavigationBrush,
+            _ => CategoryBgAccountBrush
         };
 
         public IBrush CategoryForeground => ItemType switch
         {
-            CommandPaletteItemType.Command => SolidColorBrush.Parse("#38BDF8"),
-            CommandPaletteItemType.Navigation => SolidColorBrush.Parse("#C084FC"),
-            _ => SolidColorBrush.Parse("#4ADE80")
+            CommandPaletteItemType.Command => CategoryFgCommandBrush,
+            CommandPaletteItemType.Navigation => CategoryFgNavigationBrush,
+            _ => CategoryFgAccountBrush
         };
     }
 }

@@ -4,7 +4,6 @@ using System.Diagnostics;
 using Shiro.Services;
 using Shiro.ViewModels;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace Shiro.Tests
 {
