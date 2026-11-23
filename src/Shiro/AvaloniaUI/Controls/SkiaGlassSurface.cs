@@ -68,14 +68,13 @@ namespace Shiro.AvaloniaUI.Controls
         protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
         {
             base.OnPropertyChanged(change);
-            if (change.Property == BlurSigmaProperty) { DisposeCachedBlurFilter(markDetached: false); _backdrop.InvalidateVisual(); }
-            else if (change.Property == TintBrushProperty || change.Property == NoiseOpacityProperty ||
-                     change.Property == SpecularHighlightOpacityProperty || change.Property == EnablePointerSpecularProperty ||
-                     change.Property == CornerRadiusProperty) { _backdrop.InvalidateVisual(); }
+            if (change.Property == BlurSigmaProperty) { DisposeCachedBlurFilter(false); _backdrop.InvalidateVisual(); }
+            else if (change.Property == BorderBrushProperty || change.Property == BorderThicknessProperty) { InvalidateArrange(); _backdrop.InvalidateVisual(); }
+            else if (change.Property == TintBrushProperty || change.Property == NoiseOpacityProperty || change.Property == SpecularHighlightOpacityProperty || change.Property == EnablePointerSpecularProperty || change.Property == CornerRadiusProperty) _backdrop.InvalidateVisual();
         }
 
         protected override Size MeasureOverride(Size availableSize) { _backdrop.Measure(default); return base.MeasureOverride(availableSize); }
-        protected override Size ArrangeOverride(Size finalSize) { Size arranged = base.ArrangeOverride(finalSize); _backdrop.Arrange(new Rect(arranged)); return arranged; }
+        protected override Size ArrangeOverride(Size finalSize) { Size arranged = base.ArrangeOverride(finalSize); Thickness inset = GetEffectiveBorderInset(); _backdrop.Arrange(new Rect(inset.Left, inset.Top, Math.Max(0.0, arranged.Width - inset.Left - inset.Right), Math.Max(0.0, arranged.Height - inset.Top - inset.Bottom))); return arranged; }
         protected override void OnPointerEntered(PointerEventArgs e) { base.OnPointerEntered(e); UpdatePointerPosition(e, true); }
         protected override void OnPointerMoved(PointerEventArgs e) { base.OnPointerMoved(e); UpdatePointerPosition(e, false); }
         protected override void OnPointerExited(PointerEventArgs e) { base.OnPointerExited(e); if (!_isPointerOver) return; _isPointerOver = false; _pointerNormalizedX = 0.5; _backdrop.InvalidateVisual(); }
@@ -83,13 +82,13 @@ namespace Shiro.AvaloniaUI.Controls
         private void UpdatePointerPosition(PointerEventArgs e, bool forceEnter)
         {
             if (!EnablePointerSpecular) return;
-            double nextX = Bounds.Width > 1.0 ? Math.Clamp(e.GetPosition(this).X / Bounds.Width, 0.0, 1.0) : 0.5;
-            if (forceEnter || !_isPointerOver || Math.Abs(nextX - _pointerNormalizedX) > 0.002)
-            {
-                _isPointerOver = true;
-                _pointerNormalizedX = nextX;
-                _backdrop.InvalidateVisual();
-            }
+            Thickness inset = GetEffectiveBorderInset();
+            double effectiveWidth = Math.Max(0.0, Bounds.Width - inset.Left - inset.Right);
+            double nextX = effectiveWidth > 1.0 ? Math.Clamp((e.GetPosition(this).X - inset.Left) / effectiveWidth, 0.0, 1.0) : 0.5;
+            if (!forceEnter && _isPointerOver && Math.Abs(nextX - _pointerNormalizedX) <= 0.002) return;
+            _isPointerOver = true;
+            _pointerNormalizedX = nextX;
+            _backdrop.InvalidateVisual();
         }
 
         private void OnPreferencesChanged()
@@ -98,21 +97,18 @@ namespace Shiro.AvaloniaUI.Controls
             AppDispatcher.Post(() => { if (_isAttached) _backdrop.InvalidateVisual(); });
         }
 
-        private void RenderBackdrop(DrawingContext context, Size size)
-        {
-            if (size.Width <= 1.0 || size.Height <= 1.0) return;
-            context.Custom(new GlassDrawOperation(this, CaptureSnapshot(size, _isPointerOver, _pointerNormalizedX)));
-        }
-
-        internal bool RenderToSkia(SKCanvas canvas, SKSurface? surface, GRContext? grContext, Size size, bool pointerOver, double pointerNormalizedX) =>
-            RenderToSkia(canvas, surface, grContext, CaptureSnapshot(size, pointerOver, pointerNormalizedX));
+        private void RenderBackdrop(DrawingContext context, Size size) { if (size.Width > 1.0 && size.Height > 1.0) context.Custom(new GlassDrawOperation(this, CaptureSnapshot(size, _isPointerOver, _pointerNormalizedX))); }
+        internal bool RenderToSkia(SKCanvas canvas, SKSurface? surface, GRContext? grContext, Size size, bool pointerOver, double pointerNormalizedX) => RenderToSkia(canvas, surface, grContext, CaptureSnapshot(size, pointerOver, pointerNormalizedX));
 
         private GlassRenderSnapshot CaptureSnapshot(Size size, bool pointerOver, double pointerNormalizedX)
         {
             double spec = SpecularHighlightOpacity;
-            return new GlassRenderSnapshot(size, CornerRadius, BlurSigma, ResolveSkiaTintColor(TintBrush), NoiseOpacity,
-                spec, EnablePointerSpecular && pointerOver, pointerNormalizedX, ResolveFallbackTintBrush(TintBrush), ResolveSpecularPen(spec));
+            return new GlassRenderSnapshot(size, DeflateCorner(CornerRadius, GetEffectiveBorderInset()), BlurSigma, ResolveSkiaTintColor(TintBrush),
+                NoiseOpacity, spec, EnablePointerSpecular && pointerOver, pointerNormalizedX, ResolveFallbackTintBrush(TintBrush), ResolveSpecularPen(spec));
         }
+
+        private Thickness GetEffectiveBorderInset() =>
+            BorderBrush == null ? default : new Thickness(Math.Max(0.0, BorderThickness.Left), Math.Max(0.0, BorderThickness.Top), Math.Max(0.0, BorderThickness.Right), Math.Max(0.0, BorderThickness.Bottom));
 
         private bool RenderToSkia(SKCanvas canvas, SKSurface? surface, GRContext? grContext, in GlassRenderSnapshot snap)
         {
@@ -257,15 +253,12 @@ namespace Shiro.AvaloniaUI.Controls
         }
 
         private static SKColor ResolveSkiaTintColor(IBrush? tintBrush) =>
-            tintBrush is ISolidColorBrush s
-                ? new SKColor(s.Color.R, s.Color.G, s.Color.B, (byte)Math.Clamp(Math.Round(s.Color.A * s.Opacity), 0, 255))
-                : new SKColor(18, 18, 26, 196);
+            tintBrush is ISolidColorBrush s ? new SKColor(s.Color.R, s.Color.G, s.Color.B, (byte)Math.Clamp(Math.Round(s.Color.A * s.Opacity), 0, 255)) : new SKColor(18, 18, 26, 196);
 
         private static ImmutablePen? ResolveSpecularPen(double specularOpacity)
         {
             byte peak = (byte)Math.Clamp(Math.Round(specularOpacity * 255.0), 0, 255);
-            if (peak == 0) return null;
-            return Math.Abs(specularOpacity - 0.20) < 0.001 ? s_defaultSpecularPen : BuildSpecularPen(specularOpacity);
+            return peak == 0 ? null : Math.Abs(specularOpacity - 0.20) < 0.001 ? s_defaultSpecularPen : BuildSpecularPen(specularOpacity);
         }
 
         private static ImmutablePen BuildSpecularPen(double specularOpacity)
@@ -284,9 +277,10 @@ namespace Shiro.AvaloniaUI.Controls
             return rrect;
         }
 
-        private static CornerRadius DeflateCorner(CornerRadius c, double inset) =>
-            new(Math.Max(0.0, c.TopLeft - inset), Math.Max(0.0, c.TopRight - inset), Math.Max(0.0, c.BottomRight - inset), Math.Max(0.0, c.BottomLeft - inset));
-
+        private static CornerRadius DeflateCorner(CornerRadius c, double inset) => DeflateCorner(c, new Thickness(inset));
+        private static CornerRadius DeflateCorner(CornerRadius c, Thickness t) =>
+            new(Math.Max(0.0, c.TopLeft - 0.5 * (t.Left + t.Top)), Math.Max(0.0, c.TopRight - 0.5 * (t.Right + t.Top)),
+                Math.Max(0.0, c.BottomRight - 0.5 * (t.Right + t.Bottom)), Math.Max(0.0, c.BottomLeft - 0.5 * (t.Left + t.Bottom)));
         private static double CoerceRange(double value, double min, double max) => double.IsNaN(value) ? min : Math.Clamp(value, min, max);
 
         private sealed class GlassBackdropVisual : Control
@@ -311,7 +305,6 @@ namespace Shiro.AvaloniaUI.Controls
             public void Render(ImmediateDrawingContext context)
             {
                 if (snap.Size.Width <= 1.0 || snap.Size.Height <= 1.0) return;
-
                 if (VisualPreferencesService.Instance.EnableGlassEffects && context.TryGetFeature<ISkiaSharpApiLeaseFeature>() is { } leaseFeature)
                 {
                     using ISkiaSharpApiLease? lease = leaseFeature.Lease();
@@ -321,8 +314,7 @@ namespace Shiro.AvaloniaUI.Controls
                 owner.LastRenderUsedFallback = true;
                 double r = Math.Clamp(Math.Max(Math.Max(snap.Corner.TopLeft, snap.Corner.TopRight), Math.Max(snap.Corner.BottomLeft, snap.Corner.BottomRight)), 0.0, Math.Min(snap.Size.Width, snap.Size.Height) * 0.5);
                 context.DrawRectangle(snap.FallbackTint, null, Bounds, r, r, default);
-                if (snap.FallbackSpecularPen != null)
-                    context.DrawRectangle(null, snap.FallbackSpecularPen, Bounds.Deflate(0.5), Math.Max(0.0, r - 0.5), Math.Max(0.0, r - 0.5), default);
+                if (snap.FallbackSpecularPen != null) context.DrawRectangle(null, snap.FallbackSpecularPen, Bounds.Deflate(0.5), Math.Max(0.0, r - 0.5), Math.Max(0.0, r - 0.5), default);
             }
         }
     }
