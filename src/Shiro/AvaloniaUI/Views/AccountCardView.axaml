@@ -26,6 +26,12 @@
                     BorderThickness="0,1,0,0"
                     CornerRadius="9"
                     IsHitTestVisible="False" />
+            <Border x:Name="KeyboardFocusRing"
+                    IsVisible="False"
+                    BorderBrush="{DynamicResource AccentBrush}"
+                    BorderThickness="1.5"
+                    CornerRadius="9"
+                    IsHitTestVisible="False" />
 
             <Grid RowDefinitions="Auto,*" Margin="10,11">
                 <!-- Card Top Row -->

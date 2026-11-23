@@ -31,12 +31,14 @@ namespace Shiro.AvaloniaUI.Views
         {
             base.OnAttachedToVisualTree(e);
             _ownerDashboard ??= this.FindAncestorOfType<DashboardView>();
+            SyncKeyboardFocusRing();
         }
 
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
         {
             _ownerDashboard = null;
             _lastDoubleTapTimestamp = 0;
+            SetKeyboardFocused(false);
             base.OnDetachedFromVisualTree(e);
         }
 
@@ -44,7 +46,17 @@ namespace Shiro.AvaloniaUI.Views
         {
             _lastDoubleTapTimestamp = 0;
             base.OnDataContextChanged(e);
+            SyncKeyboardFocusRing();
         }
+
+        internal void SetKeyboardFocused(bool isFocused)
+        {
+            if (KeyboardFocusRing != null)
+                KeyboardFocusRing.IsVisible = isFocused;
+        }
+
+        private void SyncKeyboardFocusRing()
+            => SetKeyboardFocused(_ownerDashboard?.IsKeyboardFocusedAccount(DataContext as AccountViewModel) == true);
 
         private DashboardView? ResolveOwner()
             => _ownerDashboard ??= this.FindAncestorOfType<DashboardView>();

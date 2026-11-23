@@ -260,7 +260,9 @@
 
     <panels:DashboardFooterBar Grid.Row="4" Grid.RowSpan="2" />
 
-    <Border Grid.Row="6" Background="Transparent"><Panel>
+    <Border Grid.Row="6" x:Name="ListViewportHost" Background="Transparent" Focusable="True"
+            PointerPressed="OnListPointerPressed" PointerMoved="OnListPointerMoved"
+            PointerReleased="OnListPointerReleased" PointerCaptureLost="OnListPointerCaptureLost"><Panel>
       <ItemsControl x:Name="CardsItemsControl" IsVisible="{Binding AccountsVm.IsCardView}" ItemsSource="{Binding AccountsVm.FilteredAccountRows}">
         <ItemsControl.ItemsPanel><ItemsPanelTemplate><VirtualizingStackPanel CacheLength="1" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
         <ItemsControl.Template><ControlTemplate><ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto"
@@ -356,6 +358,8 @@
           </DataTemplate></ItemsControl.ItemTemplate>
         </ItemsControl>
       </Grid>
+      <controls:MarqueeSelectionOverlay x:Name="MarqueeOverlay" IsHitTestVisible="False"
+        FillBrush="{DynamicResource AccentSoftFillBrush}" BorderBrush="{DynamicResource AccentBorderBrush}" />
     </Panel></Border>
 
     <panels:DashboardBulkBarPanel Grid.Row="6" VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="0,0,0,14" IsVisible="{Binding AccountsVm.HasSelection}" />

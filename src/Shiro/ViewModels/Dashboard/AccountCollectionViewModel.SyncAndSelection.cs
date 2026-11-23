@@ -359,6 +359,35 @@ namespace Shiro.ViewModels
             return indices.Count;
         }
 
+        public void ApplySelectionBatch(IReadOnlyList<AccountViewModel>? targets, bool additive)
+        {
+            var targetSet = targets is { Count: > 0 }
+                ? new HashSet<AccountViewModel>(targets, ReferenceEqualityComparer.Instance)
+                : null;
+            int prevSelected = _selectedCount;
+            bool anyChanged = false;
+            RunSuppressedSelection(() =>
+            {
+                if (!additive)
+                {
+                    foreach (var acc in _accounts)
+                    {
+                        bool desired = targetSet != null && targetSet.Contains(acc);
+                        if (acc.IsSelected != desired) { acc.IsSelected = desired; anyChanged = true; }
+                    }
+                }
+                else if (targetSet != null)
+                {
+                    foreach (var acc in targetSet)
+                    {
+                        if (!acc.IsSelected) { acc.IsSelected = true; anyChanged = true; }
+                    }
+                }
+            });
+            if (targets is { Count: > 0 }) _lastClickedAccount = targets[targets.Count - 1];
+            if (anyChanged && _selectedCount == prevSelected) _onSelectionChanged?.Invoke();
+        }
+
         private void RunSuppressedSelection(Action action)
         {
             _suppressCountNotifications = true;

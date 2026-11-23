@@ -6,6 +6,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
+using Shiro.AvaloniaUI.Controls;
 using Shiro.Services;
 using Shiro.ViewModels;
 
@@ -30,6 +31,7 @@ namespace Shiro.AvaloniaUI.Views
             if (TableItemsControl != null)
             {
                 TableItemsControl.AddHandler(PointerPressedEvent, OnTablePointerPressedTunnel, RoutingStrategies.Tunnel);
+                TableItemsControl.ContainerPrepared += (_, e) => UpdateTableRowFocusClass(e.Container);
             }
 
             SizeChanged += (_, e) =>
@@ -100,6 +102,7 @@ namespace Shiro.AvaloniaUI.Views
                 var checkBox = v as CheckBox ?? v.FindAncestorOfType<CheckBox>();
                 if (checkBox?.DataContext is AccountViewModel avm)
                 {
+                    SetKeyboardFocusedAccount(avm);
                     ViewModel.AccountsVm.HandleAccountClickSelection(avm, e.KeyModifiers.HasFlag(KeyModifiers.Shift));
                     e.Handled = true;
                 }
@@ -168,21 +171,15 @@ namespace Shiro.AvaloniaUI.Views
             if (e.Source is Visual visual && IsInsideInteractiveControl(visual))
                 return;
 
+            SetKeyboardFocusedAccount(avm);
+            ListViewportHost?.Focus();
             ViewModel.AccountsVm.HandleAccountClickSelection(avm, e.KeyModifiers.HasFlag(KeyModifiers.Shift));
         }
 
         private long _lastRowDoubleTapTimestamp;
 
         internal static bool IsInsideInteractiveControl(Visual? visual)
-        {
-            if (visual == null) return false;
-            if (visual is Button || visual is CheckBox || visual is TextBox || visual is ComboBox)
-                return true;
-            return visual.FindAncestorOfType<Button>() != null
-                || visual.FindAncestorOfType<CheckBox>() != null
-                || visual.FindAncestorOfType<TextBox>() != null
-                || visual.FindAncestorOfType<ComboBox>() != null;
-        }
+            => MarqueeSelectionOverlay.IsInteractiveControl(visual);
 
         internal static bool ShouldTriggerDoubleTap(object? source, ref long lastTimestamp, long debounceMs = 500)
         {

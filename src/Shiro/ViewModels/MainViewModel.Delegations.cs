@@ -188,6 +188,7 @@ namespace Shiro.ViewModels
         public List<AccountViewModel> GetSelectedAccountViewModels() => AccountsVm.GetSelectedAccountViewModels();
         public Task<IReadOnlyDictionary<Account, AccountSessionAuditResult>> AuditAccountSessionsAsync(CancellationToken ct = default) => AccountsVm.AuditAccountSessionsAsync(ct);
         public void HandleAccountClickSelection(AccountViewModel? target, bool isShiftPressed, bool? explicitTargetState = null) => AccountsVm.HandleAccountClickSelection(target, isShiftPressed, explicitTargetState);
+        public void ApplySelectionBatch(IReadOnlyList<AccountViewModel>? targets, bool additive) => AccountsVm.ApplySelectionBatch(targets, additive);
         public int SelectFirstReadyAccounts(int count) => AccountsVm.SelectFirstReadyAccounts(count);
         public int InvertFilteredSelection() => AccountsVm.InvertFilteredSelection();
         public int SelectRangeExpression(string? expression) => AccountsVm.SelectRangeExpression(expression);
