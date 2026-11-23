@@ -1,99 +1,137 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:Shiro.AvaloniaUI.Controls"
         xmlns:lucide="clr-namespace:LucideAvalonia;assembly=LucideAvalonia"
         xmlns:dlg="clr-namespace:Shiro.ViewModels.Dialogs"
         x:Class="Shiro.AvaloniaUI.Views.AccountUtilsDialog"
         x:DataType="dlg:AccountUtilsViewModel"
+        x:CompileBindings="True"
         Icon="/Resources/shiro.ico"
         Title="{DynamicResource Loc_AccountUtils_WindowTitle}"
-        Width="480" SizeToContent="Height"
+        Width="496" SizeToContent="Height"
         MinWidth="400" MaxWidth="560"
         WindowStartupLocation="CenterOwner"
         CanResize="False"
-        Background="#0E0E12"
-        Foreground="#F4F4F5"
+        Background="{DynamicResource SurfaceChromeBrush}"
+        Foreground="{DynamicResource TextPrimaryBrush}"
         TransparencyLevelHint="Mica, AcrylicBlur">
 
-    <Border BorderBrush="#272730" BorderThickness="1" CornerRadius="8" Padding="20">
-        <Grid RowDefinitions="Auto,*,Auto,Auto">
-            <!-- Header -->
-            <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center" Margin="0,0,0,16">
-                <Border Background="#252536" CornerRadius="8" Width="34" Height="34">
-                    <lucide:Lucide Icon="Wrench" Width="17" Height="17" StrokeBrush="#38BDF8" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                </Border>
-                <StackPanel Spacing="2" VerticalAlignment="Center">
-                    <TextBlock x:Name="TxtTitle" Text="{Binding Title}" FontSize="16" FontWeight="SemiBold" Foreground="#FFFFFF"/>
-                    <TextBlock x:Name="TxtDisplayName" Text="{Binding DisplayName}" FontSize="12" Foreground="#A1A1AA"/>
+    <Border Background="{DynamicResource SurfacePanelBrush}"
+            BorderBrush="{DynamicResource BorderSubtleBrush}"
+            BorderThickness="1"
+            CornerRadius="{StaticResource RadiusXl}"
+            BoxShadow="{StaticResource ShadowModal}"
+            Margin="10">
+        <Panel>
+            <Grid RowDefinitions="Auto,*,Auto,Auto" Margin="20">
+                <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="12"
+                            VerticalAlignment="Center" Margin="0,0,0,16">
+                    <Border Width="38" Height="38" CornerRadius="{StaticResource RadiusLg}"
+                            Background="{DynamicResource StatusInfoBgBrush}"
+                            BorderBrush="{DynamicResource StatusInfoBorderBrush}" BorderThickness="1">
+                        <lucide:Lucide Icon="Wrench" Width="17" Height="17"
+                                       StrokeBrush="{DynamicResource StatusInfoBrush}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <StackPanel Spacing="2" VerticalAlignment="Center">
+                        <TextBlock x:Name="TxtTitle" Text="{Binding Title}" FontSize="16"
+                                   FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                        <TextBlock x:Name="TxtDisplayName" Text="{Binding DisplayName}" FontSize="12"
+                                   Foreground="{DynamicResource TextSecondaryBrush}" />
+                    </StackPanel>
                 </StackPanel>
-            </StackPanel>
 
-            <!-- Actions -->
-            <StackPanel Grid.Row="1" Spacing="12" Margin="0,0,0,16">
-                <!-- Log out other sessions -->
-                <Border Background="#16161D" BorderBrush="#262630" BorderThickness="1" CornerRadius="6" Padding="12">
-                    <Grid ColumnDefinitions="*,Auto">
-                        <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="{DynamicResource Loc_AccountUtils_LogoutOtherHeading}" FontWeight="SemiBold" Foreground="#FFFFFF" FontSize="13"/>
-                            <TextBlock Text="{DynamicResource Loc_AccountUtils_LogoutOtherDesc}" FontSize="11" Foreground="#71717A" TextWrapping="Wrap"/>
-                        </StackPanel>
-                        <Button Grid.Column="1"
-                                Command="{Binding LogOutOtherSessionsCommand}"
-                                Background="#3F3F46" Foreground="#FFFFFF" CornerRadius="5" Padding="12,6" FontSize="12"
-                                VerticalAlignment="Center" Cursor="Hand">
-                            <StackPanel Orientation="Horizontal" Spacing="5">
-                                <lucide:Lucide Icon="LogOut" Width="13" Height="13" StrokeBrush="#FFFFFF" VerticalAlignment="Center" />
-                                <TextBlock Text="{DynamicResource Loc_AccountUtils_ExecuteBtn}" VerticalAlignment="Center" />
+                <StackPanel Grid.Row="1" Spacing="12" Margin="0,0,0,14">
+                    <controls:SpotlightBorder Background="{DynamicResource SurfaceCardBrush}"
+                                              BorderBrush="{DynamicResource BorderSubtleBrush}"
+                                              BorderThickness="1"
+                                              CornerRadius="{StaticResource RadiusLg}"
+                                              BoxShadow="{StaticResource ShadowCard}"
+                                              SpotlightColor="{DynamicResource AccentColor}"
+                                              SpotlightOpacity="0.04"
+                                              BorderGlowOpacity="0.18"
+                                              Padding="14">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="2" Margin="0,0,12,0">
+                                <TextBlock Text="{DynamicResource Loc_AccountUtils_LogoutOtherHeading}"
+                                           FontWeight="SemiBold" FontSize="13"
+                                           Foreground="{DynamicResource TextPrimaryBrush}" />
+                                <TextBlock Text="{DynamicResource Loc_AccountUtils_LogoutOtherDesc}"
+                                           FontSize="11" TextWrapping="Wrap"
+                                           Foreground="{DynamicResource TextSecondaryBrush}" />
                             </StackPanel>
-                        </Button>
-                    </Grid>
-                </Border>
-
-                <!-- Password Management -->
-                <Border Background="#16161D" BorderBrush="#262630" BorderThickness="1" CornerRadius="6" Padding="12">
-                    <Grid RowDefinitions="Auto,Auto">
-                        <StackPanel Margin="0,0,0,8">
-                            <TextBlock Text="{DynamicResource Loc_AccountUtils_PasswordHeading}" FontWeight="SemiBold" Foreground="#FFFFFF" FontSize="13"/>
-                            <TextBlock Text="{DynamicResource Loc_AccountUtils_PasswordDesc}" FontSize="11" Foreground="#71717A"/>
-                        </StackPanel>
-                        <Grid Grid.Row="1" ColumnDefinitions="*,Auto">
-                            <TextBox x:Name="TxtPassword"
-                                     Text="{Binding Password, Mode=TwoWay}"
-                                     PlaceholderText="{DynamicResource Loc_AccountUtils_PasswordWatermark}" PasswordChar="•"
-                                     Background="#1F1F28" Foreground="#FFFFFF" BorderBrush="#2E2E38" BorderThickness="1"
-                                     CornerRadius="5" Padding="8,6" FontSize="13" Margin="0,0,8,0"/>
-                            <Button Grid.Column="1"
-                                    Command="{Binding SavePasswordCommand}"
-                                    Background="#10B981" Foreground="#FFFFFF" FontWeight="SemiBold" CornerRadius="5" Padding="14,6" FontSize="12" Cursor="Hand">
-                                <StackPanel Orientation="Horizontal" Spacing="5">
-                                    <lucide:Lucide Icon="Save" Width="13" Height="13" StrokeBrush="#FFFFFF" VerticalAlignment="Center" />
-                                    <TextBlock Text="{DynamicResource Loc_AccountUtils_SavePasswordBtn}" VerticalAlignment="Center" />
+                            <Button Grid.Column="1" Classes="StudioSecondaryBtn"
+                                    Command="{Binding LogOutOtherSessionsCommand}"
+                                    Padding="12,7" FontSize="12" VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <lucide:Lucide Icon="LogOut" Width="13" Height="13"
+                                                   StrokeBrush="{DynamicResource TextPrimaryBrush}"
+                                                   VerticalAlignment="Center" />
+                                    <TextBlock Text="{DynamicResource Loc_AccountUtils_ExecuteBtn}"
+                                               VerticalAlignment="Center" />
                                 </StackPanel>
                             </Button>
                         </Grid>
-                    </Grid>
-                </Border>
+                    </controls:SpotlightBorder>
 
-            </StackPanel>
+                    <controls:SpotlightBorder Background="{DynamicResource SurfaceCardBrush}"
+                                              BorderBrush="{DynamicResource BorderSubtleBrush}"
+                                              BorderThickness="1"
+                                              CornerRadius="{StaticResource RadiusLg}"
+                                              BoxShadow="{StaticResource ShadowCard}"
+                                              SpotlightColor="{DynamicResource AccentColor}"
+                                              SpotlightOpacity="0.04"
+                                              BorderGlowOpacity="0.18"
+                                              Padding="14">
+                        <Grid RowDefinitions="Auto,Auto">
+                            <StackPanel Spacing="2" Margin="0,0,0,10">
+                                <TextBlock Text="{DynamicResource Loc_AccountUtils_PasswordHeading}"
+                                           FontWeight="SemiBold" FontSize="13"
+                                           Foreground="{DynamicResource TextPrimaryBrush}" />
+                                <TextBlock Text="{DynamicResource Loc_AccountUtils_PasswordDesc}"
+                                           FontSize="11" TextWrapping="Wrap"
+                                           Foreground="{DynamicResource TextSecondaryBrush}" />
+                            </StackPanel>
+                            <Grid Grid.Row="1" ColumnDefinitions="*,Auto">
+                                <TextBox x:Name="TxtPassword" Text="{Binding Password, Mode=TwoWay}"
+                                         PlaceholderText="{DynamicResource Loc_AccountUtils_PasswordWatermark}"
+                                         PasswordChar="•" Padding="10,7" FontSize="13" Margin="0,0,8,0" />
+                                <Button Grid.Column="1" Classes="StudioPrimaryBtn"
+                                        Command="{Binding SavePasswordCommand}"
+                                        Padding="14,7" FontSize="12">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <lucide:Lucide Icon="Save" Width="13" Height="13"
+                                                       StrokeBrush="{DynamicResource AccentForegroundBrush}"
+                                                       StrokeThickness="2.2" VerticalAlignment="Center" />
+                                        <TextBlock Text="{DynamicResource Loc_AccountUtils_SavePasswordBtn}"
+                                                   VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+                            </Grid>
+                        </Grid>
+                    </controls:SpotlightBorder>
+                </StackPanel>
 
-            <!-- Status text -->
-            <TextBlock x:Name="TxtStatus" Grid.Row="2"
-                       Text="{Binding StatusText}"
-                       Foreground="{Binding StatusKind, Converter={StaticResource StatusKindToBrush}}"
-                       FontSize="12" TextWrapping="Wrap" Margin="0,0,0,16"/>
+                <TextBlock x:Name="TxtStatus" Grid.Row="2" Text="{Binding StatusText}"
+                           Foreground="{Binding StatusKind, Converter={StaticResource StatusKindToBrush}}"
+                           FontSize="12" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,14" />
 
-            <!-- Close Button -->
-            <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right">
-                <Button Height="32"
-                        Command="{Binding CloseCommand}"
-                        Background="#272730" Foreground="#D4D4D8" FontWeight="SemiBold"
-                        CornerRadius="5" Padding="14,0" Cursor="Hand"
-                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                        <lucide:Lucide Icon="X" Width="13" Height="13" StrokeBrush="#D4D4D8" VerticalAlignment="Center" />
-                        <TextBlock Text="{DynamicResource Loc_Btn_Close}" VerticalAlignment="Center" />
-                    </StackPanel>
-                </Button>
-            </StackPanel>
-        </Grid>
+                <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button Classes="StudioSecondaryBtn" Height="32" Padding="14,0"
+                            Command="{Binding CloseCommand}">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <lucide:Lucide Icon="X" Width="13" Height="13"
+                                           StrokeBrush="{DynamicResource TextSecondaryBrush}"
+                                           VerticalAlignment="Center" />
+                            <TextBlock Text="{DynamicResource Loc_Btn_Close}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Grid>
+            <Border IsHitTestVisible="False"
+                    BorderBrush="{DynamicResource BorderTopRimBrush}"
+                    BorderThickness="1"
+                    CornerRadius="{StaticResource RadiusXl}" />
+        </Panel>
     </Border>
 </Window>

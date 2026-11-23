@@ -1,108 +1,221 @@
-<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:vm="clr-namespace:Shiro.ViewModels.Dialogs" mc:Ignorable="d"
-    x:Class="Shiro.AvaloniaUI.Views.Panels.SettingsAdvancedPanel" x:DataType="vm:SettingsViewModel">
-    <StackPanel Spacing="16">
-        <Border Background="#111115" BorderBrush="#24242C" BorderThickness="1" CornerRadius="8" Padding="20">
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:controls="clr-namespace:Shiro.AvaloniaUI.Controls"
+             xmlns:vm="clr-namespace:Shiro.ViewModels.Dialogs"
+             mc:Ignorable="d"
+             x:Class="Shiro.AvaloniaUI.Views.Panels.SettingsAdvancedPanel"
+             x:DataType="vm:SettingsViewModel"
+             x:CompileBindings="True">
+    <StackPanel Spacing="14">
+        <controls:SpotlightBorder Background="{DynamicResource SurfacePanelBrush}"
+                                  BorderBrush="{DynamicResource BorderSubtleBrush}"
+                                  BorderThickness="1"
+                                  CornerRadius="{StaticResource RadiusXl}"
+                                  BoxShadow="{StaticResource ShadowCard}"
+                                  SpotlightColor="{DynamicResource AccentColor}"
+                                  SpotlightOpacity="0.035"
+                                  BorderGlowOpacity="0.16"
+                                  Padding="20">
             <StackPanel Spacing="12">
-                <TextBlock Text="{DynamicResource Set_SectionAlerts}" FontWeight="Bold" FontSize="15" Foreground="#FFFFFF" />
+                <TextBlock Text="{DynamicResource Set_SectionAlerts}"
+                           FontWeight="Bold" FontSize="15"
+                           Foreground="{DynamicResource TextPrimaryBrush}" />
                 <Grid ColumnDefinitions="*,260">
-                    <TextBlock Grid.Column="0" Text="{DynamicResource Set_DiscordWebhook}" Foreground="#E4E4E7" FontSize="13" VerticalAlignment="Center" />
-                    <TextBox Grid.Column="1" Text="{Binding DiscordWebhookUrl}" PasswordChar="*" Background="#18181F" Foreground="#FFFFFF" BorderBrush="#2E2E38" />
+                    <TextBlock Grid.Column="0" Text="{DynamicResource Set_DiscordWebhook}"
+                               Foreground="{DynamicResource TextPrimaryBrush}" FontSize="13"
+                               VerticalAlignment="Center" Margin="0,0,16,0" TextWrapping="Wrap" />
+                    <TextBox Grid.Column="1" Text="{Binding DiscordWebhookUrl}"
+                             PasswordChar="*" Padding="10,7" />
                 </Grid>
+                <Separator />
                 <Grid ColumnDefinitions="*,260">
-                    <TextBlock Grid.Column="0" Text="{DynamicResource Set_TelegramToken}" Foreground="#E4E4E7" FontSize="13" VerticalAlignment="Center" />
-                    <TextBox Grid.Column="1" Text="{Binding TelegramBotToken}" PasswordChar="*" Background="#18181F" Foreground="#FFFFFF" BorderBrush="#2E2E38" />
+                    <TextBlock Grid.Column="0" Text="{DynamicResource Set_TelegramToken}"
+                               Foreground="{DynamicResource TextPrimaryBrush}" FontSize="13"
+                               VerticalAlignment="Center" Margin="0,0,16,0" TextWrapping="Wrap" />
+                    <TextBox Grid.Column="1" Text="{Binding TelegramBotToken}"
+                             PasswordChar="*" Padding="10,7" />
                 </Grid>
+                <Separator />
                 <Grid ColumnDefinitions="*,260">
-                    <TextBlock Grid.Column="0" Text="{DynamicResource Set_TelegramChatId}" Foreground="#E4E4E7" FontSize="13" VerticalAlignment="Center" />
-                    <TextBox Grid.Column="1" Text="{Binding TelegramChatId}" Background="#18181F" Foreground="#FFFFFF" BorderBrush="#2E2E38" />
+                    <TextBlock Grid.Column="0" Text="{DynamicResource Set_TelegramChatId}"
+                               Foreground="{DynamicResource TextPrimaryBrush}" FontSize="13"
+                               VerticalAlignment="Center" Margin="0,0,16,0" TextWrapping="Wrap" />
+                    <TextBox Grid.Column="1" Text="{Binding TelegramChatId}" Padding="10,7" />
                 </Grid>
+                <Separator />
                 <Grid ColumnDefinitions="*,Auto">
-                    <TextBlock Grid.Column="0" Text="{DynamicResource Set_NotifyDisconnect}" Foreground="#E4E4E7" FontSize="13" VerticalAlignment="Center" />
-                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding NotifyOnDisconnect}" OnContent="{x:Null}" OffContent="{x:Null}" />
+                    <TextBlock Grid.Column="0" Text="{DynamicResource Set_NotifyDisconnect}"
+                               Foreground="{DynamicResource TextPrimaryBrush}" FontSize="13"
+                               VerticalAlignment="Center" Margin="0,0,16,0" TextWrapping="Wrap" />
+                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding NotifyOnDisconnect}"
+                                  OnContent="{x:Null}" OffContent="{x:Null}" />
                 </Grid>
+                <Separator />
                 <Grid ColumnDefinitions="*,Auto">
-                    <TextBlock Grid.Column="0" Text="{DynamicResource Set_NotifyModeration}" Foreground="#E4E4E7" FontSize="13" VerticalAlignment="Center" />
-                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding NotifyOnModeration}" OnContent="{x:Null}" OffContent="{x:Null}" />
+                    <TextBlock Grid.Column="0" Text="{DynamicResource Set_NotifyModeration}"
+                               Foreground="{DynamicResource TextPrimaryBrush}" FontSize="13"
+                               VerticalAlignment="Center" Margin="0,0,16,0" TextWrapping="Wrap" />
+                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding NotifyOnModeration}"
+                                  OnContent="{x:Null}" OffContent="{x:Null}" />
                 </Grid>
-                <Separator Background="#24242C" Height="1" />
-                <TextBlock Text="{DynamicResource Set_SectionRpc}" FontWeight="Bold" FontSize="15" Foreground="#FFFFFF" />
+                <Separator />
+                <TextBlock Text="{DynamicResource Set_SectionRpc}"
+                           FontWeight="Bold" FontSize="15" Margin="0,4,0,0"
+                           Foreground="{DynamicResource TextPrimaryBrush}" />
                 <Grid ColumnDefinitions="*,Auto">
-                    <TextBlock Grid.Column="0" Text="{DynamicResource Set_DiscordRpcEnabled}" Foreground="#E4E4E7" FontSize="13" VerticalAlignment="Center" />
-                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding DiscordRpcEnabled}" OnContent="{x:Null}" OffContent="{x:Null}" />
+                    <TextBlock Grid.Column="0" Text="{DynamicResource Set_DiscordRpcEnabled}"
+                               Foreground="{DynamicResource TextPrimaryBrush}" FontSize="13"
+                               VerticalAlignment="Center" Margin="0,0,16,0" TextWrapping="Wrap" />
+                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding DiscordRpcEnabled}"
+                                  OnContent="{x:Null}" OffContent="{x:Null}" />
                 </Grid>
+                <Separator />
                 <Grid ColumnDefinitions="*,260">
-                    <TextBlock Grid.Column="0" Text="{DynamicResource Set_DiscordRpcClientId}" Foreground="#E4E4E7" FontSize="13" VerticalAlignment="Center" />
-                    <TextBox Grid.Column="1" Text="{Binding DiscordRpcClientId}" Background="#18181F" Foreground="#FFFFFF" BorderBrush="#2E2E38" />
+                    <TextBlock Grid.Column="0" Text="{DynamicResource Set_DiscordRpcClientId}"
+                               Foreground="{DynamicResource TextPrimaryBrush}" FontSize="13"
+                               VerticalAlignment="Center" Margin="0,0,16,0" TextWrapping="Wrap" />
+                    <TextBox Grid.Column="1" Text="{Binding DiscordRpcClientId}" Padding="10,7" />
                 </Grid>
+                <Separator />
                 <Grid ColumnDefinitions="*,Auto">
-                    <TextBlock Grid.Column="0" Text="{DynamicResource Set_DiscordRpcShowGame}" Foreground="#E4E4E7" FontSize="13" VerticalAlignment="Center" />
-                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding DiscordRpcShowGame}" OnContent="{x:Null}" OffContent="{x:Null}" />
+                    <TextBlock Grid.Column="0" Text="{DynamicResource Set_DiscordRpcShowGame}"
+                               Foreground="{DynamicResource TextPrimaryBrush}" FontSize="13"
+                               VerticalAlignment="Center" Margin="0,0,16,0" TextWrapping="Wrap" />
+                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding DiscordRpcShowGame}"
+                                  OnContent="{x:Null}" OffContent="{x:Null}" />
                 </Grid>
+                <Separator />
                 <Grid ColumnDefinitions="*,Auto">
-                    <TextBlock Grid.Column="0" Text="{DynamicResource Set_DiscordRpcJoinBtn}" Foreground="#E4E4E7" FontSize="13" VerticalAlignment="Center" />
-                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding DiscordRpcJoinCurrentServer}" OnContent="{x:Null}" OffContent="{x:Null}" />
+                    <TextBlock Grid.Column="0" Text="{DynamicResource Set_DiscordRpcJoinBtn}"
+                               Foreground="{DynamicResource TextPrimaryBrush}" FontSize="13"
+                               VerticalAlignment="Center" Margin="0,0,16,0" TextWrapping="Wrap" />
+                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding DiscordRpcJoinCurrentServer}"
+                                  OnContent="{x:Null}" OffContent="{x:Null}" />
                 </Grid>
             </StackPanel>
-        </Border>
-        <Border Background="#111115" BorderBrush="#24242C" BorderThickness="1" CornerRadius="8" Padding="20">
+        </controls:SpotlightBorder>
+
+        <controls:SpotlightBorder Background="{DynamicResource SurfacePanelBrush}"
+                                  BorderBrush="{DynamicResource BorderSubtleBrush}"
+                                  BorderThickness="1"
+                                  CornerRadius="{StaticResource RadiusXl}"
+                                  BoxShadow="{StaticResource ShadowCard}"
+                                  SpotlightColor="{DynamicResource AccentColor}"
+                                  SpotlightOpacity="0.035"
+                                  BorderGlowOpacity="0.16"
+                                  Padding="20">
             <StackPanel Spacing="12">
-                <TextBlock Text="{DynamicResource Set_SectionWebServerSecurity}" FontWeight="Bold" FontSize="15" Foreground="#FFFFFF" />
+                <TextBlock Text="{DynamicResource Set_SectionWebServerSecurity}"
+                           FontWeight="Bold" FontSize="15"
+                           Foreground="{DynamicResource TextPrimaryBrush}" />
                 <Grid ColumnDefinitions="*,Auto">
-                    <TextBlock Grid.Column="0" Text="{DynamicResource Set_AllowExternal}" Foreground="#E4E4E7" FontSize="13" VerticalAlignment="Center" />
-                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding AllowExternalConnections}" OnContent="{x:Null}" OffContent="{x:Null}" />
+                    <TextBlock Grid.Column="0" Text="{DynamicResource Set_AllowExternal}"
+                               Foreground="{DynamicResource TextPrimaryBrush}" FontSize="13"
+                               VerticalAlignment="Center" Margin="0,0,16,0" TextWrapping="Wrap" />
+                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding AllowExternalConnections}"
+                                  OnContent="{x:Null}" OffContent="{x:Null}" />
                 </Grid>
+                <Separator />
                 <Grid ColumnDefinitions="*,Auto">
-                    <TextBlock Grid.Column="0" Text="{DynamicResource Set_EveryReqPass}" Foreground="#E4E4E7" FontSize="13" VerticalAlignment="Center" />
-                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding EveryRequestRequiresPassword}" OnContent="{x:Null}" OffContent="{x:Null}" />
+                    <TextBlock Grid.Column="0" Text="{DynamicResource Set_EveryReqPass}"
+                               Foreground="{DynamicResource TextPrimaryBrush}" FontSize="13"
+                               VerticalAlignment="Center" Margin="0,0,16,0" TextWrapping="Wrap" />
+                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding EveryRequestRequiresPassword}"
+                                  OnContent="{x:Null}" OffContent="{x:Null}" />
                 </Grid>
+                <Separator />
                 <Grid ColumnDefinitions="*,Auto">
-                    <TextBlock Grid.Column="0" Text="{DynamicResource Set_AllowGetAccounts}" Foreground="#E4E4E7" FontSize="13" VerticalAlignment="Center" />
-                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding AllowGetAccounts}" OnContent="{x:Null}" OffContent="{x:Null}" />
+                    <TextBlock Grid.Column="0" Text="{DynamicResource Set_AllowGetAccounts}"
+                               Foreground="{DynamicResource TextPrimaryBrush}" FontSize="13"
+                               VerticalAlignment="Center" Margin="0,0,16,0" TextWrapping="Wrap" />
+                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding AllowGetAccounts}"
+                                  OnContent="{x:Null}" OffContent="{x:Null}" />
                 </Grid>
+                <Separator />
                 <Grid ColumnDefinitions="*,Auto">
-                    <TextBlock Grid.Column="0" Text="{DynamicResource Set_AllowGetCookie}" Foreground="#E4E4E7" FontSize="13" VerticalAlignment="Center" />
-                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding AllowGetCookie}" OnContent="{x:Null}" OffContent="{x:Null}" />
+                    <TextBlock Grid.Column="0" Text="{DynamicResource Set_AllowGetCookie}"
+                               Foreground="{DynamicResource TextPrimaryBrush}" FontSize="13"
+                               VerticalAlignment="Center" Margin="0,0,16,0" TextWrapping="Wrap" />
+                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding AllowGetCookie}"
+                                  OnContent="{x:Null}" OffContent="{x:Null}" />
                 </Grid>
+                <Separator />
                 <Grid ColumnDefinitions="*,Auto">
-                    <TextBlock Grid.Column="0" Text="{DynamicResource Set_AllowAccountEdit}" Foreground="#E4E4E7" FontSize="13" VerticalAlignment="Center" />
-                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding AllowAccountEditing}" OnContent="{x:Null}" OffContent="{x:Null}" />
+                    <TextBlock Grid.Column="0" Text="{DynamicResource Set_AllowAccountEdit}"
+                               Foreground="{DynamicResource TextPrimaryBrush}" FontSize="13"
+                               VerticalAlignment="Center" Margin="0,0,16,0" TextWrapping="Wrap" />
+                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding AllowAccountEditing}"
+                                  OnContent="{x:Null}" OffContent="{x:Null}" />
                 </Grid>
+                <Separator />
                 <Grid ColumnDefinitions="*,Auto">
-                    <TextBlock Grid.Column="0" Text="{DynamicResource Set_AllowLaunchAcc}" Foreground="#E4E4E7" FontSize="13" VerticalAlignment="Center" />
-                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding AllowLaunchAccount}" OnContent="{x:Null}" OffContent="{x:Null}" />
+                    <TextBlock Grid.Column="0" Text="{DynamicResource Set_AllowLaunchAcc}"
+                               Foreground="{DynamicResource TextPrimaryBrush}" FontSize="13"
+                               VerticalAlignment="Center" Margin="0,0,16,0" TextWrapping="Wrap" />
+                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding AllowLaunchAccount}"
+                                  OnContent="{x:Null}" OffContent="{x:Null}" />
                 </Grid>
-                <Separator Background="#24242C" Height="1" />
-                <TextBlock Text="{DynamicResource Set_SectionReliability}" FontWeight="Bold" FontSize="15" Foreground="#FFFFFF" />
+                <Separator />
+                <TextBlock Text="{DynamicResource Set_SectionReliability}"
+                           FontWeight="Bold" FontSize="15" Margin="0,4,0,0"
+                           Foreground="{DynamicResource TextPrimaryBrush}" />
                 <Grid ColumnDefinitions="*,Auto">
-                    <TextBlock Grid.Column="0" Text="{DynamicResource Set_EnableAutoReconnect}" Foreground="#E4E4E7" FontSize="13" VerticalAlignment="Center" />
-                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding EnableAutoReconnect}" OnContent="{x:Null}" OffContent="{x:Null}" />
+                    <TextBlock Grid.Column="0" Text="{DynamicResource Set_EnableAutoReconnect}"
+                               Foreground="{DynamicResource TextPrimaryBrush}" FontSize="13"
+                               VerticalAlignment="Center" Margin="0,0,16,0" TextWrapping="Wrap" />
+                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding EnableAutoReconnect}"
+                                  OnContent="{x:Null}" OffContent="{x:Null}" />
                 </Grid>
+                <Separator />
                 <Grid ColumnDefinitions="*,Auto">
-                    <TextBlock Grid.Column="0" Text="{DynamicResource Set_EnableDeElevation}" Foreground="#E4E4E7" FontSize="13" VerticalAlignment="Center" />
-                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding EnableTokenDeElevation}" OnContent="{x:Null}" OffContent="{x:Null}" />
+                    <TextBlock Grid.Column="0" Text="{DynamicResource Set_EnableDeElevation}"
+                               Foreground="{DynamicResource TextPrimaryBrush}" FontSize="13"
+                               VerticalAlignment="Center" Margin="0,0,16,0" TextWrapping="Wrap" />
+                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding EnableTokenDeElevation}"
+                                  OnContent="{x:Null}" OffContent="{x:Null}" />
                 </Grid>
+                <Separator />
                 <Grid ColumnDefinitions="*,Auto">
-                    <TextBlock Grid.Column="0" Text="{DynamicResource Set_StreamerAutoDetect}" Foreground="#E4E4E7" FontSize="13" VerticalAlignment="Center" />
-                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding StreamerModeAutoDetect}" OnContent="{x:Null}" OffContent="{x:Null}" />
+                    <TextBlock Grid.Column="0" Text="{DynamicResource Set_StreamerAutoDetect}"
+                               Foreground="{DynamicResource TextPrimaryBrush}" FontSize="13"
+                               VerticalAlignment="Center" Margin="0,0,16,0" TextWrapping="Wrap" />
+                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding StreamerModeAutoDetect}"
+                                  OnContent="{x:Null}" OffContent="{x:Null}" />
                 </Grid>
+                <Separator />
                 <Grid ColumnDefinitions="*,Auto">
-                    <TextBlock Grid.Column="0" Text="{DynamicResource Set_AntiAfkFallback}" Foreground="#E4E4E7" FontSize="13" VerticalAlignment="Center" />
-                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding AntiAfkForegroundFallback}" OnContent="{x:Null}" OffContent="{x:Null}" />
+                    <TextBlock Grid.Column="0" Text="{DynamicResource Set_AntiAfkFallback}"
+                               Foreground="{DynamicResource TextPrimaryBrush}" FontSize="13"
+                               VerticalAlignment="Center" Margin="0,0,16,0" TextWrapping="Wrap" />
+                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding AntiAfkForegroundFallback}"
+                                  OnContent="{x:Null}" OffContent="{x:Null}" />
                 </Grid>
+                <Separator />
                 <Grid ColumnDefinitions="*,Auto">
-                    <TextBlock Grid.Column="0" Text="{DynamicResource Set_WatcherWindowTitleCheck}" Foreground="#E4E4E7" FontSize="13" VerticalAlignment="Center" />
-                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding CloseIfWindowTitle}" OnContent="{x:Null}" OffContent="{x:Null}" />
+                    <TextBlock Grid.Column="0" Text="{DynamicResource Set_WatcherWindowTitleCheck}"
+                               Foreground="{DynamicResource TextPrimaryBrush}" FontSize="13"
+                               VerticalAlignment="Center" Margin="0,0,16,0" TextWrapping="Wrap" />
+                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding CloseIfWindowTitle}"
+                                  OnContent="{x:Null}" OffContent="{x:Null}" />
                 </Grid>
+                <Separator />
                 <Grid ColumnDefinitions="*,260">
-                    <TextBlock Grid.Column="0" Text="{DynamicResource Set_WatcherExpectedTitle}" Foreground="#E4E4E7" FontSize="13" VerticalAlignment="Center" />
-                    <TextBox Grid.Column="1" Text="{Binding ExpectedWindowTitle}" Background="#18181F" Foreground="#FFFFFF" BorderBrush="#2E2E38" />
+                    <TextBlock Grid.Column="0" Text="{DynamicResource Set_WatcherExpectedTitle}"
+                               Foreground="{DynamicResource TextPrimaryBrush}" FontSize="13"
+                               VerticalAlignment="Center" Margin="0,0,16,0" TextWrapping="Wrap" />
+                    <TextBox Grid.Column="1" Text="{Binding ExpectedWindowTitle}" Padding="10,7" />
                 </Grid>
+                <Separator />
                 <Grid ColumnDefinitions="*,Auto">
-                    <TextBlock Grid.Column="0" Text="{DynamicResource Set_NoConnectionTimeout}" Foreground="#E4E4E7" FontSize="13" VerticalAlignment="Center" />
-                    <NumericUpDown Grid.Column="1" Minimum="0" Maximum="600" Value="{Binding NoConnectionTimeout}" Width="120" Background="#18181F" Foreground="#FFFFFF" BorderBrush="#2E2E38" />
+                    <TextBlock Grid.Column="0" Text="{DynamicResource Set_NoConnectionTimeout}"
+                               Foreground="{DynamicResource TextPrimaryBrush}" FontSize="13"
+                               VerticalAlignment="Center" Margin="0,0,16,0" TextWrapping="Wrap" />
+                    <NumericUpDown Grid.Column="1" Minimum="0" Maximum="600"
+                                   Value="{Binding NoConnectionTimeout}" Width="124" />
                 </Grid>
             </StackPanel>
-        </Border>
+        </controls:SpotlightBorder>
     </StackPanel>
 </UserControl>

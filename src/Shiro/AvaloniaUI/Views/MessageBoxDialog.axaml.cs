@@ -58,22 +58,26 @@ namespace Shiro.AvaloniaUI.Views
                 case MessageBoxIcon.Information:
                     dialog.IconLucide.Icon = LucideAvalonia.Enum.LucideIconNames.Info;
                     dialog.IconLucide.StrokeBrush = new SolidColorBrush(Color.Parse("#38BDF8"));
-                    dialog.IconBadge.Background = new SolidColorBrush(Color.Parse("#172554"));
+                    dialog.IconBadge.Background = new SolidColorBrush(Color.Parse("#102131"));
+                    dialog.IconBadge.BorderBrush = new SolidColorBrush(Color.Parse("#1E3E5C"));
                     break;
                 case MessageBoxIcon.Warning:
                     dialog.IconLucide.Icon = LucideAvalonia.Enum.LucideIconNames.TriangleAlert;
-                    dialog.IconLucide.StrokeBrush = new SolidColorBrush(Color.Parse("#F59E0B"));
-                    dialog.IconBadge.Background = new SolidColorBrush(Color.Parse("#451A03"));
+                    dialog.IconLucide.StrokeBrush = new SolidColorBrush(Color.Parse("#FBBF24"));
+                    dialog.IconBadge.Background = new SolidColorBrush(Color.Parse("#261D0E"));
+                    dialog.IconBadge.BorderBrush = new SolidColorBrush(Color.Parse("#593C14"));
                     break;
                 case MessageBoxIcon.Error:
                     dialog.IconLucide.Icon = LucideAvalonia.Enum.LucideIconNames.CircleX;
-                    dialog.IconLucide.StrokeBrush = new SolidColorBrush(Color.Parse("#EF4444"));
-                    dialog.IconBadge.Background = new SolidColorBrush(Color.Parse("#450A0A"));
+                    dialog.IconLucide.StrokeBrush = new SolidColorBrush(Color.Parse("#F87171"));
+                    dialog.IconBadge.Background = new SolidColorBrush(Color.Parse("#271217"));
+                    dialog.IconBadge.BorderBrush = new SolidColorBrush(Color.Parse("#541D28"));
                     break;
                 case MessageBoxIcon.Question:
                     dialog.IconLucide.Icon = LucideAvalonia.Enum.LucideIconNames.CircleQuestionMark;
-                    dialog.IconLucide.StrokeBrush = new SolidColorBrush(Color.Parse("#A855F7"));
-                    dialog.IconBadge.Background = new SolidColorBrush(Color.Parse("#3B0764"));
+                    dialog.IconLucide.StrokeBrush = new SolidColorBrush(Color.Parse("#A78BFA"));
+                    dialog.IconBadge.Background = new SolidColorBrush(Color.Parse("#1A152E"));
+                    dialog.IconBadge.BorderBrush = new SolidColorBrush(Color.Parse("#372A63"));
                     break;
                 default:
                     dialog.IconBadge.IsVisible = false;

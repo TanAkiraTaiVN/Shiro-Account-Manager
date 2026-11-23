@@ -6,77 +6,98 @@
         x:CompileBindings="True"
         Icon="/Resources/shiro.ico"
         Title="{DynamicResource Loc_AccountFields_WindowTitle}"
-        Width="500" Height="480"
+        Width="520" Height="490"
         MinWidth="420" MinHeight="360"
         WindowStartupLocation="CenterOwner"
-        Background="#0E0E12"
-        Foreground="#F4F4F5"
+        Background="{DynamicResource SurfaceChromeBrush}"
+        Foreground="{DynamicResource TextPrimaryBrush}"
         TransparencyLevelHint="Mica, AcrylicBlur">
 
-    <Border BorderBrush="#272730" BorderThickness="1" CornerRadius="8" Padding="18">
-        <Grid RowDefinitions="Auto,*,Auto,Auto">
-            <!-- Header -->
-            <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center" Margin="0,0,0,12">
-                <Border Background="#252536" CornerRadius="8" Width="32" Height="32">
-                    <lucide:Lucide Icon="Database" Width="16" Height="16" StrokeBrush="#38BDF8" HorizontalAlignment="Center" VerticalAlignment="Center" />
+    <Border Background="{DynamicResource SurfacePanelBrush}"
+            BorderBrush="{DynamicResource BorderSubtleBrush}"
+            BorderThickness="1"
+            CornerRadius="{StaticResource RadiusXl}"
+            BoxShadow="{StaticResource ShadowModal}"
+            Margin="10">
+        <Panel>
+            <Grid RowDefinitions="Auto,*,Auto,Auto" Margin="18">
+                <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="12"
+                            VerticalAlignment="Center" Margin="0,0,0,14">
+                    <Border Width="36" Height="36" CornerRadius="{StaticResource RadiusLg}"
+                            Background="{DynamicResource StatusInfoBgBrush}"
+                            BorderBrush="{DynamicResource StatusInfoBorderBrush}" BorderThickness="1">
+                        <lucide:Lucide Icon="Database" Width="16" Height="16"
+                                       StrokeBrush="{DynamicResource StatusInfoBrush}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <TextBlock x:Name="TxtHeaderTitle"
+                               Text="{DynamicResource Loc_AccountFields_DefaultHeader}"
+                               FontSize="16" FontWeight="Bold" VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextPrimaryBrush}" />
+                </StackPanel>
+
+                <Border Grid.Row="1" Background="{DynamicResource SurfaceCardBrush}"
+                        BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1"
+                        CornerRadius="{StaticResource RadiusLg}" Padding="6" Margin="0,0,0,12">
+                    <ListBox x:Name="FieldsListBox" Background="Transparent" BorderThickness="0">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="views:AccountFieldItem">
+                                <Grid ColumnDefinitions="*,*,Auto" Margin="6,4">
+                                    <TextBlock Grid.Column="0" Text="{Binding Key}" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource TextPrimaryBrush}"
+                                               VerticalAlignment="Center" Margin="0,0,8,0" />
+                                    <TextBlock Grid.Column="1" Text="{Binding Value}"
+                                               Foreground="{DynamicResource TextSecondaryBrush}"
+                                               VerticalAlignment="Center" Margin="0,0,8,0" />
+                                    <Button Grid.Column="2" Classes="StudioDangerBtn" Click="BtnDeleteField_Click"
+                                            FontSize="11" Padding="8,4">
+                                        <StackPanel Orientation="Horizontal" Spacing="4">
+                                            <Path Data="{StaticResource GeoTrash}" Width="11" Height="11"
+                                                  Stretch="Uniform" Stroke="{DynamicResource StatusDangerBrush}"
+                                                  StrokeThickness="1.8" StrokeLineCap="Round"
+                                                  StrokeJoin="Round" VerticalAlignment="Center" />
+                                            <TextBlock Text="{DynamicResource Loc_Btn_Delete}" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Button>
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
                 </Border>
-                <TextBlock x:Name="TxtHeaderTitle" Text="{DynamicResource Loc_AccountFields_DefaultHeader}"
-                           FontSize="16" FontWeight="SemiBold" Foreground="#FFFFFF" VerticalAlignment="Center"/>
-            </StackPanel>
 
-            <!-- List of existing fields -->
-            <Border Grid.Row="1" Background="#141419" BorderBrush="#24242C" BorderThickness="1" CornerRadius="6" Padding="6" Margin="0,0,0,12">
-                <ListBox x:Name="FieldsListBox" Background="Transparent">
-                    <ListBox.ItemTemplate>
-                        <DataTemplate x:DataType="views:AccountFieldItem">
-                            <Grid ColumnDefinitions="*,*,Auto" Margin="4,2">
-                                <TextBlock Grid.Column="0" Text="{Binding Key}" FontWeight="SemiBold" Foreground="#FFFFFF" VerticalAlignment="Center"/>
-                                <TextBlock Grid.Column="1" Text="{Binding Value}" Foreground="#A1A1AA" VerticalAlignment="Center"/>
-                                <Button Grid.Column="2" Click="BtnDeleteField_Click"
-                                        Background="#2B1518" Foreground="#F87171" BorderBrush="#4A1E24" BorderThickness="1" FontSize="11"
-                                        CornerRadius="5" Padding="8,4" Cursor="Hand">
-                                    <StackPanel Orientation="Horizontal" Spacing="4">
-                                        <Path Data="{StaticResource GeoTrash}" Width="11" Height="11" Stretch="Uniform"
-                                              Stroke="#F87171" StrokeThickness="1.8" StrokeLineCap="Round" StrokeJoin="Round" VerticalAlignment="Center" />
-                                        <TextBlock Text="{DynamicResource Loc_Btn_Delete}" VerticalAlignment="Center" />
-                                    </StackPanel>
-                                </Button>
-                            </Grid>
-                        </DataTemplate>
-                    </ListBox.ItemTemplate>
-                </ListBox>
-            </Border>
+                <Grid Grid.Row="2" ColumnDefinitions="*,*,Auto" Margin="0,0,0,14">
+                    <TextBox x:Name="TxtNewKey"
+                             PlaceholderText="{DynamicResource Loc_AccountFields_KeyWatermark}"
+                             Margin="0,0,8,0" Padding="10,7" FontSize="12" />
+                    <TextBox Grid.Column="1" x:Name="TxtNewValue"
+                             PlaceholderText="{DynamicResource Loc_AccountFields_ValueWatermark}"
+                             Margin="0,0,8,0" Padding="10,7" FontSize="12" />
+                    <Button Grid.Column="2" Classes="StudioPrimaryBtn" Click="BtnAddField_Click"
+                            Padding="14,7" FontSize="12">
+                        <StackPanel Orientation="Horizontal" Spacing="5">
+                            <lucide:Lucide Icon="Plus" Width="13" Height="13"
+                                           StrokeBrush="{DynamicResource AccentForegroundBrush}"
+                                           StrokeThickness="2.4" VerticalAlignment="Center" />
+                            <TextBlock Text="{DynamicResource Loc_Btn_Add}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                </Grid>
 
-            <!-- Add new field inputs -->
-            <Grid Grid.Row="2" ColumnDefinitions="*,*,Auto" Margin="0,0,0,12">
-                <TextBox x:Name="TxtNewKey" PlaceholderText="{DynamicResource Loc_AccountFields_KeyWatermark}" Margin="0,0,8,0"
-                         Background="#18181F" Foreground="#FFFFFF" BorderBrush="#2E2E38" BorderThickness="1"
-                         CornerRadius="5" Padding="8,6" FontSize="12"/>
-                <TextBox Grid.Column="1" x:Name="TxtNewValue" PlaceholderText="{DynamicResource Loc_AccountFields_ValueWatermark}" Margin="0,0,8,0"
-                         Background="#18181F" Foreground="#FFFFFF" BorderBrush="#2E2E38" BorderThickness="1"
-                         CornerRadius="5" Padding="8,6" FontSize="12"/>
-                <Button Grid.Column="2" Click="BtnAddField_Click"
-                        Background="#2563EB" Foreground="#FFFFFF" FontWeight="SemiBold"
-                        CornerRadius="5" Padding="12,6" FontSize="12" Cursor="Hand">
-                    <StackPanel Orientation="Horizontal" Spacing="5">
-                        <lucide:Lucide Icon="Plus" Width="13" Height="13" StrokeBrush="#FFFFFF" StrokeThickness="2.2" VerticalAlignment="Center" />
-                        <TextBlock Text="{DynamicResource Loc_Btn_Add}" VerticalAlignment="Center" />
-                    </StackPanel>
-                </Button>
+                <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                    <Button Classes="StudioSecondaryBtn" Height="32" Padding="14,0" Click="BtnClose_Click">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <lucide:Lucide Icon="X" Width="13" Height="13"
+                                           StrokeBrush="{DynamicResource TextSecondaryBrush}"
+                                           VerticalAlignment="Center" />
+                            <TextBlock Text="{DynamicResource Loc_Btn_Close}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
             </Grid>
-
-            <!-- Close button -->
-            <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
-                <Button Height="32" Click="BtnClose_Click"
-                        Background="#272730" Foreground="#D4D4D8" FontWeight="SemiBold"
-                        CornerRadius="5" Padding="14,0" Cursor="Hand"
-                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                        <lucide:Lucide Icon="X" Width="13" Height="13" StrokeBrush="#D4D4D8" VerticalAlignment="Center" />
-                        <TextBlock Text="{DynamicResource Loc_Btn_Close}" VerticalAlignment="Center" />
-                    </StackPanel>
-                </Button>
-            </StackPanel>
-        </Grid>
+            <Border IsHitTestVisible="False"
+                    BorderBrush="{DynamicResource BorderTopRimBrush}"
+                    BorderThickness="1"
+                    CornerRadius="{StaticResource RadiusXl}" />
+        </Panel>
     </Border>
 </Window>

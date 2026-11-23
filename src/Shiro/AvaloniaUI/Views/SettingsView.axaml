@@ -1,317 +1,393 @@
-<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:panels="clr-namespace:Shiro.AvaloniaUI.Views.Panels"
-    xmlns:services="clr-namespace:Shiro.Services" xmlns:vm="clr-namespace:Shiro.ViewModels.Dialogs"
-    xmlns:lucide="clr-namespace:LucideAvalonia;assembly=LucideAvalonia" mc:Ignorable="d" x:Class="Shiro.AvaloniaUI.Views.SettingsView" x:DataType="vm:SettingsViewModel">
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:controls="clr-namespace:Shiro.AvaloniaUI.Controls"
+             xmlns:panels="clr-namespace:Shiro.AvaloniaUI.Views.Panels"
+             xmlns:services="clr-namespace:Shiro.Services"
+             xmlns:vm="clr-namespace:Shiro.ViewModels.Dialogs"
+             xmlns:lucide="clr-namespace:LucideAvalonia;assembly=LucideAvalonia"
+             mc:Ignorable="d" x:Class="Shiro.AvaloniaUI.Views.SettingsView"
+             x:DataType="vm:SettingsViewModel" x:CompileBindings="True">
     <UserControl.Styles>
-        <Style Selector="Button.ThemeBtn">
-            <Setter Property="BorderBrush" Value="Transparent" />
+        <Style Selector="controls|SpotlightBorder.SettingsCard">
+            <Setter Property="Background" Value="{DynamicResource SurfacePanelBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}" />
             <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="{StaticResource RadiusXl}" />
+            <Setter Property="BoxShadow" Value="{StaticResource ShadowCard}" />
+            <Setter Property="SpotlightColor" Value="{DynamicResource AccentColor}" />
+            <Setter Property="SpotlightOpacity" Value="0.035" />
+            <Setter Property="BorderGlowOpacity" Value="0.16" />
+            <Setter Property="Padding" Value="20" />
+        </Style>
+        <Style Selector="StackPanel.RowInfo">
+            <Setter Property="Spacing" Value="2" />
+            <Setter Property="Margin" Value="0,0,16,0" />
+        </Style>
+        <Style Selector="TextBlock.SettingTitle">
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+        <Style Selector="TextBlock.SettingTip">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+        <Style Selector="ToggleSwitch">
+            <Setter Property="OnContent" Value="{x:Null}" />
+            <Setter Property="OffContent" Value="{x:Null}" />
+            <Setter Property="HorizontalAlignment" Value="Right" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="NumericUpDown">
+            <Setter Property="Width" Value="124" />
+            <Setter Property="HorizontalAlignment" Value="Right" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Border.SwatchDot">
+            <Setter Property="Width" Value="10" />
+            <Setter Property="Height" Value="10" />
+            <Setter Property="CornerRadius" Value="999" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Button.ThemeBtn">
+            <Setter Property="Background" Value="{DynamicResource SurfaceCardBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="{StaticResource RadiusMd}" />
+            <Setter Property="Padding" Value="10,6" />
+            <Setter Property="FontSize" Value="11.5" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="PART_Border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="{TemplateBinding CornerRadius}"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.ThemeBtn:pointerover">
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+        </Style>
+        <Style Selector="Button.ThemeBtn:pointerover /template/ Border#PART_Border">
+            <Setter Property="Background" Value="{DynamicResource SurfaceCardHoverBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderHoverBrush}" />
         </Style>
         <Style Selector="Button.ThemeBtn.ThemeActive">
-            <Setter Property="BorderBrush" Value="White" />
-            <Setter Property="BorderThickness" Value="2" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+            <Setter Property="FontWeight" Value="Bold" />
+        </Style>
+        <Style Selector="Button.ThemeBtn.ThemeActive /template/ Border#PART_Border">
+            <Setter Property="Background" Value="{DynamicResource AccentSoftFillBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+            <Setter Property="BorderThickness" Value="1.5" />
+            <Setter Property="BoxShadow" Value="{StaticResource ShadowCard}" />
         </Style>
     </UserControl.Styles>
+
     <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="24,16,24,16">
         <panels:SettingsHeaderBanner Grid.Row="0" />
-        <Border Grid.Row="1" Background="#111115" BorderBrush="#24242C" BorderThickness="1" CornerRadius="8" Padding="6" Margin="0,0,0,16">
-            <StackPanel Orientation="Horizontal" Spacing="4">
-                <RadioButton x:Name="TabRadioGeneral" Classes="SettingsTabPill" GroupName="SettingsCat" IsChecked="True">
-                    <StackPanel Orientation="Horizontal" Spacing="6"><lucide:Lucide Icon="Settings" Width="14" Height="14" StrokeBrush="#A1A1AA" VerticalAlignment="Center" /><TextBlock
-                        Text="{DynamicResource Set_TabGeneral}" VerticalAlignment="Center" /></StackPanel>
-                </RadioButton>
-                <RadioButton x:Name="TabRadioPerformance" Classes="SettingsTabPill" GroupName="SettingsCat">
-                    <StackPanel Orientation="Horizontal" Spacing="6"><lucide:Lucide Icon="Zap" Width="14" Height="14" StrokeBrush="#A1A1AA" VerticalAlignment="Center" /><TextBlock
-                        Text="{DynamicResource Set_TabPerformance}" VerticalAlignment="Center" /></StackPanel>
-                </RadioButton>
-                <RadioButton x:Name="TabRadioLaunching" Classes="SettingsTabPill" GroupName="SettingsCat">
-                    <StackPanel Orientation="Horizontal" Spacing="6"><lucide:Lucide Icon="Play" Width="14" Height="14" StrokeBrush="#A1A1AA" VerticalAlignment="Center" /><TextBlock
-                        Text="{DynamicResource Set_TabLaunch}" VerticalAlignment="Center" /></StackPanel>
-                </RadioButton>
-                <RadioButton x:Name="TabRadioSecurity" Classes="SettingsTabPill" GroupName="SettingsCat">
-                    <StackPanel Orientation="Horizontal" Spacing="6"><lucide:Lucide Icon="Lock" Width="14" Height="14" StrokeBrush="#A1A1AA" VerticalAlignment="Center" /><TextBlock
-                        Text="{DynamicResource Set_TabSecurity}" VerticalAlignment="Center" /></StackPanel>
-                </RadioButton>
-                <RadioButton x:Name="TabRadioAlerts" Classes="SettingsTabPill" GroupName="SettingsCat">
-                    <StackPanel Orientation="Horizontal" Spacing="6"><lucide:Lucide Icon="Bell" Width="14" Height="14" StrokeBrush="#A1A1AA" VerticalAlignment="Center" /><TextBlock
-                        Text="{DynamicResource Set_TabAlerts}" VerticalAlignment="Center" /></StackPanel>
-                </RadioButton>
-            </StackPanel>
+
+        <Border Grid.Row="1" Background="{DynamicResource SurfacePanelBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
+                BorderThickness="1" CornerRadius="{StaticResource RadiusLg}" Margin="0,0,0,14">
+            <Panel>
+                <WrapPanel Orientation="Horizontal" Margin="6,5">
+                    <RadioButton x:Name="TabRadioGeneral" Classes="SettingsTabPill" GroupName="SettingsCat" IsChecked="True">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <lucide:Lucide Icon="Settings" Width="14" Height="14" StrokeBrush="{DynamicResource TextSecondaryBrush}" />
+                            <TextBlock Text="{DynamicResource Set_TabGeneral}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </RadioButton>
+                    <RadioButton x:Name="TabRadioPerformance" Classes="SettingsTabPill" GroupName="SettingsCat">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <lucide:Lucide Icon="Zap" Width="14" Height="14" StrokeBrush="{DynamicResource TextSecondaryBrush}" />
+                            <TextBlock Text="{DynamicResource Set_TabPerformance}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </RadioButton>
+                    <RadioButton x:Name="TabRadioLaunching" Classes="SettingsTabPill" GroupName="SettingsCat">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <lucide:Lucide Icon="Play" Width="14" Height="14" StrokeBrush="{DynamicResource TextSecondaryBrush}" />
+                            <TextBlock Text="{DynamicResource Set_TabLaunch}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </RadioButton>
+                    <RadioButton x:Name="TabRadioSecurity" Classes="SettingsTabPill" GroupName="SettingsCat">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <lucide:Lucide Icon="Lock" Width="14" Height="14" StrokeBrush="{DynamicResource TextSecondaryBrush}" />
+                            <TextBlock Text="{DynamicResource Set_TabSecurity}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </RadioButton>
+                    <RadioButton x:Name="TabRadioAlerts" Classes="SettingsTabPill" GroupName="SettingsCat">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <lucide:Lucide Icon="Bell" Width="14" Height="14" StrokeBrush="{DynamicResource TextSecondaryBrush}" />
+                            <TextBlock Text="{DynamicResource Set_TabAlerts}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </RadioButton>
+                </WrapPanel>
+                <Border IsHitTestVisible="False" BorderBrush="{DynamicResource BorderTopRimBrush}" BorderThickness="1" CornerRadius="{StaticResource RadiusLg}" />
+            </Panel>
         </Border>
+
         <ScrollViewer Grid.Row="2" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
-            <StackPanel HorizontalAlignment="Stretch" Spacing="16">
-                <Border x:Name="PanelGeneral" IsVisible="{Binding #TabRadioGeneral.IsChecked}" Background="#111115" BorderBrush="#24242C" BorderThickness="1" CornerRadius="8" Padding="20">
-                    <StackPanel Spacing="16">
-                        <TextBlock Text="{DynamicResource Set_SectionUI}" FontWeight="Bold" FontSize="15" Foreground="#FFFFFF" />
+            <StackPanel HorizontalAlignment="Stretch" Spacing="14">
+                <controls:SpotlightBorder x:Name="PanelGeneral" Classes="SettingsCard" IsVisible="{Binding #TabRadioGeneral.IsChecked}">
+                    <StackPanel Spacing="14">
+                        <TextBlock Text="{DynamicResource Set_SectionUI}" FontWeight="Bold" FontSize="15" Foreground="{DynamicResource TextPrimaryBrush}" />
                         <Grid ColumnDefinitions="*,Auto">
-                            <StackPanel Grid.Column="0" Spacing="2" Margin="0,0,16,0">
-                                <TextBlock Text="{DynamicResource Set_Language}" Foreground="#FFFFFF" FontSize="13" TextWrapping="Wrap" />
-                                <TextBlock Text="{DynamicResource Set_LanguageTip}" FontSize="11" Foreground="#A1A1AA" TextWrapping="Wrap" />
-                            </StackPanel>
-                            <ComboBox Grid.Column="1" x:Name="CmbLanguage" SelectedIndex="{Binding SelectedLanguageIndex}" Width="160" HorizontalAlignment="Right"
-                                VerticalAlignment="Center" Background="#18181F" Foreground="#FFFFFF" BorderBrush="#2E2E38">
+                            <StackPanel Grid.Column="0" Classes="RowInfo">
+                                <TextBlock Classes="SettingTitle" Text="{DynamicResource Set_Language}" />
+                                <TextBlock Classes="SettingTip" Text="{DynamicResource Set_LanguageTip}" /></StackPanel>
+                            <ComboBox Grid.Column="1" x:Name="CmbLanguage" Width="170" SelectedIndex="{Binding SelectedLanguageIndex}" HorizontalAlignment="Right" VerticalAlignment="Center">
                                 <ComboBoxItem Content="{DynamicResource Set_Language_VN}" />
                                 <ComboBoxItem Content="{DynamicResource Set_Language_EN}" />
                             </ComboBox>
                         </Grid>
-                        <Separator Background="#24242C" Height="1" />
+                        <Separator />
                         <Grid ColumnDefinitions="*,Auto">
-                            <StackPanel Grid.Column="0" Spacing="2" Margin="0,0,16,0">
-                                <TextBlock Text="{DynamicResource Set_Theme}" Foreground="#FFFFFF" FontSize="13" TextWrapping="Wrap" />
-                                <TextBlock Text="{DynamicResource Set_ThemeTip}" FontSize="11" Foreground="#A1A1AA" TextWrapping="Wrap" />
-                            </StackPanel>
-                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" VerticalAlignment="Center">
-                                <Button x:Name="BtnThemeMonochrome" Classes="ThemeBtn" Classes.ThemeActive="{Binding IsThemeMonochrome}" Content="{DynamicResource Set_ThemeMonochrome}"
-                                    Command="{Binding SelectThemeCommand}" CommandParameter="{x:Static services:AccentTheme.Monochrome}" Background="#24242C"
-                                    Foreground="#FFFFFF" CornerRadius="6" Padding="12,6" FontSize="11" Cursor="Hand" />
-                                <Button x:Name="BtnThemeViolet" Classes="ThemeBtn" Classes.ThemeActive="{Binding IsThemeViolet}" Content="{DynamicResource Set_ThemeViolet}"
-                                    Command="{Binding SelectThemeCommand}" CommandParameter="{x:Static services:AccentTheme.Violet}" Background="#2E1C44"
-                                    Foreground="#D8B4FE" CornerRadius="6" Padding="12,6" FontSize="11" Cursor="Hand" />
-                                <Button x:Name="BtnThemeCyan" Classes="ThemeBtn" Classes.ThemeActive="{Binding IsThemeCyan}" Content="{DynamicResource Set_ThemeCyan}"
-                                    Command="{Binding SelectThemeCommand}" CommandParameter="{x:Static services:AccentTheme.Cyan}" Background="#112938"
-                                    Foreground="#38BDF8" CornerRadius="6" Padding="12,6" FontSize="11" Cursor="Hand" />
-                                <Button x:Name="BtnThemeEmerald" Classes="ThemeBtn" Classes.ThemeActive="{Binding IsThemeEmerald}" Content="{DynamicResource Set_ThemeEmerald}"
-                                    Command="{Binding SelectThemeCommand}" CommandParameter="{x:Static services:AccentTheme.Emerald}" Background="#122B1E"
-                                    Foreground="#34D399" CornerRadius="6" Padding="12,6" FontSize="11" Cursor="Hand" />
-                                <Button x:Name="BtnThemePink" Classes="ThemeBtn" Classes.ThemeActive="{Binding IsThemePink}" Content="{DynamicResource Set_ThemePink}"
-                                    Command="{Binding SelectThemeCommand}" CommandParameter="{x:Static services:AccentTheme.Pink}" Background="#381525"
-                                    Foreground="#F472B6" CornerRadius="6" Padding="12,6" FontSize="11" Cursor="Hand" />
-                            </StackPanel>
-                        </Grid>
-                        <Separator Background="#24242C" Height="1" />
-                        <Grid ColumnDefinitions="*,Auto">
-                            <StackPanel Grid.Column="0" Spacing="2" Margin="0,0,16,0">
-                                <TextBlock Text="{DynamicResource Set_StreamerMode}" Foreground="#FFFFFF" FontSize="13" TextWrapping="Wrap" />
-                                <TextBlock Text="{DynamicResource Set_StreamerModeTip}" FontSize="11" Foreground="#A1A1AA" TextWrapping="Wrap" />
-                            </StackPanel>
-                            <ToggleSwitch Grid.Column="1" x:Name="SwHideUsernames"
-                                IsChecked="{Binding HideUsernames, Mode=TwoWay}"
-                                HorizontalAlignment="Right" VerticalAlignment="Center"
-                                OnContent="{x:Null}" OffContent="{x:Null}" />
-                        </Grid>
-                        <Separator Background="#24242C" Height="1" />
-                        <Grid ColumnDefinitions="*,Auto">
-                            <StackPanel Grid.Column="0" Spacing="2" Margin="0,0,16,0">
-                                <TextBlock Text="{DynamicResource Set_AutoUpdate}" Foreground="#FFFFFF" FontSize="13" TextWrapping="Wrap" />
-                                <TextBlock Text="{DynamicResource Set_AutoUpdateTip}" FontSize="11" Foreground="#A1A1AA" TextWrapping="Wrap" />
-                            </StackPanel>
-                            <ToggleSwitch Grid.Column="1" x:Name="SwCheckUpdates" IsChecked="{Binding CheckForUpdates}"
-                                HorizontalAlignment="Right" VerticalAlignment="Center" OnContent="{x:Null}" OffContent="{x:Null}" />
-                        </Grid>
-                    </StackPanel>
-                </Border>
-                <Border x:Name="PanelPerformance" IsVisible="{Binding #TabRadioPerformance.IsChecked}" Background="#111115" BorderBrush="#24242C" BorderThickness="1" CornerRadius="8" Padding="20">
-                    <StackPanel Spacing="16">
-                        <TextBlock Text="{DynamicResource Set_SectionPerf}" FontWeight="Bold" FontSize="15" Foreground="#FFFFFF" />
-                        <Grid ColumnDefinitions="*,Auto">
-                            <StackPanel Grid.Column="0" Spacing="2" Margin="0,0,16,0">
-                                <TextBlock Text="{DynamicResource Set_UnlockFPS}" Foreground="#FFFFFF" FontSize="13" TextWrapping="Wrap" />
-                                <TextBlock Text="{DynamicResource Set_UnlockFpsTip}" FontSize="11" Foreground="#A1A1AA" TextWrapping="Wrap" />
-                            </StackPanel>
-                            <ToggleSwitch Grid.Column="1" x:Name="SwUnlockFps" IsChecked="{Binding UnlockFps}"
-                                HorizontalAlignment="Right" VerticalAlignment="Center" OnContent="{x:Null}" OffContent="{x:Null}" />
-                        </Grid>
-                        <Grid ColumnDefinitions="*,Auto">
-                            <StackPanel Grid.Column="0" Spacing="2" Margin="0,0,16,0">
-                                <TextBlock Text="{DynamicResource Set_TargetFPS}" Foreground="#FFFFFF" FontSize="13" TextWrapping="Wrap" />
-                                <TextBlock Text="{DynamicResource Set_TargetFpsTip}" FontSize="11" Foreground="#A1A1AA" TextWrapping="Wrap" />
-                            </StackPanel>
-                            <NumericUpDown Grid.Column="1" x:Name="NumTargetFps" Minimum="30" Maximum="240" Value="{Binding TargetFps}" Width="120"
-                                HorizontalAlignment="Right" VerticalAlignment="Center" Background="#18181F" Foreground="#FFFFFF" BorderBrush="#2E2E38" />
-                        </Grid>
-                        <Separator Background="#24242C" Height="1" />
-                        <Grid ColumnDefinitions="*,Auto">
-                            <StackPanel Grid.Column="0" Spacing="2" Margin="0,0,16,0">
-                                <TextBlock Text="{DynamicResource Set_PotatoMode}" Foreground="#FFFFFF" FontSize="13" TextWrapping="Wrap" />
-                                <TextBlock Text="{DynamicResource Set_PotatoModeTip}" FontSize="11" Foreground="#A1A1AA" TextWrapping="Wrap" />
-                            </StackPanel>
-                            <ToggleSwitch Grid.Column="1" x:Name="SwPotatoMode" IsChecked="{Binding PotatoMode}"
-                                HorizontalAlignment="Right" VerticalAlignment="Center" OnContent="{x:Null}" OffContent="{x:Null}" />
-                        </Grid>
-                        <Separator Background="#24242C" Height="1" />
-                        <Grid ColumnDefinitions="*,Auto">
-                            <StackPanel Grid.Column="0" Spacing="2" Margin="0,0,16,0">
-                                <TextBlock Text="{DynamicResource Set_MultiRbx}" Foreground="#FFFFFF" FontSize="13" TextWrapping="Wrap" />
-                                <TextBlock Text="{DynamicResource Set_MultiRbxTip}" FontSize="11" Foreground="#A1A1AA" TextWrapping="Wrap" />
-                            </StackPanel>
-                            <ToggleSwitch Grid.Column="1" x:Name="SwMultiRbx" IsChecked="{Binding MultiRbx}"
-                                HorizontalAlignment="Right" VerticalAlignment="Center" OnContent="{x:Null}" OffContent="{x:Null}" />
-                        </Grid>
-                        <Separator Background="#24242C" Height="1" />
-                        <Grid ColumnDefinitions="*,Auto">
-                            <StackPanel Grid.Column="0" Spacing="2" Margin="0,0,16,0">
-                                <TextBlock Text="{DynamicResource Set_AntiAfk}" Foreground="#FFFFFF" FontSize="13" TextWrapping="Wrap" />
-                                <TextBlock Text="{DynamicResource Set_AntiAfkTip}" FontSize="11" Foreground="#A1A1AA" TextWrapping="Wrap" />
-                            </StackPanel>
-                            <ToggleSwitch Grid.Column="1" x:Name="SwAntiAfk" IsChecked="{Binding AntiAfk}"
-                                HorizontalAlignment="Right" VerticalAlignment="Center" OnContent="{x:Null}" OffContent="{x:Null}" />
-                        </Grid>
-                        <Separator Background="#24242C" Height="1" />
-                        <Grid ColumnDefinitions="*,Auto">
-                            <StackPanel Grid.Column="0" Spacing="2" Margin="0,0,16,0">
-                                <TextBlock Text="{DynamicResource Set_AutoMute}" Foreground="#FFFFFF" FontSize="13" TextWrapping="Wrap" />
-                                <TextBlock Text="{DynamicResource Set_AutoMuteTip}" FontSize="11" Foreground="#A1A1AA" TextWrapping="Wrap" />
-                            </StackPanel>
-                            <ToggleSwitch Grid.Column="1" x:Name="SwAutoMute" IsChecked="{Binding AutoMute}"
-                                HorizontalAlignment="Right" VerticalAlignment="Center" OnContent="{x:Null}" OffContent="{x:Null}" />
-                        </Grid>
-                        <Separator Background="#24242C" Height="1" />
-                        <Grid ColumnDefinitions="*,Auto">
-                            <StackPanel Grid.Column="0" Spacing="2" Margin="0,0,16,0">
-                                <TextBlock Text="{DynamicResource Set_AggressiveRamTrim}" Foreground="#FFFFFF" FontSize="13" TextWrapping="Wrap" />
-                                <TextBlock Text="{DynamicResource Set_AggressiveRamTrimTip}" FontSize="11" Foreground="#A1A1AA" TextWrapping="Wrap" />
-                            </StackPanel>
-                            <ToggleSwitch Grid.Column="1" x:Name="SwAggressiveRamTrim" IsChecked="{Binding AggressiveRamTrim}"
-                                HorizontalAlignment="Right" VerticalAlignment="Center" OnContent="{x:Null}" OffContent="{x:Null}" />
-                        </Grid>
-                        <Separator Background="#24242C" Height="1" />
-                        <Grid ColumnDefinitions="*,Auto">
-                            <StackPanel Grid.Column="0" Spacing="2" Margin="0,0,16,0">
-                                <TextBlock Text="{DynamicResource Set_JobCpuCap}" Foreground="#FFFFFF" FontSize="13" TextWrapping="Wrap" />
-                                <TextBlock Text="{DynamicResource Set_JobCpuCapTip}" FontSize="11" Foreground="#A1A1AA" TextWrapping="Wrap" />
-                            </StackPanel>
-                            <NumericUpDown Grid.Column="1" x:Name="NumJobCpuCap" Minimum="0" Maximum="100" Increment="5" Value="{Binding JobCpuCap}" Width="120"
-                                HorizontalAlignment="Right" VerticalAlignment="Center" Background="#18181F" Foreground="#FFFFFF" BorderBrush="#2E2E38" />
-                        </Grid>
-                    </StackPanel>
-                </Border>
-                <Border x:Name="PanelLaunching" IsVisible="{Binding #TabRadioLaunching.IsChecked}" Background="#111115" BorderBrush="#24242C" BorderThickness="1" CornerRadius="8" Padding="20">
-                    <StackPanel Spacing="16">
-                        <TextBlock Text="{DynamicResource Set_SectionLaunch}" FontWeight="Bold" FontSize="15" Foreground="#FFFFFF" />
-                        <Grid ColumnDefinitions="*,Auto">
-                            <StackPanel Grid.Column="0" Spacing="2" Margin="0,0,16,0">
-                                <TextBlock Text="{DynamicResource Set_SmartFastLaunch}" Foreground="#FFFFFF" FontSize="13" TextWrapping="Wrap" />
-                                <TextBlock Text="{DynamicResource Set_SmartFastLaunchTip}" FontSize="11" Foreground="#A1A1AA" TextWrapping="Wrap" />
-                            </StackPanel>
-                            <ToggleSwitch Grid.Column="1" x:Name="SwSmartFastLaunch" IsChecked="{Binding SmartFastLaunch}"
-                                HorizontalAlignment="Right" VerticalAlignment="Center" OnContent="{x:Null}" OffContent="{x:Null}" />
-                        </Grid>
-                        <Separator Background="#24242C" Height="1" />
-                        <Grid ColumnDefinitions="*,Auto">
-                            <StackPanel Grid.Column="0" Spacing="2" Margin="0,0,16,0">
-                                <TextBlock Text="{DynamicResource Set_WaitForCaptchaInQueue}" Foreground="#FFFFFF" FontSize="13" TextWrapping="Wrap" />
-                                <TextBlock Text="{DynamicResource Set_WaitForCaptchaInQueueTip}" FontSize="11" Foreground="#A1A1AA" TextWrapping="Wrap" />
-                            </StackPanel>
-                            <ToggleSwitch Grid.Column="1" x:Name="SwWaitForCaptchaInQueue"
-                                IsChecked="{Binding WaitForCaptchaInQueue}" HorizontalAlignment="Right"
-                                VerticalAlignment="Center" OnContent="{x:Null}" OffContent="{x:Null}" />
-                        </Grid>
-                        <Separator Background="#24242C" Height="1" />
-                        <Grid ColumnDefinitions="*,Auto">
-                            <StackPanel Grid.Column="0" Spacing="2" Margin="0,0,16,0">
-                                <TextBlock Text="{DynamicResource Set_JoinDelay}" Foreground="#FFFFFF" FontSize="13" TextWrapping="Wrap" />
-                                <TextBlock Text="{DynamicResource Set_JoinDelayTip}" FontSize="11" Foreground="#A1A1AA" TextWrapping="Wrap" />
-                            </StackPanel>
-                            <NumericUpDown Grid.Column="1" x:Name="NumJoinDelay" Minimum="1" Maximum="3600" Value="{Binding JoinDelay}" Width="120"
-                                HorizontalAlignment="Right" VerticalAlignment="Center" Background="#18181F" Foreground="#FFFFFF" BorderBrush="#2E2E38" />
-                        </Grid>
-                        <Separator Background="#24242C" Height="1" />
-                        <Grid ColumnDefinitions="*,Auto">
-                            <StackPanel Grid.Column="0" Spacing="2" Margin="0,0,16,0">
-                                <TextBlock Text="{DynamicResource Set_UseProxies}" Foreground="#FFFFFF" FontSize="13" TextWrapping="Wrap" />
-                                <TextBlock Text="{DynamicResource Set_UseProxiesTip}" FontSize="11" Foreground="#A1A1AA" TextWrapping="Wrap" />
-                            </StackPanel>
-                            <ToggleSwitch Grid.Column="1" x:Name="SwUseProxies" IsChecked="{Binding UseProxies}"
-                                HorizontalAlignment="Right" VerticalAlignment="Center" OnContent="{x:Null}" OffContent="{x:Null}" />
-                        </Grid>
-                        <Separator Background="#24242C" Height="1" />
-                        <Grid ColumnDefinitions="*,Auto">
-                            <StackPanel Grid.Column="0" Spacing="2" Margin="0,0,16,0">
-                                <TextBlock Text="{DynamicResource Set_EnableWebServer}" Foreground="#FFFFFF" FontSize="13" TextWrapping="Wrap" />
-                                <TextBlock Text="{DynamicResource Set_EnableWebServerTip}" FontSize="11" Foreground="#A1A1AA" TextWrapping="Wrap" />
-                            </StackPanel>
-                            <ToggleSwitch Grid.Column="1" x:Name="SwEnableWebServer" IsChecked="{Binding EnableWebServer}"
-                                HorizontalAlignment="Right" VerticalAlignment="Center" OnContent="{x:Null}" OffContent="{x:Null}" />
-                        </Grid>
-                        <Grid ColumnDefinitions="*,Auto">
-                            <StackPanel Grid.Column="0" Spacing="2" Margin="0,0,16,0">
-                                <TextBlock Text="{DynamicResource Set_WebServerPort}" Foreground="#FFFFFF" FontSize="13" TextWrapping="Wrap" />
-                                <TextBlock Text="{DynamicResource Set_WebServerPortTip}" FontSize="11" Foreground="#A1A1AA" TextWrapping="Wrap" />
-                            </StackPanel>
-                            <NumericUpDown Grid.Column="1" x:Name="NumWebServerPort" Minimum="1024" Maximum="65535" Value="{Binding WebServerPort}" Width="120"
-                                HorizontalAlignment="Right" VerticalAlignment="Center" Background="#18181F" Foreground="#FFFFFF" BorderBrush="#2E2E38" />
-                        </Grid>
-                    </StackPanel>
-                </Border>
-                <Border x:Name="PanelSecurity" IsVisible="{Binding #TabRadioSecurity.IsChecked}" Background="#111115" BorderBrush="#24242C" BorderThickness="1" CornerRadius="8" Padding="20">
-                    <StackPanel Spacing="16">
-                        <TextBlock Text="{DynamicResource Set_SectionSecurity}" FontWeight="Bold" FontSize="15" Foreground="#FFFFFF" />
-                        <Grid ColumnDefinitions="*,Auto">
-                            <StackPanel Grid.Column="0" Spacing="2" Margin="0,0,16,0">
-                                <TextBlock Text="{DynamicResource Set_AutoCookie}" Foreground="#FFFFFF" FontSize="13" TextWrapping="Wrap" />
-                                <TextBlock Text="{DynamicResource Set_AutoCookieTip}" FontSize="11" Foreground="#A1A1AA" TextWrapping="Wrap" />
-                            </StackPanel>
-                            <ToggleSwitch Grid.Column="1" x:Name="SwAutoCookie" IsChecked="{Binding AutoCookieRefresh}"
-                                HorizontalAlignment="Right" VerticalAlignment="Center" OnContent="{x:Null}" OffContent="{x:Null}" />
-                        </Grid>
-                        <Separator Background="#24242C" Height="1" />
-                        <Grid ColumnDefinitions="*,Auto">
-                            <StackPanel Grid.Column="0" Spacing="2" Margin="0,0,16,0">
-                                <TextBlock Text="{DynamicResource Set_SavePasswords}" Foreground="#FFFFFF" FontSize="13" TextWrapping="Wrap" />
-                                <TextBlock Text="{DynamicResource Set_SavePasswordsTip}" FontSize="11" Foreground="#A1A1AA" TextWrapping="Wrap" />
-                            </StackPanel>
-                            <ToggleSwitch Grid.Column="1" x:Name="SwSavePasswords" IsChecked="{Binding SavePasswords}"
-                                HorizontalAlignment="Right" VerticalAlignment="Center" OnContent="{x:Null}" OffContent="{x:Null}" />
-                        </Grid>
-                        <Separator Background="#24242C" Height="1" />
-                        <Grid ColumnDefinitions="*,Auto">
-                            <StackPanel Grid.Column="0" Spacing="2" Margin="0,0,16,0">
-                                <TextBlock Text="{DynamicResource Set_MasterPassword}" Foreground="#FFFFFF" FontSize="13" TextWrapping="Wrap" />
-                                <TextBlock Text="{DynamicResource Set_MasterPasswordTip}" FontSize="11" Foreground="#A1A1AA" TextWrapping="Wrap" />
-                            </StackPanel>
-                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" VerticalAlignment="Center">
-                                <Button Command="{Binding ExportVaultCommand}" Background="#18181F" Foreground="#FFFFFF" BorderBrush="#2E2E38" BorderThickness="1" CornerRadius="6"
-                                    Padding="12,8" Cursor="Hand"><TextBlock Text="{DynamicResource Settings.ExportVaultBtn}" /></Button>
-                                <Button Command="{Binding ImportVaultCommand}" Background="#18181F" Foreground="#FFFFFF" BorderBrush="#2E2E38" BorderThickness="1" CornerRadius="6"
-                                    Padding="12,8" Cursor="Hand"><TextBlock Text="{DynamicResource Settings.ImportVaultBtn}" /></Button>
-                                <Button HorizontalAlignment="Right" VerticalAlignment="Center" Command="{Binding ChangeMasterPasswordCommand}"
-                                    Background="#18181F" Foreground="#FFFFFF" BorderBrush="#2E2E38" BorderThickness="1" CornerRadius="6" Padding="14,8" Cursor="Hand">
-                                    <StackPanel Orientation="Horizontal" Spacing="6"><lucide:Lucide Icon="Key" Width="13" Height="13" StrokeBrush="#F59E0B" VerticalAlignment="Center" /><TextBlock
-                                        Text="{DynamicResource Set_ChangeMasterPassBtn}" VerticalAlignment="Center" /></StackPanel>
+                            <StackPanel Grid.Column="0" Classes="RowInfo">
+                                <TextBlock Classes="SettingTitle" Text="{DynamicResource Set_Theme}" />
+                                <TextBlock Classes="SettingTip" Text="{DynamicResource Set_ThemeTip}" /></StackPanel>
+                            <WrapPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                <Button x:Name="BtnThemeMonochrome" Classes="ThemeBtn" Classes.ThemeActive="{Binding IsThemeMonochrome}"
+                                        Command="{Binding SelectThemeCommand}" CommandParameter="{x:Static services:AccentTheme.Monochrome}" Margin="0,2,6,2">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <Border Classes="SwatchDot" Background="#FFFFFF" />
+                                        <TextBlock Text="{DynamicResource Set_ThemeMonochrome}" VerticalAlignment="Center" />
+                                    </StackPanel>
                                 </Button>
-                            </StackPanel>
+                                <Button x:Name="BtnThemeViolet" Classes="ThemeBtn" Classes.ThemeActive="{Binding IsThemeViolet}"
+                                        Command="{Binding SelectThemeCommand}" CommandParameter="{x:Static services:AccentTheme.Violet}" Margin="0,2,6,2">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <Border Classes="SwatchDot" Background="#8B5CF6" />
+                                        <TextBlock Text="{DynamicResource Set_ThemeViolet}" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+                                <Button x:Name="BtnThemeCyan" Classes="ThemeBtn" Classes.ThemeActive="{Binding IsThemeCyan}"
+                                        Command="{Binding SelectThemeCommand}" CommandParameter="{x:Static services:AccentTheme.Cyan}" Margin="0,2,6,2">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <Border Classes="SwatchDot" Background="#06B6D4" />
+                                        <TextBlock Text="{DynamicResource Set_ThemeCyan}" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+                                <Button x:Name="BtnThemeEmerald" Classes="ThemeBtn" Classes.ThemeActive="{Binding IsThemeEmerald}"
+                                        Command="{Binding SelectThemeCommand}" CommandParameter="{x:Static services:AccentTheme.Emerald}" Margin="0,2,6,2">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <Border Classes="SwatchDot" Background="#10B981" />
+                                        <TextBlock Text="{DynamicResource Set_ThemeEmerald}" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+                                <Button x:Name="BtnThemePink" Classes="ThemeBtn" Classes.ThemeActive="{Binding IsThemePink}"
+                                        Command="{Binding SelectThemeCommand}" CommandParameter="{x:Static services:AccentTheme.Pink}" Margin="0,2,0,2">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <Border Classes="SwatchDot" Background="#EC4899" />
+                                        <TextBlock Text="{DynamicResource Set_ThemePink}" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+                            </WrapPanel>
                         </Grid>
-                        <Separator Background="#24242C" Height="1" />
+                        <Separator />
                         <Grid ColumnDefinitions="*,Auto">
-                            <StackPanel Grid.Column="0" Spacing="2" Margin="0,0,16,0">
-                                <TextBlock Text="{DynamicResource Set_Maintenance}" Foreground="#FFFFFF" FontSize="13" TextWrapping="Wrap" />
-                                <TextBlock Text="{DynamicResource Set_MaintenanceTip}" FontSize="11" Foreground="#A1A1AA" TextWrapping="Wrap" />
-                            </StackPanel>
-                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" VerticalAlignment="Center">
-                                <Button Command="{Binding CleanTrayCommand}" Background="#18181F" Foreground="#A1A1AA" BorderBrush="#2E2E38" BorderThickness="1" CornerRadius="6" Padding="12,8"
-                                    Cursor="Hand">
-                                    <StackPanel Orientation="Horizontal" Spacing="6"><lucide:Lucide Icon="RefreshCw" Width="13" Height="13" StrokeBrush="#A1A1AA" VerticalAlignment="Center"
-                                        /><TextBlock Text="{DynamicResource Set_CleanTrayBtn}" VerticalAlignment="Center" /></StackPanel>
-                                </Button>
-                                <Button Command="{Binding ClearAvatarCacheCommand}" Background="#18181F" Foreground="#A1A1AA" BorderBrush="#2E2E38" BorderThickness="1" CornerRadius="6" Padding="12,8"
-                                    Cursor="Hand">
-                                    <StackPanel Orientation="Horizontal" Spacing="6"><lucide:Lucide Icon="Trash2" Width="13" Height="13" StrokeBrush="#EF4444" VerticalAlignment="Center"
-                                        /><TextBlock Text="{DynamicResource Set_ClearAvatarCacheBtn}" VerticalAlignment="Center" /></StackPanel>
-                                </Button>
-                            </StackPanel>
+                            <StackPanel Grid.Column="0" Classes="RowInfo">
+                                <TextBlock Classes="SettingTitle" Text="{DynamicResource Set_StreamerMode}" />
+                                <TextBlock Classes="SettingTip" Text="{DynamicResource Set_StreamerModeTip}" /></StackPanel>
+                            <ToggleSwitch Grid.Column="1" x:Name="SwHideUsernames" IsChecked="{Binding HideUsernames, Mode=TwoWay}" />
+                        </Grid>
+                        <Separator />
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel Grid.Column="0" Classes="RowInfo">
+                                <TextBlock Classes="SettingTitle" Text="{DynamicResource Set_AutoUpdate}" />
+                                <TextBlock Classes="SettingTip" Text="{DynamicResource Set_AutoUpdateTip}" /></StackPanel>
+                            <ToggleSwitch Grid.Column="1" x:Name="SwCheckUpdates" IsChecked="{Binding CheckForUpdates}" />
                         </Grid>
                     </StackPanel>
-                </Border>
+                </controls:SpotlightBorder>
+
+                <controls:SpotlightBorder x:Name="PanelPerformance" Classes="SettingsCard" IsVisible="{Binding #TabRadioPerformance.IsChecked}">
+                    <StackPanel Spacing="14">
+                        <TextBlock Text="{DynamicResource Set_SectionPerf}" FontWeight="Bold" FontSize="15" Foreground="{DynamicResource TextPrimaryBrush}" />
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel Grid.Column="0" Classes="RowInfo">
+                                <TextBlock Classes="SettingTitle" Text="{DynamicResource Set_UnlockFPS}" />
+                                <TextBlock Classes="SettingTip" Text="{DynamicResource Set_UnlockFpsTip}" /></StackPanel>
+                            <ToggleSwitch Grid.Column="1" x:Name="SwUnlockFps" IsChecked="{Binding UnlockFps}" />
+                        </Grid>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel Grid.Column="0" Classes="RowInfo">
+                                <TextBlock Classes="SettingTitle" Text="{DynamicResource Set_TargetFPS}" />
+                                <TextBlock Classes="SettingTip" Text="{DynamicResource Set_TargetFpsTip}" /></StackPanel>
+                            <NumericUpDown Grid.Column="1" x:Name="NumTargetFps" Minimum="30" Maximum="240" Value="{Binding TargetFps}" />
+                        </Grid>
+                        <Separator />
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel Grid.Column="0" Classes="RowInfo">
+                                <TextBlock Classes="SettingTitle" Text="{DynamicResource Set_PotatoMode}" />
+                                <TextBlock Classes="SettingTip" Text="{DynamicResource Set_PotatoModeTip}" /></StackPanel>
+                            <ToggleSwitch Grid.Column="1" x:Name="SwPotatoMode" IsChecked="{Binding PotatoMode}" />
+                        </Grid>
+                        <Separator />
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel Grid.Column="0" Classes="RowInfo">
+                                <TextBlock Classes="SettingTitle" Text="{DynamicResource Set_MultiRbx}" />
+                                <TextBlock Classes="SettingTip" Text="{DynamicResource Set_MultiRbxTip}" /></StackPanel>
+                            <ToggleSwitch Grid.Column="1" x:Name="SwMultiRbx" IsChecked="{Binding MultiRbx}" />
+                        </Grid>
+                        <Separator />
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel Grid.Column="0" Classes="RowInfo">
+                                <TextBlock Classes="SettingTitle" Text="{DynamicResource Set_AntiAfk}" />
+                                <TextBlock Classes="SettingTip" Text="{DynamicResource Set_AntiAfkTip}" /></StackPanel>
+                            <ToggleSwitch Grid.Column="1" x:Name="SwAntiAfk" IsChecked="{Binding AntiAfk}" />
+                        </Grid>
+                        <Separator />
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel Grid.Column="0" Classes="RowInfo">
+                                <TextBlock Classes="SettingTitle" Text="{DynamicResource Set_AutoMute}" />
+                                <TextBlock Classes="SettingTip" Text="{DynamicResource Set_AutoMuteTip}" /></StackPanel>
+                            <ToggleSwitch Grid.Column="1" x:Name="SwAutoMute" IsChecked="{Binding AutoMute}" />
+                        </Grid>
+                        <Separator />
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel Grid.Column="0" Classes="RowInfo">
+                                <TextBlock Classes="SettingTitle" Text="{DynamicResource Set_AggressiveRamTrim}" />
+                                <TextBlock Classes="SettingTip" Text="{DynamicResource Set_AggressiveRamTrimTip}" /></StackPanel>
+                            <ToggleSwitch Grid.Column="1" x:Name="SwAggressiveRamTrim" IsChecked="{Binding AggressiveRamTrim}" />
+                        </Grid>
+                        <Separator />
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel Grid.Column="0" Classes="RowInfo">
+                                <TextBlock Classes="SettingTitle" Text="{DynamicResource Set_JobCpuCap}" />
+                                <TextBlock Classes="SettingTip" Text="{DynamicResource Set_JobCpuCapTip}" /></StackPanel>
+                            <NumericUpDown Grid.Column="1" x:Name="NumJobCpuCap" Minimum="0" Maximum="100" Increment="5" Value="{Binding JobCpuCap}" />
+                        </Grid>
+                    </StackPanel>
+                </controls:SpotlightBorder>
+
+                <controls:SpotlightBorder x:Name="PanelLaunching" Classes="SettingsCard" IsVisible="{Binding #TabRadioLaunching.IsChecked}">
+                    <StackPanel Spacing="14">
+                        <TextBlock Text="{DynamicResource Set_SectionLaunch}" FontWeight="Bold" FontSize="15" Foreground="{DynamicResource TextPrimaryBrush}" />
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel Grid.Column="0" Classes="RowInfo">
+                                <TextBlock Classes="SettingTitle" Text="{DynamicResource Set_SmartFastLaunch}" />
+                                <TextBlock Classes="SettingTip" Text="{DynamicResource Set_SmartFastLaunchTip}" /></StackPanel>
+                            <ToggleSwitch Grid.Column="1" x:Name="SwSmartFastLaunch" IsChecked="{Binding SmartFastLaunch}" />
+                        </Grid>
+                        <Separator />
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel Grid.Column="0" Classes="RowInfo">
+                                <TextBlock Classes="SettingTitle" Text="{DynamicResource Set_WaitForCaptchaInQueue}" />
+                                <TextBlock Classes="SettingTip" Text="{DynamicResource Set_WaitForCaptchaInQueueTip}" /></StackPanel>
+                            <ToggleSwitch Grid.Column="1" x:Name="SwWaitForCaptchaInQueue" IsChecked="{Binding WaitForCaptchaInQueue}" />
+                        </Grid>
+                        <Separator />
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel Grid.Column="0" Classes="RowInfo">
+                                <TextBlock Classes="SettingTitle" Text="{DynamicResource Set_JoinDelay}" />
+                                <TextBlock Classes="SettingTip" Text="{DynamicResource Set_JoinDelayTip}" /></StackPanel>
+                            <NumericUpDown Grid.Column="1" x:Name="NumJoinDelay" Minimum="1" Maximum="3600" Value="{Binding JoinDelay}" />
+                        </Grid>
+                        <Separator />
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel Grid.Column="0" Classes="RowInfo">
+                                <TextBlock Classes="SettingTitle" Text="{DynamicResource Set_UseProxies}" />
+                                <TextBlock Classes="SettingTip" Text="{DynamicResource Set_UseProxiesTip}" /></StackPanel>
+                            <ToggleSwitch Grid.Column="1" x:Name="SwUseProxies" IsChecked="{Binding UseProxies}" />
+                        </Grid>
+                        <Separator />
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel Grid.Column="0" Classes="RowInfo">
+                                <TextBlock Classes="SettingTitle" Text="{DynamicResource Set_EnableWebServer}" />
+                                <TextBlock Classes="SettingTip" Text="{DynamicResource Set_EnableWebServerTip}" /></StackPanel>
+                            <ToggleSwitch Grid.Column="1" x:Name="SwEnableWebServer" IsChecked="{Binding EnableWebServer}" />
+                        </Grid>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel Grid.Column="0" Classes="RowInfo">
+                                <TextBlock Classes="SettingTitle" Text="{DynamicResource Set_WebServerPort}" />
+                                <TextBlock Classes="SettingTip" Text="{DynamicResource Set_WebServerPortTip}" /></StackPanel>
+                            <NumericUpDown Grid.Column="1" x:Name="NumWebServerPort" Minimum="1024" Maximum="65535" Value="{Binding WebServerPort}" />
+                        </Grid>
+                    </StackPanel>
+                </controls:SpotlightBorder>
+
+                <controls:SpotlightBorder x:Name="PanelSecurity" Classes="SettingsCard" IsVisible="{Binding #TabRadioSecurity.IsChecked}">
+                    <StackPanel Spacing="14">
+                        <TextBlock Text="{DynamicResource Set_SectionSecurity}" FontWeight="Bold" FontSize="15" Foreground="{DynamicResource TextPrimaryBrush}" />
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel Grid.Column="0" Classes="RowInfo">
+                                <TextBlock Classes="SettingTitle" Text="{DynamicResource Set_AutoCookie}" />
+                                <TextBlock Classes="SettingTip" Text="{DynamicResource Set_AutoCookieTip}" /></StackPanel>
+                            <ToggleSwitch Grid.Column="1" x:Name="SwAutoCookie" IsChecked="{Binding AutoCookieRefresh}" />
+                        </Grid>
+                        <Separator />
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel Grid.Column="0" Classes="RowInfo">
+                                <TextBlock Classes="SettingTitle" Text="{DynamicResource Set_SavePasswords}" />
+                                <TextBlock Classes="SettingTip" Text="{DynamicResource Set_SavePasswordsTip}" /></StackPanel>
+                            <ToggleSwitch Grid.Column="1" x:Name="SwSavePasswords" IsChecked="{Binding SavePasswords}" />
+                        </Grid>
+                        <Separator />
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel Grid.Column="0" Classes="RowInfo">
+                                <TextBlock Classes="SettingTitle" Text="{DynamicResource Set_MasterPassword}" />
+                                <TextBlock Classes="SettingTip" Text="{DynamicResource Set_MasterPasswordTip}" /></StackPanel>
+                            <WrapPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                <Button Classes="StudioSecondaryBtn" Margin="0,2,8,2" Command="{Binding ExportVaultCommand}" Content="{DynamicResource Settings.ExportVaultBtn}" />
+                                <Button Classes="StudioSecondaryBtn" Margin="0,2,8,2" Command="{Binding ImportVaultCommand}" Content="{DynamicResource Settings.ImportVaultBtn}" />
+                                <Button Classes="StudioSecondaryBtn" Margin="0,2,0,2" Command="{Binding ChangeMasterPasswordCommand}">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <lucide:Lucide Icon="Key" Width="13" Height="13" StrokeBrush="{DynamicResource StatusWarningBrush}" VerticalAlignment="Center" />
+                                        <TextBlock Text="{DynamicResource Set_ChangeMasterPassBtn}" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+                            </WrapPanel>
+                        </Grid>
+                        <Separator />
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel Grid.Column="0" Classes="RowInfo">
+                                <TextBlock Classes="SettingTitle" Text="{DynamicResource Set_Maintenance}" />
+                                <TextBlock Classes="SettingTip" Text="{DynamicResource Set_MaintenanceTip}" /></StackPanel>
+                            <WrapPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                <Button Classes="StudioSecondaryBtn" Margin="0,2,8,2" Command="{Binding CleanTrayCommand}">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <lucide:Lucide Icon="RefreshCw" Width="13" Height="13" StrokeBrush="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+                                        <TextBlock Text="{DynamicResource Set_CleanTrayBtn}" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+                                <Button Classes="StudioDangerBtn" Margin="0,2,0,2" Command="{Binding ClearAvatarCacheCommand}">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <lucide:Lucide Icon="Trash2" Width="13" Height="13" StrokeBrush="{DynamicResource StatusDangerBrush}" VerticalAlignment="Center" />
+                                        <TextBlock Text="{DynamicResource Set_ClearAvatarCacheBtn}" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+                            </WrapPanel>
+                        </Grid>
+                    </StackPanel>
+                </controls:SpotlightBorder>
+
                 <panels:SettingsAdvancedPanel IsVisible="{Binding #TabRadioAlerts.IsChecked}" />
             </StackPanel>
         </ScrollViewer>
-        <Border Grid.Row="3" Background="#111115" BorderBrush="#24242C" BorderThickness="1" CornerRadius="8" Padding="16,10" Margin="0,16,0,0">
-            <Grid ColumnDefinitions="Auto,*,Auto">
-                <Button Grid.Column="0" Classes="FastPillBtn" Command="{Binding SaveCommand}"
-                    Background="{DynamicResource AccentBrush}"
-                    Foreground="{DynamicResource AccentForegroundBrush}"
-                    FontWeight="Bold" CornerRadius="6" Padding="20,10" Cursor="Hand">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <lucide:Lucide Icon="Save" Width="15" Height="15"
-                            StrokeBrush="{DynamicResource AccentForegroundBrush}"
-                            StrokeThickness="2.5" VerticalAlignment="Center" />
-                        <TextBlock Text="{DynamicResource Set_SaveSettings}"
-                            VerticalAlignment="Center" />
-                    </StackPanel>
-                </Button>
-                <TextBlock Grid.Column="1" x:Name="TxtSaveFeedback" Text="{Binding SaveFeedback}" Foreground="#22C55E" FontWeight="SemiBold" VerticalAlignment="Center" HorizontalAlignment="Left"
-                    Margin="16,0,0,0" FontSize="12" />
-            </Grid>
+
+        <Border Grid.Row="3" Background="{DynamicResource SurfacePanelBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
+                BorderThickness="1" CornerRadius="{StaticResource RadiusXl}" BoxShadow="{StaticResource ShadowCard}" Margin="0,14,0,0">
+            <Panel>
+                <Grid ColumnDefinitions="Auto,*,Auto" Margin="16,10">
+                    <Button Grid.Column="0" Classes="StudioPrimaryBtn" Command="{Binding SaveCommand}" Padding="20,9">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <lucide:Lucide Icon="Save" Width="15" Height="15" StrokeBrush="{DynamicResource AccentForegroundBrush}" StrokeThickness="2.4" VerticalAlignment="Center" />
+                            <TextBlock Text="{DynamicResource Set_SaveSettings}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                    <TextBlock Grid.Column="1" x:Name="TxtSaveFeedback" Text="{Binding SaveFeedback}" Foreground="{DynamicResource StatusSuccessBrush}"
+                               FontWeight="SemiBold" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="16,0,0,0" FontSize="12" />
+                </Grid>
+                <Border IsHitTestVisible="False" BorderBrush="{DynamicResource BorderTopRimBrush}" BorderThickness="1" CornerRadius="{StaticResource RadiusXl}" />
+            </Panel>
         </Border>
     </Grid>
 </UserControl>

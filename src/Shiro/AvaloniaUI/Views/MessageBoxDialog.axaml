@@ -2,78 +2,89 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:lucide="clr-namespace:LucideAvalonia;assembly=LucideAvalonia"
         x:Class="Shiro.AvaloniaUI.Views.MessageBoxDialog"
+        x:CompileBindings="True"
         Icon="/Resources/shiro.ico"
         Title="Shiro"
-        Width="440" SizeToContent="Height"
+        Width="448" SizeToContent="Height"
         MinWidth="380" MaxWidth="560"
         WindowStartupLocation="CenterOwner"
         CanResize="False"
-        Background="#0E0E12"
-        Foreground="#F4F4F5"
+        Background="{DynamicResource SurfaceChromeBrush}"
+        Foreground="{DynamicResource TextPrimaryBrush}"
         TransparencyLevelHint="Mica, AcrylicBlur">
 
-    <Border BorderBrush="#272730" BorderThickness="1" CornerRadius="8" Padding="20">
-        <Grid RowDefinitions="Auto,*,Auto">
-            <!-- Header with Icon & Title -->
-            <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center" Margin="0,0,0,18">
-                <Border x:Name="IconBadge" Width="36" Height="36" CornerRadius="18" Background="#1E1E28"
-                        HorizontalAlignment="Center" VerticalAlignment="Center">
-                    <lucide:Lucide x:Name="IconLucide" Icon="Info" Width="18" Height="18" StrokeBrush="#38BDF8"
-                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
-                </Border>
-                <TextBlock x:Name="TxtTitle" Text="{DynamicResource Loc_Msg_InfoTitle}" FontSize="16" FontWeight="SemiBold"
-                           VerticalAlignment="Center" Foreground="#FFFFFF"/>
-            </StackPanel>
+    <Border Background="{DynamicResource SurfacePanelBrush}"
+            BorderBrush="{DynamicResource BorderSubtleBrush}"
+            BorderThickness="1"
+            CornerRadius="{StaticResource RadiusXl}"
+            BoxShadow="{StaticResource ShadowModal}"
+            Margin="10">
+        <Panel>
+            <Grid RowDefinitions="Auto,*,Auto" Margin="20">
+                <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="12"
+                            VerticalAlignment="Center" Margin="0,0,0,16">
+                    <Border x:Name="IconBadge" Width="38" Height="38"
+                            CornerRadius="{StaticResource RadiusLg}"
+                            Background="#102131" BorderBrush="#1E3E5C" BorderThickness="1"
+                            HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <lucide:Lucide x:Name="IconLucide" Icon="Info" Width="18" Height="18"
+                                       StrokeBrush="#38BDF8"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <TextBlock x:Name="TxtTitle" Text="{DynamicResource Loc_Msg_InfoTitle}"
+                               FontSize="16" FontWeight="Bold" VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextPrimaryBrush}" />
+                </StackPanel>
 
-            <!-- Message Content -->
-            <ScrollViewer Grid.Row="1" MaxHeight="280" Margin="0,0,0,18">
-                <SelectableTextBlock x:Name="TxtMessage" Text="Message here..."
-                                     FontSize="13" Foreground="#D4D4D8" TextWrapping="Wrap" LineHeight="20"/>
-            </ScrollViewer>
+                <ScrollViewer Grid.Row="1" MaxHeight="280" Margin="0,0,0,18">
+                    <SelectableTextBlock x:Name="TxtMessage" Text="Message here..."
+                                         FontSize="13" LineHeight="20" TextWrapping="Wrap"
+                                         Foreground="{DynamicResource TextSecondaryBrush}" />
+                </ScrollViewer>
 
-            <!-- Action Buttons -->
-            <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
-                <Button x:Name="BtnYes" Height="32"
-                        Background="#2563EB" Foreground="#FFFFFF" FontWeight="SemiBold"
-                        CornerRadius="5" Padding="14,0" Cursor="Hand"
-                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
-                        Click="BtnYes_Click" IsVisible="False">
-                    <StackPanel Orientation="Horizontal" Spacing="5">
-                        <lucide:Lucide Icon="Check" Width="13" Height="13" StrokeBrush="#FFFFFF" StrokeThickness="2.2" VerticalAlignment="Center" />
-                        <TextBlock Text="{DynamicResource Loc_Btn_Yes}" VerticalAlignment="Center" />
-                    </StackPanel>
-                </Button>
-                <Button x:Name="BtnNo" Height="32"
-                        Background="#272730" Foreground="#D4D4D8" FontWeight="SemiBold"
-                        CornerRadius="5" Padding="14,0" Cursor="Hand"
-                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
-                        Click="BtnNo_Click" IsVisible="False">
-                    <StackPanel Orientation="Horizontal" Spacing="5">
-                        <lucide:Lucide Icon="X" Width="13" Height="13" StrokeBrush="#D4D4D8" VerticalAlignment="Center" />
-                        <TextBlock Text="{DynamicResource Loc_Btn_No}" VerticalAlignment="Center" />
-                    </StackPanel>
-                </Button>
-                <Button x:Name="BtnOK" Height="32"
-                        Background="#2563EB" Foreground="#FFFFFF" FontWeight="SemiBold"
-                        CornerRadius="5" Padding="14,0" Cursor="Hand"
-                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
-                        Click="BtnOK_Click" IsVisible="True">
-                    <StackPanel Orientation="Horizontal" Spacing="5">
-                        <lucide:Lucide Icon="Check" Width="13" Height="13" StrokeBrush="#FFFFFF" StrokeThickness="2.2" VerticalAlignment="Center" />
-                        <TextBlock Text="{DynamicResource Loc_Btn_OK}" VerticalAlignment="Center" />
-                    </StackPanel>
-                </Button>
-                <Button x:Name="BtnCancel" Height="32"
-                        Background="#272730" Foreground="#D4D4D8" FontWeight="SemiBold"
-                        CornerRadius="5" Padding="14,0" Cursor="Hand"
-                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
-                        Click="BtnCancel_Click" IsVisible="False">
-                    <StackPanel Orientation="Horizontal" Spacing="5">
-                        <lucide:Lucide Icon="X" Width="13" Height="13" StrokeBrush="#D4D4D8" VerticalAlignment="Center" />
-                        <TextBlock Text="{DynamicResource Loc_Dialog_CancelShort}" VerticalAlignment="Center" />
-                    </StackPanel>
-                </Button>
-            </StackPanel>
-        </Grid>
+                <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                    <Button x:Name="BtnYes" Classes="StudioPrimaryBtn" Height="32" Padding="14,0"
+                            Click="BtnYes_Click" IsVisible="False">
+                        <StackPanel Orientation="Horizontal" Spacing="5">
+                            <lucide:Lucide Icon="Check" Width="13" Height="13"
+                                           StrokeBrush="{DynamicResource AccentForegroundBrush}"
+                                           StrokeThickness="2.4" VerticalAlignment="Center" />
+                            <TextBlock Text="{DynamicResource Loc_Btn_Yes}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="BtnNo" Classes="StudioSecondaryBtn" Height="32" Padding="14,0"
+                            Click="BtnNo_Click" IsVisible="False">
+                        <StackPanel Orientation="Horizontal" Spacing="5">
+                            <lucide:Lucide Icon="X" Width="13" Height="13"
+                                           StrokeBrush="{DynamicResource TextSecondaryBrush}"
+                                           VerticalAlignment="Center" />
+                            <TextBlock Text="{DynamicResource Loc_Btn_No}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="BtnOK" Classes="StudioPrimaryBtn" Height="32" Padding="14,0"
+                            Click="BtnOK_Click" IsVisible="True">
+                        <StackPanel Orientation="Horizontal" Spacing="5">
+                            <lucide:Lucide Icon="Check" Width="13" Height="13"
+                                           StrokeBrush="{DynamicResource AccentForegroundBrush}"
+                                           StrokeThickness="2.4" VerticalAlignment="Center" />
+                            <TextBlock Text="{DynamicResource Loc_Btn_OK}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="BtnCancel" Classes="StudioSecondaryBtn" Height="32" Padding="14,0"
+                            Click="BtnCancel_Click" IsVisible="False">
+                        <StackPanel Orientation="Horizontal" Spacing="5">
+                            <lucide:Lucide Icon="X" Width="13" Height="13"
+                                           StrokeBrush="{DynamicResource TextSecondaryBrush}"
+                                           VerticalAlignment="Center" />
+                            <TextBlock Text="{DynamicResource Loc_Dialog_CancelShort}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Grid>
+            <Border IsHitTestVisible="False"
+                    BorderBrush="{DynamicResource BorderTopRimBrush}"
+                    BorderThickness="1"
+                    CornerRadius="{StaticResource RadiusXl}" />
+        </Panel>
     </Border>
 </Window>
