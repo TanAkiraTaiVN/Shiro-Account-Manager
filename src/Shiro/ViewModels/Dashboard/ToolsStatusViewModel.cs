@@ -20,6 +20,7 @@ namespace Shiro.ViewModels
         private readonly Func<int> _getSelectedCount;
         private readonly Func<List<Account>?> _getAccountModelsSnapshot;
         private readonly Action<Dictionary<Account, int>?> _applyLiveProcessStatuses;
+        private readonly Action<Dictionary<Account, int>?, Dictionary<Account, string>?>? _applyLiveProcessTelemetry;
         private readonly Action _refreshDisplays;
 
         private string _statusMessage = string.Empty;
@@ -41,13 +42,15 @@ namespace Shiro.ViewModels
             Func<int>? getSelectedCount = null,
             Func<List<Account>?>? getAccountModelsSnapshot = null,
             Action<Dictionary<Account, int>?>? applyLiveProcessStatuses = null,
-            Action? refreshDisplays = null)
+            Action? refreshDisplays = null,
+            Action<Dictionary<Account, int>?, Dictionary<Account, string>?>? applyLiveProcessTelemetry = null)
         {
             _logger = logger ?? AppServices.Logger;
             _settings = settings ?? AppServices.GeneralSettings;
             _getSelectedCount = getSelectedCount ?? (() => 0);
             _getAccountModelsSnapshot = getAccountModelsSnapshot ?? (() => null);
             _applyLiveProcessStatuses = applyLiveProcessStatuses ?? (_ => { });
+            _applyLiveProcessTelemetry = applyLiveProcessTelemetry;
             _refreshDisplays = refreshDisplays ?? (() => { });
 
             _lastDefaultReadyStatus = LocalizationService.Get("Status_ReadyDefault");
@@ -263,7 +266,7 @@ namespace Shiro.ViewModels
                 Dictionary<Account, int>? map = inlineModels != null && inlineModels.Count > 0
                     ? RobloxWindowArrangerService.ResolveRunningAccountPids(inlineModels)
                     : null;
-                ApplyLiveProcessStatusResults(total, map);
+                ApplyLiveProcessStatusResults(total, map, AccountListFilterController.SampleLiveMemoryTelemetry(map));
                 return;
             }
 
@@ -283,10 +286,14 @@ namespace Shiro.ViewModels
                         _hasPendingRefreshRequest = false;
                         int totalRobloxProcs = RobloxProcessService.GetTotalRunningRobloxCount();
                         Dictionary<Account, int>? runningMap = null;
+                        Dictionary<Account, string>? memoryMap = null;
                         if (totalRobloxProcs > 0 && models != null && models.Count > 0)
+                        {
                             runningMap = RobloxWindowArrangerService.ResolveRunningAccountPids(models);
+                            memoryMap = AccountListFilterController.SampleLiveMemoryTelemetry(runningMap);
+                        }
 
-                        AppDispatcher.Post(() => ApplyLiveProcessStatusResults(totalRobloxProcs, runningMap));
+                        AppDispatcher.Post(() => ApplyLiveProcessStatusResults(totalRobloxProcs, runningMap, memoryMap));
                     }
                     while (_hasPendingRefreshRequest);
                 }
@@ -300,7 +307,7 @@ namespace Shiro.ViewModels
             });
         }
 
-        private void ApplyLiveProcessStatusResults(int totalRobloxProcs, Dictionary<Account, int>? runningMap)
+        private void ApplyLiveProcessStatusResults(int totalRobloxProcs, Dictionary<Account, int>? runningMap, Dictionary<Account, string>? memoryMap = null)
         {
             try
             {
@@ -316,7 +323,8 @@ namespace Shiro.ViewModels
                 if (_lastRobloxProcessCount > 0 && totalRobloxProcs < _lastRobloxProcessCount)
                     Utilities.QueueRefreshNotificationArea();
                 _lastRobloxProcessCount = totalRobloxProcs;
-                _applyLiveProcessStatuses(runningMap);
+                if (_applyLiveProcessTelemetry != null) _applyLiveProcessTelemetry(runningMap, memoryMap);
+                else _applyLiveProcessStatuses(runningMap);
             }
             catch (Exception ex) { _logger.Debug($"[ApplyLiveProcessStatusResults] UI update error: {ex.Message}"); }
         }

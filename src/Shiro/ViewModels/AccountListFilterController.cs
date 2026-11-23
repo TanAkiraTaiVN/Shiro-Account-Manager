@@ -226,9 +226,40 @@ namespace Shiro.ViewModels
             return new AccountCountsSummary(total, inGame, ready, expired, banned, pinned, selected, robux);
         }
 
+        internal static Dictionary<Account, string>? SampleLiveMemoryTelemetry(
+            IReadOnlyDictionary<Account, int>? runningMap,
+            Func<int, long>? readWorkingSetBytes = null)
+        {
+            if (runningMap == null || runningMap.Count == 0)
+                return null;
+
+            Func<int, long> reader = readWorkingSetBytes ?? ReadWorkingSetBytesSafe;
+            var memoryMap = new Dictionary<Account, string>(runningMap.Count, ReferenceEqualityComparer.Instance);
+            foreach (var (account, pid) in runningMap)
+            {
+                if (account == null || pid <= 0) continue;
+                try
+                {
+                    long bytes = reader(pid);
+                    string formatted = AccountViewModel.FormatLiveMemory(bytes);
+                    if (!string.IsNullOrEmpty(formatted))
+                        memoryMap[account] = formatted;
+                }
+                catch (Exception ex)
+                {
+                    AppServices.Logger?.Debug($"[SampleLiveMemoryTelemetry] PID {pid}: {ex.Message}");
+                }
+            }
+            return memoryMap;
+        }
+
+        private static long ReadWorkingSetBytesSafe(int pid) =>
+            Win32NativeHelper.TryGetProcessWorkingSetBytes(pid, out long bytes) ? bytes : 0;
+
         public static bool UpdateAccountLiveStatuses(
             IReadOnlyList<AccountViewModel> accounts,
-            IReadOnlyDictionary<Account, int>? runningMap)
+            IReadOnlyDictionary<Account, int>? runningMap,
+            IReadOnlyDictionary<Account, string>? memoryMap = null)
         {
             bool stateChanged = false;
             for (int i = 0; i < accounts.Count; i++)
@@ -245,6 +276,21 @@ namespace Shiro.ViewModels
                 {
                     acc.IsInGame = hasActivePresence;
                     stateChanged = true;
+                }
+
+                if (isRunningLocally)
+                {
+                    if (memoryMap != null)
+                    {
+                        acc.LiveMemoryText = acc.Model != null && memoryMap.TryGetValue(acc.Model, out string? memText)
+                            ? memText
+                            : string.Empty;
+                    }
+                }
+                else
+                {
+                    // Local process is not running, so clear any stale RAM telemetry pill.
+                    acc.LiveMemoryText = string.Empty;
                 }
             }
             return stateChanged;

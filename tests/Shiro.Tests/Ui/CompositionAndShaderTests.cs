@@ -456,16 +456,16 @@ namespace Shiro.Tests.Ui
                 SkslAmbientMeshHandler activeHandler = mesh.Handler;
                 Assert.False(activeHandler.IsDisposed);
 
-                // Simulate the in-flight async Skia probe window (_customVisual != null && _skiaFeatureAvailable == null).
+                // Flush pending compositor messages, then simulate pre-first-Skia-frame window (_skiaFeatureAvailable == null).
+                Avalonia.Headless.AvaloniaHeadlessPlatform.ForceRenderTimerTick(1);
+                Dispatcher.UIThread.RunJobs();
                 mesh.OverrideSkiaFeatureForTesting(null);
                 int beforeRenderInvalidations = activeHandler.InvalidationCountForTesting;
                 SKColorF beforeRenderOrb1 = activeHandler.CurrentOrb1;
 
                 // UI fallback render must use UI-owned brushes without mutating activeHandler state.
                 using (var rtb = new RenderTargetBitmap(new PixelSize(260, 180), new Vector(96, 96)))
-                {
                     rtb.Render(window);
-                }
                 Assert.True(mesh.LastRenderUsedFallback);
                 Assert.Equal(beforeRenderInvalidations, activeHandler.InvalidationCountForTesting);
                 Assert.Equal(beforeRenderOrb1, activeHandler.CurrentOrb1);

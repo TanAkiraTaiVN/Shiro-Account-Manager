@@ -40,6 +40,8 @@ namespace Shiro.AvaloniaUI.Controls
         private IBrush? _cachedPenSourceBrush;
         private IPen? _cachedPen;
 
+        public bool IsArmed => _isArmed;
+
         static MarqueeSelectionOverlay()
         {
             AffectsRender<MarqueeSelectionOverlay>(

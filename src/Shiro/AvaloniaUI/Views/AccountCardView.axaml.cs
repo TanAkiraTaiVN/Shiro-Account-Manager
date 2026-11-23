@@ -124,6 +124,7 @@ namespace Shiro.AvaloniaUI.Views
             if (DataContext is AccountViewModel avm && ResolveOwner() is { } owner)
             {
                 owner.SetKeyboardFocusedAccount(avm);
+                owner.FocusListViewportIfNeeded();
                 bool shift = e.KeyModifiers.HasFlag(KeyModifiers.Shift);
                 owner.ViewModel.HandleAccountClickSelection(avm, shift);
                 e.Handled = true;

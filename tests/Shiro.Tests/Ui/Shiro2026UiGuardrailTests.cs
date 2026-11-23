@@ -58,7 +58,7 @@ namespace Shiro.Tests.Ui
                 AppDispatcher.CustomDispatcher = _origDispatcher;
                 LocalizationService.SetLanguage(_origLang, saveSetting: false);
                 VisualPreferencesService.Instance.DensityMode = _origDensity;
-                ToastService.ClearAll();
+                ToastService.ResetAllForTesting();
                 if (Application.Current?.Resources.MergedDictionaries is { } merged && _origMergedDictionaries != null)
                 {
                     merged.Clear();

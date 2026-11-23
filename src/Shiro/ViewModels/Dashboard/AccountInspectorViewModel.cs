@@ -234,7 +234,7 @@ namespace Shiro.ViewModels
             {
                 if (Interlocked.Exchange(ref restoredFlag, 1) != 0 || Volatile.Read(ref _disposed) != 0) return;
                 RestoreAccount(backup, shownName);
-            }, durationSeconds: 8.0);
+            }, durationSeconds: 8.0, isOneShot: true);
         }
 
         private void RestoreAccount(Account backup, string shownName)

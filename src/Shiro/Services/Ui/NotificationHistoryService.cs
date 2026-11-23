@@ -52,7 +52,12 @@ namespace Shiro.Services
                     _isCenterOpen = value;
                 }
                 if (changed)
-                    RaisePropertyChanged(nameof(IsCenterOpen));
+                {
+                    if (AppDispatcher.HasUiThreadAccess())
+                        RaisePropertyChanged(nameof(IsCenterOpen));
+                    else
+                        AppDispatcher.Post(() => RaisePropertyChanged(nameof(IsCenterOpen)));
+                }
             }
         }
 

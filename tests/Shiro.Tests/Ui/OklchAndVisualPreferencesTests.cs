@@ -6,6 +6,7 @@ using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
+using Avalonia.Platform;
 using NSubstitute;
 using Shiro.Services;
 using Xunit;
@@ -404,6 +405,100 @@ namespace Shiro.Tests.Ui
             }
 
             return 0.2126 * Linearize(c.R) + 0.7152 * Linearize(c.G) + 0.0722 * Linearize(c.B);
+        }
+
+        [Fact]
+        public void VisualPreferencesService_ApplyAndSave_PersistsOnlySpecifiedKeys()
+        {
+            var store = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
+            {
+                [AppSettingsKeys.General.SurfacePreset] = "LiquidObsidian",
+                [AppSettingsKeys.General.UiDensityMode] = "Balanced",
+                [AppSettingsKeys.General.EnableGlassEffects] = "true",
+                [AppSettingsKeys.General.EnableAdaptiveGameTint] = "true",
+                [AppSettingsKeys.General.ReducedMotion] = "false",
+                [AppSettingsKeys.General.SidebarCollapsed] = "false"
+            };
+            var mockSettings = Substitute.For<ISettingsService>();
+            mockSettings.Get(Arg.Any<string>()).Returns(ci => store.TryGetValue(ci.Arg<string>(), out var v) ? v : null);
+            mockSettings.Exists(Arg.Any<string>()).Returns(ci => store.ContainsKey(ci.Arg<string>()));
+            mockSettings.When(s => s.Set(Arg.Any<string>(), Arg.Any<string?>()))
+                .Do(ci => { var k = ci.ArgAt<string>(0); var v = ci.ArgAt<string?>(1); if (v is null) store.Remove(k); else store[k] = v; });
+
+            using var scope = AppServices.Override<ISettingsService>(mockSettings);
+            var svc = VisualPreferencesService.Instance;
+            SurfacePreset origPreset = svc.SurfacePreset;
+            UiDensityMode origDensity = svc.DensityMode;
+            bool origGlass = svc.EnableGlassEffects;
+            bool origTint = svc.EnableAdaptiveGameTint;
+            bool origMotion = svc.ReducedMotion;
+            bool origSidebar = svc.SidebarCollapsed;
+            try
+            {
+                svc.LoadPreferencesOnly();
+                // Unsaved in-memory Appearance Studio preview edits
+                svc.SurfacePreset = SurfacePreset.AmoledVoid;
+                svc.EnableGlassEffects = false;
+                svc.EnableAdaptiveGameTint = false;
+                svc.ReducedMotion = true;
+
+                svc.ApplyAndSave(densityMode: UiDensityMode.Compact);
+                Assert.Equal("Compact", store[AppSettingsKeys.General.UiDensityMode]);
+                Assert.Equal("LiquidObsidian", store[AppSettingsKeys.General.SurfacePreset]);
+                Assert.Equal("true", store[AppSettingsKeys.General.EnableGlassEffects]);
+                Assert.Equal("true", store[AppSettingsKeys.General.EnableAdaptiveGameTint]);
+                Assert.Equal("false", store[AppSettingsKeys.General.ReducedMotion]);
+
+                svc.ApplyAndSave(sidebarCollapsed: true);
+                Assert.Equal("true", store[AppSettingsKeys.General.SidebarCollapsed]);
+                Assert.Equal("LiquidObsidian", store[AppSettingsKeys.General.SurfacePreset]);
+                mockSettings.DidNotReceive().Set(AppSettingsKeys.General.SurfacePreset, Arg.Any<string?>());
+                mockSettings.DidNotReceive().Set(AppSettingsKeys.General.ReducedMotion, Arg.Any<string?>());
+            }
+            finally
+            {
+                svc.SurfacePreset = origPreset;
+                svc.DensityMode = origDensity;
+                svc.EnableGlassEffects = origGlass;
+                svc.EnableAdaptiveGameTint = origTint;
+                svc.ReducedMotion = origMotion;
+                svc.SidebarCollapsed = origSidebar;
+            }
+        }
+
+        [Fact]
+        public void AdaptivePaletteExtractor_RejectsNegativeStride_AndAvoidsPowerOf2Aliasing()
+        {
+            byte[] src = new byte[4 * 4 * 4];
+            byte[] dst = new byte[4 * 4 * 4];
+            var handle = System.Runtime.InteropServices.GCHandle.Alloc(
+                src, System.Runtime.InteropServices.GCHandleType.Pinned);
+            try
+            {
+                Assert.False(AdaptivePaletteExtractor.TryNormalizeFramebufferToBgra32(
+                    handle.AddrOfPinnedObject(), 4, 4, -16, PixelFormats.Bgra8888, AlphaFormat.Unpremul, dst));
+            }
+            finally
+            {
+                handle.Free();
+            }
+
+            // 512x512 image where every 16th column (x % 16 == 0) is neutral gray; old linear stride=64 hit ONLY neutral pixels!
+            const int size = 512;
+            byte[] img = CreateSolidBgra32(size, size, r: 0, g: 120, b: 255, a: 255);
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x += 16)
+                {
+                    int idx = (y * size + x) * 4;
+                    img[idx] = 128; img[idx + 1] = 128; img[idx + 2] = 128; img[idx + 3] = 255;
+                }
+            }
+
+            Color? extracted = AdaptivePaletteExtractor.ExtractAccentFromPixels(img, size, size);
+            Assert.NotNull(extracted);
+            var (_, _, hue) = OklchColorMath.FromColor(extracted!.Value);
+            Assert.InRange(hue, 225.0, 285.0);
         }
     }
 }

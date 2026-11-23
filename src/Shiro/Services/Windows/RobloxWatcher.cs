@@ -418,14 +418,7 @@ namespace Shiro.Services
                 }
 
                 if (CloseIfMemoryLow)
-                {
-                    Win32NativeHelper.PROCESS_MEMORY_COUNTERS counters = default;
-                    counters.cb = (uint)sizeof(Win32NativeHelper.PROCESS_MEMORY_COUNTERS);
-                    if (Win32NativeHelper.K32GetProcessMemoryInfo(hProcess, out counters, counters.cb))
-                    {
-                        workingSetBytes = (long)counters.WorkingSetSize;
-                    }
-                }
+                    Win32NativeHelper.TryGetWorkingSetBytesFromHandle(hProcess, out workingSetBytes);
 
                 return true;
             }

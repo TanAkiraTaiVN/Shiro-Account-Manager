@@ -60,7 +60,7 @@ namespace Shiro.AvaloniaUI.Views
                 return;
             if (!e.GetCurrentPoint(ListViewportHost).Properties.IsLeftButtonPressed)
             {
-                if (MarqueeOverlay.IsSelecting)
+                if (MarqueeOverlay.IsSelecting || MarqueeOverlay.IsArmed || _pendingClickAccount != null)
                     FinishMarqueeSelection(e.Pointer);
                 return;
             }
@@ -82,6 +82,19 @@ namespace Shiro.AvaloniaUI.Views
             ApplyMarqueeSelection(e.KeyModifiers.HasFlag(KeyModifiers.Control), justActivated);
         }
 
+        private void OnListPointerExited(object? sender, PointerEventArgs e)
+        {
+            if (MarqueeOverlay == null || ListViewportHost == null)
+                return;
+            if (new Rect(ListViewportHost.Bounds.Size).Contains(e.GetPosition(ListViewportHost)))
+                return;
+            if (!e.GetCurrentPoint(ListViewportHost).Properties.IsLeftButtonPressed &&
+                (MarqueeOverlay.IsSelecting || MarqueeOverlay.IsArmed || _pendingClickAccount != null))
+            {
+                FinishMarqueeSelection(e.Pointer);
+            }
+        }
+
         private void OnListPointerReleased(object? sender, PointerReleasedEventArgs e)
         {
             bool wasSelecting = MarqueeOverlay?.IsSelecting == true;
@@ -101,6 +114,12 @@ namespace Shiro.AvaloniaUI.Views
 
         private void OnListPointerCaptureLost(object? sender, PointerCaptureLostEventArgs e)
             => FinishMarqueeSelection(null);
+
+        protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+        {
+            FinishMarqueeSelection(null);
+            base.OnDetachedFromVisualTree(e);
+        }
 
         private void FinishMarqueeSelection(IPointer? pointer)
         {

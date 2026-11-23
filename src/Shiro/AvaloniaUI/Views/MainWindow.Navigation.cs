@@ -61,10 +61,7 @@ namespace Shiro.AvaloniaUI.Views
             {
                 if (ViewModel != null)
                 {
-                    bool next = !ViewModel.CommandPalette.IsCommandPaletteOpen;
-                    ViewModel.CommandPalette.IsCommandPaletteOpen = next;
-                    if (next)
-                        FocusCommandPaletteInput();
+                    ViewModel.CommandPalette.IsCommandPaletteOpen = !ViewModel.CommandPalette.IsCommandPaletteOpen;
                     e.Handled = true;
                 }
             }
@@ -78,9 +75,8 @@ namespace Shiro.AvaloniaUI.Views
                     ViewModel?.CommandPalette.IsCommandPaletteOpen == true &&
                     ViewCommandPalette?.SearchTextBox is { } searchBox)
                 {
-                    if (ViewCommandPalette != null)
-                        SpringCompositionHelper.RunSpringEntrance(
-                            ViewCommandPalette, offsetX: 0.0, offsetY: 10.0, fromScale: 0.97, durationMs: 220.0);
+                    SpringCompositionHelper.RunSpringEntrance(
+                        ViewCommandPalette, offsetX: 0.0, offsetY: 10.0, fromScale: 0.97, durationMs: 220.0);
                     searchBox.Focus();
                     searchBox.SelectAll();
                 }
@@ -358,8 +354,10 @@ namespace Shiro.AvaloniaUI.Views
         {
             if (ViewModel != null)
             {
-                ViewModel.CommandPalette.IsCommandPaletteOpen = true;
-                FocusCommandPaletteInput();
+                if (!ViewModel.CommandPalette.IsCommandPaletteOpen)
+                    ViewModel.CommandPalette.IsCommandPaletteOpen = true;
+                else
+                    FocusCommandPaletteInput();
             }
         }
 

@@ -364,9 +364,9 @@ namespace Shiro.AvaloniaUI.Controls
                 _hasColorState = true;
                 _from = target;
                 _to = target;
+                _current = target;
                 if (msg.DurationMs <= 0.0)
                 {
-                    _current = target;
                     _fromPhase = 0.0f;
                     _toPhase = 0.0f;
                     _currentPhase = 0.0f;

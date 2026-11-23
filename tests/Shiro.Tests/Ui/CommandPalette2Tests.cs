@@ -70,7 +70,7 @@ namespace Shiro.Tests.Ui
                     merged.Add(dict);
             }
             Logger.Sink = _prevSink;
-            ToastService.ClearAll();
+            ToastService.ResetAllForTesting();
             typeof(MainWindow).GetProperty(nameof(MainWindow.Instance))?.SetValue(null, _prevWindow);
             if (Directory.Exists(_tempDir))
                 Directory.Delete(_tempDir, recursive: true);
@@ -217,6 +217,7 @@ namespace Shiro.Tests.Ui
             vm.LoadAccounts(new[] { acc1, acc2 });
             vm.Accounts[0].IsInGame = true;
             vm.Accounts[0].LiveMemoryText = "412 MB";
+            vm.Accounts[1].LiveMemoryText = "300 MB"; // Guarded when HasLiveMemory == false
 
             var palette = vm.CommandPalette;
             palette.IsCommandPaletteOpen = true;
@@ -246,7 +247,9 @@ namespace Shiro.Tests.Ui
             var secondAccItem = palette.SelectedCommandPaletteItem;
             Assert.NotNull(secondAccItem);
             Assert.NotSame(firstAccItem, secondAccItem);
-            Assert.Equal("Default", secondAccItem!.PreviewGroupText);
+            Assert.False(vm.Accounts[1].HasLiveMemory);
+            Assert.DoesNotContain("300 MB", secondAccItem!.PreviewStatusText, StringComparison.Ordinal);
+            Assert.Equal("Default", secondAccItem.PreviewGroupText);
 
             // Empty search match clears preview item cleanly
             palette.CommandPaletteSearchText = "__no_palette_match_999__";
@@ -299,6 +302,10 @@ namespace Shiro.Tests.Ui
                 Assert.NotNull(glassSurface);
                 Assert.Equal(720.0, glassSurface!.Width);
                 Assert.Equal(new CornerRadius(16), glassSurface.CornerRadius);
+                Assert.True(glassSurface.ClipToBounds);
+                Assert.Equal(default, glassSurface.BoxShadow);
+                var shadowHost = Assert.IsType<Border>(glassSurface.Parent);
+                Assert.NotEqual(default, shadowHost.BoxShadow);
 
                 var btnAccounts = overlayPanel.FindControl<Button>("BtnScopeAccounts");
                 var btnCommands = overlayPanel.FindControl<Button>("BtnScopeCommands");

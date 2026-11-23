@@ -71,7 +71,7 @@
             <Border Background="{Binding PreviewCanvasBrush}" BorderBrush="{Binding PreviewBorderBrush}"
                     BorderThickness="1" CornerRadius="{StaticResource RadiusMid12}" Padding="12" ClipToBounds="True">
                 <Panel>
-                    <Border Background="{Binding PreviewAmbientBrush}" IsHitTestVisible="False" CornerRadius="{StaticResource RadiusMid12}" />
+                    <Border Background="{Binding PreviewAmbientBrush}" IsHitTestVisible="False" CornerRadius="{StaticResource RadiusInner8}" />
                     <controls:SkiaGlassSurface x:Name="AppearanceLivePreviewCard"
                                                BlurSigma="{Binding PreviewBlurSigma}" NoiseOpacity="0.024"
                                                SpecularHighlightOpacity="0.22" EnablePointerSpecular="True"

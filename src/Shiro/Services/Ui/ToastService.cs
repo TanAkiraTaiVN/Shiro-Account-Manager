@@ -23,8 +23,9 @@ namespace Shiro.Services
             string message,
             string actionText,
             Action onAction,
-            double durationSeconds = 10.0)
-            => ShowInternal(title, message, ToastType.Warning, durationSeconds, actionText, onAction);
+            double durationSeconds = 10.0,
+            bool isOneShot = false)
+            => ShowInternal(title, message, ToastType.Warning, durationSeconds, actionText, onAction, isOneShot);
 
         public static void ShowWithUndo(
             string title,
@@ -36,13 +37,7 @@ namespace Shiro.Services
             string label = string.IsNullOrWhiteSpace(undoText)
                 ? LocalizationService.Get("Toast_Undo")
                 : undoText;
-            int executed = 0;
-            ShowInternal(title, message, ToastType.Info, durationSeconds, label, () =>
-            {
-                if (Interlocked.Exchange(ref executed, 1) != 0)
-                    return;
-                onUndo?.Invoke();
-            });
+            ShowInternal(title, message, ToastType.Info, durationSeconds, label, onUndo, isOneShotAction: true);
         }
 
         public static void ShowError(string title, string message = "", double durationSeconds = 4.0) => Show(title, message, ToastType.Error, durationSeconds);
@@ -50,19 +45,24 @@ namespace Shiro.Services
         public static void Show(string title, string message, ToastType type, double durationSeconds = 3.0)
             => ShowInternal(title, message, type, durationSeconds, null, null);
 
-        private static ICommand? BuildActionCommand(ToastItem toast, string cleanAction, Action? onAction)
+        private static ICommand? BuildActionCommand(ToastItem toast, string cleanAction, Action? onAction, bool isOneShot)
         {
             if (onAction == null || string.IsNullOrWhiteSpace(cleanAction))
                 return null;
 
+            int executed = 0;
             return new ToastItem.ToastActionCommand(() =>
             {
+                if (isOneShot && Interlocked.Exchange(ref executed, 1) != 0)
+                    return;
                 try
                 {
                     onAction();
                 }
                 finally
                 {
+                    if (isOneShot)
+                        AppDispatcher.Post(() => toast.ActionCommand = null);
                     Dismiss(toast);
                 }
             });
@@ -74,7 +74,8 @@ namespace Shiro.Services
             ToastType type,
             double durationSeconds,
             string? actionText,
-            Action? onAction)
+            Action? onAction,
+            bool isOneShotAction = false)
         {
             long showClearGen;
             lock (_toastLock)
@@ -122,7 +123,7 @@ namespace Shiro.Services
                             TimerGeneration = autoDismissDelay.HasValue ? 1 : 0
                         };
 
-                        toast.ActionCommand = BuildActionCommand(toast, cleanAction, onAction);
+                        toast.ActionCommand = BuildActionCommand(toast, cleanAction, onAction, isOneShotAction);
 
                         // Limit active toasts to 2 to keep the viewport clean and unobstructed
                         while (ActiveToasts.Count >= 2)
@@ -144,7 +145,7 @@ namespace Shiro.Services
 
                 if (coalescedToast != null)
                 {
-                    toast.ActionCommand = BuildActionCommand(toast, cleanAction, onAction);
+                    toast.ActionCommand = BuildActionCommand(toast, cleanAction, onAction, isOneShotAction);
                     toast.DurationSeconds = autoDismissDelay?.TotalSeconds ?? 0.0;
                     if (autoDismissDelay.HasValue)
                     {
@@ -251,7 +252,11 @@ namespace Shiro.Services
                     }
                 });
             }
+        }
 
+        internal static void ResetAllForTesting()
+        {
+            ClearAll();
             NotificationHistoryService.Instance.ResetForTesting();
         }
 

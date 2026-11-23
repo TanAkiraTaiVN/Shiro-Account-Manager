@@ -1,6 +1,7 @@
 #nullable enable
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Threading;
 using Shiro.AvaloniaUI.Controls;
 
 namespace Shiro.AvaloniaUI.Views.Panels
@@ -15,21 +16,42 @@ namespace Shiro.AvaloniaUI.Views.Panels
         protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
         {
             base.OnAttachedToVisualTree(e);
-            if (IsVisible && BulkBarGlass != null)
-            {
-                SpringCompositionHelper.RunSpringEntrance(
-                    BulkBarGlass, offsetX: 0.0, offsetY: 12.0, fromScale: 0.96, durationMs: 220.0);
-            }
+            if (IsVisible)
+                TriggerBulkBarEntrance();
         }
 
         protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
         {
             base.OnPropertyChanged(change);
-            if (change.Property == IsVisibleProperty && change.GetNewValue<bool>() && BulkBarGlass != null)
+            if (change.Property == IsVisibleProperty && change.GetNewValue<bool>())
+                TriggerBulkBarEntrance();
+        }
+
+        private void TriggerBulkBarEntrance()
+        {
+            if (!IsVisible || BulkBarGlass == null)
+                return;
+
+            Visual target = (Visual?)BulkBarShadowHost ?? BulkBarGlass;
+            if (BulkBarGlass.Bounds.Width <= 0.0)
             {
-                SpringCompositionHelper.RunSpringEntrance(
-                    BulkBarGlass, offsetX: 0.0, offsetY: 12.0, fromScale: 0.96, durationMs: 220.0);
+                Dispatcher.UIThread.Post(() =>
+                {
+                    if (!IsVisible || BulkBarGlass == null)
+                        return;
+
+                    Visual deferredTarget = (Visual?)BulkBarShadowHost ?? BulkBarGlass;
+                    if (TopLevel.GetTopLevel(deferredTarget) != null)
+                    {
+                        SpringCompositionHelper.RunSpringEntrance(
+                            deferredTarget, offsetX: 0.0, offsetY: 12.0, fromScale: 0.96, durationMs: 220.0);
+                    }
+                }, DispatcherPriority.Loaded);
+                return;
             }
+
+            SpringCompositionHelper.RunSpringEntrance(
+                target, offsetX: 0.0, offsetY: 12.0, fromScale: 0.96, durationMs: 220.0);
         }
     }
 }

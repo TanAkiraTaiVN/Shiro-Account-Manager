@@ -12,18 +12,20 @@
              IsVisible="{Binding IsOpen}"
              IsHitTestVisible="{Binding IsOpen}"
              Width="340">
-    <controls:SkiaGlassSurface x:Name="DrawerGlass"
-                               Width="340"
-                               BlurSigma="20"
-                               NoiseOpacity="0.024"
-                               SpecularHighlightOpacity="0.22"
-                               EnablePointerSpecular="True"
-                               TintBrush="#D812121C"
-                               BorderBrush="{DynamicResource BorderStrongBrush}"
-                               BorderThickness="1"
-                               CornerRadius="{StaticResource RadiusOuter16}"
-                               BoxShadow="{StaticResource ShadowFloating}"
-                               ClipToBounds="True">
+    <Border x:Name="DrawerShadowHost"
+            CornerRadius="{StaticResource RadiusOuter16}"
+            BoxShadow="{StaticResource ShadowFloating}">
+        <controls:SkiaGlassSurface x:Name="DrawerGlass"
+                                   Width="340"
+                                   BlurSigma="20"
+                                   NoiseOpacity="0.024"
+                                   SpecularHighlightOpacity="0.22"
+                                   EnablePointerSpecular="True"
+                                   TintBrush="#D812121C"
+                                   BorderBrush="{DynamicResource BorderStrongBrush}"
+                                   BorderThickness="1"
+                                   CornerRadius="{StaticResource RadiusOuter16}"
+                                   ClipToBounds="True">
         <Grid x:Name="DrawerContentHost" RowDefinitions="Auto,*,Auto">
             <!-- Identity Header -->
             <Border Grid.Row="0"
@@ -374,5 +376,6 @@
                 </Grid>
             </Border>
         </Grid>
-    </controls:SkiaGlassSurface>
+        </controls:SkiaGlassSurface>
+    </Border>
 </UserControl>

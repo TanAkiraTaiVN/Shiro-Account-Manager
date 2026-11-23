@@ -360,7 +360,12 @@ namespace Shiro.AvaloniaUI.Views
                             ? Shiro.Services.LocalizationService.Format("AccountManager.KilledRobloxProcessesExclamation", totalKilled)
                             : Shiro.Services.LocalizationService.Get("AccountManager.NoRobloxProcessesRunning");
                     }
-                    foreach (var acc in mainVm.AccountsVm.Accounts) acc.IsInGame = false;
+                    foreach (var acc in mainVm.AccountsVm.Accounts)
+                    {
+                        acc.IsInGame = false;
+                        acc.IsLocalClientRunning = false;
+                        acc.LiveMemoryText = string.Empty;
+                    }
                     mainVm.AccountsVm.NotifyCounts();
                 }
             });

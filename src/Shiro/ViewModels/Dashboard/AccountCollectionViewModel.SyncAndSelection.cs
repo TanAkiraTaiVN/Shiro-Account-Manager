@@ -45,6 +45,7 @@ namespace Shiro.ViewModels
 
         private void OnVisualPreferencesChanged()
         {
+            if (Volatile.Read(ref _disposed) != 0) return;
             AppDispatcher.Post(() =>
             {
                 if (Volatile.Read(ref _disposed) != 0) return;
@@ -102,11 +103,11 @@ namespace Shiro.ViewModels
             }
         }
 
-        internal void ApplyLiveProcessStatuses(Dictionary<Account, int>? runningMap)
+        internal void ApplyLiveProcessStatuses(Dictionary<Account, int>? runningMap, Dictionary<Account, string>? memoryMap = null)
         {
             bool stateChanged;
             lock (_accountsUiLock)
-                stateChanged = AccountListFilterController.UpdateAccountLiveStatuses(_accounts, runningMap);
+                stateChanged = AccountListFilterController.UpdateAccountLiveStatuses(_accounts, runningMap, memoryMap);
 
             if (stateChanged && (ActiveTab == AccountFilterTab.InGame || ActiveTab == AccountFilterTab.Ready))
                 ApplyFilter();

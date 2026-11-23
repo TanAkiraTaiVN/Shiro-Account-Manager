@@ -36,9 +36,10 @@
       <Setter Property="FontWeight" Value="Bold" />
     </Style>
   </UserControl.Styles>
-  <controls:SkiaGlassSurface x:Name="GlassSurface" Width="720" MaxHeight="520" BlurSigma="20" NoiseOpacity="0.024"
-    SpecularHighlightOpacity="0.22" EnablePointerSpecular="True" TintBrush="#CC14141E" BorderBrush="{DynamicResource BorderStrongBrush}"
-    BorderThickness="1" CornerRadius="{StaticResource RadiusOuter16}" BoxShadow="{StaticResource ShadowModal}" ClipToBounds="True">
+  <Border CornerRadius="{StaticResource RadiusOuter16}" BoxShadow="{StaticResource ShadowModal}">
+    <controls:SkiaGlassSurface x:Name="GlassSurface" Width="720" MaxHeight="520" BlurSigma="20" NoiseOpacity="0.024"
+      SpecularHighlightOpacity="0.22" EnablePointerSpecular="True" TintBrush="#CC14141E" BorderBrush="{DynamicResource BorderStrongBrush}"
+      BorderThickness="1" CornerRadius="{StaticResource RadiusOuter16}" ClipToBounds="True">
     <Grid RowDefinitions="Auto,Auto,Auto,Auto,*,Auto">
       <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Margin="14,12,12,10">
         <lucide:Lucide Grid.Column="0" Icon="Search" Width="16" Height="16" Margin="2,0,10,0"
@@ -232,5 +233,6 @@
         </Grid>
       </Border>
     </Grid>
-  </controls:SkiaGlassSurface>
+    </controls:SkiaGlassSurface>
+  </Border>
 </UserControl>

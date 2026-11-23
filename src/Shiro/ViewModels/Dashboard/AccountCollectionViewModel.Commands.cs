@@ -85,7 +85,7 @@ namespace Shiro.ViewModels
         {
             System.Threading.Interlocked.Increment(ref _searchGeneration);
             ServerListOperationHelper.ReplaceCts(ref _searchCts, createNew: false, "AccountCollection.SearchCts");
-            if (_searchText.Length > 0) { _searchText = string.Empty; OnPropertyChanged(nameof(SearchText)); }
+            if (!string.IsNullOrEmpty(_searchText)) { _searchText = string.Empty; OnPropertyChanged(nameof(SearchText)); }
             if (_selectedGroup != "All Groups") { _selectedGroup = "All Groups"; OnPropertyChanged(nameof(SelectedGroup)); }
             if (_activeTab != AccountFilterTab.All)
             {

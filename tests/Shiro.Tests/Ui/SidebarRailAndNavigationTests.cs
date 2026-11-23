@@ -34,6 +34,7 @@ namespace Shiro.Tests.Ui
         private readonly bool _origReducedMotion;
         private readonly SurfacePreset _origPreset;
         private readonly AccentTheme _origTheme;
+        private readonly Color? _origAdaptiveColor;
         private readonly MainWindow? _prevWindow;
 
         public SidebarRailAndNavigationTests()
@@ -47,15 +48,17 @@ namespace Shiro.Tests.Ui
             _origReducedMotion = VisualPreferencesService.Instance.ReducedMotion;
             _origPreset = AccentThemeService.CurrentSurfacePreset;
             _origTheme = AccentThemeService.CurrentTheme;
+            _origAdaptiveColor = AccentThemeService.AdaptiveGameColor;
             _prevWindow = MainWindow.Instance;
-            ToastService.ClearAll();
+            ToastService.ResetAllForTesting();
         }
 
         public void Dispose()
         {
-            ToastService.ClearAll();
+            ToastService.ResetAllForTesting();
             VisualPreferencesService.Instance.SidebarCollapsed = _origSidebarCollapsed;
             VisualPreferencesService.Instance.ReducedMotion = _origReducedMotion;
+            AccentThemeService.SetAdaptiveGameColor(_origAdaptiveColor);
             AccentThemeService.ApplySurfacePreset(_origPreset, save: false);
             AccentThemeService.ApplyTheme(_origTheme, save: false);
             AppServices.ServerBrowserState.CurrentPlaceId = _prevPlaceId;
@@ -298,6 +301,7 @@ namespace Shiro.Tests.Ui
             var baseTokens = (ResourceDictionary)Avalonia.Markup.Xaml.AvaloniaXamlLoader.Load(
                 new Uri("avares://Shiro/AvaloniaUI/Styles/ThemeTokens.axaml"));
             app.Resources.MergedDictionaries.Add(baseTokens);
+            AccentThemeService.SetAdaptiveGameColor(null);
             AccentThemeService.ApplySurfacePreset(SurfacePreset.LiquidObsidian, save: false);
             AccentThemeService.ApplyTheme(AccentTheme.Cyan, save: false);
 

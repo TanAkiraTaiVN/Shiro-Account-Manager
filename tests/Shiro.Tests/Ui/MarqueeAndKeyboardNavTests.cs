@@ -46,7 +46,7 @@ namespace Shiro.Tests.Ui
             Logger.Sink = _origSink;
             AppDispatcher.CustomDispatcher = _origDispatcher;
             LocalizationService.SetLanguage(_origLang, saveSetting: false);
-            ToastService.ClearAll();
+            ToastService.ResetAllForTesting();
             if (Directory.Exists(_tempDir))
                 Directory.Delete(_tempDir, recursive: true);
         }

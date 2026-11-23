@@ -141,7 +141,8 @@ namespace Shiro.ViewModels
             {
                 if (Account == null) return Category;
                 string status = Account.StatusText;
-                if (!string.IsNullOrWhiteSpace(Account.LiveMemoryText) &&
+                if (Account.HasLiveMemory &&
+                    !string.IsNullOrWhiteSpace(Account.LiveMemoryText) &&
                     !status.Contains(Account.LiveMemoryText, StringComparison.Ordinal))
                 {
                     return $"{status} • {Account.LiveMemoryText}";

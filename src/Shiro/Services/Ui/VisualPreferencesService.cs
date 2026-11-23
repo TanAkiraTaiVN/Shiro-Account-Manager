@@ -238,23 +238,34 @@ namespace Shiro.Services
                 effectiveSidebar = _sidebarCollapsed;
             }
 
+            bool hasAnySetting = surfacePreset.HasValue || densityMode.HasValue || enableGlassEffects.HasValue ||
+                                 enableAdaptiveGameTint.HasValue || reducedMotion.HasValue || sidebarCollapsed.HasValue;
             try
             {
-                ISettingsService settings = AppServices.GeneralSettings;
-                settings.Set(AppSettingsKeys.General.SurfacePreset, effectivePreset.ToString());
-                settings.Set(AppSettingsKeys.General.UiDensityMode, effectiveDensity.ToString());
-                settings.Set(AppSettingsKeys.General.EnableGlassEffects, effectiveGlass ? "true" : "false");
-                settings.Set(AppSettingsKeys.General.EnableAdaptiveGameTint, effectiveTint ? "true" : "false");
-                settings.Set(AppSettingsKeys.General.ReducedMotion, effectiveMotion ? "true" : "false");
-                settings.Set(AppSettingsKeys.General.SidebarCollapsed, effectiveSidebar ? "true" : "false");
-                AppServices.QueueDeferredSaveSettings();
+                if (hasAnySetting)
+                {
+                    ISettingsService settings = AppServices.GeneralSettings;
+                    if (surfacePreset.HasValue)
+                        settings.Set(AppSettingsKeys.General.SurfacePreset, effectivePreset.ToString());
+                    if (densityMode.HasValue)
+                        settings.Set(AppSettingsKeys.General.UiDensityMode, effectiveDensity.ToString());
+                    if (enableGlassEffects.HasValue)
+                        settings.Set(AppSettingsKeys.General.EnableGlassEffects, effectiveGlass ? "true" : "false");
+                    if (enableAdaptiveGameTint.HasValue)
+                        settings.Set(AppSettingsKeys.General.EnableAdaptiveGameTint, effectiveTint ? "true" : "false");
+                    if (reducedMotion.HasValue)
+                        settings.Set(AppSettingsKeys.General.ReducedMotion, effectiveMotion ? "true" : "false");
+                    if (sidebarCollapsed.HasValue)
+                        settings.Set(AppSettingsKeys.General.SidebarCollapsed, effectiveSidebar ? "true" : "false");
+                    AppServices.QueueDeferredSaveSettings();
+                }
             }
             catch (Exception ex)
             {
                 AppServices.Logger?.Warn($"Failed to persist visual preferences: {ex.Message}");
             }
 
-            if (AccentThemeService.CurrentSurfacePreset != effectivePreset)
+            if (surfacePreset.HasValue && AccentThemeService.CurrentSurfacePreset != effectivePreset)
                 AccentThemeService.ApplySurfacePreset(effectivePreset, save: false);
 
             PreferencesChanged?.Invoke();

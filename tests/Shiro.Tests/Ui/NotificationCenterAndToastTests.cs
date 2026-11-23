@@ -55,8 +55,7 @@ namespace Shiro.Tests.Ui
 
         public void Dispose()
         {
-            ToastService.ClearAll();
-            NotificationHistoryService.Instance.ResetForTesting();
+            ToastService.ResetAllForTesting();
             AppDispatcher.CustomDispatcher = _prevDispatcher;
             Logger.Sink = _prevSink;
             AppServices.ServerBrowserState.CurrentPlaceId = _origPlaceId;
@@ -124,9 +123,8 @@ namespace Shiro.Tests.Ui
         public void ToastService_ShowWithUndo_RecordsHistory_ExecutesUndoIdempotently_AndDismissesToast()
         {
             AppDispatcher.CustomDispatcher = a => a();
-            ToastService.ClearAll();
+            ToastService.ResetAllForTesting();
             var history = NotificationHistoryService.Instance;
-            history.ResetForTesting();
 
             int undoCalls = 0;
             ToastService.ShowWithUndo(
@@ -143,10 +141,13 @@ namespace Shiro.Tests.Ui
             Assert.Single(history.HistoryItems);
             Assert.Equal(1, history.UnreadCount);
 
-            toast.ActionCommand!.Execute(null);
-            toast.ActionCommand.Execute(null);
+            var undoCommand = toast.ActionCommand!;
+            undoCommand.Execute(null);
+            undoCommand.Execute(null);
 
             Assert.Equal(1, undoCalls);
+            Assert.Null(toast.ActionCommand);
+            Assert.False(toast.HasAction);
             Assert.Empty(ToastService.ActiveToasts);
         }
 
@@ -410,6 +411,59 @@ namespace Shiro.Tests.Ui
             {
                 window?.Close();
                 Dispatcher.UIThread.RunJobs();
+            }
+        }
+
+        [Fact]
+        public void ToastService_ClearAll_PreservesNotificationHistory_WhileResetAllClearsBoth()
+        {
+            AppDispatcher.CustomDispatcher = a => a();
+            ToastService.ResetAllForTesting();
+            var history = NotificationHistoryService.Instance;
+
+            ToastService.ShowInfo("Persistent History", "Should survive ClearAll", durationSeconds: 0);
+            Assert.Single(ToastService.ActiveToasts);
+            Assert.Single(history.HistoryItems);
+            Assert.Equal(1, history.UnreadCount);
+
+            ToastService.ClearAll();
+            Assert.Empty(ToastService.ActiveToasts);
+            Assert.Single(history.HistoryItems);
+            Assert.Equal(1, history.UnreadCount);
+
+            ToastService.ResetAllForTesting();
+            Assert.Empty(ToastService.ActiveToasts);
+            Assert.Empty(history.HistoryItems);
+            Assert.Equal(0, history.UnreadCount);
+        }
+
+        [AvaloniaFact]
+        public async Task NotificationHistoryService_IsCenterOpen_MarshalsPropertyChangedToUiThread()
+        {
+            ToastService.ResetAllForTesting();
+            var history = NotificationHistoryService.Instance;
+            bool? observedAccess = null;
+            string? observedProp = null;
+            void Handler(object? _, System.ComponentModel.PropertyChangedEventArgs e)
+            {
+                if (e.PropertyName == nameof(NotificationHistoryService.IsCenterOpen))
+                {
+                    observedProp = e.PropertyName;
+                    observedAccess = Dispatcher.UIThread.CheckAccess();
+                }
+            }
+
+            history.PropertyChanged += Handler;
+            try
+            {
+                await Task.Run(() => history.IsCenterOpen = true);
+                Dispatcher.UIThread.RunJobs();
+                Assert.Equal(nameof(NotificationHistoryService.IsCenterOpen), observedProp);
+                Assert.True(observedAccess);
+            }
+            finally
+            {
+                history.PropertyChanged -= Handler;
             }
         }
 

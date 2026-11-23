@@ -9,17 +9,19 @@
              x:Class="Shiro.AvaloniaUI.Views.Panels.DashboardBulkBarPanel"
              x:DataType="vm:MainViewModel"
              x:CompileBindings="True">
-    <controls:SkiaGlassSurface x:Name="BulkBarGlass"
-                               BlurSigma="20"
-                               NoiseOpacity="0.024"
-                               SpecularHighlightOpacity="0.24"
-                               EnablePointerSpecular="True"
-                               TintBrush="#CC161622"
-                               BorderBrush="{DynamicResource BorderStrongBrush}"
-                               BorderThickness="1"
-                               CornerRadius="{StaticResource RadiusOuter16}"
-                               BoxShadow="{StaticResource ShadowFloating}"
-                               ClipToBounds="True">
+    <Border x:Name="BulkBarShadowHost"
+            CornerRadius="{StaticResource RadiusOuter16}"
+            BoxShadow="{StaticResource ShadowFloating}">
+        <controls:SkiaGlassSurface x:Name="BulkBarGlass"
+                                   BlurSigma="20"
+                                   NoiseOpacity="0.024"
+                                   SpecularHighlightOpacity="0.24"
+                                   EnablePointerSpecular="True"
+                                   TintBrush="#CC161622"
+                                   BorderBrush="{DynamicResource BorderStrongBrush}"
+                                   BorderThickness="1"
+                                   CornerRadius="{StaticResource RadiusOuter16}"
+                                   ClipToBounds="True">
         <StackPanel Orientation="Horizontal" Spacing="8"
                     Margin="10,7" VerticalAlignment="Center">
                 <Border Background="{DynamicResource AccentSoftFillBrush}"
@@ -149,5 +151,6 @@
                     </StackPanel>
                 </Button>
         </StackPanel>
-    </controls:SkiaGlassSurface>
+        </controls:SkiaGlassSurface>
+    </Border>
 </UserControl>

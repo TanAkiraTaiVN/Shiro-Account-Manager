@@ -56,7 +56,7 @@ namespace Shiro.Tests.Ui
                 foreach (var dict in _origMergedDictionaries)
                     merged.Add(dict);
             }
-            ToastService.ClearAll();
+            ToastService.ResetAllForTesting();
             typeof(MainWindow).GetProperty(nameof(MainWindow.Instance))?.SetValue(null, _prevWindow);
             if (Directory.Exists(_tempDir))
                 Directory.Delete(_tempDir, recursive: true);
@@ -208,8 +208,11 @@ namespace Shiro.Tests.Ui
             Assert.True(undoToast.HasAction);
             Assert.NotNull(undoToast.ActionCommand);
 
-            undoToast.ActionCommand!.Execute(null);
-            undoToast.ActionCommand.Execute(null); // Idempotent second trigger
+            var undoCmd = undoToast.ActionCommand!;
+            undoCmd.Execute(null);
+            undoCmd.Execute(null); // Idempotent second trigger
+            Assert.Null(undoToast.ActionCommand);
+            Assert.False(undoToast.HasAction);
 
             Account restored = Assert.Single(repo.GetAll());
             Assert.Equal("UndoTarget", restored.Username);

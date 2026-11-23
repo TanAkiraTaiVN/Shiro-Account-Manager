@@ -40,6 +40,8 @@ namespace Shiro.Services
             public nuint PeakPagefileUsage;
         }
 
+        internal const uint ProcessQueryLimitedInformation = 0x1000;
+
         [LibraryImport("kernel32.dll", SetLastError = true)]
         internal static partial IntPtr OpenProcess(uint dwDesiredAccess, [MarshalAs(UnmanagedType.Bool)] bool bInheritHandle, int dwProcessId);
 
@@ -66,6 +68,41 @@ namespace Shiro.Services
         [LibraryImport("kernel32.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
         internal static partial bool K32GetProcessMemoryInfo(IntPtr process, out PROCESS_MEMORY_COUNTERS ppsmemCounters, uint cb);
+
+        internal static bool TryGetProcessWorkingSetBytes(int pid, out long workingSetBytes)
+        {
+            workingSetBytes = 0;
+            if (!OperatingSystem.IsWindows() || pid <= 0)
+                return false;
+
+            IntPtr hProcess = OpenProcess(ProcessQueryLimitedInformation, false, pid);
+            if (hProcess == IntPtr.Zero)
+                return false;
+
+            try
+            {
+                return TryGetWorkingSetBytesFromHandle(hProcess, out workingSetBytes);
+            }
+            finally
+            {
+                CloseHandle(hProcess);
+            }
+        }
+
+        internal static bool TryGetWorkingSetBytesFromHandle(IntPtr hProcess, out long workingSetBytes)
+        {
+            workingSetBytes = 0;
+            if (hProcess == IntPtr.Zero)
+                return false;
+
+            PROCESS_MEMORY_COUNTERS counters = default;
+            counters.cb = (uint)sizeof(PROCESS_MEMORY_COUNTERS);
+            if (!K32GetProcessMemoryInfo(hProcess, out counters, counters.cb))
+                return false;
+
+            workingSetBytes = (long)counters.WorkingSetSize;
+            return workingSetBytes > 0;
+        }
 
         [LibraryImport("kernel32.dll", SetLastError = true)]
         internal static partial IntPtr CreateToolhelp32Snapshot(uint dwFlags, uint th32ProcessID);

@@ -327,6 +327,24 @@ namespace Shiro.ViewModels
 
         public bool HasLiveMemory => (IsInGame || IsLocalClientRunning) && !string.IsNullOrWhiteSpace(LiveMemoryText);
 
+        /// <summary>Formats working-set bytes into a compact UI pill label ("642 MB" or "1.18 GB").</summary>
+        internal static string FormatLiveMemory(long workingSetBytes)
+        {
+            if (workingSetBytes <= 0)
+                return string.Empty;
+
+            const double mbDivisor = 1024.0 * 1024.0;
+            const long gbThreshold = 1024L * 1024L * 1024L;
+            if (workingSetBytes >= gbThreshold)
+            {
+                double gb = workingSetBytes / (1024.0 * mbDivisor);
+                return $"{gb.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)} GB";
+            }
+
+            long mb = Math.Max(1L, (long)Math.Round(workingSetBytes / mbDivisor));
+            return $"{mb.ToString(System.Globalization.CultureInfo.InvariantCulture)} MB";
+        }
+
         public long RobuxBalance => _model?.RobuxBalance ?? -1;
         public bool HasRobux => RobuxBalance >= 0;
         public string RobuxText

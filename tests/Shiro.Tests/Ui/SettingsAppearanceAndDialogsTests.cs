@@ -522,6 +522,10 @@ namespace Shiro.Tests.Ui
             GC.WaitForPendingFinalizers();
             GC.Collect();
 
+            SurfacePreset origLivePreset = AccentThemeService.CurrentSurfacePreset;
+            AccentThemeService.ApplySurfacePreset(
+                origLivePreset == SurfacePreset.AmoledVoid ? SurfacePreset.WarmGraphite : SurfacePreset.AmoledVoid, save: false);
+            AccentThemeService.ApplySurfacePreset(origLivePreset, save: false);
             VisualPreferencesService.Instance.DensityMode = UiDensityMode.Balanced;
             AccentThemeService.ApplyTheme(AccentTheme.Violet, save: false);
             LocalizationService.SetLanguage(AppLanguage.English, saveSetting: false);

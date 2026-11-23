@@ -101,6 +101,16 @@ namespace Shiro.AvaloniaUI.Views
             };
         }
 
+        internal void FocusListViewportIfNeeded()
+        {
+            if (ListViewportHost == null)
+                return;
+
+            var focused = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement();
+            if (!ReferenceEquals(focused, ListViewportHost))
+                ListViewportHost.Focus();
+        }
+
         private void OnTablePointerPressedTunnel(object? sender, PointerPressedEventArgs e)
         {
             if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
@@ -112,6 +122,7 @@ namespace Shiro.AvaloniaUI.Views
                 if (checkBox?.DataContext is AccountViewModel avm)
                 {
                     SetKeyboardFocusedAccount(avm);
+                    FocusListViewportIfNeeded();
                     ViewModel.AccountsVm.HandleAccountClickSelection(avm, e.KeyModifiers.HasFlag(KeyModifiers.Shift));
                     e.Handled = true;
                 }

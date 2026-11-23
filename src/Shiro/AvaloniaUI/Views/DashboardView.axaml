@@ -265,7 +265,8 @@
 
     <Border Grid.Row="6" x:Name="ListViewportHost" Background="Transparent" Focusable="True"
             PointerPressed="OnListPointerPressed" PointerMoved="OnListPointerMoved"
-            PointerReleased="OnListPointerReleased" PointerCaptureLost="OnListPointerCaptureLost"><Panel>
+            PointerReleased="OnListPointerReleased" PointerExited="OnListPointerExited"
+            PointerCaptureLost="OnListPointerCaptureLost"><Panel>
       <ItemsControl x:Name="CardsItemsControl" IsVisible="{Binding AccountsVm.IsCardView}" ItemsSource="{Binding AccountsVm.FilteredAccountRows}">
         <ItemsControl.ItemsPanel><ItemsPanelTemplate><VirtualizingStackPanel CacheLength="1" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
         <ItemsControl.Template><ControlTemplate><ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto"
@@ -330,15 +331,19 @@
                         CornerRadius="4" Padding="6,2" HorizontalAlignment="Left" VerticalAlignment="Center">
                   <TextBlock Text="{Binding Group, Converter={StaticResource GroupNameDisplay}}" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}" />
                 </Border>
-                <StackPanel Grid.Column="5" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                  <controls:StatusPulseDot DotBrush="{Binding StatusBadgeForeground}" DotSize="6" IsPulsing="{Binding IsInGame}" VerticalAlignment="Center" />
-                  <TextBlock Text="{Binding StatusText}" FontSize="11" Foreground="{Binding StatusBadgeForeground}" VerticalAlignment="Center" />
-                  <Border IsVisible="{Binding HasLiveMemory}" Background="{Binding MemoryPillBackground}" BorderBrush="{Binding MemoryPillBorder}"
-                          BorderThickness="1" CornerRadius="{StaticResource RadiusChip6}" Padding="5,1" VerticalAlignment="Center">
+                <Grid Grid.Column="5" ColumnDefinitions="Auto,*,Auto" HorizontalAlignment="Left" VerticalAlignment="Center">
+                  <controls:StatusPulseDot Grid.Column="0" DotBrush="{Binding StatusBadgeForeground}" DotSize="6"
+                                           IsPulsing="{Binding IsInGame}" Margin="0,0,6,0" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="1" Text="{Binding StatusText}" FontSize="11" Foreground="{Binding StatusBadgeForeground}"
+                             TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                  <Border Grid.Column="2" IsVisible="{Binding HasLiveMemory}"
+                          Background="{Binding MemoryPillBackground}" BorderBrush="{Binding MemoryPillBorder}"
+                          BorderThickness="1" CornerRadius="{StaticResource RadiusChip6}" Padding="5,1"
+                          Margin="6,0,0,0" VerticalAlignment="Center">
                     <TextBlock Classes="TabularNum" Text="{Binding LiveMemoryText}" FontSize="10" FontWeight="SemiBold"
                                Foreground="{Binding MemoryPillForeground}" VerticalAlignment="Center" />
                   </Border>
-                </StackPanel>
+                </Grid>
                 <TextBlock Grid.Column="6" Classes="TabularNum" Text="{Binding RobuxFormatted}" IsVisible="{Binding HasRobux}" FontSize="11" FontWeight="SemiBold"
                            Foreground="{DynamicResource StatusWarningBrush}" VerticalAlignment="Center" />
                 <StackPanel Grid.Column="7" Orientation="Horizontal" Spacing="5" HorizontalAlignment="Center" VerticalAlignment="Center">

@@ -48,7 +48,8 @@ namespace Shiro.ViewModels
                 getSelectedCount: () => AccountsVm?.SelectedCount ?? 0,
                 getAccountModelsSnapshot: () => AccountsVm?.GetAccountModelsSnapshot(),
                 applyLiveProcessStatuses: map => AccountsVm?.ApplyLiveProcessStatuses(map),
-                refreshDisplays: RefreshAllAccountDisplays);
+                refreshDisplays: RefreshAllAccountDisplays,
+                applyLiveProcessTelemetry: (map, mem) => AccountsVm?.ApplyLiveProcessStatuses(map, mem));
 
             AccountsVm = new AccountCollectionViewModel(
                 _logger,

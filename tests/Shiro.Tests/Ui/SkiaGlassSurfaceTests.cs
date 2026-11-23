@@ -403,5 +403,27 @@ namespace Shiro.Tests.Ui
             var del = field!.GetValue(prefs) as Delegate;
             return del?.GetInvocationList().Length ?? 0;
         }
+
+        [Fact]
+        public void SkslAmbientMeshHandler_FirstTransitionWithDuration_InitializesCurrentToTargetWithoutBlackFrame()
+        {
+            var handler = new SkslAmbientMeshHandler(() => TimeSpan.Zero);
+            var orb1 = new SKColorF(0.15f, 0.72f, 0.90f, 0.20f);
+            var orb2 = new SKColorF(0.42f, 0.35f, 0.95f, 0.14f);
+            var baseCol = new SKColorF(0.05f, 0.06f, 0.10f, 1.0f);
+
+            handler.OnMessage(new MeshTransitionMessage(orb1, orb2, baseCol, DurationMs: 450.0));
+
+            Assert.Equal(orb1, handler.CurrentOrb1);
+            Assert.Equal(baseCol, handler.CurrentBase);
+            Assert.True(handler.IsAnimating);
+
+            var info = new SKImageInfo(64, 48, SKColorType.Rgba8888, SKAlphaType.Premul);
+            using var skSurface = SKSurface.Create(info);
+            Assert.NotNull(skSurface);
+            handler.OnMessage(new MeshSizeMessage(64, 48));
+            Assert.True(handler.RenderToSkia(skSurface!.Canvas, 64f, 48f));
+            handler.OnMessage(MeshDisposeMessage.Instance);
+        }
     }
 }

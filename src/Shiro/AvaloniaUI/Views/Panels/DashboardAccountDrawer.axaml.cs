@@ -97,10 +97,11 @@ namespace Shiro.AvaloniaUI.Views.Panels
 
         private void PlayDrawerEntrance(double offsetX, double durationMs)
         {
-            if (DrawerGlass != null)
+            Visual? target = (Visual?)DrawerShadowHost ?? DrawerGlass;
+            if (target != null)
             {
                 SpringCompositionHelper.RunSpringEntrance(
-                    DrawerGlass, offsetX: offsetX, offsetY: 0.0, fromScale: 0.985, durationMs: durationMs);
+                    target, offsetX: offsetX, offsetY: 0.0, fromScale: 0.985, durationMs: durationMs);
             }
         }
 

@@ -154,7 +154,7 @@ namespace Shiro.Services
             }
         }
 
-        private static bool TryNormalizeFramebufferToBgra32(
+        internal static bool TryNormalizeFramebufferToBgra32(
             IntPtr sourceAddress,
             int width,
             int height,
@@ -175,9 +175,12 @@ namespace Shiro.Services
             if (bytesPerPixel == 0)
                 return false;
 
-            int minRowBytes = width * bytesPerPixel;
-            if (Math.Abs(sourceRowBytes) < minRowBytes || destinationBgra32.Length < width * height * 4)
+            long minRowBytesLong = (long)width * bytesPerPixel;
+            long destRequiredBytes = (long)width * height * 4L;
+            if (minRowBytesLong > int.MaxValue || sourceRowBytes < minRowBytesLong || destinationBgra32.Length < destRequiredBytes)
                 return false;
+
+            int minRowBytes = (int)minRowBytesLong;
 
             bool swapRedBlue = format == PixelFormats.Rgba8888 || format == PixelFormats.Rgb32 || format == PixelFormats.Rgb24;
             bool forceOpaque = alphaFormat == AlphaFormat.Opaque || bytesPerPixel == 3 || format == PixelFormats.Bgr32 || format == PixelFormats.Rgb32;
@@ -227,38 +230,52 @@ namespace Shiro.Services
             if (totalPixelsLong > int.MaxValue || bgra32.Length < requiredBytes)
                 return null;
 
-            int totalPixels = (int)totalPixelsLong;
-            int stride = Math.Max(1, (totalPixels + MaxSamples - 1) / MaxSamples);
+            int colStep = 1;
+            int rowStep = 1;
+            if (totalPixelsLong > MaxSamples)
+            {
+                double scale = Math.Sqrt((double)MaxSamples / totalPixelsLong);
+                int targetCols = Math.Clamp((int)Math.Round(width * scale), 1, width);
+                int targetRows = Math.Clamp((int)Math.Round(height * scale), 1, height);
+                colStep = Math.Max(1, (width + targetCols - 1) / targetCols);
+                rowStep = Math.Max(1, (height + targetRows - 1) / targetRows);
+            }
 
             Span<double> bucketWeights = stackalloc double[BucketCount];
             Span<double> bucketSin = stackalloc double[BucketCount];
             Span<double> bucketCos = stackalloc double[BucketCount];
 
-            for (int p = 0; p < totalPixels; p += stride)
+            for (int y = 0, rowIndex = 0; y < height; y += rowStep, rowIndex++)
             {
-                int offset = p * 4;
-                byte b = bgra32[offset];
-                byte g = bgra32[offset + 1];
-                byte r = bgra32[offset + 2];
-                byte a = bgra32[offset + 3];
+                // Stagger starting column phase per sampled row to prevent power-of-2 vertical aliasing.
+                int xStart = colStep > 1 ? rowIndex % colStep : 0;
+                int rowByteOffset = y * width * 4;
+                for (int x = xStart; x < width; x += colStep)
+                {
+                    int offset = rowByteOffset + (x * 4);
+                    byte b = bgra32[offset];
+                    byte g = bgra32[offset + 1];
+                    byte r = bgra32[offset + 2];
+                    byte a = bgra32[offset + 3];
 
-                if (a < MinAlpha)
-                    continue;
+                    if (a < MinAlpha)
+                        continue;
 
-                var (l, c, h) = OklchColorMath.FromColor(Color.FromRgb(r, g, b));
-                if (c < MinChroma || l < MinLightness || l > MaxLightness)
-                    continue;
+                    var (l, c, h) = OklchColorMath.FromColor(Color.FromRgb(r, g, b));
+                    if (c < MinChroma || l < MinLightness || l > MaxLightness)
+                        continue;
 
-                int bucket = (int)Math.Floor(h / 10.0) % BucketCount;
-                if (bucket < 0)
-                    bucket += BucketCount;
+                    int bucket = (int)Math.Floor(h / 10.0) % BucketCount;
+                    if (bucket < 0)
+                        bucket += BucketCount;
 
-                double weight = c * (1.0 - Math.Abs(l - 0.58) * 0.5);
-                double hRad = h * (Math.PI / 180.0);
+                    double weight = c * (1.0 - Math.Abs(l - 0.58) * 0.5);
+                    double hRad = h * (Math.PI / 180.0);
 
-                bucketWeights[bucket] += weight;
-                bucketSin[bucket] += weight * Math.Sin(hRad);
-                bucketCos[bucket] += weight * Math.Cos(hRad);
+                    bucketWeights[bucket] += weight;
+                    bucketSin[bucket] += weight * Math.Sin(hRad);
+                    bucketCos[bucket] += weight * Math.Cos(hRad);
+                }
             }
 
             int bestBucket = -1;

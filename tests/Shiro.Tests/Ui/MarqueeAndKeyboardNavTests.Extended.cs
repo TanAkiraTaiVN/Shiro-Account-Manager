@@ -136,5 +136,66 @@ namespace Shiro.Tests.Ui
             host.Window.MouseUp(bodyEnd, MouseButton.Left);
             Assert.Empty(host.Sink.Errors);
         }
+
+        [AvaloniaFact]
+        public void DashboardView_OutsideReleaseMove_ResetsArmedState_AndCheckBoxClickFocusesViewport()
+        {
+            var accounts = Enumerable.Range(1, 3)
+                .Select(i => new Account { UserID = 8000 + i, Username = $"FocusUser_{i}", Valid = true, SecurityToken = "tok" })
+                .ToList();
+
+            using var host = CreateMountedDashboard(accounts, width: 1020, height: 640);
+            var view = host.View;
+            var vm = view.ViewModel;
+            var overlay = view.FindControl<MarqueeSelectionOverlay>("MarqueeOverlay")!;
+            var listHost = view.FindControl<Border>("ListViewportHost")!;
+            var txtSearch = view.FindControl<TextBox>("TxtSearch")!;
+
+            // 1. Arm click/marquee, simulate pointer returning with left button released (outside-window release)
+            var firstCard = view.GetVisualDescendants().OfType<AccountCardView>().First(c => c.IsEffectivelyVisible);
+            Point cardCenter = firstCard.TranslatePoint(new Point(80, 60), host.Window)!.Value;
+            host.Window.MouseDown(cardCenter, MouseButton.Left);
+            Assert.True(overlay.IsArmed);
+            Assert.False(overlay.IsSelecting);
+
+            // Move back over viewport WITHOUT LeftMouseButton pressed -> clears _isArmed and _pendingClickAccount
+            host.Window.MouseMove(cardCenter + new Point(2, 2), RawInputModifiers.None);
+            Dispatcher.UIThread.RunJobs();
+            Assert.False(overlay.IsArmed);
+            host.Window.MouseUp(cardCenter + new Point(2, 2), MouseButton.Left);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(0, vm.AccountsVm.SelectedCount);
+
+            // 2. Clicking ChkSelect on AccountCardView moves focus away from TxtSearch to ListViewportHost
+            txtSearch.Focus();
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(txtSearch.IsFocused);
+            var cardChk = firstCard.FindControl<CheckBox>("ChkSelect")!;
+            Point chkCenter = cardChk.TranslatePoint(new Point(8, 8), host.Window)!.Value;
+            host.Window.MouseDown(chkCenter, MouseButton.Left);
+            host.Window.MouseUp(chkCenter, MouseButton.Left);
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(listHost.IsFocused);
+            Assert.True(vm.AccountsVm.FilteredAccounts[0].IsSelected);
+
+            // Arrow Right works immediately after checkbox click
+            view.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Right });
+            Assert.Equal(1, view.FocusedAccountIndex);
+
+            // 3. Clicking CheckBox in Compact Table mode also moves focus from TxtSearch to ListViewportHost
+            vm.AccountsVm.IsCompactView = true;
+            Dispatcher.UIThread.RunJobs();
+            txtSearch.Focus();
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(txtSearch.IsFocused);
+            var table = view.FindControl<ItemsControl>("TableItemsControl")!;
+            var tableChk = table.GetVisualDescendants().OfType<CheckBox>().First(c => c.DataContext is AccountViewModel);
+            Point tblChkCenter = tableChk.TranslatePoint(new Point(8, 8), host.Window)!.Value;
+            host.Window.MouseDown(tblChkCenter, MouseButton.Left);
+            host.Window.MouseUp(tblChkCenter, MouseButton.Left);
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(listHost.IsFocused);
+            Assert.Empty(host.Sink.Errors);
+        }
     }
 }

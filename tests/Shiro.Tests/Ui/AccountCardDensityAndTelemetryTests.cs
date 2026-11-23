@@ -9,6 +9,7 @@ using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Logging;
 using Avalonia.Media.Imaging;
+using Avalonia.Rendering.Composition;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using NSubstitute;
@@ -46,7 +47,7 @@ namespace Shiro.Tests.Ui
             AppDispatcher.CustomDispatcher = _origDispatcher;
             LocalizationService.SetLanguage(_origLang, saveSetting: false);
             VisualPreferencesService.Instance.DensityMode = _origDensity;
-            ToastService.ClearAll();
+            ToastService.ResetAllForTesting();
             if (Directory.Exists(_tempDir))
                 Directory.Delete(_tempDir, recursive: true);
         }
@@ -262,16 +263,35 @@ namespace Shiro.Tests.Ui
             Dispatcher.UIThread.RunJobs();
             Assert.All(compactRows, r => Assert.Equal(46.0, r.Height));
 
-            // Bulk bar upgrades to SkiaGlassSurface and appears + renders cleanly on selection
-            var bulkPanel = view.GetVisualDescendants().OfType<DashboardBulkBarPanel>().Single();
-            Assert.False(bulkPanel.IsVisible);
-            Assert.NotNull(bulkPanel.FindControl<SkiaGlassSurface>("BulkBarGlass"));
+            // Bulk bar upgrades to SkiaGlassSurface with unclipped outer shadow wrapper and center pivot
+            bool prevReduced = VisualPreferencesService.Instance.ReducedMotion;
+            VisualPreferencesService.Instance.ReducedMotion = false;
+            try
+            {
+                var bulkPanel = view.GetVisualDescendants().OfType<DashboardBulkBarPanel>().Single();
+                Assert.False(bulkPanel.IsVisible);
+                var bulkGlass = bulkPanel.FindControl<SkiaGlassSurface>("BulkBarGlass");
+                Assert.NotNull(bulkGlass);
+                Assert.True(bulkGlass!.ClipToBounds);
+                Assert.Equal(default, bulkGlass.BoxShadow);
+                var bulkShadow = Assert.IsType<Border>(bulkGlass.Parent);
+                Assert.NotEqual(default, bulkShadow.BoxShadow);
 
-            vm.AccountsVm.Accounts[0].IsSelected = true;
-            Dispatcher.UIThread.RunJobs();
-            Assert.True(bulkPanel.IsVisible);
-            using var rtb = new RenderTargetBitmap(new PixelSize(1080, 760), new Vector(96, 96));
-            Assert.Null(Record.Exception(() => rtb.Render(host.Window)));
+                vm.AccountsVm.Accounts[0].IsSelected = true;
+                Dispatcher.UIThread.RunJobs();
+                Assert.True(bulkPanel.IsVisible);
+                Assert.True(bulkGlass.Bounds.Width > 0.0);
+                var bulkVisual = ElementComposition.GetElementVisual(bulkShadow);
+                if (bulkVisual?.Compositor != null)
+                    Assert.Equal(bulkShadow.Bounds.Width * 0.5, bulkVisual.CenterPoint.X, 1);
+
+                using var rtb = new RenderTargetBitmap(new PixelSize(1080, 760), new Vector(96, 96));
+                Assert.Null(Record.Exception(() => rtb.Render(host.Window)));
+            }
+            finally
+            {
+                VisualPreferencesService.Instance.ReducedMotion = prevReduced;
+            }
 
             // Smart empty states: filtered out vs zero accounts
             vm.AccountsVm.SearchText = "NoMatchingUser999";
@@ -348,6 +368,80 @@ namespace Shiro.Tests.Ui
                 window.Close(); view.ViewModel.Dispose(); Dispatcher.UIThread.RunJobs();
                 browserScope.Dispose(); settingsScope.Dispose(); repoScope.Dispose();
             }
+        }
+
+        [Fact]
+        public void LiveMemoryTelemetry_FormatsSamplesUpdatesAndClearsOnProcessExit()
+        {
+            Assert.Equal(string.Empty, AccountViewModel.FormatLiveMemory(0));
+            Assert.Equal("642 MB", AccountViewModel.FormatLiveMemory(642L * 1024L * 1024L));
+            Assert.Equal("1.18 GB", AccountViewModel.FormatLiveMemory((long)(1.18 * 1024 * 1024 * 1024)));
+
+            var acc1 = new Account { UserID = 11, Username = "MemOne", Valid = true, SecurityToken = "t1" };
+            var acc2 = new Account { UserID = 12, Username = "MemTwo", Valid = true, SecurityToken = "t2",
+                Presence = new UserPresence { userPresenceType = UserPresenceType.InGame, gameName = "LongGame" } };
+            var vm1 = new AccountViewModel(acc1, Substitute.For<IAppLogger>(), CreateInMemorySettings());
+            var vm2 = new AccountViewModel(acc2, Substitute.For<IAppLogger>(), CreateInMemorySettings());
+
+            int selfPid = Environment.ProcessId;
+            var sampled = AccountListFilterController.SampleLiveMemoryTelemetry(
+                new Dictionary<Account, int> { [acc1] = selfPid, [acc2] = -999 });
+            Assert.NotNull(sampled);
+            if (OperatingSystem.IsWindows())
+                Assert.True(sampled!.ContainsKey(acc1) && (sampled[acc1].EndsWith(" MB") || sampled[acc1].EndsWith(" GB")));
+            Assert.False(sampled!.ContainsKey(acc2));
+
+            var deterministic = AccountListFilterController.SampleLiveMemoryTelemetry(
+                new Dictionary<Account, int> { [acc1] = 4001, [acc2] = 4002 },
+                pid => pid == 4001 ? 642L * 1024L * 1024L : throw new InvalidOperationException("Process exited"));
+            Assert.Equal("642 MB", deterministic![acc1]);
+            Assert.False(deterministic.ContainsKey(acc2));
+
+            AccountListFilterController.UpdateAccountLiveStatuses(
+                new[] { vm1, vm2 }, new Dictionary<Account, int> { [acc1] = 4001 }, deterministic);
+            Assert.Equal("642 MB", vm1.LiveMemoryText);
+            Assert.True(vm1.HasLiveMemory);
+            Assert.Equal(string.Empty, vm2.LiveMemoryText);
+
+            // Process exit clears LiveMemoryText even if Presence has not updated yet
+            AccountListFilterController.UpdateAccountLiveStatuses(new[] { vm1, vm2 }, null, null);
+            Assert.False(vm1.IsLocalClientRunning);
+            Assert.False(vm1.IsInGame);
+            Assert.Equal(string.Empty, vm1.LiveMemoryText);
+            Assert.False(vm1.HasLiveMemory);
+        }
+
+        [AvaloniaFact]
+        public void CompactTable_LongStatusText_TrimsWithEllipsis_WithoutClippingMemoryPill()
+        {
+            var longGame = "Ultra Long Experience Name That Should Truncate Cleanly Before Memory Pill";
+            var accounts = new List<Account>
+            {
+                new() { UserID = 7701, Username = "CompactRamUser", Valid = true, SecurityToken = "tok",
+                    Presence = new UserPresence { userPresenceType = UserPresenceType.InGame, gameName = longGame } }
+            };
+
+            using var host = CreateMountedDashboard(accounts, width: 960, height: 520);
+            var vm = host.View.ViewModel;
+            vm.AccountsVm.IsCompactView = true;
+            vm.AccountsVm.Accounts[0].IsInGame = true;
+            vm.AccountsVm.Accounts[0].IsLocalClientRunning = true;
+            vm.AccountsVm.Accounts[0].LiveMemoryText = "642 MB";
+            Dispatcher.UIThread.RunJobs();
+
+            var row = host.View.FindControl<ItemsControl>("TableItemsControl")!
+                .GetVisualDescendants().OfType<Border>().First(b => b.Classes.Contains("CompactTableRow"));
+            var statusGrid = row.GetVisualDescendants().OfType<Grid>()
+                .First(g => Grid.GetColumn(g) == 5 && g.ColumnDefinitions.Count == 3);
+            var statusText = statusGrid.Children.OfType<TextBlock>().Single();
+            var pill = statusGrid.Children.OfType<Border>().Single();
+
+            Assert.Equal(Avalonia.Media.TextTrimming.CharacterEllipsis, statusText.TextTrimming);
+            Assert.True(pill.IsVisible);
+            Assert.True(pill.Bounds.Width > 0.0);
+            Assert.True(pill.Bounds.Right <= statusGrid.Bounds.Width + 0.5,
+                $"MemoryPill clipped past status grid: {pill.Bounds.Right} > {statusGrid.Bounds.Width}");
+            Assert.Empty(host.Sink.Errors);
         }
     }
 }
