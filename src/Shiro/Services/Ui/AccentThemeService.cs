@@ -42,20 +42,72 @@ namespace Shiro.Services
 
         public static event Action<AccentTheme>? ThemeChanged;
 
+        public readonly record struct AccentExtendedPalette(
+            Color Primary,
+            Color Hover,
+            Color TextOnAccent,
+            Color Subtle,
+            Color Border,
+            Color Glow,
+            Color SoftFill,
+            Color Rim,
+            Color Ambient,
+            Color AmbientSecondary);
+
         private static ResourceDictionary CreateThemeResourceDictionary(AccentTheme theme)
         {
-            var (primary, hover, textOnAccent, subtle, borderCol, glow) = GetThemeColors(theme);
+            AccentExtendedPalette p = GetExtendedColors(theme);
+            var gradientStops = new ImmutableGradientStop[]
+            {
+                new(0.0, p.Primary),
+                new(1.0, p.Hover)
+            };
+            var ambientStops = new ImmutableGradientStop[]
+            {
+                new(0.0, p.Ambient),
+                new(0.55, Color.FromArgb((byte)(p.Ambient.A / 3), p.Ambient.R, p.Ambient.G, p.Ambient.B)),
+                new(1.0, Color.FromArgb(0, p.Ambient.R, p.Ambient.G, p.Ambient.B))
+            };
+            var secondaryStops = new ImmutableGradientStop[]
+            {
+                new(0.0, p.AmbientSecondary),
+                new(0.55, Color.FromArgb((byte)(p.AmbientSecondary.A / 3), p.AmbientSecondary.R, p.AmbientSecondary.G, p.AmbientSecondary.B)),
+                new(1.0, Color.FromArgb(0, p.AmbientSecondary.R, p.AmbientSecondary.G, p.AmbientSecondary.B))
+            };
+            var center = new Avalonia.RelativePoint(0.5, 0.5, Avalonia.RelativeUnit.Relative);
+            var halfRadius = new Avalonia.RelativeScalar(0.5, Avalonia.RelativeUnit.Relative);
+
             return new ResourceDictionary
             {
-                ["AccentColor"] = primary,
-                ["AccentHoverColor"] = hover,
-                ["AccentForegroundColor"] = textOnAccent,
-                ["AccentBrush"] = new ImmutableSolidColorBrush(primary),
-                ["AccentHoverBrush"] = new ImmutableSolidColorBrush(hover),
-                ["AccentForegroundBrush"] = new ImmutableSolidColorBrush(textOnAccent),
-                ["AccentGlowBrush"] = new ImmutableSolidColorBrush(glow),
-                ["AccentSubtleBrush"] = new ImmutableSolidColorBrush(subtle),
-                ["AccentBorderBrush"] = new ImmutableSolidColorBrush(borderCol)
+                ["AccentColor"] = p.Primary,
+                ["AccentHoverColor"] = p.Hover,
+                ["AccentForegroundColor"] = p.TextOnAccent,
+                ["AccentAmbientColor"] = p.Ambient,
+                ["AccentAmbientSecondaryColor"] = p.AmbientSecondary,
+                ["AccentBrush"] = new ImmutableSolidColorBrush(p.Primary),
+                ["AccentHoverBrush"] = new ImmutableSolidColorBrush(p.Hover),
+                ["AccentForegroundBrush"] = new ImmutableSolidColorBrush(p.TextOnAccent),
+                ["AccentGlowBrush"] = new ImmutableSolidColorBrush(p.Glow),
+                ["AccentSubtleBrush"] = new ImmutableSolidColorBrush(p.Subtle),
+                ["AccentBorderBrush"] = new ImmutableSolidColorBrush(p.Border),
+                ["AccentSoftFillBrush"] = new ImmutableSolidColorBrush(p.SoftFill),
+                ["AccentRimBrush"] = new ImmutableSolidColorBrush(p.Rim),
+                ["AccentGradientBrush"] = new ImmutableLinearGradientBrush(
+                    gradientStops,
+                    startPoint: new Avalonia.RelativePoint(0.0, 0.0, Avalonia.RelativeUnit.Relative),
+                    endPoint: new Avalonia.RelativePoint(1.0, 1.0, Avalonia.RelativeUnit.Relative)),
+                ["AccentAmbientBrush"] = new ImmutableRadialGradientBrush(
+                    ambientStops,
+                    center: center,
+                    gradientOrigin: center,
+                    radiusX: halfRadius,
+                    radiusY: halfRadius),
+                ["AccentAmbientSecondaryBrush"] = new ImmutableRadialGradientBrush(
+                    secondaryStops,
+                    center: center,
+                    gradientOrigin: center,
+                    radiusX: halfRadius,
+                    radiusY: halfRadius)
             };
         }
 
@@ -123,6 +175,34 @@ namespace Shiro.Services
             Color glow = Color.FromArgb(glowAlpha, primary.R, primary.G, primary.B);
 
             return (primary, hover, textOnAccent, subtle, borderCol, glow);
+        }
+
+        public static AccentExtendedPalette GetExtendedColors(AccentTheme theme)
+        {
+            var (primary, hover, textOnAccent, subtle, borderCol, glow) = GetThemeColors(theme);
+
+            Color softFill = Color.FromArgb(31, primary.R, primary.G, primary.B); // 12% tint
+            Color rimSource = theme == AccentTheme.Monochrome ? primary : hover;
+            Color rim = Color.FromArgb(115, rimSource.R, rimSource.G, rimSource.B); // 45% highlight
+            Color ambient = Color.FromArgb(28, primary.R, primary.G, primary.B); // 11% radial glow
+            Color secondaryBase = theme switch
+            {
+                AccentTheme.Violet or AccentTheme.Pink => Color.FromRgb(139, 92, 246),
+                _ => Color.FromRgb(99, 102, 241)
+            };
+            Color ambientSecondary = Color.FromArgb(15, secondaryBase.R, secondaryBase.G, secondaryBase.B); // 6% cool indigo/violet tint
+
+            return new AccentExtendedPalette(
+                primary,
+                hover,
+                textOnAccent,
+                subtle,
+                borderCol,
+                glow,
+                softFill,
+                rim,
+                ambient,
+                ambientSecondary);
         }
 
         public static void Initialize()

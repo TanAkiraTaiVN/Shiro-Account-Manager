@@ -1,12 +1,132 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
+    <!-- ================= STUDIO REUSABLE BUTTON CLASSES ================= -->
+    <Style Selector="Button.StudioPrimaryBtn, Button.StudioSecondaryBtn,
+                     Button.StudioGhostBtn, Button.StudioDangerBtn, Button.StudioIconBtn">
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Name="PART_Border"
+                        Background="{TemplateBinding Background}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        CornerRadius="{TemplateBinding CornerRadius}"
+                        Padding="{TemplateBinding Padding}">
+                    <ContentPresenter Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}"
+                                      HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                      VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                </Border>
+            </ControlTemplate>
+        </Setter>
+    </Style>
+
+    <Style Selector="Button.StudioPrimaryBtn">
+        <Setter Property="Background" Value="{DynamicResource AccentGradientBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource AccentForegroundBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentRimBrush}" />
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusSm}" />
+        <Setter Property="Padding" Value="14,8" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontWeight" Value="Bold" />
+    </Style>
+    <Style Selector="Button.StudioPrimaryBtn:pointerover /template/ Border#PART_Border">
+        <Setter Property="Opacity" Value="0.91" />
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+    </Style>
+    <Style Selector="Button.StudioPrimaryBtn:pressed /template/ Border#PART_Border">
+        <Setter Property="Opacity" Value="0.80" />
+    </Style>
+    <Style Selector="Button.StudioPrimaryBtn:disabled /template/ Border#PART_Border">
+        <Setter Property="Opacity" Value="0.42" />
+    </Style>
+
+    <Style Selector="Button.StudioSecondaryBtn">
+        <Setter Property="Background" Value="{DynamicResource SurfaceElevatedBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}" />
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusSm}" />
+        <Setter Property="Padding" Value="12,7" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="Button.StudioSecondaryBtn:pointerover /template/ Border#PART_Border">
+        <Setter Property="Background" Value="{DynamicResource SurfaceCardHoverBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderHoverBrush}" />
+    </Style>
+    <Style Selector="Button.StudioSecondaryBtn:pressed /template/ Border#PART_Border">
+        <Setter Property="Background" Value="{DynamicResource SurfaceSubtleChipBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderStrongBrush}" />
+    </Style>
+    <Style Selector="Button.StudioSecondaryBtn:disabled /template/ Border#PART_Border">
+        <Setter Property="Opacity" Value="0.45" />
+    </Style>
+
+    <Style Selector="Button.StudioGhostBtn">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusSm}" />
+        <Setter Property="Padding" Value="10,6" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="Button.StudioGhostBtn:pointerover">
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+    </Style>
+    <Style Selector="Button.StudioGhostBtn:pointerover /template/ Border#PART_Border">
+        <Setter Property="Background" Value="{DynamicResource SurfaceSubtleChipBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderHairlineBrush}" />
+    </Style>
+    <Style Selector="Button.StudioGhostBtn:pressed /template/ Border#PART_Border">
+        <Setter Property="Background" Value="{DynamicResource SurfaceCardHoverBrush}" />
+    </Style>
+
+    <Style Selector="Button.StudioDangerBtn">
+        <Setter Property="Background" Value="{DynamicResource StatusDangerBgBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource StatusDangerBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource StatusDangerBorderBrush}" />
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusSm}" />
+        <Setter Property="Padding" Value="12,7" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="Button.StudioDangerBtn:pointerover /template/ Border#PART_Border">
+        <Setter Property="Background" Value="#34161D" />
+        <Setter Property="BorderBrush" Value="#702433" />
+    </Style>
+    <Style Selector="Button.StudioDangerBtn:pressed /template/ Border#PART_Border">
+        <Setter Property="Opacity" Value="0.82" />
+    </Style>
+
+    <Style Selector="Button.StudioIconBtn">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusMd}" />
+        <Setter Property="Padding" Value="0" />
+    </Style>
+    <Style Selector="Button.StudioIconBtn:pointerover">
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+    </Style>
+    <Style Selector="Button.StudioIconBtn:pointerover /template/ Border#PART_Border">
+        <Setter Property="Background" Value="{DynamicResource SurfaceSubtleChipBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}" />
+    </Style>
+    <Style Selector="Button.StudioIconBtn:pressed /template/ Border#PART_Border">
+        <Setter Property="Background" Value="{DynamicResource SurfaceCardHoverBrush}" />
+    </Style>
+
     <!-- ================= MAIN WINDOW STYLES ================= -->
     <Style Selector="Button.NavPill">
         <Setter Property="Background" Value="Transparent" />
-        <Setter Property="Foreground" Value="#9CA3AF" />
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
         <Setter Property="BorderThickness" Value="0" />
-        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusSm}" />
         <Setter Property="Padding" Value="14,10" />
         <Setter Property="HorizontalAlignment" Value="Stretch" />
         <Setter Property="HorizontalContentAlignment" Value="Left" />
@@ -16,11 +136,11 @@
         <Setter Property="Margin" Value="10,2" />
     </Style>
     <Style Selector="Button.NavPill:pointerover">
-        <Setter Property="Background" Value="#181822" />
-        <Setter Property="Foreground" Value="#FFFFFF" />
+        <Setter Property="Background" Value="{DynamicResource SurfaceCardHoverBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
     </Style>
     <Style Selector="Button.NavPill.active">
-        <Setter Property="Background" Value="{DynamicResource AccentSubtleBrush}" />
+        <Setter Property="Background" Value="{DynamicResource AccentSoftFillBrush}" />
         <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource AccentBorderBrush}" />
         <Setter Property="BorderThickness" Value="1" />
@@ -32,25 +152,25 @@
         <Setter Property="BorderThickness" Value="0" />
         <Setter Property="Width" Value="38" />
         <Setter Property="Height" Value="30" />
-        <Setter Property="CornerRadius" Value="4" />
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusXs}" />
         <Setter Property="Padding" Value="0" />
         <Setter Property="HorizontalContentAlignment" Value="Center" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
         <Setter Property="Cursor" Value="Hand" />
     </Style>
     <Style Selector="Button.CaptionBtn:pointerover /template/ ContentPresenter">
-        <Setter Property="Background" Value="#222230" />
+        <Setter Property="Background" Value="{DynamicResource SurfaceSubtleChipBrush}" />
     </Style>
     <Style Selector="Button.CaptionBtn.CloseBtn:pointerover /template/ ContentPresenter">
         <Setter Property="Background" Value="#E81123" />
     </Style>
 
     <Style Selector="Button.FooterToolChip">
-        <Setter Property="Background" Value="#122219" />
-        <Setter Property="Foreground" Value="#4ADE80" />
-        <Setter Property="BorderBrush" Value="#1E422C" />
+        <Setter Property="Background" Value="{DynamicResource StatusSuccessBgBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource StatusSuccessBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource StatusSuccessBorderBrush}" />
         <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="CornerRadius" Value="10" />
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusLg}" />
         <Setter Property="Padding" Value="7,2" />
         <Setter Property="FontSize" Value="10" />
         <Setter Property="FontWeight" Value="SemiBold" />
@@ -61,27 +181,25 @@
     </Style>
 
     <Style Selector="Button.TopCommandBarBtn">
-        <Setter Property="Background" Value="#161620" />
-        <Setter Property="BorderBrush" Value="#262634" />
+        <Setter Property="Background" Value="{DynamicResource SurfaceInputBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="CornerRadius" Value="16" />
         <Setter Property="Padding" Value="14,5" />
         <Setter Property="Cursor" Value="Hand" />
     </Style>
     <Style Selector="Button.TopCommandBarBtn:pointerover /template/ ContentPresenter">
-        <Setter Property="Background" Value="#222230" />
-        <Setter Property="BorderBrush" Value="#38384A" />
+        <Setter Property="Background" Value="{DynamicResource SurfaceCardHoverBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderHoverBrush}" />
     </Style>
 
-    <!-- ================= DASHBOARD VIEW STYLES ================= -->
-    <Style Selector="RadioButton.FilterTabPill">
+    <!-- ================= TAB PILLS & METRIC CARDS ================= -->
+    <Style Selector="RadioButton.FilterTabPill, RadioButton.SubTabPill, RadioButton.SettingsTabPill">
         <Setter Property="Background" Value="Transparent" />
-        <Setter Property="Foreground" Value="#9CA3AF" />
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
         <Setter Property="BorderThickness" Value="0" />
-        <Setter Property="Padding" Value="10,6" />
-        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusSm}" />
         <Setter Property="Cursor" Value="Hand" />
-        <Setter Property="FontSize" Value="12" />
         <Setter Property="Template">
             <ControlTemplate>
                 <Border Background="{TemplateBinding Background}"
@@ -98,12 +216,17 @@
             </ControlTemplate>
         </Setter>
     </Style>
+
+    <Style Selector="RadioButton.FilterTabPill">
+        <Setter Property="Padding" Value="10,6" />
+        <Setter Property="FontSize" Value="12" />
+    </Style>
     <Style Selector="RadioButton.FilterTabPill:pointerover">
-        <Setter Property="Background" Value="#161622" />
-        <Setter Property="Foreground" Value="#FFFFFF" />
+        <Setter Property="Background" Value="{DynamicResource SurfaceCardHoverBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
     </Style>
     <Style Selector="RadioButton.FilterTabPill:checked">
-        <Setter Property="Background" Value="{DynamicResource AccentSubtleBrush}" />
+        <Setter Property="Background" Value="{DynamicResource AccentSoftFillBrush}" />
         <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource AccentBorderBrush}" />
         <Setter Property="BorderThickness" Value="1" />
@@ -113,103 +236,72 @@
     <Style Selector="Button.MetricCardBtn">
         <Setter Property="HorizontalAlignment" Value="Stretch" />
         <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-        <Setter Property="Background" Value="#121218" />
-        <Setter Property="BorderBrush" Value="#20202C" />
-        <Setter Property="CornerRadius" Value="10" />
+        <Setter Property="Background" Value="{DynamicResource SurfaceCardBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}" />
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusLg}" />
         <Setter Property="Padding" Value="15,12" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="Transitions" Value="{x:Null}" />
         <Setter Property="Template">
             <ControlTemplate>
-                <Border Name="PART_MetricBorder" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}"
-                    CornerRadius="{TemplateBinding CornerRadius}" Padding="{TemplateBinding Padding}">
-                    <ContentPresenter Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}" />
-                </Border>
-            </ControlTemplate>
-        </Setter>
-    </Style>
-    <Style Selector="Button.MetricCardBtn:pointerover /template/ Border#PART_MetricBorder">
-        <Setter Property="Background" Value="#161620" />
-        <Setter Property="BorderBrush" Value="#2E2E3E" />
-    </Style>
-    <Style Selector="Button.MetricCardBtn.active /template/ Border#PART_MetricBorder">
-        <Setter Property="Background" Value="#171724" />
-        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
-        <Setter Property="BorderThickness" Value="1.5" />
-    </Style>
-
-    <Style Selector="ComboBoxItem">
-        <Setter Property="Foreground" Value="#FFFFFF" />
-        <Setter Property="Background" Value="#181824" />
-        <Setter Property="Padding" Value="10,6" />
-        <Setter Property="FontSize" Value="12" />
-    </Style>
-    <Style Selector="ComboBoxItem:pointerover /template/ ContentPresenter">
-        <Setter Property="Background" Value="#2A2A3C" />
-        <Setter Property="Foreground" Value="#FFFFFF" />
-    </Style>
-    <Style Selector="ComboBoxItem:selected /template/ ContentPresenter">
-        <Setter Property="Background" Value="#3B3B52" />
-        <Setter Property="Foreground" Value="#FFFFFF" />
-    </Style>
-
-    <!-- ================= SERVER LIST VIEW STYLES ================= -->
-    <Style Selector="RadioButton.SubTabPill">
-        <Setter Property="Background" Value="Transparent" />
-        <Setter Property="Foreground" Value="#A1A1AA" />
-        <Setter Property="BorderThickness" Value="0" />
-        <Setter Property="Padding" Value="10,6" />
-        <Setter Property="CornerRadius" Value="6" />
-        <Setter Property="Cursor" Value="Hand" />
-        <Setter Property="Template">
-            <ControlTemplate>
-                <Border Background="{TemplateBinding Background}"
+                <Border Name="PART_MetricBorder"
+                        Background="{TemplateBinding Background}"
                         BorderBrush="{TemplateBinding BorderBrush}"
                         BorderThickness="{TemplateBinding BorderThickness}"
                         CornerRadius="{TemplateBinding CornerRadius}"
                         Padding="{TemplateBinding Padding}">
                     <ContentPresenter Content="{TemplateBinding Content}"
-                                      ContentTemplate="{TemplateBinding ContentTemplate}"
-                                      Foreground="{TemplateBinding Foreground}"
-                                      VerticalAlignment="Center"
-                                      HorizontalAlignment="Center" />
+                                      ContentTemplate="{TemplateBinding ContentTemplate}" />
                 </Border>
             </ControlTemplate>
         </Setter>
     </Style>
+    <Style Selector="Button.MetricCardBtn:pointerover /template/ Border#PART_MetricBorder">
+        <Setter Property="Background" Value="{DynamicResource SurfaceCardHoverBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderHoverBrush}" />
+    </Style>
+    <Style Selector="Button.MetricCardBtn.active /template/ Border#PART_MetricBorder">
+        <Setter Property="Background" Value="{DynamicResource SurfaceElevatedBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+        <Setter Property="BorderThickness" Value="1.5" />
+    </Style>
+
+    <Style Selector="RadioButton.SubTabPill">
+        <Setter Property="Padding" Value="10,6" />
+    </Style>
     <Style Selector="RadioButton.SubTabPill:pointerover">
-        <Setter Property="Background" Value="#1A1A24" />
-        <Setter Property="Foreground" Value="#FFFFFF" />
+        <Setter Property="Background" Value="{DynamicResource SurfaceCardHoverBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
     </Style>
     <Style Selector="RadioButton.SubTabPill:checked">
-        <Setter Property="Background" Value="#22222E" />
-        <Setter Property="Foreground" Value="#FFFFFF" />
-        <Setter Property="BorderBrush" Value="#323244" />
+        <Setter Property="Background" Value="{DynamicResource SurfaceSubtleChipBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderHoverBrush}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
 
     <Style Selector="Button.SortHeaderBtn">
         <Setter Property="Background" Value="Transparent" />
-        <Setter Property="Foreground" Value="#9CA3AF" />
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
         <Setter Property="BorderThickness" Value="0" />
         <Setter Property="Padding" Value="4,2" />
-        <Setter Property="CornerRadius" Value="4" />
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusXs}" />
         <Setter Property="HorizontalAlignment" Value="Left" />
         <Setter Property="Cursor" Value="Hand" />
     </Style>
     <Style Selector="Button.SortHeaderBtn:pointerover /template/ ContentPresenter">
-        <Setter Property="Background" Value="#1E1E2A" />
-        <Setter Property="Foreground" Value="#FFFFFF" />
+        <Setter Property="Background" Value="{DynamicResource SurfaceCardHoverBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
     </Style>
 
     <Style Selector="ToggleButton.ServerFilterPill">
-        <Setter Property="Background" Value="#171720" />
-        <Setter Property="Foreground" Value="#A1A1AA" />
-        <Setter Property="BorderBrush" Value="#282836" />
+        <Setter Property="Background" Value="{DynamicResource SurfaceCardBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}" />
         <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusSm}" />
         <Setter Property="Padding" Value="10,5" />
         <Setter Property="FontSize" Value="11" />
         <Setter Property="FontWeight" Value="SemiBold" />
@@ -232,49 +324,28 @@
         </Setter>
     </Style>
     <Style Selector="ToggleButton.ServerFilterPill:pointerover">
-        <Setter Property="Background" Value="#1E1E2C" />
-        <Setter Property="Foreground" Value="#FFFFFF" />
-        <Setter Property="BorderBrush" Value="#38384A" />
+        <Setter Property="Background" Value="{DynamicResource SurfaceCardHoverBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderHoverBrush}" />
     </Style>
     <Style Selector="ToggleButton.ServerFilterPill:checked">
-        <Setter Property="Background" Value="#162838" />
-        <Setter Property="Foreground" Value="#38BDF8" />
-        <Setter Property="BorderBrush" Value="#285880" />
+        <Setter Property="Background" Value="{DynamicResource StatusInfoBgBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource StatusInfoBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource StatusInfoBorderBrush}" />
         <Setter Property="FontWeight" Value="Bold" />
     </Style>
 
-    <!-- ================= SETTINGS VIEW STYLES ================= -->
     <Style Selector="RadioButton.SettingsTabPill">
-        <Setter Property="Background" Value="Transparent" />
-        <Setter Property="Foreground" Value="#A1A1AA" />
-        <Setter Property="BorderThickness" Value="0" />
         <Setter Property="Padding" Value="14,8" />
-        <Setter Property="CornerRadius" Value="6" />
-        <Setter Property="Cursor" Value="Hand" />
-        <Setter Property="Template">
-            <ControlTemplate>
-                <Border Background="{TemplateBinding Background}"
-                        BorderBrush="{TemplateBinding BorderBrush}"
-                        BorderThickness="{TemplateBinding BorderThickness}"
-                        CornerRadius="{TemplateBinding CornerRadius}"
-                        Padding="{TemplateBinding Padding}">
-                    <ContentPresenter Content="{TemplateBinding Content}"
-                                      ContentTemplate="{TemplateBinding ContentTemplate}"
-                                      Foreground="{TemplateBinding Foreground}"
-                                      VerticalAlignment="Center"
-                                      HorizontalAlignment="Center" />
-                </Border>
-            </ControlTemplate>
-        </Setter>
     </Style>
     <Style Selector="RadioButton.SettingsTabPill:pointerover">
-        <Setter Property="Background" Value="#1A1A24" />
-        <Setter Property="Foreground" Value="#FFFFFF" />
+        <Setter Property="Background" Value="{DynamicResource SurfaceCardHoverBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
     </Style>
     <Style Selector="RadioButton.SettingsTabPill:checked">
-        <Setter Property="Background" Value="#22222E" />
-        <Setter Property="Foreground" Value="#FFFFFF" />
-        <Setter Property="BorderBrush" Value="#323244" />
+        <Setter Property="Background" Value="{DynamicResource SurfaceSubtleChipBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderHoverBrush}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="FontWeight" Value="SemiBold" />
     </Style>

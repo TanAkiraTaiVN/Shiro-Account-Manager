@@ -1,0 +1,107 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- ================= 4-TIER OBSIDIAN SURFACES ================= -->
+    <SolidColorBrush x:Key="SurfaceCanvasBrush" Color="#08080C" />
+    <SolidColorBrush x:Key="SurfaceChromeBrush" Color="#0C0C12" />
+    <SolidColorBrush x:Key="SurfacePanelBrush" Color="#101017" />
+    <SolidColorBrush x:Key="SurfaceCardBrush" Color="#14141D" />
+    <SolidColorBrush x:Key="SurfaceCardHoverBrush" Color="#191925" />
+    <SolidColorBrush x:Key="SurfaceElevatedBrush" Color="#181824" />
+    <SolidColorBrush x:Key="SurfaceInputBrush" Color="#11111A" />
+    <SolidColorBrush x:Key="SurfaceInputFocusBrush" Color="#151521" />
+    <SolidColorBrush x:Key="SurfaceSubtleChipBrush" Color="#1A1A26" />
+
+    <!-- ================= BORDERS & TOP RIM LIGHTS ================= -->
+    <SolidColorBrush x:Key="BorderHairlineBrush" Color="#1A1A25" />
+    <SolidColorBrush x:Key="BorderSubtleBrush" Color="#222230" />
+    <SolidColorBrush x:Key="BorderHoverBrush" Color="#323246" />
+    <SolidColorBrush x:Key="BorderStrongBrush" Color="#3F3F56" />
+
+    <LinearGradientBrush x:Key="BorderTopRimBrush" StartPoint="0%,0%" EndPoint="0%,100%">
+        <GradientStop Offset="0" Color="#26FFFFFF" />
+        <GradientStop Offset="0.45" Color="#0AFFFFFF" />
+        <GradientStop Offset="1" Color="#00FFFFFF" />
+    </LinearGradientBrush>
+
+    <LinearGradientBrush x:Key="SurfaceCardGradientBrush" StartPoint="0%,0%" EndPoint="0%,100%">
+        <GradientStop Offset="0" Color="#171722" />
+        <GradientStop Offset="1" Color="#12121A" />
+    </LinearGradientBrush>
+
+    <!-- ================= TYPOGRAPHY BRUSHES ================= -->
+    <SolidColorBrush x:Key="TextPrimaryBrush" Color="#F5F5F8" />
+    <SolidColorBrush x:Key="TextSecondaryBrush" Color="#A1A1B2" />
+    <SolidColorBrush x:Key="TextMutedBrush" Color="#6E6E80" />
+    <SolidColorBrush x:Key="TextDisabledBrush" Color="#4A4A5A" />
+
+    <!-- ================= SEMANTIC STATUS BRUSHES ================= -->
+    <SolidColorBrush x:Key="StatusSuccessBrush" Color="#4ADE80" />
+    <SolidColorBrush x:Key="StatusSuccessBgBrush" Color="#11261B" />
+    <SolidColorBrush x:Key="StatusSuccessBorderBrush" Color="#1E4931" />
+
+    <SolidColorBrush x:Key="StatusInfoBrush" Color="#38BDF8" />
+    <SolidColorBrush x:Key="StatusInfoBgBrush" Color="#102131" />
+    <SolidColorBrush x:Key="StatusInfoBorderBrush" Color="#1E3E5C" />
+
+    <SolidColorBrush x:Key="StatusWarningBrush" Color="#FBBF24" />
+    <SolidColorBrush x:Key="StatusWarningBgBrush" Color="#261D0E" />
+    <SolidColorBrush x:Key="StatusWarningBorderBrush" Color="#593C14" />
+
+    <SolidColorBrush x:Key="StatusDangerBrush" Color="#F87171" />
+    <SolidColorBrush x:Key="StatusDangerBgBrush" Color="#271217" />
+    <SolidColorBrush x:Key="StatusDangerBorderBrush" Color="#541D28" />
+
+    <!-- ================= DYNAMIC ACCENT FALLBACK (MONOCHROME) ================= -->
+    <Color x:Key="AccentColor">#FFFFFF</Color>
+    <Color x:Key="AccentHoverColor">#E4E4E7</Color>
+    <Color x:Key="AccentForegroundColor">#09090B</Color>
+    <Color x:Key="AccentAmbientColor">#1CFFFFFF</Color>
+    <Color x:Key="AccentAmbientSecondaryColor">#0F6366F1</Color>
+
+    <SolidColorBrush x:Key="AccentBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="AccentHoverBrush" Color="#E4E4E7" />
+    <SolidColorBrush x:Key="AccentForegroundBrush" Color="#09090B" />
+    <SolidColorBrush x:Key="AccentGlowBrush" Color="#5AFFFFFF" />
+    <SolidColorBrush x:Key="AccentSubtleBrush" Color="#1CFFFFFF" />
+    <SolidColorBrush x:Key="AccentBorderBrush" Color="#46FFFFFF" />
+    <SolidColorBrush x:Key="AccentSoftFillBrush" Color="#1FFFFFFF" />
+    <SolidColorBrush x:Key="AccentRimBrush" Color="#73FFFFFF" />
+
+    <LinearGradientBrush x:Key="AccentGradientBrush" StartPoint="0%,0%" EndPoint="100%,100%">
+        <GradientStop Offset="0" Color="#FFFFFF" />
+        <GradientStop Offset="1" Color="#E4E4E7" />
+    </LinearGradientBrush>
+
+    <RadialGradientBrush x:Key="AccentAmbientBrush"
+                         Center="50%,50%"
+                         GradientOrigin="50%,50%"
+                         RadiusX="50%"
+                         RadiusY="50%">
+        <GradientStop Offset="0" Color="#1CFFFFFF" />
+        <GradientStop Offset="0.55" Color="#09FFFFFF" />
+        <GradientStop Offset="1" Color="#00FFFFFF" />
+    </RadialGradientBrush>
+
+    <RadialGradientBrush x:Key="AccentAmbientSecondaryBrush"
+                         Center="50%,50%"
+                         GradientOrigin="50%,50%"
+                         RadiusX="50%"
+                         RadiusY="50%">
+        <GradientStop Offset="0" Color="#0F6366F1" />
+        <GradientStop Offset="0.55" Color="#056366F1" />
+        <GradientStop Offset="1" Color="#006366F1" />
+    </RadialGradientBrush>
+
+    <!-- ================= STATIC SHADOWS & RADII ================= -->
+    <BoxShadows x:Key="ShadowCard">0 6 20 0 #55000000</BoxShadows>
+    <BoxShadows x:Key="ShadowFloating">0 14 36 0 #99000000, 0 2 8 0 #44000000</BoxShadows>
+    <BoxShadows x:Key="ShadowModal">0 24 64 0 #CC000000, 0 4 16 0 #66000000</BoxShadows>
+
+    <CornerRadius x:Key="RadiusXs">4</CornerRadius>
+    <CornerRadius x:Key="RadiusSm">6</CornerRadius>
+    <CornerRadius x:Key="RadiusMd">8</CornerRadius>
+    <CornerRadius x:Key="RadiusLg">10</CornerRadius>
+    <CornerRadius x:Key="RadiusXl">12</CornerRadius>
+    <CornerRadius x:Key="RadiusPill">999</CornerRadius>
+</ResourceDictionary>
