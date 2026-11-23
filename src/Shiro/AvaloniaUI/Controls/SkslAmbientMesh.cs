@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
@@ -61,8 +62,9 @@ namespace Shiro.AvaloniaUI.Controls
             set => SetValue(SecondaryOrbOpacityScaleProperty, value);
         }
 
-        private readonly SkslAmbientMeshHandler _handler;
+        private SkslAmbientMeshHandler _handler;
         private CompositionCustomVisual? _customVisual;
+        private MeshFallbackBrushCache _uiFallbackCache;
         private volatile bool _lastRenderUsedFallback;
         private volatile bool _hasRenderedSkiaOnCompositor;
         private bool? _skiaFeatureAvailable;
@@ -70,8 +72,10 @@ namespace Shiro.AvaloniaUI.Controls
         private bool _isAttached;
 
         internal bool AutoSubscribeToThemeServices { get; set; } = true;
-        internal SkslAmbientMeshHandler Handler => _handler;
+        internal SkslAmbientMeshHandler Handler => Volatile.Read(ref _handler);
         internal bool LastRenderUsedFallback { get => _lastRenderUsedFallback; private set => _lastRenderUsedFallback = value; }
+
+        internal void OverrideSkiaFeatureForTesting(bool? available) => _skiaFeatureAvailable = available;
 
         public SkslAmbientMesh()
         {
@@ -88,8 +92,11 @@ namespace Shiro.AvaloniaUI.Controls
             return effect;
         }
 
-        internal void SetLastRenderUsedFallback(bool usedFallback)
+        internal void ReportRenderOutcome(SkslAmbientMeshHandler source, bool usedFallback)
         {
+            if (!ReferenceEquals(Volatile.Read(ref _handler), source))
+                return;
+
             if (!usedFallback)
                 _hasRenderedSkiaOnCompositor = true;
             _lastRenderUsedFallback = usedFallback;
@@ -100,16 +107,13 @@ namespace Shiro.AvaloniaUI.Controls
             if (!_isAttached)
                 return;
 
-            double durationMs = animate && !VisualPreferencesService.Instance.ReducedMotion ? 450.0 : 0.0;
-            MeshTransitionMessage msg = BuildTransitionMessage(durationMs);
-
             if (_customVisual != null)
             {
-                _customVisual.SendHandlerMessage(msg);
+                double durationMs = animate && !VisualPreferencesService.Instance.ReducedMotion ? 450.0 : 0.0;
+                _customVisual.SendHandlerMessage(BuildTransitionMessage(durationMs));
             }
             else
             {
-                _handler.OnMessage(msg);
                 InvalidateVisual();
             }
         }
@@ -117,7 +121,6 @@ namespace Shiro.AvaloniaUI.Controls
         internal void ReleaseShaderResources()
         {
             DetachCompositionVisual();
-            _handler.DisposeFromDetach();
             InvalidateVisual();
         }
 
@@ -126,8 +129,9 @@ namespace Shiro.AvaloniaUI.Controls
             if (width <= 1.0f || height <= 1.0f)
                 return false;
 
-            _handler.OnMessage(BuildTransitionMessage(durationMs: 0.0));
-            bool rendered = _handler.RenderToSkia(canvas, width, height);
+            SkslAmbientMeshHandler handler = Handler;
+            handler.OnMessage(BuildTransitionMessage(durationMs: 0.0));
+            bool rendered = handler.RenderToSkia(canvas, width, height);
             LastRenderUsedFallback = !rendered;
             return rendered;
         }
@@ -205,11 +209,9 @@ namespace Shiro.AvaloniaUI.Controls
             if (size.Width <= 1.0 || size.Height <= 1.0)
                 return;
 
-            if (!_handler.HasColorState)
-                _handler.OnMessage(BuildTransitionMessage(durationMs: 0.0));
-
+            MeshColors colors = BuildTargetColors();
             LastRenderUsedFallback = true;
-            _handler.RenderFallback(context, size.Width, size.Height);
+            _uiFallbackCache.RenderDrawingContext(context, colors, size.Width, size.Height);
         }
 
         private void SyncCompositionAttachment(bool animate)
@@ -222,27 +224,40 @@ namespace Shiro.AvaloniaUI.Controls
 
             if (_customVisual == null && ElementComposition.GetElementVisual(this)?.Compositor is { } compositor)
             {
-                _handler.SetHostAttached(true);
-                _customVisual = compositor.CreateCustomVisual(_handler);
+                if (!TryEnsureSkiaFeatureAvailable(compositor))
+                {
+                    InvalidateVisual();
+                    return;
+                }
+
+                var nextHandler = new SkslAmbientMeshHandler(this);
+                nextHandler.SetHostAttached(true);
+                Volatile.Write(ref _handler, nextHandler);
+                _hasRenderedSkiaOnCompositor = false;
+
+                _customVisual = compositor.CreateCustomVisual(nextHandler);
                 _customVisual.Size = new Vector(Bounds.Width, Bounds.Height);
                 ElementComposition.SetElementChildVisual(this, _customVisual);
-                ProbeSkiaFeature(compositor);
             }
 
             UpdateVisualSize(Bounds.Size);
             NotifyPaletteChanged(animate);
         }
 
-        private void ProbeSkiaFeature(Compositor compositor)
+        private bool TryEnsureSkiaFeatureAvailable(Compositor compositor)
         {
-            if (_skiaFeatureAvailable.HasValue || _probeInFlight)
-                return;
+            if (_skiaFeatureAvailable.HasValue)
+                return _skiaFeatureAvailable.Value;
+
+            if (_probeInFlight)
+                return true;
 
             ValueTask<object?> featureTask = compositor.TryGetRenderInterfaceFeature(typeof(ISkiaSharpApiLeaseFeature));
             if (featureTask.IsCompletedSuccessfully)
             {
-                ApplySkiaProbeResult(featureTask.Result is ISkiaSharpApiLeaseFeature);
-                return;
+                bool hasSkia = featureTask.Result is ISkiaSharpApiLeaseFeature;
+                _skiaFeatureAvailable = hasSkia;
+                return hasSkia;
             }
 
             _probeInFlight = true;
@@ -255,29 +270,32 @@ namespace Shiro.AvaloniaUI.Controls
                     ApplySkiaProbeResult(hasSkia);
                 });
             }, TaskScheduler.Default);
+            return true;
         }
 
         private void ApplySkiaProbeResult(bool hasSkia)
         {
             _skiaFeatureAvailable = hasSkia;
             if (!hasSkia)
-            {
                 DetachCompositionVisual();
-                _handler.DisposeFromDetach();
-            }
+
             if (_isAttached)
                 InvalidateVisual();
         }
 
         private void DetachCompositionVisual()
         {
+            SkslAmbientMeshHandler retiredHandler = Handler;
             if (_customVisual != null)
             {
                 _customVisual.SendHandlerMessage(MeshDisposeMessage.Instance);
                 ElementComposition.SetElementChildVisual(this, null);
                 _customVisual = null;
             }
-            _handler.SetHostAttached(false);
+
+            _hasRenderedSkiaOnCompositor = false;
+            retiredHandler.SetHostAttached(false);
+            retiredHandler.DisposeFromDetach();
         }
 
         private void UpdateVisualSize(Size size)
@@ -309,7 +327,7 @@ namespace Shiro.AvaloniaUI.Controls
             });
         }
 
-        private MeshTransitionMessage BuildTransitionMessage(double durationMs)
+        private MeshColors BuildTargetColors()
         {
             var palette = AccentThemeService.GetEffectiveExtendedColors();
             var surface = OklchColorMath.DeriveSurfacePalette(AccentThemeService.CurrentSurfacePreset);
@@ -320,7 +338,13 @@ namespace Shiro.AvaloniaUI.Controls
             var orb1 = new SKColorF(palette.Ambient.R / 255.0f, palette.Ambient.G / 255.0f, palette.Ambient.B / 255.0f, primaryAlpha);
             var orb2 = new SKColorF(palette.AmbientSecondary.R / 255.0f, palette.AmbientSecondary.G / 255.0f, palette.AmbientSecondary.B / 255.0f, secondaryAlpha);
             var baseCol = new SKColorF(surface.SurfaceCanvas.R / 255.0f, surface.SurfaceCanvas.G / 255.0f, surface.SurfaceCanvas.B / 255.0f, 1.0f);
-            return new MeshTransitionMessage(orb1, orb2, baseCol, durationMs);
+            return new MeshColors(orb1, orb2, baseCol);
+        }
+
+        private MeshTransitionMessage BuildTransitionMessage(double durationMs)
+        {
+            MeshColors colors = BuildTargetColors();
+            return new MeshTransitionMessage(colors.Orb1, colors.Orb2, colors.Base, durationMs);
         }
     }
 }

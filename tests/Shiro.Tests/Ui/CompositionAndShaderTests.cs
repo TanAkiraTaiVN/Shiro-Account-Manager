@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Reflection;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
@@ -366,6 +367,137 @@ namespace Shiro.Tests.Ui
                 Assert.Equal(baseThemeSubs, GetStaticEventSubscriberCount(typeof(AccentThemeService), nameof(AccentThemeService.ThemeChanged)));
                 Assert.Equal(basePresetSubs, GetStaticEventSubscriberCount(typeof(AccentThemeService), nameof(AccentThemeService.SurfacePresetChanged)));
                 Assert.Equal(basePrefSubs, GetPreferencesSubscriberCount());
+            }
+            finally
+            {
+                window.Content = null;
+                window.Close();
+                Dispatcher.UIThread.RunJobs();
+            }
+        }
+
+        [AvaloniaFact]
+        public void SkslAmbientMesh_DetachReattach_CreatesFreshHandler_AndIgnoresStaleDisposeFromOldVisual()
+        {
+            VisualPreferencesService.Instance.EnableGlassEffects = true;
+            var mesh = new SkslAmbientMesh { Width = 240, Height = 160 };
+            mesh.OverrideSkiaFeatureForTesting(true);
+            var window = new Window { Width = 260, Height = 180, Content = mesh };
+
+            try
+            {
+                window.Show();
+                Dispatcher.UIThread.RunJobs();
+                SkslAmbientMeshHandler firstHandler = mesh.Handler;
+                Assert.False(firstHandler.IsDisposed);
+
+                // Detach and reattach, then toggle glass off/on: each attachment must own a fresh handler.
+                window.Content = null;
+                Dispatcher.UIThread.RunJobs();
+                Assert.True(firstHandler.IsDisposed);
+
+                window.Content = mesh;
+                Dispatcher.UIThread.RunJobs();
+                SkslAmbientMeshHandler secondHandler = mesh.Handler;
+                Assert.NotSame(firstHandler, secondHandler);
+                Assert.False(secondHandler.IsDisposed);
+
+                VisualPreferencesService.Instance.EnableGlassEffects = false;
+                Dispatcher.UIThread.RunJobs();
+                Assert.True(secondHandler.IsDisposed);
+
+                VisualPreferencesService.Instance.EnableGlassEffects = true;
+                Dispatcher.UIThread.RunJobs();
+                SkslAmbientMeshHandler thirdHandler = mesh.Handler;
+                Assert.NotSame(secondHandler, thirdHandler);
+                Assert.False(thirdHandler.IsDisposed);
+
+                // Simulate delayed MeshDisposeMessage and stale outcome arriving from earlier visuals.
+                firstHandler.OnMessage(MeshDisposeMessage.Instance);
+                secondHandler.OnMessage(MeshDisposeMessage.Instance);
+                Assert.False(thirdHandler.IsDisposed);
+
+                AccentThemeService.ApplyTheme(AccentTheme.Cyan, save: false);
+                Dispatcher.UIThread.RunJobs();
+
+                var info = new SKImageInfo(120, 80, SKColorType.Rgba8888, SKAlphaType.Premul);
+                using var skSurface = SKSurface.Create(info);
+                Assert.NotNull(skSurface);
+                Assert.True(thirdHandler.RenderToSkia(skSurface!.Canvas, 120f, 80f));
+                Assert.True(thirdHandler.HasLiveNativeResources);
+
+                mesh.ReportRenderOutcome(thirdHandler, usedFallback: false);
+                mesh.ReportRenderOutcome(firstHandler, usedFallback: true);
+                Assert.False(mesh.LastRenderUsedFallback);
+            }
+            finally
+            {
+                window.Content = null;
+                window.Close();
+                Dispatcher.UIThread.RunJobs();
+            }
+
+            Assert.True(mesh.Handler.IsDisposed);
+            Assert.False(mesh.Handler.HasLiveNativeResources);
+        }
+
+        [AvaloniaFact]
+        public async Task SkslAmbientMesh_UiFallbackRender_DoesNotMutateCompositorHandlerDuringAsyncProbe()
+        {
+            VisualPreferencesService.Instance.EnableGlassEffects = true;
+            var mesh = new SkslAmbientMesh { Width = 240, Height = 160 };
+            mesh.OverrideSkiaFeatureForTesting(true);
+            var window = new Window { Width = 260, Height = 180, Content = mesh };
+
+            try
+            {
+                window.Show();
+                Dispatcher.UIThread.RunJobs();
+                SkslAmbientMeshHandler activeHandler = mesh.Handler;
+                Assert.False(activeHandler.IsDisposed);
+
+                // Simulate the in-flight async Skia probe window (_customVisual != null && _skiaFeatureAvailable == null).
+                mesh.OverrideSkiaFeatureForTesting(null);
+                int beforeRenderInvalidations = activeHandler.InvalidationCountForTesting;
+                SKColorF beforeRenderOrb1 = activeHandler.CurrentOrb1;
+
+                // UI fallback render must use UI-owned brushes without mutating activeHandler state.
+                using (var rtb = new RenderTargetBitmap(new PixelSize(260, 180), new Vector(96, 96)))
+                {
+                    rtb.Render(window);
+                }
+                Assert.True(mesh.LastRenderUsedFallback);
+                Assert.Equal(beforeRenderInvalidations, activeHandler.InvalidationCountForTesting);
+                Assert.Equal(beforeRenderOrb1, activeHandler.CurrentOrb1);
+
+                // Drive transitions concurrently while UI thread renders fallback frames.
+                var clockNow = TimeSpan.Zero;
+                var concurrentHandler = new SkslAmbientMeshHandler(() => clockNow);
+                concurrentHandler.OnMessage(new MeshSizeMessage(240, 160));
+                Task worker = Task.Run(() =>
+                {
+                    for (int i = 0; i < 60; i++)
+                    {
+                        concurrentHandler.OnMessage(new MeshTransitionMessage(
+                            new SKColorF(0.1f, 0.6f, 0.9f, 0.12f),
+                            new SKColorF(0.4f, 0.4f, 0.9f, 0.08f),
+                            new SKColorF(0.03f, 0.03f, 0.05f, 1.0f),
+                            DurationMs: 450.0));
+                        clockNow += TimeSpan.FromMilliseconds(20);
+                        concurrentHandler.OnAnimationFrameUpdate();
+                    }
+                });
+
+                for (int i = 0; i < 10; i++)
+                {
+                    using var rtb = new RenderTargetBitmap(new PixelSize(260, 180), new Vector(96, 96));
+                    rtb.Render(window);
+                }
+
+                await worker;
+                Assert.True(mesh.LastRenderUsedFallback);
+                Assert.Equal(beforeRenderInvalidations, activeHandler.InvalidationCountForTesting);
+                Assert.Equal(beforeRenderOrb1, activeHandler.CurrentOrb1);
             }
             finally
             {

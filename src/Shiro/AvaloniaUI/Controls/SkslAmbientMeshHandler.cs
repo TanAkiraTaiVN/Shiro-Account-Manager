@@ -48,6 +48,70 @@ namespace Shiro.AvaloniaUI.Controls
             Math.Abs(a.Alpha - b.Alpha) < 0.0005f;
     }
 
+    internal struct MeshFallbackBrushCache
+    {
+        private IImmutableBrush? _baseBrush;
+        private IImmutableBrush? _orb1Brush;
+        private IImmutableBrush? _orb2Brush;
+        private MeshColors _cachedColors;
+
+        public void RenderImmediate(ImmediateDrawingContext context, in MeshColors colors, double width, double height)
+        {
+            EnsureBrushes(colors);
+            var rect = new Rect(0.0, 0.0, width, height);
+            if (_baseBrush != null) context.DrawRectangle(_baseBrush, null, rect);
+            if (_orb1Brush != null) context.DrawRectangle(_orb1Brush, null, rect);
+            if (_orb2Brush != null) context.DrawRectangle(_orb2Brush, null, rect);
+        }
+
+        public void RenderDrawingContext(DrawingContext context, in MeshColors colors, double width, double height)
+        {
+            EnsureBrushes(colors);
+            var rect = new Rect(0.0, 0.0, width, height);
+            if (_baseBrush != null) context.FillRectangle(_baseBrush, rect);
+            if (_orb1Brush != null) context.FillRectangle(_orb1Brush, rect);
+            if (_orb2Brush != null) context.FillRectangle(_orb2Brush, rect);
+        }
+
+        private void EnsureBrushes(in MeshColors colors)
+        {
+            if (_baseBrush != null && _cachedColors.IsCloseTo(colors))
+                return;
+
+            _cachedColors = colors;
+            _baseBrush = new ImmutableSolidColorBrush(ToAvaloniaColor(colors.Base, opaque: true));
+            _orb1Brush = BuildOrbBrush(colors.Orb1, new RelativePoint(0.18, 0.14, RelativeUnit.Relative), 0.52, 0.44);
+            _orb2Brush = BuildOrbBrush(colors.Orb2, new RelativePoint(0.84, 0.82, RelativeUnit.Relative), 0.48, 0.44);
+        }
+
+        private static IImmutableBrush? BuildOrbBrush(SKColorF color, RelativePoint center, double rx, double ry)
+        {
+            byte peakAlpha = (byte)Math.Clamp(Math.Round(color.Alpha * 255.0f), 0, 255);
+            if (peakAlpha == 0)
+                return null;
+
+            byte r = ToByte(color.Red);
+            byte g = ToByte(color.Green);
+            byte b = ToByte(color.Blue);
+            byte mid = (byte)Math.Clamp(Math.Round(peakAlpha * 0.36), 0, 255);
+            return new ImmutableRadialGradientBrush(
+                new ImmutableGradientStop[]
+                {
+                    new(0.0, Color.FromArgb(peakAlpha, r, g, b)),
+                    new(0.5, Color.FromArgb(mid, r, g, b)),
+                    new(1.0, Color.FromArgb(0, r, g, b))
+                },
+                center: center,
+                gradientOrigin: center,
+                radiusX: new RelativeScalar(rx, RelativeUnit.Relative),
+                radiusY: new RelativeScalar(ry, RelativeUnit.Relative));
+        }
+
+        private static byte ToByte(float ch) => (byte)Math.Clamp(Math.Round(ch * 255.0f), 0, 255);
+        private static Color ToAvaloniaColor(SKColorF c, bool opaque) =>
+            Color.FromArgb(opaque ? (byte)255 : ToByte(c.Alpha), ToByte(c.Red), ToByte(c.Green), ToByte(c.Blue));
+    }
+
     /// <summary>
     /// Render-thread CompositionCustomVisualHandler driving an SKRuntimeEffect 2-orb ambient mesh
     /// shader with 450ms cubic color transitions and zero idle frame updates when settled.
@@ -83,10 +147,7 @@ namespace Shiro.AvaloniaUI.Controls
         private MeshColors _cachedColors;
         private float _cachedPhase;
 
-        private IImmutableBrush? _fallbackBaseBrush;
-        private IImmutableBrush? _fallbackOrb1Brush;
-        private IImmutableBrush? _fallbackOrb2Brush;
-        private MeshColors _fallbackColors;
+        private MeshFallbackBrushCache _fallbackCache;
 
         public bool IsAnimating { get => _isAnimating; private set => _isAnimating = value; }
         public double TransitionProgress { get; private set; } = 1.0;
@@ -96,7 +157,15 @@ namespace Shiro.AvaloniaUI.Controls
 
         internal int AnimationFrameRequestsForTesting { get; private set; }
         internal int InvalidationCountForTesting { get; private set; }
-        internal bool HasColorState => _hasColorState;
+
+        internal bool IsDisposed
+        {
+            get
+            {
+                lock (_skiaLock)
+                    return _disposed;
+            }
+        }
 
         internal bool HasLiveNativeResources
         {
@@ -122,17 +191,12 @@ namespace Shiro.AvaloniaUI.Controls
         internal void SetHostAttached(bool attached)
         {
             lock (_skiaLock)
-            {
                 _hostAttached = attached;
-                if (attached)
-                    _disposed = false;
-            }
         }
 
         internal void DisposeFromDetach()
         {
             IsAnimating = false;
-            _transitionStart = null;
             DisposeNativeResources(markDisposed: true);
         }
 
@@ -153,6 +217,9 @@ namespace Shiro.AvaloniaUI.Controls
                 return;
             }
 
+            if (_disposed)
+                return;
+
             if (message is MeshSizeMessage sizeMsg)
             {
                 double nextW = Math.Max(0.0, sizeMsg.Width);
@@ -168,9 +235,6 @@ namespace Shiro.AvaloniaUI.Controls
 
             if (message is MeshTransitionMessage transition)
             {
-                lock (_skiaLock)
-                    _disposed = false;
-
                 ApplyTransition(transition);
             }
         }
@@ -209,6 +273,9 @@ namespace Shiro.AvaloniaUI.Controls
 
         public override void OnRender(ImmediateDrawingContext drawingContext)
         {
+            if (_disposed)
+                return;
+
             double width = _width > 0.0 ? _width : (_hostAttached ? EffectiveSize.X : 0.0);
             double height = _height > 0.0 ? _height : (_hostAttached ? EffectiveSize.Y : 0.0);
             if (width <= 1.0 || height <= 1.0)
@@ -220,13 +287,13 @@ namespace Shiro.AvaloniaUI.Controls
                 using ISkiaSharpApiLease? lease = leaseFeature.Lease();
                 if (lease?.SkCanvas != null && RenderToSkia(lease.SkCanvas, (float)width, (float)height))
                 {
-                    _owner?.SetLastRenderUsedFallback(false);
+                    _owner?.ReportRenderOutcome(this, usedFallback: false);
                     return;
                 }
             }
 
-            _owner?.SetLastRenderUsedFallback(true);
-            RenderFallbackImmediate(drawingContext, width, height);
+            _owner?.ReportRenderOutcome(this, usedFallback: true);
+            _fallbackCache.RenderImmediate(drawingContext, _current, width, height);
         }
 
         internal bool RenderToSkia(SKCanvas canvas, float width, float height)
@@ -289,24 +356,6 @@ namespace Shiro.AvaloniaUI.Controls
             }
         }
 
-        internal void RenderFallbackImmediate(ImmediateDrawingContext context, double width, double height)
-        {
-            EnsureFallbackBrushes();
-            var rect = new Rect(0.0, 0.0, width, height);
-            if (_fallbackBaseBrush != null) context.DrawRectangle(_fallbackBaseBrush, null, rect);
-            if (_fallbackOrb1Brush != null) context.DrawRectangle(_fallbackOrb1Brush, null, rect);
-            if (_fallbackOrb2Brush != null) context.DrawRectangle(_fallbackOrb2Brush, null, rect);
-        }
-
-        internal void RenderFallback(DrawingContext context, double width, double height)
-        {
-            EnsureFallbackBrushes();
-            var rect = new Rect(0.0, 0.0, width, height);
-            if (_fallbackBaseBrush != null) context.FillRectangle(_fallbackBaseBrush, rect);
-            if (_fallbackOrb1Brush != null) context.FillRectangle(_fallbackOrb1Brush, rect);
-            if (_fallbackOrb2Brush != null) context.FillRectangle(_fallbackOrb2Brush, rect);
-        }
-
         private void ApplyTransition(MeshTransitionMessage msg)
         {
             var target = new MeshColors(msg.Orb1, msg.Orb2, msg.Base);
@@ -345,44 +394,7 @@ namespace Shiro.AvaloniaUI.Controls
             SafeRegisterNextFrame();
         }
 
-        private void EnsureFallbackBrushes()
-        {
-            if (_fallbackBaseBrush != null && _fallbackColors.IsCloseTo(_current))
-                return;
-
-            _fallbackColors = _current;
-            _fallbackBaseBrush = new ImmutableSolidColorBrush(ToAvaloniaColor(_current.Base, opaque: true));
-            _fallbackOrb1Brush = BuildOrbBrush(_current.Orb1, new RelativePoint(0.18, 0.14, RelativeUnit.Relative), 0.52, 0.44);
-            _fallbackOrb2Brush = BuildOrbBrush(_current.Orb2, new RelativePoint(0.84, 0.82, RelativeUnit.Relative), 0.48, 0.44);
-        }
-
-        private static IImmutableBrush? BuildOrbBrush(SKColorF color, RelativePoint center, double rx, double ry)
-        {
-            byte peakAlpha = (byte)Math.Clamp(Math.Round(color.Alpha * 255.0f), 0, 255);
-            if (peakAlpha == 0)
-                return null;
-
-            byte r = ToByte(color.Red);
-            byte g = ToByte(color.Green);
-            byte b = ToByte(color.Blue);
-            byte mid = (byte)Math.Clamp(Math.Round(peakAlpha * 0.36), 0, 255);
-            return new ImmutableRadialGradientBrush(
-                new ImmutableGradientStop[]
-                {
-                    new(0.0, Color.FromArgb(peakAlpha, r, g, b)),
-                    new(0.5, Color.FromArgb(mid, r, g, b)),
-                    new(1.0, Color.FromArgb(0, r, g, b))
-                },
-                center: center,
-                gradientOrigin: center,
-                radiusX: new RelativeScalar(rx, RelativeUnit.Relative),
-                radiusY: new RelativeScalar(ry, RelativeUnit.Relative));
-        }
-
         private static float[] ToFloat4(SKColorF c) => new[] { c.Red, c.Green, c.Blue, c.Alpha };
-        private static byte ToByte(float ch) => (byte)Math.Clamp(Math.Round(ch * 255.0f), 0, 255);
-        private static Color ToAvaloniaColor(SKColorF c, bool opaque) =>
-            Color.FromArgb(opaque ? (byte)255 : ToByte(c.Alpha), ToByte(c.Red), ToByte(c.Green), ToByte(c.Blue));
 
         private void DisposeNativeResources(bool markDisposed)
         {
