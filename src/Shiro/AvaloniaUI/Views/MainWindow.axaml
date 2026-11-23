@@ -135,7 +135,7 @@
                                         <TextBlock Text="{DynamicResource Nav_RecentGames}" FontSize="13" VerticalAlignment="Center" />
                                     </StackPanel>
                                 </Button>
-                                <Button x:Name="BtnNavTools" Classes="NavPill">
+                                <Button x:Name="BtnNavTools" Classes="NavPill" HorizontalContentAlignment="Stretch">
                                     <Button.Flyout>
                                         <MenuFlyout Placement="RightEdgeAlignedTop">
                                             <MenuItem Click="OnToolAntiAfkClicked">
@@ -213,7 +213,7 @@
                                                 <MenuItem.Icon><lucide:Lucide Icon="Globe" Width="14" Height="14" StrokeBrush="#38BDF8" /></MenuItem.Icon>
                                             </MenuItem>
                                             <MenuItem Header="{DynamicResource Tool_CleanTray}" Click="OnToolCleanTrayClicked">
-                                                <MenuItem.Icon><lucide:Lucide Icon="Trash2" Width="14" Height="14" StrokeBrush="#A1A1AA" /></MenuItem.Icon>
+                                                <MenuItem.Icon><lucide:Lucide Icon="Trash" Width="14" Height="14" StrokeBrush="#A1A1AA" /></MenuItem.Icon>
                                             </MenuItem>
                                         </MenuFlyout>
                                     </Button.Flyout>
@@ -223,7 +223,7 @@
                                             <TextBlock Text="{DynamicResource Nav_Tools}" FontSize="13" VerticalAlignment="Center" />
                                         </StackPanel>
                                         <Border Grid.Column="1" Classes="ToolsOnBadge" IsVisible="{Binding ToolsStatus.HasActiveTools}"
-                                                Margin="0,0,6,0">
+                                                Margin="8,0,0,0">
                                             <StackPanel Orientation="Horizontal" Spacing="4">
                                                 <controls:StatusPulseDot DotBrush="{DynamicResource StatusSuccessBrush}" DotSize="4.5"
                                                                          Width="12" Height="12" IsPulsing="{Binding ToolsStatus.HasActiveTools}"
@@ -234,6 +234,7 @@
                                             </StackPanel>
                                         </Border>
                                         <lucide:Lucide Grid.Column="2" Icon="ChevronDown" Width="12" Height="12"
+                                                       Margin="8,0,0,0" HorizontalAlignment="Right"
                                                        StrokeBrush="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" />
                                     </Grid>
                                 </Button>
