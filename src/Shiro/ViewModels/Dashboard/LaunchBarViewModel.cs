@@ -206,6 +206,7 @@ namespace Shiro.ViewModels
         public bool HasAdaptiveGameColor => _adaptiveGameColor.HasValue;
         public IBrush HeroAuraBrush => _heroAuraBrush;
         internal Task? PendingAdaptiveColorTask => Volatile.Read(ref _pendingAdaptiveColorTask);
+        internal Func<long, CancellationToken, Task<(string? Name, Bitmap? Thumbnail)>>? ResolveGameInfoForTest { get; set; }
 
         public ObservableCollection<RecentGameItemViewModel> RecentGamesList
         {
@@ -314,9 +315,13 @@ namespace Shiro.ViewModels
                         return;
 
                     await Task.Delay(220, ct).ConfigureAwait(false);
-                    var (resolvedName, resolvedThumb) = await GameInfoService.ResolveGameInfoAsync(placeId, ct).ConfigureAwait(false);
+                    var resolver = ResolveGameInfoForTest;
+                    var (resolvedName, resolvedThumb) = resolver != null
+                        ? await resolver(placeId, ct).ConfigureAwait(false)
+                        : await GameInfoService.ResolveGameInfoAsync(placeId, ct).ConfigureAwait(false);
                     if (ct.IsCancellationRequested || Volatile.Read(ref _gameLookupGeneration) != gen) return;
 
+                    long resolvedTintGen = Volatile.Read(ref _adaptiveColorGeneration);
                     Color? resolvedColor = resolvedThumb != null && VisualPreferencesService.Instance.EnableAdaptiveGameTint
                         ? AdaptivePaletteExtractor.ExtractAccentFromBitmap(resolvedThumb)
                         : null;
@@ -330,7 +335,7 @@ namespace Shiro.ViewModels
                         if (resolvedThumb != null)
                         {
                             CurrentGameThumbnail = resolvedThumb;
-                            ApplyOrClearAdaptiveColorOnUi(resolvedThumb, resolvedColor, tintGen);
+                            ApplyOrClearAdaptiveColorOnUi(resolvedThumb, resolvedColor, resolvedTintGen);
                         }
                     });
                 }

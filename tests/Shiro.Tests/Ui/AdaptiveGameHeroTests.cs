@@ -239,6 +239,86 @@ namespace Shiro.Tests.Ui
         }
 
         [AvaloniaFact]
+        public async Task LaunchBarViewModel_StaleTintGenerationOrPreferenceToggleDuringLookup_NeitherClobbersNorDropsValidTint()
+        {
+            using var storageScope = StoragePaths.OverrideDataDirectoryForTesting(_tempDir);
+            GameThumbnailService.ClearCache();
+            VisualPreferencesService.Instance.EnableAdaptiveGameTint = true;
+            AccentThemeService.SetAdaptiveGameColor(null);
+
+            using var blueThumb = CreatePixelBitmap(32, 32, r: 0, g: 112, b: 255, a: 255);
+            using var goldThumb = CreatePixelBitmap(32, 32, r: 255, g: 188, b: 0, a: 255);
+
+            var lookupStartedTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var lookupReleaseTcs = new TaskCompletionSource<(string? Name, Bitmap? Thumbnail)>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            using var vm = new LaunchBarViewModel(settings: CreateInMemorySettings())
+            {
+                ResolveGameInfoForTest = async (_, ct) =>
+                {
+                    lookupStartedTcs.TrySetResult();
+                    return await lookupReleaseTcs.Task.WaitAsync(ct).ConfigureAwait(false);
+                }
+            };
+
+            // 1. Toggle true -> false -> true while async lookup is awaiting before thumbnail exists.
+            vm.PlaceId = "778899";
+            await lookupStartedTcs.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            long initialTintGen = vm.AdaptiveColorGenerationForTest;
+
+            VisualPreferencesService.Instance.EnableAdaptiveGameTint = false;
+            VisualPreferencesService.Instance.EnableAdaptiveGameTint = true;
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(vm.AdaptiveColorGenerationForTest > initialTintGen);
+
+            lookupReleaseTcs.SetResult(("Toggle Survival Game", blueThumb));
+            var deadline = DateTime.UtcNow.AddSeconds(5);
+            while (vm.AdaptiveGameColor == null && DateTime.UtcNow < deadline)
+            {
+                await Task.Delay(20);
+                Dispatcher.UIThread.RunJobs();
+            }
+
+            Assert.Equal("Toggle Survival Game", vm.CurrentGameName);
+            Assert.NotNull(vm.AdaptiveGameColor);
+            Color validBlue = vm.AdaptiveGameColor!.Value;
+            var (_, _, blueHue) = OklchColorMath.FromColor(validBlue);
+            Assert.InRange(blueHue, 225.0, 290.0);
+            Assert.Equal(validBlue, AccentThemeService.AdaptiveGameColor);
+
+            // 2. Late/stale generation callback must NOT clear newer valid tint.
+            vm.ApplyOrClearAdaptiveColorOnUi(goldThumb, Colors.Red, initialTintGen);
+            Assert.Equal(validBlue, vm.AdaptiveGameColor);
+            Assert.Equal(validBlue, AccentThemeService.AdaptiveGameColor);
+
+            // 3. Toggle true -> false mid-lookup leaves AdaptiveGameColor cleared when lookup resolves.
+            var secondStartedTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var secondReleaseTcs = new TaskCompletionSource<(string? Name, Bitmap? Thumbnail)>(TaskCreationOptions.RunContinuationsAsynchronously);
+            vm.ResolveGameInfoForTest = async (_, ct) =>
+            {
+                secondStartedTcs.TrySetResult();
+                return await secondReleaseTcs.Task.WaitAsync(ct).ConfigureAwait(false);
+            };
+
+            vm.PlaceId = "990011";
+            await secondStartedTcs.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            VisualPreferencesService.Instance.EnableAdaptiveGameTint = false;
+            Dispatcher.UIThread.RunJobs();
+
+            secondReleaseTcs.SetResult(("Tint Disabled Mid-Flight", goldThumb));
+            var secondDeadline = DateTime.UtcNow.AddSeconds(5);
+            while (vm.CurrentGameName != "Tint Disabled Mid-Flight" && DateTime.UtcNow < secondDeadline)
+            {
+                await Task.Delay(20);
+                Dispatcher.UIThread.RunJobs();
+            }
+
+            Assert.Same(goldThumb, vm.CurrentGameThumbnail);
+            Assert.Null(vm.AdaptiveGameColor);
+            Assert.Null(AccentThemeService.AdaptiveGameColor);
+        }
+
+        [AvaloniaFact]
         public void DashboardView_RendersGameHeroChipAndQuickTileFlyout_WithZeroBindingErrors()
         {
             var sink = new BindingErrorSink();

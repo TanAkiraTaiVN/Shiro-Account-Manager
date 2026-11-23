@@ -148,14 +148,18 @@ namespace Shiro.ViewModels
             });
         }
 
-        private void ApplyOrClearAdaptiveColorOnUi(Bitmap thumbnail, Color? extractedColor, long expectedTintGen)
+        internal long AdaptiveColorGenerationForTest => Volatile.Read(ref _adaptiveColorGeneration);
+
+        internal void ApplyOrClearAdaptiveColorOnUi(Bitmap thumbnail, Color? extractedColor, long expectedTintGen)
         {
-            if (Volatile.Read(ref _adaptiveColorGeneration) != expectedTintGen ||
-                !VisualPreferencesService.Instance.EnableAdaptiveGameTint)
+            if (!VisualPreferencesService.Instance.EnableAdaptiveGameTint)
             {
                 ClearAdaptiveGameColor(forceResetThemeService: true);
                 return;
             }
+
+            if (Volatile.Read(ref _adaptiveColorGeneration) != expectedTintGen)
+                return;
 
             _lastExtractedThumbnail = thumbnail;
             _heroAuraBrush = BuildHeroAuraBrush(extractedColor);
