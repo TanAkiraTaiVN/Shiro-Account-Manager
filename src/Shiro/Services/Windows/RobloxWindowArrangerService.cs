@@ -38,6 +38,30 @@ namespace Shiro.Services
         public readonly record struct WindowPlacementSlot(int X, int Y, int Width, int Height);
 
         /// <summary>
+        /// Parses a UI command parameter into a <see cref="RobloxWindowLayoutMode"/>,
+        /// defaulting to <see cref="RobloxWindowLayoutMode.AutoGrid"/>.
+        /// </summary>
+        public static RobloxWindowLayoutMode ParseLayoutMode(object? param)
+        {
+            if (param is RobloxWindowLayoutMode explicitMode)
+                return explicitMode;
+
+            if (param is string raw)
+            {
+                return raw.Trim().ToLowerInvariant() switch
+                {
+                    "2x2" or "grid2x2" => RobloxWindowLayoutMode.Grid2x2,
+                    "3x2" or "grid3x2" => RobloxWindowLayoutMode.Grid3x2,
+                    "4x3" or "grid4x3" => RobloxWindowLayoutMode.Grid4x3,
+                    "cascade" or "cascadecorner" => RobloxWindowLayoutMode.CascadeCorner,
+                    _ => RobloxWindowLayoutMode.AutoGrid
+                };
+            }
+
+            return RobloxWindowLayoutMode.AutoGrid;
+        }
+
+        /// <summary>
         /// Pure deterministic layout calculator for unit testing and Win32 placement.
         /// </summary>
         public static IReadOnlyList<WindowPlacementSlot> CalculatePlacements(

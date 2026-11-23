@@ -25,25 +25,26 @@ namespace Shiro.ViewModels
 
         private void ExecuteFallbackArrange(object? param)
         {
-            RobloxWindowLayoutMode mode = RobloxWindowLayoutMode.AutoGrid;
-            if (param is RobloxWindowLayoutMode explicitMode)
+            try
             {
-                mode = explicitMode;
-            }
-            else if (param is string key)
-            {
-                mode = key.Trim().ToLowerInvariant() switch
+                RobloxWindowLayoutMode mode = RobloxWindowArrangerService.ParseLayoutMode(param);
+                var (arranged, desc) = RobloxWindowArrangerService.ArrangeWindows(mode);
+                if (arranged > 0)
                 {
-                    "2x2" or "grid2x2" => RobloxWindowLayoutMode.Grid2x2,
-                    "3x2" or "grid3x2" => RobloxWindowLayoutMode.Grid3x2,
-                    "4x3" or "grid4x3" => RobloxWindowLayoutMode.Grid4x3,
-                    "cascade" or "cascadecorner" => RobloxWindowLayoutMode.CascadeCorner,
-                    _ => RobloxWindowLayoutMode.AutoGrid
-                };
+                    string okMsg = LocalizationService.Format("Main.WindowsArrangedWithLayout", arranged, desc);
+                    LoadingStatus = okMsg;
+                    ToastService.ShowSuccess(LocalizationService.Get("Main.ArrangeWindowsTitle"), okMsg);
+                }
+                else
+                {
+                    LoadingStatus = desc;
+                    ToastService.ShowWarning(LocalizationService.Get("Main.ArrangeWindowsTitle"), desc);
+                }
             }
-
-            var (_, desc) = RobloxWindowArrangerService.ArrangeWindows(mode);
-            LoadingStatus = desc;
+            catch (Exception ex)
+            {
+                _logger.Debug($"[ExecuteFallbackArrange] {ex.Message}");
+            }
         }
 
         public bool WatcherEnabled

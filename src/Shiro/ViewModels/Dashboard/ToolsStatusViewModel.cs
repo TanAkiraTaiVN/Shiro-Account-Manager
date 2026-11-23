@@ -430,19 +430,7 @@ namespace Shiro.ViewModels
             });
             ArrangeRobloxWindowsCommand = new RelayCommand(param =>
             {
-                RobloxWindowLayoutMode mode = RobloxWindowLayoutMode.AutoGrid;
-                if (param is RobloxWindowLayoutMode explicitMode) mode = explicitMode;
-                else if (param is string raw)
-                {
-                    mode = raw.Trim().ToLowerInvariant() switch
-                    {
-                        "2x2" or "grid2x2" => RobloxWindowLayoutMode.Grid2x2,
-                        "3x2" or "grid3x2" => RobloxWindowLayoutMode.Grid3x2,
-                        "4x3" or "grid4x3" => RobloxWindowLayoutMode.Grid4x3,
-                        "cascade" or "cascadecorner" => RobloxWindowLayoutMode.CascadeCorner,
-                        _ => RobloxWindowLayoutMode.AutoGrid
-                    };
-                }
+                RobloxWindowLayoutMode mode = RobloxWindowArrangerService.ParseLayoutMode(param);
 
                 var (arranged, desc) = RobloxWindowArrangerService.ArrangeWindows(mode);
                 if (arranged > 0)

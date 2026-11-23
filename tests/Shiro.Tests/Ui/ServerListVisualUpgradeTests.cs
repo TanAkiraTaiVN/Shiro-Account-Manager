@@ -26,6 +26,8 @@ namespace Shiro.Tests.Ui
         private readonly string _tempDir;
         private readonly ILogSink? _prevSink;
         private readonly AppLanguage _prevLang;
+        private readonly string _prevPlaceId;
+        private readonly List<IResourceProvider>? _origMergedDictionaries;
 
         public ServerListVisualUpgradeTests()
         {
@@ -33,13 +35,23 @@ namespace Shiro.Tests.Ui
             Directory.CreateDirectory(_tempDir);
             _prevSink = Logger.Sink;
             _prevLang = LocalizationService.CurrentLanguage;
+            _prevPlaceId = AppServices.ServerBrowserState.CurrentPlaceId;
+            _origMergedDictionaries = Application.Current?.Resources.MergedDictionaries.ToList();
+            GameThumbnailService.ClearCache();
         }
 
         public void Dispose()
         {
             ToastService.ClearAll();
+            GameThumbnailService.ClearCache();
+            AppServices.ServerBrowserState.CurrentPlaceId = _prevPlaceId;
             LocalizationService.SetLanguage(_prevLang, saveSetting: false);
-            Application.Current?.Resources.MergedDictionaries.Clear();
+            if (Application.Current?.Resources.MergedDictionaries is { } merged && _origMergedDictionaries != null)
+            {
+                merged.Clear();
+                foreach (var dict in _origMergedDictionaries)
+                    merged.Add(dict);
+            }
             Logger.Sink = _prevSink;
             if (Directory.Exists(_tempDir))
             {
@@ -51,6 +63,11 @@ namespace Shiro.Tests.Ui
         [Fact]
         public void ServerItemViewModel_ComputesSemanticCapacityBrush_AndPingSignalBars()
         {
+            var green = Color.Parse("#4ADE80");
+            var amber = Color.Parse("#FBBF24");
+            var crimson = Color.Parse("#F87171");
+            var mutedText = Color.Parse("#71717A");
+
             var item = new ServerItemViewModel
             {
                 JobId = "srv-1",
@@ -66,51 +83,104 @@ namespace Shiro.Tests.Ui
                     changed.Add(e.PropertyName);
             };
 
-            // 3/12 = 25% -> Green (#4ADE80)
-            var lowCapBrush = Assert.IsAssignableFrom<ISolidColorBrush>(item.CapacityFillBrush);
-            Assert.Equal(Color.Parse("#4ADE80"), lowCapBrush.Color);
-
-            // 10/12 = 83.3% (75..94%) -> Amber (#FBBF24)
+            // 3/12 = 25% -> Green; 10/12 = 83.3% -> Amber; 12/12 = 100% -> Crimson
+            Assert.Equal(green, Assert.IsAssignableFrom<ISolidColorBrush>(item.CapacityFillBrush).Color);
             item.Playing = 10;
-            var midCapBrush = Assert.IsAssignableFrom<ISolidColorBrush>(item.CapacityFillBrush);
-            Assert.Equal(Color.Parse("#FBBF24"), midCapBrush.Color);
+            Assert.Equal(amber, Assert.IsAssignableFrom<ISolidColorBrush>(item.CapacityFillBrush).Color);
             Assert.Contains(nameof(ServerItemViewModel.CapacityFillBrush), changed);
-
-            // 12/12 = 100% (>= 95%) -> Crimson (#F87171)
             item.Playing = 12;
-            var fullCapBrush = Assert.IsAssignableFrom<ISolidColorBrush>(item.CapacityFillBrush);
-            Assert.Equal(Color.Parse("#F87171"), fullCapBrush.Color);
+            Assert.Equal(crimson, Assert.IsAssignableFrom<ISolidColorBrush>(item.CapacityFillBrush).Color);
 
-            // Boundary check on MaxPlayers change: 12/20 = 60% -> Green
-            item.MaxPlayers = 20;
-            Assert.Equal(Color.Parse("#4ADE80"), Assert.IsAssignableFrom<ISolidColorBrush>(item.CapacityFillBrush).Color);
+            // Exact capacity boundaries: MaxPlayers=0, 74%, 75%, 94%, 95%
+            item.MaxPlayers = 0;
+            item.Playing = 0;
+            Assert.Equal(green, Assert.IsAssignableFrom<ISolidColorBrush>(item.CapacityFillBrush).Color);
 
-            // Ping 40ms -> level 3 (all 3 bars green)
+            item.MaxPlayers = 100;
+            item.Playing = 74;
+            Assert.Equal(green, Assert.IsAssignableFrom<ISolidColorBrush>(item.CapacityFillBrush).Color);
+            item.Playing = 75;
+            Assert.Equal(amber, Assert.IsAssignableFrom<ISolidColorBrush>(item.CapacityFillBrush).Color);
+            item.Playing = 94;
+            Assert.Equal(amber, Assert.IsAssignableFrom<ISolidColorBrush>(item.CapacityFillBrush).Color);
+            item.Playing = 95;
+            Assert.Equal(crimson, Assert.IsAssignableFrom<ISolidColorBrush>(item.CapacityFillBrush).Color);
+
+            // Ping 40ms & 70ms -> level 3 (all 3 bars + PingTextBrush green)
             Assert.Equal(3, item.PingBarsLevel);
-            Assert.Equal(Color.Parse("#4ADE80"), Assert.IsAssignableFrom<ISolidColorBrush>(item.PingBar1Brush).Color);
-            Assert.Equal(Color.Parse("#4ADE80"), Assert.IsAssignableFrom<ISolidColorBrush>(item.PingBar2Brush).Color);
-            Assert.Equal(Color.Parse("#4ADE80"), Assert.IsAssignableFrom<ISolidColorBrush>(item.PingBar3Brush).Color);
+            Assert.Equal(green, Assert.IsAssignableFrom<ISolidColorBrush>(item.PingBar1Brush).Color);
+            Assert.Equal(green, Assert.IsAssignableFrom<ISolidColorBrush>(item.PingBar2Brush).Color);
+            Assert.Equal(green, Assert.IsAssignableFrom<ISolidColorBrush>(item.PingBar3Brush).Color);
+            Assert.Equal(green, Assert.IsAssignableFrom<ISolidColorBrush>(item.PingTextBrush).Color);
+            item.Ping = 70;
+            Assert.Equal(3, item.PingBarsLevel);
+            Assert.Equal(green, Assert.IsAssignableFrom<ISolidColorBrush>(item.PingTextBrush).Color);
 
-            // Ping 110ms -> level 2 (2 bars amber, 3rd muted)
+            // Ping 71ms, 110ms, 140ms -> level 2 (2 bars + PingTextBrush amber, 3rd muted)
             changed.Clear();
+            item.Ping = 71;
+            Assert.Equal(2, item.PingBarsLevel);
+            Assert.Equal(amber, Assert.IsAssignableFrom<ISolidColorBrush>(item.PingTextBrush).Color);
+            Assert.Contains(nameof(ServerItemViewModel.PingBarsLevel), changed);
+            Assert.Contains(nameof(ServerItemViewModel.PingTextBrush), changed);
+
             item.Ping = 110;
             Assert.Equal(2, item.PingBarsLevel);
-            Assert.Contains(nameof(ServerItemViewModel.PingBarsLevel), changed);
-            var bar2 = Assert.IsAssignableFrom<ISolidColorBrush>(item.PingBar2Brush);
-            var bar3 = Assert.IsAssignableFrom<ISolidColorBrush>(item.PingBar3Brush);
-            Assert.Equal(Color.Parse("#FBBF24"), bar2.Color);
-            Assert.NotEqual(Color.Parse("#FBBF24"), bar3.Color);
+            Assert.Equal(amber, Assert.IsAssignableFrom<ISolidColorBrush>(item.PingBar1Brush).Color);
+            Assert.Equal(amber, Assert.IsAssignableFrom<ISolidColorBrush>(item.PingBar2Brush).Color);
+            Assert.NotEqual(amber, Assert.IsAssignableFrom<ISolidColorBrush>(item.PingBar3Brush).Color);
+            Assert.Equal(amber, Assert.IsAssignableFrom<ISolidColorBrush>(item.PingTextBrush).Color);
 
-            // Ping 210ms -> level 1 (1 bar crimson, 2nd & 3rd muted)
+            item.Ping = 140;
+            Assert.Equal(2, item.PingBarsLevel);
+            Assert.Equal(amber, Assert.IsAssignableFrom<ISolidColorBrush>(item.PingTextBrush).Color);
+
+            // Ping 141ms & 210ms -> level 1 (1 bar + PingTextBrush crimson, 2nd & 3rd muted)
+            item.Ping = 141;
+            Assert.Equal(1, item.PingBarsLevel);
+            Assert.Equal(crimson, Assert.IsAssignableFrom<ISolidColorBrush>(item.PingTextBrush).Color);
+
             item.Ping = 210;
             Assert.Equal(1, item.PingBarsLevel);
-            Assert.Equal(Color.Parse("#F87171"), Assert.IsAssignableFrom<ISolidColorBrush>(item.PingBar1Brush).Color);
-            Assert.NotEqual(Color.Parse("#F87171"), Assert.IsAssignableFrom<ISolidColorBrush>(item.PingBar2Brush).Color);
-            Assert.NotEqual(Color.Parse("#F87171"), Assert.IsAssignableFrom<ISolidColorBrush>(item.PingBar3Brush).Color);
+            Assert.Equal(crimson, Assert.IsAssignableFrom<ISolidColorBrush>(item.PingBar1Brush).Color);
+            Assert.NotEqual(crimson, Assert.IsAssignableFrom<ISolidColorBrush>(item.PingBar2Brush).Color);
+            Assert.NotEqual(crimson, Assert.IsAssignableFrom<ISolidColorBrush>(item.PingBar3Brush).Color);
+            Assert.Equal(crimson, Assert.IsAssignableFrom<ISolidColorBrush>(item.PingTextBrush).Color);
 
-            // Unknown ping (-1) -> 0 active bars
+            // Unknown ping (-1) -> 0 active bars & muted PingTextBrush
             item.Ping = -1;
             Assert.Equal(0, item.PingBarsLevel);
+            Assert.Equal(mutedText, Assert.IsAssignableFrom<ISolidColorBrush>(item.PingTextBrush).Color);
+        }
+
+        [Fact]
+        public void ServerListViewModel_ArrangeRobloxWindowsCommand_ParsesModesAndExecutesSafely()
+        {
+            Assert.Equal(RobloxWindowLayoutMode.AutoGrid, RobloxWindowArrangerService.ParseLayoutMode(null));
+            Assert.Equal(RobloxWindowLayoutMode.AutoGrid, RobloxWindowArrangerService.ParseLayoutMode("Auto"));
+            Assert.Equal(RobloxWindowLayoutMode.Grid2x2, RobloxWindowArrangerService.ParseLayoutMode("2x2"));
+            Assert.Equal(RobloxWindowLayoutMode.Grid3x2, RobloxWindowArrangerService.ParseLayoutMode("3x2"));
+            Assert.Equal(RobloxWindowLayoutMode.Grid4x3, RobloxWindowArrangerService.ParseLayoutMode("4x3"));
+            Assert.Equal(RobloxWindowLayoutMode.CascadeCorner, RobloxWindowArrangerService.ParseLayoutMode("Cascade"));
+            Assert.Equal(RobloxWindowLayoutMode.Grid3x2, RobloxWindowArrangerService.ParseLayoutMode(RobloxWindowLayoutMode.Grid3x2));
+
+            using var dataDirScope = StoragePaths.OverrideDataDirectoryForTesting(_tempDir);
+            using var mainVm = new MainViewModel();
+            var forwardedVm = mainVm.ServerListViewModel;
+            Assert.Same(mainVm.ToolsStatus.ArrangeRobloxWindowsCommand, forwardedVm.ArrangeRobloxWindowsCommand);
+
+            var forwardedEx = Record.Exception(() => forwardedVm.ArrangeRobloxWindowsCommand.Execute("2x2"));
+            Assert.Null(forwardedEx);
+            Assert.False(string.IsNullOrWhiteSpace(mainVm.StatusMessage));
+
+            using var standaloneVm = new ServerListViewModel(null);
+            foreach (string mode in new[] { "Auto", "2x2", "3x2", "4x3", "Cascade" })
+            {
+                standaloneVm.LoadingStatus = string.Empty;
+                var ex = Record.Exception(() => standaloneVm.ArrangeRobloxWindowsCommand.Execute(mode));
+                Assert.Null(ex);
+                Assert.False(string.IsNullOrWhiteSpace(standaloneVm.LoadingStatus));
+            }
         }
 
         [AvaloniaFact]
@@ -124,23 +194,23 @@ namespace Shiro.Tests.Ui
             using var mainVm = new MainViewModel();
 
             var serverVm = mainVm.ServerListViewModel;
-            serverVm.PlaceIdInput = "1818";
-            serverVm.BrowserTab.SetRawServers(new[]
-            {
-                new ServerItemViewModel { JobId = "job-green", Playing = 3, MaxPlayers = 12, Ping = 40, Region = "Singapore" },
-                new ServerItemViewModel { JobId = "job-amber", Playing = 10, MaxPlayers = 12, Ping = 110, Region = "Tokyo" },
-                new ServerItemViewModel { JobId = "job-red", Playing = 12, MaxPlayers = 12, Ping = 210, Region = "Frankfurt" }
-            });
+            serverVm.PlaceIdInput = string.Empty;
+            var greenServer = new ServerItemViewModel { JobId = "job-green", Playing = 3, MaxPlayers = 12, Ping = 40, Region = "Singapore" };
+            var amberServer = new ServerItemViewModel { JobId = "job-amber", Playing = 10, MaxPlayers = 12, Ping = 80, Region = "Tokyo" };
+            var redServer = new ServerItemViewModel { JobId = "job-red", Playing = 12, MaxPlayers = 12, Ping = 210, Region = "Frankfurt" };
+            serverVm.BrowserTab.SetRawServers(new[] { greenServer, amberServer, redServer });
+
+            // PlaceId=0 avoids live HTTP thumbnail fetches while verifying null-icon fallback rendering
             serverVm.ExplorerTab.SearchGames.Add(new GameSearchItemViewModel
             {
-                PlaceId = 2753915549,
+                PlaceId = 0,
                 Name = "Blox Fruits",
                 PlayerCount = 420000,
                 ThumbnailUrl = string.Empty
             });
             serverVm.LibraryTab.Favorites.Add(new FavoriteGameItemViewModel
             {
-                PlaceId = 920587237,
+                PlaceId = 0,
                 Name = "Adopt Me!",
                 ThumbnailUrl = string.Empty
             });
@@ -159,7 +229,7 @@ namespace Shiro.Tests.Ui
                 var resultsPanel = view.GetVisualDescendants().OfType<ServerListResultsPanel>().FirstOrDefault();
                 Assert.NotNull(resultsPanel);
 
-                // Tab 0: Server Table (virtualized rows keep Transitions=null + semantic capacity ProgressBar)
+                // Tab 0: Server Table (virtualized rows keep Transitions=null + synchronized PingTextBrush)
                 serverVm.SelectedSubTabIndex = 0;
                 Dispatcher.UIThread.RunJobs();
 
@@ -167,13 +237,18 @@ namespace Shiro.Tests.Ui
                 Assert.Equal(3, progressBars.Count);
                 Assert.All(progressBars, pb => Assert.Null(pb.Transitions));
 
+                var amberPingBlock = resultsPanel.GetVisualDescendants().OfType<TextBlock>()
+                    .FirstOrDefault(tb => tb.Text == "80 ms");
+                Assert.NotNull(amberPingBlock);
+                Assert.Equal(Color.Parse("#FBBF24"), Assert.IsAssignableFrom<ISolidColorBrush>(amberPingBlock!.Foreground).Color);
+
                 var fastBtns = resultsPanel.GetVisualDescendants().OfType<Button>()
                     .Where(b => b.Classes.Contains("FastIconBtn") || b.Classes.Contains("FastPillBtn"))
                     .ToList();
                 Assert.NotEmpty(fastBtns);
                 Assert.All(fastBtns, btn => Assert.Null(btn.Transitions));
 
-                // Tab 1: Game Explorer (Playnite-style 60x60 SpotlightBorder cover cards)
+                // Tab 1: Game Explorer (Playnite-style 60x60 SpotlightBorder cover card outside Lucide template)
                 serverVm.SelectedSubTabIndex = 1;
                 Dispatcher.UIThread.RunJobs();
 
@@ -181,16 +256,17 @@ namespace Shiro.Tests.Ui
                     .Where(c => c.Classes.Contains("ExplorerCard"))
                     .ToList();
                 Assert.Single(explorerCards);
-                var explorerThumb = explorerCards[0].GetVisualDescendants().OfType<Image>().FirstOrDefault();
-                Assert.NotNull(explorerThumb);
-                Assert.Equal(60.0, explorerThumb!.Width);
+                var explorerThumb = explorerCards[0].GetVisualDescendants()
+                    .OfType<Image>()
+                    .Single(i => i.FindAncestorOfType<Lucide>() == null);
+                Assert.Equal(60.0, explorerThumb.Width);
                 Assert.Equal(60.0, explorerThumb.Height);
 
                 // Tab 2: Game Library (Recent + Favorites 60x60 cards + Trash icon)
                 serverVm.SelectedSubTabIndex = 2;
                 mainVm.RecentGamesList.Add(new RecentGameItemViewModel
                 {
-                    PlaceId = 1818,
+                    PlaceId = 0,
                     Name = "Classic Crossroads",
                     ImageUrl = string.Empty
                 });
@@ -203,9 +279,10 @@ namespace Shiro.Tests.Ui
                 Assert.Equal(2, libraryCards.Count);
                 foreach (var card in libraryCards)
                 {
-                    var thumb = card.GetVisualDescendants().OfType<Image>().FirstOrDefault();
-                    Assert.NotNull(thumb);
-                    Assert.Equal(60.0, thumb!.Width);
+                    var thumb = card.GetVisualDescendants()
+                        .OfType<Image>()
+                        .Single(i => i.FindAncestorOfType<Lucide>() == null);
+                    Assert.Equal(60.0, thumb.Width);
                     Assert.Equal(60.0, thumb.Height);
                 }
 

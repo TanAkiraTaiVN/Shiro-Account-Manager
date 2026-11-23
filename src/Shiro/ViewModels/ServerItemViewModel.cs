@@ -25,6 +25,7 @@ namespace Shiro.ViewModels
         private static readonly ImmutableSolidColorBrush BrushCapacityAmber = new(Color.Parse("#FBBF24"));
         private static readonly ImmutableSolidColorBrush BrushCapacityCrimson = new(Color.Parse("#F87171"));
         private static readonly ImmutableSolidColorBrush BrushSignalMuted = new(Color.Parse("#2E2E3E"));
+        private static readonly ImmutableSolidColorBrush BrushPingMuted = new(Color.Parse("#71717A"));
 
         public string JobId
         {
@@ -102,6 +103,7 @@ namespace Shiro.ViewModels
                     OnPropertyChanged(nameof(PingBar1Brush));
                     OnPropertyChanged(nameof(PingBar2Brush));
                     OnPropertyChanged(nameof(PingBar3Brush));
+                    OnPropertyChanged(nameof(PingTextBrush));
                 }
             }
         }
@@ -135,6 +137,14 @@ namespace Shiro.ViewModels
         };
 
         public IBrush PingBar3Brush => PingBarsLevel == 3 ? BrushCapacityGreen : BrushSignalMuted;
+
+        public IBrush PingTextBrush => PingBarsLevel switch
+        {
+            3 => BrushCapacityGreen,
+            2 => BrushCapacityAmber,
+            1 => BrushCapacityCrimson,
+            _ => BrushPingMuted
+        };
 
         public string PingColor
         {

@@ -141,7 +141,7 @@
                                                     Background="{Binding PingBar3Brush}" />
                                         </StackPanel>
                                         <TextBlock Classes="TabularNum" Text="{Binding PingDisplay}" FontSize="11.5"
-                                                   Foreground="{Binding PingColor}" FontWeight="SemiBold"
+                                                   Foreground="{Binding PingTextBrush}" FontWeight="SemiBold"
                                                    VerticalAlignment="Center" />
                                     </StackPanel>
                                     <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" Margin="0,0,8,0">
@@ -171,7 +171,7 @@
                                             Command="{Binding #RootResultsPanel.((vm:ServerListViewModel)DataContext).BrowserTab.JoinServerCommand}"
                                             CommandParameter="{Binding}" Background="{DynamicResource StatusSuccessBrush}"
                                             Foreground="#09090B" FontWeight="Bold" FontSize="11"
-                                            CornerRadius="{StaticResource RadiusSm}" Padding="12,6"
+                                            CornerRadius="{StaticResource RadiusChip6}" Padding="12,6"
                                             HorizontalAlignment="Center" VerticalAlignment="Center">
                                         <StackPanel Orientation="Horizontal" Spacing="5">
                                             <Path Data="{StaticResource GeoPlay}" Width="9" Height="9" Stretch="Uniform"
@@ -360,7 +360,7 @@
             </Grid>
 
             <Border IsHitTestVisible="False" BorderBrush="{DynamicResource BorderTopRimBrush}"
-                    BorderThickness="1" CornerRadius="{StaticResource RadiusXl}" />
+                    BorderThickness="1" CornerRadius="{StaticResource RadiusMid12}" />
         </Panel>
     </Border>
 </UserControl>
