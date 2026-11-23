@@ -57,6 +57,19 @@ namespace Shiro.AvaloniaUI.Views
 
         private void WireViewModelCallbacks()
         {
+            ViewModel.AccountsVm.AvailableGroups.CollectionChanged += (_, _) =>
+            {
+                AppDispatcher.Post(() =>
+                {
+                    if (CmbGroups != null && ViewModel.AccountsVm.AvailableGroups.Count > 0 &&
+                        string.IsNullOrEmpty(ViewModel.AccountsVm.SelectedGroup))
+                    {
+                        ViewModel.AccountsVm.SelectedGroup = ViewModel.AccountsVm.AvailableGroups[0];
+                        CmbGroups.SelectedItem = ViewModel.AccountsVm.SelectedGroup;
+                    }
+                });
+            };
+
             ViewModel.AccountsVm.PropertyChanged += (s, e) =>
             {
                 if (e.PropertyName == nameof(AccountCollectionViewModel.ActiveTab) || e.PropertyName == nameof(AccountCollectionViewModel.SearchText))
@@ -107,12 +120,21 @@ namespace Shiro.AvaloniaUI.Views
                     ViewModel.LaunchBar.PlaceId = AppServices.ServerBrowserState.CurrentPlaceId;
                 }
 
+                string? prevGroup = ViewModel?.AccountsVm.SelectedGroup;
                 var accounts = accountsSnapshot ?? AppServices.AccountRepository.GetAll();
                 ViewModel?.AccountsVm.LoadAccounts(accounts);
 
-                if (CmbGroups != null && ViewModel != null && CmbGroups.SelectedItem == null && ViewModel.AccountsVm.AvailableGroups.Count > 0)
+                if (CmbGroups != null && ViewModel != null && ViewModel.AccountsVm.AvailableGroups.Count > 0)
                 {
-                    CmbGroups.SelectedItem = ViewModel.AccountsVm.SelectedGroup;
+                    if (string.IsNullOrEmpty(ViewModel.AccountsVm.SelectedGroup))
+                    {
+                        ViewModel.AccountsVm.SelectedGroup = !string.IsNullOrEmpty(prevGroup) &&
+                            ViewModel.AccountsVm.AvailableGroups.Contains(prevGroup)
+                            ? prevGroup
+                            : ViewModel.AccountsVm.AvailableGroups[0];
+                    }
+                    if (CmbGroups.SelectedItem == null)
+                        CmbGroups.SelectedItem = ViewModel.AccountsVm.SelectedGroup;
                 }
             }
             catch (Exception ex)

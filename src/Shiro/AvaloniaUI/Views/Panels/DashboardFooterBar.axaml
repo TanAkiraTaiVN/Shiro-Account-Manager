@@ -10,131 +10,190 @@
              x:CompileBindings="True">
     <StackPanel>
         <WrapPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,10">
-            <Border Background="#121218" BorderBrush="#20202C" BorderThickness="1"
-                    CornerRadius="8" Padding="3" Margin="0,2,8,2">
+            <Border Background="{DynamicResource SurfacePanelBrush}"
+                    BorderBrush="{DynamicResource BorderSubtleBrush}"
+                    BorderThickness="1"
+                    CornerRadius="{StaticResource RadiusMd}"
+                    Padding="3"
+                    Margin="0,2,8,2">
                 <WrapPanel Orientation="Horizontal">
-                        <RadioButton Classes="FilterTabPill" GroupName="FilterTabGroup"
-                                     IsChecked="{Binding AccountsVm.IsFilterAll, Mode=TwoWay}">
-                            <TextBlock Text="{Binding AccountsVm.TabAllText}" />
-                        </RadioButton>
-                        <RadioButton Classes="FilterTabPill" GroupName="FilterTabGroup"
-                                     IsChecked="{Binding AccountsVm.IsFilterInGame, Mode=TwoWay}">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <Ellipse Width="6" Height="6" Fill="#22C55E"
-                                         VerticalAlignment="Center" />
-                                <TextBlock Text="{Binding AccountsVm.TabInGameText}"
+                    <RadioButton Classes="FilterTabPill" GroupName="FilterTabGroup"
+                                 IsChecked="{Binding AccountsVm.IsFilterAll, Mode=TwoWay}">
+                        <TextBlock Classes="TabularNum" Text="{Binding AccountsVm.TabAllText}" />
+                    </RadioButton>
+                    <RadioButton Classes="FilterTabPill" GroupName="FilterTabGroup"
+                                 IsChecked="{Binding AccountsVm.IsFilterInGame, Mode=TwoWay}">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <Ellipse Width="6" Height="6"
+                                     Fill="{DynamicResource StatusSuccessBrush}"
+                                     VerticalAlignment="Center" />
+                            <TextBlock Classes="TabularNum"
+                                       Text="{Binding AccountsVm.TabInGameText}"
+                                       VerticalAlignment="Center" />
+                        </StackPanel>
+                    </RadioButton>
+                    <RadioButton Classes="FilterTabPill" GroupName="FilterTabGroup"
+                                 IsChecked="{Binding AccountsVm.IsFilterReady, Mode=TwoWay}">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <Ellipse Width="6" Height="6"
+                                     Fill="{DynamicResource StatusInfoBrush}"
+                                     VerticalAlignment="Center" />
+                            <TextBlock Classes="TabularNum"
+                                       Text="{Binding AccountsVm.TabReadyText}"
+                                       VerticalAlignment="Center" />
+                        </StackPanel>
+                    </RadioButton>
+                    <RadioButton Classes="FilterTabPill" GroupName="FilterTabGroup"
+                                 IsChecked="{Binding AccountsVm.IsFilterExpired, Mode=TwoWay}">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <Ellipse Width="6" Height="6"
+                                     Fill="{DynamicResource StatusDangerBrush}"
+                                     VerticalAlignment="Center" />
+                            <TextBlock Classes="TabularNum"
+                                       Text="{Binding AccountsVm.TabExpiredText}"
+                                       VerticalAlignment="Center" />
+                        </StackPanel>
+                    </RadioButton>
+                    <RadioButton Classes="FilterTabPill" GroupName="FilterTabGroup"
+                                 IsChecked="{Binding AccountsVm.IsFilterBanned, Mode=TwoWay}">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <lucide:Lucide Icon="ShieldAlert" Width="13" Height="13"
+                                           StrokeBrush="#FDA4AF" VerticalAlignment="Center" />
+                            <TextBlock Classes="TabularNum"
+                                       Text="{Binding AccountsVm.TabBannedText}"
+                                       VerticalAlignment="Center" />
+                        </StackPanel>
+                    </RadioButton>
+                    <RadioButton Classes="FilterTabPill" GroupName="FilterTabGroup"
+                                 IsChecked="{Binding AccountsVm.IsFilterPinned, Mode=TwoWay}">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <lucide:Lucide Icon="Star" Width="13" Height="13"
+                                           StrokeBrush="{DynamicResource StatusWarningBrush}"
                                            VerticalAlignment="Center" />
-                            </StackPanel>
-                        </RadioButton>
-                        <RadioButton Classes="FilterTabPill" GroupName="FilterTabGroup"
-                                     IsChecked="{Binding AccountsVm.IsFilterReady, Mode=TwoWay}">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <Ellipse Width="6" Height="6" Fill="#38BDF8"
-                                         VerticalAlignment="Center" />
-                                <TextBlock Text="{Binding AccountsVm.TabReadyText}"
+                            <TextBlock Classes="TabularNum"
+                                       Text="{Binding AccountsVm.TabPinnedText}"
+                                       VerticalAlignment="Center" />
+                        </StackPanel>
+                    </RadioButton>
+                </WrapPanel>
+            </Border>
+
+            <Border Background="{DynamicResource SurfacePanelBrush}"
+                    BorderBrush="{DynamicResource BorderSubtleBrush}"
+                    BorderThickness="1"
+                    CornerRadius="{StaticResource RadiusMd}"
+                    Padding="3"
+                    Margin="0,2,8,2">
+                <StackPanel Orientation="Horizontal" Spacing="2">
+                    <RadioButton Classes="FilterTabPill" GroupName="ViewModeGroup"
+                                 IsChecked="{Binding AccountsVm.IsCardView, Mode=TwoWay}"
+                                 ToolTip.Tip="{DynamicResource Tab_ViewCardsTip}">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <lucide:Lucide Icon="LayoutGrid" Width="13" Height="13"
+                                           StrokeBrush="{DynamicResource TextSecondaryBrush}"
                                            VerticalAlignment="Center" />
-                            </StackPanel>
-                        </RadioButton>
-                        <RadioButton Classes="FilterTabPill" GroupName="FilterTabGroup"
-                                     IsChecked="{Binding AccountsVm.IsFilterExpired, Mode=TwoWay}">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <Ellipse Width="6" Height="6" Fill="#EF4444"
-                                         VerticalAlignment="Center" />
-                                <TextBlock Text="{Binding AccountsVm.TabExpiredText}"
+                            <TextBlock Text="{DynamicResource Dash_ViewCards}"
+                                       VerticalAlignment="Center" />
+                        </StackPanel>
+                    </RadioButton>
+                    <RadioButton Classes="FilterTabPill" GroupName="ViewModeGroup"
+                                 IsChecked="{Binding AccountsVm.IsCompactView, Mode=TwoWay}"
+                                 ToolTip.Tip="{DynamicResource Tab_ViewTableTip}">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <lucide:Lucide Icon="Table2" Width="13" Height="13"
+                                           StrokeBrush="{DynamicResource TextSecondaryBrush}"
                                            VerticalAlignment="Center" />
-                            </StackPanel>
-                        </RadioButton>
-                        <RadioButton Classes="FilterTabPill" GroupName="FilterTabGroup"
-                                     IsChecked="{Binding AccountsVm.IsFilterBanned, Mode=TwoWay}">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <lucide:Lucide Icon="ShieldAlert" Width="13" Height="13"
-                                               StrokeBrush="#FDA4AF" VerticalAlignment="Center" />
-                                <TextBlock Text="{Binding AccountsVm.TabBannedText}"
-                                           VerticalAlignment="Center" />
-                            </StackPanel>
-                        </RadioButton>
-                        <RadioButton Classes="FilterTabPill" GroupName="FilterTabGroup"
-                                     IsChecked="{Binding AccountsVm.IsFilterPinned, Mode=TwoWay}">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <lucide:Lucide Icon="Star" Width="13" Height="13"
-                                               StrokeBrush="#FBBF24" VerticalAlignment="Center" />
-                                <TextBlock Text="{Binding AccountsVm.TabPinnedText}"
-                                           VerticalAlignment="Center" />
-                            </StackPanel>
-                        </RadioButton>
-                    </WrapPanel>
-                </Border>
-                <Border Background="#121218" BorderBrush="#20202C" BorderThickness="1"
-                        CornerRadius="8" Padding="3" Margin="0,2,8,2">
-                    <StackPanel Orientation="Horizontal" Spacing="2">
-                        <RadioButton Classes="FilterTabPill" GroupName="ViewModeGroup"
-                                     IsChecked="{Binding AccountsVm.IsCardView, Mode=TwoWay}"
-                                     ToolTip.Tip="{DynamicResource Tab_ViewCardsTip}">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <lucide:Lucide Icon="LayoutGrid" Width="13" Height="13"
-                                               StrokeBrush="#9CA3AF" VerticalAlignment="Center" />
-                                <TextBlock Text="{DynamicResource Dash_ViewCards}"
-                                           VerticalAlignment="Center" />
-                            </StackPanel>
-                        </RadioButton>
-                        <RadioButton Classes="FilterTabPill" GroupName="ViewModeGroup"
-                                     IsChecked="{Binding AccountsVm.IsCompactView, Mode=TwoWay}"
-                                     ToolTip.Tip="{DynamicResource Tab_ViewTableTip}">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <lucide:Lucide Icon="Table2" Width="13" Height="13"
-                                               StrokeBrush="#9CA3AF" VerticalAlignment="Center" />
-                                <TextBlock Text="{DynamicResource Dash_ViewCompact}"
-                                           VerticalAlignment="Center" />
-                            </StackPanel>
-                        </RadioButton>
-                    </StackPanel>
-                </Border>
-            <Button Command="{Binding AccountsVm.CheckSessionsCommand}"
-                    Background="#14141C" Foreground="#9CA3AF" BorderBrush="#242432"
-                    BorderThickness="1" CornerRadius="6" Padding="12,7" Margin="0,2,0,2" FontSize="12"
-                    VerticalAlignment="Center" Cursor="Hand" ToolTip.Tip="{DynamicResource Tab_TipScanExpired}">
+                            <TextBlock Text="{DynamicResource Dash_ViewCompact}"
+                                       VerticalAlignment="Center" />
+                        </StackPanel>
+                    </RadioButton>
+                </StackPanel>
+            </Border>
+
+            <Button Classes="StudioSecondaryBtn"
+                    Command="{Binding AccountsVm.CheckSessionsCommand}"
+                    Padding="12,7"
+                    Margin="0,2,0,2"
+                    VerticalAlignment="Center"
+                    ToolTip.Tip="{DynamicResource Tab_TipScanExpired}">
                 <StackPanel Orientation="Horizontal" Spacing="6">
                     <lucide:Lucide Icon="Search" Width="13" Height="13"
-                                   StrokeBrush="#9CA3AF" VerticalAlignment="Center" />
+                                   StrokeBrush="{DynamicResource TextSecondaryBrush}"
+                                   VerticalAlignment="Center" />
                     <TextBlock Text="{DynamicResource Dash_ScanExpired}"
                                VerticalAlignment="Center" />
                 </StackPanel>
             </Button>
         </WrapPanel>
-        <Border IsVisible="{Binding LaunchBar.IsBatchLaunching}" Background="#12141E"
-                BorderBrush="#252A3E" BorderThickness="1" CornerRadius="10"
-                Padding="14,10" Margin="0,0,0,12">
-            <Grid ColumnDefinitions="*,14,Auto">
-                <StackPanel Grid.Column="0" Spacing="6" VerticalAlignment="Center">
-                    <Grid ColumnDefinitions="Auto,*,Auto">
-                        <lucide:Lucide Grid.Column="0" Icon="Rocket" Width="13" Height="13"
-                                       StrokeBrush="#38BDF8" Margin="0,0,8,0"
+
+        <Border IsVisible="{Binding LaunchBar.IsBatchLaunching}"
+                Background="{DynamicResource SurfaceElevatedBrush}"
+                BorderBrush="{DynamicResource BorderHoverBrush}"
+                BorderThickness="1"
+                CornerRadius="{StaticResource RadiusLg}"
+                Margin="0,0,0,12"
+                BoxShadow="{StaticResource ShadowCard}">
+            <Panel>
+                <Border BorderBrush="{DynamicResource BorderTopRimBrush}"
+                        BorderThickness="0,1,0,0"
+                        CornerRadius="9"
+                        IsHitTestVisible="False" />
+                <Grid ColumnDefinitions="*,14,Auto" Margin="14,10">
+                    <StackPanel Grid.Column="0" Spacing="6" VerticalAlignment="Center">
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Border Grid.Column="0"
+                                    Background="{DynamicResource StatusInfoBgBrush}"
+                                    BorderBrush="{DynamicResource StatusInfoBorderBrush}"
+                                    BorderThickness="1"
+                                    Width="22" Height="22"
+                                    CornerRadius="{StaticResource RadiusXs}"
+                                    Margin="0,0,8,0"
+                                    VerticalAlignment="Center">
+                                <lucide:Lucide Icon="Rocket" Width="12" Height="12"
+                                               StrokeBrush="{DynamicResource StatusInfoBrush}"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center" />
+                            </Border>
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding LaunchBar.BatchLaunchTitleText}"
+                                       FontSize="12" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"
+                                       TextTrimming="CharacterEllipsis"
                                        VerticalAlignment="Center" />
-                        <TextBlock Grid.Column="1" Text="{Binding LaunchBar.BatchLaunchTitleText}"
-                                   FontSize="12" FontWeight="SemiBold" Foreground="#F4F4F5"
-                                   TextTrimming="CharacterEllipsis" />
-                        <TextBlock Grid.Column="2" Text="{Binding LaunchBar.BatchLaunchDetailText}"
-                                   FontSize="11" Foreground="#A1A1AA" Margin="12,0,0,0"
-                                   TextTrimming="CharacterEllipsis" MaxWidth="420" />
-                    </Grid>
-                    <ProgressBar Value="{Binding LaunchBar.BatchLaunchProgressPercent}" Maximum="100"
-                                 MinWidth="0" MinHeight="0" Height="4" CornerRadius="2"
-                                 Foreground="#38BDF8" Background="#1E202E"
-                                 Transitions="{x:Null}" />
-                </StackPanel>
-                <Button Grid.Column="2" Command="{Binding LaunchBar.CancelBatchLaunchCommand}"
-                        Background="#1E1316" Foreground="#F87171" BorderBrush="#451D24"
-                        BorderThickness="1" FontWeight="SemiBold" FontSize="11"
-                        CornerRadius="6" Padding="11,6" VerticalAlignment="Center"
-                        Cursor="Hand" ToolTip.Tip="{DynamicResource Batch_StopQueueTip}">
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                        <lucide:Lucide Icon="Square" Width="10" Height="10"
-                                       StrokeBrush="#F87171" VerticalAlignment="Center" />
-                        <TextBlock Text="{DynamicResource Batch_StopQueue}"
-                                   VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="2"
+                                       Text="{Binding LaunchBar.BatchLaunchDetailText}"
+                                       FontSize="11"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                       Margin="12,0,0,0"
+                                       TextTrimming="CharacterEllipsis"
+                                       MaxWidth="420"
+                                       VerticalAlignment="Center" />
+                        </Grid>
+                        <ProgressBar Value="{Binding LaunchBar.BatchLaunchProgressPercent}"
+                                     Maximum="100"
+                                     MinWidth="0" MinHeight="0" Height="4"
+                                     CornerRadius="2"
+                                     Foreground="{DynamicResource StatusInfoBrush}"
+                                     Background="{DynamicResource SurfaceInputBrush}"
+                                     Transitions="{x:Null}" />
                     </StackPanel>
-                </Button>
-            </Grid>
+                    <Button Grid.Column="2"
+                            Classes="StudioDangerBtn"
+                            Command="{Binding LaunchBar.CancelBatchLaunchCommand}"
+                            FontSize="11"
+                            Padding="11,6"
+                            VerticalAlignment="Center"
+                            ToolTip.Tip="{DynamicResource Batch_StopQueueTip}">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <lucide:Lucide Icon="Square" Width="10" Height="10"
+                                           StrokeBrush="{DynamicResource StatusDangerBrush}"
+                                           VerticalAlignment="Center" />
+                            <TextBlock Text="{DynamicResource Batch_StopQueue}"
+                                       VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                </Grid>
+            </Panel>
         </Border>
     </StackPanel>
 </UserControl>

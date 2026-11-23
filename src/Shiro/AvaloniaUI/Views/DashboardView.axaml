@@ -1,391 +1,357 @@
-<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:views="clr-namespace:Shiro.AvaloniaUI.Views" xmlns:panels="clr-namespace:Shiro.AvaloniaUI.Views.Panels"
-    xmlns:controls="clr-namespace:Shiro.AvaloniaUI.Controls" xmlns:vm="clr-namespace:Shiro.ViewModels" xmlns:sys="clr-namespace:System;assembly=System.Runtime"
-    xmlns:lucide="clr-namespace:LucideAvalonia;assembly=LucideAvalonia" mc:Ignorable="d" x:Class="Shiro.AvaloniaUI.Views.DashboardView" x:DataType="vm:MainViewModel" x:CompileBindings="True"
-    x:Name="RootDashboard">
-    <UserControl.Resources>
-        <ContextMenu x:Key="AccountSharedContextMenu">
-            <MenuItem Header="{DynamicResource Dash_LaunchHome}" Click="OnMenuLaunchHome"><MenuItem.Icon><lucide:Lucide Icon="House" Width="14" Height="14" StrokeBrush="#A1A1AA"
-                /></MenuItem.Icon></MenuItem>
-            <MenuItem Header="{DynamicResource Ctx_JoinThisServer}" Click="OnMenuJoinServer"><MenuItem.Icon><lucide:Lucide Icon="Rocket" Width="14" Height="14" StrokeBrush="#22C55E"
-                /></MenuItem.Icon></MenuItem>
-            <MenuItem Header="{DynamicResource Ctx_FocusWindow}" Click="OnMenuFocusAccountWindow"><MenuItem.Icon><lucide:Lucide Icon="AppWindow" Width="14" Height="14" StrokeBrush="#4ADE80"
-                /></MenuItem.Icon></MenuItem>
-            <MenuItem Header="{DynamicResource Ctx_CloseClient}" Click="OnMenuCloseAccountRoblox"><MenuItem.Icon><lucide:Lucide Icon="X" Width="14" Height="14" StrokeBrush="#EF4444"
-                /></MenuItem.Icon></MenuItem>
-            <Separator />
-            <MenuItem Header="{DynamicResource Ctx_ReLoginInApp}" Click="OnMenuReLoginFast"><MenuItem.Icon><lucide:Lucide Icon="LogIn" Width="14" Height="14" StrokeBrush="#F59E0B"
-                /></MenuItem.Icon></MenuItem>
-            <MenuItem Header="{DynamicResource Ctx_ValidateSession}" Click="OnMenuValidateSession"><MenuItem.Icon><lucide:Lucide Icon="ShieldCheck" Width="14" Height="14" StrokeBrush="#38BDF8"
-                /></MenuItem.Icon></MenuItem>
-            <MenuItem Header="{DynamicResource Ctx_UpdateRobux}" Click="OnMenuCheckRobux"><MenuItem.Icon><lucide:Lucide Icon="Coins" Width="14" Height="14" StrokeBrush="#F59E0B"
-                /></MenuItem.Icon></MenuItem>
-            <MenuItem Header="{DynamicResource Ctx_ViewBanApp}" Click="OnMenuOpenModerationPage"><MenuItem.Icon><lucide:Lucide Icon="ShieldAlert" Width="14" Height="14" StrokeBrush="#FDA4AF"
-                /></MenuItem.Icon></MenuItem>
-            <Separator />
-            <MenuItem Header="{DynamicResource Ctx_ChangeAlias}" Click="OnMenuChangeAlias"><MenuItem.Icon><lucide:Lucide Icon="Pencil" Width="14" Height="14" StrokeBrush="#A1A1AA"
-                /></MenuItem.Icon></MenuItem>
-            <MenuItem Header="{DynamicResource Ctx_AssignGroup}" Click="OnMenuChangeGroup"><MenuItem.Icon><lucide:Lucide Icon="Tag" Width="14" Height="14" StrokeBrush="#A855F7"
-                /></MenuItem.Icon></MenuItem>
-            <MenuItem Header="{DynamicResource Ctx_AccountNotes}" Click="OnMenuChangeDescription"><MenuItem.Icon><lucide:Lucide Icon="FileText" Width="14" Height="14" StrokeBrush="#A1A1AA"
-                /></MenuItem.Icon></MenuItem>
-            <Separator />
-            <MenuItem Header="{DynamicResource Ctx_CopyInfoMenu}">
-                <MenuItem.Icon><lucide:Lucide Icon="ClipboardCopy" Width="14" Height="14" StrokeBrush="#38BDF8" /></MenuItem.Icon>
-                <MenuItem Header="{DynamicResource Menu_CopyCookie}" Click="OnMenuCopyCookie"><MenuItem.Icon><lucide:Lucide Icon="Cookie" Width="14" Height="14" StrokeBrush="#F59E0B"
-                    /></MenuItem.Icon></MenuItem>
-                <MenuItem Header="{DynamicResource Menu_CopyUserPass}" Click="OnMenuCopyUserPass"><MenuItem.Icon><lucide:Lucide Icon="KeyRound" Width="14" Height="14" StrokeBrush="#A1A1AA"
-                    /></MenuItem.Icon></MenuItem>
-                <MenuItem Header="{DynamicResource Menu_CopyUserId}" Click="OnMenuCopyUserId"><MenuItem.Icon><lucide:Lucide Icon="Hash" Width="14" Height="14" StrokeBrush="#A1A1AA"
-                    /></MenuItem.Icon></MenuItem>
-                <MenuItem Header="{DynamicResource Ctx_CopyUsername}" Click="OnMenuCopyUsername"><MenuItem.Icon><lucide:Lucide Icon="User" Width="14" Height="14" StrokeBrush="#A1A1AA"
-                    /></MenuItem.Icon></MenuItem>
-                <MenuItem Header="{DynamicResource Ctx_CopyProfileUrl}" Click="OnMenuCopyProfileUrl"><MenuItem.Icon><lucide:Lucide Icon="Link" Width="14" Height="14" StrokeBrush="#A1A1AA"
-                    /></MenuItem.Icon></MenuItem>
-            </MenuItem>
-            <MenuItem Header="{DynamicResource Ctx_AdvancedUtilsMenu}">
-                <MenuItem.Icon><lucide:Lucide Icon="Cpu" Width="14" Height="14" StrokeBrush="#9CA3AF" /></MenuItem.Icon>
-                <MenuItem Header="{DynamicResource Ctx_AccountFields}" Click="OnMenuAccountFields"><MenuItem.Icon><lucide:Lucide Icon="Settings" Width="14" Height="14" StrokeBrush="#A1A1AA"
-                    /></MenuItem.Icon></MenuItem>
-                <MenuItem Header="{DynamicResource Ctx_AccountUtils}" Click="OnMenuAccountUtils"><MenuItem.Icon><lucide:Lucide Icon="Wrench" Width="14" Height="14" StrokeBrush="#A1A1AA"
-                    /></MenuItem.Icon></MenuItem>
-            </MenuItem>
-            <Separator />
-            <MenuItem Header="{DynamicResource Ctx_DeleteFromShiro}" Foreground="#EF4444" Click="OnMenuDeleteAccount"><MenuItem.Icon><lucide:Lucide Icon="Trash2" Width="14" Height="14"
-                StrokeBrush="#EF4444" /></MenuItem.Icon></MenuItem>
-        </ContextMenu>
-    </UserControl.Resources>
-    <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,*" Margin="16,12,16,12">
-        <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,14">
-            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Spacing="10">
-                <TextBlock Text="{DynamicResource Dash_Title}" FontSize="22" FontWeight="Bold" Foreground="#FFFFFF" VerticalAlignment="Center" />
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="6" Margin="4,2,0,0">
-                    <TextBlock Text="{Binding AccountsVm.SubtitleTotalText}" FontSize="12" Foreground="#71717A" />
-                    <TextBlock Text="{Binding AccountsVm.SubtitleReadyText}" FontSize="12" Foreground="#71717A" />
-                    <TextBlock Text="•" FontSize="12" Foreground="#383846" />
-                    <TextBlock Text="{Binding AccountsVm.SubtitleSelectedText}" FontSize="12" Foreground="#9CA3AF" FontWeight="SemiBold" />
-                </StackPanel>
-            </StackPanel>
-            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                <TextBox x:Name="TxtSearch" Text="{Binding AccountsVm.SearchText, Mode=TwoWay}" Width="240" PlaceholderText="{DynamicResource Dash_SearchPlaceholder}"
-                    ToolTip.Tip="{DynamicResource Dash_SearchTooltip}" Background="#14141C" Foreground="#FFFFFF" BorderBrush="#242432" CornerRadius="16" Padding="10,6"
-                    VerticalContentAlignment="Center" FontSize="12">
-                    <TextBox.InnerLeftContent><lucide:Lucide Icon="Search" Width="13" Height="13" StrokeBrush="#71717A" Margin="10,0,0,0" VerticalAlignment="Center" /></TextBox.InnerLeftContent>
-                    <TextBox.InnerRightContent>
-                        <Button Command="{Binding AccountsVm.ClearSearchCommand}" IsVisible="{Binding AccountsVm.SearchText, Converter={StaticResource StringNotNullOrEmpty}}"
-                        Margin="0,0,6,0" Padding="4" Background="Transparent" BorderThickness="0" Cursor="Hand" ToolTip.Tip="{DynamicResource Dash_ClearSearch}"><lucide:Lucide
-                        Icon="X" Width="12" Height="12" StrokeBrush="#71717A" /></Button>
-                    </TextBox.InnerRightContent>
-                </TextBox>
-                <Button Command="{Binding ToolsStatus.RefreshPresenceCommand}" Width="34" Height="34" CornerRadius="8" Background="#161620" Foreground="#A1A1AA" BorderBrush="#262634"
-                    BorderThickness="1" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Cursor="Hand"
-                    ToolTip.Tip="{DynamicResource Dash_RefreshPresence}"><lucide:Lucide Icon="RefreshCw" Width="14" Height="14" StrokeBrush="#A1A1AA" /></Button>
-            </StackPanel>
-        </Grid>
-        <panels:DashboardInspectorPanel Grid.Row="1" DataContext="{Binding AccountsVm}" />
-        <Grid Grid.Row="2" ColumnDefinitions="*,Auto" Margin="0,0,0,10">
-            <WrapPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                <ComboBox x:Name="CmbGroups" ItemsSource="{Binding AccountsVm.AvailableGroups}" SelectedItem="{Binding AccountsVm.SelectedGroup, Mode=TwoWay}" Width="140" Margin="0,2,8,2"
-                    Background="#161622" Foreground="#FFFFFF" BorderBrush="#2E2E3E" BorderThickness="1" CornerRadius="6" Padding="10,6" FontSize="12" FontWeight="SemiBold"
-                    ToolTip.Tip="{DynamicResource Bar_GroupFilterTooltip}">
-                    <ComboBox.ItemTemplate>
-                        <DataTemplate x:DataType="sys:String">
-                            <TextBlock Text="{Binding Converter={StaticResource GroupNameDisplay}}" Foreground="#FFFFFF" FontWeight="SemiBold" FontSize="12" VerticalAlignment="Center" />
-                        </DataTemplate>
-                    </ComboBox.ItemTemplate>
-                </ComboBox>
-                <Button Margin="0,2,8,2" Background="#161620" Foreground="#D4D4D8" BorderBrush="#262634" BorderThickness="1" CornerRadius="6" Padding="10,7" FontSize="12" FontWeight="SemiBold"
-                    Cursor="Hand" ToolTip.Tip="{DynamicResource Dash_SortTip}">
-                    <Button.Flyout>
-                        <MenuFlyout Placement="BottomEdgeAlignedLeft">
-                            <MenuItem Header="{DynamicResource Sort_NameAsc}" Command="{Binding AccountsVm.SetSortModeCommand}" CommandParameter="NaturalAscending"><MenuItem.Icon><lucide:Lucide
-                        Icon="ArrowDownAZ" Width="14" Height="14" StrokeBrush="#38BDF8" /></MenuItem.Icon></MenuItem>
-                            <MenuItem Header="{DynamicResource Sort_NameDesc}" Command="{Binding AccountsVm.SetSortModeCommand}" CommandParameter="NaturalDescending"><MenuItem.Icon><lucide:Lucide
-                        Icon="ArrowUpZA" Width="14" Height="14" StrokeBrush="#A1A1AA" /></MenuItem.Icon></MenuItem>
-                            <MenuItem Header="{DynamicResource Sort_Status}" Command="{Binding AccountsVm.SetSortModeCommand}" CommandParameter="Status"><MenuItem.Icon><lucide:Lucide
-                        Icon="Activity" Width="14" Height="14" StrokeBrush="#22C55E" /></MenuItem.Icon></MenuItem>
-                            <MenuItem Header="{DynamicResource Sort_RobuxDesc}" Command="{Binding AccountsVm.SetSortModeCommand}" CommandParameter="RobuxDescending"><MenuItem.Icon><lucide:Lucide
-                        Icon="Coins" Width="14" Height="14" StrokeBrush="#F59E0B" /></MenuItem.Icon></MenuItem>
-                            <MenuItem Header="{DynamicResource Sort_Original}" Command="{Binding AccountsVm.SetSortModeCommand}" CommandParameter="Original"><MenuItem.Icon><lucide:Lucide
-                        Icon="Clock" Width="14" Height="14" StrokeBrush="#A1A1AA" /></MenuItem.Icon></MenuItem>
-                        </MenuFlyout>
-                    </Button.Flyout>
-                    <StackPanel Orientation="Horizontal" Spacing="6"><lucide:Lucide Icon="ArrowUpDown" Width="13" Height="13" StrokeBrush="#A1A1AA" VerticalAlignment="Center" /><TextBlock
-                        Text="{Binding AccountsVm.CurrentSortLabel}" VerticalAlignment="Center" /><lucide:Lucide Icon="ChevronDown" Width="11" Height="11" StrokeBrush="#71717A"
-                        VerticalAlignment="Center" /></StackPanel>
-                </Button>
-                <Button Command="{Binding AccountsVm.SelectAllCommand}" Margin="0,2,8,2" Background="#161620" Foreground="#FFFFFF" BorderBrush="#262634" BorderThickness="1" CornerRadius="6"
-                    Padding="12,7" FontSize="12" FontWeight="SemiBold" Cursor="Hand" ToolTip.Tip="{DynamicResource Bar_SelectAllTooltip}">
-                    <StackPanel Orientation="Horizontal" Spacing="6"><lucide:Lucide Icon="CheckCheck" Width="14" Height="14" StrokeBrush="#FFFFFF" VerticalAlignment="Center" /><TextBlock
-                        Text="{DynamicResource Dash_SelectAll}" VerticalAlignment="Center" /></StackPanel>
-                </Button>
-                <Button Margin="0,2,8,2" Background="#161620" Foreground="#E4E4E7" BorderBrush="#262634" BorderThickness="1" CornerRadius="6" Padding="10,7" FontSize="12" FontWeight="SemiBold"
-                    Cursor="Hand" ToolTip.Tip="{DynamicResource Dash_QuickSelectTip}">
-                    <Button.Flyout>
-                        <MenuFlyout Placement="BottomEdgeAlignedLeft">
-                            <MenuItem Header="{DynamicResource QuickSel_Ready5}" Command="{Binding AccountsVm.SelectReadyBatchCommand}" CommandParameter="5"><MenuItem.Icon><lucide:Lucide
-                        Icon="CheckCheck" Width="14" Height="14" StrokeBrush="#38BDF8" /></MenuItem.Icon></MenuItem>
-                            <MenuItem Header="{DynamicResource QuickSel_Ready10}" Command="{Binding AccountsVm.SelectReadyBatchCommand}" CommandParameter="10"><MenuItem.Icon><lucide:Lucide
-                        Icon="CheckCheck" Width="14" Height="14" StrokeBrush="#22C55E" /></MenuItem.Icon></MenuItem>
-                            <MenuItem Header="{DynamicResource QuickSel_Ready20}" Command="{Binding AccountsVm.SelectReadyBatchCommand}" CommandParameter="20"><MenuItem.Icon><lucide:Lucide
-                        Icon="CheckCheck" Width="14" Height="14" StrokeBrush="#A855F7" /></MenuItem.Icon></MenuItem>
-                            <Separator />
-                            <MenuItem Header="{DynamicResource QuickSel_ByRange}" Command="{Binding AccountsVm.SelectByRangePromptCommand}"><MenuItem.Icon><lucide:Lucide Icon="Hash" Width="14"
-                        Height="14" StrokeBrush="#F59E0B" /></MenuItem.Icon></MenuItem>
-                            <MenuItem Header="{DynamicResource QuickSel_Invert}" Command="{Binding AccountsVm.InvertSelectionCommand}"><MenuItem.Icon><lucide:Lucide Icon="ArrowLeftRight"
-                        Width="14" Height="14" StrokeBrush="#A1A1AA" /></MenuItem.Icon></MenuItem>
-                        </MenuFlyout>
-                    </Button.Flyout>
-                    <StackPanel Orientation="Horizontal" Spacing="5"><lucide:Lucide Icon="ListChecks" Width="13" Height="13" StrokeBrush="#38BDF8" VerticalAlignment="Center" /><TextBlock
-                        Text="{DynamicResource Dash_QuickSelect}" VerticalAlignment="Center" /><lucide:Lucide Icon="ChevronDown" Width="11" Height="11" StrokeBrush="#71717A"
-                        VerticalAlignment="Center" /></StackPanel>
-                </Button>
-                <Button Command="{Binding AccountsVm.ClearSelectionCommand}" Margin="0,2,8,2" IsVisible="{Binding AccountsVm.HasSelection}" Background="#26171B" Foreground="#F87171"
-                    BorderBrush="#4A2026" BorderThickness="1" CornerRadius="6" Padding="11,7" FontSize="12" FontWeight="SemiBold" Cursor="Hand"
-                    ToolTip.Tip="{DynamicResource Bar_ClearSelectionTooltip}">
-                    <StackPanel Orientation="Horizontal" Spacing="5"><lucide:Lucide Icon="X" Width="14" Height="14" StrokeBrush="#F87171" VerticalAlignment="Center" /><TextBlock
-                        Text="{Binding AccountsVm.DeselectCountText}" VerticalAlignment="Center" /></StackPanel>
-                </Button>
-                <Button Margin="0,2,0,2" Background="#161620" Foreground="#E4E4E7" BorderBrush="#262634" BorderThickness="1" CornerRadius="6" Padding="11,7" FontSize="12" FontWeight="SemiBold"
-                    Cursor="Hand" ToolTip.Tip="{DynamicResource Bar_BatchActionsTooltip}">
-                    <Button.Flyout>
-                        <MenuFlyout Placement="BottomEdgeAlignedLeft">
-                            <MenuItem Header="{DynamicResource Btn_Deselect}" Command="{Binding AccountsVm.ClearSelectionCommand}" IsVisible="{Binding AccountsVm.HasSelection}"><MenuItem.Icon>
-                        <lucide:Lucide Icon="X" Width="14" Height="14" StrokeBrush="#F87171" /></MenuItem.Icon></MenuItem>
-                            <Separator IsVisible="{Binding AccountsVm.HasSelection}" />
-                            <MenuItem Header="{DynamicResource Bar_ScanAllSessions}" Command="{Binding AccountsVm.CheckSessionsCommand}"><MenuItem.Icon><lucide:Lucide Icon="Search" Width="14"
-                        Height="14" StrokeBrush="#38BDF8" /></MenuItem.Icon></MenuItem>
-                            <MenuItem Header="{DynamicResource Bar_AutoReLoginAll}" Command="{Binding AccountsVm.ReLoginAllExpiredCommand}"><MenuItem.Icon><lucide:Lucide Icon="Zap" Width="14"
-                        Height="14" StrokeBrush="#F59E0B" /></MenuItem.Icon></MenuItem>
-                            <Separator />
-                            <MenuItem Header="{DynamicResource Bar_ValidateSelected}" Command="{Binding AccountsVm.ValidateSessionSelectedCommand}"><MenuItem.Icon><lucide:Lucide
-                        Icon="ShieldCheck" Width="14" Height="14" StrokeBrush="#22C55E" /></MenuItem.Icon></MenuItem>
-                            <MenuItem Header="{DynamicResource Bar_ReLoginSelected}" Command="{Binding AccountsVm.ReLoginSelectedCommand}"><MenuItem.Icon><lucide:Lucide Icon="Key"
-                        Width="14" Height="14" StrokeBrush="#FBBF24" /></MenuItem.Icon></MenuItem>
-                            <MenuItem Header="{DynamicResource Bar_SetGroupSelected}" Command="{Binding AccountsVm.SetGroupSelectedCommand}"><MenuItem.Icon><lucide:Lucide Icon="Folder"
-                        Width="14" Height="14" StrokeBrush="#A855F7" /></MenuItem.Icon></MenuItem>
-                            <MenuItem Header="{DynamicResource Bar_SavePlaceIdSelected}" Command="{Binding AccountsVm.SavePlaceIdSelectedCommand}"><MenuItem.Icon><lucide:Lucide
-                        Icon="Bookmark" Width="14" Height="14" StrokeBrush="#38BDF8" /></MenuItem.Icon></MenuItem>
-                            <MenuItem Header="{DynamicResource Bar_CopyUserPassSelected}" Command="{Binding AccountsVm.CopyUserPassSelectedCommand}"><MenuItem.Icon><lucide:Lucide
-                        Icon="ClipboardCopy" Width="14" Height="14" StrokeBrush="#A1A1AA" /></MenuItem.Icon></MenuItem>
-                            <Separator />
-                            <MenuItem Header="{DynamicResource Tool_RefreshRobux}" Command="{Binding AccountsVm.RefreshAllRobuxCommand}"><MenuItem.Icon><lucide:Lucide Icon="Coins"
-                        Width="14" Height="14" StrokeBrush="#F59E0B" /></MenuItem.Icon></MenuItem>
-                            <MenuItem Header="{DynamicResource Tool_ClearClientSession}" Command="{Binding AccountsVm.ClearRobloxClientSessionCommand}"><MenuItem.Icon><lucide:Lucide
-                        Icon="LogOut" Width="14" Height="14" StrokeBrush="#A1A1AA" /></MenuItem.Icon></MenuItem>
-                            <MenuItem Header="{DynamicResource Bar_RemoveSelected}" Foreground="#EF4444" Command="{Binding AccountsVm.RemoveSelectedCommand}"><MenuItem.Icon><lucide:Lucide
-                        Icon="Trash2" Width="14" Height="14" StrokeBrush="#EF4444" /></MenuItem.Icon></MenuItem>
-                        </MenuFlyout>
-                    </Button.Flyout>
-                    <StackPanel Orientation="Horizontal" Spacing="6"><lucide:Lucide Icon="Zap" Width="13" Height="13" StrokeBrush="#FBBF24" VerticalAlignment="Center" />
-                        <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center"><TextBlock Text="{DynamicResource Bar_BatchActions}" />
-                            <TextBlock Text="{Binding AccountsVm.SelectedCount, StringFormat='({0})'}" /></StackPanel><lucide:Lucide Icon="ChevronDown" Width="12" Height="12"
-                        StrokeBrush="#71717A" VerticalAlignment="Center" /></StackPanel>
-                </Button>
-            </WrapPanel>
-            <Button Grid.Column="1" VerticalAlignment="Center" Margin="10,0,0,0" Background="{DynamicResource AccentBrush}" Foreground="{DynamicResource AccentForegroundBrush}" FontWeight="Bold"
-                FontSize="12" CornerRadius="6" Padding="14,8" Cursor="Hand" ToolTip.Tip="{DynamicResource Bar_AddAccountMenuTooltip}">
-                <Button.Flyout>
-                    <MenuFlyout Placement="BottomEdgeAlignedRight">
-                        <MenuItem Header="{DynamicResource Bar_AddFastLogin}" Command="{Binding AccountsVm.AddAccountFastLoginCommand}"><MenuItem.Icon><lucide:Lucide Icon="Globe" Width="14"
-                        Height="14" StrokeBrush="#38BDF8" /></MenuItem.Icon></MenuItem>
-                        <MenuItem Header="{DynamicResource Bar_AddCookie}" Command="{Binding AccountsVm.AddAccountCookieCommand}"><MenuItem.Icon><lucide:Lucide Icon="Cookie" Width="14"
-                        Height="14" StrokeBrush="#F59E0B" /></MenuItem.Icon></MenuItem>
-                        <Separator />
-                        <MenuItem Header="{DynamicResource Bar_BulkImport}" Command="{Binding AccountsVm.BulkImportCommand}"><MenuItem.Icon><lucide:Lucide Icon="FileText" Width="14"
-                        Height="14" StrokeBrush="#A855F7" /></MenuItem.Icon></MenuItem>
-                    </MenuFlyout>
-                </Button.Flyout>
-                <StackPanel Orientation="Horizontal" Spacing="6"><lucide:Lucide Icon="Plus" Width="13" Height="13" StrokeBrush="{DynamicResource AccentForegroundBrush}" StrokeThickness="2.5"
-                    VerticalAlignment="Center" /><TextBlock Text="{DynamicResource Dash_AddAccount}" VerticalAlignment="Center" /><lucide:Lucide Icon="ChevronDown" Width="12" Height="12"
-                    StrokeBrush="{DynamicResource AccentForegroundBrush}" VerticalAlignment="Center" /></StackPanel>
-            </Button>
-        </Grid>
-        <Grid Grid.Row="3" ColumnDefinitions="*,Auto" Margin="0,0,0,10">
-            <WrapPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" Margin="0,2,8,2">
-                    <TextBlock Text="{DynamicResource Bar_PlaceId}" FontSize="12" Foreground="#9CA3AF" VerticalAlignment="Center" />
-                    <TextBox x:Name="TxtPlaceId" Text="{Binding LaunchBar.PlaceId, Mode=TwoWay}" Width="136" PlaceholderText="{DynamicResource Dash_PlaceIdPlaceholder}"
-                        ToolTip.Tip="{DynamicResource Bar_TipPlaceId}" Background="#14141C" Foreground="#FFFFFF" BorderBrush="#242432" CornerRadius="6" Padding="8,6"
-                        VerticalContentAlignment="Center" FontSize="12" />
-                </StackPanel>
-                <Border IsVisible="{Binding LaunchBar.HasCurrentGameInfo}" Margin="0,2,8,2" Background="#141925" BorderBrush="#27344E" BorderThickness="1" CornerRadius="6" Padding="6,4"
-                    MaxWidth="165" VerticalAlignment="Center" ToolTip.Tip="{Binding LaunchBar.CurrentGameName}">
-                    <Grid ColumnDefinitions="Auto,*">
-                        <Border Grid.Column="0" Width="20" Height="20" CornerRadius="4" ClipToBounds="True" Background="#1C2333" Margin="0,0,6,0" VerticalAlignment="Center">
-                            <Panel>
-                                <lucide:Lucide Icon="Gamepad2" Width="11" Height="11" StrokeBrush="#38BDF8" HorizontalAlignment="Center" VerticalAlignment="Center"
-                        IsVisible="{Binding LaunchBar.CurrentGameThumbnail, Converter={x:Static ObjectConverters.IsNull}}" />
-                                <Image Source="{Binding LaunchBar.CurrentGameThumbnail}" Width="20" Height="20" Stretch="UniformToFill"
-                        IsVisible="{Binding LaunchBar.CurrentGameThumbnail, Converter={x:Static ObjectConverters.IsNotNull}}" />
-                            </Panel>
-                        </Border>
-                        <TextBlock Grid.Column="1" Text="{Binding LaunchBar.CurrentGameName}" FontSize="11" FontWeight="Normal" Foreground="#E4E4E7" VerticalAlignment="Center"
-                        TextTrimming="CharacterEllipsis" />
-                    </Grid>
-                </Border>
-                <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" Margin="0,2,8,2">
-                    <TextBlock Text="{DynamicResource Dash_JobIdLabel}" FontSize="12" Foreground="#9CA3AF" VerticalAlignment="Center" />
-                    <TextBox x:Name="TxtJobId" Text="{Binding LaunchBar.JobId, Mode=TwoWay}" PasswordChar="{Binding ToolsStatus.JobIdMaskChar}" Width="122"
-                        PlaceholderText="{DynamicResource Dash_JobIdPlaceholder}" ToolTip.Tip="{DynamicResource Bar_TipJobId}" Background="#14141C" Foreground="#FFFFFF" BorderBrush="#242432"
-                        CornerRadius="6" Padding="8,6" VerticalContentAlignment="Center" FontSize="12" />
-                </StackPanel>
-                <Button Margin="0,2,0,2" Background="#161620" Foreground="#E4E4E7" BorderBrush="#262634" BorderThickness="1" CornerRadius="6" Padding="9,6" FontSize="12" FontWeight="SemiBold"
-                    Cursor="Hand" ToolTip.Tip="{DynamicResource Bar_TipRecent}">
-                    <Button.Flyout>
-                        <Flyout Placement="BottomEdgeAlignedLeft">
-                            <Border Width="280" MaxHeight="320" Background="#111115" Padding="4">
-                                <Panel>
-                                    <TextBlock Text="{DynamicResource Dash_NoRecentGames}" FontSize="11" Foreground="#71717A" Margin="12,10"
-                        IsVisible="{Binding LaunchBar.HasRecentGames, Converter={StaticResource InverseBoolConverter}}" />
-                                    <ScrollViewer IsVisible="{Binding LaunchBar.HasRecentGames}">
-                                        <ItemsControl ItemsSource="{Binding LaunchBar.RecentGamesList}">
-                                            <ItemsControl.ItemTemplate>
-                                                <DataTemplate x:DataType="vm:RecentGameItemViewModel">
-                                                    <Button Command="{Binding #RootDashboard.ViewModel.LaunchBar.SelectRecentGameCommand}" CommandParameter="{Binding}" HorizontalAlignment="Stretch"
-                        HorizontalContentAlignment="Left" Background="Transparent" Foreground="#FFFFFF" Padding="6,5" CornerRadius="6" Cursor="Hand">
-                                                        <Grid ColumnDefinitions="Auto,*">
-                                                            <Border Grid.Column="0" Width="32" Height="32" CornerRadius="6" ClipToBounds="True" Background="#161620" Margin="0,0,8,0"
-                        VerticalAlignment="Center">
-                                                                <Panel>
-                                                                    <lucide:Lucide Icon="Gamepad2" Width="16" Height="16" StrokeBrush="#71717A" HorizontalAlignment="Center"
-                        VerticalAlignment="Center" IsVisible="{Binding ThumbnailBitmap, Converter={x:Static ObjectConverters.IsNull}}" />
-                                                                    <Image Source="{Binding ThumbnailBitmap}" Width="32" Height="32" Stretch="UniformToFill"
-                        IsVisible="{Binding ThumbnailBitmap, Converter={x:Static ObjectConverters.IsNotNull}}" />
-                                                                </Panel>
-                                                            </Border>
-                                                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="1"><TextBlock Text="{Binding Name}" FontWeight="Normal"
-                        FontSize="12" Foreground="#FFFFFF" TextTrimming="CharacterEllipsis" /><TextBlock Text="{Binding Subtitle}" FontSize="10" Foreground="#71717A" /></StackPanel>
-                                                        </Grid>
-                                                    </Button>
-                                                </DataTemplate>
-                                            </ItemsControl.ItemTemplate>
-                                        </ItemsControl>
-                                    </ScrollViewer>
-                                </Panel>
-                            </Border>
-                        </Flyout>
-                    </Button.Flyout>
-                    <StackPanel Orientation="Horizontal" Spacing="5"><lucide:Lucide Icon="Gamepad2" Width="13" Height="13" StrokeBrush="#38BDF8" VerticalAlignment="Center" /><TextBlock
-                        Text="{DynamicResource Dash_RecentGamesBtn}" VerticalAlignment="Center" /></StackPanel>
-                </Button>
-            </WrapPanel>
-            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="12,0,0,0">
-                <Button Command="{Binding LaunchBar.LaunchSelectedCommand}" Background="#161620" Foreground="#FFFFFF" BorderBrush="#262634" BorderThickness="1" FontWeight="SemiBold" FontSize="12"
-                    CornerRadius="6" Padding="12,8" Cursor="Hand" ToolTip.Tip="{DynamicResource Bar_TipLaunchHome}">
-                    <StackPanel Orientation="Horizontal" Spacing="6"><lucide:Lucide Icon="House" Width="14" Height="14" StrokeBrush="#FFFFFF" VerticalAlignment="Center" /><TextBlock
-                        Text="{Binding LaunchBar.LaunchHomeButtonText}" VerticalAlignment="Center" /></StackPanel>
-                </Button>
-                <Button Command="{Binding LaunchBar.JoinServerSelectedCommand}" Background="{DynamicResource AccentBrush}" Foreground="{DynamicResource AccentForegroundBrush}" FontWeight="Bold"
-                    FontSize="12" CornerRadius="6" Padding="14,8" Cursor="Hand" ToolTip.Tip="{DynamicResource Bar_TipJoinServer}">
-                    <StackPanel Orientation="Horizontal" Spacing="6"><lucide:Lucide Icon="Play" Width="12" Height="12" StrokeBrush="{DynamicResource AccentForegroundBrush}" StrokeThickness="2.5"
-                        VerticalAlignment="Center" /><TextBlock Text="{Binding LaunchBar.JoinServerButtonText}" VerticalAlignment="Center" /></StackPanel>
-                </Button>
-            </StackPanel>
-        </Grid>
-        <panels:DashboardFooterBar Grid.Row="4" Grid.RowSpan="2" />
-        <Border Grid.Row="6" Background="Transparent">
-            <Panel>
-                <ItemsControl x:Name="CardsItemsControl" IsVisible="{Binding AccountsVm.IsCardView}" ItemsSource="{Binding AccountsVm.FilteredAccountRows}">
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate><VirtualizingStackPanel CacheLength="1" /></ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                    <ItemsControl.Template>
-                        <ControlTemplate>
-                            <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" BringIntoViewOnFocusChange="False" Padding="0,0,14,0">
-                                <ItemsPresenter ItemsPanel="{TemplateBinding ItemsPanel}" />
-                            </ScrollViewer>
-                        </ControlTemplate>
-                    </ItemsControl.Template>
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate x:DataType="vm:AccountRowViewModel">
-                            <controls:UniformRowPanel Columns="{Binding ColumnCount}" Height="148">
-                                <Border IsVisible="{Binding HasItem1}"><views:AccountCardView DataContext="{Binding Item1}" /></Border>
-                                <Border IsVisible="{Binding HasItem2}"><views:AccountCardView DataContext="{Binding Item2}" /></Border>
-                                <Border IsVisible="{Binding HasItem3}"><views:AccountCardView DataContext="{Binding Item3}" /></Border>
-                                <Border IsVisible="{Binding HasItem4}"><views:AccountCardView DataContext="{Binding Item4}" /></Border>
-                            </controls:UniformRowPanel>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-                <Grid IsVisible="{Binding AccountsVm.IsCompactView}" RowDefinitions="Auto,*">
-                    <Border Grid.Row="0" Background="#14141C" BorderBrush="#20202C" BorderThickness="0,0,0,1" CornerRadius="6,6,0,0" Padding="14,8">
-                        <Grid ColumnDefinitions="40,36,2.2*,1.2*,1.2*,1.6*,1.2*,104">
-                            <CheckBox Grid.Column="0" IsChecked="{Binding AccountsVm.IsAllSelected, Mode=TwoWay}" VerticalAlignment="Center" HorizontalAlignment="Center"
-                        ToolTip.Tip="{DynamicResource Bar_SelectAllTooltip}" />
-                            <TextBlock Grid.Column="1" Text="" />
-                            <TextBlock Grid.Column="2" Text="{DynamicResource Dash_ColAccount}" FontSize="11" FontWeight="Bold" Foreground="#71717A" VerticalAlignment="Center" />
-                            <TextBlock Grid.Column="3" Text="{DynamicResource Dash_ColUserId}" FontSize="11" FontWeight="Bold" Foreground="#71717A" VerticalAlignment="Center" />
-                            <TextBlock Grid.Column="4" Text="{DynamicResource Dash_ColGroup}" FontSize="11" FontWeight="Bold" Foreground="#71717A" VerticalAlignment="Center" />
-                            <TextBlock Grid.Column="5" Text="{DynamicResource Dash_ColStatus}" FontSize="11" FontWeight="Bold" Foreground="#71717A" VerticalAlignment="Center" />
-                            <TextBlock Grid.Column="6" Text="{DynamicResource Dash_ColRobux}" FontSize="11" FontWeight="Bold" Foreground="#71717A" VerticalAlignment="Center" />
-                            <TextBlock Grid.Column="7" Text="{DynamicResource Dash_ColActions}" FontSize="11" FontWeight="Bold" Foreground="#71717A" HorizontalAlignment="Center"
-                        VerticalAlignment="Center" />
-                        </Grid>
-                    </Border>
-                    <ItemsControl x:Name="TableItemsControl" Grid.Row="1" ItemsSource="{Binding AccountsVm.FilteredAccounts}">
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate><VirtualizingStackPanel CacheLength="1" /></ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                        <ItemsControl.Template>
-                            <ControlTemplate>
-                                <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" BringIntoViewOnFocusChange="False" Padding="0,0,12,0">
-                                    <ItemsPresenter ItemsPanel="{TemplateBinding ItemsPanel}" />
-                                </ScrollViewer>
-                            </ControlTemplate>
-                        </ItemsControl.Template>
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate x:DataType="vm:AccountViewModel">
-                                <Border Height="38" Background="#111116" BorderBrush="#1C1C24" BorderThickness="0,0,0,1" Padding="14,0" PointerPressed="OnCardPointerPressed"
-                        DoubleTapped="OnCardDoubleTapped" Cursor="Hand">
-                                    <Grid ColumnDefinitions="40,36,2.2*,1.2*,1.2*,1.6*,1.2*,104">
-                                        <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected, Mode=TwoWay}" Transitions="{x:Null}" VerticalAlignment="Center" HorizontalAlignment="Center" />
-                                        <Border Grid.Column="1" Width="26" Height="26" CornerRadius="13" Background="#252530" ClipToBounds="True" VerticalAlignment="Center">
-                                            <Panel>
-                                                <TextBlock Text="{Binding Initials}" FontSize="11" FontWeight="Bold" Foreground="#71717A" HorizontalAlignment="Center" VerticalAlignment="Center"
-                        />
-                                                <Image Source="{Binding AvatarImage}" Stretch="UniformToFill" RenderOptions.BitmapInterpolationMode="MediumQuality" />
-                                            </Panel>
-                                        </Border>
-                                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"><Path Data="{StaticResource GeoPin}" Width="11" Height="11"
-                        Stretch="Uniform" Stroke="#FBBF24" StrokeThickness="1.8" IsVisible="{Binding Pinned}" VerticalAlignment="Center" /><TextBlock Text="{Binding ShownUsername}"
-                        FontWeight="SemiBold" FontSize="12" Foreground="#FFFFFF" VerticalAlignment="Center" /><TextBlock Text="{Binding ShownAlias, StringFormat='({0})'}"
-                        IsVisible="{Binding ShownAlias, Converter={StaticResource StringNotNullOrEmpty}}" FontSize="11" Foreground="#A1A1AA" VerticalAlignment="Center" /></StackPanel>
-                                        <TextBlock Grid.Column="3" Text="{Binding ShownUserId}" FontSize="11" Foreground="#71717A" VerticalAlignment="Center" />
-                                        <Border Grid.Column="4" Background="#1C1C26" CornerRadius="4" Padding="6,2" HorizontalAlignment="Left" VerticalAlignment="Center"><TextBlock
-                        Text="{Binding Group, Converter={StaticResource GroupNameDisplay}}" FontSize="10" Foreground="#A1A1AA" /></Border>
-                                        <StackPanel Grid.Column="5" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"><Ellipse Width="6" Height="6"
-                        Fill="{Binding StatusBadgeForeground}" VerticalAlignment="Center" /><TextBlock Text="{Binding StatusText}" FontSize="11" Foreground="{Binding StatusBadgeForeground}"
-                        VerticalAlignment="Center" /></StackPanel>
-                                        <TextBlock Grid.Column="6" Text="{Binding RobuxFormatted}" IsVisible="{Binding HasRobux}" FontSize="11" FontWeight="SemiBold" Foreground="#F59E0B"
-                        VerticalAlignment="Center" />
-                                        <StackPanel Grid.Column="7" Orientation="Horizontal" Spacing="5" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                            <Button Classes="FastPillBtn" IsVisible="{Binding ShowPlayButton}" Width="26" Height="26" Click="OnCardLaunchClicked" Background="#22222E"
-                        CornerRadius="13" Padding="0" ToolTip.Tip="{DynamicResource Card_TipLaunch}"><Path Data="{StaticResource GeoPlay}" Width="9" Height="9" Stretch="Uniform" Fill="#FFFFFF"
-                        /></Button>
-                                            <Button Classes="FastPillBtn" IsVisible="{Binding ShowRunningClientControls}" Width="26" Height="26" Click="OnCardFocusWindowClicked"
-                        Background="#132F20" BorderBrush="#227844" BorderThickness="1" CornerRadius="13" Padding="0" ToolTip.Tip="{DynamicResource Card_TipFocusWindow}"><Path
-                        Data="{StaticResource GeoWindow}" Width="10" Height="10" Stretch="Uniform" Stroke="#4ADE80" StrokeThickness="1.8" StrokeLineCap="Round" StrokeJoin="Round" /></Button>
-                                            <Button Classes="FastPillBtn" IsVisible="{Binding ShowRunningClientControls}" Width="26" Height="26" Click="OnCardCloseClientClicked"
-                        Background="#2A1216" BorderBrush="#7F1D1D" BorderThickness="1" CornerRadius="13" Padding="0" ToolTip.Tip="{DynamicResource Card_TipCloseClient}"><Path
-                        Data="{StaticResource GeoClose}" Width="9" Height="9" Stretch="Uniform" Stroke="#F87171" StrokeThickness="2" StrokeLineCap="Round" StrokeJoin="Round" /></Button>
-                                            <Button Classes="FastPillBtn" IsVisible="{Binding IsExpiredAndNotBanned}" Width="26" Height="26" Click="OnCardLaunchClicked" Background="#25170B"
-                        BorderBrush="#D97706" BorderThickness="1" CornerRadius="13" Padding="0" ToolTip.Tip="{DynamicResource Card_TipReLogin}"><Path Data="{StaticResource GeoKey}" Width="10"
-                        Height="10" Stretch="Uniform" Stroke="#FBBF24" StrokeThickness="2" /></Button>
-                                            <Button Classes="FastPillBtn" IsVisible="{Binding IsBannedOrLocked}" Width="26" Height="26" Click="OnCardViewBanClicked" Background="#2E0E17"
-                        BorderBrush="#9F1239" BorderThickness="1" CornerRadius="13" Padding="0"><Path Data="{StaticResource GeoShieldAlert}" Width="10" Height="10" Stretch="Uniform"
-                        Stroke="#FDA4AF" StrokeThickness="2" /></Button>
-                                            <Button Classes="FastPillBtn" Width="26" Height="26" Click="OnTableRowJoinClicked" Background="#181822" CornerRadius="13" Padding="0"
-                        ToolTip.Tip="{DynamicResource Ctx_JoinServer}" IsVisible="{Binding ShowPlayButton}"><Path Data="{StaticResource GeoPlay}" Width="9" Height="9" Stretch="Uniform"
-                        Fill="#22C55E" /></Button>
-                                        </StackPanel>
-                                    </Grid>
-                                </Border>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </Grid>
-            </Panel>
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+  xmlns:d="http://schemas.microsoft.com/expression/blend/2008" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+  xmlns:views="clr-namespace:Shiro.AvaloniaUI.Views" xmlns:panels="clr-namespace:Shiro.AvaloniaUI.Views.Panels"
+  xmlns:controls="clr-namespace:Shiro.AvaloniaUI.Controls" xmlns:vm="clr-namespace:Shiro.ViewModels"
+  xmlns:sys="clr-namespace:System;assembly=System.Runtime" xmlns:lucide="clr-namespace:LucideAvalonia;assembly=LucideAvalonia"
+  mc:Ignorable="d" x:Class="Shiro.AvaloniaUI.Views.DashboardView" x:DataType="vm:MainViewModel" x:CompileBindings="True" x:Name="RootDashboard">
+  <UserControl.Resources>
+    <ContextMenu x:Key="AccountSharedContextMenu">
+      <MenuItem Header="{DynamicResource Dash_LaunchHome}" Click="OnMenuLaunchHome"><MenuItem.Icon><lucide:Lucide Icon="House"
+        Width="14" Height="14" StrokeBrush="#A1A1B2" /></MenuItem.Icon></MenuItem>
+      <MenuItem Header="{DynamicResource Ctx_JoinThisServer}" Click="OnMenuJoinServer"><MenuItem.Icon><lucide:Lucide Icon="Rocket"
+        Width="14" Height="14" StrokeBrush="#4ADE80" /></MenuItem.Icon></MenuItem>
+      <MenuItem Header="{DynamicResource Ctx_FocusWindow}" Click="OnMenuFocusAccountWindow"><MenuItem.Icon><lucide:Lucide Icon="AppWindow"
+        Width="14" Height="14" StrokeBrush="#4ADE80" /></MenuItem.Icon></MenuItem>
+      <MenuItem Header="{DynamicResource Ctx_CloseClient}" Click="OnMenuCloseAccountRoblox"><MenuItem.Icon><lucide:Lucide Icon="X"
+        Width="14" Height="14" StrokeBrush="#F87171" /></MenuItem.Icon></MenuItem>
+      <Separator />
+      <MenuItem Header="{DynamicResource Ctx_ReLoginInApp}" Click="OnMenuReLoginFast"><MenuItem.Icon><lucide:Lucide Icon="LogIn"
+        Width="14" Height="14" StrokeBrush="#FBBF24" /></MenuItem.Icon></MenuItem>
+      <MenuItem Header="{DynamicResource Ctx_ValidateSession}" Click="OnMenuValidateSession"><MenuItem.Icon><lucide:Lucide Icon="ShieldCheck"
+        Width="14" Height="14" StrokeBrush="#38BDF8" /></MenuItem.Icon></MenuItem>
+      <MenuItem Header="{DynamicResource Ctx_UpdateRobux}" Click="OnMenuCheckRobux"><MenuItem.Icon><lucide:Lucide Icon="Coins"
+        Width="14" Height="14" StrokeBrush="#FBBF24" /></MenuItem.Icon></MenuItem>
+      <MenuItem Header="{DynamicResource Ctx_ViewBanApp}" Click="OnMenuOpenModerationPage"><MenuItem.Icon><lucide:Lucide Icon="ShieldAlert"
+        Width="14" Height="14" StrokeBrush="#FDA4AF" /></MenuItem.Icon></MenuItem>
+      <Separator />
+      <MenuItem Header="{DynamicResource Ctx_ChangeAlias}" Click="OnMenuChangeAlias"><MenuItem.Icon><lucide:Lucide Icon="Pencil"
+        Width="14" Height="14" StrokeBrush="#A1A1B2" /></MenuItem.Icon></MenuItem>
+      <MenuItem Header="{DynamicResource Ctx_AssignGroup}" Click="OnMenuChangeGroup"><MenuItem.Icon><lucide:Lucide Icon="Tag"
+        Width="14" Height="14" StrokeBrush="#A855F7" /></MenuItem.Icon></MenuItem>
+      <MenuItem Header="{DynamicResource Ctx_AccountNotes}" Click="OnMenuChangeDescription"><MenuItem.Icon><lucide:Lucide Icon="FileText"
+        Width="14" Height="14" StrokeBrush="#A1A1B2" /></MenuItem.Icon></MenuItem>
+      <Separator />
+      <MenuItem Header="{DynamicResource Ctx_CopyInfoMenu}">
+        <MenuItem.Icon><lucide:Lucide Icon="ClipboardCopy" Width="14" Height="14" StrokeBrush="#38BDF8" /></MenuItem.Icon>
+        <MenuItem Header="{DynamicResource Menu_CopyCookie}" Click="OnMenuCopyCookie"><MenuItem.Icon><lucide:Lucide Icon="Cookie"
+          Width="14" Height="14" StrokeBrush="#FBBF24" /></MenuItem.Icon></MenuItem>
+        <MenuItem Header="{DynamicResource Menu_CopyUserPass}" Click="OnMenuCopyUserPass"><MenuItem.Icon><lucide:Lucide Icon="KeyRound"
+          Width="14" Height="14" StrokeBrush="#A1A1B2" /></MenuItem.Icon></MenuItem>
+        <MenuItem Header="{DynamicResource Menu_CopyUserId}" Click="OnMenuCopyUserId"><MenuItem.Icon><lucide:Lucide Icon="Hash"
+          Width="14" Height="14" StrokeBrush="#A1A1B2" /></MenuItem.Icon></MenuItem>
+        <MenuItem Header="{DynamicResource Ctx_CopyUsername}" Click="OnMenuCopyUsername"><MenuItem.Icon><lucide:Lucide Icon="User"
+          Width="14" Height="14" StrokeBrush="#A1A1B2" /></MenuItem.Icon></MenuItem>
+        <MenuItem Header="{DynamicResource Ctx_CopyProfileUrl}" Click="OnMenuCopyProfileUrl"><MenuItem.Icon><lucide:Lucide Icon="Link"
+          Width="14" Height="14" StrokeBrush="#A1A1B2" /></MenuItem.Icon></MenuItem>
+      </MenuItem>
+      <MenuItem Header="{DynamicResource Ctx_AdvancedUtilsMenu}">
+        <MenuItem.Icon><lucide:Lucide Icon="Cpu" Width="14" Height="14" StrokeBrush="#A1A1B2" /></MenuItem.Icon>
+        <MenuItem Header="{DynamicResource Ctx_AccountFields}" Click="OnMenuAccountFields"><MenuItem.Icon><lucide:Lucide Icon="Settings"
+          Width="14" Height="14" StrokeBrush="#A1A1B2" /></MenuItem.Icon></MenuItem>
+        <MenuItem Header="{DynamicResource Ctx_AccountUtils}" Click="OnMenuAccountUtils"><MenuItem.Icon><lucide:Lucide Icon="Wrench"
+          Width="14" Height="14" StrokeBrush="#A1A1B2" /></MenuItem.Icon></MenuItem>
+      </MenuItem>
+      <Separator />
+      <MenuItem Header="{DynamicResource Ctx_DeleteFromShiro}" Foreground="{DynamicResource StatusDangerBrush}" Click="OnMenuDeleteAccount">
+        <MenuItem.Icon><lucide:Lucide Icon="Trash2" Width="14" Height="14" StrokeBrush="#F87171" /></MenuItem.Icon></MenuItem>
+    </ContextMenu>
+  </UserControl.Resources>
+
+  <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,*" Margin="16,12,16,12">
+    <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,14">
+      <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Spacing="10">
+        <TextBlock Text="{DynamicResource Dash_Title}" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
+        <Border Background="{DynamicResource SurfacePanelBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1"
+                CornerRadius="{StaticResource RadiusPill}" Padding="10,4" VerticalAlignment="Center">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <TextBlock Classes="TabularNum" Text="{Binding AccountsVm.SubtitleTotalText}" FontSize="11.5" Foreground="{DynamicResource TextSecondaryBrush}" />
+            <TextBlock Text="•" FontSize="11.5" Foreground="{DynamicResource BorderStrongBrush}" />
+            <TextBlock Classes="TabularNum" Text="{Binding AccountsVm.SubtitleReadyText}" FontSize="11.5" Foreground="{DynamicResource StatusInfoBrush}" />
+            <TextBlock Text="•" FontSize="11.5" Foreground="{DynamicResource BorderStrongBrush}" />
+            <TextBlock Classes="TabularNum" Text="{Binding AccountsVm.SubtitleSelectedText}" FontSize="11.5" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+          </StackPanel>
         </Border>
+      </StackPanel>
+      <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+        <TextBox x:Name="TxtSearch" Text="{Binding AccountsVm.SearchText, Mode=TwoWay}" Width="245" CornerRadius="16" Padding="10,6" VerticalContentAlignment="Center"
+                 FontSize="12" PlaceholderText="{DynamicResource Dash_SearchPlaceholder}" ToolTip.Tip="{DynamicResource Dash_SearchTooltip}">
+          <TextBox.InnerLeftContent><lucide:Lucide Icon="Search" Width="13" Height="13" StrokeBrush="#6E6E80" Margin="10,0,0,0" VerticalAlignment="Center" /></TextBox.InnerLeftContent>
+          <TextBox.InnerRightContent><Button Classes="StudioIconBtn" Command="{Binding AccountsVm.ClearSearchCommand}" Width="22" Height="22" Margin="0,0,5,0"
+            IsVisible="{Binding AccountsVm.SearchText, Converter={StaticResource StringNotNullOrEmpty}}" ToolTip.Tip="{DynamicResource Dash_ClearSearch}"><lucide:Lucide Icon="X"
+            Width="12" Height="12" StrokeBrush="#A1A1B2" /></Button></TextBox.InnerRightContent>
+        </TextBox>
+        <Button Classes="StudioIconBtn" Command="{Binding ToolsStatus.RefreshPresenceCommand}" Width="34" Height="34" Background="{DynamicResource SurfacePanelBrush}"
+                BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1" ToolTip.Tip="{DynamicResource Dash_RefreshPresence}"><lucide:Lucide Icon="RefreshCw"
+                Width="14" Height="14" StrokeBrush="{DynamicResource TextSecondaryBrush}" /></Button>
+      </StackPanel>
     </Grid>
+
+    <panels:DashboardInspectorPanel Grid.Row="1" DataContext="{Binding AccountsVm}" />
+
+    <Border Grid.Row="2" Background="{DynamicResource SurfacePanelBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1"
+            CornerRadius="{StaticResource RadiusLg}" Margin="0,0,0,10" BoxShadow="{StaticResource ShadowCard}">
+      <Panel>
+        <Border BorderBrush="{DynamicResource BorderTopRimBrush}" BorderThickness="0,1,0,0" CornerRadius="9" IsHitTestVisible="False" />
+        <Grid ColumnDefinitions="*,Auto" Margin="12,9">
+          <WrapPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+            <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" Margin="0,2,10,2">
+              <TextBlock Text="{DynamicResource Bar_PlaceId}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+              <TextBox x:Name="TxtPlaceId" Text="{Binding LaunchBar.PlaceId, Mode=TwoWay}" Width="136" Padding="8,6" VerticalContentAlignment="Center" FontSize="12"
+                       PlaceholderText="{DynamicResource Dash_PlaceIdPlaceholder}" ToolTip.Tip="{DynamicResource Bar_TipPlaceId}" />
+            </StackPanel>
+            <Border IsVisible="{Binding LaunchBar.HasCurrentGameInfo}" Margin="0,2,10,2" CornerRadius="{StaticResource RadiusMd}" Padding="6,4" MaxWidth="215"
+                    Background="{DynamicResource AccentSoftFillBrush}" BorderBrush="{DynamicResource AccentBorderBrush}" BorderThickness="1" VerticalAlignment="Center"
+                    ToolTip.Tip="{Binding LaunchBar.CurrentGameName}">
+              <Grid ColumnDefinitions="Auto,*">
+                <Border Grid.Column="0" Width="28" Height="28" CornerRadius="6" ClipToBounds="True" Background="{DynamicResource SurfaceCardBrush}" Margin="0,0,8,0">
+                  <Panel>
+                    <lucide:Lucide Icon="Gamepad2" Width="13" Height="13" StrokeBrush="#38BDF8" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   IsVisible="{Binding LaunchBar.CurrentGameThumbnail, Converter={x:Static ObjectConverters.IsNull}}" />
+                    <Image Source="{Binding LaunchBar.CurrentGameThumbnail}" Width="28" Height="28" Stretch="UniformToFill"
+                           IsVisible="{Binding LaunchBar.CurrentGameThumbnail, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                  </Panel>
+                </Border>
+                <TextBlock Grid.Column="1" Text="{Binding LaunchBar.CurrentGameName}" FontSize="11.5" FontWeight="SemiBold"
+                           Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+              </Grid>
+            </Border>
+            <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" Margin="0,2,10,2">
+              <TextBlock Text="{DynamicResource Dash_JobIdLabel}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+              <TextBox x:Name="TxtJobId" Text="{Binding LaunchBar.JobId, Mode=TwoWay}" PasswordChar="{Binding ToolsStatus.JobIdMaskChar}" Width="122" Padding="8,6"
+                       PlaceholderText="{DynamicResource Dash_JobIdPlaceholder}" ToolTip.Tip="{DynamicResource Bar_TipJobId}" VerticalContentAlignment="Center" FontSize="12" />
+            </StackPanel>
+            <Button Classes="StudioSecondaryBtn" Margin="0,2,0,2" Padding="10,7" ToolTip.Tip="{DynamicResource Bar_TipRecent}">
+              <Button.Flyout><Flyout Placement="BottomEdgeAlignedLeft">
+                <Border Width="284" MaxHeight="320" Background="{DynamicResource SurfaceElevatedBrush}" Padding="4"><Panel>
+                  <TextBlock Text="{DynamicResource Dash_NoRecentGames}" FontSize="11" Margin="12,10" Foreground="{DynamicResource TextMutedBrush}"
+                             IsVisible="{Binding LaunchBar.HasRecentGames, Converter={StaticResource InverseBoolConverter}}" />
+                  <ScrollViewer IsVisible="{Binding LaunchBar.HasRecentGames}"><ItemsControl ItemsSource="{Binding LaunchBar.RecentGamesList}"><ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:RecentGameItemViewModel">
+                      <Button Command="{Binding #RootDashboard.ViewModel.LaunchBar.SelectRecentGameCommand}" CommandParameter="{Binding}" HorizontalAlignment="Stretch"
+                              HorizontalContentAlignment="Left" Background="Transparent" Padding="6,5" CornerRadius="6" Cursor="Hand">
+                        <Grid ColumnDefinitions="Auto,*">
+                          <Border Grid.Column="0" Width="32" Height="32" CornerRadius="6" ClipToBounds="True" Background="{DynamicResource SurfaceCardBrush}" Margin="0,0,8,0"><Panel>
+                            <lucide:Lucide Icon="Gamepad2" Width="16" Height="16" StrokeBrush="#6E6E80" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                           IsVisible="{Binding ThumbnailBitmap, Converter={x:Static ObjectConverters.IsNull}}" />
+                            <Image Source="{Binding ThumbnailBitmap}" Width="32" Height="32" Stretch="UniformToFill"
+                                   IsVisible="{Binding ThumbnailBitmap, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                          </Panel></Border>
+                          <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="1">
+                            <TextBlock Text="{Binding Name}" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" />
+                            <TextBlock Text="{Binding Subtitle}" FontSize="10" Foreground="{DynamicResource TextMutedBrush}" />
+                          </StackPanel>
+                        </Grid>
+                      </Button>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate></ItemsControl></ScrollViewer>
+                </Panel></Border>
+              </Flyout></Button.Flyout>
+              <StackPanel Orientation="Horizontal" Spacing="6"><lucide:Lucide Icon="Gamepad2" Width="13" Height="13" StrokeBrush="{DynamicResource StatusInfoBrush}"
+                VerticalAlignment="Center" /><TextBlock Text="{DynamicResource Dash_RecentGamesBtn}" VerticalAlignment="Center" /></StackPanel></Button>
+          </WrapPanel>
+          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="12,0,0,0">
+            <Button Classes="StudioSecondaryBtn" Command="{Binding LaunchBar.LaunchSelectedCommand}" Padding="12,8" ToolTip.Tip="{DynamicResource Bar_TipLaunchHome}">
+              <StackPanel Orientation="Horizontal" Spacing="6"><lucide:Lucide Icon="House" Width="14" Height="14" StrokeBrush="{DynamicResource TextPrimaryBrush}"
+                VerticalAlignment="Center" /><TextBlock Text="{Binding LaunchBar.LaunchHomeButtonText}" VerticalAlignment="Center" /></StackPanel></Button>
+            <Button Classes="StudioPrimaryBtn" Command="{Binding LaunchBar.JoinServerSelectedCommand}" Padding="14,8" ToolTip.Tip="{DynamicResource Bar_TipJoinServer}">
+              <StackPanel Orientation="Horizontal" Spacing="6"><lucide:Lucide Icon="Play" Width="12" Height="12" StrokeBrush="{DynamicResource AccentForegroundBrush}"
+                StrokeThickness="2.5" VerticalAlignment="Center" /><TextBlock Text="{Binding LaunchBar.JoinServerButtonText}"
+                Foreground="{DynamicResource AccentForegroundBrush}" VerticalAlignment="Center" /></StackPanel></Button>
+          </StackPanel>
+        </Grid>
+      </Panel>
+    </Border>
+
+    <Grid Grid.Row="3" ColumnDefinitions="*,Auto" Margin="0,0,0,10">
+      <WrapPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+        <ComboBox x:Name="CmbGroups" ItemsSource="{Binding AccountsVm.AvailableGroups}" SelectedItem="{Binding AccountsVm.SelectedGroup, Mode=TwoWay}" Width="148"
+                  Margin="0,2,8,2" Padding="10,6" FontSize="12" FontWeight="SemiBold" ToolTip.Tip="{DynamicResource Bar_GroupFilterTooltip}">
+          <ComboBox.ItemTemplate><DataTemplate x:DataType="sys:String"><TextBlock Text="{Binding Converter={StaticResource GroupNameDisplay}}" FontWeight="SemiBold"
+            Foreground="{DynamicResource TextPrimaryBrush}" FontSize="12" VerticalAlignment="Center" /></DataTemplate></ComboBox.ItemTemplate>
+        </ComboBox>
+        <Button Classes="StudioSecondaryBtn" Margin="0,2,8,2" Padding="10,7" ToolTip.Tip="{DynamicResource Dash_SortTip}">
+          <Button.Flyout><MenuFlyout Placement="BottomEdgeAlignedLeft">
+            <MenuItem Header="{DynamicResource Sort_NameAsc}" Command="{Binding AccountsVm.SetSortModeCommand}" CommandParameter="NaturalAscending"><MenuItem.Icon><lucide:Lucide
+              Icon="ArrowDownAZ" Width="14" Height="14" StrokeBrush="#38BDF8" /></MenuItem.Icon></MenuItem>
+            <MenuItem Header="{DynamicResource Sort_NameDesc}" Command="{Binding AccountsVm.SetSortModeCommand}" CommandParameter="NaturalDescending"><MenuItem.Icon><lucide:Lucide
+              Icon="ArrowUpZA" Width="14" Height="14" StrokeBrush="#A1A1B2" /></MenuItem.Icon></MenuItem>
+            <MenuItem Header="{DynamicResource Sort_Status}" Command="{Binding AccountsVm.SetSortModeCommand}" CommandParameter="Status"><MenuItem.Icon><lucide:Lucide
+              Icon="Activity" Width="14" Height="14" StrokeBrush="#4ADE80" /></MenuItem.Icon></MenuItem>
+            <MenuItem Header="{DynamicResource Sort_RobuxDesc}" Command="{Binding AccountsVm.SetSortModeCommand}" CommandParameter="RobuxDescending"><MenuItem.Icon><lucide:Lucide
+              Icon="Coins" Width="14" Height="14" StrokeBrush="#FBBF24" /></MenuItem.Icon></MenuItem>
+            <MenuItem Header="{DynamicResource Sort_Original}" Command="{Binding AccountsVm.SetSortModeCommand}" CommandParameter="Original"><MenuItem.Icon><lucide:Lucide
+              Icon="Clock" Width="14" Height="14" StrokeBrush="#A1A1B2" /></MenuItem.Icon></MenuItem>
+          </MenuFlyout></Button.Flyout>
+          <StackPanel Orientation="Horizontal" Spacing="6"><lucide:Lucide Icon="ArrowUpDown" Width="13" Height="13" StrokeBrush="{DynamicResource TextSecondaryBrush}"
+            VerticalAlignment="Center" /><TextBlock Text="{Binding AccountsVm.CurrentSortLabel}" VerticalAlignment="Center" /><lucide:Lucide Icon="ChevronDown" Width="11"
+            Height="11" StrokeBrush="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" /></StackPanel></Button>
+        <Button Classes="StudioSecondaryBtn" Command="{Binding AccountsVm.SelectAllCommand}" Margin="0,2,8,2" Padding="12,7" ToolTip.Tip="{DynamicResource Bar_SelectAllTooltip}">
+          <StackPanel Orientation="Horizontal" Spacing="6"><lucide:Lucide Icon="CheckCheck" Width="14" Height="14" StrokeBrush="{DynamicResource TextPrimaryBrush}"
+            VerticalAlignment="Center" /><TextBlock Text="{DynamicResource Dash_SelectAll}" VerticalAlignment="Center" /></StackPanel></Button>
+        <Button Classes="StudioSecondaryBtn" Margin="0,2,8,2" Padding="10,7" ToolTip.Tip="{DynamicResource Dash_QuickSelectTip}">
+          <Button.Flyout><MenuFlyout Placement="BottomEdgeAlignedLeft">
+            <MenuItem Header="{DynamicResource QuickSel_Ready5}" Command="{Binding AccountsVm.SelectReadyBatchCommand}" CommandParameter="5"><MenuItem.Icon><lucide:Lucide
+              Icon="CheckCheck" Width="14" Height="14" StrokeBrush="#38BDF8" /></MenuItem.Icon></MenuItem>
+            <MenuItem Header="{DynamicResource QuickSel_Ready10}" Command="{Binding AccountsVm.SelectReadyBatchCommand}" CommandParameter="10"><MenuItem.Icon><lucide:Lucide
+              Icon="CheckCheck" Width="14" Height="14" StrokeBrush="#4ADE80" /></MenuItem.Icon></MenuItem>
+            <MenuItem Header="{DynamicResource QuickSel_Ready20}" Command="{Binding AccountsVm.SelectReadyBatchCommand}" CommandParameter="20"><MenuItem.Icon><lucide:Lucide
+              Icon="CheckCheck" Width="14" Height="14" StrokeBrush="#A855F7" /></MenuItem.Icon></MenuItem>
+            <Separator />
+            <MenuItem Header="{DynamicResource QuickSel_ByRange}" Command="{Binding AccountsVm.SelectByRangePromptCommand}"><MenuItem.Icon><lucide:Lucide
+              Icon="Hash" Width="14" Height="14" StrokeBrush="#FBBF24" /></MenuItem.Icon></MenuItem>
+            <MenuItem Header="{DynamicResource QuickSel_Invert}" Command="{Binding AccountsVm.InvertSelectionCommand}"><MenuItem.Icon><lucide:Lucide
+              Icon="ArrowLeftRight" Width="14" Height="14" StrokeBrush="#A1A1B2" /></MenuItem.Icon></MenuItem>
+          </MenuFlyout></Button.Flyout>
+          <StackPanel Orientation="Horizontal" Spacing="5"><lucide:Lucide Icon="ListChecks" Width="13" Height="13" StrokeBrush="{DynamicResource StatusInfoBrush}"
+            VerticalAlignment="Center" /><TextBlock Text="{DynamicResource Dash_QuickSelect}" VerticalAlignment="Center" /><lucide:Lucide Icon="ChevronDown" Width="11"
+            Height="11" StrokeBrush="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" /></StackPanel></Button>
+        <Button Classes="StudioSecondaryBtn" Margin="0,2,0,2" Padding="11,7" ToolTip.Tip="{DynamicResource Bar_BatchActionsTooltip}">
+          <Button.Flyout><MenuFlyout Placement="BottomEdgeAlignedLeft">
+            <MenuItem Header="{DynamicResource Btn_Deselect}" Command="{Binding AccountsVm.ClearSelectionCommand}" IsVisible="{Binding AccountsVm.HasSelection}"><MenuItem.Icon>
+              <lucide:Lucide Icon="X" Width="14" Height="14" StrokeBrush="#F87171" /></MenuItem.Icon></MenuItem>
+            <Separator IsVisible="{Binding AccountsVm.HasSelection}" />
+            <MenuItem Header="{DynamicResource Bar_ScanAllSessions}" Command="{Binding AccountsVm.CheckSessionsCommand}"><MenuItem.Icon><lucide:Lucide
+              Icon="Search" Width="14" Height="14" StrokeBrush="#38BDF8" /></MenuItem.Icon></MenuItem>
+            <MenuItem Header="{DynamicResource Bar_AutoReLoginAll}" Command="{Binding AccountsVm.ReLoginAllExpiredCommand}"><MenuItem.Icon><lucide:Lucide
+              Icon="Zap" Width="14" Height="14" StrokeBrush="#FBBF24" /></MenuItem.Icon></MenuItem>
+            <Separator />
+            <MenuItem Header="{DynamicResource Bar_ValidateSelected}" Command="{Binding AccountsVm.ValidateSessionSelectedCommand}"><MenuItem.Icon><lucide:Lucide
+              Icon="ShieldCheck" Width="14" Height="14" StrokeBrush="#4ADE80" /></MenuItem.Icon></MenuItem>
+            <MenuItem Header="{DynamicResource Bar_ReLoginSelected}" Command="{Binding AccountsVm.ReLoginSelectedCommand}"><MenuItem.Icon><lucide:Lucide
+              Icon="Key" Width="14" Height="14" StrokeBrush="#FBBF24" /></MenuItem.Icon></MenuItem>
+            <MenuItem Header="{DynamicResource Bar_SetGroupSelected}" Command="{Binding AccountsVm.SetGroupSelectedCommand}"><MenuItem.Icon><lucide:Lucide
+              Icon="Folder" Width="14" Height="14" StrokeBrush="#A855F7" /></MenuItem.Icon></MenuItem>
+            <MenuItem Header="{DynamicResource Bar_SavePlaceIdSelected}" Command="{Binding AccountsVm.SavePlaceIdSelectedCommand}"><MenuItem.Icon><lucide:Lucide
+              Icon="Bookmark" Width="14" Height="14" StrokeBrush="#38BDF8" /></MenuItem.Icon></MenuItem>
+            <MenuItem Header="{DynamicResource Bar_CopyUserPassSelected}" Command="{Binding AccountsVm.CopyUserPassSelectedCommand}"><MenuItem.Icon><lucide:Lucide
+              Icon="ClipboardCopy" Width="14" Height="14" StrokeBrush="#A1A1B2" /></MenuItem.Icon></MenuItem>
+            <Separator />
+            <MenuItem Header="{DynamicResource Tool_RefreshRobux}" Command="{Binding AccountsVm.RefreshAllRobuxCommand}"><MenuItem.Icon><lucide:Lucide
+              Icon="Coins" Width="14" Height="14" StrokeBrush="#FBBF24" /></MenuItem.Icon></MenuItem>
+            <MenuItem Header="{DynamicResource Tool_ClearClientSession}" Command="{Binding AccountsVm.ClearRobloxClientSessionCommand}"><MenuItem.Icon><lucide:Lucide
+              Icon="LogOut" Width="14" Height="14" StrokeBrush="#A1A1B2" /></MenuItem.Icon></MenuItem>
+            <MenuItem Header="{DynamicResource Bar_RemoveSelected}" Foreground="{DynamicResource StatusDangerBrush}" Command="{Binding AccountsVm.RemoveSelectedCommand}">
+              <MenuItem.Icon><lucide:Lucide Icon="Trash2" Width="14" Height="14" StrokeBrush="#F87171" /></MenuItem.Icon></MenuItem>
+          </MenuFlyout></Button.Flyout>
+          <StackPanel Orientation="Horizontal" Spacing="6"><lucide:Lucide Icon="Zap" Width="13" Height="13" StrokeBrush="#FBBF24" VerticalAlignment="Center" /><StackPanel
+            Orientation="Horizontal" Spacing="4" VerticalAlignment="Center"><TextBlock Text="{DynamicResource Bar_BatchActions}" /><TextBlock Classes="TabularNum"
+            Text="{Binding AccountsVm.SelectedCount, StringFormat='({0})'}" /></StackPanel><lucide:Lucide Icon="ChevronDown" Width="12" Height="12"
+            StrokeBrush="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" /></StackPanel></Button>
+      </WrapPanel>
+      <Button Grid.Column="1" Classes="StudioPrimaryBtn" VerticalAlignment="Center" Margin="10,0,0,0" Padding="14,8" ToolTip.Tip="{DynamicResource Bar_AddAccountMenuTooltip}">
+        <Button.Flyout><MenuFlyout Placement="BottomEdgeAlignedRight">
+          <MenuItem Header="{DynamicResource Bar_AddFastLogin}" Command="{Binding AccountsVm.AddAccountFastLoginCommand}"><MenuItem.Icon><lucide:Lucide
+            Icon="Globe" Width="14" Height="14" StrokeBrush="#38BDF8" /></MenuItem.Icon></MenuItem>
+          <MenuItem Header="{DynamicResource Bar_AddCookie}" Command="{Binding AccountsVm.AddAccountCookieCommand}"><MenuItem.Icon><lucide:Lucide
+            Icon="Cookie" Width="14" Height="14" StrokeBrush="#FBBF24" /></MenuItem.Icon></MenuItem>
+          <Separator />
+          <MenuItem Header="{DynamicResource Bar_BulkImport}" Command="{Binding AccountsVm.BulkImportCommand}"><MenuItem.Icon><lucide:Lucide
+            Icon="FileText" Width="14" Height="14" StrokeBrush="#A855F7" /></MenuItem.Icon></MenuItem>
+        </MenuFlyout></Button.Flyout>
+        <StackPanel Orientation="Horizontal" Spacing="6"><lucide:Lucide Icon="Plus" Width="13" Height="13" StrokeThickness="2.5"
+          StrokeBrush="{DynamicResource AccentForegroundBrush}" VerticalAlignment="Center" /><TextBlock Text="{DynamicResource Dash_AddAccount}"
+          Foreground="{DynamicResource AccentForegroundBrush}" VerticalAlignment="Center" /><lucide:Lucide Icon="ChevronDown" Width="12" Height="12"
+          StrokeBrush="{DynamicResource AccentForegroundBrush}" VerticalAlignment="Center" /></StackPanel></Button>
+    </Grid>
+
+    <panels:DashboardFooterBar Grid.Row="4" Grid.RowSpan="2" />
+
+    <Border Grid.Row="6" Background="Transparent"><Panel>
+      <ItemsControl x:Name="CardsItemsControl" IsVisible="{Binding AccountsVm.IsCardView}" ItemsSource="{Binding AccountsVm.FilteredAccountRows}">
+        <ItemsControl.ItemsPanel><ItemsPanelTemplate><VirtualizingStackPanel CacheLength="1" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+        <ItemsControl.Template><ControlTemplate><ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto"
+          BringIntoViewOnFocusChange="False" Padding="0,0,14,72"><ItemsPresenter ItemsPanel="{TemplateBinding ItemsPanel}" /></ScrollViewer></ControlTemplate></ItemsControl.Template>
+        <ItemsControl.ItemTemplate><DataTemplate x:DataType="vm:AccountRowViewModel">
+          <controls:UniformRowPanel Columns="{Binding ColumnCount}" Height="148">
+            <Border IsVisible="{Binding HasItem1}"><views:AccountCardView DataContext="{Binding Item1}" /></Border>
+            <Border IsVisible="{Binding HasItem2}"><views:AccountCardView DataContext="{Binding Item2}" /></Border>
+            <Border IsVisible="{Binding HasItem3}"><views:AccountCardView DataContext="{Binding Item3}" /></Border>
+            <Border IsVisible="{Binding HasItem4}"><views:AccountCardView DataContext="{Binding Item4}" /></Border>
+          </controls:UniformRowPanel>
+        </DataTemplate></ItemsControl.ItemTemplate>
+      </ItemsControl>
+
+      <Grid IsVisible="{Binding AccountsVm.IsCompactView}" RowDefinitions="Auto,*">
+        <Border Grid.Row="0" Background="{DynamicResource SurfacePanelBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="8,8,0,0" Padding="14,9">
+          <Grid ColumnDefinitions="40,36,2.2*,1.2*,1.2*,1.6*,1.2*,104">
+            <CheckBox Grid.Column="0" IsChecked="{Binding AccountsVm.IsAllSelected, Mode=TwoWay}" VerticalAlignment="Center" HorizontalAlignment="Center"
+                      ToolTip.Tip="{DynamicResource Bar_SelectAllTooltip}" />
+            <TextBlock Grid.Column="1" Text="" />
+            <TextBlock Grid.Column="2" Classes="SectionKicker" Text="{DynamicResource Dash_ColAccount}" VerticalAlignment="Center" />
+            <TextBlock Grid.Column="3" Classes="SectionKicker" Text="{DynamicResource Dash_ColUserId}" VerticalAlignment="Center" />
+            <TextBlock Grid.Column="4" Classes="SectionKicker" Text="{DynamicResource Dash_ColGroup}" VerticalAlignment="Center" />
+            <TextBlock Grid.Column="5" Classes="SectionKicker" Text="{DynamicResource Dash_ColStatus}" VerticalAlignment="Center" />
+            <TextBlock Grid.Column="6" Classes="SectionKicker" Text="{DynamicResource Dash_ColRobux}" VerticalAlignment="Center" />
+            <TextBlock Grid.Column="7" Classes="SectionKicker" Text="{DynamicResource Dash_ColActions}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+          </Grid>
+        </Border>
+        <ItemsControl x:Name="TableItemsControl" Grid.Row="1" ItemsSource="{Binding AccountsVm.FilteredAccounts}">
+          <ItemsControl.ItemsPanel><ItemsPanelTemplate><VirtualizingStackPanel CacheLength="1" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+          <ItemsControl.Template><ControlTemplate><ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto"
+            BringIntoViewOnFocusChange="False" Padding="0,0,12,72"><ItemsPresenter ItemsPanel="{TemplateBinding ItemsPanel}" /></ScrollViewer></ControlTemplate></ItemsControl.Template>
+          <ItemsControl.ItemTemplate><DataTemplate x:DataType="vm:AccountViewModel">
+            <Border Height="40" Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource BorderHairlineBrush}" BorderThickness="1,0,1,1"
+                    Padding="14,0" PointerPressed="OnCardPointerPressed" DoubleTapped="OnCardDoubleTapped" Cursor="Hand">
+              <Grid ColumnDefinitions="40,36,2.2*,1.2*,1.2*,1.6*,1.2*,104">
+                <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected, Mode=TwoWay}" Transitions="{x:Null}" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                <Panel Grid.Column="1" Width="26" Height="26" VerticalAlignment="Center">
+                  <Border Width="26" Height="26" CornerRadius="13" Background="{DynamicResource SurfaceElevatedBrush}" BorderBrush="{DynamicResource BorderHoverBrush}"
+                          BorderThickness="1" ClipToBounds="True"><Panel>
+                    <TextBlock Text="{Binding Initials}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextMutedBrush}" HorizontalAlignment="Center"
+                               VerticalAlignment="Center" />
+                    <Image Source="{Binding AvatarImage}" Stretch="UniformToFill" RenderOptions.BitmapInterpolationMode="MediumQuality" />
+                  </Panel></Border>
+                  <Border Width="26" Height="26" CornerRadius="13" BorderBrush="{DynamicResource StatusSuccessBrush}" BorderThickness="1.2" IsVisible="{Binding IsInGame}"
+                          IsHitTestVisible="False" />
+                </Panel>
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                  <Path Data="{StaticResource GeoPin}" Width="11" Height="11" Stretch="Uniform" Stroke="#FBBF24" StrokeThickness="1.8" IsVisible="{Binding Pinned}" VerticalAlignment="Center" />
+                  <TextBlock Text="{Binding ShownUsername}" FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
+                  <TextBlock Text="{Binding ShownAlias, StringFormat='({0})'}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"
+                             IsVisible="{Binding ShownAlias, Converter={StaticResource StringNotNullOrEmpty}}" VerticalAlignment="Center" />
+                </StackPanel>
+                <TextBlock Grid.Column="3" Classes="TabularNum" Text="{Binding ShownUserId}" FontSize="11" Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" />
+                <Border Grid.Column="4" Background="{DynamicResource SurfaceSubtleChipBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1"
+                        CornerRadius="4" Padding="6,2" HorizontalAlignment="Left" VerticalAlignment="Center">
+                  <TextBlock Text="{Binding Group, Converter={StaticResource GroupNameDisplay}}" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}" />
+                </Border>
+                <StackPanel Grid.Column="5" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                  <controls:StatusPulseDot DotBrush="{Binding StatusBadgeForeground}" DotSize="6" IsPulsing="{Binding IsInGame}" VerticalAlignment="Center" />
+                  <TextBlock Text="{Binding StatusText}" FontSize="11" Foreground="{Binding StatusBadgeForeground}" VerticalAlignment="Center" />
+                </StackPanel>
+                <TextBlock Grid.Column="6" Classes="TabularNum" Text="{Binding RobuxFormatted}" IsVisible="{Binding HasRobux}" FontSize="11" FontWeight="SemiBold"
+                           Foreground="{DynamicResource StatusWarningBrush}" VerticalAlignment="Center" />
+                <StackPanel Grid.Column="7" Orientation="Horizontal" Spacing="5" HorizontalAlignment="Center" VerticalAlignment="Center">
+                  <Button Classes="FastPillBtn" IsVisible="{Binding ShowPlayButton}" Width="26" Height="26" Click="OnCardLaunchClicked" CornerRadius="13" Padding="0"
+                          Background="{DynamicResource SurfaceElevatedBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1"
+                          ToolTip.Tip="{DynamicResource Card_TipLaunch}"><Path Data="{StaticResource GeoPlay}" Width="9" Height="9" Stretch="Uniform"
+                          Fill="{DynamicResource TextPrimaryBrush}" /></Button>
+                  <Button Classes="FastPillBtn" IsVisible="{Binding ShowRunningClientControls}" Width="26" Height="26" Click="OnCardFocusWindowClicked" CornerRadius="13"
+                          Padding="0" Background="{DynamicResource StatusSuccessBgBrush}" BorderBrush="{DynamicResource StatusSuccessBorderBrush}" BorderThickness="1"
+                          ToolTip.Tip="{DynamicResource Card_TipFocusWindow}"><Path Data="{StaticResource GeoWindow}" Width="10" Height="10" Stretch="Uniform" Stroke="#4ADE80"
+                          StrokeThickness="1.8" StrokeLineCap="Round" StrokeJoin="Round" /></Button>
+                  <Button Classes="FastPillBtn" IsVisible="{Binding ShowRunningClientControls}" Width="26" Height="26" Click="OnCardCloseClientClicked" CornerRadius="13"
+                          Padding="0" Background="{DynamicResource StatusDangerBgBrush}" BorderBrush="{DynamicResource StatusDangerBorderBrush}" BorderThickness="1"
+                          ToolTip.Tip="{DynamicResource Card_TipCloseClient}"><Path Data="{StaticResource GeoClose}" Width="9" Height="9" Stretch="Uniform" Stroke="#F87171"
+                          StrokeThickness="2" StrokeLineCap="Round" StrokeJoin="Round" /></Button>
+                  <Button Classes="FastPillBtn" IsVisible="{Binding IsExpiredAndNotBanned}" Width="26" Height="26" Click="OnCardLaunchClicked" CornerRadius="13" Padding="0"
+                          Background="{DynamicResource StatusWarningBgBrush}" BorderBrush="{DynamicResource StatusWarningBorderBrush}" BorderThickness="1"
+                          ToolTip.Tip="{DynamicResource Card_TipReLogin}"><Path Data="{StaticResource GeoKey}" Width="10" Height="10" Stretch="Uniform" Stroke="#FBBF24"
+                          StrokeThickness="2" /></Button>
+                  <Button Classes="FastPillBtn" IsVisible="{Binding IsBannedOrLocked}" Width="26" Height="26" Click="OnCardViewBanClicked" CornerRadius="13" Padding="0"
+                          Background="{DynamicResource StatusDangerBgBrush}" BorderBrush="#7A1D35" BorderThickness="1"><Path Data="{StaticResource GeoShieldAlert}"
+                          Width="10" Height="10" Stretch="Uniform" Stroke="#FDA4AF" StrokeThickness="2" /></Button>
+                  <Button Classes="FastPillBtn" Width="26" Height="26" Click="OnTableRowJoinClicked" Background="{DynamicResource StatusSuccessBgBrush}" CornerRadius="13"
+                          Padding="0" BorderBrush="{DynamicResource StatusSuccessBorderBrush}" BorderThickness="1" ToolTip.Tip="{DynamicResource Ctx_JoinServer}"
+                          IsVisible="{Binding ShowPlayButton}"><Path Data="{StaticResource GeoPlay}" Width="9" Height="9" Stretch="Uniform" Fill="#4ADE80" /></Button>
+                </StackPanel>
+              </Grid>
+            </Border>
+          </DataTemplate></ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </Grid>
+    </Panel></Border>
+
+    <panels:DashboardBulkBarPanel Grid.Row="6" VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="0,0,0,14" IsVisible="{Binding AccountsVm.HasSelection}" />
+  </Grid>
 </UserControl>
