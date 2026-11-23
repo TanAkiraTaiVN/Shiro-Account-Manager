@@ -59,6 +59,7 @@ namespace Shiro.ViewModels.Dialogs
         public decimal? BackgroundTargetFps { get => _backgroundTargetFps; set => SetProperty(ref _backgroundTargetFps, value); }
 
         private readonly ServerWatcherConfigService _watcherConfig = AppServices.ServerWatcherConfig;
+        private Action<bool>? _streamerStateChangedHandler;
 
         public IAsyncRelayCommand ExportVaultCommand { get; private set; } = null!;
         public IAsyncRelayCommand ImportVaultCommand { get; private set; } = null!;
@@ -85,8 +86,14 @@ namespace Shiro.ViewModels.Dialogs
 
         private void LoadAdvanced()
         {
-            StreamerModeService.StateChanged -= OnStreamerModeStateChanged;
-            StreamerModeService.StateChanged += OnStreamerModeStateChanged;
+            if (_streamerStateChangedHandler == null)
+            {
+                _streamerStateChangedHandler = WeakEventSubscription.CreateAction<SettingsViewModel, bool>(
+                    this,
+                    static (vm, enabled) => vm.OnStreamerModeStateChanged(enabled),
+                    static h => StreamerModeService.StateChanged -= h);
+                StreamerModeService.StateChanged += _streamerStateChangedHandler;
+            }
 
             IniSection ws = _settings.GetSection(AppSettingsKeys.Sections.WebServer) ?? _settings.IniFile.Section(AppSettingsKeys.Sections.WebServer);
             AllowExternalConnections = ws.Get<bool>(AppSettingsKeys.WebServer.AllowExternalConnections);
@@ -202,7 +209,11 @@ namespace Shiro.ViewModels.Dialogs
 
         private void CleanupAdvanced()
         {
-            StreamerModeService.StateChanged -= OnStreamerModeStateChanged;
+            if (_streamerStateChangedHandler != null)
+            {
+                StreamerModeService.StateChanged -= _streamerStateChangedHandler;
+                _streamerStateChangedHandler = null;
+            }
             _feedbackCts?.Cancel();
             _feedbackCts?.Dispose();
             _feedbackCts = null;

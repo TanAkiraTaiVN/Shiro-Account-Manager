@@ -8,7 +8,7 @@ using Shiro.Services;
 
 namespace Shiro.ViewModels.Dialogs
 {
-    public sealed partial class SettingsViewModel : DialogViewModelBase
+    public sealed partial class SettingsViewModel : DialogViewModelBase, IDisposable
     {
         private readonly AppSettings _settings;
         private readonly ISettingsService _general;
@@ -477,5 +477,7 @@ namespace Shiro.ViewModels.Dialogs
             CleanupAppearance();
             base.OnClosing();
         }
+
+        public void Dispose() => OnClosing();
     }
 }

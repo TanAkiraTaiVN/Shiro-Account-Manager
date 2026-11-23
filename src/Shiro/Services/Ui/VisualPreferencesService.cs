@@ -273,7 +273,7 @@ namespace Shiro.Services
                 PreferencesChanged?.Invoke();
         }
 
-        private static TEnum ParseEnum<TEnum>(string? raw, TEnum fallback) where TEnum : struct, Enum
+        internal static TEnum ParseEnum<TEnum>(string? raw, TEnum fallback) where TEnum : struct, Enum
         {
             if (string.IsNullOrWhiteSpace(raw))
                 return fallback;
@@ -283,7 +283,7 @@ namespace Shiro.Services
                 : fallback;
         }
 
-        private static bool ReadBool(ISettingsService settings, string key, bool defaultValue)
+        internal static bool ReadBool(ISettingsService settings, string key, bool defaultValue)
         {
             string? raw = settings.Get(key);
             if (!string.IsNullOrWhiteSpace(raw))

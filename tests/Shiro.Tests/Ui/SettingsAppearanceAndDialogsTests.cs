@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
@@ -32,11 +33,15 @@ namespace Shiro.Tests.Ui
         private readonly bool _origAdaptive = VisualPreferencesService.Instance.EnableAdaptiveGameTint;
         private readonly bool _origReducedMotion = VisualPreferencesService.Instance.ReducedMotion;
         private readonly Color? _origAdaptiveColor = AccentThemeService.AdaptiveGameColor;
+        private readonly bool _origStreamerEnabled = StreamerModeService.IsEnabled;
+        private readonly bool _origStreamerAutoDetect = StreamerModeService.AutoDetectEnabled;
         private readonly List<IResourceProvider>? _origMerged = Application.Current?.Resources.MergedDictionaries.ToList();
 
         public void Dispose()
         {
             Logger.Sink = _prevSink;
+            StreamerModeService.AutoDetectEnabled = _origStreamerAutoDetect;
+            StreamerModeService.IsEnabled = _origStreamerEnabled;
             AccentThemeService.SetAdaptiveGameColor(_origAdaptiveColor);
             VisualPreferencesService.Instance.SurfacePreset = _origPreset;
             VisualPreferencesService.Instance.DensityMode = _origDensity;
@@ -231,7 +236,7 @@ namespace Shiro.Tests.Ui
                 Assert.Equal(SurfacePreset.AmoledVoid, vm.SelectedSurfacePreset);
                 Assert.Equal(UiDensityMode.Compact, vm.SelectedDensityMode);
                 Assert.Equal(AccentTheme.Violet, vm.SelectedTheme);
-                Assert.Equal(new CornerRadius(12), previewSurface!.CornerRadius);
+                Assert.Equal(new CornerRadius(8), previewSurface!.CornerRadius);
 
                 btnMidnight!.Command?.Execute(btnMidnight.CommandParameter);
                 btnComfortable!.Command?.Execute(btnComfortable.CommandParameter);
@@ -398,6 +403,139 @@ namespace Shiro.Tests.Ui
                 dlg?.Close();
                 Dispatcher.UIThread.RunJobs();
             }
+        }
+
+        [Fact]
+        public void SettingsViewModel_IsolatedGeneralService_LoadsAndSavesWithoutMutatingGlobalPreferences()
+        {
+            var globalStore = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+            var globalGeneral = CreateInMemorySettings(globalStore);
+            using var settingsScope = AppServices.Override<ISettingsService>(globalGeneral);
+
+            VisualPreferencesService.Instance.SurfacePreset = SurfacePreset.LiquidObsidian;
+            VisualPreferencesService.Instance.DensityMode = UiDensityMode.Balanced;
+            VisualPreferencesService.Instance.EnableGlassEffects = true;
+            VisualPreferencesService.Instance.EnableAdaptiveGameTint = true;
+            VisualPreferencesService.Instance.ReducedMotion = false;
+            AccentThemeService.ApplySurfacePreset(SurfacePreset.LiquidObsidian, save: false);
+
+            var isolatedStore = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
+            {
+                [AppSettingsKeys.General.SurfacePreset] = "MidnightGlass",
+                [AppSettingsKeys.General.UiDensityMode] = "Comfortable",
+                [AppSettingsKeys.General.EnableGlassEffects] = "false",
+                [AppSettingsKeys.General.EnableAdaptiveGameTint] = "false",
+                [AppSettingsKeys.General.ReducedMotion] = "true"
+            };
+            var isolatedGeneral = CreateInMemorySettings(isolatedStore);
+            var fakeEffects = Substitute.For<ISettingsSideEffects>();
+
+            using var vm = new SettingsViewModel(new AppSettings(), isolatedGeneral, fakeEffects);
+            vm.Load();
+
+            Assert.Equal(SurfacePreset.MidnightGlass, vm.SelectedSurfacePreset);
+            Assert.Equal(UiDensityMode.Comfortable, vm.SelectedDensityMode);
+            Assert.False(vm.EnableGlassEffects);
+            Assert.False(vm.EnableAdaptiveGameTint);
+            Assert.True(vm.ReducedMotion);
+            Assert.Equal(SurfacePreset.LiquidObsidian, VisualPreferencesService.Instance.SurfacePreset);
+            Assert.Equal(UiDensityMode.Balanced, VisualPreferencesService.Instance.DensityMode);
+
+            vm.SelectedSurfacePreset = SurfacePreset.AmoledVoid;
+            vm.SelectedDensityMode = UiDensityMode.Compact;
+            vm.EnableGlassEffects = true;
+            vm.EnableAdaptiveGameTint = false;
+            vm.ReducedMotion = false;
+
+            Assert.Equal(SurfacePreset.LiquidObsidian, VisualPreferencesService.Instance.SurfacePreset);
+            Assert.Equal(SurfacePreset.LiquidObsidian, AccentThemeService.CurrentSurfacePreset);
+            Assert.Equal(UiDensityMode.Balanced, VisualPreferencesService.Instance.DensityMode);
+
+            vm.Save();
+
+            Assert.Equal("AmoledVoid", isolatedStore[AppSettingsKeys.General.SurfacePreset]);
+            Assert.Equal("Compact", isolatedStore[AppSettingsKeys.General.UiDensityMode]);
+            Assert.Equal("true", isolatedStore[AppSettingsKeys.General.EnableGlassEffects]);
+            Assert.Equal("false", isolatedStore[AppSettingsKeys.General.EnableAdaptiveGameTint]);
+            Assert.Equal("false", isolatedStore[AppSettingsKeys.General.ReducedMotion]);
+            Assert.False(globalStore.ContainsKey(AppSettingsKeys.General.SurfacePreset));
+            Assert.False(globalStore.ContainsKey(AppSettingsKeys.General.UiDensityMode));
+            Assert.Equal(SurfacePreset.LiquidObsidian, VisualPreferencesService.Instance.SurfacePreset);
+            Assert.True(VisualPreferencesService.Instance.EnableAdaptiveGameTint);
+        }
+
+        [AvaloniaFact]
+        public void SettingsViewModel_DisposeAndSettingsViewDetach_UnsubscribeStaticEventsAndAllowGc()
+        {
+            var store = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+            var general = CreateInMemorySettings(store);
+            using var settingsScope = AppServices.Override<ISettingsService>(general);
+            var effects = Substitute.For<ISettingsSideEffects>();
+
+            StreamerModeService.AutoDetectEnabled = false;
+            StreamerModeService.IsEnabled = false;
+            VisualPreferencesService.Instance.SurfacePreset = SurfacePreset.LiquidObsidian;
+            VisualPreferencesService.Instance.DensityMode = UiDensityMode.Balanced;
+
+            var vm = new SettingsViewModel(new AppSettings(), general, effects);
+            vm.Load();
+            int postDisposeNotifications = 0;
+            vm.PropertyChanged += (_, _) => postDisposeNotifications++;
+            vm.Dispose();
+
+            VisualPreferencesService.Instance.SurfacePreset = SurfacePreset.AmoledVoid;
+            VisualPreferencesService.Instance.DensityMode = UiDensityMode.Compact;
+            AccentThemeService.ApplyTheme(AccentTheme.Cyan, save: false);
+            LocalizationService.SetLanguage(AppLanguage.English, saveSetting: false);
+            StreamerModeService.IsEnabled = true;
+            Assert.Equal(0, postDisposeNotifications);
+
+            Window? window = null;
+            SettingsView? view = null;
+            try
+            {
+                view = new SettingsView(new SettingsViewModel(new AppSettings(), general, effects));
+                window = new Window { Width = 960, Height = 720, Content = view };
+                window.Show();
+                Dispatcher.UIThread.RunJobs();
+
+                int postDetachNotifications = 0;
+                view.ViewModel.PropertyChanged += (_, _) => postDetachNotifications++;
+                view.IsVisible = false;
+                Dispatcher.UIThread.RunJobs();
+
+                VisualPreferencesService.Instance.DensityMode = UiDensityMode.Comfortable;
+                AccentThemeService.ApplyTheme(AccentTheme.Pink, save: false);
+                LocalizationService.SetLanguage(AppLanguage.Vietnamese, saveSetting: false);
+                StreamerModeService.IsEnabled = false;
+                Dispatcher.UIThread.RunJobs();
+                Assert.Equal(0, postDetachNotifications);
+            }
+            finally
+            {
+                window?.Close();
+                Dispatcher.UIThread.RunJobs();
+            }
+
+            WeakReference<SettingsViewModel> weakVm = CreateUndisposedLoadedSettingsVmWeak(general);
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
+
+            VisualPreferencesService.Instance.DensityMode = UiDensityMode.Balanced;
+            AccentThemeService.ApplyTheme(AccentTheme.Violet, save: false);
+            LocalizationService.SetLanguage(AppLanguage.English, saveSetting: false);
+            StreamerModeService.IsEnabled = true;
+
+            Assert.False(weakVm.TryGetTarget(out _));
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static WeakReference<SettingsViewModel> CreateUndisposedLoadedSettingsVmWeak(ISettingsService general)
+        {
+            var vm = new SettingsViewModel(new AppSettings(), general, Substitute.For<ISettingsSideEffects>());
+            vm.Load();
+            return new WeakReference<SettingsViewModel>(vm);
         }
     }
 }

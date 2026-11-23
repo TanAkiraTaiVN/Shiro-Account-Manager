@@ -13,6 +13,10 @@ namespace Shiro.ViewModels.Dialogs
     {
         private bool _isUpdatingAppearance;
         private bool _appearanceSubscribed;
+        private Action? _preferencesChangedHandler;
+        private Action<AccentTheme>? _themeChangedHandler;
+        private Action<SurfacePreset>? _surfacePresetChangedHandler;
+        private Action<AppLanguage>? _languageChangedHandler;
 
         private SurfacePreset _selectedSurfacePreset = SurfacePreset.LiquidObsidian;
         private UiDensityMode _selectedDensityMode = UiDensityMode.Balanced;
@@ -131,6 +135,8 @@ namespace Shiro.ViewModels.Dialogs
         public bool PreviewAdaptiveBadgeVisible => EnableAdaptiveGameTint;
         public string PreviewMotionBadgeText { get => _previewMotionBadgeText; private set => SetProperty(ref _previewMotionBadgeText, value); }
 
+        private bool IsLiveAppearanceMode => ReferenceEquals(_general, AppServices.GeneralSettings);
+
         private void InitializeAppearance()
         {
             SelectSurfacePresetCommand = new RelayCommand<SurfacePreset>(p => SelectedSurfacePreset = p);
@@ -140,91 +146,174 @@ namespace Shiro.ViewModels.Dialogs
                 if (e.PropertyName == nameof(SelectedTheme))
                     RefreshAppearancePreview();
             };
-            SyncAppearanceFromPreferences();
+            SyncAppearanceFromSource();
         }
 
         private void LoadAppearance()
         {
-            if (!_appearanceSubscribed)
+            _appearanceSubscribed = true;
+            if (_languageChangedHandler == null)
             {
-                _appearanceSubscribed = true;
-                VisualPreferencesService.Instance.PreferencesChanged += OnVisualPreferencesChanged;
-                AccentThemeService.ThemeChanged += OnExternalThemeChanged;
-                AccentThemeService.SurfacePresetChanged += OnExternalSurfacePresetChanged;
-                LocalizationService.LanguageChanged += OnExternalLanguageChanged;
+                _languageChangedHandler = WeakEventSubscription.CreateAction<SettingsViewModel, AppLanguage>(
+                    this,
+                    static (vm, _) => vm.OnExternalLanguageChanged(),
+                    static h => LocalizationService.LanguageChanged -= h);
+                LocalizationService.LanguageChanged += _languageChangedHandler;
             }
-            SyncAppearanceFromPreferences();
+
+            if (IsLiveAppearanceMode)
+            {
+                if (_preferencesChangedHandler == null)
+                {
+                    _preferencesChangedHandler = WeakEventSubscription.CreateAction<SettingsViewModel>(
+                        this,
+                        static vm => vm.OnVisualPreferencesChanged(),
+                        static h => VisualPreferencesService.Instance.PreferencesChanged -= h);
+                    VisualPreferencesService.Instance.PreferencesChanged += _preferencesChangedHandler;
+                }
+                if (_themeChangedHandler == null)
+                {
+                    _themeChangedHandler = WeakEventSubscription.CreateAction<SettingsViewModel, AccentTheme>(
+                        this,
+                        static (vm, theme) => vm.OnExternalThemeChanged(theme),
+                        static h => AccentThemeService.ThemeChanged -= h);
+                    AccentThemeService.ThemeChanged += _themeChangedHandler;
+                }
+                if (_surfacePresetChangedHandler == null)
+                {
+                    _surfacePresetChangedHandler = WeakEventSubscription.CreateAction<SettingsViewModel, SurfacePreset>(
+                        this,
+                        static (vm, _) => vm.OnExternalSurfacePresetChanged(),
+                        static h => AccentThemeService.SurfacePresetChanged -= h);
+                    AccentThemeService.SurfacePresetChanged += _surfacePresetChangedHandler;
+                }
+            }
+            else
+            {
+                DetachLiveAppearanceHandlers();
+            }
+
+            SyncAppearanceFromSource();
         }
 
         private void SaveAppearance()
         {
-            VisualPreferencesService.Instance.ApplyAndSave(
-                surfacePreset: SelectedSurfacePreset,
-                densityMode: SelectedDensityMode,
-                enableGlassEffects: EnableGlassEffects,
-                enableAdaptiveGameTint: EnableAdaptiveGameTint,
-                reducedMotion: ReducedMotion);
-
-            if (!ReferenceEquals(_general, AppServices.GeneralSettings))
+            if (IsLiveAppearanceMode)
             {
-                _general.Set(AppSettingsKeys.General.SurfacePreset, SelectedSurfacePreset.ToString());
-                _general.Set(AppSettingsKeys.General.UiDensityMode, SelectedDensityMode.ToString());
-                _general.Set(AppSettingsKeys.General.EnableGlassEffects, EnableGlassEffects ? "true" : "false");
-                _general.Set(AppSettingsKeys.General.EnableAdaptiveGameTint, EnableAdaptiveGameTint ? "true" : "false");
-                _general.Set(AppSettingsKeys.General.ReducedMotion, ReducedMotion ? "true" : "false");
+                VisualPreferencesService.Instance.ApplyAndSave(
+                    surfacePreset: SelectedSurfacePreset,
+                    densityMode: SelectedDensityMode,
+                    enableGlassEffects: EnableGlassEffects,
+                    enableAdaptiveGameTint: EnableAdaptiveGameTint,
+                    reducedMotion: ReducedMotion);
+                return;
             }
+
+            _general.Set(AppSettingsKeys.General.SurfacePreset, SelectedSurfacePreset.ToString());
+            _general.Set(AppSettingsKeys.General.UiDensityMode, SelectedDensityMode.ToString());
+            _general.Set(AppSettingsKeys.General.EnableGlassEffects, EnableGlassEffects ? "true" : "false");
+            _general.Set(AppSettingsKeys.General.EnableAdaptiveGameTint, EnableAdaptiveGameTint ? "true" : "false");
+            _general.Set(AppSettingsKeys.General.ReducedMotion, ReducedMotion ? "true" : "false");
         }
 
         private void CleanupAppearance()
         {
-            if (!_appearanceSubscribed) return;
             _appearanceSubscribed = false;
-            VisualPreferencesService.Instance.PreferencesChanged -= OnVisualPreferencesChanged;
-            AccentThemeService.ThemeChanged -= OnExternalThemeChanged;
-            AccentThemeService.SurfacePresetChanged -= OnExternalSurfacePresetChanged;
-            LocalizationService.LanguageChanged -= OnExternalLanguageChanged;
+            DetachLiveAppearanceHandlers();
+            if (_languageChangedHandler != null)
+            {
+                LocalizationService.LanguageChanged -= _languageChangedHandler;
+                _languageChangedHandler = null;
+            }
+        }
+
+        private void DetachLiveAppearanceHandlers()
+        {
+            if (_preferencesChangedHandler != null)
+            {
+                VisualPreferencesService.Instance.PreferencesChanged -= _preferencesChangedHandler;
+                _preferencesChangedHandler = null;
+            }
+            if (_themeChangedHandler != null)
+            {
+                AccentThemeService.ThemeChanged -= _themeChangedHandler;
+                _themeChangedHandler = null;
+            }
+            if (_surfacePresetChangedHandler != null)
+            {
+                AccentThemeService.SurfacePresetChanged -= _surfacePresetChangedHandler;
+                _surfacePresetChangedHandler = null;
+            }
         }
 
         private void ApplyLiveAppearanceUpdate(Action updateAction)
         {
-            if (_isUpdatingAppearance || _isLoading) return;
+            if (_isUpdatingAppearance || _isLoading || !IsLiveAppearanceMode) return;
             _isUpdatingAppearance = true;
             try { updateAction(); }
             finally { _isUpdatingAppearance = false; }
         }
 
-        private void SyncAppearanceFromPreferences()
+        private void SyncAppearanceFromSource()
         {
             if (_isUpdatingAppearance) return;
             _isUpdatingAppearance = true;
             try
             {
-                var prefs = VisualPreferencesService.Instance;
-                if (SetProperty(ref _selectedSurfacePreset, prefs.SurfacePreset, nameof(SelectedSurfacePreset)))
+                SurfacePreset preset;
+                UiDensityMode density;
+                bool glass;
+                bool adaptiveTint;
+                bool reducedMotion;
+
+                if (IsLiveAppearanceMode)
+                {
+                    var prefs = VisualPreferencesService.Instance;
+                    preset = prefs.SurfacePreset;
+                    density = prefs.DensityMode;
+                    glass = prefs.EnableGlassEffects;
+                    adaptiveTint = prefs.EnableAdaptiveGameTint;
+                    reducedMotion = prefs.ReducedMotion;
+                }
+                else
+                {
+                    preset = VisualPreferencesService.ParseEnum(
+                        _general.Get(AppSettingsKeys.General.SurfacePreset),
+                        SurfacePreset.LiquidObsidian);
+                    density = VisualPreferencesService.ParseEnum(
+                        _general.Get(AppSettingsKeys.General.UiDensityMode),
+                        UiDensityMode.Balanced);
+                    glass = VisualPreferencesService.ReadBool(_general, AppSettingsKeys.General.EnableGlassEffects, true);
+                    adaptiveTint = VisualPreferencesService.ReadBool(_general, AppSettingsKeys.General.EnableAdaptiveGameTint, true);
+                    reducedMotion = VisualPreferencesService.ReadBool(_general, AppSettingsKeys.General.ReducedMotion, false);
+                }
+
+                if (SetProperty(ref _selectedSurfacePreset, preset, nameof(SelectedSurfacePreset)))
                     NotifySurfacePresetFlags();
-                if (SetProperty(ref _selectedDensityMode, prefs.DensityMode, nameof(SelectedDensityMode)))
+                if (SetProperty(ref _selectedDensityMode, density, nameof(SelectedDensityMode)))
                     NotifyDensityFlags();
-                SetProperty(ref _enableGlassEffects, prefs.EnableGlassEffects, nameof(EnableGlassEffects));
-                if (SetProperty(ref _enableAdaptiveGameTint, prefs.EnableAdaptiveGameTint, nameof(EnableAdaptiveGameTint)))
+                SetProperty(ref _enableGlassEffects, glass, nameof(EnableGlassEffects));
+                if (SetProperty(ref _enableAdaptiveGameTint, adaptiveTint, nameof(EnableAdaptiveGameTint)))
                     OnPropertyChanged(nameof(PreviewAdaptiveBadgeVisible));
-                SetProperty(ref _reducedMotion, prefs.ReducedMotion, nameof(ReducedMotion));
+                SetProperty(ref _reducedMotion, reducedMotion, nameof(ReducedMotion));
             }
             finally { _isUpdatingAppearance = false; }
             RefreshAppearancePreview();
         }
 
-        private void OnVisualPreferencesChanged() => DispatchAppearanceSync(SyncAppearanceFromPreferences);
-        private void OnExternalSurfacePresetChanged(SurfacePreset _) => DispatchAppearanceSync(SyncAppearanceFromPreferences);
+        private void OnVisualPreferencesChanged() => DispatchAppearanceSync(SyncAppearanceFromSource);
+        private void OnExternalSurfacePresetChanged() => DispatchAppearanceSync(SyncAppearanceFromSource);
         private void OnExternalThemeChanged(AccentTheme theme) => DispatchAppearanceSync(() =>
         {
             if (SetProperty(ref _selectedTheme, theme, nameof(SelectedTheme)))
                 NotifyThemeFlags();
             RefreshAppearancePreview();
         });
-        private void OnExternalLanguageChanged(AppLanguage _) => DispatchAppearanceSync(RefreshAppearancePreview);
+        private void OnExternalLanguageChanged() => DispatchAppearanceSync(RefreshAppearancePreview);
 
         private void DispatchAppearanceSync(Action action)
         {
+            if (!_appearanceSubscribed) return;
             if (AppDispatcher.HasUiThreadAccess()) { action(); return; }
             AppDispatcher.Post(() =>
             {
@@ -259,7 +348,7 @@ namespace Shiro.ViewModels.Dialogs
         private void RefreshAppearancePreview()
         {
             SurfacePalette s = OklchColorMath.DeriveSurfacePalette(SelectedSurfacePreset);
-            Color? adaptive = EnableAdaptiveGameTint ? AccentThemeService.AdaptiveGameColor : null;
+            Color? adaptive = IsLiveAppearanceMode && EnableAdaptiveGameTint ? AccentThemeService.AdaptiveGameColor : null;
             var a = adaptive.HasValue
                 ? OklchColorMath.DeriveAdaptiveAccentPalette(adaptive.Value)
                 : AccentThemeService.GetExtendedColors(SelectedTheme);
