@@ -5,6 +5,7 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Shiro.Services;
 
@@ -34,14 +35,23 @@ namespace Shiro.ViewModels
         private string _jobId = string.Empty;
         private string _currentGameName = string.Empty;
         private Bitmap? _currentGameThumbnail;
+        private Color? _adaptiveGameColor;
+        private IBrush _heroAuraBrush = Brushes.Transparent;
+        private Bitmap? _lastExtractedThumbnail;
         private ObservableCollection<RecentGameItemViewModel> _recentGamesList = new();
         private CancellationTokenSource? _gameLookupCts;
+        private CancellationTokenSource? _adaptiveTintCts;
         private long _gameLookupGeneration;
+        private long _adaptiveColorGeneration;
+        private int _ownsAdaptiveAccent;
+        private bool _hasSeenNonEmptyPlaceId;
+        private Task? _pendingAdaptiveColorTask;
         private bool _isBatchLaunching;
         private string _batchLaunchTitleText = string.Empty;
         private string _batchLaunchDetailText = string.Empty;
         private double _batchLaunchProgressPercent;
         private Action<LaunchProgress>? _launchProgressChangedHandler;
+        private Action? _visualPreferencesChangedHandler;
         private int _disposed;
 
         public LaunchBarViewModel(
@@ -90,6 +100,7 @@ namespace Shiro.ViewModels
                 static (vm, p) => vm.OnLaunchProgressChanged(p),
                 static h => LaunchCoordinator.LaunchProgressChanged -= h);
             LaunchCoordinator.LaunchProgressChanged += _launchProgressChangedHandler;
+            SubscribeAdaptiveTintEvents();
         }
 
         public Action<AccountViewModel>? OnLaunchRequested { get; set; }
@@ -107,10 +118,12 @@ namespace Shiro.ViewModels
                 {
                     if (!string.IsNullOrWhiteSpace(value))
                     {
+                        _hasSeenNonEmptyPlaceId = true;
                         AppServices.ServerBrowserState.CurrentPlaceId = value.Trim();
                         _settings?.Set("SavedPlaceId", value.Trim());
                         AppServices.HostUiBridge.QueueDeferredSaveSettings();
                     }
+                    OnPropertyChanged(nameof(CurrentPlaceIdLabel));
                     _syncPlaceIdToServerList?.Invoke(value);
                     ScheduleCurrentGameLookup(value);
                 }
@@ -171,6 +184,29 @@ namespace Shiro.ViewModels
 
         public bool HasCurrentGameInfo => !string.IsNullOrWhiteSpace(_currentGameName) || _currentGameThumbnail != null;
 
+        public string CurrentPlaceIdLabel =>
+            AccountLauncherService.ParsePlaceId(_placeId) is > 0 and var parsed
+                ? $"ID {parsed}"
+                : (_placeId?.Trim() ?? string.Empty);
+
+        public Color? AdaptiveGameColor
+        {
+            get => _adaptiveGameColor;
+            private set
+            {
+                if (SetProperty(ref _adaptiveGameColor, value))
+                {
+                    OnPropertyChanged(nameof(HasAdaptiveGameColor));
+                    OnPropertyChanged(nameof(HeroAuraBrush));
+                    _notifyCurrentGameChanged?.Invoke();
+                }
+            }
+        }
+
+        public bool HasAdaptiveGameColor => _adaptiveGameColor.HasValue;
+        public IBrush HeroAuraBrush => _heroAuraBrush;
+        internal Task? PendingAdaptiveColorTask => Volatile.Read(ref _pendingAdaptiveColorTask);
+
         public ObservableCollection<RecentGameItemViewModel> RecentGamesList
         {
             get => _recentGamesList;
@@ -229,7 +265,9 @@ namespace Shiro.ViewModels
         public void ScheduleCurrentGameLookup(string? rawPlaceId)
         {
             long gen = Interlocked.Increment(ref _gameLookupGeneration);
+            long tintGen = Interlocked.Increment(ref _adaptiveColorGeneration);
             ServerListOperationHelper.ReplaceCts(ref _gameLookupCts, createNew: false, "LaunchBar.ScheduleCurrentGameLookup");
+            ServerListOperationHelper.ReplaceCts(ref _adaptiveTintCts, createNew: false, "LaunchBar.ScheduleCurrentGameLookup.Tint");
             if (Volatile.Read(ref _disposed) != 0) return;
 
             long placeId = AccountLauncherService.ParsePlaceId(rawPlaceId ?? string.Empty);
@@ -237,9 +275,11 @@ namespace Shiro.ViewModels
             {
                 CurrentGameName = string.Empty;
                 CurrentGameThumbnail = null;
+                ClearAdaptiveGameColor(forceResetThemeService: _hasSeenNonEmptyPlaceId);
                 return;
             }
 
+            _hasSeenNonEmptyPlaceId = true;
             if (!GameInfoService.TryGetCachedName(placeId, out string instantName))
                 instantName = ServerListOperationHelper.TryFindLocalGameName(placeId, RecentGamesList, _getFavorites?.Invoke());
 
@@ -250,18 +290,36 @@ namespace Shiro.ViewModels
             CurrentGameName = instantName;
             CurrentGameThumbnail = instantThumb;
 
-            if (Avalonia.Application.Current == null || (!string.IsNullOrWhiteSpace(instantName) && instantThumb != null))
+            bool tintEnabled = VisualPreferencesService.Instance.EnableAdaptiveGameTint;
+            bool needExtract = instantThumb != null && tintEnabled &&
+                (!ReferenceEquals(_lastExtractedThumbnail, instantThumb) || !_adaptiveGameColor.HasValue);
+            if (instantThumb == null || !tintEnabled)
+                ClearAdaptiveGameColor(forceResetThemeService: !tintEnabled || _ownsAdaptiveAccent != 0);
+
+            bool needLookup = Avalonia.Application.Current != null && (string.IsNullOrWhiteSpace(instantName) || instantThumb == null);
+            if (!needLookup && !needExtract)
                 return;
 
             var cts = ServerListOperationHelper.ReplaceCts(ref _gameLookupCts, createNew: true, "LaunchBar.ScheduleCurrentGameLookup")!;
             var ct = cts.Token;
 
-            _ = Task.Run(async () =>
+            Task lookupTask = Task.Run(async () =>
             {
                 try
                 {
+                    if (needExtract && instantThumb != null)
+                        ExtractAndPostAdaptiveColor(instantThumb, placeId, gen, tintGen, ct);
+
+                    if (!needLookup)
+                        return;
+
                     await Task.Delay(220, ct).ConfigureAwait(false);
                     var (resolvedName, resolvedThumb) = await GameInfoService.ResolveGameInfoAsync(placeId, ct).ConfigureAwait(false);
+                    if (ct.IsCancellationRequested || Volatile.Read(ref _gameLookupGeneration) != gen) return;
+
+                    Color? resolvedColor = resolvedThumb != null && VisualPreferencesService.Instance.EnableAdaptiveGameTint
+                        ? AdaptivePaletteExtractor.ExtractAccentFromBitmap(resolvedThumb)
+                        : null;
                     if (ct.IsCancellationRequested || Volatile.Read(ref _gameLookupGeneration) != gen) return;
 
                     AppDispatcher.Post(() =>
@@ -269,13 +327,20 @@ namespace Shiro.ViewModels
                         if (Volatile.Read(ref _disposed) != 0 || Volatile.Read(ref _gameLookupGeneration) != gen || ct.IsCancellationRequested || AccountLauncherService.ParsePlaceId(PlaceId) != placeId)
                             return;
                         if (!string.IsNullOrWhiteSpace(resolvedName)) CurrentGameName = resolvedName!;
-                        if (resolvedThumb != null) CurrentGameThumbnail = resolvedThumb;
+                        if (resolvedThumb != null)
+                        {
+                            CurrentGameThumbnail = resolvedThumb;
+                            ApplyOrClearAdaptiveColorOnUi(resolvedThumb, resolvedColor, tintGen);
+                        }
                     });
                 }
                 catch (OperationCanceledException) { /* lookup canceled */ }
                 catch (Exception ex) { _logger.Debug($"[ScheduleCurrentGameLookup] {ex.Message}"); }
                 finally { ServerListOperationHelper.ReleaseFinishedCts(ref _gameLookupCts, cts, "LaunchBar.ScheduleCurrentGameLookup"); }
             }, ct);
+
+            if (needExtract)
+                Volatile.Write(ref _pendingAdaptiveColorTask, lookupTask);
         }
 
         public void ReloadRecentGames()
@@ -364,11 +429,13 @@ namespace Shiro.ViewModels
 
             if (_launchProgressChangedHandler != null)
                 LaunchCoordinator.LaunchProgressChanged -= _launchProgressChangedHandler;
+            UnsubscribeAdaptiveTintEvents();
 
             Interlocked.Increment(ref _gameLookupGeneration);
-            var gameCts = Interlocked.Exchange(ref _gameLookupCts, null);
-            SafeExecuteHelper.Try(() => gameCts?.Cancel(), "LaunchBarViewModel.Dispose.GameCtsCancel");
-            SafeExecuteHelper.Try(() => gameCts?.Dispose(), "LaunchBarViewModel.Dispose.GameCtsDispose");
+            Interlocked.Increment(ref _adaptiveColorGeneration);
+            ServerListOperationHelper.ReplaceCts(ref _gameLookupCts, createNew: false, "LaunchBarViewModel.Dispose.GameCts");
+            ServerListOperationHelper.ReplaceCts(ref _adaptiveTintCts, createNew: false, "LaunchBarViewModel.Dispose.TintCts");
+            ClearAdaptiveGameColor(forceResetThemeService: false);
             GC.SuppressFinalize(this);
         }
     }

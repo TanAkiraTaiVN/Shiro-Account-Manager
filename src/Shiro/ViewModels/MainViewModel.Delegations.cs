@@ -5,6 +5,7 @@ using System.Collections.ObjectModel;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
+using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Shiro.Services;
 
@@ -110,6 +111,7 @@ namespace Shiro.ViewModels
         public string CurrentGameName => LaunchBar.CurrentGameName;
         public Bitmap? CurrentGameThumbnail => LaunchBar.CurrentGameThumbnail;
         public bool HasCurrentGameInfo => LaunchBar.HasCurrentGameInfo;
+        public Color? AdaptiveGameColor => LaunchBar.AdaptiveGameColor;
         public ObservableCollection<RecentGameItemViewModel> RecentGamesList { get => LaunchBar.RecentGamesList; set => LaunchBar.RecentGamesList = value; }
         public bool HasRecentGames => LaunchBar.HasRecentGames;
         public bool IsBatchLaunching => LaunchBar.IsBatchLaunching;
@@ -133,6 +135,7 @@ namespace Shiro.ViewModels
         public ICommand CloseAccountRobloxCommand => LaunchBar.CloseAccountRobloxCommand;
         public ICommand SelectRecentGameCommand => LaunchBar.SelectRecentGameCommand;
         public ICommand CancelBatchLaunchCommand => LaunchBar.CancelBatchLaunchCommand;
+        public ICommand OpenCurrentGameServersCommand => LaunchBar.OpenCurrentGameServersCommand;
 
         public string StatusMessage { get => ToolsStatus.StatusMessage; set => ToolsStatus.StatusMessage = value; }
         public string FooterReadyStatusText => ToolsStatus.FooterReadyStatusText;

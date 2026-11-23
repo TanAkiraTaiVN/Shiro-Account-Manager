@@ -1,0 +1,101 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:controls="clr-namespace:Shiro.AvaloniaUI.Controls"
+             xmlns:vm="clr-namespace:Shiro.ViewModels"
+             xmlns:lucide="clr-namespace:LucideAvalonia;assembly=LucideAvalonia"
+             mc:Ignorable="d"
+             x:Class="Shiro.AvaloniaUI.Views.Panels.DashboardGameHeroChip"
+             x:DataType="vm:LaunchBarViewModel"
+             x:CompileBindings="True">
+    <controls:SpotlightBorder Background="{DynamicResource SurfaceCardBrush}"
+                              BorderBrush="{DynamicResource AccentBorderBrush}"
+                              BorderThickness="1"
+                              CornerRadius="{StaticResource RadiusMid12}"
+                              BoxShadow="{StaticResource ShadowCard}"
+                              SpotlightColor="{DynamicResource AccentColor}"
+                              SpotlightOpacity="0.10"
+                              BorderGlowOpacity="0.34"
+                              TopRimEnabled="True"
+                              ClipToBounds="True"
+                              MaxWidth="320"
+                              ToolTip.Tip="{Binding CurrentGameName}">
+        <Panel>
+            <Border IsHitTestVisible="False"
+                    Background="{DynamicResource AccentSoftFillBrush}"
+                    Opacity="0.45" />
+            <Border IsHitTestVisible="False"
+                    Background="{Binding HeroAuraBrush}"
+                    IsVisible="{Binding HasAdaptiveGameColor}" />
+            <Grid ColumnDefinitions="Auto,*,Auto" Margin="7,5">
+                <Border Grid.Column="0"
+                        Width="34"
+                        Height="34"
+                        CornerRadius="{StaticResource RadiusChip6}"
+                        ClipToBounds="True"
+                        Background="{DynamicResource SurfaceElevatedBrush}"
+                        BorderBrush="{DynamicResource AccentBorderBrush}"
+                        BorderThickness="1"
+                        Margin="0,0,9,0"
+                        VerticalAlignment="Center">
+                    <Panel>
+                        <lucide:Lucide Icon="Gamepad2"
+                                       Width="15"
+                                       Height="15"
+                                       StrokeBrush="{DynamicResource AccentBrush}"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       IsVisible="{Binding CurrentGameThumbnail,
+                                           Converter={x:Static ObjectConverters.IsNull}}" />
+                        <Image Source="{Binding CurrentGameThumbnail}"
+                               Width="34"
+                               Height="34"
+                               Stretch="UniformToFill"
+                               IsVisible="{Binding CurrentGameThumbnail,
+                                   Converter={x:Static ObjectConverters.IsNotNull}}" />
+                    </Panel>
+                </Border>
+                <StackPanel Grid.Column="1"
+                            VerticalAlignment="Center"
+                            Spacing="1"
+                            Margin="0,0,10,0">
+                    <TextBlock Text="{Binding CurrentGameName}"
+                               FontSize="12"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource TextPrimaryBrush}"
+                               TextTrimming="CharacterEllipsis"
+                               MaxWidth="150"
+                               IsVisible="{Binding CurrentGameName,
+                                   Converter={StaticResource StringNotNullOrEmpty}}" />
+                    <TextBlock Classes="TabularNum"
+                               Text="{Binding CurrentPlaceIdLabel}"
+                               FontSize="10"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               TextTrimming="CharacterEllipsis"
+                               MaxWidth="150" />
+                </StackPanel>
+                <Button x:Name="BtnHeroViewServers"
+                        Grid.Column="2"
+                        Classes="StudioSecondaryBtn"
+                        Command="{Binding OpenCurrentGameServersCommand}"
+                        Padding="9,5"
+                        CornerRadius="{StaticResource RadiusChip6}"
+                        VerticalAlignment="Center"
+                        ToolTip.Tip="{DynamicResource Dash_HeroViewServersTip}">
+                    <StackPanel Orientation="Horizontal" Spacing="5">
+                        <lucide:Lucide Icon="Globe"
+                                       Width="12"
+                                       Height="12"
+                                       StrokeBrush="{DynamicResource AccentBrush}"
+                                       VerticalAlignment="Center" />
+                        <TextBlock Text="{DynamicResource Dash_HeroViewServers}"
+                                   FontSize="11"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+            </Grid>
+        </Panel>
+    </controls:SpotlightBorder>
+</UserControl>

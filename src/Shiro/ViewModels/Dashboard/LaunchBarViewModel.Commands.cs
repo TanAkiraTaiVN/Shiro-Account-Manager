@@ -21,6 +21,7 @@ namespace Shiro.ViewModels
         public ICommand CloseAccountRobloxCommand { get; private set; } = null!;
         public ICommand SelectRecentGameCommand { get; private set; } = null!;
         public ICommand CancelBatchLaunchCommand { get; private set; } = null!;
+        public ICommand OpenCurrentGameServersCommand { get; private set; } = null!;
 
         internal void UpdateBatchLaunchBanner(LaunchProgress progress)
         {
@@ -238,6 +239,25 @@ namespace Shiro.ViewModels
                     _navigateToPage(NavigationPage.Accounts);
                     _setStatus(LocalizationService.Format("Main.GameSelected", item.Name, item.PlaceId));
                 }
+            });
+
+            OpenCurrentGameServersCommand = new RelayCommand(() =>
+            {
+                string raw = PlaceId?.Trim() ?? string.Empty;
+                long parsed = AccountLauncherService.ParsePlaceId(raw);
+                string effective = parsed > 0 ? parsed.ToString() : raw;
+                if (string.IsNullOrWhiteSpace(effective))
+                {
+                    _setStatus(LocalizationService.Get("Main.EnterPlaceIdOrLink"));
+                    return;
+                }
+
+                if (parsed > 0 && !string.Equals(PlaceId, effective, StringComparison.Ordinal))
+                    PlaceId = effective;
+
+                AppServices.ServerBrowserState.CurrentPlaceId = effective;
+                _syncPlaceIdToServerList?.Invoke(effective);
+                _navigateToPage(NavigationPage.ServerList);
             });
         }
     }

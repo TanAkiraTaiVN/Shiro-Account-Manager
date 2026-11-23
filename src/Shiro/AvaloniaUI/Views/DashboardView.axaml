@@ -99,21 +99,8 @@
               <TextBox x:Name="TxtPlaceId" Text="{Binding LaunchBar.PlaceId, Mode=TwoWay}" Width="136" Padding="8,6" VerticalContentAlignment="Center" FontSize="12"
                        PlaceholderText="{DynamicResource Dash_PlaceIdPlaceholder}" ToolTip.Tip="{DynamicResource Bar_TipPlaceId}" />
             </StackPanel>
-            <Border IsVisible="{Binding LaunchBar.HasCurrentGameInfo}" Margin="0,2,10,2" CornerRadius="{StaticResource RadiusMd}" Padding="6,4" MaxWidth="215"
-                    Background="{DynamicResource AccentSoftFillBrush}" BorderBrush="{DynamicResource AccentBorderBrush}" BorderThickness="1" VerticalAlignment="Center"
-                    ToolTip.Tip="{Binding LaunchBar.CurrentGameName}">
-              <Grid ColumnDefinitions="Auto,*">
-                <Border Grid.Column="0" Width="28" Height="28" CornerRadius="6" ClipToBounds="True" Background="{DynamicResource SurfaceCardBrush}" Margin="0,0,8,0">
-                  <Panel>
-                    <lucide:Lucide Icon="Gamepad2" Width="13" Height="13" StrokeBrush="#38BDF8" HorizontalAlignment="Center" VerticalAlignment="Center"
-                                   IsVisible="{Binding LaunchBar.CurrentGameThumbnail, Converter={x:Static ObjectConverters.IsNull}}" />
-                    <Image Source="{Binding LaunchBar.CurrentGameThumbnail}" Width="28" Height="28" Stretch="UniformToFill"
-                           IsVisible="{Binding LaunchBar.CurrentGameThumbnail, Converter={x:Static ObjectConverters.IsNotNull}}" />
-                  </Panel>
-                </Border>
-                <TextBlock Grid.Column="1" Text="{Binding LaunchBar.CurrentGameName}" FontSize="11.5" FontWeight="SemiBold"
-                           Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-              </Grid>
+            <Border IsVisible="{Binding LaunchBar.HasCurrentGameInfo}" Margin="0,2,10,2" VerticalAlignment="Center">
+              <panels:DashboardGameHeroChip DataContext="{Binding LaunchBar}" />
             </Border>
             <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" Margin="0,2,10,2">
               <TextBlock Text="{DynamicResource Dash_JobIdLabel}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
@@ -150,6 +137,23 @@
                 VerticalAlignment="Center" /><TextBlock Text="{DynamicResource Dash_RecentGamesBtn}" VerticalAlignment="Center" /></StackPanel></Button>
           </WrapPanel>
           <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="12,0,0,0">
+            <Button x:Name="BtnQuickWindowTile" Classes="StudioSecondaryBtn" Padding="10,8" ToolTip.Tip="{DynamicResource Tool_ArrangeMenu}">
+              <Button.Flyout><MenuFlyout Placement="BottomEdgeAlignedRight">
+                <MenuItem Header="{DynamicResource Tool_AutoGrid}" Command="{Binding ToolsStatus.ArrangeRobloxWindowsCommand}" CommandParameter="Auto">
+                  <MenuItem.Icon><lucide:Lucide Icon="LayoutGrid" Width="14" Height="14" StrokeBrush="#38BDF8" /></MenuItem.Icon></MenuItem>
+                <MenuItem Header="{DynamicResource Tool_Grid2x2}" Command="{Binding ToolsStatus.ArrangeRobloxWindowsCommand}" CommandParameter="2x2">
+                  <MenuItem.Icon><lucide:Lucide Icon="Grid2x2" Width="14" Height="14" StrokeBrush="#A1A1B2" /></MenuItem.Icon></MenuItem>
+                <MenuItem Header="{DynamicResource Tool_Grid3x2}" Command="{Binding ToolsStatus.ArrangeRobloxWindowsCommand}" CommandParameter="3x2">
+                  <MenuItem.Icon><lucide:Lucide Icon="Grid3x3" Width="14" Height="14" StrokeBrush="#A1A1B2" /></MenuItem.Icon></MenuItem>
+                <MenuItem Header="{DynamicResource Tool_Grid4x3}" Command="{Binding ToolsStatus.ArrangeRobloxWindowsCommand}" CommandParameter="4x3">
+                  <MenuItem.Icon><lucide:Lucide Icon="Table2" Width="14" Height="14" StrokeBrush="#A1A1B2" /></MenuItem.Icon></MenuItem>
+                <Separator />
+                <MenuItem Header="{DynamicResource Tool_Cascade}" Command="{Binding ToolsStatus.ArrangeRobloxWindowsCommand}" CommandParameter="Cascade">
+                  <MenuItem.Icon><lucide:Lucide Icon="Layers" Width="14" Height="14" StrokeBrush="#F59E0B" /></MenuItem.Icon></MenuItem>
+              </MenuFlyout></Button.Flyout>
+              <StackPanel Orientation="Horizontal" Spacing="5"><lucide:Lucide Icon="LayoutGrid" Width="13" Height="13" StrokeBrush="{DynamicResource TextSecondaryBrush}"
+                VerticalAlignment="Center" /><TextBlock Text="{DynamicResource Dash_QuickTileBtn}" VerticalAlignment="Center" /><lucide:Lucide Icon="ChevronDown"
+                Width="11" Height="11" StrokeBrush="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" /></StackPanel></Button>
             <Button Classes="StudioSecondaryBtn" Command="{Binding LaunchBar.LaunchSelectedCommand}" Padding="12,8" ToolTip.Tip="{DynamicResource Bar_TipLaunchHome}">
               <StackPanel Orientation="Horizontal" Spacing="6"><lucide:Lucide Icon="House" Width="14" Height="14" StrokeBrush="{DynamicResource TextPrimaryBrush}"
                 VerticalAlignment="Center" /><TextBlock Text="{Binding LaunchBar.LaunchHomeButtonText}" VerticalAlignment="Center" /></StackPanel></Button>
