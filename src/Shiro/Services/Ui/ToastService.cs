@@ -1,150 +1,13 @@
 #nullable enable
 using System;
 using System.Collections.ObjectModel;
-using System.ComponentModel;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
-using Avalonia.Media;
-using Avalonia.Media.Immutable;
 
 namespace Shiro.Services
 {
-    public enum ToastType
-    {
-        Info,
-        Success,
-        Warning,
-        Error
-    }
-
-    public class ToastItem : INotifyPropertyChanged
-    {
-        private static readonly IBrush SuccessAccentBrush = new ImmutableSolidColorBrush(Color.FromRgb(34, 197, 94));
-        private static readonly IBrush WarningAccentBrush = new ImmutableSolidColorBrush(Color.FromRgb(245, 158, 11));
-        private static readonly IBrush ErrorAccentBrush = new ImmutableSolidColorBrush(Color.FromRgb(239, 68, 68));
-        private static readonly IBrush InfoAccentBrush = new ImmutableSolidColorBrush(Color.FromRgb(56, 189, 248));
-
-        private static readonly IBrush SurfaceBgBrush = new ImmutableSolidColorBrush(Color.FromArgb(250, 17, 17, 23));
-
-        private static readonly IBrush SuccessBorderBrush = new ImmutableSolidColorBrush(Color.FromArgb(95, 34, 197, 94));
-        private static readonly IBrush WarningBorderBrush = new ImmutableSolidColorBrush(Color.FromArgb(95, 245, 158, 11));
-        private static readonly IBrush ErrorBorderBrush = new ImmutableSolidColorBrush(Color.FromArgb(95, 239, 68, 68));
-        private static readonly IBrush InfoBorderBrush = new ImmutableSolidColorBrush(Color.FromArgb(110, 42, 42, 58));
-
-        private static readonly IBrush SuccessBadgeBgBrush = new ImmutableSolidColorBrush(Color.FromArgb(36, 34, 197, 94));
-        private static readonly IBrush WarningBadgeBgBrush = new ImmutableSolidColorBrush(Color.FromArgb(36, 245, 158, 11));
-        private static readonly IBrush ErrorBadgeBgBrush = new ImmutableSolidColorBrush(Color.FromArgb(36, 239, 68, 68));
-        private static readonly IBrush InfoBadgeBgBrush = new ImmutableSolidColorBrush(Color.FromArgb(36, 56, 189, 248));
-
-        private static Geometry? _successIconGeometry;
-        private static Geometry? _warningIconGeometry;
-        private static Geometry? _errorIconGeometry;
-        private static Geometry? _infoIconGeometry;
-
-        private ICommand? _actionCommand;
-
-        public event PropertyChangedEventHandler? PropertyChanged;
-
-        public string Id { get; } = Guid.NewGuid().ToString("N");
-        public string Title { get; set; } = string.Empty;
-        public string Message { get; set; } = string.Empty;
-        public ToastType Type { get; set; }
-        public DateTime CreatedAt { get; } = DateTime.UtcNow;
-        public ICommand DismissCommand { get; }
-        public string ActionText { get; set; } = string.Empty;
-        public ICommand? ActionCommand
-        {
-            get => _actionCommand;
-            set
-            {
-                if (!ReferenceEquals(_actionCommand, value))
-                {
-                    _actionCommand = value;
-                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ActionCommand)));
-                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(HasAction)));
-                }
-            }
-        }
-        internal CancellationTokenSource? AutoDismissCts { get; set; }
-
-        internal sealed class ToastActionCommand : ICommand
-        {
-            private readonly Action _execute;
-
-            public ToastActionCommand(Action execute)
-            {
-                _execute = execute ?? throw new ArgumentNullException(nameof(execute));
-            }
-
-            public event EventHandler? CanExecuteChanged
-            {
-                add { }
-                remove { }
-            }
-
-            public bool CanExecute(object? parameter) => true;
-
-            public void Execute(object? parameter) => _execute();
-        }
-
-        public ToastItem()
-        {
-            DismissCommand = new ToastActionCommand(() => ToastService.Dismiss(this));
-        }
-
-        public bool HasMessage => !string.IsNullOrWhiteSpace(Message);
-        public bool HasAction => ActionCommand != null && !string.IsNullOrWhiteSpace(ActionText);
-
-        public Geometry? IconGeometry => Type switch
-        {
-            ToastType.Success => _successIconGeometry ??= TryParseGeometry("M 20,6 L 9,17 L 4,12"),
-            ToastType.Warning => _warningIconGeometry ??= TryParseGeometry("M 12,22 C 12,22 20,18 20,12 L 20,5 L 12,2 L 4,5 L 4,12 C 4,18 12,22 12,22 Z M 12,8 L 12,13 M 12,16.5 L 12.02,16.5"),
-            ToastType.Error => _errorIconGeometry ??= TryParseGeometry("M 18,6 L 6,18 M 6,6 L 18,18"),
-            _ => _infoIconGeometry ??= TryParseGeometry("M 12,2 A 10,10 0 1 0 12,22 A 10,10 0 1 0 12,2 Z M 12,16 L 12,12 M 12,8 L 12.01,8")
-        };
-
-        private static Geometry? TryParseGeometry(string pathData)
-        {
-            try
-            {
-                return StreamGeometry.Parse(pathData);
-            }
-            catch (Exception ex)
-            {
-                AppServices.Logger.Debug("[ToastItem] TryParseGeometry failed", ex);
-                return null;
-            }
-        }
-
-        public IBrush AccentBrush => Type switch
-        {
-            ToastType.Success => SuccessAccentBrush,
-            ToastType.Warning => WarningAccentBrush,
-            ToastType.Error => ErrorAccentBrush,
-            _ => InfoAccentBrush
-        };
-
-        public IBrush BackgroundBrush => SurfaceBgBrush;
-
-        public IBrush BorderBrush => Type switch
-        {
-            ToastType.Success => SuccessBorderBrush,
-            ToastType.Warning => WarningBorderBrush,
-            ToastType.Error => ErrorBorderBrush,
-            _ => InfoBorderBrush
-        };
-
-        public IBrush BadgeBackground => Type switch
-        {
-            ToastType.Success => SuccessBadgeBgBrush,
-            ToastType.Warning => WarningBadgeBgBrush,
-            ToastType.Error => ErrorBadgeBgBrush,
-            _ => InfoBadgeBgBrush
-        };
-    }
-
     public static partial class ToastService
     {
         private static readonly System.Threading.Lock _toastLock = new();
@@ -235,7 +98,9 @@ namespace Shiro.Services
                             Title = cleanTitle,
                             Message = cleanMessage,
                             Type = type,
-                            ActionText = cleanAction
+                            ActionText = cleanAction,
+                            DurationSeconds = autoDismissDelay?.TotalSeconds ?? 0.0,
+                            TimerGeneration = autoDismissDelay.HasValue ? 1 : 0
                         };
 
                         toast.ActionCommand = BuildActionCommand(toast, cleanAction, onAction);
@@ -261,6 +126,11 @@ namespace Shiro.Services
                 if (coalescedToast != null)
                 {
                     toast.ActionCommand = BuildActionCommand(toast, cleanAction, onAction);
+                    toast.DurationSeconds = autoDismissDelay?.TotalSeconds ?? 0.0;
+                    if (autoDismissDelay.HasValue)
+                    {
+                        toast.TimerGeneration++;
+                    }
                 }
                 else
                 {
