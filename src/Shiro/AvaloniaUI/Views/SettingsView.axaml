@@ -4,7 +4,6 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:controls="clr-namespace:Shiro.AvaloniaUI.Controls"
              xmlns:panels="clr-namespace:Shiro.AvaloniaUI.Views.Panels"
-             xmlns:services="clr-namespace:Shiro.Services"
              xmlns:vm="clr-namespace:Shiro.ViewModels.Dialogs"
              xmlns:lucide="clr-namespace:LucideAvalonia;assembly=LucideAvalonia"
              mc:Ignorable="d" x:Class="Shiro.AvaloniaUI.Views.SettingsView"
@@ -14,7 +13,7 @@
             <Setter Property="Background" Value="{DynamicResource SurfacePanelBrush}" />
             <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}" />
             <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="{StaticResource RadiusXl}" />
+            <Setter Property="CornerRadius" Value="{StaticResource RadiusMid12}" />
             <Setter Property="BoxShadow" Value="{StaticResource ShadowCard}" />
             <Setter Property="SpotlightColor" Value="{DynamicResource AccentColor}" />
             <Setter Property="SpotlightOpacity" Value="0.035" />
@@ -46,57 +45,13 @@
             <Setter Property="HorizontalAlignment" Value="Right" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
-        <Style Selector="Border.SwatchDot">
-            <Setter Property="Width" Value="10" />
-            <Setter Property="Height" Value="10" />
-            <Setter Property="CornerRadius" Value="999" />
-            <Setter Property="VerticalAlignment" Value="Center" />
-        </Style>
-        <Style Selector="Button.ThemeBtn">
-            <Setter Property="Background" Value="{DynamicResource SurfaceCardBrush}" />
-            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="{StaticResource RadiusMd}" />
-            <Setter Property="Padding" Value="10,6" />
-            <Setter Property="FontSize" Value="11.5" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Template">
-                <ControlTemplate>
-                    <Border Name="PART_Border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="{TemplateBinding CornerRadius}"
-                            Padding="{TemplateBinding Padding}">
-                        <ContentPresenter Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}"
-                                          HorizontalAlignment="Center" VerticalAlignment="Center" />
-                    </Border>
-                </ControlTemplate>
-            </Setter>
-        </Style>
-        <Style Selector="Button.ThemeBtn:pointerover">
-            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
-        </Style>
-        <Style Selector="Button.ThemeBtn:pointerover /template/ Border#PART_Border">
-            <Setter Property="Background" Value="{DynamicResource SurfaceCardHoverBrush}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource BorderHoverBrush}" />
-        </Style>
-        <Style Selector="Button.ThemeBtn.ThemeActive">
-            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
-            <Setter Property="FontWeight" Value="Bold" />
-        </Style>
-        <Style Selector="Button.ThemeBtn.ThemeActive /template/ Border#PART_Border">
-            <Setter Property="Background" Value="{DynamicResource AccentSoftFillBrush}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
-            <Setter Property="BorderThickness" Value="1.5" />
-            <Setter Property="BoxShadow" Value="{StaticResource ShadowCard}" />
-        </Style>
     </UserControl.Styles>
 
     <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="24,16,24,16">
         <panels:SettingsHeaderBanner Grid.Row="0" />
 
         <Border Grid.Row="1" Background="{DynamicResource SurfacePanelBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
-                BorderThickness="1" CornerRadius="{StaticResource RadiusLg}" Margin="0,0,0,14">
+                BorderThickness="1" CornerRadius="{StaticResource RadiusMid12}" Margin="0,0,0,14">
             <Panel>
                 <WrapPanel Orientation="Horizontal" Margin="6,5">
                     <RadioButton x:Name="TabRadioGeneral" Classes="SettingsTabPill" GroupName="SettingsCat" IsChecked="True">
@@ -130,7 +85,7 @@
                         </StackPanel>
                     </RadioButton>
                 </WrapPanel>
-                <Border IsHitTestVisible="False" BorderBrush="{DynamicResource BorderTopRimBrush}" BorderThickness="1" CornerRadius="{StaticResource RadiusLg}" />
+                <Border IsHitTestVisible="False" BorderBrush="{DynamicResource BorderTopRimBrush}" BorderThickness="1" CornerRadius="{StaticResource RadiusMid12}" />
             </Panel>
         </Border>
 
@@ -151,49 +106,6 @@
                         <Separator />
                         <Grid ColumnDefinitions="*,Auto">
                             <StackPanel Grid.Column="0" Classes="RowInfo">
-                                <TextBlock Classes="SettingTitle" Text="{DynamicResource Set_Theme}" />
-                                <TextBlock Classes="SettingTip" Text="{DynamicResource Set_ThemeTip}" /></StackPanel>
-                            <WrapPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                                <Button x:Name="BtnThemeMonochrome" Classes="ThemeBtn" Classes.ThemeActive="{Binding IsThemeMonochrome}"
-                                        Command="{Binding SelectThemeCommand}" CommandParameter="{x:Static services:AccentTheme.Monochrome}" Margin="0,2,6,2">
-                                    <StackPanel Orientation="Horizontal" Spacing="6">
-                                        <Border Classes="SwatchDot" Background="#FFFFFF" />
-                                        <TextBlock Text="{DynamicResource Set_ThemeMonochrome}" VerticalAlignment="Center" />
-                                    </StackPanel>
-                                </Button>
-                                <Button x:Name="BtnThemeViolet" Classes="ThemeBtn" Classes.ThemeActive="{Binding IsThemeViolet}"
-                                        Command="{Binding SelectThemeCommand}" CommandParameter="{x:Static services:AccentTheme.Violet}" Margin="0,2,6,2">
-                                    <StackPanel Orientation="Horizontal" Spacing="6">
-                                        <Border Classes="SwatchDot" Background="#8B5CF6" />
-                                        <TextBlock Text="{DynamicResource Set_ThemeViolet}" VerticalAlignment="Center" />
-                                    </StackPanel>
-                                </Button>
-                                <Button x:Name="BtnThemeCyan" Classes="ThemeBtn" Classes.ThemeActive="{Binding IsThemeCyan}"
-                                        Command="{Binding SelectThemeCommand}" CommandParameter="{x:Static services:AccentTheme.Cyan}" Margin="0,2,6,2">
-                                    <StackPanel Orientation="Horizontal" Spacing="6">
-                                        <Border Classes="SwatchDot" Background="#06B6D4" />
-                                        <TextBlock Text="{DynamicResource Set_ThemeCyan}" VerticalAlignment="Center" />
-                                    </StackPanel>
-                                </Button>
-                                <Button x:Name="BtnThemeEmerald" Classes="ThemeBtn" Classes.ThemeActive="{Binding IsThemeEmerald}"
-                                        Command="{Binding SelectThemeCommand}" CommandParameter="{x:Static services:AccentTheme.Emerald}" Margin="0,2,6,2">
-                                    <StackPanel Orientation="Horizontal" Spacing="6">
-                                        <Border Classes="SwatchDot" Background="#10B981" />
-                                        <TextBlock Text="{DynamicResource Set_ThemeEmerald}" VerticalAlignment="Center" />
-                                    </StackPanel>
-                                </Button>
-                                <Button x:Name="BtnThemePink" Classes="ThemeBtn" Classes.ThemeActive="{Binding IsThemePink}"
-                                        Command="{Binding SelectThemeCommand}" CommandParameter="{x:Static services:AccentTheme.Pink}" Margin="0,2,0,2">
-                                    <StackPanel Orientation="Horizontal" Spacing="6">
-                                        <Border Classes="SwatchDot" Background="#EC4899" />
-                                        <TextBlock Text="{DynamicResource Set_ThemePink}" VerticalAlignment="Center" />
-                                    </StackPanel>
-                                </Button>
-                            </WrapPanel>
-                        </Grid>
-                        <Separator />
-                        <Grid ColumnDefinitions="*,Auto">
-                            <StackPanel Grid.Column="0" Classes="RowInfo">
                                 <TextBlock Classes="SettingTitle" Text="{DynamicResource Set_StreamerMode}" />
                                 <TextBlock Classes="SettingTip" Text="{DynamicResource Set_StreamerModeTip}" /></StackPanel>
                             <ToggleSwitch Grid.Column="1" x:Name="SwHideUsernames" IsChecked="{Binding HideUsernames, Mode=TwoWay}" />
@@ -207,6 +119,8 @@
                         </Grid>
                     </StackPanel>
                 </controls:SpotlightBorder>
+
+                <panels:SettingsAppearancePanel IsVisible="{Binding #TabRadioGeneral.IsChecked}" />
 
                 <controls:SpotlightBorder x:Name="PanelPerformance" Classes="SettingsCard" IsVisible="{Binding #TabRadioPerformance.IsChecked}">
                     <StackPanel Spacing="14">
@@ -374,7 +288,7 @@
         </ScrollViewer>
 
         <Border Grid.Row="3" Background="{DynamicResource SurfacePanelBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
-                BorderThickness="1" CornerRadius="{StaticResource RadiusXl}" BoxShadow="{StaticResource ShadowCard}" Margin="0,14,0,0">
+                BorderThickness="1" CornerRadius="{StaticResource RadiusMid12}" BoxShadow="{StaticResource ShadowCard}" Margin="0,14,0,0">
             <Panel>
                 <Grid ColumnDefinitions="Auto,*,Auto" Margin="16,10">
                     <Button Grid.Column="0" Classes="StudioPrimaryBtn" Command="{Binding SaveCommand}" Padding="20,9">
@@ -386,7 +300,7 @@
                     <TextBlock Grid.Column="1" x:Name="TxtSaveFeedback" Text="{Binding SaveFeedback}" Foreground="{DynamicResource StatusSuccessBrush}"
                                FontWeight="SemiBold" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="16,0,0,0" FontSize="12" />
                 </Grid>
-                <Border IsHitTestVisible="False" BorderBrush="{DynamicResource BorderTopRimBrush}" BorderThickness="1" CornerRadius="{StaticResource RadiusXl}" />
+                <Border IsHitTestVisible="False" BorderBrush="{DynamicResource BorderTopRimBrush}" BorderThickness="1" CornerRadius="{StaticResource RadiusMid12}" />
             </Panel>
         </Border>
     </Grid>

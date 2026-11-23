@@ -19,14 +19,14 @@
     <Border Background="{DynamicResource SurfacePanelBrush}"
             BorderBrush="{DynamicResource BorderSubtleBrush}"
             BorderThickness="1"
-            CornerRadius="{StaticResource RadiusXl}"
+            CornerRadius="{StaticResource RadiusOuter16}"
             BoxShadow="{StaticResource ShadowModal}"
             Margin="10">
         <Panel>
             <Grid RowDefinitions="Auto,*,Auto,Auto" Margin="20">
                 <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="12"
                             VerticalAlignment="Center" Margin="0,0,0,16">
-                    <Border Width="38" Height="38" CornerRadius="{StaticResource RadiusLg}"
+                    <Border Width="38" Height="38" CornerRadius="{StaticResource RadiusInner8}"
                             Background="{DynamicResource StatusInfoBgBrush}"
                             BorderBrush="{DynamicResource StatusInfoBorderBrush}" BorderThickness="1">
                         <lucide:Lucide Icon="Wrench" Width="17" Height="17"
@@ -45,7 +45,7 @@
                     <controls:SpotlightBorder Background="{DynamicResource SurfaceCardBrush}"
                                               BorderBrush="{DynamicResource BorderSubtleBrush}"
                                               BorderThickness="1"
-                                              CornerRadius="{StaticResource RadiusLg}"
+                                              CornerRadius="{StaticResource RadiusMid12}"
                                               BoxShadow="{StaticResource ShadowCard}"
                                               SpotlightColor="{DynamicResource AccentColor}"
                                               SpotlightOpacity="0.04"
@@ -61,6 +61,7 @@
                                            Foreground="{DynamicResource TextSecondaryBrush}" />
                             </StackPanel>
                             <Button Grid.Column="1" Classes="StudioSecondaryBtn"
+                                    CornerRadius="{StaticResource RadiusChip6}"
                                     Command="{Binding LogOutOtherSessionsCommand}"
                                     Padding="12,7" FontSize="12" VerticalAlignment="Center">
                                 <StackPanel Orientation="Horizontal" Spacing="6">
@@ -77,7 +78,7 @@
                     <controls:SpotlightBorder Background="{DynamicResource SurfaceCardBrush}"
                                               BorderBrush="{DynamicResource BorderSubtleBrush}"
                                               BorderThickness="1"
-                                              CornerRadius="{StaticResource RadiusLg}"
+                                              CornerRadius="{StaticResource RadiusMid12}"
                                               BoxShadow="{StaticResource ShadowCard}"
                                               SpotlightColor="{DynamicResource AccentColor}"
                                               SpotlightOpacity="0.04"
@@ -95,8 +96,10 @@
                             <Grid Grid.Row="1" ColumnDefinitions="*,Auto">
                                 <TextBox x:Name="TxtPassword" Text="{Binding Password, Mode=TwoWay}"
                                          PlaceholderText="{DynamicResource Loc_AccountUtils_PasswordWatermark}"
+                                         CornerRadius="{StaticResource RadiusInner8}"
                                          PasswordChar="•" Padding="10,7" FontSize="13" Margin="0,0,8,0" />
                                 <Button Grid.Column="1" Classes="StudioPrimaryBtn"
+                                        CornerRadius="{StaticResource RadiusChip6}"
                                         Command="{Binding SavePasswordCommand}"
                                         Padding="14,7" FontSize="12">
                                     <StackPanel Orientation="Horizontal" Spacing="6">
@@ -118,6 +121,7 @@
 
                 <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right">
                     <Button Classes="StudioSecondaryBtn" Height="32" Padding="14,0"
+                            CornerRadius="{StaticResource RadiusChip6}"
                             Command="{Binding CloseCommand}">
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <lucide:Lucide Icon="X" Width="13" Height="13"
@@ -131,7 +135,7 @@
             <Border IsHitTestVisible="False"
                     BorderBrush="{DynamicResource BorderTopRimBrush}"
                     BorderThickness="1"
-                    CornerRadius="{StaticResource RadiusXl}" />
+                    CornerRadius="{StaticResource RadiusOuter16}" />
         </Panel>
     </Border>
 </Window>

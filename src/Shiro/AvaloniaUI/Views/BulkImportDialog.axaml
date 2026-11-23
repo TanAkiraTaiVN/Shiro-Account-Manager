@@ -13,122 +13,140 @@
         Background="{DynamicResource SurfaceChromeBrush}"
         Foreground="{DynamicResource TextPrimaryBrush}">
 
-    <Grid RowDefinitions="Auto,*,Auto,Auto" Margin="20">
-        <!-- Header -->
-        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="12"
-                    VerticalAlignment="Center" Margin="0,4,0,14">
-            <Border Width="38" Height="38"
-                    CornerRadius="{StaticResource RadiusLg}"
-                    Background="{DynamicResource AccentSoftFillBrush}"
-                    BorderBrush="{DynamicResource AccentBorderBrush}"
-                    BorderThickness="1">
-                <lucide:Lucide Icon="Download" Width="18" Height="18"
-                               StrokeBrush="{DynamicResource AccentBrush}"
-                               HorizontalAlignment="Center" VerticalAlignment="Center" />
-            </Border>
-            <StackPanel VerticalAlignment="Center" Spacing="2">
-                <TextBlock Text="{DynamicResource Loc_BulkImport_DialogHeading}"
-                           FontSize="16" FontWeight="Bold"
-                           Foreground="{DynamicResource TextPrimaryBrush}" />
-                <TextBlock Text="{DynamicResource Loc_BulkImport_DialogSubtitle}"
-                           FontSize="12"
-                           Foreground="{DynamicResource TextSecondaryBrush}" />
-            </StackPanel>
-        </StackPanel>
-
-        <!-- Elevated Editor Container -->
-        <Border Grid.Row="1"
-                Background="{DynamicResource SurfacePanelBrush}"
-                BorderBrush="{DynamicResource BorderSubtleBrush}"
-                BorderThickness="1"
-                CornerRadius="{StaticResource RadiusLg}"
-                BoxShadow="{StaticResource ShadowCard}">
-            <Panel>
-                <Grid RowDefinitions="*,Auto" Margin="12">
-                    <TextBox x:Name="TxtImportData"
-                             Text="{Binding InputText, Mode=TwoWay}"
-                             AcceptsReturn="True" TextWrapping="NoWrap"
-                             PlaceholderText="{DynamicResource Loc_BulkImport_InputWatermark}"
-                             Padding="12"
-                             FontFamily="Consolas, Cascadia Code, monospace"
-                             FontSize="11.5" />
-                    <TextBlock Grid.Row="1"
-                               Text="{DynamicResource Loc_BulkImport_SupportedFormatNote}"
-                               FontSize="11"
-                               Foreground="{DynamicResource TextMutedBrush}"
-                               Margin="2,8,0,0" TextWrapping="Wrap" />
-                </Grid>
-                <Border IsHitTestVisible="False"
-                        BorderBrush="{DynamicResource BorderTopRimBrush}"
-                        BorderThickness="1"
-                        CornerRadius="{StaticResource RadiusLg}" />
-            </Panel>
-        </Border>
-
-        <!-- Status & Progress Bar -->
-        <Border Grid.Row="2"
-                Background="{DynamicResource SurfaceCardBrush}"
-                BorderBrush="{DynamicResource BorderSubtleBrush}"
-                BorderThickness="1"
-                CornerRadius="{StaticResource RadiusMd}"
-                Padding="12,9" Margin="0,12,0,0">
-            <Grid ColumnDefinitions="*,Auto">
-                <TextBlock x:Name="TxtStatus"
-                           Text="{Binding StatusText}"
-                           Foreground="{Binding StatusKind, Converter={StaticResource StatusKindToBrush}}"
-                           FontSize="12" FontWeight="SemiBold"
-                           VerticalAlignment="Center" Margin="0,0,10,0" />
-                <ProgressBar Grid.Column="1" x:Name="PrgProgress"
-                             Width="148" Height="6" MinWidth="0" MinHeight="0"
-                             Minimum="0" Maximum="{Binding ProgressMax}"
-                             Value="{Binding ProgressValue}"
-                             Foreground="{DynamicResource AccentBrush}"
-                             Background="{DynamicResource SurfaceSubtleChipBrush}"
-                             IsVisible="{Binding IsProgressVisible}"
-                             VerticalAlignment="Center" />
-            </Grid>
-        </Border>
-
-        <!-- Action Footer -->
-        <Grid Grid.Row="3" ColumnDefinitions="Auto,*,Auto" Margin="0,14,0,0">
-            <Button Grid.Column="0" x:Name="BtnClear"
-                    Classes="StudioSecondaryBtn"
-                    Command="{Binding ClearCommand}">
-                <StackPanel Orientation="Horizontal" Spacing="6">
-                    <lucide:Lucide Icon="Trash" Width="13" Height="13"
-                                   StrokeBrush="{DynamicResource TextSecondaryBrush}"
-                                   VerticalAlignment="Center" />
-                    <TextBlock Text="{DynamicResource Loc_BulkImport_ClearContentBtn}"
-                               VerticalAlignment="Center" />
+    <Border Background="{DynamicResource SurfacePanelBrush}"
+            BorderBrush="{DynamicResource BorderSubtleBrush}"
+            BorderThickness="1"
+            CornerRadius="{StaticResource RadiusOuter16}"
+            BoxShadow="{StaticResource ShadowModal}"
+            Margin="10">
+        <Panel>
+            <Grid RowDefinitions="Auto,*,Auto,Auto" Margin="18">
+                <!-- Header -->
+                <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="12"
+                            VerticalAlignment="Center" Margin="0,2,0,14">
+                    <Border Width="38" Height="38"
+                            CornerRadius="{StaticResource RadiusInner8}"
+                            Background="{DynamicResource AccentSoftFillBrush}"
+                            BorderBrush="{DynamicResource AccentBorderBrush}"
+                            BorderThickness="1">
+                        <lucide:Lucide Icon="Download" Width="18" Height="18"
+                                       StrokeBrush="{DynamicResource AccentBrush}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <StackPanel VerticalAlignment="Center" Spacing="2">
+                        <TextBlock Text="{DynamicResource Loc_BulkImport_DialogHeading}"
+                                   FontSize="16" FontWeight="Bold"
+                                   Foreground="{DynamicResource TextPrimaryBrush}" />
+                        <TextBlock Text="{DynamicResource Loc_BulkImport_DialogSubtitle}"
+                                   FontSize="12"
+                                   Foreground="{DynamicResource TextSecondaryBrush}" />
+                    </StackPanel>
                 </StackPanel>
-            </Button>
 
-            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
-                <Button x:Name="BtnClose"
-                        Classes="StudioGhostBtn"
-                        Command="{Binding CloseCommand}"
-                        Padding="14,7">
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                        <lucide:Lucide Icon="X" Width="13" Height="13"
-                                       StrokeBrush="{DynamicResource TextSecondaryBrush}"
+                <!-- Elevated Editor Container -->
+                <Border Grid.Row="1"
+                        Background="{DynamicResource SurfaceCardBrush}"
+                        BorderBrush="{DynamicResource BorderSubtleBrush}"
+                        BorderThickness="1"
+                        CornerRadius="{StaticResource RadiusMid12}"
+                        BoxShadow="{StaticResource ShadowCard}">
+                    <Panel>
+                        <Grid RowDefinitions="*,Auto" Margin="12">
+                            <TextBox x:Name="TxtImportData"
+                                     Text="{Binding InputText, Mode=TwoWay}"
+                                     AcceptsReturn="True" TextWrapping="NoWrap"
+                                     PlaceholderText="{DynamicResource Loc_BulkImport_InputWatermark}"
+                                     CornerRadius="{StaticResource RadiusInner8}"
+                                     Padding="12"
+                                     FontFamily="Consolas, Cascadia Code, monospace"
+                                     FontSize="11.5" />
+                            <TextBlock Grid.Row="1"
+                                       Text="{DynamicResource Loc_BulkImport_SupportedFormatNote}"
+                                       FontSize="11"
+                                       Foreground="{DynamicResource TextMutedBrush}"
+                                       Margin="2,8,0,0" TextWrapping="Wrap" />
+                        </Grid>
+                        <Border IsHitTestVisible="False"
+                                BorderBrush="{DynamicResource BorderTopRimBrush}"
+                                BorderThickness="1"
+                                CornerRadius="{StaticResource RadiusMid12}" />
+                    </Panel>
+                </Border>
+
+                <!-- Status & Progress Bar -->
+                <Border Grid.Row="2"
+                        Background="{DynamicResource SurfaceCardBrush}"
+                        BorderBrush="{DynamicResource BorderHairlineBrush}"
+                        BorderThickness="1"
+                        CornerRadius="{StaticResource RadiusInner8}"
+                        Padding="12,9" Margin="0,12,0,0">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock x:Name="TxtStatus"
+                                   Text="{Binding StatusText}"
+                                   Foreground="{Binding StatusKind, Converter={StaticResource StatusKindToBrush}}"
+                                   FontSize="12" FontWeight="SemiBold"
+                                   VerticalAlignment="Center" Margin="0,0,10,0" />
+                        <ProgressBar Grid.Column="1" x:Name="PrgProgress"
+                                     Width="148" Height="6" MinWidth="0" MinHeight="0"
+                                     CornerRadius="{StaticResource RadiusChip6}"
+                                     Minimum="0" Maximum="{Binding ProgressMax}"
+                                     Value="{Binding ProgressValue}"
+                                     Foreground="{DynamicResource AccentBrush}"
+                                     Background="{DynamicResource SurfaceSubtleChipBrush}"
+                                     IsVisible="{Binding IsProgressVisible}"
+                                     VerticalAlignment="Center" />
+                    </Grid>
+                </Border>
+
+                <!-- Action Footer -->
+                <Grid Grid.Row="3" ColumnDefinitions="Auto,*,Auto" Margin="0,14,0,0">
+                    <Button Grid.Column="0" x:Name="BtnClear"
+                            Classes="StudioSecondaryBtn"
+                            CornerRadius="{StaticResource RadiusChip6}"
+                            Command="{Binding ClearCommand}">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <lucide:Lucide Icon="Trash" Width="13" Height="13"
+                                           StrokeBrush="{DynamicResource TextSecondaryBrush}"
+                                           VerticalAlignment="Center" />
+                            <TextBlock Text="{DynamicResource Loc_BulkImport_ClearContentBtn}"
                                        VerticalAlignment="Center" />
-                        <TextBlock Text="{DynamicResource Loc_Btn_Close}"
-                                   VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
+                        <Button x:Name="BtnClose"
+                                Classes="StudioGhostBtn"
+                                CornerRadius="{StaticResource RadiusChip6}"
+                                Command="{Binding CloseCommand}"
+                                Padding="14,7">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <lucide:Lucide Icon="X" Width="13" Height="13"
+                                               StrokeBrush="{DynamicResource TextSecondaryBrush}"
+                                               VerticalAlignment="Center" />
+                                <TextBlock Text="{DynamicResource Loc_Btn_Close}"
+                                           VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="BtnStartImport"
+                                Classes="StudioPrimaryBtn"
+                                CornerRadius="{StaticResource RadiusChip6}"
+                                Command="{Binding StartImportCommand}"
+                                Padding="18,8">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <lucide:Lucide Icon="Check" Width="13" Height="13"
+                                               StrokeBrush="{DynamicResource AccentForegroundBrush}"
+                                               StrokeThickness="2.4" VerticalAlignment="Center" />
+                                <TextBlock Text="{DynamicResource Loc_Bulk_BtnStart}"
+                                           VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
                     </StackPanel>
-                </Button>
-                <Button x:Name="BtnStartImport"
-                        Classes="StudioPrimaryBtn"
-                        Command="{Binding StartImportCommand}"
-                        Padding="18,8">
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                        <lucide:Lucide Icon="Check" Width="13" Height="13"
-                                       StrokeBrush="{DynamicResource AccentForegroundBrush}"
-                                       StrokeThickness="2.4" VerticalAlignment="Center" />
-                        <TextBlock Text="{DynamicResource Loc_Bulk_BtnStart}"
-                                   VerticalAlignment="Center" />
-                    </StackPanel>
-                </Button>
-            </StackPanel>
-        </Grid>
-    </Grid>
+                </Grid>
+            </Grid>
+            <Border IsHitTestVisible="False"
+                    BorderBrush="{DynamicResource BorderTopRimBrush}"
+                    BorderThickness="1"
+                    CornerRadius="{StaticResource RadiusOuter16}" />
+        </Panel>
+    </Border>
 </Window>

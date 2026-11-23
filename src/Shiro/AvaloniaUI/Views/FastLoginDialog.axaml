@@ -15,6 +15,16 @@
         Background="{DynamicResource SurfaceChromeBrush}"
         Foreground="{DynamicResource TextPrimaryBrush}">
 
+    <Window.Resources>
+        <CornerRadius x:Key="RadiusOuter16">16</CornerRadius>
+        <CornerRadius x:Key="RadiusMid12">12</CornerRadius>
+        <CornerRadius x:Key="RadiusInner8">8</CornerRadius>
+        <CornerRadius x:Key="RadiusChip6">6</CornerRadius>
+        <CornerRadius x:Key="RadiusPill">999</CornerRadius>
+        <BoxShadows x:Key="ShadowCard">0 6 20 0 #55000000</BoxShadows>
+        <BoxShadows x:Key="ShadowModal">0 24 64 0 #CC000000, 0 4 16 0 #66000000</BoxShadows>
+    </Window.Resources>
+
     <Window.Styles>
         <Style Selector="RadioButton.ModeTabPill">
             <Setter Property="Background" Value="Transparent" />
@@ -22,7 +32,7 @@
             <Setter Property="BorderBrush" Value="Transparent" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Padding" Value="10,5" />
-            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="CornerRadius" Value="{StaticResource RadiusChip6}" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="FontSize" Value="11" />
             <Setter Property="Template">
@@ -52,224 +62,247 @@
         </Style>
     </Window.Styles>
 
-    <Grid RowDefinitions="Auto,*,Auto" Margin="14">
-        <!-- Header Row -->
-        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,10">
-            <Grid Grid.Column="0" ColumnDefinitions="Auto,*" VerticalAlignment="Center" Margin="0,0,12,0">
-                <Border Grid.Column="0" Width="34" Height="34" CornerRadius="8"
-                        Background="{DynamicResource StatusInfoBgBrush}"
-                        BorderBrush="{DynamicResource StatusInfoBorderBrush}" BorderThickness="1"
-                        Margin="0,0,10,0" VerticalAlignment="Center">
-                    <lucide:Lucide Icon="LogIn" Width="15" Height="15"
-                                   StrokeBrush="{DynamicResource StatusInfoBrush}"
-                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
-                </Border>
-                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="1">
-                    <TextBlock x:Name="TxtDialogTitle"
-                               Text="{DynamicResource Loc_FastLogin_AccountLoginTitle}"
-                               FontSize="14" FontWeight="Bold"
-                               Foreground="{DynamicResource TextPrimaryBrush}"
-                               TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding $self.Text}" />
-                    <TextBlock x:Name="TxtDialogSubtitle"
-                               Text="{DynamicResource Loc_FastLogin_AccountLoginSubtitle}"
-                               FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"
-                               TextWrapping="Wrap" />
-                </StackPanel>
-            </Grid>
-
-            <Border Grid.Column="1" Background="{DynamicResource SurfacePanelBrush}"
-                    BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1"
-                    CornerRadius="8" Padding="3" VerticalAlignment="Center">
-                <StackPanel Orientation="Horizontal" Spacing="2">
-                    <RadioButton x:Name="TabInApp" Classes="ModeTabPill"
-                                 GroupName="LoginModeGroup" IsChecked="True"
-                                 IsCheckedChanged="OnModeCheckedChanged">
-                        <StackPanel Orientation="Horizontal" Spacing="5">
-                            <lucide:Lucide Icon="Globe" Width="12" Height="12"
-                                           StrokeBrush="{DynamicResource StatusInfoBrush}" VerticalAlignment="Center" />
-                            <TextBlock Text="In-App" VerticalAlignment="Center" />
+    <Border Background="{DynamicResource SurfacePanelBrush}"
+            BorderBrush="{DynamicResource BorderSubtleBrush}"
+            BorderThickness="1"
+            CornerRadius="{StaticResource RadiusOuter16}"
+            BoxShadow="{StaticResource ShadowModal}"
+            Margin="8">
+        <Panel>
+            <Grid RowDefinitions="Auto,*,Auto" Margin="14">
+                <!-- Header Row -->
+                <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,10">
+                    <Grid Grid.Column="0" ColumnDefinitions="Auto,*" VerticalAlignment="Center" Margin="0,0,12,0">
+                        <Border Grid.Column="0" Width="34" Height="34" CornerRadius="{StaticResource RadiusInner8}"
+                                Background="{DynamicResource StatusInfoBgBrush}"
+                                BorderBrush="{DynamicResource StatusInfoBorderBrush}" BorderThickness="1"
+                                Margin="0,0,10,0" VerticalAlignment="Center">
+                            <lucide:Lucide Icon="LogIn" Width="15" Height="15"
+                                           StrokeBrush="{DynamicResource StatusInfoBrush}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="1">
+                            <TextBlock x:Name="TxtDialogTitle"
+                                       Text="{DynamicResource Loc_FastLogin_AccountLoginTitle}"
+                                       FontSize="14" FontWeight="Bold"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"
+                                       TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding $self.Text}" />
+                            <TextBlock x:Name="TxtDialogSubtitle"
+                                       Text="{DynamicResource Loc_FastLogin_AccountLoginSubtitle}"
+                                       FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"
+                                       TextWrapping="Wrap" />
                         </StackPanel>
-                    </RadioButton>
-                    <RadioButton x:Name="TabCookie" Classes="ModeTabPill"
-                                 GroupName="LoginModeGroup" IsChecked="False"
-                                 IsCheckedChanged="OnModeCheckedChanged">
-                        <StackPanel Orientation="Horizontal" Spacing="5">
-                            <lucide:Lucide Icon="Cookie" Width="12" Height="12"
-                                           StrokeBrush="{DynamicResource StatusWarningBrush}" VerticalAlignment="Center" />
-                            <TextBlock Text="Cookie" VerticalAlignment="Center" />
+                    </Grid>
+
+                    <Border Grid.Column="1" Background="{DynamicResource SurfaceCardBrush}"
+                            BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1"
+                            CornerRadius="{StaticResource RadiusInner8}" Padding="3" VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal" Spacing="2">
+                            <RadioButton x:Name="TabInApp" Classes="ModeTabPill"
+                                         GroupName="LoginModeGroup" IsChecked="True"
+                                         IsCheckedChanged="OnModeCheckedChanged">
+                                <StackPanel Orientation="Horizontal" Spacing="5">
+                                    <lucide:Lucide Icon="Globe" Width="12" Height="12"
+                                                   StrokeBrush="{DynamicResource StatusInfoBrush}" VerticalAlignment="Center" />
+                                    <TextBlock Text="In-App" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </RadioButton>
+                            <RadioButton x:Name="TabCookie" Classes="ModeTabPill"
+                                         GroupName="LoginModeGroup" IsChecked="False"
+                                         IsCheckedChanged="OnModeCheckedChanged">
+                                <StackPanel Orientation="Horizontal" Spacing="5">
+                                    <lucide:Lucide Icon="Cookie" Width="12" Height="12"
+                                                   StrokeBrush="{DynamicResource StatusWarningBrush}" VerticalAlignment="Center" />
+                                    <TextBlock Text="Cookie" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </RadioButton>
                         </StackPanel>
-                    </RadioButton>
-                </StackPanel>
-            </Border>
-        </Grid>
+                    </Border>
+                </Grid>
 
-        <!-- Main Body Area -->
-        <Panel Grid.Row="1">
-            <!-- MODE 1: IN-APP WEBVIEW2 BROWSER -->
-            <Grid x:Name="PnlInApp" RowDefinitions="Auto,*" IsVisible="True">
-                <Border Grid.Row="0" Background="{DynamicResource SurfacePanelBrush}"
-                        BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1"
-                        CornerRadius="8,8,0,0">
-                    <Panel>
-                        <Grid ColumnDefinitions="*,Auto" Margin="10,7">
-                            <Grid Grid.Column="0" ColumnDefinitions="Auto,*" VerticalAlignment="Center" Margin="0,0,8,0">
-                                <Ellipse Grid.Column="0" Width="6" Height="6"
-                                         Fill="{DynamicResource StatusInfoBrush}"
-                                         VerticalAlignment="Center" Margin="0,0,7,0" />
-                                <TextBlock Grid.Column="1" x:Name="TxtInAppStatus"
-                                           Text="{DynamicResource Loc_FastLogin_InitializingBrowser}"
-                                           FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"
-                                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                            </Grid>
+                <!-- Main Body Area -->
+                <Panel Grid.Row="1">
+                    <!-- MODE 1: IN-APP WEBVIEW2 BROWSER -->
+                    <Grid x:Name="PnlInApp" RowDefinitions="Auto,*" IsVisible="True">
+                        <Border Grid.Row="0" Background="{DynamicResource SurfaceCardBrush}"
+                                BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1"
+                                CornerRadius="12,12,0,0">
+                            <Panel>
+                                <Grid ColumnDefinitions="*,Auto" Margin="10,7">
+                                    <Grid Grid.Column="0" ColumnDefinitions="Auto,*" VerticalAlignment="Center" Margin="0,0,8,0">
+                                        <Ellipse Grid.Column="0" Width="6" Height="6"
+                                                 Fill="{DynamicResource StatusInfoBrush}"
+                                                 VerticalAlignment="Center" Margin="0,0,7,0" />
+                                        <TextBlock Grid.Column="1" x:Name="TxtInAppStatus"
+                                                   Text="{DynamicResource Loc_FastLogin_InitializingBrowser}"
+                                                   FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                    </Grid>
 
-                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
-                                <Button x:Name="BtnRefill" Classes="StudioSecondaryBtn" Click="OnRefillClicked"
-                                        Foreground="{DynamicResource StatusInfoBrush}" FontSize="11"
-                                        Padding="8,4" IsVisible="False">
-                                    <StackPanel Orientation="Horizontal" Spacing="5">
-                                        <lucide:Lucide Icon="Key" Width="11" Height="11"
-                                                       StrokeBrush="{DynamicResource StatusInfoBrush}" VerticalAlignment="Center" />
-                                        <TextBlock Text="{DynamicResource Loc_FastLogin_FillAndLoginBtn}" VerticalAlignment="Center" />
-                                    </StackPanel>
-                                </Button>
-                                <Button x:Name="BtnSkipNext" Classes="StudioSecondaryBtn"
-                                        Foreground="{DynamicResource StatusWarningBrush}" FontSize="11"
-                                        Padding="8,4" IsVisible="False">
-                                    <StackPanel Orientation="Horizontal" Spacing="5">
-                                        <TextBlock Text="{DynamicResource Loc_FastLogin_SkipBtn}" VerticalAlignment="Center" />
-                                        <lucide:Lucide Icon="ArrowRight" Width="11" Height="11"
-                                                       StrokeBrush="{DynamicResource StatusWarningBrush}" VerticalAlignment="Center" />
-                                    </StackPanel>
-                                </Button>
-                                <Button x:Name="BtnReload" Classes="StudioIconBtn" Click="OnReloadClicked"
-                                        Width="26" Height="26"
-                                        ToolTip.Tip="{DynamicResource Loc_FastLogin_ReloadPageTip}">
-                                    <lucide:Lucide Icon="RefreshCw" Width="12" Height="12"
-                                                   StrokeBrush="{DynamicResource TextSecondaryBrush}" />
-                                </Button>
-                            </StackPanel>
-                        </Grid>
-                        <Border IsHitTestVisible="False" BorderBrush="{DynamicResource BorderTopRimBrush}"
-                                BorderThickness="1,1,1,0" CornerRadius="8,8,0,0" />
-                    </Panel>
-                </Border>
-
-                <Border Grid.Row="1" Background="{DynamicResource SurfaceCanvasBrush}"
-                        BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1,0,1,1"
-                        CornerRadius="0,0,8,8" ClipToBounds="True">
-                    <controls:WebView2Control x:Name="WvBrowser"
-                                              CoreWebView2InitializationCompleted="OnWebViewInitialized" />
-                </Border>
-            </Grid>
-
-            <!-- MODE 2: PASTE COOKIE -->
-            <ScrollViewer x:Name="PnlCookie" VerticalScrollBarVisibility="Auto" IsVisible="False">
-                <Border Background="{DynamicResource SurfacePanelBrush}"
-                        BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1"
-                        CornerRadius="10" BoxShadow="0 6 20 0 #55000000">
-                    <Panel>
-                        <StackPanel Spacing="12" Margin="14">
-                            <StackPanel Spacing="5">
-                                <TextBlock Text="{DynamicResource Loc_FastLogin_CookieInputLabel}" FontSize="11"
-                                           FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
-                                <TextBox x:Name="TxtCookie" Text="{Binding Cookie}"
-                                         PasswordChar="{Binding CookieMaskChar}"
-                                         PlaceholderText="_|WARNING:-DO-NOT-SHARE-THIS..."
-                                         Height="76" AcceptsReturn="True" TextWrapping="Wrap"
-                                         Padding="9" FontSize="11" />
-                            </StackPanel>
-
-                            <Grid ColumnDefinitions="*,*">
-                                <StackPanel Grid.Column="0" Spacing="5" Margin="0,0,5,0">
-                                    <TextBlock Text="{DynamicResource Loc_FastLogin_AliasOptionalLabel}" FontSize="11"
-                                               FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
-                                    <TextBox x:Name="TxtCookieAlias" Text="{Binding Alias}"
-                                             PlaceholderText="{DynamicResource Loc_FastLogin_AliasWatermark}"
-                                             Padding="9,6" FontSize="11" />
-                                </StackPanel>
-                                <StackPanel Grid.Column="1" Spacing="5" Margin="5,0,0,0">
-                                    <TextBlock Text="{DynamicResource Loc_FastLogin_GroupOptionalLabel}" FontSize="11"
-                                               FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
-                                    <TextBox x:Name="TxtCookieGroup" Text="{Binding Group}"
-                                             PlaceholderText="{DynamicResource Loc_FastLogin_GroupWatermark}"
-                                             Padding="9,6" FontSize="11" />
-                                </StackPanel>
-                            </Grid>
-
-                            <Border Background="{DynamicResource SurfaceCardBrush}"
-                                    BorderBrush="{DynamicResource BorderHairlineBrush}" BorderThickness="1"
-                                    CornerRadius="8" Padding="10">
-                                <Grid ColumnDefinitions="Auto,*">
-                                    <Border Grid.Column="0" Width="36" Height="36" CornerRadius="999"
-                                            Background="{DynamicResource SurfaceElevatedBrush}"
-                                            BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1"
-                                            Margin="0,0,10,0" VerticalAlignment="Center">
-                                        <lucide:Lucide Icon="User" Width="17" Height="17"
-                                                       StrokeBrush="{DynamicResource TextSecondaryBrush}"
-                                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                    </Border>
-                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
-                                        <TextBlock x:Name="TxtPreviewUsername" Text="{Binding PreviewUsername}"
-                                                   IsVisible="{Binding PreviewUsername, Converter={StaticResource StringNotNullOrEmpty}}"
-                                                   FontSize="12" FontWeight="Bold"
-                                                   Foreground="{DynamicResource TextPrimaryBrush}"
-                                                   TextTrimming="CharacterEllipsis" />
-                                        <TextBlock x:Name="TxtPreviewStatus" Text="{Binding StatusText}"
-                                                   Foreground="{Binding StatusKind, Converter={StaticResource StatusKindToBrush}}"
-                                                   FontSize="11" TextWrapping="Wrap" />
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                                        <Button x:Name="BtnRefill" Classes="StudioSecondaryBtn" Click="OnRefillClicked"
+                                                CornerRadius="{StaticResource RadiusChip6}"
+                                                Foreground="{DynamicResource StatusInfoBrush}" FontSize="11"
+                                                Padding="8,4" IsVisible="False">
+                                            <StackPanel Orientation="Horizontal" Spacing="5">
+                                                <lucide:Lucide Icon="Key" Width="11" Height="11"
+                                                               StrokeBrush="{DynamicResource StatusInfoBrush}" VerticalAlignment="Center" />
+                                                <TextBlock Text="{DynamicResource Loc_FastLogin_FillAndLoginBtn}" VerticalAlignment="Center" />
+                                            </StackPanel>
+                                        </Button>
+                                        <Button x:Name="BtnSkipNext" Classes="StudioSecondaryBtn"
+                                                CornerRadius="{StaticResource RadiusChip6}"
+                                                Foreground="{DynamicResource StatusWarningBrush}" FontSize="11"
+                                                Padding="8,4" IsVisible="False">
+                                            <StackPanel Orientation="Horizontal" Spacing="5">
+                                                <TextBlock Text="{DynamicResource Loc_FastLogin_SkipBtn}" VerticalAlignment="Center" />
+                                                <lucide:Lucide Icon="ArrowRight" Width="11" Height="11"
+                                                               StrokeBrush="{DynamicResource StatusWarningBrush}" VerticalAlignment="Center" />
+                                            </StackPanel>
+                                        </Button>
+                                        <Button x:Name="BtnReload" Classes="StudioIconBtn" Click="OnReloadClicked"
+                                                CornerRadius="{StaticResource RadiusChip6}"
+                                                Width="26" Height="26"
+                                                ToolTip.Tip="{DynamicResource Loc_FastLogin_ReloadPageTip}">
+                                            <lucide:Lucide Icon="RefreshCw" Width="12" Height="12"
+                                                           StrokeBrush="{DynamicResource TextSecondaryBrush}" />
+                                        </Button>
                                     </StackPanel>
                                 </Grid>
-                            </Border>
-                        </StackPanel>
-                        <Border IsHitTestVisible="False" BorderBrush="{DynamicResource BorderTopRimBrush}"
-                                BorderThickness="1" CornerRadius="10" />
-                    </Panel>
-                </Border>
-            </ScrollViewer>
-        </Panel>
+                                <Border IsHitTestVisible="False" BorderBrush="{DynamicResource BorderTopRimBrush}"
+                                        BorderThickness="1,1,1,0" CornerRadius="12,12,0,0" />
+                            </Panel>
+                        </Border>
 
-        <!-- Footer Row -->
-        <Grid Grid.Row="2" ColumnDefinitions="*,Auto" Margin="0,10,0,0">
-            <Grid Grid.Column="0" ColumnDefinitions="Auto,*" VerticalAlignment="Center" Margin="0,0,10,0">
-                <lucide:Lucide Grid.Column="0" Icon="Info" Width="13" Height="13"
-                               StrokeBrush="{DynamicResource StatusInfoBrush}" VerticalAlignment="Center"
-                               Margin="0,0,6,0" IsVisible="{Binding #TxtTip.IsVisible}" />
-                <TextBlock Grid.Column="1" x:Name="TxtTip"
-                           Text="{DynamicResource Loc_FastLogin_CloseOnCompleteTip}"
-                           FontSize="11" Foreground="{DynamicResource TextMutedBrush}"
-                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
-                           ToolTip.Tip="{Binding $self.Text}" IsVisible="True" />
+                        <Border Grid.Row="1" Background="{DynamicResource SurfaceCanvasBrush}"
+                                BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1,0,1,1"
+                                CornerRadius="0,0,12,12" ClipToBounds="True">
+                            <controls:WebView2Control x:Name="WvBrowser"
+                                                      CoreWebView2InitializationCompleted="OnWebViewInitialized" />
+                        </Border>
+                    </Grid>
+
+                    <!-- MODE 2: PASTE COOKIE -->
+                    <ScrollViewer x:Name="PnlCookie" VerticalScrollBarVisibility="Auto" IsVisible="False">
+                        <Border Background="{DynamicResource SurfaceCardBrush}"
+                                BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1"
+                                CornerRadius="{StaticResource RadiusMid12}" BoxShadow="{StaticResource ShadowCard}">
+                            <Panel>
+                                <StackPanel Spacing="10" Margin="14">
+                                    <StackPanel Spacing="4">
+                                        <TextBlock Text="{DynamicResource Loc_FastLogin_CookieInputLabel}" FontSize="11"
+                                                   FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                                        <TextBox x:Name="TxtCookie" Text="{Binding Cookie}"
+                                                 PasswordChar="{Binding CookieMaskChar}"
+                                                 PlaceholderText="_|WARNING:-DO-NOT-SHARE-THIS..."
+                                                 CornerRadius="{StaticResource RadiusInner8}"
+                                                 Height="68" AcceptsReturn="True" TextWrapping="Wrap"
+                                                 Padding="9" FontSize="11" />
+                                    </StackPanel>
+
+                                    <Grid ColumnDefinitions="*,*">
+                                        <StackPanel Grid.Column="0" Spacing="4" Margin="0,0,5,0">
+                                            <TextBlock Text="{DynamicResource Loc_FastLogin_AliasOptionalLabel}" FontSize="11"
+                                                       FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                                            <TextBox x:Name="TxtCookieAlias" Text="{Binding Alias}"
+                                                     PlaceholderText="{DynamicResource Loc_FastLogin_AliasWatermark}"
+                                                     CornerRadius="{StaticResource RadiusInner8}"
+                                                     Padding="9,6" FontSize="11" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1" Spacing="4" Margin="5,0,0,0">
+                                            <TextBlock Text="{DynamicResource Loc_FastLogin_GroupOptionalLabel}" FontSize="11"
+                                                       FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                                            <TextBox x:Name="TxtCookieGroup" Text="{Binding Group}"
+                                                     PlaceholderText="{DynamicResource Loc_FastLogin_GroupWatermark}"
+                                                     CornerRadius="{StaticResource RadiusInner8}"
+                                                     Padding="9,6" FontSize="11" />
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <Border Background="{DynamicResource SurfaceElevatedBrush}"
+                                            BorderBrush="{DynamicResource BorderHairlineBrush}" BorderThickness="1"
+                                            CornerRadius="{StaticResource RadiusInner8}" Padding="10">
+                                        <Grid ColumnDefinitions="Auto,*">
+                                            <Border Grid.Column="0" Width="36" Height="36"
+                                                    CornerRadius="{StaticResource RadiusPill}"
+                                                    Background="{DynamicResource SurfaceCardBrush}"
+                                                    BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1"
+                                                    Margin="0,0,10,0" VerticalAlignment="Center">
+                                                <lucide:Lucide Icon="User" Width="17" Height="17"
+                                                               StrokeBrush="{DynamicResource TextSecondaryBrush}"
+                                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                            </Border>
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                                                <TextBlock x:Name="TxtPreviewUsername" Text="{Binding PreviewUsername}"
+                                                           IsVisible="{Binding PreviewUsername, Converter={StaticResource StringNotNullOrEmpty}}"
+                                                           FontSize="12" FontWeight="Bold"
+                                                           Foreground="{DynamicResource TextPrimaryBrush}"
+                                                           TextTrimming="CharacterEllipsis" />
+                                                <TextBlock x:Name="TxtPreviewStatus" Text="{Binding StatusText}"
+                                                           Foreground="{Binding StatusKind, Converter={StaticResource StatusKindToBrush}}"
+                                                           FontSize="11" TextWrapping="Wrap" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                </StackPanel>
+                                <Border IsHitTestVisible="False" BorderBrush="{DynamicResource BorderTopRimBrush}"
+                                        BorderThickness="1" CornerRadius="{StaticResource RadiusMid12}" />
+                            </Panel>
+                        </Border>
+                    </ScrollViewer>
+                </Panel>
+
+                <!-- Footer Row -->
+                <Grid Grid.Row="2" ColumnDefinitions="*,Auto" Margin="0,10,0,0">
+                    <Grid Grid.Column="0" ColumnDefinitions="Auto,*" VerticalAlignment="Center" Margin="0,0,10,0">
+                        <lucide:Lucide Grid.Column="0" Icon="Info" Width="13" Height="13"
+                                       StrokeBrush="{DynamicResource StatusInfoBrush}" VerticalAlignment="Center"
+                                       Margin="0,0,6,0" IsVisible="{Binding #TxtTip.IsVisible}" />
+                        <TextBlock Grid.Column="1" x:Name="TxtTip"
+                                   Text="{DynamicResource Loc_FastLogin_CloseOnCompleteTip}"
+                                   FontSize="11" Foreground="{DynamicResource TextMutedBrush}"
+                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                   ToolTip.Tip="{Binding $self.Text}" IsVisible="True" />
+                    </Grid>
+
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                        <Button x:Name="BtnVerify" Classes="StudioSecondaryBtn" Command="{Binding VerifyCommand}"
+                                CornerRadius="{StaticResource RadiusChip6}"
+                                Padding="12,6" FontSize="11.5" IsVisible="False">
+                            <StackPanel Orientation="Horizontal" Spacing="5">
+                                <lucide:Lucide Icon="ShieldCheck" Width="12" Height="12"
+                                               StrokeBrush="{DynamicResource StatusInfoBrush}" VerticalAlignment="Center" />
+                                <TextBlock Text="{DynamicResource Loc_FastLogin_VerifyBtn}" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+
+                        <Button x:Name="BtnAddCookie" Classes="StudioPrimaryBtn" Command="{Binding AddCommand}"
+                                CornerRadius="{StaticResource RadiusChip6}"
+                                Padding="14,6" FontSize="11.5" IsVisible="False">
+                            <StackPanel Orientation="Horizontal" Spacing="5">
+                                <lucide:Lucide Icon="Plus" Width="12" Height="12"
+                                               StrokeBrush="{DynamicResource AccentForegroundBrush}"
+                                               StrokeThickness="2.4" VerticalAlignment="Center" />
+                                <TextBlock Text="{DynamicResource Loc_FastLogin_AddAccountBtn}" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+
+                        <Button x:Name="BtnCancel" Classes="StudioSecondaryBtn" Click="OnCancelClicked"
+                                CornerRadius="{StaticResource RadiusChip6}"
+                                Padding="14,6" FontSize="11.5">
+                            <StackPanel Orientation="Horizontal" Spacing="5">
+                                <lucide:Lucide Icon="X" Width="12" Height="12"
+                                               StrokeBrush="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+                                <TextBlock Text="{DynamicResource Loc_Btn_Close}" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Grid>
             </Grid>
-
-            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
-                <Button x:Name="BtnVerify" Classes="StudioSecondaryBtn" Command="{Binding VerifyCommand}"
-                        Padding="12,6" FontSize="11.5" IsVisible="False">
-                    <StackPanel Orientation="Horizontal" Spacing="5">
-                        <lucide:Lucide Icon="ShieldCheck" Width="12" Height="12"
-                                       StrokeBrush="{DynamicResource StatusInfoBrush}" VerticalAlignment="Center" />
-                        <TextBlock Text="{DynamicResource Loc_FastLogin_VerifyBtn}" VerticalAlignment="Center" />
-                    </StackPanel>
-                </Button>
-
-                <Button x:Name="BtnAddCookie" Classes="StudioPrimaryBtn" Command="{Binding AddCommand}"
-                        Padding="14,6" FontSize="11.5" IsVisible="False">
-                    <StackPanel Orientation="Horizontal" Spacing="5">
-                        <lucide:Lucide Icon="Plus" Width="12" Height="12"
-                                       StrokeBrush="{DynamicResource AccentForegroundBrush}"
-                                       StrokeThickness="2.4" VerticalAlignment="Center" />
-                        <TextBlock Text="{DynamicResource Loc_FastLogin_AddAccountBtn}" VerticalAlignment="Center" />
-                    </StackPanel>
-                </Button>
-
-                <Button x:Name="BtnCancel" Classes="StudioSecondaryBtn" Click="OnCancelClicked"
-                        Padding="14,6" FontSize="11.5">
-                    <StackPanel Orientation="Horizontal" Spacing="5">
-                        <lucide:Lucide Icon="X" Width="12" Height="12"
-                                       StrokeBrush="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
-                        <TextBlock Text="{DynamicResource Loc_Btn_Close}" VerticalAlignment="Center" />
-                    </StackPanel>
-                </Button>
-            </StackPanel>
-        </Grid>
-    </Grid>
+            <Border IsHitTestVisible="False"
+                    BorderBrush="{DynamicResource BorderTopRimBrush}"
+                    BorderThickness="1"
+                    CornerRadius="{StaticResource RadiusOuter16}" />
+        </Panel>
+    </Border>
 </Window>

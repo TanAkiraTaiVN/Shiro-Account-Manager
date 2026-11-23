@@ -16,14 +16,14 @@
     <Border Background="{DynamicResource SurfacePanelBrush}"
             BorderBrush="{DynamicResource BorderSubtleBrush}"
             BorderThickness="1"
-            CornerRadius="{StaticResource RadiusXl}"
+            CornerRadius="{StaticResource RadiusOuter16}"
             BoxShadow="{StaticResource ShadowModal}"
             Margin="10">
         <Panel>
             <Grid RowDefinitions="Auto,*,Auto,Auto" Margin="18">
                 <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="12"
                             VerticalAlignment="Center" Margin="0,0,0,14">
-                    <Border Width="36" Height="36" CornerRadius="{StaticResource RadiusLg}"
+                    <Border Width="36" Height="36" CornerRadius="{StaticResource RadiusInner8}"
                             Background="{DynamicResource StatusInfoBgBrush}"
                             BorderBrush="{DynamicResource StatusInfoBorderBrush}" BorderThickness="1">
                         <lucide:Lucide Icon="Database" Width="16" Height="16"
@@ -38,7 +38,7 @@
 
                 <Border Grid.Row="1" Background="{DynamicResource SurfaceCardBrush}"
                         BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1"
-                        CornerRadius="{StaticResource RadiusLg}" Padding="6" Margin="0,0,0,12">
+                        CornerRadius="{StaticResource RadiusMid12}" Padding="6" Margin="0,0,0,12">
                     <ListBox x:Name="FieldsListBox" Background="Transparent" BorderThickness="0">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="views:AccountFieldItem">
@@ -49,7 +49,9 @@
                                     <TextBlock Grid.Column="1" Text="{Binding Value}"
                                                Foreground="{DynamicResource TextSecondaryBrush}"
                                                VerticalAlignment="Center" Margin="0,0,8,0" />
-                                    <Button Grid.Column="2" Classes="StudioDangerBtn" Click="BtnDeleteField_Click"
+                                    <Button Grid.Column="2" Classes="StudioDangerBtn"
+                                            CornerRadius="{StaticResource RadiusChip6}"
+                                            Click="BtnDeleteField_Click"
                                             FontSize="11" Padding="8,4">
                                         <StackPanel Orientation="Horizontal" Spacing="4">
                                             <Path Data="{StaticResource GeoTrash}" Width="11" Height="11"
@@ -68,11 +70,15 @@
                 <Grid Grid.Row="2" ColumnDefinitions="*,*,Auto" Margin="0,0,0,14">
                     <TextBox x:Name="TxtNewKey"
                              PlaceholderText="{DynamicResource Loc_AccountFields_KeyWatermark}"
+                             CornerRadius="{StaticResource RadiusInner8}"
                              Margin="0,0,8,0" Padding="10,7" FontSize="12" />
                     <TextBox Grid.Column="1" x:Name="TxtNewValue"
                              PlaceholderText="{DynamicResource Loc_AccountFields_ValueWatermark}"
+                             CornerRadius="{StaticResource RadiusInner8}"
                              Margin="0,0,8,0" Padding="10,7" FontSize="12" />
-                    <Button Grid.Column="2" Classes="StudioPrimaryBtn" Click="BtnAddField_Click"
+                    <Button Grid.Column="2" Classes="StudioPrimaryBtn"
+                            CornerRadius="{StaticResource RadiusChip6}"
+                            Click="BtnAddField_Click"
                             Padding="14,7" FontSize="12">
                         <StackPanel Orientation="Horizontal" Spacing="5">
                             <lucide:Lucide Icon="Plus" Width="13" Height="13"
@@ -84,7 +90,9 @@
                 </Grid>
 
                 <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
-                    <Button Classes="StudioSecondaryBtn" Height="32" Padding="14,0" Click="BtnClose_Click">
+                    <Button Classes="StudioSecondaryBtn" Height="32" Padding="14,0"
+                            CornerRadius="{StaticResource RadiusChip6}"
+                            Click="BtnClose_Click">
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <lucide:Lucide Icon="X" Width="13" Height="13"
                                            StrokeBrush="{DynamicResource TextSecondaryBrush}"
@@ -97,7 +105,7 @@
             <Border IsHitTestVisible="False"
                     BorderBrush="{DynamicResource BorderTopRimBrush}"
                     BorderThickness="1"
-                    CornerRadius="{StaticResource RadiusXl}" />
+                    CornerRadius="{StaticResource RadiusOuter16}" />
         </Panel>
     </Border>
 </Window>

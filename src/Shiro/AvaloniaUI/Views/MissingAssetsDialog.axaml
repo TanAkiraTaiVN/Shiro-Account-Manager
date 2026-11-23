@@ -18,14 +18,14 @@
     <Border Background="{DynamicResource SurfacePanelBrush}"
             BorderBrush="{DynamicResource BorderSubtleBrush}"
             BorderThickness="1"
-            CornerRadius="{StaticResource RadiusXl}"
+            CornerRadius="{StaticResource RadiusOuter16}"
             BoxShadow="{StaticResource ShadowModal}"
             Margin="10">
         <Panel>
             <Grid RowDefinitions="Auto,*,Auto,Auto" Margin="18">
                 <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="12"
                             VerticalAlignment="Center" Margin="0,0,0,14">
-                    <Border Width="38" Height="38" CornerRadius="{StaticResource RadiusLg}"
+                    <Border Width="38" Height="38" CornerRadius="{StaticResource RadiusInner8}"
                             Background="{DynamicResource AccentSoftFillBrush}"
                             BorderBrush="{DynamicResource AccentBorderBrush}" BorderThickness="1">
                         <lucide:Lucide Icon="ShoppingBag" Width="17" Height="17"
@@ -42,7 +42,7 @@
 
                 <Border Grid.Row="1" Background="{DynamicResource SurfaceCardBrush}"
                         BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1"
-                        CornerRadius="{StaticResource RadiusLg}" Padding="6" Margin="0,0,0,12">
+                        CornerRadius="{StaticResource RadiusMid12}" Padding="6" Margin="0,0,0,12">
                     <ListBox x:Name="AssetsListBox" ItemsSource="{Binding Items}"
                              Background="Transparent" BorderThickness="0">
                         <ListBox.ItemTemplate>
@@ -59,6 +59,7 @@
                                                VerticalAlignment="Center" FontSize="12" FontWeight="SemiBold"
                                                Foreground="{DynamicResource StatusInfoBrush}" Margin="0,0,12,0" />
                                     <Button Grid.Column="2" Classes="StudioSecondaryBtn"
+                                            CornerRadius="{StaticResource RadiusChip6}"
                                             Command="{Binding #RootWindow.((vm:MissingAssetsViewModel)DataContext).ViewOnRobloxCommand}"
                                             CommandParameter="{Binding}" FontSize="11" Padding="10,5" Margin="0,0,8,0">
                                         <StackPanel Orientation="Horizontal" Spacing="5">
@@ -70,6 +71,7 @@
                                         </StackPanel>
                                     </Button>
                                     <Button Grid.Column="3" Classes="StudioPrimaryBtn"
+                                            CornerRadius="{StaticResource RadiusChip6}"
                                             Content="{Binding BuyButtonText}"
                                             Command="{Binding #RootWindow.((vm:MissingAssetsViewModel)DataContext).BuyCommand}"
                                             CommandParameter="{Binding}"
@@ -82,7 +84,7 @@
 
                 <Border Grid.Row="2" Background="{DynamicResource SurfaceCardBrush}"
                         BorderBrush="{DynamicResource BorderHairlineBrush}" BorderThickness="1"
-                        CornerRadius="{StaticResource RadiusMd}" Padding="12,8" Margin="0,0,0,14">
+                        CornerRadius="{StaticResource RadiusInner8}" Padding="12,8" Margin="0,0,0,14">
                     <Grid ColumnDefinitions="*,Auto">
                         <TextBlock x:Name="TxtStatus" Text="{Binding StatusText}" FontSize="12"
                                    FontWeight="SemiBold" Foreground="{DynamicResource StatusInfoBrush}"
@@ -95,6 +97,7 @@
 
                 <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right">
                     <Button Classes="StudioSecondaryBtn" Height="32" Padding="14,0"
+                            CornerRadius="{StaticResource RadiusChip6}"
                             Command="{Binding CloseCommand}">
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <lucide:Lucide Icon="X" Width="13" Height="13"
@@ -108,7 +111,7 @@
             <Border IsHitTestVisible="False"
                     BorderBrush="{DynamicResource BorderTopRimBrush}"
                     BorderThickness="1"
-                    CornerRadius="{StaticResource RadiusXl}" />
+                    CornerRadius="{StaticResource RadiusOuter16}" />
         </Panel>
     </Border>
 </Window>

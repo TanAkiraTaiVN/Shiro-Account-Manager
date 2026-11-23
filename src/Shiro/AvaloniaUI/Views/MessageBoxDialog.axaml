@@ -16,7 +16,7 @@
     <Border Background="{DynamicResource SurfacePanelBrush}"
             BorderBrush="{DynamicResource BorderSubtleBrush}"
             BorderThickness="1"
-            CornerRadius="{StaticResource RadiusXl}"
+            CornerRadius="{StaticResource RadiusOuter16}"
             BoxShadow="{StaticResource ShadowModal}"
             Margin="10">
         <Panel>
@@ -24,11 +24,13 @@
                 <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="12"
                             VerticalAlignment="Center" Margin="0,0,0,16">
                     <Border x:Name="IconBadge" Width="38" Height="38"
-                            CornerRadius="{StaticResource RadiusLg}"
-                            Background="#102131" BorderBrush="#1E3E5C" BorderThickness="1"
+                            CornerRadius="{StaticResource RadiusInner8}"
+                            Background="{DynamicResource StatusInfoBgBrush}"
+                            BorderBrush="{DynamicResource StatusInfoBorderBrush}"
+                            BorderThickness="1"
                             HorizontalAlignment="Center" VerticalAlignment="Center">
                         <lucide:Lucide x:Name="IconLucide" Icon="Info" Width="18" Height="18"
-                                       StrokeBrush="#38BDF8"
+                                       StrokeBrush="{DynamicResource StatusInfoBrush}"
                                        HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
                     <TextBlock x:Name="TxtTitle" Text="{DynamicResource Loc_Msg_InfoTitle}"
@@ -36,14 +38,23 @@
                                Foreground="{DynamicResource TextPrimaryBrush}" />
                 </StackPanel>
 
-                <ScrollViewer Grid.Row="1" MaxHeight="280" Margin="0,0,0,18">
-                    <SelectableTextBlock x:Name="TxtMessage" Text="Message here..."
-                                         FontSize="13" LineHeight="20" TextWrapping="Wrap"
-                                         Foreground="{DynamicResource TextSecondaryBrush}" />
-                </ScrollViewer>
+                <Border Grid.Row="1"
+                        Background="{DynamicResource SurfaceCardBrush}"
+                        BorderBrush="{DynamicResource BorderHairlineBrush}"
+                        BorderThickness="1"
+                        CornerRadius="{StaticResource RadiusMid12}"
+                        Padding="14,12"
+                        Margin="0,0,0,18">
+                    <ScrollViewer MaxHeight="280">
+                        <SelectableTextBlock x:Name="TxtMessage" Text="Message here..."
+                                             FontSize="13" LineHeight="20" TextWrapping="Wrap"
+                                             Foreground="{DynamicResource TextSecondaryBrush}" />
+                    </ScrollViewer>
+                </Border>
 
                 <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
                     <Button x:Name="BtnYes" Classes="StudioPrimaryBtn" Height="32" Padding="14,0"
+                            CornerRadius="{StaticResource RadiusChip6}"
                             Click="BtnYes_Click" IsVisible="False">
                         <StackPanel Orientation="Horizontal" Spacing="5">
                             <lucide:Lucide Icon="Check" Width="13" Height="13"
@@ -53,6 +64,7 @@
                         </StackPanel>
                     </Button>
                     <Button x:Name="BtnNo" Classes="StudioSecondaryBtn" Height="32" Padding="14,0"
+                            CornerRadius="{StaticResource RadiusChip6}"
                             Click="BtnNo_Click" IsVisible="False">
                         <StackPanel Orientation="Horizontal" Spacing="5">
                             <lucide:Lucide Icon="X" Width="13" Height="13"
@@ -62,6 +74,7 @@
                         </StackPanel>
                     </Button>
                     <Button x:Name="BtnOK" Classes="StudioPrimaryBtn" Height="32" Padding="14,0"
+                            CornerRadius="{StaticResource RadiusChip6}"
                             Click="BtnOK_Click" IsVisible="True">
                         <StackPanel Orientation="Horizontal" Spacing="5">
                             <lucide:Lucide Icon="Check" Width="13" Height="13"
@@ -71,6 +84,7 @@
                         </StackPanel>
                     </Button>
                     <Button x:Name="BtnCancel" Classes="StudioSecondaryBtn" Height="32" Padding="14,0"
+                            CornerRadius="{StaticResource RadiusChip6}"
                             Click="BtnCancel_Click" IsVisible="False">
                         <StackPanel Orientation="Horizontal" Spacing="5">
                             <lucide:Lucide Icon="X" Width="13" Height="13"
@@ -84,7 +98,7 @@
             <Border IsHitTestVisible="False"
                     BorderBrush="{DynamicResource BorderTopRimBrush}"
                     BorderThickness="1"
-                    CornerRadius="{StaticResource RadiusXl}" />
+                    CornerRadius="{StaticResource RadiusOuter16}" />
         </Panel>
     </Border>
 </Window>

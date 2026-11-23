@@ -67,6 +67,7 @@ namespace Shiro.ViewModels.Dialogs
             ClearAvatarCacheCommand = new RelayCommand(ClearAvatarCache);
             ChangeMasterPasswordCommand = TrackCommand(new AsyncRelayCommand(ChangeMasterPasswordAsync, () => !IsBusy));
             InitializeAdvancedCommands();
+            InitializeAppearance();
         }
 
         public int SelectedLanguageIndex
@@ -262,6 +263,7 @@ namespace Shiro.ViewModels.Dialogs
                 AutoCookieRefresh = _settings.AutoCookieRefresh;
                 SavePasswords = _settings.SavePasswords;
                 LoadAdvanced();
+                LoadAppearance();
             }
             catch (Exception ex)
             {
@@ -324,10 +326,7 @@ namespace Shiro.ViewModels.Dialogs
                     _general.Set("EnablePotatoMode", PotatoMode ? "true" : "false");
                 }
 
-                if (patchSettingsNeeded)
-                {
-                    _effects.PatchClientSettings();
-                }
+                if (patchSettingsNeeded) _effects.PatchClientSettings();
 
                 _settings.EnableMultiRbx = MultiRbx;
                 _effects.UpdateMultiRoblox();
@@ -365,13 +364,11 @@ namespace Shiro.ViewModels.Dialogs
 
                 bool prevAutoCookie = _settings.AutoCookieRefresh;
                 _settings.AutoCookieRefresh = AutoCookieRefresh;
-                if (prevAutoCookie != AutoCookieRefresh)
-                {
-                    _effects.SetAutoCookieRefresh(AutoCookieRefresh);
-                }
+                if (prevAutoCookie != AutoCookieRefresh) _effects.SetAutoCookieRefresh(AutoCookieRefresh);
 
                 _settings.SavePasswords = SavePasswords;
                 SaveAdvanced();
+                SaveAppearance();
 
                 // Evaluate WebServer restart after SaveAdvanced persists AllowExternalConnections
                 var wsAction = ComputeWebServerAction(
@@ -477,6 +474,7 @@ namespace Shiro.ViewModels.Dialogs
         public override void OnClosing()
         {
             CleanupAdvanced();
+            CleanupAppearance();
             base.OnClosing();
         }
     }
