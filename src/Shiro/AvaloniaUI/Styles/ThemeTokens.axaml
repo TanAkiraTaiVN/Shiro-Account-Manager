@@ -104,4 +104,10 @@
     <CornerRadius x:Key="RadiusLg">10</CornerRadius>
     <CornerRadius x:Key="RadiusXl">12</CornerRadius>
     <CornerRadius x:Key="RadiusPill">999</CornerRadius>
+
+    <!-- Concentric Geometry Scale (2026) -->
+    <CornerRadius x:Key="RadiusOuter16">16</CornerRadius>
+    <CornerRadius x:Key="RadiusMid12">12</CornerRadius>
+    <CornerRadius x:Key="RadiusInner8">8</CornerRadius>
+    <CornerRadius x:Key="RadiusChip6">6</CornerRadius>
 </ResourceDictionary>

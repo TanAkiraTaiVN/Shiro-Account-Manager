@@ -177,6 +177,10 @@ namespace Shiro.Tests
                 .Or()
                 .HaveNameEndingWith("Document")
                 .Or()
+                .HaveName("OklchColorMath")
+                .Or()
+                .HaveName("AdaptivePaletteExtractor")
+                .Or()
                 .HaveName("Utilities")
                 .GetResult();
 

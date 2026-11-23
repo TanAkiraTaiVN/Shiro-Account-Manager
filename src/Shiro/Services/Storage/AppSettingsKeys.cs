@@ -64,6 +64,14 @@ namespace Shiro.Services
             public const string Language = "Language";
             public const string HasAcceptedRiskDisclaimer = "HasAcceptedRiskDisclaimer";
 
+            // Visual Preferences (2026 Liquid Obsidian)
+            public const string SurfacePreset = "SurfacePreset";
+            public const string UiDensityMode = "UiDensityMode";
+            public const string EnableGlassEffects = "EnableGlassEffects";
+            public const string EnableAdaptiveGameTint = "EnableAdaptiveGameTint";
+            public const string ReducedMotion = "ReducedMotion";
+            public const string SidebarCollapsed = "SidebarCollapsed";
+
             // Remote Alerts / Webhooks
             public const string DiscordWebhookUrl = "DiscordWebhookUrl";
             public const string TelegramBotToken = "TelegramBotToken";
