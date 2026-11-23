@@ -117,7 +117,7 @@
                                       Foreground="{DynamicResource StatusDangerBrush}"
                                       Command="{Binding AccountsVm.RemoveSelectedCommand}">
                                 <MenuItem.Icon>
-                                    <lucide:Lucide Icon="Trash2" Width="14" Height="14"
+                                    <lucide:Lucide Icon="Trash" Width="14" Height="14"
                                                    StrokeBrush="{DynamicResource StatusDangerBrush}" />
                                 </MenuItem.Icon>
                             </MenuItem>

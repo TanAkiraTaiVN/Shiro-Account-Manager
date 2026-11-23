@@ -53,7 +53,7 @@
       </MenuItem>
       <Separator />
       <MenuItem Header="{DynamicResource Ctx_DeleteFromShiro}" Foreground="{DynamicResource StatusDangerBrush}" Click="OnMenuDeleteAccount">
-        <MenuItem.Icon><lucide:Lucide Icon="Trash2" Width="14" Height="14" StrokeBrush="#F87171" /></MenuItem.Icon></MenuItem>
+        <MenuItem.Icon><lucide:Lucide Icon="Trash" Width="14" Height="14" StrokeBrush="#F87171" /></MenuItem.Icon></MenuItem>
     </ContextMenu>
   </UserControl.Resources>
 
@@ -231,7 +231,7 @@
             <MenuItem Header="{DynamicResource Tool_ClearClientSession}" Command="{Binding AccountsVm.ClearRobloxClientSessionCommand}"><MenuItem.Icon><lucide:Lucide
               Icon="LogOut" Width="14" Height="14" StrokeBrush="#A1A1B2" /></MenuItem.Icon></MenuItem>
             <MenuItem Header="{DynamicResource Bar_RemoveSelected}" Foreground="{DynamicResource StatusDangerBrush}" Command="{Binding AccountsVm.RemoveSelectedCommand}">
-              <MenuItem.Icon><lucide:Lucide Icon="Trash2" Width="14" Height="14" StrokeBrush="#F87171" /></MenuItem.Icon></MenuItem>
+              <MenuItem.Icon><lucide:Lucide Icon="Trash" Width="14" Height="14" StrokeBrush="#F87171" /></MenuItem.Icon></MenuItem>
           </MenuFlyout></Button.Flyout>
           <StackPanel Orientation="Horizontal" Spacing="6"><lucide:Lucide Icon="Zap" Width="13" Height="13" StrokeBrush="#FBBF24" VerticalAlignment="Center" /><StackPanel
             Orientation="Horizontal" Spacing="4" VerticalAlignment="Center"><TextBlock Text="{DynamicResource Bar_BatchActions}" /><TextBlock Classes="TabularNum"
@@ -260,7 +260,8 @@
       <ItemsControl x:Name="CardsItemsControl" IsVisible="{Binding AccountsVm.IsCardView}" ItemsSource="{Binding AccountsVm.FilteredAccountRows}">
         <ItemsControl.ItemsPanel><ItemsPanelTemplate><VirtualizingStackPanel CacheLength="1" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
         <ItemsControl.Template><ControlTemplate><ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto"
-          BringIntoViewOnFocusChange="False" Padding="0,0,14,72"><ItemsPresenter ItemsPanel="{TemplateBinding ItemsPanel}" /></ScrollViewer></ControlTemplate></ItemsControl.Template>
+          BringIntoViewOnFocusChange="False" Padding="0,0,14,0"><ItemsPresenter Margin="0,0,0,72"
+          ItemsPanel="{TemplateBinding ItemsPanel}" /></ScrollViewer></ControlTemplate></ItemsControl.Template>
         <ItemsControl.ItemTemplate><DataTemplate x:DataType="vm:AccountRowViewModel">
           <controls:UniformRowPanel Columns="{Binding ColumnCount}" Height="148">
             <Border IsVisible="{Binding HasItem1}"><views:AccountCardView DataContext="{Binding Item1}" /></Border>
@@ -288,7 +289,8 @@
         <ItemsControl x:Name="TableItemsControl" Grid.Row="1" ItemsSource="{Binding AccountsVm.FilteredAccounts}">
           <ItemsControl.ItemsPanel><ItemsPanelTemplate><VirtualizingStackPanel CacheLength="1" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
           <ItemsControl.Template><ControlTemplate><ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto"
-            BringIntoViewOnFocusChange="False" Padding="0,0,12,72"><ItemsPresenter ItemsPanel="{TemplateBinding ItemsPanel}" /></ScrollViewer></ControlTemplate></ItemsControl.Template>
+            BringIntoViewOnFocusChange="False" Padding="0,0,12,0"><ItemsPresenter Margin="0,0,0,72"
+            ItemsPanel="{TemplateBinding ItemsPanel}" /></ScrollViewer></ControlTemplate></ItemsControl.Template>
           <ItemsControl.ItemTemplate><DataTemplate x:DataType="vm:AccountViewModel">
             <Border Height="40" Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource BorderHairlineBrush}" BorderThickness="1,0,1,1"
                     Padding="14,0" PointerPressed="OnCardPointerPressed" DoubleTapped="OnCardDoubleTapped" Cursor="Hand">
