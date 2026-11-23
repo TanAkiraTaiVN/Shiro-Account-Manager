@@ -1,8 +1,15 @@
 #nullable enable
+using System;
+using System.Threading;
+using System.Threading.Tasks;
 using Avalonia;
+using Avalonia.Animation;
+using Avalonia.Animation.Easings;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Media;
+using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Shiro.Services;
 using Shiro.ViewModels;
@@ -17,6 +24,30 @@ namespace Shiro.AvaloniaUI.Views
     public partial class MainWindow
     {
         private bool _isApplyingNavigationPage;
+        private bool _hasInitializedNavigation;
+        private bool _hasPositionedNavIndicator;
+        private Button? _activeNavButton;
+        private Control? _lastActiveView;
+        private Button? _lastActiveButton;
+        private CancellationTokenSource? _pageTransitionCts;
+        private Control? _transitioningView;
+        private TranslateTransform? _navIndicatorTransform;
+
+        internal void InitializeNavigationChrome()
+        {
+            if (NavSidebarHost != null) NavSidebarHost.SizeChanged += RefreshNavIndicatorLayout;
+            Loaded += RefreshNavIndicatorLayout;
+        }
+
+        internal void CleanupNavigationTransitions()
+        {
+            if (NavSidebarHost != null) NavSidebarHost.SizeChanged -= RefreshNavIndicatorLayout;
+            Loaded -= RefreshNavIndicatorLayout;
+            CancelPageTransition(resetToFinal: true);
+            if (_navIndicatorTransform != null) _navIndicatorTransform.Transitions = null;
+        }
+
+        private void RefreshNavIndicatorLayout(object? sender, EventArgs e) => UpdateNavActiveIndicator(animate: false);
 
         internal readonly record struct NavigationTargetSpec(
             string ViewName,
@@ -114,6 +145,9 @@ namespace Shiro.AvaloniaUI.Views
 
         private void SetActiveView(Control? activeView, Button? activeButton)
         {
+            bool viewChanged = !ReferenceEquals(_lastActiveView, activeView) ||
+                               !ReferenceEquals(_lastActiveButton, activeButton);
+
             if (ViewDashboard != null) ViewDashboard.IsVisible = (activeView == ViewDashboard);
             if (ViewServerList != null) ViewServerList.IsVisible = (activeView == ViewServerList);
             if (ViewSettings != null) ViewSettings.IsVisible = (activeView == ViewSettings);
@@ -121,6 +155,135 @@ namespace Shiro.AvaloniaUI.Views
 
             ResetNavButtons();
             activeButton?.Classes.Add("active");
+            _activeNavButton = activeButton;
+
+            bool shouldAnimate = _hasInitializedNavigation && viewChanged && activeView != null;
+            _hasInitializedNavigation = true;
+            _lastActiveView = activeView;
+            _lastActiveButton = activeButton;
+
+            UpdateNavActiveIndicator(animate: shouldAnimate);
+            if (shouldAnimate && activeView != null)
+                _ = RunPageEntranceAnimationAsync(activeView);
+            else if (activeView != null)
+                ResetViewTransformAndOpacity(activeView);
+        }
+
+        private void UpdateNavActiveIndicator(bool animate)
+        {
+            if (_isClosed || NavActiveIndicator == null || NavSidebarHost == null)
+                return;
+
+            Button? activeBtn = _activeNavButton;
+            if (activeBtn == null || activeBtn.Bounds.Height <= 0.0)
+                return;
+
+            Point? origin = activeBtn.TranslatePoint(new Point(0, 0), NavSidebarHost);
+            if (!origin.HasValue)
+                return;
+
+            if (_navIndicatorTransform == null)
+            {
+                _navIndicatorTransform = NavActiveIndicator.RenderTransform as TranslateTransform ?? new TranslateTransform();
+                NavActiveIndicator.RenderTransform = _navIndicatorTransform;
+            }
+
+            double indicatorHeight = NavActiveIndicator.Height > 0.0 ? NavActiveIndicator.Height : 18.0;
+            double targetY = origin.Value.Y + (activeBtn.Bounds.Height - indicatorHeight) * 0.5;
+
+            if (!_hasPositionedNavIndicator || !animate)
+            {
+                var saved = _navIndicatorTransform.Transitions;
+                _navIndicatorTransform.Transitions = null;
+                _navIndicatorTransform.Y = targetY;
+                NavActiveIndicator.IsVisible = true;
+                _hasPositionedNavIndicator = true;
+                _navIndicatorTransform.Transitions = saved ?? CreateNavIndicatorTransitions();
+                return;
+            }
+
+            NavActiveIndicator.IsVisible = true;
+            _navIndicatorTransform.Transitions ??= CreateNavIndicatorTransitions();
+            _navIndicatorTransform.Y = targetY;
+        }
+
+        private static Transitions CreateNavIndicatorTransitions() => new()
+        {
+            new DoubleTransition
+            {
+                Property = TranslateTransform.YProperty,
+                Duration = TimeSpan.FromMilliseconds(180),
+                Easing = new CubicEaseOut()
+            }
+        };
+
+        private void CancelPageTransition(bool resetToFinal)
+        {
+            var oldCts = _pageTransitionCts;
+            _pageTransitionCts = null;
+            if (oldCts != null)
+            {
+                try { oldCts.Cancel(); }
+                catch (ObjectDisposedException ex) { AppServices.Logger?.Debug($"Transition CTS cancel skipped: {ex.Message}"); }
+                oldCts.Dispose();
+            }
+            if (resetToFinal && _transitioningView != null)
+                ResetViewTransformAndOpacity(_transitioningView);
+            _transitioningView = null;
+        }
+
+        private static void ResetViewTransformAndOpacity(Control view)
+        {
+            view.Opacity = 1.0;
+            if (view.RenderTransform is TranslateTransform tt) tt.Y = 0.0;
+        }
+
+        private static Animation CreateSlideFadeAnimation<T>(AvaloniaProperty<T> prop, T from, T to) => new()
+        {
+            Duration = TimeSpan.FromMilliseconds(150),
+            Easing = new CubicEaseOut(),
+            FillMode = FillMode.None,
+            Children =
+            {
+                new KeyFrame { Cue = new Cue(0.0), Setters = { new Setter(prop, from) } },
+                new KeyFrame { Cue = new Cue(1.0), Setters = { new Setter(prop, to) } }
+            }
+        };
+
+        private async Task RunPageEntranceAnimationAsync(Control targetView)
+        {
+            CancelPageTransition(resetToFinal: true);
+            if (_isClosed) return;
+
+            var cts = new CancellationTokenSource();
+            _pageTransitionCts = cts;
+            _transitioningView = targetView;
+            try
+            {
+                if (targetView.RenderTransform is not TranslateTransform transform)
+                {
+                    transform = new TranslateTransform();
+                    targetView.RenderTransform = transform;
+                }
+
+                targetView.Opacity = 0.0;
+                transform.Y = 6.0;
+                await Task.WhenAll(
+                    CreateSlideFadeAnimation(Visual.OpacityProperty, 0.0, 1.0).RunAsync(targetView, cts.Token),
+                    CreateSlideFadeAnimation(TranslateTransform.YProperty, 6.0, 0.0).RunAsync(transform, cts.Token));
+            }
+            catch (OperationCanceledException ex) { AppServices.Logger?.Debug($"Page transition canceled: {ex.Message}"); }
+            catch (Exception ex) { AppServices.Logger?.Debug($"Page transition failed: {ex.Message}"); }
+            finally
+            {
+                ResetViewTransformAndOpacity(targetView);
+                if (ReferenceEquals(_pageTransitionCts, cts))
+                {
+                    _pageTransitionCts = null;
+                    _transitioningView = null;
+                    cts.Dispose();
+                }
+            }
         }
 
         private void ResetNavButtons()
@@ -144,32 +307,23 @@ namespace Shiro.AvaloniaUI.Views
 
         internal void ApplyNavigationPage(NavigationPage page)
         {
-            if (_isClosed)
-                return;
+            if (_isClosed) return;
 
             if (Avalonia.Application.Current != null &&
                 Avalonia.Threading.Dispatcher.UIThread != null &&
                 !Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
             {
-                Avalonia.Threading.Dispatcher.UIThread.Post(() =>
-                {
-                    if (!_isClosed)
-                        ApplyNavigationPage(page);
-                });
+                Avalonia.Threading.Dispatcher.UIThread.Post(() => { if (!_isClosed) ApplyNavigationPage(page); });
                 return;
             }
 
-            if (_isApplyingNavigationPage)
-                return;
-
+            if (_isApplyingNavigationPage) return;
             _isApplyingNavigationPage = true;
             try
             {
                 var spec = ResolveNavigationTarget(page);
                 if (spec.ReloadRecentGames)
-                {
                     ViewDashboard?.ViewModel?.LaunchBar.ReloadRecentGames();
-                }
 
                 if (spec.ServerListSubTabIndex is int subTabIndex &&
                     ViewServerList != null &&
@@ -177,10 +331,8 @@ namespace Shiro.AvaloniaUI.Views
                 {
                     ViewServerList.DataContext = slvm;
                     slvm.SelectedSubTabIndex = subTabIndex;
-                    if (spec.EnsureServersLoaded)
-                        slvm.BrowserTab.EnsureServersLoadedForCurrentPlaceId();
-                    if (spec.ReloadRecentGames)
-                        slvm.LibraryTab.NotifyRecentGamesChanged();
+                    if (spec.EnsureServersLoaded) slvm.BrowserTab.EnsureServersLoadedForCurrentPlaceId();
+                    if (spec.ReloadRecentGames) slvm.LibraryTab.NotifyRecentGamesChanged();
                 }
 
                 var targetView = spec.ViewName switch
@@ -201,10 +353,7 @@ namespace Shiro.AvaloniaUI.Views
 
                 SetActiveView(targetView, targetButton);
             }
-            finally
-            {
-                _isApplyingNavigationPage = false;
-            }
+            finally { _isApplyingNavigationPage = false; }
         }
 
         private void NavigateFromSidebar(NavigationPage page)
@@ -218,23 +367,12 @@ namespace Shiro.AvaloniaUI.Views
             ApplyNavigationPage(page);
         }
 
-        private void OnNavDashboardClicked(object sender, RoutedEventArgs e)
-            => NavigateFromSidebar(NavigationPage.Accounts);
-
-        private void OnNavServerListClicked(object sender, RoutedEventArgs e)
-            => NavigateFromSidebar(NavigationPage.ServerList);
-
-        private void OnNavRecentGamesClicked(object sender, RoutedEventArgs e)
-            => NavigateFromSidebar(NavigationPage.RecentGames);
-
-        private void OnNavSettingsClicked(object sender, RoutedEventArgs e)
-            => NavigateFromSidebar(NavigationPage.Settings);
-
-        private void OnNavAboutClicked(object sender, RoutedEventArgs e)
-            => NavigateFromSidebar(NavigationPage.About);
-
-        private void OnSidebarCloseRobloxClicked(object sender, RoutedEventArgs e)
-            => _ = HandleSidebarCloseRobloxAsync();
+        private void OnNavDashboardClicked(object sender, RoutedEventArgs e) => NavigateFromSidebar(NavigationPage.Accounts);
+        private void OnNavServerListClicked(object sender, RoutedEventArgs e) => NavigateFromSidebar(NavigationPage.ServerList);
+        private void OnNavRecentGamesClicked(object sender, RoutedEventArgs e) => NavigateFromSidebar(NavigationPage.RecentGames);
+        private void OnNavSettingsClicked(object sender, RoutedEventArgs e) => NavigateFromSidebar(NavigationPage.Settings);
+        private void OnNavAboutClicked(object sender, RoutedEventArgs e) => NavigateFromSidebar(NavigationPage.About);
+        private void OnSidebarCloseRobloxClicked(object sender, RoutedEventArgs e) => _ = HandleSidebarCloseRobloxAsync();
 
         private async System.Threading.Tasks.Task HandleSidebarCloseRobloxAsync()
         {
@@ -276,17 +414,10 @@ namespace Shiro.AvaloniaUI.Views
             }
         }
 
-        private void OnToolAntiAfkClicked(object sender, RoutedEventArgs e)
-            => ViewModel?.ToolsStatus.ToggleAntiAfkCommand.Execute(null);
-
-        private void OnToolPotatoClicked(object sender, RoutedEventArgs e)
-            => ViewModel?.ToolsStatus.TogglePotatoModeCommand.Execute(null);
-
-        private void OnToolZeroGpuClicked(object sender, RoutedEventArgs e)
-            => ViewModel?.ToolsStatus.ToggleWindowsCommand.Execute(null);
-
-        private void OnToolOptimizeRamClicked(object sender, RoutedEventArgs e)
-            => ViewModel?.ToolsStatus.AntiLagBoosterCommand.Execute(null);
+        private void OnToolAntiAfkClicked(object sender, RoutedEventArgs e) => ViewModel?.ToolsStatus.ToggleAntiAfkCommand.Execute(null);
+        private void OnToolPotatoClicked(object sender, RoutedEventArgs e) => ViewModel?.ToolsStatus.TogglePotatoModeCommand.Execute(null);
+        private void OnToolZeroGpuClicked(object sender, RoutedEventArgs e) => ViewModel?.ToolsStatus.ToggleWindowsCommand.Execute(null);
+        private void OnToolOptimizeRamClicked(object sender, RoutedEventArgs e) => ViewModel?.ToolsStatus.AntiLagBoosterCommand.Execute(null);
 
         private void OnToolMuteAllClicked(object sender, RoutedEventArgs e)
         {
@@ -297,29 +428,14 @@ namespace Shiro.AvaloniaUI.Views
             ToastService.ShowSuccess(msg);
         }
 
-        private void OnToolSmartMuteClicked(object sender, RoutedEventArgs e)
-            => ViewModel?.ToolsStatus.ToggleSmartMuteCommand.Execute(null);
-
-        private void OnArrangeAutoClicked(object sender, RoutedEventArgs e)
-            => ViewModel?.ToolsStatus.ArrangeRobloxWindowsCommand.Execute("Auto");
-
-        private void OnArrange2x2Clicked(object sender, RoutedEventArgs e)
-            => ViewModel?.ToolsStatus.ArrangeRobloxWindowsCommand.Execute("2x2");
-
-        private void OnArrange3x2Clicked(object sender, RoutedEventArgs e)
-            => ViewModel?.ToolsStatus.ArrangeRobloxWindowsCommand.Execute("3x2");
-
-        private void OnArrange4x3Clicked(object sender, RoutedEventArgs e)
-            => ViewModel?.ToolsStatus.ArrangeRobloxWindowsCommand.Execute("4x3");
-
-        private void OnArrangeCascadeClicked(object sender, RoutedEventArgs e)
-            => ViewModel?.ToolsStatus.ArrangeRobloxWindowsCommand.Execute("Cascade");
-
-        private void OnToolProxyClicked(object sender, RoutedEventArgs e)
-            => AppServices.Dialogs.OpenProxyManagerDialog();
-
-        private void OnToolCleanTrayClicked(object sender, RoutedEventArgs e)
-            => ViewModel?.ToolsStatus.CleanSystemTrayCommand.Execute(null);
+        private void OnToolSmartMuteClicked(object sender, RoutedEventArgs e) => ViewModel?.ToolsStatus.ToggleSmartMuteCommand.Execute(null);
+        private void OnArrangeAutoClicked(object sender, RoutedEventArgs e) => ViewModel?.ToolsStatus.ArrangeRobloxWindowsCommand.Execute("Auto");
+        private void OnArrange2x2Clicked(object sender, RoutedEventArgs e) => ViewModel?.ToolsStatus.ArrangeRobloxWindowsCommand.Execute("2x2");
+        private void OnArrange3x2Clicked(object sender, RoutedEventArgs e) => ViewModel?.ToolsStatus.ArrangeRobloxWindowsCommand.Execute("3x2");
+        private void OnArrange4x3Clicked(object sender, RoutedEventArgs e) => ViewModel?.ToolsStatus.ArrangeRobloxWindowsCommand.Execute("4x3");
+        private void OnArrangeCascadeClicked(object sender, RoutedEventArgs e) => ViewModel?.ToolsStatus.ArrangeRobloxWindowsCommand.Execute("Cascade");
+        private void OnToolProxyClicked(object sender, RoutedEventArgs e) => AppServices.Dialogs.OpenProxyManagerDialog();
+        private void OnToolCleanTrayClicked(object sender, RoutedEventArgs e) => ViewModel?.ToolsStatus.CleanSystemTrayCommand.Execute(null);
 
         private void OnToolStreamerModeClicked(object sender, RoutedEventArgs e)
         {

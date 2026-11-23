@@ -2,53 +2,151 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:controls="clr-namespace:Shiro.AvaloniaUI.Controls"
              xmlns:lucide="clr-namespace:LucideAvalonia;assembly=LucideAvalonia"
              mc:Ignorable="d"
              x:Class="Shiro.AvaloniaUI.Views.AboutView">
 
     <Grid VerticalAlignment="Center" HorizontalAlignment="Center" Margin="24">
-        <Border MinWidth="460" MaxWidth="580" Background="#111115" BorderBrush="#24242C" BorderThickness="1" CornerRadius="12" Padding="32,28">
+        <controls:SpotlightBorder MinWidth="460" MaxWidth="580"
+                                  Background="{DynamicResource SurfaceCardGradientBrush}"
+                                  BorderBrush="{DynamicResource BorderSubtleBrush}"
+                                  BorderThickness="1"
+                                  CornerRadius="{StaticResource RadiusXl}"
+                                  BoxShadow="{StaticResource ShadowFloating}"
+                                  SpotlightColor="{DynamicResource AccentColor}"
+                                  SpotlightRadius="260"
+                                  SpotlightOpacity="0.07"
+                                  BorderGlowOpacity="0.28"
+                                  TopRimEnabled="True"
+                                  Padding="32,28">
             <StackPanel Spacing="16">
-                <!-- Logo Badge -->
-                <Border Width="64" Height="64" CornerRadius="16" ClipToBounds="True" HorizontalAlignment="Center">
-                    <Image Source="/Resources/shiro_logo.png" Width="64" Height="64" Stretch="UniformToFill" />
+                <!-- Luminous Centered Logo Medallion -->
+                <Border Width="76" Height="76" CornerRadius="20"
+                        Background="{DynamicResource AccentSoftFillBrush}"
+                        BorderBrush="{DynamicResource AccentRimBrush}"
+                        BorderThickness="1"
+                        BoxShadow="{StaticResource ShadowCard}"
+                        HorizontalAlignment="Center">
+                    <Border Width="62" Height="62" CornerRadius="15"
+                            ClipToBounds="True"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center">
+                        <Image Source="/Resources/shiro_logo.png"
+                               Width="62" Height="62"
+                               Stretch="UniformToFill" />
+                    </Border>
                 </Border>
 
-                <!-- Titles -->
-                <StackPanel Spacing="4" HorizontalAlignment="Center">
-                    <TextBlock Text="Shiro Account Manager" FontSize="18" FontWeight="Bold" Foreground="#FFFFFF" HorizontalAlignment="Center" />
-                    <TextBlock Text="{DynamicResource About_Subtitle}" FontSize="12" Foreground="#A1A1AA" HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" />
-                    <Border Background="#1CFFFFFF" CornerRadius="4" Padding="8,3" HorizontalAlignment="Center" Margin="0,6,0,0">
-                        <TextBlock Text="v5.0.0 • Avalonia UI 12 • .NET 10 (win-x64)" FontSize="10" FontWeight="SemiBold" Foreground="#FFFFFF" />
+                <!-- Titles & Version Pill -->
+                <StackPanel Spacing="5" HorizontalAlignment="Center">
+                    <TextBlock Text="Shiro Account Manager"
+                               FontSize="19" FontWeight="Bold"
+                               Foreground="{DynamicResource TextPrimaryBrush}"
+                               HorizontalAlignment="Center" />
+                    <TextBlock Text="{DynamicResource About_Subtitle}"
+                               FontSize="12"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               HorizontalAlignment="Center"
+                               TextWrapping="Wrap"
+                               TextAlignment="Center" />
+                    <Border Background="{DynamicResource AccentSoftFillBrush}"
+                            BorderBrush="{DynamicResource AccentBorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="{StaticResource RadiusPill}"
+                            Padding="11,4"
+                            HorizontalAlignment="Center"
+                            Margin="0,5,0,0">
+                        <TextBlock Text="v5.0.0 • Avalonia UI 12 • .NET 10 (win-x64)"
+                                   FontSize="10.5" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource AccentBrush}" />
                     </Border>
                 </StackPanel>
 
-                <Separator Background="#24242C" Height="1" />
+                <Separator Margin="0,2" />
 
                 <!-- Technology Specs -->
                 <StackPanel Spacing="8">
-                    <Grid ColumnDefinitions="Auto,*" HorizontalAlignment="Center">
-                        <lucide:Lucide Grid.Column="0" Icon="Zap" Width="13" Height="13" StrokeBrush="#A1A1AA" VerticalAlignment="Top" Margin="0,2,8,0" />
-                        <TextBlock Grid.Column="1" Text="{DynamicResource About_Runtime}" FontSize="11" Foreground="#A1A1AA" VerticalAlignment="Center" TextWrapping="Wrap" />
-                    </Grid>
-                    <Grid ColumnDefinitions="Auto,*" HorizontalAlignment="Center">
-                        <lucide:Lucide Grid.Column="0" Icon="Lock" Width="13" Height="13" StrokeBrush="#A1A1AA" VerticalAlignment="Top" Margin="0,2,8,0" />
-                        <TextBlock Grid.Column="1" Text="{DynamicResource About_OptimizationValue}" FontSize="11" Foreground="#A1A1AA" VerticalAlignment="Center" TextWrapping="Wrap" />
-                    </Grid>
-                    <Grid ColumnDefinitions="Auto,*" HorizontalAlignment="Center">
-                        <lucide:Lucide Grid.Column="0" Icon="Globe" Width="13" Height="13" StrokeBrush="#A1A1AA" VerticalAlignment="Top" Margin="0,2,8,0" />
-                        <TextBlock Grid.Column="1" Text="{DynamicResource About_Credits}" FontSize="11" Foreground="#A1A1AA" VerticalAlignment="Center" TextWrapping="Wrap" />
-                    </Grid>
+                    <Border Background="{DynamicResource SurfacePanelBrush}"
+                            BorderBrush="{DynamicResource BorderHairlineBrush}"
+                            BorderThickness="1"
+                            CornerRadius="{StaticResource RadiusMd}"
+                            Padding="12,9">
+                        <Grid ColumnDefinitions="Auto,*">
+                            <lucide:Lucide Grid.Column="0" Icon="Zap"
+                                           Width="14" Height="14"
+                                           StrokeBrush="{DynamicResource StatusInfoBrush}"
+                                           VerticalAlignment="Center"
+                                           Margin="0,0,10,0" />
+                            <TextBlock Grid.Column="1"
+                                       Text="{DynamicResource About_Runtime}"
+                                       FontSize="11.5"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                       VerticalAlignment="Center"
+                                       TextWrapping="Wrap" />
+                        </Grid>
+                    </Border>
+
+                    <Border Background="{DynamicResource SurfacePanelBrush}"
+                            BorderBrush="{DynamicResource BorderHairlineBrush}"
+                            BorderThickness="1"
+                            CornerRadius="{StaticResource RadiusMd}"
+                            Padding="12,9">
+                        <Grid ColumnDefinitions="Auto,*">
+                            <lucide:Lucide Grid.Column="0" Icon="Lock"
+                                           Width="14" Height="14"
+                                           StrokeBrush="{DynamicResource StatusSuccessBrush}"
+                                           VerticalAlignment="Center"
+                                           Margin="0,0,10,0" />
+                            <TextBlock Grid.Column="1"
+                                       Text="{DynamicResource About_OptimizationValue}"
+                                       FontSize="11.5"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                       VerticalAlignment="Center"
+                                       TextWrapping="Wrap" />
+                        </Grid>
+                    </Border>
+
+                    <Border Background="{DynamicResource SurfacePanelBrush}"
+                            BorderBrush="{DynamicResource BorderHairlineBrush}"
+                            BorderThickness="1"
+                            CornerRadius="{StaticResource RadiusMd}"
+                            Padding="12,9">
+                        <Grid ColumnDefinitions="Auto,*">
+                            <lucide:Lucide Grid.Column="0" Icon="Globe"
+                                           Width="14" Height="14"
+                                           StrokeBrush="{DynamicResource AccentBrush}"
+                                           VerticalAlignment="Center"
+                                           Margin="0,0,10,0" />
+                            <TextBlock Grid.Column="1"
+                                       Text="{DynamicResource About_Credits}"
+                                       FontSize="11.5"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                       VerticalAlignment="Center"
+                                       TextWrapping="Wrap" />
+                        </Grid>
+                    </Border>
                 </StackPanel>
 
-                <Separator Background="#24242C" Height="1" />
+                <Separator Margin="0,2" />
 
-                <!-- Copyright -->
-                <StackPanel Spacing="2" HorizontalAlignment="Center">
-                    <TextBlock Text="{DynamicResource About_Project}" FontSize="10" Foreground="#63636E" HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" />
-                    <TextBlock Text="{DynamicResource About_LicenseCredits}" FontSize="9.5" Foreground="#52525B" HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" />
+                <!-- Copyright & License -->
+                <StackPanel Spacing="3" HorizontalAlignment="Center">
+                    <TextBlock Text="{DynamicResource About_Project}"
+                               FontSize="10.5"
+                               Foreground="{DynamicResource TextMutedBrush}"
+                               HorizontalAlignment="Center"
+                               TextWrapping="Wrap"
+                               TextAlignment="Center" />
+                    <TextBlock Text="{DynamicResource About_LicenseCredits}"
+                               FontSize="9.5"
+                               Foreground="{DynamicResource TextMutedBrush}"
+                               Opacity="0.82"
+                               HorizontalAlignment="Center"
+                               TextWrapping="Wrap"
+                               TextAlignment="Center" />
                 </StackPanel>
             </StackPanel>
-        </Border>
+        </controls:SpotlightBorder>
     </Grid>
 </UserControl>

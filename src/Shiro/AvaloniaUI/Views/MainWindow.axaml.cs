@@ -23,6 +23,7 @@ namespace Shiro.AvaloniaUI.Views
         {
             Instance = this;
             InitializeComponent();
+            InitializeNavigationChrome();
             UpdateMaximizeIcon();
             WindowBackdropService.ApplyDarkAndBackdrop(this, cloakUntilFirstFrame: true);
 
@@ -304,6 +305,7 @@ namespace Shiro.AvaloniaUI.Views
                 Instance = null;
             }
 
+            CleanupNavigationTransitions();
             ViewOverlays?.DetachStaticBindings();
             base.OnClosed(e);
         }
