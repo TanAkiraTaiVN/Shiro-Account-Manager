@@ -10,15 +10,15 @@
              x:DataType="vm:ServerListViewModel" x:CompileBindings="True" x:Name="RootServerListView">
     <UserControl.Styles>
         <Style Selector="controls|SpotlightBorder.GameCard">
-            <Setter Property="Height" Value="90" />
+            <Setter Property="Height" Value="94" />
             <Setter Property="Background" Value="{DynamicResource SurfaceCardBrush}" />
             <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}" />
             <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="{StaticResource RadiusLg}" />
+            <Setter Property="CornerRadius" Value="{StaticResource RadiusMid12}" />
             <Setter Property="BoxShadow" Value="{StaticResource ShadowCard}" />
             <Setter Property="SpotlightColor" Value="{DynamicResource AccentColor}" />
-            <Setter Property="SpotlightOpacity" Value="0.05" />
-            <Setter Property="BorderGlowOpacity" Value="0.22" />
+            <Setter Property="SpotlightOpacity" Value="0.06" />
+            <Setter Property="BorderGlowOpacity" Value="0.24" />
             <Setter Property="Margin" Value="0,0,12,12" />
             <Setter Property="Padding" Value="12" />
         </Style>
@@ -28,7 +28,8 @@
         <!-- Elevated Search / Filter Dock -->
         <Border Grid.Row="0" Background="{DynamicResource SurfacePanelBrush}"
                 BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1"
-                CornerRadius="{StaticResource RadiusXl}" BoxShadow="{StaticResource ShadowCard}" Margin="0,0,0,12">
+                CornerRadius="{StaticResource RadiusMid12}" BoxShadow="{StaticResource ShadowCard}"
+                Margin="0,0,0,12">
             <Panel>
                 <Grid ColumnDefinitions="*,Auto" Margin="14,10">
                     <WrapPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
@@ -112,14 +113,14 @@
                     </StackPanel>
                 </Grid>
                 <Border IsHitTestVisible="False" BorderBrush="{DynamicResource BorderTopRimBrush}"
-                        BorderThickness="1" CornerRadius="{StaticResource RadiusXl}" />
+                        BorderThickness="1" CornerRadius="{StaticResource RadiusMid12}" />
             </Panel>
         </Border>
 
         <!-- Segmented Sub-Tab Bar + Filters + Status -->
         <Border Grid.Row="1" Background="{DynamicResource SurfacePanelBrush}"
                 BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1"
-                CornerRadius="{StaticResource RadiusLg}" Margin="0,0,0,12">
+                CornerRadius="{StaticResource RadiusMid12}" Margin="0,0,0,12">
             <Panel>
                 <Grid ColumnDefinitions="Auto,Auto,*" Margin="6,5,14,5">
                     <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="4">
@@ -182,7 +183,7 @@
                     </Grid>
                 </Grid>
                 <Border IsHitTestVisible="False" BorderBrush="{DynamicResource BorderTopRimBrush}"
-                        BorderThickness="1" CornerRadius="{StaticResource RadiusLg}" />
+                        BorderThickness="1" CornerRadius="{StaticResource RadiusMid12}" />
             </Panel>
         </Border>
 
@@ -192,7 +193,7 @@
 
             <!-- Tab 2: Library (Recent & Favorites) -->
             <Border Background="{DynamicResource SurfacePanelBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
-                    BorderThickness="1" CornerRadius="{StaticResource RadiusXl}" BoxShadow="{StaticResource ShadowCard}"
+                    BorderThickness="1" CornerRadius="{StaticResource RadiusMid12}" BoxShadow="{StaticResource ShadowCard}"
                     IsVisible="{Binding SelectedSubTabIndex, Converter={StaticResource EqualityToBoolean}, ConverterParameter='2'}">
                 <Panel>
                     <Grid RowDefinitions="Auto,*" Margin="16">
@@ -217,45 +218,59 @@
                                         </ItemsControl.ItemsPanel>
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate x:DataType="vm:RecentGameItemViewModel">
-                                                <controls:SpotlightBorder Classes="GameCard" Width="340">
-                                                    <Grid ColumnDefinitions="Auto,*,Auto">
-                                                        <Border Grid.Column="0" Width="56" Height="56" CornerRadius="{StaticResource RadiusMd}"
-                                                                ClipToBounds="True" Background="{DynamicResource SurfaceElevatedBrush}"
-                                                                BorderBrush="{DynamicResource BorderHairlineBrush}" BorderThickness="1"
-                                                                Margin="0,0,12,0" VerticalAlignment="Center">
-                                                            <Panel>
-                                                                <lucide:Lucide Icon="Gamepad2" Width="22" Height="22" StrokeBrush="{DynamicResource TextMutedBrush}"
-                                                                               HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                                               IsVisible="{Binding ThumbnailBitmap, Converter={x:Static ObjectConverters.IsNull}}" />
-                                                                <Image Source="{Binding ThumbnailBitmap}" Width="56" Height="56" Stretch="UniformToFill"
-                                                                       IsVisible="{Binding ThumbnailBitmap, Converter={x:Static ObjectConverters.IsNotNull}}" />
-                                                            </Panel>
-                                                        </Border>
-                                                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="3" Margin="0,0,10,0">
-                                                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13"
-                                                                       Foreground="{DynamicResource TextPrimaryBrush}"
-                                                                       TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name}" />
-                                                            <TextBlock Classes="TabularNum" Text="{Binding PlaceId, StringFormat='ID: {0}'}"
-                                                                       FontSize="11" Foreground="{DynamicResource TextMutedBrush}" />
-                                                        </StackPanel>
-                                                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                                                            <Button Classes="StudioSecondaryBtn" Content="{DynamicResource Srv_Select}"
-                                                                    Command="{Binding #RootServerListView.ViewModel.LibraryTab.SelectRecentGameInLibraryCommand}"
-                                                                    CommandParameter="{Binding}" Padding="10,6" FontSize="11"
-                                                                    ToolTip.Tip="{DynamicResource Srv_TipSelectPlace}" />
-                                                            <Button Classes="StudioPrimaryBtn"
-                                                                    Command="{Binding #RootServerListView.ViewModel.LibraryTab.LaunchRecentGameInLibraryCommand}"
-                                                                    CommandParameter="{Binding}" Padding="10,6" FontSize="11"
-                                                                    ToolTip.Tip="{DynamicResource Srv_TipPlayGame}">
-                                                                <StackPanel Orientation="Horizontal" Spacing="4">
-                                                                    <lucide:Lucide Icon="Play" Width="10" Height="10"
-                                                                                   StrokeBrush="{DynamicResource AccentForegroundBrush}"
-                                                                                   StrokeThickness="2.4" VerticalAlignment="Center" />
-                                                                    <TextBlock Text="{DynamicResource Srv_Play}" VerticalAlignment="Center" />
-                                                                </StackPanel>
-                                                            </Button>
-                                                        </StackPanel>
-                                                    </Grid>
+                                                <controls:SpotlightBorder Classes="GameCard" Width="348">
+                                                    <Panel>
+                                                        <Border IsHitTestVisible="False"
+                                                                Background="{DynamicResource AccentAmbientBrush}"
+                                                                CornerRadius="{StaticResource RadiusInner8}"
+                                                                Opacity="0.6" />
+                                                        <Grid ColumnDefinitions="Auto,*,Auto">
+                                                            <Border Grid.Column="0" Width="60" Height="60"
+                                                                    CornerRadius="{StaticResource RadiusInner8}"
+                                                                    ClipToBounds="True"
+                                                                    Background="{DynamicResource SurfaceElevatedBrush}"
+                                                                    BorderBrush="{DynamicResource BorderHairlineBrush}"
+                                                                    BorderThickness="1"
+                                                                    Margin="0,0,12,0" VerticalAlignment="Center">
+                                                                <Panel>
+                                                                    <lucide:Lucide Icon="Gamepad2" Width="24" Height="24"
+                                                                                   StrokeBrush="{DynamicResource TextMutedBrush}"
+                                                                                   HorizontalAlignment="Center"
+                                                                                   VerticalAlignment="Center"
+                                                                                   IsVisible="{Binding ThumbnailBitmap, Converter={x:Static ObjectConverters.IsNull}}" />
+                                                                    <Image Source="{Binding ThumbnailBitmap}" Width="60" Height="60"
+                                                                           Stretch="UniformToFill"
+                                                                           IsVisible="{Binding ThumbnailBitmap, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                                                                </Panel>
+                                                            </Border>
+                                                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="3" Margin="0,0,10,0">
+                                                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13"
+                                                                           Foreground="{DynamicResource TextPrimaryBrush}"
+                                                                           TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name}" />
+                                                                <TextBlock Classes="TabularNum" Text="{Binding PlaceId, StringFormat='ID: {0}'}"
+                                                                           FontSize="11" Foreground="{DynamicResource TextMutedBrush}" />
+                                                            </StackPanel>
+                                                            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                                                <Button Classes="StudioSecondaryBtn" Content="{DynamicResource Srv_Select}"
+                                                                        CornerRadius="{StaticResource RadiusChip6}"
+                                                                        Command="{Binding #RootServerListView.ViewModel.LibraryTab.SelectRecentGameInLibraryCommand}"
+                                                                        CommandParameter="{Binding}" Padding="10,6" FontSize="11"
+                                                                        ToolTip.Tip="{DynamicResource Srv_TipSelectPlace}" />
+                                                                <Button Classes="StudioPrimaryBtn"
+                                                                        CornerRadius="{StaticResource RadiusChip6}"
+                                                                        Command="{Binding #RootServerListView.ViewModel.LibraryTab.LaunchRecentGameInLibraryCommand}"
+                                                                        CommandParameter="{Binding}" Padding="10,6" FontSize="11"
+                                                                        ToolTip.Tip="{DynamicResource Srv_TipPlayGame}">
+                                                                    <StackPanel Orientation="Horizontal" Spacing="4">
+                                                                        <lucide:Lucide Icon="Play" Width="10" Height="10"
+                                                                                       StrokeBrush="{DynamicResource AccentForegroundBrush}"
+                                                                                       StrokeThickness="2.4" VerticalAlignment="Center" />
+                                                                        <TextBlock Text="{DynamicResource Srv_Play}" VerticalAlignment="Center" />
+                                                                    </StackPanel>
+                                                                </Button>
+                                                            </StackPanel>
+                                                        </Grid>
+                                                    </Panel>
                                                 </controls:SpotlightBorder>
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
@@ -273,52 +288,67 @@
                                         </ItemsControl.ItemsPanel>
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate x:DataType="vm:FavoriteGameItemViewModel">
-                                                <controls:SpotlightBorder Classes="GameCard" Width="378">
-                                                    <Grid ColumnDefinitions="Auto,*,Auto">
-                                                        <Border Grid.Column="0" Width="56" Height="56" CornerRadius="{StaticResource RadiusMd}"
-                                                                ClipToBounds="True" Background="{DynamicResource SurfaceElevatedBrush}"
-                                                                BorderBrush="{DynamicResource BorderHairlineBrush}" BorderThickness="1"
-                                                                Margin="0,0,12,0" VerticalAlignment="Center">
-                                                            <Panel>
-                                                                <lucide:Lucide Icon="Gamepad2" Width="22" Height="22" StrokeBrush="{DynamicResource TextMutedBrush}"
-                                                                               HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                                               IsVisible="{Binding ThumbnailBitmap, Converter={x:Static ObjectConverters.IsNull}}" />
-                                                                <Image Source="{Binding ThumbnailBitmap}" Width="56" Height="56" Stretch="UniformToFill"
-                                                                       IsVisible="{Binding ThumbnailBitmap, Converter={x:Static ObjectConverters.IsNotNull}}" />
-                                                            </Panel>
-                                                        </Border>
-                                                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="3" Margin="0,0,10,0">
-                                                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13"
-                                                                       Foreground="{DynamicResource TextPrimaryBrush}"
-                                                                       TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name}" />
-                                                            <TextBlock Classes="TabularNum" Text="{Binding PlaceId, StringFormat='ID: {0}'}"
-                                                                       FontSize="11" Foreground="{DynamicResource TextMutedBrush}" />
-                                                        </StackPanel>
-                                                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                                                            <Button Classes="StudioSecondaryBtn" Content="{DynamicResource Srv_Select}"
-                                                                    Command="{Binding #RootServerListView.ViewModel.LibraryTab.SelectFavoriteCommand}"
-                                                                    CommandParameter="{Binding}" Padding="10,6" FontSize="11"
-                                                                    ToolTip.Tip="{DynamicResource Srv_TipSelectPlace}" />
-                                                            <Button Classes="StudioPrimaryBtn"
-                                                                    Command="{Binding #RootServerListView.ViewModel.LibraryTab.LaunchFavoriteCommand}"
-                                                                    CommandParameter="{Binding}" Padding="10,6" FontSize="11"
-                                                                    ToolTip.Tip="{DynamicResource Srv_TipPlayGame}">
-                                                                <StackPanel Orientation="Horizontal" Spacing="4">
-                                                                    <lucide:Lucide Icon="Play" Width="10" Height="10"
-                                                                                   StrokeBrush="{DynamicResource AccentForegroundBrush}"
-                                                                                   StrokeThickness="2.4" VerticalAlignment="Center" />
-                                                                    <TextBlock Text="{DynamicResource Srv_Play}" VerticalAlignment="Center" />
-                                                                </StackPanel>
-                                                            </Button>
-                                                            <Button Classes="StudioDangerBtn"
-                                                                    Command="{Binding #RootServerListView.ViewModel.LibraryTab.RemoveFavoriteCommand}"
-                                                                    CommandParameter="{Binding}" Padding="8,6"
-                                                                    ToolTip.Tip="{DynamicResource Srv_TipRemoveFav}">
-                                                                <lucide:Lucide Icon="Trash" Width="12" Height="12"
-                                                                               StrokeBrush="{DynamicResource StatusDangerBrush}" />
-                                                            </Button>
-                                                        </StackPanel>
-                                                    </Grid>
+                                                <controls:SpotlightBorder Classes="GameCard" Width="386">
+                                                    <Panel>
+                                                        <Border IsHitTestVisible="False"
+                                                                Background="{DynamicResource AccentAmbientBrush}"
+                                                                CornerRadius="{StaticResource RadiusInner8}"
+                                                                Opacity="0.6" />
+                                                        <Grid ColumnDefinitions="Auto,*,Auto">
+                                                            <Border Grid.Column="0" Width="60" Height="60"
+                                                                    CornerRadius="{StaticResource RadiusInner8}"
+                                                                    ClipToBounds="True"
+                                                                    Background="{DynamicResource SurfaceElevatedBrush}"
+                                                                    BorderBrush="{DynamicResource BorderHairlineBrush}"
+                                                                    BorderThickness="1"
+                                                                    Margin="0,0,12,0" VerticalAlignment="Center">
+                                                                <Panel>
+                                                                    <lucide:Lucide Icon="Gamepad2" Width="24" Height="24"
+                                                                                   StrokeBrush="{DynamicResource TextMutedBrush}"
+                                                                                   HorizontalAlignment="Center"
+                                                                                   VerticalAlignment="Center"
+                                                                                   IsVisible="{Binding ThumbnailBitmap, Converter={x:Static ObjectConverters.IsNull}}" />
+                                                                    <Image Source="{Binding ThumbnailBitmap}" Width="60" Height="60"
+                                                                           Stretch="UniformToFill"
+                                                                           IsVisible="{Binding ThumbnailBitmap, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                                                                </Panel>
+                                                            </Border>
+                                                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="3" Margin="0,0,10,0">
+                                                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13"
+                                                                           Foreground="{DynamicResource TextPrimaryBrush}"
+                                                                           TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name}" />
+                                                                <TextBlock Classes="TabularNum" Text="{Binding PlaceId, StringFormat='ID: {0}'}"
+                                                                           FontSize="11" Foreground="{DynamicResource TextMutedBrush}" />
+                                                            </StackPanel>
+                                                            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                                                <Button Classes="StudioSecondaryBtn" Content="{DynamicResource Srv_Select}"
+                                                                        CornerRadius="{StaticResource RadiusChip6}"
+                                                                        Command="{Binding #RootServerListView.ViewModel.LibraryTab.SelectFavoriteCommand}"
+                                                                        CommandParameter="{Binding}" Padding="10,6" FontSize="11"
+                                                                        ToolTip.Tip="{DynamicResource Srv_TipSelectPlace}" />
+                                                                <Button Classes="StudioPrimaryBtn"
+                                                                        CornerRadius="{StaticResource RadiusChip6}"
+                                                                        Command="{Binding #RootServerListView.ViewModel.LibraryTab.LaunchFavoriteCommand}"
+                                                                        CommandParameter="{Binding}" Padding="10,6" FontSize="11"
+                                                                        ToolTip.Tip="{DynamicResource Srv_TipPlayGame}">
+                                                                    <StackPanel Orientation="Horizontal" Spacing="4">
+                                                                        <lucide:Lucide Icon="Play" Width="10" Height="10"
+                                                                                       StrokeBrush="{DynamicResource AccentForegroundBrush}"
+                                                                                       StrokeThickness="2.4" VerticalAlignment="Center" />
+                                                                        <TextBlock Text="{DynamicResource Srv_Play}" VerticalAlignment="Center" />
+                                                                    </StackPanel>
+                                                                </Button>
+                                                                <Button Classes="StudioDangerBtn"
+                                                                        CornerRadius="{StaticResource RadiusChip6}"
+                                                                        Command="{Binding #RootServerListView.ViewModel.LibraryTab.RemoveFavoriteCommand}"
+                                                                        CommandParameter="{Binding}" Padding="8,6"
+                                                                        ToolTip.Tip="{DynamicResource Srv_TipRemoveFav}">
+                                                                    <lucide:Lucide Icon="Trash" Width="13" Height="13"
+                                                                                   StrokeBrush="{DynamicResource StatusDangerBrush}" />
+                                                                </Button>
+                                                            </StackPanel>
+                                                        </Grid>
+                                                    </Panel>
                                                 </controls:SpotlightBorder>
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
@@ -328,48 +358,12 @@
                         </ScrollViewer>
                     </Grid>
                     <Border IsHitTestVisible="False" BorderBrush="{DynamicResource BorderTopRimBrush}"
-                            BorderThickness="1" CornerRadius="{StaticResource RadiusXl}" />
+                            BorderThickness="1" CornerRadius="{StaticResource RadiusMid12}" />
                 </Panel>
             </Border>
 
-            <!-- Tab 3: Watcher -->
-            <ScrollViewer Padding="4" IsVisible="{Binding SelectedSubTabIndex, Converter={StaticResource EqualityToBoolean}, ConverterParameter='3'}">
-                <controls:SpotlightBorder MaxWidth="740" HorizontalAlignment="Left" Background="{DynamicResource SurfacePanelBrush}"
-                                          BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1"
-                                          CornerRadius="{StaticResource RadiusXl}" BoxShadow="{StaticResource ShadowCard}"
-                                          SpotlightColor="{DynamicResource AccentColor}" SpotlightOpacity="0.035"
-                                          BorderGlowOpacity="0.16" Padding="20" Margin="0,0,0,12">
-                    <StackPanel Spacing="14">
-                        <Grid ColumnDefinitions="*,Auto">
-                            <StackPanel Grid.Column="0" Spacing="2" Margin="0,0,16,0">
-                                <TextBlock Text="{DynamicResource Srv_WatcherActivate}" FontWeight="Bold" FontSize="14"
-                                           Foreground="{DynamicResource TextPrimaryBrush}" />
-                                <TextBlock Text="{DynamicResource Srv_WatcherActivateDesc}" FontSize="11"
-                                           Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
-                            </StackPanel>
-                            <ToggleSwitch Grid.Column="1" IsChecked="{Binding WatcherEnabled, Mode=TwoWay}"
-                                          OnContent="{x:Null}" OffContent="{x:Null}" />
-                        </Grid>
-                        <Separator />
-                        <CheckBox IsChecked="{Binding ExitOnBeta, Mode=TwoWay}" Content="{DynamicResource Srv_WatcherExitOnBeta}" />
-                        <CheckBox IsChecked="{Binding ExitIfNoConnection, Mode=TwoWay}" Content="{DynamicResource Srv_WatcherExitIfNoConn}" />
-                        <CheckBox IsChecked="{Binding SaveWindowPositions, Mode=TwoWay}" Content="{DynamicResource Srv_WatcherSaveWindowPositions}" />
-                        <CheckBox IsChecked="{Binding VerifyDataModel, Mode=TwoWay}" Content="{DynamicResource Srv_WatcherVerifyDataModel}" />
-                        <CheckBox IsChecked="{Binding IgnoreExistingProcesses, Mode=TwoWay}" Content="{DynamicResource Srv_WatcherIgnoreExisting}" />
-                        <CheckBox IsChecked="{Binding CloseRbxMemory, Mode=TwoWay}" Content="{DynamicResource Srv_WatcherCloseRbxMemory}" />
-                        <Separator />
-                        <Grid ColumnDefinitions="*,Auto">
-                            <StackPanel Grid.Column="0" Spacing="2" Margin="0,0,16,0">
-                                <TextBlock Text="{DynamicResource Srv_WatcherMemoryThreshold}" FontSize="13"
-                                           Foreground="{DynamicResource TextPrimaryBrush}" />
-                                <TextBlock Text="{DynamicResource Srv_WatcherMemoryThresholdDesc}" FontSize="11"
-                                           Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
-                            </StackPanel>
-                            <NumericUpDown Grid.Column="1" Value="{Binding MemoryThresholdMb, Mode=TwoWay}" Minimum="100" Maximum="4096" Width="124" />
-                        </Grid>
-                    </StackPanel>
-                </controls:SpotlightBorder>
-            </ScrollViewer>
+            <!-- Tab 3: Watcher & Window Tiling Preview -->
+            <panels:ServerListWatcherPanel />
         </Panel>
     </Grid>
 </UserControl>

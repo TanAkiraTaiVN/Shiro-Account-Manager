@@ -1,0 +1,250 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:controls="clr-namespace:Shiro.AvaloniaUI.Controls"
+             xmlns:vm="clr-namespace:Shiro.ViewModels"
+             xmlns:lucide="clr-namespace:LucideAvalonia;assembly=LucideAvalonia"
+             mc:Ignorable="d" x:Class="Shiro.AvaloniaUI.Views.Panels.ServerListWatcherPanel"
+             x:DataType="vm:ServerListViewModel" x:CompileBindings="True" x:Name="RootWatcherPanel"
+             IsVisible="{Binding SelectedSubTabIndex, Converter={StaticResource EqualityToBoolean}, ConverterParameter='3'}">
+    <UserControl.Styles>
+        <Style Selector="Button.TilePresetCard">
+            <Setter Property="Background" Value="{DynamicResource SurfaceCardBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="{StaticResource RadiusInner8}" />
+            <Setter Property="Padding" Value="10,8" />
+            <Setter Property="Margin" Value="0,0,8,8" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="PART_TileBorder"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{TemplateBinding CornerRadius}"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          ContentTemplate="{TemplateBinding ContentTemplate}"
+                                          HorizontalAlignment="Center"
+                                          VerticalAlignment="Center" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.TilePresetCard:pointerover /template/ Border#PART_TileBorder">
+            <Setter Property="Background" Value="{DynamicResource SurfaceCardHoverBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBorderBrush}" />
+        </Style>
+        <Style Selector="Button.TilePresetCard:pressed /template/ Border#PART_TileBorder">
+            <Setter Property="Background" Value="{DynamicResource SurfaceElevatedBrush}" />
+        </Style>
+        <Style Selector="Border.MiniTileFrame">
+            <Setter Property="Width" Value="54" />
+            <Setter Property="Height" Value="34" />
+            <Setter Property="Background" Value="{DynamicResource SurfaceInputBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderHairlineBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="{StaticResource RadiusChip6}" />
+            <Setter Property="Padding" Value="3" />
+        </Style>
+        <Style Selector="Border.MiniTileCell">
+            <Setter Property="Background" Value="{DynamicResource AccentSoftFillBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="2" />
+            <Setter Property="Margin" Value="1" />
+        </Style>
+    </UserControl.Styles>
+
+    <ScrollViewer Padding="4" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+        <StackPanel Spacing="12" MaxWidth="760" HorizontalAlignment="Left" Margin="0,0,0,12">
+            <controls:SpotlightBorder Background="{DynamicResource SurfacePanelBrush}"
+                                      BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1"
+                                      CornerRadius="{StaticResource RadiusMid12}"
+                                      BoxShadow="{StaticResource ShadowCard}"
+                                      SpotlightColor="{DynamicResource AccentColor}" SpotlightOpacity="0.035"
+                                      BorderGlowOpacity="0.16" Padding="20">
+                <StackPanel Spacing="14">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <StackPanel Grid.Column="0" Spacing="2" Margin="0,0,16,0">
+                            <TextBlock Text="{DynamicResource Srv_WatcherActivate}"
+                                       FontWeight="Bold" FontSize="14"
+                                       Foreground="{DynamicResource TextPrimaryBrush}" />
+                            <TextBlock Text="{DynamicResource Srv_WatcherActivateDesc}" FontSize="11"
+                                       Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
+                        </StackPanel>
+                        <ToggleSwitch Grid.Column="1" IsChecked="{Binding WatcherEnabled, Mode=TwoWay}"
+                                      OnContent="{x:Null}" OffContent="{x:Null}" />
+                    </Grid>
+                    <Separator />
+                    <CheckBox IsChecked="{Binding ExitOnBeta, Mode=TwoWay}"
+                              Content="{DynamicResource Srv_WatcherExitOnBeta}" />
+                    <CheckBox IsChecked="{Binding ExitIfNoConnection, Mode=TwoWay}"
+                              Content="{DynamicResource Srv_WatcherExitIfNoConn}" />
+                    <CheckBox IsChecked="{Binding SaveWindowPositions, Mode=TwoWay}"
+                              Content="{DynamicResource Srv_WatcherSaveWindowPositions}" />
+                    <CheckBox IsChecked="{Binding VerifyDataModel, Mode=TwoWay}"
+                              Content="{DynamicResource Srv_WatcherVerifyDataModel}" />
+                    <CheckBox IsChecked="{Binding IgnoreExistingProcesses, Mode=TwoWay}"
+                              Content="{DynamicResource Srv_WatcherIgnoreExisting}" />
+                    <CheckBox IsChecked="{Binding CloseRbxMemory, Mode=TwoWay}"
+                              Content="{DynamicResource Srv_WatcherCloseRbxMemory}" />
+                    <Separator />
+                    <Grid ColumnDefinitions="*,Auto">
+                        <StackPanel Grid.Column="0" Spacing="2" Margin="0,0,16,0">
+                            <TextBlock Text="{DynamicResource Srv_WatcherMemoryThreshold}" FontSize="13"
+                                       Foreground="{DynamicResource TextPrimaryBrush}" />
+                            <TextBlock Text="{DynamicResource Srv_WatcherMemoryThresholdDesc}" FontSize="11"
+                                       Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
+                        </StackPanel>
+                        <NumericUpDown Grid.Column="1" Value="{Binding MemoryThresholdMb, Mode=TwoWay}"
+                                       Minimum="100" Maximum="4096" Width="124" />
+                    </Grid>
+                </StackPanel>
+            </controls:SpotlightBorder>
+
+            <!-- Window Tiling Visual Mini-Grid Preview Strip -->
+            <controls:SpotlightBorder Background="{DynamicResource SurfacePanelBrush}"
+                                      BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1"
+                                      CornerRadius="{StaticResource RadiusMid12}"
+                                      BoxShadow="{StaticResource ShadowCard}"
+                                      SpotlightColor="{DynamicResource AccentColor}" SpotlightOpacity="0.045"
+                                      BorderGlowOpacity="0.18" Padding="18">
+                <StackPanel Spacing="12">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <lucide:Lucide Icon="LayoutGrid" Width="15" Height="15"
+                                       StrokeBrush="{DynamicResource StatusInfoBrush}"
+                                       VerticalAlignment="Center" />
+                        <StackPanel Spacing="1">
+                            <TextBlock Text="{DynamicResource Srv_WatcherTilingTitle}"
+                                       FontWeight="Bold" FontSize="13"
+                                       Foreground="{DynamicResource TextPrimaryBrush}" />
+                            <TextBlock Text="{DynamicResource Srv_WatcherTilingDesc}" FontSize="11"
+                                       Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <Panel x:Name="TilingPreviewStrip">
+                        <WrapPanel Orientation="Horizontal">
+                            <!-- Auto Smart Grid -->
+                            <Button Classes="TilePresetCard"
+                                    Command="{Binding ArrangeRobloxWindowsCommand}"
+                                    CommandParameter="Auto"
+                                    ToolTip.Tip="{DynamicResource Tool_AutoGrid}">
+                                <StackPanel Spacing="5" HorizontalAlignment="Center">
+                                    <Border Classes="MiniTileFrame">
+                                        <Grid RowDefinitions="*,*" ColumnDefinitions="*,*">
+                                            <Border Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2"
+                                                    Classes="MiniTileCell" />
+                                            <Border Grid.Row="1" Grid.Column="0" Classes="MiniTileCell" />
+                                            <Border Grid.Row="1" Grid.Column="1" Classes="MiniTileCell" />
+                                        </Grid>
+                                    </Border>
+                                    <TextBlock Text="{DynamicResource Srv_TileAutoShort}"
+                                               FontSize="10.5" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource TextSecondaryBrush}"
+                                               HorizontalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+
+                            <!-- 2x2 Grid -->
+                            <Button Classes="TilePresetCard"
+                                    Command="{Binding ArrangeRobloxWindowsCommand}"
+                                    CommandParameter="2x2"
+                                    ToolTip.Tip="{DynamicResource Tool_Grid2x2}">
+                                <StackPanel Spacing="5" HorizontalAlignment="Center">
+                                    <Border Classes="MiniTileFrame">
+                                        <UniformGrid Columns="2" Rows="2">
+                                            <Border Classes="MiniTileCell" />
+                                            <Border Classes="MiniTileCell" />
+                                            <Border Classes="MiniTileCell" />
+                                            <Border Classes="MiniTileCell" />
+                                        </UniformGrid>
+                                    </Border>
+                                    <TextBlock Text="{DynamicResource Srv_Tile2x2Short}"
+                                               FontSize="10.5" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource TextSecondaryBrush}"
+                                               HorizontalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+
+                            <!-- 3x2 Grid -->
+                            <Button Classes="TilePresetCard"
+                                    Command="{Binding ArrangeRobloxWindowsCommand}"
+                                    CommandParameter="3x2"
+                                    ToolTip.Tip="{DynamicResource Tool_Grid3x2}">
+                                <StackPanel Spacing="5" HorizontalAlignment="Center">
+                                    <Border Classes="MiniTileFrame">
+                                        <UniformGrid Columns="3" Rows="2">
+                                            <Border Classes="MiniTileCell" />
+                                            <Border Classes="MiniTileCell" />
+                                            <Border Classes="MiniTileCell" />
+                                            <Border Classes="MiniTileCell" />
+                                            <Border Classes="MiniTileCell" />
+                                            <Border Classes="MiniTileCell" />
+                                        </UniformGrid>
+                                    </Border>
+                                    <TextBlock Text="{DynamicResource Srv_Tile3x2Short}"
+                                               FontSize="10.5" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource TextSecondaryBrush}"
+                                               HorizontalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+
+                            <!-- 4x3 Grid -->
+                            <Button Classes="TilePresetCard"
+                                    Command="{Binding ArrangeRobloxWindowsCommand}"
+                                    CommandParameter="4x3"
+                                    ToolTip.Tip="{DynamicResource Tool_Grid4x3}">
+                                <StackPanel Spacing="5" HorizontalAlignment="Center">
+                                    <Border Classes="MiniTileFrame">
+                                        <UniformGrid Columns="4" Rows="3">
+                                            <Border Classes="MiniTileCell" />
+                                            <Border Classes="MiniTileCell" />
+                                            <Border Classes="MiniTileCell" />
+                                            <Border Classes="MiniTileCell" />
+                                            <Border Classes="MiniTileCell" />
+                                            <Border Classes="MiniTileCell" />
+                                            <Border Classes="MiniTileCell" />
+                                            <Border Classes="MiniTileCell" />
+                                            <Border Classes="MiniTileCell" />
+                                            <Border Classes="MiniTileCell" />
+                                            <Border Classes="MiniTileCell" />
+                                            <Border Classes="MiniTileCell" />
+                                        </UniformGrid>
+                                    </Border>
+                                    <TextBlock Text="{DynamicResource Srv_Tile4x3Short}"
+                                               FontSize="10.5" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource TextSecondaryBrush}"
+                                               HorizontalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+
+                            <!-- Cascade -->
+                            <Button Classes="TilePresetCard"
+                                    Command="{Binding ArrangeRobloxWindowsCommand}"
+                                    CommandParameter="Cascade"
+                                    ToolTip.Tip="{DynamicResource Tool_Cascade}">
+                                <StackPanel Spacing="5" HorizontalAlignment="Center">
+                                    <Border Classes="MiniTileFrame">
+                                        <Panel>
+                                            <Border Classes="MiniTileCell" Margin="1,1,16,10" Opacity="0.55" />
+                                            <Border Classes="MiniTileCell" Margin="8,5,8,5" Opacity="0.78" />
+                                            <Border Classes="MiniTileCell" Margin="16,10,1,1" />
+                                        </Panel>
+                                    </Border>
+                                    <TextBlock Text="{DynamicResource Srv_TileCascadeShort}"
+                                               FontSize="10.5" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource TextSecondaryBrush}"
+                                               HorizontalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                        </WrapPanel>
+                    </Panel>
+                </StackPanel>
+            </controls:SpotlightBorder>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

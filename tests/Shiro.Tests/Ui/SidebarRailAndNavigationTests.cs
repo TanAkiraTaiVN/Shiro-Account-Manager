@@ -48,10 +48,12 @@ namespace Shiro.Tests.Ui
             _origPreset = AccentThemeService.CurrentSurfacePreset;
             _origTheme = AccentThemeService.CurrentTheme;
             _prevWindow = MainWindow.Instance;
+            ToastService.ClearAll();
         }
 
         public void Dispose()
         {
+            ToastService.ClearAll();
             VisualPreferencesService.Instance.SidebarCollapsed = _origSidebarCollapsed;
             VisualPreferencesService.Instance.ReducedMotion = _origReducedMotion;
             AccentThemeService.ApplySurfacePreset(_origPreset, save: false);

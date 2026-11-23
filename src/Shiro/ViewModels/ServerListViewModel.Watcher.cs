@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Windows.Input;
 using Shiro.Services;
 
 namespace Shiro.ViewModels
@@ -16,6 +17,34 @@ namespace Shiro.ViewModels
         private decimal _memoryThresholdMb = RobloxWatcher.DefaultMemoryThresholdMb;
         private decimal _connectionTimeoutSec = 20;
         private string _expectedWindowTitle = "Roblox";
+        private ICommand? _fallbackArrangeCommand;
+
+        public ICommand ArrangeRobloxWindowsCommand =>
+            _mainViewModel?.ToolsStatus.ArrangeRobloxWindowsCommand
+            ?? (_fallbackArrangeCommand ??= new RelayCommand(ExecuteFallbackArrange));
+
+        private void ExecuteFallbackArrange(object? param)
+        {
+            RobloxWindowLayoutMode mode = RobloxWindowLayoutMode.AutoGrid;
+            if (param is RobloxWindowLayoutMode explicitMode)
+            {
+                mode = explicitMode;
+            }
+            else if (param is string key)
+            {
+                mode = key.Trim().ToLowerInvariant() switch
+                {
+                    "2x2" or "grid2x2" => RobloxWindowLayoutMode.Grid2x2,
+                    "3x2" or "grid3x2" => RobloxWindowLayoutMode.Grid3x2,
+                    "4x3" or "grid4x3" => RobloxWindowLayoutMode.Grid4x3,
+                    "cascade" or "cascadecorner" => RobloxWindowLayoutMode.CascadeCorner,
+                    _ => RobloxWindowLayoutMode.AutoGrid
+                };
+            }
+
+            var (_, desc) = RobloxWindowArrangerService.ArrangeWindows(mode);
+            LoadingStatus = desc;
+        }
 
         public bool WatcherEnabled
         {
