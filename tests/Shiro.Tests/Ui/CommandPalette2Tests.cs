@@ -4,12 +4,14 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Logging;
+using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using NSubstitute;
@@ -336,6 +338,142 @@ namespace Shiro.Tests.Ui
                 Assert.Equal(CommandPaletteScope.Commands, vm.CommandPalette.ActiveScope);
                 Assert.Contains("active", btnCommands.Classes);
                 Assert.All(vm.CommandPalette.CommandPaletteItems, item => Assert.True(item.IsCommand));
+
+                Assert.Empty(sink.Errors);
+            }
+            finally
+            {
+                window?.Close();
+                Dispatcher.UIThread.RunJobs();
+            }
+        }
+
+        [AvaloniaFact]
+        public void CommandPalette2_Round1Regressions_RadiusPillFocusPreserveScrollAndTruncation()
+        {
+            var sink = new BindingErrorSink();
+            Logger.Sink = sink;
+            var app = Application.Current!;
+            if (!app.Resources.TryGetResource("RadiusOuter16", null, out _))
+            {
+                app.Resources.MergedDictionaries.Add((ResourceDictionary)Avalonia.Markup.Xaml.AvaloniaXamlLoader.Load(
+                    new Uri("avares://Shiro/AvaloniaUI/Styles/ThemeTokens.axaml")));
+            }
+            AccentThemeService.ApplySurfacePreset(SurfacePreset.LiquidObsidian, save: false);
+            AccentThemeService.ApplyTheme(AccentTheme.Monochrome, save: false);
+            LocalizationService.SetLanguage(AppLanguage.English, saveSetting: false);
+
+            string axamlPath = Path.Combine(
+                ArchitectureTests.RepoRoot, "src", "Shiro", "AvaloniaUI", "Views", "Panels", "CommandPaletteOverlayPanel.axaml");
+            string axamlText = File.ReadAllText(axamlPath);
+            Assert.DoesNotMatch(new Regex(@"CornerRadius=""[0-9]"), axamlText);
+            Assert.Contains("CornerRadius=\"{StaticResource RadiusPill}\"", axamlText, StringComparison.Ordinal);
+
+            var store = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
+            {
+                [AppSettingsKeys.General.HasAcceptedRiskDisclaimer] = "true"
+            };
+            using var dataDirScope = StoragePaths.OverrideDataDirectoryForTesting(_tempDir);
+            using var settingsScope = AppServices.Override<ISettingsService>(CreateMockSettings(store));
+            using var repoScope = AppServices.Override<IAccountRepository>(CreateMockRepo(
+                new Account { UserID = 801, Username = "PillPlayer", Valid = true, SecurityToken = "t801" }));
+
+            MainWindow? window = null;
+            try
+            {
+                window = new MainWindow();
+                window.Show();
+                Dispatcher.UIThread.RunJobs();
+
+                var overlayPanel = window.FindControl<CommandPaletteOverlayPanel>("ViewCommandPalette")!;
+                var vm = window.ViewModel!;
+                vm.CommandPalette.IsCommandPaletteOpen = true;
+                Dispatcher.UIThread.RunJobs();
+
+                // 1. RadiusPill applied on 32x32 row avatar and 52x52 preview avatar
+                vm.CommandPalette.ActiveScope = CommandPaletteScope.Accounts;
+                Dispatcher.UIThread.RunJobs();
+                var pillBorders = overlayPanel.GetVisualDescendants().OfType<Border>()
+                    .Where(b => b.CornerRadius == new CornerRadius(999)).ToList();
+                Assert.Contains(pillBorders, b => Math.Abs(b.Width - 32) < 0.1 && Math.Abs(b.Height - 32) < 0.1);
+                Assert.Contains(pillBorders, b => Math.Abs(b.Width - 52) < 0.1 && Math.Abs(b.Height - 52) < 0.1);
+
+                // 2. Scope chips are Focusable=False and preserve SearchTextBox focus
+                var btnAll = overlayPanel.FindControl<Button>("BtnScopeAll")!;
+                var btnAccounts = overlayPanel.FindControl<Button>("BtnScopeAccounts")!;
+                var btnCommands = overlayPanel.FindControl<Button>("BtnScopeCommands")!;
+                Assert.False(btnAll.Focusable);
+                Assert.False(btnAccounts.Focusable);
+                Assert.False(btnCommands.Focusable);
+
+                overlayPanel.SearchTextBox!.Focus();
+                Dispatcher.UIThread.RunJobs();
+                Assert.True(overlayPanel.SearchTextBox.IsFocused);
+
+                Assert.False(btnCommands.Focus());
+                btnCommands.Command!.Execute(btnCommands.CommandParameter);
+                Dispatcher.UIThread.RunJobs();
+                Assert.True(overlayPanel.SearchTextBox.IsFocused);
+                Assert.Equal(CommandPaletteScope.Commands, vm.CommandPalette.ActiveScope);
+
+                // 3. Arrow navigation scrolls ResultsScrollViewer via BringIntoView()
+                var scrollViewer = overlayPanel.FindControl<ScrollViewer>("ResultsScrollViewer")!;
+                Assert.Equal(0.0, scrollViewer.Offset.Y);
+                for (int i = 0; i < 12; i++)
+                {
+                    overlayPanel.SearchTextBox.RaiseEvent(new KeyEventArgs
+                    {
+                        RoutedEvent = InputElement.KeyDownEvent,
+                        Key = Key.Down
+                    });
+                }
+                Dispatcher.UIThread.RunJobs();
+                Assert.True(scrollViewer.Offset.Y > 0.0, $"Expected scrolled offset > 0, got {scrollViewer.Offset.Y}");
+
+                for (int i = 0; i < 12; i++)
+                {
+                    overlayPanel.SearchTextBox.RaiseEvent(new KeyEventArgs
+                    {
+                        RoutedEvent = InputElement.KeyDownEvent,
+                        Key = Key.Up
+                    });
+                }
+                Dispatcher.UIThread.RunJobs();
+                Assert.Equal(0.0, scrollViewer.Offset.Y);
+
+                // 4. Long title uses Grid truncation and preserves Category + RECENT badges inside bounds
+                vm.CommandPalette.CommandPaletteItems.Insert(0, new CommandPaletteItemViewModel
+                {
+                    CommandId = "test.long",
+                    IsRecent = true,
+                    ItemType = CommandPaletteItemType.Command,
+                    Title = "Re-login all expired accounts across every workspace batch and audit long sessions immediately",
+                    Category = "Accounts",
+                    Description = "Long title truncation verification",
+                    ActionBadge = "Run [Enter]"
+                });
+                vm.CommandPalette.SetSelectedCommandPaletteIndex(0);
+                Dispatcher.UIThread.RunJobs();
+
+                var itemsControl = overlayPanel.FindControl<ItemsControl>("CommandPaletteItemsControl")!;
+                var firstContainer = itemsControl.ContainerFromIndex(0);
+                Assert.NotNull(firstContainer);
+                var titleGrid = firstContainer!.GetVisualDescendants().OfType<Grid>()
+                    .FirstOrDefault(g => g.ColumnDefinitions.Count == 3 && g.ColumnDefinitions[0].Width.IsStar);
+                Assert.NotNull(titleGrid);
+
+                var titleBlock = titleGrid!.Children.OfType<TextBlock>().FirstOrDefault();
+                Assert.NotNull(titleBlock);
+                Assert.Equal(TextTrimming.CharacterEllipsis, titleBlock!.TextTrimming);
+
+                var badges = titleGrid.Children.OfType<Border>().Where(b => b.IsVisible).ToList();
+                Assert.Equal(2, badges.Count);
+                Assert.All(badges, badge =>
+                {
+                    Assert.True(badge.Bounds.Width > 0.0);
+                    Assert.True(badge.Bounds.Right <= titleGrid.Bounds.Width + 0.5,
+                        $"Badge clipped past row width: {badge.Bounds.Right} > {titleGrid.Bounds.Width}");
+                });
 
                 Assert.Empty(sink.Errors);
             }

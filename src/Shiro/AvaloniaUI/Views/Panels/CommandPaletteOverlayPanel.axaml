@@ -14,6 +14,7 @@
       <Setter Property="FontSize" Value="11" />
       <Setter Property="FontWeight" Value="SemiBold" />
       <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="Focusable" Value="False" />
       <Setter Property="Template">
         <ControlTemplate>
           <Border Name="PART_ChipBorder" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
@@ -47,7 +48,7 @@
           Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
           CornerRadius="{StaticResource RadiusInner8}" Padding="10,8" VerticalContentAlignment="Center" FontSize="13" />
         <Button Grid.Column="2" Classes="StudioIconBtn" Width="28" Height="28" Margin="8,0,0,0"
-          Click="OnCloseCommandPaletteClicked" ToolTip.Tip="{DynamicResource Btn_Close}">
+          Focusable="False" Click="OnCloseCommandPaletteClicked" ToolTip.Tip="{DynamicResource Btn_Close}">
           <lucide:Lucide Icon="X" Width="14" Height="14" StrokeBrush="{DynamicResource TextMutedBrush}" />
         </Button>
       </Grid>
@@ -69,8 +70,8 @@
       <Border Grid.Row="3" Height="1" Background="{DynamicResource BorderHairlineBrush}" />
       <Grid Grid.Row="4" ColumnDefinitions="430,13,260" Margin="7,10">
         <Panel Grid.Column="0">
-          <ScrollViewer MaxHeight="346" Padding="2,0">
-            <ItemsControl ItemsSource="{Binding CommandPaletteItems}">
+          <ScrollViewer x:Name="ResultsScrollViewer" MaxHeight="346" Padding="2,0">
+            <ItemsControl x:Name="CommandPaletteItemsControl" ItemsSource="{Binding CommandPaletteItems}">
               <ItemsControl.ItemTemplate>
                 <DataTemplate x:DataType="vm:CommandPaletteItemViewModel">
                   <Border MinHeight="46" Background="{Binding RowBackground}" BorderBrush="{Binding RowBorder}" BorderThickness="1"
@@ -83,7 +84,7 @@
                           <Path Data="{Binding IconGeometry}" Width="15" Height="15" Stretch="Uniform" Stroke="{Binding IconBrush}"
                             StrokeThickness="1.9" StrokeLineCap="Round" StrokeJoin="Round" HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
-                        <Border IsVisible="{Binding IsAccount}" Width="32" Height="32" CornerRadius="16"
+                        <Border IsVisible="{Binding IsAccount}" Width="32" Height="32" CornerRadius="{StaticResource RadiusPill}"
                           Background="{DynamicResource SurfaceSubtleChipBrush}" ClipToBounds="True">
                           <Panel>
                             <TextBlock Text="{Binding Initials}" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource TextMutedBrush}"
@@ -93,18 +94,19 @@
                         </Border>
                       </Panel>
                       <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
-                        <StackPanel Orientation="Horizontal" Spacing="6">
-                          <TextBlock Text="{Binding Title}" FontWeight="SemiBold" FontSize="12.5" TextTrimming="CharacterEllipsis"
-                            Foreground="{DynamicResource TextPrimaryBrush}" />
-                          <Border Background="{Binding CategoryBackground}" CornerRadius="{StaticResource RadiusChip6}" Padding="5,1" VerticalAlignment="Center">
+                        <Grid ColumnDefinitions="*,Auto,Auto" HorizontalAlignment="Left">
+                          <TextBlock Grid.Column="0" Text="{Binding Title}" FontWeight="SemiBold" FontSize="12.5"
+                            TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}" />
+                          <Border Grid.Column="1" Background="{Binding CategoryBackground}" CornerRadius="{StaticResource RadiusChip6}"
+                            Padding="5,1" Margin="6,0,0,0" VerticalAlignment="Center">
                             <TextBlock Text="{Binding Category}" FontSize="9.5" FontWeight="Bold" Foreground="{Binding CategoryForeground}" />
                           </Border>
-                          <Border IsVisible="{Binding IsRecent}" Background="{DynamicResource AccentSoftFillBrush}"
+                          <Border Grid.Column="2" IsVisible="{Binding IsRecent}" Background="{DynamicResource AccentSoftFillBrush}"
                             BorderBrush="{DynamicResource AccentBorderBrush}" BorderThickness="1" CornerRadius="{StaticResource RadiusChip6}"
-                            Padding="5,1" VerticalAlignment="Center">
+                            Padding="5,1" Margin="6,0,0,0" VerticalAlignment="Center">
                             <TextBlock Text="{DynamicResource Palette.RecentBadge}" FontSize="8.5" FontWeight="Bold" Foreground="{DynamicResource AccentBrush}" />
                           </Border>
-                        </StackPanel>
+                        </Grid>
                         <TextBlock Text="{Binding Description}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" />
                       </StackPanel>
                       <Border Grid.Column="2" Background="{DynamicResource SurfaceSubtleChipBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
@@ -143,7 +145,7 @@
                             <Path Data="{Binding IconGeometry}" Width="24" Height="24" Stretch="Uniform" Stroke="{Binding IconBrush}"
                               StrokeThickness="1.9" StrokeLineCap="Round" StrokeJoin="Round" HorizontalAlignment="Center" VerticalAlignment="Center" />
                           </Border>
-                          <Border IsVisible="{Binding IsAccount}" Width="52" Height="52" CornerRadius="26" ClipToBounds="True"
+                          <Border IsVisible="{Binding IsAccount}" Width="52" Height="52" CornerRadius="{StaticResource RadiusPill}" ClipToBounds="True"
                             Background="{DynamicResource SurfaceSubtleChipBrush}" BorderBrush="{DynamicResource AccentBorderBrush}" BorderThickness="1">
                             <Panel>
                               <TextBlock Text="{Binding Initials}" FontSize="19" FontWeight="Bold" Foreground="{DynamicResource TextMutedBrush}"
