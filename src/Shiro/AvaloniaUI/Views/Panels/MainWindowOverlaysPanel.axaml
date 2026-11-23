@@ -223,79 +223,99 @@
                         <Panel>
                             <Border Background="{Binding AuraBrush}"
                                     IsHitTestVisible="False" />
-                            <Border BorderBrush="{DynamicResource BorderTopRimBrush}"
-                                    BorderThickness="1"
-                                    CornerRadius="14"
+                            <Border Height="1"
+                                    VerticalAlignment="Top"
+                                    Margin="18,0,18,0"
+                                    Background="{Binding TopSpecularBrush}"
                                     IsHitTestVisible="False" />
-                            <Grid Margin="14,13,12,14"
-                                  ColumnDefinitions="Auto,*,Auto">
-                                <Border Grid.Column="0"
-                                        Width="32" Height="32"
-                                        CornerRadius="16"
-                                        Background="{Binding BadgeBackground}"
-                                        BorderBrush="{Binding BadgeBorderBrush}"
-                                        BorderThickness="1"
-                                        VerticalAlignment="Top"
-                                        Margin="0,1,12,0">
-                                    <Path Data="{Binding IconGeometry}"
-                                          Width="14" Height="14"
-                                          Stretch="Uniform"
-                                          Stroke="{Binding AccentBrush}"
-                                          StrokeThickness="2.2"
-                                          StrokeLineCap="Round"
-                                          StrokeJoin="Round"
-                                          HorizontalAlignment="Center"
-                                          VerticalAlignment="Center" />
-                                </Border>
-                                <StackPanel Grid.Column="1"
-                                            Spacing="3"
-                                            VerticalAlignment="Center">
-                                    <TextBlock Text="{Binding Title}"
+                            <Grid RowDefinitions="*,Auto">
+                                <Grid Grid.Row="0"
+                                      Margin="14,12,12,11"
+                                      RowDefinitions="Auto,Auto,Auto"
+                                      ColumnDefinitions="Auto,*,Auto">
+                                    <Border Grid.Row="0"
+                                            Grid.Column="0"
+                                            Width="24" Height="24"
+                                            CornerRadius="12"
+                                            Background="{Binding BadgeBackground}"
+                                            BorderBrush="{Binding BadgeBorderBrush}"
+                                            BorderThickness="1"
+                                            VerticalAlignment="Center"
+                                            Margin="0,0,10,0">
+                                        <Path Data="{Binding IconGeometry}"
+                                              Width="12" Height="12"
+                                              Stretch="Uniform"
+                                              Stroke="{Binding AccentBrush}"
+                                              StrokeThickness="2.1"
+                                              StrokeLineCap="Round"
+                                              StrokeJoin="Round"
+                                              HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" />
+                                    </Border>
+                                    <TextBlock Grid.Row="0"
+                                               Grid.Column="1"
+                                               Text="{Binding Title}"
                                                FontSize="12.5"
                                                FontWeight="SemiBold"
                                                Foreground="{DynamicResource TextPrimaryBrush}"
+                                               VerticalAlignment="Center"
                                                TextWrapping="Wrap"
                                                MaxLines="2"
                                                LineHeight="17" />
-                                    <TextBlock Text="{Binding Message}"
+                                    <Button Grid.Row="0"
+                                            Grid.Column="2"
+                                            Classes="ToastCloseBtn"
+                                            Command="{Binding DismissCommand}"
+                                            Margin="8,0,0,0"
+                                            VerticalAlignment="Center"
+                                            ToolTip.Tip="{DynamicResource Btn_Close}">
+                                        <Path Data="{StaticResource GeoClose}"
+                                              Width="9" Height="9"
+                                              Stretch="Uniform"
+                                              Stroke="{DynamicResource TextMutedBrush}"
+                                              StrokeThickness="1.9"
+                                              StrokeLineCap="Round"
+                                              StrokeJoin="Round" />
+                                    </Button>
+                                    <TextBlock Grid.Row="1"
+                                               Grid.Column="1"
+                                               Grid.ColumnSpan="2"
+                                               Text="{Binding Message}"
                                                IsVisible="{Binding HasMessage}"
+                                               Margin="0,5,6,0"
                                                FontSize="11.5"
                                                Foreground="{DynamicResource TextSecondaryBrush}"
                                                TextWrapping="Wrap"
                                                MaxLines="6"
-                                               LineHeight="16.5" />
-                                    <Button Classes="StudioSecondaryBtn"
+                                               LineHeight="17" />
+                                    <Button Grid.Row="2"
+                                            Grid.Column="1"
+                                            Grid.ColumnSpan="2"
+                                            Classes="StudioSecondaryBtn"
                                             Content="{Binding ActionText}"
                                             Command="{Binding ActionCommand}"
                                             IsVisible="{Binding HasAction}"
                                             CornerRadius="8"
-                                            Margin="0,7,0,0"
+                                            Margin="0,8,0,0"
                                             Padding="10,4"
                                             FontSize="11"
                                             HorizontalAlignment="Left" />
-                                </StackPanel>
-                                <Button Grid.Column="2"
-                                        Classes="ToastCloseBtn"
-                                        Command="{Binding DismissCommand}"
-                                        Margin="8,-2,0,0"
-                                        VerticalAlignment="Top"
-                                        ToolTip.Tip="{DynamicResource Btn_Close}">
-                                    <Path Data="{StaticResource GeoClose}"
-                                          Width="9.5" Height="9.5"
-                                          Stretch="Uniform"
-                                          Stroke="{DynamicResource TextMutedBrush}"
-                                          StrokeThickness="1.9"
-                                          StrokeLineCap="Round"
-                                          StrokeJoin="Round" />
-                                </Button>
+                                </Grid>
+                                <Border Grid.Row="1"
+                                        Height="2"
+                                        CornerRadius="1"
+                                        Margin="14,0,14,8"
+                                        Background="#14FFFFFF"
+                                        ClipToBounds="True"
+                                        IsVisible="{Binding HasAutoDismiss}"
+                                        IsHitTestVisible="False">
+                                    <controls:ToastCountdownBar Height="2"
+                                                                CornerRadius="1"
+                                                                Background="{Binding ProgressBrush}"
+                                                                DurationSeconds="{Binding DurationSeconds}"
+                                                                TimerGeneration="{Binding TimerGeneration}" />
+                                </Border>
                             </Grid>
-                            <controls:ToastCountdownBar Height="2"
-                                                        VerticalAlignment="Bottom"
-                                                        IsHitTestVisible="False"
-                                                        IsVisible="{Binding HasAutoDismiss}"
-                                                        Background="{Binding ProgressBrush}"
-                                                        DurationSeconds="{Binding DurationSeconds}"
-                                                        TimerGeneration="{Binding TimerGeneration}" />
                         </Panel>
                     </Border>
                 </DataTemplate>

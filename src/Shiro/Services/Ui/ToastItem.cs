@@ -24,6 +24,7 @@ namespace Shiro.Services
         private static readonly IBrush InfoAccentBrush = new ImmutableSolidColorBrush(Color.FromRgb(56, 189, 248));
 
         private static readonly IBrush SurfaceBgBrush = CreateSurfaceGradient();
+        private static readonly IBrush s_topSpecularBrush = CreateTopSpecularBrush();
 
         private static readonly IBrush SuccessBorderBrush = new ImmutableSolidColorBrush(Color.FromArgb(64, 74, 222, 128));
         private static readonly IBrush WarningBorderBrush = new ImmutableSolidColorBrush(Color.FromArgb(64, 251, 191, 36));
@@ -175,21 +176,37 @@ namespace Shiro.Services
                 endPoint: new RelativePoint(0.0, 1.0, RelativeUnit.Relative));
         }
 
+        private static IBrush CreateTopSpecularBrush()
+        {
+            var stops = new ImmutableGradientStop[]
+            {
+                new(0.0, Color.FromArgb(0, 255, 255, 255)),
+                new(0.25, Color.FromArgb(40, 255, 255, 255)),
+                new(0.50, Color.FromArgb(56, 255, 255, 255)),
+                new(0.75, Color.FromArgb(40, 255, 255, 255)),
+                new(1.0, Color.FromArgb(0, 255, 255, 255))
+            };
+            return new ImmutableLinearGradientBrush(
+                stops,
+                startPoint: new RelativePoint(0.0, 0.5, RelativeUnit.Relative),
+                endPoint: new RelativePoint(1.0, 0.5, RelativeUnit.Relative));
+        }
+
         private static IBrush CreateAuraBrush(byte r, byte g, byte b)
         {
             var stops = new ImmutableGradientStop[]
             {
-                new(0.0, Color.FromArgb(46, r, g, b)),
-                new(0.45, Color.FromArgb(14, r, g, b)),
+                new(0.0, Color.FromArgb(38, r, g, b)),
+                new(0.48, Color.FromArgb(11, r, g, b)),
                 new(1.0, Color.FromArgb(0, r, g, b))
             };
-            var origin = new RelativePoint(0.10, 0.48, RelativeUnit.Relative);
+            var origin = new RelativePoint(0.08, 0.26, RelativeUnit.Relative);
             return new ImmutableRadialGradientBrush(
                 stops,
                 center: origin,
                 gradientOrigin: origin,
-                radiusX: new RelativeScalar(0.58, RelativeUnit.Relative),
-                radiusY: new RelativeScalar(1.35, RelativeUnit.Relative));
+                radiusX: new RelativeScalar(0.46, RelativeUnit.Relative),
+                radiusY: new RelativeScalar(1.05, RelativeUnit.Relative));
         }
 
         private static IBrush CreateProgressBrush(byte r, byte g, byte b)
@@ -254,5 +271,7 @@ namespace Shiro.Services
             ToastType.Error => ErrorProgressBrush,
             _ => InfoProgressBrush
         };
+
+        public IBrush TopSpecularBrush => s_topSpecularBrush;
     }
 }
