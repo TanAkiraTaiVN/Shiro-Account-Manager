@@ -124,11 +124,32 @@ namespace Shiro.AvaloniaUI.Views
                 return true;
             }
 
-            if (e.Key == Key.Escape && ViewModel is { CommandPalette.IsCommandPaletteOpen: false, IsNotificationCenterOpen: true })
+            if (e.Key == Key.Escape && ViewModel is { } vm)
             {
-                ViewModel.IsNotificationCenterOpen = false;
-                e.Handled = true;
-                return true;
+                if (vm.CommandPalette.IsCommandPaletteOpen)
+                {
+                    vm.CommandPalette.IsCommandPaletteOpen = false;
+                    e.Handled = true;
+                    return true;
+                }
+                if (vm.IsNotificationCenterOpen)
+                {
+                    vm.IsNotificationCenterOpen = false;
+                    e.Handled = true;
+                    return true;
+                }
+                if (vm.Inspector.IsOpen)
+                {
+                    vm.Inspector.Close();
+                    e.Handled = true;
+                    return true;
+                }
+                if (vm.AccountsVm.HasSelection)
+                {
+                    vm.AccountsVm.ClearSelectionCommand.Execute(null);
+                    e.Handled = true;
+                    return true;
+                }
             }
 
             return false;

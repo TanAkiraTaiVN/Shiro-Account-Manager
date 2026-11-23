@@ -189,6 +189,12 @@ namespace Shiro.AvaloniaUI.Views
                 ResolveOwner()?.ViewModel.TogglePinCommand.Execute(avm);
         }
 
+        private void OnInspectClicked(object? sender, RoutedEventArgs e)
+        {
+            if (DataContext is AccountViewModel avm)
+                ResolveOwner()?.RequestInspectAccount(avm);
+        }
+
         private void OnMoreClicked(object? sender, RoutedEventArgs e)
         {
             if (sender is Control anchor && DataContext is AccountViewModel avm)

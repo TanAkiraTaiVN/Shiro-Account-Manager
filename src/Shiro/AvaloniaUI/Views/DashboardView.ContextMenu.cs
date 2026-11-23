@@ -51,6 +51,9 @@ namespace Shiro.AvaloniaUI.Views
                 command.Execute(avm);
         }
 
+        private void OnMenuInspectAccount(object sender, RoutedEventArgs e)
+            => RequestInspectAccount(GetItemFromMenu(sender));
+
         private void OnMenuLaunchHome(object sender, RoutedEventArgs e)
             => ExecuteMenuCommand(sender, ViewModel.LaunchBar.LaunchAccountCommand);
 

@@ -66,6 +66,8 @@ namespace Shiro.AvaloniaUI.Views
 
         private void WireViewModelCallbacks()
         {
+            AccountInspectRequested += (_, avm) => ViewModel.Inspector.Open(avm);
+
             ViewModel.AccountsVm.AvailableGroups.CollectionChanged += (_, _) =>
             {
                 AppDispatcher.Post(() =>
@@ -119,6 +121,11 @@ namespace Shiro.AvaloniaUI.Views
         public List<Account> GetSelectedAccounts()
         {
             return ViewModel?.AccountsVm.GetSelectedAccounts() ?? new List<Account>();
+        }
+
+        internal void RequestInspectAccount(AccountViewModel? avm)
+        {
+            if (avm != null) AccountInspectRequested?.Invoke(this, avm);
         }
 
         public void LoadDashboardData(IReadOnlyList<Account>? accountsSnapshot = null)

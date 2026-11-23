@@ -222,6 +222,25 @@ namespace Shiro
         internal void CopyHbaAndFingerprintTo(Account target) =>
             RobloxHbaService.CopyHbaAndFingerprint(this, target);
 
+        internal Account CloneSnapshotForUndo()
+        {
+            using (BeginSuppressDeferredSaveScope())
+            {
+                return new Account
+                {
+                    Username = Username, UserID = UserID, Valid = Valid, Pinned = Pinned,
+                    Alias = Alias, Group = Group, Description = Description, Proxy = Proxy,
+                    RobuxBalance = RobuxBalance, PendingRobux = PendingRobux, BrowserTrackerID = BrowserTrackerID,
+                    LastUse = LastUse, LastAttemptedRefresh = LastAttemptedRefresh, LastEconomyCheck = LastEconomyCheck,
+                    SecurityToken = SecurityToken, Password = Password, HbaPrivateKey = HbaPrivateKey,
+                    HbaPublicKey = HbaPublicKey, HbaTemplate = HbaTemplate, SessionUserAgent = SessionUserAgent,
+                    LastBoundIpSignature = LastBoundIpSignature, AccountStatusIssue = AccountStatusIssue,
+                    Fields = GetPublicFieldsSnapshot(),
+                    IsDirty = true
+                };
+            }
+        }
+
         internal async Task<T> RunWithSessionGateAsync<T>(Func<Task<T>> action, CancellationToken cancellationToken = default)
         {
             await _sessionGate.WaitAsync(cancellationToken).ConfigureAwait(false);

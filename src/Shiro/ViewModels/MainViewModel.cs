@@ -79,6 +79,7 @@ namespace Shiro.ViewModels
                 tryGetAccountVm: acc => AccountsVm.TryGetAccountViewModel(acc));
 
             CommandPalette = new CommandPaletteViewModel(this);
+            Inspector = new AccountInspectorViewModel(_accountRepository, AccountsVm, LaunchBar, msg => ToolsStatus.StatusMessage = msg, _logger);
             ServerListViewModel = new ServerListViewModel(this, _logger, _settings);
 
             NavigateToAccountsCommand = new RelayCommand(() => CurrentPage = NavigationPage.Accounts);
@@ -97,6 +98,7 @@ namespace Shiro.ViewModels
         public LaunchBarViewModel LaunchBar { get; }
         public ToolsStatusViewModel ToolsStatus { get; }
         public CommandPaletteViewModel CommandPalette { get; }
+        public AccountInspectorViewModel Inspector { get; }
         public ServerListViewModel ServerListViewModel { get; private set; }
 
         public ICommand NavigateToAccountsCommand { get; }
@@ -205,6 +207,7 @@ namespace Shiro.ViewModels
                 LaunchBar.NotifyLanguageChanged();
                 ToolsStatus.NotifyLanguageChanged();
                 CommandPalette.NotifyLanguageChanged();
+                Inspector.NotifyLanguageChanged();
             });
         }
 
@@ -236,6 +239,7 @@ namespace Shiro.ViewModels
             AccountsVm.Dispose();
             LaunchBar.Dispose();
             ToolsStatus.Dispose();
+            Inspector.Dispose();
             ServerListViewModel?.Dispose();
             GC.SuppressFinalize(this);
         }

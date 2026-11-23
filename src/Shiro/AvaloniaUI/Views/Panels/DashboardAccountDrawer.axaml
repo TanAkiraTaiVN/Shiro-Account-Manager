@@ -1,0 +1,351 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:controls="clr-namespace:Shiro.AvaloniaUI.Controls"
+             xmlns:vm="clr-namespace:Shiro.ViewModels"
+             xmlns:lucide="clr-namespace:LucideAvalonia;assembly=LucideAvalonia"
+             mc:Ignorable="d"
+             x:Class="Shiro.AvaloniaUI.Views.Panels.DashboardAccountDrawer"
+             x:DataType="vm:AccountInspectorViewModel"
+             x:CompileBindings="True"
+             IsVisible="{Binding IsOpen}"
+             IsHitTestVisible="{Binding IsOpen}"
+             Width="340">
+    <controls:SkiaGlassSurface x:Name="DrawerGlass"
+                               Width="340"
+                               BlurSigma="20"
+                               NoiseOpacity="0.024"
+                               SpecularHighlightOpacity="0.22"
+                               EnablePointerSpecular="True"
+                               TintBrush="#D812121C"
+                               BorderBrush="{DynamicResource BorderStrongBrush}"
+                               BorderThickness="1"
+                               CornerRadius="{StaticResource RadiusOuter16}"
+                               BoxShadow="{StaticResource ShadowFloating}"
+                               ClipToBounds="True">
+        <Grid x:Name="DrawerContentHost" RowDefinitions="Auto,*,Auto">
+            <!-- Identity Header -->
+            <Border Grid.Row="0"
+                    BorderBrush="{DynamicResource BorderHairlineBrush}"
+                    BorderThickness="0,0,0,1"
+                    Padding="14,12,12,12">
+                <StackPanel Spacing="10">
+                    <Grid ColumnDefinitions="*,Auto,Auto">
+                        <TextBlock Grid.Column="0"
+                                   Classes="SectionKicker"
+                                   Text="{DynamicResource Inspector_Title}"
+                                   VerticalAlignment="Center" />
+                        <Button Grid.Column="1"
+                                Classes="StudioIconBtn"
+                                Width="26" Height="26"
+                                Command="{Binding TogglePinCommand}"
+                                Opacity="{Binding PinOpacity}"
+                                ToolTip.Tip="{DynamicResource Inspector_PinTip}">
+                            <Path Data="{StaticResource GeoPin}"
+                                  Width="12" Height="12" Stretch="Uniform"
+                                  Stroke="{Binding PinIconStroke}"
+                                  StrokeThickness="1.7"
+                                  StrokeLineCap="Round" StrokeJoin="Round" />
+                        </Button>
+                        <Button Grid.Column="2"
+                                x:Name="BtnCloseInspector"
+                                Classes="StudioIconBtn"
+                                Width="26" Height="26"
+                                Margin="4,0,0,0"
+                                Command="{Binding CloseCommand}"
+                                ToolTip.Tip="{DynamicResource Inspector_CloseTip}">
+                            <lucide:Lucide Icon="X" Width="13" Height="13"
+                                           StrokeBrush="{DynamicResource TextMutedBrush}" />
+                        </Button>
+                    </Grid>
+
+                    <ContentControl Content="{Binding InspectedAccount}"
+                                    HorizontalContentAlignment="Stretch">
+                        <ContentControl.ContentTemplate>
+                            <DataTemplate x:DataType="vm:AccountViewModel">
+                                <Grid ColumnDefinitions="Auto,*">
+                                    <Panel Grid.Column="0" Width="46" Height="46" Margin="0,0,11,0">
+                                        <Border Width="46" Height="46"
+                                                CornerRadius="{StaticResource RadiusPill}"
+                                                Background="{DynamicResource SurfaceElevatedBrush}"
+                                                BorderBrush="{DynamicResource BorderHoverBrush}"
+                                                BorderThickness="1" ClipToBounds="True">
+                                            <Panel>
+                                                <TextBlock Text="{Binding Initials}"
+                                                           FontSize="16" FontWeight="Bold"
+                                                           Foreground="{DynamicResource TextMutedBrush}"
+                                                           HorizontalAlignment="Center"
+                                                           VerticalAlignment="Center" />
+                                                <Image Source="{Binding AvatarImage}"
+                                                       Stretch="UniformToFill"
+                                                       RenderOptions.BitmapInterpolationMode="MediumQuality" />
+                                            </Panel>
+                                        </Border>
+                                        <Border Width="46" Height="46"
+                                                CornerRadius="{StaticResource RadiusPill}"
+                                                BorderBrush="{DynamicResource StatusSuccessBrush}"
+                                                BorderThickness="1.5"
+                                                IsVisible="{Binding IsInGame}"
+                                                IsHitTestVisible="False" />
+                                    </Panel>
+
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center"
+                                                Spacing="3" ClipToBounds="True">
+                                        <TextBlock Text="{Binding PrimaryTitle}"
+                                                   FontSize="14" FontWeight="Bold"
+                                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                                   TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Classes="TabularNum"
+                                                   Text="{Binding SecondaryTitle}"
+                                                   FontSize="11"
+                                                   Foreground="{DynamicResource TextMutedBrush}"
+                                                   TextTrimming="CharacterEllipsis" />
+                                        <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,2,0,0">
+                                            <Border Background="{Binding StatusBadgeBackground}"
+                                                    BorderBrush="{Binding StatusBadgeBorder}"
+                                                    BorderThickness="1"
+                                                    CornerRadius="{StaticResource RadiusChip6}"
+                                                    Padding="6,2" VerticalAlignment="Center">
+                                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                                    <controls:StatusPulseDot
+                                                        DotBrush="{Binding StatusBadgeForeground}"
+                                                        DotSize="5.5"
+                                                        IsPulsing="{Binding IsInGame}"
+                                                        VerticalAlignment="Center" />
+                                                    <TextBlock Text="{Binding StatusText}"
+                                                               FontSize="10" FontWeight="SemiBold"
+                                                               Foreground="{Binding StatusBadgeForeground}"
+                                                               TextTrimming="CharacterEllipsis"
+                                                               MaxWidth="132" />
+                                                </StackPanel>
+                                            </Border>
+                                            <TextBlock Classes="TabularNum"
+                                                       Text="{Binding RobuxFormatted}"
+                                                       IsVisible="{Binding HasRobux}"
+                                                       FontSize="11" FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource StatusWarningBrush}"
+                                                       VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Grid>
+                            </DataTemplate>
+                        </ContentControl.ContentTemplate>
+                    </ContentControl>
+                </StackPanel>
+            </Border>
+
+            <!-- Scrollable Diagnostics & Inline Edit Form -->
+            <ScrollViewer x:Name="DrawerScrollViewer" Grid.Row="1"
+                          HorizontalScrollBarVisibility="Disabled"
+                          VerticalScrollBarVisibility="Auto">
+                <StackPanel Spacing="10" Margin="12,11">
+                    <!-- Session Health Section -->
+                    <Border Background="{DynamicResource SurfacePanelBrush}"
+                            BorderBrush="{DynamicResource BorderHairlineBrush}"
+                            BorderThickness="1"
+                            CornerRadius="{StaticResource RadiusMid12}"
+                            Padding="11,10">
+                        <StackPanel Spacing="8">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock Grid.Column="0" Classes="SectionKicker"
+                                           Text="{DynamicResource Inspector_SessionSection}"
+                                           VerticalAlignment="Center" />
+                                <Border Grid.Column="1"
+                                        Background="{Binding SessionHealthBackground}"
+                                        BorderBrush="{Binding SessionHealthBorder}"
+                                        BorderThickness="1"
+                                        CornerRadius="{StaticResource RadiusChip6}"
+                                        Padding="7,2">
+                                    <TextBlock Text="{Binding SessionHealthLabel}"
+                                               FontSize="10" FontWeight="Bold"
+                                               Foreground="{Binding SessionHealthForeground}" />
+                                </Border>
+                            </Grid>
+                            <TextBlock Classes="TabularNum"
+                                       Text="{Binding SessionDetailText}"
+                                       FontSize="11"
+                                       Foreground="{DynamicResource TextSecondaryBrush}" />
+                            <Grid ColumnDefinitions="*,6,*,6,*">
+                                <Button Grid.Column="0" Classes="StudioSecondaryBtn"
+                                        Command="{Binding ValidateSessionCommand}"
+                                        Padding="6,6" FontSize="11">
+                                    <StackPanel Orientation="Horizontal" Spacing="4">
+                                        <lucide:Lucide Icon="ShieldCheck" Width="12" Height="12"
+                                                       StrokeBrush="{DynamicResource StatusInfoBrush}" />
+                                        <TextBlock Text="{DynamicResource Inspector_ValidateBtn}" />
+                                    </StackPanel>
+                                </Button>
+                                <Button Grid.Column="2" Classes="StudioSecondaryBtn"
+                                        Command="{Binding ReLoginCommand}"
+                                        Padding="6,6" FontSize="11">
+                                    <StackPanel Orientation="Horizontal" Spacing="4">
+                                        <lucide:Lucide Icon="LogIn" Width="12" Height="12"
+                                                       StrokeBrush="{DynamicResource StatusWarningBrush}" />
+                                        <TextBlock Text="{DynamicResource Inspector_ReLoginBtn}" />
+                                    </StackPanel>
+                                </Button>
+                                <Button Grid.Column="4" Classes="StudioSecondaryBtn"
+                                        Command="{Binding RefreshRobuxCommand}"
+                                        Padding="6,6" FontSize="11">
+                                    <StackPanel Orientation="Horizontal" Spacing="4">
+                                        <lucide:Lucide Icon="Coins" Width="12" Height="12"
+                                                       StrokeBrush="{DynamicResource StatusWarningBrush}" />
+                                        <TextBlock Text="{DynamicResource Inspector_RobuxBtn}" />
+                                    </StackPanel>
+                                </Button>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Inline Edit Fields Section -->
+                    <Border Background="{DynamicResource SurfacePanelBrush}"
+                            BorderBrush="{DynamicResource BorderHairlineBrush}"
+                            BorderThickness="1"
+                            CornerRadius="{StaticResource RadiusMid12}"
+                            Padding="11,10">
+                        <StackPanel Spacing="9">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock Grid.Column="0" Classes="SectionKicker"
+                                           Text="{DynamicResource Inspector_EditSection}"
+                                           VerticalAlignment="Center" />
+                                <Ellipse Grid.Column="1" Width="6" Height="6"
+                                         Fill="{DynamicResource AccentBrush}"
+                                         IsVisible="{Binding HasUnsavedChanges}"
+                                         VerticalAlignment="Center" />
+                            </Grid>
+
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="{DynamicResource Inspector_AliasLabel}"
+                                           FontSize="11" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextSecondaryBrush}" />
+                                <TextBox x:Name="TxtEditAlias"
+                                         Text="{Binding EditAlias, Mode=TwoWay}"
+                                         MaxLength="50"
+                                         PlaceholderText="{DynamicResource Inspector_AliasPlaceholder}"
+                                         CornerRadius="{StaticResource RadiusInner8}"
+                                         Padding="9,6" FontSize="12" />
+                            </StackPanel>
+
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="{DynamicResource Inspector_GroupLabel}"
+                                           FontSize="11" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextSecondaryBrush}" />
+                                <TextBox x:Name="TxtEditGroup"
+                                         Text="{Binding EditGroup, Mode=TwoWay}"
+                                         PlaceholderText="{DynamicResource Inspector_GroupPlaceholder}"
+                                         CornerRadius="{StaticResource RadiusInner8}"
+                                         Padding="9,6" FontSize="12" />
+                            </StackPanel>
+
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="{DynamicResource Inspector_PlaceIdLabel}"
+                                           FontSize="11" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextSecondaryBrush}" />
+                                <Grid ColumnDefinitions="*,6,Auto">
+                                    <TextBox Grid.Column="0" x:Name="TxtEditSavedPlaceId"
+                                             Text="{Binding EditSavedPlaceId, Mode=TwoWay}"
+                                             PlaceholderText="{DynamicResource Inspector_PlaceIdPlaceholder}"
+                                             CornerRadius="{StaticResource RadiusInner8}"
+                                             Padding="9,6" FontSize="12" />
+                                    <Button Grid.Column="2" Classes="StudioGhostBtn"
+                                            Command="{Binding UseCurrentPlaceIdCommand}"
+                                            CornerRadius="{StaticResource RadiusInner8}"
+                                            Padding="8,6" FontSize="11"
+                                            Content="{DynamicResource Inspector_UseCurrentBtn}" />
+                                </Grid>
+                            </StackPanel>
+
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="{DynamicResource Inspector_NotesLabel}"
+                                           FontSize="11" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextSecondaryBrush}" />
+                                <TextBox x:Name="TxtEditDescription"
+                                         Text="{Binding EditDescription, Mode=TwoWay}"
+                                         PlaceholderText="{DynamicResource Inspector_NotesPlaceholder}"
+                                         AcceptsReturn="True" TextWrapping="Wrap"
+                                         MinHeight="62" MaxHeight="104" MaxLength="5000"
+                                         CornerRadius="{StaticResource RadiusInner8}"
+                                         Padding="9,7" FontSize="12" />
+                            </StackPanel>
+
+                            <Border IsVisible="{Binding HasValidationError}"
+                                    Background="{DynamicResource StatusDangerBgBrush}"
+                                    BorderBrush="{DynamicResource StatusDangerBorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="{StaticResource RadiusInner8}"
+                                    Padding="8,6">
+                                <TextBlock Text="{Binding ValidationError}"
+                                           FontSize="11" TextWrapping="Wrap"
+                                           Foreground="{DynamicResource StatusDangerBrush}" />
+                            </Border>
+
+                            <Grid ColumnDefinitions="*,8,Auto">
+                                <Button Grid.Column="0" x:Name="BtnSaveInspector"
+                                        Classes="StudioPrimaryBtn"
+                                        Command="{Binding SaveInlineChangesCommand}"
+                                        CornerRadius="{StaticResource RadiusInner8}"
+                                        Padding="12,7">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <lucide:Lucide Icon="Save" Width="13" Height="13"
+                                                       StrokeBrush="{DynamicResource AccentForegroundBrush}" />
+                                        <TextBlock Text="{DynamicResource Inspector_SaveBtn}"
+                                                   Foreground="{DynamicResource AccentForegroundBrush}" />
+                                    </StackPanel>
+                                </Button>
+                                <Button Grid.Column="2" Classes="StudioSecondaryBtn"
+                                        Command="{Binding ResetEditsCommand}"
+                                        IsEnabled="{Binding HasUnsavedChanges}"
+                                        CornerRadius="{StaticResource RadiusInner8}"
+                                        Padding="10,7"
+                                        Content="{DynamicResource Inspector_ResetBtn}" />
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- Quick Actions Footer -->
+            <Border Grid.Row="2"
+                    BorderBrush="{DynamicResource BorderHairlineBrush}"
+                    BorderThickness="0,1,0,0"
+                    Padding="12,10">
+                <Grid ColumnDefinitions="*,6,Auto,6,Auto">
+                    <Button Grid.Column="0" Classes="StudioSecondaryBtn"
+                            Command="{Binding PrimaryActionCommand}"
+                            CornerRadius="{StaticResource RadiusInner8}"
+                            Padding="10,7">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <lucide:Lucide Icon="Play" Width="12" Height="12"
+                                           StrokeBrush="{DynamicResource AccentBrush}" />
+                            <TextBlock Text="{Binding PrimaryActionLabel}" />
+                        </StackPanel>
+                    </Button>
+                    <Button Grid.Column="2" Classes="StudioSecondaryBtn"
+                            Command="{Binding CopyUserIdCommand}"
+                            CornerRadius="{StaticResource RadiusInner8}"
+                            Padding="9,7"
+                            ToolTip.Tip="{DynamicResource Inspector_CopyIdTip}">
+                        <StackPanel Orientation="Horizontal" Spacing="5">
+                            <lucide:Lucide Icon="Copy" Width="12" Height="12"
+                                           StrokeBrush="{DynamicResource TextSecondaryBrush}" />
+                            <TextBlock Text="{DynamicResource Inspector_CopyId}" />
+                        </StackPanel>
+                    </Button>
+                    <Button Grid.Column="4" x:Name="BtnDeleteWithUndo"
+                            Classes="StudioDangerBtn"
+                            Command="{Binding DeleteWithUndoCommand}"
+                            CornerRadius="{StaticResource RadiusInner8}"
+                            Padding="9,7"
+                            ToolTip.Tip="{DynamicResource Inspector_DeleteTip}">
+                        <StackPanel Orientation="Horizontal" Spacing="5">
+                            <lucide:Lucide Icon="Trash" Width="12" Height="12"
+                                           StrokeBrush="{DynamicResource StatusDangerBrush}" />
+                            <TextBlock Text="{DynamicResource Inspector_DeleteBtn}" />
+                        </StackPanel>
+                    </Button>
+                </Grid>
+            </Border>
+        </Grid>
+    </controls:SkiaGlassSurface>
+</UserControl>
