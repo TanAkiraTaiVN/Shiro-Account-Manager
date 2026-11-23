@@ -48,6 +48,8 @@ namespace Shiro.Services
                     changed = _surfacePreset != normalized;
                     _surfacePreset = normalized;
                 }
+                if (AccentThemeService.CurrentSurfacePreset != normalized)
+                    AccentThemeService.ApplySurfacePreset(normalized, save: false);
                 if (changed)
                     PreferencesChanged?.Invoke();
             }
@@ -156,6 +158,15 @@ namespace Shiro.Services
 
         public void Load()
         {
+            LoadPreferencesOnly();
+            SurfacePreset preset = SurfacePreset;
+            if (AccentThemeService.CurrentSurfacePreset != preset)
+                AccentThemeService.ApplySurfacePreset(preset, save: false);
+            PreferencesChanged?.Invoke();
+        }
+
+        internal void LoadPreferencesOnly()
+        {
             SurfacePreset preset = SurfacePreset.LiquidObsidian;
             UiDensityMode density = UiDensityMode.Balanced;
             bool glass = true;
@@ -187,9 +198,6 @@ namespace Shiro.Services
                 _reducedMotion = reducedMotion;
                 _sidebarCollapsed = sidebarCollapsed;
             }
-
-            AccentThemeService.ApplySurfacePreset(preset, save: false);
-            PreferencesChanged?.Invoke();
         }
 
         public void ApplyAndSave(
@@ -246,7 +254,9 @@ namespace Shiro.Services
                 AppServices.Logger?.Warn($"Failed to persist visual preferences: {ex.Message}");
             }
 
-            AccentThemeService.ApplySurfacePreset(effectivePreset, save: false);
+            if (AccentThemeService.CurrentSurfacePreset != effectivePreset)
+                AccentThemeService.ApplySurfacePreset(effectivePreset, save: false);
+
             PreferencesChanged?.Invoke();
         }
 

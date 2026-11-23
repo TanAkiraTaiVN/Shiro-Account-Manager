@@ -208,7 +208,7 @@ namespace Shiro.Services
             var (primary, textOnAccent) = EnforceApcaButtonContrast(candidate, 60.0);
 
             var (pL, pC, pH) = FromColor(primary);
-            Color hover = ToColor(Math.Clamp(pL + 0.045, 0.0, 0.96), pC, pH);
+            Color hover = DeriveAccessibleHoverColor(primary, textOnAccent, 0.045);
             Color subtle = Color.FromArgb(40, primary.R, primary.G, primary.B);
             Color borderCol = Color.FromArgb(120, primary.R, primary.G, primary.B);
             Color glow = Color.FromArgb(90, primary.R, primary.G, primary.B);
@@ -229,6 +229,24 @@ namespace Shiro.Services
                 rim,
                 ambient,
                 ambientSecondary);
+        }
+
+        public static Color DeriveAccessibleHoverColor(Color primary, Color textOnAccent, double deltaL = 0.045)
+        {
+            var (pL, pC, pH) = FromColor(primary);
+            bool isLightForeground = CalculateApcaContrast(textOnAccent, primary) < 0.0;
+            double targetL = isLightForeground
+                ? Math.Clamp(pL - deltaL, 0.15, 0.96)
+                : Math.Clamp(pL + deltaL, 0.0, 0.96);
+
+            Color hover = ToColor(targetL, pC, pH, primary.A);
+            if (Math.Abs(CalculateApcaContrast(textOnAccent, hover)) >= 60.0)
+                return hover;
+
+            double safeL = isLightForeground
+                ? FindMaxDarknessForForeground(targetL, pC, pH, textOnAccent, 60.5)
+                : FindMinLightnessForForeground(targetL, pC, pH, textOnAccent, 60.5);
+            return ToColor(safeL, pC, pH, primary.A);
         }
 
         private static double FindMinLightnessForForeground(

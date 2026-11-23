@@ -63,13 +63,37 @@ namespace Shiro.Tests.Ui
             {
                 AccentThemeService.AccentExtendedPalette palette = AccentThemeService.GetExtendedColors(theme);
                 double buttonContrast = Math.Abs(OklchColorMath.CalculateApcaContrast(palette.TextOnAccent, palette.Primary));
+                double hoverContrast = Math.Abs(OklchColorMath.CalculateApcaContrast(palette.TextOnAccent, palette.Hover));
                 Assert.True(
                     buttonContrast >= 60.0,
                     $"AccentTheme {theme} button APCA |Lc|={buttonContrast:F2} < 60.0");
+                Assert.True(
+                    hoverContrast >= 60.0,
+                    $"AccentTheme {theme} hover APCA |Lc|={hoverContrast:F2} < 60.0");
             }
 
             Assert.Equal(Color.FromRgb(9, 9, 11), OklchColorMath.SelectReadableForeground(Color.FromRgb(255, 255, 255)));
             Assert.Equal(Color.FromRgb(245, 245, 248), OklchColorMath.SelectReadableForeground(Color.FromRgb(18, 18, 28)));
+        }
+
+        [Theory]
+        [InlineData(37, 99, 235)]   // #2563EB
+        [InlineData(59, 130, 246)]  // #3B82F6
+        [InlineData(0, 120, 255)]   // Vivid blue
+        [InlineData(245, 158, 11)]  // Gold
+        [InlineData(16, 185, 129)]  // Emerald
+        [InlineData(6, 182, 212)]   // Cyan
+        [InlineData(124, 58, 237)]  // Violet
+        public void DeriveAdaptiveAccentPalette_PreservesApcaContrastOnPrimaryAndHover(byte r, byte g, byte b)
+        {
+            AccentThemeService.AccentExtendedPalette palette =
+                OklchColorMath.DeriveAdaptiveAccentPalette(Color.FromRgb(r, g, b));
+
+            double primaryContrast = Math.Abs(OklchColorMath.CalculateApcaContrast(palette.TextOnAccent, palette.Primary));
+            double hoverContrast = Math.Abs(OklchColorMath.CalculateApcaContrast(palette.TextOnAccent, palette.Hover));
+
+            Assert.True(primaryContrast >= 60.0, $"Adaptive RGB({r},{g},{b}) Primary |Lc|={primaryContrast:F2} < 60.0");
+            Assert.True(hoverContrast >= 60.0, $"Adaptive RGB({r},{g},{b}) Hover |Lc|={hoverContrast:F2} < 60.0");
         }
 
         [Fact]
@@ -130,7 +154,6 @@ namespace Shiro.Tests.Ui
             bool origTint = svc.EnableAdaptiveGameTint;
             bool origMotion = svc.ReducedMotion;
             bool origSidebar = svc.SidebarCollapsed;
-            SurfacePreset origThemePreset = AccentThemeService.CurrentSurfacePreset;
             int changedEvents = 0;
             void OnChanged() => changedEvents++;
 
@@ -189,7 +212,6 @@ namespace Shiro.Tests.Ui
                 svc.EnableAdaptiveGameTint = origTint;
                 svc.ReducedMotion = origMotion;
                 svc.SidebarCollapsed = origSidebar;
-                AccentThemeService.ApplySurfacePreset(origThemePreset, save: false);
             }
         }
 
@@ -202,11 +224,15 @@ namespace Shiro.Tests.Ui
 
             try
             {
-                Application.Current?.Resources.MergedDictionaries.Clear();
+                var app = Application.Current!;
+                app.Resources.MergedDictionaries.Clear();
+                var baseTokens = (ResourceDictionary)Avalonia.Markup.Xaml.AvaloniaXamlLoader.Load(
+                    new Uri("avares://Shiro/AvaloniaUI/Styles/ThemeTokens.axaml"));
+                app.Resources.MergedDictionaries.Add(baseTokens);
+
                 AccentThemeService.ApplyTheme(AccentTheme.Cyan, save: false);
 
                 AccentThemeService.ApplySurfacePreset(SurfacePreset.WarmGraphite, save: false);
-                var app = Application.Current!;
                 Assert.True(app.Resources.TryGetResource("SurfaceCanvasBrush", null, out object? warmRes));
                 var warmBrush = Assert.IsAssignableFrom<ISolidColorBrush>(warmRes);
                 double warmLuminance = RelativeLuminance(warmBrush.Color);
@@ -266,6 +292,81 @@ namespace Shiro.Tests.Ui
                 AccentThemeService.ApplySurfacePreset(origPreset, save: false);
                 AccentThemeService.ApplyTheme(origTheme, save: false);
                 Application.Current?.Resources.MergedDictionaries.Clear();
+            }
+        }
+
+        [Fact]
+        public void AccentThemeService_AndVisualPreferences_StaySynchronizedWithoutSpuriousEvents()
+        {
+            var store = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+            var mockSettings = Substitute.For<ISettingsService>();
+            mockSettings.Get(Arg.Any<string>()).Returns(ci =>
+                store.TryGetValue(ci.Arg<string>(), out string? val) ? val : null);
+            mockSettings.Exists(Arg.Any<string>()).Returns(ci =>
+                store.ContainsKey(ci.Arg<string>()));
+            mockSettings.When(x => x.Set(Arg.Any<string>(), Arg.Any<string?>()))
+                .Do(ci =>
+                {
+                    string key = ci.ArgAt<string>(0);
+                    string? val = ci.ArgAt<string?>(1);
+                    if (val is null) store.Remove(key);
+                    else store[key] = val;
+                });
+
+            using var scope = AppServices.Override<ISettingsService>(mockSettings);
+            var svc = VisualPreferencesService.Instance;
+            AccentTheme origTheme = AccentThemeService.CurrentTheme;
+            SurfacePreset origPreset = AccentThemeService.CurrentSurfacePreset;
+            UiDensityMode origDensity = svc.DensityMode;
+            bool origSidebar = svc.SidebarCollapsed;
+
+            var observedThemes = new List<AccentTheme>();
+            var observedPresets = new List<SurfacePreset>();
+            void OnThemeChanged(AccentTheme t) => observedThemes.Add(t);
+            void OnPresetChanged(SurfacePreset p) => observedPresets.Add(p);
+
+            try
+            {
+                AccentThemeService.ApplyTheme(AccentTheme.Cyan, save: false);
+                AccentThemeService.ApplySurfacePreset(SurfacePreset.LiquidObsidian, save: false);
+
+                AccentThemeService.ThemeChanged += OnThemeChanged;
+                AccentThemeService.SurfacePresetChanged += OnPresetChanged;
+
+                // 1. Direct property mutation keeps AccentThemeService synchronized and does not fire ThemeChanged.
+                svc.SurfacePreset = SurfacePreset.MidnightGlass;
+                Assert.Equal(SurfacePreset.MidnightGlass, AccentThemeService.CurrentSurfacePreset);
+                Assert.Empty(observedThemes);
+                Assert.Equal(new[] { SurfacePreset.MidnightGlass }, observedPresets);
+
+                // 2. Unrelated preference changes via ApplyAndSave emit zero theme/surface events.
+                observedThemes.Clear();
+                observedPresets.Clear();
+                svc.ApplyAndSave(densityMode: UiDensityMode.Compact, sidebarCollapsed: true);
+                Assert.Empty(observedThemes);
+                Assert.Empty(observedPresets);
+
+                // 3. Initialize loads both preferences cleanly in one pass without intermediate Monochrome ThemeChanged.
+                observedThemes.Clear();
+                observedPresets.Clear();
+                store[AppSettingsKeys.General.AccentTheme] = "Violet";
+                store[AppSettingsKeys.General.SurfacePreset] = "WarmGraphite";
+                AccentThemeService.Initialize();
+
+                Assert.Equal(AccentTheme.Violet, AccentThemeService.CurrentTheme);
+                Assert.Equal(SurfacePreset.WarmGraphite, AccentThemeService.CurrentSurfacePreset);
+                Assert.Equal(SurfacePreset.WarmGraphite, svc.SurfacePreset);
+                Assert.Equal(new[] { AccentTheme.Violet }, observedThemes);
+                Assert.Equal(new[] { SurfacePreset.WarmGraphite }, observedPresets);
+            }
+            finally
+            {
+                AccentThemeService.ThemeChanged -= OnThemeChanged;
+                AccentThemeService.SurfacePresetChanged -= OnPresetChanged;
+                svc.DensityMode = origDensity;
+                svc.SidebarCollapsed = origSidebar;
+                AccentThemeService.ApplySurfacePreset(origPreset, save: false);
+                AccentThemeService.ApplyTheme(origTheme, save: false);
             }
         }
 

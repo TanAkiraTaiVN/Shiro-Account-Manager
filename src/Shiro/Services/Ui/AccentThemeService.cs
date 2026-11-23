@@ -196,8 +196,7 @@ namespace Shiro.Services
                 else
                 {
                     (primary, textOnAccent) = OklchColorMath.EnforceApcaButtonContrast(basePrimary, 60.0);
-                    var (pL, pC, pH) = OklchColorMath.FromColor(primary);
-                    hover = OklchColorMath.ToColor(Math.Clamp(pL + 0.04, 0.0, 0.96), pC, pH);
+                    hover = OklchColorMath.DeriveAccessibleHoverColor(primary, textOnAccent, 0.04);
                 }
             }
 
@@ -251,19 +250,39 @@ namespace Shiro.Services
         {
             try
             {
-                VisualPreferencesService.Instance.Load();
+                VisualPreferencesService.Instance.LoadPreferencesOnly();
+                SurfacePreset preset = VisualPreferencesService.Instance.SurfacePreset;
                 string? saved = AppServices.GeneralSettings.Exists(AppSettingsKeys.General.AccentTheme)
                     ? AppServices.GeneralSettings.Get(AppSettingsKeys.General.AccentTheme)
                     : AppServices.Settings.AccentTheme;
 
                 AccentTheme theme = ParseTheme(saved);
-                ApplyTheme(theme, save: false);
+                ApplyInitialThemeAndSurface(theme, preset);
             }
             catch (Exception ex)
             {
                 AppServices.Logger?.Debug($"[AccentThemeService] Initialize theme failed, falling back to Monochrome: {ex.Message}");
                 ApplyTheme(AccentTheme.Monochrome, save: false);
             }
+        }
+
+        private static void ApplyInitialThemeAndSurface(AccentTheme theme, SurfacePreset preset)
+        {
+            bool themeChanged;
+            bool surfaceChanged;
+            long gen;
+            Color? adaptive;
+            lock (_themeLock)
+            {
+                themeChanged = _currentTheme != theme;
+                surfaceChanged = _currentSurfacePreset != preset;
+                _currentTheme = theme;
+                _currentSurfacePreset = preset;
+                adaptive = _adaptiveGameColor;
+                gen = ++_themeGeneration;
+            }
+
+            ScheduleResourceSwap(gen, theme, preset, adaptive, raiseThemeChanged: themeChanged, raiseSurfaceChanged: surfaceChanged);
         }
 
         public static void ApplyTheme(AccentTheme theme, bool save = true)
@@ -283,18 +302,8 @@ namespace Shiro.Services
 
             if (save)
             {
-                try
-                {
-                    string themeStr = theme.ToString();
-                    AppServices.GeneralSettings.Set(AppSettingsKeys.General.AccentTheme, themeStr);
-                    try { AppServices.Settings.AccentTheme = themeStr; }
-                    catch (Exception ex) { AppServices.Logger?.Debug($"AccentTheme setter failed: {ex.Message}"); }
-                    AppServices.QueueDeferredSaveSettings();
-                }
-                catch (Exception ex)
-                {
-                    AppServices.Logger?.Warn($"Failed to persist accent theme: {ex.Message}");
-                }
+                string themeStr = theme.ToString();
+                PersistSettingSafely(AppSettingsKeys.General.AccentTheme, themeStr, () => AppServices.Settings.AccentTheme = themeStr);
             }
 
             ScheduleResourceSwap(gen, theme, preset, adaptive, raiseThemeChanged: changed || !save, raiseSurfaceChanged: false);
@@ -317,20 +326,28 @@ namespace Shiro.Services
             }
 
             if (save)
-            {
-                try
-                {
-                    AppServices.GeneralSettings.Set(AppSettingsKeys.General.SurfacePreset, normalized.ToString());
-                    AppServices.QueueDeferredSaveSettings();
-                }
-                catch (Exception ex)
-                {
-                    AppServices.Logger?.Warn($"Failed to persist surface preset: {ex.Message}");
-                }
-            }
+                PersistSettingSafely(AppSettingsKeys.General.SurfacePreset, normalized.ToString());
 
             VisualPreferencesService.Instance.SyncSurfacePresetFromThemeService(normalized);
-            ScheduleResourceSwap(gen, theme, normalized, adaptive, raiseThemeChanged: changed || !save, raiseSurfaceChanged: changed || !save);
+            ScheduleResourceSwap(gen, theme, normalized, adaptive, raiseThemeChanged: false, raiseSurfaceChanged: changed);
+        }
+
+        private static void PersistSettingSafely(string key, string value, Action? legacyMirror = null)
+        {
+            try
+            {
+                AppServices.GeneralSettings.Set(key, value);
+                if (legacyMirror != null)
+                {
+                    try { legacyMirror(); }
+                    catch (Exception ex) { AppServices.Logger?.Debug($"{key} legacy setter failed: {ex.Message}"); }
+                }
+                AppServices.QueueDeferredSaveSettings();
+            }
+            catch (Exception ex)
+            {
+                AppServices.Logger?.Warn($"Failed to persist {key}: {ex.Message}");
+            }
         }
 
         public static void SetAdaptiveGameColor(Color? gameColor)
