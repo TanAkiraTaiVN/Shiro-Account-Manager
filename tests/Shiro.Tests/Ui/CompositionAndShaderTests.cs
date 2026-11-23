@@ -507,6 +507,28 @@ namespace Shiro.Tests.Ui
             }
         }
 
+        [AvaloniaFact]
+        public void SkslAmbientMesh_DefaultAttachWithoutOverride_AttachesFreshHandlerAndClearsFallbackOnSkiaReport()
+        {
+            VisualPreferencesService.Instance.EnableGlassEffects = true;
+            var mesh = new SkslAmbientMesh { Width = 240, Height = 160 };
+            var window = new Window { Width = 260, Height = 180, Content = mesh };
+            try
+            {
+                window.Show(); Dispatcher.UIThread.RunJobs();
+                SkslAmbientMeshHandler h1 = mesh.Handler;
+                Assert.False(h1.IsDisposed);
+                mesh.ReportRenderOutcome(h1, usedFallback: false);
+                Assert.False(mesh.LastRenderUsedFallback);
+                window.Content = null; Dispatcher.UIThread.RunJobs();
+                Assert.True(h1.IsDisposed);
+                window.Content = mesh; Dispatcher.UIThread.RunJobs();
+                Assert.NotSame(h1, mesh.Handler);
+                Assert.False(mesh.Handler.IsDisposed);
+            }
+            finally { window.Content = null; window.Close(); Dispatcher.UIThread.RunJobs(); }
+        }
+
         private static int GetStaticEventSubscriberCount(Type ownerType, string eventFieldName)
         {
             FieldInfo? field = ownerType.GetField(eventFieldName, BindingFlags.Static | BindingFlags.NonPublic);

@@ -187,10 +187,12 @@
                                        Text="{Binding SessionDetailText}"
                                        FontSize="11"
                                        Foreground="{DynamicResource TextSecondaryBrush}" />
-                            <Grid ColumnDefinitions="*,6,*,6,*">
+                            <Grid ColumnDefinitions="Auto,5,*,5,Auto">
                                 <Button Grid.Column="0" Classes="StudioSecondaryBtn"
+                                        HorizontalAlignment="Stretch"
+                                        HorizontalContentAlignment="Center"
                                         Command="{Binding ValidateSessionCommand}"
-                                        Padding="6,6" FontSize="11">
+                                        Padding="8,6" FontSize="11">
                                     <StackPanel Orientation="Horizontal" Spacing="4">
                                         <lucide:Lucide Icon="ShieldCheck" Width="12" Height="12"
                                                        StrokeBrush="{DynamicResource StatusInfoBrush}" />
@@ -198,8 +200,10 @@
                                     </StackPanel>
                                 </Button>
                                 <Button Grid.Column="2" Classes="StudioSecondaryBtn"
+                                        HorizontalAlignment="Stretch"
+                                        HorizontalContentAlignment="Center"
                                         Command="{Binding ReLoginCommand}"
-                                        Padding="6,6" FontSize="11">
+                                        Padding="8,6" FontSize="11">
                                     <StackPanel Orientation="Horizontal" Spacing="4">
                                         <lucide:Lucide Icon="LogIn" Width="12" Height="12"
                                                        StrokeBrush="{DynamicResource StatusWarningBrush}" />
@@ -207,8 +211,10 @@
                                     </StackPanel>
                                 </Button>
                                 <Button Grid.Column="4" Classes="StudioSecondaryBtn"
+                                        HorizontalAlignment="Stretch"
+                                        HorizontalContentAlignment="Center"
                                         Command="{Binding RefreshRobuxCommand}"
-                                        Padding="6,6" FontSize="11">
+                                        Padding="8,6" FontSize="11">
                                     <StackPanel Orientation="Horizontal" Spacing="4">
                                         <lucide:Lucide Icon="Coins" Width="12" Height="12"
                                                        StrokeBrush="{DynamicResource StatusWarningBrush}" />

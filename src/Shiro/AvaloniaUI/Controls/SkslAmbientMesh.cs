@@ -1,12 +1,10 @@
 #nullable enable
 using System;
 using System.Threading;
-using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Rendering.Composition;
-using Avalonia.Skia;
 using Avalonia.Threading;
 using Shiro.Services;
 using SkiaSharp;
@@ -68,7 +66,6 @@ namespace Shiro.AvaloniaUI.Controls
         private volatile bool _lastRenderUsedFallback;
         private volatile bool _hasRenderedSkiaOnCompositor;
         private bool? _skiaFeatureAvailable;
-        private bool _probeInFlight;
         private bool _isAttached;
 
         internal bool AutoSubscribeToThemeServices { get; set; } = true;
@@ -97,9 +94,14 @@ namespace Shiro.AvaloniaUI.Controls
             if (!ReferenceEquals(Volatile.Read(ref _handler), source))
                 return;
 
-            if (!usedFallback)
-                _hasRenderedSkiaOnCompositor = true;
             _lastRenderUsedFallback = usedFallback;
+            if (!usedFallback)
+            {
+                bool wasRendered = _hasRenderedSkiaOnCompositor;
+                _hasRenderedSkiaOnCompositor = true;
+                if (!wasRendered)
+                    DispatchAction(InvalidateVisual);
+            }
         }
 
         internal void NotifyPaletteChanged(bool animate)
@@ -224,12 +226,6 @@ namespace Shiro.AvaloniaUI.Controls
 
             if (_customVisual == null && ElementComposition.GetElementVisual(this)?.Compositor is { } compositor)
             {
-                if (!TryEnsureSkiaFeatureAvailable(compositor))
-                {
-                    InvalidateVisual();
-                    return;
-                }
-
                 var nextHandler = new SkslAmbientMeshHandler(this);
                 nextHandler.SetHostAttached(true);
                 Volatile.Write(ref _handler, nextHandler);
@@ -242,45 +238,6 @@ namespace Shiro.AvaloniaUI.Controls
 
             UpdateVisualSize(Bounds.Size);
             NotifyPaletteChanged(animate);
-        }
-
-        private bool TryEnsureSkiaFeatureAvailable(Compositor compositor)
-        {
-            if (_skiaFeatureAvailable.HasValue)
-                return _skiaFeatureAvailable.Value;
-
-            if (_probeInFlight)
-                return true;
-
-            ValueTask<object?> featureTask = compositor.TryGetRenderInterfaceFeature(typeof(ISkiaSharpApiLeaseFeature));
-            if (featureTask.IsCompletedSuccessfully)
-            {
-                bool hasSkia = featureTask.Result is ISkiaSharpApiLeaseFeature;
-                _skiaFeatureAvailable = hasSkia;
-                return hasSkia;
-            }
-
-            _probeInFlight = true;
-            _ = featureTask.AsTask().ContinueWith(t =>
-            {
-                bool hasSkia = t.IsCompletedSuccessfully && t.Result is ISkiaSharpApiLeaseFeature;
-                AppDispatcher.Post(() =>
-                {
-                    _probeInFlight = false;
-                    ApplySkiaProbeResult(hasSkia);
-                });
-            }, TaskScheduler.Default);
-            return true;
-        }
-
-        private void ApplySkiaProbeResult(bool hasSkia)
-        {
-            _skiaFeatureAvailable = hasSkia;
-            if (!hasSkia)
-                DetachCompositionVisual();
-
-            if (_isAttached)
-                InvalidateVisual();
         }
 
         private void DetachCompositionVisual()

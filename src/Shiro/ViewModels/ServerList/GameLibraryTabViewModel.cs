@@ -37,6 +37,7 @@ namespace Shiro.ViewModels
             SelectRecentGameInLibraryCommand = new RelayCommand(p => ServerListFilterHelper.SelectRecentGame(_host, _mainViewModel, p));
             LaunchRecentGameInLibraryCommand = new RelayCommand(p => ServerListFilterHelper.LaunchRecentGame(_host, _mainViewModel, p));
 
+            _favorites.CollectionChanged += (_, _) => OnPropertyChanged(nameof(IsFavoritesEmpty));
             LoadFavorites();
         }
 
