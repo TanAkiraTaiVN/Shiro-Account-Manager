@@ -208,8 +208,8 @@
                       ItemsSource="{x:Static services:ToastService.ActiveToasts}"
                       HorizontalAlignment="Right"
                       VerticalAlignment="Bottom"
-                      Margin="0,0,20,40"
-                      Width="372">
+                      Margin="0,0,16,38"
+                      Width="348">
             <ItemsControl.ItemTemplate>
                 <DataTemplate x:DataType="services:ToastItem">
                     <Border Classes="ToastCard"
@@ -230,7 +230,7 @@
                                     IsHitTestVisible="False" />
                             <Grid RowDefinitions="*,Auto">
                                 <Grid Grid.Row="0"
-                                      Margin="14,12,12,11"
+                                      Margin="14,11,10,10"
                                       RowDefinitions="Auto,Auto,Auto"
                                       ColumnDefinitions="Auto,*,Auto">
                                     <Border Grid.Row="0"
@@ -282,12 +282,12 @@
                                                Grid.ColumnSpan="2"
                                                Text="{Binding Message}"
                                                IsVisible="{Binding HasMessage}"
-                                               Margin="0,5,6,0"
+                                               Margin="0,2,6,0"
                                                FontSize="11.5"
                                                Foreground="{DynamicResource TextSecondaryBrush}"
                                                TextWrapping="Wrap"
                                                MaxLines="6"
-                                               LineHeight="17" />
+                                               LineHeight="16.5" />
                                     <Button Grid.Row="2"
                                             Grid.Column="1"
                                             Grid.ColumnSpan="2"
@@ -304,7 +304,7 @@
                                 <Border Grid.Row="1"
                                         Height="2"
                                         CornerRadius="1"
-                                        Margin="14,0,14,8"
+                                        Margin="14,0,14,9"
                                         Background="#14FFFFFF"
                                         ClipToBounds="True"
                                         IsVisible="{Binding HasAutoDismiss}"
