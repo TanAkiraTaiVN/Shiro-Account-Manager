@@ -265,6 +265,7 @@ namespace Shiro.ViewModels
             {
                 if (SetProperty(ref _isInGame, value))
                 {
+                    OnPropertyChanged(nameof(HasLiveMemory));
                     OnPropertyChanged(nameof(StatusText));
                     OnPropertyChanged(nameof(StatusBadgeBackground));
                     OnPropertyChanged(nameof(StatusBadgeBorder));
@@ -281,6 +282,7 @@ namespace Shiro.ViewModels
             {
                 if (SetProperty(ref _isLocalClientRunning, value))
                 {
+                    OnPropertyChanged(nameof(HasLiveMemory));
                     OnPropertyChanged(nameof(ShowPlayButton));
                     OnPropertyChanged(nameof(ShowRunningClientControls));
                     OnPropertyChanged(nameof(StatusText));
@@ -317,10 +319,13 @@ namespace Shiro.ViewModels
             {
                 if (SetProperty(ref _liveMemoryText, value))
                 {
+                    OnPropertyChanged(nameof(HasLiveMemory));
                     OnPropertyChanged(nameof(StatusText));
                 }
             }
         }
+
+        public bool HasLiveMemory => (IsInGame || IsLocalClientRunning) && !string.IsNullOrWhiteSpace(LiveMemoryText);
 
         public long RobuxBalance => _model?.RobuxBalance ?? -1;
         public bool HasRobux => RobuxBalance >= 0;

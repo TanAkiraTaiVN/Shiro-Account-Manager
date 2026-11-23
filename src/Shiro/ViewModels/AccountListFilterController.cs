@@ -279,5 +279,15 @@ namespace Shiro.ViewModels
                     vm.PropertyChanged -= handler;
             }
         }
+
+        public static UiDensityMode NormalizeDensity(UiDensityMode mode)
+            => Enum.IsDefined(mode) ? mode : UiDensityMode.Balanced;
+
+        public static (double CardHeight, double CardRowHeight, double TableRowHeight, double CardBottomSpacing) GetDensityMetrics(UiDensityMode mode) => mode switch
+        {
+            UiDensityMode.Compact => (122.0, 130.0, 34.0, 8.0),
+            UiDensityMode.Comfortable => (156.0, 170.0, 46.0, 14.0),
+            _ => (138.0, 150.0, 40.0, 12.0)
+        };
     }
 }

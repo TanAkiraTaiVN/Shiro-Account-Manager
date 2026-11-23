@@ -110,6 +110,37 @@
                 </StackPanel>
             </Border>
 
+            <Border Background="{DynamicResource SurfacePanelBrush}"
+                    BorderBrush="{DynamicResource BorderSubtleBrush}"
+                    BorderThickness="1"
+                    CornerRadius="{StaticResource RadiusMd}"
+                    Padding="3"
+                    Margin="0,2,8,2">
+                <StackPanel Orientation="Horizontal" Spacing="2">
+                    <RadioButton x:Name="BtnDensityCompact" Classes="FilterTabPill"
+                                 GroupName="DensityModeGroup"
+                                 IsChecked="{Binding AccountsVm.IsDensityCompact, Mode=TwoWay}"
+                                 ToolTip.Tip="{DynamicResource Dash_DensityCompact}">
+                        <TextBlock Text="{DynamicResource Dash_DensityCompact}"
+                                   VerticalAlignment="Center" />
+                    </RadioButton>
+                    <RadioButton x:Name="BtnDensityBalanced" Classes="FilterTabPill"
+                                 GroupName="DensityModeGroup"
+                                 IsChecked="{Binding AccountsVm.IsDensityBalanced, Mode=TwoWay}"
+                                 ToolTip.Tip="{DynamicResource Dash_DensityBalanced}">
+                        <TextBlock Text="{DynamicResource Dash_DensityBalanced}"
+                                   VerticalAlignment="Center" />
+                    </RadioButton>
+                    <RadioButton x:Name="BtnDensityComfortable" Classes="FilterTabPill"
+                                 GroupName="DensityModeGroup"
+                                 IsChecked="{Binding AccountsVm.IsDensityComfortable, Mode=TwoWay}"
+                                 ToolTip.Tip="{DynamicResource Dash_DensityComfortable}">
+                        <TextBlock Text="{DynamicResource Dash_DensityComfortable}"
+                                   VerticalAlignment="Center" />
+                    </RadioButton>
+                </StackPanel>
+            </Border>
+
             <Button Classes="StudioSecondaryBtn"
                     Command="{Binding AccountsVm.CheckSessionsCommand}"
                     Padding="12,7"

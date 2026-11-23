@@ -269,11 +269,15 @@
           BringIntoViewOnFocusChange="False" Padding="0,0,14,0"><ItemsPresenter Margin="0,0,0,72"
           ItemsPanel="{TemplateBinding ItemsPanel}" /></ScrollViewer></ControlTemplate></ItemsControl.Template>
         <ItemsControl.ItemTemplate><DataTemplate x:DataType="vm:AccountRowViewModel">
-          <controls:UniformRowPanel Columns="{Binding ColumnCount}" Height="148">
-            <Border IsVisible="{Binding HasItem1}"><views:AccountCardView DataContext="{Binding Item1}" /></Border>
-            <Border IsVisible="{Binding HasItem2}"><views:AccountCardView DataContext="{Binding Item2}" /></Border>
-            <Border IsVisible="{Binding HasItem3}"><views:AccountCardView DataContext="{Binding Item3}" /></Border>
-            <Border IsVisible="{Binding HasItem4}"><views:AccountCardView DataContext="{Binding Item4}" /></Border>
+          <controls:UniformRowPanel Columns="{Binding ColumnCount}" Height="{Binding #RootDashboard.ViewModel.AccountsVm.CardRowHeight}">
+            <Border IsVisible="{Binding HasItem1}"><views:AccountCardView DataContext="{Binding Item1}" CardHeight="{Binding #RootDashboard.ViewModel.AccountsVm.CardHeight}"
+              CardBottomSpacing="{Binding #RootDashboard.ViewModel.AccountsVm.CardBottomSpacing}" /></Border>
+            <Border IsVisible="{Binding HasItem2}"><views:AccountCardView DataContext="{Binding Item2}" CardHeight="{Binding #RootDashboard.ViewModel.AccountsVm.CardHeight}"
+              CardBottomSpacing="{Binding #RootDashboard.ViewModel.AccountsVm.CardBottomSpacing}" /></Border>
+            <Border IsVisible="{Binding HasItem3}"><views:AccountCardView DataContext="{Binding Item3}" CardHeight="{Binding #RootDashboard.ViewModel.AccountsVm.CardHeight}"
+              CardBottomSpacing="{Binding #RootDashboard.ViewModel.AccountsVm.CardBottomSpacing}" /></Border>
+            <Border IsVisible="{Binding HasItem4}"><views:AccountCardView DataContext="{Binding Item4}" CardHeight="{Binding #RootDashboard.ViewModel.AccountsVm.CardHeight}"
+              CardBottomSpacing="{Binding #RootDashboard.ViewModel.AccountsVm.CardBottomSpacing}" /></Border>
           </controls:UniformRowPanel>
         </DataTemplate></ItemsControl.ItemTemplate>
       </ItemsControl>
@@ -298,8 +302,8 @@
             BringIntoViewOnFocusChange="False" Padding="0,0,12,0"><ItemsPresenter Margin="0,0,0,72"
             ItemsPanel="{TemplateBinding ItemsPanel}" /></ScrollViewer></ControlTemplate></ItemsControl.Template>
           <ItemsControl.ItemTemplate><DataTemplate x:DataType="vm:AccountViewModel">
-            <Border Classes="CompactTableRow" Height="40" Padding="14,0" PointerPressed="OnCardPointerPressed" DoubleTapped="OnCardDoubleTapped"
-                    DataContextChanged="OnTableRowDataContextChanged" Cursor="Hand">
+            <Border Classes="CompactTableRow" Height="{Binding #RootDashboard.ViewModel.AccountsVm.TableRowHeight}" Padding="14,0"
+                    PointerPressed="OnCardPointerPressed" DoubleTapped="OnCardDoubleTapped" DataContextChanged="OnTableRowDataContextChanged" Cursor="Hand">
               <Grid ColumnDefinitions="40,36,2.2*,1.2*,1.2*,1.6*,1.2*,104">
                 <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected, Mode=TwoWay}" Transitions="{x:Null}" VerticalAlignment="Center" HorizontalAlignment="Center" />
                 <Panel Grid.Column="1" Width="26" Height="26" VerticalAlignment="Center">
@@ -326,6 +330,11 @@
                 <StackPanel Grid.Column="5" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                   <controls:StatusPulseDot DotBrush="{Binding StatusBadgeForeground}" DotSize="6" IsPulsing="{Binding IsInGame}" VerticalAlignment="Center" />
                   <TextBlock Text="{Binding StatusText}" FontSize="11" Foreground="{Binding StatusBadgeForeground}" VerticalAlignment="Center" />
+                  <Border IsVisible="{Binding HasLiveMemory}" Background="{Binding MemoryPillBackground}" BorderBrush="{Binding MemoryPillBorder}"
+                          BorderThickness="1" CornerRadius="{StaticResource RadiusChip6}" Padding="5,1" VerticalAlignment="Center">
+                    <TextBlock Classes="TabularNum" Text="{Binding LiveMemoryText}" FontSize="10" FontWeight="SemiBold"
+                               Foreground="{Binding MemoryPillForeground}" VerticalAlignment="Center" />
+                  </Border>
                 </StackPanel>
                 <TextBlock Grid.Column="6" Classes="TabularNum" Text="{Binding RobuxFormatted}" IsVisible="{Binding HasRobux}" FontSize="11" FontWeight="SemiBold"
                            Foreground="{DynamicResource StatusWarningBrush}" VerticalAlignment="Center" />
@@ -362,6 +371,7 @@
         FillBrush="{DynamicResource AccentSoftFillBrush}" BorderBrush="{DynamicResource AccentBorderBrush}" />
     </Panel></Border>
 
+    <panels:DashboardEmptyStatePanel Grid.Row="6" DataContext="{Binding AccountsVm}" HorizontalAlignment="Center" VerticalAlignment="Center" />
     <panels:DashboardBulkBarPanel Grid.Row="6" VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="0,0,0,14" IsVisible="{Binding AccountsVm.HasSelection}" />
   </Grid>
 </UserControl>

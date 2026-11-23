@@ -54,12 +54,14 @@ namespace Shiro.ViewModels
         private EventHandler<AccountsChangedEventArgs>? _accountsChangedHandler;
         private EventHandler? _displayNamesChangedHandler;
         private EventHandler? _avatarCacheClearedHandler;
+        private Action? _visualPreferencesChangedHandler;
         private CancellationTokenSource? _searchCts;
         private AccountViewModel? _lastClickedAccount;
         private string _searchText = string.Empty;
         private string _selectedGroup = "All Groups";
         private AccountFilterTab _activeTab = AccountFilterTab.All;
         private AccountSortMode _sortMode = AccountSortMode.NaturalAscending;
+        private UiDensityMode _densityMode;
         private int _cardColumns = 3;
         private bool _isCompactView;
         private int _totalCount;
@@ -98,6 +100,7 @@ namespace Shiro.ViewModels
             _getJobId = getJobId ?? (() => string.Empty);
             _onSelectionChanged = onSelectionChanged;
             _onAccountsLoaded = onAccountsLoaded;
+            _densityMode = AccountListFilterController.NormalizeDensity(VisualPreferencesService.Instance.DensityMode);
 
             InitializeCommands();
             SubscribeWeakEvents();
@@ -118,6 +121,9 @@ namespace Shiro.ViewModels
         public int PinnedCount => _pinnedCount;
         public int SelectedCount => _selectedCount;
         public bool HasSelection => _selectedCount > 0;
+        public bool IsEmptyNoAccounts => _totalCount == 0;
+        public bool IsEmptyFiltered => _totalCount > 0 && _filteredAccounts.Count == 0;
+        public bool IsEmptyState => IsEmptyNoAccounts || IsEmptyFiltered;
         public long TotalRobuxCount => _totalRobuxCount;
         public string TotalRobuxText => StreamerModeService.ShouldMaskRobux(_settings) ? "R$ ***" : _totalRobuxText;
         public bool IsCardView => !IsCompactView;
@@ -308,6 +314,7 @@ namespace Shiro.ViewModels
                 _filteredAccounts.Sync(resultList);
                 RebuildAccountRows();
                 OnPropertyChanged(nameof(IsAllSelected));
+                NotifyEmptyStateProperties();
             }
         }
 
@@ -365,7 +372,7 @@ namespace Shiro.ViewModels
             lock (_accountsUiLock)
                 c = AccountListFilterController.ComputeAccountCounts(_accounts);
 
-            if (_totalCount != c.Total) { _totalCount = c.Total; OnPropertyChanged(nameof(TotalCount)); }
+            if (_totalCount != c.Total) { _totalCount = c.Total; OnPropertyChanged(nameof(TotalCount)); NotifyEmptyStateProperties(); }
             if (_inGameCount != c.InGame) { _inGameCount = c.InGame; OnPropertyChanged(nameof(InGameCount)); }
             if (_readyCount != c.Ready) { _readyCount = c.Ready; OnPropertyChanged(nameof(ReadyCount)); }
             if (_expiredCount != c.Expired)
@@ -409,25 +416,16 @@ namespace Shiro.ViewModels
                 OnPropertyChanged(prop);
         }
 
+        private void NotifyEmptyStateProperties() { OnPropertyChanged(nameof(IsEmptyNoAccounts)); OnPropertyChanged(nameof(IsEmptyFiltered)); OnPropertyChanged(nameof(IsEmptyState)); }
+
         public void Dispose()
         {
             if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
 
-            if (_accountsChangedHandler != null)
-            {
-                _accountRepository.AccountsChanged -= _accountsChangedHandler;
-                _accountsChangedHandler = null;
-            }
-            if (_displayNamesChangedHandler != null)
-            {
-                _settingsSideEffects.DisplayNamesChanged -= _displayNamesChangedHandler;
-                _displayNamesChangedHandler = null;
-            }
-            if (_avatarCacheClearedHandler != null)
-            {
-                _settingsSideEffects.AvatarCacheCleared -= _avatarCacheClearedHandler;
-                _avatarCacheClearedHandler = null;
-            }
+            if (_accountsChangedHandler != null) { _accountRepository.AccountsChanged -= _accountsChangedHandler; _accountsChangedHandler = null; }
+            if (_displayNamesChangedHandler != null) { _settingsSideEffects.DisplayNamesChanged -= _displayNamesChangedHandler; _displayNamesChangedHandler = null; }
+            if (_avatarCacheClearedHandler != null) { _settingsSideEffects.AvatarCacheCleared -= _avatarCacheClearedHandler; _avatarCacheClearedHandler = null; }
+            if (_visualPreferencesChangedHandler != null) { VisualPreferencesService.Instance.PreferencesChanged -= _visualPreferencesChangedHandler; _visualPreferencesChangedHandler = null; }
 
             Interlocked.Increment(ref _searchGeneration);
             AccountListFilterController.DetachPropertyChanged(_accounts, OnAccountViewModelPropertyChanged);

@@ -35,6 +35,22 @@ namespace Shiro.ViewModels
                 static (vm, _, _) => vm.OnAvatarCacheCleared(),
                 h => sideEffects.AvatarCacheCleared -= h);
             sideEffects.AvatarCacheCleared += _avatarCacheClearedHandler;
+
+            _visualPreferencesChangedHandler = WeakEventSubscription.CreateAction<AccountCollectionViewModel>(
+                this,
+                static vm => vm.OnVisualPreferencesChanged(),
+                static h => VisualPreferencesService.Instance.PreferencesChanged -= h);
+            VisualPreferencesService.Instance.PreferencesChanged += _visualPreferencesChangedHandler;
+        }
+
+        private void OnVisualPreferencesChanged()
+        {
+            AppDispatcher.Post(() =>
+            {
+                if (Volatile.Read(ref _disposed) != 0) return;
+                UiDensityMode next = AccountListFilterController.NormalizeDensity(VisualPreferencesService.Instance.DensityMode);
+                if (SetProperty(ref _densityMode, next, nameof(DensityMode))) NotifyDensityMetricsChanged();
+            });
         }
 
         private void OnDisplayNamesChanged()

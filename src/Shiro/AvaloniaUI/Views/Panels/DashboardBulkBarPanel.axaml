@@ -2,24 +2,26 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:controls="clr-namespace:Shiro.AvaloniaUI.Controls"
              xmlns:vm="clr-namespace:Shiro.ViewModels"
              xmlns:lucide="clr-namespace:LucideAvalonia;assembly=LucideAvalonia"
              mc:Ignorable="d"
              x:Class="Shiro.AvaloniaUI.Views.Panels.DashboardBulkBarPanel"
              x:DataType="vm:MainViewModel"
              x:CompileBindings="True">
-    <Border Background="{DynamicResource SurfaceElevatedBrush}"
-            BorderBrush="{DynamicResource BorderStrongBrush}"
-            BorderThickness="1"
-            CornerRadius="14"
-            BoxShadow="{StaticResource ShadowFloating}">
-        <Panel>
-            <Border BorderBrush="{DynamicResource BorderTopRimBrush}"
-                    BorderThickness="0,1,0,0"
-                    CornerRadius="13"
-                    IsHitTestVisible="False" />
-            <StackPanel Orientation="Horizontal" Spacing="8"
-                        Margin="10,7" VerticalAlignment="Center">
+    <controls:SkiaGlassSurface x:Name="BulkBarGlass"
+                               BlurSigma="20"
+                               NoiseOpacity="0.024"
+                               SpecularHighlightOpacity="0.24"
+                               EnablePointerSpecular="True"
+                               TintBrush="#CC161622"
+                               BorderBrush="{DynamicResource BorderStrongBrush}"
+                               BorderThickness="1"
+                               CornerRadius="{StaticResource RadiusOuter16}"
+                               BoxShadow="{StaticResource ShadowFloating}"
+                               ClipToBounds="True">
+        <StackPanel Orientation="Horizontal" Spacing="8"
+                    Margin="10,7" VerticalAlignment="Center">
                 <Border Background="{DynamicResource AccentSoftFillBrush}"
                         BorderBrush="{DynamicResource AccentBorderBrush}"
                         BorderThickness="1"
@@ -146,7 +148,6 @@
                                    VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
-            </StackPanel>
-        </Panel>
-    </Border>
+        </StackPanel>
+    </controls:SkiaGlassSurface>
 </UserControl>

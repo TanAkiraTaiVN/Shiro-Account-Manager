@@ -37,7 +37,7 @@ namespace Shiro.ViewModels
                 {
                     if (!string.IsNullOrWhiteSpace(GameName))
                         return Loc.Format("Status_InGameNamed", GameName);
-                    return string.IsNullOrEmpty(LiveMemoryText) ? Loc.Get("Status_InGame") : $"{Loc.Get("Status_InGame")} ({LiveMemoryText})";
+                    return Loc.Get("Status_InGame");
                 }
                 if (IsLocalClientRunning)
                     return LocalizationService.Get("Account.OpeningRoblox");
@@ -174,5 +174,8 @@ namespace Shiro.ViewModels
 
         public IBrush CommandPaletteRowBackground => IsCommandPaletteSelected ? BrushPaletteSelectedBg : BrushPaletteDefaultBg;
         public IBrush CommandPaletteRowBorder => IsCommandPaletteSelected ? BrushPaletteSelectedBorder : BrushPaletteDefaultBorder;
+        public IBrush MemoryPillBackground => BrushOnlineBg;
+        public IBrush MemoryPillBorder => BrushOnlineBorder;
+        public IBrush MemoryPillForeground => BrushOnlineFg;
     }
 }

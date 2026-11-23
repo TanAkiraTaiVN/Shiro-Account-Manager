@@ -47,6 +47,17 @@ namespace Shiro.ViewModels
         public bool IsSortRobuxDesc { get => AccountsVm.IsSortRobuxDesc; set => AccountsVm.IsSortRobuxDesc = value; }
         public string CurrentSortLabel => AccountsVm.CurrentSortLabel;
         public int CardColumns { get => AccountsVm.CardColumns; set => AccountsVm.CardColumns = value; }
+        public UiDensityMode DensityMode { get => AccountsVm.DensityMode; set => AccountsVm.DensityMode = value; }
+        public bool IsDensityCompact { get => AccountsVm.IsDensityCompact; set => AccountsVm.IsDensityCompact = value; }
+        public bool IsDensityBalanced { get => AccountsVm.IsDensityBalanced; set => AccountsVm.IsDensityBalanced = value; }
+        public bool IsDensityComfortable { get => AccountsVm.IsDensityComfortable; set => AccountsVm.IsDensityComfortable = value; }
+        public double CardHeight => AccountsVm.CardHeight;
+        public double CardRowHeight => AccountsVm.CardRowHeight;
+        public double TableRowHeight => AccountsVm.TableRowHeight;
+        public double CardBottomSpacing => AccountsVm.CardBottomSpacing;
+        public bool IsEmptyNoAccounts => AccountsVm.IsEmptyNoAccounts;
+        public bool IsEmptyFiltered => AccountsVm.IsEmptyFiltered;
+        public bool IsEmptyState => AccountsVm.IsEmptyState;
         public bool IsCompactView { get => AccountsVm.IsCompactView; set => AccountsVm.IsCompactView = value; }
         public bool IsCardView => AccountsVm.IsCardView;
         public string SubtitleTotalText => AccountsVm.SubtitleTotalText;
@@ -104,6 +115,8 @@ namespace Shiro.ViewModels
         public ICommand MetricCardReadyCommand => AccountsVm.MetricCardReadyCommand;
         public ICommand MetricCardExpiredCommand => AccountsVm.MetricCardExpiredCommand;
         public ICommand MetricCardRobuxCommand => AccountsVm.MetricCardRobuxCommand;
+        public ICommand SetDensityModeCommand => AccountsVm.SetDensityModeCommand;
+        public ICommand ClearFiltersCommand => AccountsVm.ClearFiltersCommand;
 
         public string PlaceId { get => LaunchBar.PlaceId; set => LaunchBar.PlaceId = value; }
         public string JobId { get => LaunchBar.JobId; set => LaunchBar.JobId = value; }

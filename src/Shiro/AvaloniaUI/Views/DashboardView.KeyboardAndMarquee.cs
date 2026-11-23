@@ -14,10 +14,7 @@ namespace Shiro.AvaloniaUI.Views
 {
     public partial class DashboardView
     {
-        private const double CardRowHeight = 148.0;
-        private const double CardHeight = 136.0;
         private const double CardHorizontalMargin = 5.0;
-        private const double TableRowHeight = 40.0;
 
         private AccountViewModel? _pendingClickAccount;
         private bool _pendingClickShift;
@@ -219,14 +216,16 @@ namespace Shiro.AvaloniaUI.Views
                 return;
 
             double contentTopY = contentOrigin.Y;
-            int firstRow = Math.Max(0, (int)Math.Floor((clippedSel.Top - contentTopY) / CardRowHeight));
-            int lastRow = Math.Min(rows.Count - 1, (int)Math.Floor((clippedSel.Bottom - contentTopY) / CardRowHeight));
+            double cardRowHeight = ViewModel.AccountsVm.CardRowHeight;
+            double cardHeight = ViewModel.AccountsVm.CardHeight;
+            int firstRow = Math.Max(0, (int)Math.Floor((clippedSel.Top - contentTopY) / cardRowHeight));
+            int lastRow = Math.Min(rows.Count - 1, (int)Math.Floor((clippedSel.Bottom - contentTopY) / cardRowHeight));
             for (int r = firstRow; r <= lastRow; r++)
             {
                 if (CardsItemsControl.ContainerFromIndex(r) is { IsEffectivelyVisible: true })
                     continue;
-                double cardTop = contentTopY + r * CardRowHeight;
-                if (cardTop + CardHeight <= clippedSel.Top || cardTop >= clippedSel.Bottom)
+                double cardTop = contentTopY + r * cardRowHeight;
+                if (cardTop + cardHeight <= clippedSel.Top || cardTop >= clippedSel.Bottom)
                     continue;
 
                 AccountRowViewModel rowVm = rows[r];
@@ -236,7 +235,7 @@ namespace Shiro.AvaloniaUI.Views
                 {
                     AccountViewModel? item = c switch { 0 => rowVm.Item1, 1 => rowVm.Item2, 2 => rowVm.Item3, 3 => rowVm.Item4, _ => null };
                     if (item == null) continue;
-                    Rect cardRect = new Rect(contentOrigin.X + c * slotWidth + CardHorizontalMargin, cardTop, Math.Max(0.0, slotWidth - CardHorizontalMargin * 2.0), CardHeight).Intersect(clipRect);
+                    Rect cardRect = new Rect(contentOrigin.X + c * slotWidth + CardHorizontalMargin, cardTop, Math.Max(0.0, slotWidth - CardHorizontalMargin * 2.0), cardHeight).Intersect(clipRect);
                     if (MarqueeSelectionOverlay.Intersects(clippedSel, cardRect) && seen.Add(item))
                         hits.Add(item);
                 }
@@ -264,13 +263,14 @@ namespace Shiro.AvaloniaUI.Views
                 return;
 
             double contentTopY = contentOrigin.Y;
-            int firstRow = Math.Max(0, (int)Math.Floor((clippedSel.Top - contentTopY) / TableRowHeight));
-            int lastRow = Math.Min(items.Count - 1, (int)Math.Floor((clippedSel.Bottom - contentTopY) / TableRowHeight));
+            double tableRowHeight = ViewModel.AccountsVm.TableRowHeight;
+            int firstRow = Math.Max(0, (int)Math.Floor((clippedSel.Top - contentTopY) / tableRowHeight));
+            int lastRow = Math.Min(items.Count - 1, (int)Math.Floor((clippedSel.Bottom - contentTopY) / tableRowHeight));
             for (int r = firstRow; r <= lastRow; r++)
             {
                 if (TableItemsControl.ContainerFromIndex(r) is { IsEffectivelyVisible: true })
                     continue;
-                Rect rowRect = new Rect(contentOrigin.X, contentTopY + r * TableRowHeight, rowWidth, TableRowHeight).Intersect(clipRect);
+                Rect rowRect = new Rect(contentOrigin.X, contentTopY + r * tableRowHeight, rowWidth, tableRowHeight).Intersect(clipRect);
                 if (MarqueeSelectionOverlay.Intersects(clippedSel, rowRect) && seen.Add(items[r]))
                     hits.Add(items[r]);
             }

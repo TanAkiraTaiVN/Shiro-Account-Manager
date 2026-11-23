@@ -15,15 +15,66 @@ namespace Shiro.AvaloniaUI.Views
     /// </summary>
     public partial class AccountCardView : UserControl
     {
+        public static readonly StyledProperty<double> CardHeightProperty =
+            AvaloniaProperty.Register<AccountCardView, double>(nameof(CardHeight), 138.0);
+
+        public static readonly StyledProperty<double> CardBottomSpacingProperty =
+            AvaloniaProperty.Register<AccountCardView, double>(nameof(CardBottomSpacing), 12.0);
+
         private DashboardView? _ownerDashboard;
         private long _lastDoubleTapTimestamp;
+
+        public double CardHeight
+        {
+            get => GetValue(CardHeightProperty);
+            set => SetValue(CardHeightProperty, value);
+        }
+
+        public double CardBottomSpacing
+        {
+            get => GetValue(CardBottomSpacingProperty);
+            set => SetValue(CardBottomSpacingProperty, value);
+        }
 
         public AccountCardView()
         {
             InitializeComponent();
+            ApplyDensityLayout();
             if (ChkSelect != null)
             {
                 ChkSelect.AddHandler(PointerPressedEvent, OnCheckBoxPointerPressed, RoutingStrategies.Tunnel);
+            }
+        }
+
+        protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+        {
+            base.OnPropertyChanged(change);
+            if (change.Property == CardHeightProperty || change.Property == CardBottomSpacingProperty)
+            {
+                ApplyDensityLayout();
+            }
+        }
+
+        private void ApplyDensityLayout()
+        {
+            double h = CardHeight > 0.0 ? CardHeight : 138.0;
+            double bottom = CardBottomSpacing >= 0.0 ? CardBottomSpacing : 12.0;
+            if (CardRoot != null)
+            {
+                CardRoot.Height = h;
+                CardRoot.Margin = new Thickness(5, 0, 5, bottom);
+            }
+            if (CardContentGrid != null)
+            {
+                CardContentGrid.Margin = h <= 126.0
+                    ? new Thickness(10, 7)
+                    : (h >= 150.0 ? new Thickness(12, 13) : new Thickness(10, 10));
+            }
+            if (CardTopRow != null)
+            {
+                CardTopRow.Margin = h <= 126.0
+                    ? new Thickness(0, 0, 0, 6)
+                    : (h >= 150.0 ? new Thickness(0, 0, 0, 11) : new Thickness(0, 0, 0, 9));
             }
         }
 

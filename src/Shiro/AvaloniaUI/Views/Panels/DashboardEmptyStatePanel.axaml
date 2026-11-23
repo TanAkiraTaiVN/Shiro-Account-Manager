@@ -1,0 +1,128 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:Shiro.ViewModels"
+             xmlns:lucide="clr-namespace:LucideAvalonia;assembly=LucideAvalonia"
+             mc:Ignorable="d"
+             x:Class="Shiro.AvaloniaUI.Views.Panels.DashboardEmptyStatePanel"
+             x:DataType="vm:AccountCollectionViewModel"
+             x:CompileBindings="True"
+             IsVisible="{Binding IsEmptyState}">
+    <Panel>
+        <Border x:Name="NoAccountsEmptyCard"
+                IsVisible="{Binding IsEmptyNoAccounts}"
+                MaxWidth="460"
+                Background="{DynamicResource SurfacePanelBrush}"
+                BorderBrush="{DynamicResource BorderSubtleBrush}"
+                BorderThickness="1"
+                CornerRadius="{StaticResource RadiusOuter16}"
+                BoxShadow="{StaticResource ShadowCard}"
+                Padding="28,24">
+            <StackPanel Spacing="12" HorizontalAlignment="Center">
+                <Border Width="48" Height="48"
+                        CornerRadius="{StaticResource RadiusMid12}"
+                        Background="{DynamicResource AccentSoftFillBrush}"
+                        BorderBrush="{DynamicResource AccentBorderBrush}"
+                        BorderThickness="1"
+                        HorizontalAlignment="Center">
+                    <lucide:Lucide Icon="User" Width="22" Height="22"
+                                   StrokeBrush="{DynamicResource AccentBrush}"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+                <TextBlock Text="{DynamicResource Dash_EmptyTitle}"
+                           FontSize="16" FontWeight="Bold"
+                           Foreground="{DynamicResource TextPrimaryBrush}"
+                           HorizontalAlignment="Center" TextAlignment="Center" />
+                <TextBlock Text="{DynamicResource Dash_EmptyHint}"
+                           FontSize="12" TextWrapping="Wrap"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           HorizontalAlignment="Center" TextAlignment="Center" />
+                <WrapPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,4,0,0">
+                    <Button x:Name="BtnEmptyFastLogin"
+                            Classes="StudioPrimaryBtn"
+                            Command="{Binding AddAccountFastLoginCommand}"
+                            CornerRadius="{StaticResource RadiusInner8}"
+                            Margin="4" Padding="12,8">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <lucide:Lucide Icon="Globe" Width="13" Height="13"
+                                           StrokeBrush="{DynamicResource AccentForegroundBrush}"
+                                           VerticalAlignment="Center" />
+                            <TextBlock Text="{DynamicResource Bar_AddFastLogin}"
+                                       Foreground="{DynamicResource AccentForegroundBrush}"
+                                       VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="BtnEmptyCookie"
+                            Classes="StudioSecondaryBtn"
+                            Command="{Binding AddAccountCookieCommand}"
+                            CornerRadius="{StaticResource RadiusInner8}"
+                            Margin="4" Padding="12,8">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <lucide:Lucide Icon="Cookie" Width="13" Height="13"
+                                           StrokeBrush="{DynamicResource StatusWarningBrush}"
+                                           VerticalAlignment="Center" />
+                            <TextBlock Text="{DynamicResource Bar_AddCookie}"
+                                       VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="BtnEmptyBulkImport"
+                            Classes="StudioSecondaryBtn"
+                            Command="{Binding BulkImportCommand}"
+                            CornerRadius="{StaticResource RadiusInner8}"
+                            Margin="4" Padding="12,8">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <lucide:Lucide Icon="FileText" Width="13" Height="13"
+                                           StrokeBrush="#A855F7"
+                                           VerticalAlignment="Center" />
+                            <TextBlock Text="{DynamicResource Bar_BulkImport}"
+                                       VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                </WrapPanel>
+            </StackPanel>
+        </Border>
+
+        <Border x:Name="FilteredEmptyCard"
+                IsVisible="{Binding IsEmptyFiltered}"
+                MaxWidth="400"
+                Background="{DynamicResource SurfacePanelBrush}"
+                BorderBrush="{DynamicResource BorderSubtleBrush}"
+                BorderThickness="1"
+                CornerRadius="{StaticResource RadiusOuter16}"
+                BoxShadow="{StaticResource ShadowCard}"
+                Padding="26,22">
+            <StackPanel Spacing="12" HorizontalAlignment="Center">
+                <Border Width="44" Height="44"
+                        CornerRadius="{StaticResource RadiusMid12}"
+                        Background="{DynamicResource StatusInfoBgBrush}"
+                        BorderBrush="{DynamicResource StatusInfoBorderBrush}"
+                        BorderThickness="1"
+                        HorizontalAlignment="Center">
+                    <lucide:Lucide Icon="Search" Width="20" Height="20"
+                                   StrokeBrush="{DynamicResource StatusInfoBrush}"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+                <TextBlock Text="{DynamicResource Dash_FilterEmptyTitle}"
+                           FontSize="15" FontWeight="Bold"
+                           Foreground="{DynamicResource TextPrimaryBrush}"
+                           HorizontalAlignment="Center" TextAlignment="Center" />
+                <Button x:Name="BtnClearFilters"
+                        Classes="StudioPrimaryBtn"
+                        Command="{Binding ClearFiltersCommand}"
+                        CornerRadius="{StaticResource RadiusInner8}"
+                        HorizontalAlignment="Center"
+                        Padding="14,8">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <lucide:Lucide Icon="X" Width="13" Height="13"
+                                       StrokeBrush="{DynamicResource AccentForegroundBrush}"
+                                       VerticalAlignment="Center" />
+                        <TextBlock Text="{DynamicResource Dash_ClearFiltersBtn}"
+                                   Foreground="{DynamicResource AccentForegroundBrush}"
+                                   VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </Border>
+    </Panel>
+</UserControl>

@@ -51,6 +51,50 @@ namespace Shiro.ViewModels
         public ICommand MetricCardReadyCommand { get; private set; } = null!;
         public ICommand MetricCardExpiredCommand { get; private set; } = null!;
         public ICommand MetricCardRobuxCommand { get; private set; } = null!;
+        public ICommand SetDensityModeCommand { get; private set; } = null!;
+        public ICommand ClearFiltersCommand { get; private set; } = null!;
+
+        public UiDensityMode DensityMode
+        {
+            get => _densityMode;
+            set
+            {
+                UiDensityMode normalized = AccountListFilterController.NormalizeDensity(value);
+                if (!SetProperty(ref _densityMode, normalized)) return;
+                NotifyDensityMetricsChanged();
+                if (VisualPreferencesService.Instance.DensityMode != normalized)
+                    VisualPreferencesService.Instance.ApplyAndSave(densityMode: normalized);
+            }
+        }
+
+        public bool IsDensityCompact { get => _densityMode == UiDensityMode.Compact; set { if (value) DensityMode = UiDensityMode.Compact; } }
+        public bool IsDensityBalanced { get => _densityMode == UiDensityMode.Balanced; set { if (value) DensityMode = UiDensityMode.Balanced; } }
+        public bool IsDensityComfortable { get => _densityMode == UiDensityMode.Comfortable; set { if (value) DensityMode = UiDensityMode.Comfortable; } }
+        public double CardHeight => AccountListFilterController.GetDensityMetrics(_densityMode).CardHeight;
+        public double CardRowHeight => AccountListFilterController.GetDensityMetrics(_densityMode).CardRowHeight;
+        public double TableRowHeight => AccountListFilterController.GetDensityMetrics(_densityMode).TableRowHeight;
+        public double CardBottomSpacing => AccountListFilterController.GetDensityMetrics(_densityMode).CardBottomSpacing;
+
+        private void NotifyDensityMetricsChanged()
+        {
+            OnPropertyChanged(nameof(IsDensityCompact)); OnPropertyChanged(nameof(IsDensityBalanced)); OnPropertyChanged(nameof(IsDensityComfortable));
+            OnPropertyChanged(nameof(CardHeight)); OnPropertyChanged(nameof(CardRowHeight)); OnPropertyChanged(nameof(TableRowHeight)); OnPropertyChanged(nameof(CardBottomSpacing));
+        }
+
+        private void ClearAllFilters()
+        {
+            System.Threading.Interlocked.Increment(ref _searchGeneration);
+            ServerListOperationHelper.ReplaceCts(ref _searchCts, createNew: false, "AccountCollection.SearchCts");
+            if (_searchText.Length > 0) { _searchText = string.Empty; OnPropertyChanged(nameof(SearchText)); }
+            if (_selectedGroup != "All Groups") { _selectedGroup = "All Groups"; OnPropertyChanged(nameof(SelectedGroup)); }
+            if (_activeTab != AccountFilterTab.All)
+            {
+                _activeTab = AccountFilterTab.All;
+                OnPropertyChanged(nameof(ActiveTab)); OnPropertyChanged(nameof(IsFilterAll)); OnPropertyChanged(nameof(IsFilterInGame));
+                OnPropertyChanged(nameof(IsFilterReady)); OnPropertyChanged(nameof(IsFilterExpired)); OnPropertyChanged(nameof(IsFilterBanned)); OnPropertyChanged(nameof(IsFilterPinned));
+            }
+            ApplyFilter();
+        }
 
         private void InitializeCommands()
         {
@@ -177,6 +221,12 @@ namespace Shiro.ViewModels
                 ActiveTab = AccountFilterTab.All;
                 SortMode = SortMode == AccountSortMode.RobuxDescending ? AccountSortMode.NaturalAscending : AccountSortMode.RobuxDescending;
             });
+            SetDensityModeCommand = new RelayCommand(p =>
+            {
+                if (p is UiDensityMode mode) DensityMode = mode;
+                else if (p is string s && Enum.TryParse<UiDensityMode>(s, true, out var parsed)) DensityMode = parsed;
+            });
+            ClearFiltersCommand = new RelayCommand(ClearAllFilters);
         }
     }
 }
