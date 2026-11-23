@@ -9,15 +9,9 @@
         ExtendClientAreaToDecorationsHint="True" WindowDecorations="BorderOnly" ExtendClientAreaTitleBarHeightHint="-1"
         Background="{DynamicResource SurfaceCanvasBrush}" Foreground="{DynamicResource TextPrimaryBrush}">
     <Window.Styles>
-        <Style Selector="Button.NavPill lucide|Lucide">
-            <Setter Property="StrokeBrush" Value="{DynamicResource TextSecondaryBrush}" />
-        </Style>
-        <Style Selector="Button.NavPill:pointerover lucide|Lucide">
-            <Setter Property="StrokeBrush" Value="{DynamicResource TextPrimaryBrush}" />
-        </Style>
-        <Style Selector="Button.NavPill.active lucide|Lucide">
-            <Setter Property="StrokeBrush" Value="{DynamicResource AccentBrush}" />
-        </Style>
+        <Style Selector="Button.NavPill lucide|Lucide"><Setter Property="StrokeBrush" Value="{DynamicResource TextSecondaryBrush}" /></Style>
+        <Style Selector="Button.NavPill:pointerover lucide|Lucide"><Setter Property="StrokeBrush" Value="{DynamicResource TextPrimaryBrush}" /></Style>
+        <Style Selector="Button.NavPill.active lucide|Lucide"><Setter Property="StrokeBrush" Value="{DynamicResource AccentBrush}" /></Style>
         <Style Selector="Border.ToolsOnBadge">
             <Setter Property="Background" Value="{DynamicResource StatusSuccessBgBrush}" />
             <Setter Property="BorderBrush" Value="{DynamicResource StatusSuccessBorderBrush}" />
@@ -26,15 +20,53 @@
             <Setter Property="Padding" Value="6,1" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
+        <Style Selector="Border#SidebarBrandHeader"><Setter Property="Padding" Value="14,14" /></Style>
+        <Style Selector="StackPanel#SidebarBrandRow">
+            <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="Spacing" Value="11" />
+        </Style>
+        <Style Selector="Border#SidebarFooterBorder"><Setter Property="Padding" Value="12,12" /></Style>
+        <Style Selector="Button#BtnCloseRoblox"><Setter Property="Padding" Value="12,9" /></Style>
+        <Style Selector="Border#SidebarRailBorder:not(.collapsed) Button#BtnNavTools">
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        </Style>
+        <Style Selector="Border#SidebarRailBorder.collapsed :is(Control).NavLabel"><Setter Property="IsVisible" Value="False" /></Style>
+        <Style Selector="Border#SidebarRailBorder.collapsed Button.NavPill">
+            <Setter Property="Padding" Value="8,10" />
+            <Setter Property="Margin" Value="8,2" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Border#SidebarRailBorder.collapsed Border#SidebarBrandHeader"><Setter Property="Padding" Value="0,14" /></Style>
+        <Style Selector="Border#SidebarRailBorder.collapsed StackPanel#SidebarBrandRow">
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="Spacing" Value="0" />
+        </Style>
+        <Style Selector="Border#SidebarRailBorder.collapsed Border#SidebarFooterBorder"><Setter Property="Padding" Value="8,12" /></Style>
+        <Style Selector="Border#SidebarRailBorder.collapsed Button#BtnCloseRoblox"><Setter Property="Padding" Value="0,9" /></Style>
+        <Style Selector="Border#SidebarRailBorder.collapsed Border#NavActiveIndicator"><Setter Property="Margin" Value="10,0,0,0" /></Style>
+        <Style Selector="Button#BtnNotificationBell.active /template/ Border#PART_Border">
+            <Setter Property="Background" Value="{DynamicResource AccentSoftFillBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBorderBrush}" />
+        </Style>
+        <Style Selector="Button#BtnNotificationBell.active lucide|Lucide"><Setter Property="StrokeBrush" Value="{DynamicResource AccentBrush}" /></Style>
     </Window.Styles>
     <Grid Background="{DynamicResource SurfaceCanvasBrush}">
         <controls:AmbientBackdropLayer IsHitTestVisible="False" />
         <Grid RowDefinitions="Auto,*,Auto">
             <!-- Studio Titlebar -->
             <Border Grid.Row="0" Background="{DynamicResource SurfaceChromeBrush}" BorderBrush="{DynamicResource BorderHairlineBrush}"
-                    BorderThickness="0,0,0,1" Height="44" Padding="14,0,6,0" PointerPressed="OnTitleBarPointerPressed">
+                    BorderThickness="0,0,0,1" Height="44" Padding="10,0,6,0" PointerPressed="OnTitleBarPointerPressed">
                 <Grid ColumnDefinitions="Auto,*,Auto">
-                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Spacing="9">
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Spacing="8">
+                        <Button x:Name="BtnToggleSidebar" Classes="StudioIconBtn" Width="28" Height="28"
+                                Click="OnToggleSidebarClicked" ToolTip.Tip="{DynamicResource Nav_ToggleRailTip}">
+                            <Panel>
+                                <lucide:Lucide x:Name="IconSidebarCollapse" Icon="PanelLeftClose" Width="14" Height="14"
+                                               StrokeBrush="{DynamicResource TextSecondaryBrush}" />
+                                <lucide:Lucide x:Name="IconSidebarExpand" Icon="PanelLeftOpen" Width="14" Height="14"
+                                               StrokeBrush="{DynamicResource TextSecondaryBrush}" IsVisible="False" />
+                            </Panel>
+                        </Button>
                         <Border Width="22" Height="22" CornerRadius="{StaticResource RadiusSm}"
                                 Background="{DynamicResource SurfaceElevatedBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
                                 BorderThickness="1" ClipToBounds="True">
@@ -44,8 +76,7 @@
                                    Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
                         <Border Background="{DynamicResource SurfaceSubtleChipBrush}" BorderBrush="{DynamicResource BorderHairlineBrush}"
                                 BorderThickness="1" CornerRadius="{StaticResource RadiusXs}" Padding="6,2">
-                            <TextBlock Text=".NET 10 • Avalonia 12" FontSize="10" FontWeight="SemiBold"
-                                       Foreground="{DynamicResource TextMutedBrush}" />
+                            <TextBlock Text=".NET 10 • Avalonia 12" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource TextMutedBrush}" />
                         </Border>
                     </StackPanel>
 
@@ -67,15 +98,30 @@
                     </Button>
 
                     <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                        <Button x:Name="BtnNotificationBell" Classes="StudioIconBtn" Width="32" Height="30"
+                                Classes.active="{Binding IsNotificationCenterOpen}" Click="OnNotificationBellClicked"
+                                ToolTip.Tip="{DynamicResource Nav_NotificationsTip}">
+                            <Panel Width="26" Height="24">
+                                <lucide:Lucide Icon="Bell" Width="14" Height="14" HorizontalAlignment="Center"
+                                               VerticalAlignment="Center" StrokeBrush="{DynamicResource TextSecondaryBrush}" />
+                                <Border x:Name="NotificationBadge" IsVisible="{Binding HasUnreadNotifications}"
+                                        Background="{DynamicResource AccentBrush}" CornerRadius="{StaticResource RadiusPill}"
+                                        MinWidth="15" Height="15" Padding="3,0" HorizontalAlignment="Right"
+                                        VerticalAlignment="Top" Margin="0,1,0,0" IsHitTestVisible="False">
+                                    <TextBlock Classes="TabularNum" Text="{Binding UnreadNotificationCount}" FontSize="9"
+                                               FontWeight="Bold" Foreground="{DynamicResource AccentForegroundBrush}"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                            </Panel>
+                        </Button>
+                        <Border Width="1" Height="14" Background="{DynamicResource BorderHairlineBrush}" Margin="2,0" VerticalAlignment="Center" />
                         <Button Classes="CaptionBtn" Click="OnMinimizeClicked" ToolTip.Tip="{DynamicResource Cap_Minimize}">
                             <lucide:Lucide Icon="Minus" Width="12" Height="12" StrokeBrush="#A1A1AA" />
                         </Button>
                         <Button Classes="CaptionBtn" Click="OnMaximizeClicked" ToolTip.Tip="{DynamicResource Cap_Maximize}">
                             <Panel>
-                                <lucide:Lucide x:Name="IconMaximize" Icon="Square" Width="11" Height="11"
-                                               StrokeBrush="#A1A1AA" IsVisible="True" />
-                                <lucide:Lucide x:Name="IconRestore" Icon="Copy" Width="11" Height="11"
-                                               StrokeBrush="#A1A1AA" IsVisible="False" />
+                                <lucide:Lucide x:Name="IconMaximize" Icon="Square" Width="11" Height="11" StrokeBrush="#A1A1AA" IsVisible="True" />
+                                <lucide:Lucide x:Name="IconRestore" Icon="Copy" Width="11" Height="11" StrokeBrush="#A1A1AA" IsVisible="False" />
                             </Panel>
                         </Button>
                         <Button Classes="CaptionBtn CloseBtn" Click="OnCloseClicked" ToolTip.Tip="{DynamicResource Cap_Close}">
@@ -85,57 +131,57 @@
                 </Grid>
             </Border>
 
-            <!-- Shell Body: Sidebar + Active View Canvas -->
-            <Grid Grid.Row="1" ColumnDefinitions="218,*">
-                <Border Grid.Column="0" Background="{DynamicResource SurfaceChromeBrush}"
+            <!-- Shell Body: Collapsible Rail + Active View Canvas -->
+            <Grid Grid.Row="1" x:Name="ShellBodyGrid" ColumnDefinitions="215,*">
+                <Border x:Name="SidebarRailBorder" Grid.Column="0" Background="{DynamicResource SurfaceChromeBrush}"
                         BorderBrush="{DynamicResource BorderHairlineBrush}" BorderThickness="0,0,1,0">
                     <Grid RowDefinitions="Auto,Auto,*,Auto">
-                        <Border Grid.Row="0" Padding="14,14" Background="Transparent"
+                        <Border x:Name="SidebarBrandHeader" Grid.Row="0" Background="Transparent"
                                 BorderBrush="{DynamicResource BorderHairlineBrush}" BorderThickness="0,0,0,1"
                                 PointerPressed="OnTitleBarPointerPressed">
-                            <Grid ColumnDefinitions="Auto,*">
-                                <Border Grid.Column="0" Width="36" Height="36" CornerRadius="{StaticResource RadiusMd}"
+                            <StackPanel x:Name="SidebarBrandRow" Orientation="Horizontal">
+                                <Border Width="36" Height="36" CornerRadius="{StaticResource RadiusMd}"
                                         Background="{DynamicResource AccentSoftFillBrush}" BorderBrush="{DynamicResource AccentRimBrush}"
-                                        BorderThickness="1" Padding="1" Margin="0,0,11,0" VerticalAlignment="Center">
+                                        BorderThickness="1" Padding="1" VerticalAlignment="Center">
                                     <Border CornerRadius="7" ClipToBounds="True">
                                         <Image Source="/Resources/shiro_logo.png" Width="32" Height="32" Stretch="UniformToFill" />
                                     </Border>
                                 </Border>
-                                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="1">
+                                <StackPanel Classes="NavLabel" VerticalAlignment="Center" Spacing="1">
                                     <TextBlock Text="Shiro" FontWeight="Bold" FontSize="16" LetterSpacing="0.5"
                                                Foreground="{DynamicResource TextPrimaryBrush}" />
                                     <TextBlock Text="ACCOUNT MANAGER" FontWeight="Bold" FontSize="9" LetterSpacing="1.1"
                                                Foreground="{DynamicResource TextMutedBrush}" />
                                 </StackPanel>
-                            </Grid>
+                            </StackPanel>
                         </Border>
 
-                        <TextBlock Grid.Row="1" Classes="SectionKicker" Text="{DynamicResource Nav_Workspace}" Margin="16,14,14,6" />
+                        <TextBlock Grid.Row="1" Classes="SectionKicker NavLabel" Text="{DynamicResource Nav_Workspace}" Margin="16,14,14,6" />
 
-                        <Grid Grid.Row="2" x:Name="NavSidebarHost">
+                        <Grid Grid.Row="2" x:Name="NavSidebarHost" Margin="0,6,0,0">
                             <StackPanel x:Name="NavButtonsStack" Spacing="2">
                                 <Button x:Name="BtnNavDashboard" Classes="NavPill active" Click="OnNavDashboardClicked"
                                         ToolTip.Tip="{DynamicResource Nav_Tip_Accounts}">
                                     <StackPanel Orientation="Horizontal" Spacing="10">
                                         <lucide:Lucide Icon="User" Width="16" Height="16" VerticalAlignment="Center" />
-                                        <TextBlock Text="{DynamicResource Nav_Accounts}" FontSize="13" VerticalAlignment="Center" />
+                                        <TextBlock Classes="NavLabel" Text="{DynamicResource Nav_Accounts}" FontSize="13" VerticalAlignment="Center" />
                                     </StackPanel>
                                 </Button>
                                 <Button x:Name="BtnNavServerList" Classes="NavPill" Click="OnNavServerListClicked"
                                         ToolTip.Tip="{DynamicResource Nav_Tip_ServerList}">
                                     <StackPanel Orientation="Horizontal" Spacing="10">
                                         <lucide:Lucide Icon="Globe" Width="16" Height="16" VerticalAlignment="Center" />
-                                        <TextBlock Text="{DynamicResource Nav_ServerList}" FontSize="13" VerticalAlignment="Center" />
+                                        <TextBlock Classes="NavLabel" Text="{DynamicResource Nav_ServerList}" FontSize="13" VerticalAlignment="Center" />
                                     </StackPanel>
                                 </Button>
                                 <Button x:Name="BtnNavRecentGames" Classes="NavPill" Click="OnNavRecentGamesClicked"
                                         ToolTip.Tip="{DynamicResource Nav_Tip_RecentGames}">
                                     <StackPanel Orientation="Horizontal" Spacing="10">
                                         <lucide:Lucide Icon="Gamepad2" Width="16" Height="16" VerticalAlignment="Center" />
-                                        <TextBlock Text="{DynamicResource Nav_RecentGames}" FontSize="13" VerticalAlignment="Center" />
+                                        <TextBlock Classes="NavLabel" Text="{DynamicResource Nav_RecentGames}" FontSize="13" VerticalAlignment="Center" />
                                     </StackPanel>
                                 </Button>
-                                <Button x:Name="BtnNavTools" Classes="NavPill" HorizontalContentAlignment="Stretch">
+                                <Button x:Name="BtnNavTools" Classes="NavPill" ToolTip.Tip="{DynamicResource Nav_Tools}">
                                     <Button.Flyout>
                                         <MenuFlyout Placement="RightEdgeAlignedTop">
                                             <MenuItem Click="OnToolAntiAfkClicked">
@@ -144,8 +190,7 @@
                                                     <TextBlock Grid.Column="0" Text="{DynamicResource Tool_AntiAfk}" VerticalAlignment="Center" />
                                                     <Border Grid.Column="2" Classes="ToolsOnBadge" IsVisible="{Binding ToolsStatus.IsAntiAfk}">
                                                         <TextBlock Text="ON" FontSize="9" FontWeight="Bold" Foreground="{DynamicResource StatusSuccessBrush}" />
-                                                    </Border>
-                                                </Grid></MenuItem.Header>
+                                                    </Border></Grid></MenuItem.Header>
                                             </MenuItem>
                                             <MenuItem Click="OnToolPotatoClicked">
                                                 <MenuItem.Icon><lucide:Lucide Icon="Zap" Width="14" Height="14" StrokeBrush="#F59E0B" /></MenuItem.Icon>
@@ -153,8 +198,7 @@
                                                     <TextBlock Grid.Column="0" Text="{DynamicResource Tool_Potato}" VerticalAlignment="Center" />
                                                     <Border Grid.Column="2" Classes="ToolsOnBadge" IsVisible="{Binding ToolsStatus.IsPotatoMode}">
                                                         <TextBlock Text="ON" FontSize="9" FontWeight="Bold" Foreground="{DynamicResource StatusSuccessBrush}" />
-                                                    </Border>
-                                                </Grid></MenuItem.Header>
+                                                    </Border></Grid></MenuItem.Header>
                                             </MenuItem>
                                             <MenuItem Click="OnToolZeroGpuClicked">
                                                 <MenuItem.Icon><lucide:Lucide Icon="EyeOff" Width="14" Height="14" StrokeBrush="#A1A1AA" /></MenuItem.Icon>
@@ -162,8 +206,7 @@
                                                     <TextBlock Grid.Column="0" Text="{DynamicResource Tool_ZeroGpu}" VerticalAlignment="Center" />
                                                     <Border Grid.Column="2" Classes="ToolsOnBadge" IsVisible="{Binding ToolsStatus.AreWindowsHidden}">
                                                         <TextBlock Text="ON" FontSize="9" FontWeight="Bold" Foreground="{DynamicResource StatusSuccessBrush}" />
-                                                    </Border>
-                                                </Grid></MenuItem.Header>
+                                                    </Border></Grid></MenuItem.Header>
                                             </MenuItem>
                                             <MenuItem Click="OnToolSmartMuteClicked">
                                                 <MenuItem.Icon><lucide:Lucide Icon="Volume2" Width="14" Height="14" StrokeBrush="#38BDF8" /></MenuItem.Icon>
@@ -171,8 +214,7 @@
                                                     <TextBlock Grid.Column="0" Text="{DynamicResource Tool_SmartMute}" VerticalAlignment="Center" />
                                                     <Border Grid.Column="2" Classes="ToolsOnBadge" IsVisible="{Binding ToolsStatus.IsSmartMuteActive}">
                                                         <TextBlock Text="ON" FontSize="9" FontWeight="Bold" Foreground="{DynamicResource StatusSuccessBrush}" />
-                                                    </Border>
-                                                </Grid></MenuItem.Header>
+                                                    </Border></Grid></MenuItem.Header>
                                             </MenuItem>
                                             <MenuItem Click="OnToolStreamerModeClicked">
                                                 <MenuItem.Icon><lucide:Lucide Icon="ShieldCheck" Width="14" Height="14" StrokeBrush="#A855F7" /></MenuItem.Icon>
@@ -180,74 +222,62 @@
                                                     <TextBlock Grid.Column="0" Text="{DynamicResource Tool_StreamerMode}" VerticalAlignment="Center" />
                                                     <Border Grid.Column="2" Classes="ToolsOnBadge" IsVisible="{Binding ToolsStatus.IsStreamerModeActive}">
                                                         <TextBlock Text="ON" FontSize="9" FontWeight="Bold" Foreground="{DynamicResource StatusSuccessBrush}" />
-                                                    </Border>
-                                                </Grid></MenuItem.Header>
+                                                    </Border></Grid></MenuItem.Header>
                                             </MenuItem>
                                             <Separator />
                                             <MenuItem Header="{DynamicResource Tool_ArrangeMenu}">
                                                 <MenuItem.Icon><lucide:Lucide Icon="LayoutGrid" Width="14" Height="14" StrokeBrush="#22C55E" /></MenuItem.Icon>
                                                 <MenuItem Header="{DynamicResource Tool_AutoGrid}" Click="OnArrangeAutoClicked">
-                                                    <MenuItem.Icon><lucide:Lucide Icon="LayoutGrid" Width="14" Height="14" StrokeBrush="#38BDF8" /></MenuItem.Icon>
-                                                </MenuItem>
+                                                    <MenuItem.Icon><lucide:Lucide Icon="LayoutGrid" Width="14" Height="14" StrokeBrush="#38BDF8" /></MenuItem.Icon></MenuItem>
                                                 <MenuItem Header="{DynamicResource Tool_Grid2x2}" Click="OnArrange2x2Clicked">
-                                                    <MenuItem.Icon><lucide:Lucide Icon="Grid2x2" Width="14" Height="14" StrokeBrush="#A1A1AA" /></MenuItem.Icon>
-                                                </MenuItem>
+                                                    <MenuItem.Icon><lucide:Lucide Icon="Grid2x2" Width="14" Height="14" StrokeBrush="#A1A1AA" /></MenuItem.Icon></MenuItem>
                                                 <MenuItem Header="{DynamicResource Tool_Grid3x2}" Click="OnArrange3x2Clicked">
-                                                    <MenuItem.Icon><lucide:Lucide Icon="Grid3x3" Width="14" Height="14" StrokeBrush="#A1A1AA" /></MenuItem.Icon>
-                                                </MenuItem>
+                                                    <MenuItem.Icon><lucide:Lucide Icon="Grid3x3" Width="14" Height="14" StrokeBrush="#A1A1AA" /></MenuItem.Icon></MenuItem>
                                                 <MenuItem Header="{DynamicResource Tool_Grid4x3}" Click="OnArrange4x3Clicked">
-                                                    <MenuItem.Icon><lucide:Lucide Icon="Table2" Width="14" Height="14" StrokeBrush="#A1A1AA" /></MenuItem.Icon>
-                                                </MenuItem>
+                                                    <MenuItem.Icon><lucide:Lucide Icon="Table2" Width="14" Height="14" StrokeBrush="#A1A1AA" /></MenuItem.Icon></MenuItem>
                                                 <Separator />
                                                 <MenuItem Header="{DynamicResource Tool_Cascade}" Click="OnArrangeCascadeClicked">
-                                                    <MenuItem.Icon><lucide:Lucide Icon="Layers" Width="14" Height="14" StrokeBrush="#F59E0B" /></MenuItem.Icon>
-                                                </MenuItem>
+                                                    <MenuItem.Icon><lucide:Lucide Icon="Layers" Width="14" Height="14" StrokeBrush="#F59E0B" /></MenuItem.Icon></MenuItem>
                                             </MenuItem>
                                             <MenuItem Header="{DynamicResource Tool_OptimizeRam}" Click="OnToolOptimizeRamClicked">
-                                                <MenuItem.Icon><lucide:Lucide Icon="Cpu" Width="14" Height="14" StrokeBrush="#22C55E" /></MenuItem.Icon>
-                                            </MenuItem>
+                                                <MenuItem.Icon><lucide:Lucide Icon="Cpu" Width="14" Height="14" StrokeBrush="#22C55E" /></MenuItem.Icon></MenuItem>
                                             <MenuItem Header="{DynamicResource Tool_MuteAll}" Click="OnToolMuteAllClicked">
-                                                <MenuItem.Icon><lucide:Lucide Icon="VolumeX" Width="14" Height="14" StrokeBrush="#F43F5E" /></MenuItem.Icon>
-                                            </MenuItem>
+                                                <MenuItem.Icon><lucide:Lucide Icon="VolumeX" Width="14" Height="14" StrokeBrush="#F43F5E" /></MenuItem.Icon></MenuItem>
                                             <MenuItem Header="{DynamicResource Tool_Proxy}" Click="OnToolProxyClicked">
-                                                <MenuItem.Icon><lucide:Lucide Icon="Globe" Width="14" Height="14" StrokeBrush="#38BDF8" /></MenuItem.Icon>
-                                            </MenuItem>
+                                                <MenuItem.Icon><lucide:Lucide Icon="Globe" Width="14" Height="14" StrokeBrush="#38BDF8" /></MenuItem.Icon></MenuItem>
                                             <MenuItem Header="{DynamicResource Tool_CleanTray}" Click="OnToolCleanTrayClicked">
-                                                <MenuItem.Icon><lucide:Lucide Icon="Trash" Width="14" Height="14" StrokeBrush="#A1A1AA" /></MenuItem.Icon>
-                                            </MenuItem>
+                                                <MenuItem.Icon><lucide:Lucide Icon="Trash" Width="14" Height="14" StrokeBrush="#A1A1AA" /></MenuItem.Icon></MenuItem>
                                         </MenuFlyout>
                                     </Button.Flyout>
                                     <Grid ColumnDefinitions="*,Auto,Auto">
                                         <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
                                             <lucide:Lucide Icon="Zap" Width="16" Height="16" VerticalAlignment="Center" />
-                                            <TextBlock Text="{DynamicResource Nav_Tools}" FontSize="13" VerticalAlignment="Center" />
+                                            <TextBlock Classes="NavLabel" Text="{DynamicResource Nav_Tools}" FontSize="13" VerticalAlignment="Center" />
                                         </StackPanel>
-                                        <Border Grid.Column="1" Classes="ToolsOnBadge" IsVisible="{Binding ToolsStatus.HasActiveTools}"
-                                                Margin="8,0,0,0">
-                                            <StackPanel Orientation="Horizontal" Spacing="4">
-                                                <controls:StatusPulseDot DotBrush="{DynamicResource StatusSuccessBrush}" DotSize="4.5"
-                                                                         Width="12" Height="12" IsPulsing="{Binding ToolsStatus.HasActiveTools}"
-                                                                         VerticalAlignment="Center" />
-                                                <TextBlock Classes="TabularNum" Text="{Binding ToolsStatus.ActiveToolsCount}"
-                                                           FontSize="10" FontWeight="Bold"
-                                                           Foreground="{DynamicResource StatusSuccessBrush}" VerticalAlignment="Center" />
-                                            </StackPanel>
-                                        </Border>
-                                        <lucide:Lucide Grid.Column="2" Icon="ChevronDown" Width="12" Height="12"
-                                                       Margin="8,0,0,0" HorizontalAlignment="Right"
-                                                       StrokeBrush="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" />
+                                        <Panel Grid.Column="1" Classes="NavLabel" Margin="8,0,0,0">
+                                            <Border Classes="ToolsOnBadge" IsVisible="{Binding ToolsStatus.HasActiveTools}">
+                                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                                    <controls:StatusPulseDot DotBrush="{DynamicResource StatusSuccessBrush}" DotSize="4.5"
+                                                                             Width="12" Height="12" IsPulsing="{Binding ToolsStatus.HasActiveTools}" VerticalAlignment="Center" />
+                                                    <TextBlock Classes="TabularNum" Text="{Binding ToolsStatus.ActiveToolsCount}" FontSize="10"
+                                                               FontWeight="Bold" Foreground="{DynamicResource StatusSuccessBrush}" VerticalAlignment="Center" />
+                                                </StackPanel>
+                                            </Border>
+                                        </Panel>
+                                        <lucide:Lucide Grid.Column="2" Classes="NavLabel" Icon="ChevronDown" Width="12" Height="12" Margin="8,0,0,0"
+                                                       HorizontalAlignment="Right" StrokeBrush="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" />
                                     </Grid>
                                 </Button>
-                                <Button x:Name="BtnNavSettings" Classes="NavPill" Click="OnNavSettingsClicked">
+                                <Button x:Name="BtnNavSettings" Classes="NavPill" Click="OnNavSettingsClicked" ToolTip.Tip="{DynamicResource Nav_Settings}">
                                     <StackPanel Orientation="Horizontal" Spacing="10">
                                         <lucide:Lucide Icon="Settings" Width="16" Height="16" VerticalAlignment="Center" />
-                                        <TextBlock Text="{DynamicResource Nav_Settings}" FontSize="13" VerticalAlignment="Center" />
+                                        <TextBlock Classes="NavLabel" Text="{DynamicResource Nav_Settings}" FontSize="13" VerticalAlignment="Center" />
                                     </StackPanel>
                                 </Button>
-                                <Button x:Name="BtnNavAbout" Classes="NavPill" Click="OnNavAboutClicked">
+                                <Button x:Name="BtnNavAbout" Classes="NavPill" Click="OnNavAboutClicked" ToolTip.Tip="{DynamicResource Nav_About}">
                                     <StackPanel Orientation="Horizontal" Spacing="10">
                                         <lucide:Lucide Icon="Info" Width="16" Height="16" VerticalAlignment="Center" />
-                                        <TextBlock Text="{DynamicResource Nav_About}" FontSize="13" VerticalAlignment="Center" />
+                                        <TextBlock Classes="NavLabel" Text="{DynamicResource Nav_About}" FontSize="13" VerticalAlignment="Center" />
                                     </StackPanel>
                                 </Button>
                             </StackPanel>
@@ -256,14 +286,12 @@
                                     Background="{DynamicResource AccentBrush}" IsHitTestVisible="False" IsVisible="False" />
                         </Grid>
 
-                        <Border Grid.Row="3" Padding="12,12" BorderBrush="{DynamicResource BorderHairlineBrush}" BorderThickness="0,1,0,0">
-                            <Button Classes="StudioDangerBtn" Click="OnSidebarCloseRobloxClicked" Padding="12,9"
+                        <Border x:Name="SidebarFooterBorder" Grid.Row="3" BorderBrush="{DynamicResource BorderHairlineBrush}" BorderThickness="0,1,0,0">
+                            <Button x:Name="BtnCloseRoblox" Classes="StudioDangerBtn" Click="OnSidebarCloseRobloxClicked"
                                     HorizontalAlignment="Stretch" ToolTip.Tip="{DynamicResource Nav_Tip_CloseRoblox}">
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="7">
-                                    <lucide:Lucide Icon="Power" Width="13" Height="13"
-                                                   StrokeBrush="{DynamicResource StatusDangerBrush}" VerticalAlignment="Center" />
-                                    <TextBlock Classes="TabularNum" Text="{Binding ToolsStatus.CloseRobloxButtonText}"
-                                               VerticalAlignment="Center" />
+                                    <lucide:Lucide Icon="Power" Width="13" Height="13" StrokeBrush="{DynamicResource StatusDangerBrush}" VerticalAlignment="Center" />
+                                    <TextBlock Classes="TabularNum NavLabel" Text="{Binding ToolsStatus.CloseRobloxButtonText}" VerticalAlignment="Center" />
                                 </StackPanel>
                             </Button>
                         </Border>
@@ -290,26 +318,21 @@
                     BorderBrush="{DynamicResource BorderStrongBrush}" BorderThickness="1" CornerRadius="{StaticResource RadiusXl}"
                     BoxShadow="{StaticResource ShadowModal}" ClipToBounds="True" HorizontalAlignment="Center" VerticalAlignment="Center">
                 <Panel>
-                    <Border BorderBrush="{DynamicResource BorderTopRimBrush}" BorderThickness="1"
-                            CornerRadius="{StaticResource RadiusXl}" IsHitTestVisible="False" />
+                    <Border BorderBrush="{DynamicResource BorderTopRimBrush}" BorderThickness="1" CornerRadius="{StaticResource RadiusXl}" IsHitTestVisible="False" />
                     <Grid RowDefinitions="Auto,Auto,*,Auto">
                         <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Margin="16,14,14,12">
                             <lucide:Lucide Grid.Column="0" Icon="Search" Width="16" Height="16"
                                            StrokeBrush="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" Margin="2,0,10,0" />
-                            <TextBox Grid.Column="1" x:Name="TxtCommandPalette"
-                                     Text="{Binding CommandPalette.CommandPaletteSearchText, Mode=TwoWay}"
-                                     PlaceholderText="{DynamicResource Cmd_InputPlaceholder}"
-                                     Background="{DynamicResource SurfaceInputBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
-                                     BorderBrush="{DynamicResource BorderSubtleBrush}" CornerRadius="{StaticResource RadiusMd}"
-                                     Padding="10,8" VerticalContentAlignment="Center" FontSize="13" />
+                            <TextBox Grid.Column="1" x:Name="TxtCommandPalette" Text="{Binding CommandPalette.CommandPaletteSearchText, Mode=TwoWay}"
+                                     PlaceholderText="{DynamicResource Cmd_InputPlaceholder}" Background="{DynamicResource SurfaceInputBrush}"
+                                     Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
+                                     CornerRadius="{StaticResource RadiusMd}" Padding="10,8" VerticalContentAlignment="Center" FontSize="13" />
                             <Button Grid.Column="2" Classes="StudioIconBtn" Width="28" Height="28" Margin="8,0,0,0"
                                     Click="OnCloseCommandPaletteClicked" ToolTip.Tip="{DynamicResource Btn_Close}">
                                 <lucide:Lucide Icon="X" Width="14" Height="14" StrokeBrush="{DynamicResource TextMutedBrush}" />
                             </Button>
                         </Grid>
-
                         <Border Grid.Row="1" Height="1" Background="{DynamicResource BorderHairlineBrush}" />
-
                         <ScrollViewer Grid.Row="2" MaxHeight="350" Padding="10,8">
                             <ItemsControl ItemsSource="{Binding CommandPalette.CommandPaletteItems}">
                                 <ItemsControl.ItemTemplate>
@@ -319,44 +342,32 @@
                                                 Cursor="Hand" PointerPressed="OnCommandPaletteRowPointerPressed">
                                             <Grid ColumnDefinitions="Auto,*,Auto">
                                                 <Panel Grid.Column="0" Width="32" Height="32" Margin="0,0,10,0" VerticalAlignment="Center">
-                                                    <Border IsVisible="{Binding IsCommand}" Width="32" Height="32"
-                                                            CornerRadius="{StaticResource RadiusMd}" Background="{Binding CategoryBackground}"
-                                                            ClipToBounds="True">
-                                                        <Path Data="{Binding IconGeometry}" Width="15" Height="15" Stretch="Uniform"
-                                                              Stroke="{Binding IconBrush}" StrokeThickness="1.9" StrokeLineCap="Round"
-                                                              StrokeJoin="Round" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                    <Border IsVisible="{Binding IsCommand}" Width="32" Height="32" CornerRadius="{StaticResource RadiusMd}"
+                                                            Background="{Binding CategoryBackground}" ClipToBounds="True">
+                                                        <Path Data="{Binding IconGeometry}" Width="15" Height="15" Stretch="Uniform" Stroke="{Binding IconBrush}"
+                                                              StrokeThickness="1.9" StrokeLineCap="Round" StrokeJoin="Round" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                                     </Border>
                                                     <Border IsVisible="{Binding IsAccount}" Width="32" Height="32" CornerRadius="16"
                                                             Background="{DynamicResource SurfaceSubtleChipBrush}" ClipToBounds="True">
                                                         <Panel>
                                                             <TextBlock Text="{Binding Initials}" FontSize="12" FontWeight="Bold"
-                                                                       Foreground="{DynamicResource TextMutedBrush}"
-                                                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                                       Foreground="{DynamicResource TextMutedBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                                             <Image Source="{Binding AvatarImage}" Stretch="UniformToFill" />
                                                         </Panel>
                                                     </Border>
                                                 </Panel>
                                                 <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
                                                     <StackPanel Orientation="Horizontal" Spacing="8">
-                                                        <TextBlock Text="{Binding Title}" FontWeight="SemiBold" FontSize="13"
-                                                                   Foreground="{DynamicResource TextPrimaryBrush}" />
-                                                        <Border Background="{Binding CategoryBackground}"
-                                                                CornerRadius="{StaticResource RadiusXs}" Padding="6,1.5"
-                                                                VerticalAlignment="Center">
-                                                            <TextBlock Text="{Binding Category}" FontSize="9.5" FontWeight="Bold"
-                                                                       Foreground="{Binding CategoryForeground}" />
+                                                        <TextBlock Text="{Binding Title}" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}" />
+                                                        <Border Background="{Binding CategoryBackground}" CornerRadius="{StaticResource RadiusXs}" Padding="6,1.5" VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding Category}" FontSize="9.5" FontWeight="Bold" Foreground="{Binding CategoryForeground}" />
                                                         </Border>
                                                     </StackPanel>
-                                                    <TextBlock Text="{Binding Description}" FontSize="11"
-                                                               Foreground="{DynamicResource TextSecondaryBrush}"
-                                                               TextTrimming="CharacterEllipsis" />
+                                                    <TextBlock Text="{Binding Description}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" />
                                                 </StackPanel>
-                                                <Border Grid.Column="2" Background="{DynamicResource SurfaceSubtleChipBrush}"
-                                                        BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1"
-                                                        CornerRadius="{StaticResource RadiusXs}" Padding="8,3.5" Margin="10,0,0,0"
-                                                        VerticalAlignment="Center">
-                                                    <TextBlock Text="{Binding ActionBadge}" FontSize="10" FontWeight="SemiBold"
-                                                               Foreground="{DynamicResource TextSecondaryBrush}" />
+                                                <Border Grid.Column="2" Background="{DynamicResource SurfaceSubtleChipBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
+                                                        BorderThickness="1" CornerRadius="{StaticResource RadiusXs}" Padding="8,3.5" Margin="10,0,0,0" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding ActionBadge}" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" />
                                                 </Border>
                                             </Grid>
                                         </Border>
@@ -364,18 +375,14 @@
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
                         </ScrollViewer>
-
                         <Border Grid.Row="3" Background="{DynamicResource SurfaceChromeBrush}"
                                 BorderBrush="{DynamicResource BorderHairlineBrush}" BorderThickness="0,1,0,0" Padding="16,8">
                             <Grid ColumnDefinitions="*,Auto">
                                 <TextBlock Grid.Column="0" Text="{DynamicResource Cmd_ToolTip}" FontSize="10.5"
-                                           Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center"
-                                           TextTrimming="CharacterEllipsis" />
-                                <Border Grid.Column="1" Background="{DynamicResource SurfaceSubtleChipBrush}"
-                                        BorderBrush="{DynamicResource BorderHairlineBrush}" BorderThickness="1"
-                                        CornerRadius="{StaticResource RadiusXs}" Padding="7,2" VerticalAlignment="Center">
-                                    <TextBlock Text="↑↓ · Enter · Esc" FontSize="10" FontWeight="SemiBold"
-                                               Foreground="{DynamicResource TextSecondaryBrush}" />
+                                           Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                <Border Grid.Column="1" Background="{DynamicResource SurfaceSubtleChipBrush}" BorderBrush="{DynamicResource BorderHairlineBrush}"
+                                        BorderThickness="1" CornerRadius="{StaticResource RadiusXs}" Padding="7,2" VerticalAlignment="Center">
+                                    <TextBlock Text="↑↓ · Enter · Esc" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" />
                                 </Border>
                             </Grid>
                         </Border>

@@ -23,6 +23,8 @@ namespace Shiro.ViewModels
         private readonly ISettingsService _settings;
         private readonly IAccountRepository _accountRepository;
         private NavigationPage _currentPage = NavigationPage.Accounts;
+        private bool _isNotificationCenterOpen;
+        private int _unreadNotificationCount;
         private int _disposed;
         private Action<AppLanguage>? _languageChangedHandler;
         private Action<AccentTheme>? _themeChangedHandler;
@@ -126,6 +128,27 @@ namespace Shiro.ViewModels
         public bool IsRecentGamesActive => CurrentPage == NavigationPage.RecentGames;
         public bool IsSettingsActive => CurrentPage == NavigationPage.Settings;
         public bool IsAboutActive => CurrentPage == NavigationPage.About;
+
+        public bool IsNotificationCenterOpen
+        {
+            get => _isNotificationCenterOpen;
+            set => SetProperty(ref _isNotificationCenterOpen, value);
+        }
+
+        public int UnreadNotificationCount
+        {
+            get => _unreadNotificationCount;
+            set
+            {
+                int normalized = Math.Max(0, value);
+                if (SetProperty(ref _unreadNotificationCount, normalized))
+                {
+                    OnPropertyChanged(nameof(HasUnreadNotifications));
+                }
+            }
+        }
+
+        public bool HasUnreadNotifications => _unreadNotificationCount > 0;
 
         public void RefreshAllAccountDisplays()
         {

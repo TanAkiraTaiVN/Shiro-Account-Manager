@@ -1,7 +1,5 @@
 #nullable enable
 using System;
-using System.Threading;
-using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Animation.Easings;
@@ -9,7 +7,6 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
-using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Shiro.Services;
 using Shiro.ViewModels;
@@ -29,8 +26,6 @@ namespace Shiro.AvaloniaUI.Views
         private Button? _activeNavButton;
         private Control? _lastActiveView;
         private Button? _lastActiveButton;
-        private CancellationTokenSource? _pageTransitionCts;
-        private Control? _transitioningView;
         private TranslateTransform? _navIndicatorTransform;
 
         internal void InitializeNavigationChrome()
@@ -43,7 +38,6 @@ namespace Shiro.AvaloniaUI.Views
         {
             if (NavSidebarHost != null) NavSidebarHost.SizeChanged -= RefreshNavIndicatorLayout;
             Loaded -= RefreshNavIndicatorLayout;
-            CancelPageTransition(resetToFinal: true);
             if (_navIndicatorTransform != null) _navIndicatorTransform.Transitions = null;
         }
 
@@ -59,6 +53,9 @@ namespace Shiro.AvaloniaUI.Views
         protected override void OnKeyDown(KeyEventArgs e)
         {
             base.OnKeyDown(e);
+            if (HandleChromeKeyDown(e))
+                return;
+
             if (e.KeyModifiers.HasFlag(KeyModifiers.Control) && e.Key == Key.K)
             {
                 if (ViewModel != null)
@@ -164,9 +161,9 @@ namespace Shiro.AvaloniaUI.Views
 
             UpdateNavActiveIndicator(animate: shouldAnimate);
             if (shouldAnimate && activeView != null)
-                _ = RunPageEntranceAnimationAsync(activeView);
+                RunChromeViewEntrance(activeView);
             else if (activeView != null)
-                ResetViewTransformAndOpacity(activeView);
+                ResetChromeViewVisual(activeView);
         }
 
         private void UpdateNavActiveIndicator(bool animate)
@@ -216,75 +213,6 @@ namespace Shiro.AvaloniaUI.Views
                 Easing = new CubicEaseOut()
             }
         };
-
-        private void CancelPageTransition(bool resetToFinal)
-        {
-            var oldCts = _pageTransitionCts;
-            _pageTransitionCts = null;
-            if (oldCts != null)
-            {
-                try { oldCts.Cancel(); }
-                catch (ObjectDisposedException ex) { AppServices.Logger?.Debug($"Transition CTS cancel skipped: {ex.Message}"); }
-                oldCts.Dispose();
-            }
-            if (resetToFinal && _transitioningView != null)
-                ResetViewTransformAndOpacity(_transitioningView);
-            _transitioningView = null;
-        }
-
-        private static void ResetViewTransformAndOpacity(Control view)
-        {
-            view.Opacity = 1.0;
-            if (view.RenderTransform is TranslateTransform tt) tt.Y = 0.0;
-        }
-
-        private static Animation CreateSlideFadeAnimation<T>(AvaloniaProperty<T> prop, T from, T to) => new()
-        {
-            Duration = TimeSpan.FromMilliseconds(150),
-            Easing = new CubicEaseOut(),
-            FillMode = FillMode.None,
-            Children =
-            {
-                new KeyFrame { Cue = new Cue(0.0), Setters = { new Setter(prop, from) } },
-                new KeyFrame { Cue = new Cue(1.0), Setters = { new Setter(prop, to) } }
-            }
-        };
-
-        private async Task RunPageEntranceAnimationAsync(Control targetView)
-        {
-            CancelPageTransition(resetToFinal: true);
-            if (_isClosed) return;
-
-            var cts = new CancellationTokenSource();
-            _pageTransitionCts = cts;
-            _transitioningView = targetView;
-            try
-            {
-                if (targetView.RenderTransform is not TranslateTransform transform)
-                {
-                    transform = new TranslateTransform();
-                    targetView.RenderTransform = transform;
-                }
-
-                targetView.Opacity = 0.0;
-                transform.Y = 6.0;
-                await Task.WhenAll(
-                    CreateSlideFadeAnimation(Visual.OpacityProperty, 0.0, 1.0).RunAsync(targetView, cts.Token),
-                    CreateSlideFadeAnimation(TranslateTransform.YProperty, 6.0, 0.0).RunAsync(transform, cts.Token));
-            }
-            catch (OperationCanceledException ex) { AppServices.Logger?.Debug($"Page transition canceled: {ex.Message}"); }
-            catch (Exception ex) { AppServices.Logger?.Debug($"Page transition failed: {ex.Message}"); }
-            finally
-            {
-                ResetViewTransformAndOpacity(targetView);
-                if (ReferenceEquals(_pageTransitionCts, cts))
-                {
-                    _pageTransitionCts = null;
-                    _transitioningView = null;
-                    cts.Dispose();
-                }
-            }
-        }
 
         private void ResetNavButtons()
         {
