@@ -24,8 +24,12 @@ namespace Shiro.ViewModels
         private bool _isSelected;
         private string _iconName = "Terminal";
         private LucideIconNames _iconKind = LucideIconNames.Terminal;
+        private string? _primaryHintText;
+        private string? _secondaryHintText;
 
         public CommandPaletteItemType ItemType { get; set; } = CommandPaletteItemType.Command;
+        public string CommandId { get; set; } = string.Empty;
+        public bool IsRecent { get; set; }
         public string Title { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
         public string Category { get; set; } = string.Empty;
@@ -107,8 +111,71 @@ namespace Shiro.ViewModels
         public string Initials => Account?.Initials ?? "?";
         public string ShownUsername => Account?.ShownUsername ?? Title;
         public string Alias => Account?.ShownAlias ?? string.Empty;
+        public bool HasAlias => !string.IsNullOrWhiteSpace(Alias);
+        public string ShownUserId => Account?.ShownUserId ?? string.Empty;
+        public bool HasUserId => Account != null && Account.UserId > 0;
+        public string GameName => Account?.GameName ?? string.Empty;
+        public bool HasGameName => !string.IsNullOrWhiteSpace(GameName);
         public string StatusText => Account?.StatusText ?? string.Empty;
         public IBrush? StatusBadgeForeground => Account?.StatusBadgeForeground;
+
+        public string PrimaryHintText
+        {
+            get => !string.IsNullOrEmpty(_primaryHintText)
+                ? _primaryHintText
+                : LocalizationService.Get(IsAccount ? "Palette.Hint.SelectAccount" : "Palette.Hint.RunCommand");
+            set => _primaryHintText = value;
+        }
+
+        public string SecondaryHintText
+        {
+            get => !string.IsNullOrEmpty(_secondaryHintText)
+                ? _secondaryHintText
+                : LocalizationService.Get(IsAccount ? "Palette.Hint.JoinServer" : "Palette.Hint.ClosePalette");
+            set => _secondaryHintText = value;
+        }
+
+        public string PreviewStatusText
+        {
+            get
+            {
+                if (Account == null) return Category;
+                string status = Account.StatusText;
+                if (!string.IsNullOrWhiteSpace(Account.LiveMemoryText) &&
+                    !status.Contains(Account.LiveMemoryText, StringComparison.Ordinal))
+                {
+                    return $"{status} • {Account.LiveMemoryText}";
+                }
+                return status;
+            }
+        }
+
+        public string PreviewRobuxText
+        {
+            get
+            {
+                if (Account == null) return string.Empty;
+                string robux = Account.RobuxFormatted;
+                return string.IsNullOrWhiteSpace(robux)
+                    ? LocalizationService.Get("Palette.PreviewNoRobux")
+                    : robux;
+            }
+        }
+
+        public string PreviewGroupText => Account?.GroupDisplay ?? string.Empty;
+
+        public IBrush PreviewStatusBackground => Account?.StatusBadgeBackground ?? CategoryBackground;
+        public IBrush PreviewStatusBorder => Account?.StatusBadgeBorder ?? RowBorderDefaultBrush;
+        public IBrush PreviewStatusForeground => Account?.StatusBadgeForeground ?? CategoryForeground;
+
+        public void NotifyPreviewLanguageChanged()
+        {
+            OnPropertyChanged(nameof(PrimaryHintText));
+            OnPropertyChanged(nameof(SecondaryHintText));
+            OnPropertyChanged(nameof(PreviewStatusText));
+            OnPropertyChanged(nameof(PreviewRobuxText));
+            OnPropertyChanged(nameof(PreviewGroupText));
+        }
 
         public Action<MainViewModel>? CommandAction { get; set; }
         public Action<bool>? AccountAction { get; set; }

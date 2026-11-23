@@ -48,8 +48,10 @@ namespace Shiro.ViewModels
                 return false;
             }
 
-            public CommandPaletteItemViewModel ToViewModel(bool _ = false) => new()
+            public CommandPaletteItemViewModel ToViewModel(bool isRecent = false) => new()
             {
+                CommandId = Id,
+                IsRecent = isRecent,
                 ItemType = CategoryKey == "Main.NavigationCategory" ? CommandPaletteItemType.Navigation : CommandPaletteItemType.Command,
                 Title = LocalizationService.Get(TitleKey),
                 Description = LocalizationService.Get(DescKey),
@@ -66,26 +68,93 @@ namespace Shiro.ViewModels
             string rawQuery,
             IReadOnlyList<AccountViewModel> accounts,
             ObservableCollection<CommandPaletteItemViewModel> items,
-            ObservableCollection<AccountViewModel> accountResults)
+            ObservableCollection<AccountViewModel> accountResults,
+            CommandPaletteScope scope = CommandPaletteScope.All,
+            IReadOnlyList<string>? recentCommandIds = null)
         {
             items.Clear();
             accountResults.Clear();
 
             string normQuery = MainViewModel.NormalizeSearchText(rawQuery);
-            var matchedCommands = new List<CommandPaletteItemViewModel>();
-            foreach (var cmd in GetBuiltinCommands())
+            var recentSet = recentCommandIds is { Count: > 0 }
+                ? new HashSet<string>(recentCommandIds, StringComparer.Ordinal)
+                : null;
+
+            if (scope != CommandPaletteScope.Accounts)
             {
-                if (string.IsNullOrEmpty(normQuery) ? cmd.IsDefaultQuickAction : cmd.Matches(normQuery))
-                    matchedCommands.Add(cmd.ToViewModel());
+                AddCommandMatches(items, normQuery, scope, recentCommandIds, recentSet);
             }
 
-            foreach (var c in matchedCommands.Take(7))
-                items.Add(c);
+            if (scope != CommandPaletteScope.Commands)
+            {
+                AddAccountMatches(vm, rawQuery, accounts, items, accountResults, scope);
+            }
+        }
 
+        private static void AddCommandMatches(
+            ObservableCollection<CommandPaletteItemViewModel> items,
+            string normQuery,
+            CommandPaletteScope scope,
+            IReadOnlyList<string>? recentCommandIds,
+            HashSet<string>? recentSet)
+        {
+            var matchedCommands = new List<CommandPaletteItemViewModel>();
+            var commands = GetBuiltinCommands();
+
+            if (string.IsNullOrEmpty(normQuery))
+            {
+                var addedIds = new HashSet<string>(StringComparer.Ordinal);
+                if (recentCommandIds != null && recentCommandIds.Count > 0)
+                {
+                    var byId = commands.ToDictionary(c => c.Id, StringComparer.Ordinal);
+                    foreach (string recentId in recentCommandIds)
+                    {
+                        if (byId.TryGetValue(recentId, out var recentCmd) && addedIds.Add(recentCmd.Id))
+                            matchedCommands.Add(recentCmd.ToViewModel(isRecent: true));
+                    }
+                }
+
+                int recentCount = matchedCommands.Count;
+                foreach (var cmd in commands)
+                {
+                    if ((scope == CommandPaletteScope.Commands || cmd.IsDefaultQuickAction) && addedIds.Add(cmd.Id))
+                        matchedCommands.Add(cmd.ToViewModel(isRecent: false));
+                }
+
+                int limit = scope == CommandPaletteScope.Commands ? commands.Count : Math.Max(7, recentCount + 5);
+                foreach (var c in matchedCommands.Take(limit))
+                    items.Add(c);
+                return;
+            }
+
+            foreach (var cmd in commands)
+            {
+                if (cmd.Matches(normQuery))
+                {
+                    bool isRecent = recentSet != null && recentSet.Contains(cmd.Id);
+                    matchedCommands.Add(cmd.ToViewModel(isRecent));
+                }
+            }
+
+            int queryLimit = scope == CommandPaletteScope.Commands ? commands.Count : 7;
+            foreach (var c in matchedCommands.Take(queryLimit))
+                items.Add(c);
+        }
+
+        private static void AddAccountMatches(
+            MainViewModel vm,
+            string rawQuery,
+            IReadOnlyList<AccountViewModel> accounts,
+            ObservableCollection<CommandPaletteItemViewModel> items,
+            ObservableCollection<AccountViewModel> accountResults,
+            CommandPaletteScope scope)
+        {
             var accQuery = AccountSearchQuery.Create(rawQuery);
+            int emptyLimit = scope == CommandPaletteScope.Accounts ? 24 : 7;
+            int searchLimit = scope == CommandPaletteScope.Accounts ? 24 : 12;
             var matchedAccounts = accQuery.IsEmpty
-                ? accounts.Take(7).ToList()
-                : accounts.Where(accQuery.IsMatch).Take(12).ToList();
+                ? accounts.Take(emptyLimit).ToList()
+                : accounts.Where(accQuery.IsMatch).Take(searchLimit).ToList();
 
             foreach (var acc in matchedAccounts)
             {
@@ -93,6 +162,7 @@ namespace Shiro.ViewModels
                 items.Add(new CommandPaletteItemViewModel
                 {
                     ItemType = CommandPaletteItemType.Account,
+                    CommandId = string.Empty,
                     Title = acc.ShownUsername,
                     Description = LocalizationService.Format("Main.AccountBadgeFormat", acc.StatusText, acc.ShownUserId),
                     Category = LocalizationService.Get("Nav_Accounts"),

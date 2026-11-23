@@ -8,6 +8,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.VisualTree;
+using Shiro.AvaloniaUI.Controls;
 using Shiro.Services;
 using Shiro.ViewModels;
 using NavigationPage = Shiro.ViewModels.NavigationPage;
@@ -81,10 +82,15 @@ namespace Shiro.AvaloniaUI.Views
         {
             Avalonia.Threading.Dispatcher.UIThread.Post(() =>
             {
-                if (ViewModel?.CommandPalette.IsCommandPaletteOpen == true && TxtCommandPalette != null)
+                if (!_isClosed &&
+                    ViewModel?.CommandPalette.IsCommandPaletteOpen == true &&
+                    ViewCommandPalette?.SearchTextBox is { } searchBox)
                 {
-                    TxtCommandPalette.Focus();
-                    TxtCommandPalette.SelectAll();
+                    if (ViewCommandPalette != null)
+                        SpringCompositionHelper.RunSpringEntrance(
+                            ViewCommandPalette, offsetX: 0.0, offsetY: 10.0, fromScale: 0.97, durationMs: 220.0);
+                    searchBox.Focus();
+                    searchBox.SelectAll();
                 }
             }, Avalonia.Threading.DispatcherPriority.Render);
         }
@@ -116,27 +122,6 @@ namespace Shiro.AvaloniaUI.Views
                     ViewModel.CommandPalette.IsCommandPaletteOpen = false;
                     e.Handled = true;
                     break;
-            }
-        }
-
-        private void OnCommandPaletteRowPointerPressed(object? sender, PointerPressedEventArgs e)
-        {
-            if (e.Source is Visual v && (v is Button || v.FindAncestorOfType<Button>() != null))
-                return;
-
-            if (sender is Control ctrl && ctrl.DataContext is CommandPaletteItemViewModel item && ViewModel != null)
-            {
-                int idx = ViewModel.CommandPalette.CommandPaletteItems.IndexOf(item);
-                if (idx >= 0)
-                    ViewModel.CommandPalette.SetSelectedCommandPaletteIndex(idx);
-
-                if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
-                {
-                    bool joinServer = e.KeyModifiers.HasFlag(KeyModifiers.Shift) ||
-                                      e.KeyModifiers.HasFlag(KeyModifiers.Control);
-                    ViewModel.CommandPalette.ExecuteCommandPaletteSelection(joinServer);
-                    e.Handled = true;
-                }
             }
         }
 
@@ -384,12 +369,6 @@ namespace Shiro.AvaloniaUI.Views
                 ViewModel.CommandPalette.IsCommandPaletteOpen = true;
                 FocusCommandPaletteInput();
             }
-        }
-
-        private void OnCloseCommandPaletteClicked(object sender, RoutedEventArgs e)
-        {
-            if (ViewModel != null)
-                ViewModel.CommandPalette.IsCommandPaletteOpen = false;
         }
 
         private void OnCommandPaletteBackdropPressed(object sender, PointerPressedEventArgs e)

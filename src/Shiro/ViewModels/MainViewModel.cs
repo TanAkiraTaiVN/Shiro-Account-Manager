@@ -204,6 +204,7 @@ namespace Shiro.ViewModels
                 AccountsVm.NotifyLanguageChanged();
                 LaunchBar.NotifyLanguageChanged();
                 ToolsStatus.NotifyLanguageChanged();
+                CommandPalette.NotifyLanguageChanged();
             });
         }
 

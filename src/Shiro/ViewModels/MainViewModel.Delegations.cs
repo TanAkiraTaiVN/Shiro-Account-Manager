@@ -167,6 +167,10 @@ namespace Shiro.ViewModels
         public AccountViewModel? SelectedCommandPaletteAccount => CommandPalette.SelectedCommandPaletteAccount;
         public bool IsCommandPaletteOpen { get => CommandPalette.IsCommandPaletteOpen; set => CommandPalette.IsCommandPaletteOpen = value; }
         public string CommandPaletteSearchText { get => CommandPalette.CommandPaletteSearchText; set => CommandPalette.CommandPaletteSearchText = value; }
+        public CommandPaletteScope ActiveScope { get => CommandPalette.ActiveScope; set => CommandPalette.ActiveScope = value; }
+        public bool HasPreviewItem => CommandPalette.HasPreviewItem;
+        public IReadOnlyList<string> RecentCommandIds => CommandPalette.RecentCommandIds;
+        public ICommand SetScopeCommand => CommandPalette.SetScopeCommand;
 
         public AccountViewModel? TryGetAccountViewModel(Account? account) => AccountsVm.TryGetAccountViewModel(account);
         internal void RebuildLookupIndex() => AccountsVm.RebuildLookupIndex();

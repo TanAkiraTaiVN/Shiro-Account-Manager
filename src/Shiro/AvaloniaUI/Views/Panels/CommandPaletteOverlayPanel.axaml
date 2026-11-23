@@ -1,0 +1,234 @@
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+  xmlns:d="http://schemas.microsoft.com/expression/blend/2008" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+  xmlns:controls="clr-namespace:Shiro.AvaloniaUI.Controls" xmlns:vm="clr-namespace:Shiro.ViewModels"
+  xmlns:lucide="clr-namespace:LucideAvalonia;assembly=LucideAvalonia" mc:Ignorable="d"
+  x:Class="Shiro.AvaloniaUI.Views.Panels.CommandPaletteOverlayPanel" x:DataType="vm:CommandPaletteViewModel" x:CompileBindings="True">
+  <UserControl.Styles>
+    <Style Selector="Button.ScopeChipBtn">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="{StaticResource RadiusChip6}" />
+      <Setter Property="Padding" Value="10,4" />
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Name="PART_ChipBorder" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+            BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="{TemplateBinding CornerRadius}" Padding="{TemplateBinding Padding}">
+            <ContentPresenter Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}"
+              Foreground="{TemplateBinding Foreground}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+          </Border>
+        </ControlTemplate>
+      </Setter>
+    </Style>
+    <Style Selector="Button.ScopeChipBtn:pointerover">
+      <Setter Property="Background" Value="{DynamicResource SurfaceCardHoverBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+    </Style>
+    <Style Selector="Button.ScopeChipBtn.active">
+      <Setter Property="Background" Value="{DynamicResource AccentSoftFillBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentBorderBrush}" />
+      <Setter Property="FontWeight" Value="Bold" />
+    </Style>
+  </UserControl.Styles>
+  <controls:SkiaGlassSurface x:Name="GlassSurface" Width="720" MaxHeight="520" BlurSigma="20" NoiseOpacity="0.024"
+    SpecularHighlightOpacity="0.22" EnablePointerSpecular="True" TintBrush="#CC14141E" BorderBrush="{DynamicResource BorderStrongBrush}"
+    BorderThickness="1" CornerRadius="{StaticResource RadiusOuter16}" BoxShadow="{StaticResource ShadowModal}" ClipToBounds="True">
+    <Grid RowDefinitions="Auto,Auto,Auto,Auto,*,Auto">
+      <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Margin="14,12,12,10">
+        <lucide:Lucide Grid.Column="0" Icon="Search" Width="16" Height="16" Margin="2,0,10,0"
+          StrokeBrush="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" />
+        <TextBox Grid.Column="1" x:Name="TxtCommandPalette" Text="{Binding CommandPaletteSearchText, Mode=TwoWay}"
+          PlaceholderText="{DynamicResource Cmd_InputPlaceholder}" Background="{DynamicResource SurfaceInputBrush}"
+          Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
+          CornerRadius="{StaticResource RadiusInner8}" Padding="10,8" VerticalContentAlignment="Center" FontSize="13" />
+        <Button Grid.Column="2" Classes="StudioIconBtn" Width="28" Height="28" Margin="8,0,0,0"
+          Click="OnCloseCommandPaletteClicked" ToolTip.Tip="{DynamicResource Btn_Close}">
+          <lucide:Lucide Icon="X" Width="14" Height="14" StrokeBrush="{DynamicResource TextMutedBrush}" />
+        </Button>
+      </Grid>
+      <Border Grid.Row="1" Height="1" Background="{DynamicResource BorderHairlineBrush}" />
+      <Grid Grid.Row="2" ColumnDefinitions="Auto,*" Margin="14,7">
+        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+          <Button x:Name="BtnScopeAll" Classes="ScopeChipBtn" Classes.active="{Binding IsScopeAll}"
+            Command="{Binding SetScopeCommand}" CommandParameter="{x:Static vm:CommandPaletteScope.All}" Content="{DynamicResource Palette.ScopeAll}" />
+          <Button x:Name="BtnScopeAccounts" Classes="ScopeChipBtn" Classes.active="{Binding IsScopeAccounts}"
+            Command="{Binding SetScopeCommand}" CommandParameter="{x:Static vm:CommandPaletteScope.Accounts}" Content="{DynamicResource Palette.ScopeAccounts}" />
+          <Button x:Name="BtnScopeCommands" Classes="ScopeChipBtn" Classes.active="{Binding IsScopeCommands}"
+            Command="{Binding SetScopeCommand}" CommandParameter="{x:Static vm:CommandPaletteScope.Commands}" Content="{DynamicResource Palette.ScopeCommands}" />
+        </StackPanel>
+        <Border Grid.Column="1" Background="{DynamicResource SurfaceSubtleChipBrush}" BorderBrush="{DynamicResource BorderHairlineBrush}"
+          BorderThickness="1" CornerRadius="{StaticResource RadiusChip6}" Padding="7,2" HorizontalAlignment="Right" VerticalAlignment="Center">
+          <TextBlock Text="Ctrl + K" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource TextMutedBrush}" />
+        </Border>
+      </Grid>
+      <Border Grid.Row="3" Height="1" Background="{DynamicResource BorderHairlineBrush}" />
+      <Grid Grid.Row="4" ColumnDefinitions="430,13,260" Margin="7,10">
+        <Panel Grid.Column="0">
+          <ScrollViewer MaxHeight="346" Padding="2,0">
+            <ItemsControl ItemsSource="{Binding CommandPaletteItems}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:CommandPaletteItemViewModel">
+                  <Border MinHeight="46" Background="{Binding RowBackground}" BorderBrush="{Binding RowBorder}" BorderThickness="1"
+                    CornerRadius="{StaticResource RadiusInner8}" Margin="0,2" Padding="9,6" Cursor="Hand"
+                    PointerPressed="OnCommandPaletteRowPointerPressed">
+                    <Grid ColumnDefinitions="Auto,*,Auto">
+                      <Panel Grid.Column="0" Width="32" Height="32" Margin="0,0,9,0">
+                        <Border IsVisible="{Binding IsCommand}" Width="32" Height="32" CornerRadius="{StaticResource RadiusInner8}"
+                          Background="{Binding CategoryBackground}" ClipToBounds="True">
+                          <Path Data="{Binding IconGeometry}" Width="15" Height="15" Stretch="Uniform" Stroke="{Binding IconBrush}"
+                            StrokeThickness="1.9" StrokeLineCap="Round" StrokeJoin="Round" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <Border IsVisible="{Binding IsAccount}" Width="32" Height="32" CornerRadius="16"
+                          Background="{DynamicResource SurfaceSubtleChipBrush}" ClipToBounds="True">
+                          <Panel>
+                            <TextBlock Text="{Binding Initials}" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource TextMutedBrush}"
+                              HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            <Image Source="{Binding AvatarImage}" Stretch="UniformToFill" />
+                          </Panel>
+                        </Border>
+                      </Panel>
+                      <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                          <TextBlock Text="{Binding Title}" FontWeight="SemiBold" FontSize="12.5" TextTrimming="CharacterEllipsis"
+                            Foreground="{DynamicResource TextPrimaryBrush}" />
+                          <Border Background="{Binding CategoryBackground}" CornerRadius="{StaticResource RadiusChip6}" Padding="5,1" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding Category}" FontSize="9.5" FontWeight="Bold" Foreground="{Binding CategoryForeground}" />
+                          </Border>
+                          <Border IsVisible="{Binding IsRecent}" Background="{DynamicResource AccentSoftFillBrush}"
+                            BorderBrush="{DynamicResource AccentBorderBrush}" BorderThickness="1" CornerRadius="{StaticResource RadiusChip6}"
+                            Padding="5,1" VerticalAlignment="Center">
+                            <TextBlock Text="{DynamicResource Palette.RecentBadge}" FontSize="8.5" FontWeight="Bold" Foreground="{DynamicResource AccentBrush}" />
+                          </Border>
+                        </StackPanel>
+                        <TextBlock Text="{Binding Description}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" />
+                      </StackPanel>
+                      <Border Grid.Column="2" Background="{DynamicResource SurfaceSubtleChipBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
+                        BorderThickness="1" CornerRadius="{StaticResource RadiusChip6}" Padding="7,3" Margin="8,0,0,0" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding ActionBadge}" FontSize="9.5" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" />
+                      </Border>
+                    </Grid>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+          <TextBlock Text="{DynamicResource Palette.EmptyResults}" FontSize="12" IsVisible="{Binding IsEmptyResults}"
+            HorizontalAlignment="Center" VerticalAlignment="Center" TextWrapping="Wrap" Margin="16" Foreground="{DynamicResource TextMutedBrush}" />
+        </Panel>
+        <Border Grid.Column="1" Width="1" HorizontalAlignment="Center" Background="{DynamicResource BorderHairlineBrush}" />
+        <Border Grid.Column="2" Background="{DynamicResource SurfacePanelBrush}" BorderBrush="{DynamicResource BorderHairlineBrush}"
+          BorderThickness="1" CornerRadius="{StaticResource RadiusMid12}" Padding="13">
+          <Grid RowDefinitions="Auto,*">
+            <TextBlock Grid.Row="0" Classes="SectionKicker" Margin="0,0,0,10" Text="{DynamicResource Palette.PreviewTitle}" />
+            <StackPanel Grid.Row="1" Spacing="6" VerticalAlignment="Center"
+              IsVisible="{Binding HasPreviewItem, Converter={StaticResource InverseBoolConverter}}">
+              <TextBlock Text="{DynamicResource Palette.PreviewEmptyTitle}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+              <TextBlock Text="{DynamicResource Palette.PreviewEmptyDesc}" FontSize="11.5" TextWrapping="Wrap" Foreground="{DynamicResource TextMutedBrush}" />
+            </StackPanel>
+            <ContentControl Grid.Row="1" Content="{Binding SelectedCommandPaletteItem}" IsVisible="{Binding HasPreviewItem}"
+              HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
+              <ContentControl.ContentTemplate>
+                <DataTemplate x:DataType="vm:CommandPaletteItemViewModel">
+                  <Grid RowDefinitions="Auto,*,Auto">
+                    <StackPanel Grid.Row="0" Spacing="10">
+                      <StackPanel Orientation="Horizontal" Spacing="12">
+                        <Panel Width="52" Height="52">
+                          <Border IsVisible="{Binding IsCommand}" Width="52" Height="52" CornerRadius="{StaticResource RadiusMid12}"
+                            Background="{Binding CategoryBackground}" BorderBrush="{Binding RowBorder}" BorderThickness="1">
+                            <Path Data="{Binding IconGeometry}" Width="24" Height="24" Stretch="Uniform" Stroke="{Binding IconBrush}"
+                              StrokeThickness="1.9" StrokeLineCap="Round" StrokeJoin="Round" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                          </Border>
+                          <Border IsVisible="{Binding IsAccount}" Width="52" Height="52" CornerRadius="26" ClipToBounds="True"
+                            Background="{DynamicResource SurfaceSubtleChipBrush}" BorderBrush="{DynamicResource AccentBorderBrush}" BorderThickness="1">
+                            <Panel>
+                              <TextBlock Text="{Binding Initials}" FontSize="19" FontWeight="Bold" Foreground="{DynamicResource TextMutedBrush}"
+                                HorizontalAlignment="Center" VerticalAlignment="Center" />
+                              <Image Source="{Binding AvatarImage}" Stretch="UniformToFill" />
+                            </Panel>
+                          </Border>
+                        </Panel>
+                        <StackPanel VerticalAlignment="Center" Spacing="3" MaxWidth="168">
+                          <TextBlock Text="{Binding Title}" FontSize="13.5" FontWeight="Bold" MaxLines="2" TextWrapping="Wrap"
+                            Foreground="{DynamicResource TextPrimaryBrush}" />
+                          <TextBlock Text="{Binding Alias}" FontSize="11" IsVisible="{Binding HasAlias}" TextTrimming="CharacterEllipsis"
+                            Foreground="{DynamicResource AccentBrush}" />
+                          <Border Background="{Binding PreviewStatusBackground}" BorderBrush="{Binding PreviewStatusBorder}" BorderThickness="1"
+                            HorizontalAlignment="Left" CornerRadius="{StaticResource RadiusChip6}" Padding="6,2">
+                            <TextBlock Text="{Binding PreviewStatusText}" FontSize="10" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
+                              Foreground="{Binding PreviewStatusForeground}" />
+                          </Border>
+                        </StackPanel>
+                      </StackPanel>
+                      <Border Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource BorderHairlineBrush}" BorderThickness="1"
+                        CornerRadius="{StaticResource RadiusInner8}" Padding="10,8" IsVisible="{Binding IsAccount}">
+                        <StackPanel Spacing="6">
+                          <Grid ColumnDefinitions="Auto,*">
+                            <TextBlock Grid.Column="0" FontSize="11" Text="{DynamicResource Palette.PreviewLabelStatus}" Foreground="{DynamicResource TextMutedBrush}" />
+                            <TextBlock Grid.Column="1" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Right" TextTrimming="CharacterEllipsis"
+                              Text="{Binding PreviewStatusText}" Foreground="{DynamicResource TextPrimaryBrush}" />
+                          </Grid>
+                          <Grid ColumnDefinitions="Auto,*">
+                            <TextBlock Grid.Column="0" FontSize="11" Text="{DynamicResource Palette.PreviewLabelRobux}" Foreground="{DynamicResource TextMutedBrush}" />
+                            <TextBlock Grid.Column="1" Classes="TabularNum" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Right"
+                              Text="{Binding PreviewRobuxText}" Foreground="{DynamicResource StatusWarningBrush}" />
+                          </Grid>
+                          <Grid ColumnDefinitions="Auto,*">
+                            <TextBlock Grid.Column="0" FontSize="11" Text="{DynamicResource Palette.PreviewLabelGroup}" Foreground="{DynamicResource TextMutedBrush}" />
+                            <TextBlock Grid.Column="1" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Right" TextTrimming="CharacterEllipsis"
+                              Text="{Binding PreviewGroupText}" Foreground="{DynamicResource TextSecondaryBrush}" />
+                          </Grid>
+                          <Grid ColumnDefinitions="Auto,*" IsVisible="{Binding HasGameName}">
+                            <TextBlock Grid.Column="0" FontSize="11" Text="{DynamicResource Palette.PreviewLabelGame}" Foreground="{DynamicResource TextMutedBrush}" />
+                            <TextBlock Grid.Column="1" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Right" TextTrimming="CharacterEllipsis"
+                              Text="{Binding GameName}" Foreground="{DynamicResource StatusSuccessBrush}" />
+                          </Grid>
+                        </StackPanel>
+                      </Border>
+                      <Border Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource BorderHairlineBrush}" BorderThickness="1"
+                        CornerRadius="{StaticResource RadiusInner8}" Padding="10,8" IsVisible="{Binding IsCommand}">
+                        <StackPanel Spacing="6">
+                          <TextBlock Text="{Binding Description}" FontSize="11.5" TextWrapping="Wrap" LineHeight="16"
+                            Foreground="{DynamicResource TextSecondaryBrush}" />
+                          <Grid ColumnDefinitions="Auto,*">
+                            <TextBlock Grid.Column="0" FontSize="10.5" Text="{DynamicResource Palette.PreviewLabelCategory}" Foreground="{DynamicResource TextMutedBrush}" />
+                            <TextBlock Grid.Column="1" FontSize="10.5" FontWeight="SemiBold" HorizontalAlignment="Right"
+                              Text="{Binding Category}" Foreground="{Binding CategoryForeground}" />
+                          </Grid>
+                        </StackPanel>
+                      </Border>
+                    </StackPanel>
+                    <StackPanel Grid.Row="2" Spacing="5" Margin="0,10,0,0">
+                      <Border Background="{DynamicResource SurfaceSubtleChipBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1"
+                        CornerRadius="{StaticResource RadiusChip6}" Padding="8,4">
+                        <TextBlock Text="{Binding PrimaryHintText}" FontSize="10.5" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                      </Border>
+                      <Border Background="{DynamicResource SurfaceSubtleChipBrush}" BorderBrush="{DynamicResource BorderHairlineBrush}" BorderThickness="1"
+                        CornerRadius="{StaticResource RadiusChip6}" Padding="8,4">
+                        <TextBlock Text="{Binding SecondaryHintText}" FontSize="10.5" Foreground="{DynamicResource TextSecondaryBrush}" />
+                      </Border>
+                    </StackPanel>
+                  </Grid>
+                </DataTemplate>
+              </ContentControl.ContentTemplate>
+            </ContentControl>
+          </Grid>
+        </Border>
+      </Grid>
+      <Border Grid.Row="5" Background="{DynamicResource SurfaceChromeBrush}" BorderBrush="{DynamicResource BorderHairlineBrush}" BorderThickness="0,1,0,0" Padding="14,8">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Grid.Column="0" Text="{DynamicResource Cmd_ToolTip}" FontSize="10.5" Foreground="{DynamicResource TextMutedBrush}"
+            VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+          <Border Grid.Column="1" Background="{DynamicResource SurfaceSubtleChipBrush}" BorderBrush="{DynamicResource BorderHairlineBrush}" BorderThickness="1"
+            CornerRadius="{StaticResource RadiusChip6}" Padding="7,2" VerticalAlignment="Center">
+            <TextBlock Text="↑↓ · Enter · Shift+Enter · Esc" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" />
+          </Border>
+        </Grid>
+      </Border>
+    </Grid>
+  </controls:SkiaGlassSurface>
+</UserControl>

@@ -61,9 +61,9 @@ namespace Shiro.AvaloniaUI.Views
                 ApplyNavigationPage(ViewDashboard.ViewModel.CurrentPage);
             }
 
-            if (TxtCommandPalette != null)
+            if (ViewCommandPalette?.SearchTextBox is { } cmdSearchBox)
             {
-                TxtCommandPalette.AddHandler(KeyDownEvent, OnCommandPaletteKeyDown, RoutingStrategies.Tunnel);
+                cmdSearchBox.AddHandler(KeyDownEvent, OnCommandPaletteKeyDown, RoutingStrategies.Tunnel);
             }
 
             bool boundsApplied = TryApplyInitialWindowBounds();

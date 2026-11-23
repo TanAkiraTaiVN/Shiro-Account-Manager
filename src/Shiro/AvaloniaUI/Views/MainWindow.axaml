@@ -312,84 +312,14 @@
 
         <panels:MainWindowOverlaysPanel x:Name="ViewOverlays" />
 
-        <!-- Elevated Ctrl+K Command Palette Modal -->
+        <!-- Elevated Ctrl+K Command Palette 2.0 Modal -->
         <Border IsVisible="{Binding CommandPalette.IsCommandPaletteOpen}" Background="#B8040408"
-                HorizontalAlignment="Stretch" VerticalAlignment="Stretch" PointerPressed="OnCommandPaletteBackdropPressed">
-            <Border Width="620" MaxHeight="520" Background="{DynamicResource SurfaceElevatedBrush}"
-                    BorderBrush="{DynamicResource BorderStrongBrush}" BorderThickness="1" CornerRadius="{StaticResource RadiusXl}"
-                    BoxShadow="{StaticResource ShadowModal}" ClipToBounds="True" HorizontalAlignment="Center" VerticalAlignment="Center">
-                <Panel>
-                    <Border BorderBrush="{DynamicResource BorderTopRimBrush}" BorderThickness="1" CornerRadius="{StaticResource RadiusXl}" IsHitTestVisible="False" />
-                    <Grid RowDefinitions="Auto,Auto,*,Auto">
-                        <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Margin="16,14,14,12">
-                            <lucide:Lucide Grid.Column="0" Icon="Search" Width="16" Height="16"
-                                           StrokeBrush="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" Margin="2,0,10,0" />
-                            <TextBox Grid.Column="1" x:Name="TxtCommandPalette" Text="{Binding CommandPalette.CommandPaletteSearchText, Mode=TwoWay}"
-                                     PlaceholderText="{DynamicResource Cmd_InputPlaceholder}" Background="{DynamicResource SurfaceInputBrush}"
-                                     Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
-                                     CornerRadius="{StaticResource RadiusMd}" Padding="10,8" VerticalContentAlignment="Center" FontSize="13" />
-                            <Button Grid.Column="2" Classes="StudioIconBtn" Width="28" Height="28" Margin="8,0,0,0"
-                                    Click="OnCloseCommandPaletteClicked" ToolTip.Tip="{DynamicResource Btn_Close}">
-                                <lucide:Lucide Icon="X" Width="14" Height="14" StrokeBrush="{DynamicResource TextMutedBrush}" />
-                            </Button>
-                        </Grid>
-                        <Border Grid.Row="1" Height="1" Background="{DynamicResource BorderHairlineBrush}" />
-                        <ScrollViewer Grid.Row="2" MaxHeight="350" Padding="10,8">
-                            <ItemsControl ItemsSource="{Binding CommandPalette.CommandPaletteItems}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate x:DataType="vm:CommandPaletteItemViewModel">
-                                        <Border MinHeight="48" Background="{Binding RowBackground}" BorderBrush="{Binding RowBorder}"
-                                                BorderThickness="1" CornerRadius="{StaticResource RadiusMd}" Margin="0,2" Padding="10,7"
-                                                Cursor="Hand" PointerPressed="OnCommandPaletteRowPointerPressed">
-                                            <Grid ColumnDefinitions="Auto,*,Auto">
-                                                <Panel Grid.Column="0" Width="32" Height="32" Margin="0,0,10,0" VerticalAlignment="Center">
-                                                    <Border IsVisible="{Binding IsCommand}" Width="32" Height="32" CornerRadius="{StaticResource RadiusMd}"
-                                                            Background="{Binding CategoryBackground}" ClipToBounds="True">
-                                                        <Path Data="{Binding IconGeometry}" Width="15" Height="15" Stretch="Uniform" Stroke="{Binding IconBrush}"
-                                                              StrokeThickness="1.9" StrokeLineCap="Round" StrokeJoin="Round" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                                    </Border>
-                                                    <Border IsVisible="{Binding IsAccount}" Width="32" Height="32" CornerRadius="16"
-                                                            Background="{DynamicResource SurfaceSubtleChipBrush}" ClipToBounds="True">
-                                                        <Panel>
-                                                            <TextBlock Text="{Binding Initials}" FontSize="12" FontWeight="Bold"
-                                                                       Foreground="{DynamicResource TextMutedBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                                            <Image Source="{Binding AvatarImage}" Stretch="UniformToFill" />
-                                                        </Panel>
-                                                    </Border>
-                                                </Panel>
-                                                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
-                                                    <StackPanel Orientation="Horizontal" Spacing="8">
-                                                        <TextBlock Text="{Binding Title}" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}" />
-                                                        <Border Background="{Binding CategoryBackground}" CornerRadius="{StaticResource RadiusXs}" Padding="6,1.5" VerticalAlignment="Center">
-                                                            <TextBlock Text="{Binding Category}" FontSize="9.5" FontWeight="Bold" Foreground="{Binding CategoryForeground}" />
-                                                        </Border>
-                                                    </StackPanel>
-                                                    <TextBlock Text="{Binding Description}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" />
-                                                </StackPanel>
-                                                <Border Grid.Column="2" Background="{DynamicResource SurfaceSubtleChipBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
-                                                        BorderThickness="1" CornerRadius="{StaticResource RadiusXs}" Padding="8,3.5" Margin="10,0,0,0" VerticalAlignment="Center">
-                                                    <TextBlock Text="{Binding ActionBadge}" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" />
-                                                </Border>
-                                            </Grid>
-                                        </Border>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </ScrollViewer>
-                        <Border Grid.Row="3" Background="{DynamicResource SurfaceChromeBrush}"
-                                BorderBrush="{DynamicResource BorderHairlineBrush}" BorderThickness="0,1,0,0" Padding="16,8">
-                            <Grid ColumnDefinitions="*,Auto">
-                                <TextBlock Grid.Column="0" Text="{DynamicResource Cmd_ToolTip}" FontSize="10.5"
-                                           Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                                <Border Grid.Column="1" Background="{DynamicResource SurfaceSubtleChipBrush}" BorderBrush="{DynamicResource BorderHairlineBrush}"
-                                        BorderThickness="1" CornerRadius="{StaticResource RadiusXs}" Padding="7,2" VerticalAlignment="Center">
-                                    <TextBlock Text="↑↓ · Enter · Esc" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" />
-                                </Border>
-                            </Grid>
-                        </Border>
-                    </Grid>
-                </Panel>
-            </Border>
+                HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                PointerPressed="OnCommandPaletteBackdropPressed">
+            <panels:CommandPaletteOverlayPanel x:Name="ViewCommandPalette"
+                                               DataContext="{Binding CommandPalette}"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center" />
         </Border>
     </Grid>
 </Window>
