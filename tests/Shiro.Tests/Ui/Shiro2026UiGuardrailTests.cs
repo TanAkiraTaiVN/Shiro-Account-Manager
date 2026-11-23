@@ -9,6 +9,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Logging;
+using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using LucideAvalonia;
@@ -27,6 +28,8 @@ namespace Shiro.Tests.Ui
     {
         private readonly ITestOutputHelper _output;
         private readonly string _tempDir;
+        private readonly IDisposable _dataDirScope;
+        private readonly IDisposable _settingsScope;
         private readonly ILogSink? _origSink;
         private readonly Action<Action>? _origDispatcher;
         private readonly AppLanguage _origLang;
@@ -38,6 +41,8 @@ namespace Shiro.Tests.Ui
             _output = output;
             _tempDir = Path.Combine(Path.GetTempPath(), "shiro-guardrail-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(_tempDir);
+            _dataDirScope = StoragePaths.OverrideDataDirectoryForTesting(_tempDir);
+            _settingsScope = AppServices.Override<ISettingsService>(CreateInMemorySettings());
             _origSink = Logger.Sink;
             _origDispatcher = AppDispatcher.CustomDispatcher;
             _origLang = LocalizationService.CurrentLanguage;
@@ -47,21 +52,28 @@ namespace Shiro.Tests.Ui
 
         public void Dispose()
         {
-            Logger.Sink = _origSink;
-            AppDispatcher.CustomDispatcher = _origDispatcher;
-            LocalizationService.SetLanguage(_origLang, saveSetting: false);
-            VisualPreferencesService.Instance.DensityMode = _origDensity;
-            ToastService.ClearAll();
-            if (Application.Current?.Resources.MergedDictionaries is { } merged && _origMergedDictionaries != null)
+            try
             {
-                merged.Clear();
-                foreach (var dict in _origMergedDictionaries)
-                    merged.Add(dict);
+                Logger.Sink = _origSink;
+                AppDispatcher.CustomDispatcher = _origDispatcher;
+                LocalizationService.SetLanguage(_origLang, saveSetting: false);
+                VisualPreferencesService.Instance.DensityMode = _origDensity;
+                ToastService.ClearAll();
+                if (Application.Current?.Resources.MergedDictionaries is { } merged && _origMergedDictionaries != null)
+                {
+                    merged.Clear();
+                    foreach (var dict in _origMergedDictionaries) merged.Add(dict);
+                }
             }
-            if (Directory.Exists(_tempDir))
+            finally
             {
-                try { Directory.Delete(_tempDir, recursive: true); }
-                catch (IOException) { }
+                _settingsScope.Dispose();
+                _dataDirScope.Dispose();
+                if (Directory.Exists(_tempDir))
+                {
+                    try { Directory.Delete(_tempDir, recursive: true); }
+                    catch (IOException) { }
+                }
             }
         }
 
@@ -71,41 +83,25 @@ namespace Shiro.Tests.Ui
             string uiDir = Path.Combine(FindRepoRoot(), "src", "Shiro", "AvaloniaUI");
             var axamlFiles = Directory.GetFiles(uiDir, "*.axaml", SearchOption.AllDirectories)
                 .Where(f => !f.Replace('\\', '/').Contains("/bin/") && !f.Replace('\\', '/').Contains("/obj/"))
-                .OrderBy(f => f, StringComparer.OrdinalIgnoreCase)
-                .ToList();
-
+                .OrderBy(f => f, StringComparer.OrdinalIgnoreCase).ToList();
             Assert.NotEmpty(axamlFiles);
 
             int checkedIcons = 0;
             var checkedNames = new HashSet<LucideIconNames>();
             foreach (string file in axamlFiles)
             {
-                var doc = XDocument.Load(file);
-                var lucideElements = doc.Descendants()
-                    .Where(e => e.Name.LocalName == "Lucide")
-                    .ToList();
-
-                foreach (var elem in lucideElements)
+                foreach (var elem in XDocument.Load(file).Descendants().Where(e => e.Name.LocalName == "Lucide"))
                 {
                     string? iconAttr = elem.Attribute("Icon")?.Value;
-                    Assert.False(string.IsNullOrWhiteSpace(iconAttr),
-                        $"<lucide:Lucide> missing Icon attribute in {Path.GetFileName(file)}");
-                    Assert.False(string.Equals(iconAttr, "Trash2", StringComparison.OrdinalIgnoreCase),
-                        $"Forbidden blank Lucide icon 'Trash2' found in {Path.GetFileName(file)}");
-
-                    Assert.True(Enum.TryParse<LucideIconNames>(iconAttr, ignoreCase: false, out var parsed),
-                        $"Invalid LucideIconNames '{iconAttr}' in {Path.GetFileName(file)}");
+                    Assert.False(string.IsNullOrWhiteSpace(iconAttr), $"<lucide:Lucide> missing Icon in {Path.GetFileName(file)}");
+                    Assert.False(string.Equals(iconAttr, "Trash2", StringComparison.OrdinalIgnoreCase), $"Forbidden 'Trash2' in {Path.GetFileName(file)}");
+                    Assert.True(Enum.TryParse<LucideIconNames>(iconAttr, ignoreCase: false, out var parsed), $"Invalid LucideIconNames '{iconAttr}' in {Path.GetFileName(file)}");
 
                     checkedIcons++;
                     if (checkedNames.Add(parsed))
-                    {
-                        var control = new Lucide { Icon = parsed };
-                        Assert.True(control.IconSource != null,
-                            $"LucideIconNames.{parsed} (from {Path.GetFileName(file)}) resolved to null IconSource");
-                    }
+                        Assert.True(new Lucide { Icon = parsed }.IconSource != null, $"LucideIconNames.{parsed} ({Path.GetFileName(file)}) resolved to null IconSource");
                 }
             }
-
             Assert.True(checkedIcons > 0, "Expected to inspect at least one <lucide:Lucide> element.");
             _output.WriteLine($"Verified {checkedIcons} AXAML Lucide usages across {checkedNames.Count} unique icons.");
         }
@@ -113,49 +109,42 @@ namespace Shiro.Tests.Ui
         [AvaloniaFact]
         public void VirtualizedTemplates_HaveZeroTransitionsOnFastControls()
         {
+            EnsureBaseThemeTokens();
             string uiDir = Path.Combine(FindRepoRoot(), "src", "Shiro", "AvaloniaUI");
             var appDoc = XDocument.Load(Path.Combine(uiDir, "App.axaml"));
             AssertStyleSetsNullTransitions(appDoc, "Button.FastIconBtn");
             AssertStyleSetsNullTransitions(appDoc, "Button.FastPillBtn");
 
-            var cardDoc = XDocument.Load(Path.Combine(uiDir, "Views", "AccountCardView.axaml"));
-            AssertAxamlFastControlsHaveNoAnimatedTransitions(cardDoc, "AccountCardView.axaml", requireExplicitOnButtons: false);
-
-            var dashDoc = XDocument.Load(Path.Combine(uiDir, "Views", "DashboardView.axaml"));
-            var tableTemplate = dashDoc.Descendants()
-                .FirstOrDefault(e => e.Name.LocalName == "ItemsControl" && e.Attribute(XName.Get("Name", "http://schemas.microsoft.com/winfx/2006/xaml"))?.Value == "TableItemsControl");
+            AssertAxamlFastControls(XDocument.Load(Path.Combine(uiDir, "Views", "AccountCardView.axaml")), "AccountCardView.axaml", false);
+            var xamlNs = "http://schemas.microsoft.com/winfx/2006/xaml";
+            var tableTemplate = XDocument.Load(Path.Combine(uiDir, "Views", "DashboardView.axaml")).Descendants()
+                .FirstOrDefault(e => e.Name.LocalName == "ItemsControl" && e.Attribute(XName.Get("Name", xamlNs))?.Value == "TableItemsControl");
             Assert.NotNull(tableTemplate);
-            AssertAxamlFastControlsHaveNoAnimatedTransitions(tableTemplate!, "DashboardView.axaml#TableItemsControl", requireExplicitOnButtons: false);
+            AssertAxamlFastControls(tableTemplate!, "DashboardView.axaml#TableItemsControl", false);
 
-            var srvDoc = XDocument.Load(Path.Combine(uiDir, "Views", "Panels", "ServerListResultsPanel.axaml"));
-            var srvTemplate = srvDoc.Descendants()
-                .FirstOrDefault(e => e.Name.LocalName == "DataTemplate" && e.Attribute(XName.Get("DataType", "http://schemas.microsoft.com/winfx/2006/xaml"))?.Value == "vm:ServerItemViewModel");
+            var srvTemplate = XDocument.Load(Path.Combine(uiDir, "Views", "Panels", "ServerListResultsPanel.axaml")).Descendants()
+                .FirstOrDefault(e => e.Name.LocalName == "DataTemplate" && e.Attribute(XName.Get("DataType", xamlNs))?.Value == "vm:ServerItemViewModel");
             Assert.NotNull(srvTemplate);
-            AssertAxamlFastControlsHaveNoAnimatedTransitions(srvTemplate!, "ServerListResultsPanel.axaml#ServerRow", requireExplicitOnButtons: true);
+            AssertAxamlFastControls(srvTemplate!, "ServerListResultsPanel.axaml#ServerRow", true);
 
-            // Runtime verification on realized virtualized controls
             var sink = new BindingErrorSink();
             Logger.Sink = sink;
             LocalizationService.SetLanguage(AppLanguage.English, saveSetting: false);
 
             var account = new Account { UserID = 777, Username = "GuardUser", Valid = true, SecurityToken = "tok" };
-            var avm = new AccountViewModel(account, Substitute.For<IAppLogger>(), CreateInMemorySettings());
+            var avm = new AccountViewModel(account, Substitute.For<IAppLogger>(), AppServices.GeneralSettings);
             var cardView = new AccountCardView { DataContext = avm };
             var cardWin = new Window { Width = 400, Height = 200, Content = cardView };
 
-            var accounts = new List<Account> { account };
             var repo = Substitute.For<IAccountRepository>();
-            repo.GetAll().Returns(accounts);
+            repo.GetAll().Returns(new List<Account> { account });
             var browserState = Substitute.For<IServerBrowserStateService>();
             browserState.CurrentPlaceId.Returns(string.Empty);
-
             using var repoScope = AppServices.Override<IAccountRepository>(repo);
-            using var settingsScope = AppServices.Override<ISettingsService>(CreateInMemorySettings());
             using var browserScope = AppServices.Override<IServerBrowserStateService>(browserState);
 
             var dashView = new DashboardView();
             var dashWin = new Window { Width = 1080, Height = 640, Content = dashView };
-
             using var mainVm = new MainViewModel();
             using var srvVm = new ServerListViewModel(mainVm);
             srvVm.SelectedSubTabIndex = 0;
@@ -167,31 +156,29 @@ namespace Shiro.Tests.Ui
             {
                 cardWin.Show();
                 Dispatcher.UIThread.RunJobs();
-                AssertRuntimeFastControlsHaveNullTransitions(cardView, "AccountCardView", expectedMinButtons: 5, expectCheckBox: true);
+                AssertRuntimeFastControls(cardView, "AccountCardView", expectedMinButtons: 5, expectCheckBox: true);
 
                 dashWin.Show();
                 Dispatcher.UIThread.RunJobs();
                 dashView.ViewModel.AccountsVm.IsCompactView = true;
                 dashWin.UpdateLayout();
                 Dispatcher.UIThread.RunJobs();
-
                 Assert.Single(dashView.ViewModel.AccountsVm.FilteredAccounts);
                 var tableItems = dashView.FindControl<ItemsControl>("TableItemsControl");
                 Assert.NotNull(tableItems);
-                AssertRuntimeFastControlsHaveNullTransitions(tableItems!, "TableItemsControl", expectedMinButtons: 4, expectCheckBox: true);
+                AssertRuntimeFastControls(tableItems!, "TableItemsControl", expectedMinButtons: 4, expectCheckBox: true);
 
                 srvWin.Show();
                 srvWin.UpdateLayout();
                 Dispatcher.UIThread.RunJobs();
-                AssertRuntimeFastControlsHaveNullTransitions(srvPanel, "ServerListResultsPanel", expectedMinButtons: 3, expectProgressBar: true);
+                AssertRuntimeFastControls(srvPanel, "ServerListResultsPanel", expectedMinButtons: 3, expectProgressBar: true);
                 Assert.Empty(sink.Errors);
             }
             finally
             {
-                srvWin.Close();
-                dashWin.Close();
-                dashView.ViewModel.Dispose();
-                cardWin.Close();
+                CloseWindowSafely(srvWin);
+                CloseWindowSafely(dashWin, () => dashView.ViewModel.Dispose());
+                CloseWindowSafely(cardWin);
                 Dispatcher.UIThread.RunJobs();
             }
         }
@@ -202,11 +189,9 @@ namespace Shiro.Tests.Ui
             AppDispatcher.CustomDispatcher = a => a();
             VisualPreferencesService.Instance.DensityMode = UiDensityMode.Balanced;
 
-            // Warm up JIT outside timed section
             using (var warmupVm = CreateCollectionVm(Array.Empty<Account>()))
             {
-                var warmAccounts = BuildAccounts(10);
-                warmupVm.LoadAccounts(warmAccounts);
+                warmupVm.LoadAccounts(BuildAccounts(10));
                 warmupVm.ApplySelectionBatch(warmupVm.Accounts.Take(5).ToList(), additive: false);
                 warmupVm.DensityMode = UiDensityMode.Compact;
                 warmupVm.SearchText = "Scale_00";
@@ -215,7 +200,6 @@ namespace Shiro.Tests.Ui
 
             var accounts = BuildAccounts(500);
             using var vm = CreateCollectionVm(accounts);
-
             var sw = Stopwatch.StartNew();
             vm.LoadAccounts(accounts);
             vm.ApplySelectionBatch(vm.Accounts.Take(250).ToList(), additive: false);
@@ -227,60 +211,57 @@ namespace Shiro.Tests.Ui
             sw.Stop();
 
             _output.WriteLine($"500-account load + batch select + density toggle + filter: {sw.Elapsed.TotalMilliseconds:F2} ms");
-
             Assert.Equal(500, vm.Accounts.Count);
             Assert.Equal(350, vm.SelectedCount);
             Assert.Equal(UiDensityMode.Comfortable, vm.DensityMode);
             Assert.Equal(156.0, vm.CardHeight);
             Assert.Equal(100, vm.FilteredAccounts.Count);
-            Assert.True(sw.Elapsed.TotalMilliseconds < 250.0,
-                $"500-account workflow took {sw.Elapsed.TotalMilliseconds:F2} ms (budget: < 250 ms)");
+            Assert.True(sw.Elapsed.TotalMilliseconds < 250.0, $"500-account workflow took {sw.Elapsed.TotalMilliseconds:F2} ms (budget: < 250 ms)");
+        }
+
+        private static void EnsureBaseThemeTokens()
+        {
+            if (Application.Current?.Resources is { } resources && !resources.TryGetResource("RadiusOuter16", null, out _))
+                resources.MergedDictionaries.Add((ResourceDictionary)AvaloniaXamlLoader.Load(new Uri("avares://Shiro/AvaloniaUI/Styles/ThemeTokens.axaml")));
+        }
+
+        private static void CloseWindowSafely(Window win, Action? afterClose = null)
+        {
+            try { win.Close(); }
+            catch (InvalidOperationException) { }
+            finally { afterClose?.Invoke(); }
         }
 
         private static void AssertStyleSetsNullTransitions(XDocument appDoc, string selector)
         {
-            var style = appDoc.Descendants().FirstOrDefault(e =>
-                e.Name.LocalName == "Style" && string.Equals(e.Attribute("Selector")?.Value, selector, StringComparison.Ordinal));
+            var style = appDoc.Descendants().FirstOrDefault(e => e.Name.LocalName == "Style" && e.Attribute("Selector")?.Value == selector);
             Assert.NotNull(style);
-            bool hasNullTransitionsSetter = style!.Elements().Any(e =>
-                e.Name.LocalName == "Setter"
-                && e.Attribute("Property")?.Value == "Transitions"
-                && e.Attribute("Value")?.Value == "{x:Null}");
-            Assert.True(hasNullTransitionsSetter, $"App.axaml style '{selector}' must set Transitions=\"{{x:Null}}\".");
+            Assert.True(style!.Elements().Any(e => e.Name.LocalName == "Setter" && e.Attribute("Property")?.Value == "Transitions" && e.Attribute("Value")?.Value == "{x:Null}"),
+                $"App.axaml style '{selector}' must set Transitions=\"{{x:Null}}\".");
         }
 
-        private static void AssertAxamlFastControlsHaveNoAnimatedTransitions(XContainer root, string label, bool requireExplicitOnButtons)
+        private static void AssertAxamlFastControls(XContainer root, string label, bool requireExplicitOnButtons)
         {
             foreach (var elem in root.Descendants())
             {
                 string? classes = elem.Attribute("Classes")?.Value;
                 bool isFastBtn = elem.Name.LocalName == "Button" && classes != null
                     && (classes.Contains("FastIconBtn", StringComparison.Ordinal) || classes.Contains("FastPillBtn", StringComparison.Ordinal));
-                bool isProgressBar = elem.Name.LocalName == "ProgressBar";
-                bool isCheckBox = elem.Name.LocalName == "CheckBox";
-
-                if (!isFastBtn && !isProgressBar && !isCheckBox) continue;
+                bool isProgress = elem.Name.LocalName == "ProgressBar", isCheck = elem.Name.LocalName == "CheckBox";
+                if (!isFastBtn && !isProgress && !isCheck) continue;
 
                 string? transitions = elem.Attribute("Transitions")?.Value;
-                if (isProgressBar || isCheckBox || requireExplicitOnButtons)
-                {
-                    Assert.True(string.Equals(transitions, "{x:Null}", StringComparison.Ordinal),
-                        $"{label}: <{elem.Name.LocalName} Classes=\"{classes}\"> must declare Transitions=\"{{x:Null}}\".");
-                }
+                if (isProgress || isCheck || requireExplicitOnButtons)
+                    Assert.True(transitions == "{x:Null}", $"{label}: <{elem.Name.LocalName} Classes=\"{classes}\"> must declare Transitions=\"{{x:Null}}\".");
                 else if (transitions != null)
-                {
-                    Assert.True(string.Equals(transitions, "{x:Null}", StringComparison.Ordinal),
-                        $"{label}: <{elem.Name.LocalName} Classes=\"{classes}\"> overrides Transitions with '{transitions}'.");
-                }
+                    Assert.True(transitions == "{x:Null}", $"{label}: <{elem.Name.LocalName} Classes=\"{classes}\"> overrides Transitions with '{transitions}'.");
             }
         }
 
-        private static void AssertRuntimeFastControlsHaveNullTransitions(
-            Visual root, string label, int expectedMinButtons, bool expectCheckBox = false, bool expectProgressBar = false)
+        private static void AssertRuntimeFastControls(Visual root, string label, int expectedMinButtons, bool expectCheckBox = false, bool expectProgressBar = false)
         {
             var fastButtons = root.GetVisualDescendants().OfType<Button>()
-                .Where(b => b.Classes.Contains("FastIconBtn") || b.Classes.Contains("FastPillBtn"))
-                .ToList();
+                .Where(b => b.Classes.Contains("FastIconBtn") || b.Classes.Contains("FastPillBtn")).ToList();
             Assert.True(fastButtons.Count >= expectedMinButtons, $"{label}: expected >= {expectedMinButtons} fast buttons, found {fastButtons.Count}");
             Assert.All(fastButtons, b => Assert.Null(b.Transitions));
 
@@ -297,28 +278,17 @@ namespace Shiro.Tests.Ui
         {
             var repo = Substitute.For<IAccountRepository>();
             repo.GetAll().Returns(accounts);
-            return new AccountCollectionViewModel(
-                logger: Substitute.For<IAppLogger>(),
-                settings: CreateInMemorySettings(),
-                accountRepository: repo);
+            return new AccountCollectionViewModel(Substitute.For<IAppLogger>(), AppServices.GeneralSettings, repo);
         }
 
-        private static List<Account> BuildAccounts(int count)
+        private static List<Account> BuildAccounts(int count) => Enumerable.Range(0, count).Select(i => new Account
         {
-            var list = new List<Account>(count);
-            for (int i = 0; i < count; i++)
-            {
-                list.Add(new Account
-                {
-                    UserID = 200000 + i,
-                    Username = $"Scale_{i:D4}",
-                    Group = (i % 4) switch { 0 => "Alpha", 1 => "Beta", 2 => "Gamma", _ => "Default" },
-                    Valid = true,
-                    SecurityToken = "tok"
-                });
-            }
-            return list;
-        }
+            UserID = 200000 + i,
+            Username = $"Scale_{i:D4}",
+            Group = (i % 4) switch { 0 => "Alpha", 1 => "Beta", 2 => "Gamma", _ => "Default" },
+            Valid = true,
+            SecurityToken = "tok"
+        }).ToList();
 
         private static ISettingsService CreateInMemorySettings()
         {
@@ -326,26 +296,18 @@ namespace Shiro.Tests.Ui
             var settings = Substitute.For<ISettingsService>();
             settings.Get(Arg.Any<string>()).Returns(ci => store.TryGetValue(ci.Arg<string>(), out string? v) ? v : null);
             settings.Exists(Arg.Any<string>()).Returns(ci => store.ContainsKey(ci.Arg<string>()));
-            settings.When(s => s.Set(Arg.Any<string>(), Arg.Any<string?>()))
-                .Do(ci =>
-                {
-                    string k = ci.ArgAt<string>(0);
-                    string? v = ci.ArgAt<string?>(1);
-                    if (v == null) store.Remove(k);
-                    else store[k] = v;
-                });
+            settings.When(s => s.Set(Arg.Any<string>(), Arg.Any<string?>())).Do(ci =>
+            {
+                string k = ci.ArgAt<string>(0); string? v = ci.ArgAt<string?>(1);
+                if (v == null) store.Remove(k); else store[k] = v;
+            });
             return settings;
         }
 
         private static string FindRepoRoot()
         {
-            var dir = new DirectoryInfo(AppContext.BaseDirectory);
-            while (dir != null)
-            {
-                if (File.Exists(Path.Combine(dir.FullName, "Shiro.sln")))
-                    return dir.FullName;
-                dir = dir.Parent;
-            }
+            for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir != null; dir = dir.Parent)
+                if (File.Exists(Path.Combine(dir.FullName, "Shiro.sln"))) return dir.FullName;
             throw new DirectoryNotFoundException("Could not locate Shiro.sln from AppContext.BaseDirectory.");
         }
     }
