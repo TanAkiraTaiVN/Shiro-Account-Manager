@@ -350,8 +350,23 @@
         <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
 
-    <Style Selector="Border.TableRowKbdFocus">
+    <Style Selector="Border.CompactTableRow">
+        <Setter Property="Background" Value="{DynamicResource SurfaceCardBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderHairlineBrush}" />
+        <Setter Property="BorderThickness" Value="1,0,1,1" />
+    </Style>
+    <Style Selector="Border.CompactTableRow.kbd-focused">
         <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
         <Setter Property="BorderThickness" Value="1.5" />
+    </Style>
+    <Style Selector="Border.CardFocusRing">
+        <Setter Property="IsVisible" Value="False" />
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+        <Setter Property="BorderThickness" Value="1.5" />
+        <Setter Property="CornerRadius" Value="9" />
+        <Setter Property="IsHitTestVisible" Value="False" />
+    </Style>
+    <Style Selector="Border.CardFocusRing.kbd-focused">
+        <Setter Property="IsVisible" Value="True" />
     </Style>
 </Styles>

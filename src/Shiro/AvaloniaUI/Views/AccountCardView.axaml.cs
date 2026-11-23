@@ -51,12 +51,16 @@ namespace Shiro.AvaloniaUI.Views
 
         internal void SetKeyboardFocused(bool isFocused)
         {
+            CardRoot?.Classes.Set("kbd-focused", isFocused);
             if (KeyboardFocusRing != null)
+            {
+                KeyboardFocusRing.Classes.Set("kbd-focused", isFocused);
                 KeyboardFocusRing.IsVisible = isFocused;
+            }
         }
 
-        private void SyncKeyboardFocusRing()
-            => SetKeyboardFocused(_ownerDashboard?.IsKeyboardFocusedAccount(DataContext as AccountViewModel) == true);
+        internal void SyncKeyboardFocusRing()
+            => SetKeyboardFocused(ResolveOwner()?.IsKeyboardFocusedAccount(DataContext as AccountViewModel) == true);
 
         private DashboardView? ResolveOwner()
             => _ownerDashboard ??= this.FindAncestorOfType<DashboardView>();
@@ -68,6 +72,7 @@ namespace Shiro.AvaloniaUI.Views
 
             if (DataContext is AccountViewModel avm && ResolveOwner() is { } owner)
             {
+                owner.SetKeyboardFocusedAccount(avm);
                 bool shift = e.KeyModifiers.HasFlag(KeyModifiers.Shift);
                 owner.ViewModel.HandleAccountClickSelection(avm, shift);
                 e.Handled = true;

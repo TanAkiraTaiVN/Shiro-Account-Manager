@@ -25,7 +25,7 @@ using Xunit;
 namespace Shiro.Tests.Ui
 {
     [Collection("SerialGlobalState")]
-    public sealed class MarqueeAndKeyboardNavTests : IDisposable
+    public sealed partial class MarqueeAndKeyboardNavTests : IDisposable
     {
         private readonly string _tempDir;
         private readonly ILogSink? _origSink;
@@ -244,7 +244,9 @@ namespace Shiro.Tests.Ui
             Assert.Same(vm.AccountsVm.FilteredAccounts[4], inspected);
             Assert.Null(launched);
 
-            // Ctrl+Enter launches focused account
+            // Ctrl+Enter verifies CanExecute and launches focused account
+            Assert.NotNull(vm.LaunchBar.LaunchAccountCommand);
+            Assert.True(vm.LaunchBar.LaunchAccountCommand.CanExecute(vm.AccountsVm.FilteredAccounts[4]));
             view.RaiseEvent(new KeyEventArgs
             {
                 RoutedEvent = InputElement.KeyDownEvent,
@@ -253,16 +255,21 @@ namespace Shiro.Tests.Ui
             });
             Assert.Same(vm.AccountsVm.FilteredAccounts[4], launched);
 
-            // Ctrl+A selects all filtered accounts
-            view.RaiseEvent(new KeyEventArgs
-            {
-                RoutedEvent = InputElement.KeyDownEvent,
-                Key = Key.A,
-                KeyModifiers = KeyModifiers.Control
-            });
+            // Ctrl+A selects all filtered accounts & card focus ring updates cleanly on recycling
+            view.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.A, KeyModifiers = KeyModifiers.Control });
             Assert.Equal(7, vm.AccountsVm.SelectedCount);
+            var focusedCard = view.GetVisualDescendants().OfType<AccountCardView>()
+                .First(c => c.IsEffectivelyVisible && ReferenceEquals(c.DataContext, vm.AccountsVm.FilteredAccounts[4]));
+            var ring = focusedCard.FindControl<Border>("KeyboardFocusRing")!;
+            Assert.True(ring.IsVisible);
+            Assert.Contains("kbd-focused", ring.Classes);
+            focusedCard.DataContext = vm.AccountsVm.FilteredAccounts[0];
+            Assert.False(ring.IsVisible);
+            Assert.DoesNotContain("kbd-focused", ring.Classes);
+            focusedCard.DataContext = vm.AccountsVm.FilteredAccounts[4];
+            Assert.True(ring.IsVisible);
 
-            // Compact view uses 1 column stepping
+            // Compact view uses 1 column stepping and updates .kbd-focused on CompactTableRow
             vm.AccountsVm.IsCompactView = true;
             Dispatcher.UIThread.RunJobs();
             Assert.Equal(1, view.ResolveGridColumnCount());
@@ -270,6 +277,17 @@ namespace Shiro.Tests.Ui
             Assert.Equal(3, view.FocusedAccountIndex);
             view.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Down });
             Assert.Equal(4, view.FocusedAccountIndex);
+            var tableControl = view.FindControl<ItemsControl>("TableItemsControl")!;
+            var row4Border = tableControl.ContainerFromIndex(4)!.GetVisualDescendants().OfType<Border>()
+                .First(b => b.Classes.Contains("CompactTableRow"));
+            var row3Border = tableControl.ContainerFromIndex(3)!.GetVisualDescendants().OfType<Border>()
+                .First(b => b.Classes.Contains("CompactTableRow"));
+            Assert.Contains("kbd-focused", row4Border.Classes);
+            Assert.DoesNotContain("kbd-focused", row3Border.Classes);
+            Assert.Equal(new Thickness(1.5), row4Border.BorderThickness);
+            Assert.Equal(new Thickness(1, 0, 1, 1), row3Border.BorderThickness);
+            Assert.NotNull(row4Border.BorderBrush);
+            Assert.NotEqual(row3Border.BorderBrush, row4Border.BorderBrush);
             Assert.Empty(host.Sink.Errors);
         }
 
@@ -385,10 +403,37 @@ namespace Shiro.Tests.Ui
             Dispatcher.UIThread.RunJobs();
             Assert.False(overlay.IsSelecting);
 
-            // Ctrl+Drag preserves existing selection and adds third card
-            Point card2Start = new Point(card2.TranslatePoint(new Point(5, 5), host.Window)!.Value.X, card0Pt.Y);
-            Point card2End = card2.TranslatePoint(new Point(70, 70), host.Window)!.Value;
-            host.Window.MouseDown(card2Start, MouseButton.Left, RawInputModifiers.Control);
+            // Ctrl+Drag starting inside UNSELECTED CardRoot does not mutate baseline selection before threshold, then preserves {0,1} + adds card2
+            Point card2Inside = card2.FindControl<Border>("CardRoot")!.TranslatePoint(new Point(45, 65), host.Window)!.Value;
+            Point card2End = card2.TranslatePoint(new Point(75, 80), host.Window)!.Value;
+            host.Window.MouseDown(card2Inside, MouseButton.Left, RawInputModifiers.Control);
+            host.Window.MouseMove(new Point(card2Inside.X + 2, card2Inside.Y + 2), RawInputModifiers.LeftMouseButton | RawInputModifiers.Control);
+            Dispatcher.UIThread.RunJobs();
+            Assert.False(overlay.IsSelecting);
+            Assert.True(vm.AccountsVm.FilteredAccounts[0].IsSelected);
+            Assert.True(vm.AccountsVm.FilteredAccounts[1].IsSelected);
+            Assert.False(vm.AccountsVm.FilteredAccounts[2].IsSelected);
+
+            host.Window.MouseMove(card2End, RawInputModifiers.LeftMouseButton | RawInputModifiers.Control);
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(overlay.IsSelecting);
+            Assert.True(vm.AccountsVm.FilteredAccounts[0].IsSelected);
+            Assert.True(vm.AccountsVm.FilteredAccounts[1].IsSelected);
+            Assert.True(vm.AccountsVm.FilteredAccounts[2].IsSelected);
+            host.Window.MouseUp(card2End, MouseButton.Left, RawInputModifiers.Control);
+            Dispatcher.UIThread.RunJobs();
+            Assert.False(overlay.IsSelecting);
+
+            // Shrink back to just {0,1} via non-Ctrl drag, then verify Ctrl+Drag starting inside ALREADY-SELECTED CardRoot[0]
+            host.Window.MouseDown(startPt, MouseButton.Left);
+            host.Window.MouseMove(card1Pt, RawInputModifiers.LeftMouseButton);
+            Dispatcher.UIThread.RunJobs();
+            host.Window.MouseUp(card1Pt, MouseButton.Left);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(2, vm.AccountsVm.SelectedCount);
+
+            Point card0Inside = card0.FindControl<Border>("CardRoot")!.TranslatePoint(new Point(45, 65), host.Window)!.Value;
+            host.Window.MouseDown(card0Inside, MouseButton.Left, RawInputModifiers.Control);
             host.Window.MouseMove(card2End, RawInputModifiers.LeftMouseButton | RawInputModifiers.Control);
             Dispatcher.UIThread.RunJobs();
             Assert.True(overlay.IsSelecting);
@@ -422,22 +467,17 @@ namespace Shiro.Tests.Ui
             var sink = new BindingErrorSink();
             Logger.Sink = sink;
             LocalizationService.SetLanguage(AppLanguage.English, saveSetting: false);
-
             var repo = Substitute.For<IAccountRepository>();
             repo.GetAll().Returns(accounts);
-            var settings = CreateInMemorySettings();
             var browserState = Substitute.For<IServerBrowserStateService>();
             browserState.CurrentPlaceId.Returns(string.Empty);
-
             var repoScope = AppServices.Override<IAccountRepository>(repo);
-            var settingsScope = AppServices.Override<ISettingsService>(settings);
+            var settingsScope = AppServices.Override<ISettingsService>(CreateInMemorySettings());
             var browserScope = AppServices.Override<IServerBrowserStateService>(browserState);
-
             var view = new DashboardView();
             var window = new Window { Width = width, Height = height, Content = view };
             window.Show();
             Dispatcher.UIThread.RunJobs();
-
             return new MountedDashboard(view, window, sink, repoScope, settingsScope, browserScope);
         }
 
@@ -448,49 +488,20 @@ namespace Shiro.Tests.Ui
             settings.Get(Arg.Any<string>()).Returns(ci => store.TryGetValue(ci.Arg<string>(), out string? v) ? v : null);
             settings.Exists(Arg.Any<string>()).Returns(ci => store.ContainsKey(ci.Arg<string>()));
             settings.When(s => s.Set(Arg.Any<string>(), Arg.Any<string?>()))
-                .Do(ci =>
-                {
-                    string key = ci.ArgAt<string>(0);
-                    string? val = ci.ArgAt<string?>(1);
-                    if (val == null) store.Remove(key);
-                    else store[key] = val;
-                });
+                .Do(ci => { string k = ci.ArgAt<string>(0); string? v = ci.ArgAt<string?>(1); if (v == null) store.Remove(k); else store[k] = v; });
             return settings;
         }
 
-        private sealed class MountedDashboard : IDisposable
+        private sealed class MountedDashboard(DashboardView view, Window window, BindingErrorSink sink,
+            IDisposable repoScope, IDisposable settingsScope, IDisposable browserScope) : IDisposable
         {
-            private readonly IDisposable _repoScope;
-            private readonly IDisposable _settingsScope;
-            private readonly IDisposable _browserScope;
-            public DashboardView View { get; }
-            public Window Window { get; }
-            public BindingErrorSink Sink { get; }
-
-            public MountedDashboard(
-                DashboardView view,
-                Window window,
-                BindingErrorSink sink,
-                IDisposable repoScope,
-                IDisposable settingsScope,
-                IDisposable browserScope)
-            {
-                View = view;
-                Window = window;
-                Sink = sink;
-                _repoScope = repoScope;
-                _settingsScope = settingsScope;
-                _browserScope = browserScope;
-            }
-
+            public DashboardView View => view;
+            public Window Window => window;
+            public BindingErrorSink Sink => sink;
             public void Dispose()
             {
-                Window.Close();
-                View.ViewModel.Dispose();
-                Dispatcher.UIThread.RunJobs();
-                _browserScope.Dispose();
-                _settingsScope.Dispose();
-                _repoScope.Dispose();
+                window.Close(); view.ViewModel.Dispose(); Dispatcher.UIThread.RunJobs();
+                browserScope.Dispose(); settingsScope.Dispose(); repoScope.Dispose();
             }
         }
     }

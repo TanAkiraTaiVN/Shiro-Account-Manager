@@ -298,8 +298,8 @@
             BringIntoViewOnFocusChange="False" Padding="0,0,12,0"><ItemsPresenter Margin="0,0,0,72"
             ItemsPanel="{TemplateBinding ItemsPanel}" /></ScrollViewer></ControlTemplate></ItemsControl.Template>
           <ItemsControl.ItemTemplate><DataTemplate x:DataType="vm:AccountViewModel">
-            <Border Height="40" Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource BorderHairlineBrush}" BorderThickness="1,0,1,1"
-                    Padding="14,0" PointerPressed="OnCardPointerPressed" DoubleTapped="OnCardDoubleTapped" Cursor="Hand">
+            <Border Classes="CompactTableRow" Height="40" Padding="14,0" PointerPressed="OnCardPointerPressed" DoubleTapped="OnCardDoubleTapped"
+                    DataContextChanged="OnTableRowDataContextChanged" Cursor="Hand">
               <Grid ColumnDefinitions="40,36,2.2*,1.2*,1.2*,1.6*,1.2*,104">
                 <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected, Mode=TwoWay}" Transitions="{x:Null}" VerticalAlignment="Center" HorizontalAlignment="Center" />
                 <Panel Grid.Column="1" Width="26" Height="26" VerticalAlignment="Center">

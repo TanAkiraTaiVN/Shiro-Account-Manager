@@ -4,28 +4,35 @@ using System.Collections.Generic;
 using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Presenters;
 using Avalonia.Input;
 using Avalonia.VisualTree;
 using Shiro.AvaloniaUI.Controls;
-using Shiro.Services;
 using Shiro.ViewModels;
 
 namespace Shiro.AvaloniaUI.Views
 {
     public partial class DashboardView
     {
-        public event EventHandler<AccountViewModel>? AccountInspectRequested;
+        private const double CardRowHeight = 148.0;
+        private const double CardHeight = 136.0;
+        private const double CardHorizontalMargin = 5.0;
+        private const double TableRowHeight = 40.0;
 
-        private AccountViewModel? _focusedAccount;
+        private AccountViewModel? _pendingClickAccount;
+        private bool _pendingClickShift;
         private HashSet<AccountViewModel>? _marqueeBaselineSelection;
         private AccountViewModel[]? _lastMarqueeTargets;
         private bool _lastMarqueeAdditive;
+        private Point _marqueeAnchorOverlayPoint;
+        private Point _marqueeLastOverlayPoint;
+        private Vector _marqueeAnchorScrollOffset;
 
-        internal AccountViewModel? FocusedAccount => ResolveFocusedAccount(out _);
-        internal int FocusedAccountIndex { get { ResolveFocusedAccount(out int idx); return idx; } }
-
-        internal bool IsKeyboardFocusedAccount(AccountViewModel? account)
-            => account != null && ReferenceEquals(_focusedAccount, account);
+        internal void QueueDeferredCardClick(AccountViewModel account, bool isShiftPressed)
+        {
+            _pendingClickAccount = account;
+            _pendingClickShift = isShiftPressed;
+        }
 
         private void OnListPointerPressed(object? sender, PointerPressedEventArgs e)
         {
@@ -37,9 +44,13 @@ namespace Shiro.AvaloniaUI.Views
                 return;
 
             ListViewportHost.Focus();
-            if (!MarqueeOverlay.TryArm(e.GetPosition(MarqueeOverlay), e.Source))
+            Point pos = e.GetPosition(MarqueeOverlay);
+            if (!MarqueeOverlay.TryArm(pos, e.Source))
                 return;
 
+            _marqueeAnchorOverlayPoint = pos;
+            _marqueeLastOverlayPoint = pos;
+            _marqueeAnchorScrollOffset = GetActiveListScrollOffset();
             _marqueeBaselineSelection = new HashSet<AccountViewModel>(
                 ViewModel.AccountsVm.GetSelectedAccountViewModels(),
                 ReferenceEqualityComparer.Instance);
@@ -57,12 +68,19 @@ namespace Shiro.AvaloniaUI.Views
                 return;
             }
 
-            if (!MarqueeOverlay.UpdateDrag(e.GetPosition(MarqueeOverlay), out bool justActivated))
+            Point pos = e.GetPosition(MarqueeOverlay);
+            if (!MarqueeOverlay.UpdateDrag(pos, out bool justActivated))
                 return;
 
-            if (justActivated && !ReferenceEquals(e.Pointer.Captured, ListViewportHost))
-                e.Pointer.Capture(ListViewportHost);
+            if (justActivated)
+            {
+                _pendingClickAccount = null;
+                _pendingClickShift = false;
+                if (!ReferenceEquals(e.Pointer.Captured, ListViewportHost))
+                    e.Pointer.Capture(ListViewportHost);
+            }
 
+            _marqueeLastOverlayPoint = pos;
             e.Handled = true;
             ApplyMarqueeSelection(e.KeyModifiers.HasFlag(KeyModifiers.Control), justActivated);
         }
@@ -70,9 +88,18 @@ namespace Shiro.AvaloniaUI.Views
         private void OnListPointerReleased(object? sender, PointerReleasedEventArgs e)
         {
             bool wasSelecting = MarqueeOverlay?.IsSelecting == true;
+            AccountViewModel? pendingAccount = !wasSelecting ? _pendingClickAccount : null;
+            bool pendingShift = _pendingClickShift || e.KeyModifiers.HasFlag(KeyModifiers.Shift);
             FinishMarqueeSelection(e.Pointer);
+
             if (wasSelecting)
+            {
                 e.Handled = true;
+            }
+            else if (pendingAccount != null)
+            {
+                ViewModel.AccountsVm.HandleAccountClickSelection(pendingAccount, pendingShift);
+            }
         }
 
         private void OnListPointerCaptureLost(object? sender, PointerCaptureLostEventArgs e)
@@ -86,6 +113,8 @@ namespace Shiro.AvaloniaUI.Views
             MarqueeOverlay?.CompleteSelection();
             _marqueeBaselineSelection = null;
             _lastMarqueeTargets = null;
+            _pendingClickAccount = null;
+            _pendingClickShift = false;
         }
 
         private void ApplyMarqueeSelection(bool additive, bool forceApply)
@@ -93,7 +122,8 @@ namespace Shiro.AvaloniaUI.Views
             if (MarqueeOverlay == null)
                 return;
 
-            List<AccountViewModel> hit = CollectIntersectingAccounts(MarqueeOverlay.SelectionRect);
+            Rect effectiveRect = ComputeEffectiveMarqueeRect(MarqueeOverlay.SelectionRect);
+            List<AccountViewModel> hit = CollectIntersectingAccounts(effectiveRect);
             AccountViewModel[] targets;
             if (additive && _marqueeBaselineSelection is { Count: > 0 })
             {
@@ -115,6 +145,27 @@ namespace Shiro.AvaloniaUI.Views
             ViewModel.AccountsVm.ApplySelectionBatch(targets, additive: false);
         }
 
+        private Rect ComputeEffectiveMarqueeRect(Rect visualRect)
+        {
+            Vector curScroll = GetActiveListScrollOffset();
+            if (Math.Abs(curScroll.X - _marqueeAnchorScrollOffset.X) <= 0.1 &&
+                Math.Abs(curScroll.Y - _marqueeAnchorScrollOffset.Y) <= 0.1)
+            {
+                return visualRect;
+            }
+
+            Point shiftedAnchor = new(
+                _marqueeAnchorOverlayPoint.X + (_marqueeAnchorScrollOffset.X - curScroll.X),
+                _marqueeAnchorOverlayPoint.Y + (_marqueeAnchorScrollOffset.Y - curScroll.Y));
+            return MarqueeSelectionOverlay.ComputeNormalizedRect(shiftedAnchor, _marqueeLastOverlayPoint);
+        }
+
+        private Vector GetActiveListScrollOffset()
+        {
+            ItemsControl? active = ViewModel.AccountsVm.IsCardView ? CardsItemsControl : TableItemsControl;
+            return active?.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault()?.Offset ?? default;
+        }
+
         private static bool AreSameTargets(AccountViewModel[]? prev, AccountViewModel[] next)
         {
             if (prev == null || prev.Length != next.Length)
@@ -127,239 +178,163 @@ namespace Shiro.AvaloniaUI.Views
             return true;
         }
 
-        private List<AccountViewModel> CollectIntersectingAccounts(Rect selRect)
+        internal List<AccountViewModel> CollectIntersectingAccounts(Rect selRect)
         {
             var hits = new List<AccountViewModel>();
             if (MarqueeOverlay == null || selRect.Width <= 0.0 || selRect.Height <= 0.0)
                 return hits;
 
-            bool HitsOverlay(Control target)
-            {
-                if (target.Bounds.Width <= 0.0 || target.Bounds.Height <= 0.0)
-                    return false;
-                Point? origin = target.TranslatePoint(default, MarqueeOverlay);
-                return origin.HasValue && MarqueeSelectionOverlay.Intersects(selRect, new Rect(origin.Value, target.Bounds.Size));
-            }
-
+            var seen = new HashSet<AccountViewModel>(ReferenceEqualityComparer.Instance);
             if (ViewModel.AccountsVm.IsCardView && CardsItemsControl != null)
-            {
-                foreach (var card in CardsItemsControl.GetRealizedContainers()
-                    .Where(c => c.IsEffectivelyVisible)
-                    .SelectMany(c => c.GetVisualDescendants().OfType<AccountCardView>()))
-                {
-                    if (card.IsEffectivelyVisible && card.DataContext is AccountViewModel avm &&
-                        HitsOverlay(card.FindControl<Border>("CardRoot") ?? (Control)card))
-                    {
-                        hits.Add(avm);
-                    }
-                }
-            }
+                CollectCardViewIntersections(selRect, hits, seen);
             else if (TableItemsControl != null)
-            {
-                foreach (var row in TableItemsControl.GetRealizedContainers())
-                {
-                    if (row.IsEffectivelyVisible && row.DataContext is AccountViewModel avm && HitsOverlay(row))
-                        hits.Add(avm);
-                }
-            }
+                CollectTableViewIntersections(selRect, hits, seen);
 
             return hits;
         }
 
-        protected override void OnKeyDown(KeyEventArgs e)
+        private void CollectCardViewIntersections(Rect selRect, List<AccountViewModel> hits, HashSet<AccountViewModel> seen)
         {
-            base.OnKeyDown(e);
-            if (e.Handled)
+            if (CardsItemsControl == null) return;
+            var rows = ViewModel.AccountsVm.FilteredAccountRows;
+            if (!ResolveContentViewport(CardsItemsControl, 14.0, out Point contentOrigin, out double rowWidth, out Rect clipRect))
                 return;
 
-            if (e.Key == Key.Escape && MarqueeOverlay is { IsSelecting: true })
+            Rect clippedSel = selRect.Intersect(clipRect);
+            if (clippedSel.Width <= 0.0 || clippedSel.Height <= 0.0)
+                return;
+
+            foreach (var card in CardsItemsControl.GetRealizedContainers()
+                .Where(c => c.IsEffectivelyVisible)
+                .SelectMany(c => c.GetVisualDescendants().OfType<AccountCardView>()))
             {
-                if (_marqueeBaselineSelection != null)
-                    ViewModel.AccountsVm.ApplySelectionBatch(_marqueeBaselineSelection.ToArray(), additive: false);
-                FinishMarqueeSelection(null);
-                e.Handled = true;
-                return;
-            }
-
-            if (ShouldIgnoreKeyboardNavigation(e))
-                return;
-
-            var filtered = ViewModel.AccountsVm.FilteredAccounts;
-            if (filtered.Count == 0)
-                return;
-
-            if (e.KeyModifiers == KeyModifiers.Control && e.Key == Key.A)
-            {
-                ViewModel.AccountsVm.ApplySelectionBatch(filtered.ToArray(), additive: false);
-                e.Handled = true;
-                return;
-            }
-
-            if (e.Key is Key.Up or Key.Down or Key.Left or Key.Right)
-            {
-                if (e.KeyModifiers != KeyModifiers.None)
-                    return;
-
-                ResolveFocusedAccount(out int curIdx);
-                int cols = ResolveGridColumnCount();
-                int nextIdx = StepGridIndex(curIdx, e.Key, cols, filtered.Count);
-                if (nextIdx >= 0 && nextIdx < filtered.Count)
+                if (card.IsEffectivelyVisible && card.DataContext is AccountViewModel avm &&
+                    HitsOverlay(card.FindControl<Border>("CardRoot") ?? (Control)card, clippedSel, clipRect) && seen.Add(avm))
                 {
-                    SetKeyboardFocusedAccount(filtered[nextIdx], bringIntoView: true, nextIdx, cols);
-                    e.Handled = true;
+                    hits.Add(avm);
                 }
-                return;
             }
 
-            AccountViewModel? focused = ResolveFocusedAccount(out int focusedIdx);
-            if (e.Key == Key.Space)
+            if (rows.Count == 0)
+                return;
+
+            double contentTopY = contentOrigin.Y;
+            int firstRow = Math.Max(0, (int)Math.Floor((clippedSel.Top - contentTopY) / CardRowHeight));
+            int lastRow = Math.Min(rows.Count - 1, (int)Math.Floor((clippedSel.Bottom - contentTopY) / CardRowHeight));
+            for (int r = firstRow; r <= lastRow; r++)
             {
-                focused ??= filtered[0];
-                SetKeyboardFocusedAccount(focused, bringIntoView: false, focusedIdx >= 0 ? focusedIdx : 0);
-                ViewModel.AccountsVm.HandleAccountClickSelection(focused, e.KeyModifiers.HasFlag(KeyModifiers.Shift));
-                e.Handled = true;
-            }
-            else if (e.Key == Key.Enter)
-            {
-                focused ??= filtered.FirstOrDefault(a => a.IsSelected) ?? filtered[0];
-                if (e.KeyModifiers.HasFlag(KeyModifiers.Control))
+                if (CardsItemsControl.ContainerFromIndex(r) is { IsEffectivelyVisible: true })
+                    continue;
+                double cardTop = contentTopY + r * CardRowHeight;
+                if (cardTop + CardHeight <= clippedSel.Top || cardTop >= clippedSel.Bottom)
+                    continue;
+
+                AccountRowViewModel rowVm = rows[r];
+                int cols = Math.Max(1, rowVm.ColumnCount);
+                double slotWidth = rowWidth / cols;
+                for (int c = 0; c < cols; c++)
                 {
-                    if (!focused.IsLaunching)
-                        ViewModel.LaunchBar.LaunchAccountCommand.Execute(focused);
-                    e.Handled = true;
-                }
-                else if (e.KeyModifiers == KeyModifiers.None)
-                {
-                    SetKeyboardFocusedAccount(focused, bringIntoView: false, focusedIdx >= 0 ? focusedIdx : 0);
-                    AccountInspectRequested?.Invoke(this, focused);
-                    e.Handled = true;
+                    AccountViewModel? item = c switch { 0 => rowVm.Item1, 1 => rowVm.Item2, 2 => rowVm.Item3, 3 => rowVm.Item4, _ => null };
+                    if (item == null) continue;
+                    Rect cardRect = new Rect(contentOrigin.X + c * slotWidth + CardHorizontalMargin, cardTop, Math.Max(0.0, slotWidth - CardHorizontalMargin * 2.0), CardHeight).Intersect(clipRect);
+                    if (MarqueeSelectionOverlay.Intersects(clippedSel, cardRect) && seen.Add(item))
+                        hits.Add(item);
                 }
             }
         }
 
-        private bool ShouldIgnoreKeyboardNavigation(KeyEventArgs e)
+        private void CollectTableViewIntersections(Rect selRect, List<AccountViewModel> hits, HashSet<AccountViewModel> seen)
         {
-            if (ViewModel.CommandPalette.IsCommandPaletteOpen || ViewModel.IsNotificationCenterOpen || CmbGroups?.IsDropDownOpen == true)
-                return true;
+            if (TableItemsControl == null) return;
+            var items = ViewModel.AccountsVm.FilteredAccounts;
+            if (!ResolveContentViewport(TableItemsControl, 12.0, out Point contentOrigin, out double rowWidth, out Rect clipRect))
+                return;
 
-            object? focused = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement();
-            static bool IsInputOrCombo(Visual? visual)
+            Rect clippedSel = selRect.Intersect(clipRect);
+            if (clippedSel.Width <= 0.0 || clippedSel.Height <= 0.0)
+                return;
+
+            foreach (var row in TableItemsControl.GetRealizedContainers())
             {
-                static bool Match(object? node) => node is TextBox or ComboBox or ComboBoxItem;
+                if (row.IsEffectivelyVisible && row.DataContext is AccountViewModel avm && HitsOverlay(row, clippedSel, clipRect) && seen.Add(avm))
+                    hits.Add(avm);
+            }
 
-                for (Visual? cur = visual; cur != null; cur = cur.GetVisualParent())
-                {
-                    if (Match(cur))
-                        return true;
-                }
+            if (items.Count == 0)
+                return;
 
-                for (StyledElement? cur = visual; cur != null; cur = cur.Parent)
-                {
-                    if (Match(cur))
-                        return true;
-                }
+            double contentTopY = contentOrigin.Y;
+            int firstRow = Math.Max(0, (int)Math.Floor((clippedSel.Top - contentTopY) / TableRowHeight));
+            int lastRow = Math.Min(items.Count - 1, (int)Math.Floor((clippedSel.Bottom - contentTopY) / TableRowHeight));
+            for (int r = firstRow; r <= lastRow; r++)
+            {
+                if (TableItemsControl.ContainerFromIndex(r) is { IsEffectivelyVisible: true })
+                    continue;
+                Rect rowRect = new Rect(contentOrigin.X, contentTopY + r * TableRowHeight, rowWidth, TableRowHeight).Intersect(clipRect);
+                if (MarqueeSelectionOverlay.Intersects(clippedSel, rowRect) && seen.Add(items[r]))
+                    hits.Add(items[r]);
+            }
+        }
 
+        private bool HitsOverlay(Control target, Rect selRect, Rect clipRect)
+        {
+            if (MarqueeOverlay == null || target.Bounds.Width <= 0.0 || target.Bounds.Height <= 0.0)
+                return false;
+            Point? origin = target.TranslatePoint(default, MarqueeOverlay);
+            if (!origin.HasValue)
+                return false;
+            Rect clippedItem = new Rect(origin.Value, target.Bounds.Size).Intersect(clipRect);
+            return MarqueeSelectionOverlay.Intersects(selRect, clippedItem);
+        }
+
+        private bool ResolveContentViewport(
+            ItemsControl ic,
+            double insetRight,
+            out Point contentOrigin,
+            out double contentWidth,
+            out Rect clipRect)
+        {
+            contentOrigin = default;
+            contentWidth = 0.0;
+            clipRect = default;
+            if (MarqueeOverlay == null)
+                return false;
+
+            var sv = ic.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault();
+            var scp = sv?.GetVisualDescendants().OfType<Avalonia.Controls.Presenters.ScrollContentPresenter>().FirstOrDefault();
+            var presenter = ic.GetVisualDescendants().OfType<ItemsPresenter>().FirstOrDefault();
+            Vector scrollOffset = sv?.Offset ?? default;
+
+            Point? vpOrigin = ((Control?)scp ?? ic).TranslatePoint(default, MarqueeOverlay) ?? ic.TranslatePoint(default, MarqueeOverlay);
+            if (presenter != null && presenter.TranslatePoint(default, MarqueeOverlay) is { } pOrigin)
+            {
+                bool usesLogicalScroll = presenter.Panel is Avalonia.Controls.Primitives.ILogicalScrollable { IsLogicalScrollEnabled: true };
+                contentOrigin = usesLogicalScroll ? new Point(pOrigin.X, pOrigin.Y - scrollOffset.Y) : pOrigin;
+                contentWidth = presenter.Bounds.Width > 0.0 ? presenter.Bounds.Width : Math.Max(0.0, ic.Bounds.Width - insetRight);
+            }
+            else if (vpOrigin is { } icOrigin)
+            {
+                contentOrigin = new Point(icOrigin.X, icOrigin.Y - scrollOffset.Y);
+                contentWidth = sv?.Viewport.Width > 0.0 ? sv.Viewport.Width : Math.Max(0.0, ic.Bounds.Width - insetRight);
+            }
+            else
+            {
                 return false;
             }
 
-            return IsInputOrCombo(e.Source as Visual) || IsInputOrCombo(focused as Visual);
-        }
+            if (contentWidth <= 0.0)
+                return false;
 
-        internal int ResolveGridColumnCount()
-        {
-            if (ViewModel.AccountsVm.IsCompactView)
-                return 1;
-
-            var panel = CardsItemsControl?.GetVisualDescendants()
-                .OfType<UniformRowPanel>()
-                .FirstOrDefault(p => p.IsVisible && p.Columns > 0);
-            if (panel != null)
-                return panel.Columns;
-
-            if (ViewModel.AccountsVm.FilteredAccountRows.Count > 0)
-                return Math.Clamp(ViewModel.AccountsVm.FilteredAccountRows[0].ColumnCount, 1, 4);
-
-            double width = CardsItemsControl?.Bounds.Width > 0 ? CardsItemsControl.Bounds.Width : Bounds.Width;
-            return ViewModel.AccountsVm.CardColumns > 0
-                ? Math.Clamp(ViewModel.AccountsVm.CardColumns, 2, 4)
-                : AccountCollectionViewModel.CalculateResponsiveCardColumns(width);
-        }
-
-        internal static int StepGridIndex(int currentIndex, Key key, int columnCount, int itemCount)
-        {
-            if (itemCount <= 0)
-                return -1;
-
-            int cols = Math.Max(1, columnCount);
-            if (currentIndex < 0)
-                return 0;
-
-            int idx = Math.Clamp(currentIndex, 0, itemCount - 1);
-            int lastIdx = itemCount - 1;
-            return key switch
-            {
-                Key.Left => cols > 1 ? Math.Max(0, idx - 1) : idx,
-                Key.Right => cols > 1 ? Math.Min(lastIdx, idx + 1) : idx,
-                Key.Up => idx - cols >= 0 ? idx - cols : idx,
-                Key.Down => (idx / cols) < (lastIdx / cols) ? Math.Min(lastIdx, idx + cols) : idx,
-                _ => idx
-            };
-        }
-
-        private AccountViewModel? ResolveFocusedAccount(out int index)
-        {
-            index = _focusedAccount != null ? ViewModel.AccountsVm.FilteredAccounts.IndexOf(_focusedAccount) : -1;
-            if (index < 0)
-                _focusedAccount = null;
-            return _focusedAccount;
-        }
-
-        private void SetKeyboardFocusedAccount(AccountViewModel? account, bool bringIntoView = false, int index = -1, int columns = 1)
-        {
-            _focusedAccount = account;
-            if (CardsItemsControl != null)
-            {
-                foreach (var card in CardsItemsControl.GetVisualDescendants().OfType<AccountCardView>())
-                    card.SetKeyboardFocused(_focusedAccount != null && ReferenceEquals(card.DataContext, _focusedAccount));
-            }
-            if (TableItemsControl != null)
-            {
-                foreach (var container in TableItemsControl.GetRealizedContainers())
-                    UpdateTableRowFocusClass(container);
-            }
-
-            if (!bringIntoView || index < 0)
-                return;
-
-            try
-            {
-                if (ViewModel.AccountsVm.IsCardView && CardsItemsControl != null)
-                {
-                    int rowIdx = index / Math.Max(1, columns);
-                    if (rowIdx < CardsItemsControl.ItemCount)
-                        CardsItemsControl.ScrollIntoView(rowIdx);
-                    CardsItemsControl.GetVisualDescendants().OfType<AccountCardView>()
-                        .FirstOrDefault(c => ReferenceEquals(c.DataContext, _focusedAccount))?.BringIntoView();
-                }
-                else if (TableItemsControl != null && index < TableItemsControl.ItemCount)
-                {
-                    TableItemsControl.ScrollIntoView(index);
-                    TableItemsControl.ContainerFromIndex(index)?.BringIntoView();
-                }
-            }
-            catch (Exception ex)
-            {
-                AppServices.Logger?.Debug($"[DashboardView.BringAccountIntoView] {ex.Message}");
-            }
-        }
-
-        private void UpdateTableRowFocusClass(Control? container)
-        {
-            if (container == null)
-                return;
-            bool focused = _focusedAccount != null && ReferenceEquals(container.DataContext, _focusedAccount);
-            var border = container as Border ?? container.GetVisualDescendants().OfType<Border>().FirstOrDefault();
-            border?.Classes.Set("TableRowKbdFocus", focused);
+            double vpTop = vpOrigin?.Y ?? contentOrigin.Y;
+            double vpHeight = sv?.Viewport.Height > 0.0
+                ? sv.Viewport.Height
+                : (ic.Bounds.Height > 0.0 ? ic.Bounds.Height : MarqueeOverlay.Bounds.Height);
+            double downDelta = MarqueeOverlay.IsSelecting ? Math.Max(0.0, scrollOffset.Y - _marqueeAnchorScrollOffset.Y) : 0.0;
+            double upDelta = MarqueeOverlay.IsSelecting ? Math.Max(0.0, _marqueeAnchorScrollOffset.Y - scrollOffset.Y) : 0.0;
+            double allowedTop = vpTop - downDelta;
+            double allowedBottom = vpTop + vpHeight + upDelta;
+            clipRect = new Rect(contentOrigin.X, allowedTop, contentWidth, Math.Max(0.0, allowedBottom - allowedTop));
+            return clipRect.Height > 0.0;
         }
     }
 }

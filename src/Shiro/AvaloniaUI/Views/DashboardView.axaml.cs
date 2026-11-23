@@ -28,10 +28,17 @@ namespace Shiro.AvaloniaUI.Views
             DataContext = ViewModel;
             WireViewModelCallbacks();
 
+            if (CardsItemsControl != null)
+            {
+                CardsItemsControl.ContainerPrepared += (_, e) => SyncCardRowFocusRings(e.Container, isClearing: false);
+                CardsItemsControl.ContainerClearing += (_, e) => SyncCardRowFocusRings(e.Container, isClearing: true);
+            }
+
             if (TableItemsControl != null)
             {
                 TableItemsControl.AddHandler(PointerPressedEvent, OnTablePointerPressedTunnel, RoutingStrategies.Tunnel);
-                TableItemsControl.ContainerPrepared += (_, e) => UpdateTableRowFocusClass(e.Container);
+                TableItemsControl.ContainerPrepared += (_, e) => UpdateTableRowFocusClass(e.Container, isClearing: false);
+                TableItemsControl.ContainerClearing += (_, e) => UpdateTableRowFocusClass(e.Container, isClearing: true);
             }
 
             SizeChanged += (_, e) =>
@@ -173,7 +180,7 @@ namespace Shiro.AvaloniaUI.Views
 
             SetKeyboardFocusedAccount(avm);
             ListViewportHost?.Focus();
-            ViewModel.AccountsVm.HandleAccountClickSelection(avm, e.KeyModifiers.HasFlag(KeyModifiers.Shift));
+            QueueDeferredCardClick(avm, e.KeyModifiers.HasFlag(KeyModifiers.Shift));
         }
 
         private long _lastRowDoubleTapTimestamp;
