@@ -314,7 +314,7 @@
                                                                     Command="{Binding #RootServerListView.ViewModel.LibraryTab.RemoveFavoriteCommand}"
                                                                     CommandParameter="{Binding}" Padding="8,6"
                                                                     ToolTip.Tip="{DynamicResource Srv_TipRemoveFav}">
-                                                                <lucide:Lucide Icon="Trash2" Width="12" Height="12"
+                                                                <lucide:Lucide Icon="Trash" Width="12" Height="12"
                                                                                StrokeBrush="{DynamicResource StatusDangerBrush}" />
                                                             </Button>
                                                         </StackPanel>

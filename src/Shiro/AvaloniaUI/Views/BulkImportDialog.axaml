@@ -95,7 +95,7 @@
                     Classes="StudioSecondaryBtn"
                     Command="{Binding ClearCommand}">
                 <StackPanel Orientation="Horizontal" Spacing="6">
-                    <lucide:Lucide Icon="Trash2" Width="13" Height="13"
+                    <lucide:Lucide Icon="Trash" Width="13" Height="13"
                                    StrokeBrush="{DynamicResource TextSecondaryBrush}"
                                    VerticalAlignment="Center" />
                     <TextBlock Text="{DynamicResource Loc_BulkImport_ClearContentBtn}"

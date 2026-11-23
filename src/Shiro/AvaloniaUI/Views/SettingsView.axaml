@@ -143,7 +143,7 @@
                             <StackPanel Grid.Column="0" Classes="RowInfo">
                                 <TextBlock Classes="SettingTitle" Text="{DynamicResource Set_Language}" />
                                 <TextBlock Classes="SettingTip" Text="{DynamicResource Set_LanguageTip}" /></StackPanel>
-                            <ComboBox Grid.Column="1" x:Name="CmbLanguage" Width="170" SelectedIndex="{Binding SelectedLanguageIndex}" HorizontalAlignment="Right" VerticalAlignment="Center">
+                            <ComboBox Grid.Column="1" x:Name="CmbLanguage" Width="205" SelectedIndex="{Binding SelectedLanguageIndex}" HorizontalAlignment="Right" VerticalAlignment="Center">
                                 <ComboBoxItem Content="{DynamicResource Set_Language_VN}" />
                                 <ComboBoxItem Content="{DynamicResource Set_Language_EN}" />
                             </ComboBox>
@@ -360,7 +360,7 @@
                                 </Button>
                                 <Button Classes="StudioDangerBtn" Margin="0,2,0,2" Command="{Binding ClearAvatarCacheCommand}">
                                     <StackPanel Orientation="Horizontal" Spacing="6">
-                                        <lucide:Lucide Icon="Trash2" Width="13" Height="13" StrokeBrush="{DynamicResource StatusDangerBrush}" VerticalAlignment="Center" />
+                                        <lucide:Lucide Icon="Trash" Width="13" Height="13" StrokeBrush="{DynamicResource StatusDangerBrush}" VerticalAlignment="Center" />
                                         <TextBlock Text="{DynamicResource Set_ClearAvatarCacheBtn}" VerticalAlignment="Center" />
                                     </StackPanel>
                                 </Button>

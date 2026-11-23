@@ -95,7 +95,7 @@
                                                 Command="{Binding $parent[Window].((dlg:ProxyManagerViewModel)DataContext).DeleteProxyCommand}"
                                                 CommandParameter="{Binding}"
                                                 ToolTip.Tip="{DynamicResource Loc_Proxy_TipRemoveSingle}">
-                                            <lucide:Lucide Icon="Trash2" Width="13" Height="13"
+                                            <lucide:Lucide Icon="Trash" Width="13" Height="13"
                                                            StrokeBrush="{DynamicResource StatusDangerBrush}" />
                                         </Button>
                                     </Grid>
@@ -121,7 +121,7 @@
                 </Button>
                 <Button x:Name="BtnRemoveDead" Classes="StudioDangerBtn" Command="{Binding RemoveDeadCommand}">
                     <StackPanel Orientation="Horizontal" Spacing="6">
-                        <lucide:Lucide Icon="Trash2" Width="13" Height="13"
+                        <lucide:Lucide Icon="Trash" Width="13" Height="13"
                                        StrokeBrush="{DynamicResource StatusDangerBrush}" VerticalAlignment="Center" />
                         <TextBlock Text="{DynamicResource Loc_Proxy_BtnRemoveDead}" VerticalAlignment="Center" />
                     </StackPanel>
