@@ -3,6 +3,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:controls="clr-namespace:Shiro.AvaloniaUI.Controls"
+             xmlns:panels="clr-namespace:Shiro.AvaloniaUI.Views.Panels"
              xmlns:vm="clr-namespace:Shiro.ViewModels"
              xmlns:services="clr-namespace:Shiro.Services"
              xmlns:lucide="clr-namespace:LucideAvalonia;assembly=LucideAvalonia"
@@ -203,6 +204,18 @@
             </Grid>
         </Border>
 
+        <!-- Notification Center Popover + Light-Dismiss Backdrop -->
+        <Border x:Name="NotificationBackdrop"
+                IsVisible="{Binding IsNotificationCenterOpen}"
+                Background="Transparent"
+                Margin="0,44,0,30"
+                PointerPressed="OnNotificationBackdropPressed" />
+        <panels:NotificationCenterPanel x:Name="ViewNotificationCenter"
+                                        DataContext="{x:Static services:NotificationHistoryService.Instance}"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Top"
+                                        Margin="0,50,14,0" />
+
         <!-- Elevated Obsidian Glass Toast Stack -->
         <ItemsControl x:Name="ToastItemsControl"
                       ItemsSource="{x:Static services:ToastService.ActiveToasts}"
@@ -210,17 +223,25 @@
                       VerticalAlignment="Bottom"
                       Margin="0,0,16,38"
                       Width="348">
+            <ItemsControl.RenderTransform>
+                <TranslateTransform X="0" Y="0" />
+            </ItemsControl.RenderTransform>
             <ItemsControl.ItemTemplate>
                 <DataTemplate x:DataType="services:ToastItem">
                     <Border Classes="ToastCard"
-                            Background="{Binding BackgroundBrush}"
-                            BorderBrush="{Binding BorderBrush}"
-                            BorderThickness="1"
-                            CornerRadius="14"
+                            CornerRadius="{StaticResource RadiusMid12}"
                             Margin="0,10,0,0"
-                            BoxShadow="{StaticResource ShadowModal}"
-                            ClipToBounds="True">
-                        <Panel>
+                            BoxShadow="{StaticResource ShadowModal}">
+                        <controls:SkiaGlassSurface BlurSigma="18"
+                                                   NoiseOpacity="0.024"
+                                                   SpecularHighlightOpacity="0.20"
+                                                   EnablePointerSpecular="True"
+                                                   TintBrush="#D414141E"
+                                                   BorderBrush="{Binding BorderBrush}"
+                                                   BorderThickness="1"
+                                                   CornerRadius="{StaticResource RadiusMid12}"
+                                                   ClipToBounds="True">
+                            <Panel>
                             <Border Background="{Binding AuraBrush}"
                                     IsHitTestVisible="False" />
                             <Border Height="1"
@@ -236,7 +257,7 @@
                                     <Border Grid.Row="0"
                                             Grid.Column="0"
                                             Width="24" Height="24"
-                                            CornerRadius="12"
+                                            CornerRadius="{StaticResource RadiusPill}"
                                             Background="{Binding BadgeBackground}"
                                             BorderBrush="{Binding BadgeBorderBrush}"
                                             BorderThickness="1"
@@ -295,7 +316,7 @@
                                             Content="{Binding ActionText}"
                                             Command="{Binding ActionCommand}"
                                             IsVisible="{Binding HasAction}"
-                                            CornerRadius="8"
+                                            CornerRadius="{StaticResource RadiusInner8}"
                                             Margin="0,8,0,0"
                                             Padding="10,4"
                                             FontSize="11"
@@ -316,7 +337,8 @@
                                                                 TimerGeneration="{Binding TimerGeneration}" />
                                 </Border>
                             </Grid>
-                        </Panel>
+                            </Panel>
+                        </controls:SkiaGlassSurface>
                     </Border>
                 </DataTemplate>
             </ItemsControl.ItemTemplate>

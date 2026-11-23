@@ -125,5 +125,23 @@ namespace Shiro.ViewModels
             };
             return handler;
         }
+
+        public static PropertyChangedEventHandler CreatePropertyChanged<TTarget>(
+            TTarget target,
+            Action<TTarget, PropertyChangedEventArgs> onEvent,
+            Action<PropertyChangedEventHandler> detach)
+            where TTarget : class
+        {
+            var weakRef = new WeakReference<TTarget>(target);
+            PropertyChangedEventHandler? handler = null;
+            handler = (_, args) =>
+            {
+                if (weakRef.TryGetTarget(out var live))
+                    onEvent(live, args);
+                else if (handler != null)
+                    detach(handler);
+            };
+            return handler;
+        }
     }
 }

@@ -26,6 +26,25 @@ namespace Shiro.Services
             double durationSeconds = 10.0)
             => ShowInternal(title, message, ToastType.Warning, durationSeconds, actionText, onAction);
 
+        public static void ShowWithUndo(
+            string title,
+            string message,
+            string undoText,
+            Action onUndo,
+            double durationSeconds = 5.0)
+        {
+            string label = string.IsNullOrWhiteSpace(undoText)
+                ? LocalizationService.Get("Toast_Undo")
+                : undoText;
+            int executed = 0;
+            ShowInternal(title, message, ToastType.Info, durationSeconds, label, () =>
+            {
+                if (Interlocked.Exchange(ref executed, 1) != 0)
+                    return;
+                onUndo?.Invoke();
+            });
+        }
+
         public static void ShowError(string title, string message = "", double durationSeconds = 4.0) => Show(title, message, ToastType.Error, durationSeconds);
 
         public static void Show(string title, string message, ToastType type, double durationSeconds = 3.0)
@@ -134,6 +153,7 @@ namespace Shiro.Services
                 }
                 else
                 {
+                    NotificationHistoryService.Instance.Record(toast);
                     PlayNotificationSound(type);
                 }
 
@@ -212,22 +232,27 @@ namespace Shiro.Services
 
         public static void ClearAll()
         {
+            bool hasActive;
             lock (_toastLock)
             {
                 unchecked { _clearGeneration++; }
-                if (ActiveToasts.Count == 0)
-                    return;
+                hasActive = ActiveToasts.Count > 0;
             }
 
-            AppDispatcher.Post(() =>
+            if (hasActive)
             {
-                lock (_toastLock)
+                AppDispatcher.Post(() =>
                 {
-                    foreach (var active in ActiveToasts)
-                        CancelAndDisposeToastTimer(active);
-                    ActiveToasts.Clear();
-                }
-            });
+                    lock (_toastLock)
+                    {
+                        foreach (var active in ActiveToasts)
+                            CancelAndDisposeToastTimer(active);
+                        ActiveToasts.Clear();
+                    }
+                });
+            }
+
+            NotificationHistoryService.Instance.ResetForTesting();
         }
 
         private const uint MB_ICONHAND = 0x00000010;

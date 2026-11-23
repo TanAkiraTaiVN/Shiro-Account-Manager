@@ -89,7 +89,8 @@ namespace Shiro.ViewModels
                 _placeId = savedPid.Trim();
                 AppServices.ServerBrowserState.CurrentPlaceId = _placeId;
             }
-            else if (!string.IsNullOrWhiteSpace(AppServices.ServerBrowserState.CurrentPlaceId))
+            else if (AppServices.ServerBrowserState is not ServerBrowserStateService { IsPlaceIdExplicitlyCleared: true } &&
+                     !string.IsNullOrWhiteSpace(AppServices.ServerBrowserState.CurrentPlaceId))
             {
                 _placeId = AppServices.ServerBrowserState.CurrentPlaceId;
             }

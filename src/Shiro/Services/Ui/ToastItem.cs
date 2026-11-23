@@ -59,6 +59,7 @@ namespace Shiro.Services
         private ICommand? _actionCommand;
         private double _durationSeconds;
         private long _timerGeneration;
+        private bool _isRead;
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -67,8 +68,25 @@ namespace Shiro.Services
         public string Message { get; set; } = string.Empty;
         public ToastType Type { get; set; }
         public DateTime CreatedAt { get; } = DateTime.UtcNow;
+        public string TimestampText => CreatedAt.ToLocalTime().ToString("HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture);
         public ICommand DismissCommand { get; }
         public string ActionText { get; set; } = string.Empty;
+
+        public bool IsRead
+        {
+            get => _isRead;
+            set
+            {
+                if (_isRead != value)
+                {
+                    _isRead = value;
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsRead)));
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsUnread)));
+                }
+            }
+        }
+
+        public bool IsUnread => !_isRead;
 
         public ICommand? ActionCommand
         {

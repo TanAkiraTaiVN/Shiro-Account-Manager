@@ -1,0 +1,277 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:controls="clr-namespace:Shiro.AvaloniaUI.Controls"
+             xmlns:services="clr-namespace:Shiro.Services"
+             xmlns:lucide="clr-namespace:LucideAvalonia;assembly=LucideAvalonia"
+             mc:Ignorable="d"
+             x:Class="Shiro.AvaloniaUI.Views.Panels.NotificationCenterPanel"
+             x:DataType="services:NotificationHistoryService"
+             x:CompileBindings="True"
+             IsVisible="{Binding IsCenterOpen}"
+             IsHitTestVisible="{Binding IsCenterOpen}"
+             Width="340"
+             MaxHeight="480">
+    <UserControl.Styles>
+        <Style Selector="Button.NotifyFilterBtn">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="{StaticResource RadiusChip6}" />
+            <Setter Property="Padding" Value="10,4" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="PART_NotifyChipBorder"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{TemplateBinding CornerRadius}"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          ContentTemplate="{TemplateBinding ContentTemplate}"
+                                          Foreground="{TemplateBinding Foreground}"
+                                          HorizontalAlignment="Center"
+                                          VerticalAlignment="Center" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.NotifyFilterBtn:pointerover">
+            <Setter Property="Background" Value="{DynamicResource SurfaceCardHoverBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+        </Style>
+        <Style Selector="Button.NotifyFilterBtn.active">
+            <Setter Property="Background" Value="{DynamicResource AccentSoftFillBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBorderBrush}" />
+            <Setter Property="FontWeight" Value="Bold" />
+        </Style>
+    </UserControl.Styles>
+    <Border CornerRadius="{StaticResource RadiusOuter16}"
+            BoxShadow="{StaticResource ShadowFloating}">
+        <controls:SkiaGlassSurface x:Name="NotificationGlass"
+                                   Width="340"
+                                   MaxHeight="480"
+                                   BlurSigma="20"
+                                   NoiseOpacity="0.024"
+                                   SpecularHighlightOpacity="0.22"
+                                   EnablePointerSpecular="True"
+                                   TintBrush="#DC12121C"
+                                   BorderBrush="{DynamicResource BorderStrongBrush}"
+                                   BorderThickness="1"
+                                   CornerRadius="{StaticResource RadiusOuter16}"
+                                   ClipToBounds="True">
+            <Grid RowDefinitions="Auto,Auto,*,Auto">
+                <!-- Popover Header -->
+                <Border Grid.Row="0"
+                        BorderBrush="{DynamicResource BorderHairlineBrush}"
+                        BorderThickness="0,0,0,1"
+                        Padding="14,11,10,11">
+                    <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+                        <lucide:Lucide Grid.Column="0"
+                                       Icon="Bell"
+                                       Width="14" Height="14"
+                                       StrokeBrush="{DynamicResource AccentBrush}"
+                                       Margin="0,0,8,0"
+                                       VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="1"
+                                   Text="{DynamicResource Notify_CenterTitle}"
+                                   FontSize="13"
+                                   FontWeight="Bold"
+                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                   VerticalAlignment="Center" />
+                        <Border Grid.Column="2"
+                                IsVisible="{Binding HasUnread}"
+                                Background="{DynamicResource AccentSoftFillBrush}"
+                                BorderBrush="{DynamicResource AccentBorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="{StaticResource RadiusChip6}"
+                                Padding="6,1"
+                                Margin="6,0"
+                                VerticalAlignment="Center">
+                            <TextBlock Classes="TabularNum"
+                                       Text="{Binding UnreadCount}"
+                                       FontSize="10"
+                                       FontWeight="Bold"
+                                       Foreground="{DynamicResource AccentBrush}" />
+                        </Border>
+                        <Button Grid.Column="3"
+                                x:Name="BtnCloseNotifications"
+                                Classes="StudioIconBtn"
+                                Width="26" Height="26"
+                                Command="{Binding CloseCenterCommand}"
+                                ToolTip.Tip="{DynamicResource Btn_Close}">
+                            <lucide:Lucide Icon="X"
+                                           Width="13" Height="13"
+                                           StrokeBrush="{DynamicResource TextMutedBrush}" />
+                        </Button>
+                    </Grid>
+                </Border>
+
+                <!-- Filter Scope Strip -->
+                <Border Grid.Row="1"
+                        BorderBrush="{DynamicResource BorderHairlineBrush}"
+                        BorderThickness="0,0,0,1"
+                        Padding="12,7">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <Button x:Name="BtnFilterAll"
+                                Classes="NotifyFilterBtn"
+                                Classes.active="{Binding IsFilterAll}"
+                                Command="{Binding SetFilterCommand}"
+                                CommandParameter="all"
+                                Content="{DynamicResource Notify_FilterAll}" />
+                        <Button x:Name="BtnFilterAlerts"
+                                Classes="NotifyFilterBtn"
+                                Classes.active="{Binding FilterWarningsOnly}"
+                                Command="{Binding SetFilterCommand}"
+                                CommandParameter="alerts"
+                                Content="{DynamicResource Notify_FilterAlerts}" />
+                    </StackPanel>
+                </Border>
+
+                <!-- Scrollable Notification History Feed -->
+                <Panel Grid.Row="2" MinHeight="120" MaxHeight="310">
+                    <ScrollViewer x:Name="HistoryScrollViewer"
+                                  Padding="8,6"
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  VerticalScrollBarVisibility="Auto">
+                        <ItemsControl x:Name="NotificationHistoryItemsControl"
+                                      ItemsSource="{Binding FilteredHistoryItems}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="services:ToastItem">
+                                    <Border Background="{DynamicResource SurfacePanelBrush}"
+                                            BorderBrush="{Binding BorderBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="{StaticResource RadiusInner8}"
+                                            Padding="10,8"
+                                            Margin="0,3">
+                                        <Grid ColumnDefinitions="Auto,*">
+                                            <Border Grid.Column="0"
+                                                    Width="24" Height="24"
+                                                    CornerRadius="{StaticResource RadiusPill}"
+                                                    Background="{Binding BadgeBackground}"
+                                                    BorderBrush="{Binding BadgeBorderBrush}"
+                                                    BorderThickness="1"
+                                                    Margin="0,1,9,0"
+                                                    VerticalAlignment="Top">
+                                                <Path Data="{Binding IconGeometry}"
+                                                      Width="11" Height="11"
+                                                      Stretch="Uniform"
+                                                      Stroke="{Binding AccentBrush}"
+                                                      StrokeThickness="2"
+                                                      StrokeLineCap="Round"
+                                                      StrokeJoin="Round"
+                                                      HorizontalAlignment="Center"
+                                                      VerticalAlignment="Center" />
+                                            </Border>
+                                            <StackPanel Grid.Column="1" Spacing="2">
+                                                <Grid ColumnDefinitions="*,Auto,Auto">
+                                                    <TextBlock Grid.Column="0"
+                                                               Text="{Binding Title}"
+                                                               FontSize="12"
+                                                               FontWeight="SemiBold"
+                                                               Foreground="{DynamicResource TextPrimaryBrush}"
+                                                               TextTrimming="CharacterEllipsis"
+                                                               VerticalAlignment="Center" />
+                                                    <Ellipse Grid.Column="1"
+                                                             Width="6" Height="6"
+                                                             Fill="{DynamicResource AccentBrush}"
+                                                             IsVisible="{Binding IsUnread}"
+                                                             Margin="6,0,0,0"
+                                                             VerticalAlignment="Center" />
+                                                    <TextBlock Grid.Column="2"
+                                                               Classes="TabularNum"
+                                                               Text="{Binding TimestampText}"
+                                                               FontSize="10"
+                                                               Foreground="{DynamicResource TextMutedBrush}"
+                                                               Margin="6,0,0,0"
+                                                               VerticalAlignment="Center" />
+                                                </Grid>
+                                                <TextBlock Text="{Binding Message}"
+                                                           IsVisible="{Binding HasMessage}"
+                                                           FontSize="11"
+                                                           Foreground="{DynamicResource TextSecondaryBrush}"
+                                                           TextWrapping="Wrap"
+                                                           MaxLines="3"
+                                                           LineHeight="15.5" />
+                                                <Button Classes="StudioSecondaryBtn"
+                                                        Content="{Binding ActionText}"
+                                                        Command="{Binding ActionCommand}"
+                                                        IsVisible="{Binding HasAction}"
+                                                        CornerRadius="{StaticResource RadiusChip6}"
+                                                        Padding="8,3"
+                                                        Margin="0,5,0,0"
+                                                        FontSize="10.5"
+                                                        HorizontalAlignment="Left" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                    <StackPanel Spacing="6"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                IsVisible="{Binding IsFilteredEmpty}"
+                                Margin="20">
+                        <lucide:Lucide Icon="BellOff"
+                                       Width="22" Height="22"
+                                       StrokeBrush="{DynamicResource TextMutedBrush}"
+                                       Opacity="0.55"
+                                       HorizontalAlignment="Center" />
+                        <TextBlock Text="{DynamicResource Notify_Empty}"
+                                   FontSize="11.5"
+                                   Foreground="{DynamicResource TextMutedBrush}"
+                                   TextAlignment="Center"
+                                   TextWrapping="Wrap" />
+                    </StackPanel>
+                </Panel>
+
+                <!-- Action Footer -->
+                <Border Grid.Row="3"
+                        Background="{DynamicResource SurfaceChromeBrush}"
+                        BorderBrush="{DynamicResource BorderHairlineBrush}"
+                        BorderThickness="0,1,0,0"
+                        Padding="10,8">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Button Grid.Column="0"
+                                x:Name="BtnMarkAllRead"
+                                Classes="StudioGhostBtn"
+                                Command="{Binding MarkAllReadCommand}"
+                                IsEnabled="{Binding HasUnread}"
+                                Padding="8,5"
+                                FontSize="11"
+                                HorizontalAlignment="Left">
+                            <StackPanel Orientation="Horizontal" Spacing="5">
+                                <lucide:Lucide Icon="CheckCheck"
+                                               Width="12" Height="12"
+                                               StrokeBrush="{DynamicResource AccentBrush}" />
+                                <TextBlock Text="{DynamicResource Notify_MarkAllRead}" />
+                            </StackPanel>
+                        </Button>
+                        <Button Grid.Column="1"
+                                x:Name="BtnClearAllNotifications"
+                                Classes="StudioGhostBtn"
+                                Command="{Binding ClearHistoryCommand}"
+                                Padding="8,5"
+                                FontSize="11">
+                            <StackPanel Orientation="Horizontal" Spacing="5">
+                                <lucide:Lucide Icon="Trash"
+                                               Width="12" Height="12"
+                                               StrokeBrush="{DynamicResource TextSecondaryBrush}" />
+                                <TextBlock Text="{DynamicResource Notify_ClearAll}" />
+                            </StackPanel>
+                        </Button>
+                    </Grid>
+                </Border>
+            </Grid>
+        </controls:SkiaGlassSurface>
+    </Border>
+</UserControl>

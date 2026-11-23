@@ -121,7 +121,7 @@ namespace Shiro.ViewModels
             SetAliasCommand = new AsyncRelayCommand(p => p is AccountViewModel a ? AppServices.AccountWorkflowService.SetAliasAsync(a, _setStatus) : Task.CompletedTask);
             SetGroupCommand = new AsyncRelayCommand(p => p is AccountViewModel a ? AppServices.AccountWorkflowService.SetGroupAsync(a, this, _setStatus) : Task.CompletedTask);
             SetDescriptionCommand = new AsyncRelayCommand(p => p is AccountViewModel a ? AppServices.AccountWorkflowService.SetDescriptionAsync(a, _setStatus) : Task.CompletedTask);
-            TogglePinCommand = new RelayCommand(p => { if (p is AccountViewModel a) AppServices.AccountWorkflowService.TogglePin(a, this, _setStatus); });
+            TogglePinCommand = new RelayCommand(p => { if (p is AccountViewModel a) AccountCollectionCommandActions.TogglePinWithUndo(a, this, _setStatus); });
             CopyUsernameCommand = new RelayCommand(p => { if (p is AccountViewModel a) AppServices.AccountWorkflowService.CopyUsername(a, _setStatus); });
             CopyUserPassCommand = new RelayCommand(p => { if (p is AccountViewModel a) AppServices.AccountWorkflowService.CopyUserPass(a, _setStatus); });
             CopyUserIdCommand = new RelayCommand(p => { if (p is AccountViewModel a) AppServices.AccountWorkflowService.CopyUserId(a, _setStatus); });
@@ -132,7 +132,7 @@ namespace Shiro.ViewModels
             OpenUtilsCommand = new RelayCommand(p => { if (p is AccountViewModel a && a.Model != null) AppServices.Dialogs.OpenAccountUtilsDialog(a.Model); });
             RemoveAccountCommand = new AsyncRelayCommand(p => p is AccountViewModel a ? AppServices.AccountWorkflowService.RemoveAccountAsync(a, this, _setStatus) : Task.CompletedTask);
 
-            SetGroupSelectedCommand = new AsyncRelayCommand(() => AppServices.AccountWorkflowService.SetGroupSelectedAsync(this, PostStatusMessage));
+            SetGroupSelectedCommand = new AsyncRelayCommand(() => AccountCollectionCommandActions.SetGroupSelectedWithUndoAsync(this, PostStatusMessage));
             SavePlaceIdSelectedCommand = new RelayCommand(() => AppServices.AccountWorkflowService.SavePlaceIdSelected(this, PostStatusMessage));
             CopyUserPassSelectedCommand = new RelayCommand(() => AppServices.AccountWorkflowService.CopyUserPassSelected(this, PostStatusMessage));
             RemoveSelectedCommand = new AsyncRelayCommand(() => AppServices.AccountWorkflowService.RemoveSelectedAccountsAsync(this, PostStatusMessage));

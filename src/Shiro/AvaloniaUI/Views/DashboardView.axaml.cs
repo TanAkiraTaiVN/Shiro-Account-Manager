@@ -132,7 +132,10 @@ namespace Shiro.AvaloniaUI.Views
         {
             try
             {
-                if (ViewModel != null && string.IsNullOrWhiteSpace(ViewModel.LaunchBar.PlaceId) && !string.IsNullOrWhiteSpace(AppServices.ServerBrowserState.CurrentPlaceId))
+                if (ViewModel != null &&
+                    string.IsNullOrWhiteSpace(ViewModel.LaunchBar.PlaceId) &&
+                    AppServices.ServerBrowserState is not ServerBrowserStateService { IsPlaceIdExplicitlyCleared: true } &&
+                    !string.IsNullOrWhiteSpace(AppServices.ServerBrowserState.CurrentPlaceId))
                 {
                     ViewModel.LaunchBar.PlaceId = AppServices.ServerBrowserState.CurrentPlaceId;
                 }

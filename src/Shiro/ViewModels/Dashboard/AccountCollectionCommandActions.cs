@@ -15,6 +15,71 @@ namespace Shiro.ViewModels
     /// </summary>
     internal static class AccountCollectionCommandActions
     {
+        internal static void TogglePinWithUndo(
+            AccountViewModel? accountVm,
+            IAccountWorkflowHost? viewModel,
+            Action<string>? setStatus)
+        {
+            if (accountVm?.Model == null) return;
+            bool wasPinned = accountVm.Pinned;
+            AppServices.AccountWorkflowService.TogglePin(accountVm, viewModel, setStatus);
+            if (wasPinned && !accountVm.Pinned)
+            {
+                string shownName = StreamerModeService.GetDisplayUsername(accountVm.Username);
+                ToastService.ShowWithUndo(
+                    LocalizationService.Get("Toast_UnpinnedTitle"),
+                    LocalizationService.Format("AccountWorkflow.UnpinnedAccount", shownName),
+                    LocalizationService.Get("Toast_Undo"),
+                    () =>
+                    {
+                        AppDispatcher.Post(() =>
+                        {
+                            if (!accountVm.Pinned)
+                                AppServices.AccountWorkflowService.TogglePin(accountVm, viewModel, setStatus);
+                        });
+                    },
+                    durationSeconds: 5.0);
+            }
+        }
+
+        internal static async Task SetGroupSelectedWithUndoAsync(
+            IAccountWorkflowHost? viewModel,
+            Action<string>? statusCallback)
+        {
+            if (viewModel == null) return;
+            var previousGroups = viewModel.GetSelectedWorkflowItems()
+                .Where(item => item?.Model != null)
+                .Select(item => (Item: item, PreviousGroup: item.Group))
+                .ToList();
+
+            await AppServices.AccountWorkflowService.SetGroupSelectedAsync(viewModel, statusCallback).ConfigureAwait(false);
+            if (previousGroups.Count == 0) return;
+
+            var changed = previousGroups
+                .Where(x => !string.Equals(x.Item.Group, x.PreviousGroup, StringComparison.Ordinal))
+                .ToList();
+            if (changed.Count == 0) return;
+
+            string targetGroup = string.IsNullOrWhiteSpace(changed[0].Item.Group) ? "Default" : changed[0].Item.Group;
+            ToastService.ShowWithUndo(
+                LocalizationService.Get("AccountWorkflow.BatchGroupTitle"),
+                LocalizationService.Format("AccountWorkflow.BatchMovedToGroup", changed.Count, targetGroup),
+                LocalizationService.Get("Toast_Undo"),
+                () =>
+                {
+                    AppDispatcher.Post(() =>
+                    {
+                        foreach (var (item, prevGroup) in changed)
+                            item.Group = prevGroup;
+                        AppServices.AccountRepository.QueueDeferredSave();
+                        viewModel.RebuildGroupList();
+                        viewModel.ApplyFilter();
+                        statusCallback?.Invoke(LocalizationService.Format("Toast_UndoGroupRestored", changed.Count));
+                    });
+                },
+                durationSeconds: 5.0);
+        }
+
         internal static void ValidateSingleSession(
             AccountViewModel? accountVm,
             IAccountRepository repository,

@@ -32,6 +32,7 @@ namespace Shiro.ViewModels
         private PropertyChangedEventHandler? _launchBarPropHandler;
         private PropertyChangedEventHandler? _toolsPropHandler;
         private PropertyChangedEventHandler? _palettePropHandler;
+        private PropertyChangedEventHandler? _notificationHistoryPropHandler;
 
         public MainViewModel() : this(null, null, null) { }
 
@@ -91,6 +92,8 @@ namespace Shiro.ViewModels
             ToolsStatus.RefreshStateFromSettings();
             LaunchBar.ScheduleCurrentGameLookup(LaunchBar.PlaceId);
             LaunchBar.ReloadRecentGames();
+            _isNotificationCenterOpen = NotificationHistoryService.Instance.IsCenterOpen;
+            _unreadNotificationCount = Math.Max(0, NotificationHistoryService.Instance.UnreadCount);
             SubscribeWeakEvents();
         }
 
@@ -134,7 +137,14 @@ namespace Shiro.ViewModels
         public bool IsNotificationCenterOpen
         {
             get => _isNotificationCenterOpen;
-            set => SetProperty(ref _isNotificationCenterOpen, value);
+            set
+            {
+                if (SetProperty(ref _isNotificationCenterOpen, value) &&
+                    NotificationHistoryService.Instance.IsCenterOpen != value)
+                {
+                    NotificationHistoryService.Instance.IsCenterOpen = value;
+                }
+            }
         }
 
         public int UnreadNotificationCount
@@ -196,6 +206,27 @@ namespace Shiro.ViewModels
                 static (vm, _) => vm.OnAccentThemeChanged(),
                 static h => AccentThemeService.ThemeChanged -= h);
             AccentThemeService.ThemeChanged += _themeChangedHandler;
+
+            _notificationHistoryPropHandler = WeakEventSubscription.CreatePropertyChanged<MainViewModel>(
+                this,
+                static (vm, e) => vm.OnNotificationHistoryPropertyChanged(e),
+                static h => NotificationHistoryService.Instance.PropertyChanged -= h);
+            NotificationHistoryService.Instance.PropertyChanged += _notificationHistoryPropHandler;
+        }
+
+        private void OnNotificationHistoryPropertyChanged(PropertyChangedEventArgs e)
+        {
+            if (Volatile.Read(ref _disposed) != 0)
+                return;
+
+            if (e.PropertyName == nameof(NotificationHistoryService.IsCenterOpen))
+            {
+                IsNotificationCenterOpen = NotificationHistoryService.Instance.IsCenterOpen;
+            }
+            else if (e.PropertyName == nameof(NotificationHistoryService.UnreadCount))
+            {
+                UnreadNotificationCount = NotificationHistoryService.Instance.UnreadCount;
+            }
         }
 
         private void OnLanguageChanged()
@@ -234,6 +265,8 @@ namespace Shiro.ViewModels
 
             if (_languageChangedHandler != null) LocalizationService.LanguageChanged -= _languageChangedHandler;
             if (_themeChangedHandler != null) AccentThemeService.ThemeChanged -= _themeChangedHandler;
+            if (_notificationHistoryPropHandler != null) NotificationHistoryService.Instance.PropertyChanged -= _notificationHistoryPropHandler;
+            _notificationHistoryPropHandler = null;
             DetachChildPropertyForwarding();
             OnPageNavigated = null;
             AccountsVm.Dispose();
