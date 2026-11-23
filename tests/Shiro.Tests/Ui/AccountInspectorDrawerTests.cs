@@ -171,7 +171,15 @@ namespace Shiro.Tests.Ui
                 Pinned = true,
                 RobuxBalance = 550,
                 Valid = true,
-                SecurityToken = "tok-restore-88103"
+                SecurityToken = "tok-restore-88103",
+                Password = "pw-restore-88103",
+                Proxy = "http://127.0.0.1:8888",
+                HbaPrivateKey = "hba-priv-88103",
+                HbaPublicKey = "hba-pub-88103",
+                HbaTemplate = "hba-tmpl-88103",
+                SessionUserAgent = "Mozilla/5.0 ShiroTest",
+                LastBoundIpSignature = "sig-88103",
+                AccountStatusIssue = "ReviewNotice"
             };
             account.SetField("SavedPlaceId", "998877");
 
@@ -201,6 +209,7 @@ namespace Shiro.Tests.Ui
             Assert.NotNull(undoToast.ActionCommand);
 
             undoToast.ActionCommand!.Execute(null);
+            undoToast.ActionCommand.Execute(null); // Idempotent second trigger
 
             Account restored = Assert.Single(repo.GetAll());
             Assert.Equal("UndoTarget", restored.Username);
@@ -211,6 +220,14 @@ namespace Shiro.Tests.Ui
             Assert.True(restored.Pinned);
             Assert.Equal(550, restored.RobuxBalance);
             Assert.Equal("tok-restore-88103", restored.SecurityToken);
+            Assert.Equal("pw-restore-88103", restored.Password);
+            Assert.Equal("http://127.0.0.1:8888", restored.Proxy);
+            Assert.Equal("hba-priv-88103", restored.HbaPrivateKey);
+            Assert.Equal("hba-pub-88103", restored.HbaPublicKey);
+            Assert.Equal("hba-tmpl-88103", restored.HbaTemplate);
+            Assert.Equal("Mozilla/5.0 ShiroTest", restored.SessionUserAgent);
+            Assert.Equal("sig-88103", restored.LastBoundIpSignature);
+            Assert.Equal("ReviewNotice", restored.AccountStatusIssue);
             Assert.Equal("998877", restored.GetField("SavedPlaceId"));
             AccountViewModel restoredVm = Assert.Single(vm.Accounts);
             Assert.Equal("KeepMe", restoredVm.Alias);
@@ -307,7 +324,31 @@ namespace Shiro.Tests.Ui
                 Assert.False(vm.Inspector.IsOpen);
                 Assert.Equal(1, vm.AccountsVm.SelectedCount);
 
-                // 4th Esc -> clears Dashboard selection only
+                // 4th Esc on non-Accounts page must NOT clear selection
+                vm.CurrentPage = Shiro.ViewModels.NavigationPage.Settings;
+                Dispatcher.UIThread.RunJobs();
+                var escSettings = new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Escape };
+                window.RaiseEvent(escSettings);
+                Dispatcher.UIThread.RunJobs();
+                Assert.False(escSettings.Handled);
+                Assert.Equal(1, vm.AccountsVm.SelectedCount);
+
+                // Back on Accounts page: Esc inside non-empty TxtSearch clears search without wiping selection
+                vm.CurrentPage = Shiro.ViewModels.NavigationPage.Accounts;
+                var txtSearch = window.DashboardView!.FindControl<TextBox>("TxtSearch");
+                Assert.NotNull(txtSearch);
+                vm.AccountsVm.SearchText = "EscLayer";
+                txtSearch!.Focus();
+                Dispatcher.UIThread.RunJobs();
+
+                var escSearch = new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Escape, Source = txtSearch };
+                txtSearch.RaiseEvent(escSearch);
+                Dispatcher.UIThread.RunJobs();
+                Assert.True(escSearch.Handled);
+                Assert.Equal(string.Empty, vm.AccountsVm.SearchText);
+                Assert.Equal(1, vm.AccountsVm.SelectedCount);
+
+                // Next Esc -> clears Dashboard selection only
                 var esc4 = new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Escape };
                 window.RaiseEvent(esc4);
                 Dispatcher.UIThread.RunJobs();
@@ -393,6 +434,15 @@ namespace Shiro.Tests.Ui
                 btnInspect.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 Dispatcher.UIThread.RunJobs();
                 Assert.Same(vm.AccountsVm.FilteredAccounts[0], vm.Inspector.InspectedAccount);
+
+                // LiveMemoryText telemetry pill appears in Drawer header only while running
+                Border? memoryPill() => drawer.GetVisualDescendants().OfType<Border>().FirstOrDefault(b => b.Name == "DrawerMemoryPill");
+                Assert.False(memoryPill()?.IsVisible ?? true);
+                vm.AccountsVm.FilteredAccounts[0].IsInGame = true;
+                vm.AccountsVm.FilteredAccounts[0].LiveMemoryText = "512 MB";
+                Dispatcher.UIThread.RunJobs();
+                Assert.True(memoryPill()?.IsVisible);
+                Assert.Contains("512 MB", memoryPill()!.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text));
 
                 // Inline edit & Save via drawer controls
                 var txtAlias = drawer.FindControl<TextBox>("TxtEditAlias");

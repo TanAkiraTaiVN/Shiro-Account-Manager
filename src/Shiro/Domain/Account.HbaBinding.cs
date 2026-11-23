@@ -228,6 +228,7 @@ namespace Shiro
             {
                 return new Account
                 {
+                    Fields = GetPublicFieldsSnapshot(),
                     Username = Username, UserID = UserID, Valid = Valid, Pinned = Pinned,
                     Alias = Alias, Group = Group, Description = Description, Proxy = Proxy,
                     RobuxBalance = RobuxBalance, PendingRobux = PendingRobux, BrowserTrackerID = BrowserTrackerID,
@@ -235,7 +236,6 @@ namespace Shiro
                     SecurityToken = SecurityToken, Password = Password, HbaPrivateKey = HbaPrivateKey,
                     HbaPublicKey = HbaPublicKey, HbaTemplate = HbaTemplate, SessionUserAgent = SessionUserAgent,
                     LastBoundIpSignature = LastBoundIpSignature, AccountStatusIssue = AccountStatusIssue,
-                    Fields = GetPublicFieldsSnapshot(),
                     IsDirty = true
                 };
             }

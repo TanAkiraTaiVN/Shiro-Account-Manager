@@ -124,35 +124,39 @@ namespace Shiro.AvaloniaUI.Views
                 return true;
             }
 
-            if (e.Key == Key.Escape && ViewModel is { } vm)
+            if (e.Key == Key.Escape && ViewModel is { } vm && TryDismissTopmostLayer(vm, e))
             {
-                if (vm.CommandPalette.IsCommandPaletteOpen)
-                {
-                    vm.CommandPalette.IsCommandPaletteOpen = false;
-                    e.Handled = true;
-                    return true;
-                }
-                if (vm.IsNotificationCenterOpen)
-                {
-                    vm.IsNotificationCenterOpen = false;
-                    e.Handled = true;
-                    return true;
-                }
-                if (vm.Inspector.IsOpen)
-                {
-                    vm.Inspector.Close();
-                    e.Handled = true;
-                    return true;
-                }
-                if (vm.AccountsVm.HasSelection)
-                {
-                    vm.AccountsVm.ClearSelectionCommand.Execute(null);
-                    e.Handled = true;
-                    return true;
-                }
+                e.Handled = true;
+                return true;
             }
 
             return false;
+        }
+
+        private bool TryDismissTopmostLayer(MainViewModel vm, KeyEventArgs e)
+        {
+            if (vm.CommandPalette.IsCommandPaletteOpen) { vm.CommandPalette.IsCommandPaletteOpen = false; return true; }
+            if (vm.IsNotificationCenterOpen) { vm.IsNotificationCenterOpen = false; return true; }
+            if (vm.Inspector.IsOpen) { vm.Inspector.Close(); return true; }
+            if (!vm.IsAccountsActive) return false;
+            if (IsDashboardSearchBoxClearing(e, vm)) return true;
+            if (!vm.AccountsVm.HasSelection) return false;
+            vm.AccountsVm.ClearSelectionCommand.Execute(null);
+            return true;
+        }
+
+        private bool IsDashboardSearchBoxClearing(KeyEventArgs e, MainViewModel vm)
+        {
+            TextBox? txtSearch = ViewDashboard?.FindControl<TextBox>("TxtSearch");
+            if (txtSearch == null || string.IsNullOrEmpty(vm.AccountsVm.SearchText))
+                return false;
+
+            object? focused = FocusManager?.GetFocusedElement();
+            if (!ReferenceEquals(focused, txtSearch) && !ReferenceEquals(e.Source, txtSearch))
+                return false;
+
+            vm.AccountsVm.ClearSearchCommand.Execute(null);
+            return true;
         }
 
         private void OnChromeVisualPreferencesChanged()

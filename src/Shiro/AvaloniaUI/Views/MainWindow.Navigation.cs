@@ -68,14 +68,6 @@ namespace Shiro.AvaloniaUI.Views
                     e.Handled = true;
                 }
             }
-            else if (e.Key == Key.Escape)
-            {
-                if (ViewModel != null && ViewModel.CommandPalette.IsCommandPaletteOpen)
-                {
-                    ViewModel.CommandPalette.IsCommandPaletteOpen = false;
-                    e.Handled = true;
-                }
-            }
         }
 
         private void FocusCommandPaletteInput()
