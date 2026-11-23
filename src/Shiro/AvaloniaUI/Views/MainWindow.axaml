@@ -48,6 +48,8 @@
             <Setter Property="Background" Value="{DynamicResource AccentSoftFillBrush}" />
             <Setter Property="BorderBrush" Value="{DynamicResource AccentBorderBrush}" />
         </Style>
+        <Style Selector="Button#BtnNotificationBell lucide|Lucide"><Setter Property="StrokeBrush" Value="{DynamicResource TextSecondaryBrush}" /></Style>
+        <Style Selector="Button#BtnNotificationBell:pointerover lucide|Lucide"><Setter Property="StrokeBrush" Value="{DynamicResource TextPrimaryBrush}" /></Style>
         <Style Selector="Button#BtnNotificationBell.active lucide|Lucide"><Setter Property="StrokeBrush" Value="{DynamicResource AccentBrush}" /></Style>
     </Window.Styles>
     <Grid Background="{DynamicResource SurfaceCanvasBrush}">
@@ -102,8 +104,7 @@
                                 Classes.active="{Binding IsNotificationCenterOpen}" Click="OnNotificationBellClicked"
                                 ToolTip.Tip="{DynamicResource Nav_NotificationsTip}">
                             <Panel Width="26" Height="24">
-                                <lucide:Lucide Icon="Bell" Width="14" Height="14" HorizontalAlignment="Center"
-                                               VerticalAlignment="Center" StrokeBrush="{DynamicResource TextSecondaryBrush}" />
+                                <lucide:Lucide Icon="Bell" Width="14" Height="14" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                 <Border x:Name="NotificationBadge" IsVisible="{Binding HasUnreadNotifications}"
                                         Background="{DynamicResource AccentBrush}" CornerRadius="{StaticResource RadiusPill}"
                                         MinWidth="15" Height="15" Padding="3,0" HorizontalAlignment="Right"
@@ -134,7 +135,7 @@
             <!-- Shell Body: Collapsible Rail + Active View Canvas -->
             <Grid Grid.Row="1" x:Name="ShellBodyGrid" ColumnDefinitions="215,*">
                 <Border x:Name="SidebarRailBorder" Grid.Column="0" Background="{DynamicResource SurfaceChromeBrush}"
-                        BorderBrush="{DynamicResource BorderHairlineBrush}" BorderThickness="0,0,1,0">
+                        BorderBrush="{DynamicResource BorderHairlineBrush}" BorderThickness="0,0,1,0" ClipToBounds="True">
                     <Grid RowDefinitions="Auto,Auto,*,Auto">
                         <Border x:Name="SidebarBrandHeader" Grid.Row="0" Background="Transparent"
                                 BorderBrush="{DynamicResource BorderHairlineBrush}" BorderThickness="0,0,0,1"

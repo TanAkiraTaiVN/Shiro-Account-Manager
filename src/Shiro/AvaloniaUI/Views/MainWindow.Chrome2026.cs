@@ -1,8 +1,13 @@
 #nullable enable
 using System;
+using System.Numerics;
+using Avalonia;
+using Avalonia.Animation.Easings;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Rendering.Composition;
+using Avalonia.Rendering.Composition.Animations;
 using Avalonia.Threading;
 using Shiro.AvaloniaUI.Controls;
 using Shiro.Services;
@@ -18,6 +23,7 @@ namespace Shiro.AvaloniaUI.Views
     {
         internal const double ExpandedSidebarWidth = 215.0;
         internal const double CollapsedSidebarWidth = 64.0;
+        private static readonly Easing s_railSlideEasing = new SpringEasing(mass: 1.0, stiffness: 260.0, damping: 28.0, initialVelocity: 0.0);
 
         private bool _isSidebarCollapsed;
         private Action? _visualPreferencesChangedHandler;
@@ -71,14 +77,33 @@ namespace Shiro.AvaloniaUI.Views
 
             UpdateNavActiveIndicator(animate: false);
             if (animate && NavSidebarHost != null)
+                RunSidebarRailSlide(NavSidebarHost, collapsed ? -6.0 : 6.0, durationMs: 200.0);
+        }
+
+        private static void RunSidebarRailSlide(Visual target, double offsetX, double durationMs = 200.0)
+        {
+            target.Opacity = 1.0;
+            CompositionVisual? visual = ElementComposition.GetElementVisual(target);
+            if (visual is null)
+                return;
+
+            visual.StopAnimation("Opacity");
+            visual.StopAnimation("Translation");
+            visual.Opacity = 1.0f;
+            if (VisualPreferencesService.Instance.ReducedMotion || durationMs <= 0.0 ||
+                Math.Abs(offsetX) <= 0.01 || visual.Compositor is not { } compositor)
             {
-                SpringCompositionHelper.RunSpringEntrance(
-                    NavSidebarHost,
-                    offsetX: collapsed ? -6.0 : 6.0,
-                    offsetY: 0.0,
-                    fromScale: 1.0,
-                    durationMs: 200.0);
+                visual.Translation = default;
+                return;
             }
+
+            Vector3KeyFrameAnimation slide = compositor.CreateVector3KeyFrameAnimation();
+            slide.Target = "Translation";
+            slide.Duration = TimeSpan.FromMilliseconds(durationMs);
+            slide.StopBehavior = AnimationStopBehavior.SetToFinalValue;
+            slide.InsertKeyFrame(0.0f, new Vector3((float)offsetX, 0.0f, 0.0f));
+            slide.InsertKeyFrame(1.0f, Vector3.Zero, s_railSlideEasing);
+            visual.StartAnimation("Translation", slide);
         }
 
         internal static void RunChromeViewEntrance(Control targetView)
@@ -99,10 +124,7 @@ namespace Shiro.AvaloniaUI.Views
                 return true;
             }
 
-            if (e.Key == Key.Escape &&
-                ViewModel != null &&
-                !ViewModel.CommandPalette.IsCommandPaletteOpen &&
-                ViewModel.IsNotificationCenterOpen)
+            if (e.Key == Key.Escape && ViewModel is { CommandPalette.IsCommandPaletteOpen: false, IsNotificationCenterOpen: true })
             {
                 ViewModel.IsNotificationCenterOpen = false;
                 e.Handled = true;
@@ -127,11 +149,7 @@ namespace Shiro.AvaloniaUI.Views
                 return;
             }
 
-            AppDispatcher.Post(() =>
-            {
-                if (!_isClosed)
-                    ApplySidebarRailState(VisualPreferencesService.Instance.SidebarCollapsed, animate: true);
-            });
+            AppDispatcher.Post(() => { if (!_isClosed) ApplySidebarRailState(VisualPreferencesService.Instance.SidebarCollapsed, animate: true); });
         }
 
         private void OnToggleSidebarClicked(object? sender, RoutedEventArgs e) => ToggleSidebarRail();

@@ -10,6 +10,8 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Logging;
+using Avalonia.Media;
+using Avalonia.Rendering.Composition;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using NSubstitute;
@@ -78,6 +80,7 @@ namespace Shiro.Tests.Ui
 
             AppServices.ServerBrowserState.CurrentPlaceId = string.Empty;
             VisualPreferencesService.Instance.SidebarCollapsed = false;
+            VisualPreferencesService.Instance.ReducedMotion = false;
 
             MainWindow? window = null;
             MainWindow? restoredWindow = null;
@@ -93,6 +96,8 @@ namespace Shiro.Tests.Ui
                 var btnRecentGames = window.FindControl<Button>("BtnNavRecentGames");
                 var btnSettings = window.FindControl<Button>("BtnNavSettings");
                 var btnAbout = window.FindControl<Button>("BtnNavAbout");
+                var sidebarRailBorder = window.FindControl<Border>("SidebarRailBorder");
+                var navSidebarHost = window.FindControl<Grid>("NavSidebarHost");
                 var sidebarColumn = window.SidebarColumn;
 
                 Assert.NotNull(btnToggle);
@@ -101,7 +106,13 @@ namespace Shiro.Tests.Ui
                 Assert.NotNull(btnRecentGames);
                 Assert.NotNull(btnSettings);
                 Assert.NotNull(btnAbout);
+                Assert.NotNull(sidebarRailBorder);
+                Assert.NotNull(navSidebarHost);
                 Assert.NotNull(sidebarColumn);
+                Assert.True(sidebarRailBorder!.ClipToBounds);
+                Assert.Equal(1.0, navSidebarHost!.Opacity);
+                CompositionVisual? navVisual = ElementComposition.GetElementVisual(navSidebarHost);
+                Assert.Equal(1.0f, navVisual?.Opacity ?? 1.0f);
 
                 Assert.Equal(215.0, sidebarColumn!.Width.Value);
                 Assert.False(VisualPreferencesService.Instance.SidebarCollapsed);
@@ -113,9 +124,14 @@ namespace Shiro.Tests.Ui
                 Assert.All(navLabels, lbl => Assert.True(lbl.IsVisible));
                 Assert.Equal(14.0, btnDashboard!.Padding.Left);
 
-                // Collapse 215 -> 64
+                // Collapse 215 -> 64 without opacity flash
                 window.ToggleSidebarRail();
+                Assert.Equal(1.0, navSidebarHost.Opacity);
+                Assert.Equal(1.0f, navVisual?.Opacity ?? 1.0f);
+                AvaloniaHeadlessPlatform.ForceRenderTimerTick(1);
                 Dispatcher.UIThread.RunJobs();
+                Assert.Equal(1.0, navSidebarHost.Opacity);
+                Assert.Equal(1.0f, navVisual?.Opacity ?? 1.0f);
 
                 Assert.Equal(64.0, sidebarColumn.Width.Value);
                 Assert.True(VisualPreferencesService.Instance.SidebarCollapsed);
@@ -275,6 +291,19 @@ namespace Shiro.Tests.Ui
             using var repoScope = AppServices.Override<IAccountRepository>(CreateMockRepo());
 
             AppServices.ServerBrowserState.CurrentPlaceId = string.Empty;
+            var app = Application.Current!;
+            app.Resources.MergedDictionaries.Clear();
+            var baseTokens = (ResourceDictionary)Avalonia.Markup.Xaml.AvaloniaXamlLoader.Load(
+                new Uri("avares://Shiro/AvaloniaUI/Styles/ThemeTokens.axaml"));
+            app.Resources.MergedDictionaries.Add(baseTokens);
+            AccentThemeService.ApplySurfacePreset(SurfacePreset.LiquidObsidian, save: false);
+            AccentThemeService.ApplyTheme(AccentTheme.Cyan, save: false);
+
+            Assert.True(app.Resources.TryGetResource("TextSecondaryBrush", null, out object? secRes));
+            Assert.True(app.Resources.TryGetResource("AccentBrush", null, out object? accRes));
+            Color expectedSecondaryColor = Assert.IsAssignableFrom<ISolidColorBrush>(secRes).Color;
+            Color expectedAccentColor = Assert.IsAssignableFrom<ISolidColorBrush>(accRes).Color;
+            Assert.NotEqual(expectedSecondaryColor, expectedAccentColor);
 
             MainWindow? window = null;
             try
@@ -290,6 +319,8 @@ namespace Shiro.Tests.Ui
                 var badge = window.FindControl<Border>("NotificationBadge");
                 Assert.NotNull(bellBtn);
                 Assert.NotNull(badge);
+                var bellIcon = bellBtn!.GetVisualDescendants().OfType<LucideAvalonia.Lucide>().Single();
+                Assert.Equal(expectedSecondaryColor, Assert.IsAssignableFrom<ISolidColorBrush>(bellIcon.StrokeBrush).Color);
 
                 Assert.False(vm!.IsNotificationCenterOpen);
                 Assert.Equal(0, vm.UnreadNotificationCount);
@@ -304,15 +335,17 @@ namespace Shiro.Tests.Ui
                 Assert.NotNull(badgeText);
                 Assert.Equal("4", badgeText!.Text);
 
-                bellBtn!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                bellBtn.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 Dispatcher.UIThread.RunJobs();
                 Assert.True(vm.IsNotificationCenterOpen);
                 Assert.Contains("active", bellBtn.Classes);
+                Assert.Equal(expectedAccentColor, Assert.IsAssignableFrom<ISolidColorBrush>(bellIcon.StrokeBrush).Color);
 
                 bellBtn.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 Dispatcher.UIThread.RunJobs();
                 Assert.False(vm.IsNotificationCenterOpen);
                 Assert.DoesNotContain("active", bellBtn.Classes);
+                Assert.Equal(expectedSecondaryColor, Assert.IsAssignableFrom<ISolidColorBrush>(bellIcon.StrokeBrush).Color);
 
                 vm.UnreadNotificationCount = -5;
                 Dispatcher.UIThread.RunJobs();
