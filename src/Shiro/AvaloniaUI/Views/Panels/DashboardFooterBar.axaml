@@ -9,13 +9,13 @@
              x:DataType="vm:MainViewModel"
              x:CompileBindings="True">
     <StackPanel>
-        <WrapPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,10">
+        <WrapPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,8">
             <Border Background="{DynamicResource SurfacePanelBrush}"
                     BorderBrush="{DynamicResource BorderSubtleBrush}"
                     BorderThickness="1"
                     CornerRadius="{StaticResource RadiusMd}"
                     Padding="3"
-                    Margin="0,2,8,2">
+                    Margin="0,2,6,2">
                 <WrapPanel Orientation="Horizontal">
                     <RadioButton Classes="FilterTabPill" GroupName="FilterTabGroup"
                                  IsChecked="{Binding AccountsVm.IsFilterAll, Mode=TwoWay}">
@@ -83,7 +83,7 @@
                     BorderThickness="1"
                     CornerRadius="{StaticResource RadiusMd}"
                     Padding="3"
-                    Margin="0,2,8,2">
+                    Margin="0,2,6,2">
                 <StackPanel Orientation="Horizontal" Spacing="2">
                     <RadioButton Classes="FilterTabPill" GroupName="ViewModeGroup"
                                  IsChecked="{Binding AccountsVm.IsCardView, Mode=TwoWay}"
@@ -115,7 +115,7 @@
                     BorderThickness="1"
                     CornerRadius="{StaticResource RadiusMd}"
                     Padding="3"
-                    Margin="0,2,8,2">
+                    Margin="0,2,0,2">
                 <StackPanel Orientation="Horizontal" Spacing="2">
                     <RadioButton x:Name="BtnDensityCompact" Classes="FilterTabPill"
                                  GroupName="DensityModeGroup"
@@ -140,21 +140,6 @@
                     </RadioButton>
                 </StackPanel>
             </Border>
-
-            <Button Classes="StudioSecondaryBtn"
-                    Command="{Binding AccountsVm.CheckSessionsCommand}"
-                    Padding="12,7"
-                    Margin="0,2,0,2"
-                    VerticalAlignment="Center"
-                    ToolTip.Tip="{DynamicResource Tab_TipScanExpired}">
-                <StackPanel Orientation="Horizontal" Spacing="6">
-                    <lucide:Lucide Icon="Search" Width="13" Height="13"
-                                   StrokeBrush="{DynamicResource TextSecondaryBrush}"
-                                   VerticalAlignment="Center" />
-                    <TextBlock Text="{DynamicResource Dash_ScanExpired}"
-                               VerticalAlignment="Center" />
-                </StackPanel>
-            </Button>
         </WrapPanel>
 
         <Border IsVisible="{Binding LaunchBar.IsBatchLaunching}"

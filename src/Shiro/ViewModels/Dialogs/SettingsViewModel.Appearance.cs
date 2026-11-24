@@ -348,10 +348,11 @@ namespace Shiro.ViewModels.Dialogs
         private void RefreshAppearancePreview()
         {
             SurfacePalette s = OklchColorMath.DeriveSurfacePalette(SelectedSurfacePreset);
+            AccentThemeService.AccentExtendedPalette a = AccentThemeService.GetExtendedColors(SelectedTheme);
             Color? adaptive = IsLiveAppearanceMode && EnableAdaptiveGameTint ? AccentThemeService.AdaptiveGameColor : null;
-            var a = adaptive.HasValue
-                ? OklchColorMath.DeriveAdaptiveAccentPalette(adaptive.Value)
-                : AccentThemeService.GetExtendedColors(SelectedTheme);
+            Color ambientSource = adaptive.HasValue
+                ? OklchColorMath.DeriveAdaptiveAccentPalette(adaptive.Value).Primary
+                : a.Primary;
 
             PreviewCanvasBrush = new ImmutableSolidColorBrush(s.SurfaceCanvas);
             PreviewPanelBrush = new ImmutableSolidColorBrush(s.SurfacePanel);
@@ -367,14 +368,15 @@ namespace Shiro.ViewModels.Dialogs
             PreviewAccentBorderBrush = new ImmutableSolidColorBrush(a.Border);
             PreviewAccentForegroundBrush = new ImmutableSolidColorBrush(a.TextOnAccent);
             PreviewGlassTintBrush = new ImmutableSolidColorBrush(
-                Color.FromArgb(EnableGlassEffects ? (byte)214 : (byte)255, s.SurfacePanel.R, s.SurfacePanel.G, s.SurfacePanel.B));
-            var center = new RelativePoint(0.5, 0.5, RelativeUnit.Relative);
-            var radius = new RelativeScalar(0.55, RelativeUnit.Relative);
+                Color.FromArgb(EnableGlassEffects ? (byte)204 : (byte)255, s.SurfacePanel.R, s.SurfacePanel.G, s.SurfacePanel.B));
+            var center = new RelativePoint(0.74, 0.25, RelativeUnit.Relative);
+            var radius = new RelativeScalar(0.65, RelativeUnit.Relative);
             PreviewAmbientBrush = new ImmutableRadialGradientBrush(
                 new[]
                 {
-                    new ImmutableGradientStop(0.0, Color.FromArgb(88, a.Primary.R, a.Primary.G, a.Primary.B)),
-                    new ImmutableGradientStop(1.0, Color.FromArgb(0, a.Primary.R, a.Primary.G, a.Primary.B))
+                    new ImmutableGradientStop(0.0, Color.FromArgb(125, ambientSource.R, ambientSource.G, ambientSource.B)),
+                    new ImmutableGradientStop(0.55, Color.FromArgb(42, ambientSource.R, ambientSource.G, ambientSource.B)),
+                    new ImmutableGradientStop(1.0, Color.FromArgb(0, ambientSource.R, ambientSource.G, ambientSource.B))
                 },
                 center: center,
                 gradientOrigin: center,

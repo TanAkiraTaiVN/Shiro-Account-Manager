@@ -214,9 +214,9 @@ namespace Shiro.Services
             Color glow = Color.FromArgb(90, primary.R, primary.G, primary.B);
             Color softFill = Color.FromArgb(31, primary.R, primary.G, primary.B);
             Color rim = Color.FromArgb(115, hover.R, hover.G, hover.B);
-            Color ambient = Color.FromArgb(28, primary.R, primary.G, primary.B);
+            Color ambient = Color.FromArgb(48, primary.R, primary.G, primary.B);
             Color secondaryRgb = ToColor(0.58, Math.Min(pC, 0.12), NormalizeHue(pH + 35.0));
-            Color ambientSecondary = Color.FromArgb(18, secondaryRgb.R, secondaryRgb.G, secondaryRgb.B);
+            Color ambientSecondary = Color.FromArgb(30, secondaryRgb.R, secondaryRgb.G, secondaryRgb.B);
 
             return new AccentThemeService.AccentExtendedPalette(
                 primary,

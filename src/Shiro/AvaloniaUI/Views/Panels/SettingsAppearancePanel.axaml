@@ -105,8 +105,7 @@
                                 </StackPanel>
                             </Grid>
 
-                            <Border Background="{Binding PreviewCardBrush}" BorderBrush="{Binding PreviewBorderBrush}"
-                                    BorderThickness="1" Padding="10,8" CornerRadius="{StaticResource RadiusInner8}">
+                            <Border Background="#14FFFFFF" CornerRadius="{StaticResource RadiusInner8}" Padding="10,8">
                                 <Grid ColumnDefinitions="Auto,*,Auto">
                                     <Border Width="28" Height="28" Margin="0,0,10,0" CornerRadius="{StaticResource RadiusPill}"
                                             Background="{Binding PreviewElevatedBrush}" BorderBrush="{Binding PreviewAccentBorderBrush}" BorderThickness="1">
@@ -141,7 +140,7 @@
                             Classes.ThemeActive="{Binding IsPresetLiquidObsidian}" Command="{Binding SelectSurfacePresetCommand}"
                             CommandParameter="{x:Static services:SurfacePreset.LiquidObsidian}">
                         <StackPanel Orientation="Horizontal" Spacing="6">
-                            <Border Classes="SwatchDot" Background="#1E1E2B" BorderBrush="#4B4B66" BorderThickness="1" />
+                            <Border Classes="SwatchDot" Background="#34344A" BorderBrush="#7A7AA8" BorderThickness="1" />
                             <TextBlock Text="{DynamicResource Set_SurfacePresetLiquidObsidian}" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
@@ -149,7 +148,7 @@
                             Classes.ThemeActive="{Binding IsPresetMidnightGlass}" Command="{Binding SelectSurfacePresetCommand}"
                             CommandParameter="{x:Static services:SurfacePreset.MidnightGlass}">
                         <StackPanel Orientation="Horizontal" Spacing="6">
-                            <Border Classes="SwatchDot" Background="#1A2033" BorderBrush="#465882" BorderThickness="1" />
+                            <Border Classes="SwatchDot" Background="#243B6B" BorderBrush="#5E87DB" BorderThickness="1" />
                             <TextBlock Text="{DynamicResource Set_SurfacePresetMidnightGlass}" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
@@ -157,7 +156,7 @@
                             Classes.ThemeActive="{Binding IsPresetAmoledVoid}" Command="{Binding SelectSurfacePresetCommand}"
                             CommandParameter="{x:Static services:SurfacePreset.AmoledVoid}">
                         <StackPanel Orientation="Horizontal" Spacing="6">
-                            <Border Classes="SwatchDot" Background="#07070A" BorderBrush="#3A3A4A" BorderThickness="1" />
+                            <Border Classes="SwatchDot" Background="#09090D" BorderBrush="#6E6E80" BorderThickness="1" />
                             <TextBlock Text="{DynamicResource Set_SurfacePresetAmoledVoid}" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
@@ -165,7 +164,7 @@
                             Classes.ThemeActive="{Binding IsPresetWarmGraphite}" Command="{Binding SelectSurfacePresetCommand}"
                             CommandParameter="{x:Static services:SurfacePreset.WarmGraphite}">
                         <StackPanel Orientation="Horizontal" Spacing="6">
-                            <Border Classes="SwatchDot" Background="#24211E" BorderBrush="#5E564E" BorderThickness="1" />
+                            <Border Classes="SwatchDot" Background="#423A33" BorderBrush="#9C8B7A" BorderThickness="1" />
                             <TextBlock Text="{DynamicResource Set_SurfacePresetWarmGraphite}" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>

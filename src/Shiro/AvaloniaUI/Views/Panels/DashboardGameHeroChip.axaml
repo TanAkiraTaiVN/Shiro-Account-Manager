@@ -19,7 +19,7 @@
                               BorderGlowOpacity="0.34"
                               TopRimEnabled="True"
                               ClipToBounds="True"
-                              MaxWidth="320"
+                              MaxWidth="226"
                               ToolTip.Tip="{Binding CurrentGameName}">
         <Panel>
             <Border IsHitTestVisible="False"
@@ -28,29 +28,29 @@
             <Border IsHitTestVisible="False"
                     Background="{Binding HeroAuraBrush}"
                     IsVisible="{Binding HasAdaptiveGameColor}" />
-            <Grid ColumnDefinitions="Auto,*,Auto" Margin="7,5">
+            <Grid ColumnDefinitions="Auto,*,Auto" Margin="6,4">
                 <Border Grid.Column="0"
-                        Width="34"
-                        Height="34"
+                        Width="26"
+                        Height="26"
                         CornerRadius="{StaticResource RadiusChip6}"
                         ClipToBounds="True"
                         Background="{DynamicResource SurfaceElevatedBrush}"
                         BorderBrush="{DynamicResource AccentBorderBrush}"
                         BorderThickness="1"
-                        Margin="0,0,9,0"
+                        Margin="0,0,7,0"
                         VerticalAlignment="Center">
                     <Panel>
                         <lucide:Lucide Icon="Gamepad2"
-                                       Width="15"
-                                       Height="15"
+                                       Width="13"
+                                       Height="13"
                                        StrokeBrush="{DynamicResource AccentBrush}"
                                        HorizontalAlignment="Center"
                                        VerticalAlignment="Center"
                                        IsVisible="{Binding CurrentGameThumbnail,
                                            Converter={x:Static ObjectConverters.IsNull}}" />
                         <Image Source="{Binding CurrentGameThumbnail}"
-                               Width="34"
-                               Height="34"
+                               Width="26"
+                               Height="26"
                                Stretch="UniformToFill"
                                IsVisible="{Binding CurrentGameThumbnail,
                                    Converter={x:Static ObjectConverters.IsNotNull}}" />
@@ -59,38 +59,38 @@
                 <StackPanel Grid.Column="1"
                             VerticalAlignment="Center"
                             Spacing="1"
-                            Margin="0,0,10,0">
+                            Margin="0,0,7,0">
                     <TextBlock Text="{Binding CurrentGameName}"
-                               FontSize="12"
+                               FontSize="11.5"
                                FontWeight="SemiBold"
                                Foreground="{DynamicResource TextPrimaryBrush}"
                                TextTrimming="CharacterEllipsis"
-                               MaxWidth="150"
+                               MaxWidth="94"
                                IsVisible="{Binding CurrentGameName,
                                    Converter={StaticResource StringNotNullOrEmpty}}" />
                     <TextBlock Classes="TabularNum"
                                Text="{Binding CurrentPlaceIdLabel}"
-                               FontSize="10"
+                               FontSize="9.5"
                                Foreground="{DynamicResource TextSecondaryBrush}"
                                TextTrimming="CharacterEllipsis"
-                               MaxWidth="150" />
+                               MaxWidth="94" />
                 </StackPanel>
                 <Button x:Name="BtnHeroViewServers"
                         Grid.Column="2"
                         Classes="StudioSecondaryBtn"
                         Command="{Binding OpenCurrentGameServersCommand}"
-                        Padding="9,5"
+                        Padding="7,4"
                         CornerRadius="{StaticResource RadiusChip6}"
                         VerticalAlignment="Center"
                         ToolTip.Tip="{DynamicResource Dash_HeroViewServersTip}">
-                    <StackPanel Orientation="Horizontal" Spacing="5">
+                    <StackPanel Orientation="Horizontal" Spacing="4">
                         <lucide:Lucide Icon="Globe"
-                                       Width="12"
-                                       Height="12"
+                                       Width="11"
+                                       Height="11"
                                        StrokeBrush="{DynamicResource AccentBrush}"
                                        VerticalAlignment="Center" />
                         <TextBlock Text="{DynamicResource Dash_HeroViewServers}"
-                                   FontSize="11"
+                                   FontSize="10.5"
                                    FontWeight="SemiBold"
                                    VerticalAlignment="Center" />
                     </StackPanel>

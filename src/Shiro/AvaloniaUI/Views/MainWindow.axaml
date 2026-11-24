@@ -77,8 +77,9 @@
                         <TextBlock Text="{DynamicResource App_Title}" FontSize="12" FontWeight="SemiBold"
                                    Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
                         <Border Background="{DynamicResource SurfaceSubtleChipBrush}" BorderBrush="{DynamicResource BorderHairlineBrush}"
-                                BorderThickness="1" CornerRadius="{StaticResource RadiusXs}" Padding="6,2">
-                            <TextBlock Text=".NET 10 • Avalonia 12" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource TextMutedBrush}" />
+                                BorderThickness="1" CornerRadius="{StaticResource RadiusXs}" Padding="6,2" VerticalAlignment="Center">
+                            <TextBlock Text=".NET 10 • Avalonia 12" FontSize="10" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" />
                         </Border>
                     </StackPanel>
 

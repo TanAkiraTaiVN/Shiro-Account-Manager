@@ -218,8 +218,8 @@
     </Style>
 
     <Style Selector="RadioButton.FilterTabPill">
-        <Setter Property="Padding" Value="10,6" />
-        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Padding" Value="8,5" />
+        <Setter Property="FontSize" Value="11.5" />
     </Style>
     <Style Selector="RadioButton.FilterTabPill:pointerover">
         <Setter Property="Background" Value="{DynamicResource SurfaceCardHoverBrush}" />
@@ -239,7 +239,7 @@
         <Setter Property="Background" Value="{DynamicResource SurfaceCardBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}" />
         <Setter Property="CornerRadius" Value="{StaticResource RadiusLg}" />
-        <Setter Property="Padding" Value="15,12" />
+        <Setter Property="Padding" Value="13,9" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="Transitions" Value="{x:Null}" />

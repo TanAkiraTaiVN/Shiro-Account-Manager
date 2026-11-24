@@ -57,9 +57,10 @@ namespace Shiro.Services
             AccentTheme theme, SurfacePreset surfacePreset, Color? adaptiveGameColor)
         {
             SurfacePalette s = OklchColorMath.DeriveSurfacePalette(surfacePreset);
-            AccentExtendedPalette p = adaptiveGameColor.HasValue
+            AccentExtendedPalette p = GetExtendedColors(theme);
+            AccentExtendedPalette ambient = adaptiveGameColor.HasValue
                 ? OklchColorMath.DeriveAdaptiveAccentPalette(adaptiveGameColor.Value)
-                : GetExtendedColors(theme);
+                : p;
 
             var topLeft = new RelativePoint(0.0, 0.0, RelativeUnit.Relative);
             var bottomLeft = new RelativePoint(0.0, 1.0, RelativeUnit.Relative);
@@ -90,8 +91,8 @@ namespace Shiro.Services
                 ["AccentColor"] = p.Primary,
                 ["AccentHoverColor"] = p.Hover,
                 ["AccentForegroundColor"] = p.TextOnAccent,
-                ["AccentAmbientColor"] = p.Ambient,
-                ["AccentAmbientSecondaryColor"] = p.AmbientSecondary,
+                ["AccentAmbientColor"] = ambient.Ambient,
+                ["AccentAmbientSecondaryColor"] = ambient.AmbientSecondary,
                 ["AccentBrush"] = new ImmutableSolidColorBrush(p.Primary),
                 ["AccentHoverBrush"] = new ImmutableSolidColorBrush(p.Hover),
                 ["AccentForegroundBrush"] = new ImmutableSolidColorBrush(p.TextOnAccent),
@@ -103,8 +104,8 @@ namespace Shiro.Services
                 ["AccentGradientBrush"] = new ImmutableLinearGradientBrush(
                     [new ImmutableGradientStop(0.0, p.Primary), new ImmutableGradientStop(1.0, p.Hover)],
                     startPoint: topLeft, endPoint: bottomRight),
-                ["AccentAmbientBrush"] = CreateRadialGlowBrush(p.Ambient),
-                ["AccentAmbientSecondaryBrush"] = CreateRadialGlowBrush(p.AmbientSecondary)
+                ["AccentAmbientBrush"] = CreateRadialGlowBrush(ambient.Ambient),
+                ["AccentAmbientSecondaryBrush"] = CreateRadialGlowBrush(ambient.AmbientSecondary)
             };
         }
 
@@ -218,13 +219,13 @@ namespace Shiro.Services
             Color softFill = Color.FromArgb(31, primary.R, primary.G, primary.B);
             Color rimSource = theme == AccentTheme.Monochrome ? primary : hover;
             Color rim = Color.FromArgb(115, rimSource.R, rimSource.G, rimSource.B);
-            Color ambient = Color.FromArgb(28, primary.R, primary.G, primary.B);
+            Color ambient = Color.FromArgb(42, primary.R, primary.G, primary.B);
             Color secondaryBase = theme switch
             {
                 AccentTheme.Violet or AccentTheme.Pink => Color.FromRgb(139, 92, 246),
                 _ => Color.FromRgb(99, 102, 241)
             };
-            Color ambientSecondary = Color.FromArgb(15, secondaryBase.R, secondaryBase.G, secondaryBase.B);
+            Color ambientSecondary = Color.FromArgb(26, secondaryBase.R, secondaryBase.G, secondaryBase.B);
 
             return new AccentExtendedPalette(
                 primary, hover, textOnAccent, subtle, borderCol,
@@ -241,9 +242,16 @@ namespace Shiro.Services
                 adaptive = _adaptiveGameColor;
             }
 
-            return adaptive.HasValue
-                ? OklchColorMath.DeriveAdaptiveAccentPalette(adaptive.Value)
-                : GetExtendedColors(theme);
+            AccentExtendedPalette basePalette = GetExtendedColors(theme);
+            if (!adaptive.HasValue)
+                return basePalette;
+
+            AccentExtendedPalette adaptivePalette = OklchColorMath.DeriveAdaptiveAccentPalette(adaptive.Value);
+            return basePalette with
+            {
+                Ambient = adaptivePalette.Ambient,
+                AmbientSecondary = adaptivePalette.AmbientSecondary
+            };
         }
 
         public static void Initialize()

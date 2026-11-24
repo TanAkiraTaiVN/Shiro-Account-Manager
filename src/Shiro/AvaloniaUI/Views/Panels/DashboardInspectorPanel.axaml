@@ -28,7 +28,7 @@
             <Setter Property="CornerRadius" Value="{StaticResource RadiusLg}" />
         </Style>
     </UserControl.Styles>
-    <Grid ColumnDefinitions="*,*,*,*" Margin="0,0,0,14">
+    <Grid ColumnDefinitions="*,*,*,*" Margin="0,0,0,10">
         <controls:SpotlightBorder Grid.Column="0"
                                   Margin="0,0,6,0"
                                   Background="{DynamicResource SurfaceCardBrush}"
@@ -45,7 +45,7 @@
                     Command="{Binding MetricCardInGameCommand}"
                     ToolTip.Tip="{DynamicResource Dash_MetricTipPlaying}">
                 <Grid ColumnDefinitions="*,Auto">
-                    <StackPanel Grid.Column="0" Spacing="3" VerticalAlignment="Center">
+                    <StackPanel Grid.Column="0" Spacing="2" VerticalAlignment="Center">
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <Ellipse Width="6" Height="6"
                                      Fill="{DynamicResource StatusSuccessBrush}"
@@ -55,16 +55,16 @@
                         </StackPanel>
                         <TextBlock Classes="TabularNum"
                                    Text="{Binding InGameCount, StringFormat='{}{0} acc'}"
-                                   FontSize="20" FontWeight="Bold"
+                                   FontSize="18" FontWeight="Bold"
                                    Foreground="{DynamicResource TextPrimaryBrush}" />
                     </StackPanel>
                     <Border Grid.Column="1"
                             Background="{DynamicResource StatusSuccessBgBrush}"
                             BorderBrush="{DynamicResource StatusSuccessBorderBrush}"
-                            BorderThickness="1" Width="36" Height="36"
+                            BorderThickness="1" Width="32" Height="32"
                             CornerRadius="{StaticResource RadiusMd}"
                             HorizontalAlignment="Right" VerticalAlignment="Center">
-                        <lucide:Lucide Icon="Gamepad2" Width="16" Height="16"
+                        <lucide:Lucide Icon="Gamepad2" Width="15" Height="15"
                                        StrokeBrush="{DynamicResource StatusSuccessBrush}"
                                        HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
@@ -88,7 +88,7 @@
                     Command="{Binding MetricCardReadyCommand}"
                     ToolTip.Tip="{DynamicResource Dash_MetricTipReady}">
                 <Grid ColumnDefinitions="*,Auto">
-                    <StackPanel Grid.Column="0" Spacing="3" VerticalAlignment="Center">
+                    <StackPanel Grid.Column="0" Spacing="2" VerticalAlignment="Center">
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <Ellipse Width="6" Height="6"
                                      Fill="{DynamicResource StatusInfoBrush}"
@@ -98,16 +98,16 @@
                         </StackPanel>
                         <TextBlock Classes="TabularNum"
                                    Text="{Binding ReadyCount, StringFormat='{}{0} acc'}"
-                                   FontSize="20" FontWeight="Bold"
+                                   FontSize="18" FontWeight="Bold"
                                    Foreground="{DynamicResource TextPrimaryBrush}" />
                     </StackPanel>
                     <Border Grid.Column="1"
                             Background="{DynamicResource StatusInfoBgBrush}"
                             BorderBrush="{DynamicResource StatusInfoBorderBrush}"
-                            BorderThickness="1" Width="36" Height="36"
+                            BorderThickness="1" Width="32" Height="32"
                             CornerRadius="{StaticResource RadiusMd}"
                             HorizontalAlignment="Right" VerticalAlignment="Center">
-                        <lucide:Lucide Icon="Check" Width="17" Height="17"
+                        <lucide:Lucide Icon="Check" Width="16" Height="16"
                                        StrokeBrush="{DynamicResource StatusInfoBrush}"
                                        StrokeThickness="2.2"
                                        HorizontalAlignment="Center" VerticalAlignment="Center" />
@@ -132,7 +132,7 @@
                     Command="{Binding MetricCardExpiredCommand}"
                     ToolTip.Tip="{DynamicResource Dash_MetricTipExpired}">
                 <Grid ColumnDefinitions="*,Auto">
-                    <StackPanel Grid.Column="0" Spacing="3" VerticalAlignment="Center">
+                    <StackPanel Grid.Column="0" Spacing="2" VerticalAlignment="Center">
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <Ellipse Width="6" Height="6"
                                      Fill="{DynamicResource StatusDangerBrush}"
@@ -142,16 +142,16 @@
                         </StackPanel>
                         <TextBlock Classes="TabularNum"
                                    Text="{Binding ExpiredCount, StringFormat='{}{0} acc'}"
-                                   FontSize="20" FontWeight="Bold"
+                                   FontSize="18" FontWeight="Bold"
                                    Foreground="{DynamicResource TextPrimaryBrush}" />
                     </StackPanel>
                     <Border Grid.Column="1"
                             Background="{DynamicResource StatusDangerBgBrush}"
                             BorderBrush="{DynamicResource StatusDangerBorderBrush}"
-                            BorderThickness="1" Width="36" Height="36"
+                            BorderThickness="1" Width="32" Height="32"
                             CornerRadius="{StaticResource RadiusMd}"
                             HorizontalAlignment="Right" VerticalAlignment="Center">
-                        <lucide:Lucide Icon="ShieldAlert" Width="16" Height="16"
+                        <lucide:Lucide Icon="ShieldAlert" Width="15" Height="15"
                                        StrokeBrush="{DynamicResource StatusDangerBrush}"
                                        HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
@@ -175,7 +175,7 @@
                     Command="{Binding MetricCardRobuxCommand}"
                     ToolTip.Tip="{DynamicResource Dash_MetricTipRobux}">
                 <Grid ColumnDefinitions="*,Auto">
-                    <StackPanel Grid.Column="0" Spacing="3" VerticalAlignment="Center">
+                    <StackPanel Grid.Column="0" Spacing="2" VerticalAlignment="Center">
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <Ellipse Width="6" Height="6"
                                      Fill="{DynamicResource StatusWarningBrush}"
@@ -185,16 +185,16 @@
                         </StackPanel>
                         <TextBlock Classes="TabularNum"
                                    Text="{Binding TotalRobuxText}"
-                                   FontSize="20" FontWeight="Bold"
+                                   FontSize="18" FontWeight="Bold"
                                    Foreground="{DynamicResource TextPrimaryBrush}" />
                     </StackPanel>
                     <Border Grid.Column="1"
                             Background="{DynamicResource StatusWarningBgBrush}"
                             BorderBrush="{DynamicResource StatusWarningBorderBrush}"
-                            BorderThickness="1" Width="36" Height="36"
+                            BorderThickness="1" Width="32" Height="32"
                             CornerRadius="{StaticResource RadiusMd}"
                             HorizontalAlignment="Right" VerticalAlignment="Center">
-                        <lucide:Lucide Icon="Coins" Width="16" Height="16"
+                        <lucide:Lucide Icon="Coins" Width="15" Height="15"
                                        StrokeBrush="{DynamicResource StatusWarningBrush}"
                                        HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>

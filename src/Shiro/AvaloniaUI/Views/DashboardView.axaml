@@ -60,8 +60,8 @@
     </ContextMenu>
   </UserControl.Resources>
 
-  <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,*" Margin="16,12,16,12">
-    <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,14">
+  <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,*" Margin="16,10,16,8">
+    <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,10">
       <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Spacing="10">
         <TextBlock Text="{DynamicResource Dash_Title}" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
         <Border Background="{DynamicResource SurfacePanelBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1"
@@ -92,25 +92,25 @@
     <panels:DashboardInspectorPanel Grid.Row="1" DataContext="{Binding AccountsVm}" />
 
     <Border Grid.Row="2" Background="{DynamicResource SurfacePanelBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1"
-            CornerRadius="{StaticResource RadiusLg}" Margin="0,0,0,10" BoxShadow="{StaticResource ShadowCard}">
+            CornerRadius="{StaticResource RadiusLg}" Margin="0,0,0,8" BoxShadow="{StaticResource ShadowCard}">
       <Panel>
         <Border BorderBrush="{DynamicResource BorderTopRimBrush}" BorderThickness="0,1,0,0" CornerRadius="9" IsHitTestVisible="False" />
-        <Grid ColumnDefinitions="*,Auto" Margin="12,9">
+        <Grid ColumnDefinitions="*,Auto" Margin="10,6">
           <WrapPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-            <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" Margin="0,2,10,2">
-              <TextBlock Text="{DynamicResource Bar_PlaceId}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
-              <TextBox x:Name="TxtPlaceId" Text="{Binding LaunchBar.PlaceId, Mode=TwoWay}" Width="136" Padding="8,6" VerticalContentAlignment="Center" FontSize="12"
+            <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center" Margin="0,1,6,1">
+              <TextBlock Text="{DynamicResource Bar_PlaceId}" FontSize="11.5" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+              <TextBox x:Name="TxtPlaceId" Text="{Binding LaunchBar.PlaceId, Mode=TwoWay}" Width="104" Padding="6,5" VerticalContentAlignment="Center" FontSize="11.5"
                        PlaceholderText="{DynamicResource Dash_PlaceIdPlaceholder}" ToolTip.Tip="{DynamicResource Bar_TipPlaceId}" />
             </StackPanel>
-            <Border IsVisible="{Binding LaunchBar.HasCurrentGameInfo}" Margin="0,2,10,2" VerticalAlignment="Center">
+            <Border IsVisible="{Binding LaunchBar.HasCurrentGameInfo}" Margin="0,1,6,1" VerticalAlignment="Center">
               <panels:DashboardGameHeroChip DataContext="{Binding LaunchBar}" />
             </Border>
-            <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" Margin="0,2,10,2">
-              <TextBlock Text="{DynamicResource Dash_JobIdLabel}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
-              <TextBox x:Name="TxtJobId" Text="{Binding LaunchBar.JobId, Mode=TwoWay}" PasswordChar="{Binding ToolsStatus.JobIdMaskChar}" Width="122" Padding="8,6"
-                       PlaceholderText="{DynamicResource Dash_JobIdPlaceholder}" ToolTip.Tip="{DynamicResource Bar_TipJobId}" VerticalContentAlignment="Center" FontSize="12" />
+            <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center" Margin="0,1,6,1">
+              <TextBlock Text="{DynamicResource Dash_JobIdLabel}" FontSize="11.5" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+              <TextBox x:Name="TxtJobId" Text="{Binding LaunchBar.JobId, Mode=TwoWay}" PasswordChar="{Binding ToolsStatus.JobIdMaskChar}" Width="84" Padding="6,5"
+                       PlaceholderText="{DynamicResource Dash_JobIdPlaceholder}" ToolTip.Tip="{DynamicResource Bar_TipJobId}" VerticalContentAlignment="Center" FontSize="11.5" />
             </StackPanel>
-            <Button Classes="StudioSecondaryBtn" Margin="0,2,0,2" Padding="10,7" ToolTip.Tip="{DynamicResource Bar_TipRecent}">
+            <Button Classes="StudioSecondaryBtn" Margin="0,1,0,1" Padding="7,6" FontSize="11.5" ToolTip.Tip="{DynamicResource Bar_TipRecent}">
               <Button.Flyout><Flyout Placement="BottomEdgeAlignedLeft">
                 <Border Width="284" MaxHeight="320" Background="{DynamicResource SurfaceElevatedBrush}" Padding="4"><Panel>
                   <TextBlock Text="{DynamicResource Dash_NoRecentGames}" FontSize="11" Margin="12,10" Foreground="{DynamicResource TextMutedBrush}"
@@ -139,8 +139,8 @@
               <StackPanel Orientation="Horizontal" Spacing="6"><lucide:Lucide Icon="Gamepad2" Width="13" Height="13" StrokeBrush="{DynamicResource StatusInfoBrush}"
                 VerticalAlignment="Center" /><TextBlock Text="{DynamicResource Dash_RecentGamesBtn}" VerticalAlignment="Center" /></StackPanel></Button>
           </WrapPanel>
-          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="12,0,0,0">
-            <Button x:Name="BtnQuickWindowTile" Classes="StudioSecondaryBtn" Padding="10,8" ToolTip.Tip="{DynamicResource Tool_ArrangeMenu}">
+          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="5" VerticalAlignment="Center" Margin="6,0,0,0">
+            <Button x:Name="BtnQuickWindowTile" Classes="StudioSecondaryBtn" Padding="7,6" FontSize="11.5" ToolTip.Tip="{DynamicResource Tool_ArrangeMenu}">
               <Button.Flyout><MenuFlyout Placement="BottomEdgeAlignedRight">
                 <MenuItem Header="{DynamicResource Tool_AutoGrid}" Command="{Binding ToolsStatus.ArrangeRobloxWindowsCommand}" CommandParameter="Auto">
                   <MenuItem.Icon><lucide:Lucide Icon="LayoutGrid" Width="14" Height="14" StrokeBrush="#38BDF8" /></MenuItem.Icon></MenuItem>
@@ -157,10 +157,10 @@
               <StackPanel Orientation="Horizontal" Spacing="5"><lucide:Lucide Icon="LayoutGrid" Width="13" Height="13" StrokeBrush="{DynamicResource TextSecondaryBrush}"
                 VerticalAlignment="Center" /><TextBlock Text="{DynamicResource Dash_QuickTileBtn}" VerticalAlignment="Center" /><lucide:Lucide Icon="ChevronDown"
                 Width="11" Height="11" StrokeBrush="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" /></StackPanel></Button>
-            <Button Classes="StudioSecondaryBtn" Command="{Binding LaunchBar.LaunchSelectedCommand}" Padding="12,8" ToolTip.Tip="{DynamicResource Bar_TipLaunchHome}">
-              <StackPanel Orientation="Horizontal" Spacing="6"><lucide:Lucide Icon="House" Width="14" Height="14" StrokeBrush="{DynamicResource TextPrimaryBrush}"
+            <Button Classes="StudioSecondaryBtn" Command="{Binding LaunchBar.LaunchSelectedCommand}" Padding="9,6" FontSize="11.5" ToolTip.Tip="{DynamicResource Bar_TipLaunchHome}">
+              <StackPanel Orientation="Horizontal" Spacing="5"><lucide:Lucide Icon="House" Width="13" Height="13" StrokeBrush="{DynamicResource TextPrimaryBrush}"
                 VerticalAlignment="Center" /><TextBlock Text="{Binding LaunchBar.LaunchHomeButtonText}" VerticalAlignment="Center" /></StackPanel></Button>
-            <Button Classes="StudioPrimaryBtn" Command="{Binding LaunchBar.JoinServerSelectedCommand}" Padding="14,8" ToolTip.Tip="{DynamicResource Bar_TipJoinServer}">
+            <Button Classes="StudioPrimaryBtn" Command="{Binding LaunchBar.JoinServerSelectedCommand}" Padding="10,6" FontSize="11.5" ToolTip.Tip="{DynamicResource Bar_TipJoinServer}">
               <StackPanel Orientation="Horizontal" Spacing="6"><lucide:Lucide Icon="Play" Width="12" Height="12" StrokeBrush="{DynamicResource AccentForegroundBrush}"
                 StrokeThickness="2.5" VerticalAlignment="Center" /><TextBlock Text="{Binding LaunchBar.JoinServerButtonText}"
                 Foreground="{DynamicResource AccentForegroundBrush}" VerticalAlignment="Center" /></StackPanel></Button>
@@ -169,14 +169,14 @@
       </Panel>
     </Border>
 
-    <Grid Grid.Row="3" ColumnDefinitions="*,Auto" Margin="0,0,0,10">
+    <Grid Grid.Row="3" ColumnDefinitions="*,Auto" Margin="0,0,0,8">
       <WrapPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-        <ComboBox x:Name="CmbGroups" ItemsSource="{Binding AccountsVm.AvailableGroups}" SelectedItem="{Binding AccountsVm.SelectedGroup, Mode=TwoWay}" Width="148"
-                  Margin="0,2,8,2" Padding="10,6" FontSize="12" FontWeight="SemiBold" ToolTip.Tip="{DynamicResource Bar_GroupFilterTooltip}">
+        <ComboBox x:Name="CmbGroups" ItemsSource="{Binding AccountsVm.AvailableGroups}" SelectedItem="{Binding AccountsVm.SelectedGroup, Mode=TwoWay}" Width="140"
+                  Margin="0,1,6,1" Padding="9,5" FontSize="12" FontWeight="SemiBold" ToolTip.Tip="{DynamicResource Bar_GroupFilterTooltip}">
           <ComboBox.ItemTemplate><DataTemplate x:DataType="sys:String"><TextBlock Text="{Binding Converter={StaticResource GroupNameDisplay}}" FontWeight="SemiBold"
             Foreground="{DynamicResource TextPrimaryBrush}" FontSize="12" VerticalAlignment="Center" /></DataTemplate></ComboBox.ItemTemplate>
         </ComboBox>
-        <Button Classes="StudioSecondaryBtn" Margin="0,2,8,2" Padding="10,7" ToolTip.Tip="{DynamicResource Dash_SortTip}">
+        <Button Classes="StudioSecondaryBtn" Margin="0,1,6,1" Padding="9,6" ToolTip.Tip="{DynamicResource Dash_SortTip}">
           <Button.Flyout><MenuFlyout Placement="BottomEdgeAlignedLeft">
             <MenuItem Header="{DynamicResource Sort_NameAsc}" Command="{Binding AccountsVm.SetSortModeCommand}" CommandParameter="NaturalAscending"><MenuItem.Icon><lucide:Lucide
               Icon="ArrowDownAZ" Width="14" Height="14" StrokeBrush="#38BDF8" /></MenuItem.Icon></MenuItem>
@@ -192,10 +192,10 @@
           <StackPanel Orientation="Horizontal" Spacing="6"><lucide:Lucide Icon="ArrowUpDown" Width="13" Height="13" StrokeBrush="{DynamicResource TextSecondaryBrush}"
             VerticalAlignment="Center" /><TextBlock Text="{Binding AccountsVm.CurrentSortLabel}" VerticalAlignment="Center" /><lucide:Lucide Icon="ChevronDown" Width="11"
             Height="11" StrokeBrush="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" /></StackPanel></Button>
-        <Button Classes="StudioSecondaryBtn" Command="{Binding AccountsVm.SelectAllCommand}" Margin="0,2,8,2" Padding="12,7" ToolTip.Tip="{DynamicResource Bar_SelectAllTooltip}">
+        <Button Classes="StudioSecondaryBtn" Command="{Binding AccountsVm.SelectAllCommand}" Margin="0,1,6,1" Padding="10,6" ToolTip.Tip="{DynamicResource Bar_SelectAllTooltip}">
           <StackPanel Orientation="Horizontal" Spacing="6"><lucide:Lucide Icon="CheckCheck" Width="14" Height="14" StrokeBrush="{DynamicResource TextPrimaryBrush}"
             VerticalAlignment="Center" /><TextBlock Text="{DynamicResource Dash_SelectAll}" VerticalAlignment="Center" /></StackPanel></Button>
-        <Button Classes="StudioSecondaryBtn" Margin="0,2,8,2" Padding="10,7" ToolTip.Tip="{DynamicResource Dash_QuickSelectTip}">
+        <Button Classes="StudioSecondaryBtn" Margin="0,1,6,1" Padding="9,6" ToolTip.Tip="{DynamicResource Dash_QuickSelectTip}">
           <Button.Flyout><MenuFlyout Placement="BottomEdgeAlignedLeft">
             <MenuItem Header="{DynamicResource QuickSel_Ready5}" Command="{Binding AccountsVm.SelectReadyBatchCommand}" CommandParameter="5"><MenuItem.Icon><lucide:Lucide
               Icon="CheckCheck" Width="14" Height="14" StrokeBrush="#38BDF8" /></MenuItem.Icon></MenuItem>
@@ -212,7 +212,7 @@
           <StackPanel Orientation="Horizontal" Spacing="5"><lucide:Lucide Icon="ListChecks" Width="13" Height="13" StrokeBrush="{DynamicResource StatusInfoBrush}"
             VerticalAlignment="Center" /><TextBlock Text="{DynamicResource Dash_QuickSelect}" VerticalAlignment="Center" /><lucide:Lucide Icon="ChevronDown" Width="11"
             Height="11" StrokeBrush="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" /></StackPanel></Button>
-        <Button Classes="StudioSecondaryBtn" Margin="0,2,0,2" Padding="11,7" ToolTip.Tip="{DynamicResource Bar_BatchActionsTooltip}">
+        <Button Classes="StudioSecondaryBtn" Margin="0,1,6,1" Padding="10,6" ToolTip.Tip="{DynamicResource Bar_BatchActionsTooltip}">
           <Button.Flyout><MenuFlyout Placement="BottomEdgeAlignedLeft">
             <MenuItem Header="{DynamicResource Btn_Deselect}" Command="{Binding AccountsVm.ClearSelectionCommand}" IsVisible="{Binding AccountsVm.HasSelection}"><MenuItem.Icon>
               <lucide:Lucide Icon="X" Width="14" Height="14" StrokeBrush="#F87171" /></MenuItem.Icon></MenuItem>
@@ -244,8 +244,12 @@
             Orientation="Horizontal" Spacing="4" VerticalAlignment="Center"><TextBlock Text="{DynamicResource Bar_BatchActions}" /><TextBlock Classes="TabularNum"
             Text="{Binding AccountsVm.SelectedCount, StringFormat='({0})'}" /></StackPanel><lucide:Lucide Icon="ChevronDown" Width="12" Height="12"
             StrokeBrush="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" /></StackPanel></Button>
+        <Button Classes="StudioSecondaryBtn" Command="{Binding AccountsVm.CheckSessionsCommand}" Margin="0,1,0,1" Padding="9,6"
+                ToolTip.Tip="{DynamicResource Tab_TipScanExpired}"><StackPanel Orientation="Horizontal" Spacing="5">
+          <lucide:Lucide Icon="Search" Width="13" Height="13" StrokeBrush="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+          <TextBlock Text="{DynamicResource Dash_ScanExpired}" VerticalAlignment="Center" /></StackPanel></Button>
       </WrapPanel>
-      <Button Grid.Column="1" Classes="StudioPrimaryBtn" VerticalAlignment="Center" Margin="10,0,0,0" Padding="14,8" ToolTip.Tip="{DynamicResource Bar_AddAccountMenuTooltip}">
+      <Button Grid.Column="1" Classes="StudioPrimaryBtn" VerticalAlignment="Center" Margin="8,0,0,0" Padding="12,6" ToolTip.Tip="{DynamicResource Bar_AddAccountMenuTooltip}">
         <Button.Flyout><MenuFlyout Placement="BottomEdgeAlignedRight">
           <MenuItem Header="{DynamicResource Bar_AddFastLogin}" Command="{Binding AccountsVm.AddAccountFastLoginCommand}"><MenuItem.Icon><lucide:Lucide
             Icon="Globe" Width="14" Height="14" StrokeBrush="#38BDF8" /></MenuItem.Icon></MenuItem>
