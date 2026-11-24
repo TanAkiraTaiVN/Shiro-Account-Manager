@@ -122,6 +122,13 @@ namespace Shiro.Services
     [JsonSerializable(typeof(List<TokenRequest>))]
     [JsonSerializable(typeof(string[]))]
     [JsonSerializable(typeof(long[]))]
+    [JsonSerializable(typeof(LaunchScheduleDocument))]
+    [JsonSerializable(typeof(LaunchSchedule))]
+    [JsonSerializable(typeof(List<LaunchSchedule>))]
+    [JsonSerializable(typeof(ScheduleAccountRef))]
+    [JsonSerializable(typeof(List<ScheduleAccountRef>))]
+    [JsonSerializable(typeof(ScheduleRunEntry))]
+    [JsonSerializable(typeof(List<ScheduleRunEntry>))]
     internal partial class ShiroAppJson : JsonSerializerContext
     {
     }

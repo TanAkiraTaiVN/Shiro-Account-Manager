@@ -80,6 +80,7 @@ namespace Shiro.Services
             public const string NotifyOnModeration = "NotifyOnModeration";
             public const string AutoReconnect = "AutoReconnect";
             public const string AntiAfkForegroundFallback = "AntiAfkForegroundFallback";
+            public const string SchedulerEnabled = "SchedulerEnabled";
         }
 
         public static class Developer

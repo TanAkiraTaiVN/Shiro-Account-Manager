@@ -65,6 +65,7 @@ namespace Shiro.Services
         public static string AccountDataFile => GetUserFile("AccountData.json");
         public static string AccountRuntimeStateFile => GetUserFile("AccountRuntimeState.json");
         public static string RecentGamesFile => GetUserFile("RecentGames.json");
+        public static string LaunchSchedulesFile => GetUserFile("LaunchSchedules.json");
         public static string SettingsFile => GetUserFile("RAMSettings.json");
         internal static string LegacySettingsFile => GetUserFile("RAMSettings.ini");
         public static string VaultKeyFile => GetUserFile("vault.key");
