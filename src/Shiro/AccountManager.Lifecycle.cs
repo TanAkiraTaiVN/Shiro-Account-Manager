@@ -101,6 +101,7 @@ namespace Shiro
 
             if (AppSettings.General.Get<bool>("ShowPresence", true))
                 _ = ObserveBackgroundTaskAsync(UpdatePresence(), "initial presence refresh");
+            AppServices.LaunchScheduler.AttachExecutor(new SchedulerHostActionExecutorService(() => launchCoordinator, GetConfiguredAccountJoinDelaySeconds, () => AppServices.GeneralSettings.GetBool("AsyncJoin"), () => TryEnableMultiRoblox(promptIfRobloxRunning: false), () => SafeLifetimeToken));
         }
 
         public void InitializePostStartup()
@@ -148,6 +149,7 @@ namespace Shiro
 
             if (Avalonia.Application.Current != null && !AppSettings.Prompts.Exists("VCPrompted"))
                 vcredistInstallTask = ObserveBackgroundTaskAsync(PrerequisiteService.PromptAndInstallVCRedistAsync(AppSettings.Prompts, (msg, title) => AppDispatcher.InvokeTaskAsync(() => AppServices.Dialogs.ShowConfirmationAsync(msg, title)), cancellationToken: SafeLifetimeToken), "VCRedist prerequisite prompt");
+            AppServices.LaunchScheduler.Start();
         }
 
         // Offers to continue a batch re-login that was interrupted (dialog or app closed mid-way).
@@ -234,6 +236,7 @@ namespace Shiro
             coordinator.Register(ShutdownPhase.StopMonitors, "AutoCookieRefresh.Stop", () => { SafeExecuteHelper.Try(() => AutoCookieRefresh?.Stop()); SafeExecuteHelper.Try(() => AutoCookieRefresh?.Dispose()); });
             coordinator.Register(ShutdownPhase.StopMonitors, "PresenceTimer.Stop", () => { SafeExecuteHelper.Try(() => PresenceTimer?.Stop()); SafeExecuteHelper.Try(() => PresenceTimer?.Dispose()); });
             coordinator.Register(ShutdownPhase.StopMonitors, "AutoReconnectService.StopForShutdown", AutoReconnectService.Instance.StopForShutdown);
+            coordinator.Register(ShutdownPhase.StopMonitors, "LaunchScheduler.StopForShutdown", AppServices.LaunchScheduler.StopForShutdown);
             coordinator.Register(ShutdownPhase.StopMonitors, "StreamerModeService.Shutdown", StreamerModeService.Shutdown);
             coordinator.Register(ShutdownPhase.StopMonitors, "RobloxSingletonService.Stop", RobloxSingletonService.Stop);
             coordinator.Register(ShutdownPhase.StopMonitors, "AntiAfkService.Stop", AntiAfkService.Stop);
@@ -254,6 +257,7 @@ namespace Shiro
             coordinator.Register(ShutdownPhase.StopServersAndIntegrations, "DiscordRpcService.Dispose", DiscordRpcService.Default.Dispose);
             coordinator.Register(ShutdownPhase.FlushPersistence, "RobloxDirectLauncher.RestoreOriginalCookies", () => RobloxDirectLauncher.RestoreOriginalCookies());
             coordinator.Register(ShutdownPhase.FlushPersistence, "AccountRuntimeStateStore.Shutdown", () => AccountRuntimeStateStore.Shutdown());
+            coordinator.Register(ShutdownPhase.FlushPersistence, "LaunchScheduleStore.Flush", AppServices.LaunchScheduleStore.Flush);
             coordinator.Register(ShutdownPhase.FlushPersistence, "Persistence.SaveAccounts", () =>
             {
                 try { Persistence.SaveAccounts(bypassRateLimit: true); }

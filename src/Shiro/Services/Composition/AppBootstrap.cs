@@ -392,6 +392,16 @@ namespace Shiro.Services
             services.AddSingleton<ISettingsSideEffects>(SettingsSideEffectsService.Default);
             services.AddSingleton<ServerWatcherConfigService>();
             services.AddSingleton<AppSettings>(AppSettings.Current);
+            services.AddSingleton<LaunchScheduleStore>(sp => new LaunchScheduleStore(logger: sp.GetRequiredService<IAppLogger>()));
+            services.AddSingleton<ILaunchSchedulerService>(sp => new LaunchSchedulerService(
+                sp.GetRequiredService<LaunchScheduleStore>(),
+                sp.GetRequiredService<IAccountRepository>(),
+                sp.GetRequiredService<ISettingsService>(),
+                sp.GetRequiredService<IToastNotifier>(),
+                sp.GetRequiredService<IHostUiBridgeService>(),
+                () => accountRepository.PersistenceInstance.IsVaultLockedPendingMasterPassword,
+                TimeProvider.System,
+                sp.GetRequiredService<IAppLogger>()));
 
             configureExtra?.Invoke(services);
 

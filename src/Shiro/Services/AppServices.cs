@@ -222,6 +222,8 @@ namespace Shiro.Services
         public static RobloxAccountSessionClient AccountSessionClient => GetRequiredService<RobloxAccountSessionClient>();
         public static RobloxAccountApiService AccountApiService => GetRequiredService<RobloxAccountApiService>();
         public static ServerWatcherConfigService ServerWatcherConfig => GetRequiredService<ServerWatcherConfigService>();
+        public static LaunchScheduleStore LaunchScheduleStore => GetRequiredService<LaunchScheduleStore>();
+        public static ILaunchSchedulerService LaunchScheduler => GetRequiredService<ILaunchSchedulerService>();
 
         public static IAppLogger Logger
         {
