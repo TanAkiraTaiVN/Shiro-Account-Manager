@@ -170,13 +170,13 @@ namespace Shiro.Tests.Ui
 
                 Assert.Equal(5, palette.RecentCommandIds.Count);
 
-                // ArchitectureTests built-in count invariant must remain exactly 29
+                // ArchitectureTests built-in count invariant must remain exactly 31
                 var method = typeof(MainViewModel).GetMethod(
                     "GetBuiltinCommands",
                     BindingFlags.NonPublic | BindingFlags.Static);
                 Assert.NotNull(method);
                 var commands = (System.Collections.IEnumerable)method!.Invoke(null, null)!;
-                Assert.Equal(29, commands.Cast<object>().Count());
+                Assert.Equal(31, commands.Cast<object>().Count());
                 new ArchitectureTests().AllCommandPaletteBuiltinCommands_ShouldMapToValidLucideIcons();
             }
             finally

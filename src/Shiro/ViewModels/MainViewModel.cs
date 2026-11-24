@@ -13,6 +13,7 @@ namespace Shiro.ViewModels
         Accounts,
         ServerList,
         RecentGames,
+        Scheduler,
         Settings,
         About
     }
@@ -28,6 +29,7 @@ namespace Shiro.ViewModels
         private int _disposed;
         private Action<AppLanguage>? _languageChangedHandler;
         private Action<AccentTheme>? _themeChangedHandler;
+        private Action<bool>? _streamerModeChangedHandler;
         private PropertyChangedEventHandler? _accountsPropHandler;
         private PropertyChangedEventHandler? _launchBarPropHandler;
         private PropertyChangedEventHandler? _toolsPropHandler;
@@ -83,10 +85,19 @@ namespace Shiro.ViewModels
             CommandPalette = new CommandPaletteViewModel(this);
             Inspector = new AccountInspectorViewModel(_accountRepository, AccountsVm, LaunchBar, msg => ToolsStatus.StatusMessage = msg, _logger);
             ServerListViewModel = new ServerListViewModel(this, _logger, _settings);
+            Scheduler = new SchedulerViewModel(
+                AppServices.LaunchScheduler,
+                _accountRepository,
+                _settings,
+                getSelectedDashboardAccounts: () => AccountsVm.GetSelectedAccounts(),
+                getDashboardDestination: () => (LaunchBar.PlaceId, LaunchBar.JobId),
+                getRecentGames: () => LaunchBar.RecentGamesList,
+                getFavorites: () => ServerListViewModel?.LibraryTab.Favorites);
 
             NavigateToAccountsCommand = new RelayCommand(() => CurrentPage = NavigationPage.Accounts);
             NavigateToServerListCommand = new RelayCommand(() => CurrentPage = NavigationPage.ServerList);
             NavigateToRecentGamesCommand = new RelayCommand(() => { CurrentPage = NavigationPage.RecentGames; LaunchBar.ReloadRecentGames(); });
+            NavigateToSchedulerCommand = new RelayCommand(() => CurrentPage = NavigationPage.Scheduler);
             NavigateToSettingsCommand = new RelayCommand(() => CurrentPage = NavigationPage.Settings);
 
             AttachChildPropertyForwarding();
@@ -104,10 +115,12 @@ namespace Shiro.ViewModels
         public CommandPaletteViewModel CommandPalette { get; }
         public AccountInspectorViewModel Inspector { get; }
         public ServerListViewModel ServerListViewModel { get; private set; }
+        public SchedulerViewModel Scheduler { get; }
 
         public ICommand NavigateToAccountsCommand { get; }
         public ICommand NavigateToServerListCommand { get; }
         public ICommand NavigateToRecentGamesCommand { get; }
+        public ICommand NavigateToSchedulerCommand { get; }
         public ICommand NavigateToSettingsCommand { get; }
 
         public Action<NavigationPage>? OnPageNavigated { get; set; }
@@ -122,8 +135,10 @@ namespace Shiro.ViewModels
                     OnPropertyChanged(nameof(IsAccountsActive));
                     OnPropertyChanged(nameof(IsServerListActive));
                     OnPropertyChanged(nameof(IsRecentGamesActive));
+                    OnPropertyChanged(nameof(IsSchedulerActive));
                     OnPropertyChanged(nameof(IsSettingsActive));
                     OnPropertyChanged(nameof(IsAboutActive));
+                    Scheduler?.SetPageVisible(value == NavigationPage.Scheduler);
                     OnPageNavigated?.Invoke(value);
                 }
             }
@@ -132,8 +147,15 @@ namespace Shiro.ViewModels
         public bool IsAccountsActive => CurrentPage == NavigationPage.Accounts;
         public bool IsServerListActive => CurrentPage == NavigationPage.ServerList;
         public bool IsRecentGamesActive => CurrentPage == NavigationPage.RecentGames;
+        public bool IsSchedulerActive => CurrentPage == NavigationPage.Scheduler;
         public bool IsSettingsActive => CurrentPage == NavigationPage.Settings;
         public bool IsAboutActive => CurrentPage == NavigationPage.About;
+
+        public void OpenNewScheduleForAccounts(IReadOnlyList<Account> accounts, string? placeId, string? jobId)
+        {
+            CurrentPage = NavigationPage.Scheduler;
+            Scheduler.OpenNewForAccounts(accounts, placeId, jobId);
+        }
 
         public bool IsNotificationCenterOpen
         {
@@ -167,6 +189,7 @@ namespace Shiro.ViewModels
         {
             AccountsVm.NotifyDisplayAndRobuxChanged();
             ServerListViewModel?.BrowserTab.NotifyStreamerModeChanged();
+            Scheduler?.NotifyStreamerModeChanged();
         }
 
         private void AttachChildPropertyForwarding()
@@ -213,6 +236,21 @@ namespace Shiro.ViewModels
                 static (vm, e) => vm.OnNotificationHistoryPropertyChanged(e),
                 static h => NotificationHistoryService.Instance.PropertyChanged -= h);
             NotificationHistoryService.Instance.PropertyChanged += _notificationHistoryPropHandler;
+
+            _streamerModeChangedHandler = WeakEventSubscription.CreateAction<MainViewModel, bool>(
+                this,
+                static (vm, _) => vm.OnStreamerModeChanged(),
+                static h => StreamerModeService.StateChanged -= h);
+            StreamerModeService.StateChanged += _streamerModeChangedHandler;
+        }
+
+        private void OnStreamerModeChanged()
+        {
+            AppDispatcher.Post(() =>
+            {
+                if (Volatile.Read(ref _disposed) != 0) return;
+                Scheduler.NotifyStreamerModeChanged();
+            });
         }
 
         private void OnNotificationHistoryPropertyChanged(PropertyChangedEventArgs e)
@@ -240,6 +278,7 @@ namespace Shiro.ViewModels
                 ToolsStatus.NotifyLanguageChanged();
                 CommandPalette.NotifyLanguageChanged();
                 Inspector.NotifyLanguageChanged();
+                Scheduler.NotifyLanguageChanged();
             });
         }
 
@@ -267,13 +306,16 @@ namespace Shiro.ViewModels
             if (_languageChangedHandler != null) LocalizationService.LanguageChanged -= _languageChangedHandler;
             if (_themeChangedHandler != null) AccentThemeService.ThemeChanged -= _themeChangedHandler;
             if (_notificationHistoryPropHandler != null) NotificationHistoryService.Instance.PropertyChanged -= _notificationHistoryPropHandler;
+            if (_streamerModeChangedHandler != null) StreamerModeService.StateChanged -= _streamerModeChangedHandler;
             _notificationHistoryPropHandler = null;
+            _streamerModeChangedHandler = null;
             DetachChildPropertyForwarding();
             OnPageNavigated = null;
             AccountsVm.Dispose();
             LaunchBar.Dispose();
             ToolsStatus.Dispose();
             Inspector.Dispose();
+            Scheduler.Dispose();
             ServerListViewModel?.Dispose();
             GC.SuppressFinalize(this);
         }

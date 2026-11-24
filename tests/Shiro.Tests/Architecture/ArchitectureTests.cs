@@ -125,7 +125,7 @@ namespace Shiro.Tests
                 Assert.NotNull(itemVm.IconBrush);
             }
 
-            Assert.Equal(29, count);
+            Assert.Equal(31, count);
         }
 
         [Fact]
