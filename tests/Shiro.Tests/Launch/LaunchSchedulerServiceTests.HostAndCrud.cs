@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using NSubstitute;
@@ -162,6 +163,92 @@ namespace Shiro.Tests
                 WebhookNotificationService.AlertDispatched -= OnAlert;
                 StreamerModeService.IsEnabled = prevStreamer;
                 ToastService.ClearAll();
+                AppDispatcher.CustomDispatcher = prevDispatcher;
+            }
+        }
+
+        [Fact]
+        public async Task TryAcquireExecutionGate_WhenCancelledOrDisposedWhileWaiting_ReleasesRefCountAndDisposesGate()
+        {
+            Account a1 = MakeAccount("GateUser", 1601);
+            var (svc, _, _, _, exec, _) = CreateHarness(new DateTimeOffset(2026, 11, 24, 9, 0, 0, TimeSpan.Zero), false, a1);
+            Assert.True(svc.UpsertSchedule(MakeSchedule("gate-1", "GateTest", "08:00", "12:00", a1)).IsValid);
+
+            var enteredLaunch = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var releaseLaunch = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            exec.BeforeLaunchServerAsync = async _ =>
+            {
+                enteredLaunch.TrySetResult(true);
+                await releaseLaunch.Task.ConfigureAwait(false);
+            };
+
+            FieldInfo activeUsersField = typeof(LaunchSchedulerService).GetField("_activeGateUsers", BindingFlags.Instance | BindingFlags.NonPublic)!;
+            FieldInfo gateDisposedField = typeof(LaunchSchedulerService).GetField("_gateDisposed", BindingFlags.Instance | BindingFlags.NonPublic)!;
+            FieldInfo gateField = typeof(LaunchSchedulerService).GetField("_executionGate", BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+            Task<ScheduleRunEntry?> run1 = svc.RunScheduleNowAsync("gate-1");
+            await enteredLaunch.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+            using var cts2 = new CancellationTokenSource();
+            Task<ScheduleRunEntry?> run2 = svc.RunScheduleNowAsync("gate-1", cts2.Token);
+            Task<ScheduleRunEntry?> run3 = svc.RunScheduleNowAsync("gate-1");
+
+            DateTime deadline = DateTime.UtcNow.AddSeconds(3);
+            while ((int)activeUsersField.GetValue(svc)! < 3 && DateTime.UtcNow < deadline)
+                await Task.Delay(10);
+            Assert.Equal(3, (int)activeUsersField.GetValue(svc)!);
+
+            cts2.Cancel();
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => run2);
+            Assert.Equal(2, (int)activeUsersField.GetValue(svc)!);
+
+            // Dispose while run1 holds the gate and run3 is queued on WaitAsync
+            svc.Dispose();
+            Assert.Equal(0, (int)gateDisposedField.GetValue(svc)!);
+
+            releaseLaunch.TrySetResult(true);
+            await run1;
+            ScheduleRunEntry? run3Result = await run3;
+            Assert.Null(run3Result);
+
+            // Calling after disposal must enter if (IsDisposed) and still release ref count cleanly
+            ScheduleRunEntry? postDispose = await svc.RunScheduleNowAsync("gate-1");
+            Assert.Null(postDispose);
+
+            Assert.Equal(0, (int)activeUsersField.GetValue(svc)!);
+            Assert.Equal(1, (int)gateDisposedField.GetValue(svc)!);
+            var gate = (SemaphoreSlim)gateField.GetValue(svc)!;
+            Assert.Throws<ObjectDisposedException>(() => gate.Wait(0));
+        }
+
+        [Fact]
+        public void HostActionExecutor_ArrangeWindows_DispatchesThroughAppDispatcher_AndSkipsNone()
+        {
+            var prevDispatcher = AppDispatcher.CustomDispatcher;
+            var postedActions = new List<Action>();
+            AppDispatcher.CustomDispatcher = action => postedActions.Add(action);
+
+            try
+            {
+                var hostExec = new SchedulerHostActionExecutorService(
+                    getCoordinator: () => null,
+                    getJoinDelaySeconds: () => 4,
+                    getAsyncJoin: () => false,
+                    ensureMultiRoblox: () => true,
+                    getLifetimeToken: () => CancellationToken.None,
+                    hostUiBridge: Substitute.For<IHostUiBridgeService>(),
+                    settings: new IniFile()["General"],
+                    logger: Substitute.For<IAppLogger>());
+
+                hostExec.ArrangeWindows(ScheduleArrangeMode.None);
+                Assert.Empty(postedActions);
+
+                hostExec.ArrangeWindows(ScheduleArrangeMode.Grid3x2);
+                hostExec.ArrangeWindows(ScheduleArrangeMode.Auto);
+                Assert.Equal(2, postedActions.Count);
+            }
+            finally
+            {
                 AppDispatcher.CustomDispatcher = prevDispatcher;
             }
         }

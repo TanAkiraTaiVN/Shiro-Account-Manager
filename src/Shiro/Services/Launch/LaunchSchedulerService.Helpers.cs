@@ -82,6 +82,7 @@ namespace Shiro.Services
         {
             Interlocked.Increment(ref _activeGateUsers);
             bool acquired = false;
+            bool handoffToCaller = false;
             try
             {
                 if (IsDisposed)
@@ -90,23 +91,20 @@ namespace Shiro.Services
                 await _executionGate.WaitAsync(ct).ConfigureAwait(false);
                 acquired = true;
                 if (IsDisposed)
-                {
-                    ReleaseExecutionGate(acquired);
                     return false;
-                }
 
+                handoffToCaller = true;
                 return true;
             }
             catch (ObjectDisposedException ex)
             {
                 Logger.Debug($"[LaunchSchedulerService] Gate disposed while waiting: {ex.Message}");
-                ReleaseExecutionGate(acquired);
                 return false;
             }
-            catch (Exception ex) when (ex is not OperationCanceledException)
+            finally
             {
-                ReleaseExecutionGate(acquired);
-                throw;
+                if (!handoffToCaller)
+                    ReleaseExecutionGate(acquired);
             }
         }
 

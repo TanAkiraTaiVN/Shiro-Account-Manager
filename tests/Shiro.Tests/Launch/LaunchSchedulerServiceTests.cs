@@ -52,6 +52,7 @@ namespace Shiro.Tests
             public TimeSpan? LastQueueWaitTimeout { get; private set; }
             public bool QueueIdleResult { get; set; } = true;
             public Func<IReadOnlyList<Account>, (int Succeeded, int Attempted, bool Cancelled, string Detail)>? OnLaunchServer { get; set; }
+            public Func<CancellationToken, Task>? BeforeLaunchServerAsync { get; set; }
             public Func<IReadOnlyList<Account>, (int Succeeded, int Attempted, bool Cancelled, string Detail)>? OnLaunchHome { get; set; }
             public TaskCompletionSource<bool>? LaunchSignal { get; set; }
 
@@ -98,16 +99,19 @@ namespace Shiro.Tests
                 return true;
             }
 
-            public Task<(int Succeeded, int Attempted, bool Cancelled, string Detail)> LaunchServerAsync(
+            public async Task<(int Succeeded, int Attempted, bool Cancelled, string Detail)> LaunchServerAsync(
                 IReadOnlyList<Account> accounts, long placeId, string jobId, bool isVip, CancellationToken ct)
             {
+                if (BeforeLaunchServerAsync != null)
+                    await BeforeLaunchServerAsync(ct).ConfigureAwait(false);
+
                 ServerLaunches.Add((accounts.ToList(), placeId, jobId, isVip));
                 Events.Add($"LaunchServer:{string.Join(",", accounts.Select(a => a.Username))}");
                 var result = OnLaunchServer != null
                     ? OnLaunchServer(accounts)
                     : (accounts.Count, accounts.Count, false, string.Empty);
                 LaunchSignal?.TrySetResult(true);
-                return Task.FromResult(result);
+                return result;
             }
 
             public Task<(int Succeeded, int Attempted, bool Cancelled, string Detail)> LaunchHomeAsync(

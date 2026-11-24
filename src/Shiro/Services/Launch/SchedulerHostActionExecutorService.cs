@@ -137,7 +137,7 @@ namespace Shiro.Services
                 _ => RobloxWindowLayoutMode.AutoGrid
             };
 
-            RobloxWindowArrangerService.ArrangeWindows(layout);
+            AppDispatcher.Post(() => RobloxWindowArrangerService.ArrangeWindows(layout));
         }
 
         public void NotifyWebhook(LaunchSchedule schedule, ScheduleRunEntry entry)
