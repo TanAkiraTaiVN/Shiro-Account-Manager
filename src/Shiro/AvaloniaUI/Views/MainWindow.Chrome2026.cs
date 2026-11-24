@@ -138,6 +138,7 @@ namespace Shiro.AvaloniaUI.Views
             if (vm.CommandPalette.IsCommandPaletteOpen) { vm.CommandPalette.IsCommandPaletteOpen = false; return true; }
             if (vm.IsNotificationCenterOpen) { vm.IsNotificationCenterOpen = false; return true; }
             if (vm.Inspector.IsOpen) { vm.Inspector.Close(); return true; }
+            if (vm.Scheduler.Editor.IsOpen) { vm.Scheduler.Editor.CloseCommand.Execute(null); return true; }
             if (!vm.IsAccountsActive) return false;
             if (IsDashboardSearchBoxClearing(e, vm)) return true;
             if (!vm.AccountsVm.HasSelection) return false;

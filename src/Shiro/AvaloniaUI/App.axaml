@@ -15,6 +15,7 @@
             <conv:EqualityToBooleanConverter x:Key="EqualityToBoolean" />
             <conv:GroupNameDisplayConverter x:Key="GroupNameDisplay" />
             <conv:StatusKindToBrushConverter x:Key="StatusKindToBrush" />
+            <conv:IntToDecimalConverter x:Key="IntToDecimal" />
 
             <!-- Pre-parsed GPU-Cached StreamGeometries for Zero-Allocation Virtualized Rows -->
             <StreamGeometry x:Key="GeoPlay">M 6,3 L 20,12 L 6,21 Z</StreamGeometry>

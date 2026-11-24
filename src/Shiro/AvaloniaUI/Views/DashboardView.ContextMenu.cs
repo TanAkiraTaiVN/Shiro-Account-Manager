@@ -70,6 +70,13 @@ namespace Shiro.AvaloniaUI.Views
                 AppServices.Dialogs.OpenFastLoginDialog(avm.Model);
         }
 
+        private void OnMenuScheduleLaunch(object sender, RoutedEventArgs e)
+        {
+            var avm = GetItemFromMenu(sender);
+            if (avm?.Model != null)
+                ViewModel.OpenNewScheduleForAccounts(new[] { avm.Model }, ViewModel.LaunchBar.PlaceId, ViewModel.LaunchBar.JobId);
+        }
+
         private void OnMenuValidateSession(object sender, RoutedEventArgs e)
             => ExecuteMenuCommand(sender, ViewModel.AccountsVm.ValidateSessionCommand);
 

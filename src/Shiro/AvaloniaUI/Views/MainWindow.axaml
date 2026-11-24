@@ -27,7 +27,8 @@
         </Style>
         <Style Selector="Border#SidebarFooterBorder"><Setter Property="Padding" Value="12,12" /></Style>
         <Style Selector="Button#BtnCloseRoblox"><Setter Property="Padding" Value="12,9" /></Style>
-        <Style Selector="Border#SidebarRailBorder:not(.collapsed) Button#BtnNavTools">
+        <Style Selector="Border#SidebarRailBorder:not(.collapsed) Button#BtnNavTools,
+                         Border#SidebarRailBorder:not(.collapsed) Button#BtnNavScheduler">
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
         </Style>
         <Style Selector="Border#SidebarRailBorder.collapsed :is(Control).NavLabel"><Setter Property="IsVisible" Value="False" /></Style>
@@ -183,6 +184,27 @@
                                         <TextBlock Classes="NavLabel" Text="{DynamicResource Nav_RecentGames}" FontSize="13" VerticalAlignment="Center" />
                                     </StackPanel>
                                 </Button>
+                                <Button x:Name="BtnNavScheduler" Classes="NavPill" Click="OnNavSchedulerClicked"
+                                        ToolTip.Tip="{DynamicResource Nav_Tip_Scheduler}">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
+                                            <lucide:Lucide Icon="Clock" Width="16" Height="16" VerticalAlignment="Center" />
+                                            <TextBlock Classes="NavLabel" Text="{DynamicResource Nav_Scheduler}" FontSize="13" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                        <Panel Grid.Column="1" Classes="NavLabel" Margin="8,0,0,0">
+                                            <Border x:Name="SchedulerActiveBadge" Classes="ToolsOnBadge" IsVisible="{Binding Scheduler.HasActiveBadge}">
+                                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                                    <controls:StatusPulseDot DotBrush="{DynamicResource StatusSuccessBrush}" DotSize="4.5"
+                                                                             Width="12" Height="12" IsPulsing="{Binding Scheduler.HasActiveBadge}"
+                                                                             VerticalAlignment="Center" />
+                                                    <TextBlock Classes="TabularNum" Text="{Binding Scheduler.EnabledCount}" FontSize="10"
+                                                               FontWeight="Bold" Foreground="{DynamicResource StatusSuccessBrush}"
+                                                               VerticalAlignment="Center" />
+                                                </StackPanel>
+                                            </Border>
+                                        </Panel>
+                                    </Grid>
+                                </Button>
                                 <Button x:Name="BtnNavTools" Classes="NavPill" ToolTip.Tip="{DynamicResource Nav_Tools}">
                                     <Button.Flyout>
                                         <MenuFlyout Placement="RightEdgeAlignedTop">
@@ -303,6 +325,7 @@
                 <Panel Grid.Column="1" x:Name="MainContentHost" Background="Transparent" ClipToBounds="True">
                     <views:DashboardView x:Name="ViewDashboard" />
                     <views:ServerListView x:Name="ViewServerList" IsVisible="False" />
+                    <views:SchedulerView x:Name="ViewScheduler" DataContext="{Binding Scheduler}" IsVisible="False" />
                     <views:SettingsView x:Name="ViewSettings" IsVisible="False" />
                     <views:AboutView x:Name="ViewAbout" IsVisible="False" />
                 </Panel>

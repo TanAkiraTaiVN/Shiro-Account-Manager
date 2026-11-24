@@ -116,4 +116,19 @@ namespace Shiro.AvaloniaUI.Converters
         public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
             => BindingOperations.DoNothing;
     }
+
+    public class IntToDecimalConverter : IValueConverter
+    {
+        public static readonly IntToDecimalConverter Instance = new();
+
+        public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+        {
+            return value is int i ? (decimal?)i : 0m;
+        }
+
+        public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        {
+            return value is decimal d ? (int)Math.Round(d) : 0;
+        }
+    }
 }

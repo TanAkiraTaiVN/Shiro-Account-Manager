@@ -1,8 +1,10 @@
 #nullable enable
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Shiro.AvaloniaUI.Controls;
+using Shiro.ViewModels;
 
 namespace Shiro.AvaloniaUI.Views.Panels
 {
@@ -52,6 +54,12 @@ namespace Shiro.AvaloniaUI.Views.Panels
 
             SpringCompositionHelper.RunSpringEntrance(
                 target, offsetX: 0.0, offsetY: 12.0, fromScale: 0.96, durationMs: 220.0);
+        }
+
+        private void OnMenuScheduleSelected(object? sender, RoutedEventArgs e)
+        {
+            if (DataContext is MainViewModel vm)
+                vm.OpenNewScheduleForAccounts(vm.AccountsVm.GetSelectedAccounts(), vm.LaunchBar.PlaceId, vm.LaunchBar.JobId);
         }
     }
 }

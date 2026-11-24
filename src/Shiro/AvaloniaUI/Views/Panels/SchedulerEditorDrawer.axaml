@@ -1,0 +1,376 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:controls="clr-namespace:Shiro.AvaloniaUI.Controls"
+             xmlns:vm="clr-namespace:Shiro.ViewModels"
+             xmlns:sys="clr-namespace:System;assembly=System.Runtime"
+             xmlns:lucide="clr-namespace:LucideAvalonia;assembly=LucideAvalonia"
+             mc:Ignorable="d" x:Class="Shiro.AvaloniaUI.Views.Panels.SchedulerEditorDrawer"
+             x:DataType="vm:ScheduleEditorViewModel" x:CompileBindings="True" x:Name="RootEditorDrawer"
+             IsVisible="{Binding IsOpen}" IsHitTestVisible="{Binding IsOpen}" Width="390">
+    <UserControl.Styles>
+        <Style Selector="Border.DrawerSection">
+            <Setter Property="Background" Value="{DynamicResource SurfacePanelBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderHairlineBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="{StaticResource RadiusMid12}" />
+            <Setter Property="Padding" Value="11,10" />
+        </Style>
+        <Style Selector="Button.SegmentBtn">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="{StaticResource RadiusChip6}" />
+            <Setter Property="Padding" Value="9,5" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Button.SegmentBtn.active, ToggleButton.DayPillBtn:checked">
+            <Setter Property="Background" Value="{DynamicResource AccentSoftFillBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBorderBrush}" />
+            <Setter Property="FontWeight" Value="Bold" />
+        </Style>
+        <Style Selector="Button.QuickChipBtn, ToggleButton.DayPillBtn">
+            <Setter Property="Background" Value="{DynamicResource SurfaceElevatedBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="{StaticResource RadiusChip6}" />
+            <Setter Property="Padding" Value="7,3" />
+            <Setter Property="FontSize" Value="10.5" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+    </UserControl.Styles>
+    <Border x:Name="DrawerShadowHost" CornerRadius="{StaticResource RadiusOuter16}" BoxShadow="{StaticResource ShadowFloating}">
+        <controls:SkiaGlassSurface x:Name="DrawerGlass" Width="390" BlurSigma="20" NoiseOpacity="0.024"
+                                   SpecularHighlightOpacity="0.22" EnablePointerSpecular="True" TintBrush="#D812121C"
+                                   BorderBrush="{DynamicResource BorderStrongBrush}" BorderThickness="1"
+                                   CornerRadius="{StaticResource RadiusOuter16}" ClipToBounds="True">
+            <Grid x:Name="DrawerContentHost" RowDefinitions="Auto,*,Auto">
+                <Border Grid.Row="0" BorderBrush="{DynamicResource BorderHairlineBrush}" BorderThickness="0,0,0,1" Padding="14,11">
+                    <Grid ColumnDefinitions="Auto,*,Auto">
+                        <lucide:Lucide Grid.Column="0" Icon="Clock" Width="14" Height="14"
+                                       StrokeBrush="{DynamicResource AccentBrush}" Margin="0,0,8,0" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="1" Text="{Binding EditorTitleText}" FontSize="13.5" FontWeight="Bold"
+                                   Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
+                        <Button Grid.Column="2" x:Name="BtnCloseScheduleEditor" Classes="StudioIconBtn" Width="26" Height="26"
+                                Command="{Binding CloseCommand}" ToolTip.Tip="{DynamicResource Sched_Editor_CloseTip}">
+                            <lucide:Lucide Icon="X" Width="13" Height="13" StrokeBrush="{DynamicResource TextMutedBrush}" />
+                        </Button>
+                    </Grid>
+                </Border>
+                <ScrollViewer x:Name="DrawerScrollViewer" Grid.Row="1"
+                              HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                    <StackPanel Spacing="10" Margin="12,10">
+                        <Border Classes="DrawerSection">
+                            <StackPanel Spacing="8">
+                                <TextBlock Classes="SectionKicker" Text="{DynamicResource Sched_Editor_SectionIdentity}" />
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="{DynamicResource Sched_Editor_NameLabel}" FontSize="11" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource TextSecondaryBrush}" />
+                                    <TextBox x:Name="TxtScheduleName" Text="{Binding Name, Mode=TwoWay}"
+                                             PlaceholderText="{DynamicResource Sched_Editor_NamePlaceholder}"
+                                             CornerRadius="{StaticResource RadiusInner8}" Padding="9,6" FontSize="12" />
+                                </StackPanel>
+                                <Grid ColumnDefinitions="Auto,*" VerticalAlignment="Center">
+                                    <TextBlock Grid.Column="0" Text="{DynamicResource Sched_Editor_ColorLabel}" FontSize="11"
+                                               FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}"
+                                               Margin="0,0,10,0" VerticalAlignment="Center" />
+                                    <ItemsControl Grid.Column="1" ItemsSource="{Binding AvailableColorSwatches}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="7" /></ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:ScheduleColorSwatchViewModel">
+                                                <Button Width="22" Height="22" CornerRadius="{StaticResource RadiusPill}" Padding="0"
+                                                        Background="{Binding SwatchBrush}" BorderThickness="2"
+                                                        BorderBrush="{DynamicResource BorderStrongBrush}" Cursor="Hand"
+                                                        ToolTip.Tip="{Binding Label}" CommandParameter="{Binding}"
+                                                        Command="{Binding #RootEditorDrawer.((vm:ScheduleEditorViewModel)DataContext).SetColorCommand}">
+                                                    <lucide:Lucide Icon="Check" Width="11" Height="11" StrokeBrush="#09090B"
+                                                                   IsVisible="{Binding IsSelected}" />
+                                                </Button>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </Grid>
+                                <Border Background="{DynamicResource SurfaceInputBrush}" CornerRadius="{StaticResource RadiusInner8}" Padding="3">
+                                    <Grid ColumnDefinitions="*,*,*">
+                                        <Button Grid.Column="0" Classes="SegmentBtn" Classes.active="{Binding IsOneTimeRecurrence}"
+                                                Command="{Binding SetRecurrenceCommand}" CommandParameter="OneTime"
+                                                Content="{DynamicResource Sched_Editor_RecOneTime}" />
+                                        <Button Grid.Column="1" Classes="SegmentBtn" Classes.active="{Binding IsDailyRecurrence}"
+                                                Command="{Binding SetRecurrenceCommand}" CommandParameter="Daily"
+                                                Content="{DynamicResource Sched_Editor_RecDaily}" />
+                                        <Button Grid.Column="2" Classes="SegmentBtn" Classes.active="{Binding IsWeeklyRecurrence}"
+                                                Command="{Binding SetRecurrenceCommand}" CommandParameter="Weekly"
+                                                Content="{DynamicResource Sched_Editor_RecWeekly}" />
+                                    </Grid>
+                                </Border>
+                                <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsOneTimeRecurrence}">
+                                    <TextBox Grid.Column="0" x:Name="TxtOneTimeDate" Text="{Binding OneTimeDateText, Mode=TwoWay}"
+                                             PlaceholderText="yyyy-MM-dd" CornerRadius="{StaticResource RadiusInner8}"
+                                             Padding="8,5" FontSize="11.5" Margin="0,0,5,0" />
+                                    <Button Grid.Column="1" Classes="QuickChipBtn" Command="{Binding SetQuickDateCommand}"
+                                            CommandParameter="Today" Content="{DynamicResource Sched_Editor_TodayBtn}" Margin="0,0,4,0" />
+                                    <Button Grid.Column="2" Classes="QuickChipBtn" Command="{Binding SetQuickDateCommand}"
+                                            CommandParameter="Tomorrow" Content="{DynamicResource Sched_Editor_TomorrowBtn}" />
+                                </Grid>
+                                <StackPanel Spacing="5" IsVisible="{Binding IsWeeklyRecurrence}">
+                                    <WrapPanel Orientation="Horizontal">
+                                        <ToggleButton Classes="DayPillBtn" IsChecked="{Binding DayMon, Mode=TwoWay}"
+                                                      Content="{DynamicResource Sched_Day_Mon}" Margin="0,0,3,3" />
+                                        <ToggleButton Classes="DayPillBtn" IsChecked="{Binding DayTue, Mode=TwoWay}"
+                                                      Content="{DynamicResource Sched_Day_Tue}" Margin="0,0,3,3" />
+                                        <ToggleButton Classes="DayPillBtn" IsChecked="{Binding DayWed, Mode=TwoWay}"
+                                                      Content="{DynamicResource Sched_Day_Wed}" Margin="0,0,3,3" />
+                                        <ToggleButton Classes="DayPillBtn" IsChecked="{Binding DayThu, Mode=TwoWay}"
+                                                      Content="{DynamicResource Sched_Day_Thu}" Margin="0,0,3,3" />
+                                        <ToggleButton Classes="DayPillBtn" IsChecked="{Binding DayFri, Mode=TwoWay}"
+                                                      Content="{DynamicResource Sched_Day_Fri}" Margin="0,0,3,3" />
+                                        <ToggleButton Classes="DayPillBtn" IsChecked="{Binding DaySat, Mode=TwoWay}"
+                                                      Content="{DynamicResource Sched_Day_Sat}" Margin="0,0,3,3" />
+                                        <ToggleButton Classes="DayPillBtn" IsChecked="{Binding DaySun, Mode=TwoWay}"
+                                                      Content="{DynamicResource Sched_Day_Sun}" Margin="0,0,0,3" />
+                                    </WrapPanel>
+                                    <StackPanel Orientation="Horizontal" Spacing="5">
+                                        <Button Classes="QuickChipBtn" Command="{Binding SetWeekdayPresetCommand}"
+                                                CommandParameter="Weekdays" Content="{DynamicResource Sched_Editor_WeekdaysBtn}" />
+                                        <Button Classes="QuickChipBtn" Command="{Binding SetWeekdayPresetCommand}"
+                                                CommandParameter="Weekends" Content="{DynamicResource Sched_Editor_WeekendsBtn}" />
+                                        <Button Classes="QuickChipBtn" Command="{Binding SetWeekdayPresetCommand}"
+                                                CommandParameter="All" Content="{DynamicResource Sched_Editor_AllDaysBtn}" />
+                                    </StackPanel>
+                                </StackPanel>
+                                <Grid ColumnDefinitions="*,8,*">
+                                    <StackPanel Grid.Column="0" Spacing="3">
+                                        <TextBlock Text="{DynamicResource Sched_Editor_StartTimeLabel}" FontSize="11"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}" />
+                                        <TextBox x:Name="TxtStartTime" Classes="TabularNum" Text="{Binding StartTimeText, Mode=TwoWay}"
+                                                 CornerRadius="{StaticResource RadiusInner8}" Padding="8,5" FontSize="12" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2" Spacing="3">
+                                        <CheckBox x:Name="ChkHasEndTime" IsChecked="{Binding HasEndTime, Mode=TwoWay}"
+                                                  Content="{DynamicResource Sched_Editor_AutoCloseLabel}" FontSize="11" Padding="4,0" MinHeight="18" />
+                                        <TextBox x:Name="TxtEndTime" Classes="TabularNum" Text="{Binding EndTimeText, Mode=TwoWay}"
+                                                 IsEnabled="{Binding HasEndTime}" CornerRadius="{StaticResource RadiusInner8}"
+                                                 PlaceholderText="{DynamicResource Sched_Editor_EndTimePlaceholder}" Padding="8,5" FontSize="12" />
+                                    </StackPanel>
+                                </Grid>
+                                <WrapPanel Orientation="Horizontal">
+                                    <Button Classes="QuickChipBtn" Command="{Binding ApplyDurationHoursCommand}"
+                                            CommandParameter="+2h" Content="+2h" Margin="0,0,4,3" />
+                                    <Button Classes="QuickChipBtn" Command="{Binding ApplyDurationHoursCommand}"
+                                            CommandParameter="+4h" Content="+4h" Margin="0,0,4,3" />
+                                    <Button Classes="QuickChipBtn" Command="{Binding ApplyDurationHoursCommand}"
+                                            CommandParameter="+6h" Content="+6h" Margin="0,0,4,3" />
+                                    <Button Classes="QuickChipBtn" Command="{Binding ApplyDurationHoursCommand}"
+                                            CommandParameter="+8h" Content="+8h" Margin="0,0,4,3" />
+                                    <Button Classes="QuickChipBtn" Command="{Binding ApplyDurationHoursCommand}"
+                                            CommandParameter="+12h" Content="+12h" Margin="0,0,6,3" />
+                                    <Border IsVisible="{Binding IsOvernightPreview}" Background="{DynamicResource StatusInfoBgBrush}"
+                                            BorderBrush="{DynamicResource StatusInfoBorderBrush}" BorderThickness="1"
+                                            CornerRadius="{StaticResource RadiusChip6}" Padding="6,2" Margin="0,0,0,3">
+                                        <TextBlock Text="{DynamicResource Sched_Editor_OvernightBadge}" FontSize="10"
+                                                   FontWeight="Bold" Foreground="{DynamicResource StatusInfoBrush}" />
+                                    </Border>
+                                </WrapPanel>
+                            </StackPanel>
+                        </Border>
+                        <Border Classes="DrawerSection">
+                            <StackPanel Spacing="7">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock Grid.Column="0" Classes="SectionKicker"
+                                               Text="{DynamicResource Sched_Editor_SectionTargets}" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1" Classes="TabularNum" Text="{Binding SelectedAccountsSummaryText}"
+                                               FontSize="10.5" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}" />
+                                </Grid>
+                                <Border Background="{DynamicResource SurfaceInputBrush}" CornerRadius="{StaticResource RadiusInner8}" Padding="3">
+                                    <Grid ColumnDefinitions="*,*">
+                                        <Button Grid.Column="0" Classes="SegmentBtn" Classes.active="{Binding IsSpecificAccountsTarget}"
+                                                Command="{Binding SetTargetModeCommand}" CommandParameter="SpecificAccounts"
+                                                Content="{DynamicResource Sched_Editor_TargetSpecific}" />
+                                        <Button Grid.Column="1" Classes="SegmentBtn" Classes.active="{Binding IsGroupTarget}"
+                                                Command="{Binding SetTargetModeCommand}" CommandParameter="Group"
+                                                Content="{DynamicResource Sched_Editor_TargetGroup}" />
+                                    </Grid>
+                                </Border>
+                                <StackPanel Spacing="4" IsVisible="{Binding IsGroupTarget}">
+                                    <TextBlock Text="{DynamicResource Sched_Editor_GroupLabel}" FontSize="11"
+                                               Foreground="{DynamicResource TextSecondaryBrush}" />
+                                    <ComboBox x:Name="CmbTargetGroup" ItemsSource="{Binding AvailableGroups}"
+                                              SelectedItem="{Binding SelectedGroup, Mode=TwoWay}" HorizontalAlignment="Stretch">
+                                        <ComboBox.ItemTemplate><DataTemplate x:DataType="sys:String">
+                                            <TextBlock Text="{Binding Converter={StaticResource GroupNameDisplay}}" />
+                                        </DataTemplate></ComboBox.ItemTemplate>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel Spacing="6" IsVisible="{Binding IsSpecificAccountsTarget}">
+                                    <TextBox x:Name="TxtEditorAccountSearch" Text="{Binding AccountSearchText, Mode=TwoWay}"
+                                             PlaceholderText="{DynamicResource Sched_Editor_AccountSearchPlaceholder}"
+                                             CornerRadius="{StaticResource RadiusInner8}" Padding="8,5" FontSize="11.5" />
+                                    <WrapPanel Orientation="Horizontal">
+                                        <Button Classes="QuickChipBtn" Command="{Binding SelectReadyAccountsCommand}"
+                                                Content="{DynamicResource Sched_Editor_SelectReadyBtn}" Margin="0,0,4,3" />
+                                        <Button Classes="QuickChipBtn" Command="{Binding UseDashboardSelectionCommand}"
+                                                Content="{DynamicResource Sched_Editor_UseDashSelectionBtn}" Margin="0,0,4,3" />
+                                        <Button Classes="QuickChipBtn" Command="{Binding ClearAccountsCommand}"
+                                                Content="{DynamicResource Sched_Editor_ClearAccountsBtn}" Margin="0,0,0,3" />
+                                    </WrapPanel>
+                                    <ScrollViewer MaxHeight="145" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                                        <ItemsControl ItemsSource="{Binding FilteredAccountChecklist}"><ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:ScheduleAccountChecklistItemViewModel">
+                                                <CheckBox IsChecked="{Binding IsChecked, Mode=TwoWay}" Padding="6,3" Margin="0,1">
+                                                    <Grid ColumnDefinitions="*,Auto">
+                                                        <TextBlock Grid.Column="0" Text="{Binding DisplayLabel}" FontSize="11.5"
+                                                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                                                   TextTrimming="CharacterEllipsis" Margin="0,0,8,0" />
+                                                        <TextBlock Grid.Column="1" Text="{Binding StatusText}" FontSize="10"
+                                                                   Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" />
+                                                    </Grid>
+                                                </CheckBox>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate></ItemsControl>
+                                    </ScrollViewer>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                        <Border Classes="DrawerSection">
+                            <StackPanel Spacing="7">
+                                <TextBlock Classes="SectionKicker" Text="{DynamicResource Sched_Editor_SectionDestination}" />
+                                <Border Background="{DynamicResource SurfaceInputBrush}" CornerRadius="{StaticResource RadiusInner8}" Padding="3">
+                                    <Grid ColumnDefinitions="*,*">
+                                        <Button Grid.Column="0" Classes="SegmentBtn" Classes.active="{Binding IsJoinServerMode}"
+                                                Command="{Binding SetLaunchModeCommand}" CommandParameter="JoinServer"
+                                                Content="{DynamicResource Sched_Editor_LaunchJoinServer}" />
+                                        <Button Grid.Column="1" Classes="SegmentBtn" Classes.active="{Binding IsOpenHomeMode}"
+                                                Command="{Binding SetLaunchModeCommand}" CommandParameter="OpenHome"
+                                                Content="{DynamicResource Sched_Editor_LaunchOpenHome}" />
+                                    </Grid>
+                                </Border>
+                                <StackPanel Spacing="6" IsVisible="{Binding IsJoinServerMode}">
+                                    <TextBlock Text="{DynamicResource Sched_Editor_PlaceIdLabel}" FontSize="11"
+                                               Foreground="{DynamicResource TextSecondaryBrush}" />
+                                    <Grid ColumnDefinitions="*,6,Auto">
+                                        <TextBox Grid.Column="0" x:Name="TxtSchedulePlaceId" Text="{Binding PlaceIdText, Mode=TwoWay}"
+                                                 PlaceholderText="{DynamicResource Sched_Editor_PlaceIdPlaceholder}"
+                                                 CornerRadius="{StaticResource RadiusInner8}" Padding="8,5" FontSize="11.5" />
+                                        <Button Grid.Column="2" Classes="StudioSecondaryBtn" Padding="8,5" FontSize="11">
+                                            <Button.Flyout><Flyout Placement="BottomEdgeAlignedRight">
+                                                <Border Width="250" MaxHeight="240" Padding="4" Background="{DynamicResource SurfaceElevatedBrush}"><Panel>
+                                                    <TextBlock Text="{DynamicResource Sched_Editor_NoQuickPickGames}" FontSize="11"
+                                                               Foreground="{DynamicResource TextMutedBrush}" Margin="8"
+                                                               IsVisible="{Binding !HasRecentAndFavoriteGames}" />
+                                                    <ScrollViewer IsVisible="{Binding HasRecentAndFavoriteGames}">
+                                                        <ItemsControl ItemsSource="{Binding RecentAndFavoriteGames}"><ItemsControl.ItemTemplate>
+                                                            <DataTemplate x:DataType="vm:ScheduleGameQuickPickViewModel">
+                                                                <Button Background="Transparent" HorizontalAlignment="Stretch"
+                                                                        HorizontalContentAlignment="Left" Padding="7,5" CommandParameter="{Binding}"
+                                                                        Command="{Binding #RootEditorDrawer.((vm:ScheduleEditorViewModel)DataContext).SelectRecentOrFavoriteGameCommand}">
+                                                                    <StackPanel Spacing="1">
+                                                                        <TextBlock Text="{Binding Name}" FontSize="11.5"
+                                                                                   Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" />
+                                                                        <TextBlock Text="{Binding Subtitle}" FontSize="10" Foreground="{DynamicResource TextMutedBrush}" />
+                                                                    </StackPanel>
+                                                                </Button>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate></ItemsControl>
+                                                    </ScrollViewer>
+                                                </Panel></Border>
+                                            </Flyout></Button.Flyout>
+                                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                                <lucide:Lucide Icon="Gamepad2" Width="12" Height="12" StrokeBrush="{DynamicResource StatusInfoBrush}" />
+                                                <TextBlock Text="{DynamicResource Sched_Editor_QuickPickBtn}" />
+                                            </StackPanel>
+                                        </Button>
+                                    </Grid>
+                                    <TextBlock Text="{DynamicResource Sched_Editor_JobIdLabel}" FontSize="11"
+                                               Foreground="{DynamicResource TextSecondaryBrush}" />
+                                    <TextBox x:Name="TxtScheduleJobId" Text="{Binding JobIdText, Mode=TwoWay}"
+                                             PasswordChar="{Binding JobIdMaskChar}"
+                                             PlaceholderText="{DynamicResource Sched_Editor_JobIdPlaceholder}"
+                                             CornerRadius="{StaticResource RadiusInner8}" Padding="8,5" FontSize="11.5" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                        <Border Classes="DrawerSection">
+                            <StackPanel Spacing="8">
+                                <TextBlock Classes="SectionKicker" Text="{DynamicResource Sched_Editor_SectionOptions}" />
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock Grid.Column="0" Text="{DynamicResource Sched_Editor_CloseOthersLabel}" FontSize="11.5"
+                                               Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding CloseOtherTabsBeforeLaunch, Mode=TwoWay}" OnContent="{x:Null}" OffContent="{x:Null}" />
+                                </Grid>
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock Grid.Column="0" Text="{DynamicResource Sched_Editor_HandoffLabel}" FontSize="11.5"
+                                               Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
+                                    <NumericUpDown Grid.Column="1" Width="106" Minimum="0" Maximum="15" Increment="1" FormatString="0"
+                                                   Value="{Binding HandoffDelaySeconds, Converter={StaticResource IntToDecimal}, Mode=TwoWay}" />
+                                </Grid>
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="{DynamicResource Sched_Editor_ArrangeLabel}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" />
+                                    <ComboBox x:Name="CmbArrangeMode" ItemsSource="{Binding ArrangeModeOptions}"
+                                              SelectedItem="{Binding SelectedArrangeModeOption, Mode=TwoWay}" HorizontalAlignment="Stretch">
+                                        <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:ScheduleArrangeOptionViewModel">
+                                            <TextBlock Text="{Binding Label}" />
+                                        </DataTemplate></ComboBox.ItemTemplate>
+                                    </ComboBox>
+                                </StackPanel>
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock Grid.Column="0" Text="{DynamicResource Sched_Editor_CatchUpLabel}" FontSize="11.5"
+                                               Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding CatchUpIfActiveOnStartup, Mode=TwoWay}" OnContent="{x:Null}" OffContent="{x:Null}" />
+                                </Grid>
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock Grid.Column="0" Text="{DynamicResource Sched_Editor_WebhookLabel}" FontSize="11.5"
+                                               Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding SendWebhookNotification, Mode=TwoWay}" OnContent="{x:Null}" OffContent="{x:Null}" />
+                                </Grid>
+                                <StackPanel Orientation="Horizontal" Spacing="5" IsVisible="{Binding !HasWebhookConfigured}">
+                                    <lucide:Lucide Icon="Info" Width="12" Height="12" StrokeBrush="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" />
+                                    <TextBlock Text="{DynamicResource Sched_Editor_WebhookMissingHint}" FontSize="10.5"
+                                               Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+                <Border Grid.Row="2" BorderBrush="{DynamicResource BorderHairlineBrush}" BorderThickness="0,1,0,0" Padding="12,9">
+                    <StackPanel Spacing="7">
+                        <Border IsVisible="{Binding HasValidationError}" Background="{DynamicResource StatusDangerBgBrush}"
+                                BorderBrush="{DynamicResource StatusDangerBorderBrush}" BorderThickness="1"
+                                CornerRadius="{StaticResource RadiusInner8}" Padding="8,5">
+                            <TextBlock Text="{Binding ValidationError}" FontSize="11" TextWrapping="Wrap"
+                                       Foreground="{DynamicResource StatusDangerBrush}" />
+                        </Border>
+                        <Border IsVisible="{Binding HasLiveConflictWarning}" Background="{DynamicResource StatusWarningBgBrush}"
+                                BorderBrush="{DynamicResource StatusWarningBorderBrush}" BorderThickness="1"
+                                CornerRadius="{StaticResource RadiusInner8}" Padding="8,5">
+                            <TextBlock Text="{Binding LiveConflictWarning}" FontSize="11" TextWrapping="Wrap"
+                                       Foreground="{DynamicResource StatusWarningBrush}" />
+                        </Border>
+                        <Grid ColumnDefinitions="*,8,*">
+                            <Button Grid.Column="0" Classes="StudioSecondaryBtn" Command="{Binding CancelCommand}"
+                                    CornerRadius="{StaticResource RadiusInner8}" Padding="10,7"
+                                    Content="{DynamicResource Sched_Editor_CancelBtn}" />
+                            <Button Grid.Column="2" x:Name="BtnSaveSchedule" Classes="StudioPrimaryBtn" Command="{Binding SaveCommand}"
+                                    CornerRadius="{StaticResource RadiusInner8}" Padding="10,7">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <lucide:Lucide Icon="Check" Width="13" Height="13" StrokeBrush="{DynamicResource AccentForegroundBrush}" />
+                                    <TextBlock Text="{DynamicResource Sched_Editor_SaveBtn}" Foreground="{DynamicResource AccentForegroundBrush}" />
+                                </StackPanel>
+                            </Button>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </controls:SkiaGlassSurface>
+    </Border>
+</UserControl>

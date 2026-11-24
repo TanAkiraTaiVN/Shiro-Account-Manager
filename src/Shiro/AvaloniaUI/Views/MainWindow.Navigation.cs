@@ -120,8 +120,10 @@ namespace Shiro.AvaloniaUI.Views
 
             if (ViewDashboard != null) ViewDashboard.IsVisible = (activeView == ViewDashboard);
             if (ViewServerList != null) ViewServerList.IsVisible = (activeView == ViewServerList);
+            if (ViewScheduler != null) ViewScheduler.IsVisible = (activeView == ViewScheduler);
             if (ViewSettings != null) ViewSettings.IsVisible = (activeView == ViewSettings);
             if (ViewAbout != null) ViewAbout.IsVisible = (activeView == ViewAbout);
+            ViewModel?.Scheduler.SetPageVisible(activeView == ViewScheduler);
 
             ResetNavButtons();
             activeButton?.Classes.Add("active");
@@ -192,6 +194,7 @@ namespace Shiro.AvaloniaUI.Views
             BtnNavDashboard?.Classes.Remove("active");
             BtnNavServerList?.Classes.Remove("active");
             BtnNavRecentGames?.Classes.Remove("active");
+            BtnNavScheduler?.Classes.Remove("active");
             BtnNavTools?.Classes.Remove("active");
             BtnNavSettings?.Classes.Remove("active");
             BtnNavAbout?.Classes.Remove("active");
@@ -201,6 +204,7 @@ namespace Shiro.AvaloniaUI.Views
         {
             NavigationPage.ServerList => new(nameof(ViewServerList), nameof(BtnNavServerList), 0, ReloadRecentGames: false, EnsureServersLoaded: true),
             NavigationPage.RecentGames => new(nameof(ViewServerList), nameof(BtnNavRecentGames), 2, ReloadRecentGames: true, EnsureServersLoaded: false),
+            NavigationPage.Scheduler => new(nameof(ViewScheduler), nameof(BtnNavScheduler), null, ReloadRecentGames: false, EnsureServersLoaded: false),
             NavigationPage.Settings => new(nameof(ViewSettings), nameof(BtnNavSettings), null, ReloadRecentGames: false, EnsureServersLoaded: false),
             NavigationPage.About => new(nameof(ViewAbout), nameof(BtnNavAbout), null, ReloadRecentGames: false, EnsureServersLoaded: false),
             _ => new(nameof(ViewDashboard), nameof(BtnNavDashboard), null, ReloadRecentGames: false, EnsureServersLoaded: false)
@@ -239,6 +243,7 @@ namespace Shiro.AvaloniaUI.Views
                 var targetView = spec.ViewName switch
                 {
                     nameof(ViewServerList) => (Control?)ViewServerList,
+                    nameof(ViewScheduler) => ViewScheduler,
                     nameof(ViewSettings) => ViewSettings,
                     nameof(ViewAbout) => ViewAbout,
                     _ => ViewDashboard
@@ -247,6 +252,7 @@ namespace Shiro.AvaloniaUI.Views
                 {
                     nameof(BtnNavServerList) => BtnNavServerList,
                     nameof(BtnNavRecentGames) => BtnNavRecentGames,
+                    nameof(BtnNavScheduler) => BtnNavScheduler,
                     nameof(BtnNavSettings) => BtnNavSettings,
                     nameof(BtnNavAbout) => BtnNavAbout,
                     _ => BtnNavDashboard
@@ -271,6 +277,7 @@ namespace Shiro.AvaloniaUI.Views
         private void OnNavDashboardClicked(object sender, RoutedEventArgs e) => NavigateFromSidebar(NavigationPage.Accounts);
         private void OnNavServerListClicked(object sender, RoutedEventArgs e) => NavigateFromSidebar(NavigationPage.ServerList);
         private void OnNavRecentGamesClicked(object sender, RoutedEventArgs e) => NavigateFromSidebar(NavigationPage.RecentGames);
+        private void OnNavSchedulerClicked(object sender, RoutedEventArgs e) => NavigateFromSidebar(NavigationPage.Scheduler);
         private void OnNavSettingsClicked(object sender, RoutedEventArgs e) => NavigateFromSidebar(NavigationPage.Settings);
         private void OnNavAboutClicked(object sender, RoutedEventArgs e) => NavigateFromSidebar(NavigationPage.About);
         private void OnSidebarCloseRobloxClicked(object sender, RoutedEventArgs e) => _ = HandleSidebarCloseRobloxAsync();

@@ -20,6 +20,8 @@
       <Separator />
       <MenuItem Header="{DynamicResource Ctx_ReLoginInApp}" Click="OnMenuReLoginFast"><MenuItem.Icon><lucide:Lucide Icon="LogIn"
         Width="14" Height="14" StrokeBrush="#FBBF24" /></MenuItem.Icon></MenuItem>
+      <MenuItem x:Name="MenuScheduleLaunch" Header="{DynamicResource Ctx_ScheduleLaunch}" Click="OnMenuScheduleLaunch"><MenuItem.Icon><lucide:Lucide
+        Icon="Clock" Width="14" Height="14" StrokeBrush="#38BDF8" /></MenuItem.Icon></MenuItem>
       <MenuItem Header="{DynamicResource Ctx_ValidateSession}" Click="OnMenuValidateSession"><MenuItem.Icon><lucide:Lucide Icon="ShieldCheck"
         Width="14" Height="14" StrokeBrush="#38BDF8" /></MenuItem.Icon></MenuItem>
       <MenuItem Header="{DynamicResource Ctx_UpdateRobux}" Click="OnMenuCheckRobux"><MenuItem.Icon><lucide:Lucide Icon="Coins"

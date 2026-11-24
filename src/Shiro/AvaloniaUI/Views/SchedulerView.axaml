@@ -1,0 +1,364 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:controls="clr-namespace:Shiro.AvaloniaUI.Controls"
+             xmlns:panels="clr-namespace:Shiro.AvaloniaUI.Views.Panels"
+             xmlns:vm="clr-namespace:Shiro.ViewModels"
+             xmlns:lucide="clr-namespace:LucideAvalonia;assembly=LucideAvalonia"
+             mc:Ignorable="d"
+             x:Class="Shiro.AvaloniaUI.Views.SchedulerView"
+             x:DataType="vm:SchedulerViewModel"
+             x:CompileBindings="True"
+             x:Name="RootSchedulerView">
+    <UserControl.Styles>
+        <Style Selector="Button.SchedFilterBtn">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="{StaticResource RadiusSm}" />
+            <Setter Property="Padding" Value="10,5" />
+            <Setter Property="FontSize" Value="11.5" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <Style Selector="Button.SchedFilterBtn:pointerover">
+            <Setter Property="Background" Value="{DynamicResource SurfaceCardHoverBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+        </Style>
+        <Style Selector="Button.SchedFilterBtn.active">
+            <Setter Property="Background" Value="{DynamicResource AccentSoftFillBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBorderBrush}" />
+            <Setter Property="FontWeight" Value="Bold" />
+        </Style>
+        <Style Selector="Button#BtnToggleHistory.active">
+            <Setter Property="Background" Value="{DynamicResource AccentSoftFillBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBorderBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+        </Style>
+    </UserControl.Styles>
+
+    <Grid RowDefinitions="Auto,Auto,Auto,*" Margin="20,14,20,12">
+        <!-- Row 0: Hero Header & Countdown -->
+        <Border Grid.Row="0"
+                Background="{DynamicResource SurfacePanelBrush}"
+                BorderBrush="{DynamicResource BorderSubtleBrush}"
+                BorderThickness="1"
+                CornerRadius="{StaticResource RadiusMid12}"
+                BoxShadow="{StaticResource ShadowCard}"
+                Margin="0,0,0,10">
+            <Panel>
+                <Border IsHitTestVisible="False"
+                        BorderBrush="{DynamicResource BorderTopRimBrush}"
+                        BorderThickness="0,1,0,0"
+                        CornerRadius="{StaticResource RadiusMid12}" />
+                <Grid ColumnDefinitions="*,Auto,Auto" Margin="16,12">
+                    <StackPanel Grid.Column="0" Spacing="4" VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                            <TextBlock Text="{DynamicResource Sched_Title}"
+                                       FontSize="20" FontWeight="Bold"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"
+                                       VerticalAlignment="Center" />
+                            <Border Background="{DynamicResource SurfaceCardBrush}"
+                                    BorderBrush="{DynamicResource BorderSubtleBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="{StaticResource RadiusPill}"
+                                    Padding="9,3" VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <controls:StatusPulseDot DotBrush="{DynamicResource StatusSuccessBrush}"
+                                                             DotSize="5.5"
+                                                             IsPulsing="{Binding IsEngineEnabled}"
+                                                             VerticalAlignment="Center" />
+                                    <TextBlock Classes="TabularNum"
+                                               Text="{Binding EngineStatusText}"
+                                               FontSize="11" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource TextSecondaryBrush}"
+                                               VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Border>
+                            <ToggleSwitch x:Name="SwSchedulerMaster"
+                                          IsChecked="{Binding IsEngineEnabled, Mode=TwoWay}"
+                                          OnContent="{x:Null}" OffContent="{x:Null}"
+                                          ToolTip.Tip="{DynamicResource Sched_Engine_MasterToggleTip}"
+                                          VerticalAlignment="Center" />
+                        </StackPanel>
+                        <TextBlock Text="{DynamicResource Sched_Subtitle}"
+                                   FontSize="11.5"
+                                   Foreground="{DynamicResource TextSecondaryBrush}" />
+                    </StackPanel>
+
+                    <Border Grid.Column="1"
+                            Background="{DynamicResource SurfaceCardBrush}"
+                            BorderBrush="{DynamicResource BorderSubtleBrush}"
+                            BorderThickness="1"
+                            CornerRadius="{StaticResource RadiusInner8}"
+                            Padding="12,7" Margin="0,0,12,0"
+                            VerticalAlignment="Center">
+                        <Grid ColumnDefinitions="Auto,*" VerticalAlignment="Center">
+                            <lucide:Lucide Grid.Column="0" Icon="Activity" Width="15" Height="15"
+                                           StrokeBrush="{DynamicResource AccentBrush}"
+                                           Margin="0,0,9,0" VerticalAlignment="Center" />
+                            <StackPanel Grid.Column="1" Spacing="1">
+                                <TextBlock Text="{Binding NextEventSummaryText}"
+                                           FontSize="11" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextSecondaryBrush}"
+                                           MaxWidth="220" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Classes="TabularNum"
+                                           Text="{Binding NextEventCountdownText}"
+                                           FontSize="15" FontWeight="Bold"
+                                           Foreground="{DynamicResource TextPrimaryBrush}" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <Button x:Name="BtnToggleHistory"
+                                Classes="StudioSecondaryBtn"
+                                Classes.active="{Binding IsHistoryOpen}"
+                                Command="{Binding ToggleHistoryCommand}"
+                                Padding="11,7">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <lucide:Lucide Icon="Clock" Width="13" Height="13"
+                                               StrokeBrush="{DynamicResource TextSecondaryBrush}"
+                                               VerticalAlignment="Center" />
+                                <TextBlock Text="{DynamicResource Sched_HistoryBtn}"
+                                           VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="BtnNewSchedule"
+                                Classes="StudioPrimaryBtn"
+                                Command="{Binding NewScheduleCommand}"
+                                Padding="13,7">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <lucide:Lucide Icon="Plus" Width="13" Height="13"
+                                               StrokeBrush="{DynamicResource AccentForegroundBrush}"
+                                               VerticalAlignment="Center" />
+                                <TextBlock Text="{DynamicResource Sched_NewScheduleBtn}"
+                                           Foreground="{DynamicResource AccentForegroundBrush}"
+                                           VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Grid>
+            </Panel>
+        </Border>
+
+        <!-- Row 1: 24-Hour Timeline & Conflict Banner -->
+        <panels:SchedulerTimelinePanel x:Name="ViewSchedulerTimeline" Grid.Row="1" Margin="0,0,0,10" />
+
+        <!-- Row 2: Filter Pills, Search & Collapsible Run History -->
+        <StackPanel Grid.Row="2" Spacing="10" Margin="0,0,0,10">
+            <Grid ColumnDefinitions="*,Auto">
+                <Border Grid.Column="0"
+                        Background="{DynamicResource SurfacePanelBrush}"
+                        BorderBrush="{DynamicResource BorderSubtleBrush}"
+                        BorderThickness="1"
+                        CornerRadius="{StaticResource RadiusMd}"
+                        Padding="3" HorizontalAlignment="Left">
+                    <WrapPanel Orientation="Horizontal">
+                        <Button Classes="SchedFilterBtn" Classes.active="{Binding IsFilterAll}"
+                                Command="{Binding SetFilterCommand}" CommandParameter="All">
+                            <TextBlock Classes="TabularNum" Text="{Binding FilterAllText}" />
+                        </Button>
+                        <Button Classes="SchedFilterBtn" Classes.active="{Binding IsFilterEnabled}"
+                                Command="{Binding SetFilterCommand}" CommandParameter="Enabled">
+                            <TextBlock Classes="TabularNum" Text="{Binding FilterEnabledText}" />
+                        </Button>
+                        <Button Classes="SchedFilterBtn" Classes.active="{Binding IsFilterActiveNow}"
+                                Command="{Binding SetFilterCommand}" CommandParameter="ActiveNow">
+                            <TextBlock Classes="TabularNum" Text="{Binding FilterActiveNowText}" />
+                        </Button>
+                        <Button Classes="SchedFilterBtn" Classes.active="{Binding IsFilterPaused}"
+                                Command="{Binding SetFilterCommand}" CommandParameter="Paused">
+                            <TextBlock Classes="TabularNum" Text="{Binding FilterPausedText}" />
+                        </Button>
+                    </WrapPanel>
+                </Border>
+                <TextBox Grid.Column="1"
+                         x:Name="TxtScheduleSearch"
+                         Text="{Binding SearchText, Mode=TwoWay}"
+                         Width="245" CornerRadius="16" Padding="10,6" FontSize="12"
+                         PlaceholderText="{DynamicResource Sched_SearchPlaceholder}"
+                         VerticalContentAlignment="Center">
+                    <TextBox.InnerLeftContent>
+                        <lucide:Lucide Icon="Search" Width="13" Height="13"
+                                       StrokeBrush="{DynamicResource TextMutedBrush}"
+                                       Margin="10,0,0,0" VerticalAlignment="Center" />
+                    </TextBox.InnerLeftContent>
+                </TextBox>
+            </Grid>
+
+            <panels:SchedulerHistoryPanel x:Name="ViewSchedulerHistory" />
+        </StackPanel>
+
+        <!-- Row 3: Schedule Cards Grid + Empty State -->
+        <Panel Grid.Row="3">
+            <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                <ItemsControl x:Name="SchedulesItemsControl" ItemsSource="{Binding FilteredSchedules}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate><WrapPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:ScheduleItemViewModel">
+                            <Border Width="420" Margin="0,0,12,12"
+                                    Background="{DynamicResource SurfaceCardBrush}"
+                                    BorderBrush="{DynamicResource BorderSubtleBrush}"
+                                    BorderThickness="1" CornerRadius="{StaticResource RadiusMid12}"
+                                    BoxShadow="{StaticResource ShadowCard}" ClipToBounds="True">
+                                <Grid ColumnDefinitions="4,*">
+                                    <Border Grid.Column="0" Background="{Binding AccentBrush}" />
+                                    <StackPanel Grid.Column="1" Margin="13,11" Spacing="8">
+                                        <Grid ColumnDefinitions="*,Auto,Auto">
+                                            <StackPanel Grid.Column="0" Spacing="3" Margin="0,0,8,0">
+                                                <TextBlock Text="{Binding Name}" FontSize="14" FontWeight="Bold"
+                                                           Foreground="{DynamicResource TextPrimaryBrush}"
+                                                           TextTrimming="CharacterEllipsis" />
+                                                <WrapPanel Orientation="Horizontal">
+                                                    <Border Background="{DynamicResource SurfaceSubtleChipBrush}"
+                                                            BorderBrush="{DynamicResource BorderSubtleBrush}"
+                                                            BorderThickness="1" CornerRadius="{StaticResource RadiusChip6}"
+                                                            Padding="6,2" Margin="0,0,5,2">
+                                                        <TextBlock Classes="TabularNum" Text="{Binding WindowBadgeText}"
+                                                                   FontSize="10.5" FontWeight="SemiBold"
+                                                                   Foreground="{DynamicResource TextPrimaryBrush}" />
+                                                    </Border>
+                                                    <Border Background="{DynamicResource SurfaceInputBrush}"
+                                                            BorderBrush="{DynamicResource BorderHairlineBrush}"
+                                                            BorderThickness="1" CornerRadius="{StaticResource RadiusChip6}"
+                                                            Padding="6,2" Margin="0,0,5,2">
+                                                        <TextBlock Text="{Binding RecurrenceText}" FontSize="10.5"
+                                                                   Foreground="{DynamicResource TextSecondaryBrush}" />
+                                                    </Border>
+                                                    <Border IsVisible="{Binding HasConflict}"
+                                                            Background="{DynamicResource StatusWarningBgBrush}"
+                                                            BorderBrush="{DynamicResource StatusWarningBorderBrush}"
+                                                            BorderThickness="1" CornerRadius="{StaticResource RadiusChip6}"
+                                                            Padding="6,2" Margin="0,0,0,2">
+                                                        <TextBlock Text="{Binding ConflictBadgeText}" FontSize="10"
+                                                                   FontWeight="Bold"
+                                                                   Foreground="{DynamicResource StatusWarningBrush}" />
+                                                    </Border>
+                                                </WrapPanel>
+                                            </StackPanel>
+                                            <Border Grid.Column="1" Background="{Binding StatusBadgeBackground}"
+                                                    BorderBrush="{Binding StatusBadgeBorder}" BorderThickness="1"
+                                                    CornerRadius="{StaticResource RadiusPill}" Padding="8,3"
+                                                    Margin="0,0,8,0" VerticalAlignment="Top">
+                                                <StackPanel Orientation="Horizontal" Spacing="5">
+                                                    <controls:StatusPulseDot DotBrush="{Binding StatusBadgeForeground}"
+                                                                             DotSize="5" IsPulsing="{Binding IsActiveNow}"
+                                                                             VerticalAlignment="Center" />
+                                                    <TextBlock Classes="TabularNum" Text="{Binding StatusBadgeText}"
+                                                               FontSize="10" FontWeight="Bold"
+                                                               Foreground="{Binding StatusBadgeForeground}" />
+                                                </StackPanel>
+                                            </Border>
+                                            <ToggleSwitch Grid.Column="2" IsChecked="{Binding IsEnabled, Mode=TwoWay}"
+                                                          OnContent="{x:Null}" OffContent="{x:Null}"
+                                                          ToolTip.Tip="{DynamicResource Sched_Card_EnableTip}"
+                                                          VerticalAlignment="Top" />
+                                        </Grid>
+
+                                        <StackPanel Spacing="3">
+                                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                                <lucide:Lucide Icon="User" Width="12" Height="12"
+                                                               StrokeBrush="{DynamicResource TextMutedBrush}"
+                                                               VerticalAlignment="Center" />
+                                                <TextBlock Text="{Binding TargetSummaryText}" FontSize="11.5"
+                                                           Foreground="{DynamicResource TextSecondaryBrush}"
+                                                           TextTrimming="CharacterEllipsis" />
+                                            </StackPanel>
+                                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                                <lucide:Lucide Icon="Gamepad2" Width="12" Height="12"
+                                                               StrokeBrush="{DynamicResource StatusInfoBrush}"
+                                                               VerticalAlignment="Center" />
+                                                <TextBlock Text="{Binding DestinationSummaryText}" FontSize="11.5"
+                                                           Foreground="{DynamicResource TextSecondaryBrush}"
+                                                           TextTrimming="CharacterEllipsis" />
+                                            </StackPanel>
+                                            <TextBlock Text="{Binding OptionsSummaryText}"
+                                                       IsVisible="{Binding HasOptionsSummary}"
+                                                       FontSize="10.5" Foreground="{DynamicResource TextMutedBrush}"
+                                                       TextTrimming="CharacterEllipsis" />
+                                        </StackPanel>
+
+                                        <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto,Auto">
+                                            <Button Grid.Column="0" Classes="StudioSecondaryBtn" Padding="9,5" FontSize="11"
+                                                    Command="{Binding RunNowCommand}" Margin="0,0,5,0">
+                                                <StackPanel Orientation="Horizontal" Spacing="5">
+                                                    <lucide:Lucide Icon="Play" Width="11" Height="11"
+                                                                   StrokeBrush="{DynamicResource StatusSuccessBrush}" />
+                                                    <TextBlock Text="{DynamicResource Sched_Card_RunNow}" />
+                                                </StackPanel>
+                                            </Button>
+                                            <Button Grid.Column="1" Classes="StudioSecondaryBtn" Padding="9,5" FontSize="11"
+                                                    Command="{Binding CloseTabsCommand}" Margin="0,0,5,0">
+                                                <StackPanel Orientation="Horizontal" Spacing="5">
+                                                    <lucide:Lucide Icon="Square" Width="11" Height="11"
+                                                                   StrokeBrush="{DynamicResource StatusDangerBrush}" />
+                                                    <TextBlock Text="{DynamicResource Sched_Card_CloseTabs}" />
+                                                </StackPanel>
+                                            </Button>
+                                            <Button Grid.Column="2" Classes="StudioGhostBtn" Padding="8,5" FontSize="11"
+                                                    Command="{Binding AddNextShiftCommand}"
+                                                    Content="{DynamicResource Sched_Card_NextShift}" />
+                                            <Button Grid.Column="4" Classes="StudioIconBtn" Width="28" Height="28"
+                                                    Command="{Binding EditCommand}"
+                                                    ToolTip.Tip="{DynamicResource Sched_Card_EditTip}">
+                                                <lucide:Lucide Icon="Pencil" Width="13" Height="13"
+                                                               StrokeBrush="{DynamicResource TextSecondaryBrush}" />
+                                            </Button>
+                                            <Button Grid.Column="5" Classes="StudioIconBtn" Width="28" Height="28"
+                                                    Command="{Binding DuplicateCommand}"
+                                                    ToolTip.Tip="{DynamicResource Sched_Card_DuplicateTip}">
+                                                <lucide:Lucide Icon="Copy" Width="13" Height="13"
+                                                               StrokeBrush="{DynamicResource TextSecondaryBrush}" />
+                                            </Button>
+                                            <Button Grid.Column="6" Classes="StudioDangerBtn" Width="28" Height="28"
+                                                    Padding="0" Command="{Binding DeleteCommand}"
+                                                    ToolTip.Tip="{DynamicResource Sched_Card_DeleteTip}">
+                                                <lucide:Lucide Icon="Trash" Width="13" Height="13"
+                                                               StrokeBrush="{DynamicResource StatusDangerBrush}" />
+                                            </Button>
+                                        </Grid>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+
+            <Border IsVisible="{Binding HasNoSchedules}"
+                    Background="{DynamicResource SurfacePanelBrush}"
+                    BorderBrush="{DynamicResource BorderSubtleBrush}"
+                    BorderThickness="1" CornerRadius="{StaticResource RadiusMid12}"
+                    Padding="28,22" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="420">
+                <StackPanel Spacing="8" HorizontalAlignment="Center">
+                    <lucide:Lucide Icon="Clock" Width="28" Height="28"
+                                   StrokeBrush="{DynamicResource TextMutedBrush}" HorizontalAlignment="Center" />
+                    <TextBlock Text="{DynamicResource Sched_EmptyTitle}" FontSize="14" FontWeight="Bold"
+                               Foreground="{DynamicResource TextPrimaryBrush}" HorizontalAlignment="Center" />
+                    <TextBlock Text="{DynamicResource Sched_EmptyHint}"
+                               IsVisible="{Binding !HasAnySavedSchedules}" FontSize="12"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               TextWrapping="Wrap" TextAlignment="Center" />
+                    <TextBlock Text="{DynamicResource Sched_EmptyFilteredHint}"
+                               IsVisible="{Binding HasAnySavedSchedules}" FontSize="12"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               TextWrapping="Wrap" TextAlignment="Center" />
+                </StackPanel>
+            </Border>
+        </Panel>
+
+        <!-- Slide-Over Schedule Editor Drawer -->
+        <panels:SchedulerEditorDrawer x:Name="ViewSchedulerEditor"
+                                      Grid.Row="1" Grid.RowSpan="3"
+                                      DataContext="{Binding Editor}"
+                                      HorizontalAlignment="Right"
+                                      VerticalAlignment="Stretch"
+                                      Margin="0,0,2,0" />
+    </Grid>
+</UserControl>

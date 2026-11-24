@@ -1,0 +1,236 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:panels="clr-namespace:Shiro.AvaloniaUI.Views.Panels"
+             xmlns:vm="clr-namespace:Shiro.ViewModels"
+             xmlns:lucide="clr-namespace:LucideAvalonia;assembly=LucideAvalonia"
+             mc:Ignorable="d"
+             x:Class="Shiro.AvaloniaUI.Views.Panels.SchedulerTimelinePanel"
+             x:DataType="vm:SchedulerViewModel"
+             x:CompileBindings="True"
+             x:Name="RootTimelinePanel">
+    <UserControl.Styles>
+        <Style Selector="Button.DayChipBtn">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="{StaticResource RadiusChip6}" />
+            <Setter Property="Padding" Value="9,4" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <Style Selector="Button.DayChipBtn:pointerover">
+            <Setter Property="Background" Value="{DynamicResource SurfaceCardHoverBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+        </Style>
+        <Style Selector="Button.DayChipBtn.active">
+            <Setter Property="Background" Value="{DynamicResource AccentSoftFillBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBorderBrush}" />
+            <Setter Property="FontWeight" Value="Bold" />
+        </Style>
+        <Style Selector="Button.TimelineBlockBtn">
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="VerticalAlignment" Value="Stretch" />
+            <Setter Property="MinHeight" Value="28" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="{StaticResource RadiusChip6}" />
+            <Setter Property="Padding" Value="7,0" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="PART_BlockBorder"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{TemplateBinding CornerRadius}"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          ContentTemplate="{TemplateBinding ContentTemplate}"
+                                          HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.TimelineBlockBtn:pointerover /template/ Border#PART_BlockBorder">
+            <Setter Property="Opacity" Value="0.90" />
+        </Style>
+    </UserControl.Styles>
+
+    <StackPanel Spacing="8">
+        <Border Background="{DynamicResource SurfacePanelBrush}"
+                BorderBrush="{DynamicResource BorderSubtleBrush}"
+                BorderThickness="1"
+                CornerRadius="{StaticResource RadiusMid12}"
+                BoxShadow="{StaticResource ShadowCard}">
+            <Panel>
+                <Border IsHitTestVisible="False"
+                        BorderBrush="{DynamicResource BorderTopRimBrush}"
+                        BorderThickness="0,1,0,0"
+                        CornerRadius="{StaticResource RadiusMid12}" />
+                <StackPanel Margin="14,10,14,12" Spacing="8">
+                    <!-- Header + 8-Day Selector -->
+                    <Grid ColumnDefinitions="*,Auto">
+                        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                            <lucide:Lucide Icon="Clock" Width="13" Height="13"
+                                           StrokeBrush="{DynamicResource AccentBrush}"
+                                           VerticalAlignment="Center" />
+                            <TextBlock Classes="SectionKicker"
+                                       Text="{DynamicResource Sched_Timeline_Title}"
+                                       VerticalAlignment="Center" />
+                        </StackPanel>
+                        <Border Grid.Column="1"
+                                Background="{DynamicResource SurfaceCardBrush}"
+                                BorderBrush="{DynamicResource BorderHairlineBrush}"
+                                BorderThickness="1"
+                                CornerRadius="{StaticResource RadiusInner8}"
+                                Padding="3">
+                            <ItemsControl ItemsSource="{Binding DayChips}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <StackPanel Orientation="Horizontal" Spacing="2" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:SchedulerDayChipViewModel">
+                                        <Button Classes="DayChipBtn"
+                                                Classes.active="{Binding IsSelected}"
+                                                Command="{Binding SelectCommand}"
+                                                CommandParameter="{Binding}"
+                                                Content="{Binding Label}" />
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </Border>
+                    </Grid>
+
+                    <!-- 24-Hour Ruler -->
+                    <Grid ColumnDefinitions="*,*,*,*,*,*,Auto" Margin="2,0,2,0">
+                        <TextBlock Grid.Column="0" Classes="TabularNum" Text="00:00" FontSize="10"
+                                   Foreground="{DynamicResource TextMutedBrush}" />
+                        <TextBlock Grid.Column="1" Classes="TabularNum" Text="04:00" FontSize="10"
+                                   Foreground="{DynamicResource TextMutedBrush}" />
+                        <TextBlock Grid.Column="2" Classes="TabularNum" Text="08:00" FontSize="10"
+                                   Foreground="{DynamicResource TextMutedBrush}" />
+                        <TextBlock Grid.Column="3" Classes="TabularNum" Text="12:00" FontSize="10"
+                                   Foreground="{DynamicResource TextMutedBrush}" />
+                        <TextBlock Grid.Column="4" Classes="TabularNum" Text="16:00" FontSize="10"
+                                   Foreground="{DynamicResource TextMutedBrush}" />
+                        <TextBlock Grid.Column="5" Classes="TabularNum" Text="20:00" FontSize="10"
+                                   Foreground="{DynamicResource TextMutedBrush}" />
+                        <TextBlock Grid.Column="6" Classes="TabularNum" Text="24:00" FontSize="10"
+                                   Foreground="{DynamicResource TextMutedBrush}" HorizontalAlignment="Right" />
+                    </Grid>
+
+                    <!-- Proportional Track + Live Now Needle -->
+                    <Border Background="{DynamicResource SurfaceInputBrush}"
+                            BorderBrush="{DynamicResource BorderHairlineBrush}"
+                            BorderThickness="1"
+                            CornerRadius="{StaticResource RadiusInner8}"
+                            MinHeight="{Binding TimelineCanvasHeight}"
+                            ClipToBounds="True">
+                        <Panel>
+                            <Grid ColumnDefinitions="*,*,*,*,*,*" IsHitTestVisible="False">
+                                <Border Grid.Column="0" BorderBrush="{DynamicResource BorderHairlineBrush}"
+                                        BorderThickness="0,0,1,0" Opacity="0.5" />
+                                <Border Grid.Column="1" BorderBrush="{DynamicResource BorderHairlineBrush}"
+                                        BorderThickness="0,0,1,0" Opacity="0.5" />
+                                <Border Grid.Column="2" BorderBrush="{DynamicResource BorderHairlineBrush}"
+                                        BorderThickness="0,0,1,0" Opacity="0.5" />
+                                <Border Grid.Column="3" BorderBrush="{DynamicResource BorderHairlineBrush}"
+                                        BorderThickness="0,0,1,0" Opacity="0.5" />
+                                <Border Grid.Column="4" BorderBrush="{DynamicResource BorderHairlineBrush}"
+                                        BorderThickness="0,0,1,0" Opacity="0.5" />
+                            </Grid>
+
+                            <TextBlock Text="{DynamicResource Sched_Timeline_EmptyHint}"
+                                       FontSize="11"
+                                       Foreground="{DynamicResource TextMutedBrush}"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       IsHitTestVisible="False"
+                                       IsVisible="{Binding TimelineSegments.Count, Converter={StaticResource EqualityToBoolean}, ConverterParameter='0'}" />
+
+                            <ItemsControl x:Name="TimelineBlocksItemsControl"
+                                          ItemsSource="{Binding TimelineSegments}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <panels:TimelineTrackPanel />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:SchedulerTimelineBlockViewModel">
+                                        <Button Classes="TimelineBlockBtn"
+                                                Background="{Binding FillBrush}"
+                                                BorderBrush="{Binding BorderBrush}"
+                                                ToolTip.Tip="{Binding TooltipText}"
+                                                Command="{Binding #RootTimelinePanel.((vm:SchedulerViewModel)DataContext).SelectTimelineBlockCommand}"
+                                                CommandParameter="{Binding}">
+                                            <Grid ColumnDefinitions="Auto,*,Auto">
+                                                <Border Grid.Column="0"
+                                                        Width="3" Height="14"
+                                                        CornerRadius="2"
+                                                        Background="{Binding AccentBrush}"
+                                                        Margin="0,0,6,0"
+                                                        VerticalAlignment="Center" />
+                                                <TextBlock Grid.Column="1"
+                                                           Text="{Binding ScheduleName}"
+                                                           FontSize="11" FontWeight="SemiBold"
+                                                           Foreground="{DynamicResource TextPrimaryBrush}"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           VerticalAlignment="Center" />
+                                                <lucide:Lucide Grid.Column="2"
+                                                               Icon="ShieldAlert"
+                                                               Width="11" Height="11"
+                                                               StrokeBrush="{DynamicResource StatusWarningBrush}"
+                                                               IsVisible="{Binding HasConflict}"
+                                                               Margin="4,0,0,0"
+                                                               VerticalAlignment="Center" />
+                                            </Grid>
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
+                            <panels:TimelineNowNeedlePanel x:Name="NowNeedleHost"
+                                                           NowFraction="{Binding NowFraction}"
+                                                           IsVisible="{Binding ShowNowNeedle}"
+                                                           IsHitTestVisible="False">
+                                <Border Width="2"
+                                        Background="{DynamicResource StatusDangerBrush}"
+                                        HorizontalAlignment="Center"
+                                        VerticalAlignment="Stretch" />
+                            </panels:TimelineNowNeedlePanel>
+                        </Panel>
+                    </Border>
+                </StackPanel>
+            </Panel>
+        </Border>
+
+        <!-- Conflict Warning Banner -->
+        <Border x:Name="ConflictBanner"
+                IsVisible="{Binding HasConflicts}"
+                Background="{DynamicResource StatusWarningBgBrush}"
+                BorderBrush="{DynamicResource StatusWarningBorderBrush}"
+                BorderThickness="1"
+                CornerRadius="{StaticResource RadiusInner8}"
+                Padding="12,8">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <lucide:Lucide Icon="ShieldAlert" Width="14" Height="14"
+                               StrokeBrush="{DynamicResource StatusWarningBrush}"
+                               VerticalAlignment="Center" />
+                <TextBlock Text="{Binding ConflictBannerText}"
+                           FontSize="11.5" FontWeight="SemiBold"
+                           Foreground="{DynamicResource StatusWarningBrush}"
+                           TextWrapping="Wrap"
+                           VerticalAlignment="Center" />
+            </StackPanel>
+        </Border>
+    </StackPanel>
+</UserControl>

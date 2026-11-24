@@ -69,11 +69,21 @@
                                    VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
-                <Button Classes="StudioSecondaryBtn"
+                <Button x:Name="BtnBulkBatchActions"
+                        Classes="StudioSecondaryBtn"
                         Padding="11,7"
                         ToolTip.Tip="{DynamicResource Bar_BatchActionsTooltip}">
                     <Button.Flyout>
                         <MenuFlyout Placement="TopEdgeAlignedLeft">
+                            <MenuItem x:Name="MenuScheduleSelected"
+                                      Header="{DynamicResource Bar_ScheduleSelected}"
+                                      Click="OnMenuScheduleSelected">
+                                <MenuItem.Icon>
+                                    <lucide:Lucide Icon="Clock" Width="14" Height="14"
+                                                   StrokeBrush="{DynamicResource StatusInfoBrush}" />
+                                </MenuItem.Icon>
+                            </MenuItem>
+                            <Separator />
                             <MenuItem Header="{DynamicResource Bar_ValidateSelected}"
                                       Command="{Binding AccountsVm.ValidateSessionSelectedCommand}">
                                 <MenuItem.Icon>
