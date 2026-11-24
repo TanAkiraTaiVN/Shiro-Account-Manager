@@ -8,9 +8,11 @@ using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Logging;
 using Avalonia.Markup.Xaml;
+using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using NSubstitute;
@@ -207,6 +209,120 @@ namespace Shiro.Tests.Ui
                     StreamerModeService.IsEnabled = false;
                     Dispatcher.UIThread.RunJobs();
                     Assert.Equal('\0', txtJobId.PasswordChar);
+                    Assert.Empty(sink.Errors);
+                }
+                finally
+                {
+                    CloseWindowSafely(win);
+                    Dispatcher.UIThread.RunJobs();
+                }
+            }
+        }
+
+        [AvaloniaFact]
+        public void EscapeKey_OnDashboard_DoesNotGetSwallowedByHiddenSchedulerEditor()
+        {
+            var sink = new BindingErrorSink();
+            Logger.Sink = sink;
+            Account alpha = MakeAccount("EscDashUser", 508);
+            var (svc, repo, settings, _) = CreateHarness(new DateTimeOffset(2026, 11, 24, 9, 0, 0, TimeSpan.Zero), alpha);
+            using (svc)
+            using (AppServices.Override<ISettingsService>(settings))
+            using (AppServices.Override<IAccountRepository>(repo))
+            using (AppServices.Override<ILaunchSchedulerService>(svc))
+            {
+                MainWindow? window = null;
+                try
+                {
+                    window = new MainWindow();
+                    window.Show();
+                    Dispatcher.UIThread.RunJobs();
+
+                    MainViewModel vm = window.ViewModel!;
+                    vm.CurrentPage = NavigationPage.Scheduler;
+                    vm.Scheduler.NewScheduleCommand.Execute(null);
+                    Dispatcher.UIThread.RunJobs();
+                    Assert.True(vm.Scheduler.Editor.IsOpen);
+
+                    vm.CurrentPage = NavigationPage.Accounts;
+                    vm.AccountsVm.Accounts[0].IsSelected = true;
+                    vm.AccountsVm.SearchText = "EscDash";
+                    var txtSearch = window.DashboardView!.FindControl<TextBox>("TxtSearch");
+                    Assert.NotNull(txtSearch);
+                    txtSearch!.Focus();
+                    Dispatcher.UIThread.RunJobs();
+
+                    Assert.False(vm.IsSchedulerActive);
+                    Assert.True(vm.Scheduler.Editor.IsOpen);
+
+                    var escSearch = new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Escape, Source = txtSearch };
+                    txtSearch.RaiseEvent(escSearch);
+                    Dispatcher.UIThread.RunJobs();
+
+                    Assert.True(escSearch.Handled);
+                    Assert.Equal(string.Empty, vm.AccountsVm.SearchText);
+                    Assert.True(vm.AccountsVm.HasSelection);
+                    Assert.True(vm.Scheduler.Editor.IsOpen);
+
+                    var escSelection = new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Escape };
+                    window.RaiseEvent(escSelection);
+                    Dispatcher.UIThread.RunJobs();
+
+                    Assert.True(escSelection.Handled);
+                    Assert.False(vm.AccountsVm.HasSelection);
+                    Assert.True(vm.Scheduler.Editor.IsOpen);
+
+                    vm.CurrentPage = NavigationPage.Scheduler;
+                    Dispatcher.UIThread.RunJobs();
+                    var escScheduler = new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Escape };
+                    window.RaiseEvent(escScheduler);
+                    Dispatcher.UIThread.RunJobs();
+
+                    Assert.True(escScheduler.Handled);
+                    Assert.False(vm.Scheduler.Editor.IsOpen);
+                    Assert.Empty(sink.Errors);
+                }
+                finally
+                {
+                    CloseWindowSafely(window);
+                    Dispatcher.UIThread.RunJobs();
+                }
+            }
+        }
+
+        [AvaloniaFact]
+        public void SchedulerEditorDrawer_WebhookMissingHint_WrapsInsideGridColumn()
+        {
+            var sink = new BindingErrorSink();
+            Logger.Sink = sink;
+            LocalizationService.SetLanguage(AppLanguage.Vietnamese, saveSetting: false);
+            Account alpha = MakeAccount("WrapHintUser", 509);
+            var (svc, repo, settings, time) = CreateHarness(new DateTimeOffset(2026, 11, 24, 9, 0, 0, TimeSpan.Zero), alpha);
+            using (svc)
+            {
+                using var vm = new SchedulerViewModel(svc, repo, settings, timeProvider: time);
+                vm.NewScheduleCommand.Execute(null);
+                Assert.False(vm.Editor.HasWebhookConfigured);
+
+                var view = new SchedulerView { DataContext = vm };
+                var win = new Window { Width = 1120, Height = 760, Content = view };
+                try
+                {
+                    win.Show();
+                    win.UpdateLayout();
+                    Dispatcher.UIThread.RunJobs();
+
+                    var editor = view.FindControl<SchedulerEditorDrawer>("ViewSchedulerEditor")!;
+                    string expectedHint = LocalizationService.Get("Sched_Editor_WebhookMissingHint");
+                    TextBlock hintBlock = editor.GetVisualDescendants().OfType<TextBlock>()
+                        .Single(tb => tb.Text == expectedHint);
+
+                    var hostGrid = Assert.IsType<Grid>(hintBlock.Parent);
+                    Assert.Equal(3, hostGrid.ColumnDefinitions.Count);
+                    Assert.Equal(2, Grid.GetColumn(hintBlock));
+                    Assert.Equal(TextWrapping.Wrap, hintBlock.TextWrapping);
+                    Assert.True(hintBlock.Bounds.Width > 0.0 && hintBlock.Bounds.Width < 360.0,
+                        $"Expected wrapped webhook hint width in (0, 360), got {hintBlock.Bounds.Width}");
                     Assert.Empty(sink.Errors);
                 }
                 finally

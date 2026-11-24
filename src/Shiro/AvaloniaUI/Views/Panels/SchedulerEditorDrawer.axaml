@@ -333,11 +333,12 @@
                                                Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,8,0" />
                                     <ToggleSwitch Grid.Column="1" IsChecked="{Binding SendWebhookNotification, Mode=TwoWay}" OnContent="{x:Null}" OffContent="{x:Null}" />
                                 </Grid>
-                                <StackPanel Orientation="Horizontal" Spacing="5" IsVisible="{Binding !HasWebhookConfigured}">
-                                    <lucide:Lucide Icon="Info" Width="12" Height="12" StrokeBrush="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" />
-                                    <TextBlock Text="{DynamicResource Sched_Editor_WebhookMissingHint}" FontSize="10.5"
+                                <Grid ColumnDefinitions="Auto,6,*" IsVisible="{Binding !HasWebhookConfigured}">
+                                    <lucide:Lucide Grid.Column="0" Icon="Info" Width="12" Height="12"
+                                                   StrokeBrush="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="2" Text="{DynamicResource Sched_Editor_WebhookMissingHint}" FontSize="10.5"
                                                Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap" />
-                                </StackPanel>
+                                </Grid>
                             </StackPanel>
                         </Border>
                     </StackPanel>
