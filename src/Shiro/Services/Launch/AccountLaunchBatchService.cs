@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace Shiro.Services
 {
-    internal static class AccountLaunchBatchService
+    internal static partial class AccountLaunchBatchService
     {
         public static List<LaunchRequest> BuildLaunchRequests(
             IReadOnlyList<Account> accounts,
