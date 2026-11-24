@@ -26,6 +26,11 @@ namespace Shiro.Services
             return TimeOnly.TryParseExact(text.Trim(), TimeFormats, CultureInfo.InvariantCulture, DateTimeStyles.None, out time);
         }
 
+        public static string NormalizeTimeText(string? text) =>
+            TryParseTime(text, out TimeOnly time)
+                ? time.ToString("HH:mm", CultureInfo.InvariantCulture)
+                : (text ?? string.Empty).Trim();
+
         public static bool TryParseDate(string? text, out DateOnly date)
         {
             if (string.IsNullOrWhiteSpace(text))

@@ -392,6 +392,11 @@ namespace Shiro.Services
                 copy.Id = Guid.NewGuid().ToString("N");
             copy.Name = (copy.Name ?? string.Empty).Trim();
             copy.ColorHex = string.IsNullOrWhiteSpace(copy.ColorHex) ? "#38BDF8" : copy.ColorHex.Trim();
+            copy.OneTimeDate = copy.Recurrence == ScheduleRecurrence.OneTime
+                ? (copy.OneTimeDate ?? string.Empty).Trim()
+                : null;
+            copy.StartTime = LaunchScheduleEvaluatorHelper.NormalizeTimeText(copy.StartTime);
+            copy.EndTime = copy.HasEndTime ? LaunchScheduleEvaluatorHelper.NormalizeTimeText(copy.EndTime) : null;
             copy.TargetGroup = (copy.TargetGroup ?? string.Empty).Trim();
             copy.JobId = (copy.JobId ?? string.Empty).Trim();
             copy.HandoffDelaySeconds = Math.Clamp(copy.HandoffDelaySeconds, 0, 15);
@@ -401,23 +406,21 @@ namespace Shiro.Services
 
         private static void PreserveOrResetTriggerKeys(LaunchSchedule existing, LaunchSchedule updated)
         {
-            bool scheduleTimingChanged =
-                !string.Equals(existing.StartTime, updated.StartTime, StringComparison.Ordinal) ||
-                existing.HasEndTime != updated.HasEndTime ||
-                !string.Equals(existing.EndTime, updated.EndTime, StringComparison.Ordinal) ||
+            bool startChanged =
                 existing.Recurrence != updated.Recurrence ||
-                existing.DaysOfWeek != updated.DaysOfWeek ||
-                !string.Equals(existing.OneTimeDate, updated.OneTimeDate, StringComparison.Ordinal);
+                !string.Equals(existing.StartTime, updated.StartTime, StringComparison.Ordinal) ||
+                (updated.Recurrence == ScheduleRecurrence.Weekly &&
+                 (existing.DaysOfWeek & ScheduleDaysOfWeek.All) != (updated.DaysOfWeek & ScheduleDaysOfWeek.All)) ||
+                (updated.Recurrence == ScheduleRecurrence.OneTime &&
+                 !string.Equals(existing.OneTimeDate, updated.OneTimeDate, StringComparison.Ordinal));
 
-            if (scheduleTimingChanged)
-            {
-                updated.LastTriggeredStartKey = null;
-                updated.LastTriggeredEndKey = null;
-                return;
-            }
+            bool endChanged =
+                startChanged ||
+                existing.HasEndTime != updated.HasEndTime ||
+                (updated.HasEndTime && !string.Equals(existing.EndTime, updated.EndTime, StringComparison.Ordinal));
 
-            updated.LastTriggeredStartKey ??= existing.LastTriggeredStartKey;
-            updated.LastTriggeredEndKey ??= existing.LastTriggeredEndKey;
+            updated.LastTriggeredStartKey = startChanged ? null : updated.LastTriggeredStartKey ?? existing.LastTriggeredStartKey;
+            updated.LastTriggeredEndKey = endChanged ? null : updated.LastTriggeredEndKey ?? existing.LastTriggeredEndKey;
         }
 
         private static ScheduleRunEntry CloneRunEntry(ScheduleRunEntry entry) => new()

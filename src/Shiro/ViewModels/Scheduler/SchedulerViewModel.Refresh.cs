@@ -100,6 +100,7 @@ namespace Shiro.ViewModels
             DateTimeOffset localNow = _timeProvider.GetLocalNow();
             TimeZoneInfo tz = _timeProvider.LocalTimeZone;
             DateOnly today = DateOnly.FromDateTime(localNow.DateTime);
+            _lastProjectedDate = today;
 
             IReadOnlyList<ScheduleConflictInfo> detectedConflicts = LaunchScheduleEvaluatorHelper.DetectConflicts(
                 schedules,
@@ -157,9 +158,16 @@ namespace Shiro.ViewModels
         {
             lock (_refreshLock)
             {
+                DateTimeOffset localNow = _timeProvider.GetLocalNow();
+                DateOnly today = DateOnly.FromDateTime(localNow.DateTime);
+                if (today != _lastProjectedDate)
+                {
+                    RefreshSchedulesAndTimelineLocked(_accountRepository.GetAll());
+                    return;
+                }
+
                 IReadOnlyList<LaunchSchedule> schedules = _schedulerService.GetSchedules();
                 IReadOnlyList<Account> accounts = _accountRepository.GetAll();
-                DateTimeOffset localNow = _timeProvider.GetLocalNow();
                 TimeZoneInfo tz = _timeProvider.LocalTimeZone;
 
                 var conflictIds = new HashSet<string>(StringComparer.Ordinal);

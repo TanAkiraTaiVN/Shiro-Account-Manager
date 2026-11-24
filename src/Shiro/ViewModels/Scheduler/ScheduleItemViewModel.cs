@@ -156,7 +156,9 @@ namespace Shiro.ViewModels
             if (!_model.IsEnabled)
             {
                 bool completedOneTime = _model.Recurrence == ScheduleRecurrence.OneTime &&
-                    (!string.IsNullOrEmpty(_model.LastTriggeredEndKey) || !string.IsNullOrEmpty(_model.LastTriggeredStartKey));
+                    (_model.HasEndTime
+                        ? !string.IsNullOrEmpty(_model.LastTriggeredEndKey)
+                        : !string.IsNullOrEmpty(_model.LastTriggeredStartKey));
                 badgeText = completedOneTime
                     ? LocalizationService.Get("Sched_Status_Completed")
                     : LocalizationService.Get("Sched_Status_Paused");

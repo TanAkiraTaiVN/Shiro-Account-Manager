@@ -236,5 +236,226 @@ namespace Shiro.Tests.Ui
                 Assert.Equal(string.Empty, vm.Editor.JobIdText);
             }
         }
+
+        [Fact]
+        public async System.Threading.Tasks.Task EditorSaveCommand_Within90sGraceWindow_EditingDailyNameAndEndTime_PreservesStartKeyAndDoesNotRelaunch()
+        {
+            Account alpha = MakeAccount("GraceEditUser", 241);
+            var (svc, repo, settings, time, executor) = CreateServiceHarness(
+                new DateTimeOffset(2026, 11, 24, 8, 0, 20, TimeSpan.Zero),
+                alpha);
+            executor.CloseAccountsAsync(Arg.Any<IReadOnlyList<Account>>(), Arg.Any<System.Threading.CancellationToken>())
+                .Returns(ci => ci.ArgAt<IReadOnlyList<Account>>(0).Count);
+
+            using (svc)
+            using (var vm = CreateVm(svc, repo, settings, time))
+            {
+                Assert.True(svc.UpsertSchedule(new LaunchSchedule
+                {
+                    Id = "daily-grace",
+                    Name = "Morning Shift",
+                    IsEnabled = true,
+                    Recurrence = ScheduleRecurrence.Daily,
+                    DaysOfWeek = ScheduleDaysOfWeek.All,
+                    StartTime = "08:00",
+                    HasEndTime = true,
+                    EndTime = "12:00",
+                    TargetMode = ScheduleTargetMode.SpecificAccounts,
+                    TargetAccounts = new List<ScheduleAccountRef> { new() { UserId = 241, Username = "GraceEditUser" } },
+                    LaunchMode = ScheduleLaunchMode.JoinServer,
+                    PlaceId = 2753915549
+                }).IsValid);
+
+                await svc.EvaluateTickOnceAsync();
+                await executor.Received(1).LaunchServerAsync(
+                    Arg.Any<IReadOnlyList<Account>>(), 2753915549, string.Empty, false, Arg.Any<System.Threading.CancellationToken>());
+                Assert.Equal("2026-11-24", svc.GetSchedules().Single().LastTriggeredStartKey);
+
+                executor.GetLiveRunningAccounts(Arg.Any<IReadOnlyList<Account>>())
+                    .Returns(_ => new HashSet<Account>(new[] { alpha }, ReferenceEqualityComparer.Instance));
+
+                ScheduleItemViewModel card = Assert.Single(vm.FilteredSchedules);
+                card.EditCommand.Execute(null);
+                Assert.True(vm.Editor.IsOpen);
+                Assert.Equal("2026-11-24", vm.Editor.OneTimeDateText);
+
+                vm.Editor.Name = "Morning Shift Renamed";
+                vm.Editor.EndTimeText = "13:00";
+                vm.Editor.SaveCommand.Execute(null);
+                Assert.False(vm.Editor.IsOpen);
+
+                LaunchSchedule afterEdit = svc.GetSchedules().Single();
+                Assert.Equal("Morning Shift Renamed", afterEdit.Name);
+                Assert.Equal("13:00", afterEdit.EndTime);
+                Assert.Null(afterEdit.OneTimeDate);
+                Assert.Equal("2026-11-24", afterEdit.LastTriggeredStartKey);
+
+                time.Advance(TimeSpan.FromSeconds(10));
+                await svc.EvaluateTickOnceAsync();
+
+                await executor.DidNotReceive().CloseAccountsAsync(
+                    Arg.Any<IReadOnlyList<Account>>(), Arg.Any<System.Threading.CancellationToken>());
+                await executor.Received(1).LaunchServerAsync(
+                    Arg.Any<IReadOnlyList<Account>>(), 2753915549, string.Empty, false, Arg.Any<System.Threading.CancellationToken>());
+
+                card = Assert.Single(vm.FilteredSchedules);
+                card.EditCommand.Execute(null);
+                vm.Editor.StartTimeText = "08:01";
+                vm.Editor.SaveCommand.Execute(null);
+
+                LaunchSchedule afterStartEdit = svc.GetSchedules().Single();
+                Assert.Equal("08:01", afterStartEdit.StartTime);
+                Assert.Null(afterStartEdit.LastTriggeredStartKey);
+                Assert.Null(afterStartEdit.LastTriggeredEndKey);
+            }
+        }
+
+        [Fact]
+        public void MidnightRollover_WhenPageVisible_RefreshesTimelineSegmentsAndConflictsForNewDay()
+        {
+            Account alpha = MakeAccount("MidnightAlpha", 251);
+            Account beta = MakeAccount("MidnightBeta", 252);
+            Account gamma = MakeAccount("MidnightGamma", 253);
+            var (svc, repo, settings, time, _) = CreateServiceHarness(
+                new DateTimeOffset(2026, 11, 24, 23, 59, 59, TimeSpan.Zero),
+                alpha,
+                beta,
+                gamma);
+
+            using (svc)
+            {
+                Assert.True(svc.UpsertSchedule(new LaunchSchedule
+                {
+                    Id = "ot-yesterday",
+                    Name = "Yesterday Only",
+                    Recurrence = ScheduleRecurrence.OneTime,
+                    OneTimeDate = "2026-11-24",
+                    StartTime = "10:00",
+                    HasEndTime = true,
+                    EndTime = "14:00",
+                    TargetMode = ScheduleTargetMode.SpecificAccounts,
+                    TargetAccounts = new List<ScheduleAccountRef> { new() { UserId = 251, Username = "MidnightAlpha" } },
+                    LaunchMode = ScheduleLaunchMode.OpenHome
+                }).IsValid);
+
+                Assert.True(svc.UpsertSchedule(new LaunchSchedule
+                {
+                    Id = "ot-conflict",
+                    Name = "Yesterday Overlap",
+                    Recurrence = ScheduleRecurrence.OneTime,
+                    OneTimeDate = "2026-11-24",
+                    StartTime = "11:00",
+                    HasEndTime = true,
+                    EndTime = "13:00",
+                    TargetMode = ScheduleTargetMode.SpecificAccounts,
+                    TargetAccounts = new List<ScheduleAccountRef> { new() { UserId = 251, Username = "MidnightAlpha" } },
+                    LaunchMode = ScheduleLaunchMode.OpenHome
+                }).IsValid);
+
+                Assert.True(svc.UpsertSchedule(new LaunchSchedule
+                {
+                    Id = "ot-overnight",
+                    Name = "Overnight Carryover",
+                    Recurrence = ScheduleRecurrence.OneTime,
+                    OneTimeDate = "2026-11-24",
+                    StartTime = "22:00",
+                    HasEndTime = true,
+                    EndTime = "02:00",
+                    TargetMode = ScheduleTargetMode.SpecificAccounts,
+                    TargetAccounts = new List<ScheduleAccountRef> { new() { UserId = 252, Username = "MidnightBeta" } },
+                    LaunchMode = ScheduleLaunchMode.OpenHome
+                }).IsValid);
+
+                Assert.True(svc.UpsertSchedule(new LaunchSchedule
+                {
+                    Id = "wed-only",
+                    Name = "Wednesday Shift",
+                    Recurrence = ScheduleRecurrence.Weekly,
+                    DaysOfWeek = ScheduleDaysOfWeek.Wednesday,
+                    StartTime = "09:00",
+                    HasEndTime = true,
+                    EndTime = "11:00",
+                    TargetMode = ScheduleTargetMode.SpecificAccounts,
+                    TargetAccounts = new List<ScheduleAccountRef> { new() { UserId = 253, Username = "MidnightGamma" } },
+                    LaunchMode = ScheduleLaunchMode.OpenHome
+                }).IsValid);
+
+                using var vm = CreateVm(svc, repo, settings, time);
+                Assert.True(vm.HasConflicts);
+                Assert.Contains(vm.TimelineSegments, s => s.ScheduleId == "ot-yesterday");
+                Assert.Contains(vm.TimelineSegments, s => s.ScheduleId == "ot-overnight" && !s.IsCarryoverFromPreviousDay);
+                Assert.DoesNotContain(vm.TimelineSegments, s => s.ScheduleId == "wed-only");
+                Assert.True(vm.NowFraction > 0.99);
+
+                vm.SetPageVisible(true);
+                time.Advance(TimeSpan.FromSeconds(6));
+
+                Assert.False(vm.HasConflicts);
+                Assert.DoesNotContain(vm.TimelineSegments, s => s.ScheduleId == "ot-yesterday");
+                Assert.DoesNotContain(vm.TimelineSegments, s => s.ScheduleId == "ot-conflict");
+                Assert.Contains(vm.TimelineSegments, s =>
+                    s.ScheduleId == "ot-overnight" &&
+                    s.IsCarryoverFromPreviousDay &&
+                    s.StartMinute == 0 &&
+                    s.EndMinute == 120);
+                Assert.Contains(vm.TimelineSegments, s =>
+                    s.ScheduleId == "wed-only" &&
+                    s.StartMinute == 9 * 60 &&
+                    s.EndMinute == 11 * 60);
+                Assert.True(vm.NowFraction < 0.01);
+
+                vm.SetPageVisible(false);
+            }
+        }
+
+        [Fact]
+        public async System.Threading.Tasks.Task OneTimeSchedule_PausedMidWindow_DisplaysPausedInsteadOfCompleted()
+        {
+            Account alpha = MakeAccount("OneTimeBadgeUser", 261);
+            var (svc, repo, settings, time, _) = CreateServiceHarness(
+                new DateTimeOffset(2026, 11, 24, 8, 0, 10, TimeSpan.Zero),
+                alpha);
+
+            using (svc)
+            using (var vm = CreateVm(svc, repo, settings, time))
+            {
+                Assert.True(svc.UpsertSchedule(new LaunchSchedule
+                {
+                    Id = "ot-paused-mid",
+                    Name = "Windowed OneTime",
+                    Recurrence = ScheduleRecurrence.OneTime,
+                    OneTimeDate = "2026-11-24",
+                    StartTime = "08:00",
+                    HasEndTime = true,
+                    EndTime = "12:00",
+                    TargetMode = ScheduleTargetMode.SpecificAccounts,
+                    TargetAccounts = new List<ScheduleAccountRef> { new() { UserId = 261, Username = "OneTimeBadgeUser" } },
+                    LaunchMode = ScheduleLaunchMode.OpenHome
+                }).IsValid);
+
+                Assert.True(svc.UpsertSchedule(new LaunchSchedule
+                {
+                    Id = "ot-open-done",
+                    Name = "OpenOnly OneTime",
+                    Recurrence = ScheduleRecurrence.OneTime,
+                    OneTimeDate = "2026-11-24",
+                    StartTime = "08:00",
+                    HasEndTime = false,
+                    TargetMode = ScheduleTargetMode.SpecificAccounts,
+                    TargetAccounts = new List<ScheduleAccountRef> { new() { UserId = 261, Username = "OneTimeBadgeUser" } },
+                    LaunchMode = ScheduleLaunchMode.OpenHome
+                }).IsValid);
+
+                await svc.EvaluateTickOnceAsync();
+                Assert.True(svc.SetScheduleEnabled("ot-paused-mid", false));
+
+                ScheduleItemViewModel midPausedCard = vm.FilteredSchedules.Single(c => c.Id == "ot-paused-mid");
+                ScheduleItemViewModel openDoneCard = vm.FilteredSchedules.Single(c => c.Id == "ot-open-done");
+
+                Assert.Equal(LocalizationService.Get("Sched_Status_Paused"), midPausedCard.StatusBadgeText);
+                Assert.NotEqual(LocalizationService.Get("Sched_Status_Completed"), midPausedCard.StatusBadgeText);
+                Assert.Equal(LocalizationService.Get("Sched_Status_Completed"), openDoneCard.StatusBadgeText);
+            }
+        }
     }
 }

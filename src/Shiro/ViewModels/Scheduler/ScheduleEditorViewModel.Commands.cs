@@ -98,10 +98,12 @@ namespace Shiro.ViewModels
                 ColorHex = ColorHex,
                 Recurrence = _recurrence,
                 DaysOfWeek = ReadDaysOfWeek(),
-                OneTimeDate = (_oneTimeDateText ?? string.Empty).Trim(),
-                StartTime = (_startTimeText ?? string.Empty).Trim(),
+                OneTimeDate = _recurrence == ScheduleRecurrence.OneTime
+                    ? (_oneTimeDateText ?? string.Empty).Trim()
+                    : null,
+                StartTime = LaunchScheduleEvaluatorHelper.NormalizeTimeText(_startTimeText),
                 HasEndTime = _hasEndTime,
-                EndTime = _hasEndTime ? (_endTimeText ?? string.Empty).Trim() : null,
+                EndTime = _hasEndTime ? LaunchScheduleEvaluatorHelper.NormalizeTimeText(_endTimeText) : null,
                 TargetMode = _targetMode,
                 TargetGroup = (_selectedGroup ?? string.Empty).Trim(),
                 TargetAccounts = targets,

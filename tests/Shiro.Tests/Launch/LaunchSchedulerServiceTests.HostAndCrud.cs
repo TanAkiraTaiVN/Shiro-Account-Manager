@@ -252,5 +252,72 @@ namespace Shiro.Tests
                 AppDispatcher.CustomDispatcher = prevDispatcher;
             }
         }
+
+        [Fact]
+        public async Task UpsertSchedule_DailyAndWeekly_PreservesStartKeyOnNonStartEdits_AndResetsOnlyAffectedKeys()
+        {
+            Account a1 = MakeAccount("EditKeyUser", 1701);
+            var (svc, _, _, _, exec, time) = CreateHarness(new DateTimeOffset(2026, 11, 24, 8, 0, 10, TimeSpan.Zero), false, a1);
+            using (svc)
+            {
+                LaunchSchedule daily = MakeSchedule("d-edit", "DailyOriginal", "08:00", "12:00", a1);
+                daily.OneTimeDate = "2026-11-24";
+                Assert.True(svc.UpsertSchedule(daily).IsValid);
+                Assert.Null(Assert.Single(svc.GetSchedules()).OneTimeDate);
+
+                await svc.EvaluateTickOnceAsync();
+                Assert.Single(exec.ServerLaunches);
+                Assert.Equal("2026-11-24", Assert.Single(svc.GetSchedules()).LastTriggeredStartKey);
+
+                exec.SetLive(a1);
+                time.Advance(TimeSpan.FromSeconds(10));
+
+                LaunchSchedule editedNonStart = MakeSchedule("d-edit", "DailyRenamed", "8:00", "14:00", a1);
+                editedNonStart.OneTimeDate = "2099-01-01";
+                Assert.True(svc.UpsertSchedule(editedNonStart).IsValid);
+
+                LaunchSchedule saved = Assert.Single(svc.GetSchedules());
+                Assert.Equal("08:00", saved.StartTime);
+                Assert.Equal("14:00", saved.EndTime);
+                Assert.Null(saved.OneTimeDate);
+                Assert.Equal("2026-11-24", saved.LastTriggeredStartKey);
+                Assert.Null(saved.LastTriggeredEndKey);
+
+                await svc.EvaluateTickOnceAsync();
+                Assert.Empty(exec.ClosedBatches);
+                Assert.Single(exec.ServerLaunches);
+
+                time.SetUtcNow(new DateTimeOffset(2026, 11, 24, 14, 0, 10, TimeSpan.Zero));
+                await svc.EvaluateTickOnceAsync();
+                Assert.Single(exec.ClosedBatches);
+                Assert.Equal("2026-11-24", Assert.Single(svc.GetSchedules()).LastTriggeredEndKey);
+
+                LaunchSchedule editedEndOnly = MakeSchedule("d-edit", "DailyRenamed", "08:00", "15:00", a1);
+                Assert.True(svc.UpsertSchedule(editedEndOnly).IsValid);
+                saved = Assert.Single(svc.GetSchedules());
+                Assert.Equal("2026-11-24", saved.LastTriggeredStartKey);
+                Assert.Null(saved.LastTriggeredEndKey);
+
+                LaunchSchedule editedStart = MakeSchedule("d-edit", "DailyRenamed", "08:05", "15:00", a1);
+                Assert.True(svc.UpsertSchedule(editedStart).IsValid);
+                saved = Assert.Single(svc.GetSchedules());
+                Assert.Null(saved.LastTriggeredStartKey);
+                Assert.Null(saved.LastTriggeredEndKey);
+
+                time.SetUtcNow(new DateTimeOffset(2026, 11, 24, 9, 0, 10, TimeSpan.Zero));
+                LaunchSchedule weekly = MakeSchedule("w-edit", "WeeklyShift", "09:00", "11:00", a1);
+                weekly.Recurrence = ScheduleRecurrence.Weekly;
+                weekly.DaysOfWeek = ScheduleDaysOfWeek.Weekdays;
+                Assert.True(svc.UpsertSchedule(weekly).IsValid);
+                await svc.EvaluateTickOnceAsync();
+                Assert.Equal("2026-11-24", svc.GetSchedules().Single(s => s.Id == "w-edit").LastTriggeredStartKey);
+
+                LaunchSchedule weeklyDaysChanged = MakeSchedule("w-edit", "WeeklyShift", "09:00", "11:00", a1);
+                weeklyDaysChanged.Recurrence = ScheduleRecurrence.Weekly;
+                weeklyDaysChanged.DaysOfWeek = ScheduleDaysOfWeek.All;
+                Assert.True(svc.UpsertSchedule(weeklyDaysChanged).IsValid);
+                Assert.Null(svc.GetSchedules().Single(s => s.Id == "w-edit").LastTriggeredStartKey);
+            }
+        }
     }
 }

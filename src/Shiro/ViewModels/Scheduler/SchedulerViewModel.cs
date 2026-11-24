@@ -43,6 +43,7 @@ namespace Shiro.ViewModels
         private ITimer? _countdownTimer;
         private bool _isPageVisible;
         private int _selectedDayOffset;
+        private DateOnly _lastProjectedDate;
         private double _nowFraction;
         private SchedulerFilterMode _filterMode = SchedulerFilterMode.All;
         private string _searchText = string.Empty;
