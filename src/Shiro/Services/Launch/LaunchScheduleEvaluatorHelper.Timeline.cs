@@ -31,7 +31,7 @@ namespace Shiro.Services
             if (schedules is null || schedules.Count == 0)
                 return Array.Empty<ScheduleTimelineSegment>();
 
-            List<RawDaySlice> slices = BuildDaySlices(schedules, date, OpenOnlyTimelineVisualMinutes);
+            List<RawDaySlice> slices = BuildDaySlices(schedules, date, OpenOnlyTimelineVisualMinutes, includeOpenOnlyCarryover: false);
             if (slices.Count == 0)
                 return Array.Empty<ScheduleTimelineSegment>();
 
@@ -76,7 +76,7 @@ namespace Shiro.Services
 
             foreach (DateOnly date in datesToScan)
             {
-                List<RawDaySlice> slices = BuildDaySlices(schedules, date, OpenOnlyConflictFootprintMinutes);
+                List<RawDaySlice> slices = BuildDaySlices(schedules, date, OpenOnlyConflictFootprintMinutes, includeOpenOnlyCarryover: true);
                 if (slices.Count < 2)
                     continue;
 
@@ -164,7 +164,8 @@ namespace Shiro.Services
             return laneEndMinutes.Count - 1;
         }
 
-        private static List<RawDaySlice> BuildDaySlices(IReadOnlyList<LaunchSchedule> schedules, DateOnly date, int openOnlyMinutes)
+        private static List<RawDaySlice> BuildDaySlices(
+            IReadOnlyList<LaunchSchedule> schedules, DateOnly date, int openOnlyMinutes, bool includeOpenOnlyCarryover)
         {
             var slices = new List<RawDaySlice>();
             DateOnly? yesterday = date > DateOnly.MinValue ? date.AddDays(-1) : null;
@@ -182,7 +183,7 @@ namespace Shiro.Services
                 int startMin = ToMinutes(startTime);
 
                 if (yesterday.HasValue && MatchesOccurrenceDate(schedule, yesterday.Value))
-                    AddCarryoverSlice(slices, i, schedule, startTime, endTime, startMin, openOnlyMinutes);
+                    AddCarryoverSlice(slices, i, schedule, startTime, endTime, startMin, openOnlyMinutes, includeOpenOnlyCarryover);
 
                 if (MatchesOccurrenceDate(schedule, date))
                     AddSameDaySlice(slices, i, schedule, startTime, endTime, startMin, openOnlyMinutes);
@@ -192,7 +193,14 @@ namespace Shiro.Services
         }
 
         private static void AddCarryoverSlice(
-            List<RawDaySlice> slices, int index, LaunchSchedule schedule, TimeOnly startTime, TimeOnly endTime, int startMin, int openOnlyMinutes)
+            List<RawDaySlice> slices,
+            int index,
+            LaunchSchedule schedule,
+            TimeOnly startTime,
+            TimeOnly endTime,
+            int startMin,
+            int openOnlyMinutes,
+            bool includeOpenOnlyCarryover)
         {
             if (schedule.HasEndTime && endTime < startTime)
             {
@@ -200,7 +208,7 @@ namespace Shiro.Services
                 if (endMin > 0)
                     slices.Add(new RawDaySlice(index, schedule, 0, endMin, startMin - MinutesPerDay, endMin, false, 0, true, true, false));
             }
-            else if (!schedule.HasEndTime && startMin + openOnlyMinutes > MinutesPerDay)
+            else if (includeOpenOnlyCarryover && !schedule.HasEndTime && startMin + openOnlyMinutes > MinutesPerDay)
             {
                 int carryEnd = startMin + openOnlyMinutes - MinutesPerDay;
                 slices.Add(new RawDaySlice(index, schedule, 0, carryEnd, startMin - MinutesPerDay, carryEnd, false, 0, false, true, true));
@@ -297,9 +305,9 @@ namespace Shiro.Services
 
         private static (RawDaySlice Left, RawDaySlice Right) OrderOverlapPair(RawDaySlice first, RawDaySlice second)
         {
-            int cmp = first.ClippedStartMinute.CompareTo(second.ClippedStartMinute);
+            int cmp = StringComparer.Ordinal.Compare(first.Schedule.Id ?? string.Empty, second.Schedule.Id ?? string.Empty);
             if (cmp == 0)
-                cmp = StringComparer.Ordinal.Compare(first.Schedule.Id, second.Schedule.Id);
+                cmp = first.ScheduleIndex.CompareTo(second.ScheduleIndex);
 
             return cmp <= 0 ? (first, second) : (second, first);
         }

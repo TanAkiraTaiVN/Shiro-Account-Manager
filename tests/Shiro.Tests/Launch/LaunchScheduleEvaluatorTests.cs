@@ -367,6 +367,16 @@ namespace Shiro.Tests
             Assert.Equal(9 * 60, openSeg.StartMinute);
             Assert.Equal(9 * 60 + 30, openSeg.EndMinute);
             Assert.Equal(1, openSeg.Lane);
+
+            // Late open-only schedule (23:45) clips at 1440 on start day and never creates next-day carryover
+            LaunchSchedule lateOpenOnly = MakeValidSchedule(
+                id: "fri-open", name: "Fri Late", start: "23:45", end: null, hasEnd: false,
+                recurrence: ScheduleRecurrence.Weekly, days: ScheduleDaysOfWeek.Friday);
+            ScheduleTimelineSegment lateSeg = Assert.Single(LaunchScheduleEvaluatorHelper.ProjectDayTimeline(new[] { lateOpenOnly }, friday));
+            Assert.Equal(23 * 60 + 45, lateSeg.StartMinute);
+            Assert.Equal(1440, lateSeg.EndMinute);
+            Assert.True(lateSeg.IsOpenOnly);
+            Assert.Empty(LaunchScheduleEvaluatorHelper.ProjectDayTimeline(new[] { lateOpenOnly }, saturday));
         }
 
         [Fact]
@@ -439,6 +449,15 @@ namespace Shiro.Tests
                 c.ScheduleAId == "ot-night" && c.ScheduleBId == "ot-mid");
             Assert.Contains(futureConflicts, c => c.Date == dec21 && c.Kind == ScheduleConflictKind.AccountOverlap &&
                 ((c.ScheduleAId == "ot-late" && c.ScheduleBId == "ot-mid") || (c.ScheduleAId == "ot-mid" && c.ScheduleBId == "ot-late")));
+
+            // Overnight (22:00->06:00) overlapping long daytime (02:00->23:00) twice on the same day emits a single deduplicated AccountOverlap
+            LaunchSchedule nightShift = MakeValidSchedule(id: "night", name: "Night", start: "22:00", end: "06:00");
+            LaunchSchedule longDayShift = MakeValidSchedule(id: "day", name: "Long Day", start: "02:00", end: "23:00");
+            IReadOnlyList<ScheduleConflictInfo> doubleOverlap = LaunchScheduleEvaluatorHelper.DetectConflicts(
+                new[] { nightShift, longDayShift }, startDate, _ => new[] { "acc-1" });
+            ScheduleConflictInfo singleDayOverlap = Assert.Single(doubleOverlap, c => c.Date == startDate && c.Kind == ScheduleConflictKind.AccountOverlap);
+            Assert.Equal("day", singleDayOverlap.ScheduleAId);
+            Assert.Equal("night", singleDayOverlap.ScheduleBId);
         }
 
         [Fact]
