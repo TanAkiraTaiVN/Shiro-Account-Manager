@@ -191,16 +191,14 @@ namespace Shiro.ViewModels
             int paused = all - enabled;
             int activeNow = _allScheduleCards.Count(c => c.IsActiveNow);
 
-            bool enabledChanged = _enabledCount != enabled;
             SetProperty(ref _allCount, all, nameof(FilterAllText));
-            if (SetProperty(ref _enabledCount, enabled, nameof(EnabledCount)) || enabledChanged)
+            if (SetProperty(ref _enabledCount, enabled, nameof(EnabledCount)))
             {
                 OnPropertyChanged(nameof(HasActiveBadge));
                 OnPropertyChanged(nameof(FilterEnabledText));
             }
             SetProperty(ref _activeNowCount, activeNow, nameof(FilterActiveNowText));
             SetProperty(ref _pausedCount, paused, nameof(FilterPausedText));
-            OnPropertyChanged(nameof(FilterAllText));
             OnPropertyChanged(nameof(HasAnySavedSchedules));
 
             string engineText = IsEngineEnabled

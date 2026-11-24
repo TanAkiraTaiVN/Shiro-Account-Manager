@@ -14,7 +14,7 @@ using Xunit;
 namespace Shiro.Tests.Ui
 {
     [Collection("SerialGlobalState")]
-    public sealed class SchedulerViewModelTests : IDisposable
+    public sealed partial class SchedulerViewModelTests : IDisposable
     {
         private readonly string _tempDir;
         private readonly IDisposable _dirScope;

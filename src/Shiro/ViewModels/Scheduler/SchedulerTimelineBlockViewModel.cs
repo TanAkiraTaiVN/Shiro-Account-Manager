@@ -35,8 +35,12 @@ namespace Shiro.ViewModels
             IsOpenOnly = segment.IsOpenOnly;
             HasConflict = segment.HasConflict;
 
-            LeftFraction = Math.Clamp(StartMinute / 1440.0, 0.0, 1.0);
-            WidthFraction = Math.Clamp((EndMinute - StartMinute) / 1440.0, 0.015, 1.0 - LeftFraction);
+            const double minWidth = 0.015;
+            double left = Math.Clamp(StartMinute / 1440.0, 0.0, 1.0 - minWidth);
+            double maxWidth = Math.Max(0.0, 1.0 - left);
+            double rawWidth = Math.Max(0.0, EndMinute - StartMinute) / 1440.0;
+            LeftFraction = left;
+            WidthFraction = Math.Clamp(rawWidth, Math.Min(minWidth, maxWidth), maxWidth);
             TimeRangeLabel = BuildTimeRangeLabel();
             TooltipText = BuildTooltipText();
         }

@@ -237,7 +237,7 @@ namespace Shiro.ViewModels
         private void SelectRecentOrFavoriteGame(object? parameter)
         {
             long placeId = 0;
-            string jobId = string.Empty;
+            string? jobId = string.Empty;
 
             switch (parameter)
             {
@@ -262,8 +262,7 @@ namespace Shiro.ViewModels
 
             LaunchMode = ScheduleLaunchMode.JoinServer;
             PlaceIdText = placeId.ToString(CultureInfo.InvariantCulture);
-            if (!string.IsNullOrWhiteSpace(jobId))
-                JobIdText = jobId;
+            JobIdText = jobId ?? string.Empty;
         }
 
         private void SetColor(object? parameter)

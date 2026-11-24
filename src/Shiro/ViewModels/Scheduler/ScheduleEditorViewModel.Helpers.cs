@@ -210,12 +210,22 @@ namespace Shiro.ViewModels
             var checkedIds = new HashSet<long>(schedule.TargetAccounts.Where(a => a.UserId > 0).Select(a => a.UserId));
             var checkedNames = new HashSet<string>(schedule.TargetAccounts.Where(a => !string.IsNullOrWhiteSpace(a.Username)).Select(a => a.Username), StringComparer.OrdinalIgnoreCase);
 
+            _selectedGroup = string.Empty;
             RebuildAccountChecklistAndGroups(accounts, checkedIds, checkedNames);
             if (!string.IsNullOrWhiteSpace(schedule.TargetGroup))
             {
-                if (!_availableGroups.Contains(schedule.TargetGroup))
-                    _availableGroups.Add(schedule.TargetGroup);
-                SelectedGroup = schedule.TargetGroup;
+                string trimmedTargetGroup = schedule.TargetGroup.Trim();
+                string? existingMatch = _availableGroups.FirstOrDefault(
+                    g => string.Equals(g, trimmedTargetGroup, StringComparison.OrdinalIgnoreCase));
+                if (existingMatch == null)
+                {
+                    _availableGroups.Add(trimmedTargetGroup);
+                    SelectedGroup = trimmedTargetGroup;
+                }
+                else
+                {
+                    SelectedGroup = existingMatch;
+                }
             }
             else
             {
@@ -233,6 +243,7 @@ namespace Shiro.ViewModels
             HashSet<long> checkedIds,
             HashSet<string> checkedNames)
         {
+            string? preservedGroup = string.IsNullOrWhiteSpace(_selectedGroup) ? null : _selectedGroup.Trim();
             _allChecklistItems.Clear();
             var groupSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -251,6 +262,9 @@ namespace Shiro.ViewModels
                 _allChecklistItems.Add(item);
             }
 
+            if (preservedGroup != null)
+                groupSet.Add(preservedGroup);
+
             if (groupSet.Count == 0)
                 groupSet.Add("Default");
 
@@ -258,8 +272,10 @@ namespace Shiro.ViewModels
             foreach (string g in groupSet.OrderBy(g => g, NaturalStringComparer.Instance))
                 _availableGroups.Add(g);
 
-            if (string.IsNullOrWhiteSpace(_selectedGroup) || !_availableGroups.Contains(_selectedGroup))
-                _selectedGroup = _availableGroups.FirstOrDefault() ?? "Default";
+            string? matchedSelected = preservedGroup != null
+                ? _availableGroups.FirstOrDefault(g => string.Equals(g, preservedGroup, StringComparison.OrdinalIgnoreCase))
+                : null;
+            _selectedGroup = matchedSelected ?? _availableGroups.FirstOrDefault() ?? "Default";
             OnPropertyChanged(nameof(SelectedGroup));
 
             ApplyChecklistFilter();

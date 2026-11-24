@@ -245,6 +245,10 @@ namespace Shiro.ViewModels
                 RefreshSchedulesAndTimelineLocked(snapshot);
                 RefreshHistoryLocked(snapshot);
             }
+            OnPropertyChanged(nameof(FilterAllText));
+            OnPropertyChanged(nameof(FilterEnabledText));
+            OnPropertyChanged(nameof(FilterActiveNowText));
+            OnPropertyChanged(nameof(FilterPausedText));
         }
 
         public void NotifyStreamerModeChanged()
