@@ -1,17 +1,43 @@
-# Shiro Account Manager
+<div align="center">
+  <img src="src/Shiro/Resources/shiro_logo.png" alt="Shiro Account Manager Logo" width="96" />
+  <h1>Shiro Account Manager</h1>
+  <p><strong>Trình quản lý đa tài khoản Roblox thế hệ mới (.NET 10 • Windows x64 • Avalonia UI 12)</strong></p>
 
-![Platform](https://img.shields.io/badge/Platform-Windows%20x64-blue)
-![Framework](https://img.shields.io/badge/.NET-10.0-purple)
-![Architecture](https://img.shields.io/badge/UI-Avalonia%2012-indigo)
-![License](https://img.shields.io/badge/License-GPL--3.0-green)
+  ![Platform](https://img.shields.io/badge/Platform-Windows%20x64-blue)
+  ![Framework](https://img.shields.io/badge/.NET-10.0-purple)
+  ![Architecture](https://img.shields.io/badge/UI-Avalonia%2012-indigo)
+  ![License](https://img.shields.io/badge/License-GPL--3.0-green)
+</div>
 
-**Shiro Account Manager** là trình quản lý đa tài khoản Roblox thế hệ mới chạy trên nền tảng **.NET 10 (Windows x64)** với engine đồ họa tiên tiến **Avalonia UI 12 (Google Skia)** với giao diện Fluent Dark Theme, tối ưu hóa hiệu năng cao, mở ứng dụng tức thì, quản lý hàng đợi mở game thông minh và bảo mật dữ liệu an toàn.
+**Shiro Account Manager** là trình quản lý đa tài khoản Roblox thế hệ mới chạy trên nền tảng **.NET 10 (Windows x64)** với engine đồ họa tiên tiến **Avalonia UI 12 (Google Skia)** cùng giao diện **Liquid Obsidian Dark Theme**, tối ưu hóa hiệu năng cao, mở ứng dụng tức thì, quản lý hàng đợi mở game thông minh và bảo mật dữ liệu an toàn.
+
+---
+
+## 📸 Giao diện ứng dụng
+
+### Quản lý đa tài khoản & Launch Dock
+![Shiro Account Manager Dashboard](docs/screenshots/dashboard.png)
+
+<details open>
+<summary><strong>Xem thêm các màn hình tính năng khác (Server List, Game Tab Scheduler, Cài đặt Studio)</strong></summary>
+
+#### Khám phá Server, Ping & Vị trí địa lý
+![Server List & Ping/Region](docs/screenshots/server-list.png)
+
+#### Lịch chạy game tự động (Game Tab Scheduler — Timeline 24h)
+![Game Tab Scheduler](docs/screenshots/scheduler.png)
+
+#### Cài đặt bảo mật & Tùy biến giao diện OKLCH
+![Settings & Studio Giao diện](docs/screenshots/settings.png)
+
+</details>
 
 ---
 
 ## 🌟 Tính năng nổi bật
 
 - **Quản lý đa tài khoản không giới hạn**: Lưu trữ danh sách tài khoản theo nhóm (Groups), tìm kiếm nhanh, ghim tài khoản yêu thích, tự động tính toán tổng số dư Robux.
+- **Lịch chạy game tự động (Game Tab Scheduler)**: Lên lịch mở/đóng ca chạy theo ngày hoặc thứ trong tuần (`Timeline 24h`), hỗ trợ chọn theo nhóm hoặc từng tài khoản, tự động xếp lưới cửa sổ sau khi mở game và theo dõi lịch sử thực thi.
 - **Multi-Roblox Client**: Hỗ trợ mở đồng thời nhiều tài khoản Roblox trên cùng một máy tính với cơ chế xếp hàng tuần tự (`LaunchCoordinator`), tránh lỗi đè process và tránh xung đột singleton mutex.
 - **Đăng nhập nhanh trong ứng dụng (In-App Fast Login)**: Tích hợp Microsoft Edge WebView2 nhúng, tự động điền tài khoản, tự động bắt cookie `.ROBLOSECURITY` và tự triệt tiêu banner Cookie Consent.
 - **Bảo mật dữ liệu đa lớp**: Dữ liệu tài khoản được mã hóa bằng **AES-256-GCM** kết hợp kiến trúc **Dual-KDF (PBKDF2-SHA256 600.000 vòng lặp chuẩn OWASP V3 cho mật khẩu người dùng + HKDF-SHA256 V4 tốc độ cao cho khóa máy 256-bit)**, khóa Vault mặc định được bảo vệ bằng Windows DPAPI `CurrentUser` (chế độ Portable giữ khóa thô để di chuyển), hỗ trợ mật khẩu tùy chọn, ghi đĩa nguyên tử (`atomic replacement`) kèm bản sao lưu an toàn (`.backup`).
