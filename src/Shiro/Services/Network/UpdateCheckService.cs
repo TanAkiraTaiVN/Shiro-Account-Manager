@@ -29,7 +29,7 @@ namespace Shiro.Services
             set => _settingsOverride.Value = value ?? throw new ArgumentNullException(nameof(value));
         }
 
-        private const string ReleaseApiUrl = "https://api.github.com/repos/X-Shiro-X/Shiro-Account-Manager/releases/latest";
+        private const string ReleaseApiUrl = "https://api.github.com/repos/TanAkiraTaiVN/Shiro-Account-Manager/releases/latest";
         private static int _checkInitiated = 0;
         internal static readonly Version DefaultFallbackVersion = new(5, 0, 0);
 
